@@ -545,6 +545,64 @@ export function detachEnds<P>(
   return points ? { points, freed } : null
 }
 
+/** A line patch as the audit stream carries it: an attachment key the patch CLEARS goes as `null`,
+ *  because JSON drops an `undefined` key and replay would keep the old coupling (lib/replay folds
+ *  the `null` back to absent); a key that couples is sent as it is. Every emit of a patch that can
+ *  free an end goes through here — a detach, «Umkehren», a removal. The live commit keeps the
+ *  `undefined` patch. */
+export function wireFreed<T extends { startAttachment?: LineAttachment; endAttachment?: LineAttachment }>(patch: T):
+  Omit<T, 'startAttachment' | 'endAttachment'> & { startAttachment?: LineAttachment | null; endAttachment?: LineAttachment | null } {
+  const { startAttachment, endAttachment, ...rest } = patch
+  return {
+    ...rest,
+    ...('startAttachment' in patch ? { startAttachment: startAttachment ?? null } : {}),
+    ...('endAttachment' in patch ? { endAttachment: endAttachment ?? null } : {}),
+  }
+}
+
+/** One line's detach as a `draw.edit` patch: BOTH freed ends in one coords array. */
+export type DetachPatch = { coords: LngLat[] } & FreedEnds
+/** …and as the Plan's `board.edit` patch (its ink keeps its points in `pts`). */
+export type AnnoDetachPatch = { pts: BoardPoint[] } & FreedEnds
+
+type Releasable = { id: string; startAttachment?: LineAttachment; endAttachment?: LineAttachment }
+type Release<L, P> = (line: L, endpoint: LineEndpoint, attachment: LineAttachment, points: readonly P[]) => P | null | undefined
+
+/** `detachEnds` over a list of lines: each line that let go of something, ONCE, both ends folded. */
+function detachLines<L extends Releasable, P>(lines: readonly L[], pointsOf: (l: L) => readonly P[] | undefined, release: Release<L, P>) {
+  const out: { line: L; points: P[]; freed: FreedEnds }[] = []
+  for (const line of lines) {
+    const points = pointsOf(line)
+    if (!points || points.length < 2) continue
+    const done = detachEnds({ ...line, points }, (endpoint, a, pts) => release(line, endpoint, a, pts))
+    if (done) out.push({ line, ...done })
+  }
+  return out
+}
+
+/**
+ * `detachEnds` over the Lage's drawings: one patch per line that let go of something, keyed by
+ * line id. The Lage's delete paths (useMapActions · deleteEntity / deleteGroup, useMapDrawing ·
+ * deleteDrawing, IncidentWorkspace · changeMapEnding) apply these in their commit AND emit each as
+ * ONE `draw.edit` — never one per end: two per-end patches built from the same original coords
+ * each carry the other end's OLD point, so replay folded the second over the first and put the
+ * first end back. `detachAnnos` is the Plan's twin (Whiteboard · changePlanEnding).
+ */
+export function detachDrawings(drawings: readonly Drawing[], release: Release<Drawing, LngLat>): Map<string, DetachPatch> {
+  return new Map(detachLines(drawings, (d) => d.coords, release).map(({ line, points, freed }) => [line.id, { coords: points, ...freed }]))
+}
+
+/** The Plan's `detachDrawings`: one `board.edit` patch per ink line, both ends in it. */
+export function detachAnnos(annos: readonly BoardAnno[], release: Release<BoardAnno, BoardPoint>): Map<string, AnnoDetachPatch> {
+  return new Map(detachLines(annos, (a) => a.pts, release).map(({ line, points, freed }) => [line.id, { pts: points, ...freed }]))
+}
+
+/** A line with its `detachDrawings` / `detachAnnos` patch applied — the same object when it has none. */
+export function withDetach<T extends { id: string }>(line: T, released: ReadonlyMap<string, Partial<T>>): T {
+  const patch = released.get(line.id)
+  return patch ? { ...line, ...patch } : line
+}
+
 /** Body movement leaves attached endpoints fixed; every other vertex translates. */
 export function moveLineBody<P extends Coordinate>(line: AttachableLine<P>, delta: Point): P[] {
   return line.points.map((p, i) => {

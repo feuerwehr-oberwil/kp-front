@@ -200,7 +200,7 @@ export const autoCoarseFixWanted = (staticView: boolean): boolean => !staticView
 
 export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, ref) {
   const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId = VIEWER_TACTICAL.selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, ghostTrails, onGhostTrail, onTeamUnlink, onTeamUndock,
-    readOnly = false, drawings: storedDrawings = VIEWER_TACTICAL.drawings, drawingsVisible = VIEWER_TACTICAL.drawingsVisible, draft = VIEWER_TACTICAL.draft, draftKind = VIEWER_TACTICAL.draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable = VIEWER_TACTICAL.draggable, onMarkerDragStart = VIEWER_TACTICAL.onMarkerDragStart, onMarkerMove = VIEWER_TACTICAL.onMarkerMove, onMarkerDragEnd = VIEWER_TACTICAL.onMarkerDragEnd, onRotate, onShapeTransform,
+    readOnly = false, drawings: storedDrawings = VIEWER_TACTICAL.drawings, drawingsVisible = VIEWER_TACTICAL.drawingsVisible, draft = VIEWER_TACTICAL.draft, draftKind = VIEWER_TACTICAL.draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draftStartAttachment, draggable = VIEWER_TACTICAL.draggable, onMarkerDragStart = VIEWER_TACTICAL.onMarkerDragStart, onMarkerMove = VIEWER_TACTICAL.onMarkerMove, onMarkerDragEnd = VIEWER_TACTICAL.onMarkerDragEnd, onRotate, onShapeTransform,
     onView, onBasemapUnavailable, onSettled, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand = VIEWER_TACTICAL.freehand, onFreehand = VIEWER_TACTICAL.onFreehand, drawColor = VIEWER_TACTICAL.drawColor, drawWidth = VIEWER_TACTICAL.drawWidth, drawDashed = VIEWER_TACTICAL.drawDashed, selectedDrawingId = VIEWER_TACTICAL.selectedDrawingId, flashDrawingId, onSelectDrawing = VIEWER_TACTICAL.onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete = VIEWER_TACTICAL.onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, selectedEntityIds = [], circleEnabled = false, onCircle,
@@ -404,7 +404,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   } = useMapMagnet({
     mapInst, storedDrawings, entities,
     candidates: (sourceId, at) => candidatesAt(sourceId, at),
-    draft: { kind: draftKind, freehand, length: draft.length, onPointAttachment: onDraftPointAttachment },
+    draft: { kind: draftKind, freehand, length: draft.length, onPointAttachment: onDraftPointAttachment, startAttachment: draftStartAttachment },
     onDrawingAttachment,
     // an end coupled to a Trupp marker drags the marker (the hose end rides with it)
     carry: {

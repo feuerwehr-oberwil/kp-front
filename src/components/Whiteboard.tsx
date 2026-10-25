@@ -48,13 +48,14 @@ import { DUP_PREFIX, duplicateAnno } from '../lib/duplicate'
 import { useHiddenTrails } from '../lib/useHiddenTrails'
 import { useNotePanelClosing } from '../lib/useNotePanelClosing'
 import { usePlacement } from '../lib/useTacticalSelection'
+import { endingWireFlags, type LineEnding } from '../lib/drawingEdit'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { usePlacementLane } from '../lib/toastLane'
 import { Menu, Overlay } from '../lib/overlays'
 import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
 import { doneAct, doneOf, donePlace, offersDone } from '../lib/objectDone'
-import { serverNowIso } from '../lib/serverClock'
+import { serverNow, serverNowIso } from '../lib/serverClock'
 import { useHazardData } from '../lib/useHazardData'
 import { symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys } from '../lib/symbols'
 import { ContextPanel } from './ContextPanel'
@@ -70,7 +71,7 @@ import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
 import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
-import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachEnds, dwellFor, flipLine, freeEnd, forkPortPoint, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
+import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachAnnos, dwellFor, flipLine, forkPortPoint, wireFreed, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, withDetach, type AnnoDetachPatch, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from '../lib/stackFit'
 import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
 import type { FloorPackView } from '../lib/floorPackBinding'
@@ -302,9 +303,6 @@ interface Props {
   /** the Einsatz the banner's dismissal is remembered for, and the address it contrasts with */
   incidentId?: string
   incidentAddress?: string | null
-  /** UNREAD since the field's «Automatisch ausrichten» was removed (25.10.2026). PlansSurface still
-   *  passes it; drop the two together once the workspace prop refactor (sweep A.3) has landed. */
-  georefAnchor?: LngLat | null
   /** the Einsatz's own coordinate (null without one) — the pin on the Gebäude picker */
   incidentPos?: LngLat | null
   /** open the PlanPicker. Omitted (an Einsatz-Link, which is bound to one object's plans)
@@ -1238,7 +1236,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const markPosition = () => {
     const a = annos.find((x) => x.id === selId)
     if (!a || a.kind !== 'resource') return
-    const now = formatTime(new Date())
+    const now = formatTime(new Date(serverNow()))
     patchCommit(a.id, { t: now, trail: [...(a.trail ?? []), { x: a.x ?? 0, y: a.y ?? 0, floor: a.floor ?? 0, t: now }] })
     // «Position markieren» names a PLACE, so on a stack it names the storey too — a row that
     // says only «Trupp 3: Position markiert» cannot be read back as a position at all
@@ -1510,11 +1508,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       const mine = flip.incoming.filter((i) => i.lineId === a.id)
       return mine.reduce((acc, i) => ({ ...acc, [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment }), a)
     }))
-    emit('board.edit', { id: selDraw.id, patch: { pts: flip.points, startAttachment: flip.startAttachment, endAttachment: flip.endAttachment }, planId: activeId })
+    emit('board.edit', { id: selDraw.id, patch: wireFreed({ pts: flip.points, startAttachment: flip.startAttachment, endAttachment: flip.endAttachment }), planId: activeId })
     flip.incoming.forEach((i) => emit('board.edit', { id: i.lineId, patch: { [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment }, planId: activeId }))
   }
 
-  const changePlanEnding = async (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck') => {
+  const changePlanEnding = async (ending: LineEnding) => {
     if (!selDraw) return
     const incoming = selDraw.teilstueck && ending !== 'teilstueck' ? annos.flatMap((a) => (['start', 'end'] as const).filter((endpoint) => {
       const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
@@ -1526,19 +1524,16 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     }
     const resolved = renderAnnos.find((a) => a.id === selDraw.id)?.pts
     const fallback = resolved?.[resolved.length - 1] ?? selDraw.pts?.[selDraw.pts.length - 1]
-    commit(annos.map((a) => {
-      if (a.id === selDraw.id) return { ...a, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
-      if (!fallback || !a.pts?.length) return a
-      const out = detachEnds({ ...a, points: a.pts }, (endpoint) => (incoming.some((x) => x.id === a.id && x.endpoint === endpoint) ? fallback : null))
-      return out ? { ...a, pts: out.points, ...out.freed } : a
-    }))
-    emit('board.edit', { id: selDraw.id, patch: { arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }, planId: activeId })
-    incoming.forEach(({ id, endpoint }) => {
-      const line = annos.find((a) => a.id === id)
-      if (!line?.pts || !fallback) return
-      const { points: pts, freed } = freeEnd(line.pts, endpoint, fallback)
-      emit('board.edit', { id, patch: { pts, ...freed }, planId: activeId })
-    })
+    // the ends that hung on the «E» let go where it stood — one patch per line, both ends in it,
+    // applied here and sent as ONE board.edit (lib/lineAttachments · detachAnnos)
+    const released = fallback
+      ? detachAnnos(annos.filter((a) => a.id !== selDraw.id), (a, endpoint) => (incoming.some((x) => x.id === a.id && x.endpoint === endpoint) ? fallback : null))
+      : new Map<string, AnnoDetachPatch>()
+    commit(annos.map((a) => (a.id === selDraw.id
+      ? { ...a, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
+      : withDetach(a, released))))
+    emit('board.edit', { id: selDraw.id, patch: endingWireFlags(ending), planId: activeId })
+    released.forEach((patch, id) => emit('board.edit', { id, patch: wireFreed(patch), planId: activeId }))
   }
 
 

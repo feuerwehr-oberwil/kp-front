@@ -1,6 +1,6 @@
 import { type SetStateAction, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { detachEnds, flipLine, freeEnd } from './lineAttachments'
+import { detachDrawings, flipLine, wireFreed, withDetach } from './lineAttachments'
 import { drawingEditChanges, drawingLogName } from './drawingEdit'
 import type { Doc } from './workspace'
 import type { Drawing, LineAttachment, LineEndpoint, LngLat, MapTool, TimelineEvent } from '../types'
@@ -142,9 +142,11 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     if (tool === 'area') return coords.length >= minPoints('area') ? createArea(coords) : null
     return createLine(coords, attachments)
   }
+  /** One node tap's magnet result (MapView · onDraftPointAttachment) — the Plan's rule
+   *  (usePlanCreate · node tap): the first tap owns the start, every later tap the END slot, so a
+   *  free tap clears what an earlier tap on a symbol banked. */
   const setDraftPointAttachment = (attachment?: LineAttachment) => {
-    if (!attachment) return
-    setDraftAttachments((a) => draft.length === 0 ? { ...a, startAttachment: attachment } : { ...a, endAttachment: attachment })
+    setDraftAttachments((a) => draft.length === 0 ? { startAttachment: attachment } : { ...a, endAttachment: attachment })
   }
   // Absperrkreis / Gefahrenradius: a dragged circle becomes a real (undoable, synced,
   // journaled) circle Drawing — centre in coords[0], radius in metres. Drops into Select
@@ -383,7 +385,8 @@ export function useMapDrawing(deps: MapDrawingDeps) {
         ? mine.reduce((acc, i) => ({ ...acc, [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment }), x)
         : x
     }) }))
-    emit('draw.edit', { id, patch })
+    // the pinned end label stays with the old end: cleared, as `null` on the wire (JSON drops `undefined`)
+    emit('draw.edit', { id, patch: { ...wireFreed(patch), endLabelAt: null } })
     flip.incoming.forEach((i) => emit('draw.edit', { id: i.lineId, patch: { [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment } }))
   }
   const deleteDrawing = async (id: string) => {
@@ -402,20 +405,12 @@ export function useMapDrawing(deps: MapDrawingDeps) {
       })
       if (!ok) return
     }
-    commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== id).map((dr) => {
-      if (dr.coords.length < 2) return dr
-      const out = detachEnds({ ...dr, points: dr.coords }, (ep, a, coords) => (a.target.kind !== 'line' || a.target.id !== id ? null
-        : resolvedTarget?.coords[a.target.endpoint === 'start' ? 0 : resolvedTarget.coords.length - 1] ?? coords[ep === 'start' ? 0 : coords.length - 1]))
-      return out ? { ...dr, coords: out.points, ...out.freed } : dr
-    }) }))
+    // one patch per line, both ends in it — applied here and sent as ONE draw.edit (lib/lineAttachments · detachDrawings)
+    const released = detachDrawings(drawings.filter((dr) => dr.id !== id), (_, ep, a, coords) => (a.target.kind !== 'line' || a.target.id !== id ? null
+      : resolvedTarget?.coords[a.target.endpoint === 'start' ? 0 : resolvedTarget.coords.length - 1] ?? coords[ep === 'start' ? 0 : coords.length - 1]))
+    commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== id).map((dr) => withDetach(dr, released)) }))
     emit('draw.delete', { id })
-    incoming.forEach(({ drawing, endpoint }) => {
-      const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
-      const targetEndpoint = attachment?.target.kind === 'line' ? attachment.target.endpoint : endpoint
-      const fallback = resolvedTarget?.coords[targetEndpoint === 'start' ? 0 : resolvedTarget.coords.length - 1] ?? drawing.coords[endpoint === 'start' ? 0 : drawing.coords.length - 1]
-      const { points: coords, freed } = freeEnd(drawing.coords, endpoint, fallback)
-      emit('draw.edit', { id: drawing.id, patch: { coords, ...freed } })
-    })
+    released.forEach((patch, lineId) => emit('draw.edit', { id: lineId, patch: wireFreed(patch) }))
     if (selectedDrawingId === id) setSelectedDrawingId(null)
     // named like its creation row («Fläche gezeichnet» → «Fläche gelöscht»), not the bare kind-blind
     // «Zeichnung gelöscht» the record used to close on
@@ -542,7 +537,9 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     drawColor, drawWidth, drawDashed,
     lineMode, setLineMode, areaMode, setAreaMode,
     draftActive, lineNodes, freehandKind, selectedDrawing,
-    commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, patchDrawing, patchDrawingById,
+    commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle,
+    /** the claim the node draft's first tap banked — the magnet judges every later tap by it */
+    draftStartAttachment: draftAttachments.startAttachment, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
     editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
   }

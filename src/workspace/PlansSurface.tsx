@@ -25,7 +25,7 @@ import type { ObjectStore } from '../lib/useObjectStore'
 import type { useSymbols } from '../lib/useSymbols'
 import type { useTruppActions } from '../lib/useTruppActions'
 import type { PlanScales } from '../lib/workspace'
-import type { PlanDocument, Incident, BoardDoc, BuildingDoc, TimelineEvent, Entity, Trupp, CaptionMode } from '../types'
+import type { PlanDocument, BoardDoc, BuildingDoc, TimelineEvent, Entity, Trupp, CaptionMode } from '../types'
 import { Whiteboard } from './lazySurfaces'
 import type { useGebaeudeActions } from './useGebaeudeActions'
 import type { WorkspaceMode } from './types'
@@ -50,7 +50,6 @@ export interface PlansSurfaceProps {
   objectPlans: ReturnType<typeof useObjectPlans>
   buildingInfo: ReturnType<typeof useBuildingInfo>
   incidentMeta: IncidentMeta
-  incidentView: Incident
   setPickerOpen: Dispatch<SetStateAction<boolean>>
   symbolScale: Record<SymbolSurface, number>
   symbolCaptions: CaptionMode
@@ -96,13 +95,13 @@ export interface PlansSurfaceProps {
 
 export function PlansSurface({
   mode, sym, guarded, railLabels, planDocs, tacticalLocked, isPhone, journalOpen, replayActive,
-  linkScoped, activePlanId, setActivePlanId, objectPlans, buildingInfo, incidentMeta, incidentView,
+  linkScoped, activePlanId, setActivePlanId, objectPlans, buildingInfo, incidentMeta,
   setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, georefFits, mapActions,
   replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,
   roster, addRecent, user, emit, planStacks, planFocus, effTrupps, truppCounterNames, teamNameTaken,
   azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, setPlanScale, tafel, truppFinder,
 }: PlansSurfaceProps) {
-  const { activeObjectName, activeObjectAddress, activeObjectNearby, activeObjectPos } = objectPlans
+  const { activeObjectName, activeObjectAddress, activeObjectNearby } = objectPlans
   const { activeLinkedPlan, floorPack, planLive, planPhotos } = georefFits
   const { moveLiveOnSheet, showPlanSourceOnMap } = mapActions
   const { board, setBoard } = store
@@ -141,9 +140,6 @@ export function PlansSurface({
           objectNearby={activeObjectNearby}
           incidentId={incidentMeta.id}
           incidentAddress={incidentMeta.address}
-          // the anchor «Automatisch ausrichten» fetches its OSM reference box around: the active
-          // object's own coordinate, else the Einsatzort (they coincide for a near object)
-          georefAnchor={activeObjectPos ?? incidentView.center}
           // the Einsatzort on the Gebäude picker — only a REAL coordinate (0/0 is Divera's «none»)
           incidentPos={incidentMeta.lng != null && incidentMeta.lat != null && (incidentMeta.lng !== 0 || incidentMeta.lat !== 0) ? [incidentMeta.lng, incidentMeta.lat] : null}
           // a locked session gets no picker (viewer, el, Führungsansicht, link, replay – RBAC

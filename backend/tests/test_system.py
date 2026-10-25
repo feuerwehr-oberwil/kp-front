@@ -59,7 +59,6 @@ async def test_system_shape_as_admin(client, editor, admin_login):
         "diveraConfigured",
         "traccarConfigured",
         "sttConfigured",
-        "autoAlignConfigured",
         "cartoBasemapKey",
         "microsoftLoginConfigured",
         "personnel",
@@ -70,7 +69,6 @@ async def test_system_shape_as_admin(client, editor, admin_login):
     assert isinstance(integ["diveraConfigured"], bool)
     assert isinstance(integ["traccarConfigured"], bool)
     assert isinstance(integ["sttConfigured"], bool)
-    assert isinstance(integ["autoAlignConfigured"], bool)
     assert integ["cartoBasemapKey"] is None or isinstance(integ["cartoBasemapKey"], str)
     for domain in ("personnel", "alarms", "vehicles"):
         assert set(integ[domain]) == {"provider", "configured", "capabilities"}

@@ -104,8 +104,9 @@ import {
 import { useAuditEvents } from './lib/useAuditEvents'
 import { EL_EVENT_PREFIXES, eventScopeFor } from './lib/eventScope'
 import { combinedSyncStatus } from './lib/combinedSyncStatus'
+import { endingFlags, endingWireFlags, type LineEnding } from './lib/drawingEdit'
 import { useMapDrawing } from './lib/useMapDrawing'
-import { detachEnds, freeEnd, resolveMapDrawings } from './lib/lineAttachments'
+import { detachDrawings, resolveMapDrawings, wireFreed, withDetach } from './lib/lineAttachments'
 import { leitungOptions } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
@@ -131,7 +132,7 @@ import { createPortal, flushSync } from 'react-dom'
 import type { NoteSize } from './types'
 import { TruppFinder } from './components/TruppFinder'
 import { counterNames, freshTeamLabel, markerOptions, markerSite, teamNoTaken } from './lib/placedTrupps'
-import { serverNowIso } from './lib/serverClock'
+import { serverNow, serverNowIso } from './lib/serverClock'
 import { clockRestartRowId, clocksAfterReopen } from './lib/reopenClocks'
 import { IncidentClosedMeldung, LinkRefusedMeldung } from './components/IncidentClosedMeldung'
 import { useGhostTrails } from './lib/useGhostTrails'
@@ -1818,7 +1819,7 @@ export function IncidentWorkspace({
     patchDrawingLabelLive, commitDrawingLabel,
     deleteDrawing, reverseDrawing, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
   } = mapDrawing
-  const changeMapEnding = async (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck', drawing = selectedDrawing) => {
+  const changeMapEnding = async (ending: LineEnding, drawing = selectedDrawing) => {
     if (!drawing) return
     const incoming = drawing.teilstueck && ending !== 'teilstueck'
       ? drawings.flatMap((d) => (['start', 'end'] as const).filter((endpoint) => {
@@ -1834,21 +1835,15 @@ export function IncidentWorkspace({
     // the Abschluss is a semantic edit like any DrawEditor field — one settled Verlauf row
     // («Zeichnung: Abschluss: Teilstück»), same funnel as patchDrawing (useMapDrawing ·
     // noteDrawingEdit / lib/drawingEdit), which this hand-rolled commit bypasses.
-    noteDrawingEdit(drawing, { arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined })
-    commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => {
-      if (d.id === drawing.id) return { ...d, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
-      // the ends that hung on the «E» let go where it stood (lib/lineAttachments · detachEnds)
-      if (d.coords.length < 2) return d
-      const out = detachEnds({ ...d, points: d.coords }, (endpoint) => (incoming.some((x) => x.id === d.id && x.endpoint === endpoint) ? fallback : null))
-      return out ? { ...d, coords: out.points, ...out.freed } : d
-    }) }))
-    emit('draw.edit', { id: drawing.id, patch: { arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined } })
-    incoming.forEach(({ id, endpoint }) => {
-      const line = drawings.find((d) => d.id === id)
-      if (!line) return
-      const { points: coords, freed } = freeEnd(line.coords, endpoint, fallback)
-      emit('draw.edit', { id, patch: { coords, ...freed } })
-    })
+    noteDrawingEdit(drawing, endingFlags(ending))
+    // the ends that hung on the «E» let go where it stood — one patch per line, both ends in it,
+    // applied here and sent as ONE draw.edit (lib/lineAttachments · detachDrawings)
+    const released = detachDrawings(drawings.filter((d) => d.id !== drawing.id), (d, endpoint) => (incoming.some((x) => x.id === d.id && x.endpoint === endpoint) ? fallback : null))
+    commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => (d.id === drawing.id
+      ? { ...d, ...endingFlags(ending) }
+      : withDetach(d, released))) }))
+    emit('draw.edit', { id: drawing.id, patch: endingWireFlags(ending) })
+    released.forEach((patch, id) => emit('draw.edit', { id, patch: wireFreed(patch) }))
   }
   // Attached Leitung ends follow their live vehicles (lib/useGpsFollow).
   // ⚠️ 24.09.2026 — this pass was the render storm of the Übung on 23.09.2026 (React #185 on
@@ -2566,10 +2561,10 @@ export function IncidentWorkspace({
           if (back.surface === 'plan') placeTruppOnPlan(liveTruppId, back.planId, back.at, { id: back.markerId, trail: back.trail })
           else placeTruppOnMap(liveTruppId, back.coord, { id: back.markerId, trail: back.trail })
         } else if (back.surface === 'plan') {
-          const chip: BoardAnno = { id: revive.id, kind: 'resource', ...back.at, text: looseName, t: formatTime(new Date()), color: g.color, trail: back.trail }
+          const chip: BoardAnno = { id: revive.id, kind: 'resource', ...back.at, text: looseName, t: formatTime(new Date(serverNow())), color: g.color, trail: back.trail }
           setBoard((b) => ({ ...b, [back.planId]: [...(b[back.planId] ?? []).filter((a) => a.id !== chip.id), chip] }))
         } else {
-          const marker: Entity = { id: revive.id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: back.coord, label: looseName, t: formatTime(new Date()), color: g.color, trail: back.trail }
+          const marker: Entity = { id: revive.id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: back.coord, label: looseName, t: formatTime(new Date(serverNow())), color: g.color, trail: back.trail }
           setDocRaw((d) => ({ ...d, entities: [...d.entities.filter((e) => e.id !== marker.id), marker] }))
         }
         return
@@ -3036,7 +3031,7 @@ export function IncidentWorkspace({
         georefPlanRasters, weatherRadar: mapUI && !replayActive ? weather.mapRadar : null, symbolScale,
         symbolCaptions, setMapSuppressedCaptions, incidentView, initialFitPoints, locateReq, setView,
         onBasemapUnavailable, onMapSettled, selection, store, mapDrawing, mapActions, truppActions,
-        teamMarkers, patchEntity, log, editNoteId, setEditNoteId, noteTextLive, noteTextCommit,
+        teamMarkers, patchEntity, editNoteId, setEditNoteId, noteTextLive, noteTextCommit,
         setNotePanelId, effTrupps, azAlarm, showTrupp, newTruppFromMarker, removeTeamWithTrail, trails,
         deleteGhostTrail, measure, coord, rotStart, flashDrawingId, setDrawTap, setVehicleOverrides,
       }} />
@@ -3137,7 +3132,7 @@ export function IncidentWorkspace({
 
       <PlansSurface {...{
         mode, sym, guarded, railLabels, planDocs, tacticalLocked, isPhone, journalOpen, replayActive,
-        linkScoped, activePlanId, setActivePlanId, objectPlans, buildingInfo, incidentMeta, incidentView,
+        linkScoped, activePlanId, setActivePlanId, objectPlans, buildingInfo, incidentMeta,
         setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, georefFits, mapActions,
         replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,
         roster, addRecent, user, emit, planStacks, planFocus, effTrupps, truppCounterNames, teamNameTaken,

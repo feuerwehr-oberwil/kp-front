@@ -594,3 +594,22 @@ describe('stepMoment', () => {
     expect(stepMoment([9_000, 0, 5_000], 1_000, 1)).toBe(5_000)
   })
 })
+
+// A cleared line end travels as `null` (lineAttachments · wireFreed) and folds back to ABSENT,
+// on both surfaces, so a replayed line has the live line's shape.
+describe('stateAt — a cleared line end', () => {
+  it('draw.edit / board.edit with a null attachment drop the key', async () => {
+    const att = { target: { kind: 'object', id: 'x' }, routing: 'direct' }
+    const ws = emptyWs()
+    ws.drawings = [{ id: 'd', kind: 'line', coords: [[7, 47], [8, 48]], startAttachment: att, endAttachment: att } as never]
+    ws.board = { p: [{ id: 'a', kind: 'draw', pts: [[0, 0], [1, 1]], startAttachment: att } as never] }
+    const events = [
+      ev({ seq: 1, op_type: 'draw.edit', occurred_at: iso(1000), payload_json: { id: 'd', patch: { startAttachment: null } } }),
+      ev({ seq: 2, op_type: 'board.edit', occurred_at: iso(1000), payload_json: { id: 'a', planId: 'p', patch: { startAttachment: null } } }),
+    ]
+    const s = await stateAt(bundle(events, () => ({ workspace: ws, occurredMs: 0 })), 2000)
+    expect(s?.drawings[0]).not.toHaveProperty('startAttachment')
+    expect(s?.drawings[0]).toHaveProperty('endAttachment')
+    expect(s?.board?.p[0]).not.toHaveProperty('startAttachment')
+  })
+})

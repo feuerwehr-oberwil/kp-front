@@ -9,7 +9,7 @@ import type { BoardAnno } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { confirmDialog } from '../lib/ui'
-import { detachEnds } from '../lib/lineAttachments'
+import { detachEnds, wireFreed } from '../lib/lineAttachments'
 import { annoLogName } from '../lib/drawingEdit'
 import type { useBoardDoc } from './useBoardDoc'
 import type { PlanLogExtra } from './Whiteboard'
@@ -93,7 +93,7 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
       if (!source?.pts) return
       const out = detached(source)
       const next = out ? { ...source, pts: out.points, ...out.freed } : source
-      emit('board.edit', { id, patch: { pts: next.pts, startAttachment: next.startAttachment, endAttachment: next.endAttachment }, planId: activeId })
+      emit('board.edit', { id, patch: wireFreed({ pts: next.pts, startAttachment: next.startAttachment, endAttachment: next.endAttachment }), planId: activeId })
     })
     if (selId === target.id) setSelId(null)
     return true

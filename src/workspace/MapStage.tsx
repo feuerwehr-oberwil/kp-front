@@ -14,7 +14,6 @@ import { MapView } from '../components/MapView'
 import { Splash } from '../components/Splash'
 import { appConfig } from '../config/appConfig'
 import type { AtemschutzAlarmState } from '../lib/atemschutz'
-import { fillTemplate } from '../lib/format'
 import type { SymbolSurface } from '../lib/prefs'
 import { SHAPE_TWO_POINT } from '../lib/shapes'
 import { type TruppTrail, mapGhostTrails } from '../lib/truppTrails'
@@ -29,7 +28,7 @@ import type { useTacticalSelection } from '../lib/useTacticalSelection'
 import type { useTeamMarkerActions } from '../lib/useTeamMarkerActions'
 import type { useTruppActions } from '../lib/useTruppActions'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
-import type { Entity, LayerDef, Incident, LngLat, Trupp, TimelineEvent, PreparedMapOverlay, LayerId, Drawing, CaptionMode } from '../types'
+import type { Entity, LayerDef, Incident, LngLat, Trupp, PreparedMapOverlay, LayerId, Drawing, CaptionMode } from '../types'
 
 export interface MapStageProps {
   sym: ReturnType<typeof useSymbols>
@@ -64,7 +63,6 @@ export interface MapStageProps {
   truppActions: ReturnType<typeof useTruppActions>
   teamMarkers: ReturnType<typeof useTeamMarkerActions>
   patchEntity: (id: string, patch: Partial<Entity>) => void
-  log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   editNoteId: string | null
   setEditNoteId: Dispatch<SetStateAction<string | null>>
   noteTextLive: (id: string, v: string) => void
@@ -90,7 +88,7 @@ export function MapStage({
   sym, guarded, mapRef, mapEntities, drawings, tacticalLocked, mapLayers, isVisible, mapOverlays,
   georefPlanRasters, weatherRadar, symbolScale, symbolCaptions, setMapSuppressedCaptions, incidentView,
   initialFitPoints, locateReq, setView, onBasemapUnavailable, onMapSettled, selection, store, mapDrawing,
-  mapActions, truppActions, teamMarkers, patchEntity, log, editNoteId, setEditNoteId, noteTextLive,
+  mapActions, truppActions, teamMarkers, patchEntity, editNoteId, setEditNoteId, noteTextLive,
   noteTextCommit, setNotePanelId, effTrupps, azAlarm, showTrupp, newTruppFromMarker, removeTeamWithTrail,
   trails, deleteGhostTrail, measure, coord, rotStart, flashDrawingId, setDrawTap, setVehicleOverrides,
 }: MapStageProps) {
@@ -100,13 +98,13 @@ export function MapStage({
   } = selection
   const { doc, commit, setDocRaw, beginDrag, endDrag } = store
   const {
-    draft, setDraft, areaMode, lineNodes, setDraftPointAttachment, freehandKind, onFreehand, createCircle,
+    draft, setDraft, areaMode, lineNodes, setDraftPointAttachment, draftStartAttachment, freehandKind, onFreehand, createCircle,
     drawColor, drawWidth, drawDashed, selectedDrawing, patchDrawingById, editDrawingCoords,
     editDrawingRadius, insertDrawingVertex, deleteDrawingVertex, setDrawingAttachment, moveLabel,
   } = mapDrawing
   const {
     finishSelection, onMapClick, onMarquee, transformGroup, startEntityMove, streamEntityMove,
-    finishEntityMove, deleteEntity,
+    finishEntityMove, deleteEntity, undockTeam,
   } = mapActions
   const { adoptTruppMarker, releaseTruppMarker, linkTruppLine, unlinkTruppLine } = truppActions
   const { markTeamPosition, renameTeam, clearTeamTrail } = teamMarkers
@@ -180,17 +178,9 @@ export function MapStage({
               [recordKey('trupps', truppId), recordKey('objects', lineId), recordKey('objects', entityId)])
           }}
           // the pill's «Lösen» for the OTHER bond (15.09.): a docked marker lets go of its symbol
-          // without the detail sheet – dragging cannot part them any more, it moves both
-          onTeamUndock={tacticalLocked ? undefined : (entityId) => {
-            const marker = doc.entities.find((e) => e.id === entityId)
-            const host = doc.entities.find((e) => e.id === marker?.dockedTo)
-            if (!marker?.dockedTo) return
-            patchEntity(entityId, { dockedTo: undefined })
-            log('select', fillTemplate(appConfig.copy.log.teamUndocked, {
-              name: marker.label || appConfig.copy.entities.fallbackObjectName,
-              host: host?.label || appConfig.copy.entities.fallbackObjectName,
-            }), 'team', undefined, entityId)
-          }}
+          // without the detail sheet – dragging cannot part them any more, it moves both. The
+          // same path as the Trupp panel's «Lösen»: its row and its «Rückgängig» toast
+          onTeamUndock={tacticalLocked ? undefined : undockTeam}
           preparedOverlays={mapOverlays}
           onSelectionDone={finishSelection}
           // the linked sheets themselves, as a raster backdrop under the ink — a picture of the
@@ -217,6 +207,7 @@ export function MapStage({
           onDraftInsert={(i, c) => setDraft((pts) => { const next = [...pts]; next.splice(i, 0, c); return next })}
           onDraftDelete={(i) => setDraft((pts) => pts.filter((_, j) => j !== i))}
           onDraftPointAttachment={setDraftPointAttachment}
+          draftStartAttachment={draftStartAttachment}
           measurePoints={tool === 'measure' ? measure.path : []}
           measureKind={tool === 'measure' ? measure.mode : null}
           onMeasureDrag={(i, c) => measure.setPath((pts) => pts.map((p, j) => (j === i ? c : p)))}

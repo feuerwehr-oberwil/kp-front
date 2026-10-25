@@ -2,10 +2,10 @@
 
 Private-sheet replay and search comparisons live under docs/planning/auto-alignment/.
 The synthetic compound regression exercises the neighbouring-row failure without bundling
-station geometry. The remaining tests cover parsing, coordinate conversion and API claims.
+station geometry. The remaining tests cover parsing, coordinate conversion and the context floor.
 
 The module needs the optional `georef` dependency group; without it the whole file skips,
-matching the endpoint's own 503 degradation.
+matching the worker's own «dependencies missing» capability.
 """
 
 import math
@@ -111,108 +111,6 @@ def test_compound_alignment_does_not_snap_to_a_neighbouring_row(angle: float) ->
     fit = matcher.context_icp(source_focus, source, rings, scale, compound=True)
     error = np.linalg.norm(source @ fit.a.T + fit.t - context, axis=1)
     assert np.max(error) < 1
-
-
-async def test_mid_coverage_is_offered_but_not_confident_on_every_template(client, editor, monkeypatch):
-    import json
-
-    import cv2
-
-    from app.api import georef_suggest as api
-
-    async def osm_around(*_args):
-        return {"elements": []}
-
-    monkeypatch.setattr(api, "_osm_around", osm_around)
-    monkeypatch.setattr(api.overpass_client, "mirrors", lambda: ["https://example.com"])
-    monkeypatch.setattr(
-        matcher,
-        "suggest",
-        lambda *_args: matcher.Suggestion(
-            a=np.eye(2) * 0.15,
-            t=np.zeros(2),
-            score=0.6,  # a «confident» score by the retired bands — irrelevant now
-            coverage=0.6,
-            rotation_deg=0,
-        ),
-    )
-    login = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
-    assert login.status_code == 200
-    _, encoded = cv2.imencode(".jpg", np.full((100, 100, 3), 255, np.uint8))
-    response = await client.post(
-        "/api/georef/suggest",
-        params={"lng": 7.5, "lat": 47.5, "mPerPx": 0.4, "template": "m1"},
-        files={"image": ("plan.jpg", encoded.tobytes(), "image/jpeg")},
-    )
-    assert response.status_code == 200
-    result = json.loads(response.text.splitlines()[-1])["result"]
-    assert result["found"] is True
-    assert result["confident"] is False
-    assert len(result["pairs"]) == 2
-
-
-async def test_coverage_below_the_floor_returns_no_proposal(client, editor, monkeypatch):
-    import json
-
-    import cv2
-
-    from app.api import georef_suggest as api
-
-    async def osm_around(*_args):
-        return {"elements": []}
-
-    monkeypatch.setattr(api, "_osm_around", osm_around)
-    monkeypatch.setattr(api.overpass_client, "mirrors", lambda: ["https://example.com"])
-    monkeypatch.setattr(
-        matcher,
-        "suggest",
-        lambda *_args: matcher.Suggestion(
-            a=np.eye(2) * 0.15,
-            t=np.zeros(2),
-            score=2.0,  # a good score does not rescue a pose that covers nothing
-            coverage=0.4,
-            rotation_deg=0,
-        ),
-    )
-    login = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
-    assert login.status_code == 200
-    _, encoded = cv2.imencode(".jpg", np.full((100, 100, 3), 255, np.uint8))
-    response = await client.post(
-        "/api/georef/suggest",
-        params={"lng": 7.5, "lat": 47.5, "mPerPx": 0.17, "template": "m2"},
-        files={"image": ("plan.jpg", encoded.tobytes(), "image/jpeg")},
-    )
-    assert response.status_code == 200
-    result = json.loads(response.text.splitlines()[-1])["result"]
-    assert result["found"] is False
-    assert result["pairs"] == []
-
-
-async def test_oversized_decoded_images_are_refused_in_band(client, editor, monkeypatch):
-    """The JPEG cap does not bound the DECODED size — the pixel cap does, and past it the
-    stream answers with an in-band error instead of letting the resize allocate gigabytes."""
-    import json
-
-    import cv2
-
-    from app.api import georef_suggest as api
-
-    async def osm_around(*_args):
-        return {"elements": []}
-
-    monkeypatch.setattr(api, "_osm_around", osm_around)
-    monkeypatch.setattr(api.overpass_client, "mirrors", lambda: ["https://example.com"])
-    login = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
-    assert login.status_code == 200
-    _, encoded = cv2.imencode(".jpg", np.full((2200, 3500, 3), 255, np.uint8))  # 7.7 MP
-    response = await client.post(
-        "/api/georef/suggest",
-        params={"lng": 7.5, "lat": 47.5, "mPerPx": 0.17, "template": "m2"},
-        files={"image": ("plan.jpg", encoded.tobytes(), "image/jpeg")},
-    )
-    assert response.status_code == 200
-    last = json.loads(response.text.splitlines()[-1])
-    assert last == {"error": "Bild zu gross"}
 
 
 def test_a_lone_grey_rectangle_is_not_enough_context():

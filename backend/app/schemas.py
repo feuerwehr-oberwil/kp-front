@@ -2052,8 +2052,8 @@ class ModuleConfig(BaseModel):
     sub-slot — "Modul 5 - Wasser" → ``modul5-wasser`` labelled "Wasser".
 
     ``alignment`` says how this module's sheets get onto the Karte: ``auto`` — the server
-    proposes a fit for the admin to approve and the field offers «Automatisch ausrichten»;
-    ``manual`` — reference points by hand only (admin wall or field); ``none`` — the sheet is
+    proposes a fit for the admin to approve on Objektpläne (the field sets points by hand until
+    then); ``manual`` — reference points by hand only (admin wall or field); ``none`` — the sheet is
     never laid on the map. Unset = ``auto`` for modul1/modul2/modul2-3, ``none`` otherwise
     (``module_alignment`` in plan_alignment_compute is the one resolver).
     """
@@ -2418,12 +2418,6 @@ class ConfigIntegrations(BaseModel):
     traccarConfigured: bool = False
     # STT engine reachable (env stt_base_url set) — gates the player's Transkribieren button
     sttConfigured: bool = False
-    # «Automatisch ausrichten» answerable at all: the optional `georef` extra is importable AND
-    # an Overpass mirror is configured — the two things POST /api/georef/suggest fails closed on
-    # (503). Gates the chooser on the unlinked ⌖-Karte chip (lib/georefSuggest ·
-    # georefSuggestEligible); without it the chip arms the manual point flow directly, instead
-    # of offering a button whose only possible answer is an error toast.
-    autoAlignConfigured: bool = False
     # CARTO Basemaps client key. Public by design: MapLibre sends it as `?key=` on tile URLs.
     cartoBasemapKey: str | None = None
     # «Mit Microsoft anmelden» is set up (auth/microsoft · enabled) — gates the login screen's
