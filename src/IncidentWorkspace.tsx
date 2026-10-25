@@ -3036,7 +3036,7 @@ export function IncidentWorkspace({
         georefPlanRasters, weatherRadar: mapUI && !replayActive ? weather.mapRadar : null, symbolScale,
         symbolCaptions, setMapSuppressedCaptions, incidentView, initialFitPoints, locateReq, setView,
         onBasemapUnavailable, onMapSettled, selection, store, mapDrawing, mapActions, truppActions,
-        teamMarkers, patchEntity, log, editNoteId, setEditNoteId, noteTextLive, noteTextCommit,
+        teamMarkers, patchEntity, editNoteId, setEditNoteId, noteTextLive, noteTextCommit,
         setNotePanelId, effTrupps, azAlarm, showTrupp, newTruppFromMarker, removeTeamWithTrail, trails,
         deleteGhostTrail, measure, coord, rotStart, flashDrawingId, setDrawTap, setVehicleOverrides,
       }} />
