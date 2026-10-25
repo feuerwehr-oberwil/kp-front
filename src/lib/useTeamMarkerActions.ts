@@ -1,5 +1,6 @@
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
+import { serverNow } from './serverClock'
 import { confirmDialog, toast } from './ui'
 import { pickTeamColor } from './teamColors'
 import { newId } from './ids'
@@ -41,7 +42,7 @@ export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedI
     // repeated itself after a deletion (see teamColors.ts).
     const color = pickTeamColor(undefined, teams.map((e) => e.color))
     const label = nextTeamName([...teams.map((e) => e.label), ...(placedTeamNames?.() ?? [])], trupps?.() ?? [])
-    const marker: Entity = { id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: c, label, t: formatTime(new Date()), color, trail: [] }
+    const marker: Entity = { id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: c, label, t: formatTime(new Date(serverNow())), color, trail: [] }
     commit((d) => ({ ...d, entities: [...d.entities, marker] }))
     log('flag', fillTemplate(appConfig.copy.log.teamPlaced, { name: marker.label! }), 'team', undefined, id)
     emit('entity.add', { id, kind: 'team', entity: marker })
@@ -70,7 +71,7 @@ export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedI
   const markTeamPosition = (id: string) => {
     const e = entities.find((x) => x.id === id)
     if (!e || e.kind !== 'team') return
-    const now = formatTime(new Date())
+    const now = formatTime(new Date(serverNow()))
     commit((d) => ({ ...d, entities: d.entities.map((x) => (x.id === id ? { ...x, t: now, trail: [...(x.trail ?? []), { coord: x.coord, t: now }] } : x)) }))
     log('flag', fillTemplate(appConfig.copy.whiteboard.positionMarked, { name: e.label ?? '' }), 'team', undefined, id)
     // no toast (20.09.2026): the dot lands under the finger and the Verlauf has the row

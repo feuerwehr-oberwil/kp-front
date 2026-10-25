@@ -27,7 +27,7 @@ import { nudgePointIntoRect, nudgeSelectionIntoRect, type NudgeBox } from '../li
 import { placedTrupps, type PlacedTrupp } from '../lib/placedTrupps'
 import { motionDuration, prefersReducedMotion } from '../lib/reducedMotion'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
-import { serverNowIso } from '../lib/serverClock'
+import { serverNow, serverNowIso } from '../lib/serverClock'
 import { ROTATION_DEFAULT_RUN_M, ROTATION_W_M, SHAPE_DEFS, SHAPE_MIN_M, SHAPE_TWO_POINT, rotationBox } from '../lib/shapes'
 import { seedSymbolProps, VEHICLE_SYMBOLS } from '../lib/symbols'
 import type { TacticalObject } from '../lib/tacticalObjects'
@@ -785,7 +785,7 @@ export function useMapActions({
       setDocRaw((d) => ({
         ...d,
         entities: carryDocked(d.entities, id, d.entities.find((e) => e.id === id)?.coord ?? c, c)
-          .map((e) => (e.id === id ? { ...e, coord: c, ...(dockPatch ?? {}), ...(e.kind === 'team' ? { t: formatTime(new Date()) } : {}) } : e)),
+          .map((e) => (e.id === id ? { ...e, coord: c, ...(dockPatch ?? {}), ...(e.kind === 'team' ? { t: formatTime(new Date(serverNow())) } : {}) } : e)),
         drawings: hoseJoin
           ? d.drawings.map((dr) => (dr.id === hoseJoin.lineId ? { ...dr, [hoseKey]: hoseAttachment } : dr))
           : d.drawings,

@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 import { renderHook } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { toast } = vi.hoisted(() => ({ toast: vi.fn() }))
 vi.mock('./ui', () => ({ toast, confirmDialog: vi.fn() }))
+const clock = vi.hoisted(() => ({ now: 0 }))
+vi.mock('./serverClock', () => ({ serverNow: () => clock.now, serverNowIso: () => new Date(clock.now).toISOString() }))
 
 import { useTeamMarkerActions } from './useTeamMarkerActions'
+import { formatTime } from './format'
+import type { Doc } from './workspace'
 import type { Entity } from '../types'
 
 // A hand rename of a loose marker to a «Trupp N» somebody holds is refused where it happens —
@@ -40,5 +44,36 @@ describe('useTeamMarkerActions · renameTeam', () => {
     rename('m1', 'Angriff Nord')
     expect(commit).toHaveBeenCalledTimes(1)
     expect(toast).not.toHaveBeenCalled()
+  })
+})
+
+// A team marker's «seit hh:mm» and its marked trail dots count in the DEPLOYMENT's time
+// (lib/serverClock), like the Trupp's own stamps (#489, #495): here the device runs ten minutes ahead.
+describe('useTeamMarkerActions — marker time is server time', () => {
+  const S0 = Date.parse('2026-07-06T10:00:00Z')
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(S0 + 10 * 60_000); clock.now = S0 })
+  afterEach(() => { vi.useRealTimers(); vi.clearAllMocks() })
+
+  const mount = (entities: Entity[]) => {
+    let doc = { entities } as unknown as Doc
+    const commit = vi.fn((u: (d: Doc) => Doc) => { doc = u(doc) })
+    const { result } = renderHook(() => useTeamMarkerActions({
+      entities, commit, log: vi.fn(), emit: vi.fn(), setSelectedId: vi.fn(), setSelectedDrawingId: vi.fn(),
+    }))
+    return { actions: result.current, doc: () => doc }
+  }
+
+  it('placing a team marker stamps the server clock', () => {
+    const m = mount([])
+    m.actions.placeGenericTeam([8, 46])
+    expect(m.doc().entities[0].t).toBe(formatTime(new Date(S0)))
+  })
+
+  it('«Position markieren» stamps the marker and its dot with the server clock', () => {
+    const m = mount([{ id: 'm1', kind: 'team', layer: 'ops', coord: [8, 46], label: 'Team 1', trail: [] } as Entity])
+    m.actions.markTeamPosition('m1')
+    const marker = m.doc().entities[0]
+    expect(marker.t).toBe(formatTime(new Date(S0)))
+    expect(marker.trail?.[0]?.t).toBe(formatTime(new Date(S0)))
   })
 })

@@ -3,6 +3,7 @@ import type React from 'react'
 import type { BoardAnno, BoardPoint } from '../types'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { formatTime } from '../lib/format'
+import { serverNow } from '../lib/serverClock'
 import { applyRouting, nearestFreeEndpoint, objectAttachment, type AttachableLine } from '../lib/lineAttachments'
 import { normalizeStackEdit } from '../lib/stackFloors'
 
@@ -112,7 +113,7 @@ export function useWbChipDrag({
     // breadcrumb. Positions are logged only via markPosition (explicit), so the
     // rule is unambiguous: a dot exists exactly where you chose to log one.
     const a = annos.find((x) => x.id === d.id)
-    if (a?.kind === 'resource') patch(d.id, { t: formatTime(new Date()) })
+    if (a?.kind === 'resource') patch(d.id, { t: formatTime(new Date(serverNow())) })
     // record the relocation in the audit trail (the drag itself was silent patches)
     if (a) emit('board.move', { id: d.id, x: a.x, y: a.y, floor: a.floor, ...(stack && a.kind === 'symbol' ? { floorFrom: a.floorFrom, floorTo: a.floorTo } : {}), planId: activeId })
     annos.filter((line) => [line.startAttachment, line.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === d.id && rel.routing === 'trace'))
