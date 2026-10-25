@@ -42,7 +42,7 @@ import { addPartnerOrg, partnerOrgOffer, partnerOrgsFromLage } from '../lib/part
 import { linkTokenValues, resolveLinkUrl, type ReportLink } from '../lib/reportLinks'
 import type { ReportDraft, ReportOptions } from '../lib/report'
 import {
-  defaultReportOptions, einsatzleiterFromScene, formatDateTime, hasVisiblePlanAnnotation, missingTranscriptCount, pendenzRows, proofLabel,
+  defaultReportOptions, formatDateTime, hasVisiblePlanAnnotation, missingTranscriptCount, pendenzRows, proofLabel,
 } from '../lib/report'
 import { TAFEL_ID, findForms } from '../lib/boardForm'
 import { abschlussFacts, missingSteps, stepDone, type AbschlussFacts } from '../lib/abschluss'
