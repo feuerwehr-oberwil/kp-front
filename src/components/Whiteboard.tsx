@@ -5,6 +5,11 @@
 // Lage ↔ Plan parity is a review criterion: a tool or gesture changed here is changed in MapView
 // too (docs/tactical-objects.md). Gebäude and alignments: docs/plans-and-buildings.md; the Tafel
 // pages: docs/board-templates.md.
+// This file wires the board; its parts live beside it: the document and view (useBoardDoc,
+// useBoardView, useBoardGestures), drawing (usePlanDraft, usePlanCreate, usePlanMeasure), select
+// and drag (useWbChipDrag, useWbBodyDrag, useWbVertexEdit, useWbRotor, useWbSelectionBar),
+// removal (usePlanRemoval), «Karte verknüpfen» (usePlanGeoref), the Tafel's pages
+// (usePlanTafelPages), and the render pieces PlanAnno / PlanLineDecor / WbControls.
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BuildingFloat } from './BuildingFloat'
