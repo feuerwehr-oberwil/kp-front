@@ -17,7 +17,8 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   not by review: the magnet of a line being drawn (`lib/useDraftMagnet` – line-start exception,
   start-radius claim, dwell, release only if armed, the «Angekuppelt» joints; each surface hands
   in only its projection and target walk, `lineAttachments · lineEndTargets` /
-  `candidateAttachment`), the draft contract (`lib/draftMachine` – ✓ «Fertig» and the A6
+  `candidateAttachment`; the Lage's walk is `components/mapMagnetTargets`, its magnets
+  `components/useMapMagnet`), the draft contract (`lib/draftMachine` – ✓ «Fertig» and the A6
   tap-away auto-commit), «mit verbundenen Leitungen entfernen» (`lineAttachments · detachEnds`),
   ⌘D (`lib/duplicate`), and the armed tool + per-team trails + note-panel closing rules
   (`useTacticalSelection · usePlacement`, `lib/useHiddenTrails`, `lib/useNotePanelClosing`).
