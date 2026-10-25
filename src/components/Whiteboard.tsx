@@ -38,7 +38,6 @@ import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
-import { buzz } from '../lib/haptics'
 import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { markerTakesLineEnd, truppForLine, truppIdForAttachment, truppIsOut, truppLineTone, type LinkableLine } from '../lib/truppLines'
 import { nextTeamName, teamNoTaken } from '../lib/placedTrupps'
@@ -743,7 +742,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   useEffect(() => {
     if (!selectOnly) return
     setTool('pan'); setPending(null); setPendingShape(null); setPaletteOpen(false); setDraft(null); setCircleDraft(null)
-  }, [selectOnly])
+  }, [selectOnly, setTool, setPending, setPendingShape])
   // WHICH plan the Passung is open for, not merely whether it is open: switching documents then
   // closes it by derivation instead of by an effect that fires after the wrong panel has already
   // been painted over the new sheet.
@@ -1301,7 +1300,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   useEffect(() => {
     if (isPhone && active.id === 'tafel' && tool === 'measure') setTool('pan')
-  }, [isPhone, active.id, tool])
+  }, [isPhone, active.id, tool, setTool])
 
   // expose tool-pick + zoom + duplicate to the keyboard-shortcut layer. Semantic ids (from App) →
   // Plan tools; the rest tool is 'pan' (the plan pans on empty canvas), 'note'→'text',
