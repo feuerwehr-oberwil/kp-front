@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import { appConfig } from '../../config/appConfig'
-import { fillTemplate, fmtWhen, unitLabel, formatLocale } from '../../lib/format'
+import { fillTemplate, fmtWhen, formatTime, unitLabel, formatLocale } from '../../lib/format'
 import { attachmentUrl } from '../../objectVisits/api'
 import { readAttachment } from '../../objectVisits/store'
 import type { DeliveryState, SyncState } from '../../objectVisits/status'
@@ -143,7 +143,7 @@ export function conflictValue(c: VisitConflict, side: unknown, doc: VisitDoc): s
     const id = c.key.slice('answers.'.length)
     return answerText(checklistItems(doc.checklist).find((i) => i.id === id), side as Answer)
   }
-  if (typeof side === 'string') return c.key === 'visitedAt' ? `${fmtDate(side)} ${fmtWhen(side, { todayShort: true })}` : side
+  if (typeof side === 'string') return c.key === 'visitedAt' ? `${fmtDate(side)} ${formatTime(new Date(side))}` : side
   if (Array.isArray(side)) return side.join(', ')
   const o = side as Record<string, unknown>
   if (typeof o.caption === 'string') return o.caption || C.photoTitle
