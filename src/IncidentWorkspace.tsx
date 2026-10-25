@@ -131,7 +131,7 @@ import { createPortal, flushSync } from 'react-dom'
 import type { NoteSize } from './types'
 import { TruppFinder } from './components/TruppFinder'
 import { counterNames, freshTeamLabel, markerOptions, markerSite, teamNoTaken } from './lib/placedTrupps'
-import { serverNowIso } from './lib/serverClock'
+import { serverNow, serverNowIso } from './lib/serverClock'
 import { clockRestartRowId, clocksAfterReopen } from './lib/reopenClocks'
 import { IncidentClosedMeldung, LinkRefusedMeldung } from './components/IncidentClosedMeldung'
 import { useGhostTrails } from './lib/useGhostTrails'
@@ -2560,10 +2560,10 @@ export function IncidentWorkspace({
           if (back.surface === 'plan') placeTruppOnPlan(liveTruppId, back.planId, back.at, { id: back.markerId, trail: back.trail })
           else placeTruppOnMap(liveTruppId, back.coord, { id: back.markerId, trail: back.trail })
         } else if (back.surface === 'plan') {
-          const chip: BoardAnno = { id: revive.id, kind: 'resource', ...back.at, text: looseName, t: formatTime(new Date()), color: g.color, trail: back.trail }
+          const chip: BoardAnno = { id: revive.id, kind: 'resource', ...back.at, text: looseName, t: formatTime(new Date(serverNow())), color: g.color, trail: back.trail }
           setBoard((b) => ({ ...b, [back.planId]: [...(b[back.planId] ?? []).filter((a) => a.id !== chip.id), chip] }))
         } else {
-          const marker: Entity = { id: revive.id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: back.coord, label: looseName, t: formatTime(new Date()), color: g.color, trail: back.trail }
+          const marker: Entity = { id: revive.id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: back.coord, label: looseName, t: formatTime(new Date(serverNow())), color: g.color, trail: back.trail }
           setDocRaw((d) => ({ ...d, entities: [...d.entities.filter((e) => e.id !== marker.id), marker] }))
         }
         return
