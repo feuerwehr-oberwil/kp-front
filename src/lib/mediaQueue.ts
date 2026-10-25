@@ -20,6 +20,8 @@
 // captured in the meantime. The uploads themselves stay OUTSIDE the lane (a capture must never
 // wait behind a slow upload to be stored); the flush re-reads the queue in the lane before it
 // writes, and touches only the entries it actually attempted.
+// Rapport-Beilagen use `target: 'attachment'` and their attachment id as `rowId`; an absent
+// target remains a journal row, including every queue entry stored by older builds.
 
 import { isUnverifiable } from './api'
 import { idbDel, idbRead, idbSet } from './idb'
@@ -33,6 +35,7 @@ const keyFor = (incidentId: string) => `${PREFIX}${incidentId}`
 /** `pending` = waiting for connectivity (never attempted, or the last attempt was offline);
  *  `failed` = the server rejected it repeatedly (a real error, not just no network). */
 export type MediaStatus = 'pending' | 'failed'
+export type MediaTarget = 'attachment'
 
 export interface MediaQueueItem {
   id: string                     // queue id — see mediaQueueId
@@ -54,6 +57,8 @@ export interface MediaQueueItem {
    *  re-recorded voice memo reuses its row's id, and a flush that uploaded the old recording
    *  must not drop the new one queued behind it. Absent on entries queued before 23.09.2026. */
   rev?: string
+  /** Absent for journal media; Rapport-Beilagen restore/swap only the attachment with rowId. */
+  target?: MediaTarget
 }
 
 /** After this many server-side (non-network) failures an item is surfaced as `failed`
@@ -148,13 +153,14 @@ export async function enqueueMedia(
   filename: string,
   createdAt: string,
   localUrl?: string,
+  target?: MediaTarget,
 ): Promise<boolean> {
   const id = mediaQueueId(rowId, kind, localUrl)
   const rev = newId('mq')
   return laneFor(incidentId).edit(async () => {
     const { items, known } = await readQueue(incidentId)
     const next = items.filter((i) => i.id !== id)
-    next.push({ id, incidentId, rowId, kind, blob, filename, createdAt, attempts: 0, status: 'pending', rev, ...(localUrl ? { localUrl } : {}) })
+    next.push({ id, incidentId, rowId, kind, blob, filename, createdAt, attempts: 0, status: 'pending', rev, ...(localUrl ? { localUrl } : {}), ...(target ? { target } : {}) })
     return storeQueue(incidentId, next, known)
   })
 }
@@ -196,7 +202,7 @@ export type MediaUploader = (
 ) => Promise<{ url: string }>
 
 export interface FlushOutcome {
-  uploaded: { id: string; rowId: string; kind: 'photo' | 'audio'; url: string; localUrl?: string }[]
+  uploaded: { id: string; rowId: string; kind: 'photo' | 'audio'; url: string; localUrl?: string; target?: MediaTarget }[]
   remaining: MediaQueueItem[]
 }
 
@@ -222,7 +228,7 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
       }
       try {
         const { url } = await upload(incidentId, item.blob, item.kind, item.filename)
-        uploaded.push({ id: item.id, rowId: item.rowId, kind: item.kind, url, localUrl: item.localUrl })
+        uploaded.push({ id: item.id, rowId: item.rowId, kind: item.kind, url, localUrl: item.localUrl, ...(item.target ? { target: item.target } : {}) })
         settled.push({ item, next: null })
       } catch (e) {
         // A network failure (offline / server unreachable) is not the item's fault — keep it

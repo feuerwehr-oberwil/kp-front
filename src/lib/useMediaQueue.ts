@@ -2,6 +2,8 @@
 // items in state, restores pending captures onto their timeline rows after a reload (the blob
 // lives in IndexedDB; the row's session-only blob: URL was dropped on save), and re-drains the
 // queue whenever connectivity returns so nothing sits un-uploaded once we're back online.
+// `target: 'attachment'` keeps Rapport-Beilagen on that same durable/retrying path, with their
+// restore/upload callbacks routed to attachment ids rather than append-only journal rows.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { uploadMedia } from './incidents'
@@ -14,6 +16,7 @@ import {
   sameQueue,
   type MediaQueueItem,
   type MediaStatus,
+  type MediaTarget,
 } from './mediaQueue'
 import type { SyncStatus } from './api/workspaceSync'
 
@@ -34,9 +37,9 @@ interface Opts {
   readOnly: boolean
   /** an upload succeeded — swap the row's local URL for the persistent server URL. `localUrl`
    *  names WHICH picture settled: a row can carry several, and the others must survive. */
-  onUploaded: (rowId: string, kind: 'photo' | 'audio', url: string, localUrl?: string) => void
+  onUploaded: (rowId: string, kind: 'photo' | 'audio', url: string, localUrl?: string, target?: MediaTarget) => void
   /** a queued (not-yet-uploaded) capture was found — reattach it to its row for display */
-  onRestore: (rowId: string, kind: 'photo' | 'audio', localUrl: string, replaces?: string) => void
+  onRestore: (rowId: string, kind: 'photo' | 'audio', localUrl: string, replaces?: string, target?: MediaTarget) => void
 }
 
 export interface MediaQueueApi {
@@ -44,9 +47,9 @@ export interface MediaQueueApi {
   statusOf: (rowId: string) => MediaStatus | undefined
   /** number of captures not yet on the server (pending + failed) */
   pendingCount: number
-  /** persist a blob whose direct upload just failed, so it survives reload and retries.
+  /** persist a blob before upload (attachments), or after a direct upload failed (journal).
    *  Resolves false when it could only be held in memory (see mediaQueue · enqueueMedia). */
-  enqueue: (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string, localUrl?: string) => Promise<boolean>
+  enqueue: (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string, localUrl?: string, target?: MediaTarget) => Promise<boolean>
   /** attempt to upload everything queued for this incident (best-effort, never throws) */
   flush: (options?: { retry?: boolean }) => Promise<void>
   /** this queue's part of the shared sync status (mediaSyncStatus) */
@@ -86,7 +89,7 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
       // after a reload the row shows the object URL we minted at restore, not the one the
       // capture was queued with — that is the picture the server URL has to replace
       const old = restoredUrls.current.get(u.id)
-      cb.current.onUploaded(u.rowId, u.kind, u.url, old ?? u.localUrl)
+      cb.current.onUploaded(u.rowId, u.kind, u.url, old ?? u.localUrl, u.target)
       // the picture is on the server now: its session thumbnail (restored OR minted at the
       // capture) and the restored object URL have nothing left to show
       const local = old ?? u.localUrl
@@ -114,7 +117,7 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
         if (!alive) { forgetLocalThumb(url); URL.revokeObjectURL(url); return }
         // the queued-with URL died with the previous session; hand it over so the restore
         // replaces that dead entry instead of appending a duplicate picture to the row
-        cb.current.onRestore(item.rowId, item.kind, url, item.localUrl)
+        cb.current.onRestore(item.rowId, item.kind, url, item.localUrl, item.target)
       }
       status.current = mediaSyncStatus(q, isMediaQueueDurable(incidentId))
       setDurable(isMediaQueueDurable(incidentId))
@@ -147,8 +150,8 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
     return () => clearTimeout(timer)
   }, [items, flush, readOnly, reconnected])
 
-  const enqueue = useCallback(async (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string, localUrl?: string) => {
-    const stored = await enqueueMedia(incidentId, rowId, kind, blob, filename, createdAt, localUrl)
+  const enqueue = useCallback(async (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string, localUrl?: string, target?: MediaTarget) => {
+    const stored = await enqueueMedia(incidentId, rowId, kind, blob, filename, createdAt, localUrl, target)
     await refresh()
     return stored
   }, [incidentId, refresh])

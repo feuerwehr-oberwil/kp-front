@@ -2,17 +2,21 @@
 // the server has it), the ONE sync status the badge shows (records + media, amber while a closed
 // Einsatz's refusals are unexported), «Jetzt synchronisieren» and the Abschluss's pre-close drain.
 // Split out of IncidentWorkspace (E1, 09.10.2026) verbatim.
+// Rapport-Beilagen share the queue, but never enrich a journal row: their target is explicit,
+// and their callback updates an existing attachment (and its undo snapshot) by attachment id.
 
 import { combinedSyncStatus } from '../lib/combinedSyncStatus'
 import { WorkspaceSync, type IncidentMeta, type SyncStatus } from '../lib/incidents'
 import { useAuditEvents } from '../lib/useAuditEvents'
 import { useJournal } from '../lib/useJournal'
 import { useMediaQueue } from '../lib/useMediaQueue'
+import type { MediaTarget } from '../lib/mediaQueue'
 import type { TimelineEvent } from '../types'
 import { useCallback } from 'react'
 
 export interface UseMediaOutboxInputs {
   swapPhoto: (id: string, from: string, to: string) => void
+  swapAttachmentMedia: (id: string, url: string) => void
   overlayRow: (id: string, fields: Partial<TimelineEvent>) => void
   patchRow: (id: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'transcriptSection' | 'transcriptSectionEdit' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'textEdit' | 'retracted'>>) => void
   incidentMeta: IncidentMeta
@@ -28,13 +32,14 @@ export interface UseMediaOutboxInputs {
 }
 
 export function useMediaOutbox({
-  swapPhoto, overlayRow, patchRow, incidentMeta, canWriteRecord, closedRefusedTotal,
+  swapPhoto, swapAttachmentMedia, overlayRow, patchRow, incidentMeta, canWriteRecord, closedRefusedTotal,
   exportedClosedRefused, recordsSyncStatus, syncWorkspaceNow, journal, auditDelivery, sync,
   flushEvents,
 }: UseMediaOutboxInputs) {
   // Offline media queue: reattaches queued captures to their rows after a reload, retries on
   // reconnect, and swaps a row's local blob: URL for the persistent server URL on success.
-  const swapRowMedia = useCallback((rowId: string, kind: 'photo' | 'audio', url: string, replaces?: string) => {
+  const swapRowMedia = useCallback((rowId: string, kind: 'photo' | 'audio', url: string, replaces?: string, target?: MediaTarget) => {
+    if (target === 'attachment') { swapAttachmentMedia(rowId, url); return }
     // a persistent server URL becomes an appended enrichment patch (the record stays
     // append-only); a session blob: URL (queue restore) is a display-only overlay
     if (kind === 'photo') {
@@ -46,7 +51,7 @@ export function useMediaOutbox({
     }
     if (url.startsWith('blob:')) overlayRow(rowId, { audioUrl: url })
     else patchRow(rowId, { audioUrl: url })
-  }, [swapPhoto, overlayRow, patchRow])
+  }, [swapPhoto, swapAttachmentMedia, overlayRow, patchRow])
   const media = useMediaQueue({
     incidentId: incidentMeta.id, readOnly: !canWriteRecord,
     onUploaded: swapRowMedia, onRestore: swapRowMedia,
