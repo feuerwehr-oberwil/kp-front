@@ -4,7 +4,7 @@
     "@typescript-eslint/no-explicit-any": 3,
     "@typescript-eslint/no-non-null-assertion": 368,
     "react-hooks/exhaustive-deps": 20,
-    "react-hooks/immutability": 22,
+    "react-hooks/immutability": 21,
     "react-hooks/preserve-manual-memoization": 8,
     "react-hooks/purity": 17,
     "react-hooks/refs": 119,

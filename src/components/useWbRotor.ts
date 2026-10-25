@@ -18,7 +18,7 @@ interface Args {
   readOnly: boolean
   annos: BoardAnno[]
   boardRef: React.RefObject<HTMLDivElement | null>
-  /** the board's placement press in flight (Whiteboard · inkDown) — a claim made under it pauses the pan */
+  /** the board's placement press in flight (usePlanCreate · inkDown) — a claim made under it pauses the pan */
   inkTap: React.RefObject<unknown>
   toNorm: (clientX: number, clientY: number) => [number, number] | null
   localY: (y: number, floor: number) => number
