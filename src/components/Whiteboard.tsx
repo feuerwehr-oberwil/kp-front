@@ -70,7 +70,7 @@ import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
 import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
-import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachAnnos, dwellFor, flipLine, forkPortPoint, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, withDetach, type AnnoDetachPatch, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
+import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachAnnos, dwellFor, flipLine, forkPortPoint, wireFreed, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, withDetach, type AnnoDetachPatch, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from '../lib/stackFit'
 import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
 import type { FloorPackView } from '../lib/floorPackBinding'
@@ -1507,7 +1507,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       const mine = flip.incoming.filter((i) => i.lineId === a.id)
       return mine.reduce((acc, i) => ({ ...acc, [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment }), a)
     }))
-    emit('board.edit', { id: selDraw.id, patch: { pts: flip.points, startAttachment: flip.startAttachment, endAttachment: flip.endAttachment }, planId: activeId })
+    emit('board.edit', { id: selDraw.id, patch: wireFreed({ pts: flip.points, startAttachment: flip.startAttachment, endAttachment: flip.endAttachment }), planId: activeId })
     flip.incoming.forEach((i) => emit('board.edit', { id: i.lineId, patch: { [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment }, planId: activeId }))
   }
 
@@ -1532,7 +1532,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       ? { ...a, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
       : withDetach(a, released))))
     emit('board.edit', { id: selDraw.id, patch: { arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }, planId: activeId })
-    released.forEach((patch, id) => emit('board.edit', { id, patch, planId: activeId }))
+    released.forEach((patch, id) => emit('board.edit', { id, patch: wireFreed(patch), planId: activeId }))
   }
 
 

@@ -385,7 +385,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
         ? mine.reduce((acc, i) => ({ ...acc, [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment }), x)
         : x
     }) }))
-    emit('draw.edit', { id, patch })
+    emit('draw.edit', { id, patch: wireFreed(patch) })
     flip.incoming.forEach((i) => emit('draw.edit', { id: i.lineId, patch: { [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment } }))
   }
   const deleteDrawing = async (id: string) => {

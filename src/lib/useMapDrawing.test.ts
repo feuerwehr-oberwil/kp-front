@@ -483,3 +483,18 @@ describe('setDraftPointAttachment — node taps', () => {
     expect(made.endAttachment).toBeUndefined()
   })
 })
+
+// «Umkehren» swaps the ends' couplings. An end that is FREE after the swap went out as
+// `undefined`, which JSON drops — replay kept the old coupling on that end.
+describe('reverseDrawing — replay', () => {
+  it('a line coupled at one end only is coupled at the OTHER end in replay', async () => {
+    const onSym: LineAttachment = { target: { kind: 'object', id: 's' }, routing: 'direct' }
+    const deps = makeDeps({ drawings: [line({ coords: [[0, 0], [1, 1]], endAttachment: onSym })] })
+    const before = deps.drawings
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.reverseDrawing('d1') })
+    const [replayed] = (await replayEmits({ drawings: before }, deps.emit.mock.calls)).drawings
+    expect(replayed.startAttachment?.target).toEqual(onSym.target)
+    expect(replayed).not.toHaveProperty('endAttachment')
+  })
+})
