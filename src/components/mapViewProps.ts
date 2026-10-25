@@ -128,6 +128,8 @@ export interface MapTacticalProps {
   onDraftInsert?: (index: number, coord: LngLat) => void
   onDraftDelete?: (index: number) => void
   onDraftPointAttachment?: (attachment?: LineAttachment) => void
+  /** what the node draft's first tap banked (useMapDrawing) — later taps are judged by its Trupp claim */
+  draftStartAttachment?: LineAttachment
   draggable: boolean
   onMarkerDragStart: (id: string) => void
   onMarkerMove: (id: string, c: LngLat) => void

@@ -54,7 +54,7 @@ import { usePlacementLane } from '../lib/toastLane'
 import { Menu, Overlay } from '../lib/overlays'
 import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
 import { doneAct, doneOf, donePlace, offersDone } from '../lib/objectDone'
-import { serverNowIso } from '../lib/serverClock'
+import { serverNow, serverNowIso } from '../lib/serverClock'
 import { useHazardData } from '../lib/useHazardData'
 import { symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys } from '../lib/symbols'
 import { ContextPanel } from './ContextPanel'
@@ -1235,7 +1235,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const markPosition = () => {
     const a = annos.find((x) => x.id === selId)
     if (!a || a.kind !== 'resource') return
-    const now = formatTime(new Date())
+    const now = formatTime(new Date(serverNow()))
     patchCommit(a.id, { t: now, trail: [...(a.trail ?? []), { x: a.x ?? 0, y: a.y ?? 0, floor: a.floor ?? 0, t: now }] })
     // «Position markieren» names a PLACE, so on a stack it names the storey too — a row that
     // says only «Trupp 3: Position markiert» cannot be read back as a position at all
