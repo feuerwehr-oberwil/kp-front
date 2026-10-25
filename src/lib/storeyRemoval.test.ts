@@ -22,7 +22,7 @@ vi.mock('./ui', async (importOriginal) => ({
  * and the removal swept the WHOLE view — the write seam reads an absent anno as a deletion, so a
  * Fahrzeug placed on the Karte and merely SHOWN on the removed storey was deleted with it.
  *
- * Driven exactly as IncidentWorkspace · onRemoveFloor drives it, through the real store: the
+ * Driven exactly as workspace/useGebaeudeActions · removeFloor drives it, through the real store: the
  * sweep and the building change land in the same tick (the fits still name the old storeys), and
  * the stack's new storeys reach the fits one render later. The ↶ writes while the fits still name
  * the REDUCED stack — the moment a full-view restore read the Karte's objects as new placements. */
@@ -53,7 +53,7 @@ function mount(init: TacticalObject[]) {
   const hook = renderHook(({ v }) => useObjectStore(init, false, { getFits: () => fits, defaultLayer: 'taktisch', fitsVersion: v, onAnchorChange }), { initialProps: { v: 0 } })
   let v = 0
   const setFloors = (floors: number[]) => { fits = new Map([['gebaeude', stack(floors)]]); hook.rerender({ v: ++v }) }
-  /** IncidentWorkspace · onRemoveFloor, verbatim in what it writes and when */
+  /** workspace/useGebaeudeActions · removeFloor, verbatim in what it writes and when */
   const removeFloor = (floor: number) => {
     const r = hook.result.current
     const remaining = FLOORS.filter((f) => f !== floor)
@@ -220,7 +220,7 @@ describe('«Geschoss entfernen» keeps the Karte’s objects', () => {
     const stays = own({ id: 'stays', kind: 'symbol', symbol: 'VKF Feuer', x: 0.2, y: 0.2, floor: 2 })
     const { result, onAnchorChange } = mount([tlf, placed, stays])
     expect(shownOn(result.current.board, 'tlf')).toEqual([3])
-    // IncidentWorkspace · onAddFloor's restore, while the fits still name the added storey
+    // workspace/useGebaeudeActions · addFloor's restore, while the fits still name the added storey
     const owned = sheetAnchoredIds(result.current.objects, 'gebaeude')
     act(() => result.current.setBoard((b) => ({ ...b, gebaeude: withoutOwnOnStorey(b.gebaeude ?? [], owned, 3) }), { gesture: false }))
     expect(byId(result.current.objects)).toEqual(byId([tlf, stays]))
@@ -229,7 +229,7 @@ describe('«Geschoss entfernen» keeps the Karte’s objects', () => {
   })
 
   describe('the confirm asks about what the removal LOSES, counted by the same sweep', () => {
-    /** IncidentWorkspace · onRemoveFloor up to the question: the sweep, then the ask off its count */
+    /** workspace/useGebaeudeActions · removeFloor up to the question: the sweep, then the ask off its count */
     const ask = async (init: TacticalObject[], floor: number) => {
       const { result } = mount(init)
       const r = result.current

@@ -163,6 +163,7 @@ import { PlansSurface } from './workspace/PlansSurface'
 import { MapControls } from './workspace/MapControls'
 import { WorkspaceTopBar } from './workspace/WorkspaceTopBar'
 import { MapStage } from './workspace/MapStage'
+import { useGebaeudeActions } from './workspace/useGebaeudeActions'
 import { useJournalWriters } from './workspace/useJournalWriters'
 import { useWorkspaceBlob } from './workspace/useWorkspaceBlob'
 import { prefs } from './workspace/bootPrefs'
@@ -264,10 +265,6 @@ interface WorkspaceProps {
   /** …and the cover has lifted — App forgets it, so a later remount comes up uncovered */
   onOpenCoverDone?: () => void
 }
-
-
-/** One Drehung of the Gebäude is one drag, not forty slider frames — see onReorient. */
-const REORIENT_FOLD_MS = 1500
 
 
 export function IncidentWorkspace({
@@ -2557,6 +2554,11 @@ export function IncidentWorkspace({
    */
   const oneShotUndoToast = (text: string, label: string, restore: () => void, drop: Dropper, rows?: OneShotRows | 'silent', opts?: { kind?: string }) =>
     undoToast(text, () => { restore(); drop(); oneShotRow('undo', label, rows) }, drop.standing, opts)
+  // the Gebäude's own acts on the Plan — pick, storeys, Drehung (workspace/useGebaeudeActions)
+  const gebaeude = useGebaeudeActions({
+    tacticalLocked, building, setBuilding, board, setBoard, objects, objectsRef, boardRef, floorPack: georefFits.floorPack,
+    planBindings, activeObjectId, setActivePlanId, rememberGebaeudeStep, oneShotUndoToast, logPlan, lastReorient,
+  })
 
   /* ── «Spur»: der abgesuchte Bereich überlebt seinen Marker (18.09.2026) ─────────────────────
    *
@@ -3104,22 +3106,6 @@ export function IncidentWorkspace({
     setShareParent('status')
     setSharePick('pick')
   }
-  /** The Gebäude's Drehung from the Plan (Whiteboard · onReorient) — one drag, one step. */
-  const onReorient = (next: BuildingDoc) => {
-    // The Drehung is a SLIDER with a live preview, so it writes many times per drag: one
-    // burst is one step, and the step goes back to the angle the drag started from — the
-    // same fold the Bildlegende uses, for the same reason. It matters beyond the screen,
-    // because the printed Geschossseiten come out at whatever angle is set.
-    const now = Date.now()
-    const prev = lastReorient.current
-    const folding = !!prev && now - prev.at <= REORIENT_FOLD_MS
-    const from = folding ? prev.from : building
-    if (folding) prev.drop()
-    setBuilding(next)
-    if (!from) return
-    const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.orientMenuTitle, () => setBuilding(from), () => setBuilding(next), () => [recordKey('building')], 'silent')
-    lastReorient.current = { at: now, from, drop }
-  }
   // the words of a plan act for its ↶ — on both stacks, since whichever owns the object
   // takes the step (lib/planStepLink)
   const onPlanStepLabel = (label: string) => { planStepLabel.current = label; stepLabel.current = label }
@@ -3247,8 +3233,7 @@ export function IncidentWorkspace({
         mode, sym, guarded, railLabels, planDocs, tacticalLocked, isPhone, journalOpen, replayActive,
         linkScoped, activePlanId, setActivePlanId, objectPlans, buildingInfo, incidentMeta, incidentView,
         setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, georefFits, mapActions,
-        replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, setBuilding,
-        planBindings, rememberGebaeudeStep, oneShotUndoToast, onReorient, objectsRef, boardRef, logPlan,
+        replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,
         roster, addRecent, user, emit, planHist, planHistory, setPlanHistory, rememberPlanStep, planStepLink,
         onPlanStepLabel, planViews, planFit, planKeys, planFocus, effTrupps, truppCounterNames, teamNameTaken,
         azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, setPlanScale, tafel,

@@ -1543,7 +1543,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }
 
 
-  // removing a storey: the confirm is the OWNER's (IncidentWorkspace · onRemoveFloor →
+  // removing a storey: the confirm is the OWNER's (workspace/useGebaeudeActions · removeFloor →
   // lib/storeyRemoval), because only the store knows which annos on this tile are the stack's own
   // and which are the Karte's, merely shown here — and only the own ones can be lost
   /** a storey's word on its label («4. OG», «EG», or the name the Gebäude gave it) */
