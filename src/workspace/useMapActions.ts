@@ -19,7 +19,7 @@ import type { GeorefPlan } from '../lib/georefTwins'
 import { routeEscape, routeHotkey } from '../lib/hotkeyRoute'
 import { resolveHotkey, isTypingTarget } from '../lib/hotkeys'
 import { newId } from '../lib/ids'
-import { applyRouting, detachDrawings, moveLineBody, objectAttachment, withDetach, type DetachPatch } from '../lib/lineAttachments'
+import { applyRouting, detachDrawings, moveLineBody, objectAttachment, wireFreed, withDetach, type DetachPatch } from '../lib/lineAttachments'
 import { moduleNumbers } from '../lib/navRail'
 import { autoNoteWPx } from '../lib/notes'
 import { doneAct, donePlace } from '../lib/objectDone'
@@ -698,7 +698,7 @@ export function useMapActions({
     }))
     ids.forEach((id) => emit('draw.delete', { id }))
     ents.forEach((id) => emit('entity.delete', { id }))
-    released.forEach((patch, id) => emit('draw.edit', { id, patch }))
+    released.forEach((patch, id) => emit('draw.edit', { id, patch: wireFreed(patch) }))
     setSelectedDrawIds([]); setSelectedEntityIds([])
     // ONE row, counted or named (lib/drawingEdit · removalRowText) — «… entfernt»
     log('close', removalRowText(drawings.filter((d) => ids.includes(d.id)), entities.filter((e) => ents.includes(e.id))),
@@ -953,7 +953,7 @@ export function useMapActions({
         undefined, undefined, undefined, { subjectId: id })
     }
     emit('entity.delete', { id })
-    released.forEach((patch, lineId) => emit('draw.edit', { id: lineId, patch }))
+    released.forEach((patch, lineId) => emit('draw.edit', { id: lineId, patch: wireFreed(patch) }))
     return true
   }
   /**

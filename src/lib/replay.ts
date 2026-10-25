@@ -428,8 +428,16 @@ const coordOf = (p: Record<string, unknown> | null | undefined): LngLat | null =
  *  the object stays as it was (the same answer the gate gives a malformed add: absent, not a throw). */
 // Foreign-sheet commits carry a complete owning view; replacement also carries absent
 // fields through JSON. Ordinary surface patches keep their existing merge semantics.
+// A line end a detach cleared travels as `null` (lib/lineAttachments · wireFreed — JSON drops an
+// `undefined`); folded, the key is absent again, as it is in the live document.
+const withoutClearedEnds = <T extends object>(v: T): T => {
+  const r = v as { startAttachment?: unknown; endAttachment?: unknown }
+  if (r.startAttachment !== null && r.endAttachment !== null) return v
+  const { startAttachment, endAttachment, ...rest } = r
+  return { ...rest, ...(startAttachment != null ? { startAttachment } : {}), ...(endAttachment != null ? { endAttachment } : {}) } as T
+}
 const gated = <T extends object>(ok: (v: unknown) => v is T, cur: T, patch: Partial<T>, replace = false): T => {
-  const next = replace ? patch : { ...cur, ...patch }
+  const next = replace ? patch : withoutClearedEnds({ ...cur, ...patch })
   if (replace && 'id' in cur && (!('id' in next) || next.id !== cur.id)) return cur
   return ok(next) ? next : cur
 }

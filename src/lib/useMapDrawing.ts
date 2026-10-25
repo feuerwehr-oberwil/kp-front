@@ -1,6 +1,6 @@
 import { type SetStateAction, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { detachDrawings, flipLine, withDetach } from './lineAttachments'
+import { detachDrawings, flipLine, wireFreed, withDetach } from './lineAttachments'
 import { drawingEditChanges, drawingLogName } from './drawingEdit'
 import type { Doc } from './workspace'
 import type { Drawing, LineAttachment, LineEndpoint, LngLat, MapTool, TimelineEvent } from '../types'
@@ -407,7 +407,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
       : resolvedTarget?.coords[a.target.endpoint === 'start' ? 0 : resolvedTarget.coords.length - 1] ?? coords[ep === 'start' ? 0 : coords.length - 1]))
     commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== id).map((dr) => withDetach(dr, released)) }))
     emit('draw.delete', { id })
-    released.forEach((patch, lineId) => emit('draw.edit', { id: lineId, patch }))
+    released.forEach((patch, lineId) => emit('draw.edit', { id: lineId, patch: wireFreed(patch) }))
     if (selectedDrawingId === id) setSelectedDrawingId(null)
     // named like its creation row («Fläche gezeichnet» → «Fläche gelöscht»), not the bare kind-blind
     // «Zeichnung gelöscht» the record used to close on
