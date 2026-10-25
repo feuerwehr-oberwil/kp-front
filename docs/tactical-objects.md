@@ -94,7 +94,7 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
     plan-drawn hoses off their sheet with nobody touching anything; such writers pass
     `gesture: false` and their position crosses through the fit instead. Both store writers take
     it — `setDocRaw` and, since 24.09.2026, `setBoard` (it hard-coded «gesture»): a plan ↶/↷
-    restoring a snapshot (`planStepAt`, `useBoardDoc`), the Trupp sweeps that move a marker
+    restoring a snapshot (`usePlanStacks · planStepAt`, `useBoardDoc`), the Trupp sweeps that move a marker
     (`settleAtHoseEnd`, `unlinkTruppLine`), a Gebäude amend and a storey removal. A writer that
     rewrites what a sheet OWNS hands the lent annos back untouched (`tacticalObjects ·
     withOwnAnnos`) — the Gebäude amend carried the Karte's projections through the old building

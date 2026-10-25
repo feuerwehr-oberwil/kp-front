@@ -91,8 +91,6 @@ import { truppInNotfall, truppLogName, truppStillRegistered, type AtemschutzAlar
 import { freshNotfallKeys } from './lib/notfall'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefSurfaceBridge } from './lib/georefMode'
-import { planStackTouches, type BoardHistory } from './components/useBoardDoc'
-import type { BoardViews } from './components/useBoardView'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
 import { prewarmPlans } from './lib/pdfRaster'
@@ -107,7 +105,7 @@ import { useAuditEvents } from './lib/useAuditEvents'
 import { EL_EVENT_PREFIXES, eventScopeFor } from './lib/eventScope'
 import { combinedSyncStatus } from './lib/combinedSyncStatus'
 import { useMapDrawing } from './lib/useMapDrawing'
-import { resolveMapDrawings } from './lib/lineAttachments'
+import { detachEnds, freeEnd, resolveMapDrawings } from './lib/lineAttachments'
 import { leitungOptions } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
@@ -143,7 +141,7 @@ import { useAbschluss } from './lib/useAbschluss'
 import { useRowMediaUpload } from './lib/useRowMediaUpload'
 import { useGeorefFits } from './lib/useGeorefFits'
 import { createEditSettle, entityEditChanges, entityLogName, type EditSettle } from './lib/entityEdit'
-import { createPlanStepLink, type PlanStepLink } from './lib/planStepLink'
+import type { PlanStepLink } from './lib/planStepLink'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { photoUrlKey, setDevicePositionSource, withPhotoUrls } from './lib/photoGeo'
@@ -163,6 +161,8 @@ import { PlansSurface } from './workspace/PlansSurface'
 import { MapControls } from './workspace/MapControls'
 import { WorkspaceTopBar } from './workspace/WorkspaceTopBar'
 import { MapStage } from './workspace/MapStage'
+import { usePlanStacks } from './workspace/usePlanStacks'
+import { useGebaeudeActions } from './workspace/useGebaeudeActions'
 import { useJournalWriters } from './workspace/useJournalWriters'
 import { useWorkspaceBlob } from './workspace/useWorkspaceBlob'
 import { prefs } from './workspace/bootPrefs'
@@ -266,10 +266,6 @@ interface WorkspaceProps {
 }
 
 
-/** One Drehung of the Gebäude is one drag, not forty slider frames — see onReorient. */
-const REORIENT_FOLD_MS = 1500
-
-
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
   onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
@@ -341,7 +337,7 @@ export function IncidentWorkspace({
   /** the caption the NEXT store checkpoint carries, when its writer knows a better word than
    *  the domain's — see `onCheckpoint` below */
   const stepLabel = useRef<string | null>(null)
-  /** …and the same one-shot caption for the next PLAN step (rememberPlanStep), set by a plan writer
+  /** …and the same one-shot caption for the next PLAN step (workspace/usePlanStacks · rememberPlanStep), set by a plan writer
    *  that knows the words for its act (Whiteboard · onStepLabel) */
   const planStepLabel = useRef<string | null>(null)
   /** ONE gesture on a plan is ONE undo step, whichever stack takes it (lib/planStepLink) */
@@ -465,10 +461,7 @@ export function IncidentWorkspace({
   // reached from every drawing, symbol and property path in the app, and threading a word through
   // all of them would be a different change. The Tafel, Mittel and the Checklisten name their
   // action exactly, because there the timeline entry is written by hand anyway.
-  const {
-    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, gestureOpen, rebake,
-    undo: undoDoc, redo: redoDoc, rebaseObjects, replaceObjects, liveObjects, stepKeys: storeStepKeys,
-  } = useObjectStore(
+  const store = useObjectStore(
     init.objects,
     readOnly,
     {
@@ -526,6 +519,10 @@ export function IncidentWorkspace({
       },
     },
   )
+  const {
+    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, gestureOpen, rebake,
+    undo: undoDoc, redo: redoDoc, rebaseObjects, replaceObjects, liveObjects, stepKeys: storeStepKeys,
+  } = store
   // ⚠️ Through refs: the entry outlives the render that pushed it, and `undoDoc` closes over that
   // render's `past`/`future`. Calling the captured one would step a stack that has moved on.
   const undoDocRef = useRef(undoDoc); undoDocRef.current = undoDoc
@@ -609,7 +606,8 @@ export function IncidentWorkspace({
   // Session-only tactical editing state (active tool, place gesture, selection) — see
   // useTacticalSelection. Declared before enterReplay (which clears it) so its setters are in
   // scope for that callback; threaded into useMapDrawing below just as before.
-  const { selectedId, setSelectedId, tool, setTool, teamPick, setTeamPick, pending, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock, selectedDrawingId, setSelectedDrawingId, selectedDrawIds, setSelectedDrawIds, selectedEntityIds, setSelectedEntityIds } = useTacticalSelection()
+  const selection = useTacticalSelection()
+  const { selectedId, setSelectedId, tool, setTool, teamPick, setTeamPick, pending, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock, selectedDrawingId, setSelectedDrawingId, selectedDrawIds, setSelectedDrawIds, selectedEntityIds, setSelectedEntityIds } = selection
   /** Where the currently selected drawing was TAPPED (map-container px), paired with its id so a
    *  selection that arrived some other way can't borrow a stale point. Only the panel nudge reads
    *  it (lib/panelNudge · panelNudgeSelection). */
@@ -716,104 +714,19 @@ export function IncidentWorkspace({
   /** …from a button, which anchors the caption at itself. Every ↶ ↷ in the app goes through this. */
   const onHistoryPress = (dir: 'undo' | 'redo') => (e: ReactMouseEvent<HTMLButtonElement>) => stepHistory(dir, e.currentTarget)
   useEffect(() => clearUndoCaption, [])
-  // the Plan keeps its own per-document history (inside Whiteboard); it reports its
-  // step fns up here so the GLOBAL TopBar undo/redo drives whichever
-  // surface is showing — one control, both surfaces, no rail-level duplication.
-  const planHist = useRef<{ undo: (expect?: string) => boolean; redo: (expect?: string) => boolean } | null>(null)
-  // ⚠️ …and the STACKS live here rather than inside the Whiteboard, because the Whiteboard is
-  // mounted only while `mode === 'plans'`: as component state the plan's history was thrown away
-  // every time somebody glanced at the Verlauf or the Karte and came back — «nichts, was sich
-  // nicht rückgängig machen lässt» broken by a tab switch. Keyed by plan id (see BoardHistory),
-  // so surviving the unmount never leaks one plan's undo into another plan's.
-  // ⚠️ They snapshot ONE plan's ANNOS, not the tactical store — deliberately, now that the board
-  // is a view of it (lib/useObjectStore). A plan step is a statement about one sheet, and
-  // restoring it through `setBoard` is exactly that statement: `applyBoardToObjects` folds the
-  // restored list back and re-bakes those objects, leaving every other sheet and the whole Karte
-  // where they stand. Snapshotting the store here would make a plan's ↶ reach across surfaces,
-  // which is the opposite of what these per-document stacks exist for.
-  const [planHistory, setPlanHistory] = useState<BoardHistory>({})
-  // ⚠️ Live copies for the timeline's entries. An entry is pushed in one render and pressed in
-  // another, and both of these move constantly — a plan's step read off the render that recorded
-  // it would restore an annotation array from before everything that happened since.
-  const planHistoryRef = useRef(planHistory); planHistoryRef.current = planHistory
-  /**
-   * Record that ONE plan document moved, on the global timeline.
-   *
-   * ⚠️ Scoped by plan id, and stepped by plan id — never through `planHist` (which points at
-   * whichever plan is OPEN). The header's ↶ is chronological now, so the last thing that happened
-   * may well be on a plan the operator has since navigated away from; delegating to the open
-   * plan's history would then quietly undo a step on the wrong document. Where the plan IS open
-   * we still go through `planHist`, because that path also clears the board's selection and
-   * writes the Verlauf row the Whiteboard has always written.
-   */
-  // `step` = the plan step the timeline entry stands for: a stack whose top is another is not
-  // stepped (the entry is then «lost», never applied to the wrong snapshot)
-  const planStepAt = (planId: string, dir: 'undo' | 'redo', step: string): boolean => {
-    if (planId === activePlanIdRef.current && planHist.current) {
-      return dir === 'undo' ? planHist.current.undo(step) : planHist.current.redo(step)
-    }
-    const cur = planHistoryRef.current[planId]
-    const to = dir === 'undo' ? cur?.past[cur.past.length - 1] : cur?.future[0]
-    if (!to || to.id !== step) return false
-    const from = { id: to.id, snap: boardRef.current[planId] ?? [] }
-    setPlanHistory((m) => {
-      const c = m[planId]
-      if (!c) return m
-      return { ...m, [planId]: dir === 'undo'
-        ? { past: c.past.slice(0, -1), future: [from, ...c.future] }
-        : { past: [...c.past, from], future: c.future.slice(1) } }
-    })
-    // ⚠️ a RESTORE, not a placement (`gesture: false`): the snapshot is the sheet's whole view,
-    // projections included, and read as a hand it flipped any it still held at an older spot
-    setBoard((all) => ({ ...all, [planId]: to.snap }), { gesture: false })
-    return true
-  }
-  /** Record on the timeline that one plan document just gained a step. The Whiteboard pushes its
-   *  own checkpoint (useBoardDoc · pushPast) and calls only this — it is the ONLY writer of these
-   *  per-document stacks. A writer that reaches a plan while the board is unmounted (the Trupp
-   *  sweeps, a Gebäude amend) goes through the store's `setBoard` instead, which lays its step on
-   *  the STORE's stack where the write touched an object the sheet does not own (lib/useObjectStore
-   *  · touchedForeign) — the one stack such a write can reach. */
-  const rememberPlanStep = (planId: string, step: string) => {
-    // ⚠️ …and the STORE is told too, because a plan gesture may reach an object the sheet does
-    // not own (lib/useObjectStore · setBoard): one gesture is one step on whichever stack owns
-    // what it touched, and this is the signal that keeps it to one.
-    beginSheetStep()
-    const label = planStepLabel.current ?? fillTemplate(C_HIST.undoDomains.plan, { plan: planLabelRef.current(planId) })
-    planStepLabel.current = null
-    const drop = undoHist.push({
-      domain: 'plan',
-      scope: planId,
-      label,
-      // ⚠️ A plan's stack holds whole-sheet VIEW snapshots, not per-object steps, so it survives a
-      // merge only WHOLE: every entry of it names every object the sheet's history or view holds,
-      // plus the sheet's view itself — a merge that touches any of them drops the plan's steps
-      // together (useBoardDoc · planStackTouches / keepPlanSteps). `step` is the snapshot's own id.
-      step,
-      touches: () => planStackTouches(planId, planHistoryRef.current[planId], boardRef.current[planId]),
-      undo: () => histStep(planStepAt(planId, 'undo', step), 'undo', label, ''),
-      redo: () => histStep(planStepAt(planId, 'redo', step), 'redo', label, ''),
-    })
-    // if the fold that follows reaches an object this sheet does not own, the STORE takes the
-    // step and this entry (and its snapshot) is withdrawn — one gesture, one ↶ (lib/planStepLink)
-    planStepLink.current ??= createPlanStepLink((pid) => setPlanHistory((m) => {
-      const c = m[pid]
-      return c?.past.length ? { ...m, [pid]: { ...c, past: c.past.slice(0, -1) } } : m
-    }))
-    planStepLink.current.opened(planId, drop)
-  }
-  // …and the zoom/pan of each plan, for the same reason: coming back from the Karte to a board
-  // that had reset itself to «eingepasst» means finding your place on it again, every time.
-  // Same scope as the Lage map's own view memory (MapView · viewRef): this component is keyed
-  // per Einsatz and dies with it, and nothing here is written to the synced workspace — where a
-  // viewer stands on a plan is private to their device. A REF, so a pan re-renders only the board.
-  const planViews = useRef<BoardViews>({})
-  // the Plan exposes its fit-to-view here so the phone top bar can offer Fit (the plan's
-  // equivalent of the map's locate) instead of a floating zoom cluster on a small screen.
-  const planFit = useRef<(() => void) | null>(null)
-  // the Plan exposes tool-pick + zoom here so the global keyboard-shortcut layer can drive it
-  // while the Plan is the active surface (parity with how it drives the Lage map).
-  const planKeys = useRef<{ pickTool: (tool: string) => void; zoom: (f: number) => void; duplicate: () => void } | null>(null)
+  // ⚠️ The live values the timeline's plan entries read (workspace/usePlanStacks · planStepAt).
+  // A step is pressed long after the render that recorded it, so nothing there may close over
+  // this render's `board`, `activePlanId` or plan titles (filled in below, with the plan catalog).
+  const boardRef = useRef(board); boardRef.current = board
+  const activePlanIdRef = useRef(activePlanId); activePlanIdRef.current = activePlanId
+  const planLabelRef = useRef<(id: string) => string>(() => '')
+  // the Plan's per-document undo stacks on the one timeline, and the handles the Whiteboard reports
+  // up for the top bar and the keys (workspace/usePlanStacks)
+  const planStacks = usePlanStacks({
+    undoHist, histStep, beginSheetStep, endSheetStep, setBoard, boardRef, activePlanIdRef, planLabelRef,
+    planStepLabelRef: planStepLabel, stepLabelRef: stepLabel, planStepLinkRef: planStepLink,
+  })
+  const { planHistory, setPlanHistory, planFit, planKeys } = planStacks
   // always-fresh keydown dispatcher — assigned every render (below, once all handlers exist) so
   // the single window listener never re-subscribes yet never closes over stale state.
   const hotkeyRef = useRef<(e: KeyboardEvent) => void>(() => {})
@@ -1100,13 +1013,14 @@ export function IncidentWorkspace({
     () => !bootGate.ws?.planBindings?.length && hasLegacyAlignmentContext(bootGate.ws),
     [],  // eslint-disable-line react-hooks/exhaustive-deps
   )
-  const { plansSettled, backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
+  const objectPlans = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
     bindings: planBindings,
     // a machine seed of a key outside the record slice – see `canWriteBlob`
     onBind: (proposed) => { if (canWriteBlob) setPlanBindings((prev) => fillBindingFloors(addPlanBindings(prev, proposed), proposed)) },
     legacyPlanIds,
     preserveLegacy,
   })
+  const { plansSettled, backendPlans, resolvedPlanDocs, manualObject, pickObject, resetObject, activeObjectId } = objectPlans
 
   // The Gebäude-Steckbrief (KP Front F5) — a chip in the Karte's and the plan's bottom-left chip
   // row (BuildingFloat): fetched with the Einsatz so it is cached for offline before anybody taps it. Only the operator's MANUAL pick is passed — without
@@ -1151,12 +1065,7 @@ export function IncidentWorkspace({
   // first and worked on the second, and the first stayed in the rail forever afterwards doing
   // nothing. See lib/useObjectPlans · railPlanTiles for why the two ids survive the merge.
   const railPlanDocs = useMemo(() => railPlanTiles(planDocs, activePlanId), [planDocs, activePlanId])
-  // ⚠️ The live values the timeline's plan entries read (see `planStepAt`).
-  // A step is pressed long after the render that recorded it, so nothing there may close over
-  // this render's `board`, `activePlanId` or plan titles.
-  const boardRef = useRef(board); boardRef.current = board
-  const activePlanIdRef = useRef(activePlanId); activePlanIdRef.current = activePlanId
-  const planLabelRef = useRef<(id: string) => string>(() => '')
+  // the plan titles the timeline's plan entries name (see `planLabelRef` above)
   planLabelRef.current = (id) => planDocs.find((p) => p.id === id)?.title ?? id
 
   // both bars are stacked on the two drawing surfaces (tool bar above the surface bar) — this drives
@@ -1391,7 +1300,7 @@ export function IncidentWorkspace({
   /** the Bildlegende step that stands — a caption is typed, so it is ONE step and not one per
    *  letter (same window and the same reason as the Rapportangaben). */
   const lastCaptionStep = useRef<{ key: string; at: number; from: string | undefined; drop: () => void } | null>(null)
-  /** …and the Gebäude-Drehung, which is a slider: one drag is one step (see onReorient). */
+  /** …and the Gebäude-Drehung, which is a slider: one drag is one step (workspace/useGebaeudeActions · reorient). */
   const lastReorient = useRef<{ at: number; from: BuildingDoc; drop: () => void } | null>(null)
 
   // The blob both ways — the load gate's toast, applyWorkspace (merge in) and buildPayload (save
@@ -1675,50 +1584,6 @@ export function IncidentWorkspace({
   const flushMedia = media.flush
   useEffect(() => { if (recordsSyncStatus === 'synced') void flushMedia() }, [recordsSyncStatus, flushMedia])
 
-  // Escape is the universal bail-out — it peels back one layer of transient state at a time so
-  // there's always a quick way back to the plain map: (1) cancel an armed placement, (2) close the
-  // open map chrome (Ebenen panel / views popover), (3) clear the current selection. (Modal sheets
-  // handle their own Esc via the overlay wrapper; this is only the non-modal map chrome.)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      // typing in a field? Escape leaves the FIELD and nothing more — one key press must never
-      // both finish the text and drop the selection. Read the event TARGET, not activeElement:
-      // the field's own handler has already blurred by the time this bubbles up.
-      const el = e.target as HTMLElement | null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
-      // …and a MODAL on top of the map owns Escape outright — it closes, and the map does NOT also
-      // peel a layer behind it. That is what the note above always claimed; it was never enforced,
-      // so Esc in the «Welcher Trupp?» picker closed the picker AND disarmed the Team tool. Focus
-      // is trapped inside the dialog, so the event target is enough to tell.
-      // ⚠️ `alertdialog` as well as `dialog`: ConfirmCard (lib/overlays/ConfirmCard) renders the
-      // alert role, so a delete confirm on the Lage was NOT a modal by this test — Escape closed
-      // the confirm AND peeled a map layer behind it. The Plan's twin of this handler already
-      // matched both roles; this is the Lage catching up.
-      if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
-      if (pending || pendingShape) { setPending(null); setPendingShape(null); setRotStart(null); setTool('select') }
-      // …then the coordinate crosshair: while it aims it swallows every map tap and hides the
-      // selection bar, and until 02.09. Escape did not know it existed
-      else if (coord.mode !== 'off') coord.setMode('off')
-      else if (panel || viewsOpen) { setPanel(null); setViewsOpen(false) }
-      // …then the active TOOL and the dock that belongs to it. Escape used to bail out of an
-      // armed placement but leave Messen or Zeichnen running with its dock open over the map,
-      // so the one key that is supposed to get you back to a plain map got you most of the way
-      // and stopped.
-      // ⚠️ setDraft([]), NOT settleDraft: Escape is the EXPLICIT discard. Every tap-away path
-      // auto-commits a committable draft (see settleDraft), but a deliberate cancel has to keep
-      // cancelling — the one key that means «weg damit» must never save the thing instead.
-      else if (tool !== 'select') { setTool('select'); setDraft([]) }
-      // the note panel closes BEFORE the selection does — Escape backs out one layer at a time
-      else if (notePanelId) setNotePanelId(null)
-      else if (selectedId || selectedDrawingId || selectedDrawIds.length || selectedEntityIds.length) { setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }
-    }
-    // covered by another surface: its keys are its own (see `covered`)
-    if (covered) return
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [covered, pending, pendingShape, coord.mode, panel, viewsOpen, tool, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])  // eslint-disable-line react-hooks/exhaustive-deps
-
   // Selecting something opens its details (ContextPanel) — so the moment a NEW selection lands, drop
   // every other transient bit of map chrome that would sit over it or the tool rail: the Ebenen dock,
   // the views popover, and any armed tool / placement dock (back to Auswahl). Edge-triggered on a
@@ -1762,9 +1627,10 @@ export function IncidentWorkspace({
     return () => window.removeEventListener('keydown', onKey)
   }, [covered, mode, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds, doc, tacticalLocked])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keyboard shortcuts (see lib/hotkeys + the "Tastaturkürzel" help section). One mount-once
-  // listener delegates to hotkeyRef, which is reassigned every render with the live handlers —
-  // so shortcuts always act on current state without a churn of add/removeEventListener.
+  // Keyboard shortcuts (see lib/hotkeys + the "Tastaturkürzel" help section) and Escape's
+  // bail-out (lib/hotkeyRoute · routeEscape). One mount-once listener delegates to hotkeyRef,
+  // which useMapActions reassigns every render with the live handlers — so keys always act on
+  // current state without a churn of add/removeEventListener.
   useEffect(() => {
     if (covered) return // the surface in front owns the keyboard (see `covered`)
     const onKey = (e: KeyboardEvent) => hotkeyRef.current(e)
@@ -1869,11 +1735,12 @@ export function IncidentWorkspace({
   // --- Georeferenz: which plans are tied to the ground, and how — lib/useGeorefFits -------------
   // ⚠️ Called HERE, where the block stood: its effects must keep their place after the store's and
   // the hydrate's. `log` is declared below and reaches it through `histSide` (assigned under it).
-  const { linkedPlans, floorPack, georefPlanRasters, activeLinkedPlan, selectedPlanProjection, planLive, planPhotos } = useGeorefFits({
+  const georefFits = useGeorefFits({
     planDocs, planScale, building, setBuilding, planBindings, activeObjectId, board, objects, rebake,
     planFitsRef, fitsVersion, setFitsVersion, stepLabelRef: stepLabel, histSide, readOnly, canWriteBlob, tacticalLocked, replayActive,
     twinLayers, twinLayerOpacity, activePlanId, selectedId, liveVehicles, livePeople, isVisible, mapEntities,
   })
+  const { linkedPlans, georefPlanRasters, selectedPlanProjection } = georefFits
 
   // The journal is append-only: every action pushes a row, and nothing ever edits
   // or removes one — undo/redo log their own lines. So the stream stays a faithful
@@ -1936,15 +1803,7 @@ export function IncidentWorkspace({
   // Lage-map drawing surface (draft, line mode/preset, draw-style controls, Drawing CRUD +
   // on-canvas editing) lives in useMapDrawing — the undoable doc and selection state are
   // threaded in so the handlers behave identically to their former inline selves.
-  const {
-    draft, setDraft,
-    drawColor, drawWidth, drawDashed,
-    lineMode, setLineMode, areaMode, setAreaMode,
-    draftActive, lineNodes, freehandKind, selectedDrawing,
-    commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, patchDrawing, patchDrawingById,
-    patchDrawingLabelLive, commitDrawingLabel,
-    editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
-  } = useMapDrawing({
+  const mapDrawing = useMapDrawing({
     drawings, resolvedDrawings: resolvedMapDrawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log,
     setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds,
@@ -1953,6 +1812,12 @@ export function IncidentWorkspace({
     onLineAttached: (lineId, attachment) => { linkLineToAttachedTrupp(lineId, attachment) },
     onLineDetached: (lineId, previous) => { unlinkLineFromDetachedTrupp(lineId, previous) },
   })
+  const {
+    setDraft, lineMode, setLineMode, areaMode, setAreaMode, draftActive, selectedDrawing,
+    commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, createCircle, patchDrawing, patchDrawingById,
+    patchDrawingLabelLive, commitDrawingLabel,
+    deleteDrawing, reverseDrawing, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
+  } = mapDrawing
   const changeMapEnding = async (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck', drawing = selectedDrawing) => {
     if (!drawing) return
     const incoming = drawing.teilstueck && ending !== 'teilstueck'
@@ -1972,21 +1837,17 @@ export function IncidentWorkspace({
     noteDrawingEdit(drawing, { arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined })
     commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => {
       if (d.id === drawing.id) return { ...d, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
-      let next = d
-      for (const endpoint of ['start', 'end'] as const) {
-        const a = endpoint === 'start' ? next.startAttachment : next.endAttachment
-        if (!incoming.some((x) => x.id === d.id && x.endpoint === endpoint) || !a || next.coords.length < 2) continue
-        const coords = next.coords.map((p, i) => i === (endpoint === 'start' ? 0 : next.coords.length - 1) ? fallback : p)
-        next = { ...next, coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
-      }
-      return next
+      // the ends that hung on the «E» let go where it stood (lib/lineAttachments · detachEnds)
+      if (d.coords.length < 2) return d
+      const out = detachEnds({ ...d, points: d.coords }, (endpoint) => (incoming.some((x) => x.id === d.id && x.endpoint === endpoint) ? fallback : null))
+      return out ? { ...d, coords: out.points, ...out.freed } : d
     }) }))
     emit('draw.edit', { id: drawing.id, patch: { arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined } })
     incoming.forEach(({ id, endpoint }) => {
       const line = drawings.find((d) => d.id === id)
       if (!line) return
-      const coords = line.coords.map((p, i) => i === (endpoint === 'start' ? 0 : line.coords.length - 1) ? fallback : p)
-      emit('draw.edit', { id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
+      const { points: coords, freed } = freeEnd(line.coords, endpoint, fallback)
+      emit('draw.edit', { id, patch: { coords, ...freed } })
     })
   }
   // Attached Leitung ends follow their live vehicles (lib/useGpsFollow).
@@ -2295,51 +2156,51 @@ export function IncidentWorkspace({
     }
     return undefined
   }
-  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, triggerNotfall, endNotfall, truppPlace, editTrupp, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors } =
-    useTruppActions({
-      trupps, drawings, entities, objects, setTrupps, board, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
-      // The Atemschutz-Tafel joins the one global timeline (08.09.2026): every Kontakt, Druck,
-      // Statuswechsel, Bearbeitung, Wieder-Einrücken, Anmeldung and Löschen records itself there,
-      // so ↶ in the header reaches the board — including from the handed-over Link-Tafel, which
-      // has no TopBar and gets its own pair (AtemschutzView · headActs).
-      undoTimeline: undoHist,
-      // ⚠️ …and reads the CURRENT trupps when a step is finally pressed, not the render that
-      // recorded it. A merge between the tap and the ↶ is exactly the case that has to decline.
-      liveTrupps: () => truppsRef.current,
-      counterNames: () => truppCounterNames(),
-      placeOf: truppPositionWords,
-      // An Atemschutz-Link session syncs the trupps slice and nothing else: a chip removed or
-      // recoloured here would change only on this phone and be undone by the next poll, while
-      // the tablet keeps the old one. So the placement half of every Trupp action is a no-op
-      // there; the tablet's own board/entities stay the single source for the picture.
-      setBoard: asLink ? () => {} : setBoard,
-      setDocRaw: asLink ? () => {} : setDocRaw,
-      // a new map marker lands at the current map centre (the operator drags it to position);
-      // fall back to the Einsatzort when the map hasn't been opened yet this session
-      mapCenter: () => {
-        const c = mapRef.current?.getMap()?.getCenter()
-        return c ? [c.lng, c.lat] as LngLat : incidentView.center
-      },
-      // jump-to for a team marker: coord is passed on placement (state not yet committed);
-      // later focuses look the entity up like a Verlauf row does. fly=false selects without
-      // moving the camera (tap-placed markers are already in view).
-      // the hose a Trupp works on — «Leitung zeigen» on the Atemschutz card
-      // «Leitung zeigen» SHOWS the hose, it does not open it: fly there and outline it for a
-      // moment, with nothing selected — no vertex handles under the finger, no editor sheet over
-      // the map. Tapping the line is still how you edit it.
-      focusMapDrawing: (drawingId) => {
-        setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedDrawingId(null); setSelectedId(null)
-        const d = drawings.find((x) => x.id === drawingId)
-        if (d?.coords[0]) flyToMapVisible(d.coords[0], 17.8)
-        setFlashDrawingId(drawingId)
-      },
-      focusMapEntity: (entityId, coord, fly = true) => {
-        setMode('map')
-        if (!fly) { setSelectedId(entityId); setSelectedDrawingId(null); return }
-        if (coord) { setSelectedId(entityId); setSelectedDrawingId(null); flyToMapVisible(coord, 18.4) }
-        else focusEntity(entityId)
-      },
-    })
+  const truppActions = useTruppActions({
+    trupps, drawings, entities, objects, setTrupps, board, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
+    // The Atemschutz-Tafel joins the one global timeline (08.09.2026): every Kontakt, Druck,
+    // Statuswechsel, Bearbeitung, Wieder-Einrücken, Anmeldung and Löschen records itself there,
+    // so ↶ in the header reaches the board — including from the handed-over Link-Tafel, which
+    // has no TopBar and gets its own pair (AtemschutzView · headActs).
+    undoTimeline: undoHist,
+    // ⚠️ …and reads the CURRENT trupps when a step is finally pressed, not the render that
+    // recorded it. A merge between the tap and the ↶ is exactly the case that has to decline.
+    liveTrupps: () => truppsRef.current,
+    counterNames: () => truppCounterNames(),
+    placeOf: truppPositionWords,
+    // An Atemschutz-Link session syncs the trupps slice and nothing else: a chip removed or
+    // recoloured here would change only on this phone and be undone by the next poll, while
+    // the tablet keeps the old one. So the placement half of every Trupp action is a no-op
+    // there; the tablet's own board/entities stay the single source for the picture.
+    setBoard: asLink ? () => {} : setBoard,
+    setDocRaw: asLink ? () => {} : setDocRaw,
+    // a new map marker lands at the current map centre (the operator drags it to position);
+    // fall back to the Einsatzort when the map hasn't been opened yet this session
+    mapCenter: () => {
+      const c = mapRef.current?.getMap()?.getCenter()
+      return c ? [c.lng, c.lat] as LngLat : incidentView.center
+    },
+    // jump-to for a team marker: coord is passed on placement (state not yet committed);
+    // later focuses look the entity up like a Verlauf row does. fly=false selects without
+    // moving the camera (tap-placed markers are already in view).
+    // the hose a Trupp works on — «Leitung zeigen» on the Atemschutz card
+    // «Leitung zeigen» SHOWS the hose, it does not open it: fly there and outline it for a
+    // moment, with nothing selected — no vertex handles under the finger, no editor sheet over
+    // the map. Tapping the line is still how you edit it.
+    focusMapDrawing: (drawingId) => {
+      setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedDrawingId(null); setSelectedId(null)
+      const d = drawings.find((x) => x.id === drawingId)
+      if (d?.coords[0]) flyToMapVisible(d.coords[0], 17.8)
+      setFlashDrawingId(drawingId)
+    },
+    focusMapEntity: (entityId, coord, fly = true) => {
+      setMode('map')
+      if (!fly) { setSelectedId(entityId); setSelectedDrawingId(null); return }
+      if (coord) { setSelectedId(entityId); setSelectedDrawingId(null); flyToMapVisible(coord, 18.4) }
+      else focusEntity(entityId)
+    },
+  })
+  const { createTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, triggerNotfall, endNotfall, truppPlace, editTrupp, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors } = truppActions
   // The alarm host runs on EVERY device – tone and OS notification are the point – but only a
   // session that writes the Trupps records the crossing in the Verlauf (RBAC audit V1, 22.10.2026).
   // The FU or the Atemschutz-Link writes that row, once per turnus, for everybody.
@@ -2350,19 +2211,15 @@ export function IncidentWorkspace({
 
   // the Karte's gestures and commands — tool picks, map taps, views, keys, the lasso group, marker
   // moves and docking, jumps, delete and «erledigt» (workspace/useMapActions)
-  const {
-    deleteGroup, deleteEntity, placed, goToModule, finishSelection, onMapClick, startEntityMove,
-    streamEntityMove, finishEntityMove, onMarquee, transformGroup, goToTrupp, viewsApi, toggleViews,
-    selected, showMapSourceOnPlan, undockTeam, setEntityDone, focusDrawing, noteEntity, pick, pickShape,
-    moveLiveOnSheet, showPlanSourceOnMap,
-  } = useMapActions({
+  const mapActions = useMapActions({
     clearMapUi, setPaletteOpen, tool, setTool, setPending, setPendingShape, setSelectedId,
     setSelectedDrawingId, setSelectedDrawIds, setSelectedEntityIds, setNotePanelId, setEditNoteId, panel,
     setPanel, tacticalLocked, pendingShape, rotStart, setRotStart, commit, placeLock, log, emit, pending,
     sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, lineMode, measure, mapRef,
     incidentView, entities, liveIds, resolvedMapDrawings, cameraViews, view, setLocateReq, incidentOpen,
     share, setShareParent, setSharePick, setCameraViews, rememberOneShotRef, C_HIST, setViewsOpen,
-    selectedId, doc, truppCounterNames, selectedDrawingId, planDocs, mode, setMode, setActivePlanId,
+    viewsOpen, selectedId, selectedDrawIds, selectedEntityIds, doc, truppCounterNames, selectedDrawingId,
+    planDocs, mode, setMode, setActivePlanId,
     hotkeyRef, settingsOpen, paletteOpen, pickerOpen, helpOpen, installGuideOpen, offlineReadyOpen,
     shareLink, composerOpen, georefActive, georefMode, replayActive, readOnly, linkScoped, goToNav,
     planFit, stepHistory, planKeys, setJournalOpen, setComposerOpen, togglePanel, setSettingsOpen,
@@ -2370,8 +2227,12 @@ export function IncidentWorkspace({
     endDrag, flyToMapVisible, setVehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef, objects,
     selectedPlanProjection, setPlanFocus, focusEntity, editNoteId, user, stepLabelRef: stepLabel,
   })
+  const {
+    deleteGroup, deleteEntity, placed, goToModule, goToTrupp, viewsApi, toggleViews, selected,
+    showMapSourceOnPlan, undockTeam, setEntityDone, focusDrawing, noteEntity, pick, pickShape,
+  } = mapActions
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
-  const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({
+  const teamMarkers = useTeamMarkerActions({
     entities, commit, log, emit, setSelectedId, setSelectedDrawingId,
     // every chip, every ghost trail and every registered Trupp count into the numbering: ONE
     // counter per Einsatz (docs/trupp-naming.md §1)
@@ -2379,6 +2240,7 @@ export function IncidentWorkspace({
     trupps: () => truppsRef.current,
     teamNameTaken,
   })
+  const { placeGenericTeam } = teamMarkers
   /** The card's / the form's half of a marker join. A Trupp that was JUST registered is not in
    *  the hook's `trupps` until the next render, so its adopt waits one render (pendingAdopt);
    *  an existing Trupp joins straight away. */
@@ -2393,6 +2255,9 @@ export function IncidentWorkspace({
     void adoptTruppMarker(pendingAdopt.truppId, pendingAdopt.markerId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingAdopt, trupps])
+  /** «Im Atemschutz zeigen» from a map marker or a plan chip (both surfaces): to the board, landed
+   *  on that Trupp's card — the board can be a wall of Trupps, so the jump answers «which one?». */
+  const showTrupp = (truppId: string) => { setMode('atemschutz'); setPanel(null); setTruppFocus({ id: truppId, nonce: Date.now() }) }
   /** «Neuer Trupp» on a loose marker's join sheet (both surfaces): to the board, form open,
    *  and the marker waits for the save. */
   const newTruppFromMarker = (markerId: string) => {
@@ -2598,6 +2463,11 @@ export function IncidentWorkspace({
    */
   const oneShotUndoToast = (text: string, label: string, restore: () => void, drop: Dropper, rows?: OneShotRows | 'silent', opts?: { kind?: string }) =>
     undoToast(text, () => { restore(); drop(); oneShotRow('undo', label, rows) }, drop.standing, opts)
+  // the Gebäude's own acts on the Plan — pick, storeys, Drehung (workspace/useGebaeudeActions)
+  const gebaeude = useGebaeudeActions({
+    tacticalLocked, building, setBuilding, board, setBoard, objects, objectsRef, boardRef, floorPack: georefFits.floorPack,
+    planBindings, activeObjectId, setActivePlanId, rememberGebaeudeStep, oneShotUndoToast, logPlan, lastReorient,
+  })
 
   /* ── «Spur»: der abgesuchte Bereich überlebt seinen Marker (18.09.2026) ─────────────────────
    *
@@ -2787,15 +2657,16 @@ export function IncidentWorkspace({
 
   // the roster's side of the record — vocabulary, pickers' names and hints, and every door that puts
   // somebody on the Anwesenheit because they were given a job (workspace/useRosterRoles)
-  const {
-    fileTruppGuest, createTruppA, editTruppA, reactivateTruppA, presentIds, rapportTarget,
-    linkRosterFields, rosterNames, rosterRank, personStatus, rosterFieldHints, stopPersonSharing,
-    assignTypedName, assignRole, journalVocab,
-  } = useRosterRoles({
+  const roster = useRosterRoles({
     linkedTrupps, truppOfPerson, pickablePersonnel, attendance, allTrupps, phoneFold, mode, incidentMeta,
     rosterIdByName, rosterById, trupps, setSelectedId, log, canWriteRecord, attSet, openTruppSave,
     addGuest, replayActive, setAttendance, setTrupps, createTrupp, editTrupp, reactivateTrupp,
   })
+  const {
+    fileTruppGuest, createTruppA, editTruppA, reactivateTruppA, presentIds, rapportTarget,
+    linkRosterFields, rosterNames, rosterRank, personStatus, rosterFieldHints, stopPersonSharing,
+    assignTypedName, assignRole, journalVocab,
+  } = roster
 
   // --- checklists ---
   // Ticking is field documentation, not tactical editing, so it's gated by ROLE
@@ -3144,25 +3015,6 @@ export function IncidentWorkspace({
     setShareParent('status')
     setSharePick('pick')
   }
-  /** The Gebäude's Drehung from the Plan (Whiteboard · onReorient) — one drag, one step. */
-  const onReorient = (next: BuildingDoc) => {
-    // The Drehung is a SLIDER with a live preview, so it writes many times per drag: one
-    // burst is one step, and the step goes back to the angle the drag started from — the
-    // same fold the Bildlegende uses, for the same reason. It matters beyond the screen,
-    // because the printed Geschossseiten come out at whatever angle is set.
-    const now = Date.now()
-    const prev = lastReorient.current
-    const folding = !!prev && now - prev.at <= REORIENT_FOLD_MS
-    const from = folding ? prev.from : building
-    if (folding) prev.drop()
-    setBuilding(next)
-    if (!from) return
-    const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.orientMenuTitle, () => setBuilding(from), () => setBuilding(next), () => [recordKey('building')], 'silent')
-    lastReorient.current = { at: now, from, drop }
-  }
-  // the words of a plan act for its ↶ — on both stacks, since whichever owns the object
-  // takes the step (lib/planStepLink)
-  const onPlanStepLabel = (label: string) => { planStepLabel.current = label; stepLabel.current = label }
 
   return (
     // the Meldeleiste paints INSIDE this stacking context (lib/meldeleisteHost), under the top bar
@@ -3180,21 +3032,13 @@ export function IncidentWorkspace({
       {closedMeldung}
 
       <MapStage {...{
-        sym, guarded, mapRef, mapEntities, tacticalLocked, mapLayers, symbolScale, symbolCaptions,
-        setMapSuppressedCaptions, incidentView, initialFitPoints, locateReq, editNoteId, noteTextLive,
-        noteTextCommit, setSelectedId, setSelectedDrawingId, setEditNoteId, tool, setNotePanelId, effTrupps,
-        azAlarm, setMode, setPanel, setTruppFocus, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker,
-        markTeamPosition, renameTeam, clearTeamTrail, removeTeamWithTrail, trails, deleteGhostTrail, doc,
-        unlinkTruppLine, patchEntity, linkTruppLine, log, mapOverlays, finishSelection, georefPlanRasters,
-        weatherRadar: mapUI && !replayActive ? weather.mapRadar : null,
-        isVisible, selectedId, measure, setSelectedDrawIds, setSelectedEntityIds, onMapClick, drawings,
-        draft, areaMode, lineNodes, setDraft, setDraftPointAttachment, startEntityMove, streamEntityMove,
-        finishEntityMove, setVehicleOverrides, beginDrag, setDocRaw, endDrag, setView, onBasemapUnavailable,
-        onMapSettled, coord, pendingShape, rotStart, freehandKind, onFreehand, createCircle, drawColor,
-        drawWidth, drawDashed, selectedDrawingId, flashDrawingId, setDrawTap, patchDrawingById, commit,
-        deleteEntity, selectedDrawing, editDrawingCoords, editDrawingRadius, insertDrawingVertex,
-        deleteDrawingVertex, setDrawingAttachment, moveLabel, selectedDrawIds, selectedEntityIds, onMarquee,
-        transformGroup,
+        sym, guarded, mapRef, mapEntities, drawings, tacticalLocked, mapLayers, isVisible, mapOverlays,
+        georefPlanRasters, weatherRadar: mapUI && !replayActive ? weather.mapRadar : null, symbolScale,
+        symbolCaptions, setMapSuppressedCaptions, incidentView, initialFitPoints, locateReq, setView,
+        onBasemapUnavailable, onMapSettled, selection, store, mapDrawing, mapActions, truppActions,
+        teamMarkers, patchEntity, log, editNoteId, setEditNoteId, noteTextLive, noteTextCommit,
+        setNotePanelId, effTrupps, azAlarm, showTrupp, newTruppFromMarker, removeTeamWithTrail, trails,
+        deleteGhostTrail, measure, coord, rotStart, flashDrawingId, setDrawTap, setVehicleOverrides,
       }} />
 
       <WorkspaceTopBar {...{
@@ -3293,18 +3137,11 @@ export function IncidentWorkspace({
 
       <PlansSurface {...{
         mode, sym, guarded, railLabels, planDocs, tacticalLocked, isPhone, journalOpen, replayActive,
-        linkScoped, activePlanId, activeObjectName, activeObjectAddress, buildingInfo, activeObjectNearby,
-        incidentMeta, activeObjectPos, incidentView, setPickerOpen, symbolScale, activeLinkedPlan,
-        symbolCaptions, mapSuppressedCaptions, planLive, planPhotos, moveLiveOnSheet, showPlanSourceOnMap,
-        replayBoard, board, trails, deleteGhostTrail, armTrailDrop, setBoard, replayBuilding, building,
-        floorPack, objects, planBindings, activeObjectId, setBuilding, setActivePlanId, rememberGebaeudeStep,
-        oneShotUndoToast, onReorient, objectsRef, boardRef, logPlan, rosterNames, rosterRank,
-        linkRosterFields, personStatus, rosterFieldHints, addRecent, user, emit, planHist, planHistory,
-        setPlanHistory, rememberPlanStep, planStepLink, endSheetStep, onPlanStepLabel, planViews, planFit,
-        planKeys, planFocus, effTrupps, truppCounterNames, teamNameTaken, azAlarm, updateTrupp,
-        askTruppEntry, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker, linkTruppLine, unlinkLine,
-        linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, syncLineNoToTrupp, setMode, setPanel,
-        setTruppFocus, planScale, setPlanScale, tafel,
+        linkScoped, activePlanId, setActivePlanId, objectPlans, buildingInfo, incidentMeta, incidentView,
+        setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, georefFits, mapActions,
+        replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,
+        roster, addRecent, user, emit, planStacks, planFocus, effTrupps, truppCounterNames, teamNameTaken,
+        azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, setPlanScale, tafel,
         truppFinder: { open: () => setFindTruppOpen(true), disabled: placed.length === 0 },
       }} />
 

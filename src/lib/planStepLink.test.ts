@@ -37,7 +37,7 @@ function setup() {
   }))
   refs.undo = () => store.current.undo()
   refs.redo = () => store.current.redo()
-  /** a plan step, the way useBoardDoc · commit + IncidentWorkspace · rememberPlanStep take it */
+  /** a plan step, the way useBoardDoc · commit + workspace/usePlanStacks · rememberPlanStep take it */
   const planStep = (edit: (a: BoardAnno) => BoardAnno | null) => act(() => {
     planPast.push(store.current.board.modul2 ?? [])
     const drop = timeline.push({ domain: 'plan', scope: 'modul2', label: 'Plan', undo: () => !!planPast.pop(), redo: () => false })
