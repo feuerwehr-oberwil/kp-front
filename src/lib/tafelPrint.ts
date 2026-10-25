@@ -3,7 +3,7 @@
 // Seiten»: lib/boardForm · formForPdf → backend app/report_board), composed by the server without
 // the Rapport around them (POST /api/incidents/{id}/tafel/pdf · app/report · compose_tafel_pdf).
 //
-// Loaded on the tap (Whiteboard · printPages), never with the Tafel: the Kroki payload builder
+// Loaded on the tap (usePlanTafelPages · printPages), never with the Tafel: the Kroki payload builder
 // it needs for the Lagekarte box is the Rapport's, and has no business in the board's chunk.
 //
 // ⚠️ The server draws the paper, so printing needs it: offline this says so, calmly
