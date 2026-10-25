@@ -169,14 +169,23 @@ export function useReportPlace(
   const phoneTabRef = useRef(phoneTab)
   const snapshotRef = useRef(snapshot)
   useEffect(() => { phoneTabRef.current = phoneTab; snapshotRef.current = snapshot })
+  // ⚠️ `forgetPlace` also stops the cleanup's write: the surface unmounts AFTER the Abschluss
+  // (the workspace moves on), and writing the place back then made a reopened, completed rapport
+  // land on the old tab with the old print choices.
+  const forgotten = useRef(false)
   useLayoutEffect(() => {
     const el = bodyRef.current
     if (el && kept) el.scrollTop = kept.top
     return () => {
-      if (el) rapportKept.write(incidentId, { top: el.scrollTop, tab: phoneTabRef.current, ...snapshotRef.current() })
+      if (el && !forgotten.current) rapportKept.write(incidentId, { top: el.scrollTop, tab: phoneTabRef.current, ...snapshotRef.current() })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  /** Drop the kept place for good – this mount will not write it back on unmount. */
+  const forgetPlace = () => {
+    forgotten.current = true
+    rapportKept.forget()
+  }
 
-  return { phoneTab, pickTab, jumpToStep }
+  return { phoneTab, pickTab, jumpToStep, forgetPlace }
 }

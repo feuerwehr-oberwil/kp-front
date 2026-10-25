@@ -57,17 +57,26 @@ export function useKrokiMoment({ incidentId, startedAt, initialAt, shown, events
   // replay bar uses, so the two surfaces cannot disagree about where the Einsatz has substance:
   // the recorded actions plus the Verlauf rows that carry an absolute time.
   const [auditMoments, setAuditMoments] = useState<number[]>([])
-  const bundleRef = useRef<ReplayBundle | null>(null)
+  // One bundle per sheet, shared by both effects below. The PROMISE is kept, not the result: a
+  // sheet opened on a kept Stand with the panel on screen asks from both in the same tick, and a
+  // result cached only after the await downloaded the whole journal twice. A failed load is
+  // dropped, so the next ask tries again.
+  const bundleRef = useRef<Promise<ReplayBundle> | null>(null)
+  const loadBundle = () => {
+    bundleRef.current ??= loadReplay(incidentId, Date.parse(startedAt), Date.now())
+      .catch((e: unknown) => { bundleRef.current = null; throw e })
+    return bundleRef.current
+  }
   useEffect(() => {
     if (at == null) { setPastScene(null); return }
     let alive = true
     setBusy(true)
     void (async () => {
       try {
-        bundleRef.current ??= await loadReplay(incidentId, Date.parse(startedAt), Date.now())
-        const ws = await stateAt(bundleRef.current, at)
+        const bundle = await loadBundle()
+        const ws = await stateAt(bundle, at)
         if (!alive) return
-        setPastScene({ entities: [...(ws?.entities ?? []), ...replayVehicles(bundleRef.current, at)], drawings: ws?.drawings ?? [] })
+        setPastScene({ entities: [...(ws?.entities ?? []), ...replayVehicles(bundle, at)], drawings: ws?.drawings ?? [] })
       } catch {
         if (alive) { setPastScene(null); toast(appConfig.copy.preflight.krokiAtFailed, { icon: 'warn', tone: 'warn' }) }
       } finally {
@@ -86,8 +95,8 @@ export function useKrokiMoment({ incidentId, startedAt, initialAt, shown, events
     let alive = true
     void (async () => {
       try {
-        bundleRef.current ??= await loadReplay(incidentId, Date.parse(startedAt), Date.now())
-        if (alive) setAuditMoments(activityMoments(bundleRef.current.events))
+        const bundle = await loadBundle()
+        if (alive) setAuditMoments(activityMoments(bundle.events))
       } catch { /* no marks from the audit side; the slider still works */ }
     })()
     return () => { alive = false }
