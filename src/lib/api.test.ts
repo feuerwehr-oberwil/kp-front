@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, LINK_REFUSED_EVENT, SESSION_EXPIRED_EVENT, apiBeacon, apiDelete, apiGet, apiGetRaw, apiPost, apiPut, isUnverifiable } from './api'
+import { getEventListeners } from 'node:events'
+import { ApiError, LINK_REFUSED_EVENT, SESSION_EXPIRED_EVENT, apiBeacon, apiDelete, apiGet, apiGetRaw, apiPost, apiPut, eitherSignal, isUnverifiable } from './api'
 import { resetServerClock, serverClockOffsetMs } from './serverClock'
 
 // api.ts is the fetch wrapper under EVERY backend call: typed errors, the transparent
@@ -19,6 +20,36 @@ afterEach(() => {
 
 const json = (body: unknown, init: ResponseInit = {}) =>
   new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' }, ...init })
+
+describe('shared offline-preparation cancellation', () => {
+  it('releases the shared controller after each request timeout', () => {
+    const session = new AbortController()
+    for (let i = 0; i < 30; i++) {
+      const timeout = new AbortController()
+      const signal = eitherSignal(timeout.signal, session.signal)
+      timeout.abort()
+      expect(signal?.aborted).toBe(true)
+      expect(getEventListeners(session.signal, 'abort')).toHaveLength(0)
+    }
+  })
+
+  it('releases the timeout listener when the caller cancels', () => {
+    const timeout = new AbortController()
+    const caller = new AbortController()
+    const signal = eitherSignal(timeout.signal, caller.signal)
+    caller.abort()
+    expect(signal?.aborted).toBe(true)
+    expect(getEventListeners(timeout.signal, 'abort')).toHaveLength(0)
+  })
+
+  it('keeps no listeners when either input was already cancelled', () => {
+    const cancelled = AbortSignal.abort()
+    const live = new AbortController().signal
+    expect(eitherSignal(cancelled, live)?.aborted).toBe(true)
+    expect(eitherSignal(live, cancelled)?.aborted).toBe(true)
+    expect(getEventListeners(live, 'abort')).toHaveLength(0)
+  })
+})
 
 describe('request — success & empty bodies', () => {
   it('parses a JSON body and sends cookies', async () => {
