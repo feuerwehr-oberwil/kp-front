@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { categorize, categoryId, categoryLabel, categoryOf, categoryRules, globToRegExp, inkOn, writableRules, type ObjectCategoryRule } from './categories'
+import { categorize, categoryId, categoryLabel, categoryOf, categoryRules, globToRegExp, inkOn, isCategoryColor, writableRules, type ObjectCategoryRule } from './categories'
 import type { StationObject } from '../api/stationReference'
 import { configRejections } from '../../admin/configSchema.test-utils'
 
@@ -73,6 +73,20 @@ describe('object categories', () => {
     expect(rules.map((r) => [r.id, r.label, r.color, r.kinds])).toEqual([['b', 'B', '#112233', []]])
   })
 
+  it('«ink» is a colour: the theme\'s default look (color null), the rule and its row stay', () => {
+    const rules = categoryRules([
+      { id: 'plaene', label: 'Einsatzpläne', color: 'ink', match: { modules: ['modul1*', 'modul6*'] } },
+      { id: 'wasser', label: 'Wasser', color: '#2563eb', match: { modules: ['modul5-wasser*'] } },
+      { id: 'tinte', label: 'Tinte', color: 'Ink', match: {} },
+    ])
+    expect(rules.map((r) => [r.id, r.color])).toEqual([['plaene', null], ['wasser', '#2563eb']])
+    expect(categoryOf(obj('einsatzobjekt', ['modul1-a']), rules)?.id).toBe('plaene')
+    expect(isCategoryColor('ink')).toBe(true)
+    expect(isCategoryColor('#Ab12eF')).toBe(true)
+    expect(isCategoryColor('INK')).toBe(false)
+    expect(isCategoryColor('#abc')).toBe(false)
+  })
+
   it('labels per language, German then the first one as the fallback', () => {
     expect(categoryLabel({ de: 'Photovoltaik', fr: 'Photovoltaïque' }, 'fr', 'pv')).toBe('Photovoltaïque')
     expect(categoryLabel({ de: 'Photovoltaik' }, 'it', 'pv')).toBe('Photovoltaik')
@@ -98,12 +112,13 @@ describe('the admin editor\'s rules', () => {
   it('writes only what the server accepts, and that passes the API schema', () => {
     const rows: ObjectCategoryRule[] = [
       { id: 'pv', label: 'Photovoltaik', color: '#f59e0b', match: { modules: ['modul5-pv*'] } },
+      { id: 'plaene', label: 'Einsatzpläne', color: 'ink', match: { modules: ['modul1*'] } },
       { id: 'halb', label: '', color: '#123456' },
       { id: 'falsch', label: 'Falsch', color: 'blau' },
       { id: 'rest', label: { de: 'Übrige', fr: 'Autres' }, color: '#64748b', match: { kinds: ['objekt'] } },
     ]
     const ok = writableRules(rows)
-    expect(ok.map((r) => r.id)).toEqual(['pv', 'rest'])
+    expect(ok.map((r) => r.id)).toEqual(['pv', 'plaene', 'rest'])
     expect(configRejections({ map: { objectCategories: ok } })).toEqual([])
     // …and the schema does refuse a rule without a colour (its pattern is the server's to check)
     expect(configRejections({ map: { objectCategories: [{ id: 'x', label: 'X' }] } }).join(' ')).toContain('objectCategories.0')

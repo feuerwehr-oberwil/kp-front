@@ -1,19 +1,22 @@
 import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
-import { categoryId, categoryLabel, writableRules, type ObjectCategoryRule, type ObjectKind } from '../lib/karte/categories'
+import { categoryId, categoryLabel, INK, isCategoryColor, writableRules, type ObjectCategoryRule, type ObjectKind } from '../lib/karte/categories'
 import { getPath, useConfig } from './ConfigContext'
 import { ConfirmButton, RecordRows, RecordTable, SettingRow, SettingsNote } from './ui'
 
 // «Objektfarben» — the station's colours for its objects on «Karte & Objekte»
 // (`map.objectCategories`, lib/karte/categories; backend schemas.py · ObjectCategoryConfig).
 // Ordered rules, first match wins; a rule names the object kinds and/or plan modules (globs) it
-// takes. A row the server would refuse — no name, no #rrggbb colour — stays on screen with its
-// reason and is not written, the ExternalLinksCard's rule.
+// takes. A colour is a #rrggbb or «Tinte» (`ink`: the default look, near-black by day, near-white
+// at night — owner, 25.10.2026). A row the server would refuse — no name, neither colour — stays on
+// screen with its reason and is not written, the ExternalLinksCard's rule.
 
 const HEX = /^#[0-9a-fA-F]{6}$/
 const KINDS: ObjectKind[] = ['einsatzobjekt', 'objekt'] // «depot» is retired (lib/karte/categories)
 const NEW_COLOR = '#64748b'
+/** what an `ink` category looks like here: the token the Karte draws it with */
+const INK_SWATCH = 'var(--obj-plans)'
 
 export function ObjectCategoriesCard() {
   const { draft, set } = useConfig()
@@ -54,12 +57,13 @@ export function ObjectCategoriesCard() {
         const name = categoryLabel(row.label, 'de', '')
         const kinds = row.match?.kinds ?? []
         const modules = row.match?.modules ?? []
-        const problem = !name.trim() ? C.catNoName : !HEX.test(row.color) ? C.catBadColor : null
+        const ink = row.color === INK
+        const problem = !name.trim() ? C.catNoName : !isCategoryColor(row.color) ? C.catBadColor : null
         return (
           <RecordRows
             key={i}
             name={name || appConfig.copy.admin.common.newEntry}
-            swatch={HEX.test(row.color) ? row.color : null}
+            swatch={ink ? INK_SWATCH : HEX.test(row.color) ? row.color : null}
             meta={row.id ? <code>{row.id}</code> : undefined}
             action={(
               <span className="adm-cat-actions">
@@ -76,12 +80,17 @@ export function ObjectCategoriesCard() {
             <SettingRow label={C.catName}>
               <input className="adm-input" type="text" value={name} placeholder={C.catNamePlaceholder} onChange={(e) => setName(i, e.target.value)} />
             </SettingRow>
-            <SettingRow label={C.catColor}>
+            <SettingRow label={C.catColor} tip={C.catColorTip}>
               <div className="adm-color-row">
+                {/* «Tinte» is chosen here; a picked or typed hex leaves it */}
+                <button type="button" className="adm-token adm-cat-ink" aria-pressed={ink} title={C.catInkTip}
+                  onClick={() => patch(i, { color: INK })}>
+                  <span className="adm-rec-swatch" style={{ background: INK_SWATCH }} aria-hidden />{C.catInk}
+                </button>
                 <input className="adm-color-swatch" type="color" value={HEX.test(row.color) ? row.color.toLowerCase() : NEW_COLOR}
                   onChange={(e) => patch(i, { color: e.target.value })} aria-label={C.catColor} />
-                <input className="adm-input adm-input-mono" type="text" value={row.color} placeholder={NEW_COLOR}
-                  onChange={(e) => patch(i, { color: e.target.value.trim() })} />
+                <input className="adm-input adm-input-mono" type="text" value={ink ? '' : row.color} placeholder={ink ? C.catInk : NEW_COLOR}
+                  aria-label={C.catColorHex} onChange={(e) => patch(i, { color: e.target.value.trim() })} />
               </div>
             </SettingRow>
             <SettingRow label={C.catKinds} tip={C.catKindsTip}>

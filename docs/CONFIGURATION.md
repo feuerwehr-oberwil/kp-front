@@ -282,10 +282,10 @@ both now have browser pages – §9e and §9f.
                                                  // null = on wherever the Einsatzort lies in CH,
                                                  // false = never ask them (docs/building-card.md)
     "objectCategories": [                        // «Karte & Objekte»: the station's object colours.
-      {                                          // Ordered, FIRST match wins; [] = every object red
+      {                                          // Ordered, FIRST match wins; [] = the default look (ink)
         "id": "pv",                              // [a-z0-9_-], unique
         "label": { "de": "Photovoltaik", "fr": "Photovoltaïque" },  // or one string
-        "color": "#f59e0b",                      // #rrggbb: dot, tag rim, outline
+        "color": "#f59e0b",                      // #rrggbb or "ink" (the default look, per theme): dot, tag rim, outline
         "match": { "modules": ["modul5-pv*"] }   // kinds? ["einsatzobjekt"|"objekt"] («depot» retired: matches nothing),
       }                                          // modules? globs (* any run, ? one char);
     ]                                            // both named = both must hold; none = catch-all

@@ -853,17 +853,25 @@ device Anleitungen to read in peace time — the Einsatz tab's word and glyph
 Owner, 17.10.2026: colour the objects so that objects with plans, water plans, PV systems … are
 told apart. The station sets ordered rules in the deployment config (Verwaltung › Station &
 Karte › «Objektfarben», schema `ObjectCategoryConfig`), FIRST match wins:
-`{ id, label: "…" | { de, fr, it, en }, color: "#rrggbb", match: { kinds?: [einsatzobjekt|objekt], modules?: [glob…] } }`.
+`{ id, label: "…" | { de, fr, it, en }, color: "#rrggbb" | "ink", match: { kinds?: [einsatzobjekt|objekt], modules?: [glob…] } }`.
 A rule matches when every condition it names holds (none named = catch-all); `modules` globs
 match the object's plan modules (`modul5-pv*` = `modul5-pv`, `-pv15`, `-pv20`). An object no rule
-takes keeps the default look: red, ink-grey without plans. No rules = that default map.
+takes keeps the default look: ink (`--obj-plans`, owner's pick 7A, 23.10.2026), grey without
+plans. No rules = that default map.
+
+- **`"ink"` (admin: «Tinte»)** is a colour like a hex (owner, 25.10.2026): the category draws
+  exactly like the default – dot, tag rim and outline in `--obj-plans`, near-black by day,
+  near-white at night, repainted on the flip – but keeps its own Ebenen row and on/off switch
+  (its glyph in ink). Parsed as `color: null` (`lib/karte/categories`), so every reader falls back
+  to the ink it uses for an object without a category. FWO's «Einsatzpläne» uses it.
 
 - **Order = precedence.** FWO's order (owner, review round 5, 18.10.2026: «emergency plans have
-  precedence over PV or water (ie red first then blue then yellow)»): Einsatzpläne red
-  (`modul1*`, `modul2*`, `modul3*`, `modul4*`, `modul6*`) → Wasser blue (`modul5-wasser*`) →
-  Photovoltaik amber (`modul5-pv*`) → ohne Pläne grey (`kinds: [einsatzobjekt, objekt]`). An object
-  with an Einsatzplan AND a PV or water module is red. Do not use `modul*` for the red rule: it
-  also matches the `modul5-*` modules and would paint every PV/water object red.
+  precedence over PV or water (ie red first then blue then yellow)»): Einsatzpläne – red until
+  7A, `"ink"` since 25.10.2026 – (`modul1*`, `modul2*`, `modul3*`, `modul4*`, `modul6*`) → Wasser
+  blue (`modul5-wasser*`) → Photovoltaik amber (`modul5-pv*`) → ohne Pläne grey
+  (`kinds: [einsatzobjekt, objekt]`). An object with an Einsatzplan AND a PV or water module is
+  ink. Do not use `modul*` for the Einsatzpläne rule: it also matches the `modul5-*` modules and
+  would take every PV/water object.
 
 - ⚠️ `kinds: ["depot"]` is **retired** (review round 3): the schema still accepts it, so an
   existing config stays valid, and it matches NO object — a rule naming only `depot` paints

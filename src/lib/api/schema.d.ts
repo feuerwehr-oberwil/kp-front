@@ -5782,7 +5782,7 @@ export interface components {
         /**
          * ObjectCategoryConfig
          * @description One colour rule for «Karte & Objekte» (src/lib/karte/categories.ts). Ordered, first match
-         *     wins; an object no rule matches keeps the default look (red, grey without plans).
+         *     wins; an object no rule matches keeps the default look (ink, grey without plans).
          */
         ObjectCategoryConfig: {
             /** Id */

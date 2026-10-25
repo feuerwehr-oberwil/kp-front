@@ -142,12 +142,12 @@ export function useKarteEbenen(p: {
   const { georefPlan } = georef
   const twins = [
     { id: OBJECTS_ROW, group: C.layerGroupStation, label: C.layerObjects, sub: C.layerObjectsSub, icon: 'footprint', visible: objectsOn },
-    // one row per category, its colour on the glyph, under «Station» (R2-BITS' Alle/Keine/Standard
-    // work over these like over any row); no object count on them – the owner doesn't want it
-    // (20.10.2026)
+    // one row per category, its colour on the glyph (an `ink` one: the theme's `--obj-plans`, as a
+    // CSS var so it follows the flip), under «Station» (R2-BITS' Alle/Keine/Standard work over these
+    // like over any row); no object count on them – the owner doesn't want it (20.10.2026)
     ...categories.catRules.map((c) => ({
       id: `${CAT_ROW}${c.id}`, group: C.layerGroupStation, label: c.label,
-      icon: 'footprint', swatch: c.color, visible: !categories.hiddenCats.has(c.id),
+      icon: 'footprint', swatch: c.color ?? 'var(--obj-plans)', visible: !categories.hiddenCats.has(c.id),
     })),
     {
       id: UNDERGROUND_ROW, group: C.layerGroupStation, label: C.layerUnderground, icon: 'footprint', visible: underOn,
