@@ -497,7 +497,7 @@ export function GeorefMapLoupe({ map, layers, isVisible, night, atRef }: {
    * on the map's own centre (see `aim` below).
    *
    * ⚠️ A ref and not a prop, because this used to be `useState` in MapView. Every pointer sample
-   * of the georef turn therefore re-rendered the whole map tree — and `labelDecisions()` runs
+   * of the georef turn therefore re-rendered the whole map tree — and the label pass (useLabelPass) runs
    * unconditionally in that render, projecting every entity through `map.project` and running the
    * full AABB pass. MapView's own comment on `onView` already forbids exactly this ("that
    * re-renders all of IncidentWorkspace every frame"); the loupe was doing the local equivalent
