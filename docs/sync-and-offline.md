@@ -132,6 +132,12 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
 - Blob data never falls back to JSON storage. Failed local media persistence retains bytes in
   memory and reports storage failure. Pending uploads retry with a bounded delay; exhausted
   uploads wait for explicit retry. Rendering the queue must never trigger an upload loop.
+- An upload that landed leaves a stored **receipt** in the media queue (server URL, bytes
+  dropped) until the Verlauf link it enriches is acknowledged; a reload replays it, and a row
+  already carrying the URL is not patched twice (`mediaQueue` / `useMediaQueue` headers, audit
+  F06 25.10.2026). A receipt keeps the badge amber; it is not counted as a pending capture.
+  A Rapport-Beilage's receipt waits for the workspace save instead (`sync.hasUnsynced`), and a
+  receipt for a retracted row links nothing and retires once the Verlauf is synced.
 
 ## A closed Einsatz
 
