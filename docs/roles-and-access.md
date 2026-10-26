@@ -120,7 +120,12 @@ and the link allowlist does not name these routes). What a role may do from ther
 Objektbesuch – stays `objectVisits.captureRoles`.
 
 The service worker enforces the same boundary (`public/sw-media-cache.js`): only known account
-clients may use the station's reference caches. Link and unknown clients fetch every
+clients may use the station's reference caches. After an idle worker restart (which does not
+fire `controllerchange`), an unknown client is asked to re-announce its current session. The
+page replies with its latest context, including any denial; no old grant is persisted or
+inferred from the cache owner. Workbox's asynchronous session hooks await that reply before
+reading or storing reference data, preserving the existing cache strategies for account clients.
+Link clients and clients that cannot affirm an account session fetch every
 `/api/reference/*` resource from the server with `cache: 'no-store'`, including pinned plans,
 tiles and checklist images; an explicit `X-Incident-Link: use` wins immediately. A cached
 account response must never replace a link's 403. Account clients keep their offline reference

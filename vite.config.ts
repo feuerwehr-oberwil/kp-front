@@ -14,8 +14,26 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, loadEnv, type Plugin, type Rollup } from 'vite'
 import react from '@vitejs/plugin-react'
-import { VitePWA } from 'vite-plugin-pwa'
+import { VitePWA, type VitePWAOptions } from 'vite-plugin-pwa'
 import { resolveCustomMedia } from './src/lib/breakpoints.ts'
+
+type RuntimeCache = NonNullable<NonNullable<VitePWAOptions['workbox']>['runtimeCaching']>[number]
+type RuntimePlugin = NonNullable<NonNullable<RuntimeCache['options']>['plugins']>[number]
+// Serialized into sw.js by Workbox: callbacks must use only worker globals and arguments.
+// The custom worker asks a live page for its context after an idle restart. Checking in async
+// hooks lets authenticated clients retain every reference strategy's existing offline behavior.
+declare const self: { kpReferenceCacheAllowed: (event: Event, request: Request) => Promise<boolean> }
+const referenceSessionPlugin: RuntimePlugin = {
+  cachedResponseWillBeUsed: async ({ event, request, cachedResponse }) => {
+    return await self.kpReferenceCacheAllowed(event, request) ? cachedResponse : undefined
+  },
+  requestWillFetch: async ({ event, request }) => {
+    return await self.kpReferenceCacheAllowed(event, request) ? request : new Request(request, { cache: 'no-store' })
+  },
+  cacheWillUpdate: async ({ event, request, response }) => {
+    return await self.kpReferenceCacheAllowed(event, request) ? response : null
+  },
+}
 
 // Build stamp surfaced in the app menu so a tablet in the field can be matched to a
 // known deploy: package version + short git SHA + build date. Docker/Railway builds have
@@ -389,6 +407,7 @@ export default defineConfig(({ mode }) => {
               handler: 'CacheFirst',
               options: {
                 cacheName: 'plan-tiles',
+                plugins: [referenceSessionPlugin],
                 cacheableResponse: { statuses: [200] },
                 expiration: { maxEntries: 12000, maxAgeSeconds: 60 * 60 * 24 * 90, purgeOnQuotaError: true },
               },
@@ -400,6 +419,7 @@ export default defineConfig(({ mode }) => {
               handler: 'NetworkFirst',
               options: {
                 cacheName: 'plan-tile-manifests',
+                plugins: [referenceSessionPlugin],
                 networkTimeoutSeconds: 3,
                 cacheableResponse: { statuses: [200] },
                 expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 90 },
@@ -417,6 +437,7 @@ export default defineConfig(({ mode }) => {
               handler: 'CacheFirst',
               options: {
                 cacheName: 'reference-plans',
+                plugins: [referenceSessionPlugin],
                 cacheableResponse: { statuses: [200] },
                 expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 90 },
               },
@@ -436,6 +457,7 @@ export default defineConfig(({ mode }) => {
               handler: 'CacheFirst',
               options: {
                 cacheName: 'checklist-assets',
+                plugins: [referenceSessionPlugin],
                 cacheableResponse: { statuses: [200] },
                 expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 180, purgeOnQuotaError: true },
               },
@@ -446,6 +468,7 @@ export default defineConfig(({ mode }) => {
               handler: 'StaleWhileRevalidate',
               options: {
                 cacheName: 'reference-data',
+                plugins: [referenceSessionPlugin],
                 cacheableResponse: { statuses: [0, 200] },
                 expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 },
               },

@@ -2,7 +2,8 @@
  *
  * The worker deliberately treats an unknown client as network-only. We therefore resend the
  * current context once the active worker is ready and after controller changes, not just when
- * React's user changes. A waiting worker must never inherit permission by accident.
+ * React's user changes. An idle worker restart keeps the same controller, so a worker request
+ * re-sends the latest context too. A waiting worker must never inherit permission by accident.
  */
 type MediaCacheUser = { id: string; link_scoped?: boolean } | null
 
@@ -45,5 +46,8 @@ export function syncMediaCacheAuth(user: MediaCacheUser): void {
     // denial another tab broadcast), a controllerchange can only re-post «logged-out»: a refused
     // session is never re-granted to the worker. A fresh sign-in is what sets a user grant again.
     sw.addEventListener('controllerchange', () => postCurrent(sw.controller))
+    sw.addEventListener('message', (event: MessageEvent) => {
+      if (event.data?.type === 'kp-media-auth-request') postCurrent(sw.controller)
+    })
   }
 }
