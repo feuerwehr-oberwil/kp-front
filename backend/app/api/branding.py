@@ -8,13 +8,15 @@ the PUBLIC ``GET /api/branding/file/{key}`` (branding must render BEFORE auth).
 The PWA install icons (``iconPng192`` / ``iconPng512``) are uploaded here too, and
 ``app/webmanifest.py`` serves them in a per-deployment ``/manifest.webmanifest`` — so the
 home-screen icon on the crew's tablet becomes the station's as well.
+
+Like every config writer, lock and reload the singleton before deriving its replacement;
+a branding upload must preserve a config save that completed while its bytes were arriving.
 """
 
 import mimetypes
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import storage
@@ -22,6 +24,7 @@ from ..auth.dependencies import CurrentAdmin, OptionalUser
 from ..config import settings
 from ..config_history import keep_previous
 from ..database import get_db
+from ..deployment_config import config_row
 from ..models import DeploymentConfig
 from ..schemas import DeploymentConfigIn, DeploymentConfigOut, load_stored_config
 from .config import _projection, _version
@@ -122,12 +125,7 @@ def _ext_for(filename: str | None, content_type: str) -> str:
 
 
 async def _load_row(db: AsyncSession) -> DeploymentConfig:
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    if row is None:
-        row = DeploymentConfig(id=1, config_json={})
-        db.add(row)
-        await db.flush()
-    return row
+    return await config_row(db, lock=True)
 
 
 def _set_asset(row: DeploymentConfig, slot: str, url: str | None) -> DeploymentConfigIn:

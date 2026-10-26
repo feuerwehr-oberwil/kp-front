@@ -28,6 +28,7 @@ Slots: ``logo`` (login screen, header), ``reportLogo`` (letterhead of the printe
 Einsatzrapport; falls back to ``logo`` when unset), ``favicon`` (browser tab),
 ``iconPng192``/``iconPng512`` (home-screen icon of the installed PWA — served through
 ``/manifest.webmanifest``; must be square PNGs, see app/api/branding.py).
+The config merge locks and reloads the singleton before reading the document it preserves.
 """
 
 import argparse
@@ -71,13 +72,12 @@ def _push(slot: str, path: Path, base: str, admin_secret: str) -> str:
 async def _load(slot: str, path: Path) -> str:
     """Write the file into the blob store and point ``identity.assets[slot]`` at it."""
     from fastapi import HTTPException
-    from sqlalchemy import select
 
     from . import storage
     from .api.branding import _check_icon
     from .config_history import keep_previous
     from .database import async_session_maker
-    from .models import DeploymentConfig
+    from .deployment_config import config_row
 
     data = path.read_bytes()
     # Same rule as the HTTP upload, from the same function — a DB-direct load must not be the
@@ -91,7 +91,7 @@ async def _load(slot: str, path: Path) -> str:
     storage.put_bytes(key, data)
     url = f"/api/branding/file/{key}"
     async with async_session_maker() as db:
-        row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+        row = await config_row(db, lock=True)
         # A whole-document rewrite (the nightly demo reset runs this), so keep what it replaces —
         # same net as `admin_config load`. Best-effort; it never blocks the write.
         await keep_previous(db, "branding")
@@ -101,11 +101,8 @@ async def _load(slot: str, path: Path) -> str:
         assets[slot] = url
         identity["assets"] = assets
         doc["identity"] = identity
-        if row is None:
-            db.add(DeploymentConfig(id=1, config_json=doc))
-        else:
-            # reassign, don't mutate: the JSON column only notices a new object
-            row.config_json = doc
+        # reassign, don't mutate: the JSON column only notices a new object
+        row.config_json = doc
         await db.commit()
     return url
 

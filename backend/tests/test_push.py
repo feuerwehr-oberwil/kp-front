@@ -12,6 +12,7 @@ import json
 from datetime import datetime
 from types import SimpleNamespace
 
+import pytest
 from sqlalchemy import select
 
 from app.push import _atemschutz_message, _should_send, due_reminders, due_trupps
@@ -1154,6 +1155,19 @@ async def test_renew_without_a_session_takes_the_subscription_as_its_credential(
     await db_session.refresh(row)
     assert row.created_at > old + timedelta(days=100)
     assert row.user_id == editor.id  # the owner never changes
+
+
+@pytest.mark.parametrize("field", ["p256dh", "auth"])
+async def test_renew_rejects_unicode_credentials_without_an_error(client, db_session, field):
+    from app.models import PushSubscription
+
+    endpoint = "https://fcm.googleapis.com/fcm/send/unicode-renew"
+    db_session.add(PushSubscription(endpoint=endpoint, p256dh="key", auth="auth"))
+    await db_session.commit()
+    keys = {"p256dh": "key", "auth": "auth"}
+    keys[field] = "é"
+    response = await client.post("/api/push/subscriptions/renew", json={"endpoint": endpoint, "keys": keys})
+    assert response.status_code == 404
 
 
 async def test_testalarm_goes_to_the_callers_own_registration_only(client, editor, viewer, monkeypatch):

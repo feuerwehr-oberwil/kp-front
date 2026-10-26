@@ -819,6 +819,9 @@ stopped producing files. It prints the command that fixes each. It is the same d
 It runs on the host and there is no browser equivalent, deliberately: the moment you most need
 it is the moment the app serves no pages.
 
+For a self-hosted storage ownership failure, the image's `app` user is UID/GID `10001:10001`.
+The ownership repair printed by `doctor.sh` must match that runtime identity.
+
 The rest of this section is ordered by how often it catches people.
 
 1. **`SECRET_KEY` must never change.** It signs sessions, peppers PINs, *and* is the key every

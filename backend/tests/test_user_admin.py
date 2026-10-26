@@ -10,7 +10,11 @@ the editor role: each client must both log in (for the audit identity used by th
 guard) AND unlock admin via the ``admin_login`` fixture.
 """
 
+import asyncio
+from contextlib import suppress
+
 import pytest
+from sqlalchemy import select
 
 from app.auth.security import TRIVIAL_PINS
 from app.config import settings
@@ -337,3 +341,45 @@ async def test_last_editor_guard_not_self(client, editor, viewer, admin_login):
         # deactivate the (already inactive) original is a no-op transition → allowed
         r = await c2.patch(f"/api/auth/users/{editor.id}", json={"is_active": False})
         assert r.status_code == 200
+
+
+@pytest.mark.parametrize("change", [{"is_active": False}, {"role": "el"}])
+async def test_overlapping_admin_changes_keep_one_active_editor(
+    client, editor, viewer, admin_login, db_session, session_factory, monkeypatch, change
+):
+    if db_session.bind.dialect.name != "postgresql":
+        pytest.skip("requires independent PostgreSQL transactions")
+    from app.auth import router as auth_router
+    from app.models import User
+
+    viewer.role = "editor"
+    await db_session.commit()
+    await admin_login(client)  # admin alone, so neither request is a self-edit
+    first_at_write, second_at_write, release = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    revoke = auth_router.revoke_sessions
+    calls = 0
+
+    async def hold_first_change(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            first_at_write.set()
+            await asyncio.wait_for(release.wait(), 5)
+        else:
+            second_at_write.set()
+        await revoke(*args, **kwargs)
+
+    monkeypatch.setattr(auth_router, "revoke_sessions", hold_first_change)
+    task_a = asyncio.create_task(client.patch(f"/api/auth/users/{editor.id}", json=change))
+    await asyncio.wait_for(first_at_write.wait(), 5)
+    task_b = asyncio.create_task(client.patch(f"/api/auth/users/{viewer.id}", json=change))
+    try:
+        with suppress(TimeoutError):
+            await asyncio.wait_for(second_at_write.wait(), 0.5)
+    finally:
+        release.set()
+    responses = await asyncio.gather(task_a, task_b)
+    assert [r.status_code for r in responses] == [200, 400]
+    async with session_factory() as db:
+        active = list((await db.scalars(select(User).where(User.role == "editor", User.is_active.is_(True)))).all())
+    assert [u.id for u in active] == [viewer.id]

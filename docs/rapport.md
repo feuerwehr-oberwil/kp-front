@@ -4,6 +4,16 @@ What the printed Einsatzrapport carries (`src/lib/report.ts`, `src/lib/reportPdf
 `src/lib/auswertung.ts`, `backend/app/report`, `backend/app/kroki.py`). Moved here from AGENTS.md on 2026-10-08,
 wording unchanged.
 
+## Offline attachments
+
+Rapport-Beilagen store their prepared photo bytes in the incident's media queue before the
+first upload (`useRowMediaUpload`, `mediaQueue · target: 'attachment'`). They contribute to the
+shared pending/error/storage status and retry on reconnect. After a reload, the queue restores
+a fresh session URL on the existing attachment; after upload it replaces only that row's URL,
+keeping its caption. A deleted attachment is never recreated by a late upload or restore. Undo
+snapshots learn the uploaded URL too, so undo/redo cannot put back an expired session URL after
+the queue has acknowledged its bytes. A queue entry without a target remains journal media.
+
 ## Abschluss – the «Noch offen» sheet (23.10.2026)
 
 `useAbschluss · confirmAndComplete` asks the one closing question over `lib/abschluss`'s

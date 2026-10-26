@@ -42,7 +42,7 @@ for preset in "${presets[@]}"; do
   cleanup
   storage=$(mktemp -d)
   docker run -d --name "$pg" -e POSTGRES_USER=kpfront -e POSTGRES_PASSWORD=kpfront -e POSTGRES_DB=kpfront \
-    -p "${pg_port}:5432" postgres:16-alpine >/dev/null
+    -p "127.0.0.1:${pg_port}:5432" postgres:16-alpine >/dev/null
   until docker exec "$pg" pg_isready -U kpfront -q 2>/dev/null; do sleep 1; done
   sleep 1
   (cd backend && DATABASE_URL=$db_url uv run alembic upgrade head >/dev/null 2>&1)

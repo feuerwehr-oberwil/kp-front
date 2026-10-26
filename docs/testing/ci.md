@@ -45,6 +45,9 @@ named for that invocation, with a separate database per xdist worker. Parallel w
 not create/drop a shared `kpfront_test_gwN`. The parent test database is removed on exit; the
 test fixtures own worker cleanup. Development data is never the test target.
 
+Local PostgreSQL containers (development, performance and visual checks) publish their ports
+on `127.0.0.1` only. Their public test credentials must not expose a database to the LAN.
+
 ## Tests, ratchets and holds
 
 Moved here from AGENTS.md on 2026-10-18, wording unchanged.

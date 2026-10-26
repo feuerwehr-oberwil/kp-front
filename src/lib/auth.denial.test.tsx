@@ -200,11 +200,15 @@ describe('authMediaCache — a denied session is never re-granted on controllerc
   it('re-sends «logged-out», never the stale user grant', async () => {
     const posted: unknown[] = []
     let onControllerChange: () => void = () => {}
+    let onWorkerMessage: (event: MessageEvent) => void = () => {}
     const controller = { postMessage: (m: unknown) => { posted.push(m) } }
     const fakeSW = {
       controller,
       ready: Promise.resolve({ active: controller }),
-      addEventListener: (type: string, h: () => void) => { if (type === 'controllerchange') onControllerChange = h },
+      addEventListener: (type: string, h: (event?: MessageEvent) => void) => {
+        if (type === 'controllerchange') onControllerChange = () => h()
+        if (type === 'message') onWorkerMessage = h
+      },
     }
     const nav = navigator as unknown as { serviceWorker?: unknown }
     nav.serviceWorker = fakeSW
@@ -218,6 +222,13 @@ describe('authMediaCache — a denied session is never re-granted on controllerc
       const before = posted.length
       onControllerChange()      // a new worker takes over
       expect(posted.slice(before)).toEqual([{ type: 'kp-media-auth', kind: 'logged-out' }])
+      const afterController = posted.length
+      onWorkerMessage(new MessageEvent('message', { data: { type: 'kp-media-auth-request' } }))
+      expect(posted.slice(afterController)).toEqual([{ type: 'kp-media-auth', kind: 'logged-out' }])
+      real({ id: 'u2' }) // only a new sign-in changes the answer to an idle restart's request
+      const afterSignIn = posted.length
+      onWorkerMessage(new MessageEvent('message', { data: { type: 'kp-media-auth-request' } }))
+      expect(posted.slice(afterSignIn)).toEqual([{ type: 'kp-media-auth', kind: 'user', userId: 'u2' }])
     } finally {
       delete nav.serviceWorker
     }

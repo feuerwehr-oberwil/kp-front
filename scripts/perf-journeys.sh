@@ -39,7 +39,7 @@ if curl -sf "localhost:${port}/health" >/dev/null; then echo "port ${port} is al
 db_url="postgresql+asyncpg://kpfront:kpfront@localhost:${pg_port}/kpfront"
 secret_key=$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')
 docker run -d --name "$pg" -e POSTGRES_USER=kpfront -e POSTGRES_PASSWORD=kpfront -e POSTGRES_DB=kpfront \
-  -p "${pg_port}:5432" postgres:16-alpine -c fsync=off >/dev/null
+  -p "127.0.0.1:${pg_port}:5432" postgres:16-alpine -c fsync=off >/dev/null
 until docker exec "$pg" pg_isready -U kpfront -q 2>/dev/null; do sleep 1; done
 sleep 1
 (cd backend && DATABASE_URL=$db_url uv run alembic upgrade head >/dev/null 2>&1)

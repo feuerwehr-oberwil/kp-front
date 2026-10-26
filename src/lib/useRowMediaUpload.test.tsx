@@ -4,6 +4,8 @@ import { act, renderHook } from '@testing-library/react'
 import { useState } from 'react'
 
 vi.mock('./ui', () => ({ toast: vi.fn(), undoToast: vi.fn() }))
+vi.mock('./mediaUrl', () => ({ forgetLocalThumb: vi.fn(), mintLocalThumb: async () => {} }))
+vi.mock('./imagePrep', () => ({ prepareUploadImage: async (blob: Blob) => blob }))
 import { undoToast } from './ui'
 import { eventScopeFor } from './eventScope'
 import { useRowMediaUpload } from './useRowMediaUpload'
@@ -12,17 +14,18 @@ import type { ReportAttachment } from '../types'
 // The Rapport-Beilagen half of the row-media hook (moved out of IncidentWorkspace 23.09.2026). What
 // matters across the move: the one-shot pusher is read through the REF OBJECT at call time (the
 // workspace assigns it after the hook ran), and a typed Bildlegende is ONE step.
-afterEach(() => { vi.clearAllMocks() })
+afterEach(() => { vi.clearAllMocks(); vi.unstubAllGlobals() })
 
 function setup(rows: ReportAttachment[]) {
   const pushed: { label: string; restore: () => void; reapply: () => void; drop: ReturnType<typeof vi.fn> }[] = []
   const rememberOneShotRef = { current: (() => () => {}) as (d: never, l: string, r: () => void, a: () => void) => () => void }
   const lastCaptionStepRef = { current: null }
   const emit = vi.fn()
+  const media = { enqueue: vi.fn().mockResolvedValue(true), flush: vi.fn().mockResolvedValue(undefined) }
   const hook = renderHook(() => {
     const [attachments, setAttachments] = useState(rows)
     const api = useRowMediaUpload({
-      incidentMeta: { id: 'inc1' }, canWriteRecord: true, media: { enqueue: vi.fn() } as never,
+      incidentMeta: { id: 'inc1' }, canWriteRecord: true, media: media as never,
       swapPhoto: vi.fn(), swapRowMedia: vi.fn(), attachments, setAttachments, emit,
       rememberOneShotRef: rememberOneShotRef as never, lastCaptionStepRef,
     })
@@ -32,11 +35,55 @@ function setup(rows: ReportAttachment[]) {
   rememberOneShotRef.current = (_d, label, restore, reapply) => {
     const drop = vi.fn(); pushed.push({ label, restore, reapply, drop }); return drop
   }
-  return { hook, pushed, emit }
+  return { hook, pushed, emit, media }
 }
 
 describe('useRowMediaUpload · Beilagen', () => {
   const row: ReportAttachment = { id: 'a1', url: 'https://x/1.jpg', at: '2026-09-23T10:00:00Z' }
+
+  it('persists attachment bytes in the media outbox before asking it to upload', async () => {
+    vi.stubGlobal('URL', { createObjectURL: () => 'blob:attachment', revokeObjectURL: vi.fn() })
+    const { hook, media } = setup([])
+    const file = new File(['damage photo'], 'damage.jpg', { type: 'image/jpeg' })
+    await act(async () => { hook.result.current.addAttachments([file]) })
+    const attachment = hook.result.current.attachments[0]
+    expect(attachment.url).toBe('blob:attachment')
+    expect(media.enqueue).toHaveBeenCalledWith(attachment.id, 'photo', file, 'damage.jpg', attachment.at, 'blob:attachment', 'attachment')
+    expect(media.flush).toHaveBeenCalledOnce()
+    expect(media.enqueue.mock.invocationCallOrder[0]).toBeLessThan(media.flush.mock.invocationCallOrder[0])
+  })
+
+  it('upload completion keeps the current caption and an undo restores its server URL', async () => {
+    vi.stubGlobal('URL', { createObjectURL: () => 'blob:attachment', revokeObjectURL: vi.fn() })
+    const { hook, pushed } = setup([])
+    await act(async () => { hook.result.current.addAttachments([new File(['photo'], 'photo.jpg')]) })
+    const id = hook.result.current.attachments[0].id
+    act(() => hook.result.current.captionAttachment(id, 'Damage to kitchen'))
+    act(() => pushed[0].restore()) // undo the add before the upload finishes
+    act(() => hook.result.current.swapAttachmentMedia(id, '/api/media/attachment'))
+    expect(hook.result.current.attachments).toEqual([]) // never resurrect a removed attachment
+    act(() => pushed[0].reapply())
+    expect(hook.result.current.attachments[0]).toMatchObject({ url: '/api/media/attachment', caption: 'Damage to kitchen' })
+  })
+
+  it('a pending attachment restored after reload replaces only its URL', () => {
+    const { hook } = setup([{ ...row, url: 'blob:dead-session', caption: 'Kitchen' }])
+    act(() => hook.result.current.swapAttachmentMedia('a1', 'blob:restored'))
+    expect(hook.result.current.attachments[0]).toMatchObject({ url: 'blob:restored', caption: 'Kitchen' })
+    act(() => hook.result.current.swapAttachmentMedia('a1', '/api/media/attachment'))
+    expect(hook.result.current.attachments[0]).toMatchObject({ url: '/api/media/attachment', caption: 'Kitchen' })
+    act(() => hook.result.current.swapAttachmentMedia('removed', '/api/media/unused'))
+    expect(hook.result.current.attachments).toHaveLength(1)
+  })
+
+  it('removing a pending attachment still undoes to its uploaded URL', () => {
+    const { hook } = setup([{ ...row, url: 'blob:pending', caption: 'Kitchen' }])
+    act(() => hook.result.current.removeAttachment('a1'))
+    act(() => hook.result.current.swapAttachmentMedia('a1', '/api/media/uploaded'))
+    expect(hook.result.current.attachments).toEqual([])
+    act(() => vi.mocked(undoToast).mock.calls[0][1]())
+    expect(hook.result.current.attachments[0]).toMatchObject({ url: '/api/media/uploaded', caption: 'Kitchen' })
+  })
 
   it('a typed Bildlegende folds into ONE step that restores the caption it started from', () => {
     const { hook, pushed } = setup([{ ...row, caption: 'Alt' }])

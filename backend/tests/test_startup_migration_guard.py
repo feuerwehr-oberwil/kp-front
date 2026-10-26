@@ -1,4 +1,4 @@
-"""An unsupported database must not consume the migration backups needed to recover it."""
+"""Startup preserves recovery dumps and rotates only complete backups, including unusual paths."""
 
 import gzip
 import os
@@ -12,12 +12,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.fixture
-def startup(tmp_path):
+def startup(tmp_path, request):
     """Run the real startup shell against controlled command results, never a live database."""
     commands = tmp_path / "bin"
     commands.mkdir()
     log = tmp_path / "commands.log"
-    backups = tmp_path / "backups"
+    backups = tmp_path / getattr(request, "param", "backups")
     backups.mkdir()
     for index in range(5):
         path = backups / f"pre-migrate-20260901-00000{index}.sql.gz"
@@ -117,3 +117,17 @@ def test_fresh_database_still_takes_a_backup_before_migrating(startup):
     assert calls.index("pg_dump content") < calls.index("upgrade head") < calls.index("uvicorn")
     assert len(remaining) == 5
     assert any(b"PostgreSQL database dump" in gzip.decompress(value) for value in remaining.values())
+
+
+@pytest.mark.parametrize("startup", ["backup copies", "backups 'quoted'", "backup\ncopies"], indirect=True)
+def test_retention_preserves_whole_backup_paths(startup):
+    """An operator-chosen backup directory must not turn filenames into separate rm operands."""
+    run, original = startup
+    result, calls, remaining = run("empty")
+
+    assert result.returncode == 0, result.stderr
+    assert "uvicorn" in calls
+    assert len(remaining) == 5
+    assert original.keys() - remaining.keys() == {"pre-migrate-20260901-000000.sql.gz"}
+    for name in original.keys() & remaining.keys():
+        assert remaining[name] == original[name]

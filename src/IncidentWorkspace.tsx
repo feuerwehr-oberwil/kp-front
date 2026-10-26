@@ -6,7 +6,7 @@
 // Rules: every mutation joins the one timeline (docs/undo.md); synced state and the record:
 // docs/sync-and-offline.md.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite } from './lib/icons'
@@ -1496,11 +1496,13 @@ export function IncidentWorkspace({
 
   // the media queue, the one sync status the badge shows, «Jetzt synchronisieren» and the pre-close
   // drain (workspace/useMediaOutbox)
+  const attachmentMediaRef = useRef<(id: string, url: string) => void>(() => {})
+  const applyAttachmentMedia = useCallback((id: string, url: string) => attachmentMediaRef.current(id, url), [])
   const {
     media, flushRecordOutboxes, swapRowMedia, syncStatus, closedRefusedUnexported, baseSyncStatus,
     syncNow,
   } = useMediaOutbox({
-    swapPhoto, overlayRow, patchRow, incidentMeta, canWriteRecord, closedRefusedTotal,
+    swapPhoto, swapAttachmentMedia: applyAttachmentMedia, overlayRow, patchRow, incidentMeta, canWriteRecord, closedRefusedTotal,
     exportedClosedRefused, recordsSyncStatus, syncWorkspaceNow, journal, auditDelivery, sync, flushEvents,
   })
 
@@ -1573,10 +1575,12 @@ export function IncidentWorkspace({
   // the row media uploads and the Rapport-Beilagen — lib/useRowMediaUpload. ⚠️ The two refs go in
   // as the REF OBJECTS: rememberOneShotRef is assigned much further down, and lastCaptionStep is
   // reset by the remote hydrate above.
-  const { uploadPhotoForRow, uploadMediaForRow, addAttachments, captionAttachment, removeAttachment } = useRowMediaUpload({
+  const { uploadPhotoForRow, uploadMediaForRow, addAttachments, captionAttachment, removeAttachment, swapAttachmentMedia } = useRowMediaUpload({
     incidentMeta, canWriteRecord, media, swapPhoto, swapRowMedia, attachments, setAttachments, emit,
     rememberOneShotRef, lastCaptionStepRef: lastCaptionStep,
   })
+  // Install before the media queue's passive restore effect can finish its IndexedDB read.
+  useLayoutEffect(() => { attachmentMediaRef.current = swapAttachmentMedia }, [swapAttachmentMedia])
 
   // When the workspace sync recovers (server reachable again), drain any queued media too —
   // a stronger signal than the browser's `online` event, which fires on link-up not reach.

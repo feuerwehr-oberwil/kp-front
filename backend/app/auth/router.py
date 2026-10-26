@@ -1,4 +1,8 @@
-"""Auth endpoints: roster → login (PIN) → me / refresh / logout."""
+"""Auth endpoints: roster → login (PIN) → me / refresh / logout.
+
+Account updates lock active editors in stable id order before checking the last-editor
+guard. Two admin requests must not each count the editor the other is about to remove.
+"""
 
 import logging
 import uuid
@@ -392,7 +396,15 @@ async def update_user(
     current: OptionalUser,
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    # The invariant spans accounts, so locking only the target would leave two independent
+    # demotions/deactivations free to remove the last two editors together. Acquire every
+    # active editor in a stable order, then read the target afresh after any wait.
+    await db.execute(
+        select(User.id).where(User.role == "editor", User.is_active.is_(True)).order_by(User.id).with_for_update()
+    )
+    user = (
+        await db.execute(select(User).where(User.id == user_id).execution_options(populate_existing=True))
+    ).scalar_one_or_none()
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Benutzer nicht gefunden")
 

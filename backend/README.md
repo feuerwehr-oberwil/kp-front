@@ -30,7 +30,7 @@ tests/               pytest suite (see Tests below)
 ```bash
 # 1. Postgres (any instance; the .env below expects port 5434)
 docker run -d --name kpfront-db-dev -e POSTGRES_USER=kpfront \
-  -e POSTGRES_PASSWORD=kpfront -e POSTGRES_DB=kpfront -p 5434:5432 postgres:16-alpine
+  -e POSTGRES_PASSWORD=kpfront -e POSTGRES_DB=kpfront -p 127.0.0.1:5434:5432 postgres:16-alpine
 
 # 2. Configure + install
 cp .env.example .env        # set a stable SECRET_KEY for dev (see note below)
@@ -246,4 +246,3 @@ Each object becomes an `ObjectSite` row and each Modul-PDF a `ReferenceDataset`
 server's API so it writes its OWN volume – the way to **refresh a remote deployment** from a
 workstation. To refresh: re-run the importer in the data repo, then
 `just objects-push <manifest>` (or the `push` command above). See [`../docs/objektplaene-architecture.md`](../docs/objektplaene-architecture.md).
-

@@ -37,3 +37,17 @@ it('renders failures without a retry loop, stops after three rejections, and all
   expect(upload).toHaveBeenCalledTimes(4)
   expect(result.current.pendingCount).toBe(0)
 })
+
+it('restores and completes a persisted attachment with its target, then acknowledges its queue', async () => {
+  vi.stubGlobal('URL', { createObjectURL: () => 'blob:restored-attachment', revokeObjectURL: vi.fn() })
+  upload.mockReset().mockResolvedValue({ url: '/api/media/attachment' })
+  await enqueueMedia('attachment-hook', 'att1', 'photo', new Blob(['damage']), 'damage.jpg', '2026-10-25T10:00:00Z', 'blob:previous-session', 'attachment')
+  __resetMediaQueueForTests()
+  const onRestore = vi.fn(), onUploaded = vi.fn()
+  const { result } = renderHook(() => useMediaQueue({ incidentId: 'attachment-hook', readOnly: false, onUploaded, onRestore }))
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
+  expect(onRestore).toHaveBeenCalledWith('att1', 'photo', 'blob:restored-attachment', 'blob:previous-session', 'attachment')
+  expect(onUploaded).toHaveBeenCalledWith('att1', 'photo', '/api/media/attachment', 'blob:restored-attachment', 'attachment')
+  expect(result.current.pendingCount).toBe(0)
+  expect(result.current.syncStatus).toBe('synced')
+})

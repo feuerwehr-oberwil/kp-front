@@ -9,9 +9,8 @@ import { uploadMedia } from './incidents'
 import { prepareUploadImage } from './imagePrep'
 import { forgetLocalThumb, mintLocalThumb } from './mediaUrl'
 import { newId } from './ids'
-import { fillTemplate } from './format'
 import { REPORT_COALESCE_MS } from './reportUndo'
-import { toast, undoToast } from './ui'
+import { undoToast } from './ui'
 
 interface Args {
   incidentMeta: Pick<IncidentMeta, 'id'>
@@ -41,6 +40,8 @@ interface Args {
  *
  * Moved verbatim and called where the block stood. The callbacks' deps are the old ones plus the
  * two ref OBJECTS, which arrive as arguments now — stable identities, so nothing re-memoizes.
+ * Rapport-Beilagen enter the durable media queue BEFORE upload, just like pending journal media.
+ * Their URL swaps never recreate a deleted row; kept undo values learn the uploaded URL too.
  */
 export function useRowMediaUpload({
   incidentMeta, canWriteRecord, media, swapPhoto, swapRowMedia, attachments, setAttachments, emit,
@@ -102,6 +103,12 @@ export function useRowMediaUpload({
    */
   /** what the list says right now, for the handlers that have to read a row before changing it */
   const attachmentsRef = useRef(attachments); attachmentsRef.current = attachments
+  const keptAttachments = useRef(new Map<string, { row: ReportAttachment }>())
+  const swapAttachmentMedia = useCallback((id: string, url: string) => {
+    const kept = keptAttachments.current.get(id)
+    if (kept) kept.row = { ...kept.row, url }
+    setAttachments((list) => list.map((a) => (a.id === id ? { ...a, url } : a)))
+  }, [setAttachments])
   const addAttachments = useCallback((files: File[]) => {
     if (!canWriteRecord) return
     const at = new Date().toISOString()
@@ -112,12 +119,14 @@ export function useRowMediaUpload({
         // the Beilagen list shows a session thumbnail, never the camera file (lib/mediaUrl) —
         // minted before the row appears, so the chip never renders without one
         await mintLocalThumb(localUrl, file)
-        setAttachments((list) => [...list, { id, url: localUrl, at }])
+        const blob = await prepareUploadImage(file)
+        const kept: { row: ReportAttachment } = { row: { id, url: localUrl, at } }
+        keptAttachments.current.set(id, kept)
+        setAttachments((list) => [...list, kept.row])
         emit('report.attachment.add', { id })
         // ↶ takes the Beilage off again. ⚠️ The box, not a captured row: the upload swaps this
         // row's `blob:` URL for the server one a moment later, and a ↷ that put the local URL
         // back would restore a picture that exists on no other device and after no reload.
-        const kept: { row: ReportAttachment } = { row: { id, url: localUrl, at } }
         rememberOneShotRef.current(
           'rapport', appConfig.copy.preflight.attachmentAdded,
           () => setAttachments((list) => { const cur = list.find((a) => a.id === id); if (cur) kept.row = cur; return list.filter((a) => a.id !== id) }),
@@ -126,22 +135,14 @@ export function useRowMediaUpload({
           // a Beilage writes no Verlauf row, so neither does taking it back (D6, 26.09.2026)
           'silent',
         )
-        try {
-          // Re-encode first: the server takes jpeg/png/webp only and a phone hands over HEIC at
-          // 4–12 MB, so the raw file 4xx'd and the Beilage silently never printed (lib/imagePrep).
-          const blob = await prepareUploadImage(file)
-          const { url } = await uploadMedia(incidentMeta.id, blob, 'photo', file.name || 'beilage.jpg')
-          setAttachments((list) => list.map((a) => (a.id === id ? { ...a, url } : a)))
-          forgetLocalThumb(localUrl)
-        } catch (e) {
-          // NOT silent: an upload that failed means this Beilage will not be on the paper, and
-          // the operator has to hear that while they can still do something about it.
-          toast(fillTemplate(appConfig.copy.preflight.attachmentsFailed, { name: file.name || '' }), { icon: 'warn', tone: 'warn' })
-          console.warn('Beilage upload failed', e)
-        }
+        // Persist the actual prepared bytes before attempting the network. An upload failure
+        // used to leave ONLY a blob: URL, so a reload destroyed the Rapport's only picture.
+        // The shared status reports pending/error/storage, and the queue retries on reconnect.
+        await media.enqueue(id, 'photo', blob, file.name || 'beilage.jpg', at, localUrl, 'attachment')
+        void media.flush()
       })()
     }
-  }, [incidentMeta.id, canWriteRecord, setAttachments, emit, rememberOneShotRef])
+  }, [canWriteRecord, media, setAttachments, emit, rememberOneShotRef])
   const captionAttachment = useCallback((id: string, caption: string) => {
     if (!canWriteRecord) return
     // Stored AS TYPED. `.trim()` here ran on every keystroke, so the space you pressed was
@@ -177,7 +178,10 @@ export function useRowMediaUpload({
     if (!row) return
     setAttachments((list) => list.filter((a) => a.id !== id))
     emit('report.attachment.remove', { id })
-    const restore = () => setAttachments((list) => (list.some((a) => a.id === id) ? list : [...list.slice(0, index), row, ...list.slice(index)]))
+    const kept = keptAttachments.current.get(id) ?? { row }
+    kept.row = row
+    keptAttachments.current.set(id, kept)
+    const restore = () => setAttachments((list) => (list.some((a) => a.id === id) ? list : [...list.slice(0, index), kept.row, ...list.slice(index)]))
     const drop = rememberOneShotRef.current(
       'rapport', appConfig.copy.preflight.attachmentRemoved,
       restore, () => setAttachments((list) => list.filter((a) => a.id !== id)),
@@ -189,5 +193,5 @@ export function useRowMediaUpload({
     undoToast(appConfig.copy.preflight.attachmentRemoved, () => { restore(); drop(); emit('report.undo') }, drop.standing)
   }, [canWriteRecord, setAttachments, emit, rememberOneShotRef])
 
-  return { uploadPhotoForRow, uploadMediaForRow, addAttachments, captionAttachment, removeAttachment }
+  return { uploadPhotoForRow, uploadMediaForRow, addAttachments, captionAttachment, removeAttachment, swapAttachmentMedia }
 }

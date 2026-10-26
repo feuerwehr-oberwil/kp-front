@@ -44,6 +44,18 @@ describe('mediaQueue', () => {
     expect(q[0]).toMatchObject({ id: mediaQueueId('e1', 'photo'), rowId: 'e1', kind: 'photo', status: 'pending', attempts: 0 })
   })
 
+  it('keeps an attachment target through persistence and successful upload', async () => {
+    await enqueueMedia(INC, 'att1', 'photo', blob('damage'), 'damage.jpg', '2026-10-25T10:00:00Z', 'blob:damage', 'attachment')
+    __resetMediaQueueForTests() // simulate a reload: metadata and bytes come from storage
+    const queued = await listMediaQueue(INC)
+    expect(queued[0]).toMatchObject({ rowId: 'att1', target: 'attachment', localUrl: 'blob:damage' })
+    expect(await queued[0].blob.text()).toBe('damage')
+    expect(mediaSyncStatus(queued, true)).toBe('pending')
+    const result = await flushMediaQueue(INC, async () => ({ url: '/api/media/damage' }))
+    expect(result.uploaded[0]).toMatchObject({ rowId: 'att1', target: 'attachment', url: '/api/media/damage' })
+    expect(await listMediaQueue(INC)).toEqual([])
+  })
+
   it('a re-capture for the same row+kind replaces the prior entry', async () => {
     await enqueueMedia(INC, 'e1', 'photo', blob('old'), 'p', '2026-07-01T10:00:00Z')
     await enqueueMedia(INC, 'e1', 'photo', blob('new'), 'p', '2026-07-01T10:05:00Z')
