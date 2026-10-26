@@ -33,6 +33,22 @@ describe('hoursRows', () => {
     expect(by.p2.minutes).toBeNull() // inverted: unresolvable, not «measured as nothing»
   })
 
+  it('takes «von / bis» from the measurable blocks — an unresolved one never becomes the end', () => {
+    // CodeRabbit on #510: mergeCloseBlocks puts an unresolved block last
+    const att: AttendanceState = {
+      p1: {
+        status: 'left', displayNameSnapshot: 'Meier', checkedInAt: '2026-07-08T03:15:00Z', leftAt: '2026-07-08T04:15:00Z',
+        intervals: [
+          { from: '2026-07-08T03:15:00Z', to: '2026-07-08T04:15:00Z' },
+          { from: '2026-07-08T05:00:00Z', to: '2026-07-08T03:00:00Z' }, // reversed
+        ],
+      },
+    }
+    const [row] = hoursRows(att, { alarmedAt: ALARM, endedAt: ENDE })
+    expect([row.from, row.to]).toEqual(['2026-07-08T03:15:00Z', '2026-07-08T04:15:00Z'])
+    expect(row.minutes).toBeNull()
+  })
+
   it('keeps rows for people who left — presence is a record', () => {
     const att: AttendanceState = {
       p1: { status: 'left', checkedInAt: ALARM, leftAt: '2026-07-08T04:12:00Z', displayNameSnapshot: 'Weg' },

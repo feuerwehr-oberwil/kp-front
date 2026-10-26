@@ -117,15 +117,21 @@ export function currentIntervalIndex(e: AttendanceEntry | undefined): number {
  */
 export const DEFAULT_ATTENDANCE_MERGE_GAP_MIN = 15
 
+/** A block that can be measured: a parseable start, and an end that is absent («still here») or
+ *  parseable and not before the start. The others stay unresolved (see `mergeCloseBlocks`). */
+export function isMeasurableBlock(iv: PresenceInterval): boolean {
+  const from = Date.parse(iv.from)
+  const to = iv.to ? Date.parse(iv.to) : Infinity
+  return Number.isFinite(from) && !Number.isNaN(to) && to >= from
+}
+
 export function mergeCloseBlocks(intervals: PresenceInterval[], gapMin: number): PresenceInterval[] {
   if (intervals.length < 2) return intervals
   const gapMs = Math.max(0, gapMin) * 60_000
   const valid: { from: number; to: number; iv: PresenceInterval }[] = []
   const invalid: PresenceInterval[] = []
   for (const iv of intervals) {
-    const from = Date.parse(iv.from)
-    const to = iv.to ? Date.parse(iv.to) : Infinity
-    if (Number.isFinite(from) && !Number.isNaN(to) && to >= from) valid.push({ from, to, iv })
+    if (isMeasurableBlock(iv)) valid.push({ from: Date.parse(iv.from), to: iv.to ? Date.parse(iv.to) : Infinity, iv })
     else invalid.push({ ...iv })
   }
   valid.sort((a, b) => a.from - b.from)

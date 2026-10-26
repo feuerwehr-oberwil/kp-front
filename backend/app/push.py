@@ -225,7 +225,8 @@ def notfall_changes(previous: object, current: object) -> tuple[list[dict[str, A
     raised: list[dict[str, Any]] = []
     ended: list[dict[str, Any]] = []
     for tid, t in after.items():
-        if (t.get("kind") or "atemschutz") != "atemschutz" or t.get("removedAt"):
+        # only an explicit «einfach» is exempt, as in due_trupps — a typo must not drop a Notfall (F01)
+        if t.get("kind") == "einfach" or t.get("removedAt"):
             continue
         at = _ms(t.get("notfallAt"))
         was = before.get(tid, {}).get("notfallAt")

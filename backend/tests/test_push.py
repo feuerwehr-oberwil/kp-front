@@ -923,9 +923,10 @@ class TestNotfallOnSave:
             trupp("c", None, notfallAt=n),  # running — a re-save raises nothing
             trupp("d", None, notfallAt=n, kind="einfach"),  # never for a work squad
             trupp("e", None, notfallAt=n, removedAt=n),  # nor for a card off the board
+            trupp("f", None, notfallAt=n, kind="atemschut"),  # an unknown kind stays monitored (F01)
         ]
         raised, ended = notfall_changes(before, after)
-        assert [a["id"] for a in raised] == ["a"]
+        assert [a["id"] for a in raised] == ["a", "f"]
         assert raised[0] == {
             "id": "a",
             "name": "Trupp a",
