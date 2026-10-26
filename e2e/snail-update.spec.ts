@@ -5,12 +5,21 @@ import { test, expect } from './helpers'
 // The real production shell and Workbox run under a disposable local origin. Only the worker
 // bytes change between launches; API answers stay anonymous, so the drill touches no station
 // data. Page routing cannot reliably intercept the browser's worker-update script fetch.
+// Pin every outgoing request to the configured origin and reject redirects: incoming request
+// targets may be absolute URLs or network-path references, not only ordinary asset paths.
 test('a startup worker update continues the snail instead of replaying its entrance', async ({ page, baseURL }) => {
   if (!baseURL) throw new Error('A production stack is required for the worker-update drill')
+  const upstreamOrigin = new URL(baseURL).origin
   let version = 1
   const server = createServer(async (request, response) => {
     try {
-      const path = request.url || '/'
+      const target = new URL(request.url || '/', upstreamOrigin)
+      if (target.origin !== upstreamOrigin) {
+        response.writeHead(400)
+        response.end()
+        return
+      }
+      const path = target.pathname
       if (path.startsWith('/api/')) {
         if (path === '/api/auth/me') await new Promise(resolve => setTimeout(resolve, 300))
         const denied = path === '/api/auth/me' || path === '/api/auth/refresh'
@@ -18,7 +27,7 @@ test('a startup worker update continues the snail instead of replaying its entra
         response.end(JSON.stringify(denied ? { detail: 'Not authenticated' } : path === '/api/auth/roster' ? [] : {}))
         return
       }
-      const upstream = await fetch(new URL(path, baseURL))
+      const upstream = await fetch(`${upstreamOrigin}${path}${target.search}`, { redirect: 'error' })
       const body = Buffer.from(await upstream.arrayBuffer())
       response.writeHead(upstream.status, {
         'Content-Type': upstream.headers.get('Content-Type') || 'application/octet-stream',
@@ -33,6 +42,10 @@ test('a startup worker update continues the snail instead of replaying its entra
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
   try {
+    // A network-path reference must not override the configured upstream. Point at this
+    // disposable server's own anonymous API, so a regression never contacts an outside host.
+    const escaped = await page.request.get(`${origin}//${new URL(origin).host}/api/auth/me`, { maxRedirects: 0 })
+    expect(escaped.status(), 'the proxy must reject requests that replace the upstream origin').toBe(400)
     await page.emulateMedia({ reducedMotion: 'no-preference' })
     await page.addInitScript(() => {
       const record = (entry: object) => {
