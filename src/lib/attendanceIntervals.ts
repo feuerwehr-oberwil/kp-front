@@ -108,30 +108,37 @@ export function currentIntervalIndex(e: AttendanceEntry | undefined): number {
  * the station's (`report.attendanceMergeGapMin`) — how long a break has to be before this Wehr
  * calls it one is a Weisung, not a number an EL settles at 3am.
  *
- * An OPEN block absorbs everything after it: there is nothing after «still here».
+ * It is a UNION of the blocks, sorted by start: overlapping blocks always join (even at
+ * `gapMin` 0), and the joined stretch keeps the earliest start and the LATEST end, so a duplicate
+ * or contained block can never shorten the time (audit F08, 25.10.2026: 18–22 + 19–20 printed
+ * 18–20). An OPEN block absorbs everything after it: there is nothing after «still here». A block
+ * with an unparseable or reversed stamp is not merged into anything; it stays as it is, after the
+ * others, so `totalMinutes` reports the person as unresolved instead of quietly short.
  */
 export const DEFAULT_ATTENDANCE_MERGE_GAP_MIN = 15
 
 export function mergeCloseBlocks(intervals: PresenceInterval[], gapMin: number): PresenceInterval[] {
-  if (gapMin <= 0 || intervals.length < 2) return intervals
-  const gapMs = gapMin * 60_000
-  const out: PresenceInterval[] = []
+  if (intervals.length < 2) return intervals
+  const gapMs = Math.max(0, gapMin) * 60_000
+  const valid: { from: number; to: number; iv: PresenceInterval }[] = []
+  const invalid: PresenceInterval[] = []
   for (const iv of intervals) {
+    const from = Date.parse(iv.from)
+    const to = iv.to ? Date.parse(iv.to) : Infinity
+    if (Number.isFinite(from) && !Number.isNaN(to) && to >= from) valid.push({ from, to, iv })
+    else invalid.push({ ...iv })
+  }
+  valid.sort((a, b) => a.from - b.from)
+  const out: (typeof valid)[number][] = []
+  for (const cur of valid) {
     const prev = out[out.length - 1]
-    if (!prev) { out.push({ ...iv }); continue }
-    // an unfinished previous block cannot be measured against the next one's start, and an
-    // unparseable stamp must not silently swallow a stretch — both stay separate
-    const end = prev.to ? Date.parse(prev.to) : NaN
-    const start = Date.parse(iv.from)
-    if (Number.isFinite(end) && Number.isFinite(start) && start - end < gapMs) {
-      // the LATER end wins, including «no end at all» — coming back and still being here
-      // means the merged stretch is still running
-      out[out.length - 1] = { from: prev.from, to: iv.to }
+    if (prev && (cur.from < prev.to || cur.from - prev.to < gapMs)) {
+      if (cur.to > prev.to) out[out.length - 1] = { from: prev.from, to: cur.to, iv: { from: prev.iv.from, to: cur.iv.to } }
       continue
     }
-    out.push({ ...iv })
+    out.push({ ...cur, iv: { ...cur.iv } })
   }
-  return out
+  return [...out.map((b) => b.iv), ...invalid]
 }
 
 const ms = (iso: string | null | undefined): number | null => {
