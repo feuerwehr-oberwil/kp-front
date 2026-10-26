@@ -43,6 +43,14 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   the generator, never the JSON, and re-run `python3 tools/gen_symbols.py emit` (a `review`
   mode renders a sign-off grid). Names/categories are compatibility keys referenced across
   appConfig/copy/backend config; keep them stable.
+- **A measured value is part of the mark, not a caption** (the Messpunkt, 26.10.2026). A preset's
+  `readout` (appConfig) names the fields that are measured values («CO», «Ex», «O₂», «H₂S»): the
+  first filled one is attached to the tile's right edge («CO 180», `lib/symbols ·
+  symbolReadoutText`, `TacticalSymbol · readout`) on the Karte, the Plan and the Gebäude alike,
+  and the label pass books it as the glyph's footprint – it is never suppressed. Every other place
+  that prints one keys it (caption «Alle», the printed legend), because a bare «180» names
+  nothing. A point placed but not yet measured is just its glyph. Threshold colours and a reading
+  history are a later phase.
 
 ## One object, two surfaces
 

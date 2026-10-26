@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { symbolCaptionText, symbolControls, symbolFieldOptions, symbolPresetFieldKeys } from './symbols'
+import { symbolCaptionText, symbolControls, symbolFieldOptions, symbolLegendText, symbolPresetFieldKeys, symbolReadoutText } from './symbols'
 import type { SymbolControl } from '../types'
 import { appConfig } from '../config/appConfig'
 
@@ -185,6 +185,32 @@ describe('symbolCaptionText — metadata printed under a symbol glyph', () => {
 
 // The symbol pack's presets are config, and a missing entry is invisible rather than loud — the
 // symbol simply offers nothing. These pin the ones that were found missing on 2026-08-11.
+describe('Messpunkt — a measured symbol keys its values (26.10.2026)', () => {
+  const mp = (fields: Record<string, string>, Raum?: string) => ({ symbol: 'FW Messpunkt', fields: Raum ? { Raum, ...fields } : fields })
+
+  it('wears the first filled reading on its glyph, keyed', () => {
+    expect(symbolReadoutText(mp({ CO: '180', Ex: '0' }, 'Zimmer 21'))).toBe('CO 180')
+    // CO not reported (yet): the next channel that was, never a bare number
+    expect(symbolReadoutText(mp({ CO: ' ', 'O₂': '19.8' }))).toBe('O₂ 19.8')
+  })
+
+  it('placed but not yet measured is just the glyph — and no other symbol has a readout', () => {
+    expect(symbolReadoutText(mp({}))).toBeNull()
+    expect(symbolReadoutText({ symbol: 'FW Kleinloeschgeraet', fields: { Typ: 'CO2' } })).toBeNull()
+  })
+
+  it('auto captions only the room — the value is already on the glyph', () => {
+    expect(symbolCaptionText(mp({ CO: '180' }, 'Zimmer 21'), 'auto')).toBe('Zimmer 21')
+    expect(symbolCaptionText(mp({ CO: '180' }), 'auto')).toBeNull()
+  })
+
+  it('every value that leaves the glyph keeps its key (caption «Alle», printed legend)', () => {
+    const p = mp({ CO: '180', Ex: '0', 'O₂': '20.1' }, 'Zimmer 21')
+    expect(symbolCaptionText(p, 'all')).toBe('Zimmer 21\nCO 180\nEx 0\nO₂ 20.1')
+    expect(symbolLegendText(p, 'auto')).toBe('Messpunkt · Zimmer 21 · CO 180 · Ex 0 · O₂ 20.1')
+  })
+})
+
 describe('presets that were silently absent', () => {
   it('every Schadenlage symbol can name a storey', () => {
     // Beschädigung / Teil- / Totalzerstörung / Überschwemmung had NO preset at all, so they were

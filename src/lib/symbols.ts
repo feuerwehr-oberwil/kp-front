@@ -162,6 +162,30 @@ function captionPrimaryKey(name?: string): string | undefined {
   return p?.caption ?? p?.fields?.[0]
 }
 
+/** The fields of a symbol that are MEASURED VALUES (the preset's `readout`, appConfig). */
+const readoutKeys = (props: SymbolProps): readonly string[] =>
+  (props.symbol ? presets.byName[props.symbol]?.readout : undefined) ?? []
+
+/** A field value as any reader prints it: a measured value keeps its key («CO 180») — a bare
+ *  number names nothing — and everything else stays value-only. */
+const keyedValue = (props: SymbolProps, key: string, value: string) =>
+  readoutKeys(props).includes(key) ? `${key} ${value}` : value
+
+/**
+ * The value a measured symbol wears ON its glyph (the Messpunkt, 26.10.2026): its first filled
+ * measured field in preset order, keyed — «CO 180». Null for every other symbol and for a point placed
+ * but not yet measured, which is then just its glyph.
+ *
+ * A readout is part of the mark, not a caption: TacticalSymbol attaches it to the tile's right
+ * edge, and the label pass books it as the glyph's own footprint instead of suppressing it —
+ * a hidden reading is a wrong picture of the building, not a decluttered one.
+ */
+export function symbolReadoutText(props: SymbolProps): string | null {
+  const fields = props.fields ?? {}
+  const key = readoutKeys(props).find((k) => fields[k]?.trim())
+  return key ? `${key} ${fields[key].trim()}` : null
+}
+
 /** A label worth printing: operator-entered text, NOT the auto-formatted symbol name (which the
  *  glyph already conveys). The user-named vehicle's title ("TLF 1") passes; a plain "Hydrant"
  *  does not. */
@@ -215,7 +239,7 @@ export function symbolLegendText(props: SymbolProps, globalMode: CaptionMode): s
   // a vehicle's label IS its name («TLF 1») and never equals the symbol's own, so it passes
   // …and a symbol marked «Gelöscht / erledigt» (lib/objectDone) ends on that STATUS with its time
   // — «Feuer · gelöscht 20:40» — the one word a grey glyph on paper cannot say by itself
-  const parts = [formatSymbolName(props.symbol), customLabel(props), ...keys.map((k) => fields[k]?.trim()), globalMode === 'all' ? props.notes?.trim() : undefined, doneStatusText(props) ?? undefined]
+  const parts = [formatSymbolName(props.symbol), customLabel(props), ...keys.map((k) => fields[k]?.trim() && keyedValue(props, k, fields[k].trim())), globalMode === 'all' ? props.notes?.trim() : undefined, doneStatusText(props) ?? undefined]
   const seen = new Set<string>()
   // one line: the legend wraps by itself, and a newline would start a second, unnumbered row
   return parts.filter((v): v is string => !!v && !seen.has(v) && !!seen.add(v)).map((v) => v.replace(/\s*\n\s*/g, ' ')).join(' · ')
@@ -237,14 +261,13 @@ export function symbolCaptionText(props: SymbolProps, globalMode: CaptionMode): 
   if (vehicle && mode !== 'all') return null
   const fields = props.fields ?? {}
   const order = (props.symbol ? presets.byName[props.symbol]?.fields : undefined) ?? Object.keys(fields)
-  const filled = order.map((k) => fields[k]?.trim()).filter((v): v is string => !!v)
   const label = vehicle ? undefined : customLabel(props)
   if (mode === 'all') {
     // 'all' = EVERYTHING the operator typed on this symbol: the preset detail fields (in canonical
     // order) PLUS any custom key/value rows they added PLUS the free-text notes — not just the
     // pre-defined preset fields. Value-only (the glyph implies the keys), de-duplicated.
     const extraKeys = Object.keys(fields).filter((k) => !order.includes(k))
-    const allFilled = [...order, ...extraKeys].map((k) => fields[k]?.trim()).filter((v): v is string => !!v)
+    const allFilled = [...order, ...extraKeys].map((k) => fields[k]?.trim() && keyedValue(props, k, fields[k].trim())).filter((v): v is string => !!v)
     const notes = props.notes?.trim()
     const seen = new Set<string>()
     const lines = [label, ...allFilled, notes].filter((v): v is string => !!v && !seen.has(v) && !!seen.add(v))
@@ -260,10 +283,14 @@ export function symbolCaptionText(props: SymbolProps, globalMode: CaptionMode): 
     const name = fields['Name']?.trim()
     if (funktion && name) return `${funktion} · ${name}`
   }
-  // 'auto': the primary discriminating value, else the first filled field, else a custom label
+  // 'auto': the primary discriminating value, else the first filled field, else a custom label.
+  // A measured value never: it is already ON the glyph (symbolReadoutText), so under it 'auto'
+  // prints only what the readout cannot say — the Messpunkt's Raum.
+  const measured = readoutKeys(props)
   const primaryKey = captionPrimaryKey(props.symbol)
-  const primary = primaryKey ? fields[primaryKey]?.trim() : undefined
-  return primary || filled[0] || label || null
+  const primary = primaryKey && !measured.includes(primaryKey) ? fields[primaryKey]?.trim() : undefined
+  const firstPlain = order.find((k) => !measured.includes(k) && fields[k]?.trim())
+  return primary || (firstPlain && fields[firstPlain].trim()) || label || null
 }
 
 // ─── admin: the configurable symbol/field catalog ──────────────────────────────────

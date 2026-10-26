@@ -12,6 +12,10 @@ interface SymbolPreset {
    *  entry when omitted; set it where the first field isn't the readable one (e.g. a
    *  Gefahrentafel leads with 'UN-Nr.' but 'Stoff' is what a passing operator wants to read). */
   caption?: string
+  /** which `fields` are MEASURED VALUES («CO», «O₂» …): a bare «180» names nothing, so every
+   *  place that prints one keys it («CO 180»), and the first filled one rides on the glyph as
+   *  its readout instead of hanging under it as a caption (lib/symbols · symbolReadoutText). */
+  readout?: string[]
   /** shipped suggestion lists for detail fields, keyed by field name. A hint, never a cage:
    *  the field stays free text, and a deployment's own `fleet.attributeLists` entry for the
    *  same symbol+field wins over anything here (lib/symbols · symbolFieldOptions). */
@@ -326,6 +330,7 @@ const base = {
       'FW Gefahr C': 'Chemie',
       'FW Gefahr W': 'Wasser',
       'FW Elektroanlage': 'Elektroanlage',
+      'FW Messpunkt': 'Messpunkt',
       'VKF Patientensammelstelle': 'Patientensammelstelle',
       'VKF Sanitaetshilfsstelle': 'Sanitätshilfsstelle',
       'VKF Totensammelstelle': 'Totensammelstelle',
@@ -460,6 +465,12 @@ const base = {
         'FW Gefahr Radioaktiv': { controls: ['floor'] },
         'FW Elektroanlage': { controls: ['floor'] },
         'FW Gefahr W': { controls: ['floor'] },
+        // Messpunkt (26.10.2026): one point per room, the multigas detector's four channels as
+        // its measured fields – one radio report («CO 72, Ex null, O₂ 20,9») fills them in one go. CO
+        // first: it is what a Nachkontrolle measures and what the readout shows by default.
+        // Raum first, the way the Trupp reports it («2. OG Gang: …»), and it is the caption: the
+        // values ride on the glyph itself, so under it only the room is left to say.
+        'FW Messpunkt': { controls: ['floor'], fields: ['Raum', 'CO', 'Ex', 'O₂', 'H₂S'], caption: 'Raum', readout: ['CO', 'Ex', 'O₂', 'H₂S'] },
         // ── Personen / Sanität ── the label/name says it; no count on the plain places. A
         // Sammelstelle is RUN by somebody (14.09.: «Bedienung» roster picker, last field).
         'VKF Patientensammelstelle': { controls: ['count', 'floor'], fields: ['Bedienung'] },

@@ -208,7 +208,7 @@ function SpreadArrows({ spread, color }: { spread: Spread; color: string }) {
 const floorRangeBadge = (from?: number, to?: number) =>
   from != null && to != null && from === to ? floorBadge(from) : [from, to].filter((f): f is number => f != null).map(floorBadge).join('/')
 
-export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floor, floorFrom, floorTo, spread, caption, docked, done, className }: {
+export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floor, floorFrom, floorTo, spread, caption, readout, docked, done, className }: {
   svg: string
   /** rendered edge length in px (square) */
   sizePx: number
@@ -238,6 +238,10 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
    *  caller decides the text + visibility (lib/symbols · symbolCaptionText, zoom gate); this
    *  just renders it as a sibling of the glyph so it never rotates with `rotation`. */
   caption?: string | null
+  /** a measured symbol's value («CO 180», lib/symbols · symbolReadoutText), attached to the
+   *  tile's right edge as part of the mark. Never suppressed by the label pass, which books it
+   *  as the glyph's own footprint (useLabelPass). The printed Kroki carries it in the legend. */
+  readout?: string | null
   /** Angedockte Trupps (lib/docking, 15.09.2026): this symbol carries at least one Trupp marker,
    *  drawn as the same `link` glyph the marker itself wears — the bond is then readable from both
    *  ends. The string is the crews' names and is only ever the badge's TITLE: the map shows the
@@ -303,6 +307,7 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
       )}
       {/* …and the fourth corner, top-left, is the «erledigt» time (lib/objectDone) */}
       {done && <span className="sym-done">{done}</span>}
+      {readout && <span className="sym-readout">{readout}</span>}
       {caption && (
         <span className="sym-caption">
           {caption.split('\n').map((line, i) => <span key={i}>{line}</span>)}
