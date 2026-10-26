@@ -2,9 +2,11 @@
  * One animation clock for the static boot cover and all pre-app React loading stages.
  * An automatic worker-update reload carries it through sessionStorage, written only as the
  * reload commits. index.html consumes that one-shot before paint and seeds this page's clock;
- * ordinary opens/reloads still show the entrance. Keep its key/shape in sync with that script.
+ * a surrendered reload retires it, and ordinary opens/reloads still show the entrance.
+ * Keep its key/shape in sync with that script.
  */
 let startedAt: number | undefined
+const RESUME_KEY = 'kp-snail-resume'
 
 /** Preserve the visible launch through an automatic update, including its reload watchdog. */
 export function rememberSnailLaunch() {
@@ -12,8 +14,13 @@ export function rememberSnailLaunch() {
     const svg = document.querySelector('.boot-splash .firefighter-snail')
     if (startedAt === undefined && !svg) return
     const time = startedAt === undefined && svg ? elapsed(svg, false) : Math.max(0, performance.now() - (startedAt ?? 0))
-    sessionStorage.setItem('kp-snail-resume', JSON.stringify({ at: Date.now(), elapsed: time }))
+    sessionStorage.setItem(RESUME_KEY, JSON.stringify({ at: Date.now(), elapsed: time }))
   } catch { /* storage unavailable — the update must still proceed */ }
+}
+
+/** A browser that swallowed the reload must not affect a later deliberate one. */
+export function forgetSnailLaunch() {
+  try { sessionStorage.removeItem(RESUME_KEY) } catch { /* storage unavailable */ }
 }
 
 function arrival(svg: Element) {

@@ -97,16 +97,22 @@ describe('snail launch', () => {
   })
 
   it('does not stamp an unseen launch, and unavailable storage never prevents an update', async () => {
-    const { rememberSnailLaunch } = await import('./snailLaunch')
+    const { rememberSnailLaunch, forgetSnailLaunch } = await import('./snailLaunch')
     rememberSnailLaunch()
     expect(sessionStorage.getItem('kp-snail-resume')).toBeNull()
     boot(900)
+    rememberSnailLaunch()
+    expect(sessionStorage.getItem('kp-snail-resume')).not.toBeNull()
+    forgetSnailLaunch()
+    expect(sessionStorage.getItem('kp-snail-resume')).toBeNull()
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Storage blocked') })
     expect(rememberSnailLaunch).not.toThrow()
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('Storage blocked') })
     document.documentElement.setAttribute('data-snail-resuming', '')
     expect(resumeBoot).not.toThrow()
     expect(document.documentElement.hasAttribute('data-snail-resuming')).toBe(false)
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new Error('Storage blocked') })
+    expect(forgetSnailLaunch).not.toThrow()
   })
 
   it('keeps the entrance on screen when startup is ready before it finishes', async () => {

@@ -25,7 +25,7 @@
 import { registerSW } from 'virtual:pwa-register'
 import { autoApplyBudgetLeft, recordAutoApply, RELOAD_WATCHDOG_MS, RESUME_CHECK_MIN_GAP_MS, shouldAutoApply, type AutoApplyRecord } from './updatePolicy'
 import { BUILD_TIME, GIT_SHA } from './buildInfo'
-import { rememberSnailLaunch } from './snailLaunch'
+import { forgetSnailLaunch, rememberSnailLaunch } from './snailLaunch'
 
 // Build identity for the landed-vs-stalled comparison. The git sha ALONE is not enough:
 // Docker/Railway builds have no .git (dockerignored), so every prod build reported
@@ -244,6 +244,8 @@ async function applyWaitingBuild(automatic = false): Promise<void> {
   window.setTimeout(() => {
     applying = false
     reloadStarted = false // a later manual/retry path may reload again
+    resumeLaunch = false
+    forgetSnailLaunch()
     try { localStorage.removeItem(JUST_UPDATED_KEY) } catch { /* stale stamp is handled at boot */ }
     notify(true)
   }, RELOAD_WATCHDOG_MS + 4_000)

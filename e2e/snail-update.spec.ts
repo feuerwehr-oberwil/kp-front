@@ -66,9 +66,10 @@ test('a startup worker update continues the snail instead of replaying its entra
     // An update found during the next opening really reloads the page, but its second cover
     // must begin past the entrance. Trigger the check explicitly instead of waiting for the
     // browser's update-check throttle; every install/activation/reload handler is the real one.
-    version++
     await page.evaluate(() => sessionStorage.setItem('snail-update-observations', '[]'))
-    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.reload()
+    await expect(page.locator('.login-state')).toBeVisible()
+    version++ // discover only after this entrance ends, still inside the untouched boot window
     await page.evaluate(async () => { await (await navigator.serviceWorker.getRegistration())?.update() }).catch(error => {
       if (!String(error).includes('Execution context was destroyed')) throw error
     })

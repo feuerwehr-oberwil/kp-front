@@ -24,7 +24,8 @@ const pwa = vi.hoisted(() => ({
   updateSW: null as unknown as ReturnType<typeof vi.fn>,
 }))
 const rememberSnailLaunch = vi.hoisted(() => vi.fn())
-vi.mock('./snailLaunch', () => ({ rememberSnailLaunch }))
+const forgetSnailLaunch = vi.hoisted(() => vi.fn())
+vi.mock('./snailLaunch', () => ({ rememberSnailLaunch, forgetSnailLaunch }))
 vi.mock('virtual:pwa-register', () => ({
   registerSW: (options: PwaOptions) => {
     pwa.options = options
@@ -46,6 +47,7 @@ beforeEach(() => {
   vi.resetModules()
   pwa.options = null
   rememberSnailLaunch.mockReset()
+  forgetSnailLaunch.mockReset()
   pwa.updateSW = vi.fn(() => Promise.resolve())
   store = new Map()
   vi.stubGlobal('localStorage', {
@@ -106,6 +108,19 @@ describe('swUpdate — a build discovered at boot', () => {
     vi.advanceTimersByTime(RELOAD_WATCHDOG_MS + 600)
     expect(rememberSnailLaunch).toHaveBeenCalledTimes(1)
     expect(win.location.reload).toHaveBeenCalledTimes(1)
+  })
+
+  it('retires a swallowed automatic reload before a deliberate retry', async () => {
+    const { mod } = await boot()
+    pwa.options!.onNeedRefresh!()
+    vi.advanceTimersByTime(RELOAD_WATCHDOG_MS + 600)
+    expect(rememberSnailLaunch).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(3_400) // the existing surrender backstop at 8 s
+    expect(forgetSnailLaunch).toHaveBeenCalledTimes(1)
+    await mod.applyUpdateNow()
+    sw.dispatchEvent(new Event('controllerchange'))
+    expect(rememberSnailLaunch).toHaveBeenCalledTimes(1) // manual retry never creates a resume
+    expect(win.location.reload).toHaveBeenCalledTimes(2)
   })
 
   it('is applied silently: one attempt spent, the old build stamped, skipWaiting posted — no banner', async () => {
