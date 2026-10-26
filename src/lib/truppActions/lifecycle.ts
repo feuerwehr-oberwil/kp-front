@@ -198,14 +198,14 @@ export function truppDeploymentDetails(
   ].filter(Boolean).join(' · ')
 }
 
-type LifecycleDeps = Pick<TruppActionDeps, 'trupps' | 'setTrupps' | 'entities' | 'board' | 'log' | 'emit' | 'undoTimeline' | 'liveTrupps' | 'counterNames'>
+type LifecycleDeps = Pick<TruppActionDeps, 'trupps' | 'setTrupps' | 'entities' | 'board' | 'log' | 'emit' | 'undoTimeline' | 'liveTrupps' | 'counterNames' | 'slotsOf'>
   & Pick<TruppActionCore, 'remember' | 'logStep' | 'recorded'>
   & Pick<TruppPlacementActions, 'dropPlacements' | 'syncPlacementLabel'>
   & Pick<TruppColorActions, 'recolorPlacement'>
   & Pick<TruppLineActions, 'clearLineAnchor'>
 
 export function truppLifecycleActions(deps: LifecycleDeps) {
-  const { trupps, setTrupps, entities, board, log, emit, undoTimeline, liveTrupps, counterNames, remember, logStep, recorded, dropPlacements, syncPlacementLabel, recolorPlacement, clearLineAnchor } = deps
+  const { trupps, setTrupps, entities, board, log, emit, undoTimeline, liveTrupps, counterNames, slotsOf, remember, logStep, recorded, dropPlacements, syncPlacementLabel, recolorPlacement, clearLineAnchor } = deps
 
   // Registering a Trupp does NOT place a marker — Atemschutz teams belong on the building
   // plan, not the Lage map. The EL places one manually later via "Platzieren" (placeTruppOnPlan),
@@ -458,11 +458,48 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
    */
   const transferOutOfTrupp = (fromId: string, personId: string, toName?: string): boolean => {
     const tr = trupps.find((t) => t.id === fromId)
-    if (!tr || truppTransferState(tr, personId) !== 'ready') return false
-    const crew = truppCrewWithout(tr, personId)!
-    // whose NAME is being moved — the slots are index-aligned, leader first (lib/personnel · truppSlots)
-    const slotAt = [tr.leaderPersonId, ...(tr.memberPersonIds ?? [])].indexOf(personId)
-    const who = ([tr.name, ...(tr.members ?? [])][slotAt] ?? '').trim()
+    if (!tr || truppTransferState(tr, personId, slotsOf?.(tr)) !== 'ready') return false
+    const az = appConfig.copy.atemschutz
+    const to = (toName ?? '').trim()
+    // …and «in Trupp Frei Nina gewechselt» on the row about Frei Nina is not an answer: that is
+    // the case where the transferred person IS the new Trupp's Gruppenführer (copy · logMovedOutPlain)
+    takeOut(tr, personId, (who) => fillTemplate(to && to !== who ? az.logMovedOut : az.logMovedOutPlain,
+      { name: truppLogName(tr, 'leader'), person: who, to }))
+    return true
+  }
+
+  /**
+   * Resolve a person recorded in two ACTIVE Trupps (audit F05 — two offline devices each made one
+   * half, lib/personnel · doubleAssignments): after the radio check the operator says which Trupp
+   * they are in, and this takes them out of every OTHER active one.
+   *
+   * Unlike `transferOutOfTrupp` this works on a DEPLOYED crew: nobody is moving anywhere, a wrong
+   * record is being corrected — the person cannot be under air in two places. The invariant that
+   * made the transfer a one-tap action holds here too: crew fields and the `crew` row only, every
+   * clock and reading untouched. A crew this would leave without anybody is refused (the board
+   * offers no such choice); one Verlauf row and one undo step per corrected Trupp.
+   */
+  const keepInOneTrupp = (keepId: string, personId: string): boolean => {
+    const keep = trupps.find((t) => t.id === keepId)
+    const holds = (t: Trupp) => (slotsOf?.(t) ?? [{ name: t.name, personId: t.leaderPersonId }, ...(t.memberPersonIds ?? []).map((id) => ({ name: '', personId: id }))])
+      .some((sl) => sl.personId === personId)
+    const others = trupps.filter((t) => t.id !== keepId && t.status !== 'raus' && !t.removedAt && holds(t))
+    if (!keep || !others.length || others.some((t) => !truppCrewWithout(t, personId, slotsOf?.(t)))) return false
+    const az = appConfig.copy.atemschutz
+    for (const tr of others) {
+      takeOut(tr, personId, (who) => fillTemplate(az.logDoubleResolved,
+        { name: truppLogName(tr, 'leader'), person: who, to: truppLogName(keep, 'leader') }))
+    }
+    return true
+  }
+
+  /** The crew edit both of the above make: `personId` out of `tr`, one Verlauf row, one undo step. */
+  const takeOut = (tr: Trupp, personId: string, lineFor: (who: string) => string) => {
+    const fromId = tr.id
+    const crew = truppCrewWithout(tr, personId, slotsOf?.(tr))
+    if (!crew) return
+    // `who` is the NAME that went — read off the roster-resolved slots (see truppCrewWithout)
+    const { who } = crew
     const patch: Partial<Trupp> = {
       name: crew.name, members: crew.members,
       leaderPersonId: crew.leaderPersonId, memberPersonIds: crew.memberPersonIds,
@@ -475,18 +512,12 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
     // the Trupp's NAME is its Gruppenführer's (types · Trupp.name), so handing the leader over
     // renames it — and the chip/marker that carries that name has to follow, exactly as in editTrupp
     if (crew.name !== tr.name) syncPlacementLabel(tr, crew.name)
-    const az = appConfig.copy.atemschutz
-    const to = (toName ?? '').trim()
-    // …and «in Trupp Frei Nina gewechselt» on the row about Frei Nina is not an answer: that is
-    // the case where the transferred person IS the new Trupp's Gruppenführer (copy · logMovedOutPlain)
-    const line = fillTemplate(to && to !== who ? az.logMovedOut : az.logMovedOutPlain,
-      { name: truppLogName(tr, 'leader'), person: who, to })
+    const line = lineFor(who)
     log('pen', line, 'team', undefined, undefined, { subjectId: fromId })
     // the same op_type the form's own save emits: this IS a crew edit of that Trupp, and a link
     // session may send `atemschutz.*` and nothing else (backend · auth/incident_link.py)
     emit('atemschutz.edit', { id: fromId })
     remember(fromId, line, tr, apply)
-    return true
   }
 
   // re-deploy an exited Trupp (refilled bottle, going back inside): a fresh start — new pressure +
@@ -672,5 +703,5 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
     emit('atemschutz.restore', { id: t.id })
   }
 
-  return { createTrupp, moveTrupp, editTrupp, setTruppEquipment, transferOutOfTrupp, reactivateTrupp, deleteTrupp, restoreTrupp }
+  return { createTrupp, moveTrupp, editTrupp, setTruppEquipment, transferOutOfTrupp, keepInOneTrupp, reactivateTrupp, deleteTrupp, restoreTrupp }
 }

@@ -1901,3 +1901,15 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .nfDefine { color: var(--ink); }
 .nfNote { flex: 1 1 auto; min-width: 0; margin: 0; font: var(--fw-heavy) var(--fs-2)/1.35 var(--body); color: var(--ink); }
 
+
+/* «Person in zwei Trupps» (DoubleAssignmentBanner, audit F05 · owner pick B, 26.10.2026): the
+   amber of a warning that waits for a decision — red stays the alarm's. The form-warn recipe
+   (tint + strong leading glyph, ink text), with the choice under it. */
+.dupBanner { display: grid; gap: var(--sp-1); margin: 0 0 var(--sp-3); padding: var(--sp-3); border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--amber) 14%, var(--surface)); border: 1.5px solid var(--amber); }
+.dupHead { margin: 0; display: flex; align-items: center; gap: var(--sp-2); font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
+.dupHead > svg { width: 16px; height: 16px; flex: none; color: var(--amber-strong); }
+.dupText { margin: 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
+.dupActs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--sp-2); margin-top: var(--sp-1); }
+/* …and the cards it names wear the same amber as a steady ring, so they can be found on the board */
+.cardConflict { box-shadow: 0 0 0 2px var(--amber); }

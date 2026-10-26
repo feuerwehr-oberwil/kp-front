@@ -394,6 +394,10 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     // {to} quella che la accoglie (la cui riga nomina già il suo effettivo completo)
     logMovedOut: 'Squadra {name}: {person} passato alla squadra {to}',
     logMovedOutPlain: 'Squadra {name}: {person} passato a un’altra squadra',
+    doubleTitle: '{person} in {n} squadre',
+    doubleText: 'Entrambi gli orologi di contatto continuano. Verificare via radio in quale squadra si trova {person}:',
+    doubleKeep: 'Resta nella squadra {trupp}',
+    logDoubleResolved: 'Squadra {name}: {person} rimosso – era assegnato due volte, è nella squadra {to}',
     changeAuftragTo: 'compito {auftrag}',
     changeAuftragCleared: 'compito rimosso',
     changeLine: 'Linea {n}',

@@ -194,33 +194,56 @@ export function truppStillDeployed(t: Trupp): boolean {
   return ms(t.entryTime) > 0 && t.status !== 'angemeldet' && t.status !== 'raus' && !t.exitTime
 }
 
+/** One named place in a Trupp's crew, leader first — as `lib/personnel · truppSlots` resolves it.
+ *  `trusted`: the roster confirms this name carries that id. */
+export interface CrewSlot { name: string; personId?: string; trusted?: boolean }
+
 /**
  * The crew of `t` MINUS one person — the record the other Trupp is left with when somebody is
- * moved out of it (useTruppActions · transferOutOfTrupp).
+ * moved out of it (useTruppActions · transferOutOfTrupp / keepInOneTrupp). `who` is the name
+ * that went.
  *
  * Leader first, as everywhere: `Trupp.name` IS the Gruppenführer (types · Trupp.name), so taking
  * the leader out promotes the next member into that slot — the same thing the Trupp form does
- * when somebody drags a name up. `memberPersonIds` is index-aligned with `members`
- * (lib/personnel · truppSlots), so both halves are rebuilt from the same filtered list rather
+ * when somebody drags a name up. Both halves are rebuilt from the same filtered slot list rather
  * than spliced apart.
+ *
+ * ⚠️ Pass the ROSTER-RESOLVED slots (`truppSlots`) wherever a roster exists. `memberPersonIds` is
+ * stored COMPACTED (a Gast has no id), so reading it positionally — the fallback here — pins a
+ * Gast to the next member's id, and the wrong person leaves the crew (Codex review of audit F05,
+ * 26.10.2026: [Gast, Nina] with ids [nina] removed the Gast).
+ *
+ * …and `null` when WHO is who cannot be told for certain: the member id list is not aligned (a
+ * Gast among them) and the roster does not vouch for the name carrying `personId`, or for a
+ * member id that would stay (and might be promoted to leader). Removing a guess from a
+ * crew under air is worse than leaving the correction to the Trupp's own «Bearbeiten».
  *
  * ⚠️ `null` when nothing would be left. A Trupp with no name is not a Trupp — emptying one is
  * DELETING it, which is a different act with its own button, its own row and its own undo.
  */
-export function truppCrewWithout(t: Trupp, personId: string): {
-  name: string; members: string[]; leaderPersonId?: string; memberPersonIds: string[]
+export function truppCrewWithout(t: Trupp, personId: string, resolved?: readonly CrewSlot[]): {
+  name: string; members: string[]; leaderPersonId?: string; memberPersonIds: string[]; who: string
 } | null {
-  const slots = [
-    { name: (t.name ?? '').trim(), personId: t.leaderPersonId },
-    ...(t.members ?? []).map((m, i) => ({ name: (m ?? '').trim(), personId: (t.memberPersonIds ?? [])[i] })),
-  ].filter((sl) => !!sl.name)
+  const slots = (resolved ?? [
+    { name: t.name ?? '', personId: t.leaderPersonId },
+    ...(t.members ?? []).map((m, i) => ({ name: m ?? '', personId: (t.memberPersonIds ?? [])[i] })),
+  ]).map((sl) => ({ ...sl, name: sl.name.trim() })).filter((sl) => !!sl.name)
   const kept = slots.filter((sl) => sl.personId !== personId)
   if (kept.length === slots.length || !kept.length) return null
+  // only `memberPersonIds` is compacted — the leader's id has a field of its own
+  const aligned = (t.memberPersonIds ?? []).length === (t.members ?? []).length
+  const gone = slots.find((sl) => sl.personId === personId)
+  const leader = gone === slots[0] && t.leaderPersonId === personId
+  // …and on an unaligned list every MEMBER id that stays must be vouched for too: rebuilt, it is
+  // re-attached to its name — promoted to `leaderPersonId` when the leader goes (Codex review r3)
+  const unsure = (sl: CrewSlot) => !!sl.personId && !sl.trusted && sl !== slots[0]
+  if (!aligned && ((!leader && !gone?.trusted) || kept.some(unsure))) return null
   return {
     name: kept[0].name,
     members: kept.slice(1).map((sl) => sl.name),
     leaderPersonId: kept[0].personId,
     memberPersonIds: kept.slice(1).map((sl) => sl.personId).filter(Boolean) as string[],
+    who: gone?.name ?? '',
   }
 }
 
@@ -239,8 +262,8 @@ export function truppCrewWithout(t: Trupp, personId: string): {
  */
 export type TruppTransferState = 'ready' | 'deployed' | 'blocked'
 
-export function truppTransferState(from: Trupp | undefined, personId: string): TruppTransferState {
-  if (!from || !truppCrewWithout(from, personId)) return 'blocked'
+export function truppTransferState(from: Trupp | undefined, personId: string, slots?: readonly CrewSlot[]): TruppTransferState {
+  if (!from || !truppCrewWithout(from, personId, slots)) return 'blocked'
   return truppStillDeployed(from) ? 'deployed' : 'ready'
 }
 

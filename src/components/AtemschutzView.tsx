@@ -16,6 +16,7 @@ import { newId } from '../lib/ids'
 import { Button } from './Button'
 import { Menu, Overlay, Popover } from '../lib/overlays'
 import { NotfallBanner } from './AtemschutzNotfall'
+import { DoubleAssignmentBanner } from './DoubleAssignmentBanner'
 import { alarmBarFor, deriveTruppLive, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, isAtemschutzTrupp, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
 import { foreignContactAgo } from '../lib/contactEcho'
 import { serverNow, serverNowIso } from '../lib/serverClock'
@@ -25,7 +26,7 @@ import { truppAuftragLabel, truppEquipmentLabels } from '../lib/report'
 import { useIsPhone } from '../lib/useIsPhone'
 import { usePageHeadFit } from '../lib/pageHeadFit'
 import type { AttendanceState, Person, Trupp, TruppAuftrag, TruppFields } from '../types'
-import { assignedPersonIds } from '../lib/personnel'
+import { assignedPersonIds, doubleAssignments, rosterIdByName, truppCrewSlots } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
 import { markerHolderNote, type MarkerOption } from '../lib/placedTrupps'
 import { ensureNotifyPermission, notificationsSupported, unlockAlarm } from '../lib/alarm'
@@ -82,7 +83,7 @@ const HEAD_FOLD = { saved: 1, order: 2, share: 3, restore: 4, overdue: 5, bell: 
 const nfInset = (el: HTMLElement | null) => (el ? el.offsetHeight + 12 : 0)
 
 export function AtemschutzView({
-  trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, unlinkTruppLine, dockedAt,
+  trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, keepInOneTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, unlinkTruppLine, dockedAt,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus, createRequest, onShareLink, shareLinkActive = false, lite, frozenAt, triggerNotfall, endNotfall, placeOf,
@@ -139,6 +140,10 @@ export function AtemschutzView({
    *  Gruppenführer of the Trupp being formed here, so the row it writes can say where they went.
    *  Absent ⇒ the warning keeps the plain sentence it has always had. */
   transferOutOfTrupp?: (fromId: string, personId: string, toName?: string) => boolean
+  /** «Bleibt in Trupp …» on the double-assignment band (DoubleAssignmentBanner, audit F05):
+   *  takes the person out of every other active Trupp (useTruppActions · keepInOneTrupp).
+   *  Absent ⇒ the band names the conflict without offering the choice. */
+  keepInOneTrupp?: (keepTruppId: string, personId: string) => boolean
   /** The Atemschutznotfall (F1, 08.10.2026): raise it on a crew inside / end it — both HELD on
    *  the card (AtemschutzNotfall · NotfallHold). Absent ⇒ the board offers neither. */
   triggerNotfall?: (id: string) => void
@@ -270,6 +275,13 @@ export function AtemschutzView({
    * `raus` Trupp holds nobody, and the Trupp being edited is never its own conflict — so the
    * card this answers with is always the one the sentence is complaining about.
    */
+  /** a Trupp's crew as the roster reads it — what «In diesen Trupp verschieben» may remove
+   *  (atemschutz · truppCrewWithout: a compacted id is no answer to «whose name is this») */
+  const crewSlotsOf = useMemo(() => {
+    const byName = rosterIdByName(personnel)
+    const roster = new Map(personnel.map((p) => [p.id, p]))
+    return (t: Trupp) => truppCrewSlots(t, byName, roster)
+  }, [personnel])
   const truppOfPerson = useMemo(() => {
     const by = new Map<string, Trupp>()
     for (const t of trupps) {
@@ -1006,6 +1018,8 @@ export function AtemschutzView({
   const focusNonceOf = (id: string) =>
     activeFocus && (activeFocus.id === id || (markAll && sevOf(id) >= 2)) ? activeFocus.nonce : undefined
 
+  // the cards the double-assignment band names (DoubleAssignmentBanner) wear its amber ring
+  const conflicted = useMemo(() => new Set(doubleAssignments(trupps).flatMap((c) => c.truppIds)), [trupps])
   const cards = (list: Trupp[]) => list.map((t) => {
     const nonce = focusNonceOf(t.id)
     const seen = nonce == null ? undefined : () => flashSeen.current.get(t.id) === nonce
@@ -1013,7 +1027,7 @@ export function AtemschutzView({
     return (
     compact && !focusMode && openRow !== t.id ? (
       <TruppRow
-        key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
+        key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit} conflict={conflicted.has(t.id)}
         focusNonce={nonce} focusScroll={activeFocus?.id === t.id} flashSeen={seen} onFlashed={flashed}
         onContact={(id) => { void contactTap(id) }}
         onPressure={(id) => setPressureAsk({ id, kind: 'pressure' })}
@@ -1029,7 +1043,7 @@ export function AtemschutzView({
     // The ‹ › pair is the right one to drop: in row mode the card is a detail view, not a board
     // slot (and those arrows are separately known to move the wrong card).
     <TruppCard
-      key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
+      key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit} conflict={conflicted.has(t.id)}
       intervalMin={intervalMin} frozen={frozenAt != null}
       // the phone's opened row is PARKED by the board (the effect around `--az-open-pad`), below
       // the Notfall banners — a centring scroll of its own fought that and won (10.10.2026)
@@ -1533,6 +1547,10 @@ export function AtemschutzView({
               setSelfFocus({ id, nonce: Date.now() })
             }} />
         ))}</div>}
+        {/* one person in two active Trupps after a sync (audit F05) — under the Notfall, above the
+            sections, on every board; the choice only where this session may write */}
+        <DoubleAssignmentBanner trupps={trupps} personnel={personnel}
+          onKeep={canEdit && frozenAt == null && keepInOneTrupp ? (keepId, personId) => { freezeOrder(); keepInOneTrupp(keepId, personId) } : undefined} />
         {trupps.length === 0 ? (
           <div className={s.empty}>
             <Icon id="warn" />
@@ -1750,7 +1768,7 @@ export function AtemschutzView({
           /* …and the way OUT of that conflict, in one tap (11.09.). Both halves read the same
              `truppOfPerson` index, so the state the warning shows and the Trupp the move writes
              to can never be two different cards. */
-          transferState={(personId) => truppTransferState(truppOfPerson.get(personId), personId)}
+          transferState={(personId) => { const from = truppOfPerson.get(personId); return truppTransferState(from, personId, from && crewSlotsOf(from)) }}
           onTransfer={transferOutOfTrupp && ((personId, toName) => {
             const from = truppOfPerson.get(personId)
             if (from) transferOutOfTrupp(from.id, personId, toName)
@@ -1814,7 +1832,7 @@ export function AtemschutzView({
              nobody, for the reason given there */
           : <TruppSheet t={t} personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds} rolesById={rolesById}
               assignedIds={t.status === 'raus' ? NO_ASSIGNED : assignedPersonIds(trupps.filter((x) => x.id !== t.id))}
-              transferState={(personId) => truppTransferState(truppOfPerson.get(personId), personId)}
+              transferState={(personId) => { const from = truppOfPerson.get(personId); return truppTransferState(from, personId, from && crewSlotsOf(from)) }}
               onTransfer={transferOutOfTrupp && ((personId, toName) => {
                 const from = truppOfPerson.get(personId)
                 if (from) transferOutOfTrupp(from.id, personId, toName)

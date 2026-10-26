@@ -623,7 +623,7 @@ describe('truppCrewWithout / truppTransferState — moving somebody out of the T
 
   it('takes an AdF out and leaves the rest of the crew as it was', () => {
     expect(truppCrewWithout(pair, 'p2')).toEqual({
-      name: 'Müller', members: ['Amrein'], leaderPersonId: 'p1', memberPersonIds: ['p3'],
+      name: 'Müller', members: ['Amrein'], leaderPersonId: 'p1', memberPersonIds: ['p3'], who: 'Frei',
     })
   })
 
@@ -631,7 +631,7 @@ describe('truppCrewWithout / truppTransferState — moving somebody out of the T
   // promotes the next member — the same thing dragging a name up the form does
   it('promotes the next member when the Gruppenführer is the one being moved', () => {
     expect(truppCrewWithout(pair, 'p1')).toEqual({
-      name: 'Frei', members: ['Amrein'], leaderPersonId: 'p2', memberPersonIds: ['p3'],
+      name: 'Frei', members: ['Amrein'], leaderPersonId: 'p2', memberPersonIds: ['p3'], who: 'Müller',
     })
   })
 

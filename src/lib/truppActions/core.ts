@@ -6,7 +6,7 @@ import type { ObjectStore, SetBoard } from '../useObjectStore'
 import type { UndoTimeline } from '../undoTimeline'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../format'
-import { isAtemschutzTrupp } from '../atemschutz'
+import { isAtemschutzTrupp, type CrewSlot } from '../atemschutz'
 import { keepCrewFiled } from '../crewFiling'
 import { recordKey } from '../undoKeys'
 
@@ -71,6 +71,10 @@ export interface TruppActionDeps {
   /** WHERE a placed Trupp stands, in words — «M6 · 2. OG», «Karte · bei Hydrant» (IncidentWorkspace
    *  knows the plans and the map). The Notfall's «letzter Ort» (F1). Absent: the Auftrag/Ziel only. */
   placeOf?: (t: Trupp) => string | undefined
+  /** a Trupp's crew as the roster resolves it (lib/personnel · truppSlots) — what a crew edit
+   *  that removes ONE person reads, because `memberPersonIds` is stored compacted (see
+   *  atemschutz · truppCrewWithout). Absent ⇒ the positional reading. */
+  slotsOf?: (t: Trupp) => CrewSlot[] | undefined
 }
 
 /**

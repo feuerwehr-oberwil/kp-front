@@ -397,6 +397,10 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     // one taking them on (the receiving team's own row already names its full crew)
     logMovedOut: 'Team {name}: {person} moved to team {to}',
     logMovedOutPlain: 'Team {name}: {person} moved to another team',
+    doubleTitle: '{person} in {n} teams',
+    doubleText: 'Both contact clocks keep running. Confirm by radio which team {person} is in:',
+    doubleKeep: 'Stays in team {trupp}',
+    logDoubleResolved: 'Team {name}: {person} removed – was assigned twice, is in team {to}',
     changeAuftragTo: 'task {auftrag}',
     changeAuftragCleared: 'task removed',
     changeLine: 'Line {n}',

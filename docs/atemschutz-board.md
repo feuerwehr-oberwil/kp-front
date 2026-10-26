@@ -96,6 +96,15 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
   form reaches the Anwesenheit only at the save (`fileGuests`, after every question) — never
   from the picker, and Enter in «Person suchen» only takes a listed person.
 
+- *One person in two active Trupps is a band, not a guess* (audit F05; owner pick B, 26.10.2026):
+  the form refuses a double assignment on one device, but two offline devices can each make one
+  half and the merge keeps both. `DoubleAssignmentBanner` stands above the sections («Müller Hans
+  in 2 Trupps», both clocks running), the named cards wear a steady amber ring, and «Bleibt in
+  Trupp …» takes the person out of the other crew(s) after the radio check
+  (`useTruppActions · keepInOneTrupp`): crew fields only, works on a deployed crew because it
+  corrects a record rather than moving anybody, one Verlauf row and one undo step each. A choice
+  that would empty a crew is not offered.
+
 ## The Sicherungstrupp, the Abschluss and the record
 
 - *The Sicherungstrupp has ONE place* (D1 ⑦): between Drin and the rest while anybody is in or
