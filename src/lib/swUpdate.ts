@@ -20,9 +20,12 @@
 // sessionStorage across the watchdog's forced reloads, which made a session-scoped retry
 // cap useless (field report 2026-07-08). A silent apply that never lands surrenders to
 // the banner — the operator keeps a working (old) build plus the restart hint.
+// Automatic reloads carry the snail's launch clock into the next static boot cover
+// (snailLaunch + index.html): applying an update must not show a second entrance.
 import { registerSW } from 'virtual:pwa-register'
 import { autoApplyBudgetLeft, recordAutoApply, RELOAD_WATCHDOG_MS, RESUME_CHECK_MIN_GAP_MS, shouldAutoApply, type AutoApplyRecord } from './updatePolicy'
 import { BUILD_TIME, GIT_SHA } from './buildInfo'
+import { rememberSnailLaunch } from './snailLaunch'
 
 // Build identity for the landed-vs-stalled comparison. The git sha ALONE is not enough:
 // Docker/Railway builds have no .git (dockerignored), so every prod build reported
@@ -73,9 +76,11 @@ let interacted = false
 // Every reload this module wants goes through reloadOnce() — see applyWaitingBuild for why a
 // second location.reload() while the first navigation commits is the thing to avoid.
 let reloadStarted = false
+let resumeLaunch = false
 const reloadOnce = () => {
   if (reloadStarted) return
   reloadStarted = true
+  if (resumeLaunch) rememberSnailLaunch()
   window.location.reload()
 }
 
@@ -152,7 +157,7 @@ export function initServiceWorker() {
         updateWaiting = true
         if (autoApplyBudgetLeft(readAttempts(), Date.now())) {
           spendAttempt()
-          void applyWaitingBuild()
+          void applyWaitingBuild(true)
         } else {
           // budget exhausted — this waiting worker is wedged. Boot NORMALLY on the old
           // build and let the banner offer a manual retry (a later deploy, an app restart,
@@ -167,7 +172,7 @@ export function initServiceWorker() {
       const budgetLeft = autoApplyBudgetLeft(readAttempts(), Date.now())
       if (shouldAutoApply({ msSinceLoad: Date.now() - loadedAt, interacted, alreadyAutoApplied: !budgetLeft })) {
         spendAttempt()
-        void applyWaitingBuild()
+        void applyWaitingBuild(true)
         return
       }
       // Mid-session: never apply — announce it. The banner explains that the new version
@@ -207,9 +212,10 @@ export function applyUpdateNow(): Promise<void> {
  *  operator's own door to it (16.09.2026). Never shows a blocking
  *  cover, so a wedged worker can only cost brief reload flickers. No-op if nothing is
  *  waiting or an apply is already in flight. */
-async function applyWaitingBuild(): Promise<void> {
+async function applyWaitingBuild(automatic = false): Promise<void> {
   if (!updateSW || !updateWaiting || applying) return
   applying = true
+  resumeLaunch = automatic
   // stamp the CURRENT (old) build id — the next boot compares it to its own to tell
   // "update landed" from "activation stalled, still the old build"
   try { localStorage.setItem(JUST_UPDATED_KEY, BUILD_ID) } catch { /* no confirmation toast then */ }

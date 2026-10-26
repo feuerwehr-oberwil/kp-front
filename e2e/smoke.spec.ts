@@ -147,7 +147,7 @@ test.describe('loading snail', () => {
           .find(animation => (animation as CSSAnimation).animationName === 'fs-arrival')
         if (state.handover || !arrival || typeof arrival.startTime !== 'number') return
         state.handover = {
-          clock: performance.now() - arrival.startTime,
+          clock: performance.now() - arrival.startTime - Number(arrival.effect?.getTiming().delay || 0),
           duration: Number(arrival.effect?.getComputedTiming().duration),
           playState: arrival.playState,
         }
@@ -199,6 +199,20 @@ test.describe('loading snail', () => {
     expect(reactClock).toBeGreaterThanOrEqual(handover!.clock)
     await expect(page.locator('.login-state')).toBeVisible()
     await expect(page.locator('.boot-splash')).toHaveCount(0)
+  })
+
+  test('an update reload resumes before the first paint and continues through React', async ({ page }) => {
+    await prepareLaunch(page)
+    await page.addInitScript(() => {
+      sessionStorage.setItem('kp-snail-resume', JSON.stringify({ at: Date.now(), elapsed: 2_000 }))
+    })
+    await page.goto('/')
+    await expect.poll(async () => (await observation(page)).reactClock).toBeGreaterThanOrEqual(2_000)
+    const { handover, reactClock } = await observation(page)
+    expect(handover!.clock).toBeGreaterThanOrEqual(2_000)
+    expect(reactClock).toBeGreaterThanOrEqual(handover!.clock)
+    expect(await page.evaluate(() => sessionStorage.getItem('kp-snail-resume'))).toBeNull()
+    await expect(page.locator('.login-state')).toBeVisible()
   })
 })
 

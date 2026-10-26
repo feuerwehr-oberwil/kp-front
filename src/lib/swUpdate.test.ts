@@ -23,6 +23,8 @@ const pwa = vi.hoisted(() => ({
   options: null as PwaOptions | null,
   updateSW: null as unknown as ReturnType<typeof vi.fn>,
 }))
+const rememberSnailLaunch = vi.hoisted(() => vi.fn())
+vi.mock('./snailLaunch', () => ({ rememberSnailLaunch }))
 vi.mock('virtual:pwa-register', () => ({
   registerSW: (options: PwaOptions) => {
     pwa.options = options
@@ -43,6 +45,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2026-09-23T08:00:00Z'))
   vi.resetModules()
   pwa.options = null
+  rememberSnailLaunch.mockReset()
   pwa.updateSW = vi.fn(() => Promise.resolve())
   store = new Map()
   vi.stubGlobal('localStorage', {
@@ -86,6 +89,25 @@ const attempts = () => (store.has(ATTEMPTS_KEY) ? JSON.parse(store.get(ATTEMPTS_
 const exhaustBudget = () => store.set(ATTEMPTS_KEY, JSON.stringify({ n: MAX_AUTO_APPLY_ATTEMPTS, at: Date.now() }))
 
 describe('swUpdate — a build discovered at boot', () => {
+  it('carries the launch clock only as the automatic reload actually starts, once', async () => {
+    await boot()
+    pwa.options!.onNeedRefresh!()
+    expect(rememberSnailLaunch).not.toHaveBeenCalled() // an apply can stall or surrender
+    pwa.options!.onNeedReload!()
+    sw.dispatchEvent(new Event('controllerchange'))
+    vi.advanceTimersByTime(RELOAD_WATCHDOG_MS + 1_000)
+    expect(rememberSnailLaunch).toHaveBeenCalledTimes(1)
+    expect(win.location.reload).toHaveBeenCalledTimes(1)
+  })
+
+  it('also carries the launch through the automatic watchdog reload', async () => {
+    await boot()
+    pwa.options!.onNeedRefresh!()
+    vi.advanceTimersByTime(RELOAD_WATCHDOG_MS + 600)
+    expect(rememberSnailLaunch).toHaveBeenCalledTimes(1)
+    expect(win.location.reload).toHaveBeenCalledTimes(1)
+  })
+
   it('is applied silently: one attempt spent, the old build stamped, skipWaiting posted — no banner', async () => {
     const { heard } = await boot()
     pwa.options!.onNeedRefresh!()
@@ -165,6 +187,8 @@ describe('swUpdate — the previous page life ended in an update reload', () => 
     expect(pwa.updateSW).toHaveBeenCalledWith(false)
     expect(attempts()?.n).toBe(1)
     expect(heard).toEqual([])
+    sw.dispatchEvent(new Event('controllerchange'))
+    expect(rememberSnailLaunch).toHaveBeenCalledTimes(1)
   })
 
   it('a stalled apply with the budget spent boots normally on the old build and announces', async () => {
@@ -244,6 +268,7 @@ describe('swUpdate — applyUpdateNow (the operator’s own tap)', () => {
     vi.advanceTimersByTime(RELOAD_WATCHDOG_MS + 1_000) // the watchdog must not reload a second time
     expect(win.location.reload).toHaveBeenCalledTimes(1)
     expect(waiting.postMessage).not.toHaveBeenCalled()
+    expect(rememberSnailLaunch).not.toHaveBeenCalled() // a deliberate update gets a fresh entrance
   })
 
   it('the plugin’s own reload on «controlling» joins the same guard — still exactly one reload', async () => {

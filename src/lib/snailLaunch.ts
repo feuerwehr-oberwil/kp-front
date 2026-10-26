@@ -1,5 +1,20 @@
-/** One animation clock for the static boot cover and all pre-app React loading stages. */
+/**
+ * One animation clock for the static boot cover and all pre-app React loading stages.
+ * An automatic worker-update reload carries it through sessionStorage, written only as the
+ * reload commits. index.html consumes that one-shot before paint and seeds this page's clock;
+ * ordinary opens/reloads still show the entrance. Keep its key/shape in sync with that script.
+ */
 let startedAt: number | undefined
+
+/** Preserve the visible launch through an automatic update, including its reload watchdog. */
+export function rememberSnailLaunch() {
+  try {
+    const svg = document.querySelector('.boot-splash .firefighter-snail')
+    if (startedAt === undefined && !svg) return
+    const time = startedAt === undefined && svg ? elapsed(svg, false) : Math.max(0, performance.now() - (startedAt ?? 0))
+    sessionStorage.setItem('kp-snail-resume', JSON.stringify({ at: Date.now(), elapsed: time }))
+  } catch { /* storage unavailable — the update must still proceed */ }
+}
 
 function arrival(svg: Element) {
   return svg.getAnimations?.().find(animation => (animation as CSSAnimation).animationName?.endsWith('-arrival'))
@@ -20,6 +35,10 @@ function launchClock(svg: Element) {
 function elapsed(svg: Element, settle = true) {
   let start = startedAt
   if (start === undefined) {
+    // The static cover may already be continuing a previous page's clock via negative CSS
+    // delays. Its new animation.startTime alone would lose that offset and replay in React.
+    const resumed = Number(svg.getAttribute('data-snail-offset'))
+    const offset = Number.isFinite(resumed) ? Math.max(0, resumed) : 0
     const clock = launchClock(svg)
     // ⚠️ The animation's `startTime`, not `now - currentTime`: `currentTime` is the clock of the
     // LAST frame and stands still until the next one, so on a loaded device that placed the zero
@@ -29,6 +48,7 @@ function elapsed(svg: Element, settle = true) {
     // one (no animation API, or still pending before its first frame) falls back.
     if (typeof clock?.startTime === 'number') start = clock.startTime
     else start = performance.now() - (typeof clock?.currentTime === 'number' ? clock.currentTime : 0)
+    start -= offset
     // A pending animation gets its start time with a coming frame: settle only when asked.
     if (settle || typeof clock?.startTime === 'number') startedAt = start
   }

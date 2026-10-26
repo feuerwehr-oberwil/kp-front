@@ -9,6 +9,13 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
 
 ## The model
 
+- **A silent startup update stays one visual opening** (2026-10-26). Immediately before an
+  automatic service-worker reload, `snailLaunch` saves its animation clock in a tab-local,
+  one-shot `sessionStorage` stamp. `index.html` consumes it before paint (expires after 30 s),
+  continues the static SVG with negative animation delays and seeds React's launch clock.
+  Ordinary opens and deliberate reloads still show the entrance; unavailable storage never
+  blocks the update. The actual install/activation/reload path is covered by
+  `e2e/snail-update.spec.ts` with service workers enabled.
 - **Operational browser state lives in IndexedDB, not localStorage.** `src/lib/idb.ts` is the
   storage layer (localStorage only as its degradation fallback), `src/lib/storageMigration.ts`
   moved legacy operational keys over once. IndexedDB holds incident workspaces, pending sync,
