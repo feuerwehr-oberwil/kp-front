@@ -25,7 +25,8 @@ async def _login(client, user) -> None:
 
 
 async def _create_incident(client) -> str:
-    r = await client.post("/api/incidents", json={"title": "Test Einsatz"})
+    # with an Einsatzort: correcting ONE coordinate must leave a whole pair (schemas · Latitude)
+    r = await client.post("/api/incidents", json={"title": "Test Einsatz", "lat": 47.5, "lng": 7.5})
     assert r.status_code == 201, r.text
     return r.json()["id"]
 

@@ -22,7 +22,7 @@ export {
   getIncident, createIncident, patchIncident, archiveIncident, reactivateIncident,
   deleteIncident, migrateLegacyWorkspace,
 } from './api/incidents'
-export type { IncidentMeta, IncidentFull } from './api/incidents'
+export type { IncidentCreate, IncidentMeta, IncidentFull } from './api/incidents'
 export { isIncidentRunning, closeTimeOf } from './api/incidents'
 
 export { pollWorkspaceSince } from './api/workspace'

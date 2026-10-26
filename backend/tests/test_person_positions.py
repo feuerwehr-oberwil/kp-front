@@ -269,7 +269,7 @@ async def test_stop_from_a_foreign_device_does_nothing(client, editor, incident,
     "patch",
     [
         pytest.param({"is_archived": True}, id="archived"),
-        pytest.param({"status": "geschlossen"}, id="status"),
+        pytest.param({"status": "abgeschlossen"}, id="status"),
     ],
 )
 async def test_closing_the_einsatz_deletes_every_position(client, editor, incident, person, db_session, patch):
@@ -310,7 +310,7 @@ async def test_reporting_into_a_reactivated_einsatz_works(client, editor, incide
     "ends_it",
     [
         pytest.param({"is_archived": True}, id="archived"),
-        pytest.param({"status": "geschlossen"}, id="status"),
+        pytest.param({"status": "abgeschlossen"}, id="status"),
     ],
 )
 async def test_reporting_into_a_closed_einsatz_is_refused(client, editor, incident, person, db_session, ends_it):

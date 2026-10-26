@@ -545,6 +545,12 @@ async def patch_incident(
     # session no more than it tells a viewer.
     if user.role != "editor" and not set(data) <= EL_META_FIELDS:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bearbeiter-Berechtigung erforderlich")
+    # The coordinate PAIR as it would stand after this patch — the schema checked each value, only
+    # the row knows the one the body left out. Half a position is no position: the same rule as
+    # create, and clearing both (the panel's ✕) stays a valid patch. Only when the body touches
+    # a coordinate: a legacy half pair must not block an unrelated correction.
+    if ("lat" in data or "lng" in data) and (data.get("lat", inc.lat) is None) != (data.get("lng", inc.lng) is None):
+        raise HTTPException(status_code=422, detail="lat und lng müssen beide oder keine gesetzt sein")
     # The public demo has exactly one prepared running incident and one prepared archive.
     # Visitors may edit their contents, but changing either lifecycle leaves the next magazine
     # reader with no promised entry point (or two running incidents) until the reset. The client
