@@ -1,3 +1,4 @@
+import { fillTemplate, localeDateTime } from './format'
 import { newId } from './ids'
 import { compareOrder, isOrderKey, keyBetween, keysFor } from './orderKey'
 import {
@@ -507,6 +508,23 @@ export function formHasContent(d: BoardFormData): boolean {
     || Object.values(v.fields ?? {}).some((x) => x.trim()))
 }
 
+/** The words of a page's timeline line — `appConfig.copy.tafel` fits as it is. */
+export interface StampWords { stampCreated: string; stampEdited: string }
+
+/**
+ * A page's timeline, for the screen and the paper alike (owner, 26.10.2026: the page itself says
+ * when it was started and last written on, not only the Verlauf): «Erstellt 26.10.2026, 11:24 ·
+ * zuletzt bearbeitet 26.10.2026, 14:05». Both on the server clock — `at` when the page was added,
+ * the latest cell stamp (`t`) for the edit. The edit half is left off while nothing is written
+ * yet (and on pages from before the stamps).
+ */
+export function pageStamp(d: BoardFormData, words: StampWords): string {
+  const when = (x: string | number) => localeDateTime(x, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const created = fillTemplate(words.stampCreated, { at: when(d.at) })
+  const edited = Math.max(...Object.values(d.t ?? {}))
+  return edited > Date.parse(d.at) ? `${created} · ${fillTemplate(words.stampEdited, { at: when(edited) })}` : created
+}
+
 // ── the Rapport ───────────────────────────────────────────────────────────────────────────────
 
 /** Trend words for the paper: Helvetica has no ➚ ➘ (the staging Plakat's lesson). */
@@ -515,15 +533,17 @@ export interface TrendWords { up: string; same: string; down: string }
 /**
  * One page, resolved for the server (backend · app/report · BoardPageIn): every label in the
  * deployment's language, every row as the strings that print, in the layout's order. The server
- * draws the paper; it never has to know a template.
+ * draws the paper; it never has to know a template. `stamp`: the page's timeline (`pageStamp`),
+ * printed in the footer.
  */
-export function formForPdf(d: BoardFormData, words: TrendWords, locale?: string, headLabels?: Record<'title' | 'address' | 'alarm' | 'el', string>, title?: string): Record<string, unknown> {
+export function formForPdf(d: BoardFormData, words: TrendWords, locale?: string, headLabels?: Record<'title' | 'address' | 'alarm' | 'el', string>, title?: string, stamp = ''): Record<string, unknown> {
   const L = (l: Label | undefined) => labelText(l, locale)
   const trendWord = (t: string | undefined) => (t === 'up' ? words.up : t === 'same' ? words.same : t === 'down' ? words.down : '')
   const p = d.page
   return {
     title: title ?? L(p.title),
     source: d.tpl.source ?? '',
+    stamp,
     landscape: p.paper === 'landscape',
     columns: p.columns ?? 1,
     // the header line's labels travel in the deployment's words (the server prints no German of its own here)

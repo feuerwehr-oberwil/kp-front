@@ -287,6 +287,9 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     printBusy: 'Making the PDF …',
     printOffline: 'Printing needs the connection to the server. The page is saved – print once the device is back online.',
     printFailed: 'The page could not be printed – please try again.',
+    // the page's timeline on screen and paper (lib/boardForm · pageStamp)
+    stampCreated: 'Created {at}',
+    stampEdited: 'last edited {at}',
     removeTitle: 'Remove page?',
     removeMsg: 'Everything written on «{page}» goes with it. Undo (↶) brings it back.',
     mapLabel: 'Situation map – tap to open the map',
