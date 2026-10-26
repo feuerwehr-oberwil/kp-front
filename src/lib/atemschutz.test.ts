@@ -722,6 +722,12 @@ describe('a Trupp without Atemschutz', () => {
     expect(isAtemschutzTrupp({ kind: 'einfach' })).toBe(false)
   })
 
+  it('keeps an UNKNOWN kind under monitoring — only an explicit einfach is exempt (audit F01)', () => {
+    const typo = { ...base, kind: 'atemschut' } as unknown as Trupp
+    expect(isAtemschutzTrupp(typo)).toBe(true)
+    expect(deriveTruppLive(typo, REF + 60 * 60_000, 5, 60).overdue).toBe(true)
+  })
+
   it('runs an Einsatzzeit but no contact clock, and can never overlay to ueberfaellig', () => {
     // an hour past the interval + Nachfrist — a PA Trupp would be überfällig long since
     const live = deriveTruppLive(plain, REF + 60 * 60_000, 5, 60)

@@ -872,3 +872,14 @@ describe('mergeWorkspace — Zeitplan shifts merge per field', () => {
     expect(merge({ from: '2026-09-26T02:00:00Z' }, { to: '2026-09-26T01:00:00Z' })).toEqual([{ ...sh, from: '2026-09-26T02:00:00Z' }])
   })
 })
+
+/* Audit F04 + Codex review (26.10.2026): a cached blob from before the load gate can still hold two
+ * different Trupps under one id when a cold reopen merges it with a newer server copy. The merge
+ * splits them first, with the same derived id the load gate mints, so neither crew vanishes. */
+describe('Trupps under one id — split before the keyed merge', () => {
+  const tr = (name: string) => ({ id: 'T1', name, status: 'aktiv', entryPressureBar: 300, entryTime: '', lastContactTime: '' })
+  it('keeps both crews and derives the same id on every side', () => {
+    const out = mergeWorkspace({}, { trupps: [tr('A'), tr('B')] } as unknown as Saved, { trupps: [] } as unknown as Saved) as Record<string, unknown>
+    expect((out.trupps as { id: string; name: string }[]).map((t) => [t.id, t.name])).toEqual([['T1', 'A'], ['T1~2', 'B']])
+  })
+})

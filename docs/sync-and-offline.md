@@ -139,6 +139,21 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   A Rapport-Beilage's receipt waits for the workspace save instead (`sync.hasUnsynced`), and a
   receipt for a retracted row links nothing and retires once the Verlauf is synced.
 
+## Adversarial audit contracts (25.10.2026)
+
+- **No quiet monitoring stop.** Only `kind: 'einfach'` exempts a Trupp from the contact clock —
+  absent and unknown words stay monitored on the board (`isAtemschutzTrupp`) and in the push sweep.
+  The server refuses an unknown `kind`/`status`, a non-text crew list and a second Trupp under
+  one id on a NEW or changed row; an unchanged stored row still rides (`alarm_validation`), on the
+  slice route as on the full PUT, so one old record cannot lock a tablet out of its saves.
+- **The load gate repairs what the server would now refuse** (`sanitizeWorkspace`, counted): an
+  unknown kind is removed, an unknown status becomes the phase its stamps say, broken crew entries
+  go (the crew and its clocks stay), and two different Trupps under one id are split — the second
+  gets the derived id `<id>~2`, so every device converges on the same one.
+- **A conflict that spans records is shown, never resolved by a Map.** A person in two active
+  Trupps after a merge is a banner on the board with an explicit choice
+  ([`atemschutz-board.md`](atemschutz-board.md#the-trupp-form-and-its-questions)).
+
 ## A closed Einsatz
 
 ⚠️ **A closed Einsatz keeps its RECORD, not its operation, and every device hears the close**

@@ -66,6 +66,19 @@ class TestDueTrupps:
         assert due_trupps({"trupps": [plain]}, {"alarmBar": 60}, NOW) == []
         assert [t["id"] for t in due_trupps({"trupps": [plain, pa]}, {}, NOW)] == ["pa"]
 
+    def test_an_unknown_kind_stays_monitored(self):
+        """Only an explicit ``einfach`` is exempt — a typo must not switch the alarm off (F01)."""
+        typo = trupp("typo", "2026-07-02T13:00:00Z", kind="atemschut")
+        assert [t["id"] for t in due_trupps({"trupps": [typo]}, {}, NOW)] == ["typo"]
+
+    def test_an_out_of_range_interval_falls_back_like_the_board(self):
+        """0 alarmed at once here while the board fell back to the doctrine; 1e308 never alarmed (F02)."""
+        ws = {"trupps": [trupp("a", "2026-07-02T14:06:00Z")]}  # 4 min since contact
+        for bad in (0, 1e308, 31):
+            ws["settings"] = {"contactIntervalMin": bad}
+            assert due_trupps(ws, {"contactIntervalMin": 2}, NOW) != []  # doctrine 2 min applies
+            assert due_trupps(ws, {"contactIntervalMin": bad}, NOW) == []  # shipped 5+1 min applies
+
     def test_doctrine_and_incident_settings_override(self):
         ws = {"trupps": [trupp("a", "2026-07-02T14:03:00Z")]}  # 7 min
         # deployment doctrine stretches the window past 7 min → not due

@@ -22,9 +22,13 @@ import { pad2 } from './format'
  * before 03.09. and absent means `atemschutz` (see types · TruppKind), so a raw `t.kind ===
  * 'atemschutz'` test would silently drop every historical crew out of the monitoring. Read it
  * through here and that mistake is unavailable.
+ *
+ * Fail-safe: only an explicit `einfach` is exempt. A word this build does not know (a typo an
+ * older server stored, audit F01 25.10.2026) keeps the contact clock running — mirrored by the
+ * push sweep (backend/app/push.py · due_trupps), which the server now also refuses on a write.
  */
 export function isAtemschutzTrupp(t: { kind?: TruppKind }): boolean {
-  return (t.kind ?? 'atemschutz') === 'atemschutz'
+  return t.kind !== 'einfach'
 }
 
 export interface TruppLive {

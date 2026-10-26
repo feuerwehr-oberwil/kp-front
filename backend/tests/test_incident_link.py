@@ -1255,7 +1255,7 @@ async def test_the_slice_put_writes_trupps_and_nothing_else(client, editor, work
     await _open_atemschutz(client, editor, workspace)
     r = await client.put(
         f"/api/incidents/{workspace.id}/workspace/trupps",
-        json={"trupps": [{"id": "t1", "name": "Trupp 1", "status": "innen"}], "base_rev": workspace.workspace_rev},
+        json={"trupps": [{"id": "t1", "name": "Trupp 1", "status": "aktiv"}], "base_rev": workspace.workspace_rev},
     )
     assert r.status_code == 200, r.text
     # the answer is the revision alone — a phone on one bar has no use for the blob per tap
@@ -1263,7 +1263,7 @@ async def test_the_slice_put_writes_trupps_and_nothing_else(client, editor, work
 
     await db_session.refresh(workspace)
     saved = workspace.map_workspace_json
-    assert saved["trupps"] == [{"id": "t1", "name": "Trupp 1", "status": "innen"}]
+    assert saved["trupps"] == [{"id": "t1", "name": "Trupp 1", "status": "aktiv"}]
     assert saved["shapes"] == [{"id": "s1"}], "the rest of the workspace must survive untouched"
 
 

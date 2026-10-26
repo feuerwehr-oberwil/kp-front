@@ -35,10 +35,17 @@ if TYPE_CHECKING:
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from .alarm_validation import finite_nonnegative, timestamp_ms, validate_reminder_row
+from .alarm_validation import (
+    CONTACT_GRACE_SEC,
+    CONTACT_INTERVAL_MIN,
+    TruppStatus,
+    finite_nonnegative,
+    in_range,
+    timestamp_ms,
+    validate_reminder_row,
+)
 from .config import settings
 from .models import Incident, JournalEntry, PushSubscription
-from .schemas import TruppStatus
 from .transaction_hooks import after_commit
 
 logger = logging.getLogger(__name__)
@@ -111,15 +118,18 @@ def due_trupps(workspace: dict, doctrine: dict, now_ms: float) -> list[dict[str,
     """
     settings_ws = workspace.get("settings")
     settings_ws = settings_ws if isinstance(settings_ws, dict) else {}
+    # Per-Einsatz override → station doctrine → shipped value, each only within the station range
+    # (alarm_validation · CONTACT_INTERVAL_MIN), exactly as the board resolves it
+    # (src/lib/workspace · sanitizeWorkspace drops an out-of-range override at load).
     interval_min = settings_ws.get("contactIntervalMin")
-    if not finite_nonnegative(interval_min):
+    if not in_range(interval_min, CONTACT_INTERVAL_MIN):
         interval_min = doctrine.get("contactIntervalMin")
-    if not finite_nonnegative(interval_min):
+    if not in_range(interval_min, CONTACT_INTERVAL_MIN):
         interval_min = DEFAULT_INTERVAL_MIN
     grace_sec = settings_ws.get("contactGraceSec")
-    if not finite_nonnegative(grace_sec):
+    if not in_range(grace_sec, CONTACT_GRACE_SEC):
         grace_sec = doctrine.get("contactGraceSec")
-    if not finite_nonnegative(grace_sec):
+    if not in_range(grace_sec, CONTACT_GRACE_SEC):
         grace_sec = DEFAULT_GRACE_SEC
     alarm_bar = doctrine.get("alarmBar")
     if alarm_bar is None:
@@ -139,9 +149,10 @@ def due_trupps(workspace: dict, doctrine: dict, now_ms: float) -> list[dict[str,
         # TruppKind) has no cylinder and no Funkkontakt-Intervall, so neither reason below can
         # apply to it; without this gate its ``entryPressureBar`` of 0 sits at or below every
         # configured Alarmdruck and the sweep would push «Alarmdruck erreicht» for a Verkehrstrupp
-        # every 30 s. ABSENT means ``atemschutz`` — every Trupp recorded before 03.09. carries no
-        # field at all, and this mirrors ``isAtemschutzTrupp`` in lib/atemschutz.ts.
-        if (t.get("kind") or "atemschutz") != "atemschutz":
+        # every 30 s. Only an explicit ``einfach`` is exempt: absent (every Trupp recorded before
+        # 03.09.) and any unknown word stay monitored — a typo must not switch the alarm off
+        # (audit F01, 25.10.2026). Mirrors ``isAtemschutzTrupp`` in lib/atemschutz.ts.
+        if t.get("kind") == "einfach":
             continue
         # the Notfall FIRST (src/lib/atemschutz · truppInNotfall): set, and the card not removed
         notfall_at = _ms(t.get("notfallAt"))

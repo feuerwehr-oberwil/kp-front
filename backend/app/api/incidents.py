@@ -420,8 +420,8 @@ async def put_workspace_trupps(
     if not link:
         await _latch_editor_opened(db, incident_id)
     new_ws = {**(inc.map_workspace_json or {}), "trupps": body.trupps}
-    # TruppsPut already validated the incoming slice. Avoid revalidating unrelated
-    # legacy alarm fields: a malformed old reminder must not prevent a healthy Trupp save.
+    # The rows are validated in apply_workspace_put against the stored blob, so a new or changed
+    # Trupp must pass while an unchanged legacy row (or an old malformed reminder) still rides.
     scoped = WorkspacePut.model_construct(workspace=new_ws, base_rev=body.base_rev)
     saved = await apply_workspace_put(
         db,

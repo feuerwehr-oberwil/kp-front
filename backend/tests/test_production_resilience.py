@@ -11,8 +11,9 @@ from PIL import Image
 from pydantic import ValidationError
 
 from app import push, scheduler
+from app.alarm_validation import validate_alarm_workspace
 from app.models import Incident, JournalEntry
-from app.schemas import JournalAppendIn, TruppsPut
+from app.schemas import JournalAppendIn
 
 
 @pytest.mark.parametrize("page_count", [1, 2])
@@ -99,8 +100,10 @@ async def test_new_workspace_rejects_malformed_alarm_fields(workspace, client, e
 
 
 def test_slice_and_journal_reject_malformed_alarm_fields():
-    with pytest.raises(ValidationError):
-        TruppsPut(trupps=[{"id": "bad", "entryTime": 123}], base_rev=0)
+    # the slice's rows are judged against the stored list in apply_workspace_put (a new row must
+    # pass, an unchanged legacy one rides) — so the refusal is validate_alarm_workspace's
+    with pytest.raises(ValueError):
+        validate_alarm_workspace({"trupps": [{"id": "bad", "entryTime": 123}]})
     with pytest.raises(ValidationError):
         JournalAppendIn(entries=[{"id": "bad", "kind": "team", "reminder": "broken"}])
 

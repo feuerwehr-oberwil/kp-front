@@ -18,7 +18,7 @@ from pydantic import (
     model_validator,
 )
 
-from .alarm_validation import validate_reminder_row, validate_trupp
+from .alarm_validation import CONTACT_GRACE_SEC, CONTACT_INTERVAL_MIN, TruppStatus, in_range, validate_reminder_row
 
 logger = logging.getLogger(__name__)
 
@@ -369,14 +369,11 @@ class WorkspacePut(BaseModel):
 MAX_TRUPPS = 200
 
 
-#: A Trupp's lifecycle phase — the ONE list of its words (client twin: src/types.ts · Trupp.status,
-#: held equal to the enum this emits into docs/openapi.json by src/lib/truppStatus.test.ts).
-#: angemeldet → aktiv → rueckzug → raus by hand; `ueberfaellig` is the derived overlay.
-TruppStatus = Literal["angemeldet", "aktiv", "rueckzug", "ueberfaellig", "raus"]
-
-#: A stored Trupp as the contract DESCRIBES it: an open object whose `status` is a TruppStatus.
-#: ⚠️ Schema only — validation stays `validate_trupp`'s, which does not refuse an unknown status:
-#: this is the Atemschutz save path, and an offline tablet's write must still land.
+#: A stored Trupp as the contract DESCRIBES it: an open object whose `status` is a TruppStatus
+#: (alarm_validation · TruppStatus, the one list of its words).
+#: ⚠️ Schema only — the rows are validated by `validate_alarm_workspace` in apply_workspace_put,
+#: against the stored list: a new or changed row with an unknown status is refused, an unchanged
+#: legacy row still rides, so one old record cannot lock an offline tablet out of its saves.
 _TruppDoc = Annotated[
     dict[str, Any],
     WithJsonSchema(
@@ -407,7 +404,6 @@ class TruppsPut(BaseModel):
         if len(self.trupps) > MAX_TRUPPS:
             raise ValueError(f"Zu viele Trupps (max. {MAX_TRUPPS})")
         for t in self.trupps:
-            validate_trupp(t)
             tid = t.get("id")
             if not isinstance(tid, str) or not tid.strip():
                 raise ValueError("Jeder Trupp braucht eine nichtleere String-id")
@@ -1685,6 +1681,15 @@ class DoctrineConfig(BaseModel):
                 self.entryPressureMin,
             )
             self.entryPressureMin = None
+        # The contact clock (audit F02): 0 or 1e308 used to pass, one alarming at once on the
+        # push path and the other never. Out of range degrades to the shipped value when stored.
+        for key, bounds in (("contactIntervalMin", CONTACT_INTERVAL_MIN), ("contactGraceSec", CONTACT_GRACE_SEC)):
+            value = getattr(self, key)
+            if value is not None and not in_range(value, bounds):
+                if not stored:
+                    raise ValueError(f"doctrine.{key} ({value}) must be between {bounds[0]} and {bounds[1]}")
+                logger.warning("doctrine.%s %r is out of range — serving the shipped value", key, value)
+                setattr(self, key, None)
         return self
 
     @model_validator(mode="after")

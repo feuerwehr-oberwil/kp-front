@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { autoActivateLayers, demoClockAnchor, DEMO_SEED_REV, demoSeedRebase, deriveInitial, isBoardAnno, latestTruppStamp, normalizeBoard, numberTrupps, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved } from './workspace'
+import { autoActivateLayers, CONTACT_BOUNDS, demoClockAnchor, DEMO_SEED_REV, demoSeedRebase, deriveInitial, isBoardAnno, latestTruppStamp, normalizeBoard, numberTrupps, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved } from './workspace'
 import type { LayerDef, Trupp } from '../types'
 
 // Inject one station reference layer with a category rule so the auto-activation path is
@@ -153,7 +153,7 @@ describe('sanitizeWorkspace — the Trupp’s Ausrüstung', () => {
   })
 
   it('drops what is not a list of ids, and leaves no empty list behind', () => {
-    const g = sanitizeWorkspace(ws({ trupps: [t('wbk') as unknown as Trupp, t([3, '', { id: 'x' }]) as unknown as Trupp] }))
+    const g = sanitizeWorkspace(ws({ trupps: [t('wbk') as unknown as Trupp, { ...t([3, '', { id: 'x' }]), id: 'T2' } as unknown as Trupp] }))
     expect(g.ws?.trupps?.[0].equipment).toBeUndefined()
     expect(g.ws?.trupps?.[1].equipment).toBeUndefined()
     expect(g.dropped).toBe(2)
@@ -617,5 +617,57 @@ describe('isBoardAnno — ink vertex minimums', () => {
   it('a non-ink anno needs only a finite anchor', () => {
     expect(isBoardAnno({ id: 'a', kind: 'symbol', x: 0.1, y: 0.2 })).toBe(true)
     expect(isBoardAnno({ id: 'a', kind: 'symbol', x: 0.1 })).toBe(false)
+  })
+})
+
+/* Audit 25.10.2026 (F01–F04): what a Trupp's words, crew lists and ids may hold after the gate.
+ * Each repair is counted, and whatever the server would now refuse on the crew's next edit is
+ * normalised here — otherwise one old row would lock every later save out. */
+describe('sanitizeWorkspace — Trupp safety repairs', () => {
+  const t = (over: Record<string, unknown>) => ({
+    id: 'T1', name: 'Meier', entryPressureBar: 300, entryTime: '2026-10-25T14:00:00Z', lastContactTime: '', status: 'aktiv', ...over,
+  }) as unknown as Trupp
+
+  it('removes an unknown kind (absent = Atemschutz) and keeps the known ones', () => {
+    const g = sanitizeWorkspace(ws({ trupps: [t({ kind: 'atemschut' }), t({ id: 'T2', kind: 'einfach' })] }))
+    expect(g.ws?.trupps?.map((x) => x.kind)).toEqual([undefined, 'einfach'])
+    expect(g.dropped).toBe(1)
+  })
+
+  it('turns an unknown status into the phase its stamps say', () => {
+    const g = sanitizeWorkspace(ws({ trupps: [
+      t({ status: 'of fen' }), t({ id: 'T2', status: 'drin', exitTime: '2026-10-25T14:30:00Z' }), t({ id: 'T3', status: '', entryTime: '' }),
+    ] }))
+    expect(g.ws?.trupps?.map((x) => x.status)).toEqual(['aktiv', 'raus', 'angemeldet'])
+    expect(g.dropped).toBe(3)
+  })
+
+  it('keeps the crew when a member entry is broken — only the entry goes (F03)', () => {
+    const g = sanitizeWorkspace(ws({ trupps: [t({ members: [null, 'Müller Hans', 3], memberPersonIds: { p: 1 }, leaderPersonId: 7 })] }))
+    const [kept] = g.ws?.trupps ?? []
+    expect(kept.members).toEqual(['Müller Hans'])
+    expect(kept.memberPersonIds).toEqual([])
+    expect(kept.leaderPersonId).toBeUndefined()
+    expect(kept.entryTime).toBe('2026-10-25T14:00:00Z')
+    expect(g.dropped).toBe(3)
+  })
+
+  it('keeps both crews under one id apart, with an id every device derives alike (F04)', () => {
+    const a = t({ name: 'A' }), b = t({ name: 'B' })
+    const g = sanitizeWorkspace(ws({ trupps: [a, b, a] }))
+    expect(g.ws?.trupps?.map((x) => [x.id, x.name])).toEqual([['T1', 'A'], ['T1~2', 'B']])
+    expect(g.dropped).toBe(2) // the copy of A went, B was renamed
+    expect(sanitizeWorkspace(ws({ trupps: [a, b, a] })).ws?.trupps).toEqual(g.ws?.trupps)
+  })
+
+  it('drops a contact override outside the station range, keeps one inside (F02)', () => {
+    const { contactIntervalMin: iv, contactGraceSec: gr } = CONTACT_BOUNDS
+    for (const bad of [{ contactIntervalMin: 0 }, { contactIntervalMin: 1e308 }, { contactIntervalMin: iv.max + 1 }, { contactGraceSec: gr.max + 1 }, { defaultFunkkanal: 1.5 }]) {
+      const g = sanitizeWorkspace(ws({ settings: bad }))
+      expect(g.ws?.settings).toEqual({})
+      expect(g.dropped).toBe(1)
+    }
+    const ok = { contactIntervalMin: iv.max, contactGraceSec: gr.min, defaultFunkkanal: 11 }
+    expect(sanitizeWorkspace(ws({ settings: ok })).ws?.settings).toEqual(ok)
   })
 })
