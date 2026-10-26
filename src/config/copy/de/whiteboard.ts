@@ -426,6 +426,9 @@ export const whiteboardCopy = {
     printBusy: 'PDF wird erstellt …',
     printOffline: 'Drucken braucht die Verbindung zum Server. Die Seite ist gespeichert – drucken, sobald das Gerät wieder online ist.',
     printFailed: 'Die Seite konnte nicht gedruckt werden – bitte nochmals versuchen.',
+    // the page's timeline on screen and paper (lib/boardForm · pageStamp)
+    stampCreated: 'Erstellt {at}',
+    stampEdited: 'zuletzt bearbeitet {at}',
     removeTitle: 'Seite entfernen?',
     removeMsg: 'Alles, was auf «{page}» steht, geht mit. Rückgängig (↶) holt es zurück.',
     mapLabel: 'Lagekarte – tippen öffnet die Karte',

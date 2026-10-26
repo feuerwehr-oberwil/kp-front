@@ -101,6 +101,8 @@ class BoardPageIn(BaseModel):
 
     title: str = ""
     source: str = ""
+    #: the page's timeline, «Erstellt … · zuletzt bearbeitet …» (lib/boardForm · pageStamp)
+    stamp: str = ""
     landscape: bool = False
     columns: int = 1
     #: the optional header line: Einsatz, Adresse, Alarm, Einsatzleiter (empty = switched off)
@@ -697,19 +699,25 @@ class BoardPageFlowable(Flowable):
             bits = [f"{h.label}: {h.value}" for h in p.head if h.value.strip()]
             c.drawString(0, top + 2 * mm, printable("   ·   ".join(bits)))
             top -= 6 * mm
-        # footer: where the page comes from
+        # footer: where the page comes from on the left, its timeline on the right
         c.setStrokeColor(RULE)
         c.setLineWidth(0.6)
         c.line(0, _FOOT_H - 1 * mm, pw, _FOOT_H - 1 * mm)
+        src_w = pw
+        if p.stamp:
+            c.setFont(FONT, 6.5)
+            c.setFillColor(RULE)
+            c.drawRightString(pw, _FOOT_H - 4.5 * mm, printable(p.stamp))
+            src_w -= stringWidth(printable(p.stamp), FONT, 6.5) + 6 * mm
         if p.source:
             # a long source (the FKS file names the poster and the Handbuch's sheets) never runs
-            # off the paper: smaller first, then a second line
+            # off the paper or into the timeline: smaller first, then a second line
             fs = 6.5
-            while fs > 5.5 and stringWidth(printable(p.source), FONT, fs) > pw:
+            while fs > 5.5 and stringWidth(printable(p.source), FONT, fs) > src_w:
                 fs -= 0.5
             c.setFont(FONT, fs)
             c.setFillColor(RULE)
-            for j, part in enumerate(wrap(p.source, pw, FONT, fs)[:2]):
+            for j, part in enumerate(wrap(p.source, src_w, FONT, fs)[:2]):
                 c.drawString(0, _FOOT_H - 4.5 * mm - j * fs * 1.15, part)
         rows = _grid_rows(p)
         if not rows:

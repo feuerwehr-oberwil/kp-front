@@ -38,6 +38,11 @@ replaces the bundled one.
   not fit on them continues on the «Fortsetzung».
 - A page's header carries its title only; which template file and version it came from stays in
   its data and on the paper's footer.
+- **Its timeline** stands under the page's last box and in the paper's footer, right corner:
+  «Erstellt 26.10.2026, 11:24 · zuletzt bearbeitet 26.10.2026, 14:05» (owner, 26.10.2026: the
+  printed page dates itself, not only the Verlauf; `lib/boardForm · pageStamp`). Both on the server
+  clock: when the page was added (`at`) and its latest cell stamp (`t`). Until something is written,
+  only «Erstellt».
 - **A page is ONE board anno** of kind `form` on the Tafel's own sheet (`board['tafel']`). The
   anno carries the page *snapshot* and everything written on it. So adding a page, every
   committed cell and removing a page are each one ↶ step on the Tafel's history, and a page syncs

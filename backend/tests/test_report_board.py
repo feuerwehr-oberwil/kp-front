@@ -367,3 +367,29 @@ def test_a_long_column_head_prints_whole_with_its_symbol_group_together():
     page["sections"][2]["columns"][1] = {"label": head, "w": 1.0}
     text = _text(_compose(boardPages=[page]))
     assert "tendenz" in text and "(–)" in text
+
+
+def test_the_page_prints_its_timeline_beside_a_long_source():
+    """Owner, 26.10.2026: the paper says when the page was started and last written on — in the
+    footer's right corner, where a long source line never runs into it."""
+    page = _ef()
+    page["source"] = "FKS Handbuch Führung Grossereignisse, Kap. 8 " * 4 + "ENDE"
+    page["stamp"] = "Erstellt 26.10.2026, 11:24 · zuletzt bearbeitet 26.10.2026, 14:05"
+    doc = pdfium.PdfDocument(io.BytesIO(_compose(boardPages=[page])))
+    for i in range(len(doc)):
+        tp = doc[i].get_textpage()
+        text = tp.get_text_range()
+        if page["stamp"] in text:
+            # the stamp shares the source's first baseline, so the extracted text interleaves them
+            s0 = text.find(page["stamp"])
+            stamp = range(s0, s0 + len(page["stamp"]))
+            stamp_left = tp.get_charbox(s0)[0]
+            source = [
+                j
+                for j in range(text.find("FKS Handbuch"), text.find("ENDE") + 4)
+                if j not in stamp and not text[j].isspace()
+            ]
+            source_right = max(tp.get_charbox(j)[2] for j in source)
+            assert source_right < stamp_left
+            return
+    raise AssertionError("the timeline is missing")

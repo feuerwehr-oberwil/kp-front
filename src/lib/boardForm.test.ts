@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useState } from 'react'
 import {
-  findForms, formAnno, formForPdf, formHasContent, isFormData, newFormPage, nextTrend, normalizeTime, pageTitles, putField, putLine, putRow, tableRows,
+  findForms, formAnno, formForPdf, formHasContent, isFormData, newFormPage, nextTrend, normalizeTime, pageStamp, pageTitles, putField, putLine, putRow, tableRows,
   type BoardFormData,
 } from './boardForm'
 import { BUNDLED_TEMPLATES } from './boardTemplates'
@@ -202,6 +202,21 @@ describe('the Rapport gets the page resolved, in the deployment’s words', () =
     const pdf = formForPdf(d, WORDS, 'de') as { landscape: boolean; sections: { rows: { cells: string[] }[] }[] }
     expect(pdf.landscape).toBe(true)
     expect(pdf.sections[0].rows[0].cells).toEqual(['Brand Zisternenfahrzeug', 'wird schlimmer', '', ''])
+  })
+})
+
+// owner, 26.10.2026: the page itself says when it was started and last written on
+describe('the page’s timeline', () => {
+  const STAMP = { stampCreated: 'Erstellt {at}', stampEdited: 'zuletzt bearbeitet {at}' }
+  const started = newFormPage(FKS, EF, {}, new Date(2026, 9, 26, 11, 24).toISOString())
+  it('names only the start while nothing is written', () => {
+    expect(pageStamp(started, STAMP)).toBe('Erstellt 26.10.2026, 11:24')
+  })
+  it('adds the latest edit, on whichever day it was', () => {
+    let d = putLine(started, 'problem', 'front', 'l1', { text: 'Brand Haus 21' }, new Date(2026, 9, 27, 0, 15).getTime())
+    d = putLine(d, 'problem', 'front', 'l2', { text: 'Rettungen' }, new Date(2026, 9, 26, 23, 50).getTime())
+    expect(pageStamp(d, STAMP)).toBe('Erstellt 26.10.2026, 11:24 · zuletzt bearbeitet 27.10.2026, 00:15')
+    expect((formForPdf(d, WORDS, 'de', undefined, undefined, pageStamp(d, STAMP)) as { stamp: string }).stamp).toBe(pageStamp(d, STAMP))
   })
 })
 
