@@ -623,7 +623,7 @@ describe('truppCrewWithout / truppTransferState — moving somebody out of the T
 
   it('takes an AdF out and leaves the rest of the crew as it was', () => {
     expect(truppCrewWithout(pair, 'p2')).toEqual({
-      name: 'Müller', members: ['Amrein'], leaderPersonId: 'p1', memberPersonIds: ['p3'],
+      name: 'Müller', members: ['Amrein'], leaderPersonId: 'p1', memberPersonIds: ['p3'], who: 'Frei',
     })
   })
 
@@ -631,7 +631,7 @@ describe('truppCrewWithout / truppTransferState — moving somebody out of the T
   // promotes the next member — the same thing dragging a name up the form does
   it('promotes the next member when the Gruppenführer is the one being moved', () => {
     expect(truppCrewWithout(pair, 'p1')).toEqual({
-      name: 'Frei', members: ['Amrein'], leaderPersonId: 'p2', memberPersonIds: ['p3'],
+      name: 'Frei', members: ['Amrein'], leaderPersonId: 'p2', memberPersonIds: ['p3'], who: 'Müller',
     })
   })
 
@@ -720,6 +720,12 @@ describe('a Trupp without Atemschutz', () => {
     expect(isAtemschutzTrupp(base)).toBe(true)
     expect(isAtemschutzTrupp({ kind: 'atemschutz' })).toBe(true)
     expect(isAtemschutzTrupp({ kind: 'einfach' })).toBe(false)
+  })
+
+  it('keeps an UNKNOWN kind under monitoring — only an explicit einfach is exempt (audit F01)', () => {
+    const typo = { ...base, kind: 'atemschut' } as unknown as Trupp
+    expect(isAtemschutzTrupp(typo)).toBe(true)
+    expect(deriveTruppLive(typo, REF + 60 * 60_000, 5, 60).overdue).toBe(true)
   })
 
   it('runs an Einsatzzeit but no contact clock, and can never overlay to ueberfaellig', () => {

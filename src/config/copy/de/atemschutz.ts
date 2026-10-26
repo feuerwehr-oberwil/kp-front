@@ -658,6 +658,17 @@ export const atemschutzCopy = {
      *  derselbe Name, der im selben Satz schon steht. Beides ist keine Auskunft – die Anmeldung
      *  direkt darunter nennt den neuen Trupp. */
     logMovedOutPlain: 'Trupp {name}: {person} in einen anderen Trupp gewechselt',
+    /**
+     * Eine Person in ZWEI Trupps im Einsatz (Audit F05, 25.10.2026): zwei Geräte haben sie offline
+     * je in einen anderen Trupp eingeteilt, der Abgleich behält beide. Auf EINEM Gerät verhindert
+     * das Formular den Fall (`assignedConflict`). Das Band über DRIN nennt Person und Trupps, beide
+     * Uhren laufen weiter, und erst die Wahl nach dem Funkspruch nimmt die Person aus dem anderen
+     * Trupp – eine Verlaufszeile, rückgängig machbar (useTruppActions · keepInOneTrupp).
+     */
+    doubleTitle: '{person} in {n} Trupps',
+    doubleText: 'Beide Kontaktuhren laufen. Per Funk klären, in welchem Trupp {person} ist:',
+    doubleKeep: 'Bleibt in Trupp {trupp}',
+    logDoubleResolved: 'Trupp {name}: {person} ausgetragen – war doppelt eingeteilt, ist in Trupp {to}',
     // ⚠️ Says WHAT the Auftrag now is, not that a field was touched. «Auftrag angepasst» was the
     // one line on this row that named nothing: read back an hour later it could mean a new order,
     // a corrected floor or a typo fixed in the Ziel, and the Verlauf is read precisely to find out

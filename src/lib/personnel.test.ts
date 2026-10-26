@@ -7,7 +7,7 @@ let nameOrder: 'last-first' | 'first-last' = 'last-first'
 vi.mock('./deploymentConfig', () => ({ rosterNameOrder: () => nameOrder }))
 afterEach(() => { nameOrder = 'last-first' })
 
-import { abbreviateName, assignedPersonIds, canonicalName, personIdForName, presentCount, linkTrupps, rosterFromList, rosterIdByName, truppSlots } from './personnel'
+import { abbreviateName, assignedPersonIds, canonicalName, doubleAssignments, personIdForName, presentCount, linkTrupps, rosterFromList, rosterIdByName, truppSlots } from './personnel'
 
 const person = (id: string, displayName: string, active = true): Person => ({ id, displayName, active, updatedAt: '2026-06-23T10:00:00Z' })
 
@@ -183,5 +183,21 @@ describe('linkTrupps (reading name-only Trupps through the roster)', () => {
   it('leaves a real Gast unlinked', () => {
     const guest: Trupp = { ...nameOnly, name: 'Muster Felix (Nachbarwehr)', members: [] }
     expect(assignedPersonIds(linkTrupps([guest], byName, roster))).toEqual(new Set())
+  })
+})
+
+describe('doubleAssignments — one person in two active Trupps (audit F05)', () => {
+  const t = (id: string, over: Partial<Trupp> = {}): Trupp => ({
+    id, name: id, entryPressureBar: 300, entryTime: '', lastContactTime: '', status: 'aktiv', leaderPersonId: `lead-${id}`, ...over,
+  })
+
+  it('names every active Trupp that holds the same person, leader or member', () => {
+    const list = [t('A', { memberPersonIds: ['p1'] }), t('B', { leaderPersonId: 'p1' }), t('C', { memberPersonIds: ['p2'] })]
+    expect(doubleAssignments(list)).toEqual([{ personId: 'p1', truppIds: ['A', 'B'] }])
+  })
+
+  it('ignores a crew that is out or removed — they hold nobody', () => {
+    const list = [t('A', { memberPersonIds: ['p1'] }), t('B', { memberPersonIds: ['p1'], status: 'raus' }), t('C', { memberPersonIds: ['p1'], removedAt: '2026-10-25T14:00:00Z' })]
+    expect(doubleAssignments(list)).toEqual([])
   })
 })

@@ -4,6 +4,10 @@
 // queue whenever connectivity returns so nothing sits un-uploaded once we're back online.
 // `target: 'attachment'` keeps Rapport-Beilagen on that same durable/retrying path, with their
 // restore/upload callbacks routed to attachment ids rather than append-only journal rows.
+// Uploads land as RECEIPTS (mediaQueue header): `replay` hands each to `onUploaded` after every
+// flush, on start and whenever the caller asks (`replayReceipts`), and retires it once
+// `onUploaded` says the link is acknowledged — never after this hook has unmounted, when the
+// store it links into may already be gone. Receipts keep their `target` for that call.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { uploadMedia } from './incidents'
@@ -12,7 +16,9 @@ import {
   enqueueMedia,
   flushMediaQueue,
   isMediaQueueDurable,
+  isReceipt,
   listMediaQueue,
+  retireMediaReceipts,
   sameQueue,
   type MediaQueueItem,
   type MediaStatus,
@@ -24,7 +30,8 @@ import type { SyncStatus } from './api/workspaceSync'
  * The media queue's part of the shared sync status («Saved means every operational queue is
  * acknowledged», docs/sync-and-offline.md). A capture is not on the record until the server has it, so a queued
  * one is `pending`; one the server keeps refusing is `error`; one this device could not even
- * store is `storage` — the same three words the workspace, journal and audit outboxes use.
+ * store is `storage` — the same three words the workspace, journal and audit outboxes use. A
+ * receipt (uploaded, link not yet acknowledged) is `pending` too.
  */
 export function mediaSyncStatus(items: MediaQueueItem[], durable: boolean): SyncStatus {
   if (!items.length) return 'synced'
@@ -35,9 +42,12 @@ export function mediaSyncStatus(items: MediaQueueItem[], durable: boolean): Sync
 interface Opts {
   incidentId: string
   readOnly: boolean
-  /** an upload succeeded — swap the row's local URL for the persistent server URL. `localUrl`
-   *  names WHICH picture settled: a row can carry several, and the others must survive. */
-  onUploaded: (rowId: string, kind: 'photo' | 'audio', url: string, localUrl?: string, target?: MediaTarget) => void
+  /** a receipt: the server has the bytes — link the row (or, with `target: 'attachment'`, the
+   *  Beilage) to `url` (in place of `localUrl`: a row can carry several pictures, and the others
+   *  must survive). Called again on every replay until it answers true («the link is
+   *  acknowledged, retire the receipt»), across reloads too, so it MUST be idempotent: a link
+   *  already made is not made twice. */
+  onUploaded: (rowId: string, kind: 'photo' | 'audio', url: string, localUrl?: string, target?: MediaTarget) => boolean
   /** a queued (not-yet-uploaded) capture was found — reattach it to its row for display */
   onRestore: (rowId: string, kind: 'photo' | 'audio', localUrl: string, replaces?: string, target?: MediaTarget) => void
 }
@@ -45,8 +55,12 @@ interface Opts {
 export interface MediaQueueApi {
   /** in-queue status for a timeline row, or undefined if the row's media is fully uploaded */
   statusOf: (rowId: string) => MediaStatus | undefined
-  /** number of captures not yet on the server (pending + failed) */
+  /** number of captures not yet on the server (pending + failed) — receipts are not counted */
   pendingCount: number
+  /** uploads whose link is not acknowledged yet (receipts) */
+  receiptCount: number
+  /** hand every receipt to `onUploaded` again and retire the acknowledged ones */
+  replayReceipts: () => Promise<void>
   /** persist a blob before upload (attachments), or after a direct upload failed (journal).
    *  Resolves false when it could only be held in memory (see mediaQueue · enqueueMedia). */
   enqueue: (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string, localUrl?: string, target?: MediaTarget) => Promise<boolean>
@@ -82,22 +96,42 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
     setItems((prev) => (sameQueue(prev, next) ? prev : next))
   }, [incidentId])
 
+  // mounted? A replay after unmount would link into a disposed store, which drops the
+  // link without a word — and then retire the receipt. Declared before the mount effect below.
+  const mounted = useRef(false)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+
+  // Hand every receipt to its row (or Beilage) and retire the ones whose link is acknowledged.
+  const replay = useCallback(async () => {
+    if (readOnly || !mounted.current) return
+    const receipts = (await listMediaQueue(incidentId)).filter(isReceipt)
+    if (!mounted.current) return
+    // after a reload the row shows the object URL we minted at restore, not the one the
+    // capture was queued with — that is the picture the server URL has to replace
+    const done = receipts.filter((r) => cb.current.onUploaded(r.rowId, r.kind, r.url, restoredUrls.current.get(r.id) ?? r.localUrl, r.target))
+    if (!done.length) return
+    await retireMediaReceipts(incidentId, done)
+    for (const r of done) {
+      // linked for good: its session thumbnail (restored OR minted at the capture) and the
+      // restored object URL have nothing left to show
+      const old = restoredUrls.current.get(r.id)
+      const local = old ?? r.localUrl
+      if (local) forgetLocalThumb(local)
+      if (old) { URL.revokeObjectURL(old); restoredUrls.current.delete(r.id) }
+    }
+  }, [incidentId, readOnly])
+
   const flush = useCallback(async (options?: { retry?: boolean }) => {
     if (readOnly) return
-    const { uploaded } = await flushMediaQueue(incidentId, uploadMedia, options)
-    for (const u of uploaded) {
-      // after a reload the row shows the object URL we minted at restore, not the one the
-      // capture was queued with — that is the picture the server URL has to replace
-      const old = restoredUrls.current.get(u.id)
-      cb.current.onUploaded(u.rowId, u.kind, u.url, old ?? u.localUrl, u.target)
-      // the picture is on the server now: its session thumbnail (restored OR minted at the
-      // capture) and the restored object URL have nothing left to show
-      const local = old ?? u.localUrl
-      if (local) forgetLocalThumb(local)
-      if (old) { URL.revokeObjectURL(old); restoredUrls.current.delete(u.id) }
-    }
+    await flushMediaQueue(incidentId, uploadMedia, options)
+    await replay()
     await refresh()
-  }, [incidentId, readOnly, refresh])
+  }, [incidentId, readOnly, refresh, replay])
+
+  const replayReceipts = useCallback(async () => {
+    await replay()
+    await refresh()
+  }, [replay, refresh])
 
   // On mount / incident switch: reattach any queued captures to their rows, then try to drain.
   useEffect(() => {
@@ -106,6 +140,8 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
       const q = await listMediaQueue(incidentId)
       if (!alive) return
       for (const item of q) {
+        // a receipt has no bytes left to show — the replay links its server copy instead
+        if (isReceipt(item)) continue
         if (!(item.blob instanceof Blob)) continue // retain corrupt legacy metadata, without throwing on restore
         const url = URL.createObjectURL(item.blob)
         restoredUrls.current.set(item.id, url)
@@ -157,11 +193,14 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
   }, [incidentId, refresh])
 
   const statusOf = useCallback((rowId: string): MediaStatus | undefined => {
-    // a row can carry both photo and audio; surface the more urgent state
-    const forRow = items.filter((i) => i.rowId === rowId)
+    // a row can carry both photo and audio; surface the more urgent state. A receipt is
+    // uploaded — nothing for the row to wait for.
+    const forRow = items.filter((i) => i.rowId === rowId && !isReceipt(i))
     if (forRow.some((i) => i.status === 'failed')) return 'failed'
     return forRow.length ? 'pending' : undefined
   }, [items])
+  const receiptCount = items.filter(isReceipt).length
+  const pendingCount = items.length - receiptCount
 
   // stable API object — consumers hang effects off `media`, and a fresh object per render
   // (the other half of the re-render loop above) re-fired them on every commit
@@ -169,6 +208,6 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
   // the queue, and a watcher repeating its stale copy would only contradict it.
   const syncStatus: SyncStatus = readOnly ? 'synced' : mediaSyncStatus(items, durable)
   const getStatus = useCallback((): SyncStatus => (readOnly ? 'synced' : status.current), [readOnly])
-  return useMemo(() => ({ statusOf, pendingCount: items.length, enqueue, flush, syncStatus, getStatus }),
-    [statusOf, items.length, enqueue, flush, syncStatus, getStatus])
+  return useMemo(() => ({ statusOf, pendingCount, receiptCount, replayReceipts, enqueue, flush, syncStatus, getStatus }),
+    [statusOf, pendingCount, receiptCount, replayReceipts, enqueue, flush, syncStatus, getStatus])
 }

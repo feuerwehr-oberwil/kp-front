@@ -338,8 +338,10 @@ both now have browser pages – §9e and §9f.
                                                   // 0 is reserved for identity.demoMode deployments
     "alarmBarRueckzug": 50,                       // …and the quieter line once the Trupp is on
                                                   // RÜCKZUG. Must not exceed alarmBar – see below
-    "contactIntervalMin": 5,                      // SCBA contact interval – "Kontakt fällig" (amber)
-    "contactGraceSec": 60,                        // Nachfrist after the interval before the überfällig alarm
+    "contactIntervalMin": 5,                      // SCBA contact interval – "Kontakt fällig" (amber), 1–30 min
+    "contactGraceSec": 60,                        // Nachfrist after the interval before the überfällig alarm, 0–300 s
+                                                  // (one range for doctrine, per-Einsatz overrides and push –
+                                                  // CONTACT_BOUNDS / alarm_validation; out of range = shipped value)
     "defaultPressureBar": 300, "pressureStep": 10, "pressureMax": 320,
     "entryPressureMin": 270,                      // below this Eingangsdruck the Trupp form asks
                                                   // once; 0 = never ask – see below

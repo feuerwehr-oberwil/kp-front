@@ -95,8 +95,9 @@ export function useJournal({ incidentId, readOnly, legacy, slowFollow = false, o
   const requeueRefused = useCallback(() => store.requeueRefused(), [store])
   const recoveryData = useCallback(() => store.recoveryData(), [store])
   const getStatus = useCallback(() => store.syncStatus, [store])
+  const rowShown = useCallback((id: string) => store.rowShown(id), [store])
 
   return { rows, blobTimeline, append, appendPatch, overlaySession, swapPhoto, ingestLegacy,
-    retry, flush, requeueRefused, recoveryData, getStatus, syncStatus: store.syncStatus,
+    retry, flush, requeueRefused, recoveryData, getStatus, rowShown, syncStatus: store.syncStatus,
     pendingCount: store.pendingCount, rejectedCount: store.rejectedCount, refusedCount }
 }

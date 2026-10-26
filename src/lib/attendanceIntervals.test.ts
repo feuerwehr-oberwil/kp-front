@@ -174,6 +174,41 @@ describe('mergeCloseBlocks', () => {
       .toEqual([iv('22:11', '23:20')])
   })
 
+  it('never shortens a contained block, even when the input is unsorted', () => {
+    const blocks = [iv('19:00', '20:00'), iv('18:00', '22:00'), iv('18:00', '22:00')]
+    const original = structuredClone(blocks)
+    const merged = mergeCloseBlocks(blocks, 15)
+    expect(merged).toEqual([iv('18:00', '22:00')])
+    expect(totalMinutes(merged, { alarmedAt: null, endedAt: null })).toBe(240)
+    expect(blocks).toEqual(original)
+  })
+
+  it('unions overlaps even when short-gap bridging is disabled', () => {
+    expect(mergeCloseBlocks([iv('18:00', '20:00'), iv('19:00', '22:00')], 0))
+      .toEqual([iv('18:00', '22:00')])
+  })
+
+  it('does not bridge a gap exactly at the configured threshold', () => {
+    const blocks = [iv('18:00', '19:00'), iv('19:15', '20:00')]
+    expect(mergeCloseBlocks(blocks, 15)).toEqual(blocks)
+  })
+
+  it('keeps invalid or reversed blocks unresolved instead of absorbing them', () => {
+    for (const bad of [iv('21:00', '19:00'), { from: 'invalid', to: T(20) }]) {
+      const merged = mergeCloseBlocks([iv('18:00', '22:00'), bad], 15)
+      expect(merged).toHaveLength(2)
+      expect(totalMinutes(merged, { alarmedAt: null, endedAt: T(23) })).toBeNull()
+    }
+  })
+
+  it('uses actual instants across midnight and a daylight-saving offset change', () => {
+    const blocks = [
+      { from: '2026-10-24T23:30:00+02:00', to: '2026-10-25T03:30:00+01:00' },
+      { from: '2026-10-25T02:00:00+02:00', to: '2026-10-25T02:15:00+01:00' },
+    ]
+    expect(totalMinutes(mergeCloseBlocks(blocks, 15), { alarmedAt: null, endedAt: null })).toBe(300)
+  })
+
   it('leaves a real break alone', () => {
     const blocks = [iv('18:00', '19:00'), iv('22:00', '23:00')]
     expect(mergeCloseBlocks(blocks, 15)).toEqual(blocks)
@@ -184,9 +219,9 @@ describe('mergeCloseBlocks', () => {
       .toEqual([{ from: '2026-08-08T22:11:00', to: undefined }])
   })
 
-  it('never merges across a block that has no end — there is nothing after «still here»', () => {
+  it('keeps the union open when a closed correction follows an open block', () => {
     const blocks = [iv('22:11'), iv('22:59', '23:20')]
-    expect(mergeCloseBlocks(blocks, 15)).toEqual(blocks)
+    expect(mergeCloseBlocks(blocks, 15)).toEqual([iv('22:11')])
   })
 
   it('is a no-op at 0 and on a single block', () => {

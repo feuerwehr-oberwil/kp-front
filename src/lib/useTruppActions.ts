@@ -42,9 +42,9 @@ export function useTruppActions(deps: TruppActionDeps) {
 
   const { updateTrupp } = core
   const { recordContact, recordPressure, setTruppStatus, triggerNotfall, endNotfall, truppPlace, logTruppAlarm, logTruppAlarmCleared } = clock
-  const { createTrupp, moveTrupp, editTrupp, setTruppEquipment, transferOutOfTrupp, reactivateTrupp, deleteTrupp, restoreTrupp } = lifecycle
+  const { createTrupp, moveTrupp, editTrupp, setTruppEquipment, transferOutOfTrupp, keepInOneTrupp, reactivateTrupp, deleteTrupp, restoreTrupp } = lifecycle
   const { placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan } = placement
   const { linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos } = lines
   const { truppColors } = colors
-  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, triggerNotfall, endNotfall, truppPlace, editTrupp, setTruppEquipment, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors }
+  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, triggerNotfall, endNotfall, truppPlace, editTrupp, setTruppEquipment, transferOutOfTrupp, keepInOneTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors }
 }

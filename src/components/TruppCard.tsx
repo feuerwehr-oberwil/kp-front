@@ -54,9 +54,11 @@ export function ClockVal({ val }: { val: string }) {
 }
 
 export function TruppRow({
-  t, live, alarm, color, canEdit, onContact, onPressure, onOpen, focusNonce, focusScroll = true, flashSeen, onFlashed, lite,
+  t, live, alarm, color, canEdit, onContact, onPressure, onOpen, focusNonce, focusScroll = true, flashSeen, onFlashed, lite, conflict = false,
 }: {
   t: Trupp; live: TruppLive; now: number; color?: string; canEdit: boolean
+  /** named by the double-assignment band (DoubleAssignmentBanner) — a steady amber ring */
+  conflict?: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the card use */
   alarm: TruppAlarm
   onContact: (id: string) => void
@@ -128,7 +130,7 @@ export function TruppRow({
     return () => { window.clearTimeout(timer); el.classList.remove(s.cardFlash) }
   }, [focusNonce, focusScroll])
   return (
-    <button ref={rowRef} type="button" className={cx(s.trow, acts ? s.trowTwo : s.trowOne, tone)} onClick={onOpen}
+    <button ref={rowRef} type="button" className={cx(s.trow, acts ? s.trowTwo : s.trowOne, tone, conflict && s.cardConflict)} onClick={onOpen}
       aria-label={[t.name, tier?.text, words.status(status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status))]
         .filter((w, i, all) => w && all.indexOf(w) === i).join(' — ')}>
       <RowLine t={t} live={live} color={color} lite={lite} tier={tier} />
@@ -302,8 +304,10 @@ function TruppPair({ t, live, sev, nested = false, onPressure, onContact }: {
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
 export function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onStatus, onStandDown, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, headed = false, lite = false, onNotfall, onNotfallEnd,
+  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onStatus, onStandDown, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, headed = false, lite = false, onNotfall, onNotfallEnd, conflict = false,
 }: {
+  /** named by the double-assignment band (DoubleAssignmentBanner) — a steady amber ring */
+  conflict?: boolean
   /** the held «Notfall» on a crew inside, and the held «Notfall beendet» on a crew in one (F1,
    *  AtemschutzNotfall · NotfallHold). Absent for a viewer and on a closed Einsatz. */
   onNotfall?: () => void
@@ -994,7 +998,7 @@ export function TruppCard({
     </div>
   )
   return (
-    <div ref={cardRef} data-az-open={rowMode ? '' : undefined} className={cx(s.trow, s.trowCard, rowTone(t, status, sev))}>
+    <div ref={cardRef} data-az-open={rowMode ? '' : undefined} className={cx(s.trow, s.trowCard, rowTone(t, status, sev), conflict && s.cardConflict)}>
       {head}
       {monitored && canEdit && inField && (
         <TruppPair t={t} live={live} sev={sev} onPressure={(id) => onAskPressure?.(id)} onContact={onContact} />

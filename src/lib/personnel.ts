@@ -103,6 +103,20 @@ export function truppSlots(t: Trupp, byName: Map<string, string>, roster: Roster
 }
 
 /**
+ * `truppSlots` plus whether the roster VOUCHES for each id: the name resolves to it, or it is the
+ * roster row of exactly that name. An untrusted id is the stored positional one, which a compacted
+ * array can pin on the wrong name — so a crew edit that removes one person reads this
+ * (atemschutz · truppCrewWithout) and refuses to guess (Codex review of audit F05, 26.10.2026).
+ */
+export function truppCrewSlots(t: Trupp, byName: Map<string, string>, roster: Roster): { name: string; personId?: string; trusted: boolean }[] {
+  return truppSlots(t, byName, roster).map((sl) => ({
+    ...sl,
+    trusted: !!sl.personId && (personIdForName(byName, sl.name) === sl.personId
+      || swappedKey(roster.get(sl.personId)?.displayName ?? '') === swappedKey(sl.name)),
+  }))
+}
+
+/**
  * The Trupps as the rest of the app should READ them: every member who resolves to a roster row
  * carrying that row's id.
  *
@@ -143,7 +157,9 @@ export function assignedPersonIds(trupps: Trupp[]): Set<string> {
 
 /** personId → the id of the ACTIVE Trupp they are in. Same rule as assignedPersonIds (a Trupp
  *  that is `raus` no longer holds anybody), but it keeps the answer to «which one» — a locked
- *  roster row has to be able to point at the card it is locked by, not just say that it is. */
+ *  roster row has to be able to point at the card it is locked by, not just say that it is.
+ *  A person in TWO active Trupps gets the later one here; the board says so out loud instead
+ *  (`doubleAssignments`), so this lookup is a pointer, never the conflict's resolution. */
 export function truppByPersonId(trupps: Trupp[]): Map<string, string> {
   const by = new Map<string, string>()
   for (const t of trupps) {
@@ -152,6 +168,28 @@ export function truppByPersonId(trupps: Trupp[]): Map<string, string> {
     for (const id of t.memberPersonIds ?? []) by.set(id, t.id)
   }
   return by
+}
+
+/**
+ * People held by more than one ACTIVE Trupp, each with those Trupps in board order — audit F05
+ * (25.10.2026). The Trupp form refuses this on one device (TruppForm · assignedConflict), but two
+ * offline devices can each make one half, and the merge rightly keeps both edits. The board shows
+ * it as a banner (AtemschutzView · DoubleAssignmentBanner) and the operator resolves it
+ * (useTruppActions · keepInOneTrupp); nothing picks a side silently. Same rule as
+ * assignedPersonIds, plus a removed card holds nobody either.
+ */
+export function doubleAssignments(trupps: Trupp[]): { personId: string; truppIds: string[] }[] {
+  const by = new Map<string, string[]>()
+  for (const t of trupps) {
+    if (t.status === 'raus' || t.removedAt) continue
+    for (const id of new Set([t.leaderPersonId, ...(t.memberPersonIds ?? [])])) {
+      if (!id) continue
+      const list = by.get(id) ?? []
+      list.push(t.id)
+      by.set(id, list)
+    }
+  }
+  return [...by].filter(([, ids]) => ids.length > 1).map(([personId, truppIds]) => ({ personId, truppIds }))
 }
 
 export const presentCount = (attendance: AttendanceState): number =>
