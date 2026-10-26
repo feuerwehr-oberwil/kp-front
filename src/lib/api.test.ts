@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getEventListeners } from 'node:events'
+import { execFileSync } from 'node:child_process'
 import { ApiError, LINK_REFUSED_EVENT, SESSION_EXPIRED_EVENT, apiBeacon, apiDelete, apiGet, apiGetRaw, apiPost, apiPut, eitherSignal, isUnverifiable } from './api'
 import { resetServerClock, serverClockOffsetMs } from './serverClock'
 
@@ -22,6 +23,29 @@ const json = (body: unknown, init: ResponseInit = {}) =>
   new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' }, ...init })
 
 describe('shared offline-preparation cancellation', () => {
+  it('does not keep completed requests\' caller signals alive until their timeouts expire', () => {
+    // A long-poll round releases its controller when the response completes. Its timeout still
+    // has a timer, so a composer callback capturing BOTH inputs kept that finished round alive
+    // too (the Chromium surface tour retained eight extra abort listeners). An isolated process
+    // exposes GC without changing the test runner's flags; exercise the actual composer here.
+    const source = `
+      const compose = (${eitherSignal.toString()});
+      const callers = Array.from({ length: 8 }, () => {
+        const signal = new AbortController().signal;
+        compose(AbortSignal.timeout(60_000), signal);
+        return new WeakRef(signal);
+      });
+      for (let i = 0; i < 12; i++) {
+        await new Promise((resolve) => setImmediate(resolve));
+        globalThis.gc();
+      }
+      process.stdout.write(String(callers.filter((ref) => ref.deref()).length));
+    `
+    expect(execFileSync(process.execPath, ['--expose-gc', '--input-type=module', '-e', source], {
+      encoding: 'utf8', timeout: 10_000,
+    })).toBe('0')
+  })
+
   it('releases the shared controller after each request timeout', () => {
     const session = new AbortController()
     for (let i = 0; i < 30; i++) {
