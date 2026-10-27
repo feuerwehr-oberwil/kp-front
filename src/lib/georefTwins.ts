@@ -524,6 +524,8 @@ const BOARD_PLAN_ONLY = [
   'showDistance', 'labelDx', 'labelDy', 'teilstueck', 'content', 'lineNo', 'floorTag',
   'endDx', 'endDy', 'fillOpacity', 'hatch', 't', 'trail', 'truppId', 'floor', 'locked',
   'startAttachment', 'endAttachment', 'storey', 'form',
+  // the Gebäude Grundriss (lib/grundriss): layout of a storey, nothing the Karte draws
+  'role', 'onWall',
 ] as const satisfies readonly (keyof BoardAnno)[]
 type _BoardKeysAccounted = Assert<Exclude<keyof BoardAnno, (typeof BOARD_PLAN_ONLY)[number]> extends keyof Entity ? true : false>
 
