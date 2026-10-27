@@ -37,16 +37,16 @@ function project(p: readonly [number, number], a: BoardPoint, b: BoardPoint, ar:
   const x = a[0] + t * (b[0] - a[0]), y = a[1] + t * (b[1] - a[1])
   return { t, x, y, dist: Math.hypot(p[0] - x, (p[1] - y) * ar) }
 }
-/** the segments of a line that lie on `floor`: index i = pts[i] → pts[i + 1] */
-const segmentsOn = (a: BoardAnno, floor: number): number[] =>
-  (a.pts ?? []).slice(0, -1).flatMap((p, i) => (vFloor(p, a) === floor && vFloor(a.pts![i + 1], a) === floor ? [i] : []))
-
-/** the nearest segment of `wall` on `floor` to p, or null when it has none there */
+/** the nearest segment pts[i] → pts[i + 1] of `wall` lying on `floor` to p, or null when it has
+ *  none there; `a`/`b` are its ends */
 function nearestSegment(wall: BoardAnno, floor: number, p: readonly [number, number], ar: number) {
-  let best: { i: number; t: number; x: number; y: number; dist: number } | null = null
-  for (const i of segmentsOn(wall, floor)) {
-    const r = project(p, wall.pts![i], wall.pts![i + 1], ar)
-    if (!best || r.dist < best.dist) best = { i, ...r }
+  let best: { i: number; t: number; x: number; y: number; dist: number; a: BoardPoint; b: BoardPoint } | null = null
+  const pts = wall.pts ?? []
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1]
+    if (vFloor(a, wall) !== floor || vFloor(b, wall) !== floor) continue
+    const r = project(p, a, b, ar)
+    if (!best || r.dist < best.dist) best = { i, ...r, a, b }
   }
   return best
 }
@@ -62,7 +62,7 @@ export function nearestWall(annos: readonly BoardAnno[], floor: number, x: numbe
     if (!isWall(w)) continue
     const s = nearestSegment(w, floor, [x, y], ar)
     if (!s || s.dist > maxDist || (best && s.dist >= best.dist)) continue
-    best = { wallId: w.id, x: s.x, y: s.y, rotation: Math.round(bearing(w.pts![s.i], w.pts![s.i + 1], ar)) % 180, dist: s.dist }
+    best = { wallId: w.id, x: s.x, y: s.y, rotation: Math.round(bearing(s.a, s.b, ar)) % 180, dist: s.dist }
   }
   return best
 }
@@ -76,18 +76,18 @@ export function seatDoor(door: BoardAnno, seat: WallSeat | null): BoardAnno {
 /** a door taken from wall `from` onto the same wall as it now stands (`to`) – see carryDoors */
 function rideWall(door: BoardAnno, from: BoardAnno, to: BoardAnno, ar: number): BoardAnno {
   const floor = door.floor ?? 0
-  const at = nearestSegment(from, floor, [door.x ?? 0, door.y ?? 0], ar)
-    ?? nearestSegment(from, vFloor(from.pts![0], from), [door.x ?? 0, door.y ?? 0], ar)
-  if (!at) return door
+  const was = from.pts ?? [], pts = to.pts ?? []
+  const p: [number, number] = [door.x ?? 0, door.y ?? 0]
+  const at = nearestSegment(from, floor, p, ar) ?? (was.length ? nearestSegment(from, vFloor(was[0], from), p, ar) : null)
+  if (!at || pts.length < 2) return door
   // the door's turn against its segment survives the move (0, or 180 for a door seated reversed)
-  const off = (door.rotation ?? 0) - bearing(from.pts![at.i], from.pts![at.i + 1], ar)
-  const pts = to.pts!
+  const off = (door.rotation ?? 0) - bearing(at.a, at.b, ar)
   let i = at.i, t = at.t
   // the same corners → the same place along the same segment, exact under a move or a turn; a
   // corner added or taken away → the nearest point of the new wall to where the door stood
-  if (pts.length !== from.pts!.length) {
+  if (pts.length !== was.length) {
     const nf = vFloor(pts[0], to)
-    const r = nearestSegment(to, floor, [door.x ?? 0, door.y ?? 0], ar) ?? nearestSegment(to, nf, [door.x ?? 0, door.y ?? 0], ar)
+    const r = nearestSegment(to, floor, p, ar) ?? nearestSegment(to, nf, p, ar)
     if (!r) return { ...door, onWall: undefined }
     i = r.i; t = r.t
   }
