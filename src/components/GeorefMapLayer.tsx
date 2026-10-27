@@ -15,6 +15,7 @@ import { GeorefPopoverCard } from './GeorefMode'
 import { fitSimilarity } from '../lib/georef'
 import { motionDuration } from '../lib/reducedMotion'
 import { uiBlue } from '../lib/themeToken'
+import { useIsPhone } from '../lib/useIsPhone'
 import s from './GeorefMode.module.css'
 
 /** Zoom levels above the live map the loupe shows.
@@ -422,6 +423,9 @@ export function GeorefMapLoupe({ map, layers, isVisible, night, atRef }: {
   atRef: { current: { lng: number; lat: number } | null }
 }) {
   const mode = useGeorefMode()
+  // the app's ONE phone rule (lib/useIsPhone) – the same one that puts the plan's loupe in the
+  // corner, so the two halves can never disagree about where the magnifier is
+  const phone = useIsPhone()
   // one rAF tick while the loupe is up: it is the aim's own clock, and it stops with the loupe
   const [, tick] = useState(0)
   useEffect(() => {
@@ -456,7 +460,6 @@ export function GeorefMapLoupe({ map, layers, isVisible, night, atRef }: {
   }, [map, layers, isVisible, night])
 
   if (mode.check || !map || !base) return null
-  const phone = window.innerWidth <= 600 || (window.innerWidth > window.innerHeight && window.innerHeight <= 520)
   // ⚠️ The magnifier is up for the WHOLE of the map's turn, and it opens by itself on the map's
   // centre. Waiting for a pointer position meant waiting for a hover — which a touch screen never
   // sends, so on the one device this mode is built for the map loupe simply never appeared: you
@@ -466,9 +469,9 @@ export function GeorefMapLoupe({ map, layers, isVisible, night, atRef }: {
   // the reticle well above centre, and a magnifier showing a different place than the mark you
   // are about to commit is worse than none. (`peek`, never `place`: reading the resolver has no
   // side effect, and the loupe must not commit anything.)
-  const phoneAt = phone ? peekGeorefPhoneTarget('map') as { lng: number; lat: number } | null : null
+  const phoneAt = phone ? peekGeorefPhoneTarget('map') : null
   const aim = phoneAt ?? at ?? map.getCenter()
-  const size = phone ? 124 : 196
+  const size = phone ? 112 : 196
 
   const live = map.getZoom()
   // ⚠️ CEIL, not round, plus one level on a retina screen — the two halves of «the map loupe is
