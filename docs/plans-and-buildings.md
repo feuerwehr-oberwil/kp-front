@@ -35,7 +35,9 @@ AGENTS.md on 2026-10-08, wording unchanged.
     (device-local, on read-only surfaces too, the folded strip is the way back), «Geschoss
     entfernen» is the danger row and stays the owner's confirm-with-undo (workspace/useGebaeudeActions ·
     removeFloor). No eye and no bin on the canvas: delete is the rarest act on this surface.
-    «Kopieren nach …» (27.10.2026) sits in the same menu (not on a read-only surface).
+    «Kopieren nach …» (27.10.2026) sits in the same menu (not on a read-only surface). The label
+    lies above the create tools' drawing layer, so it opens with any tool armed – the Wand stays
+    armed, and under it a click on the label used to start a wall (`e2e/gebaeude-storey-menu.mjs`).
 
 ## The Grundriss on the storey stack
 
