@@ -1115,7 +1115,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const {
     lineMode, areaMode, draft, setDraft, circleDraft, setCircleDraft,
     draftFloorRef, noding, draftActive, planDraftMagnetState, planJoinPreview,
-    addLine, addArea, finishShape, releaseDraft, grundriss, pickInput, tapDraftVertex, snapWallVertex, ring, showRing, openName,
+    addLine, addArea, finishShape, releaseDraft, grundriss, pickInput, tapDraftVertex, snapWallVertex, snapDraftVertex, ring, showRing, openName,
   } = planDraft
   // Arriving on the selection-only sheet also DISARMS what was carried over: its dock went with
   // the rail, so a still-pending symbol would be an invisible armed state that fires on the next
@@ -1233,7 +1233,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     resolvedPts, attachmentLines, planCandidatesAt, pushPast, patch, patchCommit, emit, activeId,
     onLineAttached, onLineDetached, planEndpointDrag, setPlanEndpointDrag, planDwellTimerRef: planDwellTimer,
     allFloorsTTB, revealFloor, centerOnPoint: (x, y, floor, atScale) => centerOnPoint(x, y, floor, atScale), scaleRef,
-    draftFloor: draftFloorRef, setDraft, tileAR, snapWallVertex,
+    draftFloor: draftFloorRef, setDraft, tileAR, snapWallVertex, snapDraftVertex,
   })
 
   // --- chip dragging (resource / symbol / text in pan mode) — components/useWbChipDrag ---

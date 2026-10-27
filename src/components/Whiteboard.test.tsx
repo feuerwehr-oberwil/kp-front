@@ -636,6 +636,26 @@ describe('the Grundriss preset', () => {
     expect(screen.getAllByRole('button', { name: appConfig.copy.whiteboard.dragVertex })).toHaveLength(1)
   })
 
+  // round 3 (owner on staging: «dragging → snapping doesn't work yet»): a Wand stays open while it
+  // is drawn, so its own nodes are what gets dragged – they snap like a tap, ring and all
+  it('a node of the OPEN Wand dragged near another Wand lands on it, level, ring shown while it moves', () => {
+    const cross: BoardAnno = { id: 'w9', kind: 'draw', role: 'wand', floor: 0, pts: [[0.6, 0.2, 0], [0.6, 0.8, 0]] }
+    const { onChange } = renderBoard('gebaeude', [cross], false, aBuilding)
+    armWand()
+    tapAt(100, 200); tapAt(180, 200)
+    const grip = document.querySelectorAll('.wb-vertex')[1]
+    fireEvent.pointerDown(grip, { clientX: 180, clientY: 200, pointerId: 2 })
+    fireEvent.pointerMove(grip, { clientX: 210, clientY: 203, pointerId: 2 })
+    fireEvent.pointerMove(grip, { clientX: 236, clientY: 204, pointerId: 2 })
+    expect(document.querySelector('.wb-snap-ring')).not.toBeNull()
+    fireEvent.pointerUp(grip, { clientX: 236, clientY: 204, pointerId: 2 })
+    tapAt(240, 200) // its last point again: finished
+    const [wall] = added(onChange)
+    expect(wall.pts).toHaveLength(2)
+    expect(wall.pts![1][0]).toBeCloseTo(0.6, 6)
+    expect(wall.pts![1][1]).toBeCloseTo(wall.pts![0][1], 6)
+  })
+
   it('ends the piece where the next point goes straight back along it — one ↶ per piece', () => {
     const { onChange } = renderBoard('gebaeude', [], false, aBuilding)
     armWand()

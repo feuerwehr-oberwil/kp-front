@@ -57,6 +57,9 @@ interface Args {
   /** where a Wand's corner dragged to a board-normalized point lands, ring shown (usePlanDraft ·
    *  snapWallVertex); `null` for the point clears the ring */
   snapWallVertex: (wall: BoardAnno, idx: number, n: [number, number] | null) => BoardPoint | null
+  /** the same for a node of the OPEN Wand (usePlanDraft · snapDraftVertex); `null` back = not a
+   *  Wand draft, the plain move applies */
+  snapDraftVertex: (idx: number, n: [number, number] | null) => BoardPoint | null
 }
 
 /**
@@ -77,7 +80,7 @@ export function useWbVertexEdit({
   annos, selId, tool, readOnly, stack, toNorm, localY, floorAt, mapY, sW, sH,
   resolvedPts, attachmentLines, planCandidatesAt, pushPast, patch, patchCommit, emit, activeId,
   onLineAttached, onLineDetached, planEndpointDrag, setPlanEndpointDrag, planDwellTimerRef,
-  allFloorsTTB, revealFloor, centerOnPoint, scaleRef, draftFloor, setDraft, tileAR, snapWallVertex,
+  allFloorsTTB, revealFloor, centerOnPoint, scaleRef, draftFloor, setDraft, tileAR, snapWallVertex, snapDraftVertex,
 }: Args) {
   // drag a single VERTEX of a selected line/area (shared by both — they're both pts-based).
   // `pushed` = the undo checkpoint for this gesture was already taken BEFORE the shape changed
@@ -305,10 +308,13 @@ export function useWbVertexEdit({
     const n = toNorm(e.clientX, e.clientY); if (!n) return
     // a Linie's node follows the pointer's storey (a Leitung may cross floors); a Fläche stays
     // on the floor its ring was started on — the same rule placeNode applies to a fresh tap
+    // …and a Wand's node lands like a tap (round 3, 27.10.2026): ring, targets, right angles –
+    // on the Wand's own storey
     const floor = tool === 'line' && stack ? floorAt(n[1]) : draftFloor.current
-    setDraft((d) => (d ? replaceVertex<BoardPoint>(d, st.idx, [n[0], localY(n[1], floor), floor]) : d))
+    const walled = snapDraftVertex(st.idx, n)
+    setDraft((d) => (d ? replaceVertex<BoardPoint>(d, st.idx, walled ?? [n[0], localY(n[1], floor), floor]) : d))
   }
-  const draftVertUp = () => { draftVert.current = null }
+  const draftVertUp = () => { if (draftVert.current) snapDraftVertex(draftVert.current.idx, null); draftVert.current = null }
   /** Insert a node on draft segment `idx` and keep the SAME press dragging it — the twin of
    *  insertVertex on a committed shape (releasing without moving leaves it where it appeared). */
   const draftInsert = (idx: number, e: React.PointerEvent) => {

@@ -92,9 +92,10 @@ Sketching a building on the floor stack during an Einsatz (27.10.2026, the owner
   before it; else exactly where it was tapped (round 2, owner: «prefer 90° and snapping, but
   allow other angles»). A target always wins over the angle. Targets on the same storey: the
   Wände, the edges and corners of every Fläche, the open piece's own points, and the building
-  outline (`Whiteboard · stackOutlinePx`). **Dragging a Wand's corner afterwards** lands by the
-  same rule against both of its neighbours, with the same ring (`usePlanDraft · snapWallVertex`,
-  called from `useWbVertexEdit · vertMove`). A plain Linie in Punkte mode on the stack snaps only
+  outline (`Whiteboard · stackOutlinePx`). **Dragging a Wand's corner** – of the open piece
+  still being drawn, or of a finished Wand – lands by the same rule against both of its
+  neighbours, with the same ring (`usePlanDraft · snapDraftVertex` / `snapWallVertex`, called
+  from `useWbVertexEdit · draftVertMove` / `vertMove`). Moving a whole Wand does not snap. A plain Linie in Punkte mode on the stack snaps only
   onto the centre of a Durchgang, a Türe or a Treppe – that is how a Leitung is laid through
   doors and up the stairs. The stored point is exactly the snapped one.
 - **An open drawing looks open and is never left unasked.** While a Punkte drawing is in the
