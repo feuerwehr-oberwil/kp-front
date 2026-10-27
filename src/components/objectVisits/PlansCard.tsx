@@ -57,7 +57,7 @@ export function PlanReader({ rows, index, objectName, onShow, onClose }: {
       )}
       <div className={s.planBody}>
         <Suspense fallback={<div className={s.loadingLine}><LoadingStatus>{C.planLoading}</LoadingStatus></div>}>
-          <PdfScroller key={r.id} url={referenceUrl(r.id, r.version)} bare />
+          <PdfScroller key={r.id} url={referenceUrl(r.id, r.version)} bare fileName={`${objectName} – ${r.title}`} />
         </Suspense>
       </div>
     </Overlay>

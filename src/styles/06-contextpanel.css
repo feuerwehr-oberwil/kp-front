@@ -497,8 +497,9 @@
    the fr sentence column was squeezed toward its 0 minimum and `.jr-text`'s `overflow-wrap:
    anywhere` then broke every single letter onto its own line. `fit-content(50%)` still shrinks
    to content when the trail is short, but never claims more than half the row — the other half
-   always stays the sentence's. `.jr-trail`/`.jr-foot` wrap onto a second line inside that half
-   rather than overflow it.
+   always stays the sentence's. `.jr-trail` wraps onto a second line inside that half rather than
+   overflow it — and since 27.10.2026 (#12) it holds controls only: the footnotes and state chips
+   moved under the sentence (`.jr-meta`), where they no longer cost it any width.
    overflow: hidden — the connector halves below are drawn 100vh long and clipped to the row.
    ⚠️ The 10px here and the 9px + 1px border of the Pendenzen rows below stay off the 4px grid
    (08.10.2026, Karte chrome on the scales): they ARE that one text axis, which 10-journal and
@@ -521,9 +522,9 @@
   .hist-ev.clickable:hover { background: var(--hover); }
 }
 .hist-ev.clickable:active { background-image: linear-gradient(var(--press), var(--press)); }
-/* ── the trailing group: footnotes, the Meldung anchor, the row's controls, the chevron ──
-   Everything that is not the sentence, at the right margin, in the order it is read: what the
-   record says ABOUT the row, then what you can do with it. It is the fourth grid track, capped
+/* ── the trailing group: the Meldung anchor, the row's controls, the chevron ──
+   What you can do with the row, at the right margin (what the record says ABOUT it reads under
+   the sentence since 27.10.2026, `.jr-meta`). It is the fourth grid track, capped
    at `fit-content(50%)` above, so it can never push the sentence below its own half of the row —
    `flex-wrap` is what it spends the rest of a crowded row on instead of stealing the sentence's. */
 .jr-trail { grid-column: 4; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end;

@@ -173,6 +173,9 @@ export function JournalRow({
   // the footnotes on the row — appended facts about it, so they read AFTER the sentence
   const nachtrag = isNachtrag(e, closedAt)
   const hasFootnotes = nachtrag || !!e.correctedAt || repeated > 1 || e.via === 'atemschutz-link' || e.via === 'atemschutz-fix'
+  const txMissing = !!e.audioUrl && !!onTranscript && !hasTx
+  const mediaState = (rowPhotos(e).length > 0 || !!e.audioUrl) ? mediaStatusOf?.(e.id) : undefined
+  const hasMeta = hasFootnotes || txMissing || !!mediaState
   return (
     <div
       className={`hist-ev ${clickable ? 'clickable' : ''} ${future ? 'jr-future' : ''}`}
@@ -209,34 +212,66 @@ export function JournalRow({
       {/* ⚠️ `rowText`, not `e.text`: a picture row with no caption of its own reads
           «Foto» (reversed 31.08. — a run of them was a column of bare timestamps). The
           RECORD is untouched either way (lib/verlauf · rowText). */}
-      <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>{marked(rowText(e), e.subjectId)}</span>
-      <span className="jr-trail">
-        {/* Footnotes ABOUT the row — «Nachtrag», «korrigiert HH:MM», «6×». They say
-            that the append-only record holds more than the row shows, which is worth
-            keeping and worth reading last: a footnote belongs after the thing it
-            annotates, not in front of it. */}
-        {hasFootnotes && (
-          <span className="jr-foot">
-            {nachtrag && <b className="jr-foot-nachtrag">{C.nachtrag}</b>}
-            {e.correctedAt && (
-              <span title={C.correctHint}>{fillTemplate(C.corrected, { t: formatTime(new Date(e.correctedAt)) })}</span>
+      {/* ⚠️ The sentence's cell holds the sentence and, UNDER it, the facts about the row
+          (27.10.2026 sweep #12): «Nachtrag», «korrigiert», «n×», the missing-transcript and
+          upload chips stood in the trailing group beside the sentence and took half a phone
+          row from it – «Audionoti|z (24s)» broke mid-word between NACHTRAG, ⚠ Transkript and
+          the play circle. The trail keeps the CONTROLS only; the sentence gets the width. */}
+      <span className="jr-main">
+        <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>{marked(rowText(e), e.subjectId)}</span>
+        {hasMeta && (
+          <span className="jr-meta">
+            {/* Footnotes ABOUT the row — «Nachtrag», «korrigiert HH:MM», «6×». They say
+                that the append-only record holds more than the row shows, which is worth
+                keeping and worth reading last: a footnote belongs after the thing it
+                annotates, not in front of it. */}
+            {hasFootnotes && (
+              <span className="jr-foot">
+                {nachtrag && <b className="jr-foot-nachtrag">{C.nachtrag}</b>}
+                {e.correctedAt && (
+                  <span title={C.correctHint}>{fillTemplate(C.corrected, { t: formatTime(new Date(e.correctedAt)) })}</span>
+                )}
+                {repeated > 1 && (
+                  <span className="jr-foot-rep" title={C.repeatedTitle}>{fillTemplate(C.repeated, { n: String(repeated) })}</span>
+                )}
+                {/* The row came in over the Atemschutz-Link — the board handed to somebody's
+                    own phone — or over the standing fixe URL (`atemschutz-fix`, the
+                    laminated QR at the Tafel). It is deliberately NOT a name (those
+                    sessions are asked for none), so the footnote says WHERE it was
+                    written, which is the honest answer and the one the Rapport can be
+                    read against; the reader-facing sense is the same for both, only the
+                    record keeps them apart. Server-written (types · TimelineEvent.via);
+                    this client never sets it. */}
+                {(e.via === 'atemschutz-link' || e.via === 'atemschutz-fix') && (
+                  <span title={C.viaAtemschutzLinkTitle}>{C.viaAtemschutzLink}</span>
+                )}
+              </span>
             )}
-            {repeated > 1 && (
-              <span className="jr-foot-rep" title={C.repeatedTitle}>{fillTemplate(C.repeated, { n: String(repeated) })}</span>
+            {/* ── Durchhören + Transkript sind aus der Zeile gezogen (29.08., Variante 2) ──
+                They stood as ~30px icons beside the play circle: three equal-weight targets
+                where only playback is time-critical mid-incident. Both live in the row's
+                detail sheet now (tap the row) and the play circle is the row's ONE inline
+                control, grown to the tap floor (.hist-ev .tl-play, 10-journal.css). The
+                missing-transcript state keeps its amber ON the row — as a chip on the row
+                meta, since the button that carried it is no longer here. The transcript
+                TEXT still gets its own lines below (see .jr-subs): content, not a control. */}
+            {txMissing && (
+              <span className="jr-media-state jr-tx-miss" title={C.transcriptAdd}>
+                <Icon id="warn" />
+                <span>{appConfig.copy.report.transcript}</span>
+              </span>
             )}
-            {/* The row came in over the Atemschutz-Link — the board handed to somebody's
-                own phone — or over the standing fixe URL (`atemschutz-fix`, the
-                laminated QR at the Tafel). It is deliberately NOT a name (those
-                sessions are asked for none), so the footnote says WHERE it was
-                written, which is the honest answer and the one the Rapport can be
-                read against; the reader-facing sense is the same for both, only the
-                record keeps them apart. Server-written (types · TimelineEvent.via);
-                this client never sets it. */}
-            {(e.via === 'atemschutz-link' || e.via === 'atemschutz-fix') && (
-              <span title={C.viaAtemschutzLinkTitle}>{C.viaAtemschutzLink}</span>
+            {mediaState && (
+              <span className={`jr-media-state ${mediaState === 'failed' ? 'failed' : 'pending'}`}
+                title={mediaState === 'failed' ? C.mediaFailed : C.mediaPending}>
+                <Icon id={mediaState === 'failed' ? 'warn' : 'rotate'} />
+                <span>{mediaState === 'failed' ? C.mediaFailed : C.mediaPending}</span>
+              </span>
             )}
           </span>
         )}
+      </span>
+      <span className="jr-trail">
         {/* ⚠️ A MELDUNG names the ITEM it answers. The word «PENDENZ» on all of them said
             only what one could already see; what was missing is WHICH one, and three
             «PENDENZ» rows in a row were three unrelated sentences. The Verlauf is
@@ -341,20 +376,6 @@ export function JournalRow({
             ><Icon id="wave" /></button>
           )
         })()}
-        {/* ── Durchhören + Transkript sind aus der Zeile gezogen (29.08., Variante 2) ──
-            They stood as ~30px icons beside the play circle: three equal-weight targets
-            where only playback is time-critical mid-incident. Both live in the row's
-            detail sheet now (tap the row) and the play circle is the row's ONE inline
-            control, grown to the tap floor (.hist-ev .tl-play, 10-journal.css). The
-            missing-transcript state keeps its amber ON the row — as a chip on the row
-            meta, since the button that carried it is no longer here. The transcript
-            TEXT still gets its own lines below (see .jr-subs): content, not a control. */}
-        {e.audioUrl && onTranscript && !hasTx && (
-          <span className="jr-media-state jr-tx-miss" title={C.transcriptAdd}>
-            <Icon id="warn" />
-            <span>{appConfig.copy.report.transcript}</span>
-          </span>
-        )}
         {e.audioUrl && (
           <button
             className={`tl-play ${playing ? 'playing' : ''}`}
@@ -362,13 +383,6 @@ export function JournalRow({
             aria-label={playing ? appConfig.copy.journal.recordStop : appConfig.copy.play}
             onClick={(ev) => { ev.stopPropagation(); onTogglePlay(e.id, e.audioUrl!) }}
           ><Icon id={playing ? 'pause' : 'play'} /></button>
-        )}
-        {(rowPhotos(e).length > 0 || e.audioUrl) && mediaStatusOf?.(e.id) && (
-          <span className={`jr-media-state ${mediaStatusOf(e.id) === 'failed' ? 'failed' : 'pending'}`}
-            title={mediaStatusOf(e.id) === 'failed' ? C.mediaFailed : C.mediaPending}>
-            <Icon id={mediaStatusOf(e.id) === 'failed' ? 'warn' : 'rotate'} />
-            <span>{mediaStatusOf(e.id) === 'failed' ? C.mediaFailed : C.mediaPending}</span>
-          </span>
         )}
         {/* a detail-opening row is a chevron even when pinned — the tap opens the
             sheet, and the jump to the pinned place lives inside it */}
