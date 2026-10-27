@@ -383,8 +383,8 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // is armed). Both gestures under Auswahl, Mehrfach (the Rahmen yields its second press,
   // useMapCanvasGestures) and with a sheet like Ebenen open; tap-and-drag under Messen (its fresh
   // point lets the second press through — `measureFresh` below); none under a tap-to-place tool
-  // (Punkte, Hinzufügen, Notiz, Trupp, Koordinaten — a tap places, the pinch zooms) or while
-  // drawing (Freihand, Kreis). It used to follow `placing` alone, which on the Lage is «any tool
+  // (Punkte, Hinzufügen, Notiz, Trupp, Koordinaten, Kreis — a tap places, the pinch zooms); the
+  // double tap alone under Freihand, whose drag is the stroke (UX sweep M4). It used to follow `placing` alone, which on the Lage is «any tool
   // but Auswahl» and on the Karte «any tool at all», the Ebenen sheet included — hence
   // `tapsPlace`, which a caller narrows to the tools that really place. Pinch and the wheel stay
   // on throughout. Tap-and-drag rides on touchZoomRotate (the pinch), so it is switched on its
@@ -393,9 +393,9 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   const dragTool = !!freehand || marqueeEnabled
   const measureFresh = useFreshPoint(measureKind ? measurePoints.length : 0)
   const zoomAllow = oneFingerZoom(
-    freehand || circleEnabled ? 'draw'
+    freehand ? 'draw'
       : measureKind ? 'measure'
-        : (tapsPlace ?? !!placing) && !dragTool ? 'place' : 'navigate',
+        : circleEnabled || ((tapsPlace ?? !!placing) && !dragTool) ? 'place' : 'navigate',
   )
   useEffect(() => {
     const m = mapInst.current

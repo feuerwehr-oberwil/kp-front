@@ -213,13 +213,13 @@ describe('tapDragZoom · drag only (step: false)', () => {
 })
 
 // the owner's decision, 27.10.2026: on under Auswahl, Mehrfach, Messen and with Ebenen open; a
-// tap-to-place tool places on a tap and navigates by pinch; off while drawing
+// tap-to-place tool places on a tap and navigates by pinch; Freihand keeps the double tap (M4)
 describe('oneFingerZoom · one rule for Lage, Plan and Karte', () => {
   it.each([
     ['Auswahl / Mehrfach / Ebenen open', 'navigate', { step: true, drag: true }],
     ['Messen – two taps are two points, tap-and-drag zooms', 'measure', { step: false, drag: true }],
-    ['Symbol, Punkte, Notiz, Trupp – a tap places, pinch zooms', 'place', { step: false, drag: false }],
-    ['Freihand, Kreis – the drag draws', 'draw', { step: false, drag: false }],
+    ['Symbol, Punkte, Notiz, Trupp, Kreis – a tap places, pinch zooms', 'place', { step: false, drag: false }],
+    ['Freihand – the drag draws, a double tap zooms (M4)', 'draw', { step: true, drag: false }],
   ] as const)('%s', (_, kind, want) => {
     expect(oneFingerZoom(kind)).toEqual(want)
   })

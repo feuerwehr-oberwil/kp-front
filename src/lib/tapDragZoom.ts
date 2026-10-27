@@ -11,8 +11,8 @@
  * Under a tool, ONE rule for the Lage, the Plan and the Karte (`oneFingerZoom`, sweep 27.10.2026
  * #8 — owner: «I need it to work on the map, on the plans, and also on the normal map in the
  * peacetime view»): both gestures under Auswahl, Mehrfach and with Ebenen open, tap-and-drag
- * under Messen, none under a tap-to-place tool or while drawing (Freihand, Kreis) — there a tap
- * places and the pinch zooms. A double tap finishes nothing — ✓ does. A second finger cancels
+ * under Messen, the double tap under Freihand, none under a tap-to-place tool (Kreis included) —
+ * there a tap places and the pinch zooms. A double tap finishes nothing — ✓ does. A second finger cancels
  * the gesture and the pinch takes over.
  */
 
@@ -90,22 +90,23 @@ export interface OneFingerZoom { step?: boolean; drag?: boolean }
  *  - `navigate` – Auswahl, Mehrfach, nothing armed, a sheet like Ebenen open;
  *  - `measure`  – Messen: its taps add measuring points;
  *  - `place`    – a tap-to-place tool: Symbol (Hinzufügen), Punkte, Notiz, Trupp, Koordinaten,
- *                 a Form, the Massstab's two taps;
- *  - `draw`     – Freihand and the Absperrkreis: the drag draws. */
+ *                 a Form, the Massstab's two taps, and the Absperrkreis (a tap drops a ring, a
+ *                 drag sizes it);
+ *  - `draw`     – Freihand: the drag draws, a tap commits nothing. */
 export type ToolGesture = 'navigate' | 'measure' | 'place' | 'draw'
 
 /**
  * THE rule for one-finger zoom under a tool, shared by the Lage and Karte (MapView, MapLibre's
  * own handlers) and the Plan boards (useBoardGestures / usePlanCreate) — the owner's decision of
  * 27.10.2026 (sweep #8): one-finger zoom works under Auswahl, Mehrfach, Messen and with Ebenen
- * open; while a tap-to-place tool is armed a tap places and only the pinch zooms; and it is off
- * while drawing (Freihand, Kreis). Under Mehrfach the Rahmen starts on a FRESH press — the second
+ * open; while a tap-to-place tool is armed a tap places and only the pinch zooms; while drawing
+ * Freihand the drag is the stroke, so only the double tap zooms (UX sweep M4, 21.10.2026). Under Mehrfach the Rahmen starts on a FRESH press — the second
  * press of a tap pair is the zoom's. Under Messen only tap-and-drag: two quick taps are two
  * measuring points, and the point the first tap placed lets the second press through
  * (lib/useFreshPoint).
  */
 export function oneFingerZoom(kind: ToolGesture): Required<OneFingerZoom> {
-  return { step: kind === 'navigate', drag: kind === 'navigate' || kind === 'measure' }
+  return { step: kind === 'navigate' || kind === 'draw', drag: kind === 'navigate' || kind === 'measure' }
 }
 
 export interface TapDragZoom {

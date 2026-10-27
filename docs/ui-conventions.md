@@ -558,8 +558,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     tap-and-drag (the Rahmen starts on a fresh press; the second press of a tap pair is the
     zoom's). Messen — tap-and-drag only (two quick taps are two points; the point the first tap
     placed is click-through for one tap gap, `lib/useFreshPoint`, so the second press reaches the
-    zoom). A tap-to-place tool (Punkte, Hinzufügen, Notiz, Trupp, Koordinaten, Form, Massstab) and
-    drawing (Freihand, Kreis) — neither; a tap places, the pinch zooms. Pinch always navigates.
+    zoom). Freihand — the double tap only (its taps commit nothing, its drag is the stroke — UX
+    sweep M4). A tap-to-place tool (Punkte, Hinzufügen, Notiz, Trupp, Koordinaten, Form, Massstab,
+    Kreis) — neither; a tap places, the pinch zooms. Pinch always navigates.
     Nothing finishes on a double tap — ✓ finishes a Punkte Linie / Fläche.
   - *Pressed state is the `--press` wash* – `background-image: linear-gradient(var(--press),
     var(--press))` on `:active:not(:disabled)`, so it composes over any background colour.
