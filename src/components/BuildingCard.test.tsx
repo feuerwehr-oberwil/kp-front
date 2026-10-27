@@ -25,6 +25,16 @@ describe('BuildingCard', () => {
   })
 
   // owner, 27.10.2026: «convert this to bullet points instead of the tags» – the hazard line first
+  // owner, 27.10.2026: «a clear two-step thing: first "Sofortmassnahmen" then "Gebäude"»
+  it('reads Sofortmassnahmen, then Gebäude with the hazard first – no title in the head', () => {
+    const { container } = render(<BuildingCard info={{ ...base, object: { id: 'o', name: 'Schloss Musterdorf', address_match: true, distance_m: 0, measures: 'Tor öffnen', remarks: null, measures_source: 'Modul 1', updated_at: null } }} onClose={() => {}} />)
+    const text = container.textContent ?? ''
+    expect(text.indexOf('Sofortmassnahmen')).toBeLessThan(text.indexOf('Gebäude'))
+    expect(text.indexOf('Gebäude')).toBeLessThan(text.indexOf('Heizung Gas'))
+    expect(text.match(/Gebäude/g)).toHaveLength(1)
+    expect(screen.getByRole('region', { name: 'Gebäude' })).toBeTruthy()
+  })
+
   it('lists the register as bullets, the hazard first', () => {
     const { container } = render(<BuildingCard info={base} />)
     const lines = [...container.querySelectorAll('ul > li')].map((l) => l.textContent)

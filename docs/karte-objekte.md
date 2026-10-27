@@ -335,8 +335,8 @@ The rules that are easy to break:
   panel. Every list row is 44px with a 14px title (round 6) and its quiet sub on the title's line («Hydrant südlich»; it
   wraps under the title only where the two do not fit) and its read-out one step smaller; a plan
   tile is as tall and its words as big, behind a document glyph (the Gebäude with the floors
-  glyph). The switch is 36px and neutral, the ✕ 32px, the register lines the size of the station's
-  Bemerkungen (read-only facts, not buttons; a hazard's bullet is the amber ⚠ and its line bold),
+  glyph). The switch is 36px and neutral, the ✕ 32px, the register lines the size and weight of the
+  Sofortmassnahmen (read-only facts, not buttons; a hazard's bullet is the amber ⚠, nothing else),
   the actions the app's 44px button. All of it is the panel's own (`Karte.module.css` · «one rhythm»): the global `ListRow`
   (search, library, Objektbesuche) and the Einsatz's Gebäude card keep their sizes.
 - **On a phone the panel is the Ebenen sheet** (owner, 17.10.2026 · R2: «a full slide-up like for

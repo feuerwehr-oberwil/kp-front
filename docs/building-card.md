@@ -34,10 +34,14 @@ Geschosse, Baujahr or a last Objektbesuch alone stay behind the chip.
   Not in a replay (Wiedergabe), a closed Einsatz, a tab that lost the one-tab lock, or the
   Atemschutz-Link, whose Tafel has no Karte. The Plan's chip row never opens it by itself.
 - **What must be read stands first**, so it is in view without scrolling (on a phone the card is
-  at most 56 % of the screen high): the hazard lines, then Sofortmassnahmen and Bemerkungen (no
-  source line – owner, 27.10.2026: «drop the source»; only a NEIGHBOUR's notes are named, «Schloss
-  Musterdorf · in der Nähe (118 m)», because they read exactly like this building's), then the register facts with their source line, then the last Objektbesuch. The
-  register facts are bullets, not tags (owner, 27.10.2026), the Karte panel's `RegisterLines`.
+  at most 56 % of the screen high), in two steps under one heading style (owner, 27.10.2026: «a
+  clear two-step thing: first "Sofortmassnahmen" then "Gebäude"»): **Sofortmassnahmen** and
+  Bemerkungen (no source line – «drop the source»; only a NEIGHBOUR's notes are named, «Schloss
+  Musterdorf · in der Nähe (118 m)», because they read exactly like this building's), then
+  **Gebäude** – the hazard lines first, then the register facts, bullets of the Sofortmassnahmen's
+  size and weight (the Karte panel's `RegisterLines`) – then the last Objektbesuch. The head row
+  holds only «Register-Hinweis» (the source line folds behind it) and ✕; «Gebäude» is the card's
+  accessible name. No Sofortmassnahmen → the Gebäude section alone.
 
 The chip is not pinned to the building on the map, for three reasons. The Lage is drawn exactly
 at the Einsatzort, so a pinned chip would cover the Brandherd and the first vehicles. It would
@@ -63,7 +67,8 @@ The rules (3am tenet):
   registered with Pronovo are in the BFE list, so «no PV in the register» is not «no PV».
   Every fact carries its source and date.
 - **Hazards are a glyph and a word**: gas and oil (heating, or a hot-water boiler that adds a
-  fuel the heating does not name) and PV are bold lines whose bullet is the amber warn glyph.
+  fuel the heating does not name) and PV are lines whose bullet is the amber warn glyph – same
+  size and weight as every other line, the glyph marks them.
   Never colour alone.
 - **What makes the heat stands next to the fuel**: «Heizung Gas, Heizkessel für mehrere
   Gebäude» (that boiler may stand in the next building). A second heating system only when the
