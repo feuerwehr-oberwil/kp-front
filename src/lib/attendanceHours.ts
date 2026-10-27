@@ -4,7 +4,7 @@
 // defaults (Alarmierung → Einsatzende when a timestamp is missing) and a column total.
 
 import type { AttendanceState, PresenceInterval } from '../types'
-import { intervalsOf, mergeCloseBlocks, totalMinutes } from './attendanceIntervals'
+import { intervalsOf, isMeasurableBlock, mergeCloseBlocks, totalMinutes } from './attendanceIntervals'
 import { attendanceMergeGapMin } from './deploymentConfig'
 import { pad2, compareText } from './format'
 
@@ -41,11 +41,16 @@ export function hoursRows(
       // under the roster add up to the lines above them — a sheet whose two halves
       // disagree about how many stretches somebody had is a sheet nobody can sign
       const intervals = mergeCloseBlocks(intervalsOf(e), attendanceMergeGapMin())
-      const last = intervals[intervals.length - 1]
+      // «von / bis» from the measurable blocks — an unresolved one sits after them
+      // (mergeCloseBlocks) and must not become the row's end; it still makes `minutes` null.
+      // Nothing measurable at all: the raw blocks, never an invented Alarm → Ende span.
+      const measurable = intervals.filter(isMeasurableBlock)
+      const measured = measurable.length ? measurable : intervals
+      const last = measured[measured.length - 1]
       return {
         personId,
         name: e.displayNameSnapshot,
-        from: intervals[0]?.from ?? opts.alarmedAt ?? null,
+        from: measured[0]?.from ?? opts.alarmedAt ?? null,
         to: last?.to ?? opts.endedAt ?? null,
         leftEarly: !!last?.to,
         minutes: totalMinutes(intervals, opts),

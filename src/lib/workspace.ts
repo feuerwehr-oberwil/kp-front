@@ -1,3 +1,4 @@
+import { splitDuplicateTruppIds } from './mergeWorkspace'
 import { nextTruppNo } from './placedTrupps'
 import type { ReportSignature } from './reportSignature'
 import { ghostCounterNames } from './truppTrails'
@@ -164,6 +165,20 @@ export interface IncidentSettings {
 
 /** The safety values, in the order the Einstellungen sheet asks them. */
 export const SAFETY_KEYS = ['contactIntervalMin', 'contactGraceSec', 'defaultFunkkanal'] as const
+
+/**
+ * The station range of the Atemschutz contact clock (owner, 26.10.2026, audit F02): the
+ * Funkkontakt-Intervall in minutes and the Nachfrist in seconds. One rule for the /admin doctrine
+ * field, a stored per-Einsatz override (dropped at load when outside, below) and the push sweep —
+ * the backend twin is `alarm_validation · CONTACT_INTERVAL_MIN / CONTACT_GRACE_SEC`.
+ */
+export const CONTACT_BOUNDS = {
+  contactIntervalMin: { min: 1, max: 30 },
+  contactGraceSec: { min: 0, max: 300 },
+} as const
+
+/** The words `Trupp.status` may hold (types · Trupp.status; backend `TruppStatus`). */
+const TRUPP_STATUSES: ReadonlySet<string> = new Set<Trupp['status']>(['angemeldet', 'aktiv', 'rueckzug', 'ueberfaellig', 'raus'])
 
 // The persisted-workspace model, extracted from App's god component: the `Saved` blob
 // shape, the editable `Doc`, and the pure functions that normalize/derive App's initial
@@ -466,6 +481,33 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
   }
   const fixTrupp = (t: Trupp): Trupp => {
     let o = fixDrawProps(strFields(t, ['name'])) as Trupp & { readings?: unknown; equipment?: unknown }
+    // The words that decide monitoring (audit F01): an unknown `kind` is removed — absent means
+    // Atemschutz, so the crew stays watched — and an unknown `status` becomes the phase its stamps
+    // say. Kept as stored, the next edit of the crew would be refused by the server.
+    if (o.kind != null && o.kind !== 'atemschutz' && o.kind !== 'einfach') {
+      const { kind: _drop, ...rest } = o
+      o = rest
+      dropped++
+    }
+    if (o.status != null && !TRUPP_STATUSES.has(o.status)) {
+      o = { ...o, status: o.exitTime ? 'raus' : o.entryTime ? 'aktiv' : 'angemeldet' }
+      dropped++
+    }
+    // The crew lists every label trims (lib/atemschutz · truppLogName): a `null` in there threw on
+    // every device (audit F03). Only the bad entries go — the crew, its clocks and the rest stay.
+    for (const key of ['members', 'memberPersonIds'] as const) {
+      const v: unknown = o[key]
+      if (v == null) continue
+      const ok = Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+      if (Array.isArray(v) && ok.length === v.length) continue
+      o = { ...o, [key]: ok }
+      dropped++
+    }
+    if (o.leaderPersonId != null && typeof o.leaderPersonId !== 'string') {
+      const { leaderPersonId: _drop, ...rest } = o
+      o = rest
+      dropped++
+    }
     // the Ausrüstung ids (types · Trupp.equipment): a list of non-empty strings, each once, or
     // nothing at all — a stray object or number in there would reach the card and the Rapport
     if (o.equipment != null) {
@@ -503,7 +545,10 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     for (const key of SAFETY_KEYS) {
       const v = s[key]
       if (v == null) continue
-      if (num(v) && (key === 'contactGraceSec' ? v >= 0 : v > 0)) out[key] = v
+      const ok = num(v) && (key === 'defaultFunkkanal'
+        ? v > 0 && Number.isInteger(v)
+        : v >= CONTACT_BOUNDS[key].min && v <= CONTACT_BOUNDS[key].max)
+      if (ok) out[key] = v
       else dropped++
     }
     return out
@@ -560,7 +605,14 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     building,
     vehicleOverrides: rec<VehicleOverrides>(raw.vehicleOverrides),
     checklists: rec<ChecklistState>(raw.checklists),
-    trupps: arr<Trupp>(raw.trupps, hasId, fixTrupp),
+    trupps: ((list) => {
+      // two Trupps under one id (audit F04) — split before anything merges by id (mergeWorkspace ·
+      // splitDuplicateTruppIds); each removed copy or renamed crew counts as a repair
+      if (!list) return list
+      const split = splitDuplicateTruppIds(list)
+      dropped += split.repaired
+      return split.list
+    })(arr<Trupp>(raw.trupps, hasId, fixTrupp)),
     attendance: rec<AttendanceState>(raw.attendance),
     mittel: arr<MittelEntry>(raw.mittel, hasId, (e) => strFields(e, ['label', 'unit'])),
     shifts: arr<Shift>(raw.shifts, hasId),

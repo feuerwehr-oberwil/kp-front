@@ -165,3 +165,16 @@ def test_the_nearby_object_warning_distance_defaults_to_25_m_and_is_bounded():
     doc = load_stored_config({"identity": {"appName": "Feuerwehr Steintal"}, "doctrine": {"nearbyObjectWarnM": 900}})
     assert doc.identity.appName == "Feuerwehr Steintal"
     assert doc.doctrine.nearbyObjectWarnM == 25
+
+
+@pytest.mark.parametrize("doctrine", [{"contactIntervalMin": 0}, {"contactIntervalMin": 31}, {"contactGraceSec": 301}])
+def test_the_contact_clock_stays_in_the_station_range(doctrine):
+    """1–30 min and 0–300 s (owner, 26.10.2026, audit F02): refused on a save, degraded to the
+    shipped value when an older stored row holds it."""
+    ok = DeploymentConfigIn.model_validate({"doctrine": {"contactIntervalMin": 30, "contactGraceSec": 0}})
+    assert (ok.doctrine.contactIntervalMin, ok.doctrine.contactGraceSec) == (30, 0)
+    with pytest.raises(ValidationError):
+        DeploymentConfigIn.model_validate({"doctrine": doctrine})
+    stored = load_stored_config({"identity": {"appName": "Feuerwehr Steintal"}, "doctrine": doctrine})
+    assert stored.identity.appName == "Feuerwehr Steintal"
+    assert (stored.doctrine.contactIntervalMin, stored.doctrine.contactGraceSec) == (None, None)

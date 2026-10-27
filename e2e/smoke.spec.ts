@@ -113,7 +113,7 @@ test.describe('loading snail', () => {
   type Launch = {
     /** The boot cover's entrance at the moment React removes the cover: its own clock then
      *  (performance time since the animation's `startTime`), its length and its play state. */
-    handover?: { clock: number; duration: number; playState: string }
+    handover?: { clock: number; duration: number; playState: string; idleClock?: number }
     replacedAt?: number
     reactClock?: number
   }
@@ -146,10 +146,18 @@ test.describe('loading snail', () => {
         const arrival = cover?.querySelector('.firefighter-snail')?.getAnimations()
           .find(animation => (animation as CSSAnimation).animationName === 'fs-arrival')
         if (state.handover || !arrival || typeof arrival.startTime !== 'number') return
+        const shell = cover?.querySelector('.firefighter-snail')?.getAnimations({ subtree: true })
+          .find(animation => (animation as CSSAnimation).animationName.endsWith('-shell'))
+        const now = performance.now()
+        const duration = Number(arrival.effect?.getComputedTiming().duration)
         state.handover = {
-          clock: performance.now() - arrival.startTime,
-          duration: Number(arrival.effect?.getComputedTiming().duration),
+          clock: now - arrival.startTime - Number(arrival.effect?.getTiming().delay || 0),
+          duration,
           playState: arrival.playState,
+          // A resumed one-shot is already finished and Chromium can report startTime=0 for it.
+          // The still-running shell owns idle continuity; its delay includes the resume offset.
+          idleClock: typeof shell?.startTime === 'number'
+            ? now - shell.startTime - Number(shell.effect?.getTiming().delay || 0) + duration : undefined,
         }
       }
       const textContent = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent')!
@@ -199,6 +207,22 @@ test.describe('loading snail', () => {
     expect(reactClock).toBeGreaterThanOrEqual(handover!.clock)
     await expect(page.locator('.login-state')).toBeVisible()
     await expect(page.locator('.boot-splash')).toHaveCount(0)
+  })
+
+  test('an update reload resumes before the first paint and continues through React', async ({ page }) => {
+    await prepareLaunch(page)
+    await page.addInitScript(() => {
+      sessionStorage.setItem('kp-snail-resume', JSON.stringify({ at: Date.now(), elapsed: 2_000 }))
+    })
+    await page.goto('/')
+    await expect.poll(async () => (await observation(page)).reactClock).toBeGreaterThanOrEqual(2_000)
+    const { handover, reactClock } = await observation(page)
+    if (!handover || handover.idleClock === undefined) throw new Error('The resumed boot cover must retain its idle animation clock')
+    expect(handover.clock).toBeGreaterThanOrEqual(2_000)
+    expect(handover.idleClock).toBeGreaterThanOrEqual(2_000)
+    expect(reactClock).toBeGreaterThanOrEqual(handover.idleClock)
+    expect(await page.evaluate(() => sessionStorage.getItem('kp-snail-resume'))).toBeNull()
+    await expect(page.locator('.login-state')).toBeVisible()
   })
 })
 

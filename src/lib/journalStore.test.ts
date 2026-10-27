@@ -577,6 +577,31 @@ describe('JournalStore — enrichment patches + session overlay', () => {
     expect(s.display().some((r) => r.id === 'a')).toBe(true)
   })
 
+  // a late upload must tell a retracted row from one that has not loaded (review of F06)
+  it('rowShown: unknown until the cache is read and a pull answered, then shown or not — retracted too', async () => {
+    fakeServer([row('a'), row('b')])
+    const store = new JournalStore(INC, false)
+    expect(store.rowShown('a')).toBeUndefined()
+    await store.init([])
+    expect(store.rowShown('a')).toBe(true)
+    store.appendPatch('a', { retracted: true })
+    expect(store.rowShown('a')).toBe(false)
+    expect(store.rowShown('never')).toBe(false)
+  })
+
+  // …and the first answered pull says so even when it brings nothing, or a receipt waiting on
+  // «unknown» never replays (Codex review r2, 26.10.2026)
+  it('rowShown: an EMPTY first pull still turns «unknown» into an answer, and tells the listeners', async () => {
+    fakeServer([])
+    const store = new JournalStore(INC, false)
+    // what a listener SEES when told: the hydration's notice comes before the pull answered
+    const seen: (boolean | undefined)[] = []
+    store.onChange = () => { seen.push(store.rowShown('gone')) }
+    await store.init([])
+    expect(store.rowShown('gone')).toBe(false)
+    expect(seen[seen.length - 1]).toBe(false)
+  })
+
   it('clearing a transcript persists as "" (undefined would vanish in JSON and un-apply)', async () => {
     fakeServer()
     const s = new JournalStore(INC, false)

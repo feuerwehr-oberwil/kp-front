@@ -22,6 +22,20 @@
 // writes, and touches only the entries it actually attempted.
 // Rapport-Beilagen use `target: 'attachment'` and their attachment id as `rowId`; an absent
 // target remains a journal row, including every queue entry stored by older builds.
+//
+// ⚠️ An upload that lands leaves a RECEIPT, never a gap (audit F06, 26.10.2026). An entry runs
+// capture (`pending`/`failed`, bytes aboard) → receipt (`uploaded`: the server URL, the bytes
+// dropped) → retired. The flush used to delete the entry in the same write that settled the
+// upload and only then hand the URL to the Verlauf — so a tab killed in between left the bytes
+// on the server and the row unlinked for good. Now the flush writes the receipt; the React
+// binding (useMediaQueue · replay) hands every receipt to the Verlauf, after each flush and on
+// the next start, and retires it (`retireMediaReceipts`) only once the caller says the link is
+// acknowledged. Linking must therefore be idempotent. A receipt is «not saved yet» for the sync
+// status, but not a capture «not uploaded» (useMediaQueue · pendingCount). Entries stored
+// before the receipt carry no `url` and are captures, as ever. A response lost on the way back
+// still uploads the bytes twice (no idempotent upload by capture id on the server) — but only
+// one of them is linked. A receipt keeps its `target`: an attachment's link goes to the Rapport,
+// never to a Verlauf patch (useMediaOutbox).
 
 import { isUnverifiable } from './api'
 import { idbDel, idbRead, idbSet } from './idb'
@@ -32,21 +46,19 @@ import { withTileEviction } from './tileEvict'
 const PREFIX = 'kp-front-mediaq-'
 const keyFor = (incidentId: string) => `${PREFIX}${incidentId}`
 
-/** `pending` = waiting for connectivity (never attempted, or the last attempt was offline);
- *  `failed` = the server rejected it repeatedly (a real error, not just no network). */
+/** A capture's state: `pending` = waiting for connectivity (never attempted, or the last attempt
+ *  was offline); `failed` = the server rejected it repeatedly (a real error, not just no network). */
 export type MediaStatus = 'pending' | 'failed'
 export type MediaTarget = 'attachment'
 
-export interface MediaQueueItem {
+interface MediaQueueEntry {
   id: string                     // queue id — see mediaQueueId
   incidentId: string
   rowId: string                  // timeline event id the media hangs off
   kind: 'photo' | 'audio'
-  blob: Blob
   filename: string
   createdAt: string              // ISO — when the capture was made
   attempts: number               // count of failed upload attempts (network drops don't count)
-  status: MediaStatus
   lastError?: string
   /** Earliest automatic retry. Failed items wait for the operator instead. */
   retryAt?: number
@@ -60,6 +72,14 @@ export interface MediaQueueItem {
   /** Absent for journal media; Rapport-Beilagen restore/swap only the attachment with rowId. */
   target?: MediaTarget
 }
+/** Still to upload: the bytes ride along. Every entry stored before 26.10.2026 is one. */
+export interface MediaCapture extends MediaQueueEntry { status: MediaStatus; blob: Blob }
+/** Uploaded, link owed: the server has the bytes under `url`, its row (or Beilage) may not know yet
+ *  (see the header). Retired by `retireMediaReceipts`. */
+export interface MediaReceipt extends MediaQueueEntry { status: 'uploaded'; url: string }
+export type MediaQueueItem = MediaCapture | MediaReceipt
+
+export const isReceipt = (item: MediaQueueItem): item is MediaReceipt => item.status === 'uploaded'
 
 /** After this many server-side (non-network) failures an item is surfaced as `failed`
  *  rather than an ever-pending upload the operator can't reason about. */
@@ -182,6 +202,8 @@ export const clearIncidentMedia = (incidentId: string): Promise<void> =>
  *
  * Returns how many items were kept, so the caller can say so. What stays goes up the next time
  * the incident is opened: the workspace drains the queue whenever the sync reports «synced».
+ * A receipt counts as waiting too — its link is not acknowledged (the Abschluss replays them
+ * after draining the Verlauf, useMediaOutbox · flushRecordOutboxes, so normally none is left).
  */
 export function clearUploadedMedia(incidentId: string): Promise<number> {
   // in the lane: a capture enqueued between the check and the delete would be deleted with it
@@ -206,19 +228,21 @@ export interface FlushOutcome {
   remaining: MediaQueueItem[]
 }
 
-/** Attempt every queued item for an incident. Successful uploads are removed and returned so
- *  the caller can swap the timeline row's local blob: URL for the server URL. A network drop
- *  leaves the item `pending` (attempts unchanged — it never got to the server); a real server
- *  error counts an attempt and flips to `failed` past MAX_ATTEMPTS. Never throws — a bad flush
- *  just leaves work queued for the next one. */
+/** Attempt every queued capture of an incident. A successful upload becomes a RECEIPT (its server
+ *  URL, the bytes dropped — see the header) and is returned too; linking it to the timeline row
+ *  is the caller's, from the stored receipts. A network drop leaves the item `pending` (attempts
+ *  unchanged — it never got to the server); a real server error counts an attempt and flips to
+ *  `failed` past MAX_ATTEMPTS. Receipts are never uploaded again, `retry` or not. Never throws —
+ *  a bad flush just leaves work queued for the next one. */
 export function flushMediaQueue(incidentId: string, upload: MediaUploader, { retry = false }: { retry?: boolean } = {}): Promise<FlushOutcome> {
   const lane = laneFor(incidentId)
   return lane.flush(async () => {
     const { items } = await lane.edit(() => readQueue(incidentId))
     const uploaded: FlushOutcome['uploaded'] = []
-    /** per attempted entry: its updated state, or null once it is on the server */
-    const settled: { item: MediaQueueItem; next: MediaQueueItem | null }[] = []
+    /** per attempted entry: its updated state (a receipt once it is on the server) */
+    const settled: { item: MediaQueueItem; next: MediaQueueItem }[] = []
     for (const item of items) {
+      if (isReceipt(item)) continue
       if (!retry && (item.status === 'failed' || (item.retryAt ?? 0) > Date.now())) continue
       // Older JSON fallbacks may already hold {} instead of a Blob. Keep the record visible
       // as failed, but never crash the restore/upload path or pretend the bytes are present.
@@ -229,7 +253,8 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
       try {
         const { url } = await upload(incidentId, item.blob, item.kind, item.filename)
         uploaded.push({ id: item.id, rowId: item.rowId, kind: item.kind, url, localUrl: item.localUrl, ...(item.target ? { target: item.target } : {}) })
-        settled.push({ item, next: null })
+        const { blob: _bytes, status: _status, lastError: _error, retryAt: _retryAt, ...entry } = item
+        settled.push({ item, next: { ...entry, status: 'uploaded', url } })
       } catch (e) {
         // A network failure (offline / server unreachable) is not the item's fault — keep it
         // pending without burning an attempt. Only a reachable-but-rejecting server counts.
@@ -247,16 +272,23 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
     // re-sent from a stale stored copy while this page lives.
     const remaining = await lane.edit(async () => {
       const { items: current, known } = await readQueue(incidentId)
-      const next: MediaQueueItem[] = []
-      for (const cur of current) {
-        const s = settled.find((x) => sameCapture(x.item, cur))
-        if (!s) next.push(cur)
-        else if (s.next) next.push(s.next)
-      }
+      const next = current.map((cur) => settled.find((x) => sameCapture(x.item, cur))?.next ?? cur)
       await storeQueue(incidentId, next, known)
       return next
     })
     return { uploaded, remaining }
+  })
+}
+
+/** These receipts' links are acknowledged: drop them — each only while it is still the receipt
+ *  it was (a capture queued again under the same id stays). Resolves whether the queue is
+ *  durably stored, like enqueueMedia. */
+export function retireMediaReceipts(incidentId: string, done: readonly MediaReceipt[]): Promise<boolean> {
+  return laneFor(incidentId).edit(async () => {
+    const { items, known } = await readQueue(incidentId)
+    const next = items.filter((cur) => !(isReceipt(cur) && done.some((d) => sameCapture(d, cur))))
+    if (next.length === items.length) return isMediaQueueDurable(incidentId)
+    return storeQueue(incidentId, next, known)
   })
 }
 

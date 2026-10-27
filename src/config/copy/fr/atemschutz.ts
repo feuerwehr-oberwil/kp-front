@@ -394,6 +394,10 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     // {to} celui qui la reprend (dont la propre ligne nomme déjà tout son effectif)
     logMovedOut: 'Binôme {name} : {person} passé au binôme {to}',
     logMovedOutPlain: 'Binôme {name} : {person} passé à un autre binôme',
+    doubleTitle: '{person} dans {n} binômes',
+    doubleText: 'Les deux horloges de contact continuent. Vérifier par radio dans quel binôme se trouve {person} :',
+    doubleKeep: 'Reste dans le binôme {trupp}',
+    logDoubleResolved: 'Binôme {name} : {person} retiré – inscrit deux fois, est dans le binôme {to}',
     changeAuftragTo: 'mission {auftrag}',
     changeAuftragCleared: 'mission retirée',
     changeLine: 'Ligne {n}',

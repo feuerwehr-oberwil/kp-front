@@ -5255,12 +5255,10 @@ export interface components {
         };
         /** IncidentCreate */
         IncidentCreate: {
-            /** Title */
-            title: string;
             /** Type */
             type?: string | null;
             /** Priority */
-            priority?: string | null;
+            priority?: ("HIGH" | "LOW") | null;
             /** Text */
             text?: string | null;
             /** Address */
@@ -5269,6 +5267,8 @@ export interface components {
             lat?: number | null;
             /** Lng */
             lng?: number | null;
+            /** Title */
+            title: string;
             /** Started At */
             started_at?: string | null;
             /**
@@ -5452,14 +5452,17 @@ export interface components {
              */
             updated_at: string;
         };
-        /** IncidentPatch */
+        /**
+         * IncidentPatch
+         * @description A partial update: an omitted field is untouched (the route reads `exclude_unset`), an
+         *     explicit null clears a nullable column. The lat/lng PAIR is checked by the route against
+         *     the stored row, since only it knows the coordinate the body did not send.
+         */
         IncidentPatch: {
-            /** Title */
-            title?: string | null;
             /** Type */
             type?: string | null;
             /** Priority */
-            priority?: string | null;
+            priority?: ("HIGH" | "LOW") | null;
             /** Text */
             text?: string | null;
             /** Address */
@@ -5468,10 +5471,12 @@ export interface components {
             lat?: number | null;
             /** Lng */
             lng?: number | null;
+            /** Title */
+            title?: string | null;
             /** Started At */
             started_at?: string | null;
             /** Status */
-            status?: string | null;
+            status?: ("offen" | "in_arbeit" | "abgeschlossen") | null;
             /** Is Archived */
             is_archived?: boolean | null;
             /** Is Exercise */

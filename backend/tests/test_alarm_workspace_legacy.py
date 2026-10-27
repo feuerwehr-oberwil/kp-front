@@ -113,3 +113,20 @@ async def test_observed_revision_mismatch_cannot_skip_validation_when_database_m
         json={"base_rev": 1, "workspace": {"timeline": [{"id": "new", "reminder": "broken"}]}},
     )
     assert response.status_code == 409, response.text
+
+
+async def test_the_trupps_slice_keeps_a_legacy_row_but_refuses_a_new_unknown_word(client, editor, db_session):
+    """The slice route validates against the stored list like the full PUT: an old row with a word
+    the server now refuses must not lock a tablet out of its saves, a new one is refused (F01)."""
+    legacy = {"id": "old", "kind": "atemschut", "status": "aktiv"}
+    incident = Incident(title="Synthetic legacy incident", source="manual", map_workspace_json={"trupps": [legacy]})
+    db_session.add(incident)
+    await db_session.commit()
+    await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
+    url = f"/api/incidents/{incident.id}/workspace/trupps"
+    ok = await client.put(url, json={"base_rev": 0, "trupps": [legacy, {"id": "new", "kind": "einfach"}]})
+    assert ok.status_code == 200, ok.text
+    bad = await client.put(url, json={"base_rev": 1, "trupps": [legacy, {"id": "new", "kind": "atemschut"}]})
+    assert bad.status_code == 422, bad.text
+    dup = await client.put(url, json={"base_rev": 1, "trupps": [legacy, {"id": "old"}]})
+    assert dup.status_code == 422, dup.text

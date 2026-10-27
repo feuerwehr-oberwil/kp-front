@@ -45,7 +45,7 @@ async def test_non_demo_allows_creating_a_new_incident(client, editor, db_sessio
     [
         {"report_done_at": "2026-08-30T18:00:00Z"},
         {"is_archived": True},
-        {"status": "geschlossen"},
+        {"status": "abgeschlossen"},
         {"is_exercise": True},
     ],
 )

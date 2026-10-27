@@ -21,6 +21,7 @@ import {
   listObjects,
   patchIncident,
   type GeoHit,
+  type IncidentCreate,
   type IncidentFull,
   type IncidentMeta,
   type ObjectWithPlans,
@@ -321,7 +322,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       // was cleared on screen, «Einsatz aktualisiert» came back, and the old coordinate was still
       // on the record and still driving the map.
       ...(coord ? { lng: coord[0], lat: coord[1] } : edit && realCoord(edit.lng, edit.lat) ? { lng: null, lat: null } : {}),
-    }
+    } satisfies IncidentCreate
     // ⚠️ On EDIT, send only what actually changed. The full body re-wrote eight fields every
     // time, including three the operator may never have looked at — and `started_at` is the
     // expensive one: it is seeded through a formatter that drops seconds, and the backend stamps
