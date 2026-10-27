@@ -194,15 +194,21 @@ const isRead = (init?: RequestInit) => !init?.method || init.method.toUpperCase(
 
 /** One signal that fires when EITHER input does. The long-poll loops need both halves: the
  *  timeout still cuts a half-open connection, and the caller's own controller drops a request
- *  the server is deliberately holding open (tab hidden, incident switched, hook torn down). */
+ *  the server is deliberately holding open (tab hidden, incident switched, hook torn down).
+ *  Remove both listeners on cancellation: offline tile preparation shares one caller's signal
+ *  across many requests, so each expired timeout must release its listener on that signal.
+ *  Let the combined signal own removal: a callback closing over both inputs pins a completed
+ *  long-poll round's caller signal until its timeout fires, even after the round released it. */
 export function eitherSignal(a?: AbortSignal, b?: AbortSignal | null): AbortSignal | undefined {
   if (!a) return b ?? undefined
   if (!b) return a
+  if (a.aborted) return a
+  if (b.aborted) return b
   const ctrl = new AbortController()
   const abort = () => ctrl.abort()
-  a.addEventListener('abort', abort, { once: true })
-  b.addEventListener('abort', abort, { once: true })
-  if (a.aborted || b.aborted) abort()
+  const options = { once: true, signal: ctrl.signal }
+  a.addEventListener('abort', abort, options)
+  b.addEventListener('abort', abort, options)
   return ctrl.signal
 }
 

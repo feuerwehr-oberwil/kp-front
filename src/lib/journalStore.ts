@@ -191,6 +191,8 @@ export class JournalStore {
    *  persist() is off — and the read is retried every REREAD_MS. Delivery keeps running: the
    *  server is the one place a row is safe while the local copy is unknown. */
   private readFailed = false
+  /** the server has answered a pull since this store was made (see rowShown) */
+  private pulled = false
   private rereadTimer: ReturnType<typeof setTimeout> | null = null
   onChange?: () => void
 
@@ -493,7 +495,15 @@ export class JournalStore {
         `/api/incidents/${this.incidentId}/journal?since_seq=${this.state.latestSeq}${wait ? '&wait=1' : ''}`,
         { signal: opts?.signal, timeoutMs: wait ? LONG_POLL_TIMEOUT_MS : undefined },
       )
-      if (this.disposed || !res.entries.length) return 'none'
+      if (this.disposed) return 'none'
+      // the FIRST answered pull changes `rowShown` from «unknown» to an answer even when it brings
+      // nothing — say so, or a receipt waiting on it never replays (Codex review, 26.10.2026)
+      const firstPull = !this.pulled
+      this.pulled = true
+      if (!res.entries.length) {
+        if (firstPull) this.emit()
+        return 'none'
+      }
       this.adoptRows(res.entries)
       this.state.latestSeq = Math.max(this.state.latestSeq, res.latest_seq)
       // another device may have pushed rows we still hold in the outbox (migration overlap)
@@ -680,6 +690,18 @@ export class JournalStore {
       if (!have.has(row.id)) { have.add(row.id); this.state.rows.push(e) }
     }
     this.state.rows.sort((a, b) => a.seq - b.seq)
+  }
+
+  /**
+   * Does the display show this row NOW? `false` = loaded, and it does not: retracted, parked, or
+   * no such row anywhere. `undefined` = cannot tell yet: the cache is not read (or that read
+   * failed), or the server has not answered a pull. For a late enrichment (useMediaOutbox ·
+   * receipts, audit F06): a rendered `rows` copy hides a retracted row exactly like one that has
+   * not loaded — or not rendered — yet, and only the first must not be waited for forever.
+   */
+  rowShown(id: string): boolean | undefined {
+    if (this.display().some((r) => r.id === id)) return true
+    return this.initDone && !this.readFailed && this.pulled ? false : undefined
   }
 
   private knownIds(): Set<string> {

@@ -1,6 +1,10 @@
 // Auth-aware incident-media cache. Imported before Workbox registers its routes, so this
 // listener owns /api/media/* and stops Workbox from installing a second, auth-blind route.
-// Reference data stays station-scoped and remains under Workbox's normal runtime cache.
+// Reference caches belong to real account clients only. A link or unknown client must ask the
+// server, past BOTH Workbox and the browser's HTTP cache: a cached station register/plan must
+// never bypass the link's incident scope. Account reference reads keep Workbox's offline cache.
+// A worker's memory disappears on idle termination, without controllerchange. Unknown clients
+// re-announce their CURRENT context on request; Workbox's async plugins await that handshake.
 const KP_MEDIA_CACHE = 'incident-media'
 const KP_MEDIA_OWNER_CACHE = 'kp-media-cache-owner'
 // Station reference data (symbols + geojson), cached by Workbox (vite.config · reference-data).
@@ -19,6 +23,46 @@ const KP_MEDIA_OWNER_URL = new URL('/__kp/media-cache-owner', self.location.orig
 const KP_MEDIA_MAX_ENTRIES = 200
 const KP_MEDIA_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 const kpMediaClients = new Map()
+const kpMediaAuthRequests = new Map()
+
+function kpFinishMediaAuth(clientId) {
+  kpMediaAuthRequests.get(clientId)?.finish(kpMediaClients.get(clientId) ?? null)
+}
+
+async function kpClientAuth(event) {
+  const known = kpMediaClients.get(event.clientId)
+  if (known || !event.clientId || !self.clients?.get) return known ?? null
+  const pending = kpMediaAuthRequests.get(event.clientId)
+  if (pending) return pending.promise
+
+  // Deduplicate concurrent plan/tile reads after an idle restart. No cached permission is
+  // inferred from a cookie, URL or an old owner: the live page must report its latest state.
+  let finish
+  const promise = new Promise((resolve) => {
+    let settled = false
+    const timeout = setTimeout(() => finish(null), 1000)
+    finish = (auth) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      kpMediaAuthRequests.delete(event.clientId)
+      resolve(auth)
+    }
+  })
+  kpMediaAuthRequests.set(event.clientId, { promise, finish })
+  void self.clients.get(event.clientId).then((client) => {
+    if (client) client.postMessage({ type: 'kp-media-auth-request' })
+    else finish(null)
+  }).catch(() => finish(null))
+  return promise
+}
+
+// Called by the generated Workbox plugins before reading/storing a reference response or
+// choosing network cache mode. Async here preserves CacheFirst/NetworkFirst/SWR unchanged.
+self.kpReferenceCacheAllowed = async (event, request) => {
+  if (request.headers.get('X-Incident-Link') === 'use') return false
+  return (await kpClientAuth(event))?.kind === 'user'
+}
 
 async function kpReadMediaOwner() {
   const cache = await caches.open(KP_MEDIA_OWNER_CACHE)
@@ -52,18 +96,19 @@ self.addEventListener('message', (event) => {
   const clientId = event.source.id
   if (event.data.kind === 'user' && typeof event.data.userId === 'string' && event.data.userId) {
     kpMediaClients.set(clientId, { kind: 'user', userId: event.data.userId })
-    event.waitUntil(kpSetMediaOwner(event.data.userId))
+    event.waitUntil(kpSetMediaOwner(event.data.userId).then(() => kpFinishMediaAuth(clientId)))
   } else if (event.data.kind === 'link') {
-    // A link may fetch media the backend authorizes, but never via another user's cache.
+    // A link may fetch media/reference data the backend authorizes, never the account's cache.
     kpMediaClients.set(clientId, { kind: 'link' })
+    kpFinishMediaAuth(clientId)
   } else if (event.data.kind === 'logged-out') {
     // Sign-out AND explicit server denial arrive here (lib/auth · denySession). Both are about
     // the whole browser, not one tab: every client shares the one cookie the server just
-    // refused, so every grant is dropped, not only the sender's. Other tabs fall back to
-    // unknown — network-only, no cache read — and only their own next sign-in re-arms them.
-    // A restarting worker starts with this same empty map, so it fails closed by construction.
+    // refused, so every grant is dropped, not only the sender's. Other tabs must affirm their
+    // latest context before any cache read; auth's cross-tab denial updates that context too.
     // The media, owner AND station reference caches are all purged — see kpClearOnDenial.
     kpMediaClients.clear()
+    for (const pending of kpMediaAuthRequests.values()) pending.finish(null)
     event.waitUntil(kpClearOnDenial())
   }
 })
@@ -88,7 +133,7 @@ async function kpNetworkMedia(request, cache) {
 }
 
 async function kpHandleMedia(event) {
-  const auth = kpMediaClients.get(event.clientId)
+  const auth = await kpClientAuth(event)
   if (!auth || auth.kind !== 'user') return kpNetworkMedia(event.request, null)
 
   const owner = await kpReadMediaOwner()
@@ -116,7 +161,22 @@ async function kpHandleMedia(event) {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return
   const url = new URL(event.request.url)
-  if (url.origin !== self.location.origin || !url.pathname.startsWith('/api/media/')) return
+  if (url.origin !== self.location.origin) return
+
+  const auth = kpMediaClients.get(event.clientId)
+  if (url.pathname.startsWith('/api/reference/') &&
+      (auth?.kind === 'link' || event.request.headers.get('X-Incident-Link') === 'use')) {
+    // Workbox matches URLs, not the session whose cookie/header answers the request. Its
+    // StaleWhileRevalidate would return the account's cached 200 even while the server says
+    // 403 to this link; pinned PDFs/tiles are CacheFirst and never ask the server at all.
+    // A headerless <img> is gated by its client, and an explicit link header wins even before
+    // the page's new auth message arrives. Unknown clients are resolved by Workbox's async
+    // session plugins; no reply or a denied context remains network-only.
+    event.stopImmediatePropagation()
+    event.respondWith(fetch(event.request, { cache: 'no-store' }))
+    return
+  }
+  if (!url.pathname.startsWith('/api/media/')) return
 
   event.stopImmediatePropagation()
   event.respondWith(kpHandleMedia(event))

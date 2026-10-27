@@ -137,6 +137,16 @@ IncidentWorkspace · tab=map · changed: objects×200».
 
 ## Running locally
 
+The loading-snail checks in `smoke.spec.ts` cover ordinary launches and the inline update-resume
+handover in Chromium and WebKit. `snail-update.spec.ts` also exercises real Workbox installation,
+activation and the automatic reload in Chromium, where service-worker automation is supported.
+It proxies the running production stack's static assets through a disposable local origin,
+answers API requests anonymously and changes that origin's worker bytes between openings. An
+ordinary reload gets one entrance; an update reload resumes past it; the next deliberate reload
+gets a fresh entrance again. The proxy pins outgoing URLs to the configured stack origin and
+rejects redirects; a network-path-reference regression checks that requests cannot replace the
+upstream host. No station data or upstream worker is changed.
+
 ```bash
 # a throwaway database on the dev compose db (just db), migrated, and the built SPA served by
 # the backend. TRACCAR_FAKE + ALARM_WEBHOOK_SECRET only for the field scenario.

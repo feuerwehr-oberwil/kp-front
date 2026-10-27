@@ -20,6 +20,10 @@ Two guarantees this endpoint owes the rest of the app, both structural rather th
   this legitimately needs no ``If-Match`` — the 428/409 on ``PUT /api/config`` guards a stale
   browser draft, and there is none here.
 
+Imports lock and reload the singleton BEFORE planning and hold it through apply. A preview
+stays read-only. A connector may already hold a cached config from before its download; that
+copy must never become the ancestor of an import that overwrites a newer admin save.
+
 ⚠️ There is no ``replace`` mode and there must never be one. See app/services/station_workbook.
 """
 
@@ -36,6 +40,7 @@ from ..auth.dependencies import CurrentAdmin, OptionalUser
 from ..config import settings
 from ..config_history import keep_previous
 from ..database import get_db
+from ..deployment_config import config_row
 from ..models import DeploymentConfig, Personnel, PersonnelExternalIdentity
 from ..schemas import load_stored_config
 from ..services.station_workbook import (
@@ -54,8 +59,12 @@ router = APIRouter(prefix="/station-workbook", tags=["station-workbook"])
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
-async def _stored_config(db: AsyncSession) -> tuple[DeploymentConfig | None, dict]:
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+async def _stored_config(db: AsyncSession, *, lock: bool = False) -> tuple[DeploymentConfig | None, dict]:
+    row = (
+        await config_row(db, lock=True)
+        if lock
+        else (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    )
     return row, dict((row.config_json if row else None) or {})
 
 
@@ -96,14 +105,15 @@ async def _upload_bytes(file: UploadFile) -> bytes:
     return data
 
 
-async def plan_workbook(db: AsyncSession, data: bytes) -> ImportPlan:
-    """Parse + project — the shared half of preview and import. Touches no session state.
+async def plan_workbook(db: AsyncSession, data: bytes, *, lock: bool = False) -> ImportPlan:
+    """Parse + project — the shared half of preview and import.
 
     Public because the SharePoint pull runs the SAME planner over a workbook it fetched: the
     connector is a transport, and «what would this file do» must be one answer, not two
-    implementations that agree today.
+    implementations that agree today. Previews leave ``lock=False`` and write nothing; a caller
+    that will apply the result passes ``lock=True`` and keeps that transaction open through apply.
     """
-    _row, raw = await _stored_config(db)
+    _row, raw = await _stored_config(db, lock=lock)
     stored = load_stored_config(raw).model_dump(mode="json")
     try:
         parsed = parse_workbook(data, known=known_keys(stored))
@@ -199,7 +209,7 @@ async def import_workbook(
             status_code=409,
             detail="Die Datei hat sich seit der Vorschau geändert. Bitte die Vorschau neu erstellen.",
         )
-    plan = await plan_workbook(db, data)
+    plan = await plan_workbook(db, data, lock=True)
     if not plan.preview.ok:
         raise HTTPException(
             status_code=400,
@@ -214,8 +224,9 @@ async def apply_workbook(db: AsyncSession, plan: ImportPlan, *, actor_id: uuid.U
     Split out of the endpoint so the SharePoint pull applies a workbook through this exact
     code — the connector fetches the bytes and decides whether it may proceed unattended, and
     the write itself is the one that already exists. Callers are responsible for having checked
-    ``plan.preview.ok``; an unattended caller checks more than that (app/sharepoint_sync ·
-    _sync_workbook), because the preview it would have shown has nobody reading it.
+    ``plan.preview.ok`` and planning with ``lock=True`` in this same transaction; an unattended
+    caller checks more than that (app/sharepoint_sync · _sync_workbook), because the preview it
+    would have shown has nobody reading it.
     """
     row, _raw = await _stored_config(db)
     if plan.config_changed:

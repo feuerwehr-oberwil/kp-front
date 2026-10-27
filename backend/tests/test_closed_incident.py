@@ -53,7 +53,7 @@ def _assert_closed_refusal(r) -> None:
     assert detail["closed_at"]  # the device that learns of the close from this answer says when
 
 
-TRUPP = {"id": "tr1", "name": "Trupp 1", "status": "drin", "entryTime": "2026-09-25T12:00:00Z"}
+TRUPP = {"id": "tr1", "name": "Trupp 1", "status": "aktiv", "entryTime": "2026-09-25T12:00:00Z"}
 KONTAKT_ROW = {"id": "r-kontakt", "t": "14:46", "icon": "radio", "text": "Trupp 2 – Kontakt bestätigt", "kind": "team"}
 ALARM_ROW = {
     "id": "azal-tr1-3",

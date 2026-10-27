@@ -39,7 +39,7 @@ import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
 import { resolvePlanAnnos } from './lineAttachments'
 import type { JournalLink } from './journalLinks'
-import { TAFEL_ID, findForms, formForPdf, pageTitles } from './boardForm'
+import { TAFEL_ID, findForms, formForPdf, pageStamp, pageTitles } from './boardForm'
 import { isDrawnBoardKind } from './workspace'
 import { signatureScope, type SignatureRole, type SignatureStrokes } from './reportSignature'
 
@@ -441,7 +441,7 @@ export function tafelPayload(
   const annos = board?.[TAFEL_ID] ?? []
   const T = appConfig.copy.tafel
   const titles = pageTitles(annos)
-  const pages = findForms(annos).map((a) => formForPdf(a.form, { up: T.trendUp, same: T.trendSame, down: T.trendDown }, undefined, T.head, titles.get(a.id)))
+  const pages = findForms(annos).map((a) => formForPdf(a.form, { up: T.trendUp, same: T.trendSame, down: T.trendDown }, undefined, T.head, titles.get(a.id), pageStamp(a.form, T)))
   const wantsMap = findForms(annos).some((a) => a.form.page.sections.some((x) => x.type === 'map' && !x.hidden))
   const map = wantsMap && scene
     ? buildKrokiPayload({

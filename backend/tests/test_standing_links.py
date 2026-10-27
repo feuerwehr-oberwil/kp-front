@@ -234,7 +234,7 @@ async def test_standing_as_writes_the_slice_stamped_as_its_own(client, standing_
 
     r = await client.put(
         f"/api/incidents/{incident.id}/workspace/trupps",
-        json={"trupps": [{"id": "t1", "name": "Trupp 1", "status": "innen"}], "base_rev": 0},
+        json={"trupps": [{"id": "t1", "name": "Trupp 1", "status": "aktiv"}], "base_rev": 0},
     )
     assert r.status_code == 200, r.text
 

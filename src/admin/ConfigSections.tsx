@@ -2,6 +2,7 @@ import { ShellLoader } from '../components/ShellLoader'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { AlarmGroup, DeploymentConfig, DeploymentFleet, FleetVehicle } from '../lib/deploymentConfig'
 import { legacyFleetToAttributeLists, DEFAULT_MODULES } from '../lib/deploymentConfig'
+import { CONTACT_BOUNDS } from '../lib/workspace'
 import { geoDatasetId, geoLayerUrl, inspectGeojson, listReference, uploadReference, type ReferenceDataset } from '../lib/incidents'
 import { ApiError, apiGet } from '../lib/api'
 import { useConfig, getPath } from './ConfigContext'
@@ -980,8 +981,9 @@ export function DoctrineSection() {
       {numField(C.pressureMax, C.pressureMaxTip, 'pressureMax')}
 
       <SettingsGroup title={C.groupContact} />
-      {numField(C.contactInterval, C.contactIntervalTip, 'contactIntervalMin')}
-      {numField(C.contactGrace, C.contactGraceTip, 'contactGraceSec')}
+      {/* the station range of the contact clock (lib/workspace · CONTACT_BOUNDS, audit F02) */}
+      {numField(C.contactInterval, C.contactIntervalTip, 'contactIntervalMin', { kind: 'int', ...CONTACT_BOUNDS.contactIntervalMin, nullable: true })}
+      {numField(C.contactGrace, C.contactGraceTip, 'contactGraceSec', { kind: 'int', ...CONTACT_BOUNDS.contactGraceSec, nullable: true })}
 
       {/* The air estimate's two inputs. The app has read them from the config all along and the
           card says «geschätzt mit 7 L Flasche und 50 L/min», which reads like a station setting —

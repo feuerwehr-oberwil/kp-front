@@ -13,7 +13,7 @@ import {
   type QuadSection, type TableSection, type TemplateColumn, type TextSection,
 } from '../lib/boardTemplate'
 import {
-  boxLines, moveLine, moveRow, nextTrend, normalizeTime, putField, putHead, putLine, putRow, tableRows, writtenRows,
+  boxLines, moveLine, moveRow, nextTrend, normalizeTime, pageStamp, putField, putHead, putLine, putRow, tableRows, writtenRows,
   type BoardFormData, type FormHead,
 } from '../lib/boardForm'
 import { NEW, navTarget, type NavAt, type NavKey, type NavSection } from '../lib/boardFormNav'
@@ -907,6 +907,8 @@ export function TafelFormPage({ pageKey, title, data, readOnly, isPhone, onChang
             </section>
           ))}
         </div>
+        {/* when the page was started and last written on — the paper prints the same line */}
+        <p className={s.stamp}>{pageStamp(data, t)}</p>
       </div>
     </div>
   )

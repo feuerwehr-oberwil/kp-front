@@ -18,7 +18,7 @@ from pydantic import (
     model_validator,
 )
 
-from .alarm_validation import validate_reminder_row, validate_trupp
+from .alarm_validation import CONTACT_GRACE_SEC, CONTACT_INTERVAL_MIN, TruppStatus, in_range, validate_reminder_row
 
 logger = logging.getLogger(__name__)
 
@@ -109,33 +109,77 @@ class PinReset(BaseModel):
 
 
 # --- Incidents ----------------------------------------------------------------------
-class IncidentCreate(BaseModel):
-    title: str = Field(min_length=1)
-    type: str | None = None
-    priority: str | None = None  # 'HIGH' | 'LOW'
-    text: str | None = None
-    address: str | None = None
-    lat: float | None = None
-    lng: float | None = None
+#: ``Incident.status`` — the words an incident's lifecycle may carry. The running ones are
+#: `models.INCIDENT_ACTIVE_STATUSES`; "abgeschlossen" is the one that ends it. A typo used to be
+#: stored as it came, and anything not running reads as closed (`models.lifecycle_open`), so
+#: «of fen» silently ended the Einsatz. Client twin: src/lib/incidentRunning.ts.
+IncidentStatus = Literal["offen", "in_arbeit", "abgeschlossen"]
+#: ``Incident.priority`` as the app writes it (the wizard, the intake keyword inference).
+IncidentPriority = Literal["HIGH", "LOW"]
+
+# Coordinates are strict: a JSON `true` or `"47.5"` is a client bug, not a position, and a
+# lax float would have pinned the Einsatz at 1.0°. Finite and in range — NaN/±Infinity pass a
+# plain float, and `lat: 91` used to be stored and drive the map.
+Latitude = Annotated[float, Field(strict=True, allow_inf_nan=False, ge=-90, le=90)]
+Longitude = Annotated[float, Field(strict=True, allow_inf_nan=False, ge=-180, le=180)]
+
+
+class _IncidentInput(BaseModel):
+    """What both the create and the patch body take. INPUT only: the read models
+    (`IncidentMeta`) keep plain types so a legacy row (a «NORMAL» priority, an old status)
+    still reads. The text bounds are abuse caps on unbounded TEXT columns, the same numbers as
+    the alarm intake (`AlarmIn`), which writes the same columns."""
+
+    type: str | None = Field(default=None, max_length=100)
+    priority: IncidentPriority | None = None
+    text: str | None = Field(default=None, max_length=10_000)
+    address: str | None = Field(default=None, max_length=255)
+    lat: Latitude | None = None
+    lng: Longitude | None = None
+
+    @field_validator("title", "type", "text", "address", mode="before", check_fields=False)
+    @classmethod
+    def _trim(cls, v: object) -> object:
+        """Trim; all-whitespace is absent (None) — so a blank title meets the «required»
+        refusal rather than naming an Einsatz «   ». Non-strings pass through for pydantic to
+        reject, as in `AlarmIn.strip_strings`."""
+        if not isinstance(v, str):
+            return v
+        return v.strip() or None
+
+
+class IncidentCreate(_IncidentInput):
+    title: str = Field(min_length=1, max_length=1000)
     started_at: datetime | None = None
     is_exercise: bool = False
     details_json: dict[str, Any] | None = None
 
 
-class IncidentPatch(BaseModel):
-    title: str | None = None
-    type: str | None = None
-    priority: str | None = None
-    text: str | None = None
-    address: str | None = None
-    lat: float | None = None
-    lng: float | None = None
+#: IncidentPatch fields whose column is NOT NULL: omitting one leaves it alone, an explicit null
+#: is a 422 (it used to reach the database as an IntegrityError, a 500). Every other field is a
+#: nullable column, and null clears it. Pinned against the ORM in test_incident_metadata_validation.
+INCIDENT_PATCH_REQUIRED = frozenset({"title", "started_at", "status", "is_archived", "is_exercise"})
+
+
+class IncidentPatch(_IncidentInput):
+    """A partial update: an omitted field is untouched (the route reads `exclude_unset`), an
+    explicit null clears a nullable column. The lat/lng PAIR is checked by the route against
+    the stored row, since only it knows the coordinate the body did not send."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=1000)
     # Alarmierungszeit — correctable in the Einsatzdaten panel (e.g. Divera time was off)
     started_at: datetime | None = None
-    status: str | None = None
+    status: IncidentStatus | None = None
     is_archived: bool | None = None
     is_exercise: bool | None = None
     report_done_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def _no_null_on_required(self) -> "IncidentPatch":
+        nulled = sorted(k for k in self.model_fields_set & INCIDENT_PATCH_REQUIRED if getattr(self, k) is None)
+        if nulled:
+            raise ValueError(f"Pflichtfeld darf nicht leer sein: {', '.join(nulled)}")
+        return self
 
 
 class IncidentMeta(BaseModel):
@@ -325,14 +369,11 @@ class WorkspacePut(BaseModel):
 MAX_TRUPPS = 200
 
 
-#: A Trupp's lifecycle phase — the ONE list of its words (client twin: src/types.ts · Trupp.status,
-#: held equal to the enum this emits into docs/openapi.json by src/lib/truppStatus.test.ts).
-#: angemeldet → aktiv → rueckzug → raus by hand; `ueberfaellig` is the derived overlay.
-TruppStatus = Literal["angemeldet", "aktiv", "rueckzug", "ueberfaellig", "raus"]
-
-#: A stored Trupp as the contract DESCRIBES it: an open object whose `status` is a TruppStatus.
-#: ⚠️ Schema only — validation stays `validate_trupp`'s, which does not refuse an unknown status:
-#: this is the Atemschutz save path, and an offline tablet's write must still land.
+#: A stored Trupp as the contract DESCRIBES it: an open object whose `status` is a TruppStatus
+#: (alarm_validation · TruppStatus, the one list of its words).
+#: ⚠️ Schema only — the rows are validated by `validate_alarm_workspace` in apply_workspace_put,
+#: against the stored list: a new or changed row with an unknown status is refused, an unchanged
+#: legacy row still rides, so one old record cannot lock an offline tablet out of its saves.
 _TruppDoc = Annotated[
     dict[str, Any],
     WithJsonSchema(
@@ -363,7 +404,6 @@ class TruppsPut(BaseModel):
         if len(self.trupps) > MAX_TRUPPS:
             raise ValueError(f"Zu viele Trupps (max. {MAX_TRUPPS})")
         for t in self.trupps:
-            validate_trupp(t)
             tid = t.get("id")
             if not isinstance(tid, str) or not tid.strip():
                 raise ValueError("Jeder Trupp braucht eine nichtleere String-id")
@@ -1641,6 +1681,15 @@ class DoctrineConfig(BaseModel):
                 self.entryPressureMin,
             )
             self.entryPressureMin = None
+        # The contact clock (audit F02): 0 or 1e308 used to pass, one alarming at once on the
+        # push path and the other never. Out of range degrades to the shipped value when stored.
+        for key, bounds in (("contactIntervalMin", CONTACT_INTERVAL_MIN), ("contactGraceSec", CONTACT_GRACE_SEC)):
+            value = getattr(self, key)
+            if value is not None and not in_range(value, bounds):
+                if not stored:
+                    raise ValueError(f"doctrine.{key} ({value}) must be between {bounds[0]} and {bounds[1]}")
+                logger.warning("doctrine.%s %r is out of range — serving the shipped value", key, value)
+                setattr(self, key, None)
         return self
 
     @model_validator(mode="after")

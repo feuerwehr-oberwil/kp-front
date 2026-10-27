@@ -49,6 +49,13 @@
         if (m) m.setAttribute('content', t === 'night' ? '#0d1118' : '#eef3f7')
       } catch (e) { /* private mode / storage disabled — day default stands */ }
     </script>
+    <!-- A streamed response can paint the SVG before the resume script below has arrived.
+         Keep just that mascot hidden until its continued clock is applied. -->
+    <script>
+      try {
+        if (sessionStorage.getItem('kp-snail-resume')) document.documentElement.setAttribute('data-snail-resuming', '')
+      } catch (e) { /* storage unavailable — show the normal entrance */ }
+    </script>
     <!--
       Critical CSS for the static boot splash below (#root markup), so it renders correctly with
       ZERO external resources loaded — the one window where the real stylesheet (a <link>, hence
@@ -101,6 +108,7 @@
       /* Paint immediately so the snail's entrance is visible. main.tsx keeps this cover until
          the arrival finishes; React then continues its clock (same rule in 08-toasts.css). */
       .boot-splash { animation: none; overflow: hidden; }
+      html[data-snail-resuming] .boot-splash .snail-loader { visibility: hidden; }
       /* Pre-app cards have no fade: it would hide the entrance or blink during handover. */
       .loading-card { display: flex; flex-direction: column; align-items: center; gap: 16px; }
       /* the reserved (empty) text lines below the snail — same METRICS as 08-toasts.css, so
@@ -169,6 +177,35 @@
         </div>
       </div>
     </div>
+    <!-- An automatic update is another page load within the SAME opening. Consume its tab-local
+         clock before the first paint, even when no bundle has arrived. Negative delays continue
+         every SVG animation without changing the shared artwork. The 30 s expiry bounds a lost
+         reload; ordinary launches never write this key (lib/snailLaunch · rememberSnailLaunch). -->
+    <script id="snail-resume">
+      ;(function () {
+        try {
+          var saved = sessionStorage.getItem('kp-snail-resume')
+          sessionStorage.removeItem('kp-snail-resume')
+          if (!saved) return
+          var resume = JSON.parse(saved)
+          var age = Date.now() - resume.at
+          if (!Number.isFinite(age) || age < 0 || age > 30000 || !Number.isFinite(resume.elapsed) || resume.elapsed < 0) return
+          var svg = document.querySelector('.boot-splash .firefighter-snail')
+          if (!svg) return
+          var elapsed = resume.elapsed + age
+          svg.setAttribute('data-snail-offset', String(elapsed))
+          ;[svg].concat(Array.from(svg.querySelectorAll('*'))).forEach(function (node) {
+            var style = getComputedStyle(node)
+            if (style.animationName && style.animationName !== 'none') {
+              node.style.animationDelay = style.animationDelay.split(',').map(function (delay) {
+                return (parseFloat(delay) * 1000 - elapsed) + 'ms'
+              }).join(',')
+            }
+          })
+        } catch (e) { /* private mode / invalid stamp — a fresh entrance is still usable */ }
+        finally { document.documentElement.removeAttribute('data-snail-resuming') }
+      })()
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -6,6 +6,7 @@ snapshots. Stale members (a divera_id no longer returned by Divera) are deactiva
 on request, never hard-deleted — old incidents/reports keep referencing them.
 
 The diff (:func:`diff_members`) is pure so it can be unit-tested without a database.
+Rank adoption locks and reloads the deployment config before deriving its replacement.
 """
 
 import csv
@@ -25,6 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .credentials import get as credential
+from .deployment_config import config_row
 from .divera import check_response
 from .models import DeploymentConfig, Personnel, PersonnelExternalIdentity
 from .ranks import SWISS_DEFAULT_RANKS
@@ -489,9 +491,9 @@ async def adopt_ranks(db: AsyncSession, values: Sequence[str], actor_id: uuid.UU
     from .config_history import keep_previous  # local imports avoid an import cycle
     from .schemas import load_stored_config
 
+    row = await config_row(db, lock=True)
     ranks, has_own = await load_roster_ranks_info(db)
     updated = append_ranks(ranks, values)
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     await keep_previous(db, "roster", actor_id)
     raw = dict((row.config_json if row else None) or {})
     raw["roster"] = {**(raw.get("roster") or {}), "ranks": updated}
@@ -500,12 +502,8 @@ async def adopt_ranks(db: AsyncSession, values: Sequence[str], actor_id: uuid.UU
     # was enforced – must not make a CSV import 500 on a document it never touched. The result is
     # still normalized, so the stored document stays canonical and GET round-trips it unchanged.
     doc_json = load_stored_config(raw).model_dump(mode="json")
-    if row is None:
-        row = DeploymentConfig(id=1, config_json=doc_json, updated_by=actor_id)
-        db.add(row)
-    else:
-        row.config_json = doc_json
-        row.updated_by = actor_id
+    row.config_json = doc_json
+    row.updated_by = actor_id
     await db.flush()
     logger.info(
         "roster.ranks: adopted %s from a CSV import (station had %s list, now %d ranks)",

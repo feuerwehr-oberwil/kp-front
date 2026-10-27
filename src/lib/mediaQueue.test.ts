@@ -11,15 +11,24 @@ import {
   enqueueMedia,
   flushMediaQueue,
   isMediaQueueDurable,
+  isReceipt,
   listMediaQueue,
   mediaQueueId,
+  retireMediaReceipts,
   sameQueue,
+  type MediaCapture,
+  type MediaQueueItem,
   type MediaUploader,
 } from './mediaQueue'
 import { mediaSyncStatus } from './useMediaQueue'
 
 const INC = 'inc1'
 const blob = (s = 'x') => new Blob([s], { type: 'text/plain' })
+/** the entry as a capture (bytes aboard) — fails the test on a receipt */
+const capture = (item: MediaQueueItem): MediaCapture => {
+  if (isReceipt(item)) throw new Error(`expected a capture, got the receipt for ${item.url}`)
+  return item
+}
 
 // most tests want the network "up" so a rejecting uploader counts as a real server failure
 function setOnline(v: boolean) {
@@ -44,12 +53,26 @@ describe('mediaQueue', () => {
     expect(q[0]).toMatchObject({ id: mediaQueueId('e1', 'photo'), rowId: 'e1', kind: 'photo', status: 'pending', attempts: 0 })
   })
 
+  it('keeps an attachment target through persistence and successful upload', async () => {
+    await enqueueMedia(INC, 'att1', 'photo', blob('damage'), 'damage.jpg', '2026-10-25T10:00:00Z', 'blob:damage', 'attachment')
+    __resetMediaQueueForTests() // simulate a reload: metadata and bytes come from storage
+    const queued = await listMediaQueue(INC)
+    expect(queued[0]).toMatchObject({ rowId: 'att1', target: 'attachment', localUrl: 'blob:damage' })
+    expect(await capture(queued[0]).blob.text()).toBe('damage')
+    expect(mediaSyncStatus(queued, true)).toBe('pending')
+    const result = await flushMediaQueue(INC, async () => ({ url: '/api/media/damage' }))
+    expect(result.uploaded[0]).toMatchObject({ rowId: 'att1', target: 'attachment', url: '/api/media/damage' })
+    // …and so does its receipt, so the replay links the Beilage, never a Verlauf row
+    __resetMediaQueueForTests()
+    expect(await listMediaQueue(INC)).toMatchObject([{ rowId: 'att1', target: 'attachment', status: 'uploaded', url: '/api/media/damage' }])
+  })
+
   it('a re-capture for the same row+kind replaces the prior entry', async () => {
     await enqueueMedia(INC, 'e1', 'photo', blob('old'), 'p', '2026-07-01T10:00:00Z')
     await enqueueMedia(INC, 'e1', 'photo', blob('new'), 'p', '2026-07-01T10:05:00Z')
     const q = await listMediaQueue(INC)
     expect(q).toHaveLength(1)
-    expect(await q[0].blob.text()).toBe('new')
+    expect(await capture(q[0]).blob.text()).toBe('new')
   })
 
   it('several photos on ONE row all survive the queue', async () => {
@@ -61,7 +84,7 @@ describe('mediaQueue', () => {
 
     const q = await listMediaQueue(INC)
     expect(q).toHaveLength(3)
-    expect(await Promise.all(q.map((i) => i.blob.text()))).toEqual(['one', 'two', 'three'])
+    expect(await Promise.all(q.map((i) => capture(i).blob.text()))).toEqual(['one', 'two', 'three'])
     // and each knows which picture of the row it stands for, so the upload swaps the right one
     expect(q.map((i) => i.localUrl)).toEqual(['blob:one', 'blob:two', 'blob:three'])
   })
@@ -71,7 +94,7 @@ describe('mediaQueue', () => {
     await enqueueMedia(INC, 'e1', 'audio', blob('new'), 'a', '2026-07-01T10:05:00Z')
     const q = await listMediaQueue(INC)
     expect(q).toHaveLength(1)
-    expect(await q[0].blob.text()).toBe('new')
+    expect(await capture(q[0]).blob.text()).toBe('new')
   })
 
   it('flush reports which picture each upload replaces', async () => {
@@ -81,7 +104,7 @@ describe('mediaQueue', () => {
     expect(out.uploaded[0].localUrl).toBe('blob:one')
   })
 
-  it('flush uploads pending items, removes them, and reports the server URLs', async () => {
+  it('flush uploads pending items, turns each into a receipt (server URL, no bytes) and reports them', async () => {
     await enqueueMedia(INC, 'e1', 'photo', blob(), 'p', '2026-07-01T10:00:00Z')
     await enqueueMedia(INC, 'e2', 'audio', blob(), 'a', '2026-07-01T10:01:00Z')
     const upload: MediaUploader = vi.fn(async (_i, _b, kind) => ({ url: `https://srv/${kind}` }))
@@ -93,7 +116,37 @@ describe('mediaQueue', () => {
       { id: mediaQueueId('e1', 'photo'), rowId: 'e1', kind: 'photo', url: 'https://srv/photo' },
       { id: mediaQueueId('e2', 'audio'), rowId: 'e2', kind: 'audio', url: 'https://srv/audio' },
     ])
-    expect(await listMediaQueue(INC)).toHaveLength(0) // drained
+    // the link is still owed: what survives a reload is the receipt, the bytes are gone
+    __resetMediaQueueForTests()
+    const q = await listMediaQueue(INC)
+    expect(q).toMatchObject([
+      { rowId: 'e1', status: 'uploaded', url: 'https://srv/photo' },
+      { rowId: 'e2', status: 'uploaded', url: 'https://srv/audio' },
+    ])
+    expect(q.some((i) => 'blob' in i)).toBe(false)
+  })
+
+  it('never uploads a receipt again, not even on an explicit retry', async () => {
+    await enqueueMedia(INC, 'e1', 'photo', blob(), 'p', '2026-07-01T10:00:00Z', 'blob:one')
+    const upload: MediaUploader = vi.fn(async () => ({ url: 'https://srv/photo' }))
+    await flushMediaQueue(INC, upload)
+    expect((await flushMediaQueue(INC, upload, { retry: true })).uploaded).toEqual([])
+    expect(upload).toHaveBeenCalledTimes(1)
+  })
+
+  it('retires only the receipt it is handed — a capture queued again under the same id stays', async () => {
+    await enqueueMedia(INC, 'e1', 'audio', blob('old'), 'a', '2026-07-01T10:00:00Z')
+    await flushMediaQueue(INC, vi.fn(async () => ({ url: 'https://srv/old' })))
+    const [receipt] = (await listMediaQueue(INC)).filter(isReceipt)
+    await enqueueMedia(INC, 'e1', 'audio', blob('new'), 'a', '2026-07-01T10:05:00Z') // re-recorded
+    expect(await retireMediaReceipts(INC, [receipt])).toBe(true)
+    const q = await listMediaQueue(INC)
+    expect(q).toMatchObject([{ status: 'pending' }])
+    expect(await capture(q[0]).blob.text()).toBe('new')
+
+    await flushMediaQueue(INC, vi.fn(async () => ({ url: 'https://srv/new' })))
+    await retireMediaReceipts(INC, (await listMediaQueue(INC)).filter(isReceipt))
+    expect(await listMediaQueue(INC)).toEqual([])
   })
 
   it('keeps an item pending on a network failure without burning an attempt', async () => {
@@ -129,7 +182,7 @@ describe('mediaQueue', () => {
     expect((await listMediaQueue(INC))[0]).toMatchObject({ status: 'failed', attempts: 3, lastError: 'server' })
   })
 
-  it('partial flush: the good item drains, the failing one stays', async () => {
+  it('partial flush: the good item becomes a receipt, the failing one stays a capture', async () => {
     await enqueueMedia(INC, 'ok', 'photo', blob(), 'p', '2026-07-01T10:00:00Z')
     await enqueueMedia(INC, 'bad', 'audio', blob(), 'a', '2026-07-01T10:01:00Z')
     const upload: MediaUploader = vi.fn(async (_i, _b, kind) => {
@@ -140,9 +193,7 @@ describe('mediaQueue', () => {
     const out = await flushMediaQueue(INC, upload)
 
     expect(out.uploaded.map((u) => u.rowId)).toEqual(['ok'])
-    const q = await listMediaQueue(INC)
-    expect(q).toHaveLength(1)
-    expect(q[0].rowId).toBe('bad')
+    expect((await listMediaQueue(INC)).map((i) => [i.rowId, i.status])).toEqual([['ok', 'uploaded'], ['bad', 'pending']])
   })
 
   it('clearIncidentMedia drops the whole queue', async () => {
@@ -199,8 +250,8 @@ describe('mediaQueue under concurrency', () => {
 
     expect(out.uploaded.map((u) => u.localUrl)).toEqual(['blob:first'])
     const q = await listMediaQueue(INC)
-    expect(q.map((i) => i.localUrl)).toEqual(['blob:second'])
-    expect(out.remaining.map((i) => i.localUrl)).toEqual(['blob:second'])
+    expect(q.map((i) => [i.localUrl, i.status])).toEqual([['blob:first', 'uploaded'], ['blob:second', 'pending']])
+    expect(out.remaining).toEqual(q)
   })
 
   it('a voice memo re-recorded during the flush is not dropped with the old upload', async () => {
@@ -214,7 +265,7 @@ describe('mediaQueue under concurrency', () => {
 
     const q = await listMediaQueue(INC)
     expect(q).toHaveLength(1)
-    expect(await q[0].blob.text()).toBe('new')
+    expect(await capture(q[0]).blob.text()).toBe('new')
     expect(q[0]).toMatchObject({ status: 'pending', attempts: 0 })
   })
 
@@ -243,7 +294,7 @@ describe('mediaQueue under concurrency', () => {
 
     expect(upload).toHaveBeenCalledTimes(2)
     expect(a.uploaded.length + b.uploaded.length).toBe(2)
-    expect(await listMediaQueue(INC)).toEqual([])
+    expect((await listMediaQueue(INC)).map((i) => i.status)).toEqual(['uploaded', 'uploaded'])
   })
 })
 
@@ -260,6 +311,8 @@ describe('mediaQueue · a capture the device could not store', () => {
     const upload: MediaUploader = vi.fn(async () => ({ url: 'https://srv/held' }))
     const out = await flushMediaQueue(INC, upload)
     expect(out.uploaded.map((u) => u.localUrl)).toEqual(['blob:held'])
+    expect(isMediaQueueDurable(INC)).toBe(false) // the receipt is held in memory too
+    await retireMediaReceipts(INC, (await listMediaQueue(INC)).filter(isReceipt))
     expect(isMediaQueueDurable(INC)).toBe(true) // nothing is left that needs storing
     write.mockRestore()
   })
@@ -291,9 +344,10 @@ describe('mediaQueue · a capture the device could not store', () => {
 
 describe('mediaSyncStatus (the queue in the shared sync status)', () => {
   const item = (status: 'pending' | 'failed') => ({ id: 'x', incidentId: INC, rowId: 'r', kind: 'photo' as const, blob: blob(), filename: 'p', createdAt: '', attempts: 0, status })
-  it('is synced with nothing queued, pending while captures wait, error when refused, storage when unstored', () => {
+  it('is synced with nothing queued, pending while captures or receipts wait, error when refused, storage when unstored', () => {
     expect(mediaSyncStatus([], true)).toBe('synced')
     expect(mediaSyncStatus([item('pending')], true)).toBe('pending')
+    expect(mediaSyncStatus([{ id: 'y', incidentId: INC, rowId: 'r', kind: 'photo', filename: 'p', createdAt: '', attempts: 0, status: 'uploaded', url: '/media/x' }], true)).toBe('pending')
     expect(mediaSyncStatus([item('pending'), item('failed')], true)).toBe('error')
     expect(mediaSyncStatus([item('failed')], false)).toBe('storage')
   })
@@ -315,7 +369,7 @@ describe('sameQueue (re-render loop guard)', () => {
     await enqueueMedia(INC, 'e1', 'photo', blob(), 'p', '2026-07-01T10:00:00Z')
     const one = await listMediaQueue(INC)
     expect(sameQueue(one, [])).toBe(false)
-    expect(sameQueue(one, [{ ...one[0], status: 'failed' as const }])).toBe(false)
+    expect(sameQueue(one, [{ ...capture(one[0]), status: 'failed' as const }])).toBe(false)
     expect(sameQueue(one, [{ ...one[0], attempts: 2 }])).toBe(false)
   })
 })
@@ -325,11 +379,13 @@ describe('sameQueue (re-render loop guard)', () => {
 // Einsatzende, with photos and voice memos still pending. That deleted exactly the media the
 // Rapport had promised to send «bei Verbindung».
 describe('clearUploadedMedia (what an archive is allowed to throw away)', () => {
-  it('drops an empty queue and says nothing was kept', async () => {
+  it('keeps an unlinked receipt, then drops the empty queue and says nothing was kept', async () => {
     await enqueueMedia(INC, 'e1', 'photo', blob(), 'photo-e1', '2026-07-01T10:00:00Z')
     const upload: MediaUploader = async () => ({ url: '/media/e1.jpg' })
     await flushMediaQueue(INC, upload)
+    expect(await clearUploadedMedia(INC)).toBe(1) // the link is not acknowledged yet
 
+    await retireMediaReceipts(INC, (await listMediaQueue(INC)).filter(isReceipt))
     expect(await clearUploadedMedia(INC)).toBe(0)
     expect(await listMediaQueue(INC)).toEqual([])
   })
@@ -365,7 +421,7 @@ it('retains actual bytes in memory when only the JSON storage fallback is availa
   expect(durable).toBe(false)
   expect(isMediaQueueDurable(INC)).toBe(false)
   const [item] = await listMediaQueue(INC)
-  expect(await item.blob.text()).toBe('original bytes')
+  expect(await capture(item).blob.text()).toBe('original bytes')
   expect(stored.has('kp-idb-fb:kp-front-mediaq-' + INC)).toBe(false)
   const upload = vi.fn(async () => ({ url: '/api/media/saved' }))
   expect((await flushMediaQueue(INC, upload)).uploaded).toHaveLength(1)

@@ -88,6 +88,35 @@ function pick3<T>(base: T, mine: T, theirs: T): T {
 }
 
 /**
+ * Two Trupps under ONE id, made two again (audit F04, 25.10.2026). Every merge keys on the id
+ * (`mergeById` builds Maps), so a second crew under the same id vanished at the next sync. An
+ * exact copy is one crew and goes; a different one is kept under a DERIVED id, `<id>~2` (`~3` …),
+ * the same on every device, so they converge instead of each minting its own. Runs at the load
+ * gate (workspace · sanitizeWorkspace) AND on all three sides of the Trupp merge below — a cached
+ * blob from before the gate (a cold reopen after the server moved on) is merged before it is
+ * sanitized (Codex review, 26.10.2026). `repaired` counts removed copies and renamed crews.
+ */
+export function splitDuplicateTruppIds<T extends { id: Id }>(list: T[]): { list: T[]; repaired: number } {
+  const ids = new Set(list.map((t) => t.id))
+  const seen = new Map<Id, T[]>()
+  const out: T[] = []
+  let repaired = 0
+  for (const t of list) {
+    const same = seen.get(t.id)
+    if (!same) { seen.set(t.id, [t]); out.push(t); continue }
+    repaired++
+    if (same.some((x) => eq(x, t))) continue
+    let n = same.length + 1
+    while (ids.has(`${t.id}~${n}`) || seen.has(`${t.id}~${n}`)) n++
+    const id = `${t.id}~${n}`
+    same.push(t)
+    seen.set(id, [])
+    out.push({ ...t, id })
+  }
+  return repaired ? { list: out, repaired } : { list, repaired }
+}
+
+/**
  * Merge one id-keyed collection three ways. `mine` is the local (later) writer, so on a
  * same-id divergence it wins. If only one side changed an object, that change survives. An
  * object present in `base` but dropped on a side is a delete, and a
@@ -540,7 +569,7 @@ export const MERGE_POLICY = {
   drawings: (_b, _m, _t, cx) => cx.views.drawings,
   timeline: byId,
   // field-level, not whole-object LWW: see mergeTrupp for why trupps are the exception
-  trupps: (b, m, t, cx) => mergeById(asList(b), asList(m), asList(t), (ancestor, mi, th) => {
+  trupps: (b, m, t, cx) => mergeById(...([b, m, t].map((side) => splitDuplicateTruppIds(asList(side)).list) as [HasId[], HasId[], HasId[]]), (ancestor, mi, th) => {
     // reported only when both sides changed what a person edits — a marker stamped on each side
     // (the crew filing, a machine write) is no conflict
     const [ha, hm, ht] = [humanTrupp(ancestor), humanTrupp(mi), humanTrupp(th)]

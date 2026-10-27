@@ -42,6 +42,10 @@ Never exposes ``updated_by`` or server secrets. The one deliberate client creden
 ``integrations.cartoBasemapKey``: CARTO requires it in browser tile URLs, so domain restrictions
 rather than secrecy protect it. On a fresh / empty / corrupt DB row, GET serves the safe empty
 config above — never 404, never 500.
+
+Every config write takes ``config_row(lock=True)`` BEFORE checking a version or deriving a
+replacement. If-Match alone is a check-then-write race: overlapping requests could both accept
+one version, discard one accepted change and keep the original twice in history.
 """
 
 import hashlib
@@ -66,6 +70,7 @@ from ..config_guard import (
 from ..config_history import changed_sections, emptied_sections, keep_previous
 from ..credentials import load as load_credentials
 from ..database import get_db
+from ..deployment_config import config_row
 from ..divera import CATEGORY_LABELS
 from ..i18n import set_locale
 from ..models import DeploymentConfig, DeploymentConfigHistory, User
@@ -377,8 +382,8 @@ async def put_config(
             status_code=422,
             detail="Die öffentliche Demo muss demoMode=true und Alarmdruck=0 behalten.",
         )
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    stored = row.config_json if row else None
+    row = await config_row(db, lock=True)
+    stored = row.config_json
     stored_version = _version(stored)
     if if_match is None:
         raise HTTPException(
@@ -420,12 +425,8 @@ async def put_config(
     # …and keep what is being replaced, so this write is undoable whatever it turns out to have
     # been (app/config_history). Best-effort by design: the net must never drop the write.
     await keep_previous(db, "api", actor_id)
-    if row is None:
-        row = DeploymentConfig(id=1, config_json=doc_json, updated_by=actor_id)
-        db.add(row)
-    else:
-        row.config_json = doc_json
-        row.updated_by = actor_id
+    row.config_json = doc_json
+    row.updated_by = actor_id
     await db.flush()
     # Refresh the cached locale used for error-detail i18n.
     set_locale(body.identity.locale if body.identity else None)
@@ -594,7 +595,7 @@ async def restore_config(
             detail=f"Dieser Stand lässt sich mit der laufenden Version nicht wiederherstellen: {e}",
         ) from e
 
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    row = await config_row(db, lock=True)
     await keep_previous(db, "api", actor.id if actor else None)
     # ⚠️ The brandmark is carried from the LIVE document, not taken from the restored one — the
     # same rule a PUT follows. Restoring a config from before a logo upload must not delete the
@@ -602,13 +603,9 @@ async def restore_config(
     # A restore STATES every section — it is a whole document somebody chose off the list — so
     # nothing else is carried: the layers it puts back are the ones stored with it, which is the
     # point of restoring it.
-    doc_json = _final_document(row.config_json if row else None, set(DeploymentConfigIn.model_fields), doc)
-    if row is None:
-        row = DeploymentConfig(id=1, config_json=doc_json, updated_by=actor.id if actor else None)
-        db.add(row)
-    else:
-        row.config_json = doc_json
-        row.updated_by = actor.id if actor else None
+    doc_json = _final_document(row.config_json, set(DeploymentConfigIn.model_fields), doc)
+    row.config_json = doc_json
+    row.updated_by = actor.id if actor else None
     # ⚠️ COMMIT here, not at dependency teardown. `get_db` commits after the response has been
     # returned, and this is the one endpoint whose caller immediately re-reads what it just
     # wrote: the Verwaltung refreshes «Letzte Änderungen» so the restored-over document appears

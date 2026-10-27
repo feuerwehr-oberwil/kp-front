@@ -6,7 +6,7 @@
 // Rules: every mutation joins the one timeline (docs/undo.md); synced state and the record:
 // docs/sync-and-offline.md.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite } from './lib/icons'
@@ -87,7 +87,7 @@ import { SurfaceBoundary } from './components/SurfaceBoundary'
 import { RemindersHost } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
-import { truppInNotfall, truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
+import { truppInNotfall, truppLogName, truppStillRegistered, type AtemschutzAlarmState, type CrewSlot } from './lib/atemschutz'
 import { freshNotfallKeys } from './lib/notfall'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefSurfaceBridge } from './lib/georefMode'
@@ -123,7 +123,7 @@ import { AtemschutzView, type TruppOrder } from './components/AtemschutzView'
 import { AnwesenheitView } from './components/AnwesenheitView'
 import { MittelView } from './components/MittelView'
 import { usePersonnel } from './lib/usePersonnel'
-import { assignedPersonIds, linkTrupps, rosterIdByName as rosterIdByNameOf, truppByPersonId } from './lib/personnel'
+import { assignedPersonIds, linkTrupps, rosterIdByName as rosterIdByNameOf, truppByPersonId, truppCrewSlots } from './lib/personnel'
 import { rosterWithGuests } from './lib/guests'
 import type { Item } from './lib/checklists'
 import { warmTemplates } from './lib/checklists'
@@ -1496,11 +1496,13 @@ export function IncidentWorkspace({
 
   // the media queue, the one sync status the badge shows, «Jetzt synchronisieren» and the pre-close
   // drain (workspace/useMediaOutbox)
+  const attachmentMediaRef = useRef<(id: string, url: string) => void>(() => {})
+  const applyAttachmentMedia = useCallback((id: string, url: string) => attachmentMediaRef.current(id, url), [])
   const {
     media, flushRecordOutboxes, swapRowMedia, syncStatus, closedRefusedUnexported, baseSyncStatus,
     syncNow,
   } = useMediaOutbox({
-    swapPhoto, overlayRow, patchRow, incidentMeta, canWriteRecord, closedRefusedTotal,
+    swapPhoto, swapAttachmentMedia: applyAttachmentMedia, overlayRow, patchRow, incidentMeta, canWriteRecord, closedRefusedTotal,
     exportedClosedRefused, recordsSyncStatus, syncWorkspaceNow, journal, auditDelivery, sync, flushEvents,
   })
 
@@ -1573,10 +1575,12 @@ export function IncidentWorkspace({
   // the row media uploads and the Rapport-Beilagen — lib/useRowMediaUpload. ⚠️ The two refs go in
   // as the REF OBJECTS: rememberOneShotRef is assigned much further down, and lastCaptionStep is
   // reset by the remote hydrate above.
-  const { uploadPhotoForRow, uploadMediaForRow, addAttachments, captionAttachment, removeAttachment } = useRowMediaUpload({
+  const { uploadPhotoForRow, uploadMediaForRow, addAttachments, captionAttachment, removeAttachment, swapAttachmentMedia } = useRowMediaUpload({
     incidentMeta, canWriteRecord, media, swapPhoto, swapRowMedia, attachments, setAttachments, emit,
     rememberOneShotRef, lastCaptionStepRef: lastCaptionStep,
   })
+  // Install before the media queue's passive restore effect can finish its IndexedDB read.
+  useLayoutEffect(() => { attachmentMediaRef.current = swapAttachmentMedia }, [swapAttachmentMedia])
 
   // When the workspace sync recovers (server reachable again), drain any queued media too —
   // a stronger signal than the browser's `online` event, which fires on link-up not reach.
@@ -2151,6 +2155,7 @@ export function IncidentWorkspace({
     }
     return undefined
   }
+  const crewSlotsRef = useRef<((t: Trupp) => CrewSlot[]) | undefined>(undefined)
   const truppActions = useTruppActions({
     trupps, drawings, entities, objects, setTrupps, board, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
     // The Atemschutz-Tafel joins the one global timeline (08.09.2026): every Kontakt, Druck,
@@ -2163,6 +2168,9 @@ export function IncidentWorkspace({
     liveTrupps: () => truppsRef.current,
     counterNames: () => truppCounterNames(),
     placeOf: truppPositionWords,
+    // the crew as the roster reads it, for the one-person crew edits (atemschutz · truppCrewWithout);
+    // read at the tap, from the ref the roster indexes further down keep current
+    slotsOf: (t) => crewSlotsRef.current?.(t),
     // An Atemschutz-Link session syncs the trupps slice and nothing else: a chip removed or
     // recoloured here would change only on this phone and be undone by the next poll, while
     // the tablet keeps the old one. So the placement half of every Trupp action is a no-op
@@ -2195,7 +2203,7 @@ export function IncidentWorkspace({
       else focusEntity(entityId)
     },
   })
-  const { createTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, triggerNotfall, endNotfall, truppPlace, editTrupp, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors } = truppActions
+  const { createTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, triggerNotfall, endNotfall, truppPlace, editTrupp, transferOutOfTrupp, keepInOneTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors } = truppActions
   // The alarm host runs on EVERY device – tone and OS notification are the point – but only a
   // session that writes the Trupps records the crossing in the Verlauf (RBAC audit V1, 22.10.2026).
   // The FU or the Atemschutz-Link writes that row, once per turnus, for everybody.
@@ -2311,6 +2319,7 @@ export function IncidentWorkspace({
    *  order tolerance) the Atemschutz board and `truppSlots` match against — an app that resolves
    *  «Hans Müller» on one screen and not on the next is worse than one that never resolves it. */
   const rosterIdByName = useMemo(() => rosterIdByNameOf(pickablePersonnel), [pickablePersonnel])
+  useEffect(() => { crewSlotsRef.current = (t) => truppCrewSlots(t, rosterIdByName, rosterById) }, [rosterIdByName, rosterById])
   // ⚠️ Read the Trupps through the roster first (lib/personnel · linkTrupps). Everything below
   // answers «who is already committed» from IDS, so a Trupp carrying only names was invisible to
   // all of it — the Fahrer picker said nothing about somebody under Atemschutz, their Anwesenheit
@@ -2778,6 +2787,8 @@ export function IncidentWorkspace({
       // It only ever touches the crew fields of the OTHER Trupp, so it is the same slice an
       // Atemschutz-Link session already writes (useTruppActions · transferOutOfTrupp).
       transferOutOfTrupp={transferOutOfTrupp}
+      // «Bleibt in Trupp …» on the double-assignment band — the same crew-fields-only slice (audit F05)
+      keepInOneTrupp={keepInOneTrupp}
       reactivateTrupp={reactivateTruppA}
       deleteTrupp={deleteTrupp}
       restoreTrupp={restoreTrupp}

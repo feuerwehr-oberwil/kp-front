@@ -1,9 +1,16 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+
+// Exercise the actual inline bootstrap: it runs before any bundle, including this module.
+const resumeScript = readFileSync('index.html', 'utf8')
+  .match(/<script id="snail-resume">([\s\S]*?)<\/script>/)![1]
+const resumeBoot = () => new Function(resumeScript)()
 
 beforeEach(() => {
   vi.resetModules()
   vi.useFakeTimers()
+  sessionStorage.clear()
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => setTimeout(() => callback(performance.now()), 16))
 })
@@ -13,6 +20,7 @@ afterEach(() => {
   vi.clearAllTimers()
   vi.useRealTimers()
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
 function boot(time = 0) {
@@ -39,6 +47,74 @@ function reactSvg() {
 }
 
 describe('snail launch', () => {
+  it('continues the static and React clocks across an update reload, then consumes the stamp', async () => {
+    boot(2_000)
+    const { rememberSnailLaunch, waitForSnailArrival } = await import('./snailLaunch')
+    await waitForSnailArrival()
+    await vi.advanceTimersByTimeAsync(400)
+    rememberSnailLaunch()
+    expect(JSON.parse(sessionStorage.getItem('kp-snail-resume')!)).toEqual({ at: Date.now(), elapsed: 2_400 })
+
+    // The new document takes 200 ms to arrive. Its cover must already be in the idle before
+    // its first frame; its shell/head delays retain their original 630 ms phase offset.
+    await vi.advanceTimersByTimeAsync(200)
+    const { svg } = boot()
+    svg.style.animationName = 'fs-arrival'
+    svg.style.animationDelay = '0s'
+    const head = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+    head.style.animationName = 'fs-brake, fs-head'
+    head.style.animationDelay = '0s, 0.63s'
+    svg.append(head)
+    resumeBoot()
+    expect(sessionStorage.getItem('kp-snail-resume')).toBeNull()
+    expect(Number(svg.getAttribute('data-snail-offset'))).toBe(2_600)
+    expect(svg.style.animationDelay).toBe('-2600ms')
+    expect(head.style.animationDelay.split(',').map(Number.parseFloat)).toEqual([-2_600, -1_970])
+
+    // A fresh module, like a new page: it must use the resumed clock, not startTime=now.
+    vi.resetModules()
+    const resumed = await import('./snailLaunch')
+    await resumed.waitForSnailArrival()
+    const next = reactSvg()
+    resumed.continueSnailAnimation(next.svg)
+    expect(next.animations.map(a => a.currentTime)).toEqual([2_600, 2_600, 2_600])
+    const ordinary = boot().svg
+    resumeBoot()
+    expect(ordinary.hasAttribute('data-snail-offset')).toBe(false)
+  })
+
+  it.each([
+    'broken json', 'null', JSON.stringify({ at: 0, elapsed: 700 }),
+    () => JSON.stringify({ at: Date.now() - 30_001, elapsed: 700 }),
+    () => JSON.stringify({ at: Date.now() + 1, elapsed: 700 }),
+    () => JSON.stringify({ at: Date.now(), elapsed: -1 }),
+  ])('ignores and consumes an invalid or stale update stamp: %s', saved => {
+    const { svg } = boot()
+    sessionStorage.setItem('kp-snail-resume', typeof saved === 'function' ? saved() : saved)
+    expect(resumeBoot).not.toThrow()
+    expect(sessionStorage.getItem('kp-snail-resume')).toBeNull()
+    expect(svg.hasAttribute('data-snail-offset')).toBe(false)
+  })
+
+  it('does not stamp an unseen launch, and unavailable storage never prevents an update', async () => {
+    const { rememberSnailLaunch, forgetSnailLaunch } = await import('./snailLaunch')
+    rememberSnailLaunch()
+    expect(sessionStorage.getItem('kp-snail-resume')).toBeNull()
+    boot(900)
+    rememberSnailLaunch()
+    expect(sessionStorage.getItem('kp-snail-resume')).not.toBeNull()
+    forgetSnailLaunch()
+    expect(sessionStorage.getItem('kp-snail-resume')).toBeNull()
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Storage blocked') })
+    expect(rememberSnailLaunch).not.toThrow()
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('Storage blocked') })
+    document.documentElement.setAttribute('data-snail-resuming', '')
+    expect(resumeBoot).not.toThrow()
+    expect(document.documentElement.hasAttribute('data-snail-resuming')).toBe(false)
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new Error('Storage blocked') })
+    expect(forgetSnailLaunch).not.toThrow()
+  })
+
   it('keeps the entrance on screen when startup is ready before it finishes', async () => {
     const { finish } = boot()
     const { waitForSnailArrival } = await import('./snailLaunch')

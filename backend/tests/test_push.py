@@ -12,6 +12,7 @@ import json
 from datetime import datetime
 from types import SimpleNamespace
 
+import pytest
 from sqlalchemy import select
 
 from app.push import _atemschutz_message, _should_send, due_reminders, due_trupps
@@ -64,6 +65,19 @@ class TestDueTrupps:
         pa = trupp("pa", "2026-07-02T13:00:00Z")  # no kind at all — a record from before 03.09.
         assert due_trupps({"trupps": [plain]}, {"alarmBar": 60}, NOW) == []
         assert [t["id"] for t in due_trupps({"trupps": [plain, pa]}, {}, NOW)] == ["pa"]
+
+    def test_an_unknown_kind_stays_monitored(self):
+        """Only an explicit ``einfach`` is exempt — a typo must not switch the alarm off (F01)."""
+        typo = trupp("typo", "2026-07-02T13:00:00Z", kind="atemschut")
+        assert [t["id"] for t in due_trupps({"trupps": [typo]}, {}, NOW)] == ["typo"]
+
+    def test_an_out_of_range_interval_falls_back_like_the_board(self):
+        """0 alarmed at once here while the board fell back to the doctrine; 1e308 never alarmed (F02)."""
+        ws = {"trupps": [trupp("a", "2026-07-02T14:06:00Z")]}  # 4 min since contact
+        for bad in (0, 1e308, 31):
+            ws["settings"] = {"contactIntervalMin": bad}
+            assert due_trupps(ws, {"contactIntervalMin": 2}, NOW) != []  # doctrine 2 min applies
+            assert due_trupps(ws, {"contactIntervalMin": bad}, NOW) == []  # shipped 5+1 min applies
 
     def test_doctrine_and_incident_settings_override(self):
         ws = {"trupps": [trupp("a", "2026-07-02T14:03:00Z")]}  # 7 min
@@ -909,9 +923,10 @@ class TestNotfallOnSave:
             trupp("c", None, notfallAt=n),  # running — a re-save raises nothing
             trupp("d", None, notfallAt=n, kind="einfach"),  # never for a work squad
             trupp("e", None, notfallAt=n, removedAt=n),  # nor for a card off the board
+            trupp("f", None, notfallAt=n, kind="atemschut"),  # an unknown kind stays monitored (F01)
         ]
         raised, ended = notfall_changes(before, after)
-        assert [a["id"] for a in raised] == ["a"]
+        assert [a["id"] for a in raised] == ["a", "f"]
         assert raised[0] == {
             "id": "a",
             "name": "Trupp a",
@@ -1154,6 +1169,19 @@ async def test_renew_without_a_session_takes_the_subscription_as_its_credential(
     await db_session.refresh(row)
     assert row.created_at > old + timedelta(days=100)
     assert row.user_id == editor.id  # the owner never changes
+
+
+@pytest.mark.parametrize("field", ["p256dh", "auth"])
+async def test_renew_rejects_unicode_credentials_without_an_error(client, db_session, field):
+    from app.models import PushSubscription
+
+    endpoint = "https://fcm.googleapis.com/fcm/send/unicode-renew"
+    db_session.add(PushSubscription(endpoint=endpoint, p256dh="key", auth="auth"))
+    await db_session.commit()
+    keys = {"p256dh": "key", "auth": "auth"}
+    keys[field] = "é"
+    response = await client.post("/api/push/subscriptions/renew", json={"endpoint": endpoint, "keys": keys})
+    assert response.status_code == 404
 
 
 async def test_testalarm_goes_to_the_callers_own_registration_only(client, editor, viewer, monkeypatch):

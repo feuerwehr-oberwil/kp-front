@@ -287,6 +287,9 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     printBusy: 'Création du PDF …',
     printOffline: 'L’impression a besoin de la connexion au serveur. La page est enregistrée – imprimez dès que l’appareil est de nouveau en ligne.',
     printFailed: 'La page n’a pas pu être imprimée – veuillez réessayer.',
+    // the page's timeline on screen and paper (lib/boardForm · pageStamp)
+    stampCreated: 'Créée le {at}',
+    stampEdited: 'dernière modification le {at}',
     removeTitle: 'Retirer la page?',
     removeMsg: 'Tout ce qui est écrit sur «{page}» part avec. Annuler (↶) la rétablit.',
     mapLabel: 'Carte de situation – toucher pour ouvrir la carte',

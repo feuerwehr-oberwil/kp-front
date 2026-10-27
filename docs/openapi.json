@@ -17559,15 +17559,11 @@
       },
       "IncidentCreate": {
         "properties": {
-          "title": {
-            "type": "string",
-            "minLength": 1,
-            "title": "Title"
-          },
           "type": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100
               },
               {
                 "type": "null"
@@ -17578,7 +17574,11 @@
           "priority": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "HIGH",
+                  "LOW"
+                ]
               },
               {
                 "type": "null"
@@ -17589,7 +17589,8 @@
           "text": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 10000
               },
               {
                 "type": "null"
@@ -17600,7 +17601,8 @@
           "address": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 255
               },
               {
                 "type": "null"
@@ -17611,7 +17613,9 @@
           "lat": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "number",
+                "maximum": 90.0,
+                "minimum": -90.0
               },
               {
                 "type": "null"
@@ -17622,13 +17626,21 @@
           "lng": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "number",
+                "maximum": 180.0,
+                "minimum": -180.0
               },
               {
                 "type": "null"
               }
             ],
             "title": "Lng"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Title"
           },
           "started_at": {
             "anyOf": [
@@ -18156,21 +18168,11 @@
       },
       "IncidentPatch": {
         "properties": {
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
           "type": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100
               },
               {
                 "type": "null"
@@ -18181,7 +18183,11 @@
           "priority": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "HIGH",
+                  "LOW"
+                ]
               },
               {
                 "type": "null"
@@ -18192,7 +18198,8 @@
           "text": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 10000
               },
               {
                 "type": "null"
@@ -18203,7 +18210,8 @@
           "address": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 255
               },
               {
                 "type": "null"
@@ -18214,7 +18222,9 @@
           "lat": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "number",
+                "maximum": 90.0,
+                "minimum": -90.0
               },
               {
                 "type": "null"
@@ -18225,13 +18235,28 @@
           "lng": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "number",
+                "maximum": 180.0,
+                "minimum": -180.0
               },
               {
                 "type": "null"
               }
             ],
             "title": "Lng"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           },
           "started_at": {
             "anyOf": [
@@ -18248,7 +18273,12 @@
           "status": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "offen",
+                  "in_arbeit",
+                  "abgeschlossen"
+                ]
               },
               {
                 "type": "null"
@@ -18292,7 +18322,8 @@
           }
         },
         "type": "object",
-        "title": "IncidentPatch"
+        "title": "IncidentPatch",
+        "description": "A partial update: an omitted field is untouched (the route reads `exclude_unset`), an\nexplicit null clears a nullable column. The lat/lng PAIR is checked by the route against\nthe stored row, since only it knows the coordinate the body did not send."
       },
       "JournalAppendIn": {
         "properties": {

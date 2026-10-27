@@ -127,12 +127,25 @@ describe('the doctrine numbers are integers on the backend, so a fraction never 
     await type(nums()[10], '8.5') // Kontaktintervall — `int | None`, so 8.5 is `int_from_float`
     await settle()
     expect(apiPut).not.toHaveBeenCalled()
-    expect(screen.getByText(N.integer)).toBeTruthy()
+    expect(screen.getByText(N.integerRange.replace('{min}', '1').replace('{max}', '30'))).toBeTruthy()
 
     await type(nums()[4], '280') // Eingangsdruck, on the same page and untouched by the refusal
     await settle()
     expect(sent()?.doctrine?.defaultPressureBar).toBe(280)
     expect(sent()?.doctrine?.contactIntervalMin).toBe(5) // the stored value, not the typed one
+    expectAccepted(sent())
+  })
+
+  it('holds a contact interval outside 1–30 min back — 0 or 1e308 used to be saved (audit F02)', async () => {
+    await open()
+    for (const bad of ['0', '31']) {
+      await type(nums()[10], bad)
+      await settle()
+    }
+    expect(apiPut).not.toHaveBeenCalled()
+    await type(nums()[10], '30')
+    await settle()
+    expect(sent()?.doctrine?.contactIntervalMin).toBe(30)
     expectAccepted(sent())
   })
 

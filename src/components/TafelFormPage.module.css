@@ -19,6 +19,8 @@
 .title { margin: 0; flex: 1 1 auto; min-width: 0; font: var(--fw-heavy) var(--fs-6)/var(--lh-6) var(--body); letter-spacing: -0.01em; }
 .remove { flex: none; }
 .print { flex: none; }
+/* the page's timeline under its last box (lib/boardForm · pageStamp) — quiet, like the paper's footer */
+.stamp { margin: var(--sp-3) 0 0; text-align: right; font-size: var(--fs-1); color: var(--ink-dim); }
 
 .grid { display: grid; gap: var(--sp-4); align-items: stretch; }
 .sec { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--ink-45); }

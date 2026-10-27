@@ -11,7 +11,7 @@
 
 import { appConfig } from '../config/appConfig'
 import type { MiniKarteProps } from '../components/MiniKarte'
-import { formForPdf, type FormAnno } from './boardForm'
+import { formForPdf, pageStamp, type FormAnno } from './boardForm'
 import { isOnline } from './connectivity'
 import { downloadBlob } from './download'
 import { buildKrokiPayload } from './krokiPayload'
@@ -33,7 +33,7 @@ export function tafelPrintPayload(
   titles?: ReadonlyMap<string, string>,
 ): Record<string, unknown> {
   const T = appConfig.copy.tafel
-  const boardPages = pages.map((a) => formForPdf(a.form, { up: T.trendUp, same: T.trendSame, down: T.trendDown }, undefined, T.head, titles?.get(a.id)))
+  const boardPages = pages.map((a) => formForPdf(a.form, { up: T.trendUp, same: T.trendSame, down: T.trendDown }, undefined, T.head, titles?.get(a.id), pageStamp(a.form, T)))
   // the Lagekarte box: the scene as the Rapport prints it — auto-framed, no captions
   const wantsMap = pages.some((a) => a.form.page.sections.some((x) => x.type === 'map' && !x.hidden))
   const map = wantsMap && scene

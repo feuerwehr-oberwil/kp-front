@@ -9,6 +9,13 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
 
 ## The model
 
+- **A silent startup update stays one visual opening** (2026-10-26). Immediately before an
+  automatic service-worker reload, `snailLaunch` saves its animation clock in a tab-local,
+  one-shot `sessionStorage` stamp. `index.html` consumes it before paint (expires after 30 s),
+  continues the static SVG with negative animation delays and seeds React's launch clock.
+  A surrendered update clears the stamp too. Ordinary opens and deliberate reloads still show
+  the entrance; unavailable storage never blocks the update. The actual install/activation/reload path is covered by
+  `e2e/snail-update.spec.ts` with service workers enabled.
 - **Operational browser state lives in IndexedDB, not localStorage.** `src/lib/idb.ts` is the
   storage layer (localStorage only as its degradation fallback), `src/lib/storageMigration.ts`
   moved legacy operational keys over once. IndexedDB holds incident workspaces, pending sync,
@@ -132,6 +139,27 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
 - Blob data never falls back to JSON storage. Failed local media persistence retains bytes in
   memory and reports storage failure. Pending uploads retry with a bounded delay; exhausted
   uploads wait for explicit retry. Rendering the queue must never trigger an upload loop.
+- An upload that landed leaves a stored **receipt** in the media queue (server URL, bytes
+  dropped) until the Verlauf link it enriches is acknowledged; a reload replays it, and a row
+  already carrying the URL is not patched twice (`mediaQueue` / `useMediaQueue` headers, audit
+  F06 25.10.2026). A receipt keeps the badge amber; it is not counted as a pending capture.
+  A Rapport-Beilage's receipt waits for the workspace save instead (`sync.hasUnsynced`), and a
+  receipt for a retracted row links nothing and retires once the Verlauf is synced.
+
+## Adversarial audit contracts (25.10.2026)
+
+- **No quiet monitoring stop.** Only `kind: 'einfach'` exempts a Trupp from the contact clock —
+  absent and unknown words stay monitored on the board (`isAtemschutzTrupp`) and in the push sweep.
+  The server refuses an unknown `kind`/`status`, a non-text crew list and a second Trupp under
+  one id on a NEW or changed row; an unchanged stored row still rides (`alarm_validation`), on the
+  slice route as on the full PUT, so one old record cannot lock a tablet out of its saves.
+- **The load gate repairs what the server would now refuse** (`sanitizeWorkspace`, counted): an
+  unknown kind is removed, an unknown status becomes the phase its stamps say, broken crew entries
+  go (the crew and its clocks stay), and two different Trupps under one id are split — the second
+  gets the derived id `<id>~2`, so every device converges on the same one.
+- **A conflict that spans records is shown, never resolved by a Map.** A person in two active
+  Trupps after a merge is a banner on the board with an explicit choice
+  ([`atemschutz-board.md`](atemschutz-board.md#the-trupp-form-and-its-questions)).
 
 ## A closed Einsatz
 

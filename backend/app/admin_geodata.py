@@ -33,6 +33,7 @@ resolved relative to the manifest's own directory. Each entry is one of:
 
 GeoJSON is validated as a WGS84 ``[lng, lat]`` FeatureCollection — LV95-looking coordinates
 are rejected (convert at the edge first; see scripts in the private data repo).
+Config merges lock and reload the singleton before reading the sections they preserve.
 """
 
 import argparse
@@ -50,6 +51,7 @@ from .admin_cli import add_push_args, admin_client, fail, require_push_target
 from .admin_manifest import template_hint
 from .config_history import keep_previous
 from .database import async_session_maker
+from .deployment_config import config_row
 from .models import DeploymentConfig, ReferenceDataset
 from .schemas import ReferenceLayerConfig, load_stored_config
 
@@ -260,7 +262,7 @@ def _to_reference_layers(entries: list[GeodataManifestEntry]) -> list[dict[str, 
 async def _write_config(db, ref_layers: list[dict[str, Any]]) -> None:
     """Merge referenceLayers into the config (preserve identity/map/fleet/…), then re-validate
     the whole document so GET /api/config round-trips the normalized form."""
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    row = await config_row(db, lock=True)
     # A full-document rewrite like every other writer, so it owes the same undo: keep what is
     # being replaced (app/config_history). Best-effort — the net never blocks the write.
     await keep_previous(db, "geodata")
@@ -270,10 +272,7 @@ async def _write_config(db, ref_layers: list[dict[str, Any]]) -> None:
     # a geodata push must not fail on a field somebody else typed months ago and that has grown
     # a rule since — it is pushing layers, and it is the only writer that never sees those fields.
     normalized = load_stored_config(current).model_dump(mode="json")
-    if row is None:
-        db.add(DeploymentConfig(id=1, config_json=normalized))
-    else:
-        row.config_json = normalized
+    row.config_json = normalized
 
 
 async def store_geojson(

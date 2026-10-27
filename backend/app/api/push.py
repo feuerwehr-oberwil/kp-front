@@ -168,8 +168,10 @@ async def renew(body: SubscriptionIn, db: AsyncSession = Depends(get_db)) -> dic
     """
     endpoint = body.endpoint.strip()
     row = (await db.execute(select(PushSubscription).where(PushSubscription.endpoint == endpoint))).scalar_one_or_none()
+    # Compare bytes: compare_digest(str, str) raises on a non-ASCII guess instead of refusing it.
     if row is None or not (
-        hmac.compare_digest(row.p256dh, body.keys.p256dh) and hmac.compare_digest(row.auth, body.keys.auth)
+        hmac.compare_digest(row.p256dh.encode("utf-8"), body.keys.p256dh.encode("utf-8"))
+        and hmac.compare_digest(row.auth.encode("utf-8"), body.keys.auth.encode("utf-8"))
     ):
         raise HTTPException(status_code=404, detail="Kein solches Push-Abo.")
     row.created_at = datetime.now(UTC)
