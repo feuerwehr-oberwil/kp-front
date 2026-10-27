@@ -34,8 +34,9 @@ Geschosse, Baujahr or a last Objektbesuch alone stay behind the chip.
   Not in a replay (Wiedergabe), a closed Einsatz, a tab that lost the one-tab lock, or the
   Atemschutz-Link, whose Tafel has no Karte. The Plan's chip row never opens it by itself.
 - **What must be read stands first**, so it is in view without scrolling (on a phone the card is
-  at most 56 % of the screen high): the hazard lines, then Sofortmassnahmen, Bemerkungen and whose
-  notes they are, then the register facts with their source line, then the last Objektbesuch. The
+  at most 56 % of the screen high): the hazard lines, then Sofortmassnahmen and Bemerkungen (no
+  source line – owner, 27.10.2026: «drop the source»; only a NEIGHBOUR's notes are named, «Schloss
+  Musterdorf · in der Nähe (118 m)», because they read exactly like this building's), then the register facts with their source line, then the last Objektbesuch. The
   register facts are bullets, not tags (owner, 27.10.2026), the Karte panel's `RegisterLines`.
 
 The chip is not pinned to the building on the map, for three reasons. The Lage is drawn exactly

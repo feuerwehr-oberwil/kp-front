@@ -1,5 +1,5 @@
 import { ShellLoader } from './ShellLoader'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { PdfFailDetail, usePdfLoad } from './PdfViewport'
 import { loadDoc, loadDocTimed, pdfWorkerUrl } from '../lib/pdfRaster'
@@ -40,9 +40,10 @@ import s from './PdfScroller.module.css'
 // below is about zooming and stands.
 // WHERE it stands is the app's rule for a page's sections (owner on staging, 27.10.2026: «show
 // the sections for the pdf in the footer like all other sections (e.g. Einsatzrapport)»): on a
-// phone the docked strip above the nav bar (PhoneTabBar), on a tablet the head – here a bar over
-// the column, where the page's head would be. A `bare` reader (an object visit's plan, its own
-// overlay without the nav bar) keeps it at its own foot.
+// phone the docked strip above the nav bar (PhoneTabBar); on a tablet at the bottom too (owner,
+// staging r3: «move to the bottom too»), in the board's floating row (`.wb-botleft`) beside the
+// object chips – where the Tafel's page strip stands, and in its piece (`.tps`). A `bare` reader
+// (an object visit's plan, its own overlay without the nav bar) keeps it at its own foot.
 //
 // The fit (14.09.2026) is the column's CONTENT box – the scroller minus the lanes its padding
 // reserves for the rails (PdfScroller.module.css · .pages) – not the scroller's whole width: a
@@ -58,11 +59,14 @@ const pageBoxes = (host: HTMLElement | null): Box[] =>
 
 /** `bare`: no rail lanes to keep clear — the reader fills a surface of its own (the plans on an
  *  object visit, components/objectVisits/PlansCard), so the pages get a plain margin. */
-export function PdfScroller({ url, bare = false, fileName }: {
+export function PdfScroller({ url, bare = false, fileName, row }: {
   url: string
   bare?: boolean
   /** what the shared / downloaded file is called (without «.pdf»); «Plan» when absent */
   fileName?: string
+  /** the board's floating row (Whiteboard: the object chips). The reader renders that row
+   *  (`.wb-botleft`) so its section bar can stand IN it on a tablet; absent ⇒ no row */
+  row?: ReactNode
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const pagesRef = useRef<HTMLDivElement>(null)
@@ -111,7 +115,7 @@ export function PdfScroller({ url, bare = false, fileName }: {
   /** the reader's root – the section track is looked up inside it, whichever bar holds it */
   const rootRef = useRef<HTMLDivElement>(null)
   const isPhone = useIsPhone()
-  const place: 'dock' | 'head' | 'foot' = bare ? 'foot' : isPhone ? 'dock' : 'head'
+  const place: 'dock' | 'row' | 'foot' = bare ? 'foot' : isPhone ? 'dock' : row !== undefined ? 'row' : 'foot'
   useEffect(() => {
     let live = true
     loadDoc(url).then(pdfJumps).then((j) => { if (live) setLoaded({ key: docKey, jumps: j }) }, () => {})
@@ -424,13 +428,14 @@ export function PdfScroller({ url, bare = false, fileName }: {
     return { value: String(i), label: j.title ?? String(j.page + 1), title: j.title ? `${j.title} · ${page}` : page }
   }) : null
   const pick = (v: string) => { const j = jumps?.[Number(v)]; if (j) jumpTo(j.page) }
+  const track = sections && <Segmented<string> tabs scroll ariaLabel={P.jumps} value={String(active)} onChange={pick} options={sections} />
   const openIn = (
     <IconButton label={P.openIn} onClick={() => void sharePdf(url, fileName).catch(() => {})}>
       <Icon id="external" />
     </IconButton>
   )
   return (
-    <div ref={rootRef} className={`${s.reader}${bare ? ` ${s.bare}` : ''}${strip && place !== 'dock' ? ` ${s.withStrip} ${s[place]}` : ''}`}>
+    <div ref={rootRef} className={`${s.reader}${bare ? ` ${s.bare}` : ''}${strip && place === 'foot' ? ` ${s.withStrip}` : ''}`}>
       <div ref={wrapRef} className={s.scroller} onDoubleClick={onDoubleClick}>
         {status !== 'ready' && (
           <div className={s.hint}>
@@ -447,12 +452,17 @@ export function PdfScroller({ url, bare = false, fileName }: {
       {strip && place === 'dock' && (
         <PhoneTabBar<string> ariaLabel={P.jumps} value={String(active)} onChange={pick} options={sections ?? []} scroll end={openIn} />
       )}
-      {strip && place !== 'dock' && (
+      {row !== undefined && (
+        <div className="wb-botleft">
+          {row}
+          {strip && place === 'row' && (
+            <nav className="tps" aria-label={P.jumps}>{track}{openIn}</nav>
+          )}
+        </div>
+      )}
+      {strip && place === 'foot' && (
         <nav className={s.strip} aria-label={P.jumps}>
-          <div className={s.bar}>
-            {sections && <Segmented<string> tabs scroll ariaLabel={P.jumps} value={String(active)} onChange={pick} options={sections} />}
-            {openIn}
-          </div>
+          <div className={s.bar}>{track}{openIn}</div>
         </nav>
       )}
     </div>

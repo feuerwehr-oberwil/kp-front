@@ -36,10 +36,11 @@ const panel = (over: Partial<Parameters<typeof KartePanel>[0]> = {}) => render(
 )
 
 describe('KartePanel', () => {
-  it('shows the station word with its source, then the register as a hint', () => {
+  // owner, 27.10.2026: «for Sofortmassnahmen, drop the source» – no «Station · Modul 1 …» line
+  it('shows the station word without a source, then the register as a hint', () => {
     panel()
     expect(screen.getByText('Zufahrt nur über Schlossgasse')).toBeTruthy()
-    expect(screen.getByText('Station · Modul 1 · Stand 03.2026')).toBeTruthy()
+    expect(screen.queryByText(/Modul 1 · Stand 03\.2026/)).toBeNull()
     expect(screen.getByText('Heizung Gas')).toBeTruthy()
     // owner, review round 4: the source line (GWR, Stand …) is folded behind «Register-Hinweis»
     expect(screen.queryByText(/GWR Schlossgasse 9 · Stand 07.10.2026/)).toBeNull()

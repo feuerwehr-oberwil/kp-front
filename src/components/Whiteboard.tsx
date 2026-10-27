@@ -1906,8 +1906,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             too, or the read-out would blink out on exactly the plans nobody can annotate. No
             Maßstab beside it here: there is nothing to calibrate on a document. */}
         {nearbyBanner}
-        <div className="wb-botleft">{objectChip}{buildingFloat}</div>
-        <PdfScroller key={active.id} url={planUrl(active.imageUrl)} fileName={[objectName, active.title || active.code].filter(Boolean).join(' – ')} />
+        {/* the row is the reader's to render: on a tablet its section bar stands in it (PdfScroller) */}
+        <PdfScroller key={active.id} url={planUrl(active.imageUrl)} fileName={[objectName, active.title || active.code].filter(Boolean).join(' – ')}
+          row={<>{objectChip}{buildingFloat}</>} />
       </div>
     )
   }

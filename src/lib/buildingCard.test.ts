@@ -142,7 +142,8 @@ describe('sources, notes, object, visit', () => {
   it('notes split by line; the object is named, and «in der Nähe» when not the address', () => {
     expect(noteLines(' Gas zu \n\n Abwart rufen')).toEqual(['Gas zu', 'Abwart rufen'])
     const obj = { id: 'o', name: 'Schloss Musterdorf', address_match: true, distance_m: 4, measures: 'x', remarks: null, measures_source: 'Modul 1', updated_at: null }
-    expect(objectCaption(info({ object: obj }))).toBe('Schloss Musterdorf · Modul 1')
+    // owner, 27.10.2026: no source line for the object at this address – only a neighbour's is named
+    expect(objectCaption(info({ object: obj }))).toBe('')
     expect(objectCaption(info({ object: { ...obj, address_match: false, distance_m: 118.4 } }))).toBe('Schloss Musterdorf · in der Nähe (118 m)')
   })
 

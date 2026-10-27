@@ -3,7 +3,7 @@
 // The panel):
 //
 //   head (kind, name, address, ✕)
-//   → the station's own word (Sofortmassnahmen, Bemerkungen, with their source) — read first
+//   → the station's own word (Sofortmassnahmen, Bemerkungen, no source line) — read first
 //   → Pläne & Module as tiles, two to a line (a tile opens the Einsatz's plan reader, read-only —
 //     KartePlans; owner, 27.10.2026 · mocks 2B/2C top)
 //   → Gebäude laut Register as BULLETS, the hazards first with ⚠ («Register-Hinweis», source and
@@ -309,16 +309,15 @@ function Actions({ canCapture, onVisit, onReport, extra }: { canCapture: boolean
 }
 
 /** The station's own word about the object, FIRST (owner R2: in a hurry it matters most):
- *  Sofortmassnahmen and Bemerkungen, each a section of the sheet, then where they come from. */
+ *  Sofortmassnahmen and Bemerkungen, each a section of the sheet — without a source line
+ *  («Station · Modul 1»; owner, 27.10.2026: «drop the source»): the panel IS the object. */
 function StationWord({ obj }: { obj: StationObject }) {
-  const C = appConfig.copy.karte
   const measures = noteLines(obj.measures)
   const remarks = noteLines(obj.remarks)
   if (!measures.length && !remarks.length) return null
   return (
     <div data-section="station">
-      <StationNotes measures={measures} remarks={remarks}
-        source={obj.measuresSource ? fillTemplate(C.notesSource, { src: obj.measuresSource }) : C.notesStation} />
+      <StationNotes measures={measures} remarks={remarks} />
     </div>
   )
 }

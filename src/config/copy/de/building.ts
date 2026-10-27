@@ -100,7 +100,6 @@ export const buildingCopy = {
     srcCached: 'gespeichert {d}',
     measures: 'Sofortmassnahmen',
     remarks: 'Bemerkungen',
-    objectSource: '{name} · {src}',
     objectNear: '{name} · in der Nähe ({m} m)',
     objectNearNoDist: '{name} · in der Nähe',
     visit: 'Letzter Objektbesuch {d}',

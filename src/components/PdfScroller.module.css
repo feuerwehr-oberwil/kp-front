@@ -10,7 +10,7 @@
   --lane-r: calc(var(--vrail-w, 60px) + 26px);
   --lane-bottom: 16px;
 }
-/* the section bar's row: its 52px bar and an 8px gap, added to the lane it stands in (.head/.foot) */
+/* the foot bar's row: its 52px bar and an 8px gap, added to the bottom lane while it stands */
 .withStrip { --strip-room: 60px; }
 .scroller {
   position: absolute;
@@ -65,22 +65,20 @@
   --lane-bottom: calc(16px + env(safe-area-inset-bottom));
 }
 /* ── the section switcher (PdfScroller, 27.10.2026, sweep #15) ──
-   On a phone it is the docked strip above the nav bar (PhoneTabBar · 15-mobile `.rp-tabs`, which
-   reserves its own lane); these rules place the other two: `.head` – a bar where page 1 starts
-   unscrolled, the pages scrolling up UNDER it (tablet) – and `.foot` – the same bar at the
-   reader's foot (a `bare` reader, its own overlay). Centred and only as wide as it needs; a track
-   longer than the screen scrolls sideways inside it. The floating family's glass (01-tokens ·
-   --float-*), THE <Segmented> track as tabs, the quiet IconButton for «Öffnen in …». */
+   At the bottom everywhere. On a phone the docked strip above the nav bar (PhoneTabBar ·
+   15-mobile `.rp-tabs`, which reserves its own lane); on a tablet the board's floating row
+   (`.wb-botleft`, as the Tafel's page strip `.tps` – 09-whiteboard). These rules place the third:
+   `.withStrip`, the bar at the reader's own foot (a `bare` reader in its own overlay, or a reader
+   without a board row). Centred and only as wide as it needs; a track longer than the screen
+   scrolls sideways inside it. The floating family's glass (01-tokens · --float-*), THE
+   <Segmented> track as tabs, the quiet IconButton for «Öffnen in …». */
 .strip {
   position: absolute; z-index: 1;
-  left: var(--lane-l); right: var(--lane-r);
+  left: var(--lane-l); right: var(--lane-r); bottom: var(--lane-bottom);
   display: flex; justify-content: center;
   pointer-events: none; /* the lane beside a short bar still scrolls the pages */
 }
-.head .strip { top: var(--lane-top); }
-.foot .strip { bottom: var(--lane-bottom); }
-.head .pages { padding-top: calc(var(--lane-top) + var(--strip-room)); }
-.foot .pages { padding-bottom: calc(var(--lane-bottom) + var(--strip-room)); }
+.withStrip .pages { padding-bottom: calc(var(--lane-bottom) + var(--strip-room)); }
 .bar {
   pointer-events: auto;
   display: flex; align-items: center; gap: var(--sp-1);
