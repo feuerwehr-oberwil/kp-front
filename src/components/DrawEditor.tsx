@@ -84,6 +84,8 @@ export interface DrawStyle {
   abschnittAuftrag?: string
   /** the Atemschutz link anchor (Drawing/BoardAnno · truppId) */
   truppId?: string
+  /** a Plan line drawn as a Wand (BoardAnno · role): the head says «Wand» */
+  role?: 'wand'
   startAttachment?: LineAttachment
   endAttachment?: LineAttachment
 }
@@ -154,6 +156,12 @@ interface Props {
   truppOnLineOut?: boolean
   /** jump to the Atemschutz board for that Trupp */
   onShowTrupp?: () => void
+  /** «Art: Linie | Wand» – turn the line into a Wand and back (the Gebäude stack only, where the
+   *  Wand tool is). Omitted ⇒ the row is hidden. */
+  onWand?: (wand: boolean) => void
+  /** why this line cannot be a Wand (a Trupp is on it, it climbs storeys): «Wand» is offered but
+   *  disabled, with this as its hint */
+  wandBlocked?: string
   /** Leitung numbers already taken on THIS surface, so a duplicate can be flagged as it happens */
   usedLineNos?: number[]
   onShowDistance: (showDistance: boolean) => void
@@ -184,7 +192,7 @@ interface Props {
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, onWand, wandBlocked, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
   // The Auftrag input is uncontrolled (see its comment), so the unmount commit reads the DOM
   // node — kept, never nulled, because React detaches element refs before passive cleanups run.
   // Same idempotence guard as ContextPanel's Notizen: blur first, unmount second, one write.
@@ -204,7 +212,8 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
   const isLine = drawing.kind === 'line' || drawing.kind === 'draw'
   const fillOpacity = drawing.fillOpacity ?? (isCircle ? appConfig.drawing.circleFillOpacity : 0.14)
   const headIcon = isCircle ? 'circle' : isArea ? 'area' : 'pen'
-  const headTitle = isCircle ? appConfig.copy.drawingEditor.circle : isArea ? appConfig.copy.drawingEditor.area : appConfig.copy.drawingEditor.drawing
+  const headTitle = isCircle ? appConfig.copy.drawingEditor.circle : isArea ? appConfig.copy.drawingEditor.area
+    : drawing.role === 'wand' ? appConfig.copy.drawingEditor.kindWand : appConfig.copy.drawingEditor.drawing
   // ⚠️ A circle states its RADIUS instead of a point count — and only when the surface can put a
   // number on it. On an uncalibrated Kroki `radiusM` is absent (the sheet has no metric scale
   // yet), and «0 m» would be a lie about a ring that is plainly there: the subtitle and the
@@ -617,6 +626,22 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                   )}
                 </span>
               </div>
+            )}
+            {/* «Art» – a Linie or a Wand (round 3, owner: «detail sidebar but not the first row …
+                towards the bottom»). The hose rows above follow the answer: a Wand has none. A
+                Trupp on the line keeps it a Linie – unlinking one is not undoable on the board. */}
+            {onWand && (
+              <>
+                <div className="de-row"><span>{appConfig.copy.drawingEditor.kind}</span>
+                  <Segmented ariaLabel={appConfig.copy.drawingEditor.kind} value={drawing.role === 'wand'}
+                    onChange={(wand) => { if (wand !== (drawing.role === 'wand')) onWand(wand) }}
+                    options={[
+                      { value: false, label: appConfig.copy.drawingEditor.kindLine },
+                      { value: true, label: appConfig.copy.drawingEditor.kindWand, disabled: !!wandBlocked && drawing.role !== 'wand', title: wandBlocked },
+                    ]} />
+                </div>
+                {wandBlocked && drawing.role !== 'wand' && <p className="de-hint">{wandBlocked}</p>}
+              </>
             )}
           </div>
         )}

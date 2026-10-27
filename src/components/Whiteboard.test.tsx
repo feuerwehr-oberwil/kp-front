@@ -636,6 +636,26 @@ describe('the Grundriss preset', () => {
     expect(screen.getAllByRole('button', { name: appConfig.copy.whiteboard.dragVertex })).toHaveLength(1)
   })
 
+  // round 3 (owner on staging: «dragging → snapping doesn't work yet»): a Wand stays open while it
+  // is drawn, so its own nodes are what gets dragged – they snap like a tap, ring and all
+  it('a node of the OPEN Wand dragged near another Wand lands on it, level, ring shown while it moves', () => {
+    const cross: BoardAnno = { id: 'w9', kind: 'draw', role: 'wand', floor: 0, pts: [[0.6, 0.2, 0], [0.6, 0.8, 0]] }
+    const { onChange } = renderBoard('gebaeude', [cross], false, aBuilding)
+    armWand()
+    tapAt(100, 200); tapAt(180, 200)
+    const grip = document.querySelectorAll('.wb-vertex')[1]
+    fireEvent.pointerDown(grip, { clientX: 180, clientY: 200, pointerId: 2 })
+    fireEvent.pointerMove(grip, { clientX: 210, clientY: 203, pointerId: 2 })
+    fireEvent.pointerMove(grip, { clientX: 236, clientY: 204, pointerId: 2 })
+    expect(document.querySelector('.wb-snap-ring')).not.toBeNull()
+    fireEvent.pointerUp(grip, { clientX: 236, clientY: 204, pointerId: 2 })
+    tapAt(240, 200) // its last point again: finished
+    const [wall] = added(onChange)
+    expect(wall.pts).toHaveLength(2)
+    expect(wall.pts![1][0]).toBeCloseTo(0.6, 6)
+    expect(wall.pts![1][1]).toBeCloseTo(wall.pts![0][1], 6)
+  })
+
   it('ends the piece where the next point goes straight back along it — one ↶ per piece', () => {
     const { onChange } = renderBoard('gebaeude', [], false, aBuilding)
     armWand()
@@ -1742,13 +1762,15 @@ describe('gesture contracts of the plan surface', () => {
     it('a Wand dragged onto the storey above goes there with its Durchgang – one step', () => {
       const { container, onCheckpoint } = mount([wand, tuer], twoStoreys)
       const hit = container.querySelector('polyline[stroke="transparent"]')!
-      drag(hit, [[200, 300], [200, 250], [220, 100]])
+      // +0.15 across: both ends land well clear of the building outline, so nothing snaps
+      // (round 3) and the drop is exact
+      drag(hit, [[200, 300], [200, 250], [260, 100]])
       expect(onCheckpoint).toHaveBeenCalledTimes(1)
       expect(find('w1').floor).toBe(1)
-      expect(find('w1').pts![0][0]).toBeCloseTo(0.25, 6)
+      expect(find('w1').pts![0][0]).toBeCloseTo(0.35, 6)
       expect(find('w1').pts![0][1]).toBeCloseTo(0.5, 6)
       expect(find('d1')).toMatchObject({ floor: 1, onWall: 'w1' })
-      expect(find('d1').x).toBeCloseTo(0.45, 6)
+      expect(find('d1').x).toBeCloseTo(0.55, 6)
       act(() => history.current!.undo())
       expect(find('w1')).toEqual(wand)
       expect(find('d1')).toEqual(tuer)
@@ -1761,6 +1783,24 @@ describe('gesture contracts of the plan surface', () => {
       expect(find('d1').rotation).not.toBe(0)
       expect(edits(emit).map((c) => (c[1] as { id: string }).id)).toEqual(['w1', 'd1'])
       expect(edits(emit)[1][1]).toMatchObject({ patch: { x: find('d1').x, y: find('d1').y, rotation: find('d1').rotation } })
+    })
+
+    // round 3: a Wand MOVED whole lands on what it is moved next to – rigidly, ring shown
+    it('a Wand moved whole next to another Wand lands on it, shape kept, ring shown while it moves', () => {
+      const short: BoardAnno = { id: 'w1', kind: 'draw', role: 'wand', floor: 0, pts: [[0.2, 0.5, 0], [0.4, 0.5, 0]] }
+      const cross: BoardAnno = { id: 'w3', kind: 'draw', role: 'wand', floor: 0, pts: [[0.6, 0.2, 0], [0.6, 0.8, 0]] }
+      const { container } = mount([short, cross], twoStoreys)
+      const hit = container.querySelector('polyline[stroke="transparent"]')!
+      fireEvent.pointerDown(hit, { clientX: 120, clientY: 300, pointerId: 1 })
+      fireEvent.pointerMove(hit, { clientX: 160, clientY: 302, pointerId: 1 })
+      fireEvent.pointerMove(hit, { clientX: 194, clientY: 303, pointerId: 1 }) // right end 6 px short of w3
+      expect(container.querySelector('.wb-snap-ring')).not.toBeNull()
+      fireEvent.pointerUp(hit, { clientX: 194, clientY: 303, pointerId: 1 })
+      const [a, b] = find('w1').pts!
+      expect(b[0]).toBeCloseTo(0.6, 6)
+      expect(b[0] - a[0]).toBeCloseTo(0.2, 6)
+      expect(b[1]).toBeCloseTo(a[1], 6)
+      expect(container.querySelector('.wb-snap-ring, .wb-snap-free')).toBeNull()
     })
 
     it('a Wand corner dragged near another Wand lands on it, level with its neighbour, ring shown while it moves', () => {
@@ -1834,13 +1874,39 @@ describe('gesture contracts of the plan surface', () => {
       const eg = container.querySelectorAll('.wb-floor')[1]
       fireEvent.click(eg.querySelector('.wb-floor-label')!)
       fireEvent.click(await screen.findByRole('menuitem', { name: appConfig.copy.whiteboard.storeyCopy.menu }))
-      fireEvent.click(await screen.findByRole('button', { name: '1. OG' }))
-      fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.storeyCopy.confirm }))
+      fireEvent.click(await screen.findByRole('checkbox', { name: /1\. OG/ }))
+      fireEvent.click(screen.getByRole('button', { name: 'Auf 1. OG kopieren' }))
       expect(onCheckpoint).toHaveBeenCalledTimes(1)
       const copies = latest.annos.filter((a) => a.floor === 1)
       expect(copies.map((a) => a.role ?? a.symbol).sort()).toEqual(['GB Ture Durchgang', 'wand'])
       expect(copies.find((a) => a.symbol)!.onWall).toBe(copies.find((a) => a.role)!.id)
       expect(ui.toasts[ui.toasts.length - 1]?.text).toContain('1. OG')
+    })
+
+    // round 3: «Art: Linie | Wand» in the line editor
+    const art = () => within(screen.getByRole('group', { name: appConfig.copy.drawingEditor.kind }))
+
+    it('«Art: Linie» turns a Wand into a Linie and frees its Durchgang – one step, one board.edit', () => {
+      const { onCheckpoint, emit } = mount([{ ...wand, color: appConfig.drawing.colors[4], width: 2 }, tuer], { ...twoStoreys, focus: focused('w1') })
+      fireEvent.click(art().getByRole('button', { name: appConfig.copy.drawingEditor.kindLine }))
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(edits(emit)).toHaveLength(1)
+      expect(find('w1')).toMatchObject({ role: undefined, color: appConfig.drawing.defaultColor, width: 2, pts: wand.pts })
+      expect(find('d1')).toMatchObject({ x: tuer.x, y: tuer.y, onWall: undefined })
+      expect(screen.queryAllByText(appConfig.copy.drawingEditor.lineNo).length).toBeGreaterThan(0)
+      act(() => history.current!.undo())
+      expect(find('w1').role).toBe('wand')
+      expect(find('d1').onWall).toBe('w1')
+    })
+
+    it('«Wand» is off for a Linie a Trupp is on', () => {
+      const leitung: BoardAnno = { id: 'l9', kind: 'draw', floor: 0, pts: [[0.1, 0.2], [0.9, 0.2]], truppId: 't1' }
+      const { onChange } = mount([leitung], { ...twoStoreys, focus: focused('l9'), trupps: TRUPPS })
+      const toWand = art().getByRole('button', { name: appConfig.copy.drawingEditor.kindWand }) as HTMLButtonElement
+      expect(toWand.disabled).toBe(true)
+      expect(screen.getByText(appConfig.copy.drawingEditor.kindWandBlocked)).toBeTruthy()
+      fireEvent.click(toWand)
+      expect(onChange).not.toHaveBeenCalled()
     })
   })
 

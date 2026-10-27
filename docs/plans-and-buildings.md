@@ -63,7 +63,9 @@ The Einsatz sketch of a building (owner picks 27.10.2026; peace time has the PDF
   INDEPENDENT copies (new ids, the target's storey, `onWall` remapped to the copied wall) onto the
   picked storeys, on top of what is there. A ranged symbol (Treppe 0–3) already covering a target
   is skipped there; every other lands with that storey as its only one. One commit = one ↶, and a
-  toast names how many went where.
+  toast names how many went where. The sheet (`components/StoreyCopySheet`, round 3: «Stapel»)
+  shows every storey top to bottom – the source as «Vorlage», each other one a checkbox row that
+  says what it already holds – and one button that names the result («Auf 1. OG kopieren»).
 
 ## Drawing a Grundriss
 
@@ -77,6 +79,10 @@ Sketching a building on the floor stack during an Einsatz (27.10.2026, the owner
   dark and solid). The role says the anno is LAYOUT: no Leitung couples onto a Wand end, and its
   own ends dock onto nothing (`Whiteboard · planCandidatesAt`, `useWbVertexEdit · vertDown`).
   A Wand lives on ONE storey – no Von/Bis.
+- **Linie ↔ Wand afterwards:** the line editor's «Art» row (near its foot, stack only) switches a
+  drawn line (`lib/grundriss · wallRolePatch`, one ↶): to a Wand it takes the Wand look and drops
+  the hose fields – refused while a Trupp is on the line; back to a Linie its Durchgänge let go as
+  when the Wand is deleted, and the Wand colour becomes the default ink.
 - **The Wand stays armed** – each piece is committed (one ↶) and the next tap starts the next
   one; a plain Linie still lands selected in its editor. It always draws in Punkte. A piece
   finishes on ✓ or a tap on its last point; a tap on the first point of a Wand with ≥3 points
@@ -92,9 +98,14 @@ Sketching a building on the floor stack during an Einsatz (27.10.2026, the owner
   before it; else exactly where it was tapped (round 2, owner: «prefer 90° and snapping, but
   allow other angles»). A target always wins over the angle. Targets on the same storey: the
   Wände, the edges and corners of every Fläche, the open piece's own points, and the building
-  outline (`Whiteboard · stackOutlinePx`). **Dragging a Wand's corner afterwards** lands by the
-  same rule against both of its neighbours, with the same ring (`usePlanDraft · snapWallVertex`,
-  called from `useWbVertexEdit · vertMove`). A plain Linie in Punkte mode on the stack snaps only
+  outline (`Whiteboard · stackOutlinePx`). **Dragging a Wand's corner** – of the open piece
+  still being drawn, or of a finished Wand – lands by the same rule against both of its
+  neighbours, with the same ring (`usePlanDraft · snapDraftVertex` / `snapWallVertex`, called
+  from `useWbVertexEdit · draftVertMove` / `vertMove`). **Moving Wände whole** (body drag, ✥, a
+  group, also onto another storey) snaps rigidly: the move shifts so the nearest Wand corner of the
+  selection lands on a corner, else an edge, of the storey it goes to – the selection itself is no
+  target, the shape never changes, doors ride along, same ring (`planSnap · snapMove` via
+  `usePlanDraft · snapMoveOf`). A selection without a Wand moves unsnapped. A plain Linie in Punkte mode on the stack snaps only
   onto the centre of a Durchgang, a Türe or a Treppe – that is how a Leitung is laid through
   doors and up the stairs. The stored point is exactly the snapped one.
 - **An open drawing looks open and is never left unasked.** While a Punkte drawing is in the

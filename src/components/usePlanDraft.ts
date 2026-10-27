@@ -9,7 +9,8 @@
 // On the Gebäude stack it also runs the Grundriss preset (27.10.2026, docs/plans-and-buildings.md
 // · Drawing a Grundriss): the Wand of the Linie is an ordinary ink with a `role` and its own look,
 // drawn in Punkte mode, snapped by lib/planSnap, and the tool stays armed after each piece. A
-// Wand's corner dragged afterwards snaps the same way (snapWallVertex, for useWbVertexEdit).
+// Wand's corner dragged – while it is still open or afterwards – snaps the same way
+// (snapDraftVertex / snapWallVertex, for useWbVertexEdit).
 
 import { useLayoutEffect, useRef, useState } from 'react'
 import type React from 'react'
@@ -22,7 +23,7 @@ import { askOpenDraft, draftActive as isDraftActive, finishKind, releaseDraft as
 import { joinTargets, useDraftMagnet } from '../lib/useDraftMagnet'
 import type { MagneticTarget } from '../lib/lineAttachments'
 import { stackRange } from '../lib/stackFloors'
-import { backtracks, segsOf, snapPoint, snapWall, type Anchor, type Pt, type Seg, type SnapResult, type SnapTargets } from '../lib/planSnap'
+import { backtracks, segsOf, snapMove, snapPoint, snapWall, type Anchor, type Pt, type Seg, type SnapResult, type SnapTargets } from '../lib/planSnap'
 import type { PlanEndpointDrag } from './useWbVertexEdit'
 import type { PlanLogExtra } from './Whiteboard'
 
@@ -250,23 +251,30 @@ export function usePlanDraft({
   const toPx = (p: BoardPoint): Pt => [p[0] * sW, mapY(p[2] ?? draftFloor.current, p[1]) * sH]
   /** What can pull a point on `floor` (lib/planSnap): the Wände and every Fläche (round 2: «snap
    *  to an area»), the draft's own points, the building outline, and the Durchgang / Treppe
-   *  centres. `skip` leaves out one Wand corner being dragged and the two pieces at it. */
-  const snapTargets = (floor: number, own: readonly BoardPoint[], skip?: { id: string; idx: number }): SnapTargets => {
+   *  centres. `skip` leaves out one Wand corner being dragged and the two pieces at it – of a
+   *  committed Wand (`id`), or of the open draft (`id: null`, `own` is then the whole draft).
+   *  `moving` leaves out whole annos – a selection being moved is no target for itself. */
+  const snapTargets = (floor: number, own: readonly BoardPoint[], skip?: { id: string | null; idx: number }, moving?: readonly string[]): SnapTargets => {
     const segs: Seg[] = [], ends: Pt[] = [], centres: Pt[] = []
     const take = (pts: Pt[], closed: boolean) => { segs.push(...segsOf(pts, closed)); ends.push(...pts) }
+    /** an open polyline without corner `idx` and its two pieces (null = a point on another storey) */
+    const takeSkipping = (px: (Pt | null)[], idx: number) => {
+      px.forEach((p, i) => { if (p && i !== idx) ends.push(p) })
+      segsOf(px.map((p) => p ?? [NaN, NaN])).forEach((sg, i) => { if (i !== idx && i !== idx - 1 && !sg.some((p) => Number.isNaN(p[0]))) segs.push(sg) })
+    }
     for (const a of annos) {
+      if (moving?.includes(a.id)) continue
       if (((a.role === 'wand' && a.kind === 'draw') || a.kind === 'area') && a.pts && (a.floor ?? 0) === floor) {
         const px = a.pts.map(([x, y, f]): Pt | null => ((f ?? a.floor ?? 0) === floor ? [x * sW, mapY(floor, y) * sH] : null))
-        if (skip?.id === a.id) {
-          px.forEach((p, i) => { if (p && i !== skip.idx) ends.push(p) })
-          segsOf(px.map((p) => p ?? [NaN, NaN])).forEach((sg, i) => { if (i !== skip.idx && i !== skip.idx - 1 && !sg.some((p) => Number.isNaN(p[0]))) segs.push(sg) })
-        } else take(px.filter((p) => p != null), a.kind === 'area')
+        if (skip?.id === a.id) takeSkipping(px, skip.idx)
+        else take(px.filter((p) => p != null), a.kind === 'area')
       } else if (a.kind === 'symbol' && a.symbol && PASSAGE_SYMBOLS.has(a.symbol) && a.x != null && a.y != null) {
         const { from, to } = stackRange(a)
         if (floor >= from && floor <= to) centres.push([a.x * sW, mapY(floor, a.y) * sH])
       }
     }
-    take(own.map(toPx), false)
+    if (skip?.id === null) takeSkipping(own.map((p) => ((p[2] ?? draftFloor.current) === floor ? toPx(p) : null)), skip.idx)
+    else take(own.map(toPx), false)
     for (const ring of outlinePx?.(floor) ?? []) take(ring, true)
     return { segs, ends, centres }
   }
@@ -370,25 +378,51 @@ export function usePlanDraft({
   }
 
   /**
-   * Where a Wand's corner dragged to board-normalized `n` lands (useWbVertexEdit · vertMove): the
-   * same targets and the same right-angle preference as drawing, against BOTH of its neighbours,
-   * minus the corner itself and its two pieces. Shows the ring there; `null` for `n` clears it.
-   * Returns the stored point, on the Wand's own storey.
+   * Where corner `idx` of a Wand dragged to board-normalized `n` lands: the same targets and the
+   * same right-angle preference as drawing, against BOTH of its neighbours, minus the corner
+   * itself and its two pieces. Shows the ring there. Returns the stored point, on `floor`.
    */
-  const snapWallVertex = (wall: BoardAnno, idx: number, n: [number, number] | null): BoardPoint | null => {
-    if (!n || !wall.pts) { setRing(null); return null }
-    const floor = wall.pts[idx]?.[2] ?? wall.floor ?? 0
+  const snapCorner = (pts: readonly BoardPoint[], idx: number, floor: number, n: [number, number], skipId: string | null): BoardPoint => {
     const free: BoardPoint = [n[0], localY(n[1], floor), floor]
     if (!stack || !(sW > 0 && sH > 0)) return free
-    const px = (p?: BoardPoint): Pt | undefined => (p && (p[2] ?? wall.floor ?? 0) === floor ? [p[0] * sW, mapY(floor, p[1]) * sH] : undefined)
+    const px = (p?: BoardPoint): Pt | undefined => (p && (p[2] ?? floor) === floor ? [p[0] * sW, mapY(floor, p[1]) * sH] : undefined)
     const anchors: Anchor[] = []
     for (const [nb, before] of [[idx - 1, idx - 2], [idx + 1, idx + 2]]) {
-      const from = px(wall.pts[nb])
-      if (from) anchors.push({ from, before: px(wall.pts[before]) })
+      const from = px(pts[nb])
+      if (from) anchors.push({ from, before: px(pts[before]) })
     }
-    const s = snapWall([n[0] * sW, mapY(floor, free[1]) * sH], { anchors, targets: snapTargets(floor, [], { id: wall.id, idx }) })
+    const s = snapWall([n[0] * sW, mapY(floor, free[1]) * sH], { anchors, targets: snapTargets(floor, skipId === null ? pts : [], { id: skipId, idx }) })
     setRing({ x: s.p[0], y: s.p[1], snapped: s.snapped })
     return [s.p[0] / sW, localY(s.p[1] / sH, floor), floor]
+  }
+  /** A committed Wand's corner dragged to `n` (useWbVertexEdit · vertMove) – it stays on its
+   *  storey. `null` for `n` clears the ring. */
+  const snapWallVertex = (wall: BoardAnno, idx: number, n: [number, number] | null): BoardPoint | null => {
+    if (!n || !wall.pts) { setRing(null); return null }
+    return snapCorner(wall.pts, idx, wall.pts[idx]?.[2] ?? wall.floor ?? 0, n, wall.id)
+  }
+  /** A node of the OPEN Wand dragged to `n` (useWbVertexEdit · draftVertMove; round 3 – the Wand
+   *  stays open while it is drawn, so this is the drag the owner makes most). `null` when the
+   *  draft is no Wand (the caller keeps its plain move) or for `n` = null, which clears the ring. */
+  const snapDraftVertex = (idx: number, n: [number, number] | null): BoardPoint | null => {
+    if (!n || !draft || !draftRole) { setRing(null); return null }
+    return snapCorner(draft, idx, draftFloor.current, n, null)
+  }
+
+  /**
+   * A rigid move of the selection `ids` (round 3, 27.10.2026; useWbBodyDrag · drawMove,
+   * useWbSelectionBar · barApply): `moved` are its Wand corners and ends where this frame puts
+   * them – board-normalized x, board-wide y – on storey `floor`. Returns the extra shift (same
+   * units) that lands one of them exactly on a Wand, a Fläche edge or the outline (lib/planSnap ·
+   * snapMove) and shows the ring there; null, and no ring, when nothing is in reach, off the stack
+   * or for `moved` = null (the release).
+   */
+  const snapMoveOf = (ids: readonly string[], floor: number, moved: readonly (readonly [number, number])[] | null): [number, number] | null => {
+    if (!moved?.length || !stack || !(sW > 0 && sH > 0)) { setRing(null); return null }
+    const { segs, ends } = snapTargets(floor, [], undefined, ids)
+    const hit = snapMove(moved.map(([x, y]): Pt => [x * sW, y * sH]), { segs, ends })
+    setRing(hit ? { x: hit.at[0], y: hit.at[1], snapped: true } : null)
+    return hit ? [hit.d[0] / sW, hit.d[1] / sH] : null
   }
 
   // --- leaving an open drawing (27.10.2026: asks; replaced the A6 auto-commit of 29.08.) ------
@@ -453,6 +487,6 @@ export function usePlanDraft({
     draftAttachmentsRef: draftAttachments, draftFloorRef: draftFloor, setDraftRole,
     noding, inking, draftActive, planDraftMagnetState, updatePlanDraftMagnet, planJoinPreview, finishPlanDraftMagnet,
     addLine, addArea, addCircle, finishShape, cancelShape, releaseDraft,
-    grundriss, pickInput, tapPoint, tapDraftVertex, snapWallVertex, ring, showRing, openName: draft?.length ? drawingName(tool === 'area' ? 'area' : 'line', draftRole) : null,
+    grundriss, pickInput, tapPoint, tapDraftVertex, snapWallVertex, snapDraftVertex, snapMoveOf, ring, showRing, openName: draft?.length ? drawingName(tool === 'area' ? 'area' : 'line', draftRole) : null,
   }
 }

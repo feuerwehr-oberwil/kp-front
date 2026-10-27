@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { backtracks, snapPoint, snapWall, type SnapTargets } from './planSnap'
+import { backtracks, snapMove, snapPoint, snapWall, type SnapTargets } from './planSnap'
 
 // The Grundriss snap (27.10.2026): a ring, no text – where a tapped point lands.
 
@@ -86,5 +86,18 @@ describe('backtracks', () => {
     expect(backtracks([0, 0], [100, 0], [-40, 0])).toBe(true)
     expect(backtracks([0, 0], [100, 0], [160, 0])).toBe(false) // onwards
     expect(backtracks([0, 0], [100, 0], [100, 60])).toBe(false) // a corner
+  })
+})
+
+describe('snapMove', () => {
+  it('shifts the whole move so the nearest moved corner lands on a corner – an end beats a closer edge', () => {
+    // a wall moved to (6,5)–(66,5): its left end is 7.8 px from the corner (0,0), its right end
+    // 5 px from the top edge – the corner wins
+    expect(snapMove([[6, 5], [66, 5]], box)).toEqual({ d: [-6, -5], at: [0, 0] })
+  })
+
+  it('takes the closest edge when no corner is in reach, and nothing when nothing is', () => {
+    expect(snapMove([[60, 9], [120, 6]], box)).toEqual({ d: [0, -6], at: [120, 0] })
+    expect(snapMove([[60, 50], [120, 50]], box)).toBeNull()
   })
 })

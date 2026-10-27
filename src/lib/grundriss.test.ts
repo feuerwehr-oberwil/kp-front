@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BoardAnno } from '../types'
-import { carryDoors, copyGrundriss, nearestWall, seatDoor, shiftStoreys, DOOR_SYMBOL } from './grundriss'
+import { carryDoors, copyGrundriss, grundrissKinds, nearestWall, seatDoor, shiftStoreys, spansStoreys, wallRolePatch, DOOR_SYMBOL } from './grundriss'
 
 const AR = 0.5
 const wall = (id: string, pts: BoardAnno['pts'], floor = 0): BoardAnno => ({ id, kind: 'draw', role: 'wand', floor, pts })
@@ -111,5 +111,46 @@ describe('shiftStoreys', () => {
     // a Treppe spanning the whole stack has nowhere to go, even though its own storey would
     const t: BoardAnno = { id: 't', kind: 'symbol', floor: 0, floorFrom: -1, floorTo: 1 }
     expect(shiftStoreys(t, 1, [-1, 0, 1])).toBeNull()
+  })
+})
+
+describe('grundrissKinds', () => {
+  it('counts the Wände and each Gebäude symbol, in the order they first appear', () => {
+    const items = [door('d1', 0, 0), wall('w1', [[0, 0], [1, 0]]), { ...door('t', 0, 0), symbol: 'GB Treppe 8' }, door('d2', 0, 0), wall('w2', [[0, 1], [1, 1]])]
+    expect(grundrissKinds(items)).toEqual({ walls: 2, symbols: [{ symbol: DOOR_SYMBOL, n: 2 }, { symbol: 'GB Treppe 8', n: 1 }] })
+  })
+})
+
+describe('spansStoreys', () => {
+  it('is true only when a vertex sits on another storey than the line', () => {
+    expect(spansStoreys(wall('a', [[0.1, 0.1, 1], [0.5, 0.1, 1]], 1))).toBe(false)
+    expect(spansStoreys(wall('b', [[0.1, 0.1], [0.5, 0.1]], 1))).toBe(false)
+    expect(spansStoreys(wall('c', [[0.1, 0.1, 0], [0.5, 0.1, 1]], 0))).toBe(true)
+  })
+})
+
+describe('wallRolePatch', () => {
+  const look = { color: '#111', width: 2 }
+  const hose: BoardAnno = { id: 'l', kind: 'draw', floor: 0, pts: [[0, 0], [1, 0]], color: '#1f6feb', width: 5, dashed: true, arrow: true, marker: 'R', content: 'S', lineNo: 3, teilstueck: true }
+  const apply = (a: BoardAnno, p: Partial<BoardAnno>) => ({ ...a, ...p })
+
+  it('a Linie becomes a Wand: the Wand look, no hose fields, the points kept', () => {
+    const w = apply(hose, wallRolePatch(hose, true, look, '#1f6feb'))
+    expect(w).toMatchObject({ role: 'wand', color: '#111', width: 2, pts: hose.pts })
+    for (const k of ['dashed', 'arrow', 'marker', 'content', 'lineNo', 'teilstueck'] as const) expect(w[k]).toBeUndefined()
+    expect(apply(hose, wallRolePatch(hose, true, look, '#1f6feb', true)).teilstueck).toBe(true)
+  })
+
+  it('a Wand becomes a Linie: the default colour back unless recoloured, the width kept', () => {
+    const w = wall('w', [[0, 0], [1, 0]])
+    expect(apply({ ...w, ...look }, wallRolePatch({ ...w, ...look }, false, look, '#1f6feb'))).toMatchObject({ role: undefined, color: '#1f6feb', width: 2 })
+    expect(apply({ ...w, color: '#e8392b' }, wallRolePatch({ ...w, color: '#e8392b' }, false, look, '#1f6feb')).color).toBe('#e8392b')
+  })
+
+  it('a Durchgang on it lets go once it is no Wand (carryDoors)', () => {
+    const w = wall('w1', [[0.1, 0.5], [0.9, 0.5]])
+    const d = door('d1', 0.5, 0.5, { onWall: 'w1' })
+    const out = carryDoors([w, d], [{ ...w, ...wallRolePatch(w, false, look, '#1f6feb') }, d], AR)
+    expect(out[1]).toMatchObject({ x: 0.5, y: 0.5, onWall: undefined })
   })
 })

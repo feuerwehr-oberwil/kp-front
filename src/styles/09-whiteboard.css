@@ -938,11 +938,7 @@ span.wb-ghost-label { cursor: default; }
 .wb-line-glyph { position: absolute; pointer-events: none; line-height: 0; }
 /* ↑ / ↓ at an open line end on the stack (WbVertexHandles): the SAME grip as the extend arrow –
    .draw-grow / .wb-grow give it the look and the z-order – only the chevron does not turn with
-   the line, up is up */
-/* ⚠️ .draw-grow (11-measure.css, loaded later) says position: relative – right for the map's
-   marker, wrong here: two of these in a row then FLOW under each other and the translate lands
-   on top of that. The specific selector pins them to the board layer like every other grip. */
-.wb-grow.wb-climb { position: absolute; left: 0; top: 0; }
+   the line, up is up (pinned to the board layer by .draw-grow.wb-grow below) */
 .wb-climb .i { transform: none; }
 /* the way back down the same stairs is hollow-dashed like an insert pad: it removes, not adds */
 .wb-climb.back { border-style: dashed; }
@@ -1180,8 +1176,12 @@ span.wb-ghost-label { cursor: default; }
 /* Verlängern-Griff auf dem Plan: dieselbe Optik wie auf der Lage (.draw-grow in 11-measure.css),
    hier nur absolut im Board-Layer positioniert statt in einem Marker. z 8 über Knoten (7) und
    Einfügepunkten (6) — er liegt ausserhalb der Linie, kann also nichts verdecken, aber am
-   Endpunkt drängen sich Knoten, Tag und Lösen-Chip. */
-.wb-grow { position: absolute; z-index: 8; }
+   Endpunkt drängen sich Knoten, Tag und Lösen-Chip.
+   ⚠️ Two classes, not `.wb-grow` alone: .draw-grow (11-measure.css, loaded LATER) says
+   position: relative – right in the map's marker, wrong here. With one class it won, so the
+   grips FLOWED: the end's arrow sat one grip (32 px) lower than its translate, on a line ending
+   upwards right on its node (owner, round 3 of the Gebäude drawing, 27.10.2026). */
+.draw-grow.wb-grow { position: absolute; left: 0; top: 0; z-index: 8; }
 /* ⚠️ z-index 6, UNDER the vertices: on a dense line the two pads overlap and the node is the
    more important grab — DOM order alone decided this before, which is a coincidence, not a rule.
    Dashed + hollow like the map's .measure-insert: one look for «here could be a node». */
@@ -1213,9 +1213,33 @@ polygon.wb-draft-open { fill: var(--open); fill-opacity: .1; }
 .wb-snap-free { fill: var(--ink-faint); }
 @media (prefers-reduced-motion: reduce) { .wb-draft-open, .wb-open-pill { animation: none; } }
 
-/* «Kopieren nach …» (components/StoreyCopySheet): what goes, then one chip per storey */
-.wb-copy-what { margin: 0 0 var(--sp-3); }
-.wb-copy-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+/* «Kopieren nach …» (components/StoreyCopySheet) – A «Stapel»: a narrow sheet, one line of what
+   goes, the storeys as rows top to bottom (the source tinted, «Vorlage»), a quiet footer line with
+   «Alle», one full-width button. On a phone it is the usual bottom sheet. */
+@media (--not-phone) { .ip-sheet.wb-copy { width: min(360px, 100%); } }
+.wb-copy .ip-body { padding-bottom: var(--sp-2); }
+.wb-copy-what { margin: 0 0 var(--sp-3); color: var(--ink-dim); font-size: var(--fs-2); }
+.wb-copy-rows { display: flex; flex-direction: column; gap: 6px; }
+/* the TickRow is the row; this only frames it so every storey reads as one slab of the stack */
+.wb-copy-rows > .wb-copy-row { width: 100%; padding-inline: var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-sm); }
+.wb-copy-rows > .wb-copy-row[aria-checked="true"] { border-color: var(--blue-45); background: var(--sel-wash); }
+.wb-copy-rows > .wb-copy-src {
+  display: flex; align-items: center; gap: var(--sp-3); box-sizing: border-box; min-height: var(--tap);
+  border-color: var(--blue-45); background: var(--blue-12);
+}
+/* the source has no box – this keeps its name on the same column as the others' */
+.wb-copy-gap { flex: none; width: 24px; }
+.wb-copy-name { flex: none; min-width: 3.5em; font-weight: var(--fw-bold); }
+.wb-copy-meta { flex: 1 1 auto; min-width: 0; color: var(--ink-dim); font-size: var(--fs-1); font-weight: var(--fw-regular); }
+.wb-copy-pill {
+  margin-left: auto; padding: 1px 8px; border: 1px solid var(--blue-45); border-radius: var(--r-pill);
+  color: var(--blue-strong); font-size: var(--fs-1); font-weight: var(--fw-bold);
+}
+.wb-copy-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-top: var(--sp-2); color: var(--ink-dim); font-size: var(--fs-1); }
+.wb-copy-all {
+  flex: none; min-width: var(--tap); min-height: var(--tap); padding: 0; text-align: right;
+  border: none; background: none; color: var(--blue-strong); font: inherit; font-weight: var(--fw-bold); cursor: pointer;
+}
 
 /* the storey label menu's host: only there to stop its portalled items' pointer events (Whiteboard).
    ⚠️ it sits between the tile and its label: a `.wb-floor… > .wb-floor-label` rule must name it too */

@@ -215,3 +215,53 @@ export function shiftStoreys(a: BoardAnno, delta: number, floors: readonly numbe
     ...(a.floorTo != null ? { floorTo: a.floorTo + delta } : null),
   }
 }
+
+/** Whether a line climbs: some vertex sits on another storey than the line's own. A Wand lives on
+ *  one storey, so the line editor offers «Wand» only for a line that does not (Whiteboard ·
+ *  setWallRole). */
+export function spansStoreys(a: BoardAnno): boolean {
+  const home = a.floor ?? 0
+  return !!a.pts?.some((p) => p[2] != null && p[2] !== home)
+}
+
+/**
+ * What a Grundriss holds, by kind – the line «Kopieren nach …» (StoreyCopySheet) says it in:
+ * how many Wände, and per Gebäude symbol how many, in the order they first appear. `items` is a
+ * storey's grundrissOf.
+ */
+export function grundrissKinds(items: readonly BoardAnno[]): { walls: number; symbols: { symbol: string; n: number }[] } {
+  let walls = 0
+  const symbols = new Map<string, number>()
+  for (const a of items) {
+    if (a.kind === 'symbol' && a.symbol) symbols.set(a.symbol, (symbols.get(a.symbol) ?? 0) + 1)
+    else if (a.role === 'wand') walls++
+  }
+  return { walls, symbols: [...symbols].map(([symbol, n]) => ({ symbol, n })) }
+}
+
+/**
+ * The patch that turns the drawn line `a` into a Wand or back into a plain Linie – the «Art» row
+ * of the line editor on the storey stack (Whiteboard · DrawEditor). Geometry stays.
+ *
+ *   · to a Wand: `role`, the Wand `look` (usePlanDraft · GRUNDRISS_STYLE), solid, no Pfeil and no
+ *     Marker, and none of a hose's fields (Typ, Leitung Nr., Trupp anchor). `keepTeilstueck`: lines
+ *     hang on its «E», which a quiet switch must not cut – the Abschluss row lets go of them, with
+ *     its own question. The caller refuses a line a Trupp is on (unlinking is not undoable here) and one that
+ *     climbs storeys (spansStoreys).
+ *   · to a Linie: no `role`; the Wand's colour becomes `lineColor`, a colour picked by hand stays;
+ *     the width stays.
+ *
+ * Its Durchgänge let go in the board funnel (carryDoors: the line is no Wand any more), exactly as
+ * when the Wand is deleted.
+ */
+export function wallRolePatch(
+  a: BoardAnno, wand: boolean, look: { color: string; width: number }, lineColor: string, keepTeilstueck = false,
+): Partial<BoardAnno> {
+  if (!wand) return { role: undefined, ...(a.color === look.color ? { color: lineColor } : null) }
+  return {
+    role: 'wand', color: look.color, width: look.width,
+    dashed: undefined, arrow: undefined, arrowStop: undefined, marker: undefined,
+    ...(keepTeilstueck ? null : { teilstueck: undefined }),
+    content: undefined, lineNo: undefined, truppId: undefined,
+  }
+}
