@@ -1,6 +1,7 @@
-/* Landingpage KP Front / KP Rück – «Schweizer Plakat × Tageslicht».
-   Diese Datei ist in beiden Repos identisch: wer hier etwas ändert, kopiert sie
-   nach kp-rueck/site/landing.css (bzw. kp-front/site/landing.css) hinüber. */
+/* Shared landing-page design for KP Front / KP Rück. Keep this file byte-identical.
+   Day uses warm paper; night follows the app's slate palette. Theme tokens drive every
+   surface; screenshots have real counterparts in shots/dark/, selected by theme.js.
+   Compact headers group language and appearance in a native details disclosure. */
 @font-face {
   font-family: 'Sora';
   src: url(fonts/sora.woff2) format('woff2-variations');
@@ -14,9 +15,12 @@
   font-display: swap;
 }
 
-/* Schweizer Plakat × Tageslicht: hartes Schweizer Rot und knappe Radien
-   auf warmem Kartenpapier; nur die 3-Uhr-nachts-Sektion bleibt dunkel */
+/* Swiss poster typography and red actions, with matching day/night surfaces. */
 :root {
+  color-scheme: only light;
+  --sky: #fdfbf7;
+  --sibling-bg: #f1eee6;
+  --action: #e30613;
   --bg: #f7f5f0;
   --ink: #14171b;
   --ink-dim: #454c55;
@@ -38,6 +42,42 @@
   --shadow: 0 1px 2px rgba(20, 23, 27, .06), 0 14px 34px rgba(20, 23, 27, .10);
 }
 
+/* The media-query twin keeps pages and images consistent without JavaScript. */
+:root[data-theme="dark"] {
+  color-scheme: only dark;
+  --bg: #141821;
+  --sky: #1b222e;
+  --sibling-bg: #181e28;
+  --ink: #f2f4f8;
+  --ink-dim: #c3cbd8;
+  --ink-faint: #a8b1c0;
+  --red: #ff746a;
+  --red-deep: #ff9a91;
+  --surface: #1e2530;
+  --line: color-mix(in srgb, var(--ink) 20%, transparent);
+  --line-soft: color-mix(in srgb, var(--ink) 12%, transparent);
+  --fill-soft: color-mix(in srgb, var(--ink) 6%, transparent);
+  --shadow: 0 1px 2px #0003, 0 14px 34px #0004;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: only dark;
+    --bg: #141821;
+    --sky: #1b222e;
+    --sibling-bg: #181e28;
+    --ink: #f2f4f8;
+    --ink-dim: #c3cbd8;
+    --ink-faint: #a8b1c0;
+    --red: #ff746a;
+    --red-deep: #ff9a91;
+    --surface: #1e2530;
+    --line: color-mix(in srgb, var(--ink) 20%, transparent);
+    --line-soft: color-mix(in srgb, var(--ink) 12%, transparent);
+    --fill-soft: color-mix(in srgb, var(--ink) 6%, transparent);
+    --shadow: 0 1px 2px #0003, 0 14px 34px #0004;
+  }
+}
+
 html { scroll-behavior: smooth; background: var(--bg); }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
@@ -47,7 +87,7 @@ body, h1, h2, h3, p, blockquote, figure, figcaption, form { margin: 0; padding: 
 img { max-width: 100%; }
 
 body {
-  background: linear-gradient(180deg, #fdfbf7 0%, var(--bg) 480px), var(--bg);
+  background: linear-gradient(180deg, var(--sky) 0%, var(--bg) 480px), var(--bg);
   color: var(--ink);
   font-family: var(--body-f);
   font-size: 16px;
@@ -71,7 +111,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 /* ---------- header ---------- */
 .top {
   position: sticky; top: 0; z-index: 10;
-  background: color-mix(in srgb, #fdfbf7 86%, transparent);
+  background: color-mix(in srgb, var(--sky) 86%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line-soft);
 }
@@ -92,24 +132,64 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 }
 .top nav a:hover { color: var(--ink); background: var(--fill-soft); }
 .top nav a.cta {
-  color: #fff; background: var(--red);
+  color: #fff; background: var(--action);
   font-weight: 600;
   display: inline-flex; align-items: center; gap: 8px;
 }
-.top nav a.cta:hover { background: color-mix(in srgb, var(--red) 85%, #fff); }
+.top nav a.cta:hover { background: color-mix(in srgb, var(--action) 85%, #000); }
 .ico { width: 16px; height: 16px; fill: currentColor; flex: none; }
 .icon-link {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 40px; height: 40px; border-radius: 8px;
+  width: 44px; height: 44px; border-radius: 8px;
   color: var(--ink-dim);
 }
 .icon-link:hover { color: var(--ink); background: var(--fill-soft); }
 .icon-link .ico { width: 19px; height: 19px; }
-/* Language switcher: two plain text links, no flags and no dropdown. Real links,
-   so a crawler can follow them and a shared link carries its language along. */
+/* These static pages have no React component layer; header controls share icon-link. */
+.theme-toggle, .mobile-options summary {
+  border: 0; padding: 0; background: transparent; color: var(--ink-dim);
+  font: inherit; cursor: pointer;
+  width: 44px; height: 44px; border-radius: var(--r-btn);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.theme-toggle[hidden] { display: none; }
+.theme-toggle:hover, .mobile-options summary:hover { color: var(--ink); background: var(--fill-soft); }
+.theme-sun, [data-theme="dark"] .theme-moon { display: none; }
+[data-theme="dark"] .theme-sun { display: block; }
+.mobile-options { display: none; position: relative; }
+.mobile-options summary { list-style: none; }
+.mobile-options summary::-webkit-details-marker { display: none; }
+.mobile-options summary:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+.mobile-options .close-icon, .mobile-options[open] .menu-icon { display: none; }
+.mobile-options[open] .close-icon { display: block; }
+.mobile-options:not([open]) .options-panel { display: none; }
+.options-panel {
+  position: absolute; right: 0; top: calc(100% + 12px);
+  width: 264px; max-width: calc(100vw - 48px); padding: 16px;
+  max-height: calc(100dvh - 80px); overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-surface); box-shadow: var(--shadow);
+}
+.options-label { color: var(--ink-faint); font-size: 12.5px; margin-bottom: 8px; }
+.menu-languages { display: grid; gap: 2px; }
+.top nav a.menu-language {
+  display: flex; align-items: center; justify-content: space-between;
+  min-height: 44px; padding: 8px 12px;
+}
+.top nav a.menu-language.on { font-weight: 700; color: var(--ink); background: var(--fill-soft); }
+.menu-theme {
+  width: 100%; height: auto; min-height: 48px; padding: 12px;
+  margin-top: 12px; border-top: 1px solid var(--line-soft); border-radius: 0;
+  justify-content: flex-start; gap: 10px; font-size: 14px; text-align: left;
+}
+.theme-check { margin-left: auto; visibility: hidden; }
+[aria-pressed="true"] .theme-check { visibility: visible; }
+
+/* Real language links stay crawlable; the compact menu uses the same destinations. */
 .langs { display: flex; align-items: center; }
 .top nav a.lang {
-  font-family: var(--mono); font-size: 12px; font-weight: 500;
+  min-width: 44px; text-align: center;
+  font-family: var(--mono); font-size: 12.5px; font-weight: 500;
   letter-spacing: .1em; color: var(--ink-faint);
   /* The label is small on purpose – it is a switch, not a destination – but the target it
      offers a thumb is not. Padding does the growing, so the type stays quiet while the hit
@@ -126,7 +206,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 /* Strip under the header, for a language whose translation has not yet been read
    by somebody from the fire service. Says so rather than pretending otherwise. */
 .notice {
-  background: color-mix(in srgb, var(--red) 7%, #fdfbf7);
+  background: color-mix(in srgb, var(--red) 7%, var(--sky));
   border-bottom: 1px solid color-mix(in srgb, var(--red) 20%, transparent);
 }
 .notice p {
@@ -145,7 +225,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .hero h1 {
   font-size: clamp(2.3rem, 6vw, 3.9rem);
   line-height: 1.06; font-weight: 800; letter-spacing: -.04em;
-  text-wrap: balance;
+  text-wrap: balance; overflow-wrap: anywhere; hyphens: auto;
   margin: 18px 0 0;
   max-width: 17ch;
 }
@@ -162,8 +242,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   font: inherit; font-size: 15.5px; font-weight: 600;
   text-decoration: none; cursor: pointer;
 }
-.btn-primary { background: var(--red); color: #fff; }
-.btn-primary:hover { background: color-mix(in srgb, var(--red) 85%, #fff); }
+.btn-primary { background: var(--action); color: #fff; }
+.btn-primary:hover { background: color-mix(in srgb, var(--action) 85%, #000); }
 .btn-ghost { border-color: var(--line); color: var(--ink); background: transparent; }
 .btn-ghost:hover { background: var(--fill-soft); }
 .cta-note { font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint); }
@@ -176,6 +256,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   overflow: hidden;
   background: var(--surface);
 }
+.frame picture, .shot picture { display: block; }
 .frame img { display: block; width: 100%; height: auto; }
 .frame-bar {
   display: flex; align-items: center; gap: 8px;
@@ -447,7 +528,7 @@ section[id] { scroll-margin-top: 76px; } /* anchor targets clear the sticky head
 .sibling {
   border-top: 1px solid var(--line-soft);
   border-bottom: 1px solid var(--line-soft);
-  background: #f1eee6;
+  background: var(--sibling-bg);
 }
 .sibling-txt h2 {
   font-size: 1.45rem; font-weight: 700; letter-spacing: -.015em;
@@ -627,6 +708,7 @@ dialog.lb[open] { display: grid; place-items: center; }
 dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
 
 .lb-fig { display: grid; gap: 14px; justify-items: center; max-height: 100%; }
+.lb-fig picture { display: flex; justify-content: center; min-width: 0; }
 .lb-fig img {
   max-width: 100%; max-height: calc(100dvh - 150px); width: auto; height: auto;
   object-fit: contain;
@@ -660,6 +742,8 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   .shots-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 860px) {
+  .top nav .desktop-options { display: none; }
+  .mobile-options { display: block; }
   section, section.wrap { padding-top: 64px; padding-bottom: 64px; }
   section.hero { padding-top: 48px; }
   .shots-grid { grid-template-columns: 1fr; }
@@ -671,17 +755,11 @@ dialog.lb::backdrop { background: rgba(12, 14, 17, .9); }
   .sibling-grid { grid-template-columns: 1fr; gap: 34px; }
 }
 @media (max-width: 560px) {
-  /* Funktionen/Kontakt are only scroll anchors – GitHub + Demo carry the header.
-     The language links stay: a French reader on a phone has no other way over. */
-  .top nav a:not(.cta):not(.icon-link):not(.lang) { display: none; }
-  /* Five language targets + GitHub + Demo overflow a 390 px magazine/QR landing. GitHub is in
-     the footer; keep the language switcher and primary Demo door, and reduce the brand to its
-     recognisable mark at phone width. */
-  .top .icon-link, .top .mark span { display: none; }
-  .top-in { gap: 12px; }
-  /* Five languages need the room on the narrowest phones (320–380 px): the hit area keeps
-     its height, only the sideways padding gives way. */
-  .top nav a.lang { padding: 13px 6px; letter-spacing: .05em; }
+  /* The menu holds languages and appearance; the brand and Demo stay one row. */
+  .top nav > a:not(.cta) { display: none; }
+  .top-in { gap: 8px; }
+  .mark { gap: 8px; }
+  .top nav { gap: 8px; }
   .fit-row { grid-template-columns: 1fr; }
   /* 128px Begriffsspalte plus Text passt auf dem Handy nicht – Begriff über die Erklärung */
   .setup-row { grid-template-columns: 1fr; gap: 3px; }
