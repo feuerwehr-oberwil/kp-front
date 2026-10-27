@@ -554,12 +554,15 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     label, and nothing may reflow under the finger mid-hold.
   - *A one-finger zoom gesture works unless the armed tool uses it* (20./21.10.2026, owner: a
     double tap is «a map function … definitely not for finishing something»; tools «have
-    precedence», the map zooms «if the underlying tool doesn't interfere»). Same on the Karte
-    (`MapView`, MapLibre's handlers) and a Plan (`useBoardGestures`, `lib/tapDragZoom`):
-    Auswahl — double tap and tap-and-drag zoom. A drag tool (Freihand, the Mehrfach-Rahmen) —
-    double tap zooms (its taps mean nothing), tap-and-drag is off (the drag draws). A tap tool
-    (Punkte, Messen, Hinzufügen, Notiz, Trupp, Koordinaten, Kreis) — neither; its taps are its own.
-    Pinch always navigates. Nothing finishes on a double tap — ✓ finishes a Punkte Linie / Fläche.
+    precedence», the map zooms «if the underlying tool doesn't interfere»; 27.10.2026: «I need it
+    to work on the map, on the plans, and also on the normal map in the peacetime view»). ONE rule,
+    `lib/tapDragZoom · oneFingerZoom`, for the Lage and the Karte (`MapView`, MapLibre's handlers)
+    and a Plan (`useBoardGestures`, `usePlanCreate`): tap-and-drag zooms unless the tool draws with
+    the drag (Freihand, Kreis); the double tap zooms unless the tool places on a tap (Punkte,
+    Messen, Hinzufügen, Notiz, Trupp, Koordinaten, Kreis — two taps are two placements). So
+    Auswahl and Mehrfach have both (the Rahmen starts on a fresh press; the second press of a tap
+    pair is the zoom's), every tap tool has tap-and-drag, Freihand the double tap. Pinch always
+    navigates. Nothing finishes on a double tap — ✓ finishes a Punkte Linie / Fläche.
   - *Pressed state is the `--press` wash* – `background-image: linear-gradient(var(--press),
     var(--press))` on `:active:not(:disabled)`, so it composes over any background colour.
     **Nothing moves**: no scale, no translate – motion on press reads as lag under a glove.

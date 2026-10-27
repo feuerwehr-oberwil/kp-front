@@ -5,6 +5,7 @@ import { haversineM } from '../lib/geo'
 import { rdpIndices, isTapStroke, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 import { isMarqueeTap, marqueeContains, type MarqueeRect } from '../lib/marquee'
 import { isTypingTarget } from '../lib/hotkeys'
+import { createTapDragZoom } from '../lib/tapDragZoom'
 
 type Rect = MarqueeRect
 type Circle = { center: LngLat; radiusM: number }
@@ -193,17 +194,29 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
       const twinKeys = twinPointsRef.current.filter((t) => t.points.some((c) => inBox(c))).map((t) => t.key)
       onMarqueeRef.current?.(drawIds, entityIds, twinKeys)
     }
+    // The second press of a TAP PAIR is MapLibre's tap-and-drag zoom, not a Rahmen (sweep
+    // 27.10.2026 #8: one finger zooms under Mehrfach too — lib/tapDragZoom · oneFingerZoom). Same
+    // recogniser and numbers as MapLibre's, so the two agree on which press that is; a box still
+    // starts on any FRESH press.
+    const pair = createTapDragZoom()
+    const sample = (e: MapTouchEvent) => { const [x, y] = clientXY(e); return { id: 0, x, y, t: e.originalEvent.timeStamp, pointerType: 'touch' } }
     const onTouchStart = (e: MapTouchEvent) => {
       mUsingTouch.current = true
-      if ((e.originalEvent.touches?.length ?? 1) >= 2) { cancel(); return }
+      if ((e.originalEvent.touches?.length ?? 1) >= 2) { pair.cancel(); cancel(); return }
+      if (pair.down(sample(e))?.kind === 'arm') return
       const [cx, cy] = clientXY(e); begin(cx, cy)
     }
     const onTouchMove = (e: MapTouchEvent) => {
+      pair.move(sample(e))
       if (!marqueeRef.current) return
       if ((e.originalEvent.touches?.length ?? 1) >= 2) { cancel(); return }
       const [cx, cy] = clientXY(e); setRect({ ...marqueeRef.current, x1: cx, y1: cy })
     }
-    const onTouchEnd = (e: MapTouchEvent) => { if ((e.originalEvent.touches?.length ?? 0) === 0 && marqueeRef.current) commitSel() }
+    const onTouchEnd = (e: MapTouchEvent) => {
+      if ((e.originalEvent.touches?.length ?? 0) !== 0) return
+      pair.up(sample(e))
+      if (marqueeRef.current) commitSel()
+    }
     const onMouseDown = (e: MapMouseEvent) => { if (mUsingTouch.current) return; const [cx, cy] = clientXY(e); begin(cx, cy) }
     const onMouseMove = (e: MapMouseEvent) => { if (!marqueeRef.current || mUsingTouch.current) return; const [cx, cy] = clientXY(e); setRect({ ...marqueeRef.current, x1: cx, y1: cy }) }
     const onMouseUp = () => { if (!mUsingTouch.current && marqueeRef.current) commitSel() }

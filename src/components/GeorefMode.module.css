@@ -86,11 +86,10 @@
    chip in the corner AND a bar across the top — and the eye then has to decide which of the two
    to read. So there is exactly one thing now: the bar along the foot of the screen that carries
    the instruction, how far along it is, and the way out. `.pill` is the tablet/desktop form and
-   `.bar` the phone's; they differ only in where they sit, never in what they say.
+   `.bar` the phone's slim row (27.10.2026), whose steps sit one tap away behind its status.
 
-   The mode's only teaching lives in this one line of text. No tutorial, and deliberately no
-   «first use» variant — an instruction that reads the same on the fiftieth Einsatz as on the
-   first is the only kind still there at 3 in the morning. */
+   No tutorial, and deliberately no «first use» variant — an instruction that reads the same on
+   the fiftieth Einsatz as on the first is the only kind still there at 3 in the morning. */
 .pill, .bar {
   display: flex;
   align-items: center;
@@ -180,46 +179,13 @@
 .dot_amber { background: var(--amber); }
 .dot_green { background: var(--green); animation: none; }
 
-/* ── the status line ────────────────────────────────────────────────────────────────────── */
-/* ⚠️ It is a READING, not a control, and it is up for the whole mode: the Ampel head, the
-   per-surface counts, and — because the amber cross saying so may stand on the surface a phone
-   is not showing — the one open half NAMED. The quality detail and the (instruction-shaped)
-   warning live behind the (i); the amber dot is what makes the fold findable without being
-   open. Colours through tokens, never a frozen rgba — day and night both have to be right. */
-.statusRow { display: flex; align-items: center; gap: var(--sp-2); min-height: 24px; }
-.sdot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+/* the desktop instrument's (i) is THE InfoToggle (29.09.2026); this only tucks it into the row */
+.infoBtn { margin: -4px 0; }
+/* the Ampel's dot on the phone's status button — colours through tokens, never a frozen rgba */
+.sdot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .sdot_red { background: var(--red); }
 .sdot_amber { background: var(--amber); }
 .sdot_green { background: var(--green); }
-.stext { min-width: 0; flex: 1 1 auto; }
-.stext b { display: block; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
-.stext i {
-  display: block; font-style: normal; font: var(--fw-medium) var(--fs-micro)/1.35 var(--body);
-  color: var(--ink-dim); margin-top: 1px;
-}
-/* the (i) is THE InfoToggle (29.09.2026 — it was a bare 44px glyph that filled the choice blue
-   when open); this only tucks it into the bar's row. Sticky while open (GeorefModeBars): whoever
-   opened it is deciding whether the fit can be trusted, and snapping it shut after every point
-   would be the app deciding they were done reading. */
-.infoBtn { margin: -4px 0; }
-/* the folded-out quality detail: pair count, claimable ⌀, one sentence of what to DO next */
-.qfold {
-  border-radius: var(--r-sm); background: var(--fill-soft); padding: var(--sp-3);
-  font: var(--fw-medium) var(--fs-micro)/1.45 var(--body); color: var(--ink-dim);
-}
-.qrow {
-  display: flex; justify-content: space-between; gap: 12px;
-  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink); margin-bottom: var(--sp-1);
-}
-.qrow strong { font: var(--fw-bold) var(--fs-1) var(--mono); }
-/* the second sentence in the fold: what makes a good point. It moved in here on 15.09., when the
-   bar's instruction shrank to «Dieselbe Stelle auf Modul und Karte antippen» — a tip you read
-   once and never again does not belong on the line you read while tapping. */
-.qtip { margin-top: var(--sp-1); }
-/* the one line of guidance under «Punkt setzen» — where the button acts, nothing more */
-.subline {
-  font: var(--fw-medium) var(--fs-micro)/1.4 var(--body); color: var(--ink-dim); text-align: center; margin-top: -4px;
-}
 
 /* ── the marker popover ─────────────────────────────────────────────────────────────────── */
 /* The visible replacement for the old invisible «picked up» state: a tapped cross gets a halo
@@ -276,26 +242,13 @@
    button (<Button variant="quiet" block>, 08.10.2026 — it was a 38px dim word of its own) */
 .popKeep { margin-top: var(--sp-2); }
 
-/* ── the quiet row ──────────────────────────────────────────────────────────────────────── */
-/* ⚠️ NOTHING here is the same weight as «Punkt setzen». «Zurücksetzen» used to sit a thumb's
-   width from «Fertig», both full-size buttons, one of them red — with a glove on, in the dark,
-   that is a coin toss over half an alignment. The destructive one also stays on the LEFT, away
-   from the exit somebody reaches for while finishing. */
-/* ⚠️ TWO actions, never three. Every button in this card is `flex: none` (a label may not be
-   squeezed into two words), so a third one was simply cut off by the card's edge — and letting
-   the row wrap only moved the problem: the third then sat alone on a line of its own, left
-   aligned under nothing. The row is kept to two by the card instead (see GeorefModeBars: the
-   bulk reset steps out once the fit is finished). `wrap` stays as a floor for a long
-   translation — a wrapped label is still readable, a clipped one is not. */
-.quiet { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; row-gap: 2px; }
-.quietGap { flex: 1 1 0; min-width: 0; }
+/* the quiet grammar of the fold's two rarer actions: text buttons, the destructive one red */
 .quietWarn { color: var(--red-strong); }
-.quietDone { font-weight: var(--fw-heavy); }
 
 /* The PHONE's single indicator: it takes the tool bar's lane, so it is never in doubt that a
    mode is running and never in competition with a second read-out. Positioned in the phone
    block at the foot of this file — it renders nowhere else. */
-.bar { display: none; }
+.dock, .bar, .exitPill { display: none; }
 .surfaceSwitch { display: none; }
 
 /* ── Naht ────────────────────────────────────────────────────────────────────────────────── */
@@ -337,12 +290,12 @@
   border: 3px solid var(--surface);
   box-shadow: 0 0 0 1px rgb(0 0 0 / .5), var(--e4);
 }
-/* ⚠️ On a phone the magnifier moves into the CORNER instead of hovering over the aim. The
-   centred one was dropped when the fixed-target workflow arrived, for a good reason — a circle
-   under the finger is a second, ambiguous drag surface — but that reason does not apply to an
-   inset: it never covers the reticle, and without any magnifier the sheet is placed blind. At
-   the zoom where a whole Modul fits a phone screen a house corner is about three pixels wide.
-   ⚠️ TOP-LEFT, not right: the Windfahne and the speed badge live in the right corner. */
+/* ⚠️ On a phone the magnifier moves into the CORNER instead of hovering over the aim — a
+   circle under the finger is a second, ambiguous drag surface; an inset never covers the reticle,
+   and without any magnifier the sheet is placed blind (a house corner is ~3px at the zoom where a
+   whole Modul fits a phone). ⚠️ BOTTOM-LEFT, standing on the mode's dock (sweep 27.10.2026 #13,
+   the owner's pick «A»: by the thumb, where the eye already is when pressing «+»); the dock's
+   height comes from GeorefModeBars as `--georef-dock-clear`. */
 /* Inside the admin's full-screen plan editor BOTH halves wear the SAME magnifier (15.09.2026):
    the sheet and the map stand side by side under one pointer, so the field's top-centre spot
    would hang over the seam between them — and a magnifier that follows the pointer on one half
@@ -360,8 +313,9 @@
   transform: none;
 }
 .loupeCorner {
-  width: 124px; height: 124px;
-  top: calc(76px + env(safe-area-inset-top));
+  width: 112px; height: 112px;
+  top: auto;
+  bottom: calc(var(--georef-dock-clear, 88px) + 10px);
   left: calc(10px + env(safe-area-inset-left));
   transform: none;
 }
@@ -493,99 +447,137 @@
    `.wb-botleft` does one file over (09-whiteboard.css). FIXED, not absolute — `.whiteboard`'s
    own bottom is already lifted above the bars there, so an absolute offset would compound. */
 @media (--phone) {
-  .bar {
-    /* ⚠️ A COLUMN, not the 9px|1fr grid it used to be. The instruction no longer shares a row
-       with a status dot: the Ampel above it carries its own, and every part of the card is now
-       a full-width band — reading, instruction, surface switch, the one big action, the quiet
-       row. That order is the card's argument: what is true → what to do → how to do it. */
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    position: fixed;
-    left: 8px; right: 8px;
-    /* This one card replaces the hidden nav rail during alignment, including its Karte/Modul
-       switch. It therefore owns the rail's bottom lane and paints just above the rail z-index. */
-    z-index: var(--z-chrome-raised);
+  /* ── the slim bar (sweep 27.10.2026 #13, the owner's pick «A») ──────────────────────────── */
+  /* The DOCK is the bar plus what stands on it (the steps, an armed «Verschieben»): one column
+     at the foot, so the reticle's free band ends at its top and the loupe stands on it.
+     FIXED, not absolute — `.whiteboard`'s own bottom is already lifted above the bars there. */
+  .dock {
+    display: flex; flex-direction: column; gap: var(--sp-2);
+    position: fixed; left: 8px; right: 8px;
     bottom: calc(8px + env(safe-area-inset-bottom));
-    /* ⚠️ HALF the viewport, at most. The reticle is placed in what is left between the TopBar
-       and this card (georefMode · georefPhoneTargetPoint), and that function honestly returns
-       NULL when the band collapses — so a card that grew a row too tall did not overlap the
-       mark, it made the mark disappear. The card scrolls instead; the sheet keeps its half. */
+    /* this card replaces the hidden nav rail during alignment and paints just above it */
+    z-index: var(--z-chrome-raised);
+    /* ⚠️ HALF the viewport, at most. The reticle lives in what is left between the TopBar and
+       this dock (georefMode · georefPhoneTargetPoint) and that function returns NULL when the
+       band collapses — a dock grown a row too tall made the mark disappear. The steps scroll. */
     max-height: min(50dvh, calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
-    overflow-y: auto;
-    /* symmetric now that nothing hangs in a first column */
-    padding: var(--sp-2);
-    gap: var(--sp-2);
+    pointer-events: none;
   }
-  /* «Deckung prüfen» keeps the old two-up action row — it is its own one-line mode. */
-  .bar .acts { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .bar .acts > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  /* ⚠️ 54px and alone on its row. It is the only thing on this card that ADDS something.
-     Deliberately WITHOUT a number: the button acts on the visible surface and the pairing
-     decides the number, so a printed one would occasionally lie (copy · georef.placePoint). */
-  .bar .placeAction {
-    width: 100%; min-height: 48px; border-radius: var(--r-sm);
-    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    font-size: var(--fs-3);
+  .dock > * { pointer-events: auto; }
+  /* ONE row, 64px: status · Karte|plan · «+». The card's look is the instrument's (.pill, .bar). */
+  .bar {
+    display: flex; align-items: center; gap: var(--sp-2);
+    min-height: 64px; padding: 0 var(--sp-1) 0 var(--sp-2); border-radius: 22px; flex: none;
   }
-  .bar .placeAction svg { width: 18px; height: 18px; }
-  /* no box, no border — the quiet row is text, or it is a second row of buttons again */
-  .bar .quietBtn { border-color: transparent; background: transparent; }
-  @media (hover: hover) { .bar .quietBtn:hover { border-color: transparent; background: transparent; } }
-  .bar .finishAction { width: 100%; }
-  /* ⚠️ QUIET, not small. The row carries no box and no fill — that is what keeps it from
-     competing with «Punkt setzen» — but it is still 44px of pressable height, because
-     «Fertig» and «Deckung prüfen» are ordinary things to want and a text button that has to
-     be aimed at is not quieter, only worse. Labels may ellipsize; the row never wraps. */
-  .bar .quietBtn {
-    /* `flex: 0 1 auto` overrides the card-wide `flex: none`: shrink before wrapping, wrap
-       before clipping, and ellipsize only if even a line of its own is not enough. */
-    flex: 0 1 auto;
-    min-width: 0; max-width: 100%; padding: 0 8px; min-height: var(--tap); font-size: var(--fs-2);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  /* the status IS the ⓘ: «0/2» over «Paare ⓘ», one 64px-tall target */
+  .stat {
+    display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
+    flex: none; min-width: 58px; min-height: var(--tap); padding: var(--sp-1) var(--sp-2); margin: 0;
+    border: 0; border-radius: var(--r-sm); background: transparent; color: var(--ink); cursor: pointer;
+    text-align: left;
   }
-  /* ⚠️ A SEGMENTED control, at the app's usual weight — it used to be the full 60px rail height
-     with the active half filled in --ink-fill, i.e. the same shape and the same black as the
-     primary button directly under it. Two big dark blocks in one card, only one of which does
-     anything: that is what made the card read as heavier than the thing it is asking for. */
-  /* The shared Segmented (20.10.2026 reuse round: this was a hand-rolled pair with its own
-     `.surfaceOn`). Its option is --tap tall and its chosen half the choice fill (06-contextpanel ·
-     .useg); here it only spans the card, two equal halves. */
-  .surfaceSwitch { display: block; }
+  .stat:active { background-image: linear-gradient(var(--press), var(--press)); }
+  .stat[aria-expanded='true'] { background: var(--blue-12); }
+  .statHead { display: flex; align-items: center; gap: var(--sp-2); font: var(--fw-bold) var(--fs-4)/1.1 var(--body); white-space: nowrap; }
+  .stat small {
+    display: flex; align-items: center; gap: 2px; margin-top: 2px; white-space: nowrap;
+    font: var(--fw-bold) var(--fs-micro)/1.3 var(--body); color: var(--ink-faint);
+  }
+  .stat small svg { width: 12px; height: 12px; flex: none; }
+  /* what is outstanding is amber; a standing link speaks in its Ampel's tone (`-strong`: text) */
+  .stat small.statOpen { color: var(--amber-strong); }
+  .statTone_red { color: var(--red-strong) !important; }
+  .statTone_amber { color: var(--amber-strong) !important; }
+  .statTone_green { color: var(--green-strong) !important; }
+  /* the shared Segmented in its CHOICE fill, the two halves sharing what is left of the row */
+  .surfaceSwitch { display: block; flex: 1 1 auto; min-width: 0; }
   .surfaceSwitch :global(.useg) { display: flex; width: 100%; box-sizing: border-box; }
-  .surfaceSwitch :global(.useg-btn) { flex: 1 1 0; min-width: 0; padding-inline: 8px; }
-  /* the half's open-point count */
+  .surfaceSwitch :global(.useg-btn) { flex: 1 1 0; min-width: 0; padding-inline: var(--sp-1); gap: var(--sp-1); font-size: var(--fs-1); }
+  .surfaceSwitch :global(.useg-btn) svg { width: 15px; height: 15px; flex: none; }
+  /* a long plan name gives way before the count does */
+  .surfaceName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* the half's count */
   .surfaceCount {
-    min-width: 20px; padding: 1px var(--sp-1); border-radius: var(--r-pill);
-    background: var(--ink-8); color: var(--ink-dim);
+    flex: none; min-width: 20px; padding: 1px var(--sp-1); border-radius: var(--r-pill);
+    background: var(--ink-8); color: var(--ink-dim); text-align: center;
     font: var(--fw-bold) var(--fs-micro)/1.4 var(--body);
   }
   :global(.useg-btn.on) .surfaceCount { background: color-mix(in srgb, var(--on-sel) 22%, transparent); color: var(--on-sel); }
+  /* ⚠️ The ONE thing on this card that adds, 56px and round, by the thumb. Deliberately WITHOUT
+     a number: it acts on the visible surface and the pairing decides the number. */
+  .fab {
+    width: 56px; height: 56px; flex: none; border-radius: 50%; border: 0; display: grid; place-items: center;
+    background: var(--btn-primary); color: var(--on-btn-primary); box-shadow: var(--e2); cursor: pointer;
+  }
+  .fab:active { background-image: linear-gradient(var(--press), var(--press)); }
+  .fab svg { width: 26px; height: 26px; }
+  /* the way out, top right under the TopBar (top set from the measured bar; this is the floor) */
+  .exitPill {
+    display: inline-flex; align-items: center; gap: var(--sp-2);
+    position: fixed; right: calc(8px + env(safe-area-inset-right)); top: calc(76px + env(safe-area-inset-top));
+    z-index: var(--z-chrome-raised);
+    min-height: var(--tap); padding: 0 var(--sp-4) 0 var(--sp-3); border-radius: var(--r-pill);
+    border: 1px solid var(--glass-edge); background: var(--surface); box-shadow: var(--e3);
+    color: var(--blue-strong); font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer;
+  }
+  .exitPill svg { width: 16px; height: 16px; }
+  /* …which is the corner the wind chip hangs in under the TopBar, and the plan's own chip row
+     (object, Massstab, the link chip that armed this) stands where the slim bar and the loupe now
+     are. Both step aside for the mode; the TopBar itself stays. */
+  :global(.app.georef-mode :is(.tb-weather-wrap, .phone-wx)),
+  :global(.whiteboard.wb-georef-armed .wb-botleft) { display: none; }
+  /* a standing fit: the exit IS the finish — the primary's fill, «✓ Fertig» */
+  .exitPill.exitDone { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
+  /* the steps, the quality and the two rarer actions, folded behind the status */
+  .fold {
+    flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    padding: var(--sp-3) var(--sp-4); border-radius: var(--r-ctl);
+    background: var(--surface); border: 1px solid var(--blue-45); box-shadow: var(--e4);
+    font: var(--fw-medium) var(--fs-1)/1.45 var(--body); color: var(--ink-dim);
+  }
+  .foldTitle { display: block; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); margin-bottom: var(--sp-1); }
+  .foldOpen { margin: 0 0 var(--sp-2); color: var(--amber-strong); font-weight: var(--fw-bold); }
+  .steps { margin: 0 0 var(--sp-2); padding-left: 1.3em; color: var(--ink); }
+  .steps li + li { margin-top: var(--sp-1); }
+  .foldNote { margin: var(--sp-1) 0 0; font-size: var(--fs-micro); }
+  .qrow {
+    display: flex; justify-content: space-between; gap: 12px; margin-top: var(--sp-2);
+    font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink);
+  }
+  .qrow strong { font: var(--fw-bold) var(--fs-1) var(--mono); }
+  .foldActs { display: flex; flex-wrap: wrap; gap: 2px; margin-top: var(--sp-2); }
+  /* an armed «Verschieben»: the sentence and its way back, on the dock above the bar */
+  .moveNote {
+    display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-1) var(--sp-1) var(--sp-4);
+    border-radius: var(--r-ctl); background: var(--surface); border: 1px solid var(--amber); box-shadow: var(--e3);
+    font: var(--fw-bold) var(--fs-1)/1.35 var(--body); color: var(--ink);
+  }
+  .moveNote span { flex: 1 1 auto; min-width: 0; }
+  /* no box, no border — quiet, but still 44px of pressable height for a gloved thumb */
+  .quietBtn {
+    flex: 0 1 auto; min-width: 0; max-width: 100%; padding: 0 8px; min-height: var(--tap); font-size: var(--fs-1);
+    border-color: transparent; background: transparent;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  @media (hover: hover) { .quietBtn:hover { border-color: transparent; background: transparent; } }
+  /* «Deckung prüfen» keeps its own one-line mode: the blend slider and «Fertig» */
+  .bar .acts { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; padding: 0 4px 0 8px; }
+  .bar .acts > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .bar .finishAction { min-height: var(--tap); }
   .fixedTarget { display: block; }
-  /* ⚠️ The magnifier is BACK on a phone — as the corner inset (.loupeCorner), never as the
-     centred circle this workflow replaced. What was wrong with the old one was that it sat
-     under the finger and read as a second drag surface; an inset in the empty corner is
-     neither, and it is the only way to see what the reticle is actually on. */
+  /* ⚠️ The magnifier on a phone is the corner inset (.loupeCorner), never the centred circle
+     this workflow replaced: that one sat under the finger and read as a second drag surface. */
   .loupe { display: block; }
-  /* ⚠️ A phone TURNED SIDEWAYS is ~400px tall and this card is five bands. What goes is the
-     teaching — the status sub-line and the free-order helper — while the reading, the switch
-     and the actions stay. The open-half sentence is still one (i) away in the fold. */
+  /* ⚠️ A phone TURNED SIDEWAYS is ~400px tall: the steps scroll inside the half-height dock,
+     the bar keeps its one row and its 44px targets. */
   @media (--phone-landscape) {
-    .bar { gap: var(--sp-1); }
-    .bar .stext i { display: none; }
-    .bar .subline { display: none; }
-    .surfaceSwitch { height: auto; }
-    .surfaceSwitch button { min-height: 38px; }
-    /* ⚠️ the ACTIONS keep their 44px here too — a landscape phone is still a gloved thumb.
-       The room comes out of the gaps, the thumbnail and the Ampel's second line instead. */
-    .bar .placeAction { min-height: var(--tap); }
-    .loupeCorner { width: 96px; height: 96px; top: calc(64px + env(safe-area-inset-top)); }
+    .bar { min-height: 56px; }
+    .fab { width: 48px; height: 48px; }
+    .loupeCorner { width: 88px; height: 88px; }
   }
 }
 
-/* the quiet grammar outside the phone bar too – the desktop pill */
-.quietBtn { border-color: transparent; background: transparent; }
-@media (hover: hover) { .pill .quietBtn:hover { border-color: transparent; background: var(--fill-soft); } }
+
 
 /* the synthetic anchors of an accepted automatic alignment: ghosted, badged «A» — draggable
    (dragging promotes one to a real 'korrigiert' reference) but visibly nobody's tap */
