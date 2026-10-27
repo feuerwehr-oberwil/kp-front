@@ -57,9 +57,11 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
 - **A Messpunkt keeps its readings** (`SymbolProps.readings`). Every field commit that changes a
   measured value appends a row (`recordReading`); rows are never rewritten, so two tablets merge
   as a union (`lib/mergeWorkspace · withMergedSymbolReadings`), and «one radio report typed gas by
-  gas is one reading» is a display rule (`readingRows`). The panel shows a calm/red bar under each
-  gas (calm/amber/red) and the list under the fields; the Gebäude lists every Messpunkt beside its storey
-  (`StackReadings`), and the Karte's «Messungen» button leads there with the worst value.
+  gas is one reading» is a display rule (`readingRows`). The panel shows a calm/amber/red bar under each
+  gas and the list under the fields; the Gebäude lists every Messpunkt beside its storey
+  (`StackReadings`), and the «Messungen» chip – on the Karte and every plan – wears the worst
+  value and lists every Messpunkt of the Einsatz, worst first, wherever it is anchored
+  (`lib/readingsList`, `ReadingsChip`); a row goes to the point on its own surface.
 
 ## One object, two surfaces
 

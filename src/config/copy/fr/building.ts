@@ -105,6 +105,7 @@ export const buildingCopy: Localizable<Pick<Copy, 'building'>> = {
     chipLabelHazards: 'Bâtiment : {h} – ouvrir la fiche',
     measuresShort: 'Mesures',
     readingsChip: 'Mesures gaz',
-    readingsChipLabel: 'Afficher les mesures dans le bâtiment',
+    readingsChipLabel: 'Afficher tous les points de mesure',
+    readingsOnMap: 'Carte',
   },
 }
