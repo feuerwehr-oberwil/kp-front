@@ -30,6 +30,9 @@ const ui = vi.hoisted(() => ({
   toasts: [] as { text: string; action?: { label: string; onClick: () => void } }[],
   confirms: [] as { title?: string; message?: string }[],
   answer: false as boolean | 'alt',
+  /** `hold` keeps the next question open until the test calls `release(answer)` */
+  hold: false,
+  release: null as ((v: boolean | 'alt') => void) | null,
 }))
 vi.mock('../lib/ui', async (importOriginal) => {
   const mod = await importOriginal<typeof import('../lib/ui')>()
@@ -38,6 +41,7 @@ vi.mock('../lib/ui', async (importOriginal) => {
     toast: (text: string, opts?: { action?: { label: string; onClick: () => void } }) => { ui.toasts.push({ text, action: opts?.action }); return 1 },
     confirmDialog: (opts: { title?: string; message?: string }) => {
       ui.confirms.push(opts)
+      if (ui.hold) return new Promise<boolean | 'alt'>((r) => { ui.release = r })
       return Promise.resolve(ui.answer)
     },
   }
@@ -62,7 +66,7 @@ beforeAll(() => {
     addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
   })) as unknown as typeof window.matchMedia
 })
-afterEach(() => { cleanup(); osm.calls.length = 0; ui.confirms.length = 0; ui.answer = false })
+afterEach(() => { cleanup(); osm.calls.length = 0; ui.confirms.length = 0; ui.answer = false; ui.hold = false; ui.release = null })
 
 const umrisse: PlanDocument = {
   id: 'osm', code: 'Umrisse', title: 'Gebäudeumrisse', subtitle: '', imageUrl: '',
@@ -238,13 +242,16 @@ const TRUPPS: Trupp[] = [
 
 const renderPlan = (annos: BoardAnno[], extra: Partial<React.ComponentProps<typeof Whiteboard>> = {}) => {
   const onChange = vi.fn()
-  const utils = render(<Whiteboard
-    plans={[tafel]} activeId="tafel" annos={annos} onChange={onChange}
+  const board = (list: BoardAnno[]) => <Whiteboard
+    plans={[tafel]} activeId="tafel" annos={list} onChange={onChange}
     building={null} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
     sym={sym} onRecent={() => {}} log={() => {}} hist={{}} setHist={() => {}} focus={null}
     {...extra}
-  />)
-  return { ...utils, onChange }
+  />
+  const utils = render(board(annos))
+  /** the board as another device's merge leaves it: same props, new annos */
+  const remoteWrite = (list: BoardAnno[]) => utils.rerender(board(list))
+  return { ...utils, onChange, remoteWrite }
 }
 
 const chip: BoardAnno = { id: 'c1', kind: 'resource', x: 0.5, y: 0.5, floor: 0, text: 'Trupp 1', t: '03:12' }
@@ -525,6 +532,17 @@ describe('the Plan rail and its drafts', () => {
     expect(committed[0].kind).toBe('area')
     expect(committed[0].pts).toHaveLength(3)
     expect(screen.queryByRole('button', { name: W.dragVertex })).toBeNull()
+  })
+
+  it('«Speichern» answered after a remote write keeps that write – it saves onto the board as it is now', async () => {
+    ui.hold = true
+    const { container, onChange, remoteWrite } = renderPlan([])
+    drawAreaDraft(container)
+    fireEvent.click(screen.getByRole('button', { name: 'Auswahl' }))
+    remoteWrite([line]) // another device's Linie lands while the question is open
+    await act(async () => { ui.release!(true); await Promise.resolve() })
+    const committed = onChange.mock.calls.at(-1)![0] as BoardAnno[]
+    expect(committed.map((a) => a.kind).sort()).toEqual(['area', 'draw'])
   })
 
   it('«Weiterzeichnen» hands the drawing back under its re-armed tool; «Verwerfen» drops it', async () => {

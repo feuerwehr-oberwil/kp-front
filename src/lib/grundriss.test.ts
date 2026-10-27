@@ -109,5 +109,8 @@ describe('shiftStoreys', () => {
   it('refuses a shift that leaves the stack', () => {
     const l: BoardAnno = { id: 'l', kind: 'draw', floor: 0, pts: [[0, 0, 0], [1, 1, 1]] }
     expect(shiftStoreys(l, 1, [0, 1])).toBeNull()
+    // a Treppe spanning the whole stack has nowhere to go, even though its own storey would
+    const t: BoardAnno = { id: 't', kind: 'symbol', floor: 0, floorFrom: -1, floorTo: 1 }
+    expect(shiftStoreys(t, 1, [-1, 0, 1])).toBeNull()
   })
 })
