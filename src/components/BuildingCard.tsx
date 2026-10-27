@@ -5,7 +5,7 @@ import { Icon } from '../lib/icons'
 import { IconButton } from './Button'
 import type { BuildingInfo } from '../lib/api/building'
 import { buildingChips, buildingSources, hasBuildingContent, noteLines, objectCaption, visitLine } from '../lib/buildingCard'
-import { RegisterHintBody, RegisterHintButton, RegisterTags, StationNotes } from './BuildingFacts'
+import { RegisterHintBody, RegisterHintButton, RegisterLines, StationNotes } from './BuildingFacts'
 import s from './BuildingCard.module.css'
 
 /**
@@ -13,11 +13,12 @@ import s from './BuildingCard.module.css'
  * and in the plan's chip row (BuildingFloat); `onClose` draws the card's ✕.
  *
  * What must be read comes first, so it stands in view without scrolling when the card opens by
- * itself (lib/buildingFirstOpen; on a phone the card is at most 56vh): the hazard tags (the card
- * tag, the warn glyph AND the word), then the Einsatzobjekt's Sofortmassnahmen and Bemerkungen
+ * itself (lib/buildingFirstOpen; on a phone the card is at most 56vh): the hazard lines (the
+ * warn glyph as the bullet AND the word), then the Einsatzobjekt's Sofortmassnahmen and Bemerkungen
  * as text when the station wrote some, with whose notes they are. Below them the register facts
- * as plain tags with their one line of sources, and the last Objektbesuch. Tags and notes are
- * the Karte panel's own pieces (BuildingFacts), so the two surfaces cannot drift apart.
+ * as plain bullets with their one line of sources, and the last Objektbesuch. Bullets, not tags
+ * (owner, 27.10.2026: «convert this to bullet points instead of the tags»), the Karte panel's own
+ * pieces (BuildingFacts), so the two surfaces cannot drift apart.
  * Nothing to say → nothing drawn (lib/buildingCard).
  */
 export function BuildingCard({ info, onClose }: { info: BuildingInfo | null; onClose?: () => void }) {
@@ -41,9 +42,9 @@ export function BuildingCard({ info, onClose }: { info: BuildingInfo | null; onC
           <IconButton label={appConfig.copy.closeDialog} className={s.close} onClick={onClose}><Icon id="close" /></IconButton>
         )}
       </div>
-      <RegisterTags chips={hazards} />
+      <RegisterLines chips={hazards} />
       <StationNotes measures={measures} remarks={remarks} source={caption} className={s.notes} />
-      <RegisterTags chips={facts} className={measures.length || remarks.length ? s.facts : undefined} />
+      <RegisterLines chips={facts} className={measures.length || remarks.length ? s.facts : undefined} />
       {hint && <RegisterHintBody className={s.hintBody} textClassName={s.sources}>{sources && <div className={s.sources}>{sources}</div>}</RegisterHintBody>}
       {visit && <p className={s.visit}><Icon id="clipboard" /><span>{visit}</span></p>}
     </section>

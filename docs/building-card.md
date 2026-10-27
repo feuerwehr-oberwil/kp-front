@@ -34,8 +34,9 @@ Geschosse, Baujahr or a last Objektbesuch alone stay behind the chip.
   Not in a replay (Wiedergabe), a closed Einsatz, a tab that lost the one-tab lock, or the
   Atemschutz-Link, whose Tafel has no Karte. The Plan's chip row never opens it by itself.
 - **What must be read stands first**, so it is in view without scrolling (on a phone the card is
-  at most 56 % of the screen high): the hazard tags, then Sofortmassnahmen, Bemerkungen and whose
-  notes they are, then the register facts with their source line, then the last Objektbesuch.
+  at most 56 % of the screen high): the hazard lines, then Sofortmassnahmen, Bemerkungen and whose
+  notes they are, then the register facts with their source line, then the last Objektbesuch. The
+  register facts are bullets, not tags (owner, 27.10.2026), the Karte panel's `RegisterLines`.
 
 The chip is not pinned to the building on the map, for three reasons. The Lage is drawn exactly
 at the Einsatzort, so a pinned chip would cover the Brandherd and the first vehicles. It would
@@ -61,7 +62,8 @@ The rules (3am tenet):
   registered with Pronovo are in the BFE list, so «no PV in the register» is not «no PV».
   Every fact carries its source and date.
 - **Hazards are a glyph and a word**: gas and oil (heating, or a hot-water boiler that adds a
-  fuel the heating does not name) and PV are amber tags with the warn glyph. Never colour alone.
+  fuel the heating does not name) and PV are bold lines whose bullet is the amber warn glyph.
+  Never colour alone.
 - **What makes the heat stands next to the fuel**: «Heizung Gas, Heizkessel für mehrere
   Gebäude» (that boiler may stand in the next building). A second heating system only when the
   register names one; hot water only when it is not the same fuel in the same kind of generator
