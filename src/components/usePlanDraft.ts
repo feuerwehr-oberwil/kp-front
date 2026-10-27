@@ -11,7 +11,7 @@
 // `role` and their own look, drawn in Punkte mode, snapped by lib/planSnap, and the tool stays
 // armed after each piece.
 
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type React from 'react'
 import type { BoardAnno, BoardPoint, BoardTool, LineAttachment } from '../types'
 import { appConfig } from '../config/appConfig'
@@ -35,11 +35,13 @@ export const INK_DEFAULTS = { color: appConfig.drawing.defaultColor, width: 5, d
 /** A Grundriss preset of Linie (Wand, Weg) or Fläche (Raum) – `BoardAnno.role`. */
 export type GrundrissRole = NonNullable<BoardAnno['role']>
 
-/** The look each Grundriss preset is born with (1B mock, 27.10.2026): a Wand dark, solid and
- *  thick; a Weg the default ink, dashed, with an arrowhead; a Raum a dark outline with a light
- *  wash. Edited afterwards like any ink. `COLORS[4]` is the palette's dark. */
+/** The look each Grundriss preset is born with (1B mock, 27.10.2026): a Wand dark and solid, a
+ *  touch bolder than the building outline; a Weg the default ink, dashed, with an arrowhead; a
+ *  Raum a dark outline with a light wash. Edited afterwards like any ink. `COLORS[4]` is the
+ *  palette's dark – on the board it is drawn in the theme's ink instead (WbControls · inkOf),
+ *  so a wall stays visible on the night sheet; print and export keep the stored dark. */
 export const GRUNDRISS_STYLE = {
-  wand: { color: COLORS[4], width: 8 },
+  wand: { color: COLORS[4], width: 3 },
   weg: { color: INK_DEFAULTS.color, width: 4, dashed: true, arrow: true },
   raum: { color: COLORS[4], width: 2, fillOpacity: 0.06 },
 } as const satisfies Record<GrundrissRole, Partial<BoardAnno>>
@@ -170,6 +172,11 @@ export function usePlanDraft({
   // preset's arrow/marker/dash — or a Grundriss preset's look and `role`. Mirrors the Lage map's
   // createLine, so both surfaces behave identically. Returns the anno; addLine below is the
   // interactive wrapper (select + drop to pan so the style editor opens).
+  // the board writer of the LATEST render: a «Speichern» answered later (releaseDraft, tapPoint)
+  // must not write through the `add` of the render that asked – that one closes over the board as
+  // it was then and would overwrite whatever landed while the question was open (a remote merge)
+  const addRef = useRef(add)
+  useLayoutEffect(() => { addRef.current = add })
   const commitLine = (pts: BoardPoint[], role?: GrundrissRole | null): BoardAnno => {
     const id = newId('l')
     const floor = pts[0]?.[2] ?? draftFloor.current
@@ -177,7 +184,7 @@ export function usePlanDraft({
       ? { id, kind: 'draw', pts, floor, role, ...GRUNDRISS_STYLE[role] }
       : { id, kind: 'draw', pts, floor, color, width, ...draftAttachments.current,
           dashed: dashed || undefined, ...(marker ? { marker } : {}), ...(lineArrow ? { arrow: true } : {}) }
-    add(anno)
+    addRef.current(anno)
     // a stroke that ENDED on a Trupp's chip is that Trupp's Leitung — both ends are reported,
     // because either of them may be the coupling (see Whiteboard · Props.onLineAttached)
     for (const a of [anno.startAttachment, anno.endAttachment]) if (a) onLineAttached?.(id, a)
@@ -199,7 +206,7 @@ export function usePlanDraft({
     const anno: BoardAnno = role
       ? { id, kind: 'area', pts, floor, role, ...GRUNDRISS_STYLE[role] }
       : { id, kind: 'area', pts, floor, color, width, dashed }
-    add(anno)
+    addRef.current(anno)
     log('area', role === 'raum' ? appConfig.copy.whiteboard.placeRaum : appConfig.copy.whiteboard.placeArea, { annoId: id, x: pts[0]?.[0], y: pts[0]?.[1], floor })
     return anno
   }

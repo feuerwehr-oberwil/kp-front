@@ -23,6 +23,11 @@ import { canDropVertex } from '../lib/vertexOps'
 import { circleRing, clipStroke, edgeMarkHead, markDeg, thinMarks, type EdgeMark, type Pt, type Section } from '../lib/storeyClip'
 
 const COLORS = appConfig.drawing.colors
+/** the stroke an ink is drawn in on the board: its own colour, except a Wand / Raum still in the
+ *  Grundriss dark, which follows the theme (the outline's family, one step stronger) – the
+ *  palette's dark vanished on the night sheet (owner, 27.10.2026) */
+const inkOf = (a: BoardAnno): string =>
+  (a.role === 'wand' || a.role === 'raum') && a.color === COLORS[4] ? 'var(--ink-dim)' : (a.color || COLORS[0])
 /** id namespace for the ink layer's Schraffur — kept distinct from the circle layer's defs so
  *  the two SVGs never define the same GLOBAL pattern id twice (lib/draw · hatchPatternId). */
 const INK_HATCH_SPACE = 'sheet'
@@ -158,14 +163,14 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, draftOpen, c
           {selId === a.id && cut && <polygon points={pts} fill="none" stroke={a.color || COLORS[0]} strokeWidth={2} strokeOpacity={0.4} strokeDasharray="3 5" style={{ pointerEvents: 'none' }} />}
           <g clipPath={clipOf(a.floor)}>
             {selId === a.id && <polygon points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 3) + 6} strokeOpacity={0.35} strokeLinejoin="round" />}
-            <polygon points={pts} fill={a.hatch ? `url(#${hatchId(a.color || COLORS[0])})` : (a.color || COLORS[0])}
+            <polygon points={pts} fill={a.hatch ? `url(#${hatchId(a.color || COLORS[0])})` : inkOf(a)}
               fillOpacity={a.hatch ? 1 : (a.fillOpacity ?? 0.14)}
-              stroke={a.color || COLORS[0]} strokeWidth={a.width || 3} strokeDasharray={a.dashed ? LINE_DASH_SVG : undefined}
+              stroke={inkOf(a)} strokeWidth={a.width || 3} strokeDasharray={a.dashed ? LINE_DASH_SVG : undefined}
               strokeLinejoin="round" />
             {onPickDraw && <polygon points={pts} fill="transparent" stroke="transparent" strokeWidth={18}
               style={{ pointerEvents: 'all', cursor: 'grab' }} onPointerDown={(e) => onPickDraw(a.id, e)} />}
           </g>
-          <EdgeMarks marks={marks} color={a.color || COLORS[0]} width={a.width || 3} id={a.id} onPick={onPickDraw} />
+          <EdgeMarks marks={marks} color={inkOf(a)} width={a.width || 3} id={a.id} onPick={onPickDraw} />
         </g>
         )
       })}
@@ -215,7 +220,7 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, draftOpen, c
           )}
           <polyline
             points={pts}
-            fill="none" stroke={a.color || COLORS[0]} strokeWidth={a.width || 5}
+            fill="none" stroke={inkOf(a)} strokeWidth={a.width || 5}
             strokeDasharray={a.dashed ? LINE_DASH_SVG : undefined}
             strokeLinecap={a.dashed ? 'butt' : 'round'} strokeLinejoin="round"
           />
@@ -226,7 +231,7 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, draftOpen, c
               onPointerDown={(e) => onPickDraw(a.id, e)} />
           )}
           </g>
-          <EdgeMarks marks={marks} color={a.color || COLORS[0]} width={a.width || 5} id={a.id} onPick={onPickDraw} />
+          <EdgeMarks marks={marks} color={inkOf(a)} width={a.width || 5} id={a.id} onPick={onPickDraw} />
         </g>
         )
       }))}

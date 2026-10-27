@@ -206,6 +206,7 @@ export function shiftStoreys(a: BoardAnno, delta: number, floors: readonly numbe
   const home = (a.floor ?? 0) + delta
   if (!has(home)) return null
   if (a.pts?.some((p) => p[2] != null && !has(p[2] + delta))) return null
+  if ((a.floorFrom != null && !has(a.floorFrom + delta)) || (a.floorTo != null && !has(a.floorTo + delta))) return null
   return {
     ...a,
     floor: home,
