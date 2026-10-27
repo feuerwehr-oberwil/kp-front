@@ -4,8 +4,9 @@
 (generic `/api/alarms` intake, the Divera poller and the Einsatz-Link's rescue path all land
 here); manual creation keeps its own endpoint. Auto-opened incidents are marked `auto_opened`
 so the sweep can archive the untouched ones (`workspace_rev == 0`, nobody ever synced a
-workspace) after `alarms.autoArchiveDays` — and the same sweep clears out incidents that WERE
-worked on but never closed, on their own much longer `alarms.staleIncidentDays` clock.
+workspace) after `alarms.autoArchiveDays` — and the same sweep closes an Übung nobody has changed
+for `alarms.exerciseAutoCloseHours`, and clears out incidents that WERE worked on but never closed,
+on their own much longer `alarms.staleIncidentDays` clock.
 
 An alarm opens on arrival, with no human in the loop — so «an incident exists» no longer
 means «the station attended an Einsatz». That line is `Incident.editor_opened_at`: stamped on
@@ -28,6 +29,7 @@ from .geocode import geocode
 from .models import DeploymentConfig, Incident
 from .schemas import AlarmsConfig, DeploymentConfigIn, load_stored_config
 from .transaction_hooks import after_completion
+from .vehicle_presence import last_activity
 
 logger = logging.getLogger(__name__)
 
@@ -249,16 +251,19 @@ async def create_incident_from_alarm(
 
 
 async def auto_archive_sweep(db: AsyncSession) -> int:
-    """Archive the incidents nobody is coming back to. Two clocks, deliberately separate.
+    """Archive the incidents nobody is coming back to. Three clocks, deliberately separate.
 
     * ``alarms.autoArchiveDays`` — auto-opened incidents nobody ever touched
       (``workspace_rev == 0``): alarm noise, nothing was ever recorded on them. Human-created
       incidents are never swept by this clock, however empty they are.
+    * ``alarms.exerciseAutoCloseHours`` — an Übung nobody has changed for that long (owner,
+      27.10.2026: 12 h). Measured from the last HUMAN change (``vehicle_presence.last_activity``:
+      a GPS or weather observer's write never keeps a drill open). Ernstfälle never.
     * ``alarms.staleIncidentDays`` — incidents that WERE worked on and then never closed.
       Closing is a deliberate act, and an operator who does not know it exists never performs
       it, so these accumulate forever. Much longer clock, because this one sweeps real work.
 
-    Both archive REVERSIBLY (Reaktivieren) and neither stamps ``report_done_at``: the Rapport
+    All archive REVERSIBLY (Wieder öffnen) and none stamps ``report_done_at``: the Rapport
     was not finished, and the record must never claim otherwise. Each carries its own Verlauf
     row saying which clock ran out — an Einsatz that vanishes off the list without a word is
     the failure mode this whole sweep must not have.
@@ -285,6 +290,28 @@ async def auto_archive_sweep(db: AsyncSession) -> int:
         for inc in untouched:
             seen.add(inc.id)
             rows.append((inc, "Einsatz automatisch archiviert (nicht verwendet)"))
+    if cfg.exerciseAutoCloseHours > 0:
+        cutoff = now - timedelta(hours=cfg.exerciseAutoCloseHours)
+        # started before the cutoff narrows it in SQL (nothing started since can be due); the
+        # last human change is then asked per candidate — a station has a handful of Übungen open
+        drills = (
+            (
+                await db.execute(
+                    select(Incident).where(
+                        Incident.is_archived.is_(False),
+                        Incident.is_exercise.is_(True),
+                        Incident.started_at < cutoff,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for inc in drills:
+            if inc.id in seen or await last_activity(db, inc.id, inc.started_at) >= cutoff:
+                continue
+            seen.add(inc.id)
+            rows.append((inc, "Automatisch abgeschlossen (Übung)"))
     if cfg.staleIncidentDays > 0:
         # `updated_at`, not `started_at`: the question is when anybody last did anything with
         # this Einsatz, not how long ago it was alarmed. A month-old Einsatz that somebody

@@ -326,6 +326,37 @@ describe('ContextPanel — preset fields always surface', () => {
 // The Gefahrentafel's UN-Nr. row drives the ADR chain (Stoff autofill, hazard readout, the
 // orange-plate glyph). Operators transcribe the physical plate top-to-bottom — Gefahrnummer,
 // then UN — so the classic mis-entry is the swap; fillFromUN repairs it when it is unambiguous.
+// «Anzahl Tiere» on the Rettung is a count like the person count beside it (sweep 27.10.2026 #14):
+// a ± stepper, stored as the string it always was — and free text from before keeps its field.
+describe('ContextPanel — a count field is a stepper', () => {
+  const rescue = (fields: Record<string, string>) => ({
+    entity: { id: 'r1', symbol: 'VKF Rettungen', fields },
+    protectedKeys: new Set(['Status', 'Anzahl Tiere']),
+  })
+  const st = appConfig.copy.stepper
+  const tiere = () => screen.getByRole('group', { name: 'Anzahl Tiere' })
+
+  it('steps an empty count to 1, then up, and clears it', () => {
+    const onFields = vi.fn()
+    setup({ ...rescue({ Status: 'vermisst' }), onFields })
+    fireEvent.click(tiere().querySelector(`[aria-label="${st.more}"]`)!)
+    expect(onFields).toHaveBeenLastCalledWith({ Status: 'vermisst', 'Anzahl Tiere': '1' })
+    cleanup()
+    const again = vi.fn()
+    setup({ ...rescue({ Status: 'vermisst', 'Anzahl Tiere': '3' }), onFields: again })
+    fireEvent.click(tiere().querySelector(`[aria-label="${st.more}"]`)!)
+    expect(again).toHaveBeenLastCalledWith({ Status: 'vermisst', 'Anzahl Tiere': '4' })
+    fireEvent.click(tiere().querySelector(`[aria-label="${st.reset}"]`)!)
+    expect(again).toHaveBeenLastCalledWith({ Status: 'vermisst', 'Anzahl Tiere': '' })
+  })
+
+  it('keeps an old free-text value in a text field', () => {
+    setup(rescue({ Status: 'gerettet', 'Anzahl Tiere': '2 Katzen' }))
+    expect(screen.queryByRole('group', { name: 'Anzahl Tiere' })).toBeNull()
+    expect(screen.getByDisplayValue('2 Katzen')).toBeTruthy()
+  })
+})
+
 describe('ContextPanel — Gefahrentafel UN-Nr. autofill', () => {
   const tafel = (fields: Record<string, string>) => ({
     entity: { id: 'g1', symbol: 'FW Gefahr Tafel', fields } as SymbolView,

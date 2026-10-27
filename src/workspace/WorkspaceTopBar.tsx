@@ -202,12 +202,6 @@ export function WorkspaceTopBar({
         // On EVERY surface, unlike the GPS caveat above: this says what the device in your hand
         // is doing, which does not stop being true because you switched to the Plan.
         shareSlot={<SharePositionPill share={share} onChangeName={onShareChangeName} />}
-        // «Einsatz abgeschlossen»: a mode of the incident, so it stands beside the Einsatzname
-        // instead of floating as a fifth banner. Its two exits ride in the chip's menu.
-        archived={incidentMeta.is_archived}
-        onBackFromArchive={onBackFromArchive}
-        onReactivate={onReactivateActive}
-        canCorrectRapport={canEditRapport}
         // On the phone map surface the compass in the bottom bar already carries Einpassen
         // (== centerIncident) + Mein Standort, so a top-bar center button here would just
         // duplicate it AND crowd the narrow bar off its right edge (clipping the Atemschutz
@@ -269,6 +263,11 @@ export function WorkspaceTopBar({
                 unsyncedOther: syncStatus !== 'synced',
               }).then((ok) => { if (ok) void logout() })
             }}
+            // «Einsatz abgeschlossen» (sweep #5, 27.10.2026): the lock in the pill's ✓ slot, the
+            // card's «Abgeschlossen 01:18» pill folding out its two exits
+            onBackFromArchive={onBackFromArchive}
+            onReactivate={onReactivateActive}
+            canCorrectRapport={canEditRapport}
             navKey={`${mode}|${journalOpen ? 'journal' : ''}`}
             sheetOpen={settingsOpen || helpOpen || installGuideOpen || offlineReadyOpen || !!shareLink}
           />

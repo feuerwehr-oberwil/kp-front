@@ -188,18 +188,17 @@ export function noteLines(text: string | null | undefined): string[] {
   return (text ?? '').split('\n').map((l) => l.trim()).filter(Boolean)
 }
 
-/** Who the Modul-1 notes belong to: «Schloss Musterdorf · Modul 1», or «… · in der Nähe (120 m)»
- *  when the object was surfaced by proximity alone — a neighbour's gas valve reads exactly like ours. */
+/** Whose notes the card shows, ONLY when they are a neighbour's: «Schloss Musterdorf · in der
+ *  Nähe (120 m)» when the object was surfaced by proximity alone — a neighbour's gas valve reads
+ *  exactly like ours. The object at this address says nothing: its source line («Schloss
+ *  Musterdorf · Modul 1») went (owner, 27.10.2026: «for Sofortmassnahmen, drop the source»). */
 export function objectCaption(b: BuildingInfo | null): string {
   const o = b?.object
-  if (!o) return ''
+  if (!o || o.address_match) return ''
   const C = appConfig.copy.building
-  if (!o.address_match) {
-    return o.distance_m != null
-      ? fillTemplate(C.objectNear, { name: o.name, m: Math.round(o.distance_m) })
-      : fillTemplate(C.objectNearNoDist, { name: o.name })
-  }
-  return o.measures_source ? fillTemplate(C.objectSource, { name: o.name, src: o.measures_source }) : o.name
+  return o.distance_m != null
+    ? fillTemplate(C.objectNear, { name: o.name, m: Math.round(o.distance_m) })
+    : fillTemplate(C.objectNearNoDist, { name: o.name })
 }
 
 export function visitLine(b: BuildingInfo | null): string {

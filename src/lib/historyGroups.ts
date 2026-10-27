@@ -9,6 +9,31 @@ export function filterIncidents<T extends { title: string; address: string | nul
   return items.filter((i) => i.title.toLowerCase().includes(q) || (i.address ?? '').toLowerCase().includes(q))
 }
 
+/** The quick filters over «Alle Einsätze» (owner, 27.10.2026): Ernstfall | Übung (one or the
+ *  other, or both when neither is chosen), one Einsatzart, and «Rapport offen» — a CLOSED Einsatz
+ *  whose Rapport was never marked done (a running one is open by definition, so it would only
+ *  be noise). They combine with AND, and with the search. */
+export interface HistoryFilter {
+  kind: 'real' | 'exercise' | null
+  type: string | null
+  rapportOpen: boolean
+}
+export const NO_HISTORY_FILTER: HistoryFilter = { kind: null, type: null, rapportOpen: false }
+
+type Filterable = { is_archived: boolean; is_exercise: boolean; type?: string | null; report_done_at?: string | null }
+
+export function applyHistoryFilter<T extends Filterable>(items: T[], f: HistoryFilter): T[] {
+  return items.filter((i) =>
+    (f.kind == null || i.is_exercise === (f.kind === 'exercise'))
+    && (f.type == null || i.type === f.type)
+    && (!f.rapportOpen || (i.is_archived && !i.report_done_at)))
+}
+
+/** The Einsatzarten the list actually holds, for the «Einsatzart» chip's choices — sorted, each once */
+export function historyTypes(items: { type?: string | null }[]): string[] {
+  return [...new Set(items.map((i) => i.type).filter((t): t is string => !!t))].sort((a, b) => a.localeCompare(b))
+}
+
 /** Bucket key for a list row: 'open' · 'today' · 'week' (last 7 days) · 'm:YYYY-M'.
  *  The list is already sorted active-first then newest-first, so emitting a header whenever
  *  the key CHANGES yields the groups in display order with no separate sort. */

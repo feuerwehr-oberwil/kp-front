@@ -61,6 +61,8 @@ describe('the page strip stands in the row where a plan says «which place»', (
   })
   it('on a phone the row of a Tafel page stands on the nav bar — the page has no tool bar under it', () => {
     const m = readFileSync(`${process.cwd()}/src/styles/15-mobile.css`, 'utf8')
-    expect(m).toMatch(/:root:has\(\.phone-tools \.wb-tafel-page\) \{ --float-base: calc\(var\(--rail-h\) \+ 8px/)
+    // the bars end at the nav bar there, and a dock does not lift the row's reserve either
+    expect(m).toMatch(/:root:has\(\.phone-tools \.wb-tafel-page\)[^{]*\{\s*--float-bars: calc\(var\(--rail-h\) \+ 8px/)
+    expect(m).toMatch(/:root:has\(\.phone-tools \.wb-dock\):not\(:has\(\.phone-tools \.wb-tafel-page\)\) \{ --float-base: calc\(var\(--rail-h\) \* 3/)
   })
 })

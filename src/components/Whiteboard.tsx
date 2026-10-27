@@ -803,7 +803,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     calNodes, calPrompt, refMInput, setRefMInput, savePrompt, setSavePrompt,
     measMode, setMeasMode,
     measureAR, activeScale, scaleAuto, scaleStale, calibrated, planMetres,
-    measPath, setMeasPath, measMpts, measLenM, measAreaM2, measPerimM, measReset, resetEphemeral,
+    measPath, setMeasPath, measFresh, measMpts, measLenM, measAreaM2, measPerimM, measReset, resetEphemeral,
     measNodeDown, measMove, measUp, measDragging, measInsert, measDelete, measPress,
     closeCalPrompt, commitCalibration,
   } = planMeasure
@@ -1204,7 +1204,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     toNorm, floorAt, localY, mapY, sW, sH, tileAR, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef: inkTap,
     planDraft, rotor, measure: planMeasure, rotPlacing, rotStart, setRotStart, rotN, noteDefaults, txtBase, setNotePanelId, setNotePlacedId,
     sym, onRecent, annos, trupps, placedTeamNames, onLinkTrupp, setTruppPick, add, log, setSelId,
-    tapZoomPress: (e) => tapZoomPress(e),
+    tapZoomPress: (e, allow) => tapZoomPress(e, allow),
+    tapZoomOwns: (id) => tapZoomOwns(id),
   })
 
   // --- the ink's body drags: a stroke, an Absperrkreis, a Linie's label — components/useWbBodyDrag ---
@@ -1253,7 +1254,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   // pan / pinch-zoom / marquee multi-select + the shared stage pointer dispatcher live in
   // useBoardGestures; object manipulation is reached through manipMove/manipUp above.
-  const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp, tapZoomPress } = useBoardGestures({
+  const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp, tapZoomPress, tapZoomOwns } = useBoardGestures({
     tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
   })
 
@@ -1948,8 +1949,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             too, or the read-out would blink out on exactly the plans nobody can annotate. No
             Maßstab beside it here: there is nothing to calibrate on a document. */}
         {nearbyBanner}
-        <div className="wb-botleft"><span className="wb-join">{objectChip}{buildingFloat}</span>{readingsChip}</div>
-        <PdfScroller key={active.id} url={planUrl(active.imageUrl)} />
+        {/* the row is the reader's to render: on a tablet its section bar stands in it (PdfScroller) */}
+        <PdfScroller key={active.id} url={planUrl(active.imageUrl)} fileName={[objectName, active.title || active.code].filter(Boolean).join(' – ')}
+          row={<><span className="wb-join">{objectChip}{buildingFloat}</span>{readingsChip}</>} />
       </div>
     )
   }
@@ -2309,7 +2311,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                     <Fragment key={`mn-${i}`}>
                       {/* positioning wrapper so the handle's :active scale never clobbers the
                           board-px placement (mirrors how the map nests the handle in a Marker) */}
-                      <div className="wb-meas-node" style={{ left: 0, top: 0, transform: `translate(${p[0] * sW}px, ${p[1] * sH}px) translate(-50%, -50%)` }}>
+                      <div className="wb-meas-node" style={{ left: 0, top: 0, transform: `translate(${p[0] * sW}px, ${p[1] * sH}px) translate(-50%, -50%)`, pointerEvents: measFresh === i ? 'none' : undefined }}>
                         {/* `{...hold}` carries `data-holdaction` (lib/nodeHold): without it the hold-tooltip
                             popped «Gedrückt halten zum Löschen» mid-ring and ate the release (08.10.) */}
                         <button className={`measure-handle ${measPress.armed?.key === `m${i}` ? 'doomed' : ''}`}
@@ -2876,7 +2878,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             : null}
           // a style edit changes THIS ink only – the next one starts from INK_DEFAULTS again
           onColor={(c) => patchCommit(selDraw.id, { color: c })}
-          onWidth={(w) => patchCommit(selDraw.id, { width: w })}
           onDashed={(d) => patchCommit(selDraw.id, { dashed: d })}
           // ⚠️ Live while typing, one step on blur — the same split the Lage got (useMapDrawing ·
           // patchDrawingLabelLive). Through `patchCommit` every keystroke was its own undo step and

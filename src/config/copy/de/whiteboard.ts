@@ -114,8 +114,20 @@ export const whiteboardCopy = {
       freeOrderTap: 'Dieselbe Stelle auf Modul und Karte antippen',
       // hinter dem (i), auf beiden Formfaktoren: woran man eine gute Stelle erkennt
       freeOrderTip: 'Gut sind eindeutige Punkte – Hausecke, Hydrant, Wegkreuzung. Die Reihenfolge ist egal, gesetzte Hälften suchen sich ihr Gegenstück selber.',
-      // die Kurzform unter «Punkt setzen» auf dem Telefon: wohin die Taste wirkt
-      freeOrderPlace: 'Wirkt auf der sichtbaren Fläche – Karte oder Modul, Reihenfolge egal',
+      // ── die schmale Telefon-Leiste (Sweep 27.10.2026 #13, Mock A) ──────────────────────────
+      // Die Anleitung steht hinter dem Status-Knopf «0/2 Paare ⓘ»: GENAU was zu tun ist, in der
+      // Reihenfolge, in der man es tut – statt eines Satzes unter der Taste, den niemand liest.
+      howTitle: 'So wird verknüpft',
+      howStep1: 'Eine eindeutige Stelle {onPlan} unter das Fadenkreuz schieben – Hausecke, Hydrant, Wegkreuzung – und «+» tippen.',
+      howStep2: 'Zur Karte wechseln, dieselbe Stelle unter das Fadenkreuz schieben und «+» tippen.',
+      howStep3: 'Dasselbe mit einer zweiten Stelle, möglichst weit weg von der ersten. Bei 2/2 liegt der Plan auf der Karte.',
+      howOrder: 'Die Reihenfolge ist egal – mit der Karte anfangen geht genauso.',
+      howThird: 'Freiwillig: ein dritter Punkt prüft die Verknüpfung und zeigt, wie genau sie ist (⌀ in Metern).',
+      // «Verschieben» bewaffnet, am Telefon: dort tippt man nicht auf die Fläche, man zielt
+      movePhone: 'Punkt {n} verschieben – die neue Stelle unter das Fadenkreuz schieben, dann «+».',
+      // WO auf dem Plan: mit seinem Namen (PLANS' Beschriftung, «Wasser», «Modul 1»), sonst das Wort
+      onPlanNamed: 'auf «{name}»',
+      onPlanUnnamed: 'auf dem Modul',
       // «Verschieben» ist bewaffnet: der nächste Tipp auf dieser Fläche setzt genau diese Hälfte
       moveMap: 'Punkt {n} verschieben – neue Stelle auf der Karte antippen, der alte verschwindet.',
       movePlan: 'Punkt {n} verschieben – neue Stelle auf dem Modul antippen, der alte verschwindet.',
@@ -130,10 +142,10 @@ export const whiteboardCopy = {
       // Statuszeile, zweite Hälfte: WO die offene Hälfte fehlt. Das bernsteinfarbene Kreuz, das
       // dasselbe sagt, steht unter Umständen auf der Fläche, die das Telefon gerade nicht zeigt.
       statusOpenMap: 'Punkt {n} fehlt noch auf der Karte.',
-      statusOpenPlan: 'Punkt {n} fehlt noch auf dem Modul.',
+      statusOpenPlan: 'Punkt {n} fehlt noch {onPlan}.',
       statusOpenMapMany: '{k} Punkte fehlen noch auf der Karte.',
-      statusOpenPlanMany: '{k} Punkte fehlen noch auf dem Modul.',
-      statusOpenBoth: 'Offene Punkte auf Karte und Modul – gleiche Stellen finden sich automatisch.',
+      statusOpenPlanMany: '{k} Punkte fehlen noch {onPlan}.',
+      statusOpenBoth: 'Offene Punkte auf der Karte und {onPlan} – gleiche Stellen finden sich automatisch.',
       statusSelected: 'Punkt {n} ausgewählt – daneben tippen wählt ab.',
       // ⚠️ `cancel` gehört noch der Rückfrage vor «Alle Punkte zurücksetzen» – dort bricht es
       // wirklich etwas ab. Der Ausstieg aus dem Modus heisst `closeMode`: er verwirft nichts.

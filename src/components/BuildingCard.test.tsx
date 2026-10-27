@@ -24,11 +24,46 @@ describe('BuildingCard', () => {
     expect(screen.getByText('Register-Hinweis')).toBeTruthy()
   })
 
-  it('shows the Sofortmassnahmen as lines, with whose they are', () => {
+  // owner, 27.10.2026: «convert this to bullet points instead of the tags» – the hazard line first
+  // owner, 27.10.2026: «a clear two-step thing: first "Sofortmassnahmen" then "Gebäude"»
+  it('reads Sofortmassnahmen, then Gebäude with the hazard first – no title in the head', () => {
+    const { container } = render(<BuildingCard info={{ ...base, object: { id: 'o', name: 'Schloss Musterdorf', address_match: true, distance_m: 0, measures: 'Tor öffnen', remarks: null, measures_source: 'Modul 1', updated_at: null } }} onClose={() => {}} />)
+    const text = container.textContent ?? ''
+    expect(text.indexOf('Sofortmassnahmen')).toBeLessThan(text.indexOf('Gebäude'))
+    expect(text.indexOf('Gebäude')).toBeLessThan(text.indexOf('Heizung Gas'))
+    expect(text.match(/Gebäude/g)).toHaveLength(1)
+    expect(screen.getByRole('region', { name: 'Gebäude' })).toBeTruthy()
+  })
+
+  // owner, 27.10.2026: no wasted head row – the first heading carries the ✕, «Register-Hinweis»
+  // always sits on the Gebäude heading's row
+  it('puts the ✕ on the first heading, «Register-Hinweis» on the Gebäude one', () => {
+    const row = (word: string) => screen.getByText(word).parentElement!
+    const { unmount } = render(<BuildingCard info={base} onClose={() => {}} />)
+    expect(row('Gebäude').querySelector('button[aria-expanded]')).toBeTruthy()
+    expect(row('Gebäude').querySelector('button[aria-label="Schliessen"]')).toBeTruthy()
+    unmount()
+    render(<BuildingCard info={{ ...base, object: { id: 'o', name: 'S', address_match: true, distance_m: 0, measures: 'Tor öffnen', remarks: null, measures_source: null, updated_at: null } }} onClose={() => {}} />)
+    expect(row('Sofortmassnahmen').querySelector('button[aria-label="Schliessen"]')).toBeTruthy()
+    expect(row('Gebäude').querySelector('button[aria-expanded]')).toBeTruthy()
+    expect(row('Gebäude').querySelector('button[aria-label="Schliessen"]')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Register-Hinweis/ }))
+    expect(row('Gebäude').nextElementSibling?.getAttribute('data-testid')).toBe('register-hint')
+  })
+
+  it('lists the register as bullets, the hazard first', () => {
+    const { container } = render(<BuildingCard info={base} />)
+    const lines = [...container.querySelectorAll('ul > li')].map((l) => l.textContent)
+    expect(lines[0]).toBe('Heizung Gas')
+    expect(lines).toContain('2 Geschosse')
+  })
+
+  // owner, 27.10.2026: «for Sofortmassnahmen, drop the source» – no «Schloss Musterdorf · Modul 1»
+  it('shows the Sofortmassnahmen as lines, without a source line', () => {
     render(<BuildingCard info={{ ...base, object: { id: 'o', name: 'Schloss Musterdorf', address_match: true, distance_m: 0, measures: 'Prinzessin befreien\nTor öffnen', remarks: null, measures_source: 'Modul 1', updated_at: null } }} />)
     expect(screen.getByText('Sofortmassnahmen')).toBeTruthy()
     expect(screen.getByText('Tor öffnen').tagName).toBe('LI')
-    expect(screen.getByText('Schloss Musterdorf · Modul 1')).toBeTruthy()
+    expect(screen.queryByText(/Modul 1/)).toBeNull()
     expect(screen.queryByText('Bemerkungen')).toBeNull()
   })
 

@@ -40,6 +40,10 @@ export interface MapViewBaseProps {
   /** a placement tool is active (symbol/shape/note/area/measure) — map clicks should
    *  place/add a point rather than select a drawing under the cursor (e.g. an area fill) */
   placing?: boolean
+  /** the armed tool places something on a tap — one-finger zoom is off then (lib/tapDragZoom ·
+   *  oneFingerZoom). Defaults to `placing`; the Karte narrows it, since there `placing` also
+   *  covers its sheets (Ebenen), under which one finger must still zoom. */
+  tapsPlace?: boolean
   onView: (v: { bearing: number; center: LngLat; zoom: number }) => void
   /** a base-layer tile failed while offline — there is no cached basemap for this view. Fires
    *  per failed tile; the caller decides how often to say so (IncidentWorkspace · NoBasemapMeldung). */

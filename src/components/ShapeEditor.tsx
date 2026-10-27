@@ -90,7 +90,7 @@ export function ShapeEditor({ entity, readOnly = false, onColor, onScale, onScal
   // the header shares the grip's drag (tap stays a tap there — see useSheetDrag)
   const sheetDrag = useSheetDrag({ onClose, tapToggles: false })
   return (
-    <CtxShell className="draw-editor">
+    <CtxShell className="draw-editor" onClose={onClose}>
       <SheetGrip onClose={onClose} />
       {/* the whole header drags the sheet too, not just the 44×5px grip above it */}
       <div className="ctx-head" {...sheetDrag}>

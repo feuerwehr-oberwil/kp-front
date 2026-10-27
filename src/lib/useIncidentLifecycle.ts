@@ -130,7 +130,7 @@ export function useIncidentLifecycle({ activeMeta, incidents, setActiveMeta, set
  */
 export function useCloseReopen({
   closingLocallyRef, reopeningLocallyRef, activeId, activeMeta, incidents, syncRef, archiveReturnRef, refreshList,
-  selectIncident, setClosedMedia, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly,
+  selectIncident, markOpened, setIncidents, setClosedMedia, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly,
 }: {
   closingLocallyRef: MutableRefObject<string | null>
   reopeningLocallyRef: MutableRefObject<string | null>
@@ -140,7 +140,10 @@ export function useCloseReopen({
   syncRef: MutableRefObject<WorkspaceSync | null>
   archiveReturnRef: MutableRefObject<string | null>
   refreshList: () => Promise<IncidentMeta[]>
-  selectIncident: (id: string, opts?: { readOnly?: boolean }) => Promise<void>
+  selectIncident: (id: string, opts?: { readOnly?: boolean; meta?: IncidentMeta }) => Promise<void>
+  /** `useIncidentLifecycle`'s: the Einsatz on screen runs from now (the in-place reopen) */
+  markOpened: () => void
+  setIncidents: SetIncidents
   setClosedMedia: Dispatch<SetStateAction<ClosedMediaPending[]>>
   setActiveId: (id: string | null) => void
   setActiveMeta: (meta: IncidentMeta | null) => void
@@ -148,7 +151,19 @@ export function useCloseReopen({
   setForceReadOnly: (on: boolean) => void
 }) {
   /** THE reopen, after its question was answered — by the confirm of `reactivateById` below, or
-   *  by the close toast's «Wieder öffnen» (completeRapport), which IS the question. */
+   *  by the close toast's «Wieder öffnen» (completeRapport), which IS the question.
+   *  ⚠️ The Einsatz ON SCREEN (read-only) goes live IN PLACE (sweep #6, 27.10.2026, owner: «the
+   *  card loaded very slowly»). It used to be PATCH → list → `selectIncident` (flush, the full
+   *  Einsatz again, the workspace a third time) → remount, all serial: measured 3.2 s at 300 ms
+   *  latency and a 4× slower CPU, of which the PATCH was 0.5 s. The workspace on screen is the
+   *  live-followed one, so nothing needs fetching: the PATCH answers with the meta, and the flip
+   *  is the one a reopen ELSEWHERE already makes (`useIncidentLifecycle` · onIncidentReopened).
+   *  Another Einsatz (the close toast's, after the screen moved on) still opens — with the
+   *  PATCH's meta, the list refreshed beside it rather than before it. */
+  // ⚠️ a ref, not the render's `activeId`: the close toast holds the reopenNow of the render that
+  // closed — where this id WAS on screen — and is pressed seconds after the screen moved on
+  const activeIdRef = useRef(activeId)
+  useEffect(() => { activeIdRef.current = activeId }, [activeId])
   const reopenNow = useCallback(async (id: string): Promise<ReactivateResult> => {
     // this device's own reopen: its poll hears «open» before the remount below, and that is not
     // «auf einem anderen Gerät wieder geöffnet»
@@ -157,8 +172,9 @@ export function useCloseReopen({
       // ⚠️ Reported, not swallowed: a failed reopen used to be followed by the incident being
       // opened read-only anyway, which reads as «the app decided I may not edit this» rather than
       // as «the server refused». Same rule as abschliessen — the outcome, not the intent.
+      let fresh: IncidentMeta
       try {
-        await reactivateIncident(id)
+        fresh = await reactivateIncident(id)
       } catch (e) {
         // Offline (or the server down) is not a refusal: say what it needs. There is no queue for
         // a reopen on purpose — the server writes the reopen boundary the Atemschutz clocks restart
@@ -168,9 +184,23 @@ export function useCloseReopen({
           : e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
         return 'failed'
       }
-      await refreshList()
+      // the list catches up on its own; it must not stand in front of the Einsatz
+      void refreshList().catch(() => {})
+      if (id === activeIdRef.current) {
+        archiveReturnRef.current = null
+        markOpened()
+        setForceReadOnly(false)
+        setActiveMeta(fresh)
+        setIncidents((list) => {
+          const arr = list ?? []
+          return arr.some((i) => i.id === id) ? arr.map((i) => (i.id === id ? fresh : i)) : [fresh, ...arr]
+        })
+        // remembered again, as a hand-opened Einsatz is (App · selectIncident) — the close forgot it
+        savePrefs({ ...loadPrefs(), incidentId: id, incidentChosenAt: Date.now(), landedAt: undefined })
+        return 'ok'
+      }
       try {
-        await selectIncident(id, { readOnly: false })
+        await selectIncident(id, { readOnly: false, meta: fresh })
         return 'ok'
       } catch {
         return 'failed'
@@ -178,7 +208,7 @@ export function useCloseReopen({
     } finally {
       if (reopeningLocallyRef.current === id) reopeningLocallyRef.current = null
     }
-  }, [reopeningLocallyRef, refreshList, selectIncident])
+  }, [reopeningLocallyRef, refreshList, archiveReturnRef, markOpened, setForceReadOnly, setActiveMeta, setIncidents, selectIncident])
 
   // THE close, and the only one. Both doors on the ACTIVE Einsatz (the Rapport's button/band and
   // the Einsatz-Menü row) run their counting confirm in IncidentWorkspace and land here; «Alle

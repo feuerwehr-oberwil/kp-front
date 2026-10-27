@@ -16,15 +16,21 @@ import { Segmented } from './Segmented'
  * it only on a phone because its tablet head carries the same <Segmented> inline. Either way
  * the switch is the caller's — this is the bar, not the tabs.
  */
-export function PhoneTabBar<T extends string>({ ariaLabel, value, onChange, options }: {
+export function PhoneTabBar<T extends string>({ ariaLabel, value, onChange, options, scroll, end }: {
   ariaLabel: string
   value: T
   onChange: (value: T) => void
   options: readonly { value: T; label: ReactNode; title?: string }[]
+  /** more sections than fit: the track scrolls sideways instead of squeezing (a PDF's
+   *  bookmarks, PdfScroller · 27.10.2026) */
+  scroll?: boolean
+  /** one action at the bar's end, outside the sections (the PDF reader's «Öffnen in …») */
+  end?: ReactNode
 }) {
   return (
     <div className="rp-tabs">
-      <Segmented<T> tabs ariaLabel={ariaLabel} value={value} onChange={onChange} options={options} />
+      {options.length > 0 && <Segmented<T> tabs scroll={scroll} ariaLabel={ariaLabel} value={value} onChange={onChange} options={options} />}
+      {end && <div className="rp-tabs-end">{end}</div>}
     </div>
   )
 }

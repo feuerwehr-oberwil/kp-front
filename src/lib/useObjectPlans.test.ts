@@ -147,7 +147,8 @@ describe('a numbered sub-slot from the backend reaches the rail as its own tile'
     const tiles = Object.keys(plans).sort().map((id) => extraModuleDoc(id, plans[id], titles[id]))
     expect(tiles.map((t) => t.id)).toEqual(['modul5-wasser1', 'modul5-wasser2'])
     expect(tiles.map((t) => t.code)).toEqual(['Wasser 1', 'Wasser 2'])
-    expect(tiles.map(glyph)).toEqual([{ mono: 'WAS1' }, { mono: 'WAS2' }])
+    // the chip keeps the short form, the sibling number tells them apart (owner, 27.10.2026)
+    expect(tiles.map(glyph)).toEqual([{ mono: 'W1' }, { mono: 'W2' }])
     // `planId` is a foreign key (Verlauf rows, planScale, the board keys) — the tile id IS the
     // module key the backend serves, so an old row still resolves to the sheet it named.
     expect(tiles.map((t) => t.imageUrl)).toEqual([plans['modul5-wasser1'], plans['modul5-wasser2']])

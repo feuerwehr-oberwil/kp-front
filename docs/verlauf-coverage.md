@@ -24,7 +24,8 @@ legally on the record, but invisible to anyone reading the Verlauf.
 
 On top of that there is a third, small source: the server writes lifecycle rows itself
 (`backend/app/api/journal.py` · `append_system_row`) – incident closed, reopened,
-Nachalarm, automatic archival.
+Nachalarm, automatic archival (untouched, stale, and an Übung idle for `alarms.exerciseAutoCloseHours`:
+«Automatisch abgeschlossen (Übung)»).
 
 ## What the server observes (since 24.09.2026)
 
@@ -372,7 +373,11 @@ twice meant it twice.
 time · disc · sentence · trailing footnotes. The 26px disc carries the **section the printed
 Rapport names** (Anwesenheit, Mittel, Atemschutz, Auftrag …; the mapping itself arrived
 on 19.08.), and becomes the check-off ring on a Pendenz; Nachtrag, «korrigiert» and «6×» sit as
-footnotes after the sentence instead of before it. ⚠️ **Only what is drawn changed** – what is
+footnotes after the sentence instead of before it – since 27.10.2026 on a line UNDER it, with the
+missing-transcript and upload chips and a done Pendenz's «wieder in» pills, so the trailing group
+holds the row's own controls only and the sentence
+keeps the row's width (a phone broke «Audionoti|z (24s)» between NACHTRAG, ⚠ Transkript and the
+play circle). ⚠️ **Only what is drawn changed** – what is
 written, printed and hashed did not: the row renders `e.text` byte for byte, and old rows with
 old icons keep being classified by the existing rules exactly as before (both nailed down by
 tests, `Journal.test.tsx`).

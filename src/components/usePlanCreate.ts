@@ -14,6 +14,7 @@ import { newId } from '../lib/ids'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { serverNow } from '../lib/serverClock'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
+import { oneFingerZoom, type OneFingerZoom } from '../lib/tapDragZoom'
 import { rdpIndices, isTapStroke, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 import { minPoints } from '../lib/vertexOps'
 import { nextTeamName } from '../lib/placedTrupps'
@@ -92,8 +93,10 @@ interface Args {
   add: (a: BoardAnno) => void
   log: (icon: string, text: string, extra?: PlanLogExtra) => void
   setSelId: (id: string | null) => void
-  /** Freihand's double tap zooms (useBoardGestures · tapZoomPress) */
-  tapZoomPress: (e: React.PointerEvent) => void
+  /** a press, offered to the one-finger zoom with what the tool leaves it (useBoardGestures) */
+  tapZoomPress: (e: React.PointerEvent, allow: OneFingerZoom) => void
+  /** the one-finger zoom has taken this pointer — it neither pans nor places */
+  tapZoomOwns: (pointerId: number) => boolean
 }
 
 /** The ink overlay's pointer handlers and the placement they make; see the file header. */
@@ -101,7 +104,7 @@ export function usePlanCreate({
   tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, readOnly, stack,
   toNorm, floorAt, localY, mapY, sW, sH, tileAR, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef,
   planDraft, rotor, measure, rotPlacing, rotStart, setRotStart, rotN, noteDefaults, txtBase, setNotePanelId, setNotePlacedId,
-  sym, onRecent, annos, trupps, placedTeamNames, onLinkTrupp, setTruppPick, add, log, setSelId, tapZoomPress,
+  sym, onRecent, annos, trupps, placedTeamNames, onLinkTrupp, setTruppPick, add, log, setSelId, tapZoomPress, tapZoomOwns,
 }: Args) {
   const {
     draft, setDraft, circleDraft, setCircleDraft, draftAttachmentsRef, draftFloorRef, setDraftRole, inking, noding, lineMode, areaMode,
@@ -152,9 +155,10 @@ export function usePlanCreate({
       inkPinch.current = inkPinchPts()?.dist ?? null
       return
     }
-    // Freihand's taps mean nothing, so a double tap on the ink zooms (useBoardGestures ·
-    // tapZoomPress); its drag stays the stroke
-    if (inking) tapZoomPress(e)
+    // one finger under a create tool (lib/tapDragZoom · oneFingerZoom): Messen's tap-and-drag zooms
+    // (a quick second tap is still a point), Freihand's double tap zooms (its drag is the stroke),
+    // every other tool places on a tap — the Kreis included — so there only the pinch zooms
+    tapZoomPress(e, oneFingerZoom(inking ? 'draw' : tool === 'measure' ? 'measure' : 'place'))
     const n = toNorm(e.clientX, e.clientY); if (!n) return
     e.stopPropagation() // placement owns this pointer — don't let the stage ALSO start a board pan
     const floor = stack ? floorAt(n[1]) : 0
@@ -381,7 +385,9 @@ export function usePlanCreate({
       // jitter so a still tap still places. Pan from the recorded origin, like useBoardGestures.
       const st = inkTapRef.current, dx = e.clientX - st.x, dy = e.clientY - st.y
       if (!st.moved && Math.hypot(dx, dy) > 8) st.moved = true
-      if (st.moved) applyView(scaleRef.current, { x: st.px + dx, y: st.py + dy })
+      // …unless it is the second press of tap-and-drag: then the drag ZOOMS (stageMove, as the
+      // move bubbles on) and the board must not pan under it — and the release places nothing
+      if (st.moved && !tapZoomOwns(e.pointerId)) applyView(scaleRef.current, { x: st.px + dx, y: st.py + dy })
       // the ring follows a still press; a pan is no placement, so it has none
       if (noding) showRing(st.moved ? null : n, floor, e.pointerType === 'mouse')
       return

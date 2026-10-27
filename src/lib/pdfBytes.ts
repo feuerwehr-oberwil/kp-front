@@ -75,11 +75,11 @@ const BUDGET_SMALL = 48 * 1024 * 1024
 const BUDGET_DESKTOP = 192 * 1024 * 1024
 const bytesBudget = () => (smallMemoryDevice() ? BUDGET_SMALL : BUDGET_DESKTOP)
 
-const bytesCache = new ByteBudgetCache<Uint8Array>(bytesBudget, (b) => b.byteLength)
+const bytesCache = new ByteBudgetCache<Uint8Array<ArrayBuffer>>(bytesBudget, (b) => b.byteLength)
 
 /** The bytes of one PDF — from memory, else from the HTTP/service-worker cache, else the net.
  *  A failed fetch drops out of the cache on its own, so «Erneut laden» really retries. */
-export function loadPdfBytes(url: string): Promise<Uint8Array> {
+export function loadPdfBytes(url: string): Promise<Uint8Array<ArrayBuffer>> {
   const key = pdfBytesKey(url)
   const held = bytesCache.get(key)
   if (held) return held

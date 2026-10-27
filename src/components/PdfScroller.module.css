@@ -1,5 +1,17 @@
 /* Plain scrollable multi-page PDF viewer (viewer-only plans, e.g. PV documentation).
-   Fills the whiteboard area; pages flow top→bottom and scroll natively. */
+   Fills the whiteboard area; pages flow top→bottom and scroll natively. `.reader` holds the
+   scroller and the strip over it (PdfScroller · the strip) and owns the LANES both keep clear:
+   --lane-top / --lane-l / --lane-r, set per context below. */
+.reader {
+  position: absolute;
+  inset: 0;
+  --lane-top: 88px;
+  --lane-l: calc(var(--rail-w) + 28px);
+  --lane-r: calc(var(--vrail-w, 60px) + 26px);
+  --lane-bottom: 16px;
+}
+/* the foot bar's row: its 52px bar and an 8px gap, added to the bottom lane while it stands */
+.withStrip { --strip-room: 60px; }
 .scroller {
   position: absolute;
   inset: 0;
@@ -31,21 +43,52 @@
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding: 88px calc(var(--vrail-w, 60px) + 26px) 16px calc(var(--rail-w) + 28px);
+  padding: var(--lane-top) var(--lane-r) var(--lane-bottom) var(--lane-l);
   min-height: 100%;
 }
 /* phone: the rails are bottom BARS, so the lanes to keep clear are the top bar and the two
    stacked bars at the foot */
 @media (--phone) {
-  .pages {
-    padding: calc(76px + env(safe-area-inset-top)) var(--sp-2)
-      calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)) var(--sp-2);
+  .reader {
+    --lane-top: calc(76px + env(safe-area-inset-top));
+    --lane-l: var(--sp-2);
+    --lane-r: var(--sp-2);
+    /* …plus the docked section strip's lane while it stands (15-mobile · --rp-tabs-safe) */
+    --lane-bottom: calc(var(--rail-h) * 2 + 28px + var(--rp-tabs-safe, 0px) + env(safe-area-inset-bottom));
   }
 }
 /* a surface without rails (an object visit's plan reader): a plain margin, the safe areas kept */
-.pages.bare {
-  padding: 12px max(var(--sp-2), env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(var(--sp-2), env(safe-area-inset-left));
+.reader.bare {
+  --lane-top: 12px;
+  --lane-l: max(var(--sp-2), env(safe-area-inset-left));
+  --lane-r: max(var(--sp-2), env(safe-area-inset-right));
+  --lane-bottom: calc(16px + env(safe-area-inset-bottom));
 }
+/* ── the section switcher (PdfScroller, 27.10.2026, sweep #15) ──
+   At the bottom everywhere. On a phone the docked strip above the nav bar (PhoneTabBar ·
+   15-mobile `.rp-tabs`, which reserves its own lane); on a tablet the board's floating row
+   (`.wb-botleft`, as the Tafel's page strip `.tps` – 09-whiteboard). These rules place the third:
+   `.withStrip`, the bar at the reader's own foot (a `bare` reader in its own overlay, or a reader
+   without a board row). Centred and only as wide as it needs; a track longer than the screen
+   scrolls sideways inside it. The floating family's glass (01-tokens · --float-*), THE
+   <Segmented> track as tabs, the quiet IconButton for «Öffnen in …». */
+.strip {
+  position: absolute; z-index: 1;
+  left: var(--lane-l); right: var(--lane-r); bottom: var(--lane-bottom);
+  display: flex; justify-content: center;
+  pointer-events: none; /* the lane beside a short bar still scrolls the pages */
+}
+.withStrip .pages { padding-bottom: calc(var(--lane-bottom) + var(--strip-room)); }
+.bar {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: var(--sp-1);
+  max-width: 100%; box-sizing: border-box; padding: 4px;
+  border-radius: var(--r-sm);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
+}
+.bar > :global(.useg) { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.bar > :global(.useg)::-webkit-scrollbar { display: none; }
+.bar > :global(.useg) > :global(.useg-btn) { flex: none; }
 /* ⚠️ No `background` here, and deliberately not a themed one either. This element IS the sheet
    of paper: pdf.js fills the whole canvas #ffffff before it draws a single glyph
    (`beginDrawing` → `fillStyle = background || "#ffffff"`), and the canvas is only put into the

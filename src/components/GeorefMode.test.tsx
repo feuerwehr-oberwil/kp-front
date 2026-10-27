@@ -12,6 +12,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { GeorefBoardLayer, type PlanViewApi } from './GeorefMode'
 import { GEOREF_OFF, georefDispatch, georefSnapshot, resetGeorefMode, type GeorefModeState } from '../lib/georefMode'
+import pv from './PdfViewport.module.css'
 
 beforeAll(() => {
   // jsdom has neither pointer capture nor a layout engine — the capture layer needs both stubs
@@ -105,10 +106,11 @@ it('puts the sheet’s magnifier into its own pane where both halves share one i
 
 it('repaints a stationary plan loupe when the cold PDF canvas arrives', async () => {
   const drawImage = vi.fn()
-  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage, clearRect: vi.fn() } as unknown as CanvasRenderingContext2D)
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage, clearRect: vi.fn(), fillRect: vi.fn() } as unknown as CanvasRenderingContext2D)
   const { view } = makeView()
   const board = document.createElement('div')
   const base = document.createElement('canvas')
+  base.className = pv['wb-pdf-base']
   base.width = 0; base.height = 0
   board.append(base)
   const bounds = new DOMRect(100, 200, 1000, 500)
@@ -124,6 +126,30 @@ it('repaints a stationary plan loupe when the cold PDF canvas arrives', async ()
   base.width = 2000; base.height = 1000
   await waitFor(() => expect(drawImage).toHaveBeenCalled())
   expect(drawImage.mock.calls[drawImage.mock.calls.length - 1]?.[0]).toBe(base)
+})
+
+/**
+ * The loupe on a TILED plan (27.10.2026, owner's iPhone: «it doesn't actually show the zoom
+ * inset»). PlanTileLayer draws the sheet as `<img>` tiles and the board holds no canvas at all —
+ * the loupe looked for one, found none, and stayed an empty (on the night theme black) circle.
+ */
+it('magnifies a plan drawn from tiles', async () => {
+  const drawImage = vi.fn()
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage, clearRect: vi.fn(), fillRect: vi.fn() } as unknown as CanvasRenderingContext2D)
+  const { view } = makeView()
+  const board = document.createElement('div')
+  const tile = document.createElement('img')
+  tile.className = pv['wb-tile']
+  Object.defineProperties(tile, { complete: { value: true }, naturalWidth: { value: 512 }, naturalHeight: { value: 512 } })
+  board.append(tile)
+  vi.spyOn(board, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 1000, 500))
+  vi.spyOn(tile, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 1000, 500))
+  view.boardRef.current = board
+  renderCapture(view)
+  const loupe = document.body.querySelector('canvas') as HTMLCanvasElement
+  Object.defineProperties(loupe, { clientWidth: { value: 124 }, clientHeight: { value: 124 } })
+  await waitFor(() => expect(drawImage).toHaveBeenCalled())
+  expect(drawImage.mock.calls.some((c) => c[0] === tile)).toBe(true)
 })
 
 describe('the capture layer after a pinch ends', () => {

@@ -20,7 +20,7 @@ from sqlalchemy import select
 
 from app.alarms import auto_archive_sweep
 from app.config import settings
-from app.models import DeploymentConfig, DiveraEmergency, Incident
+from app.models import DeploymentConfig, DiveraEmergency, Incident, JournalEntry
 
 PAYLOAD = {
     "source": "leitstelle",
@@ -405,3 +405,49 @@ async def test_sweep_archives_an_incident_due_on_both_clocks_once(db_session):
     await db_session.commit()
 
     assert await auto_archive_sweep(db_session) == 1
+
+
+async def test_sweep_closes_an_exercise_twelve_hours_after_its_last_human_change(db_session):
+    """Owner 27.10.2026: an Übung closes itself 12 h after the last change, with its own Verlauf
+    row; an Ernstfall never does, and a drill somebody wrote in recently stays open. An observer's
+    row (the GPS sweep's `vps-`) is not a change."""
+    await _set_alarms_config(db_session, {"autoArchiveDays": 0, "staleIncidentDays": 0, "exerciseAutoCloseHours": 12})
+    now = datetime.now(UTC)
+    started = now - timedelta(hours=20)
+    idle = _incident(source="manual", is_exercise=True, workspace_rev=4, started_at=started)
+    worked = _incident(source="manual", is_exercise=True, workspace_rev=4, started_at=started)
+    real = _incident(source="manual", workspace_rev=4, started_at=started)
+    db_session.add_all([idle, worked, real])
+    await db_session.flush()
+    db_session.add_all(
+        [
+            JournalEntry(
+                incident_id=idle.id,
+                client_id="vps-1-scene-x",
+                seq=1,
+                row_json={"text": "TLF vor Ort"},
+                created_at=now - timedelta(hours=1),
+            ),
+            JournalEntry(
+                incident_id=worked.id,
+                client_id="t1",
+                seq=1,
+                row_json={"text": "Lage"},
+                created_at=now - timedelta(hours=11),
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    assert await auto_archive_sweep(db_session) == 1
+    await db_session.commit()
+    for inc in (idle, worked, real):
+        await db_session.refresh(inc)
+    assert idle.is_archived is True and idle.report_done_at is None
+    assert worked.is_archived is False and real.is_archived is False
+    texts = (
+        (await db_session.execute(select(JournalEntry.row_json).where(JournalEntry.incident_id == idle.id)))
+        .scalars()
+        .all()
+    )
+    assert any(r.get("text") == "Automatisch abgeschlossen (Übung)" and r.get("lifecycle") == "closed" for r in texts)
