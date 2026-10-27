@@ -661,7 +661,7 @@ export default function App() {
   // ── close / reopen: lib/useIncidentLifecycle ──
   const { completeRapport, archiveById, reactivateById } = useCloseReopen({
     closingLocallyRef, reopeningLocallyRef, activeId, activeMeta, incidents, syncRef, archiveReturnRef, refreshList,
-    selectIncident, setClosedMedia, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly,
+    selectIncident, markOpened, setIncidents, setClosedMedia, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly,
   })
 
   // «Zurück» from an archived read-only view: return to the incident that was active before,
