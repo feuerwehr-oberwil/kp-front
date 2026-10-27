@@ -71,10 +71,21 @@ describe('the label and the chip agree', () => {
     expect(planGlyph(doc({ id: 'modul5-rwa' }))).toEqual({ mono: 'RWA' })
     expect(planGlyph(doc({ id: 'modul5-pv15' }))).toEqual({ mono: 'PV15' })
   })
-  // «WAS» named nothing, and «Wasser» does not fit a round chip: the plan icon, the word in the label
-  it('a word wears the plan icon, never its first letters', () => {
-    expect(planGlyph(doc({ id: 'modul5-wasser', code: 'W' }))).toEqual({ icon: 'doc' })
-    expect(planGlyph(doc({ id: 'modul5-wasser2' }))).toEqual({ icon: 'doc' })
+  // owner, 27.10.2026: «keep W1/W2» – the chip keeps the short form, only the text says «Wasser»
+  it('a word gives its initial, a numbered sibling keeps its number', () => {
+    expect(planGlyph(doc({ id: 'modul5-wasser', code: 'Wasser' }))).toEqual({ mono: 'W' })
+    expect(planGlyph(doc({ id: 'modul5-wasser1' }))).toEqual({ mono: 'W1' })
+    expect(planGlyph(doc({ id: 'modul5-wasser2' }))).toEqual({ mono: 'W2' })
+  })
+})
+
+// «Im Spitzenhägli 2» on staging (27.10.2026): its one plan is keyed `modul5-wasser`, and staging's
+// catalogue names that slot with the code «W». The tile reads «Wasser», its chip «W».
+describe('a catalogue code «W» never reaches the text', () => {
+  it('modul5-wasser with the catalogue code W', () => {
+    const tile = doc({ id: 'modul5-wasser', code: planLabel('modul5-wasser', 'W') })
+    expect(tile.code).toBe('Wasser')
+    expect(planGlyph(tile)).toEqual({ mono: 'W' })
   })
 })
 
