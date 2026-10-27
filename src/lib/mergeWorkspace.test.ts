@@ -113,6 +113,25 @@ describe('mergeWorkspace — unified objects (schema 2)', () => {
   })
 })
 
+describe('mergeWorkspace — a Messpunkt history both tablets appended to', () => {
+  const mp = (fields: Record<string, string>, readings: { t: number; v: Record<string, string> }[]) =>
+    ({ id: 'm1', entity: { id: 'm1', kind: 'symbol', layer: 'taktisch', coord: [7.55, 47.51], symbol: 'FW Messpunkt', fields, readings } })
+  const r1 = { t: 1000, v: { CO: '20' } }
+  const rMine = { t: 2000, v: { CO: '45' } }
+  const rTheirs = { t: 2500, v: { CO: '44' } }
+  const readingsOut = (out: Record<string, unknown>) => (out.objects as { entity: { readings: unknown[] } }[])[0].entity.readings
+
+  it('keeps both radio reports in time order, not just the whole-object winner\'s', () => {
+    const out = mergeWorkspace({ objects: [mp({ CO: '20' }, [r1])] }, { objects: [mp({ CO: '45' }, [r1, rMine])] }, { objects: [mp({ CO: '44' }, [r1, rTheirs])] }) as Record<string, unknown>
+    expect(readingsOut(out)).toEqual([r1, rMine, rTheirs])
+  })
+
+  it('a row one side undid stays gone', () => {
+    const out = mergeWorkspace({ objects: [mp({ CO: '45' }, [r1, rMine])] }, { objects: [mp({ CO: '20', Ex: '1' }, [r1])] }, { objects: [mp({ CO: '45', Raum: 'Gang' }, [r1, rMine])] }) as Record<string, unknown>
+    expect(readingsOut(out)).toEqual([r1])
+  })
+})
+
 describe('mergeWorkspace — whole blob', () => {
   it('merges collections by id and keeps the local view/config (activePlanId)', () => {
     const base = { entities: [o('e1')], drawings: [], activePlanId: 'p1' }

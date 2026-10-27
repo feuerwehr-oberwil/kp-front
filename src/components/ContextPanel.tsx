@@ -18,7 +18,9 @@ import { Stepper } from './Stepper'
 import { Segmented } from './Segmented'
 import { Button, IconButton } from './Button'
 import { compositeSpec } from '../lib/symbolRender'
-import { UN_CAPABLE } from '../lib/symbols'
+import { bareBlack } from '../lib/glyphTile'
+import { UN_CAPABLE, alarmBar, isMeasuredSymbol } from '../lib/symbols'
+import { ReadingBar, ReadingHistory } from './ReadingParts'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
 import { bearing360 } from '../lib/planProjection'
 import { doneStateText } from '../lib/objectDone'
@@ -729,7 +731,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
               TacticalSymbol was covered; the sink sanitiser is the authoritative gate, so EVERY
               `dangerouslySetInnerHTML` that takes an SVG string must wrap it, never trust the prop. */}
           {entity.photoUrl ? <img src={thumbUrl(entity.photoUrl)} alt="" decoding="async" />
-            : svg ? <span dangerouslySetInnerHTML={{ __html: sanitizeSvg(svg) }} />
+            : svg ? <span className={bareBlack(svg) ? 'glyph-tile' : undefined} dangerouslySetInnerHTML={{ __html: sanitizeSvg(svg) }} />
             : (entity.badge ?? <Icon id="type" />)}
         </div>
         <div className="ctx-titlewrap">
@@ -1001,6 +1003,12 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                 // row, free text through the Gast door — and the commit resolves the UN-Nr.
                 // (fillFromUN's reverse branch), which lights the readout and the rings.
                 const stoffSearch = unCapable && normKey(r.k) === STOFF_KEY
+                const control = (
+                  <FieldControl fieldKey={r.k} value={r.v} options={fieldOptions?.[r.k]}
+                    placeholder={valuePlaceholder(r.k)}
+                    officerFilter={officerSym} rankOf={rankOf} statusOf={personStatus}
+                    onInput={(v) => setRow(i, { v })} onCommit={(v) => setRowValue(i, v)} />
+                )
                 const field = (
                   <>
                     {stoffSearch ? (
@@ -1008,12 +1016,14 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                         placeholder={valuePlaceholder(r.k)}
                         searchPlaceholder={C.stoffSearch}
                         onChange={(v) => setRowValue(i, v)} />
-                    ) : (
-                    <FieldControl fieldKey={r.k} value={r.v} options={fieldOptions?.[r.k]}
-                      placeholder={valuePlaceholder(r.k)}
-                      officerFilter={officerSym} rankOf={rankOf} statusOf={personStatus}
-                      onInput={(v) => setRow(i, { v })} onCommit={(v) => setRowValue(i, v)} />
-                    )}
+                    ) : alarmBar(entity.symbol, r.k.trim(), r.v) ? (
+                      // a measured gas (the Messpunkt): the input box is the visualisation – its
+                      // calm/amber/red bar right under it, following the value as it is typed
+                      <span className="reading-field">
+                        {control}
+                        <ReadingBar symbol={entity.symbol} fieldKey={r.k.trim()} value={r.v} />
+                      </span>
+                    ) : control}
                     {/* the contradiction stays put, under the field it is about */}
                     {fieldHints?.[r.k.trim()] && (
                       <p className="kv-hint"><Icon id="warn" />{fieldHints[r.k.trim()]}</p>
@@ -1070,6 +1080,9 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
               )}
             </div>
           )}
+
+          {/* a Messpunkt's readings, one row per radio report (ReadingParts) */}
+          {isMeasuredSymbol(entity) && <ReadingHistory entity={entity} />}
 
           {/* read-only ADR hazard readout from the UN number (Gefahrentafel), auto-derived
               from the ADR table — plus a deep link to a reputable source for full details. */}

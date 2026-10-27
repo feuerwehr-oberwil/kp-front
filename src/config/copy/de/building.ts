@@ -112,5 +112,8 @@ export const buildingCopy = {
     chipLabel: 'Gebäude-Steckbrief öffnen',
     chipLabelHazards: 'Gebäude: {h} – Steckbrief öffnen',
     measuresShort: 'Sofortmassn.',
+    // the Karte's door to the Gebäude's Messungen (MapControls, once a Messpunkt is placed)
+    readingsChip: 'Messungen',
+    readingsChipLabel: 'Messungen im Gebäude zeigen',
   },
 } as const

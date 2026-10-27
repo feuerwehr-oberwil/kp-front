@@ -57,7 +57,7 @@ import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, typ
 import { doneAct, doneOf, donePlace, offersDone } from '../lib/objectDone'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import { useHazardData } from '../lib/useHazardData'
-import { symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys } from '../lib/symbols'
+import { isMeasuredSymbol, readingPatch, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys } from '../lib/symbols'
 import { ContextPanel } from './ContextPanel'
 import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
@@ -69,13 +69,14 @@ import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
-import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
+import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, STACK_READINGS_LANE, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
 import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachAnnos, dwellFor, flipLine, forkPortPoint, wireFreed, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, withDetach, type AnnoDetachPatch, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from '../lib/stackFit'
 import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
 import type { FloorPackView } from '../lib/floorPackBinding'
 import { stackInstances } from '../lib/stackFloors'
+import { StackReadings } from './ReadingParts'
 import { circleRadiusM, circleRadiusN, pathMetres, polyAreaM2, scaleLampTone, type PlanScale } from '../lib/planScale'
 import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
 import { isSelectOnlySurface } from '../lib/useObjectPlans'
@@ -563,6 +564,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   useEffect(() => { setHiddenFloors(incidentId ? loadHiddenFloors(incidentId) : []) }, [incidentId])
   const floorsTTB = useMemo(() => shownFloors(allFloorsTTB, hiddenFloors), [allFloorsTTB, hiddenFloors])
   const N = floorsTTB.length || 1
+  // the Gebäude's Messungen beside the storeys (ReadingParts · StackReadings): every Messpunkt on a
+  // shown storey, once per storey it spans. Not on a phone – there is no lane beside the stack.
+  const stackReadings = useMemo(
+    () => (stack && !isPhone ? annos.filter((a) => a.kind === 'symbol' && isMeasuredSymbol(a)).flatMap((a) => stackInstances(a, floorsTTB)) : []),
+    [stack, isPhone, annos, floorsTTB],
+  )
   const putHidden = (next: number[]) => {
     setHiddenFloors(next)
     if (incidentId) saveHiddenFloors(incidentId, next)
@@ -692,7 +699,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // …and the rails: the WINDOW decides whether they are floating side rails or bottom bars, not
   // the canvas width — during the «Karte verknüpfen» split the canvas is half a screen wide with
   // both rails still in place (lib/whiteboard · sideInsets).
-  const side = useMemo(() => sideInsets(vp.w, isPhone), [vp.w, isPhone])
+  const side = useMemo(() => {
+    const base = sideInsets(vp.w, isPhone)
+    // …and with Messpunkte, the stack moves over for their list (StackReadings)
+    return stackReadings.length ? { ...base, l: base.l + STACK_READINGS_LANE } : base
+  }, [vp.w, isPhone, stackReadings.length])
   const fit = useMemo(() => {
     const pad = stack ? STACK_VPAD : 0
     return containFit(vp, effAspect, { top: topRes + pad, bottom: botRes + pad, l: side.l, r: side.r })
@@ -2435,6 +2446,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             )}
             {/* add a storey above (OG) / below (UG) — attached to the stack itself, just above
                 the top floor and below the bottom floor, like a real building section */}
+            {stackReadings.length > 0 && (
+              <StackReadings points={stackReadings} floorsTTB={floorsTTB} storeyName={storeyName} boardH={sH}
+                onPick={(id) => { setSelId(id); setSelIds([]) }} />
+            )}
             {stack && !readOnly && !building?.pack && (
               <>
                 <button className="wb-floor-add wb-floor-add-up" onPointerDown={(e) => e.stopPropagation()} onClick={() => onAddFloor(1)} title={appConfig.copy.whiteboard.addFloorUp}><Icon id="plus" />OG</button>
@@ -2652,7 +2667,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           }}
           onFields={(fields) => {
             const before = selSymbol.fields ?? {}
-            patchCommit(selSymbol.id, { fields })
+            // a Messpunkt's history grows in the same step (lib/symbols · recordReading)
+            patchCommit(selSymbol.id, { fields, ...readingPatch(selSymbol, fields) })
             for (const [k, v] of Object.entries(fields)) {
               if (v.trim() && before[k] !== v) onRosterField?.(selSymbol.symbol, selSymbol.label, k, v)
             }

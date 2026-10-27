@@ -40,6 +40,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     notes: 'Note',
     notesPlaceholder: 'Note generali …',
     addField: 'Aggiungi campo',
+    readingHistory: 'Cronologia',
     addFieldShort: 'Campo',
     removeField: 'Elimina campo',
     fieldKeyPlaceholder: 'Denominazione',

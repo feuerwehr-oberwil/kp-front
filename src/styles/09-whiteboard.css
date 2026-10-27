@@ -422,6 +422,20 @@
 .wb-floor-add-up { top: calc(var(--tap) / -2); }     /* straddle the top edge of the stack */
 .wb-floor-add-down { bottom: calc(var(--tap) / -2); } /* straddle the bottom edge of the stack */
 
+/* the Gebäude's Messungen (ReadingParts · StackReadings, owner pick W2 27.10.2026): a column left of
+   the stack, each storey's card at its own storey's height, inside the board so it pans and zooms
+   with the paper. 252px + the 16px gap = STACK_READINGS_LANE, which the fit keeps free. */
+.wb-readings { position: absolute; top: 0; bottom: 0; right: calc(100% + var(--sp-4)); width: 252px; z-index: 8; pointer-events: none; }
+.wb-readings section { position: absolute; left: 0; right: 0; overflow-y: auto; padding: var(--sp-1) 0;
+  border-radius: var(--r-sm); background: var(--glass); border: 1px solid var(--glass-line); box-shadow: var(--e3); pointer-events: auto; }
+.wb-readings h4 { margin: 0; padding: var(--sp-1) var(--sp-3); font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
+.wb-readings button { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 36px; padding: 0 var(--sp-3);
+  border: 0; border-top: 1px solid var(--border-soft); background: none; color: var(--ink); font: var(--fw-medium) var(--fs-1) var(--body); text-align: left; cursor: pointer; }
+.wb-readings button > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (hover: hover) {
+  .wb-readings button:hover { background: var(--hover); }
+}
+
 /* (.wb-north-dial / -btn / -ring / -needle / -n are gone, 30.08.: the north dial was drawn ON the
    topmost storey tile, so it panned and zoomed with the paper. It is a tile in the plan rail's
    footer now, like the Karte's compass — PlanCompass.module.css.) */
