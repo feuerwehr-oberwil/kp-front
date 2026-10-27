@@ -6,7 +6,8 @@
   box-sizing: border-box; width: min(340px, calc(100vw - var(--rail-w, 0px) - 44px));
   max-height: min(56vh, 480px); overflow: auto; overscroll-behavior: contain;
   padding: var(--sp-1) 0; border-radius: var(--r-sm);
-  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); }
+  /* opaque like the Gebäude card beside it (BuildingFloat.module.css · ⚠️ OPAQUE) */
+  background: linear-gradient(var(--float-bg), var(--float-bg)), var(--surface); box-shadow: var(--float-edge); }
 @media (--phone) {
   /* the bars' width, one gap above THE floating row – the toast lane's place */
   .pop { position: fixed; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
