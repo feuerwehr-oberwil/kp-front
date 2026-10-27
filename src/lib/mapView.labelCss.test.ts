@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { END_TAG_LABEL_STYLE, READOUT_LABEL_STYLE, SYM_CAPTION_GAP, SYM_CAPTION_STYLE, SYM_READOUT_STYLE, TEAM_LABEL_STYLE } from './mapView'
+import { END_TAG_LABEL_STYLE, READOUT_LABEL_STYLE, SYM_CAPTION_GAP, SYM_CAPTION_STYLE, SYM_PILL_STYLE, TEAM_LABEL_STYLE } from './mapView'
 
 // The label pass books every on-map label's box from these numbers, never from the DOM. They have to
 // follow the CSS they stand for: when a type step moved the CSS (stage 2: 11.5 → 11px, 6 → 4px
@@ -44,13 +44,14 @@ describe('on-map label metrics follow their CSS', () => {
     expect(SYM_CAPTION_GAP).toBe(px(decl(b, 'margin-top')))
     expect(SYM_CAPTION_STYLE.maxTextW).toBe(px(decl(rule('03-map.css', '.sym-caption > span'), 'max-width')))
   })
-  it('.sym-readout', () => {
-    const b = rule('03-map.css', '.sym-readout')
+  it('.sym-pill', () => {
+    const b = rule('03-map.css', '.sym-pill')
     const [v, h] = padding(b)
-    expect(fontPx(SYM_READOUT_STYLE.font)).toBe(px(decl(b, 'font-size')))
-    expect(SYM_READOUT_STYLE.chromeW).toBe(2 * h)
-    expect(SYM_READOUT_STYLE.chromeH).toBe(2 * v)
-    expect(SYM_READOUT_STYLE.lineH).toBe(px(decl(b, 'height')))
+    const icon = px(decl(rule('03-map.css', '.sym-pill .i'), 'width'))
+    expect(fontPx(SYM_PILL_STYLE.font)).toBe(px(decl(b, 'font-size')))
+    expect(SYM_PILL_STYLE.chromeW).toBe(2 * h + icon + px(decl(b, 'gap')))
+    expect(SYM_PILL_STYLE.chromeH).toBe(2 * v)
+    expect(SYM_PILL_STYLE.lineH).toBe(px(decl(b, 'height')))
   })
   it('.measure-label.draw-label', () => {
     const b = rule('11-measure.css', '.measure-label')

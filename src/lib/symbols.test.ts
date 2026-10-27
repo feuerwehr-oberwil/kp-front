@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { symbolCaptionText, symbolControls, symbolFieldOptions, symbolLegendText, symbolPresetFieldKeys, symbolReadoutText } from './symbols'
+import { alarmBar, readingRows, recordReading, symbolCaptionText, symbolControls, symbolFieldOptions, symbolLegendText, symbolPresetFieldKeys, symbolReading, symbolReadoutText } from './symbols'
 import type { SymbolControl } from '../types'
 import { appConfig } from '../config/appConfig'
 
@@ -208,6 +208,47 @@ describe('Messpunkt — a measured symbol keys its values (26.10.2026)', () => {
     const p = mp({ CO: '180', Ex: '0', 'O₂': '20.1' }, 'Zimmer 21')
     expect(symbolCaptionText(p, 'all')).toBe('Zimmer 21\nCO 180\nEx 0\nO₂ 20.1')
     expect(symbolLegendText(p, 'auto')).toBe('Messpunkt · Zimmer 21 · CO 180 · Ex 0 · O₂ 20.1')
+  })
+})
+
+describe('Messpunkt — the reading its mark wears (27.10.2026)', () => {
+  const MIN = 60_000
+  const mp = (fields: Record<string, string>, readings?: { t: number; v: Record<string, string> }[]) => ({ symbol: 'FW Messpunkt', fields, readings })
+
+  it('the worst gas wins: an Ex over its limit beats a harmless CO, and only that goes red', () => {
+    expect(symbolReading(mp({ CO: '14', Ex: '12' }))).toMatchObject({ text: 'Ex 12', alarm: true })
+    expect(symbolReading(mp({ CO: '14', Ex: '0' }))).toMatchObject({ text: 'CO 14', alarm: false })
+  })
+
+  it('O₂ is red both ways, and a radio report\'s decimal comma is a number', () => {
+    expect(symbolReading(mp({ 'O₂': '18,5' }))).toMatchObject({ text: 'O₂ 18,5', alarm: true })
+    expect(symbolReading(mp({ 'O₂': '23.5' }))?.alarm).toBe(true)
+    expect(symbolReading(mp({ 'O₂': '20.9' }))?.alarm).toBe(false)
+  })
+
+  it('goes old 15 min after the last reading – a point without history never does', () => {
+    const at = 1_000_000
+    expect(symbolReading(mp({ CO: '65' }, [{ t: at, v: { CO: '65' } }]), at + 14 * MIN)).toMatchObject({ stale: false, ageMin: 14 })
+    expect(symbolReading(mp({ CO: '65' }, [{ t: at, v: { CO: '65' } }]), at + 18 * MIN)).toMatchObject({ stale: true, ageMin: 18, alarm: true })
+    expect(symbolReading(mp({ CO: '65' }), at)).toMatchObject({ stale: false, ageMin: null })
+  })
+
+  it('a field commit appends a row only when a measured value changed', () => {
+    const p = mp({ Raum: 'Gang', CO: '20' }, [{ t: 1, v: { CO: '20' } }])
+    expect(recordReading(p, { Raum: 'Gang 2', CO: '20' }, 5)).toBe(p.readings) // the room is no reading
+    expect(recordReading(p, { Raum: 'Gang', CO: '45' }, 5)).toEqual([{ t: 1, v: { CO: '20' } }, { t: 5, v: { CO: '45' } }])
+    expect(recordReading({ symbol: 'FW Kleinloeschgeraet', fields: {} }, { Typ: 'CO2' }, 5)).toBeUndefined()
+  })
+
+  it('one report typed gas by gas is one row in the list, newest first', () => {
+    const p = mp({}, [{ t: 0, v: { CO: '20' } }, { t: 10 * MIN, v: { CO: '45' } }, { t: 10 * MIN + 20_000, v: { CO: '45', Ex: '0' } }])
+    expect(readingRows(p).map((r) => r.v)).toEqual([{ CO: '45', Ex: '0' }, { CO: '20' }])
+  })
+
+  it('the bar under a field puts the limit where calm turns red', () => {
+    expect(alarmBar('FW Messpunkt', 'CO', '30')).toMatchObject({ at: 0.6 })
+    expect(alarmBar('FW Messpunkt', 'CO', '')?.at).toBeNull()
+    expect(alarmBar('FW Messpunkt', 'Raum', 'Gang')).toBeNull()
   })
 })
 

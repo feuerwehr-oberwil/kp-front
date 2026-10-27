@@ -57,6 +57,9 @@
 .ph { width: 46px; height: 46px; border-radius: var(--r-ctl); border: 2px solid var(--blue); color: var(--blue);
   display: grid; place-items: center; font-family: var(--mono); font-size: var(--fs-1); background: var(--surface-2); flex: none; }
 .ph svg { width: 30px; height: 30px; }
+/* …and the header chip of such a symbol, same tile as in the palette and on the Karte (07-toolrail) */
+[data-theme="night"] .ph .glyph-tile { width: 32px; height: 32px; display: grid; place-items: center; background: var(--on-accent-ink); border-radius: var(--r-xs); }
+[data-theme="night"] .ph .glyph-tile svg { width: 26px; height: 26px; }
 .ctx-head h3 { margin: 0; font: var(--sheet-title); } /* the one sheet title (28.09.2026; was 700) */
 .ctx-head p { margin: 2px 0 0; font-size: var(--fs-1); color: var(--ink-dim); font-weight: var(--fw-medium); }
 /* ⚠️ ink-mix, not --surface-2: the glass tokens are white-based and vanish on this white card —
@@ -283,6 +286,23 @@
 .kv-hint { flex: 0 0 100%; display: flex; align-items: center; gap: 8px; margin: 4px 0 0;
   font: var(--fw-medium) var(--fs-1)/1.35 var(--body); color: var(--accent); }
 .kv-hint .i { width: 14px; height: 14px; flex: none; }
+/* a measured gas (the Messpunkt, ReadingParts): the input with its calm/red bar right under it, and
+   a tick where the typed value sits – no numbers, above calm it is Atemschutz either way */
+.reading-field { display: flex; flex-direction: column; gap: var(--sp-2); margin-left: auto; }
+.reading-bar { position: relative; display: block; height: 4px; }
+/* nothing typed yet: the zones stay as a faint guide, so the first digit does not move the row */
+.reading-bar.empty { opacity: .35; }
+.reading-bar i { position: absolute; top: 0; height: 4px; border-radius: 2px; background: var(--hover-strong); }
+.reading-bar i + i { margin-left: 2px; }
+.reading-bar i.alarm { background: var(--red-fill); }
+.reading-bar b { position: absolute; top: -3px; width: 4px; height: 10px; margin-left: -2px; border-radius: 2px;
+  background: var(--ink); box-shadow: 0 0 0 1.5px var(--surface); }
+/* …and the history under all fields: one mono row per radio report, red where over the limit */
+.reading-history ol { list-style: none; margin: 0; padding: 0; }
+.reading-history li { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-1) 0; border-top: 1px solid var(--border-soft);
+  font-family: var(--mono); font-size: var(--fs-1); color: var(--ink-dim); }
+.reading-history time { color: var(--ink-faint); }
+.reading-history .alarm { color: var(--red); font-weight: var(--fw-bold); }
 .combo-type { color: var(--blue-strong); font-weight: var(--fw-bold); border-top: 1px solid var(--border-soft); margin-top: 2px; }
 .combo-type .i { width: 14px; height: 14px; }
 /* "nur Offiziere" filter pinned atop the roster picker on leadership symbols */

@@ -21,7 +21,7 @@ import { fillTemplate } from '../lib/format'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { isRotatableSym, isVehicleSym, TEAM_DOT_PX } from '../lib/mapView'
 import { glyphFor, twinName } from '../lib/entityGlyph'
-import { symbolCaptionText, symbolReadoutText } from '../lib/symbols'
+import { symbolCaptionText, isMeasuredSymbol } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
@@ -128,7 +128,7 @@ export const PlanLiveLayer = memo(function PlanLiveLayer({ marks, byName, sW, sH
               svg={veh ? vehicleSymbolSvg(name, rot, e.directed ?? true) : glyphFor(e, byName)}
               sizePx={sizePx} rotation={veh ? 0 : rot} count={e.count}
               caption={caption ? softHyphenateText(caption) : caption}
-              readout={symbolReadoutText(e)} />
+              measured={isMeasuredSymbol(e) ? e : undefined} />
           </span>
         )
       })}

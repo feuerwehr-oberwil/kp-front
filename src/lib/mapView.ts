@@ -66,9 +66,9 @@ export const TEAM_LABEL_STYLE = { font: '700 11px Sora, system-ui, sans-serif', 
  *  `.sym-caption` (03-map.css) — 700 --fs-micro Sora, wraps at compound seams inside its 120px
  *  span, 1px/4px padding, line-height 1.25, hung `margin-top` under the glyph. */
 export const SYM_CAPTION_STYLE = { font: '700 11px Sora, system-ui, sans-serif', maxTextW: 120, chromeW: 8, chromeH: 2, lineH: 13.75 }
-/** `.sym-readout` (03-map.css) — 700 --fs-micro mono, never wraps, 0/8px padding, 18px line,
- *  attached to the glyph's right edge and vertically centred on it */
-export const SYM_READOUT_STYLE = { font: '700 11px "Spline Sans Mono", ui-monospace, monospace', maxTextW: Infinity, chromeW: 16, chromeH: 0, lineH: 18 }
+/** `.sym-pill` (03-map.css) — 700 --fs-micro mono, never wraps, 20px tall; the chrome is the
+ *  0/8px padding plus the 13px Messgerät and its 4px gap. Centred on the glyph's anchor. */
+export const SYM_PILL_STYLE = { font: '700 11px "Spline Sans Mono", ui-monospace, monospace', maxTextW: Infinity, chromeW: 2 * 8 + 13 + 4, chromeH: 0, lineH: 20 }
 /** `.sym-caption { margin-top }` (03-map.css) */
 export const SYM_CAPTION_GAP = 4
 /** `.measure-label.draw-label` (11-measure.css) — 700 --fs-micro mono, never wraps, 2px/8px padding, line-height 1.25 */

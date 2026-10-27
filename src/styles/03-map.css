@@ -147,15 +147,28 @@
   hyphens: manual; -webkit-hyphens: manual; overflow-wrap: break-word;
   box-shadow: var(--e1); pointer-events: none; }
 .sym-caption > span { max-width: 120px; }
-/* a measured symbol's value (lib/symbols · symbolReadoutText, 26.10.2026): attached flush to the
-   tile's right edge, so glyph + value read as ONE mark («Messgerät · CO 180»). Ink until the
-   reading model brings threshold colours. Mono like every other readout on the map; never wraps.
-   Booked by the label pass as part of the glyph (lib/mapView · SYM_READOUT_STYLE). */
-.sym-readout { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); z-index: 5;
-  height: 18px; padding: 0 var(--sp-2); border-radius: 0 var(--r-xs) var(--r-xs) 0;
+/* a MEASURED symbol's mark IS its value (lib/symbols · symbolReading, the Messpunkt – owner pick S3,
+   27.10.2026): one pill with a small Messgerät and the worst gas, centred where the glyph would sit.
+   Calm ink below the alarm limit – colour only where somebody has to act (pick F2/Z2) – red from it.
+   Mono like every other readout on the map; never wraps. Booked by the label pass as the glyph's
+   own footprint (lib/mapView · SYM_PILL_STYLE). */
+.sym-pill { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5;
+  display: flex; align-items: center; gap: var(--sp-1); height: 20px; padding: 0 var(--sp-2); border-radius: var(--r-xs);
   background: var(--ink-fill); color: var(--on-accent-ink); white-space: nowrap;
-  font-family: var(--mono); font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 18px;
-  box-shadow: var(--e1); pointer-events: none; }
+  font-family: var(--mono); font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 20px;
+  box-shadow: var(--e1); }
+.sym-pill .i { width: 13px; height: 13px; flex: none; }
+.sym-pill.alarm { background: var(--red-fill); color: var(--on-fill); }
+/* older than the preset's staleMin: the colour moves to the outline and the age shows – an old
+   danger must neither vanish nor look fresh (pick C) */
+.sym-pill.stale { background: var(--label-bg); color: var(--ink-dim); box-shadow: inset 0 0 0 1.5px var(--ink-faint), var(--e1); }
+.sym-pill.stale.alarm { color: var(--red); box-shadow: inset 0 0 0 1.5px var(--red), var(--e1); }
+.sym-pill-age { font-weight: var(--fw-medium); opacity: .85; }
+/* placed but not yet measured: the dashed pill with the icon alone */
+.sym-pill.empty { background: var(--label-bg); color: var(--ink-dim); box-shadow: var(--e1); outline: 1.5px dashed var(--ink-faint); outline-offset: -1.5px; }
+.sym-pill .sym-floor { right: -12px; }
+/* …the same pill in a list row (the Gebäude's Messungen, ReadingParts) */
+.sym-pill.inline { position: static; transform: none; flex: none; }
 /* inner wrapper carries the symbol's own rotation (chip + glyph rotate together),
    so selection scale / hover stay on the outer .ts and don't fight the rotation */
 .ts-rot { width: 100%; height: 100%; line-height: 0; border-radius: var(--r-xs); }

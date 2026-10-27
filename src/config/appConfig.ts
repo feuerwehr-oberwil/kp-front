@@ -16,6 +16,13 @@ interface SymbolPreset {
    *  place that prints one keys it («CO 180»), and the first filled one rides on the glyph as
    *  its readout instead of hanging under it as a caption (lib/symbols · symbolReadoutText). */
   readout?: string[]
+  /** when a measured value means «Atemschutz»: per `readout` key, red from `atLeast`, and for O₂
+   *  also red `below` (too little AND too much). One limit per gas – above green nobody acts
+   *  differently on Vor- vs Hauptalarm (owner, 27.10.2026). Station-overridable via the config. */
+  alarm?: Record<string, { atLeast?: number; below?: number }>
+  /** minutes after which the last reading counts as old: the mark keeps its colour on the outline
+   *  and says its age («18′») – an old danger must stay visible without looking fresh. */
+  staleMin?: number
   /** shipped suggestion lists for detail fields, keyed by field name. A hint, never a cage:
    *  the field stays free text, and a deployment's own `fleet.attributeLists` entry for the
    *  same symbol+field wins over anything here (lib/symbols · symbolFieldOptions). */
@@ -470,7 +477,13 @@ const base = {
         // first: it is what a Nachkontrolle measures and what the readout shows by default.
         // Raum first, the way the Trupp reports it («2. OG Gang: …»), and it is the caption: the
         // values ride on the glyph itself, so under it only the room is left to say.
-        'FW Messpunkt': { controls: ['floor'], fields: ['Raum', 'CO', 'Ex', 'O₂', 'H₂S'], caption: 'Raum', readout: ['CO', 'Ex', 'O₂', 'H₂S'] },
+        // The alarm limits are the Dräger-typical A1 settings (CO 30 ppm, Ex 10 %UEG, O₂ 19 ↓ / 23 ↑
+        // Vol%, H₂S 5 ppm) until a station overrides them with what its own Multiwarn is set to.
+        'FW Messpunkt': {
+          controls: ['floor'], fields: ['Raum', 'CO', 'Ex', 'O₂', 'H₂S'], caption: 'Raum', readout: ['CO', 'Ex', 'O₂', 'H₂S'],
+          alarm: { CO: { atLeast: 30 }, Ex: { atLeast: 10 }, 'O₂': { below: 19, atLeast: 23 }, 'H₂S': { atLeast: 5 } },
+          staleMin: 15,
+        },
         // ── Personen / Sanität ── the label/name says it; no count on the plain places. A
         // Sammelstelle is RUN by somebody (14.09.: «Bedienung» roster picker, last field).
         'VKF Patientensammelstelle': { controls: ['count', 'floor'], fields: ['Bedienung'] },

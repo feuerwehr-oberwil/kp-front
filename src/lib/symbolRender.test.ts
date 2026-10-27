@@ -2,7 +2,10 @@
 import { createElement } from 'react'
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
-import { luefterVariant, LUEFTER, LUEFTER_EXTRACT, boomKnuckle, TacticalSymbol } from './symbolRender'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { luefterVariant, LUEFTER, LUEFTER_EXTRACT, boomKnuckle, TacticalSymbol, needsWhite } from './symbolRender'
+import { bareBlack } from './glyphTile'
 import { symbolControls } from './symbols'
 
 describe('luefterVariant — Lüfter airflow direction', () => {
@@ -101,4 +104,19 @@ it('an explicit range supersedes the old single-floor badge', () => {
   const { container } = render(createElement(TacticalSymbol, { svg: '', sizePx: 32, floor: 0, floorFrom: 1, floorTo: 2 }))
   expect(container.querySelectorAll('.sym-floor')).toHaveLength(1)
   expect(container.querySelector('.sym-floor')?.textContent).toBe('+1/+2')
+})
+
+describe('bareBlack — which glyphs need the white tile on a dark sheet', () => {
+  const pack = JSON.parse(readFileSync(resolve(__dirname, '../../public/tactical-symbols.json'), 'utf8')) as { symbols: { name: string; svg: string }[] }
+  const svgOf = (n: string) => pack.symbols.find((s) => s.name === n)!.svg
+
+  it('tiles black line art and black solids, never a glyph that brings its own coloured plate', () => {
+    for (const n of ['GB Lift', 'GB Brandmeldezentrale', 'SI Ueberflurhydrant', 'SI Schieber', 'SI Nordpfeil']) expect(bareBlack(svgOf(n)), n).toBe(true)
+    for (const n of ['VKF Feuer', 'VKF Rauch', 'FW AED', 'GB BMA-Z', 'GB RWA-BS', 'FW Messpunkt', 'FW Gefahr allgemein']) expect(bareBlack(svgOf(n)), n).toBe(false)
+  })
+
+  it('so the Karte now tiles the solid black ones too', () => {
+    expect(needsWhite(svgOf('SI Schieber'))).toBe(true)
+    expect(needsWhite(svgOf('VKF Feuer'))).toBe(false)
+  })
 })

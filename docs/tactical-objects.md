@@ -43,14 +43,23 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   the generator, never the JSON, and re-run `python3 tools/gen_symbols.py emit` (a `review`
   mode renders a sign-off grid). Names/categories are compatibility keys referenced across
   appConfig/copy/backend config; keep them stable.
-- **A measured value is part of the mark, not a caption** (the Messpunkt, 26.10.2026). A preset's
-  `readout` (appConfig) names the fields that are measured values («CO», «Ex», «O₂», «H₂S»): the
-  first filled one is attached to the tile's right edge («CO 180», `lib/symbols ·
-  symbolReadoutText`, `TacticalSymbol · readout`) on the Karte, the Plan and the Gebäude alike,
-  and the label pass books it as the glyph's footprint – it is never suppressed. Every other place
-  that prints one keys it (caption «Alle», the printed legend), because a bare «180» names
-  nothing. A point placed but not yet measured is just its glyph. Threshold colours and a reading
-  history are a later phase.
+- **A measured value IS the mark** (the Messpunkt, 26./27.10.2026). A preset's `readout`
+  (appConfig) names the fields that are measured values («CO», «Ex», «O₂», «H₂S»); such a symbol
+  draws as one pill – a small Messgerät and the worst gas – instead of its glyph, on the Karte, the
+  Plan and the Gebäude alike (`lib/symbols · symbolReading`, `TacticalSymbol · measured`). The
+  worst gas is the first one over its `alarm` limit, else the first filled one, so an «Ex 12» is
+  never hidden behind a harmless «CO 14». Calm ink below the limit, red from it – one limit per
+  gas, because above it is Atemschutz either way; O₂ is red both ways. After the preset's
+  `staleMin` the colour moves to the outline and the age shows («18′»). A point not yet measured
+  is the dashed pill with the icon alone. The label pass books the pill as the glyph's footprint –
+  it is never suppressed – and every other place that prints a value keys it (caption «Alle», the
+  printed legend), because a bare «180» names nothing.
+- **A Messpunkt keeps its readings** (`SymbolProps.readings`). Every field commit that changes a
+  measured value appends a row (`recordReading`); rows are never rewritten, so two tablets merge
+  as a union (`lib/mergeWorkspace · withMergedSymbolReadings`), and «one radio report typed gas by
+  gas is one reading» is a display rule (`readingRows`). The panel shows a calm/red bar under each
+  gas and the list under the fields; the Gebäude lists every Messpunkt beside its storey
+  (`StackReadings`), and the Karte's «Messungen» button leads there with the worst value.
 
 ## One object, two surfaces
 

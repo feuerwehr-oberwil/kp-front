@@ -19,7 +19,8 @@ import { Icon } from '../lib/icons'
 import type { useBuildingInfo } from '../lib/useBuildingInfo'
 import type { useCoordPicker } from '../lib/useCoordPicker'
 import type { useIsPhone } from '../lib/useIsPhone'
-import type { LngLat, WeatherData, LayerDef, LayerId } from '../types'
+import type { LngLat, WeatherData, LayerDef, LayerId, SymbolProps } from '../types'
+import { ReadingPill } from '../lib/symbolRender'
 import { undergroundLayerDef } from '../lib/underground'
 import type { LayerPreset } from '../lib/layerPreset'
 import type { KarteWeather } from './useKarteWeather'
@@ -61,6 +62,9 @@ export interface MapControlsProps {
   resetLayers: () => void
   /** the weather layer (workspace/useKarteWeather): its radar pill joins the chip row */
   weather: KarteWeather
+  /** the Karte's «Messungen» button (owner pick K1, 27.10.2026): the worst placed Messpunkt and the
+   *  way to the Gebäude, where their list stands beside the storeys. Null while none is placed. */
+  readings: { worst: SymbolProps; open: () => void } | null
 }
 
 export function MapControls({
@@ -68,13 +72,14 @@ export function MapControls({
   layersPreset, togglePanel, isPhone, slimRail, displayWeather, openWeatherDetails, replayActive,
   georefMode, buildingInfo, buildingFirst, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
   toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
-  weather,
+  weather, readings,
 }: MapControlsProps) {
   // The Karte's ONE bottom-left chip row (below): the Gebäude chip and the radar pill, in that
   // order. Each piece is decided HERE, so the row exists only when one of them has something to
   // say — its presence alone lifts the message lane (08-toasts, 15-mobile · --float-row).
   const rowAllowed = !replayActive && !georefMode.planId
   const showBuilding = rowAllowed && hasBuildingContent(buildingInfo)
+  const showReadings = rowAllowed && !!readings
   // …and it opens by itself the first time (lib/buildingFirstOpen) — not over a panel, the Verlauf
   // or the composer the operator went to: it waits until they come back to the bare Karte
   const buildingAutoOpen = buildingFirst.autoOpen && panel === null && !viewsOpen && !composerOpen && !journalOpen && !offlineReadyOpen
@@ -133,9 +138,17 @@ export function MapControls({
               the message lane. Not during replay (a past Lage, and its scrubber owns the foot) or
               «Karte verknüpfen». On a phone it stays one line: the
               Gebäude chip keeps its words, the radar pill gives way (WeatherLayer.module.css). */}
-          {(showBuilding || wxRadarInRow) && (
+          {(showBuilding || showReadings || wxRadarInRow) && (
             <div className="wb-botleft wx-row">
               {showBuilding && <BuildingFloat info={buildingInfo} compact={isPhone} autoOpen={buildingAutoOpen} onRead={buildingFirst.markRead} />}
+              {/* «Messungen» + the worst reading: one tap to the Gebäude, where the list is */}
+              {showReadings && (
+                <button type="button" className="wb-scale-chip readings-chip" onClick={readings.open}
+                  title={appConfig.copy.building.readingsChipLabel} aria-label={appConfig.copy.building.readingsChipLabel}>
+                  {!isPhone && <span>{appConfig.copy.building.readingsChip}</span>}
+                  <ReadingPill props={readings.worst} inline />
+                </button>
+              )}
               {wxRadarInRow && (
                 <Suspense fallback={null}>
                   <WeatherRadarControls radar={weather.radar} frameIndex={weather.playback.frameIndex}

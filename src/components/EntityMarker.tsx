@@ -19,7 +19,7 @@ import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom, floorBadge } from '../lib/symbolRender'
 import { doneBadge } from '../lib/objectDone'
-import { symbolCaptionText, symbolReadoutText } from '../lib/symbols'
+import { symbolCaptionText, isMeasuredSymbol } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import { markerZ } from '../lib/labelPass'
 import { noteScale, noteWPx } from '../lib/notes'
@@ -406,7 +406,7 @@ export function EntityMarker({
               // a vehicle's NAME is already in the glyph — symbolCaptionText drops it and
               // keeps the rest (Fahrer, eigene Felder, Notizen), which only 'Alle' prints
               caption={capHidden || !capText ? null : softHyphenateText(capText)}
-              readout={symbolReadoutText(e)}
+              measured={isMeasuredSymbol(e) ? e : undefined}
             />
             {/* boom AFTER the body → paints on top (mounted on the turntable / roof) */}
             {hub && <HubretterBoom lengthPx={boomPx} deg={(e.rotation2 ?? 0) - bearing} />}

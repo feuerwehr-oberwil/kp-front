@@ -10,6 +10,7 @@ import { symbolMatchesQuery } from '../lib/symbolSearch'
 import { softHyphenate } from '../lib/symbolWrap'
 import { FORMEN_ORDER, SHAPE_DEFS, ShapeGlyph } from '../lib/shapes'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
+import { bareBlack } from '../lib/glyphTile'
 import { useIsPhone } from '../lib/useIsPhone'
 import { addTools } from '../lib/toolFold'
 import { SheetGrab, useSwipeDismiss } from '../lib/overlays'
@@ -66,7 +67,8 @@ function Cell({ name, svg, onPick }: { name: string; svg: string; onPick: (n: st
         {/* ⚠️ SEC-01 — sanitise AT THIS SINK. This glyph string can be an editor-supplied
             `symbolSvg` (free workspace data); the sink sanitiser is the authoritative XSS gate, so
             every `dangerouslySetInnerHTML` taking an SVG string wraps it, never trusts the prop. */}
-        <span dangerouslySetInnerHTML={{ __html: sanitizeSvg(svg) }} />
+        {/* black-on-clear glyphs get the map's white tile at night (.glyph-tile, 07-toolrail.css) */}
+        <span className={bareBlack(svg) ? 'glyph-tile' : undefined} dangerouslySetInnerHTML={{ __html: sanitizeSvg(svg) }} />
         {/* soft hyphens at the COMPOUND seams (lib/symbolWrap) — the cell is ~94px, so a long
             name wraps, and it has to wrap where the word does: «Kontroll-posten», never
             «Kontrollpos-ten». Display only; `title` and search keep the plain label. */}

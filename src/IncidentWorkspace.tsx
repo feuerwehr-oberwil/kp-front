@@ -111,6 +111,7 @@ import { leitungOptions } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
 import { useObjectPlans, isSelectOnlySurface, railPlanTiles, BUILDING_PICK_ID } from './lib/useObjectPlans'
+import { isMeasuredSymbol, symbolReading } from './lib/symbols'
 import { PlanPicker } from './components/PlanPicker'
 import { fetchShareLink } from './lib/viewLink'
 import { useBuildingInfo } from './lib/useBuildingInfo'
@@ -1061,6 +1062,12 @@ export function IncidentWorkspace({
     out.splice(osmIdx >= 0 ? osmIdx + 1 : out.length, 0, gebaeudeDoc)
     return out
   }, [effBuilding, resolvedPlanDocs])
+  // the Karte's «Messungen» button (MapControls · readings): once a Messpunkt is placed, the worst
+  // one – over its alarm limit first – shown on the way to the Gebäude, where their list stands
+  const worstReading = useMemo(() => {
+    const points = entities.filter((e) => e.kind === 'symbol' && isMeasuredSymbol(e))
+    return points.find((e) => symbolReading(e)?.alarm) ?? points.find((e) => symbolReading(e)?.text) ?? points[0] ?? null
+  }, [entities])
   // …and the LEISTE's version of it, where «Umrisse» and «Gebäude» are one tile that morphs
   // (23.08.). Two tiles for one building was the mechanism showing through: you picked on the
   // first and worked on the second, and the first stayed in the rail forever afterwards doing
@@ -3116,6 +3123,10 @@ export function IncidentWorkspace({
         layers: linkScoped ? layers.filter((l) => l.id !== UNDERGROUND_LAYER_ID) : layers,
         toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
         weather,
+        readings: worstReading && {
+          worst: worstReading,
+          open: () => { if (mode !== 'plans') clearMapUi(); setMode('plans'); setActivePlanId(effBuilding ? gebaeudeDoc.id : BUILDING_PICK_ID) },
+        },
       }} />
 
       <MapDetailPanels {...{

@@ -240,15 +240,16 @@ def build() -> list[dict]:
     # Messpunkt (26.10.2026): where a gas reading is taken – the multigas detector the Trupp
     # holds (body, display with a trace, three sensor ports). The values are detail fields and
     # ride on the glyph as its readout (lib/symbols · symbolReadoutText); the glyph only says
-    # «hier wird gemessen».
+    # «hier wird gemessen». All orange like the rest of the Gefahren family (27.10.): black inner
+    # lines vanished in the palette and the panel header at night.
     add("Gefahren", "FW Messpunkt", svg(
         ['<rect x="-0.62" y="-1.08" width="1.24" height="2.16" rx="0.2" fill="none" '
          f'stroke="{ORANGE}" stroke-width="0.12"/>',
          '<rect x="-0.4" y="-0.82" width="0.8" height="0.62" rx="0.06" fill="none" '
-         f'stroke="{BLACK}" stroke-width="0.07"/>',
-         path([(-0.28, -0.36), (-0.1, -0.56), (0.06, -0.44), (0.28, -0.68)], sw=0.07),
-         line(-0.26, 0.08, 0.26, 0.08, sw=0.07)]
-        + [circle(x, 0.5, 0.08, sw=0.02, fill=BLACK) for x in (-0.26, 0, 0.26)],
+         f'stroke="{ORANGE}" stroke-width="0.07"/>',
+         path([(-0.28, -0.36), (-0.1, -0.56), (0.06, -0.44), (0.28, -0.68)], stroke=ORANGE, sw=0.08),
+         line(-0.26, 0.08, 0.26, 0.08, stroke=ORANGE, sw=0.07)]
+        + [circle(x, 0.5, 0.08, stroke=ORANGE, sw=0.02, fill=ORANGE) for x in (-0.26, 0, 0.26)],
         vb=2.6,
     ))
 
