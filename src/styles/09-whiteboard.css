@@ -1165,3 +1165,6 @@ polygon.wb-draft-open { fill: var(--open); fill-opacity: .1; }
 /* «Kopieren nach …» (components/StoreyCopySheet): what goes, then one chip per storey */
 .wb-copy-what { margin: 0 0 var(--sp-3); }
 .wb-copy-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+/* the storey label menu's host: only there to stop its portalled items' pointer events (Whiteboard) */
+.wb-floor-menu-host { display: contents; }

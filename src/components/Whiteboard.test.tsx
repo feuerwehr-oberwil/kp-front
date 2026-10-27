@@ -1745,6 +1745,16 @@ describe('gesture contracts of the plan surface', () => {
       expect(edits(emit)[1][1]).toMatchObject({ patch: { x: find('d1').x, y: find('d1').y, rotation: find('d1').rotation } })
     })
 
+    it('a selected Wand offers no hose fields (Leitung Nr., Typ) – a plain Linie still does', () => {
+      const lineNo = appConfig.copy.drawingEditor.lineNo
+      const leitung: BoardAnno = { id: 'l9', kind: 'draw', floor: 0, pts: [[0.1, 0.2], [0.9, 0.2]] }
+      mount([wand, leitung], { ...twoStoreys, focus: focused('l9') })
+      expect(screen.queryAllByText(lineNo).length).toBeGreaterThan(0)
+      cleanup()
+      mount([wand, leitung], { ...twoStoreys, focus: focused('w1') })
+      expect(screen.queryAllByText(lineNo)).toHaveLength(0)
+    })
+
     it('deleting a Wand leaves its Durchgang standing free', () => {
       mount([wand, tuer], { ...twoStoreys, focus: focused('w1') })
       fireEvent.keyDown(window, { key: 'Delete' })

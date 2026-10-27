@@ -1096,6 +1096,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     tool, setTool, annos, add, log, setSelId, onLineAttached,
     sW, sH, mapY, localY, stack, outlinePx: (f) => stackOutlinePx(f),
     planCandidatesAt, planAttachmentFor, planEndpointDragState, prevToolRef: prevTool,
+    onContinue: () => setPaletteOpen(false),
   })
   const {
     lineMode, areaMode, draft, setDraft, circleDraft, setCircleDraft,
@@ -2037,7 +2038,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                       <span className="wb-floor-name">{name}</span>
                     </>
                     if (!canHide && !canRemove && !canCopy) return <div className="wb-floor-label">{words}</div>
+                    // ⚠️ the popup is portalled out of the board, but React still bubbles its pointer
+                    // events up through this tile to the pan/zoom surface, which captured the pointer
+                    // and swallowed a mouse click on every item («Ausblenden», «Kopieren nach …»)
                     return (
+                      <span className="wb-floor-menu-host" onPointerDown={(e) => e.stopPropagation()}>
                       <Menu
                         popupClassName="de-menu-pop"
                         itemClassName={() => 'de-menu-item'}
@@ -2056,6 +2061,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                           ...(canRemove ? [{ label: <><Icon id="trash" /><span>{W.removeFloor}</span></>, onClick: () => removeFloor(f), danger: true }] : []),
                         ]}
                       />
+                      </span>
                     )
                   })()}
                   {/* (the north dial used to be drawn on this tile, top-right. It now floats in
@@ -2868,12 +2874,13 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onArrow={(a) => patchCommit(selDraw.id, { arrow: a || undefined })}
           onEnding={(ending) => void changePlanEnding(ending)}
           onReverse={selDraw.kind === 'draw' ? reverseAnno : undefined}
-          onContent={(content) => patchCommit(selDraw.id, { content })}
-          onLineNo={(lineNo) => { patchCommit(selDraw.id, { lineNo }); onLineRenumber?.(selDraw.id, lineNo) }}
+          // a Wand / Weg / Raum is Grundriss, not a hose: no Typ, no Leitung Nr., no Trupp (types · role)
+          onContent={selDraw.role ? undefined : (content) => patchCommit(selDraw.id, { content })}
+          onLineNo={selDraw.role ? undefined : (lineNo) => { patchCommit(selDraw.id, { lineNo }); onLineRenumber?.(selDraw.id, lineNo) }}
           // on the stack the line's storey is its tile: stepping it MOVES the line rather than
           // writing a badge (lib/whiteboard · movedToStorey)
           onFloorTag={stack ? (floorTag) => moveLineToStorey(selDraw.id, floorTag) : (floorTag) => patchCommit(selDraw.id, { floorTag })}
-          onTrupp={onLinkLineTrupp ? (truppId) => onLinkLineTrupp(selDraw.id, truppId) : undefined}
+          onTrupp={onLinkLineTrupp && !selDraw.role ? (truppId) => onLinkLineTrupp(selDraw.id, truppId) : undefined}
           trupps={trupps.filter((t) => t.status !== 'raus').map((t) => ({ id: t.id, name: t.name }))}
           usedLineNos={annos.filter((a) => a.kind === 'draw' && a.id !== selDraw.id && a.lineNo != null).map((a) => a.lineNo!)}
           truppOnLine={truppForLine(selDraw, trupps)?.name}

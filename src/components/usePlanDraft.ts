@@ -79,6 +79,8 @@ interface Args {
   /** the tool the live draft was laid under — the Whiteboard's, which releases the draft when the
    *  tool, the mode or the document changes; «Weiterzeichnen» re-arms it here */
   prevToolRef: React.MutableRefObject<BoardTool>
+  /** «Weiterzeichnen» was picked: close whatever the leave opened (the symbol palette) */
+  onContinue?: () => void
 }
 
 /** The Plan's draft machine; see the file header. WHEN the hand is released (a tool change,
@@ -86,7 +88,7 @@ interface Args {
  *  `releaseDraft`. Called where the create tools begin, so its effect runs where it always did. */
 export function usePlanDraft({
   tool, setTool, annos, add, log, setSelId, onLineAttached,
-  sW, sH, mapY, localY, stack, outlinePx, planCandidatesAt, planAttachmentFor, planEndpointDragState, prevToolRef,
+  sW, sH, mapY, localY, stack, outlinePx, planCandidatesAt, planAttachmentFor, planEndpointDragState, prevToolRef, onContinue,
 }: Args) {
   // Every new ink starts from the ONE plain default (INK_DEFAULTS) – the Karte's rule
   // (useMapDrawing · DRAW_DEFAULTS). Until 23.10.2026 the DrawEditor's edits were written back
@@ -413,6 +415,7 @@ export function usePlanDraft({
         // pre-set the release's memory so re-arming the tool is not itself a leave
         prevToolRef.current = kind
         setTool(kind)
+        onContinue?.()
       }
     })
   }
