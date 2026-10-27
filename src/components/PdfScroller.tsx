@@ -7,8 +7,10 @@ import { activeJump, pdfJumps, type PdfJump } from '../lib/pdfJumps'
 import { sharePdf } from '../lib/pdfShare'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
-import { Chip } from './Chip'
 import { IconButton } from './Button'
+import { Segmented } from './Segmented'
+import { PhoneTabBar } from './PhoneTabBar'
+import { useIsPhone } from '../lib/useIsPhone'
 import { diagnosePdfFailure } from '../lib/pdfDiagnosis'
 import { anchorScroll, canvasScale, clampZoom, pageAnchorAt, pageCanvasBudget, pinchZoom, scrollAfterZoom, stepZoom, toggleZoom, ZOOM_STEP, type Box, type PageAnchor } from '../lib/pdfZoom'
 import { cachedPdfPage, pdfPageKey, snapshotPdfPage } from '../lib/pdfPageCache'
@@ -30,12 +32,17 @@ import s from './PdfScroller.module.css'
 // viewport, desktop included — «people can just scroll». The gestures ARE the control here, and
 // a double tap is the way back to the fit; a reader is not a surface with a tool rail.
 //
-// ONE strip over the pages (27.10.2026, sweep #15, owner: Evakuationspläne need a way to jump and
-// a way out): the PDF's own bookmarks – else its page numbers – as chips, the one being read
-// marked, a tap puts that page at the top (lib/pdfJumps); and at its end the system share sheet,
-// «Teilen / Öffnen in …» another app, a download where there is none (lib/pdfShare). The plan
-// still opens HERE first; the strip is how to move in it and how to take it elsewhere. Not a
-// zoom control – the «NO buttons» rule below is about zooming and stands.
+// ONE section switcher (27.10.2026, sweep #15, owner: Evakuationspläne need a way to jump and a
+// way out): the PDF's own bookmarks – else its page numbers – as the sections of the document,
+// the one being read marked, a tap puts that page at the top (lib/pdfJumps); and at its end
+// «Öffnen in …» another app – the share sheet with the file, a download where there is none
+// (lib/pdfShare). The plan still opens HERE first. Not a zoom control – the «NO buttons» rule
+// below is about zooming and stands.
+// WHERE it stands is the app's rule for a page's sections (owner on staging, 27.10.2026: «show
+// the sections for the pdf in the footer like all other sections (e.g. Einsatzrapport)»): on a
+// phone the docked strip above the nav bar (PhoneTabBar), on a tablet the head – here a bar over
+// the column, where the page's head would be. A `bare` reader (an object visit's plan, its own
+// overlay without the nav bar) keeps it at its own foot.
 //
 // The fit (14.09.2026) is the column's CONTENT box – the scroller minus the lanes its padding
 // reserves for the rails (PdfScroller.module.css · .pages) – not the scroller's whole width: a
@@ -101,7 +108,10 @@ export function PdfScroller({ url, bare = false, fileName }: {
   const [loaded, setLoaded] = useState<{ key: string; jumps: PdfJump[] } | null>(null)
   const jumps = loaded?.key === docKey ? loaded.jumps : null
   const [page, setPage] = useState(0)
-  const stopsRef = useRef<HTMLDivElement>(null)
+  /** the reader's root – the section track is looked up inside it, whichever bar holds it */
+  const rootRef = useRef<HTMLDivElement>(null)
+  const isPhone = useIsPhone()
+  const place: 'dock' | 'head' | 'foot' = bare ? 'foot' : isPhone ? 'dock' : 'head'
   useEffect(() => {
     let live = true
     loadDoc(url).then(pdfJumps).then((j) => { if (live) setLoaded({ key: docKey, jumps: j }) }, () => {})
@@ -127,16 +137,16 @@ export function PdfScroller({ url, bare = false, fileName }: {
     return () => { el.removeEventListener('scroll', onScroll); cancelAnimationFrame(frame) }
   }, [jumps])
   const active = jumps ? activeJump(jumps, page) : -1
-  // …and the marked chip stays in view on a strip longer than the screen (a 20-page PDF)
+  // …and the marked section stays in view on a track longer than the screen (a 20-page PDF)
   useEffect(() => {
-    const strip = stopsRef.current
-    const chip = strip?.children[active] as HTMLElement | undefined
-    if (!strip || !chip) return
-    const left = chip.offsetLeft - strip.offsetLeft
-    if (left < strip.scrollLeft || left + chip.offsetWidth > strip.scrollLeft + strip.clientWidth) {
-      strip.scrollTo({ left: left - (strip.clientWidth - chip.offsetWidth) / 2 })
+    const track = rootRef.current?.querySelector<HTMLElement>('.useg')
+    const btn = track?.children[active] as HTMLElement | undefined
+    if (!track || !btn) return
+    const left = btn.offsetLeft - track.offsetLeft
+    if (left < track.scrollLeft || left + btn.offsetWidth > track.scrollLeft + track.clientWidth) {
+      track.scrollTo({ left: left - (track.clientWidth - btn.offsetWidth) / 2 })
     }
-  }, [active])
+  }, [active, place])
   /** put page `index` at the top of the column, where page 1 sits unscrolled */
   const jumpTo = (index: number) => {
     const el = wrapRef.current
@@ -409,8 +419,18 @@ export function PdfScroller({ url, bare = false, fileName }: {
 
   const P = appConfig.copy.pdf
   const strip = jumps != null && status !== 'error'
+  const sections = jumps?.length ? jumps.map((j, i) => {
+    const page = fillTemplate(P.page, { n: String(j.page + 1) })
+    return { value: String(i), label: j.title ?? String(j.page + 1), title: j.title ? `${j.title} · ${page}` : page }
+  }) : null
+  const pick = (v: string) => { const j = jumps?.[Number(v)]; if (j) jumpTo(j.page) }
+  const openIn = (
+    <IconButton label={P.openIn} onClick={() => void sharePdf(url, fileName).catch(() => {})}>
+      <Icon id="external" />
+    </IconButton>
+  )
   return (
-    <div className={`${s.reader}${bare ? ` ${s.bare}` : ''}${strip ? ` ${s.withStrip}` : ''}`}>
+    <div ref={rootRef} className={`${s.reader}${bare ? ` ${s.bare}` : ''}${strip && place !== 'dock' ? ` ${s.withStrip} ${s[place]}` : ''}`}>
       <div ref={wrapRef} className={s.scroller} onDoubleClick={onDoubleClick}>
         {status !== 'ready' && (
           <div className={s.hint}>
@@ -424,26 +444,14 @@ export function PdfScroller({ url, bare = false, fileName }: {
         )}
         <div ref={pagesRef} className={`${s.pages}${zoom > 1 ? ` ${s.zoomed}` : ''}`} />
       </div>
-      {strip && (
+      {strip && place === 'dock' && (
+        <PhoneTabBar<string> ariaLabel={P.jumps} value={String(active)} onChange={pick} options={sections ?? []} scroll end={openIn} />
+      )}
+      {strip && place !== 'dock' && (
         <nav className={s.strip} aria-label={P.jumps}>
           <div className={s.bar}>
-            {jumps.length > 0 && (
-              <div ref={stopsRef} className={s.stops}>
-                {jumps.map((j, i) => {
-                  const label = fillTemplate(P.page, { n: String(j.page + 1) })
-                  return (
-                    <Chip key={`${j.page}-${i}`} selected={i === active} className={s.stop}
-                      title={j.title ? `${j.title} · ${label}` : label} aria-label={j.title ?? label}
-                      onClick={() => jumpTo(j.page)}>
-                      <span>{j.title ?? j.page + 1}</span>
-                    </Chip>
-                  )
-                })}
-              </div>
-            )}
-            <IconButton label={P.share} className={s.share} onClick={() => void sharePdf(url, fileName).catch(() => {})}>
-              <Icon id="share-ios" />
-            </IconButton>
+            {sections && <Segmented<string> tabs scroll ariaLabel={P.jumps} value={String(active)} onChange={pick} options={sections} />}
+            {openIn}
           </div>
         </nav>
       )}

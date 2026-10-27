@@ -1,7 +1,8 @@
 /**
- * Hand a plan PDF to the device (components/PdfScroller, 27.10.2026, sweep #15): on an iPad or
- * iPhone the system share sheet – «Teilen / Öffnen in …» another app (Files, a PDF reader, Mail,
- * AirDrop) – and where there is no share sheet for files (a desktop browser) a plain download.
+ * «Öffnen in …» – hand a plan PDF to the device (components/PdfScroller, 27.10.2026, sweep #15):
+ * on an iPad or iPhone the system share sheet with the file, whose rows open it in another app
+ * (Files, a PDF reader, Mail, AirDrop) – and where there is no share sheet for files (a desktop
+ * browser) a plain download.
  * The plan always opens IN the app first; this is the way out of it, never the way in.
  *
  * The bytes are the ones the reader already holds (lib/pdfBytes keeps them for the session), so
