@@ -523,8 +523,9 @@
 }
 .hist-ev.clickable:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* ── the trailing group: the Meldung anchor, the row's controls, the chevron ──
-   What you can do with the row, at the right margin (what the record says ABOUT it reads under
-   the sentence since 27.10.2026, `.jr-meta`). It is the fourth grid track, capped
+   The row's own controls at the right margin – play, jump, thumbnails, files (what the record
+   says ABOUT the row, and the «wieder in» pills, read under the sentence since 27.10.2026,
+   `.jr-meta`). It is the fourth grid track, capped
    at `fit-content(50%)` above, so it can never push the sentence below its own half of the row —
    `flex-wrap` is what it spends the rest of a crowded row on instead of stealing the sentence's. */
 .jr-trail { grid-column: 4; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end;

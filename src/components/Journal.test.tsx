@@ -317,6 +317,8 @@ describe('Journal · the classification column', () => {
     })
     const chips = document.querySelectorAll('[data-ev="d1"] .jr-again-btn')
     expect(chips).toHaveLength(2)
+    // under the sentence, not beside it: there they squeezed it to a word a line (27.10.2026)
+    expect(chips[0].closest('.jr-meta')).toBeTruthy()
     fireEvent.click(chips[0])
     expect(onReminderAgain).toHaveBeenCalledWith('p2', 30)
     // …and never on the row that raised the item, or without the handler (viewer/replay)
