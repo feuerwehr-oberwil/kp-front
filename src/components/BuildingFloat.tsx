@@ -4,6 +4,7 @@ import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
 import type { BuildingInfo } from '../lib/api/building'
 import { buildingChipSummary } from '../lib/buildingCard'
+import { useOnlyOpenCard } from '../lib/floatCards'
 import { BuildingCard } from './BuildingCard'
 import s from './BuildingFloat.module.css'
 
@@ -44,6 +45,8 @@ export function BuildingFloat({ info, compact = false, autoOpen = false, onRead 
   const read = useRef(onRead)
   useEffect(() => { read.current = onRead })
   const close = useCallback(() => { setOpen(false); read.current?.() }, [])
+  // one card of the chip row at a time: another opening closes this one (lib/floatCards)
+  useOnlyOpenCard(open, close)
   // Esc closes it, like every other floating card
   useEffect(() => {
     if (!open) return
