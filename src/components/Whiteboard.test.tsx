@@ -1713,6 +1713,53 @@ describe('gesture contracts of the plan surface', () => {
     expect(onCheckpoint).toHaveBeenCalledTimes(1)
   })
 
+  // ── the Gebäude Grundriss (27.10.2026, lib/grundriss): a Durchgang rides on its Wand, a stroke
+  // dropped on another storey tile goes there, «Kopieren nach …» – each ONE step
+  describe('Grundriss on the storey stack', () => {
+    const twoStoreys = { activeId: 'gebaeude', plans: [tafel, gebaeudeDoc], building: { ...aBuilding, floors: [0, 1] } }
+    // the board is 400 × 400: storey 1 is the top tile (y 0–200), the EG the bottom one (200–400)
+    const wand: BoardAnno = { id: 'w1', kind: 'draw', role: 'wand', floor: 0, pts: [[0.2, 0.5], [0.8, 0.5]] }
+    const tuer: BoardAnno = { id: 'd1', kind: 'symbol', symbol: 'GB Ture Durchgang', x: 0.4, y: 0.5, floor: 0, rotation: 0, onWall: 'w1' }
+
+    it('a Wand dragged onto the storey above goes there with its Durchgang – one step', () => {
+      const { container, onCheckpoint } = mount([wand, tuer], twoStoreys)
+      const hit = container.querySelector('polyline[stroke="transparent"]')!
+      drag(hit, [[200, 300], [200, 250], [220, 100]])
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(find('w1').floor).toBe(1)
+      expect(find('w1').pts![0][0]).toBeCloseTo(0.25, 6)
+      expect(find('w1').pts![0][1]).toBeCloseTo(0.5, 6)
+      expect(find('d1')).toMatchObject({ floor: 1, onWall: 'w1' })
+      expect(find('d1').x).toBeCloseTo(0.45, 6)
+      act(() => history.current!.undo())
+      expect(find('w1')).toEqual(wand)
+      expect(find('d1')).toEqual(tuer)
+    })
+
+    it('deleting a Wand leaves its Durchgang standing free', () => {
+      mount([wand, tuer], { ...twoStoreys, focus: focused('w1') })
+      fireEvent.keyDown(window, { key: 'Delete' })
+      expect(latest.annos.map((a) => a.id)).toEqual(['d1'])
+      expect(find('d1').onWall).toBeUndefined()
+    })
+
+    it('«Kopieren nach …» copies the storey\'s Grundriss in one step and says where it went', async () => {
+      const leitung: BoardAnno = { id: 'l9', kind: 'draw', floor: 0, pts: [[0.1, 0.1], [0.9, 0.9]] }
+      const gb = { ...sym, symbols: [{ name: 'GB Ture Durchgang', cat: 'Gebäude', svg: '' }] }
+      const { container, onCheckpoint } = mount([wand, tuer, leitung], { ...twoStoreys, sym: gb })
+      const eg = container.querySelectorAll('.wb-floor')[1]
+      fireEvent.click(eg.querySelector('.wb-floor-label')!)
+      fireEvent.click(await screen.findByRole('menuitem', { name: appConfig.copy.whiteboard.storeyCopy.menu }))
+      fireEvent.click(await screen.findByRole('button', { name: '1. OG' }))
+      fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.storeyCopy.confirm }))
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      const copies = latest.annos.filter((a) => a.floor === 1)
+      expect(copies.map((a) => a.role ?? a.symbol).sort()).toEqual(['GB Ture Durchgang', 'wand'])
+      expect(copies.find((a) => a.symbol)!.onWall).toBe(copies.find((a) => a.role)!.id)
+      expect(ui.toasts[ui.toasts.length - 1]?.text).toContain('1. OG')
+    })
+  })
+
   describe('Verlängern docks only on a closed ring', () => {
     const short: BoardAnno = { id: 'l1', kind: 'draw', pts: [[0.2, 0.2, 0], [0.5, 0.2, 0]], floor: 0 }
     const truck: BoardAnno = { id: 's1', kind: 'symbol', symbol: 'VKF Fahrzeug', x: 0.8, y: 0.2, floor: 0 }
