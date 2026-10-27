@@ -1892,7 +1892,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             Maßstab beside it here: there is nothing to calibrate on a document. */}
         {nearbyBanner}
         <div className="wb-botleft">{objectChip}{buildingFloat}</div>
-        <PdfScroller key={active.id} url={planUrl(active.imageUrl)} />
+        <PdfScroller key={active.id} url={planUrl(active.imageUrl)} fileName={[objectName, active.title || active.code].filter(Boolean).join(' – ')} />
       </div>
     )
   }
