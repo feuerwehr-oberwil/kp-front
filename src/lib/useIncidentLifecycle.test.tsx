@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { IncidentMeta } from './incidents'
 import { reportIncidentClosed, reportIncidentReopened } from './incidentClosed'
-import { useIncidentLifecycle } from './useIncidentLifecycle'
+import { useCloseReopen, useIncidentLifecycle } from './useIncidentLifecycle'
 
 // The wiring the hook owns (the rules themselves are pinned in incidentClosed): a close or reopen
 // on ANOTHER device flips the open Einsatz in place and says so; this device's own close and
@@ -13,6 +13,7 @@ const server = vi.hoisted(() => ({ meta: null as IncidentMeta | null }))
 vi.mock('./incidents', async (orig) => ({
   ...(await orig<typeof import('./incidents')>()),
   getIncident: vi.fn(async () => server.meta),
+  reactivateIncident: vi.fn(async () => server.meta),
 }))
 
 const meta = (extra: Partial<IncidentMeta> = {}) => ({
@@ -66,5 +67,40 @@ describe('useIncidentLifecycle', () => {
     await waitFor(() => expect(result.current.lifecycleElsewhere?.event).toBe('reopened'))
     expect(deps.setForceReadOnly).toHaveBeenCalledWith(false)
     expect(deps.setActiveMeta).toHaveBeenCalledWith(running)
+  })
+})
+
+// Sweep #6 (27.10.2026, owner: «reopening … loaded very slowly»): the Einsatz on screen goes live
+// IN PLACE on the PATCH's own answer – no second fetch of it, no remount, the list not awaited.
+// Another one (the close toast's, after the screen moved on) still opens, with that same meta.
+describe('useCloseReopen · reopenNow', () => {
+  function reopen(activeId: string | null) {
+    const deps = {
+      closingLocallyRef: { current: null }, reopeningLocallyRef: { current: null }, activeId, activeMeta: null,
+      incidents: [], syncRef: { current: null }, archiveReturnRef: { current: 'inc-0' as string | null },
+      refreshList: vi.fn(() => new Promise<IncidentMeta[]>(() => {})), // never answers: must not be waited for
+      selectIncident: vi.fn(async () => {}), markOpened: vi.fn(), setIncidents: vi.fn(), setClosedMedia: vi.fn(),
+      setActiveId: vi.fn(), setActiveMeta: vi.fn(), setWorkspace: vi.fn(), setForceReadOnly: vi.fn(),
+    }
+    return { deps, ...renderHook(() => useCloseReopen(deps)) }
+  }
+
+  it('flips the read-only Einsatz on screen live in place', async () => {
+    server.meta = meta()
+    const { result, deps } = reopen('inc-1')
+    await expect(result.current.reopenNow('inc-1')).resolves.toBe('ok')
+    expect(deps.selectIncident).not.toHaveBeenCalled()
+    expect(deps.setForceReadOnly).toHaveBeenCalledWith(false)
+    expect(deps.setActiveMeta).toHaveBeenCalledWith(server.meta)
+    expect(deps.markOpened).toHaveBeenCalled()
+    expect(deps.archiveReturnRef.current).toBeNull()
+  })
+
+  it('opens another Einsatz with the PATCH answer instead of fetching it again', async () => {
+    server.meta = meta()
+    const { result, deps } = reopen(null)
+    await expect(result.current.reopenNow('inc-1')).resolves.toBe('ok')
+    expect(deps.selectIncident).toHaveBeenCalledWith('inc-1', { readOnly: false, meta: server.meta })
+    expect(deps.setForceReadOnly).not.toHaveBeenCalled()
   })
 })

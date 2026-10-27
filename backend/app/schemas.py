@@ -1763,6 +1763,11 @@ class AlarmsConfig(BaseModel):
     # still being in use. Archived WITHOUT stamping report_done_at: the Rapport was never
     # finished and the record must not claim it was. Reversible like every archive. 0 = off.
     staleIncidentDays: int = Field(default=30, ge=0)
+    # …and an Übung closes itself much sooner (owner, 27.10.2026): a drill is over when nobody
+    # has changed anything for this many hours, and leaving it open kept it in every device's
+    # list and on the Erfassungs-Poster. Ernstfälle are never on this clock. Counted from the
+    # last HUMAN change (vehicle_presence · last_activity), reversible like every archive. 0 = off.
+    exerciseAutoCloseHours: int = Field(default=12, ge=0)
     # How long after an incident opened the station capture link (Erfassungs-Poster QR)
     # may still reach it once its Rapport is done. Incidents WITHOUT a completed Rapport
     # (and not archived) stay reachable regardless of age — the poster shows the open

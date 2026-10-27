@@ -59,6 +59,8 @@ import { QuietAttributionControl } from './MapAttribution'
 import { GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
 import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
+import { oneFingerZoom } from '../lib/tapDragZoom'
+import { useFreshPoint } from '../lib/useFreshPoint'
 import { setLiveBearing } from '../lib/liveBearing'
 import { LABEL_ABOVE, measureLabelPlacement } from '../lib/measureLabelPlace'
 import { attachInsetPx, lineJoints, boundaryPoint, DETACH_SHOW_PROGRESS, dwellFor, forkPortPoint, gpsGuard, moveLineBody, relationshipNetwork, resolveLinePoints, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
@@ -76,6 +78,12 @@ const GHOST_TRAIL_INK = '#8a8f98'
 // endpoint could not be grabbed to extend it (28.08. field feedback). One stacking table for all
 // of it (lib/labelPass), like the end tags directly below.
 const handleZ: React.CSSProperties = { zIndex: MARKER_Z.selected }
+/** …and a measuring point a tap JUST placed (lib/useFreshPoint): click-through for one tap gap, so
+ *  the tap pair's second press reaches MapLibre's tap-and-drag zoom instead of grabbing the point.
+ *  `auto` spelled out on the live one: react-map-gl writes the style keys it is given and never
+ *  removes one, so a dropped `none` would stay on the element. */
+const handleFresh: React.CSSProperties = { ...handleZ, pointerEvents: 'none' }
+const handleLive: React.CSSProperties = { ...handleZ, pointerEvents: 'auto' }
 /** the `measurePoints` default — a module constant, so an absent prop keeps ONE identity and the
  *  memoized measure source below is not rebuilt on every render */
 const NO_POINTS: LngLat[] = []
@@ -200,7 +208,7 @@ export const autoCoarseFixWanted = (staticView: boolean): boolean => !staticView
 
 export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, ref) {
   const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId = VIEWER_TACTICAL.selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, ghostTrails, onGhostTrail, onTeamUnlink, onTeamUndock,
-    readOnly = false, drawings: storedDrawings = VIEWER_TACTICAL.drawings, drawingsVisible = VIEWER_TACTICAL.drawingsVisible, draft = VIEWER_TACTICAL.draft, draftKind = VIEWER_TACTICAL.draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draftStartAttachment, draggable = VIEWER_TACTICAL.draggable, onMarkerDragStart = VIEWER_TACTICAL.onMarkerDragStart, onMarkerMove = VIEWER_TACTICAL.onMarkerMove, onMarkerDragEnd = VIEWER_TACTICAL.onMarkerDragEnd, onRotate, onShapeTransform,
+    readOnly = false, drawings: storedDrawings = VIEWER_TACTICAL.drawings, drawingsVisible = VIEWER_TACTICAL.drawingsVisible, draft = VIEWER_TACTICAL.draft, draftKind = VIEWER_TACTICAL.draftKind, placing, tapsPlace, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draftStartAttachment, draggable = VIEWER_TACTICAL.draggable, onMarkerDragStart = VIEWER_TACTICAL.onMarkerDragStart, onMarkerMove = VIEWER_TACTICAL.onMarkerMove, onMarkerDragEnd = VIEWER_TACTICAL.onMarkerDragEnd, onRotate, onShapeTransform,
     onView, onBasemapUnavailable, onSettled, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand = VIEWER_TACTICAL.freehand, onFreehand = VIEWER_TACTICAL.onFreehand, drawColor = VIEWER_TACTICAL.drawColor, drawWidth = VIEWER_TACTICAL.drawWidth, drawDashed = VIEWER_TACTICAL.drawDashed, selectedDrawingId = VIEWER_TACTICAL.selectedDrawingId, flashDrawingId, onSelectDrawing = VIEWER_TACTICAL.onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete = VIEWER_TACTICAL.onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, selectedEntityIds = [], circleEnabled = false, onCircle,
@@ -369,25 +377,34 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // would stay off for the rest of the session. Every such removal is a render, so this reopens
   // it; enable/disable are idempotent, so running it every render costs nothing.
   useEffect(() => { syncMapKeyboard(mapInst.current) })
-  // ── a one-finger zoom gesture works unless the armed tool uses it (UX sweep M4, owner
-  // 21.10.2026: tools have precedence, «if the underlying tool doesn't interfere» the map zooms) ──
-  // A DOUBLE TAP is off under a tap tool (Punkte, Messen, Hinzufügen, Notiz, Trupp, Koordinaten,
-  // and Kreis, whose tap drops a default-size ring): its taps are the tool's, and a double tap is
-  // two of them. Under a drag tool it zooms: a Freihand tap commits nothing (isTapStroke), and a
-  // Mehrfach tap selects, as under Auswahl. TAP-AND-DRAG belongs to Auswahl alone:
-  // it starts with a tap (a tap tool's) and goes on as a drag (a drag tool's). Pinch and the wheel
-  // stay on throughout. Tap-and-drag rides on touchZoomRotate (the pinch), so it is switched on its
-  // own, and only back on if the pinch is. Per instance: a WebGL remount builds a fresh map with
-  // both on.
+  // ── one finger zooms by the ONE rule of lib/tapDragZoom · oneFingerZoom, shared with the Plan
+  // boards (sweep 27.10.2026 #8, owner: «I need it to work on the map, on the plans, and also on
+  // the normal map in the peacetime view», and then: no one-finger zoom while a tap-to-place tool
+  // is armed). Both gestures under Auswahl, Mehrfach (the Rahmen yields its second press,
+  // useMapCanvasGestures) and with a sheet like Ebenen open; tap-and-drag under Messen (its fresh
+  // point lets the second press through — `measureFresh` below); none under a tap-to-place tool
+  // (Punkte, Hinzufügen, Notiz, Trupp, Koordinaten, Kreis — a tap places, the pinch zooms); the
+  // double tap alone under Freihand, whose drag is the stroke (UX sweep M4). It used to follow `placing` alone, which on the Lage is «any tool
+  // but Auswahl» and on the Karte «any tool at all», the Ebenen sheet included — hence
+  // `tapsPlace`, which a caller narrows to the tools that really place. Pinch and the wheel stay
+  // on throughout. Tap-and-drag rides on touchZoomRotate (the pinch), so it is switched on its
+  // own, and only back on if the pinch is (`_tapDragZoom` is typed in maplibre-gl's own d.ts,
+  // just not documented). Per instance: a WebGL remount builds a fresh map with both on.
   const dragTool = !!freehand || marqueeEnabled
+  const measureFresh = useFreshPoint(measureKind ? measurePoints.length : 0)
+  const zoomAllow = oneFingerZoom(
+    freehand ? 'draw'
+      : measureKind ? 'measure'
+        : circleEnabled || ((tapsPlace ?? !!placing) && !dragTool) ? 'place' : 'navigate',
+  )
   useEffect(() => {
     const m = mapInst.current
     if (!mapReady || !m) return
-    if (placing && !dragTool) m.doubleClickZoom.disable()
-    else m.doubleClickZoom.enable()
-    if (placing) m.touchZoomRotate._tapDragZoom.disable()
+    if (zoomAllow.step) m.doubleClickZoom.enable()
+    else m.doubleClickZoom.disable()
+    if (!zoomAllow.drag) m.touchZoomRotate._tapDragZoom.disable()
     else if (m.touchZoomRotate.isEnabled()) m.touchZoomRotate._tapDragZoom.enable()
-  }, [mapReady, placing, dragTool])
+  }, [mapReady, zoomAllow.step, zoomAllow.drag])
   // WebGL context recovery: iPadOS drops the context under memory pressure / after a long
   // background spell, and MapLibre stays blank without rebuilding. `gl.generation` keys the
   // <Map> below so recovery is a fresh instance; `viewRef` carries the CURRENT view across that
@@ -1536,7 +1553,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
           longitude={p[0]}
           latitude={p[1]}
           anchor="center"
-          style={handleZ}
+          style={measureFresh === i ? handleFresh : handleLive}
           draggable
           onDragStart={() => setMeasureDragNode(i)}
           onDrag={(e) => { vertexPress.cancel(); onMeasureDrag?.(i, [e.lngLat.lng, e.lngLat.lat]) }}

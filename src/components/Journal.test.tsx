@@ -317,6 +317,8 @@ describe('Journal · the classification column', () => {
     })
     const chips = document.querySelectorAll('[data-ev="d1"] .jr-again-btn')
     expect(chips).toHaveLength(2)
+    // under the sentence, not beside it: there they squeezed it to a word a line (27.10.2026)
+    expect(chips[0].closest('.jr-meta')).toBeTruthy()
     fireEvent.click(chips[0])
     expect(onReminderAgain).toHaveBeenCalledWith('p2', 30)
     // …and never on the row that raised the item, or without the handler (viewer/replay)
@@ -367,14 +369,17 @@ describe('Journal · the classification column', () => {
     expect(document.querySelector('[data-ev="n1"] .ic use')?.getAttribute('href')).toBe('#type')
   })
 
-  // «Nachtrag» / «korrigiert HH:MM» / «6×» are footnotes on the row: they belong after the
-  // sentence, not in front of it where they pushed the text off its axis.
-  it('puts the footnotes behind the sentence', () => {
+  // «Nachtrag» / «korrigiert HH:MM» / «6×» are footnotes on the row: they belong UNDER the
+  // sentence – in front of it they pushed the text off its axis, beside it (in the trail) they
+  // took half a phone row and broke «Audionotiz» mid-word (27.10.2026, #12).
+  it('puts the footnotes under the sentence, not in the trail', () => {
     const at = new Date(1_060_000).toISOString()
     setup({ events: [{ ...events[0], correctedAt: at }, ...events.slice(1)] })
     const row = document.querySelector('[data-ev="r3"]')!
     const foot = row.querySelector('.jr-foot')!
     expect(foot.textContent).toMatch(/^korrigiert \d{1,2}:\d{2}$/)
+    expect(foot.closest('.jr-main')).toBeTruthy()
+    expect(foot.closest('.jr-trail')).toBeNull()
     expect(row.querySelector('.jr-text')!.compareDocumentPosition(foot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })
@@ -449,8 +454,9 @@ describe('Journal · the audio row', () => {
     const row = document.querySelector('[data-ev="m1"]')!
     expect(row.querySelector('.tl-play')).toBeTruthy()
     expect(row.querySelector('.jr-jump')).toBeNull()
-    // the missing transcript keeps its amber ON the row, now as a chip on the row meta
-    expect(row.querySelector('.jr-tx-miss')).toBeTruthy()
+    // the missing transcript keeps its amber ON the row, as a chip under the sentence (#12)
+    expect(row.querySelector('.jr-meta .jr-tx-miss')).toBeTruthy()
+    expect(row.querySelector('.jr-trail .jr-tx-miss')).toBeNull()
     fireEvent.click(screen.getByText('Audionotiz (6s)'))
     expect(screen.getByRole('button', { name: 'Durchhören' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Transkript ergänzen' })).toBeTruthy()

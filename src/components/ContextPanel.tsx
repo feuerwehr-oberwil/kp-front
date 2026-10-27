@@ -19,7 +19,7 @@ import { Segmented } from './Segmented'
 import { Button, IconButton } from './Button'
 import { compositeSpec } from '../lib/symbolRender'
 import { bareBlack } from '../lib/glyphTile'
-import { UN_CAPABLE, alarmBar, isMeasuredSymbol } from '../lib/symbols'
+import { UN_CAPABLE, alarmBar, countFieldValue, isMeasuredSymbol, symbolFieldKind } from '../lib/symbols'
 import { ReadingBar, ReadingHistory } from './ReadingParts'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
 import { bearing360 } from '../lib/planProjection'
@@ -42,9 +42,11 @@ const EL_SYMBOLS = new Set<string>(appConfig.symbols.einsatzleiterSymbols)
 const EL_NAME = 'Name'
 const EL_STV = 'Stv.'
 
-function FieldControl({ fieldKey, value, options, placeholder, officerFilter, rankOf, statusOf, onInput, onCommit }: {
+function FieldControl({ fieldKey, value, kind, options, placeholder, officerFilter, rankOf, statusOf, onInput, onCommit }: {
   fieldKey: string
   value: string
+  /** the preset's `fieldKinds` entry (lib/symbols · symbolFieldKind) */
+  kind?: 'count'
   options?: string[]
   placeholder: string
   /** roster picker: sort officers first + offer the "nur Offiziere" filter (leadership symbols) */
@@ -56,6 +58,18 @@ function FieldControl({ fieldKey, value, options, placeholder, officerFilter, ra
   onCommit: (v: string) => void  // commit immediately (tab/select/blur)
 }) {
   const isRoster = ROSTER_FIELDS.has(fieldKey)
+  // a count field («Anzahl Tiere», sweep 27.10.2026 #14) → the ± stepper the person count beside
+  // it wears, each tap one commit. Empty reads «–»; ✕ empties it. A value typed as free text
+  // before it was a stepper («2 Katzen») is NOT a number: it keeps the text field below, so what
+  // somebody wrote is never hidden — emptying it hands the row to the stepper.
+  const count = kind === 'count' ? countFieldValue(value) : undefined
+  if (kind === 'count' && count !== undefined) {
+    return (
+      <Stepper value={count} min={1} max={COUNT_MAX} placeholder="–"
+        onChange={(v) => onCommit(String(v))} onClear={() => onCommit('')} canClear={count != null}
+        ariaLabel={fieldKey} />
+    )
+  }
   // no options → a plain free-text field (commits on blur)
   if (!options?.length) {
     return (
@@ -718,7 +732,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   // the header shares the grip's drag (tap stays a tap there — see useSheetDrag)
   const sheetDrag = useSheetDrag({ onClose, tapToggles: false })
   return (
-    <CtxShell>
+    <CtxShell onClose={onClose}>
       <SheetGrip onClose={onClose} />
       {/* the whole header drags the sheet too, not just the 44×5px grip above it */}
       <div className="ctx-head" {...sheetDrag}>
@@ -1004,7 +1018,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                 // (fillFromUN's reverse branch), which lights the readout and the rings.
                 const stoffSearch = unCapable && normKey(r.k) === STOFF_KEY
                 const control = (
-                  <FieldControl fieldKey={r.k} value={r.v} options={fieldOptions?.[r.k]}
+                  <FieldControl fieldKey={r.k} value={r.v} kind={symbolFieldKind(entity.symbol, r.k)} options={fieldOptions?.[r.k]}
                     placeholder={valuePlaceholder(r.k)}
                     officerFilter={officerSym} rankOf={rankOf} statusOf={personStatus}
                     onInput={(v) => setRow(i, { v })} onCommit={(v) => setRowValue(i, v)} />

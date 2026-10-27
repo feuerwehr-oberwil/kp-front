@@ -10,6 +10,13 @@
 .tag svg { width: 14px; height: 14px; flex: none; }
 .hazard { background: var(--amber-16); box-shadow: none; color: var(--amber-strong); }
 
+/* the register as lines (RegisterLines, the Karte panel): the notes' bullets and size; a hazard's
+   bullet is the warn glyph, hung in the marker's place so every line starts at one edge */
+.facts { margin: 0; padding-left: var(--sp-5); font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink); overflow-wrap: anywhere; }
+.facts li + li { margin-top: var(--sp-1); }
+.hazardLine { position: relative; list-style: none; font-weight: var(--fw-bold); }
+.hazardLine svg { position: absolute; left: calc(var(--sp-5) * -1 + 2px); top: .2em; width: 14px; height: 14px; color: var(--amber-strong); }
+
 .notes { display: flex; flex-direction: column; gap: var(--sp-2); }
 .head { padding-top: var(--sp-2); font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-dim); }
 .head:first-child { padding-top: 0; }

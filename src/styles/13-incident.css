@@ -20,6 +20,11 @@
 @media (hover: hover) {
   .ip-switch-btn:hover { background-image: linear-gradient(var(--hover), var(--hover)); }
 }
+/* …but the EINSATZ pill in the top bar is quiet (27.10.2026, sweep #5 · owner pick B): no glass of
+   its own and no shadow – a frame inside the bar's frame read as one more button among the
+   readouts, where it is the bar's name. It reads like the weather readout beside it; hover and
+   the press/open wash below still lay over it. The Karte's pills (KarteApp) keep their glass. */
+.ip-switch > .ip-switch-btn { background-color: transparent; box-shadow: none; }
 /* pressed while held AND while its menu is open – the Einsatz switcher and the Karte's menu/search
    pills alike (owner 20.10.: the Karte's stayed pressed, the Einsatz's did not) */
 .ip-switch-btn:is(:active:not(:disabled), [aria-expanded='true']) { background-image: linear-gradient(var(--press), var(--press)); }
@@ -38,6 +43,9 @@
 /* storage-full: red like a sync error, because it is the more severe of the two — the work
    isn't merely un-synced, it isn't saved anywhere */
 .ip-status-storage { color: var(--red-strong); }
+/* a CLOSED Einsatz's lock in the same slot (sweep #5 B) – amber, the state to be aware of, as the
+   card's «Abgeschlossen» pill that it opens onto */
+.ip-status-closed { color: var(--amber-strong); }
 /* loud offline pill in the switcher header — only shows while offline, so it never causes the
    constant saving↔saved layout flip; amber-on-tint so it reads at a glance at 3am */
 .ip-offline-chip { display: inline-flex; align-items: center; gap: 4px; flex: none;
@@ -142,6 +150,16 @@
 .ip-card-pill.ip-status-pending { color: var(--amber-strong); background: var(--amber-16); }
 .ip-card-pill.ip-status-error, .ip-card-pill.ip-status-storage {
   color: var(--red-strong); background: var(--red-16); }
+/* «🔒 Abgeschlossen 01:18 ⌄» where «✓ Gespeichert» stands on a running one (sweep #5, 27.10.2026,
+   owner pick B + «only on tap»): amber, a button folding out the state's sentence and its exits */
+.ip-card-pill.ip-card-closed { color: var(--amber-strong); background: var(--amber-16); }
+.ip-card-closed-fold { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.ip-card-closed-say { margin: 0; font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
+.ip-card-closed-say small { display: block; margin-top: 2px; font-size: var(--fs-1); color: var(--ink-faint); }
+.ip-card-closed-fold .ip-card-acts { margin-top: 8px; }
+/* «Wieder öffnen» is THE action of the fold: it takes the room, «Zurück» its word's width */
+.ip-card-closed-fold .ip-card-reopen { flex-grow: 2; }
+.ip-card-reopen .sync-glyph { display: inline-flex; width: 15px; height: 15px; }
 /* The Einsatz's own actions, INSIDE its card — Bearbeiten · Abschliessen · Teilen (Sync lives
    up in the title row).
    ⚠️ ONE LINE, never wrapped (decision 01.09., when Teilen made it three). Three verbs that
@@ -976,6 +994,11 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
   margin: 12px 2px 0;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
+/* the quick filters under the search (27.10.2026): THE choice chip (components/Chip), wrapping;
+   the Einsatzart's choices fold out as their own wrapping line under them */
+.ip-hist-filters { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-1); }
+.ip-hist-filters .chev { width: 14px; height: 14px; }
+.ip-hist-types { display: flex; flex-wrap: wrap; gap: var(--sp-2); flex-basis: 100%; }
 
 /* --- Rapport closing checklist (inside the Einsatzrapport sheet) --------------------- */
 /* Not a card any more — a plain stack of them. The four rows sit at COLUMN level, beside the

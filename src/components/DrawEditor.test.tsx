@@ -11,7 +11,7 @@ afterEach(cleanup)
 const noop = () => {}
 const base = {
   pointCount: 2,
-  onColor: noop, onWidth: noop, onDashed: noop, onLabel: noop,
+  onColor: noop, onDashed: noop, onLabel: noop,
   onMarker: noop, onArrow: noop, onShowDistance: noop, onRadius: noop,
   onDelete: noop, onClose: noop,
 }
@@ -147,6 +147,29 @@ describe('no preset row', () => {
     // (.de-preset itself lives on — the content letters and routing chips wear it)
     for (const p of appConfig.drawing.linePresets) {
       expect(screen.queryByRole('button', { name: p.label })).toBeNull()
+    }
+  })
+})
+
+/* Owner, sweep 27.10.2026 #7: a line leads with its Abschluss (+ Richtung umkehren), then Linie,
+ * Farbe, Text/Marker, then the rest — and no shape has a «Stärke» any more. */
+describe('line editor order', () => {
+  const D = appConfig.copy.drawingEditor
+  const labels = (c: HTMLElement) => [...c.querySelectorAll('.de-row > span:first-child')].map((e) => e.textContent)
+
+  it('reads Abschluss → Linie → Farbe → Text → Marker → Inhalt, without Stärke', () => {
+    const { container } = render(<DrawEditor {...base} drawing={{ kind: 'line' }} onEnding={noop} onReverse={noop} onContent={noop} />)
+    expect(labels(container).slice(0, 6)).toEqual([D.ending, D.lineStyle, D.color, D.label, D.marker, D.content])
+    // the reverse action sits directly under the Abschluss, in its group
+    expect(screen.getByRole('button', { name: D.reverse }).closest('.de-group')!.querySelector('.de-row > span')!.textContent).toBe(D.ending)
+    expect(labels(container)).not.toContain(D.width)
+  })
+
+  it('offers no Stärke on an area or a circle either', () => {
+    for (const kind of ['area', 'circle'] as const) {
+      const { container, unmount } = render(<DrawEditor {...base} drawing={{ kind, radiusM: 20 }} />)
+      expect(labels(container)).not.toContain(D.width)
+      unmount()
     }
   })
 })

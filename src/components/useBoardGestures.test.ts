@@ -173,18 +173,25 @@ describe('the board’s one-finger zoom', () => {
     expect(b.applyView).toHaveBeenCalled()
   })
 
-  // UX sweep M4 (owner 21.10.2026): a gesture zooms unless the armed tool uses it
-  it('under the Mehrfach-Rahmen a double tap zooms, and tap-then-drag is still the Rahmen', () => {
+  // Sweep 27.10.2026 #8 (owner: «doesn't work reliably yet throughout everything»): Mehrfach has
+  // both one-finger zooms — the Rahmen starts on a FRESH press, the second press of a tap pair is
+  // the zoom's (lib/tapDragZoom · oneFingerZoom)
+  it('under the Mehrfach-Rahmen tap-then-drag zooms, and a fresh drag still boxes', () => {
     const b = mount('lasso')
     b.tap(110, 220, 0)
     b.tap(110, 220, 200, 2)
     expect(b.zoomTo).toHaveBeenCalledTimes(1)
     b.tap(110, 220, 1000, 3)
     b.down(110, 220, { id: 4, t: 1200 })
-    b.move(110, 300, { id: 4, t: 1250 })
-    b.move(200, 320, { id: 4, t: 1300 })
-    b.up(200, 320, { id: 4, t: 1350 })
-    expect(b.zoomTo).toHaveBeenCalledTimes(1)
+    b.move(110, 240, { id: 4, t: 1250 })
+    b.move(110, 240 + 128, { id: 4, t: 1300 })
+    b.up(110, 368, { id: 4, t: 1350 })
+    expect(b.scaleRef.current).toBeCloseTo(4, 9) // ×2 from the double tap, ×2 from the drag
+    b.zoomTo.mockClear()
+    b.down(110, 220, { id: 5, t: 3000 })
+    b.move(200, 320, { id: 5, t: 3050 })
+    b.up(200, 320, { id: 5, t: 3100 })
+    expect(b.zoomTo).not.toHaveBeenCalled()
   })
 
   it('a tap tool owns its taps — no zoom', () => {

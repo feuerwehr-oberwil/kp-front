@@ -367,7 +367,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *Close:* every sheet/dialog ✕ IS the global `.ip-x` in the TSX (36px, 18px glyph, grey fill);
     a module class may position it, never restyle it. 44px only beside a 44px search field
     (Palette, Verlauf search, TruppFinder — `.x:global(.ip-x)`). The armed material keeps its
-    on-ink ✕ (`.wb-dock-x`); Ebenen wears `.ip-x` (`.lc-x` only places it). A
+    on-ink ✕ (`.wb-dock-x`), and it stands at the dock's END (27.10.2026, owner: «X on the right
+    everywhere»): the phone's tool pill reads [options · ⓘ | ✕], sticky at the right while the bar
+    scrolls; the tablet's column keeps it at its head, the column's top-right corner
+    (`ToolDock` renders it last, CSS `order` lifts it in the column). Ebenen wears `.ip-x` (`.lc-x` only places it). A
     menu has no ✕ row and no lone ⓘ row (29.09.2026): its tile toggles it and a row or a press
     elsewhere closes it; an ⓘ sits at the END of the last row and opens its sentence under that
     row (Ansichten).
@@ -549,14 +552,19 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     keyframe: it drifts against the latch and, under `prefers-reduced-motion`, paints full on the
     first frame while the timer still runs. The ring haloes the glyph – never strokes across a
     label, and nothing may reflow under the finger mid-hold.
-  - *A one-finger zoom gesture works unless the armed tool uses it* (20./21.10.2026, owner: a
-    double tap is «a map function … definitely not for finishing something»; tools «have
-    precedence», the map zooms «if the underlying tool doesn't interfere»). Same on the Karte
-    (`MapView`, MapLibre's handlers) and a Plan (`useBoardGestures`, `lib/tapDragZoom`):
-    Auswahl — double tap and tap-and-drag zoom. A drag tool (Freihand, the Mehrfach-Rahmen) —
-    double tap zooms (its taps mean nothing), tap-and-drag is off (the drag draws). A tap tool
-    (Punkte, Messen, Hinzufügen, Notiz, Trupp, Koordinaten, Kreis) — neither; its taps are its own.
-    Pinch always navigates. Nothing finishes on a double tap — ✓ finishes a Punkte Linie / Fläche.
+  - *One finger zooms while navigating, not while placing* (20./21.10.2026, owner: a double tap
+    is «a map function … definitely not for finishing something»; 27.10.2026: «I need it to work
+    on the map, on the plans, and also on the normal map in the peacetime view», and no one-finger
+    zoom while a tap-to-place tool is armed). ONE rule, `lib/tapDragZoom · oneFingerZoom`, for the
+    Lage and the Karte (`MapView`, MapLibre's handlers) and a Plan (`useBoardGestures`,
+    `usePlanCreate`): Auswahl, Mehrfach and an open sheet like Ebenen — double tap and
+    tap-and-drag (the Rahmen starts on a fresh press; the second press of a tap pair is the
+    zoom's). Messen — tap-and-drag only (two quick taps are two points; the point the first tap
+    placed is click-through for one tap gap, `lib/useFreshPoint`, so the second press reaches the
+    zoom). Freihand — the double tap only (its taps commit nothing, its drag is the stroke — UX
+    sweep M4). A tap-to-place tool (Punkte, Hinzufügen, Notiz, Trupp, Koordinaten, Form, Massstab,
+    Kreis) — neither; a tap places, the pinch zooms. Pinch always navigates.
+    Nothing finishes on a double tap — ✓ finishes a Punkte Linie / Fläche.
   - *Pressed state is the `--press` wash* – `background-image: linear-gradient(var(--press),
     var(--press))` on `:active:not(:disabled)`, so it composes over any background colour.
     **Nothing moves**: no scale, no translate – motion on press reads as lag under a glove.

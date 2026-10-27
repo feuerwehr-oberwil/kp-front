@@ -9,7 +9,7 @@ import { fillTemplate } from './format'
 import { appConfig } from '../config/appConfig'
 import { modulesFromConfig, moduleViewer, moduleHiddenWithGebaeude, nearbyObjectWarnM } from './deploymentConfig'
 import { comparePlanModules, moduleCatalogue, sortPlanModuleIds } from './planOrder'
-import { moduleTileLabel } from './navRail'
+import { planLabel } from './navRail'
 import type { LngLat, PlanDocument } from '../types'
 
 /**
@@ -127,17 +127,12 @@ function normModule(m: string): string {
 
 // Modul 4 and the Modul-5 sub-sheets (Wasser/PV/RWA/…, including the numbered siblings Wasser 1
 // and Wasser 2) have no fixed tile in `planDocuments` and vary per station — so we DON'T hardcode
-// their names. We synthesize a tile from the backend module key (the only structural part is the
-// module number for the `code`) and label it with whatever the source filename carried, threaded
-// through as the dataset `title` — which is what keeps two waterplans apart in the rail.
+// them. We synthesize a tile from the backend module key: its name is the key's (`planLabel`, the
+// one rule every plan list says), the source filename stays its title.
 export function extraModuleDoc(id: string, url: string, title?: string): PlanDocument {
-  const num = /^modul(\d+)/.exec(id)?.[1] ?? '?'
   const label = (title || '').trim()
-  // a sub-slot (modul5-wasser) reads "Wasser" in the rail, not "Modul 5"; a bare module keeps
-  // "Modul N". moduleTileLabel owns the rule — it also keeps the label short enough for the
-  // rail when the source filename is anything but (see there).
-  const code = moduleTileLabel(id, label)
-  return { id, code, title: label || `Modul ${num}`, subtitle: '', imageUrl: url, orientation: 'landscape' }
+  const code = planLabel(id)
+  return { id, code, title: label || code, subtitle: '', imageUrl: url, orientation: 'landscape' }
 }
 
 // The canonical plan-doc id for a backend PDF dataset, or null if it isn't a module plan.
@@ -295,7 +290,9 @@ export function useObjectPlans(
       // module tiles: only those the near Einsatzobjekt actually provides
       const moduleDocs = catalogModules
         .filter((p) => !!backendPlans[p.id] && !combined.has(p.id) && !hidden(p.id))
-        .map((p) => pin({ ...p, imageUrl: backendPlans[p.id], viewer: moduleViewer(p.id) }))
+        // the tile's name is the module key's (`planLabel`), whatever code the catalogue gives it
+        // («M4», «W»): one name in the rail, the chooser, the Karte and on a visit (owner, 27.10.2026)
+        .map((p) => pin({ ...p, code: planLabel(p.id, p.code), imageUrl: backendPlans[p.id], viewer: moduleViewer(p.id) }))
       // Modul 4 / Modul-5 sub-slots the backend provides but the catalog has no tile for
       const known = new Set(catalogModules.map((p) => p.id))
       const extras = Object.keys(backendPlans)
