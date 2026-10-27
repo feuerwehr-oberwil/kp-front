@@ -98,13 +98,15 @@ export function MapToolDocks({
       {/* the armed tool's readout — ONE pill, bottom centre, glyph + name (3am sweep point 3,
           23.10.2026). A symbol wears its own SVG and name, the others their rail glyph and word;
           Linie/Fläche say their input mode. The symbol tool has no dock any more: the pill IS
-          its readout, «Mehrere platzieren» stands beside it, and the way out is the rail tile or
-          Escape. Not on the phone while Messen is armed – its results panel stands in that row. */}
+          its readout, «Mehrere platzieren» stands beside it, and the way out is the ✕ beside that
+          (27.10.2026), the rail tile or Escape. Not on the phone while Messen is armed – its results panel stands in that row. */}
       {mapUI && tool !== 'select' && !(isPhone && tool === 'measure') && (() => {
         if (tool === 'symbol') {
           if (!pending) return null
+          // the ✕ puts it down exactly as Escape does (useMapActions · cancelPlacement) – the Plan's twin
           return <ArmedToolPill glyph={<ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />} name={formatSymbolName(pending) || pending}
-            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }} />
+            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }}
+            onClose={() => { setPending(null); setPendingShape(null); setRotStart(null); setTool('select') }} />
         }
         if (tool === 'shape') {
           if (!pendingShape) return null

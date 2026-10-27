@@ -50,7 +50,8 @@ The Einsatz sketch of a building (owner picks 27.10.2026; peace time has the PDF
   room with Wände.)
 - **A Durchgang sits on a Wand** (`onWall`). Placed or dropped within ~30 screen px of a Wand on
   its storey it snaps onto the nearest segment, turned along it (no swing arc); further away it
-  stands free and `onWall` is cleared. On the stack the Durchgang tool places «mehrere» by default.
+  stands free and `onWall` is cleared. On the stack the Durchgang tool places «mehrere» by default;
+  the ✕ beside the armed pill or Escape stops it.
   A mouse shows the door where the click would put it.
 - **Doors ride on their wall in the board funnel** (`Whiteboard · writeBoard` → `carryDoors`):
   every write that moves a Wand – body drag, ✥ / ⟳, a vertex grip, a drop on another storey –

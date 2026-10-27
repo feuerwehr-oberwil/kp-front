@@ -29,9 +29,10 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   placing symbol XYZ and that's it»). Bottom centre of the Karte, the Einsatz map, a Plan and the
   Tafel, tablet and phone: the tool's glyph (a symbol's own SVG) and its name («F Feuer»,
   «Linie · Freihand», «Fläche · Punkte», «Absperrkreis»), no sentence, no button, pointer events
-  pass through. The symbol tool has no option dock any more – the pill is its readout, the way out
-  is the rail tile (tap the armed tool again) or Escape, and «Mehrere platzieren» is a 44 px toggle
-  with its word beside the pill. The other tools keep their option docks (Freihand ↔ Punkte, ✓,
+  pass through. The symbol tool has no option dock any more – the pill is its readout, «Mehrere
+  platzieren» is a 44 px toggle with its word beside the pill, and the way out is the ✕ beside that
+  toggle or Escape on the Karte and the Plan alike (27.10.2026: with «Mehrere platzieren» on, the
+  Plan's Escape did nothing and there was no ✕ – no way to stop placing Durchgänge). The other tools keep their option docks (Freihand ↔ Punkte, ✓,
   Strecke ↔ Fläche, Trupp finden). On a phone the pill stands on the floating row (above the dock
   while one is out) and yields to the Messen results panel.
 - **A new line starts from the plain default, always** (`useMapDrawing · DRAW_DEFAULTS`,

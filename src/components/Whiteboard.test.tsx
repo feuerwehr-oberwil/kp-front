@@ -1797,6 +1797,20 @@ describe('gesture contracts of the plan surface', () => {
       expect(screen.queryAllByText(lineNo)).toHaveLength(0)
     })
 
+    // round 2 (27.10.2026): «Mehrere platzieren» is the Durchgang's default here, so it stays armed
+    // after every tap – Escape and the pill's ✕ must put it down (the Plan's Escape never did)
+    it.each(['Escape', '✕'])('%s stops placing Durchgänge', (how) => {
+      const gb = { ...sym, ready: true, order: ['Gebäude'], byName: { 'GB Ture Durchgang': '<svg/>' }, symbols: [{ name: 'GB Ture Durchgang', cat: 'Gebäude', svg: '<svg/>' }] }
+      const { container } = mount([], { ...twoStoreys, sym: gb })
+      fireEvent.click(screen.getByRole('button', { name: 'Symbol' }))
+      fireEvent.click(screen.getAllByRole('button', { name: /Durchgang/ })[0])
+      expect(screen.getByRole('button', { name: appConfig.copy.keepPlacing }).getAttribute('aria-pressed')).toBe('true')
+      if (how === 'Escape') fireEvent.keyDown(window, { key: 'Escape' })
+      else fireEvent.click(within(container.querySelector('.armed-pill-row')!).getByRole('button', { name: appConfig.copy.cancel }))
+      expect(container.querySelector('.armed-pill-row')).toBeNull()
+      expect(container.querySelector('.wb-ink')).toBeNull()
+    })
+
     it('deleting a Wand leaves its Durchgang standing free', () => {
       mount([wand, tuer], { ...twoStoreys, focus: focused('w1') })
       fireEvent.keyDown(window, { key: 'Delete' })

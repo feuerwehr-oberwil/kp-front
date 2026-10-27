@@ -1124,6 +1124,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     if (!selectOnly) return
     setTool('pan'); setPending(null); setPendingShape(null); setPaletteOpen(false); setDraft(null); setCircleDraft(null)
   }, [selectOnly, setTool, setPending, setPendingShape, setDraft, setCircleDraft])
+  /** Put a symbol / shape being placed down – the armed pill's ✕ and Escape (round 2, 27.10.2026) */
+  const stopPlacing = () => { setPending(null); setPendingShape(null); setTool('pan') }
   // Esc cancels an in-progress node shape, else clears the selection
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1140,8 +1142,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
       // Escape leaves the tool like ✕ does: putting the tool down releases the draft, and a
       // committable one asks «Speichern · Verwerfen · Weiterzeichnen» (27.10.2026 – until then
-      // Escape was the one silent discard; «Verwerfen» is now the explicit way to throw it away)
+      // Escape was the one silent discard; «Verwerfen» is now the explicit way to throw it away).
+      // A symbol or shape being placed is put down first – the Karte's order (lib/hotkeyRoute ·
+      // routeEscape); with «Mehrere platzieren» on, the Plan had no way out (round 2, 27.10.2026)
       if (rotStart) { setRotStart(null); clearRotMagnet() }
+      else if (pending || pendingShape) stopPlacing()
       else if (draft) setTool('pan')
       else if (circleDraft) setCircleDraft(null)
       // …then the Passung dock. It is deliberately not an Overlay (it must not trap the board
@@ -1156,8 +1161,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // `rotStart` belongs here: without it the handler kept the null from before the first tap,
     // and Escape skipped a half-laid Rotation (review sweep 23.09.2026). `clearRotMagnet` is
     // left out on purpose: it is declared further down (useWbRotor), and every render's copy
-    // touches the same refs and setter, so an older one does the same.
-  }, [rotStart, draft, circleDraft, qualityFor, selId, notePanelId])
+    // touches the same refs and setter, so an older one does the same – `stopPlacing` likewise
+    // (setters only); `pending` / `pendingShape` are what it is gated on, so they are in.
+  }, [rotStart, draft, circleDraft, qualityFor, selId, notePanelId, pending, pendingShape])
 
   // reset transient state when switching document. Sits BELOW usePlanMeasure and usePlanDraft
   // because it clears the state they own — above them, resetEphemeral and setDraft are not yet
@@ -2667,14 +2673,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
       {/* the armed tool's readout — the SAME pill the Lage map shows (MapToolDocks): glyph + name,
           bottom centre, nothing else. The symbol tool has no dock here either; «Mehrere
-          platzieren» stands beside the pill. Rest tool is 'pan' here (the plan pans on empty
+          platzieren» and a ✕ (27.10.2026) stand beside the pill. Rest tool is 'pan' here (the plan pans on empty
           canvas) vs the map's 'select'. Not on the phone while Messen is armed – its results
           panel stands in that row. */}
       {tool !== 'pan' && !(isPhone && tool === 'measure') && (() => {
         if (tool === 'symbol') {
           if (!pending) return null
           return <ArmedToolPill glyph={<ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />} name={formatSymbolName(pending) || pending}
-            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }} />
+            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }} onClose={stopPlacing} />
         }
         if (tool === 'shape') {
           if (!pendingShape) return null

@@ -877,7 +877,7 @@ span.wb-ghost-label { cursor: default; }
    phone moves the row onto the floating baseline (15-mobile). */
 .armed-pill-row { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome-raised);
   display: flex; align-items: center; gap: var(--sp-2); max-width: calc(100% - 32px); pointer-events: none; }
-.armed-pill, .armed-pill-lock { display: inline-flex; align-items: center; height: var(--tap); border-radius: calc(var(--tap) / 2);
+.armed-pill, .armed-pill-lock, .armed-pill-x { display: inline-flex; align-items: center; height: var(--tap); border-radius: calc(var(--tap) / 2);
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--e4);
   white-space: nowrap; min-width: 0; }
 .armed-pill { gap: var(--sp-3); padding: 0 var(--sp-4) 0 var(--sp-2); color: var(--ink); font-size: var(--fs-3); font-weight: var(--fw-bold); }
@@ -890,6 +890,12 @@ span.wb-ghost-label { cursor: default; }
   font-size: var(--fs-2); font-weight: var(--fw-medium); }
 .armed-pill-lock .i { width: 18px; height: 18px; }
 .armed-pill-lock.on { background: var(--sel); color: var(--on-sel); border-color: transparent; }
+/* …and the ✕ beside it that puts the placing tool down (round 2, 27.10.2026): a round --tap button
+   in the same glass, so «stop» is never just Escape */
+.armed-pill-x { pointer-events: auto; justify-content: center; width: var(--tap); padding: 0; color: var(--ink-dim); cursor: pointer; flex: none; }
+.armed-pill-x .i { width: 18px; height: 18px; }
+.armed-pill-x:active { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) { .armed-pill-x:hover { color: var(--ink); } }
 .armed-pill-lock:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) { .armed-pill-lock:not(.on):hover { color: var(--ink); } }
 
