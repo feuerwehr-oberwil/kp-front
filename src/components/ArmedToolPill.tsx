@@ -9,16 +9,23 @@
 // as a 44px toggle BESIDE the pill, its word visible, only while a symbol is armed. A hold on the
 // rail's Symbol tile was the other option, but on a compact rail that tile is icon-only and a
 // still hold there is already the hold-tooltip (ui-conventions · touch vocabulary).
+//
+// …and with it a ✕ (owner, Gebäude round 2, 27.10.2026): with «Mehrere platzieren» on – the
+// Durchgang's default on the Gebäude stack – a symbol stays armed after every tap, and there was
+// no visible way to stop placing. The ✕ is the same «Abbrechen» the other tools' docks carry; the
+// pill itself stays a readout.
 import type { ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
 
-export function ArmedToolPill({ glyph, name, lock, className }: {
+export function ArmedToolPill({ glyph, name, lock, onClose, className }: {
   glyph: ReactNode
   name: string
   /** the «Mehrere platzieren» toggle beside the pill (symbol placement only) */
   lock?: { on: boolean; onToggle: () => void }
+  /** the ✕ that puts the placing tool down (symbol placement only, beside the toggle) */
+  onClose?: () => void
   className?: string
 }) {
   return (
@@ -33,6 +40,11 @@ export function ArmedToolPill({ glyph, name, lock, className }: {
       {lock && (
         <button type="button" className={`armed-pill-lock${lock.on ? ' on' : ''}`} aria-pressed={lock.on} onClick={lock.onToggle}>
           <Icon id="place-repeat" /><span>{appConfig.copy.keepPlacing}</span>
+        </button>
+      )}
+      {onClose && (
+        <button type="button" className="armed-pill-x" title={appConfig.copy.cancel} aria-label={appConfig.copy.cancel} onClick={onClose}>
+          <Icon id="close" />
         </button>
       )}
     </div>

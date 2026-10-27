@@ -21,7 +21,7 @@ describe('nearestWall', () => {
   it('ignores walls out of reach, on another storey, and lines without the role', () => {
     expect(nearestWall([w], 0, 0.4, 0.8, AR, 0.05)).toBeNull()
     expect(nearestWall([w], 1, 0.4, 0.5, AR, 0.05)).toBeNull()
-    expect(nearestWall([{ ...w, role: 'weg' }], 0, 0.4, 0.5, AR, 0.05)).toBeNull()
+    expect(nearestWall([{ ...w, role: undefined }], 0, 0.4, 0.5, AR, 0.05)).toBeNull()
   })
 })
 
@@ -71,27 +71,26 @@ describe('carryDoors', () => {
 
 describe('copyGrundriss', () => {
   let n = 0
-  const mint = (p: string) => `${p}${++n}`
+  const mint = (p: string) => `${p}-copy${++n}`
   const w = wall('w1', [[0.1, 0.5, 0], [0.9, 0.5, 0]])
-  const room: BoardAnno = { id: 'a1', kind: 'area', role: 'raum', floor: 0, pts: [[0, 0], [0.2, 0], [0.2, 0.2]], label: 'Küche' }
+  const flaeche: BoardAnno = { id: 'a1', kind: 'area', floor: 0, pts: [[0, 0], [0.2, 0], [0.2, 0.2]], label: 'Brandabschnitt' }
   const d = door('d1', 0.3, 0.5, { onWall: 'w1' })
   const stair: BoardAnno = { id: 's2', kind: 'symbol', symbol: 'GB Treppe 8', x: 0.8, y: 0.8, floor: 0, floorFrom: 0, floorTo: 1 }
   const leitung: BoardAnno = { id: 'l9', kind: 'draw', floor: 0, pts: [[0, 0], [1, 1]] }
   const feuer: BoardAnno = { id: 's9', kind: 'symbol', symbol: 'SL Feuer', x: 0.5, y: 0.5, floor: 0 }
   const otherFloor = wall('w2', [[0, 0], [1, 0]], 1)
-  const annos = [w, room, d, stair, leitung, feuer, otherFloor]
+  const annos = [w, flaeche, d, stair, leitung, feuer, otherFloor]
 
   it('copies only the Grundriss of the storey, as independent objects on each target', () => {
     const { added, counts } = copyGrundriss(annos, 0, [1, 2], isGb, mint)
-    expect(counts).toEqual([{ floor: 1, n: 3 }, { floor: 2, n: 4 }])
+    expect(counts).toEqual([{ floor: 1, n: 2 }, { floor: 2, n: 3 }])
     expect(added.every((a) => !annos.some((o) => o.id === a.id))).toBe(true)
     const on2 = added.filter((a) => a.floor === 2)
-    expect(on2.map((a) => a.symbol ?? a.role).sort()).toEqual(['GB Treppe 8', DOOR_SYMBOL, 'raum', 'wand'].sort())
+    expect(on2.map((a) => a.symbol ?? a.role).sort()).toEqual(['GB Treppe 8', DOOR_SYMBOL, 'wand'].sort())
     const w2 = on2.find((a) => a.role === 'wand')!
     expect(w2.pts!.every((p) => p[2] === 2)).toBe(true)
     expect(on2.find((a) => a.symbol === DOOR_SYMBOL)!.onWall).toBe(w2.id)
     expect(on2.find((a) => a.symbol === 'GB Treppe 8')).toMatchObject({ floorFrom: undefined, floorTo: undefined })
-    expect(on2.find((a) => a.role === 'raum')!.label).toBe('Küche')
   })
   it('skips a ranged symbol that already stands on the target', () => {
     const { added } = copyGrundriss(annos, 0, [1], isGb, mint)

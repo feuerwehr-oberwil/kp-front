@@ -1094,7 +1094,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         return { key: `object:${a.id}`, target: { kind: 'object', id: a.id }, point: edge, defaultRouting: DEFAULT_OBJECT_ROUTING }
       })
     const lines = lineEndTargets(renderAnnos
-      // a Wand / Weg is layout: no Leitung couples onto its end
+      // a Wand is layout: no Leitung couples onto its end
       .filter((a) => a.kind === 'draw' && !a.role && a.id !== sourceId && (a.pts?.length ?? 0) >= 2)
       .map((a) => {
         const pts = a.pts!, px = (p: BoardPoint): [number, number] => [p[0] * sW, mapY(p[2] ?? a.floor, p[1]) * sH]
@@ -1115,7 +1115,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const {
     lineMode, areaMode, draft, setDraft, circleDraft, setCircleDraft,
     draftFloorRef, noding, draftActive, planDraftMagnetState, planJoinPreview,
-    addLine, addArea, finishShape, releaseDraft, grundriss, pickInput, tapDraftVertex, ring, showRing, openName,
+    addLine, addArea, finishShape, releaseDraft, grundriss, pickInput, tapDraftVertex, snapWallVertex, ring, showRing, openName,
   } = planDraft
   // Arriving on the selection-only sheet also DISARMS what was carried over: its dock went with
   // the rail, so a still-pending symbol would be an invisible armed state that fires on the next
@@ -1124,6 +1124,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     if (!selectOnly) return
     setTool('pan'); setPending(null); setPendingShape(null); setPaletteOpen(false); setDraft(null); setCircleDraft(null)
   }, [selectOnly, setTool, setPending, setPendingShape, setDraft, setCircleDraft])
+  /** Put a symbol / shape being placed down – the armed pill's ✕ and Escape (round 2, 27.10.2026) */
+  const stopPlacing = () => { setPending(null); setPendingShape(null); setTool('pan') }
   // Esc cancels an in-progress node shape, else clears the selection
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1140,8 +1142,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
       // Escape leaves the tool like ✕ does: putting the tool down releases the draft, and a
       // committable one asks «Speichern · Verwerfen · Weiterzeichnen» (27.10.2026 – until then
-      // Escape was the one silent discard; «Verwerfen» is now the explicit way to throw it away)
+      // Escape was the one silent discard; «Verwerfen» is now the explicit way to throw it away).
+      // A symbol or shape being placed is put down first – the Karte's order (lib/hotkeyRoute ·
+      // routeEscape); with «Mehrere platzieren» on, the Plan had no way out (round 2, 27.10.2026)
       if (rotStart) { setRotStart(null); clearRotMagnet() }
+      else if (pending || pendingShape) stopPlacing()
       else if (draft) setTool('pan')
       else if (circleDraft) setCircleDraft(null)
       // …then the Passung dock. It is deliberately not an Overlay (it must not trap the board
@@ -1156,8 +1161,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // `rotStart` belongs here: without it the handler kept the null from before the first tap,
     // and Escape skipped a half-laid Rotation (review sweep 23.09.2026). `clearRotMagnet` is
     // left out on purpose: it is declared further down (useWbRotor), and every render's copy
-    // touches the same refs and setter, so an older one does the same.
-  }, [rotStart, draft, circleDraft, qualityFor, selId, notePanelId])
+    // touches the same refs and setter, so an older one does the same – `stopPlacing` likewise
+    // (setters only); `pending` / `pendingShape` are what it is gated on, so they are in.
+  }, [rotStart, draft, circleDraft, qualityFor, selId, notePanelId, pending, pendingShape])
 
   // reset transient state when switching document. Sits BELOW usePlanMeasure and usePlanDraft
   // because it clears the state they own — above them, resetEphemeral and setDraft are not yet
@@ -1227,7 +1233,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     resolvedPts, attachmentLines, planCandidatesAt, pushPast, patch, patchCommit, emit, activeId,
     onLineAttached, onLineDetached, planEndpointDrag, setPlanEndpointDrag, planDwellTimerRef: planDwellTimer,
     allFloorsTTB, revealFloor, centerOnPoint: (x, y, floor, atScale) => centerOnPoint(x, y, floor, atScale), scaleRef,
-    draftFloor: draftFloorRef, setDraft, tileAR,
+    draftFloor: draftFloorRef, setDraft, tileAR, snapWallVertex,
   })
 
   // --- chip dragging (resource / symbol / text in pan mode) — components/useWbChipDrag ---
@@ -2356,7 +2362,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             {editDraw && editDraw.kind !== 'circle' && tool === 'pan' && (
               <WbVertexHandles anno={renderAnnos.find((a) => a.id === editDraw.id) ?? editDraw} sW={sW} sH={sH} mapY={mapY}
                 onVertexDown={vertDown} onInsert={insertVertex} onDeleteVertex={deleteVertex} onExtend={extendLine}
-                onClimb={stack ? climbLine : undefined} floors={stack ? floorsTTB : undefined} />
+                // a Wand lives on one storey: it never climbs a stair like a Leitung does
+                onClimb={stack && !editDraw.role ? climbLine : undefined} floors={stack ? floorsTTB : undefined} />
             )}
             {/* Absperrkreis: ONE grip on the ring (screen-right) sets the radius — the gesture
                 that placed it, available again afterwards. It is the only way to resize on an
@@ -2489,7 +2496,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
               const x = last[0] * sW, y = mapY(last[2], last[1]) * sH // a Punkte point always carries its storey
               return <span className="wb-open-pill" style={{ transform: `translate(${x + 14}px, ${y - 34}px)` }}>{fillTemplate(appConfig.copy.toolDock.openPill, { name: openName })}</span>
             })()}
-            {noding && ring && <WbSnapRing ring={ring} sW={sW} sH={sH} />}
+            {/* …and under a Wand corner being dragged (useWbVertexEdit · snapWallVertex) */}
+            {(noding || tool === 'pan') && ring && <WbSnapRing ring={ring} sW={sW} sH={sH} />}
             {/* «Karte verknüpfen»: the numbered crosses live IN the board so they pan and zoom
                 with the sheet. Shown while the mode is armed, and while the Passung is open —
                 otherwise a reference set in June could not be found again in November. */}
@@ -2666,21 +2674,21 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
       {/* the armed tool's readout — the SAME pill the Lage map shows (MapToolDocks): glyph + name,
           bottom centre, nothing else. The symbol tool has no dock here either; «Mehrere
-          platzieren» stands beside the pill. Rest tool is 'pan' here (the plan pans on empty
+          platzieren» and a ✕ (27.10.2026) stand beside the pill. Rest tool is 'pan' here (the plan pans on empty
           canvas) vs the map's 'select'. Not on the phone while Messen is armed – its results
           panel stands in that row. */}
       {tool !== 'pan' && !(isPhone && tool === 'measure') && (() => {
         if (tool === 'symbol') {
           if (!pending) return null
           return <ArmedToolPill glyph={<ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />} name={formatSymbolName(pending) || pending}
-            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }} />
+            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }} onClose={stopPlacing} />
         }
         if (tool === 'shape') {
           if (!pendingShape) return null
           return <ArmedToolPill glyph={<ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />}
             name={appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel} />
         }
-        // a Grundriss preset names itself in the mode's place: «Linie · Wand», «Fläche · Raum»
+        // the Grundriss preset names itself in the mode's place: «Linie · Wand»
         const name = grundriss
           ? `${armedToolName(tool, appConfig.copy.planTools)} · ${appConfig.copy.whiteboard.grundriss[grundriss]}`
           : armedToolName(tool, appConfig.copy.planTools, { lineMode, areaMode })
@@ -2896,7 +2904,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onArrow={(a) => patchCommit(selDraw.id, { arrow: a || undefined })}
           onEnding={(ending) => void changePlanEnding(ending)}
           onReverse={selDraw.kind === 'draw' ? reverseAnno : undefined}
-          // a Wand / Weg / Raum is Grundriss, not a hose: no Typ, no Leitung Nr., no Trupp (types · role)
+          // a Wand is Grundriss, not a hose: no Typ, no Leitung Nr., no Trupp (types · role)
           onContent={selDraw.role ? undefined : (content) => patchCommit(selDraw.id, { content })}
           onLineNo={selDraw.role ? undefined : (lineNo) => { patchCommit(selDraw.id, { lineNo }); onLineRenumber?.(selDraw.id, lineNo) }}
           // on the stack the line's storey is its tile: stepping it MOVES the line rather than

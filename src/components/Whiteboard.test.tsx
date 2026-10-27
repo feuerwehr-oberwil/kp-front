@@ -593,10 +593,10 @@ describe('the Plan rail and its drafts', () => {
   })
 })
 
-// ── The Grundriss presets on the Gebäude stack (27.10.2026) ─────────────────────────────────
-// Wand / Weg of the Linie and Raum of the Fläche are plain inks with a `role`: drawn in Punkte,
-// snapped (lib/planSnap, tested there), and the tool stays armed after each piece.
-describe('the Grundriss presets', () => {
+// ── The Grundriss preset on the Gebäude stack (27.10.2026) ──────────────────────────────────
+// The Wand of the Linie is a plain ink with a `role`: drawn in Punkte, snapped (lib/planSnap,
+// tested there), and the tool stays armed after each piece.
+describe('the Grundriss preset', () => {
   const G = appConfig.copy.whiteboard.grundriss
   beforeEach(() => {
     ui.toasts.length = 0
@@ -621,13 +621,13 @@ describe('the Grundriss presets', () => {
   /** the anno each commit added (the board's `annos` prop stays as rendered, so each call is one) */
   const added = (onChange: Mock) => onChange.mock.calls.map((c) => { const list = c[0] as BoardAnno[]; return list[list.length - 1] })
 
-  it('draws a Wand at right angles, finishes it on its last point, and stays armed', () => {
+  it('locks a Wand near a right angle, finishes it on its last point, and stays armed', () => {
     const { onChange } = renderBoard('gebaeude', [], false, aBuilding)
     armWand()
-    tapAt(150, 150); tapAt(250, 170) // the second point runs straight on: y stays the first's
+    tapAt(150, 150); tapAt(250, 162) // ≈7° off level: the second point runs straight on, y stays the first's
     tapAt(251, 151) // the last point again: finished
     const [wall] = added(onChange)
-    expect(wall).toMatchObject({ kind: 'draw', role: 'wand', color: appConfig.drawing.colors[4], width: 3 })
+    expect(wall).toMatchObject({ kind: 'draw', role: 'wand', color: appConfig.drawing.colors[4], width: 2 })
     expect(wall.pts).toHaveLength(2)
     expect(wall.pts![1][1]).toBeCloseTo(wall.pts![0][1], 6)
     // still armed: no selection, the preset still on, and the next tap starts the next piece
@@ -1763,6 +1763,21 @@ describe('gesture contracts of the plan surface', () => {
       expect(edits(emit)[1][1]).toMatchObject({ patch: { x: find('d1').x, y: find('d1').y, rotation: find('d1').rotation } })
     })
 
+    it('a Wand corner dragged near another Wand lands on it, level with its neighbour, ring shown while it moves', () => {
+      const short: BoardAnno = { id: 'w1', kind: 'draw', role: 'wand', floor: 0, pts: [[0.2, 0.5, 0], [0.4, 0.5, 0]] }
+      const cross: BoardAnno = { id: 'w3', kind: 'draw', role: 'wand', floor: 0, pts: [[0.6, 0.2, 0], [0.6, 0.8, 0]] }
+      const { container } = mount([short, cross], { ...twoStoreys, focus: focused('w1') })
+      const grip = container.querySelectorAll('.wb-vertex')[1]
+      fireEvent.pointerDown(grip, { clientX: 160, clientY: 300, pointerId: 1 })
+      fireEvent.pointerMove(grip, { clientX: 200, clientY: 302, pointerId: 1 })
+      fireEvent.pointerMove(grip, { clientX: 236, clientY: 303, pointerId: 1 })
+      expect(container.querySelector('.wb-snap-ring')).not.toBeNull()
+      fireEvent.pointerUp(grip, { clientX: 236, clientY: 303, pointerId: 1 })
+      const [x, y, f] = find('w1').pts![1]
+      expect(x).toBeCloseTo(0.6, 6); expect(y).toBeCloseTo(0.5, 6); expect(f).toBe(0)
+      expect(container.querySelector('.wb-snap-ring, .wb-snap-free')).toBeNull()
+    })
+
     it('a Wand in the Grundriss dark is drawn in the theme ink, a recoloured one in its own colour', () => {
       const red: BoardAnno = { ...wand, id: 'w2', color: '#e8392b', pts: [[0.2, 0.3], [0.8, 0.3]] }
       const { container } = mount([{ ...wand, color: appConfig.drawing.colors[4], width: 3 }, red], twoStoreys)
@@ -1770,6 +1785,15 @@ describe('gesture contracts of the plan surface', () => {
       expect(strokes).toContain('var(--ink-dim)')
       expect(strokes).toContain('#e8392b')
       expect(strokes).not.toContain(appConfig.drawing.colors[4])
+    })
+
+    it('a selected Wand has no stair-climb grips – a plain Linie on the stack still does', () => {
+      const leitung: BoardAnno = { id: 'l9', kind: 'draw', floor: 0, pts: [[0.1, 0.2], [0.9, 0.2]] }
+      const { container } = mount([wand, leitung], { ...twoStoreys, focus: focused('l9') })
+      expect(container.querySelectorAll('.wb-climb').length).toBeGreaterThan(0)
+      cleanup()
+      const again = mount([wand, leitung], { ...twoStoreys, focus: focused('w1') })
+      expect(again.container.querySelectorAll('.wb-climb')).toHaveLength(0)
     })
 
     it('a selected Wand offers no hose fields (Leitung Nr., Typ) – a plain Linie still does', () => {
@@ -1780,6 +1804,20 @@ describe('gesture contracts of the plan surface', () => {
       cleanup()
       mount([wand, leitung], { ...twoStoreys, focus: focused('w1') })
       expect(screen.queryAllByText(lineNo)).toHaveLength(0)
+    })
+
+    // round 2 (27.10.2026): «Mehrere platzieren» is the Durchgang's default here, so it stays armed
+    // after every tap – Escape and the pill's ✕ must put it down (the Plan's Escape never did)
+    it.each(['Escape', '✕'])('%s stops placing Durchgänge', (how) => {
+      const gb = { ...sym, ready: true, order: ['Gebäude'], byName: { 'GB Ture Durchgang': '<svg/>' }, symbols: [{ name: 'GB Ture Durchgang', cat: 'Gebäude', svg: '<svg/>' }] }
+      const { container } = mount([], { ...twoStoreys, sym: gb })
+      fireEvent.click(screen.getByRole('button', { name: 'Symbol' }))
+      fireEvent.click(screen.getAllByRole('button', { name: /Durchgang/ })[0])
+      expect(screen.getByRole('button', { name: appConfig.copy.keepPlacing }).getAttribute('aria-pressed')).toBe('true')
+      if (how === 'Escape') fireEvent.keyDown(window, { key: 'Escape' })
+      else fireEvent.click(within(container.querySelector('.armed-pill-row')!).getByRole('button', { name: appConfig.copy.cancel }))
+      expect(container.querySelector('.armed-pill-row')).toBeNull()
+      expect(container.querySelector('.wb-ink')).toBeNull()
     })
 
     it('deleting a Wand leaves its Durchgang standing free', () => {

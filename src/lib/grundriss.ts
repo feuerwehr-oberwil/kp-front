@@ -152,11 +152,11 @@ function onStorey(a: BoardAnno, floor: number): boolean {
   return (a.floor ?? 0) === floor
 }
 
-/** What «Kopieren nach …» would copy from storey `from`: its Wand / Weg / Raum and its
- *  Gebäude-category symbols – never Leitungen, Trupps, Gefahren, Notizen or Messpunkte. */
+/** What «Kopieren nach …» would copy from storey `from`: its Wände and its Gebäude-category
+ *  symbols – never Leitungen, Trupps, Gefahren, Notizen or Messpunkte. */
 export function grundrissOf(annos: readonly BoardAnno[], from: number, isGebaeude: (symbol: string) => boolean): BoardAnno[] {
   return annos.filter((a) => onStorey(a, from) && (
-    (a.role != null && (a.kind === 'draw' || a.kind === 'area'))
+    (a.role === 'wand' && a.kind === 'draw')
     || (a.kind === 'symbol' && !!a.symbol && isGebaeude(a.symbol))))
 }
 

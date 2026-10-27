@@ -23,11 +23,11 @@ import { canDropVertex } from '../lib/vertexOps'
 import { circleRing, clipStroke, edgeMarkHead, markDeg, thinMarks, type EdgeMark, type Pt, type Section } from '../lib/storeyClip'
 
 const COLORS = appConfig.drawing.colors
-/** the stroke an ink is drawn in on the board: its own colour, except a Wand / Raum still in the
+/** the stroke an ink is drawn in on the board: its own colour, except a Wand still in the
  *  Grundriss dark, which follows the theme (the outline's family, one step stronger) – the
  *  palette's dark vanished on the night sheet (owner, 27.10.2026) */
 const inkOf = (a: BoardAnno): string =>
-  (a.role === 'wand' || a.role === 'raum') && a.color === COLORS[4] ? 'var(--ink-dim)' : (a.color || COLORS[0])
+  a.role === 'wand' && a.color === COLORS[4] ? 'var(--ink-dim)' : (a.color || COLORS[0])
 /** id namespace for the ink layer's Schraffur — kept distinct from the circle layer's defs so
  *  the two SVGs never define the same GLOBAL pattern id twice (lib/draw · hatchPatternId). */
 const INK_HATCH_SPACE = 'sheet'
@@ -604,7 +604,7 @@ interface DocksProps {
   draftActive: boolean
   setTool: (t: BoardTool) => void
   areaMode: 'nodes' | 'freehand'
-  /** the Gebäude stack offers the Grundriss presets (Wand · Weg on the Linie, Raum on the Fläche) … */
+  /** the Gebäude stack offers the Grundriss preset (the Wand on the Linie) … */
   stack: boolean
   /** … the one in force … */
   grundriss: GrundrissRole | null
@@ -644,14 +644,14 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
       {/* Linie — Freihand (drag) ↔ Punkte (tap, ✓ to finish); identical to map. «D pur»
           (09.09.): no colour/width/style here — the finished line lands selected in the
           DrawEditor, which is where the styling lives (and writes the next-ink defaults).
-          On the Gebäude stack also Wand · Weg, which stay armed (27.10.2026). */}
+          On the Gebäude stack also the Wand, which stays armed (27.10.2026). */}
       {tool === 'line' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: closeDraft }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: lineMode === 'freehand' && !grundriss, onClick: () => pickInput('freehand') },
             { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: lineMode === 'nodes' && !grundriss, onClick: () => pickInput('nodes') },
-            ...(stack ? [presetTog('wand', 'wall'), presetTog('weg', 'arrow')] : []),
+            ...(stack ? [presetTog('wand', 'wall')] : []),
             ...(lineMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: onFinish }] : []),
           ],
           // the Karte's own words, per input mode (copy · dockHints): one rule, one text
@@ -661,17 +661,16 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
 
       {/* Fläche — Freihand ODER Knoten + info. Same two-mode group as the Linie dock above it,
           because it is the same question: tap the corners, or draw it. Styling: in the editor
-          afterwards, like the Linie. On the Gebäude stack also Raum (27.10.2026). */}
+          afterwards, like the Linie. */}
       {tool === 'area' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: closeDraft }],
           [
-            { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand' && !grundriss, onClick: () => pickInput('freehand') },
-            { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: areaMode === 'nodes' && !grundriss, onClick: () => pickInput('nodes') },
-            ...(stack ? [presetTog('raum', 'room')] : []),
+            { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => pickInput('freehand') },
+            { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: areaMode === 'nodes', onClick: () => pickInput('nodes') },
             ...(areaMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: onFinish }] : []),
           ],
-          [{ type: 'info', text: grundriss ? H[grundriss] : appConfig.copy.dockHints.area }],
+          [{ type: 'info', text: appConfig.copy.dockHints.area }],
         ]} />
       )}
 
