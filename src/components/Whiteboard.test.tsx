@@ -627,7 +627,7 @@ describe('the Grundriss preset', () => {
     tapAt(150, 150); tapAt(250, 162) // ≈7° off level: the second point runs straight on, y stays the first's
     tapAt(251, 151) // the last point again: finished
     const [wall] = added(onChange)
-    expect(wall).toMatchObject({ kind: 'draw', role: 'wand', color: appConfig.drawing.colors[4], width: 3 })
+    expect(wall).toMatchObject({ kind: 'draw', role: 'wand', color: appConfig.drawing.colors[4], width: 2 })
     expect(wall.pts).toHaveLength(2)
     expect(wall.pts![1][1]).toBeCloseTo(wall.pts![0][1], 6)
     // still armed: no selection, the preset still on, and the next tap starts the next piece

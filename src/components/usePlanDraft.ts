@@ -35,12 +35,16 @@ export const INK_DEFAULTS = { color: appConfig.drawing.defaultColor, width: 5, d
 /** The Grundriss preset of the Linie (the Wand) – `BoardAnno.role`. */
 export type GrundrissRole = NonNullable<BoardAnno['role']>
 
-/** The look a Wand is born with (1B mock, 27.10.2026): dark and solid, a touch bolder than the
- *  building outline. Edited afterwards like any ink. `COLORS[4]` is the palette's dark – on the
- *  board it is drawn in the theme's ink instead (WbControls · inkOf), so a wall stays visible on
- *  the night sheet; print and export keep the stored dark. */
+/** The look a Wand is born with (1B mock, 27.10.2026): dark and solid, the building outline's
+ *  weight and a touch bolder – 2 px against the outline's 1.5 (owner, round 2: «widths still
+ *  off» at 3). Both are board px, which the board's size turns into screen px at every zoom
+ *  (WbControls · the ink layer, 09-whiteboard.css · .wb-floor-svg polygon), so the two stay in
+ *  proportion. Below the palette's smallest width (appConfig.drawing.widths), which no line
+ *  editor offers since the «Stärke» row went (sweep 27.10.2026 #7). `COLORS[4]` is the palette's
+ *  dark – on the board it is drawn in the theme's ink instead (WbControls · inkOf), so a wall
+ *  stays visible on the night sheet; print and export keep the stored dark. */
 export const GRUNDRISS_STYLE = {
-  wand: { color: COLORS[4], width: 3 },
+  wand: { color: COLORS[4], width: 2 },
 } as const satisfies Record<GrundrissRole, Partial<BoardAnno>>
 
 /** The symbols a Leitung is laid through: its Punkte snap onto their centre (lib/planSnap). */
