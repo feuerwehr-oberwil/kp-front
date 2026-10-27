@@ -549,17 +549,18 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     keyframe: it drifts against the latch and, under `prefers-reduced-motion`, paints full on the
     first frame while the timer still runs. The ring haloes the glyph – never strokes across a
     label, and nothing may reflow under the finger mid-hold.
-  - *A one-finger zoom gesture works unless the armed tool uses it* (20./21.10.2026, owner: a
-    double tap is «a map function … definitely not for finishing something»; tools «have
-    precedence», the map zooms «if the underlying tool doesn't interfere»; 27.10.2026: «I need it
-    to work on the map, on the plans, and also on the normal map in the peacetime view»). ONE rule,
-    `lib/tapDragZoom · oneFingerZoom`, for the Lage and the Karte (`MapView`, MapLibre's handlers)
-    and a Plan (`useBoardGestures`, `usePlanCreate`): tap-and-drag zooms unless the tool draws with
-    the drag (Freihand, Kreis); the double tap zooms unless the tool places on a tap (Punkte,
-    Messen, Hinzufügen, Notiz, Trupp, Koordinaten, Kreis — two taps are two placements). So
-    Auswahl and Mehrfach have both (the Rahmen starts on a fresh press; the second press of a tap
-    pair is the zoom's), every tap tool has tap-and-drag, Freihand the double tap. Pinch always
-    navigates. Nothing finishes on a double tap — ✓ finishes a Punkte Linie / Fläche.
+  - *One finger zooms while navigating, not while placing* (20./21.10.2026, owner: a double tap
+    is «a map function … definitely not for finishing something»; 27.10.2026: «I need it to work
+    on the map, on the plans, and also on the normal map in the peacetime view», and no one-finger
+    zoom while a tap-to-place tool is armed). ONE rule, `lib/tapDragZoom · oneFingerZoom`, for the
+    Lage and the Karte (`MapView`, MapLibre's handlers) and a Plan (`useBoardGestures`,
+    `usePlanCreate`): Auswahl, Mehrfach and an open sheet like Ebenen — double tap and
+    tap-and-drag (the Rahmen starts on a fresh press; the second press of a tap pair is the
+    zoom's). Messen — tap-and-drag only (two quick taps are two points; the point the first tap
+    placed is click-through for one tap gap, `lib/useFreshPoint`, so the second press reaches the
+    zoom). A tap-to-place tool (Punkte, Hinzufügen, Notiz, Trupp, Koordinaten, Form, Massstab) and
+    drawing (Freihand, Kreis) — neither; a tap places, the pinch zooms. Pinch always navigates.
+    Nothing finishes on a double tap — ✓ finishes a Punkte Linie / Fläche.
   - *Pressed state is the `--press` wash* – `background-image: linear-gradient(var(--press),
     var(--press))` on `:active:not(:disabled)`, so it composes over any background colour.
     **Nothing moves**: no scale, no translate – motion on press reads as lag under a glove.

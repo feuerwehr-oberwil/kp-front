@@ -47,8 +47,9 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
   // presses on EMPTY board only (an object's own handler swallows its press before stageDown).
   // Under a tool the one rule of lib/tapDragZoom · oneFingerZoom (sweep 27.10.2026 #8): Auswahl
   // and Mehrfach have both (the Rahmen starts on a FRESH press, the second press of a tap pair is
-  // the zoom's); the create tools reach it through `tapZoomPress` from the ink — a tap tool keeps
-  // tap-and-drag, Freihand the double tap. A double tap never finishes a Linie / Fläche — ✓ does. ---
+  // the zoom's); the create tools reach it through `tapZoomPress` from the ink — Messen keeps
+  // tap-and-drag, a tap-to-place tool and Freihand / Kreis navigate by pinch. A double tap never
+  // finishes a Linie / Fläche — ✓ does. ---
   const [tapZoom] = useState(createTapDragZoom)
   /** the scale the tap-drag engaged at — its factor is relative to that, so it never drifts */
   const tapZoomBase = useRef<number | null>(null)
@@ -210,10 +211,12 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
   }
 
   /** A create tool's press on `.wb-ink`, which swallows it before stageDown, with what the tool
-   *  leaves to the zoom (lib/tapDragZoom · oneFingerZoom). Its moves reach the zoom through
-   *  stageMove (they bubble), its release through trackUp; `tapZoomOwns` tells the ink not to pan
-   *  or place under a finger the zoom has taken. */
-  const tapZoomPress = (e: ReactPointerEvent, allow: OneFingerZoom) => applyTapZoom(tapZoom.down(sample(e), allow))
+   *  leaves to the zoom (lib/tapDragZoom · oneFingerZoom) — nothing, under a tap-to-place tool or
+   *  while drawing: then the press only forgets any half-made pair. Its moves reach the zoom
+   *  through stageMove (they bubble), its release through trackUp; `tapZoomOwns` tells the ink
+   *  not to pan or place under a finger the zoom has taken. */
+  const tapZoomPress = (e: ReactPointerEvent, allow: OneFingerZoom) =>
+    applyTapZoom(allow.step || allow.drag ? tapZoom.down(sample(e), allow) : tapZoom.cancel())
 
   return { marquee, stageDown, stageMove, stageUp, trackDown, trackUp, tapZoomPress, tapZoomOwns: tapZoom.owns }
 }

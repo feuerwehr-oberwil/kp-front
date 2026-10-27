@@ -136,10 +136,10 @@ export function usePlanCreate({
       inkPinch.current = inkPinchPts()?.dist ?? null
       return
     }
-    // one finger zooms here too (lib/tapDragZoom · oneFingerZoom): Freihand and the Absperrkreis
-    // draw with the drag, so they keep only the double tap / nothing; every other create tool
-    // places on a tap, so its tap-and-drag zooms and a quick second tap is still its own
-    tapZoomPress(e, oneFingerZoom({ taps: !inking, drags: inking || tool === 'circle' }))
+    // one finger zooms here only under Messen (lib/tapDragZoom · oneFingerZoom): its tap-and-drag
+    // zooms and a quick second tap is still a point. Every other create tool places on a tap or
+    // draws with the drag (Freihand, Kreis), so there only the pinch zooms.
+    tapZoomPress(e, oneFingerZoom(inking || tool === 'circle' ? 'draw' : tool === 'measure' ? 'measure' : 'place'))
     const n = toNorm(e.clientX, e.clientY); if (!n) return
     e.stopPropagation() // placement owns this pointer — don't let the stage ALSO start a board pan
     const floor = stack ? floorAt(n[1]) : 0

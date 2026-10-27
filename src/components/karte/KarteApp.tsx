@@ -488,6 +488,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           onMapClick={onMapClick}
           readOnly
           placing={tool !== null}
+          // one finger still zooms with a sheet like Ebenen up; Punkt setzen and Gefahrgut's centre
+          // place on a tap, so there only the pinch does (lib/tapDragZoom · oneFingerZoom)
+          tapsPlace={takesTaps}
           onView={(v) => { setView(v); loadOutlines() }}
           onSettled={() => { setMapUp(true); flyPending(); loadOutlines(); watchUserMoves(); watchHover(); watchPress() }}
           measurePoints={tool === 'measure' ? measure.path : []}

@@ -193,8 +193,8 @@ describe('tapDragZoom · double tap only (drag: false)', () => {
   })
 })
 
-// Sweep 27.10.2026 #8: under a TAP tool (Messen, Punkte, Symbol …) tap-and-drag zooms, but a quick
-// second press stays the tool's own tap — a double tap there is two placements, never a zoom step
+// Sweep 27.10.2026 #8: under Messen tap-and-drag zooms, but a quick second press stays the tool's
+// own tap — a double tap there is two measuring points, never a zoom step
 describe('tapDragZoom · drag only (step: false)', () => {
   it('the second press, dragged, zooms', () => {
     const g = createTapDragZoom()
@@ -212,13 +212,15 @@ describe('tapDragZoom · drag only (step: false)', () => {
   })
 })
 
+// the owner's decision, 27.10.2026: on under Auswahl, Mehrfach, Messen and with Ebenen open; a
+// tap-to-place tool places on a tap and navigates by pinch; off while drawing
 describe('oneFingerZoom · one rule for Lage, Plan and Karte', () => {
   it.each([
-    ['Auswahl / Mehrfach / no tool', { taps: false, drags: false }, { step: true, drag: true }],
-    ['Messen, Punkte, Symbol – places on a tap', { taps: true, drags: false }, { step: false, drag: true }],
-    ['Freihand – draws with the drag', { taps: false, drags: true }, { step: true, drag: false }],
-    ['Absperrkreis – tap and drag are both the tool’s', { taps: true, drags: true }, { step: false, drag: false }],
-  ])('%s', (_, tool, want) => {
-    expect(oneFingerZoom(tool)).toEqual(want)
+    ['Auswahl / Mehrfach / Ebenen open', 'navigate', { step: true, drag: true }],
+    ['Messen – two taps are two points, tap-and-drag zooms', 'measure', { step: false, drag: true }],
+    ['Symbol, Punkte, Notiz, Trupp – a tap places, pinch zooms', 'place', { step: false, drag: false }],
+    ['Freihand, Kreis – the drag draws', 'draw', { step: false, drag: false }],
+  ] as const)('%s', (_, kind, want) => {
+    expect(oneFingerZoom(kind)).toEqual(want)
   })
 })

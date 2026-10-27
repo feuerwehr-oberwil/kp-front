@@ -786,7 +786,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     calNodes, calPrompt, refMInput, setRefMInput, savePrompt, setSavePrompt,
     measMode, setMeasMode,
     measureAR, activeScale, scaleAuto, scaleStale, calibrated, planMetres,
-    measPath, setMeasPath, measMpts, measLenM, measAreaM2, measPerimM, measReset, resetEphemeral,
+    measPath, setMeasPath, measFresh, measMpts, measLenM, measAreaM2, measPerimM, measReset, resetEphemeral,
     measNodeDown, measMove, measUp, measDragging, measInsert, measDelete, measPress,
     closeCalPrompt, commitCalibration,
   } = planMeasure
@@ -2246,7 +2246,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                     <Fragment key={`mn-${i}`}>
                       {/* positioning wrapper so the handle's :active scale never clobbers the
                           board-px placement (mirrors how the map nests the handle in a Marker) */}
-                      <div className="wb-meas-node" style={{ left: 0, top: 0, transform: `translate(${p[0] * sW}px, ${p[1] * sH}px) translate(-50%, -50%)` }}>
+                      <div className="wb-meas-node" style={{ left: 0, top: 0, transform: `translate(${p[0] * sW}px, ${p[1] * sH}px) translate(-50%, -50%)`, pointerEvents: measFresh === i ? 'none' : undefined }}>
                         {/* `{...hold}` carries `data-holdaction` (lib/nodeHold): without it the hold-tooltip
                             popped «Gedrückt halten zum Löschen» mid-ring and ate the release (08.10.) */}
                         <button className={`measure-handle ${measPress.armed?.key === `m${i}` ? 'doomed' : ''}`}
