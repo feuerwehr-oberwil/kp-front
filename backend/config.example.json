@@ -281,7 +281,6 @@
   "alarms": {
     "autoArchiveDays": 7,
     "staleIncidentDays": 30,
-    "exerciseAutoCloseHours": 12,
     "captureWindowHours": 12,
     "webhooks": []
   }
