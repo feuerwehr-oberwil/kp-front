@@ -394,7 +394,6 @@ export function MapDetailPanels({
           // a style edit changes THIS drawing only – the next one starts from the plain default
           // again (useMapDrawing · DRAW_DEFAULTS; until 23.10.2026 these wrote the template back)
           onColor={(c) => patchDrawing({ color: c })}
-          onWidth={(w) => patchDrawing({ width: w })}
           onDashed={(dashed) => patchDrawing({ dashed })}
           onLabel={(label) => { if (selectedDrawingId) patchDrawingLabelLive(selectedDrawingId, label) }}
           onLabelCommit={(label) => { if (selectedDrawingId) commitDrawingLabel(selectedDrawingId, label) }}

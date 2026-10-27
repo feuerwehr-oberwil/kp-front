@@ -2788,7 +2788,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             : null}
           // a style edit changes THIS ink only – the next one starts from INK_DEFAULTS again
           onColor={(c) => patchCommit(selDraw.id, { color: c })}
-          onWidth={(w) => patchCommit(selDraw.id, { width: w })}
           onDashed={(d) => patchCommit(selDraw.id, { dashed: d })}
           // ⚠️ Live while typing, one step on blur — the same split the Lage got (useMapDrawing ·
           // patchDrawingLabelLive). Through `patchCommit` every keystroke was its own undo step and
