@@ -10,7 +10,6 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     leaveSub: 'Keeps running – to the map',
     leaveBack: 'Keeps running – back to {where}',
     backAt: 'Back at {where}',
-    backPlan: 'Module {code}',
     menu: 'Menu',
     menuLabel: 'Menu – {name}',
     einsaetzeBadge: '{n} open',

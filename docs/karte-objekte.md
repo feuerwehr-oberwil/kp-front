@@ -450,21 +450,25 @@ The rules that are easy to break:
   object 68 px under an expanded rail's panel (`lib/karte/camera · besidePanel`; the same frame for
   a search pick, a deep link and «Objektplan»). Checked in a browser by
   `e2e/karte-plan-back-camera.mjs`.
-- **A plan row is the module, nothing else** (owner, review round 4: «just "modul 1", "modul 2",
-  etc. is enough»; `lib/karte/plans · planRowLabel`): «Modul 1», «Modul 2-3», «Modul 5-PV»,
-  «Modul 5-Wasser 1», «Modul 5-PV 15» — the key in words, a sub-slot word of up to three letters
-  upper-cased (PV, RWA, AEH), a longer one capitalised (Wasser, Evak). No title, no «PDF · 1
-  Seite · auf Karte ausgerichtet», no number badge; the «Gebäude» row says «Gebäude». Every row has
-  one left edge and one height; offline the ●/◐/○ mark trails the words (its word for a screen
-  reader in the label). A key that is no module key says the plan's title.
+- **A plan tile is the plan's name, nothing else** (owner, review round 4: «just "modul 1",
+  "modul 2", etc. is enough»; 27.10.2026: «spelled out as Wasser, and then with 1 or 2 if there
+  are multiple … the same way as for photovoltaic, where it's just PV»). ONE rule, `lib/navRail ·
+  planLabel`, read by every place a plan is named — these tiles, both rails, the phone's «Plan
+  wählen», the Objektbesuch and the Verknüpfen toggle: «Modul 1», «Modul 2/3», «Modul 4»,
+  «PV», «RWA», «Wasser», «Wasser 2», «PV 15» — a numbered module «Modul N», a sub-slot its own
+  word (up to three letters upper-cased, a longer one capitalised), never «Modul 5-…» and never
+  a lone letter. From the module key, never a file title or the catalogue's code («M4», «W»). No
+  title, no «PDF · 1 Seite · auf Karte ausgerichtet», no number badge; the «Gebäude» tile says
+  «Gebäude». Offline the ●/◐/○ mark trails the words (its word for a screen reader in the label).
+  A key that is no module key says the plan's title.
 - **Plan titles** (`lib/karte/plans · planTitle`, the tablet rail and the view label): many sheets in the real catalogue are titled by
   their file name, «<object> – <module key>» («Migros – modul2», «Sägestrasse 8 - Schulhaus
   Hüslimatt – modul2-3»). Such a title gives way to the catalogue's title for the key («Wie komme
   ich herein», «Zugang & Objekt», «Photovoltaik»); a clean title («Übersicht», «Gemeindehaus –
   Übersicht») stays. A family sub-slot without an entry says its own name («Wasser»), a numbered
   sibling keeps its number («Wasser 2»), an unknown key reads «Modul N». The tablet rail's tile
-  names (its accessible label) and the view label read the document's title; the panel's rows and
-  the expanded rail's words read `planRowLabel` (above) – the title overflows a 216px rail.
+  names (its accessible label) read the document's title; the panel's tiles, the expanded rail's
+  words and the view label read `planLabel` (above) – the title overflows a 216px rail.
 - **A head that is still being looked up is a skeleton**, never «Gebäude» or «…» in place of a
   name: a tapped building until the register answers (a searched address is named at once), a
   dropped pin until its address is known. A plain building carries no «Kein Stationsobjekt …»

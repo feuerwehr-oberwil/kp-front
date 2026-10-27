@@ -1,3 +1,4 @@
+import { appConfig } from '../config/appConfig'
 import type { PlanDocument } from '../types'
 
 // Pure rail geometry + glyph helpers — no DOM/React, so the snap math and the
@@ -33,36 +34,47 @@ export function snapExpanded(width: number, snap = (RAIL_COMPACT + RAIL_WIDE) / 
   return width > snap
 }
 
-/** The SHORT label a synthesized module tile carries in the rail.
+/** The ONE name a plan goes by — the rail tile, the phone's «Plan wählen», the object's plan tiles
+ *  on the Karte, the Objektbesuch and the Verknüpfen toggle all say it (owner, 27.10.2026: «spelled
+ *  out as Wasser, and then with 1 or 2 if there are multiple … the same way as for photovoltaic,
+ *  where it's just PV»; on a visit «Modul 1 exactly like on the object»).
  *
- *  Modul 4 and the Modul-5 sub-sheets have no fixed tile in the catalog, so their label has to
- *  come from the data. A station whose PDFs are named after the sub-sheet ("Wasser.pdf") hands
- *  us the right word; Oberwil's carry the object name and the raw module key
- *  ("Migros – modul5-rwa"), which is neither short nor a name — and the rail is 216px wide, so
- *  that label ran straight off its edge.
+ *  The name comes from the module KEY, never from a file title or the catalogue's code: the pull
+ *  titles sheets «Migros – modul5-rwa», and a catalogue code like «M4» or «W» said less than the
+ *  key does.
+ *    • a numbered module says «Modul N»: `modul1` → «Modul 1», `modul4` → «Modul 4»;
+ *    • a combined sheet says both numbers: `modul2-3` → «Modul 2/3» (its monogram reads «2/3»);
+ *    • a sub-slot says its own word — never «Modul 5-…», never a lone letter. Up to three letters
+ *      it is an abbreviation and stays upper case (`modul5-pv` → «PV», `modul5-rwa` → «RWA»), a
+ *      longer one is a word (`modul5-wasser` → «Wasser»). A numbered sibling keeps its number,
+ *      which is what tells two waterplans apart: `modul5-wasser2` → «Wasser 2», `modul5-pv15` → «PV 15».
+ *  A key that is no module key (the Tafel, the Gebäude stack, a plan without a module) says
+ *  `fallback` — the caller's own word for it — else the id. «Modul» is the copy's (`karte.planRow`).
  *
- *  So the dataset title is used only when it LOOKS like a sub-sheet name; otherwise the sub-slot
- *  key out of the id, which is the structural part and always clean:
- *  "modul5-rwa" → "RWA" (an acronym stays upper), "modul5-wasser" → "Wasser".
- *
- *  An object can hold SEVERAL sheets of one kind — «Modul 5 - Wasser 1» and «… Wasser 2» are two
- *  waterplans, and each gets its own tile. The trailing number is part of the sub-slot
- *  ("modul5-wasser2") and has to survive into the label, or the two tiles read the same word:
- *  "modul5-wasser2" → "Wasser 2", "modul5-pv15" → "PV 15". */
-export function moduleTileLabel(id: string, title?: string): string {
-  const sub = /^modul\d+-([a-z0-9]+)/i.exec(id)?.[1]
-  if (!sub) return `Modul ${/^modul(\d+)/i.exec(id)?.[1] ?? '?'}`
-  const label = (title ?? '').trim()
-  // Short, and not just the module key echoed back at us.
-  if (label && label.length <= 16 && !/modul/i.test(label)) return label
-  const parts = /^([a-z]+)(\d*)$/i.exec(sub)
-  const word = parts?.[1] ?? sub
-  const num = parts?.[2] ?? ''
-  const cased = word.length <= 3 ? word.toUpperCase() : word[0].toUpperCase() + word.slice(1).toLowerCase()
-  return num ? `${cased} ${num}` : cased
+ *  Takes the CANONICAL key (lib/useObjectPlans · normModule, lib/karte/plans · planDocId); case and
+ *  spaces are forgiven, a two-digit run is not guessed at (`modul12` is Modul 12). Pure. */
+export function planLabel(id: string, fallback = ''): string {
+  const key = id.trim().toLowerCase().replace(/\s+/g, '')
+  const say = (m: string) => appConfig.copy.karte.planRow.replace('{m}', m)
+  const range = /^modul(\d+)[-_/](\d+)$/.exec(key)
+  if (range) return say(`${range[1]}/${range[2]}`)
+  const sub = subSlot(key)
+  if (sub) {
+    const cased = sub.word.length <= 3 ? sub.word.toUpperCase() : sub.word[0].toUpperCase() + sub.word.slice(1)
+    return sub.num ? `${cased} ${sub.num}` : cased
+  }
+  const single = /^modul(\d+)$/.exec(key)
+  if (single) return say(single[1])
+  return fallback || id
 }
 
-/** the glyph a plan item renders: a monogram (1…/2/3) for modules + the floor-stack,
+/** a sub-slot key's word and sibling number: `modul5-wasser2` → { word: 'wasser', num: '2' } */
+function subSlot(key: string): { word: string; num: string } | null {
+  const m = /^modul\d+-([a-zäöü]+)(\d*)$/i.exec(key)
+  return m ? { word: m[1].toLowerCase(), num: m[2] } : null
+}
+
+/** the glyph a plan item renders: a monogram (1…/2/3, PV) for modules,
  *  otherwise an icon (the doc's own, falling back to the easel for the blank Tafel, the doc otherwise). */
 export function planGlyph(doc: PlanDocument): { mono: string } | { icon: string } {
   // a combined sheet (e.g. id "modul2-3" / "modul23" from a "Modul 2-3.pdf") shows the
@@ -70,19 +82,12 @@ export function planGlyph(doc: PlanDocument): { mono: string } | { icon: string 
   // added nothing and crowded the narrow phone bar items).
   const range = /^modul(\d+)[-_/](\d+)/i.exec(doc.id)
   if (range) return { mono: `${range[1]}/${range[2]}` }
-  // a Modul-5-style sub-slot ("modul5-pv", "modul5-wasser"): show the short code (e.g. "PV") or
-  // the sub-slot name's first letters — NOT the bare "5" the digit rule below would give, so the
-  // sub-sheets stay distinguishable in the rail.
-  // A numbered sibling ("modul5-wasser2") keeps its number in the monogram — WAS1/WAS2, not two
-  // identical WAS chips — so the collapsed rail still tells the two waterplans apart.
-  const sub = /^modul\d+-([a-z]*)(\d*)/i.exec(doc.id)
-  if (sub) {
-    const word = sub[1] ?? ''
-    const num = sub[2] ?? ''
-    const code = (doc.code ?? '').trim()
-    if (code && code.length <= 4 && !/^modul/i.test(code)) return { mono: code.toUpperCase() }
-    return { mono: `${word.slice(0, num ? Math.max(1, 4 - num.length) : 3)}${num}`.toUpperCase() }
-  }
+  // a Modul-5-style sub-slot: its abbreviation as the chip («PV», «RWA»; a numbered sibling keeps
+  // its number, «PV15») — NOT the bare «5» the digit rule below would give. A WORD («Wasser») does
+  // not fit a round chip, and its first letters («WAS») named nothing (owner, 27.10.2026: never a
+  // lone «W»): it wears the plan icon, and the word stands in the label beside it (`planLabel`).
+  const sub = subSlot(doc.id.toLowerCase())
+  if (sub) return sub.word.length <= 3 ? { mono: `${sub.word}${sub.num}`.toUpperCase() } : { icon: doc.icon ?? 'doc' }
   const m = /^modul(\d+)/i.exec(doc.id)
   if (m) return { mono: m[1] }
   // The merged «Gebäude» tile (outline picker ⇄ floor stack) carries its glyph as DATA — the

@@ -170,7 +170,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const { cats, catOff } = categories
   const selObj = sel?.kind === 'object' ? byId.get(sel.id) ?? null : null
   // titled and typed by the station's module catalogue, as the Einsatz's plan chooser is
-  const docs = useMemo(() => (selObj ? viewerPlanDocs(selObj, C.floorsRow, moduleCatalogue(), C.planRow) : []), [selObj, C.floorsRow, C.planRow])
+  const docs = useMemo(() => (selObj ? viewerPlanDocs(selObj, C.floorsRow, moduleCatalogue()) : []), [selObj, C.floorsRow])
   const openDoc = surface ? docs.find((d) => d.doc.id === surface) ?? null : null
   const { avail, docHeld, openHeld } = usePlansHeld(selObj, openDoc, online)
   const catLoaded = !!cat

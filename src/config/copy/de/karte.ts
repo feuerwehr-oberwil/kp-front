@@ -16,7 +16,6 @@ export const karteCopy = {
     leaveSub: 'Läuft weiter – zur Karte',
     leaveBack: 'Läuft weiter – zurück zu {where}',
     backAt: 'Wieder bei {where}',
-    backPlan: 'Modul {code}',
     // the menu button at the top left (review round 5, owner: not «Einsätze» — the station's short
     // name or mark, `identity.shortName` / the uploaded logo; neither → the menu symbol)
     menu: 'Menü',
@@ -79,7 +78,8 @@ export const karteCopy = {
     // plans
     plansTitle: 'Pläne & Module',
     georefFailed: 'Der Objektplan liess sich nicht auf die Karte legen.',
-    // a plan row in the object's sheet: the module only (owner, review round 4; lib/karte/plans · planRowLabel)
+    // a numbered module's name wherever a plan is named – rail, chooser, the object's tiles, a visit
+    // (owner, review round 4 and 27.10.2026; lib/navRail · planLabel). A sub-slot says its own word.
     planRow: 'Modul {m}',
     floorsRow: 'Gebäude',
     backToMap: 'Zurück',
