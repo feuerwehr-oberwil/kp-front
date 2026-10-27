@@ -26,8 +26,7 @@ import { useEffect, useLayoutEffect, type RefObject } from 'react'
  * So the bar is MEASURED: from nothing collapsed, one step at a time, until it fits. The order is
  * the priority, lowest first — the weather, the Einsatzdauer, ↷ (grey and rarely wanted), the
  * gaps, the Verlauf word, the «vermisst» words, the alarm's name, the Einsatz title (the pill
- * stays, as its glyph and marker — and the «Einsatz abgeschlossen» chip keeps its lock but gives
- * its words at the same step), the «1?» count (the «?» stays), and last the word «Eintrag»
+ * stays, as its glyph and marker, a closed Einsatz's lock among them), the «1?» count (the «?» stays), and last the word «Eintrag»
  * (29.09.2026, sweep K2 — it keeps it at 820 px; the glyph alone is the journal pen, never a «+»
  * that the rail's «+ Symbol» also wears). The pill is never the
  * thing that gives: a pill squeezed below a readable width counts as «does not fit»

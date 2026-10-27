@@ -4269,6 +4269,11 @@ export interface components {
              */
             staleIncidentDays?: number;
             /**
+             * Exerciseautoclosehours
+             * @default 12
+             */
+            exerciseAutoCloseHours?: number;
+            /**
              * Capturewindowhours
              * @default 12
              */

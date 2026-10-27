@@ -563,25 +563,33 @@ export function georefPairIndex(s: GeorefModeState, idx: number): number | null 
   return s.slots.slice(0, idx).filter((x) => x.plan && x.map).length
 }
 
+/** «auf «Wasser»» / «auf dem Modul» — where on the plan, by the plan's own name when the caller
+ *  has it (sweep 27.10.2026 #13: the plan's label, never a bare «Modul» for a «Wasser» sheet). */
+export function georefOnPlan(planLabel?: string): string {
+  const C = appConfig.copy.whiteboard.georef
+  return planLabel ? fillTemplate(C.onPlanNamed, { name: planLabel }) : C.onPlanUnnamed
+}
+
 /**
  * The status line's second half: which halves are still open, as one sentence.
  *
- * The panel says WHERE the dangling half is («Punkt 3 fehlt noch auf dem Modul») because the
+ * The panel says WHERE the dangling half is («Punkt 3 fehlt noch auf «Wasser»») because the
  * amber cross saying so sits on a surface the phone may not even be showing.
  */
-export function georefOpenHint(s: GeorefModeState): string | null {
+export function georefOpenHint(s: GeorefModeState, planLabel?: string): string | null {
   const C = appConfig.copy.whiteboard.georef
   if (s.sel) return fillTemplate(C.statusSelected, { n: georefSlotLabel(s.slots, s.sel.idx) })
   const planOnly = s.slots.map((sl, i) => ({ sl, i })).filter((x) => danglingHalf(x.sl, 'plan'))
   const mapOnly = s.slots.map((sl, i) => ({ sl, i })).filter((x) => danglingHalf(x.sl, 'map'))
   if (!planOnly.length && !mapOnly.length) return null
-  if (planOnly.length && mapOnly.length) return C.statusOpenBoth
+  const onPlan = georefOnPlan(planLabel)
+  if (planOnly.length && mapOnly.length) return fillTemplate(C.statusOpenBoth, { onPlan })
   // a plan-only half is missing its KARTE counterpart, and vice versa
   const open = planOnly.length ? planOnly : mapOnly
   const tpl = planOnly.length
     ? open.length === 1 ? C.statusOpenMap : C.statusOpenMapMany
     : open.length === 1 ? C.statusOpenPlan : C.statusOpenPlanMany
-  return fillTemplate(tpl, { n: String(georefSlotNo(s.slots, open[0].i)), k: String(open.length) })
+  return fillTemplate(tpl, { n: String(georefSlotNo(s.slots, open[0].i)), k: String(open.length), onPlan })
 }
 
 // --- what the chip says ---------------------------------------------------------------------
@@ -853,10 +861,12 @@ export function georefSnapshot(): GeorefModeState { return state }
  *  coordinate conversion (Plan pixels → normalized sheet point, MapLibre pixels → WGS84),
  *  while the app-level mode card owns the explicit «Punkt setzen» action. Keeping only the
  *  resolver here avoids streaming every pan frame through the persisted mode store. */
-type PhoneTargetResolver = () => PlanPt | GeoPt | null
-const phoneTargetResolvers: Partial<Record<GeorefSide, PhoneTargetResolver>> = {}
+/** What a fixed target IS on each surface: a normalized sheet point, or WGS84. */
+interface PhoneTargetOf { plan: PlanPt; map: GeoPt }
+type PhoneTargetResolvers = { [S in GeorefSide]?: () => PhoneTargetOf[S] | null }
+const phoneTargetResolvers: PhoneTargetResolvers = {}
 
-export function registerGeorefPhoneTarget(side: GeorefSide, resolve: PhoneTargetResolver): () => void {
+export function registerGeorefPhoneTarget<S extends GeorefSide>(side: S, resolve: PhoneTargetResolvers[S] & {}): () => void {
   phoneTargetResolvers[side] = resolve
   return () => {
     if (phoneTargetResolvers[side] === resolve) delete phoneTargetResolvers[side]
@@ -868,20 +878,22 @@ export function registerGeorefPhoneTarget(side: GeorefSide, resolve: PhoneTarget
  *  the map's centre: on a phone those are two different places, and the whole point of the inset
  *  is to show what is under the mark somebody is about to commit. Null while the target sits off
  *  the sheet or the surface has not mounted. */
-export function peekGeorefPhoneTarget(side: GeorefSide): PlanPt | GeoPt | null {
-  return phoneTargetResolvers[side]?.() ?? null
+export function peekGeorefPhoneTarget<S extends GeorefSide>(side: S): PhoneTargetOf[S] | null {
+  const resolve: PhoneTargetResolvers[S] = phoneTargetResolvers[side]
+  return resolve?.() ?? null
 }
 
 /** Commit the fixed target on the visible phone surface. False means the target is currently
  *  outside the sheet / the surface has not mounted yet, so no invisible point is invented. */
 export function placeGeorefPhoneTarget(side: GeorefSide): boolean {
-  const target = phoneTargetResolvers[side]?.()
-  if (!target) return false
+  const pt = side === 'plan' ? peekGeorefPhoneTarget('plan') : null
+  const lngLat = side === 'map' ? peekGeorefPhoneTarget('map') : null
+  if (!pt && !lngLat) return false
   // an open popover consumes the next surface tap as its dismissal — the explicit button must
   // still PLACE on the first press, so the selection is put away beforehand
   if (state.sel && !state.move) georefDispatch({ type: 'unpick' })
-  if (side === 'plan') georefDispatch({ type: 'planTap', pt: target as PlanPt })
-  else georefDispatch({ type: 'mapTap', lngLat: target as GeoPt })
+  if (pt) georefDispatch({ type: 'planTap', pt })
+  else if (lngLat) georefDispatch({ type: 'mapTap', lngLat })
   return true
 }
 

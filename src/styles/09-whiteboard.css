@@ -171,6 +171,10 @@
      is highest. They stood 6px above the tool bar here while the FAB beside them stood 14px. */
   .wb-botleft { position: fixed; left: max(8px, env(safe-area-inset-left)); right: calc(max(8px, env(safe-area-inset-right)) + var(--fab-safe, 0px)); max-width: none;
     bottom: var(--float-bottom); }
+  /* ⚠️ …MEASURED once the workspace has placed it (lib/floatRow, sweep 27.10.2026 #9): on the
+     bars (--float-floor), risen only past a dock or an armed pill that overlaps it sideways —
+     beside a short dock, not a whole row above it. --float-bottom above is the unmeasured case. */
+  .wb-botleft[data-float-placed] { bottom: calc(var(--float-floor) + var(--row-lift, 0px)); }
   /* ⚠️ ONE line, always (owner, 18.09.2026). The row used to wrap, and on a 360px phone the two
      status pills dropped onto a second line over the plan — a whole extra band of chrome across
      the sheet, budgeted for in the toast lane (15-mobile · --float-row) and read by
@@ -782,17 +786,21 @@ span.wb-ghost-label { cursor: default; }
 .wb-dock-gap { flex: none; width: 4px; height: 4px; }
 .wb-dock-ic { display: grid; place-items: center; height: 30px; color: var(--ink-dim); }
 .wb-dock-ic .i { width: 18px; height: 18px; }
-/* ⚠️ The ✕ STAYS on screen while the dock scrolls. It is the first item of the first group, so on
-   a busy tool (line/area, whose colours + widths overflow the port) it scrolled away with the
-   options — off the top of the desktop column, off the left end of the phone's horizontal bar —
-   and the only way out of the mode was to scroll back for it. Sticky at the end it leads: `top`
-   binds in the vertical column, `left` in the phone's row, and each is a no-op in the other
-   orientation because that axis does not scroll there (its overflow is hidden).
+/* ⚠️ The ✕ STAYS on screen while the dock scrolls. On a busy tool (line/area, whose colours +
+   widths overflow the port) it scrolled away with the options — off the top of the desktop
+   column, off the end of the phone's horizontal bar — and the only way out of the mode was to
+   scroll back for it. Sticky at the end it stands at: `top` binds in the vertical column,
+   `right` in the phone's row, and each is a no-op in the other orientation because that axis
+   does not scroll there (its overflow is hidden).
+   ⚠️ «X on the right everywhere» (owner, sweep 27.10.2026 #3): ToolDock renders it LAST, so the
+   phone's bar reads [options · ⓘ | ✕] (15-mobile). The column keeps it at its head, the
+   column's top-right corner, through `order` — the gap a group boundary gets is its own margin,
+   on whichever side faces the options.
    Its fill has to be OPAQUE — a translucent wash let the options pass THROUGH the ✕ — so it is
    --dock-control-bg (mixed into --surface). No masking ring of the dock's surface around it: the
    dock is glass, and a ring of any solid colour painted a mismatched block over it (it was first
    dropped on the phone's bar, 15-mobile). */
-.wb-dock-x { position: sticky; top: 0; left: 0; z-index: 2;
+.wb-dock-x { position: sticky; top: 0; right: 0; z-index: 2; order: -1; margin-bottom: 4px; flex: none;
   width: 34px; height: 34px; border-radius: var(--r-sm); border: none;
   background: var(--dock-control-bg);
   color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; }

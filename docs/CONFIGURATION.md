@@ -152,6 +152,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `report.hoursRounding`, `.attendanceMergeGapMin`, `.links` | ✅ | Station › **Rapport** (§1b–§1d) |
 | `report.partnerOrgs` | ✅ | Station › **Rapport** – **and** the Arbeitsmappe (§9h) |
 | `alarms.autoArchiveDays`, `.staleIncidentDays`, `.captureWindowHours`, `.webhooks`, `.groups` | ✅ | Station › **Alarme & Einsätze** |
+| `alarms.exerciseAutoCloseHours` | ❌ | config-as-code only (`admin_config`); default 12 – an Übung closes itself that many hours after its last human change |
 | `alarms.groups[].winfapAlias` · `.tagespikett` | ❌ | dead fields – see the note under `alarms` below |
 | `fleet.vehicles` | ✅ | Station › **Fahrzeuge & Symbole** – **and** the Arbeitsmappe (§9h) |
 | `fleet.attributeLists` | ✅ | the Arbeitsmappe's «Symbolfelder» sheet (§9h) – ⚠️ **not** the «Fahrzeuge & Symbole» page: the table there is a viewer with no editor |
@@ -433,6 +434,10 @@ both now have browser pages – §9e and §9f.
                                                   // N days after the last edit. Never stamps report_done_at
                                                   // (the Rapport was not finished) and stays reversible via
                                                   // Reaktivieren; the Verlauf records why. 0 = off
+    "exerciseAutoCloseHours": 12,                 // an Übung (never an Ernstfall) closes itself N hours
+                                                  // after its last HUMAN change (a GPS/weather row is
+                                                  // none); Verlauf «Automatisch abgeschlossen (Übung)»,
+                                                  // reopenable as usual. 0 = off
     "captureWindowHours": 12,                     // how long the Erfassungs-Poster link (below) reaches
                                                   // an incident after it opened
     "webhooks": [],                               // outbound: POST on every incident creation (payload +

@@ -864,10 +864,8 @@ export function TruppCard({
             it from being taken for a logged Druck — the dimming that used to do that is gone. */}
         {/* ⚠️ The ⋯ ends THIS line (29.09.2026, owner pick B): as the facts' last chip it wrapped
             onto a row of its own on most cards, 44px of height for one glyph. Beside the Verlauf's
-            ⌄ it costs nothing, stands at the same place on every card and every board, and the
-            FAB guard (`data-az-foot` on the row, AtemschutzView · the parking effect) keeps both
-            clear of the Eintrag button. */}
-        <div className={s.vfootRow} data-az-foot="">
+            ⌄ it costs nothing and stands at the same place on every card and every board. */}
+        <div className={s.vfootRow}>
         <button type="button" className={cx(s.vrow, s.vrowTerse)} aria-expanded={logOpen} aria-label={az.verlauf}
           onClick={() => setLogOpen((o) => !o)}>
           <span className={s.metaLine}>

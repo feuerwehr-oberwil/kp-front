@@ -10,7 +10,7 @@ import type { PlanDocument } from '../../types'
 import { referenceUrl } from '../api/reference'
 import type { StationObject, StationPlan } from '../api/stationReference'
 import type { DeploymentModule } from '../deploymentConfig'
-import { moduleTileLabel } from '../navRail'
+import { planLabel } from '../navRail'
 import { entryFor } from '../planOrder'
 
 /** the Gebäude stack's document id in the viewer */
@@ -29,9 +29,9 @@ export function planDocId(p: Pick<StationPlan, 'module' | 'id'>): string {
 const FILE_TITLE = /(?:^|\s[–—-]\s*)(modul\s*\d[\w-]*)\s*$/i
 
 /**
- * The words a plan's TITLE says — the tablet rail's labels and the view label (owner, 17.10.2026 · R2;
- * the sheet's rows say only the module since round 4, `planRowLabel`). The station's pull titles many sheets
- * «<object> – <module key>» — the file name, which only repeats the object the sheet already
+ * The words a plan's TITLE says — the open plan's head and the rail tile's spoken name (owner,
+ * 17.10.2026 · R2; the tiles and the rail labels say only the plan's name, lib/navRail ·
+ * planLabel). The station's pull titles many sheets «<object> – <module key>» — the file name, which only repeats the object the sheet already
  * stands under and ends in a key nobody says aloud. Such a title gives way to the module
  * catalogue's title for the key, the same catalogue the Einsatz's plan chooser labels its tiles
  * from (lib/planOrder · moduleCatalogue): «Migros – modul2» → «Wie komme ich herein». A clean
@@ -46,62 +46,35 @@ export function planTitle(p: Pick<StationPlan, 'module' | 'id' | 'title'>, catal
   const id = p.module?.trim() ? planDocId(p) : file ? file[1].toLowerCase().replace(/\s+/g, '') : planDocId(p)
   const entry = entryFor(catalogue, id)
   const word = entry && !entry.family ? (entry.title ?? '').trim() : ''
-  if (!word) return moduleTileLabel(id)
+  if (!word) return planLabel(id)
   // a numbered sibling (`modul5-wasser2`) is a second sheet of its slot, never a copy of the name
   const n = entry!.id !== id ? /(\d+)$/.exec(id)?.[1] : undefined
   return n ? `${word} ${n}` : word
 }
 
-/**
- * The words a plan ROW says in the object's sheet (owner, review round 4, 17.10.2026: «just
- * "modul 1", "modul 2", etc. is enough»): the module key, spoken — nothing else. No title, no
- * «PDF · 1 Seite», no number badge. «modul1» → «Modul 1», «modul2-3» (or «modul23») → «Modul 2-3»,
- * «modul5-pv» → «Modul 5-PV», «modul5-wasser1» → «Modul 5-Wasser 1», «modul5-pv15» → «Modul 5-PV 15».
- * A sub-slot word of up to three letters is an abbreviation (PV, RWA, AEH) and is upper-cased,
- * a longer one is a word (Wasser, Evak, Adressen) — the rule the rail's tiles use
- * (lib/navRail · moduleTileLabel). A key that is no module key at all says the plan's title
- * (`planTitle`). `word` is the copy's «Modul {m}». Pure.
- */
-export function planRowLabel(
-  p: Pick<StationPlan, 'module' | 'id' | 'title'>,
-  catalogue: readonly DeploymentModule[] = [],
-  word = 'Modul {m}',
-): string {
-  const key = planDocId(p)
-  const say = (m: string) => word.replace('{m}', m)
-  const range = /^modul(\d+)-(\d+)$/.exec(key)
-  if (range) return say(`${range[1]}-${range[2]}`)
-  const sub = /^modul(\d+)-([a-z]+)(\d*)$/i.exec(key)
-  if (sub) {
-    const w = sub[2]
-    const cased = w.length <= 3 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1).toLowerCase()
-    return say(`${sub[1]}-${cased}${sub[3] ? ` ${sub[3]}` : ''}`)
-  }
-  const single = /^modul(\d+)$/.exec(key)
-  if (single) return say(single[1])
-  return planTitle(p, catalogue)
-}
-
-/** `row`: the words its row in the object's sheet says (`planRowLabel`; «Gebäude» for the stack) */
+/** `row`: the plan's name, the words its tile in the object's sheet and its rail tile say
+ *  (lib/navRail · planLabel; «Gebäude» for the stack) */
 export interface ViewerPlanDoc { doc: PlanDocument; plan: StationPlan | null; row: string }
 
 /** The object's documents in rail order — its plans by module, then the Gebäude stack when the
  *  station prepared floors. `gebaeudeLabel` is the copy word for that tile; `catalogue` (the
  *  deployment's modules, lib/planOrder · moduleCatalogue) names each sheet (`planTitle`) and says
- *  which open in the plain scrolling reader, exactly as in an Einsatz (`viewer`). `rowWord` is the
- *  copy's «Modul {m}» for the sheet's rows (`planRowLabel`). */
-export function viewerPlanDocs(obj: Pick<StationObject, 'plans' | 'floors'>, gebaeudeLabel: string, catalogue: readonly DeploymentModule[] = [], rowWord?: string): ViewerPlanDoc[] {
+ *  which open in the plain scrolling reader, exactly as in an Einsatz (`viewer`). A sheet's `row`
+ *  and `code` are its name (`planLabel`); a sheet without a module key says its title. */
+export function viewerPlanDocs(obj: Pick<StationObject, 'plans' | 'floors'>, gebaeudeLabel: string, catalogue: readonly DeploymentModule[] = []): ViewerPlanDoc[] {
   const seen = new Set<string>()
   const out: ViewerPlanDoc[] = []
   for (const p of obj.plans) {
     let id = planDocId(p)
     for (let n = 2; seen.has(id); n += 1) id = `${planDocId(p)}${n}`
     seen.add(id)
+    const title = planTitle(p, catalogue)
+    const row = planLabel(planDocId(p), title)
     out.push({
       plan: p,
-      row: planRowLabel(p, catalogue, rowWord),
+      row,
       doc: {
-        id, code: p.code, title: planTitle(p, catalogue), subtitle: '', imageUrl: referenceUrl(p.id, p.version), orientation: 'landscape',
+        id, code: row, title, subtitle: '', imageUrl: referenceUrl(p.id, p.version), orientation: 'landscape',
         ...(entryFor(catalogue, planDocId(p))?.viewer ? { viewer: true } : {}),
       },
     })

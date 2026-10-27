@@ -3,10 +3,11 @@ import { Icon } from '../../lib/icons'
 import { toast, confirmDialog } from '../../lib/ui'
 import { ApiError, isUnverifiable } from '../../lib/api'
 import { useOnline } from '../../lib/useOnline'
-import { filterIncidents, historyGroupKey, historyWhen, monthLabel } from '../../lib/historyGroups'
+import { NO_HISTORY_FILTER, applyHistoryFilter, filterIncidents, historyGroupKey, historyTypes, historyWhen, monthLabel, type HistoryFilter } from '../../lib/historyGroups'
 import { appConfig } from '../../config/appConfig'
 import { shortAddress } from '../../lib/deploymentConfig'
 import { EmptyState } from '../EmptyState'
+import { Chip } from '../Chip'
 import { SearchField } from '../SearchField'
 import { fillTemplate, fmtSpanShort, formatLocale } from '../../lib/format'
 import {
@@ -94,7 +95,13 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
   // old incident findable months later (the reopen/ansehen path). Sorted active-first then
   // newest, so group keys change monotonically and a header renders on every key change.
   const [query, setQuery] = useState('')
-  const shown = filterIncidents(sorted, query)
+  // the quick filters (27.10.2026, owner): Ernstfall | Übung, one Einsatzart, Rapport offen –
+  // client-side, the list already carries every field they read (lib/historyGroups)
+  const [filter, setFilter] = useState<HistoryFilter>(NO_HISTORY_FILTER)
+  const [typesOpen, setTypesOpen] = useState(false)
+  const types = historyTypes(sorted)
+  const shown = applyHistoryFilter(filterIncidents(sorted, query), filter)
+  const toggleKind = (kind: 'real' | 'exercise') => setFilter((f) => ({ ...f, kind: f.kind === kind ? null : kind }))
   const now = new Date()
   const groupTitle = (key: string) =>
     key === 'open' ? h.groupOpen : key === 'today' ? h.groupToday : key === 'week' ? h.groupWeek : monthLabel(key, formatLocale())
@@ -128,7 +135,30 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
       {sorted.length > 0 && (
         <SearchField value={query} onChange={setQuery} placeholder={h.searchPlaceholder} aria-label={h.searchPlaceholder} />
       )}
-      {sorted.length > 0 && shown.length === 0 && <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: query.trim() })}</p>}
+      {sorted.length > 0 && (
+        <div className="ip-hist-filters" role="group" aria-label={h.filterAria}>
+          <Chip selected={filter.kind === 'real'} onClick={() => toggleKind('real')}>{h.filterReal}</Chip>
+          <Chip selected={filter.kind === 'exercise'} onClick={() => toggleKind('exercise')}>{h.filterExercise}</Chip>
+          {/* only where there is a choice to make – one Einsatzart filters nothing */}
+          {types.length > 1 && (
+            <Chip selected={filter.type != null} aria-expanded={typesOpen} onClick={() => setTypesOpen((v) => !v)}>
+              {filter.type ?? h.filterType}<Icon id="chevron-down" className="chev" />
+            </Chip>
+          )}
+          <Chip selected={filter.rapportOpen} onClick={() => setFilter((f) => ({ ...f, rapportOpen: !f.rapportOpen }))}>{h.filterRapportOpen}</Chip>
+          {typesOpen && types.length > 1 && (
+            <div className="ip-hist-types">
+              {types.map((t) => (
+                <Chip key={t} selected={filter.type === t}
+                  onClick={() => { setFilter((f) => ({ ...f, type: f.type === t ? null : t })); setTypesOpen(false) }}>
+                  {t}
+                </Chip>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {sorted.length > 0 && shown.length === 0 && <p className="no-hits">{query.trim() ? fillTemplate(appConfig.copy.noHits, { q: query.trim() }) : h.filterNoHits}</p>}
       {rows.map(({ i, header }) => {
         return (
           <Fragment key={i.id}>

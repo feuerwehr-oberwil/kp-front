@@ -5,7 +5,7 @@ import { formatTime, fillTemplate } from '../lib/format'
 import { EntryGlyph, Icon } from '../lib/icons'
 import { fmtClock, type AtemschutzAlarmState } from '../lib/atemschutz'
 import { serverNow } from '../lib/serverClock'
-import type { Incident, ReactivateResult, WeatherData } from '../types'
+import type { Incident, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
 import { CLOCK_ICON, useEinsatzuhr } from '../lib/einsatzuhr'
 import { EinsatzuhrMenu } from './Einsatzuhr'
@@ -14,7 +14,6 @@ import { useHoldEntry } from '../lib/useHoldEntry'
 import { useLiveBearing } from '../lib/liveBearing'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
 import { useHeadFit } from '../lib/useHeadFit'
-import { useOnline } from '../lib/useOnline'
 import { parseWeatherTime } from '../lib/weatherTime'
 
 /* ── Weather helpers ───────────────────────────────────────────────────────────────────────────
@@ -130,23 +129,12 @@ interface Props {
    *  say so on the screen they are already looking at, and it is the only such control a
    *  link-scoped session gets (Einstellungen is hidden for those). */
   shareSlot?: React.ReactNode
-  /** The Einsatz is closed and open read-only. It rides HERE, beside its name, rather than as a
-   *  banner in the message layer: «Nur ansehen» is a property of the incident, and the incident
-   *  lives in the head (23.08.). The chip carries the two deliberate exits with it. */
-  archived?: boolean
-  /** leave the read-only view — back to the previously active Einsatz / «Alle Einsätze» */
-  onBackFromArchive?: () => void
-  /** editors only: re-open the closed Einsatz (its own confirm lives upstream) */
-  onReactivate?: () => Promise<ReactivateResult>
-  /** this session may still correct the closed Einsatz's Rapport (`canEditRapport`: the el, a
-   *  Führungsansicht) – the chip then says that much and no more; without it, «Nur ansehen» */
-  canCorrectRapport?: boolean
 }
 
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, azChipHidden = false, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate, canCorrectRapport = false }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, azChipHidden = false, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot }: Props) {
   // The deployment's clock (lib/serverClock), not the device's: the Einsatzdauer counts from a
   // timestamp another device wrote, and the Atemschutz chip below ticks off `contactAt`, which
   // the alarm fold expresses in server time. Reading those with a device clock a few seconds off
@@ -191,7 +179,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   // the bar's priority ladder (lib/useHeadFit): measured, one step at a time, until it fits
   const barRef = useRef<HTMLDivElement>(null)
   useHeadFit(barRef, [
-    incident.title, incident.address, clockText.length, hasWind, gpsStale ? 1 : 0, archived ? 1 : 0,
+    incident.title, incident.address, clockText.length, hasWind, gpsStale ? 1 : 0,
     azAlarm?.urgent && !azChipHidden ? `${azAlarm.peak}:${azAlarm.urgent.reason}` : '', recording ? 1 : 0, reminderCount > 0 ? 1 : 0,
   ].join('|'))
 
@@ -203,7 +191,6 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
           <span className="eaddr">{incident.address}</span>
         </>
       )}
-      {archived && <ArchivedChip onBack={onBackFromArchive} onReactivate={onReactivate} canCorrectRapport={canCorrectRapport} />}
       {/* No fixed wall clock in the bar — the OS status bar (iPad navbar) already shows the time,
           and the Einsatzuhr below can be cycled to the wall clock when needed. */}
       {/* Einsatzuhr: the long-incident awareness anchor — tap opens a labelled mode menu */}
@@ -347,65 +334,6 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
         })()}
       </div>
     </div>
-  )
-}
-
-/** «Einsatz abgeschlossen» as a mode chip beside the Einsatzname — the state of the incident,
- *  where the incident is named. It replaces the bottom banner that used to say the same thing on
- *  the same 16px as three other cards (and, being painted last, was the only one of the four you
- *  could read). The exits come along: tapping the chip offers «Zurück» and, for editors, «Wieder
- *  öffnen» — so nothing the banner could do got lost with it — under a head that says what the
- *  state means. With no exits to offer (a link session) the menu is that head alone.
- *  ⚠️ The head's sentence is the session's OWN (RBAC audit 22.10.2026): «… für alles andere wieder
- *  öffnen» only beside a «Wieder öffnen»; the el / a Führungsansicht, which correct the Rapport
- *  but reopen nothing, hear the first half; a viewer «Nur ansehen». */
-function ArchivedChip({ onBack, onReactivate, canCorrectRapport }: { onBack?: () => void; onReactivate?: () => Promise<ReactivateResult>; canCorrectRapport: boolean }) {
-  const C = appConfig.copy.archived
-  const [open, setOpen] = useState(false)
-  const [busy, setBusy] = useState(false)
-  // offline: «Wieder öffnen» stays (useOnline is a hint, never a gate) but says it needs the server
-  const online = useOnline()
-  // ⚠️ A SUCCESSFUL «Wieder öffnen» unmounts this chip — the Einsatz stops being archived — and
-  // the promise settles a tick later, so neither state write below may be made unconditionally.
-  const alive = useRef(true)
-  useEffect(() => () => { alive.current = false }, [])
-  const label = <><Icon id="lock" />{C.title}</>
-  // ⚠️ A TAP explains it (S5 rework, 21.10.2026, owner: «they just tap on it»; a hold was the
-  // draft and nobody would find it). The phone hides the word (10-journal · `.tb-mode`
-  // font-size 0), so the menu's head says the state and what it means, above the exits.
-  // No exits = a link session: its holder can neither correct nor reopen anything (staging r3),
-  // and the same menu is the sentence alone.
-  return (
-    <Popover side="bottom" align="start" popupClassName="tb-uhr-menu" ariaLabel={C.title}
-      open={open} onOpenChange={(next) => { if (!busy) setOpen(next) }}
-      trigger={<button type="button" className="tb-mode" aria-label={C.title}>{label}</button>}
-    >
-      <p className="tb-uhr-say"><b>{C.title}</b>{onReactivate ? C.hint : canCorrectRapport ? C.hintRapport : C.hintViewOnly}</p>
-      {onBack && (
-        <PopoverClose className="tb-uhr-row" onClick={onBack}>
-          <Icon id="undo" /><span className="tb-uhr-lbl">{C.back}</span>
-        </PopoverClose>
-      )}
-      {onReactivate && (
-        <button type="button" className="tb-uhr-row" disabled={busy} onClick={() => {
-          setBusy(true); setOpen(false)
-          void onReactivate()
-            // ONLY a real failure reopens the menu — a cancelled confirm means the operator
-            // is already where they wanted to be.
-            .then((r) => { if (r === 'failed' && alive.current) setOpen(true) })
-            // ⚠️ …and a CATCH, because reopening is not the only thing that can reject: upstream
-            // the incident-list refresh runs OUTSIDE its own try, so an offline refresh throws
-            // after the Einsatz has in fact been reopened. Unhandled, that was filed by the error
-            // reporter as a client error for an action that succeeded. Genuine failures are
-            // already reported by the caller's own toast, so there is nothing to say here.
-            .catch(() => {})
-            .finally(() => { if (alive.current) setBusy(false) })
-        }}>
-          <Icon id="pen" />
-          <span className="tb-uhr-lbl">{C.reactivate}{!online && <small className="tb-uhr-note">{C.reactivateOffline}</small>}</span>
-        </button>
-      )}
-    </Popover>
   )
 }
 

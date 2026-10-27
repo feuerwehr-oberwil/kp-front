@@ -73,13 +73,25 @@ describe('KartePanel', () => {
     expect(container.textContent).not.toMatch(/Gefahrenangaben/)
   })
 
-  // owner, 20.10.2026: Sofortmassnahmen belong at the very top, above the register chips
-  it('puts the station word above the register chips', () => {
+  // owner, 20.10.2026: Sofortmassnahmen belong at the very top, above the register
+  it('puts the station word above the register', () => {
     const { container } = panel()
     const sections = [...container.querySelectorAll('[data-section]')].map((e) => e.getAttribute('data-section'))
     expect(sections.indexOf('station')).toBeLessThan(sections.indexOf('register'))
     const text = container.textContent ?? ''
     expect(text.indexOf('Zufahrt nur über Schlossgasse')).toBeLessThan(text.indexOf('Heizung Gas'))
+  })
+
+  // owner, 27.10.2026: bullets instead of tag chips, the hazards first, each with ⚠
+  it('lists the register as bullets, the hazards first with the warn glyph', () => {
+    const { container } = panel()
+    const lines = [...container.querySelectorAll('[data-section="register"] ul > li')]
+    const warn = lines.map((l) => l.querySelector('use')?.getAttribute('href') === '#warn')
+    // «Heizung Gas» is a hazard, «3 Geschosse» and «Baujahr 1650» are not
+    expect(warn.filter(Boolean).length).toBeGreaterThan(0)
+    expect(warn.filter((w) => !w).length).toBeGreaterThan(0)
+    expect(warn.lastIndexOf(true)).toBeLessThan(warn.indexOf(false))
+    expect(lines[0].textContent).toBe('Heizung Gas')
   })
 
   it('names a register entry at another address as exactly that', () => {
@@ -259,18 +271,19 @@ describe('KartePanel · order and actions (R2)', () => {
   })
 
   // owner, review round 4: «just "modul 1", "modul 2", etc. is enough» — no title, no
-  // «PDF · 2 Seiten · auf Karte ausgerichtet», no number badge; «Gebäude» stays «Gebäude»
-  it('a plan row says «Modul 1» and nothing else, and opens the plan', () => {
+  // «PDF · 2 Seiten · auf Karte ausgerichtet», no number badge; «Gebäude» stays «Gebäude».
+  // 27.10.2026 (mock 2C): tiles in the «Für den Einsatz» card, under the station's word
+  it('a plan tile says «Modul 1» and nothing else, and opens the plan', () => {
     const onOpenDoc = vi.fn()
     const { container } = panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS, sheet: true, onOpenDoc })
     const rows = [...container.querySelectorAll('[data-section="plans"] button')]
     expect(rows.map((r) => r.textContent)).toEqual(['Modul 1', 'Gebäude'])
-    // one shape for every row: a document glyph (round 4 · mock A: the words start where In der
-    // Nähe's do), the words, the chevron — no second line
+    // one shape for every tile: a document glyph (the floors glyph the Gebäude), the words, the chevron
     for (const r of rows) {
-      expect(r.querySelector('.list-row-lead use')?.getAttribute('href')).toBe(r.textContent === 'Gebäude' ? '#floors' : '#doc')
-      expect(r.querySelector('.list-row-sub')).toBeNull()
+      expect(r.querySelector('use')?.getAttribute('href')).toBe(r.textContent === 'Gebäude' ? '#floors' : '#doc')
     }
+    const first = screen.getByText('Für den Einsatz').parentElement!
+    expect(first.querySelector('[data-section="station"] + [data-section="plans"]')).toBeTruthy()
     expect(container.textContent).not.toMatch(/Übersicht|PDF|ausgerichtet|Geschosse vorbereitet/)
     fireEvent.click(screen.getByRole('button', { name: 'Modul 1' }))
     expect(onOpenDoc).toHaveBeenCalledWith('d1')
@@ -325,14 +338,15 @@ describe('KartePanel · order and actions (R2)', () => {
     expect(onHydrant.mock.calls).toEqual([['h1', 'enter'], ['h1', 'leave'], ['h1', 'tap']])
   })
 
-  it('the switch «Objekt · n Pläne | <Haus>» stands under the head and opens the other level', () => {
+  // owner, 27.10.2026: no plan count in the switch – the tiles under it show the plans
+  it('the switch «Objekt | <Haus>» stands under the head and opens the other level', () => {
     const onPick = vi.fn()
-    const { container, rerender } = panel({ level: { on: 'object', plans: 3, house: null, onPick } })
+    const { container, rerender } = panel({ level: { on: 'object', house: null, onPick } })
     const group = screen.getByRole('group', { name: 'Objekt oder Haus' })
     // right under the head: the body's first part
     expect(container.querySelector('[data-section]')?.getAttribute('data-section')).toBe('level')
     // «Dieses Haus» until the register names the house
-    expect(group.textContent).toBe('Objekt · 3 PläneDieses Haus')
+    expect(group.textContent).toBe('ObjektDieses Haus')
     fireEvent.click(within(group).getByRole('button', { name: /^Objekt/ }))
     expect(onPick).not.toHaveBeenCalled()
     fireEvent.click(within(group).getByRole('button', { name: /Dieses Haus/ }))
@@ -340,7 +354,7 @@ describe('KartePanel · order and actions (R2)', () => {
     // the house level: its street, «Teil von …» under the head, the switch still there
     rerender(
       <KartePanel sel={{ kind: 'building', at: [7.57, 47.52], address: null, partOf: 'Storchenweg 1-16' }} register={ok} nearby={[]} visits={{ state: 'ok', list: [] }}
-        canCapture docs={[]} sheet withRail={false} level={{ on: 'house', plans: 1, house: 'Schlossgasse 9', onPick }}
+        canCapture docs={[]} sheet withRail={false} level={{ on: 'house', house: 'Schlossgasse 9', onPick }}
         onClose={vi.fn()} onStartVisit={vi.fn()} onReport={vi.fn()} onOpenDoc={vi.fn()} onSelectObject={vi.fn()} onRetryRegister={vi.fn()}
         onOpenVisit={vi.fn()} onPinBuilding={vi.fn()} onCopyCoords={vi.fn()} />,
     )
