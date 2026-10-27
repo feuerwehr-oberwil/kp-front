@@ -13,18 +13,31 @@ import s from './BuildingFacts.module.css'
 
 /** The register facts (`buildingChips`) as a bullet list, one fact a line, read like the
  *  station's notes (owner, 27.10.2026: «bullet points instead of the tags» – the Karte panel and the
- *  Einsatz's Gebäude card alike). The caller orders them (hazards first); a hazard's bullet IS the
- *  warn glyph and its line is bold, never colour alone. */
+ *  Einsatz's Gebäude card alike), the size and weight of the Sofortmassnahmen. The caller orders
+ *  them (hazards first); a hazard's bullet IS the warn glyph – the glyph marks it, never colour. */
 export function RegisterLines({ chips, className }: { chips: BuildingChip[]; className?: string }) {
   if (!chips.length) return null
   return (
-    <ul className={cx(s.facts, className)}>
+    <ul className={cx(s.lines, s.facts, className)}>
       {chips.map((c) => (
         <li key={c.key} className={cx(c.hazard && s.hazardLine)} title={c.title}>
           {c.hazard && <Icon id="warn" />}{c.text}
         </li>
       ))}
     </ul>
+  )
+}
+
+/** «Gebäude» as a section of its own under the same head as the Sofortmassnahmen (`.head`), the
+ *  register lines under it – the Einsatz's Gebäude card reads «first Sofortmassnahmen, then
+ *  Gebäude» (owner, 27.10.2026: «a clear two-step thing»). */
+export function RegisterSection({ title, chips, className }: { title: string; chips: BuildingChip[]; className?: string }) {
+  if (!chips.length) return null
+  return (
+    <div className={cx(s.notes, className)}>
+      <div className={s.head}>{title}</div>
+      <RegisterLines chips={chips} />
+    </div>
   )
 }
 

@@ -1,11 +1,11 @@
 /* A building's register lines and the station's notes (BuildingFacts) – the Karte panel's look,
    which the Einsatz's Gebäude card wears too. Read-only facts as bullets, the notes' size (owner,
    27.10.2026: «bullet points instead of the tags»); a long fact wraps anywhere rather than run out. */
-/* the register as lines (RegisterLines): the notes' bullets and size; a hazard's
-   bullet is the warn glyph, hung in the marker's place so every line starts at one edge */
-.facts { margin: 0; padding-left: var(--sp-5); font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink); overflow-wrap: anywhere; }
-.facts li + li { margin-top: var(--sp-1); }
-.hazardLine { position: relative; list-style: none; font-weight: var(--fw-bold); }
+/* the register as lines (RegisterLines): the Sofortmassnahmen's own bullets, size and weight
+   (`.lines` below; owner, 27.10.2026: «same font size / weight»); a hazard's bullet is the warn
+   glyph, hung in the marker's place so every line starts at one edge — the glyph alone marks it */
+.facts { overflow-wrap: anywhere; }
+.hazardLine { position: relative; list-style: none; }
 .hazardLine svg { position: absolute; left: calc(var(--sp-5) * -1 + 2px); top: .2em; width: 14px; height: 14px; color: var(--amber-strong); }
 
 .notes { display: flex; flex-direction: column; gap: var(--sp-2); }

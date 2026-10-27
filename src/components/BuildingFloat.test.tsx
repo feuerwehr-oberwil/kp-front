@@ -84,15 +84,18 @@ describe('BuildingFloat', () => {
     expect(reads).toEqual(['read', 'read', 'read'])
   })
 
-  it('Sofortmassnahmen stand right after the hazards, before the register facts', () => {
+  // owner, 27.10.2026: «a clear two-step thing: first "Sofortmassnahmen" then "Gebäude"» – the
+  // hazards lead the Gebäude section, no longer the card
+  it('Sofortmassnahmen first, then Gebäude with its hazards ahead of the facts', () => {
     render(<BuildingFloat info={{ ...base, object: { ...base.object!, remarks: 'Schlüsseldepot beim Haupttor' } }} autoOpen />)
     const text = screen.getByRole('dialog').textContent ?? ''
     const at = (t: string) => text.indexOf(t)
     expect(at('Heizung Gas')).toBeGreaterThan(-1)
-    expect(at('Heizung Gas')).toBeLessThan(at('Sofortmassnahmen'))
-    expect(at('PV 35.6 kW')).toBeLessThan(at('Sofortmassnahmen'))
     expect(at('Gashaupthahn schliessen')).toBeLessThan(at('Bemerkungen'))
-    expect(at('Schlüsseldepot beim Haupttor')).toBeLessThan(at('3 Geschosse'))
+    expect(at('Schlüsseldepot beim Haupttor')).toBeLessThan(at('Gebäude'))
+    expect(at('Gebäude')).toBeLessThan(at('Heizung Gas'))
+    expect(at('PV 35.6 kW')).toBeLessThan(at('3 Geschosse'))
+    expect(at('Heizung Gas')).toBeLessThan(at('3 Geschosse'))
     // the source line is folded behind «Register-Hinweis» (review round 7) — and opens LAST
     expect(at('GWR')).toBe(-1)
     fireEvent.click(screen.getByRole('button', { name: /Register-Hinweis/ }))
