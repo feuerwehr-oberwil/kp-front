@@ -1,21 +1,21 @@
 import { appConfig } from '../config/appConfig'
 import { formatTime } from '../lib/format'
-import { alarmBar, isAlarmValue, readingRows, symbolReading } from '../lib/symbols'
+import { alarmBar, readingLevel, readingRank, readingRows, symbolReading } from '../lib/symbols'
 import { ReadingPill } from '../lib/symbolRender'
 import type { SymbolProps } from '../types'
 
 // The Messpunkt's two additions to the symbol panel (owner picks 27.10.2026): the input box itself
 // is the visualisation – a colour bar under each measured field – and the history sits under all
-// fields as one list. No numbers on the bar: above the calm zone it is Atemschutz either way.
+// fields as one list. No numbers on the bar, only the stages: calm, Voralarm (amber), Hauptalarm (red).
 
-/** Calm / red bar under one measured field, with a tick where the value as typed sits. */
+/** Calm / amber / red bar under one measured field, with a tick where the value as typed sits. */
 export function ReadingBar({ symbol, fieldKey, value }: { symbol?: string; fieldKey: string; value: string }) {
   const bar = alarmBar(symbol, fieldKey, value)
   if (!bar) return null
   return (
     <span className={`reading-bar${bar.at == null ? ' empty' : ''}`} aria-hidden>
       {bar.zones.map((z) => (
-        <i key={z.from} className={z.alarm ? 'alarm' : undefined} style={{ left: `${z.from * 100}%`, width: `${(z.to - z.from) * 100}%` }} />
+        <i key={z.from} className={z.level === 'ok' ? undefined : z.level} style={{ left: `${z.from * 100}%`, width: `${(z.to - z.from) * 100}%` }} />
       ))}
       {bar.at != null && <b style={{ left: `${bar.at * 100}%` }} />}
     </span>
@@ -23,7 +23,7 @@ export function ReadingBar({ symbol, fieldKey, value }: { symbol?: string; field
 }
 
 /** The readings, newest first, one row per radio report: time, then every gas, red where it is
- *  over its limit. Nothing before the first reading. */
+ *  amber/red where it reached A1/A2. Nothing before the first reading. */
 export function ReadingHistory({ entity }: { entity: SymbolProps }) {
   const rows = readingRows(entity)
   if (!rows.length) return null
@@ -35,7 +35,7 @@ export function ReadingHistory({ entity }: { entity: SymbolProps }) {
           <li key={r.t}>
             <time>{formatTime(new Date(r.t))}</time>
             {Object.entries(r.v).map(([k, v]) => (
-              <span key={k} className={isAlarmValue(entity.symbol, k, v) ? 'alarm' : undefined}>{k} {v}</span>
+              <span key={k} className={readingLevel(entity.symbol, k, v) === 'ok' ? undefined : readingLevel(entity.symbol, k, v)}>{k} {v}</span>
             ))}
           </li>
         ))}
@@ -66,7 +66,7 @@ export function StackReadings({ points, floorsTTB, storeyName, boardH, onPick }:
       {floorsTTB.map((f, idx) => {
         const here = points.filter((p) => (p.floor ?? 0) === f)
         if (!here.length) return null
-        const alarmFirst = [...here].sort((a, b) => Number(symbolAlarm(b)) - Number(symbolAlarm(a)))
+        const alarmFirst = [...here].sort((a, b) => readingRank(symbolReading(b)) - readingRank(symbolReading(a)))
         return (
           <section key={f} style={{ top: (idx / N) * boardH, maxHeight: boardH / N }}>
             <h4>{storeyName(f)}</h4>
@@ -83,4 +83,3 @@ export function StackReadings({ points, floorsTTB, storeyName, boardH, onPick }:
   )
 }
 
-const symbolAlarm = (p: SymbolProps) => !!symbolReading(p)?.alarm

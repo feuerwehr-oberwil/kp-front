@@ -215,21 +215,23 @@ describe('Messpunkt — the reading its mark wears (27.10.2026)', () => {
   const MIN = 60_000
   const mp = (fields: Record<string, string>, readings?: { t: number; v: Record<string, string> }[]) => ({ symbol: 'FW Messpunkt', fields, readings })
 
-  it('the worst gas wins: an Ex over its limit beats a harmless CO, and only that goes red', () => {
-    expect(symbolReading(mp({ CO: '14', Ex: '12' }))).toMatchObject({ text: 'Ex 12', alarm: true })
-    expect(symbolReading(mp({ CO: '14', Ex: '0' }))).toMatchObject({ text: 'CO 14', alarm: false })
+  it('the worst gas wins: an Ex at A1 beats a harmless CO, a CO at A2 beats that Ex', () => {
+    expect(symbolReading(mp({ CO: '14', Ex: '12' }))).toMatchObject({ text: 'Ex 12', level: 'a1' })
+    expect(symbolReading(mp({ CO: '65', Ex: '12' }))).toMatchObject({ text: 'CO 65', level: 'a2' })
+    expect(symbolReading(mp({ CO: '14', Ex: '0' }))).toMatchObject({ text: 'CO 14', level: 'ok' })
   })
 
-  it('O₂ is red both ways, and a radio report\'s decimal comma is a number', () => {
-    expect(symbolReading(mp({ 'O₂': '18,5' }))).toMatchObject({ text: 'O₂ 18,5', alarm: true })
-    expect(symbolReading(mp({ 'O₂': '23.5' }))?.alarm).toBe(true)
-    expect(symbolReading(mp({ 'O₂': '20.9' }))?.alarm).toBe(false)
+  it('O₂ alarms both ways, and a radio report\'s decimal comma is a number', () => {
+    expect(symbolReading(mp({ 'O₂': '18,5' }))).toMatchObject({ text: 'O₂ 18,5', level: 'a1' })
+    expect(symbolReading(mp({ 'O₂': '16' }))?.level).toBe('a2')
+    expect(symbolReading(mp({ 'O₂': '23.5' }))?.level).toBe('a2')
+    expect(symbolReading(mp({ 'O₂': '20.9' }))?.level).toBe('ok')
   })
 
   it('goes old 15 min after the last reading – a point without history never does', () => {
     const at = 1_000_000
     expect(symbolReading(mp({ CO: '65' }, [{ t: at, v: { CO: '65' } }]), at + 14 * MIN)).toMatchObject({ stale: false, ageMin: 14 })
-    expect(symbolReading(mp({ CO: '65' }, [{ t: at, v: { CO: '65' } }]), at + 18 * MIN)).toMatchObject({ stale: true, ageMin: 18, alarm: true })
+    expect(symbolReading(mp({ CO: '65' }, [{ t: at, v: { CO: '65' } }]), at + 18 * MIN)).toMatchObject({ stale: true, ageMin: 18, level: 'a2' })
     expect(symbolReading(mp({ CO: '65' }), at)).toMatchObject({ stale: false, ageMin: null })
   })
 
@@ -245,8 +247,10 @@ describe('Messpunkt — the reading its mark wears (27.10.2026)', () => {
     expect(readingRows(p).map((r) => r.v)).toEqual([{ CO: '45', Ex: '0' }, { CO: '20' }])
   })
 
-  it('the bar under a field puts the limit where calm turns red', () => {
+  it('the bar under a field: calm, amber, red, the tick at A1 where calm ends', () => {
     expect(alarmBar('FW Messpunkt', 'CO', '30')).toMatchObject({ at: 0.6 })
+    expect(alarmBar('FW Messpunkt', 'CO', '30')?.zones.map((z) => z.level)).toEqual(['ok', 'a1', 'a2'])
+    expect(alarmBar('FW Messpunkt', 'O₂', '20.9')?.zones.map((z) => z.level)).toEqual(['a2', 'a1', 'ok', 'a2'])
     expect(alarmBar('FW Messpunkt', 'CO', '')?.at).toBeNull()
     expect(alarmBar('FW Messpunkt', 'Raum', 'Gang')).toBeNull()
   })

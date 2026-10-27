@@ -1018,7 +1018,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                         onChange={(v) => setRowValue(i, v)} />
                     ) : alarmBar(entity.symbol, r.k.trim(), r.v) ? (
                       // a measured gas (the Messpunkt): the input box is the visualisation – its
-                      // calm/red bar right under it, following the value as it is typed
+                      // calm/amber/red bar right under it, following the value as it is typed
                       <span className="reading-field">
                         {control}
                         <ReadingBar symbol={entity.symbol} fieldKey={r.k.trim()} value={r.v} />

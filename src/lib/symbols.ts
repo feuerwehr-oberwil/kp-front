@@ -183,46 +183,57 @@ const measuredNumber = (value?: string): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
-/** Does `value` of the measured field `key` mean «Atemschutz»? The preset's `alarm` limits
- *  (appConfig): red from `atLeast`, and below `below` for O₂. A non-number is never an alarm. */
-export function isAlarmValue(symbol: string | undefined, key: string, value?: string): boolean {
+/** A measured value's alarm stage: calm, Voralarm (A1, amber) or Hauptalarm (A2, red). */
+export type ReadingLevel = 'ok' | 'a1' | 'a2'
+const LEVEL_RANK: Record<ReadingLevel, number> = { ok: 0, a1: 1, a2: 2 }
+
+const reached = (lim: { atLeast?: number; below?: number } | undefined, n: number) =>
+  !!lim && ((lim.atLeast != null && n >= lim.atLeast) || (lim.below != null && n < lim.below))
+
+/** The stage `value` of the measured field `key` has reached – the preset's `alarm` (appConfig),
+ *  the higher stage winning. A field without limits, or no number, is calm. */
+export function readingLevel(symbol: string | undefined, key: string, value?: string): ReadingLevel {
   const lim = symbol ? presets.byName[symbol]?.alarm?.[key] : undefined
   const n = measuredNumber(value)
-  if (!lim || n == null) return false
-  return (lim.atLeast != null && n >= lim.atLeast) || (lim.below != null && n < lim.below)
+  if (!lim || n == null) return 'ok'
+  return reached(lim.a2, n) ? 'a2' : reached(lim.a1, n) ? 'a1' : 'ok'
 }
 
-/** The panel's colour bar under a measured field (ReadingBar): its zones as fractions of the bar
- *  and where `value` sits on it (null when it is no number). Not to scale on purpose – the calm
- *  zone gets the room and the red tail is short: the bar answers «how close to red», not «how
- *  much». Null for a field without alarm limits. */
-export function alarmBar(symbol: string | undefined, key: string, value?: string): { zones: { from: number; to: number; alarm: boolean }[]; at: number | null } | null {
+/** The panel's colour bar under a measured field (ReadingBar): one band per stretch between two
+ *  limits, with the stage a value inside it reaches, and where `value` sits (null when it is no
+ *  number). Not to scale on purpose – a calm band gets three times the room of an alarm band: the
+ *  bar answers «how close to amber/red», not «how much». Null for a field without limits. */
+export function alarmBar(symbol: string | undefined, key: string, value?: string): { zones: { from: number; to: number; level: ReadingLevel }[]; at: number | null } | null {
   const lim = symbol ? presets.byName[symbol]?.alarm?.[key] : undefined
-  if (!lim) return null
+  const cuts = [...new Set([lim?.a1, lim?.a2].flatMap((l) => [l?.below, l?.atLeast]).filter((x): x is number => x != null))].sort((a, b) => a - b)
+  if (!cuts.length) return null
+  const probes = [cuts[0] - 1, ...cuts.map((c, i) => (i + 1 < cuts.length ? (c + cuts[i + 1]) / 2 : c + 1))]
+  const levels = probes.map((x) => readingLevel(symbol, key, String(x)))
+  const weights = levels.map((l) => (l === 'ok' ? 3 : 1))
+  const total = weights.reduce((a, b) => a + b, 0)
+  let from = 0
+  const zones = levels.map((level, i) => {
+    const z = { from, to: from + weights[i] / total, level }
+    from = z.to
+    return z
+  })
   const n = measuredNumber(value)
-  const clamp = (x: number) => Math.min(1, Math.max(0, x))
-  const { below: lo, atLeast: hi } = lim
-  if (lo != null && hi != null) {
-    // too little AND too much (O₂): red · calm · red, the calm band in the middle
-    const span = hi - lo
-    const at = n == null ? null : n < lo ? 0.25 * (1 - (lo - n) / span) : n < hi ? 0.25 + (0.5 * (n - lo)) / span : 0.75 + (0.25 * (n - hi)) / span
-    return { zones: [{ from: 0, to: 0.25, alarm: true }, { from: 0.25, to: 0.75, alarm: false }, { from: 0.75, to: 1, alarm: true }], at: at == null ? null : clamp(at) }
-  }
-  if (hi != null) {
-    const at = n == null ? null : n < hi ? (0.6 * n) / hi : 0.6 + (0.4 * (n - hi)) / hi
-    return { zones: [{ from: 0, to: 0.6, alarm: false }, { from: 0.6, to: 1, alarm: true }], at: at == null ? null : clamp(at) }
-  }
-  if (lo == null) return null
-  const at = n == null ? null : n < lo ? (0.4 * n) / lo : 0.4 + (0.6 * (n - lo)) / lo
-  return { zones: [{ from: 0, to: 0.4, alarm: true }, { from: 0.4, to: 1, alarm: false }], at: at == null ? null : clamp(at) }
+  if (n == null) return { zones, at: null }
+  // inside its band, between the band's two limits; the first band starts at 0 (no gas is
+  // negative), the open last one runs as wide again as the band before it
+  const b = cuts.findIndex((c) => n < c) === -1 ? cuts.length : cuts.findIndex((c) => n < c)
+  const lo = b === 0 ? Math.min(0, cuts[0]) : cuts[b - 1]
+  const hi = b < cuts.length ? cuts[b] : cuts[b - 1] + (cuts[b - 1] - (b >= 2 ? cuts[b - 2] : 0) || 1)
+  const f = Math.min(1, Math.max(0, hi > lo ? (n - lo) / (hi - lo) : 0))
+  return { zones, at: zones[b].from + f * (zones[b].to - zones[b].from) }
 }
 
 /** What a measured symbol's mark says (TacticalSymbol · reading). */
 export interface SymbolReading {
   /** the gas the mark wears, keyed – «CO 180»; null for a point placed but not yet measured */
   text: string | null
-  /** that value is over its alarm limit – the mark turns red */
-  alarm: boolean
+  /** that value's alarm stage – the mark turns amber (A1) or red (A2) */
+  level: ReadingLevel
   /** whole minutes since the last reading; null without a history (points from before 27.10.) */
   ageMin: number | null
   /** older than the preset's `staleMin`: the colour moves to the outline and the age shows */
@@ -231,8 +242,8 @@ export interface SymbolReading {
 
 /**
  * The value a measured symbol wears AS its mark (the Messpunkt, 26./27.10.2026). The WORST gas
- * wins – the first one over its alarm limit in preset order – else the first filled one, so an
- * «Ex 12» is never hidden behind a harmless «CO 14». Null for every symbol without a `readout`.
+ * wins – the highest alarm stage, the earlier one in preset order on a tie – so an «Ex 12» is
+ * never hidden behind a harmless «CO 14». Null for every symbol without a `readout`.
  *
  * A reading is part of the mark, not a caption: the label pass books it as the glyph's own
  * footprint instead of suppressing it – a hidden reading is a wrong picture of the building.
@@ -242,13 +253,14 @@ export function symbolReading(props: SymbolProps, now = Date.now()): SymbolReadi
   if (!keys.length) return null
   const fields = props.fields ?? {}
   const filled = keys.filter((k) => fields[k]?.trim())
-  const worst = filled.find((k) => isAlarmValue(props.symbol, k, fields[k])) ?? filled[0]
+  const level = (k: string) => readingLevel(props.symbol, k, fields[k])
+  const worst = filled.reduce<string | undefined>((best, k) => (best == null || LEVEL_RANK[level(k)] > LEVEL_RANK[level(best)] ? k : best), undefined)
   const rs = props.readings; const last = rs?.length ? rs[rs.length - 1].t : undefined
   const ageMin = last != null ? Math.max(0, Math.floor((now - last) / 60_000)) : null
   const staleMin = props.symbol ? presets.byName[props.symbol]?.staleMin : undefined
   return {
     text: worst ? `${worst} ${fields[worst].trim()}` : null,
-    alarm: !!worst && isAlarmValue(props.symbol, worst, fields[worst]),
+    level: worst ? level(worst) : 'ok',
     ageMin,
     stale: !!worst && ageMin != null && staleMin != null && ageMin >= staleMin,
   }
@@ -258,6 +270,9 @@ export function symbolReading(props: SymbolProps, now = Date.now()): SymbolReadi
 export const readingAge = (r: SymbolReading) => (r.ageMin != null ? `${r.ageMin}′` : '')
 
 /** Everything the label pass measures of a reading pill (useLabelPass · lib/mapView SYM_PILL_STYLE). */
+/** How alarming a reading is, for sorting (StackReadings, the Karte's «Messungen» button). */
+export const readingRank = (r: SymbolReading | null) => (r ? LEVEL_RANK[r.level] : -1)
+
 export const readingPillText = (r: SymbolReading) => [r.text, r.stale ? readingAge(r) : ''].filter(Boolean).join(' ')
 
 /** The reading's text alone («CO 180») – what the label pass measures and the legend prints. */

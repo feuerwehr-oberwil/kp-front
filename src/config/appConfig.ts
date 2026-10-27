@@ -4,6 +4,12 @@ import { getCopy, type Copy } from './copy'
 /** One symbol's curated defaults: which built-in steppers make sense for it
  *  (`controls`) and the empty detail rows it drops in with (`fields`). Omitted
  *  `controls` = none; omitted `fields` = no detail rows. See lib/symbols. */
+/** One alarm stage of a measured field: reached from `atLeast`, or below `below`. */
+interface AlarmLimit {
+  atLeast?: number
+  below?: number
+}
+
 interface SymbolPreset {
   controls?: SymbolControl[]
   fields?: string[]
@@ -16,10 +22,10 @@ interface SymbolPreset {
    *  place that prints one keys it («CO 180»), and the first filled one rides on the glyph as
    *  its readout instead of hanging under it as a caption (lib/symbols · symbolReadoutText). */
   readout?: string[]
-  /** when a measured value means «Atemschutz»: per `readout` key, red from `atLeast`, and for O₂
-   *  also red `below` (too little AND too much). One limit per gas – above green nobody acts
-   *  differently on Vor- vs Hauptalarm (owner, 27.10.2026). Station-overridable via the config. */
-  alarm?: Record<string, { atLeast?: number; below?: number }>
+  /** the detector's two alarm stages per `readout` key: `a1` (Voralarm, amber) and `a2`
+   *  (Hauptalarm, red), each from `atLeast` and/or `below` – O₂ alarms both ways. The higher stage
+   *  wins. Station-overridable via the config (lib/symbols · readingLevel). */
+  alarm?: Record<string, { a1?: AlarmLimit; a2?: AlarmLimit }>
   /** minutes after which the last reading counts as old: the mark keeps its colour on the outline
    *  and says its age («18′») – an old danger must stay visible without looking fresh. */
   staleMin?: number
@@ -477,11 +483,17 @@ const base = {
         // first: it is what a Nachkontrolle measures and what the readout shows by default.
         // Raum first, the way the Trupp reports it («2. OG Gang: …»), and it is the caption: the
         // values ride on the glyph itself, so under it only the room is left to say.
-        // The alarm limits are the Dräger-typical A1 settings (CO 30 ppm, Ex 10 %UEG, O₂ 19 ↓ / 23 ↑
-        // Vol%, H₂S 5 ppm) until a station overrides them with what its own Multiwarn is set to.
+        // The alarm stages are the Dräger-typical A1/A2 settings (CO 30/60 ppm, Ex 10/20 %UEG, H₂S
+        // 5/10 ppm, O₂ A1 below 19, A2 from 23 Vol%) until a station overrides them with what its
+        // own Multiwarn is set to – plus O₂ red below 17 Vol%, where a filter mask stops being allowed.
         'FW Messpunkt': {
           controls: ['floor'], fields: ['Raum', 'CO', 'Ex', 'O₂', 'H₂S'], caption: 'Raum', readout: ['CO', 'Ex', 'O₂', 'H₂S'],
-          alarm: { CO: { atLeast: 30 }, Ex: { atLeast: 10 }, 'O₂': { below: 19, atLeast: 23 }, 'H₂S': { atLeast: 5 } },
+          alarm: {
+            CO: { a1: { atLeast: 30 }, a2: { atLeast: 60 } },
+            Ex: { a1: { atLeast: 10 }, a2: { atLeast: 20 } },
+            'O₂': { a1: { below: 19 }, a2: { below: 17, atLeast: 23 } },
+            'H₂S': { a1: { atLeast: 5 }, a2: { atLeast: 10 } },
+          },
           staleMin: 15,
         },
         // ── Personen / Sanität ── the label/name says it; no count on the plain places. A

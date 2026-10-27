@@ -149,7 +149,8 @@
 .sym-caption > span { max-width: 120px; }
 /* a MEASURED symbol's mark IS its value (lib/symbols · symbolReading, the Messpunkt – owner pick S3,
    27.10.2026): one pill with a small Messgerät and the worst gas, centred where the glyph would sit.
-   Calm ink below the alarm limit – colour only where somebody has to act (pick F2/Z2) – red from it.
+   Calm ink below A1 – colour only where somebody has to act (pick F2) – amber from A1 (Voralarm),
+   red from A2 (Hauptalarm).
    Mono like every other readout on the map; never wraps. Booked by the label pass as the glyph's
    own footprint (lib/mapView · SYM_PILL_STYLE). */
 .sym-pill { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5;
@@ -158,11 +159,13 @@
   font-family: var(--mono); font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 20px;
   box-shadow: var(--e1); }
 .sym-pill .i { width: 13px; height: 13px; flex: none; }
-.sym-pill.alarm { background: var(--red-fill); color: var(--on-fill); }
+.sym-pill.a1 { background: var(--amber); color: var(--on-amber); }
+.sym-pill.a2 { background: var(--red-fill); color: var(--on-fill); }
 /* older than the preset's staleMin: the colour moves to the outline and the age shows – an old
    danger must neither vanish nor look fresh (pick C) */
 .sym-pill.stale { background: var(--label-bg); color: var(--ink-dim); box-shadow: inset 0 0 0 1.5px var(--ink-faint), var(--e1); }
-.sym-pill.stale.alarm { color: var(--red); box-shadow: inset 0 0 0 1.5px var(--red), var(--e1); }
+.sym-pill.stale.a1 { color: var(--amber-strong); box-shadow: inset 0 0 0 1.5px var(--amber), var(--e1); }
+.sym-pill.stale.a2 { color: var(--red); box-shadow: inset 0 0 0 1.5px var(--red), var(--e1); }
 .sym-pill-age { font-weight: var(--fw-medium); opacity: .85; }
 /* placed but not yet measured: the dashed pill with the icon alone */
 .sym-pill.empty { background: var(--label-bg); color: var(--ink-dim); box-shadow: var(--e1); outline: 1.5px dashed var(--ink-faint); outline-offset: -1.5px; }

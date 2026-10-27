@@ -326,7 +326,7 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
 }
 
 /**
- * A measured symbol's mark: the worst gas on calm ink, red over its alarm limit, the colour on the
+ * A measured symbol's mark: the worst gas on calm ink, amber at A1, red at A2, the colour on the
  * outline plus its age once the reading is old (lib/symbols · symbolReading), the dashed pill with
  * the icon alone before the first reading. Its own component so only these few marks subscribe to
  * the minute clock that ages them. `inline` = the same pill in a list row (ReadingParts).
@@ -335,7 +335,7 @@ export function ReadingPill({ props, floor, inline = false }: { props: SymbolPro
   const r = symbolReading(props, useMinuteClock())
   if (!r) return null
   return (
-    <span className={`sym-pill${inline ? ' inline' : ''}${r.text ? '' : ' empty'}${r.alarm ? ' alarm' : ''}${r.stale ? ' stale' : ''}`}>
+    <span className={`sym-pill${inline ? ' inline' : ''}${r.text ? '' : ' empty'}${r.level === 'ok' ? '' : ` ${r.level}`}${r.stale ? ' stale' : ''}`}>
       <Icon id="messgeraet" />
       {r.text}
       {r.stale && <span className="sym-pill-age">{readingAge(r)}</span>}

@@ -111,7 +111,7 @@ import { leitungOptions } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
 import { useObjectPlans, isSelectOnlySurface, railPlanTiles, BUILDING_PICK_ID } from './lib/useObjectPlans'
-import { isMeasuredSymbol, symbolReading } from './lib/symbols'
+import { isMeasuredSymbol, readingRank, symbolReading } from './lib/symbols'
 import { PlanPicker } from './components/PlanPicker'
 import { fetchShareLink } from './lib/viewLink'
 import { useBuildingInfo } from './lib/useBuildingInfo'
@@ -1063,10 +1063,12 @@ export function IncidentWorkspace({
     return out
   }, [effBuilding, resolvedPlanDocs])
   // the Karte's «Messungen» button (MapControls · readings): once a Messpunkt is placed, the worst
-  // one – over its alarm limit first – shown on the way to the Gebäude, where their list stands
+  // one – the highest alarm stage first – shown on the way to the Gebäude, where their list stands
   const worstReading = useMemo(() => {
     const points = entities.filter((e) => e.kind === 'symbol' && isMeasuredSymbol(e))
-    return points.find((e) => symbolReading(e)?.alarm) ?? points.find((e) => symbolReading(e)?.text) ?? points[0] ?? null
+    // the highest alarm stage first, then a measured one over one not yet measured
+    const score = (e: (typeof points)[number]) => { const r = symbolReading(e); return readingRank(r) * 2 + (r?.text ? 1 : 0) }
+    return points.reduce<(typeof points)[number] | null>((best, e) => (!best || score(e) > score(best) ? e : best), null)
   }, [entities])
   // …and the LEISTE's version of it, where «Umrisse» and «Gebäude» are one tile that morphs
   // (23.08.). Two tiles for one building was the mechanism showing through: you picked on the

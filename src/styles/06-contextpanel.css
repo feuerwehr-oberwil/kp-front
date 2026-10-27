@@ -286,23 +286,25 @@
 .kv-hint { flex: 0 0 100%; display: flex; align-items: center; gap: 8px; margin: 4px 0 0;
   font: var(--fw-medium) var(--fs-1)/1.35 var(--body); color: var(--accent); }
 .kv-hint .i { width: 14px; height: 14px; flex: none; }
-/* a measured gas (the Messpunkt, ReadingParts): the input with its calm/red bar right under it, and
-   a tick where the typed value sits – no numbers, above calm it is Atemschutz either way */
+/* a measured gas (the Messpunkt, ReadingParts): the input with its calm/amber/red bar right under it, and
+   a tick where the typed value sits – no numbers, only the stages */
 .reading-field { display: flex; flex-direction: column; gap: var(--sp-2); margin-left: auto; }
 .reading-bar { position: relative; display: block; height: 4px; }
 /* nothing typed yet: the zones stay as a faint guide, so the first digit does not move the row */
 .reading-bar.empty { opacity: .35; }
 .reading-bar i { position: absolute; top: 0; height: 4px; border-radius: 2px; background: var(--hover-strong); }
 .reading-bar i + i { margin-left: 2px; }
-.reading-bar i.alarm { background: var(--red-fill); }
+.reading-bar i.a1 { background: var(--amber); }
+.reading-bar i.a2 { background: var(--red-fill); }
 .reading-bar b { position: absolute; top: -3px; width: 4px; height: 10px; margin-left: -2px; border-radius: 2px;
   background: var(--ink); box-shadow: 0 0 0 1.5px var(--surface); }
-/* …and the history under all fields: one mono row per radio report, red where over the limit */
+/* …and the history under all fields: one mono row per radio report, amber/red where A1/A2 */
 .reading-history ol { list-style: none; margin: 0; padding: 0; }
 .reading-history li { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-1) 0; border-top: 1px solid var(--border-soft);
   font-family: var(--mono); font-size: var(--fs-1); color: var(--ink-dim); }
 .reading-history time { color: var(--ink-faint); }
-.reading-history .alarm { color: var(--red); font-weight: var(--fw-bold); }
+.reading-history .a1 { color: var(--amber-strong); font-weight: var(--fw-bold); }
+.reading-history .a2 { color: var(--red); font-weight: var(--fw-bold); }
 .combo-type { color: var(--blue-strong); font-weight: var(--fw-bold); border-top: 1px solid var(--border-soft); margin-top: 2px; }
 .combo-type .i { width: 14px; height: 14px; }
 /* "nur Offiziere" filter pinned atop the roster picker on leadership symbols */
