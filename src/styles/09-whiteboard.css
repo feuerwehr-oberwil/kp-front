@@ -1087,6 +1087,9 @@ span.wb-ghost-label { cursor: default; }
    blue glyph. Not a ring (26.09.2026). */
 .wb-scale-chip.arm { background: color-mix(in srgb, var(--blue) 14%, var(--float-bg)); }
 .wb-scale-chip.arm svg:not(.wb-chip-chev) { color: var(--blue); }
+/* …except the Messgerät inside a reading pill (ReadingsChip): it is the pill's ink, on amber/red
+   in any state of the chip – the chip's dim/hover/armed glyph colours made it navy on red */
+.wb-scale-chip .sym-pill svg:not(.wb-chip-chev) { color: inherit; }
 
 /* Passung — the georeference's reading, docked one row above the chip that opened it. Same
    recipe, same corner and the same arithmetic as `.wb-scale-persist` above: the Massstab's

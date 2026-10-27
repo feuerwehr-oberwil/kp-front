@@ -57,6 +57,9 @@
 .ph { width: 46px; height: 46px; border-radius: var(--r-ctl); border: 2px solid var(--blue); color: var(--blue);
   display: grid; place-items: center; font-family: var(--mono); font-size: var(--fs-1); background: var(--surface-2); flex: none; }
 .ph svg { width: 30px; height: 30px; }
+/* the glyph's wrapper span is a grid too: as an inline box it carried the line's descender gap
+   under the svg, and every symbol sat a few px high in its tile (owner, 27.10.2026) */
+.ph > span { display: grid; place-items: center; }
 /* …and the header chip of such a symbol, same tile as in the palette and on the Karte (07-toolrail) */
 [data-theme="night"] .ph .glyph-tile { width: 32px; height: 32px; display: grid; place-items: center; background: var(--on-accent-ink); border-radius: var(--r-xs); }
 [data-theme="night"] .ph .glyph-tile svg { width: 26px; height: 26px; }
