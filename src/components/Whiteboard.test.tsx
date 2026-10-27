@@ -1842,6 +1842,32 @@ describe('gesture contracts of the plan surface', () => {
       expect(copies.find((a) => a.symbol)!.onWall).toBe(copies.find((a) => a.role)!.id)
       expect(ui.toasts[ui.toasts.length - 1]?.text).toContain('1. OG')
     })
+
+    // round 3: «Art: Linie | Wand» in the line editor
+    const art = () => within(screen.getByRole('group', { name: appConfig.copy.drawingEditor.kind }))
+
+    it('«Art: Linie» turns a Wand into a Linie and frees its Durchgang – one step, one board.edit', () => {
+      const { onCheckpoint, emit } = mount([{ ...wand, color: appConfig.drawing.colors[4], width: 2 }, tuer], { ...twoStoreys, focus: focused('w1') })
+      fireEvent.click(art().getByRole('button', { name: appConfig.copy.drawingEditor.kindLine }))
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(edits(emit)).toHaveLength(1)
+      expect(find('w1')).toMatchObject({ role: undefined, color: appConfig.drawing.defaultColor, width: 2, pts: wand.pts })
+      expect(find('d1')).toMatchObject({ x: tuer.x, y: tuer.y, onWall: undefined })
+      expect(screen.queryAllByText(appConfig.copy.drawingEditor.lineNo).length).toBeGreaterThan(0)
+      act(() => history.current!.undo())
+      expect(find('w1').role).toBe('wand')
+      expect(find('d1').onWall).toBe('w1')
+    })
+
+    it('«Wand» is off for a Linie a Trupp is on', () => {
+      const leitung: BoardAnno = { id: 'l9', kind: 'draw', floor: 0, pts: [[0.1, 0.2], [0.9, 0.2]], truppId: 't1' }
+      const { onChange } = mount([leitung], { ...twoStoreys, focus: focused('l9'), trupps: TRUPPS })
+      const toWand = art().getByRole('button', { name: appConfig.copy.drawingEditor.kindWand }) as HTMLButtonElement
+      expect(toWand.disabled).toBe(true)
+      expect(screen.getByText(appConfig.copy.drawingEditor.kindWandBlocked)).toBeTruthy()
+      fireEvent.click(toWand)
+      expect(onChange).not.toHaveBeenCalled()
+    })
   })
 
   describe('Verlängern docks only on a closed ring', () => {

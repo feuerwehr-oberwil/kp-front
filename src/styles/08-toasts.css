@@ -739,6 +739,8 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .de-warn { display: flex; align-items: center; gap: var(--sp-2); margin: 2px 0 var(--sp-2); font-size: var(--fs-1);
   font-weight: var(--fw-medium); color: var(--amber-strong, var(--amber)); }
 .draw-editor .de-warn svg { width: 15px; height: 15px; flex: none; }
+/* why a choice in the row above is off (the «Art» row's «Wand» with a Trupp on the line) */
+.draw-editor .de-hint { margin: 0 0 var(--sp-2); font-size: var(--fs-1); color: var(--ink-dim); }
 /* a clean, always-present thin scrollbar so the panel reads as scrollable */
 .draw-editor .ctx-body { scrollbar-width: thin; scrollbar-color: var(--border) transparent; scroll-padding-bottom: 8px; }
 .draw-editor .ctx-body::-webkit-scrollbar { width: 8px; }

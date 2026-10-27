@@ -70,7 +70,7 @@ import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
-import { carryDoors, copyGrundriss, grundrissOf, DOOR_SYMBOL, GEBAEUDE_CATEGORY } from '../lib/grundriss'
+import { carryDoors, copyGrundriss, grundrissOf, wallRolePatch, DOOR_SYMBOL, GEBAEUDE_CATEGORY } from '../lib/grundriss'
 import { StoreyCopySheet } from './StoreyCopySheet'
 import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, STACK_READINGS_LANE, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
@@ -90,7 +90,7 @@ import { activeViewDeg, bandAspect, BOX_H, BOX_W, buildView, principalAngleDeg, 
 import { usePlanMeasure } from './usePlanMeasure'
 import { usePlanGeoref } from './usePlanGeoref'
 import { usePlanTafelPages } from './usePlanTafelPages'
-import { INK_DEFAULTS, usePlanDraft } from './usePlanDraft'
+import { GRUNDRISS_STYLE, INK_DEFAULTS, usePlanDraft } from './usePlanDraft'
 import { usePlanCreate, type InkTap } from './usePlanCreate'
 import { useMeasuredSheet } from './useMeasuredSheet'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
@@ -1574,6 +1574,16 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }
 
 
+  /** «Art: Linie | Wand» in the line editor (round 3): the drawn line becomes a Wand or a Linie
+   *  again – one patch, one ↶, one board.edit (lib/grundriss · wallRolePatch); its Durchgänge let
+   *  go in the board funnel. A Trupp on the line keeps it a Linie (the editor disables «Wand»). */
+  const setWallRole = (a: BoardAnno, wand: boolean) => {
+    if (readOnly || wand === (a.role === 'wand') || (wand && truppForLine(a, trupps))) return
+    // a Teilstück with lines on its «E» stays one – letting go of them is the Abschluss row's ask
+    const hung = !!a.teilstueck && annos.some((x) => [x.startAttachment, x.endAttachment].some((r) => r?.target.kind === 'line' && r.target.id === a.id && r.target.endpoint === 'end'))
+    patchCommit(a.id, wallRolePatch(a, wand, GRUNDRISS_STYLE.wand, INK_DEFAULTS.color, hung))
+  }
+
   // removing a storey: the confirm is the OWNER's (workspace/useGebaeudeActions · removeFloor →
   // lib/storeyRemoval), because only the store knows which annos on this tile are the stack's own
   // and which are the Karte's, merely shown here — and only the own ones can be lost
@@ -2850,7 +2860,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         <DrawEditor
           key={selDraw.id}
           readOnly={readOnly}
-          drawing={{ kind: selDraw.kind as 'draw' | 'area' | 'circle', radiusM: selCircleM, color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, arrowStop: selDraw.arrowStop, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, hatch: selDraw.hatch, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, floorTag: stack ? selDraw.floorTag ?? selDraw.floor ?? 0 : selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
+          drawing={{ kind: selDraw.kind as 'draw' | 'area' | 'circle', radiusM: selCircleM, color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, arrowStop: selDraw.arrowStop, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, hatch: selDraw.hatch, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, role: selDraw.role, floorTag: stack ? selDraw.floorTag ?? selDraw.floor ?? 0 : selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
           pointCount={selDraw.pts?.length ?? 0}
           /* the distance toggle appears once the plan is calibrated against its printed scale bar */
           supportsDistance={calibrated}
@@ -2916,6 +2926,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           truppOnLine={truppForLine(selDraw, trupps)?.name}
           truppOnLineOut={truppIsOut(truppForLine(selDraw, trupps))}
           onShowTrupp={onShowTrupp && truppForLine(selDraw, trupps) ? () => onShowTrupp(truppForLine(selDraw, trupps)!.id) : undefined}
+          // Linie ↔ Wand: only where the Wand tool is – a drawn line on the Gebäude stack
+          onWand={stack && selDraw.kind === 'draw' ? (wand) => setWallRole(selDraw, wand) : undefined}
+          wandBlocked={!!truppForLine(selDraw, trupps)}
           onShowDistance={(showDistance) => patchCommit(selDraw.id, { showDistance: showDistance || undefined })}
           // metres in, plan-width fraction out — the stepper only exists on a calibrated sheet
           onRadius={(radiusM) => {
