@@ -170,7 +170,7 @@ export function usePlanDraft({
   }
 
   // create a Linie from a finished path (a freehand drag OR a node-tapped draft), baking the sticky
-  // preset's arrow/marker/dash — or the Wand's look and `role`. Mirrors the Lage map's
+  // preset's arrow/marker/dash – or the Wand's look and `role`. Mirrors the Lage map's
   // createLine, so both surfaces behave identically. Returns the anno; addLine below is the
   // interactive wrapper (select + drop to pan so the style editor opens).
   // the board writer of the LATEST render: a «Speichern» answered later (releaseDraft, tapPoint)
@@ -221,7 +221,7 @@ export function usePlanDraft({
     log('circle', appConfig.copy.whiteboard.placeCircle, { annoId: id, x, y, floor })
     setSelId(id); setTool('pan')
   }
-  /** One piece of a Wand, committed while the tool stays ARMED (no selection, no pan) — each its
+  /** One piece of a Wand, committed while the tool stays ARMED (no selection, no pan) – each its
    *  own ↶. Null when the points are not a line yet. */
   const commitPiece = (pts: BoardPoint[], role: GrundrissRole): BoardAnno | null =>
     pts.length < 2 ? null : commitLine(pts, role)
