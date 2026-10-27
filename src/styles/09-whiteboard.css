@@ -938,11 +938,7 @@ span.wb-ghost-label { cursor: default; }
 .wb-line-glyph { position: absolute; pointer-events: none; line-height: 0; }
 /* ↑ / ↓ at an open line end on the stack (WbVertexHandles): the SAME grip as the extend arrow –
    .draw-grow / .wb-grow give it the look and the z-order – only the chevron does not turn with
-   the line, up is up */
-/* ⚠️ .draw-grow (11-measure.css, loaded later) says position: relative – right for the map's
-   marker, wrong here: two of these in a row then FLOW under each other and the translate lands
-   on top of that. The specific selector pins them to the board layer like every other grip. */
-.wb-grow.wb-climb { position: absolute; left: 0; top: 0; }
+   the line, up is up (pinned to the board layer by .draw-grow.wb-grow below) */
 .wb-climb .i { transform: none; }
 /* the way back down the same stairs is hollow-dashed like an insert pad: it removes, not adds */
 .wb-climb.back { border-style: dashed; }
@@ -1180,8 +1176,12 @@ span.wb-ghost-label { cursor: default; }
 /* Verlängern-Griff auf dem Plan: dieselbe Optik wie auf der Lage (.draw-grow in 11-measure.css),
    hier nur absolut im Board-Layer positioniert statt in einem Marker. z 8 über Knoten (7) und
    Einfügepunkten (6) — er liegt ausserhalb der Linie, kann also nichts verdecken, aber am
-   Endpunkt drängen sich Knoten, Tag und Lösen-Chip. */
-.wb-grow { position: absolute; z-index: 8; }
+   Endpunkt drängen sich Knoten, Tag und Lösen-Chip.
+   ⚠️ Two classes, not `.wb-grow` alone: .draw-grow (11-measure.css, loaded LATER) says
+   position: relative – right in the map's marker, wrong here. With one class it won, so the
+   grips FLOWED: the end's arrow sat one grip (32 px) lower than its translate, on a line ending
+   upwards right on its node (owner, round 3 of the Gebäude drawing, 27.10.2026). */
+.draw-grow.wb-grow { position: absolute; left: 0; top: 0; z-index: 8; }
 /* ⚠️ z-index 6, UNDER the vertices: on a dense line the two pads overlap and the node is the
    more important grab — DOM order alone decided this before, which is a coincidence, not a rule.
    Dashed + hollow like the map's .measure-insert: one look for «here could be a node». */
