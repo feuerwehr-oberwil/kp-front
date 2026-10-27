@@ -373,7 +373,8 @@ time · disc · sentence · trailing footnotes. The 26px disc carries the **sect
 Rapport names** (Anwesenheit, Mittel, Atemschutz, Auftrag …; the mapping itself arrived
 on 19.08.), and becomes the check-off ring on a Pendenz; Nachtrag, «korrigiert» and «6×» sit as
 footnotes after the sentence instead of before it – since 27.10.2026 on a line UNDER it, with the
-missing-transcript and upload chips, so the trailing group holds controls only and the sentence
+missing-transcript and upload chips and a done Pendenz's «wieder in» pills, so the trailing group
+holds the row's own controls only and the sentence
 keeps the row's width (a phone broke «Audionoti|z (24s)» between NACHTRAG, ⚠ Transkript and the
 play circle). ⚠️ **Only what is drawn changed** – what is
 written, printed and hashed did not: the row renders `e.text` byte for byte, and old rows with

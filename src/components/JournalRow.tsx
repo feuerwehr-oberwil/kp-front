@@ -175,7 +175,8 @@ export function JournalRow({
   const hasFootnotes = nachtrag || !!e.correctedAt || repeated > 1 || e.via === 'atemschutz-link' || e.via === 'atemschutz-fix'
   const txMissing = !!e.audioUrl && !!onTranscript && !hasTx
   const mediaState = (rowPhotos(e).length > 0 || !!e.audioUrl) ? mediaStatusOf?.(e.id) : undefined
-  const hasMeta = hasFootnotes || txMissing || !!mediaState
+  const offersAgain = closedRow && !!onReminderAgain
+  const hasMeta = hasFootnotes || txMissing || !!mediaState || offersAgain
   return (
     <div
       className={`hist-ev ${clickable ? 'clickable' : ''} ${future ? 'jr-future' : ''}`}
@@ -216,7 +217,8 @@ export function JournalRow({
           (27.10.2026 sweep #12): «Nachtrag», «korrigiert», «n×», the missing-transcript and
           upload chips stood in the trailing group beside the sentence and took half a phone
           row from it – «Audionoti|z (24s)» broke mid-word between NACHTRAG, ⚠ Transkript and
-          the play circle. The trail keeps the CONTROLS only; the sentence gets the width. */}
+          the play circle. The «wieder in» pills joined them. The trail keeps the row's own
+          controls (play, jump, thumbnails, files); the sentence gets the width. */}
       <span className="jr-main">
         <span className={`jr-text ${remDone ? 'jr-rem-struck' : ''}`}>{marked(rowText(e), e.subjectId)}</span>
         {hasMeta && (
@@ -268,6 +270,25 @@ export function JournalRow({
                 <span>{mediaState === 'failed' ? C.mediaFailed : C.mediaPending}</span>
               </span>
             )}
+            {/* «wieder in …» on the row that CLOSED an item: the moment a Lagerapport is
+                ticked off is when the next one gets its time (Führungsrhythmus). Each tap
+                appends a FRESH `created` row with a new id — the closed item stays closed,
+                the record stays append-only. Deliberately on every done row, not only the
+                newest: re-raising an hours-old Pendenz from where it was closed is the use.
+                Under the sentence, not beside it (27.10.2026, lead on #12): beside it the two
+                pills squeezed «Pendenz erledigt: …» into seven lines on a phone. */}
+            {closedRow && onReminderAgain && (
+              <span className="jr-again">
+                {[30, 60].map((m) => (
+                  <button
+                    key={m} type="button" className="jr-again-btn"
+                    title={fillTemplate(C.againTitle, { mins: String(m) })}
+                    aria-label={fillTemplate(C.againTitle, { mins: String(m) })}
+                    onClick={(ev) => { ev.stopPropagation(); onReminderAgain(e.reminder!.id, m) }}
+                  >↻ {fillTemplate(C.againChip, { mins: String(m) })}</button>
+                ))}
+              </span>
+            )}
           </span>
         )}
       </span>
@@ -297,23 +318,6 @@ export function JournalRow({
         {isReminder && openRem?.dueAt && (
           <span className={`jr-remstate ${remOverdue ? 'overdue' : ''}`}>
             {remOverdue ? C.overdueLabel : C.dueAtLabel.replace('{t}', dueClock(openRem.dueAt))}
-          </span>
-        )}
-        {/* «wieder in …» on the row that CLOSED an item: the moment a Lagerapport is
-            ticked off is when the next one gets its time (Führungsrhythmus). Each tap
-            appends a FRESH `created` row with a new id — the closed item stays closed,
-            the record stays append-only. Deliberately on every done row, not only the
-            newest: re-raising an hours-old Pendenz from where it was closed is the use. */}
-        {closedRow && onReminderAgain && (
-          <span className="jr-again">
-            {[30, 60].map((m) => (
-              <button
-                key={m} type="button" className="jr-again-btn"
-                title={fillTemplate(C.againTitle, { mins: String(m) })}
-                aria-label={fillTemplate(C.againTitle, { mins: String(m) })}
-                onClick={(ev) => { ev.stopPropagation(); onReminderAgain(e.reminder!.id, m) }}
-              >↻ {fillTemplate(C.againChip, { mins: String(m) })}</button>
-            ))}
           </span>
         )}
         {/* opens IN the app (lib/ui · openPhoto): `target="_blank"` handed the picture to
