@@ -31,11 +31,18 @@ export function RegisterLines({ chips, className }: { chips: BuildingChip[]; cla
 /** «Gebäude» as a section of its own under the same head as the Sofortmassnahmen (`.head`), the
  *  register lines under it – the Einsatz's Gebäude card reads «first Sofortmassnahmen, then
  *  Gebäude» (owner, 27.10.2026: «a clear two-step thing»). */
-export function RegisterSection({ title, chips, className }: { title: string; chips: BuildingChip[]; className?: string }) {
+export function RegisterSection({ title, chips, className, end, below }: {
+  title: string; chips: BuildingChip[]; className?: string
+  /** controls on the heading's row, at its right end («Register-Hinweis», the card's ✕) */
+  end?: ReactNode
+  /** what opens right under the heading's row (the «Register-Hinweis» body) */
+  below?: ReactNode
+}) {
   if (!chips.length) return null
   return (
     <div className={cx(s.notes, className)}>
-      <div className={s.head}>{title}</div>
+      <Head end={end}>{title}</Head>
+      {below}
       <RegisterLines chips={chips} />
     </div>
   )
@@ -45,26 +52,37 @@ export function RegisterSection({ title, chips, className }: { title: string; ch
  *  Bemerkungen (quieter), each under its head – then, only where the caller has one, a caption (`source`: the
  *  Gebäude card's «… · in der Nähe (120 m)»; no «Modul 1» source line since 27.10.2026). Lines come
  *  from `noteLines`; nothing to say → nothing drawn. */
-export function StationNotes({ measures, remarks, source, className }: { measures: string[]; remarks: string[]; source?: string; className?: string }) {
+export function StationNotes({ measures, remarks, source, className, end }: {
+  measures: string[]; remarks: string[]; source?: string; className?: string
+  /** controls on the FIRST heading's row, at its right end (the Gebäude card's ✕) */
+  end?: ReactNode
+}) {
   if (!measures.length && !remarks.length) return null
   const C = appConfig.copy.building
   return (
     <div className={cx(s.notes, className)}>
       {measures.length > 0 && (
         <>
-          <div className={s.head}>{C.measures}</div>
+          <Head end={end}>{C.measures}</Head>
           <ul className={s.lines}>{measures.map((l, i) => <li key={i}>{l}</li>)}</ul>
         </>
       )}
       {remarks.length > 0 && (
         <>
-          <div className={s.head}>{C.remarks}</div>
+          <Head end={measures.length ? undefined : end}>{C.remarks}</Head>
           <ul className={cx(s.lines, s.quiet)}>{remarks.map((l, i) => <li key={i}>{l}</li>)}</ul>
         </>
       )}
       {source && <p className={s.source}>{source}</p>}
     </div>
   )
+}
+
+/** A section heading; with `end`, a row – the heading, then controls at its right end, so a card
+ *  needs no head row of its own (owner, 27.10.2026: an empty «Register-Hinweis ✕» row was wasted). */
+function Head({ children, end }: { children: ReactNode; end?: ReactNode }) {
+  if (!end) return <div className={s.head}>{children}</div>
+  return <div className={s.headRow}><div className={s.head}>{children}</div>{end}</div>
 }
 
 /** «Register-Hinweis» — a tap-to-open disclosure, never a `title=` tooltip: a finger gets nothing

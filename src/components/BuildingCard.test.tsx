@@ -35,6 +35,22 @@ describe('BuildingCard', () => {
     expect(screen.getByRole('region', { name: 'Gebäude' })).toBeTruthy()
   })
 
+  // owner, 27.10.2026: no wasted head row – the first heading carries the ✕, «Register-Hinweis»
+  // always sits on the Gebäude heading's row
+  it('puts the ✕ on the first heading, «Register-Hinweis» on the Gebäude one', () => {
+    const row = (word: string) => screen.getByText(word).parentElement!
+    const { unmount } = render(<BuildingCard info={base} onClose={() => {}} />)
+    expect(row('Gebäude').querySelector('button[aria-expanded]')).toBeTruthy()
+    expect(row('Gebäude').querySelector('button[aria-label="Schliessen"]')).toBeTruthy()
+    unmount()
+    render(<BuildingCard info={{ ...base, object: { id: 'o', name: 'S', address_match: true, distance_m: 0, measures: 'Tor öffnen', remarks: null, measures_source: null, updated_at: null } }} onClose={() => {}} />)
+    expect(row('Sofortmassnahmen').querySelector('button[aria-label="Schliessen"]')).toBeTruthy()
+    expect(row('Gebäude').querySelector('button[aria-expanded]')).toBeTruthy()
+    expect(row('Gebäude').querySelector('button[aria-label="Schliessen"]')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Register-Hinweis/ }))
+    expect(row('Gebäude').nextElementSibling?.getAttribute('data-testid')).toBe('register-hint')
+  })
+
   it('lists the register as bullets, the hazard first', () => {
     const { container } = render(<BuildingCard info={base} />)
     const lines = [...container.querySelectorAll('ul > li')].map((l) => l.textContent)
