@@ -1762,13 +1762,15 @@ describe('gesture contracts of the plan surface', () => {
     it('a Wand dragged onto the storey above goes there with its Durchgang – one step', () => {
       const { container, onCheckpoint } = mount([wand, tuer], twoStoreys)
       const hit = container.querySelector('polyline[stroke="transparent"]')!
-      drag(hit, [[200, 300], [200, 250], [220, 100]])
+      // +0.15 across: both ends land well clear of the building outline, so nothing snaps
+      // (round 3) and the drop is exact
+      drag(hit, [[200, 300], [200, 250], [260, 100]])
       expect(onCheckpoint).toHaveBeenCalledTimes(1)
       expect(find('w1').floor).toBe(1)
-      expect(find('w1').pts![0][0]).toBeCloseTo(0.25, 6)
+      expect(find('w1').pts![0][0]).toBeCloseTo(0.35, 6)
       expect(find('w1').pts![0][1]).toBeCloseTo(0.5, 6)
       expect(find('d1')).toMatchObject({ floor: 1, onWall: 'w1' })
-      expect(find('d1').x).toBeCloseTo(0.45, 6)
+      expect(find('d1').x).toBeCloseTo(0.55, 6)
       act(() => history.current!.undo())
       expect(find('w1')).toEqual(wand)
       expect(find('d1')).toEqual(tuer)
@@ -1781,6 +1783,24 @@ describe('gesture contracts of the plan surface', () => {
       expect(find('d1').rotation).not.toBe(0)
       expect(edits(emit).map((c) => (c[1] as { id: string }).id)).toEqual(['w1', 'd1'])
       expect(edits(emit)[1][1]).toMatchObject({ patch: { x: find('d1').x, y: find('d1').y, rotation: find('d1').rotation } })
+    })
+
+    // round 3: a Wand MOVED whole lands on what it is moved next to – rigidly, ring shown
+    it('a Wand moved whole next to another Wand lands on it, shape kept, ring shown while it moves', () => {
+      const short: BoardAnno = { id: 'w1', kind: 'draw', role: 'wand', floor: 0, pts: [[0.2, 0.5, 0], [0.4, 0.5, 0]] }
+      const cross: BoardAnno = { id: 'w3', kind: 'draw', role: 'wand', floor: 0, pts: [[0.6, 0.2, 0], [0.6, 0.8, 0]] }
+      const { container } = mount([short, cross], twoStoreys)
+      const hit = container.querySelector('polyline[stroke="transparent"]')!
+      fireEvent.pointerDown(hit, { clientX: 120, clientY: 300, pointerId: 1 })
+      fireEvent.pointerMove(hit, { clientX: 160, clientY: 302, pointerId: 1 })
+      fireEvent.pointerMove(hit, { clientX: 194, clientY: 303, pointerId: 1 }) // right end 6 px short of w3
+      expect(container.querySelector('.wb-snap-ring')).not.toBeNull()
+      fireEvent.pointerUp(hit, { clientX: 194, clientY: 303, pointerId: 1 })
+      const [a, b] = find('w1').pts!
+      expect(b[0]).toBeCloseTo(0.6, 6)
+      expect(b[0] - a[0]).toBeCloseTo(0.2, 6)
+      expect(b[1]).toBeCloseTo(a[1], 6)
+      expect(container.querySelector('.wb-snap-ring, .wb-snap-free')).toBeNull()
     })
 
     it('a Wand corner dragged near another Wand lands on it, level with its neighbour, ring shown while it moves', () => {

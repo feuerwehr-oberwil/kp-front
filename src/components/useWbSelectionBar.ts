@@ -46,6 +46,9 @@ interface Args {
   floorsTTB: readonly number[]
   /** the storey tile the move would drop onto (highlighted), null = its own */
   setDropFloor: (floor: number | null) => void
+  /** the moved Wände's snap (usePlanDraft · snapMoveOf): the extra shift that lands one of their
+   *  corners on a target, ring shown; `null` points clear the ring */
+  snapMove: (ids: readonly string[], floor: number, moved: readonly (readonly [number, number])[] | null) => [number, number] | null
   pushPast: BoardDoc['pushPast']
   set: (next: BoardAnno[]) => void
   emit: (op: string, payload?: Record<string, unknown>) => void
@@ -58,7 +61,7 @@ interface Args {
 /** The Plan's selection-bar transform; see the file header. */
 export function useWbSelectionBar({
   tool, readOnly, georefArmed, annos, selIds, editDraw, selShape, setSelId, setSelIds, setNotePanelId, setEditId, setAnnoTap,
-  sW, sH, mapY, localY, boardPts, moveRigid, stack, floorAt, floorsTTB, setDropFloor, pushPast, set, emit, activeId, boardRef, canvasRef, onStepEnd,
+  sW, sH, mapY, localY, boardPts, moveRigid, stack, floorAt, floorsTTB, setDropFloor, snapMove, pushPast, set, emit, activeId, boardRef, canvasRef, onStepEnd,
 }: Args) {
   // The selection bar's drag origin: the original board-space geometry and bearings of every
   // selected anno, plus the centre a turn pivots about. Pan/pinch/marquee refs live in
@@ -132,19 +135,41 @@ export function useWbSelectionBar({
     if (src.floorTo !== a.floorTo) out.floorTo = src.floorTo
     return out
   }
+  /** A MOVE frame holding Wände lands them on what they are moved next to (round 3, 27.10.2026):
+   *  the extra shift that puts the nearest Wand corner of the selection on a Wand, a Fläche edge
+   *  or the outline of the storey under the selection's centre – only corners on that storey
+   *  count. Null for a turn, off the stack, and for a selection without a Wand. */
+  const snapWalls = (t: { ndx: number; ndy: number; deg: number }, across: ReturnType<typeof crossing>) => {
+    const c = moveCentre.current
+    if (t.deg || !stack || !c) return null
+    const walls = groupOrig.current.filter((o) => o.orig.role === 'wand' && o.bpts)
+    if (!walls.length) return null
+    const floor = across?.f1 ?? floorAt(c.y + t.ndy)
+    const jump = across?.jump ?? 0
+    const moved = walls.flatMap((o) => {
+      const src = across?.shifted.get(o.id) ?? o.orig
+      const home = src.floor ?? 0
+      return (across ? boardPts(src.pts ?? [], home) : o.bpts ?? [])
+        .filter((p) => (p[2] ?? home) === floor)
+        .map(([x, by]): [number, number] => [x + t.ndx, by + t.ndy - jump])
+    })
+    return snapMove(barIds, floor, moved)
+  }
   /** write one frame of the gesture: `t` moves in board fractions, `deg` turns about `barCentre`.
    *  Members stay on their own storey unless a move drops them onto another tile (`crossing`), and
    *  an ATTACHED line end stays pinned to its target — the same rules the single-object body drag
    *  follows. Returns what it wrote, so the release reports the frame it actually ended on. */
-  const barApply = (t: { ndx: number; ndy: number; deg: number }, centre: { x: number; y: number } | null): BoardAnno[] => {
+  const barApply = (frame: { ndx: number; ndy: number; deg: number }, centre: { x: number; y: number } | null): BoardAnno[] => {
     // x and y are fractions of DIFFERENT edges, so a turn has to happen in px proportions
     const xScale = (sW || 1) / (sH || 1)
-    const turn = (x: number, by: number): [number, number] => (t.deg && centre
-      ? rotateAround([x, by], [centre.x, centre.y], t.deg, { xScale })
+    const turn = (x: number, by: number): [number, number] => (frame.deg && centre
+      ? rotateAround([x, by], [centre.x, centre.y], frame.deg, { xScale })
       : [x, by])
-    const across = crossing(t)
+    const across = crossing(frame)
     setDropFloor(across?.f1 ?? null)
     const jump = across?.jump ?? 0
+    const snap = snapWalls(frame, across)
+    const t = snap ? { ...frame, ndx: frame.ndx + snap[0], ndy: frame.ndy + snap[1] } : frame
     const next = annos.map((a) => {
       const o = groupOrig.current.find((g) => g.id === a.id); if (!o) return a
       const src = across?.shifted.get(a.id) ?? o.orig
@@ -171,6 +196,7 @@ export function useWbSelectionBar({
    *  23.09.2026 19:00:55). Read off the frame the gesture ended on, not off the last render. */
   const barCommit = (written: BoardAnno[]) => {
     setDropFloor(null)
+    snapMove(barIds, 0, null) // the ring goes with the hand
     written.filter((a) => barIds.includes(a.id))
       .forEach((a) => emit('board.move', a.pts
         ? { id: a.id, pts: a.pts, ...(stack ? { floor: a.floor ?? 0 } : null), planId: activeId }

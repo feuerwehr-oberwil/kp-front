@@ -23,7 +23,7 @@ import { askOpenDraft, draftActive as isDraftActive, finishKind, releaseDraft as
 import { joinTargets, useDraftMagnet } from '../lib/useDraftMagnet'
 import type { MagneticTarget } from '../lib/lineAttachments'
 import { stackRange } from '../lib/stackFloors'
-import { backtracks, segsOf, snapPoint, snapWall, type Anchor, type Pt, type Seg, type SnapResult, type SnapTargets } from '../lib/planSnap'
+import { backtracks, segsOf, snapMove, snapPoint, snapWall, type Anchor, type Pt, type Seg, type SnapResult, type SnapTargets } from '../lib/planSnap'
 import type { PlanEndpointDrag } from './useWbVertexEdit'
 import type { PlanLogExtra } from './Whiteboard'
 
@@ -252,8 +252,9 @@ export function usePlanDraft({
   /** What can pull a point on `floor` (lib/planSnap): the Wände and every Fläche (round 2: «snap
    *  to an area»), the draft's own points, the building outline, and the Durchgang / Treppe
    *  centres. `skip` leaves out one Wand corner being dragged and the two pieces at it – of a
-   *  committed Wand (`id`), or of the open draft (`id: null`, `own` is then the whole draft). */
-  const snapTargets = (floor: number, own: readonly BoardPoint[], skip?: { id: string | null; idx: number }): SnapTargets => {
+   *  committed Wand (`id`), or of the open draft (`id: null`, `own` is then the whole draft).
+   *  `moving` leaves out whole annos – a selection being moved is no target for itself. */
+  const snapTargets = (floor: number, own: readonly BoardPoint[], skip?: { id: string | null; idx: number }, moving?: readonly string[]): SnapTargets => {
     const segs: Seg[] = [], ends: Pt[] = [], centres: Pt[] = []
     const take = (pts: Pt[], closed: boolean) => { segs.push(...segsOf(pts, closed)); ends.push(...pts) }
     /** an open polyline without corner `idx` and its two pieces (null = a point on another storey) */
@@ -262,6 +263,7 @@ export function usePlanDraft({
       segsOf(px.map((p) => p ?? [NaN, NaN])).forEach((sg, i) => { if (i !== idx && i !== idx - 1 && !sg.some((p) => Number.isNaN(p[0]))) segs.push(sg) })
     }
     for (const a of annos) {
+      if (moving?.includes(a.id)) continue
       if (((a.role === 'wand' && a.kind === 'draw') || a.kind === 'area') && a.pts && (a.floor ?? 0) === floor) {
         const px = a.pts.map(([x, y, f]): Pt | null => ((f ?? a.floor ?? 0) === floor ? [x * sW, mapY(floor, y) * sH] : null))
         if (skip?.id === a.id) takeSkipping(px, skip.idx)
@@ -407,6 +409,22 @@ export function usePlanDraft({
     return snapCorner(draft, idx, draftFloor.current, n, null)
   }
 
+  /**
+   * A rigid move of the selection `ids` (round 3, 27.10.2026; useWbBodyDrag · drawMove,
+   * useWbSelectionBar · barApply): `moved` are its Wand corners and ends where this frame puts
+   * them – board-normalized x, board-wide y – on storey `floor`. Returns the extra shift (same
+   * units) that lands one of them exactly on a Wand, a Fläche edge or the outline (lib/planSnap ·
+   * snapMove) and shows the ring there; null, and no ring, when nothing is in reach, off the stack
+   * or for `moved` = null (the release).
+   */
+  const snapMoveOf = (ids: readonly string[], floor: number, moved: readonly (readonly [number, number])[] | null): [number, number] | null => {
+    if (!moved?.length || !stack || !(sW > 0 && sH > 0)) { setRing(null); return null }
+    const { segs, ends } = snapTargets(floor, [], undefined, ids)
+    const hit = snapMove(moved.map(([x, y]): Pt => [x * sW, y * sH]), { segs, ends })
+    setRing(hit ? { x: hit.at[0], y: hit.at[1], snapped: true } : null)
+    return hit ? [hit.d[0] / sW, hit.d[1] / sH] : null
+  }
+
   // --- leaving an open drawing (27.10.2026: asks; replaced the A6 auto-commit of 29.08.) ------
   /** what the open drawing is called in the question and on its pill */
   const drawingName = (kind: 'line' | 'area', role: GrundrissRole | null) =>
@@ -469,6 +487,6 @@ export function usePlanDraft({
     draftAttachmentsRef: draftAttachments, draftFloorRef: draftFloor, setDraftRole,
     noding, inking, draftActive, planDraftMagnetState, updatePlanDraftMagnet, planJoinPreview, finishPlanDraftMagnet,
     addLine, addArea, addCircle, finishShape, cancelShape, releaseDraft,
-    grundriss, pickInput, tapPoint, tapDraftVertex, snapWallVertex, snapDraftVertex, ring, showRing, openName: draft?.length ? drawingName(tool === 'area' ? 'area' : 'line', draftRole) : null,
+    grundriss, pickInput, tapPoint, tapDraftVertex, snapWallVertex, snapDraftVertex, snapMoveOf, ring, showRing, openName: draft?.length ? drawingName(tool === 'area' ? 'area' : 'line', draftRole) : null,
   }
 }

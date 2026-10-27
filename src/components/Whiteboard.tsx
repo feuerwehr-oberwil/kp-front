@@ -1115,7 +1115,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const {
     lineMode, areaMode, draft, setDraft, circleDraft, setCircleDraft,
     draftFloorRef, noding, draftActive, planDraftMagnetState, planJoinPreview,
-    addLine, addArea, finishShape, releaseDraft, grundriss, pickInput, tapDraftVertex, snapWallVertex, snapDraftVertex, ring, showRing, openName,
+    addLine, addArea, finishShape, releaseDraft, grundriss, pickInput, tapDraftVertex, snapWallVertex, snapDraftVertex, snapMoveOf, ring, showRing, openName,
   } = planDraft
   // Arriving on the selection-only sheet also DISARMS what was carried over: its dock went with
   // the rail, so a still-pending symbol would be an invisible armed state that fires on the next
@@ -1218,7 +1218,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // the storey tile a move would drop its selection onto – lit while the drag is over it
   const [dropFloor, setDropFloor] = useState<number | null>(null)
   const { drawDrag, drawDown, drawMove, drawUp, circleDrag, circleDown, circleMove, circleUp, labelDown, labelMove, labelUp } = useWbBodyDrag({
-    tool, readOnly, annos, setAnnoTap, setSelId, setSelIds, boardRef, boardPts, moveRigid, localY, mapY, stack, floorAt, floorsTTB, setDropFloor, pushPast, patch, emit, activeId,
+    tool, readOnly, annos, setAnnoTap, setSelId, setSelIds, boardRef, boardPts, moveRigid, localY, mapY, stack, floorAt, floorsTTB, setDropFloor, pushPast, patch, emit, activeId, snapMove: snapMoveOf,
   })
 
   // --- vertex editing of a selected line/area and of the in-progress node draft (drag a node,
@@ -1518,7 +1518,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // --- the selection bar's transform target — components/useWbSelectionBar -----------------
   const { barIds, barActive, barMove, barRotate, barDone, barCanRotate, barTurn, arm } = useWbSelectionBar({
     tool, readOnly, georefArmed, annos, selIds, editDraw, selShape, setSelId, setSelIds, setNotePanelId, setEditId, setAnnoTap,
-    sW, sH, mapY, localY, boardPts, moveRigid, stack, floorAt, floorsTTB, setDropFloor, pushPast, set, emit, activeId, boardRef, canvasRef, onStepEnd,
+    sW, sH, mapY, localY, boardPts, moveRigid, stack, floorAt, floorsTTB, setDropFloor, snapMove: snapMoveOf, pushPast, set, emit, activeId, boardRef, canvasRef, onStepEnd,
   })
   // --- removing objects: with their coupled Leitungen, with a Trupp's trail, a group, the Delete
   // key — components/usePlanRemoval

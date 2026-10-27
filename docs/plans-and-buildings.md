@@ -95,7 +95,11 @@ Sketching a building on the floor stack during an Einsatz (27.10.2026, the owner
   outline (`Whiteboard · stackOutlinePx`). **Dragging a Wand's corner** – of the open piece
   still being drawn, or of a finished Wand – lands by the same rule against both of its
   neighbours, with the same ring (`usePlanDraft · snapDraftVertex` / `snapWallVertex`, called
-  from `useWbVertexEdit · draftVertMove` / `vertMove`). Moving a whole Wand does not snap. A plain Linie in Punkte mode on the stack snaps only
+  from `useWbVertexEdit · draftVertMove` / `vertMove`). **Moving Wände whole** (body drag, ✥, a
+  group, also onto another storey) snaps rigidly: the move shifts so the nearest Wand corner of the
+  selection lands on a corner, else an edge, of the storey it goes to – the selection itself is no
+  target, the shape never changes, doors ride along, same ring (`planSnap · snapMove` via
+  `usePlanDraft · snapMoveOf`). A selection without a Wand moves unsnapped. A plain Linie in Punkte mode on the stack snaps only
   onto the centre of a Durchgang, a Türe or a Treppe – that is how a Leitung is laid through
   doors and up the stairs. The stored point is exactly the snapped one.
 - **An open drawing looks open and is never left unasked.** While a Punkte drawing is in the

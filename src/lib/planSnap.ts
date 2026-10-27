@@ -12,8 +12,9 @@
 // - Linie (a Leitung in Punkte mode): onto the centre of a Durchgang / Treppe – that is how a hose
 //   is laid through doors and up the stairs. Nothing else pulls it.
 // - Wand: the last point again finishes, the first point of a Wand with ≥3 points closes it.
-// - Dragging a Wand's corner afterwards lands by the same rule, against both of its neighbours
-//   (snapWall with two anchors).
+// - Dragging a Wand's corner (open or finished) lands by the same rule, against both of its
+//   neighbours (snapWall with two anchors).
+// - Moving Wände whole shifts the move rigidly so their nearest corner lands on a target (snapMove).
 
 /** a board-px point of one storey */
 export type Pt = readonly [number, number]
@@ -204,4 +205,24 @@ export function segsOf(pts: readonly Pt[], closed = false): Seg[] {
   for (let i = 1; i < pts.length; i++) out.push([pts[i - 1], pts[i]])
   if (closed && pts.length >= 3) out.push([pts[pts.length - 1], pts[0]])
   return out
+}
+
+/**
+ * A rigid move of Wände (round 3, 27.10.2026: «I can't just move it somewhere else and it doesn't
+ * snap back»): `moved` are the moved Wand corners and ends where the move would put them. The
+ * shift that lands one of them exactly on a target – a corner or end first, else an edge, the
+ * closest of either kind, as a drawn point lands – and that target point (the ring), or null when
+ * nothing is in reach. The caller adds the shift to the whole move (components/useWbBodyDrag,
+ * useWbSelectionBar via usePlanDraft · snapMove).
+ */
+export function snapMove(moved: readonly Pt[], targets: Pick<SnapTargets, 'segs' | 'ends'>, radius = SNAP_RADIUS_PX): { d: [number, number]; at: [number, number] } | null {
+  let end: { from: Pt; to: Pt; d: number } | null = null
+  let edge: { from: Pt; to: Pt; d: number } | null = null
+  for (const p of moved) {
+    for (const c of targets.ends) { const d = dist(p, c); if (d < radius && (!end || d < end.d)) end = { from: p, to: c, d } }
+    if (end) continue // an end anywhere beats every edge, so stop measuring edges
+    for (const s of targets.segs) { const n = nearestOnSeg(p, s); if (n.d < radius && (!edge || n.d < edge.d)) edge = { from: p, to: n.p, d: n.d } }
+  }
+  const hit = end ?? edge
+  return hit ? { d: [hit.to[0] - hit.from[0], hit.to[1] - hit.from[1]], at: [hit.to[0], hit.to[1]] } : null
 }
