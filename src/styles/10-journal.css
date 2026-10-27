@@ -43,7 +43,7 @@
    ⚠️ Not a pill (24.09.2026): it sits in the bar's padding like .tb-act beside it, so it takes
    the bar's nested corner (docs/ui-conventions.md · Buttons · radius). On a phone it is --tap tall, and a
    44px capsule next to the square-cornered Verlauf button read as a foreign object. The same
-   goes for .tb-gps and .tb-mode below – the three status chips of the bar share one shape. */
+   goes for .tb-gps below – the status chips of the bar share one shape. */
 .tb-az { display: inline-flex; align-items: center; gap: var(--sp-2); border: none; cursor: pointer; border-radius: var(--r-sm);
   font-family: var(--body); font-size: var(--fs-1); font-weight: var(--fw-bold); padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-2); margin-right: 2px;
   flex: 0 1 auto; min-width: 0; transition: background .14s var(--ease); }
@@ -94,11 +94,6 @@
 .topbar.fit-9 .ip-switch-title { display: none; }
 .topbar.fit-9 .ip-switch-glyph { display: grid; }
 .topbar.fit-9:has(.ip-switch-btn > .ip-badge-exercise) .ip-switch-glyph { display: none; }
-/* …and the «Einsatz abgeschlossen» chip (#235: it now appears LIVE, when another device closes
-   the Einsatz) gives its words at the same step as the title — the lock stays, the sentence is
-   one tap away in its menu, exactly as on the phone bar */
-.topbar.fit-9 .tb-mode { padding: var(--sp-1) var(--sp-2); font-size: 0; gap: 0; }
-.topbar.fit-9 .tb-mode .i { width: 16px; height: 16px; }
 /* «Eintrag» gives its word LAST (29.09.2026, sweep K2): its glyph is the journal pen now, not a
    «+» that the rail's «+ Symbol» beside it also wears, so a bare glyph still says what it is */
 .topbar.fit-11 .tb-act-add .tb-act-label { display: none; }
@@ -133,7 +128,7 @@
 .tb-gps .i { width: 15px; height: 15px; flex: none; }
 .tb-gps-age { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 /* a button since S6 (20.10.2026): a tap opens its sentence. The chip keeps its in-bar size; the
-   house 44px target grows invisibly around it, as `button.tb-mode`'s does on a phone. */
+   house 44px target grows invisibly around it. */
 .tb-gps::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px);
   height: max(100%, 44px); transform: translate(-50%, -50%); }
 @media (hover: hover) {
@@ -147,32 +142,6 @@
 .tb-gps-hint { margin: 0; font: var(--fw-medium) var(--fs-2) / var(--lh-2) var(--body); color: var(--ink); }
 @keyframes tb-az-pulse { 0%, 100% { background-color: var(--red-16); } 50% { background-color: color-mix(in srgb, var(--red) 34%, transparent); } }
 
-/* Modus-Chip beside the Einsatzname: «Einsatz abgeschlossen». It moved here out of the bottom
-   banner layer (23.08.) — read-only is a property of the INCIDENT, and the incident is named in
-   the head. Amber for the same reason .tb-gps is: a state to be aware of, not an alarm. Tapping
-   it offers the two exits the banner used to carry (Zurück / Wieder öffnen), so nothing was lost
-   with the banner, under a head sentence that says what the state means (S5); on a link session
-   there are no exits and the menu is that sentence alone. */
-.tb-mode { display: inline-flex; align-items: center; gap: var(--sp-2); flex: none; border: none; border-radius: var(--r-sm);
-  font-family: var(--body); font-size: var(--fs-1); font-weight: var(--fw-bold); padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-2); white-space: nowrap;
-  background: var(--amber-16); color: var(--amber-strong); }
-.tb-mode .i { width: 14px; height: 14px; flex: none; }
-button.tb-mode { cursor: pointer; }
-@media (hover: hover) {
-  button.tb-mode:hover { background: var(--amber-28); }
-}
-button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-@media (--phone) {
-  /* the phone bar has room for the glyph, not the word — the state stays visible, and a tap
-     opens the menu whose head says it (owner 21.10.2026: no permanent label) */
-  .tb-mode { padding: var(--sp-1) var(--sp-2); font-size: 0; gap: 0; }
-  .tb-mode .i { width: 16px; height: 16px; }
-  /* …and it is the phone's only door to «Wieder öffnen» (staging r4): the glyph stays 32×26 in
-     the bar, the TAP area is the house 44 px — grown invisibly around it, never pushing the bar */
-  button.tb-mode { position: relative; }
-  button.tb-mode::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px);
-    height: max(100%, 44px); transform: translate(-50%, -50%); }
-}
 /* compact wind readout folded into the bar on a phone — downwind arrow + speed, no temp */
 .tb-wind { display: inline-flex; align-items: center; gap: 4px; border: none; cursor: pointer; background: transparent;
   color: var(--ink-dim); border-radius: var(--r-sm); padding: var(--sp-1); min-height: 42px;
@@ -973,8 +942,9 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
    it off the bottom nav bar. What replaced them is ONE ranked strip — `.ml` in `08-toasts.css`,
    model in `src/lib/meldungen.ts`. Five z-indexes became one, four live regions became one, and
    `.rb-btn`'s 42px tap target became the strip's single 44px button class.
-   «Einsatz abgeschlossen» left the layer entirely: it is `.tb-mode` above, beside the Einsatz
-   name, because read-only is a property of the incident and not a message about it. */
+   «Einsatz abgeschlossen» left the layer entirely: it is the lock in the Einsatz pill's status slot
+   (13-incident · .ip-status-closed), because read-only is a property of the incident and not a
+   message about it. */
 
 
 /* install guide (InstallGuide) — platform-detected steps in the standard ip-sheet */

@@ -254,7 +254,7 @@ the registrations).
 | `personnel_autosync` | nightly, ~04:17 | the Divera roster, where `roster.autoSync` asks for it |
 | `plan_pull` | hourly | an S3 plan library – boot-gated on `PLANS_S3_*`, the only job that is |
 | `plan_alignments` · `plan_tiles` | 10 s · 15 s, idle once done | CV alignment of each plan revision; tile pyramids per plan PDF |
-| `auto_archive` | hourly | archives untouched auto-opened and stale Einsätze (`alarms.autoArchiveDays`, `alarms.staleIncidentDays`) |
+| `auto_archive` | hourly | archives untouched auto-opened and stale Einsätze and idle Übungen (`alarms.autoArchiveDays`, `alarms.staleIncidentDays`, `alarms.exerciseAutoCloseHours`) |
 | `positions_sweep` · `visit_hashes_sweep` | hourly · daily | deletes expired shared positions and visit-dedup rows (privacy promises, always on) |
 | `credentials_refresh` · `telemetry_flush` | 30 s · minutes | keeps the credential snapshot fresh; sends opt-in telemetry |
 | `weather_radar` | 5 min, every process | the radar display cache – not leader-only, records nothing |

@@ -24,7 +24,8 @@ legally on the record, but invisible to anyone reading the Verlauf.
 
 On top of that there is a third, small source: the server writes lifecycle rows itself
 (`backend/app/api/journal.py` · `append_system_row`) – incident closed, reopened,
-Nachalarm, automatic archival.
+Nachalarm, automatic archival (untouched, stale, and an Übung idle for `alarms.exerciseAutoCloseHours`:
+«Automatisch abgeschlossen (Übung)»).
 
 ## What the server observes (since 24.09.2026)
 
