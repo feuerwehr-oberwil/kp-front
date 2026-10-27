@@ -334,8 +334,8 @@ export const whiteboardCopy = {
     climbDown: 'Ein Geschoss tiefer weiter',
     climbBack: 'Zurück auf {floor}',
     addFloorDown: 'Untergeschoss hinzufügen',
-    // the toast and ↶ of «+ OG / + UG», naming the storey (its Verlauf row comes with #226)
-    floorAddedToast: '{floor} hinzugefügt',
+    // the ↶ of «+ OG / + UG», naming the storey (no toast since 27.10.2026; its Verlauf row comes with #226)
+    floorAddedStep: '{floor} hinzugefügt',
     floorHide: 'Geschoss ausblenden',
     // the storey label's menu (29.09.2026, sweep K5): «Ausblenden · Geschoss entfernen»
     floorHideShort: 'Ausblenden',

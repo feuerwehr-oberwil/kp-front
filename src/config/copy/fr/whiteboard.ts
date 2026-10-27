@@ -224,7 +224,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     climbDown: 'Continuer un étage plus bas',
     climbBack: 'Retour à {floor}',
     addFloorDown: 'Ajouter un sous-sol',
-    floorAddedToast: '{floor} ajouté',
+    floorAddedStep: '{floor} ajouté',
     floorHide: 'Masquer l’étage',
     floorHideShort: 'Masquer',
     floorMenu: '{name} : masquer ou retirer',

@@ -150,8 +150,8 @@ describe('(f) a merge reaches the screen', () => {
 describe('(e) acts on the picture say what they did — on the ↶ and in the Verlauf', () => {
   const rows = async () => { key('r'); await settle(60); return (rec.report?.events ?? []).map((e) => e.text) }
 
-  // its Verlauf row comes with #226
-  it('«+ OG» names the storey on its ↶', async () => {
+  // its Verlauf row comes with #226; no toast since the Gebäude round 2 (27.10.2026)
+  it('«+ OG» names the storey on its ↶, without a toast', async () => {
     const stack = {
       src: [[[0, 0], [1, 0], [1, 1], [0, 1]]], orientDeg: 0, northUp: false,
       rings: [[[0, 0], [1, 0], [1, 1], [0, 1]]], ring: [[0, 0], [1, 0], [1, 1], [0, 1]], ringAspect: 1,
@@ -165,7 +165,11 @@ describe('(e) acts on the picture say what they did — on the ↶ and in the Ve
     await settle()
     expect((lastBoard() as BoardProps & { building: { floors: number[] } }).building.floors).toEqual([0, 1, 2, 3])
     // 3am test r4, 26.09.2026: three adds read «Geschoss hinzugefügt» ×3, naming no storey
-    expect(screen.getByRole('button', { name: new RegExp(fillTemplate(appConfig.copy.whiteboard.floorAddedToast, { floor: '3. OG' })) })).toBeTruthy()
+    const line = fillTemplate(appConfig.copy.whiteboard.floorAddedStep, { floor: '3. OG' })
+    const undoBtn = screen.getAllByRole('button').find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Rückgängig:'))
+    expect(undoBtn?.getAttribute('aria-label')).toContain(line)
+    // the new tile is the confirmation: nothing else on screen says it
+    expect(screen.queryByText(line)).toBeNull()
   })
 
   it('«Lösen» on a docked Gefahrentafel writes «… von «TLF» gelöst»', async () => {
