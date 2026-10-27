@@ -252,10 +252,11 @@ describe('(d) the render budget', () => {
   })
 })
 
-/* N9 (staging r2): on the phone the Eintrag FAB sat on the third crew's «Kontakt». It is not
-   drawn over the Atemschutz board; everywhere else it stays. */
-describe('(h) the phone FAB never sits over the Atemschutz board', () => {
-  it('shows on the Karte and is gone on the Trupps page', async () => {
+/* Owner, sweep 27.10.2026 #10: the phone's Eintrag FAB shows on the Trupps page too. (N9 had kept
+   it off: it sat on the third crew's «Kontakt»; the board's card now ends above its row,
+   15-mobile · `.az-tafel` — a layout fact jsdom cannot measure.) */
+describe('(h) the phone FAB stays on the Trupps page', () => {
+  it('shows on the Karte and on the Trupps page', async () => {
     const before = window.matchMedia
     window.matchMedia = ((q: string) => ({
       matches: q.includes('max-width: 600px'), media: q, onchange: null, addListener: () => {}, removeListener: () => {},
@@ -267,7 +268,7 @@ describe('(h) the phone FAB never sits over the Atemschutz board', () => {
       key('a')
       await settle()
       expect(mode()).toBe('atemschutz')
-      expect(document.querySelector('.fab-entry')).toBeNull()
+      expect(document.querySelector('.fab-entry')).toBeTruthy()
     } finally {
       window.matchMedia = before
     }

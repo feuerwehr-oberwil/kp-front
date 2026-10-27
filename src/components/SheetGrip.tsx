@@ -1,6 +1,7 @@
 import { useRef, type CSSProperties, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { useKeyboardInset } from '../lib/useKeyboardInset'
+import { useSwipeDismiss } from '../lib/overlays'
 
 /**
  * The drag gesture behind the phone bottom sheet, as handlers any element can wear.
@@ -132,14 +133,25 @@ export function SheetGrip({ onClose }: { onClose?: () => void }) {
  * max-height (same signal `.ip-sheet` answers in 13-incident.css). No margin lift — an absolutely
  * positioned box hung from `top` ignores it.
  *
+ * ⚠️ A pull DOWN anywhere in the sheet closes it (owner, sweep 27.10.2026 #13b: «like the other
+ * sheets»), not only a drag on the grip or the header: the root wears `useSwipeDismiss`, the
+ * gesture `Sheet` and `Overlay` give every modal bottom sheet — at the top of `.ctx-body` only,
+ * never over a control, and only where the `.ctx` IS a bottom sheet (on a tablet it is a side
+ * card and the gesture measures itself away).
+ *
  * `className` adds each editor's own modifier (DrawEditor/ShapeEditor both add `draw-editor`) —
  * kept a plain string, not a class-list util, because there is only ever the one optional extra.
  */
-export function CtxShell({ className, children }: { className?: string; children: ReactNode }) {
+export function CtxShell({ className, onClose, children }: { className?: string; onClose: () => void; children: ReactNode }) {
   const kbInset = useKeyboardInset()
+  const swipe = useSwipeDismiss({ onClose })
   return (
     <div className={className ? `ctx ${className}` : 'ctx'}
-      style={kbInset > 0 ? ({ '--kb-inset': `${kbInset}px` } as CSSProperties) : undefined}>
+      style={kbInset > 0 ? ({ '--kb-inset': `${kbInset}px` } as CSSProperties) : undefined}
+      {...swipe}
+      // the grip and the header keep THEIR drag (useSheetDrag: half ⇄ full, then away); the pull
+      // from the body is the one every other phone sheet answers
+      onPointerDown={(e) => { if (!(e.target as Element).closest('.sheet-grip, .ctx-head')) swipe.onPointerDown?.(e) }}>
       {children}
     </div>
   )
