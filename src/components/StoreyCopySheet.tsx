@@ -1,42 +1,75 @@
 import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, formatSymbolName } from '../lib/format'
+import { grundrissKinds } from '../lib/grundriss'
 import { Sheet } from '../lib/overlays'
+import type { BoardAnno } from '../types'
 import { Button } from './Button'
-import { Chip } from './Chip'
+import { TickRow } from './TickRow'
+
+/** «3 Wände · 4× Durchgang · 1× Treppe» – a Grundriss by kind (lib/grundriss · grundrissKinds) */
+function kindLine(items: readonly BoardAnno[]): string {
+  const C = appConfig.copy.whiteboard.storeyCopy
+  const { walls, symbols } = grundrissKinds(items)
+  return [
+    ...(walls ? [walls === 1 ? C.wallsOne : fillTemplate(C.walls, { n: walls })] : []),
+    ...symbols.map((s) => fillTemplate(C.symbolCount, { n: s.n, name: formatSymbolName(s.symbol) })),
+  ].join(' · ')
+}
 
 /**
- * «Kopieren nach …» from a Gebäude storey's label menu (Whiteboard): one chip per other storey
- * (several at once), and «Kopieren». What it copies is said in one line above the chips – the
- * storey's Grundriss (lib/grundriss · grundrissOf), `count` objects – so nobody has to guess
- * whether the Leitungen come along. The caller copies and commits; the sheet only asks.
+ * «Kopieren nach …» from a Gebäude storey's label menu (Whiteboard) – variant A «Stapel» (owner
+ * pick, round 3): the building as rows, top to bottom. The storey copied FROM is shown as the
+ * «Vorlage» and cannot be picked; every other row is a checkbox that says what that storey already
+ * holds (the copy lands on top of it). One line under the title says what goes, by kind; the one
+ * full-width button names the result. The caller copies and commits; the sheet only asks.
  */
-export function StoreyCopySheet({ name, count, storeys, onCopy, onClose }: {
-  /** the storey copied FROM, as its label reads («EG») */
-  name: string
-  /** how many objects its Grundriss holds */
-  count: number
-  /** the storeys it can go to, top to bottom */
-  storeys: { floor: number; name: string }[]
+export function StoreyCopySheet({ from, storeys, onCopy, onClose }: {
+  /** the storey copied FROM */
+  from: number
+  /** every storey of the stack, top to bottom, with its Grundriss (lib/grundriss · grundrissOf) */
+  storeys: { floor: number; name: string; items: readonly BoardAnno[] }[]
   onCopy: (targets: number[]) => void
   onClose: () => void
 }) {
   const C = appConfig.copy.whiteboard.storeyCopy
   const [picked, setPicked] = useState<number[]>([])
+  const source = storeys.find((s) => s.floor === from)
+  const name = source?.name ?? ''
+  const has = !!source?.items.length
+  const targets = storeys.filter((s) => s.floor !== from).map((s) => s.floor)
+  const allPicked = targets.every((f) => picked.includes(f))
   const toggle = (f: number) => setPicked((p) => (p.includes(f) ? p.filter((x) => x !== f) : [...p, f]))
+  const label = !picked.length ? C.pick
+    : picked.length === 1 ? fillTemplate(C.toOne, { name: storeys.find((s) => s.floor === picked[0])?.name ?? '' })
+    : fillTemplate(C.toMany, { n: picked.length })
   return (
-    <Sheet open onClose={onClose} fit title={fillTemplate(C.title, { name })}
-      footer={<>
-        <Button onClick={onClose}>{appConfig.copy.cancel}</Button>
-        <Button variant="primary" disabled={!picked.length || !count} onClick={() => { onCopy(picked); onClose() }}>{C.confirm}</Button>
-      </>}
+    <Sheet open onClose={onClose} fit sheetClassName="wb-copy" title={fillTemplate(C.title, { name })}
+      footer={has ? (
+        <Button variant="primary" block disabled={!picked.length} onClick={() => { onCopy(picked); onClose() }}>{label}</Button>
+      ) : undefined}
     >
-      <p className="wb-copy-what">{count ? fillTemplate(count === 1 ? C.whatOne : C.what, { n: count }) : fillTemplate(C.nothing, { name })}</p>
-      {count > 0 && (
-        <div className="wb-copy-chips" role="group" aria-label={C.targets}>
-          {storeys.map((s) => <Chip key={s.floor} selected={picked.includes(s.floor)} onClick={() => toggle(s.floor)}>{s.name}</Chip>)}
+      {!has ? <p className="wb-copy-what">{fillTemplate(C.nothing, { name })}</p> : (<>
+        <p className="wb-copy-what">{kindLine(source.items)}</p>
+        <div className="wb-copy-rows" role="group" aria-label={C.targets}>
+          {storeys.map((s) => s.floor === from ? (
+            <div key={s.floor} className="wb-copy-row wb-copy-src">
+              <span className="wb-copy-gap" aria-hidden />
+              <b className="wb-copy-name">{s.name}</b>
+              <span className="wb-copy-pill">{C.source}</span>
+            </div>
+          ) : (
+            <TickRow key={s.floor} checked={picked.includes(s.floor)} onToggle={() => toggle(s.floor)} className="wb-copy-row">
+              <b className="wb-copy-name">{s.name}</b>
+              <span className="wb-copy-meta">{s.items.length ? fillTemplate(C.adds, { what: kindLine(s.items) }) : C.empty}</span>
+            </TickRow>
+          ))}
         </div>
-      )}
+        <div className="wb-copy-foot">
+          <span>{C.stays}</span>
+          <button type="button" className="wb-copy-all" onClick={() => setPicked(allPicked ? [] : targets)}>{allPicked ? C.none : C.all}</button>
+        </div>
+      </>)}
     </Sheet>
   )
 }

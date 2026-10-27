@@ -353,12 +353,25 @@ export const whiteboardCopy = {
     // «Kopieren nach …» in the storey label's menu (27.10.2026): the storey's Grundriss onto others
     storeyCopy: {
       menu: 'Kopieren nach …',
-      title: '{name} kopieren nach …',
-      what: '{n} Objekte: Wände und Gebäude-Symbole. Leitungen, Trupps, Gefahren und Notizen bleiben.',
-      whatOne: '1 Objekt: Wände und Gebäude-Symbole. Leitungen, Trupps, Gefahren und Notizen bleiben.',
+      // A · Stapel (owner pick, round 3): the title names the storey, one line says what goes,
+      // every storey a row, the button names the result
+      title: '{name} kopieren',
+      walls: '{n} Wände',
+      wallsOne: '1 Wand',
+      // «3× Durchgang»: the count with the symbol's name, so no plural has to be guessed
+      symbolCount: '{n}× {name}',
+      empty: 'leer',
+      // what a target already holds – the copy lands on top of it
+      adds: '{what} – kommt dazu',
+      source: 'Vorlage',
+      stays: 'Leitungen, Trupps und Gefahren bleiben.',
+      all: 'Alle',
+      none: 'Keine',
+      toOne: 'Auf {name} kopieren',
+      toMany: 'Auf {n} Geschosse kopieren',
+      pick: 'Geschoss wählen',
       nothing: 'Auf {name} gibt es noch keinen Grundriss zum Kopieren – keine Wand, kein Gebäude-Symbol.',
       targets: 'Geschosse',
-      confirm: 'Kopieren',
       done: 'Grundriss kopiert: {list}',
       doneItem: '{n} nach {floor}',
     },

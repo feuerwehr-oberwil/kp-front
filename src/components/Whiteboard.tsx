@@ -2992,8 +2992,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       )}
 
       {copyFrom != null && stack && (
-        <StoreyCopySheet name={storeyName(copyFrom)} count={grundrissOf(annos, copyFrom, isGebaeudeSymbol).length}
-          storeys={allFloorsTTB.filter((f) => f !== copyFrom).map((f) => ({ floor: f, name: storeyName(f) }))}
+        <StoreyCopySheet from={copyFrom}
+          storeys={allFloorsTTB.map((f) => ({ floor: f, name: storeyName(f), items: grundrissOf(annos, f, isGebaeudeSymbol) }))}
           onCopy={(targets) => copyStorey(copyFrom, targets)} onClose={() => setCopyFrom(null)} />
       )}
 

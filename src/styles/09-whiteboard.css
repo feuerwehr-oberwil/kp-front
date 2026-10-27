@@ -1213,9 +1213,33 @@ polygon.wb-draft-open { fill: var(--open); fill-opacity: .1; }
 .wb-snap-free { fill: var(--ink-faint); }
 @media (prefers-reduced-motion: reduce) { .wb-draft-open, .wb-open-pill { animation: none; } }
 
-/* «Kopieren nach …» (components/StoreyCopySheet): what goes, then one chip per storey */
-.wb-copy-what { margin: 0 0 var(--sp-3); }
-.wb-copy-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+/* «Kopieren nach …» (components/StoreyCopySheet) – A «Stapel»: a narrow sheet, one line of what
+   goes, the storeys as rows top to bottom (the source tinted, «Vorlage»), a quiet footer line with
+   «Alle», one full-width button. On a phone it is the usual bottom sheet. */
+.ip-sheet.wb-copy { width: min(360px, 100%); }
+.wb-copy .ip-body { padding-bottom: var(--sp-2); }
+.wb-copy-what { margin: 0 0 var(--sp-3); color: var(--ink-dim); font-size: var(--fs-2); }
+.wb-copy-rows { display: flex; flex-direction: column; gap: 6px; }
+/* the TickRow is the row; this only frames it so every storey reads as one slab of the stack */
+.wb-copy-rows > .wb-copy-row { width: 100%; padding-inline: var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-sm); }
+.wb-copy-rows > .wb-copy-row[aria-checked="true"] { border-color: var(--blue-45); background: var(--sel-wash); }
+.wb-copy-rows > .wb-copy-src {
+  display: flex; align-items: center; gap: var(--sp-3); box-sizing: border-box; min-height: var(--tap);
+  border-color: var(--blue-45); background: var(--blue-12);
+}
+/* the source has no box – this keeps its name on the same column as the others' */
+.wb-copy-gap { flex: none; width: 24px; }
+.wb-copy-name { flex: none; min-width: 3.5em; font-weight: var(--fw-bold); }
+.wb-copy-meta { flex: 1 1 auto; min-width: 0; color: var(--ink-dim); font-size: var(--fs-1); font-weight: var(--fw-regular); }
+.wb-copy-pill {
+  margin-left: auto; padding: 1px 8px; border: 1px solid var(--blue-45); border-radius: var(--r-pill);
+  color: var(--blue-strong); font-size: var(--fs-1); font-weight: var(--fw-bold);
+}
+.wb-copy-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-top: var(--sp-2); color: var(--ink-dim); font-size: var(--fs-1); }
+.wb-copy-all {
+  flex: none; min-height: var(--tap); padding: 0 var(--sp-2); margin-right: calc(-1 * var(--sp-2));
+  border: none; background: none; color: var(--blue-strong); font: inherit; font-weight: var(--fw-bold); cursor: pointer;
+}
 
 /* the storey label menu's host: only there to stop its portalled items' pointer events (Whiteboard).
    ⚠️ it sits between the tile and its label: a `.wb-floor… > .wb-floor-label` rule must name it too */

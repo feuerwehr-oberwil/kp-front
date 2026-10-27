@@ -1834,8 +1834,8 @@ describe('gesture contracts of the plan surface', () => {
       const eg = container.querySelectorAll('.wb-floor')[1]
       fireEvent.click(eg.querySelector('.wb-floor-label')!)
       fireEvent.click(await screen.findByRole('menuitem', { name: appConfig.copy.whiteboard.storeyCopy.menu }))
-      fireEvent.click(await screen.findByRole('button', { name: '1. OG' }))
-      fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.storeyCopy.confirm }))
+      fireEvent.click(await screen.findByRole('checkbox', { name: /1\. OG/ }))
+      fireEvent.click(screen.getByRole('button', { name: 'Auf 1. OG kopieren' }))
       expect(onCheckpoint).toHaveBeenCalledTimes(1)
       const copies = latest.annos.filter((a) => a.floor === 1)
       expect(copies.map((a) => a.role ?? a.symbol).sort()).toEqual(['GB Ture Durchgang', 'wand'])
