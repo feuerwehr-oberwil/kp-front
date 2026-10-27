@@ -288,6 +288,7 @@ export const editorsCopy = {
     kindLine: 'Linie',
     kindWand: 'Wand',
     kindWandBlocked: 'Ein Trupp ist auf dieser Leitung – zuerst den Trupp lösen.',
+    kindWandStoreys: 'Diese Linie geht über mehrere Geschosse – eine Wand liegt auf einem.',
     distance: 'Länge',
     // Messung group: the numbers of an already drawn line (length, Schläuche, elevation profile)
     measurement: 'Messung',

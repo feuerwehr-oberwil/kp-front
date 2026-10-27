@@ -159,8 +159,9 @@ interface Props {
   /** «Art: Linie | Wand» – turn the line into a Wand and back (the Gebäude stack only, where the
    *  Wand tool is). Omitted ⇒ the row is hidden. */
   onWand?: (wand: boolean) => void
-  /** a Trupp is on this line: «Wand» is offered but disabled, with the reason as its hint */
-  wandBlocked?: boolean
+  /** why this line cannot be a Wand (a Trupp is on it, it climbs storeys): «Wand» is offered but
+   *  disabled, with this as its hint */
+  wandBlocked?: string
   /** Leitung numbers already taken on THIS surface, so a duplicate can be flagged as it happens */
   usedLineNos?: number[]
   onShowDistance: (showDistance: boolean) => void
@@ -191,7 +192,7 @@ interface Props {
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, onWand, wandBlocked = false, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, onWand, wandBlocked, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
   // The Auftrag input is uncontrolled (see its comment), so the unmount commit reads the DOM
   // node — kept, never nulled, because React detaches element refs before passive cleanups run.
   // Same idempotence guard as ContextPanel's Notizen: blur first, unmount second, one write.
@@ -636,10 +637,10 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                     onChange={(wand) => { if (wand !== (drawing.role === 'wand')) onWand(wand) }}
                     options={[
                       { value: false, label: appConfig.copy.drawingEditor.kindLine },
-                      { value: true, label: appConfig.copy.drawingEditor.kindWand, disabled: wandBlocked && drawing.role !== 'wand', title: wandBlocked ? appConfig.copy.drawingEditor.kindWandBlocked : undefined },
+                      { value: true, label: appConfig.copy.drawingEditor.kindWand, disabled: !!wandBlocked && drawing.role !== 'wand', title: wandBlocked },
                     ]} />
                 </div>
-                {wandBlocked && drawing.role !== 'wand' && <p className="de-hint">{appConfig.copy.drawingEditor.kindWandBlocked}</p>}
+                {wandBlocked && drawing.role !== 'wand' && <p className="de-hint">{wandBlocked}</p>}
               </>
             )}
           </div>

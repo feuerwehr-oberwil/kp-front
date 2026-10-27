@@ -216,6 +216,14 @@ export function shiftStoreys(a: BoardAnno, delta: number, floors: readonly numbe
   }
 }
 
+/** Whether a line climbs: some vertex sits on another storey than the line's own. A Wand lives on
+ *  one storey, so the line editor offers «Wand» only for a line that does not (Whiteboard ·
+ *  setWallRole). */
+export function spansStoreys(a: BoardAnno): boolean {
+  const home = a.floor ?? 0
+  return !!a.pts?.some((p) => p[2] != null && p[2] !== home)
+}
+
 /**
  * What a Grundriss holds, by kind – the line «Kopieren nach …» (StoreyCopySheet) says it in:
  * how many Wände, and per Gebäude symbol how many, in the order they first appear. `items` is a
@@ -238,7 +246,8 @@ export function grundrissKinds(items: readonly BoardAnno[]): { walls: number; sy
  *   · to a Wand: `role`, the Wand `look` (usePlanDraft · GRUNDRISS_STYLE), solid, no Pfeil and no
  *     Marker, and none of a hose's fields (Typ, Leitung Nr., Trupp anchor). `keepTeilstueck`: lines
  *     hang on its «E», which a quiet switch must not cut – the Abschluss row lets go of them, with
- *     its own question. The caller refuses a line a Trupp is on (unlinking is not undoable here).
+ *     its own question. The caller refuses a line a Trupp is on (unlinking is not undoable here) and one that
+ *     climbs storeys (spansStoreys).
  *   · to a Linie: no `role`; the Wand's colour becomes `lineColor`, a colour picked by hand stays;
  *     the width stays.
  *

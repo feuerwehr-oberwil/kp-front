@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BoardAnno } from '../types'
-import { carryDoors, copyGrundriss, grundrissKinds, nearestWall, seatDoor, shiftStoreys, wallRolePatch, DOOR_SYMBOL } from './grundriss'
+import { carryDoors, copyGrundriss, grundrissKinds, nearestWall, seatDoor, shiftStoreys, spansStoreys, wallRolePatch, DOOR_SYMBOL } from './grundriss'
 
 const AR = 0.5
 const wall = (id: string, pts: BoardAnno['pts'], floor = 0): BoardAnno => ({ id, kind: 'draw', role: 'wand', floor, pts })
@@ -118,6 +118,14 @@ describe('grundrissKinds', () => {
   it('counts the Wände and each Gebäude symbol, in the order they first appear', () => {
     const items = [door('d1', 0, 0), wall('w1', [[0, 0], [1, 0]]), { ...door('t', 0, 0), symbol: 'GB Treppe 8' }, door('d2', 0, 0), wall('w2', [[0, 1], [1, 1]])]
     expect(grundrissKinds(items)).toEqual({ walls: 2, symbols: [{ symbol: DOOR_SYMBOL, n: 2 }, { symbol: 'GB Treppe 8', n: 1 }] })
+  })
+})
+
+describe('spansStoreys', () => {
+  it('is true only when a vertex sits on another storey than the line', () => {
+    expect(spansStoreys(wall('a', [[0.1, 0.1, 1], [0.5, 0.1, 1]], 1))).toBe(false)
+    expect(spansStoreys(wall('b', [[0.1, 0.1], [0.5, 0.1]], 1))).toBe(false)
+    expect(spansStoreys(wall('c', [[0.1, 0.1, 0], [0.5, 0.1, 1]], 0))).toBe(true)
   })
 })
 

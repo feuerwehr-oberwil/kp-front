@@ -194,6 +194,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     kindLine: 'Ligne',
     kindWand: 'Mur',
     kindWandBlocked: 'Un groupe est sur cette conduite – détachez d’abord le groupe.',
+    kindWandStoreys: 'Cette ligne passe sur plusieurs étages – un mur reste sur un seul.',
     distance: 'Longueur',
     measurement: 'Mesure',
     showOnMap: 'Sur la carte',
