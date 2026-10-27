@@ -1736,6 +1736,15 @@ describe('gesture contracts of the plan surface', () => {
       expect(find('d1')).toEqual(tuer)
     })
 
+    it('reshaping a Wand re-seats its Durchgang and logs the seat for the replay', () => {
+      const { container, onCheckpoint, emit } = mount([wand, tuer], { ...twoStoreys, focus: focused('w1') })
+      drag(container.querySelectorAll('.wb-vertex')[0], [[80, 300], [80, 320], [80, 340]])
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(find('d1').rotation).not.toBe(0)
+      expect(edits(emit).map((c) => (c[1] as { id: string }).id)).toEqual(['w1', 'd1'])
+      expect(edits(emit)[1][1]).toMatchObject({ patch: { x: find('d1').x, y: find('d1').y, rotation: find('d1').rotation } })
+    })
+
     it('deleting a Wand leaves its Durchgang standing free', () => {
       mount([wand, tuer], { ...twoStoreys, focus: focused('w1') })
       fireEvent.keyDown(window, { key: 'Delete' })

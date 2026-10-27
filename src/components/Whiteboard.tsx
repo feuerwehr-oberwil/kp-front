@@ -1211,7 +1211,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     resolvedPts, attachmentLines, planCandidatesAt, pushPast, patch, patchCommit, emit, activeId,
     onLineAttached, onLineDetached, planEndpointDrag, setPlanEndpointDrag, planDwellTimerRef: planDwellTimer,
     allFloorsTTB, revealFloor, centerOnPoint: (x, y, floor, atScale) => centerOnPoint(x, y, floor, atScale), scaleRef,
-    draftFloor: draftFloorRef, setDraft,
+    draftFloor: draftFloorRef, setDraft, tileAR,
   })
 
   // --- chip dragging (resource / symbol / text in pan mode) — components/useWbChipDrag ---
