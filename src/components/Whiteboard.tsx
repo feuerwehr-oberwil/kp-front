@@ -2362,7 +2362,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             {editDraw && editDraw.kind !== 'circle' && tool === 'pan' && (
               <WbVertexHandles anno={renderAnnos.find((a) => a.id === editDraw.id) ?? editDraw} sW={sW} sH={sH} mapY={mapY}
                 onVertexDown={vertDown} onInsert={insertVertex} onDeleteVertex={deleteVertex} onExtend={extendLine}
-                onClimb={stack ? climbLine : undefined} floors={stack ? floorsTTB : undefined} />
+                // a Wand lives on one storey: it never climbs a stair like a Leitung does
+                onClimb={stack && !editDraw.role ? climbLine : undefined} floors={stack ? floorsTTB : undefined} />
             )}
             {/* Absperrkreis: ONE grip on the ring (screen-right) sets the radius — the gesture
                 that placed it, available again afterwards. It is the only way to resize on an

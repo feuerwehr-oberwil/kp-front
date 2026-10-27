@@ -1787,6 +1787,15 @@ describe('gesture contracts of the plan surface', () => {
       expect(strokes).not.toContain(appConfig.drawing.colors[4])
     })
 
+    it('a selected Wand has no stair-climb grips – a plain Linie on the stack still does', () => {
+      const leitung: BoardAnno = { id: 'l9', kind: 'draw', floor: 0, pts: [[0.1, 0.2], [0.9, 0.2]] }
+      const { container } = mount([wand, leitung], { ...twoStoreys, focus: focused('l9') })
+      expect(container.querySelectorAll('.wb-climb').length).toBeGreaterThan(0)
+      cleanup()
+      const again = mount([wand, leitung], { ...twoStoreys, focus: focused('w1') })
+      expect(again.container.querySelectorAll('.wb-climb')).toHaveLength(0)
+    })
+
     it('a selected Wand offers no hose fields (Leitung Nr., Typ) – a plain Linie still does', () => {
       const lineNo = appConfig.copy.drawingEditor.lineNo
       const leitung: BoardAnno = { id: 'l9', kind: 'draw', floor: 0, pts: [[0.1, 0.2], [0.9, 0.2]] }
