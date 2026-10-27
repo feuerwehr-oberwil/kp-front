@@ -936,9 +936,10 @@ def _start_scheduler_jobs() -> None:
         coalesce=True,
     )
     jobs.append(f"plan tiles ({PLAN_TILES_TICK_SECONDS}s tick, idle once every plan has its pyramid)")
-    # Always on: a cheap no-op unless there is something for one of its two clocks to sweep
-    # (alarms.autoArchiveDays for untouched auto-opened ones, alarms.staleIncidentDays for the
-    # worked-on-but-never-closed ones); both at 0 makes it two indexed queries and done.
+    # Always on: a cheap no-op unless there is something for one of its three clocks to sweep
+    # (alarms.autoArchiveDays for untouched auto-opened ones, alarms.exerciseAutoCloseHours for
+    # idle Übungen, alarms.staleIncidentDays for the worked-on-but-never-closed ones); all at 0
+    # makes it a no-op.
     _scheduler.add_job(
         _auto_archive_sweep,
         "interval",
