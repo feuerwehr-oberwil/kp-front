@@ -44,6 +44,9 @@ export const TOP_INSET = 80
 // deliberately not re-run for that — expanding the rail is a deliberate act with the plan
 // already on screen, and re-fitting under the hand would move what somebody is looking at.
 export const SIDE_INSET_L = 88
+/** the Gebäude's Messungen column (ReadingParts · StackReadings, 09-whiteboard `.wb-readings`): its
+ *  252px + the 16px gap to the stack, kept free left of the stack while a Messpunkt is on it */
+export const STACK_READINGS_LANE = 268
 export const SIDE_INSET_R = 92
 /**
  * No side rails on a phone — they are the two stacked bottom bars there.

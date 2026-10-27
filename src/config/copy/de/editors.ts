@@ -87,6 +87,8 @@ export const editorsCopy = {
     notesPlaceholder: 'Allgemeine Notizen …',
     /** the «+ Feld» tile's label (aria/title) and its word */
     addField: 'Feld hinzufügen',
+    /** a Messpunkt's readings under its fields, newest first (ReadingHistory) */
+    readingHistory: 'Verlauf',
     addFieldShort: 'Feld',
     removeField: 'Feld löschen',
     // the ⇄ square at the end of the Einsatzleiter glyph's EL row (title/aria). Says what HAPPENS,

@@ -104,6 +104,12 @@ export interface LegacySpread {
  *  new attribute added here lights up on both surfaces. NOTE: `floor` is NOT
  *  here on purpose — it means different things per surface (a signed badge value
  *  on the map vs. a floor-stack tile index on the plan), so each keeps its own. */
+/** One gas reading of a Messpunkt – see SymbolProps.readings. */
+export interface Reading {
+  t: number
+  v: Record<string, string>
+}
+
 export interface SymbolProps {
   /** name of the FireGIS symbol to render (key into the symbol library) */
   symbol?: string
@@ -136,6 +142,11 @@ export interface SymbolProps {
    *  the space but draws air out). Only meaningful for the mobile Lüfter (`controls: ['airflow']`);
    *  the renderer swaps in the reversed-arrow glyph. */
   extract?: boolean
+  /** a measured symbol's history (the Messpunkt, 27.10.2026): one row per reading, oldest
+   *  first, appended by the panel whenever a measured field changes (lib/symbols · recordReading).
+   *  `t` is epoch ms, `v` the measured fields at that moment. Append-only on purpose – two tablets
+   *  entering the same radio report must both survive a merge (lib/mergeWorkspace). */
+  readings?: Reading[]
   /** symbol/shape accent colour */
   color?: string
   /** ERG Schutzabstand rings around a Gefahrentafel (lib/ergRings). Absent = 'small': the

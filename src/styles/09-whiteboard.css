@@ -181,8 +181,8 @@
      (Whiteboard · the .wb-lamped chips). The Gebäude/Objekt read-out keeps its NAME, because a
      name cannot be an Ampel; it is the one that truncates when the row runs out of room. */
   .wb-botleft { flex-wrap: nowrap; }
-  .wb-botleft > .wb-scale-chip.wb-lamped { flex: none; }
-  .wb-botleft > .wb-scale-chip.wb-lamped > span:not(.wb-lamp) { display: none; }
+  .wb-botleft .wb-scale-chip.wb-lamped { flex: none; }
+  .wb-botleft .wb-scale-chip.wb-lamped > span:not(.wb-lamp) { display: none; }
 }
 
 /* PlanPicker modal — searchable object list (primary) + supporting mini-map.
@@ -424,6 +424,20 @@
 .wb-floor-add .i { width: 13px; height: 13px; stroke-width: 2.4; }
 .wb-floor-add-up { top: calc(var(--tap) / -2); }     /* straddle the top edge of the stack */
 .wb-floor-add-down { bottom: calc(var(--tap) / -2); } /* straddle the bottom edge of the stack */
+
+/* the Gebäude's Messungen (ReadingParts · StackReadings, owner pick W2 27.10.2026): a column left of
+   the stack, each storey's card at its own storey's height, inside the board so it pans and zooms
+   with the paper. 252px + the 16px gap = STACK_READINGS_LANE, which the fit keeps free. */
+.wb-readings { position: absolute; top: 0; bottom: 0; right: calc(100% + var(--sp-4)); width: 252px; z-index: 8; pointer-events: none; }
+.wb-readings section { position: absolute; left: 0; right: 0; overflow-y: auto; padding: var(--sp-1) 0;
+  border-radius: var(--r-sm); background: var(--glass); border: 1px solid var(--glass-line); box-shadow: var(--e3); pointer-events: auto; }
+.wb-readings h4 { margin: 0; padding: var(--sp-1) var(--sp-3); font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
+.wb-readings button { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 36px; padding: 0 var(--sp-3);
+  border: 0; border-top: 1px solid var(--border-soft); background: none; color: var(--ink); font: var(--fw-medium) var(--fs-1) var(--body); text-align: left; cursor: pointer; }
+.wb-readings button > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (hover: hover) {
+  .wb-readings button:hover { background: var(--hover); }
+}
 
 /* (.wb-north-dial / -btn / -ring / -needle / -n are gone, 30.08.: the north dial was drawn ON the
    topmost storey tile, so it panned and zoomed with the paper. It is a tile in the plan rail's
@@ -1043,6 +1057,22 @@ span.wb-ghost-label { cursor: default; }
    chips, `disabled`): the `.wb-object:disabled` recipe — full opacity, their own words and tone,
    no hover, no touch pad. The tone is the point: «ungemessen» amber must read as amber. */
 .wb-scale-chip:disabled { cursor: default; opacity: 1; }
+/* R1 (owner, 27.10.2026): chips that say one thing together share ONE glass – the Objekt with its
+   Gebäude-Info, the Massstab with «⌖ Karte» (Whiteboard · .wb-join). The group wears the family's
+   glass; its chips give theirs up and are split by a hairline, each still its own tap. Colour only
+   (not the `background` shorthand), so the hover wash and the armed fill below still paint. */
+.wb-join { display: inline-flex; align-items: stretch; flex: 0 1 auto; min-width: 0; max-width: 100%; border-radius: var(--r-sm);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); }
+.wb-join:empty { display: none; }
+.wb-join .wb-scale-chip { background-color: transparent; backdrop-filter: none; box-shadow: none; border-radius: 0; }
+.wb-join > * + * { border-left: 1px solid var(--border); }
+.wb-join > :first-child, .wb-join > :first-child > .wb-scale-chip { border-top-left-radius: var(--r-sm); border-bottom-left-radius: var(--r-sm); }
+.wb-join > :last-child, .wb-join > :last-child > .wb-scale-chip { border-top-right-radius: var(--r-sm); border-bottom-right-radius: var(--r-sm); }
+.wb-join-lamps { flex: none; }
+/* …and in the Massstab/«⌖ Karte» pair a GREEN lamp is the whole reading: icon + lamp, the words in
+   aria-label/title (as on a phone, below). Any other tone keeps its words – «Karte verknüpfen»,
+   an unchecked fit, a stale scale are sentences somebody has to read. */
+.wb-join-lamps > .wb-scale-chip.wb-lamped:has(> .wb-lamp[data-tone='green']) > span:not(.wb-lamp) { display: none; }
 /* ⚠️ NO state ring (26.09.2026, owner: the calibrated Massstab wore a blue outline beside a green
    dot, and read as «selected»). `.on` (calibrated / derived) and `.stale` stay as classes, but
    what they say is said by the chip's LAMP (planScale · scaleLampTone) — the one glyph that
@@ -1070,6 +1100,9 @@ span.wb-ghost-label { cursor: default; }
    blue glyph. Not a ring (26.09.2026). */
 .wb-scale-chip.arm { background: color-mix(in srgb, var(--blue) 14%, var(--float-bg)); }
 .wb-scale-chip.arm svg:not(.wb-chip-chev) { color: var(--blue); }
+/* …except the Messgerät inside a reading pill (ReadingsChip): it is the pill's ink, on amber/red
+   in any state of the chip – the chip's dim/hover/armed glyph colours made it navy on red */
+.wb-scale-chip .sym-pill svg:not(.wb-chip-chev) { color: inherit; }
 
 /* Passung — the georeference's reading, docked one row above the chip that opened it. Same
    recipe, same corner and the same arithmetic as `.wb-scale-persist` above: the Massstab's

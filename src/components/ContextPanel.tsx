@@ -18,7 +18,9 @@ import { Stepper } from './Stepper'
 import { Segmented } from './Segmented'
 import { Button, IconButton } from './Button'
 import { compositeSpec } from '../lib/symbolRender'
-import { UN_CAPABLE } from '../lib/symbols'
+import { bareBlack } from '../lib/glyphTile'
+import { UN_CAPABLE, alarmBar, isMeasuredSymbol } from '../lib/symbols'
+import { ReadingBar, ReadingHistory } from './ReadingParts'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
 import { bearing360 } from '../lib/planProjection'
 import { doneStateText } from '../lib/objectDone'
@@ -390,6 +392,8 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   const fieldsRef = useRef<HTMLDivElement>(null)
   /** What this panel last WROTE — or what it opened on. The yardstick for the effect below. */
   const writtenRef = useRef(JSON.stringify(entity.fields ?? {}))
+  // a row typed into but not committed yet (fields commit on blur – see the unmount commit below)
+  const rowsDirty = useRef(false)
   // ⚠️ Follow the entity when the fields change from OUTSIDE — the same rule the title below
   // follows, for a worse failure. `rows` is this panel's own copy, taken once when it opened, and
   // `commitRows` writes the WHOLE record back: a value another device (or the same object's panel on the
@@ -410,6 +414,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
     if (fieldsRef.current?.contains(active)) return
     if (active instanceof Element && active.closest('.combo-menu-portal')) return
     writtenRef.current = stored
+    rowsDirty.current = false
     setRows(seedRows(entity.fields))
     // seedRows reads protectedKeys — the symbol's own preset, which cannot change while one panel
     // stays mounted (the caller keys the panel by entity id)
@@ -555,9 +560,17 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
     for (const { k, v } of next) { const key = stripUnprintable(k).trim(); if (key) rec[key] = stripUnprintable(v) }
     // …this is now what the entity says, as far as this panel is concerned (see the sync effect)
     writtenRef.current = JSON.stringify(rec)
+    rowsDirty.current = false
     onFields(rec)
   }
-  const setRow = (i: number, patch: Partial<Row>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+  const setRow = (i: number, patch: Partial<Row>) => {
+    rowsDirty.current = true
+    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+  }
+  // A tap on the Karte deselects and unmounts this panel while the caret still sits in a field –
+  // a removed node gets no blur, so the typed value (a Messpunkt reading, 27.10.) died with the
+  // panel. Same door the Notizen use.
+  useCommitDraftOnUnmount(() => { if (rowsDirty.current) commitRows(rows) })
   // set a row's value AND commit (used by the tab/dropdown controls, which have no blur)
   const setRowValue = (i: number, v: string) => commitRows(rows.map((r, j) => (j === i ? { ...r, v } : r)))
   /**
@@ -729,7 +742,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
               TacticalSymbol was covered; the sink sanitiser is the authoritative gate, so EVERY
               `dangerouslySetInnerHTML` that takes an SVG string must wrap it, never trust the prop. */}
           {entity.photoUrl ? <img src={thumbUrl(entity.photoUrl)} alt="" decoding="async" />
-            : svg ? <span dangerouslySetInnerHTML={{ __html: sanitizeSvg(svg) }} />
+            : svg ? <span className={bareBlack(svg) ? 'glyph-tile' : undefined} dangerouslySetInnerHTML={{ __html: sanitizeSvg(svg) }} />
             : (entity.badge ?? <Icon id="type" />)}
         </div>
         <div className="ctx-titlewrap">
@@ -1001,6 +1014,12 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                 // row, free text through the Gast door — and the commit resolves the UN-Nr.
                 // (fillFromUN's reverse branch), which lights the readout and the rings.
                 const stoffSearch = unCapable && normKey(r.k) === STOFF_KEY
+                const control = (
+                  <FieldControl fieldKey={r.k} value={r.v} options={fieldOptions?.[r.k]}
+                    placeholder={valuePlaceholder(r.k)}
+                    officerFilter={officerSym} rankOf={rankOf} statusOf={personStatus}
+                    onInput={(v) => setRow(i, { v })} onCommit={(v) => setRowValue(i, v)} />
+                )
                 const field = (
                   <>
                     {stoffSearch ? (
@@ -1008,12 +1027,14 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                         placeholder={valuePlaceholder(r.k)}
                         searchPlaceholder={C.stoffSearch}
                         onChange={(v) => setRowValue(i, v)} />
-                    ) : (
-                    <FieldControl fieldKey={r.k} value={r.v} options={fieldOptions?.[r.k]}
-                      placeholder={valuePlaceholder(r.k)}
-                      officerFilter={officerSym} rankOf={rankOf} statusOf={personStatus}
-                      onInput={(v) => setRow(i, { v })} onCommit={(v) => setRowValue(i, v)} />
-                    )}
+                    ) : alarmBar(entity.symbol, r.k.trim(), r.v) ? (
+                      // a measured gas (the Messpunkt): the input box is the visualisation – its
+                      // calm/amber/red bar right under it, following the value as it is typed
+                      <span className="reading-field">
+                        {control}
+                        <ReadingBar symbol={entity.symbol} fieldKey={r.k.trim()} value={r.v} />
+                      </span>
+                    ) : control}
                     {/* the contradiction stays put, under the field it is about */}
                     {fieldHints?.[r.k.trim()] && (
                       <p className="kv-hint"><Icon id="warn" />{fieldHints[r.k.trim()]}</p>
@@ -1070,6 +1091,9 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
               )}
             </div>
           )}
+
+          {/* a Messpunkt's readings, one row per radio report (ReadingParts) */}
+          {isMeasuredSymbol(entity) && <ReadingHistory entity={entity} />}
 
           {/* read-only ADR hazard readout from the UN number (Gefahrentafel), auto-derived
               from the ADR table — plus a deep link to a reputable source for full details. */}

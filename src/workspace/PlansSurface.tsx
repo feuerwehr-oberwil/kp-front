@@ -54,6 +54,8 @@ export interface PlansSurfaceProps {
   symbolScale: Record<SymbolSurface, number>
   symbolCaptions: CaptionMode
   mapSuppressedCaptions: ReadonlySet<string>
+  /** the «Messungen» chip (components/ReadingsChip) for the plan's bottom-left row; null = none */
+  readingsChip: ReactNode
   /** the georeferenced sheets and what they project (lib/useGeorefFits) */
   georefFits: ReturnType<typeof useGeorefFits>
   /** the Karte's gestures — a live vehicle dragged on a sheet, «Auf der Karte zeigen» (workspace/useMapActions) */
@@ -96,7 +98,7 @@ export interface PlansSurfaceProps {
 export function PlansSurface({
   mode, sym, guarded, railLabels, planDocs, tacticalLocked, isPhone, journalOpen, replayActive,
   linkScoped, activePlanId, setActivePlanId, objectPlans, buildingInfo, incidentMeta,
-  setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, georefFits, mapActions,
+  setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, readingsChip, georefFits, mapActions,
   replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,
   roster, addRecent, user, emit, planStacks, planFocus, effTrupps, truppCounterNames, teamNameTaken,
   azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, setPlanScale, tafel, truppFinder,
@@ -136,6 +138,7 @@ export function PlansSurface({
           objectName={activeObjectName}
           objectAddress={activeObjectAddress}
           buildingInfo={buildingInfo}
+          readingsChip={readingsChip}
           // only the AUTO-surfaced object can be «merely nearby»; a manual pick is the operator's
           objectNearby={activeObjectNearby}
           incidentId={incidentMeta.id}

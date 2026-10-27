@@ -4,6 +4,10 @@ import { SPREAD_DIRS, boundedKey, hasSpread, normalizeSpread, type SpreadDir } f
 import { DEFAULT_INK } from './lineStyle'
 import { sanitizeSvg } from './sanitizeSvg'
 import { Icon } from './icons'
+import { bareBlack } from './glyphTile'
+import { readingAge, symbolReading } from './symbols'
+import { useMinuteClock } from './minuteClock'
+import type { SymbolProps } from '../types'
 
 // Shared rendering of a placed FireGIS tactical symbol — used IDENTICALLY by the
 // Lage map (MapView) and the Plan whiteboard (Whiteboard), so the glyph, the
@@ -14,8 +18,9 @@ import { Icon } from './icons'
 
 // Outline symbols (no solid fill — e.g. KP Front, Sammelstelle, hydrants) get a
 // white chip behind them so the thin strokes stay legible; solid icons (Feuer F,
-// Rettungen R) already read on their own and render directly.
-export const needsWhite = (svg: string) => svg.includes('fill="none"')
+// Rettungen R) already read on their own and render directly. Solid BLACK icons without a plate
+// (Schieber, Windrichtung, Nordpfeil) get it too — black on the dark Karte is nothing.
+export const needsWhite = (svg: string) => svg.includes('fill="none"') || bareBlack(svg)
 
 // the symbol's own accent colour — its first non-black fill, else first non-black
 // stroke (black is the glyph/outline). Used to tint the floor badge. Falls back to
@@ -208,7 +213,7 @@ function SpreadArrows({ spread, color }: { spread: Spread; color: string }) {
 const floorRangeBadge = (from?: number, to?: number) =>
   from != null && to != null && from === to ? floorBadge(from) : [from, to].filter((f): f is number => f != null).map(floorBadge).join('/')
 
-export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floor, floorFrom, floorTo, spread, caption, docked, done, className }: {
+export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floor, floorFrom, floorTo, spread, caption, measured, docked, done, className }: {
   svg: string
   /** rendered edge length in px (square) */
   sizePx: number
@@ -238,6 +243,11 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
    *  caller decides the text + visibility (lib/symbols · symbolCaptionText, zoom gate); this
    *  just renders it as a sibling of the glyph so it never rotates with `rotation`. */
   caption?: string | null
+  /** a MEASURED symbol's props (lib/symbols · isMeasuredSymbol, the Messpunkt): the mark is then
+   *  one pill – a small Messgerät and the worst gas («CO 180») – instead of the glyph (owner pick
+   *  S3, 27.10.2026). See ReadingPill. Never suppressed by the label pass, which books it as the
+   *  glyph's own footprint (useLabelPass). */
+  measured?: SymbolProps
   /** Angedockte Trupps (lib/docking, 15.09.2026): this symbol carries at least one Trupp marker,
    *  drawn as the same `link` glyph the marker itself wears — the bond is then readable from both
    *  ends. The string is the crews' names and is only ever the badge's TITLE: the map shows the
@@ -266,11 +276,13 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
   return (
     <div className={`ts ${className ?? ''}${done ? ' ts-done' : ''}`} style={{ width: sizePx, height: sizePx }}>
       {spread && <SpreadArrows spread={spread} color={symColor(svg)} />}
-      <div
-        className={`ts-rot ${needsWhite(svg) ? 'white' : ''}`}
-        style={rotation ? { transform: `rotate(${rotation}deg)` } : undefined}
-        dangerouslySetInnerHTML={{ __html: safeSvg }}
-      />
+      {!measured && (
+        <div
+          className={`ts-rot ${needsWhite(svg) ? 'white' : ''}`}
+          style={rotation ? { transform: `rotate(${rotation}deg)` } : undefined}
+          dangerouslySetInnerHTML={{ __html: safeSvg }}
+        />
+      )}
       {overlay && (
         <div
           className="ts-rot ts-overlay"
@@ -287,7 +299,7 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
           already says, at the cost of the one thing the badge is for. */}
       {/* …and not for the Erdgeschoss (15.09.): a «0» chip is a number that says nothing – ground
           level is where a symbol stands unless the badge says otherwise */}
-      {!hasRange && floor != null && floor !== 0 && (
+      {!measured && !hasRange && floor != null && floor !== 0 && (
         <span className="sym-floor">{floorBadge(floor)}</span>
       )}
       {hasRange && (
@@ -303,11 +315,32 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
       )}
       {/* …and the fourth corner, top-left, is the «erledigt» time (lib/objectDone) */}
       {done && <span className="sym-done">{done}</span>}
+      {measured && <ReadingPill props={measured} floor={hasRange ? undefined : floor} />}
       {caption && (
         <span className="sym-caption">
           {caption.split('\n').map((line, i) => <span key={i}>{line}</span>)}
         </span>
       )}
     </div>
+  )
+}
+
+/**
+ * A measured symbol's mark: the worst gas on calm ink, amber at A1, red at A2, the colour on the
+ * outline plus its age once the reading is old (lib/symbols · symbolReading), the dashed pill with
+ * the icon alone before the first reading. Its own component so only these few marks subscribe to
+ * the minute clock that ages them. `inline` = the same pill in a list row (ReadingParts).
+ */
+export function ReadingPill({ props, floor, inline = false }: { props: SymbolProps; floor?: number; inline?: boolean }) {
+  const r = symbolReading(props, useMinuteClock())
+  if (!r) return null
+  return (
+    <span className={`sym-pill${inline ? ' inline' : ''}${r.text ? '' : ' empty'}${r.level === 'ok' ? '' : ` ${r.level}`}${r.stale ? ' stale' : ''}`}>
+      <Icon id="messgeraet" />
+      {r.text}
+      {r.stale && <span className="sym-pill-age">{readingAge(r)}</span>}
+      {/* the storey rides on the pill, which is wider than the glyph box the corner badges use */}
+      {floor != null && floor !== 0 && <span className="sym-floor">{floorBadge(floor)}</span>}
+    </span>
   )
 }

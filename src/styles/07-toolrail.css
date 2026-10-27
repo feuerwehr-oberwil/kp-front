@@ -303,6 +303,11 @@
 }
 .sym-cell:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .sym-cell svg { width: 40px; height: 40px; }
+/* black-on-clear glyphs (symbolRender · bareBlack: Lift, Schieber, Nordpfeil …) vanish on the night
+   sheet – they sit on the white tile the Karte already gives them, so the palette shows what lands.
+   inline-grid, like the bare inline svg of every other cell, so the names stay on one line */
+[data-theme="night"] .sym-cell .glyph-tile { width: 40px; height: 40px; display: inline-grid; place-items: center; background: var(--on-accent-ink); border-radius: var(--r-xs); }
+[data-theme="night"] .sym-cell .glyph-tile svg { width: 32px; height: 32px; }
 .sym-shape { width: 40px; height: 40px; display: block; }
 /* a TOOL in the sheet (phone: Linie · Fläche · Absperrkreis · Notiz · Trupp, lib/toolFold) — the
    same cell a symbol gets, with the line glyph its rail tile wears set into the symbol's 40px box
