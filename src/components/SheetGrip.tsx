@@ -1,7 +1,7 @@
 import { useRef, type CSSProperties, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { useKeyboardInset } from '../lib/useKeyboardInset'
-import { useSwipeDismiss } from '../lib/overlays'
+import { useSwipeDismiss } from '../lib/overlays/swipeDismiss'
 
 /**
  * The drag gesture behind the phone bottom sheet, as handlers any element can wear.
