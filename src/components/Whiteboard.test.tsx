@@ -541,7 +541,7 @@ describe('the Plan rail and its drafts', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Auswahl' }))
     remoteWrite([line]) // another device's Linie lands while the question is open
     await act(async () => { ui.release!(true); await Promise.resolve() })
-    const committed = onChange.mock.calls.at(-1)![0] as BoardAnno[]
+    const committed = onChange.mock.calls[onChange.mock.calls.length - 1][0] as BoardAnno[]
     expect(committed.map((a) => a.kind).sort()).toEqual(['area', 'draw'])
   })
 
