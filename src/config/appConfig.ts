@@ -427,7 +427,7 @@ const base = {
         // «von» and the badge shows just that value (see floorRangeBadge).
         'VKF Feuer': { controls: ['floorRange', 'spread'] },
         // ⚠️ These four carried NO preset at all, so they were the only Schadenlage symbols
-        // without a storey — while Feuer, Rauch, Wasser, Unfall, Explosion, Gefahrstoffe and
+        // without a storey — while Feuer, Rauch, Wasser, Unfall, Gefahrstoffe and
         // Rettungen all have one. Damage in a building happens on a floor, and «Teilzerstörung»
         // with no storey is exactly the statement a Kroki cannot afford to leave vague.
         // ⚠️ Beschädigung/Teilzerstörung/Totalzerstörung upgraded to von/bis alongside Feuer
@@ -460,7 +460,6 @@ const base = {
         // Feuer/Rauch do, above.
         'VKF Gefaehrliche Stoffe': { controls: ['floorRange', 'spread'], fields: ['Stoff'] },
         'VKF Wasser': { controls: ['floorRange', 'spread'] },
-        'FW Gefahr Ex': { controls: ['floor'] },
         // FKS Schlüsselstelle (library, previously category fallback): a tactically decisive spot
         // somebody is posted at — keeps the Schadenlage storey, gains the Bedienung picker.
         'FKS Schluesselstelle': { controls: ['floor'], fields: ['Bedienung'] },
@@ -474,6 +473,7 @@ const base = {
         // full-ADR name search, and a resolved UN lights the same ADR/ERG readout and
         // Schutzabstand rings the Gefahrentafel has. Stoff first — the substance is what the
         // operator knows and what the caption reads.
+        'FW Gefahr Ex': { controls: ['floor'] },
         'FW Gefahr G': { controls: ['floorRange'], fields: ['Stoff', 'UN-Nr.'], caption: 'Stoff' },
         'FW Gefahr C': { controls: ['floor'], fields: ['Stoff', 'UN-Nr.'], caption: 'Stoff' },
         // Gefahrentafel = orange UN placard; UN-Nr. first (future lookup UN→Stoff fills the rest),
