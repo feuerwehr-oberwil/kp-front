@@ -31,6 +31,21 @@ function fleetOptionsFor(name?: string, field?: string): string[] | undefined {
 const presetFor = (name?: string, cat?: string) =>
   (name ? presets.byName[name] : undefined) ?? (cat ? presets.byCat[cat] : undefined)
 
+/** A detail field that holds a number (the preset's `fieldKinds`, e.g. the Rettung's «Anzahl
+ *  Tiere»): ContextPanel draws the ± stepper for it instead of a text field. */
+export function symbolFieldKind(name: string | undefined, key: string): 'count' | undefined {
+  return name ? presets.byName[name]?.fieldKinds?.[key.trim()] : undefined
+}
+
+/** What a count field's stored string means to its stepper: `null` while empty, the number for a
+ *  plain whole number, `undefined` for anything else — free text typed before the field became a
+ *  stepper («2 Katzen»), which keeps its text field so nothing written is hidden or rewritten. */
+export function countFieldValue(raw: string): number | null | undefined {
+  const t = raw.trim()
+  if (!t) return null
+  return /^\d+$/.test(t) ? Number(t) : undefined
+}
+
 /** Names of every directional symbol (preset lists 'rotation'). This is the ONE
  *  source for both the on-canvas drag-to-rotate handle (MapView / Whiteboard) and
  *  the editor's Drehung stepper, so the two can never drift apart. */

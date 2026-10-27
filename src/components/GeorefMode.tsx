@@ -10,7 +10,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { confirmDialog, toast } from '../lib/ui'
-import { beginTap, endGeorefMode, georefDispatch, georefLamp, georefOpenHint, georefPairIndex, georefPhoneTargetPoint, peekGeorefPhoneTarget, georefOpenCount, georefPlacing, georefSideCount, georefSlotLabel, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type GeorefSide, type TapGesture } from '../lib/georefMode'
+import { beginTap, endGeorefMode, georefDispatch, georefLamp, georefOnPlan, georefOpenHint, georefPairIndex, georefPhoneTargetPoint, peekGeorefPhoneTarget, georefOpenCount, georefPlacing, georefSideCount, georefSlotLabel, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type GeorefSide, type TapGesture } from '../lib/georefMode'
 import { approvedUntouched, fitSimilarity, hasAutoPairs, residualClaim } from '../lib/georef'
 import { incidentBindingApproved } from '../lib/incidentPlanBindings'
 import { useIsPhone } from '../lib/useIsPhone'
@@ -21,7 +21,9 @@ import { InfoToggle } from './InfoToggle'
 import { Button } from './Button'
 import { Segmented } from './Segmented'
 import { Slider } from './Slider'
+import { planLoupeDraws } from '../lib/planLoupe'
 import s from './GeorefMode.module.css'
+import pv from './PdfViewport.module.css'
 
 /** The loupe's magnification over the plan as it is currently displayed. */
 const LOUPE_MUL = 4
@@ -355,7 +357,7 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
           magnifier is the map half's own inset, in the same corner of the half being aimed at,
           and `position: absolute` needs the pane as its positioned parent (15.09.2026). */}
       {armed && !mode.check && mode.want === 'plan' && aim && !panning && !isPhone && createPortal(
-        <PlanLoupe aim={aim} sW={sW} sH={sH} boardRef={view.boardRef} />,
+        <PlanLoupe aim={() => aim.pt} boardRef={view.boardRef} />,
         (mode.loupe === 'inset' && view.canvasEl?.parentElement) || document.body,
       )}
       {/* …and on a PHONE the same magnifier, aimed at the fixed reticle rather than at a pointer
@@ -364,7 +366,7 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
           finger, not of an inset in the corner. Without it the sheet is placed blind: at the
           zoom where a whole Modul fits a phone screen, a house corner is three pixels wide. */}
       {armed && !mode.check && mode.want === 'plan' && isPhone && createPortal(
-        <PhonePlanLoupe sW={sW} sH={sH} boardRef={view.boardRef} />, document.body,
+        <PlanLoupe aim={phonePlanAim} boardRef={view.boardRef} corner />, document.body,
       )}
     </>
   )
@@ -445,80 +447,94 @@ function PlanMarkerPopover({ mode, boardRef }: { mode: GeorefModeState; boardRef
   )
 }
 
-/**
- * The phone's plan magnifier: the same crop, aimed at the fixed reticle.
- *
- * ⚠️ Its own rAF lives HERE, not in the parent. The aim moves with every pan frame, and driving
- * it from the surface that owns the sheet would re-render the whole plan tree once per frame —
- * the shape of the battery bug this app has already paid for once (see MapView · onView). Only
- * this 124px inset repaints.
- */
-function PhonePlanLoupe({ sW, sH, boardRef }: { sW: number; sH: number; boardRef: React.RefObject<HTMLDivElement | null> }) {
-  const [, tick] = useState(0)
-  useEffect(() => {
-    let raf = 0
-    const loop = () => { tick((n) => n + 1); raf = requestAnimationFrame(loop) }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-  }, [])
-  const pt = peekGeorefPhoneTarget('plan') as PlanPt | null
-  // off the sheet ⇒ nothing to magnify, and an empty circle would read as «nothing is there»
-  if (!pt) return null
-  return <PlanLoupe aim={{ pt }} sW={sW} sH={sH} boardRef={boardRef} corner />
-}
+/** The pictures the sheet is made of, in paint order: PlanTileLayer's tiles (underlay, retained,
+ *  current) or pdf.js's base blit and refine crop (PdfViewport). Annotations are not part of it –
+ *  the loupe magnifies the PLAN, which is what a reference point is read off. */
+const SHEET_PICTURES = [pv['wb-tile'], pv['wb-pdf-base'], pv['wb-pdf-refine']].map((c) => `.${c}`).join(',')
+
+/** The phone's plan aim: the fixed reticle, read every frame (never `place` – reading commits nothing). */
+const phonePlanAim = () => peekGeorefPhoneTarget('plan')
 
 /**
- * The plan-side magnifier: a crop of the plan's own baked bitmap, blown up around the aim.
+ * The plan-side magnifier: a crop of the sheet as it stands on screen, blown up `LOUPE_MUL`× around
+ * the aim. On a phone the aim is the fixed reticle, elsewhere the pointer.
  *
- * It reads the bitmap PdfViewport already painted rather than rendering the PDF again — the
- * cheapest possible magnifier, and the one that cannot disagree with what is on screen. Deep
- * zoom makes it soft (the bake is sized for the viewport, not for ×4), which is the honest
- * trade: a soft magnifier that always matches beats a sharp one that lags.
+ * It copies the pictures PdfViewport already painted (`SHEET_PICTURES`, through lib/planLoupe)
+ * rather than rendering the PDF again — the cheapest possible magnifier, and the one that cannot
+ * disagree with what is on screen. Deep zoom makes it soft (the tiles are sized for the viewport,
+ * not for ×4), which is the honest trade: a soft magnifier that always matches beats a sharp one
+ * that lags.
+ *
+ * ⚠️ ONE rAF loop for the loupe's whole life, reading the aim through a getter. It used to take
+ * the aim as a prop: the phone's wrapper handed it a new object every frame, so the paint effect
+ * re-ran every frame — re-allocating a 3×-dpr backing store, clearing it and binding a fresh
+ * observer 60 times a second. The loop repaints only when something it shows has changed (the
+ * aim, the board's box, a picture that finished loading), and never re-renders the plan tree —
+ * the battery bug this app has already paid for once (see MapView · onView).
  */
-function PlanLoupe({ aim, sW, sH, boardRef, corner = false }: { aim: Aim; sW: number; sH: number; boardRef: React.RefObject<HTMLDivElement | null>; corner?: boolean }) {
+function PlanLoupe({ aim, boardRef, corner = false }: {
+  /** where the loupe looks, on the sheet; null = off the sheet, nothing to show */
+  aim: () => PlanPt | null
+  boardRef: React.RefObject<HTMLDivElement | null>
+  corner?: boolean
+}) {
   const ref = useRef<HTMLCanvasElement | null>(null)
+  const aimRef = useRef(aim)
+  useEffect(() => { aimRef.current = aim })
+  // off the sheet ⇒ the circle goes away: an empty one would read as «nothing is there»
+  const [off, setOff] = useState(false)
 
   useEffect(() => {
-    const board = boardRef.current
-    if (!board) return
-    const paint = () => {
-      const out = ref.current; if (!out) return
-      const ctx = out.getContext('2d'); if (!ctx) return
-      // PdfViewport paints the stitched plan into the FIRST canvas of the board (the base blit);
-      // the refine canvas that follows it only covers the visible crop.
-      const src = boardRef.current?.querySelector('canvas') as HTMLCanvasElement | null | undefined
+    let raf = 0, last = ''
+    const loop = () => {
+      raf = requestAnimationFrame(loop)
+      const out = ref.current, board = boardRef.current
+      if (!out || !board) return
+      const pt = aimRef.current()
+      setOff(!pt)
+      if (!pt) { last = ''; return }
+      const pics = [...board.querySelectorAll<HTMLImageElement | HTMLCanvasElement>(SHEET_PICTURES)]
+      const px = (el: HTMLImageElement | HTMLCanvasElement) => el instanceof HTMLImageElement
+        ? (el.complete ? [el.naturalWidth, el.naturalHeight] : [0, 0])
+        : [el.width, el.height]
+      const b = board.getBoundingClientRect()
       const w = out.clientWidth, h = out.clientHeight
-      // ⚠️ The FULL device pixel ratio, not a cap of 2. This inset is 124px across on a phone whose
-      // screen paints 3 device px per CSS px, and half the complaint about «the magnifier is
-      // blurry» was simply a backing store a third short of the panel it sits on.
+      // the picture count and their pixel sizes stand in for «a tile arrived» / «the bake landed»
+      const key = [pt.x, pt.y, b.left, b.top, b.width, b.height, w, h, ...pics.flatMap(px)].join()
+      if (key === last) return
+      last = key
+      const ctx = out.getContext('2d'); if (!ctx) return
+      // ⚠️ The FULL device pixel ratio, not a cap of 2: this inset is ~120px across on a phone
+      // that paints 3 device px per CSS px. Resized only when it changes — a resize clears.
       const dpr = Math.min(window.devicePixelRatio || 1, 3)
-      out.width = Math.round(w * dpr); out.height = Math.round(h * dpr)
+      const bw = Math.round(w * dpr), bh = Math.round(h * dpr)
+      if (out.width !== bw || out.height !== bh) { out.width = bw; out.height = bh }
       // ⚠️ AFTER the resize — setting width/height resets the whole 2D context, this flag included
       ctx.imageSmoothingQuality = 'high'
-      ctx.clearRect(0, 0, out.width, out.height)
-      if (!src || !src.width || !src.height || !sW || !sH) return
-      // crop side, in bitmap px, that fills the loupe at LOUPE_MUL× the on-screen plan scale
-      const cw = (w * src.width) / (LOUPE_MUL * sW)
-      const ch = (h * src.height) / (LOUPE_MUL * sH)
-      // the aim in BITMAP pixels through the base canvas's own on-screen rect – the board and the
-      // canvas are the same box on the field, but this holds even where they are not (15.09.2026)
-      const b = boardRef.current?.getBoundingClientRect(), c = src.getBoundingClientRect()
-      const ax = b && c && c.width ? ((b.left + aim.pt.x * b.width - c.left) / c.width) * src.width : aim.pt.x * src.width
-      const ay = b && c && c.height ? ((b.top + aim.pt.y * b.height - c.top) / c.height) * src.height : aim.pt.y * src.height
-      try {
-        ctx.drawImage(src, ax - cw / 2, ay - ch / 2, cw, ch, 0, 0, out.width, out.height)
-      } catch { /* a torn-down canvas mid-gesture — the loupe simply stays empty */ }
+      ctx.clearRect(0, 0, bw, bh)
+      const at = { x: b.left + pt.x * b.width, y: b.top + pt.y * b.height }
+      const size = { w, h }
+      // the paper first: a tile still loading is white on the glass (PdfViewport · .wb-tiles)
+      ctx.fillStyle = '#fff'
+      for (const d of planLoupeDraws(at, size, LOUPE_MUL, dpr, [{ left: b.left, top: b.top, width: b.width, height: b.height, pxW: 1, pxH: 1 }])) {
+        ctx.fillRect(d.dx, d.dy, d.dw, d.dh)
+      }
+      const boxes = pics.map((el) => {
+        const r = el.getBoundingClientRect(), [pxW, pxH] = px(el)
+        return { left: r.left, top: r.top, width: r.width, height: r.height, pxW, pxH }
+      })
+      for (const d of planLoupeDraws(at, size, LOUPE_MUL, dpr, boxes)) {
+        try {
+          ctx.drawImage(pics[d.index], d.sx, d.sy, d.sw, d.sh, d.dx, d.dy, d.dw, d.dh)
+        } catch { /* a torn-down picture mid-gesture — the rest of the crop still paints */ }
+      }
     }
-    paint()
-    // PdfViewport loads independently of this layer. Its base canvas changes dimensions
-    // when the bitmap arrives; repaint after that batch without needing a pointer move.
-    const observer = new MutationObserver(paint)
-    observer.observe(board, { subtree: true, childList: true, attributes: true, attributeFilter: ['width', 'height'] })
-    return () => observer.disconnect()
-  }, [aim, sW, sH, boardRef])
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [boardRef])
 
   return (
-    <div className={`${s.loupe} ${corner ? s.loupeCorner : ''}`} aria-hidden>
+    <div className={`${s.loupe} ${corner ? s.loupeCorner : ''}`} style={off ? { display: 'none' } : undefined} aria-hidden>
       <canvas ref={ref} style={{ width: '100%', height: '100%' }} />
       <span className={s.xh} />
       <span className={s.ring} />
@@ -576,16 +592,18 @@ export function GeorefSplitSeam() {
  *  the line sat under every fit saying nothing, beside the Ampel that is the actual traffic
  *  light. Unequal counts mean a half is dangling — which is the warning the counter was for, and
  *  the only state in which it earns its place. `sub` is then empty, and both bars drop it. */
-function georefStatus(mode: GeorefModeState) {
+function georefStatus(mode: GeorefModeState, { planLabel, phone = false }: { planLabel?: string; phone?: boolean } = {}) {
   const C = appConfig.copy.whiteboard.georef
   const fit = fitSimilarity(mode.pairs, mode.aspect)
   const lamp = georefLamp(fit, mode)
   const mapN = georefSideCount(mode, 'map')
   const planN = georefSideCount(mode, 'plan')
   const counts = mapN === planN ? null : fillTemplate(C.sideProgress, { map: String(mapN), plan: String(planN) })
+  // a phone does not tap the surface — it aims the reticle and presses «+», so its armed
+  // «Verschieben» says that instead
   const sub = mode.move
-    ? fillTemplate(mode.move.side === 'plan' ? C.movePlan : C.moveMap, { n: georefSlotLabel(mode.slots, mode.move.idx) })
-    : [counts, georefOpenHint(mode)].filter(Boolean).join(' – ')
+    ? fillTemplate(phone ? C.movePhone : mode.move.side === 'plan' ? C.movePlan : C.moveMap, { n: georefSlotLabel(mode.slots, mode.move.idx) })
+    : [counts, georefOpenHint(mode, planLabel)].filter(Boolean).join(' – ')
   // the folded quality detail behind the (i): the pair count, the claimable ⌀, and the one
   // instruction-shaped sentence (georefLamp body — what the next point should do)
   const claim = residualClaim(fit)
@@ -746,7 +764,18 @@ export function GeorefInstrument({ mode, inline = false, onReset }: { mode: Geor
 }
 
 /**
- * The armed mode ON A PHONE: one bar, in the tool bar's lane.
+ * The armed mode ON A PHONE: one slim bar in the tool bar's lane (sweep 27.10.2026 #13, the
+ * owner's pick «A»): the status «n/2 Paare» · the Karte | plan switch with each half's count · a
+ * round «+». «Schliessen» (✓ «Fertig» once a fit stands) sits top right, the loupe bottom left
+ * just above the bar, by the thumb.
+ *
+ * ⚠️ The instruction lives behind the STATUS, not under the button. It used to be a sentence below
+ * «Punkt setzen» («Wirkt auf der sichtbaren Fläche …») that said where the button acts and not
+ * what to do; the owner had to guess the steps. Now the status is the ⓘ: it opens the steps in
+ * the order they are done (set it on the plan, the same spot on the Karte, twice, order free), the
+ * quality once there is a fit, and the two rarer actions (Deckung prüfen, Alle Punkte
+ * zurücksetzen). Counting to «/2» because two pairs link the plan; the third is offered there
+ * as the optional check it is.
  *
  * ⚠️ Rendered by the APP SHELL, not by either surface — the mode spans both, and on a phone the
  * plan is unmounted while the map takes the second half of every pair. A prompt that vanished at
@@ -763,24 +792,31 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
   useGeorefEscape(!!mode.planId, mode.check, !!mode.move || !!mode.sel)
   const C = appConfig.copy.whiteboard.georef
   const shownSurface = mode.check ? 'map' : mode.want
+  // the dock: the bar plus whatever stands on it (the steps, the armed «Verschieben»). Its top is
+  // where the reticle's free band ends and what the loupe stands on (`--georef-dock-clear`).
   const barRef = useRef<HTMLDivElement | null>(null)
   const [fixedTarget, setFixedTarget] = useState<{ x: number; y: number } | null>(null)
-  // The quality detail behind the (i). ⚠️ Sticky while open: whoever opened it is deciding
-  // whether the fit can be trusted, and having it snap shut after every point would be the app
-  // deciding they were done reading. It starts closed on every fresh arming.
+  const [topbarBottom, setTopbarBottom] = useState<number | null>(null)
+  // The steps + quality behind the status. ⚠️ Sticky while open: whoever opened it is reading,
+  // and having it snap shut after every point would be the app deciding they were done. It
+  // starts closed on every fresh arming.
   const [detail, setDetail] = useState(false)
 
   useEffect(() => {
-    if (!mode.planId || !isPhone || mode.check) return
+    if (!mode.planId || !isPhone) return
     let frame = 0
     const surfaceSelector = shownSurface === 'map' ? '.maplibregl-map' : '.wb-canvas'
+    const root = document.documentElement
     const measure = () => {
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
-        const surface = document.querySelector<HTMLElement>(surfaceSelector)?.getBoundingClientRect()
         const bar = barRef.current?.getBoundingClientRect()
-        if (!surface || !bar) { setFixedTarget(null); return }
         const top = document.querySelector('.topbar')?.getBoundingClientRect().bottom
+        setTopbarBottom(top ?? null)
+        // the loupe stands on the dock, whatever it currently holds (GeorefMode.module.css · .loupeCorner)
+        if (bar) root.style.setProperty('--georef-dock-clear', `${Math.round(window.innerHeight - bar.top)}px`)
+        const surface = document.querySelector<HTMLElement>(surfaceSelector)?.getBoundingClientRect()
+        if (!surface || !bar || mode.check) { setFixedTarget(null); return }
         setFixedTarget(georefPhoneTargetPoint(surface, { top, bottom: bar.top }))
       })
     }
@@ -795,6 +831,7 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
       ro?.disconnect()
       window.removeEventListener('resize', measure)
       window.visualViewport?.removeEventListener('resize', measure)
+      root.style.removeProperty('--georef-dock-clear')
     }
   }, [isPhone, mode.check, mode.planId, shownSurface])
 
@@ -819,17 +856,18 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
   }, [isPhone, mode.planId, mode.sel])
 
   if (!mode.planId || !isPhone) return null
-  const st = georefStatus(mode)
-  const done = mode.pairs.length >= 2 && georefOpenCount(mode) === 0
-  // ⚠️ MEASURED and good, with nothing outstanding. Then the card stops asking for work: the big
-  // row becomes «Fertig» and «Punkt setzen» drops to the quiet one. Placing another point stayed
-  // the loud action all the way through a fit that was already green with a measured ⌀ — the app
-  // pushing for a fifth point it has no reason to want, next to a «Fertig» in small text. A green
-  // lamp is precisely the moment there is nothing left to ask for, so it is the moment to say so.
-  const finished = done && !mode.move && !mode.check && st.lamp.tone === 'green'
+  const st = georefStatus(mode, { planLabel, phone: true })
+  const n = mode.pairs.length
+  const open = georefOpenCount(mode)
+  const done = n >= 2 && open === 0
+  const onPlan = georefOnPlan(planLabel)
   const place = () => {
     if (!placeGeorefPhoneTarget(shownSurface)) toast(C.targetOutside, { icon: 'warn', tone: 'warn' })
   }
+  // the status: «n/2» up to the two pairs that link the plan, then just the count; under it what
+  // is outstanding (amber), «Paare» while counting, «Verknüpft» once it stands
+  const head = n <= 2 ? `${n}/2` : String(n)
+  const sub = open ? fillTemplate(C.barOpen, { n: String(open) }) : n < 2 ? C.pairs : C.chipLinked
   return (
     <>
     {!mode.check && fixedTarget && (
@@ -837,106 +875,87 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
         {crossSvg}
       </div>
     )}
-    <div ref={barRef} data-georef-controls className={s.bar} role="status" aria-label={C.title}>
-      {/* ── the status line ── Ampel + «Karte n · Modul m», and the one open half NAMED, because
-          its amber cross may be standing on the surface this phone is not showing */}
-      {!mode.check && (
-        <div className={s.statusRow}>
-          <span className={`${s.sdot} ${s[`sdot_${st.lamp.tone}`]}`} />
-          <span className={s.stext}><b>{st.lamp.head}</b>{st.sub ? <i>{st.sub}</i> : null}</span>
-          <InfoToggle className={s.infoBtn} open={detail} onToggle={() => setDetail((v) => !v)} label={C.detailsTitle} />
-        </div>
-      )}
-      {/* ── the quality detail, folded behind the (i): pair count, claimable ⌀, the one
-          instruction-shaped sentence about what the next point should fix, and — same tip as the
-          desktop instrument's (i) — what makes a good point in the first place */}
+    {/* the way out, top right under the TopBar — the word matches what it does: «Schliessen»,
+        never «Abbrechen» (see the same button in GeorefActions), and «Fertig» once a fit stands.
+        Hidden during «Deckung prüfen», whose own bar carries its «Fertig». */}
+    {!mode.check && (
+      <button type="button" className={`${s.exitPill} ${done ? s.exitDone : ''}`}
+        style={topbarBottom != null ? { top: topbarBottom + 10 } : undefined}
+        onClick={() => endGeorefMode()}>
+        <Icon id={done ? 'check' : 'close'} />{done ? C.done : C.closeMode}
+      </button>
+    )}
+    <div ref={barRef} data-georef-controls className={s.dock}>
+      {/* ── the steps, the quality and the two rarer actions, behind the status ── */}
       {!mode.check && detail && (
-        <div className={s.qfold}>
+        <div className={s.fold} id="georef-how">
+          <b className={s.foldTitle}>{C.howTitle}</b>
+          {st.sub && !mode.move && <p className={s.foldOpen}>{st.sub}</p>}
+          <ol className={s.steps}>
+            <li>{fillTemplate(C.howStep1, { onPlan })}</li>
+            <li>{C.howStep2}</li>
+            <li>{C.howStep3}</li>
+          </ol>
+          <p className={s.foldNote}>{C.howOrder}</p>
+          <p className={s.foldNote}>{C.howThird}</p>
           {st.foldValue && <div className={s.qrow}><span>{st.foldPairs}</span><strong>{st.foldValue}</strong></div>}
-          <div>{st.foldBody}</div>
-          <div className={s.qtip}>{C.freeOrderTip}</div>
-        </div>
-      )}
-      {/* On a phone the two surfaces are part of this one task, so their switch belongs inside
-          its card. Never disabled — free order means there is no wrong surface to be on. */}
-      {!mode.check && <div className={s.surfaceSwitch}>
-        {/* the shared Segmented, in its CHOICE fill rather than `tabs`: the ink pill is the primary
-            button's black, and that button stands right under it (see .surfaceSwitch) */}
-        <Segmented ariaLabel={C.title} value={shownSurface}
-          onChange={(v) => georefDispatch({ type: v === 'map' ? 'goMap' : 'goPlan' })}
-          options={[
-            { value: 'map', label: <><Icon id="map" />{appConfig.copy.navRail.map}<span className={s.surfaceCount} aria-hidden>{georefSideCount(mode, 'map')}</span></> },
-            { value: 'plan', label: <><Icon id="doc" />{planLabel ?? C.checkPlan}<span className={s.surfaceCount} aria-hidden>{georefSideCount(mode, 'plan')}</span></> },
-          ]} />
-      </div>}
-      {/* ── the one big action ── «Punkt setzen» places at the reticle on whichever surface is
-          up — Karte or Modul, in any order; the pairing is the reducer's job, not the button's.
-          ⚠️ Nothing that takes something away shares this row (the coin-toss note of 28.08.). */}
-      {!mode.check && (
-        finished
-          ? (
-            <button type="button" className={`btn primary ${s.placeAction}`} onClick={() => endGeorefMode()}>
-              <Icon id="check" />{C.done}
-            </button>
-          )
-          : (
-            <>
-              <button type="button" className={`btn primary ${s.placeAction}`} onClick={place}>
-                <Icon id="plus" />{C.placePoint}
-              </button>
-              {!mode.move && <div className={s.subline}>{C.freeOrderPlace}</div>}
-            </>
-          )
-      )}
-      {mode.check
-        ? <span className={s.acts}><GeorefActions mode={mode} /></span>
-        : (
-          <div className={s.quiet}>
-            {/* left: harmless and frequent, plus the destructive one — deliberately NOT beside
-                the exit on the right, which is the button somebody reaches for while finishing */}
-            {!mode.move && mode.pairs.length >= 2 && (
-              <button type="button" className={`btn link ${s.quietBtn}`} aria-pressed={mode.check}
-                onClick={() => georefDispatch({ type: 'check', on: true })}><Icon id="eye" />{C.checkFit}</button>
-            )}
-            {/* ⚠️ «Alle Punkte zurücksetzen» steps OUT once the fit is finished. Three actions is
-                one too many for this row — and at a measured, green fit throwing every point away
-                is the one thing nobody is reaching for. It is not lost: «Fertig» leads straight
-                to the Passung, where «Zurücksetzen» is one of the two things on offer. */}
-            {mode.move
-              ? (
-                // the visible way to put a picked-up cross back down — Esc must never be the
-                // only exit, least of all on the touch devices this mode exists for
+          {n >= 2 && <p className={s.foldNote}>{st.foldBody}</p>}
+          {(n >= 2 || mode.slots.length > 0) && !mode.move && (
+            <div className={s.foldActs}>
+              {n >= 2 && (
                 <button type="button" className={`btn link ${s.quietBtn}`}
-                  onClick={() => georefDispatch({ type: 'unpick' })}>
-                  <Icon id="close" />{C.popKeep}
-                </button>
-              )
-              : !finished && mode.slots.length > 0 && (
-                // open halves count too — a card full of unmatched points must not strand the
-                // operator without a «start over»
+                  onClick={() => georefDispatch({ type: 'check', on: true })}><Icon id="eye" />{C.checkFit}</button>
+              )}
+              {/* open halves count too — a card full of unmatched points must not strand the
+                  operator without a «start over» */}
+              {mode.slots.length > 0 && (
                 <button type="button" className={`btn link ${s.quietBtn} ${s.quietWarn}`} onClick={() => void clearGeorefPoints()}>
                   <Icon id="trash" />{C.clearPoints}
                 </button>
               )}
-            <span className={s.quietGap} />
-            {/* …and the two exchange places when the fit is finished: adding a point is still
-                one tap away, it simply stops being the thing the card is asking for. */}
-            {finished
-              ? (
-                <button type="button" className={`btn link ${s.quietBtn}`} onClick={place}>
-                  <Icon id="plus" />{C.placePoint}
-                </button>
-              )
-              : (
-                /* the way out, and the word matches what it does — «Schliessen», never
-                   «Abbrechen»: see the same button in GeorefActions for why. */
-                <button type="button" className={`btn link ${s.quietBtn} ${done ? s.quietDone : ''}`}
-                  onClick={() => endGeorefMode()}>
-                  <Icon id={done ? 'check' : 'close'} />{done ? C.done : C.closeMode}
-                </button>
-              )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
+      )}
+      {/* ── an armed «Verschieben»: what the next «+» does, and the visible way to put the cross
+          back down — Esc must never be the only exit, least of all on glass ── */}
+      {!mode.check && mode.move && (
+        <div className={s.moveNote} role="status">
+          <span>{st.sub}</span>
+          <button type="button" className={`btn link ${s.quietBtn}`} onClick={() => georefDispatch({ type: 'unpick' })}>
+            <Icon id="close" />{C.popKeep}
+          </button>
+        </div>
+      )}
+      <div className={s.bar} role="status" aria-label={C.title}>
+        {mode.check
+          ? <span className={s.acts}><GeorefActions mode={mode} /></span>
+          : <>
+            {/* the status IS the ⓘ: one 54×64 target instead of a 12px glyph beside a word */}
+            <button type="button" className={s.stat} aria-expanded={detail} aria-controls="georef-how"
+              aria-label={`${head} ${sub} – ${C.howTitle}`} onClick={() => setDetail((v) => !v)}>
+              <span className={s.statHead}><span className={`${s.sdot} ${s[`sdot_${st.lamp.tone}`]}`} />{head}</span>
+              <small className={open ? s.statOpen : n >= 2 ? s[`statTone_${st.lamp.tone}`] : undefined}>
+                {sub}{!open && <Icon id="info" />}
+              </small>
+            </button>
+            {/* the two surfaces of this one task, each with its count. Never disabled — free
+                order means there is no wrong surface to be on. */}
+            <div className={s.surfaceSwitch}>
+              <Segmented ariaLabel={C.title} value={shownSurface}
+                onChange={(v) => georefDispatch({ type: v === 'map' ? 'goMap' : 'goPlan' })}
+                options={[
+                  { value: 'map', label: <><Icon id="map" />{appConfig.copy.navRail.map}<span className={s.surfaceCount} aria-hidden>{georefSideCount(mode, 'map')}</span></> },
+                  { value: 'plan', label: <><Icon id="doc" /><span className={s.surfaceName}>{planLabel ?? C.checkPlan}</span><span className={s.surfaceCount} aria-hidden>{georefSideCount(mode, 'plan')}</span></> },
+                ]} />
+            </div>
+            {/* the one thing that ADDS: places at the reticle on whichever surface is up — the
+                pairing is the reducer's job, so the button carries no number that could lie */}
+            <button type="button" className={s.fab} aria-label={C.placePoint} title={C.placePoint} onClick={place}>
+              <Icon id="plus" />
+            </button>
+          </>}
+      </div>
     </div>
     </>
   )

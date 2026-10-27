@@ -27,7 +27,8 @@ export function PlansCard({ rows, onOpen }: { rows: VisitPlanRow[]; onOpen: (ind
     <>
       <h2 className={s.sec}>{C.plans}</h2>
       <ListCard>
-        {rows.map((r, i) => <ListRow key={r.id} lead={<Icon id="doc" />} title={r.title} sub={r.sub} onClick={() => onOpen(i)} />)}
+        {/* the plan's name and nothing else, as on the object (owner, 27.10.2026) */}
+        {rows.map((r, i) => <ListRow key={r.id} lead={<Icon id="doc" />} title={r.title} onClick={() => onOpen(i)} />)}
       </ListCard>
     </>
   )
@@ -51,12 +52,12 @@ export function PlanReader({ rows, index, objectName, onShow, onClose }: {
       {rows.length > 1 && (
         <div className={s.planTabs}>
           <Segmented tabs ariaLabel={C.plans} value={index}
-            options={rows.map((x, i) => ({ value: i, label: x.short, title: x.title }))} onChange={onShow} />
+            options={rows.map((x, i) => ({ value: i, label: x.title }))} onChange={onShow} />
         </div>
       )}
       <div className={s.planBody}>
         <Suspense fallback={<div className={s.loadingLine}><LoadingStatus>{C.planLoading}</LoadingStatus></div>}>
-          <PdfScroller key={r.id} url={referenceUrl(r.id, r.version)} bare />
+          <PdfScroller key={r.id} url={referenceUrl(r.id, r.version)} bare fileName={`${objectName} – ${r.title}`} />
         </Suspense>
       </div>
     </Overlay>

@@ -273,7 +273,9 @@
      16/17/18 icons). ℹ matches (DockInfo). */
   .phone-tools .wb-dock .wb-dock-tog, .phone-tools .wb-dock .wb-dock-go,
   .phone-tools .wb-dock .wb-ww, .phone-tools .wb-dock .wb-ls { width: 46px; min-width: 46px; height: 46px; border-radius: var(--r-sm); }
-  .phone-tools .wb-dock .wb-dock-x { width: 46px; height: 46px; }
+  /* the ✕ at the bar's END (ToolDock · close, sweep 27.10.2026 #3): its DOM place, not the
+     column's `order` lift, and the group gap on the side that faces the options */
+  .phone-tools .wb-dock .wb-dock-x { width: 46px; height: 46px; order: 0; margin: 0 0 0 4px; }
   .phone-tools .wb-dock .i { width: 18px; height: 18px; }
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
   /* …but a Tafel PAGE is a form with no tool bar under it: it runs down to the nav bar (Whiteboard · formPage) */
@@ -1021,29 +1023,34 @@
      --float-base is where the bars end: the nav bar (8px + rail-h) and the Rapport's docked tab
      strip on that one page; the tool bar on a drawing surface (its own 6px channel + rail-h); a
      tool's option dock while one is out (it hides the FAB and the strip). */
-  :root { --float-base: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px)); }
-  :root:has(.phone-tools) { --float-base: calc(var(--rail-h) * 2 + 14px); }
-  :root:has(.phone-tools .wb-dock) { --float-base: calc(var(--rail-h) * 3 + 20px); }
+  /* --float-bars is where the full-width BARS end (the nav bar, the tool bar under a drawing
+     surface, the Rapport's strip); --float-base adds a tool's option dock, which is centred and
+     may be short — the measured chip row (lib/floatRow · `--float-floor`) stands on the bars and
+     only rises past a dock that is actually in its way. */
+  :root { --float-bars: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px)); }
+  :root:has(.phone-tools) { --float-bars: calc(var(--rail-h) * 2 + 14px); }
   /* …and a Tafel PAGE has no tool bar under it (the form takes the stage, Whiteboard · formPage):
-     its row — the page strip, the FAB — stands on the nav bar like any surface without tools */
-  :root:has(.phone-tools .wb-tafel-page) { --float-base: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px)); }
-  /* ⚠️ …and the Karte's foot is ONE bar: its tools live IN the nav bar, so it wears .phone-tools
+     its row — the page strip, the FAB — stands on the nav bar like any surface without tools.
+     ⚠️ …and the Karte's foot is ONE bar: its tools live IN the nav bar, so it wears .phone-tools
      for the dock's SHAPE while having no tool bar under it. Karte.module (· «Messen on the phone»)
      already steps the dock and the Messen readout down a rail, but this reserve is declared on
      :root, which that module cannot reach — so a message still cleared a bar that is not there and
      stood 74px, a whole rail, above the nav bar (owner, review round 7: the point hint «isn't flush
      with the bottom bar»). With the dock out the stack above it is the Karte's own, and the
      3-rail figure already lands just above the readout — only the bare case is wrong. */
-  :root:has(.phone-tools[data-karte]):not(:has(.phone-tools .wb-dock)) {
-    --float-base: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px));
+  :root:has(.phone-tools .wb-tafel-page), :root:has(.phone-tools[data-karte]) {
+    --float-bars: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px));
   }
-  :root { --float-bottom: calc(var(--float-base) + var(--float-gap) + env(safe-area-inset-bottom)); }
+  :root { --float-base: var(--float-bars); }
+  :root:has(.phone-tools .wb-dock):not(:has(.phone-tools .wb-tafel-page)) { --float-base: calc(var(--rail-h) * 3 + 20px); }
+  :root { --float-bottom: calc(var(--float-base) + var(--float-gap) + env(safe-area-inset-bottom));
+    --float-floor: calc(var(--float-bars) + var(--float-gap) + env(safe-area-inset-bottom)); }
   /* the row is OCCUPIED while any of its pieces is on screen: a FAB, the plan's chip row, the
      strip, the way back to the Rapport. It publishes no height because it has only one: --float-h. */
   :root:has(:is(.fab-entry, .wb-botleft, .rp-return)) { --float-row: calc(var(--float-h) + var(--float-gap)); }
   /* …but a tool's option dock hides the FAB (below) and the host drops the strip, so there only
-     the chips can stand in it */
-  :root:has(.phone-tools :is(.wb-dock, .armed-pill-row)):not(:has(.wb-botleft)) { --float-row: 0px; }
+     the chips — and a RECORDING FAB, which never yields (sweep 27.10.2026 #10) — stand in it */
+  :root:has(.phone-tools :is(.wb-dock, .armed-pill-row)):not(:has(:is(.wb-botleft, .fab-entry.rec))) { --float-row: 0px; }
   /* ── THE message lane (25.09.2026) ── one baseline for every message that floats over the
      foot of the screen: the toasts AND the instruction of a pick mode (OsmOutline ·
      .wb-osm-barwrap) and a tool's tip (DockInfo · .wb-dock-tip), which used to sit at three
@@ -1150,11 +1157,32 @@
      of the tool interaction and returns the moment the dock closes. The armed tool's readout
      (.armed-pill-row) stands on the same row and the FAB yields to it the same way – with the
      symbol tool's dock gone (23.10.2026) the FAB sat on its «Mehrere platzieren» toggle. */
-  .app:has(.wb-dock) .fab-entry,
-  .app:has(.armed-pill-row) .fab-entry,
-  .app:has(.wb-georef-dock) .fab-entry,
-  .app:has(.ctx) .fab-entry { display: none; }
+  /* ⚠️ …except a RUNNING RECORDING (sweep 27.10.2026 #10, lead call): the red FAB is the only
+     sign a voice memo is being taken and the only way to stop it, so it never yields (FabEntry
+     stays mounted too, IncidentWorkspace). Over a dock or the armed pill it already stands one
+     row up, on --float-bottom; a detail sheet it rides on top of, below. */
+  .app:has(.wb-dock) .fab-entry:not(.rec),
+  .app:has(.armed-pill-row) .fab-entry:not(.rec),
+  .app:has(.wb-georef-dock) .fab-entry:not(.rec),
+  .app:has(.ctx) .fab-entry:not(.rec) { display: none; }
   .phone-georef .fab-entry { display: none; }
+  /* the recording FAB on a detail sheet's top edge (.ctx: 46dvh half, 88dvh full, its grip line
+     while the surface under it is dragged — lib/sheetPeek), one --float-gap above it. Full, that
+     is the top bar's band: the bar is inert under a full sheet (above), so the FAB is raised
+     over it rather than painted under it. */
+  .app:has(.ctx) .fab-entry.rec { bottom: calc(46dvh + var(--float-gap)); }
+  .app:has(.ctx.sheet-full) .fab-entry.rec { bottom: calc(88dvh + var(--float-gap)); z-index: var(--z-popover); }
+  body.sheet-peek .app:has(.ctx) .fab-entry.rec { bottom: calc(76px + env(safe-area-inset-bottom) + var(--float-gap)); }
+  /* ── the FAB on the Trupps board (owner, sweep 27.10.2026 #10: «Show the FAB on Trupps») ──
+     It used to be kept off the board: it sat on the third crew's «Kontakt» (N9, 25.09.2026), and
+     no inset fixes a button over a SCROLLING list. So the board's card ends above the FAB's row
+     — one --float-h and one --float-gap over its baseline — and the circle stands in the lane
+     between the card and the nav bar, where no crew row can scroll under it. Only while the FAB
+     is there; with the keyboard up the card still ends on the keys (Surface.module · .shell). */
+  .app:has(.fab-entry) .az-tafel {
+    bottom: max(calc(var(--float-bottom) + var(--float-h) + var(--float-gap) - var(--vv-pan, 0px)),
+      calc(var(--vv-foot, 0px) + var(--float-gap)));
+  }
 
   /* floating compass + wind cluster on the phone map (rendered only there) — the
      rail-footer compass is hidden in the bottom tool bar, and the wind readout moved out

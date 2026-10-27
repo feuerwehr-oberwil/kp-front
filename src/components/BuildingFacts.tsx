@@ -8,7 +8,8 @@ import s from './BuildingFacts.module.css'
 // What a building says, drawn ONE way wherever it is shown: the Karte's panel (karte/KartePanel ·
 // «Gebäude laut Register», the station's word) and the Einsatz's «Gebäude» card (BuildingCard).
 // Both read the same `lib/buildingCard` data; they had two tag recipes and two note layouts
-// (reuse audit, 19.10.2026). The callers decide WHICH chips and notes, and where they stand.
+// (reuse audit, 19.10.2026). The callers decide WHICH chips and notes, and where they stand – and
+// whether the chips are tags (the Einsatz card) or lines (the Karte panel, since 27.10.2026).
 
 /** One row of read-only register tags (`buildingChips`, split by the caller into hazards and
  *  facts). A hazard is the amber tag WITH the warn glyph and its word, never colour alone. */
@@ -19,6 +20,23 @@ export function RegisterTags({ chips, className }: { chips: BuildingChip[]; clas
       {chips.map((c) => (
         <li key={c.key} className={cx(s.tag, c.hazard && s.hazard)} title={c.title}>
           {c.hazard && <Icon id="warn" />}<span>{c.text}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** The same chips as a bullet list — the Karte panel's register (owner, 27.10.2026: «bullet lists
+ *  instead of tag chips»), one fact a line, read like the station's notes above it. The caller
+ *  orders them (hazards first); a hazard's bullet IS the warn glyph and its line is bold, never
+ *  colour alone. The Einsatz's Gebäude card keeps the tags (`RegisterTags`). */
+export function RegisterLines({ chips, className }: { chips: BuildingChip[]; className?: string }) {
+  if (!chips.length) return null
+  return (
+    <ul className={cx(s.facts, className)}>
+      {chips.map((c) => (
+        <li key={c.key} className={cx(c.hazard && s.hazardLine)} title={c.title}>
+          {c.hazard && <Icon id="warn" />}{c.text}
         </li>
       ))}
     </ul>

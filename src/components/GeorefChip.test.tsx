@@ -330,9 +330,9 @@ describe('the phone can start a pair on either surface', () => {
     }
   })
 
-  // ⚠️ The quality detail is behind the (i) — the status line stays one line, and the folded
-  // card carries the pair count, the claimable ⌀ and the one instruction-shaped sentence.
-  it('keeps the quality detail behind the (i), sticky once opened', () => {
+  // ⚠️ The steps live behind the STATUS (sweep 27.10.2026 #13, the owner's pick «A»): the slim
+  // bar is one row, and the status «0/2 Paare ⓘ» opens exactly what to do, naming the plan.
+  it('opens the steps behind the status, naming the plan, sticky once opened', () => {
     const previous = window.matchMedia
     window.matchMedia = ((q: string) => ({
       matches: q === PHONE_QUERY, media: q, onchange: null,
@@ -340,33 +340,36 @@ describe('the phone can start a pair on either surface', () => {
     })) as unknown as typeof window.matchMedia
     try {
       act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: 1.5 }))
-      render(<GeorefModeBars planLabel="Modul 2" />)
-      expect(screen.queryByText('Zwei Punkte legen den Plan auf die Karte.')).toBeNull()
+      render(<GeorefModeBars planLabel="Wasser" />)
+      expect(screen.queryByText(/dieselbe Stelle unter das Fadenkreuz/)).toBeNull()
 
-      fireEvent.click(screen.getByRole('button', { name: 'Details zur Passung' }))
-      expect(screen.getByText('Zwei Punkte legen den Plan auf die Karte.')).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: /^0\/2 Paare – So wird verknüpft/ }))
+      expect(screen.getByText(/auf «Wasser» unter das Fadenkreuz/)).toBeTruthy()
+      expect(screen.getByText(/dieselbe Stelle unter das Fadenkreuz/)).toBeTruthy()
+      // a point placed does not snap the steps shut
+      const unregister = registerGeorefPhoneTarget('plan', () => ({ x: 0.45, y: 0.35 }))
+      fireEvent.click(screen.getByRole('button', { name: 'Punkt setzen' }))
+      expect(screen.getByText(/dieselbe Stelle unter das Fadenkreuz/)).toBeTruthy()
+      unregister()
     } finally {
       window.matchMedia = previous
     }
   })
 
-  // A green lamp is the moment there is nothing left to ask for. «Punkt setzen» used to stay the
-  // loud action through a measured, good fit, next to a «Fertig» in small text.
-  it('makes «Fertig» the big action once the fit is measured and good', () => {
+  // «Schliessen» turns into «Fertig» the moment two pairs stand; «+» stays one tap away for the
+  // optional third point the steps offer as a check.
+  it('turns the exit into «Fertig» once two pairs link the plan', () => {
     const previous = window.matchMedia
     window.matchMedia = ((q: string) => ({
       matches: q === PHONE_QUERY, media: q, onchange: null,
       addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
     })) as unknown as typeof window.matchMedia
     try {
-      const three = [...TWO, pair(0.5, 0.3, 7.5008, 47.4997)]
-      act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: three, aspect: 1.5 }))
+      act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: TWO, aspect: 1.5 }))
       render(<GeorefModeBars planLabel="Modul 2" />)
-      // …and adding a fourth is still there, one tap away, simply not what is being asked for
-      const finish = screen.getByRole('button', { name: 'Fertig' })
-      const add = screen.getByRole('button', { name: 'Punkt setzen' })
-      expect(finish.className).toContain('primary')
-      expect(add.className).not.toContain('primary')
+      expect(screen.getByRole('button', { name: /^2\/2 Verknüpft/ })).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: 'Fertig' }))
+      expect(georefSnapshot().planId).toBeNull()
     } finally {
       window.matchMedia = previous
     }

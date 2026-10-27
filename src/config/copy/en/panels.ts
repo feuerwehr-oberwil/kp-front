@@ -60,6 +60,9 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     loading: 'Loading PDF…',
     failed: 'Could not load the PDF.',
     retry: 'Try again',
+    jumps: 'Contents',
+    page: 'Page {n}',
+    share: 'Share / Open in …',
     reason: {
       stale: 'The app is running an old version – close it and open it again.',
       offline: 'No connection – this PDF is not stored on this device.',

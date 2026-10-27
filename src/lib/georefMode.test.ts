@@ -722,6 +722,11 @@ describe('georefOpenHint — the status line names the missing half', () => {
     expect(georefOpenHint(mapOnly)).toBe('Punkt 4 fehlt noch auf dem Modul.')
   })
 
+  it('names the plan by its label when the caller has one (sweep 27.10.2026 #13)', () => {
+    const mapOnly = georefReduce(armed(TRI), { type: 'mapTap', lngLat: mapOf({ x: 0.9, y: 0.9 }) })
+    expect(georefOpenHint(mapOnly, 'Wasser')).toBe('Punkt 4 fehlt noch auf «Wasser».')
+  })
+
   it('counts several open halves on one surface', () => {
     let s = georefReduce(armed(), { type: 'planTap', pt: { x: 0.2, y: 0.2 } })
     s = georefReduce(s, { type: 'planTap', pt: { x: 0.6, y: 0.6 } })
@@ -731,7 +736,7 @@ describe('georefOpenHint — the status line names the missing half', () => {
   it('says so when both surfaces hold open halves', () => {
     let s = georefReduce(armed(TRI), { type: 'planTap', pt: { x: 0.3, y: 0.6 } })
     s = georefReduce(s, { type: 'mapTap', lngLat: mapOf({ x: 0.9, y: 0.9 }) })
-    expect(georefOpenHint(s)).toContain('Karte und Modul')
+    expect(georefOpenHint(s)).toContain('Karte und auf dem Modul')
   })
 
   it('a selection wins the line — the popover needs its context sentence', () => {

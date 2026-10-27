@@ -250,9 +250,10 @@ export function NavRail(p: Props) {
         )}
         {!folded && p.planDocs.map((doc) => {
           const on = p.mode === 'plans' && p.activePlanId === doc.id
-          // short code ("Modul 3") as the label — the descriptive title overflows the rail.
-          // Module monograms sit in a bordered chip (.nav-mono-chip) so they read as document
-          // tabs, not bare tool glyphs; the Gebäude/Umgebung/Tafel icon-docs stay un-chipped.
+          // the plan's name as the label («Modul 3», «Wasser»: `code`, lib/navRail · planLabel via
+          // lib/useObjectPlans) — the descriptive title overflows the rail. Module monograms sit in
+          // a bordered chip (.nav-mono-chip) so they read as document tabs, not bare tool glyphs; a
+          // word sub-slot, the Gebäude/Umgebung/Tafel wear an icon, un-chipped (planGlyph).
           return (
             <button key={doc.id} className={`nav-item${on ? ' on' : ''}`} aria-pressed={on} aria-label={doc.code} onClick={() => p.onSelectPlan(doc.id)}>
               <PlanGlyph doc={doc} />

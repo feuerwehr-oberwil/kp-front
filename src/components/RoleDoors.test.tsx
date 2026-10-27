@@ -70,13 +70,13 @@ describe('Checkliste · a deep link the session cannot follow is not drawn', () 
 
   it('every link by default', () => {
     setup()
-    expect(screen.getByText(labels.draw)).toBeTruthy()
-    expect(screen.getByText(labels.journal)).toBeTruthy()
+    expect(screen.getByRole('button', { name: labels.draw })).toBeTruthy()
+    expect(screen.getByRole('button', { name: labels.journal })).toBeTruthy()
   })
 
   it('⚠️ «Zeichnen» gone on a tactically locked device, «Journal» stays', () => {
     setup((a) => a !== 'draw')
-    expect(screen.queryByText(labels.draw)).toBeNull()
-    expect(screen.getByText(labels.journal)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: labels.draw })).toBeNull()
+    expect(screen.getByRole('button', { name: labels.journal })).toBeTruthy()
   })
 })

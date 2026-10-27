@@ -38,14 +38,13 @@ export function useKeepKarteView(p: {
   onLibrary: boolean
   tool: Tool
 }) {
-  const C = appConfig.copy.karte
   const { ready, view, selObj, openDoc, onLibrary, tool } = p
   const objectId = selObj?.id ?? null
   // the open tool comes back too (only WHICH one); never the pin mode
   const keptTool: KarteTool | null = tool === 'measure' || tool === 'erg' || tool === 'layers' ? tool : null
   const viewLabel = onLibrary ? appConfig.copy.modes.checklists
     : selObj
-    ? [selObj.name, openDoc && (openDoc.plan ? fillTemplate(C.backPlan, { code: openDoc.doc.code }) : openDoc.doc.title)].filter(Boolean).join(' · ')
+    ? [selObj.name, openDoc?.doc.code].filter(Boolean).join(' · ')
     : null
   useEffect(() => {
     if (!ready) return

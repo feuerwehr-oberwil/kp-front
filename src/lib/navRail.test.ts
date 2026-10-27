@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { clampRailWidth, snapExpanded, planGlyph, moduleNumbers, moduleTileLabel, foldPlanTiles, navStops } from './navRail'
+import { clampRailWidth, snapExpanded, planGlyph, moduleNumbers, planLabel, foldPlanTiles, navStops } from './navRail'
 import type { PlanDocument } from '../types'
 
 // a minimal PlanDocument factory — only the fields planGlyph reads matter
@@ -42,62 +42,39 @@ describe('moduleNumbers — the digit(s) a plan doc answers to', () => {
   it('the Gebäude floor-stack carries no number', () => expect(moduleNumbers(doc({ id: 'gebaeude', floorStack: true }))).toEqual([]))
 })
 
-describe('moduleTileLabel — the rail is 216px wide, the label has to fit', () => {
-  it('takes a sub-sheet name the station actually gave us', () =>
-    expect(moduleTileLabel('modul5-wasser', 'Wasser')).toBe('Wasser'))
+// owner, 27.10.2026: «spelled out as Wasser, and then with 1 or 2 if there are multiple … the
+// same way as for photovoltaic, where it's just PV» — one name per plan, from its module key
+describe('planLabel — the one name a plan goes by', () => {
+  it.each([
+    ['modul1', 'Modul 1'],
+    ['modul4', 'Modul 4'],
+    ['modul2-3', 'Modul 2/3'],
+    ['modul5', 'Modul 5'],
+    ['modul5-pv', 'PV'],
+    ['modul5-rwa', 'RWA'],
+    ['modul5-wasser', 'Wasser'],
+    ['modul5-wasser1', 'Wasser 1'],
+    ['modul5-wasser2', 'Wasser 2'],
+    ['modul5-pv15', 'PV 15'],
+    [' Modul5-Wasser ', 'Wasser'],
+  ])('%s → %s', (id, label) => expect(planLabel(id)).toBe(label))
 
-  // The live Oberwil files are named after the object plus the raw module key. Using that as
-  // the label ran the rail item straight off its edge ("Migros – modul5-rwa…").
-  it('refuses a filename that only echoes the module key back', () =>
-    expect(moduleTileLabel('modul5-rwa', 'Migros – modul5-rwa')).toBe('RWA'))
-
-  it('refuses any long title, however descriptive', () =>
-    expect(moduleTileLabel('modul5-pv', 'Photovoltaik-Anlage Dach Nord')).toBe('PV'))
-
-  it('keeps an acronym upper-case', () => expect(moduleTileLabel('modul5-rwa')).toBe('RWA'))
-  it('capitalises a word instead of shouting it', () => expect(moduleTileLabel('modul5-wasser')).toBe('Wasser'))
-  it('is unfazed by an empty or missing title', () => {
-    expect(moduleTileLabel('modul5-pv', '')).toBe('PV')
-    expect(moduleTileLabel('modul5-pv', '   ')).toBe('PV')
-  })
-
-  it('a bare module keeps «Modul N»', () => {
-    expect(moduleTileLabel('modul4')).toBe('Modul 4')
-    expect(moduleTileLabel('modul4', 'Migros – modul4')).toBe('Modul 4')
-  })
-
-  // An object with «Modul 5 - Wasser 1» AND «… Wasser 2» has two waterplans. Two tiles reading
-  // the same word would be worse than useless at 3am — the number is what tells them apart.
-  it('keeps the number of a numbered sibling', () => {
-    expect(moduleTileLabel('modul5-wasser1', 'Wasser 1')).toBe('Wasser 1')
-    expect(moduleTileLabel('modul5-wasser2', 'Wasser 2')).toBe('Wasser 2')
-  })
-
-  it('recovers the number from the id when the title is unusable', () => {
-    expect(moduleTileLabel('modul5-wasser2', 'Migros – modul5-wasser2')).toBe('Wasser 2')
-    expect(moduleTileLabel('modul5-wasser3')).toBe('Wasser 3')
-    expect(moduleTileLabel('modul5-pv15')).toBe('PV 15')
+  it('a key that is no module key says the caller\'s word, else the id', () => {
+    expect(planLabel('tafel', 'Tafel')).toBe('Tafel')
+    expect(planLabel('gebaeude')).toBe('gebaeude')
   })
 })
 
 describe('the label and the chip agree', () => {
-  // planGlyph takes doc.code when it is short — so the fix has to leave the collapsed rail
-  // showing the same monogram it always did, not just tidy the expanded one.
-  it('a sub-slot shows its acronym in the chip', () =>
-    expect(planGlyph(doc({ id: 'modul5-rwa', code: moduleTileLabel('modul5-rwa', 'Migros – modul5-rwa') })))
-      .toEqual({ mono: 'RWA' }))
-  it('a longer sub-sheet name still shortens to a monogram', () =>
-    expect(planGlyph(doc({ id: 'modul5-wasser', code: moduleTileLabel('modul5-wasser') })))
-      .toEqual({ mono: 'WAS' }))
-
-  // The collapsed rail shows monograms only — so the sibling number has to reach the chip too,
-  // or the two waterplans are one indistinguishable «WAS» twice.
-  it('numbered siblings get distinct monograms', () => {
-    const chip = (id: string, title: string) => planGlyph(doc({ id, code: moduleTileLabel(id, title) }))
-    expect(chip('modul5-wasser1', 'Wasser 1')).toEqual({ mono: 'WAS1' })
-    expect(chip('modul5-wasser2', 'Wasser 2')).toEqual({ mono: 'WAS2' })
-    expect(chip('modul5-pv15', 'PV 15')).toEqual({ mono: 'PV15' })
-    expect(chip('modul5-pv20', 'PV 20')).toEqual({ mono: 'PV20' })
+  it('an abbreviation is the chip, a numbered sibling keeps its number', () => {
+    expect(planGlyph(doc({ id: 'modul5-pv' }))).toEqual({ mono: 'PV' })
+    expect(planGlyph(doc({ id: 'modul5-rwa' }))).toEqual({ mono: 'RWA' })
+    expect(planGlyph(doc({ id: 'modul5-pv15' }))).toEqual({ mono: 'PV15' })
+  })
+  // «WAS» named nothing, and «Wasser» does not fit a round chip: the plan icon, the word in the label
+  it('a word wears the plan icon, never its first letters', () => {
+    expect(planGlyph(doc({ id: 'modul5-wasser', code: 'W' }))).toEqual({ icon: 'doc' })
+    expect(planGlyph(doc({ id: 'modul5-wasser2' }))).toEqual({ icon: 'doc' })
   })
 })
 

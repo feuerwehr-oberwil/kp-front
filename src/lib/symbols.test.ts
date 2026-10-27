@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { symbolCaptionText, symbolControls, symbolFieldOptions, symbolPresetFieldKeys } from './symbols'
+import { countFieldValue, symbolCaptionText, symbolControls, symbolFieldKind, symbolFieldOptions, symbolPresetFieldKeys } from './symbols'
 import type { SymbolControl } from '../types'
 import { appConfig } from '../config/appConfig'
 
@@ -271,5 +271,20 @@ describe('presets that were silently absent', () => {
     expect(symbolPresetFieldKeys('SI Wasserbezugsort')).toContain('Kapazität')
     // …and the box says which unit, because «Kapazität: 80» is ambiguous
     expect(appConfig.copy.contextPanel.fieldPlaceholders['Kapazität']).toContain('m³')
+  })
+})
+
+describe('count fields (fieldKinds)', () => {
+  it('marks the Rettung\'s «Anzahl Tiere» as a count, nothing else', () => {
+    expect(symbolFieldKind('VKF Rettungen', 'Anzahl Tiere')).toBe('count')
+    expect(symbolFieldKind('VKF Rettungen', 'Status')).toBeUndefined()
+    expect(symbolFieldKind(undefined, 'Anzahl Tiere')).toBeUndefined()
+  })
+
+  it('reads empty as null, a whole number as the number, anything else as free text', () => {
+    expect(countFieldValue('')).toBeNull()
+    expect(countFieldValue(' 3 ')).toBe(3)
+    expect(countFieldValue('2 Katzen')).toBeUndefined()
+    expect(countFieldValue('-1')).toBeUndefined()
   })
 })

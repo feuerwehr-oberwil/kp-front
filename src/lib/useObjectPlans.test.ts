@@ -139,7 +139,7 @@ describe('buildPlanInfo — several sheets of one kind are several plans', () =>
 
 // The whole chain a backend-tagged sheet travels: module key → plan map → synthesized tile.
 describe('a numbered sub-slot from the backend reaches the rail as its own tile', () => {
-  it('carries a distinct id, label and monogram per sheet', () => {
+  it('carries a distinct id and label per sheet', () => {
     const { plans, titles } = buildPlanInfo([
       pdf({ id: 'a', module: 'modul5-wasser1', title: 'Wasser 1' }),
       pdf({ id: 'b', module: 'modul5-wasser2', title: 'Wasser 2' }),
@@ -147,7 +147,8 @@ describe('a numbered sub-slot from the backend reaches the rail as its own tile'
     const tiles = Object.keys(plans).sort().map((id) => extraModuleDoc(id, plans[id], titles[id]))
     expect(tiles.map((t) => t.id)).toEqual(['modul5-wasser1', 'modul5-wasser2'])
     expect(tiles.map((t) => t.code)).toEqual(['Wasser 1', 'Wasser 2'])
-    expect(tiles.map(glyph)).toEqual([{ mono: 'WAS1' }, { mono: 'WAS2' }])
+    // a word does not fit a round chip: both wear the plan icon, the label tells them apart
+    expect(tiles.map(glyph)).toEqual([{ icon: 'doc' }, { icon: 'doc' }])
     // `planId` is a foreign key (Verlauf rows, planScale, the board keys) — the tile id IS the
     // module key the backend serves, so an old row still resolves to the sheet it named.
     expect(tiles.map((t) => t.imageUrl)).toEqual([plans['modul5-wasser1'], plans['modul5-wasser2']])

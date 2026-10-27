@@ -3,13 +3,17 @@
  * zooms ×2 and **tap, then press-and-drag** zooms continuously (down = in, up = out, ×2 per
  * 128 px) — MapLibre's own gestures and numbers (500 ms / 30 px), except that the drag zooms
  * about the FIRST tap instead of the screen centre. One pure state machine serves the boards
- * (`useBoardGestures`: the selection tool, and the double tap under a drag tool; presses on empty
- * board only — objects swallow their own; the second press never pans or deselects) and the PDF reader (`PdfScroller`: its double
- * tap still toggles fit ↔ 2×). Touch and pen only: a mouse has the wheel, and a double CLICK on
- * the board opens editors. Under a tool, a gesture zooms only if the tool does not use it (UX
- * sweep M4, owner 21.10.2026 — the Karte's MapView the same way): a drag tool keeps the double
- * tap (`down(…, { drag: false })`), a tap tool keeps pinch only, and a double tap finishes
- * nothing — ✓ does. A second finger cancels the gesture and the pinch takes over.
+ * (`useBoardGestures`, and the create tools' ink through `tapZoomPress`; presses on empty board
+ * only — objects swallow their own; the second press never pans or deselects) and the PDF reader
+ * (`PdfScroller`: its double tap still toggles fit ↔ 2×). Touch and pen only: a mouse has the
+ * wheel, and a double CLICK on the board opens editors.
+ *
+ * Under a tool, ONE rule for the Lage, the Plan and the Karte (`oneFingerZoom`, sweep 27.10.2026
+ * #8 — owner: «I need it to work on the map, on the plans, and also on the normal map in the
+ * peacetime view»): both gestures under Auswahl, Mehrfach and with Ebenen open, tap-and-drag
+ * under Messen, the double tap under Freihand, none under a tap-to-place tool (Kreis included) —
+ * there a tap places and the pinch zooms. A double tap finishes nothing — ✓ does. A second finger cancels
+ * the gesture and the pinch takes over.
  */
 
 import { DRAG_DEADZONE_PX } from './useHoldToDrag'
@@ -71,18 +75,45 @@ type State =
   | { s: 'down'; id: number; x: number; y: number; t: number }
   /** a tap has lifted at `t`; waiting for the second press */
   | { s: 'tapped'; x: number; y: number; t: number }
-  /** the second press, not yet dragged; `drag` false = a double tap only (a drag tool's press) */
-  | { s: 'armed'; id: number; x: number; y: number; t: number; at: Pt; drag: boolean }
+  /** the second press, not yet dragged; `drag` / `step` as the tool allows (OneFingerZoom) */
+  | { s: 'armed'; id: number; x: number; y: number; t: number; at: Pt; drag: boolean; step: boolean }
   /** dragging: zoom follows the finger's vertical travel from `y0` */
   | { s: 'drag'; id: number; y0: number; at: Pt }
 
 const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y)
 
+/** Which one-finger zooms a surface offers under its armed tool: `step` = the double tap,
+ *  `drag` = tap, then press-and-drag. */
+export interface OneFingerZoom { step?: boolean; drag?: boolean }
+
+/** What the armed tool does with one finger, as far as zooming is concerned:
+ *  - `navigate` – Auswahl, Mehrfach, nothing armed, a sheet like Ebenen open;
+ *  - `measure`  – Messen: its taps add measuring points;
+ *  - `place`    – a tap-to-place tool: Symbol (Hinzufügen), Punkte, Notiz, Trupp, Koordinaten,
+ *                 a Form, the Massstab's two taps, and the Absperrkreis (a tap drops a ring, a
+ *                 drag sizes it);
+ *  - `draw`     – Freihand: the drag draws, a tap commits nothing. */
+export type ToolGesture = 'navigate' | 'measure' | 'place' | 'draw'
+
+/**
+ * THE rule for one-finger zoom under a tool, shared by the Lage and Karte (MapView, MapLibre's
+ * own handlers) and the Plan boards (useBoardGestures / usePlanCreate) — the owner's decision of
+ * 27.10.2026 (sweep #8): one-finger zoom works under Auswahl, Mehrfach, Messen and with Ebenen
+ * open; while a tap-to-place tool is armed a tap places and only the pinch zooms; while drawing
+ * Freihand the drag is the stroke, so only the double tap zooms (UX sweep M4, 21.10.2026). Under Mehrfach the Rahmen starts on a FRESH press — the second
+ * press of a tap pair is the zoom's. Under Messen only tap-and-drag: two quick taps are two
+ * measuring points, and the point the first tap placed lets the second press through
+ * (lib/useFreshPoint).
+ */
+export function oneFingerZoom(kind: ToolGesture): Required<OneFingerZoom> {
+  return { step: kind === 'navigate' || kind === 'draw', drag: kind === 'navigate' || kind === 'measure' }
+}
+
 export interface TapDragZoom {
-  /** `drag: false` under a tool whose DRAG is its own (Freihand, the Mehrfach-Rahmen): the second
-   *  press still makes a double tap, but if it travels it is handed back — the tool draws, nothing
-   *  zooms (UX sweep M4: a gesture zooms unless the armed tool uses it) */
-  down(p: TapSample, opts?: { drag?: boolean }): TapZoomAction | null
+  /** `opts` is the armed tool's `oneFingerZoom`. `drag: false`: the second press still makes a
+   *  double tap, but if it travels it is handed back — nothing zooms. `step: false` (Messen): a
+   *  quick second press is the TOOL's tap, not a zoom step — only its drag zooms. */
+  down(p: TapSample, opts?: OneFingerZoom): TapZoomAction | null
   move(p: TapSample): TapZoomAction | null
   up(p: TapSample): TapZoomAction | null
   /** a second finger, a pointercancel, the surface changing tool — forget everything. Returns
@@ -101,13 +132,13 @@ export function createTapDragZoom(): TapDragZoom {
     return was ? { kind: 'end' } : null
   }
   return {
-    down(p, { drag = true } = {}) {
+    down(p, { drag = true, step = true } = {}) {
       if (p.pointerType === 'mouse') return cancel()
       // a finger is already down: this one makes it a two-finger gesture (the pinch's)
       if (st.s === 'down' || owned()) return cancel()
       if (st.s === 'tapped' && p.t - st.t <= TAP_GAP_MS && dist(p, st) <= TAP_MAX_DIST_PX) {
         const at = { x: st.x, y: st.y }
-        st = { s: 'armed', id: p.id, x: p.x, y: p.y, t: p.t, at, drag }
+        st = { s: 'armed', id: p.id, x: p.x, y: p.y, t: p.t, at, drag, step }
         return { kind: 'arm', at }
       }
       st = { s: 'down', id: p.id, x: p.x, y: p.y, t: p.t }
@@ -141,8 +172,9 @@ export function createTapDragZoom(): TapDragZoom {
       if (st.s === 'armed' && p.id === st.id) {
         // …and a second press that travelled unseen (its moves went to a tool) is no tap either
         const quick = p.t - st.t <= TAP_MAX_MS && dist(p, st) <= TAP_DRAG_ENGAGE_PX, at = st.at
+        const step = st.step
         st = { s: 'idle' }
-        return quick ? { kind: 'zoomStep', at } : { kind: 'end' }
+        return quick && step ? { kind: 'zoomStep', at } : { kind: 'end' }
       }
       if (st.s === 'drag' && p.id === st.id) { st = { s: 'idle' }; return { kind: 'end' } }
       // a pointer we never saw go down lifted between the taps (a press on a chip, say) — the
