@@ -1094,7 +1094,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         return { key: `object:${a.id}`, target: { kind: 'object', id: a.id }, point: edge, defaultRouting: DEFAULT_OBJECT_ROUTING }
       })
     const lines = lineEndTargets(renderAnnos
-      // a Wand / Weg is layout: no Leitung couples onto its end
+      // a Wand is layout: no Leitung couples onto its end
       .filter((a) => a.kind === 'draw' && !a.role && a.id !== sourceId && (a.pts?.length ?? 0) >= 2)
       .map((a) => {
         const pts = a.pts!, px = (p: BoardPoint): [number, number] => [p[0] * sW, mapY(p[2] ?? a.floor, p[1]) * sH]
@@ -1115,7 +1115,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const {
     lineMode, areaMode, draft, setDraft, circleDraft, setCircleDraft,
     draftFloorRef, noding, draftActive, planDraftMagnetState, planJoinPreview,
-    addLine, addArea, finishShape, releaseDraft, grundriss, pickInput, tapDraftVertex, ring, showRing, openName,
+    addLine, addArea, finishShape, releaseDraft, grundriss, pickInput, tapDraftVertex, snapWallVertex, ring, showRing, openName,
   } = planDraft
   // Arriving on the selection-only sheet also DISARMS what was carried over: its dock went with
   // the rail, so a still-pending symbol would be an invisible armed state that fires on the next
@@ -1227,7 +1227,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     resolvedPts, attachmentLines, planCandidatesAt, pushPast, patch, patchCommit, emit, activeId,
     onLineAttached, onLineDetached, planEndpointDrag, setPlanEndpointDrag, planDwellTimerRef: planDwellTimer,
     allFloorsTTB, revealFloor, centerOnPoint: (x, y, floor, atScale) => centerOnPoint(x, y, floor, atScale), scaleRef,
-    draftFloor: draftFloorRef, setDraft, tileAR,
+    draftFloor: draftFloorRef, setDraft, tileAR, snapWallVertex,
   })
 
   // --- chip dragging (resource / symbol / text in pan mode) — components/useWbChipDrag ---
@@ -2489,7 +2489,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
               const x = last[0] * sW, y = mapY(last[2], last[1]) * sH // a Punkte point always carries its storey
               return <span className="wb-open-pill" style={{ transform: `translate(${x + 14}px, ${y - 34}px)` }}>{fillTemplate(appConfig.copy.toolDock.openPill, { name: openName })}</span>
             })()}
-            {noding && ring && <WbSnapRing ring={ring} sW={sW} sH={sH} />}
+            {/* …and under a Wand corner being dragged (useWbVertexEdit · snapWallVertex) */}
+            {(noding || tool === 'pan') && ring && <WbSnapRing ring={ring} sW={sW} sH={sH} />}
             {/* «Karte verknüpfen»: the numbered crosses live IN the board so they pan and zoom
                 with the sheet. Shown while the mode is armed, and while the Passung is open —
                 otherwise a reference set in June could not be found again in November. */}
@@ -2680,7 +2681,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           return <ArmedToolPill glyph={<ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />}
             name={appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel} />
         }
-        // a Grundriss preset names itself in the mode's place: «Linie · Wand», «Fläche · Raum»
+        // the Grundriss preset names itself in the mode's place: «Linie · Wand»
         const name = grundriss
           ? `${armedToolName(tool, appConfig.copy.planTools)} · ${appConfig.copy.whiteboard.grundriss[grundriss]}`
           : armedToolName(tool, appConfig.copy.planTools, { lineMode, areaMode })
@@ -2896,7 +2897,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onArrow={(a) => patchCommit(selDraw.id, { arrow: a || undefined })}
           onEnding={(ending) => void changePlanEnding(ending)}
           onReverse={selDraw.kind === 'draw' ? reverseAnno : undefined}
-          // a Wand / Weg / Raum is Grundriss, not a hose: no Typ, no Leitung Nr., no Trupp (types · role)
+          // a Wand is Grundriss, not a hose: no Typ, no Leitung Nr., no Trupp (types · role)
           onContent={selDraw.role ? undefined : (content) => patchCommit(selDraw.id, { content })}
           onLineNo={selDraw.role ? undefined : (lineNo) => { patchCommit(selDraw.id, { lineNo }); onLineRenumber?.(selDraw.id, lineNo) }}
           // on the stack the line's storey is its tile: stepping it MOVES the line rather than

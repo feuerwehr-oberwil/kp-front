@@ -6,10 +6,10 @@
 // lib/useMapDrawing (docs/tactical-objects.md · Lage ↔ Plan parity). The pointer plumbing that
 // feeds it is the Whiteboard's ink overlay (components/usePlanCreate).
 //
-// On the Gebäude stack it also runs the Grundriss presets (27.10.2026, docs/plans-and-buildings.md
-// · Drawing a Grundriss): Wand / Weg of the Linie and Raum of the Fläche are ordinary inks with a
-// `role` and their own look, drawn in Punkte mode, snapped by lib/planSnap, and the tool stays
-// armed after each piece.
+// On the Gebäude stack it also runs the Grundriss preset (27.10.2026, docs/plans-and-buildings.md
+// · Drawing a Grundriss): the Wand of the Linie is an ordinary ink with a `role` and its own look,
+// drawn in Punkte mode, snapped by lib/planSnap, and the tool stays armed after each piece. A
+// Wand's corner dragged afterwards snaps the same way (snapWallVertex, for useWbVertexEdit).
 
 import { useLayoutEffect, useRef, useState } from 'react'
 import type React from 'react'
@@ -22,7 +22,7 @@ import { askOpenDraft, draftActive as isDraftActive, finishKind, releaseDraft as
 import { joinTargets, useDraftMagnet } from '../lib/useDraftMagnet'
 import type { MagneticTarget } from '../lib/lineAttachments'
 import { stackRange } from '../lib/stackFloors'
-import { backtracks, segsOf, snapPoint, type Pt, type Seg, type SnapResult, type SnapTargets } from '../lib/planSnap'
+import { backtracks, segsOf, snapPoint, snapWall, type Anchor, type Pt, type Seg, type SnapResult, type SnapTargets } from '../lib/planSnap'
 import type { PlanEndpointDrag } from './useWbVertexEdit'
 import type { PlanLogExtra } from './Whiteboard'
 
@@ -32,18 +32,15 @@ const COLORS = appConfig.drawing.colors
  *  23.10.2026; the Karte's twin is useMapDrawing · DRAW_DEFAULTS). */
 export const INK_DEFAULTS = { color: appConfig.drawing.defaultColor, width: 5, dashed: false, marker: '', arrow: false } as const
 
-/** A Grundriss preset of Linie (Wand, Weg) or Fläche (Raum) – `BoardAnno.role`. */
+/** The Grundriss preset of the Linie (the Wand) – `BoardAnno.role`. */
 export type GrundrissRole = NonNullable<BoardAnno['role']>
 
-/** The look each Grundriss preset is born with (1B mock, 27.10.2026): a Wand dark and solid, a
- *  touch bolder than the building outline; a Weg the default ink, dashed, with an arrowhead; a
- *  Raum a dark outline with a light wash. Edited afterwards like any ink. `COLORS[4]` is the
- *  palette's dark – on the board it is drawn in the theme's ink instead (WbControls · inkOf),
- *  so a wall stays visible on the night sheet; print and export keep the stored dark. */
+/** The look a Wand is born with (1B mock, 27.10.2026): dark and solid, a touch bolder than the
+ *  building outline. Edited afterwards like any ink. `COLORS[4]` is the palette's dark – on the
+ *  board it is drawn in the theme's ink instead (WbControls · inkOf), so a wall stays visible on
+ *  the night sheet; print and export keep the stored dark. */
 export const GRUNDRISS_STYLE = {
   wand: { color: COLORS[4], width: 3 },
-  weg: { color: INK_DEFAULTS.color, width: 4, dashed: true, arrow: true },
-  raum: { color: COLORS[4], width: 2, fillOpacity: 0.06 },
 } as const satisfies Record<GrundrissRole, Partial<BoardAnno>>
 
 /** The symbols a Leitung is laid through: its Punkte snap onto their centre (lib/planSnap). */
@@ -109,22 +106,22 @@ export function usePlanDraft({
   const [lineMode, setLineMode] = useState<'freehand' | 'nodes'>('freehand')
   // the storey the draft was started on (a Fläche pins every vertex to it)
   const draftFloor = useRef(0)
-  // the Grundriss preset the Linie / Fläche draws with (Gebäude stack; see `grundriss` below) …
+  // the Grundriss preset the Linie draws with (Gebäude stack; see `grundriss` below) …
   const [preset, setPreset] = useState<GrundrissRole | null>(null)
   // … and the one the draft in the hand was STARTED with: a release reads it after the tool (and
   // with it `grundriss`) has already moved on
   const [draftRole, setDraftRole] = useState<GrundrissRole | null>(null)
   // the snap ring under the pointer (SnapRing), drawn by the Whiteboard
   const [ring, setRing] = useState<SnapRing | null>(null)
-  // A preset belongs to its armed tool: putting the Linie / Fläche down puts it down too, so the
-  // next Linie is a plain one again («Weiterzeichnen» re-arms both at once, see releaseDraft); the
+  // A preset belongs to its armed tool: putting the Linie down puts it down too, so the next
+  // Linie is a plain one again («Weiterzeichnen» re-arms both at once, see releaseDraft); the
   // ring goes with any tool change. Adjusted while rendering (the tool it was armed for is kept
   // beside it), so no effect re-renders the board a second time.
   const [armedFor, setArmedFor] = useState(tool)
   if (armedFor !== tool) {
     setArmedFor(tool)
     setRing(null)
-    if (tool !== 'line' && tool !== 'area') setPreset(null)
+    if (tool !== 'line') setPreset(null)
   }
   // the magnet of a line being DRAWN — the Karte's own machine (lib/useDraftMagnet), in board px
   // over the sheet's target walk (Whiteboard · planCandidatesAt / planAttachmentFor)
@@ -169,7 +166,7 @@ export function usePlanDraft({
   }
 
   // create a Linie from a finished path (a freehand drag OR a node-tapped draft), baking the sticky
-  // preset's arrow/marker/dash — or a Grundriss preset's look and `role`. Mirrors the Lage map's
+  // preset's arrow/marker/dash — or the Wand's look and `role`. Mirrors the Lage map's
   // createLine, so both surfaces behave identically. Returns the anno; addLine below is the
   // interactive wrapper (select + drop to pan so the style editor opens).
   // the board writer of the LATEST render: a «Speichern» answered later (releaseDraft, tapPoint)
@@ -191,23 +188,21 @@ export function usePlanDraft({
     // the jump-back aims at the line's FIRST node: a Leitung can run across two floors, and the
     // end it was started from is the end the operator was standing at when the row was written
     const W = appConfig.copy.whiteboard
-    log('pen', role === 'wand' ? W.placeWand : role === 'weg' ? W.placeWeg : W.placeLine, { annoId: id, x: pts[0]?.[0], y: pts[0]?.[1], floor })
+    log('pen', role === 'wand' ? W.placeWand : W.placeLine, { annoId: id, x: pts[0]?.[0], y: pts[0]?.[1], floor })
     draftAttachments.current = {}
     return anno
   }
   const addLine = (pts: BoardPoint[]) => { const { id } = commitLine(pts); setSelId(id); setTool('pan') }
   // create a Fläche from a finished ring — the twin of commitLine/addLine: addArea selects it +
   // drops to pan so its draggable vertex handles are immediately usable (matches the Lage map,
-  // where a finished area auto-selects for reshaping). A Raum carries its preset look and role.
+  // where a finished area auto-selects for reshaping).
   // ⚠️ an area lives on ONE storey: the caller pins every vertex to the same floor.
-  const commitArea = (pts: BoardPoint[], role?: GrundrissRole | null): BoardAnno => {
+  const commitArea = (pts: BoardPoint[]): BoardAnno => {
     const id = newId('a')
     const floor = pts[0]?.[2] ?? draftFloor.current
-    const anno: BoardAnno = role
-      ? { id, kind: 'area', pts, floor, role, ...GRUNDRISS_STYLE[role] }
-      : { id, kind: 'area', pts, floor, color, width, dashed }
+    const anno: BoardAnno = { id, kind: 'area', pts, floor, color, width, dashed }
     addRef.current(anno)
-    log('area', role === 'raum' ? appConfig.copy.whiteboard.placeRaum : appConfig.copy.whiteboard.placeArea, { annoId: id, x: pts[0]?.[0], y: pts[0]?.[1], floor })
+    log('area', appConfig.copy.whiteboard.placeArea, { annoId: id, x: pts[0]?.[0], y: pts[0]?.[1], floor })
     return anno
   }
   const addArea = (pts: BoardPoint[]) => { const { id } = commitArea(pts); setSelId(id); setTool('pan') }
@@ -222,13 +217,10 @@ export function usePlanDraft({
     log('circle', appConfig.copy.whiteboard.placeCircle, { annoId: id, x, y, floor })
     setSelId(id); setTool('pan')
   }
-  /** One piece of a Grundriss drawing, committed while the tool stays ARMED (no selection, no
-   *  pan): a Wand / Weg as a Linie, a Raum as a Fläche — each its own ↶. Null when the points
-   *  are not a shape yet. */
-  const commitPiece = (pts: BoardPoint[], role: GrundrissRole): BoardAnno | null => {
-    if (pts.length < (role === 'raum' ? 3 : 2)) return null
-    return role === 'raum' ? commitArea(pts, role) : commitLine(pts, role)
-  }
+  /** One piece of a Wand, committed while the tool stays ARMED (no selection, no pan) — each its
+   *  own ↶. Null when the points are not a line yet. */
+  const commitPiece = (pts: BoardPoint[], role: GrundrissRole): BoardAnno | null =>
+    pts.length < 2 ? null : commitLine(pts, role)
   // commit the in-progress node shape: a Linie (≥2 pts) or a Fläche (≥3 pts, closed + filled) —
   // the Karte's rule (lib/draftMachine · finishKind). Then drop to pan so it's immediately
   // selectable — except a Grundriss piece, whose tool stays armed for the next one.
@@ -247,22 +239,24 @@ export function usePlanDraft({
   }
   const cancelShape = () => { setDraft(null); draftAttachments.current = {} }
 
-  // --- the Grundriss presets and the snap (Gebäude stack only) -----------------------------
-  /** the preset in force: Wand / Weg on the Linie, Raum on the Fläche, on the stack only */
-  const grundriss: GrundrissRole | null = !stack ? null
-    : tool === 'line' && (preset === 'wand' || preset === 'weg') ? preset
-    : tool === 'area' && preset === 'raum' ? 'raum'
-    : null
+  // --- the Grundriss preset and the snap (Gebäude stack only) ------------------------------
+  /** the preset in force: the Wand on the Linie, on the stack only */
+  const grundriss: GrundrissRole | null = stack && tool === 'line' ? preset : null
   /** board px of a stored point on its storey */
   const toPx = (p: BoardPoint): Pt => [p[0] * sW, mapY(p[2] ?? draftFloor.current, p[1]) * sH]
-  /** What can pull a point on `floor` (lib/planSnap): the Grundriss inks and the draft's own
-   *  points, the building outline, and the Durchgang / Treppe centres. */
-  const snapTargets = (floor: number, own: readonly BoardPoint[]): SnapTargets => {
+  /** What can pull a point on `floor` (lib/planSnap): the Wände and every Fläche (round 2: «snap
+   *  to an area»), the draft's own points, the building outline, and the Durchgang / Treppe
+   *  centres. `skip` leaves out one Wand corner being dragged and the two pieces at it. */
+  const snapTargets = (floor: number, own: readonly BoardPoint[], skip?: { id: string; idx: number }): SnapTargets => {
     const segs: Seg[] = [], ends: Pt[] = [], centres: Pt[] = []
     const take = (pts: Pt[], closed: boolean) => { segs.push(...segsOf(pts, closed)); ends.push(...pts) }
     for (const a of annos) {
-      if (a.role && (a.kind === 'draw' || a.kind === 'area') && a.pts && (a.floor ?? 0) === floor) {
-        take(a.pts.filter((p) => (p[2] ?? a.floor ?? 0) === floor).map(([x, y]) => [x * sW, mapY(floor, y) * sH]), a.kind === 'area')
+      if (((a.role === 'wand' && a.kind === 'draw') || a.kind === 'area') && a.pts && (a.floor ?? 0) === floor) {
+        const px = a.pts.map(([x, y, f]): Pt | null => ((f ?? a.floor ?? 0) === floor ? [x * sW, mapY(floor, y) * sH] : null))
+        if (skip?.id === a.id) {
+          px.forEach((p, i) => { if (p && i !== skip.idx) ends.push(p) })
+          segsOf(px.map((p) => p ?? [NaN, NaN])).forEach((sg, i) => { if (i !== skip.idx && i !== skip.idx - 1 && !sg.some((p) => Number.isNaN(p[0]))) segs.push(sg) })
+        } else take(px.filter((p) => p != null), a.kind === 'area')
       } else if (a.kind === 'symbol' && a.symbol && PASSAGE_SYMBOLS.has(a.symbol) && a.x != null && a.y != null) {
         const { from, to } = stackRange(a)
         if (floor >= from && floor <= to) centres.push([a.x * sW, mapY(floor, a.y) * sH])
@@ -273,7 +267,7 @@ export function usePlanDraft({
     return { segs, ends, centres }
   }
   /** Where a Punkte tap at board-normalized `n` lands on `floor`, given the draft in the hand
-   *  (`own`, this storey's points) and the drawing it belongs to. Off the stack, or for a plain
+   *  (`own`, this storey's points) and the drawing it belongs to. Off the stack, or for a
    *  Fläche, nothing pulls it. */
   const snapAt = (n: [number, number], floor: number, own: readonly BoardPoint[], role: GrundrissRole | null): SnapResult & { pt: BoardPoint } => {
     const free: BoardPoint = [n[0], localY(n[1], floor), floor]
@@ -295,7 +289,7 @@ export function usePlanDraft({
     const s = snapAt(n, floor, own, role)
     const last = own[own.length - 1]
     const prev = own[own.length - 2]
-    const back = role === 'wand' && last && prev && backtracks(toPx(prev), toPx(last), s.p)
+    const back = role && last && prev && backtracks(toPx(prev), toPx(last), s.p)
     const next: SnapRing = { x: s.p[0], y: s.p[1], snapped: s.snapped, ...(mouse && last && !s.finish && !back ? { from: [...toPx(last)] as [number, number] } : {}) }
     // a pointer that stays caught on the same spot re-renders nothing
     setRing((was) => (was && was.x === next.x && was.y === next.y && was.snapped === next.snapped
@@ -306,10 +300,10 @@ export function usePlanDraft({
    * One Punkte tap on the ink overlay at board-normalized `n`, over storey `floor` — what
    * usePlanCreate hands every node tap of the Linie / Fläche. Plain inks: a Linie's points follow
    * the pointer's storey, a Fläche stays on its first; on the stack a Linie's point snaps onto a
-   * Durchgang / Treppe. Grundriss pieces stay on their storey, snap (lib/planSnap), finish on
-   * their last point, close on their first, and a point straight back along the piece just drawn
-   * commits that piece and starts the next one there (one ↶ per piece). A tap on ANOTHER storey
-   * while a piece is open asks first, then starts there.
+   * Durchgang / Treppe. A Wand stays on its storey, snaps (lib/planSnap), finishes on its last
+   * point, closes on its first, and a point straight back along the piece just drawn commits that
+   * piece and starts the next one there (one ↶ per piece). A tap on ANOTHER storey while a piece
+   * is open asks first, then starts there.
    */
   const tapPoint = (n: [number, number], floor: number) => {
     const role = draft ? draftRole : grundriss
@@ -318,8 +312,8 @@ export function usePlanDraft({
       const first = snapAt(n, floor, [], role).pt
       const startThere = () => { draftAttachments.current = {}; draftFloor.current = floor; setDraftRole(role); setDraft([first]) }
       // a lone first point is no piece: nothing to ask about
-      if (d.length < (role === 'raum' ? 3 : 2)) { startThere(); return }
-      void askOpenDraft(drawingName(tool === 'area' ? 'area' : 'line', role)).then((answer) => {
+      if (d.length < 2) { startThere(); return }
+      void askOpenDraft(drawingName('line', role)).then((answer) => {
         if (answer === 'continue') return
         if (answer === 'save') commitPiece(d, role)
         startThere()
@@ -334,7 +328,7 @@ export function usePlanDraft({
       if (s.finish) { finishShape(); return }
       if (s.close) { closePiece(); return }
       const last = draft[draft.length - 1], prev = draft[draft.length - 2]
-      if (role === 'wand' && prev && backtracks(toPx(prev), toPx(last), s.p)) {
+      if (prev && backtracks(toPx(prev), toPx(last), s.p)) {
         commitPiece(draft, role)
         setDraft([s.pt])
         return
@@ -342,33 +336,55 @@ export function usePlanDraft({
     }
     setDraft((d) => (d ? [...d, s.pt] : [s.pt]))
   }
-  /** Close the open Wand / Raum on its first point: a Raum is a ring already, a Wand runs back
-   *  to where it started. The tool stays armed. */
+  /** Close the open Wand on its first point: it runs back to where it started. The tool stays
+   *  armed. */
   const closePiece = () => {
     const d = draft, role = draftRole
     if (!d || !role) return
     setDraft(null)
-    commitPiece(role === 'raum' ? d : [...d, d[0]], role)
+    commitPiece([...d, d[0]], role)
   }
   /** A still tap on one of the draft's own grips (WbDraftHandles sit above the ink overlay, so a
-   *  tap there never reaches tapPoint): on a Grundriss piece the last point finishes it and the
-   *  first of a Wand / Raum with ≥3 points closes it. A plain ink's grips only reshape. */
+   *  tap there never reaches tapPoint): on a Wand the last point finishes it and the first of a
+   *  Wand with ≥3 points closes it. A plain ink's grips only reshape. */
   const tapDraftVertex = (idx: number) => {
     const d = draft, role = draftRole
     if (!d || !role) return
     if (idx === d.length - 1) finishShape()
-    else if (idx === 0 && d.length >= 3 && role !== 'weg') closePiece()
+    else if (idx === 0 && d.length >= 3) closePiece()
   }
-  /** Pick the Linie's / Fläche's input on the dock: Freihand, Punkte, or a Grundriss preset. An
-   *  open drawing of another kind is left first (it asks), so a Wand never turns into a Leitung
-   *  half-way. */
+  /** Pick the Linie's / Fläche's input on the dock: Freihand, Punkte, or (Linie, on the stack) the
+   *  Wand. An open drawing of another kind is left first (it asks), so a Wand never turns into a
+   *  Leitung half-way. */
   const pickInput = (next: 'freehand' | 'nodes' | GrundrissRole) => {
-    const role = next === 'freehand' || next === 'nodes' ? null : next
+    const role = next === 'freehand' || next === 'nodes' || tool !== 'line' ? null : next
     const mode = next === 'freehand' ? 'freehand' : 'nodes'
     if (draft?.length && (role !== draftRole || mode === 'freehand')) releaseDraft(tool)
     setPreset(role)
     if (tool === 'area') setAreaMode(mode)
     else setLineMode(mode)
+  }
+
+  /**
+   * Where a Wand's corner dragged to board-normalized `n` lands (useWbVertexEdit · vertMove): the
+   * same targets and the same right-angle preference as drawing, against BOTH of its neighbours,
+   * minus the corner itself and its two pieces. Shows the ring there; `null` for `n` clears it.
+   * Returns the stored point, on the Wand's own storey.
+   */
+  const snapWallVertex = (wall: BoardAnno, idx: number, n: [number, number] | null): BoardPoint | null => {
+    if (!n || !wall.pts) { setRing(null); return null }
+    const floor = wall.pts[idx]?.[2] ?? wall.floor ?? 0
+    const free: BoardPoint = [n[0], localY(n[1], floor), floor]
+    if (!stack || !(sW > 0 && sH > 0)) return free
+    const px = (p?: BoardPoint): Pt | undefined => (p && (p[2] ?? wall.floor ?? 0) === floor ? [p[0] * sW, mapY(floor, p[1]) * sH] : undefined)
+    const anchors: Anchor[] = []
+    for (const [nb, before] of [[idx - 1, idx - 2], [idx + 1, idx + 2]]) {
+      const from = px(wall.pts[nb])
+      if (from) anchors.push({ from, before: px(wall.pts[before]) })
+    }
+    const s = snapWall([n[0] * sW, mapY(floor, free[1]) * sH], { anchors, targets: snapTargets(floor, [], { id: wall.id, idx }) })
+    setRing({ x: s.p[0], y: s.p[1], snapped: s.snapped })
+    return [s.p[0] / sW, localY(s.p[1] / sH, floor), floor]
   }
 
   // --- leaving an open drawing (27.10.2026: asks; replaced the A6 auto-commit of 29.08.) ------
@@ -401,7 +417,7 @@ export function usePlanDraft({
     const save = () => {
       draftAttachments.current = att
       if (kind === 'line') commitLine(d, role)
-      else commitArea(d, role)
+      else commitArea(d)
     }
     const name = drawingName(kind, role)
     if (release.type === 'commit') {
@@ -433,6 +449,6 @@ export function usePlanDraft({
     draftAttachmentsRef: draftAttachments, draftFloorRef: draftFloor, setDraftRole,
     noding, inking, draftActive, planDraftMagnetState, updatePlanDraftMagnet, planJoinPreview, finishPlanDraftMagnet,
     addLine, addArea, addCircle, finishShape, cancelShape, releaseDraft,
-    grundriss, pickInput, tapPoint, tapDraftVertex, ring, showRing, openName: draft?.length ? drawingName(tool === 'area' ? 'area' : 'line', draftRole) : null,
+    grundriss, pickInput, tapPoint, tapDraftVertex, snapWallVertex, ring, showRing, openName: draft?.length ? drawingName(tool === 'area' ? 'area' : 'line', draftRole) : null,
   }
 }

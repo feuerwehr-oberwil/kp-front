@@ -110,7 +110,7 @@ export function usePlanCreate({
     draft, setDraft, circleDraft, setCircleDraft, draftAttachmentsRef, draftFloorRef, setDraftRole, inking, noding, lineMode, areaMode,
     updatePlanDraftMagnet, finishPlanDraftMagnet, addLine, addArea, addCircle, grundriss, tapPoint, showRing,
   } = planDraft
-  // a Leitung's ends couple (the draft magnet); a Wand / Weg is layout and couples to nothing
+  // a Leitung's ends couple (the draft magnet); a Wand is layout and couples to nothing
   const magnetic = tool === 'line' && !grundriss
   const { claimRotTarget, clearRotMagnet, rotMagnetRef, rotPanPaused: rotPanPausedRef } = rotor
   const { calNodes, setCalNodes, setCalPrompt, setRefMInput, lastRefM, calibrated, measPath, setMeasPath, setMeasLine, setMeasArea } = measure

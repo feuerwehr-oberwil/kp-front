@@ -593,10 +593,10 @@ describe('the Plan rail and its drafts', () => {
   })
 })
 
-// ── The Grundriss presets on the Gebäude stack (27.10.2026) ─────────────────────────────────
-// Wand / Weg of the Linie and Raum of the Fläche are plain inks with a `role`: drawn in Punkte,
-// snapped (lib/planSnap, tested there), and the tool stays armed after each piece.
-describe('the Grundriss presets', () => {
+// ── The Grundriss preset on the Gebäude stack (27.10.2026) ──────────────────────────────────
+// The Wand of the Linie is a plain ink with a `role`: drawn in Punkte, snapped (lib/planSnap,
+// tested there), and the tool stays armed after each piece.
+describe('the Grundriss preset', () => {
   const G = appConfig.copy.whiteboard.grundriss
   beforeEach(() => {
     ui.toasts.length = 0
@@ -621,10 +621,10 @@ describe('the Grundriss presets', () => {
   /** the anno each commit added (the board's `annos` prop stays as rendered, so each call is one) */
   const added = (onChange: Mock) => onChange.mock.calls.map((c) => { const list = c[0] as BoardAnno[]; return list[list.length - 1] })
 
-  it('draws a Wand at right angles, finishes it on its last point, and stays armed', () => {
+  it('locks a Wand near a right angle, finishes it on its last point, and stays armed', () => {
     const { onChange } = renderBoard('gebaeude', [], false, aBuilding)
     armWand()
-    tapAt(150, 150); tapAt(250, 170) // the second point runs straight on: y stays the first's
+    tapAt(150, 150); tapAt(250, 162) // ≈7° off level: the second point runs straight on, y stays the first's
     tapAt(251, 151) // the last point again: finished
     const [wall] = added(onChange)
     expect(wall).toMatchObject({ kind: 'draw', role: 'wand', color: appConfig.drawing.colors[4], width: 3 })
@@ -1761,6 +1761,21 @@ describe('gesture contracts of the plan surface', () => {
       expect(find('d1').rotation).not.toBe(0)
       expect(edits(emit).map((c) => (c[1] as { id: string }).id)).toEqual(['w1', 'd1'])
       expect(edits(emit)[1][1]).toMatchObject({ patch: { x: find('d1').x, y: find('d1').y, rotation: find('d1').rotation } })
+    })
+
+    it('a Wand corner dragged near another Wand lands on it, level with its neighbour, ring shown while it moves', () => {
+      const short: BoardAnno = { id: 'w1', kind: 'draw', role: 'wand', floor: 0, pts: [[0.2, 0.5, 0], [0.4, 0.5, 0]] }
+      const cross: BoardAnno = { id: 'w3', kind: 'draw', role: 'wand', floor: 0, pts: [[0.6, 0.2, 0], [0.6, 0.8, 0]] }
+      const { container } = mount([short, cross], { ...twoStoreys, focus: focused('w1') })
+      const grip = container.querySelectorAll('.wb-vertex')[1]
+      fireEvent.pointerDown(grip, { clientX: 160, clientY: 300, pointerId: 1 })
+      fireEvent.pointerMove(grip, { clientX: 200, clientY: 302, pointerId: 1 })
+      fireEvent.pointerMove(grip, { clientX: 236, clientY: 303, pointerId: 1 })
+      expect(container.querySelector('.wb-snap-ring')).not.toBeNull()
+      fireEvent.pointerUp(grip, { clientX: 236, clientY: 303, pointerId: 1 })
+      const [x, y, f] = find('w1').pts![1]
+      expect(x).toBeCloseTo(0.6, 6); expect(y).toBeCloseTo(0.5, 6); expect(f).toBe(0)
+      expect(container.querySelector('.wb-snap-ring, .wb-snap-free')).toBeNull()
     })
 
     it('a Wand in the Grundriss dark is drawn in the theme ink, a recoloured one in its own colour', () => {

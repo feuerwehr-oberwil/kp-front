@@ -524,7 +524,7 @@ const BOARD_PLAN_ONLY = [
   'showDistance', 'labelDx', 'labelDy', 'teilstueck', 'content', 'lineNo', 'floorTag',
   'endDx', 'endDy', 'fillOpacity', 'hatch', 't', 'trail', 'truppId', 'floor', 'locked',
   'startAttachment', 'endAttachment', 'storey', 'form',
-  // the Gebäude Grundriss (27.10.2026): a Wand / Weg / Raum role and a Durchgang's wall link are
+  // the Gebäude Grundriss (27.10.2026): a Wand's role and a Durchgang's wall link are
   // layout of the floor stack and mean nothing on the map
   'role', 'onWall',
 ] as const satisfies readonly (keyof BoardAnno)[]
