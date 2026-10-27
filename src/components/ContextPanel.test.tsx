@@ -740,6 +740,42 @@ describe('ContextPanel — Notizen survive every way the sheet can close', () =>
   })
 })
 
+// The same hole on the detail fields (27.10.): a Messpunkt reading typed, then a tap on the Karte
+// deselected the point – the panel unmounted with the caret still in the field and the value was gone.
+describe('ContextPanel — a typed field survives the panel closing', () => {
+  const coBox = () => screen.getByText('CO').parentElement?.querySelector('input') as HTMLInputElement
+  const mount = (onFields = vi.fn()) => ({
+    onFields,
+    ...render(
+      <ContextPanel entity={{ id: 'm1', symbol: 'FW Messpunkt', label: '' }} onClose={vi.fn()}
+        onTitle={vi.fn()} onFields={onFields} onDelete={vi.fn()}
+        protectedKeys={new Set(['Raum', 'CO', 'Ex', 'O₂', 'H₂S'])} />,
+    ),
+  })
+
+  it('commits a typed reading on unmount, when no blur ever fired', () => {
+    const { onFields, unmount } = mount()
+    fireEvent.change(coBox(), { target: { value: '34' } })
+    unmount()
+    expect(onFields).toHaveBeenCalledOnce()
+    expect(onFields.mock.calls[0][0]).toMatchObject({ CO: '34' })
+  })
+
+  it('does not commit twice after an ordinary blur', () => {
+    const { onFields, unmount } = mount()
+    fireEvent.change(coBox(), { target: { value: '34' } })
+    fireEvent.blur(coBox())
+    unmount()
+    expect(onFields).toHaveBeenCalledOnce()
+  })
+
+  it('writes nothing on unmount when nothing was typed', () => {
+    const { onFields, unmount } = mount()
+    unmount()
+    expect(onFields).not.toHaveBeenCalled()
+  })
+})
+
 /**
  * Angedockte Trupps am HOST (15.09.2026) — the bond read from the symbol's side. It mirrors the
  * «Leitung 2 · Trupp 4 — Lösen» slot on the marker's own bar: a row names BOTH sides before its

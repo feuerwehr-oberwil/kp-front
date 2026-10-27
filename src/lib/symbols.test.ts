@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countFieldValue, symbolCaptionText, symbolControls, symbolFieldKind, symbolFieldOptions, symbolPresetFieldKeys } from './symbols'
+import { alarmBar, countFieldValue, readingRows, recordReading, symbolCaptionText, symbolControls, symbolFieldKind, symbolFieldOptions, symbolLegendText, symbolPresetFieldKeys, symbolReading, symbolReadoutText } from './symbols'
 import type { SymbolControl } from '../types'
 import { appConfig } from '../config/appConfig'
 
@@ -185,6 +185,77 @@ describe('symbolCaptionText — metadata printed under a symbol glyph', () => {
 
 // The symbol pack's presets are config, and a missing entry is invisible rather than loud — the
 // symbol simply offers nothing. These pin the ones that were found missing on 2026-08-11.
+describe('Messpunkt — a measured symbol keys its values (26.10.2026)', () => {
+  const mp = (fields: Record<string, string>, Raum?: string) => ({ symbol: 'FW Messpunkt', fields: Raum ? { Raum, ...fields } : fields })
+
+  it('wears the first filled reading on its glyph, keyed', () => {
+    expect(symbolReadoutText(mp({ CO: '180', Ex: '0' }, 'Zimmer 21'))).toBe('CO 180')
+    // CO not reported (yet): the next channel that was, never a bare number
+    expect(symbolReadoutText(mp({ CO: ' ', 'O₂': '19.8' }))).toBe('O₂ 19.8')
+  })
+
+  it('placed but not yet measured is just the glyph — and no other symbol has a readout', () => {
+    expect(symbolReadoutText(mp({}))).toBeNull()
+    expect(symbolReadoutText({ symbol: 'FW Kleinloeschgeraet', fields: { Typ: 'CO2' } })).toBeNull()
+  })
+
+  it('auto captions only the room — the value is already on the glyph', () => {
+    expect(symbolCaptionText(mp({ CO: '180' }, 'Zimmer 21'), 'auto')).toBe('Zimmer 21')
+    expect(symbolCaptionText(mp({ CO: '180' }), 'auto')).toBeNull()
+  })
+
+  it('every value that leaves the glyph keeps its key (caption «Alle», printed legend)', () => {
+    const p = mp({ CO: '180', Ex: '0', 'O₂': '20.1' }, 'Zimmer 21')
+    expect(symbolCaptionText(p, 'all')).toBe('Zimmer 21\nCO 180\nEx 0\nO₂ 20.1')
+    expect(symbolLegendText(p, 'auto')).toBe('Messpunkt · Zimmer 21 · CO 180 · Ex 0 · O₂ 20.1')
+  })
+})
+
+describe('Messpunkt — the reading its mark wears (27.10.2026)', () => {
+  const MIN = 60_000
+  const mp = (fields: Record<string, string>, readings?: { t: number; v: Record<string, string> }[]) => ({ symbol: 'FW Messpunkt', fields, readings })
+
+  it('the worst gas wins: an Ex at A1 beats a harmless CO, a CO at A2 beats that Ex', () => {
+    expect(symbolReading(mp({ CO: '14', Ex: '12' }))).toMatchObject({ text: 'Ex 12', level: 'a1' })
+    expect(symbolReading(mp({ CO: '65', Ex: '12' }))).toMatchObject({ text: 'CO 65', level: 'a2' })
+    expect(symbolReading(mp({ CO: '14', Ex: '0' }))).toMatchObject({ text: 'CO 14', level: 'ok' })
+  })
+
+  it('O₂ alarms both ways, and a radio report\'s decimal comma is a number', () => {
+    expect(symbolReading(mp({ 'O₂': '18,5' }))).toMatchObject({ text: 'O₂ 18,5', level: 'a1' })
+    expect(symbolReading(mp({ 'O₂': '16' }))?.level).toBe('a2')
+    expect(symbolReading(mp({ 'O₂': '23.5' }))?.level).toBe('a2')
+    expect(symbolReading(mp({ 'O₂': '20.9' }))?.level).toBe('ok')
+  })
+
+  it('goes old 15 min after the last reading – a point without history never does', () => {
+    const at = 1_000_000
+    expect(symbolReading(mp({ CO: '65' }, [{ t: at, v: { CO: '65' } }]), at + 14 * MIN)).toMatchObject({ stale: false, ageMin: 14 })
+    expect(symbolReading(mp({ CO: '65' }, [{ t: at, v: { CO: '65' } }]), at + 18 * MIN)).toMatchObject({ stale: true, ageMin: 18, level: 'a2' })
+    expect(symbolReading(mp({ CO: '65' }), at)).toMatchObject({ stale: false, ageMin: null })
+  })
+
+  it('a field commit appends a row only when a measured value changed', () => {
+    const p = mp({ Raum: 'Gang', CO: '20' }, [{ t: 1, v: { CO: '20' } }])
+    expect(recordReading(p, { Raum: 'Gang 2', CO: '20' }, 5)).toBe(p.readings) // the room is no reading
+    expect(recordReading(p, { Raum: 'Gang', CO: '45' }, 5)).toEqual([{ t: 1, v: { CO: '20' } }, { t: 5, v: { CO: '45' } }])
+    expect(recordReading({ symbol: 'FW Kleinloeschgeraet', fields: {} }, { Typ: 'CO2' }, 5)).toBeUndefined()
+  })
+
+  it('one report typed gas by gas is one row in the list, newest first', () => {
+    const p = mp({}, [{ t: 0, v: { CO: '20' } }, { t: 10 * MIN, v: { CO: '45' } }, { t: 10 * MIN + 20_000, v: { CO: '45', Ex: '0' } }])
+    expect(readingRows(p).map((r) => r.v)).toEqual([{ CO: '45', Ex: '0' }, { CO: '20' }])
+  })
+
+  it('the bar under a field: calm, amber, red, the tick at A1 where calm ends', () => {
+    expect(alarmBar('FW Messpunkt', 'CO', '30')).toMatchObject({ at: 0.6 })
+    expect(alarmBar('FW Messpunkt', 'CO', '30')?.zones.map((z) => z.level)).toEqual(['ok', 'a1', 'a2'])
+    expect(alarmBar('FW Messpunkt', 'O₂', '20.9')?.zones.map((z) => z.level)).toEqual(['a2', 'a1', 'ok', 'a2'])
+    expect(alarmBar('FW Messpunkt', 'CO', '')?.at).toBeNull()
+    expect(alarmBar('FW Messpunkt', 'Raum', 'Gang')).toBeNull()
+  })
+})
+
 describe('presets that were silently absent', () => {
   it('every Schadenlage symbol can name a storey', () => {
     // Beschädigung / Teil- / Totalzerstörung / Überschwemmung had NO preset at all, so they were

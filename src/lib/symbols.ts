@@ -2,7 +2,8 @@ import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from './deploymentConfig'
 import { formatSymbolName } from './format'
 import { doneStatusText } from './objectDone'
-import type { CaptionMode, SymbolControl, SymbolProps } from '../types'
+import { serverNow } from './serverClock'
+import type { CaptionMode, Reading, SymbolControl, SymbolProps } from '../types'
 
 const presets = appConfig.symbols.presets
 
@@ -177,6 +178,160 @@ function captionPrimaryKey(name?: string): string | undefined {
   return p?.caption ?? p?.fields?.[0]
 }
 
+/** The fields of a symbol that are MEASURED VALUES (the preset's `readout`, appConfig). */
+const readoutKeys = (props: SymbolProps): readonly string[] =>
+  (props.symbol ? presets.byName[props.symbol]?.readout : undefined) ?? []
+
+/** A field value as any reader prints it: a measured value keeps its key («CO 180») — a bare
+ *  number names nothing — and everything else stays value-only. */
+const keyedValue = (props: SymbolProps, key: string, value: string) =>
+  readoutKeys(props).includes(key) ? `${key} ${value}` : value
+
+/** A symbol whose mark is its reading (TacticalSymbol · measured): its preset names measured fields. */
+export const isMeasuredSymbol = (props: SymbolProps) => readoutKeys(props).length > 0
+
+/** A measured value as a number – the decimal comma a radio report gets typed with included –
+ *  or null when the field holds no number. */
+const measuredNumber = (value?: string): number | null => {
+  const t = value?.trim().replace(',', '.')
+  const n = t ? Number(t) : NaN
+  return Number.isFinite(n) ? n : null
+}
+
+/** A measured value's alarm stage: calm, Voralarm (A1, amber) or Hauptalarm (A2, red). */
+export type ReadingLevel = 'ok' | 'a1' | 'a2'
+const LEVEL_RANK: Record<ReadingLevel, number> = { ok: 0, a1: 1, a2: 2 }
+
+const reached = (lim: { atLeast?: number; below?: number } | undefined, n: number) =>
+  !!lim && ((lim.atLeast != null && n >= lim.atLeast) || (lim.below != null && n < lim.below))
+
+/** The stage `value` of the measured field `key` has reached – the preset's `alarm` (appConfig),
+ *  the higher stage winning. A field without limits, or no number, is calm. */
+export function readingLevel(symbol: string | undefined, key: string, value?: string): ReadingLevel {
+  const lim = symbol ? presets.byName[symbol]?.alarm?.[key] : undefined
+  const n = measuredNumber(value)
+  if (!lim || n == null) return 'ok'
+  return reached(lim.a2, n) ? 'a2' : reached(lim.a1, n) ? 'a1' : 'ok'
+}
+
+/** The panel's colour bar under a measured field (ReadingBar): one band per stretch between two
+ *  limits, with the stage a value inside it reaches, and where `value` sits (null when it is no
+ *  number). Not to scale on purpose – a calm band gets three times the room of an alarm band: the
+ *  bar answers «how close to amber/red», not «how much». Null for a field without limits. */
+export function alarmBar(symbol: string | undefined, key: string, value?: string): { zones: { from: number; to: number; level: ReadingLevel }[]; at: number | null } | null {
+  const lim = symbol ? presets.byName[symbol]?.alarm?.[key] : undefined
+  const cuts = [...new Set([lim?.a1, lim?.a2].flatMap((l) => [l?.below, l?.atLeast]).filter((x): x is number => x != null))].sort((a, b) => a - b)
+  if (!cuts.length) return null
+  const probes = [cuts[0] - 1, ...cuts.map((c, i) => (i + 1 < cuts.length ? (c + cuts[i + 1]) / 2 : c + 1))]
+  const levels = probes.map((x) => readingLevel(symbol, key, String(x)))
+  const weights = levels.map((l) => (l === 'ok' ? 3 : 1))
+  const total = weights.reduce((a, b) => a + b, 0)
+  let from = 0
+  const zones = levels.map((level, i) => {
+    const z = { from, to: from + weights[i] / total, level }
+    from = z.to
+    return z
+  })
+  const n = measuredNumber(value)
+  if (n == null) return { zones, at: null }
+  // inside its band, between the band's two limits; the first band starts at 0 (no gas is
+  // negative), the open last one runs as wide again as the band before it
+  const b = cuts.findIndex((c) => n < c) === -1 ? cuts.length : cuts.findIndex((c) => n < c)
+  const lo = b === 0 ? Math.min(0, cuts[0]) : cuts[b - 1]
+  const hi = b < cuts.length ? cuts[b] : cuts[b - 1] + (cuts[b - 1] - (b >= 2 ? cuts[b - 2] : 0) || 1)
+  const f = Math.min(1, Math.max(0, hi > lo ? (n - lo) / (hi - lo) : 0))
+  return { zones, at: zones[b].from + f * (zones[b].to - zones[b].from) }
+}
+
+/** What a measured symbol's mark says (TacticalSymbol · reading). */
+export interface SymbolReading {
+  /** the gas the mark wears, keyed – «CO 180»; null for a point placed but not yet measured */
+  text: string | null
+  /** that value's alarm stage – the mark turns amber (A1) or red (A2) */
+  level: ReadingLevel
+  /** whole minutes since the last reading; null without a history (points from before 27.10.) */
+  ageMin: number | null
+  /** older than the preset's `staleMin`: the colour moves to the outline and the age shows */
+  stale: boolean
+}
+
+/**
+ * The value a measured symbol wears AS its mark (the Messpunkt, 26./27.10.2026). The WORST gas
+ * wins – the highest alarm stage, the earlier one in preset order on a tie – so an «Ex 12» is
+ * never hidden behind a harmless «CO 14». Null for every symbol without a `readout`.
+ *
+ * A reading is part of the mark, not a caption: the label pass books it as the glyph's own
+ * footprint instead of suppressing it – a hidden reading is a wrong picture of the building.
+ */
+export function symbolReading(props: SymbolProps, now = Date.now()): SymbolReading | null {
+  const keys = readoutKeys(props)
+  if (!keys.length) return null
+  const fields = props.fields ?? {}
+  const filled = keys.filter((k) => fields[k]?.trim())
+  const level = (k: string) => readingLevel(props.symbol, k, fields[k])
+  const worst = filled.reduce<string | undefined>((best, k) => (best == null || LEVEL_RANK[level(k)] > LEVEL_RANK[level(best)] ? k : best), undefined)
+  const rs = props.readings; const last = rs?.length ? rs[rs.length - 1].t : undefined
+  const ageMin = last != null ? Math.max(0, Math.floor((now - last) / 60_000)) : null
+  const staleMin = props.symbol ? presets.byName[props.symbol]?.staleMin : undefined
+  return {
+    text: worst ? `${worst} ${fields[worst].trim()}` : null,
+    level: worst ? level(worst) : 'ok',
+    ageMin,
+    stale: !!worst && ageMin != null && staleMin != null && ageMin >= staleMin,
+  }
+}
+
+/** an old reading's age on its pill – «18′», the minute sign standing in for «vor … min» */
+export const readingAge = (r: SymbolReading) => (r.ageMin != null ? `${r.ageMin}′` : '')
+
+/** Everything the label pass measures of a reading pill (useLabelPass · lib/mapView SYM_PILL_STYLE). */
+/** How alarming a reading is, for sorting (StackReadings, the Karte's «Messungen» button). */
+export const readingRank = (r: SymbolReading | null) => (r ? LEVEL_RANK[r.level] : -1)
+
+export const readingPillText = (r: SymbolReading) => [r.text, r.stale ? readingAge(r) : ''].filter(Boolean).join(' ')
+
+/** The reading's text alone («CO 180») – what the label pass measures and the legend prints. */
+export function symbolReadoutText(props: SymbolProps): string | null {
+  return symbolReading(props)?.text ?? null
+}
+
+/** The measured fields of `fields` that hold a value – one history row's `v`. */
+const measuredValues = (props: SymbolProps, fields: Record<string, string>) =>
+  Object.fromEntries(readoutKeys(props).flatMap((k) => (fields[k]?.trim() ? [[k, fields[k].trim()]] : [])))
+
+/**
+ * The history after the panel changed a measured symbol's fields to `fields`: one more row when
+ * the measured values differ from the last row, else the history as it was. ALWAYS appends –
+ * never rewrites a row – so a merge of two tablets is a plain union (lib/mergeWorkspace); that one
+ * radio report typed gas by gas is ONE reading is a display rule (readingRows).
+ */
+export function recordReading(props: SymbolProps, fields: Record<string, string>, now = Date.now()): Reading[] | undefined {
+  if (!readoutKeys(props).length) return props.readings
+  const v = measuredValues(props, fields)
+  const last = props.readings?.[props.readings.length - 1]
+  const same = (a: Record<string, string>, b: Record<string, string>) =>
+    Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([k, x]) => b[k] === x)
+  if (!Object.keys(v).length || (last && same(last.v, v))) return props.readings
+  return [...(props.readings ?? []), { t: now, v }]
+}
+
+/** The `readings` half of a field commit – empty for every symbol without a measured field and
+ *  for a change that left the measured values as they were, so no other object grows the key. */
+export function readingPatch(props: SymbolProps, fields: Record<string, string>, now = serverNow()): { readings?: Reading[] } {
+  const readings = recordReading(props, fields, now)
+  return readings === props.readings ? {} : { readings }
+}
+
+/** Rows typed within this long of the next one belong to the same radio report. */
+export const READING_BURST_MS = 2 * 60_000
+
+/** The history as the panel lists it: newest first, each burst of edits (one report typed gas by
+ *  gas, a typo fixed) folded into its last row. */
+export function readingRows(props: SymbolProps): Reading[] {
+  const rs = props.readings ?? []
+  return rs.filter((r, i) => !(i + 1 < rs.length && rs[i + 1].t - r.t < READING_BURST_MS)).reverse()
+}
+
 /** A label worth printing: operator-entered text, NOT the auto-formatted symbol name (which the
  *  glyph already conveys). The user-named vehicle's title ("TLF 1") passes; a plain "Hydrant"
  *  does not. */
@@ -230,7 +385,7 @@ export function symbolLegendText(props: SymbolProps, globalMode: CaptionMode): s
   // a vehicle's label IS its name («TLF 1») and never equals the symbol's own, so it passes
   // …and a symbol marked «Gelöscht / erledigt» (lib/objectDone) ends on that STATUS with its time
   // — «Feuer · gelöscht 20:40» — the one word a grey glyph on paper cannot say by itself
-  const parts = [formatSymbolName(props.symbol), customLabel(props), ...keys.map((k) => fields[k]?.trim()), globalMode === 'all' ? props.notes?.trim() : undefined, doneStatusText(props) ?? undefined]
+  const parts = [formatSymbolName(props.symbol), customLabel(props), ...keys.map((k) => fields[k]?.trim() && keyedValue(props, k, fields[k].trim())), globalMode === 'all' ? props.notes?.trim() : undefined, doneStatusText(props) ?? undefined]
   const seen = new Set<string>()
   // one line: the legend wraps by itself, and a newline would start a second, unnumbered row
   return parts.filter((v): v is string => !!v && !seen.has(v) && !!seen.add(v)).map((v) => v.replace(/\s*\n\s*/g, ' ')).join(' · ')
@@ -252,14 +407,13 @@ export function symbolCaptionText(props: SymbolProps, globalMode: CaptionMode): 
   if (vehicle && mode !== 'all') return null
   const fields = props.fields ?? {}
   const order = (props.symbol ? presets.byName[props.symbol]?.fields : undefined) ?? Object.keys(fields)
-  const filled = order.map((k) => fields[k]?.trim()).filter((v): v is string => !!v)
   const label = vehicle ? undefined : customLabel(props)
   if (mode === 'all') {
     // 'all' = EVERYTHING the operator typed on this symbol: the preset detail fields (in canonical
     // order) PLUS any custom key/value rows they added PLUS the free-text notes — not just the
     // pre-defined preset fields. Value-only (the glyph implies the keys), de-duplicated.
     const extraKeys = Object.keys(fields).filter((k) => !order.includes(k))
-    const allFilled = [...order, ...extraKeys].map((k) => fields[k]?.trim()).filter((v): v is string => !!v)
+    const allFilled = [...order, ...extraKeys].map((k) => fields[k]?.trim() && keyedValue(props, k, fields[k].trim())).filter((v): v is string => !!v)
     const notes = props.notes?.trim()
     const seen = new Set<string>()
     const lines = [label, ...allFilled, notes].filter((v): v is string => !!v && !seen.has(v) && !!seen.add(v))
@@ -275,10 +429,14 @@ export function symbolCaptionText(props: SymbolProps, globalMode: CaptionMode): 
     const name = fields['Name']?.trim()
     if (funktion && name) return `${funktion} · ${name}`
   }
-  // 'auto': the primary discriminating value, else the first filled field, else a custom label
+  // 'auto': the primary discriminating value, else the first filled field, else a custom label.
+  // A measured value never: it is already ON the glyph (symbolReadoutText), so under it 'auto'
+  // prints only what the readout cannot say — the Messpunkt's Raum.
+  const measured = readoutKeys(props)
   const primaryKey = captionPrimaryKey(props.symbol)
-  const primary = primaryKey ? fields[primaryKey]?.trim() : undefined
-  return primary || filled[0] || label || null
+  const primary = primaryKey && !measured.includes(primaryKey) ? fields[primaryKey]?.trim() : undefined
+  const firstPlain = order.find((k) => !measured.includes(k) && fields[k]?.trim())
+  return primary || (firstPlain && fields[firstPlain].trim()) || label || null
 }
 
 // ─── admin: the configurable symbol/field catalog ──────────────────────────────────

@@ -11,7 +11,7 @@
 // removal (usePlanRemoval), «Karte verknüpfen» (usePlanGeoref), the Tafel's pages
 // (usePlanTafelPages), and the render pieces PlanAnno / PlanLineDecor / WbControls.
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BuildingFloat } from './BuildingFloat'
 import type { BuildingInfo } from '../lib/api/building'
 import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
@@ -57,7 +57,7 @@ import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, typ
 import { doneAct, doneOf, donePlace, offersDone } from '../lib/objectDone'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import { useHazardData } from '../lib/useHazardData'
-import { symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys } from '../lib/symbols'
+import { isMeasuredSymbol, readingPatch, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys } from '../lib/symbols'
 import { ContextPanel } from './ContextPanel'
 import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
@@ -69,13 +69,14 @@ import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
-import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
+import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, STACK_READINGS_LANE, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
 import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachAnnos, dwellFor, flipLine, forkPortPoint, wireFreed, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, withDetach, type AnnoDetachPatch, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from '../lib/stackFit'
 import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
 import type { FloorPackView } from '../lib/floorPackBinding'
 import { stackInstances } from '../lib/stackFloors'
+import { StackReadings } from './ReadingParts'
 import { circleRadiusM, circleRadiusN, pathMetres, polyAreaM2, scaleLampTone, type PlanScale } from '../lib/planScale'
 import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
 import { isSelectOnlySurface } from '../lib/useObjectPlans'
@@ -300,6 +301,9 @@ interface Props {
   /** the Gebäude-Steckbrief (lib/api/building) — its chip joins this row beside the Objekt chip,
    *  the same chip the Karte's row carries (BuildingFloat, Lage ↔ Plan) */
   buildingInfo?: BuildingInfo | null
+  /** the «Messungen» chip (components/ReadingsChip), built by the workspace: it lists the Karte's
+   *  points too, and a row may leave this sheet. Joins the bottom-left row after the Gebäude chips. */
+  readingsChip?: ReactNode
   /** the Einsatz the banner's dismissal is remembered for, and the address it contrasts with */
   incidentId?: string
   incidentAddress?: string | null
@@ -366,7 +370,7 @@ export interface PlanLogExtra {
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
 
-export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
   // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
@@ -563,6 +567,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   useEffect(() => { setHiddenFloors(incidentId ? loadHiddenFloors(incidentId) : []) }, [incidentId])
   const floorsTTB = useMemo(() => shownFloors(allFloorsTTB, hiddenFloors), [allFloorsTTB, hiddenFloors])
   const N = floorsTTB.length || 1
+  // the Gebäude's Messungen beside the storeys (ReadingParts · StackReadings): every Messpunkt on a
+  // shown storey, once per storey it spans. Not on a phone – there is no lane beside the stack.
+  const stackReadings = useMemo(
+    () => (stack && !isPhone ? annos.filter((a) => a.kind === 'symbol' && isMeasuredSymbol(a)).flatMap((a) => stackInstances(a, floorsTTB)) : []),
+    [stack, isPhone, annos, floorsTTB],
+  )
   const putHidden = (next: number[]) => {
     setHiddenFloors(next)
     if (incidentId) saveHiddenFloors(incidentId, next)
@@ -692,7 +702,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // …and the rails: the WINDOW decides whether they are floating side rails or bottom bars, not
   // the canvas width — during the «Karte verknüpfen» split the canvas is half a screen wide with
   // both rails still in place (lib/whiteboard · sideInsets).
-  const side = useMemo(() => sideInsets(vp.w, isPhone), [vp.w, isPhone])
+  const side = useMemo(() => {
+    const base = sideInsets(vp.w, isPhone)
+    // …and with Messpunkte, the stack moves over for their list (StackReadings)
+    return stackReadings.length ? { ...base, l: base.l + STACK_READINGS_LANE } : base
+  }, [vp.w, isPhone, stackReadings.length])
   const fit = useMemo(() => {
     const pad = stack ? STACK_VPAD : 0
     return containFit(vp, effAspect, { top: topRes + pad, bottom: botRes + pad, l: side.l, r: side.r })
@@ -1778,8 +1792,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // (09-whiteboard · .wb-botleft), and a hazard is glyph + WORD, so «⚠ Gas · PV» took the room the
   // Objekt chip's name needs — the name went down to its glyph, and «which object are these
   // plans of» stopped being answered. On a phone the Karte's row carries the chip, one tap away.
+  // `compact`: it is the Objekt chip's second half (R1, 27.10.2026) – the hazard words alone
+  // («⚠ Gas»), the glyph alone without one; the address beside it already says which building.
   const buildingFloat = !isPhone && !objectChipHidden && (objectName || objectAddress)
-    ? <BuildingFloat info={buildingInfo ?? null} />
+    ? <BuildingFloat info={buildingInfo ?? null} compact />
     : null
 
 
@@ -1894,7 +1910,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         {nearbyBanner}
         {/* the row is the reader's to render: on a tablet its section bar stands in it (PdfScroller) */}
         <PdfScroller key={active.id} url={planUrl(active.imageUrl)} fileName={[objectName, active.title || active.code].filter(Boolean).join(' – ')}
-          row={<>{objectChip}{buildingFloat}</>} />
+          row={<><span className="wb-join">{objectChip}{buildingFloat}</span>{readingsChip}</>} />
       </div>
     )
   }
@@ -2437,6 +2453,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             )}
             {/* add a storey above (OG) / below (UG) — attached to the stack itself, just above
                 the top floor and below the bottom floor, like a real building section */}
+            {stackReadings.length > 0 && (
+              <StackReadings points={stackReadings} floorsTTB={floorsTTB} storeyName={storeyName} boardH={sH}
+                onPick={(id) => { setSelId(id); setSelIds([]) }} />
+            )}
             {stack && !readOnly && !building?.pack && (
               <>
                 <button className="wb-floor-add wb-floor-add-up" onPointerDown={(e) => e.stopPropagation()} onClick={() => onAddFloor(1)} title={appConfig.copy.whiteboard.addFloorUp}><Icon id="plus" />OG</button>
@@ -2654,7 +2674,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           }}
           onFields={(fields) => {
             const before = selSymbol.fields ?? {}
-            patchCommit(selSymbol.id, { fields })
+            // a Messpunkt's history grows in the same step (lib/symbols · recordReading)
+            patchCommit(selSymbol.id, { fields, ...readingPatch(selSymbol, fields) })
             for (const [k, v] of Object.entries(fields)) {
               if (v.trim() && before[k] !== v) onRosterField?.(selSymbol.symbol, selSymbol.label, k, v)
             }
@@ -3009,11 +3030,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           straight back when the mode ends. On a phone the instrument is the bar instead
           (GeorefMode · GeorefModeBars), so this row simply stays empty of it. */}
       {georefArmed && !isPhone ? <GeorefInstrument mode={georef} /> : <>
+      {/* R1 (owner, 27.10.2026): chips that say one thing together share ONE glass, each half
+          its own tap – the Objekt with its Gebäude-Info, and the Massstab with «⌖ Karte» below */}
       {/* the Tafel's pages: «which sheet», in the row where a plan says «which place» (owner) */}
       {strip}
-      {objectChip}
-      {buildingFloat}
+      <span className="wb-join">{objectChip}{buildingFloat}</span>
       {buildingChip}
+      {readingsChip}
+      <span className="wb-join wb-join-lamps">
       {/* Maßstab — trust chip: shows where the active plan's scale comes from. A manually
           calibrated scale remains a control because tapping it edits that calibration. An
           automatic scale is different: it is DERIVED from the Karte link and must therefore be
@@ -3116,6 +3140,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           <span className="wb-lamp" data-tone={georefChipTone(georefState)} aria-hidden="true" />
         </button>
       )}
+      </span>
       </>}
       </div>
 

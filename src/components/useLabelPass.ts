@@ -3,11 +3,11 @@ import type { Map as MlMap } from 'maplibre-gl'
 import type { CaptionMode, Drawing, Entity, LayerId, LngLat } from '../types'
 import { dockSlots } from '../lib/docking'
 import { cachedLabelSize, LABEL_RANK, placeLabels, type LabelBox, type LabelCandidate, type LabelStyle } from '../lib/labelPass'
-import { effectiveLayer, END_TAG_LABEL_STYLE, READOUT_LABEL_STYLE, shapePx, symPx, SYM_CAPTION_GAP, SYM_CAPTION_STYLE, teamDockAnchor, teamStripPx, TEAM_DOT_GAP, TEAM_DOT_PX, TEAM_LABEL_STYLE } from '../lib/mapView'
+import { effectiveLayer, END_TAG_LABEL_STYLE, READOUT_LABEL_STYLE, shapePx, symPx, SYM_CAPTION_GAP, SYM_CAPTION_STYLE, SYM_PILL_STYLE, teamDockAnchor, teamStripPx, TEAM_DOT_GAP, TEAM_DOT_PX, TEAM_LABEL_STYLE } from '../lib/mapView'
 import { noteWPx } from '../lib/notes'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
 import { floorBadge } from '../lib/symbolRender'
-import { isNamedPerson, symbolCaptionText } from '../lib/symbols'
+import { isNamedPerson, readingPillText, symbolCaptionText, symbolReading } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import type { LineTone, TeamLineBadge } from '../lib/truppLines'
 
@@ -135,6 +135,14 @@ export function mapLabelDecisions(px: (c: LngLat) => { x: number; y: number }, s
     // only the glyph branch prints a caption (MapMarkers) — a note's own text is its body,
     // not a caption, and asking symbolCaptionText for one would invent a phantom box
     if (e.kind === 'shape' || e.kind === 'note' || e.kind === 'photo') continue
+    // a measured symbol's mark IS its reading pill (TacticalSymbol · measured), wider than the
+    // glyph box: booked like the glyph, never a candidate — the pass moves other labels off it,
+    // never it off the map. Measured at load time; the few px an «18′» adds later don't matter.
+    const reading = symbolReading(e)
+    if (reading) {
+      const r = cachedLabelSize(readingPillText(reading), SYM_PILL_STYLE)
+      occupied.push({ x: p.x - r.w / 2, y: p.y - r.h / 2, w: r.w, h: r.h })
+    }
     const cap = symbolCaptionText(e, captionMode)
     if (!cap) continue
     const s = cachedLabelSize(softHyphenateText(cap), LABEL_STYLE.caption)

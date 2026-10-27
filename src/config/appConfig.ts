@@ -4,6 +4,12 @@ import { getCopy, type Copy } from './copy'
 /** One symbol's curated defaults: which built-in steppers make sense for it
  *  (`controls`) and the empty detail rows it drops in with (`fields`). Omitted
  *  `controls` = none; omitted `fields` = no detail rows. See lib/symbols. */
+/** One alarm stage of a measured field: reached from `atLeast`, or below `below`. */
+interface AlarmLimit {
+  atLeast?: number
+  below?: number
+}
+
 interface SymbolPreset {
   controls?: SymbolControl[]
   fields?: string[]
@@ -12,6 +18,17 @@ interface SymbolPreset {
    *  entry when omitted; set it where the first field isn't the readable one (e.g. a
    *  Gefahrentafel leads with 'UN-Nr.' but 'Stoff' is what a passing operator wants to read). */
   caption?: string
+  /** which `fields` are MEASURED VALUES («CO», «O₂» …): a bare «180» names nothing, so every
+   *  place that prints one keys it («CO 180»), and the first filled one rides on the glyph as
+   *  its readout instead of hanging under it as a caption (lib/symbols · symbolReadoutText). */
+  readout?: string[]
+  /** the detector's two alarm stages per `readout` key: `a1` (Voralarm, amber) and `a2`
+   *  (Hauptalarm, red), each from `atLeast` and/or `below` – O₂ alarms both ways. The higher stage
+   *  wins. Station-overridable via the config (lib/symbols · readingLevel). */
+  alarm?: Record<string, { a1?: AlarmLimit; a2?: AlarmLimit }>
+  /** minutes after which the last reading counts as old: the mark keeps its colour on the outline
+   *  and says its age («18′») – an old danger must stay visible without looking fresh. */
+  staleMin?: number
   /** shipped suggestion lists for detail fields, keyed by field name. A hint, never a cage:
    *  the field stays free text, and a deployment's own `fleet.attributeLists` entry for the
    *  same symbol+field wins over anything here (lib/symbols · symbolFieldOptions). */
@@ -330,6 +347,7 @@ const base = {
       'FW Gefahr C': 'Chemie',
       'FW Gefahr W': 'Wasser',
       'FW Elektroanlage': 'Elektroanlage',
+      'FW Messpunkt': 'Messpunkt',
       'VKF Patientensammelstelle': 'Patientensammelstelle',
       'VKF Sanitaetshilfsstelle': 'Sanitätshilfsstelle',
       'VKF Totensammelstelle': 'Totensammelstelle',
@@ -466,6 +484,24 @@ const base = {
         'FW Gefahr Radioaktiv': { controls: ['floor'] },
         'FW Elektroanlage': { controls: ['floor'] },
         'FW Gefahr W': { controls: ['floor'] },
+        // Messpunkt (26.10.2026): one point per room, the multigas detector's four channels as
+        // its measured fields – one radio report («CO 72, Ex null, O₂ 20,9») fills them in one go. CO
+        // first: it is what a Nachkontrolle measures and what the readout shows by default.
+        // Raum first, the way the Trupp reports it («2. OG Gang: …»), and it is the caption: the
+        // values ride on the glyph itself, so under it only the room is left to say.
+        // The alarm stages are the Dräger-typical A1/A2 settings (CO 30/60 ppm, Ex 10/20 %UEG, H₂S
+        // 5/10 ppm, O₂ A1 below 19, A2 from 23 Vol%) until a station overrides them with what its
+        // own Multiwarn is set to – plus O₂ red below 17 Vol%, where a filter mask stops being allowed.
+        'FW Messpunkt': {
+          controls: ['floor'], fields: ['Raum', 'CO', 'Ex', 'O₂', 'H₂S'], caption: 'Raum', readout: ['CO', 'Ex', 'O₂', 'H₂S'],
+          alarm: {
+            CO: { a1: { atLeast: 30 }, a2: { atLeast: 60 } },
+            Ex: { a1: { atLeast: 10 }, a2: { atLeast: 20 } },
+            'O₂': { a1: { below: 19 }, a2: { below: 17, atLeast: 23 } },
+            'H₂S': { a1: { atLeast: 5 }, a2: { atLeast: 10 } },
+          },
+          staleMin: 15,
+        },
         // ── Personen / Sanität ── the label/name says it; no count on the plain places. A
         // Sammelstelle is RUN by somebody (14.09.: «Bedienung» roster picker, last field).
         'VKF Patientensammelstelle': { controls: ['count', 'floor'], fields: ['Bedienung'] },
