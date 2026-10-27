@@ -55,11 +55,13 @@ function ItemRow({
           </span>
         </span>
       </TickRow>
+      {/* the deep link is its glyph alone, a --tap square at the row's right edge (27.10.2026,
+          owner pick 11A: «Zeichnen ›» took a third of a phone row and broke the text into five
+          lines); the word stays its name for the reader and the tooltip */}
       {item.action && onAction && (
-        <button className={s['cl-deeplink']} onClick={() => onAction(item.action!)} title={CL.actionLabels[item.action]}>
+        <button className={s['cl-deeplink']} onClick={() => onAction(item.action!)}
+          title={CL.actionLabels[item.action]} aria-label={CL.actionLabels[item.action]}>
           <Icon id={actionIcon[item.action]} />
-          <span>{CL.actionLabels[item.action]}</span>
-          <Icon id="chevron" />
         </button>
       )}
     </div>
