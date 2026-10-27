@@ -627,7 +627,7 @@ describe('the Grundriss presets', () => {
     tapAt(150, 150); tapAt(250, 170) // the second point runs straight on: y stays the first's
     tapAt(251, 151) // the last point again: finished
     const [wall] = added(onChange)
-    expect(wall).toMatchObject({ kind: 'draw', role: 'wand', color: appConfig.drawing.colors[4], width: 8 })
+    expect(wall).toMatchObject({ kind: 'draw', role: 'wand', color: appConfig.drawing.colors[4], width: 3 })
     expect(wall.pts).toHaveLength(2)
     expect(wall.pts![1][1]).toBeCloseTo(wall.pts![0][1], 6)
     // still armed: no selection, the preset still on, and the next tap starts the next piece
@@ -1761,6 +1761,15 @@ describe('gesture contracts of the plan surface', () => {
       expect(find('d1').rotation).not.toBe(0)
       expect(edits(emit).map((c) => (c[1] as { id: string }).id)).toEqual(['w1', 'd1'])
       expect(edits(emit)[1][1]).toMatchObject({ patch: { x: find('d1').x, y: find('d1').y, rotation: find('d1').rotation } })
+    })
+
+    it('a Wand in the Grundriss dark is drawn in the theme ink, a recoloured one in its own colour', () => {
+      const red: BoardAnno = { ...wand, id: 'w2', color: '#e8392b', pts: [[0.2, 0.3], [0.8, 0.3]] }
+      const { container } = mount([{ ...wand, color: appConfig.drawing.colors[4], width: 3 }, red], twoStoreys)
+      const strokes = [...container.querySelectorAll('polyline')].map((p) => p.getAttribute('stroke'))
+      expect(strokes).toContain('var(--ink-dim)')
+      expect(strokes).toContain('#e8392b')
+      expect(strokes).not.toContain(appConfig.drawing.colors[4])
     })
 
     it('a selected Wand offers no hose fields (Leitung Nr., Typ) – a plain Linie still does', () => {

@@ -35,11 +35,13 @@ export const INK_DEFAULTS = { color: appConfig.drawing.defaultColor, width: 5, d
 /** A Grundriss preset of Linie (Wand, Weg) or Fläche (Raum) – `BoardAnno.role`. */
 export type GrundrissRole = NonNullable<BoardAnno['role']>
 
-/** The look each Grundriss preset is born with (1B mock, 27.10.2026): a Wand dark, solid and
- *  thick; a Weg the default ink, dashed, with an arrowhead; a Raum a dark outline with a light
- *  wash. Edited afterwards like any ink. `COLORS[4]` is the palette's dark. */
+/** The look each Grundriss preset is born with (1B mock, 27.10.2026): a Wand dark and solid, a
+ *  touch bolder than the building outline; a Weg the default ink, dashed, with an arrowhead; a
+ *  Raum a dark outline with a light wash. Edited afterwards like any ink. `COLORS[4]` is the
+ *  palette's dark – on the board it is drawn in the theme's ink instead (WbControls · inkOf),
+ *  so a wall stays visible on the night sheet; print and export keep the stored dark. */
 export const GRUNDRISS_STYLE = {
-  wand: { color: COLORS[4], width: 8 },
+  wand: { color: COLORS[4], width: 3 },
   weg: { color: INK_DEFAULTS.color, width: 4, dashed: true, arrow: true },
   raum: { color: COLORS[4], width: 2, fillOpacity: 0.06 },
 } as const satisfies Record<GrundrissRole, Partial<BoardAnno>>
