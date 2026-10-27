@@ -111,6 +111,8 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     deleteConfirmBtn: 'Supprimer définitivement',
     deleted: 'Exercice supprimé',
     filterAria: 'Filtrer les interventions',
+    filterKindHead: 'Réel / exercice',
+    filterAll: 'Toutes',
     filterReal: 'Réel',
     filterExercise: 'Exercice',
     filterType: 'Type d’intervention',
