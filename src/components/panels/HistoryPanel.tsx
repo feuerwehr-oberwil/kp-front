@@ -3,10 +3,13 @@ import { Icon } from '../../lib/icons'
 import { toast, confirmDialog } from '../../lib/ui'
 import { ApiError, isUnverifiable } from '../../lib/api'
 import { useOnline } from '../../lib/useOnline'
-import { filterIncidents, historyGroupKey, historyWhen, monthLabel } from '../../lib/historyGroups'
+import { NO_HISTORY_FILTER, applyHistoryFilter, filterIncidents, historyGroupKey, historyTypes, historyWhen, monthLabel, type HistoryFilter } from '../../lib/historyGroups'
 import { appConfig } from '../../config/appConfig'
 import { shortAddress } from '../../lib/deploymentConfig'
 import { EmptyState } from '../EmptyState'
+import { Menu } from '../../lib/overlays'
+import { cx } from '../../lib/cx'
+import c from '../SurfaceControls.module.css'
 import { SearchField } from '../SearchField'
 import { fillTemplate, fmtSpanShort, formatLocale } from '../../lib/format'
 import {
@@ -94,7 +97,18 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
   // old incident findable months later (the reopen/ansehen path). Sorted active-first then
   // newest, so group keys change monotonically and a header renders on every key change.
   const [query, setQuery] = useState('')
-  const shown = filterIncidents(sorted, query)
+  // the quick filters (27.10.2026, owner): Ernstfall | Übung, one Einsatzart, Rapport offen –
+  // client-side, the list already carries every field they read (lib/historyGroups)
+  const [filter, setFilter] = useState<HistoryFilter>(NO_HISTORY_FILTER)
+  const types = historyTypes(sorted)
+  const shown = applyHistoryFilter(filterIncidents(sorted, query), filter)
+  const toggleKind = (kind: 'real' | 'exercise') => setFilter((f) => ({ ...f, kind: f.kind === kind ? null : kind }))
+  /** what is on, for the button's tooltip and name (Anwesenheit's way: never printed on the button) */
+  const filterOn = [
+    filter.kind === 'real' ? h.filterReal : filter.kind === 'exercise' ? h.filterExercise : null,
+    filter.type,
+    filter.rapportOpen ? h.filterRapportOpen : null,
+  ].filter(Boolean).join(' · ')
   const now = new Date()
   const groupTitle = (key: string) =>
     key === 'open' ? h.groupOpen : key === 'today' ? h.groupToday : key === 'week' ? h.groupWeek : monthLabel(key, formatLocale())
@@ -125,10 +139,47 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
         ? <EmptyState icon="list" title={h.emptyWindow} sub={windowNote} />
         : <EmptyState icon="list" title={h.empty} sub={h.emptySub} />)}
       {!online && onArchive && sorted.length > 0 && <p className="ip-hist-offline"><Icon id="warn" /> {h.offlineNote}</p>}
+      {/* the search line of a working list (owner, 27.10.2026 r2: «in-line with a filter button
+          the same way we have it for … people in Anwesenheiten») – SurfaceControls' search and
+          filter button, the filters behind it as ticks in a Menu. ONE channel for «filter is on»,
+          as there: the button's choice fill, what is on named in its tooltip and ticked inside.
+          Checkboxes keep the menu open, so several narrowings are set in one visit; «Alle» is
+          the readable «nothing filtered» row of each group. */}
       {sorted.length > 0 && (
-        <SearchField value={query} onChange={setQuery} placeholder={h.searchPlaceholder} aria-label={h.searchPlaceholder} />
+        <div className="ip-hist-controls">
+          <SearchField className={c.search} value={query} onChange={setQuery} placeholder={h.searchPlaceholder} aria-label={h.searchPlaceholder} />
+          <Menu
+            modal={false}
+            trigger={
+              <button type="button" className={cx(c.iconBtn, filterOn && c.iconBtnOn)}
+                aria-label={filterOn ? `${h.filterAria} – ${filterOn}` : h.filterAria}
+                title={filterOn ? `${h.filterAria} – ${filterOn}` : h.filterAria}>
+                <Icon id="filter" />
+              </button>
+            }
+            popupClassName={c.menuPop}
+            itemClassName={() => c.menuItem}
+            items={[
+              { kind: 'head' as const, label: h.filterKindHead },
+              { kind: 'check' as const, label: h.filterAll, checked: filter.kind == null, onChange: () => setFilter((f) => ({ ...f, kind: null })) },
+              { kind: 'check' as const, label: h.filterReal, checked: filter.kind === 'real', onChange: () => toggleKind('real') },
+              { kind: 'check' as const, label: h.filterExercise, checked: filter.kind === 'exercise', onChange: () => toggleKind('exercise') },
+              // only where there is a choice to make – one Einsatzart filters nothing
+              ...(types.length > 1 ? [
+                { kind: 'head' as const, label: h.filterType },
+                { kind: 'check' as const, label: h.filterAll, checked: filter.type == null, onChange: () => setFilter((f) => ({ ...f, type: null })) },
+                ...types.map((t) => ({
+                  kind: 'check' as const, label: t, checked: filter.type === t,
+                  onChange: () => setFilter((f) => ({ ...f, type: f.type === t ? null : t })),
+                })),
+              ] : []),
+              { kind: 'sep' as const },
+              { kind: 'check' as const, label: h.filterRapportOpen, checked: filter.rapportOpen, onChange: (on: boolean) => setFilter((f) => ({ ...f, rapportOpen: on })) },
+            ]}
+          />
+        </div>
       )}
-      {sorted.length > 0 && shown.length === 0 && <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: query.trim() })}</p>}
+      {sorted.length > 0 && shown.length === 0 && <p className="no-hits">{query.trim() ? fillTemplate(appConfig.copy.noHits, { q: query.trim() }) : h.filterNoHits}</p>}
       {rows.map(({ i, header }) => {
         return (
           <Fragment key={i.id}>

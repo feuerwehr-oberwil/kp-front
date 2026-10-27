@@ -72,11 +72,6 @@
    whole item the target; a done item says so by its ticked box and its faded text — the card
    keeps its plain surface (it was a green card with a green box, the one green tick in the app) */
 .cl-item .cl-tick { flex: 1 1 auto; min-width: 0; align-items: flex-start; }
-@media (pointer: coarse) {
-  /* the rest of the surface's targets (22.09.2026): the deep-link chips (26px); the rail's rows
-     are THE list row, --tap already */
-  .cl-deeplink { min-height: var(--tap); }
-}
 .cl-item-body { display: block; flex: 1 1 auto; min-width: 0; }
 .cl-tick .cl-item-body { padding-top: 2px; }
 .cl-item-text { display: block; font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); line-height: 1.35; }
@@ -88,13 +83,13 @@
 .cl-milestone :global(.i) { width: 12px; height: 12px; }
 /* completion metadata is secondary — small & muted, not a bright green banner (feedback: too prominent) */
 .cl-tickinfo { font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-faint); font-weight: var(--fw-medium); }
-.cl-deeplink { flex: none; align-self: center; display: inline-flex; align-items: center; gap: var(--sp-1); border: none;
-  background: var(--blue-12); color: var(--blue-strong); cursor: pointer; font-family: var(--body); font-size: var(--fs-1);
-  font-weight: var(--fw-bold); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); }
+/* the deep link (Zeichnen / Verlauf / Plan): its glyph alone in a --tap square, so the item's text
+   keeps the row (27.10.2026, owner pick 11A); the word is its aria-label and title */
+.cl-deeplink { flex: none; align-self: center; display: grid; place-items: center; width: var(--tap); height: var(--tap);
+  padding: 0; border: none; background: var(--blue-12); color: var(--blue-strong); cursor: pointer; border-radius: var(--r-sm); }
 @media (hover: hover) { .cl-deeplink:hover { background: var(--blue-16); } }
 .cl-deeplink:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.cl-deeplink :global(.i) { width: 13px; height: 13px; }
-.cl-deeplink :global(.i):last-child { width: 11px; height: 11px; opacity: .6; }
+.cl-deeplink :global(.i) { width: 19px; height: 19px; }
 
 /* read, not ticked (ChecklistReader, 19.10.2026): the items stand in an <ol>, each with its
    number where the box would be, and one quiet line above the first phase says where ticking

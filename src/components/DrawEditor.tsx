@@ -58,7 +58,6 @@ function EndingGlyph({ kind }: { kind: 'none' | 'arrow' | 'arrowStop' | 'teilstu
 }
 
 const COLORS = appConfig.drawing.colors
-const WIDTHS = appConfig.drawing.widths
 
 /** The style fields a line/area/circle exposes — model-agnostic so a Lage `Drawing` and a Plan
  *  `BoardAnno` can both drive the SAME editor (callers map their object → these primitives). */
@@ -115,7 +114,6 @@ interface Props {
    *  Omitted on the Plan — a building plan has no height data. */
   profileCoords?: LngLat[] | null
   onColor: (c: string) => void
-  onWidth: (w: number) => void
   onDashed: (dashed: boolean) => void
   /** live, per keystroke — silent (see useMapDrawing · patchDrawingLabelLive) */
   onLabel: (label: string) => void
@@ -186,7 +184,7 @@ interface Props {
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
   // The Auftrag input is uncontrolled (see its comment), so the unmount commit reads the DOM
   // node — kept, never nulled, because React detaches element refs before passive cleanups run.
   // Same idempotence guard as ContextPanel's Notizen: blur first, unmount second, one write.
@@ -199,7 +197,6 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
   }
   useCommitDraftOnUnmount(() => { if (auftragEl.current) commitAuftrag(auftragEl.current.value.trim()) })
   const color = drawing.color ?? DEFAULT_INK
-  const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
   const isCircle = drawing.kind === 'circle'
   const isArea = drawing.kind === 'area'
@@ -248,7 +245,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
   // the header shares the grip's drag (tap stays a tap there — see useSheetDrag)
   const sheetDrag = useSheetDrag({ onClose, tapToggles: false })
   return (
-    <CtxShell className="draw-editor">
+    <CtxShell className="draw-editor" onClose={onClose}>
       <SheetGrip onClose={onClose} />
       {/* the whole header drags the sheet too, not just the 44×5px grip above it */}
       <div className="ctx-head" {...sheetDrag}>
@@ -309,8 +306,67 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
           </div>
         )}
 
-        {/* style group — Füllung · Stil · Farbe · Stärke · Linie */}
+        {/* ⚠️ A line LEADS with its Abschluss (owner, sweep 27.10.2026 #7): Abschluss (+ Richtung
+            umkehren) → Linie → Farbe → Text/Marker → the rest. What a line's end says (Pfeil,
+            Entwicklungsgrenze, Teilstück) is what a line is selected for most; it sat under
+            Farbe, Stärke, Linie, Text and Marker, below the fold on a phone sheet. */}
+        {!readOnly && isLine && (
+          <div className="de-group">
+            {onEnding ? (
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.ending}</span>
+                <Segmented
+                  ariaLabel={appConfig.copy.drawingEditor.ending}
+                  value={drawing.teilstueck ? 'teilstueck' : drawing.arrow ? (drawing.arrowStop ? 'arrowStop' : 'arrow') : 'none'}
+                  onChange={onEnding}
+                  // ⚠️ `explain`, like the Typ letters below (data-holdexplain): four pictures whose
+                  // NAMES were all a hold ever gave, and the names are the least of it — «Pfeil mit
+                  // Stopp» is the Entwicklungsgrenze, and deleting a Teilstück releases every line
+                  // docked to its ports. Hold (touch) or hover (mouse) now answers with the
+                  // consequence instead. No `title`: the native tooltip would say it again.
+                  explain
+                  options={[
+                    { value: 'none', label: <EndingGlyph kind="none" />, title: appConfig.copy.drawingEditor.endingNoneWhat },
+                    { value: 'arrow', label: <EndingGlyph kind="arrow" />, title: appConfig.copy.drawingEditor.endingArrowWhat },
+                    { value: 'arrowStop', label: <EndingGlyph kind="arrowStop" />, title: appConfig.copy.drawingEditor.endingArrowStopWhat },
+                    { value: 'teilstueck', label: <EndingGlyph kind="teilstueck" />, title: appConfig.copy.drawingEditor.endingTeilstueckWhat },
+                  ]}
+                />
+              </div>
+            ) : (
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.arrow}</span>
+                <OnOff ariaLabel={appConfig.copy.drawingEditor.arrow} value={!!drawing.arrow} onChange={onArrow} />
+              </div>
+            )}
+            {/* Which end the Abschluss sits at is the second half of the same question — so it sits
+                in the same row block, directly under it. It does not MOVE the line: the drawn hose
+                stays where it is, only its direction of travel turns around (lib/lineAttachments ·
+                flipLine), and everything hooked to either end stays hooked where it physically is. */}
+            {/* ⚠️ An ACTION, not a state — so it is not one of this panel's Segmented pairs and
+                no longer wears their chrome (01.09.). It used to sit as a label plus a lone icon
+                chip in the `.de-toggle` box, which reads as «umkehren: on/off» while nothing here
+                is ever on: the row is one press that does one thing. */}
+            {onReverse && (
+              <button type="button" className="de-action" onClick={onReverse}>
+                <Icon id="swap" />{appConfig.copy.drawingEditor.reverse}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* style group — a line: Linie · Farbe; an area/circle: Füllung · Farbe.
+            ⚠️ NO «Stärke» on any of them (owner, sweep 27.10.2026 #7: «drop it» on the line, then
+            areas and circles too). A shape already drawn keeps the width it stored and a new one
+            starts from DRAW_DEFAULTS; only the control is gone. */}
         {!readOnly && <div className="de-group">
+          {isLine && (
+            <div className="de-row"><span>{appConfig.copy.drawingEditor.lineStyle}</span>
+              <span className="dh-widths">
+                {/* the chains belong to the STROKE, so they sit here with solid and dashed — the
+                    letter field below stays the letter field (lib/draw · LineStylePicker) */}
+                <LineStylePicker dashed={dashed} onChange={onDashed} marker={drawing.marker} onMarker={onMarker} />
+              </span>
+            </div>
+          )}
           {(isCircle || isArea) && (
             <div className="de-row"><span>{appConfig.copy.drawingEditor.fill}</span>
               <span className="dh-swatches">
@@ -340,8 +396,8 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             </div>
           )}
           {/* No preset row (09.09., «das ganze Stil-Ding»): a line's decoration is assembled
-              from the raw controls below — Abschluss (Pfeil/Teilstück), Stil (solid/dash/
-              Ketten), the letter field — and lib/lineStyle · lineStyleName still NAMES the
+              from the raw controls — Abschluss (Pfeil/Teilstück, the group above), Stil
+              (solid/dash/Ketten), the letter field — and lib/lineStyle · lineStyleName still NAMES the
               known combinations for the Verlauf («Rettungsachse gezeichnet»). */}
           <div className="de-row"><span>{appConfig.copy.drawingEditor.color}</span>
             <span className="dh-swatches">
@@ -351,20 +407,6 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
               {COLORS.map((c) => <button key={c} className={`dh-color ${color === c ? 'on' : ''}`} style={{ background: c }} aria-label={c} onClick={() => onColor(c)} />)}
             </span>
           </div>
-          <div className="de-row"><span>{appConfig.copy.drawingEditor.width}</span>
-            <span className="dh-widths">
-              {WIDTHS.map((w) => <button key={w} className={`dh-width ${width === w ? 'on' : ''}`} aria-label={`${appConfig.copy.drawingEditor.width} ${w}`} onClick={() => onWidth(w)}><span style={{ height: w }} /></button>)}
-            </span>
-          </div>
-          {isLine && (
-            <div className="de-row"><span>{appConfig.copy.drawingEditor.lineStyle}</span>
-              <span className="dh-widths">
-                {/* the chains belong to the STROKE, so they sit here with solid and dashed — the
-                    letter field below stays the letter field (lib/draw · LineStylePicker) */}
-                <LineStylePicker dashed={dashed} onChange={onDashed} marker={drawing.marker} onMarker={onMarker} />
-              </span>
-            </div>
-          )}
         </div>}
 
         {/* read-only: the shape's own text is the one style field worth stating — it names the
@@ -489,47 +531,9 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
           </div>
         )}
 
-        {/* FKS line group — Abschluss · Inhalt · Leitung-Nr · Stockwerk · Länge */}
+        {/* FKS line group — Inhalt · Stockwerk · Leitung-Nr · Trupp (the Abschluss leads the sheet) */}
         {!readOnly && isLine && (
           <div className="de-group">
-            {onEnding ? (
-              <div className="de-row"><span>{appConfig.copy.drawingEditor.ending}</span>
-                <Segmented
-                  ariaLabel={appConfig.copy.drawingEditor.ending}
-                  value={drawing.teilstueck ? 'teilstueck' : drawing.arrow ? (drawing.arrowStop ? 'arrowStop' : 'arrow') : 'none'}
-                  onChange={onEnding}
-                  // ⚠️ `explain`, like the Typ letters below (data-holdexplain): four pictures whose
-                  // NAMES were all a hold ever gave, and the names are the least of it — «Pfeil mit
-                  // Stopp» is the Entwicklungsgrenze, and deleting a Teilstück releases every line
-                  // docked to its ports. Hold (touch) or hover (mouse) now answers with the
-                  // consequence instead. No `title`: the native tooltip would say it again.
-                  explain
-                  options={[
-                    { value: 'none', label: <EndingGlyph kind="none" />, title: appConfig.copy.drawingEditor.endingNoneWhat },
-                    { value: 'arrow', label: <EndingGlyph kind="arrow" />, title: appConfig.copy.drawingEditor.endingArrowWhat },
-                    { value: 'arrowStop', label: <EndingGlyph kind="arrowStop" />, title: appConfig.copy.drawingEditor.endingArrowStopWhat },
-                    { value: 'teilstueck', label: <EndingGlyph kind="teilstueck" />, title: appConfig.copy.drawingEditor.endingTeilstueckWhat },
-                  ]}
-                />
-              </div>
-            ) : (
-              <div className="de-row"><span>{appConfig.copy.drawingEditor.arrow}</span>
-                <OnOff ariaLabel={appConfig.copy.drawingEditor.arrow} value={!!drawing.arrow} onChange={onArrow} />
-              </div>
-            )}
-            {/* Which end the Abschluss sits at is the second half of the same question — so it sits
-                in the same row block, directly under it. It does not MOVE the line: the drawn hose
-                stays where it is, only its direction of travel turns around (lib/lineAttachments ·
-                flipLine), and everything hooked to either end stays hooked where it physically is. */}
-            {/* ⚠️ An ACTION, not a state — so it is not one of this panel's Segmented pairs and
-                no longer wears their chrome (01.09.). It used to sit as a label plus a lone icon
-                chip in the `.de-toggle` box, which reads as «umkehren: on/off» while nothing here
-                is ever on: the row is one press that does one thing. */}
-            {onReverse && (
-              <button type="button" className="de-action" onClick={onReverse}>
-                <Icon id="swap" />{appConfig.copy.drawingEditor.reverse}
-              </button>
-            )}
             {onContent && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.content}</span>
                 <span className="de-presets">

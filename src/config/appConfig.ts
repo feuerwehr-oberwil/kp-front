@@ -33,6 +33,10 @@ interface SymbolPreset {
    *  the field stays free text, and a deployment's own `fleet.attributeLists` entry for the
    *  same symbol+field wins over anything here (lib/symbols · symbolFieldOptions). */
   fieldOptions?: Record<string, string[]>
+  /** detail fields that hold a NUMBER: the panel draws the ± stepper the built-in count wears
+   *  instead of a text field (lib/symbols · symbolFieldKind). Still stored as a string, so a
+   *  value typed as free text before keeps showing — and editing — as text (countFieldValue). */
+  fieldKinds?: Record<string, 'count'>
 }
 
 const base = {
@@ -443,11 +447,13 @@ const base = {
         // the animals are rescued, they are reported, and the Rapport has counted them
         // separately from the people all along (report · gerettete {personen, tiere}) — the
         // symbol was the one place the two could not be told apart. Second field, so the
-        // «Auto»-Beschriftung stays the Status (fields[0]).
+        // «Auto»-Beschriftung stays the Status (fields[0]); a ± stepper since 27.10.2026.
         'VKF Rettungen': {
           controls: ['count', 'floor'],
           fields: ['Status', 'Anzahl Tiere'],
           fieldOptions: { Status: ['vermisst', 'eingesperrt', 'gerettet'] },
+          // a count like the person count beside it (sweep 27.10.2026 #14), not a text field
+          fieldKinds: { 'Anzahl Tiere': 'count' },
         },
         'VKF Unfall': { controls: ['floor'] },
         // von/bis (03.09.): Gefahrstoffe and Wasser spread through a building the same way

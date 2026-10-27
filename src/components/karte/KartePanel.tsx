@@ -3,9 +3,13 @@
 // The panel):
 //
 //   head (kind, name, address, ✕)
-//   → the station's own word (Sofortmassnahmen, Bemerkungen, with their source) — read first
-//   → Pläne & Module as rows (a row opens the Einsatz's plan reader, read-only — KartePlans)
-//   → Gebäude laut Register («Register-Hinweis», source and Stand on every line)
+//   → the station's own word (Sofortmassnahmen, Bemerkungen, no source line) — read first
+//   → Pläne & Module as tiles, two to a line (a tile opens the Einsatz's plan reader, read-only —
+//     KartePlans; owner, 27.10.2026 · mocks 2B/2C top)
+//   → Gebäude laut Register as BULLETS, the hazards first with ⚠ («Register-Hinweis», source and
+//     Stand on every line)
+// Every part a top-level section with its head — no card around the first ones, no tabs (owner,
+// 27.10.2026: «don't have an inline card but keep everything top level»).
 //   → In der Nähe (one list by distance, objects and hydrants, and a sentence saying so)
 //   → Objektbesuche, an object's only (rows open the existing read view; a read-only line for
 //     other roles). A plain building has none to show – its always-empty line went (owner 20.10.)
@@ -36,6 +40,7 @@
 //
 // After a tap on one of an object's buildings, the switch «Objekt | <the house>» stands right under
 // the head (Karte Haus round 1 · variant A, `level`): the whole object, or only the house tapped.
+// It carries no plan count (owner, 27.10.2026): the tiles right under it show the plans.
 //
 // A head whose address is still being looked up is a SKELETON, never «Gebäude» / «…» standing in
 // for a name (owner-5): the kicker already says what it is.
@@ -58,7 +63,7 @@ import { planKey, type ObjectAvailability } from '../../lib/karte/availability'
 import type { VisitSummary } from '../../objectVisits/types'
 import type { LngLat } from '../../types'
 import { Button } from '../Button'
-import { RegisterHintBody, RegisterHintButton, RegisterTags, StationNotes } from '../BuildingFacts'
+import { RegisterHintBody, RegisterHintButton, RegisterLines, StationNotes } from '../BuildingFacts'
 import { ListCard, ListRow } from '../ListRow'
 import { LampDot } from './KarteDevice'
 import s from './Karte.module.css'
@@ -101,9 +106,9 @@ export interface RegisterState {
 
 export interface VisitsState { state: 'loading' | 'ok' | 'error' | 'off'; list: VisitSummary[] }
 
-/** The switch «Objekt | <Haus>»: which level is open, the object's plan count, the house's street
- *  (null until the register names it) and the way to the other level. */
-export interface PanelLevel { on: 'object' | 'house'; plans: number; house: string | null; onPick: (to: 'object' | 'house') => void }
+/** The switch «Objekt | <Haus>»: which level is open, the house's street (null until the register
+ *  names it) and the way to the other level. */
+export interface PanelLevel { on: 'object' | 'house'; house: string | null; onPick: (to: 'object' | 'house') => void }
 
 /** A hydrant row hovered with the mouse (`enter` / `leave`) or tapped (`tap`, which toggles). */
 export type HydrantCue = 'enter' | 'leave' | 'tap'
@@ -183,7 +188,7 @@ export function KartePanel(p: {
           <div className={cx(s.note, s.amber)}><Icon id="warn" /><span><b>{C.approxHead}</b> {C.approxBody}</span></div>
         )}
         <StationWord obj={o} />
-        <Plans docs={p.docs} onOpenDoc={p.onOpenDoc} avail={p.offline ? p.avail ?? null : undefined} />
+        <PlanTiles docs={p.docs} onOpenDoc={p.onOpenDoc} avail={p.offline ? p.avail ?? null : undefined} />
         <Register key={o.id} reg={p.register} address={o.address} onRetry={p.onRetryRegister} />
         <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
         <Visits visits={p.visits} canCapture={p.canCapture} empty={C.visitsNever} onOpenVisit={p.onOpenVisit} offline={p.offline} last={o.lastVisit} />
@@ -304,27 +309,27 @@ function Actions({ canCapture, onVisit, onReport, extra }: { canCapture: boolean
 }
 
 /** The station's own word about the object, FIRST (owner R2: in a hurry it matters most):
- *  Sofortmassnahmen and Bemerkungen, each a section of the sheet, then where they come from. */
+ *  Sofortmassnahmen and Bemerkungen, each a section of the sheet — without a source line
+ *  («Station · Modul 1»; owner, 27.10.2026: «drop the source»): the panel IS the object. */
 function StationWord({ obj }: { obj: StationObject }) {
-  const C = appConfig.copy.karte
   const measures = noteLines(obj.measures)
   const remarks = noteLines(obj.remarks)
   if (!measures.length && !remarks.length) return null
   return (
     <div data-section="station">
-      <StationNotes measures={measures} remarks={remarks}
-        source={obj.measuresSource ? fillTemplate(C.notesSource, { src: obj.measuresSource }) : C.notesStation} />
+      <StationNotes measures={measures} remarks={remarks} />
     </div>
   )
 }
 
-/** The object's plans as rows (owner, review round 4: «just "modul 1", "modul 2", etc. is enough»):
- *  each row is the module in words and nothing else — no title, no «PDF · 1 Seite», no number badge
- *  (lib/karte/plans · planRowLabel) — and «Gebäude» for the stack. A document glyph leads a module
- *  (the floors glyph the Gebäude), so the words start where In der Nähe's do (Karte Haus review
- *  round 4 · mock A); offline, the ●/○ «auf diesem Gerät» mark trails the words (a row the device
- *  does not hold is dimmed). A row opens the plan in the Einsatz's reader, read-only (KartePlans). */
-function Plans({ docs, onOpenDoc, avail }: {
+/** Pläne & Module as tiles, two to a line (owner, 27.10.2026 · mock 2C): each says the plan's
+ *  name and nothing else — «Modul 1», «Wasser», «PV» (lib/navRail · planLabel), «Gebäude» for the
+ *  stack — behind a document glyph (the floors glyph the Gebäude). Offline, the ●/○ «auf diesem
+ *  Gerät» mark trails the name (a tile the device does not hold is dimmed) and the head's legend
+ *  says what it means. A tile opens the plan in the Einsatz's reader, read-only (KartePlans).
+ *  Not a ListRow: a row spans the card, and two tiles a line is what keeps four plans in the
+ *  first screen. */
+function PlanTiles({ docs, onOpenDoc, avail }: {
   docs: ViewerPlanDoc[]
   onOpenDoc: (id: string) => void
   /** offline only: what this device holds (null = still asking; undefined = online, no lamps) */
@@ -333,7 +338,7 @@ function Plans({ docs, onOpenDoc, avail }: {
   const C = appConfig.copy.karte
   if (!docs.length) return null
   const offline = avail !== undefined
-  // the lamp a row carries offline; a row is dimmed only once a probe said «not here»
+  // the lamp a tile carries offline; a tile is dimmed only once a probe said «not here»
   const lampOf = (plan: ViewerPlanDoc['plan']) => !avail ? null
     : plan ? avail.plans[planKey(plan)] ?? 'online' : avail.gebaeude
   return (
@@ -342,22 +347,26 @@ function Plans({ docs, onOpenDoc, avail }: {
         <span className={s.eyebrow}>{C.plansTitle}</span>
         {offline && <span className={s.legend}><span className={s.lamp} aria-hidden />{C.onDevice}</span>}
       </div>
-      <ListCard>
+      <div className={s.planTiles} role="group" aria-label={C.plansTitle}>
         {docs.map(({ doc, row, plan }) => {
           const lamp = lampOf(plan)
           const off = lamp === 'online'
           return (
-            <ListRow key={doc.id} className={off ? s.off : undefined} lead={<Icon id={plan ? 'doc' : 'floors'} />} title={row} end={lamp && <LampDot lamp={lamp} />}
-              onClick={() => onOpenDoc(doc.id)}
-              aria-label={lamp ? `${row} · ${off ? C.planNotStored : C.device.lampWord[lamp]}` : undefined} />
+            <button key={doc.id} type="button" className={cx(s.planTile, off && s.off)} onClick={() => onOpenDoc(doc.id)}
+              aria-label={lamp ? `${row} · ${off ? C.planNotStored : C.device.lampWord[lamp]}` : undefined}>
+              <Icon id={plan ? 'doc' : 'floors'} />
+              <span className={s.planTileText}>{row}</span>
+              {lamp ? <LampDot lamp={lamp} /> : <Icon id="chevron" className={s.chev} />}
+            </button>
           )
         })}
-      </ListCard>
+      </div>
     </div>
   )
 }
 
-/** Gebäude laut Register. The chips stand, and so does «Registereintrag …, nicht …» right under
+/** Gebäude laut Register, as bullets — the hazards first, each with ⚠ and its word (owner,
+ *  27.10.2026: bullet lists instead of tag chips). «Registereintrag …, nicht …» stands right under
  *  them when the register's building is another address's (owner, review round 4). «Register-
  *  Hinweis» is a tap-to-open toggle («tap to open and this blabla (gwr, stand, etc.) should all
  *  be hidden by default») that reveals the hint AND the source line — the registers, their Stand,
@@ -393,10 +402,9 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
       ? fillTemplate(C.registerOther, { a: splitAddress(info.address)[0], b: splitAddress(address)[0] }) : ''
     inner = (
       <>
-        <RegisterTags chips={hazards} />
-        {facts.length > 0 ? <RegisterTags chips={facts} /> : !hazards.length && <div className={s.src}>{C.registerEmpty}</div>}
-        {/* the register's entry is ANOTHER building's: said right under the chips, never folded
-            (owner, review round 4) — the chips may be about Grenzweg 7, not this object */}
+        {chips.length > 0 ? <RegisterLines chips={[...hazards, ...facts]} /> : <div className={s.src}>{C.registerEmpty}</div>}
+        {/* the register's entry is ANOTHER building's: said right under the lines, never folded
+            (owner, review round 4) — they may be about Grenzweg 7, not this object */}
         {other && <div className={s.src} data-testid="register-other"><b>{other}</b></div>}
       </>
     )
@@ -414,20 +422,19 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
   )
 }
 
-/** «Objekt · 2 Pläne | <Haus>» (Karte Haus round 1 · variant A): one tap opens the other level,
+/** «Objekt | <Haus>» (Karte Haus round 1 · variant A; no plan count since 27.10.2026): one tap opens the other level,
  *  both ways. The app's own Segmented, one line per half – a long street ends in «…», so the switch
  *  is the same height on both levels and for every name (round 2); its picked half is a neutral
  *  surface pill in the panel's rhythm, not the blue choice fill (review round 4 · Karte.module.css). */
 function LevelSwitch({ level }: { level: PanelLevel }) {
   const C = appConfig.copy.karte
-  const plans = level.plans === 0 ? C.levelPlansNone : level.plans === 1 ? C.levelPlansOne : fillTemplate(C.levelPlans, { n: level.plans })
   const label = (text: string) => <span className={s.levelText}>{text}</span>
   return (
     <div className={s.level} data-section="level">
       <Segmented ariaLabel={C.level} value={level.on}
         onChange={(to) => { if (level.on !== to) level.onPick(to) }}
         options={[
-          { value: 'object', label: label(`${C.levelObject} · ${plans}`) },
+          { value: 'object', label: label(C.levelObject) },
           { value: 'house', label: label(level.house ?? C.levelHouse), title: level.house ?? C.levelHouse },
         ]} />
     </div>

@@ -46,7 +46,8 @@ function renderActive(extra: Partial<Parameters<typeof IncidentSwitcher>[0]> & {
       {...extra}
     />,
   )
-  fireEvent.click(screen.getByRole('button', { name: extra.active.title }))
+  // a closed one's pill also says so («…, Einsatz abgeschlossen»)
+  fireEvent.click(screen.getByRole('button', { name: (n) => n.startsWith(extra.active.title) }))
 }
 
 // Staging 03.10.2026: a device that always opens its running Einsatz never sees the launcher,
@@ -137,5 +138,45 @@ describe('IncidentSwitcher · Escape', () => {
     fireEvent.keyDown(document.body, { key: 'Escape' })
     window.removeEventListener('keydown', behind)
     expect(behind).toHaveBeenCalledTimes(1)
+  })
+})
+
+// Sweep #5 (27.10.2026, owner pick B): a closed Einsatz wears its lock in the pill's ✓ slot, and
+// the card's «Gespeichert» becomes «Abgeschlossen <time>» – a pill that folds out the sentence and
+// the exits only when tapped. The sentence is the session's own (RBAC audit 22.10.2026).
+describe('IncidentSwitcher · closed Einsatz', () => {
+  const C = appConfig.copy.archived
+  const closed = {
+    id: 'inc-1', title: 'Brandmeldeanlage', address: 'Gewerbestrasse 4', started_at: new Date(Date.now() - 3_600_000).toISOString(),
+    status: 'abgeschlossen', is_archived: true, is_exercise: false, closed_at: new Date(Date.now() - 1_800_000).toISOString(),
+    last_closed_at: new Date(Date.now() - 600_000).toISOString(),
+  } as unknown as IncidentMeta
+  const pill = () => screen.getByRole('button', { name: new RegExp(`^${C.closedAt.replace('{t}', '')}`) })
+
+  it('replaces «Gespeichert» with the close time and folds out the exits only on tap', async () => {
+    const reopen = vi.fn(async () => 'ok' as const)
+    const back = vi.fn()
+    renderActive({ active: closed, onReactivate: reopen, onBackFromArchive: back })
+    expect(screen.queryByText(appConfig.copy.incidentSwitcher.saved)).toBeNull()
+    expect(screen.queryByText(C.reactivate)).toBeNull()
+    fireEvent.click(pill())
+    expect(screen.getByText(C.hint)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: C.reactivate }))
+    expect(reopen).toHaveBeenCalledTimes(1)
+  })
+
+  it('tells the el (corrects the Rapport, reopens nothing) only the Rapport half', () => {
+    renderActive({ active: closed, onBackFromArchive: () => {}, canCorrectRapport: true })
+    fireEvent.click(pill())
+    expect(screen.getByText(C.hintRapport)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: C.reactivate })).toBeNull()
+    expect(screen.getByRole('button', { name: C.back })).toBeTruthy()
+  })
+
+  it('is the sentence alone in a link session', () => {
+    renderActive({ active: closed, user: { display_name: 'Link', color: null, role: 'viewer' } })
+    fireEvent.click(pill())
+    expect(screen.getByText(C.hintViewOnly)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: C.back })).toBeNull()
   })
 })

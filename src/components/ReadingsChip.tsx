@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
+import { useOnlyOpenCard } from '../lib/floatCards'
 import type { MeasuredPoint } from '../lib/readingsList'
 import { ReadingPill } from '../lib/symbolRender'
 import s from './ReadingsChip.module.css'
@@ -19,6 +20,8 @@ export function ReadingsChip({ points, compact = false, onGo }: {
   onGo: (p: MeasuredPoint) => void
 }) {
   const [open, setOpen] = useState(false)
+  // one chip-row card at a time: opening this list closes the Gebäude card, and vice versa
+  useOnlyOpenCard(open, () => setOpen(false))
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
-import { fillTemplate, fmtSpanShort, streetPart, formatTime } from '../../lib/format'
+import { fillTemplate, fmtSpanShort, fmtWhen, streetPart, formatTime } from '../../lib/format'
 import { appConfig } from '../../config/appConfig'
 import { toast } from '../../lib/ui'
 import { SyncGlyph } from '../SyncGlyph'
 import { useOnline } from '../../lib/useOnline'
-import type { IncidentMeta, SyncStatus } from '../../lib/incidents'
+import { closeTimeOf, type IncidentMeta, type SyncStatus } from '../../lib/incidents'
+import type { ReactivateResult } from '../../types'
 import { useIsPhone } from '../../lib/useIsPhone'
 import { CLOCK_ICON, useEinsatzuhr } from '../../lib/einsatzuhr'
 import { EinsatzuhrChoices } from '../Einsatzuhr'
@@ -26,6 +27,7 @@ function fmtClock(ms: number): string {
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
   active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
+  onBackFromArchive, onReactivate, canCorrectRapport = false,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -87,6 +89,14 @@ export function IncidentSwitcher({
    *  factor. Cancelling the sheet therefore reveals the exact parent state; the rows that
    *  NAVIGATE close the menu deliberately instead (see `navKey`). */
   sheetOpen?: boolean
+  /** the ACTIVE Einsatz is closed and open read-only: leave the view — back to the Einsatz that
+   *  was open before / «Alle Einsätze». Omitted in a link session. */
+  onBackFromArchive?: () => void
+  /** editors only: re-open the closed Einsatz (its own confirm lives upstream) */
+  onReactivate?: () => Promise<ReactivateResult>
+  /** this session may still correct the closed Einsatz's Rapport (`canEditRapport`: the el, a
+   *  Führungsansicht) – the closed pill's sentence then says that much and no more */
+  canCorrectRapport?: boolean
 }) {
   const cp = appConfig.copy.incidentSwitcher
   // «Jetzt synchronisieren» reports what it did on the button itself: Shell trail runs for the
@@ -155,7 +165,7 @@ export function IncidentSwitcher({
     // so tapping outside would not reliably dismiss (same pattern as Combo/PersonField).
     const onDoc = (e: PointerEvent) => {
       const t = e.target as Element
-      if (ref.current && !ref.current.contains(t) && !t.closest?.('.ip-sheet, .ui-backdrop, .help-scrim, .confirm-backdrop, .toaster')) setOpen(false)
+      if (ref.current && !ref.current.contains(t) && !t.closest?.('.ip-sheet, .ui-backdrop, .help-scrim, .confirm-backdrop, .confirm-card, .toaster')) setOpen(false)
     }
     document.addEventListener('pointerdown', onDoc)
     return () => document.removeEventListener('pointerdown', onDoc)
@@ -174,6 +184,8 @@ export function IncidentSwitcher({
     if (!open || sheetOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
+      // a confirm asked FROM this menu («Wieder öffnen») takes its own Escape
+      if (document.querySelector('.confirm-card')) return
       e.preventDefault()
       e.stopPropagation()
       setOpen(false)
@@ -203,6 +215,37 @@ export function IncidentSwitcher({
         ? <Icon id="warn" />
         : <span className="ip-status-dot" />
   const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
+  // ── a CLOSED Einsatz (27.10.2026, sweep #5 · owner pick B) ──
+  // The lock rides in the pill's ✓ slot — the amber «Einsatz abgeschlossen» chip beside the pill
+  // left the bar — and the card's «Gespeichert» becomes «🔒 Abgeschlossen 01:18 ⌄», at the CURRENT
+  // close (`closeTimeOf`, not the declared Einsatzende). A tap folds out what the state means and
+  // its exits, «Wieder öffnen» / «Zurück»; nothing of it shows until then (owner). A sync WARNING
+  // keeps its own pill beside it: work not on the server outranks the state.
+  // ⚠️ The sentence is the session's OWN (RBAC audit 22.10.2026): «… für alles andere wieder
+  // öffnen» only beside a «Wieder öffnen»; the el / a Führungsansicht, which correct the Rapport
+  // but reopen nothing, hear the first half; everyone else «Nur ansehen».
+  const C = appConfig.copy.archived
+  const closed = !!active?.is_archived
+  const closedAt = active ? closeTimeOf(active) : null
+  const closedWord = closedAt ? fillTemplate(C.closedAt, { t: fmtWhen(closedAt, { todayShort: true }) }) : C.title
+  const [closedOpen, setClosedOpen] = useState(false)
+  // «Wieder öffnen» runs while the card stays up and says so (#6) — the confirm is upstream
+  const [reopening, setReopening] = useState(false)
+  // ⚠️ a successful reopen flips this very card live (the fold goes with `closed`), and the
+  // promise settles a tick later — no state write after an unmount
+  const alive = useRef(true)
+  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
+  const reopen = () => {
+    if (!onReactivate || reopening) return
+    setReopening(true)
+    void onReactivate()
+      .then((r) => { if (r === 'ok' && alive.current) { setClosedOpen(false); setOpen(false) } })
+      // a failure is said by the caller's own toast; a cancelled confirm leaves the fold as it was.
+      // Caught: an offline list refresh upstream may reject after the reopen went through.
+      .catch(() => {})
+      .finally(() => { if (alive.current) setReopening(false) })
+  }
+  const closedMark = closed && syncStatus === 'synced'
   /**
    * «Jetzt synchronisieren» — offered whenever the device has a link, not only on error: it forces a push AND an
    * immediate pull, the "make everything fresh right now" action when things feel stale. It has
@@ -230,10 +273,10 @@ export function IncidentSwitcher({
   )
   return (
     <div className="ip-switch" ref={ref}>
-      <button ref={triggerRef} className={`ip-switch-btn${twoLine ? ' ip-switch-two' : ''}`} onClick={() => { setClockOpen(false); setOpen((v) => !v) }}
+      <button ref={triggerRef} className={`ip-switch-btn${twoLine ? ' ip-switch-two' : ''}`} onClick={() => { setClockOpen(false); setClosedOpen(false); setOpen((v) => !v) }}
         aria-label={twoLine
-          ? [street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', uhr.text ? `${uhr.label[uhr.mode]} ${uhr.text}` : ''].filter(Boolean).join(', ')
-          : active ? active.title : cp.noIncident}
+          ? [street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', uhr.text ? `${uhr.label[uhr.mode]} ${uhr.text}` : ''].filter(Boolean).join(', ')
+          : active ? [active.title, closed ? C.title : ''].filter(Boolean).join(', ') : cp.noIncident}
         aria-expanded={open && !sheetOpen}>
         {twoLine ? (
           <span className="ip-switch-lines">
@@ -280,8 +323,9 @@ export function IncidentSwitcher({
             <Icon id="warn" /><span className="ip-chip-word">{cp.errorShort}</span>
           </span>
         ) : active && (
-          <span className={`ip-status ip-status-${syncStatus}`} title={savedText} aria-label={savedText}>
-            {statusMark}
+          <span className={`ip-status ip-status-${closedMark ? 'closed' : syncStatus}`}
+            title={closedMark ? `${closedWord} · ${savedText}` : savedText} aria-label={closedMark ? closedWord : savedText}>
+            {closedMark ? <Icon id="lock" /> : statusMark}
           </span>
         )}
         {/* ▾ while the dropdown is shut, ▴ while it stands open (02-base.css · .chev) */}
@@ -319,7 +363,13 @@ export function IncidentSwitcher({
               <div className="ip-card-pills">
                 {/* «Gespeichert» is about THIS device's work – a viewer never saves, so its card
                     says nothing while all is well (RBAC audit 22.10.2026); the warnings stay */}
-                {(user.role !== 'viewer' || syncStatus !== 'synced') && (
+                {closed && (
+                  <button type="button" className="ip-card-pill ip-card-pill-btn ip-card-closed" title={C.title}
+                    aria-expanded={closedOpen} onClick={() => setClosedOpen((v) => !v)}>
+                    <Icon id="lock" /><span>{closedWord}</span><Icon id="chevron-down" className="chev" />
+                  </button>
+                )}
+                {(closed ? syncStatus !== 'synced' : user.role !== 'viewer' || syncStatus !== 'synced') && (
                   <span className={`ip-card-pill ip-status-${syncStatus}`} title={savedText}>{statusMark}<span>{savedPill}</span></span>
                 )}
                 {/* «🕓 21:22 · 1 h 54» — the clock glyph is the label; «Einsatzbeginn» is the title */}
@@ -343,6 +393,34 @@ export function IncidentSwitcher({
               </div>
               {twoLine && clockOpen && (
                 <EinsatzuhrChoices uhr={uhr} ariaLabel={appConfig.copy.einsatzuhr.modeElapsed} onPicked={() => setClockOpen(false)} />
+              )}
+              {/* the closed pill's fold: the sentence, then the exits on one line — «Wieder öffnen»
+                  first and wider, amber like «Abschliessen», the tile family of the card's own acts */}
+              {closed && closedOpen && (
+                <div className="ip-card-closed-fold">
+                  <p className="ip-card-closed-say">
+                    {onReactivate ? C.hint : canCorrectRapport ? C.hintRapport : C.hintViewOnly}
+                    {/* offline: «Wieder öffnen» stays (useOnline is a hint, never a gate) but says it needs the server */}
+                    {onReactivate && !online && <small>{C.reactivateOffline}</small>}
+                  </p>
+                  {(onReactivate || onBackFromArchive) && (
+                    <div className="ip-card-acts">
+                      {onReactivate && (
+                        <button type="button" className="ip-card-act head-tile sm amber ip-card-reopen"
+                          disabled={reopening} aria-busy={reopening} onClick={reopen}>
+                          {reopening && <span aria-hidden><SyncGlyph done={false} label={C.reopening} /></span>}
+                          <span>{reopening ? C.reopening : C.reactivate}</span>
+                        </button>
+                      )}
+                      {onBackFromArchive && (
+                        <button type="button" className="ip-card-act head-tile sm" disabled={reopening}
+                          onClick={() => { setOpen(false); onBackFromArchive() }}>
+                          <span>{C.back}</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
               {/* The Einsatz's own actions, inside its own card. Short labels: the card names the
                   Einsatz one line above, so «Einsatz abschliessen» would say it twice — the full

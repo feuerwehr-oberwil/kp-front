@@ -38,8 +38,8 @@ export function PlanChooser({ docs, activeId, onPick, onClose }: {
           // the digit's size painted straight through its own border. The count picks the text
           // size; the box keeps its height and hugs the rest (05-navrail.css · .group-choose-glyph)
           glyph: 'mono' in g ? <span className="nav-mono-chip" data-mono-len={g.mono.length}>{g.mono}</span> : <Icon id={g.icon} />,
-          // the plan's own name as the station calls it («Modul 1», «RWA», «Gebäude») — the same
-          // word the rail wears. What a Modul holds differs per station and they know it best;
+          // the plan's name («Modul 1», «Wasser», «PV», «Gebäude»; lib/navRail · planLabel) — the
+          // same word the rail wears. What a Modul holds differs per station and they know it best;
           // the catalogue's description only made every row two lines (18.09.2026).
           title: d.code || d.title,
         }

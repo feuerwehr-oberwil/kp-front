@@ -195,12 +195,16 @@ shows the Einsatz closed, however it came to (a close signal, its own close, «A
 forceReadOnly goes too), with its own row naming the reopen row's time. The live poll claims
 `open=` from the server's last `X-Incident-Open`, never only from the view, and a held poll that
 answers at once with nothing new eases off — a closed view must never spin (it did, 3.4/s). «Anhängen» is never offered onto a closed Einsatz.
+**«Wieder öffnen» on the Einsatz on screen flips it live in place** (27.10.2026, sweep #6): the PATCH's
+answer is the new meta, the live-followed workspace stays mounted — the same flip a reopen
+elsewhere makes (`lib/useIncidentLifecycle` · reopenNow). It used to refetch the Einsatz twice
+and remount, serially (3.2 s against 0.5 s for the PATCH at 300 ms latency and a 4× slower CPU).
 **«Wieder öffnen» needs the server — there is no offline reopen** (05.10.2026, asked for after an
 Übung in airplane mode). The reopen boundary row is server-owned (`sys` namespace, review
 contract above), the Atemschutz alarm HOLDS until it has arrived (`reopenPending`), and the
 crews' restart rows derive their ids from it — so an Einsatz reopened offline would run its
 Tafel with no Überfällig alarm for as long as the device stays offline. Offline the doors stay
-(useOnline is a hint) but say so: «Braucht Verbindung zum Server» under the chip's row, one
+(useOnline is a hint) but say so: «Braucht Verbindung zum Server» in the Einsatz card's closed fold, one
 line over «Alle Einsätze», and an unreachable server answers with `reactivateNeedsServer`, not
 a raw network error. An offline reopen would need a client-stamped reopen time and a
 precondition on the close it saw (`last_closed_at`, so a later close elsewhere wins), a local

@@ -16,21 +16,19 @@ const plan = (module: string | null, over: Partial<ReferenceDataset> = {}): Refe
 })
 
 describe('visitPlanRows — the object\'s plans on a visit', () => {
-  it('lists the PDFs in module order by their full name, the description below', () => {
-    const rows = visitPlanRows(modules, [plan('modul5-pv'), plan('modul2-3'), plan('modul1')])
-    expect(rows.map((r) => [r.title, r.sub])).toEqual([['Modul 1 · Übersicht', 'Situationsplan mit Zufahrt'], ['Modul 2/3 · Zugang & Objekt', ''], ['M5 · PV', '']])
+  // owner, 27.10.2026: «Modul 1» exactly like on the object — no «· Übersicht», no subtitle
+  it('lists the PDFs in module order by the plan\'s name alone', () => {
+    const rows = visitPlanRows(modules, [plan('modul5-pv'), plan('modul2-3'), plan('modul1'), plan('modul5-wasser')])
+    expect(rows.map((r) => r.title)).toEqual(['Modul 1', 'Modul 2/3', 'PV', 'Wasser'])
   })
 
-  // owner, 05.10.2026
-  it('never shows a letter code alone — «W» is «M5 · Wasser», its tab «Wasser»', () => {
-    const [w] = visitPlanRows(modules, [plan('modul5-wasser')])
-    expect(w).toMatchObject({ title: 'M5 · Wasser', short: 'Wasser', sub: 'Löschwasser' })
-    const [m1] = visitPlanRows(modules, [plan('modul1')])
-    expect(m1.short).toBe('Modul 1')
+  // owner, 05.10.2026 («not just "w"») and 27.10.2026 («Wasser 1, Wasser 2»)
+  it('never shows a letter code — the catalogue\'s «W» is «Wasser», a sibling keeps its number', () => {
+    expect(visitPlanRows(modules, [plan('modul5-wasser'), plan('modul5-wasser2')]).map((r) => r.title)).toEqual(['Wasser', 'Wasser 2'])
   })
 
   it('a module the catalogue does not know still gets a name', () => {
-    expect(visitPlanRows(modules, [plan('modul7')])[0]).toMatchObject({ title: 'Modul 7', short: 'Modul 7' })
+    expect(visitPlanRows(modules, [plan('modul7')])[0]).toMatchObject({ title: 'Modul 7' })
   })
 
   it('carries the version, so a replaced sheet is never served from an old cache', () => {

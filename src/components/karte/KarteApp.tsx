@@ -60,7 +60,7 @@ import { usePlacementLane } from '../../lib/toastLane'
 import { geocodeSearch, type GeoHit, type IncidentMeta } from '../../lib/incidents'
 import type { StationObject } from '../../lib/api/stationReference'
 import { ovHref } from '../../objectVisits/route'
-import { coordOf, openableCount } from '../../lib/karte/search'
+import { coordOf } from '../../lib/karte/search'
 import { compass8, normAddress, objectAtAddress, objectVisitHref, placeVisitHref, REPORT_CHECKLIST, ringAt, splitAddress, type NamedPoint } from '../../lib/karte/places'
 import { LABEL_MIN_ZOOM } from '../../lib/karte/labels'
 import { GEBAEUDE_DOC, viewerPlanDocs } from '../../lib/karte/plans'
@@ -170,7 +170,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const { cats, catOff } = categories
   const selObj = sel?.kind === 'object' ? byId.get(sel.id) ?? null : null
   // titled and typed by the station's module catalogue, as the Einsatz's plan chooser is
-  const docs = useMemo(() => (selObj ? viewerPlanDocs(selObj, C.floorsRow, moduleCatalogue(), C.planRow) : []), [selObj, C.floorsRow, C.planRow])
+  const docs = useMemo(() => (selObj ? viewerPlanDocs(selObj, C.floorsRow, moduleCatalogue()) : []), [selObj, C.floorsRow])
   const openDoc = surface ? docs.find((d) => d.doc.id === surface) ?? null : null
   const { avail, docHeld, openHeld } = usePlansHeld(selObj, openDoc, online)
   const catLoaded = !!cat
@@ -425,7 +425,6 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const levelObj = sel?.kind === 'object' && sel.hit ? selObj : sel?.kind === 'building' && sel.of ? byId.get(sel.of) ?? null : null
   const level: PanelLevel | null = levelObj && sel ? {
     on: sel.kind === 'object' ? 'object' : 'house',
-    plans: openableCount(levelObj),
     house: sel.kind === 'object' ? hitStreet : splitAddress(register.info?.address ?? null)[0] || null,
     onPick: toLevel,
   } : null
@@ -488,6 +487,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           onMapClick={onMapClick}
           readOnly
           placing={tool !== null}
+          // one finger still zooms with a sheet like Ebenen up; Punkt setzen and Gefahrgut's centre
+          // place on a tap, so there only the pinch does (lib/tapDragZoom · oneFingerZoom)
+          tapsPlace={takesTaps}
           onView={(v) => { setView(v); loadOutlines() }}
           onSettled={() => { setMapUp(true); flyPending(); loadOutlines(); watchUserMoves(); watchHover(); watchPress() }}
           measurePoints={tool === 'measure' ? measure.path : []}

@@ -73,7 +73,7 @@ describe('ChecklistLibrary', () => {
     expect(screen.getByText(appConfig.copy.checklists.readOnly)).toBeTruthy()
     expect(screen.getByText('Objektplan bereitlegen')).toBeTruthy()
     expect(container.querySelector('[role="checkbox"], input')).toBeNull()
-    expect(screen.queryByText(appConfig.copy.checklists.actionLabels.plan)).toBeNull()
+    expect(screen.queryByRole('button', { name: appConfig.copy.checklists.actionLabels.plan })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.modes.checklists })) // the back row
     expect(screen.getByRole('button', { name: /Generator/ })).toBeTruthy()
   })

@@ -1,8 +1,16 @@
 import { ShellLoader } from './ShellLoader'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { PdfFailDetail, usePdfLoad } from './PdfViewport'
-import { loadDocTimed, pdfWorkerUrl } from '../lib/pdfRaster'
+import { loadDoc, loadDocTimed, pdfWorkerUrl } from '../lib/pdfRaster'
+import { activeJump, pdfJumps, type PdfJump } from '../lib/pdfJumps'
+import { sharePdf } from '../lib/pdfShare'
+import { fillTemplate } from '../lib/format'
+import { Icon } from '../lib/icons'
+import { IconButton } from './Button'
+import { Segmented } from './Segmented'
+import { PhoneTabBar } from './PhoneTabBar'
+import { useIsPhone } from '../lib/useIsPhone'
 import { diagnosePdfFailure } from '../lib/pdfDiagnosis'
 import { anchorScroll, canvasScale, clampZoom, pageAnchorAt, pageCanvasBudget, pinchZoom, scrollAfterZoom, stepZoom, toggleZoom, ZOOM_STEP, type Box, type PageAnchor } from '../lib/pdfZoom'
 import { cachedPdfPage, pdfPageKey, snapshotPdfPage } from '../lib/pdfPageCache'
@@ -24,6 +32,19 @@ import s from './PdfScroller.module.css'
 // viewport, desktop included — «people can just scroll». The gestures ARE the control here, and
 // a double tap is the way back to the fit; a reader is not a surface with a tool rail.
 //
+// ONE section switcher (27.10.2026, sweep #15, owner: Evakuationspläne need a way to jump and a
+// way out): the PDF's own bookmarks – else its page numbers – as the sections of the document,
+// the one being read marked, a tap puts that page at the top (lib/pdfJumps); and at its end
+// «Öffnen in …» another app – the share sheet with the file, a download where there is none
+// (lib/pdfShare). The plan still opens HERE first. Not a zoom control – the «NO buttons» rule
+// below is about zooming and stands.
+// WHERE it stands is the app's rule for a page's sections (owner on staging, 27.10.2026: «show
+// the sections for the pdf in the footer like all other sections (e.g. Einsatzrapport)»): on a
+// phone the docked strip above the nav bar (PhoneTabBar); on a tablet at the bottom too (owner,
+// staging r3: «move to the bottom too»), in the board's floating row (`.wb-botleft`) beside the
+// object chips – where the Tafel's page strip stands, and in its piece (`.tps`). A `bare` reader
+// (an object visit's plan, its own overlay without the nav bar) keeps it at its own foot.
+//
 // The fit (14.09.2026) is the column's CONTENT box – the scroller minus the lanes its padding
 // reserves for the rails (PdfScroller.module.css · .pages) – not the scroller's whole width: a
 // page as wide as the scroller was centred with half its overflow BEFORE the scroll origin,
@@ -38,7 +59,15 @@ const pageBoxes = (host: HTMLElement | null): Box[] =>
 
 /** `bare`: no rail lanes to keep clear — the reader fills a surface of its own (the plans on an
  *  object visit, components/objectVisits/PlansCard), so the pages get a plain margin. */
-export function PdfScroller({ url, bare = false }: { url: string; bare?: boolean }) {
+export function PdfScroller({ url, bare = false, fileName, row }: {
+  url: string
+  bare?: boolean
+  /** what the shared / downloaded file is called (without «.pdf»); «Plan» when absent */
+  fileName?: string
+  /** the board's floating row (Whiteboard: the object chips). The reader renders that row
+   *  (`.wb-botleft`) so its section bar can stand IN it on a tablet; absent ⇒ no row */
+  row?: ReactNode
+}) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const pagesRef = useRef<HTMLDivElement>(null)
   /** how the render pass in flight hands its pixels back – set by that pass, called by its
@@ -73,6 +102,64 @@ export function PdfScroller({ url, bare = false }: { url: string; bare?: boolean
   const pendingScroll = useRef<{ anchor: PageAnchor; focal: { x: number; y: number } } | { fallback: { left: number; top: number } } | null>(null)
   // status / «Erneut laden» / retry — the same machine the board's PdfViewport runs on
   const { status, setStatus, fail, setFail, attempt, slow, retry } = usePdfLoad(url)
+
+  // ── the strip: where to jump, which stop is being read ──
+  // null until the document is open: the strip (and its share button) only stands over a PDF
+  // that is there. Not tied to `status`, which every zoom pass sets back to 'loading'.
+  // Keyed by the document AND the load attempt, so a retry or another PDF reads as «not yet»
+  // without an effect having to clear it first.
+  const docKey = `${url}#${attempt}`
+  const [loaded, setLoaded] = useState<{ key: string; jumps: PdfJump[] } | null>(null)
+  const jumps = loaded?.key === docKey ? loaded.jumps : null
+  const [page, setPage] = useState(0)
+  /** the reader's root – the section track is looked up inside it, whichever bar holds it */
+  const rootRef = useRef<HTMLDivElement>(null)
+  const isPhone = useIsPhone()
+  const place: 'dock' | 'row' | 'foot' = bare ? 'foot' : isPhone ? 'dock' : row !== undefined ? 'row' : 'foot'
+  useEffect(() => {
+    let live = true
+    loadDoc(url).then(pdfJumps).then((j) => { if (live) setLoaded({ key: docKey, jumps: j }) }, () => {})
+    return () => { live = false }
+  }, [url, docKey])
+  // the page being read: the last one whose top has passed the column's top lane (its padding)
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el || !jumps?.length) return
+    let frame = 0
+    const read = () => {
+      frame = 0
+      const host = pagesRef.current
+      if (!host) return
+      const lane = el.getBoundingClientRect().top + parseFloat(getComputedStyle(host).paddingTop) + 1
+      let at = 0
+      Array.from(host.children).forEach((c, i) => { if (c.getBoundingClientRect().top <= lane) at = i })
+      setPage(at)
+    }
+    const onScroll = () => { frame ||= requestAnimationFrame(read) }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    read()
+    return () => { el.removeEventListener('scroll', onScroll); cancelAnimationFrame(frame) }
+  }, [jumps])
+  const active = jumps ? activeJump(jumps, page) : -1
+  // …and the marked section stays in view on a track longer than the screen (a 20-page PDF)
+  useEffect(() => {
+    const track = rootRef.current?.querySelector<HTMLElement>('.useg')
+    const btn = track?.children[active] as HTMLElement | undefined
+    if (!track || !btn) return
+    const left = btn.offsetLeft - track.offsetLeft
+    if (left < track.scrollLeft || left + btn.offsetWidth > track.scrollLeft + track.clientWidth) {
+      track.scrollTo({ left: left - (track.clientWidth - btn.offsetWidth) / 2 })
+    }
+  }, [active, place])
+  /** put page `index` at the top of the column, where page 1 sits unscrolled */
+  const jumpTo = (index: number) => {
+    const el = wrapRef.current
+    const host = pagesRef.current
+    const target = host?.children[index]
+    if (!el || !host || !target) return
+    const lane = parseFloat(getComputedStyle(host).paddingTop)
+    el.scrollTo({ top: el.scrollTop + target.getBoundingClientRect().top - el.getBoundingClientRect().top - lane })
+  }
 
   // track the fit width – the column's content box – so pages render crisp at the current size.
   // Observed on the column, not the scroller, so a rail that expands (its lane is the column's
@@ -334,19 +421,50 @@ export function PdfScroller({ url, bare = false }: { url: string; bare?: boolean
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const P = appConfig.copy.pdf
+  const strip = jumps != null && status !== 'error'
+  const sections = jumps?.length ? jumps.map((j, i) => {
+    const page = fillTemplate(P.page, { n: String(j.page + 1) })
+    return { value: String(i), label: j.title ?? String(j.page + 1), title: j.title ? `${j.title} · ${page}` : page }
+  }) : null
+  const pick = (v: string) => { const j = jumps?.[Number(v)]; if (j) jumpTo(j.page) }
+  const track = sections && <Segmented<string> tabs scroll ariaLabel={P.jumps} value={String(active)} onChange={pick} options={sections} />
+  const openIn = (
+    <IconButton label={P.openIn} onClick={() => void sharePdf(url, fileName).catch(() => {})}>
+      <Icon id="external" />
+    </IconButton>
+  )
   return (
-    <div ref={wrapRef} className={s.scroller} onDoubleClick={onDoubleClick}>
-      {status !== 'ready' && (
-        <div className={s.hint}>
-          {status !== 'error' && <ShellLoader size="surface" />}
-          <span>{status === 'error' ? appConfig.copy.pdf.failed : appConfig.copy.pdf.loading}</span>
-          {fail && <PdfFailDetail fail={fail} reasonClass={s.reason} codeClass={s.code} />}
-          {(status === 'error' || slow) && (
-            <RetryButton label={appConfig.copy.pdf.retry} onClick={retry} />
+    <div ref={rootRef} className={`${s.reader}${bare ? ` ${s.bare}` : ''}${strip && place === 'foot' ? ` ${s.withStrip}` : ''}`}>
+      <div ref={wrapRef} className={s.scroller} onDoubleClick={onDoubleClick}>
+        {status !== 'ready' && (
+          <div className={s.hint}>
+            {status !== 'error' && <ShellLoader size="surface" />}
+            <span>{status === 'error' ? P.failed : P.loading}</span>
+            {fail && <PdfFailDetail fail={fail} reasonClass={s.reason} codeClass={s.code} />}
+            {(status === 'error' || slow) && (
+              <RetryButton label={P.retry} onClick={retry} />
+            )}
+          </div>
+        )}
+        <div ref={pagesRef} className={`${s.pages}${zoom > 1 ? ` ${s.zoomed}` : ''}`} />
+      </div>
+      {strip && place === 'dock' && (
+        <PhoneTabBar<string> ariaLabel={P.jumps} value={String(active)} onChange={pick} options={sections ?? []} scroll end={openIn} />
+      )}
+      {row !== undefined && (
+        <div className="wb-botleft">
+          {row}
+          {strip && place === 'row' && (
+            <nav className="tps" aria-label={P.jumps}>{track}{openIn}</nav>
           )}
         </div>
       )}
-      <div ref={pagesRef} className={`${s.pages}${bare ? ` ${s.bare}` : ''}${zoom > 1 ? ` ${s.zoomed}` : ''}`} />
+      {strip && place === 'foot' && (
+        <nav className={s.strip} aria-label={P.jumps}>
+          <div className={s.bar}>{track}{openIn}</div>
+        </nav>
+      )}
     </div>
   )
 }

@@ -111,3 +111,12 @@ AGENTS.md on 2026-10-08, wording unchanged.
   listed BEFORE the reference routes and purged on denial) so a sheet is whole offline. No
   pyramid (unpinned/bundled PDF, >80 pages, PDFium cannot read it, a tile that cannot be had
   offline) ⇒ every caller keeps the pdf.js path unchanged.
+- **The plain reader (`PdfScroller`) has ONE section switcher** (27.10.2026): viewer-only plans
+  (Modul 6, Zusatz – e.g. Evakuationspläne) and the plans on an Objektbesuch open in the app,
+  pages top to bottom. Its sections are the PDF's top-level bookmarks (`lib/pdfJumps`, pdf.js
+  `getOutline`), else its page numbers; the one being read is marked, a tapped one goes to the
+  top. It stands at the bottom: on a phone the docked strip above the nav bar (`PhoneTabBar`, like
+  the Einsatzrapport), on a tablet in the board's floating row beside the object chips (where the
+  Tafel's page strip stands); a reader in its own overlay (Objektbesuch) keeps it at its foot. Its last button is «Öffnen in …» (the `external`
+  glyph): the system share sheet with the file, a download where files cannot be shared
+  (`lib/pdfShare`, from the bytes the reader already holds). Zoom stays gestures only.

@@ -236,6 +236,12 @@
           "title": "Staleincidentdays",
           "type": "integer"
         },
+        "exerciseAutoCloseHours": {
+          "default": 12,
+          "minimum": 0,
+          "title": "Exerciseautoclosehours",
+          "type": "integer"
+        },
         "captureWindowHours": {
           "default": 12,
           "maximum": 168,

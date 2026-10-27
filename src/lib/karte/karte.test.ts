@@ -368,26 +368,24 @@ describe('plans as the rail documents', () => {
     expect(planTitle(p('modul4', ''), STATION)).toBe('Modul 4')
   })
 
-  // owner, review round 4
-  it('a plan row says «Modul …» only — every module key of the station', async () => {
-    const { planRowLabel } = await import('./plans')
+  // owner, review round 4 («just "modul 1", "modul 2"») and 27.10.2026 («Wasser», «PV», never «Modul 5-…»)
+  it('a plan tile says the plan\'s name only — every module key of the station', async () => {
+    const { viewerPlanDocs } = await import('./plans')
     const want: Record<string, string> = {
-      modul1: 'Modul 1', modul2: 'Modul 2', 'modul2-3': 'Modul 2-3', modul23: 'Modul 2-3', modul3: 'Modul 3',
-      modul4: 'Modul 4', modul5: 'Modul 5', 'modul5-adressen': 'Modul 5-Adressen', 'modul5-aeh': 'Modul 5-AEH',
-      'modul5-evak': 'Modul 5-Evak', 'modul5-pv': 'Modul 5-PV', 'modul5-pv15': 'Modul 5-PV 15',
-      'modul5-pv20': 'Modul 5-PV 20', 'modul5-rwa': 'Modul 5-RWA', 'modul5-wasser': 'Modul 5-Wasser',
-      'modul5-wasser1': 'Modul 5-Wasser 1', 'modul5-wasser2': 'Modul 5-Wasser 2', 'modul5-wasser3': 'Modul 5-Wasser 3',
-      'modul5-zusatz': 'Modul 5-Zusatz', modul6: 'Modul 6',
+      modul1: 'Modul 1', 'modul2-3': 'Modul 2/3', modul23: 'Modul 2/3', modul4: 'Modul 4', modul5: 'Modul 5',
+      'modul5-adressen': 'Adressen', 'modul5-aeh': 'AEH', 'modul5-pv': 'PV', 'modul5-pv15': 'PV 15',
+      'modul5-wasser': 'Wasser', 'modul5-wasser2': 'Wasser 2', modul6: 'Modul 6',
     }
     for (const [key, label] of Object.entries(want)) {
-      // the file-name title and the catalogue's word never reach the row
-      expect(planRowLabel(p(key, `Migros – ${key}`), STATION)).toBe(label)
-      expect(planRowLabel(p(key, 'Übersicht'), STATION)).toBe(label)
+      // the file-name title and the catalogue's word never reach the tile
+      for (const title of [`Migros – ${key}`, 'Übersicht']) {
+        const [d] = viewerPlanDocs({ plans: [{ ...plan(key.slice(5)), title }], floors: [] }, 'Gebäude', STATION)
+        expect([d.row, d.doc.code]).toEqual([label, label])
+      }
     }
-    // the copy's word, in another language
-    expect(planRowLabel(p('modul5-pv', ''), STATION, 'Module {m}')).toBe('Module 5-PV')
-    // no module key at all: the plan's own title, never an empty row
-    expect(planRowLabel({ id: 'plan:x:extra', module: '', title: 'Zufahrt' }, STATION)).toBe('Zufahrt')
+    // no module key at all: the plan's own title, never an empty tile
+    const [extra] = viewerPlanDocs({ plans: [{ ...plan('1'), id: 'plan:x:extra', module: '', title: 'Zufahrt' }], floors: [] }, 'Gebäude', STATION)
+    expect(extra.row).toBe('Zufahrt')
   })
 
   it('the rail documents carry the rule and the catalogue\'s plain reader', async () => {

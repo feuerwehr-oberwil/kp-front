@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createTapDragZoom, PX_PER_DOUBLING, TAP_GAP_MS, TAP_MAX_DIST_PX, TAP_MAX_MS, TAP_DRAG_ENGAGE_PX, type TapSample } from './tapDragZoom'
+import { createTapDragZoom, oneFingerZoom, PX_PER_DOUBLING, TAP_GAP_MS, TAP_MAX_DIST_PX, TAP_MAX_MS, TAP_DRAG_ENGAGE_PX, type TapSample } from './tapDragZoom'
 
 const p = (id: number, x: number, y: number, t: number, pointerType = 'touch'): TapSample => ({ id, x, y, t, pointerType })
 
@@ -166,8 +166,8 @@ describe('tapDragZoom · tap, then press and drag', () => {
   })
 })
 
-// UX sweep M4 (21.10.2026): under a drag tool (Freihand, the Mehrfach-Rahmen) the double tap
-// zooms, the drag stays the tool's
+// UX sweep M4 (21.10.2026): under a drag tool (Freihand) the double tap zooms, the drag stays
+// the tool's
 describe('tapDragZoom · double tap only (drag: false)', () => {
   it('a double tap is still one zoom step', () => {
     const g = createTapDragZoom()
@@ -190,5 +190,37 @@ describe('tapDragZoom · double tap only (drag: false)', () => {
     tap(g, 1, 100, 200, 0)
     g.down(p(2, 100, 200, 200), { drag: false })
     expect(g.up(p(2, 180, 200, 300))).toEqual({ kind: 'end' })
+  })
+})
+
+// Sweep 27.10.2026 #8: under Messen tap-and-drag zooms, but a quick second press stays the tool's
+// own tap — a double tap there is two measuring points, never a zoom step
+describe('tapDragZoom · drag only (step: false)', () => {
+  it('the second press, dragged, zooms', () => {
+    const g = createTapDragZoom()
+    tap(g, 1, 100, 200, 0)
+    expect(g.down(p(2, 100, 200, 200), { step: false })).toEqual({ kind: 'arm', at: { x: 100, y: 200 } })
+    expect(g.move(p(2, 100, 200 + TAP_DRAG_ENGAGE_PX + 1, 220))).toEqual({ kind: 'zoom', factor: 1, at: { x: 100, y: 200 } })
+    expect(g.move(p(2, 100, 200 + TAP_DRAG_ENGAGE_PX + 1 + PX_PER_DOUBLING, 260))).toMatchObject({ kind: 'zoom', factor: 2 })
+  })
+
+  it('a quick second press is no zoom step — it ends, and the tool gets its tap', () => {
+    const g = createTapDragZoom()
+    tap(g, 1, 100, 200, 0)
+    g.down(p(2, 100, 200, 200), { step: false })
+    expect(g.up(p(2, 100, 200, 260))).toEqual({ kind: 'end' })
+  })
+})
+
+// the owner's decision, 27.10.2026: on under Auswahl, Mehrfach, Messen and with Ebenen open; a
+// tap-to-place tool places on a tap and navigates by pinch; Freihand keeps the double tap (M4)
+describe('oneFingerZoom · one rule for Lage, Plan and Karte', () => {
+  it.each([
+    ['Auswahl / Mehrfach / Ebenen open', 'navigate', { step: true, drag: true }],
+    ['Messen – two taps are two points, tap-and-drag zooms', 'measure', { step: false, drag: true }],
+    ['Symbol, Punkte, Notiz, Trupp, Kreis – a tap places, pinch zooms', 'place', { step: false, drag: false }],
+    ['Freihand – the drag draws, a double tap zooms (M4)', 'draw', { step: true, drag: false }],
+  ] as const)('%s', (_, kind, want) => {
+    expect(oneFingerZoom(kind)).toEqual(want)
   })
 })

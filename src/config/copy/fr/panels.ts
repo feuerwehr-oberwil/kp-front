@@ -61,6 +61,9 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     loading: 'Chargement du PDF…',
     failed: 'Le PDF n’a pas pu être chargé.',
     retry: 'Réessayer',
+    jumps: 'Sommaire',
+    page: 'Page {n}',
+    openIn: 'Ouvrir dans …',
     reason: {
       stale: 'L’application fonctionne sur une ancienne version – fermez-la et rouvrez-la.',
       offline: 'Aucune connexion – ce PDF n’est pas enregistré sur cet appareil.',
