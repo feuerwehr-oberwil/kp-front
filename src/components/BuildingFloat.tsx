@@ -53,8 +53,9 @@ export function BuildingFloat({ info, compact = false, autoOpen = false, onRead 
   }, [open, close])
   if (!summary) return null
   const C = appConfig.copy.building
-  // compact (a phone, where the floating row is one line beside the FAB): the hazard words only;
-  // without hazards the glyph alone, its words in aria-label/title like the row's lamped chips
+  // compact (a phone, where the floating row is one line beside the FAB, and the plan's row, where
+  // it is the Objekt chip's second half): the hazard words only; without hazards the glyph alone,
+  // its words in aria-label/title like the row's lamped chips
   const text = summary.hazard
     ? (compact ? summary.words.join(' · ') : `${C.chipTitle} · ${summary.words.join(' · ')}`)
     : (compact ? null : C.chipTitle)

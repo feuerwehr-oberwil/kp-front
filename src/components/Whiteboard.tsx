@@ -1792,8 +1792,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // (09-whiteboard · .wb-botleft), and a hazard is glyph + WORD, so «⚠ Gas · PV» took the room the
   // Objekt chip's name needs — the name went down to its glyph, and «which object are these
   // plans of» stopped being answered. On a phone the Karte's row carries the chip, one tap away.
+  // `compact`: it is the Objekt chip's second half (R1, 27.10.2026) – the hazard words alone
+  // («⚠ Gas»), the glyph alone without one; the address beside it already says which building.
   const buildingFloat = !isPhone && !objectChipHidden && (objectName || objectAddress)
-    ? <BuildingFloat info={buildingInfo ?? null} />
+    ? <BuildingFloat info={buildingInfo ?? null} compact />
     : null
 
 
@@ -1908,7 +1910,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         {nearbyBanner}
         {/* the row is the reader's to render: on a tablet its section bar stands in it (PdfScroller) */}
         <PdfScroller key={active.id} url={planUrl(active.imageUrl)} fileName={[objectName, active.title || active.code].filter(Boolean).join(' – ')}
-          row={<>{objectChip}{buildingFloat}</>} />
+          row={<><span className="wb-join">{objectChip}{buildingFloat}</span>{readingsChip}</>} />
       </div>
     )
   }
@@ -3028,12 +3030,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           straight back when the mode ends. On a phone the instrument is the bar instead
           (GeorefMode · GeorefModeBars), so this row simply stays empty of it. */}
       {georefArmed && !isPhone ? <GeorefInstrument mode={georef} /> : <>
+      {/* R1 (owner, 27.10.2026): chips that say one thing together share ONE glass, each half
+          its own tap – the Objekt with its Gebäude-Info, and the Massstab with «⌖ Karte» below */}
       {/* the Tafel's pages: «which sheet», in the row where a plan says «which place» (owner) */}
       {strip}
-      {objectChip}
-      {buildingFloat}
+      <span className="wb-join">{objectChip}{buildingFloat}</span>
       {buildingChip}
       {readingsChip}
+      <span className="wb-join wb-join-lamps">
       {/* Maßstab — trust chip: shows where the active plan's scale comes from. A manually
           calibrated scale remains a control because tapping it edits that calibration. An
           automatic scale is different: it is DERIVED from the Karte link and must therefore be
@@ -3136,6 +3140,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           <span className="wb-lamp" data-tone={georefChipTone(georefState)} aria-hidden="true" />
         </button>
       )}
+      </span>
       </>}
       </div>
 

@@ -185,8 +185,8 @@
      (Whiteboard · the .wb-lamped chips). The Gebäude/Objekt read-out keeps its NAME, because a
      name cannot be an Ampel; it is the one that truncates when the row runs out of room. */
   .wb-botleft { flex-wrap: nowrap; }
-  .wb-botleft > .wb-scale-chip.wb-lamped { flex: none; }
-  .wb-botleft > .wb-scale-chip.wb-lamped > span:not(.wb-lamp) { display: none; }
+  .wb-botleft .wb-scale-chip.wb-lamped { flex: none; }
+  .wb-botleft .wb-scale-chip.wb-lamped > span:not(.wb-lamp) { display: none; }
 }
 
 /* PlanPicker modal — searchable object list (primary) + supporting mini-map.
@@ -1060,6 +1060,22 @@ span.wb-ghost-label { cursor: default; }
    chips, `disabled`): the `.wb-object:disabled` recipe — full opacity, their own words and tone,
    no hover, no touch pad. The tone is the point: «ungemessen» amber must read as amber. */
 .wb-scale-chip:disabled { cursor: default; opacity: 1; }
+/* R1 (owner, 27.10.2026): chips that say one thing together share ONE glass – the Objekt with its
+   Gebäude-Info, the Massstab with «⌖ Karte» (Whiteboard · .wb-join). The group wears the family's
+   glass; its chips give theirs up and are split by a hairline, each still its own tap. Colour only
+   (not the `background` shorthand), so the hover wash and the armed fill below still paint. */
+.wb-join { display: inline-flex; align-items: stretch; flex: 0 1 auto; min-width: 0; max-width: 100%; border-radius: var(--r-sm);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); }
+.wb-join:empty { display: none; }
+.wb-join .wb-scale-chip { background-color: transparent; backdrop-filter: none; box-shadow: none; border-radius: 0; }
+.wb-join > * + * { border-left: 1px solid var(--border); }
+.wb-join > :first-child, .wb-join > :first-child > .wb-scale-chip { border-top-left-radius: var(--r-sm); border-bottom-left-radius: var(--r-sm); }
+.wb-join > :last-child, .wb-join > :last-child > .wb-scale-chip { border-top-right-radius: var(--r-sm); border-bottom-right-radius: var(--r-sm); }
+.wb-join-lamps { flex: none; }
+/* …and in the Massstab/«⌖ Karte» pair a GREEN lamp is the whole reading: icon + lamp, the words in
+   aria-label/title (as on a phone, below). Any other tone keeps its words – «Karte verknüpfen»,
+   an unchecked fit, a stale scale are sentences somebody has to read. */
+.wb-join-lamps > .wb-scale-chip.wb-lamped:has(> .wb-lamp[data-tone='green']) > span:not(.wb-lamp) { display: none; }
 /* ⚠️ NO state ring (26.09.2026, owner: the calibrated Massstab wore a blue outline beside a green
    dot, and read as «selected»). `.on` (calibrated / derived) and `.stale` stay as classes, but
    what they say is said by the chip's LAMP (planScale · scaleLampTone) — the one glyph that
