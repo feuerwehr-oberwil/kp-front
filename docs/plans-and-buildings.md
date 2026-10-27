@@ -22,16 +22,79 @@ AGENTS.md on 2026-10-08, wording unchanged.
   change coverage, and old single-floor values remain readable without inventing assignments.
   Removing a storey never deletes a range that still covers another one: it shrinks to the
   storeys left, and a home on the removed storey moves to the lowest of them.
-  A Linie/Fläche dragged or turned WHOLE stays on the storeys it is drawn on and keeps its shape:
-  at a tile's edge the translation stops, never each vertex (`whiteboard · floorGeometry.moveRigid`,
-  24.09.2026 — the per-vertex clamp flattened a Leitung onto the tile's rim in the field); a vertex
-  changes storey only by its own grip.
+  A Linie/Fläche dragged or turned WHOLE keeps its shape: at a tile's edge the translation stops,
+  never each vertex (`whiteboard · floorGeometry.moveRigid`, 24.09.2026 — the per-vertex clamp
+  flattened a Leitung onto the tile's rim in the field). Dragged ONTO another storey tile (body
+  drag, or the bar's ✥ with the selection's centre over it), it goes to that storey (27.10.2026,
+  `grundriss · shiftStoreys`): every storey it is on shifts by the same step, a symbol's Von/Bis
+  with it, the target tile lights up, one ↶. A docked line, a turn, or a step that would put any
+  vertex off the stack keeps it on its storeys; a single vertex still changes storey by its own grip.
   - *A storey's acts live in its LABEL* (29.09.2026). The label shows the word only («4. OG»,
     «EG», a custom name); the signed chip comes back only when a custom name hides the order. A
     tap opens a Menu «Ausblenden · Geschoss entfernen» — Ausblenden is a way of looking
     (device-local, on read-only surfaces too, the folded strip is the way back), «Geschoss
     entfernen» is the danger row and stays the owner's confirm-with-undo (workspace/useGebaeudeActions ·
     removeFloor). No eye and no bin on the canvas: delete is the rarest act on this surface.
+    «Kopieren nach …» (27.10.2026) sits in the same menu (not on a read-only surface).
+
+## The Grundriss on the storey stack
+
+The Einsatz sketch of a building (owner picks 27.10.2026; peace time has the PDF plans). Rules in
+`lib/grundriss`; how the Wand / Weg / Raum tools draw is `lib/draftMachine`'s.
+
+- **Wand / Weg / Raum are Linie / Fläche with a `role`**, no object kind of their own. The role
+  says LAYOUT: it is what snaps, carries Durchgänge and is copied. Walls and rooms live on ONE
+  storey – no Von/Bis for them.
+- **A Durchgang sits on a Wand** (`onWall`). Placed or dropped within ~30 screen px of a Wand on
+  its storey it snaps onto the nearest segment, turned along it (no swing arc); further away it
+  stands free and `onWall` is cleared. On the stack the Durchgang tool places «mehrere» by default.
+  A mouse shows the door where the click would put it.
+- **Doors ride on their wall in the board funnel** (`Whiteboard · writeBoard` → `carryDoors`):
+  every write that moves a Wand – body drag, ✥ / ⟳, a vertex grip, a drop on another storey –
+  takes its doors along in the SAME step (same segment, same fraction; a corner added or removed
+  re-projects). A write that deletes the Wand lets its doors go where they stand. ↶ / ↷ restores
+  pass untouched. A door the write moved itself is left as written.
+- **«Kopieren nach …»** copies a storey's Grundriss – every `role` line/area and every symbol of
+  the library's «Gebäude» category, never Leitungen, Trupps, Gefahren, Notizen or Messpunkte – as
+  INDEPENDENT copies (new ids, the target's storey, `onWall` remapped to the copied wall) onto the
+  picked storeys, on top of what is there. A ranged symbol (Treppe 0–3) already covering a target
+  is skipped there; every other lands with that storey as its only one. One commit = one ↶, and a
+  toast names how many went where.
+
+## Drawing a Grundriss
+
+Sketching a building on the floor stack during an Einsatz (27.10.2026, the owner's picks on the
+`range.html` prototype). In peace time the station has PDF plans; this is for the Einsatz only.
+
+- **Wand / Weg / Raum are presets of Linie / Fläche, not a new object kind.** The Linie dock on
+  the stack adds «Wand» and «Weg», the Fläche dock «Raum» (`components/WbControls · WbToolDocks`).
+  They are ordinary `draw` / `area` annos with `BoardAnno.role` and their own look
+  (`usePlanDraft · GRUNDRISS_STYLE`: a Wand dark, solid and thick; a Weg dashed with an arrow; a
+  Raum a dark outline with a light wash and its name as the Fläche `label`, tapped in afterwards).
+  The role says the anno is LAYOUT: no Leitung couples onto a Wand or Weg end
+  (`Whiteboard · planCandidatesAt`). A Wand, Weg or Raum lives on ONE storey – no Von/Bis.
+- **The presets stay armed** – each piece is committed (one ↶) and the next tap starts the next
+  one; a plain Linie / Fläche still lands selected in its editor. They always draw in Punkte.
+  A piece finishes on ✓ or a tap on its last point; a tap on the first point of a Wand / Raum
+  with ≥3 points closes it (`usePlanDraft · tapPoint / tapDraftVertex`). A Wand / Raum point runs
+  straight or at a right angle from the last one (tile space); a Weg is free. A point that goes
+  straight back along the piece just drawn commits that piece and starts the next one there, so
+  a wall is never laid over itself (`lib/planSnap · backtracks`).
+- **Snapping is a ring and nothing else** (`lib/planSnap`, pure; the owner: «just an easy way to
+  snap things»). Magenta ring = it catches, small grey dot = free; a mouse also gets the ring
+  following the pointer and a rubber band from the last point, a finger sees the ring while it
+  presses (a drag still pans). Targets on the same storey, within ~14 screen px: the ends and
+  segments of the Wand / Weg / Raum inks, the open piece's own points, and the building outline
+  (`Whiteboard · stackOutlinePx`). A plain Linie in Punkte mode on the stack snaps only onto the
+  centre of a Durchgang, a Türe or a Treppe – that is how a Leitung is laid through doors and up
+  the stairs. The stored point is exactly the snapped one.
+- **An open drawing looks open and is never left unasked.** While a Punkte drawing is in the
+  hand it is drawn in amber marching dashes with a pulsing «Wand offen» pill at its last point,
+  and its rail tile carries an amber dot – on the Plan and on the Karte. Leaving it (another tool
+  or mode, ✕, Escape, a selection landing, tapping another storey while a Wand / Weg / Raum is
+  open) asks «Speichern · Verwerfen · Weiterzeichnen» (`lib/draftMachine · releaseDraft /
+  askOpenDraft`); a fragment too short to commit goes silently. Two leaves cannot be answered
+  and commit with a toast instead: the document itself going away, and arming «Karte verknüpfen».
 
 ## Automatic alignments and their approval
 

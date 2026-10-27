@@ -332,6 +332,8 @@
 .wb-floor { position: absolute; left: 0; display: flex; align-items: center; justify-content: center;
   container-type: inline-size;
   border-bottom: 1px dashed var(--ink-28); }
+/* the storey a dragged selection would land on (useWbBodyDrag / useWbSelectionBar · setDropFloor) */
+.wb-floor-drop { background: var(--sel-wash); box-shadow: inset 0 0 0 2px var(--sel); }
 .wb-floor-fp { flex: none; } /* width/height set inline (px), fit to the tile preserving aspect */
 .wb-floor-svg { width: 100%; height: 100%; display: block; }
 /* the storey index as a chip (mock B, 14.09.2026) – the Karte's storey badge, on the tile.
@@ -372,7 +374,8 @@
    the stack's top edge, centred): a door that sits under another button is no door (phone,
    29.09.2026) */
 @container (max-width: 359px) {
-  .wb-floor-under-add > .wb-floor-label { top: calc(var(--tap) / 2 + 4px); }
+  .wb-floor-under-add > .wb-floor-label,
+  .wb-floor-under-add > .wb-floor-menu-host > .wb-floor-label { top: calc(var(--tap) / 2 + 4px); }
 }
 /* …and what it leaves behind: a strip where the storey belongs, which says what it is and how to
    get it back. Sits at the seam between the two drawn tiles, so the stack still reads in order. */
@@ -490,6 +493,8 @@
 
 .wb-ink-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .wb-ink { position: absolute; inset: 0; z-index: 5; touch-action: none; }
+/* the Durchgang a click would place (usePlanCreate · doorGhost): above the capture layer, never in its way */
+.wb-door-ghost { position: absolute; left: 0; top: 0; z-index: 6; opacity: .55; pointer-events: none; }
 
 /* point annotations — anchor centred on the plan point via translate(-50%,-50%) */
 /* labels never text-highlight on click/drag; only the edit inputs are selectable */
@@ -1179,3 +1184,30 @@ span.wb-ghost-label { cursor: default; }
   .wb-vins:hover { opacity: 1; }
 }
 .wb-vins .i { width: 11px; height: 11px; stroke-width: 3.2; }
+
+/* ── The open drawing and the snap ring (27.10.2026, Grundriss round) ─────────────────────────
+   A Punkte drawing that is not saved yet LOOKS open: amber marching dashes and a pulsing «Wand
+   offen» pill at its last point (usePlanDraft · openName). Where the next point lands is a ring
+   and nothing else (owner: «no text, no guide lines»): magenta when it catches, a small grey dot
+   when it is free; a mouse also draws the rubber band from the last point. */
+.wb-draft-open { fill: none; stroke: var(--open); stroke-width: 3; stroke-dasharray: 10 7; animation: wb-ants .8s linear infinite; }
+polygon.wb-draft-open { fill: var(--open); fill-opacity: .1; }
+@keyframes wb-ants { to { stroke-dashoffset: -34; } }
+.wb-open-pill { position: absolute; left: 0; top: 0; z-index: 8; pointer-events: none; white-space: nowrap;
+  padding: 2px var(--sp-2); border-radius: var(--r-pill); background: var(--open); color: var(--on-amber);
+  font-size: var(--fs-1); font-weight: var(--fw-bold); animation: wb-pulse 1.2s ease-in-out infinite; }
+@keyframes wb-pulse { 50% { opacity: .5; } }
+.wb-snap-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 8; }
+.wb-snap-band { stroke: var(--open); stroke-width: 2; stroke-dasharray: 3 5; fill: none; }
+.wb-snap-ring { fill: none; stroke: var(--snap); stroke-width: 2.5; }
+.wb-snap-core { fill: var(--snap); }
+.wb-snap-free { fill: var(--ink-faint); }
+@media (prefers-reduced-motion: reduce) { .wb-draft-open, .wb-open-pill { animation: none; } }
+
+/* «Kopieren nach …» (components/StoreyCopySheet): what goes, then one chip per storey */
+.wb-copy-what { margin: 0 0 var(--sp-3); }
+.wb-copy-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+/* the storey label menu's host: only there to stop its portalled items' pointer events (Whiteboard).
+   ⚠️ it sits between the tile and its label: a `.wb-floor… > .wb-floor-label` rule must name it too */
+.wb-floor-menu-host { display: contents; }

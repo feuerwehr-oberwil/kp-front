@@ -40,6 +40,11 @@
   --blue: #1f6feb;
   --green: #178a4a;
   --amber: #e2920a;
+  /* Drawing on the board (27.10.2026, Grundriss round): an OPEN drawing is amber (its marching
+     dashes, its «… offen» pill, the dot on its rail tile), and the ring where a point SNAPS is
+     magenta — a colour no ink and no state uses, so it can only mean «it catches here». */
+  --open: var(--amber);
+  --snap: #db2777;
   /* layered shadow: hairline edge + tight contact + soft ambient — holds the
      panel edge over dark aerial imagery where the white border alone vanishes */
   --shadow: var(--e4);      /* (the values live in «THE SCALES» below, with their night twins) */
@@ -418,6 +423,7 @@
   --blue: #5aa0ff;
   --green: #38c172;
   --amber: #f4b033;
+  --snap: #f472b6;
   /* elevation (--shadow/--shadow-sm are --e4/--e3): black, not the day's blue-grey, and stronger —
      a dark panel on a dark map needs more shadow to lift, not less */
   --e1: 0 1px 2px rgba(0, 0, 0, .5), 0 2px 5px rgba(0, 0, 0, .4);

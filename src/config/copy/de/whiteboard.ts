@@ -40,7 +40,13 @@ export const whiteboardCopy = {
     symbol: 'Symbol',
     line: 'Linie',
     area: 'Fläche',
+    // the Gebäude stack's Grundriss presets of Linie / Fläche (27.10.2026): their dock toggles, the
+    // armed pill's second word and «… offen»
+    grundriss: { wand: 'Wand', weg: 'Weg', raum: 'Raum' },
     dockHints: {
+      wand: 'Punkte tippen – die Wand läuft gerade oder im rechten Winkel weiter. Den letzten Punkt nochmals tippen oder ✓ beendet sie, der erste Punkt schliesst sie. Das Werkzeug bleibt aktiv.',
+      weg: 'Punkte tippen. Den letzten Punkt nochmals tippen oder ✓ beendet den Weg. Das Werkzeug bleibt aktiv.',
+      raum: 'Ecken tippen – gerade oder im rechten Winkel. Der erste Punkt oder ✓ schliesst den Raum; den Namen danach im Editor. Das Werkzeug bleibt aktiv.',
       draw: 'Auf den Plan ziehen, um frei zu zeichnen. Farbe, Breite und Stil danach im Editor.',
       circle: 'Von der Mitte zum Rand ziehen setzt den Radius. Radius, Farbe und Füllung danach im Editor anpassen – in echten Metern, sobald der Massstab kalibriert ist.',
       text: 'Auf den Plan tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
@@ -267,6 +273,9 @@ export const whiteboardCopy = {
     placeSymbol: 'Symbol «{name}» auf Plan gesetzt',
     placeLine: 'Linie auf Plan gezeichnet',
     placeArea: 'Fläche auf Plan gezeichnet',
+    placeWand: 'Wand auf Plan gezeichnet',
+    placeWeg: 'Weg auf Plan gezeichnet',
+    placeRaum: 'Raum auf Plan gezeichnet',
     placeCircle: 'Absperrkreis auf Plan gezeichnet',
     placeTeam: '{name} auf Plan gesetzt',
     selectTrupp: 'Welcher Trupp?',
@@ -345,6 +354,18 @@ export const whiteboardCopy = {
     floorRemovedLog: 'Geschoss {floor} entfernt',
     floorRemovedLogMarks: 'Geschoss {floor} entfernt – {n} Markierungen entfernt oder gekürzt',
     floorRestoredLog: 'Geschoss {floor} wiederhergestellt',
+    // «Kopieren nach …» in the storey label's menu (27.10.2026): the storey's Grundriss onto others
+    storeyCopy: {
+      menu: 'Kopieren nach …',
+      title: '{name} kopieren nach …',
+      what: '{n} Objekte: Wände, Wege, Räume und Gebäude-Symbole. Leitungen, Trupps, Gefahren und Notizen bleiben.',
+      whatOne: '1 Objekt: Wände, Wege, Räume und Gebäude-Symbole. Leitungen, Trupps, Gefahren und Notizen bleiben.',
+      nothing: 'Auf {name} gibt es noch keinen Grundriss zum Kopieren – keine Wand, keinen Weg, keinen Raum, kein Gebäude-Symbol.',
+      targets: 'Geschosse',
+      confirm: 'Kopieren',
+      done: 'Grundriss kopiert: {list}',
+      doneItem: '{n} nach {floor}',
+    },
     floorAddedLog: 'Geschoss {floor} hinzugefügt',
     buildingReplaced: 'Gebäude ersetzt',
     buildingReplacedMarks: 'Gebäude ersetzt – {n} Markierungen entfernt',

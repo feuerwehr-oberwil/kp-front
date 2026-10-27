@@ -3,6 +3,7 @@ import type React from 'react'
 import type { BoardAnno, BoardPoint, LineAttachment, LineEndpoint } from '../types'
 import { buzz } from '../lib/haptics'
 import { advanceDwell, detachProgress, dwellFor, EMPTY_DWELL, nextFreePort, stickyMagneticTarget, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { carryDoors, doorsOn } from '../lib/grundriss'
 import { canDropVertex, extendEnd, insertAt, removeVertex, replaceVertex, segmentMid } from '../lib/vertexOps'
 
 // `origin` + `attached` + `detach` are the RELEASE half of the ring language (see the Lage map's
@@ -51,6 +52,8 @@ interface Args {
   /** the storey the node draft was started on (a Fläche stays there) */
   draftFloor: React.MutableRefObject<number>
   setDraft: React.Dispatch<React.SetStateAction<BoardPoint[] | null>>
+  /** the storey tile's height/width (Whiteboard · tileAspectOf) – a Durchgang's seat on its Wand depends on it */
+  tileAR: number
 }
 
 /**
@@ -71,7 +74,7 @@ export function useWbVertexEdit({
   annos, selId, tool, readOnly, stack, toNorm, localY, floorAt, mapY, sW, sH,
   resolvedPts, attachmentLines, planCandidatesAt, pushPast, patch, patchCommit, emit, activeId,
   onLineAttached, onLineDetached, planEndpointDrag, setPlanEndpointDrag, planDwellTimerRef,
-  allFloorsTTB, revealFloor, centerOnPoint, scaleRef, draftFloor, setDraft,
+  allFloorsTTB, revealFloor, centerOnPoint, scaleRef, draftFloor, setDraft, tileAR,
 }: Args) {
   // drag a single VERTEX of a selected line/area (shared by both — they're both pts-based).
   // `pushed` = the undo checkpoint for this gesture was already taken BEFORE the shape changed
@@ -159,6 +162,8 @@ export function useWbVertexEdit({
         // array either way, so the replay is identical.
         if (st.pushed) { patch(a.id, out); emit('board.edit', { id: a.id, patch: out, planId: activeId }) }
         else patchCommit(a.id, out)
+        // the docked end is written only now, so its Durchgänge ride along in this write
+        logDoorSeats(a.id, carryDoors(annos, annos.map((x) => (x.id === a.id ? { ...x, ...out } : x)), tileAR))
         // …and an end dragged ONTO a Trupp's chip joins the two, exactly as a fresh stroke's does;
         // dragged OFF it, they part
         const previous = magnetic.endpoint === 'start' ? a.startAttachment : a.endAttachment
@@ -171,8 +176,15 @@ export function useWbVertexEdit({
     setPlanEndpointDrag(null)
     // …and the ordinary, unmagnetic reshape: the points ARE what moved, so they travel with it
     // (an empty `board.edit` folds to nothing — see the magnetic branch above, which always said so)
-    if (st?.moved) emit('board.edit', { id: st.id, planId: activeId, patch: { pts: annos.find((a) => a.id === st.id)?.pts } })
+    if (!st?.moved) return
+    emit('board.edit', { id: st.id, planId: activeId, patch: { pts: annos.find((a) => a.id === st.id)?.pts } })
+    logDoorSeats(st.id, annos)
   }
+  /** the Durchgänge re-seated on a reshaped Wand (lib/grundriss · carryDoors) – their seat, for the
+   *  replay. `board` holds them where they now sit: the last render for a live reshape, the
+   *  carried release write for a docked end. */
+  const logDoorSeats = (wallId: string, board: readonly BoardAnno[]) =>
+    doorsOn(board, [wallId]).forEach((d) => emit('board.edit', { id: d.id, patch: { x: d.x, y: d.y, floor: d.floor, rotation: d.rotation }, planId: activeId }))
   /**
    * Grow the line past one of its open ends: append a point where the finger is, then hand the
    * gesture straight over to the ordinary vertex drag so the new point follows until release.

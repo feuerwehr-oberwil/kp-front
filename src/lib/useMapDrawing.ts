@@ -8,7 +8,7 @@ import { confirmDialog, toast } from './ui'
 import { fillTemplate } from './format'
 import { newId } from './ids'
 import { canDropVertex, insertAt, minPoints, removeVertex } from './vertexOps'
-import { draftActive as isDraftActive, finishKind, releaseDraft } from './draftMachine'
+import { askOpenDraft, draftActive as isDraftActive, finishKind, releaseDraft } from './draftMachine'
 import { onSiteCoords, revertCoords } from './gpsReturn'
 
 /** The style every new line / Fläche is born with – never the last edited line's
@@ -109,7 +109,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     // drop into Select with the new area active so its reshape/move/rotate handles are
     // immediately usable (mirrors symbol/shape placement). Staying in 'area' would keep
     // draftKind set, which suppresses the edit handles → the area looks uneditable.
-    // `select: false` is the tap-away auto-commit's path (settleDraft): there the operator has
+    // `select: false` is «Speichern» on a drawing being left (settleDraft): there the operator has
     // ALREADY chosen where to be next, and stealing the selection would undo that choice.
     if (opts?.select !== false) { setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }
     return drawing
@@ -131,7 +131,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     // a stroke that ENDED on a Trupp's marker is that Trupp's Leitung — reported for both ends,
     // because either of them may be the coupling (see MapDrawingDeps · onLineAttached)
     for (const a of [attachments?.startAttachment, attachments?.endAttachment]) if (a) onLineAttached?.(id, a)
-    // `select: false` = tap-away auto-commit (settleDraft) — see the note on createArea
+    // `select: false` = «Speichern» on a drawing being left (settleDraft) — see the note on createArea
     if (opts?.select !== false) { setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }
     return drawing
   }
@@ -163,56 +163,42 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   // combinations for the Verlauf, so «Rettungsachse gezeichnet» keeps reading as before)
 
   /**
-   * Tap-away landed mid-draft — a selection, a mode/surface switch, the tactical lock. The draft
-   * used to be discarded SILENTLY here (decided otherwise 29.08.): work someone tapped out point
-   * by point vanished because they glanced at a symbol or switched to the Verlauf. Now a
-   * committable draft (area ≥3 points, node line ≥2) auto-commits through the same create funnel
-   * the ✓ uses — without stealing the selection the operator just made — and the toast's
-   * «Rückgängig» returns the shape TO THE HAND: committed drawing out, draft points back, tool
-   * re-armed. A fragment below the minimum has nothing to keep and says so in an action-less
-   * toast. Escape is NOT routed through this: a deliberate cancel keeps cancelling.
-   * The decision is the Plan's too (lib/draftMachine · releaseDraft); the toasts are this surface's.
+   * The draft is being LEFT — another tool or dock, Escape, a selection landing, a mode/surface
+   * switch, the tactical lock. A committable draft (area ≥3 points, node line ≥2) asks «Speichern ·
+   * Verwerfen · Weiterzeichnen» (owner, 27.10.2026 – it replaced the A6 auto-commit with its
+   * «Rückgängig» toast). The leave itself goes through at once and the drawing waits in the
+   * question: «Speichern» commits it through the same create funnel the ✓ uses — without stealing
+   * the selection the operator just made, one ↶ —, «Verwerfen» drops it, «Weiterzeichnen» hands it
+   * back to the hand under its re-armed tool. A fragment below the minimum goes silently.
+   * The decision and the question are the Plan's too (lib/draftMachine); the funnel is this surface's.
    */
   const settleDraft = () => {
-    // ⚠️ `tacticalLocked` makes every draft a discard: once the surface is locked (replay entered,
-    // tab lock lost, Führungsansicht) this session may no longer write, and createLine/createArea
-    // would rightly refuse — so the honest outcome is the discard toast, never a silent drop.
+    // ⚠️ `tacticalLocked` makes every committable draft a discard: once the surface is locked
+    // (replay entered, tab lock lost, Führungsansicht) this session may no longer write, and
+    // createLine/createArea would rightly refuse — so the honest outcome is the discard toast.
     const release = releaseDraft({ from: tool, lineMode, count: draft.length, locked: tacticalLocked })
     if (release.type === 'keep') return
-    const C = appConfig.copy.toolDock
     const coords = draft
     const attachments = draftAttachments
     const wasTool = tool
     setDraft([])
     if (release.type === 'drop') return
     if (release.type === 'discard') {
-      toast(C.draftDiscarded, { icon: 'info' })
+      toast(appConfig.copy.toolDock.draftDiscarded, { icon: 'info' })
       return
     }
-    const drawing = release.kind === 'line' ? createLine(coords, attachments, { select: false }) : createArea(coords, { select: false })
-    if (!drawing) return
-    // Twelve seconds, not the six-second floor: the commit happened on its own, not on a tap,
-    // so the operator first has to notice it before deciding whether it was meant.
-    toast(fillTemplate(C.autoCommitted, { name: drawingLogName(drawing) }), {
-      icon: 'check',
-      tone: 'success',
-      duration: 12_000,
-      action: {
-        label: C.autoCommitUndo,
-        onClick: () => {
-          // «not yet», not «never was»: the drawing comes out of the document and the draft
-          // returns editable under the re-armed tool. The record stays truthful — created, then
-          // taken back — the same pair of rows an ordinary create + delete writes.
-          if (tacticalLocked) return
-          commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== drawing.id) }))
-          emit('draw.delete', { id: drawing.id })
-          log('close', fillTemplate(appConfig.copy.log.objectDeleted, { name: drawingLogName(drawing) }), undefined, undefined, undefined, { subjectId: drawing.id })
-          setTool(wasTool)
-          if (wasTool === 'line') setLineMode('nodes')
-          setDraftRaw(coords)
-          setDraftAttachments(attachments)
-        },
-      },
+    const kind = release.kind
+    const save = () => { if (kind === 'line') createLine(coords, attachments, { select: false }); else createArea(coords, { select: false }) }
+    if (release.type === 'commit') { save(); return } // (the Karte always asks – see releaseDraft)
+    void askOpenDraft(kind === 'line' ? appConfig.copy.drawingEditor.line : appConfig.copy.drawingEditor.area).then((answer) => {
+      if (answer === 'save') save()
+      else if (answer === 'continue') {
+        setTool(wasTool)
+        if (wasTool === 'line') setLineMode('nodes')
+        else setAreaMode('nodes')
+        setDraftRaw(coords)
+        setDraftAttachments(attachments)
+      }
     })
   }
 
@@ -519,6 +505,8 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   const draftActive = isDraftActive(tool, { lineMode, areaMode }, draft.length)
   // node-mode line taps seed the draft (like the area/measure tools), so the freehand gesture is off
   const lineNodes = tool === 'line' && lineMode === 'nodes'
+  /** a Punkte drawing is in the hand and not saved yet — its tool tile wears the amber dot */
+  const draftOpen = draft.length > 0 && (lineNodes || (tool === 'area' && areaMode === 'nodes'))
   /**
    * WHICH shape the canvas drag lays down right now — a Linie or a Fläche — or null while the drag
    * still pans. The kind, not a bare «armed»: only a Leitung's two ends can carry an attachment
@@ -536,7 +524,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     draft, setDraft,
     drawColor, drawWidth, drawDashed,
     lineMode, setLineMode, areaMode, setAreaMode,
-    draftActive, lineNodes, freehandKind, selectedDrawing,
+    draftActive, draftOpen, lineNodes, freehandKind, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle,
     /** the claim the node draft's first tap banked — the magnet judges every later tap by it */
     draftStartAttachment: draftAttachments.startAttachment, patchDrawing, patchDrawingById,
