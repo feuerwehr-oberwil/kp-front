@@ -59,6 +59,7 @@ import { QuietAttributionControl } from './MapAttribution'
 import { GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
 import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
+import { oneFingerZoom } from '../lib/tapDragZoom'
 import { setLiveBearing } from '../lib/liveBearing'
 import { LABEL_ABOVE, measureLabelPlacement } from '../lib/measureLabelPlace'
 import { attachInsetPx, lineJoints, boundaryPoint, DETACH_SHOW_PROGRESS, dwellFor, forkPortPoint, gpsGuard, moveLineBody, relationshipNetwork, resolveLinePoints, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
@@ -369,25 +370,28 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // would stay off for the rest of the session. Every such removal is a render, so this reopens
   // it; enable/disable are idempotent, so running it every render costs nothing.
   useEffect(() => { syncMapKeyboard(mapInst.current) })
-  // ── a one-finger zoom gesture works unless the armed tool uses it (UX sweep M4, owner
-  // 21.10.2026: tools have precedence, «if the underlying tool doesn't interfere» the map zooms) ──
+  // ── one finger zooms unless the armed tool uses that gesture — the ONE rule of
+  // lib/tapDragZoom · oneFingerZoom, shared with the Plan boards (sweep 27.10.2026 #8, owner: «I
+  // need it to work on the map, on the plans, and also on the normal map in the peacetime view»).
   // A DOUBLE TAP is off under a tap tool (Punkte, Messen, Hinzufügen, Notiz, Trupp, Koordinaten,
   // and Kreis, whose tap drops a default-size ring): its taps are the tool's, and a double tap is
-  // two of them. Under a drag tool it zooms: a Freihand tap commits nothing (isTapStroke), and a
-  // Mehrfach tap selects, as under Auswahl. TAP-AND-DRAG belongs to Auswahl alone:
-  // it starts with a tap (a tap tool's) and goes on as a drag (a drag tool's). Pinch and the wheel
-  // stay on throughout. Tap-and-drag rides on touchZoomRotate (the pinch), so it is switched on its
-  // own, and only back on if the pinch is. Per instance: a WebGL remount builds a fresh map with
-  // both on.
+  // two of them. TAP-AND-DRAG is off only under a tool that draws with the drag (Freihand, Kreis);
+  // everywhere else — Auswahl, Mehrfach (the Rahmen yields its second press, useMapCanvasGestures),
+  // Messen, every tap tool, the Karte's Ebenen sheet — it zooms. It used to follow `placing`,
+  // which on the Lage is «any tool but Auswahl» and on the Karte «any tool at all». Pinch and the
+  // wheel stay on throughout. Tap-and-drag rides on touchZoomRotate (the pinch), so it is switched
+  // on its own, and only back on if the pinch is (`_tapDragZoom` is typed in maplibre-gl's own
+  // d.ts, just not documented). Per instance: a WebGL remount builds a fresh map with both on.
   const dragTool = !!freehand || marqueeEnabled
+  const zoomAllow = oneFingerZoom({ taps: !!placing && !dragTool, drags: !!freehand || circleEnabled })
   useEffect(() => {
     const m = mapInst.current
     if (!mapReady || !m) return
-    if (placing && !dragTool) m.doubleClickZoom.disable()
-    else m.doubleClickZoom.enable()
-    if (placing) m.touchZoomRotate._tapDragZoom.disable()
+    if (zoomAllow.step) m.doubleClickZoom.enable()
+    else m.doubleClickZoom.disable()
+    if (!zoomAllow.drag) m.touchZoomRotate._tapDragZoom.disable()
     else if (m.touchZoomRotate.isEnabled()) m.touchZoomRotate._tapDragZoom.enable()
-  }, [mapReady, placing, dragTool])
+  }, [mapReady, zoomAllow.step, zoomAllow.drag])
   // WebGL context recovery: iPadOS drops the context under memory pressure / after a long
   // background spell, and MapLibre stays blank without rebuilding. `gl.generation` keys the
   // <Map> below so recovery is a fresh instance; `viewRef` carries the CURRENT view across that

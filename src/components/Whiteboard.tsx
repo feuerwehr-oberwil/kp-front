@@ -1180,7 +1180,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     toNorm, floorAt, localY, mapY, sW, sH, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef: inkTap,
     planDraft, rotor, measure: planMeasure, rotPlacing, rotStart, setRotStart, rotN, noteDefaults, txtBase, setNotePanelId, setNotePlacedId,
     sym, onRecent, annos, trupps, placedTeamNames, onLinkTrupp, setTruppPick, add, log, setSelId,
-    tapZoomPress: (e) => tapZoomPress(e),
+    tapZoomPress: (e, allow) => tapZoomPress(e, allow),
+    tapZoomOwns: (id) => tapZoomOwns(id),
   })
 
   // --- the ink's body drags: a stroke, an Absperrkreis, a Linie's label — components/useWbBodyDrag ---
@@ -1227,7 +1228,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   // pan / pinch-zoom / marquee multi-select + the shared stage pointer dispatcher live in
   // useBoardGestures; object manipulation is reached through manipMove/manipUp above.
-  const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp, tapZoomPress } = useBoardGestures({
+  const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp, tapZoomPress, tapZoomOwns } = useBoardGestures({
     tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
   })
 
