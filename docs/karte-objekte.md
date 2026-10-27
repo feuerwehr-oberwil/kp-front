@@ -235,7 +235,8 @@ The rules that are easy to break:
   buildings of an object that HAS several opens the object as before and remembers that building
   (dashed blue). Right under the panel head, the app's `Segmented` (round 2, owner: «the toggle changes height
   and isn't using the normal style»; its picked half a neutral surface pill since review round 4,
-  not the blue choice fill — the panel's one rhythm, below): **Objekt · n Pläne** |
+  not the blue choice fill — the panel's one rhythm, below): **Objekt** (no plan count since
+  27.10.2026 – the tiles right under it show the plans) |
   **<the house's street>** («Dieses Haus» until the register, asked at the tapped point as a
   building tap asks, names it), one line per half — a long street ends in «…», so the switch has
   the same height on both levels and for every name. One tap switches, both ways, on the tablet
@@ -313,13 +314,15 @@ The rules that are easy to break:
   mouse over a row never changes the layers. A house never lists its own object. «From the selected place» is the house that was
   tapped whenever there is one — also on object level (owner, 19.10.2026: a row of 21 houses is not
   stood at its catalogue point) — else the object's point (search, tag, a list row).
-- **The panel, in one order** (owner, 17.10.2026 · review round 2), the same for an object on
-  the phone and on the tablet: head (kind, name, address, ✕) · the station's word
-  (Sofortmassnahmen, then Bemerkungen, with their source — what matters most in a hurry) ·
-  Pläne & Module as rows (the module only, offline the «auf diesem Gerät» mark — below) · Gebäude
-  laut Register · In der Nähe · Objektbesuche · the actions LAST, «Objektbesuch» and «Melden». A plain building or a dropped pin keeps that order with what
-  it has (Register, In der Nähe, Melden; a pin also «Koordinaten kopieren»), a plan-less object
-  too (no plan rows). The action row is two equal halves where both labels fit; else the longer
+- **The panel, in one order** (owner, 17.10.2026 · review round 2; its top 27.10.2026 · mocks
+  2B/2C), the same for an object on the phone and on the tablet: head (kind, name, address, ✕) ·
+  **«Für den Einsatz»**, one card: the station's word (Sofortmassnahmen, then Bemerkungen, with
+  their source — what matters most in a hurry) and the plans as tiles under it, two to a line (the
+  plan's name only, offline the «auf diesem Gerät» mark — below) · then plain lists, no tabs:
+  Gebäude laut Register as bullets (the hazards first, each with ⚠ and its word) · In der Nähe ·
+  Objektbesuche · the actions LAST, «Objektbesuch» and «Melden». A plain building or a dropped pin keeps that order with what
+  it has (Register as the same bullets, In der Nähe, Melden; a pin also «Koordinaten kopieren»), a
+  plan-less object too (the card holds the station's word alone, or is not drawn). The action row is two equal halves where both labels fit; else the longer
   label takes what it needs, and where the two do not fit one line (French/Italian at 390 px) each
   gets a row of its own — a label is never cut (owner, review round 5: «koordinaten kopieren clips
   the button»). No «Messen ab hier» (Messen is the bar's / the rail's) and no
@@ -331,10 +334,10 @@ The rules that are easy to break:
   buttons are larger than others»; picked mock A, the phone sheet too): one size per role in the
   panel. Every list row is 44px with a 14px title (round 6) and its quiet sub on the title's line («Hydrant südlich»; it
   wraps under the title only where the two do not fit) and its read-out one step smaller; a plan
-  row leads with a document glyph (the Gebäude with the floors glyph), so its words start where
-  In der Nähe's do. The switch is 36px and neutral, the ✕ 32px, the register tags 26px and
-  outlined (read-only facts, not buttons; a hazard keeps its amber), the actions the app's 44px
-  button. All of it is the panel's own (`Karte.module.css` · «one rhythm»): the global `ListRow`
+  tile is as tall and its words as big, behind a document glyph (the Gebäude with the floors
+  glyph). The switch is 36px and neutral, the ✕ 32px, the register lines the size of the station's
+  Bemerkungen (read-only facts, not buttons; a hazard's bullet is the amber ⚠ and its line bold),
+  the actions the app's 44px button. All of it is the panel's own (`Karte.module.css` · «one rhythm»): the global `ListRow`
   (search, library, Objektbesuche) and the Einsatz's Gebäude card keep their sizes.
 - **On a phone the panel is the Ebenen sheet** (owner, 17.10.2026 · R2: «a full slide-up like for
   "ebenen" and not this half thing»). `KartePanel` wears `.layers-card` there, so it IS that sheet:
@@ -476,8 +479,8 @@ The rules that are easy to break:
   known. Nothing more is added about what the station did not record.
 - **«Register-Hinweis» is tap to open** (owner, review round 4: «should be tap to open and this
   blabla (gwr, stand, etc.) should all be hidden by default»). Under «Gebäude laut Register» the
-  chips stand, and so does «Registereintrag Grenzweg 7, nicht Grenzweg 1» right under them when
-  the register's building is another address's (owner: keep it visible — the chips may be about
+  lines stand, and so does «Registereintrag Grenzweg 7, nicht Grenzweg 1» right under them when
+  the register's building is another address's (owner: keep it visible — the lines may be about
   the other building). The hint («Aus den Bundesregistern … Vor Ort prüfen.») and the source line
   (the registers and their Stand, the device's copy) are folded behind the «Register-Hinweis»
   toggle (`aria-expanded`), folded again for every place. The Einsatz's
@@ -1029,7 +1032,7 @@ What the surface shows offline:
   the rule, and no PDF is downloaded to make a lamp green. The probe reads the manifest from
   `plan-tile-manifests` and the tile cache's keys ONCE (`openPlanTilesProbe`), never one lookup per
   tile; `tilesHeld` decides.
-- **Pläne & Module** rows carry ●/◐/○ after the words; a plan the device does not hold is dimmed
+- **The plan tiles** carry ●/◐/○ after the words; a plan the device does not hold is dimmed
   (its label says «Nicht auf diesem Gerät gespeichert»), but stays tappable – the surface then says
   the plan is not stored instead of a reader spinning on a dead fetch. The tablet rail dims the
   same tiles. Gebäude is ● only when every revision's alignment metadata is stored and every

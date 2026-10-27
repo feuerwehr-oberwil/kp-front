@@ -60,7 +60,7 @@ import { usePlacementLane } from '../../lib/toastLane'
 import { geocodeSearch, type GeoHit, type IncidentMeta } from '../../lib/incidents'
 import type { StationObject } from '../../lib/api/stationReference'
 import { ovHref } from '../../objectVisits/route'
-import { coordOf, openableCount } from '../../lib/karte/search'
+import { coordOf } from '../../lib/karte/search'
 import { compass8, normAddress, objectAtAddress, objectVisitHref, placeVisitHref, REPORT_CHECKLIST, ringAt, splitAddress, type NamedPoint } from '../../lib/karte/places'
 import { LABEL_MIN_ZOOM } from '../../lib/karte/labels'
 import { GEBAEUDE_DOC, viewerPlanDocs } from '../../lib/karte/plans'
@@ -425,7 +425,6 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const levelObj = sel?.kind === 'object' && sel.hit ? selObj : sel?.kind === 'building' && sel.of ? byId.get(sel.of) ?? null : null
   const level: PanelLevel | null = levelObj && sel ? {
     on: sel.kind === 'object' ? 'object' : 'house',
-    plans: openableCount(levelObj),
     house: sel.kind === 'object' ? hitStreet : splitAddress(register.info?.address ?? null)[0] || null,
     onPick: toLevel,
   } : null
