@@ -6,15 +6,16 @@
  *   node site/capture.mjs --base http://localhost:5188
  *   node site/capture.mjs --only lage,mittel    # only individual shots
  *
- * Drives a real instance with Playwright, switches to day mode, hides the demo
+ * Drives a real instance with Playwright in both themes, hides the demo
  * chrome (welcome dialog, DEMO ribbon) and writes the images into site/shots/ – WebP for the
- * page, plus one JPEG of the hero for link previews.
+ * page (night variants in shots/dark/), plus one day JPEG for link previews.
+ * --theme light|dark limits capture to one theme; --site-only skips README images.
  * The image names are the contract with `shots.items` in site/content/de.json –
  * whoever renames one here has to follow suit there (only there: the translations
  * inherit the file name and merely caption it).
  */
 import { chromium } from '@playwright/test'
-import { writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -49,6 +50,11 @@ const only = arg('only')?.split(',').map((s) => s.trim()).filter(Boolean)
 // page inlines them (1x), the README images are viewed enlarged on GitHub (2x). So: the
 // normal run first, then `--scale 2 --docs-only`.
 const docsOnly = argv.includes('--docs-only')
+const siteOnly = argv.includes('--site-only')
+const requestedTheme = arg('theme')
+if (requestedTheme && !['light', 'dark'].includes(requestedTheme)) throw new Error('--theme must be light or dark')
+const themes = requestedTheme ? [requestedTheme] : docsOnly ? ['light'] : ['light', 'dark']
+if (docsOnly && (siteOnly || requestedTheme === 'dark')) throw new Error('--docs-only requires light theme and cannot be combined with --site-only')
 // Capture resolution: 1 for the landing page, 2 for the README images (see above).
 const scale = Number(arg('scale') || 1)
 // The public demo lets you in without signing in. A local instance does not – there it takes a
@@ -155,24 +161,24 @@ const encode = async (page, png, { width, type, quality, crop }) => {
   return Buffer.from(b64, 'base64')
 }
 
-const run = async () => {
-  const browser = await chromium.launch()
+const captureTheme = async (browser, theme) => {
+  const output = theme === 'dark' ? join(SHOTS, 'dark') : SHOTS
+  mkdirSync(output, { recursive: true })
   const ctx = await browser.newContext({
     viewport: VIEWPORT,
     // Never below 2: the hero is a crop (`crop` below) and a 1× capture would be upscaled.
     deviceScaleFactor: Math.max(2, scale),
     locale: 'de-CH',
     timezoneId: 'Europe/Zurich',
-    colorScheme: 'light',
+    colorScheme: theme,
     reducedMotion: 'reduce',
   })
 
-  // Force day mode (otherwise the app switches to night after sunset) and mark the demo's
-  // welcome dialog as "seen" before React starts.
+  // Force the matching app palette and skip the welcome dialog before React starts.
   const { host, protocol } = new URL(base)
   await ctx.addCookies([{
     name: 'kp-front-prefs',
-    value: encodeURIComponent(JSON.stringify({ theme: 'day', mode: 'map' })),
+    value: encodeURIComponent(JSON.stringify({ theme: theme === 'dark' ? 'night' : 'day', mode: 'map' })),
     domain: host.split(':')[0],
     path: '/',
     secure: protocol === 'https:',
@@ -188,7 +194,7 @@ const run = async () => {
   // The blank tab the images are encoded on (see `encode`).
   const encoder = await ctx.newPage()
 
-  console.log(`→ ${base}`)
+  console.log(`→ ${base} (${theme})`)
   await page.goto(base, { waitUntil: 'domcontentloaded' })
   if (pin) {
     const role = page.getByRole('button', { name: /Führungsunterstützung/ }).first()
@@ -207,7 +213,7 @@ const run = async () => {
   }
   await page.locator('.nav-item').first().waitFor({ timeout: 45000 })
   await page.addStyleTag({ content: HIDE_CSS })
-  await page.waitForLoadState('networkidle').catch(() => {})
+  await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {})
 
   const wanted = shots.filter((s) => !only || only.includes(s.name))
   if (!wanted.length) throw new Error(`--only passt auf keinen Shot (${shots.map((s) => s.name).join(', ')})`)
@@ -221,11 +227,11 @@ const run = async () => {
       await page.goto(base, { waitUntil: 'domcontentloaded' })
       await page.locator('.nav-item').first().waitFor({ timeout: 45000 })
       await page.addStyleTag({ content: HIDE_CSS })
-      await page.waitForLoadState('networkidle').catch(() => {})
+      await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {})
     }
-    const item = page.locator('.nav-item').filter({ hasText: shot.nav }).first()
+    const item = page.getByRole('button', { name: shot.nav, exact: true }).and(page.locator('.nav-item')).first()
     await item.click()
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {})
     await page.waitForTimeout(shot.settle)
     // The Gebäude card opens by itself the first time a device shows this Einsatz (README ·
     // Gebäude-Info). Right for an operator, wrong in a picture of the map: close it.
@@ -241,20 +247,20 @@ const run = async () => {
       // twice as wide.
       const png = await page.screenshot({ type: 'png' })
       const write = async (file, opts) => {
-        writeFileSync(join(SHOTS, file), await encode(encoder, png, opts))
+        writeFileSync(join(output, file), await encode(encoder, png, opts))
         console.log(`  ✓ ${file}  (${shot.nav})`)
       }
       const crop = shot.crop
       await write(`${shot.name}.webp`, { width: VIEWPORT.width, type: 'image/webp', quality: WEBP_QUALITY, crop })
       if (shot.hero) {
         await write(`${shot.name}-${HERO_W}.webp`, { width: HERO_W, type: 'image/webp', quality: WEBP_QUALITY, crop })
-        await write(`${shot.name}.jpg`, { width: VIEWPORT.width, type: 'image/jpeg', quality: OG_QUALITY, crop })
+        if (theme === 'light') await write(`${shot.name}.jpg`, { width: VIEWPORT.width, type: 'image/jpeg', quality: OG_QUALITY, crop })
       }
     }
     // Same page state, second output: the README image. PNG, because README images are often
     // viewed enlarged on GitHub and text should stay lossless there. A cropped shot goes through
     // the same canvas as the page's copy, at the capture's own scale.
-    if (shot.docs) {
+    if (shot.docs && theme === 'light' && !siteOnly) {
       const docsPath = join(DOCS_SHOTS, `${shot.docs}.png`)
       if (shot.crop) {
         const png = await page.screenshot({ type: 'png' })
@@ -266,9 +272,18 @@ const run = async () => {
     }
   }
 
-  await browser.close()
-  console.log('Fertig. Danach: node site/build.mjs')
-  console.log('README-Bilder (docs/screenshots/) wurden mitgeschrieben, wo ein Shot `docs:` trägt.')
+  await ctx.close()
+}
+
+const run = async () => {
+  const browser = await chromium.launch()
+  try {
+    for (const theme of themes) await captureTheme(browser, theme)
+  } finally {
+    await browser.close()
+  }
+  console.log('Screenshots captured. Rebuild with: node site/build.mjs')
+  if (!siteOnly && themes.includes('light')) console.log('README-Bilder (docs/screenshots/) wurden mitgeschrieben, wo ein Shot `docs:` trägt.')
 }
 
 run().catch((err) => {

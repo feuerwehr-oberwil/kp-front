@@ -12,7 +12,11 @@
     "contact": "Contact",
     "demo": "Demo",
     "githubAria": "KP Front sin GitHub",
-    "languageAria": "Lingua"
+    "languageAria": "Lingua",
+    "options": "Lingua ed apparientscha"
+  },
+  "theme": {
+    "label": "Apparientscha stgira"
   },
   "notFound": {
     "pageTitle": "Pagina betg chattada – KP Front",

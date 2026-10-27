@@ -24,6 +24,9 @@
  * Alongside them the build writes site/404.html, site/sitemap.xml and site/robots.txt,
  * all three from the same config – so a new language never needs a second list.
  *
+ * theme.js is embedded before CSS in every page; picture sources retain both themes
+ * in the offline bundle. Keep this builder and theme.js identical in both repositories.
+ *
  * A third language is one entry in config.json and one file in content/ – the
  * template does not change. A language ships only once it is listed in
  * config.json: an empty `it/` is worse than none.
@@ -172,8 +175,8 @@ const bundle = (html) => {
   // browser only resolves those to index.html over HTTP, though – and the whole point of
   // this variant is that it opens from a file:// path with no server, where `fr/` lands on a
   // directory instead of a page. So the hand-out, and only the hand-out, spells the file out.
-  html = html.replace(/<span class="langs"[\s\S]*?<\/span>/, (span) =>
-    span.replace(/href="((?:\.\.\/|\.\/)*(?:[\w-]+\/)*)"/g, 'href="$1index.html"'),
+  html = html.replace(/<a\b[^>]*\bdata-language-link\b[^>]*>/g, (link) =>
+    link.replace(/href="([^"]*)"/, 'href="$1index.html"'),
   )
   // Zwei Verweise, die in der Einzeldatei nichts mehr zu suchen haben: der Preload zeigt auf
   // eine Schriftdatei, die hier im Stylesheet mitreist, und srcset/sizes auf eine zweite
@@ -181,7 +184,8 @@ const bundle = (html) => {
   // Breite – beides bliebe sonst als Pfad auf eine Datei stehen, die es hier nicht gibt.
   html = html
     .replace(/^[ \t]*<link rel="preload"[^>]*>\r?\n/gm, '')
-    .replace(/\s+(?:srcset|sizes)="[^"]*"/g, '')
+    .replace(/<img\b[^>]*>/g, (img) => img.replace(/\s+srcset="[^"]*"/g, ''))
+    .replace(/\s+sizes="[^"]*"/g, '')
   // Stylesheet first, so the font URLs inside it come along in the same pass.
   let out = html.replace(/<link rel="stylesheet" href="((?:\.\.\/)*[^"]+)">/g, (_, rel) => {
     const flat = flatten(rel)
@@ -189,6 +193,12 @@ const bundle = (html) => {
     return `<style>\n${read(flat)}</style>`
   })
   out = out.replace(/url\(((?:\.\.\/)*fonts\/[^)'"]+)\)/g, (_, rel) => `url(${inline(rel, seen)})`)
+  // A picture's dark source must survive bundling. Keep its full-size image, without
+  // a width descriptor: the offline hand-out embeds one image per theme.
+  out = out.replace(/(<source\b[^>]*\bsrcset=")([^"]+)(")/g, (_, start, set, end) => {
+    const full = set.split(',').pop().trim().split(/\s+/)[0]
+    return `${start}${inline(full, seen)}${end}`
+  })
   out = out.replace(/src="((?:\.\.\/)*(?:shots|fonts)\/[^"]+)"/g, (_, rel) => `src="${inline(rel, seen)}"`)
 
   if (out.match(/(?:src=|srcset=|href=|url\()["']?(?:\.\.\/|\.\/)*(?:fonts|shots)\//))
@@ -298,6 +308,7 @@ for (const locale of config.locales) {
     base: up,
     canonical: urlOf(locale),
     jsonLd,
+    themeScript: read('theme.js'),
     alternates: config.locales
       .map((l) => ({ hreflang: l.hreflang, href: urlOf(l) }))
       .concat([{ hreflang: 'x-default', href: urlOf(baseLocale) }]),
@@ -360,6 +371,7 @@ for (const locale of config.locales) {
     pages,
     baseLang: baseLocale.code,
     baseTitle: base.notFound.pageTitle,
+    themeScript: read('theme.js'),
   }], missing)
     .replace(/^<!doctype html>/i, `<!doctype html>\n${BANNER(`${baseLocale.code} (+ ${config.locales.length - 1} more)`)}`)
   if (missing.size) problems.push(`404: ${[...missing].join(', ')}`)
