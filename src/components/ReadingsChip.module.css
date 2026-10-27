@@ -1,0 +1,25 @@
+/* «Messungen» + its list (ReadingsChip). The chip is the floating family's (09-whiteboard ·
+   .wb-scale-chip); the list docks one --float-gap above the row, like the Gebäude-Info card
+   (BuildingFloat.module.css) – the surface stays live under it. */
+.anchor { position: relative; display: inline-flex; flex: none; max-width: 100%; }
+.pop { position: absolute; left: 0; bottom: calc(100% + var(--float-gap)); z-index: 1;
+  box-sizing: border-box; width: min(340px, calc(100vw - var(--rail-w, 0px) - 44px));
+  max-height: min(56vh, 480px); overflow: auto; overscroll-behavior: contain;
+  padding: var(--sp-1) 0; border-radius: var(--r-sm);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); }
+@media (--phone) {
+  /* the bars' width, one gap above THE floating row – the toast lane's place */
+  .pop { position: fixed; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
+    bottom: calc(var(--float-bottom) + var(--float-h) + var(--float-gap)); width: auto; }
+}
+/* one point: worst reading · Raum · where – the whole row is the tap */
+.row { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 44px; padding: 0 var(--sp-3);
+  border: 0; background: none; color: var(--ink); text-align: left; cursor: pointer;
+  font: var(--fw-medium) var(--fs-1) var(--body); }
+.row + .row { border-top: 1px solid var(--border-soft); }
+@media (hover: hover) {
+  .row:hover { background: var(--hover); }
+}
+.room { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.where { flex: none; padding: 0 var(--sp-2); border-radius: var(--r-pill); background: var(--hover);
+  color: var(--ink-dim); font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 20px; white-space: nowrap; }

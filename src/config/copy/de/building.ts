@@ -112,5 +112,10 @@ export const buildingCopy = {
     chipLabel: 'Gebäude-Steckbrief öffnen',
     chipLabelHazards: 'Gebäude: {h} – Steckbrief öffnen',
     measuresShort: 'Sofortmassn.',
+    // the «Messungen» chip and its list of every Messpunkt (ReadingsChip, once one is placed);
+    // readingsOnMap = a row's place tag when the point stands on the Karte
+    readingsChip: 'Messungen',
+    readingsChipLabel: 'Alle Messpunkte zeigen',
+    readingsOnMap: 'Karte',
   },
 } as const

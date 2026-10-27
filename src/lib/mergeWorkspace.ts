@@ -40,7 +40,7 @@ import { objectsFromLegacy, viewsOf, type ObjectViews, type TacticalObject } fro
 import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
 import { landedClaims, resolveTruppNumbers, unwindUnlanded, type NumberScope } from './truppNumbers'
 import type { TruppTrail } from './truppTrails'
-import type { BoardAnno, BoardDoc, Drawing, Entity, Trupp } from '../types'
+import type { BoardAnno, BoardDoc, Drawing, Entity, Reading, Trupp } from '../types'
 import type { InitialState, Saved } from './workspace'
 import { jsonEqual } from './jsonEqual'
 import { unionCrewFiled } from './crewFiling'
@@ -707,8 +707,38 @@ function resolveTactical(ancestor: TacticalObject, mine: TacticalObject, theirs:
   }
   const mineMachine = followerOnlyChange(ancestor, mine)
   const theirsMachine = followerOnlyChange(ancestor, theirs)
-  if (mineMachine && !theirsMachine) return theirs
-  return mine
+  return withMergedSymbolReadings(mineMachine && !theirsMachine ? theirs : mine, ancestor, mine, theirs)
+}
+
+const readingsOf = (o: TacticalObject) => o.entity?.readings ?? o.sheet?.anno.readings
+
+/**
+ * A Messpunkt's history (SymbolProps.readings, lib/symbols · recordReading) when both sides changed
+ * the object: the whole-object winner would drop the other tablet's radio report, so the rows are a
+ * union instead, keyed by (t, values), in time order. Rows are only ever appended, so there is
+ * nothing to weigh – except a row the base had and one side no longer has: that side's Undo, gone.
+ * The result lands on both bodies of the winner (a sheet-anchored point carries it twice).
+ */
+function withMergedSymbolReadings(won: TacticalObject, base: TacticalObject, mine: TacticalObject, theirs: TacticalObject): TacticalObject {
+  const [rb, rm, rt] = [readingsOf(base), readingsOf(mine), readingsOf(theirs)]
+  if (!rm && !rt) return won
+  const key = (r: Reading) => `${r.t}|${JSON.stringify(r.v)}`
+  const inBase = new Set((rb ?? []).map(key))
+  const seen = new Set<string>()
+  const keepM = new Set((rm ?? []).map(key)), keepT = new Set((rt ?? []).map(key))
+  const readings = [...(rm ?? []), ...(rt ?? [])]
+    .filter((r) => {
+      const k = key(r)
+      if (seen.has(k)) return false
+      seen.add(k)
+      return !inBase.has(k) || (keepM.has(k) && keepT.has(k))
+    })
+    .sort((a, b) => a.t - b.t)
+  return {
+    ...won,
+    ...(won.entity && { entity: { ...won.entity, readings } }),
+    ...(won.sheet && { sheet: { ...won.sheet, anno: { ...won.sheet.anno, readings } } }),
+  }
 }
 
 /**

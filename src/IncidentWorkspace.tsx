@@ -111,6 +111,8 @@ import { leitungOptions } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
 import { useObjectPlans, isSelectOnlySurface, railPlanTiles, BUILDING_PICK_ID } from './lib/useObjectPlans'
+import { measuredPoints, type MeasuredPoint } from './lib/readingsList'
+import { ReadingsChip } from './components/ReadingsChip'
 import { PlanPicker } from './components/PlanPicker'
 import { fetchShareLink } from './lib/viewLink'
 import { useBuildingInfo } from './lib/useBuildingInfo'
@@ -1061,6 +1063,13 @@ export function IncidentWorkspace({
     out.splice(osmIdx >= 0 ? osmIdx + 1 : out.length, 0, gebaeudeDoc)
     return out
   }, [effBuilding, resolvedPlanDocs])
+  // the «Messungen» chip (components/ReadingsChip): every Messpunkt of the Einsatz, worst first,
+  // tagged with where it stands – read off the store, so one point is one row (lib/readingsList)
+  const readingPoints = useMemo(() => measuredPoints(objects, {
+    plan: (id) => planDocs.find((p) => p.id === id)?.code ?? id,
+    storey: floorLabel,
+    karte: appConfig.copy.building.readingsOnMap,
+  }), [objects, planDocs])
   // …and the LEISTE's version of it, where «Umrisse» and «Gebäude» are one tile that morphs
   // (23.08.). Two tiles for one building was the mechanism showing through: you picked on the
   // first and worked on the second, and the first stayed in the rail forever afterwards doing
@@ -2119,6 +2128,13 @@ export function IncidentWorkspace({
     const e = entities.find((x) => x.id === id); if (!e) return
     setSelectedId(id); setSelectedDrawingId(null); flyToMapVisible(e.coord, 18.4)
   }
+  // a «Messungen» row: to the point, on the surface it was placed on (the Verlauf's focusEvent recipe)
+  const goToReading = (p: MeasuredPoint) => {
+    if (p.at.surface === 'map') { setMode('map'); focusEntity(p.id); return }
+    if (mode !== 'plans') clearMapUi()
+    setMode('plans'); setPanel(null); setActivePlanId(p.at.planId)
+    setPlanFocus({ x: p.at.x, y: p.at.y, floor: p.at.floor, annoId: p.id, nonce: Date.now() })
+  }
   // Durchhören player: replay a long recording and
   // append ordinary journal rows at the paused position — Nachdokumentation. The row's `at`
   // is the wall-clock instant inside the recording, so it lands (and marks) correctly.
@@ -3116,6 +3132,7 @@ export function IncidentWorkspace({
         layers: linkScoped ? layers.filter((l) => l.id !== UNDERGROUND_LAYER_ID) : layers,
         toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
         weather,
+        readings: replayActive ? null : { points: readingPoints, go: goToReading },
       }} />
 
       <MapDetailPanels {...{
@@ -3149,6 +3166,7 @@ export function IncidentWorkspace({
         roster, addRecent, user, emit, planStacks, planFocus, effTrupps, truppCounterNames, teamNameTaken,
         azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, setPlanScale, tafel,
         truppFinder: { open: () => setFindTruppOpen(true), disabled: placed.length === 0 },
+        readingsChip: replayActive ? null : <ReadingsChip points={readingPoints} compact={isPhone} onGo={goToReading} />,
       }} />
 
       {pickerOpen && (
