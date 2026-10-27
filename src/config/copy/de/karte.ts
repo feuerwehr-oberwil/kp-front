@@ -72,8 +72,6 @@ export const karteCopy = {
     pinBuildingSub: 'Registerangaben ansehen',
     copyCoords: 'Koordinaten kopieren',
     copied: 'Koordinaten kopiert',
-    // the object panel's first card: the station's word and the plans (owner, 27.10.2026 · mock 2C)
-    forEinsatz: 'Für den Einsatz',
     // plans
     plansTitle: 'Pläne & Module',
     georefFailed: 'Der Objektplan liess sich nicht auf die Karte legen.',

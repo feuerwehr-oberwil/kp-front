@@ -272,7 +272,8 @@ describe('KartePanel · order and actions (R2)', () => {
 
   // owner, review round 4: «just "modul 1", "modul 2", etc. is enough» — no title, no
   // «PDF · 2 Seiten · auf Karte ausgerichtet», no number badge; «Gebäude» stays «Gebäude».
-  // 27.10.2026 (mock 2C): tiles in the «Für den Einsatz» card, under the station's word
+  // 27.10.2026 (mock 2C): tiles, a top-level section right under the station's word – no card
+  // around the two («keep everything top level»)
   it('a plan tile says «Modul 1» and nothing else, and opens the plan', () => {
     const onOpenDoc = vi.fn()
     const { container } = panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS, sheet: true, onOpenDoc })
@@ -282,8 +283,8 @@ describe('KartePanel · order and actions (R2)', () => {
     for (const r of rows) {
       expect(r.querySelector('use')?.getAttribute('href')).toBe(r.textContent === 'Gebäude' ? '#floors' : '#doc')
     }
-    const first = screen.getByText('Für den Einsatz').parentElement!
-    expect(first.querySelector('[data-section="station"] + [data-section="plans"]')).toBeTruthy()
+    expect(container.querySelector('[data-section="station"] + [data-section="plans"]')?.parentElement?.getAttribute('data-karte-body')).toBe('')
+    expect(screen.queryByText('Für den Einsatz')).toBeNull()
     expect(container.textContent).not.toMatch(/Übersicht|PDF|ausgerichtet|Geschosse vorbereitet/)
     fireEvent.click(screen.getByRole('button', { name: 'Modul 1' }))
     expect(onOpenDoc).toHaveBeenCalledWith('d1')
