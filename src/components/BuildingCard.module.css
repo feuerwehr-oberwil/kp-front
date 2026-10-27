@@ -1,7 +1,7 @@
 /* «Gebäude» (BuildingCard, KP Front F5): the body of the card its chip opens on the Karte / Plan
    (BuildingFloat supplies the glass). The register lines and the notes are BuildingFacts' (shared with the
-   Karte panel); this file lays out the card around them. The head row holds only «Register-
-   Hinweis» and ✕, at its right end – the «Gebäude» word heads the section below (27.10.2026). */
+   Karte panel); this file lays out the card around them. No head row (27.10.2026): the first
+   section's heading carries the ✕, the «Gebäude» heading «Register-Hinweis» (BuildingFacts · Head). */
 .card { display: flex; flex-direction: column; gap: var(--sp-1); }
 .head { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); min-width: 0; }
 .close { flex: none; margin: calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2)) 0; }

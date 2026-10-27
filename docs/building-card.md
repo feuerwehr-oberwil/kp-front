@@ -39,9 +39,11 @@ Geschosse, Baujahr or a last Objektbesuch alone stay behind the chip.
   Bemerkungen (no source line – «drop the source»; only a NEIGHBOUR's notes are named, «Schloss
   Musterdorf · in der Nähe (118 m)», because they read exactly like this building's), then
   **Gebäude** – the hazard lines first, then the register facts, bullets of the Sofortmassnahmen's
-  size and weight (the Karte panel's `RegisterLines`) – then the last Objektbesuch. The head row
-  holds only «Register-Hinweis» (the source line folds behind it) and ✕; «Gebäude» is the card's
-  accessible name. No Sofortmassnahmen → the Gebäude section alone.
+  size and weight (the Karte panel's `RegisterLines`) – then the last Objektbesuch. There is no head
+  row: the FIRST section's heading carries the ✕ at its right end, and «Register-Hinweis» (the
+  source line folds out right under it) always sits on the «Gebäude» heading's row – [GEBÄUDE ·
+  Register-Hinweis · ✕] when there are no Sofortmassnahmen (owner, 27.10.2026: the empty head
+  row was wasted). «Gebäude» is the card's accessible name. Every bullet is one size, `--fs-2`.
 
 The chip is not pinned to the building on the map, for three reasons. The Lage is drawn exactly
 at the Einsatzort, so a pinned chip would cover the Brandherd and the first vehicles. It would
