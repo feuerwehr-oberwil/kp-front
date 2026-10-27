@@ -994,11 +994,10 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
   margin: 12px 2px 0;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
-/* the quick filters under the search (27.10.2026): THE choice chip (components/Chip), wrapping;
-   the Einsatzart's choices fold out as their own wrapping line under them */
-.ip-hist-filters { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-1); }
-.ip-hist-filters .chev { width: 14px; height: 14px; }
-.ip-hist-types { display: flex; flex-wrap: wrap; gap: var(--sp-2); flex-basis: 100%; }
+/* the search and its filter button on one line (27.10.2026 r2, Anwesenheit's search line): the
+   field, button and menu are SurfaceControls'; only the row is the sheet's own, without the
+   surface row's gutters – the sheet body already has them */
+.ip-hist-controls { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-1); }
 
 /* --- Rapport closing checklist (inside the Einsatzrapport sheet) --------------------- */
 /* Not a card any more — a plain stack of them. The four rows sit at COLUMN level, beside the

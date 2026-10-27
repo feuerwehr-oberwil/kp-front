@@ -973,6 +973,15 @@
   .rp-tabs > .useg { display: flex; width: 100%; }
   .rp-tabs .useg-btn { flex: 1; min-width: 0; min-height: var(--tap); position: relative;
     padding: 8px; white-space: nowrap; }
+  /* …with an action at its end (PhoneTabBar · `end`, the PDF reader's «Öffnen in …»): the
+     sections take the rest of the row; and a track of more sections than fit (`scroll`, a PDF's
+     bookmarks) scrolls sideways – each section its own width, never squeezed to a letter. */
+  .rp-tabs:has(> .rp-tabs-end) { display: flex; align-items: center; gap: var(--sp-1); }
+  .rp-tabs > .useg { flex: 1 1 auto; min-width: 0; }
+  .rp-tabs-end { flex: none; display: flex; margin-left: auto; }
+  .rp-tabs > .useg-scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .rp-tabs > .useg-scroll::-webkit-scrollbar { display: none; }
+  .rp-tabs > .useg-scroll > .useg-btn { flex: 1 0 auto; }
 
   /* with the bottom bar present, the FAB lifts above it and the map attribution ⓘ lifts
      above the FAB so the bottom-right reads bar → FAB → ⓘ with no overlap

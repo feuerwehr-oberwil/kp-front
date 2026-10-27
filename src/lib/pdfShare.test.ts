@@ -9,7 +9,7 @@ const nav = (over: Partial<Navigator>) => over as Navigator
 
 afterEach(() => vi.clearAllMocks())
 
-describe('sharePdf · «Teilen / Öffnen in …»', () => {
+describe('sharePdf · «Öffnen in …»', () => {
   it('hands the file to the share sheet where the device can share files', async () => {
     const share = vi.fn(async () => {})
     expect(await sharePdf('/api/reference/p?v=2', 'Evakuationsplan', nav({ share, canShare: () => true }))).toBe('shared')

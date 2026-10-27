@@ -99,8 +99,9 @@ unchanged.
   and the EXPANDED rail's column does the same (22.09.2026): the rail stamps its longest
   monogram on itself (`data-mono-max`) and the column is 26 · 28 · 38px for a digit · «PV» ·
   «RWA», one width for every row, so no label steps out of line and no chip is clipped.
-  A WORD («Wasser») is never squeezed into a chip: its tile wears the plan icon and the word
-  stands in the label (`lib/navRail · planGlyph`, 27.10.2026 – «WAS» named nothing).
+  A sub-slot's chip is its SHORT form – an abbreviation whole («PV», «RWA»), a word its initial
+  («W»), a numbered sibling with its number («W1», «W2»); only the label spells the word out
+  («Wasser 1»; `lib/navRail · planGlyph` / `planLabel`, owner 27.10.2026: «keep W1/W2»).
 
 - *A head's icon buttons carry their word wherever it fits* (22.09.2026): «Reihenfolge ·
   Überwachung abgeben · Alarmton» on the Trupps head — MEASURED since 28.09.2026 (the page head's

@@ -3,11 +3,13 @@
 // The panel):
 //
 //   head (kind, name, address, ✕)
-//   → «Für den Einsatz» (owner, 27.10.2026 · mocks 2B/2C top: «a clean top»): the station's own
-//     word (Sofortmassnahmen, Bemerkungen, with their source) — read first — and the object's plans
-//     as tiles under it (a tile opens the Einsatz's plan reader, read-only — KartePlans)
-//   → then plain lists, no tabs: Gebäude laut Register as BULLETS, the hazards first with ⚠
-//     («Register-Hinweis», source and Stand on every line)
+//   → the station's own word (Sofortmassnahmen, Bemerkungen, with their source) — read first
+//   → Pläne & Module as tiles, two to a line (a tile opens the Einsatz's plan reader, read-only —
+//     KartePlans; owner, 27.10.2026 · mocks 2B/2C top)
+//   → Gebäude laut Register as BULLETS, the hazards first with ⚠ («Register-Hinweis», source and
+//     Stand on every line)
+// Every part a top-level section with its head — no card around the first ones, no tabs (owner,
+// 27.10.2026: «don't have an inline card but keep everything top level»).
 //   → In der Nähe (one list by distance, objects and hydrants, and a sentence saying so)
 //   → Objektbesuche, an object's only (rows open the existing read view; a read-only line for
 //     other roles). A plain building has none to show – its always-empty line went (owner 20.10.)
@@ -185,7 +187,8 @@ export function KartePanel(p: {
         {(o.lat == null || o.lng == null) && (
           <div className={cx(s.note, s.amber)}><Icon id="warn" /><span><b>{C.approxHead}</b> {C.approxBody}</span></div>
         )}
-        <ForTheEinsatz obj={o} docs={p.docs} onOpenDoc={p.onOpenDoc} avail={p.offline ? p.avail ?? null : undefined} />
+        <StationWord obj={o} />
+        <PlanTiles docs={p.docs} onOpenDoc={p.onOpenDoc} avail={p.offline ? p.avail ?? null : undefined} />
         <Register key={o.id} reg={p.register} address={o.address} onRetry={p.onRetryRegister} />
         <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
         <Visits visits={p.visits} canCapture={p.canCapture} empty={C.visitsNever} onOpenVisit={p.onOpenVisit} offline={p.offline} last={o.lastVisit} />
@@ -305,40 +308,26 @@ function Actions({ canCapture, onVisit, onReport, extra }: { canCapture: boolean
   return <div className={s.quick} data-section="actions">{buttons}</div>
 }
 
-/** «Für den Einsatz», FIRST (owner, 27.10.2026 · mocks 2B/2C top): what a crew needs now in one
- *  card — the station's own word (Sofortmassnahmen and Bemerkungen, then where they come from;
- *  owner R2: in a hurry it matters most) and the object's plans as tiles under it. Nothing to say
- *  and no plan → no card. */
-function ForTheEinsatz({ obj, docs, onOpenDoc, avail }: {
-  obj: StationObject
-  docs: ViewerPlanDoc[]
-  onOpenDoc: (id: string) => void
-  avail?: ObjectAvailability | null
-}) {
+/** The station's own word about the object, FIRST (owner R2: in a hurry it matters most):
+ *  Sofortmassnahmen and Bemerkungen, each a section of the sheet, then where they come from. */
+function StationWord({ obj }: { obj: StationObject }) {
   const C = appConfig.copy.karte
   const measures = noteLines(obj.measures)
   const remarks = noteLines(obj.remarks)
-  const notes = measures.length > 0 || remarks.length > 0
-  if (!notes && !docs.length) return null
+  if (!measures.length && !remarks.length) return null
   return (
-    <div className={s.first}>
-      <div className={cx(s.eyebrow, s.firstHead)}>{C.forEinsatz}</div>
-      {notes && (
-        <div data-section="station">
-          <StationNotes measures={measures} remarks={remarks}
-            source={obj.measuresSource ? fillTemplate(C.notesSource, { src: obj.measuresSource }) : C.notesStation} />
-        </div>
-      )}
-      <PlanTiles docs={docs} onOpenDoc={onOpenDoc} avail={avail} />
+    <div data-section="station">
+      <StationNotes measures={measures} remarks={remarks}
+        source={obj.measuresSource ? fillTemplate(C.notesSource, { src: obj.measuresSource }) : C.notesStation} />
     </div>
   )
 }
 
-/** The object's plans as tiles, two to a line (owner, 27.10.2026 · mock 2C): each says the plan's
+/** Pläne & Module as tiles, two to a line (owner, 27.10.2026 · mock 2C): each says the plan's
  *  name and nothing else — «Modul 1», «Wasser», «PV» (lib/navRail · planLabel), «Gebäude» for the
  *  stack — behind a document glyph (the floors glyph the Gebäude). Offline, the ●/○ «auf diesem
- *  Gerät» mark trails the name (a tile the device does not hold is dimmed) and the legend says what
- *  it means. A tile opens the plan in the Einsatz's reader, read-only (KartePlans).
+ *  Gerät» mark trails the name (a tile the device does not hold is dimmed) and the head's legend
+ *  says what it means. A tile opens the plan in the Einsatz's reader, read-only (KartePlans).
  *  Not a ListRow: a row spans the card, and two tiles a line is what keeps four plans in the
  *  first screen. */
 function PlanTiles({ docs, onOpenDoc, avail }: {
@@ -355,6 +344,10 @@ function PlanTiles({ docs, onOpenDoc, avail }: {
     : plan ? avail.plans[planKey(plan)] ?? 'online' : avail.gebaeude
   return (
     <div className={s.sec} data-section="plans">
+      <div className={s.secHead}>
+        <span className={s.eyebrow}>{C.plansTitle}</span>
+        {offline && <span className={s.legend}><span className={s.lamp} aria-hidden />{C.onDevice}</span>}
+      </div>
       <div className={s.planTiles} role="group" aria-label={C.plansTitle}>
         {docs.map(({ doc, row, plan }) => {
           const lamp = lampOf(plan)
@@ -369,7 +362,6 @@ function PlanTiles({ docs, onOpenDoc, avail }: {
           )
         })}
       </div>
-      {offline && <span className={s.legend}><span className={s.lamp} aria-hidden />{C.onDevice}</span>}
     </div>
   )
 }

@@ -10,7 +10,7 @@
   --lane-r: calc(var(--vrail-w, 60px) + 26px);
   --lane-bottom: 16px;
 }
-/* the strip's row: its 52px bar and an 8px gap, added to the column's top lane while it stands */
+/* the section bar's row: its 52px bar and an 8px gap, added to the lane it stands in (.head/.foot) */
 .withStrip { --strip-room: 60px; }
 .scroller {
   position: absolute;
@@ -43,7 +43,7 @@
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding: calc(var(--lane-top) + var(--strip-room, 0px)) var(--lane-r) var(--lane-bottom) var(--lane-l);
+  padding: var(--lane-top) var(--lane-r) var(--lane-bottom) var(--lane-l);
   min-height: 100%;
 }
 /* phone: the rails are bottom BARS, so the lanes to keep clear are the top bar and the two
@@ -53,7 +53,8 @@
     --lane-top: calc(76px + env(safe-area-inset-top));
     --lane-l: var(--sp-2);
     --lane-r: var(--sp-2);
-    --lane-bottom: calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom));
+    /* …plus the docked section strip's lane while it stands (15-mobile · --rp-tabs-safe) */
+    --lane-bottom: calc(var(--rail-h) * 2 + 28px + var(--rp-tabs-safe, 0px) + env(safe-area-inset-bottom));
   }
 }
 /* a surface without rails (an object visit's plan reader): a plain margin, the safe areas kept */
@@ -63,17 +64,23 @@
   --lane-r: max(var(--sp-2), env(safe-area-inset-right));
   --lane-bottom: calc(16px + env(safe-area-inset-bottom));
 }
-/* ── the strip (PdfScroller, 27.10.2026, sweep #15) ──
-   Where page 1 starts unscrolled, over the column's width; the pages scroll up UNDER it. Centred
-   and only as wide as it needs; a list longer than the screen scrolls sideways inside its bar.
-   The floating family's glass (01-tokens · --float-*), the stops are THE choice chip, the share
-   button the quiet IconButton. */
+/* ── the section switcher (PdfScroller, 27.10.2026, sweep #15) ──
+   On a phone it is the docked strip above the nav bar (PhoneTabBar · 15-mobile `.rp-tabs`, which
+   reserves its own lane); these rules place the other two: `.head` – a bar where page 1 starts
+   unscrolled, the pages scrolling up UNDER it (tablet) – and `.foot` – the same bar at the
+   reader's foot (a `bare` reader, its own overlay). Centred and only as wide as it needs; a track
+   longer than the screen scrolls sideways inside it. The floating family's glass (01-tokens ·
+   --float-*), THE <Segmented> track as tabs, the quiet IconButton for «Öffnen in …». */
 .strip {
   position: absolute; z-index: 1;
-  top: var(--lane-top); left: var(--lane-l); right: var(--lane-r);
+  left: var(--lane-l); right: var(--lane-r);
   display: flex; justify-content: center;
   pointer-events: none; /* the lane beside a short bar still scrolls the pages */
 }
+.head .strip { top: var(--lane-top); }
+.foot .strip { bottom: var(--lane-bottom); }
+.head .pages { padding-top: calc(var(--lane-top) + var(--strip-room)); }
+.foot .pages { padding-bottom: calc(var(--lane-bottom) + var(--strip-room)); }
 .bar {
   pointer-events: auto;
   display: flex; align-items: center; gap: var(--sp-1);
@@ -81,17 +88,9 @@
   border-radius: var(--r-sm);
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
 }
-.stops {
-  display: flex; gap: var(--sp-1); min-width: 0;
-  overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
-}
-.stops::-webkit-scrollbar { display: none; }
-/* a bookmark's title is said WHOLE up to ~20ch, then cut; the chip's title holds all of it */
-.stop { flex: none; max-width: 22ch; min-width: var(--tap); }
-.stop > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* the hairline between where to go and the way out */
-.stops { padding-right: var(--sp-1); border-right: 1px solid var(--glass-edge); }
-.share { flex: none; }
+.bar > :global(.useg) { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.bar > :global(.useg)::-webkit-scrollbar { display: none; }
+.bar > :global(.useg) > :global(.useg-btn) { flex: none; }
 /* ⚠️ No `background` here, and deliberately not a themed one either. This element IS the sheet
    of paper: pdf.js fills the whole canvas #ffffff before it draws a single glyph
    (`beginDrawing` → `fillStyle = background || "#ffffff"`), and the canvas is only put into the

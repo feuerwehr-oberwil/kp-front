@@ -111,11 +111,11 @@ export const panelsCopy = {
     loading: 'PDF wird geladen …',
     failed: 'PDF konnte nicht geladen werden.',
     retry: 'Erneut versuchen',
-    // the reader's strip over the pages (PdfScroller · lib/pdfJumps): the PDF's own bookmarks,
-    // else its page numbers – and the way OUT of the app: the system share sheet (lib/pdfShare)
+    // the reader's sections (PdfScroller · lib/pdfJumps): the PDF's own bookmarks, else its page
+    // numbers – and the way OUT of the app: «Öffnen in …», the share sheet with the file (lib/pdfShare)
     jumps: 'Inhalt',
     page: 'Seite {n}',
-    share: 'Teilen / Öffnen in …',
+    openIn: 'Öffnen in …',
     // WARUM es nicht ging – eine Zeile unter der Meldung, damit ein Gerät im Einsatz nicht
     // einfach «geht nicht» meldet. Zuordnung: lib/pdfDiagnosis.ts.
     reason: {

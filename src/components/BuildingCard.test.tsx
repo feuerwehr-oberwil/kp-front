@@ -24,6 +24,14 @@ describe('BuildingCard', () => {
     expect(screen.getByText('Register-Hinweis')).toBeTruthy()
   })
 
+  // owner, 27.10.2026: «convert this to bullet points instead of the tags» – the hazard line first
+  it('lists the register as bullets, the hazard first', () => {
+    const { container } = render(<BuildingCard info={base} />)
+    const lines = [...container.querySelectorAll('ul > li')].map((l) => l.textContent)
+    expect(lines[0]).toBe('Heizung Gas')
+    expect(lines).toContain('2 Geschosse')
+  })
+
   it('shows the Sofortmassnahmen as lines, with whose they are', () => {
     render(<BuildingCard info={{ ...base, object: { id: 'o', name: 'Schloss Musterdorf', address_match: true, distance_m: 0, measures: 'Prinzessin befreien\nTor öffnen', remarks: null, measures_source: 'Modul 1', updated_at: null } }} />)
     expect(screen.getByText('Sofortmassnahmen')).toBeTruthy()

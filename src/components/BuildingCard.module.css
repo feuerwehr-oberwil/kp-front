@@ -1,5 +1,5 @@
 /* «Gebäude» (BuildingCard, KP Front F5): the body of the card its chip opens on the Karte / Plan
-   (BuildingFloat supplies the glass). The tags and the notes are BuildingFacts' (shared with the
+   (BuildingFloat supplies the glass). The register lines and the notes are BuildingFacts' (shared with the
    Karte panel); this file lays out the card around them. */
 .card { display: flex; flex-direction: column; gap: var(--sp-1); }
 .head { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
@@ -20,7 +20,7 @@
 @media (hover: hover) { .hintBtn:hover { color: var(--ink-dim); } .hintBtn:hover::before { background: var(--hover); } }
 .hintBtn:active::before { background: var(--press); }
 .hintBody { display: flex; flex-direction: column; gap: var(--sp-1); }
-/* the notes a step below the hazard tags */
+/* the notes a step below the hazard lines */
 .notes { margin-top: var(--sp-1); }
 /* the register facts below the notes: a step apart from the notes' caption above them */
 .facts { margin-top: var(--sp-1); }

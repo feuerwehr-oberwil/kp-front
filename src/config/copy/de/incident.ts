@@ -166,6 +166,8 @@ export const incidentCopy = {
     deleted: 'Übung gelöscht',
     // quick filters over the list (27.10.2026): Ernstfall | Übung, one Einsatzart, Rapport offen
     filterAria: 'Einsätze filtern',
+    filterKindHead: 'Ernstfall / Übung',
+    filterAll: 'Alle',
     filterReal: 'Ernstfall',
     filterExercise: 'Übung',
     filterType: 'Einsatzart',

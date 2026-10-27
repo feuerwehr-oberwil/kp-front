@@ -48,6 +48,7 @@ export function snapExpanded(width: number, snap = (RAIL_COMPACT + RAIL_WIDE) / 
  *      it is an abbreviation and stays upper case (`modul5-pv` → «PV», `modul5-rwa` → «RWA»), a
  *      longer one is a word (`modul5-wasser` → «Wasser»). A numbered sibling keeps its number,
  *      which is what tells two waterplans apart: `modul5-wasser2` → «Wasser 2», `modul5-pv15` → «PV 15».
+ *      Only the TEXT spells it out; the round chip keeps the short form («W», «W2», `planGlyph`).
  *  A key that is no module key (the Tafel, the Gebäude stack, a plan without a module) says
  *  `fallback` — the caller's own word for it — else the id. «Modul» is the copy's (`karte.planRow`).
  *
@@ -74,7 +75,7 @@ function subSlot(key: string): { word: string; num: string } | null {
   return m ? { word: m[1].toLowerCase(), num: m[2] } : null
 }
 
-/** the glyph a plan item renders: a monogram (1…/2/3, PV) for modules,
+/** the glyph a plan item renders: a monogram (1…/2/3, PV, W1) for modules,
  *  otherwise an icon (the doc's own, falling back to the easel for the blank Tafel, the doc otherwise). */
 export function planGlyph(doc: PlanDocument): { mono: string } | { icon: string } {
   // a combined sheet (e.g. id "modul2-3" / "modul23" from a "Modul 2-3.pdf") shows the
@@ -82,12 +83,13 @@ export function planGlyph(doc: PlanDocument): { mono: string } | { icon: string 
   // added nothing and crowded the narrow phone bar items).
   const range = /^modul(\d+)[-_/](\d+)/i.exec(doc.id)
   if (range) return { mono: `${range[1]}/${range[2]}` }
-  // a Modul-5-style sub-slot: its abbreviation as the chip («PV», «RWA»; a numbered sibling keeps
-  // its number, «PV15») — NOT the bare «5» the digit rule below would give. A WORD («Wasser») does
-  // not fit a round chip, and its first letters («WAS») named nothing (owner, 27.10.2026: never a
-  // lone «W»): it wears the plan icon, and the word stands in the label beside it (`planLabel`).
+  // a Modul-5-style sub-slot: its SHORT form as the chip — NOT the bare «5» the digit rule below
+  // would give. An abbreviation stays whole («PV», «RWA»), a word gives its initial («W» for
+  // Wasser); a numbered sibling keeps its number («W1», «W2», «PV15»), so the collapsed rail
+  // still tells two waterplans apart (owner, 27.10.2026: «keep W1/W2» — only the TEXT spells the
+  // word out, `planLabel`).
   const sub = subSlot(doc.id.toLowerCase())
-  if (sub) return sub.word.length <= 3 ? { mono: `${sub.word}${sub.num}`.toUpperCase() } : { icon: doc.icon ?? 'doc' }
+  if (sub) return { mono: `${sub.word.length <= 3 ? sub.word : sub.word[0]}${sub.num}`.toUpperCase() }
   const m = /^modul(\d+)/i.exec(doc.id)
   if (m) return { mono: m[1] }
   // The merged «Gebäude» tile (outline picker ⇄ floor stack) carries its glyph as DATA — the
