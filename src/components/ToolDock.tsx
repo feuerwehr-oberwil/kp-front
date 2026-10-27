@@ -20,8 +20,10 @@ const WIDTHS = appConfig.drawing.widths
  * markup. (Both surfaces share the `.wb-dock` CSS, so this stays purely a renderer.)
  */
 export type DockItem =
-  /** Always the first item of the first group — and it stays put: `.wb-dock-x` is sticky at the
-   *  leading end of the scrolling dock (09-whiteboard.css), so the way out of a tool never
+  /** Listed first by every caller, but the dock draws it at the END: «X on the right everywhere»
+   *  (owner, sweep 27.10.2026 #3) — the phone's bar reads [options · ⓘ | ✕]. It stays put:
+   *  `.wb-dock-x` is sticky at the trailing end of the scrolling bar, and the tablet's column
+   *  lifts it back to its head with `order` (09-whiteboard.css), so the way out of a tool never
    *  scrolls away with a busy tool's options. */
   | { type: 'close'; onClick: () => void; title?: string }
   /** `text` renders a short word/letter instead of a glyph — for options that have no honest
@@ -79,7 +81,10 @@ function renderItem(item: DockItem, key: string): ReactNode {
  * what an armed tool expects is its ⓘ (`info` item).
  */
 export function ToolDock({ groups }: { groups: DockItem[][] }) {
-  const visible = groups.filter((g) => g.length)
+  // the ✕ leaves its group for the dock's end (see DockItem · close); it carries its own group gap
+  const isClose = (item: DockItem) => item.type === 'close'
+  const close = groups.flat().filter(isClose)
+  const visible = groups.map((g) => g.filter((item) => !isClose(item))).filter((g) => g.length)
   const ref = useRef<HTMLDivElement>(null)
   const level = useRailLevel(ref, !useIsPhone())
   return (
@@ -90,6 +95,7 @@ export function ToolDock({ groups }: { groups: DockItem[][] }) {
           {g.map((item, ii) => renderItem(item, `${gi}-${ii}`))}
         </Fragment>
       ))}
+      {close.map((item, i) => renderItem(item, `x-${i}`))}
     </div>
   )
 }

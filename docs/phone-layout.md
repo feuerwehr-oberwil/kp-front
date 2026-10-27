@@ -34,6 +34,15 @@ unchanged.
 - Every BAR stacked above the nav bar keeps ONE 6px channel (`--rail-h + 14px`: the tool bar,
   `.rp-tabs`, the page card in `Surface.module.css`); the floating row above the bars keeps the
   family's `--float-gap` (8px) — the gap its pieces keep from each other and from the edge.
+- *The chip row stands on the lowest FREE line, measured* (27.10.2026, owner screenshot: the
+  Gebäude ⓘ a whole row above a short Mehrfach dock): `.wb-botleft` (the Karte's and the plan's)
+  stands on the bars (`--float-floor`) and `lib/floatRow` lifts it only past a tool dock or armed
+  pill that overlaps it sideways. `--float-base` keeps the worst case (a dock as wide as the
+  screen) for the FAB and the message lane.
+- *The Eintrag FAB is on every page, the Trupps board too* (27.10.2026, owner): there the board's
+  card ends above the FAB's row (`.az-tafel`, 15-mobile), so no crew's «Kontakt» scrolls under
+  it. A RUNNING recording never yields — not to a dock, the armed pill, a panel or a detail sheet
+  (it rides on the sheet's top edge). Only «Karte verknüpfen» still hides it.
 - *Karte & Objekte has ONE bar* (Karte · Messen · Gefahrgut · Ebenen, no tool bar and no «Pläne»
   tab — 17.10.2026): Messen keeps the same 6px steps, only from the nav bar (dock at `--rail-h +
   14px`, readout 6px above it), and a selected place is one slide-up sheet whose rows are the

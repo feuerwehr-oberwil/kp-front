@@ -151,6 +151,26 @@ describe('no preset row', () => {
   })
 })
 
+/* Owner, sweep 27.10.2026 #7: a line leads with its Abschluss (+ Richtung umkehren), then Linie,
+ * Farbe, Text/Marker, then the rest — and has no «Stärke». An area keeps its outline's Stärke. */
+describe('line editor order', () => {
+  const D = appConfig.copy.drawingEditor
+  const labels = (c: HTMLElement) => [...c.querySelectorAll('.de-row > span:first-child')].map((e) => e.textContent)
+
+  it('reads Abschluss → Linie → Farbe → Text → Marker → Inhalt, without Stärke', () => {
+    const { container } = render(<DrawEditor {...base} drawing={{ kind: 'line' }} onEnding={noop} onReverse={noop} onContent={noop} />)
+    expect(labels(container).slice(0, 6)).toEqual([D.ending, D.lineStyle, D.color, D.label, D.marker, D.content])
+    // the reverse action sits directly under the Abschluss, in its group
+    expect(screen.getByRole('button', { name: D.reverse }).closest('.de-group')!.querySelector('.de-row > span')!.textContent).toBe(D.ending)
+    expect(labels(container)).not.toContain(D.width)
+  })
+
+  it('keeps Stärke on an area', () => {
+    const { container } = render(<DrawEditor {...base} drawing={{ kind: 'area' }} />)
+    expect(labels(container)).toContain(D.width)
+  })
+})
+
 // The Einsatzleiter must be able to ask how long the Leitung is without being able to move it:
 // read-only keeps every number and drops every control.
 describe('read-only (viewer / Führungsansicht)', () => {

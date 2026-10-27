@@ -93,6 +93,7 @@ import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefSurfaceBridge } from './lib/georefMode'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
+import { useFloatRowPlacement } from './lib/floatRow'
 import { prewarmPlans } from './lib/pdfRaster'
 import { prefetchOutlines } from './components/OsmOutline'
 import {
@@ -1175,6 +1176,9 @@ export function IncidentWorkspace({
     return () => sw.removeEventListener('message', onMsg)
   }, [])
   const [composerOpen, setComposerOpen] = useState(false)
+  // the phone's floating chip rows (the Karte's and the plan's) stand on the lowest FREE line —
+  // beside a short tool dock, not a row above it (lib/floatRow, sweep 27.10.2026 #9)
+  useFloatRowPlacement(isPhone)
   /** the Pendenz the composer is writing a Meldung on — set by tapping its row in the Verlauf.
    *  Cleared whenever the composer closes, so the next ordinary «Eintrag» is never still linked. */
   const [noteOn, setNoteOn] = useState<{ id: string; text: string } | null>(null)
@@ -3263,13 +3267,15 @@ export function IncidentWorkspace({
       {/* phone field-capture: a editor can't draw tactical symbols on a phone, but can
           always add a journal entry / photo / voice memo from the field — tap to compose,
           hold to record a voice memo (same gesture as the desktop TopBar Eintrag) */}
-      {/* ⚠️ …but NOT over the Atemschutz board (staging walk-through r2, 25.09.2026, N9). There it
-          sat on the third crew's «Kontakt» and on «Einsetzen»: a thumb at the right edge opened
-          the composer instead of confirming contact. A bottom inset cannot fix a button that
-          floats over a SCROLLING list, and a reserved 66px column would narrow every row's
-          Druck | Kontakt at 360px — the board's primary controls — to protect a secondary one.
-          The Verlauf stays one tap away in the phone's top bar. */}
-      {isPhone && !readOnly && !linkScoped && !composerOpen && !panel && mode !== 'atemschutz' && (
+      {/* …on the Trupps board too (owner, sweep 27.10.2026 #10: «Show the FAB on Trupps»). It was
+          kept off there because it sat on the third crew's «Kontakt» (N9, 25.09.2026): a bottom
+          inset cannot fix a button over a SCROLLING list. So on a phone the board's card ends
+          above the FAB's row instead (15-mobile · `.az-tafel`) and nothing scrolls under it.
+          ⚠️ A RUNNING RECORDING is never hidden (sweep #10, lead call): the FAB is the only place
+          that says a voice memo is being taken and the only way to stop it, so an open panel or
+          the composer does not unmount it, and the CSS that yields it to a tool's dock, the armed
+          pill or a detail sheet lets `.rec` stay (15-mobile · «while a tool-option dock …»). */}
+      {isPhone && !readOnly && !linkScoped && (voice.recording || (!composerOpen && !panel)) && (
         <FabEntry
           recording={voice.recording}
           recStartedAt={voice.recStartedAt}

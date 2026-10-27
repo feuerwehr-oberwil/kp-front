@@ -367,7 +367,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *Close:* every sheet/dialog ✕ IS the global `.ip-x` in the TSX (36px, 18px glyph, grey fill);
     a module class may position it, never restyle it. 44px only beside a 44px search field
     (Palette, Verlauf search, TruppFinder — `.x:global(.ip-x)`). The armed material keeps its
-    on-ink ✕ (`.wb-dock-x`); Ebenen wears `.ip-x` (`.lc-x` only places it). A
+    on-ink ✕ (`.wb-dock-x`), and it stands at the dock's END (27.10.2026, owner: «X on the right
+    everywhere»): the phone's tool pill reads [options · ⓘ | ✕], sticky at the right while the bar
+    scrolls; the tablet's column keeps it at its head, the column's top-right corner
+    (`ToolDock` renders it last, CSS `order` lifts it in the column). Ebenen wears `.ip-x` (`.lc-x` only places it). A
     menu has no ✕ row and no lone ⓘ row (29.09.2026): its tile toggles it and a row or a press
     elsewhere closes it; an ⓘ sits at the END of the last row and opens its sentence under that
     row (Ansichten).
