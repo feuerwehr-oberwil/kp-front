@@ -7,6 +7,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { toast } from '../lib/ui'
 import { useNodeHold } from '../lib/nodeHold'
+import { useFreshPoint } from '../lib/useFreshPoint'
 import type { BoardTool } from '../types'
 import type { PlanScales } from '../lib/workspace'
 import type { PlanLogExtra } from './Whiteboard'
@@ -107,6 +108,8 @@ export function usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, loc
 
   // --- Messen: the active path + calibrated metrics for the panel (line OR area, per mode) ---
   const measPath = measMode === 'line' ? measLine : measArea
+  // the point a tap just placed lets the tap pair's second press through to the zoom (lib/useFreshPoint)
+  const measFresh = useFreshPoint(measPath.length)
   const setMeasPath = (fn: (pts: Pt[]) => Pt[]) => (measMode === 'line' ? setMeasLine(fn) : setMeasArea(fn))
   const measMpts = measPath.map(toMeasurePt)
   const measLenM = calibrated && activeScale ? pathMetres(measMpts, activeScale.mPerU, measureAR) : 0
@@ -172,7 +175,7 @@ export function usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, loc
     calNodes, setCalNodes, calPrompt, setCalPrompt, lastRefM, refMInput, setRefMInput, savePrompt, setSavePrompt,
     measMode, setMeasMode, measLine, setMeasLine, measArea, setMeasArea,
     measureAR, activeScale, scaleAuto, scaleStale, calibrated, planMetres, toMeasurePt,
-    measPath, setMeasPath, measMpts, measLenM, measAreaM2, measPerimM, measReset, resetEphemeral,
+    measPath, setMeasPath, measFresh, measMpts, measLenM, measAreaM2, measPerimM, measReset, resetEphemeral,
     measNodeDown, measMove, measUp, measDragging, measInsert, measDelete, measPress,
     closeCalPrompt, commitCalibration,
   }
