@@ -63,7 +63,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     retry: 'Riprova',
     jumps: 'Indice',
     page: 'Pagina {n}',
-    share: 'Condividi / Apri in …',
+    openIn: 'Apri in …',
     reason: {
       stale: 'L’app sta usando una versione vecchia – chiudila e riaprila.',
       offline: 'Nessuna connessione – questo PDF non è salvato su questo dispositivo.',
