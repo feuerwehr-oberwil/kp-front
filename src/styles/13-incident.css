@@ -23,8 +23,10 @@
 /* …but the EINSATZ pill in the top bar is quiet (27.10.2026, sweep #5 · owner pick B): no glass of
    its own and no shadow – a frame inside the bar's frame read as one more button among the
    readouts, where it is the bar's name. It reads like the weather readout beside it; hover and
-   the press/open wash below still lay over it. The Karte's pills (KarteApp) keep their glass. */
-.ip-switch > .ip-switch-btn { background-color: transparent; box-shadow: none; }
+   the press/open wash below still lay over it. The Karte's pills (KarteApp) keep their glass.
+   Its height is the bar's buttons' (`.tb-act`, 10-journal; the touch floor in 20-touch-floors), so
+   the hover/open wash is as tall as Verlauf's (owner, 27.10.2026: it was 32px beside their 42). */
+.ip-switch > .ip-switch-btn { background-color: transparent; box-shadow: none; min-height: 42px; }
 /* pressed while held AND while its menu is open – the Einsatz switcher and the Karte's menu/search
    pills alike (owner 20.10.: the Karte's stayed pressed, the Einsatz's did not) */
 .ip-switch-btn:is(:active:not(:disabled), [aria-expanded='true']) { background-image: linear-gradient(var(--press), var(--press)); }

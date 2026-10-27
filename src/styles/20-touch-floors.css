@@ -41,6 +41,7 @@
    got 42×42. The condition was never about width; it was about a finger. */
 @media (pointer: coarse) {
   .tb-act { min-width: var(--tap); min-height: var(--tap); }
+  .ip-switch > .ip-switch-btn { min-height: var(--tap); }   /* the bar's name, as tall as its buttons */
   .tb-act.icon { min-width: var(--tap); }
   /* The one alarm affordance in the app — what you tap when a Trupp is überfällig — and it was
      26px tall on every device, phone to desktop. `padding-block: 0` lets min-height do the work
