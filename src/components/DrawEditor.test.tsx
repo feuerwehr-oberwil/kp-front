@@ -11,7 +11,7 @@ afterEach(cleanup)
 const noop = () => {}
 const base = {
   pointCount: 2,
-  onColor: noop, onWidth: noop, onDashed: noop, onLabel: noop,
+  onColor: noop, onDashed: noop, onLabel: noop,
   onMarker: noop, onArrow: noop, onShowDistance: noop, onRadius: noop,
   onDelete: noop, onClose: noop,
 }
@@ -152,7 +152,7 @@ describe('no preset row', () => {
 })
 
 /* Owner, sweep 27.10.2026 #7: a line leads with its Abschluss (+ Richtung umkehren), then Linie,
- * Farbe, Text/Marker, then the rest — and has no «Stärke». An area keeps its outline's Stärke. */
+ * Farbe, Text/Marker, then the rest — and no shape has a «Stärke» any more. */
 describe('line editor order', () => {
   const D = appConfig.copy.drawingEditor
   const labels = (c: HTMLElement) => [...c.querySelectorAll('.de-row > span:first-child')].map((e) => e.textContent)
@@ -165,9 +165,12 @@ describe('line editor order', () => {
     expect(labels(container)).not.toContain(D.width)
   })
 
-  it('keeps Stärke on an area', () => {
-    const { container } = render(<DrawEditor {...base} drawing={{ kind: 'area' }} />)
-    expect(labels(container)).toContain(D.width)
+  it('offers no Stärke on an area or a circle either', () => {
+    for (const kind of ['area', 'circle'] as const) {
+      const { container, unmount } = render(<DrawEditor {...base} drawing={{ kind, radiusM: 20 }} />)
+      expect(labels(container)).not.toContain(D.width)
+      unmount()
+    }
   })
 })
 

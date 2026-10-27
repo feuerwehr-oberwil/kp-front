@@ -58,7 +58,6 @@ function EndingGlyph({ kind }: { kind: 'none' | 'arrow' | 'arrowStop' | 'teilstu
 }
 
 const COLORS = appConfig.drawing.colors
-const WIDTHS = appConfig.drawing.widths
 
 /** The style fields a line/area/circle exposes — model-agnostic so a Lage `Drawing` and a Plan
  *  `BoardAnno` can both drive the SAME editor (callers map their object → these primitives). */
@@ -115,7 +114,6 @@ interface Props {
    *  Omitted on the Plan — a building plan has no height data. */
   profileCoords?: LngLat[] | null
   onColor: (c: string) => void
-  onWidth: (w: number) => void
   onDashed: (dashed: boolean) => void
   /** live, per keystroke — silent (see useMapDrawing · patchDrawingLabelLive) */
   onLabel: (label: string) => void
@@ -186,7 +184,7 @@ interface Props {
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
   // The Auftrag input is uncontrolled (see its comment), so the unmount commit reads the DOM
   // node — kept, never nulled, because React detaches element refs before passive cleanups run.
   // Same idempotence guard as ContextPanel's Notizen: blur first, unmount second, one write.
@@ -199,7 +197,6 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
   }
   useCommitDraftOnUnmount(() => { if (auftragEl.current) commitAuftrag(auftragEl.current.value.trim()) })
   const color = drawing.color ?? DEFAULT_INK
-  const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
   const isCircle = drawing.kind === 'circle'
   const isArea = drawing.kind === 'area'
@@ -356,10 +353,10 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
           </div>
         )}
 
-        {/* style group — a line: Linie · Farbe; an area/circle: Füllung · Farbe · Stärke.
-            ⚠️ NO «Stärke» on a line (owner, sweep 27.10.2026 #7: «drop it»). A line already drawn
-            keeps the width it stored and a new one starts from DRAW_DEFAULTS; only the control is
-            gone. An area's outline keeps its Stärke. */}
+        {/* style group — a line: Linie · Farbe; an area/circle: Füllung · Farbe.
+            ⚠️ NO «Stärke» on any of them (owner, sweep 27.10.2026 #7: «drop it» on the line, then
+            areas and circles too). A shape already drawn keeps the width it stored and a new one
+            starts from DRAW_DEFAULTS; only the control is gone. */}
         {!readOnly && <div className="de-group">
           {isLine && (
             <div className="de-row"><span>{appConfig.copy.drawingEditor.lineStyle}</span>
@@ -410,13 +407,6 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
               {COLORS.map((c) => <button key={c} className={`dh-color ${color === c ? 'on' : ''}`} style={{ background: c }} aria-label={c} onClick={() => onColor(c)} />)}
             </span>
           </div>
-          {!isLine && (
-            <div className="de-row"><span>{appConfig.copy.drawingEditor.width}</span>
-              <span className="dh-widths">
-                {WIDTHS.map((w) => <button key={w} className={`dh-width ${width === w ? 'on' : ''}`} aria-label={`${appConfig.copy.drawingEditor.width} ${w}`} onClick={() => onWidth(w)}><span style={{ height: w }} /></button>)}
-              </span>
-            </div>
-          )}
         </div>}
 
         {/* read-only: the shape's own text is the one style field worth stating — it names the
