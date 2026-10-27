@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterIncidents, historyGroupKey, historyWhen, monthLabel } from './historyGroups'
+import { NO_HISTORY_FILTER, applyHistoryFilter, filterIncidents, historyGroupKey, historyTypes, historyWhen, monthLabel } from './historyGroups'
 
 const NOW = new Date('2026-07-12T18:00:00')
 const inc = (over: { is_archived?: boolean; started_at?: string; title?: string; address?: string | null }) => ({
@@ -83,5 +83,32 @@ describe('historyWhen — when an Einsatz ran, for its row', () => {
   })
   it('gives up on an unreadable start', () => {
     expect(historyWhen({ is_archived: true, started_at: 'nope' }, NOW, 'de-CH')).toBeNull()
+  })
+})
+
+describe('applyHistoryFilter', () => {
+  const row = (id: string, over: { is_archived?: boolean; is_exercise?: boolean; type?: string | null; report_done_at?: string | null }) =>
+    ({ id, is_archived: true, is_exercise: false, type: 'Brand', report_done_at: '2026-07-01T12:00:00Z', ...over })
+  const items = [
+    row('brand', {}),
+    row('drill', { is_exercise: true, type: 'Technische Hilfe' }),
+    row('unfinished', { report_done_at: null }),
+    row('running', { is_archived: false, report_done_at: null }),
+  ]
+  const ids = (f: Partial<typeof NO_HISTORY_FILTER>) => applyHistoryFilter(items, { ...NO_HISTORY_FILTER, ...f }).map((i) => i.id)
+
+  it('splits Ernstfall from Übung', () => {
+    expect(ids({ kind: 'exercise' })).toEqual(['drill'])
+    expect(ids({ kind: 'real' })).toEqual(['brand', 'unfinished', 'running'])
+  })
+  it('«Rapport offen» is a closed Einsatz without a done Rapport, never a running one', () => {
+    expect(ids({ rapportOpen: true })).toEqual(['unfinished'])
+  })
+  it('combines with AND', () => {
+    expect(ids({ kind: 'real', type: 'Technische Hilfe' })).toEqual([])
+    expect(ids({ type: 'Brand', rapportOpen: true })).toEqual(['unfinished'])
+  })
+  it('lists each Einsatzart once, sorted, without the empty ones', () => {
+    expect(historyTypes([...items, row('x', { type: null })])).toEqual(['Brand', 'Technische Hilfe'])
   })
 })

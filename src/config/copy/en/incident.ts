@@ -100,6 +100,12 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     deleted: 'Exercise deleted',
     deleteFailed: 'Delete failed',
 
+    filterAria: 'Filter incidents',
+    filterReal: 'Real',
+    filterExercise: 'Exercise',
+    filterType: 'Incident type',
+    filterRapportOpen: 'Report open',
+    filterNoHits: 'No incident matches these filters.',
     emptySub: 'Opened and closed incidents appear here.',
     windowNote: 'Shows the running incidents and those of the last {n} days.',
     windowNoteOne: 'Shows the running incidents and those of the last day.',

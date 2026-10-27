@@ -110,6 +110,12 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     deleted: 'Esercitazione eliminata',
     deleteFailed: 'Eliminazione non riuscita',
   },
+    filterAria: 'Filtra interventi',
+    filterReal: 'Reale',
+    filterExercise: 'Esercitazione',
+    filterType: 'Tipo di intervento',
+    filterRapportOpen: 'Rapporto aperto',
+    filterNoHits: 'Nessun intervento corrisponde a questi filtri.',
   abschluss: {
     leftEarly: ' · fino alle {t}',
     steps: {

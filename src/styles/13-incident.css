@@ -994,6 +994,11 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
 .rp-check { position: relative; }
 @media (hover: hover) {
   .rp-check:has(.rp-check-main:not(:disabled)):hover { border-color: var(--ink-faint); }
+/* the quick filters under the search (27.10.2026): THE choice chip (components/Chip), wrapping;
+   the Einsatzart's choices fold out as their own wrapping line under them */
+.ip-hist-filters { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-1); }
+.ip-hist-filters .chev { width: 14px; height: 14px; }
+.ip-hist-types { display: flex; flex-wrap: wrap; gap: var(--sp-2); flex-basis: 100%; }
 }
 /* ONE press wash, at card level only. The stretched ::after (below) makes the whole card the
    button, so a second wash on `.rp-check-main:active` painted the header row twice — pressed

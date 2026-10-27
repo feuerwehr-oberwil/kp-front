@@ -164,6 +164,13 @@ export const incidentCopy = {
   },
   // Abschluss-Assistent — the guided closing ritual over the EXISTING views. Every small
   // incident is a training run on the big-incident tool (practice rationale, 2026-07-08).
+    // quick filters over the list (27.10.2026): Ernstfall | Übung, one Einsatzart, Rapport offen
+    filterAria: 'Einsätze filtern',
+    filterReal: 'Ernstfall',
+    filterExercise: 'Übung',
+    filterType: 'Einsatzart',
+    filterRapportOpen: 'Rapport offen',
+    filterNoHits: 'Kein Einsatz passt zu diesen Filtern.',
   abschluss: {
     leftEarly: ' · bis {t}',
     steps: {
