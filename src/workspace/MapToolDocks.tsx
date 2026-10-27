@@ -38,9 +38,12 @@ export interface MapToolDocksProps {
   setPlaceLock: Dispatch<SetStateAction<boolean>>
   isPhone: ReturnType<typeof useIsPhone>
   lineMode: 'freehand' | 'nodes'
-  setDraft: (action: SetStateAction<LngLat[]>) => void
+  /** leave the draft in the hand – asks about a committable one (useMapDrawing · settleDraft) */
+  settleDraft: () => void
   setLineMode: Dispatch<SetStateAction<'freehand' | 'nodes'>>
   draftActive: boolean
+  /** a Punkte drawing is open in the hand — the armed tile's amber dot */
+  draftOpen: boolean
   commitDraft: () => void
   areaMode: 'freehand' | 'nodes'
   setAreaMode: Dispatch<SetStateAction<'freehand' | 'nodes'>>
@@ -83,8 +86,8 @@ export interface MapToolDocksProps {
 }
 
 export function MapToolDocks({
-  mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, isPhone, lineMode, setDraft,
-  setLineMode, draftActive, commitDraft, areaMode, setAreaMode, setTeamPick, placed, setFindTruppOpen,
+  mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, isPhone, lineMode, settleDraft,
+  setLineMode, draftActive, draftOpen, commitDraft, areaMode, setAreaMode, setTeamPick, placed, setFindTruppOpen,
   measure, pendingShape, setPendingShape, setRotStart, rotStart, tacticalLocked, createLine,
   createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, togglePanel, viewsApi,
   view, readOnly, isEl, viewsOpen, sharePick, shareParent, toggleViews, coord, mapRef, paletteOpen,
@@ -122,10 +125,10 @@ export function MapToolDocks({
       )}
       {mapUI && tool === 'line' && (
         <ToolDock groups={[
-          [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
+          [{ type: 'close', onClick: () => { setTool('select'); settleDraft() } }],
           // input mode: Freihand (drag) ↔ Punkte (tap each vertex, ✓ to finish)
           [
-            { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: lineMode === 'freehand', onClick: () => { setLineMode('freehand'); setDraft([]) } },
+            { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: lineMode === 'freehand', onClick: () => { setLineMode('freehand'); settleDraft() } },
             { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: lineMode === 'nodes', onClick: () => setLineMode('nodes') },
             ...(lineMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: commitDraft }] : []),
           ],
@@ -137,9 +140,9 @@ export function MapToolDocks({
       )}
       {mapUI && tool === 'area' && (
         <ToolDock groups={[
-          [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
+          [{ type: 'close', onClick: () => { setTool('select'); settleDraft() } }],
           [
-            { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); setDraft([]) } },
+            { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); settleDraft() } },
             { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: areaMode === 'nodes', onClick: () => setAreaMode('nodes') },
             ...(areaMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: commitDraft }] : []),
           ],
@@ -239,6 +242,7 @@ export function MapToolDocks({
              already stated where it is started: the TopBar +Eintrag button, and the FabEntry on a
              phone. */
           active={tool}
+          open={draftOpen}
           onPick={pick}
           footer={(() => {
             const c = appConfig.copy.nav

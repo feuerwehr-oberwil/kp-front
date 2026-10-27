@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest'
-import { draftActive, finishKind, releaseDraft } from './draftMachine'
+import { describe, expect, it, vi } from 'vitest'
+import { appConfig } from '../config/appConfig'
+import { askOpenDraft, draftActive, finishKind, releaseDraft } from './draftMachine'
+
+// the one question goes through the app's confirm; recorded here, answered with `next`
+const answer = vi.hoisted(() => ({ next: false as boolean | 'alt', asked: [] as { title?: string; confirmLabel?: string; altLabel?: string; cancelLabel?: string }[] }))
+vi.mock('./ui', () => ({ confirmDialog: (o: (typeof answer.asked)[number]) => { answer.asked.push(o); return Promise.resolve(answer.next) } }))
 
 // The draft contract the Karte (useMapDrawing) and the Plan (Whiteboard) both ask.
 
@@ -26,22 +31,26 @@ describe('draftActive', () => {
   })
 })
 
-describe('releaseDraft (A6 tap-away)', () => {
+describe('releaseDraft (leaving an open drawing)', () => {
   it('leaves an empty hand alone', () => {
     expect(releaseDraft({ from: 'line', lineMode: 'nodes', count: 0 })).toEqual({ type: 'keep' })
   })
 
-  it('auto-commits a committable draft of the tool being left', () => {
-    expect(releaseDraft({ from: 'line', lineMode: 'nodes', count: 2 })).toEqual({ type: 'commit', kind: 'line' })
-    expect(releaseDraft({ from: 'area', lineMode: 'freehand', count: 3 })).toEqual({ type: 'commit', kind: 'area' })
+  it('asks about a committable draft of the tool being left (27.10.2026, replaced the A6 auto-commit)', () => {
+    expect(releaseDraft({ from: 'line', lineMode: 'nodes', count: 2 })).toEqual({ type: 'ask', kind: 'line' })
+    expect(releaseDraft({ from: 'area', lineMode: 'freehand', count: 3 })).toEqual({ type: 'ask', kind: 'area' })
   })
 
-  it('discards a fragment below the minimum — with the toast, never silently', () => {
-    expect(releaseDraft({ from: 'line', lineMode: 'nodes', count: 1 })).toEqual({ type: 'discard' })
-    expect(releaseDraft({ from: 'area', lineMode: 'nodes', count: 2 })).toEqual({ type: 'discard' })
+  it('commits instead when nobody can answer – the document goes away under it', () => {
+    expect(releaseDraft({ from: 'line', lineMode: 'nodes', count: 2, ask: false })).toEqual({ type: 'commit', kind: 'line' })
   })
 
-  it('discards even a committable draft on a locked surface, which may no longer write', () => {
+  it('drops a fragment below the minimum silently – nothing worth asking about', () => {
+    expect(releaseDraft({ from: 'line', lineMode: 'nodes', count: 1 })).toEqual({ type: 'drop' })
+    expect(releaseDraft({ from: 'area', lineMode: 'nodes', count: 2 })).toEqual({ type: 'drop' })
+  })
+
+  it('discards a committable draft on a locked surface, which may no longer write – with the toast', () => {
     expect(releaseDraft({ from: 'area', lineMode: 'nodes', count: 5, locked: true })).toEqual({ type: 'discard' })
   })
 
@@ -49,7 +58,21 @@ describe('releaseDraft (A6 tap-away)', () => {
     expect(releaseDraft({ from: 'line', lineMode: 'freehand', count: 7 })).toEqual({ type: 'drop' })
   })
 
-  it('keeps a draft that is not the left tool\'s — the undo re-arming its tool is no tap-away', () => {
+  it('keeps a draft that is not the left tool\'s — «Weiterzeichnen» re-arming its tool is no leave', () => {
     expect(releaseDraft({ from: 'pan', lineMode: 'nodes', count: 3 })).toEqual({ type: 'keep' })
+  })
+})
+
+describe('askOpenDraft', () => {
+  const C = appConfig.copy.toolDock
+
+  it('names the drawing and maps the three buttons; dismissing is «Weiterzeichnen»', async () => {
+    answer.next = true
+    expect(await askOpenDraft('Wand')).toBe('save')
+    expect(answer.asked[0]).toMatchObject({ title: C.openTitle.replace('{name}', 'Wand'), confirmLabel: C.openSave, altLabel: C.openDiscard, cancelLabel: C.openContinue })
+    answer.next = 'alt'
+    expect(await askOpenDraft('Linie')).toBe('discard')
+    answer.next = false
+    expect(await askOpenDraft('Linie')).toBe('continue')
   })
 })

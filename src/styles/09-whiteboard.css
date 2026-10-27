@@ -1138,3 +1138,22 @@ span.wb-ghost-label { cursor: default; }
   .wb-vins:hover { opacity: 1; }
 }
 .wb-vins .i { width: 11px; height: 11px; stroke-width: 3.2; }
+
+/* ── The open drawing and the snap ring (27.10.2026, Grundriss round) ─────────────────────────
+   A Punkte drawing that is not saved yet LOOKS open: amber marching dashes and a pulsing «Wand
+   offen» pill at its last point (usePlanDraft · openName). Where the next point lands is a ring
+   and nothing else (owner: «no text, no guide lines»): magenta when it catches, a small grey dot
+   when it is free; a mouse also draws the rubber band from the last point. */
+.wb-draft-open { fill: none; stroke: var(--open); stroke-width: 3; stroke-dasharray: 10 7; animation: wb-ants .8s linear infinite; }
+polygon.wb-draft-open { fill: var(--open); fill-opacity: .1; }
+@keyframes wb-ants { to { stroke-dashoffset: -34; } }
+.wb-open-pill { position: absolute; left: 0; top: 0; z-index: 8; pointer-events: none; white-space: nowrap;
+  padding: 2px var(--sp-2); border-radius: var(--r-pill); background: var(--open); color: var(--on-amber);
+  font-size: var(--fs-1); font-weight: var(--fw-bold); animation: wb-pulse 1.2s ease-in-out infinite; }
+@keyframes wb-pulse { 50% { opacity: .5; } }
+.wb-snap-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 8; }
+.wb-snap-band { stroke: var(--open); stroke-width: 2; stroke-dasharray: 3 5; fill: none; }
+.wb-snap-ring { fill: none; stroke: var(--snap); stroke-width: 2.5; }
+.wb-snap-core { fill: var(--snap); }
+.wb-snap-free { fill: var(--ink-faint); }
+@media (prefers-reduced-motion: reduce) { .wb-draft-open, .wb-open-pill { animation: none; } }

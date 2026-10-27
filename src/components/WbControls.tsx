@@ -5,13 +5,15 @@
 // (`sW`/`sH` + the storey `mapY`), never in a stretched 0..1 viewBox, and take gestures as props.
 // Rules for this area: docs/tactical-objects.md.
 
-import { useId } from 'react'
+import { useId, useRef } from 'react'
 import type { BoardAnno, BoardPoint, BoardTool } from '../types'
+import type { GrundrissRole, SnapRing } from './usePlanDraft'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { HatchDefs, LINE_DASH_SVG, hatchPatternId } from '../lib/draw'
 import { ToolDock } from './ToolDock'
-import { useNodeHold } from '../lib/nodeHold'
+import { NODE_HOLD_ARM_MS, useNodeHold } from '../lib/nodeHold'
+import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { vertexHandleIndices, arrowEndIndices, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { NodeDeleteChip } from './NodeDeleteChip'
 import { lineJoints } from '../lib/lineAttachments'
@@ -30,6 +32,9 @@ interface InkProps {
   draft: BoardPoint[] | null
   draftFloor: number
   draftClosed?: boolean // area tool: preview the draft as a closed/filled polygon
+  /** the draft is an OPEN drawing (Punkte): orange marching dashes instead of the ink's look,
+   *  until it is saved (27.10.2026) — a freehand stroke being dragged keeps the ink's look */
+  draftOpen?: boolean
   color: string
   width: number
   dashed: boolean
@@ -127,7 +132,7 @@ function strokeCut(pts: Pt[], section: Section | undefined, closed = false): { m
  * (Line arrowheads + marker letters still render OUTSIDE this layer — they need their own
  * un-stretched transforms either way.)
  */
-export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width, dashed, hiddenTrails, mapY, selId, flashId, networkIds = [], onPickDraw, truppTones = {}, sW, sH, sections }: InkProps) {
+export function WbInkLayer({ annos, draft, draftFloor, draftClosed, draftOpen, color, width, dashed, hiddenTrails, mapY, selId, flashId, networkIds = [], onPickDraw, truppTones = {}, sW, sH, sections }: InkProps) {
   const W = Math.max(1, sW), H = Math.max(1, sH)
   const toPx = (pts: BoardPoint[], floor: number | undefined): Pt[] => pts.map((p) => [p[0] * W, mapY(p[2] ?? floor, p[1]) * H])
   const str = (pts: Pt[]) => pts.map((p) => `${p[0]},${p[1]}`).join(' ')
@@ -236,8 +241,15 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
           return <circle key={`join-${j.lineId}-${j.endpoint}`} cx={cx} cy={cy} r={(a.width || 5) / 2 + 2.5} clipPath={clipOf(j.point[2] ?? a.floor)}
             fill={a.color || COLORS[0]} stroke="var(--surface)" strokeWidth={2} style={{ pointerEvents: 'none' }} />
         })}
-      {draft && draft.length >= 2 && (
-        draftClosed && draft.length >= 3
+      {draft && draft.length >= 2 && (draftOpen
+        // the open look: one storey run at a time (a Leitung may climb), class-styled so the
+        // dashes march (09-whiteboard.css · .wb-draft-open)
+        ? (draftClosed && draft.length >= 3
+          ? <polygon className="wb-draft-open" points={pointStr(draft, draftFloor)} strokeLinejoin="round" />
+          : floorSections(draft, draftFloor).filter((run) => run.length > 1).map((run, i) => (
+            <polyline key={`draft-${i}`} className="wb-draft-open" points={pointStr(run, draftFloor)} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          )))
+        : draftClosed && draft.length >= 3
           ? <polygon points={pointStr(draft, draftFloor)} fill={color} fillOpacity={0.12} stroke={color} strokeWidth={width} strokeDasharray={dashed ? LINE_DASH_SVG : undefined} strokeLinejoin="round" />
           : <polyline points={pointStr(draft, draftFloor)} fill="none" stroke={color} strokeWidth={width} strokeDasharray={dashed ? LINE_DASH_SVG : undefined} strokeLinecap={dashed ? 'butt' : 'round'} strokeLinejoin="round" />
       )}
@@ -372,7 +384,7 @@ export function WbCircleHandle({ anno, sW, sH, mapY, onRadiusDown, onMove, onUp 
  * Positions are board px; classes are the shared `.wb-vertex` / `.wb-vins`, which already sit
  * above the `.wb-ink` capture overlay (z 6/7 vs 5), so the grips stay tappable mid-tool.
  */
-export function WbDraftHandles({ pts, closed, draftFloor, sW, sH, mapY, onVertexDown, onInsert, onDeleteVertex }: {
+export function WbDraftHandles({ pts, closed, draftFloor, sW, sH, mapY, onVertexDown, onVertexTap, onInsert, onDeleteVertex }: {
   pts: BoardPoint[]
   /** area draft: the ring closes visually at ≥3 pts, so the closing edge gets a «+» too */
   closed: boolean
@@ -381,12 +393,17 @@ export function WbDraftHandles({ pts, closed, draftFloor, sW, sH, mapY, onVertex
   sH: number
   mapY: (floor: number | undefined, ly: number) => number
   onVertexDown: (idx: number, e: React.PointerEvent) => void
+  /** a still, short tap on grip `idx` (a Grundriss piece finishes on its last, closes on its first) */
+  onVertexTap?: (idx: number) => void
   onInsert: (idx: number, e: React.PointerEvent) => void
   onDeleteVertex: (idx: number) => void
 }) {
   // still hold = delete, movement cancels into the reshape drag — the same gesture (and chip) as
   // on a finished shape, so the draft never teaches a second vocabulary.
   const vertexPress = useNodeHold()
+  // where a grip press went down — its release is a TAP only if it stayed put and was short
+  // (a longer still press is the hold-to-delete above)
+  const pressAt = useRef<{ x: number; y: number; t: number } | null>(null)
   if (!pts.length) return null
   const sp: [number, number][] = pts.map(([x, y, floor]) => [x * sW, mapY(floor ?? draftFloor, y) * sH])
   const segs: number[] = []
@@ -411,12 +428,31 @@ export function WbDraftHandles({ pts, closed, draftFloor, sW, sH, mapY, onVertex
             // which is exactly what the ✕/Esc discard leaves too
             vertexPress.press(`d${i}`, () => onDeleteVertex(i), true).onPointerDown(e)
             onVertexDown(i, e)
+            pressAt.current = { x: e.clientX, y: e.clientY, t: e.timeStamp }
+          }}
+          onPointerUp={(e) => {
+            const at = pressAt.current; pressAt.current = null
+            if (at && onVertexTap && Math.hypot(e.clientX - at.x, e.clientY - at.y) <= DRAG_DEADZONE_PX && e.timeStamp - at.t < NODE_HOLD_ARM_MS) onVertexTap(i)
           }}
           // …and the same right-click shorthand a finished shape's grips carry (A26)
           onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); onDeleteVertex(i) }}
         >{vertexPress.armed?.key === `d${i}` && <NodeDeleteChip progress={vertexPress.armed.progress} />}</button>
       ))}
     </>
+  )
+}
+
+/** Where the next Punkte point lands (usePlanDraft · ring), in board px: a magenta ring when it
+ *  snaps, a small grey dot when it is free, and — for a mouse — the rubber band from the open
+ *  drawing's last point. No text, no guide line (owner, 27.10.2026). */
+export function WbSnapRing({ ring, sW, sH }: { ring: SnapRing; sW: number; sH: number }) {
+  return (
+    <svg className="wb-snap-svg" viewBox={`0 0 ${Math.max(1, sW)} ${Math.max(1, sH)}`} preserveAspectRatio="none" aria-hidden>
+      {ring.from && <line className="wb-snap-band" x1={ring.from[0]} y1={ring.from[1]} x2={ring.x} y2={ring.y} />}
+      {ring.snapped
+        ? <><circle className="wb-snap-ring" cx={ring.x} cy={ring.y} r={9} /><circle className="wb-snap-core" cx={ring.x} cy={ring.y} r={2.5} /></>
+        : <circle className="wb-snap-free" cx={ring.x} cy={ring.y} r={3.5} />}
+    </svg>
   )
 }
 
@@ -562,11 +598,15 @@ interface DocksProps {
   /** the in-progress node draft is committable (line ≥2 pts / area ≥3 pts) — gates the ✓ button */
   draftActive: boolean
   setTool: (t: BoardTool) => void
-  setLineMode: (m: 'freehand' | 'nodes') => void
   areaMode: 'nodes' | 'freehand'
-  setAreaMode: (m: 'nodes' | 'freehand') => void
+  /** the Gebäude stack offers the Grundriss presets (Wand · Weg on the Linie, Raum on the Fläche) … */
+  stack: boolean
+  /** … the one in force … */
+  grundriss: GrundrissRole | null
+  /** … and the input pick: Freihand, Punkte or a preset (usePlanDraft · pickInput, which asks
+   *  about an open drawing of another kind first) */
+  pickInput: (next: 'freehand' | 'nodes' | GrundrissRole) => void
   onFinish: () => void
-  onCancelDraft: () => void
   /** Messen tool: line/area mode + clear/close, mirroring the Lage map's measure dock */
   measMode: 'line' | 'area'
   setMeasMode: (m: 'line' | 'area') => void
@@ -584,39 +624,49 @@ interface DocksProps {
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive, setTool, setLineMode, onFinish, onCancelDraft, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, truppFinder }: DocksProps) {
+export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickInput, draftActive, setTool, onFinish, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, truppFinder }: DocksProps) {
   // Read copy per render: the deployment locale is resolved after modules are imported.
-  const closeDraft = () => { onCancelDraft(); setTool('pan') }
+  // ✕ is a way out of the tool like any other: the tool change asks about an open drawing
+  // (usePlanDraft · releaseDraft), so it only has to put the tool down
+  const closeDraft = () => setTool('pan')
+  const G = appConfig.copy.whiteboard.grundriss
+  const H = appConfig.copy.whiteboard.dockHints
+  /** a Grundriss preset's toggle (stack only) */
+  const presetTog = (role: GrundrissRole, icon: string) =>
+    ({ type: 'toggle' as const, icon, label: G[role], on: grundriss === role, onClick: () => pickInput(role) })
   return (
     <>
       {/* Linie — Freihand (drag) ↔ Punkte (tap, ✓ to finish); identical to map. «D pur»
           (09.09.): no colour/width/style here — the finished line lands selected in the
-          DrawEditor, which is where the styling lives (and writes the next-ink defaults). */}
+          DrawEditor, which is where the styling lives (and writes the next-ink defaults).
+          On the Gebäude stack also Wand · Weg, which stay armed (27.10.2026). */}
       {tool === 'line' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: closeDraft }],
           [
-            { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: lineMode === 'freehand', onClick: () => { setLineMode('freehand'); onCancelDraft() } },
-            { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: lineMode === 'nodes', onClick: () => setLineMode('nodes') },
+            { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: lineMode === 'freehand' && !grundriss, onClick: () => pickInput('freehand') },
+            { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: lineMode === 'nodes' && !grundriss, onClick: () => pickInput('nodes') },
+            ...(stack ? [presetTog('wand', 'wall'), presetTog('weg', 'arrow')] : []),
             ...(lineMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: onFinish }] : []),
           ],
           // the Karte's own words, per input mode (copy · dockHints): one rule, one text
-          [{ type: 'info', text: lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodes : appConfig.copy.dockHints.lineFreehand }],
+          [{ type: 'info', text: grundriss ? H[grundriss] : lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodes : appConfig.copy.dockHints.lineFreehand }],
         ]} />
       )}
 
       {/* Fläche — Freihand ODER Knoten + info. Same two-mode group as the Linie dock above it,
           because it is the same question: tap the corners, or draw it. Styling: in the editor
-          afterwards, like the Linie. */}
+          afterwards, like the Linie. On the Gebäude stack also Raum (27.10.2026). */}
       {tool === 'area' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: closeDraft }],
           [
-            { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); onCancelDraft() } },
-            { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: areaMode === 'nodes', onClick: () => setAreaMode('nodes') },
+            { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand' && !grundriss, onClick: () => pickInput('freehand') },
+            { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: areaMode === 'nodes' && !grundriss, onClick: () => pickInput('nodes') },
+            ...(stack ? [presetTog('raum', 'room')] : []),
             ...(areaMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: onFinish }] : []),
           ],
-          [{ type: 'info', text: appConfig.copy.dockHints.area }],
+          [{ type: 'info', text: grundriss ? H[grundriss] : appConfig.copy.dockHints.area }],
         ]} />
       )}
 

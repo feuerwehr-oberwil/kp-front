@@ -69,7 +69,7 @@ test('F1 · Karte: a drawn Linie is one step on the header pair — ↶ takes it
   await expectNoCrash(page, 'Karte after ↶↷')
 })
 
-test('F2 · Tafel: a Fläche from three taps, auto-committed on tap-away, is one ↶', async ({ page }) => {
+test('F2 · Tafel: a Fläche from three taps, saved when it is left open, is one ↶', async ({ page }) => {
   await page.getByRole('button', { name: 'Tafel', exact: true }).click()
   const board = page.locator('.whiteboard').first()
   await expect(board).toBeVisible()
@@ -81,10 +81,12 @@ test('F2 · Tafel: a Fläche from three taps, auto-committed on tap-away, is one
     await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy)
     await page.waitForTimeout(400) // apart in time, like a person's taps
   }
-  // three vertex grips on the draft, then tap-away commits it (A6)
+  // three vertex grips on the draft; leaving it asks, and «Speichern» commits it (27.10.2026)
   await expect(page.getByRole('button', { name: 'Eckpunkt ziehen, gedrückt halten zum Löschen' })).toHaveCount(3)
   await page.getByRole('button', { name: 'Auswahl', exact: true }).click()
-  await expect(page.getByText('Fläche gespeichert')).toBeVisible()
+  const ask = page.getByRole('alertdialog')
+  await expect(ask.getByText('Fläche noch offen')).toBeVisible()
+  await ask.getByRole('button', { name: 'Speichern', exact: true }).click()
   await expect(undoBtn(page)).toBeEnabled()
   // one ↶ takes the whole Fläche, and it was the only step
   await undoBtn(page).click()
