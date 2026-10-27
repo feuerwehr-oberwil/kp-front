@@ -316,13 +316,13 @@ The rules that are easy to break:
   stood at its catalogue point) — else the object's point (search, tag, a list row).
 - **The panel, in one order** (owner, 17.10.2026 · review round 2; its top 27.10.2026 · mocks
   2B/2C), the same for an object on the phone and on the tablet: head (kind, name, address, ✕) ·
-  **«Für den Einsatz»**, one card: the station's word (Sofortmassnahmen, then Bemerkungen, with
-  their source — what matters most in a hurry) and the plans as tiles under it, two to a line (the
-  plan's name only, offline the «auf diesem Gerät» mark — below) · then plain lists, no tabs:
-  Gebäude laut Register as bullets (the hazards first, each with ⚠ and its word) · In der Nähe ·
+  the station's word (Sofortmassnahmen, then Bemerkungen, with their source — what matters most in
+  a hurry) · Pläne & Module as tiles, two to a line (the plan's name only, offline the «auf diesem
+  Gerät» mark — below) · Gebäude laut Register as bullets (the hazards first, each with ⚠ and its word) · In der Nähe ·
   Objektbesuche · the actions LAST, «Objektbesuch» and «Melden». A plain building or a dropped pin keeps that order with what
   it has (Register as the same bullets, In der Nähe, Melden; a pin also «Koordinaten kopieren»), a
-  plan-less object too (the card holds the station's word alone, or is not drawn). The action row is two equal halves where both labels fit; else the longer
+  plan-less object too (no tiles). Every part is a top-level section with its head — no card
+  around the first ones, no tabs (owner, 27.10.2026: «keep everything top level»). The action row is two equal halves where both labels fit; else the longer
   label takes what it needs, and where the two do not fit one line (French/Italian at 390 px) each
   gets a row of its own — a label is never cut (owner, review round 5: «koordinaten kopieren clips
   the button»). No «Messen ab hier» (Messen is the bar's / the rail's) and no

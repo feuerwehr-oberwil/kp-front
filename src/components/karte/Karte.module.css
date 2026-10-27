@@ -158,13 +158,8 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .note svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--ink-dim); }
 .note.amber { background: var(--amber-12); }
 .note.amber svg { color: var(--amber-strong); }
-/* «Für den Einsatz» (owner, 27.10.2026 · mock 2C): the first card – the station's word and the plan
-   tiles, on the surface with a hairline, so the panel's top reads as ONE block before the lists */
-.first { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4) var(--sp-4); border-radius: var(--r-sm);
-  background: var(--surface); box-shadow: 0 0 0 1px var(--border-soft); }
-.firstHead { color: var(--red-strong); }
-/* the plan tiles, two to a line (PlanTiles): the list row's height and type (one rhythm, below), a
-   quiet fill instead of the card's hairline; a long name ends in «…» rather than growing the tile */
+/* the plan tiles, two to a line (PlanTiles, owner 27.10.2026 · mock 2C): the list row's height and
+   type (one rhythm, below), a quiet fill instead of a card's hairline; a long name ends in «…» rather than growing the tile */
 .planTiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
 .planTile { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; min-height: var(--tap); padding: 0 var(--sp-3);
   border: none; border-radius: var(--r-sm); background: var(--ink-5); color: var(--ink); font: var(--fw-bold) var(--fs-2)/1.2 var(--body);
