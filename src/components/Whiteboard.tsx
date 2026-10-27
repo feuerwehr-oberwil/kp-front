@@ -39,6 +39,7 @@ import { usePlanRemoval } from './usePlanRemoval'
 import { CIRCLE_MAX_N, useWbRotor } from './useWbRotor'
 import { SelectionBar } from './SelectionBar'
 import { PlanAnno, type PlanAnnoBoard } from './PlanAnno'
+import { TacticalSymbol } from '../lib/symbolRender'
 import { PlanLineDecor } from './PlanLineDecor'
 import { SelectionTurn } from './SelectionTurn'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
@@ -69,6 +70,8 @@ import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
+import { carryDoors, copyGrundriss, grundrissOf, DOOR_SYMBOL, GEBAEUDE_CATEGORY } from '../lib/grundriss'
+import { StoreyCopySheet } from './StoreyCopySheet'
 import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
 import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachAnnos, dwellFor, flipLine, forkPortPoint, wireFreed, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, withDetach, type AnnoDetachPatch, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
@@ -883,8 +886,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const gone = [...was.keys()].some((id) => !to.some((a) => a.id === id))
     if (gone || formOpen) setPageSel(SKIZZE)
   }
+  // every board write leaves through here: a Durchgang rides along with the Wand that write moved,
+  // and lets go of one it deleted (lib/grundriss · carryDoors) – ↶ / ↷ restores are left as they are
+  const writeBoard: typeof onChangeAll = (next, ...opts) =>
+    onChangeAll(opts[0]?.gesture === false ? next : carryDoors(annosAll, next, tileAR), ...opts)
   const boardDoc = useBoardDoc({
-    annos: annosAll, onChange: onChangeAll, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd, onRestore,
+    annos: annosAll, onChange: writeBoard, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd, onRestore,
   })
   const { pushPast, add, patch, patchCommit, removeAnno } = boardDoc
   const set = (next: BoardAnno[]) => boardDoc.set(withForms(next))
@@ -1175,17 +1182,19 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const { rotMagnet, clearRotMagnet, rotDown, rotMove, rotUp } = rotor
 
   // --- create-tool interactions (on the ink overlay) — components/usePlanCreate ---
-  const { inkDown, inkMove, inkUp, placeTeamChip } = usePlanCreate({
+  const { inkDown, inkMove, inkUp, placeTeamChip, doorGhost, clearDoorGhost } = usePlanCreate({
     tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, readOnly, stack,
-    toNorm, floorAt, localY, mapY, sW, sH, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef: inkTap,
+    toNorm, floorAt, localY, mapY, sW, sH, tileAR, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef: inkTap,
     planDraft, rotor, measure: planMeasure, rotPlacing, rotStart, setRotStart, rotN, noteDefaults, txtBase, setNotePanelId, setNotePlacedId,
     sym, onRecent, annos, trupps, placedTeamNames, onLinkTrupp, setTruppPick, add, log, setSelId,
     tapZoomPress: (e) => tapZoomPress(e),
   })
 
   // --- the ink's body drags: a stroke, an Absperrkreis, a Linie's label — components/useWbBodyDrag ---
+  // the storey tile a move would drop its selection onto – lit while the drag is over it
+  const [dropFloor, setDropFloor] = useState<number | null>(null)
   const { drawDrag, drawDown, drawMove, drawUp, circleDrag, circleDown, circleMove, circleUp, labelDown, labelMove, labelUp } = useWbBodyDrag({
-    tool, readOnly, annos, setAnnoTap, setSelId, setSelIds, boardRef, boardPts, moveRigid, localY, mapY, pushPast, patch, emit, activeId,
+    tool, readOnly, annos, setAnnoTap, setSelId, setSelIds, boardRef, boardPts, moveRigid, localY, mapY, stack, floorAt, floorsTTB, setDropFloor, pushPast, patch, emit, activeId,
   })
 
   // --- vertex editing of a selected line/area and of the in-progress node draft (drag a node,
@@ -1205,7 +1214,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   // --- chip dragging (resource / symbol / text in pan mode) — components/useWbChipDrag ---
   const { chipDrag, chipDown, chipMove, chipUp } = useWbChipDrag({
-    tool, readOnly, annos, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH,
+    tool, readOnly, annos, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH, tileAR,
     attachmentLines, pushPast, set, patch, emit, activeId, onLinkLineTrupp,
   })
 
@@ -1419,7 +1428,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     return () => clearTimeout(t)
   }, [flashId])
 
-  const pickSymbol = (name: string) => { setPending(name); setPendingShape(null); setTool('symbol'); setPaletteOpen(false); onRecent(name) }
+  // the Durchgang on the Gebäude stack places «mehrere» by default: 20 doors are 20 taps (owner, 27.10.2026)
+  const pickSymbol = (name: string) => {
+    setPending(name); setPendingShape(null); setTool('symbol'); setPaletteOpen(false); onRecent(name)
+    if (stack && name === DOOR_SYMBOL) setPlaceLock(true)
+  }
   const pickShape = (kind: ShapeKind) => { setPendingShape(kind); setPending(null); setTool('shape'); setPaletteOpen(false) }
   /**
    * ⚠️ The Plan has no Ebenen of its own any more (15.09.2026). It used to share the slot with
@@ -1481,7 +1494,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // --- the selection bar's transform target — components/useWbSelectionBar -----------------
   const { barIds, barActive, barMove, barRotate, barDone, barCanRotate, barTurn, arm } = useWbSelectionBar({
     tool, readOnly, georefArmed, annos, selIds, editDraw, selShape, setSelId, setSelIds, setNotePanelId, setEditId, setAnnoTap,
-    sW, sH, mapY, localY, boardPts, moveRigid, pushPast, set, emit, activeId, boardRef, canvasRef, onStepEnd,
+    sW, sH, mapY, localY, boardPts, moveRigid, stack, floorAt, floorsTTB, setDropFloor, pushPast, set, emit, activeId, boardRef, canvasRef, onStepEnd,
   })
   // --- removing objects: with their coupled Leitungen, with a Trupp's trail, a group, the Delete
   // key — components/usePlanRemoval
@@ -1550,6 +1563,21 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const removeFloor = (f: number) => {
     if (readOnly || building?.pack || floorPack?.tiles[f]) return
     onRemoveFloor(f)
+  }
+  // «Kopieren nach …» (27.10.2026): the storey whose label menu asked, and the act itself – the
+  // storey's Grundriss as independent copies on every picked storey, ONE commit = one ↶
+  const [copyFrom, setCopyFrom] = useState<number | null>(null)
+  const isGebaeudeSymbol = (name: string) => sym.symbols.some((x) => x.name === name && x.cat === GEBAEUDE_CATEGORY)
+  const copyStorey = (from: number, targets: number[]) => {
+    if (readOnly) return
+    // top to bottom, the way the stack and the chips read
+    const order = allFloorsTTB.filter((f) => targets.includes(f))
+    const { added, counts } = copyGrundriss(annos, from, order, isGebaeudeSymbol, newId)
+    if (!added.length) return
+    commit([...annos, ...added])
+    added.forEach((a) => emit('board.add', { id: a.id, anno: a, planId: activeId }))
+    const C = appConfig.copy.whiteboard.storeyCopy
+    toast(fillTemplate(C.done, { list: counts.map((c) => fillTemplate(C.doneItem, { n: c.n, floor: storeyName(c.floor) })).join(' · ') }))
   }
 
   // footprint draw box per floor tile: fill most of the tile, preserving the
@@ -1975,7 +2003,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 )
               })}
               {floorsTTB.map((f, idx) => (
-                <div key={f} className={`wb-floor${idx === 0 && !readOnly && !building.pack ? ' wb-floor-under-add' : ''}`} style={{ top: (idx / N) * sH, height: sH / N, width: sW }}>
+                <div key={f} className={`wb-floor${idx === 0 && !readOnly && !building.pack ? ' wb-floor-under-add' : ''}${dropFloor === f ? ' wb-floor-drop' : ''}`} style={{ top: (idx / N) * sH, height: sH / N, width: sW }}>
                   {(() => {
                     // Sweep K5 (29.09.2026): the storey's acts live in its LABEL. A tap on «4. OG»
                     // opens «Ausblenden · Geschoss entfernen»; the eye and the red bin that stood on
@@ -1989,13 +2017,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                     const W = appConfig.copy.whiteboard
                     const canHide = floorsTTB.length > 1
                     const canRemove = f !== 0 && !readOnly && !building.pack && !floorPack?.tiles[f]
+                    const canCopy = !readOnly && allFloorsTTB.length > 1
                     const words = <>
                       {/* the word only («4. OG», «EG»): the signed chip said the same thing again.
                           It comes back only when a custom name («Hauptebene») hides the order. */}
                       {customStorey(f) && <span className={`wb-floor-idx${f === 0 ? ' zero' : ''}`}>{signedFloor(f)}</span>}
                       <span className="wb-floor-name">{name}</span>
                     </>
-                    if (!canHide && !canRemove) return <div className="wb-floor-label">{words}</div>
+                    if (!canHide && !canRemove && !canCopy) return <div className="wb-floor-label">{words}</div>
                     return (
                       <Menu
                         popupClassName="de-menu-pop"
@@ -2011,6 +2040,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                         }
                         items={[
                           ...(canHide ? [{ label: <><Icon id="eyeoff" /><span>{W.floorHideShort}</span></>, onClick: () => toggleFloor(f) }] : []),
+                          ...(canCopy ? [{ label: <><Icon id="copy" /><span>{W.storeyCopy.menu}</span></>, onClick: () => setCopyFrom(f) }] : []),
                           ...(canRemove ? [{ label: <><Icon id="trash" /><span>{W.removeFloor}</span></>, onClick: () => removeFloor(f), danger: true }] : []),
                         ]}
                       />
@@ -2397,7 +2427,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
             {/* create-tool capture layer */}
             {creating && (
-              <div className="wb-ink" onPointerDown={inkDown} onPointerMove={inkMove} onPointerUp={inkUp} onPointerCancel={inkUp} />
+              <div className="wb-ink" onPointerDown={inkDown} onPointerMove={inkMove} onPointerUp={inkUp} onPointerCancel={inkUp} onPointerLeave={clearDoorGhost} />
+            )}
+            {/* the Durchgang the next click places – on its Wand, turned along it (mouse only) */}
+            {doorGhost && tool === 'symbol' && pending === DOOR_SYMBOL && (
+              <div className="wb-door-ghost" aria-hidden
+                style={{ transform: `translate(${doorGhost.x * sW}px, ${mapY(doorGhost.floor, doorGhost.y) * sH}px) translate(-50%, -50%)` }}>
+                <TacticalSymbol svg={sym.byName[DOOR_SYMBOL] ?? ''} sizePx={symBase} rotation={doorGhost.rotation} />
+              </div>
             )}
             {/* the in-progress node draft is reshapeable IN PLACE (A3, 29.08.): the same vertex
                 grips and «+» midpoint inserts a finished shape gets, sitting above the .wb-ink
@@ -2890,6 +2927,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       )}
       {editorSlotFree && readOnly && selShape && (
         <ShapeEditor key={selShape.id} readOnly entity={selShape} onClose={() => setSelId(null)} />
+      )}
+
+      {copyFrom != null && stack && (
+        <StoreyCopySheet name={storeyName(copyFrom)} count={grundrissOf(annos, copyFrom, isGebaeudeSymbol).length}
+          storeys={allFloorsTTB.filter((f) => f !== copyFrom).map((f) => ({ floor: f, name: storeyName(f) }))}
+          onCopy={(targets) => copyStorey(copyFrom, targets)} onClose={() => setCopyFrom(null)} />
       )}
 
       {paletteOpen && sym.ready && (

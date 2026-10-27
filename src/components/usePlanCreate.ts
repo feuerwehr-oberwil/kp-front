@@ -5,7 +5,7 @@
 // what a draft becomes is components/usePlanDraft's, the Rotation's claim ring is useWbRotor's.
 // Lage ↔ Plan parity: docs/tactical-objects.md.
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import type React from 'react'
 import type { BoardAnno, BoardPoint, BoardTool, NoteSize, ShapeKind, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
@@ -21,6 +21,7 @@ import { seedSymbolProps } from '../lib/symbols'
 import { SHAPE_DEFS, SHAPE_MIN_N, SHAPE_TWO_POINT, rotationBox, type rotationBoundsN } from '../lib/shapes'
 import { autoNoteWN, noteScale } from '../lib/notes'
 import { floorLabel } from '../lib/whiteboard'
+import { DOOR_SNAP_PX, DOOR_SYMBOL, nearestWall } from '../lib/grundriss'
 import type { useBoardView } from './useBoardView'
 import type { usePlanDraft } from './usePlanDraft'
 import type { usePlanMeasure } from './usePlanMeasure'
@@ -54,6 +55,8 @@ interface Args {
   mapY: (floor: number | undefined, ly: number) => number
   sW: number
   sH: number
+  /** a storey tile's height / width (lib/whiteboard · tileAspectOf) – a Durchgang's turn on its wall */
+  tileAR: number
   scale: number
   posRef: BoardView['posRef']
   scaleRef: BoardView['scaleRef']
@@ -96,7 +99,7 @@ interface Args {
 /** The ink overlay's pointer handlers and the placement they make; see the file header. */
 export function usePlanCreate({
   tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, readOnly, stack,
-  toNorm, floorAt, localY, mapY, sW, sH, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef,
+  toNorm, floorAt, localY, mapY, sW, sH, tileAR, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef,
   planDraft, rotor, measure, rotPlacing, rotStart, setRotStart, rotN, noteDefaults, txtBase, setNotePanelId, setNotePlacedId,
   sym, onRecent, annos, trupps, placedTeamNames, onLinkTrupp, setTruppPick, add, log, setSelId, tapZoomPress,
 }: Args) {
@@ -114,6 +117,20 @@ export function usePlanCreate({
     const [a, b] = [...inkPtrs.current.values()]
     if (!a || !b) return null
     return { dist: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }
+  }
+
+  /** Where a Durchgang placed at (x, y) on `floor` lands: on the nearest Wand within ~30 screen px,
+   *  turned along it (lib/grundriss), else free and unturned. Gebäude stack only – null elsewhere. */
+  const doorSeat = (x: number, y: number, floor: number) =>
+    stack && pending === DOOR_SYMBOL && sW ? nearestWall(annos, floor, x, y, tileAR, DOOR_SNAP_PX / sW) : null
+  // the Durchgang the next tap would place, shown under a MOUSE before the tap (a finger has no hover)
+  const [doorGhost, setDoorGhost] = useState<{ x: number; y: number; floor: number; rotation: number } | null>(null)
+  const hoverDoor = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'mouse' || tool !== 'symbol' || pending !== DOOR_SYMBOL || !stack) { if (doorGhost) setDoorGhost(null); return }
+    const n = toNorm(e.clientX, e.clientY); if (!n) return
+    const floor = floorAt(n[1]), y = localY(n[1], floor)
+    const seat = doorSeat(n[0], y, floor)
+    setDoorGhost(seat ? { x: seat.x, y: seat.y, floor, rotation: seat.rotation } : { x: n[0], y, floor, rotation: 0 })
   }
 
   // --- create-tool interactions (on the ink overlay) ---
@@ -262,9 +279,12 @@ export function usePlanCreate({
     if (tool === 'symbol') {
       if (!pending) { setPaletteOpen(true); return }
       const id = newId('s'); const s = pending
+      // a Durchgang near a Wand sits ON it, turned along it, on this storey only (lib/grundriss)
+      const seat = doorSeat(x, y, floor)
+      if (seat) { x = seat.x; y = seat.y }
       // shared seeding (label / subtitle / fields) — identical to the Lage placement
       // path, so a plan symbol now carries the same editable structure as a map one
-      add({ id, kind: 'symbol', x, y, floor, ...seedSymbolProps(s, sym.symbols) })
+      add({ id, kind: 'symbol', x, y, floor, ...seedSymbolProps(s, sym.symbols), ...(seat ? { rotation: seat.rotation, onWall: seat.wallId } : null) })
       onRecent(s); log('hex', fillTemplate(appConfig.copy.whiteboard.placeSymbol, { name: formatSymbolName(s) }), { annoId: id, x, y, floor })
       // unlocked: place once, then drop to pan with the new symbol selected so its
       // editor + rotor are immediately usable. locked: stay armed (no selection) to
@@ -324,6 +344,7 @@ export function usePlanCreate({
     }
   }
   const inkMove = (e: React.PointerEvent) => {
+    if (!inkTapRef.current) hoverDoor(e)
     if (inkPtrs.current.has(e.pointerId)) inkPtrs.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     if (inkPinch.current != null) {
       const m = inkPinchPts(); const el = canvasRef.current
@@ -434,5 +455,5 @@ export function usePlanCreate({
     }
   }
 
-  return { inkDown, inkMove, inkUp, placeTeamChip }
+  return { inkDown, inkMove, inkUp, placeTeamChip, doorGhost, clearDoorGhost: () => setDoorGhost(null) }
 }

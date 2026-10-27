@@ -333,6 +333,18 @@ export const whiteboardCopy = {
     floorRemovedLog: 'Geschoss {floor} entfernt',
     floorRemovedLogMarks: 'Geschoss {floor} entfernt – {n} Markierungen entfernt oder gekürzt',
     floorRestoredLog: 'Geschoss {floor} wiederhergestellt',
+    // «Kopieren nach …» in the storey label's menu (27.10.2026): the storey's Grundriss onto others
+    storeyCopy: {
+      menu: 'Kopieren nach …',
+      title: '{name} kopieren nach …',
+      what: '{n} Objekte: Wände, Wege, Räume und Gebäude-Symbole. Leitungen, Trupps, Gefahren und Notizen bleiben.',
+      whatOne: '1 Objekt: Wände, Wege, Räume und Gebäude-Symbole. Leitungen, Trupps, Gefahren und Notizen bleiben.',
+      nothing: 'Auf {name} gibt es noch keinen Grundriss zum Kopieren – keine Wand, keinen Weg, keinen Raum, kein Gebäude-Symbol.',
+      targets: 'Geschosse',
+      confirm: 'Kopieren',
+      done: 'Grundriss kopiert: {list}',
+      doneItem: '{n} nach {floor}',
+    },
     floorAddedLog: 'Geschoss {floor} hinzugefügt',
     buildingReplaced: 'Gebäude ersetzt',
     buildingReplacedMarks: 'Gebäude ersetzt – {n} Markierungen entfernt',
