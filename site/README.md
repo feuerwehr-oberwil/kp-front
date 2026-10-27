@@ -45,8 +45,9 @@ half-translated page is worse than none at all.
 
 Decided deliberately, not accidental:
 
-- **The switcher is two text links**, no flags, no dropdown, no cookie. Real links, so they
-  stay crawlable and a shared link carries its language with it.
+- **Language choices are text links**, without flags, cookies or redirects. Compact headers
+  collect them with appearance in one menu; real links stay crawlable and keep the language in
+  a shared URL.
 - **No redirect based on `Accept-Language`.** A German-speaking firefighter whose browser
   setting sends them to `/fr/` is worse than a switcher they can see.
 - **The screenshots stay German, on every language version.** They come from a real
@@ -55,6 +56,29 @@ Decided deliberately, not accidental:
 - **A translation that no fire-service person of that language has read says so at the top
   of the page** (`notice` in `fr.json`, `it.json` and `rm.json`). That line disappears once someone has
   proofread it – it is not decoration.
+
+## Theme assets and shared runtime
+
+`theme.js` follows the device appearance until a visitor makes an explicit choice.
+Desktop uses a header button; compact headers group language and appearance in one native
+menu, closed by Escape or a tap outside. Language choices remain real links. The theme
+choice is a local preference (`kp-landing-theme`), shared across language pages on the same
+origin. Keep `theme.js`, `build.mjs` and `landing.css` byte-identical in both repositories.
+The builder embeds the runtime in the page head, including the single-file hand-out.
+KP Front lists it as a Knip entry because the builder reads it as text rather than importing it.
+
+Capture both real app palettes: the existing `shots/<name>.webp` is light, and
+`shots/dark/<name>.webp` is its night counterpart, with matching names and dimensions.
+Both heroes also have a 992px version. The link-preview JPEG and README PNGs remain light.
+Do not simulate night mode by filtering a day screenshot.
+
+```bash
+node site/capture.mjs --site-only             # both themes, leave README PNGs alone
+node site/capture.mjs --theme dark --site-only # night variants only
+```
+
+The offline builder preserves and embeds both picture sources; changing the theme must
+never make the hand-out request an image from a server.
 
 ## Updating screenshots
 
@@ -67,7 +91,7 @@ node site/build.mjs                          # then rebuild
 ```
 
 `capture.mjs` drives a running instance with Playwright (from `node_modules`, no extra
-dependency), forces day mode via the prefs cookie, skips the demo welcome dialog, hides the
+dependency), selects day and night mode via the prefs cookie, skips the demo welcome dialog, hides the
 DEMO banner and shoots every view at 1500 × 937. New images go in as a new entry in the
 `shots` list in the script **and** as an entry under `shots.items` in `content/de.json` –
 the filenames are the contract between the two. The filename lives only in `de.json`; the
@@ -75,7 +99,7 @@ translations inherit it and only provide the caption.
 
 **The format is WebP** – the same capture weighs about half of what the old JPEG did, and
 encoding happens in the Chromium that Playwright brings along anyway (no second dependency,
-no `cwebp` on the machine). Three outputs instead of one, all from the same capture:
+no `cwebp` on the machine). Day captures produce three outputs; night captures produce both WebP sizes:
 
 | File | what for |
 | --- | --- |
