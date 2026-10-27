@@ -12,7 +12,11 @@
     "contact": "Contatto",
     "demo": "Demo",
     "githubAria": "KP Front su GitHub",
-    "languageAria": "Lingua"
+    "languageAria": "Lingua",
+    "options": "Lingua e aspetto"
+  },
+  "theme": {
+    "label": "Modalità scura"
   },
   "notFound": {
     "pageTitle": "Pagina non trovata – KP Front",

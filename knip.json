@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["e2e/*.mjs", "scripts/*.mjs", "site/capture.mjs", "public/sw-notify.js"],
+  "entry": ["e2e/*.mjs", "scripts/*.mjs", "site/capture.mjs", "site/theme.js", "public/sw-notify.js"],
   "ignoreDependencies": ["@fontsource-variable/sora", "@fontsource-variable/spline-sans-mono"],
   "ignoreIssues": { "src/lib/audioImport.ts": ["duplicates"] },
   "ignoreExportsUsedInFile": true
