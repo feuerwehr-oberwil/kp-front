@@ -29,7 +29,8 @@ export function RegisterLines({ chips, className }: { chips: BuildingChip[]; cla
 }
 
 /** The station's own word about the object – Sofortmassnahmen (read first, full ink) and
- *  Bemerkungen (quieter), each under its head – then whose notes they are (`source`). Lines come
+ *  Bemerkungen (quieter), each under its head – then, only where the caller has one, a caption (`source`: the
+ *  Gebäude card's «… · in der Nähe (120 m)»; no «Modul 1» source line since 27.10.2026). Lines come
  *  from `noteLines`; nothing to say → nothing drawn. */
 export function StationNotes({ measures, remarks, source, className }: { measures: string[]; remarks: string[]; source?: string; className?: string }) {
   if (!measures.length && !remarks.length) return null

@@ -64,8 +64,6 @@ export const karteCopy = {
     approxHead: 'Keine Koordinaten im Katalog.',
     approxBody: 'Lage aus der Adresse – ungefähr. Vor Ort prüfen.',
     approxTag: 'ungefähr',
-    notesSource: 'Station · {src}',
-    notesStation: 'Station',
     pinNote: 'Kein Stationsobjekt an diesem Punkt.',
     pinEmpty: 'Hier ist nichts erfasst – keine Adresse, kein Stationsobjekt in der Nähe.',
     pinBuilding: 'Gebäude an diesem Punkt',
