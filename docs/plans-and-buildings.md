@@ -63,7 +63,9 @@ The Einsatz sketch of a building (owner picks 27.10.2026; peace time has the PDF
   INDEPENDENT copies (new ids, the target's storey, `onWall` remapped to the copied wall) onto the
   picked storeys, on top of what is there. A ranged symbol (Treppe 0–3) already covering a target
   is skipped there; every other lands with that storey as its only one. One commit = one ↶, and a
-  toast names how many went where.
+  toast names how many went where. The sheet (`components/StoreyCopySheet`, round 3: «Stapel»)
+  shows every storey top to bottom – the source as «Vorlage», each other one a checkbox row that
+  says what it already holds – and one button that names the result («Auf 1. OG kopieren»).
 
 ## Drawing a Grundriss
 
@@ -77,6 +79,10 @@ Sketching a building on the floor stack during an Einsatz (27.10.2026, the owner
   dark and solid). The role says the anno is LAYOUT: no Leitung couples onto a Wand end, and its
   own ends dock onto nothing (`Whiteboard · planCandidatesAt`, `useWbVertexEdit · vertDown`).
   A Wand lives on ONE storey – no Von/Bis.
+- **Linie ↔ Wand afterwards:** the line editor's «Art» row (near its foot, stack only) switches a
+  drawn line (`lib/grundriss · wallRolePatch`, one ↶): to a Wand it takes the Wand look and drops
+  the hose fields – refused while a Trupp is on the line; back to a Linie its Durchgänge let go as
+  when the Wand is deleted, and the Wand colour becomes the default ink.
 - **The Wand stays armed** – each piece is committed (one ↶) and the next tap starts the next
   one; a plain Linie still lands selected in its editor. It always draws in Punkte. A piece
   finishes on ✓ or a tap on its last point; a tap on the first point of a Wand with ≥3 points
