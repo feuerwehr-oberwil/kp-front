@@ -406,6 +406,8 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   const fieldsRef = useRef<HTMLDivElement>(null)
   /** What this panel last WROTE — or what it opened on. The yardstick for the effect below. */
   const writtenRef = useRef(JSON.stringify(entity.fields ?? {}))
+  // a row typed into but not committed yet (fields commit on blur – see the unmount commit below)
+  const rowsDirty = useRef(false)
   // ⚠️ Follow the entity when the fields change from OUTSIDE — the same rule the title below
   // follows, for a worse failure. `rows` is this panel's own copy, taken once when it opened, and
   // `commitRows` writes the WHOLE record back: a value another device (or the same object's panel on the
@@ -426,6 +428,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
     if (fieldsRef.current?.contains(active)) return
     if (active instanceof Element && active.closest('.combo-menu-portal')) return
     writtenRef.current = stored
+    rowsDirty.current = false
     setRows(seedRows(entity.fields))
     // seedRows reads protectedKeys — the symbol's own preset, which cannot change while one panel
     // stays mounted (the caller keys the panel by entity id)
@@ -571,9 +574,17 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
     for (const { k, v } of next) { const key = stripUnprintable(k).trim(); if (key) rec[key] = stripUnprintable(v) }
     // …this is now what the entity says, as far as this panel is concerned (see the sync effect)
     writtenRef.current = JSON.stringify(rec)
+    rowsDirty.current = false
     onFields(rec)
   }
-  const setRow = (i: number, patch: Partial<Row>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+  const setRow = (i: number, patch: Partial<Row>) => {
+    rowsDirty.current = true
+    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+  }
+  // A tap on the Karte deselects and unmounts this panel while the caret still sits in a field –
+  // a removed node gets no blur, so the typed value (a Messpunkt reading, 27.10.) died with the
+  // panel. Same door the Notizen use.
+  useCommitDraftOnUnmount(() => { if (rowsDirty.current) commitRows(rows) })
   // set a row's value AND commit (used by the tab/dropdown controls, which have no blur)
   const setRowValue = (i: number, v: string) => commitRows(rows.map((r, j) => (j === i ? { ...r, v } : r)))
   /**
