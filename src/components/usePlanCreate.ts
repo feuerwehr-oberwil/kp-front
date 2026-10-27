@@ -101,9 +101,11 @@ export function usePlanCreate({
   sym, onRecent, annos, trupps, placedTeamNames, onLinkTrupp, setTruppPick, add, log, setSelId, tapZoomPress,
 }: Args) {
   const {
-    draft, setDraft, circleDraft, setCircleDraft, draftAttachmentsRef, draftFloorRef, inking, noding, lineMode, areaMode,
-    updatePlanDraftMagnet, finishPlanDraftMagnet, addLine, addArea, addCircle,
+    draft, setDraft, circleDraft, setCircleDraft, draftAttachmentsRef, draftFloorRef, setDraftRole, inking, noding, lineMode, areaMode,
+    updatePlanDraftMagnet, finishPlanDraftMagnet, addLine, addArea, addCircle, grundriss, tapPoint, showRing,
   } = planDraft
+  // a Leitung's ends couple (the draft magnet); a Wand / Weg is layout and couples to nothing
+  const magnetic = tool === 'line' && !grundriss
   const { claimRotTarget, clearRotMagnet, rotMagnetRef, rotPanPaused: rotPanPausedRef } = rotor
   const { calNodes, setCalNodes, setCalPrompt, setRefMInput, lastRefM, calibrated, measPath, setMeasPath, setMeasLine, setMeasArea } = measure
   // two-finger pinch tracking ON the create-tool ink overlay, so the user can pinch-zoom the
@@ -140,7 +142,7 @@ export function usePlanCreate({
     e.stopPropagation() // placement owns this pointer — don't let the stage ALSO start a board pan
     const floor = stack ? floorAt(n[1]) : 0
     const x = n[0], y = localY(n[1], floor)
-    if (tool === 'line') {
+    if (magnetic) {
       const atStart = !draft?.length
       if (atStart) draftAttachmentsRef.current = {}
       else draftAttachmentsRef.current = { ...draftAttachmentsRef.current, endAttachment: undefined }
@@ -161,6 +163,7 @@ export function usePlanCreate({
       // so it can't double as a pan. Every OTHER create tool places on a single tap (placeNode/inkUp).
       ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
       draftFloorRef.current = floor
+      setDraftRole(null) // a stroke is never a Grundriss piece
       setDraft([[x, y, floor]])
       return
     }
@@ -172,6 +175,8 @@ export function usePlanCreate({
     inkTapRef.current = { x: e.clientX, y: e.clientY, px: posRef.current.x, py: posRef.current.y, moved: false }
     // …and a two-point shape's tap may claim a symbol: press, hold until the ring closes, let go
     if (rotPlacing) claimRotTarget({ x: e.clientX, y: e.clientY })
+    // a finger sees where the point will land while it presses (the mouse already did, hovering)
+    if (noding) showRing(n, floor, e.pointerType === 'mouse')
   }
   // create a resource chip — linked to a tracked Trupp when one is picked, else a generic team
   const placeTeamChip = (x: number, y: number, floor: number, trupp?: Trupp) => {
@@ -232,12 +237,9 @@ export function usePlanCreate({
       // node-based Linie / Fläche: each tap drops a vertex; ✓ («Fertig») closes the shape, never a
       // double tap (UX sweep M4, owner 20./21.10.2026: a double tap is a map function, and while a
       // tool is armed the tool owns every tap). A quick second tap lands on the grip the first one
-      // just laid, so it adds no corner. Lines retain the floor below each pointer; areas stay on
-      // the first floor.
-      if (!draft) draftFloorRef.current = floor
-      const pointFloor = tool === 'line' ? floor : draftFloorRef.current
-      const ly = localY(n[1], pointFloor)
-      setDraft((d) => (d ? [...d, [n[0], ly, pointFloor]] : [[n[0], ly, pointFloor]]))
+      // just laid, so it adds no corner. Where the point lands — storey, snap, the Grundriss
+      // pieces' finish / close / backtrack — is the draft machine's (usePlanDraft · tapPoint).
+      tapPoint(n, floor)
       return
     }
     if (tool === 'text') {
@@ -351,15 +353,22 @@ export function usePlanCreate({
           st.x = e.clientX; st.y = e.clientY; st.px = posRef.current.x; st.py = posRef.current.y
         }
       }
-      if (tool === 'line') {
-        const n = toNorm(e.clientX, e.clientY)
-        if (n) { const floor = stack ? floorAt(n[1]) : draftFloorRef.current; updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], 'move') }
-      }
+      const n = toNorm(e.clientX, e.clientY)
+      const floor = n && stack ? floorAt(n[1]) : draftFloorRef.current
+      if (magnetic && n) updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], 'move')
       // node tool: drag pans the board (and disqualifies the tap). 8px of slop tolerates finger
       // jitter so a still tap still places. Pan from the recorded origin, like useBoardGestures.
       const st = inkTapRef.current, dx = e.clientX - st.x, dy = e.clientY - st.y
       if (!st.moved && Math.hypot(dx, dy) > 8) st.moved = true
       if (st.moved) applyView(scaleRef.current, { x: st.px + dx, y: st.py + dy })
+      // the ring follows a still press; a pan is no placement, so it has none
+      if (noding) showRing(st.moved ? null : n, floor, e.pointerType === 'mouse')
+      return
+    }
+    // a mouse hovering a Punkte tool: the ring follows the pointer, the rubber band from the last point
+    if (noding && e.pointerType === 'mouse' && inkPtrs.current.size === 0) {
+      const n = toNorm(e.clientX, e.clientY)
+      showRing(n, n && stack ? floorAt(n[1]) : 0, true)
       return
     }
     if (circleDraft) {
@@ -389,6 +398,8 @@ export function usePlanCreate({
       // pointer-cancel just leaves the panned view as-is, with no stray node placed.
       if (e && e.type === 'pointerup' && !st.moved) placeNode(e)
       finishPlanDraftMagnet()
+      // a finger's ring goes with the finger; the mouse's is re-aimed by its next move
+      if (e?.pointerType !== 'mouse') showRing(null, 0, false)
       return
     }
     if (circleDraft) {

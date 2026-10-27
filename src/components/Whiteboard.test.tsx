@@ -29,7 +29,7 @@ vi.mock('./OsmOutline', () => ({
 const ui = vi.hoisted(() => ({
   toasts: [] as { text: string; action?: { label: string; onClick: () => void } }[],
   confirms: [] as { title?: string; message?: string }[],
-  answer: false,
+  answer: false as boolean | 'alt',
 }))
 vi.mock('../lib/ui', async (importOriginal) => {
   const mod = await importOriginal<typeof import('../lib/ui')>()
@@ -441,7 +441,8 @@ describe('the Plan rail and its drafts', () => {
   // toNorm and the handle layout need a real board rect, which jsdom never lays out.
   // ⚠️ The toast log is cleared BEFORE each test, not after: afterEach hooks run LIFO, so the
   // file-level cleanup() unmounts the previous board AFTER an afterEach here — and an unmount
-  // with a live draft auto-commits and toasts (by design), which would leak into the next test.
+  // with a live draft commits and toasts (leaving the document: nobody is left to ask), which
+  // would leak into the next test.
   beforeEach(() => {
     ui.toasts.length = 0
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
@@ -506,40 +507,53 @@ describe('the Plan rail and its drafts', () => {
     expect(screen.queryByText(W.blankHint)).toBeNull()
   })
 
-  it('auto-commits a committable draft on tap-away — and «Rückgängig» hands the shape back', () => {
+  // 27.10.2026 (owner): leaving an open drawing asks «Speichern · Verwerfen · Weiterzeichnen»,
+  // replacing the A6 auto-commit with its «Rückgängig» toast
+  const answered = async (v: boolean | 'alt', leave: () => void) => {
+    ui.answer = v
+    leave()
+    await act(async () => { await Promise.resolve() })
+  }
+
+  it('asks when an open drawing is left — «Speichern» commits it, one anno, no selection', async () => {
     const { container, onChange } = renderPlan([])
     drawAreaDraft(container)
-    expect(onChange).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Auswahl' }))
-    // committed through the ordinary addArea path…
+    await answered(true, () => fireEvent.click(screen.getByRole('button', { name: 'Auswahl' })))
+    expect(ui.confirms[0].title).toBe(fillTemplate(T.openTitle, { name: appConfig.copy.drawingEditor.area }))
     const committed = onChange.mock.calls[0][0]
     expect(committed).toHaveLength(1)
     expect(committed[0].kind).toBe('area')
     expect(committed[0].pts).toHaveLength(3)
-    // …with the decided toast
-    const t = ui.toasts.find((x) => x.text === T.autoCommitted.replace('{name}', appConfig.copy.drawingEditor.area))
-    expect(t?.action?.label).toBe(T.autoCommitUndo)
-    // undo returns the shape to the HAND: anno removed, draft + tool re-armed
-    act(() => t!.action!.onClick())
-    expect(onChange.mock.calls[onChange.mock.calls.length - 1][0]).toHaveLength(0)
-    expect(screen.getAllByRole('button', { name: W.dragVertex })).toHaveLength(3)
+    expect(screen.queryByRole('button', { name: W.dragVertex })).toBeNull()
   })
 
-  it('discards a fragment with a toast instead of silently — and commits nothing', () => {
+  it('«Weiterzeichnen» hands the drawing back under its re-armed tool; «Verwerfen» drops it', async () => {
+    const { container, onChange } = renderPlan([])
+    drawAreaDraft(container)
+    await answered(false, () => fireEvent.click(screen.getByRole('button', { name: 'Auswahl' })))
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getAllByRole('button', { name: W.dragVertex })).toHaveLength(3)
+    await answered('alt', () => fireEvent.click(screen.getByRole('button', { name: 'Auswahl' })))
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: W.dragVertex })).toBeNull()
+  })
+
+  it('drops a fragment silently — nothing to ask about, nothing committed', () => {
     const { container, onChange } = renderPlan([])
     fireEvent.click(screen.getByRole('button', { name: 'Fläche' }))
     tapAt(ink(container), 100, 100); tapAt(ink(container), 300, 100) // a 2-point Fläche is nothing yet
     fireEvent.click(screen.getByRole('button', { name: 'Auswahl' }))
     expect(onChange).not.toHaveBeenCalled()
-    expect(ui.toasts.some((x) => x.text === T.draftDiscarded && !x.action)).toBe(true)
+    expect(ui.confirms).toHaveLength(0)
+    expect(ui.toasts).toHaveLength(0)
   })
 
-  it('Escape stays the explicit discard — no commit, no toast', () => {
+  it('Escape is a leave like any other — it asks too', async () => {
     const { container, onChange } = renderPlan([])
     drawAreaDraft(container)
-    fireEvent.keyDown(window, { key: 'Escape' })
+    await answered('alt', () => fireEvent.keyDown(window, { key: 'Escape' }))
+    expect(ui.confirms).toHaveLength(1)
     expect(onChange).not.toHaveBeenCalled()
-    expect(ui.toasts).toHaveLength(0)
     expect(screen.queryByRole('button', { name: W.dragVertex })).toBeNull()
   })
 
@@ -558,6 +572,76 @@ describe('the Plan rail and its drafts', () => {
     fireEvent.pointerDown(screen.getByText('Hallo'))
     expect(container.querySelector('.note-grips')).toBeNull()
     expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
+  })
+})
+
+// ── The Grundriss presets on the Gebäude stack (27.10.2026) ─────────────────────────────────
+// Wand / Weg of the Linie and Raum of the Fläche are plain inks with a `role`: drawn in Punkte,
+// snapped (lib/planSnap, tested there), and the tool stays armed after each piece.
+describe('the Grundriss presets', () => {
+  const G = appConfig.copy.whiteboard.grundriss
+  beforeEach(() => {
+    ui.toasts.length = 0
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect)
+    // a measured viewport, or the board has no size and nothing has a pixel to snap in
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(1000)
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(800)
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  const ink = () => document.querySelector('.wb-ink')!
+  const tapAt = (x: number, y: number) => {
+    fireEvent.pointerDown(ink(), { clientX: x, clientY: y, pointerId: 1 })
+    fireEvent.pointerUp(ink(), { clientX: x, clientY: y, pointerId: 1 })
+  }
+  const armWand = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Linie' }))
+    fireEvent.click(screen.getByRole('button', { name: G.wand }))
+  }
+  /** the anno each commit added (the board's `annos` prop stays as rendered, so each call is one) */
+  const added = (onChange: Mock) => onChange.mock.calls.map((c) => { const list = c[0] as BoardAnno[]; return list[list.length - 1] })
+
+  it('draws a Wand at right angles, finishes it on its last point, and stays armed', () => {
+    const { onChange } = renderBoard('gebaeude', [], false, aBuilding)
+    armWand()
+    tapAt(150, 150); tapAt(250, 170) // the second point runs straight on: y stays the first's
+    tapAt(251, 151) // the last point again: finished
+    const [wall] = added(onChange)
+    expect(wall).toMatchObject({ kind: 'draw', role: 'wand', color: appConfig.drawing.colors[4], width: 8 })
+    expect(wall.pts).toHaveLength(2)
+    expect(wall.pts![1][1]).toBeCloseTo(wall.pts![0][1], 6)
+    // still armed: no selection, the preset still on, and the next tap starts the next piece
+    expect(screen.getByRole('button', { name: G.wand }).getAttribute('aria-pressed')).toBe('true')
+    tapAt(150, 250)
+    expect(screen.getAllByRole('button', { name: appConfig.copy.whiteboard.dragVertex })).toHaveLength(1)
+  })
+
+  it('ends the piece where the next point goes straight back along it — one ↶ per piece', () => {
+    const { onChange } = renderBoard('gebaeude', [], false, aBuilding)
+    armWand()
+    tapAt(150, 150); tapAt(250, 150)
+    tapAt(200, 150) // back along the piece just drawn: that piece is saved, the next starts here
+    expect(added(onChange)).toHaveLength(1)
+    tapAt(200, 250); tapAt(200, 250)
+    const [first, second] = added(onChange)
+    expect(first.pts!.map((p) => p[0])).toEqual([150 / 400, 250 / 400])
+    expect(second.pts!.map((p) => p[0])).toEqual([200 / 400, 200 / 400])
+  })
+
+  it('asks before a Wand moves to another storey, then starts there', async () => {
+    const { onChange } = renderBoard('gebaeude', [], false, { ...aBuilding, floors: [0, 1] })
+    armWand()
+    tapAt(150, 50); tapAt(250, 50) // the top tile is the 1. OG
+    ui.answer = true // «Speichern»
+    tapAt(150, 300) // the EG
+    await act(async () => { await Promise.resolve() })
+    expect(ui.confirms[0].title).toBe(fillTemplate(appConfig.copy.toolDock.openTitle, { name: G.wand }))
+    const [wall] = added(onChange)
+    expect(wall).toMatchObject({ role: 'wand', floor: 1 })
+    // the new piece has its first point on the EG
+    expect(screen.getAllByRole('button', { name: appConfig.copy.whiteboard.dragVertex })).toHaveLength(1)
   })
 })
 

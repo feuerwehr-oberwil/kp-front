@@ -186,6 +186,9 @@ export function IconSprite() {
       <symbol id="logout" viewBox="0 0 24 24"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" /><path d="M9 12h11M16 8l4 4-4 4" /></symbol>
       <symbol id="swap" viewBox="0 0 24 24"><path d="M4 9h13l-3-3M20 15H7l3 3" /></symbol>
       <symbol id="footprint" viewBox="0 0 24 24"><path d="M4 20V8h8V4h8v16z" /></symbol>
+      {/* the Grundriss presets (27.10.2026): a Wand is a thick corner, a Raum a room with a door gap */}
+      <symbol id="wall" viewBox="0 0 24 24"><path d="M5 19V5h14" strokeWidth="4" strokeLinecap="square" /></symbol>
+      <symbol id="room" viewBox="0 0 24 24"><path d="M10 19H5V5h14v14h-5" /></symbol>
       <symbol id="bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z" /><path d="M9.5 19a2.5 2.5 0 0 0 5 0" /></symbol>
       <symbol id="bell-off" viewBox="0 0 24 24"><path d="M3 3l18 18" /><path d="M8.2 6.1A6 6 0 0 1 18 11v5l1.8 1.8M6 11.4V16l-2 2h12.6" /><path d="M9.5 19a2.5 2.5 0 0 0 5 0" /></symbol>
       <symbol id="gauge" viewBox="0 0 24 24"><circle cx="12" cy="10.5" r="7" /><path d="M12 10.5 15.4 7.9" /><circle cx="12" cy="10.5" r="1.2" fill="currentColor" stroke="none" /><path d="M10.7 17.4h2.6v1.6a1.3 1.3 0 0 1-2.6 0z" /><path d="M12 4.6v1.3M17.6 8.7l-1.2.5M6.4 8.7l1.2.5" stroke-opacity=".55" /></symbol>

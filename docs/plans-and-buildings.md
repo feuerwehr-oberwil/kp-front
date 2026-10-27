@@ -33,6 +33,41 @@ AGENTS.md on 2026-10-08, wording unchanged.
     entfernen» is the danger row and stays the owner's confirm-with-undo (workspace/useGebaeudeActions ·
     removeFloor). No eye and no bin on the canvas: delete is the rarest act on this surface.
 
+## Drawing a Grundriss
+
+Sketching a building on the floor stack during an Einsatz (27.10.2026, the owner's picks on the
+`range.html` prototype). In peace time the station has PDF plans; this is for the Einsatz only.
+
+- **Wand / Weg / Raum are presets of Linie / Fläche, not a new object kind.** The Linie dock on
+  the stack adds «Wand» and «Weg», the Fläche dock «Raum» (`components/WbControls · WbToolDocks`).
+  They are ordinary `draw` / `area` annos with `BoardAnno.role` and their own look
+  (`usePlanDraft · GRUNDRISS_STYLE`: a Wand dark, solid and thick; a Weg dashed with an arrow; a
+  Raum a dark outline with a light wash and its name as the Fläche `label`, tapped in afterwards).
+  The role says the anno is LAYOUT: no Leitung couples onto a Wand or Weg end
+  (`Whiteboard · planCandidatesAt`). A Wand, Weg or Raum lives on ONE storey – no Von/Bis.
+- **The presets stay armed** – each piece is committed (one ↶) and the next tap starts the next
+  one; a plain Linie / Fläche still lands selected in its editor. They always draw in Punkte.
+  A piece finishes on ✓ or a tap on its last point; a tap on the first point of a Wand / Raum
+  with ≥3 points closes it (`usePlanDraft · tapPoint / tapDraftVertex`). A Wand / Raum point runs
+  straight or at a right angle from the last one (tile space); a Weg is free. A point that goes
+  straight back along the piece just drawn commits that piece and starts the next one there, so
+  a wall is never laid over itself (`lib/planSnap · backtracks`).
+- **Snapping is a ring and nothing else** (`lib/planSnap`, pure; the owner: «just an easy way to
+  snap things»). Magenta ring = it catches, small grey dot = free; a mouse also gets the ring
+  following the pointer and a rubber band from the last point, a finger sees the ring while it
+  presses (a drag still pans). Targets on the same storey, within ~14 screen px: the ends and
+  segments of the Wand / Weg / Raum inks, the open piece's own points, and the building outline
+  (`Whiteboard · stackOutlinePx`). A plain Linie in Punkte mode on the stack snaps only onto the
+  centre of a Durchgang, a Türe or a Treppe – that is how a Leitung is laid through doors and up
+  the stairs. The stored point is exactly the snapped one.
+- **An open drawing looks open and is never left unasked.** While a Punkte drawing is in the
+  hand it is drawn in amber marching dashes with a pulsing «Wand offen» pill at its last point,
+  and its rail tile carries an amber dot – on the Plan and on the Karte. Leaving it (another tool
+  or mode, ✕, Escape, a selection landing, tapping another storey while a Wand / Weg / Raum is
+  open) asks «Speichern · Verwerfen · Weiterzeichnen» (`lib/draftMachine · releaseDraft /
+  askOpenDraft`); a fragment too short to commit goes silently. Two leaves cannot be answered
+  and commit with a toast instead: the document itself going away, and arming «Karte verknüpfen».
+
 ## Automatic alignments and their approval
 
 - **The field never asks for an automatic alignment** (13.09.2026; the unreachable client path –
