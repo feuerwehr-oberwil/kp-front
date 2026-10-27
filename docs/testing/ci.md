@@ -158,6 +158,13 @@ Actions cache, keyed on the Playwright version and the browser list, and a hit i
 apt dependencies. The CDN download was what stalled jobs into their 10-minute timeout (seven of
 sixteen runs re-run by hand in October 2026); a Playwright bump starts one cold run per key.
 
+Before installing system packages, the action removes the Azure mirror from the runner's
+`/etc/apt/apt-mirrors.txt`, leaving the official Ubuntu archive and security mirrors. A slow
+Azure node can keep sending data without tripping apt's stall timeout
+([runner-images #14823](https://github.com/actions/runner-images/issues/14823)); recovery spent
+477 seconds downloading 119 MB on 2026-10-27, leaving too little time for its tests. The job
+timeout, browser inventory and test checks remain unchanged.
+
 Every suite retains the client-error/render-storm guard, the field scenario's no-retry policy,
 and the browser's own observation windows. Parallelize by isolated stacks, not additional
 workers mutating one shared incident or fleet.

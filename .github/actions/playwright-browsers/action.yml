@@ -11,6 +11,17 @@ inputs:
 runs:
   using: composite
   steps:
+    # The Azure mirror can trickle packages without triggering apt's stall timeout:
+    # 119 MB took 477 s in recovery, exhausting the job before its tests could finish.
+    # https://github.com/actions/runner-images/issues/14823
+    - name: Prefer Ubuntu archive mirrors
+      shell: bash
+      run: |
+        if [ -f /etc/apt/apt-mirrors.txt ]; then
+          sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
+          cat /etc/apt/apt-mirrors.txt
+        fi
+
     - name: Playwright version
       id: pw
       shell: bash
