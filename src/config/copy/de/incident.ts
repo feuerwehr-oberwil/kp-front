@@ -102,6 +102,10 @@ export const incidentCopy = {
     // offline (05.10.2026): «Wieder öffnen» is the server's call (it writes the reopen boundary
     // the Atemschutz clocks restart from), so it is said up front, not discovered by a failure
     reactivateOffline: 'Braucht Verbindung zum Server',
+    // the Einsatz card's closed pill (27.10.2026, sweep #5 B): the CURRENT close time, a tap opens the exits
+    closedAt: 'Abgeschlossen {t}',
+    // …and «Wieder öffnen» while it runs (#6): the reopen is three server round trips
+    reopening: 'Wird geöffnet …',
     reactivateNeedsServer: 'Wieder öffnen braucht Verbindung zum Server – der Einsatz bleibt abgeschlossen. Online nochmals versuchen.',
     // N3 (25.09.2026): das Einsatz wurde auf einem ANDEREN Gerät abgeschlossen, während es hier
     // offen war — die Meldeleiste sagt, warum der Bildschirm eben nur-lesend geworden ist.
@@ -160,10 +164,6 @@ export const incidentCopy = {
     deleteConfirmMsg: 'Die Übung wird mit allen Daten (Verlauf, Fotos, Rapport) endgültig gelöscht. Das kann nicht rückgängig gemacht werden.',
     deleteConfirmBtn: 'Endgültig löschen',
     deleted: 'Übung gelöscht',
-    deleteFailed: 'Löschen fehlgeschlagen',
-  },
-  // Abschluss-Assistent — the guided closing ritual over the EXISTING views. Every small
-  // incident is a training run on the big-incident tool (practice rationale, 2026-07-08).
     // quick filters over the list (27.10.2026): Ernstfall | Übung, one Einsatzart, Rapport offen
     filterAria: 'Einsätze filtern',
     filterReal: 'Ernstfall',
@@ -171,6 +171,10 @@ export const incidentCopy = {
     filterType: 'Einsatzart',
     filterRapportOpen: 'Rapport offen',
     filterNoHits: 'Kein Einsatz passt zu diesen Filtern.',
+    deleteFailed: 'Löschen fehlgeschlagen',
+  },
+  // Abschluss-Assistent — the guided closing ritual over the EXISTING views. Every small
+  // incident is a training run on the big-incident tool (practice rationale, 2026-07-08).
   abschluss: {
     leftEarly: ' · bis {t}',
     steps: {

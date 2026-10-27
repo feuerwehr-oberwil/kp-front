@@ -62,6 +62,8 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     hintRapport: 'Il rapporto resta correggibile (aggiunte).',
     reactivate: 'Riapri',
     reactivateOffline: 'Richiede una connessione al server',
+    closedAt: 'Chiuso {t}',
+    reopening: 'Riapertura …',
     reactivateNeedsServer: 'La riapertura richiede una connessione al server – l’intervento resta chiuso. Riprovare una volta online.',
 
     back: 'Indietro',
@@ -108,14 +110,14 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     deleteConfirmMsg: 'L\'esercitazione e tutti i suoi dati (diario, foto, rapporto) vengono eliminati definitivamente. Non si può annullare.',
     deleteConfirmBtn: 'Elimina definitivamente',
     deleted: 'Esercitazione eliminata',
-    deleteFailed: 'Eliminazione non riuscita',
-  },
     filterAria: 'Filtra interventi',
     filterReal: 'Reale',
     filterExercise: 'Esercitazione',
     filterType: 'Tipo di intervento',
     filterRapportOpen: 'Rapporto aperto',
     filterNoHits: 'Nessun intervento corrisponde a questi filtri.',
+    deleteFailed: 'Eliminazione non riuscita',
+  },
   abschluss: {
     leftEarly: ' · fino alle {t}',
     steps: {
