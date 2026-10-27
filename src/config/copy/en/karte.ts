@@ -48,8 +48,6 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     approxHead: 'No coordinates in the catalogue.',
     approxBody: 'Position from the address – approximate. Check on site.',
     approxTag: 'approximate',
-    notesSource: 'Station · {src}',
-    notesStation: 'Station',
     pinNote: 'No station object at this point.',
     pinEmpty: 'Nothing is recorded here – no address, no station object nearby.',
     pinBuilding: 'Building at this point',

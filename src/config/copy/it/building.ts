@@ -94,7 +94,6 @@ export const buildingCopy: Localizable<Pick<Copy, 'building'>> = {
     srcCached: 'salvato {d}',
     measures: 'Misure immediate',
     remarks: 'Osservazioni',
-    objectSource: '{name} · {src}',
     objectNear: '{name} · nelle vicinanze ({m} m)',
     objectNearNoDist: '{name} · nelle vicinanze',
     visit: 'Ultima visita all’oggetto {d}',

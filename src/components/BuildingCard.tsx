@@ -15,7 +15,7 @@ import s from './BuildingCard.module.css'
  * What must be read comes first, so it stands in view without scrolling when the card opens by
  * itself (lib/buildingFirstOpen; on a phone the card is at most 56vh): the hazard lines (the
  * warn glyph as the bullet AND the word), then the Einsatzobjekt's Sofortmassnahmen and Bemerkungen
- * as text when the station wrote some, with whose notes they are. Below them the register facts
+ * as text when the station wrote some (named only when they are a neighbour's, `objectCaption`). Below them the register facts
  * as plain bullets with their one line of sources, and the last Objektbesuch. Bullets, not tags
  * (owner, 27.10.2026: «convert this to bullet points instead of the tags»), the Karte panel's own
  * pieces (BuildingFacts), so the two surfaces cannot drift apart.

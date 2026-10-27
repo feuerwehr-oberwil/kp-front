@@ -32,11 +32,12 @@ describe('BuildingCard', () => {
     expect(lines).toContain('2 Geschosse')
   })
 
-  it('shows the Sofortmassnahmen as lines, with whose they are', () => {
+  // owner, 27.10.2026: «for Sofortmassnahmen, drop the source» – no «Schloss Musterdorf · Modul 1»
+  it('shows the Sofortmassnahmen as lines, without a source line', () => {
     render(<BuildingCard info={{ ...base, object: { id: 'o', name: 'Schloss Musterdorf', address_match: true, distance_m: 0, measures: 'Prinzessin befreien\nTor öffnen', remarks: null, measures_source: 'Modul 1', updated_at: null } }} />)
     expect(screen.getByText('Sofortmassnahmen')).toBeTruthy()
     expect(screen.getByText('Tor öffnen').tagName).toBe('LI')
-    expect(screen.getByText('Schloss Musterdorf · Modul 1')).toBeTruthy()
+    expect(screen.queryByText(/Modul 1/)).toBeNull()
     expect(screen.queryByText('Bemerkungen')).toBeNull()
   })
 

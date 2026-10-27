@@ -316,7 +316,7 @@ The rules that are easy to break:
   stood at its catalogue point) — else the object's point (search, tag, a list row).
 - **The panel, in one order** (owner, 17.10.2026 · review round 2; its top 27.10.2026 · mocks
   2B/2C), the same for an object on the phone and on the tablet: head (kind, name, address, ✕) ·
-  the station's word (Sofortmassnahmen, then Bemerkungen, with their source — what matters most in
+  the station's word (Sofortmassnahmen, then Bemerkungen, no source line since 27.10.2026 — what matters most in
   a hurry) · Pläne & Module as tiles, two to a line (the plan's name only, offline the «auf diesem
   Gerät» mark — below) · Gebäude laut Register as bullets (the hazards first, each with ⚠ and its word) · In der Nähe ·
   Objektbesuche · the actions LAST, «Objektbesuch» and «Melden». A plain building or a dropped pin keeps that order with what
