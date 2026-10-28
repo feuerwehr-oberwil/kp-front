@@ -341,10 +341,10 @@
 .set-row .step-val { min-width: 68px; }
 /* Symbolgrösse: two sliders (Karte · Module) where an S/M/L segment used to be. Tokenised
    throughout so day and night both stay right — --blue for the track, never --accent, which is
-   the brand's alarm red and must not come to mean «this is the setting you picked». (Still the
-   native range – the last one; the Kroki's «Stand» moved onto components/Slider 20.10.2026.) */
-.set-range { display: flex; align-items: center; gap: 8px; flex: 0 1 260px; min-width: 0; }
-.set-range input[type=range] { flex: 1 1 auto; min-width: 0; height: var(--tap); accent-color: var(--blue); cursor: pointer; }
+   the brand's alarm red and must not come to mean «this is the setting you picked». The control is
+   components/Slider (07-toolrail · .uslider) since 28.10.2026 — the native range was the last one,
+   and the phone sheet's scroll lock made it unreliable; its track rides --ink here via currentColor. */
+.set-range { display: flex; align-items: center; gap: 8px; flex: 0 1 260px; min-width: 0; color: var(--ink); }
 /* fixed, tabular value slot: the two rows sit above each other, so «60 %» and «140 %» must not
    shift the slider's right edge between them */
 .set-range-val { min-width: 46px; text-align: right; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); font-variant-numeric: tabular-nums; }
