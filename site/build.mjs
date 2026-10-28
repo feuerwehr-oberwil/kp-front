@@ -139,6 +139,25 @@ const render = (tpl, scopes, missing) =>
       return String(val)
     })
 
+// A text as structured data reads it: the markup stripped, the two entities the texts use
+// decoded, line breaks collapsed. A <script> body is raw text, so `&nbsp;` would otherwise
+// reach the crawler literally – which is why any other entity stops the build.
+const plainText = (html) => {
+  // Strip until stable, so a tag split by another tag (`<scr<b>ipt>`) can't reassemble.
+  let stripped = html
+  for (let prev; prev !== stripped; ) {
+    prev = stripped
+    stripped = stripped.replace(/<[^>]*>/g, '')
+  }
+  const text = stripped
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (/&#?\w+;/.test(text)) throw new Error(`Undecoded entity in structured data: ${text}`)
+  return text
+}
+
 const template = read('index.template.html')
   .replace(TEMPLATE_ONLY, '')
   .replace(STANDALONE, '$1')
@@ -258,14 +277,22 @@ for (const locale of config.locales) {
 
   // ─── Structured data ────────────────────────────────────────────────────────
   //
-  // Two nodes, both true and both checkable: what this is (SoftwareApplication) and who is
-  // behind it (Organization). Deliberately NOT a FAQPage – Google has shown FAQ rich results
-  // only for government and health sites since 2023, so that markup would be pure weight.
+  // Three nodes, all true and all checkable: what this is (SoftwareApplication), who is
+  // behind it (Organization) and the page's own FAQ (FAQPage). Google has shown FAQ rich
+  // results only for government and health sites since 2023; the FAQPage is there for the
+  // other search and answer engines that still read it.
+  //
+  // Everything per language comes from the texts: `schema.description` and
+  // `schema.featureList` (optional – without them the meta description stands in), and the
+  // FAQPage is the visible `faq.items`, reduced to plain text – one source, so the two can
+  // never say different things. `product.inLanguage` names the languages of the APP, which
+  // need not be the languages of this site; without it the site's languages stand in.
   //
   // Built here rather than written into the template because JSON.stringify guarantees valid
   // JSON: the template does not escape, and one apostrophe in a description would silently
   // turn the whole block into something no crawler reads.
   const p = config.product
+  const faqItems = content.faq?.items ?? []
   const jsonLd = JSON.stringify(
     {
       '@context': 'https://schema.org',
@@ -275,10 +302,11 @@ for (const locale of config.locales) {
           '@id': `${config.origin}/#app`,
           name: p.name,
           url: urlOf(locale),
-          description: content.meta.description,
+          description: content.schema?.description ?? content.meta.description,
+          ...(content.schema?.featureList && { featureList: content.schema.featureList }),
           applicationCategory: 'BusinessApplication',
           operatingSystem: 'Web browser',
-          inLanguage: config.locales.map((l) => l.hreflang),
+          inLanguage: p.inLanguage ?? config.locales.map((l) => l.hreflang),
           license: p.license,
           codeRepository: p.repo,
           screenshot: `${config.origin}/${p.screenshot}`,
@@ -293,6 +321,18 @@ for (const locale of config.locales) {
           url: p.org.url,
           sameAs: [p.org.github],
         },
+        ...(faqItems.length
+          ? [{
+              '@type': 'FAQPage',
+              '@id': `${urlOf(locale)}#faq`,
+              inLanguage: locale.hreflang,
+              mainEntity: faqItems.map((item) => ({
+                '@type': 'Question',
+                name: plainText(item.q),
+                acceptedAnswer: { '@type': 'Answer', text: plainText(item.a) },
+              })),
+            }]
+          : []),
       ],
     },
     null,
