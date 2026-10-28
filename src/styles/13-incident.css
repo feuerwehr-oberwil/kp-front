@@ -1853,8 +1853,13 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* long personnel lists in the Einsatzstunden warning must wrap, not push the panel wider */
 .rp-control .form-warn { min-width: 0; overflow-wrap: anywhere; }
 /* «Noch offen» inside the Kontrolle popover (every width since 23.09.2026): a list of doors,
-   each a full-width 44px row */
-.rp-control-open { display: flex; flex-direction: column; margin-bottom: 12px; }
+   each a full-width 44px row. No margin of its own: the popover's `gap` spaces its blocks, and
+   the fold body's foot padding + last line's margin go too (28.10.2026, owner: «a large gap at
+   the bottom after the last bullet» – 32px stood between the «Stand» line and the panel's edge,
+   on top of the panel's own 12px padding). */
+.rp-control-open { display: flex; flex-direction: column; }
+.rp-control .report-fold-body { padding-bottom: 0; }
+.rp-control .report-fold-body p:last-child { margin-bottom: 0; }
 .rp-control-open-head { padding: 0 2px 4px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .rp-control-step { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: var(--tap);
   padding: 0 12px; border: none; background: none; border-radius: var(--r-ctl); cursor: pointer; text-align: left;
