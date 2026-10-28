@@ -22,6 +22,7 @@ import { TickRow } from './TickRow'
 import { WheelPopover } from './WheelPicker'
 import { Menu } from '../lib/overlays'
 import { BoardSignature } from './BoardSignature'
+import { ShellLoader } from './ShellLoader'
 import MiniKarte, { type MiniKarteProps } from './MiniKarte'
 import s from './TafelFormPage.module.css'
 
@@ -862,6 +863,7 @@ export function TafelFormPage({ pageKey, title, data, readOnly, isPhone, onChang
   )
 
   const cols = isPhone ? 1 : page.columns ?? 1
+  const printGlyph = printing ? <ShellLoader /> : <Icon id="printer" />
   return (
     <div ref={rootRef} className={cx(s.page, isPhone && s.phone)} data-testid="tafel-page" data-page={page.id}
       // the deployment's language: what the cells hyphenate by (`hyphens: auto`, TafelFormPage.module.css)
@@ -872,21 +874,23 @@ export function TafelFormPage({ pageKey, title, data, readOnly, isPhone, onChang
           {/* no «Vorlage … Version …» line (owner, 10.10. evening): which file the page came from
               stays in the data and on the paper's footer, not on the screen */}
           <h2 className={s.title} title={t.keysHint}>{title ?? labelText(page.title)}</h2>
-          {/* the page on paper — the same sheet the Rapport prints; also on a closed Einsatz */}
+          {/* the page on paper — the same sheet the Rapport prints; also on a closed Einsatz. While
+              the PDF is made the printer turns into the loader (owner, 28.10.2026: the phone hides
+              the «PDF wird erstellt» word, so the button looked dead for seconds) */}
           {onPrint && (pageCount > 1
             ? (
               <Menu
                 align="end"
                 popupClassName="de-menu-pop"
                 itemClassName={() => 'de-menu-item'}
-                trigger={<Button variant="quiet" className={s.print} icon={<Icon id="printer" />} disabled={printing} aria-label={t.print}><span className={s.printWord}>{printing ? t.printBusy : t.print}</span></Button>}
+                trigger={<Button variant="quiet" className={s.print} icon={printGlyph} disabled={printing} aria-busy={printing || undefined} aria-label={printing ? t.printBusy : t.print}><span className={s.printWord}>{printing ? t.printBusy : t.print}</span></Button>}
                 items={[
                   { label: t.printThis, onClick: () => onPrint(false) },
                   { label: fillTemplate(t.printAll, { n: pageCount }), onClick: () => onPrint(true) },
                 ]}
               />
             )
-            : <Button variant="quiet" className={s.print} icon={<Icon id="printer" />} disabled={printing} aria-label={t.print} onPointerDown={keep} onClick={() => onPrint(false)}><span className={s.printWord}>{printing ? t.printBusy : t.print}</span></Button>)}
+            : <Button variant="quiet" className={s.print} icon={printGlyph} disabled={printing} aria-busy={printing || undefined} aria-label={printing ? t.printBusy : t.print} onPointerDown={keep} onClick={() => onPrint(false)}><span className={s.printWord}>{printing ? t.printBusy : t.print}</span></Button>)}
           {!readOnly && (
             <IconButton label={t.removePage} className={s.remove} onPointerDown={keep} onClick={onRemove}><Icon id="trash" /></IconButton>
           )}

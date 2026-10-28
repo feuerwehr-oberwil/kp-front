@@ -202,16 +202,20 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
     else if (lead) toast(lead, { icon: 'check' })
   }
 
+  // Which download is under way – «Als Datei sichern» (`file`) or a Bericht (`report:<visit>[:<rev>]`)
+  // – so its button shows the loader and takes no second tap (owner, 28.10.2026)
+  const [busy, setBusy] = useState<string | null>(null)
   const saveFile = async () => {
     const cur = rec ?? (doc ? { doc, base: null, dirty: false, savedAt: new Date().toISOString(), sent: null, lastError: null } as LocalVisit : null)
     if (!cur) return
+    setBusy('file')
     try {
       const words = { check: C.answer as Record<string, string>, open: C.notChecked, notes: C.notes, proposals: C.proposals }
       const { missingPhotos } = await exportVisitFile(cur, visitText(cur.doc, words))
       toast(missingPhotos ? fillTemplate(C.fileSavedMissing, { n: missingPhotos }) : C.fileSaved, { icon: 'download' })
     } catch {
       toast(C.fileFailed, { icon: 'warn', tone: 'warn' })
-    }
+    } finally { setBusy(null) }
   }
 
   // ── photos ──
@@ -409,7 +413,13 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
     return { index: list.objectIds.indexOf(id2) + 1, object: catalogue.objects.find((o) => o.id === id2)! }
   })()
 
-  const report = (d: VisitDoc, n?: number) => { void downloadReport(d, n).catch(() => toast(C.reportFailed, { icon: 'warn', tone: 'warn' })) }
+  const reportKey = (d: VisitDoc, n?: number) => `report:${d.id}${n != null ? `:${n}` : ''}`
+  const report = (d: VisitDoc, n?: number) => {
+    setBusy(reportKey(d, n))
+    void downloadReport(d, n).catch(() => toast(C.reportFailed, { icon: 'warn', tone: 'warn' })).finally(() => setBusy(null))
+  }
+  /** the revision of `d` whose Bericht is downloading, for its history row */
+  const busyRevision = (d: VisitDoc) => (busy?.startsWith(`report:${d.id}:`) ? Number(busy.slice(`report:${d.id}:`.length)) : undefined)
 
 
   return (
@@ -440,11 +450,11 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
           {place && (showStop ? <PlaceLine place={place} /> : <PlaceCard place={place} filing={filing} />)}
 
           {status.sync.kind === 'unsaved' && (
-            <UnsavedCard onSaveFile={() => { void saveFile() }}
+            <UnsavedCard onSaveFile={() => { void saveFile() }} saving={busy === 'file'}
               onRetry={() => { void retryHeld().then(() => setDurable(isVisitDurable(id, rec?.doc))) }} />
           )}
-          {status.sync.kind === 'auth' && <AuthCard onLogin={ov.relogin} onSaveFile={() => { void saveFile() }} />}
-          {status.sync.kind === 'error' && status.sync.error && <RefusedCard error={status.sync.error} onSaveFile={() => { void saveFile() }} />}
+          {status.sync.kind === 'auth' && <AuthCard onLogin={ov.relogin} onSaveFile={() => { void saveFile() }} saving={busy === 'file'} />}
+          {status.sync.kind === 'error' && status.sync.error && <RefusedCard error={status.sync.error} onSaveFile={() => { void saveFile() }} saving={busy === 'file'} />}
           <ConflictCards doc={doc} readOnly={!canEdit} viewer={ov.userId} onResolve={resolve} />
 
           {showStop && (
@@ -457,8 +467,8 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
                     <SummaryCard key={v.id} doc={doc} byName={byName} onOpen={() => ov.go({ kind: 'answers', id: doc.id })}>
                       {canCorrect && <CardRow icon="pen" title={C.edit} onClick={() => setCorrecting(true)} />}
                       {canEdit && !canCorrect && lockedAt && <LockedRow lockedAt={lockedAt} />}
-                      {revision != null && <CardRow icon="doc" title={C.report} onClick={() => report(doc)} />}
-                      {revision != null && <VisitHistory visitId={doc.id} onReport={(n) => report(doc, n)} />}
+                      {revision != null && <CardRow icon="doc" title={C.report} onClick={() => report(doc)} busy={busy === reportKey(doc)} />}
+                      {revision != null && <VisitHistory visitId={doc.id} onReport={(n) => report(doc, n)} busyRevision={busyRevision(doc)} />}
                       {/* a place has no object folder: say where the report goes */}
                       {place && filing && (
                         <ListRow className={s.rowQuiet} lead={<Icon id="archive" />} title={fillTemplate(C.placeFiled, { folder: filing })} />
@@ -479,8 +489,8 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
                       : sib.lockedAt && visitLocked(sib.lockedAt)
                         ? <LockedRow lockedAt={sib.lockedAt} />
                         : <CardRow icon="pen" title={C.edit} onClick={() => ov.go({ kind: 'visit', id: v.id, edit: true })} />)}
-                    {!draft && <CardRow icon="doc" title={C.report} onClick={() => report(sib.doc)} />}
-                    {!draft && <VisitHistory visitId={v.id} onReport={(n) => report(sib.doc, n)} />}
+                    {!draft && <CardRow icon="doc" title={C.report} onClick={() => report(sib.doc)} busy={busy === reportKey(sib.doc)} />}
+                    {!draft && <VisitHistory visitId={v.id} onReport={(n) => report(sib.doc, n)} busyRevision={busyRevision(sib.doc)} />}
                   </SummaryCard>
                 )
               })}
