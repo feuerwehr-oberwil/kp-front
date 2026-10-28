@@ -382,6 +382,14 @@ written, printed and hashed did not: the row renders `e.text` byte for byte, and
 old icons keep being classified by the existing rules exactly as before (both nailed down by
 tests, `Journal.test.tsx`).
 
+**A row is a tap only where it still leads somewhere** (28.10.2026, owner: «only things we can
+actually click on if they still exist»; `lib/verlauf` · `rowTarget`): a Wiedergabe makes every row
+a tap (it sets the moment); otherwise a row opens its detail sheet, or jumps to its map object,
+map point or plan object – and only while that object is still there (`liveTargets`: the Karte
+objects, the plan catalog, the plan's objects). A **removal row** (the ✕ glyph) is never a jump;
+a pre-23.08. plan row without an `annoId` still lands on its plan; a map point (`coord`) always
+lands.
+
 ## Closed (2026-08-07)
 
 - **The Erfassung writes to the Verlauf.** Every poster mutation runs through `saveAction`

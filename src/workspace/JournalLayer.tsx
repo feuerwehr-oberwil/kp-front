@@ -19,6 +19,7 @@ import type { useAuditEvents } from '../lib/useAuditEvents'
 import type { useJournal } from '../lib/useJournal'
 import type { useMediaQueue } from '../lib/useMediaQueue'
 import type { useReminders } from '../lib/useReminders'
+import type { LiveTargets } from '../lib/verlauf'
 import type { TimelineEvent, PlanDocument } from '../types'
 
 export interface JournalLayerProps {
@@ -34,6 +35,8 @@ export interface JournalLayerProps {
   timeline: TimelineEvent[]
   incidentMeta: IncidentMeta
   planDocs: PlanDocument[]
+  /** what still exists in the Einsatz (lib/verlauf · liveTargets) – which rows are a jump */
+  journalLive: LiveTargets
   focusEvent: (e: TimelineEvent) => void
   replayActive: boolean
   replayAtMs: number | null
@@ -72,7 +75,7 @@ export interface JournalLayerProps {
 
 export function JournalLayer({
   journalOpen, guarded, journal, auditDelivery, closedRefusedTotal, workspaceRoleParked, exportEntries, journalVocab,
-  timeline, incidentMeta, planDocs, focusEvent, replayActive, replayAtMs, seekToEvent, journalLandOn,
+  timeline, incidentMeta, planDocs, journalLive, focusEvent, replayActive, replayAtMs, seekToEvent, journalLandOn,
   setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
   enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
   tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen, roleReadOnly,
@@ -96,6 +99,7 @@ export function JournalLayer({
           events={timeline}
           closedAt={incidentMeta.closed_at}
           plans={planDocs}
+          live={journalLive}
           onSelect={focusEvent}
           replayAtMs={replayActive ? replayAtMs : null}
           onSeekTo={replayActive ? seekToEvent : undefined}

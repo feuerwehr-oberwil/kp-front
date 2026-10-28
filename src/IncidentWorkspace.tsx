@@ -81,6 +81,7 @@ import { SHAPE_TWO_POINT } from './lib/shapes'
 import { AtemschutzAlarmMeldungen } from './components/AtemschutzAlarmMeldung'
 import { AtemschutzNotfallMeldungen } from './components/AtemschutzNotfall'
 import { floorLabel } from './lib/whiteboard'
+import { liveTargets } from './lib/verlauf'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { TabLockBanner } from './components/TabLockBanner'
 import { SurfaceBoundary } from './components/SurfaceBoundary'
@@ -2132,6 +2133,8 @@ export function IncidentWorkspace({
     const e = entities.find((x) => x.id === id); if (!e) return
     setSelectedId(id); setSelectedDrawingId(null); flyToMapVisible(e.coord, 18.4)
   }
+  // which Verlauf rows are still a way somewhere: the same objects focusEntity / focusEvent land on
+  const journalLive = useMemo(() => liveTargets(entities, planDocs, board), [entities, planDocs, board])
   // a «Messungen» row: to the point, on the surface it was placed on (the Verlauf's focusEvent recipe)
   const goToReading = (p: MeasuredPoint) => {
     if (p.at.surface === 'map') { setMode('map'); focusEntity(p.id); return }
@@ -3239,7 +3242,7 @@ export function IncidentWorkspace({
       }} />
       <JournalLayer {...{
         journalOpen, guarded, journal, auditDelivery, closedRefusedTotal, workspaceRoleParked, exportEntries, journalVocab,
-        timeline, incidentMeta, planDocs, focusEvent, replayActive, replayAtMs, seekToEvent, journalLandOn,
+        timeline, incidentMeta, planDocs, journalLive, focusEvent, replayActive, replayAtMs, seekToEvent, journalLandOn,
         setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
         enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
         tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen,
