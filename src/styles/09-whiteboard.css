@@ -1219,7 +1219,7 @@ polygon.wb-draft-open { fill: var(--open); fill-opacity: .1; }
 @media (--not-phone) { .ip-sheet.wb-copy { width: min(360px, 100%); } }
 .wb-copy .ip-body { padding-bottom: var(--sp-2); }
 .wb-copy-what { margin: 0 0 var(--sp-3); color: var(--ink-dim); font-size: var(--fs-2); }
-.wb-copy-rows { display: flex; flex-direction: column; gap: 6px; }
+.wb-copy-rows { display: flex; flex-direction: column; gap: var(--sp-2); }
 /* the TickRow is the row; this only frames it so every storey reads as one slab of the stack */
 .wb-copy-rows > .wb-copy-row { width: 100%; padding-inline: var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-sm); }
 .wb-copy-rows > .wb-copy-row[aria-checked="true"] { border-color: var(--blue-45); background: var(--sel-wash); }
