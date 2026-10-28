@@ -129,28 +129,31 @@ describe('spansStoreys', () => {
   })
 })
 
+const ink = { color: '#1f6feb', width: 5 }
+
 describe('wallRolePatch', () => {
   const look = { color: '#111', width: 2 }
   const hose: BoardAnno = { id: 'l', kind: 'draw', floor: 0, pts: [[0, 0], [1, 0]], color: '#1f6feb', width: 5, dashed: true, arrow: true, marker: 'R', content: 'S', lineNo: 3, teilstueck: true }
   const apply = (a: BoardAnno, p: Partial<BoardAnno>) => ({ ...a, ...p })
 
   it('a Linie becomes a Wand: the Wand look, no hose fields, the points kept', () => {
-    const w = apply(hose, wallRolePatch(hose, true, look, '#1f6feb'))
+    const w = apply(hose, wallRolePatch(hose, true, look, ink))
     expect(w).toMatchObject({ role: 'wand', color: '#111', width: 2, pts: hose.pts })
     for (const k of ['dashed', 'arrow', 'marker', 'content', 'lineNo', 'teilstueck'] as const) expect(w[k]).toBeUndefined()
-    expect(apply(hose, wallRolePatch(hose, true, look, '#1f6feb', true)).teilstueck).toBe(true)
+    expect(apply(hose, wallRolePatch(hose, true, look, ink, true)).teilstueck).toBe(true)
   })
 
-  it('a Wand becomes a Linie: the default colour back unless recoloured, the width kept', () => {
+  // lead call 28.10.2026: the Wand's 2 px is below any width the editor offers – back to the default
+  it('a Wand becomes a Linie: the default width, and the default colour unless recoloured', () => {
     const w = wall('w', [[0, 0], [1, 0]])
-    expect(apply({ ...w, ...look }, wallRolePatch({ ...w, ...look }, false, look, '#1f6feb'))).toMatchObject({ role: undefined, color: '#1f6feb', width: 2 })
-    expect(apply({ ...w, color: '#e8392b' }, wallRolePatch({ ...w, color: '#e8392b' }, false, look, '#1f6feb')).color).toBe('#e8392b')
+    expect(apply({ ...w, ...look }, wallRolePatch({ ...w, ...look }, false, look, ink))).toMatchObject({ role: undefined, color: '#1f6feb', width: 5 })
+    expect(apply({ ...w, color: '#e8392b' }, wallRolePatch({ ...w, color: '#e8392b' }, false, look, ink)).color).toBe('#e8392b')
   })
 
   it('a Durchgang on it lets go once it is no Wand (carryDoors)', () => {
     const w = wall('w1', [[0.1, 0.5], [0.9, 0.5]])
     const d = door('d1', 0.5, 0.5, { onWall: 'w1' })
-    const out = carryDoors([w, d], [{ ...w, ...wallRolePatch(w, false, look, '#1f6feb') }, d], AR)
+    const out = carryDoors([w, d], [{ ...w, ...wallRolePatch(w, false, look, ink) }, d], AR)
     expect(out[1]).toMatchObject({ x: 0.5, y: 0.5, onWall: undefined })
   })
 })
@@ -182,13 +185,13 @@ describe('wallRolePatch on a Karte line, and its wire', () => {
   const hose: Drawing = { id: 'k1', kind: 'line', coords: [[7.6, 47.5], [7.61, 47.5]], color: '#1f6feb', width: 4, arrow: true, marker: 'R', lineNo: 2, content: 'S' }
 
   it('is the same patch on a Drawing: the Wand look, no hose decor, coords kept', () => {
-    const w: Drawing = { ...hose, ...wallRolePatch(hose, true, look, '#1f6feb') }
+    const w: Drawing = { ...hose, ...wallRolePatch(hose, true, look, ink) }
     expect(w).toMatchObject({ role: 'wand', color: '#111', width: 2, coords: hose.coords })
     for (const k of ['arrow', 'marker', 'lineNo', 'content'] as const) expect(w[k]).toBeUndefined()
   })
 
   it('sends every cleared field as null – JSON would drop an undefined', () => {
-    expect(JSON.parse(JSON.stringify(wallRoleWire(wallRolePatch(hose, false, look, '#1f6feb'))))).toEqual({ role: null })
-    expect(JSON.parse(JSON.stringify(wallRoleWire(wallRolePatch(hose, true, look, '#1f6feb'))))).toMatchObject({ role: 'wand', arrow: null, lineNo: null, content: null })
+    expect(JSON.parse(JSON.stringify(wallRoleWire(wallRolePatch(hose, false, look, ink))))).toEqual({ role: null, width: 5 })
+    expect(JSON.parse(JSON.stringify(wallRoleWire(wallRolePatch(hose, true, look, ink))))).toMatchObject({ role: 'wand', arrow: null, lineNo: null, content: null })
   })
 })

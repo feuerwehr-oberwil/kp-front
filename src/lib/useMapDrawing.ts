@@ -390,7 +390,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     if (!dr || dr.kind !== 'line' || wand === (dr.role === 'wand')) return
     // a Teilstück with lines on its «E» stays one – letting go of them is the Abschluss row's ask
     const hung = !!dr.teilstueck && drawings.some((x) => [x.startAttachment, x.endAttachment].some((a) => a?.target.kind === 'line' && a.target.id === id && a.target.endpoint === 'end'))
-    const patch = wallRolePatch(dr, wand, GRUNDRISS_STYLE.wand, DRAW_DEFAULTS.color, hung)
+    const patch = wallRolePatch(dr, wand, GRUNDRISS_STYLE.wand, DRAW_DEFAULTS, hung)
     emit('draw.edit', { id, patch: wallRoleWire(patch) })
     commit((d) => ({ ...d, drawings: d.drawings.map((x) => (x.id === id ? { ...x, ...patch } : x)) }))
   }

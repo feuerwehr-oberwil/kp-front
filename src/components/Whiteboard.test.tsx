@@ -454,7 +454,7 @@ describe('«Art: Linie | Wand» on a flat plan', () => {
     expect(wand).toMatchObject({ role: 'wand', color: appConfig.drawing.colors[4], width: 2, pts: line.pts })
     remoteWrite([wand])
     fireEvent.click(art().getByRole('button', { name: D.kindLine }))
-    expect((onChange.mock.calls[1][0][0] as BoardAnno).role).toBeUndefined()
+    expect(onChange.mock.calls[1][0][0]).toMatchObject({ role: undefined, color: appConfig.drawing.defaultColor, width: 5 })
   })
 
   it('offers «Wand» disabled, with the reason, while a Trupp is on the line', () => {
@@ -1936,7 +1936,8 @@ describe('gesture contracts of the plan surface', () => {
       fireEvent.click(art().getByRole('button', { name: appConfig.copy.drawingEditor.kindLine }))
       expect(onCheckpoint).toHaveBeenCalledTimes(1)
       expect(edits(emit)).toHaveLength(1)
-      expect(find('w1')).toMatchObject({ role: undefined, color: appConfig.drawing.defaultColor, width: 2, pts: wand.pts })
+      // the default ink's width back (lead call 28.10.2026) – the Wand's 2 px is no Linie width
+      expect(find('w1')).toMatchObject({ role: undefined, color: appConfig.drawing.defaultColor, width: 5, pts: wand.pts })
       expect(find('d1')).toMatchObject({ x: tuer.x, y: tuer.y, onWall: undefined })
       expect(screen.queryAllByText(appConfig.copy.drawingEditor.lineNo).length).toBeGreaterThan(0)
       act(() => history.current!.undo())

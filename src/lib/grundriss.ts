@@ -23,14 +23,18 @@ export const DOOR_SNAP_PX = 30
  *  weight and a touch bolder – 2 px against the outline's 1.5 (owner, round 2: «widths still
  *  off» at 3). On the board both are board px, which the board's size turns into screen px at
  *  every zoom (WbControls · the ink layer, 09-whiteboard.css · .wb-floor-svg polygon), so the two
- *  stay in proportion; on the Karte a Wand is the same stored line (screen px there, like every
- *  Drawing width). Below the palette's smallest width (appConfig.drawing.widths), which no line
+ *  stay in proportion; the Karte stores the same look and draws it thicker (WAND_MAP_PX). Below the palette's smallest width (appConfig.drawing.widths), which no line
  *  editor offers since the «Stärke» row went (sweep 27.10.2026 #7). The palette's dark – on the
  *  board it is drawn in the theme's ink instead (WbControls · inkOf), so a wall stays visible on
  *  the night sheet; print and export keep the stored dark. */
 export const GRUNDRISS_STYLE = {
   wand: { color: appConfig.drawing.colors[4], width: 2 },
 } as const satisfies Record<NonNullable<BoardAnno['role']>, Partial<BoardAnno>>
+/** …and how thick a Wand is DRAWN on the Karte (screen px, MapView · the draw layers; lead call
+ *  28.10.2026): the stored 2 px is the board's proportion and reads as a hairline next to a 4 px
+ *  Leitung on the map, so the map draws it at this width over a light casing that keeps the dark
+ *  stroke readable on the satellite and the night map. Rendering only – the record keeps 2. */
+export const WAND_MAP_PX = { width: 5, casing: 3 } as const
 
 export const isWall = (a: BoardAnno): boolean => a.kind === 'draw' && a.role === 'wand' && (a.pts?.length ?? 0) >= 2
 export const isDoor = (a: BoardAnno): boolean => a.kind === 'symbol' && a.symbol === DOOR_SYMBOL
@@ -286,16 +290,17 @@ export type WallRolePatch = Partial<Pick<BoardAnno, WallRoleFields> & Pick<Drawi
  *     its «E», which a quiet switch must not cut – the Abschluss row lets go of them, with its
  *     own question. The caller refuses a line a Trupp is on (unlinking is not undoable here) and
  *     one that climbs storeys (wandBlock).
- *   · to a Linie: no `role`; the Wand's colour becomes `lineColor`, a colour picked by hand stays;
- *     the width stays.
+ *   · to a Linie: no `role`; the surface's default `line` width (the Wand's 2 px is below any
+ *     width the editor offers, and it has no «Stärke» row to fix it – lead call 28.10.2026); the
+ *     Wand's colour becomes the default colour, a colour picked by hand stays.
  *
  * On a Plan its Durchgänge let go in the board funnel (carryDoors: the line is no Wand any more),
  * exactly as when the Wand is deleted. The audit event carries `wallRoleWire` of it.
  */
 export function wallRolePatch(
-  a: { color?: string }, wand: boolean, look: { color: string; width: number }, lineColor: string, keepTeilstueck = false,
+  a: { color?: string }, wand: boolean, look: { color: string; width: number }, line: { color: string; width: number }, keepTeilstueck = false,
 ): WallRolePatch {
-  if (!wand) return { role: undefined, ...(a.color === look.color ? { color: lineColor } : null) }
+  if (!wand) return { role: undefined, width: line.width, ...(a.color === look.color ? { color: line.color } : null) }
   return {
     role: 'wand', color: look.color, width: look.width,
     dashed: undefined, arrow: undefined, arrowStop: undefined, marker: undefined,

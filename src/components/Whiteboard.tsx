@@ -1603,7 +1603,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     if (readOnly || wand === (a.role === 'wand') || (wand && wandBlock(a, trupps, a))) return
     // a Teilstück with lines on its «E» stays one – letting go of them is the Abschluss row's ask
     const hung = !!a.teilstueck && annos.some((x) => [x.startAttachment, x.endAttachment].some((r) => r?.target.kind === 'line' && r.target.id === a.id && r.target.endpoint === 'end'))
-    const p = wallRolePatch(a, wand, GRUNDRISS_STYLE.wand, INK_DEFAULTS.color, hung)
+    const p = wallRolePatch(a, wand, GRUNDRISS_STYLE.wand, INK_DEFAULTS, hung)
     patchCommit(a.id, p, { patch: wallRoleWire(p) })
   }
 

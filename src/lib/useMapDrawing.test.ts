@@ -538,7 +538,7 @@ describe('setDrawingWallRole', () => {
     rerender({ ...deps })
     act(() => { result.current.setDrawingWallRole('d1', false) })
     expect(deps.commit).toHaveBeenCalledTimes(2)
-    expect(deps.drawings[0]).toMatchObject({ role: undefined, color: DRAW_DEFAULTS.color })
+    expect(deps.drawings[0]).toMatchObject({ role: undefined, color: DRAW_DEFAULTS.color, width: DRAW_DEFAULTS.width })
     const [replayed] = (await replayEmits({ drawings: [hose] }, deps.emit.mock.calls)).drawings
     expect(replayed.role).toBeNull()
     act(() => { vi.advanceTimersByTime(4000) })
