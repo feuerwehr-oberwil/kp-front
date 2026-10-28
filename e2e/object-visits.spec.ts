@@ -228,7 +228,8 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       expect((await api.get(`/api/object-visits/${visitId}`)).status(), 'nothing was sent while offline').toBe(404)
 
       await context.setOffline(false)
-      await expect(row, 'the draft reaches «Gespeichert» by itself').toContainText('Gespeichert', { timeout: 45_000 })
+      // a saved draft wears a tick named «Gespeichert {Zeit}», not the word (sweep 28.10.2026 #16)
+      await expect(row.locator('[aria-label^="Gespeichert"]'), 'the draft reaches «Gespeichert» by itself').toBeVisible({ timeout: 45_000 })
       await expectSaved(api, visitId, 3)
       await expectNoCrash(page, 'object visit · reconnect')
     } finally {
@@ -260,7 +261,7 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       await expectSaved(api, visitId)
 
       await page.goto('/besuche')
-      await expect(page.getByRole('button', { name: new RegExp(objectName) })).toContainText('Gespeichert')
+      await expect(page.getByRole('button', { name: new RegExp(objectName) }).locator('[aria-label^="Gespeichert"]')).toBeVisible()
       await expectNoCrash(page, 'object visit · start')
     } finally {
       await context.setOffline(false)
