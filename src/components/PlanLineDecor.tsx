@@ -16,6 +16,8 @@ import { arrowTipLeadPx } from '../lib/lineAttachments'
 import { fmtDistance, hoseLengthHint } from '../lib/geo'
 
 const COLORS = appConfig.drawing.colors
+/** the end tag's centre above its spot on the line, in screen px – MapView's tag Marker offset */
+const TAG_LIFT_PX = 14
 
 interface Props {
   /** the Linie with its RESOLVED points (attached ends where they sit on their targets) */
@@ -29,9 +31,9 @@ interface Props {
   truppSeverities?: Record<string, 1 | 2>
   /** the sheet's calibrated length of a path, null on an uncalibrated sheet (usePlanMeasure) */
   planMetres: (pts: [number, number][]) => number | null
-  /** the label and the end tag drag only with the rest tool armed */
+  /** the label drags only with the rest tool armed (the end tag is pinned to the line) */
   tool: BoardTool
-  labelDown: (e: React.PointerEvent, id: string, dx0: number, dy0: number, which?: 'label' | 'end') => void
+  labelDown: (e: React.PointerEvent, id: string, dx0: number, dy0: number) => void
   labelMove: (e: React.PointerEvent) => void
   labelUp: (e: React.PointerEvent) => void
 }
@@ -104,21 +106,18 @@ export function PlanLineDecor({ a, sW, sH, mapY, onSection, trupps, truppSeverit
           <TeilstueckFork angleDeg={ang} color={color} width={a.width ?? 5} />
         </span>
       )}
-      {/* one combined FKS tag (Leitung-Nr · content · Stockwerk) — anchored just before
-          the tip and draggable (endDx/endDy, normalized) to clear other symbols */}
+      {/* one combined FKS tag (Leitung-Nr · content · Stockwerk · the Trupp) — PINNED to its line
+          (owner pick, sweep 28.10.2026 #8b): 72 % along the last segment, the Karte's rule, and
+          lifted the Karte's TAG_LIFT_PX off the stroke at every zoom. Never nudged here: the old
+          drag offset was in sheet units, so it grew with the zoom, and a Karte line brought the
+          ground point of its tag (endLabelAt) – both left the tag floating off its line. */}
       {(a.content || a.lineNo != null || a.floorTag != null || lineTrupp) && (() => {
         const pe = bpx[bpx.length - 1]
         const pp = bpx[bpx.length - 2] ?? pe
         const base: [number, number] = [pp[0] + (pe[0] - pp[0]) * 0.72, pp[1] + (pe[1] - pp[1]) * 0.72]
         if (!onLine(bpx.length - 1, base)) return null
-        const ax = base[0] + (a.endDx ?? 0) * sW
-        const ay = base[1] + (a.endDy ?? -0.02) * sH
         return (
-          <span className="wb-line-deco draggable" style={{ transform: `translate(${ax}px, ${ay}px) translate(-50%, -50%)`, cursor: tool === 'pan' ? 'move' : undefined }}
-            onPointerDown={tool === 'pan' ? (e) => labelDown(e, a.id, a.endDx ?? 0, a.endDy ?? -0.02, 'end') : undefined}
-            onPointerMove={tool === 'pan' ? labelMove : undefined}
-            onPointerUp={tool === 'pan' ? labelUp : undefined}
-            onPointerCancel={tool === 'pan' ? labelUp : undefined}>
+          <span className="wb-line-deco" style={{ transform: `translate(${base[0]}px, ${base[1] - TAG_LIFT_PX}px) translate(-50%, -50%)` }}>
             <EndTag
               lineNo={a.lineNo} content={a.content} floorTag={a.floorTag}
               tone={lineTone}

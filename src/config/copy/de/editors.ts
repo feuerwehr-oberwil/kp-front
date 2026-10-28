@@ -89,6 +89,17 @@ export const editorsCopy = {
     addField: 'Feld hinzufügen',
     /** a Messpunkt's readings under its fields, newest first (ReadingHistory) */
     readingHistory: 'Verlauf',
+    /** the ⓘ beside a Messpunkt's values (ReadingParts · ReadingInfo, sweep 28.10.2026 #2b): the
+     *  rows are built from the preset's alarm limits, so a station's own limits explain themselves.
+     *  The unit per measured field key; {n} a limit; {min} the preset's staleMin. */
+    readingInfo: 'Grenzwerte',
+    readingInfoLabel: 'Was die Messwerte bedeuten',
+    readingUnits: { CO: 'ppm', Ex: '%UEG', 'O₂': 'Vol-%', 'H₂S': 'ppm' } as Record<string, string>,
+    readingAtLeast: 'ab {n}',
+    readingBelow: 'unter {n}',
+    readingOr: 'oder',
+    readingInfoLevels: 'Gelb = A1 (Voralarm) erreicht, rot = A2 (Hauptalarm) erreicht.',
+    readingInfoStale: 'Mit Alter (z. B. 18′) und nur der Rahmen farbig = älter als {min} min.',
     addFieldShort: 'Feld',
     removeField: 'Feld löschen',
     // the ⇄ square at the end of the Einsatzleiter glyph's EL row (title/aria). Says what HAPPENS,

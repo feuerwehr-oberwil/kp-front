@@ -18,6 +18,9 @@
 //    lines docked to it). Opt-in, so nothing becomes explainable by accident;
 //  · not `[data-holdaction]`: controls whose press-and-hold IS a gesture of their own
 //    (±steppers via useHoldRepeat, the Eintrag hold via useHoldEntry) opt out at the source;
+//  · not a disclosure (`aria-expanded`: the ⓘ InfoToggle and DockInfo, a menu or a card toggle):
+//    a TAP already opens what it explains, and DockInfo's label IS its help text – held, the same
+//    words showed twice (owner, sweep 28.10.2026 #21);
 //  · touch/pen presses only — the mouse keeps its native hover tooltip …
 //
 // …EXCEPT on `[data-holdexplain]`, which also answers a MOUSE hover with the same bubble (01.09.).
@@ -29,7 +32,9 @@
 // The suppressed tap: once the bubble has shown, the release must not also trigger the button —
 // «I asked what it is» and «I did it» cannot be the same gesture. The click that follows
 // pointerup is swallowed by a one-shot capture listener; Android's long-press contextmenu is
-// suppressed for the same press.
+// suppressed for the same press. ⚠️ One-shot means THIS release only: a browser that sends no
+// click after a long press would leave the blocker armed, so every new press disarms it first –
+// the next real tap always acts (28.10.2026).
 
 import { buzz } from './haptics'
 
@@ -58,7 +63,7 @@ function labelOf(el: HTMLElement): string | null {
 function eligible(target: EventTarget | null): { el: HTMLElement; label: string } | null {
   if (!(target instanceof Element)) return null
   const el = target.closest<HTMLElement>('button, [role="button"]')
-  if (!el || el.closest('[data-holdaction]')) return null
+  if (!el || el.closest('[data-holdaction]') || el.hasAttribute('aria-expanded')) return null
   const label = labelOf(el)
   return label ? { el, label } : null
 }
@@ -130,11 +135,12 @@ export function installHoldTooltip(): () => void {
   }
 
   const onDown = (e: PointerEvent) => {
+    // a new press is a new gesture: the click of the last one has come (or never will)
+    bubbleFor = null
     if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return
     const hit = eligible(e.target)
     if (!hit) return
     dropBubble()
-    bubbleFor = null
     const timer = window.setTimeout(() => {
       if (!press) return
       bubble = showHoldBubble(press.el, press.label)

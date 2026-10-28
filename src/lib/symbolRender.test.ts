@@ -106,6 +106,25 @@ it('an explicit range supersedes the old single-floor badge', () => {
   expect(container.querySelector('.sym-floor')?.textContent).toBe('+1/+2')
 })
 
+// sweep 28.10.2026 #8a: a Messpunkt in the EG (Von 0, no Bis) wore a «0» circle on its pill
+describe('TacticalSymbol — a «Von» alone is one storey', () => {
+  const mp = { symbol: 'FW Messpunkt', fields: { CO: '5' } }
+  const badges = (p: Parameters<typeof TacticalSymbol>[0]) =>
+    [...render(createElement(TacticalSymbol, p)).container.querySelectorAll('.sym-floor')].map((b) => b.textContent)
+
+  it('the Erdgeschoss shows no badge, on a Messpunkt pill and on a glyph', () => {
+    expect(badges({ svg: '', sizePx: 32, floorFrom: 0, measured: mp })).toEqual([])
+    expect(badges({ svg: '', sizePx: 32, floorFrom: 0 })).toEqual([])
+    expect(badges({ svg: '', sizePx: 32, floorFrom: 0, floorTo: 0 })).toEqual([])
+  })
+
+  it('another storey rides on the pill like a single storey; a real span stays a span', () => {
+    expect(badges({ svg: '', sizePx: 32, floorFrom: 2, measured: mp })).toEqual(['+2'])
+    expect(badges({ svg: '', sizePx: 32, floorTo: -1 })).toEqual(['-1'])
+    expect(badges({ svg: '', sizePx: 32, floorFrom: 0, floorTo: 3 })).toEqual(['0/+3'])
+  })
+})
+
 describe('bareBlack — which glyphs need the white tile on a dark sheet', () => {
   const pack = JSON.parse(readFileSync(resolve(__dirname, '../../public/tactical-symbols.json'), 'utf8')) as { symbols: { name: string; svg: string }[] }
   const svgOf = (n: string) => pack.symbols.find((s) => s.name === n)!.svg

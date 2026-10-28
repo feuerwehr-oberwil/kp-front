@@ -114,4 +114,26 @@ describe('holdTooltip', () => {
     vi.advanceTimersByTime(600)
     expect(bubble()).toBeNull()
   })
+
+  // sweep 28.10.2026 #21: a tap on the ⓘ already shows its help (DockInfo's label IS that help)
+  it('a disclosure (aria-expanded) is never claimed — its tap already explains', () => {
+    btn.setAttribute('aria-expanded', 'false')
+    ptr('pointerdown', btn)
+    vi.advanceTimersByTime(600)
+    expect(bubble()).toBeNull()
+  })
+
+  it('a hold whose release sent no click does not eat the next real tap', () => {
+    const onClick = vi.fn()
+    btn.addEventListener('click', onClick)
+    ptr('pointerdown', btn)
+    vi.advanceTimersByTime(520)
+    ptr('pointerup', btn) // …and the browser sends no click for the long press
+    btn.setAttribute('aria-label', 'Neu') // still eligible or not – the next press is a new gesture
+    btn.textContent = 'Neu'
+    ptr('pointerdown', btn)
+    ptr('pointerup', btn)
+    ptr('click', btn)
+    expect(onClick).toHaveBeenCalledTimes(1)
+  })
 })
