@@ -140,8 +140,9 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
   No «#N» on the row or the card (30.09.2026, owner: «the group leader name needs more space …
   drop the number #»): the leader's name is the label, a step larger (17.5px, 16.5 ≤ 760px) with
   12px to the clock; the number stays in the TruppFinder and the Verlauf. The handed-over phone board opens on the most
-  urgent crew inside; the Eintrag FAB is not drawn over the phone Trupps page (a floating button
-  over a scrolling list of Kontakt buttons cannot be kept clear by an inset).
+  urgent crew inside; the Eintrag FAB floats over the phone Trupps page (27.10.2026) and the list
+  ends above it with the shared `--fab-safe` foot (28.10.2026); an opened card's foot row keeps the
+  FAB's column free while it stands under the circle (`data-az-fab-foot`).
 
 - *The Eingangsdruck is guarded, once* (item 2, every width): locked in «Bearbeiten» once the
   Trupp is raus (pointing at the exit's Restdruck); below `doctrine.entryPressureMin` (default

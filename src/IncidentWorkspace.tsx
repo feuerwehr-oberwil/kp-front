@@ -3287,8 +3287,9 @@ export function IncidentWorkspace({
           hold to record a voice memo (same gesture as the desktop TopBar Eintrag) */}
       {/* …on the Trupps board too (owner, sweep 27.10.2026 #10: «Show the FAB on Trupps»). It was
           kept off there because it sat on the third crew's «Kontakt» (N9, 25.09.2026): a bottom
-          inset cannot fix a button over a SCROLLING list. So on a phone the board's card ends
-          above the FAB's row instead (15-mobile · `.az-tafel`) and nothing scrolls under it.
+          inset cannot fix a button over a SCROLLING list. Since sweep 28.10.2026 #5 the card runs
+          to the phone edge and its LIST ends above the FAB (Atemschutz.module · `.body`'s
+          --fab-safe foot, plus the open card's data-az-fab-foot guard).
           ⚠️ A RUNNING RECORDING is never hidden (sweep #10, lead call): the FAB is the only place
           that says a voice memo is being taken and the only way to stop it, so an open panel or
           the composer does not unmount it, and the CSS that yields it to a tool's dock, the armed
