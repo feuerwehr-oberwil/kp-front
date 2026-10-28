@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { groupByDay, isHandWritten, rowGlyph, isNachtrag, rowText, rowTime, rowPhotos, rowTarget, swapUrl, repeatRuns } from './verlauf'
-import type { TimelineEvent } from '../types'
+import { groupByDay, isHandWritten, rowGlyph, isNachtrag, rowText, rowTime, rowPhotos, rowTarget, liveTargets, swapUrl, repeatRuns } from './verlauf'
+import type { BoardAnno, TimelineEvent } from '../types'
 
 const row = (id: string, at?: string): TimelineEvent =>
   ({ id, t: '09:00', at, icon: 'flag', text: id })
@@ -358,15 +358,29 @@ describe('rowGlyph (a hand-written row shows its Art)', () => {
 // moved out of Journal with the row (sweep A.8): a row is a way somewhere only when it carries one
 describe('rowTarget', () => {
   const base = row('r')
+  const live = liveTargets([{ id: 'e1' }], [{ id: 'p1' }], { p1: [{ id: 'a1' } as BoardAnno] })
   it('jumps to a map entity, else a pinned point, else a thing placed on a plan', () => {
-    expect(rowTarget({ ...base, entityId: 'e1', coord: [7.5, 47.5] })).toBe('map-entity')
-    expect(rowTarget({ ...base, coord: [7.5, 47.5] })).toBe('map-pin')
-    expect(rowTarget({ ...base, surface: 'plan', planId: 'p1', annoId: 'a1' })).toBe('plan')
+    expect(rowTarget({ ...base, entityId: 'e1', coord: [7.5, 47.5] }, live)).toBe('map-entity')
+    expect(rowTarget({ ...base, coord: [7.5, 47.5] }, live)).toBe('map-pin')
+    expect(rowTarget({ ...base, surface: 'plan', planId: 'p1', annoId: 'a1' }, live)).toBe('plan')
     // a pre-23.08. placement row carries only its kind, and still lands on its plan
-    expect(rowTarget({ ...base, surface: 'plan', planId: 'p1', kind: 'symbol' })).toBe('plan')
+    expect(rowTarget({ ...base, surface: 'plan', planId: 'p1', kind: 'symbol' }, live)).toBe('plan')
   })
   it('is read-only otherwise — a note on a plan is about no thing on it', () => {
-    expect(rowTarget(base)).toBeNull()
-    expect(rowTarget({ ...base, surface: 'plan', planId: 'p1', kind: 'journal' })).toBeNull()
+    expect(rowTarget(base, live)).toBeNull()
+    expect(rowTarget({ ...base, surface: 'plan', planId: 'p1', kind: 'journal' }, live)).toBeNull()
+  })
+  // owner, sweep 28.10.2026 #6: «only things we can actually click on if they still exist»
+  it('never offers a jump from a removal row – logPlan stamps it a «symbol»', () => {
+    const removed = { ...base, icon: 'close', text: 'Feuer gelöscht', subjectId: 'a1' }
+    expect(rowTarget({ ...removed, surface: 'plan', planId: 'p1', kind: 'symbol' }, live)).toBeNull()
+    expect(rowTarget({ ...removed, surface: 'map' }, live)).toBeNull()
+  })
+  it('offers none to an object that has since gone, but keeps a place that outlived it', () => {
+    expect(rowTarget({ ...base, entityId: 'gone' }, live)).toBeNull()
+    expect(rowTarget({ ...base, entityId: 'gone', coord: [7.5, 47.5] }, live)).toBe('map-pin')
+    expect(rowTarget({ ...base, surface: 'plan', planId: 'p1', annoId: 'gone', px: 0.4, py: 0.6 }, live)).toBeNull()
+    // a plan no longer in the catalog (a Gebäude whose stack was removed)
+    expect(rowTarget({ ...base, surface: 'plan', planId: 'geb', kind: 'symbol' }, live)).toBeNull()
   })
 })
