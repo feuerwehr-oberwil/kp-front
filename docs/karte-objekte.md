@@ -1012,7 +1012,10 @@ What the surface shows offline:
 
 - **«Auf diesem Gerät» opens with «Alarm auf diesem Gerät»** (3am sweep §1, 23.10.2026): the four
   readiness rows (installed · Benachrichtigung · Alarm-Abo · Anmeldung) with their one-tap fixes,
-  «Testalarm senden» and the opt-out – the same rows as under Einstellungen › Gerät
+  the Testalarm and the opt-out – the same as under Einstellungen › Gerät. Since 28.10.2026 (owner's
+  pick 17A) they fold into ONE line with no heading: «✓ Alarm bereit · Getestet am …» with the
+  Testalarm on it and a ⌄ that opens the green rows and the opt-out; a row that is amber
+  («Alarm bereit · 1 Hinweis …») or red («Kein Alarm auf diesem Gerät») always stands open under it
   (`karte/AlarmReadiness`, rules in `lib/alarmReadiness`; the push side in
   [`divera-connector.md`](divera-connector.md)). The home's nudge card (`AlarmNudgeCard`, under the
   bar) shows only when a row is red or nothing was checked for 90 days, never while an Einsatz runs,

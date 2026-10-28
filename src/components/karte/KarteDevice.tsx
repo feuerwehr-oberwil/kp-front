@@ -62,7 +62,8 @@ export function KarteDevice({ offline, objects, map, onClose }: {
   const rows = facts ? deviceRows({ ...facts, offline, map }, C, { day: fmtDay, size: fmtFileSize }) : null
   return (
     <Sheet open onClose={onClose} title={C.title} fit sheetClassName={s.deviceSheet}>
-      {/* «Alarm auf diesem Gerät» first (3am sweep §1): would a «Neuer Einsatz» wake this device? */}
+      {/* «Alarm auf diesem Gerät» first (3am sweep §1): would a «Neuer Einsatz» wake this device?
+          One line that opens (sweep 28.10.2026, 17A) — the same as in Einstellungen */}
       <AlarmReadinessRows className={s.deviceAlarm} />
       <p className={s.deviceLead}>{offline ? C.leadOffline : C.leadOnline}</p>
       {rows ? (
