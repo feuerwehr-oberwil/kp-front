@@ -21,6 +21,7 @@ import { cartoRasterTiles, withCartoLabelsBaked } from '../lib/carto'
 import { defaultLayers } from '../lib/workspace'
 import { useNightTheme } from '../lib/useNightTheme'
 import { useGlRecovery } from '../lib/useGlRecovery'
+import { useDragClosesKeyboard } from '../lib/iosKeyboard'
 
 /** the one raster source in the mini-map's style — named, because the tile events below
  *  have to tell OUR base map apart from anything else MapLibre reports on */
@@ -76,6 +77,14 @@ interface Props {
  * auto-surfaced nearest object. The searchable list is the primary, reliable path
  * (some object coords are imprecise); the mini-map is a supporting aid. On a phone
  * the map collapses to keep the list usable at narrow widths.
+ *
+ * ⚠️ On a phone the LIST gets the room once it is being used (sweep 28.10.2026 #20, owner: «in
+ * the modal Anderes Objekt, we can't scroll through the different plans»). Under a 300px map the
+ * list was ~200px — two and a half rows — so the first scroll or the first letter typed shrinks
+ * the map to a strip (`pp-listfirst`, 15-mobile.css; it stays pannable and its pins tappable), and
+ * stays that way while the sheet is open. And a drag on the list with the keyboard up closes the
+ * keyboard first (lib/iosKeyboard · useDragClosesKeyboard, the Karte search's answer, review
+ * round 11): iOS pans the visual viewport under such a drag and the list never gets it.
  */
 export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose }: Props) {
   const phone = useIsPhone()
@@ -93,6 +102,12 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
   const [mapOpen, setMapOpen] = useState(true)
   const mapRef = useRef<MapRef>(null)
   const searchRef = useRef<HTMLInputElement>(null) // Base UI initial focus → the search box (not the close button)
+  // the list has been scrolled or searched: on a phone the map steps back to a strip (⚠️ above)
+  const [listFirst, setListFirst] = useState(false)
+  // the document, not the popup: Base UI mounts the portalled popup after this component's
+  // first effects, and the list's selector is unique to this sheet
+  const page = useRef<HTMLElement>(document.body)
+  useDragClosesKeyboard(page, '.pp-sheet .pp-list')
 
   // An empty preview must SAY what it is rather than look broken (owner, round 7 point 17). The
   // pins are DOM markers, so they keep drawing over a base map that never arrived — which is
@@ -150,18 +165,18 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
   }
 
   return (
-    <Overlay open onClose={onClose} className={`ip-sheet ip-wide pp-sheet ui-dialog ${mapOpen ? '' : 'pp-nomap'}`} ariaLabel={appConfig.copy.whiteboard.otherObject} initialFocus={searchRef} grab>
+    <Overlay open onClose={onClose} className={`ip-sheet ip-wide pp-sheet ui-dialog ${mapOpen ? '' : 'pp-nomap'} ${listFirst ? 'pp-listfirst' : ''}`} ariaLabel={appConfig.copy.whiteboard.otherObject} initialFocus={searchRef} grab>
         <div className="ip-head">
           <h2>{appConfig.copy.whiteboard.otherObject}</h2>
           <button className="ip-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
         </div>
 
-        <SearchField ref={searchRef} className="pp-search" value={q} onChange={setQ}
+        <SearchField ref={searchRef} className="pp-search" value={q} onChange={(v) => { setQ(v); if (v) setListFirst(true) }}
           placeholder={pp.searchPlaceholder} aria-label={pp.searchPlaceholder} />
 
         <div className="pp-body">
           {/* primary, reliable path: the searchable list */}
-          <div className="pp-list" role="listbox">
+          <div className="pp-list" role="listbox" onScroll={(e) => { if (e.currentTarget.scrollTop > 0 && !listFirst) setListFirst(true) }}>
             {/* revert to the auto-surfaced object — only when an object was manually picked */}
             {onReset && activeObjectId && (
               <button className="pp-row pp-row-reset" onClick={() => { onReset(); onClose() }}>

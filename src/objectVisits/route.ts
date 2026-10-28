@@ -16,6 +16,7 @@
  * all through `objectVisits/route` (`navigateTo` / `pushAppEntry`, counted in `history.state`), and
  * the way out is `leaveAppEntries`, which walks back over them rather than replacing the top entry
  * (which left one stale «/» behind the Karte per visit). Never call `history.pushState` directly.
+ * The entries a walk leaves FORWARD are never stepped onto (the ⚠️ «Never a step FORWARD» below).
  */
 
 import { useSyncExternalStore } from 'react'
@@ -126,6 +127,7 @@ export function appHistoryDepth(): number {
 /** Push a same-document entry, counted (see above). `extra` rides along in the state. */
 export function pushAppEntry(href: string, extra?: Record<string, unknown>): void {
   window.history.pushState({ ...extra, [DOC]: docId, [DEPTH]: appHistoryDepth() + 1 }, '', href)
+  standing = appHistoryDepth()
 }
 
 /** Go to an address inside the app (or `/` to leave the surface). */
@@ -135,6 +137,29 @@ export function navigateTo(href: string, { replace = false } = {}): void {
   else pushAppEntry(href)
   window.dispatchEvent(new Event(EVENT))
 }
+
+/*
+ * ⚠️ **Never a step FORWARD** (sweep 28.10.2026 #11, owner: «when I was in plans, I could swipe from
+ * the right side to open the checklist tab … sliding from the right should never do anything»).
+ * Walking back leaves the walked-over entries in the browser's forward list — no page can delete
+ * them — and iOS offers its forward swipe from the right edge exactly when there is one: the
+ * Checkliste's levels after leaving it, a closed plan reader, a left Objektbesuch. So a popstate
+ * that lands DEEPER than the app stood (only a forward traversal can) is walked straight back,
+ * before any other listener hears it (this one is registered at import, first in line, and stops
+ * the event): no surface ever shows it. The native back keeps working — it only ever goes down.
+ */
+/** the depth of the entry the app stands on, as it last saw it (a push, a replace, a pop) */
+let standing = 0
+function noForward(e: PopStateEvent): void {
+  const d = appHistoryDepth()
+  if (!walking && d > standing) {
+    e.stopImmediatePropagation()
+    walkBack(d - standing)
+    return
+  }
+  standing = d
+}
+if (typeof window !== 'undefined') window.addEventListener('popstate', noForward)
 
 /*
  * Walking back is ASYNC: `history.go(-n)` lands with a popstate, and until then `history.state`

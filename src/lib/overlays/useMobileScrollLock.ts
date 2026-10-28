@@ -17,12 +17,23 @@
  *     EITHER axis (a horizontal scroller under it, or a vertical one with room that way), and is
  *     blocked only where nothing could move;
  *   · past the slop its axis is locked for the rest of the touch (a dead tie stays undecided), and
- *     each move is judged on that axis — vertically by that move's own direction — so a drag over
- *     a list at its top edge, or over the bare backdrop, is still cancelled (the rubber-band /
- *     chaining guard this hook exists for).
+ *     each move is judged on that axis — so a sideways drag over plain text, or any drag over the
+ *     bare backdrop, is still cancelled (the chaining guard this hook exists for).
  * Sideways, «can scroll» means the element scrolls horizontally at all, either way: nothing behind
  * a sheet scrolls sideways, so there is no chaining to guard against, and a jittery first move
  * towards the row's start must not kill a swipe towards its end.
+ *
+ * ⚠️ …and since 28.10.2026 the same holds vertically INSIDE the dialog (owner's iPhone, sweep #20:
+ * «in Anderes Objekt … the list isn't scrollable»): a scroller with room EITHER way is never
+ * cancelled, at its top or at its end (`anyWay`, the rule the Karte's lists proved in review round
+ * 11, `useScrollOnlyIn`). Cancelling a move towards an edge was the rubber-band guard — and on iOS
+ * the cancelled first move killed the list's scroll for the whole touch, the same «never scrolls»
+ * the Karte had. What is still cancelled: the backdrop, and a sheet where nothing under the finger
+ * scrolls. The edges are `overscroll-behavior`'s, and the root's (02-base · `none`) ends any chain.
+ * The pull-to-close at a body's top is no longer this lock's job either: the sheet claims that
+ * touch itself (swipeDismiss · rule 3's ⚠️), only while it really is a pull.
+ * A touch that starts on a slider (`role="slider"`, components/Slider) is never cancelled: its drag
+ * is the value (sweep #18 – the native range under this lock «didn't function like a slider»).
  */
 
 import { useEffect, type RefObject } from 'react'
@@ -55,7 +66,7 @@ export function touchAxis(dx: number, dy: number): TouchAxis | null {
 }
 
 /** May this touch pan natively? Pure — the hook below feeds it the DOM. */
-export function touchMayScroll({ axis, dy, ignored, inModal, chain }: {
+export function touchMayScroll({ axis, dy, ignored, inModal, chain, anyWay = false }: {
   axis: TouchAxis
   /** total vertical travel since touchstart, start minus now */
   dy: number
@@ -65,6 +76,9 @@ export function touchMayScroll({ axis, dy, ignored, inModal, chain }: {
   inModal: boolean
   /** the start target and its ancestors up to <body>, innermost first */
   chain: readonly ScrollBox[]
+  /** vertically, room in EITHER direction will do — the dialog lock (the head of this file);
+   *  without it the vertical direction is judged (the Karte's typing lock, lib/iosKeyboard) */
+  anyWay?: boolean
 }): boolean {
   if (ignored) return true
   if (!inModal) return false
@@ -73,12 +87,15 @@ export function touchMayScroll({ axis, dy, ignored, inModal, chain }: {
   // no vertical travel yet (a first move a pixel sideways, review round 5): room EITHER way will do
   // — the direction is judged on the next move, and cancelling this one would kill the pan
   const y = () => chain.some((b) => scrolls(b.overflowY) && b.maxY > 0
-    && (dy === 0 ? b.top > 0 || b.top < b.maxY : (dy < 0 && b.top > 0) || (dy > 0 && b.top < b.maxY)))
+    && (anyWay || dy === 0 ? b.top > 0 || b.top < b.maxY : (dy < 0 && b.top > 0) || (dy > 0 && b.top < b.maxY)))
   return axis === 'x' ? x() : axis === 'y' ? y() : x() || y()
 }
 
 /** The pickers portal beside the dialog, so they share its scrolling allowance. */
 const MODAL = '[role="dialog"], [role="menu"], [role="listbox"], .combo-menu'
+/** A touch that starts here owns its gesture and is never cancelled: a surface that says so, and
+ *  a slider (the app's own, and a native range should one ever come back). */
+const OWN_GESTURE = '[data-swipe-ignore], [role="slider"], input[type="range"]'
 
 /** The start target and its ancestors up to <body> (or up to and including `until`), innermost
  *  first, as the lock reads them. */
@@ -102,7 +119,7 @@ export function scrollChain(from: Element, until?: Element): ScrollBox[] {
  *  cancelled. Shared by this lock and the Karte's typing lock (lib/iosKeyboard · useTypingLock,
  *  review round 5: it judged each move on its own and killed a list scroll whose first move was a
  *  pixel sideways). */
-export function touchGate() {
+export function touchGate({ anyWay = false }: { anyWay?: boolean } = {}) {
   let x0 = 0, y0 = 0, lastY = 0, target: Element | null = null, ignored = false, inModal = false
   let locked: 'x' | 'y' | null = null
   return {
@@ -129,20 +146,21 @@ export function touchGate() {
       // same touch), falling back to the total when the move has no vertical part
       const along = locked === 'y' && step !== 0 ? step : dy
       const chain = inModal && target ? scrollChain(target) : []
-      return !touchMayScroll({ axis: locked ?? 'both', dy: along, ignored, inModal, chain })
+      return !touchMayScroll({ axis: locked ?? 'both', dy: along, ignored, inModal, chain, anyWay })
     },
   }
 }
 
-/** Trap touch scrolling in the open sheet and its portalled pickers, without making them inert. */
+/** Trap touch scrolling in the open sheet and its portalled pickers, without making them inert:
+ *  the backdrop never scrolls, a scroller in the sheet always may (the head of this file). */
 export function useMobileScrollLock(open: boolean) {
   const phone = useIsPhone()
   useEffect(() => {
     if (!open || !phone) return
-    const gate = touchGate()
+    const gate = touchGate({ anyWay: true })
     const start = (e: TouchEvent) => {
       const target = e.target instanceof Element ? e.target : null
-      gate.start(e, { ignored: !!target?.closest('[data-swipe-ignore]'), inModal: !!target?.closest(MODAL) })
+      gate.start(e, { ignored: !!target?.closest(OWN_GESTURE), inModal: !!target?.closest(MODAL) })
     }
     const move = (e: TouchEvent) => { if (gate.blocks(e) && e.cancelable) e.preventDefault() }
     document.addEventListener('touchstart', start, { passive: true })
