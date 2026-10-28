@@ -24,3 +24,5 @@
 .room { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .where { flex: none; padding: 0 var(--sp-2); border-radius: var(--r-pill); background: var(--hover);
   color: var(--ink-dim); font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 20px; white-space: nowrap; }
+/* on a phone the chip is the row's square: the bare alarm-coloured pill centred in it (pick 9A) */
+.round { width: var(--float-h); padding: 0; justify-content: center; }

@@ -1,7 +1,7 @@
-import { floorBadge } from './symbolRender'
 import { forkDims } from './lineAttachments'
 import { appConfig } from '../config/appConfig'
 import type { LineTone } from './truppLines'
+import { endTagText } from './endTagSpots'
 
 // FKS hose-line decorations shared by the Lage map (DOM markers over MapLibre) and the Plan
 // whiteboard (board-px overlay), so a Druckleitung reads the same on both surfaces.
@@ -75,11 +75,8 @@ export function EndTag({ lineNo, content, floorTag, trupp, tone = 'idle', color,
    *  preview has to say the same thing in the same shape. */
   oneLine?: boolean
 }) {
-  const parts: string[] = []
-  if (lineNo != null) parts.push(String(lineNo))
-  if (content) parts.push(content)
-  if (floorTag != null) parts.push(floorBadge(floorTag))
-  if (!parts.length && !trupp) return null
+  const facts = endTagText({ lineNo, content, floorTag })
+  if (!facts && !trupp) return null
   // tone colours come from the theme tokens (never a frozen rgba), so day/night both read right
   const ink = tone === 'crit' ? 'var(--red)' : tone === 'warn' ? 'var(--amber)' : tone === 'muted' ? 'var(--ink-dim)' : color
   // The Leitung's own facts (number, Inhalt, Stockwerk) stay as they are — the hose is still that
@@ -88,8 +85,8 @@ export function EndTag({ lineNo, content, floorTag, trupp, tone = 'idle', color,
   // tag going quiet and taking the Leitung number with it.
   return (
     <span className={`line-end-tag tone-${tone}${oneLine ? ' one-line' : ''}`} style={{ color: ink, borderColor: ink }}>
-      {parts.join(' · ')}
-      {trupp && <>{parts.length ? ' · ' : ''}<span className="line-end-trupp">{trupp}</span></>}
+      {facts}
+      {trupp && <>{facts ? ' · ' : ''}<span className="line-end-trupp">{trupp}</span></>}
     </span>
   )
 }

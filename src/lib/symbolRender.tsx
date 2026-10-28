@@ -333,16 +333,17 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
  * A measured symbol's mark: the worst gas on calm ink, amber at A1, red at A2, the colour on the
  * outline plus its age once the reading is old (lib/symbols · symbolReading), the dashed pill with
  * the icon alone before the first reading. Its own component so only these few marks subscribe to
- * the minute clock that ages them. `inline` = the same pill in a list row (ReadingParts).
+ * the minute clock that ages them. `inline` = the same pill in a list row (ReadingParts); `bare` =
+ * the icon alone in the same colours, the «Messungen» chip's round button (ReadingsChip, 9A).
  */
-export function ReadingPill({ props, floor, inline = false }: { props: SymbolProps; floor?: number; inline?: boolean }) {
+export function ReadingPill({ props, floor, inline = false, bare = false }: { props: SymbolProps; floor?: number; inline?: boolean; bare?: boolean }) {
   const r = symbolReading(props, useMinuteClock())
   if (!r) return null
   return (
-    <span className={`sym-pill${inline ? ' inline' : ''}${r.text ? '' : ' empty'}${r.level === 'ok' ? '' : ` ${r.level}`}${r.stale ? ' stale' : ''}`}>
+    <span className={`sym-pill${inline ? ' inline' : ''}${bare ? ' bare' : ''}${r.text ? '' : ' empty'}${r.level === 'ok' ? '' : ` ${r.level}`}${r.stale ? ' stale' : ''}`}>
       <Icon id="messgeraet" />
-      {r.text}
-      {r.stale && <span className="sym-pill-age">{readingAge(r)}</span>}
+      {!bare && r.text}
+      {!bare && r.stale && <span className="sym-pill-age">{readingAge(r)}</span>}
       {/* the storey rides on the pill, which is wider than the glyph box the corner badges use */}
       {floor != null && floor !== 0 && <span className="sym-floor">{floorBadge(floor)}</span>}
     </span>

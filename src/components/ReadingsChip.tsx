@@ -9,14 +9,16 @@ import s from './ReadingsChip.module.css'
 
 /**
  * «Messungen» in the floating chip row – the Karte's and every plan's (owner, 27.10.2026). The chip
- * wears the worst reading; a tap opens EVERY Messpunkt of the Einsatz as one list, worst first, the
+ * is a round button in the worst reading's alarm colour, the icon alone (owner pick 9A, 28.10.2026:
+ * the plan tabs beside it need the room – the value is one tap away, in the list); a tap opens
+ * EVERY Messpunkt of the Einsatz as one list, worst first, the
  * place as a tag (pick L2: no groups). A row goes to its point – the sheet it was placed on, else
  * the Karte – and closes the list. Non-modal like the Gebäude-Info beside it: Esc or the chip close it.
  * Rendered only once a Messpunkt exists (`points` non-empty).
  */
 export function ReadingsChip({ points, compact = false, onGo }: {
   points: MeasuredPoint[]
-  /** a phone: the pill alone, its words in aria-label/title */
+  /** a phone: the round button alone, its word in aria-label/title */
   compact?: boolean
   onGo: (p: MeasuredPoint) => void
 }) {
@@ -38,10 +40,10 @@ export function ReadingsChip({ points, compact = false, onGo }: {
   const C = appConfig.copy.building
   return (
     <span className={s.anchor}>
-      <button type="button" className={cx('wb-scale-chip', open && 'arm')} aria-expanded={open}
+      <button type="button" className={cx('wb-scale-chip', compact && s.round, open && 'arm')} aria-expanded={open}
         title={C.readingsChipLabel} aria-label={C.readingsChipLabel} onClick={() => setOpen(!open)}>
         {!compact && <span>{C.readingsChip}</span>}
-        <ReadingPill props={worst.props} inline />
+        <ReadingPill props={worst.props} inline bare />
       </button>
       {open && (
         <div className={s.pop} role="dialog" aria-label={C.readingsChip}>
