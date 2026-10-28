@@ -48,7 +48,8 @@ describe('the page strip stands in the row where a plan says «which place»', (
   const wb = readFileSync(`${process.cwd()}/src/components/Whiteboard.tsx`, 'utf8')
   it('is rendered inside .wb-botleft on the Skizze and on a page, never on its own under the top bar', () => {
     expect(wb).toMatch(/<div className="wb-botleft">\{strip\}<\/div>/) // a Tafel page
-    expect(wb).toMatch(/\{strip\}\s*<span className="wb-join">\{objectChip\}/) // the Skizze: first in the plan's row
+    // the Skizze: first in the plan's row (the Objekt chip, or the calibration instrument in its place)
+    expect(wb).toMatch(/\{strip\}\s*\{calibrateChip \?\? <>\s*<span className="wb-join">\{objectChip\}/)
     expect(wb).not.toMatch(/TAFEL_STRIP_H/)
   })
   it('wears the floating family, not a bar of its own', () => {

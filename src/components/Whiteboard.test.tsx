@@ -174,29 +174,30 @@ describe('the door between the two faces of the Gebäude tile', () => {
     expect(screen.queryByRole('button', { name: BACK })).toBeNull()
   })
 
-  it('sends the floor stack to the picker', () => {
+  // Since sweep 28.10.2026 (#8) the stack's chip is the Plan sheet's door (it carries the scale's
+  // lamp); «anderes Gebäude wählen» is that sheet's top row
+  const stackChip = () => screen.getByRole('button', { name: /Gebäude und Massstab/ })
+
+  it('sends the floor stack to the picker, through the sheet\'s top row', () => {
     const { onBuildingFace } = renderBoard('gebaeude', [], false, aBuilding)
-    fireEvent.click(screen.getByRole('button', { name: OTHER }))
+    fireEvent.click(stackChip())
+    fireEvent.click(screen.getByRole('button', { name: /anderes Gebäude wählen/ }))
     expect(onBuildingFace).toHaveBeenCalledWith('pick')
   })
 
   // ⚠️ The stack drops the Objekt read-out (it would repeat this very pill), so on the Gebäude
-  // this is the ONLY thing on screen answering «which building am I standing in». It spent its
-  // whole width on the instruction instead — which the label still carries (owner, 18.09.2026).
-  it('wears the building\'s own name on the stack, with the verb left in the label', () => {
-    const { onBuildingFace } = renderBoard('gebaeude', [], false, aBuilding, 'Mühlemattstrasse 8')
-    const pill = screen.getByRole('button', { name: OTHER })
-    expect(pill.textContent).toContain('Mühlemattstrasse 8')
-    expect(pill.textContent).not.toContain(OTHER)
-    fireEvent.click(pill)   // …and it is still pure navigation to the picker
-    expect(onBuildingFace).toHaveBeenCalledWith('pick')
+  // this is the ONLY thing on screen answering «which building am I standing in» (owner, 18.09.2026).
+  it('wears the building\'s own name on the stack', () => {
+    renderBoard('gebaeude', [], false, aBuilding, 'Mühlemattstrasse 8')
+    expect(stackChip().textContent).toContain('Mühlemattstrasse 8')
+    expect(stackChip().textContent).not.toContain(OTHER)
   })
 
-  // nothing to name ⇒ the verb comes back, rather than a pill reading «Kein Objekt» about a
-  // building that is plainly there
-  it('falls back to the verb when no object is bound', () => {
+  // nothing to name ⇒ the plan's own word, rather than «Kein Objekt» about a building that is
+  // plainly there – and never the verb: the chip opens a sheet, it does not walk to the picker
+  it('falls back to «Gebäude» when no object is bound', () => {
     renderBoard('gebaeude', [], false, aBuilding)
-    expect(screen.getByRole('button', { name: OTHER }).textContent).toContain(OTHER)
+    expect(stackChip().textContent).toBe('Gebäude')
   })
 
   it('sends the picker back to the stack it already has', () => {
@@ -207,16 +208,17 @@ describe('the door between the two faces of the Gebäude tile', () => {
 
   // ⚠️ Reversed 25.09.2026 (3am test): the picker is NOT interactive for a locked session, so
   // «Anderes Gebäude wählen» led an `el` to outlines it could not tap and no «Übernehmen».
-  // Locked, the stack's pill is only the building's name, read-only — and with no name, nothing.
+  // Locked, the sheet still reads the building and its scale – with no way to the picker.
   it('is no door for a locked session: the name stays as a read-out, the verb goes', () => {
     renderBoard('gebaeude', [], true, aBuilding, 'Mühlemattstrasse 8')
-    expect(screen.queryByRole('button', { name: OTHER })).toBeNull()
-    const pill = screen.getByRole('button', { name: 'Mühlemattstrasse 8' }) as HTMLButtonElement
-    expect(pill.disabled).toBe(true)
+    fireEvent.click(stackChip())
+    expect(screen.getByText('Mühlemattstrasse 8', { selector: '.list-row-title' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /anderes Gebäude wählen/i })).toBeNull()
   })
 
-  it('…and with no name to read, a locked stack shows no pill at all', () => {
+  it('…and with no name to read, a locked stack still reads «Gebäude» and its scale – no door', () => {
     renderBoard('gebaeude', [], true, aBuilding)
+    expect(stackChip().textContent).toBe('Gebäude')
     expect(screen.queryByRole('button', { name: OTHER })).toBeNull()
   })
 
@@ -1203,7 +1205,7 @@ describe('the nearby-object warning', () => {
   it('shows the amber chip with the distance and the banner with both addresses', () => {
     const onObjectSwitch = vi.fn()
     renderNearby(onObjectSwitch)
-    const chip = screen.getByRole('button', { name: 'Nächstes Objekt in 80 m – nicht die Einsatzadresse' })
+    const chip = screen.getByRole('button', { name: /Nächstes Objekt in 80 m – nicht die Einsatzadresse/ })
     expect(chip.className).toContain('wb-object-nearby')
     expect(chip.textContent).toContain('Hohestrasse 134 · 80 m entfernt')
     const banner = screen.getByRole('status')

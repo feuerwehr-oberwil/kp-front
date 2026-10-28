@@ -27,9 +27,10 @@ wording unchanged.
   through is not drawn** — hidden, never disabled-without-a-reason (3am test, 25.09.2026). A
   READ-OUT is not a door: it stays, disabled in the `.wb-object:disabled` recipe (full opacity,
   its own words and tone, no tap). So a locked session (el, Führungsansicht, viewer, replay) keeps
-  the building's name, the Massstab and the linked «⌖ Karte» chip as read-outs — an unchecked
-  automatic fit must never look like a checked one, whoever is looking — but gets no «Anderes
-  Gebäude wählen» (the locked picker has no «Übernehmen»), no Passung, no «Gebäude drehen». On
+  the building's name and the Plan sheet behind the Objekt chip (Massstab and a linked Karte,
+  their words and lamps) as read-outs — an unchecked automatic fit must never look like a
+  checked one, whoever is looking — but gets no «Anderes Gebäude wählen» (the locked picker has
+  no «Übernehmen»), none of the Passung's actions, no calibration, no «Gebäude drehen». On
   the Lage and the Plan alike a locked session SELECTS every object (a Linie, Fläche or
   Absperrkreis on the Plan too – never dragged) and reads its panel: a Form its figures, a
   Leitung its Inhalt, Stockwerk, Leitung-Nr. and Trupp, a live vehicle its Fahrer, a

@@ -101,106 +101,107 @@ const renderStack = (planScale: Record<string, { mPerU: number; refM: number; ar
     <Overlays />
   </>)
 
-describe('the «Karte verknüpfen» chip', () => {
-  it('offers the verb on a plan with no reference', () => {
-    renderBoard()
-    expect(screen.getByRole('button', { name: /Karte verknüpfen/ })).toBeTruthy()
-  })
+/** the bar's ONE chip (sweep 28.10.2026 #8): the Objekt, with the lamp, opening the Plan sheet */
+const objectChip = () => screen.getByRole('button', { name: /Objekt, Karte und Massstab/ })
+const openSheet = () => fireEvent.click(objectChip())
+const sheet = () => screen.getByRole('group', { name: 'Plan · Modul 2' })
+const fact = (name: RegExp) => within(sheet()).getByRole('region', { name })
 
-  it('never appears on a surface that cannot carry a reference (the Tafel)', () => {
-    renderBoard('tafel')
-    expect(screen.queryByRole('button', { name: /Karte verknüpfen/ })).toBeNull()
-  })
-
-  // ⚠️ The chip states ONE thing: that this sheet is tied to the map. The reading it used to
-  // carry («Verknüpft · aus 2 Punkten», «Verknüpft · ⌀ 10.8 m») is a sentence in a row of
-  // three-word pills, and a residual without «out of how many pairs» beside it means nothing.
-  // The number lives in the Passung, one tap away, next to what to do about it.
-  it('says «Verknüpft» and no more — the reading belongs to the Passung', () => {
+describe('the Plan sheet behind the Objekt chip', () => {
+  it('is the bar\'s only chip: no Massstab or Karte pills beside it, one lamp', () => {
     store.pairs = TWO
-    renderBoard()
-    expect(screen.getByText('Verknüpft')).toBeTruthy()
-    expect(screen.queryByText(/aus 2 Punkten/)).toBeNull()
+    const { container } = renderBoard()
+    expect(container.querySelectorAll('.wb-botleft .wb-lamp')).toHaveLength(1)
+    expect(screen.queryByText('Verknüpft')).toBeNull()
+    expect(screen.queryByText('Ref. auto')).toBeNull()
+    expect(objectChip().getAttribute('aria-expanded')).toBe('false')
   })
 
-  // «Ref. auto» is a reading, not a second calibration path — but a TAPPABLE one (29.08.): the
-  // hover title never fires on the field iPad, so the chip explains itself the way «Verknüpft»
-  // does, by opening the Passung. What it must never do is arm the manual scale calibration.
-  it('uses the finished georeference as a scale reading that opens the Passung', () => {
-    store.pairs = TWO
+  it('offers «Karte verknüpfen» on a plan with no reference, and it arms the point flow', () => {
     renderBoard()
-    const chip = screen.getByRole('button', { name: /Ref\. auto/ })
-    expect(chip.getAttribute('title')).toContain('Ref. automatisch')
-    fireEvent.click(chip)
-    expect(screen.getByText('Passung')).toBeTruthy()
-    expect(screen.queryByText('Zwei Punkte des Massstabs antippen')).toBeNull()
-  })
-
-  it('keeps georeference correction behind the separate linked-reference control', () => {
-    store.pairs = TWO
-    renderBoard()
-    const reference = screen.getByRole('button', { name: 'Verknüpft' })
-    expect(reference.getAttribute('title')).toBe('Referenz prüfen und korrigieren')
-    fireEvent.click(reference)
-    expect(screen.getByRole('button', { name: 'Dritten Punkt setzen' })).toBeTruthy()
-  })
-
-  // sweep K10 (29.09.2026): until the sheet is linked, «Karte verknüpfen» is its ONE chip — a
-  // link gives the scale — and the hand calibration is reached through Messen, as ever
-  it('keeps manual calibration available when no automatic reference scale exists', () => {
-    renderBoard()
-    expect(screen.queryByRole('button', { name: 'nicht kalibriert' })).toBeNull()
-    fireEvent.click(screen.getAllByRole('button', { name: 'Messen' })[0])
-    fireEvent.click(screen.getByRole('button', { name: 'Massstab kalibrieren' }))
-    expect(screen.getAllByText('Zwei Punkte des Massstabs antippen').length).toBeGreaterThan(0)
-  })
-
-  it('offers to add points instead of claiming it will correct a calculated pair', () => {
-    store.pairs = [...TWO, pair(0.5, 0.3, 7.5008, 47.4997)]
-    renderBoard()
-    fireEvent.click(screen.getByText('Verknüpft'))
-    expect(screen.getByRole('button', { name: 'Punkte hinzufügen' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: /korrigieren/ })).toBeNull()
-  })
-
-  it('arms the pairing mode, and the row then carries the instrument and nothing else', () => {
-    renderBoard()
-    fireEvent.click(screen.getByRole('button', { name: /Karte verknüpfen/ }))
+    openSheet()
+    expect(within(fact(/^Karte: nicht verknüpft/)).getByText(/legt den Plan auf die Karte/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Karte verknüpfen' }))
     expect(georefSnapshot().planId).toBe('modul2')
-    // the instruction has taken the chip's place — ONE indicator, where the finger already was.
-    // The free-order sentence IS the instruction now: no per-point prompt, no fixed order.
+    // the row carries the instrument and nothing else — ONE indicator, where the finger already
+    // was. The free-order sentence IS the instruction: no per-point prompt, no fixed order.
     expect(screen.getByText(/Dieselbe Stelle auf Modul und Karte antippen/)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: /Karte verknüpfen/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Objekt, Karte und Massstab/ })).toBeNull()
     // ⚠️ «Schliessen», NOT «Abbrechen». Points are saved as they are placed, so leaving the mode
     // discards nothing — the word that promised otherwise is the bug this pins (27.08.).
     expect(screen.getByRole('button', { name: 'Schliessen' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Abbrechen' })).toBeNull()
   })
 
-  // A sheet is linked by hand with reference points, or it is already «Verknüpft» because the
-  // station approved the server's proposal in the admin (13.09.2026): the chip arms the points.
-  it('on an unlinked sheet arms the point flow', () => {
-    renderBoard('modul2')
-    fireEvent.click(screen.getByRole('button', { name: /Karte verknüpfen/ }))
-    expect(georefSnapshot().planId).toBe('modul2')
+  it('never appears on a surface that cannot carry a reference (the Tafel)', () => {
+    renderBoard('tafel')
+    expect(screen.queryByRole('button', { name: /Objekt, Karte und Massstab/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Karte verknüpfen/ })).toBeNull()
+  })
+
+  // A linked sheet shows the Passung INLINE under «Karte» – no drill-down (owner, 28.10.)
+  it('shows a linked plan\'s Passung inline, with its actions', () => {
+    store.pairs = TWO
+    renderBoard()
+    openSheet()
+    const karte = fact(/^Karte: Verknüpft/)
+    expect(within(karte).getByText('aus 2 Punkten')).toBeTruthy()
+    expect(within(karte).getByRole('button', { name: 'Dritten Punkt setzen' })).toBeTruthy()
+    expect(within(karte).getByRole('button', { name: 'Deckung prüfen' })).toBeTruthy()
+    expect(within(karte).getByRole('button', { name: 'Zurücksetzen' })).toBeTruthy()
+  })
+
+  it('offers to add points instead of claiming it will correct a calculated pair', () => {
+    store.pairs = [...TWO, pair(0.5, 0.3, 7.5008, 47.4997)]
+    renderBoard()
+    openSheet()
+    expect(screen.getByRole('button', { name: 'Punkte hinzufügen' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /korrigieren/ })).toBeNull()
+  })
+
+  // «Ref. auto» is a READING: the metres come from the link, and the sheet must never offer a
+  // second, competing manual calibration on top of it
+  it('reads the scale off the link and offers no calibration on top of it', () => {
+    store.pairs = TWO
+    renderBoard()
+    openSheet()
+    const massstab = fact(/^Massstab: Ref\. auto/)
+    expect(within(massstab).getByText(/aus der Kartenverknüpfung/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /kalibrieren/i })).toBeNull()
+  })
+
+  // the hand calibration is a tap away in the sheet (and through Messen, as ever); calibrating,
+  // the row is the instrument and a tap on it stops
+  it('calibrates by hand from the sheet, the row carrying the instruction meanwhile', () => {
+    renderBoard()
+    openSheet()
+    expect(fact(/^Massstab: nicht kalibriert/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Massstab kalibrieren' }))
+    expect(screen.queryByRole('group', { name: 'Plan · Modul 2' })).toBeNull()
+    const instrument = screen.getByRole('button', { name: 'Zwei Punkte des Massstabs antippen' })
+    fireEvent.click(instrument)
+    expect(screen.queryByRole('button', { name: 'Zwei Punkte des Massstabs antippen' })).toBeNull()
+    expect(objectChip()).toBeTruthy()
+  })
+
+  it('keeps the hand calibration reachable through Messen too', () => {
+    renderBoard()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Messen' })[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Massstab kalibrieren' }))
+    expect(screen.getAllByText('Zwei Punkte des Massstabs antippen').length).toBeGreaterThan(0)
   })
 
   // A locked session (el, Führungsansicht, viewer, replay) keeps the READING — tone and words —
-  // with no tap: an unchecked automatic fit must never look like a checked one, whoever looks.
-  it('a viewer sees the reading but is given no way to arm it', () => {
+  // with none of the actions: an unchecked automatic fit must never look like a checked one.
+  it('a locked session reads the sheet but is given no way to change it', () => {
     store.pairs = TWO
     renderBoard('modul2', true)
-    const chip = screen.getByText('Verknüpft').closest('button')
-    expect(chip?.disabled).toBe(true)
-  })
-
-  it('…and the Massstab beside it is a read-out too: «Ref. auto», disabled, no Passung behind it', () => {
-    store.pairs = TWO
-    renderBoard('modul2', true)
-    const scale = screen.getByRole('button', { name: 'Ref. auto' }) as HTMLButtonElement
-    expect(scale.disabled).toBe(true)
-    fireEvent.click(scale)
-    expect(screen.queryByRole('group', { name: /Passung/ })).toBeNull()
+    openSheet()
+    expect(fact(/^Karte: Verknüpft/)).toBeTruthy()
+    expect(fact(/^Massstab: Ref\. auto/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Dritten Punkt setzen' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Zurücksetzen' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /kalibrieren/i })).toBeNull()
   })
 })
 
@@ -218,11 +219,11 @@ describe('an idle georeference never intercepts the board', () => {
     expect(crosses(container)).toHaveLength(0)
   })
 
-  it('shows the crosses with the Passung open — as inert marks, not as buttons', () => {
+  it('shows the crosses with the sheet open — as inert marks, not as buttons', () => {
     store.pairs = TWO
     const { container } = renderBoard()
-    fireEvent.click(screen.getByText('Verknüpft'))
-    expect(screen.getByText('Passung')).toBeTruthy()
+    openSheet()
+    expect(sheet()).toBeTruthy()
     // …and THERE the reading is spelled out, once
     expect(screen.getByText('aus 2 Punkten')).toBeTruthy()
     expect(crosses(container)).toHaveLength(2)
@@ -238,7 +239,7 @@ describe('an idle georeference never intercepts the board', () => {
   it('shows a single warning even when several stand', () => {
     store.pairs = [pair(0.2, 0.2, 7.5, 47.5), pair(0.24, 0.22, 7.50004, 47.49997)]
     const { container } = renderBoard()
-    fireEvent.click(screen.getByText('Verknüpft'))
+    openSheet()
     expect(container.querySelectorAll('[class*="qWarn"]')).toHaveLength(1)
     expect(screen.getByText(/auseinander/)).toBeTruthy() // the baseline, not the two-pairs note
   })
@@ -246,40 +247,41 @@ describe('an idle georeference never intercepts the board', () => {
   it('returns to Passung when the transfer picker is cancelled', () => {
     store.pairs = TWO
     renderBoard()
-    fireEvent.click(screen.getByText('Verknüpft'))
+    openSheet()
     fireEvent.click(screen.getByRole('button', { name: 'Übertragen' }))
     expect(screen.getByRole('heading', { name: /Passung übertragen/ })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }))
-    expect(screen.getByText('Passung')).toBeTruthy()
+    expect(sheet()).toBeTruthy()
   })
 
   it('keeps the transfer picker when replacing a linked target is cancelled', async () => {
     store.pairs = TWO
     renderBoard()
-    fireEvent.click(screen.getByText('Verknüpft'))
+    openSheet()
     fireEvent.click(screen.getByRole('button', { name: 'Übertragen' }))
     fireEvent.click(screen.getByRole('button', { name: /Modul 3/ }))
     const confirm = await screen.findByRole('alertdialog')
     fireEvent.click(within(confirm).getByRole('button', { name: 'Abbrechen' }))
     expect(await screen.findByRole('heading', { name: /Passung übertragen/ })).toBeTruthy()
-    expect(screen.getByText('Passung')).toBeTruthy()
+    // under the open picker the sheet is aria-hidden, so it is found by its words, not its role
+    expect(screen.getByText('Plan · Modul 2')).toBeTruthy()
   })
 
   it('lets a confirmation consume Escape without closing its Passung parent', async () => {
     store.pairs = TWO
     renderBoard()
-    fireEvent.click(screen.getByText('Verknüpft'))
+    openSheet()
     fireEvent.click(screen.getByRole('button', { name: 'Zurücksetzen' }))
     const confirm = await screen.findByRole('alertdialog')
     fireEvent.keyDown(confirm, { key: 'Escape' })
-    expect(await screen.findByText('Passung')).toBeTruthy()
+    expect(await screen.findByRole('group', { name: 'Plan · Modul 2' })).toBeTruthy()
     expect(georefSnapshot().planId).toBeNull()
   })
 
   it('turns them back into controls the moment the mode is armed', () => {
     store.pairs = TWO
     const { container } = renderBoard()
-    fireEvent.click(screen.getByText('Verknüpft'))
+    openSheet()
     fireEvent.click(screen.getByRole('button', { name: 'Dritten Punkt setzen' }))
     expect(georefSnapshot().planId).toBe('modul2')
     expect(capture(container)).not.toBeNull()
@@ -289,7 +291,7 @@ describe('an idle georeference never intercepts the board', () => {
   it('opens Deckung prüfen directly and keeps that action available with an unmatched point', () => {
     store.pairs = TWO
     renderBoard()
-    fireEvent.click(screen.getByText('Verknüpft'))
+    openSheet()
     fireEvent.click(screen.getByRole('button', { name: 'Deckung prüfen' }))
     expect(georefSnapshot().check).toBe(true)
 
@@ -406,6 +408,7 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
 
   const arm = () => {
     const r = renderBoard()
+    openSheet()
     fireEvent.click(screen.getByRole('button', { name: /Karte verknüpfen/ }))
     const board = r.container.querySelector('.wb-board') as HTMLElement
     board.getBoundingClientRect = () => BOARD as DOMRect
@@ -484,73 +487,66 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
 // Geoportal), so its metres are measured rather than believed. A stored hand calibration used to
 // outrank that — and the one document that never needs calibrating was the one offering
 // «Neu kalibrieren». (11.09.)
-// ⚠️ The pill row on a phone is ONE line of icons (owner, 18.09.2026): Massstab and «⌖ Karte»
-// give up their words, so the 9px Ampel dot beside the icon is the entire reading. If a lamp ever
-// goes missing, or carries a tone that contradicts the chip's own text, a phone operator is left
-// with two identical grey pills and no way to tell a measured sheet from an unreferenced one.
-describe('the pill row\'s lamps — the phone\'s whole reading', () => {
-  const lamp = (el: HTMLElement | null) => el?.closest('button')?.querySelector('.wb-lamp')?.getAttribute('data-tone')
+// ⚠️ The row on a phone is ONE line (owner, 18.09.2026), and since sweep 28.10.2026 (#8) it holds
+// ONE lamp for link and scale together. If that lamp ever goes missing, or claims green while the
+// sheet behind it is amber, a phone operator cannot tell a measured sheet from an unreferenced one.
+describe('the Objekt chip\'s lamp — the worse of Karte and Massstab', () => {
+  const lamp = (el: HTMLElement) => el.querySelector('.wb-lamp')?.getAttribute('data-tone')
+  const factLamp = (name: RegExp) => lamp(fact(name))
 
-  // sweep K10 (29.09.2026): «not yet» is grey, never red at rest — and ONE chip says it
-  it('shows one grey «Karte verknüpfen» while the sheet has neither scale nor reference', () => {
+  // sweep K10 (29.09.2026): «not yet» is grey, never red at rest
+  it('is grey while the sheet has neither scale nor reference', () => {
     renderBoard()
-    expect(screen.queryByText('nicht kalibriert')).toBeNull()
-    expect(lamp(screen.getByText('Karte verknüpfen'))).toBe('grey')
+    expect(lamp(objectChip())).toBe('grey')
   })
 
   // two pairs solve EXACTLY, so the fit is unmeasured — and the scale derived from it inherits
   // that doubt rather than presenting itself as measured metres
-  it('goes amber on both once an unchecked two-point fit stands', () => {
+  it('goes amber once an unchecked two-point fit stands — and so do both facts in the sheet', () => {
     store.pairs = TWO
     renderBoard()
-    expect(lamp(screen.getByText('Verknüpft'))).toBe('amber')
-    expect(lamp(screen.getByText('Ref. auto'))).toBe('amber')
+    expect(lamp(objectChip())).toBe('amber')
+    openSheet()
+    expect(factLamp(/^Karte:/)).toBe('amber')
+    expect(factLamp(/^Massstab:/)).toBe('amber')
   })
 
-  it('goes green on both once a third point has measured the fit', () => {
+  it('goes green once a third point has measured the fit', () => {
     store.pairs = [...TWO, pair(0.5, 0.3, 7.5008, 47.4997)]
     renderBoard()
-    expect(lamp(screen.getByText('Verknüpft'))).toBe('green')
-    expect(lamp(screen.getByText('Ref. auto'))).toBe('green')
+    expect(lamp(objectChip())).toBe('green')
   })
 
-  // the Gebäude's metres come from its Grundriss — measured, and no fit's doubt applies
-  it('is green on the Gebäude stack, whose scale is its own footprint', () => {
-    renderStack()
-    expect(lamp(screen.getByText('Ref. auto'))).toBe('green')
-  })
-
-  // the words are gone on a phone, so they have to survive somewhere a screen reader and a
-  // long-press can still reach them
-  it('keeps every lamped pill\'s words in aria-label', () => {
-    store.pairs = TWO
+  // the words are not on the bar any more, so they have to survive where a screen reader can reach
+  it('keeps what the lamp is about in the chip\'s label', () => {
     renderBoard()
-    expect(screen.getByRole('button', { name: 'Verknüpft' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Ref. auto' })).toBeTruthy()
+    expect(objectChip().getAttribute('aria-label')).toBe('Kein Objekt – Objekt, Karte und Massstab')
   })
 })
 
 describe('the Gebäude measures off its Grundriss, not off a hand calibration', () => {
-  it('reads «Ref. auto» even with a stored calibration on the stack', () => {
+  const buildingChip = () => screen.getByRole('button', { name: /Gebäude und Massstab/ })
+  const stackSheet = () => { fireEvent.click(buildingChip()); return screen.getByRole('group', { name: 'Plan · Gebäude' }) }
+
+  it('carries the lamp on the building chip, green: the scale is its own footprint', () => {
+    renderStack()
+    expect(buildingChip().querySelector('.wb-lamp')?.getAttribute('data-tone')).toBe('green')
+  })
+
+  it('has no Karte section, and names the Grundriss as the scale\'s source', () => {
+    renderStack()
+    const sh = stackSheet()
+    expect(within(sh).queryByRole('region', { name: /^Karte:/ })).toBeNull()
+    const massstab = within(sh).getByRole('region', { name: /^Massstab: Ref\. auto/ })
+    expect(within(massstab).getByText(/aus dem Gebäudegrundriss/)).toBeTruthy()
+  })
+
+  it('reads «Ref. auto» even with a stored calibration on the stack, and offers no calibration', () => {
     // ⚠️ `ar` must be the stack's own measure space (1 / TILE_AR) or isStale drops the
     // calibration before the precedence question is even asked — and the test proves nothing.
     renderStack({ gebaeude: { mPerU: 999, refM: 12, ar: 1 / TILE_AR } })
-    expect(screen.getByRole('button', { name: /Ref\. auto/ })).toBeTruthy()
+    const sh = stackSheet()
+    expect(within(sh).getByRole('region', { name: /^Massstab: Ref\. auto/ })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /kalibrieren/i })).toBeNull()
-  })
-
-  it('names the Grundriss as the source — never the Kartenverknüpfung it has not got', () => {
-    renderStack()
-    const chip = screen.getByRole('button', { name: /Ref\. auto/ })
-    expect(chip.getAttribute('title')).toBe('Ref. automatisch – Massstab aus dem Gebäudegrundriss')
-  })
-
-  // ⚠️ Deliberately still a button (29.08.): the hover title never fires on the field iPad, so the
-  // tap is the only way to learn where the metres come from. What it must never do is arm a
-  // manual calibration on top of the derived one.
-  it('explains itself on tap without arming a calibration', () => {
-    renderStack()
-    fireEvent.click(screen.getByRole('button', { name: /Ref\. auto/ }))
-    expect(screen.queryByText('Zwei Punkte des Massstabs antippen')).toBeNull()
   })
 })
