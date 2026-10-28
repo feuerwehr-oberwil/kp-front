@@ -1614,8 +1614,8 @@ export function IncidentWorkspace({
     const changedToSelection = prevSelKey.current !== selKey && (!!selectedId || !!selectedDrawingId || selectedDrawIds.length > 0 || selectedEntityIds.length > 0)
     prevSelKey.current = selKey
     // settleDraft, not setDraft([]): a selection landing mid-draft used to throw the tapped-out
-    // points away silently — a committable draft now auto-commits (without stealing this new
-    // selection), a fragment says it was discarded (useMapDrawing · settleDraft).
+    // points away silently — a committable draft now asks «Speichern · Verwerfen ·
+    // Weiterzeichnen» (and «Speichern» does not steal this new selection; useMapDrawing · settleDraft).
     if (changedToSelection) { setPanel(null); setViewsOpen(false); setTool('select'); setPending(null); setPendingShape(null); settleDraft() }
   }, [selKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -1832,7 +1832,7 @@ export function IncidentWorkspace({
     onLineDetached: (lineId, previous) => { unlinkLineFromDetachedTrupp(lineId, previous) },
   })
   const {
-    setDraft, lineMode, setLineMode, areaMode, setAreaMode, draftActive, selectedDrawing,
+    setDraft, lineMode, setLineMode, areaMode, setAreaMode, draftActive, draftOpen, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, createCircle, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
     deleteDrawing, reverseDrawing, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
@@ -2022,8 +2022,8 @@ export function IncidentWorkspace({
    *  closed. clearMapUi, the lock below and entering Koordinaten all go through here. */
   const disarmMapTool = () => {
     // settleDraft, not setDraft([]): leaving the map (or opening a dock) mid-draft used to be a
-    // silent discard — a committable draft auto-commits with an undo toast, a fragment says so
-    // (useMapDrawing · settleDraft; Escape stays the explicit discard).
+    // silent discard — a committable draft asks «Speichern · Verwerfen · Weiterzeichnen»
+    // (useMapDrawing · settleDraft).
     setTool('select'); setPending(null); setPendingShape(null); settleDraft(); setTeamPick(null)
     // the palette IS the arming UI for the symbol tool, so it goes with the tool it arms —
     // otherwise leaving the map with it open silently re-opened it on the way back
@@ -2241,7 +2241,7 @@ export function IncidentWorkspace({
     clearMapUi, setPaletteOpen, tool, setTool, setPending, setPendingShape, setSelectedId,
     setSelectedDrawingId, setSelectedDrawIds, setSelectedEntityIds, setNotePanelId, setEditNoteId, panel,
     setPanel, tacticalLocked, pendingShape, rotStart, setRotStart, commit, placeLock, log, emit, pending,
-    sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, lineMode, measure, mapRef,
+    sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, settleDraft, lineMode, measure, mapRef,
     incidentView, entities, liveIds, resolvedMapDrawings, cameraViews, view, setLocateReq, incidentOpen,
     share, setShareParent, setSharePick, setCameraViews, rememberOneShotRef, C_HIST, setViewsOpen,
     viewsOpen, selectedId, selectedDrawIds, selectedEntityIds, doc, truppCounterNames, selectedDrawingId,
@@ -3157,8 +3157,8 @@ export function IncidentWorkspace({
       }} />
 
       <MapToolDocks {...{
-        mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, isPhone, lineMode, setDraft,
-        setLineMode, draftActive, commitDraft, areaMode, setAreaMode, setTeamPick, placed, setFindTruppOpen,
+        mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, isPhone, lineMode, settleDraft,
+        setLineMode, draftActive, draftOpen, commitDraft, areaMode, setAreaMode, setTeamPick, placed, setFindTruppOpen,
         measure, pendingShape, setPendingShape, setRotStart, rotStart, tacticalLocked, createLine,
         createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, togglePanel, viewsApi,
         view, readOnly, isEl, viewsOpen, sharePick, shareParent, toggleViews, coord, mapRef, paletteOpen,

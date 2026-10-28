@@ -155,11 +155,10 @@ export function useGebaeudeActions({
     const subject = { subjectId: storeySubject(newFloor) }
     const addedRow = () => logPlan('plus', storeyAddedRow(floorLabel(newFloor)), subject)
     const rows: OneShotRows = { undo: () => logPlan('undo', storeyRemovedRow(floorLabel(newFloor), 0), subject), redo: addedRow }
-    // the toast and the ↶ NAME the storey («2. OG hinzugefügt»), and a second «+ OG» replaces
-    // the first toast instead of stacking another identical pill (#232, 3am test r4, 26.09.2026)
-    const line = fillTemplate(appConfig.copy.whiteboard.floorAddedToast, { floor: floorLabel(newFloor) })
-    const drop = rememberGebaeudeStep(line, restore, () => setBuilding(nextBuilding), wrote, rows)
-    oneShotUndoToast(line, line, restore, drop, rows, { kind: 'gebaeude-storey' })
+    // the ↶ NAMES the storey («2. OG hinzugefügt», 3am test r4, 26.09.2026). No toast (owner,
+    // Gebäude round 2, 27.10.2026): the new tile IS the confirmation, and the ↶ takes it back
+    const line = fillTemplate(appConfig.copy.whiteboard.floorAddedStep, { floor: floorLabel(newFloor) })
+    rememberGebaeudeStep(line, restore, () => setBuilding(nextBuilding), wrote, rows)
     addedRow()
   }
 

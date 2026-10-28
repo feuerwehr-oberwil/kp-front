@@ -40,7 +40,11 @@ export const whiteboardCopy = {
     symbol: 'Symbol',
     line: 'Linie',
     area: 'Fläche',
+    // the Gebäude stack's Grundriss preset of the Linie (27.10.2026): its dock toggle, the armed
+    // pill's second word and «… offen»
+    grundriss: { wand: 'Wand' },
     dockHints: {
+      wand: 'Punkte tippen – nahe am rechten Winkel rastet die Wand gerade oder rechtwinklig ein, sonst läuft sie frei. Den letzten Punkt nochmals tippen oder ✓ beendet sie, der erste Punkt schliesst sie. Das Werkzeug bleibt aktiv.',
       draw: 'Auf den Plan ziehen, um frei zu zeichnen. Farbe, Breite und Stil danach im Editor.',
       circle: 'Von der Mitte zum Rand ziehen setzt den Radius. Radius, Farbe und Füllung danach im Editor anpassen – in echten Metern, sobald der Massstab kalibriert ist.',
       text: 'Auf den Plan tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
@@ -267,6 +271,7 @@ export const whiteboardCopy = {
     placeSymbol: 'Symbol «{name}» auf Plan gesetzt',
     placeLine: 'Linie auf Plan gezeichnet',
     placeArea: 'Fläche auf Plan gezeichnet',
+    placeWand: 'Wand auf Plan gezeichnet',
     placeCircle: 'Absperrkreis auf Plan gezeichnet',
     placeTeam: '{name} auf Plan gesetzt',
     selectTrupp: 'Welcher Trupp?',
@@ -329,8 +334,8 @@ export const whiteboardCopy = {
     climbDown: 'Ein Geschoss tiefer weiter',
     climbBack: 'Zurück auf {floor}',
     addFloorDown: 'Untergeschoss hinzufügen',
-    // the toast and ↶ of «+ OG / + UG», naming the storey (its Verlauf row comes with #226)
-    floorAddedToast: '{floor} hinzugefügt',
+    // the ↶ of «+ OG / + UG», naming the storey (no toast since 27.10.2026; its Verlauf row comes with #226)
+    floorAddedStep: '{floor} hinzugefügt',
     floorHide: 'Geschoss ausblenden',
     // the storey label's menu (29.09.2026, sweep K5): «Ausblenden · Geschoss entfernen»
     floorHideShort: 'Ausblenden',
@@ -345,6 +350,33 @@ export const whiteboardCopy = {
     floorRemovedLog: 'Geschoss {floor} entfernt',
     floorRemovedLogMarks: 'Geschoss {floor} entfernt – {n} Markierungen entfernt oder gekürzt',
     floorRestoredLog: 'Geschoss {floor} wiederhergestellt',
+    // «Kopieren nach …» in the storey label's menu (27.10.2026): the storey's Grundriss onto others
+    storeyCopy: {
+      menu: 'Kopieren nach …',
+      // A · Stapel (owner pick, round 3): the title names the storey, one line says what goes,
+      // every storey a row, the button names the result
+      title: '{name} kopieren',
+      walls: '{n} Wände',
+      wallsOne: '1 Wand',
+      // «3× Durchgang»: the count with the symbol's name, so no plural has to be guessed
+      symbolCount: '{n}× {name}',
+      empty: 'leer',
+      // what a target already holds – the copy lands on top of it
+      adds: '{what} – kommt dazu',
+      source: 'Vorlage',
+      stays: 'Leitungen, Trupps und Gefahren bleiben.',
+      all: 'Alle',
+      none: 'Keine',
+      toOne: 'Auf {name} kopieren',
+      toMany: 'Auf {n} Geschosse kopieren',
+      // the picked storeys already hold all of it (a Treppe spanning them) – said, never a silent close
+      nothingNew: 'Nichts kopiert – das steht dort schon.',
+      pick: 'Geschoss wählen',
+      nothing: 'Auf {name} gibt es noch keinen Grundriss zum Kopieren – keine Wand, kein Gebäude-Symbol.',
+      targets: 'Geschosse',
+      done: 'Grundriss kopiert: {list}',
+      doneItem: '{n} nach {floor}',
+    },
     floorAddedLog: 'Geschoss {floor} hinzugefügt',
     buildingReplaced: 'Gebäude ersetzt',
     buildingReplacedMarks: 'Gebäude ersetzt – {n} Markierungen entfernt',

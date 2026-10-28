@@ -6,6 +6,7 @@ import { formatTime } from '../lib/format'
 import { serverNow } from '../lib/serverClock'
 import { applyRouting, nearestFreeEndpoint, objectAttachment, type AttachableLine } from '../lib/lineAttachments'
 import { normalizeStackEdit } from '../lib/stackFloors'
+import { DOOR_SNAP_PX, isDoor, nearestWall, seatDoor } from '../lib/grundriss'
 
 interface Args {
   /** the ARMED tool as the board reads it (a select-only surface reads 'pan') */
@@ -25,6 +26,8 @@ interface Args {
   mapY: (floor: number | undefined, ly: number) => number
   sW: number
   sH: number
+  /** a storey tile's height / width – a dragged Durchgang turns along the Wand it lands on */
+  tileAR: number
   attachmentLines: AttachableLine<BoardPoint>[]
   /** the board document's funnel (useBoardDoc): checkpoint, silent writes */
   pushPast: () => void
@@ -45,7 +48,7 @@ interface Args {
  * dispatcher (Whiteboard · manipMove).
  */
 export function useWbChipDrag({
-  tool, readOnly, annos, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH,
+  tool, readOnly, annos, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH, tileAR,
   attachmentLines, pushPast, set, patch, emit, activeId, onLinkLineTrupp,
 }: Args) {
   const chipDrag = useRef<{ id: string; moved: boolean; sx: number; sy: number; floorOffset: number } | null>(null)
@@ -94,7 +97,9 @@ export function useWbChipDrag({
     const point: BoardPoint = [n[0], localY(n[1], f ?? 0), f ?? 0]
     set(annos.map((anno) => {
       if (anno.id === chipDrag.current!.id) {
-        const moved = { ...anno, x: point[0], y: point[1], ...(stack ? { floor: (f ?? 0) - chipDrag.current!.floorOffset } : {}) }
+        let moved: BoardAnno = { ...anno, x: point[0], y: point[1], ...(stack ? { floor: (f ?? 0) - chipDrag.current!.floorOffset } : {}) }
+        // a Durchgang dropped near a Wand sits on it again, turned along it; elsewhere it stands free
+        if (stack && isDoor(anno) && sW) moved = seatDoor(moved, nearestWall(annos, moved.floor ?? 0, point[0], point[1], tileAR, DOOR_SNAP_PX / sW))
         return stack ? normalizeStackEdit(anno, moved) : moved
       }
       if (anno.kind !== 'draw' || !anno.pts?.length) return anno
@@ -116,6 +121,8 @@ export function useWbChipDrag({
     if (a?.kind === 'resource') patch(d.id, { t: formatTime(new Date(serverNow())) })
     // record the relocation in the audit trail (the drag itself was silent patches)
     if (a) emit('board.move', { id: d.id, x: a.x, y: a.y, floor: a.floor, ...(stack && a.kind === 'symbol' ? { floorFrom: a.floorFrom, floorTo: a.floorTo } : {}), planId: activeId })
+    // …and a Durchgang's seat, which a position does not carry (its turn, the Wand it sits on)
+    if (a && stack && isDoor(a)) emit('board.edit', { id: d.id, patch: { rotation: a.rotation, onWall: a.onWall ?? null }, planId: activeId })
     annos.filter((line) => [line.startAttachment, line.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === d.id && rel.routing === 'trace'))
       .forEach((line) => emit('board.edit', { id: line.id, patch: { pts: line.pts }, planId: activeId }))
     // Ein Trupp auf dem Leitungsende (15.09.): a Trupp's chip dropped on the FREE end of a hose

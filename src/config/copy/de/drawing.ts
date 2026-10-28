@@ -249,5 +249,13 @@ export const drawingCopy = {
     autoCommitUndo: 'Rückgängig',
     // A fragment below the minimum (1-point line, 2-point area) has nothing to keep.
     draftDiscarded: 'Unvollständige Zeichnung verworfen',
+    // «… noch offen» (27.10.2026): an open drawing that is being left asks — lib/draftMachine ·
+    // askOpenDraft. The pill marks the open drawing on the sheet / the map.
+    openTitle: '{name} noch offen',
+    openMessage: 'Die Zeichnung ist noch nicht abgeschlossen.',
+    openSave: 'Speichern',
+    openDiscard: 'Verwerfen',
+    openContinue: 'Weiterzeichnen',
+    openPill: '{name} offen',
   },
 } as const

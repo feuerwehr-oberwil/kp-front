@@ -232,8 +232,9 @@ export function floorGeometry(stack: boolean, floorsTTB: number[], N: number) {
  * How far a rigid shape has to be shifted (tile-local y) so all of it lies inside [0, 1] — 0 when
  * it already does. A shape taller than one tile cannot fit whichever way it is shifted; it is
  * centred, and the per-point clamp then flattens only what overhangs at either end — the least
- * a tile can do for it (moving it between storeys is not a body drag's business: a stroke stays on
- * the storeys it was drawn on, like a cordon, and a vertex changes storey by its own grip).
+ * a tile can do for it. (Moving it to ANOTHER storey is the caller's: on the Gebäude stack a drop
+ * onto another tile shifts its storeys first – lib/grundriss · shiftStoreys – and hands moveRigid
+ * the shifted stroke; a vertex changes storey by its own grip.)
  */
 export function rigidTileShift(ys: readonly number[]): number {
   if (!ys.length) return 0

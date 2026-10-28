@@ -11,6 +11,7 @@ import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { useArmedTransform } from '../lib/useArmedTransform'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import type { floorGeometry } from '../lib/whiteboard'
+import { doorsOn, shiftStoreys } from '../lib/grundriss'
 import type { useBoardDoc } from './useBoardDoc'
 
 type FloorGeometry = ReturnType<typeof floorGeometry>
@@ -39,6 +40,15 @@ interface Args {
   localY: FloorGeometry['localY']
   boardPts: FloorGeometry['boardPts']
   moveRigid: FloorGeometry['moveRigid']
+  /** the Gebäude stack: a selection moved onto another storey tile goes to that storey */
+  stack: boolean
+  floorAt: FloorGeometry['floorAt']
+  floorsTTB: readonly number[]
+  /** the storey tile the move would drop onto (highlighted), null = its own */
+  setDropFloor: (floor: number | null) => void
+  /** the moved Wände's snap (usePlanDraft · snapMoveOf): the extra shift that lands one of their
+   *  corners on a target, ring shown; `null` points clear the ring */
+  snapMove: (ids: readonly string[], floor: number, moved: readonly (readonly [number, number])[] | null) => [number, number] | null
   pushPast: BoardDoc['pushPast']
   set: (next: BoardAnno[]) => void
   emit: (op: string, payload?: Record<string, unknown>) => void
@@ -51,13 +61,15 @@ interface Args {
 /** The Plan's selection-bar transform; see the file header. */
 export function useWbSelectionBar({
   tool, readOnly, georefArmed, annos, selIds, editDraw, selShape, setSelId, setSelIds, setNotePanelId, setEditId, setAnnoTap,
-  sW, sH, mapY, localY, boardPts, moveRigid, pushPast, set, emit, activeId, boardRef, canvasRef, onStepEnd,
+  sW, sH, mapY, localY, boardPts, moveRigid, stack, floorAt, floorsTTB, setDropFloor, snapMove, pushPast, set, emit, activeId, boardRef, canvasRef, onStepEnd,
 }: Args) {
   // The selection bar's drag origin: the original board-space geometry and bearings of every
   // selected anno, plus the centre a turn pivots about. Pan/pinch/marquee refs live in
   // useBoardGestures.
-  type GrpOrig = { id: string; floor: number; rot?: number; rot2?: number; bx?: number; by?: number; bpts?: BoardPoint[] }
+  type GrpOrig = { id: string; floor: number; rot?: number; rot2?: number; bx?: number; by?: number; bpts?: BoardPoint[]; orig: BoardAnno }
   const groupOrig = useRef<GrpOrig[]>([])
+  /** the selection's centre (board space) as the gesture started – the storey it lands on is the tile under it */
+  const moveCentre = useRef<{ x: number; y: number } | null>(null)
   const barRotCentre = useRef<{ x: number; y: number } | null>(null)
   // --- the selection bar's transform target (components/SelectionBar) ------------------------
   // ONE writer for every selection this surface has: a Mehrfach group, a single Linie/Fläche/
@@ -91,36 +103,89 @@ export function useWbSelectionBar({
    *  the start position and never compounds across re-renders */
   const barSnapshot = () => {
     pushPast() // one checkpoint for the whole gesture
+    moveCentre.current = barCentre
     groupOrig.current = annos.filter((a) => barIds.includes(a.id)).map((a) =>
       a.pts
-        ? { id: a.id, floor: a.floor ?? 0, rot: a.rotation, rot2: a.rotation2, bpts: boardPts(a.pts, a.floor ?? 0) }
-        : { id: a.id, floor: a.floor ?? 0, rot: a.rotation, rot2: a.rotation2, bx: a.x ?? 0, by: mapY(a.floor, a.y ?? 0) },
+        ? { id: a.id, floor: a.floor ?? 0, rot: a.rotation, rot2: a.rotation2, bpts: boardPts(a.pts, a.floor ?? 0), orig: a }
+        : { id: a.id, floor: a.floor ?? 0, rot: a.rotation, rot2: a.rotation2, bx: a.x ?? 0, by: mapY(a.floor, a.y ?? 0), orig: a },
     )
   }
+  /** The storey step a MOVE frame takes on the Gebäude stack (27.10.2026): the selection goes to
+   *  the tile its centre is dragged onto, every member by the same step (lib/grundriss ·
+   *  shiftStoreys), with the tile jump taken off the translation. Null – it stays on its storeys –
+   *  off the stack, for a turn, for a docked line, or when any member would leave the stack. */
+  const crossing = (t: { ndy: number; deg: number }) => {
+    const c = moveCentre.current
+    if (!stack || t.deg || !c) return null
+    const f0 = floorAt(c.y), f1 = floorAt(c.y + t.ndy)
+    if (f0 === f1) return null
+    const shifted = new Map<string, BoardAnno>()
+    for (const o of groupOrig.current) {
+      const s = o.orig.startAttachment || o.orig.endAttachment ? null : shiftStoreys(o.orig, f1 - f0, floorsTTB)
+      if (!s) return null
+      shifted.set(o.id, s)
+    }
+    return { f1, jump: mapY(f1, 0) - mapY(f0, 0), shifted }
+  }
+  /** a member's storey fields as `src` has them, written only where they differ from `a` */
+  const storeyOf = (src: BoardAnno, a: BoardAnno): Partial<BoardAnno> => {
+    const out: Partial<BoardAnno> = {}
+    if ((src.floor ?? 0) !== (a.floor ?? 0)) out.floor = src.floor
+    if (src.floorFrom !== a.floorFrom) out.floorFrom = src.floorFrom
+    if (src.floorTo !== a.floorTo) out.floorTo = src.floorTo
+    return out
+  }
+  /** A MOVE frame holding Wände lands them on what they are moved next to (round 3, 27.10.2026):
+   *  the extra shift that puts the nearest Wand corner of the selection on a Wand, a Fläche edge
+   *  or the outline of the storey under the selection's centre – only corners on that storey
+   *  count. Null for a turn, off the stack, and for a selection without a Wand. */
+  const snapWalls = (t: { ndx: number; ndy: number; deg: number }, across: ReturnType<typeof crossing>) => {
+    const c = moveCentre.current
+    if (t.deg || !stack || !c) return null
+    const walls = groupOrig.current.filter((o) => o.orig.role === 'wand' && o.bpts)
+    if (!walls.length) return null
+    const floor = across?.f1 ?? floorAt(c.y + t.ndy)
+    const jump = across?.jump ?? 0
+    const moved = walls.flatMap((o) => {
+      const src = across?.shifted.get(o.id) ?? o.orig
+      const home = src.floor ?? 0
+      return (across ? boardPts(src.pts ?? [], home) : o.bpts ?? [])
+        .filter((p) => (p[2] ?? home) === floor)
+        .map(([x, by]): [number, number] => [x + t.ndx, by + t.ndy - jump])
+    })
+    return snapMove(barIds, floor, moved)
+  }
   /** write one frame of the gesture: `t` moves in board fractions, `deg` turns about `barCentre`.
-   *  Members stay on their own storey (floor unchanged) and an ATTACHED line end stays pinned to
-   *  its target — the same two rules the single-object body drag already follows. Returns what
-   *  it wrote, so the release reports the frame it actually ended on. */
-  const barApply = (t: { ndx: number; ndy: number; deg: number }, centre: { x: number; y: number } | null): BoardAnno[] => {
+   *  Members stay on their own storey unless a move drops them onto another tile (`crossing`), and
+   *  an ATTACHED line end stays pinned to its target — the same rules the single-object body drag
+   *  follows. Returns what it wrote, so the release reports the frame it actually ended on. */
+  const barApply = (frame: { ndx: number; ndy: number; deg: number }, centre: { x: number; y: number } | null): BoardAnno[] => {
     // x and y are fractions of DIFFERENT edges, so a turn has to happen in px proportions
     const xScale = (sW || 1) / (sH || 1)
-    const turn = (x: number, by: number): [number, number] => (t.deg && centre
-      ? rotateAround([x, by], [centre.x, centre.y], t.deg, { xScale })
+    const turn = (x: number, by: number): [number, number] => (frame.deg && centre
+      ? rotateAround([x, by], [centre.x, centre.y], frame.deg, { xScale })
       : [x, by])
+    const across = crossing(frame)
+    setDropFloor(across?.f1 ?? null)
+    const jump = across?.jump ?? 0
+    const snap = snapWalls(frame, across)
+    const t = snap ? { ...frame, ndx: frame.ndx + snap[0], ndy: frame.ndy + snap[1] } : frame
     const next = annos.map((a) => {
       const o = groupOrig.current.find((g) => g.id === a.id); if (!o) return a
+      const src = across?.shifted.get(a.id) ?? o.orig
+      const home = src.floor ?? 0
       const turned = t.deg
         ? { ...(o.rot !== undefined ? { rotation: turnedBy(o.rot, t.deg) } : null), ...(o.rot2 !== undefined ? { rotation2: turnedBy(o.rot2, t.deg) } : null) }
         : null
       // ⚠️ each stroke is ONE body, turned and moved whole and kept whole at its tile's edge
       // (floorGeometry · moveRigid) — the same writer as the stroke body drag above
-      const bpts = o.bpts
-      if (bpts) return { ...a, ...turned, pts: moveRigid(bpts, o.floor, (x, by) => { const [rx, ry] = turn(x, by); return [rx + t.ndx, ry + t.ndy] }, (i) => (
+      const bpts = o.bpts && (across ? boardPts(src.pts ?? [], home) : o.bpts)
+      if (bpts) return { ...a, ...turned, ...storeyOf(src, a), pts: moveRigid(bpts, home, (x, by) => { const [rx, ry] = turn(x, by); return [rx + t.ndx, ry + t.ndy - jump] }, (i) => (
         (i === 0 && a.startAttachment) || (i === bpts.length - 1 && a.endAttachment)
           ? a.pts?.[i] ?? [bpts[i][0], localY(bpts[i][1], bpts[i][2] ?? o.floor), bpts[i][2] ?? o.floor]
           : null)) }
       const [rx, ry] = turn(o.bx ?? 0, o.by ?? 0)
-      return { ...a, ...turned, x: rx + t.ndx, y: localY(ry + t.ndy, o.floor) }
+      return { ...a, ...turned, ...storeyOf(src, a), x: rx + t.ndx, y: localY(ry + t.ndy - jump, o.floor) }
     })
     set(next)
     return next
@@ -129,10 +194,17 @@ export function useWbSelectionBar({
    *  points (the same payload `drawUp` sends). ⚠️ It sent x/y/floor for everything, which a stroke
    *  does not have: the event named no position at all and the replay folded nothing (prod
    *  23.09.2026 19:00:55). Read off the frame the gesture ended on, not off the last render. */
-  const barCommit = (written: BoardAnno[]) => written.filter((a) => barIds.includes(a.id))
-    .forEach((a) => emit('board.move', a.pts
-      ? { id: a.id, pts: a.pts, planId: activeId }
-      : { id: a.id, x: a.x, y: a.y, floor: a.floor, planId: activeId }))
+  const barCommit = (written: BoardAnno[]) => {
+    setDropFloor(null)
+    snapMove(barIds, 0, null) // the ring goes with the hand
+    written.filter((a) => barIds.includes(a.id))
+      .forEach((a) => emit('board.move', a.pts
+        ? { id: a.id, pts: a.pts, ...(stack ? { floor: a.floor ?? 0 } : null), planId: activeId }
+        : { id: a.id, x: a.x, y: a.y, floor: a.floor, ...(stack && a.kind === 'symbol' ? { floorFrom: a.floorFrom, floorTo: a.floorTo } : null), planId: activeId }))
+    // the Durchgänge that rode along with a moved Wand (lib/grundriss · carryDoors), as the last
+    // rendered frame has them – the board funnel seats them after `written`, so it cannot say
+    doorsOn(annos, barIds).forEach((d) => emit('board.edit', { id: d.id, patch: { x: d.x, y: d.y, floor: d.floor, rotation: d.rotation }, planId: activeId }))
+  }
   const barMove = (dx: number, dy: number, phase: 'start' | 'move' | 'end') => {
     if (readOnly) return
     if (phase === 'start') { barSnapshot(); beginSheetPeek(); return }

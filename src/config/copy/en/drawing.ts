@@ -144,5 +144,11 @@ export const drawingCopy: Localizable<Pick<Copy, Keys>> = {
     autoCommitted: '{name} saved',
     autoCommitUndo: 'Undo',
     draftDiscarded: 'Incomplete drawing discarded',
+    openTitle: '{name} still open',
+    openMessage: 'The drawing is not finished yet.',
+    openSave: 'Save',
+    openDiscard: 'Discard',
+    openContinue: 'Keep drawing',
+    openPill: '{name} open',
   },
 }

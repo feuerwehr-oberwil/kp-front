@@ -179,12 +179,15 @@ describe('(k) Koordinaten is a tool like any other', () => {
     expect(placing()).toBe(true)
   })
 
-  it('entering it puts the armed tool down — and settles its draft instead of dropping it', async () => {
+  it('entering it puts the armed tool down — and asks about its open draft; «Speichern» keeps it', async () => {
     await mount()
     key('f') // Fläche, tapped corners
     const onMapClick = (lastMap() as unknown as { onMapClick: (c: [number, number]) => void }).onMapClick
     act(() => { onMapClick([7.6, 47.5]); onMapClick([7.601, 47.5]); onMapClick([7.601, 47.501]) })
+    rec.answers.push(true) // «Speichern»
     key('x')
+    await settle()
+    expect(rec.confirms).toBe(1)
     expect(picking()).toBe(true)
     expect(placing()).toBe(false)
     expect(lastMap().drawings.filter((d) => d.kind === 'area')).toHaveLength(1)

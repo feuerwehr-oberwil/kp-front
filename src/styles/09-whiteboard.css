@@ -324,6 +324,8 @@
 .wb-floor { position: absolute; left: 0; display: flex; align-items: center; justify-content: center;
   container-type: inline-size;
   border-bottom: 1px dashed var(--ink-28); }
+/* the storey a dragged selection would land on (useWbBodyDrag / useWbSelectionBar · setDropFloor) */
+.wb-floor-drop { background: var(--sel-wash); box-shadow: inset 0 0 0 2px var(--sel); }
 .wb-floor-fp { flex: none; } /* width/height set inline (px), fit to the tile preserving aspect */
 .wb-floor-svg { width: 100%; height: 100%; display: block; }
 /* the storey index as a chip (mock B, 14.09.2026) – the Karte's storey badge, on the tile.
@@ -352,7 +354,13 @@
    corner left the canvas — delete is the rarest act on this surface and was its loudest shape,
    four bins at once on a tablet, half of each phone tile. The plate stays the plate; a small ⌄
    says it opens something, and its hit area grows to --tap past the 21px plate (the eye's pad). */
+/* ⚠️ z 6 – but only while a create tool's capture layer (.wb-ink, z 5) is mounted: with the Wand
+   armed – and it stays armed – a click on the label went to the ink, so «Kopieren nach …» was out
+   of reach with a mouse (round 2, 27.10.2026). Otherwise the plate keeps its z 1, under the sheet's
+   symbols and their names: lifted always, its plate covered a neighbouring symbol's label («Druck»,
+   the plan-tablet baseline, 28.10.2026). Still under a selected anno (also z 6, later in the board). */
 .wb-floor-menu { border: none; cursor: pointer; }
+.wb-stage:has(.wb-ink) .wb-floor-menu { z-index: 6; }
 .wb-floor-menu::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap); transform: translateY(-50%); }
 .wb-floor-menu > .i { width: 12px; height: 12px; stroke-width: 2.2; margin-left: -2px; color: var(--ink-faint); }
 @media (hover: hover) {
@@ -364,7 +372,8 @@
    the stack's top edge, centred): a door that sits under another button is no door (phone,
    29.09.2026) */
 @container (max-width: 359px) {
-  .wb-floor-under-add > .wb-floor-label { top: calc(var(--tap) / 2 + 4px); }
+  .wb-floor-under-add > .wb-floor-label,
+  .wb-floor-under-add > .wb-floor-menu-host > .wb-floor-label { top: calc(var(--tap) / 2 + 4px); }
 }
 /* …and what it leaves behind: a strip where the storey belongs, which says what it is and how to
    get it back. Sits at the seam between the two drawn tiles, so the stack still reads in order. */
@@ -482,6 +491,8 @@
 
 .wb-ink-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .wb-ink { position: absolute; inset: 0; z-index: 5; touch-action: none; }
+/* the Durchgang a click would place (usePlanCreate · doorGhost): above the capture layer, never in its way */
+.wb-door-ghost { position: absolute; left: 0; top: 0; z-index: 6; opacity: .55; pointer-events: none; }
 
 /* point annotations — anchor centred on the plan point via translate(-50%,-50%) */
 /* labels never text-highlight on click/drag; only the edit inputs are selectable */
@@ -861,7 +872,7 @@ span.wb-ghost-label { cursor: default; }
    phone moves the row onto the floating baseline (15-mobile). */
 .armed-pill-row { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome-raised);
   display: flex; align-items: center; gap: var(--sp-2); max-width: calc(100% - 32px); pointer-events: none; }
-.armed-pill, .armed-pill-lock { display: inline-flex; align-items: center; height: var(--tap); border-radius: calc(var(--tap) / 2);
+.armed-pill, .armed-pill-lock, .armed-pill-x { display: inline-flex; align-items: center; height: var(--tap); border-radius: calc(var(--tap) / 2);
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--e4);
   white-space: nowrap; min-width: 0; }
 .armed-pill { gap: var(--sp-3); padding: 0 var(--sp-4) 0 var(--sp-2); color: var(--ink); font-size: var(--fs-3); font-weight: var(--fw-bold); }
@@ -874,6 +885,12 @@ span.wb-ghost-label { cursor: default; }
   font-size: var(--fs-2); font-weight: var(--fw-medium); }
 .armed-pill-lock .i { width: 18px; height: 18px; }
 .armed-pill-lock.on { background: var(--sel); color: var(--on-sel); border-color: transparent; }
+/* …and the ✕ beside it that puts the placing tool down (round 2, 27.10.2026): a round --tap button
+   in the same glass, so «stop» is never just Escape */
+.armed-pill-x { pointer-events: auto; justify-content: center; width: var(--tap); padding: 0; color: var(--ink-dim); cursor: pointer; flex: none; }
+.armed-pill-x .i { width: 18px; height: 18px; }
+.armed-pill-x:active { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) { .armed-pill-x:hover { color: var(--ink); } }
 .armed-pill-lock:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) { .armed-pill-lock:not(.on):hover { color: var(--ink); } }
 
@@ -916,11 +933,7 @@ span.wb-ghost-label { cursor: default; }
 .wb-line-glyph { position: absolute; pointer-events: none; line-height: 0; }
 /* ↑ / ↓ at an open line end on the stack (WbVertexHandles): the SAME grip as the extend arrow –
    .draw-grow / .wb-grow give it the look and the z-order – only the chevron does not turn with
-   the line, up is up */
-/* ⚠️ .draw-grow (11-measure.css, loaded later) says position: relative – right for the map's
-   marker, wrong here: two of these in a row then FLOW under each other and the translate lands
-   on top of that. The specific selector pins them to the board layer like every other grip. */
-.wb-grow.wb-climb { position: absolute; left: 0; top: 0; }
+   the line, up is up (pinned to the board layer by .draw-grow.wb-grow below) */
 .wb-climb .i { transform: none; }
 /* the way back down the same stairs is hollow-dashed like an insert pad: it removes, not adds */
 .wb-climb.back { border-style: dashed; }
@@ -1146,8 +1159,12 @@ span.wb-ghost-label { cursor: default; }
 /* Verlängern-Griff auf dem Plan: dieselbe Optik wie auf der Lage (.draw-grow in 11-measure.css),
    hier nur absolut im Board-Layer positioniert statt in einem Marker. z 8 über Knoten (7) und
    Einfügepunkten (6) — er liegt ausserhalb der Linie, kann also nichts verdecken, aber am
-   Endpunkt drängen sich Knoten, Tag und Lösen-Chip. */
-.wb-grow { position: absolute; z-index: 8; }
+   Endpunkt drängen sich Knoten, Tag und Lösen-Chip.
+   ⚠️ Two classes, not `.wb-grow` alone: .draw-grow (11-measure.css, loaded LATER) says
+   position: relative – right in the map's marker, wrong here. With one class it won, so the
+   grips FLOWED: the end's arrow sat one grip (32 px) lower than its translate, on a line ending
+   upwards right on its node (owner, round 3 of the Gebäude drawing, 27.10.2026). */
+.draw-grow.wb-grow { position: absolute; left: 0; top: 0; z-index: 8; }
 /* ⚠️ z-index 6, UNDER the vertices: on a dense line the two pads overlap and the node is the
    more important grab — DOM order alone decided this before, which is a coincidence, not a rule.
    Dashed + hollow like the map's .measure-insert: one look for «here could be a node». */
@@ -1159,3 +1176,54 @@ span.wb-ghost-label { cursor: default; }
   .wb-vins:hover { opacity: 1; }
 }
 .wb-vins .i { width: 11px; height: 11px; stroke-width: 3.2; }
+
+/* ── The open drawing and the snap ring (27.10.2026, Grundriss round) ─────────────────────────
+   A Punkte drawing that is not saved yet LOOKS open: amber marching dashes and a pulsing «Wand
+   offen» pill at its last point (usePlanDraft · openName). Where the next point lands is a ring
+   and nothing else (owner: «no text, no guide lines»): magenta when it catches, a small grey dot
+   when it is free; a mouse also draws the rubber band from the last point. */
+.wb-draft-open { fill: none; stroke: var(--open); stroke-width: 3; stroke-dasharray: 10 7; animation: wb-ants .8s linear infinite; }
+polygon.wb-draft-open { fill: var(--open); fill-opacity: .1; }
+@keyframes wb-ants { to { stroke-dashoffset: -34; } }
+.wb-open-pill { position: absolute; left: 0; top: 0; z-index: 8; pointer-events: none; white-space: nowrap;
+  padding: 2px var(--sp-2); border-radius: var(--r-pill); background: var(--open); color: var(--on-amber);
+  font-size: var(--fs-1); font-weight: var(--fw-bold); animation: wb-pulse 1.2s ease-in-out infinite; }
+@keyframes wb-pulse { 50% { opacity: .5; } }
+.wb-snap-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 8; }
+.wb-snap-band { stroke: var(--open); stroke-width: 2; stroke-dasharray: 3 5; fill: none; }
+.wb-snap-ring { fill: none; stroke: var(--snap); stroke-width: 2.5; }
+.wb-snap-core { fill: var(--snap); }
+.wb-snap-free { fill: var(--ink-faint); }
+@media (prefers-reduced-motion: reduce) { .wb-draft-open, .wb-open-pill { animation: none; } }
+
+/* «Kopieren nach …» (components/StoreyCopySheet) – A «Stapel»: a narrow sheet, one line of what
+   goes, the storeys as rows top to bottom (the source tinted, «Vorlage»), a quiet footer line with
+   «Alle», one full-width button. On a phone it is the usual bottom sheet. */
+@media (--not-phone) { .ip-sheet.wb-copy { width: min(360px, 100%); } }
+.wb-copy .ip-body { padding-bottom: var(--sp-2); }
+.wb-copy-what { margin: 0 0 var(--sp-3); color: var(--ink-dim); font-size: var(--fs-2); }
+.wb-copy-rows { display: flex; flex-direction: column; gap: var(--sp-2); }
+/* the TickRow is the row; this only frames it so every storey reads as one slab of the stack */
+.wb-copy-rows > .wb-copy-row { width: 100%; padding-inline: var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-sm); }
+.wb-copy-rows > .wb-copy-row[aria-checked="true"] { border-color: var(--blue-45); background: var(--sel-wash); }
+.wb-copy-rows > .wb-copy-src {
+  display: flex; align-items: center; gap: var(--sp-3); box-sizing: border-box; min-height: var(--tap);
+  border-color: var(--blue-45); background: var(--blue-12);
+}
+/* the source has no box – this keeps its name on the same column as the others' */
+.wb-copy-gap { flex: none; width: 24px; }
+.wb-copy-name { flex: none; min-width: 3.5em; font-weight: var(--fw-bold); }
+.wb-copy-meta { flex: 1 1 auto; min-width: 0; color: var(--ink-dim); font-size: var(--fs-1); font-weight: var(--fw-regular); }
+.wb-copy-pill {
+  margin-left: auto; padding: 1px 8px; border: 1px solid var(--blue-45); border-radius: var(--r-pill);
+  color: var(--blue-strong); font-size: var(--fs-1); font-weight: var(--fw-bold);
+}
+.wb-copy-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-top: var(--sp-2); color: var(--ink-dim); font-size: var(--fs-1); }
+.wb-copy-all {
+  flex: none; min-width: var(--tap); min-height: var(--tap); padding: 0; text-align: right;
+  border: none; background: none; color: var(--blue-strong); font: inherit; font-weight: var(--fw-bold); cursor: pointer;
+}
+
+/* the storey label menu's host: only there to stop its portalled items' pointer events (Whiteboard).
+   ⚠️ it sits between the tile and its label: a `.wb-floor… > .wb-floor-label` rule must name it too */
+.wb-floor-menu-host { display: contents; }
