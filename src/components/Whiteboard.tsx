@@ -75,7 +75,7 @@ import { StoreyCopySheet } from './StoreyCopySheet'
 import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, STACK_READINGS_LANE, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
 import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachAnnos, dwellFor, flipLine, forkPortPoint, wireFreed, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, withDetach, type AnnoDetachPatch, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
-import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from '../lib/stackFit'
+import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, stackGroundFit } from '../lib/stackFit'
 import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
 import type { FloorPackView } from '../lib/floorPackBinding'
 import { stackInstances } from '../lib/stackFloors'
@@ -86,7 +86,8 @@ import { isSelectOnlySurface } from '../lib/useObjectPlans'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { PlanScales } from '../lib/workspace'
 import { fmtDistance, fmtArea } from '../lib/geo'
-import { activeViewDeg, bandAspect, BOX_H, BOX_W, buildView, principalAngleDeg, remapPoint, stackScaleMPerU, type Ring } from '../lib/footprint'
+import { activeViewDeg, bandAspect, BOX_H, BOX_W, buildView, pointRemapper, principalAngleDeg, stackScaleMPerU, type Ring } from '../lib/footprint'
+import { reorientAnnos } from '../lib/reorientAnnos'
 import { usePlanMeasure } from './usePlanMeasure'
 import { usePlanGeoref } from './usePlanGeoref'
 import { usePlanTafelPages } from './usePlanTafelPages'
@@ -628,10 +629,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   )
   const viewAngle = building ? activeViewDeg(building) : 0
   // A8 (29.08.): a DRAG on the north dial rotates the building continuously. While the finger
-  // is down this holds the live preview angle; the commit (one reorientTo, through the same
-  // remap + undo path as the tap) happens on release, so annotations re-glue exactly once.
-  // The release is the slider's native `change`; a gesture cancelled instead drops the preview
-  // again (OrientSlider).
+  // is down this holds the live preview angle – the backdrop AND every annotation turn with it
+  // (`previewAnnos`, 28.10.2026); the commit (one reorientTo, through the same remap + undo path
+  // as the tap) happens on release, so annotations are WRITTEN exactly once. The release is the
+  // Slider's `onCommit`; a gesture cancelled instead drops the preview again (OrientSlider).
   const [dialDragDeg, setDialDragDeg] = useState<number | null>(null)
   const shownAngle = dialDragDeg ?? viewAngle
   /** the turned view of `orientSrc` – present whenever there is something to turn */
@@ -698,6 +699,21 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // band – a flat hall gets flat cards, so the stack is as tall as its drawings need (16.09.2026)
   const tileAR = tileAspectOf(building)
   const effAspect = stack ? N * tileAR : aspect
+  /** The sheet's annotations as the held orientation slider shows them: the commit's own re-glue
+   *  (lib/reorientAnnos) at the preview angle, onto the board ON SCREEN – the band only follows a
+   *  pack's turned frame at the commit, so during the drag the backdrop is drawn into this one.
+   *  RENDER ONLY: every write still reads `annos`, and the board takes no presses while it stands
+   *  (`previewing` below), so nothing can hit-test or commit a previewed position. Null when no
+   *  preview is live. */
+  const previewAnnos = useMemo(
+    () => (dialDragDeg != null && stack && orientSrc
+      ? reorientAnnos(annos, { src: orientSrc, fromDeg: viewAngle, toDeg: dialDragDeg, layout: { boardW: 1, boardH: N * tileAR, floors: N } })
+      : null),
+    [dialDragDeg, stack, orientSrc, annos, viewAngle, N, tileAR],
+  )
+  const previewing = previewAnnos != null
+  /** what the board DRAWS: the live preview while the slider is held, else the sheet */
+  const shownAnnos = previewAnnos ?? annos
   // "contain" the plan in the area below the top bar: full width, but the usable
   // height excludes TOP_INSET so the fitted plan never sits behind the bar. In the
   // floor-stack we also reserve STACK_VPAD top & bottom so the +OG / −UG pills (which
@@ -991,7 +1007,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // each point lets one polyline cross storeys while legacy two-tuples inherit anno.floor.
   // The dragged endpoint follows the FINGER, fed into resolution with its own attachment ignored, so
   // attached branch lines follow the node live (move + carry) rather than snapping only on release.
-  const attachmentLines: AttachableLine<BoardPoint>[] = annos
+  const attachmentLines: AttachableLine<BoardPoint>[] = shownAnnos
     .filter((a) => a.kind === 'draw' && (a.pts?.length ?? 0) >= 2)
     .map((a) => {
       const drag = planEndpointDragState?.id === a.id ? planEndpointDragState : null
@@ -1047,7 +1063,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
    * a far-side delete fall back to the stored point, which resolveLinePoints already does safely.
    */
   const objectPoint = (id: string, toward: BoardPoint, attachment: LineAttachment, source: AttachableLine<BoardPoint>): BoardPoint | null => {
-    const target = annos.find((a) => a.id === id && isMagnetAnno(a)) ?? null
+    const target = shownAnnos.find((a) => a.id === id && isMagnetAnno(a)) ?? null
     if (!target || target.x == null || target.y == null || !sW || !sH) return null
     const floor = target.floor ?? 0
     const box = attachBox(target)
@@ -1072,7 +1088,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const relationship = relationshipNetwork(attachmentLines, selId && attachmentLines.some((l) => l.id === selId) ? [selId] : [], selId && annos.some((a) => a.id === selId && (a.kind === 'symbol' || a.kind === 'resource')) ? [selId] : [])
   // resolvedPts already carries the dragged endpoint at the finger position (attachmentLines injects
   // it above), so the anno list needs no second override.
-  const renderAnnos = annos.map((a) => (resolvedPts.has(a.id) ? { ...a, pts: resolvedPts.get(a.id)! } : a))
+  const renderAnnos = shownAnnos.map((a) => (resolvedPts.has(a.id) ? { ...a, pts: resolvedPts.get(a.id)! } : a))
 
   /** Every placed Trupp chip on this sheet, as the one-Trupp rule reads them (a Plan's `resource`
    *  is the Karte's team marker — lib/truppLines · TruppMarker). */
@@ -1688,8 +1704,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // so the re-glue has to know both boards (lib/footprint · remapPoint).
     const nextTileAR = building.pack ? bandAspect(view.aspect) : tileAR
     const toLayout = { boardW: sW, boardH: sW * N * nextTileAR, floors: N }
-    const src = orientSrc
-    const mv = (p: [number, number]): [number, number] => remapPoint(src, fromDeg, toDeg, layout, p, toLayout)
+    const mv = pointRemapper(orientSrc, fromDeg, toDeg, layout, toLayout)
     // where the view is looking, in tile coordinates, re-glued the same way (see the pan below)
     const anchor = (() => {
       const s = scaleRef.current, w = fit.w * s, h = fit.h * s
@@ -1700,17 +1715,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       const [x, y] = mv([nx, localY(ny, floor)])
       return { x, y, floor }
     })()
-    const remapped = annos.map((a) => {
-      // ⚠️ the BEARINGS turn with the paper too (lib/stackFit · reorientBearings, 15.09.2026):
-      // a stored rotation is relative to the sheet, and the sheet is what just moved. Without it
-      // a Fahrzeug DRAWN on a tile stayed pointing where it was while the identical one placed
-      // on the Karte — projected through the stack's fit — swung with the building.
-      const next: BoardAnno = { ...reorientBearings(a, toDeg - fromDeg) }
-      if (a.x != null && a.y != null) { const [x, y] = mv([a.x, a.y]); next.x = x; next.y = y }
-      if (a.pts) next.pts = a.pts.map((p): BoardPoint => { const [x, y] = mv([p[0], p[1]]); return p[2] == null ? [x, y] : [x, y, p[2]] })
-      if (a.trail) next.trail = a.trail.map((tp) => { const [x, y] = mv([tp.x, tp.y]); return { ...tp, x, y } })
-      return next
-    })
+    // ⚠️ the BEARINGS turn with the paper too (lib/stackFit · reorientBearings, 15.09.2026):
+    // a stored rotation is relative to the sheet, and the sheet is what just moved. Without it
+    // a Fahrzeug DRAWN on a tile stayed pointing where it was while the identical one placed
+    // on the Karte — projected through the stack's fit — swung with the building. The same
+    // re-glue drew the live preview while the slider was held (`previewAnnos`).
+    const remapped = reorientAnnos(annos, { src: orientSrc, fromDeg, toDeg, layout, toLayout })
     commit(remapped) // re-glued annotations go through undo/redo + sync
     // `northUp` stays in sync (0° IS north-up) so pre-dial clients keep their binary read — on a
     // PACK it would be a lie (0° is the page as drawn, which is north-up only by luck), and the
@@ -2022,8 +2032,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             className={`wb-board ${blank ? 'wb-board-blank' : ''}`}
             // the reserved lanes are not symmetric (the rails differ), so the centre shifts by half
             // their difference — exactly what `vShift` does for the top bar (and the Gebäude's
-            // chip row below)
-            style={{ width: sW || undefined, height: sH || undefined, transform: `translate(-50%, -50%) translate(${pos.x + (side.l - side.r) / 2}px, ${pos.y + vShift}px)` }}
+            // chip row below). While the orientation preview stands, nothing on it takes a press:
+            // what it draws is not where the sheet's objects are yet (`previewAnnos`).
+            style={{ width: sW || undefined, height: sH || undefined, transform: `translate(-50%, -50%) translate(${pos.x + (side.l - side.r) / 2}px, ${pos.y + vShift}px)`, pointerEvents: previewing ? 'none' : undefined }}
           >
             {stack && building ? (
               <>
@@ -2418,7 +2429,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             })}
 
             {/* Every covered floor exposes the same object through the full native renderer. */}
-            {annos.filter((a) => a.kind !== 'draw').flatMap((a) => stack ? stackInstances(a, floorsTTB) : [a]).map((a) => (
+            {shownAnnos.filter((a) => a.kind !== 'draw').flatMap((a) => stack ? stackInstances(a, floorsTTB) : [a]).map((a) => (
               <PlanAnno key={`${a.id}:${a.floor ?? 0}`} a={a} board={annoBoard}
                 selected={selId === a.id} grouped={selIds.includes(a.id)} networked={relationship.objectIds.has(a.id)}
                 editing={editId === a.id} trailShown={!hiddenTrails.has(a.id)} />
@@ -2426,7 +2437,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
             {/* trail breadcrumbs — a constant-size dot + timestamp at each RECORDED
                 position, so the trail reads as a time-stamped log at a glance */}
-            {annos.filter((a) => a.kind === 'resource' && !hiddenTrails.has(a.id)).flatMap((a) =>
+            {shownAnnos.filter((a) => a.kind === 'resource' && !hiddenTrails.has(a.id)).flatMap((a) =>
               (a.trail ?? []).map((p, i) => (
                 <div
                   key={`dot-${a.id}-${i}`}
