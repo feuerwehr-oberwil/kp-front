@@ -54,7 +54,12 @@ import type { ReportMeta } from './workspace'
 // in the Historie for ever, which is the worse record. The step is satisfied by zero open
 // divergences, which is the ordinary case: most Einsätze never produce one at all.
 export type AbschlussStep = 'zeiten' | 'anwesenheit' | 'mittel' | 'einsatzleiter' | 'kontaktperson' | 'kurzbericht' | 'rueckmeldung' | 'abweichungen'
-export const ABSCHLUSS_STEPS: AbschlussStep[] = ['zeiten', 'anwesenheit', 'mittel', 'einsatzleiter', 'kontaktperson', 'kurzbericht', 'rueckmeldung', 'abweichungen']
+// ⚠️ In the Rapport's PAGE order (sweep 28.10.2026, 14x): the head's «n offen» list, the guide strip
+// that walks it (`nextOpenStep`), the «Angaben fehlen noch» confirm and the Abschluss confirm all
+// read `missingSteps` in this order, so «next» on the strip is the next field down the page –
+// Bericht (Kurzbericht · Einsatzleiter · Kontaktperson · Einsatzende · Rückmeldung), then
+// Personal & Mittel (Anwesenheit · Material · Abweichungen). ReportPreflight's DOM is the source.
+export const ABSCHLUSS_STEPS: AbschlussStep[] = ['kurzbericht', 'einsatzleiter', 'kontaktperson', 'zeiten', 'rueckmeldung', 'anwesenheit', 'mittel', 'abweichungen']
 
 export interface AbschlussFacts {
   reportMeta: ReportMeta
@@ -98,6 +103,17 @@ export function stepDone(step: AbschlussStep, f: AbschlussFacts): boolean {
 
 export function missingSteps(f: AbschlussFacts): AbschlussStep[] {
   return ABSCHLUSS_STEPS.filter((s) => !stepDone(s, f))
+}
+
+/**
+ * Where the Rapport's guide strip points next (ReportPreflight, owner pick 14 «top strip»): the
+ * first still-open step AFTER `from` in page order, wrapping round to the top, never `from`
+ * itself. Null when nothing else is open – at the last open point the strip has nowhere to go.
+ */
+export function nextOpenStep(missing: readonly AbschlussStep[], from: AbschlussStep): AbschlussStep | null {
+  const at = ABSCHLUSS_STEPS.indexOf(from)
+  const ring = [...ABSCHLUSS_STEPS.slice(at + 1), ...ABSCHLUSS_STEPS.slice(0, at)]
+  return ring.find((s) => missing.includes(s)) ?? null
 }
 
 /**

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ABSCHLUSS_STEPS, applyTimeToIso, isoOnDay, missingSteps, stepDone, type AbschlussFacts, keepEndAfterStart, keepStartBeforeEnd } from './abschluss'
+import { ABSCHLUSS_STEPS, applyTimeToIso, isoOnDay, missingSteps, nextOpenStep, stepDone, type AbschlussFacts, keepEndAfterStart, keepStartBeforeEnd } from './abschluss'
 
 const facts = (over: Partial<AbschlussFacts> = {}): AbschlussFacts => ({
   reportMeta: {},
@@ -250,5 +250,20 @@ describe('the «Abweichungen» step', () => {
   it('⚠️ reads as done for a caller that does not know about divergences at all', () => {
     // the QR poster hands no `openConflicts`, and it must never show a step it cannot settle
     expect(missingSteps(base)).not.toContain('abweichungen')
+  })
+})
+
+// owner, 28.10.2026 (#14 top strip): the Rapport's open points in PAGE order, and the guide's next stop
+describe('nextOpenStep · the guide strip walks the page', () => {
+  it('lists open steps in the Rapport page order', () => {
+    expect(ABSCHLUSS_STEPS.slice(0, 5)).toEqual(['kurzbericht', 'einsatzleiter', 'kontaktperson', 'zeiten', 'rueckmeldung'])
+  })
+  it('points at the next open step down the page, wraps, and stops at the last one', () => {
+    const open = ['kurzbericht', 'kontaktperson', 'zeiten', 'rueckmeldung'] as const
+    expect(nextOpenStep(open, 'kurzbericht')).toBe('kontaktperson')
+    expect(nextOpenStep(open, 'zeiten')).toBe('rueckmeldung')
+    expect(nextOpenStep(open, 'rueckmeldung')).toBe('kurzbericht') // a point skipped above is not lost
+    expect(nextOpenStep(['rueckmeldung'], 'zeiten')).toBe('rueckmeldung') // the current one done
+    expect(nextOpenStep(['rueckmeldung'], 'rueckmeldung')).toBeNull() // nothing after the last
   })
 })

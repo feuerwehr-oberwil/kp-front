@@ -64,7 +64,9 @@ async function chooser({ tiles }) {
   if (made.status() !== 201) throw new Error(`create incident: ${made.status()} ${await made.text()}`)
   await page.goto('/')
   await page.getByRole('button', { name: 'Modul 1', exact: true }).click({ timeout: 30000 })
+  // the Objekt chip opens the Plan sheet (sweep 28.10.2026 #8); its top row is the picker's door
   await page.locator('.wb-object').first().click({ timeout: 30000 })
+  await page.getByRole('button', { name: /anderes Objekt wählen/ }).click({ timeout: 30000 })
   await page.locator('.pp-map').waitFor({ timeout: 30000 })
   await page.waitForTimeout(6000)
   return { ctx, page }

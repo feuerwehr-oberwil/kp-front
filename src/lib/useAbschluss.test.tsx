@@ -327,10 +327,13 @@ describe('useAbschluss', () => {
       const patchReportMeta = vi.fn()
       await renderHook(() => useAbschluss(args({ patchReportMeta, reportMeta: { endedAt: '2026-10-23T20:00:00Z' } as ReportMeta }))).result.current.confirmAndComplete()
       expect(patchReportMeta).not.toHaveBeenCalled()
-      expect((ask.mock.calls[0][0] as Ask).items?.some((i) => typeof i !== 'string' && i.label === A.ende)).toBe(false)
+      // the pre-filled row is the one with «jetzt HH:MM» at its end – the plain step row reads
+      // «Einsatzende» too since 28.10.2026 (it is the field that is missing)
+      const prefilled = (i: NonNullable<Ask['items']>[number]) => typeof i !== 'string' && i.label === A.ende && !!i.end
+      expect((ask.mock.calls[0][0] as Ask).items?.some(prefilled)).toBe(false)
       await renderHook(() => useAbschluss(args())).result.current.confirmAndComplete()
       const spec = ask.mock.calls[1][0] as Ask
-      expect(spec.items?.some((i) => typeof i !== 'string' && i.label === A.ende)).toBe(false)
+      expect(spec.items?.some(prefilled)).toBe(false)
       // …and the rows are plain links then: no buttons on a sheet that cannot write
       expect(spec.items?.every((i) => typeof i === 'string' || !i.action)).toBe(true)
     })

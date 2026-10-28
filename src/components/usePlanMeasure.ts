@@ -155,7 +155,7 @@ export function usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, loc
   const measPress = useNodeHold()
 
   // leaving the metre-entry popover returns to Messen (the auto-calibrate-on-first-measure
-  // flow), otherwise drops to pan (the Maßstab chip).
+  // flow), otherwise drops to pan (calibration armed from the Plan sheet).
   const closeCalPrompt = () => { setCalPrompt(null); setTool(tool === 'measure' ? 'measure' : 'pan') }
   // commit the metre-entry popover: derive + persist the calibration factor for this plan
   const commitCalibration = (refM: number) => {

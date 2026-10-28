@@ -123,7 +123,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
   abschluss: {
     leftEarly: ' · fino alle {t}',
     steps: {
-      zeiten: 'Orari',
+      zeiten: 'Fine intervento',
       anwesenheit: 'Presenze',
       mittel: 'Materiale',
       einsatzleiter: 'Capo intervento',
