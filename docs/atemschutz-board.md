@@ -67,7 +67,9 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
 
 - *A door answers the same question the same way* (29.09.2026): the Trupp form and the Auftrag
   sheet share their Ziel and Leitung controls — a plain `ClearableInput` for the Ziel, and
-  `TruppSheets · LeitungField` («keine · Ltg n · Nr. …») for the Leitung.
+  `TruppSheets · LeitungField` («keine · Ltg n · Nr. …») for the Leitung. «Nr. …» turns into
+  the stepper in its own place in the chip row, and a typed number lives there only, never as a
+  chip as well (28.10.2026, owner).
 - *The form asks Druck and Kanal in the sheets that ask them on the card* (30.09.2026, owner):
   one row each in every mode, «Eingangsdruck 300 bar ›» / «Funkkanal 11 ›», opening the Druck
   sheet (20-bar grid, the form's value filled — `PressureSheet · chosen`) or the Kanal sheet
