@@ -267,10 +267,15 @@
 .vrow:active { background-image: linear-gradient(var(--press), var(--press)); }
 .vrow :global(.i) { width: 14px; height: 14px; flex: none; }
 .logChev { color: var(--ink-faint); }
-/* the foot line and the card's ⋯ share one row (29.09.2026). (No FAB guard on it any more: on a
-   phone the board's card ends above the FAB's row, 15-mobile · `.az-tafel`, sweep 27.10.2026.) */
+/* An OPENED card on the phone list is parked at the top of the port (AtemschutzView · the
+   `--az-open-pad` effect), and a card about a port tall comes to rest with this row in the FAB's
+   corner: the circle sat on the chevron (field checks 24.09.2026). The effect measures where the
+   row stands and marks the ROW itself; it then keeps the FAB's column free, so the chevron stays
+   tappable. */
+/* the foot line and the card's ⋯ share one row (29.09.2026); the FAB guard marks the ROW */
 .vfootRow { display: flex; align-items: center; }
 .vfootRow > .vrow { flex: 1 1 auto; min-width: 0; }
+.vfootRow[data-az-fab-foot] { padding-right: var(--fab-safe, 0px); }
 /* the card's ⋯ — a quiet glyph at the end of the foot line, a full --tap target, no chip frame */
 .footMore { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center; padding: 0;
   border: none; background: transparent; color: var(--ink-dim); cursor: pointer; border-radius: var(--r-sm);
@@ -918,10 +923,12 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 
 @media (--phone) {
   /* (the full-width inset is the shared shell's — Surface.module.css) */
-  /* No --fab-safe reserve at the foot (sweep 27.10.2026): the board's card ends ABOVE the Eintrag
-     FAB's row (15-mobile · `.az-tafel`), so no card — the last one's «Austritt» included — can
-     come to rest under the circle. */
-  .body { padding: var(--sp-3) var(--head-pad-x); }
+  /* The card runs to the normal phone edge and the FAB floats over it, like on every other page
+     (owner, sweep 28.10.2026 #5: the list may end above the FAB, the card may not). So the list's
+     foot keeps the shared --fab-safe reserve: the last card – its «Austritt» included – scrolls
+     clear of the circle, and a viewer (no FAB) gets no dead space. Mid-scroll a card still passes
+     under it; an opened card's foot row has the guard above (data-az-fab-foot). */
+  .body { padding: var(--sp-3) var(--head-pad-x); padding-bottom: calc(var(--sp-3) + var(--fab-safe, 0px)); }
   .grid { grid-template-columns: 1fr; }
   /* (the head's phone paddings are the shared tokens — 15-mobile · --head-pad-*) */
 }

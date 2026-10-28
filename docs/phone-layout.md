@@ -39,9 +39,10 @@ unchanged.
   stands on the bars (`--float-floor`) and `lib/floatRow` lifts it only past a tool dock or armed
   pill that overlaps it sideways. `--float-base` keeps the worst case (a dock as wide as the
   screen) for the FAB and the message lane.
-- *The Eintrag FAB is on every page, the Trupps board too* (27.10.2026, owner): there the board's
-  card ends above the FAB's row (`.az-tafel`, 15-mobile), so no crew's «Kontakt» scrolls under
-  it. A RUNNING recording never yields — not to a dock, the armed pill, a panel or a detail sheet
+- *The Eintrag FAB is on every page, the Trupps board too* (27.10.2026, owner): the board's card
+  runs to the phone edge like every page and its LIST ends above the FAB (28.10.2026, owner: the
+  card may wrap around it) – the shared `--fab-safe` foot on `.body`, plus the opened card's
+  `data-az-fab-foot` guard on its foot row (Atemschutz.module). A RUNNING recording never yields — not to a dock, the armed pill, a panel or a detail sheet
   (it rides on the sheet's top edge). Only «Karte verknüpfen» still hides it.
 - *Karte & Objekte has ONE bar* (Karte · Messen · Gefahrgut · Ebenen, no tool bar and no «Pläne»
   tab — 17.10.2026): Messen keeps the same 6px steps, only from the nav bar (dock at `--rail-h +
