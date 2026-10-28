@@ -95,8 +95,9 @@ check(menuOpen, 'the mouse click opens the storey menu')
 if (menuOpen) {
   await item.click()
   const sheet = page.getByRole('dialog')
-  await sheet.getByRole('button', { name: '1. OG' }).click()
-  await sheet.getByRole('button', { name: 'Kopieren', exact: true }).click()
+  // a storey row is a TickRow (role checkbox); the button names the result («Auf 1. OG kopieren»)
+  await sheet.getByRole('checkbox', { name: /^1\. OG/ }).click()
+  await sheet.getByRole('button', { name: /^Auf .+ kopieren$/ }).click()
   check(await shown(page.getByText(/Grundriss kopiert: 1 nach 1\. OG/)), '«Kopieren» copies the wall to the 1. OG')
 }
 
