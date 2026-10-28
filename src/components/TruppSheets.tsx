@@ -372,9 +372,12 @@ export function LeitungField({ label, value, options, onChange, children }: {
       <LeitungChips value={value} options={choices} ariaLabel={label}
         onChange={(n) => { setTyping(false); onChange(n) }}>
         {typing ? (
+          // compact (owner, 28.10.2026: one line on a 390px phone beside a drawn chip): no ✕ – the
+          // «keine» chip at the head of this row IS the reset, and closes the stepper too. Too
+          // many drawn chips and it wraps, but as ONE item (.miniChips), never apart.
           <Stepper
             value={value} min={1} max={99} placeholder="–"
-            onChange={onChange} onClear={() => onChange(null)} canClear={value != null}
+            onChange={onChange}
             ariaLabel={az.lineTyped}
           />
         ) : (
