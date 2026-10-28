@@ -545,7 +545,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 entry carries its letter AND its word, so the FKS letters are learned on the way.
                 W = Wasser, the default: a Druckleitung with no letter IS a water line, so picking
                 it stores nothing (and a line stored with content 'W' reads as Wasser too). A rule
-                splits the Leitungen (W S H P) from the Vegetationsbrand-Haltelinien (N T G):
+                splits the Leitungen (W WW S H P) from the Vegetationsbrand-Haltelinien (N T G):
                 the same question about a different line. */}
             {onContent && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.content}</span>
@@ -560,7 +560,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                   popupClassName="de-menu-pop"
                   itemClassName={() => 'de-menu-item'}
                   items={[
-                    ...(['W', 'S', 'H', 'P'] as const).map((c) => contentItem(c)),
+                    ...(['W', 'WW', 'S', 'H', 'P'] as const).map((c) => contentItem(c)),
                     { kind: 'sep' as const },
                     ...(['N', 'T', 'G'] as const).map((c) => contentItem(c)),
                   ]}
