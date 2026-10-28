@@ -180,7 +180,6 @@ def build() -> list[dict]:
     add("Schadenlage", "VKF Unfall", letter_disc("U", GREEN))
     add("Schadenlage", "VKF Gefaehrliche Stoffe", letter_disc("C", ORANGE))
     add("Schadenlage", "VKF Wasser", letter_disc("W", WATER))
-    add("Schadenlage", "FW Gefahr Ex", hazard_triangle([text("Ex", 0.7, fill=ORANGE, y=0.2)]))
 
     # damage / Naturereignis signatures (FKS Faltkarte 11/2022: red diagonal-cross lattices —
     # the stroke count per direction encodes severity — and the Überschwemmung ellipse+arrow)
@@ -215,6 +214,7 @@ def build() -> list[dict]:
         line(0, 0, 0, -0.4, stroke=ORANGE, sw=0.2, cap="round"),  # exclamation bar
         circle(0, 0.35, 0.11, stroke=ORANGE, sw=0.02, fill=ORANGE),  # …and its dot
     ]))
+    add("Gefahren", "FW Gefahr Ex", hazard_triangle([text("Ex", 0.7, fill=ORANGE, y=0.2)]))
     add("Gefahren", "FW Gefahr G", hazard_triangle([text("G", 0.7, fill=ORANGE, y=0.2)]))
     add("Gefahren", "FW Gefahr C", hazard_triangle([text("C", 0.7, fill=ORANGE, y=0.2)]))
     add("Gefahren", "FW Gefahr Radioaktiv", hazard_triangle([
