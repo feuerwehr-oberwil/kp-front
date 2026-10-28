@@ -9,7 +9,7 @@ import { fillTemplate, hhmm, pad2 } from '../lib/format'
 import { newId } from '../lib/ids'
 import { serverNow } from '../lib/serverClock'
 import {
-  editableColumns, labelText, shownColumns, shownFixedRows, shownSections, tableAddsRows, writtenColumns,
+  colMinScale, editableColumns, labelText, shownColumns, shownFixedRows, shownSections, tableAddsRows, writtenColumns,
   type QuadSection, type TableSection, type TemplateColumn, type TextSection,
 } from '../lib/boardTemplate'
 import {
@@ -715,11 +715,18 @@ export function TafelFormPage({ pageKey, title, data, readOnly, isPhone, onChang
     const list = sec.id
     const { newId, ghosts = 0 } = ids[sec.id]
     // on a phone a column is never narrower than its head's longest piece needs (owner, 10.10.:
-    // «Entwi/cklun/gs-» in a 70px column) — a wide sheet then scrolls sideways in its box
-    const minCol = isPhone ? 'var(--tafel-col-min)' : '0'
+    // «Entwi/cklun/gs-» in a 70px column) — a wide sheet then scrolls sideways in its box. And the
+    // template's weights scale those minimums (owner, 28.10.2026: «make each column a little bit
+    // wider … to not have that many word breaks»; `colMinScale`), so the sheet keeps its paper's
+    // proportions and scrolls. With one minimum for all, `fr` did nothing on a phone – the grid
+    // was exactly cols × 104px wide, «Funktion/Standort/Name» as narrow as «Kanal».
+    const minScale = colMinScale(cols)
     const grid: CSSProperties = {
-      gridTemplateColumns: [...cols.map((c) => `minmax(${minCol}, ${c.w ?? 1}fr)`), ...(sec.done ? ['auto'] : [])].join(' '),
-      ...(isPhone ? { minWidth: `calc(var(--tafel-col-min) * ${cols.length})` } : {}),
+      gridTemplateColumns: [
+        ...cols.map((c, i) => `minmax(${isPhone ? `calc(var(--tafel-col-min) * ${minScale[i]})` : '0'}, ${c.w ?? 1}fr)`),
+        ...(sec.done ? ['auto'] : []),
+      ].join(' '),
+      ...(isPhone ? { minWidth: `calc(var(--tafel-col-min) * ${minScale.reduce((a, b) => a + b, 0)})` } : {}),
     }
     /** an empty ruling under the empty row: drawn like a row, and a tap on it writes in the empty
      *  row — the same column — so writing lands directly under the last entry */
