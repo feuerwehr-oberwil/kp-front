@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   CHECK_DAYS, LATER_DAYS, SESSION_WARN_DAYS, SUBSCRIPTION_STALE_DAYS,
-  alarmReady, nudgeDue, patchReadinessStore, readReadinessStore, readinessRows, type ReadinessFacts, type ReadinessStore,
+  alarmReady, nudgeDue, patchReadinessStore, readReadinessStore, readinessRows, readinessSummary, type ReadinessFacts, type ReadinessStore,
 } from './alarmReadiness'
 
 const DAY = 24 * 3600 * 1000
@@ -39,6 +39,16 @@ describe('the four rows', () => {
     expect(byKey({ ...green, sessionUntil: NOW - 1 }).session).toMatchObject({ state: 'red', fix: null, sub: 'gone' })
     expect(byKey({ ...green, sessionUntil: NOW + (SESSION_WARN_DAYS - 1) * DAY }).session).toMatchObject({ state: 'warn', sub: 'soon' })
     expect(byKey({ ...green, sessionUntil: null }).session).toMatchObject({ state: 'warn', sub: 'unknown' })
+  })
+})
+
+// sweep 28.10.2026, 17A: the rows fold into one line that names the worst state and its count
+describe('the one line', () => {
+  it('green with nothing to count, amber counts the hints, red counts what is missing and wins', () => {
+    expect(readinessSummary(readinessRows(green))).toEqual({ state: 'ok', count: 0 })
+    expect(readinessSummary(readinessRows({ ...green, standalone: false, platform: 'android' }))).toEqual({ state: 'warn', count: 1 })
+    // an iOS tab: not installed AND no Notification global — two red rows, the session hint does not count
+    expect(readinessSummary(readinessRows({ ...green, standalone: false, permission: 'unsupported', sessionUntil: null }))).toEqual({ state: 'red', count: 2 })
   })
 })
 

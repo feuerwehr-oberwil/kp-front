@@ -83,6 +83,15 @@ export function readinessRows(f: ReadinessFacts): ReadinessRow[] {
   return [installed, permission, subscription, session]
 }
 
+/** The one line the rows fold into (sweep 28.10.2026, 17A): red when any row is red, amber when
+ *  any is a hint, else green — with how many rows make it so. The closed line shows exactly those. */
+export function readinessSummary(rows: readonly ReadinessRow[]): { state: ReadinessState; count: number } {
+  const red = rows.filter((r) => r.state === 'red').length
+  if (red) return { state: 'red', count: red }
+  const warn = rows.filter((r) => r.state === 'warn').length
+  return warn ? { state: 'warn', count: warn } : { state: 'ok', count: 0 }
+}
+
 /** No row is red: an alarm would reach this device (a warning is a hint, not a gap). */
 export const alarmReady = (rows: readonly ReadinessRow[]): boolean => rows.every((r) => r.state !== 'red')
 
