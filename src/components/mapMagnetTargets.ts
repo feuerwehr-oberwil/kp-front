@@ -62,7 +62,8 @@ export function mapMagnetTargets(map: MapProjector, scene: MagnetScene, sourceId
     })
   const px = (c: LngLat): [number, number] => { const p = map.project(c); return [p.x, p.y] }
   const lineTargets = lineEndTargets(drawings
-    .filter((d) => d.kind === 'line' && d.id !== sourceId && d.coords.length >= 2)
+    // a Wand is layout: no Leitung couples onto its end (the Plan's rule, Whiteboard · planCandidatesAt)
+    .filter((d) => d.kind === 'line' && !d.role && d.id !== sourceId && d.coords.length >= 2)
     .map((d) => ({
       id: d.id, teilstueck: d.teilstueck, width: d.width,
       start: [px(d.coords[0]), px(d.coords[1])], end: [px(d.coords[d.coords.length - 1]), px(d.coords[d.coords.length - 2])],

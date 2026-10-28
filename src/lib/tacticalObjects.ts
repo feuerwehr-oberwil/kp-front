@@ -198,6 +198,8 @@ const SHARED_PATH_PROPS = [
   'color', 'width', 'dashed', 'arrow', 'arrowStop', 'marker', 'fillOpacity', 'hatch', 'locked',
   'teilstueck', 'content', 'lineNo', 'floorTag', 'showDistance',
   'label', 'truppId',
+  // a Linie switched to a Wand on either surface stays one on the other (lib/grundriss · wallRolePatch)
+  'role',
 ] as const satisfies readonly (keyof Drawing & keyof BoardAnno)[]
 
 /* ⚠️ `labelDx`/`labelDy` deliberately absent: they are a fraction of the SHEET on a plan and

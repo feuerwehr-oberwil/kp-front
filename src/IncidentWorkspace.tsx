@@ -1835,7 +1835,7 @@ export function IncidentWorkspace({
     setDraft, lineMode, setLineMode, areaMode, setAreaMode, draftActive, draftOpen, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, createCircle, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
-    deleteDrawing, reverseDrawing, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
+    deleteDrawing, reverseDrawing, setDrawingWallRole, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
   } = mapDrawing
   const changeMapEnding = async (ending: LineEnding, drawing = selectedDrawing) => {
     if (!drawing) return
@@ -3151,7 +3151,7 @@ export function IncidentWorkspace({
         assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
         noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
         selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
-        changeMapEnding, reverseDrawing, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
+        changeMapEnding, reverseDrawing, setDrawingWallRole, objects, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
         unlinkLine, setSelectedDrawingId, setMode, setPanel, setGpsRouting, revertAll, gpsEndOf, releaseHere,
         releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing,
       }} />

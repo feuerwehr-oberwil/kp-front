@@ -29,6 +29,7 @@ import { useArmedTransform } from '../lib/useArmedTransform'
 import { SHAPE_MAX_PX } from '../lib/shapes'
 import { EMPTY_STYLE, mapMaxZoom, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
+import { WAND_MAP_PX } from '../lib/grundriss'
 import { MARKER_Z } from '../lib/labelPass'
 import { lineTakesTrupp, teamLineBadges, truppForLine, truppLineTone } from '../lib/truppLines'
 import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon, haversineM } from '../lib/geo'
@@ -656,7 +657,9 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
     // or überfällig. Resolved here (not per frame) so the paint expression stays a plain lookup.
     const linked = d.kind === 'line' ? truppForLine(d, trupps ?? []) : undefined
     const tone = linked ? truppLineTone(linked, truppSeverities?.[linked.id] ?? 0) : 'idle'
-    const p = { id: d.id, color: d.color || DEFAULT_INK, width: d.width || 4, dashed: !!d.dashed, arrow: !!d.arrow, marker: d.marker || '', showDistance: !!d.showDistance, label: d.label || '', fillOpacity: d.fillOpacity ?? 0.14, hatch: !!d.hatch, networkDepth: relationship.depth.get(`line:${d.id}`) ?? -1, truppTone: tone === 'warn' || tone === 'crit' ? tone : '' }
+    // a Wand is drawn thicker than it is stored, over a light casing (lib/grundriss · WAND_MAP_PX)
+    const wand = d.kind === 'line' && d.role === 'wand'
+    const p = { id: d.id, color: d.color || DEFAULT_INK, width: wand ? WAND_MAP_PX.width : d.width || 4, wand, dashed: !!d.dashed, arrow: !!d.arrow, marker: d.marker || '', showDistance: !!d.showDistance, label: d.label || '', fillOpacity: d.fillOpacity ?? 0.14, hatch: !!d.hatch, networkDepth: relationship.depth.get(`line:${d.id}`) ?? -1, truppTone: tone === 'warn' || tone === 'crit' ? tone : '' }
     if (d.kind === 'circle') return polyFeat(circleRing(d), p)
     return d.kind === 'area' && d.coords.length >= 3 ? polyFeat(d.coords, p) : lineFeat(d.coords, p)
   })), [drawings, trupps, truppSeverities, relationship])
@@ -1367,6 +1370,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
         <Layer id="l-draw-hatch" type="fill" filter={['all', ['==', ['geometry-type'], 'Polygon'], ['coalesce', ['get', 'hatch'], false]]} layout={vis(drawingsVisible && !georefOn)} paint={{ 'fill-pattern': ['concat', 'hatch-', ['downcase', ['get', 'color']]] }} />
         {/* solid + dashed split: line-dasharray can't be data-driven, so dashed lines
             render in their own layer filtered on the feature's `dashed` property */}
+        <Layer id="l-draw-wand-casing" type="line" filter={['==', ['get', 'wand'], true]} layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }} paint={{ 'line-color': '#ffffff', 'line-opacity': 0.85, 'line-width': ['+', ['get', 'width'], WAND_MAP_PX.casing] }} />
         <Layer id="l-draw-line" type="line" filter={['!', ['get', 'dashed']]} layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }} paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'] }} />
         <Layer id="l-draw-line-dash" type="line" filter={['get', 'dashed']} layout={{ 'line-cap': 'butt', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }} paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'], 'line-dasharray': LINE_DASH_ML }} />
         {/* fat transparent hit line over EVERY drawn line (solid + dashed) so a click on or
@@ -1864,7 +1868,9 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
           `i` stays the real index into `coords`, so a drag/delete still hits the point it points at. */}
       {editDraw && onDrawingEdit && editHandleIdx.map((i) => {
         const p = editDraw.coords[i]
-        const endpoint: LineEndpoint | null = editDraw.kind === 'line' && i === 0 ? 'start' : editDraw.kind === 'line' && i === editDraw.coords.length - 1 ? 'end' : null
+        // a Wand's ends dock onto nothing – they are plain corners (the Plan's useWbVertexEdit · vertDown)
+        const docks = editDraw.kind === 'line' && !editDraw.role
+        const endpoint: LineEndpoint | null = docks && i === 0 ? 'start' : docks && i === editDraw.coords.length - 1 ? 'end' : null
         return (
         <Marker
           key={`dv${i}`}

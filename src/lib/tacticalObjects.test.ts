@@ -152,6 +152,20 @@ describe('the setDoc / setBoard seams', () => {
       const reshaped = applyDocToObjects([line], { entities: [], drawings: [{ ...line.drawing!, coords: [mEastCoord(0), mEastCoord(400)] }] })
       expect(reshaped[0].sheet).toBeUndefined()
     })
+
+    // sweep 28.10.2026: «Art: Linie | Wand» on either surface – the role is shared vocabulary
+    it('a plan Wand bakes as a Wand, and a Linie switched on the Karte writes back to its sheet', () => {
+      const wand = bakeGeoBody(
+        { id: 'w1', sheet: { planId: 'modul2', anno: anno('w1', { kind: 'draw', x: undefined, y: undefined, pts: [[0, 0], [1, 0]], role: 'wand' }) } },
+        PLAN, 'taktisch',
+      )
+      const drawing = wand.drawing
+      expect(drawing?.role).toBe('wand')
+      if (!drawing) return
+      const linie = applyDocToObjects([wand], { entities: [], drawings: [{ ...drawing, role: undefined }] })
+      expect(linie[0].sheet?.anno.role).toBeUndefined()
+      expect(linie[0].sheet?.anno.pts).toEqual([[0, 0], [1, 0]])
+    })
   })
 
   it('live overlays never become records', () => {
