@@ -435,7 +435,10 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
    Einsatz running or an alarm waiting; the number is in the button's accessible name. On the
    corner of the button's FACE (the mark / name), since the quiet pill has no frame (28.10.2026) */
 .menuFace { position: relative; display: inline-flex; align-items: center; gap: var(--sp-2); }
-.einsaetzeBadge { position: absolute; top: -5px; right: -6px; width: 12px; height: 12px;
+/* a superscript beside the face's top-right corner, never on a letter (owner, 28.10.2026: the 12px
+   dot sat on the «O» of «FWO»): its 2px ring clears the last glyph, and above the caps it stays out
+   of the chevron's way too */
+.einsaetzeBadge { position: absolute; top: -9px; right: -12px; width: 9px; height: 9px;
   border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
 
 /* ── a tap tool armed (Messen, Punkt setzen, Gefahrgut's centre — lib/karte/camera · toolTakesTaps):
