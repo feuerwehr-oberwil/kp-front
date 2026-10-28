@@ -29,7 +29,10 @@ vi.mock('./OsmOutline', () => ({
 const ui = vi.hoisted(() => ({
   toasts: [] as { text: string; action?: { label: string; onClick: () => void } }[],
   confirms: [] as { title?: string; message?: string }[],
-  answer: false,
+  answer: false as boolean | 'alt',
+  /** `hold` keeps the next question open until the test calls `release(answer)` */
+  hold: false,
+  release: null as ((v: boolean | 'alt') => void) | null,
 }))
 vi.mock('../lib/ui', async (importOriginal) => {
   const mod = await importOriginal<typeof import('../lib/ui')>()
@@ -38,6 +41,7 @@ vi.mock('../lib/ui', async (importOriginal) => {
     toast: (text: string, opts?: { action?: { label: string; onClick: () => void } }) => { ui.toasts.push({ text, action: opts?.action }); return 1 },
     confirmDialog: (opts: { title?: string; message?: string }) => {
       ui.confirms.push(opts)
+      if (ui.hold) return new Promise<boolean | 'alt'>((r) => { ui.release = r })
       return Promise.resolve(ui.answer)
     },
   }
@@ -62,7 +66,7 @@ beforeAll(() => {
     addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
   })) as unknown as typeof window.matchMedia
 })
-afterEach(() => { cleanup(); osm.calls.length = 0; ui.confirms.length = 0; ui.answer = false })
+afterEach(() => { cleanup(); osm.calls.length = 0; ui.confirms.length = 0; ui.answer = false; ui.hold = false; ui.release = null })
 
 const umrisse: PlanDocument = {
   id: 'osm', code: 'Umrisse', title: 'Gebäudeumrisse', subtitle: '', imageUrl: '',
@@ -238,13 +242,16 @@ const TRUPPS: Trupp[] = [
 
 const renderPlan = (annos: BoardAnno[], extra: Partial<React.ComponentProps<typeof Whiteboard>> = {}) => {
   const onChange = vi.fn()
-  const utils = render(<Whiteboard
-    plans={[tafel]} activeId="tafel" annos={annos} onChange={onChange}
+  const board = (list: BoardAnno[]) => <Whiteboard
+    plans={[tafel]} activeId="tafel" annos={list} onChange={onChange}
     building={null} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
     sym={sym} onRecent={() => {}} log={() => {}} hist={{}} setHist={() => {}} focus={null}
     {...extra}
-  />)
-  return { ...utils, onChange }
+  />
+  const utils = render(board(annos))
+  /** the board as another device's merge leaves it: same props, new annos */
+  const remoteWrite = (list: BoardAnno[]) => utils.rerender(board(list))
+  return { ...utils, onChange, remoteWrite }
 }
 
 const chip: BoardAnno = { id: 'c1', kind: 'resource', x: 0.5, y: 0.5, floor: 0, text: 'Trupp 1', t: '03:12' }
@@ -441,7 +448,8 @@ describe('the Plan rail and its drafts', () => {
   // toNorm and the handle layout need a real board rect, which jsdom never lays out.
   // ⚠️ The toast log is cleared BEFORE each test, not after: afterEach hooks run LIFO, so the
   // file-level cleanup() unmounts the previous board AFTER an afterEach here — and an unmount
-  // with a live draft auto-commits and toasts (by design), which would leak into the next test.
+  // with a live draft commits and toasts (leaving the document: nobody is left to ask), which
+  // would leak into the next test.
   beforeEach(() => {
     ui.toasts.length = 0
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
@@ -506,40 +514,80 @@ describe('the Plan rail and its drafts', () => {
     expect(screen.queryByText(W.blankHint)).toBeNull()
   })
 
-  it('auto-commits a committable draft on tap-away — and «Rückgängig» hands the shape back', () => {
+  // 27.10.2026 (owner): leaving an open drawing asks «Speichern · Verwerfen · Weiterzeichnen»,
+  // replacing the A6 auto-commit with its «Rückgängig» toast
+  const answered = async (v: boolean | 'alt', leave: () => void) => {
+    ui.answer = v
+    leave()
+    await act(async () => { await Promise.resolve() })
+  }
+
+  it('asks when an open drawing is left — «Speichern» commits it, one anno, no selection', async () => {
     const { container, onChange } = renderPlan([])
     drawAreaDraft(container)
-    expect(onChange).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Auswahl' }))
-    // committed through the ordinary addArea path…
+    await answered(true, () => fireEvent.click(screen.getByRole('button', { name: 'Auswahl' })))
+    expect(ui.confirms[0].title).toBe(fillTemplate(T.openTitle, { name: appConfig.copy.drawingEditor.area }))
     const committed = onChange.mock.calls[0][0]
     expect(committed).toHaveLength(1)
     expect(committed[0].kind).toBe('area')
     expect(committed[0].pts).toHaveLength(3)
-    // …with the decided toast
-    const t = ui.toasts.find((x) => x.text === T.autoCommitted.replace('{name}', appConfig.copy.drawingEditor.area))
-    expect(t?.action?.label).toBe(T.autoCommitUndo)
-    // undo returns the shape to the HAND: anno removed, draft + tool re-armed
-    act(() => t!.action!.onClick())
-    expect(onChange.mock.calls[onChange.mock.calls.length - 1][0]).toHaveLength(0)
-    expect(screen.getAllByRole('button', { name: W.dragVertex })).toHaveLength(3)
+    expect(screen.queryByRole('button', { name: W.dragVertex })).toBeNull()
   })
 
-  it('discards a fragment with a toast instead of silently — and commits nothing', () => {
+  it('«Speichern» answered after a remote write keeps that write – it saves onto the board as it is now', async () => {
+    ui.hold = true
+    const { container, onChange, remoteWrite } = renderPlan([])
+    drawAreaDraft(container)
+    fireEvent.click(screen.getByRole('button', { name: 'Auswahl' }))
+    remoteWrite([line]) // another device's Linie lands while the question is open
+    await act(async () => { ui.release!(true); await Promise.resolve() })
+    const committed = onChange.mock.calls[onChange.mock.calls.length - 1][0] as BoardAnno[]
+    expect(committed.map((a) => a.kind).sort()).toEqual(['area', 'draw'])
+  })
+
+  it('«Weiterzeichnen» hands the drawing back under its re-armed tool; «Verwerfen» drops it', async () => {
+    const { container, onChange } = renderPlan([])
+    drawAreaDraft(container)
+    await answered(false, () => fireEvent.click(screen.getByRole('button', { name: 'Auswahl' })))
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getAllByRole('button', { name: W.dragVertex })).toHaveLength(3)
+    await answered('alt', () => fireEvent.click(screen.getByRole('button', { name: 'Auswahl' })))
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: W.dragVertex })).toBeNull()
+  })
+
+  it('drops a fragment silently — nothing to ask about, nothing committed', () => {
     const { container, onChange } = renderPlan([])
     fireEvent.click(screen.getByRole('button', { name: 'Fläche' }))
     tapAt(ink(container), 100, 100); tapAt(ink(container), 300, 100) // a 2-point Fläche is nothing yet
     fireEvent.click(screen.getByRole('button', { name: 'Auswahl' }))
     expect(onChange).not.toHaveBeenCalled()
-    expect(ui.toasts.some((x) => x.text === T.draftDiscarded && !x.action)).toBe(true)
+    expect(ui.confirms).toHaveLength(0)
+    expect(ui.toasts).toHaveLength(0)
   })
 
-  it('Escape stays the explicit discard — no commit, no toast', () => {
+  // CodeRabbit on #514 (28.10.2026): the sheet switch's release ran after the NEW sheet's writer
+  // was installed (a layout effect), so the open drawing landed on the sheet switched TO
+  it('a sheet switch commits the open drawing onto the sheet it was drawn on', () => {
+    const other: PlanDocument = { ...tafel, id: 'tafel2', title: 'Zweites Blatt' }
+    const onOld = vi.fn(), onNew = vi.fn()
+    const board = (activeId: string, onChange: typeof onOld) => <Whiteboard
+      plans={[tafel, other]} activeId={activeId} annos={[]} onChange={onChange}
+      building={null} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
+      sym={sym} onRecent={() => {}} log={() => {}} hist={{}} setHist={() => {}} focus={null} />
+    const { container, rerender } = render(board('tafel', onOld))
+    drawAreaDraft(container)
+    rerender(board('tafel2', onNew))
+    expect(onNew).not.toHaveBeenCalled()
+    expect(onOld.mock.calls[onOld.mock.calls.length - 1]?.[0].map((a: BoardAnno) => a.kind)).toEqual(['area'])
+  })
+
+  it('Escape is a leave like any other — it asks too', async () => {
     const { container, onChange } = renderPlan([])
     drawAreaDraft(container)
-    fireEvent.keyDown(window, { key: 'Escape' })
+    await answered('alt', () => fireEvent.keyDown(window, { key: 'Escape' }))
+    expect(ui.confirms).toHaveLength(1)
     expect(onChange).not.toHaveBeenCalled()
-    expect(ui.toasts).toHaveLength(0)
     expect(screen.queryByRole('button', { name: W.dragVertex })).toBeNull()
   })
 
@@ -558,6 +606,96 @@ describe('the Plan rail and its drafts', () => {
     fireEvent.pointerDown(screen.getByText('Hallo'))
     expect(container.querySelector('.note-grips')).toBeNull()
     expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
+  })
+})
+
+// ── The Grundriss preset on the Gebäude stack (27.10.2026) ──────────────────────────────────
+// The Wand of the Linie is a plain ink with a `role`: drawn in Punkte, snapped (lib/planSnap,
+// tested there), and the tool stays armed after each piece.
+describe('the Grundriss preset', () => {
+  const G = appConfig.copy.whiteboard.grundriss
+  beforeEach(() => {
+    ui.toasts.length = 0
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect)
+    // a measured viewport, or the board has no size and nothing has a pixel to snap in
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(1000)
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(800)
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  const ink = () => document.querySelector('.wb-ink')!
+  const tapAt = (x: number, y: number) => {
+    fireEvent.pointerDown(ink(), { clientX: x, clientY: y, pointerId: 1 })
+    fireEvent.pointerUp(ink(), { clientX: x, clientY: y, pointerId: 1 })
+  }
+  const armWand = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Linie' }))
+    fireEvent.click(screen.getByRole('button', { name: G.wand }))
+  }
+  /** the anno each commit added (the board's `annos` prop stays as rendered, so each call is one) */
+  const added = (onChange: Mock) => onChange.mock.calls.map((c) => { const list = c[0] as BoardAnno[]; return list[list.length - 1] })
+
+  it('locks a Wand near a right angle, finishes it on its last point, and stays armed', () => {
+    const { onChange } = renderBoard('gebaeude', [], false, aBuilding)
+    armWand()
+    tapAt(150, 150); tapAt(250, 162) // ≈7° off level: the second point runs straight on, y stays the first's
+    tapAt(251, 151) // the last point again: finished
+    const [wall] = added(onChange)
+    expect(wall).toMatchObject({ kind: 'draw', role: 'wand', color: appConfig.drawing.colors[4], width: 2 })
+    expect(wall.pts).toHaveLength(2)
+    expect(wall.pts![1][1]).toBeCloseTo(wall.pts![0][1], 6)
+    // still armed: no selection, the preset still on, and the next tap starts the next piece
+    expect(screen.getByRole('button', { name: G.wand }).getAttribute('aria-pressed')).toBe('true')
+    tapAt(150, 250)
+    expect(screen.getAllByRole('button', { name: appConfig.copy.whiteboard.dragVertex })).toHaveLength(1)
+  })
+
+  // round 3 (owner on staging: «dragging → snapping doesn't work yet»): a Wand stays open while it
+  // is drawn, so its own nodes are what gets dragged – they snap like a tap, ring and all
+  it('a node of the OPEN Wand dragged near another Wand lands on it, level, ring shown while it moves', () => {
+    const cross: BoardAnno = { id: 'w9', kind: 'draw', role: 'wand', floor: 0, pts: [[0.6, 0.2, 0], [0.6, 0.8, 0]] }
+    const { onChange } = renderBoard('gebaeude', [cross], false, aBuilding)
+    armWand()
+    tapAt(100, 200); tapAt(180, 200)
+    const grip = document.querySelectorAll('.wb-vertex')[1]
+    fireEvent.pointerDown(grip, { clientX: 180, clientY: 200, pointerId: 2 })
+    fireEvent.pointerMove(grip, { clientX: 210, clientY: 203, pointerId: 2 })
+    fireEvent.pointerMove(grip, { clientX: 236, clientY: 204, pointerId: 2 })
+    expect(document.querySelector('.wb-snap-ring')).not.toBeNull()
+    fireEvent.pointerUp(grip, { clientX: 236, clientY: 204, pointerId: 2 })
+    tapAt(240, 200) // its last point again: finished
+    const [wall] = added(onChange)
+    expect(wall.pts).toHaveLength(2)
+    expect(wall.pts![1][0]).toBeCloseTo(0.6, 6)
+    expect(wall.pts![1][1]).toBeCloseTo(wall.pts![0][1], 6)
+  })
+
+  it('ends the piece where the next point goes straight back along it — one ↶ per piece', () => {
+    const { onChange } = renderBoard('gebaeude', [], false, aBuilding)
+    armWand()
+    tapAt(150, 150); tapAt(250, 150)
+    tapAt(200, 150) // back along the piece just drawn: that piece is saved, the next starts here
+    expect(added(onChange)).toHaveLength(1)
+    tapAt(200, 250); tapAt(200, 250)
+    const [first, second] = added(onChange)
+    expect(first.pts!.map((p) => p[0])).toEqual([150 / 400, 250 / 400])
+    expect(second.pts!.map((p) => p[0])).toEqual([200 / 400, 200 / 400])
+  })
+
+  it('asks before a Wand moves to another storey, then starts there', async () => {
+    const { onChange } = renderBoard('gebaeude', [], false, { ...aBuilding, floors: [0, 1] })
+    armWand()
+    tapAt(150, 50); tapAt(250, 50) // the top tile is the 1. OG
+    ui.answer = true // «Speichern»
+    tapAt(150, 300) // the EG
+    await act(async () => { await Promise.resolve() })
+    expect(ui.confirms[0].title).toBe(fillTemplate(appConfig.copy.toolDock.openTitle, { name: G.wand }))
+    const [wall] = added(onChange)
+    expect(wall).toMatchObject({ role: 'wand', floor: 1 })
+    // the new piece has its first point on the EG
+    expect(screen.getAllByRole('button', { name: appConfig.copy.whiteboard.dragVertex })).toHaveLength(1)
   })
 })
 
@@ -1627,6 +1765,165 @@ describe('gesture contracts of the plan surface', () => {
     fireEvent.pointerUp(grip, { clientX: 200, clientY: 200, pointerId: 1 })
     expect(find('l1').pts).toEqual([[0.2, 0.2, 0], [0.8, 0.8, 0]])
     expect(onCheckpoint).toHaveBeenCalledTimes(1)
+  })
+
+  // ── the Gebäude Grundriss (27.10.2026, lib/grundriss): a Durchgang rides on its Wand, a stroke
+  // dropped on another storey tile goes there, «Kopieren nach …» – each ONE step
+  describe('Grundriss on the storey stack', () => {
+    const twoStoreys = { activeId: 'gebaeude', plans: [tafel, gebaeudeDoc], building: { ...aBuilding, floors: [0, 1] } }
+    // the board is 400 × 400: storey 1 is the top tile (y 0–200), the EG the bottom one (200–400)
+    const wand: BoardAnno = { id: 'w1', kind: 'draw', role: 'wand', floor: 0, pts: [[0.2, 0.5], [0.8, 0.5]] }
+    const tuer: BoardAnno = { id: 'd1', kind: 'symbol', symbol: 'GB Ture Durchgang', x: 0.4, y: 0.5, floor: 0, rotation: 0, onWall: 'w1' }
+
+    it('a Wand dragged onto the storey above goes there with its Durchgang – one step', () => {
+      const { container, onCheckpoint } = mount([wand, tuer], twoStoreys)
+      const hit = container.querySelector('polyline[stroke="transparent"]')!
+      // +0.15 across: both ends land well clear of the building outline, so nothing snaps
+      // (round 3) and the drop is exact
+      drag(hit, [[200, 300], [200, 250], [260, 100]])
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(find('w1').floor).toBe(1)
+      expect(find('w1').pts![0][0]).toBeCloseTo(0.35, 6)
+      expect(find('w1').pts![0][1]).toBeCloseTo(0.5, 6)
+      expect(find('d1')).toMatchObject({ floor: 1, onWall: 'w1' })
+      expect(find('d1').x).toBeCloseTo(0.55, 6)
+      act(() => history.current!.undo())
+      expect(find('w1')).toEqual(wand)
+      expect(find('d1')).toEqual(tuer)
+    })
+
+    it('reshaping a Wand re-seats its Durchgang and logs the seat for the replay', () => {
+      const { container, onCheckpoint, emit } = mount([wand, tuer], { ...twoStoreys, focus: focused('w1') })
+      drag(container.querySelectorAll('.wb-vertex')[0], [[80, 300], [80, 320], [80, 340]])
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(find('d1').rotation).not.toBe(0)
+      expect(edits(emit).map((c) => (c[1] as { id: string }).id)).toEqual(['w1', 'd1'])
+      expect(edits(emit)[1][1]).toMatchObject({ patch: { x: find('d1').x, y: find('d1').y, rotation: find('d1').rotation } })
+    })
+
+    // round 3: a Wand MOVED whole lands on what it is moved next to – rigidly, ring shown
+    it('a Wand moved whole next to another Wand lands on it, shape kept, ring shown while it moves', () => {
+      const short: BoardAnno = { id: 'w1', kind: 'draw', role: 'wand', floor: 0, pts: [[0.2, 0.5, 0], [0.4, 0.5, 0]] }
+      const cross: BoardAnno = { id: 'w3', kind: 'draw', role: 'wand', floor: 0, pts: [[0.6, 0.2, 0], [0.6, 0.8, 0]] }
+      const { container } = mount([short, cross], twoStoreys)
+      const hit = container.querySelector('polyline[stroke="transparent"]')!
+      fireEvent.pointerDown(hit, { clientX: 120, clientY: 300, pointerId: 1 })
+      fireEvent.pointerMove(hit, { clientX: 160, clientY: 302, pointerId: 1 })
+      fireEvent.pointerMove(hit, { clientX: 194, clientY: 303, pointerId: 1 }) // right end 6 px short of w3
+      expect(container.querySelector('.wb-snap-ring')).not.toBeNull()
+      fireEvent.pointerUp(hit, { clientX: 194, clientY: 303, pointerId: 1 })
+      const [a, b] = find('w1').pts!
+      expect(b[0]).toBeCloseTo(0.6, 6)
+      expect(b[0] - a[0]).toBeCloseTo(0.2, 6)
+      expect(b[1]).toBeCloseTo(a[1], 6)
+      expect(container.querySelector('.wb-snap-ring, .wb-snap-free')).toBeNull()
+    })
+
+    it('a Wand corner dragged near another Wand lands on it, level with its neighbour, ring shown while it moves', () => {
+      const short: BoardAnno = { id: 'w1', kind: 'draw', role: 'wand', floor: 0, pts: [[0.2, 0.5, 0], [0.4, 0.5, 0]] }
+      const cross: BoardAnno = { id: 'w3', kind: 'draw', role: 'wand', floor: 0, pts: [[0.6, 0.2, 0], [0.6, 0.8, 0]] }
+      const { container } = mount([short, cross], { ...twoStoreys, focus: focused('w1') })
+      const grip = container.querySelectorAll('.wb-vertex')[1]
+      fireEvent.pointerDown(grip, { clientX: 160, clientY: 300, pointerId: 1 })
+      fireEvent.pointerMove(grip, { clientX: 200, clientY: 302, pointerId: 1 })
+      fireEvent.pointerMove(grip, { clientX: 236, clientY: 303, pointerId: 1 })
+      expect(container.querySelector('.wb-snap-ring')).not.toBeNull()
+      fireEvent.pointerUp(grip, { clientX: 236, clientY: 303, pointerId: 1 })
+      const [x, y, f] = find('w1').pts![1]
+      expect(x).toBeCloseTo(0.6, 6); expect(y).toBeCloseTo(0.5, 6); expect(f).toBe(0)
+      expect(container.querySelector('.wb-snap-ring, .wb-snap-free')).toBeNull()
+    })
+
+    it('a Wand in the Grundriss dark is drawn in the theme ink, a recoloured one in its own colour', () => {
+      const red: BoardAnno = { ...wand, id: 'w2', color: '#e8392b', pts: [[0.2, 0.3], [0.8, 0.3]] }
+      const { container } = mount([{ ...wand, color: appConfig.drawing.colors[4], width: 3 }, red], twoStoreys)
+      const strokes = [...container.querySelectorAll('polyline')].map((p) => p.getAttribute('stroke'))
+      expect(strokes).toContain('var(--ink-dim)')
+      expect(strokes).toContain('#e8392b')
+      expect(strokes).not.toContain(appConfig.drawing.colors[4])
+    })
+
+    it('a selected Wand has no stair-climb grips – a plain Linie on the stack still does', () => {
+      const leitung: BoardAnno = { id: 'l9', kind: 'draw', floor: 0, pts: [[0.1, 0.2], [0.9, 0.2]] }
+      const { container } = mount([wand, leitung], { ...twoStoreys, focus: focused('l9') })
+      expect(container.querySelectorAll('.wb-climb').length).toBeGreaterThan(0)
+      cleanup()
+      const again = mount([wand, leitung], { ...twoStoreys, focus: focused('w1') })
+      expect(again.container.querySelectorAll('.wb-climb')).toHaveLength(0)
+    })
+
+    it('a selected Wand offers no hose fields (Leitung Nr., Typ) – a plain Linie still does', () => {
+      const lineNo = appConfig.copy.drawingEditor.lineNo
+      const leitung: BoardAnno = { id: 'l9', kind: 'draw', floor: 0, pts: [[0.1, 0.2], [0.9, 0.2]] }
+      mount([wand, leitung], { ...twoStoreys, focus: focused('l9') })
+      expect(screen.queryAllByText(lineNo).length).toBeGreaterThan(0)
+      cleanup()
+      mount([wand, leitung], { ...twoStoreys, focus: focused('w1') })
+      expect(screen.queryAllByText(lineNo)).toHaveLength(0)
+    })
+
+    // round 2 (27.10.2026): «Mehrere platzieren» is the Durchgang's default here, so it stays armed
+    // after every tap – Escape and the pill's ✕ must put it down (the Plan's Escape never did)
+    it.each(['Escape', '✕'])('%s stops placing Durchgänge', (how) => {
+      const gb = { ...sym, ready: true, order: ['Gebäude'], byName: { 'GB Ture Durchgang': '<svg/>' }, symbols: [{ name: 'GB Ture Durchgang', cat: 'Gebäude', svg: '<svg/>' }] }
+      const { container } = mount([], { ...twoStoreys, sym: gb })
+      fireEvent.click(screen.getByRole('button', { name: 'Symbol' }))
+      fireEvent.click(screen.getAllByRole('button', { name: /Durchgang/ })[0])
+      expect(screen.getByRole('button', { name: appConfig.copy.keepPlacing }).getAttribute('aria-pressed')).toBe('true')
+      if (how === 'Escape') fireEvent.keyDown(window, { key: 'Escape' })
+      else fireEvent.click(within(container.querySelector('.armed-pill-row')!).getByRole('button', { name: appConfig.copy.cancel }))
+      expect(container.querySelector('.armed-pill-row')).toBeNull()
+      expect(container.querySelector('.wb-ink')).toBeNull()
+    })
+
+    it('deleting a Wand leaves its Durchgang standing free', () => {
+      mount([wand, tuer], { ...twoStoreys, focus: focused('w1') })
+      fireEvent.keyDown(window, { key: 'Delete' })
+      expect(latest.annos.map((a) => a.id)).toEqual(['d1'])
+      expect(find('d1').onWall).toBeUndefined()
+    })
+
+    it('«Kopieren nach …» copies the storey\'s Grundriss in one step and says where it went', async () => {
+      const leitung: BoardAnno = { id: 'l9', kind: 'draw', floor: 0, pts: [[0.1, 0.1], [0.9, 0.9]] }
+      const gb = { ...sym, symbols: [{ name: 'GB Ture Durchgang', cat: 'Gebäude', svg: '' }] }
+      const { container, onCheckpoint } = mount([wand, tuer, leitung], { ...twoStoreys, sym: gb })
+      const eg = container.querySelectorAll('.wb-floor')[1]
+      fireEvent.click(eg.querySelector('.wb-floor-label')!)
+      fireEvent.click(await screen.findByRole('menuitem', { name: appConfig.copy.whiteboard.storeyCopy.menu }))
+      fireEvent.click(await screen.findByRole('checkbox', { name: /1\. OG/ }))
+      fireEvent.click(screen.getByRole('button', { name: 'Auf 1. OG kopieren' }))
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      const copies = latest.annos.filter((a) => a.floor === 1)
+      expect(copies.map((a) => a.role ?? a.symbol).sort()).toEqual(['GB Ture Durchgang', 'wand'])
+      expect(copies.find((a) => a.symbol)!.onWall).toBe(copies.find((a) => a.role)!.id)
+      expect(ui.toasts[ui.toasts.length - 1]?.text).toContain('1. OG')
+    })
+
+    // round 3: «Art: Linie | Wand» in the line editor
+    const art = () => within(screen.getByRole('group', { name: appConfig.copy.drawingEditor.kind }))
+
+    it('«Art: Linie» turns a Wand into a Linie and frees its Durchgang – one step, one board.edit', () => {
+      const { onCheckpoint, emit } = mount([{ ...wand, color: appConfig.drawing.colors[4], width: 2 }, tuer], { ...twoStoreys, focus: focused('w1') })
+      fireEvent.click(art().getByRole('button', { name: appConfig.copy.drawingEditor.kindLine }))
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(edits(emit)).toHaveLength(1)
+      expect(find('w1')).toMatchObject({ role: undefined, color: appConfig.drawing.defaultColor, width: 2, pts: wand.pts })
+      expect(find('d1')).toMatchObject({ x: tuer.x, y: tuer.y, onWall: undefined })
+      expect(screen.queryAllByText(appConfig.copy.drawingEditor.lineNo).length).toBeGreaterThan(0)
+      act(() => history.current!.undo())
+      expect(find('w1').role).toBe('wand')
+      expect(find('d1').onWall).toBe('w1')
+    })
+
+    it('«Wand» is off for a Linie a Trupp is on', () => {
+      const leitung: BoardAnno = { id: 'l9', kind: 'draw', floor: 0, pts: [[0.1, 0.2], [0.9, 0.2]], truppId: 't1' }
+      const { onChange } = mount([leitung], { ...twoStoreys, focus: focused('l9'), trupps: TRUPPS })
+      const toWand = art().getByRole('button', { name: appConfig.copy.drawingEditor.kindWand }) as HTMLButtonElement
+      expect(toWand.disabled).toBe(true)
+      expect(screen.getByText(appConfig.copy.drawingEditor.kindWandBlocked)).toBeTruthy()
+      fireEvent.click(toWand)
+      expect(onChange).not.toHaveBeenCalled()
+    })
   })
 
   describe('Verlängern docks only on a closed ring', () => {

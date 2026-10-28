@@ -940,6 +940,15 @@ export interface BoardAnno extends SymbolProps {
    *  surfaces. ⚠️ NOT `tacticalLocked`, which locks the whole surface for a viewer.
    *  Draw/area/shape only, exactly like the map (a symbol is never locked on either surface). */
   locked?: boolean
+  /** Gebäude floor plan («Grundriss») role of a line drawn with the Wand preset of the Linie.
+   *  Still an ordinary Linie – the role only says the anno is LAYOUT, not Einsatz state: the Wand
+   *  tool stays armed, snaps, carries its Durchgänge (`onWall`) and is what «Kopieren nach …»
+   *  copies to another storey. Absent = Einsatz ink. (Weg and Raum were dropped on 27.10.2026:
+   *  a route is a plain Linie, a room is drawn with Wände.) */
+  role?: 'wand'
+  /** symbol only: the id of the Wand line this Durchgang sits on. The symbol was snapped and
+   *  turned onto that line and moves with it; absent = it stands free. */
+  onWall?: string
   /** Magnetic relationship intent at the first/last vertex (draw/line only). */
   startAttachment?: LineAttachment
   endAttachment?: LineAttachment

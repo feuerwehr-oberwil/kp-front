@@ -11,6 +11,7 @@ import type React from 'react'
 import type { BoardAnno, BoardPoint, BoardTool } from '../types'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import type { floorGeometry } from '../lib/whiteboard'
+import { doorsOn, shiftStoreys } from '../lib/grundriss'
 import type { useBoardDoc } from './useBoardDoc'
 
 type FloorGeometry = ReturnType<typeof floorGeometry>
@@ -30,18 +31,29 @@ interface Args {
   moveRigid: FloorGeometry['moveRigid']
   localY: FloorGeometry['localY']
   mapY: FloorGeometry['mapY']
+  /** the Gebäude stack: a stroke dragged onto another storey tile moves to that storey */
+  stack: boolean
+  floorAt: FloorGeometry['floorAt']
+  /** the storeys the board draws (a stroke never moves onto one it does not) */
+  floorsTTB: readonly number[]
+  /** the storey tile a drag would drop onto (highlighted), null = its own */
+  setDropFloor: (floor: number | null) => void
   pushPast: BoardDoc['pushPast']
   patch: BoardDoc['patch']
   emit: (op: string, payload?: Record<string, unknown>) => void
   activeId: string
+  /** a moved Wand's snap (usePlanDraft · snapMoveOf): the extra shift that lands one of its corners
+   *  on a target, ring shown; `null` points clear the ring */
+  snapMove: (ids: readonly string[], floor: number, moved: readonly (readonly [number, number])[] | null) => [number, number] | null
 }
 
 /** The Plan's ink body drags; see the file header. */
-export function useWbBodyDrag({ tool, readOnly, annos, setAnnoTap, setSelId, setSelIds, boardRef, boardPts, moveRigid, localY, mapY, pushPast, patch, emit, activeId }: Args) {
+export function useWbBodyDrag({ tool, readOnly, annos, setAnnoTap, setSelId, setSelIds, boardRef, boardPts, moveRigid, localY, mapY, stack, floorAt, floorsTTB, setDropFloor, pushPast, patch, emit, activeId, snapMove }: Args) {
   // drag a single selected freehand stroke (its original board-space vertices + the start point)
   // `bpts` keep each vertex's storey AS STORED (floorGeometry · boardPts); `last` is the stroke as
-  // the latest sample wrote it, which is what the release reports
-  const drawDrag = useRef<{ id: string; floor: number; sx: number; sy: number; bpts: BoardPoint[]; moved: boolean; last?: BoardPoint[] } | null>(null)
+  // the latest sample wrote it, which is what the release reports. `orig` is the stroke as the
+  // press found it and `f0` the storey tile under the press – a drag onto another tile shifts it there.
+  const drawDrag = useRef<{ id: string; floor: number; sx: number; sy: number; bpts: BoardPoint[]; moved: boolean; last?: BoardPoint[]; orig: BoardAnno; f0: number } | null>(null)
 
   // --- single freehand-stroke select + drag (tap the fat hit-line in WbInkLayer, pan mode) ---
   const drawDown = (id: string, e: React.PointerEvent) => {
@@ -64,7 +76,9 @@ export function useWbBodyDrag({ tool, readOnly, annos, setAnnoTap, setSelId, set
     const a = annos.find((x) => x.id === id); if (!a || (a.kind !== 'draw' && a.kind !== 'area')) return
     // snapshot the vertices in board-space (y mapped to the stacked board), so the delta is always
     // applied to the original geometry — no drift across re-renders (mirrors the group-move math)
-    drawDrag.current = { id, floor: a.floor ?? 0, sx: e.clientX, sy: e.clientY, bpts: boardPts(a.pts ?? [], a.floor ?? 0), moved: false }
+    const rect = boardRef.current?.getBoundingClientRect()
+    const f0 = stack && rect?.height ? floorAt((e.clientY - rect.top) / rect.height) : a.floor ?? 0
+    drawDrag.current = { id, floor: a.floor ?? 0, sx: e.clientX, sy: e.clientY, bpts: boardPts(a.pts ?? [], a.floor ?? 0), moved: false, orig: a, f0 }
   }
   const drawMove = (e: React.PointerEvent) => {
     const st = drawDrag.current; if (!st) return
@@ -77,24 +91,47 @@ export function useWbBodyDrag({ tool, readOnly, annos, setAnnoTap, setSelId, set
       if (Math.hypot(e.clientX - st.sx, e.clientY - st.sy) < DRAG_DEADZONE_PX) return
       pushPast(); st.moved = true // one checkpoint per drag
     }
-    const ndx = (e.clientX - st.sx) / rect.width, ndy = (e.clientY - st.sy) / rect.height
+    let ndx = (e.clientX - st.sx) / rect.width, ndy = (e.clientY - st.sy) / rect.height
     const a = annos.find((x) => x.id === st.id)
+    // On the Gebäude stack the stroke goes to the storey under the pointer (27.10.2026): every
+    // storey it is on shifts by the same step, and the tile jump comes off the translation so it
+    // lands where it was dropped on the new tile. A docked stroke, or one that would leave the
+    // stack, stays on its storeys (shiftStoreys → null).
+    const f1 = stack ? floorAt((e.clientY - rect.top) / rect.height) : st.f0
+    const docked = !!(st.orig.startAttachment || st.orig.endAttachment)
+    const across = f1 !== st.f0 && !docked ? shiftStoreys(st.orig, f1 - st.f0, floorsTTB) : null
+    const home = across?.floor ?? st.floor
+    const bpts = across ? boardPts(across.pts ?? [], home) : st.bpts
+    const jump = across ? mapY(f1, 0) - mapY(st.f0, 0) : 0
+    // a Wand lands on what it is moved next to (round 3, 27.10.2026): the whole wall shifts so its
+    // nearest corner sits on a Wand, a Fläche edge or the outline of the storey it goes to
+    const snap = st.orig.role === 'wand' && stack
+      ? snapMove([st.id], home, bpts.filter((p) => (p[2] ?? home) === home).map(([x, by]) => [x + ndx, by + ndy - jump]))
+      : null
+    if (snap) { ndx += snap[0]; ndy += snap[1] }
     // ⚠️ ONE body: the stroke keeps its shape at a tile's edge (floorGeometry · moveRigid) — the
     // per-vertex clamp flattened a Leitung onto the tile's rim in the field (23.09.2026)
-    const pts = moveRigid(st.bpts, st.floor, (x, by) => [x + ndx, by + ndy], (i) => (
+    const pts = moveRigid(bpts, home, (x, by) => [x + ndx, by + ndy - jump], (i) => (
       (i === 0 && a?.startAttachment) || (i === st.bpts.length - 1 && a?.endAttachment)
         ? a?.pts?.[i] ?? [st.bpts[i][0], localY(st.bpts[i][1], st.bpts[i][2] ?? st.floor), st.bpts[i][2] ?? st.floor]
         : null))
     st.last = pts
-    patch(st.id, { pts })
+    setDropFloor(across ? f1 : null)
+    patch(st.id, { pts, ...((a?.floor ?? 0) !== home ? { floor: home } : null) })
   }
   const drawUp = () => {
     const st = drawDrag.current; drawDrag.current = null
     if (!st?.moved) return
+    setDropFloor(null)
+    if (st.orig.role === 'wand') snapMove([st.id], st.floor, null) // the ring goes with the hand
     // ⚠️ …WITH the points. A stroke's position IS its points, and this was the one board.move that
     // named none — an unfoldable payload, so the replay left the line where the last snapshot had
-    // it while every other plan drag now moves (lib/replay · board.move).
-    emit('board.move', { id: st.id, pts: st.last ?? annos.find((x) => x.id === st.id)?.pts, planId: activeId })
+    // it while every other plan drag now moves (lib/replay · board.move). …and its storey, which a
+    // drop onto another tile changed.
+    const a = annos.find((x) => x.id === st.id)
+    emit('board.move', { id: st.id, pts: st.last ?? a?.pts, ...(stack ? { floor: a?.floor ?? 0 } : null), planId: activeId })
+    // the Durchgänge that rode along with a Wand (lib/grundriss · carryDoors) – their seat, for the replay
+    doorsOn(annos, [st.id]).forEach((d) => emit('board.edit', { id: d.id, patch: { x: d.x, y: d.y, floor: d.floor, rotation: d.rotation }, planId: activeId }))
   }
 
   // --- single Absperrkreis select + move (tap its ring/fill in WbCircleLayer, pan mode) ---

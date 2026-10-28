@@ -8,8 +8,8 @@ import type { Drawing, LineAttachment, MapTool } from '../types'
 // The two mutating behaviours this wave added to the map drawing surface:
 //  · C1 — a SEMANTIC edit (Leitung Nr., Stockwerk, Abschluss) earns ONE settled Verlauf row per
 //    burst, while colour/width/dash stay silent by doctrine (lib/drawingEdit).
-//  · A6 — tap-away mid-draft no longer discards silently: a committable draft auto-commits with
-//    an undo that returns the shape TO THE HAND; a fragment says it was discarded.
+//  · leaving an open drawing (27.10.2026, replaced the A6 auto-commit): a committable draft asks
+//    «Speichern · Verwerfen · Weiterzeichnen»; «Weiterzeichnen» returns the shape TO THE HAND.
 
 vi.mock('./ui', () => ({ toast: vi.fn(), confirmDialog: vi.fn() }))
 import { confirmDialog, toast } from './ui'
@@ -76,67 +76,79 @@ describe('noteDrawingEdit via patchDrawing (C1)', () => {
   })
 })
 
-describe('settleDraft (A6)', () => {
-  it('auto-commits a committable area draft WITHOUT stealing the selection, with an undo toast', () => {
+describe('settleDraft (leaving an open drawing)', () => {
+  const ring: [number, number][] = [[7.7, 47.4], [7.8, 47.4], [7.8, 47.5]]
+  const answer = (v: boolean | 'alt') => (confirmDialog as ReturnType<typeof vi.fn>).mockResolvedValueOnce(v)
+  /** settle with an answer pending, then let the answer land */
+  const settle = async (result: { current: ReturnType<typeof useMapDrawing> }) => {
+    act(() => { result.current.settleDraft() })
+    await act(async () => { await Promise.resolve() })
+  }
+
+  it('asks, and «Speichern» commits through the create funnel WITHOUT stealing the selection', async () => {
     const deps = makeDeps({ tool: 'area' })
     const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
-    const ring: [number, number][] = [[7.7, 47.4], [7.8, 47.4], [7.8, 47.5]]
     act(() => { result.current.setDraft(ring) })
-    act(() => { result.current.settleDraft() })
-    // committed through the ordinary create funnel (one commit, the areaDrawn row)…
+    answer(true)
+    await settle(result)
+    expect((confirmDialog as ReturnType<typeof vi.fn>).mock.calls[0][0].title).toBe('Fläche noch offen')
     expect(deps.commit).toHaveBeenCalledTimes(1)
     expect(deps.drawings.some((d) => d.kind === 'area')).toBe(true)
-    // …but the tap-away target keeps its selection — nothing here re-selects
+    // …the leave's target keeps its selection — nothing here re-selects
     expect(deps.setSelectedDrawingId).not.toHaveBeenCalled()
     expect(deps.setTool).not.toHaveBeenCalled()
-    const [text, opts] = (toast as ReturnType<typeof vi.fn>).mock.calls[0]
-    expect(text).toContain('gespeichert')
-    expect(opts.action.label).toBe('Rückgängig')
     expect(result.current.draft).toEqual([])
   })
 
-  it('undo returns the shape to the hand: drawing out, draft points back, tool re-armed', () => {
+  it('«Verwerfen» commits nothing and says nothing', async () => {
     const deps = makeDeps({ tool: 'area' })
-    const { result, rerender } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
-    const ring: [number, number][] = [[7.7, 47.4], [7.8, 47.4], [7.8, 47.5]]
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
     act(() => { result.current.setDraft(ring) })
-    act(() => { result.current.settleDraft() })
-    const opts = (toast as ReturnType<typeof vi.fn>).mock.calls[0][1]
-    act(() => { opts.action.onClick() })
-    rerender({ ...deps })
-    expect(deps.drawings.some((d) => d.kind === 'area')).toBe(false)
-    expect(deps.setTool).toHaveBeenCalledWith('area')
-    expect(result.current.draft).toEqual(ring)
-    // the record stays truthful — created, then taken back, named like its creation row
-    expect(deps.log.mock.calls.map((c) => c[1])).toContain('Fläche entfernt')
+    answer('alt')
+    await settle(result)
+    expect(deps.commit).not.toHaveBeenCalled()
+    expect(toast).not.toHaveBeenCalled()
+    expect(result.current.draft).toEqual([])
   })
 
-  it('a fragment below the minimum is discarded OUT LOUD, never silently', () => {
+  it('«Weiterzeichnen» (or a dismissed dialog) hands the shape back under its re-armed tool', async () => {
+    const deps = makeDeps({ tool: 'area' })
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.setDraft(ring) })
+    answer(false)
+    await settle(result)
+    expect(deps.commit).not.toHaveBeenCalled()
+    expect(deps.setTool).toHaveBeenCalledWith('area')
+    expect(result.current.draft).toEqual(ring)
+  })
+
+  it('a fragment below the minimum goes silently – nothing to ask about', () => {
     const deps = makeDeps({ tool: 'area' })
     const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
     act(() => { result.current.setDraft([[7.7, 47.4], [7.8, 47.4]]) }) // 2 points — no area yet
     act(() => { result.current.settleDraft() })
     expect(deps.commit).not.toHaveBeenCalled()
-    const [text, opts] = (toast as ReturnType<typeof vi.fn>).mock.calls[0]
-    expect(text).toContain('verworfen')
-    expect(opts?.action).toBeUndefined()
+    expect(confirmDialog).not.toHaveBeenCalled()
+    expect(toast).not.toHaveBeenCalled()
     expect(result.current.draft).toEqual([])
   })
 
   it('under the tactical lock nothing may be written — the draft is discarded, said out loud', () => {
     const deps = makeDeps({ tool: 'area', tacticalLocked: true })
     const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
-    act(() => { result.current.setDraft([[7.7, 47.4], [7.8, 47.4], [7.8, 47.5]]) })
+    act(() => { result.current.setDraft(ring) })
     act(() => { result.current.settleDraft() })
     expect(deps.commit).not.toHaveBeenCalled()
+    expect(confirmDialog).not.toHaveBeenCalled()
     expect((toast as ReturnType<typeof vi.fn>).mock.calls[0][0]).toContain('verworfen')
   })
 
-  it('an empty draft is a no-op — no toast for a tap-away with nothing in hand', () => {
+  it('an empty draft is a no-op — nothing to ask about', () => {
     const deps = makeDeps({ tool: 'area' })
     const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
     act(() => { result.current.settleDraft() })
     expect(toast).not.toHaveBeenCalled()
+    expect(confirmDialog).not.toHaveBeenCalled()
   })
 })
 

@@ -144,5 +144,11 @@ export const drawingCopy: Localizable<Pick<Copy, Keys>> = {
     autoCommitted: '{name} enregistré',
     autoCommitUndo: 'Annuler',
     draftDiscarded: 'Dessin incomplet abandonné',
+    openTitle: '{name} encore ouvert',
+    openMessage: 'Le dessin n’est pas encore terminé.',
+    openSave: 'Enregistrer',
+    openDiscard: 'Abandonner',
+    openContinue: 'Continuer à dessiner',
+    openPill: '{name} ouvert',
   },
 }

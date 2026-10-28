@@ -39,6 +39,7 @@ import { usePlanRemoval } from './usePlanRemoval'
 import { CIRCLE_MAX_N, useWbRotor } from './useWbRotor'
 import { SelectionBar } from './SelectionBar'
 import { PlanAnno, type PlanAnnoBoard } from './PlanAnno'
+import { TacticalSymbol } from '../lib/symbolRender'
 import { PlanLineDecor } from './PlanLineDecor'
 import { SelectionTurn } from './SelectionTurn'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
@@ -69,10 +70,12 @@ import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
+import { carryDoors, copyGrundriss, grundrissOf, spansStoreys, wallRolePatch, DOOR_SYMBOL, GEBAEUDE_CATEGORY } from '../lib/grundriss'
+import { StoreyCopySheet } from './StoreyCopySheet'
 import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, STACK_READINGS_LANE, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
 import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachAnnos, dwellFor, flipLine, forkPortPoint, wireFreed, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, withDetach, type AnnoDetachPatch, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
-import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from '../lib/stackFit'
+import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, stackGroundFit } from '../lib/stackFit'
 import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
 import type { FloorPackView } from '../lib/floorPackBinding'
 import { stackInstances } from '../lib/stackFloors'
@@ -83,11 +86,12 @@ import { isSelectOnlySurface } from '../lib/useObjectPlans'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { PlanScales } from '../lib/workspace'
 import { fmtDistance, fmtArea } from '../lib/geo'
-import { activeViewDeg, bandAspect, BOX_H, BOX_W, buildView, principalAngleDeg, remapPoint, stackScaleMPerU, type Ring } from '../lib/footprint'
+import { activeViewDeg, bandAspect, BOX_H, BOX_W, buildView, pointRemapper, principalAngleDeg, stackScaleMPerU, type Ring } from '../lib/footprint'
+import { reorientAnnos } from '../lib/reorientAnnos'
 import { usePlanMeasure } from './usePlanMeasure'
 import { usePlanGeoref } from './usePlanGeoref'
 import { usePlanTafelPages } from './usePlanTafelPages'
-import { INK_DEFAULTS, usePlanDraft } from './usePlanDraft'
+import { GRUNDRISS_STYLE, INK_DEFAULTS, usePlanDraft } from './usePlanDraft'
 import { usePlanCreate, type InkTap } from './usePlanCreate'
 import { useMeasuredSheet } from './useMeasuredSheet'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
@@ -103,7 +107,7 @@ import type { LiveMark, PhotoMark } from '../lib/planProjection'
 import { MAX_SCALE, MAX_SCALE_STACK, MIN_SCALE, boardViewSignature, useBoardView, type BoardViews } from './useBoardView'
 import { useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { useBoardGestures } from './useBoardGestures'
-import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles, WbDraftHandles, type TruppFinderDoor } from './WbControls'
+import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles, WbDraftHandles, WbSnapRing, type TruppFinderDoor } from './WbControls'
 import { MeasurePanel } from './MeasurePanel'
 import { ToolDock } from './ToolDock'
 import { ArmedSymbolGlyph, ArmedToolPill } from './ArmedToolPill'
@@ -380,7 +384,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const formAnnos = useMemo(() => annosAll.filter((a) => !isDrawnBoardKind(a.kind)), [annosAll])
   const annos = useMemo(() => (formAnnos.length ? annosAll.filter((a) => isDrawnBoardKind(a.kind)) : annosAll), [annosAll, formAnnos])
   const withForms = (next: BoardAnno[]) => (formAnnos.length ? [...next.filter((a) => isDrawnBoardKind(a.kind)), ...formAnnos] : next)
-  const onChange = (next: BoardAnno[], opts?: { gesture?: boolean }) => onChangeAll(withForms(next), opts)
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -626,10 +629,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   )
   const viewAngle = building ? activeViewDeg(building) : 0
   // A8 (29.08.): a DRAG on the north dial rotates the building continuously. While the finger
-  // is down this holds the live preview angle; the commit (one reorientTo, through the same
-  // remap + undo path as the tap) happens on release, so annotations re-glue exactly once.
-  // The release is the slider's native `change`; a gesture cancelled instead drops the preview
-  // again (OrientSlider).
+  // is down this holds the live preview angle – the backdrop AND every annotation turn with it
+  // (`previewAnnos`, 28.10.2026); the commit (one reorientTo, through the same remap + undo path
+  // as the tap) happens on release, so annotations are WRITTEN exactly once. The release is the
+  // Slider's `onCommit`; a gesture cancelled instead drops the preview again (OrientSlider).
   const [dialDragDeg, setDialDragDeg] = useState<number | null>(null)
   const shownAngle = dialDragDeg ?? viewAngle
   /** the turned view of `orientSrc` – present whenever there is something to turn */
@@ -659,14 +662,15 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // floor-stack ↔ board-normalized y maps for the current document (see lib/whiteboard)
   const { mapY, localY, floorAt, boardPts, moveRigid } = floorGeometry(stack, floorsTTB, N)
 
-  // Leaving Linie/Fläche mid-shape no longer silently drops the draft (A6, 29.08.): the
+  // Leaving Linie/Fläche mid-shape never silently drops a committable draft: it asks «Speichern ·
+  // Verwerfen · Weiterzeichnen» (27.10.2026; the A6 auto-commit of 29.08. before it). The
   // tool-change release lives in usePlanDraft, next to the commit machinery it needs.
   // The half-laid Maßstab tap is ephemeral and usePlanMeasure clears it itself.
   // `releaseRef` serves the release this board's own lifecycle makes — arming the Georeferenz,
   // leaving the DOCUMENT: an effect cleanup's closure is stale (from the render its effect last
   // ran in), while this ref — re-pointed by an every-commit effect below usePlanDraft — still
   // holds the OLD document's closure when the cleanups of the next commit run.
-  const releaseRef = useRef<(from: BoardTool) => void>(() => {})
+  const releaseRef = useRef<(from: BoardTool, opts?: { ask?: boolean }) => void>(() => {})
   // the tool the live draft was laid under (the release must classify by the tool being LEFT)
   const prevTool = useRef<BoardTool>('pan')
 
@@ -695,6 +699,21 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // band – a flat hall gets flat cards, so the stack is as tall as its drawings need (16.09.2026)
   const tileAR = tileAspectOf(building)
   const effAspect = stack ? N * tileAR : aspect
+  /** The sheet's annotations as the held orientation slider shows them: the commit's own re-glue
+   *  (lib/reorientAnnos) at the preview angle, onto the board ON SCREEN – the band only follows a
+   *  pack's turned frame at the commit, so during the drag the backdrop is drawn into this one.
+   *  RENDER ONLY: every write still reads `annos`, and the board takes no presses while it stands
+   *  (`previewing` below), so nothing can hit-test or commit a previewed position. Null when no
+   *  preview is live. */
+  const previewAnnos = useMemo(
+    () => (dialDragDeg != null && stack && orientSrc
+      ? reorientAnnos(annos, { src: orientSrc, fromDeg: viewAngle, toDeg: dialDragDeg, layout: { boardW: 1, boardH: N * tileAR, floors: N } })
+      : null),
+    [dialDragDeg, stack, orientSrc, annos, viewAngle, N, tileAR],
+  )
+  const previewing = previewAnnos != null
+  /** what the board DRAWS: the live preview while the slider is held, else the sheet */
+  const shownAnnos = previewAnnos ?? annos
   // "contain" the plan in the area below the top bar: full width, but the usable
   // height excludes TOP_INSET so the fitted plan never sits behind the bar. In the
   // floor-stack we also reserve STACK_VPAD top & bottom so the +OG / −UG pills (which
@@ -851,9 +870,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // to be a real reset and not a visual one: there is no way back to «Auswahl» while the mode runs.
   useEffect(() => {
     if (!georefArmed) return
-    // …but arming the mode is a tap-away like any other: a committable node draft is
-    // auto-committed (with its undo toast) instead of silently discarded — A6, 29.08.
-    releaseRef.current(tool)
+    // …and arming the mode leaves the draft: a committable one is SAVED (with a toast) rather than
+    // asked about — «Weiterzeichnen» could not re-arm a tool under the running Georeferenz
+    releaseRef.current(tool, { ask: false })
     setSelId(null); setSelIds([]); setEditId(null); setPending(null); setPendingShape(null)
     setPaletteOpen(false); setTruppPick(null)
     resetEphemeral() // the calibration nodes usePlanMeasure owns
@@ -897,8 +916,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const gone = [...was.keys()].some((id) => !to.some((a) => a.id === id))
     if (gone || formOpen) setPageSel(SKIZZE)
   }
+  // every board write leaves through here: a Durchgang rides along with the Wand that write moved,
+  // and lets go of one it deleted (lib/grundriss · carryDoors) – ↶ / ↷ restores are left as they are
+  const writeBoard: typeof onChangeAll = (next, ...opts) =>
+    onChangeAll(opts[0]?.gesture === false ? next : carryDoors(annosAll, next, tileAR), ...opts)
   const boardDoc = useBoardDoc({
-    annos: annosAll, onChange: onChangeAll, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd, onRestore,
+    annos: annosAll, onChange: writeBoard, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd, onRestore,
   })
   const { pushPast, add, patch, patchCommit, removeAnno } = boardDoc
   const set = (next: BoardAnno[]) => boardDoc.set(withForms(next))
@@ -984,7 +1007,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // each point lets one polyline cross storeys while legacy two-tuples inherit anno.floor.
   // The dragged endpoint follows the FINGER, fed into resolution with its own attachment ignored, so
   // attached branch lines follow the node live (move + carry) rather than snapping only on release.
-  const attachmentLines: AttachableLine<BoardPoint>[] = annos
+  const attachmentLines: AttachableLine<BoardPoint>[] = shownAnnos
     .filter((a) => a.kind === 'draw' && (a.pts?.length ?? 0) >= 2)
     .map((a) => {
       const drag = planEndpointDragState?.id === a.id ? planEndpointDragState : null
@@ -1040,7 +1063,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
    * a far-side delete fall back to the stored point, which resolveLinePoints already does safely.
    */
   const objectPoint = (id: string, toward: BoardPoint, attachment: LineAttachment, source: AttachableLine<BoardPoint>): BoardPoint | null => {
-    const target = annos.find((a) => a.id === id && isMagnetAnno(a)) ?? null
+    const target = shownAnnos.find((a) => a.id === id && isMagnetAnno(a)) ?? null
     if (!target || target.x == null || target.y == null || !sW || !sH) return null
     const floor = target.floor ?? 0
     const box = attachBox(target)
@@ -1065,7 +1088,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const relationship = relationshipNetwork(attachmentLines, selId && attachmentLines.some((l) => l.id === selId) ? [selId] : [], selId && annos.some((a) => a.id === selId && (a.kind === 'symbol' || a.kind === 'resource')) ? [selId] : [])
   // resolvedPts already carries the dragged endpoint at the finger position (attachmentLines injects
   // it above), so the anno list needs no second override.
-  const renderAnnos = annos.map((a) => (resolvedPts.has(a.id) ? { ...a, pts: resolvedPts.get(a.id)! } : a))
+  const renderAnnos = shownAnnos.map((a) => (resolvedPts.has(a.id) ? { ...a, pts: resolvedPts.get(a.id)! } : a))
 
   /** Every placed Trupp chip on this sheet, as the one-Trupp rule reads them (a Plan's `resource`
    *  is the Karte's team marker — lib/truppLines · TruppMarker). */
@@ -1087,7 +1110,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         return { key: `object:${a.id}`, target: { kind: 'object', id: a.id }, point: edge, defaultRouting: DEFAULT_OBJECT_ROUTING }
       })
     const lines = lineEndTargets(renderAnnos
-      .filter((a) => a.kind === 'draw' && a.id !== sourceId && (a.pts?.length ?? 0) >= 2)
+      // a Wand is layout: no Leitung couples onto its end
+      .filter((a) => a.kind === 'draw' && !a.role && a.id !== sourceId && (a.pts?.length ?? 0) >= 2)
       .map((a) => {
         const pts = a.pts!, px = (p: BoardPoint): [number, number] => [p[0] * sW, mapY(p[2] ?? a.floor, p[1]) * sH]
         return { id: a.id, teilstueck: a.teilstueck, width: a.width, start: [px(pts[0]), px(pts[1])], end: [px(pts[pts.length - 1]), px(pts[pts.length - 2])] }
@@ -1096,15 +1120,18 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }
   const planAttachmentFor = (c: MagneticTarget): LineAttachment => candidateAttachment(c, attachmentLines)
 
-  // --- the draft in the hand, its magnet, the commit funnel and the A6 release — components/usePlanDraft ---
+  // --- the draft in the hand, its magnet, the commit funnel, the leave release and the Grundriss
+  // presets — components/usePlanDraft ---
   const planDraft = usePlanDraft({
-    tool, setTool, annos, annosAll, activeId, onChange, add, setHist, onCheckpoint, log, emit, setSelId, onLineAttached,
-    sW, sH, mapY, planCandidatesAt, planAttachmentFor, planEndpointDragState, prevToolRef: prevTool,
+    tool, setTool, annos, add, log, setSelId, onLineAttached,
+    sW, sH, mapY, localY, stack, outlinePx: (f) => stackOutlinePx(f),
+    planCandidatesAt, planAttachmentFor, planEndpointDragState, prevToolRef: prevTool,
+    onContinue: () => setPaletteOpen(false),
   })
   const {
-    lineMode, setLineMode, areaMode, setAreaMode, draft, setDraft, circleDraft, setCircleDraft,
+    lineMode, areaMode, draft, setDraft, circleDraft, setCircleDraft,
     draftFloorRef, noding, draftActive, planDraftMagnetState, planJoinPreview,
-    addLine, addArea, finishShape, cancelShape, releaseDraft,
+    addLine, addArea, finishShape, releaseDraft, grundriss, pickInput, tapDraftVertex, snapWallVertex, snapDraftVertex, snapMoveOf, ring, showRing, openName,
   } = planDraft
   // Arriving on the selection-only sheet also DISARMS what was carried over: its dock went with
   // the rail, so a still-pending symbol would be an invisible armed state that fires on the next
@@ -1113,6 +1140,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     if (!selectOnly) return
     setTool('pan'); setPending(null); setPendingShape(null); setPaletteOpen(false); setDraft(null); setCircleDraft(null)
   }, [selectOnly, setTool, setPending, setPendingShape, setDraft, setCircleDraft])
+  /** Put a symbol / shape being placed down – the armed pill's ✕ and Escape (round 2, 27.10.2026) */
+  const stopPlacing = () => { setPending(null); setPendingShape(null); setTool('pan') }
   // Esc cancels an in-progress node shape, else clears the selection
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1127,12 +1156,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       // also drop the draft/selection behind it. Focus is trapped inside the dialog, so the
       // target is enough to tell (covers the Trupp picker, the Maßstab entry, every overlay).
       if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
-      // ⚠️ Escape stays an EXPLICIT discard — deliberately NOT routed through releaseDraft
-      // (A6, 29.08.): tap-away loses a draft by ACCIDENT, so it auto-commits; Escape is the
-      // one gesture whose whole meaning is «weg damit», and auto-saving it would leave no
-      // way to throw a half-laid shape away.
+      // Escape leaves the tool like ✕ does: putting the tool down releases the draft, and a
+      // committable one asks «Speichern · Verwerfen · Weiterzeichnen» (27.10.2026 – until then
+      // Escape was the one silent discard; «Verwerfen» is now the explicit way to throw it away).
+      // A symbol or shape being placed is put down first – the Karte's order (lib/hotkeyRoute ·
+      // routeEscape); with «Mehrere platzieren» on, the Plan had no way out (round 2, 27.10.2026)
       if (rotStart) { setRotStart(null); clearRotMagnet() }
-      else if (draft) cancelShape()
+      else if (pending || pendingShape) stopPlacing()
+      else if (draft) setTool('pan')
       else if (circleDraft) setCircleDraft(null)
       // …then the Passung dock. It is deliberately not an Overlay (it must not trap the board
       // behind a scrim while a fit is being judged), so it has no Escape of its own and would
@@ -1146,8 +1177,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // `rotStart` belongs here: without it the handler kept the null from before the first tap,
     // and Escape skipped a half-laid Rotation (review sweep 23.09.2026). `clearRotMagnet` is
     // left out on purpose: it is declared further down (useWbRotor), and every render's copy
-    // touches the same refs and setter, so an older one does the same.
-  }, [rotStart, draft, circleDraft, qualityFor, selId, notePanelId])
+    // touches the same refs and setter, so an older one does the same – `stopPlacing` likewise
+    // (setters only); `pending` / `pendingShape` are what it is gated on, so they are in.
+  }, [rotStart, draft, circleDraft, qualityFor, selId, notePanelId, pending, pendingShape])
 
   // reset transient state when switching document. Sits BELOW usePlanMeasure and usePlanDraft
   // because it clears the state they own — above them, resetEphemeral and setDraft are not yet
@@ -1167,7 +1199,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // the document was OPENED in, when the draft did not exist yet — the ref, re-pointed every
     // commit and read before any new effect runs, still holds the old document's closure, so
     // the auto-commit lands on the sheet the shape was actually drawn on.
-    return () => releaseRef.current(prevTool.current)
+    return () => releaseRef.current(prevTool.current, { ask: false })
   }, [activeId]) // eslint-disable-line react-hooks/exhaustive-deps
   // re-point the leave-document release every commit (see releaseRef above for why a ref), and
   // release on a TOOL change — below usePlanDraft, whose commit machinery the release is.
@@ -1189,9 +1221,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const { rotMagnet, clearRotMagnet, rotDown, rotMove, rotUp } = rotor
 
   // --- create-tool interactions (on the ink overlay) — components/usePlanCreate ---
-  const { inkDown, inkMove, inkUp, placeTeamChip } = usePlanCreate({
+  const { inkDown, inkMove, inkUp, placeTeamChip, doorGhost, clearDoorGhost } = usePlanCreate({
     tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, readOnly, stack,
-    toNorm, floorAt, localY, mapY, sW, sH, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef: inkTap,
+    toNorm, floorAt, localY, mapY, sW, sH, tileAR, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef: inkTap,
     planDraft, rotor, measure: planMeasure, rotPlacing, rotStart, setRotStart, rotN, noteDefaults, txtBase, setNotePanelId, setNotePlacedId,
     sym, onRecent, annos, trupps, placedTeamNames, onLinkTrupp, setTruppPick, add, log, setSelId,
     tapZoomPress: (e, allow) => tapZoomPress(e, allow),
@@ -1199,8 +1231,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   })
 
   // --- the ink's body drags: a stroke, an Absperrkreis, a Linie's label — components/useWbBodyDrag ---
+  // the storey tile a move would drop its selection onto – lit while the drag is over it
+  const [dropFloor, setDropFloor] = useState<number | null>(null)
   const { drawDrag, drawDown, drawMove, drawUp, circleDrag, circleDown, circleMove, circleUp, labelDown, labelMove, labelUp } = useWbBodyDrag({
-    tool, readOnly, annos, setAnnoTap, setSelId, setSelIds, boardRef, boardPts, moveRigid, localY, mapY, pushPast, patch, emit, activeId,
+    tool, readOnly, annos, setAnnoTap, setSelId, setSelIds, boardRef, boardPts, moveRigid, localY, mapY, stack, floorAt, floorsTTB, setDropFloor, pushPast, patch, emit, activeId, snapMove: snapMoveOf,
   })
 
   // --- vertex editing of a selected line/area and of the in-progress node draft (drag a node,
@@ -1215,12 +1249,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     resolvedPts, attachmentLines, planCandidatesAt, pushPast, patch, patchCommit, emit, activeId,
     onLineAttached, onLineDetached, planEndpointDrag, setPlanEndpointDrag, planDwellTimerRef: planDwellTimer,
     allFloorsTTB, revealFloor, centerOnPoint: (x, y, floor, atScale) => centerOnPoint(x, y, floor, atScale), scaleRef,
-    draftFloor: draftFloorRef, setDraft,
+    draftFloor: draftFloorRef, setDraft, tileAR, snapWallVertex, snapDraftVertex,
   })
 
   // --- chip dragging (resource / symbol / text in pan mode) — components/useWbChipDrag ---
   const { chipDrag, chipDown, chipMove, chipUp } = useWbChipDrag({
-    tool, readOnly, annos, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH,
+    tool, readOnly, annos, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH, tileAR,
     attachmentLines, pushPast, set, patch, emit, activeId, onLinkLineTrupp,
   })
 
@@ -1434,7 +1468,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     return () => clearTimeout(t)
   }, [flashId])
 
-  const pickSymbol = (name: string) => { setPending(name); setPendingShape(null); setTool('symbol'); setPaletteOpen(false); onRecent(name) }
+  // the Durchgang on the Gebäude stack places «mehrere» by default: 20 doors are 20 taps (owner, 27.10.2026)
+  const pickSymbol = (name: string) => {
+    setPending(name); setPendingShape(null); setTool('symbol'); setPaletteOpen(false); onRecent(name)
+    if (stack && name === DOOR_SYMBOL) setPlaceLock(true)
+  }
   const pickShape = (kind: ShapeKind) => { setPendingShape(kind); setPending(null); setTool('shape'); setPaletteOpen(false) }
   /**
    * ⚠️ The Plan has no Ebenen of its own any more (15.09.2026). It used to share the slot with
@@ -1496,7 +1534,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // --- the selection bar's transform target — components/useWbSelectionBar -----------------
   const { barIds, barActive, barMove, barRotate, barDone, barCanRotate, barTurn, arm } = useWbSelectionBar({
     tool, readOnly, georefArmed, annos, selIds, editDraw, selShape, setSelId, setSelIds, setNotePanelId, setEditId, setAnnoTap,
-    sW, sH, mapY, localY, boardPts, moveRigid, pushPast, set, emit, activeId, boardRef, canvasRef, onStepEnd,
+    sW, sH, mapY, localY, boardPts, moveRigid, stack, floorAt, floorsTTB, setDropFloor, snapMove: snapMoveOf, pushPast, set, emit, activeId, boardRef, canvasRef, onStepEnd,
   })
   // --- removing objects: with their coupled Leitungen, with a Trupp's trail, a group, the Delete
   // key — components/usePlanRemoval
@@ -1552,6 +1590,17 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }
 
 
+  /** «Art: Linie | Wand» in the line editor (round 3): the drawn line becomes a Wand or a Linie
+   *  again – one patch, one ↶, one board.edit (lib/grundriss · wallRolePatch); its Durchgänge let
+   *  go in the board funnel. A Trupp on the line, or a line that climbs storeys, keeps it a Linie (the
+   *  editor disables «Wand»). */
+  const setWallRole = (a: BoardAnno, wand: boolean) => {
+    if (readOnly || wand === (a.role === 'wand') || (wand && (truppForLine(a, trupps) || spansStoreys(a)))) return
+    // a Teilstück with lines on its «E» stays one – letting go of them is the Abschluss row's ask
+    const hung = !!a.teilstueck && annos.some((x) => [x.startAttachment, x.endAttachment].some((r) => r?.target.kind === 'line' && r.target.id === a.id && r.target.endpoint === 'end'))
+    patchCommit(a.id, wallRolePatch(a, wand, GRUNDRISS_STYLE.wand, INK_DEFAULTS.color, hung))
+  }
+
   // removing a storey: the confirm is the OWNER's (workspace/useGebaeudeActions · removeFloor →
   // lib/storeyRemoval), because only the store knows which annos on this tile are the stack's own
   // and which are the Karte's, merely shown here — and only the own ones can be lost
@@ -1566,6 +1615,23 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     if (readOnly || building?.pack || floorPack?.tiles[f]) return
     onRemoveFloor(f)
   }
+  // «Kopieren nach …» (27.10.2026): the storey whose label menu asked, and the act itself – the
+  // storey's Grundriss as independent copies on every picked storey, ONE commit = one ↶
+  const [copyFrom, setCopyFrom] = useState<number | null>(null)
+  const isGebaeudeSymbol = (name: string) => sym.symbols.some((x) => x.name === name && x.cat === GEBAEUDE_CATEGORY)
+  const copyStorey = (from: number, targets: number[]) => {
+    if (readOnly) return
+    // top to bottom, the way the stack and the chips read
+    const order = allFloorsTTB.filter((f) => targets.includes(f))
+    const { added, counts } = copyGrundriss(annos, from, order, isGebaeudeSymbol, newId)
+    const C = appConfig.copy.whiteboard.storeyCopy
+    // everything the source holds is already on the picked storeys (a Treppe spanning them):
+    // the sheet still closes, but never without a word
+    if (!added.length) { toast(C.nothingNew); return }
+    commit([...annos, ...added])
+    added.forEach((a) => emit('board.add', { id: a.id, anno: a, planId: activeId }))
+    toast(fillTemplate(C.done, { list: counts.map((c) => fillTemplate(C.doneItem, { n: c.n, floor: storeyName(c.floor) })).join(' · ') }))
+  }
 
   // footprint draw box per floor tile: fill most of the tile, preserving the
   // building's true aspect (the SVG inside stretches the 0..1 ring to this box).
@@ -1578,6 +1644,16 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     if (hgt > availH) { hgt = availH; w = availH / fpView.aspect }
     return { w, h: hgt }
   })()
+
+  /** The building outline of storey `f` as rings in board px — laid as the <FloorPage> tiles lay
+   *  their footprint box (centred in the tile, lib/storeyClip · storeySections). What the
+   *  Grundriss snap catches (usePlanDraft); none for a pack, whose frame is no outline. */
+  const stackOutlinePx = (f: number): [number, number][][] => {
+    const idx = floorsTTB.indexOf(f)
+    if (!stack || !fpBox || !building || building.pack || idx < 0) return []
+    const tileH = sH / N, bx = (sW - fpBox.w) / 2, by = idx * tileH + (tileH - fpBox.h) / 2
+    return (fpView?.rings ?? building.rings ?? [building.ring]).map((ring) => ring.map(([u, v]): [number, number] => [bx + u * fpBox.w, by + v * fpBox.h]))
+  }
 
   /** Each drawn storey's VISIBLE SECTION in board px (lib/storeyClip, 24.09.2026): the drawings the
    *  tile shows — laid exactly as the <FloorPage>s below lay them — cut to the footprint box, or
@@ -1630,8 +1706,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // so the re-glue has to know both boards (lib/footprint · remapPoint).
     const nextTileAR = building.pack ? bandAspect(view.aspect) : tileAR
     const toLayout = { boardW: sW, boardH: sW * N * nextTileAR, floors: N }
-    const src = orientSrc
-    const mv = (p: [number, number]): [number, number] => remapPoint(src, fromDeg, toDeg, layout, p, toLayout)
+    const mv = pointRemapper(orientSrc, fromDeg, toDeg, layout, toLayout)
     // where the view is looking, in tile coordinates, re-glued the same way (see the pan below)
     const anchor = (() => {
       const s = scaleRef.current, w = fit.w * s, h = fit.h * s
@@ -1642,17 +1717,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       const [x, y] = mv([nx, localY(ny, floor)])
       return { x, y, floor }
     })()
-    const remapped = annos.map((a) => {
-      // ⚠️ the BEARINGS turn with the paper too (lib/stackFit · reorientBearings, 15.09.2026):
-      // a stored rotation is relative to the sheet, and the sheet is what just moved. Without it
-      // a Fahrzeug DRAWN on a tile stayed pointing where it was while the identical one placed
-      // on the Karte — projected through the stack's fit — swung with the building.
-      const next: BoardAnno = { ...reorientBearings(a, toDeg - fromDeg) }
-      if (a.x != null && a.y != null) { const [x, y] = mv([a.x, a.y]); next.x = x; next.y = y }
-      if (a.pts) next.pts = a.pts.map((p): BoardPoint => { const [x, y] = mv([p[0], p[1]]); return p[2] == null ? [x, y] : [x, y, p[2]] })
-      if (a.trail) next.trail = a.trail.map((tp) => { const [x, y] = mv([tp.x, tp.y]); return { ...tp, x, y } })
-      return next
-    })
+    // ⚠️ the BEARINGS turn with the paper too (lib/stackFit · reorientBearings, 15.09.2026):
+    // a stored rotation is relative to the sheet, and the sheet is what just moved. Without it
+    // a Fahrzeug DRAWN on a tile stayed pointing where it was while the identical one placed
+    // on the Karte — projected through the stack's fit — swung with the building. The same
+    // re-glue drew the live preview while the slider was held (`previewAnnos`).
+    const remapped = reorientAnnos(annos, { src: orientSrc, fromDeg, toDeg, layout, toLayout })
     commit(remapped) // re-glued annotations go through undo/redo + sync
     // `northUp` stays in sync (0° IS north-up) so pre-dial clients keep their binary read — on a
     // PACK it would be a lie (0° is the page as drawn, which is north-up only by luck), and the
@@ -1964,8 +2034,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             className={`wb-board ${blank ? 'wb-board-blank' : ''}`}
             // the reserved lanes are not symmetric (the rails differ), so the centre shifts by half
             // their difference — exactly what `vShift` does for the top bar (and the Gebäude's
-            // chip row below)
-            style={{ width: sW || undefined, height: sH || undefined, transform: `translate(-50%, -50%) translate(${pos.x + (side.l - side.r) / 2}px, ${pos.y + vShift}px)` }}
+            // chip row below). While the orientation preview stands, nothing on it takes a press:
+            // what it draws is not where the sheet's objects are yet (`previewAnnos`).
+            style={{ width: sW || undefined, height: sH || undefined, transform: `translate(-50%, -50%) translate(${pos.x + (side.l - side.r) / 2}px, ${pos.y + vShift}px)`, pointerEvents: previewing ? 'none' : undefined }}
           >
             {stack && building ? (
               <>
@@ -1993,7 +2064,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 )
               })}
               {floorsTTB.map((f, idx) => (
-                <div key={f} className={`wb-floor${idx === 0 && !readOnly && !building.pack ? ' wb-floor-under-add' : ''}`} style={{ top: (idx / N) * sH, height: sH / N, width: sW }}>
+                <div key={f} className={`wb-floor${idx === 0 && !readOnly && !building.pack ? ' wb-floor-under-add' : ''}${dropFloor === f ? ' wb-floor-drop' : ''}`} style={{ top: (idx / N) * sH, height: sH / N, width: sW }}>
                   {(() => {
                     // Sweep K5 (29.09.2026): the storey's acts live in its LABEL. A tap on «4. OG»
                     // opens «Ausblenden · Geschoss entfernen»; the eye and the red bin that stood on
@@ -2007,14 +2078,19 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                     const W = appConfig.copy.whiteboard
                     const canHide = floorsTTB.length > 1
                     const canRemove = f !== 0 && !readOnly && !building.pack && !floorPack?.tiles[f]
+                    const canCopy = !readOnly && allFloorsTTB.length > 1
                     const words = <>
                       {/* the word only («4. OG», «EG»): the signed chip said the same thing again.
                           It comes back only when a custom name («Hauptebene») hides the order. */}
                       {customStorey(f) && <span className={`wb-floor-idx${f === 0 ? ' zero' : ''}`}>{signedFloor(f)}</span>}
                       <span className="wb-floor-name">{name}</span>
                     </>
-                    if (!canHide && !canRemove) return <div className="wb-floor-label">{words}</div>
+                    if (!canHide && !canRemove && !canCopy) return <div className="wb-floor-label">{words}</div>
+                    // ⚠️ the popup is portalled out of the board, but React still bubbles its pointer
+                    // events up through this tile to the pan/zoom surface, which captured the pointer
+                    // and swallowed a mouse click on every item («Ausblenden», «Kopieren nach …»)
                     return (
+                      <span className="wb-floor-menu-host" onPointerDown={(e) => e.stopPropagation()}>
                       <Menu
                         popupClassName="de-menu-pop"
                         itemClassName={() => 'de-menu-item'}
@@ -2029,9 +2105,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                         }
                         items={[
                           ...(canHide ? [{ label: <><Icon id="eyeoff" /><span>{W.floorHideShort}</span></>, onClick: () => toggleFloor(f) }] : []),
+                          ...(canCopy ? [{ label: <><Icon id="copy" /><span>{W.storeyCopy.menu}</span></>, onClick: () => setCopyFrom(f) }] : []),
                           ...(canRemove ? [{ label: <><Icon id="trash" /><span>{W.removeFloor}</span></>, onClick: () => removeFloor(f), danger: true }] : []),
                         ]}
                       />
+                      </span>
                     )
                   })()}
                   {/* (the north dial used to be drawn on this tile, top-right. It now floats in
@@ -2109,7 +2187,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
               onPickCircle={tool === 'pan' ? circleDown : undefined} sections={sections ?? undefined} />
 
             {/* committed drawings */}
-            <WbInkLayer annos={drawnAnnos} draft={draft} draftFloor={draftFloorRef.current} draftClosed={tool === 'area'} color={INK_DEFAULTS.color} width={INK_DEFAULTS.width} dashed={INK_DEFAULTS.dashed} hiddenTrails={hiddenTrails} mapY={mapY}
+            <WbInkLayer annos={drawnAnnos} draft={draft} draftFloor={draftFloorRef.current} draftClosed={tool === 'area'} draftOpen={noding} color={INK_DEFAULTS.color} width={INK_DEFAULTS.width} dashed={INK_DEFAULTS.dashed} hiddenTrails={hiddenTrails} mapY={mapY}
               selId={selId} flashId={flashId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined}
               truppTones={truppTones} sW={sW} sH={sH} sections={sections ?? undefined} />
             {/* «Ring lädt, dann schnappt es» — the identical pair the Lage map draws: a blue chip
@@ -2308,7 +2386,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             {editDraw && editDraw.kind !== 'circle' && tool === 'pan' && (
               <WbVertexHandles anno={renderAnnos.find((a) => a.id === editDraw.id) ?? editDraw} sW={sW} sH={sH} mapY={mapY}
                 onVertexDown={vertDown} onInsert={insertVertex} onDeleteVertex={deleteVertex} onExtend={extendLine}
-                onClimb={stack ? climbLine : undefined} floors={stack ? floorsTTB : undefined} />
+                // a Wand lives on one storey: it never climbs a stair like a Leitung does
+                onClimb={stack && !editDraw.role ? climbLine : undefined} floors={stack ? floorsTTB : undefined} />
             )}
             {/* Absperrkreis: ONE grip on the ring (screen-right) sets the radius — the gesture
                 that placed it, available again afterwards. It is the only way to resize on an
@@ -2352,7 +2431,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             })}
 
             {/* Every covered floor exposes the same object through the full native renderer. */}
-            {annos.filter((a) => a.kind !== 'draw').flatMap((a) => stack ? stackInstances(a, floorsTTB) : [a]).map((a) => (
+            {shownAnnos.filter((a) => a.kind !== 'draw').flatMap((a) => stack ? stackInstances(a, floorsTTB) : [a]).map((a) => (
               <PlanAnno key={`${a.id}:${a.floor ?? 0}`} a={a} board={annoBoard}
                 selected={selId === a.id} grouped={selIds.includes(a.id)} networked={relationship.objectIds.has(a.id)}
                 editing={editId === a.id} trailShown={!hiddenTrails.has(a.id)} />
@@ -2360,7 +2439,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
             {/* trail breadcrumbs — a constant-size dot + timestamp at each RECORDED
                 position, so the trail reads as a time-stamped log at a glance */}
-            {annos.filter((a) => a.kind === 'resource' && !hiddenTrails.has(a.id)).flatMap((a) =>
+            {shownAnnos.filter((a) => a.kind === 'resource' && !hiddenTrails.has(a.id)).flatMap((a) =>
               (a.trail ?? []).map((p, i) => (
                 <div
                   key={`dot-${a.id}-${i}`}
@@ -2415,7 +2494,15 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
             {/* create-tool capture layer */}
             {creating && (
-              <div className="wb-ink" onPointerDown={inkDown} onPointerMove={inkMove} onPointerUp={inkUp} onPointerCancel={inkUp} />
+              <div className="wb-ink" onPointerDown={inkDown} onPointerMove={inkMove} onPointerUp={inkUp} onPointerCancel={inkUp}
+                onPointerLeave={(e) => { clearDoorGhost(); if (e.pointerType === 'mouse') showRing(null, 0, true) }} />
+            )}
+            {/* the Durchgang the next click places – on its Wand, turned along it (mouse only) */}
+            {doorGhost && tool === 'symbol' && pending === DOOR_SYMBOL && (
+              <div className="wb-door-ghost" aria-hidden
+                style={{ transform: `translate(${doorGhost.x * sW}px, ${mapY(doorGhost.floor, doorGhost.y) * sH}px) translate(-50%, -50%)` }}>
+                <TacticalSymbol svg={sym.byName[DOOR_SYMBOL] ?? ''} sizePx={symBase} rotation={doorGhost.rotation} />
+              </div>
             )}
             {/* the in-progress node draft is reshapeable IN PLACE (A3, 29.08.): the same vertex
                 grips and «+» midpoint inserts a finished shape gets, sitting above the .wb-ink
@@ -2424,8 +2511,17 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             {noding && !!draft?.length && (
               <WbDraftHandles pts={draft} closed={tool === 'area'} draftFloor={draftFloorRef.current}
                 sW={sW} sH={sH} mapY={mapY}
-                onVertexDown={draftVertDown} onInsert={draftInsert} onDeleteVertex={draftDeleteVertex} />
+                onVertexDown={draftVertDown} onVertexTap={tapDraftVertex} onInsert={draftInsert} onDeleteVertex={draftDeleteVertex} />
             )}
+            {/* the open drawing says so (27.10.2026): «Wand offen» at its last point, pulsing, and the
+                snap ring where the next point lands (usePlanDraft · ring / openName) */}
+            {noding && !!draft?.length && openName && (() => {
+              const last = draft[draft.length - 1]
+              const x = last[0] * sW, y = mapY(last[2], last[1]) * sH // a Punkte point always carries its storey
+              return <span className="wb-open-pill" style={{ transform: `translate(${x + 14}px, ${y - 34}px)` }}>{fillTemplate(appConfig.copy.toolDock.openPill, { name: openName })}</span>
+            })()}
+            {/* …and under a Wand corner being dragged (useWbVertexEdit · snapWallVertex) */}
+            {(noding || tool === 'pan') && ring && <WbSnapRing ring={ring} sW={sW} sH={sH} />}
             {/* «Karte verknüpfen»: the numbered crosses live IN the board so they pan and zoom
                 with the sheet. Shown while the mode is armed, and while the Passung is open —
                 otherwise a reference set in June could not be found again in November. */}
@@ -2519,12 +2615,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           tool={tool}
           lineMode={lineMode}
           areaMode={areaMode}
-          setAreaMode={setAreaMode}
+          stack={stack}
+          grundriss={grundriss}
+          pickInput={pickInput}
           draftActive={draftActive}
           setTool={setTool}
-          setLineMode={setLineMode}
           onFinish={finishShape}
-          onCancelDraft={cancelShape}
           measMode={measMode}
           setMeasMode={setMeasMode}
           measCount={measPath.length}
@@ -2562,6 +2658,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           primary={{ id: 'symbol', icon: appConfig.copy.primarySymbol.icon, label: appConfig.copy.whiteboard.symbol }}
           tools={(readOnly ? slimPlanTools : planTools).filter((t) => !(isPhone && active.id === 'tafel' && t.id === 'measure'))}
           active={tool}
+          open={noding && !!draft?.length}
           toolRefs={toolBtn}
           // ⚠️ Auswahl and Mehrfach share ONE rail slot (05.09., the same on the Karte): the rail
           // resolves that toggle, so a second tap on the armed Auswahl arrives here as 'lasso'
@@ -2601,21 +2698,24 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
       {/* the armed tool's readout — the SAME pill the Lage map shows (MapToolDocks): glyph + name,
           bottom centre, nothing else. The symbol tool has no dock here either; «Mehrere
-          platzieren» stands beside the pill. Rest tool is 'pan' here (the plan pans on empty
+          platzieren» and a ✕ (27.10.2026) stand beside the pill. Rest tool is 'pan' here (the plan pans on empty
           canvas) vs the map's 'select'. Not on the phone while Messen is armed – its results
           panel stands in that row. */}
       {tool !== 'pan' && !(isPhone && tool === 'measure') && (() => {
         if (tool === 'symbol') {
           if (!pending) return null
           return <ArmedToolPill glyph={<ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />} name={formatSymbolName(pending) || pending}
-            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }} />
+            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }} onClose={stopPlacing} />
         }
         if (tool === 'shape') {
           if (!pendingShape) return null
           return <ArmedToolPill glyph={<ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />}
             name={appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel} />
         }
-        const name = armedToolName(tool, appConfig.copy.planTools, { lineMode, areaMode })
+        // the Grundriss preset names itself in the mode's place: «Linie · Wand»
+        const name = grundriss
+          ? `${armedToolName(tool, appConfig.copy.planTools)} · ${appConfig.copy.whiteboard.grundriss[grundriss]}`
+          : armedToolName(tool, appConfig.copy.planTools, { lineMode, areaMode })
         const icon = armedToolIcon(tool, appConfig.copy.planTools)
         if (!name || !icon) return null
         return <ArmedToolPill glyph={<Icon id={icon} />} name={name} />
@@ -2774,7 +2874,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         <DrawEditor
           key={selDraw.id}
           readOnly={readOnly}
-          drawing={{ kind: selDraw.kind as 'draw' | 'area' | 'circle', radiusM: selCircleM, color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, arrowStop: selDraw.arrowStop, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, hatch: selDraw.hatch, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, floorTag: stack ? selDraw.floorTag ?? selDraw.floor ?? 0 : selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
+          drawing={{ kind: selDraw.kind as 'draw' | 'area' | 'circle', radiusM: selCircleM, color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, arrowStop: selDraw.arrowStop, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, hatch: selDraw.hatch, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, role: selDraw.role, floorTag: stack ? selDraw.floorTag ?? selDraw.floor ?? 0 : selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
           pointCount={selDraw.pts?.length ?? 0}
           /* the distance toggle appears once the plan is calibrated against its printed scale bar */
           supportsDistance={calibrated}
@@ -2828,17 +2928,22 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onArrow={(a) => patchCommit(selDraw.id, { arrow: a || undefined })}
           onEnding={(ending) => void changePlanEnding(ending)}
           onReverse={selDraw.kind === 'draw' ? reverseAnno : undefined}
-          onContent={(content) => patchCommit(selDraw.id, { content })}
-          onLineNo={(lineNo) => { patchCommit(selDraw.id, { lineNo }); onLineRenumber?.(selDraw.id, lineNo) }}
+          // a Wand is Grundriss, not a hose: no Typ, no Leitung Nr., no Trupp (types · role)
+          onContent={selDraw.role ? undefined : (content) => patchCommit(selDraw.id, { content })}
+          onLineNo={selDraw.role ? undefined : (lineNo) => { patchCommit(selDraw.id, { lineNo }); onLineRenumber?.(selDraw.id, lineNo) }}
           // on the stack the line's storey is its tile: stepping it MOVES the line rather than
           // writing a badge (lib/whiteboard · movedToStorey)
           onFloorTag={stack ? (floorTag) => moveLineToStorey(selDraw.id, floorTag) : (floorTag) => patchCommit(selDraw.id, { floorTag })}
-          onTrupp={onLinkLineTrupp ? (truppId) => onLinkLineTrupp(selDraw.id, truppId) : undefined}
+          onTrupp={onLinkLineTrupp && !selDraw.role ? (truppId) => onLinkLineTrupp(selDraw.id, truppId) : undefined}
           trupps={trupps.filter((t) => t.status !== 'raus').map((t) => ({ id: t.id, name: t.name }))}
           usedLineNos={annos.filter((a) => a.kind === 'draw' && a.id !== selDraw.id && a.lineNo != null).map((a) => a.lineNo!)}
           truppOnLine={truppForLine(selDraw, trupps)?.name}
           truppOnLineOut={truppIsOut(truppForLine(selDraw, trupps))}
           onShowTrupp={onShowTrupp && truppForLine(selDraw, trupps) ? () => onShowTrupp(truppForLine(selDraw, trupps)!.id) : undefined}
+          // Linie ↔ Wand: only where the Wand tool is – a drawn line on the Gebäude stack
+          onWand={stack && selDraw.kind === 'draw' ? (wand) => setWallRole(selDraw, wand) : undefined}
+          wandBlocked={truppForLine(selDraw, trupps) ? appConfig.copy.drawingEditor.kindWandBlocked
+            : spansStoreys(selDraw) ? appConfig.copy.drawingEditor.kindWandStoreys : undefined}
           onShowDistance={(showDistance) => patchCommit(selDraw.id, { showDistance: showDistance || undefined })}
           // metres in, plan-width fraction out — the stepper only exists on a calibrated sheet
           onRadius={(radiusM) => {
@@ -2912,6 +3017,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       )}
       {editorSlotFree && readOnly && selShape && (
         <ShapeEditor key={selShape.id} readOnly entity={selShape} onClose={() => setSelId(null)} />
+      )}
+
+      {copyFrom != null && stack && (
+        <StoreyCopySheet from={copyFrom}
+          storeys={allFloorsTTB.map((f) => ({ floor: f, name: storeyName(f), items: grundrissOf(annos, f, isGebaeudeSymbol) }))}
+          onCopy={(targets) => copyStorey(copyFrom, targets)} onClose={() => setCopyFrom(null)} />
       )}
 
       {paletteOpen && sym.ready && (

@@ -80,6 +80,8 @@ export interface UseMapActionsInputs {
   setNotePlacedId: Dispatch<SetStateAction<string | null>>
   setTeamPick: Dispatch<SetStateAction<LngLat | null>>
   setDraft: (action: SetStateAction<LngLat[]>) => void
+  /** leave the draft in the hand – asks about a committable one (useMapDrawing · settleDraft) */
+  settleDraft: () => void
   lineMode: 'freehand' | 'nodes'
   measure: ReturnType<typeof useMeasure>
   mapRef: RefObject<MapRef | null>
@@ -160,7 +162,7 @@ export function useMapActions({
   clearMapUi, setPaletteOpen, tool, setTool, setPending, setPendingShape, setSelectedId,
   setSelectedDrawingId, setSelectedDrawIds, setSelectedEntityIds, setNotePanelId, setEditNoteId, panel,
   setPanel, tacticalLocked, pendingShape, rotStart, setRotStart, commit, placeLock, log, emit, pending,
-  sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, lineMode, measure, mapRef,
+  sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, settleDraft, lineMode, measure, mapRef,
   incidentView, entities, liveIds, resolvedMapDrawings, cameraViews, view, setLocateReq, incidentOpen,
   share, setShareParent, setSharePick, setCameraViews, rememberOneShotRef, C_HIST, setViewsOpen,
   viewsOpen, selectedId, selectedDrawIds, selectedEntityIds, doc, truppCounterNames, selectedDrawingId,
@@ -476,10 +478,10 @@ export function useMapActions({
       case 'cancelPlacement': setPending(null); setPendingShape(null); setRotStart(null); setTool('select'); break
       case 'coordOff': coord.setMode('off'); break
       case 'closeChrome': setPanel(null); setViewsOpen(false); break
-      // ⚠️ setDraft([]), NOT settleDraft: Escape is the EXPLICIT discard. Every tap-away path
-      // auto-commits a committable draft (useMapDrawing · settleDraft), but the one key that means
-      // «weg damit» must never save the thing instead.
-      case 'disarmTool': setTool('select'); setDraft([]); break
+      // Escape leaves the tool like any other way out: a committable draft asks «Speichern ·
+      // Verwerfen · Weiterzeichnen» (useMapDrawing · settleDraft, 27.10.2026 – until then Escape
+      // was the one silent discard)
+      case 'disarmTool': setTool('select'); settleDraft(); break
       case 'closeNotePanel': setNotePanelId(null); break
       case 'clearSelection': setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); break
     }

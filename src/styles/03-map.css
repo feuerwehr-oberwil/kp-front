@@ -341,3 +341,9 @@
 .ts.photo .photo-cone { position: absolute; left: 50%; top: 50%; width: 176px; height: 176px; pointer-events: none;
   transform-origin: 50% 50%; overflow: visible; }
 .ts.photo .photo-cone path { fill: var(--blue-22); stroke: var(--blue-62); stroke-width: 1.5; stroke-linejoin: round; }
+
+/* «Linie offen» – the open drawing's pulsing pill at its last point (27.10.2026), the Karte twin of
+   the Plan's .wb-open-pill (09-whiteboard.css) */
+.map-open-pill { display: block; white-space: nowrap; padding: 2px var(--sp-2); border-radius: var(--r-pill);
+  background: var(--open); color: var(--on-amber); font-size: var(--fs-1); font-weight: var(--fw-bold);
+  animation: wb-pulse 1.2s ease-in-out infinite; }

@@ -3,6 +3,7 @@ import type React from 'react'
 import type { BoardAnno, BoardPoint, LineAttachment, LineEndpoint } from '../types'
 import { buzz } from '../lib/haptics'
 import { advanceDwell, detachProgress, dwellFor, EMPTY_DWELL, nextFreePort, stickyMagneticTarget, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { carryDoors, doorsOn } from '../lib/grundriss'
 import { canDropVertex, extendEnd, insertAt, removeVertex, replaceVertex, segmentMid } from '../lib/vertexOps'
 
 // `origin` + `attached` + `detach` are the RELEASE half of the ring language (see the Lage map's
@@ -51,6 +52,14 @@ interface Args {
   /** the storey the node draft was started on (a Fläche stays there) */
   draftFloor: React.MutableRefObject<number>
   setDraft: React.Dispatch<React.SetStateAction<BoardPoint[] | null>>
+  /** the storey tile's height/width (Whiteboard · tileAspectOf) – a Durchgang's seat on its Wand depends on it */
+  tileAR: number
+  /** where a Wand's corner dragged to a board-normalized point lands, ring shown (usePlanDraft ·
+   *  snapWallVertex); `null` for the point clears the ring */
+  snapWallVertex: (wall: BoardAnno, idx: number, n: [number, number] | null) => BoardPoint | null
+  /** the same for a node of the OPEN Wand (usePlanDraft · snapDraftVertex); `null` back = not a
+   *  Wand draft, the plain move applies */
+  snapDraftVertex: (idx: number, n: [number, number] | null) => BoardPoint | null
 }
 
 /**
@@ -71,7 +80,7 @@ export function useWbVertexEdit({
   annos, selId, tool, readOnly, stack, toNorm, localY, floorAt, mapY, sW, sH,
   resolvedPts, attachmentLines, planCandidatesAt, pushPast, patch, patchCommit, emit, activeId,
   onLineAttached, onLineDetached, planEndpointDrag, setPlanEndpointDrag, planDwellTimerRef,
-  allFloorsTTB, revealFloor, centerOnPoint, scaleRef, draftFloor, setDraft,
+  allFloorsTTB, revealFloor, centerOnPoint, scaleRef, draftFloor, setDraft, tileAR, snapWallVertex, snapDraftVertex,
 }: Args) {
   // drag a single VERTEX of a selected line/area (shared by both — they're both pts-based).
   // `pushed` = the undo checkpoint for this gesture was already taken BEFORE the shape changed
@@ -85,7 +94,10 @@ export function useWbVertexEdit({
     e.stopPropagation()
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     const a = annos.find((x) => x.id === selId); if (!a?.pts) return
-    const endpoint: LineEndpoint | null = a.kind === 'draw' && idx === 0 ? 'start' : a.kind === 'draw' && idx === a.pts.length - 1 ? 'end' : null
+    // a Wand's ends dock onto nothing (it is layout, Whiteboard · planCandidatesAt): every one of
+    // its corners takes the plain reshape, which snaps
+    const docks = a.kind === 'draw' && !a.role
+    const endpoint: LineEndpoint | null = docks && idx === 0 ? 'start' : docks && idx === a.pts.length - 1 ? 'end' : null
     if (endpoint) {
       const resolved = resolvedPts.get(a.id) ?? a.pts
       const attached = !!(endpoint === 'start' ? a.startAttachment : a.endAttachment)
@@ -129,8 +141,12 @@ export function useWbVertexEdit({
       return
     }
     if (!st.moved) { pushPast(); st.moved = true; st.pushed = true }
+    const a = annos.find((x) => x.id === st.id)
+    // a Wand's corner lands like a drawn one (round 2, 27.10.2026): same targets, same ring, same
+    // right-angle preference – and stays on its storey
+    const walled = a?.role === 'wand' && stack ? snapWallVertex(a, st.idx, n) : null
     const floor = stack ? floorAt(n[1]) : st.floor
-    patch(st.id, { pts: replaceVertex<BoardPoint>(annos.find((a) => a.id === st.id)?.pts ?? [], st.idx, [n[0], localY(n[1], floor), floor]) })
+    patch(st.id, { pts: replaceVertex<BoardPoint>(a?.pts ?? [], st.idx, walled ?? [n[0], localY(n[1], floor), floor]) })
   }
   const vertUp = () => {
     const st = vertDrag.current; vertDrag.current = null
@@ -159,6 +175,8 @@ export function useWbVertexEdit({
         // array either way, so the replay is identical.
         if (st.pushed) { patch(a.id, out); emit('board.edit', { id: a.id, patch: out, planId: activeId }) }
         else patchCommit(a.id, out)
+        // the docked end is written only now, so its Durchgänge ride along in this write
+        logDoorSeats(a.id, carryDoors(annos, annos.map((x) => (x.id === a.id ? { ...x, ...out } : x)), tileAR))
         // …and an end dragged ONTO a Trupp's chip joins the two, exactly as a fresh stroke's does;
         // dragged OFF it, they part
         const previous = magnetic.endpoint === 'start' ? a.startAttachment : a.endAttachment
@@ -169,10 +187,19 @@ export function useWbVertexEdit({
       return
     }
     setPlanEndpointDrag(null)
+    const wall = st && annos.find((x) => x.id === st.id && x.role)
+    if (st && wall) snapWallVertex(wall, st.idx, null) // the ring goes with the finger
     // …and the ordinary, unmagnetic reshape: the points ARE what moved, so they travel with it
     // (an empty `board.edit` folds to nothing — see the magnetic branch above, which always said so)
-    if (st?.moved) emit('board.edit', { id: st.id, planId: activeId, patch: { pts: annos.find((a) => a.id === st.id)?.pts } })
+    if (!st?.moved) return
+    emit('board.edit', { id: st.id, planId: activeId, patch: { pts: annos.find((a) => a.id === st.id)?.pts } })
+    logDoorSeats(st.id, annos)
   }
+  /** the Durchgänge re-seated on a reshaped Wand (lib/grundriss · carryDoors) – their seat, for the
+   *  replay. `board` holds them where they now sit: the last render for a live reshape, the
+   *  carried release write for a docked end. */
+  const logDoorSeats = (wallId: string, board: readonly BoardAnno[]) =>
+    doorsOn(board, [wallId]).forEach((d) => emit('board.edit', { id: d.id, patch: { x: d.x, y: d.y, floor: d.floor, rotation: d.rotation }, planId: activeId }))
   /**
    * Grow the line past one of its open ends: append a point where the finger is, then hand the
    * gesture straight over to the ordinary vertex drag so the new point follows until release.
@@ -223,7 +250,7 @@ export function useWbVertexEdit({
     pushPast()
     const next = extendEnd(pts, end, point)
     patch(a.id, { pts: next })
-    if (a.kind === 'draw' && !(end === 'start' ? a.startAttachment : a.endAttachment)) {
+    if (a.kind === 'draw' && !a.role && !(end === 'start' ? a.startAttachment : a.endAttachment)) {
       setPlanEndpointDrag({ id: a.id, endpoint: end, point, origin: point, attached: false, detach: 0, dwell: EMPTY_DWELL, candidate: null })
     }
     // …and from here it IS a vertex drag: `moved` is already true, so vertMove streams and
@@ -281,10 +308,13 @@ export function useWbVertexEdit({
     const n = toNorm(e.clientX, e.clientY); if (!n) return
     // a Linie's node follows the pointer's storey (a Leitung may cross floors); a Fläche stays
     // on the floor its ring was started on — the same rule placeNode applies to a fresh tap
+    // …and a Wand's node lands like a tap (round 3, 27.10.2026): ring, targets, right angles –
+    // on the Wand's own storey
     const floor = tool === 'line' && stack ? floorAt(n[1]) : draftFloor.current
-    setDraft((d) => (d ? replaceVertex<BoardPoint>(d, st.idx, [n[0], localY(n[1], floor), floor]) : d))
+    const walled = snapDraftVertex(st.idx, n)
+    setDraft((d) => (d ? replaceVertex<BoardPoint>(d, st.idx, walled ?? [n[0], localY(n[1], floor), floor]) : d))
   }
-  const draftVertUp = () => { draftVert.current = null }
+  const draftVertUp = () => { if (draftVert.current) snapDraftVertex(draftVert.current.idx, null); draftVert.current = null }
   /** Insert a node on draft segment `idx` and keep the SAME press dragging it — the twin of
    *  insertVertex on a committed shape (releasing without moving leaves it where it appeared). */
   const draftInsert = (idx: number, e: React.PointerEvent) => {
