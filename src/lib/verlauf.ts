@@ -24,7 +24,8 @@ export const AT_CLOSE_TOLERANCE_MS = 120_000
  *  (`rowTarget`). Built by `liveTargets` from the workspace's current state and handed to the
  *  Verlauf; the lookups build their sets on first use, so an unopened drawer costs nothing. */
 export interface LiveTargets {
-  /** a Karte object the jump can select (IncidentWorkspace · focusEntity looks in the same list) */
+  /** a Karte object or drawing the jump can select (useJournalWriters · focusEvent looks in the
+   *  same lists) */
   entity: (id: string) => boolean
   /** a plan document in this Einsatz's catalog (the Gebäude only while its stack exists) */
   plan: (planId: string) => boolean
@@ -32,12 +33,13 @@ export interface LiveTargets {
   anno: (planId: string, annoId: string) => boolean
 }
 
-/** The `LiveTargets` of a workspace: its Karte objects, its plan catalog and its plans' objects. */
-export function liveTargets(entities: readonly { id: string }[], plans: readonly { id: string }[], board: BoardDoc): LiveTargets {
+/** The `LiveTargets` of a workspace: its Karte objects and drawings, its plan catalog and its
+ *  plans' objects. */
+export function liveTargets(mapObjects: readonly { id: string }[], plans: readonly { id: string }[], board: BoardDoc): LiveTargets {
   let ents: Set<string> | undefined, planIds: Set<string> | undefined
   const annos = new Map<string, Set<string>>()
   return {
-    entity: (id) => (ents ??= new Set(entities.map((x) => x.id))).has(id),
+    entity: (id) => (ents ??= new Set(mapObjects.map((x) => x.id))).has(id),
     plan: (id) => (planIds ??= new Set(plans.map((p) => p.id))).has(id),
     anno: (planId, annoId) => {
       let on = annos.get(planId)

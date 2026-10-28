@@ -386,7 +386,7 @@ tests, `Journal.test.tsx`).
 actually click on if they still exist»; `lib/verlauf` · `rowTarget`): a Wiedergabe makes every row
 a tap (it sets the moment); otherwise a row opens its detail sheet, or jumps to its map object,
 map point or plan object – and only while that object is still there (`liveTargets`: the Karte
-objects, the plan catalog, the plan's objects). A **removal row** (the ✕ glyph) is never a jump;
+objects and drawings, the plan catalog, the plan's objects; a duplicated line lands on the copy). A **removal row** (the ✕ glyph) is never a jump;
 a pre-23.08. plan row without an `annoId` still lands on its plan; a map point (`coord`) always
 lands.
 
