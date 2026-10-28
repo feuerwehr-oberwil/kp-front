@@ -138,3 +138,22 @@ export function scaleLampTone(s: {
   if (s.stale) return 'amber'
   return s.calibrated ? 'green' : 'grey'
 }
+
+export type LampTone = ReturnType<typeof scaleLampTone>
+
+/** The ONE lamp the Plan's bar still carries (sweep 28.10.2026 #8, owner pick «B's bar + A's
+ *  sheet»): the Objekt chip (on the Gebäude: the building chip) stands alone in the row, and its
+ *  dot is the worse of the Karte link and the Massstab – the sheet behind the tap says which.
+ *  `null` = that fact is not offered on this sheet (no link on a Gebäude, no scale on a viewer).
+ *
+ *   • amber wins: an unchecked fit or a stale scale is the thing to look at.
+ *   • an UNLINKED plan's grey does not drag a standing scale down (lead call 28.10.): a hand
+ *     calibration on a plan nobody tied to the map is green – its metres are measured, and «not
+ *     linked yet» is not a doubt about them. With no scale either, the dot is grey («not yet»).
+ *   • nothing offered at all reads grey, never green – green is a claim. */
+export function planFactsTone(link: LampTone | null, scale: LampTone | null): LampTone {
+  const said = [scale, link === 'grey' ? null : link].filter((t): t is LampTone => t != null)
+  if (said.includes('amber')) return 'amber'
+  if (!said.length || said.includes('grey')) return 'grey'
+  return 'green'
+}
