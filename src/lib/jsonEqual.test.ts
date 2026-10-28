@@ -39,4 +39,32 @@ describe('canonicalJson — one string per value', () => {
     expect(canonicalJson(serverRoundTrip(v, 'alphabetical'))).toBe(canonicalJson(v))
     expect(canonicalJson({ ...v, status: 'left' })).not.toBe(canonicalJson(v))
   })
+
+  it('has a fixed representation for nested objects while preserving array order and JSON omissions', () => {
+    expect(canonicalJson({ z: [{ b: 2, a: 1 }, 3], a: { y: null, x: true }, omitted: undefined }))
+      .toBe('{"a":{"x":true,"y":null},"z":[{"a":1,"b":2},3]}')
+    expect(canonicalJson(undefined)).toBeUndefined()
+  })
+})
+
+describe('JSON edge values', () => {
+  it.each([
+    [{ a: () => 1 }, {}, true],
+    [{ a: Symbol('a') }, {}, true],
+    [[() => 1, Symbol('a')], [null, null], true],
+    [[null, null], [() => 1, Symbol('a')], true],
+    [Object.assign(new Array(2), { 1: 1 }), [null, 1], true],
+    [[1, 2], [1], false],
+    [[], {}, false], [{}, [], false],
+    [[], { length: 0 }, false],
+    [[1], { 0: 1, length: 1 }, false],
+    [{ n: Infinity }, { n: null }, true],
+    [null, { toJSON: () => null }, true],
+    [{ a: undefined }, { a: 1 }, false],
+    [{ a: 1 }, { a: undefined }, false],
+    [Object.assign(Object.create({ a: 1 }), { b: 2 }), { a: 1 }, false],
+  ])('compares %j and %j as %s', (a, b, equal) => {
+    expect(jsonEqual(a, b)).toBe(equal)
+    expect(jsonEqual(b, a)).toBe(equal)
+  })
 })

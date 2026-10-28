@@ -48,6 +48,98 @@ test fixtures own worker cleanup. Development data is never the test target.
 Local PostgreSQL containers (development, performance and visual checks) publish their ports
 on `127.0.0.1` only. Their public test credentials must not expose a database to the LAN.
 
+## Mutation testing
+
+`pnpm test:mutation` runs Stryker against eleven critical frontend modules and their dedicated
+Vitest suites: workspace merging, JSON equality, the audit outbox and event scope, the undo
+timeline, serialized work, the server clock, sync alerts, Atemschutz calculations, alarm
+delivery and device alarm readiness. The source list in `stryker.config.json` and test list in
+`vitest.mutation.config.ts` define the scope; this is not an application-wide or backend score.
+
+The runner changes copied source inside `.x-stryker-tmp`, never the working files. Four workers
+use Vitest's test-level coverage to select tests. Static mutants and every mutation operator
+remain enabled. No dashboard upload is configured. HTML and JSON reports are local under
+`reports/mutation/`; incremental results live at `reports/stryker-incremental.json`. Both
+locations are ignored by git. The explicit plugin entry is required for pnpm's isolated layout;
+Vitest transpiles the mutated TypeScript, and `just check` still checks the real source.
+
+Keep test selection in Vitest. Stryker 10.1.1's `testFiles` option passes file filters through
+the runtime-activation path even for static mutants, activating them after module constants
+were initialized. This produced false survivors for an empty merge policy and deleted clock
+cache prefixes. `pnpm test:mutation:smoke` exercises the real runner against the clock's
+`SW_CACHED_API_PREFIXES` declaration: the array deletion and both prefix changes must all be
+`Killed` by assertions. Timeouts do not pass this canary. Run it after a runner/Vitest upgrade
+or changing test selection.
+
+Use `pnpm test:mutation --force` for an independent cold run. An ordinary rerun recomputes
+coverage and reuses only unchanged outcomes; record the reuse count with published results.
+Force a cold run when changing test selection or runner settings. To focus an investigation,
+pass `--mutate src/lib/undoTimeline.ts`; it replaces the source list, so a focused score is not
+comparable with the eleven-module score. Keep the source and test selections identical for a
+before/after comparison. Review `Survived` and `NoCoverage` mutants as missing-test candidates;
+`Timeout` and `RuntimeError` need separate inspection and do not prove an assertion detected the
+fault. Equivalent changes can survive correct tests: record the reason instead of asserting
+private implementation details or suppressing mutation operators to improve the score.
+
+This is an explicit local quality check, separate from the existing coverage floor and the
+seven required PR checks. Its initial score floor is 78%; raise it deliberately as gaps close,
+never lower it to make a run pass. Run `just ci` before pushing as usual.
+
+### Audit on 2026-10-28
+
+Stryker 10.1.1, Vitest 4.1.12 and Node 22.23.1; baseline application/tests at `c09054e8`,
+with the runner configuration above. Both sides use the same eleven source/test selections,
+with no ignored operators or static mutants. The baseline ran cold; the final result follows
+a cold after-run and two incremental refinements (2,900 and 3,003 unchanged results reused).
+The focused suites grew from 325 to 417 tests. The undo fix removes two mutation sites.
+
+| Outcome | Before | After |
+| --- | ---: | ---: |
+| Generated mutants | 3,135 | 3,133 |
+| Killed by tests | 2,069 | 2,459 |
+| Timeout | 28 | 29 |
+| Survived | 680 | 511 |
+| No coverage in the selected suites | 357 | 134 |
+| Runtime error | 1 | 0 |
+| Stryker score | 66.91% | 79.41% |
+
+Stryker's score includes timeouts and excludes runtime errors; the counts above keep those
+distinct from test kills. This is a 12.50 percentage-point improvement, with 390 additional
+test-killed mutations. These measurements do not claim a backend or application-wide score.
+
+| Module | Before | After |
+| --- | ---: | ---: |
+| Alarm delivery | 24.72% | 83.90% |
+| Device alarm readiness | 83.25% | 97.54% |
+| Atemschutz calculations | 73.80% | 80.82% |
+| Audit outbox | 63.12% | 74.70% |
+| Event scope and observation IDs | 90.24% | 100.00% |
+| JSON equality | 87.76% | 96.94% |
+| Workspace merge | 58.62% | 63.59% |
+| Serialized work | 100.00% | 100.00% |
+| Server clock | 76.69% | 87.31% |
+| Sync alerts | 93.15% | 98.63% |
+| Undo timeline | 78.31% | 87.78% |
+
+New cases cover alarm cadence, connected audio nodes and non-overlapping pips, mute/wake-lock
+lifecycle, permission and notification fallback, readiness expiry and storage corruption,
+UTF-8 beacon limits, delayed audit acknowledgements/refusals after ownership changes, automatic
+retries, stable leading-zero event hashes, array-like JSON objects, duplicate crew IDs,
+pressure/timestamp pairing, exact clock boundaries, duplicate offline timers and grouped undo.
+The grouped-undo case failed on the baseline: after a group lost all but one part, its toast
+dropper could not remove the recorded step, leaving the action available to undo twice.
+
+The remaining 511 survivors and 134 uncovered sites are retained in the report and denominator.
+Priorities for another pass are the merge's board-form removal/restoration and signature paths,
+and audit hydration/promotion/durability races. Existing broader suites such as
+`boardPassengers.test.ts` and `reportSignature.test.ts` cover some paths outside this selected
+measurement; inspect those before adding redundant tests. Audio fallback and chime-envelope
+cases also remain. Not every survivor is a missing assertion: sequence counters changed from
+increment to decrement still invalidate equality tokens, an extra comparison of two absent
+array slots remains equal, and several optional-array fallbacks cannot run after hydration.
+Type-only tripwires can survive too: Vitest transpiles mutants without a TypeScript checker.
+No such cases were suppressed to improve the score.
+
 ## Tests, ratchets and holds
 
 Moved here from AGENTS.md on 2026-10-18, wording unchanged.
