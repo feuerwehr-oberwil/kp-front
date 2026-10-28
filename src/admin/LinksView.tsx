@@ -45,6 +45,7 @@
 // real address on every visit and print a poster months after minting.
 
 import { useEffect, useState, type ReactNode } from 'react'
+import { ShellLoader } from '../components/ShellLoader'
 import { apiGet } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
@@ -169,11 +170,13 @@ function SecretCard({ copy, secret, lines, tips, tipTone, docsUrl, print }: {
   tips?: string[]
   tipTone?: 'default' | 'warn'
   docsUrl?: string
-  /** the printable artefact this link lives on — open on the card, never in the menu */
-  print?: { label: string; run: (token: string) => void }
+  /** the printable artefact this link lives on — open on the card, never in the menu. `run`
+   *  resolves once the PDF is out (or its failure reported): the button shows the loader until then */
+  print?: { label: string; run: (token: string) => Promise<void> }
 }) {
   const L = appConfig.copy.admin.links
   const [pending, setPending] = useState<Pending | null>(null)
+  const [printing, setPrinting] = useState(false)
   const { state, busy, result, clearResult, rotate, disable } = secret
   if (state === null) return null
   const token = state.configured ? state.token ?? null : null
@@ -211,8 +214,10 @@ function SecretCard({ copy, secret, lines, tips, tipTone, docsUrl, print }: {
           ) : state.configured ? (
             <>
               {print && token && (
-                <button type="button" className="btn adm-int-btn" disabled={busy}
-                  onClick={() => print.run(token)}>{print.label}</button>
+                <button type="button" className="btn adm-int-btn" disabled={busy || printing} aria-busy={printing || undefined}
+                  onClick={() => { setPrinting(true); void print.run(token).finally(() => setPrinting(false)) }}>
+                  {printing && <ShellLoader />}{print.label}
+                </button>
               )}
               <ActionMenu ariaLabel={`${copy.name} – ${L.colActions}`} disabled={busy} actions={actions} />
             </>
@@ -346,7 +351,7 @@ export function LinksView({ onNavigate }: { onNavigate?: (id: string) => void } 
           // the address the card hands out and not a description of the surface
           tips={[E.linkWarn]}
           tipTone="warn"
-          print={{ label: E.printBtn, run: (t) => void printPoster(t) }}
+          print={{ label: E.printBtn, run: printPoster }}
         />
         {/* ⚠️ NO Einsatz-Link card. The minting key has no address and never will have one — it
             lives on «Anbindungen» since 2026-09-11 (see the header note). Do not reinstate it
@@ -366,7 +371,7 @@ export function LinksView({ onNavigate }: { onNavigate?: (id: string) => void } 
           secret={standing}
           lines={(t) => [{ value: standingAsUrl(t) }]}
           docsUrl={linkDocs}
-          print={{ label: A.printBtn, run: (t) => void printCard(t) }}
+          print={{ label: A.printBtn, run: printCard }}
         />
         <SecretCard
           copy={{ ...S, name: L.nameStats, purpose: L.purposeStats }}

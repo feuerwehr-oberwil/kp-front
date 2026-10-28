@@ -2,6 +2,7 @@
 // «Anmeldung abgelaufen», «nicht angenommen». Each is the .form-warn recipe with its actions.
 
 import { Icon } from '../../lib/icons'
+import { ShellLoader } from '../ShellLoader'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../../lib/format'
 import { conflictIsMine, isTextConflict, type Resolution } from '../../objectVisits/merge'
@@ -54,21 +55,32 @@ export function ConflictCards({ doc, readOnly, viewer, onResolve }: {
   )
 }
 
-export function UnsavedCard({ onSaveFile, onRetry }: { onSaveFile: () => void; onRetry: () => void }) {
+/** «Als Datei sichern» on the state cards: the export packs the photos, which takes a moment, so
+ *  the loader stands in for the glyph meanwhile (owner, 28.10.2026: every download shows it). */
+function SaveFileAct({ saving, onClick }: { saving: boolean; onClick: () => void }) {
+  const C = appConfig.copy.objectVisits
+  return (
+    <button type="button" className="form-warn-act" disabled={saving} aria-busy={saving || undefined} onClick={onClick}>
+      {saving ? <ShellLoader /> : <Icon id="download" />} {C.saveFile}
+    </button>
+  )
+}
+
+export function UnsavedCard({ onSaveFile, saving, onRetry }: { onSaveFile: () => void; saving: boolean; onRetry: () => void }) {
   const C = appConfig.copy.objectVisits
   return (
     <div className={`form-warn ${s.msg}`} role="alert">
       <div className={s.msgHead}><Icon id="warn" /><span className={s.msgTitle}>{C.unsavedTitle}</span></div>
       <p className={s.msgBody}>{C.unsavedBody}</p>
       <div className={s.msgActs}>
-        <button type="button" className="form-warn-act" onClick={onSaveFile}><Icon id="download" /> {C.saveFile}</button>
+        <SaveFileAct saving={saving} onClick={onSaveFile} />
         <button type="button" className="form-warn-act" onClick={onRetry}>{C.unsavedRetry}</button>
       </div>
     </div>
   )
 }
 
-export function AuthCard({ onLogin, onSaveFile }: { onLogin: () => void; onSaveFile: () => void }) {
+export function AuthCard({ onLogin, onSaveFile, saving }: { onLogin: () => void; onSaveFile: () => void; saving: boolean }) {
   const C = appConfig.copy.objectVisits
   return (
     <div className={`form-warn form-warn-amber ${s.msg}`} role="status">
@@ -76,13 +88,13 @@ export function AuthCard({ onLogin, onSaveFile }: { onLogin: () => void; onSaveF
       <p className={s.msgBody}>{C.authBody}</p>
       <div className={s.msgActs}>
         <button type="button" className="form-warn-act" onClick={onLogin}>{C.authLogin}</button>
-        <button type="button" className="form-warn-act" onClick={onSaveFile}><Icon id="download" /> {C.saveFile}</button>
+        <SaveFileAct saving={saving} onClick={onSaveFile} />
       </div>
     </div>
   )
 }
 
-export function RefusedCard({ error, onSaveFile }: { error: OutboxError; onSaveFile: () => void }) {
+export function RefusedCard({ error, onSaveFile, saving }: { error: OutboxError; onSaveFile: () => void; saving: boolean }) {
   const C = appConfig.copy.objectVisits
   const title = error.kind === 'attachment' ? C.errorAttachment : C.errorTitle
   const body = error.kind === 'forbidden' ? C.errorForbidden : error.kind === 'disabled' ? C.errorDisabled : error.detail ?? ''
@@ -91,7 +103,7 @@ export function RefusedCard({ error, onSaveFile }: { error: OutboxError; onSaveF
       <div className={s.msgHead}><Icon id="warn" /><span className={s.msgTitle}>{title}</span></div>
       {body && <p className={s.msgBody}>{body}</p>}
       <div className={s.msgActs}>
-        <button type="button" className="form-warn-act" onClick={onSaveFile}><Icon id="download" /> {C.saveFile}</button>
+        <SaveFileAct saving={saving} onClick={onSaveFile} />
       </div>
     </div>
   )

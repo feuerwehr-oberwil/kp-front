@@ -11,6 +11,7 @@ import { OnOff, Segmented } from '../Segmented'
 import { Stepper } from '../Stepper'
 import { Slider } from '../Slider'
 import { Button } from '../Button'
+import { ShellLoader } from '../ShellLoader'
 import { compareText } from '../../lib/format'
 import { AlarmReadinessRows } from '../karte/AlarmReadiness'
 
@@ -240,7 +241,8 @@ export function SettingsSheet({
           <div className="set-card">
             <div className="set-row">
               <span className="set-row-l">{cp.blankSheet}<small>{cp.blankSheetSub}</small></span>
-              <Button icon={<Icon id="doc" />} disabled={sheetBusy} onClick={() => void downloadBlankSheet()}>
+              {/* the roster fetch and the PDF chunk take a moment: the loader says it is working (28.10.2026) */}
+              <Button icon={sheetBusy ? <ShellLoader /> : <Icon id="doc" />} disabled={sheetBusy} aria-busy={sheetBusy || undefined} onClick={() => void downloadBlankSheet()}>
                 {cp.blankSheetDownload}
               </Button>
             </div>

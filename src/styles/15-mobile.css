@@ -1187,16 +1187,6 @@
   .app:has(.ctx) .fab-entry.rec { bottom: calc(46dvh + var(--float-gap)); }
   .app:has(.ctx.sheet-full) .fab-entry.rec { bottom: calc(88dvh + var(--float-gap)); z-index: var(--z-popover); }
   body.sheet-peek .app:has(.ctx) .fab-entry.rec { bottom: calc(76px + env(safe-area-inset-bottom) + var(--float-gap)); }
-  /* ── the FAB on the Trupps board (owner, sweep 27.10.2026 #10: «Show the FAB on Trupps») ──
-     It used to be kept off the board: it sat on the third crew's «Kontakt» (N9, 25.09.2026), and
-     no inset fixes a button over a SCROLLING list. So the board's card ends above the FAB's row
-     — one --float-h and one --float-gap over its baseline — and the circle stands in the lane
-     between the card and the nav bar, where no crew row can scroll under it. Only while the FAB
-     is there; with the keyboard up the card still ends on the keys (Surface.module · .shell). */
-  .app:has(.fab-entry) .az-tafel {
-    bottom: max(calc(var(--float-bottom) + var(--float-h) + var(--float-gap) - var(--vv-pan, 0px)),
-      calc(var(--vv-foot, 0px) + var(--float-gap)));
-  }
 
   /* floating compass + wind cluster on the phone map (rendered only there) — the
      rail-footer compass is hidden in the bottom tool bar, and the wind readout moved out

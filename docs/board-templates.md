@@ -264,7 +264,7 @@ required and is the fallback.
 |---|---|
 | `type` | `text`, `time` (Wann), `trend`, `symbol` (a printed Signatur, see below) or `index` (a numbered disc). |
 | `fixed` | The value is pre-printed by the row. |
-| `w` | Relative width. |
+| `w` | Relative width. On a phone it also scales a text column's minimum: by its weight over the table's narrowest text column, between 1.25× and 2.5× the width a head needs; time, trend, Signatur and index columns keep 1×. The table scrolls sideways (28.10.2026, `boardTemplate · colMinScale`). |
 | `hidden` | When true, the column is not shown. |
 
 **Text fields**

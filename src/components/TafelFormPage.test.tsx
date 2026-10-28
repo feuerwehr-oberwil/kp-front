@@ -4,7 +4,7 @@ import { StrictMode, useState } from 'react'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { TafelFormPage } from './TafelFormPage'
 import { newFormPage, putLine, putRow, writtenRows, type BoardFormData } from '../lib/boardForm'
-import type { TableSection } from '../lib/boardTemplate'
+import { colMinScale, type TableSection } from '../lib/boardTemplate'
 import { BUNDLED_TEMPLATES } from '../lib/boardTemplates'
 import { getLocaleId } from '../config/copy'
 import { appConfig } from '../config/appConfig'
@@ -380,5 +380,17 @@ describe('a Tafel time cell', () => {
     expect(wann.getAttribute('inputmode')).toBe('numeric')
     fireEvent.click(wann)
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+})
+
+// owner, 28.10.2026: «make each column a little bit wider … to not have that many word breaks»
+describe('colMinScale · a phone column’s minimum follows its weight', () => {
+  it('scales text columns by weight within 1.25×–2.5×; sized columns keep 1×', () => {
+    // the Erste Führung's Verbindungen: Funktion 3.3 · Kanal 0.9 · Rufname 2.15 · Wann (time)
+    expect(colMinScale([{ id: 'f', label: '', w: 3.3 }, { id: 'k', label: '', w: 0.9 }, { id: 'r', label: '', w: 2.15 }, { id: 'w', label: '', type: 'time' }]))
+      .toEqual([2.5, 1.25, 2.39, 1])
+    // the Rapport's Traktanden: the index disc stays out of the reference
+    expect(colMinScale([{ id: 'n', label: '', type: 'index', w: 0.5 }, { id: 't', label: '', w: 4 }, { id: 'w', label: '', w: 2 }]))
+      .toEqual([1, 2, 1.25])
   })
 })
