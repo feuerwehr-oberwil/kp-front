@@ -5,7 +5,7 @@
 // lib/report. The close runs only through `onComplete` (the one shared Abschluss confirm).
 // Rules for this area: docs/rapport.md.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { Button, IconButton } from './Button'
 import { TickRow } from './TickRow'
@@ -45,7 +45,7 @@ import {
   defaultReportOptions, formatDateTime, hasVisiblePlanAnnotation, missingTranscriptCount, pendenzRows, proofLabel,
 } from '../lib/report'
 import { TAFEL_ID, findForms } from '../lib/boardForm'
-import { abschlussFacts, missingSteps, stepDone, type AbschlussFacts } from '../lib/abschluss'
+import { abschlussFacts, missingSteps, nextOpenStep, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { controlChipLabel } from '../lib/abschlussOpen'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { openConflicts, sideLabel, sideValue, type OpenConflict } from '../lib/attendanceConflict'
@@ -107,6 +107,43 @@ function ReadOut({ value }: { value?: string | null }) {
 // «Später» that outlived a reload would turn the only surface that says «dieser Einsatz ist noch
 // offen» permanently silent — which is the failure this whole band exists to fix.
 const bandDismissed: { current: Set<string> } = { current: new Set() }
+
+/**
+ * One strip under the Rapport's head (28.10.2026): the guide to the next open point (#14) and the
+ * Abschluss band (#15) wear it alike, at one size – a tap target with a small lead line over the
+ * thing it goes to, an optional ✕ in front, and room under it for one more line (`children`).
+ */
+function RpStrip({ lead, count, title, icon, done = false, busy = false, onGo, onHide, hideLabel, children }: {
+  lead: string
+  /** the amber «noch n offen» after the lead (the guide) */
+  count?: string
+  title: string
+  icon?: ReactNode
+  /** green: everything is recorded, this is the next step (the band) */
+  done?: boolean
+  busy?: boolean
+  onGo: () => void
+  onHide?: () => void
+  hideLabel?: string
+  children?: ReactNode
+}) {
+  return (
+    <div className={cx('rp-strip', done && 'rp-strip-done')}>
+      {onHide && hideLabel && (
+        <IconButton label={hideLabel} className="rp-strip-x" onClick={onHide}><Icon id="close" /></IconButton>
+      )}
+      <button type="button" className="rp-strip-go" onClick={onGo} disabled={busy} aria-busy={busy || undefined}>
+        {icon && <span className="rp-strip-ico">{icon}</span>}
+        <span className="rp-strip-txt">
+          <span className="rp-strip-lead">{lead}{count && <> · <b className="rp-strip-n">{count}</b></>}</span>
+          <span className="rp-strip-t">{title}</span>
+        </span>
+        <Icon id="chevron" className="rp-strip-chev" />
+      </button>
+      {children}
+    </div>
+  )
+}
 
 export function ReportPreflight({
   incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, checklists, plans = [], scene, board, building, captureUsage, canEdit: canEditIn = true, canShare = canEditIn, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts, closedHint = false,
@@ -713,7 +750,7 @@ export function ReportPreflight({
         // each open point is a ROW that goes there — the same jump the «noch offen» chip makes.
         // Tapping one resolves the ask false: nothing prints while the operator is off filling
         // the field in, and the «trotzdem» button below stays the one way to print regardless.
-        items: missing.map((st2) => ({ label: A.steps[st2], onClick: () => jumpToStep(st2) })),
+        items: missing.map((st2) => ({ label: A.steps[st2], onClick: () => guideTo(st2) })),
         note: P.exportIncompleteMsg,
         confirmLabel: P.pdfFull,
         cancelLabel: appConfig.copy.cancel,
@@ -912,6 +949,21 @@ export function ReportPreflight({
     setBandHidden(true)
   }
   const showCloseBand = !!onComplete && !!meta.reportMadeAt && missing.length === 0 && !bandHidden
+  // …and ONE step earlier (owner pick 15B, 28.10.2026): everything recorded, no PDF yet – the band
+  // names the next step, «Einsatzrapport (PDF) erstellen». No «Später» on it (15x): it goes away by
+  // itself once the PDF exists, and turns into the Abschluss band above.
+  const showReadyBand = !!onComplete && canEditIn && !closedHint && !meta.reportMadeAt && missing.length === 0
+
+  // The guide strip (owner pick 14 «top strip», 28.10.2026). A jump from the «n offen» list (or
+  // from the «Angaben fehlen noch» confirm) remembers WHERE it went; the strip under the head then
+  // names the next open point down the page (lib/abschluss · nextOpenStep) and a tap on it is the
+  // same jump. At the last open point there is nothing after it, and the strip is gone; with
+  // nothing open the Abschluss band above takes over – the strip never becomes the PDF button.
+  // ✕ forgets the place until the next jump from the list. Not for a session that cannot edit
+  // (the list it walks is not drawn for one either).
+  const [guideAt, setGuideAt] = useState<AbschlussStep | null>(null)
+  const guideTo = (step: AbschlussStep) => { setGuideAt(step); jumpToStep(step) }
+  const guideNext = canEditIn && guideAt ? nextOpenStep(missing, guideAt) : null
 
   // ONE ROW (lib/pageHeadFit): the head folds its tiles' words — «Abschliessen», then
   // «Einsatzrapport (PDF)» → «PDF» — until it fits; the Kontrolle chip's count is never cut
@@ -1040,7 +1092,7 @@ export function ReportPreflight({
                     {missing.map((st) => (
                       // each row JUMPS to the thing it names (jumpToStep), a full 44px row
                       <button key={st} type="button" className="rp-control-step"
-                        onClick={() => { setControlOpen(false); jumpToStep(st) }}>
+                        onClick={() => { setControlOpen(false); guideTo(st) }}>
                         <span>{A.steps[st]}</span><Icon id="chevron" />
                       </button>
                     ))}
@@ -1186,15 +1238,28 @@ export function ReportPreflight({
             <span className="rp-band-txt">{appConfig.copy.archived.rapportClosedHint}</span>
           </div>
         )}
+        {/* #14 · #15: one strip under the head, one size (owner: the band «a bit smaller, same as
+            the guide»). Outside the scrolling body, so it stays on screen with the keyboard up. */}
+        {guideNext && (
+          <RpStrip lead={missing.length === 1 ? P.guideLast : P.guideNext} count={fillTemplate(P.guideLeft, { n: missing.length })}
+            title={A.steps[guideNext]} onGo={() => guideTo(guideNext)} onHide={() => setGuideAt(null)} hideLabel={P.guideHide} />
+        )}
+        {showReadyBand && (
+          <RpStrip done lead={P.bandReady} title={P.bandPdf} busy={pdfBusy}
+            icon={pdfBusy ? <ShellLoader /> : <Icon id="doc" />} onGo={() => void startOutput()} />
+        )}
         {showCloseBand && (
-          <div className="rp-band">
-            <Icon id="check" className="rp-band-ok" />
-            <span className="rp-band-txt"><b>{P.bandDone}</b> {P.bandAsk}</span>
-            <button type="button" className="ip-btn" onClick={hideBand}>{P.bandLater}</button>
-            <button type="button" className="ip-btn primary" onClick={() => void complete()}>
-              <Icon id="archive" />{A.complete}
-            </button>
-          </div>
+          <RpStrip done lead={P.bandDone} title={A.complete} icon={<Icon id="archive" />}
+            onGo={() => void complete()} onHide={hideBand} hideLabel={P.bandLater}>
+            {/* 15y: the ZIP is the step after the Abschluss, for the digital Ablage – a line, not a
+                second button (the same download the ▾ menu carries) */}
+            {hasStoredMedia && (
+              <p className="rp-strip-more">
+                <Icon id="download" />{P.bandZipLead}
+                <button type="button" className="rp-strip-link" onClick={() => downloadUrl(`/api/incidents/${incident.id}/media.zip`)}>{P.archiveZip}</button>
+              </p>
+            )}
+          </RpStrip>
         )}
         {/* PHONE ONLY — `display: none` from 601px up, so tablet and desktop are byte-identical
             to what they were. Outside the scrolling body on purpose: it is a flex item of the
