@@ -222,6 +222,19 @@ export const editableColumns = (s: TableSection): TemplateColumn[] => shownColum
  *  names itself, owner round 2) — only a Signatur or a number stays the fixed rows' own */
 export const writtenColumns = (s: TableSection): TemplateColumn[] =>
   shownColumns(s).filter((c) => !c.fixed || (c.type !== 'symbol' && c.type !== 'index'))
+
+/** Each column's phone minimum (TafelFormPage) as a multiple of `--tafel-col-min`, the width a
+ *  head needs. A column whose content has a size of its own – the index disc, a time, the trend
+ *  arrow, a Signatur – keeps 1×. A text column scales by its weight over the table's narrowest
+ *  text column, at least 1.25× (owner, 28.10.2026: «each column a little bit wider») and at most
+ *  2.5× (about two-thirds of a phone, so no one column turns the sheet into a long scroll). */
+export function colMinScale(cols: readonly TemplateColumn[]): number[] {
+  const sized = (c: TemplateColumn) => c.type != null && c.type !== 'text'
+  const textW = cols.filter((c) => !sized(c)).map((c) => c.w ?? 1)
+  const ref = textW.length ? Math.min(...textW) : 1
+  return cols.map((c) => (sized(c) ? 1 : Math.round(Math.min(2.5, Math.max(1.25, (c.w ?? 1) / ref)) * 100) / 100))
+}
+
 /** a table with pre-printed rows is a fixed list unless it says otherwise */
 export const tableAddsRows = (s: TableSection): boolean => s.addRows ?? !(s.fixedRows?.length)
 

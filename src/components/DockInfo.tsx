@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
@@ -35,6 +35,18 @@ export function DockInfo({ text, inline }: { text: string; inline?: boolean }) {
   // button follows its own text; `nearest` moves nothing when it is still visible.
   useLayoutEffect(() => {
     if (inline && open) btnRef.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [inline, open])
+  // The floating tip closes on a press anywhere else. `onBlur` alone never fired on an iPhone:
+  // Safari does not focus a tapped button, so there was no focus to lose and the tip stayed up
+  // until the ⓘ itself was tapped again (sweep 28.10.2026 #21). A press on the ⓘ is left to its
+  // own click, which toggles.
+  useEffect(() => {
+    if (inline || !open) return
+    const onDown = (e: PointerEvent) => {
+      if (!(e.target instanceof Node && btnRef.current?.contains(e.target))) setOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown, true)
+    return () => document.removeEventListener('pointerdown', onDown, true)
   }, [inline, open])
   const button = (
     <button

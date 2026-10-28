@@ -88,14 +88,19 @@ export function Overview() {
     return <ListRow key={o.id} title={o.name} sub={sub} onClick={door ? () => openObject(o) : undefined} />
   }
 
+  // A draft's state at the row's end. «Gespeichert {Zeit}» is a small tick (owner, 28.10.2026: the
+  // pill took 60% of a phone row, and the time already stands in the sub-line); every state that
+  // asks for something – nicht gespeichert, Fehler, Konflikt … – keeps its word pill.
   const draftRow = (v: LocalVisit) => {
     const st = deriveStatus({ rec: v, durable: isVisitDurable(v.doc.id, v.doc), flushing: false, sessionExpired: ov.sessionExpired })
     const label = syncLabel(st.sync)
-    const tone = st.sync.kind === 'saved' ? 'ip-badge-ok' : 'ip-badge-todo'
+    const end = st.sync.kind === 'saved'
+      ? <span className={s.savedTick} role="img" aria-label={label} title={label}><Icon id="check" /></span>
+      : <span className="ip-badge ip-badge-todo">{label}</span>
     return (
       <ListRow key={v.doc.id} lead={<span className={s.dot} aria-hidden />} title={visitTitle(v.doc)}
         sub={[v.doc.object?.address, fmtWhen(v.savedAt, { todayShort: true })].filter(Boolean).join(' · ')}
-        end={<span className={`ip-badge ${tone}`}>{label}</span>} onClick={() => ov.go({ kind: 'visit', id: v.doc.id })} />
+        end={end} onClick={() => ov.go({ kind: 'visit', id: v.doc.id })} />
     )
   }
 

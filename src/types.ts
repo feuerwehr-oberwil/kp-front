@@ -910,7 +910,7 @@ export interface BoardAnno extends SymbolProps {
   content?: LineContent
   lineNo?: number            // Druckleitung number in a small box on the line (= Leitung identity, see Drawing)
   floorTag?: number          // storey the line works on, signed badge (+2 / 0 / -1)
-  endDx?: number             // draw: screen-space nudge of the FKS end-tag off other symbols
+  endDx?: number             // draw: the FKS end tag's old nudge – no longer drawn, the tag is pinned to its line (28.10.2026)
   endDy?: number
   fillOpacity?: number       // area: polygon fill opacity (0..1); absent = a sensible default
   hatch?: boolean            // area: schraffiert statt gefüllt (lib/draw · Schraffur)

@@ -12,7 +12,7 @@ import { openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { dueClock, fillTemplate, fmtDuration, formatTime } from '../lib/format'
 import { thumbUrl } from '../lib/mediaUrl'
-import { ART_DISC, groupByDay, isHandWritten, isNachtrag, repeatRuns, rowPhotos, rowTarget, rowText, type ArtTone } from '../lib/verlauf'
+import { ART_DISC, groupByDay, isHandWritten, isNachtrag, repeatRuns, rowPhotos, rowTarget, rowText, type ArtTone, type LiveTargets } from '../lib/verlauf'
 import { journalDisc, withoutAreaPrefix } from '../lib/report'
 import { journalQuery, matchesJournalQuery } from '../lib/journalSearch'
 import { journalCategories, journalFacets, matchesJournalCategories, showsPinnedPendenzen, type JournalCategoryKind } from '../lib/journalFilter'
@@ -98,6 +98,8 @@ export type JournalProps = {
   deliveryNotice?: ReactNode
   events: TimelineEvent[]
   plans: PlanDocument[]
+  /** what still exists in the Einsatz – a row whose object is gone is no jump (lib/verlauf · rowTarget) */
+  live: LiveTargets
   /** the linkable vocabulary (lib/journalLinks) — the SAME memo the composer marks with, so a
    *  name that lit up while it was being typed still lights up once it is a row */
   vocab?: JournalLink[]
@@ -159,7 +161,7 @@ export type JournalProps = {
 // happens on either surface. Rendered as a slide-over so it can open over the
 // map or the plan; a row jumps back to wherever its event happened. Each row is
 // a <JournalRow>; the row's detail sheet is rendered here, at the bottom.
-export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderDone, onReminderNote, onReminderAgain, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice, photoPlacement, onPhotoPlace, onPhotoShow }: JournalProps) {
+export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderDone, onReminderNote, onReminderAgain, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice, photoPlacement, onPhotoPlace, onPhotoShow }: JournalProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.journal
   const audio = useAudioPlayer()
@@ -811,7 +813,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
               {g.label && <div className="jr-day-sep" role="separator">{g.label}</div>}
               {g.events.map((e) => (
                 <JournalRow
-                  key={e.id} e={e} plans={plans} closedAt={closedAt} now={now} replayAtMs={replayAtMs}
+                  key={e.id} e={e} plans={plans} live={live} closedAt={closedAt} now={now} replayAtMs={replayAtMs}
                   openMap={openMap} repeated={repeats.counts.get(e.id) ?? 1}
                   pendenzTitles={pendenzTitles} pendenzRowIds={pendenzRowIds} audioWindows={audioWindows}
                   playing={audio.playing === e.id} onTogglePlay={audio.toggle}
@@ -838,7 +840,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
           const e = events.find((x) => x.id === detailId)
           if (!e) return null
           const hasTx = !!e.transcript || !!e.transcriptSections?.length
-          const target = rowTarget(e)
+          const target = rowTarget(e, live)
           const photos = rowPhotos(e)
           const G = appConfig.copy.photoGeo
           const placements = photos.map((_, i) => photoPlacement?.(e, i) ?? null)

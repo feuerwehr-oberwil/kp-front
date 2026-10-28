@@ -256,8 +256,8 @@ describe('(d) the render budget', () => {
 })
 
 /* Owner, sweep 27.10.2026 #10: the phone's Eintrag FAB shows on the Trupps page too. (N9 had kept
-   it off: it sat on the third crew's «Kontakt»; the board's card now ends above its row,
-   15-mobile · `.az-tafel` — a layout fact jsdom cannot measure.) */
+   it off: it sat on the third crew's «Kontakt»; the board's list now ends above it,
+   Atemschutz.module · `.body` – a layout fact jsdom cannot measure.) */
 describe('(h) the phone FAB stays on the Trupps page', () => {
   it('shows on the Karte and on the Trupps page', async () => {
     const before = window.matchMedia

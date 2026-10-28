@@ -308,6 +308,20 @@
 .reading-history time { color: var(--ink-faint); }
 .reading-history .a1 { color: var(--amber-strong); font-weight: var(--fw-bold); }
 .reading-history .a2 { color: var(--red); font-weight: var(--fw-bold); }
+/* …and the ⓘ between them (ReadingInfo): the section label with the shared InfoToggle at its end,
+   folding out one mono row per gas under an A1/A2 head – unit, A1 amber, A2 red, the history's
+   colours – and two lines */
+.reading-info-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.reading-info-head .ctx-section-label { margin-bottom: 0; }
+.reading-info ul { list-style: none; margin: var(--sp-1) 0 0; padding: 0; }
+.reading-info li { display: grid; grid-template-columns: 3em 4.5em 6.5em 1fr; align-items: baseline; gap: var(--sp-2);
+  padding: var(--sp-1) 0; border-top: 1px solid var(--border-soft); font-family: var(--mono); font-size: var(--fs-1); color: var(--ink-dim); }
+.reading-info li.head { border-top: none; padding-bottom: 0; }
+.reading-info li b { color: var(--ink); }
+.reading-info .unit { color: var(--ink-faint); }
+.reading-info .a1 { color: var(--amber-strong); font-weight: var(--fw-bold); }
+.reading-info .a2 { color: var(--red); font-weight: var(--fw-bold); }
+.reading-info p { margin: var(--sp-2) 0 0; font-size: var(--fs-1); line-height: 1.4; color: var(--ink-dim); }
 .combo-type { color: var(--blue-strong); font-weight: var(--fw-bold); border-top: 1px solid var(--border-soft); margin-top: 2px; }
 .combo-type .i { width: 14px; height: 14px; }
 /* "nur Offiziere" filter pinned atop the roster picker on leadership symbols */

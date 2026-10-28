@@ -23,6 +23,13 @@ interface BoardGesturesDeps {
   manipUp: () => void
 }
 
+/** Presses that never count toward the board's one-finger zoom: a control (a second tap on
+ *  «+ UG» is a second storey), a note or Trupp chip (its double tap opens the name for editing —
+ *  PlanAnno), and everything while the georef mode is armed (it owns the sheet's presses —
+ *  GeorefMode). An object's grips (`button.handle`) DO count: selecting a symbol mounts them right
+ *  under the finger, and the second tap there is the double tap's, not a turn. */
+const NOT_A_ZOOM_PRESS = 'button:not(.handle), input, textarea, select, a[href], [contenteditable], [role="button"], [role="slider"], .wb-anno.wb-text, .wb-anno.wb-resource, .wb-georef-armed'
+
 /**
  * The board's NAVIGATION pointer layer, lifted out of the Whiteboard god-component: one-finger
  * pan, two-finger pinch-zoom, the one-finger double-tap / tap-and-drag zoom (lib/tapDragZoom,
@@ -43,16 +50,23 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
   const pinchDist = useRef<number | null>(null)
   const pinchMid = useRef<{ x: number; y: number } | null>(null)
   const marqueeRef = useRef<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
-  // --- one-finger zoom, the Karte's own (MapLibre's double tap + tap-and-drag) — touch and pen,
-  // presses on EMPTY board only (an object's own handler swallows its press before stageDown).
+  // --- one-finger zoom, the Karte's own (MapLibre's double tap + tap-and-drag) — touch and pen.
   // Under a tool the one rule of lib/tapDragZoom · oneFingerZoom (sweep 27.10.2026 #8): Auswahl
   // and Mehrfach have both (the Rahmen starts on a FRESH press, the second press of a tap pair is
   // the zoom's); the create tools reach it through `tapZoomPress` from the ink — Messen keeps
   // tap-and-drag, Freihand the double tap, a tap-to-place tool navigates by pinch. A double tap never
-  // finishes a Linie / Fläche — ✓ does. ---
+  // finishes a Linie / Fläche — ✓ does.
+  // Under Auswahl / Mehrfach the presses are counted in the CAPTURE pass (trackDown), so a press on
+  // a symbol, a line, a wall or a label counts like one on empty paper (sweep 28.10.2026 #4 — owner:
+  // «It should just work reliably across all different maps and plans»; on a busy Gebäude hardly
+  // any press used to reach the zoom): the first tap still selects as before, the second press of
+  // the pair is the zoom's and never reaches the object. Not counted: controls, the notes and
+  // Trupp chips whose own double tap opens their name for editing, and the georef mode, which owns
+  // every press on the sheet (NOT_A_ZOOM_PRESS). ---
   const [tapZoom] = useState(createTapDragZoom)
   /** the scale the tap-drag engaged at — its factor is relative to that, so it never drifts */
   const tapZoomBase = useRef<number | null>(null)
+  const countsForZoom = (e: ReactPointerEvent) => !(e.target as Element | null)?.closest?.(NOT_A_ZOOM_PRESS)
   const sample = (e: ReactPointerEvent): TapSample => ({ id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp, pointerType: e.pointerType })
   const applyTapZoom = (a: TapZoomAction | null) => {
     if (!a || a.kind === 'hold') return
@@ -140,9 +154,25 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
   // has something on it. Those pointers were never seen being LIFTED either, so a stale id could
   // linger in the map and make the next gesture behave like a three-finger one. Capture sees
   // every pointer whatever swallows it; these two only bookkeep, they never intercept.
+  // ⚠️ A pointerup that never reaches the canvas (its target unmounted mid-press, a sheet opened
+  // over it) leaves a GHOST in the map, and from then on every one-finger press counted as a
+  // second finger: no pan, no one-finger zoom, a «pinch» against a finger that is not there. A
+  // primary pointer is by definition the only one down, so it starts the bookkeeping afresh.
   const trackDown = (e: ReactPointerEvent) => {
+    if (e.isPrimary) { pointers.current.clear(); pinchDist.current = null; pinchMid.current = null }
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     if (pointers.current.size >= 2) applyTapZoom(tapZoom.cancel()) // two fingers are the pinch's
+    else if (tool === 'pan' || tool === 'lasso') {
+      const a = countsForZoom(e) ? tapZoom.down(sample(e)) : tapZoom.cancel()
+      if (a?.kind === 'arm') {
+        // the second press of a tap pair: this finger zooms — whatever it landed on gets nothing
+        // (no drag, no select, no pan, no Rahmen; the first tap already did the selecting)
+        e.stopPropagation()
+        ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+      }
+      applyTapZoom(a)
+      return
+    }
     if (pointers.current.size !== 2 || (tool !== 'pan' && tool !== 'lasso')) return
     pan.current = null; marqueeRef.current = null; setMarquee(null) // hand off to pinch
     manipUp() // an object drag under the first finger ends where it lies — two fingers navigate
@@ -152,8 +182,8 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
   }
   const trackUp = (e: ReactPointerEvent) => {
     pointers.current.delete(e.pointerId)
-    // here, not in stageUp: capture sees every release, so a press on a chip between two taps
-    // (whose down the stage never saw) still breaks the pair
+    // here, not in stageUp: capture sees every release, also of a press the zoom never counted
+    // (a create tool's, or one under a tap-to-place tool) — and that still breaks the pair
     applyTapZoom(e.type === 'pointercancel' ? tapZoom.cancel() : tapZoom.up(sample(e)))
     if (pointers.current.size >= 2 || pinchDist.current == null) return
     pinchDist.current = null; pinchMid.current = null
@@ -164,17 +194,9 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
 
   const stageDown = (e: ReactPointerEvent) => {
     if (pinchDist.current != null) return // the capture pass handed this gesture to the pinch
+    // (under Auswahl / Mehrfach trackDown already counted this press for the one-finger zoom, and
+    // a press the zoom took never gets here)
     if (tool !== 'pan' && tool !== 'lasso') applyTapZoom(tapZoom.cancel())
-    else {
-      const a = tapZoom.down(sample(e))
-      if (a?.kind === 'arm') {
-        // the second press of a tap pair: this finger zooms — no pan, no Rahmen, and nothing to
-        // deselect (the first tap already did)
-        ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-        applyTapZoom(a)
-        return
-      }
-    }
     if (tool === 'lasso') { marqueeDown(e); return }
     panDown(e)
   }

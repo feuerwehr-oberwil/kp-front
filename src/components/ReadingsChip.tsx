@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
 import { useOnlyOpenCard } from '../lib/floatCards'
-import type { MeasuredPoint } from '../lib/readingsList'
+import { useMinuteClock } from '../lib/minuteClock'
+import { worstFirst, type MeasuredPoint } from '../lib/readingsList'
 import { ReadingPill } from '../lib/symbolRender'
 import s from './ReadingsChip.module.css'
 
@@ -28,7 +29,11 @@ export function ReadingsChip({ points, compact = false, onGo }: {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
-  const worst = points[0]
+  // re-sorted on the minute clock the pills age by, so the chip's pill stays the list's first row
+  // when a reading turns stale (measuredPoints sorted them when the Einsatz last changed)
+  const now = useMinuteClock()
+  const sorted = useMemo(() => worstFirst(points, now), [points, now])
+  const worst = sorted[0]
   if (!worst) return null
   const C = appConfig.copy.building
   return (
@@ -40,7 +45,7 @@ export function ReadingsChip({ points, compact = false, onGo }: {
       </button>
       {open && (
         <div className={s.pop} role="dialog" aria-label={C.readingsChip}>
-          {points.map((p) => (
+          {sorted.map((p) => (
             <button key={p.id} type="button" className={s.row} onClick={() => { setOpen(false); onGo(p) }}>
               <ReadingPill props={p.props} inline />
               <span className={s.room}>{p.props.fields?.Raum?.trim() || p.props.label || ''}</span>

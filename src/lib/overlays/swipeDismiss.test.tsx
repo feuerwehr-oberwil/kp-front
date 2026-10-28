@@ -90,12 +90,63 @@ describe('a phone bottom sheet closes by being pushed down', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 
-  it('never starts on a control — the ✕ still closes on the first tap', () => {
-    const { popup, onClose } = open()
-    const x = screen.getByRole('button', { name: 'Schliessen' })
-    swipe(popup, x, 140)
-    // the drag never armed, so nothing was dismissed by the gesture itself
+  // sweep 28.10.2026 #1 (owner: «Ebenen just continues scrolling the content instead of closing it»)
+  it('a pull that starts on a ROW closes like any other point of the body, and its click is swallowed', () => {
+    const onClose = vi.fn(), onRow = vi.fn()
+    render(<Sheet open onClose={onClose} title="Ebenen"><button type="button" onClick={onRow}>Hydranten</button></Sheet>)
+    const popup = screen.getByRole('dialog')
+    asBottomSheet(popup)
+    const row = screen.getByRole('button', { name: 'Hydranten' })
+    swipe(popup, row, 140)
+    fireEvent.click(row) // the click the press ends in
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(onRow).not.toHaveBeenCalled()
+  })
+
+  it('…while a tap on a row (or the ✕) stays a tap', () => {
+    const onClose = vi.fn(), onRow = vi.fn()
+    render(<Sheet open onClose={onClose} title="Ebenen"><button type="button" onClick={onRow}>Hydranten</button></Sheet>)
+    const popup = screen.getByRole('dialog')
+    asBottomSheet(popup)
+    const row = screen.getByRole('button', { name: 'Hydranten' })
+    swipe(popup, row, 4)
+    fireEvent.click(row)
+    expect(onRow).toHaveBeenCalledTimes(1)
     expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('never starts on a field or a slider — their drag is theirs', () => {
+    const onClose = vi.fn()
+    render(<Sheet open onClose={onClose} title="Einstellungen"><input aria-label="Name" /><span role="slider" aria-valuenow={1} aria-label="Grösse" tabIndex={0} /></Sheet>)
+    const popup = screen.getByRole('dialog')
+    asBottomSheet(popup)
+    swipe(popup, screen.getByRole('textbox'), 140)
+    swipe(popup, screen.getByRole('slider'), 140)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('claims a downward touch from the browser while it is a pull — never an upward one', () => {
+    // iOS answers an unclaimed pull at the top with its rubber band and a pointercancel: the sheet
+    // never moved. Pointer events arrive before their touch events, so the claim reads the drag.
+    const { popup } = open()
+    const body = popup.querySelector('.ip-body') as HTMLElement
+    const touchmove = (y: number) => {
+      const ev = new Event('touchmove', { bubbles: true, cancelable: true })
+      Object.defineProperty(ev, 'touches', { value: [{ clientX: 100, clientY: y }] })
+      body.dispatchEvent(ev)
+      return ev.defaultPrevented
+    }
+    touch(body, 'pointerdown', 400)
+    touch(body, 'pointermove', 403)
+    expect(touchmove(403)).toBe(true)
+    touch(body, 'pointerup', 403)
+    // released: nothing is claimed any more
+    expect(touchmove(420)).toBe(false)
+    // upwards is the content's — the pull is dropped and the touch left alone
+    touch(body, 'pointerdown', 400)
+    touch(body, 'pointermove', 380)
+    expect(touchmove(380)).toBe(false)
+    touch(body, 'pointerup', 380)
   })
 
   it('does not exist on a centred dialog — there is no «down» to push it to', () => {

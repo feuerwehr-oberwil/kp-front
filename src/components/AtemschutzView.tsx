@@ -956,15 +956,27 @@ export function AtemschutzView({
   useEffect(() => {
     const list = listRef.current, port = bodyRef.current
     if (!list || !port) return
+    for (const el of list.querySelectorAll('[data-az-fab-foot]')) el.removeAttribute('data-az-fab-foot')
     if (!compact || !openRow) { list.style.removeProperty('--az-open-pad'); return }
     const card = list.querySelector<HTMLElement>('[data-az-open]')
     if (!card) return
-    // The spacer under the parked card is re-measured whenever one moves against the other: the
-    // card changing height (the Verlauf opening, a crew row, a warning) and the port or the
-    // viewport resizing, folded into one measurement per frame. (The FAB guard that also measured
-    // here on scroll is gone: the board's card ends above the FAB's row, sweep 27.10.2026.)
+    // Parked at the top of the port, a card about a port tall ends in the FAB's corner, and the
+    // circle sat on its Verlauf row's chevron (field checks 24.09.2026). That ROW – and only it –
+    // then keeps the FAB's column free (Atemschutz.module.css · data-az-fab-foot), for exactly as
+    // long as it really stands under the circle: measured where it IS, never assumed. So it is
+    // re-measured on everything that moves one against the other – the card changing height (the
+    // Verlauf opening, a crew row, a warning; that also resizes the spacer), the port changing
+    // height or scrolling (the parking scroll itself is smooth, so its end arrives as scroll
+    // events), and the window or visual viewport resizing (the FAB is `position: fixed`). Scroll
+    // and resize are folded into one measurement per frame. (Back since sweep 28.10.2026 #5: the
+    // board's card runs to the phone edge again, so rows pass under the FAB.)
     const measure = () => {
       list.style.setProperty('--az-open-pad', `${Math.max(0, port.clientHeight - nfInset(nfStackRef.current) - card.offsetHeight - 16)}px`)
+      const row = card.querySelector<HTMLElement>('[data-az-foot]')
+      const fab = document.querySelector('.fab-entry')?.getBoundingClientRect()
+      if (!row) return
+      const r = row.getBoundingClientRect()
+      row.toggleAttribute('data-az-fab-foot', !!fab && r.top < fab.bottom && r.bottom > fab.top)
     }
     let frame = 0
     const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure() }) }
@@ -973,6 +985,7 @@ export function AtemschutzView({
     const top = port.scrollTop + card.getBoundingClientRect().top - port.getBoundingClientRect().top - nfInset(nfStackRef.current)
     if (typeof port.scrollTo === 'function') port.scrollTo({ top, behavior: 'smooth' })
     else port.scrollTop = top
+    port.addEventListener('scroll', schedule, { passive: true })
     window.addEventListener('resize', schedule)
     window.visualViewport?.addEventListener('resize', schedule)
     const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule)
@@ -980,6 +993,7 @@ export function AtemschutzView({
     ro?.observe(port)
     return () => {
       if (frame) cancelAnimationFrame(frame)
+      port.removeEventListener('scroll', schedule)
       window.removeEventListener('resize', schedule)
       window.visualViewport?.removeEventListener('resize', schedule)
       ro?.disconnect()

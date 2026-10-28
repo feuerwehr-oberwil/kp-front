@@ -1,9 +1,12 @@
 import { useRef } from 'react'
+import { snapToStep } from '../lib/sliderStep'
 
 /**
- * The app's own horizontal slider — the one control on the drawing/Ebenen surfaces that used to
- * be a native `<input type="range">` (LayerPanel · Deckkraft). Everything else here deliberately
- * avoids native form controls (the `Stepper` instead of a number field, the app's `Menu` instead
+ * The app's own horizontal slider — every slider in the app; the last native
+ * `<input type="range">`, the Symbolgrösse in Einstellungen, moved onto it 28.10.2026 (owner: «the
+ * sliders, for example for the symbol size, are very unreliable and don't function like a normal
+ * slider should» — the sheet's scroll lock cancelled its sideways touchmoves). Everything else
+ * here deliberately avoids native form controls (the `Stepper` instead of a number field, the app's `Menu` instead
  * of a `<select>`), and the native range was the one that came out in the browser's own
  * track-and-thumb, ignored the day/night tokens and gave a gloved finger a 4px-tall target.
  *
@@ -45,12 +48,12 @@ export function Slider({ value, min = 0, max = 100, step = 1, onChange, onCommit
     const r = el.getBoundingClientRect()
     if (!r.width) return
     const t = Math.max(0, Math.min(1, (clientX - r.left) / r.width))
-    const next = clamp(min + Math.round((t * (max - min)) / step) * step)
+    const next = clamp(snapToStep(min + t * (max - min), min, step))
     if (next !== value) { moved.current = next; onChange(next) }
   }
 
   const nudge = (by: number) => {
-    const next = clamp(value + by)
+    const next = clamp(snapToStep(value + by, min, step))
     if (next !== value) { onChange(next); onCommit?.(next) }
   }
 

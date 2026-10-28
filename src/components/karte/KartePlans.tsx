@@ -156,7 +156,9 @@ export function KarteSurface({ obj, doc, phone, sym, onMap, offline = false, hel
             : <KarteGebaeudeBoard key={obj.plans.map((p) => `${p.id}@${p.version}`).join('|')} obj={obj} doc={doc} sym={sym} offline={offline} partOffline={partFloors} />}
       </div>
       <div className={s.chipRow}>
-        <button type="button" className="wb-scale-chip" onClick={onMap}><Icon id="footprint" />{phone ? C.backToMap : obj.name}</button>
+        {/* the way back is a back: «‹ Zurück» / «‹ Objekt» (owner, 28.10.2026 – it wore the building
+            outline). A floating chip and not a BackRow: a frameless row would vanish on the plan. */}
+        <button type="button" className="wb-scale-chip" onClick={onMap}><Icon id="chevron-left" />{phone ? C.backToMap : obj.name}</button>
         {/* the mockup's lamp chip: always on the tablet, on the phone only when it matters (offline) */}
         {held != null && (!phone || offline) && (
           <span className="wb-scale-chip wb-scale-status" role="status"><LampDot lamp={held ? 'device' : 'online'} />{held ? C.planOnDevice : C.planOnlineOnly}</span>

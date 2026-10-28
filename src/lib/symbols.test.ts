@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { alarmBar, countFieldValue, readingRows, recordReading, symbolCaptionText, symbolControls, symbolFieldKind, symbolFieldOptions, symbolLegendText, symbolPresetFieldKeys, symbolReading, symbolReadoutText } from './symbols'
+import { alarmBar, compareReadings, countFieldValue, readingRows, readingScale, recordReading, symbolCaptionText, symbolControls, symbolFieldKind, symbolFieldOptions, symbolLegendText, symbolPresetFieldKeys, symbolReading, symbolReadoutText } from './symbols'
 import type { SymbolControl } from '../types'
 import { appConfig } from '../config/appConfig'
 
@@ -247,6 +247,15 @@ describe('Messpunkt — the reading its mark wears (27.10.2026)', () => {
     expect(readingRows(p).map((r) => r.v)).toEqual([{ CO: '45', Ex: '0' }, { CO: '20' }])
   })
 
+  it('between two gases at the same stage, the one further past its limit wins', () => {
+    // Ex 24 is 1.2 × its A2 of 20, CO 65 only 1.08 × its 60 – preset order no longer decides
+    expect(symbolReading(mp({ CO: '65', Ex: '24' }))).toMatchObject({ text: 'Ex 24', level: 'a2' })
+    // O₂'s low side counts the other way: 15 under an A2 of 17 is 1.13 ×, past CO 65's 1.08 ×
+    expect(symbolReading(mp({ CO: '65', 'O₂': '15' }))?.text).toBe('O₂ 15')
+    // calm says CO first, whatever is closer to amber
+    expect(symbolReading(mp({ CO: '14', 'O₂': '19,5' }))?.text).toBe('CO 14')
+  })
+
   it('the bar under a field: calm, amber, red, the tick at A1 where calm ends', () => {
     expect(alarmBar('FW Messpunkt', 'CO', '30')).toMatchObject({ at: 0.6 })
     expect(alarmBar('FW Messpunkt', 'CO', '30')?.zones.map((z) => z.level)).toEqual(['ok', 'a1', 'a2'])
@@ -345,11 +354,49 @@ describe('presets that were silently absent', () => {
   })
 })
 
+// Sweep 28.10.2026 #3: the chip, the list and the Gebäude stack sort with ONE comparator.
+describe('compareReadings — the one Messpunkt order', () => {
+  const MIN = 60_000
+  const NOW = 100 * MIN
+  const at = (fields: Record<string, string>, t: number) =>
+    symbolReading({ symbol: 'FW Messpunkt', fields, readings: [{ t, v: fields }] }, NOW)
+  const order = (...rs: ReturnType<typeof at>[]) => rs.map((r, i) => ({ r, i })).sort((a, b) => compareReadings(a.r, b.r)).map((x) => x.i)
+
+  it('the owner\'s case: an old Ex 24 and a new Ex 30, both at A2 – the 30 leads', () => {
+    expect(order(at({ Ex: '24' }, NOW - 5 * MIN), at({ Ex: '30' }, NOW - MIN))).toEqual([1, 0])
+    // …also when the old one has gone stale, and also the other way round in the store
+    expect(order(at({ Ex: '24' }, NOW - 40 * MIN), at({ Ex: '30' }, NOW - MIN))).toEqual([1, 0])
+    expect(order(at({ Ex: '30' }, NOW - MIN), at({ Ex: '24' }, NOW - 5 * MIN))).toEqual([0, 1])
+  })
+
+  it('stage first, then fresh before stale, then how far past, then the newest', () => {
+    expect(order(at({ CO: '35' }, NOW), at({ CO: '61' }, NOW - 40 * MIN))).toEqual([1, 0]) // a stale A2 over a fresh A1
+    expect(order(at({ Ex: '40' }, NOW - 40 * MIN), at({ Ex: '21' }, NOW))).toEqual([1, 0]) // same stage: fresh first
+    expect(order(at({ CO: '5' }, NOW - 2 * MIN), at({ CO: '3' }, NOW))).toEqual([1, 0]) // calm: the newest
+    expect(order(symbolReading({ symbol: 'FW Messpunkt', fields: {} }), at({ CO: '3' }, NOW))).toEqual([1, 0]) // measured over empty
+  })
+})
+
+describe('readingScale — what the Messpunkt\'s ⓘ explains', () => {
+  it('every gas with its two stages, in preset order, and when a reading goes old', () => {
+    const scale = readingScale('FW Messpunkt')
+    expect(scale?.gases.map((g) => g.key)).toEqual(['CO', 'Ex', 'O₂', 'H₂S'])
+    expect(scale?.gases[2]).toEqual({ key: 'O₂', a1: { below: 19 }, a2: { below: 17, atLeast: 23 } })
+    expect(scale?.staleMin).toBe(15)
+    expect(readingScale('VKF Feuer')).toBeNull()
+  })
+})
+
 describe('count fields (fieldKinds)', () => {
   it('marks the Rettung\'s «Anzahl Tiere» as a count, nothing else', () => {
     expect(symbolFieldKind('VKF Rettungen', 'Anzahl Tiere')).toBe('count')
     expect(symbolFieldKind('VKF Rettungen', 'Status')).toBeUndefined()
     expect(symbolFieldKind(undefined, 'Anzahl Tiere')).toBeUndefined()
+  })
+
+  it('a Messpunkt gas is a measured number (the decimal keypad), its room is not', () => {
+    for (const k of ['CO', 'Ex', 'O₂', 'H₂S']) expect(symbolFieldKind('FW Messpunkt', k), k).toBe('measured')
+    expect(symbolFieldKind('FW Messpunkt', 'Raum')).toBeUndefined()
   })
 
   it('reads empty as null, a whole number as the number, anything else as free text', () => {

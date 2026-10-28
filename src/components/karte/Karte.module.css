@@ -5,10 +5,14 @@
    Gefahrgut card, the name tags and the plan surface. Scales and tokens only (01-tokens). */
 
 /* ── top bar contents ─────────────────────────────────────────────────────────────────────── */
-/* the menu button IS the Einsatz bar's switcher pill (13-incident · .ip-switch-btn: glass, no
-   border, its press); here only what the Karte adds – the red dot's anchor, the tap height, and it
-   never yields its width */
-.einsaetze { position: relative; min-height: var(--tap); max-width: none; flex: none; }
+/* the menu button IS the Einsatz bar's switcher pill (13-incident · .ip-switch-btn: no border, its
+   press); here only what the Karte adds – the red dot's anchor, the tap height, and it never yields
+   its width. And it is QUIET like the Einsatz's (owner, 28.10.2026: «still an actual button and not
+   neatly in line with the main nav bar like it is in the emergency»): no glass and no shadow of its
+   own – the bar is its frame (13-incident · `.ip-switch > .ip-switch-btn`, which it is not inside).
+   The search pill beside it keeps its glass: that one is a button. */
+.einsaetze:global(.ip-switch-btn) { position: relative; min-height: var(--tap); max-width: none; flex: none;
+  background-color: transparent; box-shadow: none; }
 /* the menu button's face (review round 5): the station's mark (an uploaded logo, any aspect, fitted
    into the glyph's row height) and/or its short name (≤ 8, identity.shortName) — never wraps */
 .menuMark { height: 24px; width: auto; max-width: 48px; object-fit: contain; flex: none; }

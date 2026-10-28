@@ -37,7 +37,7 @@ function dimensions(el: Element, values: Record<string, number>) {
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
 describe('mobile modal scrolling', () => {
-  it('blocks background scrolling and edge chaining while allowing sheet, suggestion and portalled menu scrolling', () => {
+  it('blocks background scrolling while allowing sheet, suggestion and portalled menu scrolling', () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }))
     const view = render(<Sheet />)
     const list = view.getByTestId('list'), suggestions = view.getByTestId('suggestions'), menu = view.getByRole('menu')
@@ -46,8 +46,9 @@ describe('mobile modal scrolling', () => {
     dimensions(menu, { scrollHeight: 400, clientHeight: 100, scrollTop: 0 })
     expect(gesture(view.getByTestId('background'), 0, 30)).toBe(true)
     expect(gesture(list, 0, 30)).toBe(false)
+    // at its end it is still the list's (sweep 28.10.2026 #20): the edge is overscroll-behavior's
     dimensions(list, { scrollTop: 400 })
-    expect(gesture(list, 0, 30)).toBe(true)
+    expect(gesture(list, 0, 30)).toBe(false)
     expect(gesture(suggestions, 30, 0)).toBe(false)
     expect(gesture(menu, 0, 30)).toBe(false)
     view.unmount()
@@ -170,8 +171,8 @@ describe('mobile modal scrolling · one decision per touch', () => {
     dimensions(view.getByTestId('body'), { scrollHeight: 800, clientHeight: 400, scrollTop: 0 })
     // a tie and a vertical-ish first move do not kill the sideways pan
     expect(touch(view.getByTestId('suggestions'), [1, -1], [2, -3], [30, -3])).toEqual([false, false, false])
-    // a deliberate pull DOWN at the body's top edge is still cancelled once it is clearly vertical
-    expect(touch(view.getByTestId('suggestions'), [0, -2], [1, -AXIS_SLOP_PX], [1, -30])).toEqual([false, true, true])
+    // a pull DOWN at the body's top edge is the body's too (the sheet claims a real pull itself)
+    expect(touch(view.getByTestId('suggestions'), [0, -2], [1, -AXIS_SLOP_PX], [1, -30])).toEqual([false, false, false])
   })
 
   it('locks the axis once: a touch that went sideways over plain text stays blocked', () => {
@@ -181,29 +182,44 @@ describe('mobile modal scrolling · one decision per touch', () => {
     expect(touch(view.getByTestId('text'), [AXIS_SLOP_PX + 4, 0], [10, 30])).toEqual([true, true])
   })
 
-  it('leaves a dead tie at the slop undecided, and judges a locked vertical touch by each move', () => {
+  it('leaves a dead tie at the slop undecided, then lets the body take the vertical touch either way', () => {
     phoneMedia()
     const view = render(<Sheet />)
     const body = view.getByTestId('body')
     dimensions(view.getByTestId('suggestions'), { scrollWidth: 600, clientWidth: 200, scrollLeft: 0 })
     dimensions(body, { scrollHeight: 800, clientHeight: 400, scrollTop: 0 })
     // (6, -6) is no axis: the row may still pan; the later clear downward pull locks to y
-    expect(touch(view.getByTestId('suggestions'), [AXIS_SLOP_PX, -AXIS_SLOP_PX], [7, -30])).toEqual([false, true])
-    // up to the body's END in one touch, then back: the way back is free although the total is still «up»
+    expect(touch(view.getByTestId('suggestions'), [AXIS_SLOP_PX, -AXIS_SLOP_PX], [7, -30])).toEqual([false, false])
+    // at the body's END, pushing on and coming back: never cancelled, so iOS keeps the touch's pan
     dimensions(body, { scrollTop: 400 })
-    expect(touch(view.getByTestId('text'), [0, 20], [0, 40], [0, 30])).toEqual([true, true, false])
+    expect(touch(view.getByTestId('text'), [0, 20], [0, 40], [0, 30])).toEqual([false, false, false])
   })
 
-  it('keeps the sheet body\'s vertical guard — the rubber band at its top, free in its middle', () => {
+  // sweep 28.10.2026 #20 — on iOS a cancelled first move kills the list's scroll for the whole touch
+  it('never cancels a vertical move over a body with room — at its top, its middle or its end', () => {
     phoneMedia()
     const view = render(<Sheet />)
     const body = view.getByTestId('body')
-    dimensions(body, { scrollHeight: 800, clientHeight: 400, scrollTop: 0 })
+    for (const scrollTop of [0, 150, 400]) {
+      dimensions(body, { scrollHeight: 800, clientHeight: 400, scrollTop })
+      expect(touch(view.getByTestId('text'), [0, -1], [0, -20])).toEqual([false, false])
+      expect(touch(view.getByTestId('text'), [0, 1], [0, 20])).toEqual([false, false])
+    }
+    // a body with nothing to scroll still hands nothing on to the page…
+    dimensions(body, { scrollHeight: 400, clientHeight: 400, scrollTop: 0 })
     expect(touch(view.getByTestId('text'), [0, -1], [0, -20])).toEqual([true, true])
-    expect(touch(view.getByTestId('text'), [0, 1], [0, 20])).toEqual([false, false])
-    dimensions(body, { scrollTop: 150 })
-    expect(touch(view.getByTestId('text'), [0, -1], [0, -20])).toEqual([false, false])
-    // and the backdrop stays dead on every move
+    // …and the backdrop stays dead on every move
     expect(touch(view.getByTestId('background'), [0, 1], [0, 20], [5, 40])).toEqual([true, true, true])
+  })
+
+  // sweep 28.10.2026 #18
+  it('never cancels a touch that starts on a slider — its drag is the value', () => {
+    phoneMedia()
+    const view = render(<Sheet />)
+    dimensions(view.getByTestId('body'), { scrollHeight: 400, clientHeight: 400, scrollTop: 0 })
+    const slider = document.createElement('span')
+    slider.setAttribute('role', 'slider')
+    view.getByTestId('body').append(slider)
+    expect(touch(slider, [1, 2], [30, 4], [80, 6])).toEqual([false, false, false])
   })
 })

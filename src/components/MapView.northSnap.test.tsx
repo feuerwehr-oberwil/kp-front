@@ -43,7 +43,7 @@ function fakeMap(bearing: number) {
     getBearing: () => m.bearing,
     isMoving: () => m.moving,
     easeTo: vi.fn((o: { bearing: number; duration?: number }) => { m.bearing = o.bearing }),
-    touchZoomRotate: { disableRotation: vi.fn(), _touchRotate: null, isEnabled: () => true, _tapDragZoom: { enable: vi.fn(), disable: vi.fn() } },
+    touchZoomRotate: { disableRotation: vi.fn(), _touchRotate: null, _touchZoom: { isEnabled: () => true }, _tapDragZoom: { enable: vi.fn(), disable: vi.fn() } },
   }
   const inert: Record<string, unknown> = {
     project: () => ({ x: 0, y: 0 }),

@@ -347,7 +347,8 @@ The rules that are easy to break:
   no peek. It sits over the bar but under the top bar (`--z-chrome-raised`), so the menu button and the
   search still open over it. ✕ or a push down closes the SHEET only: the place stays selected —
   outline, tag, pin, `?objekt=` — and a tap on it again brings the sheet back; a tap on empty map
-  deselects. A place selected on a phone is framed in the strip above the sheet (the deep link's
+  deselects. A dropped point (Punkt setzen) is the exception: it exists only for its panel, so
+  closing that takes it off the map (28.10.2026, owner). A place selected on a phone is framed in the strip above the sheet (the deep link's
   first frame too). The tablet keeps the left panel, its rail and ✕ = deselect.
 - **A plan opens in the Einsatz's plan reader, read-only** (owner R2: «the normal pdf viewer we
   have just without the annotation»). `KartePlans · KartePlanBoard` mounts the Plan surface's own
