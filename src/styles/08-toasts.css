@@ -449,8 +449,10 @@
   border-radius: 50%; background: var(--ink-faint); }
 /* a tappable open point (ConfirmItem): the row is the target — ≥44px, edge to edge — and the
    chevron says it goes somewhere, where the plain bullet says only that something is missing */
-.confirm-list-go { padding-left: 0; }
-.confirm-list-go::before { display: none; }
+/* `li.` on both: `.confirm-list li` (0,1,1) out-ranked a bare `.confirm-list-go` and kept the
+   bullet's 16px indent on every tappable row (28.10.2026) */
+.confirm-list li.confirm-list-go { padding-left: 0; }
+.confirm-list li.confirm-list-go::before { display: none; }
 .confirm-list-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px;
   width: 100%; min-height: 44px; padding: 0 var(--sp-2) 0 var(--sp-3); border: 1px solid var(--border);
   border-radius: var(--r-sm); background: var(--ink-5);
