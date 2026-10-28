@@ -1685,6 +1685,9 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    one state the chip has no word for, scoped to the row so it outranks the chip's own ink. */
 .miniChips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .miniChips > * { white-space: nowrap; }
+/* the Leitung's «Nr. …» stepper in the chip row (TruppSheets · LeitungField): tighter inside, so
+   «keine · Ltg n · − 2 +» fits one 390px phone line */
+.miniChips > :global(.step) { gap: var(--sp-1); }
 .miniChips > .miniChipTaken { color: var(--ink-dim); outline: 1px dashed var(--ink-faint); outline-offset: -1px; }
 @media (--phone) {
   .modal.miniSheet, .modal.miniSheet:global(.is-kb) {

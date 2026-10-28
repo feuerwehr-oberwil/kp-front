@@ -432,8 +432,10 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .floors > .note { width: min(980px, 100%); }
 
 /* ── the menu button's red dot (owner, review round 5: «a small red dot» — it was a count): an
-   Einsatz running or an alarm waiting; the number is in the button's accessible name ──────────── */
-.einsaetzeBadge { position: absolute; top: -4px; right: -4px; width: 12px; height: 12px;
+   Einsatz running or an alarm waiting; the number is in the button's accessible name. On the
+   corner of the button's FACE (the mark / name), since the quiet pill has no frame (28.10.2026) */
+.menuFace { position: relative; display: inline-flex; align-items: center; gap: var(--sp-2); }
+.einsaetzeBadge { position: absolute; top: -5px; right: -6px; width: 12px; height: 12px;
   border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
 
 /* ── a tap tool armed (Messen, Punkt setzen, Gefahrgut's centre — lib/karte/camera · toolTakesTaps):
@@ -467,7 +469,7 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 :global(.nav-sep).railSep { height: 1px; margin: var(--sp-1) var(--sp-2); background: var(--border); }
 
 /* ── «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026 · AlarmReadiness) ─────────────────── */
-/* the rows: at the top of «Auf diesem Gerät» and under Einstellungen › Gerät */
+/* the line and its rows: at the top of «Auf diesem Gerät» and under Einstellungen › Gerät */
 .alarmRows { display: grid; gap: var(--sp-3); }
 .alarmRows :global(.list-row-end) :global(.ip-btn), .alarmCard :global(.list-row-end) :global(.ip-btn) { white-space: nowrap; }
 /* the sub-line IS the finding («im Browser geöffnet – Alarme nur in der installierten App»): it
@@ -477,7 +479,11 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .alarmDot.alarmWarn { background: var(--amber); }
 .alarmDot.alarmRed { background: var(--red); }
 .alarmOk { width: 16px; height: 16px; color: var(--green); }
-.alarmTest { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+/* the closed line's end: the Testalarm, then the ⌄ that opens the rows (sweep 28.10.2026, 17A) */
+.alarmSumEnd { display: flex; align-items: center; gap: var(--sp-1); }
+/* …a word-only Testalarm with a tighter inset, so «Alarm bereit» stands on one line beside it at
+   390px (the bell broke it after «Alarm»); a longer title wraps by words, never clipped */
+.alarmSum :global(.list-row-end) :global(.ip-btn) { padding-inline: var(--sp-3); }
 /* the nudge card on the Karte home: under the bar, where the running-Einsatz strip stands on a
    phone (.runningStrip); beside the bar's left edge on a tablet. Glass like the bar, below the
    menu (--z-drawer-menu) and the search results */

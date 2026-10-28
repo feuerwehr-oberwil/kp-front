@@ -150,8 +150,9 @@ export function SettingsSheet({
       <div className="set-sheet">
         <section className="set-group">
           <h3 className="set-group-t">{cp.deviceGroup}</h3>
-          {/* «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026): the same rows as the Karte home's
-              «Auf diesem Gerät», so the fix is also where somebody looks for a switch */}
+          {/* «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026): the same line as the Karte home's
+              «Auf diesem Gerät», so the fix is also where somebody looks for a switch — one line
+              that opens, no heading of its own (sweep 28.10.2026, 17A) */}
           <AlarmReadinessRows className="set-alarm" />
           <div className="set-card">
             <div className="set-row">

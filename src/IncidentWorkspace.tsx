@@ -2134,7 +2134,7 @@ export function IncidentWorkspace({
     setSelectedId(id); setSelectedDrawingId(null); flyToMapVisible(e.coord, 18.4)
   }
   // which Verlauf rows are still a way somewhere: the same objects focusEntity / focusEvent land on
-  const journalLive = useMemo(() => liveTargets(entities, planDocs, board), [entities, planDocs, board])
+  const journalLive = useMemo(() => liveTargets([...entities, ...doc.drawings], planDocs, board), [entities, doc.drawings, planDocs, board])
   // a «Messungen» row: to the point, on the surface it was placed on (the Verlauf's focusEvent recipe)
   const goToReading = (p: MeasuredPoint) => {
     if (p.at.surface === 'map') { setMode('map'); focusEntity(p.id); return }

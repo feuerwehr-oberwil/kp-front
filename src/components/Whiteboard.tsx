@@ -41,6 +41,7 @@ import { SelectionBar } from './SelectionBar'
 import { PlanAnno, type PlanAnnoBoard } from './PlanAnno'
 import { TacticalSymbol } from '../lib/symbolRender'
 import { PlanLineDecor } from './PlanLineDecor'
+import { planEndTagSpots } from '../lib/endTagSpots'
 import { SelectionTurn } from './SelectionTurn'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { hasLineDecor, lineLabel } from '../lib/lineDecor'
@@ -1089,6 +1090,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // resolvedPts already carries the dragged endpoint at the finger position (attachmentLines injects
   // it above), so the anno list needs no second override.
   const renderAnnos = shownAnnos.map((a) => (resolvedPts.has(a.id) ? { ...a, pts: resolvedPts.get(a.id)! } : a))
+  // the Leitungen's end tags, each on the first spot of its line that covers no symbol, Trupp chip
+  // or earlier tag (lib/endTagSpots · planEndTagSpots, sweep 28.10.2026 #8b)
+  const tagSpots = planEndTagSpots(renderAnnos, renderAnnos.flatMap((a) => {
+    if (a.kind !== 'symbol' && a.kind !== 'resource') return []
+    const { width, height, dx } = attachBox(a)
+    const cx = (a.x ?? 0.5) * sW + dx, cy = mapY(a.floor, a.y ?? 0.5) * sH
+    return [{ x: cx - width / 2, y: cy - height / 2, w: width, h: height }]
+  }), sW, sH, mapY)
 
   /** Every placed Trupp chip on this sheet, as the one-Trupp rule reads them (a Plan's `resource`
    *  is the Karte's team marker — lib/truppLines · TruppMarker). */
@@ -2269,7 +2278,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             })}
             {renderAnnos.filter((a) => a.kind === 'draw' && (a.arrow || a.marker || a.label || a.showDistance || hasLineDecor(a)) && (a.pts?.length ?? 0) >= 2).map((a) => (
               <PlanLineDecor key={`am-${a.id}`} a={a} sW={sW} sH={sH} mapY={mapY} onSection={onSection} trupps={trupps} truppSeverities={truppSeverities}
-                planMetres={planMetres} tool={tool} labelDown={labelDown} labelMove={labelMove} labelUp={labelUp} />
+                planMetres={planMetres} tagAt={tagSpots.get(a.id)} tool={tool} labelDown={labelDown} labelMove={labelMove} labelUp={labelUp} />
             ))}
 
             {/* area (Sektor/Abschnitt) labels — a labelled area renders its free text at the polygon

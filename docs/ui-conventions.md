@@ -86,7 +86,8 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   The Trupps section heads draw no rule either (29.09.2026 — see the Atemschutz board).
 
 A hairline also survives where it carries a label (`.jr-day-sep`) or guards a destructive row
-in a `Menu`.
+in a `Menu`, or splits a pick list into its two kinds (the line «Typ»: Leitungen W S H P │
+Haltelinien N T G, 28.10.2026).
 And **no native form
 control** on these surfaces: the app's own `Menu` instead of a `<select>`, the `Stepper`
 instead of a number field, `components/Slider` instead of `<input type="range">`.
