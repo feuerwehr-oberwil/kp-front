@@ -30,6 +30,7 @@ import { timeBlockLabels } from '../lib/timeBlockLabels'
 import { EmptyState } from './EmptyState'
 import { SyncGlyph } from './SyncGlyph'
 import { Button, IconButton } from './Button'
+import { ShellLoader } from './ShellLoader'
 import { ZeitplanView } from './ZeitplanView'
 import { BandGrid } from './BandGrid'
 import { AnrueckendBlock } from './AnrueckendBlock'
@@ -225,17 +226,28 @@ function PaperSheet({ sheet, people, bands, onDownload, onClose }: {
   sheet: ZeitplanSheet
   people: Person[]
   bands: number
-  onDownload?: () => void
+  onDownload?: () => Promise<void>
   onClose: () => void
 }) {
   const Z = appConfig.copy.zeitplan
   const schicht = sheet === 'schichtplan'
   // read once, as the sheet opens: this is «Stand», the moment the sheet was asked for
   const [openedAt] = useState(() => new Date())
+  // The sheet stays open with the loader in its button until the PDF is there (owner, 28.10.2026:
+  // every print and download shows that it is working) – it used to close at once, and the
+  // seconds the server takes looked like nothing had happened.
+  const [busy, setBusy] = useState(false)
+  const download = async () => {
+    if (!onDownload) return
+    setBusy(true)
+    try { await onDownload() } finally { setBusy(false) }
+    onClose()
+  }
   return (
     <Sheet open onClose={onClose} fit title={schicht ? Z.sheetSchichtplanTitle : Z.sheetVerfuegbarkeitenTitle}
       footer={onDownload && (
-        <Button onClick={() => { onDownload(); onClose() }}>{Z.pdf}</Button>
+        <Button disabled={busy} aria-busy={busy || undefined} icon={busy ? <ShellLoader /> : undefined}
+          onClick={() => void download()}>{busy ? Z.pdfBusy : Z.pdf}</Button>
       )}
     >
       <p className={s.paperContent}>
@@ -383,7 +395,8 @@ export function AnwesenheitView({
   onSetShiftTime?: (id: string, patch: { from?: string; to?: string }) => void
   onRemoveShift?: (id: string, personName: string) => void
   /** download one of the two Schichtenplanung sheets (rendered server-side) */
-  onDownloadZeitplan?: (people: Person[], sheet: ZeitplanSheet) => void
+  /** resolves once the PDF is downloaded (or its failure was told) – the sheet waits for it */
+  onDownloadZeitplan?: (people: Person[], sheet: ZeitplanSheet) => Promise<void>
   /** Self-reported live positions, keyed by person id (see lib/usePersonPositions). Absent for
    *  a session that may not read them — a link-scoped phone gets no crew picture at all. */
   livePositions?: Map<string, LivePerson>

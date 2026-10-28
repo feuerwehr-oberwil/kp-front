@@ -295,6 +295,7 @@ export const anwesenheitCopy = {
     sheetSchichtplanHint: 'Die Wachen quer, die Namen längs, Häkchen dazwischen – das Führungsformular, wie es die Mannschaft kennt.',
     sheetVerfuegbarkeitenHint: 'Wer von wann bis wann kann, unabhängig von jeder Schicht – auch alle, die in keiner stehen.',
     pdf: 'Als PDF',
+    pdfBusy: 'PDF wird erstellt …',
     paperMenu: 'Aufs Papier',
     printFailed: 'Zeitplan konnte nicht gedruckt werden.',
     // head of the name column – as on the printed form

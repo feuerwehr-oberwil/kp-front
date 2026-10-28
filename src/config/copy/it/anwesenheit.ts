@@ -160,6 +160,7 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     sheetSchichtplanHint: 'I turni in colonna, i nomi in riga, le spunte in mezzo – il formulario di condotta come lo conosce il corpo.',
     sheetVerfuegbarkeitenHint: 'Chi può da quando a quando, indipendentemente da ogni turno – anche tutti quelli che non ne hanno nessuno.',
     pdf: 'In PDF',
+    pdfBusy: 'Creazione del PDF …',
     paperMenu: 'Su carta',
     printFailed: 'Impossibile stampare la pianificazione.',
     who: 'Chi',

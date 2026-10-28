@@ -132,6 +132,11 @@ footer is the danger alone (TimeBlockSheet `danger` — the Anwesenheit's «Pers
   «THE button»), 44px on every pointer and 52 for `lg`, so a hand-written `.ip-btn` and a
   `<Button>` cannot drift apart and 20-touch-floors needs no entry for either. The sheet ✕ stays
   `.ip-x` (36px, grey, 44 pad; owner spec below), not an `IconButton`.
+- **A print or download that waits on something shows `ShellLoader` in its button** (28.10.2026,
+  owner: «all printing and downloading things have a spinner»): the loader takes the glyph's place
+  (or leads the label), the button is `disabled` + `aria-busy` until the file is out, and a sheet
+  that offers the download stays open until then (Zeitplan). A phone that hides the button's
+  word (Tafel «Drucken») is why the label alone is not enough. Instant local exports need none.
 
 ## Overlays
 

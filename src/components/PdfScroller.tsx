@@ -75,6 +75,7 @@ export function PdfScroller({ url, bare = false, fileName, row }: {
   const release = useRef<(() => void) | null>(null)
   const [width, setWidth] = useState(0)
   const [zoom, setZoom] = useState(1)
+  const [sharing, setSharing] = useState(false)
   const zoomRef = useRef(1)
   zoomRef.current = zoom
   /** zoom to `next`, keeping the point at `focal` (viewport px inside the scroller) in place.
@@ -429,9 +430,11 @@ export function PdfScroller({ url, bare = false, fileName, row }: {
   }) : null
   const pick = (v: string) => { const j = jumps?.[Number(v)]; if (j) jumpTo(j.page) }
   const track = sections && <Segmented<string> tabs scroll ariaLabel={P.jumps} value={String(active)} onChange={pick} options={sections} />
+  // the bytes are fetched before the share sheet opens: the loader stands in for the glyph meanwhile
   const openIn = (
-    <IconButton label={P.openIn} onClick={() => void sharePdf(url, fileName).catch(() => {})}>
-      <Icon id="external" />
+    <IconButton label={P.openIn} disabled={sharing} aria-busy={sharing || undefined}
+      onClick={() => { setSharing(true); void sharePdf(url, fileName).catch(() => {}).finally(() => setSharing(false)) }}>
+      {sharing ? <ShellLoader /> : <Icon id="external" />}
     </IconButton>
   )
   return (

@@ -211,6 +211,7 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     sheetSchichtplanHint: 'Watches across the top, names down the side, ticks in between \u2013 the command form the crew knows.',
     sheetVerfuegbarkeitenHint: 'Who can do what, from when to when, shift or no shift \u2013 including everyone in none.',
     pdf: 'As PDF',
+    pdfBusy: 'Creating the PDF …',
     paperMenu: 'To paper',
     printFailed: 'The schedule could not be printed.',
     who: 'Who',

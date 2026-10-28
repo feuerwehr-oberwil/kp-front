@@ -206,9 +206,9 @@ export function useRecordSlices({
     new Date().toISOString(),
     sheet, bands,
   )
-  const onDownloadZeitplan = (rowPeople: Person[], sheet: ZeitplanSheet) => {
-    void downloadZeitplanPdf(incidentMeta.id, zeitplanPayload(rowPeople, sheet))
-      .catch(() => toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }))
-  }
+  // resolves either way (a failure is a toast), so the sheet's loader can wait on it
+  const onDownloadZeitplan = (rowPeople: Person[], sheet: ZeitplanSheet) =>
+    downloadZeitplanPdf(incidentMeta.id, zeitplanPayload(rowPeople, sheet))
+      .catch(() => { toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }) })
   return { checklistSet, checklistDescribeRef, bandActions, addShift, addShiftSpan, replaceShift, setShiftTime, removeShift, onDownloadZeitplan, saveMittel, placedSymbols }
 }
