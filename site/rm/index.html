@@ -89,14 +89,22 @@
       "@id": "https://kp-front.ch/#app",
       "name": "KP Front",
       "url": "https://kp-front.ch/rm/",
-      "description": "KP Front è il post da commando digital al lieu d’acziun: charta, plans, gruppas, decurs e rapport – utilisabel offline ed open source.",
+      "description": "Direcziun digitala d’acziun e charta da situaziun per ils pumpiers – cun chartas da swisstopo, segns tactics tenor las convenziuns FKS, surveglianza da la protecziun respiratorica e decurs d’acziun continuant.",
+      "featureList": [
+        "Charta da situaziun sin chartas da swisstopo cun segns tactics tenor las convenziuns FKS",
+        "Surveglianza da la protecziun respiratorica cun pressiun, temp da retratga, ura da contact ed alarms",
+        "Plans d’object e d’edifizis sco tavla da lavur per dissegnar e mesirar",
+        "Decurs d’acziun che vegn mo cumplettà e mai surscrit",
+        "Plan da temp per acziuns lungas, cun survista da la cuvrida",
+        "Rapport d’acziun sco PDF, preemplenì cun las datas da l’acziun",
+        "Viadi en il temp: reproducir l’acziun per la discussiun finala"
+      ],
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web browser",
       "inLanguage": [
-        "de-CH",
-        "fr-CH",
-        "it-CH",
-        "rm-CH",
+        "de",
+        "fr",
+        "it",
         "en"
       ],
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
@@ -119,6 +127,85 @@
       "url": "https://www.feuerwehr-oberwil.ch",
       "sameAs": [
         "https://github.com/feuerwehr-oberwil"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://kp-front.ch/rm/#faq",
+      "inLanguage": "rm-CH",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Pertge midar?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Tuts vesan il medem maletg a medem temp. Nagina annunzia va a perder. La surveglianza avertescha automaticamain, il traffic da radio diminuescha ed il rapport è quasi terminà al return."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Nua vegnan las datas d’acziun sensiblas memorisadas?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Mintga corps da pumpiers maina KP Front sez (self-hosted). Las datas d’acziun – charta da situaziun, surveglianza da la protecziun respiratorica, decurs e plans dals edifizis – restan sin l’atgna installaziun e sin ils agens apparats: per exempel sin in mini-PC en il magazin, sin in agen server u tar in purschider da cloud tschernì dal corps. I na dat nagin server central, e nagut na vegn tramess automaticamain ad in purschider u a nus. Ils servetschs da chartas, d’adressas e dal temp (tranter auter swisstopo sco standard) survegnan mo la posiziun dumandada; ulteriurs servetschs externs funcziunan mo, sch’il corps als installescha sez."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "En tge sa distingua KP Front da sistems commerzials?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "KP Front è open source (AGPL-3.0): naginas taxas da licenza, nagin abunament, nagins custs per apparat. Mintga corps maina si’atgna installaziun e mantegna uschia la controlla da sias datas. Restan ils agens custs da manaschi, infrastructura ed eventual sustegn extern. Il svilup deriva directamain da la pratica dals pumpiers d’Oberwil BL; annunzias d’errurs, ideas e contribuziuns da la cuminanza open source èn bainvegnidas."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Tge dovri per il manaschi?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "In pitschen mini-PC u server en il magazin basta. Per l’installaziun, actualisaziuns e backups dovri ina persuna cun experientscha da Docker e da la lingia da commandos, saja quai en il corps da pumpiers, en la vischnanca u tar ina IT che sustegna. L’instrucziun ed il sectur d’administraziun mainan tras l’installaziun. Nus respundain gugent a dumondas generalas; las datas ed il manaschi restan en la responsabladad dal corps da pumpiers respectiv."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Funcziuna KP Front senza connexiun a l’internet?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Gea. Sco applicaziun installada funcziuna KP Front sin l’apparat: charta, plans, gruppas e decurs restan utilisabels, era sche la rait croda ora. Chartas e plans enturn l’acziun chargia l’applicaziun sezza, curt suenter ch’ella è vegnida averta – e la controlla da prontezza mussa avant l’acziun sche las datas necessarias èn memorisadas sin l’apparat. Suenter in’interrupziun vegnan las modificaziuns sincronisadas uschespert ch’ina connexiun è puspè disponibla; quai ch’è vegnì registrà en il fratemp resta conservà."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Po l’applicaziun vegnir adattada?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Gea. Mintga corps da pumpiers ha ses agen sectur d’administraziun: persunal, vehichels, doctrina e models pon vegnir configurads libramain. Glistas da controlla, plans d’object e nivels da charta derivan da las atgnas datas dal magazin e vegnan chargiads cun ils utensils da lingia da commandos furnids. Perquai che l’entir code è publitgà sin GitHub , pon tut las ulteriuras adattaziuns vegnir sviluppadas sez u incumbensadas."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Funcziuna KP Front mo en Svizra?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Na. Sco software open source è KP Front liberamain accessibla e po vegnir adattada a las circumstanzas localas en l’entir mund. Da fabrica è l’applicaziun preconfigurada per la Svizra – cun chartas da swisstopo, segns tactics tenor las convenziuns FKS ed ils models FKS per la direcziun da l’acziun. Ordaifer la Svizra pon vegnir configuradas autras basas da chartas; la tschertga d’adressas sustegna oz mo l’interfatscha da swisstopo e sto vegnir adattada là."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Tge linguas sustegna KP Front?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "La website è disponibla per tudestg, franzos, talian, rumantsch ed englais. L’applicaziun sezza e ses agid funcziunan per tudestg, franzos, talian ed englais – rumantsch n’è là anc betg disponibel. La lingua vegn fixada ina giada per corps, betg per apparat: durant l’acziun legian tuts ils medems terms. La documentaziun tecnica davart l’installaziun ed il manaschi è per englais. La versiun demo publica è per tudestg, ed ils screenshots qua derivan da la medema instanza."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Co cumenzar?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Cun la demo, senza registraziun – a Musterdorf arda gia, e tut ils visitaders partan la medema intervenziun (ella cumenza da nov a mesanotg ed a mezdi). Suenter testar durant in exercizi. Sche l’applicaziun cunvegna, maina l’instrucziun d’installaziun a l’atgna instanza."
+          }
+        }
       ]
     }
   ]
@@ -632,14 +719,12 @@
           avertescha automaticamain, il traffic da radio diminuescha ed il rapport è quasi terminà al return.</p>
       </div>
       <div class="faq-item">
-        <h3>A tgi appartegnan las datas?</h3>
-        <p>A vus. Chartas, plans e datas d’acziun restan sin vossa installaziun.</p>
+        <h3>Nua vegnan las datas d’acziun sensiblas memorisadas?</h3>
+        <p>Mintga corps da pumpiers maina KP Front sez (self-hosted). Las datas d’acziun – charta da situaziun, surveglianza da la protecziun respiratorica, decurs e plans dals edifizis – restan sin l’atgna installaziun e sin ils agens apparats: per exempel sin in mini-PC en il magazin, sin in agen server u tar in purschider da cloud tschernì dal corps. I na dat nagin server central, e nagut na vegn tramess automaticamain ad in purschider u a nus. Ils servetschs da chartas, d’adressas e dal temp (tranter auter swisstopo sco standard) survegnan mo la posiziun dumandada; ulteriurs servetschs externs funcziunan mo, sch’il corps als installescha sez.</p>
       </div>
       <div class="faq-item">
-        <h3>Tge custa quai?</h3>
-        <p>La software sezza na custa nagut. KP Front è open source (AGPL) – <strong>nagina
-          licenza, nagin abunament, nagins custs per apparat</strong>. Restan ils agens custs da manaschi,
-          infrastructura ed eventual sustegn extern.</p>
+        <h3>En tge sa distingua KP Front da sistems commerzials?</h3>
+        <p>KP Front è open source (AGPL-3.0): <strong>naginas taxas da licenza, nagin abunament, nagins custs per apparat</strong>. Mintga corps maina si’atgna installaziun e mantegna uschia la controlla da sias datas. Restan ils agens custs da manaschi, infrastructura ed eventual sustegn extern. Il svilup deriva directamain da la pratica dals pumpiers d’Oberwil BL; annunzias d’errurs, ideas e contribuziuns da la cuminanza open source èn bainvegnidas.</p>
       </div>
       <div class="faq-item">
         <h3>Tge dovri per il manaschi?</h3>
@@ -667,10 +752,12 @@
           pon tut las ulteriuras adattaziuns vegnir sviluppadas sez u incumbensadas.</p>
       </div>
       <div class="faq-item">
-        <h3>En tge linguas è l’applicaziun disponibla?</h3>
-        <p>L’interfatscha è disponibla per tudestg, englais, franzos e talian. En in’atgna instanza po la
-          lingua vegnir adattada individualmain. La versiun demo da KP Front è per <strong>tudestg</strong>. Ils
-          screenshots derivan da la medema instanza da demo; maletgs inscenads fissan mo ina pretensiun.</p>
+        <h3>Funcziuna KP Front mo en Svizra?</h3>
+        <p>Na. Sco software open source è KP Front liberamain accessibla e po vegnir adattada a las circumstanzas localas en l’entir mund. Da fabrica è l’applicaziun preconfigurada per la Svizra – cun chartas da swisstopo, segns tactics tenor las convenziuns FKS ed ils models FKS per la direcziun da l’acziun. Ordaifer la Svizra pon vegnir configuradas autras basas da chartas; la tschertga d’adressas sustegna oz mo l’interfatscha da swisstopo e sto vegnir adattada là.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Tge linguas sustegna KP Front?</h3>
+        <p>La website è disponibla per tudestg, franzos, talian, rumantsch ed englais. L’applicaziun sezza e ses agid funcziunan per tudestg, franzos, talian ed englais – rumantsch n’è là anc betg disponibel. La lingua vegn fixada <strong>ina giada per corps</strong>, betg per apparat: durant l’acziun legian tuts ils medems terms. La documentaziun tecnica davart l’installaziun ed il manaschi è per englais. La versiun demo publica è per <strong>tudestg</strong>, ed ils screenshots qua derivan da la medema instanza.</p>
       </div>
       <div class="faq-item">
         <h3>Co cumenzar?</h3>
@@ -750,6 +837,7 @@
     <div class="foot-row">
       <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
       <a href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/feuerwehr-oberwil" target="_blank" rel="noopener me">Pumpiers d’Oberwil sin GitHub</a>
       <a href="https://demo.kp-front.ch" target="_blank" rel="noopener">Demo</a>
       <a href="https://kp-rueck.ch">KP Rück</a>
       <a href="#kontakt">Contact</a>

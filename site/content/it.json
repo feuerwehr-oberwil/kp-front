@@ -6,6 +6,18 @@
     "ogTitle": "KP Front – Condotta d’intervento digitale per i pompieri",
     "ogDescription": "Il posto di comando digitale sul posto: mappa, piani, squadre, diario e rapporto – offline e open source."
   },
+  "schema": {
+    "description": "Condotta d’intervento digitale e carta della situazione per i pompieri – con carte swisstopo, segni tattici secondo le convenzioni CSP, sorveglianza della protezione respiratoria e diario d’intervento continuo.",
+    "featureList": [
+      "Carta della situazione su carte swisstopo con segni tattici secondo le convenzioni CSP",
+      "Sorveglianza della protezione respiratoria con pressione, tempo di rientro, orologio di contatto e allarmi",
+      "Piani d’oggetto e degli edifici come lavagna per disegnare e misurare",
+      "Diario d’intervento che viene solo integrato e mai riscritto",
+      "Piano turni per interventi lunghi, con vista sulla copertura",
+      "Rapporto d’intervento in PDF, precompilato con i dati dell’intervento",
+      "Viaggio nel tempo: riprodurre l’intervento per il debriefing"
+    ]
+  },
   "nav": {
     "aria": "Navigazione principale",
     "features": "Funzioni",
@@ -317,12 +329,12 @@
         "a": "Tutti vedono nello stesso momento la stessa situazione – al veicolo di comando, sul\n          tablet e dal capo intervento. Nessun messaggio si perde su un foglietto. La\n          sorveglianza della protezione respiratoria si fa sentire da sola prima che diventi\n          stretta. Meno traffico radio per domande che stanno comunque sul quadro della\n          situazione – e il rapporto è quasi pronto al rientro invece che il fine settimana dopo.\n          KP Front aiuta la direzione dell’intervento a tenere la situazione priva di\n          contraddizioni e a rendere visibili gli scarti: una squadra senza contatto radio, un\n          veicolo che non sta da nessuna parte, un riscontro che non è mai arrivato."
       },
       {
-        "q": "A chi appartengono i dati?",
-        "a": "A voi. Carte, piani e dati d’intervento restano sulla vostra installazione. I servizi\n          di cartografia e indirizzi ricevono soltanto la posizione richiesta; gli altri servizi\n          esterni funzionano solo se li configurate. Nulla viene inviato automaticamente al\n          fornitore o al manutentore."
+        "q": "Dove vengono salvati i dati sensibili d’intervento?",
+        "a": "KP Front è gestito da ogni corpo pompieri in proprio (self-hosted). I dati d’intervento – carta della situazione, sorveglianza della protezione respiratoria, diario e piani degli edifici – restano sulla propria installazione e sui propri dispositivi: ad esempio un mini-PC in caserma, un proprio server o un fornitore cloud scelto dal corpo. Non c’è un server centrale e nulla viene inviato automaticamente a un fornitore o a noi. I servizi di cartografia, indirizzi e meteo (tra cui swisstopo come impostazione predefinita) ricevono soltanto la posizione richiesta; gli altri servizi esterni funzionano solo se il corpo li configura."
       },
       {
-        "q": "Quanto costa?",
-        "a": "Il software in sé non costa nulla. KP Front è open source (AGPL) – <strong>nessuna\n          licenza, nessun abbonamento, nessun costo per dispositivo</strong>. Restano i costi\n          propri per l’esercizio, l’infrastruttura ed eventualmente il supporto esterno."
+        "q": "In cosa si distingue KP Front dai sistemi commerciali?",
+        "a": "KP Front è open source (AGPL-3.0): <strong>nessuna tassa di licenza, nessun abbonamento, nessun costo per dispositivo</strong>. Ogni corpo gestisce la propria installazione e mantiene così il controllo sui propri dati. Restano i costi propri per l’esercizio, l’infrastruttura ed eventualmente il supporto esterno. Lo sviluppo nasce direttamente dalla pratica dei pompieri di Oberwil BL; segnalazioni di errori, idee e contributi dalla comunità open source sono benvenuti."
       },
       {
         "q": "Cosa serve per farlo funzionare?",
@@ -337,8 +349,12 @@
         "a": "Sì. Ogni corpo ha la propria area amministrativa: uomini, veicoli, dottrina e modelli\n          si impostano liberamente lì. Liste di controllo, piani d’oggetto e livelli cartografici\n          arrivano dai dati della vostra sede e si caricano con gli strumenti da riga di comando\n          forniti. E poiché tutto il codice sta su <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          tutto il resto si può costruire – da soli o su mandato."
       },
       {
-        "q": "In quali lingue funziona l’app?",
-        "a": "L’interfaccia c’è in tedesco, inglese, francese e italiano. La lingua si imposta <strong>una volta per corpo</strong>, non per dispositivo – durante l’intervento tutti leggono gli stessi termini, ed è voluto: una situazione, un vocabolario.\n          La demo pubblica gira in <strong>tedesco</strong>. Gli screenshot qui vengono dalla stessa istanza – immagini ricostruite sarebbero un’affermazione."
+        "q": "KP Front funziona solo in Svizzera?",
+        "a": "No. Come software open source, KP Front è liberamente accessibile e può essere adattato alle condizioni locali in tutto il mondo. Di fabbrica l’app è preconfigurata per la Svizzera – con le carte swisstopo, i segni tattici secondo le convenzioni CSP e i modelli CSP per la condotta d’intervento. Fuori dalla Svizzera si possono impostare altre basi cartografiche; la ricerca di indirizzi oggi supporta solo l’interfaccia swisstopo e lì va adattata."
+      },
+      {
+        "q": "Quali lingue supporta KP Front?",
+        "a": "Il sito web esiste in tedesco, francese, italiano, romancio e inglese. L’app stessa e la sua guida funzionano in tedesco, francese, italiano e inglese – il romancio non vi è ancora disponibile. La lingua si imposta <strong>una volta per corpo</strong>, non per dispositivo: durante l’intervento tutti leggono gli stessi termini. La documentazione tecnica su installazione ed esercizio è in inglese. La demo pubblica gira in <strong>tedesco</strong> e gli screenshot qui vengono dalla stessa istanza."
       },
       {
         "q": "Come cominciamo?",
@@ -386,6 +402,7 @@
   "footer": {
     "origin": "Nato nell’attività operativa dei <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pompieri di Oberwil BL</a> –\n      perché in intervento vedevamo sempre le stesse fonti di errore: doppie assegnazioni, informazioni\n      sparse e errori di trascrizione a mano.\n      Ogni corpo pompieri gestisce il proprio KP Front, con carte, piani e dati propri.",
     "demo": "Demo",
-    "contact": "Contatto"
+    "contact": "Contatto",
+    "org": "Pompieri di Oberwil su GitHub"
   }
 }

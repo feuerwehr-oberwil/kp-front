@@ -6,6 +6,18 @@
     "ogTitle": "KP Front – Direcziun digitala d’acziun per ils pumpiers",
     "ogDescription": "Il post da commando digital al lieu d’acziun: charta, plans, gruppas, decurs e rapport – utilisabel offline ed open source."
   },
+  "schema": {
+    "description": "Direcziun digitala d’acziun e charta da situaziun per ils pumpiers – cun chartas da swisstopo, segns tactics tenor las convenziuns FKS, surveglianza da la protecziun respiratorica e decurs d’acziun continuant.",
+    "featureList": [
+      "Charta da situaziun sin chartas da swisstopo cun segns tactics tenor las convenziuns FKS",
+      "Surveglianza da la protecziun respiratorica cun pressiun, temp da retratga, ura da contact ed alarms",
+      "Plans d’object e d’edifizis sco tavla da lavur per dissegnar e mesirar",
+      "Decurs d’acziun che vegn mo cumplettà e mai surscrit",
+      "Plan da temp per acziuns lungas, cun survista da la cuvrida",
+      "Rapport d’acziun sco PDF, preemplenì cun las datas da l’acziun",
+      "Viadi en il temp: reproducir l’acziun per la discussiun finala"
+    ]
+  },
   "nav": {
     "aria": "Navigaziun principala",
     "features": "Funcziuns",
@@ -317,12 +329,12 @@
         "a": "Tuts vesan il medem maletg a medem temp. Nagina annunzia va a perder. La surveglianza\n          avertescha automaticamain, il traffic da radio diminuescha ed il rapport è quasi terminà al return."
       },
       {
-        "q": "A tgi appartegnan las datas?",
-        "a": "A vus. Chartas, plans e datas d’acziun restan sin vossa installaziun."
+        "q": "Nua vegnan las datas d’acziun sensiblas memorisadas?",
+        "a": "Mintga corps da pumpiers maina KP Front sez (self-hosted). Las datas d’acziun – charta da situaziun, surveglianza da la protecziun respiratorica, decurs e plans dals edifizis – restan sin l’atgna installaziun e sin ils agens apparats: per exempel sin in mini-PC en il magazin, sin in agen server u tar in purschider da cloud tschernì dal corps. I na dat nagin server central, e nagut na vegn tramess automaticamain ad in purschider u a nus. Ils servetschs da chartas, d’adressas e dal temp (tranter auter swisstopo sco standard) survegnan mo la posiziun dumandada; ulteriurs servetschs externs funcziunan mo, sch’il corps als installescha sez."
       },
       {
-        "q": "Tge custa quai?",
-        "a": "La software sezza na custa nagut. KP Front è open source (AGPL) – <strong>nagina\n          licenza, nagin abunament, nagins custs per apparat</strong>. Restan ils agens custs da manaschi,\n          infrastructura ed eventual sustegn extern."
+        "q": "En tge sa distingua KP Front da sistems commerzials?",
+        "a": "KP Front è open source (AGPL-3.0): <strong>naginas taxas da licenza, nagin abunament, nagins custs per apparat</strong>. Mintga corps maina si’atgna installaziun e mantegna uschia la controlla da sias datas. Restan ils agens custs da manaschi, infrastructura ed eventual sustegn extern. Il svilup deriva directamain da la pratica dals pumpiers d’Oberwil BL; annunzias d’errurs, ideas e contribuziuns da la cuminanza open source èn bainvegnidas."
       },
       {
         "q": "Tge dovri per il manaschi?",
@@ -337,8 +349,12 @@
         "a": "Gea. Mintga corps da pumpiers ha ses agen sectur d’administraziun: persunal, vehichels,\n          doctrina e models pon vegnir configurads libramain. Glistas da controlla, plans d’object e\n          nivels da charta derivan da las atgnas datas dal magazin e vegnan chargiads cun ils utensils\n          da lingia da commandos furnids. Perquai che l’entir code è publitgà sin <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          pon tut las ulteriuras adattaziuns vegnir sviluppadas sez u incumbensadas."
       },
       {
-        "q": "En tge linguas è l’applicaziun disponibla?",
-        "a": "L’interfatscha è disponibla per tudestg, englais, franzos e talian. En in’atgna instanza po la\n          lingua vegnir adattada individualmain. La versiun demo da KP Front è per <strong>tudestg</strong>. Ils\n          screenshots derivan da la medema instanza da demo; maletgs inscenads fissan mo ina pretensiun."
+        "q": "Funcziuna KP Front mo en Svizra?",
+        "a": "Na. Sco software open source è KP Front liberamain accessibla e po vegnir adattada a las circumstanzas localas en l’entir mund. Da fabrica è l’applicaziun preconfigurada per la Svizra – cun chartas da swisstopo, segns tactics tenor las convenziuns FKS ed ils models FKS per la direcziun da l’acziun. Ordaifer la Svizra pon vegnir configuradas autras basas da chartas; la tschertga d’adressas sustegna oz mo l’interfatscha da swisstopo e sto vegnir adattada là."
+      },
+      {
+        "q": "Tge linguas sustegna KP Front?",
+        "a": "La website è disponibla per tudestg, franzos, talian, rumantsch ed englais. L’applicaziun sezza e ses agid funcziunan per tudestg, franzos, talian ed englais – rumantsch n’è là anc betg disponibel. La lingua vegn fixada <strong>ina giada per corps</strong>, betg per apparat: durant l’acziun legian tuts ils medems terms. La documentaziun tecnica davart l’installaziun ed il manaschi è per englais. La versiun demo publica è per <strong>tudestg</strong>, ed ils screenshots qua derivan da la medema instanza."
       },
       {
         "q": "Co cumenzar?",
@@ -386,6 +402,7 @@
   "footer": {
     "origin": "Nascì dal manaschi d’acziun dals <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pumpiers d’Oberwil BL</a> –\n      perquai che nus avain adina puspè vesì las medemas funtaunas d’errurs: attribuziuns dublas, infurmaziuns\n      sparpagliadas ed errurs da transcripziun a maun.\n      Mintga corps da pumpiers maina ses agen KP Front cun atgnas chartas, agens plans ed atgnas datas.",
     "demo": "Demo",
-    "contact": "Contact"
+    "contact": "Contact",
+    "org": "Pumpiers d’Oberwil sin GitHub"
   }
 }

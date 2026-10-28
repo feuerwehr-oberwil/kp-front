@@ -5,6 +5,18 @@
     "ogTitle": "KP Front – Digital incident command for fire brigades",
     "ogDescription": "The digital command post at the scene: map, plans, teams, log and report – offline-capable and open source."
   },
+  "schema": {
+    "description": "Digital incident command and situation map for fire brigades – with swisstopo maps, tactical symbols to FKS conventions, SCBA monitoring and a running incident log.",
+    "featureList": [
+      "Situation map on swisstopo maps with tactical symbols to FKS conventions",
+      "SCBA monitoring with pressure, turnaround time, contact clock and alarms",
+      "Building and object plans as a whiteboard for drawing and measuring",
+      "Incident log that is only added to and never rewritten",
+      "Shift planning for long incidents, with a coverage view",
+      "Incident report as a PDF, pre-filled from the incident data",
+      "Replay: play the incident back for the debrief"
+    ]
+  },
   "nav": {
     "aria": "Main navigation",
     "features": "Features",
@@ -316,12 +328,12 @@
         "a": "Everyone sees the same situation at the same time – in the command vehicle, on the\n          tablet and with the incident commander. No message is lost on a scrap of paper. The SCBA\n          monitoring speaks up by itself before it gets tight. Less radio traffic for questions\n          that are already answered on the situation picture – and the report is nearly done as\n          you head back, instead of the weekend after. KP Front helps the incident commander keep\n          the situation free of contradictions and make the odd one out visible: a team out of\n          radio contact, an appliance that is nowhere, a check-in that never came."
       },
       {
-        "q": "Who owns the data?",
-        "a": "You do. Maps, plans and incident data live on your own installation. Map and address\n          services receive only the location being requested; other external services run only\n          when you configure them. Nothing is sent automatically to a vendor or the maintainer."
+        "q": "Where is sensitive incident data stored?",
+        "a": "Every fire brigade runs KP Front itself (self-hosted). Incident data – situation map, SCBA monitoring, log and building plans – stays on its own installation and its own devices: for example a mini-PC at the station, its own server or a cloud provider it chooses. There is no central server, and nothing is sent automatically to a vendor or to us. Map, address and weather services (swisstopo among them by default) receive only the location being requested; other external services run only when the brigade sets them up itself."
       },
       {
-        "q": "What does it cost?",
-        "a": "The software itself costs nothing. KP Front is open source (AGPL) – <strong>no\n          licence, no subscription, no per-device fee</strong>. What remains are your own costs\n          for operation, infrastructure and any external support you may need."
+        "q": "How does KP Front differ from commercial systems?",
+        "a": "KP Front is open source (AGPL-3.0): <strong>no licence fees, no subscription, no per-device fee</strong>. Every fire brigade runs its own installation and so keeps control of its data. What remains are its own costs for operation, infrastructure and any external support. Development comes straight from the practice of Feuerwehr Oberwil BL; bug reports, ideas and contributions from the open-source community are welcome."
       },
       {
         "q": "What does it take to run?",
@@ -336,8 +348,12 @@
         "a": "Yes. Every fire brigade has its own administration area: crew, vehicles, doctrine and\n          templates are all set there. Checklists, building plans and map layers come from your\n          own station data and are loaded with the command-line tools that ship with it. And\n          because the whole code is on <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          anything else can be built – by you or to your order."
       },
       {
-        "q": "What languages does the app run in?",
-        "a": "The interface comes in German, English, French and Italian. The language is set <strong>once per fire brigade</strong>, not per device – during an incident everybody reads the same terms, and that is deliberate: one situation, one vocabulary.\n          The public demo runs in <strong>German</strong>. The screenshots here are from that same instance – staged images would be a claim."
+        "q": "Does KP Front only work in Switzerland?",
+        "a": "No. As open-source software, KP Front is freely available and can be adapted to local conditions anywhere in the world. Out of the box it is preconfigured for Switzerland – with swisstopo maps, tactical symbols to FKS conventions and the FKS templates for incident command. Outside Switzerland other base maps can be configured; address search currently supports only the swisstopo interface and needs adapting there."
+      },
+      {
+        "q": "Which languages does KP Front support?",
+        "a": "The website is available in German, French, Italian, Romansh and English. The app itself and its help run in German, French, Italian and English – Romansh is not available there yet. The language is set <strong>once per fire brigade</strong>, not per device: during an incident everybody reads the same terms. The technical documentation for setup and operation is in English. The public demo runs in <strong>German</strong>, and the screenshots here come from that same instance."
       },
       {
         "q": "How do we start?",
@@ -385,6 +401,7 @@
   "footer": {
     "origin": "Born out of the operational work of <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> –\n      because at incident after incident we kept seeing the same sources of error: double bookings, information\n      scattered across places, and transcription mistakes made by hand.\n      Every fire brigade runs its own KP Front, with its own maps, plans and data.",
     "demo": "Demo",
-    "contact": "Contact"
+    "contact": "Contact",
+    "org": "Feuerwehr Oberwil on GitHub"
   }
 }
