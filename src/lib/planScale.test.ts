@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { unitLen, pathUnits, calibrate, pathMetres, polyAreaM2, isStale, circleRadiusM, circleRadiusN, scaleLampTone, type NPoint } from './planScale'
+import { unitLen, pathUnits, calibrate, pathMetres, polyAreaM2, isStale, circleRadiusM, circleRadiusN, scaleLampTone, planFactsTone, type NPoint } from './planScale'
 
 describe('unitLen — aspect correction', () => {
   it('is plain Euclidean on a square page (ar = 1)', () => {
@@ -133,5 +133,28 @@ describe('scaleLampTone — what the Massstab pill\'s lamp says about the metres
   it('inherits the Kartenverknüpfung\'s own doubt when the scale comes from the fit', () => {
     expect(scaleLampTone({ ...S, auto: true, autoFromFit: true })).toBe('green')
     expect(scaleLampTone({ ...S, auto: true, autoFromFit: true, fitWarn: true })).toBe('amber')
+  })
+})
+
+describe('planFactsTone — the one lamp on the Objekt chip', () => {
+  it('is the hand calibration\'s green on a plan nobody linked (lead call 28.10.)', () => {
+    expect(planFactsTone('grey', 'green')).toBe('green')
+  })
+
+  it('is grey with neither a link nor a scale – «not yet», never green', () => {
+    expect(planFactsTone('grey', 'grey')).toBe('grey')
+    expect(planFactsTone(null, null)).toBe('grey')
+  })
+
+  it('takes the worse of the two: an unchecked fit or a stale scale is amber', () => {
+    expect(planFactsTone('amber', 'green')).toBe('amber')
+    expect(planFactsTone('green', 'amber')).toBe('amber')
+    expect(planFactsTone('grey', 'amber')).toBe('amber')
+  })
+
+  it('is green only when every fact offered is green (the Gebäude offers the scale alone)', () => {
+    expect(planFactsTone('green', 'green')).toBe('green')
+    expect(planFactsTone(null, 'green')).toBe('green')
+    expect(planFactsTone('green', null)).toBe('green')
   })
 })

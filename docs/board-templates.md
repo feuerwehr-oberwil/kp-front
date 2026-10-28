@@ -64,7 +64,7 @@ replaces the bundled one.
 - **Switching pages**: tap a tab, or press PageUp / PageDown while no field has focus. There is
   no swipe, because a swipe pans the board. The strip is the app's segmented control in its tabs
   form, standing where every other surface says «which place»: in the bottom-left row where a
-  plan's Objekt / Massstab chips stand, in their floating look (above the phone's bars and beside
+  plan's Objekt chip stands, in its floating look (above the phone's bars and beside
   the FAB, right of the rail on a tablet). Many pages scroll sideways inside it, the open one in
   view; «+ Seite» stays in view and opens upwards. A page pads its foot by that row, so its last
   ruling scrolls above the strip. Which page a device shows is local to

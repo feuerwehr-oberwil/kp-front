@@ -252,8 +252,16 @@ export const reportCopy = {
     // sonst bleibt er für immer offen stehen. Deshalb sagt es die Oberfläche an genau dieser
     // Stelle einmal selbst – als Band unter dem Kopf, nicht als Dialog: es blockiert nichts.
     madeToast: 'Rapport erstellt',
-    bandDone: 'Rapport erstellt.',
-    bandAsk: 'Der Einsatz ist noch offen – abschliessen?',
+    // the guide strip under the head after a jump from «n offen» (#14, 28.10.2026), and the
+    // Abschluss band that now stands as soon as everything is recorded (#15)
+    guideNext: 'Nächster offener Punkt',
+    guideLast: 'Letzter offener Punkt',
+    guideLeft: 'noch {n} offen',
+    guideHide: 'Hinweis ausblenden',
+    bandReady: 'Alles erfasst · Nächster Schritt',
+    bandPdf: 'Einsatzrapport (PDF) erstellen',
+    bandDone: 'Rapport erstellt · Nächster Schritt',
+    bandZipLead: 'Danach für die Ablage:',
     bandLater: 'Später',
     exportIncompleteTitle: 'Angaben fehlen noch',
     exportIncompleteLead: 'Noch offen:',

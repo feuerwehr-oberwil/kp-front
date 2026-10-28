@@ -418,6 +418,28 @@ export const whiteboardCopy = {
     objectIs: 'Einsatzobjekt: {name}',
     objectSwitch: 'Einsatzobjekt: {name} – anderes Objekt wählen',
     objectSwitchShort: 'Anderes Objekt wählen',
+    // Das Blatt hinter dem Objekt-Chip (Sweep 28.10.2026 #8, Wahl des Owners «Leiste B + Blatt A»):
+    // die Leiste trägt nur noch das Objekt mit EINEM Lämpchen, ein Tipp zeigt Objekt, Karte und
+    // Massstab mit dem, was man als Nächstes tun kann (components/PlanFactsSheet).
+    facts: {
+      title: 'Plan · {name}',
+      // was der Chip einem Screenreader sagt – das Lämpchen allein ist kein Wort
+      chipLabel: '{name} – Objekt, Karte und Massstab',
+      chipLabelBuilding: '{name} – Gebäude und Massstab',
+      switchObject: 'anderes Objekt wählen',
+      switchBuilding: 'anderes Gebäude wählen',
+      karte: 'Karte',
+      unlinked: 'nicht verknüpft',
+      unlinkedNote: 'Verknüpfen legt den Plan auf die Karte – Symbole erscheinen dann auch dort, und der Massstab kommt mit.',
+      link: 'Karte verknüpfen',
+      scaleStale: 'neu prüfen',
+      scaleFromFit: 'aus der Kartenverknüpfung – kein eigenes Kalibrieren nötig',
+      scaleFromFootprint: 'aus dem Gebäudegrundriss – kein eigenes Kalibrieren nötig',
+      scaleByHand: 'von Hand kalibriert',
+      scaleStaleNote: 'von Hand kalibriert – das Blatt hat seither eine andere Form',
+      scaleNoneLinkable: 'kommt mit der Kartenverknüpfung – oder von Hand am gedruckten Massstab',
+      scaleNone: 'am gedruckten Massstab kalibrieren, dann zeigen Linien echte Meter',
+    },
     // The auto-surfaced object is only the NEAREST one with plans, not the Einsatzadresse: the
     // chip turns amber and carries the distance; the full sentence is what a screen reader gets.
     objectNearby: '{name} · {distance} entfernt',
