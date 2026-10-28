@@ -362,10 +362,13 @@
    corner left the canvas — delete is the rarest act on this surface and was its loudest shape,
    four bins at once on a tablet, half of each phone tile. The plate stays the plate; a small ⌄
    says it opens something, and its hit area grows to --tap past the 21px plate (the eye's pad). */
-/* ⚠️ z 6, above the create tools' capture layer (.wb-ink, z 5): with the Wand armed – and it stays
-   armed – a click on the label went to the ink, so «Kopieren nach …» was out of reach with a mouse
-   (round 2, 27.10.2026). Still under a selected anno (also z 6, later in the board). */
-.wb-floor-menu { border: none; cursor: pointer; z-index: 6; }
+/* ⚠️ z 6 – but only while a create tool's capture layer (.wb-ink, z 5) is mounted: with the Wand
+   armed – and it stays armed – a click on the label went to the ink, so «Kopieren nach …» was out
+   of reach with a mouse (round 2, 27.10.2026). Otherwise the plate keeps its z 1, under the sheet's
+   symbols and their names: lifted always, its plate covered a neighbouring symbol's label («Druck»,
+   the plan-tablet baseline, 28.10.2026). Still under a selected anno (also z 6, later in the board). */
+.wb-floor-menu { border: none; cursor: pointer; }
+.wb-stage:has(.wb-ink) .wb-floor-menu { z-index: 6; }
 .wb-floor-menu::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap); transform: translateY(-50%); }
 .wb-floor-menu > .i { width: 12px; height: 12px; stroke-width: 2.2; margin-left: -2px; color: var(--ink-faint); }
 @media (hover: hover) {
