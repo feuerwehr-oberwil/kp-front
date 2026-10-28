@@ -1,5 +1,7 @@
+// @vitest-environment jsdom
+// (jsdom only for the last block, which drives the INSTALLED MapLibre's touch shim; the rest is pure)
 import { describe, expect, it } from 'vitest'
-import { createTapDragZoom, oneFingerZoom, PX_PER_DOUBLING, TAP_GAP_MS, TAP_MAX_DIST_PX, TAP_MAX_MS, TAP_DRAG_ENGAGE_PX, type TapSample } from './tapDragZoom'
+import { createTapDragZoom, oneFingerZoom, setMapOneFingerZoom, PX_PER_DOUBLING, TAP_GAP_MS, TAP_MAX_DIST_PX, TAP_MAX_MS, TAP_DRAG_ENGAGE_PX, type TapSample } from './tapDragZoom'
 
 const p = (id: number, x: number, y: number, t: number, pointerType = 'touch'): TapSample => ({ id, x, y, t, pointerType })
 
@@ -222,5 +224,37 @@ describe('oneFingerZoom · one rule for Lage, Plan and Karte', () => {
     ['Freihand – the drag draws, a double tap zooms (M4)', 'draw', { step: true, drag: false }],
   ] as const)('%s', (_, kind, want) => {
     expect(oneFingerZoom(kind)).toEqual(want)
+  })
+})
+
+// ── The map's own switches (MapView, Lage + Karte) ─────────────────────────────────────────────
+// Driven against the INSTALLED MapLibre's touchZoomRotate shim, whose isEnabled() includes the
+// tap-and-drag — the trap that kept it off after one tap-to-place tool (sweep 28.10.2026 #4).
+describe('setMapOneFingerZoom', () => {
+  const flag = () => { let on = true; return { enable: () => { on = true }, disable: () => { on = false }, isEnabled: () => on } }
+  const map = async () => {
+    const { TwoFingersTouchZoomRotateHandler, TwoFingersTouchZoomHandler, TwoFingersTouchRotateHandler } = await import('maplibre-gl')
+    const touchZoom = new TwoFingersTouchZoomHandler()
+    touchZoom.enable()
+    const tapDrag = flag()
+    const touchZoomRotate = new TwoFingersTouchZoomRotateHandler(document.createElement('div'), touchZoom, new TwoFingersTouchRotateHandler(), tapDrag as never)
+    return { doubleClickZoom: flag(), touchZoomRotate, tapDrag }
+  }
+
+  it('switches tap-and-drag back on after a tap-to-place tool', async () => {
+    const m = await map()
+    setMapOneFingerZoom(m, oneFingerZoom('place'))
+    expect(m.tapDrag.isEnabled()).toBe(false)
+    expect(m.doubleClickZoom.isEnabled()).toBe(false)
+    setMapOneFingerZoom(m, oneFingerZoom('navigate'))
+    expect(m.tapDrag.isEnabled()).toBe(true)
+    expect(m.doubleClickZoom.isEnabled()).toBe(true)
+  })
+
+  it('keeps tap-and-drag off while the pinch itself is off', async () => {
+    const m = await map()
+    m.touchZoomRotate._touchZoom.disable()
+    setMapOneFingerZoom(m, oneFingerZoom('navigate'))
+    expect(m.tapDrag.isEnabled()).toBe(false)
   })
 })
