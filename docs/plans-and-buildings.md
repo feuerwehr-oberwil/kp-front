@@ -79,10 +79,17 @@ Sketching a building on the floor stack during an Einsatz (27.10.2026, the owner
   dark and solid). The role says the anno is LAYOUT: no Leitung couples onto a Wand end, and its
   own ends dock onto nothing (`Whiteboard · planCandidatesAt`, `useWbVertexEdit · vertDown`).
   A Wand lives on ONE storey – no Von/Bis.
-- **Linie ↔ Wand afterwards:** the line editor's «Art» row (near its foot, stack only) switches a
-  drawn line (`lib/grundriss · wallRolePatch`, one ↶): to a Wand it takes the Wand look and drops
-  the hose fields – refused while a Trupp is on the line; back to a Linie its Durchgänge let go as
-  when the Wand is deleted, and the Wand colour becomes the default ink.
+- **Linie ↔ Wand afterwards:** the line editor's «Art» row (near its foot) switches a drawn line
+  (`lib/grundriss · wallRolePatch`, one ↶): to a Wand it takes the Wand look and drops the hose
+  fields – refused while a Trupp is on the line or the line climbs storeys (`grundriss ·
+  wandBlock`); back to a Linie its Durchgänge let go as when the Wand is deleted, and the Wand
+  colour becomes the default ink. Since 28.10.2026 (owner, Lage ↔ Plan parity) the row is on every
+  Plan sheet and on the Karte too (`useMapDrawing · setDrawingWallRole`, `Drawing.role`); the Wand
+  TOOL, its snapping and the Durchgänge stay the stack's. A Wand writes no Verlauf row on either
+  surface, its ends dock onto nothing and no Leitung couples onto them, and `role` crosses with
+  the line between the Karte and a sheet (`tacticalObjects · SHARED_PATH_PROPS`, `planProjection ·
+  projectOnto`). The audit patch carries every cleared field as `null` (`grundriss ·
+  wallRoleWire`), so the Wiedergabe replays the switch both ways.
 - **The Wand stays armed** – each piece is committed (one ↶) and the next tap starts the next
   one; a plain Linie still lands selected in its editor. It always draws in Punkte. A piece
   finishes on ✓ or a tap on its last point; a tap on the first point of a Wand with ≥3 points

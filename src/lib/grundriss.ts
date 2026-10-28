@@ -7,8 +7,10 @@
 // or an angle needs the tile's aspect `ar` (height / width, lib/whiteboard · tileAspectOf). Every
 // length here is in tile WIDTHS – a screen tolerance of N px is `N / boardWidthPx`.
 
-import type { BoardAnno, BoardPoint } from '../types'
+import { appConfig } from '../config/appConfig'
+import type { BoardAnno, BoardPoint, Drawing, Trupp } from '../types'
 import { stackRange } from './stackFloors'
+import { truppForLine, type LinkableLine } from './truppLines'
 
 /** the one symbol that snaps onto a Wand (owner pick 2A, 27.10.2026) */
 export const DOOR_SYMBOL = 'GB Ture Durchgang'
@@ -16,6 +18,19 @@ export const DOOR_SYMBOL = 'GB Ture Durchgang'
 export const GEBAEUDE_CATEGORY = 'Gebäude'
 /** how near a Wand (screen px) a Durchgang has to be placed or dropped to sit on it */
 export const DOOR_SNAP_PX = 30
+
+/** The look a Wand is born with (1B mock, 27.10.2026): dark and solid, the building outline's
+ *  weight and a touch bolder – 2 px against the outline's 1.5 (owner, round 2: «widths still
+ *  off» at 3). On the board both are board px, which the board's size turns into screen px at
+ *  every zoom (WbControls · the ink layer, 09-whiteboard.css · .wb-floor-svg polygon), so the two
+ *  stay in proportion; on the Karte a Wand is the same stored line (screen px there, like every
+ *  Drawing width). Below the palette's smallest width (appConfig.drawing.widths), which no line
+ *  editor offers since the «Stärke» row went (sweep 27.10.2026 #7). The palette's dark – on the
+ *  board it is drawn in the theme's ink instead (WbControls · inkOf), so a wall stays visible on
+ *  the night sheet; print and export keep the stored dark. */
+export const GRUNDRISS_STYLE = {
+  wand: { color: appConfig.drawing.colors[4], width: 2 },
+} as const satisfies Record<NonNullable<BoardAnno['role']>, Partial<BoardAnno>>
 
 export const isWall = (a: BoardAnno): boolean => a.kind === 'draw' && a.role === 'wand' && (a.pts?.length ?? 0) >= 2
 export const isDoor = (a: BoardAnno): boolean => a.kind === 'symbol' && a.symbol === DOOR_SYMBOL
@@ -217,11 +232,29 @@ export function shiftStoreys(a: BoardAnno, delta: number, floors: readonly numbe
 }
 
 /** Whether a line climbs: some vertex sits on another storey than the line's own. A Wand lives on
- *  one storey, so the line editor offers «Wand» only for a line that does not (Whiteboard ·
- *  setWallRole). */
+ *  one storey, so the line editor offers «Wand» only for a line that does not (wandBlock). */
 export function spansStoreys(a: BoardAnno): boolean {
   const home = a.floor ?? 0
   return !!a.pts?.some((p) => p[2] != null && p[2] !== home)
+}
+
+/**
+ * Why the line editor's «Wand» is offered but disabled for this line, or null when it may become
+ * one – the ONE rule both hosts of the «Art» row ask (Whiteboard · setWallRole, the Karte's
+ * MapDetailPanels): a Trupp is on the line (`'trupp'` – unlinking one is not undoable there), or
+ * the line climbs storeys (`'storeys'`). `sheet` is the line's own anno on its plan – the Plan's
+ * line itself, or on the Karte the sheet body of a line drawn on a Gebäude stack; a flat sheet's
+ * line never climbs. A line that already IS a Wand is never blocked: it may always go back.
+ */
+export function wandBlock(line: LinkableLine & { role?: 'wand' }, trupps: Trupp[], sheet?: BoardAnno): 'trupp' | 'storeys' | null {
+  if (line.role === 'wand') return null
+  if (truppForLine(line, trupps)) return 'trupp'
+  return sheet && spansStoreys(sheet) ? 'storeys' : null
+}
+/** …in the editor's words (DrawEditor · wandBlocked). */
+export function wandBlockHint(block: ReturnType<typeof wandBlock>): string | undefined {
+  const E = appConfig.copy.drawingEditor
+  return block === 'trupp' ? E.kindWandBlocked : block === 'storeys' ? E.kindWandStoreys : undefined
 }
 
 /**
@@ -239,24 +272,29 @@ export function grundrissKinds(items: readonly BoardAnno[]): { walls: number; sy
   return { walls, symbols: [...symbols].map(([symbol, n]) => ({ symbol, n })) }
 }
 
+/** The fields «Art: Linie | Wand» writes – spelled alike on a Plan line and a Karte line. */
+type WallRoleFields = 'role' | 'color' | 'width' | 'dashed' | 'arrow' | 'arrowStop' | 'marker' | 'teilstueck' | 'content' | 'lineNo' | 'truppId'
+export type WallRolePatch = Partial<Pick<BoardAnno, WallRoleFields> & Pick<Drawing, WallRoleFields>>
+
 /**
  * The patch that turns the drawn line `a` into a Wand or back into a plain Linie – the «Art» row
- * of the line editor on the storey stack (Whiteboard · DrawEditor). Geometry stays.
+ * of the line editor on every Plan sheet and on the Karte (Whiteboard · setWallRole,
+ * useMapDrawing · setDrawingWallRole; sweep 28.10.2026, round 4). Geometry stays.
  *
- *   · to a Wand: `role`, the Wand `look` (usePlanDraft · GRUNDRISS_STYLE), solid, no Pfeil and no
- *     Marker, and none of a hose's fields (Typ, Leitung Nr., Trupp anchor). `keepTeilstueck`: lines
- *     hang on its «E», which a quiet switch must not cut – the Abschluss row lets go of them, with
- *     its own question. The caller refuses a line a Trupp is on (unlinking is not undoable here) and one that
- *     climbs storeys (spansStoreys).
+ *   · to a Wand: `role`, the Wand `look` (GRUNDRISS_STYLE), solid, no Pfeil and no Marker, and
+ *     none of a hose's fields (Typ, Leitung Nr., Trupp anchor). `keepTeilstueck`: lines hang on
+ *     its «E», which a quiet switch must not cut – the Abschluss row lets go of them, with its
+ *     own question. The caller refuses a line a Trupp is on (unlinking is not undoable here) and
+ *     one that climbs storeys (wandBlock).
  *   · to a Linie: no `role`; the Wand's colour becomes `lineColor`, a colour picked by hand stays;
  *     the width stays.
  *
- * Its Durchgänge let go in the board funnel (carryDoors: the line is no Wand any more), exactly as
- * when the Wand is deleted.
+ * On a Plan its Durchgänge let go in the board funnel (carryDoors: the line is no Wand any more),
+ * exactly as when the Wand is deleted. The audit event carries `wallRoleWire` of it.
  */
 export function wallRolePatch(
-  a: BoardAnno, wand: boolean, look: { color: string; width: number }, lineColor: string, keepTeilstueck = false,
-): Partial<BoardAnno> {
+  a: { color?: string }, wand: boolean, look: { color: string; width: number }, lineColor: string, keepTeilstueck = false,
+): WallRolePatch {
   if (!wand) return { role: undefined, ...(a.color === look.color ? { color: lineColor } : null) }
   return {
     role: 'wand', color: look.color, width: look.width,
@@ -264,4 +302,12 @@ export function wallRolePatch(
     ...(keepTeilstueck ? null : { teilstueck: undefined }),
     content: undefined, lineNo: undefined, truppId: undefined,
   }
+}
+
+/** …as the `draw.edit` / `board.edit` patch: every field it clears as `null`. JSON drops an
+ *  `undefined`, so the Wiedergabe kept the old value – a Linie switched back still replayed as a
+ *  Wand, a Wand kept the Pfeil and the Leitung Nr. it had dropped (lib/replay folds the patch
+ *  over the object; a `null` reads as absent everywhere it is drawn). */
+export function wallRoleWire(patch: WallRolePatch): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v ?? null]))
 }

@@ -23,6 +23,7 @@ import { askOpenDraft, draftActive as isDraftActive, finishKind, releaseDraft as
 import { joinTargets, useDraftMagnet } from '../lib/useDraftMagnet'
 import type { MagneticTarget } from '../lib/lineAttachments'
 import { stackRange } from '../lib/stackFloors'
+import { GRUNDRISS_STYLE } from '../lib/grundriss'
 import { backtracks, segsOf, snapMove, snapPoint, snapWall, type Anchor, type Pt, type Seg, type SnapResult, type SnapTargets } from '../lib/planSnap'
 import type { PlanEndpointDrag } from './useWbVertexEdit'
 import type { PlanLogExtra } from './Whiteboard'
@@ -33,21 +34,9 @@ const COLORS = appConfig.drawing.colors
  *  23.10.2026; the Karte's twin is useMapDrawing · DRAW_DEFAULTS). */
 export const INK_DEFAULTS = { color: appConfig.drawing.defaultColor, width: 5, dashed: false, marker: '', arrow: false } as const
 
-/** The Grundriss preset of the Linie (the Wand) – `BoardAnno.role`. */
+/** The Grundriss preset of the Linie (the Wand) – `BoardAnno.role`; its look is
+ *  lib/grundriss · GRUNDRISS_STYLE (the Karte's «Art» row writes it too). */
 export type GrundrissRole = NonNullable<BoardAnno['role']>
-
-/** The look a Wand is born with (1B mock, 27.10.2026): dark and solid, the building outline's
- *  weight and a touch bolder – 2 px against the outline's 1.5 (owner, round 2: «widths still
- *  off» at 3). Both are board px, which the board's size turns into screen px at every zoom
- *  (WbControls · the ink layer, 09-whiteboard.css · .wb-floor-svg polygon), so the two stay in
- *  proportion. Below the palette's smallest width (appConfig.drawing.widths), which no line
- *  editor offers since the «Stärke» row went (sweep 27.10.2026 #7). `COLORS[4]` is the palette's
- *  dark – on the board it is drawn in the theme's ink instead (WbControls · inkOf), so a wall
- *  stays visible on the night sheet; print and export keep the stored dark. */
-export const GRUNDRISS_STYLE = {
-  wand: { color: COLORS[4], width: 2 },
-} as const satisfies Record<GrundrissRole, Partial<BoardAnno>>
-
 /** The symbols a Leitung is laid through: its Punkte snap onto their centre (lib/planSnap). */
 const PASSAGE_SYMBOLS: ReadonlySet<string> = new Set(['GB Ture Durchgang', 'GB Ture BS R30', 'GB Treppe 8'])
 

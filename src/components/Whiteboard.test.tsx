@@ -437,6 +437,33 @@ describe('a locked line on the plan (BoardAnno.locked — the twin of Drawing.lo
   })
 })
 
+// sweep 28.10.2026, round 4 (owner: «I don't see the option to change the line type to wall and
+// back in the map view, only in the building view»): «Art: Linie | Wand» on a FLAT sheet too
+describe('«Art: Linie | Wand» on a flat plan', () => {
+  const D = appConfig.copy.drawingEditor
+  const art = () => within(screen.getAllByRole('group', { name: D.kind })[0])
+
+  it('switches a drawn line to a Wand and back – one save each, the Wand look on it', () => {
+    const { container, onChange, remoteWrite } = renderPlan([line])
+    fireEvent.pointerDown(hitShape(container))
+    fireEvent.click(art().getByRole('button', { name: D.kindWand }))
+    expect(onChange).toHaveBeenCalledTimes(1)
+    const wand = onChange.mock.calls[0][0][0] as BoardAnno
+    expect(wand).toMatchObject({ role: 'wand', color: appConfig.drawing.colors[4], width: 2, pts: line.pts })
+    remoteWrite([wand])
+    fireEvent.click(art().getByRole('button', { name: D.kindLine }))
+    expect((onChange.mock.calls[1][0][0] as BoardAnno).role).toBeUndefined()
+  })
+
+  it('offers «Wand» disabled, with the reason, while a Trupp is on the line', () => {
+    const trupp = { id: 't1', name: 'Trupp 1', status: 'aktiv', entryPressureBar: 300, entryTime: '', lastContactTime: '', lineId: 'l1' } satisfies Trupp
+    const { container } = renderPlan([line], { trupps: [trupp] })
+    fireEvent.pointerDown(hitShape(container))
+    expect((art().getByRole('button', { name: D.kindWand }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getAllByText(D.kindWandBlocked).length).toBeGreaterThan(0)
+  })
+})
+
 // ── The 29.08. Plan decisions ───────────────────────────────────────────────────────────────
 // Messen left the rail (deliberate Lage↔Plan divergence), the floating delete orbs left the
 // canvas (the detail panel is the one delete), a note opens on TAP like a symbol, the Punkte

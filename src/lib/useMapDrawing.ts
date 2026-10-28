@@ -10,6 +10,7 @@ import { newId } from './ids'
 import { canDropVertex, insertAt, minPoints, removeVertex } from './vertexOps'
 import { askOpenDraft, draftActive as isDraftActive, finishKind, releaseDraft } from './draftMachine'
 import { onSiteCoords, revertCoords } from './gpsReturn'
+import { GRUNDRISS_STYLE, wallRolePatch, wallRoleWire } from './grundriss'
 
 /** The style every new line / Fläche is born with – never the last edited line's
  *  (3am sweep §2, 23.10.2026). The Plan's inks use the same rule (usePlanDraft · INK_DEFAULTS). */
@@ -375,6 +376,24 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     emit('draw.edit', { id, patch: { ...wireFreed(patch), endLabelAt: null } })
     flip.incoming.forEach((i) => emit('draw.edit', { id: i.lineId, patch: { [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment } }))
   }
+  /**
+   * «Art: Linie | Wand» on the Karte (sweep 28.10.2026, round 4 – the Plan's row, Lage ↔ Plan
+   * parity): the line becomes a Wand in the Grundriss look, or a Linie again – the Plan's own
+   * patch (lib/grundriss · wallRolePatch), one ↶, one `draw.edit`. The caller refuses a line
+   * `wandBlock` blocks (a Trupp on it, a stack line that climbs storeys). ⚠️ No Verlauf row, like
+   * the Plan's switch: it is how the picture is drawn, and noteDrawingEdit would read the hose
+   * fields the Wand drops as three edits nobody made («Leitung Nr. entfernt …»).
+   */
+  const setDrawingWallRole = (id: string, wand: boolean) => {
+    if (tacticalLocked) return
+    const dr = drawings.find((x) => x.id === id)
+    if (!dr || dr.kind !== 'line' || wand === (dr.role === 'wand')) return
+    // a Teilstück with lines on its «E» stays one – letting go of them is the Abschluss row's ask
+    const hung = !!dr.teilstueck && drawings.some((x) => [x.startAttachment, x.endAttachment].some((a) => a?.target.kind === 'line' && a.target.id === id && a.target.endpoint === 'end'))
+    const patch = wallRolePatch(dr, wand, GRUNDRISS_STYLE.wand, DRAW_DEFAULTS.color, hung)
+    emit('draw.edit', { id, patch: wallRoleWire(patch) })
+    commit((d) => ({ ...d, drawings: d.drawings.map((x) => (x.id === id ? { ...x, ...patch } : x)) }))
+  }
   const deleteDrawing = async (id: string) => {
     if (tacticalLocked) return
     const target = drawings.find((d) => d.id === id)
@@ -529,6 +548,6 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     /** the claim the node draft's first tap banked — the magnet judges every later tap by it */
     draftStartAttachment: draftAttachments.startAttachment, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
-    editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
+    editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingWallRole, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
   }
 }

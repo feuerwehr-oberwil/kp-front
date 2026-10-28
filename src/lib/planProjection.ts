@@ -216,6 +216,8 @@ function projectOntoSheet(o: TacticalObject, plan: PlanFit, margin: number): Boa
     labelDy: labelAt && mid ? labelAt.y - mid[1] : undefined,
     teilstueck: d.teilstueck, content: d.content, lineNo: d.lineNo, floorTag: d.floorTag,
     truppId: d.truppId,
+    // a Wand drawn on the Karte is a Wand on the sheet too (lib/grundriss · wallRolePatch)
+    role: d.role,
     // ⚠️ The lock crosses too. Without it a Fläche locked on the Karte was still draggable
     // through its mirror on the Plan, which defeats the whole point of locking it (01.09.).
     locked: d.locked,

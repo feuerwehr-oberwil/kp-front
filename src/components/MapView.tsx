@@ -1864,7 +1864,9 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
           `i` stays the real index into `coords`, so a drag/delete still hits the point it points at. */}
       {editDraw && onDrawingEdit && editHandleIdx.map((i) => {
         const p = editDraw.coords[i]
-        const endpoint: LineEndpoint | null = editDraw.kind === 'line' && i === 0 ? 'start' : editDraw.kind === 'line' && i === editDraw.coords.length - 1 ? 'end' : null
+        // a Wand's ends dock onto nothing – they are plain corners (the Plan's useWbVertexEdit · vertDown)
+        const docks = editDraw.kind === 'line' && !editDraw.role
+        const endpoint: LineEndpoint | null = docks && i === 0 ? 'start' : docks && i === editDraw.coords.length - 1 ? 'end' : null
         return (
         <Marker
           key={`dv${i}`}

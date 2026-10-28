@@ -92,6 +92,11 @@ describe('projection ⇄ bake are inverse', () => {
     expect(back).toMatchObject({ lineNo: 2, content: 'S', teilstueck: true })
   })
 
+  it('…and a Wand drawn on the Karte stays a Wand on the sheet and back (sweep 28.10.2026)', () => {
+    const o = drawn({ id: 'w1', kind: 'line', coords: [coordEast(10), coordEast(60)], role: 'wand' })
+    expect(roundTrip(o).drawing?.role).toBe('wand')
+  })
+
   it('⚠️ a turned sheet turns the glyph on the paper, and only on the paper', () => {
     // the fit's own turn is a FRAME change: paper-relative in the anno, north-relative on the
     // ground. Applied on one side and not undone on the other, a flip would spin the symbol.

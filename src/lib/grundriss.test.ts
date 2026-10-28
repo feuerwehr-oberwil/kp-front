@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { BoardAnno } from '../types'
-import { carryDoors, copyGrundriss, grundrissKinds, nearestWall, seatDoor, shiftStoreys, spansStoreys, wallRolePatch, DOOR_SYMBOL } from './grundriss'
+import type { BoardAnno, Drawing, Trupp } from '../types'
+import { carryDoors, copyGrundriss, grundrissKinds, nearestWall, seatDoor, shiftStoreys, spansStoreys, wallRolePatch, wallRoleWire, wandBlock, DOOR_SYMBOL } from './grundriss'
 
 const AR = 0.5
 const wall = (id: string, pts: BoardAnno['pts'], floor = 0): BoardAnno => ({ id, kind: 'draw', role: 'wand', floor, pts })
@@ -152,5 +152,43 @@ describe('wallRolePatch', () => {
     const d = door('d1', 0.5, 0.5, { onWall: 'w1' })
     const out = carryDoors([w, d], [{ ...w, ...wallRolePatch(w, false, look, '#1f6feb') }, d], AR)
     expect(out[1]).toMatchObject({ x: 0.5, y: 0.5, onWall: undefined })
+  })
+})
+
+// sweep 28.10.2026: the «Art» row on every Plan sheet and on the Karte asks ONE rule
+describe('wandBlock', () => {
+  const trupp = { id: 't1', name: 'Trupp 1', status: 'aktiv', entryPressureBar: 300, entryTime: '', lastContactTime: '', lineId: 'l1' } satisfies Trupp
+  const linie: BoardAnno = { id: 'l1', kind: 'draw', floor: 0, pts: [[0, 0], [1, 0]] }
+
+  it('a Trupp on the line blocks it – by anchor or by Leitung Nr.', () => {
+    expect(wandBlock(linie, [trupp], linie)).toBe('trupp')
+    expect(wandBlock({ id: 'x', lineNo: 2 }, [{ ...trupp, lineId: undefined, lineNo: 2 }])).toBe('trupp')
+  })
+
+  it('a stack line that climbs is blocked; a flat sheet or a Karte line never climbs', () => {
+    const climbs: BoardAnno = { ...linie, id: 'c', pts: [[0, 0, 0], [1, 0, 1]] }
+    expect(wandBlock(climbs, [], climbs)).toBe('storeys')
+    expect(wandBlock(linie, [], linie)).toBeNull()
+    expect(wandBlock({ id: 'k' }, [])).toBeNull()
+  })
+
+  it('a Wand may always go back to a Linie', () => {
+    expect(wandBlock({ ...linie, role: 'wand' }, [trupp], linie)).toBeNull()
+  })
+})
+
+describe('wallRolePatch on a Karte line, and its wire', () => {
+  const look = { color: '#111', width: 2 }
+  const hose: Drawing = { id: 'k1', kind: 'line', coords: [[7.6, 47.5], [7.61, 47.5]], color: '#1f6feb', width: 4, arrow: true, marker: 'R', lineNo: 2, content: 'S' }
+
+  it('is the same patch on a Drawing: the Wand look, no hose decor, coords kept', () => {
+    const w: Drawing = { ...hose, ...wallRolePatch(hose, true, look, '#1f6feb') }
+    expect(w).toMatchObject({ role: 'wand', color: '#111', width: 2, coords: hose.coords })
+    for (const k of ['arrow', 'marker', 'lineNo', 'content'] as const) expect(w[k]).toBeUndefined()
+  })
+
+  it('sends every cleared field as null – JSON would drop an undefined', () => {
+    expect(JSON.parse(JSON.stringify(wallRoleWire(wallRolePatch(hose, false, look, '#1f6feb'))))).toEqual({ role: null })
+    expect(JSON.parse(JSON.stringify(wallRoleWire(wallRolePatch(hose, true, look, '#1f6feb'))))).toMatchObject({ role: 'wand', arrow: null, lineNo: null, content: null })
   })
 })

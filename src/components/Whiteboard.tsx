@@ -71,7 +71,7 @@ import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
-import { carryDoors, copyGrundriss, grundrissOf, spansStoreys, wallRolePatch, DOOR_SYMBOL, GEBAEUDE_CATEGORY } from '../lib/grundriss'
+import { carryDoors, copyGrundriss, grundrissOf, wallRolePatch, wallRoleWire, wandBlock, wandBlockHint, DOOR_SYMBOL, GEBAEUDE_CATEGORY, GRUNDRISS_STYLE } from '../lib/grundriss'
 import { StoreyCopySheet } from './StoreyCopySheet'
 import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, STACK_READINGS_LANE, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
@@ -92,7 +92,7 @@ import { reorientAnnos } from '../lib/reorientAnnos'
 import { usePlanMeasure } from './usePlanMeasure'
 import { usePlanGeoref } from './usePlanGeoref'
 import { usePlanTafelPages } from './usePlanTafelPages'
-import { GRUNDRISS_STYLE, INK_DEFAULTS, usePlanDraft } from './usePlanDraft'
+import { INK_DEFAULTS, usePlanDraft } from './usePlanDraft'
 import { usePlanCreate, type InkTap } from './usePlanCreate'
 import { useMeasuredSheet } from './useMeasuredSheet'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
@@ -1599,15 +1599,17 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }
 
 
-  /** «Art: Linie | Wand» in the line editor (round 3): the drawn line becomes a Wand or a Linie
-   *  again – one patch, one ↶, one board.edit (lib/grundriss · wallRolePatch); its Durchgänge let
-   *  go in the board funnel. A Trupp on the line, or a line that climbs storeys, keeps it a Linie (the
-   *  editor disables «Wand»). */
+  /** «Art: Linie | Wand» in the line editor (round 3; on every sheet since 28.10.2026, round 4 –
+   *  the Karte has the same row): the drawn line becomes a Wand or a Linie again – one patch, one
+   *  ↶, one board.edit (lib/grundriss · wallRolePatch); its Durchgänge let go in the board funnel.
+   *  A Trupp on the line, or a line that climbs storeys, keeps it a Linie (lib/grundriss ·
+   *  wandBlock; the editor disables «Wand»). No Verlauf row – a sheet's line edits are silent. */
   const setWallRole = (a: BoardAnno, wand: boolean) => {
-    if (readOnly || wand === (a.role === 'wand') || (wand && (truppForLine(a, trupps) || spansStoreys(a)))) return
+    if (readOnly || wand === (a.role === 'wand') || (wand && wandBlock(a, trupps, a))) return
     // a Teilstück with lines on its «E» stays one – letting go of them is the Abschluss row's ask
     const hung = !!a.teilstueck && annos.some((x) => [x.startAttachment, x.endAttachment].some((r) => r?.target.kind === 'line' && r.target.id === a.id && r.target.endpoint === 'end'))
-    patchCommit(a.id, wallRolePatch(a, wand, GRUNDRISS_STYLE.wand, INK_DEFAULTS.color, hung))
+    const p = wallRolePatch(a, wand, GRUNDRISS_STYLE.wand, INK_DEFAULTS.color, hung)
+    patchCommit(a.id, p, { patch: wallRoleWire(p) })
   }
 
   // removing a storey: the confirm is the OWNER's (workspace/useGebaeudeActions · removeFloor →
@@ -2949,10 +2951,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           truppOnLine={truppForLine(selDraw, trupps)?.name}
           truppOnLineOut={truppIsOut(truppForLine(selDraw, trupps))}
           onShowTrupp={onShowTrupp && truppForLine(selDraw, trupps) ? () => onShowTrupp(truppForLine(selDraw, trupps)!.id) : undefined}
-          // Linie ↔ Wand: only where the Wand tool is – a drawn line on the Gebäude stack
-          onWand={stack && selDraw.kind === 'draw' ? (wand) => setWallRole(selDraw, wand) : undefined}
-          wandBlocked={truppForLine(selDraw, trupps) ? appConfig.copy.drawingEditor.kindWandBlocked
-            : spansStoreys(selDraw) ? appConfig.copy.drawingEditor.kindWandStoreys : undefined}
+          // Linie ↔ Wand on every sheet, flat plans too (owner 28.10.2026: Lage ↔ Plan parity) –
+          // the Wand TOOL stays the Gebäude stack's
+          onWand={selDraw.kind === 'draw' ? (wand) => setWallRole(selDraw, wand) : undefined}
+          wandBlocked={wandBlockHint(wandBlock(selDraw, trupps, selDraw))}
           onShowDistance={(showDistance) => patchCommit(selDraw.id, { showDistance: showDistance || undefined })}
           // metres in, plan-width fraction out — the stepper only exists on a calibrated sheet
           onRadius={(radiusM) => {
