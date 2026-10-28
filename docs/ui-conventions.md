@@ -263,7 +263,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     door. A button never repeats the glyph its row already leads with.
   - *ONE floating family, ONE floating row (26.09.2026, owner: «everything has the same shape,
     colour, padding»):* every small thing that floats over the Karte or a Plan — the messages
-    above, the plan's chips (Objekt · Gebäude · Massstab · ⌖ Karte),
+    above, the plan's chips (Objekt · Gebäude),
     «Zurück zum Rapport», the Karte's radar pill (components/WeatherLayer: in the Karte's one
     bottom-left chip row after the Gebäude chip – on a phone it is the piece in that row that
     gives way) and the Eintrag FAB — wears `--float-*` (01-tokens): the bars' glass with
@@ -273,11 +273,15 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     amber ⚠ — never an outline (the Massstab chip wore a blue ring beside its green lamp); «open /
     armed» is a blue wash mixed into the glass. «Not yet» is GREY (29.09.2026): a plan with no
     scale and no link shows a grey lamp, never red (red = danger, act now; an unlinked plan read
-    as a picture is not an emergency). And ONE chip says it: until a sheet is linked, «Karte
-    verknüpfen» (the link glyph, never the locate crosshair) is the pill row's only chip — a link
-    gives the scale; «Massstab» appears once a link or a hand calibration exists (the hand
-    calibration stays reachable through Messen · «Massstab kalibrieren»). Where a plan cannot be
-    linked, the Massstab chip stays. On a phone the pieces stand on ONE baseline,
+    as a picture is not an emergency). And ONE chip says it (sweep 28.10.2026 #8, owner pick «B's
+    bar + A's sheet»): the Plan's row has no Massstab or Karte pill — the Objekt chip (on the
+    Gebäude: the building chip; street and number only on a phone) carries ONE lamp, the worse of
+    link and scale (`planScale · planFactsTone`; an unlinked plan's grey does not drag a hand
+    calibration's green down), and a tap opens the Plan sheet (`components/PlanFactsSheet`):
+    the Objekt row with its switch, «Karte» with the Passung's actions inline or «Karte
+    verknüpfen» (the link glyph, never the locate crosshair), «Massstab» with its state and
+    «(Neu) kalibrieren». While calibrating, the row is the instrument («Zwei Punkte des Massstabs
+    antippen», a tap stops it). On a phone the pieces stand on ONE baseline,
     `--float-bottom` (15-mobile): `--float-gap` (8px) above the highest bar (nav bar · Rapport tab
     strip · tool bar · a tool's option dock), 8px from the screen's edge and from
     each other. The FAB stays ROUND (the one-corner exception) but is `--float-h` across, on that

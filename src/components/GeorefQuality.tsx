@@ -34,10 +34,12 @@ function warningText(w: GeorefWarning, fit: GeorefFit): string {
 }
 
 /**
- * The popover body. The chip owns the trigger; this owns nothing but the reading and the two
- * actions that follow from it — set another point, or throw the reference away.
+ * The Passung's body. Since sweep 28.10.2026 (#8) it is the «Karte» section of the Plan sheet
+ * (PlanFactsSheet, opened from the Objekt chip), which owns the trigger and the head; this owns
+ * nothing but the reading and the actions that follow from it — set another point, check the
+ * coverage, copy it, or throw the reference away.
  */
-export function GeorefQuality({ fit, auto = false, approved = false, realPoints = 0, onClose, onAddPoint, onCheck, onTransfer, onReset }: {
+export function GeorefQuality({ fit, auto = false, approved = false, realPoints = 0, embedded = false, readOnly = false, className, onClose, onAddPoint, onCheck, onTransfer, onReset }: {
   fit: GeorefFit
   /** the reference still leans on the automatic scaffolding (georef · hasAutoPairs) — the
    *  summary then names the provenance instead of counting pairs nobody set, and no ⌀ is
@@ -48,6 +50,12 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
   approved?: boolean
   /** operator-set pairs beside the scaffolding — 0 or 1 (two drop the autos, settleSlots) */
   realPoints?: number
+  /** the body only, inside the Plan sheet's «Karte» section (PlanFactsSheet, sweep 28.10.2026):
+   *  that sheet owns the head and the ✕ */
+  embedded?: boolean
+  /** a locked session reads the Passung and gets none of its actions (roles-and-access) */
+  readOnly?: boolean
+  className?: string
   /** «Dritten Punkt setzen» / «Punkte hinzufügen» — re-arms the pairing mode */
   onAddPoint: () => void
   /** «Deckung prüfen» — the sheet's outline on the map, side by side (lib/georefMode · check) */
@@ -86,11 +94,11 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
   }
 
   return (
-    <div className={s.quality}>
-      <div className={s.qHead}>
+    <div className={cx(s.quality, className)}>
+      {!embedded && <div className={s.qHead}>
         <span>{C.qualityTitle}</span>
         <button className={`ip-x ${s.qX}`} onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
-      </div>
+      </div>}
       <div className={s.qSummary}>
         {/* the value column stays SHORT — «· 1 Punkt» in the head plus «ungemessen» beside it
             overflowed the row; the warning line below carries the rest of the sentence */}
@@ -109,7 +117,7 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
         : auto
         ? <div className={cx('form-warn form-warn-amber form-warn-compact', s.qWarn)}><Icon id="warn" /><span className="form-warn-text">{realPoints > 0 ? C.autoOneBody : C.warnAuto}</span></div>
         : warning && <div className={cx('form-warn form-warn-amber form-warn-compact', s.qWarn)}><Icon id="warn" /><span className="form-warn-text">{warningText(warning, fit)}</span></div>}
-      <div className={`${s.qActions} ${onTransfer ? s.qActionsFour : ''}`}>
+      {!readOnly && <div className={`${s.qActions} ${onTransfer ? s.qActionsFour : ''}`}>
         {/* ⚠️ This action always ADDS a point; it does not pick up the pair with the largest
             residual. Calling it «Punkt 2 korrigieren» made the result depend on a calculation the
             operator could neither see nor choose. A plus icon and an adding verb say what happens. */}
@@ -122,7 +130,7 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
         <button className="btn" onClick={onCheck}><span className={s.qLabel}><Icon id="eye" />{C.checkFit}</span></button>
         {onTransfer && <button className={`btn ${s.transferAction}`} onClick={onTransfer}><span className={s.qLabel}><Icon id="copy" />{C.transfer}</span></button>}
         <button className="btn warn" onClick={() => void reset()}><span className={s.qLabel}><Icon id="trash" />{C.reset}</span></button>
-      </div>
+      </div>}
     </div>
   )
 }

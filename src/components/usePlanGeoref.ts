@@ -60,7 +60,7 @@ export function usePlanGeoref({
   // reference wears — see georefMode · georefChip (18.09.2026).
   const georefApproved = incidentBindingApproved(activeGeorefKey)
   const georefState = georefChip(georefFit, georef, activeId, georefPairs, georefApproved)
-  /** the «⌖ Karte» chip stands in the pill row (editors; a locked session only once it is linked) */
+  /** the Plan sheet offers its «Karte» section (editors; a locked session only once it is linked) */
   const georefChipShown = canGeoref && (!readOnly || georefState.kind === 'linked') && !linkViewer
   /** The real plan bitmap for «Deckung prüfen». The PDF viewport already rendered it into its
    *  first canvas, so taking a same-origin snapshot is both cheaper and more faithful than

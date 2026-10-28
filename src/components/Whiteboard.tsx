@@ -81,7 +81,10 @@ import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visib
 import type { FloorPackView } from '../lib/floorPackBinding'
 import { stackInstances } from '../lib/stackFloors'
 import { StackReadings } from './ReadingParts'
-import { circleRadiusM, circleRadiusN, pathMetres, polyAreaM2, scaleLampTone, type PlanScale } from '../lib/planScale'
+import { circleRadiusM, circleRadiusN, pathMetres, polyAreaM2, planFactsTone, scaleLampTone, type PlanScale } from '../lib/planScale'
+import { splitAddress } from '../lib/karte/places'
+import { cx } from '../lib/cx'
+import { PlanFactsSheet, type PlanFact } from './PlanFactsSheet'
 import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
 import { isSelectOnlySurface } from '../lib/useObjectPlans'
 import { useIsPhone } from '../lib/useIsPhone'
@@ -854,14 +857,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const scaleTone = scaleLampTone({
     auto: scaleAuto, autoFromFit: !!georefFit, fitWarn: georefState.warn, stale: scaleStale, calibrated,
   })
-  /** ONE chip until the plan is linked (29.09.2026, sweep K10): while there is neither a link nor a
-   *  scale, «Karte verknüpfen» is the one door — a link GIVES the scale — and «Massstab» appears
-   *  once a link or a hand calibration exists. Two red lamps on every plan at rest said the same
-   *  «not yet» twice. A hand calibration is still one tap away: Messen offers «Kalibrieren» on an
-   *  unscaled sheet (MeasurePanel · onCalibrate); and where the plan cannot be linked at all, the
-   *  Massstab chip stays, the only door there is. */
-  const scaleWaitsForLink = georefChipShown && georefState.kind !== 'linked'
-    && !scaleAuto && !calibrated && !scaleStale && tool !== 'scale'
   // ⚠️ ONE mode at a time — the same clean slate a document switch makes (see the reset above).
   // Arming hides the tool rail, and until 26.08. that was ALL it did: the tool stayed armed
   // underneath, so a Messen path kept its handles, a create tool kept its `.wb-ink` layer and a
@@ -1838,30 +1833,59 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // chip carries itself: amber, the warn glyph, and the distance after the address. Short on
   // the pill, the full sentence in the label – the chip only hints, the reader gets the meaning.
   const nearbyDist = objectNearby ? fmtDistance(objectNearby.distanceM) : null
+  // «Schlossgasse 9, 4104 Oberwil» → the street and number on a phone (sweep 28.10.2026 #8): the
+  // row is one line beside the FAB and the Messungen chip, and the town is in the sheet's row.
+  const [objectStreet, objectTown] = splitAddress(objectChipName)
+  const objectChipShort = isPhone && objectStreet ? objectStreet : objectChipName
   const objectChipText = nearbyDist
-    ? fillTemplate(appConfig.copy.whiteboard.objectNearby, { name: objectChipName, distance: nearbyDist })
-    : objectChipName
-  const objectChipLabel = nearbyDist
-    ? fillTemplate(appConfig.copy.whiteboard.objectNearbyLabel, { distance: nearbyDist })
-    : onObjectSwitch
-      ? fillTemplate(appConfig.copy.whiteboard.objectSwitch, { name: objectChipName })
-      : fillTemplate(appConfig.copy.whiteboard.objectIs, { name: objectChipName })
+    ? fillTemplate(appConfig.copy.whiteboard.objectNearby, { name: objectChipShort, distance: nearbyDist })
+    : objectChipShort
+  const objectNearbyLabel = nearbyDist ? fillTemplate(appConfig.copy.whiteboard.objectNearbyLabel, { distance: nearbyDist }) : null
+
+  // ── The Plan sheet behind the chip (sweep 28.10.2026 #8, owner pick «B's bar + A's sheet») ──
+  // The row used to carry Objekt · «Ref. …» · «⌖ Karte»: two lamps for one subject, and on a phone
+  // the object's name squeezed down to its glyph. Now the Objekt chip (on the Gebäude stack: the
+  // building chip) is the row's ONE chip and carries ONE lamp – the worse of link and scale
+  // (planScale · planFactsTone) – and a tap opens PlanFactsSheet: the Objekt row (its switch),
+  // «Karte» with the Passung inline, «Massstab» with its state. Every tap the old chips offered is
+  // in there: start the pairing, the Passung's actions, (re)calibrate.
+  // The sheet's open state IS the Passung's (`qualityFor`), so «Deckung prüfen» / «Punkte
+  // hinzufügen» come back to it (usePlanGeoref · returnToQuality) and Escape closes it.
+  // ⚠️ What is offered follows the old chips' gates exactly. The Massstab: not on the OSM face, the
+  // blank Tafel, a viewer document or for an Einsatz-Link viewer, and on a LOCKED surface (el,
+  // Führungsansicht, replay – `readOnlyProp`, not `slimRail`: RBAC audit 22.10.2026) as a read-out.
+  // The Karte: wherever a sheet can carry a reference (usePlanGeoref · georefChipShown – a locked
+  // session only once it is linked). A locked session READS the sheet – the same words and tones,
+  // none of the actions – because an unchecked automatic fit must never look like a checked one,
+  // whoever looks (roles-and-access).
+  const scaleShown = (!readOnly || (readOnlyProp && !selectOnly)) && active?.viewer !== true && !osm && !blank && !linkViewer
+  const factsShown = scaleShown || georefChipShown
+  const factsTone = planFactsTone(georefChipShown ? georefChipTone(georefState) : null, scaleShown ? scaleTone : null)
+  const factsOpen = factsShown && georefQuality && !georefArmed
+  const toggleFacts = () => setQualityFor(georefQuality ? null : activeId)
+  const factsLamp = factsShown ? <span className="wb-lamp" data-tone={factsTone} aria-hidden="true" /> : null
   const objectChip = objectChipHidden ? null : (
     <button
       type="button"
-      className={`wb-scale-chip wb-object${nearbyDist ? ' wb-object-nearby' : ''}`}
+      className={cx('wb-scale-chip wb-object', nearbyDist && 'wb-object-nearby', factsOpen && 'arm')}
       // «Objekt» named the field, which is the one thing the value already says — a plan set
-      // belongs to an Einsatzobjekt and nothing else in this corner is a place name. The chevron
-      // went with it: everywhere else in this app it opens a popover under the control, and here
-      // it opened a full modal with a search field and a map. What is left is the fact itself.
-      // The verb lives in the label a screen reader reads, where it was missing entirely.
-      aria-label={objectChipLabel}
-      title={nearbyDist ? objectChipLabel : onObjectSwitch ? appConfig.copy.whiteboard.objectSwitchShort : undefined}
-      disabled={!onObjectSwitch}
-      onClick={onObjectSwitch}
+      // belongs to an Einsatzobjekt and nothing else in this corner is a place name. No chevron:
+      // the lamp says there is more behind it. The words a screen reader needs (the lamp is no
+      // word) live in the label.
+      aria-label={[
+        factsShown ? fillTemplate(appConfig.copy.whiteboard.facts.chipLabel, { name: objectChipName })
+          : fillTemplate(onObjectSwitch ? appConfig.copy.whiteboard.objectSwitch : appConfig.copy.whiteboard.objectIs, { name: objectChipName }),
+        objectNearbyLabel,
+      ].filter(Boolean).join(' – ')}
+      aria-expanded={factsShown ? factsOpen : undefined}
+      title={objectNearbyLabel ?? (!factsShown && onObjectSwitch ? appConfig.copy.whiteboard.objectSwitchShort : undefined)}
+      // with nothing behind it but the object, the chip is the picker's door as before
+      disabled={!factsShown && !onObjectSwitch}
+      onClick={factsShown ? toggleFacts : onObjectSwitch}
     >
       <Icon id={nearbyDist ? 'warn' : 'footprint'} />
       <span>{objectChipText}</span>
+      {factsLamp}
     </button>
   )
   // The Gebäude-Steckbrief's chip, beside the Objekt chip and only where that one stands with an
@@ -1935,7 +1959,27 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // greyed); with no name there is nothing to read and no pill. The picker face's «Zurück zum
   // Gebäude» stays for everyone: it is the way OUT.
   const buildingChipLocked = stack && readOnlyProp
-  const buildingChip = onBuildingFace && (stack || (osm && building)) && !(buildingChipLocked && !buildingChipName) ? (
+  // ⚠️ On the stack the chip is ALSO the Plan sheet's door (sweep 28.10.2026 #8): the Objekt chip is
+  // dropped there, so the building's name carries the lamp, and «anderes Gebäude wählen» is the
+  // sheet's top row. Named by the plan's own word («Gebäude») when no object is bound – a verb on
+  // a chip that opens a sheet would promise the wrong thing.
+  const stackFacts = stack && factsShown
+  // …and like the Objekt chip, street and number only on a phone (the town is in the sheet's row)
+  const [buildingStreet, buildingTown] = splitAddress(buildingChipName)
+  const buildingFactsName = buildingStreet || active.code
+  const buildingChip = stackFacts ? (
+    <button
+      type="button"
+      className={cx('wb-scale-chip wb-building wb-building-named', factsOpen && 'arm')}
+      aria-label={fillTemplate(appConfig.copy.whiteboard.facts.chipLabelBuilding, { name: buildingChipName ?? active.code })}
+      aria-expanded={factsOpen}
+      onClick={toggleFacts}
+    >
+      <Icon id="footprint" />
+      <span>{isPhone ? buildingFactsName : buildingChipName ?? active.code}</span>
+      {factsLamp}
+    </button>
+  ) : onBuildingFace && (stack || (osm && building)) && !(buildingChipLocked && !buildingChipName) ? (
     <button
       type="button"
       className={`wb-scale-chip wb-building${buildingChipName ? ' wb-building-named' : ''}`}
@@ -1947,6 +1991,76 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       <Icon id={stack ? 'footprint' : 'floors'} />
       <span>{buildingChipName ?? buildingChipLabel}</span>
       {buildingChipName && !buildingChipLocked && <Icon id="chevron" className="wb-chip-chev" />}
+    </button>
+  ) : null
+
+  // …and the sheet itself: the place on top, then the two facts (PlanFactsSheet).
+  const closeFacts = () => setQualityFor(null)
+  const C = appConfig.copy.whiteboard
+  const factsPlace = stack
+    ? {
+        icon: 'footprint', name: buildingFactsName,
+        sub: [buildingTown, onBuildingFace && !buildingChipLocked ? C.facts.switchBuilding : null].filter(Boolean).join(' · ') || undefined,
+        onClick: onBuildingFace && !buildingChipLocked ? () => { closeFacts(); onBuildingFace('pick') } : undefined,
+      }
+    : {
+        icon: nearbyDist ? 'warn' : 'footprint', warn: !!nearbyDist, name: objectStreet || objectChipName,
+        sub: [objectNearbyLabel ?? objectTown, onObjectSwitch ? C.facts.switchObject : null].filter(Boolean).join(' · ') || undefined,
+        onClick: onObjectSwitch ? () => { closeFacts(); onObjectSwitch() } : undefined,
+      }
+  const factsLink: PlanFact | undefined = !georefChipShown ? undefined
+    : georefState.kind === 'linked' && georefFit ? {
+        tone: georefChipTone(georefState), status: C.georef.chipLinked,
+        body: (
+          <GeorefQuality
+            embedded
+            readOnly={readOnly}
+            fit={georefFit}
+            auto={hasAutoPairs(georefPairs)}
+            approved={georefApproved}
+            realPoints={realPairCount(georefPairs)}
+            onClose={closeFacts}
+            onAddPoint={() => beginGeoref({ returnToQuality: true })}
+            // «Deckung prüfen» needs BOTH pictures on screen, which is exactly what the armed
+            // split is — so the check arms the mode and comes up with the outline already drawn.
+            onCheck={() => beginGeoref({ check: true, returnToQuality: true })}
+            onTransfer={georefTransferTargets.length ? () => setGeorefTransferOpen(true) : undefined}
+            onReset={() => { closeFacts(); resetGeorefPlan(activeGeorefKey); toast(C.georef.resetDone) }}
+          />
+        ),
+      }
+    : {
+        // ⚠️ the verb, not an empty Passung: a plan with no reference has nothing to read yet
+        tone: 'grey', status: C.facts.unlinked, note: C.facts.unlinkedNote,
+        actions: readOnly ? undefined : [{ label: C.facts.link, icon: 'link', primary: true, onClick: () => { closeFacts(); beginGeoref() } }],
+      }
+  // ⚠️ An AUTOMATIC scale is a reading, never a door into a second, competing manual calibration:
+  // it is derived from the Kartenverknüpfung (or the Gebäude's Grundriss) and is corrected there.
+  const factsScale: PlanFact | undefined = !scaleShown ? undefined : {
+    tone: scaleTone,
+    status: scaleAuto ? C.scale.chipAuto
+      : scaleStale ? C.facts.scaleStale
+      : calibrated ? fillTemplate(C.scale.chipCalibrated, { m: String(activeScale!.refM) })
+      : C.scale.chipUncalibrated,
+    // only a GEOREF-derived scale comes «aus der Kartenverknüpfung» – the Gebäude's from its Grundriss
+    note: scaleAuto ? (georefFit || packMPerU ? C.facts.scaleFromFit : C.facts.scaleFromFootprint)
+      : scaleStale ? C.facts.scaleStaleNote
+      : calibrated ? C.facts.scaleByHand
+      : georefChipShown ? C.facts.scaleNoneLinkable : C.facts.scaleNone,
+    actions: readOnly || scaleAuto ? undefined : [{
+      label: calibrated || scaleStale ? C.scale.recalibrate : C.scale.calibrate, icon: 'measure',
+      // the primary only where no link is offered to carry the scale instead
+      primary: !georefChipShown && !calibrated,
+      onClick: () => { closeFacts(); setTool('scale') },
+    }],
+  }
+  const factsTitle = fillTemplate(C.facts.title, { name: active.code || active.title })
+  // while calibrating, the row is the instrument (one mode, one indicator – as for the pairing):
+  // what to tap, lit, and a tap stops it
+  const calibrateChip = tool === 'scale' && !readOnly ? (
+    <button type="button" className="wb-scale-chip arm" aria-label={C.scale.calibrateHint} title={C.scale.recalibrate} onClick={() => setTool('pan')}>
+      <Icon id="measure" />
+      <span>{C.scale.calibrateHint}</span>
     </button>
   ) : null
 
@@ -3113,14 +3227,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
               }
             : undefined}
           // ⚠️ NOT offered on an automatically referenced sheet. `scaleAuto` means the metres come
-          // from the Kartenverknüpfung, and the same rule the Massstab chip follows holds here:
+          // from the Kartenverknüpfung, and the same rule the Plan sheet's Massstab follows holds here:
           // an automatic scale is a READING, never a shortcut into a second, competing manual
           // calibration. «Neu kalibrieren» under a plan that is already tied to the map read as
           // «this is not calibrated» — the opposite of the truth. The reading takes its place.
           onCalibrate={readOnly || scaleAuto ? undefined : () => setTool('scale')}
           calibrateLabel={appConfig.copy.whiteboard.scale.calibrate}
           recalibrateLabel={appConfig.copy.whiteboard.scale.recalibrate}
-          /* …and it names the RIGHT source. Same discriminator as the Massstab chip below: only a
+          /* …and it names the RIGHT source. Same discriminator as the Plan sheet's Massstab (factsScale): only a
              georef fit comes «aus der Kartenverknüpfung» — the Gebäude's scale comes from its
              Grundriss, and the panel used to tell the operator about a link the stack has not got. */
           scaleNote={scaleAuto
@@ -3135,132 +3249,28 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onCommit={commitCalibration} onClose={closeCalPrompt} />
       )}
 
-      {/* The facts about a plan that no page of it states — WHICH object, at what scale, and (on
-          the Gebäude) which building — in one row in the stage's quiet corner. Objekt and Maßstab
-          were a bespoke glass chip in the top-left and this pill down here; two recipes for one
-          job, with the louder of the two sitting on the corner of the plan that is actually looked
-          at. One family now, one corner — and the building switch joined it rather than earning a
-          rail tile of its own. */}
+      {/* The facts about a plan that no page of it states — WHICH object, at what scale, and how it
+          sits on the map — in one row in the stage's quiet corner, and since sweep 28.10.2026 (#8)
+          behind ONE chip: the Objekt (on the Gebäude: the building) with one lamp, the sheet
+          behind it (PlanFactsSheet, see `factsShown`). Objekt and Maßstab were a bespoke glass
+          chip in the top-left and a pill down here until 26.09.; then three pills, two of them
+          lamps for one subject. */}
       {!georefArmed && nearbyBanner}
       <div className="wb-botleft">
       {/* ⚠️ While «Karte verknüpfen» is armed, this row carries the INSTRUMENT and nothing else.
-          One mode, one indicator: the chip that armed the mode is the thing that now says what
-          to tap, how far along it is and how to stop — and the facts that were in this row
-          (Objekt, Gebäude, Massstab) are not what anyone is reading mid-pairing. They come
-          straight back when the mode ends. On a phone the instrument is the bar instead
-          (GeorefMode · GeorefModeBars), so this row simply stays empty of it. */}
+          One mode, one indicator: the facts that were in this row are not what anyone is reading
+          mid-pairing. They come straight back when the mode ends. On a phone the instrument is the
+          bar instead (GeorefMode · GeorefModeBars), so this row simply stays empty of it. */}
       {georefArmed && !isPhone ? <GeorefInstrument mode={georef} /> : <>
-      {/* R1 (owner, 27.10.2026): chips that say one thing together share ONE glass, each half
-          its own tap – the Objekt with its Gebäude-Info, and the Massstab with «⌖ Karte» below */}
-      {/* the Tafel's pages: «which sheet», in the row where a plan says «which place» (owner) */}
+      {/* the Tafel's pages: «which sheet», in the row where a plan says «which place» (owner).
+          R1 (owner, 27.10.2026): the Objekt shares ONE glass with its Gebäude-Info, each half its
+          own tap. Calibrating, the chip gives its place to the instrument (`calibrateChip`). */}
       {strip}
+      {calibrateChip ?? <>
       <span className="wb-join">{objectChip}{buildingFloat}</span>
       {buildingChip}
+      </>}
       {readingsChip}
-      <span className="wb-join wb-join-lamps">
-      {/* Maßstab — trust chip: shows where the active plan's scale comes from. A manually
-          calibrated scale remains a control because tapping it edits that calibration. An
-          automatic scale is different: it is DERIVED from the Karte link and must therefore be
-          a reading, never a shortcut into a second, competing manual calibration. The separate
-          Verknüpft control beside it opens the Passung and its explicit correction actions.
-          Hidden for the OSM live outline / blank sheet (no printed reference to measure against).
-          ⚠️ On a LOCKED surface (el, Führungsansicht, viewer, replay) this chip and «⌖ Karte» are
-          READ-OUTS (25.09.2026, 3am test + review of #232): the same words and the same tone, and
-          no tap — «Ref. auto» used to open the Passung with «Punkt hinzufügen / Übertragen /
-          Zurücksetzen» live for an `el` whose save 403s. They are not hidden, because what they
-          say is load-bearing: an unchecked automatic fit must never look like a checked one (the
-          «ungemessen» / amber rules above), and a locked device reads the plan too. Disabled in
-          the `.wb-object:disabled` recipe — not greyed. An Einsatz-Link viewer (linkViewer) gets
-          neither: the chips are the origin's instruments.
-          ⚠️ Gated on the LOCK (`readOnlyProp`), not on `slimRail`: a replay has no slim rail (the
-          scrubber owns the bottom band) and is a locked session like any other, so the read-out
-          stays there too (RBAC audit 22.10.2026). A viewer-only document and the Umrisse sheet
-          are read-only by nature and have no scale to state. */}
-      {(!readOnly || (readOnlyProp && active?.viewer !== true && !selectOnly)) && !osm && !blank && !linkViewer && !scaleWaitsForLink && (
-        scaleAuto
-          /* Still a reading, not a second calibration path – but a TAPPABLE one (29.08.): the
-             hover title never fires on the field iPad, so the chip explains itself the same
-             way as «Verknüpft» beside it – by opening the Passung, where the derived scale,
-             the pair count and the residual sit next to what to do about them.
-             ⚠️ Only a GEOREF-derived scale has a Passung to open. The Gebäude's scale (A7) is
-             derived from geometry alone — no pairs, no residual — so there the tap says its
-             hint as a toast instead of arming a panel that would come up empty. */
-          ? <button className="wb-scale-chip wb-scale-status wb-lamped on"
-              title={georefFit || packMPerU ? appConfig.copy.whiteboard.scale.chipAutoHint : appConfig.copy.whiteboard.scale.chipAutoStackHint}
-              aria-label={appConfig.copy.whiteboard.scale.chipAuto}
-              aria-expanded={georefFit && !readOnly ? georefQuality : undefined}
-              disabled={readOnly}
-              onClick={() => georefFit
-                ? setQualityFor(georefQuality ? null : activeId)
-                : toast(packMPerU ? appConfig.copy.whiteboard.scale.chipAutoHint : appConfig.copy.whiteboard.scale.chipAutoStackHint)}>
-              <Icon id="measure" />
-              <span>{appConfig.copy.whiteboard.scale.chipAuto}</span>
-              <span className="wb-lamp" data-tone={scaleTone} aria-hidden="true" />
-            </button>
-          : (() => {
-              const label = tool === 'scale' ? appConfig.copy.whiteboard.scale.calibrateHint
-                : scaleStale ? appConfig.copy.whiteboard.scale.stale
-                : calibrated ? fillTemplate(appConfig.copy.whiteboard.scale.chipCalibrated, { m: String(activeScale!.refM) })
-                : appConfig.copy.whiteboard.scale.chipUncalibrated
-              return <button
-                className={`wb-scale-chip wb-lamped ${calibrated ? 'on' : ''} ${scaleStale ? 'stale' : ''} ${tool === 'scale' ? 'arm' : ''}`}
-                title={readOnly ? undefined : appConfig.copy.whiteboard.scale.recalibrate}
-                aria-label={label}
-                disabled={readOnly}
-                onClick={() => setTool(tool === 'scale' ? 'pan' : 'scale')}
-              >
-                <Icon id="measure" />
-                <span>{label}</span>
-                <span className="wb-lamp" data-tone={scaleTone} aria-hidden="true" />
-              </button>
-            })()
-      )}
-      {/* «⌖ Karte» — the third fact about a plan that no page of it states: whether this sheet is
-          tied to the world, and how well. Same recipe and same corner as the Massstab beside it,
-          and the same rule: never a hidden assumption. Blue, like Messen and Massstab — a
-          georeference is not an alarm, so never the station's --accent.
-          A locked session sees the linked reading as a read-out (tone intact, no tap — see the
-          Maßstab chip above); a plan with no reference offers the verb, to editors only. An
-          Einsatz-Link viewer sees neither. */}
-      {georefChipShown && (
-        <button
-          className={`wb-scale-chip wb-lamped ${georefState.kind === 'linked' ? (georefState.warn ? 'wb-georef-warn' : 'wb-georef-ok') : ''} ${georefQuality ? 'arm' : ''}`}
-          title={readOnly ? undefined
-            : georefState.kind === 'linked' ? appConfig.copy.whiteboard.georef.openQuality
-            : appConfig.copy.whiteboard.georef.linkTitle}
-          aria-label={georefState.kind === 'linked'
-            ? appConfig.copy.whiteboard.georef.chipLinked
-            : appConfig.copy.whiteboard.georef.chipUnlinked}
-          disabled={readOnly}
-          aria-expanded={georefState.kind === 'linked' && !readOnly ? georefQuality : undefined}
-          onClick={() => {
-            // linked ⇒ the chip opens the Passung; unlinked ⇒ the pairing straight away. A plan
-            // that has no reference has nothing to show, so the reading would be an empty panel
-            // where the verb belongs.
-            if (georefState.kind === 'linked') setQualityFor(georefQuality ? null : activeId)
-            else beginGeoref()
-          }}
-        >
-          {/* the chain (29.09.2026, sweep K14): the locate crosshair is «Mein Standort», and the
-              cross beside it on the bar is Einpassen — a link is a link */}
-          <Icon id="link" />
-          {/* ⚠️ «Verknüpft», and nothing after it. The chip used to carry the reading too —
-              «Verknüpft · aus 2 Punkten», «Verknüpft · ⌀ 10.8 m» — which is a sentence in a row
-              of three-word pills, and it put the one number that needs context (a residual means
-              nothing without «out of how many pairs») where there is no room to give any. The
-              TONE still says whether the fit is checked; the number lives one tap away, in the
-              Passung, next to what to do about it. */}
-          <span>{georefState.kind === 'linked'
-            ? appConfig.copy.whiteboard.georef.chipLinked
-            : appConfig.copy.whiteboard.georef.chipUnlinked}</span>
-          {/* …and the tone as a LAMP as well as a text colour (18.09.2026). On a phone this pill
-              is icon + lamp and nothing else, so the dot has to carry the reading the words used
-              to — red: no reference · amber: a fit nobody has checked · green: measured or
-              station-approved. One source for the three tones (georefMode · georefChipTone). */}
-          <span className="wb-lamp" data-tone={georefChipTone(georefState)} aria-hidden="true" />
-        </button>
-      )}
-      </span>
       </>}
       </div>
 
@@ -3269,28 +3279,16 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         <PlanScalePersist scale={savePrompt} activeId={activeId} onDone={() => setSavePrompt(null)} />
       )}
 
-      {/* Passung — the reading behind the linked chip, in the same dock the Massstab's own
-          follow-up uses (`.wb-scale-persist`), one row above the chip that opened it.
+      {/* The Plan sheet (PlanFactsSheet) — in the Passung's dock, one row above the chip that
+          opened it on a tablet, the slide-up sheet on a phone.
           ⚠️ Deliberately NOT the shared <Popover>. That one is modal-ish by construction: it
           portals, manages focus and dismisses on the first press anywhere outside — over a LIVE
           board that means the next tap on a symbol is eaten by the dismissal instead of
           selecting it. src/lib/overlays/Popover.tsx says exactly this in its own header: for
           surfaces that must stay live underneath, keep the hand-rolled dock. */}
-      {georefQuality && georefFit && !georefArmed && !readOnly && (
-        <GeorefDock label={appConfig.copy.whiteboard.georef.qualityTitle} onClose={() => setQualityFor(null)}>
-          <GeorefQuality
-            fit={georefFit}
-            auto={hasAutoPairs(georefPairs)}
-            approved={georefApproved}
-            realPoints={realPairCount(georefPairs)}
-            onClose={() => setQualityFor(null)}
-            onAddPoint={() => beginGeoref({ returnToQuality: true })}
-            // «Deckung prüfen» needs BOTH pictures on screen, which is exactly what the armed
-            // split is — so the check arms the mode and comes up with the outline already drawn.
-            onCheck={() => beginGeoref({ check: true, returnToQuality: true })}
-            onTransfer={georefTransferTargets.length ? () => setGeorefTransferOpen(true) : undefined}
-            onReset={() => { setQualityFor(null); resetGeorefPlan(activeGeorefKey); toast(appConfig.copy.whiteboard.georef.resetDone) }}
-          />
+      {factsOpen && (
+        <GeorefDock label={factsTitle} onClose={closeFacts}>
+          <PlanFactsSheet title={factsTitle} onClose={closeFacts} place={factsPlace} link={factsLink} scale={factsScale} />
         </GeorefDock>
       )}
 

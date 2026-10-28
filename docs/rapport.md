@@ -25,9 +25,29 @@ the lead sentence and the button follow («Abschliessen» once nothing is open).
 (Einsatzleiter) and «Schreiben» (Kurzbericht) leave for the focused field. Anwesenheit and
 Abweichungen have no one-tap answer. An empty **Einsatzende is pre-filled with «jetzt»** on the
 deployment clock (`serverNowIso`), shown as a done row with «Ändern»; the close writes it before
-the handover, so «Zeiten» is only open on a sheet that may not write the Rapport. The success
+the handover, so «Einsatzende» (the step `zeiten`) is only open on a sheet that may not write the Rapport. The success
 toast carries «Wieder öffnen» for 10 s (docs/undo.md). Close and reopen stamps come off
 `lib/serverClock`, like the Rapport's own «Jetzt» buttons.
+
+## The strip under the head – the guide and the Abschluss band (28.10.2026)
+
+Owner picks 14 «top strip» and 15B (`ReportPreflight · RpStrip`, one size for both, outside the
+scrolling body so it stays visible with the keyboard up):
+
+- **The open points are in page order** (`lib/abschluss · ABSCHLUSS_STEPS`): Kurzbericht ·
+  Einsatzleiter · Kontaktperson · Einsatzende · Rückmeldung ELZ, then Anwesenheit · Material ·
+  Abweichungen – the «n offen» list, the confirms and the guide all read that order. The step
+  `zeiten` is labelled «Einsatzende», the field that is actually missing.
+- **The guide**: a jump from the «n offen» list (or the «Angaben fehlen noch» confirm) leaves a
+  strip «Nächster offener Punkt · noch N offen / <Punkt>»; a tap is the same jump to it
+  (`nextOpenStep`: the next open one down the page, wrapping, never the current one). «Letzter
+  offener Punkt» when only that one is left; at the last open point the strip is gone. ✕ puts it
+  away until the next jump from the list. It never becomes the PDF button.
+- **The Abschluss band, one step earlier**: as soon as nothing is open and no PDF exists, the green
+  strip says «Alles erfasst · Nächster Schritt / Einsatzrapport (PDF) erstellen» (no «Später» –
+  it goes away by itself). Once the PDF exists: «Rapport erstellt · Nächster Schritt / Einsatz
+  abschliessen», ✕ = «Später», and under it «Danach für die Ablage: Beilagen herunterladen (ZIP)»
+  when the server holds Beilagen.
 
 ## Unterschriften – signing on the screen (15.10.2026)
 

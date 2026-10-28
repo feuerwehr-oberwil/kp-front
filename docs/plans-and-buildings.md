@@ -120,7 +120,7 @@ Sketching a building on the floor stack during an Einsatz (27.10.2026, the owner
 - **The field never asks for an automatic alignment** (13.09.2026; the unreachable client path –
   chooser, request, proposal review on «Deckung prüfen» – was deleted on 25.10.2026). Out there a
   sheet's link to the map has exactly two states: set by hand with reference points («Karte
-  verknüpfen» arms the point flow directly), or «Verknüpft» because the station approved the
+  verknüpfen» in the Plan sheet behind the Objekt chip arms the point flow directly), or «Verknüpft» because the station approved the
   server's proposal (next bullet). The matcher is server-side (`app/georef_suggest.py`, evaluation
   + provenance in the gitignored `docs/planning/auto-alignment/`): it segments the sheet and
   matches it against OSM building rings via the Overpass proxy. Its heavy CV deps are the

@@ -180,7 +180,7 @@ export const incidentCopy = {
   abschluss: {
     leftEarly: ' · bis {t}',
     steps: {
-      zeiten: 'Zeiten',
+      zeiten: 'Einsatzende',
       anwesenheit: 'Anwesenheit',
       mittel: 'Material',
       einsatzleiter: 'Einsatzleiter',

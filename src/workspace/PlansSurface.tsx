@@ -129,7 +129,7 @@ export function PlansSurface({
           // lost Messen 29.08.). Not during replay (the scrubber owns the bottom band) and not
           // behind the phone's Verlauf sheet, which parks the plan entirely.
           slimTools={!replayActive && !(isPhone && journalOpen)}
-          // Einsatz-Link session: the bottom-left setting chips (Maßstab / Verknüpft) are the
+          // Einsatz-Link session: the Plan sheet's Karte and Massstab (behind the Objekt chip) are the
           // ORIGIN's instruments — an outside viewer can set nothing, so no doors to settings.
           linkViewer={linkScoped}
           activeId={activePlanId}

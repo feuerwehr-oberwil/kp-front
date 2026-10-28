@@ -86,8 +86,7 @@
 .wb-georef-armed .wb-trail-mark { display: none; }
 /* (The chips were ~30px tall until 24.09.2026 and carried a transparent 44px touch pad here; since
    26.09.2026 they are the floating family's row height, --float-h, so the target IS the chip.) */
-/* the object's ADDRESS may take the room the Maßstab does not — it is the longer of the two,
-   and the Maßstab is a handful of characters */
+/* the object's ADDRESS takes the room the row has – it is the one piece of it that is a name */
 .wb-object { min-width: 0; max-width: 100%; }
 /* the auto-surfaced object is only the NEAREST one with plans, not the Einsatzadresse – the
    read-out is the warning itself (Whiteboard · objectChip), so its leading glyph is the warn
@@ -131,13 +130,13 @@
 .wb-building.wb-building-named { flex: 0 1 auto; min-width: 0; }
 /* the pill goes somewhere — a small, quiet chevron, never the pill's own weight */
 .wb-scale-chip .wb-chip-chev { width: 12px; height: 12px; flex: none; color: var(--ink-faint); margin-left: -2px; }
-/* ── The pill row's lamps ──────────────────────────────────────────────────────────────────────
-   Massstab and «⌖ Karte» each carry a 9px Ampel dot in the SAME three tones the georeference's
-   own lamp uses (GeorefMode.module.css · .dot / .sdot). It is not decoration: on a phone these
-   two pills are icon + lamp and nothing else (the words move into title/aria-label, see the
-   phone block below), so the dot is the whole reading. Tones are decided in TS — planScale ·
-   scaleLampTone and georefMode · georefChipTone — never here, so the pill and the panel behind
-   it can never disagree about whether a reference is good. */
+/* ── The pill row's lamp ───────────────────────────────────────────────────────────────────────
+   The Objekt chip (on the Gebäude: the building chip) carries ONE 9px Ampel dot since sweep
+   28.10.2026 (#8) – the worse of Karte link and Massstab – in the SAME three tones the
+   georeference's own lamp uses (GeorefMode.module.css · .dot / .sdot); the Plan sheet behind the
+   tap (PlanFactsSheet) repeats each fact's own dot with its word. Tones are decided in TS —
+   planScale · planFactsTone / scaleLampTone and georefMode · georefChipTone — never here, so the
+   chip and the sheet behind it can never disagree about whether a reference is good. */
 .wb-lamp { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .wb-lamp[data-tone='red'] { background: var(--red); }
 /* «not yet» — no scale, no link (29.09.2026, sweep K10): grey, never red at rest */
@@ -175,18 +174,11 @@
      bars (--float-floor), risen only past a dock or an armed pill that overlaps it sideways —
      beside a short dock, not a whole row above it. --float-bottom above is the unmeasured case. */
   .wb-botleft[data-float-placed] { bottom: calc(var(--float-floor) + var(--row-lift, 0px)); }
-  /* ⚠️ ONE line, always (owner, 18.09.2026). The row used to wrap, and on a 360px phone the two
-     status pills dropped onto a second line over the plan — a whole extra band of chrome across
-     the sheet, budgeted for in the toast lane (15-mobile · --float-row) and read by
-     nobody. So on a phone Massstab and «⌖ Karte» give up their WORDS and keep their icon and
-     their lamp: what they said («Ref. 25 m», «Verknüpft») was a state, and a state is exactly
-     what an Ampel dot says in 9px. The words are still there for a screen reader and a
-     long-press — every one of these pills carries its label in `aria-label`/`title`
-     (Whiteboard · the .wb-lamped chips). The Gebäude/Objekt read-out keeps its NAME, because a
-     name cannot be an Ampel; it is the one that truncates when the row runs out of room. */
+  /* ⚠️ ONE line, always (owner, 18.09.2026): a wrapped row put a whole extra band of chrome across
+     the sheet. Since sweep 28.10.2026 (#8) the row holds only the Objekt chip (street and number,
+     one lamp – the sheet behind it says the rest), the Messungen chip and the FAB, so the name
+     has the room; it is still the piece that truncates when the row runs out. */
   .wb-botleft { flex-wrap: nowrap; }
-  .wb-botleft .wb-scale-chip.wb-lamped { flex: none; }
-  .wb-botleft .wb-scale-chip.wb-lamped > span:not(.wb-lamp) { display: none; }
 }
 
 /* PlanPicker modal — searchable object list (primary) + supporting mini-map.
@@ -1048,8 +1040,10 @@ span.wb-ghost-label { cursor: default; }
    takes the rest — it was a ghost `.ip-btn` beside a 12.5px dock `.btn`, two families in one row */
 .wb-cal-actions > .ip-btn.primary { flex: 1 1 auto; }
 
-/* Plan-Maßstab: trust chip — taps to (re)calibrate. Position comes from `.wb-botleft`, the row it
-   shares with the Objekt read-out; clearing the rail is that row's job now, stated once.
+/* The chip-row recipe – named for its first user, the Plan-Maßstab's trust chip; since sweep
+   28.10.2026 (#8) worn by the Objekt / Gebäude chip, the calibration instrument, the Messungen
+   and the Karte's rows. Position comes from `.wb-botleft`; clearing the rail is that row's job,
+   stated once.
    ⚠️ --r-sm, not a pill (24.09.2026): these are buttons, and on a touch screen they stand --tap
    tall (20-touch-floors) – a row of 44px capsules along the plan's foot.
    ⚠️ …and since 26.09.2026 they are the FLOATING FAMILY (01-tokens · --float-*), at every width:
@@ -1069,12 +1063,11 @@ span.wb-ghost-label { cursor: default; }
      the glyph alone was the hover, and a chip with a lamp has none (20.10.2026) */
   .wb-scale-chip:hover:where(:not(:disabled):not(.wb-scale-status)) { background-image: linear-gradient(var(--hover), var(--hover)); }
 }
-/* …and the same pills on a LOCKED plan are read-outs (Whiteboard · the Maßstab / «⌖ Karte»
-   chips, `disabled`): the `.wb-object:disabled` recipe — full opacity, their own words and tone,
-   no hover, no touch pad. The tone is the point: «ungemessen» amber must read as amber. */
+/* …and a pill with nowhere to go is a read-out (`disabled`): the `.wb-object:disabled` recipe —
+   full opacity, its own words and tone, no hover, no touch pad. */
 .wb-scale-chip:disabled { cursor: default; opacity: 1; }
 /* R1 (owner, 27.10.2026): chips that say one thing together share ONE glass – the Objekt with its
-   Gebäude-Info, the Massstab with «⌖ Karte» (Whiteboard · .wb-join). The group wears the family's
+   Gebäude-Info (Whiteboard · .wb-join). The group wears the family's
    glass; its chips give theirs up and are split by a hairline, each still its own tap. Colour only
    (not the `background` shorthand), so the hover wash and the armed fill below still paint. */
 .wb-join { display: inline-flex; align-items: stretch; flex: 0 1 auto; min-width: 0; max-width: 100%; border-radius: var(--r-sm);
@@ -1084,20 +1077,12 @@ span.wb-ghost-label { cursor: default; }
 .wb-join > * + * { border-left: 1px solid var(--border); }
 .wb-join > :first-child, .wb-join > :first-child > .wb-scale-chip { border-top-left-radius: var(--r-sm); border-bottom-left-radius: var(--r-sm); }
 .wb-join > :last-child, .wb-join > :last-child > .wb-scale-chip { border-top-right-radius: var(--r-sm); border-bottom-right-radius: var(--r-sm); }
-.wb-join-lamps { flex: none; }
-/* …and in the Massstab/«⌖ Karte» pair a GREEN lamp is the whole reading: icon + lamp, the words in
-   aria-label/title (as on a phone, below). Any other tone keeps its words – «Karte verknüpfen»,
-   an unchecked fit, a stale scale are sentences somebody has to read. */
-.wb-join-lamps > .wb-scale-chip.wb-lamped:has(> .wb-lamp[data-tone='green']) > span:not(.wb-lamp) { display: none; }
 /* ⚠️ NO state ring (26.09.2026, owner: the calibrated Massstab wore a blue outline beside a green
-   dot, and read as «selected»). `.on` (calibrated / derived) and `.stale` stay as classes, but
-   what they say is said by the chip's LAMP (planScale · scaleLampTone) — the one glyph that
-   carries a state in this row, the same dot on a phone and a tablet. */
-/* A scale derived from the Karte link is a source/status, not another calibration affordance.
-   It deliberately has no hover reaction; correction lives behind the adjacent Verknüpft control
-   so there can never be two scale authorities for one sheet. */
+   dot, and read as «selected»). A state is the chip's LAMP — the one glyph that carries a state
+   in this row, the same dot on a phone and a tablet. */
+/* a pure status pill (the Karte's «auf dem Gerät» read-out): no hover reaction, nothing to press */
 .wb-scale-status { cursor: default; }
-/* #3: persist-a-calibration bar, sits just above the Maßstab chip after a fresh calibration — one
+/* #3: persist-a-calibration bar, sits just above the chip row after a fresh calibration — one
    --float-gap over the chip row (26.09.2026: the row is --float-h tall, 16px up on a tablet) */
 .wb-scale-persist { position: absolute; left: calc(var(--rail-w) + 28px); bottom: calc(16px + var(--float-h) + var(--float-gap)); z-index: 9;
   display: inline-flex; align-items: center; gap: 8px; max-width: min(94%, 520px); padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
@@ -1120,9 +1105,10 @@ span.wb-ghost-label { cursor: default; }
    in any state of the chip – the chip's dim/hover/armed glyph colours made it navy on red */
 .wb-scale-chip .sym-pill svg:not(.wb-chip-chev) { color: inherit; }
 
-/* Passung — the georeference's reading, docked one row above the chip that opened it. Same
-   recipe, same corner and the same arithmetic as `.wb-scale-persist` above: the Massstab's
-   follow-up already lives there, and this is its sibling.
+/* The Plan sheet (PlanFactsSheet: Objekt · Karte with the Passung inline · Massstab, since sweep
+   28.10.2026 #8), docked one row above the chip that opened it. Same recipe, same corner and the
+   same arithmetic as `.wb-scale-persist` above: the Massstab's follow-up already lives there,
+   and this is its sibling.
    ⚠️ A DOCK, not a popover. The board underneath stays live and un-dismissing, so a tap on a
    symbol is a tap on that symbol — not a press that the overlay swallows to close itself. */
 .wb-georef-dock { position: absolute; left: calc(var(--rail-w) + 28px); bottom: calc(16px + var(--float-h) + var(--float-gap)); z-index: 9;
@@ -1146,18 +1132,12 @@ span.wb-ghost-label { cursor: default; }
     animation: sheetUp .22s var(--ease); }
   .wb-georef-dock > .ui-sheet-grab { margin-bottom: -4px; }
 }
-/* «⌖ Karte» — the georeference's own two linked tones. Amber whenever a warning stands (two
-   pairs is the commonest: exact by construction, therefore UNMEASURED — and an unmeasured fit
-   must never look like a checked one); the green tone only once a third point has measured it.
-   ⚠️ Tokens, not frozen literals — both have to survive the day/night swap. */
-/* ⚠️ Since 26.09.2026 the two tones live in the chip's LAMP only (georefMode · georefChipTone),
-   not in a green/amber ring and word as well — one glyph, one state, like the Massstab beside it.
-   «Open» stays a fill (`.arm` above), so the quality the lamp reports is never overwritten by the
-   state of a panel.
+/* The lamp's tones live in TS (planScale · planFactsTone over georefChipTone and scaleLampTone),
+   never in a ring or word colour here — one glyph, one state. «Open» stays a fill (`.arm`
+   above), so the quality the lamp reports is never overwritten by the state of a panel.
    ⚠️ Every fill is mixed INTO the chip's own background, never `--fill-soft` on its own: that token
    is a 4.5 % black wash, and setting it as the background REPLACED the chip's opaque white with an
-   almost transparent one — the plan showed straight through the open chip. A chip that states a
-   fact has to be legible over anything. */
+   almost transparent one — the plan showed straight through the open chip. */
 
 /* Vertex-editing handles for a selected line/area (board px, absolute on the board) — small dots
    visually, but with transparent hit pads (::after) like the map's handles; the vertex pad wins
