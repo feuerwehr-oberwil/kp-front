@@ -157,7 +157,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   list you work in while you look at the map / board / page** — Ebenen, the «+»
   chooser, a symbol's editor (`.ctx`), the composer, the Verlauf, the map picker, the plan's
   Passung, every form and settings sheet — is a **slide-up bottom sheet**: flush with the bottom edge and both sides, over the bars,
-  the ONE grab bar on top, pushed down to close (`useSwipeDismiss`; the head is the handle),
+  the ONE grab bar on top, pushed down to close (`useSwipeDismiss`; the head is the handle, and so
+  is the body from its scroll-top — rows and buttons included, never a field, a slider or a map; sweep 28.10.2026),
   lifted by the keyboard (`keyboardLift`), the bottom inset paid by its last row. It HUGS its
   content up to a cap that leaves the top of the map in sight, so it grows upward and its foot
   never moves under the thumb. Detents only where the surface has two useful heights (the

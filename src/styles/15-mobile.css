@@ -856,7 +856,10 @@
   .pp-sheet .pp-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
   .pp-sheet .pp-list { min-height: 0; flex: 1 1 0; }
   .pp-sheet .pp-row { flex: none; }
-  .pp-sheet .pp-map { min-height: min(300px, 36dvh); height: min(300px, 36dvh); }
+  .pp-sheet .pp-map { min-height: min(300px, 36dvh); height: min(300px, 36dvh); transition: height .2s var(--ease), min-height .2s var(--ease); }
+  /* …until the list is being used (sweep 28.10.2026 #20, components/PlanPicker · ⚠️): then the map
+     is a strip under it, still pannable, and the list has the height to scroll through */
+  .pp-sheet.pp-listfirst .pp-map { min-height: min(140px, 18dvh); height: min(140px, 18dvh); }
   .pp-sheet.ip-sheet.ip-wide { height: 86dvh; }
   .pp-sheet.is-kb .pp-map { display: none; }
   .pp-sheet.ip-sheet.ui-dialog.is-kb { height: calc(100dvh - var(--kb-inset, 0px) - 12px); }
