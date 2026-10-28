@@ -81,6 +81,7 @@ import { SHAPE_TWO_POINT } from './lib/shapes'
 import { AtemschutzAlarmMeldungen } from './components/AtemschutzAlarmMeldung'
 import { AtemschutzNotfallMeldungen } from './components/AtemschutzNotfall'
 import { floorLabel } from './lib/whiteboard'
+import { liveTargets } from './lib/verlauf'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { TabLockBanner } from './components/TabLockBanner'
 import { SurfaceBoundary } from './components/SurfaceBoundary'
@@ -2132,6 +2133,8 @@ export function IncidentWorkspace({
     const e = entities.find((x) => x.id === id); if (!e) return
     setSelectedId(id); setSelectedDrawingId(null); flyToMapVisible(e.coord, 18.4)
   }
+  // which Verlauf rows are still a way somewhere: the same objects focusEntity / focusEvent land on
+  const journalLive = useMemo(() => liveTargets([...entities, ...doc.drawings], planDocs, board), [entities, doc.drawings, planDocs, board])
   // a «Messungen» row: to the point, on the surface it was placed on (the Verlauf's focusEvent recipe)
   const goToReading = (p: MeasuredPoint) => {
     if (p.at.surface === 'map') { setMode('map'); focusEntity(p.id); return }
@@ -3239,7 +3242,7 @@ export function IncidentWorkspace({
       }} />
       <JournalLayer {...{
         journalOpen, guarded, journal, auditDelivery, closedRefusedTotal, workspaceRoleParked, exportEntries, journalVocab,
-        timeline, incidentMeta, planDocs, focusEvent, replayActive, replayAtMs, seekToEvent, journalLandOn,
+        timeline, incidentMeta, planDocs, journalLive, focusEvent, replayActive, replayAtMs, seekToEvent, journalLandOn,
         setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
         enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
         tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen,
@@ -3287,8 +3290,9 @@ export function IncidentWorkspace({
           hold to record a voice memo (same gesture as the desktop TopBar Eintrag) */}
       {/* …on the Trupps board too (owner, sweep 27.10.2026 #10: «Show the FAB on Trupps»). It was
           kept off there because it sat on the third crew's «Kontakt» (N9, 25.09.2026): a bottom
-          inset cannot fix a button over a SCROLLING list. So on a phone the board's card ends
-          above the FAB's row instead (15-mobile · `.az-tafel`) and nothing scrolls under it.
+          inset cannot fix a button over a SCROLLING list. Since sweep 28.10.2026 #5 the card runs
+          to the phone edge and its LIST ends above the FAB (Atemschutz.module · `.body`'s
+          --fab-safe foot, plus the open card's data-az-fab-foot guard).
           ⚠️ A RUNNING RECORDING is never hidden (sweep #10, lead call): the FAB is the only place
           that says a voice memo is being taken and the only way to stop it, so an open panel or
           the composer does not unmount it, and the CSS that yields it to a tool's dock, the armed

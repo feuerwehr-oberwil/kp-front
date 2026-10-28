@@ -253,6 +253,11 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
   )
   // the header shares the grip's drag (tap stays a tap there — see useSheetDrag)
   const sheetDrag = useSheetDrag({ onClose, tapToggles: false })
+  /** one «Typ» menu entry: the letter as a small badge, the word, the tick on the current one */
+  const contentItem = (c: LineContent) => ({
+    label: <MenuPick badge={c} label={CONTENT_LABELS[c]} on={(drawing.content ?? 'W') === c} />,
+    onClick: () => onContent?.(c === 'W' ? undefined : c),
+  })
   return (
     <CtxShell className="draw-editor" onClose={onClose}>
       <SheetGrip onClose={onClose} />
@@ -327,7 +332,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                   ariaLabel={appConfig.copy.drawingEditor.ending}
                   value={drawing.teilstueck ? 'teilstueck' : drawing.arrow ? (drawing.arrowStop ? 'arrowStop' : 'arrow') : 'none'}
                   onChange={onEnding}
-                  // ⚠️ `explain`, like the Typ letters below (data-holdexplain): four pictures whose
+                  // ⚠️ `explain` (lib/holdTooltip · data-holdexplain): four pictures whose
                   // NAMES were all a hold ever gave, and the names are the least of it — «Pfeil mit
                   // Stopp» is the Entwicklungsgrenze, and deleting a Teilstück releases every line
                   // docked to its ports. Hold (touch) or hover (mouse) now answers with the
@@ -543,25 +548,32 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
         {/* FKS line group — Inhalt · Stockwerk · Leitung-Nr · Trupp (the Abschluss leads the sheet) */}
         {!readOnly && isLine && (
           <div className="de-group">
+            {/* «Typ: [W] Wasser ⌄» (owner, 28.10.2026, pick 19A): ONE row, as tall as Geschoss /
+                Leitung / Trupp, opening the same Menu + MenuPick as «Gehört zu Trupp». It was a row of
+                seven chips with bare letters (S H P N T G) that only a hold explained. Now every
+                entry carries its letter AND its word, so the FKS letters are learned on the way.
+                W = Wasser, the default: a Druckleitung with no letter IS a water line, so picking
+                it stores nothing (and a line stored with content 'W' reads as Wasser too). A rule
+                splits the Leitungen (W WW S H P) from the Vegetationsbrand-Haltelinien (N T G):
+                the same question about a different line. */}
             {onContent && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.content}</span>
-                <span className="de-presets">
-                  <button className={`de-preset ${!drawing.content ? 'on' : ''}`} title={appConfig.copy.drawingEditor.contentPlain} onClick={() => onContent(undefined)}>{appConfig.copy.drawingEditor.contentPlain}</button>
-                  {/* W = Wasser, and that is the default chip on the left — a Druckleitung with no
-                      letter IS a water line, so W never needed a chip of its own. S/H/P are the
-                      ends that are worth marking. Lines already stored with content 'W' keep it.
-                      N/T/G are the Vegetationsbrand-Haltelinien (nass · trocken · Gegenfeuer): the
-                      same question about a different line, so they sit in the same row rather than
-                      in a second control nobody would look for. */}
-                  {(['S', 'H', 'P', 'N', 'T', 'G'] as const).map((c) => (
-                    // `data-holdexplain`: the letter IS the label, and it explains nothing to
-                    // somebody who never learned the sheet. Hold it (touch) or hover it (mouse)
-                    // and lib/holdTooltip answers with the word — ⚠️ deliberately NO `title`, or
-                    // the native tooltip would arrive a second later and say it twice.
-                    <button key={c} data-holdexplain className={`de-preset ${drawing.content === c ? 'on' : ''}`}
-                      aria-label={CONTENT_LABELS[c]} onClick={() => onContent(c)}>{c}</button>
-                  ))}
-                </span>
+                <Menu
+                  trigger={
+                    <button className="de-menu-trigger" aria-label={`${appConfig.copy.drawingEditor.content}: ${CONTENT_LABELS[drawing.content ?? 'W']}`}>
+                      <span className="de-menu-badge" aria-hidden>{drawing.content ?? 'W'}</span>
+                      <span>{CONTENT_LABELS[drawing.content ?? 'W']}</span>
+                      <Icon id="chevron-down" className="chev" />
+                    </button>
+                  }
+                  popupClassName="de-menu-pop"
+                  itemClassName={() => 'de-menu-item'}
+                  items={[
+                    ...(['W', 'WW', 'S', 'H', 'P'] as const).map((c) => contentItem(c)),
+                    { kind: 'sep' as const },
+                    ...(['N', 'T', 'G'] as const).map((c) => contentItem(c)),
+                  ]}
+                />
               </div>
             )}
             {/* `seedOnDec`: a Leitung goes into a Keller as often as up a Treppe, so the first tap

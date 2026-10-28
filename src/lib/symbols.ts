@@ -32,10 +32,14 @@ function fleetOptionsFor(name?: string, field?: string): string[] | undefined {
 const presetFor = (name?: string, cat?: string) =>
   (name ? presets.byName[name] : undefined) ?? (cat ? presets.byCat[cat] : undefined)
 
-/** A detail field that holds a number (the preset's `fieldKinds`, e.g. the Rettung's «Anzahl
- *  Tiere»): ContextPanel draws the ± stepper for it instead of a text field. */
-export function symbolFieldKind(name: string | undefined, key: string): 'count' | undefined {
-  return name ? presets.byName[name]?.fieldKinds?.[key.trim()] : undefined
+/** A detail field that holds a number, and which kind ContextPanel draws for it: 'count' (the
+ *  preset's `fieldKinds`, e.g. the Rettung's «Anzahl Tiere») gets the ± stepper, 'measured' (a
+ *  `readout` gas, the Messpunkt's «CO») a text field with the decimal keypad – text, so the
+ *  «20,9» of a radio report types as said (measuredNumber reads the comma). */
+export function symbolFieldKind(name: string | undefined, key: string): 'count' | 'measured' | undefined {
+  const p = name ? presets.byName[name] : undefined
+  const k = key.trim()
+  return p?.fieldKinds?.[k] ?? (p?.readout?.includes(k) ? 'measured' : undefined)
 }
 
 /** What a count field's stored string means to its stepper: `null` while empty, the number for a
@@ -243,13 +247,41 @@ export function alarmBar(symbol: string | undefined, key: string, value?: string
   return { zones, at: zones[b].from + f * (zones[b].to - zones[b].from) }
 }
 
+/** How far past the limit of the stage it reached a value is – value ÷ limit, ≥ 1; a «below»
+ *  limit inverted (limit ÷ value), so further is always bigger: O₂ 15 under a 17 is 1.13. 0 for a
+ *  calm value – nothing is past anything there. */
+function overLimit(symbol: string | undefined, key: string, value?: string): number {
+  const level = readingLevel(symbol, key, value)
+  const lim = level === 'ok' || !symbol ? undefined : presets.byName[symbol]?.alarm?.[key]?.[level]
+  const n = measuredNumber(value)
+  if (!lim || n == null) return 0
+  if (lim.atLeast != null && n >= lim.atLeast) return lim.atLeast > 0 ? n / lim.atLeast : 1
+  return lim.below != null ? lim.below / Math.max(n, 0.01) : 0
+}
+
+/** A measured symbol's alarm scale, as its ⓘ explains it (ReadingParts · ReadingInfo): every
+ *  `readout` gas with limits, in preset order, with its A1/A2 – read off the preset the levels
+ *  are read off, so a station's own limits explain themselves – and the preset's `staleMin`.
+ *  Null for a symbol without limits. */
+export function readingScale(symbol?: string) {
+  const p = symbol ? presets.byName[symbol] : undefined
+  const alarm = p?.alarm
+  if (!alarm) return null
+  const gases = (p.readout ?? []).flatMap((key) => (alarm[key] ? [{ key, ...alarm[key] }] : []))
+  return gases.length ? { gases, staleMin: p.staleMin } : null
+}
+
 /** What a measured symbol's mark says (TacticalSymbol · reading). */
 export interface SymbolReading {
   /** the gas the mark wears, keyed – «CO 180»; null for a point placed but not yet measured */
   text: string | null
   /** that value's alarm stage – the mark turns amber (A1) or red (A2) */
   level: ReadingLevel
-  /** whole minutes since the last reading; null without a history (points from before 27.10.) */
+  /** how far that value is past its stage's limit (overLimit) – 0 while calm */
+  over: number
+  /** when the last reading was taken (epoch ms); null without a history (points from before 27.10.) */
+  at: number | null
+  /** whole minutes since the last reading; null without a history */
   ageMin: number | null
   /** older than the preset's `staleMin`: the colour moves to the outline and the age shows */
   stale: boolean
@@ -257,8 +289,10 @@ export interface SymbolReading {
 
 /**
  * The value a measured symbol wears AS its mark (the Messpunkt, 26./27.10.2026). The WORST gas
- * wins – the highest alarm stage, the earlier one in preset order on a tie – so an «Ex 12» is
- * never hidden behind a harmless «CO 14». Null for every symbol without a `readout`.
+ * wins – the highest alarm stage, then the one furthest past its limit (an «Ex 24» over a «CO 65»:
+ * 1.2 × its A2 against 1.08 ×), then preset order, which is what decides among calm values – so
+ * an «Ex 12» is never hidden behind a harmless «CO 14», and calm says CO first. Null for every
+ * symbol without a `readout`.
  *
  * A reading is part of the mark, not a caption: the label pass books it as the glyph's own
  * footprint instead of suppressing it – a hidden reading is a wrong picture of the building.
@@ -267,15 +301,20 @@ export function symbolReading(props: SymbolProps, now = Date.now()): SymbolReadi
   const keys = readoutKeys(props)
   if (!keys.length) return null
   const fields = props.fields ?? {}
-  const filled = keys.filter((k) => fields[k]?.trim())
-  const level = (k: string) => readingLevel(props.symbol, k, fields[k])
-  const worst = filled.reduce<string | undefined>((best, k) => (best == null || LEVEL_RANK[level(k)] > LEVEL_RANK[level(best)] ? k : best), undefined)
-  const rs = props.readings; const last = rs?.length ? rs[rs.length - 1].t : undefined
-  const ageMin = last != null ? Math.max(0, Math.floor((now - last) / 60_000)) : null
+  const rated = keys.filter((k) => fields[k]?.trim()).map((k) => ({
+    k, level: readingLevel(props.symbol, k, fields[k]), over: overLimit(props.symbol, k, fields[k]),
+  }))
+  const worst = rated.reduce<(typeof rated)[number] | undefined>((best, g) => (
+    !best || LEVEL_RANK[g.level] > LEVEL_RANK[best.level] || (g.level === best.level && g.over > best.over) ? g : best
+  ), undefined)
+  const rs = props.readings; const at = rs?.length ? rs[rs.length - 1].t : null
+  const ageMin = at != null ? Math.max(0, Math.floor((now - at) / 60_000)) : null
   const staleMin = props.symbol ? presets.byName[props.symbol]?.staleMin : undefined
   return {
-    text: worst ? `${worst} ${fields[worst].trim()}` : null,
-    level: worst ? level(worst) : 'ok',
+    text: worst ? `${worst.k} ${fields[worst.k].trim()}` : null,
+    level: worst?.level ?? 'ok',
+    over: worst?.over ?? 0,
+    at,
     ageMin,
     stale: !!worst && ageMin != null && staleMin != null && ageMin >= staleMin,
   }
@@ -284,10 +323,26 @@ export function symbolReading(props: SymbolProps, now = Date.now()): SymbolReadi
 /** an old reading's age on its pill – «18′», the minute sign standing in for «vor … min» */
 export const readingAge = (r: SymbolReading) => (r.ageMin != null ? `${r.ageMin}′` : '')
 
-/** Everything the label pass measures of a reading pill (useLabelPass · lib/mapView SYM_PILL_STYLE). */
-/** How alarming a reading is, for sorting (StackReadings, the Karte's «Messungen» button). */
-export const readingRank = (r: SymbolReading | null) => (r ? LEVEL_RANK[r.level] : -1)
+/** larger first, as a comparator step (0 on a tie, so the next step decides) */
+const desc = (a: number, b: number) => (a === b ? 0 : a > b ? -1 : 1)
 
+/**
+ * THE order of Messpunkte, worst first – the «Messungen» chip and list (readingsList) and the
+ * Gebäude's stack (StackReadings) sort with this one comparator, so the chip's pill is always the
+ * list's first row (sweep 28.10.2026 #3: an old «Ex 24» stood in front of a new «Ex 30»). Highest
+ * alarm stage, a measured point before one not measured yet, a fresh reading before a stale one,
+ * the furthest past its limit, the newest reading; a full tie keeps the caller's order.
+ */
+export function compareReadings(a: SymbolReading | null, b: SymbolReading | null): number {
+  const rank = (r: SymbolReading | null) => (r ? LEVEL_RANK[r.level] : -1)
+  return desc(rank(a), rank(b))
+    || desc(a?.text ? 1 : 0, b?.text ? 1 : 0)
+    || desc(a?.stale ? 0 : 1, b?.stale ? 0 : 1)
+    || desc(a?.over ?? 0, b?.over ?? 0)
+    || desc(a?.at ?? -Infinity, b?.at ?? -Infinity)
+}
+
+/** Everything the label pass measures of a reading pill (useLabelPass · lib/mapView SYM_PILL_STYLE). */
 export const readingPillText = (r: SymbolReading) => [r.text, r.stale ? readingAge(r) : ''].filter(Boolean).join(' ')
 
 /** The reading's text alone («CO 180») – what the label pass measures and the legend prints. */

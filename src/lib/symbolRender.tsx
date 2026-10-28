@@ -209,9 +209,9 @@ function SpreadArrows({ spread, color }: { spread: Spread; color: string }) {
   )
 }
 
-// combined span label for stairs/lift, e.g. "-1/+3" (drops a side that is unset)
-const floorRangeBadge = (from?: number, to?: number) =>
-  from != null && to != null && from === to ? floorBadge(from) : [from, to].filter((f): f is number => f != null).map(floorBadge).join('/')
+// combined span label for stairs/lift, e.g. "-1/+3" – only for a real span (both sides set and
+// different); see `storey` in TacticalSymbol for the one-storey cases
+const floorRangeBadge = (from: number, to: number) => `${floorBadge(from)}/${floorBadge(to)}`
 
 export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floor, floorFrom, floorTo, spread, caption, measured, docked, done, className }: {
   svg: string
@@ -264,7 +264,11 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
   /** extra class on the outer wrapper (e.g. 'photo' on the map, 'ts-plan' on the plan) */
   className?: string
 }) {
-  const hasRange = floorFrom != null || floorTo != null
+  // A span is a real one only with both sides set and different. A «Von» alone (the Messpunkt sets
+  // its storey that way), a «Bis» alone or Von = Bis is ONE storey and draws exactly like `floor` –
+  // the Erdgeschoss included, which shows no badge (sweep 28.10.2026 #8a: a «0» circle on the pill)
+  const span = floorFrom != null && floorTo != null && floorFrom !== floorTo
+  const storey = floorFrom != null || floorTo != null ? (span ? undefined : floorFrom ?? floorTo) : floor
   // ⚠️ The one XSS sink for a placed glyph: `svg` may be an entity's editor-supplied `symbolSvg`
   // (a free string synced through the workspace PUT), and it is written straight into the DOM
   // below. Sanitising HERE covers every caller that renders through TacticalSymbol — MapMarkers,
@@ -299,10 +303,10 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
           already says, at the cost of the one thing the badge is for. */}
       {/* …and not for the Erdgeschoss (15.09.): a «0» chip is a number that says nothing – ground
           level is where a symbol stands unless the badge says otherwise */}
-      {!measured && !hasRange && floor != null && floor !== 0 && (
-        <span className="sym-floor">{floorBadge(floor)}</span>
+      {!measured && storey != null && storey !== 0 && (
+        <span className="sym-floor">{floorBadge(storey)}</span>
       )}
-      {hasRange && (
+      {span && (
         <span className="sym-floor">{floorRangeBadge(floorFrom, floorTo)}</span>
       )}
       {count != null && count > 1 && (
@@ -315,7 +319,7 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
       )}
       {/* …and the fourth corner, top-left, is the «erledigt» time (lib/objectDone) */}
       {done && <span className="sym-done">{done}</span>}
-      {measured && <ReadingPill props={measured} floor={hasRange ? undefined : floor} />}
+      {measured && <ReadingPill props={measured} floor={storey} />}
       {caption && (
         <span className="sym-caption">
           {caption.split('\n').map((line, i) => <span key={i}>{line}</span>)}
@@ -329,16 +333,17 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
  * A measured symbol's mark: the worst gas on calm ink, amber at A1, red at A2, the colour on the
  * outline plus its age once the reading is old (lib/symbols · symbolReading), the dashed pill with
  * the icon alone before the first reading. Its own component so only these few marks subscribe to
- * the minute clock that ages them. `inline` = the same pill in a list row (ReadingParts).
+ * the minute clock that ages them. `inline` = the same pill in a list row (ReadingParts); `bare` =
+ * the icon alone in the same colours, the «Messungen» chip's round button (ReadingsChip, 9A).
  */
-export function ReadingPill({ props, floor, inline = false }: { props: SymbolProps; floor?: number; inline?: boolean }) {
+export function ReadingPill({ props, floor, inline = false, bare = false }: { props: SymbolProps; floor?: number; inline?: boolean; bare?: boolean }) {
   const r = symbolReading(props, useMinuteClock())
   if (!r) return null
   return (
-    <span className={`sym-pill${inline ? ' inline' : ''}${r.text ? '' : ' empty'}${r.level === 'ok' ? '' : ` ${r.level}`}${r.stale ? ' stale' : ''}`}>
+    <span className={`sym-pill${inline ? ' inline' : ''}${bare ? ' bare' : ''}${r.text ? '' : ' empty'}${r.level === 'ok' ? '' : ` ${r.level}`}${r.stale ? ' stale' : ''}`}>
       <Icon id="messgeraet" />
-      {r.text}
-      {r.stale && <span className="sym-pill-age">{readingAge(r)}</span>}
+      {!bare && r.text}
+      {!bare && r.stale && <span className="sym-pill-age">{readingAge(r)}</span>}
       {/* the storey rides on the pill, which is wider than the glyph box the corner badges use */}
       {floor != null && floor !== 0 && <span className="sym-floor">{floorBadge(floor)}</span>}
     </span>

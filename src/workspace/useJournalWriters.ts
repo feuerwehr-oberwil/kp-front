@@ -88,7 +88,12 @@ export function useJournalWriters({
     } else if (e.coord) {
       setMode('map'); flyToMapVisible(e.coord, 18)
     } else if (e.entityId) {
-      setMode('map'); focusEntity(e.entityId)
+      setMode('map')
+      // a row about a DRAWING (a duplicated line or area carries the copy's id, useMapActions) lands
+      // on it the way useMapActions · focusDrawing does: selected, its first vertex in view
+      const d = doc.drawings.find((x) => x.id === e.entityId)
+      if (d?.coords[0]) { setSelectedDrawingId(d.id); setSelectedId(null); flyToMapVisible(d.coords[0], 17.8) }
+      else focusEntity(e.entityId)
     }
     setJournalOpen(false)
   }

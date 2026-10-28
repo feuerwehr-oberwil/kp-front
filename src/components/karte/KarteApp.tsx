@@ -261,8 +261,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     else if (to === 'object' && sel?.kind === 'building' && sel.of && sel.ring) setSel({ kind: 'object', id: sel.of, hit: { at: sel.at, ring: sel.ring } })
   }
   // ✕ / pushed down: on the tablet the panel IS the selection; on a phone the sheet only covers
-  // the map, so it goes and the place stays selected for a second look
-  const closePanel = () => { giveCameraBack(); if (phone) setSheetShut(true); else deselect() }
+  // the map, so it goes and the place stays selected for a second look – except a dropped point,
+  // which exists only for its panel: closing that takes the pin off the map too (owner, 28.10.2026)
+  const closePanel = () => { giveCameraBack(); if (phone && sel?.kind !== 'pin') setSheetShut(true); else deselect() }
 
   const pickAddress = (hit: GeoHit) => {
     setSearchOpen(false); setQuery(splitAddress(hit.label)[0])
@@ -555,7 +556,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             </>
           )}
           {sel?.kind === 'pin' && (
-            // the pin is the place: a tap on it brings back the sheet that was pushed away
+            // the pin is the place: a tap on it brings its sheet back to the front (closing the sheet
+            // takes the pin away – closePanel)
             <Marker longitude={sel.at[0]} latitude={sel.at[1]} anchor="bottom" onClick={(e) => { e.originalEvent.stopPropagation(); setSheetShut(false) }}>
               <MapPin className={s.pinMk} />
             </Marker>
@@ -587,12 +589,16 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           <button type="button" className={cx('ip-switch-btn', s.einsaetze)} onClick={() => { setSheetOpen((o) => !o); setSearchOpen(false) }}
             title={C.menu} aria-label={einsaetze.badge > 0 ? `${menuName}, ${fillTemplate(C.einsaetzeBadge, { n: einsaetze.badge })}` : menuName}
             aria-haspopup="dialog" aria-expanded={sheetOpen} data-karte-menu="">
-            {mark ? <img className={s.menuMark} src={mark} alt="" onError={onMarkError} />
-              : !menuShort && <Icon id="menu" />}
-            {menuShort && <span className={s.menuName}>{menuShort}</span>}
+            {/* the face – mark and/or name – carries the red dot on its corner: the quiet pill has no
+                frame of its own to pin it to (28.10.2026) */}
+            <span className={s.menuFace}>
+              {mark ? <img className={s.menuMark} src={mark} alt="" onError={onMarkError} />
+                : !menuShort && <Icon id="menu" />}
+              {menuShort && <span className={s.menuName}>{menuShort}</span>}
+              {einsaetze.badge > 0 && <span className={s.einsaetzeBadge} data-karte-menu-dot="" aria-hidden />}
+            </span>
             {/* `chev` = the app's shared flip on [aria-expanded=true] (02-base.css), as every other dropdown */}
             <Icon id="chevron-down" className={cx('chev', s.chev)} />
-            {einsaetze.badge > 0 && <span className={s.einsaetzeBadge} data-karte-menu-dot="" aria-hidden />}
           </button>
           {/* the Checkliste: the bar's field searches the library (on a phone too, inline — the map's
               round search button is the map's) */}

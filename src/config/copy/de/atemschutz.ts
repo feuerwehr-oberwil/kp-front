@@ -929,6 +929,7 @@ export const atemschutzCopy = {
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {
     W: 'Wasser',
+    WW: 'Wasserwerfer',
     S: 'Schaum',
     H: 'Hydroschild',
     P: 'Pulver',

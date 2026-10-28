@@ -86,11 +86,17 @@ describe('the marquee’s single-object fallback', () => {
 // The grammar itself is lib/tapDragZoom's (tested there); this pins the WIRING: which tool, what
 // it may not do (pan, deselect), how the pinch takes over, and that a plain drag still pans.
 describe('the board’s one-finger zoom', () => {
-  type Ev = { id?: number; t: number; type?: string; pointerType?: string }
-  const ev = (x: number, y: number, { id = 1, t, type = 'pointerdown', pointerType = 'touch' }: Ev): ReactPointerEvent => ({
-    clientX: x, clientY: y, pointerId: id, timeStamp: t, type, pointerType,
-    currentTarget: { setPointerCapture: () => {} },
-  } as unknown as ReactPointerEvent)
+  type Ev = { id?: number; t: number; type?: string; pointerType?: string; isPrimary?: boolean; on?: Element }
+  /** a pointer event as React hands it to the canvas; `on` is the element pressed (default: the
+   *  canvas itself), `stopped` records a capture handler's stopPropagation */
+  const ev = (x: number, y: number, { id = 1, t, type = 'pointerdown', pointerType = 'touch', isPrimary, on }: Ev) => {
+    const e = {
+      clientX: x, clientY: y, pointerId: id, timeStamp: t, type, pointerType, isPrimary, target: on, stopped: false,
+      currentTarget: { setPointerCapture: () => {} },
+      stopPropagation() { e.stopped = true },
+    }
+    return e as typeof e & ReactPointerEvent
+  }
 
   const mount = (tool: BoardTool = 'pan') => {
     const scaleRef: MutableRefObject<number> = { current: 1 }
@@ -106,11 +112,18 @@ describe('the board’s one-finger zoom', () => {
       mapY: (_f, y) => y, manipMove: () => {}, manipUp: () => {},
     }))
     const g = () => h.result.current
-    const down = (x: number, y: number, o: Ev) => act(() => { g().trackDown(ev(x, y, o)); g().stageDown(ev(x, y, o)) })
+    /** a press: the capture pass, then — unless something stopped it, or it landed on an object
+     *  whose own handler swallows it (`swallowed`) — the stage's bubble handler */
+    const down = (x: number, y: number, o: Ev, swallowed = false) => act(() => {
+      const e = ev(x, y, o)
+      g().trackDown(e)
+      if (!e.stopped && !swallowed) g().stageDown(e)
+    })
     const move = (x: number, y: number, o: Ev) => act(() => g().stageMove(ev(x, y, { type: 'pointermove', ...o })))
     const up = (x: number, y: number, o: Ev) => act(() => { g().trackUp(ev(x, y, { type: 'pointerup', ...o })); g().stageUp() })
-    const tap = (x: number, y: number, t: number, id = 1) => { down(x, y, { id, t }); up(x, y, { id, t: t + 60 }) }
-    return { down, move, up, tap, applyView, zoomTo, scaleRef, setSelId }
+    const tap = (x: number, y: number, t: number, id = 1, on?: Element) => { down(x, y, { id, t, on }, !!on); up(x, y, { id, t: t + 60 }) }
+    const trackDown = (e: ReactPointerEvent) => g().trackDown(e)
+    return { down, move, up, tap, trackDown, applyView, zoomTo, scaleRef, setSelId }
   }
 
   it('a double tap zooms ×2 about the tap, in canvas coordinates', () => {
@@ -199,6 +212,67 @@ describe('the board’s one-finger zoom', () => {
     b.tap(110, 220, 0)
     b.tap(110, 220, 200, 2)
     expect(b.zoomTo).not.toHaveBeenCalled()
+  })
+
+  // Sweep 28.10.2026 #4 (owner: «It should just work reliably across all different maps and
+  // plans»): a symbol's own handler swallows its press before the stage, so on a busy Gebäude no
+  // tap pair ever formed — the presses are counted in the capture pass now
+  const symbol = () => Object.assign(document.createElement('div'), { className: 'wb-anno wb-symbol' })
+  it('a double tap on a symbol zooms — the first tap is the symbol’s, the second the zoom’s', () => {
+    const b = mount()
+    const on = symbol()
+    b.tap(110, 220, 0, 1, on)
+    const e = ev(110, 220, { id: 2, t: 200, on })
+    act(() => { b.trackDown(e) })
+    expect(e.stopped).toBe(true) // the symbol never sees the second press: no drag, no re-select
+    b.up(110, 220, { id: 2, t: 260 })
+    expect(b.zoomTo).toHaveBeenCalledWith(2, 100, 200)
+  })
+
+  it('tap, then press and drag on a symbol zooms instead of dragging it', () => {
+    const b = mount()
+    const on = symbol()
+    b.tap(110, 220, 0, 1, on)
+    b.down(110, 220, { id: 2, t: 200, on }, true)
+    b.move(110, 240, { id: 2, t: 220 })
+    b.move(110, 240 + 128, { id: 2, t: 300 })
+    expect(b.scaleRef.current).toBeCloseTo(2, 9)
+  })
+
+  it('a selected symbol’s grip, mounted under the finger by the first tap, still takes the double tap', () => {
+    const b = mount()
+    const grip = Object.assign(document.createElement('button'), { className: 'handle shape-rotate' })
+    b.tap(110, 220, 0, 1, symbol())
+    b.tap(110, 220, 200, 2, grip)
+    expect(b.zoomTo).toHaveBeenCalledWith(2, 100, 200)
+  })
+
+  it('a note or Trupp chip keeps its own double tap (it opens the name), and so does a control', () => {
+    for (const cls of ['wb-anno wb-text', 'wb-anno wb-resource']) {
+      const b = mount()
+      const on = Object.assign(document.createElement('div'), { className: cls })
+      b.tap(110, 220, 0, 1, on)
+      const e = ev(110, 220, { id: 2, t: 200, on })
+      act(() => { b.trackDown(e) })
+      expect(e.stopped).toBe(false)
+      b.up(110, 220, { id: 2, t: 260 })
+      expect(b.zoomTo).not.toHaveBeenCalled()
+    }
+    const b = mount()
+    const btn = document.createElement('button')
+    b.tap(110, 220, 0, 1, btn); b.tap(110, 220, 200, 2, btn)
+    expect(b.zoomTo).not.toHaveBeenCalled()
+  })
+
+  it('a pointer whose release never reached the canvas does not turn the next press into a pinch', () => {
+    const b = mount()
+    b.down(100, 100, { id: 1, t: 0, isPrimary: true }) // …its pointerup went elsewhere
+    b.down(100, 100, { id: 2, t: 5000, isPrimary: true })
+    b.move(100, 180, { id: 2, t: 5050 })
+    expect(b.applyView).toHaveBeenLastCalledWith(1, { x: 0, y: 80 }) // a pan, not a pinch
+    b.up(100, 180, { id: 2, t: 5100 })
+    b.tap(110, 220, 6000, 3); b.tap(110, 220, 6200, 4)
+    expect(b.zoomTo).toHaveBeenCalledWith(2, 100, 200) // and the one-finger zoom is alive
   })
 
   it('leaves the mouse alone (a double click opens editors)', () => {

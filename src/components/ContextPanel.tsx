@@ -20,7 +20,7 @@ import { Button, IconButton } from './Button'
 import { compositeSpec } from '../lib/symbolRender'
 import { bareBlack } from '../lib/glyphTile'
 import { UN_CAPABLE, alarmBar, countFieldValue, isMeasuredSymbol, symbolFieldKind } from '../lib/symbols'
-import { ReadingBar, ReadingHistory } from './ReadingParts'
+import { ReadingBar, ReadingHistory, ReadingInfo } from './ReadingParts'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
 import { bearing360 } from '../lib/planProjection'
 import { doneStateText } from '../lib/objectDone'
@@ -45,8 +45,8 @@ const EL_STV = 'Stv.'
 function FieldControl({ fieldKey, value, kind, options, placeholder, officerFilter, rankOf, statusOf, onInput, onCommit }: {
   fieldKey: string
   value: string
-  /** the preset's `fieldKinds` entry (lib/symbols · symbolFieldKind) */
-  kind?: 'count'
+  /** a number field (lib/symbols · symbolFieldKind): the ± stepper, or a measured gas's keypad */
+  kind?: 'count' | 'measured'
   options?: string[]
   placeholder: string
   /** roster picker: sort officers first + offer the "nur Offiziere" filter (leadership symbols) */
@@ -70,10 +70,13 @@ function FieldControl({ fieldKey, value, kind, options, placeholder, officerFilt
         ariaLabel={fieldKey} />
     )
   }
-  // no options → a plain free-text field (commits on blur)
+  // no options → a plain free-text field (commits on blur). A measured gas (the Messpunkt's CO, Ex,
+  // O₂, H₂S – sweep 28.10.2026 #2a) asks the phone for its decimal keypad and a «Fertig» key, but
+  // stays type="text": a number input would refuse the «20,9» a radio report is typed as.
   if (!options?.length) {
     return (
       <input className="kv-val" value={value} placeholder={placeholder}
+        inputMode={kind === 'measured' ? 'decimal' : undefined} enterKeyHint={kind === 'measured' ? 'done' : undefined}
         onChange={(e) => onInput(e.target.value)}
         onBlur={() => onCommit(value)}
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
@@ -1106,7 +1109,8 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
             </div>
           )}
 
-          {/* a Messpunkt's readings, one row per radio report (ReadingParts) */}
+          {/* a Messpunkt's limits behind an ⓘ, then its readings, one row per radio report (ReadingParts) */}
+          {isMeasuredSymbol(entity) && <ReadingInfo symbol={entity.symbol} />}
           {isMeasuredSymbol(entity) && <ReadingHistory entity={entity} />}
 
           {/* read-only ADR hazard readout from the UN number (Gefahrentafel), auto-derived

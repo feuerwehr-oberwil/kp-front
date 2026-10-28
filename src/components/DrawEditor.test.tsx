@@ -174,6 +174,38 @@ describe('line editor order', () => {
   })
 })
 
+/* Owner, sweep 28.10.2026 #19 (pick 19A): the line «Typ» is ONE menu row – letter and word on the
+ * button, all eight in the menu (WW Wasserwerfer added the same day), Leitungen and Haltelinien
+ * split by a rule; Wasser stores nothing. */
+describe('the line Typ menu', () => {
+  const D = appConfig.copy.drawingEditor
+  const L = appConfig.copy.lineDecor
+  it('names the current Typ on its button and picks from the menu', async () => {
+    const onContent = vi.fn()
+    render(<DrawEditor {...base} drawing={{ kind: 'line', content: 'G' }} onContent={onContent} />)
+    const trigger = screen.getByRole('button', { name: `${D.content}: ${L.G}` })
+    expect(trigger.textContent).toContain('G')
+    fireEvent.click(trigger)
+    const items = await screen.findAllByRole('menuitem')
+    expect(items.map((i) => i.textContent)).toEqual(['W' + L.W, 'WW' + L.WW, 'S' + L.S, 'H' + L.H, 'P' + L.P, 'N' + L.N, 'T' + L.T, 'G' + L.G])
+    expect(document.querySelectorAll('.ui-menu-sep')).toHaveLength(1)
+    fireEvent.click(items[0])
+    expect(onContent).toHaveBeenCalledWith(undefined)
+  })
+  it('stores the Wasserwerfer as «WW», never as the W an older Wasser line carries', async () => {
+    const onContent = vi.fn()
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} onContent={onContent} />)
+    fireEvent.click(screen.getByRole('button', { name: `${appConfig.copy.drawingEditor.content}: ${L.W}` }))
+    fireEvent.click((await screen.findAllByRole('menuitem'))[1])
+    expect(onContent).toHaveBeenCalledWith('WW')
+  })
+  it('reads no letter as Wasser', () => {
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} onContent={noop} />)
+    expect(screen.getByRole('button', { name: `${D.content}: ${L.W}` })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: L.S })).toBeNull() // no chip row any more
+  })
+})
+
 // The Einsatzleiter must be able to ask how long the Leitung is without being able to move it:
 // read-only keeps every number and drops every control.
 describe('read-only (viewer / Führungsansicht)', () => {

@@ -172,6 +172,10 @@
 .sym-pill .sym-floor { right: -12px; }
 /* …the same pill in a list row (the Gebäude's Messungen, ReadingParts) */
 .sym-pill.inline { position: static; transform: none; flex: none; }
+/* …and the icon alone, the «Messungen» chip's button (ReadingsChip · bare, pick 9A): a little wider
+   than tall so the colour reads as a pill, not a dot */
+.sym-pill.bare { padding: 0 var(--sp-2); height: 24px; }
+.sym-pill.bare .i { width: 15px; height: 15px; }
 /* inner wrapper carries the symbol's own rotation (chip + glyph rotate together),
    so selection scale / hover stay on the outer .ts and don't fight the rotation */
 .ts-rot { width: 100%; height: 100%; line-height: 0; border-radius: var(--r-xs); }

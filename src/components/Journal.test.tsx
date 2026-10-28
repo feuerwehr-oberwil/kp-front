@@ -3,7 +3,8 @@ import { StrictMode } from 'react'
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { act, render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { Journal } from './Journal'
-import type { TimelineEvent } from '../types'
+import type { BoardAnno, TimelineEvent } from '../types'
+import { liveTargets } from '../lib/verlauf'
 import type { OpenReminder } from '../lib/reminders'
 
 afterEach(cleanup)
@@ -28,7 +29,7 @@ const cls = (id: string) => document.querySelector(`[data-ev="${id}"]`)?.classNa
  *  test that mounts plainly cannot see it. */
 function setup(over: Partial<React.ComponentProps<typeof Journal>> = {}) {
   const props: React.ComponentProps<typeof Journal> = {
-    events, plans: [], onSelect: vi.fn(), onClose: vi.fn(), ...over,
+    events, plans: [], live: liveTargets([], [{ id: 'geb' }], { geb: [{ id: 's7' } as BoardAnno] }), onSelect: vi.fn(), onClose: vi.fn(), ...over,
   }
   render(<StrictMode><Journal {...props} /></StrictMode>)
   return props

@@ -346,10 +346,13 @@ export function LeitungChips({ value, options, onChange, ariaLabel, children }: 
  * «Leitung»: the chips from what is drawn, and «Nr. …» for a number nobody has drawn yet — the
  * hose may be laid before anybody draws it. ONE field for the form and the Auftrag sheet
  * (29.09.2026, sweep 3 T12: the sheet had no «Nr. …», so a Leitung set in one door could not be
- * set in the other). «Nr. …» is a door, not a value: it opens the stepper and steps aside (a filled
- * «Nr. …» beside a filled «keine» read as two answers), and the number typed then stands as its
- * own chip. Open by itself while the value IS such a number (a kept draft, an edit), so the
- * stepper never hides the number it holds. `children` goes under it (the form's legacy note).
+ * set in the other). «Nr. …» is a door, not a value: it opens the stepper IN ITS PLACE at the end
+ * of the chip row (a filled «Nr. …» beside a filled «keine» read as two answers), and the number
+ * typed lives in the stepper only – it used to stand as a chip too, ABOVE the stepper on the next
+ * line, so the value and the control that set it were split across two lines (owner, 28.10.2026).
+ * Open by itself while the value IS such a number (a kept draft, an edit), so the stepper never
+ * hides the number it holds; a tap on a drawn chip or «keine» closes it again. `children` goes
+ * under it (the form's legacy note).
  */
 export function LeitungField({ label, value, options, onChange, children }: {
   label: string
@@ -361,22 +364,26 @@ export function LeitungField({ label, value, options, onChange, children }: {
 }) {
   const az = appConfig.copy.atemschutz
   const [typing, setTyping] = useState(() => value != null && !options.some((o) => o.no === value))
-  const choices = useMemo(() => leitungChoices(value, options), [value, options])
+  // while typing, the stepper holds the typed number – no chip for it as well
+  const choices = useMemo(() => leitungChoices(typing ? null : value, options), [typing, value, options])
   return (
     <div className={s.field}>
       <span>{label}</span>
-      <LeitungChips value={value} options={choices} onChange={onChange} ariaLabel={label}>
-        {!typing && (
+      <LeitungChips value={value} options={choices} ariaLabel={label}
+        onChange={(n) => { setTyping(false); onChange(n) }}>
+        {typing ? (
+          // compact (owner, 28.10.2026: one line on a 390px phone beside a drawn chip): no ✕ – the
+          // «keine» chip at the head of this row IS the reset, and closes the stepper too. Too
+          // many drawn chips and it wraps, but as ONE item (.miniChips), never apart.
+          <Stepper
+            value={value} min={1} max={99} placeholder="–"
+            onChange={onChange}
+            ariaLabel={az.lineTyped}
+          />
+        ) : (
           <Chip onClick={() => setTyping(true)}>{az.lineTyped}</Chip>
         )}
       </LeitungChips>
-      {typing && (
-        <Stepper
-          value={value} min={1} max={99} placeholder="–"
-          onChange={onChange} onClear={() => onChange(null)} canClear={value != null}
-          ariaLabel={az.lineTyped}
-        />
-      )}
       {children}
     </div>
   )

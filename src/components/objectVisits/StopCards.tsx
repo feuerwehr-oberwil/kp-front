@@ -12,11 +12,13 @@ import { getRevisions } from '../../objectVisits/api'
 import { personName, type Revision } from '../../objectVisits/types'
 import { fmtDate, lifecycleLabel } from './ovFormat'
 import { ListRow } from '../ListRow'
+import { ShellLoader } from '../ShellLoader'
 import s from './ObjectVisits.module.css'
 
 /** A row at the visit card's foot. */
-export function CardRow({ icon, title, onClick }: { icon: string; title: string; onClick: () => void }) {
-  return <ListRow lead={<Icon id={icon} />} title={title} onClick={onClick} />
+/** A door row on a stop card; `busy` (a download under way) puts the loader in the glyph's place. */
+export function CardRow({ icon, title, onClick, busy = false }: { icon: string; title: string; onClick: () => void; busy?: boolean }) {
+  return <ListRow lead={busy ? <ShellLoader /> : <Icon id={icon} />} title={title} onClick={onClick} disabled={busy} aria-busy={busy || undefined} />
 }
 
 const short = (iso: string) => `${fmtDate(iso).slice(0, 6)} ${fmtWhen(iso, { todayShort: true }).split(' ').pop()}`
@@ -38,7 +40,7 @@ export function LockedRow({ lockedAt }: { lockedAt: string }) {
  * prod a 10-minute visit left up to 8 of them, 13.10.2026). Nothing while the server cannot be
  * asked: the card above is the visit either way.
  */
-export function VisitHistory({ visitId, onReport }: { visitId: string; onReport: (revision: number) => void }) {
+export function VisitHistory({ visitId, onReport, busyRevision }: { visitId: string; onReport: (revision: number) => void; busyRevision?: number }) {
   const C = appConfig.copy.objectVisits
   const [revs, setRevs] = useState<Revision[] | null>(null)
   const [open, setOpen] = useState(false)
@@ -62,7 +64,8 @@ export function VisitHistory({ visitId, onReport }: { visitId: string; onReport:
         end={corr.length > 0 ? <Icon id="chevron-down" className={`${s.chev} chev`} /> : undefined}
         {...(corr.length ? { onClick: () => setOpen((o) => !o), 'aria-expanded': open } : {})} />
       {open && [...done].reverse().map((r) => (
-        <ListRow key={r.revision} lead={<Icon id="doc" />} onClick={() => onReport(r.revision)}
+        <ListRow key={r.revision} lead={busyRevision === r.revision ? <ShellLoader /> : <Icon id="doc" />}
+          onClick={() => onReport(r.revision)} disabled={busyRevision === r.revision}
           title={r.revision === done[0].revision ? lifecycleLabel('completed') : C.corrected}
           sub={[long(r.acceptedAt), personName(r.acceptedBy)].filter(Boolean).join(' · ')} />
       ))}

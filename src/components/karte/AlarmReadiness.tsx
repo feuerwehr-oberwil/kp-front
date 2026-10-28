@@ -1,5 +1,6 @@
-// «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026): the readiness rows at the top of «Auf
-// diesem Gerät» and under Einstellungen › Gerät, and the Karte home's nudge card. The rules —
+// «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026): the readiness line at the top of «Auf
+// diesem Gerät» and under Einstellungen › Gerät (one line that opens, sweep 28.10.2026), and the
+// Karte home's nudge card. The rules —
 // which row is red, which fix it offers, when the card may show — are lib/alarmReadiness; this
 // file gathers the facts (display mode, Notification.permission, the device record, the login's
 // expiry) and wires the fixes: «Erlauben» = the permission ask + the push registration,
@@ -18,13 +19,13 @@ import { toast } from '../../lib/ui'
 import { ensureNotifyPermission } from '../../lib/alarm'
 import { getInstallPlatform, isStandalone, onInstallStateChange } from '../../lib/installPrompt'
 import {
-  LATER_DAYS, alarmReady, nudgeDue, onReadinessStore, patchReadinessStore, readReadinessStore, readinessRows,
-  type ReadinessFix, type ReadinessRow, type ReadinessStore,
+  LATER_DAYS, alarmReady, nudgeDue, onReadinessStore, patchReadinessStore, readReadinessStore, readinessRows, readinessSummary,
+  type ReadinessFix, type ReadinessRow, type ReadinessState, type ReadinessStore,
 } from '../../lib/alarmReadiness'
 import { disablePush, enablePush, ensurePushSubscription, pushAvailable, renewPushSubscription, sendTestPush } from '../../lib/push'
-import { Button } from '../Button'
+import { Button, IconButton } from '../Button'
 import { InstallGuide } from '../InstallGuide'
-import { ListCard, ListGroup, ListRow } from '../ListRow'
+import { ListCard, ListRow } from '../ListRow'
 import s from './Karte.module.css'
 import { publishHeight } from '../../lib/publishHeight'
 
@@ -113,42 +114,75 @@ function Row({ row, onFix }: { row: ReadinessRow; onFix: (fix: ReadinessFix) => 
   )
 }
 
-/** The rows, the Testalarm and the opt-out — at the top of «Auf diesem Gerät» and under
- *  Einstellungen › Gerät. Nothing for a link session (no login, no push). Seeing the rows green
- *  counts as a check (the nudge card's 90-day clock). */
+/** «Alarm auf diesem Gerät» as ONE line that opens — at the top of «Auf diesem Gerät» and under
+ *  Einstellungen › Gerät (owner's pick 17A, sweep 28.10.2026: «drop the title, since the card is
+ *  already its own title»). Closed: «✓ Alarm bereit · Getestet am …» with the Testalarm on it, the
+ *  one button anyone presses here. A row that is not green always stands open under it, fix and
+ *  all (amber reads «Alarm bereit · 1 Hinweis», red «Kein Alarm auf diesem Gerät»); ⌄ opens the
+ *  green rows and the opt-out. Nothing for a link session (no login, no push). Seeing the rows
+ *  green counts as a check (the nudge card's 90-day clock). */
 export function AlarmReadinessRows({ className }: { className?: string }) {
   const A = appConfig.copy.karte.device.alarm
   const { rows, store, available, refresh, linkSession } = useAlarmReadiness()
   const { run, test, optOut, optIn, guideEl } = useFixes(refresh)
+  const [open, setOpen] = useState(false)
   const ready = alarmReady(rows)
   useEffect(() => {
     if (!ready || !available || store.optedOut) return
     if (store.lastCheck == null || Date.now() - store.lastCheck > DAY) patchReadinessStore({ lastCheck: Date.now() })
   }, [ready, available, store.optedOut, store.lastCheck])
   if (linkSession) return null
-  const lastTest = store.lastTest != null ? fillTemplate(A.testLast, { d: fmtDay(new Date(store.lastTest).toISOString()) }) : A.testNever
+  // a deployment without push (no VAPID pair) wakes no device: never «bereit», and no Testalarm
+  const s0 = available === false ? { state: 'warn' as const, sub: A.unavailable } : summary(rows, store.lastTest)
+  const toggle = (
+    <IconButton label={open ? A.hideAll : A.showAll} aria-expanded={open} onClick={() => setOpen((v) => !v)} data-alarm-toggle="">
+      <Icon id="chevron-down" className="chev" />
+    </IconButton>
+  )
+  const head = store.optedOut ? (
+    <ListRow className={s.alarmSum} lead={<Icon id="bell-off" />} title={A.optedOut} sub={A.optedOutSub} data-alarm-summary="off"
+      end={<span className={s.alarmSumEnd}><Button variant="primary" onClick={() => void optIn()}>{A.optIn}</Button>{toggle}</span>} />
+  ) : (
+    <ListRow className={s.alarmSum} data-alarm-summary={s0.state}
+      lead={s0.state === 'ok' ? <Icon id="check" className={s.alarmOk} /> : <span className={cx(s.alarmDot, s0.state === 'warn' ? s.alarmWarn : s.alarmRed)} aria-hidden />}
+      title={<span className={cx(s0.state === 'red' && s.alarmHeadRed)}>{s0.state === 'red' || available === false ? A.notReady : A.ready}</span>}
+      sub={s0.sub}
+      end={<span className={s.alarmSumEnd}>
+        {available !== false && <Button onClick={() => void test()} aria-label={A.test} data-alarm-test="">{A.testShort}</Button>}
+        {toggle}
+      </span>} />
+  )
+  // closed: only what needs a look; open: every row, and the opt-out where push is still on
+  const shown = open ? rows : rows.filter((r) => r.state !== 'ok')
   return (
     <div className={cx(s.alarmRows, className)} data-alarm-rows="">
-      <ListGroup label={A.title} end={available === false ? undefined : ready && !store.optedOut ? <Icon id="check" className={s.alarmOk} /> : undefined}>
-        {rows.map((r) => <Row key={r.key} row={r} onFix={(f) => void run(f)} />)}
-        {store.optedOut ? (
-          <ListRow lead={<Icon id="bell-off" />} title={A.optedOut} sub={A.optedOutSub}
-            end={<Button variant="primary" onClick={() => void optIn()}>{A.optIn}</Button>} data-alarm-optout="" />
-        ) : (
+      <ListCard>
+        {head}
+        {shown.map((r) => <Row key={r.key} row={r} onFix={(f) => void run(f)} />)}
+        {open && !store.optedOut && (
           <ListRow lead={<Icon id="bell-off" />} title={A.optOut} sub={A.optOutSub} chevron={false} onClick={() => void optOut()} data-alarm-optout="" />
         )}
-      </ListGroup>
-      {available === false ? (
-        <div className={cx(s.note, s.amber)}><Icon id="info" /><span>{A.unavailable}</span></div>
-      ) : !store.optedOut && (
-        <div className={s.alarmTest}>
-          <Button icon={<Icon id="bell" />} onClick={() => void test()} data-alarm-test="">{A.test}</Button>
-          <span className={s.src}>{lastTest}</span>
-        </div>
-      )}
+      </ListCard>
       {guideEl}
     </div>
   )
+}
+
+/** The closed line's state and words (lib/alarmReadiness · readinessSummary), each with when
+ *  this device was last tested. */
+function summary(rows: readonly ReadinessRow[], lastTest: number | null): { state: ReadinessState; sub: string } {
+  const A = appConfig.copy.karte.device.alarm
+  const d = lastTest != null ? fmtDay(new Date(lastTest).toISOString()) : null
+  // the hint line is longer, so its date drops the year («getestet 20.10.»)
+  const dm = d ? d.slice(0, 6) : null
+  const { state, count } = readinessSummary(rows)
+  const n = { n: String(count) }
+  if (state === 'red') return { state, sub: count === 1 ? A.missingOne : fillTemplate(A.missingMany, n) }
+  if (state === 'warn') {
+    const hints = count === 1 ? A.hintOne : fillTemplate(A.hintMany, n)
+    return { state, sub: `${hints} · ${dm ? fillTemplate(A.testedShort, { d: dm }) : A.neverShort}` }
+  }
+  return { state, sub: d ? fillTemplate(A.testedOn, { d }) : A.testNever }
 }
 
 // the card's height as `--nudge-h`: the toasts stand under it, not on its head (08-toasts / 15-mobile ·

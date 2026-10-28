@@ -3,8 +3,9 @@
  * zooms ×2 and **tap, then press-and-drag** zooms continuously (down = in, up = out, ×2 per
  * 128 px) — MapLibre's own gestures and numbers (500 ms / 30 px), except that the drag zooms
  * about the FIRST tap instead of the screen centre. One pure state machine serves the boards
- * (`useBoardGestures`, and the create tools' ink through `tapZoomPress`; presses on empty board
- * only — objects swallow their own; the second press never pans or deselects) and the PDF reader
+ * (`useBoardGestures`, and the create tools' ink through `tapZoomPress`; under Auswahl and
+ * Mehrfach a press on an object counts too — the first tap still selects, the second press is the
+ * zoom's and never pans, drags or deselects) and the PDF reader
  * (`PdfScroller`: its double tap still toggles fit ↔ 2×). Touch and pen only: a mouse has the
  * wheel, and a double CLICK on the board opens editors.
  *
@@ -107,6 +108,33 @@ export type ToolGesture = 'navigate' | 'measure' | 'place' | 'draw'
  */
 export function oneFingerZoom(kind: ToolGesture): Required<OneFingerZoom> {
   return { step: kind === 'navigate' || kind === 'draw', drag: kind === 'navigate' || kind === 'measure' }
+}
+
+interface Switch { enable(): void; disable(): void; isEnabled(): boolean }
+/** The slice of a MapLibre map (4.7–6.x) whose own one-finger zooms `setMapOneFingerZoom`
+ *  switches: `doubleClickZoom` is the double tap (and the mouse's double click), `_tapDragZoom`
+ *  the tap-and-drag, riding inside `touchZoomRotate` beside the pinch (`_touchZoom`). Both
+ *  internals are typed in maplibre-gl's own d.ts, just not documented. */
+export interface MapOneFingerZoomHandlers {
+  doubleClickZoom: Switch
+  touchZoomRotate: { _touchZoom: Pick<Switch, 'isEnabled'>; _tapDragZoom: Switch }
+}
+
+/**
+ * Switches a MapLibre map's OWN one-finger zooms to what the armed tool allows (`oneFingerZoom`)
+ * — MapView, on the Lage and the Karte. The tap-and-drag follows the pinch: on only while the
+ * pinch is.
+ * ⚠️ Asks the PINCH (`_touchZoom`), never `touchZoomRotate.isEnabled()`: that one is «pinch AND
+ * rotation AND tap-and-drag», so once a tap-to-place tool had switched the tap-and-drag off it
+ * read «off» for good and nothing switched it back on — after one symbol placed, tap-and-drag
+ * zoom was gone from the map until a reload (sweep 28.10.2026 #4).
+ */
+export function setMapOneFingerZoom(map: MapOneFingerZoomHandlers, allow: Required<OneFingerZoom>): void {
+  if (allow.step) map.doubleClickZoom.enable()
+  else map.doubleClickZoom.disable()
+  const { _touchZoom: pinch, _tapDragZoom: tapDrag } = map.touchZoomRotate
+  if (allow.drag && pinch.isEnabled()) tapDrag.enable()
+  else tapDrag.disable()
 }
 
 export interface TapDragZoom {

@@ -86,7 +86,8 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   The Trupps section heads draw no rule either (29.09.2026 — see the Atemschutz board).
 
 A hairline also survives where it carries a label (`.jr-day-sep`) or guards a destructive row
-in a `Menu`.
+in a `Menu`, or splits a pick list into its two kinds (the line «Typ»: Leitungen W WW S H P │
+Haltelinien N T G, 28.10.2026).
 And **no native form
 control** on these surfaces: the app's own `Menu` instead of a `<select>`, the `Stepper`
 instead of a number field, `components/Slider` instead of `<input type="range">`.
@@ -132,6 +133,11 @@ footer is the danger alone (TimeBlockSheet `danger` — the Anwesenheit's «Pers
   «THE button»), 44px on every pointer and 52 for `lg`, so a hand-written `.ip-btn` and a
   `<Button>` cannot drift apart and 20-touch-floors needs no entry for either. The sheet ✕ stays
   `.ip-x` (36px, grey, 44 pad; owner spec below), not an `IconButton`.
+- **A print or download that waits on something shows `ShellLoader` in its button** (28.10.2026,
+  owner: «all printing and downloading things have a spinner»): the loader takes the glyph's place
+  (or leads the label), the button is `disabled` + `aria-busy` until the file is out, and a sheet
+  that offers the download stays open until then (Zeitplan). A phone that hides the button's
+  word (Tafel «Drucken») is why the label alone is not enough. Instant local exports need none.
 
 ## Overlays
 
@@ -157,7 +163,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   list you work in while you look at the map / board / page** — Ebenen, the «+»
   chooser, a symbol's editor (`.ctx`), the composer, the Verlauf, the map picker, the plan's
   Passung, every form and settings sheet — is a **slide-up bottom sheet**: flush with the bottom edge and both sides, over the bars,
-  the ONE grab bar on top, pushed down to close (`useSwipeDismiss`; the head is the handle),
+  the ONE grab bar on top, pushed down to close (`useSwipeDismiss`; the head is the handle, and so
+  is the body from its scroll-top — rows and buttons included, never a field, a slider or a map; sweep 28.10.2026),
   lifted by the keyboard (`keyboardLift`), the bottom inset paid by its last row. It HUGS its
   content up to a cap that leaves the top of the map in sight, so it grows upward and its foot
   never moves under the thumb. Detents only where the surface has two useful heights (the
@@ -531,7 +538,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   a new gesture reuses these or it teaches a second language. Any new touch interaction must:
   - *Hold on the 350 ms beat* when the hold **reveals or offers** – the icon-only hold-tooltip
     (`src/lib/holdTooltip.ts` · `HOLD_MS`) and the Eintrag hold (`src/lib/useHoldEntry.ts` ·
-    `HOLD_MS`) share it, so every still hold answers alike. The holds that are not «reveal» keep
+    `HOLD_MS`) share it, so every still hold answers alike. A disclosure (`aria-expanded`: the ⓘ,
+    a menu or card toggle) is never hold-explained – its tap already shows what it means, and
+    the same words twice read as a glitch (28.10.2026). The holds that are not «reveal» keep
     their own documented numbers: `useHoldToDrag` arms a drag at 180 ms, `nodeHold.ts` arms at
     250 ms and fires destructively at 825 ms. Reuse a constant; don't invent a third window.
   - *Meaning never lives in a `title` or a colour alone* (UX sweep F6, 20.10.2026): a tablet
@@ -565,6 +574,13 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     sweep M4). A tap-to-place tool (Punkte, Hinzufügen, Notiz, Trupp, Koordinaten, Form, Massstab,
     Kreis) — neither; a tap places, the pinch zooms. Pinch always navigates.
     Nothing finishes on a double tap — ✓ finishes a Punkte Linie / Fläche.
+    A press on an object counts like one on empty paper (28.10.2026, owner: «It should just work
+    reliably across all different maps and plans»): the first tap still selects, the second press
+    of the pair is the zoom's and never reaches the object (on a Plan, `useBoardGestures` counts
+    presses in the capture pass). Not counted on a Plan: controls, and the notes and Trupp chips
+    whose own double tap opens their name. On the map the switches are
+    `lib/tapDragZoom · setMapOneFingerZoom` – never `touchZoomRotate.isEnabled()`, which reads
+    «off» for good once the tap-and-drag was switched off once.
   - *Pressed state is the `--press` wash* – `background-image: linear-gradient(var(--press),
     var(--press))` on `:active:not(:disabled)`, so it composes over any background colour.
     **Nothing moves**: no scale, no translate – motion on press reads as lag under a glove.

@@ -9,7 +9,9 @@ import { loadRoster } from '../../lib/usePersonnel'
 import { Modal } from './_shared'
 import { OnOff, Segmented } from '../Segmented'
 import { Stepper } from '../Stepper'
+import { Slider } from '../Slider'
 import { Button } from '../Button'
+import { ShellLoader } from '../ShellLoader'
 import { compareText } from '../../lib/format'
 import { AlarmReadinessRows } from '../karte/AlarmReadiness'
 
@@ -19,7 +21,9 @@ const scalePct = (v: number) => `${Math.round(v * 100)}\u00a0%`
 
 /** One Symbolgrösse row: a labelled slider over that surface's band plus its live value.
  *  Continuous under the thumb (0.05 steps) and live — the map and the plan re-render from the
- *  same prop, so the symbols behind the sheet resize while you drag. */
+ *  same prop, so the symbols behind the sheet resize while you drag. The app's own `Slider`, not
+ *  a native range (sweep 28.10.2026 #18: the range «didn't function like a normal slider» under the
+ *  sheet's scroll lock, and gave a finger a 4px-tall target). */
 function ScaleRow({ surface, label, sub, value, onChange }: {
   surface: SymbolSurface
   label: string
@@ -32,11 +36,8 @@ function ScaleRow({ surface, label, sub, value, onChange }: {
     <div className="set-row">
       <span className="set-row-l">{label}<small>{sub}</small></span>
       <span className="set-range">
-        <input
-          type="range" min={r.min} max={r.max} step={r.step} value={value}
-          aria-label={label} aria-valuetext={scalePct(value)}
-          onChange={(e) => onChange(surface, Number(e.target.value))}
-        />
+        <Slider value={value} min={r.min} max={r.max} step={r.step} ariaLabel={label} valueText={scalePct(value)}
+          onChange={(v) => onChange(surface, v)} />
         <b className="set-range-val">{scalePct(value)}</b>
       </span>
     </div>
@@ -149,8 +150,9 @@ export function SettingsSheet({
       <div className="set-sheet">
         <section className="set-group">
           <h3 className="set-group-t">{cp.deviceGroup}</h3>
-          {/* «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026): the same rows as the Karte home's
-              «Auf diesem Gerät», so the fix is also where somebody looks for a switch */}
+          {/* «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026): the same line as the Karte home's
+              «Auf diesem Gerät», so the fix is also where somebody looks for a switch — one line
+              that opens, no heading of its own (sweep 28.10.2026, 17A) */}
           <AlarmReadinessRows className="set-alarm" />
           <div className="set-card">
             <div className="set-row">
@@ -240,7 +242,8 @@ export function SettingsSheet({
           <div className="set-card">
             <div className="set-row">
               <span className="set-row-l">{cp.blankSheet}<small>{cp.blankSheetSub}</small></span>
-              <Button icon={<Icon id="doc" />} disabled={sheetBusy} onClick={() => void downloadBlankSheet()}>
+              {/* the roster fetch and the PDF chunk take a moment: the loader says it is working (28.10.2026) */}
+              <Button icon={sheetBusy ? <ShellLoader /> : <Icon id="doc" />} disabled={sheetBusy} aria-busy={sheetBusy || undefined} onClick={() => void downloadBlankSheet()}>
                 {cp.blankSheetDownload}
               </Button>
             </div>

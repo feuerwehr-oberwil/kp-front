@@ -258,7 +258,8 @@
 .draw-editor .de-trupp { display: inline-flex; align-items: center; gap: 4px; max-width: 62%; min-width: 0; }
 /* the picker itself — our own button + Menu, sized and coloured like every other row control
    (a native <select> dropped macOS chrome into the middle of the panel) */
-.draw-editor .de-menu-trigger { display: inline-flex; align-items: center; gap: 8px; min-width: 0; min-height: 38px;
+/* 44px like the steppers beside them (owner, 28.10.2026 · 19x) – Typ and Trupp alike */
+.draw-editor .de-menu-trigger { display: inline-flex; align-items: center; gap: 8px; min-width: 0; min-height: var(--tap);
   padding: 8px 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
   color: var(--ink); font: var(--fw-bold) var(--fs-2)/1.2 var(--body); cursor: pointer; }
 .draw-editor .de-menu-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -283,6 +284,10 @@
 .de-menu-tick { flex: none; width: 15px; height: 15px; visibility: hidden; color: var(--blue); }
 .de-menu-tick.on { visibility: visible; }
 .de-menu-tick svg { width: 100%; height: 100%; }
+/* the FKS letter before a line «Typ» (DrawEditor · MenuPick badge), on the trigger and in the menu */
+.de-menu-badge { flex: none; display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 4px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); color: var(--ink-dim);
+  font: var(--fw-bold) var(--fs-1)/1 var(--mono); }
 /* (the «›» to the coupled Trupp is THE icon button, <IconButton>, a --tap square at every pointer;
    it was 32px and grew only under a finger) */
 

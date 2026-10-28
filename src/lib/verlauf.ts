@@ -1,6 +1,6 @@
 import { appConfig } from '../config/appConfig'
 import { formatTime, formatLocale } from './format'
-import type { JournalEntryType, TimelineEvent } from '../types'
+import type { BoardDoc, JournalEntryType, TimelineEvent } from '../types'
 
 /**
  * Verlauf display helpers: localized row times, the Nachtrag boundary, and day grouping.
@@ -20,9 +20,52 @@ export const rowTime = (e: TimelineEvent): string => (e.at ? formatTime(new Date
  *  CLOSED_CLOCK_TOLERANCE), so the flag can never carry a real Nachtrag off the paper. */
 export const AT_CLOSE_TOLERANCE_MS = 120_000
 
-// A row is clickable only when it carries a real jump target: a map entity, a
-// pinned map point, or something ON a plan. Plain log lines (undo/redo, deletions,
-// surface-only journal notes) are read-only — the journal is a record, not a UI.
+/** What the Einsatz still holds – the second half of «is this row a way somewhere»
+ *  (`rowTarget`). Built by `liveTargets` from the workspace's current state and handed to the
+ *  Verlauf; the lookups build their sets on first use, so an unopened drawer costs nothing. */
+export interface LiveTargets {
+  /** a Karte object or drawing the jump can select (useJournalWriters · focusEvent looks in the
+   *  same lists) */
+  entity: (id: string) => boolean
+  /** a plan document in this Einsatz's catalog (the Gebäude only while its stack exists) */
+  plan: (planId: string) => boolean
+  /** an object still standing on that plan */
+  anno: (planId: string, annoId: string) => boolean
+}
+
+/** The `LiveTargets` of a workspace: its Karte objects and drawings, its plan catalog and its
+ *  plans' objects. */
+export function liveTargets(mapObjects: readonly { id: string }[], plans: readonly { id: string }[], board: BoardDoc): LiveTargets {
+  let ents: Set<string> | undefined, planIds: Set<string> | undefined
+  const annos = new Map<string, Set<string>>()
+  return {
+    entity: (id) => (ents ??= new Set(mapObjects.map((x) => x.id))).has(id),
+    plan: (id) => (planIds ??= new Set(plans.map((p) => p.id))).has(id),
+    anno: (planId, annoId) => {
+      let on = annos.get(planId)
+      if (!on) annos.set(planId, on = new Set((board[planId] ?? []).map((a) => a.id)))
+      return on.has(annoId)
+    },
+  }
+}
+
+/** A row that took something away: «… gelöscht», «n Objekte vom Plan gelöscht», a storey removed.
+ *  Every removal writer stamps the ✕ glyph (useMapActions, useMapDrawing, usePlanRemoval,
+ *  useGebaeudeActions) – and so did the rows written before `subjectId` existed (03.09.). */
+const isRemoval = (e: TimelineEvent) => e.icon === 'close'
+
+// A row is clickable only when it carries a real jump target that STILL EXISTS: a map entity, a
+// pinned map point, or something ON a plan. Plain log lines (undo/redo, surface-only journal
+// notes) are read-only — the journal is a record, not a UI.
+//
+// ⚠️ A removal row is never a target (owner, sweep 28.10.2026 #6): the thing it names is gone.
+// `logPlan` stamps every plan row `kind: 'symbol'` unless told otherwise, so a plan deletion used
+// to pass the placement test below and offer a jump to a plan that no longer showed it.
+//
+// ⚠️ …and neither is a row whose object has since gone (same sweep): an `entityId` no longer on
+// the Karte, a plan no longer in the catalog (a Gebäude whose stack was removed), an `annoId` no
+// longer on its plan. A row whose object went but which also carries a map point (`coord`) still
+// lands on the point – a place outlives the thing that stood on it.
 //
 // ⚠️ A plan row is a target when it is about a THING on the plan: it names the annotation
 // (`annoId`) or its spot (`px`), or — for the rows written before either was recorded — it is one
@@ -35,12 +78,16 @@ export const AT_CLOSE_TOLERANCE_MS = 120_000
 // document alone and lands on it — which is all any plan row ever did. The record is append-only,
 // so those rows are never going to grow coordinates; landing them on the right plan with nothing
 // selected is the graceful floor, not a bug to guard against.
-export const rowTarget = (e: TimelineEvent): 'map-entity' | 'map-pin' | 'plan' | null => {
-  if (e.entityId) return 'map-entity'
+//
+// (During a Wiedergabe every row is a way into the picture regardless – JournalRow · seekable.)
+export const rowTarget = (e: TimelineEvent, live: LiveTargets): 'map-entity' | 'map-pin' | 'plan' | null => {
+  if (isRemoval(e)) return null
+  if (e.entityId && live.entity(e.entityId)) return 'map-entity'
   if (e.coord) return 'map-pin'
+  if (e.entityId) return null
   const placedOnPlan = e.annoId != null || e.px != null || e.kind === 'symbol' || e.kind === 'team'
-  if (e.surface === 'plan' && e.planId && placedOnPlan) return 'plan'
-  return null
+  if (e.surface !== 'plan' || !e.planId || !placedOnPlan || !live.plan(e.planId)) return null
+  return e.annoId == null || live.anno(e.planId, e.annoId) ? 'plan' : null
 }
 
 /** appended after the Einsatzende (closed_at) → renders as a Nachtrag — and so does a row the

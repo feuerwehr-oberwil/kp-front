@@ -347,7 +347,8 @@ The rules that are easy to break:
   no peek. It sits over the bar but under the top bar (`--z-chrome-raised`), so the menu button and the
   search still open over it. ✕ or a push down closes the SHEET only: the place stays selected —
   outline, tag, pin, `?objekt=` — and a tap on it again brings the sheet back; a tap on empty map
-  deselects. A place selected on a phone is framed in the strip above the sheet (the deep link's
+  deselects. A dropped point (Punkt setzen) is the exception: it exists only for its panel, so
+  closing that takes it off the map (28.10.2026, owner). A place selected on a phone is framed in the strip above the sheet (the deep link's
   first frame too). The tablet keeps the left panel, its rail and ✕ = deselect.
 - **A plan opens in the Einsatz's plan reader, read-only** (owner R2: «the normal pdf viewer we
   have just without the annotation»). `KartePlans · KartePlanBoard` mounts the Plan surface's own
@@ -1012,7 +1013,10 @@ What the surface shows offline:
 
 - **«Auf diesem Gerät» opens with «Alarm auf diesem Gerät»** (3am sweep §1, 23.10.2026): the four
   readiness rows (installed · Benachrichtigung · Alarm-Abo · Anmeldung) with their one-tap fixes,
-  «Testalarm senden» and the opt-out – the same rows as under Einstellungen › Gerät
+  the Testalarm and the opt-out – the same as under Einstellungen › Gerät. Since 28.10.2026 (owner's
+  pick 17A) they fold into ONE line with no heading: «✓ Alarm bereit · Getestet am …» with the
+  Testalarm on it and a ⌄ that opens the green rows and the opt-out; a row that is amber
+  («Alarm bereit · 1 Hinweis …») or red («Kein Alarm auf diesem Gerät») always stands open under it
   (`karte/AlarmReadiness`, rules in `lib/alarmReadiness`; the push side in
   [`divera-connector.md`](divera-connector.md)). The home's nudge card (`AlarmNudgeCard`, under the
   bar) shows only when a row is red or nothing was checked for 90 days, never while an Einsatz runs,

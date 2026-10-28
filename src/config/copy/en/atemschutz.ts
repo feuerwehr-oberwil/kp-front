@@ -433,6 +433,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
   },
   lineDecor: {
     W: 'Water',
+    WW: 'Water cannon',
     S: 'Foam',
     H: 'Water curtain',
     P: 'Powder',

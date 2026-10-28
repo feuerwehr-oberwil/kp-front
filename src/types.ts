@@ -54,7 +54,7 @@ export type ShapeKind = 'arrow' | 'cloud' | 'square' | 'rotation'
  * Gegenfeuer, Handbuch S. 52) — the same question asked of a different line, so the same field
  * answers it rather than a second one nobody would find. Names in copy · lineDecor.
  */
-export type LineContent = 'S' | 'W' | 'H' | 'P' | 'N' | 'T' | 'G'
+export type LineContent = 'S' | 'W' | 'WW' | 'H' | 'P' | 'N' | 'T' | 'G'
 
 /** The built-in steppers in the symbol editor that change how the glyph reads on
  *  the surface: `rotation` (orientation), `count` (quantity badge), `floor` (storey
@@ -414,8 +414,9 @@ export interface Drawing {
   // --- FKS hose-line annotations (lines only) ---
   /** Teilstück coupling at the line end: a forward "E"-fork instead of an arrowhead. */
   teilstueck?: boolean
-  /** FKS device/content letter at the line end: S=Schaumrohr, W=Wasserwerfer,
-   *  H=Hydroschild, P=Pulverpistole. Wasser = plain line (unset). */
+  /** FKS device/content letter at the line end: S=Schaumrohr, WW=Wasserwerfer, H=Hydroschild,
+   *  P=Pulverpistole. Wasser = plain line (unset); a stored 'W' is an older build's Wasser chip and
+   *  reads as Wasser – which is why the Wasserwerfer is «WW», not the FKS letter W (28.10.2026). */
   content?: LineContent
   /** Druckleitung number shown in a small box on the line (e.g. 1. Druckleitung). ALSO the
    *  identity of the Leitung for the Atemschutz link: the same number on the Lage and on a Plan
@@ -910,7 +911,7 @@ export interface BoardAnno extends SymbolProps {
   content?: LineContent
   lineNo?: number            // Druckleitung number in a small box on the line (= Leitung identity, see Drawing)
   floorTag?: number          // storey the line works on, signed badge (+2 / 0 / -1)
-  endDx?: number             // draw: screen-space nudge of the FKS end-tag off other symbols
+  endDx?: number             // draw: the FKS end tag's old nudge – no longer drawn, the tag is pinned to its line (28.10.2026)
   endDy?: number
   fillOpacity?: number       // area: polygon fill opacity (0..1); absent = a sensible default
   hatch?: boolean            // area: schraffiert statt gefüllt (lib/draw · Schraffur)

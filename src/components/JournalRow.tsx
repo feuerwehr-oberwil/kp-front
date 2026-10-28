@@ -76,7 +76,7 @@ export type AudioWindow = { row: TimelineEvent; start: number; end: number }
 type Draft = { id: string; value: string } | null
 
 type JournalRowProps = Pick<JournalProps,
-  'closedAt' | 'replayAtMs' | 'onSelect' | 'onSeekTo' | 'onTranscript' | 'onEditText' | 'onOpenPlayer'
+  'live' | 'closedAt' | 'replayAtMs' | 'onSelect' | 'onSeekTo' | 'onTranscript' | 'onEditText' | 'onOpenPlayer'
   | 'onReminderDone' | 'onReminderAgain' | 'mediaStatusOf'> & {
   e: TimelineEvent
   plans: PlanDocument[]
@@ -110,12 +110,12 @@ type JournalRowProps = Pick<JournalProps,
 /** One Verlauf row: time, disc, the sentence, its trail of footnotes/media/controls, and the
  *  transcript lines and inline editors under it. Rendered by Journal once per shown row. */
 export function JournalRow({
-  e, plans, closedAt, now, replayAtMs, openMap, repeated, pendenzTitles, pendenzRowIds, audioWindows, playing,
+  e, plans, live, closedAt, now, replayAtMs, openMap, repeated, pendenzTitles, pendenzRowIds, audioWindows, playing,
   editTx, editRow, marked, jumpToRow, onTogglePlay, onOpenDetail, setEditTx, setEditRow, saveTranscript, saveRowText,
   onSelect, onSeekTo, onTranscript, onEditText, onOpenPlayer, onReminderDone, onReminderAgain, mediaStatusOf,
 }: JournalRowProps) {
   const C = appConfig.copy.journal
-  const target = rowTarget(e)
+  const target = rowTarget(e, live)
   // ── during a Wiedergabe every row is a way into the picture ──
   // A row's tap sets the MOMENT, so the map, the Trupps and the Plan all read as they
   // did when the line was written. That is the question the old «anheften» toggle was

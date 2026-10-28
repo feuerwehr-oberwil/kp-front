@@ -198,17 +198,13 @@ function projectOntoSheet(o: TacticalObject, plan: PlanFit, margin: number): Boa
   // — the board clips the SVG at its own edge, and a Fläche around the building is exactly that.
   const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1])
   if (Math.max(...xs) < -margin || Math.min(...xs) > 1 + margin || Math.max(...ys) < -margin || Math.min(...ys) > 1 + margin) return null
-  // The label and the FKS end tag are anchored to the GROUND on the Karte (`labelAt`,
-  // `endLabelAt`) and to the ink on the sheet (a nudge off the default spot), so they cross as
-  // the offset from that default: the midpoint for the label, 72 % along the last segment for
-  // the tag — the one rule both surfaces draw with.
+  // The label is anchored to the GROUND on the Karte (`labelAt`) and to the ink on the sheet (a
+  // nudge off the midpoint), so it crosses as the offset from that midpoint. The FKS end tag's
+  // ground point (`endLabelAt`) does NOT cross: on the sheet the tag is pinned to its line
+  // (PlanLineDecor, sweep 28.10.2026 #8b) – carried over, it put the tag wherever that ground
+  // happened to be on the sheet, off the line.
   const mid = pts[Math.floor((pts.length - 1) / 2)]
-  const n = pts.length
-  const tagBase = d.kind === 'line' && n >= 2
-    ? [pts[n - 2][0] + (pts[n - 1][0] - pts[n - 2][0]) * 0.72, pts[n - 2][1] + (pts[n - 1][1] - pts[n - 2][1]) * 0.72]
-    : null
   const labelAt = d.labelAt ? pt(fit, d.labelAt) : null
-  const endAt = d.endLabelAt ? pt(fit, d.endLabelAt) : null
   return {
     id: o.id, kind: d.kind === 'line' ? 'draw' : 'area', pts,
     color: d.color, width: d.width, dashed: d.dashed, arrow: d.arrow, arrowStop: d.arrowStop,
@@ -218,8 +214,6 @@ function projectOntoSheet(o: TacticalObject, plan: PlanFit, margin: number): Boa
     hatch: d.hatch,
     labelDx: labelAt && mid ? labelAt.x - mid[0] : undefined,
     labelDy: labelAt && mid ? labelAt.y - mid[1] : undefined,
-    endDx: endAt && tagBase ? endAt.x - tagBase[0] : undefined,
-    endDy: endAt && tagBase ? endAt.y - tagBase[1] : undefined,
     teilstueck: d.teilstueck, content: d.content, lineNo: d.lineNo, floorTag: d.floorTag,
     truppId: d.truppId,
     // ⚠️ The lock crosses too. Without it a Fläche locked on the Karte was still draggable
