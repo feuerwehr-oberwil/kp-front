@@ -30,6 +30,14 @@ describe('measuredPoints — the «Messungen» list', () => {
     expect(list[2].at).toEqual({ surface: 'map' })
   })
 
+  // sweep 28.10.2026 #3 – «an old Ex of 24 and a new one of 30, the list only showed the 24»
+  it('two points at the same stage: the newer, higher reading leads, not the one stored first', () => {
+    const now = 60 * 60_000
+    const ex = (id: string, v: string, t: number) => onMap(ent(id, { fields: { Ex: v }, readings: [{ t, v: { Ex: v } }] }))
+    expect(measuredPoints([ex('alt', '24', now - 30 * 60_000), ex('neu', '30', now - 60_000)], names, now).map((p) => p.id))
+      .toEqual(['neu', 'alt'])
+  })
+
   it('names the storey of a Karte point that has one', () => {
     const [p, q] = measuredPoints([
       onMap(ent('m', { floor: -1, fields: { CO: '3' } })),

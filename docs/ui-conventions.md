@@ -531,7 +531,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   a new gesture reuses these or it teaches a second language. Any new touch interaction must:
   - *Hold on the 350 ms beat* when the hold **reveals or offers** – the icon-only hold-tooltip
     (`src/lib/holdTooltip.ts` · `HOLD_MS`) and the Eintrag hold (`src/lib/useHoldEntry.ts` ·
-    `HOLD_MS`) share it, so every still hold answers alike. The holds that are not «reveal» keep
+    `HOLD_MS`) share it, so every still hold answers alike. A disclosure (`aria-expanded`: the ⓘ,
+    a menu or card toggle) is never hold-explained – its tap already shows what it means, and
+    the same words twice read as a glitch (28.10.2026). The holds that are not «reveal» keep
     their own documented numbers: `useHoldToDrag` arms a drag at 180 ms, `nodeHold.ts` arms at
     250 ms and fires destructively at 825 ms. Reuse a constant; don't invent a third window.
   - *Meaning never lives in a `title` or a colour alone* (UX sweep F6, 20.10.2026): a tablet

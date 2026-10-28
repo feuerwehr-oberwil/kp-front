@@ -136,8 +136,8 @@ export function useWbBodyDrag({ tool, readOnly, annos, setAnnoTap, setSelId, set
   // --- drag a Linie's free-text label to a per-line offset (normalized board fractions, so it
   // tracks under zoom), mirroring the Lage map's moveLabel. Folds into one undo step like the
   // stroke move: snapshot on first move, stream, emit on release. ---
-  const labelDrag = useRef<{ id: string; sx: number; sy: number; dx0: number; dy0: number; moved: boolean; which: 'label' | 'end' } | null>(null)
-  const labelDown = (e: React.PointerEvent, id: string, dx0: number, dy0: number, which: 'label' | 'end' = 'label') => {
+  const labelDrag = useRef<{ id: string; sx: number; sy: number; dx0: number; dy0: number; moved: boolean } | null>(null)
+  const labelDown = (e: React.PointerEvent, id: string, dx0: number, dy0: number) => {
     if (tool !== 'pan' || readOnly) return
     e.stopPropagation()
     // capture on the STABLE handler element (the label span), NOT e.target (an inner text <div>
@@ -145,7 +145,7 @@ export function useWbBodyDrag({ tool, readOnly, annos, setAnnoTap, setSelId, set
     // panned the board and made the label jump unpredictably
     ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
     setSelId(id)
-    labelDrag.current = { id, sx: e.clientX, sy: e.clientY, dx0, dy0, moved: false, which }
+    labelDrag.current = { id, sx: e.clientX, sy: e.clientY, dx0, dy0, moved: false }
   }
   const labelMove = (e: React.PointerEvent) => {
     const st = labelDrag.current; if (!st) return
@@ -161,7 +161,7 @@ export function useWbBodyDrag({ tool, readOnly, annos, setAnnoTap, setSelId, set
     }
     const ndx = st.dx0 + (e.clientX - st.sx) / rect.width
     const ndy = st.dy0 + (e.clientY - st.sy) / rect.height
-    patch(st.id, st.which === 'end' ? { endDx: ndx, endDy: ndy } : { labelDx: ndx, labelDy: ndy })
+    patch(st.id, { labelDx: ndx, labelDy: ndy })
   }
   const labelUp = (e: React.PointerEvent) => {
     if (!labelDrag.current) return
@@ -172,7 +172,7 @@ export function useWbBodyDrag({ tool, readOnly, annos, setAnnoTap, setSelId, set
     // so the nudged label snapped back on every scrub between snapshots.
     const a = annos.find((x) => x.id === st.id)
     emit('board.edit', { id: st.id, planId: activeId,
-      patch: st.which === 'end' ? { endDx: a?.endDx, endDy: a?.endDy } : { labelDx: a?.labelDx, labelDy: a?.labelDy } })
+      patch: { labelDx: a?.labelDx, labelDy: a?.labelDy } })
   }
 
   return { drawDrag, drawDown, drawMove, drawUp, circleDrag, circleDown, circleMove, circleUp, labelDown, labelMove, labelUp }
