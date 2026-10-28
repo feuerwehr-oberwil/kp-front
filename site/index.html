@@ -89,14 +89,22 @@
       "@id": "https://kp-front.ch/#app",
       "name": "KP Front",
       "url": "https://kp-front.ch/",
-      "description": "KP Front ist der digitale Kommandoposten am Einsatzort: Karte, Pläne, Trupps, Verlauf und Rapport – offline-fähig und quelloffen.",
+      "description": "Digitale Einsatzführung und Lagekarte für Feuerwehren – mit swisstopo-Karten, taktischen Zeichen nach FKS, Atemschutzüberwachung und laufendem Einsatzjournal.",
+      "featureList": [
+        "Lagekarte auf swisstopo-Karten mit taktischen Zeichen nach FKS",
+        "Atemschutzüberwachung mit Druck, Rückzugszeit, Kontaktuhr und Alarmen",
+        "Objekt- und Gebäudepläne als Whiteboard zum Draufzeichnen und Messen",
+        "Einsatzjournal (Verlauf), das nur ergänzt und nie umgeschrieben wird",
+        "Schichtplanung für lange Einsätze mit Übersicht über die Deckung",
+        "Einsatzrapport als PDF, aus den Einsatzdaten vorausgefüllt",
+        "Zeitreise: den Einsatz für die Nachbesprechung nochmals abspielen"
+      ],
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web browser",
       "inLanguage": [
-        "de-CH",
-        "fr-CH",
-        "it-CH",
-        "rm-CH",
+        "de",
+        "fr",
+        "it",
         "en"
       ],
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
@@ -119,6 +127,85 @@
       "url": "https://www.feuerwehr-oberwil.ch",
       "sameAs": [
         "https://github.com/feuerwehr-oberwil"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://kp-front.ch/#faq",
+      "inLanguage": "de-CH",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Warum umsteigen?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Alle sehen gleichzeitig dieselbe Lage – am Führungsfahrzeug, auf dem Tablet und beim Einsatzleiter. Keine Meldung geht auf einem Notizzettel verloren. Die Atemschutzüberwachung meldet sich selbst, bevor es knapp wird. Weniger Funkverkehr für Fragen, die ohnehin auf dem Lagebild stehen – und der Rapport ist beim Einrücken fast fertig statt am Wochenende danach. KP Front unterstützt die Einsatzleitung dabei, die Lage widerspruchsfrei zu halten und Abweichungen sichtbar zu machen: ein Trupp ohne Funkkontakt, ein Fahrzeug, das nirgends steht, eine Rückmeldung, die nie kam."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Wo werden die sensiblen Einsatzdaten gespeichert?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "KP Front wird von jeder Feuerwehr selbst betrieben (Self-Hosted). Einsatzdaten – Lagekarte, Atemschutzüberwachung, Verlauf und Gebäudepläne – liegen auf der eigenen Installation und den eigenen Geräten: etwa auf einem Mini-PC im Magazin, einem eigenen Server oder bei einem selbst gewählten Cloud-Anbieter. Es gibt keinen zentralen Server, und nichts geht automatisch an einen Anbieter oder an uns. Karten-, Adress- und Wetterdienste (standardmässig unter anderem swisstopo) erhalten nur die jeweils abgefragte Position; weitere externe Dienste laufen nur, wenn die Feuerwehr sie selbst einrichtet."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Wie unterscheidet sich KP Front von kommerziellen Systemen?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "KP Front ist Open Source (AGPL-3.0): keine Lizenzgebühren, kein Abo, keine Kosten pro Gerät. Jede Feuerwehr betreibt ihre eigene Installation und behält damit die Kontrolle über ihre Daten. Was bleibt, sind die eigenen Kosten für Betrieb, Infrastruktur und allenfalls externe Unterstützung. Die Weiterentwicklung kommt direkt aus der Praxis der Feuerwehr Oberwil BL; Fehlermeldungen, Ideen und Beiträge aus der Open-Source-Community sind willkommen."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Was braucht es für den Betrieb?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Ein kleiner Mini-PC oder Server im Magazin reicht. Für Einrichtung, Updates und Backups braucht es jemanden mit Docker- und Kommandozeilen-Erfahrung, sei es in der Feuerwehr, in der Gemeinde oder bei einer unterstützenden IT. Die Anleitung und der Verwaltungsbereich führen durch den Aufbau. Allgemeine Fragen beantworten wir gerne; Daten und Betrieb bleiben in der Verantwortung der jeweiligen Feuerwehr."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Funktioniert KP Front ohne Internetverbindung?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Ja. Als installierte App läuft KP Front auf dem Gerät: Karte, Pläne, Trupps und Verlauf bleiben bedienbar, auch wenn das Netz wegbricht. Karten und Pläne rund um den Einsatz lädt die App selbst, kurz nachdem er geöffnet wurde – und die Bereitschaftsprüfung zeigt vor dem Einsatz, ob die benötigten Daten auf dem Gerät sind. Nach einem Unterbruch wird abgeglichen, sobald wieder eine Verbindung besteht; was in der Zwischenzeit erfasst wurde, bleibt erhalten."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Können wir es an unsere Abläufe anpassen?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Ja. Jede Feuerwehr hat ihren eigenen Verwaltungsbereich: Mannschaft, Fahrzeuge, Doktrin und Vorlagen sind dort frei einstellbar. Checklisten, Objektpläne und Karten-Ebenen kommen aus den eigenen Stationsdaten und werden über die mitgelieferten Kommandozeilen-Werkzeuge geladen. Und weil der ganze Code auf GitHub steht, lässt sich alles Übrige bauen – selbst oder in Auftrag."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Funktioniert KP Front nur in der Schweiz?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Nein. KP Front ist als Open-Source-Software frei zugänglich und kann weltweit an lokale Gegebenheiten angepasst werden. Ab Werk ist die Anwendung für die Schweiz vorkonfiguriert – mit swisstopo-Karten, taktischen Zeichen nach FKS und den FKS-Vorlagen für die Führung im Einsatz. Ausserhalb der Schweiz lassen sich andere Kartengrundlagen einstellen; die Adresssuche unterstützt heute nur die swisstopo-Schnittstelle und braucht dort eine Anpassung."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Welche Sprachen unterstützt KP Front?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Die Website gibt es auf Deutsch, Französisch, Italienisch, Rätoromanisch und Englisch. Die Anwendung selbst und ihre Hilfe laufen auf Deutsch, Französisch, Italienisch und Englisch – Rätoromanisch ist dort noch nicht verfügbar. Die Sprache wird einmal pro Feuerwehr eingestellt, nicht pro Gerät: Im Einsatz lesen alle dieselben Begriffe. Die technische Dokumentation zu Einrichtung und Betrieb ist englisch. Die öffentliche Demo läuft auf Deutsch, und die Screenshots hier stammen aus derselben Instanz."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Wie fangen wir an?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Mit der Demo, ohne Anmeldung – in Musterdorf brennt es schon, und alle Besucher teilen denselben Einsatz (Neustart um Mitternacht und um Mittag). Danach an einer Übung ausprobieren. Wenn es passt, führt die Einrichtungsanleitung zur eigenen Installation."
+          }
+        }
       ]
     }
   ]
@@ -640,17 +727,12 @@
           Funkkontakt, ein Fahrzeug, das nirgends steht, eine Rückmeldung, die nie kam.</p>
       </div>
       <div class="faq-item">
-        <h3>Wem gehören die Daten?</h3>
-        <p>Euch. Karten, Pläne und Einsatzdaten liegen auf eurer eigenen Installation.
-          Karten- und Adressdienste erhalten nur die jeweils abgefragte Position; weitere externe
-          Dienste laufen nur, wenn ihr sie selbst einrichtet. Nichts geht automatisch an einen
-          Anbieter oder an uns.</p>
+        <h3>Wo werden die sensiblen Einsatzdaten gespeichert?</h3>
+        <p>KP Front wird von jeder Feuerwehr selbst betrieben (Self-Hosted). Einsatzdaten – Lagekarte, Atemschutzüberwachung, Verlauf und Gebäudepläne – liegen auf der eigenen Installation und den eigenen Geräten: etwa auf einem Mini-PC im Magazin, einem eigenen Server oder bei einem selbst gewählten Cloud-Anbieter. Es gibt keinen zentralen Server, und nichts geht automatisch an einen Anbieter oder an uns. Karten-, Adress- und Wetterdienste (standardmässig unter anderem swisstopo) erhalten nur die jeweils abgefragte Position; weitere externe Dienste laufen nur, wenn die Feuerwehr sie selbst einrichtet.</p>
       </div>
       <div class="faq-item">
-        <h3>Was kostet das?</h3>
-        <p>Für die Software selbst nichts. KP Front ist Open Source (AGPL) – <strong>keine
-          Lizenz, kein Abo, keine Kosten pro Gerät</strong>. Was bleibt, sind die eigenen Kosten
-          für Betrieb, Infrastruktur und allenfalls externe Unterstützung.</p>
+        <h3>Wie unterscheidet sich KP Front von kommerziellen Systemen?</h3>
+        <p>KP Front ist Open Source (AGPL-3.0): <strong>keine Lizenzgebühren, kein Abo, keine Kosten pro Gerät</strong>. Jede Feuerwehr betreibt ihre eigene Installation und behält damit die Kontrolle über ihre Daten. Was bleibt, sind die eigenen Kosten für Betrieb, Infrastruktur und allenfalls externe Unterstützung. Die Weiterentwicklung kommt direkt aus der Praxis der Feuerwehr Oberwil BL; Fehlermeldungen, Ideen und Beiträge aus der Open-Source-Community sind willkommen.</p>
       </div>
       <div class="faq-item">
         <h3>Was braucht es für den Betrieb?</h3>
@@ -679,9 +761,12 @@
           steht, lässt sich alles Übrige bauen – selbst oder in Auftrag.</p>
       </div>
       <div class="faq-item">
-        <h3>In welchen Sprachen läuft die App?</h3>
-        <p>Die Oberfläche gibt es auf Deutsch, Englisch, Französisch und Italienisch. Die Sprache wird <strong>einmal pro Feuerwehr</strong> eingestellt, nicht pro Gerät – im Einsatz lesen alle dieselben Begriffe, und das ist Absicht: eine Lage, ein Vokabular.
-          Die öffentliche Demo läuft auf <strong>Deutsch</strong>. Die Screenshots hier sind aus derselben Instanz – nachgestellte Bilder wären eine Behauptung.</p>
+        <h3>Funktioniert KP Front nur in der Schweiz?</h3>
+        <p>Nein. KP Front ist als Open-Source-Software frei zugänglich und kann weltweit an lokale Gegebenheiten angepasst werden. Ab Werk ist die Anwendung für die Schweiz vorkonfiguriert – mit swisstopo-Karten, taktischen Zeichen nach FKS und den FKS-Vorlagen für die Führung im Einsatz. Ausserhalb der Schweiz lassen sich andere Kartengrundlagen einstellen; die Adresssuche unterstützt heute nur die swisstopo-Schnittstelle und braucht dort eine Anpassung.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Welche Sprachen unterstützt KP Front?</h3>
+        <p>Die Website gibt es auf Deutsch, Französisch, Italienisch, Rätoromanisch und Englisch. Die Anwendung selbst und ihre Hilfe laufen auf Deutsch, Französisch, Italienisch und Englisch – Rätoromanisch ist dort noch nicht verfügbar. Die Sprache wird <strong>einmal pro Feuerwehr</strong> eingestellt, nicht pro Gerät: Im Einsatz lesen alle dieselben Begriffe. Die technische Dokumentation zu Einrichtung und Betrieb ist englisch. Die öffentliche Demo läuft auf <strong>Deutsch</strong>, und die Screenshots hier stammen aus derselben Instanz.</p>
       </div>
       <div class="faq-item">
         <h3>Wie fangen wir an?</h3>
@@ -761,6 +846,7 @@
     <div class="foot-row">
       <span>© 2026 <a href="https://bastianeichenberger.ch" target="_blank" rel="noopener">Bastian Eichenberger</a> · AGPL-3.0</span>
       <a href="https://github.com/feuerwehr-oberwil/kp-front" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/feuerwehr-oberwil" target="_blank" rel="noopener me">Feuerwehr Oberwil auf GitHub</a>
       <a href="https://demo.kp-front.ch" target="_blank" rel="noopener">Demo</a>
       <a href="https://kp-rueck.ch">KP Rück</a>
       <a href="#kontakt">Kontakt</a>
