@@ -556,7 +556,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             </>
           )}
           {sel?.kind === 'pin' && (
-            // the pin is the place: a tap on it brings back the sheet that was pushed away
+            // the pin is the place: a tap on it brings its sheet back to the front (closing the sheet
+            // takes the pin away – closePanel)
             <Marker longitude={sel.at[0]} latitude={sel.at[1]} anchor="bottom" onClick={(e) => { e.originalEvent.stopPropagation(); setSheetShut(false) }}>
               <MapPin className={s.pinMk} />
             </Marker>

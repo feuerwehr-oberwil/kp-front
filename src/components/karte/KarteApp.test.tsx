@@ -472,6 +472,22 @@ describe('KarteApp', () => {
     expect(q.get('checkliste')).toBe('fehlermeldung')
   })
 
+  // owner, 28.10.2026: a dropped point exists only for its panel – closing that takes it away, phone
+  // too (a closed object or building sheet keeps the place selected for a second look)
+  it('on a phone: closing a dropped point\'s sheet takes the point off the map', async () => {
+    rec.phone = true
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Punkt setzen' }))
+    act(() => lastMap().onMapClick([7.57175, 47.52015]))
+    expect(await screen.findByText('bei Starenstrasse 19')).toBeTruthy()
+    const pinAt = () => document.querySelector('[data-marker][data-lng="7.57175"][data-lat="47.52015"]')
+    expect(pinAt()).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.closeDialog }))
+    await waitFor(() => expect(pinAt()).toBeNull())
+    expect(screen.queryByText('bei Starenstrasse 19')).toBeNull()
+  })
+
   it('searches the catalogue on the device, objects with plans first', async () => {
     mount()
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })
