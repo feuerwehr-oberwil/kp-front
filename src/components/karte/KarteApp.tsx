@@ -589,12 +589,16 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           <button type="button" className={cx('ip-switch-btn', s.einsaetze)} onClick={() => { setSheetOpen((o) => !o); setSearchOpen(false) }}
             title={C.menu} aria-label={einsaetze.badge > 0 ? `${menuName}, ${fillTemplate(C.einsaetzeBadge, { n: einsaetze.badge })}` : menuName}
             aria-haspopup="dialog" aria-expanded={sheetOpen} data-karte-menu="">
-            {mark ? <img className={s.menuMark} src={mark} alt="" onError={onMarkError} />
-              : !menuShort && <Icon id="menu" />}
-            {menuShort && <span className={s.menuName}>{menuShort}</span>}
+            {/* the face – mark and/or name – carries the red dot on its corner: the quiet pill has no
+                frame of its own to pin it to (28.10.2026) */}
+            <span className={s.menuFace}>
+              {mark ? <img className={s.menuMark} src={mark} alt="" onError={onMarkError} />
+                : !menuShort && <Icon id="menu" />}
+              {menuShort && <span className={s.menuName}>{menuShort}</span>}
+              {einsaetze.badge > 0 && <span className={s.einsaetzeBadge} data-karte-menu-dot="" aria-hidden />}
+            </span>
             {/* `chev` = the app's shared flip on [aria-expanded=true] (02-base.css), as every other dropdown */}
             <Icon id="chevron-down" className={cx('chev', s.chev)} />
-            {einsaetze.badge > 0 && <span className={s.einsaetzeBadge} data-karte-menu-dot="" aria-hidden />}
           </button>
           {/* the Checkliste: the bar's field searches the library (on a phone too, inline — the map's
               round search button is the map's) */}

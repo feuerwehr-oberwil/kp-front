@@ -432,8 +432,10 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .floors > .note { width: min(980px, 100%); }
 
 /* ── the menu button's red dot (owner, review round 5: «a small red dot» — it was a count): an
-   Einsatz running or an alarm waiting; the number is in the button's accessible name ──────────── */
-.einsaetzeBadge { position: absolute; top: -4px; right: -4px; width: 12px; height: 12px;
+   Einsatz running or an alarm waiting; the number is in the button's accessible name. On the
+   corner of the button's FACE (the mark / name), since the quiet pill has no frame (28.10.2026) */
+.menuFace { position: relative; display: inline-flex; align-items: center; gap: var(--sp-2); }
+.einsaetzeBadge { position: absolute; top: -5px; right: -6px; width: 12px; height: 12px;
   border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
 
 /* ── a tap tool armed (Messen, Punkt setzen, Gefahrgut's centre — lib/karte/camera · toolTakesTaps):
