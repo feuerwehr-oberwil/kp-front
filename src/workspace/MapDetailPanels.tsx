@@ -13,6 +13,7 @@ import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { polygonAreaM2, bboxSizeM, pathLengthM, haversineM } from '../lib/geo'
 import type { GeorefPlan } from '../lib/georefTwins'
 import { type GpsEnd, hasTraced, freshBefore, gpsLineName, fmtAway, onSiteAnchor, onSiteKnown } from '../lib/gpsReturn'
+import { wandBlock, wandBlockHint } from '../lib/grundriss'
 import { lineLabel } from '../lib/lineDecor'
 import { autoNoteWPx } from '../lib/notes'
 import { canBeDone, offersDone, doneOf } from '../lib/objectDone'
@@ -24,6 +25,7 @@ import { truppForLine, truppIsOut } from '../lib/truppLines'
 import type { useSymbols } from '../lib/useSymbols'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
+import type { TacticalObject } from '../lib/tacticalObjects'
 import type { Doc } from '../lib/workspace'
 import type { Entity, LngLat, TimelineEvent, Trupp, Drawing, NoteSize, Person, LineEndpoint, LineAttachment, LayerId, CaptionMode, MapTool } from '../types'
 import type { WorkspaceMode } from './types'
@@ -81,6 +83,11 @@ export interface MapDetailPanelsProps {
   commitDrawingLabel: (id: string, label: string) => void
   changeMapEnding: (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck', drawing?: Drawing | null) => Promise<void>
   reverseDrawing: (id: string) => void
+  /** «Art: Linie | Wand» (useMapDrawing · setDrawingWallRole) */
+  setDrawingWallRole: (id: string, wand: boolean) => void
+  /** the tactical objects – a line drawn on a Gebäude stack is asked through its sheet body
+   *  whether it climbs storeys (lib/grundriss · wandBlock) */
+  objects: readonly TacticalObject[]
   syncLineNoToTrupp: (lineId: string, lineNo: number | undefined) => void
   pickablePersonnel: Person[]
   linkTruppLine: (truppId: string, lineId: string) => boolean
@@ -109,7 +116,7 @@ export function MapDetailPanels({
   assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
   noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
   selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
-  changeMapEnding, reverseDrawing, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
+  changeMapEnding, reverseDrawing, setDrawingWallRole, objects, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
   unlinkLine, setSelectedDrawingId, setMode, setPanel, setGpsRouting, revertAll, gpsEndOf, releaseHere,
   releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing,
 }: MapDetailPanelsProps) {
@@ -127,6 +134,8 @@ export function MapDetailPanels({
     // outline has no width of its own to report.
     return { areaM2: wM * hM, perimeterM: 2 * (wM + hM), boxM: { widthM: wM, heightM: hM } }
   })() : {}
+  /** a line's own anno on the sheet it was drawn on, when it was drawn on one */
+  const sheetAnnoOf = (id: string) => objects.find((o) => o.id === id)?.sheet?.anno
   return (
     <>
       {/* `tool === 'select'`, matching the Plan (Whiteboard gates all four of its editors on
@@ -401,10 +410,11 @@ export function MapDetailPanels({
           onArrow={(arrow) => patchDrawing({ arrow })}
           onEnding={(ending) => void changeMapEnding(ending)}
           onReverse={tacticalLocked ? undefined : () => reverseDrawing(selectedDrawing.id)}
-          onContent={(content) => patchDrawing({ content })}
+          // a Wand is layout, not a hose: no Typ, no Leitung Nr., no Trupp (types · Drawing.role)
+          onContent={selectedDrawing.role ? undefined : (content) => patchDrawing({ content })}
           // the anchored Trupp carries a COPY of the number (the AS chip prints it), so a
           // renumbered hose renumbers the Trupp too (useTruppActions · syncLineNoToTrupp)
-          onLineNo={(lineNo) => { patchDrawing({ lineNo }); syncLineNoToTrupp(selectedDrawing.id, lineNo) }}
+          onLineNo={selectedDrawing.role ? undefined : (lineNo) => { patchDrawing({ lineNo }); syncLineNoToTrupp(selectedDrawing.id, lineNo) }}
           onFloorTag={(floorTag) => patchDrawing({ floorTag })}
           // Abschnitt on the Fläche — Leiter + Auftrag (FKS Einsatzführung 3.5.2). Lage only:
           // a Plan sketch is not an Abschnitt, so the Whiteboard passes no handlers.
@@ -417,12 +427,18 @@ export function MapDetailPanels({
             + (selectedDrawing.abschnittLeiter || selectedDrawing.abschnittAuftrag ? 0 : 1)}
           // «Gehört zu Trupp …»: linking from the LINE's side. Routed through the same action the
           // Atemschutz board uses, so both directions write both collections identically.
-          onTrupp={(truppId) => (truppId ? linkTruppLine(truppId, selectedDrawing.id) : unlinkLine(selectedDrawing.id))}
+          onTrupp={selectedDrawing.role ? undefined : (truppId) => (truppId ? linkTruppLine(truppId, selectedDrawing.id) : unlinkLine(selectedDrawing.id))}
           trupps={effTrupps.filter((t) => t.status !== 'raus').map((t) => ({ id: t.id, name: t.name }))}
           usedLineNos={drawings.filter((d) => d.kind === 'line' && d.id !== selectedDrawing.id && d.lineNo != null).map((d) => d.lineNo!)}
           truppOnLine={truppForLine(selectedDrawing, effTrupps)?.name}
           truppOnLineOut={truppIsOut(truppForLine(selectedDrawing, effTrupps))}
           onShowTrupp={() => { setSelectedDrawingId(null); setMode('atemschutz'); setPanel(null) }}
+          // «Art: Linie | Wand» – the Plan's row, same patch, same blocks (sweep 28.10.2026,
+          // Lage ↔ Plan parity). The Wand TOOL and its snapping stay the Gebäude stack's.
+          onWand={selectedDrawing.kind === 'line' ? (wand) => {
+            if (!wand || !wandBlock(selectedDrawing, effTrupps, sheetAnnoOf(selectedDrawing.id))) setDrawingWallRole(selectedDrawing.id, wand)
+          } : undefined}
+          wandBlocked={selectedDrawing.kind === 'line' ? wandBlockHint(wandBlock(selectedDrawing, effTrupps, sheetAnnoOf(selectedDrawing.id))) : undefined}
           onShowDistance={(showDistance) => patchDrawing({ showDistance })}
           onRadius={(radiusM) => patchDrawing({ radiusM })}
           onHatch={(hatch, fillOpacity) => patchDrawing({ hatch: hatch || undefined, fillOpacity })}

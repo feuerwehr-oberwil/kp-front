@@ -439,6 +439,33 @@ describe('a locked line on the plan (BoardAnno.locked — the twin of Drawing.lo
   })
 })
 
+// sweep 28.10.2026, round 4 (owner: «I don't see the option to change the line type to wall and
+// back in the map view, only in the building view»): «Art: Linie | Wand» on a FLAT sheet too
+describe('«Art: Linie | Wand» on a flat plan', () => {
+  const D = appConfig.copy.drawingEditor
+  const art = () => within(screen.getAllByRole('group', { name: D.kind })[0])
+
+  it('switches a drawn line to a Wand and back – one save each, the Wand look on it', () => {
+    const { container, onChange, remoteWrite } = renderPlan([line])
+    fireEvent.pointerDown(hitShape(container))
+    fireEvent.click(art().getByRole('button', { name: D.kindWand }))
+    expect(onChange).toHaveBeenCalledTimes(1)
+    const wand = onChange.mock.calls[0][0][0] as BoardAnno
+    expect(wand).toMatchObject({ role: 'wand', color: appConfig.drawing.colors[4], width: 2, pts: line.pts })
+    remoteWrite([wand])
+    fireEvent.click(art().getByRole('button', { name: D.kindLine }))
+    expect(onChange.mock.calls[1][0][0]).toMatchObject({ role: undefined, color: appConfig.drawing.defaultColor, width: 5 })
+  })
+
+  it('offers «Wand» disabled, with the reason, while a Trupp is on the line', () => {
+    const trupp = { id: 't1', name: 'Trupp 1', status: 'aktiv', entryPressureBar: 300, entryTime: '', lastContactTime: '', lineId: 'l1' } satisfies Trupp
+    const { container } = renderPlan([line], { trupps: [trupp] })
+    fireEvent.pointerDown(hitShape(container))
+    expect((art().getByRole('button', { name: D.kindWand }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getAllByText(D.kindWandBlocked).length).toBeGreaterThan(0)
+  })
+})
+
 // ── The 29.08. Plan decisions ───────────────────────────────────────────────────────────────
 // Messen left the rail (deliberate Lage↔Plan divergence), the floating delete orbs left the
 // canvas (the detail panel is the one delete), a note opens on TAP like a symbol, the Punkte
@@ -1909,7 +1936,8 @@ describe('gesture contracts of the plan surface', () => {
       fireEvent.click(art().getByRole('button', { name: appConfig.copy.drawingEditor.kindLine }))
       expect(onCheckpoint).toHaveBeenCalledTimes(1)
       expect(edits(emit)).toHaveLength(1)
-      expect(find('w1')).toMatchObject({ role: undefined, color: appConfig.drawing.defaultColor, width: 2, pts: wand.pts })
+      // the default ink's width back (lead call 28.10.2026) – the Wand's 2 px is no Linie width
+      expect(find('w1')).toMatchObject({ role: undefined, color: appConfig.drawing.defaultColor, width: 5, pts: wand.pts })
       expect(find('d1')).toMatchObject({ x: tuer.x, y: tuer.y, onWall: undefined })
       expect(screen.queryAllByText(appConfig.copy.drawingEditor.lineNo).length).toBeGreaterThan(0)
       act(() => history.current!.undo())

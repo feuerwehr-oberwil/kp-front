@@ -519,3 +519,51 @@ describe('reverseDrawing — replay', () => {
     expect(replayed).not.toHaveProperty('endLabelAt')
   })
 })
+
+// sweep 28.10.2026, round 4: «Art: Linie | Wand» on the Karte – the Plan's patch, one ↶, one
+// draw.edit that the Wiedergabe replays both ways, and no Verlauf row (the Plan writes none)
+describe('setDrawingWallRole', () => {
+  const hose = line({ color: DRAW_DEFAULTS.color, width: 4, arrow: true, lineNo: 3, content: 'S' })
+
+  it('turns a Linie into a Wand and back – one commit and one draw.edit each, replayed both ways', async () => {
+    const deps = makeDeps({ drawings: [hose] })
+    const { result, rerender } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.setDrawingWallRole('d1', true) })
+    expect(deps.commit).toHaveBeenCalledTimes(1)
+    const wand = deps.drawings[0]
+    expect(wand).toMatchObject({ role: 'wand', coords: hose.coords })
+    for (const k of ['arrow', 'lineNo', 'content'] as const) expect(wand[k]).toBeUndefined()
+    expect((await replayEmits({ drawings: [hose] }, deps.emit.mock.calls)).drawings[0]).toMatchObject({ role: 'wand', arrow: null, lineNo: null })
+
+    rerender({ ...deps })
+    act(() => { result.current.setDrawingWallRole('d1', false) })
+    expect(deps.commit).toHaveBeenCalledTimes(2)
+    expect(deps.drawings[0]).toMatchObject({ role: undefined, color: DRAW_DEFAULTS.color, width: DRAW_DEFAULTS.width })
+    const [replayed] = (await replayEmits({ drawings: [hose] }, deps.emit.mock.calls)).drawings
+    expect(replayed.role).toBeNull()
+    act(() => { vi.advanceTimersByTime(4000) })
+    expect(deps.log).not.toHaveBeenCalled()
+  })
+
+  it('keeps a Teilstück that lines hang on – letting go of them is the Abschluss row’s ask', () => {
+    const branch = line({ id: 'b', startAttachment: { target: { kind: 'line', id: 'd1', endpoint: 'end' }, routing: 'direct' } })
+    const deps = makeDeps({ drawings: [line({ teilstueck: true }), branch] })
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.setDrawingWallRole('d1', true) })
+    expect(deps.drawings[0]).toMatchObject({ role: 'wand', teilstueck: true })
+  })
+
+  it('is a no-op under the tactical lock, for an area, and for the role it already has', () => {
+    for (const [drawings, wand] of [[[line({ role: 'wand' })], true], [[line({ kind: 'area', coords: [[0, 0], [1, 0], [1, 1]] })], true]] as const) {
+      const deps = makeDeps({ drawings: [...drawings] })
+      const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+      act(() => { result.current.setDrawingWallRole('d1', wand) })
+      expect(deps.commit).not.toHaveBeenCalled()
+    }
+    const locked = makeDeps({ tacticalLocked: true })
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: locked })
+    act(() => { result.current.setDrawingWallRole('d1', true) })
+    expect(locked.commit).not.toHaveBeenCalled()
+    expect(locked.emit).not.toHaveBeenCalled()
+  })
+})

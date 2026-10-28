@@ -84,7 +84,7 @@ export interface DrawStyle {
   abschnittAuftrag?: string
   /** the Atemschutz link anchor (Drawing/BoardAnno · truppId) */
   truppId?: string
-  /** a Plan line drawn as a Wand (BoardAnno · role): the head says «Wand» */
+  /** a line drawn as a Wand (BoardAnno · role, Drawing · role): the head says «Wand» */
   role?: 'wand'
   startAttachment?: LineAttachment
   endAttachment?: LineAttachment
@@ -156,8 +156,8 @@ interface Props {
   truppOnLineOut?: boolean
   /** jump to the Atemschutz board for that Trupp */
   onShowTrupp?: () => void
-  /** «Art: Linie | Wand» – turn the line into a Wand and back (the Gebäude stack only, where the
-   *  Wand tool is). Omitted ⇒ the row is hidden. */
+  /** «Art: Linie | Wand» – turn the line into a Wand and back (every Plan sheet and the Karte,
+   *  lib/grundriss · wallRolePatch). Omitted ⇒ the row is hidden. */
   onWand?: (wand: boolean) => void
   /** why this line cannot be a Wand (a Trupp is on it, it climbs storeys): «Wand» is offered but
    *  disabled, with this as its hint */

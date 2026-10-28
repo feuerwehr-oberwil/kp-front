@@ -439,6 +439,12 @@ export interface Drawing {
   /** georeferenced anchor (WGS84 [lng,lat]) the FKS end-tag was dragged to. Absent = the
    *  default spot just before the line end. Keeps the tag pinned at every zoom + bearing. */
   endLabelAt?: LngLat
+  /** A Linie switched to a Wand in the line editor's «Art» row (lines only; sweep 28.10.2026,
+   *  Lage ↔ Plan parity): the Plan's `BoardAnno.role`, same name, same meaning – LAYOUT, not a
+   *  hose. It draws in the Wand look (lib/grundriss · wallRolePatch), carries no Typ, Leitung Nr.
+   *  or Trupp, and no Leitung couples onto its ends. Crosses with the line between the Karte and
+   *  a sheet (tacticalObjects · SHARED_PATH_PROPS, planProjection · projectOnto). Absent = Linie. */
+  role?: 'wand'
   /** locked: the shape ignores click-select / drag so it can't be moved by accident or
    *  swallow clicks meant for objects over it (e.g. a big Absperrkreis under other work).
    *  A lock chip at its centre unlocks it. Absent = editable. */
