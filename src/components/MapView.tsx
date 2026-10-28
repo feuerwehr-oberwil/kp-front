@@ -59,7 +59,7 @@ import { QuietAttributionControl } from './MapAttribution'
 import { GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
 import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
-import { oneFingerZoom } from '../lib/tapDragZoom'
+import { oneFingerZoom, setMapOneFingerZoom } from '../lib/tapDragZoom'
 import { useFreshPoint } from '../lib/useFreshPoint'
 import { setLiveBearing } from '../lib/liveBearing'
 import { LABEL_ABOVE, measureLabelPlacement } from '../lib/measureLabelPlace'
@@ -387,9 +387,8 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // double tap alone under Freihand, whose drag is the stroke (UX sweep M4). It used to follow `placing` alone, which on the Lage is «any tool
   // but Auswahl» and on the Karte «any tool at all», the Ebenen sheet included — hence
   // `tapsPlace`, which a caller narrows to the tools that really place. Pinch and the wheel stay
-  // on throughout. Tap-and-drag rides on touchZoomRotate (the pinch), so it is switched on its
-  // own, and only back on if the pinch is (`_tapDragZoom` is typed in maplibre-gl's own d.ts,
-  // just not documented). Per instance: a WebGL remount builds a fresh map with both on.
+  // on throughout; the switching itself is lib/tapDragZoom · setMapOneFingerZoom. Per instance:
+  // a WebGL remount builds a fresh map with both on.
   const dragTool = !!freehand || marqueeEnabled
   const measureFresh = useFreshPoint(measureKind ? measurePoints.length : 0)
   const zoomAllow = oneFingerZoom(
@@ -400,10 +399,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   useEffect(() => {
     const m = mapInst.current
     if (!mapReady || !m) return
-    if (zoomAllow.step) m.doubleClickZoom.enable()
-    else m.doubleClickZoom.disable()
-    if (!zoomAllow.drag) m.touchZoomRotate._tapDragZoom.disable()
-    else if (m.touchZoomRotate.isEnabled()) m.touchZoomRotate._tapDragZoom.enable()
+    setMapOneFingerZoom(m, { step: zoomAllow.step, drag: zoomAllow.drag })
   }, [mapReady, zoomAllow.step, zoomAllow.drag])
   // WebGL context recovery: iPadOS drops the context under memory pressure / after a long
   // background spell, and MapLibre stays blank without rebuilding. `gl.generation` keys the

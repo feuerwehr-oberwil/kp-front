@@ -565,6 +565,13 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     sweep M4). A tap-to-place tool (Punkte, Hinzufügen, Notiz, Trupp, Koordinaten, Form, Massstab,
     Kreis) — neither; a tap places, the pinch zooms. Pinch always navigates.
     Nothing finishes on a double tap — ✓ finishes a Punkte Linie / Fläche.
+    A press on an object counts like one on empty paper (28.10.2026, owner: «It should just work
+    reliably across all different maps and plans»): the first tap still selects, the second press
+    of the pair is the zoom's and never reaches the object (on a Plan, `useBoardGestures` counts
+    presses in the capture pass). Not counted on a Plan: controls, and the notes and Trupp chips
+    whose own double tap opens their name. On the map the switches are
+    `lib/tapDragZoom · setMapOneFingerZoom` – never `touchZoomRotate.isEnabled()`, which reads
+    «off» for good once the tap-and-drag was switched off once.
   - *Pressed state is the `--press` wash* – `background-image: linear-gradient(var(--press),
     var(--press))` on `:active:not(:disabled)`, so it composes over any background colour.
     **Nothing moves**: no scale, no translate – motion on press reads as lag under a glove.
