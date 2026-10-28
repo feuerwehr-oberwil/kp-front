@@ -74,6 +74,9 @@
   background: var(--fill-soft); font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums;
 }
 .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--amber); }
+/* «Gespeichert» on a draft row (Overview · draftRow): a tick, not a pill – the time is in the sub-line */
+.savedTick { flex: none; display: grid; place-items: center; color: var(--green-strong); }
+.savedTick :global(.i) { width: 18px; height: 18px; }
 .mono { font: var(--fw-medium) var(--fs-1) var(--mono, var(--body)); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .bar { height: 4px; margin-top: var(--sp-2); border-radius: 2px; background: var(--fill-soft); overflow: hidden; }
 .bar > i { display: block; height: 100%; background: var(--blue); }
