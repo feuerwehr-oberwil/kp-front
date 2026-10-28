@@ -294,6 +294,12 @@ export const editorsCopy = {
     // says who was on this Leitung – just marked as «draussen».
     truppOut: 'draussen',
     floorTag: 'Geschoss',
+    // «Art» on the Gebäude stack (round 3): a drawn line is a Linie or a Wand, and switches
+    kind: 'Art',
+    kindLine: 'Linie',
+    kindWand: 'Wand',
+    kindWandBlocked: 'Ein Trupp ist auf dieser Leitung – zuerst den Trupp lösen.',
+    kindWandStoreys: 'Diese Linie geht über mehrere Geschosse – eine Wand liegt auf einem.',
     distance: 'Länge',
     // Messung group: the numbers of an already drawn line (length, Schläuche, elevation profile)
     measurement: 'Messung',

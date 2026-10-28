@@ -38,9 +38,12 @@ export interface MapToolDocksProps {
   setPlaceLock: Dispatch<SetStateAction<boolean>>
   isPhone: ReturnType<typeof useIsPhone>
   lineMode: 'freehand' | 'nodes'
-  setDraft: (action: SetStateAction<LngLat[]>) => void
+  /** leave the draft in the hand – asks about a committable one (useMapDrawing · settleDraft) */
+  settleDraft: () => void
   setLineMode: Dispatch<SetStateAction<'freehand' | 'nodes'>>
   draftActive: boolean
+  /** a Punkte drawing is open in the hand — the armed tile's amber dot */
+  draftOpen: boolean
   commitDraft: () => void
   areaMode: 'freehand' | 'nodes'
   setAreaMode: Dispatch<SetStateAction<'freehand' | 'nodes'>>
@@ -83,8 +86,8 @@ export interface MapToolDocksProps {
 }
 
 export function MapToolDocks({
-  mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, isPhone, lineMode, setDraft,
-  setLineMode, draftActive, commitDraft, areaMode, setAreaMode, setTeamPick, placed, setFindTruppOpen,
+  mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, isPhone, lineMode, settleDraft,
+  setLineMode, draftActive, draftOpen, commitDraft, areaMode, setAreaMode, setTeamPick, placed, setFindTruppOpen,
   measure, pendingShape, setPendingShape, setRotStart, rotStart, tacticalLocked, createLine,
   createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, togglePanel, viewsApi,
   view, readOnly, isEl, viewsOpen, sharePick, shareParent, toggleViews, coord, mapRef, paletteOpen,
@@ -95,13 +98,15 @@ export function MapToolDocks({
       {/* the armed tool's readout — ONE pill, bottom centre, glyph + name (3am sweep point 3,
           23.10.2026). A symbol wears its own SVG and name, the others their rail glyph and word;
           Linie/Fläche say their input mode. The symbol tool has no dock any more: the pill IS
-          its readout, «Mehrere platzieren» stands beside it, and the way out is the rail tile or
-          Escape. Not on the phone while Messen is armed – its results panel stands in that row. */}
+          its readout, «Mehrere platzieren» stands beside it, and the way out is the ✕ beside that
+          (27.10.2026), the rail tile or Escape. Not on the phone while Messen is armed – its results panel stands in that row. */}
       {mapUI && tool !== 'select' && !(isPhone && tool === 'measure') && (() => {
         if (tool === 'symbol') {
           if (!pending) return null
+          // the ✕ puts it down exactly as Escape does (useMapActions · cancelPlacement) – the Plan's twin
           return <ArmedToolPill glyph={<ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />} name={formatSymbolName(pending) || pending}
-            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }} />
+            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }}
+            onClose={() => { setPending(null); setPendingShape(null); setRotStart(null); setTool('select') }} />
         }
         if (tool === 'shape') {
           if (!pendingShape) return null
@@ -122,10 +127,10 @@ export function MapToolDocks({
       )}
       {mapUI && tool === 'line' && (
         <ToolDock groups={[
-          [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
+          [{ type: 'close', onClick: () => { setTool('select'); settleDraft() } }],
           // input mode: Freihand (drag) ↔ Punkte (tap each vertex, ✓ to finish)
           [
-            { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: lineMode === 'freehand', onClick: () => { setLineMode('freehand'); setDraft([]) } },
+            { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: lineMode === 'freehand', onClick: () => { setLineMode('freehand'); settleDraft() } },
             { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: lineMode === 'nodes', onClick: () => setLineMode('nodes') },
             ...(lineMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: commitDraft }] : []),
           ],
@@ -137,9 +142,9 @@ export function MapToolDocks({
       )}
       {mapUI && tool === 'area' && (
         <ToolDock groups={[
-          [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
+          [{ type: 'close', onClick: () => { setTool('select'); settleDraft() } }],
           [
-            { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); setDraft([]) } },
+            { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); settleDraft() } },
             { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: areaMode === 'nodes', onClick: () => setAreaMode('nodes') },
             ...(areaMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: commitDraft }] : []),
           ],
@@ -239,6 +244,7 @@ export function MapToolDocks({
              already stated where it is started: the TopBar +Eintrag button, and the FabEntry on a
              phone. */
           active={tool}
+          open={draftOpen}
           onPick={pick}
           footer={(() => {
             const c = appConfig.copy.nav

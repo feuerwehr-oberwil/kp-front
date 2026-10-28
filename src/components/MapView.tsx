@@ -52,6 +52,7 @@ import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
 import { useGlRecovery } from '../lib/useGlRecovery'
 import { useNightTheme } from '../lib/useNightTheme'
 import { themeToken, uiBlue } from '../lib/themeToken'
+import { fillTemplate } from '../lib/format'
 import { useIsPhone } from '../lib/useIsPhone'
 import { reportMapError } from '../lib/mapError'
 import { isTypingTarget } from '../lib/hotkeys'
@@ -70,6 +71,12 @@ import { attachInsetPx, lineJoints, boundaryPoint, DETACH_SHOW_PROGRESS, dwellFo
  *  Trupp is standing somewhere. A frozen value rather than a token because MapLibre's paint
  *  cannot read a CSS custom property; it is deliberately mid-grey, so it reads on both themes. */
 const GHOST_TRAIL_INK = '#8a8f98'
+/** The open draft's marching dashes (27.10.2026): MapLibre cannot animate a dash offset, so the
+ *  dash pattern itself steps through one period — MapLibre's own «animate a line» recipe. */
+const DRAFT_ANTS: number[][] = [
+  [0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0],
+  [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5], [0, 2, 3, 2], [0, 2.5, 3, 1.5], [0, 3, 3, 1], [0, 3.5, 3, 0.5],
+]
 
 // Every edit handle of a SELECTED drawing (node pads, «+» midpoints, grow arrows, detach chips,
 // the Absperrkreis's radius ring) rides at MARKER_Z.selected: a react-map-gl
@@ -266,6 +273,8 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // flips: its `d.color || DEFAULT_INK` fallbacks below are deliberately left alone.
   const night = useNightTheme()
   const blue = uiBlue()
+  // an open drawing's amber (--open), the same token the Plan's dashes and pill wear
+  const openTone = themeToken('--open', '#e2920a')
   // the rim of a joint dot (l-draw-join) — the same surface tone the DOM rings wear
   const surface = themeToken('--surface', '#ffffff')
 
@@ -815,6 +824,18 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
 
   // the draft outline/fill; its vertices render as draggable Markers (not circles) below
   const draftFC = useMemo(() => fc(draft.length >= 2 ? [draftKind === 'area' && draft.length >= 3 ? polyFeat(draft) : lineFeat(draft)] : []), [draft, draftKind])
+  // …and its dashes march while it is open (DRAFT_ANTS) — straight onto the layer, no re-render
+  const draftShown = !!draftKind && draft.length >= 2
+  useEffect(() => {
+    const map = mapReady ? mapInst.current : null
+    if (!map || !draftShown || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let i = 0
+    const t = window.setInterval(() => {
+      i = (i + 1) % DRAFT_ANTS.length
+      if (map.getLayer('l-draft-line')) map.setPaintProperty('l-draft-line', 'line-dasharray', DRAFT_ANTS[i])
+    }, 60)
+    return () => window.clearInterval(t)
+  }, [mapReady, draftShown])
   // measure path: line / polygon only — the vertices are draggable Markers, not circles
   const measureFC = useMemo(() => fc(measurePoints.length >= 2
     ? [measureKind === 'area' && measurePoints.length >= 3 ? polyFeat(measurePoints) : lineFeat(measurePoints)]
@@ -1391,8 +1412,10 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       {/* live draft (area/line tool) — vertices are draggable handles (rendered below),
           so the in-progress shape edits exactly like the measure path */}
       <Source id="s-draft" type="geojson" data={draftFC}>
-        <Layer id="l-draft-fill" type="fill" filter={['==', ['geometry-type'], 'Polygon']} paint={{ 'fill-color': blue, 'fill-opacity': 0.08 }} />
-        <Layer id="l-draft-line" type="line" paint={{ 'line-color': blue, 'line-width': 2, 'line-dasharray': [1.5, 1] }} />
+        {/* the OPEN look (27.10.2026, the Plan's twin · .wb-draft-open): amber marching dashes
+            until the drawing is saved — the march is useDraftAnts below */}
+        <Layer id="l-draft-fill" type="fill" filter={['==', ['geometry-type'], 'Polygon']} paint={{ 'fill-color': openTone, 'fill-opacity': 0.1 }} />
+        <Layer id="l-draft-line" type="line" layout={{ 'line-cap': 'butt' }} paint={{ 'line-color': openTone, 'line-width': 3, 'line-dasharray': DRAFT_ANTS[0] }} />
         {/* fat transparent hit line so segment clicks (insert vertex) are easy to land */}
         <Layer id="l-draft-hit" type="line" paint={{ 'line-color': '#000', 'line-opacity': 0, 'line-width': 18 }} />
       </Source>
@@ -1494,6 +1517,13 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
           )
         })
       })()}
+
+      {/* «Linie offen» at the open drawing's last point, pulsing — the Plan's .wb-open-pill */}
+      {draftKind && draft.length > 0 && (
+        <Marker longitude={draft[draft.length - 1][0]} latitude={draft[draft.length - 1][1]} anchor="bottom-left" offset={[14, -14]} style={{ pointerEvents: 'none' }}>
+          <span className="map-open-pill">{fillTemplate(appConfig.copy.toolDock.openPill, { name: draftKind === 'area' ? appConfig.copy.drawingEditor.area : appConfig.copy.drawingEditor.line })}</span>
+        </Marker>
+      )}
 
       {/* draggable draft vertices (area/line tool) — drag to move, right-click to delete,
           identical to the measurement handles so the in-progress shape edits the same way */}

@@ -114,7 +114,7 @@ export function ConfirmCard({ open, title, message, items, note, confirmLabel, c
             is «Abbrechen» (23.09.2026): an Enter or Space from a tablet's keyboard cover — pressed to
             «get the dialog away» — would otherwise confirm the one thing that cannot be taken
             back. Going ahead is still one tap away. */}
-        <Dialog.Popup role="alertdialog" className="confirm-card ui-dialog" initialFocus={safeAnswer === 'alt' && altLabel ? altRef : danger || safeAnswer === 'cancel' ? cancelRef : confirmRef} aria-label={title ?? message}>
+        <Dialog.Popup role="alertdialog" className={`confirm-card ui-dialog${altLabel ? ' confirm-card-three' : ''}`} initialFocus={safeAnswer === 'alt' && altLabel ? altRef : danger || safeAnswer === 'cancel' ? cancelRef : confirmRef} aria-label={title ?? message}>
           {title && <Dialog.Title className="confirm-title" render={<h3 />}>{title}</Dialog.Title>}
           {/* An empty message renders NOTHING, not an empty paragraph with its own margin: some
               confirms are a title and two buttons, the title already being the whole statement). */}

@@ -29,6 +29,9 @@ interface Props {
   tools: readonly ToolDef[]
   /** the active tool id (lights its button) */
   active: string
+  /** the active tool holds an OPEN drawing (a Punkte draft not saved yet): its tile wears an amber
+   *  dot (27.10.2026) */
+  open?: boolean
   onPick: (id: string) => void
   /** optional refs to each tool button, so a tool's option dock can top-align to it */
   toolRefs?: React.MutableRefObject<Record<string, HTMLButtonElement | null>>
@@ -64,7 +67,7 @@ const MAXW = 280
  *  wanting the words permanently is what the `railLabels` device pref is for. */
 let lastExpanded = false
 
-export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, footer, className, labels }: Props) {
+export function ToolRail({ primary, tools, active, open = false, onPick, toolRefs, extras, footer, className, labels }: Props) {
   const [expanded, setExpandedState] = useState(lastExpanded)
   const setExpanded = (v: boolean) => { lastExpanded = v; setExpandedState(v) }
   const nav = appConfig.copy.navRail
@@ -109,7 +112,7 @@ export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, foo
         ref={toolRefs ? (el) => { toolRefs.current[t.id] = el } : undefined}
         // `vrail-grp` is the corner mark «this tile holds more than one thing» — the two-state
         // Auswahl wears the one the nav bar's «Pläne» and «Einsatz» wear (phone only, 15-mobile.css)
-        className={`vrail-tool ${on ? 'on' : ''}${t.alt ? ' vrail-grp' : ''}`}
+        className={`vrail-tool ${on ? 'on' : ''}${t.alt ? ' vrail-grp' : ''}${on && open ? ' open' : ''}`}
         title={shown.label}
         aria-label={shown.label}
         aria-pressed={on}
@@ -154,7 +157,7 @@ export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, foo
             return (
               <button
                 key="__primary__"
-                className={`vrail-tool ${on ? 'on' : ''}`}
+                className={`vrail-tool ${on ? 'on' : ''}${face && open ? ' open' : ''}`}
                 title={label}
                 aria-label={label}
                 aria-pressed={on}

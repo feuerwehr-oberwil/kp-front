@@ -479,6 +479,10 @@
 /* .ip-btn, the house family — `.btn` is the dense map-dock button (12.5px, flex:1, bounces on
    press) and using it here is what made the confirm read as another app's dialog. */
 .confirm-actions .ip-btn { flex: 0 0 auto; min-width: 96px; max-width: 100%; min-height: var(--tap); justify-content: center; }
+/* …and a card with THREE answers is wide enough to hold them on one line (owner, Gebäude round 2,
+   27.10.2026: «Speichern» wrapped under «Weiterzeichnen · Verwerfen» on a desktop). The phone keeps
+   its full-width stack (15-mobile). */
+.confirm-card-three { width: min(460px, 92vw); }
 .btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
 @media (hover: hover) {
   .btn.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
@@ -737,6 +741,8 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .de-warn { display: flex; align-items: center; gap: var(--sp-2); margin: 2px 0 var(--sp-2); font-size: var(--fs-1);
   font-weight: var(--fw-medium); color: var(--amber-strong, var(--amber)); }
 .draw-editor .de-warn svg { width: 15px; height: 15px; flex: none; }
+/* why a choice in the row above is off (the «Art» row's «Wand» with a Trupp on the line) */
+.draw-editor .de-hint { margin: 0 0 var(--sp-2); font-size: var(--fs-1); color: var(--ink-dim); }
 /* a clean, always-present thin scrollbar so the panel reads as scrollable */
 .draw-editor .ctx-body { scrollbar-width: thin; scrollbar-color: var(--border) transparent; scroll-padding-bottom: 8px; }
 .draw-editor .ctx-body::-webkit-scrollbar { width: 8px; }

@@ -263,12 +263,21 @@ export interface StackLayout { boardW: number; boardH: number; floors: number }
  *  which changes the box fractions the ink is stored against. Defaults to `layout` — a stack with
  *  a fixed band turns exactly as before. */
 export function remapPoint(src: Ring[], fromDeg: number, toDeg: number, layout: StackLayout, p: Pt, toLayout: StackLayout = layout): Pt {
+  return pointRemapper(src, fromDeg, toDeg, layout, toLayout)(p)
+}
+
+/** `remapPoint` for MANY points of one turn: the two views and box fractions are built once.
+ *  What a whole sheet's re-glue uses (lib/reorientAnnos) – the live preview runs it every frame
+ *  of a slider drag, and `buildView` walks every vertex of the footprint. */
+export function pointRemapper(src: Ring[], fromDeg: number, toDeg: number, layout: StackLayout, toLayout: StackLayout = layout): (p: Pt) => Pt {
   const from = buildView(src, fromDeg)
   const to = buildView(src, toDeg)
   const a = fpBoxFrac(from.aspect, layout.boardW, layout.boardH, layout.floors)
   const b = fpBoxFrac(to.aspect, toLayout.boardW, toLayout.boardH, toLayout.floors)
-  const local = tileToLocal(p, a.rw, a.rh)        // tile -> footprint-local (old view)
-  const srcPt = from.fromNorm(local)              // -> isotropic src
-  const local2 = to.toNorm(srcPt)                 // -> footprint-local (new view)
-  return localToTile(local2, b.rw, b.rh)          // -> tile (new view)
+  return (p) => {
+    const local = tileToLocal(p, a.rw, a.rh)      // tile -> footprint-local (old view)
+    const srcPt = from.fromNorm(local)            // -> isotropic src
+    const local2 = to.toNorm(srcPt)               // -> footprint-local (new view)
+    return localToTile(local2, b.rw, b.rh)        // -> tile (new view)
+  }
 }

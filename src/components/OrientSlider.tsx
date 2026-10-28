@@ -3,9 +3,9 @@ import { Slider } from './Slider'
 
 /**
  * The Gebäude's orientation slider (the popover the north dial opens). While the thumb moves,
- * the caller PREVIEWS the angle (the backdrop turns live); the release commits it once – one
- * `reorientTo`, one undo step, one `building.reorient` row. From the keyboard every step is a
- * release of its own.
+ * the caller PREVIEWS the angle (the backdrop and everything drawn on it turn live –
+ * lib/reorientAnnos, 28.10.2026); the release commits it once – one `reorientTo`, one undo step,
+ * one `building.reorient` row. From the keyboard every step is a release of its own.
  *
  * It is the app's own `Slider` (20.10.2026, UX sweep M3 – it was the native range input, whose
  * release had to be read off the browser's own `change` event). The Slider's `onCommit` is that
