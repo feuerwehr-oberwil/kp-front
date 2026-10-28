@@ -5,6 +5,18 @@
     "ogTitle": "KP Front – Digitale Einsatzführung für Feuerwehren",
     "ogDescription": "Der digitale Kommandoposten am Einsatzort: Karte, Pläne, Trupps, Verlauf und Rapport – offline-fähig und quelloffen."
   },
+  "schema": {
+    "description": "Digitale Einsatzführung und Lagekarte für Feuerwehren – mit swisstopo-Karten, taktischen Zeichen nach FKS, Atemschutzüberwachung und laufendem Einsatzjournal.",
+    "featureList": [
+      "Lagekarte auf swisstopo-Karten mit taktischen Zeichen nach FKS",
+      "Atemschutzüberwachung mit Druck, Rückzugszeit, Kontaktuhr und Alarmen",
+      "Objekt- und Gebäudepläne als Whiteboard zum Draufzeichnen und Messen",
+      "Einsatzjournal (Verlauf), das nur ergänzt und nie umgeschrieben wird",
+      "Schichtplanung für lange Einsätze mit Übersicht über die Deckung",
+      "Einsatzrapport als PDF, aus den Einsatzdaten vorausgefüllt",
+      "Zeitreise: den Einsatz für die Nachbesprechung nochmals abspielen"
+    ]
+  },
   "nav": {
     "aria": "Hauptnavigation",
     "features": "Funktionen",
@@ -346,12 +358,12 @@
         "a": "Alle sehen gleichzeitig dieselbe Lage – am Führungsfahrzeug, auf dem Tablet und beim\n          Einsatzleiter. Keine Meldung geht auf einem Notizzettel verloren. Die\n          Atemschutzüberwachung meldet sich selbst, bevor es knapp wird. Weniger Funkverkehr für\n          Fragen, die ohnehin auf dem Lagebild stehen – und der Rapport ist beim Einrücken fast\n          fertig statt am Wochenende danach. KP Front unterstützt die Einsatzleitung dabei, die\n          Lage widerspruchsfrei zu halten und Abweichungen sichtbar zu machen: ein Trupp ohne\n          Funkkontakt, ein Fahrzeug, das nirgends steht, eine Rückmeldung, die nie kam."
       },
       {
-        "q": "Wem gehören die Daten?",
-        "a": "Euch. Karten, Pläne und Einsatzdaten liegen auf eurer eigenen Installation.\n          Karten- und Adressdienste erhalten nur die jeweils abgefragte Position; weitere externe\n          Dienste laufen nur, wenn ihr sie selbst einrichtet. Nichts geht automatisch an einen\n          Anbieter oder an uns."
+        "q": "Wo werden die sensiblen Einsatzdaten gespeichert?",
+        "a": "KP Front wird von jeder Feuerwehr selbst betrieben (Self-Hosted). Einsatzdaten – Lagekarte, Atemschutzüberwachung, Verlauf und Gebäudepläne – liegen auf der eigenen Installation und den eigenen Geräten: etwa auf einem Mini-PC im Magazin, einem eigenen Server oder bei einem selbst gewählten Cloud-Anbieter. Es gibt keinen zentralen Server, und nichts geht automatisch an einen Anbieter oder an uns. Karten-, Adress- und Wetterdienste (standardmässig unter anderem swisstopo) erhalten nur die jeweils abgefragte Position; weitere externe Dienste laufen nur, wenn die Feuerwehr sie selbst einrichtet."
       },
       {
-        "q": "Was kostet das?",
-        "a": "Für die Software selbst nichts. KP Front ist Open Source (AGPL) – <strong>keine\n          Lizenz, kein Abo, keine Kosten pro Gerät</strong>. Was bleibt, sind die eigenen Kosten\n          für Betrieb, Infrastruktur und allenfalls externe Unterstützung."
+        "q": "Wie unterscheidet sich KP Front von kommerziellen Systemen?",
+        "a": "KP Front ist Open Source (AGPL-3.0): <strong>keine Lizenzgebühren, kein Abo, keine Kosten pro Gerät</strong>. Jede Feuerwehr betreibt ihre eigene Installation und behält damit die Kontrolle über ihre Daten. Was bleibt, sind die eigenen Kosten für Betrieb, Infrastruktur und allenfalls externe Unterstützung. Die Weiterentwicklung kommt direkt aus der Praxis der Feuerwehr Oberwil BL; Fehlermeldungen, Ideen und Beiträge aus der Open-Source-Community sind willkommen."
       },
       {
         "q": "Was braucht es für den Betrieb?",
@@ -366,8 +378,12 @@
         "a": "Ja. Jede Feuerwehr hat ihren eigenen Verwaltungsbereich: Mannschaft, Fahrzeuge,\n          Doktrin und Vorlagen sind dort frei einstellbar. Checklisten, Objektpläne und\n          Karten-Ebenen kommen aus den eigenen Stationsdaten und werden über die\n          mitgelieferten Kommandozeilen-Werkzeuge geladen. Und weil der\n          ganze Code auf <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>\n          steht, lässt sich alles Übrige bauen – selbst oder in Auftrag."
       },
       {
-        "q": "In welchen Sprachen läuft die App?",
-        "a": "Die Oberfläche gibt es auf Deutsch, Englisch, Französisch und Italienisch. Die Sprache wird <strong>einmal pro Feuerwehr</strong> eingestellt, nicht pro Gerät – im Einsatz lesen alle dieselben Begriffe, und das ist Absicht: eine Lage, ein Vokabular.\n          Die öffentliche Demo läuft auf <strong>Deutsch</strong>. Die Screenshots hier sind aus derselben Instanz – nachgestellte Bilder wären eine Behauptung."
+        "q": "Funktioniert KP Front nur in der Schweiz?",
+        "a": "Nein. KP Front ist als Open-Source-Software frei zugänglich und kann weltweit an lokale Gegebenheiten angepasst werden. Ab Werk ist die Anwendung für die Schweiz vorkonfiguriert – mit swisstopo-Karten, taktischen Zeichen nach FKS und den FKS-Vorlagen für die Führung im Einsatz. Ausserhalb der Schweiz lassen sich andere Kartengrundlagen einstellen; die Adresssuche unterstützt heute nur die swisstopo-Schnittstelle und braucht dort eine Anpassung."
+      },
+      {
+        "q": "Welche Sprachen unterstützt KP Front?",
+        "a": "Die Website gibt es auf Deutsch, Französisch, Italienisch, Rätoromanisch und Englisch. Die Anwendung selbst und ihre Hilfe laufen auf Deutsch, Französisch, Italienisch und Englisch – Rätoromanisch ist dort noch nicht verfügbar. Die Sprache wird <strong>einmal pro Feuerwehr</strong> eingestellt, nicht pro Gerät: Im Einsatz lesen alle dieselben Begriffe. Die technische Dokumentation zu Einrichtung und Betrieb ist englisch. Die öffentliche Demo läuft auf <strong>Deutsch</strong>, und die Screenshots hier stammen aus derselben Instanz."
       },
       {
         "q": "Wie fangen wir an?",
@@ -415,6 +431,7 @@
   "footer": {
     "origin": "Entstanden im Einsatzbetrieb der <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> –\n      weil wir im Einsatz immer wieder dieselben Fehlerquellen gesehen haben: Doppelbelegungen, verstreute\n      Informationen und handschriftliche Übertragungsfehler.\n      Jede Feuerwehr betreibt ihr eigenes KP Front, mit eigenen Karten, Plänen und Daten.",
     "demo": "Demo",
-    "contact": "Kontakt"
+    "contact": "Kontakt",
+    "org": "Feuerwehr Oberwil auf GitHub"
   }
 }
