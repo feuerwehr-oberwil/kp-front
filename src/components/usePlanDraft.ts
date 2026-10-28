@@ -12,7 +12,7 @@
 // Wand's corner dragged – while it is still open or afterwards – snaps the same way
 // (snapDraftVertex / snapWallVertex, for useWbVertexEdit).
 
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import type { BoardAnno, BoardPoint, BoardTool, LineAttachment } from '../types'
 import { appConfig } from '../config/appConfig'
@@ -176,9 +176,13 @@ export function usePlanDraft({
   // interactive wrapper (select + drop to pan so the style editor opens).
   // the board writer of the LATEST render: a «Speichern» answered later (releaseDraft, tapPoint)
   // must not write through the `add` of the render that asked – that one closes over the board as
-  // it was then and would overwrite whatever landed while the question was open (a remote merge)
+  // it was then and would overwrite whatever landed while the question was open (a remote merge).
+  // ⚠️ A PASSIVE effect, not a layout one: on a sheet switch the Whiteboard's [activeId] cleanup
+  // releases the open drawing, and passive cleanups run before passive setups – so that release
+  // still writes through the OLD sheet's writer. A layout effect re-pointed the ref first, and the
+  // drawing landed on the sheet switched to (CodeRabbit on #514, 28.10.2026).
   const addRef = useRef(add)
-  useLayoutEffect(() => { addRef.current = add })
+  useEffect(() => { addRef.current = add })
   const commitLine = (pts: BoardPoint[], role?: GrundrissRole | null): BoardAnno => {
     const id = newId('l')
     const floor = pts[0]?.[2] ?? draftFloor.current

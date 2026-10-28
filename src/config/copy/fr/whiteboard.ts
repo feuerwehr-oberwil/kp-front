@@ -251,6 +251,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       none: 'Aucun',
       toOne: 'Copier vers {name}',
       toMany: 'Copier vers {n} étages',
+      nothingNew: 'Rien copié – c’est déjà là.',
       pick: 'Choisir un étage',
       nothing: '{name} n’a pas encore de plan à copier – ni mur, ni symbole du bâtiment.',
       targets: 'Étages',

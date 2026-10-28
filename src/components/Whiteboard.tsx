@@ -1628,10 +1628,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // top to bottom, the way the stack and the chips read
     const order = allFloorsTTB.filter((f) => targets.includes(f))
     const { added, counts } = copyGrundriss(annos, from, order, isGebaeudeSymbol, newId)
-    if (!added.length) return
+    const C = appConfig.copy.whiteboard.storeyCopy
+    // everything the source holds is already on the picked storeys (a Treppe spanning them):
+    // the sheet still closes, but never without a word
+    if (!added.length) { toast(C.nothingNew); return }
     commit([...annos, ...added])
     added.forEach((a) => emit('board.add', { id: a.id, anno: a, planId: activeId }))
-    const C = appConfig.copy.whiteboard.storeyCopy
     toast(fillTemplate(C.done, { list: counts.map((c) => fillTemplate(C.doneItem, { n: c.n, floor: storeyName(c.floor) })).join(' · ') }))
   }
 

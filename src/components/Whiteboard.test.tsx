@@ -568,6 +568,22 @@ describe('the Plan rail and its drafts', () => {
     expect(ui.toasts).toHaveLength(0)
   })
 
+  // CodeRabbit on #514 (28.10.2026): the sheet switch's release ran after the NEW sheet's writer
+  // was installed (a layout effect), so the open drawing landed on the sheet switched TO
+  it('a sheet switch commits the open drawing onto the sheet it was drawn on', () => {
+    const other: PlanDocument = { ...tafel, id: 'tafel2', title: 'Zweites Blatt' }
+    const onOld = vi.fn(), onNew = vi.fn()
+    const board = (activeId: string, onChange: typeof onOld) => <Whiteboard
+      plans={[tafel, other]} activeId={activeId} annos={[]} onChange={onChange}
+      building={null} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
+      sym={sym} onRecent={() => {}} log={() => {}} hist={{}} setHist={() => {}} focus={null} />
+    const { container, rerender } = render(board('tafel', onOld))
+    drawAreaDraft(container)
+    rerender(board('tafel2', onNew))
+    expect(onNew).not.toHaveBeenCalled()
+    expect(onOld.mock.calls[onOld.mock.calls.length - 1]?.[0].map((a: BoardAnno) => a.kind)).toEqual(['area'])
+  })
+
   it('Escape is a leave like any other — it asks too', async () => {
     const { container, onChange } = renderPlan([])
     drawAreaDraft(container)

@@ -369,6 +369,8 @@ export const whiteboardCopy = {
       none: 'Keine',
       toOne: 'Auf {name} kopieren',
       toMany: 'Auf {n} Geschosse kopieren',
+      // the picked storeys already hold all of it (a Treppe spanning them) – said, never a silent close
+      nothingNew: 'Nichts kopiert – das steht dort schon.',
       pick: 'Geschoss wählen',
       nothing: 'Auf {name} gibt es noch keinen Grundriss zum Kopieren – keine Wand, kein Gebäude-Symbol.',
       targets: 'Geschosse',
