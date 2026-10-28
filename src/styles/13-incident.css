@@ -1882,7 +1882,6 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 .rp-band { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   padding: 12px var(--head-pad-x); border-bottom: 1px solid var(--glass-edge);
   background: color-mix(in srgb, var(--green) 9%, var(--surface)); }
-.rp-band-ok { width: 17px; height: 17px; flex: none; color: var(--green-strong); }
 /* The same band, amber, for the print job that has not come back (see ReportPreflight). Nothing
    is wrong and nothing is finished — and the green above is reserved for the receipt. */
 .rp-band-open { background: color-mix(in srgb, var(--amber) 10%, var(--surface)); }
@@ -1896,6 +1895,34 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* the canEdit gate around the amber band's Prüfen/Abbrechen: the shared .report-fieldset is a
    column (it wraps form sections) — inside the band it holds two buttons on the band's own row */
 .rp-band .report-fieldset { flex-direction: row; align-items: center; gap: 12px; }
+/* ONE strip under the head (ReportPreflight · RpStrip, 28.10.2026): the guide to the next open
+   point (#14) and the Abschluss band (#15, «a bit smaller, same as the guide»). Outside the
+   scrolling body like the head, so it stays put while the form scrolls and with the keyboard up.
+   The pill is the tap (≥52px, two short lines), the ✕ in front a --tap square; green = nothing is
+   missing and this is the next step, the receipt tint the band always had. */
+.rp-strip { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-2) var(--head-pad-x); border-bottom: 1px solid var(--glass-edge); }
+.rp-strip-done { background: color-mix(in srgb, var(--green) 9%, var(--surface)); }
+.rp-strip-x { flex: none; }
+.rp-strip-go { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: var(--sp-3); min-height: 52px;
+  padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-4); border: none; border-radius: var(--r-ctl); background: var(--ink-5); color: var(--ink);
+  text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.rp-strip-done .rp-strip-go { background: color-mix(in srgb, var(--green) 16%, var(--surface)); }
+.rp-strip-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.rp-strip-go:disabled { cursor: default; }
+.rp-strip-ico { flex: none; display: grid; place-items: center; width: 18px; height: 18px; color: var(--ink-dim); }
+.rp-strip-ico .i, .rp-strip-ico svg { width: 18px; height: 18px; }
+.rp-strip-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.rp-strip-lead { font: var(--fw-medium) var(--fs-1)/1.25 var(--body); color: var(--ink-dim); }
+.rp-strip-n { font-weight: var(--fw-bold); color: var(--amber-strong); }
+.rp-strip-t { font: var(--fw-bold) var(--fs-2)/1.25 var(--body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-strip-chev { flex: none; width: 16px; height: 16px; color: var(--ink-faint); }
+/* the band's one line after the Abschluss: «Danach für die Ablage: Beilagen herunterladen (ZIP)» */
+.rp-strip-more { flex: 1 1 100%; margin: 0; display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-2);
+  font-size: var(--fs-1); color: var(--ink-dim); }
+.rp-strip-more .i { width: 15px; height: 15px; flex: none; }
+.rp-strip-link { min-height: var(--tap); padding: 0; border: none; background: none; color: var(--ink); cursor: pointer;
+  font: var(--fw-bold) var(--fs-1) var(--body); text-decoration: underline; text-underline-offset: 3px; }
 /* Content padding matches the head's 22px, so the cards line up with the title above them
    (`.ip-body`'s own 6px/20px is a dialog's, and left the first card glued to the head border).
    The bottom clears the FAB the way Anwesenheit, Mittel, Atemschutz, Checklists and Zeitplan all
