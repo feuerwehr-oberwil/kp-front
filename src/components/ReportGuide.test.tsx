@@ -65,7 +65,7 @@ describe('the Abschluss band, one step earlier (#15)', () => {
   it('names the PDF as the next step once everything is recorded – no «Später» on it', () => {
     mount(done, { attendanceCount: 1, mittelCount: 0 })
     expect(strip()!.textContent).toContain(P.bandReady)
-    expect(within(strip()!).getByRole('button', { name: new RegExp(P.bandPdf.replace(/[()]/g, '\\$&')) })).toBeTruthy()
+    expect(within(strip()!).getByRole('button', { name: (n) => n.includes(P.bandPdf) })).toBeTruthy()
     expect(within(strip()!).queryByRole('button', { name: P.bandLater })).toBeNull()
   })
   it('turns into «Einsatz abschliessen» once the PDF exists', () => {
