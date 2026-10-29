@@ -88,7 +88,7 @@
       "@type": "SoftwareApplication",
       "@id": "https://kp-front.ch/#app",
       "name": "KP Front",
-      "url": "https://kp-front.ch/it/",
+      "url": "https://kp-front.ch/",
       "description": "Condotta d’intervento digitale e carta della situazione per i pompieri – con carte swisstopo, segni tattici secondo le convenzioni CSP, sorveglianza della protezione respiratoria e diario d’intervento continuo.",
       "featureList": [
         "Carta della situazione su carte swisstopo con segni tattici secondo le convenzioni CSP",
@@ -108,7 +108,13 @@
         "en"
       ],
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
-      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-front",
+      "sameAs": "https://github.com/feuerwehr-oberwil/kp-front",
+      "subjectOf": {
+        "@id": "https://kp-front.ch/#source"
+      },
+      "isPartOf": {
+        "@id": "https://kp-front.ch/#kp-suite"
+      },
       "screenshot": "https://kp-front.ch/shots/lage.jpg",
       "isAccessibleForFree": true,
       "offers": {
@@ -121,6 +127,26 @@
       }
     },
     {
+      "@type": "SoftwareSourceCode",
+      "@id": "https://kp-front.ch/#source",
+      "name": "KP Front source code",
+      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-front",
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html"
+    },
+    {
+      "@type": "CreativeWorkSeries",
+      "@id": "https://kp-front.ch/#kp-suite",
+      "name": "KP Front & KP Rück",
+      "hasPart": [
+        {
+          "@id": "https://kp-front.ch/#app"
+        },
+        {
+          "@id": "https://kp-rueck.ch/#app"
+        }
+      ]
+    },
+    {
       "@type": "Organization",
       "@id": "https://kp-front.ch/#org",
       "name": "Feuerwehr Oberwil BL",
@@ -128,6 +154,17 @@
       "sameAs": [
         "https://github.com/feuerwehr-oberwil"
       ]
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://kp-front.ch/it/#webpage",
+      "url": "https://kp-front.ch/it/",
+      "name": "KP Front – Condotta d’intervento digitale per i pompieri",
+      "description": "KP Front è il posto di comando digitale sul posto: mappa, piani, squadre, diario e rapporto – offline e open source.",
+      "inLanguage": "it-CH",
+      "mainEntity": {
+        "@id": "https://kp-front.ch/#app"
+      }
     },
     {
       "@type": "FAQPage",
