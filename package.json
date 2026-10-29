@@ -17,6 +17,8 @@
     "knip": "node scripts/knip-ratchet.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:mutation": "stryker run",
+    "test:mutation:smoke": "node scripts/mutation-smoke.mjs",
     "coverage:raise": "node scripts/coverage-raise.mjs",
     "test:e2e": "playwright test",
     "bench": "vitest bench --run",
@@ -38,6 +40,8 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.64.1",
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/vitest-runner": "10.1.1",
     "@testing-library/react": "^16.3.3",
     "@types/geojson": "^7946.0.16",
     "@types/node": "^24.13.6",

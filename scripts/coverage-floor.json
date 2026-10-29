@@ -1,9 +1,9 @@
 {
   "_comment": "vitest coverage floor (vite.config.ts · test.coverage.thresholds). Only goes up: `pnpm coverage:raise` after `pnpm test:coverage`. Never lower it to pass.",
   "floor": {
-    "statements": 71.1,
-    "branches": 64.7,
-    "functions": 66,
-    "lines": 75.2
+    "statements": 73.2,
+    "branches": 66.9,
+    "functions": 67.9,
+    "lines": 77.2
   }
 }

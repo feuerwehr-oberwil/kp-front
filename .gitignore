@@ -13,6 +13,9 @@ __pycache__/
 # vitest coverage output (`pnpm test:coverage`)
 /coverage/
 
+# Local mutation reports and incremental results (pnpm test:mutation).
+/reports/
+
 # Playwright e2e smoke artifacts (see e2e/, playwright.config.ts)
 /test-results/
 /playwright-report/

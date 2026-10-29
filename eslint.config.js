@@ -11,7 +11,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 export default tseslint.config(
   // `.claude` holds transient agent worktrees (full repo copies) that must not be linted.
   // `src/lib/api/schema.d.ts` is generated (`pnpm openapi:types`) and checked by its own test.
-  { ignores: ['dist', 'dev-dist', 'coverage', 'node_modules', '.claude', 'src/lib/api/schema.d.ts'] },
+  { ignores: ['dist', 'dev-dist', 'coverage', 'reports', '.x-stryker-tmp', 'node_modules', '.claude', 'src/lib/api/schema.d.ts'] },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

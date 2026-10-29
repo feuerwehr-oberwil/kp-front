@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { notfallFacts, notfallOffered, safetyInside, safetyReady, truppInNotfall, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, EARLY_PRESSURE_CORRECTION_MS, earlyEntryCorrection, entryPressureAsks, entryPressureConfirmed, estimatePressure, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, isStandDownExit, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppEditPatch, truppFieldGroupsChanged, truppFieldsOf, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
 import type { Trupp } from '../types'
+import { alarmRowKey, azChipRedundant, truppAwaitsEntry, truppHeadName, truppRegisteredAt } from './atemschutz'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
 const REF = Date.parse('2026-06-21T10:00:00Z')
@@ -12,6 +13,51 @@ const base: Trupp = {
   lastContactTime: '2026-06-21T10:00:00Z',
   status: 'aktiv',
 }
+
+describe('crew registration and alarm presentation', () => {
+  it('recognizes a registered crew awaiting entry and rejects deployed, removed and finished crews', () => {
+    const ready: Trupp = { ...base, status: 'angemeldet', entryTime: '' }
+    expect(truppAwaitsEntry(ready)).toBe(true)
+    expect(truppAwaitsEntry({ ...ready, removedAt: '2026-06-21T10:01:00Z' })).toBe(false)
+    expect(truppAwaitsEntry({ ...ready, entryTime: base.entryTime })).toBe(false)
+    expect(truppAwaitsEntry({ ...ready, status: 'aktiv' })).toBe(false)
+    expect(truppAwaitsEntry({ ...ready, status: 'raus' })).toBe(false)
+    expect(truppHeadName({ name: 'Müller' })).toBe('Müller')
+    expect(truppHeadName({})).toBe('')
+  })
+
+  it('finds the latest registration, skips other log rows, and does not invent a time for a malformed registration', () => {
+    const first = { kind: 'registered' as const, t: '2026-06-21T09:00:00Z', bar: 300 }
+    const latest = { ...first, t: '2026-06-21T10:00:00Z' }
+    const contact = { kind: 'contact' as const, t: '2026-06-21T10:05:00Z', bar: 280 }
+    expect(truppRegisteredAt({ ...base, readings: [first, latest, contact] })).toBe(REF)
+    expect(truppRegisteredAt({ ...base, readings: [first, { ...latest, t: 'invalid' }] })).toBeNull()
+    expect(truppRegisteredAt({ ...base, readings: [contact] })).toBeNull()
+    expect(truppRegisteredAt(base)).toBeNull()
+  })
+
+  it('hides only a red alarm already shown for the same crew AND reason', () => {
+    const urgent = { id: 't1', reason: 'contact' as const }
+    expect(alarmRowKey('t1', 'contact')).toBe('t1:contact')
+    expect(azChipRedundant({ peak: 0, urgent }, true, ['t1:contact'])).toBe(false)
+    expect(azChipRedundant({ peak: 1, urgent }, true, ['t1:contact'])).toBe(false)
+    expect(azChipRedundant({ peak: 2, urgent: null }, true, [])).toBe(false)
+    expect(azChipRedundant({ peak: 2, urgent }, true, [])).toBe(true)
+    expect(azChipRedundant({ peak: 2, urgent }, false, ['t1:contact'])).toBe(true)
+    expect(azChipRedundant({ peak: 2, urgent }, false, ['t1:pressure', 't2:contact'])).toBe(false)
+  })
+
+  it('requires roster confirmation before rebuilding compacted member IDs around a guest', () => {
+    const crew: Trupp = { ...base, name: 'Leader', leaderPersonId: 'leader', members: ['Guest', 'Nina'], memberPersonIds: ['nina'] }
+    expect(truppCrewWithout(crew, 'nina')).toBeNull()
+    const slots = [{ name: 'Leader', personId: 'leader', trusted: true }, { name: 'Guest' }, { name: ' Nina ', personId: 'nina', trusted: false }]
+    expect(truppCrewWithout(crew, 'leader', slots)).toBeNull()
+    expect(truppCrewWithout(crew, 'nina', slots)).toBeNull()
+    slots[2].trusted = true
+    expect(truppCrewWithout(crew, 'leader', slots)).toEqual({ name: 'Guest', members: ['Nina'], leaderPersonId: undefined, memberPersonIds: ['nina'], who: 'Leader' })
+    expect(truppCrewWithout(crew, 'nina', slots)).toEqual({ name: 'Leader', members: ['Guest'], leaderPersonId: 'leader', memberPersonIds: [], who: 'Nina' })
+  })
+})
 
 describe('deriveTruppLive', () => {
   it('counts elapsed time since entry and contact since the last contact', () => {

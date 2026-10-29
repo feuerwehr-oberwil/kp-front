@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   isFreshSampleSource, noteServerTime, resetServerClock, serverClockOffsetMs, serverNow, serverNowIso,
   setClockSourceForTests,
@@ -46,9 +46,19 @@ function start(truth: number, deviceAheadMs: number) {
 }
 
 beforeEach(() => start(Date.parse('2026-09-23T17:00:00Z'), 6_000))
-afterEach(() => { resetServerClock(); setClockSourceForTests() })
+afterEach(() => { resetServerClock(); setClockSourceForTests(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
 describe('serverClock', () => {
+  it.each([true, false])('uses the actual default clock sources (monotonic API available: %s)', (monotonic) => {
+    setClockSourceForTests()
+    vi.spyOn(Date, 'now').mockReturnValue(1_006_000)
+    if (monotonic) vi.spyOn(performance, 'now').mockReturnValue(0)
+    else vi.stubGlobal('performance', undefined)
+    noteServerTime(iso(1_000_000))
+    expect(serverClockOffsetMs()).toBe(6000)
+    expect(serverNow()).toBe(1_000_000)
+    expect(serverNowIso()).toBe('1970-01-01T00:16:40.000Z')
+  })
   it('is the plain device clock until a server answer has been seen', () => {
     expect(serverClockOffsetMs()).toBeNull()
     expect(serverNow()).toBe(sim.wall)
@@ -158,6 +168,47 @@ describe('serverClock — a stale header cannot move it', () => {
 })
 
 describe('serverClock — a genuine correction still applies', () => {
+  it('requires two full seconds of corroboration, including the exact boundary', () => {
+    sim.fresh(0, 0)
+    sim.stepDevice(6000)
+    sim.fresh(0, 0)
+    sim.advance(1999)
+    sim.fresh(0, 0)
+    expect(serverClockOffsetMs()).toBe(6000)
+    sim.advance(1)
+    sim.fresh(0, 0)
+    expect(serverClockOffsetMs()).toBe(12_000)
+  })
+
+  it.each([1000, 1001])('distinguishes the one-second latency margin from a correction of %i ms', (shift) => {
+    sim.fresh(0, 0)
+    sim.stepDevice(shift)
+    sim.fresh(0, 0)
+    sim.advance(2000)
+    sim.fresh(0, 0)
+    expect(serverClockOffsetMs()).toBe(shift === 1000 ? 6000 : 7001)
+  })
+
+  it.each([2000, 2001])('holds a corroborated backward correction only up to two seconds (%i ms)', (shift) => {
+    sim.fresh(0, 0)
+    sim.stepDevice(shift)
+    sim.fresh(0, 0)
+    sim.advance(2000)
+    const before = serverNow()
+    sim.fresh(0, 0)
+    expect(serverNow()).toBe(shift === 2000 ? before : sim.truth)
+  })
+
+  it('keeps a pending correction in the same coordinate system after a backward device step', () => {
+    sim.fresh(0, 0)
+    sim.stepDevice(6000)
+    sim.fresh(0, 0)
+    sim.advance(4000)
+    sim.stepDevice(-2000)
+    sim.fresh(0, 0)
+    expect(serverClockOffsetMs()).toBe(10_000)
+    expect(serverNow()).toBe(sim.truth)
+  })
   it('forward at once: a later server is proof, no corroboration needed', () => {
     sim.fresh(0, 1_500) // a slow first answer: the clock reads 1.5 s behind
     expect(sim.err()).toBe(-1_500)
@@ -219,6 +270,11 @@ describe('serverClock — a genuine correction still applies', () => {
 })
 
 describe('serverClock — which answers may teach it', () => {
+  it('checks the pathname of absolute URLs and ignores cached-prefix text in a query string', () => {
+    expect(isFreshSampleSource('https://station.invalid/api/reference/plans')).toBe(false)
+    expect(isFreshSampleSource('https://station.invalid/api/media/photo')).toBe(false)
+    expect(isFreshSampleSource('https://station.invalid/api/incidents?back=/api/reference/plans')).toBe(true)
+  })
   it('only answers that cannot have come out of a cache', () => {
     expect(isFreshSampleSource('/api/auth/me')).toBe(true)
     expect(isFreshSampleSource('/api/incidents/i1/workspace?since=4')).toBe(true)

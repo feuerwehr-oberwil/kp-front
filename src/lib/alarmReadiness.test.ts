@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   CHECK_DAYS, LATER_DAYS, SESSION_WARN_DAYS, SUBSCRIPTION_STALE_DAYS,
-  alarmReady, nudgeDue, patchReadinessStore, readReadinessStore, readinessRows, readinessSummary, type ReadinessFacts, type ReadinessStore,
+  alarmReady, nudgeDue, onReadinessStore, patchReadinessStore, readReadinessStore, readinessRows, readinessSummary, type ReadinessFacts, type ReadinessStore,
 } from './alarmReadiness'
 
 const DAY = 24 * 3600 * 1000
@@ -15,6 +15,12 @@ describe('the four rows', () => {
     const rows = readinessRows(green)
     expect(rows.map((r) => r.state)).toEqual(['ok', 'ok', 'ok', 'ok'])
     expect(alarmReady(rows)).toBe(true)
+    expect(rows).toEqual([
+      { key: 'installed', state: 'ok', fix: null, sub: 'installed', at: null },
+      { key: 'permission', state: 'ok', fix: null, sub: 'granted', at: null },
+      { key: 'subscription', state: 'ok', fix: null, sub: 'subscribed', at: NOW - 10 * DAY },
+      { key: 'session', state: 'ok', fix: null, sub: 'valid', at: NOW + 80 * DAY },
+    ])
   })
 
   it('an iOS browser tab is red on «installiert» – push exists only in the installed app; Android is a hint', () => {
@@ -23,8 +29,8 @@ describe('the four rows', () => {
   })
 
   it('permission: not yet asked → «Erlauben», denied → the system, no Notification global on iOS → install first', () => {
-    expect(byKey({ ...green, permission: 'default' }).permission).toMatchObject({ state: 'red', fix: 'allow' })
-    expect(byKey({ ...green, permission: 'denied' }).permission).toMatchObject({ state: 'red', fix: 'system' })
+    expect(byKey({ ...green, permission: 'default' }).permission).toMatchObject({ state: 'red', fix: 'allow', sub: 'ask' })
+    expect(byKey({ ...green, permission: 'denied' }).permission).toMatchObject({ state: 'red', fix: 'system', sub: 'denied' })
     expect(byKey({ ...green, standalone: false, permission: 'unsupported' }).permission).toMatchObject({ state: 'red', fix: 'install', sub: 'afterInstall' })
   })
 
@@ -77,6 +83,7 @@ describe('the nudge card', () => {
 
 describe('the device record', () => {
   beforeEach(() => localStorage.clear())
+  afterEach(() => vi.restoreAllMocks())
 
   it('reads empty, patches, and survives a corrupt value', () => {
     expect(readReadinessStore()).toEqual({ subscribedAt: null, lastTest: null, lastCheck: null, optedOut: false, laterUntil: null })
@@ -84,5 +91,83 @@ describe('the device record', () => {
     expect(readReadinessStore()).toMatchObject({ subscribedAt: NOW, optedOut: true, lastTest: null })
     localStorage.setItem('kp-alarm-readiness', '{not json')
     expect(readReadinessStore().optedOut).toBe(false)
+  })
+
+  it('preserves every timestamp across partial patches, including epoch zero', () => {
+    const record = { subscribedAt: NOW, lastTest: NOW - 1, lastCheck: 0, optedOut: true, laterUntil: NOW + DAY }
+    expect(patchReadinessStore(record)).toEqual(record)
+    expect(readReadinessStore()).toEqual(record)
+    expect(patchReadinessStore({ optedOut: false })).toEqual({ ...record, optedOut: false })
+    expect(readReadinessStore()).toEqual({ ...record, optedOut: false })
+  })
+
+  it.each(['wrong', true, {}, null])('discards nonnumeric timestamps and truthy opt-out values: %j', (value) => {
+    localStorage.setItem('kp-alarm-readiness', JSON.stringify({ subscribedAt: value, lastTest: value, lastCheck: value, laterUntil: value, optedOut: 'true' }))
+    expect(readReadinessStore()).toEqual({ subscribedAt: null, lastTest: null, lastCheck: null, optedOut: false, laterUntil: null })
+  })
+
+  it('notifies subscribers after persistence and supports unsubscribe', () => {
+    const snapshots: ReadinessStore[] = []
+    const off = onReadinessStore(() => snapshots.push(readReadinessStore()))
+    try {
+      patchReadinessStore({ lastTest: NOW })
+      expect(snapshots).toEqual([{ subscribedAt: null, lastTest: NOW, lastCheck: null, optedOut: false, laterUntil: null }])
+      off()
+      patchReadinessStore({ lastTest: NOW + 1 })
+      expect(snapshots).toHaveLength(1)
+    } finally { off() }
+  })
+
+  it('keeps live updates usable when storage reads and writes fail', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked') })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota') })
+    expect(readReadinessStore().lastTest).toBeNull()
+    const seen = vi.fn()
+    const off = onReadinessStore(seen)
+    try {
+      expect(patchReadinessStore({ lastTest: NOW }).lastTest).toBe(NOW)
+      expect(seen).toHaveBeenCalledTimes(1)
+    } finally { off() }
+  })
+
+  it('rejects valid JSON numbers that overflow JavaScript timestamps', () => {
+    localStorage.setItem('kp-alarm-readiness', '{"subscribedAt":1e400,"lastTest":-1e400,"lastCheck":1e400,"laterUntil":-1e400}')
+    expect(readReadinessStore()).toEqual({ subscribedAt: null, lastTest: null, lastCheck: null, optedOut: false, laterUntil: null })
+  })
+})
+
+describe('readiness policy boundaries', () => {
+  it.each([
+    [150 * DAY - 1, 'ok', 'subscribed'], [150 * DAY, 'ok', 'subscribed'], [150 * DAY + 1, 'red', 'stale'],
+  ] as const)('a registration aged %i ms follows the 150-day boundary', (age, state, sub) => {
+    expect(byKey({ ...green, subscribedAt: NOW - age }).subscription).toEqual({
+      key: 'subscription', state, sub, fix: state === 'red' ? 'renew' : null, at: NOW - age,
+    })
+  })
+
+  it.each([
+    [0, 'red', 'gone'], [1, 'warn', 'soon'], [14 * DAY - 1, 'warn', 'soon'], [14 * DAY, 'ok', 'valid'],
+  ] as const)('a session with %i ms remaining follows expiry and the two-week warning', (remaining, state, sub) => {
+    expect(byKey({ ...green, sessionUntil: NOW + remaining }).session).toEqual({
+      key: 'session', state, fix: null, sub, at: NOW + remaining,
+    })
+  })
+
+  it('directs an unsupported installed device to system settings and treats hints as alarm-capable', () => {
+    expect(byKey({ ...green, permission: 'unsupported' }).permission).toEqual({
+      key: 'permission', state: 'red', fix: 'system', sub: 'denied', at: null,
+    })
+    expect(byKey({ ...green, standalone: false, platform: 'android', permission: 'unsupported' }).permission.fix).toBe('system')
+    expect(alarmReady(readinessRows({ ...green, sessionUntil: null }))).toBe(true)
+    expect(alarmReady(readinessRows({ ...green, sessionUntil: NOW }))).toBe(false)
+  })
+
+  it('allows a nudge at the snooze deadline and only after 90 full days since a green check', () => {
+    const store = { subscribedAt: null, lastTest: null, lastCheck: NOW - 90 * DAY, optedOut: false, laterUntil: NOW }
+    const ctx = { now: NOW, inIncident: false, linkSession: false, pushUnavailable: false, store }
+    expect(nudgeDue(readinessRows({ ...green, permission: 'default' }), ctx)).toBe(true)
+    expect(nudgeDue(readinessRows(green), ctx)).toBe(false)
+    expect(nudgeDue(readinessRows(green), { ...ctx, store: { ...store, lastCheck: store.lastCheck - 1 } })).toBe(true)
+    expect(LATER_DAYS).toBe(30)
   })
 })

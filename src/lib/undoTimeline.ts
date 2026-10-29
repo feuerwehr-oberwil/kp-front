@@ -1,4 +1,6 @@
 // Rules for this area that span modules: docs/undo.md.
+// A group reduced to one part keeps that part's ID: its dropper must remove the step from
+// either stack just as a compound group's dropper does (mutation audit, 2026-10-28).
 
 import { appConfig } from '../config/appConfig'
 import { newId } from './ids'
@@ -234,8 +236,7 @@ export function createUndoTimeline(cap: number = appConfig.defaults.historyCap):
         const dropPart = () => {
           if (open === g) { g.parts = g.parts.filter((p) => p.id !== id); return }
           // dropped after the group closed: the part is inside a recorded step — drop that step
-          const host = partOf.get(id)
-          if (host) dropById(host)
+          dropById(partOf.get(id) ?? id)
         }
         return Object.assign(dropPart, {
           // still in the open group, or its recorded step still on the ↶ side
