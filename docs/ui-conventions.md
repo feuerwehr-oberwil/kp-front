@@ -113,6 +113,17 @@ framed «Abbrechen», then the primary. Trupp Auftrag, Trupp Mannschaft, the Kan
 Schichtband edit and the Mittel pencil wear it; a live sheet has no Abbrechen / primary, so its
 footer is the danger alone (TimeBlockSheet `danger` — the Anwesenheit's «Person entfernen»).
 
+**Every row of an editor sheet is a label column and a control edge** (owner pick 27B, sweep
+30.10.2026 #27, built 31.10.): the symbol panel (`.field`, `.kv-row`, Beschriftung, Entwicklung)
+and the Linien-/Flächen-/Form-Editor (`.de-row`) put the label in one fixed column
+(`--ctx-lbl`, 8.4 × 14px – «Abschnittschef», «Gehört zu Trupp» fit; a longer label wraps inside
+it), and every control starts at that edge and fills to the panel's – segments share the width,
+a `Stepper` spans it (+ and ✕ at the end), swatches spread over it, a `.de-action` starts there
+too. Every box control (field, menu, stepper, segments) is `--tap`, every row a 52px rhythm,
+every round pick button (Farbe, Füllung, Linie, Strichstärke) 36px – shrinking, still round,
+where a row of them does not fit the desktop panel. One recipe: `06-contextpanel` · «ONE label
+column, ONE control edge». A Messung read-out starts at the edge too, as a chip.
+
 **A symbol's context sheet is headed by its TYPE**, for every symbol, the generic Fahrzeug too
 («Fahrzeug» / the pack's name; 29.09.2026). A user-given name lives in its field
 («Bezeichnung») only — never twice, never an underlined head that jumps to a field. The foot's
