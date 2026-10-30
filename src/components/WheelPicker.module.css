@@ -43,8 +43,14 @@
   background: var(--blue-12);
   color: var(--blue-strong); font: var(--fw-bold) var(--fs-1) var(--body); white-space: nowrap;
 }
-@media (hover: hover) { .tab:hover { background: var(--blue-16); } }
-.tab:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* ⚠️ `:not(.tabOn)`: a `:hover` outranks the single `.tabOn` class, so hovering the PRESSED tab
+   put its --on-sel white onto this pale wash — «ab Beginn» all but vanished (owner, 30.10.2026).
+   The pressed tab keeps its fill under the pointer. */
+@media (hover: hover) { .tab:not(.tabOn):hover { background: var(--blue-16); } }
+/* press: the house ink wash only on the PRESSED fill — on the 12% tint it takes --blue-strong /
+   --green-strong to 4.2:1 by day, under AA, so an unpressed tab answers with a 2px edge instead */
+.tabOn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.tab:not(.tabOn):active:not(:disabled) { box-shadow: inset 0 0 0 1px currentColor; }
 /* the tab whose state the value currently IS: pressed, not hidden. It used to disappear once it
    applied, which removed the only way back to it after scrolling the wheels. */
 /* …and pressed is THE choice fill (01-tokens · --sel); the green tab fills green */
@@ -87,7 +93,8 @@
   background: var(--green-12);
   color: var(--green-strong);
 }
-@media (hover: hover) { .green:hover { background: var(--green-22); } }
+/* same ⚠️ as .tab; 16%, not 22: --green-strong on a 22% tint is 4.4:1 by day (AA needs 4.5) */
+@media (hover: hover) { .green:not(.tabOn):hover { background: var(--green-16); } }
 
 /* A NAMED clear, replacing the bin glyph. Emptying a «bis» does not delete anything — it says the
    person is still here — and a bin said the opposite of what it did. */

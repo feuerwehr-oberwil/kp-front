@@ -53,9 +53,10 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
 /* the number the operator used to work out in their head before sending somebody home */
 .duration { flex: none; font: var(--fw-bold) var(--fs-1) var(--mono); color: var(--ink-dim); }
 
-/* the body: the two times as one pair, nothing else — spread across the card, von at the left
-   edge and bis at the right with the dash between (owner, 30.10.2026: they huddled on the left) */
-.times { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3); }
+/* the body: the two times as one pair, nothing else — von – bis as ONE centred group with a fixed
+   gap. They huddled on the left (owner, 30.10.2026), then spread edge to edge read as two separate
+   things a card apart (owner, 30.10.2026 round 2); centred, the dash between them joins them. */
+.times { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: center; gap: var(--sp-2) var(--sp-4); padding: var(--sp-3); }
 .sep { align-self: center; padding-top: var(--sp-4); color: var(--ink-faint); font: var(--fw-medium) var(--fs-2) var(--mono); }
 /* the day this end falls on. A CAPTION under its own field, not a chip beside the row: as a
    sibling of the fields it wrapped to its own line and orphaned, and it no longer said which end
@@ -89,6 +90,18 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
   border-color: var(--green-45);
   color: var(--green-strong); font: var(--fw-bold) var(--fs-2) var(--body);
 }
+/* hover and press keep the 16% wash and the STRONG text and say themselves with the EDGE: the
+   field had no state of its own, and any darker fill (the house --press wash, a 22% tint) drops
+   --blue-strong below 4.5:1 by day — 4.72:1 at rest, 4.34 on 22%, 3.7 pressed (owner, 30.10.2026:
+   «very little contrast» on «ab Beginn»). Hover = the full-tone border, press = a 2px edge. */
+@media (hover: hover) {
+  .time :global(.timefield-trigger.tok-start:hover:not(:disabled)) { border-color: var(--blue); }
+  .time :global(.timefield-trigger.tok-open:hover:not(:disabled)),
+  .timeOpen :global(.timefield-trigger:hover:not(:disabled)) { border-color: var(--green); }
+}
+.time :global(.timefield-trigger.tok-start:active:not(:disabled)) { border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); }
+.time :global(.timefield-trigger.tok-open:active:not(:disabled)),
+.timeOpen :global(.timefield-trigger:active:not(:disabled)) { border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green); }
 
 /* the bin: the quiet <IconButton> (--tap square), in the inline row bins' grey glyph
    (17-rapport · .report-att-x, MapViewsMenu · .mini) */
