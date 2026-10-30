@@ -10,7 +10,8 @@ type Keys =
 export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
   mapPicker: {
     title: 'Placer le lieu sur la carte',
-    hint: 'Touchez la carte pour définir le lieu',
+    back: 'Retour sans utiliser de lieu',
+    looking: 'Recherche de l’adresse …',
     confirm: 'Utiliser ce lieu',
   },
   weather: {
@@ -165,7 +166,9 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     browserBody: 'Dans un onglet de navigateur, rien n\'est stocké de façon fiable : cartes, plans et lignes peuvent être supprimés à tout moment, et l\'onglet doit encore être ouvert à la prochaine intervention. Installée, PC Front fonctionne aussi hors ligne.',
     browserNoInstall: 'Cet appareil ne propose pas l\'installation. Pour être hors ligne en intervention, installe PC Front sur la tablette ou le téléphone.',
     wsDropped: '{n} entrées endommagées ignorées au chargement',
-    wsNewer: 'Les données d\'intervention proviennent d\'une version plus récente de l\'application – merci de mettre l\'application à jour.',
+    wsNewer: 'Version plus récente de l\'application requise',
+    wsNewerSub: 'Consultation seule d\'ici là – modifications bloquées.',
+    wsNewerAction: 'Mettre à jour',
     wsDroppedDismiss: 'Masquer',
   },
   emptyApp: {

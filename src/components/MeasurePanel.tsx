@@ -113,7 +113,8 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
   )
 
   return (
-    <div className={cx(s['measure-panel'], className)}>
+    // data-float-stack: it stands in the phone's bottom stack (lib/floatRow measures it)
+    <div className={cx(s['measure-panel'], className)} data-float-stack="">
       {!readout ? (
         <>
           {!emptyAutomatic && (

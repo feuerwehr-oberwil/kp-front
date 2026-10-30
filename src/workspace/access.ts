@@ -65,11 +65,16 @@ export interface FlagInputs {
   tabLockLost: boolean
   replayActive: boolean
   incidentMeta: IncidentMeta
+  /** ⚠️ The Einsatz was saved by a NEWER build (lib/workspace · gateReport). This build would save
+   *  it back without every key and entry it could not read — the full PUT stores what it gets
+   *  (only newer board kinds are put back), the Trupp slice replaces the Trupps — so it writes
+   *  nothing until the newer build is in (swUpdate · requireNewerBuild; sweep 30.10.2026 #19). */
+  olderBuild: boolean
 }
 
 /** Every write flag of the workspace, derived per render from the role and the moment. Pure. */
-export function workspaceFlags({ user, asLink, isEl, isEditor, roleReadOnly, forceReadOnly, tabLockLost, replayActive, incidentMeta }: FlagInputs) {
-  const baseReadOnly = roleReadOnly || forceReadOnly || tabLockLost
+export function workspaceFlags({ user, asLink, isEl, isEditor, roleReadOnly, forceReadOnly, tabLockLost, replayActive, incidentMeta, olderBuild }: FlagInputs) {
+  const baseReadOnly = roleReadOnly || forceReadOnly || tabLockLost || olderBuild
   /** The Einsatz is still RUNNING (`isIncidentRunning`, the twin of the backend's `is_open`).
    *  ⚠️ Read LIVE off `incidentMeta`, not only at the open (N3, staging 25.09.2026): when another
    *  device closes the Einsatz, App flips this meta in place (App · onIncidentClosed) and the
@@ -121,7 +126,7 @@ export function workspaceFlags({ user, asLink, isEl, isEditor, roleReadOnly, for
    *  incident_closed). The Rapport therefore stays editable once the Einsatz is closed, its
    *  changes printing as Nachträge; the Tafel, the Karte, the Anwesenheit/Mittel/Checklisten
    *  surfaces stay read-only there (their unlock is «Wieder öffnen», as decided on 28.08.). */
-  const canEditRapport = canEditRecord || ((isEditor || isEl) && !running && !outboxReadOnly)
+  const canEditRapport = canEditRecord || ((isEditor || isEl) && !running && !outboxReadOnly && !olderBuild)
   /** «may correct the EINSATZDATEN» — the dispatch facts at the head of the record: Stichwort,
    *  Kategorie, Priorität, Ort, Alarmierungszeit, Alarmmeldung, Übung. The `el` role keeps the
    *  record, so it owns the head of it too (10.09.) — the asLink pattern again: not an editor,

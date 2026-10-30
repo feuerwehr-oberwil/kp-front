@@ -46,6 +46,7 @@ import { useIncidentWatch } from './lib/useIncidentWatch'
 import { loadReviewedIncidents, needsIntakeReview, sameIncidentList, saveReviewedIncident, shouldReopenClosed } from './lib/incidentAlerts'
 import { EinsatzWizard, DatenquellenPanel, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, SettingsSheet } from './components/panels'
 import { Meldeleiste } from './components/Meldeleiste'
+import { linkShowsMeldung } from './lib/meldungen'
 import { SessionExpiredMeldung } from './components/SessionExpiredMeldung'
 import { pickTrouble, readTrouble, recordTrouble, type TroubleEvent } from './lib/trouble'
 import { onStorageDegraded } from './lib/idb'
@@ -792,7 +793,8 @@ export default function App() {
           ⚠️ It replaced five top banners on one axis and four bottom cards on one coordinate.
           Do not add a sixth floating card: either the message has a PLACE — then it belongs in
           that surface, the way ShiftConflictNotice does — or it belongs in this strip. */}
-      <Meldeleiste />
+      {/* …on the Atemschutz-Link only the rows that block work (meldungen · linkShowsMeldung) */}
+      <Meldeleiste only={asLink ? linkShowsMeldung : undefined} />
       {/* the session cookie died mid-Einsatz (lib/auth · sessionExpired): every request 401s,
           the badge cannot say why. Published HERE so it shows with or without an open Einsatz;
           it ends only by signing in again, which is what its one button does. */}
@@ -1003,8 +1005,11 @@ export default function App() {
           position:fixed makes .app a stacking context, so a confirm opened from a
           root-level sheet (e.g. Reaktivieren in «Alle Einsätze») painted UNDER the
           sheet regardless of its own z-index, and home had no host at all before
-          (confirms silently never appeared). Root + last ⇒ always on top. */}
-      <Overlays />
+          (confirms silently never appeared). Root + last ⇒ always on top.
+          No toasts on the Atemschutz-Link (sweep 30.10.2026 #23): they covered the board, and
+          what they said has a place there — undo on the header's ↶ ↷, the sync state on its
+          mark, the blockers in the Meldeleiste. */}
+      <Overlays toasts={!asLink} />
     </>
   )
 }

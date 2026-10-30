@@ -253,8 +253,9 @@
 }
 .combo-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .combo-clear .i { width: 13px; height: 13px; }
-/* a menu hugs its rows: even --bar-pad, and the corner is the rows' plus that gap (01-tokens · «ONE corner») */
-.combo-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6; margin: 0; padding: var(--bar-pad); list-style: none;
+/* a menu hugs its rows: even --bar-pad, and the corner is the rows' plus that gap (01-tokens · «ONE corner»).
+   `--menu-pad` is the ONE number the sticky search row is offset by (ComboMenu.module.css · .searchRow). */
+.combo-menu { --menu-pad: var(--bar-pad); position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6; margin: 0; padding: var(--menu-pad); list-style: none;
   max-height: 240px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-bar); box-shadow: var(--e4); }
 /* portalled to <body> so a scrollable/overflow-hidden panel can't clip or cut off the menu */
 /* z above the phone bottom sheet (.ctx @62), journal drawer (@61) AND the modal sheets
@@ -542,10 +543,14 @@
    overflow: hidden — the connector halves below are drawn 100vh long and clipped to the row.
    ⚠️ The 10px here and the 9px + 1px border of the Pendenzen rows below stay off the 4px grid
    (08.10.2026, Karte chrome on the scales): they ARE that one text axis, which 10-journal and
-   18-audio line up with, so the axis moves with the Verlauf's own stylesheets, not from here. */
+   18-audio line up with, so the axis moves with the Verlauf's own stylesheets, not from here.
+   A row is at least --tap tall (30.10.2026, was ≈42 on one line): the whole row is a target. Its
+   44px controls (play, jump, thumbnails) spend the padding as negative margin – `--jr-ctl-bleed`,
+   the 8px less half a 4px seam, so two of them in adjacent rows never touch – and a row carrying
+   one is 48, what it was with the old 32–40px controls. */
 .hist-ev { display: grid; grid-template-columns: 38px 26px minmax(0, 1fr) fit-content(50%);
   column-gap: 10px; row-gap: 2px; align-items: center;
-  padding: 8px 10px; border-radius: var(--r-ctl); font-size: var(--fs-2); font-weight: var(--fw-medium); overflow: hidden; }
+  min-height: var(--tap); padding: 8px 10px; --jr-ctl-bleed: calc(var(--sp-1) / 2 - var(--sp-2)); border-radius: var(--r-ctl); font-size: var(--fs-2); font-weight: var(--fw-medium); overflow: hidden; }
 /* the sub-lines (transcript, its editor, the row's own correction box) take the sentence's
    column and run to the row's right edge — ONE axis with the text above them, which they missed
    by 10px for as long as they were flex children with a hand-set margin. */

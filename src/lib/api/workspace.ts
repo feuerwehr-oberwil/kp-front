@@ -45,15 +45,19 @@ export const putWorkspaceBeacon = (id: string, workspace: Workspace, base_rev: n
 // the trupps into the current blob and merges the rest itself. WorkspaceSync's `slice: 'trupps'`
 // option routes its push and its teardown beacon here; everything else about the engine is
 // unchanged.
-export const putWorkspaceTrupps = (id: string, trupps: readonly Trupp[], base_rev: number, edited_at?: string, writer?: string) =>
+// ⚠️ Each slice carries the `schemaVersion` of the blob it was cut from (since 30.10.2026): the
+// server refuses a slice older than its stored blob, which a build that could not read everything
+// would otherwise overwrite wholesale (backend workspace_kinds · refuse_older_build).
+export const putWorkspaceTrupps = (id: string, trupps: readonly Trupp[], base_rev: number, edited_at?: string, writer?: string, schemaVersion?: number) =>
   apiPut<WorkspaceOut>(`/api/incidents/${id}/workspace/trupps`, {
     trupps,
     base_rev,
     ...(edited_at ? { edited_at } : {}),
+    ...(schemaVersion != null ? { schemaVersion } : {}),
   }, writerHeader(writer))
 /** Teardown twin of putWorkspaceTrupps — see putWorkspaceBeacon. */
-export const putWorkspaceTruppsBeacon = (id: string, trupps: readonly Trupp[], base_rev: number, edited_at?: string) =>
-  apiBeacon(`/api/incidents/${id}/workspace/trupps`, { trupps, base_rev, ...(edited_at ? { edited_at } : {}) }, 'PUT')
+export const putWorkspaceTruppsBeacon = (id: string, trupps: readonly Trupp[], base_rev: number, edited_at?: string, schemaVersion?: number) =>
+  apiBeacon(`/api/incidents/${id}/workspace/trupps`, { trupps, base_rev, ...(edited_at ? { edited_at } : {}), ...(schemaVersion != null ? { schemaVersion } : {}) }, 'PUT')
 
 // --- the record slice on its own -----------------------------------------------------------
 // The `el` role (Einsatzleiter function, 07.09.2026) may write the operational RECORD —
@@ -63,14 +67,17 @@ export const putWorkspaceTruppsBeacon = (id: string, trupps: readonly Trupp[], b
 // put_workspace_record, capture.py's proven merge), so the tactical picture is bounded
 // server-side whatever this client sends. Same contract otherwise — `base_rev` in, rev out,
 // 409 on a race. WorkspaceSync's `slice: 'record'` routes here.
-export const putWorkspaceRecord = (id: string, workspace: Workspace, base_rev: number, writer?: string) =>
+// The record route reads the version off its `workspace` (the server keeps only record keys of it).
+const stamped = (workspace: Workspace, schemaVersion?: number): Workspace =>
+  schemaVersion != null ? { ...workspace, schemaVersion } : workspace
+export const putWorkspaceRecord = (id: string, workspace: Workspace, base_rev: number, writer?: string, schemaVersion?: number) =>
   apiPut<WorkspaceOut>(`/api/incidents/${id}/workspace/record`, {
-    workspace,
+    workspace: stamped(workspace, schemaVersion),
     base_rev,
   }, writerHeader(writer))
 /** Teardown twin of putWorkspaceRecord — see putWorkspaceBeacon. */
-export const putWorkspaceRecordBeacon = (id: string, workspace: Workspace, base_rev: number) =>
-  apiBeacon(`/api/incidents/${id}/workspace/record`, { workspace, base_rev }, 'PUT')
+export const putWorkspaceRecordBeacon = (id: string, workspace: Workspace, base_rev: number, schemaVersion?: number) =>
+  apiBeacon(`/api/incidents/${id}/workspace/record`, { workspace: stamped(workspace, schemaVersion), base_rev }, 'PUT')
 
 // clock-skew watch (mirrors captureClient · onServerTime): workspace responses carry
 // X-Server-Time (backend · api_server_time middleware), and the live-follow poll is the one

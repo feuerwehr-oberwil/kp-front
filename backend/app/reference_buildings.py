@@ -48,8 +48,9 @@ SNAPSHOT_TTL = timedelta(days=7)
 # Wider than any sheet's own reference box (georef_suggest.RADIUS_MAX_M = 650), so a clip never
 # runs off the snapshot's edge for an object that was inside it when it was fetched.
 PAD_M = 700.0
-# The station-wide query is bigger than a sheet's; give the mirrors room.
-FETCH_TIMEOUT_S = 90.0
+# The station-wide query is bigger than a sheet's; give the mirrors room. Wall-clock per mirror
+# (overpass · _race), so ABOVE the query's own `[timeout:90]` plus the multi-MB transfer after it.
+FETCH_TIMEOUT_S = 120.0
 # Re-reading a multi-MB JSON blob on every 10 s tick would be silly; keep the parsed snapshot
 # around for a while, keyed by its own fetch time.
 _cache: tuple[float, dict] | None = None

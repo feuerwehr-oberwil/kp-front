@@ -97,9 +97,10 @@ p.fb-prompt-q { margin: 0; font: var(--fw-bold) var(--fs-2) var(--body); color: 
 /* Verlauf activity strip — WHEN the Einsatz has substance, as one line above the list. A long
    Verlauf is a wall of rows in which «was war um halb zehn» means scrolling and reading; the
    strip answers by POSITION, and a tap lands on the nearest row. The strip takes the tap as a
-   whole (a 44px-tall band), so the ticks themselves never need to be hit targets. */
+   whole (a --tap tall band – 30.10.2026, it was 34 and said 44 here), so the ticks themselves
+   never need to be hit targets. */
 .jr-strip {
-  position: relative; flex: none; height: 34px; margin: 0 var(--sp-1) var(--sp-2); cursor: pointer;
+  position: relative; flex: none; height: var(--tap); margin: 0 var(--sp-1) var(--sp-2); cursor: pointer;
   border-radius: var(--r-sm); background: var(--fill-soft);
   box-shadow: inset 0 0 0 1px var(--glass-edge);
   /* it is a slider: without this a vertical flick both scrolls the drawer and jumps the log */
@@ -116,7 +117,7 @@ p.fb-prompt-q { margin: 0; font: var(--fw-bold) var(--fs-2) var(--body); color: 
    hairline eat them — and those two are the start and the end of the whole Einsatz. */
 .jr-strip-track { position: absolute; top: 0; bottom: 0; pointer-events: none; }
 .jr-strip i {
-  position: absolute; top: 9px; width: 1.5px; height: 16px; margin-left: -0.75px;
+  position: absolute; top: calc(50% - 8px); width: 1.5px; height: 16px; margin-left: -0.75px;
   border-radius: 1px; background: var(--ink-faint); opacity: .7;
 }
 /* The row the strip — or the Wiedergabe's «im Verlauf» — just landed on. Without it a scroll

@@ -35,7 +35,13 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     squad's state). An überfällig card has NO red wash since 24.10.2026 (sweep M3, G.7 – red for
     danger, a quiet ground): the red left edge, the red clock with ONE triangle in front of its
     digits, and the red «Kontakt» carry it; the triangle is what says «überfällig» without colour.
-    Fällig keeps its clock glyph under the digits; only the Notfall banner keeps a red wash. The Druck is the pressure tile → `PressureSheet` everywhere; the
+    Fällig has no glyph (30.10.2026, owner: «remove the ugly clock icon» — the amber digits carry
+    it, on the link's tabs too); only the Notfall banner keeps a red wash. A Trupp still at the
+    door has no «–:––» (30.10.2026, owner: «show the next action rather than the empty time»):
+    its phone row wears «Im Einsatz» in the clock's place (`TruppCard · RowEnter`, the
+    Sicherungstrupp row's button), its opened card leaves that cell empty because the «Im
+    Einsatz» tile stands right under the line, and a viewer's cell is empty. The link's tabs
+    keep their «–:––» until the link layout is decided. The Druck is the pressure tile → `PressureSheet` everywhere; the
     tablet's ± stepper with «Bestätigen», the band with the 40px clock, the tablet's grey
     Kennzeile with its blue Auftrag, the top status edge and the «Verlauf · zuletzt: … Druck 300
     bar» preview are gone — do not bring any of them back for the tablet. The focus Tafel's one
@@ -211,8 +217,14 @@ reworded.
 - *On the Tafel* the strip's row steps aside for a sticky banner at the top of every board:
   who, the clock, the facts, and the first offer «Sicherungstrupp einsetzen» — the ready
   Sicherungstrupp's ordinary Eintritt (several ⇒ a menu, none ⇒ «Sicherungstrupp bestimmen» with
-  «Kein Sicherungstrupp bereit» as its second line — the «Bestimmen» door, one inside ⇒ «… drin
-  seit hh:mm»). It is a Trupp CARD in its alarm tone (owner feedback 10.10.2026, four rounds:
+  «Kein Sicherungstrupp bereit» as its second line, one inside ⇒ «… drin seit hh:mm»).
+  «Sicherungstrupp bestimmen» names ANY other Atemschutz-Trupp not in a Notfall (30.10.2026,
+  owner pick «Becomes Sicherung»: a crew busy in the building may be the closest help), grouped
+  Bereit · Drin · Draussen (`lib/atemschutz · safetyCandidates`), then «Neuen Trupp anmelden
+  (Sichern)». A crew bereit or inside turns «Sichern» in one act (`designateSafety`: clock
+  untouched, its own Verlauf row with the old Auftrag, one ↶) — the banner then offers it or
+  names it «drin»; a crew that is out needs a fresh bottle, so its pick opens its re-entry form
+  on «Sichern». It is a Trupp CARD in its alarm tone (owner feedback 10.10.2026, four rounds:
   the first banner was a widget of kicker, clock column, wrapped names, facts and two rows of
   buttons, ~270 px on a 390 px phone): the phone card's frame (`.trow.trowCard.trowCrit`) and ⚠
   plus the SAME name the crew's card head shows («Binggeli Michael», `lib/atemschutz ·

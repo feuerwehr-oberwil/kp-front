@@ -31,9 +31,18 @@ unchanged.
 - *«Einpassen» on a Plan is the bar's tile*; the top bar's twin (`TopBar · mapNav`) survives only
   where there is no bar at all (viewer-only Modul, Gebäude pick surface, replay — 20.09.2026).
 
-- Every BAR stacked above the nav bar keeps ONE 6px channel (`--rail-h + 14px`: the tool bar,
-  `.rp-tabs`, the page card in `Surface.module.css`); the floating row above the bars keeps the
-  family's `--float-gap` (8px) — the gap its pieces keep from each other and from the edge.
+- *The tool stack keeps ONE gap* (sweep 30.10.2026 #7, owner's iPhone with Linie armed: «the
+  unequal spacing between the toolrail, tool specific rail, "linie" info, and info» – it was 6, 6,
+  8 and 16px): nav bar → tool bar → a tool's dock → the armed pill or Messen's readout → the
+  message lane, each `--float-gap` (8px) above the one below (15-mobile · `--tools-bottom`,
+  `--dock-bottom`). The floating row keeps the same 8px from the bars, from each other and from the
+  edge. The other bars over the nav bar (`.rp-tabs`, the page card in `Surface.module.css`) still
+  keep their 6px channel (`--rail-h + 14px`).
+- *While a tool is out the message lane is measured* (`lib/floatRow · stackLane` → `--stack-lane`):
+  one gap above the highest piece of the stack, so a tip or the Gebäude card stands 8px over the
+  pill whether the chip sits beside the dock or had to rise onto the pill's line. And ONE thing in
+  the lane at a time: while a map tool explains itself (DockInfo · MapHelpCard) the open Gebäude
+  card steps aside – hidden, not closed – and returns when the tip goes.
 - *The chip row stands on the lowest FREE line, measured* (27.10.2026, owner screenshot: the
   Gebäude ⓘ a whole row above a short Mehrfach dock): `.wb-botleft` (the Karte's and the plan's)
   stands on the bars (`--float-floor`) and `lib/floatRow` lifts it only past a tool dock or armed
@@ -45,8 +54,8 @@ unchanged.
   `data-az-fab-foot` guard on its foot row (Atemschutz.module). A RUNNING recording never yields — not to a dock, the armed pill, a panel or a detail sheet
   (it rides on the sheet's top edge). Only «Karte verknüpfen» still hides it.
 - *Karte & Objekte has ONE bar* (Karte · Messen · Gefahrgut · Ebenen, no tool bar and no «Pläne»
-  tab — 17.10.2026): Messen keeps the same 6px steps, only from the nav bar (dock at `--rail-h +
-  14px`, readout 6px above it), and a selected place is one slide-up sheet whose rows are the
+  tab — 17.10.2026): Messen keeps the same 8px steps, only from the nav bar (the dock where the
+  tool bar would stand, `--tools-bottom`; the readout where the dock would, `--dock-bottom`), and a selected place is one slide-up sheet whose rows are the
   object's plans ([`karte-objekte.md`](karte-objekte.md) · «On a phone the panel is ONE slide-up
   sheet»).
 - Tried and thrown out the same day, so nobody rebuilds them: a «Zeichnen» tile with a flyout, the

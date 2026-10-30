@@ -7090,6 +7090,8 @@ export interface components {
             base_rev: number;
             /** Edited At */
             edited_at?: string | null;
+            /** Schemaversion */
+            schemaVersion?: number | null;
         };
         /**
          * UserAdminOut

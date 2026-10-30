@@ -10,6 +10,7 @@ import { useMobileScrollLock } from './useMobileScrollLock'
 import { SheetFoot } from './SheetFoot'
 import { useSwipeDismiss } from './swipeDismiss'
 import { popoverOpen } from './popoverGuard'
+import { useFieldFirst } from './fieldFirst'
 
 /**
  * The shared modal Sheet — ONE overlay primitive behind every `.ip-sheet`.
@@ -72,6 +73,8 @@ export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide,
   const isOpeningEcho = useDismissGrace(open)
   // phone bottom sheet: push it back down and it goes away (see swipeDismiss)
   const swipe = useSwipeDismiss({ onClose, enabled: swipeToClose })
+  // the keyboard goes first: with a field focused, the first ✕ / outside tap only blurs it (fieldFirst)
+  const { keyboardFirst, ...kbFirst } = useFieldFirst(open)
   return (
     <Dialog.Root
       open={open}
@@ -86,12 +89,13 @@ export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide,
         if ((details.reason === 'outside-press' || details.reason === 'escape-key') && popoverOpen()) {
           details.cancel(); return
         }
+        if (keyboardFirst(details.reason)) { details.cancel(); return }
         onClose()
       }}
     >
       <Dialog.Portal>
         <Dialog.Backdrop className="ui-backdrop" />
-        <Dialog.Popup className={cls} style={keyboardLift(kbInset)} initialFocus={initialFocus} aria-label={title == null ? ariaLabel : undefined} {...swipe}>
+        <Dialog.Popup {...kbFirst} className={cls} style={keyboardLift(kbInset)} initialFocus={initialFocus} aria-label={title == null ? ariaLabel : undefined} {...swipe}>
           {grip && <SheetGrip onClose={onClose} />}
           {!grip && swipeToClose && <SheetGrab />}
           <div className="ip-head">

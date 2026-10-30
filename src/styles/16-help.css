@@ -1,6 +1,6 @@
 /* ============================================================
    Help / capabilities overlay (Funktionen & Hilfe) — full-screen
-   glass modal with a sticky TOC sidebar + scroll-spy. Mirrors the
+   glass modal with a TOC sidebar + scroll-spy (lib/scrollSpy). Mirrors the
    kp-rueck help page, restyled to KP Front's tokens.
    ============================================================ */
 /* <Overlay>: .help-scrim is the Base UI backdrop; .help-modal owns its own fixed centering */
@@ -36,6 +36,14 @@
 .help-toc-i { display: flex; align-items: center; gap: var(--sp-2); width: 100%; text-align: left; border: 0; background: transparent; cursor: pointer;
   padding: var(--sp-2) var(--sp-3); border-radius: var(--r-ctl); font: inherit; font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-dim); transition: background .14s var(--ease), color .14s var(--ease); }
 .help-toc-i .i { width: 16px; height: 16px; flex: none; opacity: .85; }
+/* the label WRAPS, never clips (30.10.2026): «Trupps & Atemschutzüberwachung» is one ~165px word
+   in a ~160px column and ran out under the TOC's right edge. `min-width: 0` lets the flex item
+   shrink below that word, and the word then breaks – at a soft hyphen in the copy where one is set
+   («Atemschutz|überwachung» in the de copy: a word with one ignores the dictionary's syllable breaks), else
+   hyphenated where the dictionary can, anywhere as the last resort. ⚠️ `hyphens: auto` is the exception the symbol captions refuse (03-map ·
+   .sym-caption, syllable breaks cost a beat at arm's length): this is a contents line read at
+   reading distance, its full title stands as the section's heading, and the alternative is a cut. */
+.help-toc-t { min-width: 0; hyphens: auto; -webkit-hyphens: auto; overflow-wrap: anywhere; }
 @media (hover: hover) {
   .help-toc-i:hover { background: var(--hover); color: var(--ink); }
 }

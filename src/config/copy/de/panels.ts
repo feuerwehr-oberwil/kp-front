@@ -51,7 +51,10 @@ export const panelsCopy = {
   // self-contained location picker for the intake wizard (MapPicker)
   mapPicker: {
     title: 'Standort auf Karte setzen',
-    hint: 'Auf die Karte tippen, um den Standort zu setzen',
+    // the ‹ in the head: back to the form, the location as it was (no «Abbrechen» below, 30.10.2026)
+    back: 'Zurück, ohne Standort zu übernehmen',
+    // the line under the fixed pin while the centre's address is being looked up
+    looking: 'Adresse wird gesucht …',
     confirm: 'Standort übernehmen',
   },
   // weather badge + popover (TopBar · WeatherBadge) — condition labels, cardinals, readout rows
@@ -296,7 +299,11 @@ export const panelsCopy = {
     foot: 'Lädt Karte, Pläne, Symbole und Leitungen für diesen Einsatz auf dieses Gerät. Wetter und Objektsuche brauchen eine Verbindung und sind offline nicht verfügbar.',
     // workspace load gate (lib/workspace sanitizeWorkspace): honest reporting, never silent
     wsDropped: '{n} beschädigte Einträge beim Laden übersprungen',
-    wsNewer: 'Einsatzdaten stammen von einer neueren App-Version – bitte App aktualisieren.',
+    // a blob from a newer build: this build fetches it and reloads by itself; the row stands only
+    // when it cannot (offline) — the view is read-only meanwhile (sweep 30.10.2026 #19)
+    wsNewer: 'Neuere App-Version nötig',
+    wsNewerSub: 'Bis dahin nur ansehen – Änderungen sind gesperrt.',
+    wsNewerAction: 'Aktualisieren',
     // both stand in the Meldeleiste while true (S3, 20.10.2026); the skipped-entries row has the ✕
     wsDroppedDismiss: 'Ausblenden',
     // LayerPanel offline-download button + the App map-download toasts

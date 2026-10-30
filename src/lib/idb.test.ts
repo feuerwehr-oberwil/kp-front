@@ -200,6 +200,37 @@ describe('idb localStorage fallback when IndexedDB is unavailable', () => {
   })
 })
 
+// WebKit can leave a transaction accepted and then silent – no complete, no error, no abort. The
+// outline picker awaited such a read before it ever asked the server, so «Gebäudeumrisse werden
+// geladen …» stayed up for good and «Erneut versuchen» ran into the same wedge (sweep 30.10.2026, #11).
+describe('idb · a read that never settles', () => {
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
+
+  it('reports a failed read after the bound, and the next call opens a fresh connection', async () => {
+    const real = globalThis.indexedDB
+    const conns: IDBDatabase[] = []
+    const realOpen = real.open.bind(real)
+    vi.spyOn(real, 'open').mockImplementation((...args: Parameters<IDBFactory['open']>) => {
+      const req = realOpen(...args)
+      req.addEventListener('success', () => conns.push(req.result))
+      return req
+    })
+    await idbSet('k', { x: 1 })
+    // the wedge: a transaction object whose events never fire
+    const spy = vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(() => (
+      { objectStore: () => ({ get: () => ({}) }) } as unknown as IDBTransaction
+    ))
+    vi.useFakeTimers()
+    const read = idbRead('k')
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(await read).toMatchObject({ ok: false })
+    vi.useRealTimers()
+    spy.mockRestore()
+    expect(await idbRead('k')).toEqual({ ok: true, value: { x: 1 } })
+    expect(conns).toHaveLength(2)
+  })
+})
+
 describe('idb open that never answers', () => {
   // WebKit after a page restore, Chromium on a corrupt LevelDB: `indexedDB.open()` fires
   // neither onsuccess nor onerror. Every caller awaits the same cached open, so this used to

@@ -10,7 +10,8 @@ type Keys =
 export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
   mapPicker: {
     title: 'Set location on map',
-    hint: 'Tap the map to set the location',
+    back: 'Back, without using a location',
+    looking: 'Looking up the address …',
     confirm: 'Use location',
   },
   weather: {
@@ -154,7 +155,9 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     loadAll: 'Load everything for offline',
     foot: 'Loads map, plans, symbols and utility lines for this incident onto this device. Weather and object search need a connection and are not available offline.',
     wsDropped: 'Skipped {n} corrupted entries while loading',
-    wsNewer: 'Incident data was saved by a newer app version – please update the app.',
+    wsNewer: 'Newer app version required',
+    wsNewerSub: 'View only until then – changes are locked.',
+    wsNewerAction: 'Update',
     wsDroppedDismiss: 'Hide',
     dlDone: 'Map ready offline – {n} tiles',
     dlDoneCapped: 'Map ready offline – area limited, {n} tiles',

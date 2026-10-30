@@ -308,6 +308,8 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       logEnd: 'Team {name}: emergency ended – duration {dur}',
       logEndOut: 'Team {name}: emergency ended – duration {dur} – team out',
       logSafetyEntry: 'Team {name}: safety team deployed – emergency team {target}, {dur} after it was raised',
+      logSafetyDesignated: 'Team {name}: assigned as safety team – emergency team {target}',
+      logSafetyWas: 'previously {auftrag}',
       logAtClose: 'Team {name}: emergency not ended at closing',
       toast: 'Emergency raised for team {name}',
       notifyTitle: 'SCBA emergency – {name}',

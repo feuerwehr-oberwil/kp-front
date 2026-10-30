@@ -4,6 +4,9 @@ import type { Person, Trupp, TruppFields } from '../../types'
 import { createUndoTimeline } from '../undoTimeline'
 import { truppActionCore } from './core'
 import { truppLifecycleActions } from './lifecycle'
+import { appConfig } from '../../config/appConfig'
+import { fillTemplate } from '../format'
+import { safetyInside, safetyReady } from '../atemschutz'
 import type { CrewSlot } from '../atemschutz'
 import { rosterIdByName, truppCrewSlots } from '../personnel'
 
@@ -50,12 +53,14 @@ const last = (t: Trupp) => t.readings?.[t.readings.length - 1]
 function board(trupps: Trupp[], slotsOf?: (t: Trupp) => CrewSlot[]) {
   const state = { trupps }
   const timeline = createUndoTimeline()
+  /** the Verlauf rows written, in order */
+  const lines: string[] = []
   const act = () => {
     const deps = {
       trupps: state.trupps,
       setTrupps: (a: SetStateAction<Trupp[]>) => { state.trupps = typeof a === 'function' ? a(state.trupps) : a },
       entities: [], board: {},
-      log: () => {}, emit: () => {}, slotsOf,
+      log: (_icon: string, text: string) => { lines.push(text) }, emit: () => {}, slotsOf,
       undoTimeline: timeline,
       liveTrupps: () => state.trupps,
     }
@@ -66,7 +71,7 @@ function board(trupps: Trupp[], slotsOf?: (t: Trupp) => CrewSlot[]) {
   }
   const t = () => state.trupps[0]
   const byId = (id: string) => state.trupps.find((x) => x.id === id)
-  return { act, timeline, t, byId }
+  return { act, timeline, t, byId, lines }
 }
 
 describe('truppLifecycleActions — stamps in server time', () => {
@@ -160,5 +165,46 @@ describe('keepInOneTrupp — one person, two active Trupps after a sync', () => 
     const b = board([t1, alone])
     expect(b.act().keepInOneTrupp('T1', 'p2')).toBe(false)
     expect(b.byId('T2')).toEqual(alone)
+  })
+})
+
+/* Owner, 30.10.2026 («Becomes Sicherung»): the Notfall banner's «Sicherungstrupp bestimmen» can
+ * name a crew already busy in the building. Its Auftrag turns «Sichern», its clock keeps running,
+ * the Verlauf keeps the old Auftrag, and one ↶ takes it back. */
+describe('designateSafety — an existing Trupp becomes the Sicherungstrupp', () => {
+  const nf = appConfig.copy.atemschutz.notfall
+  const casualty = trupp({ id: 'T2', no: 2, name: 'Fabich Mischa', members: [], status: 'aktiv', entryTime: serverAt(0), lastContactTime: serverAt(0), notfallAt: serverAt(1) })
+  const inside = trupp({ no: 1, members: [], auftrag: 'loeschen', status: 'aktiv', entryTime: serverAt(0), lastContactTime: serverAt(0) })
+
+  it('a crew inside keeps its clock, says what it did before, and is the Sicherungstrupp inside', () => {
+    const b = board([inside, casualty])
+    tick(3)
+    expect(b.act().designateSafety('T1', 'T2')).toBe(true)
+    expect(b.t()).toEqual({ ...inside, auftrag: 'sichern' })
+    expect(safetyInside([b.t()]).map((t) => t.id)).toEqual(['T1'])
+    expect(b.lines).toEqual([`${fillTemplate(nf.logSafetyDesignated, { name: '1 (Keller Anna)', target: '2 (Fabich Mischa)' })} – ${fillTemplate(nf.logSafetyWas, { auftrag: 'Löschen' })}`])
+    // one ↶ step puts the old Auftrag back
+    b.timeline.undo()
+    expect(b.t().auftrag).toBe('loeschen')
+  })
+
+  it('a crew standing ready becomes the ready Sicherungstrupp the banner sends in', () => {
+    const b = board([trupp({ auftrag: 'retten' }), casualty])
+    expect(b.act().designateSafety('T1', 'T2')).toBe(true)
+    expect(safetyReady([b.t()]).map((t) => t.id)).toEqual(['T1'])
+  })
+
+  it('refuses a crew that is out, in a Notfall itself, already «Sichern» or without Atemschutz', () => {
+    for (const t of [
+      trupp({ status: 'raus', entryTime: serverAt(0), exitTime: serverAt(1) }),
+      trupp({ status: 'aktiv', entryTime: serverAt(0), notfallAt: serverAt(1) }),
+      trupp({ auftrag: 'sichern' }),
+      trupp({ kind: 'einfach' }),
+    ]) {
+      const b = board([t, casualty])
+      expect(b.act().designateSafety('T1', 'T2')).toBe(false)
+      expect(b.t()).toEqual(t)
+      expect(b.lines).toEqual([])
+    }
   })
 })

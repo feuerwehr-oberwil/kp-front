@@ -8,7 +8,7 @@ const user = (role: AuthUser['role'], extra: Partial<AuthUser> = {}): AuthUser =
 const meta = (over: Partial<IncidentMeta> = {}) => ({ id: 'i1', status: 'offen', is_archived: false, ...over }) as IncidentMeta
 const flags = (over: Partial<FlagInputs>) => workspaceFlags({
   user: user('editor'), asLink: false, isEl: false, isEditor: true, roleReadOnly: false,
-  forceReadOnly: false, tabLockLost: false, replayActive: false, incidentMeta: meta(), ...over,
+  forceReadOnly: false, tabLockLost: false, replayActive: false, incidentMeta: meta(), olderBuild: false, ...over,
 })
 
 // The flags moved out of IncidentWorkspace unchanged (E1); these pin the rules their comments
@@ -48,6 +48,12 @@ describe('workspaceFlags', () => {
     expect(flags({ user: user('el'), isEditor: false, isEl: true }).canWriteBlob).toBe(false)
     expect(flags({ user: user('viewer'), isEditor: false, asLink: true }).canWriteBlob).toBe(false)
     expect(flags({ tabLockLost: true }).canWriteBlob).toBe(false)
+  })
+  // sweep 30.10.2026 #19: an older build would save a newer build's blob without what it skipped
+  it('data from a newer build locks every write of the blob – the Tafel and a closed Rapport too – but the outboxes deliver', () => {
+    expect(flags({ olderBuild: true })).toMatchObject({ readOnly: true, outboxReadOnly: false, canEditIncident: false, canEditRecord: false, canWriteBlob: false })
+    expect(flags({ user: user('viewer'), isEditor: false, asLink: true, olderBuild: true }).canEditTrupps).toBe(false)
+    expect(flags({ incidentMeta: meta({ is_archived: true }), olderBuild: true }).canEditRapport).toBe(false)
   })
   it('a replay locks everything, the outboxes included', () => {
     expect(flags({ replayActive: true })).toMatchObject({ readOnly: true, outboxReadOnly: true, canEditRapport: false, tacticalLocked: true })

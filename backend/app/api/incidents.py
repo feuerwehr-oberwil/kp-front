@@ -58,7 +58,7 @@ from ..schemas import (
     _scrub_drawing_props,
 )
 from ..vehicle_presence import keep_server_gps
-from ..workspace_kinds import keep_newer_board_kinds
+from ..workspace_kinds import UNVERSIONED_SLICE_VERSION, keep_newer_board_kinds, schema_version_of
 
 logger = logging.getLogger(__name__)
 
@@ -380,7 +380,9 @@ async def put_workspace(
         keep_newer_board_kinds(body.workspace, stored)
         if operational_keys_changed(stored, body.workspace) and happened_after_close(body.edited_at, closed_at):
             raise incident_closed(closed_at)
-    saved = await apply_workspace_put(db, incident_id, body, user_id=user.id, inc=inc, writer=writer)
+    # a full blob has carried its stamp since v1: none at all is the oldest build there is
+    version = schema_version_of(body.workspace.get("schemaVersion"), 1)
+    saved = await apply_workspace_put(db, incident_id, body, user_id=user.id, inc=inc, writer=writer, version=version)
     # `slim=1`: only the revision goes back — the caller sent the blob and reads nothing but
     # the rev (workspaceSync · pushCurrent), and echoing it doubled the wire cost of every
     # save. Opt-in per request so an older cached PWA build keeps the full echo it was built
@@ -431,6 +433,7 @@ async def put_workspace_trupps(
         source=atemschutz_link_source(user) if link else "client",
         inc=inc,
         writer=writer,
+        version=schema_version_of(body.schemaVersion, UNVERSIONED_SLICE_VERSION),
     )
     # Only the revision goes back: the caller sent a slice and reads nothing but the rev
     # (workspaceSync · push), and a phone on one bar has no use for the whole blob per tap.
@@ -517,6 +520,7 @@ async def put_workspace_record(
         source="el" if user.role == "el" else "client",
         inc=inc,
         writer=writer,
+        version=schema_version_of(body.workspace.get("schemaVersion"), UNVERSIONED_SLICE_VERSION),
     )
     # Only the revision goes back — the caller sent a slice and reads nothing but the rev.
     return WorkspaceOut(workspace=None, workspace_rev=saved.workspace_rev)

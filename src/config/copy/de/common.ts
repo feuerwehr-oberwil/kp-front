@@ -111,5 +111,4 @@ export const commonCopy = {
   // THE «no hits» line (29.09.2026) — says what was searched; a list keeps a noun of its own only
   // where the noun helps («Kein Trupp gefunden»). Drawn as `.no-hits` (13-incident.css).
   noHits: 'Keine Treffer für «{q}».',
-  savedLive: 'Alles wird laufend gespeichert.',
 } as const

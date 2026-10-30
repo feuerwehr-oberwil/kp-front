@@ -1,6 +1,20 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { LngLat } from '../../types'
-import { CELL_LNG, cellOf, houseIndex, osmBeside, ringsAround } from './outlines'
+
+const io = vi.hoisted(() => ({
+  idbGet: vi.fn<(key: string) => Promise<unknown>>(),
+  apiPost: vi.fn<(path: string, body: unknown) => Promise<unknown>>(),
+}))
+vi.mock('../idb', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../idb')>()),
+  idbGet: io.idbGet, idbSet: vi.fn(async () => true),
+}))
+vi.mock('../api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../api')>()),
+  apiPost: io.apiPost,
+}))
+
+import { CELL_LNG, cellOf, houseIndex, loadCell, osmBeside, ringsAround } from './outlines'
 import { ringAt } from './places'
 
 // Synthetic: a terraced row of three houses, 10 × 10 m each, that OSM maps as ONE block
@@ -72,5 +86,21 @@ describe('osmBeside — an OSM outline over a survey house is that house traced 
 
   it('measures a cell once per house set', () => {
     expect(osmBeside(houses, osm)).toBe(osmBeside(houses, osm))
+  })
+})
+
+describe('loadCell', () => {
+  it('asks the server again for a cell the device stored EMPTY (an old Overpass timeout answer)', async () => {
+    io.idbGet.mockResolvedValue([])
+    io.apiPost.mockResolvedValue({ elements: [] })
+    await loadCell('9001:9001')
+    expect(io.apiPost).toHaveBeenCalledTimes(1)
+  })
+
+  it('serves a stored cell with outlines without asking the server', async () => {
+    io.apiPost.mockClear()
+    io.idbGet.mockResolvedValue([[[7.55, 47.52], [7.56, 47.52], [7.56, 47.53]]])
+    expect(await loadCell('9002:9002')).toHaveLength(1)
+    expect(io.apiPost).not.toHaveBeenCalled()
   })
 })

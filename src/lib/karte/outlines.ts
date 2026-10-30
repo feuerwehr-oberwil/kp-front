@@ -63,12 +63,13 @@ const IDB_PREFIX = 'kp.karte.bld.'
 const loads = new Map<string, Promise<LngLat[][]>>()
 
 /** One cell's outlines: memory, then the device (IndexedDB), then the server. A failed load is
- *  forgotten, so the next pan over the cell asks again. */
+ *  forgotten, so the next pan over the cell asks again. An EMPTY stored cell is asked again once
+ *  per session: it may be an Overpass timeout answer stored before the server refused those. */
 export function loadCell(key: string): Promise<LngLat[][]> {
   const hit = loads.get(key)
   if (hit) return hit
   const p = idbGet<LngLat[][]>(IDB_PREFIX + key).catch(() => null).then(async (stored) => {
-    if (stored && Array.isArray(stored)) return stored
+    if (Array.isArray(stored) && stored.length > 0) return stored
     const rings = ringsFromOverpass(await apiPost<unknown>('/api/overpass/buildings', cellBox(key)))
     void idbSet(IDB_PREFIX + key, rings).catch(() => {})
     return rings

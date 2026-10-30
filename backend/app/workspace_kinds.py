@@ -19,6 +19,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from fastapi import HTTPException, status
+
 #: board-anno kind → the workspace schema version that introduced it (app/data/board_kinds.json,
 #: checked against src/types.ts · BoardKind by src/lib/boardKinds.test.ts)
 BOARD_KIND_SINCE: dict[str, int] = json.loads(
@@ -77,3 +79,44 @@ def keep_newer_board_kinds(workspace: dict[str, Any], stored: dict[str, Any] | N
             board[plan_id] = sheet
         workspace["board"] = board
     return put_back
+
+
+# ── a save from an OLDER build never overwrites a newer build's blob (sweep 30.10.2026 #19) ──
+# The kind guard above covers board objects only. Everything else an older build cannot read —
+# an entry its load gate skipped, a top-level key its payload never writes — goes missing from
+# its full save, and its Trupp or record slice replaces those keys wholesale with what it kept.
+# So a save stamped below the stored blob's `schemaVersion` is refused, whole: 409
+# `workspace_older_build`, nothing written, nothing merged. The client parks its copy for
+# «Einträge sichern», adopts the server's blob and — being older — turns read-only and reloads
+# into the newer build (src/lib/api/workspaceSync · parkOlderBuild, src/lib/swUpdate).
+# Writers it does NOT guard: the capture page (a fresh read and a pure change on the raw blob, per
+# tap — it never skipped anything) and the server's own writers (alarm webhook, demo reset,
+# repairs), which run at the server's version.
+
+WORKSPACE_OLDER_BUILD_CODE = "workspace_older_build"
+
+#: What a SLICE save without a version is taken for. Slices carry `schemaVersion` since
+#: 30.10.2026; builds before that stamped full blobs with at most 3, so an unversioned slice is
+#: at most that old — refused only once the stored blob is newer than 3.
+UNVERSIONED_SLICE_VERSION = 3
+
+
+def schema_version_of(value: object, default: int) -> int:
+    """A `schemaVersion` as an int — `default` when absent or not an int (a bool is not one)."""
+    return value if isinstance(value, int) and not isinstance(value, bool) else default
+
+
+def refuse_older_build(stored: dict[str, Any] | None, version: int) -> None:
+    """Raise the 409 when a save stamped `version` would overwrite a blob a NEWER build wrote.
+    A blob with no stamp predates versioning (1); an equal or newer save goes through."""
+    have = schema_version_of(stored.get("schemaVersion"), 1) if isinstance(stored, dict) else 1
+    if version < have:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": WORKSPACE_OLDER_BUILD_CODE,
+                "message": "Einsatzdaten stammen von einer neueren App-Version – App aktualisieren",
+                "stored_version": have,
+                "your_version": version,
+            },
+        )
