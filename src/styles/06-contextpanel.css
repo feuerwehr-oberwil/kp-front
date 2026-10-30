@@ -253,8 +253,9 @@
 }
 .combo-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .combo-clear .i { width: 13px; height: 13px; }
-/* a menu hugs its rows: even --bar-pad, and the corner is the rows' plus that gap (01-tokens · «ONE corner») */
-.combo-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6; margin: 0; padding: var(--bar-pad); list-style: none;
+/* a menu hugs its rows: even --bar-pad, and the corner is the rows' plus that gap (01-tokens · «ONE corner»).
+   `--menu-pad` is the ONE number the sticky search row is offset by (ComboMenu.module.css · .searchRow). */
+.combo-menu { --menu-pad: var(--bar-pad); position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6; margin: 0; padding: var(--menu-pad); list-style: none;
   max-height: 240px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-bar); box-shadow: var(--e4); }
 /* portalled to <body> so a scrollable/overflow-hidden panel can't clip or cut off the menu */
 /* z above the phone bottom sheet (.ctx @62), journal drawer (@61) AND the modal sheets

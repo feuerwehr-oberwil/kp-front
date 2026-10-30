@@ -8,7 +8,7 @@ type Keys =
   | 'sheetGrip' | 'edit' | 'primarySymbol' | 'done' | 'cancel' | 'exerciseBadge'
   | 'exerciseInitial' | 'keepPlacing' | 'delete' | 'remove' | 'undo' | 'redo' | 'undoNamed'
   | 'redoNamed' | 'undoLost' | 'undoDomains' | 'undoSurfaces' | 'undoTopDropped'
-  | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'noHits' | 'savedLive'
+  | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'noHits'
 
 export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   baseMap: 'Base map',
@@ -57,5 +57,4 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   clear: 'Clear',
   clearSearch: 'Clear search',
   noHits: 'No matches for «{q}».',
-  savedLive: 'Everything is saved as you go.',
 }

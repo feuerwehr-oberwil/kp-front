@@ -100,8 +100,8 @@ still writes no `entryType` and no marker. An optional count with a «Keine» an
 shows «–» while unanswered, never «0». Its ✕ stays visible and disabled while empty, so filling
 or clearing the count never shifts the adjacent controls.
 **A sheet whose edits are live has no confirm footer** (29.09.2026, owner: «everything should be
-auto-saved without manual confirmations»): ✕ and swipe close it, and one quiet «Alles wird
-laufend gespeichert.» line (`copy.savedLive`) says so (TimeBlockSheet, PersonnelSync result).
+auto-saved without manual confirmations»): ✕ and swipe close it. No line says so any more — the
+«Alles wird laufend gespeichert.» note went on 30.10.2026 (owner: «not very useful»).
 «Speichern» stays only where something is CREATED (Trupp anmelden, Einsatz eröffnen, Eintrag /
 Mittel erfassen) or where a typed value would otherwise write a record per keystroke — the Trupp's
 Auftrag sheet, the Schichtband edit and the Mittel pencil KEEP their Speichern / Abbrechen (owner,
@@ -190,6 +190,16 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   Safari tabs never collapse, so there nothing changes. Check: `e2e/einsatz-keyboard.mjs` (the
   composer, «Einsatzdaten bearbeiten», «Trupp anmelden» in the emulated installed app and a tab).
 
+- **The keyboard goes first** (sweep 30.10.2026, owner: «the (x) of the card is an enticing
+  place to close the keyboard»): while a text field inside a `Sheet`/`Overlay` has focus, the
+  first ✕ or outside tap only blurs it (keys down); the next one closes. One gesture, one thing —
+  the same rule `popoverGuard` applies to a dropdown over a sheet. The ✕ is the frame's FIRST
+  `.ip-x`, so a bespoke frame whose ✕ calls `onClose` itself is covered; other controls, swipe-down,
+  Escape and a mouse press act at once (`lib/overlays/fieldFirst`).
+- **A finger slides through a menu** (sweep 30.10.2026): on touch, a `Menu` highlights the row
+  under a SLIDING finger and lifting on a row presses it (a checkbox row toggles, the menu stays
+  open); lifting elsewhere does nothing, a plain tap is the browser's. A menu whose content scrolls
+  keeps its native scroll, and `ComboMenu` lists are not menus (`lib/overlays/menuSlide`).
 - **A sheet's footer row is `SheetFoot`** (`.ui-sheet-foot`, 26.09.2026): `Sheet` draws it for
   `footer`, and a bespoke frame whose footer is its bottom edge on a phone wears it (the Trupp
   form, the Mittel note, the Georef transfer). ONE rule in 15-mobile.css insets it on a phone —
