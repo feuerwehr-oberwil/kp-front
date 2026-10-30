@@ -47,7 +47,7 @@ describe('BuildingCard', () => {
     expect(row('Sofortmassnahmen').querySelector('button[aria-label="Schliessen"]')).toBeTruthy()
     expect(row('Gebäude').querySelector('button[aria-expanded]')).toBeTruthy()
     expect(row('Gebäude').querySelector('button[aria-label="Schliessen"]')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /Register-Hinweis/ }))
+    // open from the start (sweep 30.10.2026 #6), right under the Gebäude heading
     expect(row('Gebäude').nextElementSibling?.getAttribute('data-testid')).toBe('register-hint')
   })
 
@@ -67,21 +67,19 @@ describe('BuildingCard', () => {
     expect(screen.queryByText('Bemerkungen')).toBeNull()
   })
 
-  // owner, 20.10.2026 (s17): it was a `title=` tooltip — on the tablet a finger got nothing
-  it('opens the register hint, and the source line with it, on a tap', () => {
+  // owner, 20.10.2026 (s17): it was a `title=` tooltip — on the tablet a finger got nothing;
+  // sweep 30.10.2026 #6: it stands open each time the card opens, a tap folds it away
+  it('shows the register hint, and the source line with it, open; a tap folds it', () => {
     render(<BuildingCard info={{ ...base, registers_fetched_at: '2026-10-16T10:00:00Z' }} />)
     const hint = screen.getByRole('button', { name: /Register-Hinweis/ })
-    expect(hint.getAttribute('aria-expanded')).toBe('false')
-    expect(screen.queryByTestId('register-hint')).toBeNull()
-    expect(screen.queryByText(/GWR Hauptstrasse 10/)).toBeNull()
-
-    fireEvent.click(hint)
     expect(hint.getAttribute('aria-expanded')).toBe('true')
     expect(screen.getByText(/Aus den Bundesregistern/)).toBeTruthy()
     expect(screen.getByText(/GWR Hauptstrasse 10/)).toBeTruthy()
 
     fireEvent.click(hint)
+    expect(hint.getAttribute('aria-expanded')).toBe('false')
     expect(screen.queryByTestId('register-hint')).toBeNull()
+    expect(screen.queryByText(/GWR Hauptstrasse 10/)).toBeNull()
   })
 
   it('draws nothing when there is nothing to say', () => {

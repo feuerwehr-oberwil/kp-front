@@ -24,8 +24,8 @@ import s from './BuildingFloat.module.css'
  * just «Gebäude-Info» (not «Gebäude» + the storey glyph: that is the rail's Gebäude tile, a
  * surface of its own). Nothing to say → no chip (lib/buildingCard · hasBuildingContent).
  *
- * The FIRST time this device shows the Karte of an Einsatz whose building has a hazard,
- * Sofortmassnahmen or Bemerkungen, the card opens by itself (`autoOpen`, lib/buildingFirstOpen —
+ * The FIRST time this device shows the Karte of an Einsatz whose building has anything to show,
+ * the card opens by itself (`autoOpen`, lib/buildingFirstOpen —
  * the workspace decides when); closing it marks it read (`onRead`). The plan's row never passes it.
  */
 export function BuildingFloat({ info, compact = false, autoOpen = false, onRead }: {

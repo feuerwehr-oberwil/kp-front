@@ -1,12 +1,14 @@
 // The Gebäude card opens BY ITSELF the first time this device shows the Karte of an Einsatz whose
-// building has something a crew must read (owner, 10.10.2026: «the first time an emergency is
-// opened those also appear, so that they are read always»). The policy is pure and the flag is
+// building has anything to show (owner, 10.10.2026: «the first time an emergency is opened those
+// also appear, so that they are read always»; since sweep 30.10.2026 #6 for every building with
+// content, not only for a hazard or notes). The policy is pure and the flag is
 // storage-injectable, so the rule is node-testable; BuildingFloat owns the pixels, the workspace
 // says WHEN the Karte is really in front of the operator (useBuildingFirstOpen · `eligible`).
 //
 // The rules:
-//   · only for what must be read — a hazard (Gas, Heizöl, PV), Sofortmassnahmen or Bemerkungen.
-//     Geschosse, Baujahr or a last Objektbesuch alone stay behind the chip (lib/buildingCard);
+//   · for every building the card has something to say about (lib/buildingCard · hasBuildingContent):
+//     Geschosse and Baujahr are read too, on every new Einsatz (owner pick «Both», 30.10.2026). A
+//     building with nothing at all has no chip and no card, so nothing opens;
 //   · once per DEVICE per Einsatz per building: another tablet on the same Einsatz has its own
 //     operator who has not read it, so the flag never reaches the synced workspace. A building is
 //     the Einsatzort the answer was asked for plus its Objekt (`buildingReadKey`): an address
@@ -18,16 +20,8 @@
 //     and a device whose storage refuses still shows it only once per session.
 import { useCallback, useEffect, useState } from 'react'
 import type { BuildingInfo } from './api/building'
-import { buildingChips, noteLines } from './buildingCard'
+import { hasBuildingContent } from './buildingCard'
 import { idbRead, idbSet } from './idb'
-
-/** Hazards, Sofortmassnahmen or Bemerkungen — what a crew must have read before going in. */
-export function buildingMustRead(b: BuildingInfo | null | undefined): boolean {
-  if (!b) return false
-  return buildingChips(b).some((c) => c.hazard)
-    || noteLines(b.object?.measures).length > 0
-    || noteLines(b.object?.remarks).length > 0
-}
 
 /** Which building an answer is about: the Einsatzort it was asked for (`buildingWhere`, stamped on
  *  every answer the device keeps) and the Objekt whose notes it carries. */
@@ -45,7 +39,7 @@ export function buildingReadKey(b: BuildingInfo): string {
 export function shouldAutoOpenBuilding(
   { info, read, eligible }: { info: BuildingInfo | null | undefined; read: readonly string[] | null; eligible: boolean },
 ): boolean {
-  if (!eligible || !read || !info || !buildingMustRead(info)) return false
+  if (!eligible || !read || !info || !hasBuildingContent(info)) return false
   return !read.includes(buildingReadKey(info))
 }
 
@@ -96,7 +90,7 @@ export function useBuildingFirstOpen(incidentId: string | undefined, info: Build
   const keys = read && read.id === incidentId ? read.keys : null
   const autoOpen = shouldAutoOpenBuilding({ info, read: keys, eligible })
   const markRead = useCallback(() => {
-    if (!incidentId || !info || !buildingMustRead(info)) return
+    if (!incidentId || !info || !hasBuildingContent(info)) return
     const key = buildingReadKey(info)
     setRead({ id: incidentId, keys: [...new Set([...(memory.get(incidentId) ?? []), key])] })
     void markBuildingRead(incidentId, key)

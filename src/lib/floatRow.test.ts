@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { rowLift, type Box } from './floatRow'
+import { rowLift, stackLane, type Box } from './floatRow'
 
 // A 390px phone: the chip row at its floor, 8px in from the left, 52px tall.
 const chip: Box = { left: 8, right: 60, top: 600, bottom: 652 }
@@ -24,5 +24,23 @@ describe('rowLift — the floating chip row on the lowest free line (sweep 27.10
 
   it('ignores what stands clear of it sideways or above', () => {
     expect(rowLift(chip, [at(70, 200, 600, 652), at(0, 390, 300, 400)])).toBe(0)
+  })
+})
+
+describe('stackLane — where the message lane starts while a tool is out (sweep 30.10.2026 #7)', () => {
+  // an 844px phone: the dock 144..204 px above the foot, the pill 212..256 over it
+  const dock = at(74, 316, 640, 700)
+  const pill = at(101, 290, 588, 632)
+
+  it('one gap above the pill when the chip sits beside the dock', () => {
+    expect(stackLane([dock, pill, at(8, 52, 640, 692)], 844)).toBe(256 + 8)
+  })
+
+  it('one gap above the chip when it had to rise onto the pill\'s line', () => {
+    expect(stackLane([dock, pill, at(8, 83, 580, 632)], 844)).toBe(264 + 8)
+  })
+
+  it('nothing in the stack: no lane of its own', () => {
+    expect(stackLane([], 844)).toBeNull()
   })
 })

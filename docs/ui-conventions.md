@@ -237,7 +237,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     channel under the strip while one stands (`--ml-reserve` from its measured `--ml-h`), at the
     bars' own width on a phone (8px in from each side). A mode's instruction and a tool's tip keep
     the phone's foot lane (`--msg-lane-bottom`, 15-mobile), one `--float-gap` above THE floating
-    row (below), never beside a piece of it. A repeat REPLACES (18.10.2026): a confirmation that comes again — «Eintrag erfasst» after
+    row (below) – while a tool is out, above the highest piece of the tool stack, measured
+    (lib/floatRow · stackLane, 30.10.2026) – never beside a piece of it. A repeat REPLACES (18.10.2026): a confirmation that comes again — «Eintrag erfasst» after
     every Meldung, «Geschoss hinzugefügt» — carries a `kind` (lib/ui · toast) and takes its
     predecessor's place instead of stacking on it; five Meldungen in a row grew a column of pills
     up the screen into the composer's «Erfassen», and a confirmation never covers the next action

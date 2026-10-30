@@ -12,11 +12,12 @@ Until 09.10.2026 the card sat in the incident menu; the owner wanted it «on the
 ## It opens by itself the first time
 
 Owner, 10.10.2026: the Sofortmassnahmen must be read, not merely be one tap away. So the first
-time **this device** shows the Karte of an Einsatz whose building has something a crew must read –
-a hazard (Gas, Heizöl, PV), **Sofortmassnahmen** or **Bemerkungen** – the card opens by itself,
-still docked and non-modal: the map stays live and the operator keeps working
+time **this device** shows the Karte of an Einsatz whose building has anything to show – the card
+opens by itself, still docked and non-modal: the map stays live and the operator keeps working
 (`lib/buildingFirstOpen`, wired in `IncidentWorkspace` → `MapControls` → `BuildingFloat · autoOpen`).
-Geschosse, Baujahr or a last Objektbesuch alone stay behind the chip.
+Until 30.10.2026 only a hazard (Gas, Heizöl, PV), Sofortmassnahmen or Bemerkungen opened it;
+since the sweep of that day (#6, owner pick «Both») Geschosse, Baujahr or a last Objektbesuch do
+too, on every new Einsatz. A building with nothing at all has no chip and no card, so nothing opens.
 
 - **Once per device per Einsatz per building.** The flag is device-local view state in IndexedDB
   (`kp-front-building-read:<incidentId>`), never the synced workspace: another tablet on the same
@@ -41,7 +42,8 @@ Geschosse, Baujahr or a last Objektbesuch alone stay behind the chip.
   **Gebäude** – the hazard lines first, then the register facts, bullets of the Sofortmassnahmen's
   size and weight (the Karte panel's `RegisterLines`) – then the last Objektbesuch. There is no head
   row: the FIRST section's heading carries the ✕ at its right end, and «Register-Hinweis» (the
-  source line folds out right under it) always sits on the «Gebäude» heading's row – [GEBÄUDE ·
+  source line right under it, OPEN each time the card opens – by itself or by hand, sweep
+  30.10.2026 #6; a tap folds it) always sits on the «Gebäude» heading's row – [GEBÄUDE ·
   Register-Hinweis · ✕] when there are no Sofortmassnahmen (owner, 27.10.2026: the empty head
   row was wasted). «Gebäude» is the card's accessible name. Every bullet is one size, `--fs-2`.
 

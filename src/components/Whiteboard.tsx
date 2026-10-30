@@ -2824,9 +2824,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       {/* the armed tool's readout — the SAME pill the Lage map shows (MapToolDocks): glyph + name,
           bottom centre, nothing else. The symbol tool has no dock here either; «Mehrere
           platzieren» and a ✕ (27.10.2026) stand beside the pill. Rest tool is 'pan' here (the plan pans on empty
-          canvas) vs the map's 'select'. Not on the phone while Messen is armed – its results
-          panel stands in that row. */}
-      {tool !== 'pan' && !(isPhone && tool === 'measure') && (() => {
+          canvas) vs the map's 'select'. Never while Messen is armed, on any size – its results
+          panel stands in that spot (sweep 30.10.2026 #3). */}
+      {tool !== 'pan' && tool !== 'measure' && (() => {
         if (tool === 'symbol') {
           if (!pending) return null
           return <ArmedToolPill glyph={<ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />} name={formatSymbolName(pending) || pending}

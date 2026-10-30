@@ -139,6 +139,14 @@
      card's edge, the one 8px gap between the titles and the tiles (tokens · --head-*, Surface.module.css) */
   :root { --head-pad-y: 8px; --head-pad-x: 14px; --head-gap: 8px; }
 
+  /* ── THE bottom stack (sweep 30.10.2026 #7) ── nav bar → tool bar → a tool's option dock → the
+     armed tool's pill (or Messen's readout) → the message lane, with ONE gap between every two:
+     --float-gap, the 8px the floating row keeps from the bars. They were 6, 6, 8 and 16px (owner's
+     iPhone, Linie armed: «the unequal spacing between the toolrail, tool specific rail, "linie"
+     info, and info»). The feet of the two bars above the nav bar, for whoever stands on them: */
+  :root { --tools-bottom: calc(8px + var(--rail-h) + var(--float-gap) + env(safe-area-inset-bottom));
+    --dock-bottom: calc(var(--tools-bottom) + var(--rail-h) + var(--float-gap)); }
+
   /* ── Phone editing ── the tool rail is ALWAYS there on the drawing surfaces (no edit
      mode): a horizontal bar stacked above the surface bar, so tools and view switching are
      both permanently one tap away. Viewers/EL-Ansicht simply don't render it. */
@@ -148,7 +156,7 @@
        mid-screen on every plan surface. Viewport-anchored, both bars land in the same spot. */
     position: fixed;
     left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
-    bottom: calc(14px + var(--rail-h) + env(safe-area-inset-bottom)); top: auto; width: auto !important; height: var(--rail-h);
+    bottom: var(--tools-bottom); top: auto; width: auto !important; height: var(--rail-h);
     margin-block: 0; flex-direction: row; align-items: center; gap: 2px; max-height: none; padding: var(--bar-pad); }
   /* Rail chrome that has no meaning in a bar: expand/collapse and resize/overflow affordances.
      The footer stays: both surfaces pin Ebenen plus their one view reset at the right edge. */
@@ -242,8 +250,8 @@
      transform:none cancels .wb-dock-map's desktop translateY(-50%) centring. Scrolls horizontally
      when a busy tool (line/area) has more options than fit. */
   .phone-tools .wb-dock { position: fixed; left: 50%; right: auto; top: auto; transform: translateX(-50%);
-    /* 6px above the tool bar — the SAME gap the tool bar has above the nav bar (both are +6 offsets) */
-    bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom));
+    /* one --float-gap above the tool bar — the SAME gap the tool bar has above the nav bar (the stack, above) */
+    bottom: var(--dock-bottom);
     flex-direction: row; align-items: center; justify-content: safe center; gap: var(--sp-2);
     /* width HUGS the content (centred) so a 2-item dock isn't stretched across the screen;
        caps at the viewport and scrolls when a busy tool (line/area) overflows */
@@ -287,9 +295,9 @@
   .phone-tools .whiteboard:has(.ctx) { z-index: var(--z-chrome-raised); }
   .phone-tools :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
   /* (the Eintrag-FAB clears both bars on the drawing surfaces through --float-bottom, below) */
-  /* the armed tool's readout stands on THE floating row's baseline (--float-bottom, below): on the
-     tool bar when the tool has no dock (Symbol), one row up while a dock is out (Linie, Fläche …).
-     It fixes for the same nesting reason as the dock. */
+  /* the armed tool's readout stands on THE floating row's baseline (--float-bottom, below): one
+     gap above the tool bar when the tool has no dock (Symbol), one gap above the dock while one is
+     out (Linie, Fläche …). It fixes for the same nesting reason as the dock. */
   .phone-tools .armed-pill-row { position: fixed; bottom: var(--float-bottom); max-width: calc(100vw - 16px); }
 
   /* ── details as a bottom sheet ── the shared .ctx editors (ContextPanel / DrawEditor /
@@ -1042,7 +1050,7 @@
      may be short — the measured chip row (lib/floatRow · `--float-floor`) stands on the bars and
      only rises past a dock that is actually in its way. */
   :root { --float-bars: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px)); }
-  :root:has(.phone-tools) { --float-bars: calc(var(--rail-h) * 2 + 14px); }
+  :root:has(.phone-tools) { --float-bars: calc(var(--rail-h) * 2 + 8px + var(--float-gap)); }
   /* …and a Tafel PAGE has no tool bar under it (the form takes the stage, Whiteboard · formPage):
      its row — the page strip, the FAB — stands on the nav bar like any surface without tools.
      ⚠️ …and the Karte's foot is ONE bar: its tools live IN the nav bar, so it wears .phone-tools
@@ -1056,7 +1064,7 @@
     --float-bars: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px));
   }
   :root { --float-base: var(--float-bars); }
-  :root:has(.phone-tools .wb-dock):not(:has(.phone-tools .wb-tafel-page)) { --float-base: calc(var(--rail-h) * 3 + 20px); }
+  :root:has(.phone-tools .wb-dock):not(:has(.phone-tools .wb-tafel-page)) { --float-base: calc(var(--rail-h) * 3 + 8px + 2 * var(--float-gap)); }
   :root { --float-bottom: calc(var(--float-base) + var(--float-gap) + env(safe-area-inset-bottom));
     --float-floor: calc(var(--float-bars) + var(--float-gap) + env(safe-area-inset-bottom)); }
   /* the row is OCCUPIED while any of its pieces is on screen: a FAB, the plan's chip row, the
@@ -1078,6 +1086,11 @@
   :root {
     --msg-lane-bottom: calc(var(--float-bottom) + var(--float-row, 0px) + var(--stack-foot-lift, 0px));
   }
+  /* ⚠️ …MEASURED while a tool is out (lib/floatRow · stackLane, sweep 30.10.2026 #7): one
+     --float-gap above the highest thing in the stack. The reserve above counts a whole chip row
+     whenever a chip is on screen, but beside a short dock the chip stands on the dock's line, not
+     on the pill's – and the tip floated 16px over «Linie · Freihand» instead of 8. */
+  :root[data-stack-lane] { --msg-lane-bottom: calc(var(--stack-lane) + var(--stack-foot-lift, 0px)); }
   /* ⚠️ …which the TOASTER left on 20.10.2026 (S3, owner: «all notifications at the same place:
      at the top cleanly below the main navbar»): it stands under the bar, where the Meldeleiste
      starts (72px), one 8px channel under the strip while one stands (`--ml-reserve`, the strip's

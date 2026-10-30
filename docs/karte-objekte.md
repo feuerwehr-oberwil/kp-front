@@ -202,7 +202,7 @@ What it reuses, so nothing forks:
 |---|---|
 | map, layers, vehicles, measure path, georef raster, weather radar | `MapView` (read-only, no drawings: its base props only, none of the tactical ones — `components/mapViewProps`) + `MapLayers` (a `polygons` overlay kind draws the outlines) |
 | Ebenen | `LayerPanel`, under its OWN device key (`kp.layers.karte`, `lib/karte/session`), without the Einsatz-only layers (taktisch, Skizzen, Personen) and the catalogue's «Unterirdische Bauten» (its own Station row stands in); the radar's choice too (`kp.karte.radar`) |
-| tools | the Einsatz's `ToolRail` (tablet) / the folded `navrail` bar (phone: Karte · Checkliste │ Messen · Gefahrgut · Ebenen — «Checkliste» below), `ToolDock` + `MeasurePanel` WITHOUT «Als Linie/Fläche übernehmen» (and without a line saying it is not saved — nothing here is), stacked on the phone like an Einsatz's: dock 6px above the bar, readout 6px above the dock, one bar lower because the Karte has no tool bar, `MapViewsButton` without saved views |
+| tools | the Einsatz's `ToolRail` (tablet) / the folded `navrail` bar (phone: Karte · Checkliste │ Messen · Gefahrgut · Ebenen — «Checkliste» below), `ToolDock` + `MeasurePanel` WITHOUT «Als Linie/Fläche übernehmen» (and without a line saying it is not saved — nothing here is), stacked on the phone like an Einsatz's: dock 8px above the bar, readout 8px above the dock (sweep 30.10.2026 #7), one bar lower because the Karte has no tool bar, `MapViewsButton` without saved views |
 | weather | `useWeather` + `WeatherBadge` |
 | plans | the NavRail classes and `PlanGlyph` (tablet rail), rows in the object's panel; a module opens in the Einsatz's plan reader — the Plan surface's `Whiteboard`, read-only, on the current revision (below); the Gebäude is the same `Whiteboard` on the Einsatz's floor stack (`lib/floorPackBinding · floorPackOf` / `packBuildingDoc`, below) |
 | plan titles | the module catalogue the Einsatz's plan chooser labels its tiles from (`lib/planOrder · moduleCatalogue`), through `lib/karte/plans · planTitle` (below) |
@@ -488,8 +488,10 @@ The rules that are easy to break:
   Gebäude card (`BuildingCard`) wears the SAME disclosure since review round 7 — it was a `title=`
   tooltip, which a finger never sees (owner, 20.10.2026): the button, what it opens and the aria
   contract are `components/BuildingFacts` · `RegisterHintButton` / `RegisterHintBody`, each
-  surface in its own rhythm. Its tags and the station's notes are the panel's own pieces there too
-  (`RegisterTags`, `StationNotes` – Karte Haus round 3), so the two cannot drift apart.
+  surface in its own rhythm – but there it stands OPEN each time the card opens (sweep 30.10.2026
+  #6, building-card.md); this peacetime panel keeps it folded. Its tags and the station's notes are
+  the panel's own pieces there too (`RegisterTags`, `StationNotes` – Karte Haus round 3), so the
+  two cannot drift apart.
 - **Missing is said – what was ASKED for and not answered.** A register that could not be asked,
   a place never looked at offline: each gets its sentence, and nothing reads as «no hazard». What
   the station simply never recorded is NOT announced: the closing «Keine Gefahrenangaben der

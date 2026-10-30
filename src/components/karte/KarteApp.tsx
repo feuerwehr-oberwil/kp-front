@@ -74,7 +74,6 @@ import { MapView } from '../MapView'
 import { LayerPanel } from '../LayerPanel'
 import { MapHint, MeasurePanel } from '../MeasurePanel'
 import { ToolDock } from '../ToolDock'
-import { ArmedToolPill } from '../ArmedToolPill'
 import { ToolRail } from '../ToolRail'
 import { MapViewsButton } from '../MapViewsMenu'
 import { WeatherBadge } from '../TopBar'
@@ -772,9 +771,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
 
         {tool === 'measure' && (
           <>
-            {/* the armed tool's readout, as on the Lage map (MapToolDocks) – not on the phone,
-                where the results panel stands in that row */}
-            {!phone && <ArmedToolPill glyph={<Icon id="measure" />} name={C.tools.measure} />}
+            {/* no armed-tool pill here, on any size (sweep 30.10.2026 #3): the results panel
+                stands in its spot at the bottom centre and the pill covered its numbers */}
             <ToolDock groups={[
               [{ type: 'close', onClick: () => setTool('measure') }],
               [
