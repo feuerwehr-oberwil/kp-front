@@ -46,6 +46,13 @@ const MAX_MENU_H = 440
 const MIN_MENU_H = 140
 /** Breathing room kept between the menu and whichever edge it is measured against. */
 const EDGE = 12
+/** Floor for the menu's WIDTH: what the search row needs to show its longest placeholder whole
+ *  (fr «Rechercher une personne …», 228px of 16px Sora + 63px of icon, paddings and menu pad).
+ *  The menu used to take exactly the trigger's width, and a narrow field cut its own search to
+ *  «Suchen oder ei…» (owner, 30.10.2026) — the names under it ellipsed for the same reason. The
+ *  menu grows to the right from the trigger's left edge and steps left only to stay on screen
+ *  (see `place`). ⚠️ A longer placeholder in any language needs this raised. */
+const MIN_MENU_W = 300
 
 /** The nearest ancestor that actually clips its content (a Sheet's `.ip-body`, any
  *  `overflow: auto/scroll/hidden` panel) — falling back to the viewport when there is none.
@@ -166,7 +173,11 @@ export function useComboMenu(openTick?: number): [ComboMenuState, ComboMenuRefs]
       // ⚠️ The MIN floor is for the DOWN case only — an up menu capped above its room would run
       // its top (where the search row sits) off the top of the screen.
       const maxH = up ? Math.min(MAX_MENU_H, above) : Math.min(MAX_MENU_H, Math.max(MIN_MENU_H, below))
-      setPos({ left: r.left, top: up ? r.top : r.bottom, width: r.width, maxH, up })
+      // never narrower than MIN_MENU_W (or the screen), never off its right edge
+      const viewW = document.documentElement.clientWidth
+      const width = Math.max(r.width, Math.min(MIN_MENU_W, viewW - 2 * EDGE))
+      const left = width > r.width ? Math.max(0, Math.min(r.left, viewW - EDGE - width)) : r.left
+      setPos({ left, top: up ? r.top : r.bottom, width, maxH, up })
     }
     place()
     window.addEventListener('scroll', place, true)

@@ -47,7 +47,8 @@ scrolling body so it stays visible with the keyboard up):
   strip says «Alles erfasst · Nächster Schritt / Einsatzrapport (PDF) erstellen» (no «Später» –
   it goes away by itself). Once the PDF exists: «Rapport erstellt · Nächster Schritt / Einsatz
   abschliessen», ✕ = «Später», and under it «Danach für die Ablage: Beilagen herunterladen (ZIP)»
-  when the server holds Beilagen.
+  when the server holds Beilagen. The band is the only announcement – no «Rapport erstellt» toast
+  beside it (owner #31, 30.10.2026) – so a fresh PDF brings back a band put away with «Später».
 
 ## Unterschriften – signing on the screen (15.10.2026)
 

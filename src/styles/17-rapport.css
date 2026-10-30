@@ -39,13 +39,17 @@
 .report-meta-dispatch-hint:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* the whole dispatch card opens the Einsatzdaten (mirrors an Anwesenheit person row) — the
    target grows from the small edit glyph to the full card, without the card BEING a button: see
-   the <dl> note above. On a tablet there is no hover to advertise the card, so the pen glyph
-   carries the affordance on its own even where the wash below never plays. */
-.report-meta-dispatch-click { cursor: pointer;
-  border: 1px solid transparent; border-radius: var(--r-ctl); padding: 8px; margin: -8px; }
+   the <dl> note above. The class sits on the `.report-pre-section` itself, and its states are the
+   round-up cards' beside it (13-incident · `.rp-check`, owner #32 30.10.2026): a hover lights the
+   card's own edge, a press washes the card once – no inner box, no fill. Where the sections are
+   flat (<1080px) there is no edge to light, so a hover keeps the hairline, as `.rp-check` does.
+   On a tablet there is no hover to advertise the card, so the pen glyph carries the affordance. */
+.report-meta-dispatch-click { cursor: pointer; }
 @media (hover: hover) {
-  .report-meta-dispatch-click:hover { background: var(--fill-soft); border-color: var(--glass-edge); }
-  .report-meta-dispatch-click:hover .report-meta-dispatch-hint { color: var(--blue); }
+  .report-meta-dispatch-click:hover { border-color: var(--ink-faint); }
+}
+@media (hover: hover) and (max-width: 1079px) {
+  .report-preflight-body .report-meta-dispatch-click:hover { border-color: var(--glass-edge); }
 }
 .report-meta-dispatch-click:active { background-image: linear-gradient(var(--press), var(--press)); }
 .report-meta-readout { margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
