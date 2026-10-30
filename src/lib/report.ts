@@ -1044,8 +1044,11 @@ const metaFieldLabels = () => appConfig.copy.report.metaFieldLabels
  *  `linksDone` is here DELIBERATELY, not by omission: ticking off the station's own paperwork
  *  (the Getränkeabrechnung, a Schadenmeldung — see lib/reportLinks) says nothing about what
  *  happened at the Einsatz, and the Verlauf is the record of the Einsatz. The tick itself is
- *  kept in the workspace blob with its timestamp, so it is neither invisible nor lost. */
-const META_QUIET = new Set(['erfasser', 'krokiPrint', 'linksDone'])
+ *  kept in the workspace blob with its timestamp, so it is neither invisible nor lost.
+ *
+ *  `printJob` is here for the same reason: which relay job a rapport is queued on is plumbing,
+ *  not a statement about the Einsatz. The print itself is already recorded elsewhere. */
+const META_QUIET = new Set(['erfasser', 'krokiPrint', 'linksDone', 'printJob'])
 
 /** Fields short enough to print their new value in the Verlauf line. A Kurzbericht or a
  *  Bemerkung is a paragraph — quoting it would turn the log into a second copy of the rapport,

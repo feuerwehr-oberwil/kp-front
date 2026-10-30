@@ -3,7 +3,7 @@
 
 import type { Copy, Localizable } from '../index'
 
-export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'wheel' | 'signature' | 'preflight'>> = {
+export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'printRelay' | 'wheel' | 'signature' | 'preflight'>> = {
   auswertung: {
     heading: 'Analyse',
     note: 'Pour le débriefing – dérivé des données de l’intervention, ne fait pas partie du rapport signé.',
@@ -377,5 +377,33 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'wheel
     pendingMedia: '{n} photo/audio pas encore téléversés – seront complétés dès qu\'une connexion existe ; peut-être pas encore visibles sur d\'autres appareils.',
     pendingMediaConfirm: '{n} photo/audio pas encore envoyé – conservé sur cet appareil',
     truppsDeployedConfirm: 'Encore engagés : {n} – jamais annoncés sortis',
+  },
+  printRelay: {
+    send: 'Imprimer',
+    sending: 'Envoi en cours …',
+    queued: 'Dans la file d’attente',
+    printing: 'Impression en cours …',
+    printed: 'Imprimé',
+    printFailed: 'Échec de l’impression – vérifier l’imprimante',
+    stepQueued: 'Dans la file d’attente',
+    stepPrinting: 'Impression',
+    stepPrinted: 'Imprimé',
+    jobOpen: 'Impression en attente',
+    jobOpenSince: 'Dans la file d’attente depuis {t}',
+    jobCheck: 'Vérifier',
+    jobCancel: 'Annuler',
+    jobUnreachable: 'Impression injoignable – vérifier la connexion',
+    jobGone: 'Impression introuvable – si aucune sortie papier n’est arrivée, imprimer à nouveau.',
+    confirmTitle: 'Imprimer',
+    confirmMsg: 'Envoyer le rapport d’intervention à l’imprimante de caserne ?',
+    confirmBtn: 'Imprimer',
+    undo: 'Annuler',
+    cancelled: 'Impression annulée',
+    undoTooLate: 'Trop tard – le document est déjà à l’imprimante',
+    failed: 'Échec de l’envoi à l’imprimante de caserne',
+    online: 'Imprimante de caserne joignable',
+    offline: 'Imprimante de caserne hors ligne',
+    offlineConfirmTitle: 'Imprimante de caserne hors ligne',
+    offlineConfirmBtn: 'Envoyer quand même',
   },
 }

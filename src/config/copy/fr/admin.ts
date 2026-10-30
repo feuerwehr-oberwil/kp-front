@@ -517,8 +517,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
           caption: 'Clé navigateur pour les cartes CARTO Voyager et Dark Matter. Elle apparaît nécessairement dans les requêtes de tuiles ; limitez-la donc aux domaines de cette installation dans CARTO.',
         },
         webhooks: {
-          title: 'Webhooks',
-          caption: 'Secret partagé pour l’interface d’alarme de centrales tierces. Sans saisie, la porte reste fermée.',
+          title: 'Webhooks et imprimante de caserne',
+          caption: 'Secrets partagés pour l’interface d’alarme de centrales tierces et pour l’agent d’impression de la caserne. Sans saisie, les deux portes restent fermées.',
         },
         sharepoint: {
           title: 'SharePoint (données de la caserne)',
@@ -1719,6 +1719,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       directionOut: 'sortant',
       connOnline: 'en ligne',
       connOffline: 'hors ligne',
+      connLastSeen: 'Dernier signal : {time}',
+      connPrintRelay: 'Imprimante de caserne (agent d’impression)',
       connCapture: 'Affiche de saisie (QR)',
       connStats: 'Export statistiques',
       connDiveraWebhook: 'Webhook Divera',
@@ -1871,6 +1873,10 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       linkPreview: 'Aperçu avec une intervention d’exemple',
       linkPreviewNone: 'Lien non valable (http ou https) – cette entrée n’apparaîtra pas sur le rapport.',
       linkPreviewNoTitle: 'Sans titre, cette entrée n’apparaîtra pas sur le rapport.',
+      groupPrint: 'Impression sur l’imprimante du local',
+      printTip: 'Ne concerne que le rapport envoyé à l’imprimante du local. Un PDF téléchargé reste toujours dans l’ordre de lecture.',
+      reverseOrder: 'Envoyer les pages en ordre inverse',
+      reverseOrderHint: 'Pour les imprimantes qui éjectent face imprimée vers le haut : sinon la pile sort à l’envers et doit être retriée à la main. Si la vôtre éjecte vers le bas, désactiver.',
     },
     alarms: {
       colGroup: 'Groupe d’alarme',

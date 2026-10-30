@@ -76,6 +76,7 @@ FEATURE_KEYS = frozenset(
         # server-visible buckets — the middleware below
         "adresssuche",
         "ansicht-teilen",
+        "drucken",
         "erfassung",
         "fahrzeuge",
         "objektplaene",
@@ -120,6 +121,8 @@ _ROUTE_BUCKETS: tuple[tuple[str, str], ...] = (
     # …then the suffixes that hang off /incidents/{id} and /media/{id}.
     ("/report/pdf", "rapport-pdf"),
     ("/zeitplan/pdf", "zeitplan-pdf"),
+    ("/report/print", "drucken"),
+    ("/zeitplan/print", "drucken"),
     ("/transcribe", "transkription"),
     ("/transcription", "transkription"),
     ("/media", "sprachnotiz"),

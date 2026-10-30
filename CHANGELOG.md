@@ -29,6 +29,17 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Added
+
+- **The station printer is back.** 0.12.0 removed the print relay because prod looked unused –
+  but that check counted a queue the scheduler empties after 7 days. The station agent had
+  printed 18 KP Front jobs in August and September. «Ausdrucken» returns to the Rapport, the
+  capture poster and the Zeitplan sheets, with the open-print-job band, the System connector
+  row and `report.reversePrintOrder`. A migration recreates `print_jobs`. *A station that used
+  the relay sets `PRINT_AGENT_SECRET` again, in `.env` or at `/admin` → Anbindungen – the 0.12.0
+  migration deleted the stored copy.* A viewer's print reaches the same media as their PDF, no
+  more.
+
 ### Changed
 
 - **Browser floor raised to Safari/iPadOS 15.4, Chrome/Edge 98, Firefox 94** (`build.target`).

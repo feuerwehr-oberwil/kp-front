@@ -517,8 +517,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
           caption: 'Chiave browser per le mappe CARTO Voyager e Dark Matter. Compare necessariamente nelle richieste delle tile; limitala quindi ai domini di questa installazione in CARTO.',
         },
         webhooks: {
-          title: 'Webhook',
-          caption: 'Segreto condiviso per l’interfaccia di allarme di centrali esterne. Senza voce, la porta resta chiusa.',
+          title: 'Webhook e stampante di sede',
+          caption: 'Segreti condivisi per l’interfaccia di allarme di centrali esterne e per l’agente di stampa in sede. Senza voce, entrambe le porte restano chiuse.',
         },
         sharepoint: {
           title: 'SharePoint (dati della sede)',
@@ -1720,6 +1720,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       directionOut: 'in uscita',
       connOnline: 'online',
       connOffline: 'offline',
+      connLastSeen: 'Ultimo segnale: {time}',
+      connPrintRelay: 'Stampante di caserma (agente di stampa)',
       connCapture: 'Poster di registrazione (QR)',
       connStats: 'Esportazione statistiche',
       connDiveraWebhook: 'Webhook Divera',
@@ -1872,6 +1874,10 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       linkPreview: 'Anteprima con un intervento di esempio',
       linkPreviewNone: 'Link non valido (http o https) – questa voce non comparirà sul rapporto.',
       linkPreviewNoTitle: 'Senza titolo questa voce non comparirà sul rapporto.',
+      groupPrint: 'Stampa sulla stampante della rimessa',
+      printTip: 'Riguarda solo il rapporto inviato alla stampante della rimessa. Un PDF scaricato resta sempre in ordine di lettura.',
+      reverseOrder: 'Invia le pagine in ordine inverso',
+      reverseOrderHint: 'Per stampanti che espellono con il lato stampato verso l’alto: altrimenti la pila esce al contrario e va riordinata a mano. Se la tua espelle verso il basso, disattivalo.',
     },
     alarms: {
       colGroup: 'Gruppo d’allarme',

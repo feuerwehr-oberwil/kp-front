@@ -124,7 +124,8 @@ def emptied_declared_sections(stored: dict[str, Any] | None, final: dict[str, An
     reset was refused two nights running — after its wipe, so the demo stood without its
     Einsatzobjekt — and every save of the station settings answered 409, over a switch that no
     longer exists. A file cannot put such a field back either (normalization strips it), so the
-    CLI's refusal is no more actionable for it than the API's.
+    CLI's refusal is no more actionable for it than the API's. (The relay and its field came back
+    on 30.10.2026; the rule stands for the next retired field.)
     """
     declared = {name: _object_fields(f.annotation) for name, f in DeploymentConfigIn.model_fields.items()}
 

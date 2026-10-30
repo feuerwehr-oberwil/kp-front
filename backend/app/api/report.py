@@ -329,7 +329,7 @@ async def compose_report_from_payload(
     scope: ReportAssetScope | None = None,
 ) -> tuple[bytes, ReportPayload]:
     """Validate the JSON `payload` and compose the Rapport-PDF — the one path shared by
-    the download endpoints (editor + capture).
+    the download endpoints (editor + capture) and the print-relay enqueue endpoints.
 
     `scope` narrows which server-owned assets the payload may reach (`ReportAssetScope`);
     omitting it keeps the station-wide behaviour every logged-in session already has.
@@ -344,6 +344,20 @@ async def compose_report_from_payload(
     except Exception as e:  # composition is best-effort — never 500 silently
         raise HTTPException(status_code=500, detail="Rapport-PDF konnte nicht erstellt werden.") from e
     return pdf, data
+
+
+async def warm_report_from_payload(payload: str) -> None:
+    """Best-effort tile-cache prewarm (fired when the rapport modal opens). Validates the
+    payload and warms the Kroki base tiles off the event loop so a later compose skips the
+    slow network round-trips. Swallows everything — a warm miss just means the real render
+    pays the cost, exactly as before."""
+    try:
+        data = ReportPayload.model_validate_json(payload)
+    except ValidationError:
+        return
+    from ..report.kroki_view import warm_report_tiles
+
+    await anyio.to_thread.run_sync(warm_report_tiles, data)
 
 
 def report_filename(title: str) -> str:
