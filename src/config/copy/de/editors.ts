@@ -258,9 +258,9 @@ export const editorsCopy = {
     // beide Wörter sind auf der Karte schon vergeben. Abschnittschef ist der FKS-Begriff für
     // die Person, die den Abschnitt führt (FKS Einsatzführung 3.5.2).
     abschnittLeiter: 'Abschnittschef',
-    abschnittLeiterPlaceholder: 'Abschnittschef wählen …',
+    abschnittLeiterPlaceholder: 'Person wählen …',
     abschnittAuftrag: 'Auftrag',
-    abschnittAuftragPlaceholder: 'z. B. Brandbekämpfung Trakt B',
+    abschnittAuftragPlaceholder: 'z. B. Brandbekämpfung',
     abschnittMaxHint: 'FKS-Richtwert: höchstens 3–4 Abschnitte.',
     marker: 'Marker',
     markerPlaceholder: 'z. B. R',

@@ -87,7 +87,6 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     blocksTitle: 'Attendance – {name}',
     blocksSection: 'Recorded times',
     blocksNone: 'Has not been present yet.',
-    blocksHint: 'Each line is one real turn on site. Correct a time here when a stamp landed wrong.',
     openBlocks: 'Open attendance for {name}',
     openBlocksNote: 'Open attendance for {name} – note recorded',
     statusNote: 'Note',

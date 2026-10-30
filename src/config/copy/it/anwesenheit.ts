@@ -90,7 +90,6 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     blocksTitle: 'Presenza – {name}',
     blocksSection: 'Intervalli registrati',
     blocksNone: 'Non ancora stato presente.',
-    blocksHint: 'Ogni riga è una presenza reale di questa persona. Correggi qui se una timbratura è sbagliata.',
     openBlocks: 'Apri la presenza di {name}',
     openBlocksNote: 'Apri la presenza di {name} – osservazione registrata',
     statusNote: 'Osservazione',

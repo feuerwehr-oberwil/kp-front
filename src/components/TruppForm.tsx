@@ -805,6 +805,8 @@ export function TruppForm({
     <>
       <div className={s.modalHead}>
         <h3>{title}</h3>
+        {/* with the keys up (a name half-typed) the first tap here only puts them away — the
+            Overlay catches its frame's first `.ip-x` (overlays/fieldFirst, sweep 30.10.2026) */}
         <button className="ip-x" aria-label={az.cancel} onClick={onCancel}><Icon id="close" /></button>
       </div>
       <div className={s.modalBody}>

@@ -378,14 +378,13 @@ describe('a viewer reads the Zeitplan and the Zeiten', () => {
     expect(screen.getByRole('button', { name: A.viewBands })).toBeTruthy()
   })
 
-  it('opens a person’s Zeiten and Bemerkung read-only, without the «Hier korrigieren» hint', () => {
+  it('opens a person’s Zeiten and Bemerkung read-only', () => {
     const attendance = {
       p1: { status: 'present', note: 'Fahrer TLF', intervals: [{ from: '2026-09-18T10:00:00.000Z' }] },
     } as unknown as AttendanceState
     mount({ canEdit: false, attendance })
     fireEvent.click(screen.getByRole('button', { name: fillTemplate(A.openBlocksNote, { name: 'Meier Anna' }) }))
     expect(screen.getByText('Fahrer TLF')).toBeTruthy()
-    expect(screen.queryByText(A.blocksHint)).toBeNull()
     expect(screen.queryByRole('textbox')).toBeNull()
   })
 })

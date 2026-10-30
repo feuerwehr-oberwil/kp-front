@@ -126,8 +126,8 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
       subject={person.displayName}
       sectionTitle={A.blocksSection}
       emptyLabel={A.blocksNone}
-      // «Hier korrigieren, wenn …» – an instruction, so only where something can be corrected
-      note={canEdit ? A.blocksHint : undefined}
+      // no closing note (sweep 30.10.2026, owner: «a somewhat useless info field»): the rows are
+      // plainly this person's times and plainly editable — the Zeitplan keeps its own hint
       // Always offered. While a block is still running, adding one closes it at this moment and
       // opens the next — that is a relief in place, and waiting for the row to be cycled to
       // «gegangen» first made the common case take two surfaces.

@@ -712,7 +712,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .comboType :global(.i) { width: 15px; height: 15px; }
 .comboEmpty { padding: 8px 12px; font-size: var(--fs-1); color: var(--ink-faint); }
 .comboMenu {
-  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 5; margin: 0; padding: 4px; list-style: none;
+  /* --menu-pad: the sticky search row is offset by the same number (ComboMenu.module.css · .searchRow) */
+  --menu-pad: 4px; position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 5; margin: 0; padding: var(--menu-pad); list-style: none;
   max-height: 252px; overflow-y: auto; background: var(--surface); border: 1px solid var(--glass-edge);
   border-radius: var(--r-ctl); box-shadow: var(--e4);
 }

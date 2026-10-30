@@ -724,13 +724,13 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    segmented control (app-wide `.useg-btn` is deliberately --tap, see 06-contextpanel) and the ±
    steppers. Scoped to `.draw-editor` on purpose and nowhere else — this is a dense post-draw
    settings panel, not a primary action surface, and every chip in it was already at 26px, so the
-   net move is upward for most of them. If the field disagrees, lift these two back first. */
+   net move is upward for most of them. If the field disagrees, lift these two back first.
+   (The text fields left --de-h on 30.10.2026: they stand in ONE column with the roster Combo at
+   --tap — see «ONE field column» below.) */
 .draw-editor .dh-color,
 .draw-editor .dh-width,
 .draw-editor .wb-ls { width: var(--de-h); height: var(--de-h); }
 .draw-editor .de-preset { min-height: var(--de-h); display: inline-flex; align-items: center; padding: 0 var(--sp-3); }
-.draw-editor .de-input { height: var(--de-h); padding: 0 var(--sp-2); }
-.draw-editor .de-input-short { width: 66px; }
 .draw-editor .dh-swatches, .draw-editor .dh-widths { gap: 8px; }
 .draw-editor .useg { border-radius: var(--r-sm); padding: 2px; gap: 2px; --useg-in: calc(var(--r-sm) - 2px); }
 .draw-editor .useg-btn { min-height: calc(var(--de-h) - 4px); padding: 0 var(--sp-3); }
@@ -757,9 +757,26 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .dh-width span { background: var(--ink); }
 .draw-editor .wb-ls { --ls-ink: var(--ink); background: var(--fill-soft); }
 .draw-editor .wb-ls.on { background: var(--ink-tint); }
-.draw-editor .de-input { width: 150px; padding: var(--sp-1) var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-xs);
-  font-size: var(--fs-2); color: var(--ink); background: var(--surface); }
-.draw-editor .de-input-short { width: 60px; text-align: center; }
+/* ── ONE field column (sweep 30.10.2026, owner: «the input areas look a bit messy with clipped
+   labels and different input field sizes») ─────────────────────────────────────────────────
+   The Fläche's Text · Abschnittschef · Auftrag stood three ways: two 150×34 inputs and the roster
+   Combo stretching to the label at 44, so neither the right edges' starts nor the heights agreed,
+   and «z. B. Brandbekämpfung Trakt B» was cut off. Every TEXT control in a row — an input, a
+   Combo — now takes the same column (`--de-field-w` of the row) and the same `--tap` height, the
+   one corner and the Combo's own fill, so the column reads as one. A short input (the line's
+   Marker letter) keeps its own width. ShapeEditor wears these rows too; it has no text field.
+   The column is 62% of the row, but never so wide that the longest label («Abschnittschef»,
+   8em) no longer fits beside it — on the iPad's narrower panel it did, and that row wrapped its
+   field onto a line of its own. A field row never wraps; a longer label (fr/it) squeezes the
+   field rather than dropping it. */
+.draw-editor { --de-field-w: min(62%, 100% - 8em - var(--sp-2)); }
+.draw-editor .de-row:has(> .de-input:not(.de-input-short), > .combo) { flex-wrap: nowrap; column-gap: var(--sp-2); }
+.draw-editor .de-row:has(> .de-input:not(.de-input-short), > .combo) > span:first-child { flex-shrink: 0; }
+.draw-editor .de-row > .de-input:not(.de-input-short),
+.draw-editor .de-row > .combo { flex: 0 1 var(--de-field-w); min-width: 0; }
+.draw-editor .de-input { box-sizing: border-box; height: var(--tap); padding: 0 var(--sp-3); border: 1px solid var(--border);
+  border-radius: var(--r-ctl); font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); background: var(--fill-soft); }
+.draw-editor .de-input-short { width: 66px; text-align: center; padding: 0 var(--sp-2); }
 /* the app's one field focus (01-tokens · --focus-*, 28.09.2026) — it fell back to the browser's
    2px focus outline, offset from the field */
 .draw-editor .de-input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }

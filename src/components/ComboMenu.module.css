@@ -19,9 +19,15 @@
    ============================================================================ */
 
 /* the roster search, pinned above the list — sticky so it survives a scroll: a filter you have
-   to scroll back up to reach is a filter you stop using */
-.searchRow { position: sticky; top: -4px; z-index: 1; display: flex; align-items: center;
-  padding: 4px; margin: -4px -4px 2px; background: var(--surface);
+   to scroll back up to reach is a filter you stop using.
+   ⚠️ It must cover the menu's WHOLE padding band, or the rows scroll visibly through the strip
+   above and beside it (sweep 30.10.2026: «Heise Maja … nicht anwesend» above the field). The
+   offsets were a literal 4px while the panel skin pads 6 (--bar-pad), which left a 2px leak
+   on three sides. So every skin sets `--menu-pad` and pads with it, and this row reads the same
+   number — the two can no longer drift apart. */
+.searchRow { --pad: var(--menu-pad, 0px); position: sticky; top: calc(-1 * var(--pad)); z-index: 1;
+  display: flex; align-items: center; padding: var(--pad);
+  margin: calc(-1 * var(--pad)) calc(-1 * var(--pad)) 2px; background: var(--surface);
   border-bottom: 1px solid var(--glass-edge); }
 /* the field is THE search (components/SearchField · `.ui-search`, 29.09.2026) — it was a bare
    14px input with a 28px ✕ in a ruled band; the band stays (it is what stays pinned) */

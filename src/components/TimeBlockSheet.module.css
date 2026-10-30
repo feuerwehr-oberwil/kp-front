@@ -2,8 +2,9 @@
    Zeitplan's planned shifts, so the two cannot drift apart again. */
 
 .sheet { max-width: 520px; }
-/* the footer row's padding is now a house rule (.ip-sheet > .ip-actions in app.css) */
-.sheet :global(.ip-body) { padding-bottom: 8px; }
+/* the footer row's padding is now a house rule (.ip-sheet > .ip-actions in app.css), and so is
+   the body's bottom inset: a local 8px here outweighed the phone's safe-area padding
+   (15-mobile · `.ip-body`) and put the sheet's last line onto the home indicator (30.10.2026) */
 
 .group { padding: 2px 0 var(--sp-2); }
 .groupSecond { border-top: 1px solid var(--border-soft); margin-top: 12px; padding-top: 12px; }
@@ -52,8 +53,9 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
 /* the number the operator used to work out in their head before sending somebody home */
 .duration { flex: none; font: var(--fw-bold) var(--fs-1) var(--mono); color: var(--ink-dim); }
 
-/* the body: the two times as one pair, nothing else */
-.times { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3); }
+/* the body: the two times as one pair, nothing else — spread across the card, von at the left
+   edge and bis at the right with the dash between (owner, 30.10.2026: they huddled on the left) */
+.times { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3); }
 .sep { align-self: center; padding-top: var(--sp-4); color: var(--ink-faint); font: var(--fw-medium) var(--fs-2) var(--mono); }
 /* the day this end falls on. A CAPTION under its own field, not a chip beside the row: as a
    sibling of the fields it wrapped to its own line and orphaned, and it no longer said which end
@@ -96,9 +98,6 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
 .add { margin-top: var(--sp-2); }
 
 .note { margin: var(--sp-3) 0 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
-/* «Alles wird laufend gespeichert.» — where the footer's «Fertig» stood (29.09.2026) */
-.saved { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-4) 0 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
-.saved :global(.i) { width: 14px; height: 14px; flex: none; color: var(--green-strong); }
 
 /* ---- phone ---------------------------------------------------------------------------- */
 
