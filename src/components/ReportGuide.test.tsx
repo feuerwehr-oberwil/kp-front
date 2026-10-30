@@ -3,12 +3,19 @@
 // The strip under the Rapport's head (ReportPreflight · RpStrip, owner picks 14 «top strip» and
 // 15B, 28.10.2026): after a jump from «n offen» it names the next open point down the page, and as
 // soon as everything is recorded the Abschluss band names the next step – the PDF, then the close.
-import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./KrokiFramingPanel', () => ({ KrokiFramingPanel: () => null }))
+vi.mock('../lib/reportPdfDirect', async (orig) => ({
+  ...(await orig<typeof import('../lib/reportPdfDirect')>()),
+  downloadDirectReportPdf: vi.fn(async () => {}),
+}))
+vi.mock('../lib/ui', async (orig) => ({ ...(await orig<typeof import('../lib/ui')>()), toast: vi.fn() }))
 
 import { ReportPreflight } from './ReportPreflight'
+import { downloadDirectReportPdf } from '../lib/reportPdfDirect'
+import { toast } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import type { ReportMeta } from '../lib/workspace'
@@ -73,5 +80,16 @@ describe('the Abschluss band, one step earlier (#15)', () => {
     expect(strip()!.textContent).toContain(P.bandDone)
     expect(within(strip()!).getByRole('button', { name: new RegExp(A.complete) })).toBeTruthy()
     expect(within(strip()!).getByRole('button', { name: P.bandLater })).toBeTruthy()
+  })
+  // #31 (30.10.2026): the band is the only announcement – no «Rapport erstellt» toast beside it –
+  // so a fresh PDF brings back a band put away with «Später»
+  it('comes back with a fresh PDF after «Später», and no toast says it twice', async () => {
+    mount({ ...done, reportMadeAt: new Date().toISOString() }, { attendanceCount: 1, mittelCount: 0 })
+    fireEvent.click(within(strip()!).getByRole('button', { name: P.bandLater }))
+    expect(strip()).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: P.pdfFull }))
+    await waitFor(() => expect(strip()?.textContent).toContain(P.bandDone))
+    expect(downloadDirectReportPdf).toHaveBeenCalledOnce()
+    expect(toast).not.toHaveBeenCalled()
   })
 })

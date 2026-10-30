@@ -51,7 +51,7 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
   /** operator-set pairs beside the scaffolding — 0 or 1 (two drop the autos, settleSlots) */
   realPoints?: number
   /** the body only, inside the Plan sheet's «Karte» section (PlanFactsSheet, sweep 28.10.2026):
-   *  that sheet owns the head and the ✕ */
+   *  that sheet owns the head, the ✕ and the indent (its text starts at the section title's column) */
   embedded?: boolean
   /** a locked session reads the Passung and gets none of its actions (roles-and-access) */
   readOnly?: boolean
@@ -94,7 +94,7 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
   }
 
   return (
-    <div className={cx(s.quality, className)}>
+    <div className={cx(s.quality, embedded && s.embedded, className)}>
       {!embedded && <div className={s.qHead}>
         <span>{C.qualityTitle}</span>
         <button className={`ip-x ${s.qX}`} onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>

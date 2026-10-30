@@ -250,8 +250,8 @@ export const reportCopy = {
     // Nach dem Export: das Papier existiert, alle Mindestangaben sind drin – offen ist nur noch
     // die Buchhaltung. Ein Einsatz wird nur archiviert, wenn jemand weiss, dass er das tun muss;
     // sonst bleibt er für immer offen stehen. Deshalb sagt es die Oberfläche an genau dieser
-    // Stelle einmal selbst – als Band unter dem Kopf, nicht als Dialog: es blockiert nichts.
-    madeToast: 'Rapport erstellt',
+    // Stelle einmal selbst – als Band unter dem Kopf (`bandDone`), nicht als Dialog und nicht
+    // als Toast daneben (#31, 30.10.2026): es blockiert nichts.
     // the guide strip under the head after a jump from «n offen» (#14, 28.10.2026), and the
     // Abschluss band that now stands as soon as everything is recorded (#15)
     guideNext: 'Nächster offener Punkt',
