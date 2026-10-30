@@ -101,7 +101,7 @@ function sectionHaystack(s: HelpSection, intro: string): string {
     else if (b.kind === 'list') parts.push(...b.items)
     else if ('text' in b) parts.push(b.text)
   }
-  return parts.join(' ').replace(/\*\*|\[\[|\]\]/g, '').toLowerCase()
+  return parts.join(' ').replace(/\*\*|\[\[|\]\]|\u00AD/g, '').toLowerCase()
 }
 
 export function HelpOverlay({ onClose }: { onClose: () => void }) {
