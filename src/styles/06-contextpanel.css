@@ -74,22 +74,32 @@
   .ctx-x:hover { background: var(--ink-12); color: var(--ink); }
 }
 .ctx-body { padding: 0 16px 8px; }
-/* ⚠️ `flex-wrap: wrap` + a shrinkable label. A field row is «Beschriftung + Bedienelement» and
-   both halves were unshrinkable: the label because text does not shrink on its own, the control
-   because of its own min-width floor. A station names its symbol fields freely («Luftrichtung»,
-   «Einsatzmittel-Typ»), so the pair reliably outgrew a phone. Wrapping is the right answer at
-   every width — the control drops under its label and nothing ends up off-screen. */
-/* ⚠️ NO hairline, and the row's OWN wrap gap is what keeps a wrapped row readable.
-   The panel is a run of «Beschriftung + Bedienelement» rows in a fixed order, never more than
-   four of them for any symbol in the pack — so neither rules nor titles are needed to take it in
-   at a glance, and both were adding weight to a surface that is a bottom sheet on a phone.
-   The one case a separator DID earn its keep is a row that wraps (the control drops under its
-   label at narrow widths): without something, «Luftrichtung» over a dropdown reads as two
-   entries. `row-gap: 2px` against `padding: 8px 0` answers it by proximity instead — 2px inside
-   a row, 16px between two — which holds at every width without a line. */
-.field { display: flex; align-items: center; justify-content: space-between; gap: 8px; row-gap: 2px; flex-wrap: wrap; padding: 8px 0; font-size: var(--fs-2); }
+/* ── ONE label column, ONE control edge (owner pick 27B, 31.10.2026) ─────────────────────────
+   A panel row is «Beschriftung + Bedienelement». It used to be label-left / control-right, each
+   control as wide as it happened to be, so down one sheet the controls started at as many x as
+   there were kinds of control and stood 34 to 44px tall (owner, sweep 30.10.2026 #27). Now, in
+   the symbol panel (.field, .kv-row, Beschriftung, Entwicklung) AND the Linien-/Flächen-/Form-
+   Editor (DrawEditor, ShapeEditor · .de-row, 08-toasts):
+   · the label stands in a fixed column, `--ctx-lbl` (8.4em of the row's 14px: «Abschnittschef»
+     and «Gehört zu Trupp» fit). A longer label (fr/it, a station's own field name) wraps INSIDE
+     the column — it never pushes the control off the edge, and the row never wraps;
+   · every control starts at that edge and fills to the panel's — segments share the width
+     evenly, a stepper's + and ✕ go to the far end, swatches spread over it (08-toasts);
+   · every BOX control (field, menu, ± stepper, segments) is --tap, every row a 52px rhythm.
+   ⚠️ NO hairline between rows: the rhythm and the one column already say where a row ends. */
+.ctx { --ctx-lbl: calc(8.4 * var(--fs-2)); --ctx-col-gap: var(--sp-3); }
+:is(.field, .draw-editor .de-row) { display: flex; align-items: center; gap: var(--ctx-col-gap); min-height: 52px; padding: 4px 0; font-size: var(--fs-2); }
+:is(.field, .draw-editor .de-row) > :first-child { flex: 0 0 var(--ctx-lbl); min-width: 0; overflow-wrap: break-word; }
+:is(.field, .draw-editor .de-row) > :nth-child(2) { flex: 1 1 auto; min-width: 0; }
+/* a segmented control as wide as the column, its options sharing it; five or more are chips
+   (below) and still wrap when they cannot share one line */
+:is(.field, .draw-editor .de-row) > .useg { display: flex; }
+:is(.field, .draw-editor .de-row) > .useg > .useg-btn { flex: 1 1 0; }
+/* a stepper as wide as the column: − at its edge, the value in the middle, + and ✕ at the end */
+:is(.field, .draw-editor .de-row) > .step { display: flex; }
+:is(.field, .draw-editor .de-row) > .step > .step-val { flex: 1 1 auto; }
 .field span { color: var(--ink-dim); font-weight: var(--fw-medium); min-width: 0; }
-.field b { font-family: var(--mono); font-weight: var(--fw-medium); text-align: right; }
+.field b { font-family: var(--mono); font-weight: var(--fw-medium); }
 /* THE segmented option-picker for the whole details modal — a soft track with a blue-filled active
    segment (Luftrichtung, Beschriftung, and short fixed detail-field lists like a Kleinlöscher Typ all
    render through components/Segmented, so they look + feel identical). Wraps for longer sets; longer
@@ -109,7 +119,7 @@
    height as the same sum (15-mobile · --rp-tabs-safe) — the three move together or not at all. */
 .useg { display: inline-flex; flex: none; flex-wrap: wrap; gap: 3px; background: var(--fill-soft); border-radius: var(--r-ctl); padding: 3px; max-width: 100%;
   --useg-in: calc(var(--r-ctl) - 3px); }
-.field .useg, .ctx-caprow .useg, .kv-row .useg { margin-left: auto; }
+.kv-row .useg { margin-left: auto; }
 /* ONE segmented spec, no per-surface overrides. The option radius was a stray 7px belonging to no
    tier, and the height was 28px / 34px / 46px in three places — two of them under the gloved floor
    on the control that picks an Auftrag. The option is --tap minus the track's 3px padding on each
@@ -177,17 +187,11 @@
 /* focus: the one field focus (--focus-*, 28.09.2026), not a solid blue edge of its own */
 .ctx-note-input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); background: var(--surface); }
 /* seven swatches (default note ink + the six drawing colours) have to sit on ONE line next to
-   their label — at the full 30px they wrapped a single lonely circle onto a second row */
-.ctx-note-colors { display: flex; align-items: center; gap: 8px; margin-left: auto; justify-content: flex-end; }
-.ctx-note-colors .dh-color { width: 26px; height: 26px; }
-/* ⚠️ The Truppfarbe row WRAPS (11.08.). It used to be one horizontally scrolling row, on the
-   reasoning that eleven wrapped swatches read as a dump rather than as a choice. In the hand it
-   was worse: the row ended mid-swatch with a half circle at the edge, which reads as damage
-   rather than as «there is more», and finding a colour meant scrolling a 40px-tall strip inside a
-   panel that already scrolls vertically. Every colour visible at once IS the choice. */
-.ctx-section > .ctx-note-colors { margin-left: 0; justify-content: flex-start; flex-wrap: wrap;
-  row-gap: 8px; padding-bottom: 2px; }
-.ctx-section > .ctx-note-colors > * { flex: none; }
+   their label — at the full 30px they wrapped a single lonely circle onto a second row. They
+   spread over the column like the drawing panel's (27B, 08-toasts · «ONE control height»): up to
+   36px, shrinking (round, by aspect-ratio) where seven do not fit at that. */
+.ctx-note-colors { display: flex; align-items: center; gap: 2px; justify-content: space-between; }
+.ctx-note-colors .dh-color { flex: 0 1 36px; min-width: 0; width: auto; height: auto; aspect-ratio: 1; }
 /* "default note ink" swatch — shows the actual sticky-note colours rather than a generic
    neutral, so it reads as "back to a normal note" instead of "no colour" */
 .dh-color.note-ink { background: var(--note-bg); box-shadow: inset 0 0 0 1px var(--note-border); }
@@ -206,15 +210,16 @@
    label reuses .kv-key-ro, styled to match .field span. Only USER-added custom fields keep the
    editable key box + delete (.kv-row). */
 .kv-key-ro { font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-dim); }
-.field .kv-val { flex: 0 1 auto; min-width: 132px; text-align: left; }
 .field b.kv-val-ro { font-family: var(--mono); font-weight: var(--fw-medium); }
-.field .combo, .kv-row .combo { margin-left: auto; min-width: 132px; }
+.kv-row .combo { margin-left: auto; min-width: 132px; }
 /* editable custom key/value rows */
-/* a user-added field: same run as .field above, so the same treatment — no rule */
-.kv-row { display: flex; align-items: center; gap: 8px; row-gap: 2px; flex-wrap: wrap; padding: 8px 0; }
-.kv-key, .kv-val { font-size: var(--fs-2); color: var(--ink); border: none; background: var(--fill-soft); border-radius: var(--r-sm);
+/* a user-added field: same run as .field above, so the same treatment — no rule, and its key box
+   IS the label column (27B), so its value starts at the edge every preset row's control does */
+.kv-row { display: flex; align-items: center; gap: var(--ctx-col-gap); min-height: 52px; padding: 4px 0; }
+/* both boxes --tap tall (27x): every box control in the panel is, at every pointer */
+.kv-key, .kv-val { box-sizing: border-box; min-height: var(--tap); font-size: var(--fs-2); color: var(--ink); border: none; background: var(--fill-soft); border-radius: var(--r-sm);
   padding: 8px 12px; min-width: 0; font-family: var(--body); }
-.kv-key { flex: 0 0 38%; font-weight: var(--fw-medium); color: var(--ink-dim); }
+.kv-key { flex: 0 0 var(--ctx-lbl); font-weight: var(--fw-medium); color: var(--ink-dim); }
 .kv-val { flex: 1; font-family: var(--mono); }
 /* borderless boxes, so the one field focus (--focus-*, 28.09.2026) draws its edge as an inset
    ring; the field turns to the sheet's white like every other focused field — no blue wash */
@@ -285,14 +290,15 @@
 
 /* the contradiction a filled roster field carries — under the field, and it stays.
    ⚠️ .field / .kv-row are single-line flex rows, so as a plain sibling the hint landed BESIDE
-   the control and wrapped into a four-word-tall red column. It takes a row of its own. */
-.field:has(> .kv-hint), .kv-row:has(> .kv-hint) { flex-wrap: wrap; }
-.kv-hint { flex: 0 0 100%; display: flex; align-items: center; gap: 8px; margin: 4px 0 0;
+   the control and wrapped into a four-word-tall red column. It takes a row of its own, under
+   the control it is about — from the column's edge (27B), not under the label. */
+.field:has(> .kv-hint), .kv-row:has(> .kv-hint) { flex-wrap: wrap; row-gap: 2px; }
+.kv-hint { flex: 0 0 calc(100% - var(--ctx-lbl) - var(--ctx-col-gap)); display: flex; align-items: center; gap: 8px; margin: 2px 0 0 auto;
   font: var(--fw-medium) var(--fs-1)/1.35 var(--body); color: var(--accent); }
 .kv-hint .i { width: 14px; height: 14px; flex: none; }
 /* a measured gas (the Messpunkt, ReadingParts): the input with its calm/amber/red bar right under it, and
    a tick where the typed value sits – no numbers, only the stages */
-.reading-field { display: flex; flex-direction: column; gap: var(--sp-2); margin-left: auto; }
+.reading-field { display: flex; flex-direction: column; gap: var(--sp-2); }
 .reading-bar { position: relative; display: block; height: 4px; }
 /* nothing typed yet: the zones stay as a faint guide, so the first digit does not move the row */
 .reading-bar.empty { opacity: .35; }
@@ -401,10 +407,11 @@
 }
 .kv-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .kv-add .i { width: 16px; height: 16px; }
-/* FKS Entwicklung (spread) controls — a label + a row of small toggle buttons */
-.spread-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 8px 0; }
+/* FKS Entwicklung (spread) controls — a label + a row of small toggle buttons, the capsules
+   starting at the label column's edge like every other control in the panel (27B) */
+.spread-row { display: flex; align-items: center; gap: var(--ctx-col-gap); min-height: 52px; padding: 4px 0; }
 .spread-row + .spread-row { border-top: 1px solid var(--border-soft); }
-.spread-lbl { font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-dim); }
+.spread-lbl { flex: 0 0 var(--ctx-lbl); font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-dim); }
 .spread-btns { display: inline-flex; gap: 8px; flex-wrap: wrap; }
 /* Each arrow carries its OWN Grenze, glued to it in ONE capsule split by a dashed line (sweep
    2B, 23.10.2026): the pair reads as one thing, and the bar belongs to that arrow rather than to
@@ -442,10 +449,11 @@
    SETTING for this one symbol, not a property of the thing it marks. Everything above answers
    «was ist das und was tut es»; this answers «wie laut soll es auf der Karte sein», which is the
    least of it. Same row shape as the run above so it is not a third kind of control — only
-   quieter, and it wraps by proximity like the rest. */
-.ctx-caprow { display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  row-gap: 2px; flex-wrap: wrap; padding: 8px 12px 0; }
-.ctx-caprow-lbl { font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-faint); }
+   quieter, and on the same label column as the rest (27B). */
+.ctx-caprow { display: flex; align-items: center; gap: var(--ctx-col-gap); padding: 8px 16px 0; } /* the body's 16, so its label sits on the column */
+.ctx-caprow-lbl { flex: 0 0 var(--ctx-lbl); font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-faint); }
+.ctx-caprow > .useg { flex: 1 1 auto; display: flex; }
+.ctx-caprow > .useg > .useg-btn { flex: 1 1 0; }
 /* the caption picker uses the shared .useg segmented control (see components/Segmented); the row
    just pins it to the right. A touch smaller here since it sits by the footer actions. */
 /* the caption row keeps only its tighter LABEL — height/radius come from the one segmented spec */

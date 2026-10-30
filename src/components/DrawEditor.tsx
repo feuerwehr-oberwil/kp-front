@@ -499,7 +499,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
               <div className="de-row"><span>{appConfig.copy.drawingEditor.marker}</span>
                 {/* a chain style lives in the same field, so it would otherwise show up here as a
                     stray «▲» in a box the operator is meant to type a letter into */}
-                <input className="de-input de-input-short" value={markerGlyph(drawing.marker) ? '' : (drawing.marker ?? '')} placeholder={appConfig.copy.drawingEditor.markerPlaceholder} maxLength={3} onChange={(e) => onMarker(e.target.value)} />
+                <input className="de-input" value={markerGlyph(drawing.marker) ? '' : (drawing.marker ?? '')} placeholder={appConfig.copy.drawingEditor.markerPlaceholder} maxLength={3} onChange={(e) => onMarker(e.target.value)} />
               </div>
             )}
           </div>
