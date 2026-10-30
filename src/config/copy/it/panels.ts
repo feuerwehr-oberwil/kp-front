@@ -10,7 +10,8 @@ type Keys =
 export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
   mapPicker: {
     title: 'Imposta la posizione sulla carta',
-    hint: 'Tocca la carta per impostare la posizione',
+    back: 'Indietro, senza usare una posizione',
+    looking: 'Ricerca dell’indirizzo …',
     confirm: 'Usa la posizione',
   },
   weather: {

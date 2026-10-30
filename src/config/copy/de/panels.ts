@@ -51,7 +51,10 @@ export const panelsCopy = {
   // self-contained location picker for the intake wizard (MapPicker)
   mapPicker: {
     title: 'Standort auf Karte setzen',
-    hint: 'Auf die Karte tippen, um den Standort zu setzen',
+    // the ‹ in the head: back to the form, the location as it was (no «Abbrechen» below, 30.10.2026)
+    back: 'Zurück, ohne Standort zu übernehmen',
+    // the line under the fixed pin while the centre's address is being looked up
+    looking: 'Adresse wird gesucht …',
     confirm: 'Standort übernehmen',
   },
   // weather badge + popover (TopBar · WeatherBadge) — condition labels, cardinals, readout rows
