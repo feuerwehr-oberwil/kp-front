@@ -174,18 +174,18 @@ describe('toast timing', () => {
   })
 })
 
-describe('sticky/updatable toast (live job status)', () => {
+describe('sticky/updatable toast (live print status)', () => {
   it('a sticky toast stays put, then updateToast patches it in place', () => {
     vi.useFakeTimers()
     render(<Overlays />)
     let id!: number
-    act(() => { id = toast('Auftrag gesendet', { sticky: true, icon: 'check' }) })
+    act(() => { id = toast('An Stationsdrucker gesendet', { sticky: true, icon: 'check' }) })
 
     act(() => vi.advanceTimersByTime(10_000)) // no auto-dismiss while sticky
-    expect(screen.getByText('Auftrag gesendet')).toBeTruthy()
+    expect(screen.getByText('An Stationsdrucker gesendet')).toBeTruthy()
 
     act(() => updateToast(id, 'Wird gedruckt …', { icon: 'printer' }))
-    expect(screen.queryByText('Auftrag gesendet')).toBeNull()
+    expect(screen.queryByText('An Stationsdrucker gesendet')).toBeNull()
     expect(screen.getByText('Wird gedruckt …')).toBeTruthy()
 
     act(() => updateToast(id, 'Gedruckt', { icon: 'check', duration: 4000 }))
@@ -200,7 +200,7 @@ describe('sticky/updatable toast (live job status)', () => {
     render(<Overlays />)
     let id!: number
     act(() => {
-      id = toast('Auftrag gesendet', {
+      id = toast('An Stationsdrucker gesendet', {
         sticky: true,
         steps: [
           { label: 'Gesendet', state: 'now', icon: 'check' },
@@ -214,7 +214,7 @@ describe('sticky/updatable toast (live job status)', () => {
     expect(screen.getByText('Wird gedruckt')).toBeTruthy()
     expect(screen.getByText('Gedruckt')).toBeTruthy()
     // ...while the announcement stays a sentence — three stage names read aloud say nothing
-    expect(screen.getByText('Auftrag gesendet')).toBeTruthy()
+    expect(screen.getByText('An Stationsdrucker gesendet')).toBeTruthy()
 
     act(() => updateToast(id, 'Wird gedruckt …', {
       steps: [
@@ -238,8 +238,8 @@ describe('sticky/updatable toast (live job status)', () => {
     render(<Overlays />)
     let id!: number
     const chain = [{ label: 'Gesendet', state: 'now' as const, icon: 'check' as const }, { label: 'Gedruckt', state: 'future' as const }]
-    act(() => { id = toast('Auftrag gesendet', { sticky: true, tone: 'warn', toneStyle: 'edge', steps: chain }) })
-    const pill = () => screen.getByText(/Auftrag gesendet|Druck fehlgeschlagen/).closest('.toast')!
+    act(() => { id = toast('An Stationsdrucker gesendet', { sticky: true, tone: 'warn', toneStyle: 'edge', steps: chain }) })
+    const pill = () => screen.getByText(/Stationsdrucker|Druck fehlgeschlagen/).closest('.toast')!
     expect(pill().className).toContain('toast-edge')
     expect(pill().className).not.toContain('toast-fail')
     act(() => updateToast(id, 'Druck fehlgeschlagen', { icon: 'warn', tone: 'warn', toneStyle: 'edge' }))

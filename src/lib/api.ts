@@ -59,9 +59,10 @@ export const LONG_POLL_TIMEOUT_MS = 35_000
 export const OVERPASS_TIMEOUT_MS = 45_000
 
 /** AbortSignal that fires after `ms`. Exported for the few callers that must use a bare `fetch`
- *  (cross-origin tiles, the peaks poll) — «no fetch may be unbounded» holds for them too.
+ *  (cross-origin tiles, the print relay's FormData posts, the peaks poll) – «no fetch may be
+ *  unbounded» holds for them too.
  *  ⚠️ Without `AbortSignal.timeout` (iOS before 16) a controller and a timer do the same: this
- *  used to answer `undefined` there, and every request on such a device ran unbounded — a
+ *  used to answer `undefined` there, and every request on such a device ran unbounded – a
  *  half-open one kept «Gebäudeumrisse werden geladen …» up for good (sweep 30.10.2026, #11). */
 export function timeoutSignal(ms: number): AbortSignal | undefined {
   if (typeof AbortSignal === 'undefined') return undefined
@@ -240,7 +241,7 @@ export function eitherSignal(a?: AbortSignal, b?: AbortSignal | null): AbortSign
  * So: a NEW request goes through this client and inherits it. A callsite that genuinely cannot
  * — a Blob or streaming response, a FormData body, its own abort clock, a poster token — keeps
  * its `fetch` and spreads `linkSessionHeaders()` into its `headers`, ahead of the caller's own
- * (reportPdf, zeitplanPrint, captureClient, useShareMyPosition, StationWorkbookView
+ * (reportPdf, zeitplanPrint, printRelay, captureClient, useShareMyPosition, StationWorkbookView
  * all do). Nothing under `/api` is exempt; a cross-origin URL (tiles, swisstopo) is not ours and
  * must not carry it.
  */

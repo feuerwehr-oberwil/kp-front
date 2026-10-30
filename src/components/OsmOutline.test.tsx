@@ -68,7 +68,7 @@ describe('Gebäude picker · loading never sticks', () => {
     io.apiPost.mockResolvedValue(answer(...p.center))
     fireEvent.click(retry)
     await waitFor(() => expect(container.querySelectorAll('polygon')).toHaveLength(1))
-    expect(io.idbDel).toHaveBeenCalledWith(expect.stringMatching(/^kp\.osm\.bld\./))
+    expect(io.idbDel).toHaveBeenCalledWith(expect.stringMatching(/^kp\.osm\.bld2\./))
   }, 10_000)
 
   it('an Overpass «runtime error» remark is a failure – shown with a retry, never cached', async () => {
@@ -78,12 +78,12 @@ describe('Gebäude picker · loading never sticks', () => {
     expect(io.idbSet).not.toHaveBeenCalled()
   })
 
-  it('a stored EMPTY answer is asked again – it may be an old remark answer cached for good', async () => {
-    const p = place()
+  it('a stored EMPTY answer is kept – a box without buildings costs no request per load', async () => {
     io.idbGet.mockResolvedValue([])
-    io.apiPost.mockResolvedValue(answer(...p.center))
-    const { container } = render(<OsmOutline {...p} />)
-    await waitFor(() => expect(container.querySelectorAll('polygon')).toHaveLength(1))
+    render(<OsmOutline {...place()} />)
+    await waitFor(() => expect(io.idbGet).toHaveBeenCalledWith(expect.stringMatching(/^kp\.osm\.bld2\./)))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(io.apiPost).not.toHaveBeenCalled()
   })
 
   it('asks with a bound above the server\'s own mirror bound, so its answer is not cut off', async () => {

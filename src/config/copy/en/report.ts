@@ -3,7 +3,7 @@
 
 import type { Copy, Localizable } from '../index'
 
-export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'wheel' | 'signature' | 'preflight'>> = {
+export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'printRelay' | 'wheel' | 'signature' | 'preflight'>> = {
   auswertung: {
     heading: 'Debrief',
     note: 'For the debrief – derived from the incident record, not part of the signed report.',
@@ -375,5 +375,33 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'wheel
     pendingMedia: '{n} photo/audio not uploaded yet — it will be added once there is a connection; it may not be visible on other devices yet.',
     pendingMediaConfirm: '{n} photo/audio not uploaded yet – kept on this device',
     truppsDeployedConfirm: 'Still deployed: {n} – never reported out',
+  },
+  printRelay: {
+    send: 'Print',
+    sending: 'Sending …',
+    queued: 'In the queue',
+    printing: 'Printing …',
+    printed: 'Printed',
+    printFailed: 'Printing failed – check the printer',
+    stepQueued: 'In the queue',
+    stepPrinting: 'Printing',
+    stepPrinted: 'Printed',
+    jobOpen: 'Print job outstanding',
+    jobOpenSince: 'In the queue for {t}',
+    jobCheck: 'Check',
+    jobCancel: 'Cancel',
+    jobUnreachable: 'Print job unreachable – check the connection',
+    jobGone: 'Print job no longer traceable – print again if no printout arrived.',
+    confirmTitle: 'Print',
+    confirmMsg: 'Send the incident report to the station printer?',
+    confirmBtn: 'Print',
+    undo: 'Undo',
+    cancelled: 'Print job cancelled',
+    undoTooLate: 'Too late – the job is already at the printer',
+    failed: 'Sending to station printer failed',
+    online: 'Station printer reachable',
+    offline: 'Station printer offline',
+    offlineConfirmTitle: 'Station printer offline',
+    offlineConfirmBtn: 'Send anyway',
   },
 }

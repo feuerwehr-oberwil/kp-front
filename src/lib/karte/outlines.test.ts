@@ -3,11 +3,12 @@ import type { LngLat } from '../../types'
 
 const io = vi.hoisted(() => ({
   idbGet: vi.fn<(key: string) => Promise<unknown>>(),
+  idbSet: vi.fn<(key: string, value: unknown) => Promise<boolean>>(async () => true),
   apiPost: vi.fn<(path: string, body: unknown) => Promise<unknown>>(),
 }))
 vi.mock('../idb', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../idb')>()),
-  idbGet: io.idbGet, idbSet: vi.fn(async () => true),
+  idbGet: io.idbGet, idbSet: io.idbSet,
 }))
 vi.mock('../api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../api')>()),
@@ -90,17 +91,18 @@ describe('osmBeside — an OSM outline over a survey house is that house traced 
 })
 
 describe('loadCell', () => {
-  it('asks the server again for a cell the device stored EMPTY (an old Overpass timeout answer)', async () => {
-    io.idbGet.mockResolvedValue([])
+  it('asks the server for a cell the device does not have, and keeps the answer', async () => {
+    io.idbGet.mockResolvedValue(undefined)
     io.apiPost.mockResolvedValue({ elements: [] })
-    await loadCell('9001:9001')
+    expect(await loadCell('9001:9001')).toEqual([])
     expect(io.apiPost).toHaveBeenCalledTimes(1)
+    expect(io.idbSet).toHaveBeenCalledWith('kp.karte.bld2.9001:9001', [])
   })
 
-  it('serves a stored cell with outlines without asking the server', async () => {
+  it('serves a stored cell – an empty one too – without asking the server', async () => {
     io.apiPost.mockClear()
-    io.idbGet.mockResolvedValue([[[7.55, 47.52], [7.56, 47.52], [7.56, 47.53]]])
-    expect(await loadCell('9002:9002')).toHaveLength(1)
+    io.idbGet.mockResolvedValue([])
+    expect(await loadCell('9002:9002')).toEqual([])
     expect(io.apiPost).not.toHaveBeenCalled()
   })
 })

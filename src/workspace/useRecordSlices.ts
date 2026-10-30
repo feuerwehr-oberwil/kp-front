@@ -1,7 +1,7 @@
 // The record surfaces' undo stacks: Mittel, Checklisten, the Rapport and the Zeitplan each get an
 // undoable slice (useUndoableSlice) whose steps join the ONE timeline, the writers that lay those
 // steps (one gesture = one step, the Rapport's typing folded), the Schichten / Schichtbänder
-// actions and the Zeitplan-PDF — and the re-lay of every slice's stack after a remote merge
+// actions and the Zeitplan on paper (PDF + station printer) — and the re-lay of every slice's stack after a remote merge
 // (`sliceRebase`). Split out of IncidentWorkspace (E1, 09.10.2026) verbatim.
 
 import { appConfig } from '../config/appConfig'
@@ -17,7 +17,9 @@ import { useMittelActions } from '../lib/useMittelActions'
 import { useShiftActions } from '../lib/useShiftActions'
 import { useUndoableSlice, type UndoableSlice } from '../lib/useUndoableSlice'
 import type { InitialState, Doc, ReportMeta } from '../lib/workspace'
-import { buildZeitplanPayload, downloadZeitplanPdf, type ZeitplanSheet } from '../lib/zeitplanPrint'
+import { editorPrintTransport } from '../lib/printRelay'
+import { trackPrintJob } from '../lib/printJobToast'
+import { buildZeitplanPayload, downloadZeitplanPdf, printZeitplan, type ZeitplanSheet } from '../lib/zeitplanPrint'
 import type { MittelEntry, Person, Shift, ShiftBand, TimelineEvent, BoardDoc, AttendanceState, AttendanceEntry } from '../types'
 import { CHECKLIST_RECORDS, MITTEL_RECORDS, REPORT_RECORDS, ZEITPLAN_RECORDS } from './recordShapes'
 import { useMemo, useRef, type Dispatch, type RefObject, type SetStateAction } from 'react'
@@ -199,7 +201,8 @@ export function useRecordSlices({
   // …and the Schichten reading of it: the same shifts, grouped into named windows. Creating a band
   // writes no shift, deleting one deletes no shift — see useBandActions.
   const bandActions = useBandActions({ bands, setBands: setBandsUndoable, shifts, setShifts: setShiftsUndoable })
-  // The Zeitplan-Führungsformular on paper: the PDF, printed through the device's own dialog.
+  // The Zeitplan-Führungsformular on paper: the PDF for the device's own dialog, or the station
+  // printer through the relay (the caller gates that button on the relay status).
   const zeitplanPayload = (rowPeople: Person[], sheet: ZeitplanSheet) => buildZeitplanPayload(
     rowPeople, attendance, shifts,
     { title: incidentMeta.title, address: incidentMeta.address, startedAt: incidentMeta.started_at },
@@ -210,5 +213,12 @@ export function useRecordSlices({
   const onDownloadZeitplan = (rowPeople: Person[], sheet: ZeitplanSheet) =>
     downloadZeitplanPdf(incidentMeta.id, zeitplanPayload(rowPeople, sheet))
       .catch(() => { toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }) })
-  return { checklistSet, checklistDescribeRef, bandActions, addShift, addShiftSpan, replaceShift, setShiftTime, removeShift, onDownloadZeitplan, saveMittel, placedSymbols }
+  // No confirmDialog: the sheet picked from the printer menu IS the confirmation — it names the
+  // sheet, how many people are on it and as of when, and offers PDF and printer side by side.
+  // resolves once the job is queued (or its failure was told), so the sheet's loader waits for it
+  const onPrintZeitplan = (rowPeople: Person[], sheet: ZeitplanSheet) =>
+    printZeitplan(incidentMeta.id, zeitplanPayload(rowPeople, sheet))
+      .then((jobId) => { trackPrintJob(editorPrintTransport(), jobId) })
+      .catch(() => { toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }) })
+  return { checklistSet, checklistDescribeRef, bandActions, addShift, addShiftSpan, replaceShift, setShiftTime, removeShift, onDownloadZeitplan, onPrintZeitplan, saveMittel, placedSymbols }
 }

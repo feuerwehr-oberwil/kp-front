@@ -1484,6 +1484,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/capture/print/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Capture Print Status */
+        get: operations["capture_print_status_api_capture_print_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/capture/incidents/{incident_id}/report/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Capture Report Print
+         * @description Queue the data-only Rapport-PDF on the station printer — the phone needs no
+         *     printer setup, possession of the poster token is the authority (same as the PDF).
+         */
+        post: operations["capture_report_print_api_capture_incidents__incident_id__report_print_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/capture/print-jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Capture Print Job
+         * @description Poll a just-queued job's lifecycle (queued → printing → done/failed) for the live
+         *     toast. Token holders may only read jobs of incidents still reachable through the poster.
+         */
+        get: operations["capture_print_job_api_capture_print_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Capture Print Cancel
+         * @description Rückgängig for a just-queued job. Token holders may only touch jobs of incidents
+         *     still reachable through the poster (and never already-claimed ones).
+         */
+        delete: operations["capture_print_cancel_api_capture_print_jobs__job_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/capture/incidents/{incident_id}/media": {
         parameters: {
             query?: never;
@@ -3148,6 +3212,170 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/print/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Print Status
+         * @description Availability + heartbeat freshness for the «An Stationsdrucker» button.
+         *
+         *     Reads the credential store fresh: this is what makes the button appear on the tablets
+         *     minutes after an admin pastes the agent secret, with nothing restarted.
+         */
+        get: operations["get_print_status_api_print_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/incidents/{incident_id}/report/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report Print */
+        post: operations["report_print_api_incidents__incident_id__report_print_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/incidents/{incident_id}/zeitplan/print": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Zeitplan Print
+         * @description Queue one of the two Schichtenplanung sheets for the station printer — «Verfügbarkeiten»
+         *     or «Schichtplan», whichever the payload names. The sheet you hang at the front. Always
+         *     monochrome: it is rules, marks and bars, and a colour cartridge is a consumable.
+         */
+        post: operations["zeitplan_print_api_incidents__incident_id__zeitplan_print_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/incidents/{incident_id}/report/print/prewarm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report Print Prewarm
+         * @description Speculatively warm the map-tile cache when the rapport modal opens, so the real
+         *     enqueue render is near-instant. Best-effort: no printer side effects, never fails hard.
+         */
+        post: operations["report_print_prewarm_api_incidents__incident_id__report_print_prewarm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/print-jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Report Print Job */
+        get: operations["report_print_job_api_print_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Report Print Cancel
+         * @description Cancel a queued job. Enqueue and status stay open to every authenticated user
+         *     (printing a rapport is read-only output, see api/report.py) — but cancelling destroys
+         *     somebody ELSE's queued paper, which is an edit. So: an editor may cancel any job, a
+         *     viewer only one they queued themselves (the Rückgängig on their own toast). The UI
+         *     disables the buttons for viewers too; this is the floor under that.
+         */
+        delete: operations["report_print_cancel_api_print_jobs__job_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/print-agent/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Agent Claim
+         * @description Long-poll: claim the oldest queued job (→ metadata JSON), or hang up to CLAIM_HANG_SEC
+         *     and answer 204 when the queue stays idle. Woken instantly by `_job_ready` on enqueue.
+         *     Every call is also the heartbeat that keeps the relay «online» in the UI.
+         */
+        post: operations["agent_claim_api_print_agent_claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/print-agent/jobs/{job_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Agent Job File */
+        get: operations["agent_job_file_api_print_agent_jobs__job_id__file_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/print-agent/jobs/{job_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Agent Job Status */
+        post: operations["agent_job_status_api_print_agent_jobs__job_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/stats/secret": {
         parameters: {
             query?: never;
@@ -4081,6 +4309,13 @@ export interface components {
             /** Secret */
             secret: string;
         };
+        /** AgentJobStatus */
+        AgentJobStatus: {
+            /** Status */
+            status: string;
+            /** Error */
+            error?: string | null;
+        };
         /**
          * AlarmGroup
          * @description One station alarm group for the Alarmierungs-/Ausrückzeiten grid. `id` must match
@@ -4310,6 +4545,11 @@ export interface components {
             /** Payload */
             payload: string;
         };
+        /** Body_capture_report_print_api_capture_incidents__incident_id__report_print_post */
+        Body_capture_report_print_api_capture_incidents__incident_id__report_print_post: {
+            /** Payload */
+            payload: string;
+        };
         /** Body_capture_upload_media_api_capture_incidents__incident_id__media_post */
         Body_capture_upload_media_api_capture_incidents__incident_id__media_post: {
             /** File */
@@ -4358,6 +4598,16 @@ export interface components {
              */
             figures?: string[];
         };
+        /** Body_report_print_api_incidents__incident_id__report_print_post */
+        Body_report_print_api_incidents__incident_id__report_print_post: {
+            /** Payload */
+            payload: string;
+        };
+        /** Body_report_print_prewarm_api_incidents__incident_id__report_print_prewarm_post */
+        Body_report_print_prewarm_api_incidents__incident_id__report_print_prewarm_post: {
+            /** Payload */
+            payload: string;
+        };
         /** Body_tafel_pdf_api_incidents__incident_id__tafel_pdf_post */
         Body_tafel_pdf_api_incidents__incident_id__tafel_pdf_post: {
             /** Payload */
@@ -4391,6 +4641,11 @@ export interface components {
         };
         /** Body_zeitplan_pdf_api_incidents__incident_id__zeitplan_pdf_post */
         Body_zeitplan_pdf_api_incidents__incident_id__zeitplan_pdf_post: {
+            /** Payload */
+            payload: string;
+        };
+        /** Body_zeitplan_print_api_incidents__incident_id__zeitplan_print_post */
+        Body_zeitplan_print_api_incidents__incident_id__zeitplan_print_post: {
             /** Payload */
             payload: string;
         };
@@ -6684,6 +6939,11 @@ export interface components {
         ReportConfig: {
             /** Partnerorgs */
             partnerOrgs?: string[];
+            /**
+             * Reverseprintorder
+             * @default true
+             */
+            reversePrintOrder?: boolean;
             hoursRounding?: components["schemas"]["HoursRoundingConfig"];
             /**
              * Attendancemergegapmin
@@ -9922,6 +10182,148 @@ export interface operations {
             };
         };
     };
+    capture_print_status_api_capture_print_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-capture-token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    capture_report_print_api_capture_incidents__incident_id__report_print_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-capture-token"?: string | null;
+            };
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": components["schemas"]["Body_capture_report_print_api_capture_incidents__incident_id__report_print_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    capture_print_job_api_capture_print_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-capture-token"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    capture_print_cancel_api_capture_print_jobs__job_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-capture-token"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     capture_upload_media_api_capture_incidents__incident_id__media_post: {
         parameters: {
             query?: never;
@@ -12969,6 +13371,329 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_print_status_api_print_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_print_api_incidents__incident_id__report_print_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": components["schemas"]["Body_report_print_api_incidents__incident_id__report_print_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    zeitplan_print_api_incidents__incident_id__zeitplan_print_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": components["schemas"]["Body_zeitplan_print_api_incidents__incident_id__zeitplan_print_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_print_prewarm_api_incidents__incident_id__report_print_prewarm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": components["schemas"]["Body_report_print_prewarm_api_incidents__incident_id__report_print_prewarm_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_print_job_api_print_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_print_cancel_api_print_jobs__job_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_claim_api_print_agent_claim_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-print-agent-secret"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_job_file_api_print_agent_jobs__job_id__file_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-print-agent-secret"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_job_status_api_print_agent_jobs__job_id__status_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-print-agent-secret"?: string | null;
+            };
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentJobStatus"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

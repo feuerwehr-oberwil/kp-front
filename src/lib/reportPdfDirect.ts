@@ -470,7 +470,8 @@ function oneDay(isos: readonly (string | null)[]): string | undefined {
   return (days.size === 1 && day) || undefined
 }
 
-/** The ONE payload builder behind the Rapport-PDF download. */
+/** The ONE payload builder — shared by the PDF download and the station-printer enqueue
+ *  (src/lib/printRelay.ts), so both always produce the identical document. */
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
   const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building } = args
   const meta = draft.meta
@@ -777,10 +778,15 @@ export function forPaper(v: unknown): unknown {
   return v
 }
 
-export async function downloadDirectReportPdf(args: DirectReportArgs): Promise<void> {
-  // The payload bakes placard glyphs (Kemler via lookupUN) — make sure the fetched hazard
-  // datasets are in before composing, so a print seconds after boot is not missing them.
+/** The payload, ready to compose — what the PDF download and the station printer both send.
+ *  The payload bakes placard glyphs (Kemler via lookupUN), so the fetched hazard datasets are
+ *  awaited first: a print seconds after boot must not be missing them. */
+export async function readyDirectReportPayload(args: DirectReportArgs): Promise<Record<string, unknown>> {
   await Promise.all([ensureUnHazard(), ensureErg()])
-  const payload = buildDirectReportPayload(args)
+  return buildDirectReportPayload(args)
+}
+
+export async function downloadDirectReportPdf(args: DirectReportArgs): Promise<void> {
+  const payload = await readyDirectReportPayload(args)
   await downloadReportPdf(args.incident.id, payload, reportFilenameHint(args.incident.title), args.transport)
 }

@@ -579,4 +579,49 @@ export const reportCopy = {
     truppsDeployedConfirm: 'Noch im Einsatz: {n} – nie rausgemeldet',
     stateNote: 'Stand: ganzer Einsatz bis Rapport-Erstellung ({at}).',
   },
+  // Station print relay — «Ausdrucken» (preflight + capture)
+  printRelay: {
+    send: 'Ausdrucken',
+    sending: 'Wird gesendet …',
+    // ⚠️ «In der Warteschlange», nicht «gesendet». Eingereiht ist nicht gedruckt: was die App
+    // weiss, ist dass der Auftrag in einer Warteschlange liegt. «Gesendet» klang nach erledigt –
+    // und war die erste Hälfte der Geschichte, die damit endete, den Einsatz abschliessen zu
+    // dürfen, obwohl kein Blatt existierte.
+    queued: 'In der Warteschlange',
+    // live status toast follows the job: Warteschlange → wird gedruckt → gedruckt / fehlgeschlagen
+    printing: 'Wird gedruckt …',
+    printed: 'Gedruckt',
+    printFailed: 'Druck fehlgeschlagen – Drucker prüfen',
+    // the same three stages as a chain INSIDE that toast — short, they stand next to each other
+    stepQueued: 'In der Warteschlange',
+    stepPrinting: 'Wird gedruckt',
+    stepPrinted: 'Gedruckt',
+    // Ein unerledigter Auftrag ist ein ZUSTAND und lebt am Rapportkopf, nicht im Toast: das
+    // Polling gibt nach 90 s auf, danach las den Auftrag niemand je wieder.
+    jobOpen: 'Druckauftrag offen',
+    jobOpenSince: 'Seit {t} in der Warteschlange',
+    jobCheck: 'Prüfen',
+    jobCancel: 'Abbrechen',
+    jobUnreachable: 'Druckauftrag nicht erreichbar – Verbindung prüfen',
+    // 404 vom Relay: der 7-Tage-Sweep des Backends hat den Auftrag weggeräumt – genau der Fall
+    // «Relay war eine Woche down». Ohne eigene Antwort blieb das Band für immer stehen, und
+    // «Prüfen» sagte «nicht erreichbar» über einen Host, der soeben geantwortet hatte. Kein
+    // «Rapport erstellt»-Stempel: ob je ein Blatt herauskam, weiss niemand – der Satz sagt das.
+    jobGone: 'Druckauftrag nicht mehr auffindbar – falls kein Ausdruck herauskam, erneut drucken.',
+    // every print goes through a confirm modal — no accidental paper (2026-07-18)
+    confirmTitle: 'Ausdrucken',
+    confirmMsg: 'Einsatzrapport an den Stationsdrucker senden?',
+    confirmBtn: 'Ausdrucken',
+    undo: 'Rückgängig',
+    cancelled: 'Druckauftrag abgebrochen',
+    undoTooLate: 'Zu spät – der Auftrag ist schon beim Drucker',
+    failed: 'Senden an Stationsdrucker fehlgeschlagen',
+    online: 'Stationsdrucker erreichbar',
+    offline: 'Stationsdrucker offline',
+    // ⚠️ Nur der Titel, kein Erklärtext. «Der Auftrag wird gedruckt, sobald das Relay wieder
+    // erreichbar ist» war der Satz, der Einreihen wie Drucken klingen liess – und danach stand
+    // «Rapport erstellt» auf dem Schirm. Der Titel ist die ganze Aussage.
+    offlineConfirmTitle: 'Stationsdrucker offline',
+    offlineConfirmBtn: 'Trotzdem senden',
+  },
 } as const

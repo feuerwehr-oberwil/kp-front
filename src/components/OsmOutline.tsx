@@ -43,7 +43,10 @@ function pickerPoint(center: LngLat, radiusM: number, [lon, lat]: LngLat): [numb
   return [(lon - west) / (east - west), (north - lat) / (north - south)]
 }
 
-const CACHE_PREFIX = 'kp.osm.bld.' // persistent (IndexedDB) outline cache, keyed by bbox
+// Persistent (IndexedDB) outline cache, keyed by bbox. `bld2`: boxes under `bld.` may hold an
+// Overpass «runtime error» remark answer stored as EMPTY (from before the check in fetchOverpass,
+// sweep 30.10.2026 #11) – the new key drops them all once.
+const CACHE_PREFIX = 'kp.osm.bld2.'
 const RETRY_AFTER_MS = 5_000    // show «Erneut laden» once a load has been pending this long
 
 // Ask our OWN backend, which races the Overpass mirrors on our behalf (app/overpass.py).
@@ -94,11 +97,9 @@ function loadBuildings(center: LngLat, radiusM: number, fresh = false): Promise<
 
   // persistent cache (IndexedDB): a previous fetch (this session or an earlier one) makes the
   // outlines instant on reload, so the Overpass round-trip only happens once per location.
-  // An EMPTY stored answer is asked again: it may be a remark answer from before the check above,
-  // which would otherwise say «Keine Gebäude» here forever. A truly empty box costs one request.
   const cacheKey = CACHE_PREFIX + key
   const p = (fresh ? Promise.resolve(null) : idbGet<Ring[]>(cacheKey)).then((stored) => {
-    if (Array.isArray(stored) && stored.length > 0) return stored
+    if (Array.isArray(stored)) return stored
     return fetchOverpass(south, west, north, east).then((data) => {
       const rings: Ring[] = []
       const toRing = (geom: { lat: number; lon: number }[]) => {
