@@ -159,8 +159,9 @@ export function NotfallBanner({ t, now, place, ready, inside, canEdit, dense = f
   onDeploySafety: (id: string) => void
   /** several ready: the board's menu that asks which (rendered around the button) */
   pickSafety?: (trigger: ReactElement) => ReactNode
-  /** none ready: the board's «Bestimmen» door — a menu of the Trupps standing ready to be put on
-   *  «Sichern» (rendered around the button), else straight to the create form (`onDefineSafety`) */
+  /** none ready: the board's «Sicherungstrupp bestimmen» menu — every other Atemschutz-Trupp,
+   *  bereit · drin · draussen, to be put on «Sichern» (AtemschutzView, lib/atemschutz ·
+   *  safetyCandidates; rendered around the button), else straight to the create form (`onDefineSafety`) */
   defineSafety?: (trigger: ReactElement) => ReactNode
   onDefineSafety?: () => void
   onGo: (id: string) => void

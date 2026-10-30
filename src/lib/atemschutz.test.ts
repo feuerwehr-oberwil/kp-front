@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { notfallFacts, notfallOffered, safetyInside, safetyReady, truppInNotfall, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, EARLY_PRESSURE_CORRECTION_MS, earlyEntryCorrection, entryPressureAsks, entryPressureConfirmed, estimatePressure, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, isStandDownExit, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppEditPatch, truppFieldGroupsChanged, truppFieldsOf, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
+import { notfallFacts, notfallOffered, safetyCandidates, safetyInside, safetyReady, truppInNotfall, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, EARLY_PRESSURE_CORRECTION_MS, earlyEntryCorrection, entryPressureAsks, entryPressureConfirmed, estimatePressure, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, isStandDownExit, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppEditPatch, truppFieldGroupsChanged, truppFieldsOf, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
 import type { Trupp } from '../types'
 import { alarmRowKey, azChipRedundant, truppAwaitsEntry, truppHeadName, truppRegisteredAt } from './atemschutz'
 
@@ -913,6 +913,24 @@ describe('the Atemschutznotfall', () => {
     const sentIn: Trupp = { ...ready, id: 's6', status: 'aktiv', entryTime: N, lastContactTime: N }
     expect(safetyReady([ready, ...others, sentIn]).map((t) => t.id)).toEqual(['s1'])
     expect(safetyInside([ready, ...others, sentIn]).map((t) => t.id)).toEqual(['s6'])
+  })
+
+  // owner, 30.10.2026 («Becomes Sicherung»): any other crew can be named, a busy one included
+  it('offers every other Atemschutz-Trupp as Sicherungstrupp — bereit, then drin, then draussen', () => {
+    const ready: Trupp = { ...base, id: 'b', auftrag: 'loeschen', status: 'angemeldet', entryTime: '', lastContactTime: '' }
+    const c = safetyCandidates([
+      { ...base, id: 'nf', notfallAt: N }, // the casualty itself
+      { ...base, id: 'out', status: 'raus', exitTime: N },
+      { ...base, id: 'in', auftrag: 'loeschen' },
+      { ...base, id: 'rz', status: 'rueckzug' },
+      ready,
+      { ...ready, id: 'plain', kind: 'einfach' },
+      { ...ready, id: 'gone', removedAt: N },
+      { ...ready, id: 'siReady', auftrag: 'sichern' }, // already the Sicherungstrupp
+      { ...base, id: 'siIn', auftrag: 'sichern' },
+    ])
+    expect({ ready: c.ready.map((t) => t.id), inside: c.inside.map((t) => t.id), out: c.out.map((t) => t.id) })
+      .toEqual({ ready: ['b'], inside: ['in', 'rz'], out: ['out'] })
   })
 
   it('states what the record last KNEW — the Druck with its time, never a Schätzung', () => {

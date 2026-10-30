@@ -17,7 +17,7 @@ import { Button } from './Button'
 import { Menu, Overlay, Popover } from '../lib/overlays'
 import { NotfallBanner } from './AtemschutzNotfall'
 import { DoubleAssignmentBanner } from './DoubleAssignmentBanner'
-import { alarmBarFor, deriveTruppLive, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, isAtemschutzTrupp, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
+import { alarmBarFor, deriveTruppLive, safetyCandidates, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, isAtemschutzTrupp, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
 import { foreignContactAgo } from '../lib/contactEcho'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
@@ -36,7 +36,7 @@ import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
 import { truppOrderKey } from '../lib/useTruppActions'
 import s from './Atemschutz.module.css'
 import { AuftragSheet, KanalSheet, PressureSheet, TruppSheet } from './TruppSheets'
-import { ClockVal, TruppCard, TruppRow } from './TruppCard'
+import { ClockVal, RowEnter, TruppCard, TruppRow } from './TruppCard'
 import { collapsedClock, tierMark } from './truppCardText'
 import { TruppForm, type FormMode, type TruppSubmitExtra } from './TruppForm'
 
@@ -83,7 +83,7 @@ const HEAD_FOLD = { saved: 1, order: 2, share: 3, restore: 4, overdue: 5, bell: 
 const nfInset = (el: HTMLElement | null) => (el ? el.offsetHeight + 12 : 0)
 
 export function AtemschutzView({
-  trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, keepInOneTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, unlinkTruppLine, dockedAt,
+  trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, keepInOneTrupp, designateSafety, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, unlinkTruppLine, dockedAt,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus, createRequest, onShareLink, shareLinkActive = false, lite, frozenAt, triggerNotfall, endNotfall, placeOf,
@@ -144,6 +144,10 @@ export function AtemschutzView({
    *  takes the person out of every other active Trupp (useTruppActions · keepInOneTrupp).
    *  Absent ⇒ the band names the conflict without offering the choice. */
   keepInOneTrupp?: (keepTruppId: string, personId: string) => boolean
+  /** the Notfall banner's «Sicherungstrupp bestimmen» on a Trupp already on the board: its Auftrag
+   *  becomes «Sichern» with its own Verlauf row (useTruppActions · designateSafety). Absent: the
+   *  ordinary edit does it. */
+  designateSafety?: (id: string, forId: string) => boolean
   /** The Atemschutznotfall (F1, 08.10.2026): raise it on a crew inside / end it — both HELD on
    *  the card (AtemschutzNotfall · NotfallHold). Absent ⇒ the board offers neither. */
   triggerNotfall?: (id: string) => void
@@ -636,6 +640,10 @@ export function AtemschutzView({
   const notfallTrupps = frozenAt != null ? [] : byHand(paBoard.filter(truppInNotfall))
   const notfallReady = byHand(safetyReady(paBoard))
   const notfallSafetyInside = safetyInside(paBoard)
+  // …and whom «Sicherungstrupp bestimmen» can name while none is ready: any other crew, a busy
+  // one included (owner, 30.10.2026 — lib/atemschutz · safetyCandidates)
+  const candidates = safetyCandidates(byHand(paBoard))
+  const notfallCandidates = [candidates.ready, candidates.inside, candidates.out]
 
   // Called from the card's action handlers — i.e. after render, so it simply closes over the
   // arrangement the operator is currently looking at. (A ref would have to be written during
@@ -1032,6 +1040,8 @@ export function AtemschutzView({
         focusNonce={nonce} focusScroll={activeFocus?.id === t.id} flashSeen={seen} onFlashed={flashed}
         onContact={(id) => { void contactTap(id) }}
         onPressure={(id) => setPressureAsk({ id, kind: 'pressure' })}
+        // the same ordinary Eintritt the card's «Im Einsatz» tile and the SafetyRow make
+        onEnter={(id) => { freezeOrder(); setTruppStatus(id, 'aktiv') }}
         onOpen={() => setOpenRow(t.id)}
         lite={!!lite}
       />
@@ -1530,14 +1540,23 @@ export function AtemschutzView({
                 ]} />
             )}
             onDefineSafety={safetyPickNew}
-            defineSafety={phoneReady.length === 0 ? undefined : (trigger) => (
+            /* «Sicherungstrupp bestimmen» (owner, 30.10.2026, «Becomes Sicherung»): every other
+               Atemschutz-Trupp, grouped under the phone board's own heads — Bereit, Drin, Draussen —
+               then «Neuen Trupp anmelden (Sichern)». A crew bereit or inside turns «Sichern» in one
+               act (designateSafety: its own Verlauf row, one ↶); a crew that is out needs a fresh
+               bottle first, so its pick opens its re-entry form with «Sichern» set. */
+            defineSafety={notfallCandidates.every((g) => g.length === 0) ? undefined : (trigger) => (
                 <Menu trigger={trigger} popupClassName="rp-print-menu" itemClassName={() => 'rp-print-menu-item'}
                   items={[
-                    { kind: 'head' as const, label: az.safetyPickTitle },
-                    ...phoneReady.map((x) => ({
-                      label: [x.name, ...(x.members ?? [])].map((n) => n.trim()).filter(Boolean).join(' / '),
-                      onClick: () => editTrupp(x.id, truppFieldsOf(x, { auftrag: 'sichern' })),
-                    })),
+                    ...notfallCandidates.flatMap((group, gi) => group.length === 0 ? [] : [
+                      { kind: 'head' as const, label: [az.phoneSectionReady, az.phoneSectionIn, az.phoneSectionOut][gi] },
+                      ...group.map((x) => ({
+                        label: [x.name, ...(x.members ?? [])].map((n) => n.trim()).filter(Boolean).join(' / '),
+                        onClick: x.status === 'raus' ? () => openForm('redeploy', { ...x, auftrag: 'sichern' })
+                          : designateSafety ? () => { freezeOrder(); designateSafety(x.id, t.id) }
+                          : () => editTrupp(x.id, truppFieldsOf(x, { auftrag: 'sichern' })),
+                      })),
+                    ]),
                     { kind: 'sep' as const },
                     { label: az.safetyPickNew, onClick: safetyPickNew },
                   ]} />
@@ -1704,7 +1723,8 @@ export function AtemschutzView({
               const alarm = alarms.get(t.id)!
               const sev = alarm.sev
               // the tier in a glyph and a word, not tint + border alone (UX sweep F6): the row's
-              // own mark (tierMark) — clock = «Fällig», triangle = «Überfällig» / «Alarmdruck»
+              // own mark (tierMark) — triangle = «Überfällig» / «Alarmdruck»; «Fällig» is the
+              // chip's amber and a word for the screen reader (no clock glyph since 30.10.2026)
               const tier = tierMark(alarm, sev, true)
               return (
                 <button
@@ -1726,7 +1746,7 @@ export function AtemschutzView({
                   <span className={cx(s.tabName, s.tabNameWrap)}>{t.name}</span>
                   {/* the same collapsed-time split the list row and the card make (collapsedClock) */}
                   <span className={s.tabClock}>
-                    {tier && <><Icon id={tier.icon} className={s.tabTier} /><span className="sr-only">{tier.text}</span></>}
+                    {tier && <>{tier.crit && <Icon id="warn" className={s.tabTier} />}<span className="sr-only">{tier.text}</span></>}
                     <ClockVal val={collapsedClock(t, lv).val} />
                   </span>
                 </button>
@@ -1906,13 +1926,7 @@ function SafetyRow({ t, canEdit, onDeploy, onOpen }: {
         {t.entryPressureBar ? <span className={s.trowSafetyWho}>{t.entryPressureBar} bar</span> : null}
       </span>
       <span className={s.trowAct}>
-        {canEdit && (
-          <span role="button" tabIndex={0} className={s.safetyDeploy}
-            onClick={(e) => { e.stopPropagation(); onDeploy(t.id) }}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onDeploy(t.id) } }}>
-            {az.actEnter}
-          </span>
-        )}
+        {canEdit && <RowEnter onEnter={() => onDeploy(t.id)} />}
       </span>
     </button>
   )

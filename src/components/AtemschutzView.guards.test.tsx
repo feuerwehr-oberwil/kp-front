@@ -189,6 +189,52 @@ describe('the Sicherungstrupp slot, complete', () => {
   })
 })
 
+/* Owner, 30.10.2026 («Becomes Sicherung»): the Notfall banner's «Sicherungstrupp bestimmen» names
+ * any other crew — bereit, then drin, then draussen — not only the ones standing ready. */
+describe('the Notfall banner names a Sicherungstrupp from the whole board', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+  const crew = (id: string, name: string, over: Partial<Trupp> = {}): Trupp => ({ ...aktivTrupp(), id, name, members: [], auftrag: 'loeschen', ...over })
+  const board = () => [
+    crew('nf', 'Fabich Mischa', { notfallAt: iso(30_000) }),
+    crew('out', 'Out Olga', { status: 'raus', exitTime: iso(60_000) }),
+    crew('in', 'In Ida'),
+    crew('rdy', 'Ready Rita', { status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [] }),
+  ]
+  const openDefine = async () => {
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.notfall.sitrDefine) }))
+    return await screen.findByRole('menu')
+  }
+
+  it('groups the crews under Bereit, Drin and Draussen, the casualty left out', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: board() })
+    const menu = await openDefine()
+    const groups = within(menu).getAllByRole('group').map((g) => [g.getAttribute('aria-labelledby') && document.getElementById(g.getAttribute('aria-labelledby')!)?.textContent,
+      within(g).queryAllByRole('menuitem').map((i) => i.textContent)])
+    expect(groups.slice(0, 3)).toEqual([[az.phoneSectionReady, ['Ready Rita']], [az.phoneSectionIn, ['In Ida']], [az.phoneSectionOut, expect.arrayContaining(['Out Olga'])]])
+    expect(within(menu).queryByRole('menuitem', { name: 'Fabich Mischa' })).toBeNull()
+  })
+
+  it('a crew inside becomes the Sicherungstrupp in one act, for this Notfall', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const designateSafety = vi.fn(() => true)
+    mount({ trupps: board(), designateSafety })
+    fireEvent.click(within(await openDefine()).getByRole('menuitem', { name: 'In Ida' }))
+    expect(designateSafety).toHaveBeenCalledWith('in', 'nf')
+  })
+
+  it('a crew that is out opens its re-entry form on «Sichern» — a fresh bottle first', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const designateSafety = vi.fn(() => true)
+    mount({ trupps: board(), designateSafety })
+    fireEvent.click(within(await openDefine()).getByRole('menuitem', { name: 'Out Olga' }))
+    expect(designateSafety).not.toHaveBeenCalled()
+    const sichern = within(await screen.findByRole('group', { name: az.auftragLabel })).getByRole('button', { name: 'Sichern' })
+    expect(sichern.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText(az.formRedeployTitle)).toBeTruthy()
+  })
+})
+
 // item 2
 describe('the Eingangsdruck is guarded', () => {
   const outWithRest = (): Trupp => ({

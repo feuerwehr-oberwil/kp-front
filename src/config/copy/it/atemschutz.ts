@@ -296,6 +296,8 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       logEnd: 'Squadra {name}: emergenza conclusa – durata {dur}',
       logEndOut: 'Squadra {name}: emergenza conclusa – durata {dur} – squadra fuori',
       logSafetyEntry: 'Squadra {name}: squadra di sicurezza impiegata – emergenza squadra {target}, {dur} dopo l’attivazione',
+      logSafetyDesignated: 'Squadra {name}: designata squadra di sicurezza – emergenza squadra {target}',
+      logSafetyWas: 'prima {auftrag}',
       logAtClose: 'Squadra {name}: emergenza non conclusa alla chiusura',
       toast: 'Emergenza attivata per la squadra {name}',
       notifyTitle: 'Emergenza ARA – {name}',

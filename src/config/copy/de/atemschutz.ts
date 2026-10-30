@@ -390,8 +390,8 @@ export const atemschutzCopy = {
     clockFrozen: 'Stand beim Abschluss',
     clockWarn: 'Kontakt fällig',
     clockOverdue: 'Überfällig',
-    // the phone row's short tier word for its clock glyph (truppCardText · tierMark, B5): drawn
-    // as the glyph only since 09.10.2026, so this is the row's aria-label and the glyph's title
+    // the phone row's short tier word (truppCardText · tierMark, B5): no glyph since 30.10.2026
+    // (the amber carries it), so this is the row's aria-label only
     rowDue: 'Fällig',
     // …and the same block on a PRESSURE alarm: same three lines, but the number is the bar the
     // Trupp dropped to, not a clock. The word must never read «Überfällig» there – the Verlauf
@@ -817,6 +817,10 @@ export const atemschutzCopy = {
       // «Raus» beendet einen laufenden Notfall: die Zeile neben dem Austritt
       logEndOut: 'Trupp {name}: Notfall beendet – Dauer {dur} – Trupp draussen',
       logSafetyEntry: 'Trupp {name}: Sicherungstrupp eingesetzt – Notfall Trupp {target}, {dur} nach Auslösung',
+      // «Sicherungstrupp bestimmen» im Banner nimmt einen bestehenden Trupp (auch einen drinnen): sein
+      // Auftrag wird «Sichern», der bisherige bleibt in dieser Zeile stehen
+      logSafetyDesignated: 'Trupp {name}: als Sicherungstrupp bestimmt – Notfall Trupp {target}',
+      logSafetyWas: 'bisher {auftrag}',
       logAtClose: 'Trupp {name}: Notfall beim Abschluss nicht beendet',
       // bestätigen-mit-Rückgängig: ein Fehlgriff ist billig zurückzunehmen und bleibt im Verlauf
       toast: 'Notfall Trupp {name} ausgelöst',

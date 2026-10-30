@@ -296,6 +296,8 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       logEnd: 'Binôme {name} : urgence terminée – durée {dur}',
       logEndOut: 'Binôme {name} : urgence terminée – durée {dur} – binôme sorti',
       logSafetyEntry: 'Binôme {name} : équipe de sécurité engagée – urgence binôme {target}, {dur} après le déclenchement',
+      logSafetyDesignated: 'Binôme {name} : désigné équipe de sécurité – urgence binôme {target}',
+      logSafetyWas: 'auparavant {auftrag}',
       logAtClose: 'Binôme {name} : urgence non terminée à la clôture',
       toast: 'Urgence déclenchée pour le binôme {name}',
       notifyTitle: 'Urgence ARI – {name}',

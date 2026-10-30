@@ -1152,16 +1152,15 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .trowSub { display: block; font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .05em;
   text-transform: uppercase; color: var(--ink-faint); margin-top: var(--sp-1); white-space: nowrap; }
 /* the tier as a glyph at the clock (B5, 08.10.2026; glyph only since 09.10.2026, owner: «Symbol
-   only») — fällig (clock) / überfällig and Alarmdruck (triangle) no longer ride on colour alone.
-   Inside the clock cell, so the row keeps its lines; shown on every width (unlike `.trowSub`),
-   because the phone is where the sun is. */
-.trowTier { display: flex; justify-content: flex-end; margin-top: var(--sp-1); line-height: 1; color: var(--amber-strong); }
-.trowTier :global(.i) { width: 16px; height: 16px; flex: none; }
+   only») — überfällig and Alarmdruck (triangle) no longer ride on colour alone. Fällig has no
+   glyph since 30.10.2026 (owner: «remove the ugly clock icon»): its amber carries it. Inside the
+   clock cell, so the row keeps its lines; shown on every width (unlike `.trowSub`), because the
+   phone is where the sun is. */
 /* überfällig / Alarmdruck: the triangle stands IN FRONT of the digits, on the clock's line (sweep
    M3, 24.10.2026) — sized to the 25px clock, so it reads with the number as one «⚠ 30:22» */
 .trowClockLine { display: flex; justify-content: flex-end; align-items: center; gap: var(--sp-2); }
-.trowTierCrit { color: var(--red-strong); margin-top: 0; }
-.trowTierCrit :global(.i) { width: 22px; height: 22px; }
+.trowTier { display: flex; line-height: 1; color: var(--red-strong); }
+.trowTier :global(.i) { width: 22px; height: 22px; flex: none; }
 
 .trowPress { text-align: right; font-family: var(--mono); font-size: var(--fs-3); font-weight: var(--fw-bold);
   color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -1389,8 +1388,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    min-height is a minimum, not a cap, so the chip grows with it. */
 .tabNameWrap { display: block; width: 100%; white-space: normal; overflow-wrap: break-word; text-align: center; }
 .tabClock { display: inline-flex; align-items: center; gap: var(--sp-1); font-family: var(--mono); font-size: var(--fs-2); font-weight: var(--fw-heavy); color: var(--green); }
-/* the tier's glyph before the clock (UX sweep F6): the clock for «Fällig», the triangle for an
-   alarm — so the state is a shape too, not only the chip's amber/red. Inherits the clock's ink. */
+/* the tier's glyph before the clock (UX sweep F6): the triangle for an alarm — so the state is a
+   shape too, not only the chip's red. «Fällig» is the chip's amber alone since 30.10.2026 (owner:
+   «remove the ugly clock icon»). Inherits the clock's ink. */
 .tabTier { width: 13px; height: 13px; flex: none; }
 /* ⚠️ ONE quiet format for every clock that is NOT running (05.09.): a Trupp that is angemeldet,
    one that is back out, and a work squad with no contact clock at all are all «nothing is
@@ -1426,8 +1426,12 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .tabAdd :global(.i) { width: 16px; height: 16px; }
 @media (hover: hover) { .tabAdd:hover { color: var(--ink); border-color: var(--ink-faint); } }
 /* As tall as its content, never stretched: the card should fit the screen with the tiles in view,
-   and only scroll when it truly cannot. Nothing shrinks under its content. */
-.focusCard .trowCard { flex: none; width: 100%; max-height: 100%; overflow-y: auto; }
+   and only scroll when it truly cannot. Nothing shrinks under its content.
+   ⚠️ `.trow.trowCard` in the selector (30.10.2026, owner: «the cards in the atemschutzlink aren't
+   scrollable»): as `.focusCard .trowCard` it tied with the card's own `.trow.trowCard { overflow:
+   hidden }` further down, which won by order — a card taller than the port (a Notfall banner
+   above it, an opened Verlauf) was cut off with no way to reach its foot. */
+.focusCard .trow.trowCard { flex: none; width: 100%; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; }
 .focusCard .trowCard > * { flex: 0 0 auto; }
 /* «Ein Trupp, ein Bildschirm»: the one card on the screen keeps the clock as large as it allows
    (02.09.) — the same line as every other card (RowLine), one type step up. 34px was the band's
@@ -1603,13 +1607,15 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
   background: color-mix(in srgb, var(--green) 7%, var(--surface)); }
 .trowSafetyWho { display: block; font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-dim); margin-top: 2px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* the Sicherungstrupp's one action, worded and filled like the tablet card's (07.10.2026, UI sweep):
-   «Im Einsatz» (`actEnter` — the button names the state it makes) in the card's ONE filled
-   tile (`.actEnter`, `--btn-primary`), never a green band. It was a green «Einsetzen» on the phone only. The row's
-   green edge and tint stay: they say WHICH Trupp this is, not what the button does. */
-.safetyDeploy { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 16px;
+/* «Im Einsatz» on a row (TruppCard · RowEnter) — the Sicherungstrupp's one action, worded and
+   filled like the card's (07.10.2026, UI sweep): `actEnter` (the button names the state it makes)
+   in the card's ONE filled tile (`.actEnter`, `--btn-primary`), never a green band. It was a green
+   «Einsetzen» on the phone only. The row's green edge and tint stay: they say WHICH Trupp this
+   is, not what the button does. Since 30.10.2026 every Bereit row wears it in its clock's place
+   too, where «–:––» stood (owner: «show the next action rather than the empty time»). */
+.rowEnter { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 16px;
   border-radius: var(--r-ctl); background: var(--btn-primary); color: var(--on-btn-primary); font: var(--fw-heavy) var(--fs-2) var(--body); }
-.safetyDeploy:active { background-image: linear-gradient(var(--press), var(--press)); }
+.rowEnter:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* The SICHERUNGSTRUPP head (26.09.2026, phone card slim-down): a section head like DRIN / DRAUSSEN,
    and «Bestimmen» at the row's right — a 36px pill of the count badge's family, so the
    head reads as a head with a door in it, not as a box. The dashed «Kein Sicherungstrupp» slot
