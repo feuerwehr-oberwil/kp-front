@@ -49,14 +49,16 @@ import { getMeldungen, subscribeMeldungen } from '../lib/useMeldung'
 // is about, CaptureUsageChip inside the capture surface. Both are uncoverable by construction —
 // this strip is the answer for everything that cannot be.
 
-/** Mount ONCE, next to the top bar. Renders nothing while nothing is pending. */
-export function Meldeleiste() {
+/** Mount ONCE, next to the top bar. Renders nothing while nothing is pending. `only` narrows what
+ *  this screen shows — the Atemschutz-Link keeps just the rows that block work (meldungen ·
+ *  linkShowsMeldung); the rest stay published, unpainted. */
+export function Meldeleiste({ only }: { only?: (m: Meldung) => boolean } = {}) {
   const items = useSyncExternalStore(subscribeMeldungen, getMeldungen, getMeldungen)
   const C = appConfig.copy.meldeleiste
 
   // the open Einsatz's `.app`, so the strip stacks UNDER its top bar and menus (lib/meldeleisteHost)
   const host = useSyncExternalStore(subscribeMeldeleisteHost, getMeldeleisteHost, () => null)
-  const rows = rankMeldungen(items)
+  const rows = rankMeldungen(only ? items.filter(only) : items)
   const shown = rows.length > 0
   const [all, setAll] = useState(false)
   const box = useRef<HTMLDivElement>(null)

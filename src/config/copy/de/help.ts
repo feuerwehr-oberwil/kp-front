@@ -195,7 +195,7 @@ export const helpCopy = {
         ],
       },
       {
-        id: 'atemschutz', title: 'Trupps & Atemschutzüberwachung', icon: 'stopwatch',
+        id: 'atemschutz', title: 'Trupps & Atemschutz\u00ADüberwachung', icon: 'stopwatch',
         blocks: [
           { kind: 'lead', text: 'Lückenlose Überwachung jedes Atemschutztrupps nach FKS – das Sicherheitssignal ist die **Zeit seit dem letzten Funkkontakt**, nicht eine geschätzte Restzeit.' },
           { kind: 'sub', text: 'Trupp anmelden' },

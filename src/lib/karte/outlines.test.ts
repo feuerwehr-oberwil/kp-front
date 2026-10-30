@@ -1,6 +1,21 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { LngLat } from '../../types'
-import { CELL_LNG, cellOf, houseIndex, osmBeside, ringsAround } from './outlines'
+
+const io = vi.hoisted(() => ({
+  idbGet: vi.fn<(key: string) => Promise<unknown>>(),
+  idbSet: vi.fn<(key: string, value: unknown) => Promise<boolean>>(async () => true),
+  apiPost: vi.fn<(path: string, body: unknown) => Promise<unknown>>(),
+}))
+vi.mock('../idb', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../idb')>()),
+  idbGet: io.idbGet, idbSet: io.idbSet,
+}))
+vi.mock('../api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../api')>()),
+  apiPost: io.apiPost,
+}))
+
+import { CELL_LNG, cellOf, houseIndex, loadCell, osmBeside, ringsAround } from './outlines'
 import { ringAt } from './places'
 
 // Synthetic: a terraced row of three houses, 10 × 10 m each, that OSM maps as ONE block
@@ -72,5 +87,22 @@ describe('osmBeside — an OSM outline over a survey house is that house traced 
 
   it('measures a cell once per house set', () => {
     expect(osmBeside(houses, osm)).toBe(osmBeside(houses, osm))
+  })
+})
+
+describe('loadCell', () => {
+  it('asks the server for a cell the device does not have, and keeps the answer', async () => {
+    io.idbGet.mockResolvedValue(undefined)
+    io.apiPost.mockResolvedValue({ elements: [] })
+    expect(await loadCell('9001:9001')).toEqual([])
+    expect(io.apiPost).toHaveBeenCalledTimes(1)
+    expect(io.idbSet).toHaveBeenCalledWith('kp.karte.bld2.9001:9001', [])
+  })
+
+  it('serves a stored cell – an empty one too – without asking the server', async () => {
+    io.apiPost.mockClear()
+    io.idbGet.mockResolvedValue([])
+    expect(await loadCell('9002:9002')).toEqual([])
+    expect(io.apiPost).not.toHaveBeenCalled()
   })
 })

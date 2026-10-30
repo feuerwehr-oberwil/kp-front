@@ -59,16 +59,19 @@ export function cellBox(key: string): { south: number; west: number; north: numb
   return { south: iy * CELL_LAT, west: ix * CELL_LNG, north: (iy + 1) * CELL_LAT, east: (ix + 1) * CELL_LNG }
 }
 
-const IDB_PREFIX = 'kp.karte.bld.'
+/** `bld2`: cells stored under `bld.` may hold an Overpass timeout answer as an EMPTY cell (from
+ *  before the server refused those, sweep 30.10.2026 #11) – the new key drops them all once. */
+const IDB_PREFIX = 'kp.karte.bld2.'
 const loads = new Map<string, Promise<LngLat[][]>>()
 
 /** One cell's outlines: memory, then the device (IndexedDB), then the server. A failed load is
- *  forgotten, so the next pan over the cell asks again. */
+ *  forgotten, so the next pan over the cell asks again; an empty answer is a real one (a field)
+ *  and is kept like any other. */
 export function loadCell(key: string): Promise<LngLat[][]> {
   const hit = loads.get(key)
   if (hit) return hit
   const p = idbGet<LngLat[][]>(IDB_PREFIX + key).catch(() => null).then(async (stored) => {
-    if (stored && Array.isArray(stored)) return stored
+    if (Array.isArray(stored)) return stored
     const rings = ringsFromOverpass(await apiPost<unknown>('/api/overpass/buildings', cellBox(key)))
     void idbSet(IDB_PREFIX + key, rings).catch(() => {})
     return rings

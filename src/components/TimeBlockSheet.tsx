@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
-import { appConfig } from '../config/appConfig'
 import { Sheet } from '../lib/overlays'
 import { TimeField } from './TimeField'
 import { Button, IconButton } from './Button'
@@ -85,7 +84,7 @@ export interface TimeBlock {
  * Zeitplan's planned shifts.
  *
  * They ask the same question about the same person ("when, exactly?"), so they are the same sheet:
- * same frame, same labelled von/bis fields, same add button, same closing note. Only the words and
+ * same frame, same labelled von/bis fields, same add button, same optional note. Only the words and
  * the optional right-hand control differ. Two hand-built dialogs drifted apart within a day —
  * different paddings, one with labels and one without — and at 3am two surfaces that look almost
  * alike are worse than either.
@@ -115,8 +114,9 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
   return (
     // NO confirm footer (29.09.2026, owner: «everything should be auto-saved without manual
     // confirmations»): every change here is live the moment it is made, so a primary «Fertig»
-    // was only a second ✕ promising an action. ✕ and the swipe close it; the one quiet line
-    // at the end says the edits are already kept. A `danger` alone takes the footer's far left.
+    // was only a second ✕ promising an action. ✕ and the swipe close it. The quiet «Alles wird
+    // laufend gespeichert.» line under it went too (sweep 30.10.2026, owner: «not very useful»,
+    // and it clipped at the bottom of the phone). A `danger` alone takes the footer's far left.
     <Sheet open onClose={onClose} fit sheetClassName={s.sheet} title={title} footer={danger}>
       <div className={s.group}>
         <h4 className={s.groupTitle}>{sectionTitle}</h4>
@@ -213,9 +213,6 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
         {note && <p className={s.note}>{note}</p>}
       </div>
       {extra}
-      {/* «Alles wird laufend gespeichert» only where something is edited – both callers hand
-          `onAdd` to a writer alone, so a read-only sheet promises nothing (RBAC audit 22.10.2026) */}
-      {onAdd && <p className={s.saved}><Icon id="check" />{appConfig.copy.savedLive}</p>}
     </Sheet>
   )
 }

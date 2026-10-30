@@ -1,4 +1,4 @@
-/* Mittel surface — mirrors the Anwesenheit/Atemschutz shell (inset card + head), then a composer
+/* Mittel surface — mirrors the Anwesenheit/Atemschutz shell (a card on a tablet, flat on a phone + head), then a composer
    section and a grouped list of material-use totals with in-place ±steppers. */
 
 /* opaque full-screen backdrop so the surface reads as its own screen rather than a card floating
@@ -83,10 +83,11 @@
    dashed edge means «missing / hidden / placeholder», and an offer to add is neither), and spanning
    BOTH columns of the wide layout: it belongs to the search, not to whichever category happened to
    end above it. */
+/* (outline read `--item-edge`: none on a phone page – Surface.module.css · the phone block) */
 .createRow {
   display: flex; align-items: center; gap: var(--sp-2); width: 100%; box-sizing: border-box;
   grid-column: 1 / -1; margin-top: var(--sp-4); min-height: var(--tap); padding: 8px 12px;
-  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
+  border: 1px solid var(--item-edge, var(--glass-edge)); border-radius: var(--r-ctl); background: var(--surface);
   color: var(--ink); font: var(--fw-bold) var(--fs-2) var(--body); text-align: left; cursor: pointer;
 }
 @media (hover: hover) { .createRow:hover { border-color: var(--ink-faint); } }
@@ -97,9 +98,10 @@
 .noHits { flex: 1 1 auto; display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-2) var(--head-pad-x) var(--sp-4); }
 .noHits > .createRow { align-self: flex-start; width: auto; margin-top: 0; }
 
+/* (outline read `--item-edge`: none on a phone page – Surface.module.css · the phone block) */
 .row {
-  display: flex; align-items: center; gap: 12px; min-height: 48px; padding: var(--sp-1) var(--sp-3);
-  border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
+  display: flex; align-items: center; gap: 12px; padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--item-edge, var(--glass-edge)); background: var(--surface); border-radius: var(--r-ctl);
   margin-bottom: var(--sp-2);
 }
 .rowLabel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
@@ -112,17 +114,13 @@
 .rowEdit { flex: none; display: flex; align-items: center; gap: 8px; }
 .over { color: var(--red-strong); }
 
-/* The compact idle row's «+» — the whole control a Position at 0 verwendet carries.
-   var(--tap) square with a −4px margin on three sides: the hit area is the full 44px, but it
-   only claims the row's 36px content box, so a compact row stays at the 48px every other row is
-   (instead of growing to 56 and undoing the space this compaction exists to win) and its right
-   edge sits where the counted row's controls do rather than a button's worth of padding inside
-   them. ⚠️ The overhang is what aligns it: the «+» is a 17px glyph centred in a 44px target, so
-   a border box stopped at the row's 12px padding reads as indented next to the dense ±stepper /
-   unit beside it — a rhythm break down a group where most rows are compact. */
+/* The compact idle row's «+» — the whole control a Position at 0 verwendet carries. A plain
+   var(--tap) square inside the row's padding, exactly like the ±stepper's buttons: ONE row height
+   and ONE inner padding whatever the row shows (owner, 30.10.2026). It used to overhang the row
+   by 4px on three sides to keep compact rows at 48px, which left them 6px shorter than a counted
+   row and their «+» 4px nearer the edge — a list of mismatched rows. */
 .addOne {
   flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
-  margin-block: -4px; margin-inline-end: -4px;
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
   background: transparent; color: var(--ink-dim); cursor: pointer;
 }
@@ -134,9 +132,9 @@
    the line, which is what makes the row's label its own hit target. */
 .rowMultiHead { display: flex; align-items: center; }
 .rowMultiHead > .rowExpand { flex: 1 1 auto; min-width: 0; }
-/* 12px row padding − the 4px overhang above: a multi-source row pads itself (.rowMulti has
-   none), so the «+» has to reproduce the single row's right edge by hand. */
-.rowMultiHead > .addOne { margin-right: 8px; }
+/* a multi-source row pads itself (.rowMulti has none), so the «+» reproduces the single row's
+   12px right padding by hand */
+.rowMultiHead > .addOne { margin-right: var(--sp-3); }
 
 /* remaining-stock readout on a list row: filled dot = still there, empty = used; larger
    stocks fall back to the «noch N» chip. Low → amber, nothing left / over-use → red. */
@@ -152,7 +150,8 @@
 /* multi-source rows: the whole header line is the expand toggle; per-source stepper
    sub-rows indent below it */
 .rowMulti { flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
-.rowExpand { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: var(--sp-1) var(--sp-3);
+/* the head line is a row like any other: the --tap control line plus the row's 4px a side */
+.rowExpand { display: flex; align-items: center; gap: 12px; min-height: calc(var(--tap) + 2 * var(--sp-1)); padding: var(--sp-1) var(--sp-3);
   border: none; background: none; cursor: pointer; text-align: left; font: inherit; color: inherit;
   border-radius: var(--r-sm); }
 .rowExpand:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
@@ -170,7 +169,10 @@
 /* (the whole search line — .controls/.search, the filter buttons, the + and the dropdown —
    lives in SurfaceControls.module.css, shared with the Anwesenheit) */
 
-.rowMain { flex: 1 1 auto; display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 36px; }
+/* ONE line height for every row: the --tap control line, whether it holds a ±stepper (44px), the
+   compact «+» (44px) or only a read-only count — inside the row's 4px/12px padding, so every row
+   is the same height (owner, 30.10.2026: 48 / 50 / 54px side by side) */
+.rowMain { flex: 1 1 auto; display: flex; align-items: center; gap: 12px; min-width: 0; min-height: var(--tap); }
 /* Retablierung chips: outline-only at rest so three pills per row don't shout — only the
    selected state gets a (status-coloured) fill */
 
@@ -206,7 +208,7 @@
   .rowMain > .rowLabel + *, .rowMain > .subLabel + * { margin-left: auto; }
   /* ⚠️ …except on a COMPACT row, where the whole point is that it does not wrap. The rule above
      is sized for the ±stepper (~130px, which genuinely leaves the name nothing); Restbestand +
-     «+» take ~80px, so the name shares the line and the row is 48px instead of the ~72px two
+     «+» take ~80px, so the name shares the line and the row stays one line instead of the ~72px two
      wrapped lines cost — on a full catalogue that is most of the phone's screen back, and the
      second line it saves only ever showed a 0. */
   .rowCompact .rowMain { flex-wrap: nowrap; }

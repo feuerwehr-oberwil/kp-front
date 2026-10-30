@@ -1,4 +1,4 @@
-/* Anwesenheit surface — mirrors the Atemschutz surface shell (inset card + head), then a
+/* Anwesenheit surface — mirrors the Atemschutz surface shell (a card on a tablet, flat on a phone + head), then a
    dense grid of name buttons. Each button tap-cycles frei → anwesend → gegangen → frei, so
    many crew fit on screen without scrolling and the whole board edits in place. */
 /* geometry + header: the shell every full surface shares (Surface.module.css) — ONE row, like
@@ -97,12 +97,13 @@
 
 /* a row is the cycle button (personMain) plus, once anwesend/gegangen, a trailing time chip
    that opens an inline time input — correcting a wrong auto-stamped time in place */
+/* (outline read `--item-edge`: none on a phone page – Surface.module.css · the phone block) */
 .person {
   /* ONE width for the trailing glyph buttons (Ort + Uhr), so they read as a pair and the two
      glyph columns line up down the whole list */
   --row-act: 46px;
   display: flex; align-items: stretch; min-height: 46px;
-  border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
+  border: 1px solid var(--item-edge, var(--glass-edge)); background: var(--surface); border-radius: var(--r-ctl);
   overflow: hidden; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink);
   transition: background .1s var(--ease), border-color .1s var(--ease);
 }
@@ -263,8 +264,9 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
    The FIRST cell of the crew grid, across every column: it scrolls with the list instead of
    standing over it, so on a phone the names are one swipe away however many answered. Local to
    this block; tokens only. */
+/* (outline read `--item-edge`: none on a phone page – Surface.module.css · the phone block) */
 .anr {
-  grid-column: 1 / -1; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
+  grid-column: 1 / -1; border: 1px solid var(--item-edge, var(--glass-edge)); border-radius: var(--r-ctl);
   background: var(--surface);
   /* ⚠️ no overflow:hidden — a grid item that clips gets a zero automatic minimum height, and in
      the height-bounded crew grid that cut the block off mid-group */

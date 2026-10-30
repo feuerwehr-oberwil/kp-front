@@ -1,4 +1,5 @@
-// The workspace blob, both ways: the load gate's honest Meldungen, `applyWorkspace` (a merged or
+// The workspace blob, both ways: the load gate's honest Meldungen (and, for a blob from a newer
+// build, the reload into that build — swUpdate · requireNewerBuild), `applyWorkspace` (a merged or
 // polled blob written into every synced slice, the undo timeline carried through the merge) and
 // `buildPayload` (the slices back into the blob the sync saves) — plus this device's own Ebenen,
 // which deliberately never ride the blob. Split out of IncidentWorkspace (E1, 09.10.2026)
@@ -16,18 +17,24 @@ import { saveLayerPrefs } from '../lib/layerPrefs'
 import { type TacticalObject, type PlanFit, viewsOf } from '../lib/tacticalObjects'
 import type { TruppTrail } from '../lib/truppTrails'
 import { toast } from '../lib/ui'
+import { NEWER_BUILD_MELDUNG_ID } from '../lib/meldungen'
 import { useMeldung } from '../lib/useMeldung'
 import { carryUndoThroughMerge, workspaceChanges, planViewChanges } from '../lib/undoKeys'
 import type { UndoTimeline } from '../lib/undoTimeline'
 import type { useJournal } from '../lib/useJournal'
 import { boardViewOf } from '../lib/useObjectStore'
+import { onNewerBuildMissing, requireNewerBuild, updateForNewerData } from '../lib/swUpdate'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
-import { type WorkspaceGate, type PlanScales, type ReportMeta, type IncidentSettings, type Saved, type InitialState, sanitizeWorkspace, deriveInitial, applyInitialState, WORKSPACE_SCHEMA_VERSION } from '../lib/workspace'
+import { type WorkspaceGate, type PlanScales, type ReportMeta, type IncidentSettings, type Saved, type InitialState, gateReport, sanitizeWorkspace, deriveInitial, applyInitialState, WORKSPACE_SCHEMA_VERSION } from '../lib/workspace'
 import type { LayerDef, BuildingDoc, Trupp, AttendanceState, MittelEntry, Shift, ShiftBand, CameraView, ReportAttachment, BoardDoc } from '../types'
 import type { ReportSignature } from '../lib/reportSignature'
 
 export interface UseWorkspaceBlobInputs {
   bootGate: WorkspaceGate
+  /** the blob came from a NEWER build — the workspace's read-only state (workspace/access ·
+   *  olderBuild), owned up there because the flags are derived before this hook runs */
+  olderBuild: boolean
+  setOlderBuild: Dispatch<SetStateAction<boolean>>
   incidentMeta: IncidentMeta
   setLayers: Dispatch<SetStateAction<LayerDef[]>>
   journal: ReturnType<typeof useJournal>
@@ -89,7 +96,7 @@ export interface UseWorkspaceBlobInputs {
 }
 
 export function useWorkspaceBlob({
-  bootGate, incidentMeta, setLayers, journal, setRecent, setBuilding, setVehicleOverrides,
+  bootGate, olderBuild, setOlderBuild, incidentMeta, setLayers, journal, setRecent, setBuilding, setVehicleOverrides,
   setChecklists, setTrupps, setAttendance, setMittel, setShifts, setBands, setCameraViews, setTrails,
   setPlanScale, setReportMeta, setAttachments, setReportSignatures, setIncidentSettings, setPlanBindings, setPickedObjectId,
   setIntakeReviewedAt, undoHist, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
@@ -101,22 +108,36 @@ export function useWorkspaceBlob({
   // Honest reporting for the workspace load gate — as Meldungen that stand WHILE TRUE (S3,
   // 20.10.2026). They were ~5 s toasts, once per mount: an operator who looked up six seconds
   // later never learned that this build is older than the data, or that entries were skipped.
-  // The gate is re-read on every poll (applyWorkspace), so «newer» goes the moment an updated
-  // build reads the blob; «skipped» can be waved away (nobody on site can repair the blob), and
-  // comes back only if the count changes. Same state written again is no re-render.
-  const [gateNote, setGateNote] = useState(() => ({ dropped: bootGate.dropped, newer: bootGate.newerSchema }))
-  const [droppedSeen, setDroppedSeen] = useState(0)
+  // The gate is re-read on every poll (applyWorkspace). «skipped» can be waved away (nobody on
+  // site can repair the blob), and comes back only if the count changes. Same state written
+  // again is no re-render.
+  // A blob from a NEWER build (sweep 30.10.2026 #19, the owner's first open of an Atemschutz-
+  // Link on an old cached build): the workspace goes read-only and this build fetches the newer
+  // one and reloads into it by itself (swUpdate · requireNewerBuild). Only when none can be had
+  // (offline, nothing deployed) does ONE row stand, with «Aktualisieren»; what the old build
+  // skipped is not reported as damage (lib/workspace · gateReport).
+  const [skipped, setSkipped] = useState(() => gateReport(bootGate).skipped)
+  const [skippedSeen, setSkippedSeen] = useState(0)
   const reportGate = useCallback((g: WorkspaceGate) => {
-    setGateNote((n) => (n.dropped === g.dropped && n.newer === g.newerSchema ? n : { dropped: g.dropped, newer: g.newerSchema }))
-  }, [])
+    const r = gateReport(g)
+    setOlderBuild(r.newer)
+    setSkipped(r.skipped)
+  }, [setOlderBuild])
+  const [buildMissing, setBuildMissing] = useState(false)
+  useEffect(() => {
+    if (!olderBuild) return
+    requireNewerBuild()
+    return onNewerBuildMissing(setBuildMissing)
+  }, [olderBuild])
   const C = appConfig.copy.offline
-  useMeldung(!gateNote.newer ? null : {
-    id: 'workspace:newer', kind: 'workspace', tone: 'warn', icon: 'warn', title: C.wsNewer, wrap: true,
+  useMeldung(!olderBuild || !buildMissing ? null : {
+    id: NEWER_BUILD_MELDUNG_ID, kind: 'workspace', tone: 'warn', icon: 'warn', title: C.wsNewer, sub: C.wsNewerSub, wrap: true,
+    actions: [{ label: C.wsNewerAction, primary: true, onClick: updateForNewerData }],
   })
-  useMeldung(gateNote.dropped === 0 || gateNote.dropped === droppedSeen ? null : {
+  useMeldung(skipped === 0 || skipped === skippedSeen ? null : {
     id: 'workspace:dropped', kind: 'workspace', tone: 'warn', icon: 'warn', wrap: true,
-    title: fillTemplate(C.wsDropped, { n: gateNote.dropped }),
-    dismiss: { label: C.wsDroppedDismiss, onClick: () => setDroppedSeen(gateNote.dropped) },
+    title: fillTemplate(C.wsDropped, { n: skipped }),
+    dismiss: { label: C.wsDroppedDismiss, onClick: () => setSkippedSeen(skipped) },
   })
 
   // Write an authoritative workspace (conflict take-server or live-follow poll) into App's

@@ -215,7 +215,6 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     zeitBeforeAlarm: 'Precede l’allarme ({t})',
     zeitBeforeAusgerueckt: 'Precede l’uscita ({t})',
     zeitFuture: 'Nel futuro',
-    madeToast: 'Rapporto creato',
     guideNext: 'Prossimo punto aperto',
     guideLast: 'Ultimo punto aperto',
     guideLeft: 'ancora {n} aperti',

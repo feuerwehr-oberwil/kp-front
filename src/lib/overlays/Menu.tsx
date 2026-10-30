@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState, type RefObject, type ReactElement, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject, type ReactElement, type ReactNode } from 'react'
 import { Menu as BaseMenu } from '@base-ui/react/menu'
 import { usePopoverGuard } from './popoverGuard'
+import { attachMenuSlide } from './menuSlide'
 
 /**
  * Anchored action menu — wraps Base UI's Menu. Base UI's Positioner does the
  * collision-aware anchoring (auto flip-up near a viewport edge) that surfaces hand-roll today,
  * and adds real keyboard nav (↑/↓, typeahead, Home/End, Esc) + focus management for free.
+ * On touch a finger slides through the rows the iOS way — highlight under the finger, lift to
+ * press (`menuSlide`; a scrolling menu keeps its native scroll).
  *
  * The trigger keeps its own element/classes via `render`; Base UI wires aria-haspopup/expanded
  * and a `data-popup-open` attribute onto it (style the open trigger with `[data-popup-open]`).
@@ -137,6 +140,21 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
     return () => document.removeEventListener('keydown', release, true)
   }, [open, keepFocusRef])
 
+  // The popup's one ref: open at the END (scrollToEnd) and the finger's slide-to-highlight
+  // (menuSlide — not on a menu that keeps a field's focus, whose focus redirect would fight it).
+  // ⚠️ rAF as well as the immediate set: the popup attaches before its own rows have wrapped to
+  // their final heights, so a scrollTop written at that moment lands short.
+  const slide = !keepFocusRef
+  const popupRef = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return
+    if (scrollToEnd) {
+      const toEnd = () => { el.scrollTop = el.scrollHeight }
+      toEnd()
+      requestAnimationFrame(toEnd)
+    }
+    return slide ? attachMenuSlide(el) : undefined
+  }, [scrollToEnd, slide])
+
   const renderItem = (it: MenuActionItem | MenuCheckItem | MenuRadioGroup, key: number) => {
     if ('kind' in it && it.kind === 'radio') {
       return (
@@ -224,16 +242,7 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
             onKeyDownCapture={() => { keepFocus.current = false }}
             // `ui-pop` is the exit hook: 13-incident.css fades every [data-ending-style] popup out
             className={popupClassName ? `ui-pop ${popupClassName}` : 'ui-pop'}
-            // ⚠️ rAF as well as the immediate set: the popup attaches before its own rows have
-            // wrapped to their final heights, so a scrollTop written at that moment lands short.
-            ref={scrollToEnd
-              ? (el) => {
-                if (!el) return
-                const toEnd = () => { el.scrollTop = el.scrollHeight }
-                toEnd()
-                requestAnimationFrame(toEnd)
-              }
-              : undefined}
+            ref={popupRef}
           >
             {blocks.map((b, i) => (
               // no label = nothing to associate, so no wrapper either — an extra div around the

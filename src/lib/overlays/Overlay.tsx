@@ -4,6 +4,7 @@ import { keyboardLift, useKeyboardInset } from '../useKeyboardInset'
 import { useDismissGrace } from './dismissGrace'
 import { useSwipeDismiss } from './swipeDismiss'
 import { popoverOpen } from './popoverGuard'
+import { useFieldFirst } from './fieldFirst'
 import { SheetGrab } from './SheetGrab'
 import { useMobileScrollLock } from './useMobileScrollLock'
 
@@ -88,6 +89,9 @@ export function Overlay({ open, onClose, className, backdropClassName = 'ui-back
   // CSS for `is-kb`, a bespoke frame gets the margin (its bottom-sheet case) and the variable
   const lift = keyboardLift(useKeyboardInset(open))
   const cls = lift && !className.split(' ').includes('is-kb') ? `${className} is-kb` : className
+  // the keyboard goes first: with a field focused, the first ✕ (the frame's own `.ip-x`, even one
+  // that calls onClose itself — the Trupp form's) or outside tap only blurs it (fieldFirst)
+  const { keyboardFirst, ...kbFirst } = useFieldFirst(open)
   return (
     <Dialog.Root
       open={open}
@@ -105,12 +109,13 @@ export function Overlay({ open, onClose, className, backdropClassName = 'ui-back
         }
         // …and the surface's own inner layer (search, inline editor) before the surface itself
         if (details.reason === 'escape-key' && onEscape?.()) { details.cancel(); return }
+        if (keyboardFirst(details.reason)) { details.cancel(); return }
         onClose()
       }}
     >
       <Dialog.Portal>
         <Dialog.Backdrop className={backdropClassName} />
-        <Dialog.Popup ref={popupRef} className={cls} style={lift ? { ...lift, ...style } : style} aria-label={ariaLabel} initialFocus={initialFocus} {...swipe}>
+        <Dialog.Popup ref={popupRef} {...kbFirst} className={cls} style={lift ? { ...lift, ...style } : style} aria-label={ariaLabel} initialFocus={initialFocus} {...swipe}>
           {grab && swipeToClose && <SheetGrab />}
           {children}
         </Dialog.Popup>

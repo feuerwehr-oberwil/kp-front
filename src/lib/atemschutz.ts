@@ -541,6 +541,24 @@ export function safetyInside(trupps: readonly Trupp[]): Trupp[] {
   return trupps.filter((t) => !t.removedAt && isAtemschutzTrupp(t) && t.auftrag === 'sichern' && truppInField(t) && !truppInNotfall(t))
 }
 
+/**
+ * Who the Notfall banner's «Sicherungstrupp bestimmen» can name (owner, 30.10.2026: «as sicherung
+ * we can't select an existing trupp that might go to help (i.e. one that is doing something else
+ * in the building)»; picked «Becomes Sicherung»): every Atemschutz-Trupp on the board that is not
+ * in a Notfall itself and not already the Sicherungstrupp, in three groups, the order the menu
+ * offers them — standing ready first (no air spent), then the crews inside or on Rückzug (closest
+ * to the casualty, their clock keeps running), then the ones out (a fresh bottle first: their pick
+ * opens the re-entry form). Kept in the caller's order within each group.
+ */
+export function safetyCandidates(trupps: readonly Trupp[]): { ready: Trupp[]; inside: Trupp[]; out: Trupp[] } {
+  const pool = trupps.filter((t) => !t.removedAt && isAtemschutzTrupp(t) && !truppInNotfall(t))
+  return {
+    ready: pool.filter((t) => t.status === 'angemeldet' && t.auftrag !== 'sichern'),
+    inside: pool.filter((t) => truppInField(t) && t.auftrag !== 'sichern'),
+    out: pool.filter((t) => t.status === 'raus'),
+  }
+}
+
 /** What the record last KNOWS about a Trupp in a Notfall — the facts the banner, the Meldeleiste
  *  row and the Verlauf row name. Pure; the PLACE is the caller's (it knows the plans and the map). */
 export interface NotfallFacts {

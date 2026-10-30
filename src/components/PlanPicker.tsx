@@ -17,47 +17,10 @@ import { fmtDistance } from '../lib/geo'
 import { listObjects, type ObjectWithPlans } from '../lib/incidents'
 import { Overlay } from '../lib/overlays'
 import type { LngLat } from '../types'
-import { cartoRasterTiles, withCartoLabelsBaked } from '../lib/carto'
-import { defaultLayers } from '../lib/workspace'
+import { PICKER_BASE_SOURCE, pickerBaseStyle } from '../lib/pickerBaseStyle'
 import { useNightTheme } from '../lib/useNightTheme'
 import { useGlRecovery } from '../lib/useGlRecovery'
 import { useDragClosesKeyboard } from '../lib/iosKeyboard'
-
-/** the one raster source in the mini-map's style — named, because the tile events below
- *  have to tell OUR base map apart from anything else MapLibre reports on */
-const BASE_SOURCE = 'base'
-
-/**
- * The mini-map's style: the SAME base layer the Lagekarte draws, at the screen's tile
- * resolution and with the deployment's CARTO key already on it (workspace · defaultLayers →
- * lib/carto), and its purpose-built dark raster in night mode.
- *
- * It used to hard-code `rastertiles/voyager` on subdomains a+b. That made the preview the one
- * map in the app on its own tile addresses: a day basemap inside a night dialog, outside what
- * the offline prefetch cached (`useOfflinePrefetch` warms the base layer's templates), and
- * dependent on a CARTO key the rest of the surface may not even be using. Owner, round 7
- * point 17: «When opening Andres Objekt the map stayed empty and looks rather sad» — with the
- * flags drawn over it, which is what a style whose tiles never arrive looks like.
- */
-const baseStyle = (night: boolean) => {
-  const bases = defaultLayers().filter((l) => l.base)
-  const base = bases.find((l) => l.visible) ?? bases[0]
-  // a plain raster style, no vector names on top: the labelled twin of the base (lib/carto)
-  const tiles = (night && base?.nightTiles?.length ? base.nightTiles : base?.tiles)?.map(withCartoLabelsBaked) ?? cartoRasterTiles('rastertiles/voyager', ['a', 'b'])
-  return {
-    version: 8 as const,
-    sources: {
-      [BASE_SOURCE]: {
-        type: 'raster' as const,
-        tiles,
-        tileSize: 256,
-        maxzoom: base?.maxzoom,
-        attribution: base?.attribution ?? '© CARTO, © OpenStreetMap-Mitwirkende',
-      },
-    },
-    layers: [{ id: BASE_SOURCE, type: 'raster' as const, source: BASE_SOURCE }],
-  }
-}
 
 const pdfCount = (o: ObjectWithPlans) => o.plans.filter((p) => p.kind === 'pdf' && p.module).length
 
@@ -91,7 +54,7 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
   const userPos = useGeoPosition(phone)
   const pp = appConfig.copy.planPicker
   const night = useNightTheme()
-  const style = useMemo(() => baseStyle(night), [night])
+  const style = useMemo(() => pickerBaseStyle(night), [night])
   const [q, setQ] = useState('')
   const [objects, setObjects] = useState<ObjectWithPlans[]>([])
   const [loading, setLoading] = useState(true)
@@ -225,7 +188,7 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
                 dragRotate={false}
                 onLoad={() => setMapReady(true)}
                 onSourceData={(e) => {
-                  if (e.sourceId !== BASE_SOURCE || !e.isSourceLoaded) return
+                  if (e.sourceId !== PICKER_BASE_SOURCE || !e.isSourceLoaded) return
                   basePainted.current = true
                   setBaseFailed(false)
                 }}

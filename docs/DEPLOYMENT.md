@@ -486,7 +486,9 @@ Two things back that doctrine beyond "please don't":
 - **The app itself never reloads a running session out from under an operator.** A fresh deploy
   installs and waits (`registerType: 'prompt'`, `vite.config.ts`); the only automatic, no-prompt
   activation happens in the boot window right after a page loads, before any interaction – there
-  is nothing running yet to interrupt. Once someone is mid-session, a waiting build is only ever
+  is nothing running yet to interrupt – or when the Einsatz on screen was saved by a NEWER build:
+  that view is read-only until the newer build is in, so the app fetches it and reloads by itself,
+  and says «Neuere App-Version nötig» only when it cannot (30.10.2026). Once someone is mid-session, a waiting build is only ever
   surfaced as the calm «Update verfügbar» message (in the Einsatz and on «Karte & Objekte», the
   home with no Einsatz open), and nothing happens until a person decides:
   either the next full close-and-reopen, or – since 16.09.2026, everywhere but iOS – one tap on

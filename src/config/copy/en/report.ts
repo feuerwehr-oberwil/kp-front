@@ -215,7 +215,6 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     zeitBeforeAlarm: 'Earlier than the alarm ({t})',
     zeitBeforeAusgerueckt: 'Earlier than turnout ({t})',
     zeitFuture: 'In the future',
-    madeToast: 'Report created',
     guideNext: 'Next open point',
     guideLast: 'Last open point',
     guideLeft: '{n} still open',

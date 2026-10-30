@@ -334,6 +334,25 @@ describe('request — timeouts (half-open connections)', () => {
     expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal)
   })
 
+  // iOS < 16 has no AbortSignal.timeout: the request ran unbounded there, and a half-open one kept
+  // «Gebäudeumrisse werden geladen …» up for good (sweep 30.10.2026, #11)
+  it('still times out where AbortSignal.timeout does not exist', async () => {
+    vi.useFakeTimers()
+    const timeout = AbortSignal.timeout
+    ;(AbortSignal as { timeout?: unknown }).timeout = undefined
+    try {
+      fetchMock.mockImplementationOnce((_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => reject(init.signal?.reason ?? new DOMException('aborted', 'AbortError')))
+      }))
+      const err = apiGet('/api/x').catch((e: unknown) => e)
+      await vi.advanceTimersByTimeAsync(20_000)
+      expect(await err).toMatchObject({ status: 0, timedOut: true })
+    } finally {
+      AbortSignal.timeout = timeout
+      vi.useRealTimers()
+    }
+  })
+
   it('maps its own timeout abort to ApiError(0) with the timeout wording', async () => {
     fetchMock.mockRejectedValueOnce(new DOMException('timed out', 'TimeoutError'))
     const err = await apiGet('/api/x').catch((e: unknown) => e)

@@ -48,15 +48,29 @@ export const CONNECTOR_TIMEOUT_MS = 5 * 60_000
  * Over plain HTTP/1.1 they occupy 2 of the browser's 6 per-origin connections.
  */
 export const LONG_POLL_TIMEOUT_MS = 35_000
+/**
+ * The bound for `POST /api/overpass/buildings`. The server races the Overpass mirrors and gives
+ * each up to FETCH_TIMEOUT_S (backend app/overpass.py, 30 s wall-clock) before it falls back to the
+ * station's stored outlines — so the 20 s default cut off exactly the answers that were on their
+ * way, and the picker said «nicht erreichbar» over a server still working. ABOVE that bound with
+ * a margin for the snapshot read; `OsmOutline.test` reads the server constant and holds the order.
+ * Not a field-screen bound in disguise: the picker shows «Erneut versuchen» after 5 s regardless.
+ */
+export const OVERPASS_TIMEOUT_MS = 45_000
 
-/** AbortSignal that fires after `ms`. Guarded: an environment without AbortSignal.timeout
- *  simply keeps the old unbounded behaviour rather than failing every request. Exported for
- *  the few callers that must use a bare `fetch` (cross-origin tiles, the print relay's
- *  FormData posts, the peaks poll) — «no fetch may be unbounded» holds for them too. */
+/** AbortSignal that fires after `ms`. Exported for the few callers that must use a bare `fetch`
+ *  (cross-origin tiles, the print relay's FormData posts, the peaks poll) – «no fetch may be
+ *  unbounded» holds for them too.
+ *  ⚠️ Without `AbortSignal.timeout` (iOS before 16) a controller and a timer do the same: this
+ *  used to answer `undefined` there, and every request on such a device ran unbounded – a
+ *  half-open one kept «Gebäudeumrisse werden geladen …» up for good (sweep 30.10.2026, #11). */
 export function timeoutSignal(ms: number): AbortSignal | undefined {
-  return typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
-    ? AbortSignal.timeout(ms)
-    : undefined
+  if (typeof AbortSignal === 'undefined') return undefined
+  if (typeof AbortSignal.timeout === 'function') return AbortSignal.timeout(ms)
+  if (typeof AbortController === 'undefined') return undefined
+  const ctrl = new AbortController()
+  setTimeout(() => ctrl.abort(new DOMException('signal timed out', 'TimeoutError')), ms)
+  return ctrl.signal
 }
 
 /** Did this rejection come from our own timeout rather than a hard network failure? Used only

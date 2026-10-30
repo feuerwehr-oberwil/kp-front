@@ -24,7 +24,7 @@
    its own and no shadow – a frame inside the bar's frame read as one more button among the
    readouts, where it is the bar's name. It reads like the weather readout beside it; hover and
    the press/open wash below still lay over it. The Karte's menu button is quiet the same way
-   (28.10.2026, Karte.module · .einsaetze); its search pill keeps the glass.
+   (28.10.2026, Karte.module · .einsaetze), and so is its search button (30.10.2026, .searchBtn).
    Its height is the bar's buttons' (`.tb-act`, 10-journal; the touch floor in 20-touch-floors), so
    the hover/open wash is as tall as Verlauf's (owner, 27.10.2026: it was 32px beside their 42);
    the Einsatzuhr beside it the same (18-audio). */
@@ -98,11 +98,16 @@
   overflow-wrap: anywhere; }
 .az-head-detail .az-hd-addr { margin: 0; font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink-dim);
   overflow-wrap: anywhere; }
+/* the link board's way back, one quiet line (a once-per-device toast until 30.10.2026 — the link
+   shows no toasts since sweep #23; AtemschutzView · headDetail) */
+.az-head-detail .az-hd-hint { margin: 8px 0 0; font: var(--fw-medium) var(--fs-1)/1.4 var(--body); color: var(--ink-dim); }
 /* the Stand, in its LONG voice — «Gespeichert um 18:05», not the bare time the row shrank it to.
    Its own rule above the line, because it answers a different question than the two lines do. */
 .az-head-detail .az-hd-sync { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
   margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--glass-line); }
 .az-head-detail .az-hd-sync .ip-offline-chip .i { width: 12px; height: 12px; flex: none; opacity: 1; }
+/* the LONG voice wraps inside the panel (it ran out of it: «… wird synchronisiert, sobal…») */
+.az-head-detail .az-hd-sync .ip-offline-chip { white-space: normal; max-width: 100%; }
 /* THE ACTIVE EINSATZ AS A CARD — the heaviest object in the menu, and the only one with a
    surface of its own: green status edge, Titel, Adresse, two status pills, and the Einsatz's
    own actions along its bottom. Everything below it is deliberately lighter, so one look
@@ -1687,6 +1692,9 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 .rp-head { flex: none; display: flex; align-items: center; gap: var(--head-gap); flex-wrap: nowrap;
   padding: var(--head-pad); min-height: calc(var(--tap) + 2 * var(--head-pad-y));
   background: var(--surface); box-shadow: inset 0 -1px 0 var(--glass-edge); }
+/* …and on a phone, like the shared head, it is no band: the page has no card there to band
+   (Surface.module.css · the phone block, sweep 30.10.2026 #12) */
+@media (--phone) { .rp-head { background: none; box-shadow: none; } }
 .rp-head-titles { flex: 1 1 auto; min-width: 0; }
 .rp-head[data-fit-wrap] { flex-wrap: wrap; }
 .rp-head[data-fit-wrap] > .rp-head-titles { flex-basis: 100%; }
@@ -2372,14 +2380,9 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .as-link-shell { position: fixed; inset: 0; display: flex; flex-direction: column;
   background: var(--app-bg); overflow: hidden;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
-/* Its toasts come from the TOP: the shell has no rail, so a bottom toast sat exactly on the
-   card's Rückzug / Draussen row — the one row a Kontakt-Rückgängig must not cover. */
-:root:has(.as-link-shell) .toaster { top: max(12px, env(safe-area-inset-top)); bottom: auto; flex-direction: column; }
-/* …but only while the Tafel itself is what's on screen (05.09.): behind a full-screen editor
-   sheet there is no Rückzug row to protect, and a toast at the top read as a system alert.
-   With a dialog open the lane returns to the app's normal bottom anchor (08-toasts.css). */
-:root:has(.as-link-shell):has(.ip-sheet) .toaster {
-  top: auto; bottom: max(28px, calc(16px + env(safe-area-inset-bottom))); flex-direction: column-reverse; }
+/* No toast lane here: the Link shows no toasts at all (App · <Overlays toasts={false} />, sweep
+   30.10.2026 #23) — at the top they covered the header's ↶ ↷ and the Notfall banner, at the
+   bottom the card's Rückzug / Draussen row. */
 /* The Erfassungs-Poster gets the same TOP lane (Feldtest 07.09.): it is a scrolling PAGE, and
    on iOS the layout viewport pans under the keyboard and the collapsing URL bar — a
    bottom-fixed pill rode that pan into the middle of the roster, square over the rows being

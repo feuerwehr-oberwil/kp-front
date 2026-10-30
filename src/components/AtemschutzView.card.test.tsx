@@ -15,6 +15,7 @@ import { AtemschutzView } from './AtemschutzView'
 import { useIsPhone } from '../lib/useIsPhone'
 import s from './Atemschutz.module.css'
 import { registerAtemschutzViewHooks, az, druckName, dz, iso, aktivTrupp, propsFor, mount } from './AtemschutzView.setup'
+import type { Trupp } from '../types'
 
 vi.mock('../lib/useIsPhone', async (original) => ({ ...await original<typeof import('../lib/useIsPhone')>(), useIsPhone: vi.fn(() => false) }))
 registerAtemschutzViewHooks()
@@ -439,9 +440,12 @@ describe('the opened phone card wears the collapsed row’s line and pair', () =
       fireEvent.click(screen.getByText(name).closest(`.${s.trow}`)!)
       const card = document.querySelector('[data-az-open]') as HTMLElement
       expect(within(card).getByRole('button', { name: az.actContact }).className).toContain(tier)
-      // …and the tier never by colour alone: seen as the glyph under the head's clock (B5,
-      // 08.10.2026; glyph only since 09.10.2026), and heard once, as the card's status line
-      expect(card.querySelector(`.${s.trowHead} .${s.trowTier} use`)!.getAttribute('href')).toBe(tier === s.kontaktWarn ? '#clock' : '#warn')
+      // …and «Überfällig» never by colour alone: seen as the triangle at the head's clock (B5,
+      // 08.10.2026), and heard once, as the card's status line. «Fällig» is its amber alone
+      // (owner, 30.10.2026: «remove the ugly clock icon»).
+      const glyph = card.querySelector(`.${s.trowHead} .${s.trowTier} use`)
+      if (tier === s.kontaktWarn) expect(glyph).toBeNull()
+      else expect(glyph!.getAttribute('href')).toBe('#warn')
       expect(within(card).getByRole('status').textContent).toBe(tier === s.kontaktWarn ? az.clockWarn : az.clockOverdue)
       fireEvent.click(within(card).getByRole('button', { name: new RegExp(az.collapse) }))
     }
@@ -464,15 +468,46 @@ describe('the opened phone card wears the collapsed row’s line and pair', () =
   })
 })
 
-/* B5, 08.10.2026: the phone row carried fällig / überfällig by colour alone — no answer in direct
- * sun or to a colour-blind reader. A glyph now stands in the clock cell (no new row), a different
- * one per tier – fällig's clock under the digits, the triangle in front of them (24.10.2026); glyph only (owner, 09.10.2026: «Symbol only»), the word is
- * in the row's spoken name and the hover title, and the Alarmdruck never reads «Überfällig». */
+/* Owner, 30.10.2026: «for all trupps already show the next action (i.e. im einsatz) rather than
+ * the empty time» — a Bereit row's «–:––» is its «Im Einsatz» now, the SafetyRow's button. */
+describe('a Trupp at the door shows its next act where the empty clock stood', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+  const waiting = (): Trupp => ({ ...aktivTrupp(), id: 'w', name: 'Wait Wendy', status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [] })
+  const row = () => screen.getByText('Wait Wendy').closest(`.${s.trow}`) as HTMLElement
+
+  it('«Im Einsatz» in the clock cell goes in without opening the card', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const setTruppStatus = vi.fn()
+    mount({ trupps: [waiting()], setTruppStatus })
+    expect(row().querySelector(`.${s.trowClockVal}`)).toBeNull()
+    fireEvent.click(within(row().querySelector(`.${s.trowClock}`) as HTMLElement).getByRole('button', { name: az.actEnter }))
+    expect(setTruppStatus).toHaveBeenCalledWith('w', 'aktiv')
+    expect(document.querySelector('[data-az-open]')).toBeNull()
+  })
+
+  it('a viewer gets an empty cell, and the opened card keeps the act to its tile', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [waiting()], canEdit: false })
+    expect(row().querySelector(`.${s.trowClock}`)!.textContent).toBe('')
+    cleanup()
+    mount({ trupps: [waiting()] })
+    fireEvent.click(row())
+    const card = document.querySelector('[data-az-open]') as HTMLElement
+    expect(card.querySelector(`.${s.trowHead} .${s.trowClock}`)!.textContent).toBe('')
+    expect(within(card).getAllByRole('button', { name: az.actEnter })).toHaveLength(1)
+  })
+})
+
+/* B5, 08.10.2026: the phone row carried überfällig by colour alone — no answer in direct sun or
+ * to a colour-blind reader. The triangle now stands in front of the digits in the clock cell (no
+ * new row, 24.10.2026); glyph only (owner, 09.10.2026: «Symbol only»), the word is in the row's
+ * spoken name and the hover title, and the Alarmdruck never reads «Überfällig». «Fällig» has no
+ * glyph since 30.10.2026 (owner: «remove the ugly clock icon») — its amber and its spoken word. */
 describe('the phone row says its tier with a glyph, not colour alone', () => {
   afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
   const tierOf = (name: string) => screen.getByText(name).closest(`.${s.trow}`)!.querySelector(`.${s.trowClock} .${s.trowTier}`)
 
-  it('marks «Fällig» with the clock, «Überfällig» with the triangle, and a calm Trupp with nothing', () => {
+  it('marks «Überfällig» and the Alarmdruck with the triangle, and «Fällig» and a calm Trupp with nothing', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const low = (dz.alarmBar ?? 50) - 10
     mount({ trupps: [
@@ -483,25 +518,18 @@ describe('the phone row says its tier with a glyph, not colour alone', () => {
         readings: [{ t: iso(10 * 60_000), bar: 300, kind: 'entry' }, { t: iso(60_000), bar: low, kind: 'pressure' }] },
     ] })
     expect(tierOf('Calm Karl')).toBeNull()
-    const due = tierOf('Due Dora')!, over = tierOf('Over Otto')!, press = tierOf('Low Paula')!
+    expect(tierOf('Due Dora')).toBeNull()
+    const over = tierOf('Over Otto')!, press = tierOf('Low Paula')!
     // glyph only — no word drawn, the word is the title (and the row's aria-label, below)
-    expect(due.textContent).toBe('')
-    expect(due.getAttribute('title')).toBe(az.rowDue)
-    expect(due.querySelector('use')!.getAttribute('href')).toBe('#clock')
-    expect(due.className).not.toContain(s.trowTierCrit)
     expect(over.textContent).toBe('')
     expect(over.getAttribute('title')).toBe(az.clockOverdue)
     expect(over.querySelector('use')!.getAttribute('href')).toBe('#warn')
-    expect(over.className).toContain(s.trowTierCrit)
     // a pressure alarm is a different event: it says so, and never «Überfällig»
     expect(press.getAttribute('title')).toBe(az.clockAlarmPressure)
     expect(press.querySelector('use')!.getAttribute('href')).toBe('#warn')
-    // the triangle stands in FRONT of the digits on the clock's line, the clock glyph under them
-    // (sweep M3, 24.10.2026)
+    // the triangle stands in FRONT of the digits on the clock's line (sweep M3, 24.10.2026)
     for (const crit of [over, press]) expect(crit.nextElementSibling!.className).toContain(s.trowClockVal)
-    expect(due.parentElement!.className).toContain(s.trowClock)
-    expect(due.previousElementSibling!.className).toContain(s.trowSub)
-    // …and the row's spoken name carries the word too (the mark itself is aria-hidden)
+    // …and the row's spoken name carries the word (the mark itself is aria-hidden)
     expect(screen.getByText('Due Dora').closest(`.${s.trow}`)!.getAttribute('aria-label')).toContain(az.rowDue)
     expect(screen.getByText('Low Paula').closest(`.${s.trow}`)!.getAttribute('aria-label')).toContain(az.clockAlarmPressure)
   })

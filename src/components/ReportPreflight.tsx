@@ -744,11 +744,12 @@ export function ReportPreflight({
     setPdfBusy(true)
     try {
       await downloadDirectReportPdf({ ...pdfArgs(draft), signatures: printedSignatures(liveSigs, sigValid, closed) })
-      // The PDF itself used to be the only feedback, and it still is the proof — but it is also
-      // the moment everything except the bookkeeping is done, and nothing ever said so.
+      // The PDF is the proof; the next step («Einsatz abschliessen») is said by the Abschluss band
+      // under the head, which `reportMadeAt` turns on. No toast beside it (owner #31, 30.10.2026):
+      // the same words twice, one of them over the head. A fresh PDF brings a band put away with
+      // «Später» back – this is the moment it exists for.
       stampReportMade(framing)
-      const offer = completeOffer()
-      if (offer) toast(P.madeToast, { icon: 'check', action: offer })
+      showBand()
     } catch {
       toast(appConfig.copy.report.pdfFailed, { icon: 'warn', tone: 'warn' })
     } finally {
@@ -1121,6 +1122,10 @@ export function ReportPreflight({
   const hideBand = () => {
     bandDismissed.current.add(incident.id)
     setBandHidden(true)
+  }
+  const showBand = () => {
+    bandDismissed.current.delete(incident.id)
+    setBandHidden(false)
   }
   const showCloseBand = !!onComplete && !!meta.reportMadeAt && missing.length === 0 && !bandHidden
   // …and ONE step earlier (owner pick 15B, 28.10.2026): everything recorded, no PDF yet – the band
@@ -1514,7 +1519,9 @@ export function ReportPreflight({
               no «Entfällt», no steppers, no picker, no ✕ – because a disabled form is a row of
               doors the session cannot go through. */}
           <fieldset className="report-fieldset" disabled={!canEdit}>
-          <section className="report-pre-section report-pre-meta" data-tab="bericht">
+          <section
+            className={`report-pre-section report-pre-meta${onEditDispatch ? ' report-meta-dispatch-click' : ''}`}
+            data-tab="bericht" onClick={onEditDispatch}>
             {/* No <h3> here: the dispatch block carries its own «Aus den Einsatzdaten» heading,
                 and the whole card is the edit affordance, so a section title above it was the
                 same words twice. The other three sections have one because they have nothing
@@ -1527,11 +1534,11 @@ export function ReportPreflight({
                 pure pointer convenience — exactly as before. The visible «Bearbeiten» chip is
                 gone, but a real (icon-only) button stays: it is the keyboard/AT target the card
                 itself can never be, and `stopPropagation` keeps the card's own handler from
-                also firing and asking twice from one tap. */}
-            <div
-              className={`report-meta-dispatch${onEditDispatch ? ' report-meta-dispatch-click' : ''}`}
-              onClick={onEditDispatch}
-            >
+                also firing and asking twice from one tap.
+                The click sits on the SECTION, the card itself (owner #32, 30.10.2026): it lights
+                and presses its own edge like Anwesenheit/Material beside it, instead of a second
+                grey box drawn inside the card. */}
+            <div className="report-meta-dispatch">
               <div className="report-meta-dispatch-head">
                 <span>{P.fromDispatch}</span>
                 {onEditDispatch && (

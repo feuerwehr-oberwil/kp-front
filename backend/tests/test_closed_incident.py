@@ -564,10 +564,11 @@ async def test_a_newer_build_correcting_the_rapport_of_an_older_builds_einsatz_i
     assert r.status_code == 200, r.text
 
 
-async def test_an_older_builds_rapport_correction_keeps_the_pages_and_is_not_refused(client, editor):
-    """…and the other way round: a v2 device never saw the Tafel pages a v3 one wrote. Its
-    Rapport correction on the closed Einsatz is compared AFTER the pages are put back, so it is
-    neither refused as «pages deleted» nor does it delete them."""
+async def test_an_older_builds_rapport_correction_is_refused_and_the_pages_stay(client, editor):
+    """…and the other way round: a v2 device never saw the Tafel pages a v3 one wrote. Until
+    30.10.2026 its Rapport correction went through with the pages put back; now a save from an
+    older build is refused whole (workspace_kinds · refuse_older_build — it would also drop every
+    other entry and key it could not read), and nothing of the closed record changes."""
     await _login(client, editor)
     inc = await _incident(client)
     ws = {
@@ -583,7 +584,8 @@ async def test_an_older_builds_rapport_correction_keeps_the_pages_and_is_not_ref
     r = await client.put(
         f"/api/incidents/{inc}/workspace", json={"workspace": old_build, "base_rev": r.json()["workspace_rev"]}
     )
-    assert r.status_code == 200, r.text
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["code"] == "workspace_older_build"
     saved = (await client.get(f"/api/incidents/{inc}/workspace")).json()["workspace"]
-    assert saved["reportMeta"] == {"kurzbericht": "korrigiert"}
+    assert saved["reportMeta"] == {"kurzbericht": "Brand"}
     assert [o["id"] for o in saved["objects"]] == ["fm1"]

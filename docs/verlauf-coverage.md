@@ -84,8 +84,12 @@ Atemschutz-Trupp on Auftrag «Sichern» writes «Trupp N (…): Sicherungstrupp 
 «Einsetzen» or the card's «Im Einsatz». Derived from the Trupp, not from the button. The log row
 underneath is an ordinary `entry`, and ↶ takes it back like any Eintritt. The Abschluss's
 «Als «nicht eingesetzt» schliessen» writes the existing «Trupp … nicht eingesetzt» row, one per
-Trupp still angemeldet. «Sicherungstrupp bestimmen» on an existing Trupp is an ordinary edit
-(«Auftrag Sichern»). A double contact answered «OK» (another device confirmed it < 60 s ago)
+Trupp still angemeldet. «Bestimmen» at the Sicherungstrupp head on an existing Trupp is an
+ordinary edit («Auftrag Sichern»). The Notfall banner's «Sicherungstrupp bestimmen» (2026-10-30)
+can also name a crew that is inside: its own row «Trupp N (…): als Sicherungstrupp bestimmt –
+Notfall Trupp M (…) – bisher Löschen» (`notfall.logSafetyDesignated`, `useTruppActions ·
+designateSafety`), because that crew never writes a first Eintritt again; one ↶ step. A crew
+that is out goes through its re-entry form on «Sichern» and writes the re-entry rows. A double contact answered «OK» (another device confirmed it < 60 s ago)
 writes nothing at all.
 
 ⚠️ **The first Druck after the Eintritt is a Kontakt that says what it replaced** (2026-09-25):

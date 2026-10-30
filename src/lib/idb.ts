@@ -163,34 +163,56 @@ function openDb(): Promise<IDBDatabase> {
   return dbPromise
 }
 
-function txOnce<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
-  return openDb().then(
-    (db) =>
-      new Promise<T>((resolve, reject) => {
-        let t: IDBTransaction
-        try {
-          t = db.transaction(STORE, mode)
-        } catch (e) {
-          // A closed connection throws here, synchronously. Forget it before rejecting so the
-          // retry in `tx` (and every later caller) opens a fresh one.
-          if (isInvalidState(e)) forgetConnection(db)
-          reject(e)
-          return
-        }
-        const req = run(t.objectStore(STORE))
-        let result!: T
-        let requestError: DOMException | null = null
+/** How long a READ transaction may stay silent. WebKit can accept one and then fire neither
+ *  `complete` nor `error` nor `abort` — a connection gone bad without its `close` event. The
+ *  Gebäude picker awaited such a read before it asked the server, so «Gebäudeumrisse werden
+ *  geladen …» stayed up for good (sweep 30.10.2026, #11). Past the bound the read fails (`idbRead`
+ *  → `ok: false`, the path every caller already has) and the connection is forgotten, so the
+ *  next operation opens a fresh one.
+ *  Twice the open bound: a read waits in line behind a running write on the same store, and a
+ *  fat Einsatz's workspace write on an old iPad is the slow case that must not trip it.
+ *  Writes are NOT bounded: a large workspace write may be slow and still commit, and a write
+ *  given up on would fall to the localStorage fallback and report degraded storage for it. */
+const READ_TIMEOUT_MS = 10_000
 
-        // A request succeeding only means it was accepted by the transaction. The transaction
-        // can still abort afterwards (quota, I/O failure, another request), rolling the write
-        // back. Resolve only from oncomplete so `idbSet(...).then(true)` means committed.
-        req.onsuccess = () => { result = req.result }
-        req.onerror = () => { requestError = req.error }
-        t.oncomplete = () => requestError ? reject(requestError) : resolve(result)
-        t.onerror = () => reject(t.error ?? requestError ?? new Error('IndexedDB transaction failed'))
-        t.onabort = () => reject(t.error ?? requestError ?? new Error('IndexedDB transaction aborted'))
-      }),
-  )
+function txOnce<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+  return openDb().then((db) => {
+    const done = new Promise<T>((resolve, reject) => {
+      let t: IDBTransaction
+      try {
+        t = db.transaction(STORE, mode)
+      } catch (e) {
+        // A closed connection throws here, synchronously. Forget it before rejecting so the
+        // retry in `tx` (and every later caller) opens a fresh one.
+        if (isInvalidState(e)) forgetConnection(db)
+        reject(e)
+        return
+      }
+      const req = run(t.objectStore(STORE))
+      let result!: T
+      let requestError: DOMException | null = null
+
+      // A request succeeding only means it was accepted by the transaction. The transaction
+      // can still abort afterwards (quota, I/O failure, another request), rolling the write
+      // back. Resolve only from oncomplete so `idbSet(...).then(true)` means committed.
+      req.onsuccess = () => { result = req.result }
+      req.onerror = () => { requestError = req.error }
+      t.oncomplete = () => requestError ? reject(requestError) : resolve(result)
+      t.onerror = () => reject(t.error ?? requestError ?? new Error('IndexedDB transaction failed'))
+      t.onabort = () => reject(t.error ?? requestError ?? new Error('IndexedDB transaction aborted'))
+    })
+    if (mode !== 'readonly') return done
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        forgetConnection(db)
+        reject(new Error('IndexedDB read timed out'))
+      }, READ_TIMEOUT_MS)
+      done.then(
+        (v) => { clearTimeout(timer); resolve(v) },
+        (e: unknown) => { clearTimeout(timer); reject(e) },
+      )
+    })
+  })
 }
 
 const isInvalidState = (e: unknown) => (e as { name?: unknown } | null)?.name === 'InvalidStateError'

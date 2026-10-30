@@ -6,7 +6,7 @@
 // alarm itself runs app-wide in `useAtemschutzAlarm`, so it fires while this page is not on screen.
 // Rules for this area: docs/atemschutz-board.md.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactElement } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from '../lib/format'
@@ -15,9 +15,9 @@ import { cx } from '../lib/cx'
 import { newId } from '../lib/ids'
 import { Button } from './Button'
 import { Menu, Overlay, Popover } from '../lib/overlays'
-import { NotfallBanner } from './AtemschutzNotfall'
+import { NotfallBanner, NotfallPageHead, NotfallStrip, type SafetyActProps } from './AtemschutzNotfall'
 import { DoubleAssignmentBanner } from './DoubleAssignmentBanner'
-import { alarmBarFor, deriveTruppLive, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, isAtemschutzTrupp, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
+import { alarmBarFor, deriveTruppLive, safetyCandidates, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, isAtemschutzTrupp, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
 import { foreignContactAgo } from '../lib/contactEcho'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
@@ -36,8 +36,9 @@ import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
 import { truppOrderKey } from '../lib/useTruppActions'
 import s from './Atemschutz.module.css'
 import { AuftragSheet, KanalSheet, PressureSheet, TruppSheet } from './TruppSheets'
-import { ClockVal, TruppCard, TruppRow } from './TruppCard'
-import { collapsedClock, tierMark } from './truppCardText'
+import { ClockVal, RowEnter, TruppCard, TruppRow } from './TruppCard'
+import { tabState, tierMark } from './truppCardText'
+import { notfallStrips } from '../lib/notfall'
 import { TruppForm, type FormMode, type TruppSubmitExtra } from './TruppForm'
 
 /**
@@ -83,7 +84,7 @@ const HEAD_FOLD = { saved: 1, order: 2, share: 3, restore: 4, overdue: 5, bell: 
 const nfInset = (el: HTMLElement | null) => (el ? el.offsetHeight + 12 : 0)
 
 export function AtemschutzView({
-  trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, keepInOneTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, unlinkTruppLine, dockedAt,
+  trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, keepInOneTrupp, designateSafety, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, unlinkTruppLine, dockedAt,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus, createRequest, onShareLink, shareLinkActive = false, lite, frozenAt, triggerNotfall, endNotfall, placeOf,
@@ -144,6 +145,10 @@ export function AtemschutzView({
    *  takes the person out of every other active Trupp (useTruppActions · keepInOneTrupp).
    *  Absent ⇒ the band names the conflict without offering the choice. */
   keepInOneTrupp?: (keepTruppId: string, personId: string) => boolean
+  /** the Notfall banner's «Sicherungstrupp bestimmen» on a Trupp already on the board: its Auftrag
+   *  becomes «Sichern» with its own Verlauf row (useTruppActions · designateSafety). Absent: the
+   *  ordinary edit does it. */
+  designateSafety?: (id: string, forId: string) => boolean
   /** The Atemschutznotfall (F1, 08.10.2026): raise it on a crew inside / end it — both HELD on
    *  the card (AtemschutzNotfall · NotfallHold). Absent ⇒ the board offers neither. */
   triggerNotfall?: (id: string) => void
@@ -328,34 +333,6 @@ export function AtemschutzView({
     lastShownFocusNonce = externalFocus.nonce
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.nonce])
-  /**
-   * «Passiert, dass ich drücke. Benötigte dann den Code nochmals.» (field feedback, 02.09.,
-   * Safari's own ✕). A `beforeunload` confirm is not the fix here: iOS Safari does not reliably
-   * show one for a plain tab close, and `useIncidentSync` already dropped `beforeunload`
-   * app-wide because it blocks the back/forward cache — adding it back for one surface would
-   * regress that for every surface sharing the page. What answers the field report is that the
-   * ADDRESS is the way back: opening the same link again — from the message it arrived in, the
-   * browser's own history, or the QR held out a second time — puts this exact board back, and
-   * the exchange behind it is invisible.
-   *
-   * ⚠️ It says the LINK, not the device (reworded 02.09.). It used to promise that «this device
-   * stays signed in for a few hours», which was true of the cookie and wrong about everything
-   * else: a link signs nothing in, and the sentence taught the one thing a handed-over board
-   * must never suggest — that scanning somebody's QR did something to this phone's own login.
-   * Once per device (localStorage), and only on the handed-over board, which is the only screen
-   * whose holder cannot simply reach the rest of the app.
-   */
-  useEffect(() => {
-    if (!lite) return
-    const KEY = 'kp.atemschutz.linkReentryHintSeen'
-    try {
-      if (localStorage.getItem(KEY) === '1') return
-      localStorage.setItem(KEY, '1')
-    } catch { /* private mode / storage disabled — show it every time rather than never */ }
-    toast(az.linkReentryHint, { icon: 'info', duration: 9000 })
-    // once per mount only, and `lite` never flips within a session
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
   // a Trupp awaiting a Gebäude/Modul-6 placement choice (only when >1 target exists)
   const [placePick, setPlacePick] = useState<string | null>(null)
   const handlePlace = (id: string) => {
@@ -636,6 +613,10 @@ export function AtemschutzView({
   const notfallTrupps = frozenAt != null ? [] : byHand(paBoard.filter(truppInNotfall))
   const notfallReady = byHand(safetyReady(paBoard))
   const notfallSafetyInside = safetyInside(paBoard)
+  // …and whom «Sicherungstrupp bestimmen» can name while none is ready: any other crew, a busy
+  // one included (owner, 30.10.2026 — lib/atemschutz · safetyCandidates)
+  const candidates = safetyCandidates(byHand(paBoard))
+  const notfallCandidates = [candidates.ready, candidates.inside, candidates.out]
 
   // Called from the card's action handlers — i.e. after render, so it simply closes over the
   // arrangement the operator is currently looking at. (A ref would have to be written during
@@ -1032,6 +1013,8 @@ export function AtemschutzView({
         focusNonce={nonce} focusScroll={activeFocus?.id === t.id} flashSeen={seen} onFlashed={flashed}
         onContact={(id) => { void contactTap(id) }}
         onPressure={(id) => setPressureAsk({ id, kind: 'pressure' })}
+        // the same ordinary Eintritt the card's «Im Einsatz» tile and the SafetyRow make
+        onEnter={(id) => { freezeOrder(); setTruppStatus(id, 'aktiv') }}
         onOpen={() => setOpenRow(t.id)}
         lite={!!lite}
       />
@@ -1072,6 +1055,13 @@ export function AtemschutzView({
       // this session, and a control that will fail is worse than no control (see `lite` above).
       lite={!!lite}
       onCollapse={compact && !focusMode ? () => setOpenRow(null) : undefined}
+      // the handed-over phone board: the card IS the page, and the Notfall Trupp's page opens on
+      // the Notfall itself (Atemschutz-Link redesign R1, 30.10.2026 — AtemschutzNotfall)
+      page={focusMode}
+      pageHead={focusMode && frozenAt == null && truppInNotfall(t) ? (
+        <NotfallPageHead t={t} now={now} sinceContactSec={live.get(t.id)?.sinceContactSec ?? null} {...safetyFor(t)}
+          otherSafety={noCandidates ? undefined : (trigger) => candidateMenu(t.id, trigger)} />
+      ) : undefined}
       // the Atemschutznotfall's two held doors (F1) — a closed Einsatz raises and ends nothing
       onNotfall={canEdit && triggerNotfall && frozenAt == null ? () => { freezeOrder(); triggerNotfall(t.id) } : undefined}
       onNotfallEnd={canEdit && endNotfall && frozenAt == null ? () => { freezeOrder(); endNotfall(t.id) } : undefined}
@@ -1216,7 +1206,10 @@ export function AtemschutzView({
               (owner, staging 26.09.2026: «Gespeichert um 14:49» was cut to «Gespeichert um …» —
               the time lost anyway, the sentence broken). Measured since 28.09.2026: the first rung
               of the head's ladder (`HEAD_FOLD.saved`); the time stands in `title` either way. */}
-          {!focusMode && (
+          {/* …and since 30.10.2026 (link redesign R1) the focus board's head has its second line
+              back, so the mark carries its bare time again — «✓ 12:12» after the address, where
+              it reads as the save stamp of that line, not as an operational time. */}
+          {focusMode ? (lastSyncedAt != null && <span>{formatTime(new Date(lastSyncedAt))}</span>) : (
             <span>
               <span className="fold-long">{savedAtText}</span>
               <span className="fold-short">{cpSync.saved}</span>
@@ -1259,6 +1252,13 @@ export function AtemschutzView({
     <div className="az-hd">
       <p className="az-hd-title">{lite?.title ?? lite?.subtitle ?? az.boardTitle}</p>
       {lite?.address && <p className="az-hd-addr">{lite.address}</p>}
+      {/* «Passiert, dass ich drücke. Benötigte dann den Code nochmals.» (field feedback, 02.09.,
+          Safari's own ✕): the ADDRESS is the way back — the same link again, from the message, the
+          history or the QR — and the board says so. A once-per-device toast until 30.10.2026; the
+          link board shows no toasts since sweep #23, so it is one line here, where the holder looks
+          for «what is this board» (Atemschutz-Link redesign R1). It says the LINK, never the
+          device: a link signs nothing in on this phone (reworded 02.09.). */}
+      {lite && <p className="az-hd-hint">{az.linkReentryHint}</p>}
       {(syncStatus || skewLoud) && (
         <div className="az-hd-sync">
           {syncStatus === 'synced' || syncStatus === 'pending' ? (
@@ -1291,6 +1291,51 @@ export function AtemschutzView({
     shareLinkActive, syncStatus, lastSyncedAt, skewLoud, canEdit,
   ].join('|'))
 
+  /* The Notfall's Sicherungstrupp doors, as the banner (every board) and the link page's head
+   * (focusMode) both offer them — ONE set (AtemschutzNotfall · safetyAct). «Sicherungstrupp
+   * bestimmen» (owner, 30.10.2026, «Becomes Sicherung»), and on the link page «Anderer ⌄» beside a
+   * ready one, are the same candidate menu: every other Atemschutz-Trupp, grouped under the phone
+   * board's own heads — Bereit, Drin, Draussen — then «Neuen Trupp anmelden (Sichern)». A crew
+   * bereit or inside turns «Sichern» in one act (designateSafety: its own Verlauf row, one ↶); a
+   * crew that is out needs a fresh bottle first, so its pick opens its re-entry form on «Sichern». */
+  const candidateMenu = (forId: string, trigger: ReactElement) => (
+    <Menu trigger={trigger} popupClassName="rp-print-menu" itemClassName={() => 'rp-print-menu-item'}
+      items={[
+        ...notfallCandidates.flatMap((group, gi) => group.length === 0 ? [] : [
+          { kind: 'head' as const, label: [az.phoneSectionReady, az.phoneSectionIn, az.phoneSectionOut][gi] },
+          ...group.map((x) => ({
+            label: [x.name, ...(x.members ?? [])].map((n) => n.trim()).filter(Boolean).join(' / '),
+            onClick: x.status === 'raus' ? () => openForm('redeploy', { ...x, auftrag: 'sichern' })
+              : designateSafety ? () => { freezeOrder(); designateSafety(x.id, forId) }
+              : () => editTrupp(x.id, truppFieldsOf(x, { auftrag: 'sichern' })),
+          })),
+        ]),
+        { kind: 'sep' as const },
+        { label: az.safetyPickNew, onClick: safetyPickNew },
+      ]} />
+  )
+  const noCandidates = notfallCandidates.every((g) => g.length === 0)
+  const safetyFor = (t: Trupp): SafetyActProps => ({
+    ready: notfallReady, inside: notfallSafetyInside, canEdit,
+    onDeploySafety: (id) => { freezeOrder(); setTruppStatus(id, 'aktiv') },
+    pickSafety: (trigger) => (
+      <Menu trigger={trigger} popupClassName="rp-print-menu" itemClassName={() => 'rp-print-menu-item'}
+        items={[
+          { kind: 'head' as const, label: az.notfall.sitrPickTitle },
+          ...notfallReady.map((x) => ({
+            label: [x.name, ...(x.members ?? [])].map((n) => n.trim()).filter(Boolean).join(' / '),
+            onClick: () => { freezeOrder(); setTruppStatus(x.id, 'aktiv') },
+          })),
+        ]} />
+    ),
+    onDefineSafety: safetyPickNew,
+    defineSafety: noCandidates ? undefined : (trigger) => candidateMenu(t.id, trigger),
+  })
+  // the link board: which red strips stand under its header (lib/notfall · notfallStrips), and
+  // whether the open page is the Notfall itself (its red rail and tint, `.bodyFocusNf`)
+  const nfStrips = focusMode ? notfallStrips(notfallTrupps, focusId) : []
+  const focusInNotfall = focusMode && notfallTrupps.some((t) => t.id === focusId)
+
   return (
     // `az-tafel`: the global hook the Meldeleiste folds itself to one row for, and moves the
     // Tafel below itself on (08-toasts · staging r3)
@@ -1309,8 +1354,10 @@ export function AtemschutzView({
                   where the buttons begin — «Brand PV Anlage · Amselstr…» — so the part that was
                   cut has to be reachable, and the truncated title is the one place anybody would
                   look for it. It opens the same three facts the two-row head used to print in
-                  full: Stichwort, Adresse, und ob der Stand gespeichert ist. */}
-              {/* the one title that is SUPPOSED to be cut — its door opens the rest */}
+                  full: Stichwort, Adresse, und ob der Stand gespeichert ist.
+                  ⚠️ 30.10.2026 (link redesign R1): the name is no longer cut — the trigger carries
+                  the Einsatz on two lines — and the door stays, for the long voice and the hint. */}
+              {/* the title block — free of the head's fit check, its door opens the rest */}
               <h2 className={s.headTitleH} data-fit-free>
                 <Popover
                   side="bottom" align="start" popupClassName="az-head-detail"
@@ -1330,10 +1377,21 @@ export function AtemschutzView({
                        `aria-hidden` inside it: read out, «Häkchen» in the middle of a button
                        label names neither the button nor the state, and the state is spoken in
                        full by the panel the button opens. */
+                    /* ⚠️ TWO lines since 30.10.2026 (Atemschutz-Link redesign, owner pick R1 on AB):
+                       the Einsatz in full — its title, then «Adresse · ✓ 12:12» — instead of one
+                       cut line «Zimm…». The popover behind it stays the door to the long voice. */
                     <button type="button" className={s.headTitleBtn}
                       title={az.headDetailOpen} aria-label={az.headDetailOpen}>
-                      <span>{lite?.subtitle ?? az.boardTitle}</span>
-                      {syncLine && <span className={s.headTitleSync} aria-hidden="true">{syncLine}</span>}
+                      <span className={s.headTitle2}>
+                        <b>{lite?.title ?? lite?.subtitle ?? az.boardTitle}</b>
+                        {(lite?.address || syncLine) && (
+                          <small>
+                            {lite?.address && <span className={s.headTitleAddr}>{lite.address}</span>}
+                            {/* the «· ✓ 12:12» stays glued to the end of the address however it wraps */}
+                            {syncLine && <span className={s.headTitleSync} aria-hidden="true">{lite?.address && '·'}{syncLine}</span>}
+                          </small>
+                        )}
+                      </span>
                       <Icon id="chevron-down" className="chev" />
                     </button>
                   }
@@ -1511,43 +1569,25 @@ export function AtemschutzView({
         </div>
       </header>
 
-      <div className={cx(s.body, focusMode && s.bodyFocus)} ref={bodyRef}>
+      <div className={cx(s.body, focusMode && s.bodyFocus, focusInNotfall && s.bodyFocusNf)} ref={bodyRef}>
         {/* The Atemschutznotfall stands at the TOP of the board, on every board, however it is
             sorted (F1, 08.10.2026) — the strip's row steps aside here, this is its place. Not on
             a closed Einsatz: its Tafel alarms nothing (R3). */}
-        {notfallTrupps.length > 0 && <div className={s.nfStack} ref={nfStackRef}>{notfallTrupps.map((t) => (
-          <NotfallBanner key={t.id} t={t} now={now} place={placeOf?.(t)} canEdit={canEdit} dense={notfallTrupps.length > 1} wide={!compact}
-            ready={notfallReady} inside={notfallSafetyInside}
-            onDeploySafety={(id) => { freezeOrder(); setTruppStatus(id, 'aktiv') }}
-            pickSafety={(trigger) => (
-              <Menu trigger={trigger} popupClassName="rp-print-menu" itemClassName={() => 'rp-print-menu-item'}
-                items={[
-                  { kind: 'head' as const, label: az.notfall.sitrPickTitle },
-                  ...notfallReady.map((x) => ({
-                    label: [x.name, ...(x.members ?? [])].map((n) => n.trim()).filter(Boolean).join(' / '),
-                    onClick: () => { freezeOrder(); setTruppStatus(x.id, 'aktiv') },
-                  })),
-                ]} />
-            )}
-            onDefineSafety={safetyPickNew}
-            defineSafety={phoneReady.length === 0 ? undefined : (trigger) => (
-                <Menu trigger={trigger} popupClassName="rp-print-menu" itemClassName={() => 'rp-print-menu-item'}
-                  items={[
-                    { kind: 'head' as const, label: az.safetyPickTitle },
-                    ...phoneReady.map((x) => ({
-                      label: [x.name, ...(x.members ?? [])].map((n) => n.trim()).filter(Boolean).join(' / '),
-                      onClick: () => editTrupp(x.id, truppFieldsOf(x, { auftrag: 'sichern' })),
-                    })),
-                    { kind: 'sep' as const },
-                    { label: az.safetyPickNew, onClick: safetyPickNew },
-                  ]} />
-              )}
+        {/* …except on the handed-over phone board (focusMode): there the Notfall Trupp's own page
+            IS the Notfall (NotfallPageHead, in `cards`), and every other tab stands under a red
+            strip that leads to it (Atemschutz-Link redesign R1, 30.10.2026) */}
+        {!focusMode && notfallTrupps.length > 0 && <div className={s.nfStack} ref={nfStackRef}>{notfallTrupps.map((t) => (
+          <NotfallBanner key={t.id} t={t} now={now} place={placeOf?.(t)} dense={notfallTrupps.length > 1} wide={!compact}
+            {...safetyFor(t)}
             onGo={(id) => {
               if (compact && !focusMode) setOpenRow(id)
               setPicked(id)
               setSelfFocus({ id, nonce: Date.now() })
             }} />
         ))}</div>}
+        {focusMode && nfStrips.map((st) => (
+          <NotfallStrip key={st.kind === 'one' ? st.t.id : 'many'} strip={st} now={now} onGo={setPicked} />
+        ))}
         {/* one person in two active Trupps after a sync (audit F05) — under the Notfall, above the
             sections, on every board; the choice only where this session may write */}
         <DoubleAssignmentBanner trupps={trupps} personnel={personnel}
@@ -1704,15 +1744,18 @@ export function AtemschutzView({
               const alarm = alarms.get(t.id)!
               const sev = alarm.sev
               // the tier in a glyph and a word, not tint + border alone (UX sweep F6): the row's
-              // own mark (tierMark) — clock = «Fällig», triangle = «Überfällig» / «Alarmdruck»
+              // own mark (tierMark) — triangle = «Überfällig» / «Alarmdruck»; «Fällig» is the
+              // chip's amber and a word for the screen reader (no clock glyph since 30.10.2026)
               const tier = tierMark(alarm, sev, true)
+              // the line under the name (truppCardText · tabState): «Bereit», «Rückzug 0:49», or the clock
+              const st = tabState(t, lv)
               return (
                 <button
                   key={t.id} type="button" role="tab" aria-selected={t.id === focusId}
                   className={cx(s.tab, t.id === focusId && s.tabOn, sev === 1 && s.tabWarn, sev >= 2 && s.tabCrit,
-                    // idle grey = no crew inside (out, or still at the door) — an out AS-Trupp's
-                    // break clock ticks in this quiet tone, same as the card's quiet band
-                    (lv.status === 'raus' || lv.status === 'angemeldet') && s.tabIdle)}
+                    // idle grey = a crew that is out — its break clock ticks in this quiet tone; a crew
+                    // at the door says «Bereit» in green instead (R1, 30.10.2026)
+                    lv.status === 'raus' && s.tabIdle)}
                   onClick={() => setPicked(t.id)}
                 >
                   {/* ⚠️ NO Truppfarbe dot here (round 2 review): the lite board drops every
@@ -1724,10 +1767,12 @@ export function AtemschutzView({
                       fought the wrapped name for space and added nothing the card below does
                       not say – the badge stays on the card head, the phone row and the map. */}
                   <span className={cx(s.tabName, s.tabNameWrap)}>{t.name}</span>
-                  {/* the same collapsed-time split the list row and the card make (collapsedClock) */}
-                  <span className={s.tabClock}>
-                    {tier && <><Icon id={tier.icon} className={s.tabTier} /><span className="sr-only">{tier.text}</span></>}
-                    <ClockVal val={collapsedClock(t, lv).val} />
+                  <span className={cx(s.tabClock, st.tone === 'ready' && s.tabReady, st.tone === 'rueckzug' && s.tabRueckzug)}>
+                    {/* ⚠️ the ⚠ stays on the TAB (lead call, 30.10.2026): the tab has no word
+                        «Notfall» or «Überfällig», so colour must not be its only signal */}
+                    {tier && <>{tier.crit && <Icon id="warn" className={s.tabTier} />}<span className="sr-only">{tier.text}</span></>}
+                    {st.word && <span className={s.tabWord}>{st.word}</span>}
+                    {st.clock && <ClockVal val={st.clock} />}
                   </span>
                 </button>
               )
@@ -1906,13 +1951,7 @@ function SafetyRow({ t, canEdit, onDeploy, onOpen }: {
         {t.entryPressureBar ? <span className={s.trowSafetyWho}>{t.entryPressureBar} bar</span> : null}
       </span>
       <span className={s.trowAct}>
-        {canEdit && (
-          <span role="button" tabIndex={0} className={s.safetyDeploy}
-            onClick={(e) => { e.stopPropagation(); onDeploy(t.id) }}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onDeploy(t.id) } }}>
-            {az.actEnter}
-          </span>
-        )}
+        {canEdit && <RowEnter onEnter={() => onDeploy(t.id)} />}
       </span>
     </button>
   )

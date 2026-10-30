@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Icon } from './icons'
 import { ShellLoader } from '../components/ShellLoader'
 import { appConfig } from '../config/appConfig'
@@ -93,7 +93,19 @@ export function dismissToast(id: number) {
   setTimeout(() => { toasts = toasts.filter((x) => x.id !== id); emit() }, 160)
 }
 
+/** Toasts are OFF on this screen — the Atemschutz-Link (sweep 30.10.2026 #23, owner: «drop the
+ *  notifications entirely since they just hide things»): every caller stays as it is, `toast()`
+ *  hands back an id and shows, times and keeps nothing (updateToast/dismissToast then find
+ *  nothing). Switched by the host (`<Overlays toasts={false} />`); turning it on clears what stands. */
+let toastsMuted = false
+function muteToasts(on: boolean) {
+  toastsMuted = on
+  if (!on) return
+  for (const t of toasts) dismissToast(t.id)
+}
+
 export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[]; onDismiss?: () => void; kind?: string }): number {
+  if (toastsMuted) return seq++
   // `kind`: a toast of the same kind still on screen is REPLACED, not stacked under the new one
   // (3am test r4, 26.09.2026: three «+ OG» taps stacked three identical «Geschoss hinzugefügt ·
   // Rückgängig» pills over the stack's own «+ UG»). The replaced toast's act stays on ↶.
@@ -422,8 +434,15 @@ function ToastRow({ t }: { t: Toast }) {
   )
 }
 
-export function Overlays() {
+/** The toast/confirm/photo host — mount once at the app root. `toasts={false}`: this screen shows
+ *  no toasts at all (the Atemschutz-Link, see `toastsMuted`); confirms and photos still open. */
+export function Overlays({ toasts: showToasts = true }: { toasts?: boolean } = {}) {
   useForceUpdate()
+  // a layout effect: it runs before any passive effect of the same commit can raise a toast
+  useLayoutEffect(() => {
+    muteToasts(!showToasts)
+    return () => muteToasts(false)
+  }, [showToasts])
   // the phone's lane stands ON an open bottom sheet instead of flipping to the top (lib/toastLane)
   const toasterRef = useRef<HTMLDivElement>(null)
   useToastLane(toasterRef, toasts.length > 0)

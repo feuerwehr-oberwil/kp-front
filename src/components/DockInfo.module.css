@@ -39,8 +39,8 @@
   display: flex; align-items: center; min-height: var(--float-h); padding: var(--msg-pad) var(--float-pad-x);
   background: var(--float-bg); backdrop-filter: var(--float-blur); color: var(--ink); border: none; border-radius: var(--r-sm);
   box-shadow: var(--float-edge); font: var(--fw-medium) var(--fs-2)/1.35 var(--body); text-align: left; }
-/* phones: clear ALL THREE bottom bars (nav + tool bar + the horizontal tool-option dock) so the
-   hint sits above the dock, not under it — rail-h*3 (was *2, which collided with the dock) */
+/* phones: above every bar and the armed tool's pill — in THE message lane, measured while a tool is
+   out (15-mobile · --msg-lane-bottom, lib/floatRow · stackLane) */
 @media (--phone) {
   /* in THE message lane, at the bars' width, like every other message (15-mobile · --msg-lane-bottom) */
   .wb-dock-tip { bottom: var(--msg-lane-bottom); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));

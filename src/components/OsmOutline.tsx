@@ -4,8 +4,8 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { cx } from '../lib/cx'
 import { principalAngleDeg } from '../lib/footprint'
-import { idbGet, idbSet } from '../lib/idb'
-import { apiPost } from '../lib/api'
+import { idbDel, idbGet, idbSet } from '../lib/idb'
+import { apiPost, OVERPASS_TIMEOUT_MS } from '../lib/api'
 import { georefFromPick, M_PER_LAT, matchStoredRings, mPerLon } from '../lib/buildingTransfer'
 import { pickAtPin } from '../lib/footprintPick'
 import type { LngLat, SrcGeoref } from '../types'
@@ -43,7 +43,10 @@ function pickerPoint(center: LngLat, radiusM: number, [lon, lat]: LngLat): [numb
   return [(lon - west) / (east - west), (north - lat) / (north - south)]
 }
 
-const CACHE_PREFIX = 'kp.osm.bld.' // persistent (IndexedDB) outline cache, keyed by bbox
+// Persistent (IndexedDB) outline cache, keyed by bbox. `bld2`: boxes under `bld.` may hold an
+// Overpass «runtime error» remark answer stored as EMPTY (from before the check in fetchOverpass,
+// sweep 30.10.2026 #11) – the new key drops them all once.
+const CACHE_PREFIX = 'kp.osm.bld2.'
 const RETRY_AFTER_MS = 5_000    // show «Erneut laden» once a load has been pending this long
 
 // Ask our OWN backend, which races the Overpass mirrors on our behalf (app/overpass.py).
@@ -64,17 +67,27 @@ type OverpassElement = {
   members?: { type?: string; role?: string; geometry?: OverpassNode[] }[]
 }
 
-function fetchOverpass(
-  south: number, west: number, north: number, east: number,
-): Promise<{ elements?: OverpassElement[] }> {
-  return apiPost<{ elements?: OverpassElement[] }>('/api/overpass/buildings', { south, west, north, east })
+type OverpassAnswer = { elements?: OverpassElement[]; remark?: string }
+
+// Bounded ABOVE the server's own mirror race (lib/api · OVERPASS_TIMEOUT_MS), and an Overpass
+// «runtime error» remark is a failure, not an answer: Overpass that runs out of its own
+// `[timeout:25]` says 200 with no (or only some) elements, and stored as an answer that was «Keine
+// Gebäude» on this device for good (sweep 30.10.2026, #11). The server refuses it too
+// (app/overpass.py); this guards whatever answer reaches the device anyway.
+async function fetchOverpass(south: number, west: number, north: number, east: number): Promise<OverpassAnswer> {
+  const data = await apiPost<OverpassAnswer>('/api/overpass/buildings', { south, west, north, east }, undefined, OVERPASS_TIMEOUT_MS)
+  if (typeof data.remark === 'string' && /error/i.test(data.remark)) throw new Error(`Overpass: ${data.remark}`)
+  return data
 }
 
 // Fetch building footprints in a square bbox (±radiusM around center) from the
 // Overpass API and project them into normalized 0..1 board space (y down). The
 // bbox is a metre-square, so reporting aspect 1 keeps the outlines undistorted.
 // Cached per bbox so switching documents doesn't refetch.
-function loadBuildings(center: LngLat, radiusM: number): Promise<Ring[]> {
+//
+// `fresh` (the «Erneut versuchen» tap) skips the device cache and asks the server: a retry must
+// not wait on the very IndexedDB read that may be what is stuck.
+function loadBuildings(center: LngLat, radiusM: number, fresh = false): Promise<Ring[]> {
   const { key, south, west, north, east } = bboxKey(center, radiusM)
   const hit = cache.get(key)
   if (hit) return hit
@@ -85,8 +98,8 @@ function loadBuildings(center: LngLat, radiusM: number): Promise<Ring[]> {
   // persistent cache (IndexedDB): a previous fetch (this session or an earlier one) makes the
   // outlines instant on reload, so the Overpass round-trip only happens once per location.
   const cacheKey = CACHE_PREFIX + key
-  const p = idbGet<Ring[]>(cacheKey).then((stored) => {
-    if (stored) return stored
+  const p = (fresh ? Promise.resolve(null) : idbGet<Ring[]>(cacheKey)).then((stored) => {
+    if (Array.isArray(stored)) return stored
     return fetchOverpass(south, west, north, east).then((data) => {
       const rings: Ring[] = []
       const toRing = (geom: { lat: number; lon: number }[]) => {
@@ -109,10 +122,13 @@ function loadBuildings(center: LngLat, radiusM: number): Promise<Ring[]> {
   return p
 }
 
-// Drop the cached (possibly still-pending) fetch for a bbox so the «Erneut laden» tap
-// starts a fresh request instead of re-awaiting the stuck one.
+// Drop everything held for a bbox so the «Erneut laden» tap starts over: the in-memory promise
+// (possibly still pending — the boot prefetch shares it) and the device copy. Not awaited: the
+// delete is IndexedDB too, and the retry must not queue behind it.
 function evictOutlines(center: LngLat, radiusM: number) {
-  cache.delete(bboxKey(center, radiusM).key)
+  const { key } = bboxKey(center, radiusM)
+  cache.delete(key)
+  void idbDel(CACHE_PREFIX + key)
 }
 
 // Warm the cache ahead of time (called at app start) so opening the Umgebung
@@ -231,7 +247,7 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, 
     // Only blank to the loader on a COLD key — a warm key keeps the already-painted outlines.
     const warm = resolved.get(bboxKey(center, radiusM).key) ?? null
     setRings(warm); setError(null)
-    loadBuildings(center, radiusM)
+    loadBuildings(center, radiusM, attempt > 0)
       .then((r) => { if (alive) setRings(r) })
       .catch((e) => { if (alive) setError(e instanceof Error ? e.message : 'OSM nicht erreichbar') })
     return () => { alive = false }

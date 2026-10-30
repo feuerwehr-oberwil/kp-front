@@ -24,7 +24,7 @@ from .database import execute_dml
 from .models import INCIDENT_ACTIVE_STATUSES, Incident, lifecycle_open
 from .schemas import WorkspaceOut, WorkspacePut, _scrub_drawing_props
 from .vehicle_presence import keep_server_gps
-from .workspace_kinds import keep_newer_board_kinds
+from .workspace_kinds import keep_newer_board_kinds, refuse_older_build
 
 #: What every surface says when the incident behind an id is not there. One string, because
 #: it is also the answer a caller must not be able to tell apart from «not yours» — every
@@ -212,8 +212,14 @@ async def apply_workspace_put(
     source: str = "client",
     inc: Incident | None = None,
     writer: str | None = None,
+    version: int | None = None,
 ) -> WorkspaceOut:
     """Shared save path for the editor endpoint and the station capture endpoint.
+
+    `version`: the saving BUILD's workspace schema version — refused when the stored blob is
+    newer (workspace_kinds · refuse_older_build), checked after the revision so a refused save
+    always sits on the current blob. None for a writer that cannot drop what it did not read
+    (capture, the server's own).
 
     `writer`: the saving device's id (`X-Workspace-Writer`), recorded for the follower read —
     see `get_workspace`. None for a save no device's follower should treat as its own.
@@ -233,6 +239,8 @@ async def apply_workspace_put(
         inc = await get_incident_or_404(db, incident_id)
     if inc.workspace_rev != body.base_rev:
         raise workspace_revision_conflict(inc.workspace_rev, body.base_rev)
+    if version is not None:
+        refuse_older_build(inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else None, version)
     _scrub_drawing_props(body.workspace)
     # The stored side of the comparison, scrubbed the same way so an unchanged legacy row still
     # compares equal to its scrubbed resubmission. Only the keys validate_alarm_workspace reads

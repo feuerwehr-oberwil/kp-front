@@ -100,8 +100,8 @@ still writes no `entryType` and no marker. An optional count with a «Keine» an
 shows «–» while unanswered, never «0». Its ✕ stays visible and disabled while empty, so filling
 or clearing the count never shifts the adjacent controls.
 **A sheet whose edits are live has no confirm footer** (29.09.2026, owner: «everything should be
-auto-saved without manual confirmations»): ✕ and swipe close it, and one quiet «Alles wird
-laufend gespeichert.» line (`copy.savedLive`) says so (TimeBlockSheet, PersonnelSync result).
+auto-saved without manual confirmations»): ✕ and swipe close it. No line says so any more — the
+«Alles wird laufend gespeichert.» note went on 30.10.2026 (owner: «not very useful»).
 «Speichern» stays only where something is CREATED (Trupp anmelden, Einsatz eröffnen, Eintrag /
 Mittel erfassen) or where a typed value would otherwise write a record per keystroke — the Trupp's
 Auftrag sheet, the Schichtband edit and the Mittel pencil KEEP their Speichern / Abbrechen (owner,
@@ -161,7 +161,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   a modal and what a slide-up thing on mobile … ebenen, search, etc. should be a slide-up»).
   Pick by what the person DOES there, never by what was easiest to build: (1) a **tool or a
   list you work in while you look at the map / board / page** — Ebenen, the «+»
-  chooser, a symbol's editor (`.ctx`), the composer, the Verlauf, the map picker, the plan's
+  chooser, a symbol's editor (`.ctx`), the composer, the Verlauf, the plan's
   Passung, every form and settings sheet — is a **slide-up bottom sheet**: flush with the bottom edge and both sides, over the bars,
   the ONE grab bar on top, pushed down to close (`useSwipeDismiss`; the head is the handle, and so
   is the body from its scroll-top — rows and buttons included, never a field, a slider or a map; sweep 28.10.2026),
@@ -174,9 +174,13 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   that blocks** — a confirm, «Welcher Trupp?», a one-field ask — is a **centred dialog**
   (`ConfirmCard`, `Overlay` without `grab`): it is answered, not worked in. (3) A **short
   pick-one menu that belongs to its tile or chip** — Ansichten at the compass, the Einsatz-Menü,
-  the Meteo chip, every `Menu` — is a **popover anchored to that control**. Two exceptions,
+  the Meteo chip, every `Menu` — is a **popover anchored to that control**. Three exceptions,
   each a rule: a page you READ (Hilfe) is full-screen, and a search that opens with the keyboard
-  (TruppFinder) hangs from the TOP edge so the keys never cover its results. A floating card
+  (TruppFinder) hangs from the TOP edge so the keys never cover its results. And a place you AIM
+  on a map – «Standort auf Karte setzen» (MapPicker, owner 30.10.2026, mock 5A) – is full-screen
+  on every width: the pin fixed in the middle, the map moved under it, the map's centre the pick,
+  one ‹ back and one action, the attribution a closed ⓘ; a sheet over the wizard's sheet left a
+  strip of map too small to aim in. A floating card
   above the bars (Ebenen was one until 29.09.) is none of the three: it cannot
   be pushed away and does not belong to its tile.
 
@@ -190,6 +194,16 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   Safari tabs never collapse, so there nothing changes. Check: `e2e/einsatz-keyboard.mjs` (the
   composer, «Einsatzdaten bearbeiten», «Trupp anmelden» in the emulated installed app and a tab).
 
+- **The keyboard goes first** (sweep 30.10.2026, owner: «the (x) of the card is an enticing
+  place to close the keyboard»): while a text field inside a `Sheet`/`Overlay` has focus, the
+  first ✕ or outside tap only blurs it (keys down); the next one closes. One gesture, one thing —
+  the same rule `popoverGuard` applies to a dropdown over a sheet. The ✕ is the frame's FIRST
+  `.ip-x`, so a bespoke frame whose ✕ calls `onClose` itself is covered; other controls, swipe-down,
+  Escape and a mouse press act at once (`lib/overlays/fieldFirst`).
+- **A finger slides through a menu** (sweep 30.10.2026): on touch, a `Menu` highlights the row
+  under a SLIDING finger and lifting on a row presses it (a checkbox row toggles, the menu stays
+  open); lifting elsewhere does nothing, a plain tap is the browser's. A menu whose content scrolls
+  keeps its native scroll, and `ComboMenu` lists are not menus (`lib/overlays/menuSlide`).
 - **A sheet's footer row is `SheetFoot`** (`.ui-sheet-foot`, 26.09.2026): `Sheet` draws it for
   `footer`, and a bespoke frame whose footer is its bottom edge on a phone wears it (the Trupp
   form, the Mittel note, the Georef transfer). ONE rule in 15-mobile.css insets it on a phone —
@@ -210,8 +224,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *The ✕ that closes a sheet is 36px with an 18px glyph, everywhere* (`.ip-x`, `.journal-x`,
     `.ctx-x` — one rule in 13-incident.css; it was 28/30/32). Beside a 44px search field it is
     44px instead (Palette, Verlauf search), and it is the ordinary grey, never a filled «on».
+    The Verlauf's head is a row of 44px buttons (ⓘ, lens, funnel, ▶, ✕ – 30.10.2026, owner), so
+    its ✕ and ⓘ are 44 there too, for the same reason.
   - *Radius – ONE corner (25.09.2026):* **every** rectangle is `var(--r-sm)` (12px) – button,
-    field, status box, row, card, page card, sheet, dialog, message; `--r-ctl`/`--r-surface`/
+    field, status box, row, card, page card (tablet and desktop – a phone page has no card,
+    [`phone-layout.md`](phone-layout.md) · «No page card on a phone»), sheet, dialog, message; `--r-ctl`/`--r-surface`/
     `--r-hero` are aliases of it, kept only as role names. Three exceptions, each a rule, never
     taste: (1) things under ~32px tall wear `--r-xs` (the same shape at that size) and map
     furniture, dots, avatars and the FAB stay round – roundness is what tells map furniture
@@ -232,12 +249,16 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
     mode is on shows neither. A tap on the pill itself does nothing (05.10.2026): the ✕ closes,
     the action button acts, a sideways swipe throws it away. **The toasts stand under the head, on
-    every width** (20.10.2026, owner: «all notifications appear at the same place: at the top
+    every width** — **except on the Atemschutz-Link, which shows none at all** (30.10.2026, owner:
+    «they just hide things»; `<Overlays toasts={false} />`): undo is the header's ↶ ↷, the sync
+    state its mark, and its Meldeleiste keeps only the rows that block work (`meldungen ·
+    linkShowsMeldung`) (20.10.2026, owner: «all notifications appear at the same place: at the top
     cleanly below the main navbar»): where the Meldeleiste starts (92px; 72px on a phone), one 8px
     channel under the strip while one stands (`--ml-reserve` from its measured `--ml-h`), at the
     bars' own width on a phone (8px in from each side). A mode's instruction and a tool's tip keep
     the phone's foot lane (`--msg-lane-bottom`, 15-mobile), one `--float-gap` above THE floating
-    row (below), never beside a piece of it. A repeat REPLACES (18.10.2026): a confirmation that comes again — «Eintrag erfasst» after
+    row (below) – while a tool is out, above the highest piece of the tool stack, measured
+    (lib/floatRow · stackLane, 30.10.2026) – never beside a piece of it. A repeat REPLACES (18.10.2026): a confirmation that comes again — «Eintrag erfasst» after
     every Meldung, «Geschoss hinzugefügt» — carries a `kind` (lib/ui · toast) and takes its
     predecessor's place instead of stacking on it; five Meldungen in a row grew a column of pills
     up the screen into the composer's «Erfassen», and a confirmation never covers the next action

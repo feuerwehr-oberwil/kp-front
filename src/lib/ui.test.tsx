@@ -457,3 +457,26 @@ describe('a message says whether it goes away by itself', () => {
     await waitFor(() => expect(screen.queryByText('mit eigenem ✕')).toBeNull())
   })
 })
+
+// sweep 30.10.2026 #23: the Atemschutz-Link shows no toasts at all — switched at the host
+describe('a host without toasts (the Atemschutz-Link)', () => {
+  it('shows none, clears what stood, and still asks its confirms', async () => {
+    vi.useFakeTimers()
+    const ended = vi.fn()
+    const { rerender } = render(<Overlays />)
+    act(() => { toast('stand schon da', { sticky: true, onDismiss: ended }) })
+    rerender(<Overlays toasts={false} />)
+    act(() => { vi.advanceTimersByTime(200) })
+    expect(screen.queryByText('stand schon da')).toBeNull()
+    expect(ended).toHaveBeenCalledTimes(1) // a toast that stood for a mode ends it
+    act(() => { undoToast('Kontakt erfasst', () => {}) })
+    expect(screen.queryByText('Kontakt erfasst')).toBeNull()
+    let p!: Promise<boolean>
+    act(() => { p = confirmDialog({ message: 'Trupp entfernen?', confirmLabel: 'Ja', cancelLabel: 'Nein' }) })
+    fireEvent.click(screen.getByRole('button', { name: 'Ja' }))
+    await expect(p).resolves.toBe(true)
+    rerender(<Overlays />)
+    act(() => { toast('wieder da') })
+    expect(screen.getByText('wieder da')).toBeTruthy()
+  })
+})

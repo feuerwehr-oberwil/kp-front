@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // The help has to speak this station's numbers, so the doctrine is stubbed to something that is
 // deliberately NOT the shipped default — a test that passes on 5/60 would pass on a hard-coded
@@ -15,6 +15,9 @@ vi.mock('../lib/deploymentConfig', () => ({
 }))
 
 import { HelpOverlay } from './HelpOverlay'
+
+// unmount after each test: the scroll-spy's frame must not land after the DOM is torn down
+afterEach(cleanup)
 
 describe('HelpOverlay states THIS station’s thresholds', () => {
   it('names the amber interval and the Nachfrist that follows it', () => {

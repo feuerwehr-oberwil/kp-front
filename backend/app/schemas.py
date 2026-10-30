@@ -398,6 +398,9 @@ class TruppsPut(BaseModel):
     base_rev: int
     #: see WorkspacePut.edited_at
     edited_at: datetime | None = None
+    #: The saving build's workspace schema version (since 30.10.2026). Absent → an older build,
+    #: taken as workspace_kinds · UNVERSIONED_SLICE_VERSION; refused onto a newer stored blob.
+    schemaVersion: int | None = None
 
     @model_validator(mode="after")
     def _validate_trupps(self) -> "TruppsPut":

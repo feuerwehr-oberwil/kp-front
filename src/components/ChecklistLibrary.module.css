@@ -21,6 +21,9 @@
    (the reader hides its title on a phone – it is said here) */
 .pageHead { display: flex; align-items: center; gap: var(--sp-2); flex: none; width: 100%; min-height: 48px;
   padding: var(--sp-2) var(--head-pad-x); background: var(--surface); box-shadow: inset 0 -1px 0 var(--glass-edge); }
+/* …and on a phone, as every page head there, no band: no fill, no hairline – the page has no card
+   to band (sweep 30.10.2026 #12b, Surface.module.css · the phone block; Checklists · .cl-rail-toggle) */
+@media (--phone) { .pageHead { background: none; box-shadow: none; } }
 .pageTitle { flex: 1 1 auto; min-width: 0; margin: 0; font: var(--head-title); color: var(--ink); overflow-wrap: break-word; }
 .backEnd { flex: none; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-dim); }
 
