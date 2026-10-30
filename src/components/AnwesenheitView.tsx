@@ -229,7 +229,7 @@ function PaperSheet({ sheet, people, bands, printOnline, onPrint, onDownload, on
   people: Person[]
   bands: number
   printOnline?: boolean
-  onPrint?: () => void
+  onPrint?: () => Promise<void>
   onDownload?: () => Promise<void>
   onClose: () => void
 }) {
@@ -241,10 +241,11 @@ function PaperSheet({ sheet, people, bands, printOnline, onPrint, onDownload, on
   // every print and download shows that it is working) – it used to close at once, and the
   // seconds the server takes looked like nothing had happened.
   const [busy, setBusy] = useState(false)
-  const download = async () => {
-    if (!onDownload) return
+  // the PDF and the station printer both keep the sheet (and its loader) until they are done
+  const run = async (act?: () => Promise<void>) => {
+    if (!act) return
     setBusy(true)
-    try { await onDownload() } finally { setBusy(false) }
+    try { await act() } finally { setBusy(false) }
     onClose()
   }
   return (
@@ -253,10 +254,10 @@ function PaperSheet({ sheet, people, bands, printOnline, onPrint, onDownload, on
         <>
           {onDownload && (
             <Button disabled={busy} aria-busy={busy || undefined} icon={busy ? <ShellLoader /> : undefined}
-              onClick={() => void download()}>{busy ? Z.pdfBusy : Z.pdf}</Button>
+              onClick={() => void run(onDownload)}>{busy ? Z.pdfBusy : Z.pdf}</Button>
           )}
           {onPrint && (
-            <Button variant="primary" icon={<Icon id="printer" />} disabled={busy} onClick={() => { onPrint(); onClose() }}>
+            <Button variant="primary" icon={<Icon id="printer" />} disabled={busy} onClick={() => void run(onPrint)}>
               {appConfig.copy.printRelay.send}
               <span className={`dot print-relay-dot${printOnline ? ' online' : ''}`} aria-hidden />
             </Button>
@@ -409,7 +410,8 @@ export function AnwesenheitView({
   onSetShiftTime?: (id: string, patch: { from?: string; to?: string }) => void
   onRemoveShift?: (id: string, personName: string) => void
   /** print / download one of the two Schichtenplanung sheets (rendered server-side) */
-  onPrintZeitplan?: (people: Person[], sheet: ZeitplanSheet) => void
+  /** resolves once the job is queued (or its failure was told) – the sheet waits for it */
+  onPrintZeitplan?: (people: Person[], sheet: ZeitplanSheet) => Promise<void>
   /** resolves once the PDF is downloaded (or its failure was told) – the sheet waits for it */
   onDownloadZeitplan?: (people: Person[], sheet: ZeitplanSheet) => Promise<void>
   zeitplanPrintOnline?: boolean

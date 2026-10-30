@@ -654,6 +654,10 @@ def validate(name: str, value: str) -> str:
                 "«0b6c1f2e-…=amuster». Die Objekt-ID steht in Entra unter «Benutzer › <Person> › "
                 "Objekt-ID»; eine Anmeldeadresse gilt nicht, sie lässt sich umbenennen."
             ) from e
+    if name == "print_agent_secret" and len(v) < 24:
+        # It reads every queued Einsatzrapport-PDF from the internet-facing agent routes, so it
+        # gets the same floor as the organizer key. `openssl rand -hex 24` makes 48.
+        raise CredentialRefusedError("Das Secret muss mindestens 24 Zeichen lang sein.")
     if name == "object_visits_integration_key" and len(v) < 24:
         # A key an organizer authenticates with over the internet: long enough that guessing it
         # is not a plan. The admin page generates one; a hand-typed «fwo2026» is refused.

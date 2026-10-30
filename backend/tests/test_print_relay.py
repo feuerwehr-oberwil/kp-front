@@ -320,3 +320,12 @@ async def test_reverse_pdf_pages_turns_the_stack_around():
     assert reverse_pdf_pages(b1.getvalue()) == b1.getvalue()
     # garbage in → the original bytes out, never an exception
     assert reverse_pdf_pages(b"not a pdf") == b"not a pdf"
+
+
+async def test_a_short_agent_secret_is_refused(client, admin_login):
+    """The secret reads every queued Rapport-PDF over the internet, so a hand-typed one is
+    refused at /admin → Anbindungen; the agent's own `openssl rand -hex 24` (48) passes."""
+    await admin_login(client)
+    url = "/api/integrations/credentials/print_agent_secret"
+    assert (await client.put(url, json={"value": "kurz"})).status_code == 422
+    assert (await client.put(url, json={"value": "a" * 48})).status_code == 200

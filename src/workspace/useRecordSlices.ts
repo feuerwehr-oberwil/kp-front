@@ -215,10 +215,10 @@ export function useRecordSlices({
       .catch(() => { toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }) })
   // No confirmDialog: the sheet picked from the printer menu IS the confirmation — it names the
   // sheet, how many people are on it and as of when, and offers PDF and printer side by side.
-  const onPrintZeitplan = (rowPeople: Person[], sheet: ZeitplanSheet) => {
-    void printZeitplan(incidentMeta.id, zeitplanPayload(rowPeople, sheet))
-      .then((jobId) => trackPrintJob(editorPrintTransport(), jobId))
-      .catch(() => toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }))
-  }
+  // resolves once the job is queued (or its failure was told), so the sheet's loader waits for it
+  const onPrintZeitplan = (rowPeople: Person[], sheet: ZeitplanSheet) =>
+    printZeitplan(incidentMeta.id, zeitplanPayload(rowPeople, sheet))
+      .then((jobId) => { trackPrintJob(editorPrintTransport(), jobId) })
+      .catch(() => { toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }) })
   return { checklistSet, checklistDescribeRef, bandActions, addShift, addShiftSpan, replaceShift, setShiftTime, removeShift, onDownloadZeitplan, onPrintZeitplan, saveMittel, placedSymbols }
 }

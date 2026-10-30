@@ -5,7 +5,7 @@
 // lib/report. The close runs only through `onComplete` (the one shared Abschluss confirm).
 // Rules for this area: docs/rapport.md.
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { Button, IconButton } from './Button'
 import { TickRow } from './TickRow'
@@ -768,13 +768,17 @@ export function ReportPreflight({
   // available and the report carries a Kroki, warm the server's map-tile cache so the real
   // enqueue render is near-instant. Fire once, best-effort — reframes reuse overlapping tiles.
   const warmedRef = useRef(false)
-  useEffect(() => {
+  // an effect event: it reads this render's record, but only the three facts below re-fire it
+  const warmTiles = useEffectEvent(() => {
     if (warmedRef.current || !printStatus?.available || !options.kroki || mapContentCount === 0 || !scene) return
     warmedRef.current = true
-    // only the Kroki matters to the warm-up, so the plain build is enough here
-    void prewarmPrint(editorPrintTransport(), incident.id, buildDirectReportPayload(pdfArgs(buildDraft())))
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the relay and the Kroki are both known
-  }, [printStatus?.available, options.kroki, mapContentCount])
+    // Best-effort and never surfaced: a payload that will not build costs the warm-up, never
+    // the surface. Only the Kroki matters to the warm-up, so the plain build is enough here.
+    try {
+      void prewarmPrint(editorPrintTransport(), incident.id, buildDirectReportPayload(pdfArgs(buildDraft())))
+    } catch { /* the real print builds again and reports its own failure */ }
+  })
+  useEffect(() => { warmTiles() }, [printStatus?.available, options.kroki, mapContentCount])
   const R = appConfig.copy.printRelay
   const sendToPrinter = async (framing: Partial<ReportMeta> = {}) => {
     // ALWAYS confirm — «Ausdrucken» must never produce accidental paper; when the relay is
@@ -834,27 +838,30 @@ export function ReportPreflight({
     const iv = setInterval(() => setJobNowMs(Date.now()), 60_000)
     return () => clearInterval(iv)
   }, [pendingJob])
+  // keyed on the JOB, not on the writer: `settlePrintJob` is re-created every render, so the
+  // answer is handled in an effect event that always sees the current one
+  const onJobRead = useEffectEvent((jobId: string, s: Awaited<ReturnType<typeof fetchJobStatus>>) => {
+    // 'gone' = the relay no longer knows the job (swept after 7 days — the relay-was-down-a-
+    // week case). Waiting longer can never resolve it, so stop showing it as open and say so
+    // honestly: the outcome is unknown, no «Rapport erstellt» stamp.
+    if (s === 'gone') { settlePrintJob(jobId, 'gone'); toast(R.jobGone, { icon: 'warn', tone: 'warn' }); return }
+    // null = the relay is unreachable right now, which says nothing about the job — keep it.
+    if (!s || s.status === 'queued' || s.status === 'printing') return
+    settlePrintJob(jobId, s.status)
+  })
+  const pendingJobId = pendingJob?.id
   useEffect(() => {
-    const job = pendingJob
-    if (!job || !canEdit) return
+    if (!pendingJobId || !canEdit) return
     let alive = true
     const t = editorPrintTransport()
     const read = async () => {
-      const s = await fetchJobStatus(t, job.id)
-      if (!alive) return
-      // 'gone' = the relay no longer knows the job (swept after 7 days — the relay-was-down-a-
-      // week case). Waiting longer can never resolve it, so stop showing it as open and say so
-      // honestly: the outcome is unknown, no «Rapport erstellt» stamp.
-      if (s === 'gone') { settlePrintJob(job.id, 'gone'); toast(R.jobGone, { icon: 'warn', tone: 'warn' }); return }
-      // null = the relay is unreachable right now, which says nothing about the job — keep it.
-      if (!s || s.status === 'queued' || s.status === 'printing') return
-      settlePrintJob(job.id, s.status)
+      const s = await fetchJobStatus(t, pendingJobId)
+      if (alive) onJobRead(pendingJobId, s)
     }
     void read()
     const iv = setInterval(() => void read(), 15_000)
     return () => { alive = false; clearInterval(iv) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the JOB, not on the writer: `settlePrintJob` is re-created every render
-  }, [pendingJob?.id, canEdit])
+  }, [pendingJobId, canEdit])
   /** «Prüfen»: ask the relay once, now, and say what came back — including «nothing», which is
    *  its own answer and used to be indistinguishable from «still queued». */
   const checkPrintJob = async () => {

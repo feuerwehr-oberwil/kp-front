@@ -428,16 +428,16 @@ async def test_the_print_queue_is_retired_only_past_the_retention_window(db_sess
     assert await fresh(select(PrintJob.filename)) == ["rapport-1.pdf"]
 
 
-async def test_a_station_without_a_relay_keeps_its_queue(db_session, run_job, fresh):
-    """No relay secret means no agent, which means the rows are not a queue anybody is
-    draining — deleting them would be a sweep of somebody else's data, not housekeeping."""
+async def test_a_station_that_switched_the_relay_off_still_loses_old_jobs(db_session, run_job, fresh):
+    """Every row is a Rapport-PDF with names in it. Clearing the relay secret must not turn the
+    7-day retention into forever (review on #524, 30.10.2026)."""
     inc = await _incident(db_session)
     db_session.add(_print_job(inc.id, age_days=scheduler.PRINT_JOB_RETENTION_DAYS + 30))
     await db_session.commit()
 
     await run_job(scheduler._print_jobs_sweep)
 
-    assert len(await fresh(select(PrintJob.filename))) == 1
+    assert len(await fresh(select(PrintJob.filename))) == 0
 
 
 # --- visitor hashes -------------------------------------------------------------------
@@ -660,7 +660,7 @@ async def _ok(url):
             "app.scheduler",
             "execute_dml",
             "Print-job sweep failed",
-            {"print_agent_secret": "relay-secret"},
+            {},
         ),
         ("_visit_hashes_sweep", "app.visits", "prune", "Visit sweep failed", {}),
         ("_positions_sweep", "app.scheduler", "execute_dml", "Position sweep failed", {}),

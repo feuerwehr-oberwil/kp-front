@@ -380,14 +380,11 @@ PRINT_JOB_SWEEP_SECONDS = 3600
 async def _print_jobs_sweep() -> None:
     from sqlalchemy import delete
 
-    from .credentials import get as credential
-    from .credentials import load as load_credentials
     from .models import PrintJob
 
+    # Not gated on the relay secret: every row is a full Rapport-PDF with names in it, and a
+    # station that switched the relay off must still lose them after the retention window.
     async with async_session_maker() as db:
-        await load_credentials(db)
-        if not credential("print_agent_secret"):
-            return  # no relay configured — there is no queue to retire
         try:
             cutoff = datetime.now(UTC) - timedelta(days=PRINT_JOB_RETENTION_DAYS)
             res = await execute_dml(db, delete(PrintJob).where(PrintJob.created_at < cutoff))
@@ -849,7 +846,7 @@ def _start_scheduler_jobs() -> None:
         max_instances=1,
         coalesce=True,
     )
-    jobs.append(f"print-job sweep ({PRINT_JOB_SWEEP_SECONDS}s, idle without a relay secret)")
+    jobs.append(f"print-job sweep ({PRINT_JOB_SWEEP_SECONDS}s)")
     _scheduler.add_job(
         _vehicle_samples_sweep,
         "interval",
