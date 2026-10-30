@@ -2226,7 +2226,7 @@ export function IncidentWorkspace({
       else focusEntity(entityId)
     },
   })
-  const { createTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, triggerNotfall, endNotfall, truppPlace, editTrupp, transferOutOfTrupp, keepInOneTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors } = truppActions
+  const { createTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, triggerNotfall, endNotfall, truppPlace, editTrupp, designateSafety, transferOutOfTrupp, keepInOneTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors } = truppActions
   // The alarm host runs on EVERY device – tone and OS notification are the point – but only a
   // session that writes the Trupps records the crossing in the Verlauf (RBAC audit V1, 22.10.2026).
   // The FU or the Atemschutz-Link writes that row, once per turnus, for everybody.
@@ -2812,6 +2812,7 @@ export function IncidentWorkspace({
       transferOutOfTrupp={transferOutOfTrupp}
       // «Bleibt in Trupp …» on the double-assignment band — the same crew-fields-only slice (audit F05)
       keepInOneTrupp={keepInOneTrupp}
+      designateSafety={designateSafety}
       reactivateTrupp={reactivateTruppA}
       deleteTrupp={deleteTrupp}
       restoreTrupp={restoreTrupp}

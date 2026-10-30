@@ -54,9 +54,11 @@ export function ClockVal({ val }: { val: string }) {
 }
 
 export function TruppRow({
-  t, live, alarm, color, canEdit, onContact, onPressure, onOpen, focusNonce, focusScroll = true, flashSeen, onFlashed, lite, conflict = false,
+  t, live, alarm, color, canEdit, onContact, onPressure, onEnter, onOpen, focusNonce, focusScroll = true, flashSeen, onFlashed, lite, conflict = false,
 }: {
   t: Trupp; live: TruppLive; now: number; color?: string; canEdit: boolean
+  /** «Im Einsatz» on a Trupp still at the door — stands where its empty clock would (RowLine) */
+  onEnter?: (id: string) => void
   /** named by the double-assignment band (DoubleAssignmentBanner) — a steady amber ring */
   conflict?: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the card use */
@@ -93,10 +95,11 @@ export function TruppRow({
    * gained is the second action — «Druck» — and words on both buttons, which is why a Trupp inside
    * takes TWO lines on the phone (`.trowTwo`): at 360px a full name, a clock and two worded
    * buttons do not share one.
-   * ⚠️ …except the TIER (B5, 08.10.2026): fällig / überfällig / Alarmdruck stand in colour alone,
-   * which is no answer in direct sun or to a colour-blind reader. A glyph now sits under the
+   * ⚠️ …except the TIER (B5, 08.10.2026): überfällig / Alarmdruck stood in colour alone, which is
+   * no answer in direct sun or to a colour-blind reader. The triangle stands in front of the
    * clock (RowLine · tierMark), inside the clock cell: no new row. Glyph only, no word (owner,
-   * 09.10.2026: «Symbol only»); the word is in the row's aria-label. */
+   * 09.10.2026: «Symbol only»); the word is in the row's aria-label. Fällig is amber alone since
+   * 30.10.2026 (owner: «remove the ugly clock icon»). */
   const acts = monitored && canEdit && inField
   // ⚠️ «Draussen» and «angemeldet» are NOT one tone. They were both `trowIdle` (blue) while the
   // list still had a «Raus»-Abschnitt to tell them apart — and that section is gone (17.08.), so a
@@ -133,7 +136,8 @@ export function TruppRow({
     <button ref={rowRef} type="button" className={cx(s.trow, acts ? s.trowTwo : s.trowOne, tone, conflict && s.cardConflict)} onClick={onOpen}
       aria-label={[t.name, tier?.text, words.status(status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status))]
         .filter((w, i, all) => w && all.indexOf(w) === i).join(' — ')}>
-      <RowLine t={t} live={live} color={color} lite={lite} tier={tier} />
+      <RowLine t={t} live={live} color={color} lite={lite} tier={tier}
+        act={canEdit && onEnter ? <RowEnter onEnter={() => onEnter(t.id)} /> : null} />
       {/* ⚠️ always rendered, even when there is no button in it: these are fixed grid tracks, so a
           missing cell would pull every column after it out of line on that one row */}
       <span className={cx(s.trowAct, acts && s.trowActs)}>
@@ -160,9 +164,11 @@ function rowTone(t: Trupp, status: TruppLive['status'], sev: number): string {
  *  opened card's head (26.09.2026, owner: «keep the same UI whether the card is collapsed or
  *  not»). One drawing, so opening a Trupp never moves, resizes or recolours the line the thumb
  *  just pressed; the chevron beside it is the caller's, because it points the other way. */
-function RowLine({ t, live, color, lite, tier }: { t: Trupp; live: TruppLive; color?: string; lite: boolean
+function RowLine({ t, live, color, lite, tier, act }: { t: Trupp; live: TruppLive; color?: string; lite: boolean
   /** the tier as a glyph at the clock (tierMark) — null/absent while silent */
   tier?: TierMark | null
+  /** what stands in the clock's place while the Trupp is still at the door (see `waiting`) */
+  act?: ReactNode
 }) {
   const az = appConfig.copy.atemschutz
   const words = plainWords(t, lite)
@@ -175,14 +181,21 @@ function RowLine({ t, live, color, lite, tier }: { t: Trupp; live: TruppLive; co
   // wording test below.
   const clockSub = clock.sub === az.outFor ? words.outFor : clock.sub
   const inNotfall = truppInNotfall(t)
-  // …and no tier glyph under its clock: the ⚠ before the name already says the loudest thing,
-  // a second one at the clock repeated it (fällig/überfällig stays on every other crew)
+  /* ⚠️ A Trupp still at the door has no clock — «–:––» was an empty time where the next act
+   * belongs (owner, 30.10.2026: «for all trupps already show the next action (i.e. im einsatz)
+   * rather than the empty time»). The phone row puts «Im Einsatz» there (`act` = RowEnter, the
+   * Sicherungstrupp row's button); the opened card leaves the cell empty, because its «Im Einsatz»
+   * tile stands right under this line, and a viewer has nothing to press. */
+  const waiting = live.status === 'angemeldet'
+  // …and no tier glyph at its clock: the ⚠ before the name already says the loudest thing,
+  // a second one at the clock repeated it (überfällig stays on every other crew)
   const tierShown = inNotfall ? null : tier
-  // the glyph only (owner, 09.10.2026: «Symbol only»); aria-hidden because the row's own
-  // aria-label and the card's status line already speak the word, and the title shows it on hover
-  const tierGlyph = tierShown && (
-    <span className={cx(s.trowTier, tierShown.crit && s.trowTierCrit)} aria-hidden title={tierShown.text}>
-      <Icon id={tierShown.icon} />
+  // the glyph only (owner, 09.10.2026: «Symbol only»), and only for the red tiers — «Fällig» is
+  // its amber alone since 30.10.2026 (tierMark); aria-hidden because the row's own aria-label and
+  // the card's status line already speak the word, and the title shows it on hover
+  const tierGlyph = tierShown?.crit && (
+    <span className={s.trowTier} aria-hidden title={tierShown.text}>
+      <Icon id="warn" />
     </span>
   )
   return (
@@ -207,15 +220,32 @@ function RowLine({ t, live, color, lite, tier }: { t: Trupp; live: TruppLive; co
       <span className={s.trowClock}>
         {/* überfällig / Alarmdruck: ONE triangle on the clock's line, in front of the digits (owner,
             24.10.2026, sweep M3) — with the card's tint gone, it is what says «überfällig» without
-            colour. Fällig keeps its clock glyph under the digits. */}
-        <span className={s.trowClockLine}>
-          {tierShown?.crit && tierGlyph}
-          <span className={s.trowClockVal}><ClockVal val={clock.val} /></span>
-        </span>
-        <span className={s.trowSub}>{clockSub}</span>
-        {!tierShown?.crit && tierGlyph}
+            colour. Fällig has no glyph (owner, 30.10.2026): the amber digits carry it. */}
+        {waiting ? act : (
+          <>
+            <span className={s.trowClockLine}>
+              {tierGlyph}
+              <span className={s.trowClockVal}><ClockVal val={clock.val} /></span>
+            </span>
+            <span className={s.trowSub}>{clockSub}</span>
+          </>
+        )}
       </span>
     </>
+  )
+}
+
+/** «Im Einsatz» on a ROW — the Bereit rows (RowLine · `waiting`) and the Sicherungstrupp's
+ *  (AtemschutzView · SafetyRow): one filled button in the clock's place. Inside the row's own
+ *  button a <button> may not stand, so it is a span with the button role, and a tap on it does
+ *  not also open the card (same as TruppPair · `nested`). */
+export function RowEnter({ onEnter }: { onEnter: () => void }) {
+  return (
+    <span role="button" tabIndex={0} className={s.rowEnter}
+      onClick={(e) => { e.stopPropagation(); onEnter() }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onEnter() } }}>
+      {appConfig.copy.atemschutz.actEnter}
+    </span>
   )
 }
 
@@ -466,9 +496,9 @@ export function TruppCard({
   const rowMode = !!onCollapse
   /* ⚠️ 29.09.2026 (owner on staging): «drop the überfällig – if the card is red it's pretty obvious»,
    * and «the draussen subtitle is probably not even required». So fällig / überfällig are not a
-   * state LINE: since B5 (08.10.2026) they are a glyph at the clock on the card's first
-   * line (RowLine · tierMark), so colour is not the only carrier, and this line stays
-   * for a screen reader only (`hidden`). An out Trupp's «Draussen» goes on every board — its card
+   * state LINE: überfällig is the triangle at the clock on the card's first line (RowLine ·
+   * tierMark, B5), fällig its amber alone (30.10.2026), and this line stays for a screen reader
+   * only (`hidden`). An out Trupp's «Draussen» goes on every board — its card
    * is the grey one with «Wieder in den Einsatz» on it. What stays in words is what colour cannot
    * carry: the Alarmdruck with its limit, the stopped clock, «Nicht eingesetzt», «Bereit», a work
    * squad's state. */

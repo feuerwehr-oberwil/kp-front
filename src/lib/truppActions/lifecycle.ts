@@ -400,6 +400,37 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
   }
 
   /**
+   * A Trupp already on the board becomes the Sicherungstrupp for a crew in a Notfall — the banner's
+   * «Sicherungstrupp bestimmen» (owner, 30.10.2026, «Becomes Sicherung»; candidates:
+   * lib/atemschutz · safetyCandidates). Its Auftrag turns «Sichern» and NOTHING else moves: a crew
+   * standing ready is then the ready Sicherungstrupp the banner sends in, a crew already inside
+   * keeps its clock and is the one the banner names as «drin». The Verlauf row names whom it is
+   * for and keeps the old Auftrag («… – bisher Löschen»): «Sicherungstrupp eingesetzt» is written
+   * at a FIRST Eintritt only (truppActions/clock · setTruppStatus), so for a crew inside this row
+   * is the only record of the switch. One ↶ step. A crew that is out is refused — it needs a
+   * fresh bottle first, which is the re-entry form's question (AtemschutzView opens it instead).
+   */
+  const designateSafety = (id: string, forId: string): boolean => {
+    const tr = trupps.find((t) => t.id === id)
+    const target = trupps.find((t) => t.id === forId)
+    if (!tr || !target || tr.removedAt || !isAtemschutzTrupp(tr) || truppInNotfall(tr) || isOutTrupp(tr) || tr.auftrag === 'sichern') return false
+    if (recorded.get(id) === 'sichern') return false // the same pick twice in one frame (see `recorded`)
+    recorded.set(id, 'sichern')
+    const apply = (t: Trupp): Trupp => ({ ...t, auftrag: 'sichern' })
+    setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
+    // colour follows the Auftrag under a station colour rule, as in editTrupp
+    recolorPlacement({ ...tr, auftrag: 'sichern' })
+    const nf = appConfig.copy.atemschutz.notfall
+    const was = auftragText(tr.auftrag)
+    const line = withDetails(fillTemplate(nf.logSafetyDesignated, { name: truppLogName(tr), target: truppLogName(target) }),
+      was ? fillTemplate(nf.logSafetyWas, { auftrag: was }) : '')
+    log('flag', line, 'team', undefined, undefined, { subjectId: id })
+    emit('atemschutz.edit', { id })
+    remember(id, line, tr, apply)
+    return true
+  }
+
+  /**
    * What the Trupp takes in (types · Trupp.equipment) — the ids from the station's list
    * (deploymentConfig · atemschutzEquipment), in whatever order the list has them.
    *
@@ -703,5 +734,5 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
     emit('atemschutz.restore', { id: t.id })
   }
 
-  return { createTrupp, moveTrupp, editTrupp, setTruppEquipment, transferOutOfTrupp, keepInOneTrupp, reactivateTrupp, deleteTrupp, restoreTrupp }
+  return { createTrupp, moveTrupp, editTrupp, designateSafety, setTruppEquipment, transferOutOfTrupp, keepInOneTrupp, reactivateTrupp, deleteTrupp, restoreTrupp }
 }
