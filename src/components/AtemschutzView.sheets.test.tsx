@@ -316,55 +316,59 @@ describe('the handed-over board on a phone (focus mode)', () => {
     expect(tab('Over Otto').querySelector(`.${s.tabTier} use`)?.getAttribute('href')).toBe('#warn')
   })
 
-  /* ── The one-row head, and the door in its cut-off title (09.09., mock 01) ─────────────────
-   * The head spends ONE row now: name left, the three controls right, nothing wrapped. The
-   * price is that the Einsatz name ends where the buttons begin — so the name is a button, and
-   * behind it stands what the two-row head used to print in full. */
-  it('opens the full Einsatz behind the cut-off title', async () => {
+  /* ── The two-line head (Atemschutz-Link redesign, owner pick R1 on AB, 30.10.2026) ──────────
+   * The Einsatz in full — its title, then «Adresse · ✓ 18:05» — where the one-row head of 09.09.
+   * cut it at «Zimm…». The whole block is still the door: the mark rides INSIDE the trigger (a
+   * sync indicator beside a door is an ornament a thumb aims at for nothing), its accessible name
+   * stays the door's, and behind it stand the long voice and the link's way back. */
+  it('names the Einsatz in full on two lines, the save stamp with it, and opens the rest', async () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({
       lite: { subtitle: 'Brand PV Anlage · Amselstrasse 28', title: 'Brand PV Anlage', address: 'Amselstrasse 28, 4104 Oberwil' },
       trupps: [aktivTrupp()], syncStatus: 'synced', lastSyncedAt: Date.parse('2026-09-09T18:05:00'),
     })
-    // the row itself carries the joined line — cut by CSS, whole in the DOM
     const opener = screen.getByRole('button', { name: az.headDetailOpen })
-    expect(opener.textContent).toContain('Brand PV Anlage · Amselstrasse 28')
-    // …and the address, which the row can never show at 390px, is only behind it
-    expect(screen.queryByText('Amselstrasse 28, 4104 Oberwil')).toBeNull()
-
-    fireEvent.click(opener)
-    await waitFor(() => { expect(screen.getByText('Amselstrasse 28, 4104 Oberwil')).toBeTruthy() })
-    // the Stand in its LONG voice, not the bare time the row shrank it to
-    expect(document.querySelector('.az-head-detail')?.textContent).toContain('Gespeichert um')
-  })
-
-  /* ── The head keeps the MARK and gives up the time (09.09., maintainer review) ──────────────
-   * «✓ 18:05» beside a cut-off Einsatz name is a clock in a header — the one place on this
-   * screen where a naked time could be read as operational rather than as a save stamp. The ✓
-   * stays, because the 01.09. safety rule is that this surface says ITSELF whether what it
-   * shows is saved; the WHEN moves into the panel the same tap opens.
-   * ⚠️ …and the mark is inside that tap: a sync indicator sitting beside a door is an ornament
-   * a thumb aims at for nothing. */
-  it('shows the sync mark without its time, and inside the title’s own target', async () => {
-    vi.mocked(useIsPhone).mockReturnValue(true)
-    mount({
-      lite: { subtitle: 'Brand PV Anlage', title: 'Brand PV Anlage' },
-      trupps: [aktivTrupp()], syncStatus: 'synced', lastSyncedAt: Date.parse('2026-09-09T18:05:00'),
-    })
-    const head = document.querySelector(`.${s.headRow}`)!
-    expect(head.querySelector('.az-syncline')).toBeTruthy()   // the mark is there…
-    expect(head.textContent).not.toMatch(/18:05/)             // …and says no time beside it
-
-    // one target: the mark rides INSIDE the popover trigger, not next to it
-    const opener = screen.getByRole('button', { name: az.headDetailOpen })
+    expect(opener.querySelector('b')!.textContent).toBe('Brand PV Anlage')
+    expect(opener.querySelector('small')!.textContent).toMatch(/^Amselstrasse 28, 4104 Oberwil.*18:05$/)
     expect(opener.querySelector('.az-syncline')).toBeTruthy()
-    // …whose accessible name is still the door's, not «Häkchen»
     expect(opener.getAttribute('aria-label')).toBe(az.headDetailOpen)
 
     fireEvent.click(opener)
     await waitFor(() => {
-      expect(document.querySelector('.az-head-detail')?.textContent).toMatch(/Gespeichert um.*18:05/)
+      const panel = document.querySelector('.az-head-detail')!.textContent
+      expect(panel).toMatch(/Gespeichert um.*18:05/)
+      // the link hint is a line here now — the link board shows no toasts (sweep #23)
+      expect(panel).toContain(az.linkReentryHint)
     })
+  })
+
+  /* ── The Notfall on the link board (R1, 30.10.2026: «red and notfall is already enough») ────
+   * Its own tab: the page IS the Notfall — head «Notfall seit …», both clocks named, the
+   * Sicherungstrupp act with «Anderer ⌄» — and no banner over it. Any other tab: a red strip
+   * whose tap goes back to the Notfall's page. */
+  it('makes the Notfall Trupp\'s page the Notfall, and leads back to it from every other tab', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const nf = az.notfall
+    mount({ lite: { subtitle: 'Brand' }, trupps: [
+      { ...aktivTrupp(), id: 'n', name: 'Nora Notfall', notfallAt: iso(30_000) },
+      { ...aktivTrupp(), id: 'i', name: 'Ida Innen' },
+      { ...aktivTrupp(), id: 'w', name: 'Willi Wache', auftrag: 'sichern', status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [] },
+    ] })
+    // it opens on the Notfall Trupp (the most urgent crew inside)
+    expect(document.querySelector(`.${s.nfPageName}`)!.textContent).toBe('Nora Notfall')
+    expect(screen.getByText(nf.pageSince)).toBeTruthy()
+    expect(screen.getByText(nf.pageContact)).toBeTruthy()
+    expect(screen.getByRole('button', { name: new RegExp(nf.sitrDeploy) }).textContent).toContain('Willi Wache')
+    expect(screen.getByRole('button', { name: nf.sitrOtherLabel })).toBeTruthy()
+    expect(document.querySelector(`.${s.nfBanner}`)).toBeNull()
+
+    fireEvent.click(screen.getByRole('tab', { name: /Ida Innen/ }))
+    expect(document.querySelector(`.${s.nfPage}`)).toBeNull()
+    const strip = document.querySelector(`.${s.nfStrip}`) as HTMLElement
+    expect(strip.textContent).toContain(fillTemplate(nf.stripOne, { name: 'Nora Notfall' }))
+    fireEvent.click(strip)
+    expect(document.querySelector(`.${s.nfPageName}`)!.textContent).toBe('Nora Notfall')
+    expect(document.querySelector(`.${s.nfStrip}`)).toBeNull()
   })
 
   // A new Trupp used to leave the PREVIOUS one selected on this board — the operator registered

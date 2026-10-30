@@ -7,14 +7,15 @@ import { confirmDialog } from '../lib/ui'
 import { useMeldung } from '../lib/useMeldung'
 import { serverNow } from '../lib/serverClock'
 import { fmtClock, notfallFacts, safetyInside, safetyReady, truppHeadName, truppInNotfall, truppLogName } from '../lib/atemschutz'
-import { notfallFactLine, notfallWho } from '../lib/notfall'
+import { notfallFactLine, notfallWho, type NotfallStrip as NotfallStripModel } from '../lib/notfall'
 import { NODE_HOLD_ARM_MS, useNodeHold } from '../lib/nodeHold'
 import type { Trupp } from '../types'
 import s from './Atemschutz.module.css'
 
 // The Atemschutznotfall (F1, 08.10.2026) — ONE Trupp in distress, said by a person.
 //
-// Three pieces live here, because they describe the same emergency and must never word it twice:
+// Five pieces live here, because they describe the same emergency and must never word it twice
+// (the last two are the handed-over phone board's, the Atemschutz-Link redesign R1 of 30.10.2026):
 //  · `NotfallHold` — the held tile on the Trupp's card that raises it, and the same tile that ends
 //    it («Notfall beendet»). The hold is `lib/nodeHold`, the app's one deliberate hold (250 ms of
 //    stillness, then the whole tile fills to 825 ms) — a Notfall is never one brushed tap away,
@@ -24,6 +25,9 @@ import s from './Atemschutz.module.css'
 //    «Sicherungstrupp einsetzen» (the board's existing Sicherungstrupp, its ordinary Eintritt).
 //  · `AtemschutzNotfallMeldungen` — the same, as the TOP row of the Meldeleiste on every other
 //    surface (MELDUNG_RANK.notfall = 0, above the überfällig row and a fresh dispatch).
+//  · `NotfallPageHead` — on the link board the Notfall Trupp's own page IS the Notfall: its head.
+//  · `NotfallStrip` — on any other tab of the link board, the red strip that leads to it.
+// The banner and the page head offer the Sicherungstrupp through ONE act (`safetyAct`).
 // The wording is deliberately neutral and short — it mirrors the AS emergency procedure
 // (FwDV 7 / FKS) and the station's AS instructors check it (copy · atemschutz.notfall).
 
@@ -115,6 +119,59 @@ function useSecondTick(on: boolean): number {
   return now
 }
 
+/** What the board hands the Notfall's Sicherungstrupp act — the banner's and the link page's. */
+export interface SafetyActProps {
+  /** the Sicherungstrupps ready to go in (lib/atemschutz · safetyReady), board order */
+  ready: Trupp[]
+  /** …and the ones already sent in (safetyInside) */
+  inside: Trupp[]
+  canEdit: boolean
+  onDeploySafety: (id: string) => void
+  /** several ready: the board's menu that asks which (rendered around the button) */
+  pickSafety?: (trigger: ReactElement) => ReactNode
+  /** none ready: the board's «Sicherungstrupp bestimmen» menu — every other Atemschutz-Trupp,
+   *  bereit · drin · draussen, to be put on «Sichern» (AtemschutzView, lib/atemschutz ·
+   *  safetyCandidates; rendered around the button), else straight to the create form (`onDefineSafety`) */
+  defineSafety?: (trigger: ReactElement) => ReactNode
+  onDefineSafety?: () => void
+}
+
+/**
+ * The first thing to do in a Notfall — «Sicherungstrupp einsetzen»: the ready one goes in through
+ * its ordinary Eintritt (several ⇒ `pickSafety` asks which); none ready ⇒ «Sicherungstrupp
+ * bestimmen» with «Kein Sicherungstrupp bereit» under it; one already inside ⇒ who and since when,
+ * and nothing offered twice. The primary tile carries its reason as a small second line. Null for
+ * a device that cannot write while one stands ready (it is not told «nobody ready»).
+ */
+function safetyAct({ ready, inside, canEdit, onDeploySafety, pickSafety, defineSafety, onDefineSafety }: SafetyActProps): ReactNode {
+  const nf = appConfig.copy.atemschutz.notfall
+  const primary = (cls: string, word: string, sub: string | undefined, onClick: (() => void) | undefined, icon?: ReactNode) => (
+    <button type="button" className={cx(s.actBtn, cls, s.nfPrimary)} onClick={onClick}>
+      {icon}
+      <span className={s.nfPrimaryTxt}>
+        <span>{word}</span>
+        {sub && <span className={s.nfPrimarySub}>{sub}</span>}
+      </span>
+    </button>
+  )
+  const deployBtn = primary(s.actEnter, nf.sitrDeploy, ready.length === 1 ? ready[0].name : undefined,
+    ready.length === 1 ? () => onDeploySafety(ready[0].id) : undefined, <Icon id="flag" />)
+  const defineBtn = primary(s.nfDefine, nf.sitrDefine, nf.sitrNone, defineSafety ? undefined : onDefineSafety)
+  const canDefine = canEdit && !!(defineSafety || onDefineSafety)
+  return inside.length > 0 ? (
+    <p className={s.nfNote}>{fillTemplate(nf.sitrInside, {
+      name: inside[0].name,
+      time: inside[0].entryTime ? formatTime(new Date(inside[0].entryTime)) : '',
+    })}</p>
+  ) : ready.length > 0 ? (
+    !canEdit ? null : ready.length > 1 && pickSafety ? pickSafety(deployBtn) : deployBtn
+  ) : canDefine ? (
+    defineSafety ? defineSafety(defineBtn) : defineBtn
+  ) : (
+    <p className={s.nfNote}>{nf.sitrNone}</p>
+  )
+}
+
 /**
  * The top of the Tafel while a Notfall runs — every board (tablet grid, phone board, the
  * handed-over Tafel). The strip's row steps aside on the board (AtemschutzAlarmMeldung's rule),
@@ -142,28 +199,15 @@ function useSecondTick(on: boolean): number {
  * no facts. The board measures the stack (AtemschutzView · `--nf-h`) so an opened card parks
  * BELOW it, never under it.
  */
-export function NotfallBanner({ t, now, place, ready, inside, canEdit, dense = false, wide = false, onDeploySafety, pickSafety, defineSafety, onDefineSafety, onGo }: {
+export function NotfallBanner({ t, now, place, dense = false, wide = false, onGo, ...safety }: SafetyActProps & {
   t: Trupp
   now: number
   place?: string
-  /** the Sicherungstrupps ready to go in (lib/atemschutz · safetyReady), board order */
-  ready: Trupp[]
-  /** …and the ones already sent in (safetyInside) */
-  inside: Trupp[]
-  canEdit: boolean
   /** several Notfälle at once: each banner is ONE head row (who + clock) over its acts — the
    *  people and the facts stay on the card and in the Verlauf, or two banners fill a phone */
   dense?: boolean
   /** a wide board (the tablet / desktop grid): one slim row instead of the phone card's head + act */
   wide?: boolean
-  onDeploySafety: (id: string) => void
-  /** several ready: the board's menu that asks which (rendered around the button) */
-  pickSafety?: (trigger: ReactElement) => ReactNode
-  /** none ready: the board's «Sicherungstrupp bestimmen» menu — every other Atemschutz-Trupp,
-   *  bereit · drin · draussen, to be put on «Sichern» (AtemschutzView, lib/atemschutz ·
-   *  safetyCandidates; rendered around the button), else straight to the create form (`onDefineSafety`) */
-  defineSafety?: (trigger: ReactElement) => ReactNode
-  onDefineSafety?: () => void
   onGo: (id: string) => void
 }) {
   const nf = appConfig.copy.atemschutz.notfall
@@ -176,33 +220,7 @@ export function NotfallBanner({ t, now, place, ready, inside, canEdit, dense = f
     ...(t.notfallAt ? [fillTemplate(nf.stateWord, { time: formatTime(new Date(t.notfallAt)) })] : []),
     ...notfallFactLine(t, now, place).slice(1),
   ]
-  // the primary tile, with its small second line: whom it sends, or why it must be named first
-  const primary = (cls: string, word: string, sub: string | undefined, onClick: (() => void) | undefined, icon?: ReactNode) => (
-    <button type="button" className={cx(s.actBtn, cls, s.nfPrimary)} onClick={onClick}>
-      {icon}
-      <span className={s.nfPrimaryTxt}>
-        <span>{word}</span>
-        {sub && <span className={s.nfPrimarySub}>{sub}</span>}
-      </span>
-    </button>
-  )
-  const deployBtn = primary(s.actEnter, nf.sitrDeploy, ready.length === 1 ? ready[0].name : undefined,
-    ready.length === 1 ? () => onDeploySafety(ready[0].id) : undefined, <Icon id="flag" />)
-  const defineBtn = primary(s.nfDefine, nf.sitrDefine, nf.sitrNone, defineSafety ? undefined : onDefineSafety)
-  const canDefine = canEdit && !!(defineSafety || onDefineSafety)
-  const act = inside.length > 0 ? (
-    <p className={s.nfNote}>{fillTemplate(nf.sitrInside, {
-      name: inside[0].name,
-      time: inside[0].entryTime ? formatTime(new Date(inside[0].entryTime)) : '',
-    })}</p>
-  ) : ready.length > 0 ? (
-    // a device that cannot write the Tafel is not told «nobody ready» while one stands ready
-    !canEdit ? null : ready.length > 1 && pickSafety ? pickSafety(deployBtn) : deployBtn
-  ) : canDefine ? (
-    defineSafety ? defineSafety(defineBtn) : defineBtn
-  ) : (
-    <p className={s.nfNote}>{nf.sitrNone}</p>
-  )
+  const act = safetyAct(safety)
   // the facts are the screen reader's on every board (the phone shows them on the card below)
   const label = [`${nf.title}: ${notfallWho(t)}`, ...facts].join(' · ')
   const goLabel = fillTemplate(nf.goToWho, { name: notfallWho(t) })
@@ -248,6 +266,84 @@ export function NotfallBanner({ t, now, place, ready, inside, canEdit, dense = f
       </button>
       {/* row 2: the one act, the banner's width */}
       {act && <div className={s.nfActs}>{act}</div>}
+    </section>
+  )
+}
+
+/**
+ * The head of the Notfall Trupp's OWN page on the handed-over phone board (Atemschutz-Link
+ * redesign, owner pick R1, 30.10.2026: «r1 is good but we don't need the triangle thing. red and
+ * notfall is already enough»). The whole page is the Notfall — the board paints it red down the
+ * left with a red tint (AtemschutzView · `.bodyFocusNf`) — and its head says it in words: «NOTFALL
+ * SEIT 12:12», the name big and red, BOTH clocks named («seit Notfall», «seit letztem Kontakt»,
+ * because two bare clocks on one page are a guess), then the Sicherungstrupp act (`safetyAct`) —
+ * with «Anderer ⌄» beside «Sicherungstrupp einsetzen» (`otherSafety`, the board's candidate
+ * menu: any other crew, a busy one included). The Trupp's own tiles follow on the page.
+ * ⚠️ No ⚠ glyph here, nor in the strip: red and the word «Notfall» carry it (owner). The TAB keeps
+ * its ⚠, because the tab has no word «Notfall».
+ */
+export function NotfallPageHead({ t, now, sinceContactSec, otherSafety, ...safety }: SafetyActProps & {
+  t: Trupp
+  now: number
+  /** the contact clock (TruppLive · sinceContactSec) — the second clock the page names */
+  sinceContactSec: number | null
+  /** the board's «Anderer ⌄» menu around its trigger — offered beside a ready Sicherungstrupp */
+  otherSafety?: (trigger: ReactElement) => ReactNode
+}) {
+  const nf = appConfig.copy.atemschutz.notfall
+  const f = notfallFacts(t, now)
+  const act = safetyAct(safety)
+  const other = otherSafety && safety.canEdit && safety.inside.length === 0 && safety.ready.length > 0
+  return (
+    <div className={s.nfPage}>
+      {t.notfallAt && <span className={s.nfPageEyebrow}>{fillTemplate(nf.stateWord, { time: formatTime(new Date(t.notfallAt)) })}</span>}
+      <h3 className={s.nfPageName}>{truppHeadName(t)}</h3>
+      <div className={s.nfPageClocks}>
+        <span className={s.nfPageSince}>{fmtClock(f.sinceSec)}<small>{nf.pageSince}</small></span>
+        {sinceContactSec != null && <span className={s.nfPageContact}>{fmtClock(sinceContactSec)}<small>{nf.pageContact}</small></span>}
+      </div>
+      {act && (
+        <div className={s.nfPageAct}>
+          {act}
+          {other && otherSafety(
+            <button type="button" className={s.nfOther} aria-label={nf.sitrOtherLabel} title={nf.sitrOtherLabel}>
+              <span>{nf.sitrOther}</span><Icon id="chevron-down" />
+            </button>,
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * A Notfall on ANOTHER tab of the handed-over phone board (R1, 30.10.2026): a solid red strip
+ * under the header, «Notfall · Schmid Peter 0:09 ›», and a tap switches to that Trupp's tab,
+ * where its page carries the Sicherungstrupp act — the strip has none (20q). Several: one strip
+ * per Trupp up to two, from three on one «3 Notfälle ›» to the first (lib/notfall · notfallStrips).
+ * An alert like the banner it replaces on this board; no ⚠ glyph (owner).
+ */
+export function NotfallStrip({ strip, now, onGo }: { strip: NotfallStripModel; now: number; onGo: (id: string) => void }) {
+  const nf = appConfig.copy.atemschutz.notfall
+  if (strip.kind === 'many') {
+    const word = fillTemplate(nf.stripMany, { n: strip.count })
+    return (
+      <section role="alert" aria-label={word} className={s.nfStripBox}>
+        <button type="button" className={s.nfStrip} onClick={() => onGo(strip.goTo)}>
+          <span className={s.nfStripTxt}>{word}</span>
+          <Icon id="chevron" />
+        </button>
+      </section>
+    )
+  }
+  const { t } = strip
+  return (
+    <section role="alert" aria-label={`${nf.title}: ${notfallWho(t)}`} className={s.nfStripBox}>
+      <button type="button" className={s.nfStrip} onClick={() => onGo(t.id)} aria-label={fillTemplate(nf.goToWho, { name: notfallWho(t) })}>
+        <span className={s.nfStripTxt}>{fillTemplate(nf.stripOne, { name: truppHeadName(t) })}</span>
+        <b className={s.nfStripClock}>{fmtClock(notfallFacts(t, now).sinceSec)}</b>
+        <Icon id="chevron" />
+      </button>
     </section>
   )
 }
