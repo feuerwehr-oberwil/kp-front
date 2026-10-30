@@ -78,8 +78,8 @@ async def test_a_failure_is_never_cached(patch_httpx, monkeypatch):
 
 
 async def test_a_caller_that_gives_up_does_not_cancel_the_race(patch_httpx, monkeypatch):
-    """The browser aborts at 20 s; a mirror may answer at 25. That answer must still reach the
-    cache for the next open instead of dying with the request that gave up."""
+    """A caller may give up (the browser's own bound, a closed tab) while a mirror is still on its
+    way. That answer must still reach the cache for the next open instead of dying with it."""
     monkeypatch.setattr(overpass, "mirrors", lambda: ["https://only.example/api"])
 
     async def handler(request: httpx.Request) -> httpx.Response:
@@ -107,6 +107,52 @@ async def test_without_cache_every_call_races(patch_httpx, monkeypatch):
     await overpass.fetch_buildings("out body;", cache=False)
     assert len(calls) == 2
     assert "out body;" not in overpass._cache
+
+
+async def test_a_remark_answer_is_a_failure_and_never_cached(patch_httpx, monkeypatch):
+    """Overpass that runs out of its own `[timeout:25]` answers 200 with a «runtime error» remark
+    and no (or only some) elements. Cached, that was «Keine Gebäude» for six hours here and for
+    good in the device's IndexedDB (sweep 30.10.2026, #11)."""
+    monkeypatch.setattr(overpass, "mirrors", lambda: ["https://only.example/api"])
+    answer = {
+        "body": {"remark": 'runtime error: Query timed out in "query" at line 1 after 26 seconds.', "elements": []}
+    }
+    patch_httpx(lambda r: httpx.Response(200, json=answer["body"]))
+    with pytest.raises(RuntimeError):
+        await overpass.fetch_buildings("out body;")
+    assert "out body;" not in overpass._cache
+    answer["body"] = {"elements": ["late"]}
+    assert await overpass.fetch_buildings("out body;") == {"elements": ["late"]}
+
+
+async def test_a_remark_mirror_loses_the_race_to_one_that_answered(patch_httpx, monkeypatch):
+    monkeypatch.setattr(overpass, "mirrors", lambda: ["https://a.example/api", "https://b.example/api"])
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "a.example":
+            return httpx.Response(200, json={"remark": "runtime error: out of memory", "elements": []})
+        await asyncio.sleep(0.02)
+        return httpx.Response(200, json={"elements": ["b"]})
+
+    patch_httpx(handler)
+    assert await overpass.fetch_buildings("out body;") == {"elements": ["b"]}
+
+
+async def test_a_mirror_is_cut_at_the_wall_clock_bound(patch_httpx, monkeypatch):
+    """httpx's timeout is per PHASE (connect, write, each read): a mirror that keeps a connection
+    alive can hold the race far past it. The bound is wall-clock per mirror."""
+    monkeypatch.setattr(overpass, "mirrors", lambda: ["https://only.example/api"])
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        await asyncio.sleep(2)
+        return httpx.Response(200, json={"elements": ["too late"]})
+
+    patch_httpx(handler)
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    with pytest.raises(RuntimeError):
+        await overpass.fetch_buildings("out body;", timeout_s=0.05)
+    assert loop.time() - started < 1
 
 
 def test_the_mirror_guard_outlasts_the_query_timeout():
