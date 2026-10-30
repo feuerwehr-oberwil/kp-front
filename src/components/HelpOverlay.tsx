@@ -9,9 +9,11 @@ import { atemschutzDoctrine, getDeploymentConfig } from '../lib/deploymentConfig
 import { DEFAULT_HOURS_ROUNDING } from '../lib/attendanceHours'
 import { useIsPhone, useMediaQuery } from '../lib/useIsPhone'
 import { helpShows } from '../lib/helpDevice'
+import { pickActiveSection } from '../lib/scrollSpy'
 
 // In-app capabilities/help overlay reached from the incident menu ("Funktionen &
-// Hilfe"). One scrollable column of feature sections with a sticky TOC + scroll-spy.
+// Hilfe"). One scrollable column of feature sections with a sticky TOC + scroll-spy
+// (lib/scrollSpy: the TOC follows the reading position both ways and keeps its entry in view).
 // Content is authored as data in appConfig.copy.help.sections (no markdown dependency)
 // so it bundles offline; inline markup is **bold** + [[key]] keyboard chips.
 
@@ -131,31 +133,72 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
     [allSections, haystacks, q],
   )
   const [active, setActive] = useState(allSections[0].id)
-  const scrollRef = useRef<HTMLDivElement>(null)
+  // ⚠️ STATE, not a ref: the <Overlay> mounts its popup after this component's first effects run,
+  // so a ref read there is still null – and an effect keyed on [sections] alone never ran again.
+  // That is why the old observer spy never fired at all (found 30.10.2026).
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null)
+  const tocRef = useRef<HTMLElement>(null)
+  // A TOC tap owns the highlight until the scroll it started has settled: the smooth scroll passes
+  // every section in between, and at the bottom the picker would name the LAST section, not a
+  // short tail section that was tapped. Each scroll event while pinned pushes the end on. Event
+  // timestamps on both sides (one clock, and no impure call in a handler made during render).
+  const pinnedUntil = useRef(0)
 
   // No Esc listener here: the <Overlay> this renders into already closes on Escape. The duplicate
   // window listener fired onClose a second time on the same key press.
 
-  // scroll-spy — highlight the TOC entry of the section nearest the top of the scroller
+  // scroll-spy (30.10.2026) — on every scroll, at most once a frame, the picker names the section
+  // the reader is in (lib/scrollSpy). It replaced an IntersectionObserver band that never
+  // re-activated the section above on the way up and never reached the short last sections.
   useEffect(() => {
-    const root = scrollRef.current
+    const root = scrollEl
     if (!root) return
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const vis = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
-        if (vis[0]) setActive(vis[0].target.id)
-      },
-      { root, rootMargin: '0px 0px -70% 0px', threshold: 0 },
-    )
-    sections.forEach((s) => { const el = document.getElementById(`help-${s.id}`); if (el) obs.observe(el) })
-    return () => obs.disconnect()
-  }, [sections])
+    let frame = 0
+    const pick = () => {
+      frame = 0
+      const rootTop = root.getBoundingClientRect().top
+      const tops = sections.map((s) => (document.getElementById(`help-${s.id}`)?.getBoundingClientRect().top ?? Infinity) - rootTop)
+      const i = pickActiveSection({ tops, scrollTop: root.scrollTop, viewHeight: root.clientHeight, scrollHeight: root.scrollHeight })
+      if (i >= 0) setActive(sections[i].id)
+    }
+    const onScroll = (ev: Event) => {
+      if (ev.timeStamp < pinnedUntil.current) { pinnedUntil.current = ev.timeStamp + 200; return }
+      if (!frame) frame = requestAnimationFrame(pick)
+    }
+    // once up front, so a filtered set never keeps an entry it no longer lists
+    frame = requestAnimationFrame(pick)
+    root.addEventListener('scroll', onScroll, { passive: true })
+    return () => { root.removeEventListener('scroll', onScroll); cancelAnimationFrame(frame) }
+  }, [sections, scrollEl])
+
+  // …and the TOC keeps that entry in view (the `block: 'nearest'` rule). By hand on the TOC alone:
+  // `scrollIntoView` also moves every scrolling ancestor, and Chromium cancels the content's
+  // running smooth scroll when another one starts. On a phone the TOC is hidden – nothing moves.
+  useEffect(() => {
+    const toc = tocRef.current
+    const item = toc?.querySelector('.help-toc-i.on')
+    if (!toc || !item) return
+    const t = toc.getBoundingClientRect()
+    const r = item.getBoundingClientRect()
+    const pad = 8
+    if (r.top < t.top + pad) toc.scrollTop += r.top - t.top - pad
+    else if (r.bottom > t.bottom - pad) toc.scrollTop += r.bottom - t.bottom + pad
+  }, [active])
 
   // a narrowed result set starts at ITS top — otherwise the scroller keeps the offset of the
-  // unfiltered list and the first hit sits somewhere above the fold
-  useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }) }, [q])
+  // unfiltered list and the first hit sits somewhere above the fold. In the handler, not an effect
+  // on the query: an effect also fired when the scroller mounted.
+  const search = (v: string) => {
+    setQuery(v)
+    scrollEl?.scrollTo({ top: 0 })
+  }
 
-  const go = (id: string) => document.getElementById(`help-${id}`)?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
+  // a tap highlights its entry AT ONCE, and keeps it while the scroll it starts runs
+  const go = (id: string, at: number) => {
+    setActive(id)
+    pinnedUntil.current = at + 200
+    document.getElementById(`help-${id}`)?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
+  }
 
   return (
     <Overlay open onClose={onClose} className="help-modal" backdropClassName="help-scrim" ariaLabel={C.title}>
@@ -171,20 +214,20 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
         {/* the search lives in the HEADER, not above the TOC: the TOC is hidden on a phone,
             and that is exactly where someone is standing with one question and no patience */}
         <div className="help-search">
-          <SearchField value={query} onChange={setQuery} placeholder={C.search} aria-label={C.search}
+          <SearchField value={query} onChange={search} placeholder={C.search} aria-label={C.search}
             autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="search" />
         </div>
         <div className="help-body">
-          <nav className="help-toc">
+          <nav className="help-toc" ref={tocRef}>
             {/* no heading over an empty list — a lone «Inhalt» label reads like a failed render */}
             {sections.length > 0 && <div className="help-toc-h">{C.contents}</div>}
             {sections.map((s) => (
-              <button key={s.id} className={`help-toc-i${active === s.id ? ' on' : ''}`} onClick={() => go(s.id)}>
-                <Icon id={s.icon} />{mark(s.title, q, `t${s.id}`)}
+              <button key={s.id} className={`help-toc-i${active === s.id ? ' on' : ''}`} onClick={(ev) => go(s.id, ev.timeStamp)}>
+                <Icon id={s.icon} /><span className="help-toc-t">{mark(s.title, q, `t${s.id}`)}</span>
               </button>
             ))}
           </nav>
-          <div className="help-content" ref={scrollRef}>
+          <div className="help-content" ref={setScrollEl}>
             {sections.length === 0 && (
               <div className="help-empty">
                 {/* the verdict first, the way out under it — not the other way round. The verdict is
