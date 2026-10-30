@@ -88,7 +88,7 @@
       "@type": "SoftwareApplication",
       "@id": "https://kp-front.ch/#app",
       "name": "KP Front",
-      "url": "https://kp-front.ch/en/",
+      "url": "https://kp-front.ch/",
       "description": "Digital incident command and situation map for fire brigades – with swisstopo maps, tactical symbols to FKS conventions, SCBA monitoring and a running incident log.",
       "featureList": [
         "Situation map on swisstopo maps with tactical symbols to FKS conventions",
@@ -108,7 +108,13 @@
         "en"
       ],
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
-      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-front",
+      "sameAs": "https://github.com/feuerwehr-oberwil/kp-front",
+      "subjectOf": {
+        "@id": "https://kp-front.ch/#source"
+      },
+      "isPartOf": {
+        "@id": "https://kp-front.ch/#kp-suite"
+      },
       "screenshot": "https://kp-front.ch/shots/lage.jpg",
       "isAccessibleForFree": true,
       "offers": {
@@ -121,6 +127,26 @@
       }
     },
     {
+      "@type": "SoftwareSourceCode",
+      "@id": "https://kp-front.ch/#source",
+      "name": "KP Front source code",
+      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-front",
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html"
+    },
+    {
+      "@type": "CreativeWorkSeries",
+      "@id": "https://kp-front.ch/#kp-suite",
+      "name": "KP Front & KP Rück",
+      "hasPart": [
+        {
+          "@id": "https://kp-front.ch/#app"
+        },
+        {
+          "@id": "https://kp-rueck.ch/#app"
+        }
+      ]
+    },
+    {
       "@type": "Organization",
       "@id": "https://kp-front.ch/#org",
       "name": "Feuerwehr Oberwil BL",
@@ -128,6 +154,17 @@
       "sameAs": [
         "https://github.com/feuerwehr-oberwil"
       ]
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://kp-front.ch/en/#webpage",
+      "url": "https://kp-front.ch/en/",
+      "name": "KP Front – Digital incident command for fire brigades",
+      "description": "KP Front is the digital command post at the scene: map, plans, teams, log and report – offline-capable and open source.",
+      "inLanguage": "en",
+      "mainEntity": {
+        "@id": "https://kp-front.ch/#app"
+      }
     },
     {
       "@type": "FAQPage",

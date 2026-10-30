@@ -277,21 +277,35 @@ for (const locale of config.locales) {
 
   // ─── Structured data ────────────────────────────────────────────────────────
   //
-  // Three nodes, all true and all checkable: what this is (SoftwareApplication), who is
-  // behind it (Organization) and the page's own FAQ (FAQPage). Google has shown FAQ rich
-  // results only for government and health sites since 2023; the FAQPage is there for the
-  // other search and answer engines that still read it.
+  // Every node true and checkable:
+  //
+  //   SoftwareApplication  what this is – ONE stable @id and the canonical product URL on
+  //                        every language page, so the five pages describe one app
+  //   SoftwareSourceCode   where the code lives (`codeRepository` belongs here, not on the
+  //                        app), linked from the app via `subjectOf`
+  //   CreativeWorkSeries   KP Front and KP Rück as one family – the same @id on both sites,
+  //                        so the two apps belong together without claiming to be the same
+  //                        thing (hence no `sameAs` between them)
+  //   Organization         who is behind it
+  //   WebPage              this language page, with its own URL, title and language
+  //   FAQPage              this page's visible FAQ
+  //
+  // Two kinds of language, kept apart on purpose: `product.inLanguage` names the languages
+  // of the APP's interface, the page's own language goes on WebPage and FAQPage. A Romansh
+  // landing page is not a Romansh app.
   //
   // Everything per language comes from the texts: `schema.description` and
   // `schema.featureList` (optional – without them the meta description stands in), and the
   // FAQPage is the visible `faq.items`, reduced to plain text – one source, so the two can
-  // never say different things. `product.inLanguage` names the languages of the APP, which
-  // need not be the languages of this site; without it the site's languages stand in.
+  // never say different things. Google has shown FAQ rich results only for government and
+  // health sites since 2023; the FAQPage is there for the other search and answer engines
+  // that still read it.
   //
   // Built here rather than written into the template because JSON.stringify guarantees valid
   // JSON: the template does not escape, and one apostrophe in a description would silently
   // turn the whole block into something no crawler reads.
   const p = config.product
+  const appId = `${config.origin}/#app`
   const faqItems = content.faq?.items ?? []
   const jsonLd = JSON.stringify(
     {
@@ -299,20 +313,35 @@ for (const locale of config.locales) {
       '@graph': [
         {
           '@type': 'SoftwareApplication',
-          '@id': `${config.origin}/#app`,
+          '@id': appId,
           name: p.name,
-          url: urlOf(locale),
+          url: urlOf(baseLocale),
           description: content.schema?.description ?? content.meta.description,
           ...(content.schema?.featureList && { featureList: content.schema.featureList }),
           applicationCategory: 'BusinessApplication',
           operatingSystem: 'Web browser',
-          inLanguage: p.inLanguage ?? config.locales.map((l) => l.hreflang),
+          inLanguage: p.inLanguage,
           license: p.license,
-          codeRepository: p.repo,
+          sameAs: p.repo,
+          subjectOf: { '@id': `${config.origin}/#source` },
+          isPartOf: { '@id': p.suite.id },
           screenshot: `${config.origin}/${p.screenshot}`,
           isAccessibleForFree: true,
           offers: { '@type': 'Offer', price: '0', priceCurrency: 'CHF' },
           publisher: { '@id': `${config.origin}/#org` },
+        },
+        {
+          '@type': 'SoftwareSourceCode',
+          '@id': `${config.origin}/#source`,
+          name: `${p.name} source code`,
+          codeRepository: p.repo,
+          license: p.license,
+        },
+        {
+          '@type': 'CreativeWorkSeries',
+          '@id': p.suite.id,
+          name: p.suite.name,
+          hasPart: p.suite.apps.map((id) => ({ '@id': id })),
         },
         {
           '@type': 'Organization',
@@ -320,6 +349,15 @@ for (const locale of config.locales) {
           name: p.org.name,
           url: p.org.url,
           sameAs: [p.org.github],
+        },
+        {
+          '@type': 'WebPage',
+          '@id': `${urlOf(locale)}#webpage`,
+          url: urlOf(locale),
+          name: plainText(content.meta.title),
+          description: plainText(content.meta.description),
+          inLanguage: locale.hreflang,
+          mainEntity: { '@id': appId },
         },
         ...(faqItems.length
           ? [{

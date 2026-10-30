@@ -88,7 +88,7 @@
       "@type": "SoftwareApplication",
       "@id": "https://kp-front.ch/#app",
       "name": "KP Front",
-      "url": "https://kp-front.ch/rm/",
+      "url": "https://kp-front.ch/",
       "description": "Direcziun digitala d’acziun e charta da situaziun per ils pumpiers – cun chartas da swisstopo, segns tactics tenor las convenziuns FKS, surveglianza da la protecziun respiratorica e decurs d’acziun continuant.",
       "featureList": [
         "Charta da situaziun sin chartas da swisstopo cun segns tactics tenor las convenziuns FKS",
@@ -108,7 +108,13 @@
         "en"
       ],
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
-      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-front",
+      "sameAs": "https://github.com/feuerwehr-oberwil/kp-front",
+      "subjectOf": {
+        "@id": "https://kp-front.ch/#source"
+      },
+      "isPartOf": {
+        "@id": "https://kp-front.ch/#kp-suite"
+      },
       "screenshot": "https://kp-front.ch/shots/lage.jpg",
       "isAccessibleForFree": true,
       "offers": {
@@ -121,6 +127,26 @@
       }
     },
     {
+      "@type": "SoftwareSourceCode",
+      "@id": "https://kp-front.ch/#source",
+      "name": "KP Front source code",
+      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-front",
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html"
+    },
+    {
+      "@type": "CreativeWorkSeries",
+      "@id": "https://kp-front.ch/#kp-suite",
+      "name": "KP Front & KP Rück",
+      "hasPart": [
+        {
+          "@id": "https://kp-front.ch/#app"
+        },
+        {
+          "@id": "https://kp-rueck.ch/#app"
+        }
+      ]
+    },
+    {
       "@type": "Organization",
       "@id": "https://kp-front.ch/#org",
       "name": "Feuerwehr Oberwil BL",
@@ -128,6 +154,17 @@
       "sameAs": [
         "https://github.com/feuerwehr-oberwil"
       ]
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://kp-front.ch/rm/#webpage",
+      "url": "https://kp-front.ch/rm/",
+      "name": "KP Front – Direcziun digitala d’acziun per ils pumpiers",
+      "description": "KP Front è il post da commando digital al lieu d’acziun: charta, plans, gruppas, decurs e rapport – utilisabel offline ed open source.",
+      "inLanguage": "rm-CH",
+      "mainEntity": {
+        "@id": "https://kp-front.ch/#app"
+      }
     },
     {
       "@type": "FAQPage",

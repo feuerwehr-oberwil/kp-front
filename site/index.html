@@ -108,7 +108,13 @@
         "en"
       ],
       "license": "https://www.gnu.org/licenses/agpl-3.0.html",
-      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-front",
+      "sameAs": "https://github.com/feuerwehr-oberwil/kp-front",
+      "subjectOf": {
+        "@id": "https://kp-front.ch/#source"
+      },
+      "isPartOf": {
+        "@id": "https://kp-front.ch/#kp-suite"
+      },
       "screenshot": "https://kp-front.ch/shots/lage.jpg",
       "isAccessibleForFree": true,
       "offers": {
@@ -121,6 +127,26 @@
       }
     },
     {
+      "@type": "SoftwareSourceCode",
+      "@id": "https://kp-front.ch/#source",
+      "name": "KP Front source code",
+      "codeRepository": "https://github.com/feuerwehr-oberwil/kp-front",
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html"
+    },
+    {
+      "@type": "CreativeWorkSeries",
+      "@id": "https://kp-front.ch/#kp-suite",
+      "name": "KP Front & KP Rück",
+      "hasPart": [
+        {
+          "@id": "https://kp-front.ch/#app"
+        },
+        {
+          "@id": "https://kp-rueck.ch/#app"
+        }
+      ]
+    },
+    {
       "@type": "Organization",
       "@id": "https://kp-front.ch/#org",
       "name": "Feuerwehr Oberwil BL",
@@ -128,6 +154,17 @@
       "sameAs": [
         "https://github.com/feuerwehr-oberwil"
       ]
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://kp-front.ch/#webpage",
+      "url": "https://kp-front.ch/",
+      "name": "KP Front – Digitale Einsatzführung für Feuerwehren",
+      "description": "KP Front ist der digitale Kommandoposten am Einsatzort: Karte, Pläne, Trupps, Verlauf und Rapport – offline-fähig und quelloffen.",
+      "inLanguage": "de-CH",
+      "mainEntity": {
+        "@id": "https://kp-front.ch/#app"
+      }
     },
     {
       "@type": "FAQPage",

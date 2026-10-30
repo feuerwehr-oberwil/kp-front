@@ -18,6 +18,9 @@ it (`lib/undoTimeline`, `lib/undoKeys`). Moved here from AGENTS.md on 2026-10-08
 
 ## How an act joins the timeline
 
+One act spanning several domains uses `UndoTimeline.group`. A toast's dropper removes the
+recorded group from either stack, including a group reduced to one part before it closed.
+
 - *Delegating* – the domain keeps its own history and the entry calls it: the Karte's document
   (`useUndoableDoc` through `useObjectStore`), a Plan's per-document history (`useBoardDoc`),
   and the synced slices (`useUndoableSlice` – Anwesenheit, Mittel, Checklisten, **Rapport**,

@@ -33,7 +33,155 @@ beforeEach(() => {
 })
 afterEach(() => {
   stores.splice(0).forEach((store) => store.stop())
+  vi.useRealTimers()
   vi.restoreAllMocks(); vi.unstubAllGlobals()
+})
+
+describe('audit outbox recovery and lifecycle', () => {
+  it('does not accept or deliver events before write ownership starts', async () => {
+    const store = new AuditEventStore('incident', 'editor', false)
+    stores.push(store)
+    expect(store.status).toBe('synced')
+    store.append(event('unowned'))
+    await store.flush()
+    expect(store.pendingCount).toBe(0)
+    expect(ingestEvents).not.toHaveBeenCalled()
+    expect(store.getRecoveryData().pending).toEqual([])
+  })
+
+  it('keeps parked, rejected and pending identities in separate recovery buckets after hydration', async () => {
+    await idb.idbSet('kp-audit-incident:editor', {
+      pending: [event('rejected'), event('refused'), event('closed'), event('pending')],
+      rejected: [event('rejected'), event('refused'), event('closed')],
+      refused: [event('refused')], closed: [event('closed')],
+    })
+    const store = open('editor', true)
+    await store.flush()
+    expect(store.getRecoveryData()).toEqual({
+      incidentId: 'incident', ownerId: 'editor', pending: [event('pending')], rejected: [event('rejected')],
+      refused: [event('refused')], closed: [event('closed')],
+    })
+    await store.retry()
+    await store.requeueClosed()
+    store.flushKeepalive()
+    store.append(event('read-only'))
+    expect(store.pendingCount).toBe(1)
+    expect(store.closedCount).toBe(1)
+    expect(ingestEvents).not.toHaveBeenCalled()
+    expect(ingestEventsBeacon).not.toHaveBeenCalled()
+  })
+
+  it('reclassifies rejected events on a role change, preserves earlier refused entries, and notifies', async () => {
+    await idb.idbSet('kp-audit-incident:editor', {
+      pending: [], rejected: [event('alarm', 'atemschutz.alarm'), event('record', 'journal.add')], refused: [event('earlier')],
+    })
+    const store = open()
+    await store.flush()
+    const seen = vi.fn()
+    const off = store.subscribe(seen)
+    store.setScope(eventScopeFor({ role: 'el' }))
+    expect(store.getRecoveryData().refused).toEqual([event('earlier'), event('alarm', 'atemschutz.alarm')])
+    expect(store.getRecoveryData().rejected).toEqual([event('record', 'journal.add')])
+    expect(seen).toHaveBeenCalled()
+    await vi.waitFor(async () => expect((await idb.idbGet<{ refused: PendingAuditEvent[] }>('kp-audit-incident:editor'))?.refused).toHaveLength(2))
+    off()
+  })
+
+  it('does not let a stale unsubscribe remove a replacement listener', async () => {
+    const store = open()
+    await store.flush()
+    const old = vi.fn(), current = vi.fn()
+    const oldOff = store.subscribe(old)
+    const currentOff = store.subscribe(current)
+    oldOff()
+    store.append(event('a'))
+    expect(old).not.toHaveBeenCalled()
+    expect(current).toHaveBeenCalledTimes(1)
+    currentOff()
+    store.append(event('b'))
+    expect(current).toHaveBeenCalledTimes(1)
+  })
+
+  it('beacons at most 100 events without acknowledging or mutating the outbox', async () => {
+    const store = open()
+    await store.flush()
+    for (let i = 0; i < 101; i++) store.append(event(String(i)))
+    store.flushKeepalive()
+    expect(ingestEventsBeacon).toHaveBeenCalledExactlyOnceWith('incident', Array.from({ length: 100 }, (_, i) => event(String(i))))
+    expect(store.pendingCount).toBe(101)
+    const exported = store.getRecoveryData()
+    exported.pending[0].payload!.id = 'edited export'
+    expect(store.getRecoveryData().pending[0]).toEqual(event('0'))
+  })
+
+  it('bounds teardown payloads by UTF-8 bytes while keeping the rest recoverable', async () => {
+    const store = open()
+    await store.flush()
+    const large = { ...event('large'), payload: { text: 'ü'.repeat(13_000) } }
+    store.append(large)
+    store.append({ ...large, client_id: 'second' })
+    store.flushKeepalive()
+    expect(ingestEventsBeacon).toHaveBeenCalledExactlyOnceWith('incident', [large])
+    expect(store.pendingCount).toBe(2)
+  })
+
+  it.each(['stop', 'demote'] as const)('ignores a late acknowledgement after %s and retains the original event', async (change) => {
+    const store = open()
+    await store.flush()
+    let acknowledge!: () => void
+    ingestEvents.mockImplementationOnce(() => new Promise<void>((resolve) => { acknowledge = resolve }))
+    store.append(event('late'))
+    const flushing = store.flush()
+    await vi.waitFor(() => expect(ingestEvents).toHaveBeenCalledTimes(1))
+    if (change === 'stop') store.stop()
+    else store.setReadOnly(true)
+    acknowledge()
+    await flushing
+    store.append(event('forbidden'))
+    expect(store.getRecoveryData().pending).toEqual([event('late')])
+  })
+
+  it.each([new ApiError(500, 'server'), new Error('network failed')])('retains retryable failures as an error instead of a rejection (%s)', async (error) => {
+    ingestEvents.mockRejectedValue(error)
+    const store = open()
+    store.append(event('retry'))
+    await store.flush()
+    expect(store.status).toBe('error')
+    expect(store.getRecoveryData().pending).toEqual([event('retry')])
+    expect(store.rejectedCount).toBe(0)
+  })
+
+  it.each(['stop', 'demote'] as const)('ignores a late validation failure after %s', async (change) => {
+    const store = open()
+    await store.flush()
+    let refuse!: (error: Error) => void
+    ingestEvents.mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { refuse = reject }))
+    store.append(event('late-refusal'))
+    const flushing = store.flush()
+    await vi.waitFor(() => expect(ingestEvents).toHaveBeenCalledTimes(1))
+    if (change === 'stop') store.stop()
+    else store.setReadOnly(true)
+    refuse(new ApiError(422, 'invalid'))
+    await flushing
+    expect(store.rejectedCount).toBe(0)
+    expect(store.getRecoveryData().pending).toEqual([event('late-refusal')])
+  })
+
+  it('automatically sends after four seconds and retries an unreachable server after eight', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const store = open()
+    await store.flush()
+    store.append(event('automatic'))
+    await vi.advanceTimersByTimeAsync(3999)
+    expect(ingestEvents).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    await vi.waitFor(() => expect(ingestEvents).toHaveBeenCalledTimes(1))
+    await vi.advanceTimersByTimeAsync(8000)
+    await vi.waitFor(() => expect(ingestEvents).toHaveBeenCalledTimes(2))
+    store.stop()
+    await vi.advanceTimersByTimeAsync(16_000)
+    expect(ingestEvents).toHaveBeenCalledTimes(2)
+  })
 })
 
 describe('AuditEventStore', () => {

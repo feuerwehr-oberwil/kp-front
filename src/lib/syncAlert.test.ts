@@ -90,6 +90,20 @@ describe('createSyncAlertTracker', () => {
 })
 
 describe('createClockSkewAlert', () => {
+  it.each([1, -1])('warns beyond three minutes in direction %i and re-arms at two', (sign) => {
+    const notify = vi.fn()
+    const a = createClockSkewAlert(notify)
+    a.onSkew(sign * 3)
+    expect(notify).not.toHaveBeenCalled()
+    a.onSkew(sign * 4)
+    expect(notify).toHaveBeenCalledExactlyOnceWith(sign * 4)
+    a.onSkew(sign * 3)
+    a.onSkew(sign * 4)
+    expect(notify).toHaveBeenCalledTimes(1)
+    a.onSkew(sign * 2)
+    a.onSkew(sign * 4)
+    expect(notify).toHaveBeenCalledTimes(2)
+  })
   it('announces once per episode, not on every sample of a still-skewed clock', () => {
     const notify = vi.fn()
     const a = createClockSkewAlert(notify)
@@ -131,5 +145,50 @@ describe('createClockSkewAlert', () => {
     a.onSkew(null) // no information — must not end the episode either
     a.onSkew(CLOCK_SKEW_WARN_MIN + 1)
     expect(notify).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('offline alert policy', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('keeps retry flaps from leaving a second offline timer behind', () => {
+    const notify = vi.fn()
+    const t = createSyncAlertTracker(notify)
+    t.onStatus('offline')
+    vi.advanceTimersByTime(10_000)
+    t.onStatus('offline')
+    vi.advanceTimersByTime(20_000)
+    expect(notify).toHaveBeenCalledExactlyOnceWith('offline')
+    vi.advanceTimersByTime(30_000)
+    expect(notify).toHaveBeenCalledTimes(1)
+    t.dispose()
+  })
+
+  it('uses a 30-second default and re-arms offline notification after recovery', () => {
+    const notify = vi.fn()
+    const t = createSyncAlertTracker(notify)
+    t.onStatus('offline')
+    vi.advanceTimersByTime(29_999)
+    expect(notify).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(notify).toHaveBeenCalledExactlyOnceWith('offline')
+    t.onStatus('synced')
+    t.onStatus('offline')
+    vi.advanceTimersByTime(30_000)
+    expect(notify.mock.calls).toEqual([['offline'], ['offline']])
+    t.dispose()
+  })
+
+  it('supports a zero-delay alert without applying the default interval', () => {
+    const notify = vi.fn()
+    const t = createSyncAlertTracker(notify, { offlineDelayMs: 0 })
+    t.onStatus('pending')
+    vi.advanceTimersByTime(30_000)
+    expect(notify).not.toHaveBeenCalled()
+    t.onStatus('offline')
+    vi.advanceTimersByTime(0)
+    expect(notify).toHaveBeenCalledExactlyOnceWith('offline')
+    t.dispose()
   })
 })

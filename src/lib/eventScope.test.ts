@@ -58,4 +58,16 @@ describe('observedEventId — one event per observer, not per device', () => {
     expect(observedEventId(`${long}y`, actor)).not.toBe(id)
     expect(observedEventId(key, actor).length).toBeLessThanOrEqual(128)
   })
+
+  it('preserves the wire identity at 128 characters and uses stable FNV-1a above that limit', () => {
+    const boundary = 'x'.repeat(118)
+    expect(observedEventId(boundary, 'actor')).toBe(`obs-${boundary}@actor`)
+    expect(observedEventId(boundary, 'actor')).toHaveLength(128)
+    expect(observedEventId(`${boundary}x`, 'actor')).toHaveLength(128)
+    // A fixed protocol vector catches changes that remain deterministic on one build but
+    // would duplicate the same observation across devices running different builds.
+    expect(observedEventId('x'.repeat(200), 'actor')).toBe(`obs-d3f151b9-obs-${'x'.repeat(111)}`)
+    expect(observedEventId(`${'x'.repeat(200)}21`, 'actor')).toBe(`obs-049ee274-obs-${'x'.repeat(111)}`)
+    expect(observedEventId('x'.repeat(200), 'other')).not.toBe(observedEventId('x'.repeat(200), 'actor'))
+  })
 })

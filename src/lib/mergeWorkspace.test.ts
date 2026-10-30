@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MERGE_POLICY, mergeById, mergeRecord, mergeWorkspace, type RecordConflict } from './mergeWorkspace'
+import { MERGE_POLICY, mergeById, mergeRecord, mergeWorkspace, splitDuplicateTruppIds, type RecordConflict } from './mergeWorkspace'
 import { conflictWhat } from './attendanceConflict'
 import { truppRenumberings } from './truppNumbers'
 import { nextTruppNo } from './placedTrupps'
@@ -7,6 +7,23 @@ import type { Saved } from './workspace'
 import { serverRoundTrip } from './jsonb.test-utils'
 
 const o = (id: string, extra: Record<string, unknown> = {}) => ({ id, ...extra })
+
+describe('duplicate crew repair', () => {
+  it('retains the original list when IDs are unique and collapses exact JSON copies', () => {
+    const list = [o('a', { name: 'Alpha' }), o('b', { name: 'Bravo' })]
+    expect(splitDuplicateTruppIds(list).list).toBe(list)
+    expect(splitDuplicateTruppIds(list).repaired).toBe(0)
+    expect(splitDuplicateTruppIds([list[0], { name: 'Alpha', id: 'a' }])).toEqual({ list: [list[0]], repaired: 1 })
+  })
+
+  it('keeps different crews under deterministic IDs without colliding with existing suffixes', () => {
+    const list = [o('a', { name: 'Alpha' }), o('a', { name: 'Bravo' }), o('a~2'), o('a', { name: 'Charlie' }), o('a', { name: 'Bravo' })]
+    const repaired = splitDuplicateTruppIds(list)
+    expect(repaired).toEqual({ list: [list[0], o('a~3', { name: 'Bravo' }), list[2], o('a~4', { name: 'Charlie' })], repaired: 3 })
+    expect(splitDuplicateTruppIds(repaired.list)).toEqual({ list: repaired.list, repaired: 0 })
+    expect(list.map((crew) => crew.id)).toEqual(['a', 'a', 'a~2', 'a', 'a'])
+  })
+})
 
 describe('mergeById — three-way object merge', () => {
   it('keeps independent additions from both sides, server order then mine', () => {
@@ -341,6 +358,24 @@ describe('mergeWorkspace — trupps: field-level three-way merge', () => {
   // …and with an explicit ancestor, for the cases whose base is not the shared fixture
   const mergedTrupp2 = (base: Record<string, unknown>, mine: Record<string, unknown>, theirs: Record<string, unknown>) =>
     (mergeWorkspace(ws(base), ws(mine), ws(theirs)) as { trupps: Record<string, unknown>[] }).trupps[0]
+
+  it('keeps pressure paired with its later timestamp and the lowest confirmed pressure from either device', () => {
+    const mine = { ...baseTrupp, lastPressureTime: T2, lastPressureBar: 180, lowestBar: 180 }
+    const theirs = { ...baseTrupp, lastPressureTime: T3, lastPressureBar: 220, lowestBar: 220 }
+    for (const [m, t] of [[mine, theirs], [theirs, mine]]) {
+      expect(mergedTrupp(m, t)).toMatchObject({ lastPressureTime: T3, lastPressureBar: 220, lowestBar: 180 })
+    }
+  })
+
+  it('keeps a one-sided correction of a shared pressure reading while merging unrelated crew edits', () => {
+    const reading = { t: T2, bar: 200, kind: 'pressure' }
+    const ancestor = { ...baseTrupp, readings: [...baseTrupp.readings, reading] }
+    const mine = { ...ancestor, name: 'Changed' }
+    const theirs = { ...ancestor, funkkanal: 3, readings: [...baseTrupp.readings, { ...reading, bar: 180 }] }
+    for (const [m, t] of [[mine, theirs], [theirs, mine]]) {
+      expect(mergedTrupp2(ancestor, m, t).readings).toEqual([...baseTrupp.readings, { ...reading, bar: 180 }])
+    }
+  })
 
   it('a Druckmeldung and a Funkkontakt from two devices both survive, readings union intact', () => {
     const mine = { ...baseTrupp, lastPressureBar: 150, lastPressureTime: T2, lastContactTime: T2, lowestBar: 150,
