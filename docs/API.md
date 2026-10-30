@@ -103,7 +103,8 @@ offer – a container runtime, a monitor, or the browser itself:
 
 The integration settings a station may set from `/admin` → Anbindungen instead of `.env` –
 exactly the fields in `FIELDS` in [`backend/app/credentials.py`](../backend/app/credentials.py):
-the Divera keys, Traccar, VAPID, STT, CARTO, the alarm webhook secret, the monitor ping URL, the
+the Divera keys, Traccar, VAPID, STT, CARTO, the alarm webhook secret, the print agent secret, the monitor
+ping URL, the
 three Azure app registrations (SharePoint pull, SharePoint export, Microsoft sign-in), the
 Objektbesuche organizer key, the station index and the roster snapshot. Stored encrypted
 (AES-256-GCM, key derived from `SECRET_KEY` via HKDF) and live without a restart. Contract and

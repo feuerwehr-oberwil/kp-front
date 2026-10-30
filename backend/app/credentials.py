@@ -54,7 +54,7 @@ a session of its own.
 
 # **Integration credentials are settable from `/admin`, encrypted, and read through an
 # accessor — never off `settings`.** Divera / Traccar / VAPID / STT / CARTO / the two webhook secrets /
-# `HEALTHCHECK_PING_URL` live in `integration_credentials`
+# the print-agent secret / `HEALTHCHECK_PING_URL` live in `integration_credentials`
 # (AES-256-GCM under an HKDF key derived from `SECRET_KEY`, which stays in `.env`), and every
 # consumer reads `app.credentials.get(name)` after `await load(db)`. **`.env` still wins where
 # it is set**, so no existing deployment changes. Two rules for anything added here: a
@@ -177,8 +177,9 @@ FIELDS: tuple[CredentialField, ...] = (
     # CARTO requires this value in every browser tile URL. It therefore is not a server
     # secret; CARTO's domain restrictions are the protection against reuse elsewhere.
     CredentialField("carto_api_key", "maps", False, "CARTO Basemap API-Key"),
-    # --- Webhooks ---------------------------------------------------------------------
+    # --- Webhooks + relay -------------------------------------------------------------
     CredentialField("alarm_webhook_secret", "webhooks", True, "Alarm-Webhook-Secret"),
+    CredentialField("print_agent_secret", "webhooks", True, "Print-Agent-Secret"),
     # --- Monitoring -------------------------------------------------------------------
     # ⚠️ Write-only, deliberately, even though it is barely a secret to this deployment.
     # api/system reports it as a BOOLEAN with the same reasoning: the ping address is a write
@@ -653,6 +654,10 @@ def validate(name: str, value: str) -> str:
                 "«0b6c1f2e-…=amuster». Die Objekt-ID steht in Entra unter «Benutzer › <Person> › "
                 "Objekt-ID»; eine Anmeldeadresse gilt nicht, sie lässt sich umbenennen."
             ) from e
+    if name == "print_agent_secret" and len(v) < 24:
+        # It reads every queued Einsatzrapport-PDF from the internet-facing agent routes, so it
+        # gets the same floor as the organizer key. `openssl rand -hex 24` makes 48.
+        raise CredentialRefusedError("Das Secret muss mindestens 24 Zeichen lang sein.")
     if name == "object_visits_integration_key" and len(v) < 24:
         # A key an organizer authenticates with over the internet: long enough that guessing it
         # is not a plan. The admin page generates one; a hand-typed «fwo2026» is refused.

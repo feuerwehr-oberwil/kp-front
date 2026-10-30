@@ -3,7 +3,7 @@
 
 import type { Copy, Localizable } from '../index'
 
-export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'wheel' | 'signature' | 'preflight'>> = {
+export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'printRelay' | 'wheel' | 'signature' | 'preflight'>> = {
   auswertung: {
     heading: 'Analisi',
     note: 'Per il debriefing – ricavato dai dati dell’intervento, non fa parte del rapporto firmato.',
@@ -377,5 +377,33 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'wheel
     pendingMedia: '{n} foto/audio non ancora caricati – verranno aggiunti appena c\'è una connessione; forse non ancora visibili su altri dispositivi.',
     pendingMediaConfirm: '{n} foto/audio non ancora caricati – restano su questo dispositivo',
     truppsDeployedConfirm: 'Ancora in servizio: {n} – mai annunciate uscite',
+  },
+  printRelay: {
+    send: 'Stampa',
+    sending: 'Invio in corso …',
+    queued: 'In coda di stampa',
+    printing: 'Stampa in corso …',
+    printed: 'Stampato',
+    printFailed: 'Stampa non riuscita – controllare la stampante',
+    stepQueued: 'In coda di stampa',
+    stepPrinting: 'Stampa',
+    stepPrinted: 'Stampato',
+    jobOpen: 'Stampa in sospeso',
+    jobOpenSince: 'In coda di stampa da {t}',
+    jobCheck: 'Verifica',
+    jobCancel: 'Annulla',
+    jobUnreachable: 'Stampa non raggiungibile – controllare la connessione',
+    jobGone: 'Stampa non più rintracciabile – se non è uscito alcun foglio, stampare di nuovo.',
+    confirmTitle: 'Stampa',
+    confirmMsg: 'Inviare il rapporto d’intervento alla stampante di caserma?',
+    confirmBtn: 'Stampa',
+    undo: 'Annulla',
+    cancelled: 'Stampa annullata',
+    undoTooLate: 'Troppo tardi – il documento è già alla stampante',
+    failed: 'Invio alla stampante di caserma non riuscito',
+    online: 'Stampante di caserma raggiungibile',
+    offline: 'Stampante di caserma offline',
+    offlineConfirmTitle: 'Stampante di caserma offline',
+    offlineConfirmBtn: 'Invia comunque',
   },
 }

@@ -18,6 +18,11 @@ vi.mock('../lib/reportPdfDirect', async (orig) => ({
   ...(await orig<typeof import('../lib/reportPdfDirect')>()),
   downloadDirectReportPdf: vi.fn(async () => {}),
 }))
+// no station printer here: the relay answers «not configured», so the head carries the PDF only
+vi.mock('../lib/printRelay', async (orig) => ({
+  ...(await orig<typeof import('../lib/printRelay')>()),
+  fetchPrintStatus: vi.fn(async () => null),
+}))
 vi.mock('../lib/incidents', async (orig) => ({
   ...(await orig<typeof import('../lib/incidents')>()),
   verifyChain: vi.fn(async () => ({ intact: true, broken_at_seq: null, count: 0, head: null })),

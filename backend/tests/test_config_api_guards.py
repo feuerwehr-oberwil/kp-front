@@ -87,16 +87,17 @@ async def test_a_field_this_build_retired_is_not_held_against_the_caller(client,
     """⚠️ Same rule one level down. The print relay's removal (09.10.2026) retired
     `report.reversePrintOrder`; every stored document still carried it, so every save of the
     station settings — and the demo's nightly reset — was refused over a switch that no longer
-    exists. A field the schema does not declare cannot be sent back by anybody."""
+    exists. A field the schema does not declare cannot be sent back by anybody. (The relay came
+    back on 30.10.2026, so a made-up field stands in for the retired one.)"""
     await admin_login(client)
     await _seed(client, put_config)
     row = (await db_session.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one()
-    row.config_json = {**row.config_json, "report": {**row.config_json["report"], "reversePrintOrder": True}}
+    row.config_json = {**row.config_json, "report": {**row.config_json["report"], "retiredSwitch": True}}
     await db_session.commit()
 
     r = await put_config(client, STATION)
     assert r.status_code == 200, r.text
-    assert "reversePrintOrder" not in (await _stored(client))["report"]
+    assert "retiredSwitch" not in (await _stored(client))["report"]
 
 
 async def test_force_performs_the_emptying_it_named(client, admin_login, put_config):
