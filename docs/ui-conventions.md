@@ -210,6 +210,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *The ✕ that closes a sheet is 36px with an 18px glyph, everywhere* (`.ip-x`, `.journal-x`,
     `.ctx-x` — one rule in 13-incident.css; it was 28/30/32). Beside a 44px search field it is
     44px instead (Palette, Verlauf search), and it is the ordinary grey, never a filled «on».
+    The Verlauf's head is a row of 44px buttons (ⓘ, lens, funnel, ▶, ✕ – 30.10.2026, owner), so
+    its ✕ and ⓘ are 44 there too, for the same reason.
   - *Radius – ONE corner (25.09.2026):* **every** rectangle is `var(--r-sm)` (12px) – button,
     field, status box, row, card, page card, sheet, dialog, message; `--r-ctl`/`--r-surface`/
     `--r-hero` are aliases of it, kept only as role names. Three exceptions, each a rule, never
