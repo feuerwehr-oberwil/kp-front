@@ -9,8 +9,8 @@ surface is prefetched on every incident open, so this was not a corner case — 
 mirrors is hosted in Russia.
 
 Now the browser asks its own backend and the backend asks Overpass. Same mirror race (the
-public overpass-api.de alone is often slow or queued), same 20 s per-mirror stall guard, one
-origin from the browser's point of view.
+public overpass-api.de alone is often slow or queued), a wall-clock bound per mirror
+(FETCH_TIMEOUT_S), one origin from the browser's point of view.
 
 Mirrors are configurable — a station with its own Overpass instance sets OVERPASS_MIRRORS and
 never leaves the building. The https-only guard mirrors traccar.py / weather.py.
@@ -28,11 +28,14 @@ from .config import settings
 
 logger = logging.getLogger(__name__)
 
-# Per-mirror stall guard. ⚠️ ABOVE the query's own `[timeout:25]` (25.09.2026): at 20 s the
-# backend hung up on a mirror the query had just given 25 s to answer, and staging logged
-# «ReadTimeout» from a mirror that was still working. The browser still gives up at its own 20 s,
-# but a late answer is not wasted any more — it lands in the cache below, and the next open (or
-# «Erneut laden», which joins the same in-flight fetch) gets it at once.
+# Per-mirror bound, WALL-CLOCK (sweep 30.10.2026, #11): httpx's own timeout is per phase
+# (connect, write, every read), so a mirror that keeps its connection alive could hold the race
+# far past it. ⚠️ ABOVE the query's own `[timeout:25]` (25.09.2026): at 20 s the backend hung up on
+# a mirror the query had just given 25 s to answer, and staging logged «ReadTimeout» from a
+# mirror that was still working. ⚠️ BELOW the browser's bound (src/lib/api · OVERPASS_TIMEOUT_MS,
+# 45 s; OsmOutline.test holds the order): the device waits for the race and the stored-snapshot
+# fallback behind it instead of giving up first. A late answer is not wasted either way — it
+# lands in the cache below, and the next open (or «Erneut versuchen») gets it at once.
 FETCH_TIMEOUT_S = 30.0
 
 # Answers are kept per query: building outlines do not change on the operator's timescale, and
@@ -54,6 +57,19 @@ _USER_AGENT = "kp-front (+https://github.com/feuerwehr-oberwil/kp-front)"
 # authenticated-but-not-admin, so the server always builds the query itself — the callers only
 # supply a bounding box. One definition, or the two copies drift apart silently.
 BUILDINGS_QUERY = '[out:json][timeout:25];(way["building"]({bbox});relation["building"]({bbox}););out geom;'
+
+
+def failed_answer(data: object) -> str | None:
+    """Why a 200 from a mirror is NOT an answer, or None. Overpass that runs out of its own
+    `[timeout:25]` (or of memory) still says 200 — with a «runtime error» remark and no, or only
+    some, elements. Taken as the answer, it was cached here for six hours and on the device for
+    good: «Keine Gebäude in diesem Bereich» over a street full of houses (sweep 30.10.2026, #11)."""
+    if not isinstance(data, dict):
+        return "no JSON object"
+    remark = data.get("remark")
+    if isinstance(remark, str) and "error" in remark.lower():
+        return remark
+    return None
 
 
 def mirrors() -> list[str]:
@@ -119,7 +135,7 @@ async def _race(urls: list[str], query: str, timeout_s: float) -> dict:
 
     async def one(url: str) -> dict:
         try:
-            async with httpx.AsyncClient(timeout=timeout_s) as client:
+            async with asyncio.timeout(timeout_s), httpx.AsyncClient(timeout=timeout_s) as client:
                 response = await client.post(
                     url,
                     content=f"data={query}".encode(),
@@ -129,7 +145,11 @@ async def _race(urls: list[str], query: str, timeout_s: float) -> dict:
                     },
                 )
                 response.raise_for_status()
-                return response.json()
+                data = response.json()
+            failed = failed_answer(data)
+            if failed:
+                raise RuntimeError(f"Overpass remark: {failed}")
+            return data
         except Exception as exc:
             # A silent mirror failure is how «reference_unreachable» stayed a mystery for a day:
             # say WHICH mirror answered WHAT (a 429 from a public mirror reads very differently
