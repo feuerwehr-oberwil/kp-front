@@ -36,7 +36,7 @@ unchanged.
   8 and 16px): nav bar → tool bar → a tool's dock → the armed pill or Messen's readout → the
   message lane, each `--float-gap` (8px) above the one below (15-mobile · `--tools-bottom`,
   `--dock-bottom`). The floating row keeps the same 8px from the bars, from each other and from the
-  edge. The other bars over the nav bar (`.rp-tabs`, the page card in `Surface.module.css`) still
+  edge. The other bars over the nav bar (`.rp-tabs`, the page in `Surface.module.css`) still
   keep their 6px channel (`--rail-h + 14px`).
 - *While a tool is out the message lane is measured* (`lib/floatRow · stackLane` → `--stack-lane`):
   one gap above the highest piece of the stack, so a tip or the Gebäude card stands 8px over the
@@ -48,7 +48,7 @@ unchanged.
   stands on the bars (`--float-floor`) and `lib/floatRow` lifts it only past a tool dock or armed
   pill that overlaps it sideways. `--float-base` keeps the worst case (a dock as wide as the
   screen) for the FAB and the message lane.
-- *The Eintrag FAB is on every page, the Trupps board too* (27.10.2026, owner): the board's card
+- *The Eintrag FAB is on every page, the Trupps board too* (27.10.2026, owner): the board
   runs to the phone edge like every page and its LIST ends above the FAB (28.10.2026, owner: the
   card may wrap around it) – the shared `--fab-safe` foot on `.body`, plus the opened card's
   `data-az-fab-foot` guard on its foot row (Atemschutz.module). A RUNNING recording never yields — not to a dock, the armed pill, a panel or a detail sheet
@@ -83,8 +83,20 @@ unchanged.
   checklists don't need a progress indicator. Occupies too much space») — the count is the
   progress: «n/m erledigt» in the tablet head, «n/m» in the narrow chooser row and on each phase
   head; no bar, no percentage. The chooser row leads with the list's rail glyph, never a 🔍.
+- **No page card on a phone** (sweep 30.10.2026 #12, owner pick 12A after two mock rounds: «keep
+  … the cards. It looks a lot cleaner and doesn't have that many lines. Basically keep everything
+  and just remove the card outside»). Checkliste, Anwesenheit, Trupps, Material, the Rapport and
+  the Karte's Checkliste sit FLAT on the app ground between the top bar and the bars: no inset,
+  corner or shadow on the shared shell, and the head is the page's first row, not a band (no fill,
+  no hairline). The ITEM cards stay cards, in ONE quiet style: their fill (a state fill such as
+  «anwesend» green stays), no outline, no shadow, 8px apart. One place does it:
+  `Surface.module.css` · the phone block, which also sets `--item-edge` / `--item-lift` that every
+  item rule reads with its own value as the fallback – so tablet and desktop keep the page card
+  and the outlined items by construction. Rejected in the same round: 12B, items as hairline rows
+  with no card at all. A new page item reads the two variables; it never restates a phone border.
 - *No card inside the page card* (30.09.2026, owner: «in the rapport we have double stacked
-  cards on mobile»). A surface's sections sit ON the page card: no frame, no fill, the content
+  cards on mobile»; on a phone there is no page card at all since 30.10.2026, above). A surface's
+  sections sit ON the page: no frame, no fill, the content
   at the head's inset, a `--glass-edge` hairline over each section with its eyebrow (or its
   round-up row's title) as the head, and no hairline over the first one under the head's edge.
   The Rapport does this wherever it is ONE column (< 1080px — phone and portrait tablet; on a

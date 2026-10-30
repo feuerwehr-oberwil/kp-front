@@ -1,4 +1,4 @@
-/* Mittel surface — mirrors the Anwesenheit/Atemschutz shell (inset card + head), then a composer
+/* Mittel surface — mirrors the Anwesenheit/Atemschutz shell (a card on a tablet, flat on a phone + head), then a composer
    section and a grouped list of material-use totals with in-place ±steppers. */
 
 /* opaque full-screen backdrop so the surface reads as its own screen rather than a card floating
@@ -83,10 +83,11 @@
    dashed edge means «missing / hidden / placeholder», and an offer to add is neither), and spanning
    BOTH columns of the wide layout: it belongs to the search, not to whichever category happened to
    end above it. */
+/* (outline read `--item-edge`: none on a phone page – Surface.module.css · the phone block) */
 .createRow {
   display: flex; align-items: center; gap: var(--sp-2); width: 100%; box-sizing: border-box;
   grid-column: 1 / -1; margin-top: var(--sp-4); min-height: var(--tap); padding: 8px 12px;
-  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
+  border: 1px solid var(--item-edge, var(--glass-edge)); border-radius: var(--r-ctl); background: var(--surface);
   color: var(--ink); font: var(--fw-bold) var(--fs-2) var(--body); text-align: left; cursor: pointer;
 }
 @media (hover: hover) { .createRow:hover { border-color: var(--ink-faint); } }
@@ -97,9 +98,10 @@
 .noHits { flex: 1 1 auto; display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-2) var(--head-pad-x) var(--sp-4); }
 .noHits > .createRow { align-self: flex-start; width: auto; margin-top: 0; }
 
+/* (outline read `--item-edge`: none on a phone page – Surface.module.css · the phone block) */
 .row {
   display: flex; align-items: center; gap: 12px; min-height: 48px; padding: var(--sp-1) var(--sp-3);
-  border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
+  border: 1px solid var(--item-edge, var(--glass-edge)); background: var(--surface); border-radius: var(--r-ctl);
   margin-bottom: var(--sp-2);
 }
 .rowLabel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }

@@ -123,7 +123,8 @@
 
 /* Phone (and a short landscape tablet): the surface takes the full width below the floating top
    bar — 78px clears it with a visible gap, at 64px the header sat glued under it — and the
-   bottom inset clears the NavRail, which is a bottom bar at these sizes.
+   bottom inset clears the NavRail, which is a bottom bar at these sizes. It is no card there
+   (below, #12).
    ⚠️ ONE breakpoint governs the lot. The Rapport was once alone in taking the phone inset at
    720px while the rail stays vertical down to 600, so through the whole 601–720px band (iPad
    Split View, a landscape phone) it ran edge-to-edge UNDER a floating rail that covered its own
@@ -137,7 +138,7 @@
      15-mobile.css, where the number and its arithmetic live. */
   /* ⚠️ 14px, not 18: the bar stands 8px off the screen edge, and everything stacked above it keeps
      ONE 6px channel — the tool bar over the nav bar on the Karte, the Rapport's tab strip over the
-     nav bar, and this card over whichever of them is topmost. At 18px the card ended 10px above
+     nav bar, and the page over whichever of them is topmost. At 18px the card ended 10px above
      the bar (8px above the strip), so the foot of every page read as three different gaps. */
   /* ⚠️ Keyboard up (30.09.2026, staging phone pass: the Rapport ended ~115px above the keys, dark
      page between). The bars this reserve clears ride DOWN with iOS's pan and go behind the keyboard
@@ -147,10 +148,26 @@
      keyboard both variables are 0 and this is the reserve it always was. The TOP stays where it is
      on purpose: it slides under the top bar with the pan, and the caret's box is never moved
      against iOS's own reveal (the loop lib/useKeyboardInset documents). */
+  /* ⚠️ NO page card on a phone (sweep 30.10.2026 #12, owner pick 12A: «keep everything and just
+     remove the card outside»). The page sits flat on the app ground between the top bar and the
+     bars: edge to edge (only the notch's safe area), no corner, no shadow, and the head is no band
+     (below). Its fill stays `--app-bg`, the same as the opaque backdrop every page stands on
+     (Mittel · .backdrop, .rp-backdrop, the Checkliste/Trupps wash), so nothing outlines it. The
+     content keeps its own `--head-pad-x` inset. The top and bottom stay exactly where the card's
+     were: the scroller still ends one channel above the bars and starts under the top bar.
+     The item cards ON the page stay cards in ONE quiet style – their fill, no outline, no shadow,
+     8px apart – so they never read as a card in a card: each item rule reads `--item-edge` (its
+     outline colour) and `--item-lift` (its drop shadow) with its own value as the fallback, and
+     only this phone shell sets them. Tablet and desktop keep the card and the outlined items by
+     construction (the variables are unset there). */
   :where(.shell) {
-    inset: calc(78px + env(safe-area-inset-top) + var(--ml-push, 0px)) max(8px, env(safe-area-inset-right))
+    inset: calc(78px + env(safe-area-inset-top) + var(--ml-push, 0px)) env(safe-area-inset-right)
       max(calc(var(--rail-h) + 14px + var(--rp-tabs-safe, 0px) + env(safe-area-inset-bottom) - var(--vv-pan, 0px)),
         calc(var(--vv-foot, 0px) + var(--float-gap)))
-      max(8px, env(safe-area-inset-left));
+      env(safe-area-inset-left);
+    border-radius: 0; box-shadow: none;
+    --item-edge: transparent; --item-lift: 0 0 #0000;
   }
+  /* the head is the page's first row, not a band: no fill, no hairline under it */
+  :where(.head) { background: none; box-shadow: none; }
 }

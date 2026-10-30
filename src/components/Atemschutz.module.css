@@ -1073,6 +1073,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    one still occupies its track), so the eye can run straight down the clock column. */
 .rowList { display: flex; flex-direction: column; gap: 8px; }
 
+/* (outline and lift read `--item-edge` / `--item-lift`: none on a phone page – Surface.module.css · the phone block) */
 .trow { display: grid; align-items: center; gap: var(--sp-3); width: 100%; text-align: left;
   /* identity · state · clock · pressure · action · chevron.
      ⚠️ the identity track carries a real MINIMUM, not `minmax(0, 1fr)`. With a 0 minimum the fixed
@@ -1081,7 +1082,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   grid-template-columns: minmax(140px, 1fr) 104px 132px 84px 148px var(--tap);
   background: var(--surface); border: none; border-left: 5px solid var(--ink-faint);
   border-radius: var(--r-ctl); padding: var(--sp-3); cursor: pointer; font-family: var(--body);
-  box-shadow: 0 0 0 1px var(--border-soft), var(--e3);
+  box-shadow: 0 0 0 1px var(--item-edge, var(--border-soft)), var(--item-lift, var(--e3));
   /* the Truppfarbe dot, and the indent that hangs a second line under the NAME past it */
   --trow-dot: 11px; }
 .trowWarn { border-left-color: var(--amber); background: color-mix(in srgb, var(--amber) 6%, var(--surface)); }

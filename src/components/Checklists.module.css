@@ -66,8 +66,9 @@
 .cl-phase > :global(.useg) { margin: var(--sp-3) 0 var(--sp-1); }
 
 .cl-items { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
+/* (outline read `--item-edge`: none on a phone page – Surface.module.css · the phone block) */
 .cl-item { display: flex; align-items: flex-start; gap: var(--sp-3); background: var(--surface); border-radius: var(--r-ctl);
-  padding: var(--sp-2); box-shadow: 0 0 0 1px var(--border-soft); }
+  padding: var(--sp-2); box-shadow: 0 0 0 1px var(--item-edge, var(--border-soft)); }
 /* ticking is THE action on this surface: box + text are the shared TickRow (F7, 20.10.2026), the
    whole item the target; a done item says so by its ticked box and its faded text — the card
    keeps its plain surface (it was a green card with a green box, the one green tick in the app) */
@@ -289,8 +290,11 @@ ol.cl-items > .cl-item { padding: var(--sp-3); }
      the page as flat sections under the Rapport's eyebrow heads (17-rapport.css ·
      .report-pre-section h3), a hairline between them. (Beside the rail there is no document card
      either since review round 5: the pane is the white surface – .cl-main.) */
-  /* (48px, under the 60px page heads: it carries no tile, so it does not pay for a tile's row) */
-  .cl-rail-toggle { padding: 12px var(--head-pad-x); font: var(--head-title); color: var(--ink); }
+  /* (48px, under the 60px page heads: it carries no tile, so it does not pay for a tile's row)
+     …and, as every page head on a phone, no band: no fill, no hairline (sweep 30.10.2026 #12,
+     Surface.module.css · the phone block) */
+  .cl-rail-toggle { padding: 12px var(--head-pad-x); font: var(--head-title); color: var(--ink);
+    background: none; border-bottom: 0; }
   .cl-ref { flex-direction: column; }
   /* the title is the chooser's, the category is the chip beside it — nothing to say twice */
   .cl-ref-doc-head { display: none; }
