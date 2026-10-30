@@ -98,11 +98,16 @@
   overflow-wrap: anywhere; }
 .az-head-detail .az-hd-addr { margin: 0; font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink-dim);
   overflow-wrap: anywhere; }
+/* the link board's way back, one quiet line (a once-per-device toast until 30.10.2026 — the link
+   shows no toasts since sweep #23; AtemschutzView · headDetail) */
+.az-head-detail .az-hd-hint { margin: 8px 0 0; font: var(--fw-medium) var(--fs-1)/1.4 var(--body); color: var(--ink-dim); }
 /* the Stand, in its LONG voice — «Gespeichert um 18:05», not the bare time the row shrank it to.
    Its own rule above the line, because it answers a different question than the two lines do. */
 .az-head-detail .az-hd-sync { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
   margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--glass-line); }
 .az-head-detail .az-hd-sync .ip-offline-chip .i { width: 12px; height: 12px; flex: none; opacity: 1; }
+/* the LONG voice wraps inside the panel (it ran out of it: «… wird synchronisiert, sobal…») */
+.az-head-detail .az-hd-sync .ip-offline-chip { white-space: normal; max-width: 100%; }
 /* THE ACTIVE EINSATZ AS A CARD — the heaviest object in the menu, and the only one with a
    surface of its own: green status edge, Titel, Adresse, two status pills, and the Einsatz's
    own actions along its bottom. Everything below it is deliberately lighter, so one look

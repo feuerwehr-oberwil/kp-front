@@ -61,3 +61,16 @@ export function freshNotfallKeys(met: Set<string>, running: readonly string[]): 
   for (const k of fresh) met.add(k)
   return fresh
 }
+
+/**
+ * The red strips the handed-over phone board stands under its header while a Notfall runs on a
+ * Trupp whose tab is NOT the open one (Atemschutz-Link redesign R1, 30.10.2026): one strip per
+ * such Trupp up to two, from three on ONE strip «3 Notfälle» that goes to the first. The open
+ * Trupp's own Notfall is its page, never a strip. Pure; `inNotfall` in the board's order.
+ */
+export type NotfallStrip = { kind: 'one'; t: Trupp } | { kind: 'many'; count: number; goTo: string }
+export function notfallStrips(inNotfall: readonly Trupp[], openId: string | null): NotfallStrip[] {
+  const elsewhere = inNotfall.filter((t) => t.id !== openId)
+  if (elsewhere.length <= 2) return elsewhere.map((t) => ({ kind: 'one', t }))
+  return [{ kind: 'many', count: elsewhere.length, goTo: elsewhere[0].id }]
+}

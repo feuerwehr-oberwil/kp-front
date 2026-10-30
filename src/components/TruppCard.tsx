@@ -185,7 +185,8 @@ function RowLine({ t, live, color, lite, tier, act }: { t: Trupp; live: TruppLiv
    * belongs (owner, 30.10.2026: «for all trupps already show the next action (i.e. im einsatz)
    * rather than the empty time»). The phone row puts «Im Einsatz» there (`act` = RowEnter, the
    * Sicherungstrupp row's button); the opened card leaves the cell empty, because its «Im Einsatz»
-   * tile stands right under this line, and a viewer has nothing to press. */
+   * tile stands right under this line, and a viewer has nothing to press. The link board's page
+   * says «Bereit» there instead (TruppCard · `page`, R1 30.10.2026). */
   const waiting = live.status === 'angemeldet'
   // …and no tier glyph at its clock: the ⚠ before the name already says the loudest thing,
   // a second one at the clock repeated it (überfällig stays on every other crew)
@@ -334,8 +335,15 @@ function TruppPair({ t, live, sev, nested = false, onPressure, onContact }: {
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
 export function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onStatus, onStandDown, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, headed = false, lite = false, onNotfall, onNotfallEnd, conflict = false,
+  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onStatus, onStandDown, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, headed = false, lite = false, page = false, pageHead, onNotfall, onNotfallEnd, conflict = false,
 }: {
+  /** the card IS the page (the handed-over phone board, AtemschutzView · focusMode): drawn flat by
+   *  the board, and a crew at the door says «Bereit» where its clock would stand (Atemschutz-Link
+   *  redesign R1, 30.10.2026) */
+  page?: boolean
+  /** replaces the head line on such a page — the Notfall Trupp's own page wears
+   *  AtemschutzNotfall · NotfallPageHead, which also says the Notfall in words */
+  pageHead?: ReactNode
   /** named by the double-assignment band (DoubleAssignmentBanner) — a steady amber ring */
   conflict?: boolean
   /** the held «Notfall» on a crew inside, and the held «Notfall beendet» on a crew in one (F1,
@@ -1016,7 +1024,9 @@ export function TruppCard({
   // the opened card keeps the row's line, tier mark included (B5) — but not for the Alarmdruck,
   // which its state line already says in words with the limit; and never on a stopped clock
   const headTier = frozen ? null : tierMark(alarm, sev, false)
-  const head = rowMode ? (
+  // a page has room to say the waiting state as a word where the row puts its «Im Einsatz»
+  const pageAct = page ? <span className={s.pageReady}>{az.phoneSectionReady}</span> : undefined
+  const head = pageHead ?? (rowMode ? (
     <button type="button" className={s.trowHead} aria-expanded="true" onClick={onCollapse}
       aria-label={`${t.name} — ${az.collapse}`}>
       <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} tier={headTier} />
@@ -1024,9 +1034,9 @@ export function TruppCard({
     </button>
   ) : (
     <div className={cx(s.trowHead, s.trowHeadStatic)}>
-      <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} tier={headTier} />
+      <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} tier={headTier} act={pageAct} />
     </div>
-  )
+  ))
   return (
     <div ref={cardRef} data-az-open={rowMode ? '' : undefined} className={cx(s.trow, s.trowCard, rowTone(t, status, sev), conflict && s.cardConflict)}>
       {head}
@@ -1034,7 +1044,8 @@ export function TruppCard({
         <TruppPair t={t} live={live} sev={sev} onPressure={(id) => onAskPressure?.(id)} onContact={onContact} />
       )}
       {actZone}
-      {stateLine}
+      {/* the page head says the Notfall in words already («Notfall seit 12:12») */}
+      {!pageHead && stateLine}
       {noteZone}
       {facts}
       {footZone}

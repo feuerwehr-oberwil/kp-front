@@ -800,6 +800,14 @@ export const atemschutzCopy = {
       sitrPickTitle: 'Welcher Sicherungstrupp?',
       sitrNone: 'Kein Sicherungstrupp bereit',
       sitrDefine: 'Sicherungstrupp bestimmen',
+      // der Atemschutz-Link (Entwurf R1, 30.10.2026): die Seite des Notfall-Trupps nennt beide Uhren,
+      // «Anderer» öffnet die Liste aller anderen Trupps; auf einem anderen Reiter ein rotes Band
+      pageSince: 'seit Notfall',
+      pageContact: 'seit letztem Kontakt',
+      sitrOther: 'Anderer',
+      sitrOtherLabel: 'Einen anderen Trupp als Sicherungstrupp bestimmen',
+      stripOne: 'Notfall · {name}',
+      stripMany: '{n} Notfälle',
       sitrInside: 'Sicherungstrupp {name} drin seit {time}',
       goTo: 'Zum Trupp',
       // die ganze Kopfzeile des Banners (Screenreader): «Zum Trupp 1 (Binggeli Michael / …)»
