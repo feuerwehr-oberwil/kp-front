@@ -2682,15 +2682,17 @@ export function IncidentWorkspace({
     reportMeta, setReportMeta, lastReportStep, reportSetRef, user, log, doc, board, shifts, bands,
     setShifts, setBands, sliceRebase, attHist, incidentMeta, attendance,
   })
-  // The station printer's status for the Zeitplan sheets, fetched once per session and fail-closed
-  // (null → no printer button at all); the PDF download needs no relay.
+  // The station printer's status for the Zeitplan sheets, fail-closed (null → no printer button at
+  // all); the PDF download needs no relay. Asked when the Anwesenheit opens – the one surface that
+  // offers the sheets – not at boot, where it was one more request on every cold start.
   const [zeitplanRelay, setZeitplanRelay] = useState<PrintRelayStatus | null>(null)
+  const onAnwesenheit = mode === 'anwesenheit'
   useEffect(() => {
-    if (linkScoped) return // the relay is refused for a link session — don't even ask
+    if (linkScoped || !onAnwesenheit) return // the relay is refused for a link session — don't even ask
     let alive = true
     void fetchPrintStatus(editorPrintTransport()).then((st) => { if (alive) setZeitplanRelay(st) })
     return () => { alive = false }
-  }, [linkScoped])
+  }, [linkScoped, onAnwesenheit])
 
   // the roster's side of the record — vocabulary, pickers' names and hints, and every door that puts
   // somebody on the Anwesenheit because they were given a job (workspace/useRosterRoles)
