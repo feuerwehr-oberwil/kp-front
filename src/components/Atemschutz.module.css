@@ -5,6 +5,9 @@
    surface; light "Karte Minimal" style, finger-friendly targets for a tired operator (~44px+). */
 /* geometry + header: the shell every full surface shares (Surface.module.css) */
 .surface { composes: shell from './Surface.module.css'; flex-direction: column; }
+/* the Notfall's solid red on the link board (its strip, its open tab): the red darkened so white
+   text on it reaches AA in both themes (4.8:1 at night, 6.3:1 by day — the plain night red gave 3.1) */
+.surface { --nf-fill: color-mix(in srgb, var(--red) 78%, #000); }
 .head { composes: head from './Surface.module.css'; }
 .headTitles { composes: headTitles from './Surface.module.css'; }
 /* ⚠️ A fixed title that truncates is a bug, not a graceful degradation: these are fixed strings,
@@ -1338,12 +1341,23 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    nor takes the sub-line margin it wears under a two-line header */
 .headTitlesCompact :global(.az-syncline) { flex: none; margin-top: 0; }
 .headTitlesCompact :global(.az-sync-quiet) { font-size: var(--fs-micro); }
-/* ⚠️ The quiet state is a MARK here, not a reading (09.09.) — AtemschutzView renders no text
-   beside it in focus mode. A hair larger than the 11px it wore under the time, because on its
-   own it has to be legible as a symbol rather than as punctuation next to a number. */
+/* The quiet mark, a hair larger than the 11px it wore under the time. (09.09.: the mark alone, no
+   time; since 30.10.2026 the two-line head gives it its bare time back — `.headTitle2` below.) */
 .headTitlesCompact :global(.az-sync-quiet .i) { width: 14px; height: 14px; }
 .headTitlesCompact :global(.az-sync-quiet .ip-status-dot) { width: 9px; height: 9px; }
-.bodyFocus { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+/* ⚠️ TWO lines since 30.10.2026 (Atemschutz-Link redesign, owner pick R1 on AB): the Einsatz in
+   full — its title, then «Adresse · ✓ 12:12» — instead of one line cut at «Zimm…». Both wrap
+   rather than clip; the popover behind them still opens the long voice («Gespeichert um …»). */
+.headTitleBtn > .headTitle2 { display: flex; flex-direction: column; min-width: 0; white-space: normal; overflow: visible; }
+.headTitle2 b { font: var(--fw-heavy) var(--fs-3)/1.2 var(--body); color: var(--ink); overflow-wrap: anywhere; }
+.headTitle2 small { display: block; font: var(--fw-medium) var(--fs-1)/1.3 var(--body); color: var(--ink-dim); overflow-wrap: anywhere; }
+.headTitle2 .headTitleSync { gap: var(--sp-1); white-space: nowrap; vertical-align: bottom; }
+.headTitle2 .headTitleAddr + .headTitleSync { margin-left: var(--sp-1); }
+.headTitle2 :global(.az-sync-quiet) { font-size: inherit; gap: 4px; }
+/* ↶ ↷ 🔔 without frames on this head (R1): three framed squares beside a two-line title read as a
+   toolbar of their own. A bell that is muted or blocked keeps its tint — that state needs eyes. */
+.head.headCompact .headActs > :is(.orderBtn, .muteBtn):not(.muteOn, .muteBlocked) { background: transparent; box-shadow: none; }
+.bodyFocus { display: flex; flex-direction: column; padding: 0; overflow: hidden; scrollbar-gutter: auto; }
 /* ⚠️ A top padding, not 0 (05.09.): the card's own coloured status edge landed flush against the
    header's hairline, so the green/red band read as a rule belonging to the bar above it rather
    than as the top of a card. Same number on all four sides — the card sits IN the body, not
@@ -1367,7 +1381,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    own bottom chrome cost him his session, and this rail is the last thing his thumb touches
    before it. */
 .bottomRail { flex: none; display: flex; align-items: flex-start; gap: 8px;
-  padding: 8px 12px calc(16px + env(safe-area-inset-bottom, 0px));
+  padding: var(--sp-1) var(--sp-2) calc(16px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--glass-edge); background: var(--surface); }
 /* A wrapping grid, NOT a horizontal strip (02.09., unchanged by the move down here): every
    Trupp stays in view, three to a row, and a fifth one starts a second row instead of hiding
@@ -1379,11 +1393,15 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    above it. 78px fits four — three Trupps and the «+» — in one row. Wrapping stays exactly as it
    was for the fifth Trupp onwards; a narrower cell just wraps a long name onto its second line
    sooner, which `.tabNameWrap` has allowed since round 2. */
-.strip { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: var(--sp-2); }
-.tab { min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); border: 1.5px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+/* ⚠️ A FLAT bar since 30.10.2026 (Atemschutz-Link redesign, owner pick R1 on AB): the tabs were
+   framed chips, a second row of cards under the card. Now they are cells of one bar — no frame,
+   the open one lifted by a soft ink wash, a tier tab by its own wash — and «+ Trupp» a narrow cell
+   at the end. Still a wrapping row: a fifth Trupp starts a second line instead of hiding. */
+.strip { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.tab { flex: 1 1 72px; min-width: 0; min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  padding: 4px 2px; border-radius: 14px; border: 0; background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
 .tab:active { background-image: linear-gradient(var(--press), var(--press)); }
-.tabName { display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-1); font-weight: var(--fw-heavy); white-space: nowrap; }
+.tabName { display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-3); line-height: 1.2; font-weight: var(--fw-heavy); white-space: nowrap; }
 .tabName :global(.i) { width: 14px; height: 14px; }
 /* The Trupp name may wrap onto a second line rather than clip — «Binggeli Michael» read as
    «Binggeli Michae» against this chip's min-width before this (round 2 review). `.tab`'s
@@ -1400,6 +1418,12 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    number — a full-brightness «–:––» reads as a value. Dimmed AND unbolded, so the eye runs
    straight past it to the chips that are actually counting. */
 .tabIdle .tabClock { color: color-mix(in srgb, var(--ink-faint) 72%, transparent); font-weight: var(--fw-medium); }
+/* the tab's state as a WORD (truppCardText · tabState, R1 30.10.2026): «Bereit» green — a crew at
+   the door has no clock, and a dimmed «–:––» still read as a value — and «Rückzug 0:49» amber. The
+   word in the body face, the clock beside it in mono. A tier (amber/red) still wins the colour. */
+.tabWord { font: var(--fw-heavy) var(--fs-1) var(--body); }
+.tabReady { color: var(--green); }
+.tabRueckzug { color: var(--amber-strong); }
 /* ⚠️ The WHOLE chip, not just its clock (11.09., field ask on the Atemschutz-Link). The amber
    «Kontakt fällig» tier used to tint four mono digits and nothing else, so on the one screen
    where the rail IS the board's overview — the handed-over Tafel on a phone (`focusMode`), where
@@ -1408,40 +1432,55 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    quieter: the wash and the border that the card's own warn tier already wears (`.trowWarn`).
    Red still wins — the two classes are mutually exclusive at the call site (sev === 1 vs >= 2),
    and crit is declared after this so it would take the cell even if they ever met. */
-.tabWarn { background: color-mix(in srgb, var(--amber) 12%, var(--surface)); border-color: var(--amber); }
+.tabWarn { background: color-mix(in srgb, var(--amber) 14%, transparent); }
 .tabWarn .tabClock { color: var(--amber-strong); }
-.tabCrit { background: color-mix(in srgb, var(--red) 12%, var(--surface)); border-color: var(--red); }
+.tabCrit { background: color-mix(in srgb, var(--red) 20%, transparent); }
 .tabCrit .tabClock { color: var(--red-strong); }
-/* the chosen tab is «where you are» — the nav's ink pill (29.09.2026, T9; the page tabs' rule of
-   28.09.): --ink-fill with --on-accent-ink, never an outline-only «selected». On a red or amber
-   tab the FILL wins — the card above already shows the tier, and the other tabs keep theirs.
-   Doubled class so it outranks `.tabWarn` / `.tabCrit` (and their clocks) wherever they stand. */
-.tab.tabOn { border-color: var(--ink-fill); background: var(--ink-fill); color: var(--on-accent-ink); box-shadow: none; }
-.tab.tabOn .tabClock { color: var(--on-accent-ink); }
+/* the open tab is «where you are» — a soft ink wash on the flat bar (R1 30.10.2026; the ink pill
+   of 29.09.2026 was a filled chip in a row of framed chips). Its line takes the ink too. A Notfall
+   (red) tab stays RED when it is the open one, filled, so «this page is the Notfall» reads from
+   the bar as well as from the page. Doubled class so it outranks `.tabWarn` / `.tabCrit`. */
+.tab.tabOn { background: color-mix(in srgb, var(--ink) 16%, transparent); color: var(--ink); }
+.tab.tabOn .tabClock { color: inherit; }
+.tab.tabOn.tabCrit { background: var(--nf-fill); color: var(--on-accent-ink); }
 /* «+ Trupp» — one more cell of the SAME grid, so it is exactly as wide as a chip and as tall as
    its row (05.09.). Before this it was a 44px square in a fixed column of its own beside the
    strip: the only thing on the rail that matched neither the width nor the height of a tab, and
    it took the width the Trupp names needed. It carries the tab's chrome and only drops what a
    tab has and it does not — the two text lines. */
-.tabAdd { color: var(--ink-dim); }
-/* «+ Trupp» — the glyph and its word on one line (29.09.2026, T9: a full cell, so the word fits) */
-.tabAdd :global(.i) { width: 16px; height: 16px; }
-@media (hover: hover) { .tabAdd:hover { color: var(--ink); border-color: var(--ink-faint); } }
-/* As tall as its content, never stretched: the card should fit the screen with the tiles in view,
-   and only scroll when it truly cannot. Nothing shrinks under its content.
-   ⚠️ `.trow.trowCard` in the selector (30.10.2026, owner: «the cards in the atemschutzlink aren't
-   scrollable»): as `.focusCard .trowCard` it tied with the card's own `.trow.trowCard { overflow:
-   hidden }` further down, which won by order — a card taller than the port (a Notfall banner
-   above it, an opened Verlauf) was cut off with no way to reach its foot. */
-.focusCard .trow.trowCard { flex: none; width: 100%; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; }
+.tabAdd { flex: 0 0 54px; color: var(--ink-dim); box-shadow: inset 0 0 0 1.5px var(--border); }
+/* «+ Trupp» — a narrow cell (R1 30.10.2026), the glyph over its word so the word still stands */
+.tabAdd .tabName { flex-direction: column; gap: 0; font-size: var(--fs-1); }
+.tabAdd :global(.i) { width: 18px; height: 18px; }
+@media (hover: hover) { .tabAdd:hover { color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink-faint); } }
+/* ⚠️ NO CARD on this board since 30.10.2026 (Atemschutz-Link redesign, owner pick R1 on AB): the
+   one Trupp on the screen is a flat PAGE — no frame, no tint, no left edge; the tier shows on its
+   tab and in its clock's colour. And the PAGE scrolls (`.focusCard` is the port): sweep #21 of the
+   same day found the card cut off with no way to reach its foot (its `overflow: hidden` beat the
+   card's scroll rule), so the card never clips and the page around it scrolls instead.
+   `.trow.trowCard` in the selector outranks the card's own rule further down. */
+.focusCard { display: block; padding: 0; overflow-y: auto; overscroll-behavior: contain; }
+.focusCard > .trow.trowCard { width: 100%; max-height: none; overflow: visible; padding: 0 16px 16px;
+  background: transparent; border: 0; border-radius: 0; box-shadow: none; }
 .focusCard .trowCard > * { flex: 0 0 auto; }
+.focusCard .trowHead { margin: 0 -16px; padding: var(--sp-4) var(--sp-4) var(--sp-2); }
+.focusCard .vfoot { margin: var(--sp-3) -16px 0; background: transparent; }
+/* every page opens with its NAME big (the scale's 32px; the mock's 30), the Notfall Trupp's
+   included (NotfallPageHead) */
+.focusCard .trowHead .trowNameTxt { font-size: var(--fs-6); line-height: 1.1; }
+/* …and the clock names what it counts, under it («SEIT LETZTEM KONTAKT») */
+.focusCard .trowHead .trowClock { display: flex; flex-direction: column; align-items: flex-end; }
+.focusCard .trowHead .trowSub { display: block; }
+/* a crew at the door: «Bereit» where the clock would stand (TruppCard · `page`) */
+.pageReady { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border-radius: 99px;
+  background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green); font: var(--fw-heavy) var(--fs-1) var(--body); }
 /* «Ein Trupp, ein Bildschirm»: the one card on the screen keeps the clock as large as it allows
    (02.09.) — the same line as every other card (RowLine), one type step up. 34px was the band's
    size here; `:not(.trowOut, .trowIdle)` so a Trupp out or still waiting keeps its quiet 16px.
    (29.09.2026: the rest of the 09.09. fit passes — `.focusCard .cardHead / .kenn / .band / .block
    / .actBtn` and their 375×667 arithmetic — went with the tablet card this board used to wear. The
    phone card is ~200px shorter than that card was, so the fit they bought now holds by itself.) */
-.focusCard .trowCard:not(.trowOut, .trowIdle) .trowHead .trowClockVal { font-size: 34px; }
+.focusCard .trowCard:not(.trowOut, .trowIdle) .trowHead .trowClockVal { font-size: var(--fs-7); }
 
 
 /* «Art des Trupps» as its own compact pair (08.09., field ask — the two labelled tiles with
@@ -1879,6 +1918,42 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    and measured: AtemschutzView sets its height as `--nf-h` on the port, which parks an opened
    card below it and is the port's scroll padding for every scroll-into-view. */
 .nfStack { position: sticky; top: 0; z-index: 3; display: grid; gap: var(--sp-2); margin: 0 0 var(--sp-3); }
+
+/* ── The link board's Notfall (Atemschutz-Link redesign, owner pick R1, 30.10.2026) ───────────────
+   On the Notfall Trupp's OWN tab the whole page is the Notfall: a red rail down the left and a red
+   tint (`.bodyFocusNf`), and its head (AtemschutzNotfall · NotfallPageHead) says it in words —
+   «NOTFALL SEIT 12:12», the name big and red, both clocks named, the Sicherungstrupp act. On any
+   other tab a solid red strip under the header leads to it (`.nfStrip`). No ⚠ in either (owner:
+   «red and notfall is already enough»). */
+.bodyFocusNf { background: color-mix(in srgb, var(--red) 10%, transparent); box-shadow: inset 6px 0 0 var(--red); }
+/* the page's content clears the 6px rail: 24px in, the foot's rule still reaching the edge */
+.bodyFocusNf .focusCard > .trow.trowCard { padding-left: var(--sp-5); }
+.bodyFocusNf .focusCard .vfoot { margin-left: calc(-1 * var(--sp-5)); }
+.nfPage { padding: var(--sp-4) 0 var(--sp-2); }
+.nfPageEyebrow { display: block; margin-bottom: 4px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--red-strong); }
+.nfPageName { margin: 0; font: var(--fw-heavy) var(--fs-6)/1.1 var(--body); color: var(--red-strong); overflow-wrap: anywhere; }
+.nfPageClocks { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: var(--sp-2) 0 var(--sp-3); }
+.nfPageSince, .nfPageContact { display: flex; flex-direction: column; font-family: var(--mono); font-weight: var(--fw-heavy); line-height: 1; font-variant-numeric: tabular-nums; }
+.nfPageSince { font-size: var(--fs-7); color: var(--red-strong); }
+.nfPageContact { align-items: flex-end; font-size: var(--fs-5); color: var(--ink); }
+.nfPageSince small, .nfPageContact small { margin-top: 4px; font: var(--fw-bold) var(--fs-1) var(--body); }
+.nfPageContact small { color: var(--ink-dim); }
+.nfPageAct { display: flex; gap: var(--sp-2); margin-bottom: 12px; }
+.nfPageAct > :first-child { flex: 1 1 auto; min-width: 0; }
+/* «Anderer ⌄» — the candidate menu beside a ready Sicherungstrupp (any other crew, a busy one too) */
+.nfOther { flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 48px; padding: 0 12px;
+  border-radius: var(--r-ctl); border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+  font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; }
+.nfOther :global(.i) { width: 14px; height: 14px; }
+.nfOther:active { background-image: linear-gradient(var(--press), var(--press)); }
+.nfStripBox { flex: none; }
+.nfStripBox + .nfStripBox { border-top: 1px solid color-mix(in srgb, var(--on-accent-ink) 30%, transparent); }
+.nfStrip { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 48px; padding: 0 12px 0 16px; border: 0;
+  background: var(--nf-fill); color: var(--on-accent-ink); font: var(--fw-heavy) var(--fs-2) var(--body); text-align: left; cursor: pointer; }
+.nfStrip:active { background-image: linear-gradient(var(--press), var(--press)); }
+.nfStripTxt { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.nfStripClock { font: var(--fw-heavy) var(--fs-4) var(--mono); font-variant-numeric: tabular-nums; }
+.nfStrip :global(.i) { flex: none; width: 18px; height: 18px; }
 .body { scroll-padding-top: var(--nf-h, 0px); }
 /* The frame is the phone card's (`.trow.trowCard.trowCrit`, AtemschutzNotfall · NotfallBanner);
    this only stacks its rows and gives the head line its alarm face */
