@@ -7,11 +7,16 @@ export const BOOT_APPLY_WINDOW_MS = 15_000
 export const RELOAD_WATCHDOG_MS = 4_000
 /** Minimum gap between visibility-resume update checks (always-on tablets). */
 export const RESUME_CHECK_MIN_GAP_MS = 5 * 60 * 1000
+/** How long the look for a newer build (the Einsatz data came from one) may take before the
+ *  «Neuere App-Version nötig» row stands. The build still reloads in by itself if it arrives later. */
+export const NEWER_BUILD_GRACE_MS = 8_000
 
 /** A freshly discovered update may be applied WITHOUT asking only at boot: shortly after
  *  load, before the operator has touched anything (nothing is in progress, so the reload is
  *  invisible), and at most once per tab session — a broken build must never reload-loop.
- *  Everything else goes through the banner (prompt semantics, the 3am rule). */
+ *  Everything else goes through the banner (prompt semantics, the 3am rule) — except a build
+ *  the Einsatz data asks for (swUpdate · requireNewerBuild): that view is read-only meanwhile,
+ *  so nothing can be in progress either. */
 export function shouldAutoApply(opts: {
   msSinceLoad: number
   interacted: boolean

@@ -102,6 +102,15 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   (`keep_newer_board_kinds`). A new board kind → bump `WORKSPACE_SCHEMA_VERSION`
   (`src/lib/workspace.ts`, now 3) and give it its row in `board_kinds.json`;
   `src/lib/boardKinds.test.ts` fails on a `BoardKind` without one.
+  ⚠️ **…and a build OLDER than the blob writes nothing to it** (sweep 30.10.2026 #19). The
+  server's guard covers board kinds only: the full PUT stores what the old build sends — without
+  every entry its gate skipped and every top-level key its `buildPayload` does not know — and the
+  Trupp slice replaces the Trupps. So `gateReport(...).newer` makes the workspace read-only
+  (`workspace/access · olderBuild`; the Verlauf and audit outboxes still deliver), the build looks
+  for the newer one and reloads into it by itself (`swUpdate · requireNewerBuild`, any time —
+  nothing can be in progress on a read-only view), and only when none arrives does one row stand,
+  «Neuere App-Version nötig» + «Aktualisieren». What the old gate skipped is not reported as
+  «beschädigte Einträge»: it is newer, not broken.
   A Tafel page is ONE object but merges **atom by atom** (`lib/boardFormMerge`: a cell, a line,
   a field), the later edit (`t`, server clock) winning a true clash and writing a Verlauf row.
 - **IDs are prefixed timestamps, not UUIDs** – `newId(prefix)` from `src/lib/ids.ts`

@@ -304,8 +304,15 @@ export function IncidentWorkspace({
   // …and the field you are actually typing in stays above it (one listener for the whole app)
   useScrollFocusIntoView()
   const { active: replayActive, setActive: setReplayActive, ws: replayWs, onState: onReplayState, onVehicles: onReplayVehicles, exit: exitReplay, entities: replayEntities, board: replayBoard, building: replayBuilding } = useReplay()
+  // Seed all state slices once from this incident's workspace (the component is keyed
+  // by incident id upstream, so this runs exactly once per incident). The blob passes the
+  // sanitize/version gate first — a stale or malformed cached blob must never crash the open.
+  const bootGate = useMemo(() => sanitizeWorkspace(workspace), [])  // eslint-disable-line react-hooks/exhaustive-deps
+  // …and a blob from a NEWER build makes this one read-only until that build is in (re-read on
+  // every poll by useWorkspaceBlob · applyWorkspace; workspace/access · olderBuild)
+  const [olderBuild, setOlderBuild] = useState(bootGate.newerSchema)
   const { running, readOnly, outboxReadOnly, canEditIncident, canEditTrupps, canEditRecord, canEditRapport, canEditMeta, canWriteRecord, canWriteBlob, tacticalLocked } =
-    useWorkspaceFlags({ user, asLink, isEl, isEditor, roleReadOnly, forceReadOnly, tabLockLost, replayActive, incidentMeta })
+    useWorkspaceFlags({ user, asLink, isEl, isEditor, roleReadOnly, forceReadOnly, tabLockLost, replayActive, incidentMeta, olderBuild })
   // «Standort zu Fotos» (lib/devicePosition): a session that writes the record lends the device's
   // position to a picture without one — after asking ONCE per device, with the reason.
   const [photoPosition, setPhotoPositionState] = useState<boolean | undefined>(() => loadPrefs().photoPosition)
@@ -324,10 +331,7 @@ export function IncidentWorkspace({
     return () => setDevicePositionSource(null)
   }, [canWriteRecord, setPhotoPosition])
 
-  // Seed all state slices once from this incident's workspace (the component is keyed
-  // by incident id upstream, so this runs exactly once per incident). The blob passes the
-  // sanitize/version gate first — a stale or malformed cached blob must never crash the open.
-  const bootGate = useMemo(() => sanitizeWorkspace(workspace), [])  // eslint-disable-line react-hooks/exhaustive-deps
+  // the boot gate (above, before the flags) seeds every slice
   const init = useMemo(() => deriveInitial(bootGate.ws, incidentMeta.id, prefs, incidentMeta.type), [])  // eslint-disable-line react-hooks/exhaustive-deps
   /** the linked plans' fits for the bake, keyed by planId — written where `linkedPlans` is
    *  derived (much further down), read by the object store's writers through this getter, so a
@@ -1321,7 +1325,7 @@ export function IncidentWorkspace({
   // The blob both ways — the load gate's toast, applyWorkspace (merge in) and buildPayload (save
   // out), and this device's own Ebenen (workspace/useWorkspaceBlob)
   const { buildPayload, applyWorkspace, ghostReseedRef, sliceRebase } = useWorkspaceBlob({
-    bootGate, incidentMeta, setLayers, journal, setRecent, setBuilding, setVehicleOverrides, setChecklists,
+    bootGate, olderBuild, setOlderBuild, incidentMeta, setLayers, journal, setRecent, setBuilding, setVehicleOverrides, setChecklists,
     setTrupps, setAttendance, setMittel, setShifts, setBands, setCameraViews, setTrails, setPlanScale,
     setReportMeta, setAttachments, setReportSignatures, setIncidentSettings, setPlanBindings, setPickedObjectId,
     setIntakeReviewedAt, undoHist, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
@@ -1347,8 +1351,9 @@ export function IncidentWorkspace({
   const { syncStatus: workspaceSyncStatus, lastSyncedAt, syncNow: syncWorkspaceNow, clockSkewMs } = useIncidentSync({
     // `outboxReadOnly`, not `readOnly`: a closed Einsatz still saves the Rapport corrections made
     // on it (canEditRapport); nothing else writes a slice on a closed view — every writer gates
-    // on the flags derived from `readOnly`
-    sync, readOnly: outboxReadOnly, incidentId: incidentMeta.id,
+    // on the flags derived from `readOnly`. …and never the blob of a newer build (olderBuild):
+    // the Verlauf and audit outboxes still deliver, the workspace is not pushed or flushed.
+    sync, readOnly: outboxReadOnly || olderBuild, incidentId: incidentMeta.id,
     buildPayload, applyWorkspace, flushEvents, flushEventsBeacon,
     // attendance-divergence note (both sides changed the same person → one Verlauf row)
     // Not for an Atemschutz-Link session: the server refuses every non-«team» row from it (403,

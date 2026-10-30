@@ -137,3 +137,17 @@ export function rankMeldungen(items: readonly Meldung[]): Meldung[] {
   // class decides first, time only breaks the tie.
   return [...items].sort((a, b) => MELDUNG_RANK[a.kind] - MELDUNG_RANK[b.kind])
 }
+
+/** The «Neuere App-Version nötig» row (workspace/useWorkspaceBlob) — named here because the
+ *  Atemschutz-Link lets it through while the rest of its kind stays out. */
+export const NEWER_BUILD_MELDUNG_ID = 'workspace:newer'
+
+/** The kinds that BLOCK work on the Atemschutz-Link: the Einsatz closed (or the link refused —
+ *  both `lifecycle`), another tab holding the lock, a dead session — and the two Atemschutz alarm
+ *  kinds, which step aside on the board anyway (`onBoard`) but must never be filtered by accident. */
+const LINK_KINDS: ReadonlySet<MeldungKind> = new Set(['notfall', 'atemschutz', 'lifecycle', 'tabLock', 'session'])
+
+/** What the Atemschutz-Link's Meldeleiste shows (sweep 30.10.2026 #23 — owner: «drop the
+ *  notifications entirely since they just hide things», picked «No toasts, keep blockers»): a row
+ *  that stops the board from working, nothing else. Its toasts are off at the host (App · Overlays). */
+export const linkShowsMeldung = (m: Meldung): boolean => LINK_KINDS.has(m.kind) || m.id === NEWER_BUILD_MELDUNG_ID
