@@ -25,6 +25,7 @@ import {
 } from './workspace'
 import type { Trupp } from '../../types'
 import { isIncidentClosedRefusal, refusalClosedAt, reportIncidentClosed } from '../incidentClosed'
+import { isOlderBuildRefusal } from '../olderBuild'
 
 // --- Workspace sync: offline cache + debounced save with three-way merge -------------
 // `base` is the last server revision we shared with everyone else — the common ancestor a
@@ -275,6 +276,9 @@ function crewFiledMarks(ws: Workspace): Record<string, string[]> | undefined {
   }
   return Object.keys(out).length ? out : undefined
 }
+
+/** The `schemaVersion` the blob was stamped with — sent with a slice (api/workspace). */
+const versionOf = (ws: Workspace): number | undefined => (typeof ws.schemaVersion === 'number' ? ws.schemaVersion : undefined)
 
 function recordSlice(ws: Workspace): Workspace {
   const out: Workspace = {}
@@ -963,6 +967,9 @@ export class WorkspaceSync {
         // would only collect it again (N3). The save is parked and the view goes back to the record.
         if (isIncidentClosedRefusal(e)) {
           if (!(await this.parkRefused(e))) return
+        } else if (isOlderBuildRefusal(e)) {
+          // nor is this one: a newer build wrote the blob — never merged, never re-sent
+          if (!(await this.parkOlderBuild())) return
         } else if (e instanceof ApiError && e.status === 409) {
           if (!(await this.resolveConflict())) return
         } else {
@@ -1005,9 +1012,10 @@ export class WorkspaceSync {
   flushKeepalive(): void {
     this.flushCache() // the page is dying — the debounce would never fire
     if (!this.entry.dirty || this.disposed) return
-    if (this.opts.slice === 'trupps') putWorkspaceTruppsBeacon(this.incidentId, truppSlice(this.entry.workspace), this.entry.baseRev, this.editedAtIso())
-    else if (this.opts.slice === 'record') putWorkspaceRecordBeacon(this.incidentId, recordSlice(this.entry.workspace), this.entry.baseRev)
-    else if (onlyTruppsChanged(this.entry.base, this.entry.workspace)) putWorkspaceTruppsBeacon(this.incidentId, truppSlice(this.entry.workspace), this.entry.baseRev, this.editedAtIso())
+    const v = versionOf(this.entry.workspace)
+    if (this.opts.slice === 'trupps') putWorkspaceTruppsBeacon(this.incidentId, truppSlice(this.entry.workspace), this.entry.baseRev, this.editedAtIso(), v)
+    else if (this.opts.slice === 'record') putWorkspaceRecordBeacon(this.incidentId, recordSlice(this.entry.workspace), this.entry.baseRev, v)
+    else if (onlyTruppsChanged(this.entry.base, this.entry.workspace)) putWorkspaceTruppsBeacon(this.incidentId, truppSlice(this.entry.workspace), this.entry.baseRev, this.editedAtIso(), v)
     else putWorkspaceBeacon(this.incidentId, this.entry.workspace, this.entry.baseRev, this.editedAtIso())
   }
 
@@ -1017,11 +1025,12 @@ export class WorkspaceSync {
    *  Both callers set `entry.base` to the server's copy at `baseRev` before they push, so an
    *  editor's save that changed only Trupps goes the slice route as well (onlyTruppsChanged). */
   private async push(workspace: Workspace, baseRev: number) {
-    if (this.opts.slice === 'trupps') return putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev, this.editedAtIso(), this.writerId)
-    if (this.opts.slice === 'record') return putWorkspaceRecord(this.incidentId, recordSlice(workspace), baseRev, this.writerId)
+    const v = versionOf(workspace)
+    if (this.opts.slice === 'trupps') return putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev, this.editedAtIso(), this.writerId, v)
+    if (this.opts.slice === 'record') return putWorkspaceRecord(this.incidentId, recordSlice(workspace), baseRev, this.writerId, v)
     if (onlyTruppsChanged(this.entry.base, workspace)) {
       try {
-        return await putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev, this.editedAtIso(), this.writerId)
+        return await putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev, this.editedAtIso(), this.writerId, v)
       } catch (e) {
         // ⚠️ The slice validates EVERY Trupp it is sent; the full save keeps an unchanged legacy
         // row it would refuse (backend alarm_validation · retained rows). A 422 here may be one
@@ -1162,6 +1171,7 @@ export class WorkspaceSync {
       } catch (e) {
         // the merge landed on a closed Einsatz — the same answer as a plain push gets (see drain)
         if (isIncidentClosedRefusal(e)) return this.parkRefused(e)
+        if (isOlderBuildRefusal(e)) return this.parkOlderBuild()
         if (e instanceof ApiError && e.status === 409) continue // someone else landed too — re-merge
         preservePendingMerge()
         if (e instanceof ApiError && e.status === 401) denyWorkspaceCache() // revoked mid-merge — deny device-wide, like flush()
@@ -1228,7 +1238,7 @@ export class WorkspaceSync {
       const changed = RECORD_SLICE_KEYS.some((k) => JSON.stringify(record[k]) !== JSON.stringify(base[k]))
       if (changed) {
         try {
-          const { workspace_rev } = await putWorkspaceRecord(this.incidentId, record, baseRev, this.writerId)
+          const { workspace_rev } = await putWorkspaceRecord(this.incidentId, record, baseRev, this.writerId, versionOf(pushed))
           landed = { workspace: { ...base, ...record }, rev: workspace_rev }
         } catch { /* parked whole — the export and a reopen still carry it */ }
         if (this.disposed) return true
@@ -1248,6 +1258,50 @@ export class WorkspaceSync {
     this.entry = { ...this.entry, dirty: false }
     this.writeCache()
     await this.refetchRecord()
+    return true
+  }
+
+  /**
+   * The server refused the save because a NEWER build wrote its blob (409 `workspace_older_build`,
+   * backend workspace_kinds · refuse_older_build; sweep 30.10.2026 #19). What was pushed lacks
+   * whatever its build could not read — this build's, or a leftover cache entry an older build
+   * stamped — so it is never merged and never sent again:
+   *  1. a copy goes to the role slot (parkForRole): exported by «Einträge sichern», never re-sent —
+   *     durably, or the entry stays dirty and the status says `error`;
+   *  2. the server's blob is adopted. The refused save sat on it (the server checks the revision
+   *     first), so the ancestor IS it; without one it is fetched. Handed to the view, whose load
+   *     gate turns an older build read-only and reloads it into the newer one
+   *     (useWorkspaceBlob · olderBuild); a current build simply goes on from the server's blob.
+   * Resolves true once handled.
+   */
+  private async parkOlderBuild(): Promise<boolean> {
+    if (!(await this.parkForRole(this.entry))) {
+      this.cacheDurable = false
+      this.setStatus('error')
+      return false
+    }
+    if (this.disposed) return false
+    if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null }
+    this.retryCount = 0
+    let server = this.entry.base ? { workspace: this.entry.base, rev: this.entry.baseRev } : null
+    if (!server) {
+      try {
+        const r = await getWorkspace(this.incidentId)
+        server = { workspace: r.workspace ?? {}, rev: r.workspace_rev }
+      } catch {
+        // parked already: not owed again — the view keeps what it shows until the next change
+        this.entry = { ...this.entry, dirty: false }
+        this.writeCache()
+        this.setStatus('error')
+        return true
+      }
+      if (this.disposed) return false
+    }
+    this.entry = { ...this.entry, workspace: server.workspace, base: server.workspace, baseRev: server.rev, dirty: false, lastSyncedAt: Date.now() }
+    this.writeCache()
+    this.opts.onRev?.(server.rev)
+    this.setStatus('synced')
+    this.handToView(server.workspace, server.rev)
     return true
   }
 

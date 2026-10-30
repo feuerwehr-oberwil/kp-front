@@ -102,15 +102,31 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   (`keep_newer_board_kinds`). A new board kind → bump `WORKSPACE_SCHEMA_VERSION`
   (`src/lib/workspace.ts`, now 3) and give it its row in `board_kinds.json`;
   `src/lib/boardKinds.test.ts` fails on a `BoardKind` without one.
-  ⚠️ **…and a build OLDER than the blob writes nothing to it** (sweep 30.10.2026 #19). The
-  server's guard covers board kinds only: the full PUT stores what the old build sends — without
-  every entry its gate skipped and every top-level key its `buildPayload` does not know — and the
-  Trupp slice replaces the Trupps. So `gateReport(...).newer` makes the workspace read-only
-  (`workspace/access · olderBuild`; the Verlauf and audit outboxes still deliver), the build looks
-  for the newer one and reloads into it by itself (`swUpdate · requireNewerBuild`, any time —
-  nothing can be in progress on a read-only view), and only when none arrives does one row stand,
-  «Neuere App-Version nötig» + «Aktualisieren». What the old gate skipped is not reported as
-  «beschädigte Einträge»: it is newer, not broken.
+  ⚠️ **…and a build OLDER than the blob writes nothing to it** (sweep 30.10.2026 #19). The kind
+  guard covers board objects only, and an old build loses more than those: its full save lacks
+  every entry its gate skipped and every top-level key its `buildPayload` does not know, and its
+  Trupp or record slice replaces those keys wholesale with what it kept. So:
+  - **the server refuses it whole** — a save stamped below the stored blob's `schemaVersion` is
+    409 `workspace_older_build`, nothing written, nothing merged (`workspace_kinds ·
+    refuse_older_build`, checked in `apply_workspace_put` after the revision, so a refused save
+    always sits on the current blob). The full PUT reads the blob's own stamp (none = 1); the
+    `…/trupps` and `…/record` slices send `schemaVersion` since 30.10.2026, and one without it
+    counts as 3 (`UNVERSIONED_SLICE_VERSION`) — so builds already in the field stay current
+    until a blob is stamped 4. Not guarded: the capture page (a fresh read and a pure change on
+    the raw blob per tap — it never skipped anything) and the server's own writers. Data safety
+    over an old phone's convenience (lead call 30.10.2026): an older build's Rapport correction on
+    a closed Einsatz is refused too, where the kind guard used to let it through;
+  - **the client never merges or re-sends it** (`workspaceSync · parkOlderBuild`): the save is
+    parked in the role slot (exported by «Einträge sichern»), the server's blob goes to the view;
+  - **an older build reads newer data read-only** (`gateReport(...).newer` →
+    `workspace/access · olderBuild`; the Verlauf and audit outboxes still deliver), looks for the
+    newer build and reloads into it by itself (`swUpdate · requireNewerBuild`, any time — nothing
+    can be in progress on a read-only view), and only when none arrives does one row stand,
+    «Neuere App-Version nötig» + «Aktualisieren». What the old gate skipped is not reported as
+    «beschädigte Einträge»: it is newer, not broken. A build from before 30.10.2026 does not know
+    the code: it reads the 409 as a revision conflict, merges and is refused up to four times,
+    keeps the save dirty with the sync lamp on error, and tries again on its backoff (at most once
+    a minute) until it is updated — nothing it sends lands.
   A Tafel page is ONE object but merges **atom by atom** (`lib/boardFormMerge`: a cell, a line,
   a field), the later edit (`t`, server clock) winning a true clash and writing a Verlauf row.
 - **IDs are prefixed timestamps, not UUIDs** – `newId(prefix)` from `src/lib/ids.ts`

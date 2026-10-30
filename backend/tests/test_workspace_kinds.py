@@ -43,18 +43,20 @@ def test_a_legacy_blob_without_objects_gets_it_back_in_its_board_view():
     assert [a["id"] for a in incoming["board"]["tafel"]] == ["l1", "fm1"]
 
 
-async def test_end_to_end_an_old_save_keeps_the_pages(client, editor):
+async def test_end_to_end_an_old_save_is_refused_and_the_pages_stay(client, editor):
+    # since 30.10.2026 a save from an older build is refused whole (workspace_kinds ·
+    # refuse_older_build, tests/test_older_build_guard.py); the kind guard stays as the inner line
     r = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
     assert r.status_code == 200
     inc = (await client.post("/api/incidents", json={"title": "Brand"})).json()["id"]
     r = await client.put(f"/api/incidents/{inc}/workspace", json={"workspace": _blob(3, INK, PAGE), "base_rev": 0})
     assert r.status_code == 200, r.text
     r = await client.put(f"/api/incidents/{inc}/workspace", json={"workspace": _blob(2, INK), "base_rev": 1})
-    assert r.status_code == 200, r.text
+    assert r.status_code == 409, r.text
     ws = (await client.get(f"/api/incidents/{inc}/workspace")).json()["workspace"]
     assert [o["id"] for o in ws["objects"]] == ["l1", "fm1"]
     # …and the build that drew the page may still take it off
-    r = await client.put(f"/api/incidents/{inc}/workspace", json={"workspace": _blob(3, INK), "base_rev": 2})
+    r = await client.put(f"/api/incidents/{inc}/workspace", json={"workspace": _blob(3, INK), "base_rev": 1})
     assert r.status_code == 200, r.text
     ws = (await client.get(f"/api/incidents/{inc}/workspace")).json()["workspace"]
     assert [o["id"] for o in ws["objects"]] == ["l1"]

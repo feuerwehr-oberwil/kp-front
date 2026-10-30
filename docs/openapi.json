@@ -22368,6 +22368,17 @@
               }
             ],
             "title": "Edited At"
+          },
+          "schemaVersion": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schemaversion"
           }
         },
         "type": "object",
