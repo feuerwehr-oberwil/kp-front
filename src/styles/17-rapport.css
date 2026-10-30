@@ -504,10 +504,12 @@
 .jr-subs p > span { min-width: 0; white-space: pre-wrap; }
 /* jump chip on rows that annotate a recording — opens the player at that moment. The same
    chip carries «Durchhören» and «Transkript» on an audio row, so the three read as one family
-   of small square controls between the text and the green play circle. */
-.jr-jump { width: 32px; height: 32px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
+   of small square controls between the text and the green play circle.
+   --tap square (30.10.2026, was 32 over a 44 pad), spending the row's padding as margin like the
+   play circle beside it (06-contextpanel · .hist-ev · --jr-ctl-bleed), so the row stays the 48 it was. */
+.jr-jump { width: var(--tap); height: var(--tap); margin-block: var(--jr-ctl-bleed); border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface);
   color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; flex: none; }
-.jr-jump .i { width: 13px; height: 13px; }
+.jr-jump .i { width: 16px; height: 16px; }
 @media (hover: hover) {
   .jr-jump:hover { color: var(--ink); background: var(--hover-strong); }
 }

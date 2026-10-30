@@ -362,15 +362,15 @@
 .jr-delivery strong { font-size: var(--fs-2); }
 .jr-delivery p { margin-block: 8px 12px; font-size: var(--fs-2); line-height: 1.5; }
 .jr-delivery-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-/* ⚠️ 36px like every other button of this head (20.09.2026): the ✕ went to the house 36 (13-incident.css ·
-   «ONE size for the ✕») and left ⓘ, the lens and ▶ standing at 28 beside it – one row, two sizes. */
+/* ⚠️ ONE size for every button of this head, and it is the app's --tap (30.10.2026, owner: «increase
+   the size of the touch targets/buttons to match the size we have otherwise»). It was 36 to the eye
+   over a 44 pad – the ✕'s house size (13-incident.css · «ONE size for the ✕») – so the Verlauf read
+   smaller than every surface of 44px buttons around it. ⓘ, lens, funnel, ▶ and ✕ are all 44 now. */
 .journal-replay { position: relative; margin-left: auto; display: inline-flex; align-items: center; gap: var(--sp-2);
-  height: 36px; min-width: 36px; justify-content: center; padding: 0 var(--sp-3); border: none; border-radius: var(--r-sm); cursor: pointer;
+  height: var(--tap); min-width: var(--tap); justify-content: center; padding: 0 var(--sp-3); border: none; border-radius: var(--r-sm); cursor: pointer;
   background: var(--btn-primary); color: var(--on-btn-primary); font-family: var(--body); font-weight: var(--fw-bold); font-size: var(--fs-1); }
 /* the normal primary, not amber (sweep B7, 07.10.2026): amber means «needs attention» everywhere
    else («4 offen», Kontakt fällig), and a play button is not asking for any */
-/* full-height transparent pad — visually compact chip, finger-sized target */
-.journal-replay::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 @media (hover: hover) {
   .journal-replay:hover { background: var(--btn-primary-hover); }
 }
@@ -386,6 +386,9 @@
 }
 .journal-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .journal-x .i { width: 14px; height: 14px; }
+/* …and the head's ✕ and ⓘ are --tap like the rest of the head (see .journal-replay): beside 44px
+   neighbours a 36px ✕ is the «stray badge» the search row's ✕ was (below). Glyphs stay 18px. */
+.journal-head .journal-x, .journal-head .ui-info { width: var(--tap); height: var(--tap); }
 
 /* ── the icon legend ──
    The disc carries the Bereich, and a glyph has to be learned. This is the answer to that, and
@@ -393,14 +396,12 @@
    opens it by itself. There is no hover on the primary device, so a tooltip alone would not do.
    The button sits beside the title rather than out at the margin — it belongs to what is being
    read, not to the drawer's controls. */
-.journal-legend-btn { flex: none; position: relative; width: 36px; height: 36px; border-radius: var(--r-sm);
+.journal-legend-btn { flex: none; position: relative; width: var(--tap); height: var(--tap); border-radius: var(--r-sm);
   border: none; cursor: pointer; display: grid; place-items: center;
   /* the ✕'s own fill and ink (see .journal-x): on `--surface-2` — white at .6 over a white glass
      drawer — the chip vanished and only its 18px glyph stayed, so ⓘ and the lens read smaller
      than the ✕ they are the size of (22.09.2026) */
   background: var(--ink-8); color: var(--ink-dim); }
-/* finger-sized target under a 36px chip, the same trick .journal-replay uses */
-.journal-legend-btn::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 @media (hover: hover) {
   .journal-legend-btn:hover { background: var(--ink-12); color: var(--ink); }
 }
@@ -411,7 +412,7 @@
 .journal-legend-btn .i { width: 18px; height: 18px; }
 
 /* ── the search ──
-   The lens is a second .journal-legend-btn beside the ⓘ (same chip, same 44px pad). Tapped, the
+   The lens is a second .journal-legend-btn beside the ⓘ (same 44px chip). Tapped, the
    field REPLACES the head row (mock verlauf-02, 14.09.): the title, ⓘ and Replay go, the field
    takes their width, and the ✕ that closes the search stands where the drawer's ✕ stood — one
    place for «back out of this», whichever «this» is. No space is lost while nothing is searched. */
@@ -446,7 +447,7 @@
 :is(.jr-legend, .jr-filter-menu) .ic.jr-ic-ring { background: none; border-color: transparent; }
 
 /* ── the filter (feat 37 · option B, 23.09.2026) ──
-   A third .journal-legend-btn beside the lens (same chip, same 44px pad). While any category is
+   A third .journal-legend-btn beside the lens (same 44px chip). While any category is
    ticked it wears the CHOICE fill (`--sel`, 29.09.2026 — the Anwesenheit's filter buttons do
    the same): it was the ink «where you are» pill plus a blue dot, two channels for one bit and
    the wrong role. Nothing is printed on it, so it measures the same filtered or not. */
@@ -473,11 +474,10 @@
   font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
 .jr-filter-strip-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jr-filter-strip-text b { color: var(--ink); font-weight: var(--fw-bold); }
-.jr-filter-all { flex: none; position: relative; height: 32px; padding: 0 var(--sp-3); border: none; border-radius: var(--r-sm);
+.jr-filter-all { flex: none; height: var(--tap); padding: 0 var(--sp-3); border: none; border-radius: var(--r-sm);
   background: var(--blue-8); color: var(--blue-strong);
   font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; }
-/* finger-sized target under the compact chip, the same pad the head's chips use */
-.jr-filter-all::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+/* (--tap to the eye, like the head above it – 30.10.2026; it was a 32px chip over a 44px pad) */
 @media (hover: hover) {
   .jr-filter-all:hover { background: var(--blue-16); }
 }
@@ -605,13 +605,17 @@
    caption. It sat at 11.5px until 23.08. */
 /* ⚠️ The cap is in px, not the 40% it was: in the trailing group a percentage resolves against a
    box whose width the anchor itself is deciding, which sizes to whatever the item was called. */
-.jr-note-on { flex: 0 1 auto; max-width: 150px; min-width: 0; display: inline-flex; align-items: baseline; gap: var(--sp-1);
+.jr-note-on { position: relative; flex: 0 1 auto; max-width: 150px; min-width: 0; display: inline-flex; align-items: baseline; gap: var(--sp-1);
   border: 0; background: none; padding: 0; cursor: pointer; text-align: left;
   font: var(--fw-medium) var(--fs-1) var(--body); color: var(--amber-strong); }
 @media (hover: hover) {
   .jr-note-on:hover:not(:disabled) i { text-decoration: underline; }
 }
 .jr-note-on:disabled { cursor: default; }
+/* …a line of text to the eye, a --tap band to the finger (30.10.2026; it was the 18px of its line):
+   the pad spans the row's full 44px height (06-contextpanel · .hist-ev), so it reaches nothing but
+   the row it sits in. `::before`, because `::after` is the «›». */
+.jr-note-on::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap); transform: translateY(-50%); }
 /* ⚠️ The truncation lives on the INNER span, and the «›» outside it. On the outer element the
    ellipsis ate the separator too, so a long item name ran straight into the Meldung's own text
    with nothing between them. */
@@ -976,9 +980,14 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 @media (hover: hover) {
   .jc-photo .jc-clip-x:hover { background: rgba(20, 28, 40, .85); color: var(--on-accent-ink); }
 }
-/* a <button> now (it opens the in-app viewer, not a new tab) — reset the UA button chrome */
-.jr-thumb { flex: none; width: 34px; height: 34px; border-radius: var(--r-xs); overflow: hidden; border: 1px solid var(--glass-edge); display: block; padding: 0; background: none; cursor: pointer; }
+/* a <button> now (it opens the in-app viewer, not a new tab) — reset the UA button chrome.
+   --tap square (30.10.2026, was 34): it is a target, and the house target is 44. The block margin
+   spends the row's padding (06-contextpanel · .hist-ev · --jr-ctl-bleed), so a photo row is 48
+   tall, as it was – and a second line of wrapped thumbnails gets the margins back as row gap
+   (.jr-trail:has(.jr-thumb) below), or the two lines would overlap. */
+.jr-thumb { flex: none; width: var(--tap); height: var(--tap); margin-block: var(--jr-ctl-bleed); border-radius: var(--r-xs); overflow: hidden; border: 1px solid var(--glass-edge); display: block; padding: 0; background: none; cursor: pointer; }
 .jr-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.jr-trail:has(.jr-thumb) { row-gap: calc(var(--sp-1) - 2 * var(--jr-ctl-bleed)); }
 /* a non-picture Beilage on a Verlauf row — a named chip that downloads on tap. It stands where
    the thumbnails stand, at the tap floor, and truncates rather than pushing the row's own words
    off the line: the filename is a label here, not the record. */
@@ -1002,10 +1011,12 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 
 /* ── the audio row's ONE inline control (29.08., Variante 2) ──
    Durchhören and Transkript moved into the row's detail sheet, so the play circle no longer
-   shares the trail with equal-weight neighbours and can afford the tap floor: 40px visible
-   (base .tl-play is 26px, 08-toasts.css) with the shared ::after pad widened to 48px
-   effective (02-base.css gives it 44px). The negative margin keeps the row's rhythm. */
-.hist-ev .tl-play { width: 40px; height: 40px; margin: -4px 0; }
+   shares the trail with equal-weight neighbours and can afford the tap floor: --tap visible
+   (30.10.2026, was 40; base .tl-play is 26px, 08-toasts.css) with the shared ::after pad widened
+   to 48px effective (02-base.css gives it 44px). The block margin spends the row's padding
+   (06-contextpanel · .hist-ev · --jr-ctl-bleed): an audio row stays 48 tall, as it was, and two
+   44px controls in adjacent rows keep a 4px seam instead of touching. */
+.hist-ev .tl-play { width: var(--tap); height: var(--tap); margin: var(--jr-ctl-bleed) 0; }
 .hist-ev .tl-play .i { width: 15px; height: 15px; }
 .hist-ev .tl-play::after { width: 48px; height: 48px; }
 
