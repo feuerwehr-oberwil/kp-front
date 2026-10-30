@@ -103,7 +103,7 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
         {/* the value column stays SHORT — «· 1 Punkt» in the head plus «ungemessen» beside it
             overflowed the row; the warning line below carries the rest of the sentence */}
         {auto
-          ? <span><b>{linked ? C.lampApprovedHead : C.lampAutoHead}</b></span>
+          ? <span><b className={s.qHeadline}>{linked ? C.lampApprovedHead : C.lampAutoHead}</b></span>
           : <span><b>{fit.n}</b> {C.pairs}</span>}
         {/* ⚠️ An approved fit says NOTHING here (18.09.2026) rather than «ungemessen»: the
             station checked and published it, so it is linked — and there is still no residual

@@ -385,6 +385,8 @@
   gap: 2px 16px; padding: 2px 2px 4px; color: var(--ink-dim); font: var(--fw-medium) var(--fs-1)/1.4 var(--body); }
 .qSummary span, .qSummary strong { min-width: 0; overflow-wrap: anywhere; }
 .qSummary span b { color: var(--ink); font: var(--fw-bold) var(--fs-3) var(--mono); }
+/* mono is for the pair COUNT; a sentence («Von der Station freigegeben») reads in the body font */
+.qSummary span b.qHeadline { font-family: var(--body); }
 .qSummary strong { color: var(--ink); font: var(--fw-bold) var(--fs-3)/1.35 var(--body); text-align: right; }
 /* the calm twin of .qWarn: an approved fit states who vouches for it, and states it in the
    panel's own voice — an amber box would call a published reference a defect */
