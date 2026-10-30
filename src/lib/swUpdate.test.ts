@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BUILD_TIME, GIT_SHA } from './buildInfo'
-import { BOOT_APPLY_WINDOW_MS, MAX_AUTO_APPLY_ATTEMPTS, RELOAD_WATCHDOG_MS, RESUME_CHECK_MIN_GAP_MS } from './updatePolicy'
+import { BOOT_APPLY_WINDOW_MS, MAX_AUTO_APPLY_ATTEMPTS, NEWER_BUILD_GRACE_MS, RELOAD_WATCHDOG_MS, RESUME_CHECK_MIN_GAP_MS } from './updatePolicy'
 
 /* The service-worker update control (lib/swUpdate) is module state wired to browser globals and
  * to vite-plugin-pwa's `registerSW`. Every test boots a FRESH copy of the module against fakes —
@@ -365,5 +365,85 @@ describe('swUpdate — deploy discovery', () => {
     doc.visibilityState = 'visible'
     doc.dispatchEvent(new Event('visibilitychange'))
     expect(registration.update).toHaveBeenCalledTimes(1)
+  })
+})
+
+// sweep 30.10.2026 #19: an old cached build opened an Einsatz a newer build had saved, after the
+// boot window (or a tap) — and stayed old, because the link view has no banner to announce it.
+describe('swUpdate — requireNewerBuild (the Einsatz data came from a newer build)', () => {
+  /** booted, the boot window over and the screen touched: the plain path would only announce */
+  async function lateInSession(opts: { waitingAtBoot?: boolean } = {}) {
+    const booted = await boot(opts)
+    vi.setSystemTime(Date.now() + BOOT_APPLY_WINDOW_MS + 1)
+    win.dispatchEvent(new Event('pointerdown'))
+    const missing: boolean[] = []
+    booted.mod.onNewerBuildMissing((m) => missing.push(m))
+    return { ...booted, missing }
+  }
+
+  it('a build that arrives later is applied by itself — no boot window, no tap holds it back', async () => {
+    const { mod, registration, heard, missing } = await lateInSession()
+    registration.update.mockImplementation(() => Object.assign(registration, { installing: {} }) && Promise.resolve())
+    mod.requireNewerBuild()
+    await Promise.resolve()
+    expect(registration.update).toHaveBeenCalledTimes(1)
+    pwa.options!.onNeedRefresh!()
+    expect(pwa.updateSW).toHaveBeenCalledWith(false)
+    expect(attempts()?.n).toBe(1)
+    expect(heard).toEqual([])
+    expect(missing).toEqual([])
+  })
+
+  it('a build already waiting is applied at once', async () => {
+    const { mod } = await lateInSession({ waitingAtBoot: true })
+    pwa.options!.onNeedRefresh!() // announced mid-session, as before
+    expect(pwa.updateSW).not.toHaveBeenCalled()
+    mod.requireNewerBuild()
+    expect(pwa.updateSW).toHaveBeenCalledWith(false)
+  })
+
+  it('asks once the registration is there when the data was read first', async () => {
+    const mod: SwUpdate = await import('./swUpdate')
+    mod.initServiceWorker()
+    mod.requireNewerBuild()
+    const registration = { waiting: null, update: vi.fn(() => Promise.resolve()) }
+    pwa.options!.onRegisteredSW!('/sw.js', registration as unknown as ServiceWorkerRegistration)
+    expect(registration.update).toHaveBeenCalledTimes(1)
+  })
+
+  it('nothing newer on the server, or offline: the row stands, and «Aktualisieren» starts afresh', async () => {
+    for (const answer of [() => Promise.resolve(), () => Promise.reject(new Error('offline'))]) {
+      vi.resetModules()
+      const { mod, registration, missing } = await lateInSession()
+      registration.update.mockImplementation(answer)
+      mod.requireNewerBuild()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(missing).toEqual([true])
+      mod.updateForNewerData()
+      expect(win.location.reload).toHaveBeenCalledTimes(1)
+      win.location.reload.mockClear()
+    }
+  })
+
+  it('a look that takes too long raises the row — and the build still applies when it lands', async () => {
+    const { mod, registration, missing } = await lateInSession()
+    registration.update.mockImplementation(() => Object.assign(registration, { installing: {} }) && new Promise<void>(() => {}))
+    mod.requireNewerBuild()
+    vi.advanceTimersByTime(NEWER_BUILD_GRACE_MS)
+    expect(missing).toEqual([true])
+    pwa.options!.onNeedRefresh!()
+    expect(pwa.updateSW).toHaveBeenCalledWith(false)
+  })
+
+  it('with the automatic budget spent it does not apply: the row and the banner stand, the tap applies', async () => {
+    exhaustBudget()
+    const { mod, heard, missing } = await lateInSession({ waitingAtBoot: true })
+    pwa.options!.onNeedRefresh!()
+    mod.requireNewerBuild()
+    expect(pwa.updateSW).not.toHaveBeenCalled()
+    expect(missing).toEqual([true])
+    expect(heard[heard.length - 1]).toBe(true)
+    mod.updateForNewerData()
+    expect(pwa.updateSW).toHaveBeenCalledWith(false)
   })
 })

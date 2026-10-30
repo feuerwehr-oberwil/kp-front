@@ -308,6 +308,12 @@ export interface WorkspaceGate {
   newerSchema: boolean
 }
 
+/** What the gate SAYS about a blob (useWorkspaceBlob's Meldungen). A blob from a newer build is
+ *  ONE message, «Neuere App-Version nötig»: what this build skipped in it is newer things it does
+ *  not know, not damage, so it is never also «n beschädigte Einträge» (sweep 30.10.2026 #19). */
+export const gateReport = (g: WorkspaceGate): { newer: boolean; skipped: number } =>
+  ({ newer: g.newerSchema, skipped: g.newerSchema ? 0 : g.dropped })
+
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 const hasId = (v: unknown): v is Record<string, unknown> & { id: string } => isObj(v) && typeof v.id === 'string' && v.id.length > 0
 const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)

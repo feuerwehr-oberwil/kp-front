@@ -22,8 +22,12 @@
 // the banner — the operator keeps a working (old) build plus the restart hint.
 // Automatic reloads carry the snail's launch clock into the next static boot cover
 // (snailLaunch + index.html): applying an update must not show a second entrance.
+//   · Data from a newer build (sweep 30.10.2026 #19): an Einsatz saved by a newer build turns
+//     the workspace read-only and calls `requireNewerBuild` — this module looks for that build
+//     and reloads into it by itself, at any time (the automatic budget still caps it). Only if
+//     none arrives does `onNewerBuildMissing` raise the one «Neuere App-Version nötig» row.
 import { registerSW } from 'virtual:pwa-register'
-import { autoApplyBudgetLeft, recordAutoApply, RELOAD_WATCHDOG_MS, RESUME_CHECK_MIN_GAP_MS, shouldAutoApply, type AutoApplyRecord } from './updatePolicy'
+import { autoApplyBudgetLeft, NEWER_BUILD_GRACE_MS, recordAutoApply, RELOAD_WATCHDOG_MS, RESUME_CHECK_MIN_GAP_MS, shouldAutoApply, type AutoApplyRecord } from './updatePolicy'
 import { BUILD_TIME, GIT_SHA } from './buildInfo'
 import { forgetSnailLaunch, rememberSnailLaunch } from './snailLaunch'
 
@@ -165,10 +169,13 @@ export function initServiceWorker() {
           notify(true)
         }
       }
+      // the Einsatz data asked for a newer build before the registration was here
+      seekNewerBuild()
     },
     onNeedRefresh() {
       // A new build finished installing and is waiting.
       updateWaiting = true
+      if (newerNeeded) { applyForNewerData(); return }
       const budgetLeft = autoApplyBudgetLeft(readAttempts(), Date.now())
       if (shouldAutoApply({ msSinceLoad: Date.now() - loadedAt, interacted, alreadyAutoApplied: !budgetLeft })) {
         spendAttempt()
@@ -180,6 +187,68 @@ export function initServiceWorker() {
       notify(true)
     },
   })
+}
+
+// ── the Einsatz data needs a newer build (sweep 30.10.2026 #19) ─────────────────────────────
+// An old cached build opened an Einsatz a newer build had saved (the owner's iPhone on the
+// Atemschutz-Link: «Einsatzdaten stammen von einer neueren App-Version» plus «3 beschädigte
+// Einträge»). The silent update only ran in the 15 s boot window before any tap, and the link
+// view has no update banner — so the old build stayed. Now the data itself asks for the build.
+
+let newerNeeded = false
+let newerMissing = false
+const missingListeners = new Set<(missing: boolean) => void>()
+const markMissing = () => {
+  if (newerMissing) return
+  newerMissing = true
+  for (const cb of [...missingListeners]) cb(true)
+}
+
+/** A waiting build, applied for the data: automatic (budget-capped — a wedged worker cannot
+ *  reload-loop), but neither the boot window nor a tap holds it back — the view is read-only. */
+function applyForNewerData() {
+  if (applying) return
+  if (!autoApplyBudgetLeft(readAttempts(), Date.now())) { notify(true); markMissing(); return }
+  spendAttempt()
+  void applyWaitingBuild(true)
+}
+
+/** Look for the build now: apply one that waits, or ask the server for one. Nothing found
+ *  (or offline) → the row. No registration yet → onRegisteredSW calls back here; none ever
+ *  (no service worker, dev) → the grace timer raises the row. */
+function seekNewerBuild() {
+  if (!newerNeeded || applying) return
+  if (updateWaiting) { applyForNewerData(); return }
+  const r = registration
+  if (!r) return
+  r.update().then(() => { if (!r.installing && !r.waiting) markMissing() }, markMissing)
+}
+
+/**
+ * The Einsatz on screen was saved by a NEWER build than this one (lib/workspace · gateReport):
+ * fetch that build and reload into it, by itself. Idempotent. The caller keeps the workspace
+ * read-only meanwhile — this build would save the blob without everything it could not read.
+ */
+export function requireNewerBuild(): void {
+  if (newerNeeded) return
+  newerNeeded = true
+  window.setTimeout(markMissing, NEWER_BUILD_GRACE_MS)
+  seekNewerBuild()
+}
+
+/** Subscribe to «no newer build could be had» — `cb(true)` once the look failed or took longer
+ *  than NEWER_BUILD_GRACE_MS (at once for a late subscriber). Returns an unsubscribe. */
+export function onNewerBuildMissing(cb: (missing: boolean) => void): () => void {
+  missingListeners.add(cb)
+  if (newerMissing) cb(true)
+  return () => { missingListeners.delete(cb) }
+}
+
+/** «Aktualisieren» on the newer-data row: the waiting build if there is one, otherwise a fresh
+ *  start — whose boot looks for the build again (and lands on the same row when still offline). */
+export function updateForNewerData(): void {
+  if (updateWaiting && !applying) { void applyWaitingBuild(); return }
+  reloadOnce()
 }
 
 /** Subscribe to the pending-update state: `cb(true)` when a new build is waiting (fires

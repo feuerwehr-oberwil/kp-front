@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { autoActivateLayers, CONTACT_BOUNDS, demoClockAnchor, DEMO_SEED_REV, demoSeedRebase, deriveInitial, isBoardAnno, latestTruppStamp, normalizeBoard, numberTrupps, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved } from './workspace'
+import { autoActivateLayers, CONTACT_BOUNDS, demoClockAnchor, DEMO_SEED_REV, demoSeedRebase, deriveInitial, isBoardAnno, latestTruppStamp, normalizeBoard, numberTrupps, rebaseDemoClocks, gateReport, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved } from './workspace'
 import type { LayerDef, Trupp } from '../types'
 
 // Inject one station reference layer with a category rule so the auto-activation path is
@@ -416,6 +416,16 @@ describe('sanitizeWorkspace — load gate', () => {
     const g = sanitizeWorkspace({ entities: [{ id: 'e1', kind: 'symbol', coord: [7.5, 47.5] }], schemaVersion: WORKSPACE_SCHEMA_VERSION + 1 })
     expect(g.newerSchema).toBe(true)
     expect(g.ws?.entities).toHaveLength(1) // best-effort, not refused — 3am rule: degrade, don't block
+  })
+
+  // sweep 30.10.2026 #19 (the owner's phone: «neuere App-Version» AND «3 beschädigte Einträge»)
+  it('reports what a newer build saved as ONE message: the entries it skipped are not «beschädigt»', () => {
+    const unknown = [{ id: 'x1', kind: 'not-yet-invented', coord: [7.5, 47.5] }, { id: 'x2' }, 'x3']
+    const newer = sanitizeWorkspace({ entities: unknown, schemaVersion: WORKSPACE_SCHEMA_VERSION + 1 })
+    expect(newer.dropped).toBeGreaterThan(0) // the gate still counts them…
+    expect(gateReport(newer)).toEqual({ newer: true, skipped: 0 }) // …the report does not call it damage
+    const same = sanitizeWorkspace({ entities: unknown, schemaVersion: WORKSPACE_SCHEMA_VERSION })
+    expect(gateReport(same)).toEqual({ newer: false, skipped: same.dropped })
   })
 
   it('current and older stamps do not flag', () => {

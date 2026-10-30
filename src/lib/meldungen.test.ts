@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { rankMeldungen, type Meldung, type MeldungKind, type MeldungTone } from './meldungen'
+import { linkShowsMeldung, NEWER_BUILD_MELDUNG_ID, rankMeldungen, type Meldung, type MeldungKind, type MeldungTone } from './meldungen'
 
 // The order is the ONE guarantee the strip still makes: since 23.08. every pending message is a
 // visible row, so nothing can be hidden — but a tier-1/2 message must stand at the top, above
@@ -63,5 +63,17 @@ describe('rankMeldungen', () => {
     const given = [m('update'), m('alarm')]
     rankMeldungen(given)
     expect(given.map((g) => g.kind)).toEqual(['update', 'alarm'])
+  })
+})
+
+// sweep 30.10.2026 #23 (owner picked «No toasts, keep blockers»)
+describe('linkShowsMeldung — the Atemschutz-Link keeps only what blocks work', () => {
+  it('lets through the blockers and the alarms, and nothing else', () => {
+    const shown = (Object.keys(TONE) as MeldungKind[]).filter((k) => linkShowsMeldung(m(k)))
+    expect(shown.sort()).toEqual(['atemschutz', 'lifecycle', 'notfall', 'session', 'tabLock'])
+  })
+  it('of the workspace rows, only «Neuere App-Version nötig»', () => {
+    expect(linkShowsMeldung(m('workspace', NEWER_BUILD_MELDUNG_ID))).toBe(true)
+    expect(linkShowsMeldung(m('workspace', 'workspace:dropped'))).toBe(false)
   })
 })
