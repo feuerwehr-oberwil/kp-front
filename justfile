@@ -150,10 +150,13 @@ dev: db migrate
     # Vite in the foreground, so quitting it ends the recipe (and the trap takes the backend down).
     VITE_API_PROXY='{{api_url}}' pnpm dev
 
+# (`--no-recreate` here and in every recipe below: one dev Postgres serves every worktree, and
+# compose recreates a running container when another checkout calls `up` – killing any backend
+# run in flight there, 30.10.2026.)
 # Start the dev Postgres (docker-compose.dev.yml, localhost:5434) — waits until it's healthy.
 [group('Development')]
 db:
-    docker compose -f docker-compose.dev.yml up -d --wait
+    docker compose -f docker-compose.dev.yml up -d --wait --no-recreate
     @echo "\033[1;32m✓ Dev Postgres on localhost:5434\033[0m"
 
 # Stop the dev Postgres (keeps the data volume).
@@ -280,7 +283,7 @@ ci-backend: schema-check test-backend
 schema-check:
     #!/usr/bin/env bash
     set -euo pipefail
-    docker compose -f docker-compose.dev.yml up -d --wait
+    docker compose -f docker-compose.dev.yml up -d --wait --no-recreate
     db="kpfront_schema_$$"
     docker compose -f docker-compose.dev.yml exec -T db createdb -U kpfront "$db"
     trap 'docker compose -f docker-compose.dev.yml exec -T db dropdb -U kpfront "$db"' EXIT
@@ -295,7 +298,7 @@ schema-check:
 test-backend *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    docker compose -f docker-compose.dev.yml up -d --wait
+    docker compose -f docker-compose.dev.yml up -d --wait --no-recreate
     db="kpfront_test_$$"
     docker compose -f docker-compose.dev.yml exec -T db createdb -U kpfront "$db"
     trap 'docker compose -f docker-compose.dev.yml exec -T db dropdb -U kpfront "$db"' EXIT
