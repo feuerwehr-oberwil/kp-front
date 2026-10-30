@@ -21,9 +21,14 @@ import s from './DockInfo.module.css'
  * own instruction was a thin dim pill of its own — two look-alikes a hand's width apart, and the
  * owner read the quiet one as the lesser message (20.10.2026: «different padding and coloration»).
  * One tool, one voice: whoever explains the map does it in here.
+ *
+ * While it stands, an open Gebäude card hides (not closes) and comes back when it goes: the two
+ * share the phone's message lane (owner, sweep 30.10.2026 #7: the Linie tip lay over the card).
  */
 export function MapHelpCard({ children, role }: { children: ReactNode; role: 'tooltip' | 'status' }) {
-  return <span className={s['wb-dock-tip']} role={role}>{children}</span>
+  // data-lane-msg: while it stands, the open Gebäude card steps aside – one thing in the lane at
+  // a time (BuildingFloat.module · .pop, sweep 30.10.2026 #7)
+  return <span className={s['wb-dock-tip']} role={role} data-lane-msg="">{children}</span>
 }
 
 export function DockInfo({ text, inline }: { text: string; inline?: boolean }) {

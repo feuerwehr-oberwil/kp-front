@@ -2,12 +2,9 @@
    The merged intake panel leads with a <2h alarm; over the app a fresh dispatch floats
    in; after a one-tap take the EL corrects in place (never blocking the map). */
 
-/* Base UI Overlay variant of the map-picker frame (src/lib/overlays/Overlay.tsx). The mp modals
-   open OVER other sheets, so scrim + popup sit at the old .mp-ovl z-index 120/121 (above the
-   .ip-sheet 80/81). Popup is transform-centred (no .mp-ovl grid parent); the width keeps the old
-   18px gutter that .mp-ovl's padding used to provide. */
+/* The map-picker scrim: the Mittel remark below borrows it too (it opens OVER another sheet, so
+   the pair sits at the blocking z-index 120/121, above the .ip-sheet 80/81). */
 .mp-backdrop { position: fixed; inset: 0; z-index: var(--z-blocking-scrim); background: rgba(10, 14, 20, .5); backdrop-filter: blur(2px); }
-.mp-sheet.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-blocking); width: min(720px, calc(100vw - 36px)); }
 
 /* The Mittel remark opens OVER the Mittel sheet, so it borrows the map-picker's scrim/z-pair.
    ⚠️ This MUST stay below `.ip-sheet.ui-dialog` in the file: both selectors weigh the same, so
@@ -17,24 +14,38 @@
 .mv-note-dialog > .ip-actions { padding: 0 var(--sp-5) var(--sp-4); }
 /* «Eintrag löschen» sits at the far LEFT by the one footer rule (13-incident · `.ui-sheet-foot >
    .danger`) — a destructive button next to the primary one is a mis-tap waiting to happen */
-/* ⚠️ `dvh`, like every other sheet: `vh` is iOS's LARGE viewport, so with the Safari bars out
-   the picker was taller than the screen and its «Übernehmen» sat under them. */
-.mp-sheet { display: flex; flex-direction: column; width: min(720px, 100%); height: min(560px, 90dvh);
-  background: var(--glass); border: 1px solid var(--glass-line); border-radius: var(--r-hero); overflow: hidden;
-  box-shadow: var(--e5); animation: pop .16s var(--ease); }
-/* the picker's title is THE sheet title (16/800, 01-tokens · --sheet-title — it was 15/700) */
-.mp-head { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-3) var(--sp-4);
+/* «Standort auf Karte setzen» (components/MapPicker) – FULL SCREEN on every width (owner, sweep
+   30.10.2026 #5, mock 5A): the head with its ‹, the map with the pin fixed in its middle, one
+   «Standort übernehmen» under it. Opaque: it opens OVER the wizard's sheet, whose words must not
+   show through. The safe areas are paid by the head (top, sides) and the footer (bottom). */
+.mp-sheet.ui-dialog { position: fixed; inset: 0; z-index: var(--z-blocking); display: flex; flex-direction: column;
+  background: var(--surface); animation: sheetUp .2s var(--ease); }
+@media (prefers-reduced-motion: reduce) { .mp-sheet.ui-dialog { animation: none; } }
+/* the title is THE sheet title (01-tokens · --sheet-title); the ‹ leads it, the one way back */
+.mp-head { display: flex; align-items: center; gap: var(--sp-3); flex: none;
+  padding: calc(var(--sp-2) + env(safe-area-inset-top)) max(var(--sp-4), env(safe-area-inset-right)) var(--sp-2) max(var(--sp-3), env(safe-area-inset-left));
   border-bottom: 1px solid var(--glass-edge); font: var(--sheet-title); color: var(--ink); }
+.mp-title { min-width: 0; overflow-wrap: anywhere; }
 .mp-map { position: relative; flex: 1; min-height: 0; }
 .mp-map .maplibregl-map { position: absolute; inset: 0; }
-.mp-hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 2; pointer-events: none;
-  /* the message surface (08-toasts.css · «ONE message surface»): an instruction, so no ✕ */
-  padding: var(--sp-2) var(--float-pad-x); border-radius: var(--r-sm); background: var(--float-bg); backdrop-filter: var(--float-blur); border: none;
-  font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); box-shadow: var(--float-edge); }
-.mp-pin { display: grid; place-items: center; width: 30px; height: 30px; color: var(--red);
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .4)); }
-.mp-pin svg { width: 28px; height: 28px; }
-.mp-act { display: flex; justify-content: flex-end; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--glass-edge); }
+/* the pin stands still over the map's centre: a 0×0 anchor ON the centre, the dot centred on it,
+   the flag's pole foot just above the dot (the flag glyph's pole is ~4/24 in from its left) */
+.mp-pin { position: absolute; left: 50%; top: 50%; width: 0; height: 0; z-index: 2; pointer-events: none; color: var(--red); }
+.mp-pin svg { position: absolute; left: -5px; bottom: 4px; width: 30px; height: 30px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .45)); }
+.mp-pin-dot { position: absolute; left: -6px; top: -6px; width: 12px; height: 12px; border-radius: 50%; box-sizing: border-box;
+  background: var(--red); border: 2px solid #fff; box-shadow: var(--e1); }
+/* …and under it what the centre is: the address it would bring, else its coordinates
+   (lib/mapPickAddress). The message surface (08-toasts · «ONE message surface»), a readout – no
+   pointer events, the map under it stays draggable. */
+.mp-addr { position: absolute; left: 50%; top: calc(50% + 18px); transform: translateX(-50%); z-index: 2; pointer-events: none;
+  width: max-content; max-width: calc(100% - 32px); box-sizing: border-box; text-align: center;
+  padding: var(--sp-2) var(--float-pad-x); border-radius: var(--r-sm); background: var(--float-bg); backdrop-filter: var(--float-blur);
+  box-shadow: var(--float-edge); font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); }
+.mp-addr.is-looking { color: var(--ink-dim); }
+/* one action: the 52px primary, a thumb's width on a phone, not a whole tablet's */
+.mp-act { display: flex; justify-content: center; flex: none; padding: var(--sp-3) var(--sp-4) calc(var(--sp-3) + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--glass-edge); }
+.mp-act > .ip-btn { max-width: 520px; }
 
 /* Kroki framing PANEL — a block on the Rapport surface (it was a modal until 2026-08-07). The
    map keeps the server's 1600×940 render aspect, so the visible crop IS the printed crop: no

@@ -34,7 +34,12 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   toggle or Escape on the Karte and the Plan alike (27.10.2026: with «Mehrere platzieren» on, the
   Plan's Escape did nothing and there was no ✕ – no way to stop placing Durchgänge). The other tools keep their option docks (Freihand ↔ Punkte, ✓,
   Strecke ↔ Fläche, Trupp finden). On a phone the pill stands on the floating row (above the dock
-  while one is out) and yields to the Messen results panel.
+  while one is out). While Messen is armed there is no pill, on any size – its results panel
+  stands in that spot (sweep 30.10.2026 #3: the pill covered the Distanz on a tablet).
+  The row never ellipsises (sweep 30.10.2026 #8, «Fahrze…»): when it does not fit, the name folds
+  first and the glyph stands alone (the name stays its aria-label), then «Mehrere platzieren»
+  folds to its ⟳ (a hold says the word) – measured on the top bar's ladder
+  (`ArmedToolPill · fitArmedPill`), so a wider screen gives the words back.
 - **A new line starts from the plain default, always** (`useMapDrawing · DRAW_DEFAULTS`,
   `usePlanDraft · INK_DEFAULTS`, 23.10.2026): the surface's colour, width, solid, no marker, no
   arrowhead – whatever the last line was edited to. Until then the DrawEditor wrote every style

@@ -22,7 +22,6 @@ import { Overlay } from '../lib/overlays'
 import type { PlacedTrupp } from '../lib/placedTrupps'
 import { ShapeGlyph, SHAPE_DEFS, SHAPE_TWO_POINT } from '../lib/shapes'
 import type { useCoordPicker } from '../lib/useCoordPicker'
-import type { useIsPhone } from '../lib/useIsPhone'
 import type { useMeasure } from '../lib/useMeasure'
 import type { useSymbols } from '../lib/useSymbols'
 import type { LngLat, MapTool, ShapeKind, LineAttachment, Drawing, Trupp, GeoTrailPoint } from '../types'
@@ -36,7 +35,6 @@ export interface MapToolDocksProps {
   setTool: Dispatch<SetStateAction<MapTool>>
   placeLock: boolean
   setPlaceLock: Dispatch<SetStateAction<boolean>>
-  isPhone: ReturnType<typeof useIsPhone>
   lineMode: 'freehand' | 'nodes'
   /** leave the draft in the hand – asks about a committable one (useMapDrawing · settleDraft) */
   settleDraft: () => void
@@ -86,7 +84,7 @@ export interface MapToolDocksProps {
 }
 
 export function MapToolDocks({
-  mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, isPhone, lineMode, settleDraft,
+  mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, lineMode, settleDraft,
   setLineMode, draftActive, draftOpen, commitDraft, areaMode, setAreaMode, setTeamPick, placed, setFindTruppOpen,
   measure, pendingShape, setPendingShape, setRotStart, rotStart, tacticalLocked, createLine,
   createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, togglePanel, viewsApi,
@@ -99,8 +97,9 @@ export function MapToolDocks({
           23.10.2026). A symbol wears its own SVG and name, the others their rail glyph and word;
           Linie/Fläche say their input mode. The symbol tool has no dock any more: the pill IS
           its readout, «Mehrere platzieren» stands beside it, and the way out is the ✕ beside that
-          (27.10.2026), the rail tile or Escape. Not on the phone while Messen is armed – its results panel stands in that row. */}
-      {mapUI && tool !== 'select' && !(isPhone && tool === 'measure') && (() => {
+          (27.10.2026), the rail tile or Escape. Never while Messen is armed, on any size – its results
+          panel stands in that spot and the pill covered its numbers (sweep 30.10.2026 #3). */}
+      {mapUI && tool !== 'select' && tool !== 'measure' && (() => {
         if (tool === 'symbol') {
           if (!pending) return null
           // the ✕ puts it down exactly as Escape does (useMapActions · cancelPlacement) – the Plan's twin

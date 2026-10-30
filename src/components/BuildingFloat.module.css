@@ -20,7 +20,16 @@
      card of text over a drawn sheet cannot be 10 % plan. Same tint, nothing behind it. */
   background: linear-gradient(var(--float-bg), var(--float-bg)), var(--surface); box-shadow: var(--float-edge); }
 @media (--phone) {
-  /* the bars' width, one gap above THE floating row — the toast lane's place */
+  /* the bars' width, in THE message lane (15-mobile · --msg-lane-bottom): one gap above the
+     highest thing in the stack – the floating row at rest, the armed tool's pill while a tool is
+     out (sweep 30.10.2026 #7: it stood a whole chip row above the floating row's baseline, 16px
+     over «Linie · Freihand» while the chip sat beside the dock) */
   .pop { position: fixed; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
-    bottom: calc(var(--float-bottom) + var(--float-h) + var(--float-gap)); width: auto; max-height: 56vh; }
+    bottom: var(--msg-lane-bottom); width: auto; max-height: 56vh; }
 }
+/* ⚠️ ONE thing in the lane at a time (owner, sweep 30.10.2026 #7: the Linie tip lay over the open
+   card): while a map tool explains itself (DockInfo · MapHelpCard, `data-lane-msg` – the dock's ⓘ
+   tip, a placement hint) the card steps aside – hidden, NOT closed, so it is not marked read and
+   stands again the moment the tip goes. Every size: on a tablet the tip's bottom-centre card can
+   reach the card docked over the chip row too. */
+:global(:root:has([data-lane-msg])) .pop { visibility: hidden; }

@@ -1294,7 +1294,7 @@ export function IncidentWorkspace({
     && plansSettled
     && (!liveFeeds || !!liveWeather.data || !!liveWeather.error), onOpenCoverDone)
   // The Gebäude card opens by itself the first time THIS device shows the Karte of this Einsatz
-  // with a hazard / Sofortmassnahmen / Bemerkungen to read (lib/buildingFirstOpen): after the cover
+  // whose building has anything to show (lib/buildingFirstOpen): after the cover
   // has lifted (never under the snail), on the Karte only — an Einsatz that opens on another
   // surface shows it when the Karte is first shown — and never in a replay, a closed Einsatz or a
   // session that cannot see the Karte (the Atemschutz-Link's Tafel). Data that arrives later
@@ -3158,7 +3158,7 @@ export function IncidentWorkspace({
       }} />
 
       <MapToolDocks {...{
-        mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, isPhone, lineMode, settleDraft,
+        mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, lineMode, settleDraft,
         setLineMode, draftActive, draftOpen, commitDraft, areaMode, setAreaMode, setTeamPick, placed, setFindTruppOpen,
         measure, pendingShape, setPendingShape, setRotStart, rotStart, tacticalLocked, createLine,
         createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, togglePanel, viewsApi,

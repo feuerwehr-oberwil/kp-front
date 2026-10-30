@@ -161,7 +161,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   a modal and what a slide-up thing on mobile … ebenen, search, etc. should be a slide-up»).
   Pick by what the person DOES there, never by what was easiest to build: (1) a **tool or a
   list you work in while you look at the map / board / page** — Ebenen, the «+»
-  chooser, a symbol's editor (`.ctx`), the composer, the Verlauf, the map picker, the plan's
+  chooser, a symbol's editor (`.ctx`), the composer, the Verlauf, the plan's
   Passung, every form and settings sheet — is a **slide-up bottom sheet**: flush with the bottom edge and both sides, over the bars,
   the ONE grab bar on top, pushed down to close (`useSwipeDismiss`; the head is the handle, and so
   is the body from its scroll-top — rows and buttons included, never a field, a slider or a map; sweep 28.10.2026),
@@ -174,9 +174,13 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   that blocks** — a confirm, «Welcher Trupp?», a one-field ask — is a **centred dialog**
   (`ConfirmCard`, `Overlay` without `grab`): it is answered, not worked in. (3) A **short
   pick-one menu that belongs to its tile or chip** — Ansichten at the compass, the Einsatz-Menü,
-  the Meteo chip, every `Menu` — is a **popover anchored to that control**. Two exceptions,
+  the Meteo chip, every `Menu` — is a **popover anchored to that control**. Three exceptions,
   each a rule: a page you READ (Hilfe) is full-screen, and a search that opens with the keyboard
-  (TruppFinder) hangs from the TOP edge so the keys never cover its results. A floating card
+  (TruppFinder) hangs from the TOP edge so the keys never cover its results. And a place you AIM
+  on a map – «Standort auf Karte setzen» (MapPicker, owner 30.10.2026, mock 5A) – is full-screen
+  on every width: the pin fixed in the middle, the map moved under it, the map's centre the pick,
+  one ‹ back and one action, the attribution a closed ⓘ; a sheet over the wizard's sheet left a
+  strip of map too small to aim in. A floating card
   above the bars (Ebenen was one until 29.09.) is none of the three: it cannot
   be pushed away and does not belong to its tile.
 
@@ -249,7 +253,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     channel under the strip while one stands (`--ml-reserve` from its measured `--ml-h`), at the
     bars' own width on a phone (8px in from each side). A mode's instruction and a tool's tip keep
     the phone's foot lane (`--msg-lane-bottom`, 15-mobile), one `--float-gap` above THE floating
-    row (below), never beside a piece of it. A repeat REPLACES (18.10.2026): a confirmation that comes again — «Eintrag erfasst» after
+    row (below) – while a tool is out, above the highest piece of the tool stack, measured
+    (lib/floatRow · stackLane, 30.10.2026) – never beside a piece of it. A repeat REPLACES (18.10.2026): a confirmation that comes again — «Eintrag erfasst» after
     every Meldung, «Geschoss hinzugefügt» — carries a `kind` (lib/ui · toast) and takes its
     predecessor's place instead of stacking on it; five Meldungen in a row grew a column of pills
     up the screen into the composer's «Erfassen», and a confirmation never covers the next action

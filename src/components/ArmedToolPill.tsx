@@ -14,10 +14,20 @@
 // Durchgang's default on the Gebäude stack – a symbol stays armed after every tap, and there was
 // no visible way to stop placing. The ✕ is the same «Abbrechen» the other tools' docks carry; the
 // pill itself stays a readout.
-import type { ReactNode } from 'react'
+//
+// ⚠️ Never an ellipsis (owner, sweep 30.10.2026 #8: «Fahrze…» beside «Mehrere platzieren» – «a bit
+// ugly … just show the icon rather than the label if space is limiting»). The row climbs the top
+// bar's ladder (lib/useHeadFit · climbLadder), MEASURED: first the name folds and the glyph stands
+// alone (the symbol's own drawing, just picked from the palette; the name stays the pill's
+// aria-label/title – the pill passes pointer events through, so it has no hold to answer), then
+// «Mehrere platzieren» folds to its ⟳ – that one is a button, so a hold says its word
+// (`data-holdexplain`, lib/holdTooltip). The ✕ never folds. The ladder: lib/armedPillFit.
+import { useRef, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
+import { fitArmedPill } from '../lib/armedPillFit'
+import { useHeadFit } from '../lib/useHeadFit'
 
 export function ArmedToolPill({ glyph, name, lock, onClose, className }: {
   glyph: ReactNode
@@ -28,17 +38,20 @@ export function ArmedToolPill({ glyph, name, lock, onClose, className }: {
   onClose?: () => void
   className?: string
 }) {
+  const row = useRef<HTMLDivElement>(null)
+  useHeadFit(row, `${name}|${!!lock}|${!!onClose}`, fitArmedPill)
   return (
-    <div className={`armed-pill-row${className ? ` ${className}` : ''}`}>
-      {/* role=status: it appears because a tool was armed, not because a control was asked */}
-      <div className="armed-pill" role="status">
+    <div ref={row} className={`armed-pill-row${className ? ` ${className}` : ''}`}>
+      {/* role=status: it appears because a tool was armed, not because a control was asked. The
+          name is its label too, so a folded pill (glyph alone) still says it */}
+      <div className="armed-pill" role="status" aria-label={name} title={name}>
         <span className="armed-pill-glyph" aria-hidden>{glyph}</span>
         <span className="armed-pill-name">{name}</span>
       </div>
       {/* a raw toggle, not Chip: it wears the pill's glass, so it reads as part of the readout
           and not as one more chip on the map (controlDebt baseline +1) */}
       {lock && (
-        <button type="button" className={`armed-pill-lock${lock.on ? ' on' : ''}`} aria-pressed={lock.on} onClick={lock.onToggle}>
+        <button type="button" className={`armed-pill-lock${lock.on ? ' on' : ''}`} aria-pressed={lock.on} aria-label={appConfig.copy.keepPlacing} onClick={lock.onToggle}>
           <Icon id="place-repeat" /><span>{appConfig.copy.keepPlacing}</span>
         </button>
       )}

@@ -20,9 +20,14 @@ import s from './BuildingCard.module.css'
  * «Gebäude» heading «Register-Hinweis». The
  * pieces are the Karte panel's own (BuildingFacts), so the two surfaces cannot drift apart.
  * Nothing to say → nothing drawn (lib/buildingCard).
+ *
+ * «Register-Hinweis» stands OPEN each time the card opens, by itself or by hand (sweep 30.10.2026
+ * #6, owner pick «Both»): where the facts come from is part of reading them. BuildingFloat mounts
+ * the card only while open, so every open starts here; a tap folds it for this look. The
+ * peacetime Karte panel keeps its own, folded (KartePanel).
  */
 export function BuildingCard({ info, onClose }: { info: BuildingInfo | null; onClose?: () => void }) {
-  const [hint, setHint] = useState(false)
+  const [hint, setHint] = useState(true)
   if (!info || !hasBuildingContent(info)) return null
   const C = appConfig.copy.building
   const chips = buildingChips(info)

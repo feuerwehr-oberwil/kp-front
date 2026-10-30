@@ -96,11 +96,11 @@ describe('BuildingFloat', () => {
     expect(at('Gebäude')).toBeLessThan(at('Heizung Gas'))
     expect(at('PV 35.6 kW')).toBeLessThan(at('3 Geschosse'))
     expect(at('Heizung Gas')).toBeLessThan(at('3 Geschosse'))
-    // the source line is folded behind «Register-Hinweis» (review round 7) — and opens LAST
-    expect(at('GWR')).toBe(-1)
+    // the source line stands under «Register-Hinweis», open on every open (sweep 30.10.2026 #6) —
+    // after what must be read
+    expect(at('Sofortmassnahmen')).toBeLessThan(at('GWR'))
     fireEvent.click(screen.getByRole('button', { name: /Register-Hinweis/ }))
-    const opened = screen.getByRole('dialog').textContent ?? ''
-    expect(opened.indexOf('Sofortmassnahmen')).toBeLessThan(opened.indexOf('GWR'))
+    expect((screen.getByRole('dialog').textContent ?? '').indexOf('GWR')).toBe(-1)
   })
 
   it('nothing to say → no chip at all', () => {
