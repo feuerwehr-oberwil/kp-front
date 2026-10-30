@@ -227,7 +227,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     The Verlauf's head is a row of 44px buttons (ⓘ, lens, funnel, ▶, ✕ – 30.10.2026, owner), so
     its ✕ and ⓘ are 44 there too, for the same reason.
   - *Radius – ONE corner (25.09.2026):* **every** rectangle is `var(--r-sm)` (12px) – button,
-    field, status box, row, card, page card, sheet, dialog, message; `--r-ctl`/`--r-surface`/
+    field, status box, row, card, page card (tablet and desktop – a phone page has no card,
+    [`phone-layout.md`](phone-layout.md) · «No page card on a phone»), sheet, dialog, message; `--r-ctl`/`--r-surface`/
     `--r-hero` are aliases of it, kept only as role names. Three exceptions, each a rule, never
     taste: (1) things under ~32px tall wear `--r-xs` (the same shape at that size) and map
     furniture, dots, avatars and the FAB stay round – roundness is what tells map furniture

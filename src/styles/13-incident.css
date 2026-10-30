@@ -1687,6 +1687,9 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 .rp-head { flex: none; display: flex; align-items: center; gap: var(--head-gap); flex-wrap: nowrap;
   padding: var(--head-pad); min-height: calc(var(--tap) + 2 * var(--head-pad-y));
   background: var(--surface); box-shadow: inset 0 -1px 0 var(--glass-edge); }
+/* …and on a phone, like the shared head, it is no band: the page has no card there to band
+   (Surface.module.css · the phone block, sweep 30.10.2026 #12) */
+@media (--phone) { .rp-head { background: none; box-shadow: none; } }
 .rp-head-titles { flex: 1 1 auto; min-width: 0; }
 .rp-head[data-fit-wrap] { flex-wrap: wrap; }
 .rp-head[data-fit-wrap] > .rp-head-titles { flex-basis: 100%; }
