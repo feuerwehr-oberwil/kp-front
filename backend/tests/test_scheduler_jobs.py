@@ -30,7 +30,7 @@ from sqlalchemy import select
 
 from app import scheduler
 from app.config import settings
-from app.models import Incident, Personnel, PersonPosition, TelemetryOutbox, VisitHash, VisitStat
+from app.models import Incident, Personnel, PersonPosition, PrintJob, TelemetryOutbox, VisitHash, VisitStat
 
 MARKER = "rolled-back-by-the-job"
 
@@ -397,6 +397,49 @@ async def test_the_configured_cadence_decides_when_a_tick_actually_polls(run_job
     assert runs == [True, True], "…and an hour later it is"
 
 
+# --- print-job sweep ------------------------------------------------------------------
+
+
+def _print_job(incident_id, *, age_days: float) -> PrintJob:
+    return PrintJob(
+        incident_id=incident_id,
+        kind="report",
+        filename=f"rapport-{age_days}.pdf",
+        pdf=b"%PDF-1.4",
+        created_at=datetime.now(UTC) - timedelta(days=age_days),
+    )
+
+
+async def test_the_print_queue_is_retired_only_past_the_retention_window(db_session, run_job, fresh, monkeypatch):
+    """The paper is the artefact — a claimed job is scrap the moment it is printed. But the
+    window has to hold: sweeping a job the agent has not fetched yet loses the print."""
+    monkeypatch.setattr(settings, "print_agent_secret", "relay-secret")
+    inc = await _incident(db_session)
+    db_session.add_all(
+        [
+            _print_job(inc.id, age_days=scheduler.PRINT_JOB_RETENTION_DAYS + 1),
+            _print_job(inc.id, age_days=1),
+        ]
+    )
+    await db_session.commit()
+
+    await run_job(scheduler._print_jobs_sweep)
+
+    assert await fresh(select(PrintJob.filename)) == ["rapport-1.pdf"]
+
+
+async def test_a_station_that_switched_the_relay_off_still_loses_old_jobs(db_session, run_job, fresh):
+    """Every row is a Rapport-PDF with names in it. Clearing the relay secret must not turn the
+    7-day retention into forever (review on #524, 30.10.2026)."""
+    inc = await _incident(db_session)
+    db_session.add(_print_job(inc.id, age_days=scheduler.PRINT_JOB_RETENTION_DAYS + 30))
+    await db_session.commit()
+
+    await run_job(scheduler._print_jobs_sweep)
+
+    assert len(await fresh(select(PrintJob.filename))) == 0
+
+
 # --- visitor hashes -------------------------------------------------------------------
 
 
@@ -612,6 +655,13 @@ async def _ok(url):
         ),
         ("_auto_archive_sweep", "app.alarms", "auto_archive_sweep", "Auto-archive sweep failed", {}),
         ("_plan_pull", "app.plans", "pull_plans", "Objektplan-Pull failed", {}),
+        (
+            "_print_jobs_sweep",
+            "app.scheduler",
+            "execute_dml",
+            "Print-job sweep failed",
+            {},
+        ),
         ("_visit_hashes_sweep", "app.visits", "prune", "Visit sweep failed", {}),
         ("_positions_sweep", "app.scheduler", "execute_dml", "Position sweep failed", {}),
         ("_telemetry_flush", "app.telemetry.forwarder", "flush", "Telemetry flush failed", {}),
@@ -665,6 +715,7 @@ async def test_the_credential_backed_jobs_are_registered_before_their_credential
     assert {
         "divera_poll",
         "push_sweep",
+        "print_jobs_sweep",
         "vehicle_samples",
         "weather_observe",
         "heartbeat",

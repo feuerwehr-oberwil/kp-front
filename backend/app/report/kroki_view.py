@@ -5,11 +5,19 @@ Split out of the former ``report_pdf.py``; rules for this area: docs/rapport.md.
 
 from __future__ import annotations
 
+import logging
 import math
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .schema import ReportPayload
+
+logger = logging.getLogger(__name__)
 
 # ----------------------------------------------------------------------------- composition
 
-# Print Kroki canvas size.
+# Print Kroki canvas size — the composer and the tile prewarm share it so both derive the
+# same View and hit identical tile-cache keys.
 #: ⚠️ Raised 30 % on 18.08. The picture is placed ~180 mm wide, so 1000 px was 141 dpi — every
 #: glyph edge and every number on the Kroki was softer on paper than the same picture on screen,
 #: which is most of what «das PDF sieht schlechter aus» actually was. 1300 px ≈ 183 dpi, still
@@ -42,7 +50,7 @@ def _kroki_fit_max_z(pts: list[tuple[float, float]]) -> float:
 
 
 def _kroki_view(pk, kw: int, kh: int):
-    """Derive the print View for a Kroki scene."""
+    """Derive the print View for a Kroki scene — shared by the composer and the tile prewarm."""
     from .. import kroki as kk
 
     if pk.bounds and len(pk.bounds) == 4:
@@ -66,3 +74,27 @@ def _kroki_view(pk, kw: int, kh: int):
     view = kk.fit_view(pts, kw, kh, max_z=_kroki_fit_max_z(pts))
     view.overlay_z = view.z - math.log2(512 / kk.TILE)
     return view
+
+
+def warm_report_tiles(payload: ReportPayload) -> None:
+    """Fetch+cache the Kroki base tiles for this report's map view and discard the image, so
+    a later compose skips the network round-trips. Pure cache warming; never raises.
+
+    Fired by the print relay's prewarm endpoint when the Rapport modal opens."""
+    opt = payload.options
+    if not (opt.kroki and payload.kroki is not None and payload.kroki.tiles):
+        return
+    try:
+        from .. import kroki as kk
+
+        view = _kroki_view(payload.kroki, *(_KROKI_PX if opt.krokiLandscape else _KROKI_PX_PORTRAIT))
+        kk.render_base(
+            view,
+            kk.approved_tile_template(payload.kroki.tiles),
+            cache=kk.get_tile_cache(),
+            max_tile_z=payload.kroki.maxTileZoom or 19,
+        )
+    except Exception:  # noqa: BLE001 — a cold cache must not fail the rapport
+        # A failed prewarm is recoverable (the real render refetches), but silence here is how a
+        # permanently unreachable tile source stays invisible.
+        logger.warning("Rapport tile prewarm failed; the render will refetch", exc_info=True)

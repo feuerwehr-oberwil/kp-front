@@ -8,13 +8,13 @@ from app.config_guard import emptied_declared_sections
 
 
 def test_a_retired_field_is_not_reported():
-    stored = {"report": {"partnerOrgs": ["Polizei"], "reversePrintOrder": True}}
+    stored = {"report": {"partnerOrgs": ["Polizei"], "retiredSwitch": True}}
     final = {"report": {"partnerOrgs": ["Polizei"]}}
     assert emptied_declared_sections(stored, final) == []
 
 
 def test_a_declared_field_still_is():
-    stored = {"report": {"partnerOrgs": ["Polizei"], "reversePrintOrder": True}}
+    stored = {"report": {"partnerOrgs": ["Polizei"], "retiredSwitch": True}}
     final = {"report": {"partnerOrgs": []}}
     assert emptied_declared_sections(stored, final) == ["report.partnerOrgs"]
 

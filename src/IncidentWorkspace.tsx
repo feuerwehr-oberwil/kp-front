@@ -40,6 +40,7 @@ import { addSignature, shortChecksum, voidAll, type ReportSignature } from './li
 import { circlePolygon } from './lib/geo'
 import { isPresent } from './lib/attendanceIntervals'
 import { registerMeldeleisteHost } from './lib/meldeleisteHost'
+import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
 import { conflictResolvedRow, openConflicts, type OpenConflict } from './lib/attendanceConflict'
 import { isBottomSheet, rectCenter, visibleWorkRect, type NudgeBox } from './lib/panelNudge'
 import { useMeasure } from './lib/useMeasure'
@@ -2680,12 +2681,23 @@ export function IncidentWorkspace({
   // re-lay after a merge (workspace/useRecordSlices)
   const {
     checklistSet, checklistDescribeRef, bandActions, addShift, addShiftSpan, replaceShift, setShiftTime,
-    removeShift, onDownloadZeitplan, saveMittel, placedSymbols,
+    removeShift, onDownloadZeitplan, onPrintZeitplan, saveMittel, placedSymbols,
   } = useRecordSlices({
     mittel, setMittel, canWriteRecord, checklists, setChecklists, undoHist, histSide, histStep, C_HIST,
     reportMeta, setReportMeta, lastReportStep, reportSetRef, user, log, doc, board, shifts, bands,
     setShifts, setBands, sliceRebase, attHist, incidentMeta, attendance,
   })
+  // The station printer's status for the Zeitplan sheets, fail-closed (null → no printer button at
+  // all); the PDF download needs no relay. Asked when the Anwesenheit opens – the one surface that
+  // offers the sheets – not at boot, where it was one more request on every cold start.
+  const [zeitplanRelay, setZeitplanRelay] = useState<PrintRelayStatus | null>(null)
+  const onAnwesenheit = mode === 'anwesenheit'
+  useEffect(() => {
+    if (linkScoped || !onAnwesenheit) return // the relay is refused for a link session — don't even ask
+    let alive = true
+    void fetchPrintStatus(editorPrintTransport()).then((st) => { if (alive) setZeitplanRelay(st) })
+    return () => { alive = false }
+  }, [linkScoped, onAnwesenheit])
 
   // the roster's side of the record — vocabulary, pickers' names and hints, and every door that puts
   // somebody on the Anwesenheit because they were given a job (workspace/useRosterRoles)
@@ -3014,9 +3026,11 @@ export function IncidentWorkspace({
         onReplaceShift={canEditRecord ? replaceShift : undefined}
         onSetShiftTime={canEditRecord ? setShiftTime : undefined}
         onRemoveShift={canEditRecord ? removeShift : undefined}
-        // the Zeitplan-PDF is refused for a link session (the sheet carries the crew's names) —
-        // without the prop the block hides itself
+        // Zeitplan-PDF and Zeitplan-Druck are both refused for a link session (the sheet
+        // carries the crew's names) — without either prop the block hides itself
+        onPrintZeitplan={!linkScoped && zeitplanRelay?.available ? onPrintZeitplan : undefined}
         onDownloadZeitplan={linkScoped ? undefined : onDownloadZeitplan}
+        zeitplanPrintOnline={!!zeitplanRelay?.online}
         // Live crew positions, read next to the name — this is where somebody looks when
         // they want to know where a person is, and where they would pick up the phone.
         incidentId={incidentMeta.id}

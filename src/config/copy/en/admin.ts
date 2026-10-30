@@ -516,8 +516,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
           caption: 'Browser key for the CARTO Voyager and Dark Matter maps. It necessarily appears in tile requests, so restrict it to this installation’s domains in CARTO.',
         },
         webhooks: {
-          title: 'Webhooks',
-          caption: 'Shared secret for the alarm interface of external dispatch systems. With no entry, the door stays shut.',
+          title: 'Webhooks & station printer',
+          caption: 'Shared secrets for the alarm interface of external dispatch systems and for the print agent at the station. With no entry, both doors stay shut.',
         },
         sharepoint: {
           title: 'SharePoint (station data)',
@@ -1715,6 +1715,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       directionOut: 'outbound',
       connOnline: 'online',
       connOffline: 'offline',
+      connLastSeen: 'Last seen: {time}',
+      connPrintRelay: 'Station printer (print agent)',
       connCapture: 'Capture poster (QR)',
       connStats: 'Statistics export',
       connDiveraWebhook: 'Divera webhook',
@@ -1867,6 +1869,10 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       linkPreview: 'Preview with a sample incident',
       linkPreviewNone: 'Not a valid link (http or https) – this entry will not appear on the report.',
       linkPreviewNoTitle: 'Without a title this entry will not appear on the report.',
+      groupPrint: 'Printing on the station printer',
+      printTip: 'Concerns only the report sent to the station printer. A downloaded PDF always stays in reading order.',
+      reverseOrder: 'Send pages in reverse order',
+      reverseOrderHint: 'For printers that eject face-up: otherwise the stack comes out back-to-front and has to be re-sorted by hand. If yours ejects face-down, switch it off.',
     },
     alarms: {
       colGroup: 'Alarm group',

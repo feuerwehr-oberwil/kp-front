@@ -590,8 +590,8 @@ export const adminCopy = {
           caption: 'Browser-Key für die CARTO-Karten Voyager und Dark Matter. Er steht technisch bedingt in den Kachel-Anfragen; deshalb in CARTO auf die Domains dieser Installation beschränken.',
         },
         webhooks: {
-          title: 'Webhooks',
-          caption: 'Gemeinsames Geheimnis für die Alarm-Schnittstelle fremder Leitstellen. Ohne Eintrag ist die Tür zu.',
+          title: 'Webhooks & Stationsdrucker',
+          caption: 'Gemeinsame Geheimnisse für die Alarm-Schnittstelle fremder Leitstellen und für den Druck-Agenten auf der Wache. Ohne Eintrag sind beide Türen zu.',
         },
         sharepoint: {
           title: 'SharePoint (Stationsdaten)',
@@ -835,6 +835,12 @@ export const adminCopy = {
       linkPreview: 'Vorschau mit einem Beispiel-Einsatz',
       linkPreviewNone: 'Kein gültiger Link (http oder https) – dieser Eintrag erscheint nicht auf dem Rapport.',
       linkPreviewNoTitle: 'Ohne Titel erscheint dieser Eintrag nicht auf dem Rapport.',
+      // Nur für Wehren mit Stationsdrucker (Druck-Relay). Betrifft ausschliesslich den Weg
+      // zum Drucker – ein heruntergeladenes PDF ist immer in Leserichtung.
+      groupPrint: 'Druck am Stationsdrucker',
+      printTip: 'Betrifft nur den Rapport, der an den Stationsdrucker geschickt wird. Ein heruntergeladenes PDF bleibt immer in Leserichtung.',
+      reverseOrder: 'Seiten in umgekehrter Reihenfolge senden',
+      reverseOrderHint: 'Für Drucker, die das Blatt mit der bedruckten Seite nach oben auswerfen: der Stapel liegt sonst verkehrt herum und muss von Hand sortiert werden. Wirft dein Drucker nach unten aus, schalte es ab.',
     },
     // Alarme & Einsätze: die drei Uhren am Lebenslauf eines Einsatzes plus die Webhooks,
     // über die ein zweites System (z. B. der Zettel-Drucker von kp-rück) überhaupt erst
@@ -2053,6 +2059,8 @@ export const adminCopy = {
       directionOut: 'ausgehend',
       connOnline: 'online',
       connOffline: 'offline',
+      connLastSeen: 'Zuletzt gemeldet: {time}',
+      connPrintRelay: 'Stationsdrucker (Print-Agent)',
       connCapture: 'Erfassungs-Poster (QR)',
       connStats: 'Statistik-Export',
       connDiveraWebhook: 'Divera-Webhook',

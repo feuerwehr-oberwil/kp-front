@@ -149,7 +149,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `modules` (the Objektplan-Modul catalogue) | ❌ | **file only** – the Objektpläne page lists the catalogue read-only; the objects and their PDFs are what you edit there ([`objektplaene-architecture.md`](objektplaene-architecture.md)) |
 | `doctrine.*` | ✅ | Station › **Doktrin** |
 | `journal.*` | ✅ | Station › **Journal** |
-| `report.hoursRounding`, `.attendanceMergeGapMin`, `.links` | ✅ | Station › **Rapport** (§1b–§1d) |
+| `report.hoursRounding`, `.attendanceMergeGapMin`, `.reversePrintOrder`, `.links` | ✅ | Station › **Rapport** (§1b–§1d) |
 | `report.partnerOrgs` | ✅ | Station › **Rapport** – **and** the Arbeitsmappe (§9h) |
 | `alarms.autoArchiveDays`, `.staleIncidentDays`, `.captureWindowHours`, `.webhooks`, `.groups` | ✅ | Station › **Alarme & Einsätze** |
 | `alarms.exerciseAutoCloseHours` | ❌ | config-as-code only (`admin_config`); default 12 – an Übung closes itself that many hours after its last human change |
@@ -457,6 +457,8 @@ both now have browser pages – §9e and §9f.
   "report": {                                    // Einsatzrapport form presets
     "partnerOrgs": [],                            // Partnerorganisationen checkbox row (paper + form);
                                                   // empty = no preset row, free text stays possible
+    "reversePrintOrder": true,                    // station printer ejects face-up → reverse the
+                                                  // relayed document; the download stays in order
     "hoursRounding": {                            // the BRACKETED Einsatzstunden figure – see §1b
       "stepMin": 30,
       "graceMin": 5
@@ -1385,7 +1387,8 @@ see the rule immediately below; everything else in the table really is deploy-ti
 ### The integration credentials – env **or** `/admin` → Anbindungen
 
 The station's integration settings – the three Divera keys, the Traccar trio, the VAPID trio, the
-four STT settings, the CARTO browser key, `ALARM_WEBHOOK_SECRET`, `HEALTHCHECK_PING_URL`, the
+four STT settings, the CARTO browser key, `ALARM_WEBHOOK_SECRET`, `PRINT_AGENT_SECRET`,
+`HEALTHCHECK_PING_URL`, the
 four SharePoint-pull fields (§6c), the three SharePoint-export fields, the four «Mit Microsoft
 anmelden» fields, the Objektbesuche organizer key, and the source and token of the station index
 (§4d) and of the roster snapshot (§4c) – no longer have to come from `.env`. The authoritative
@@ -1463,6 +1466,7 @@ and locks the field – see the rule above).
 | 🔐 `DIVERA_PERSONNEL_ACCESS_KEY` | optional second Divera key used **only** for the «Personal» pull. It must belong to a user whose read scope includes members' Qualifikationen – the alarm key above usually does not – and it is what makes the roster sync derive a Dienstgrad. Empty = falls back to `DIVERA_ACCESS_KEY` (names only, no rank) |
 | 🔐 `ALARM_WEBHOOK_SECRET` | generic alarm intake `POST /api/alarms` for non-Divera alerting systems – auto-opens an incident per alarm, idempotent on `source`+`source_id` (nothing set anywhere = endpoint disabled, fail-closed). Create it during the integration handoff and paste the same value into `/admin` → Anbindungen and the sender; it is write-only and deliberately not pre-generated at install – [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) §1 |
 | 🔐 `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push for killed-app alarms + new-alarm push. Generate the pair once – on a Docker-only host `docker compose exec app uv run python -m app.gen_vapid`, or `cd backend && uv run python -m app.gen_vapid` where the toolchain is installed – then paste both halves into `/admin` → Anbindungen, which takes effect without a restart. `./scripts/setup.sh` does exactly that on a fresh install, into the credential store rather than into `.env`. Nothing set anywhere = push disabled, fail-closed. ⚠️ Generate **once** and keep the pair stable: rotating it invalidates every stored subscription |
+| 🔐 `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (any always-on box with a CUPS queue). The agent serves KP Front *and* KP Rück from one install – see [`tools/PRINT-AGENT.md`](../tools/PRINT-AGENT.md). Nothing set anywhere = agent endpoints 403 and the button never renders, fail-closed. It is deliberately not minted by the installer: this secret *is* the switch, so setting it renders «An Stationsdrucker» on the Rapport and on the capture poster for a station that owns no printer, and turns the System card's print-relay row from «nicht konfiguriert» into a permanently offline connector. Generate it on the agent's own machine with `openssl rand -hex 32` and paste the same value into `/admin` → Anbindungen |
 | 🔐 `HEALTHCHECK_PING_URL` | dead-man's switch: **the job GETs this URL every 60 s** (healthchecks.io or any cron monitor), so the monitor alerts when the pings *stop*. Catches the class an HTTP probe of `/ready` cannot: a container stopped with nothing replacing it, or a wedged event loop. Point it at a check with a **1 min period and ~3 min grace** – matching the 60 s cadence, so two missed pings raise it. Nothing set anywhere = the heartbeat job still runs but returns on its first line, so nothing is pinged; a failed ping is logged and swallowed, so a monitoring outage never disturbs the deployment. The «Einrichtung» card on the admin landing page links straight to this field |
 | 🔐 `SHAREPOINT_TENANT_ID`, `SHAREPOINT_CLIENT_ID`, `SHAREPOINT_CLIENT_SECRET`, `SHAREPOINT_SECRET_EXPIRES` | the Azure app registration behind the SharePoint pull ([§6c](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)), read-only, client-credentials flow. ⚠️ These four – like every 🔐 credential from here down to `ENTRA_LOGIN_*`, sixteen in all – have **no `Settings` field**: they were introduced after the credential table existed, so the environment half is read straight off the process environment and the normal path is the browser. The two ids are readable (an operator compares them against the Azure portal); the secret is write-only. `SHAREPOINT_SECRET_EXPIRES` is not a credential but the ISO date (`JJJJ-MM-TT`) the secret lapses on – Azure caps it at 24 months and says nothing when it does, so this is what the System card counts down. Nothing set = no pull, fail-closed |
 | 🔐 `OBJECT_VISITS_INTEGRATION_KEY` | the Objektbesuche organizer's bearer key for `/api/integrations` ([`object-visits.md`](object-visits.md)); ≥ 24 characters, write-only, no `Settings` field (read off the environment, normally set in the browser). Unset = the organizer API answers 403 |

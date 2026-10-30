@@ -6,7 +6,8 @@ tactical symbols on top with Pillow. The symbol artwork is the SAME pack the cli
 (public/tactical-symbols.json), rasterised with resvg — identical glyphs, no porting drift.
 
 This replaces the browser capture path (html2canvas + preserveDrawingBuffer) so the whole
-rapport can be composed server-side, with no tablet in the loop.
+rapport can be composed server-side — the prerequisite for the print relay's «Einsatzrapport
+drucken» button working without a tablet in the loop.
 
 Deliberately mirrors the client's sizing rules (src/lib/mapView.ts): symbols live in a
 28..48 px band derived from real-world metres × zoom (floor 34 for a vehicle, whose name is
