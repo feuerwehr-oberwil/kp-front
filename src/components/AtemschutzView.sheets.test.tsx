@@ -299,8 +299,9 @@ describe('the handed-over board on a phone (focus mode)', () => {
     expect(screen.getAllByRole('button', { name: az.newTrupp })).toHaveLength(1)
   })
 
-  // UX sweep F6 (20.10.2026): a tab's tier was its tint and border alone — now a glyph and a word
-  it('says a tab\'s tier with a glyph and its word, not with the tint alone', () => {
+  // UX sweep F6 (20.10.2026): a tab's tier was its tint and border alone — now a word for the
+  // screen reader (the ⚠ went 30.10.2026, owner: «red and notfall is already enough»)
+  it('says a tab\'s tier in a word for the screen reader, with no glyph', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ lite: { subtitle: 'Brand · Hauptstrasse 12' }, trupps: [
       { ...aktivTrupp(), id: 'k', name: 'Calm Karl' },
@@ -308,12 +309,10 @@ describe('the handed-over board on a phone (focus mode)', () => {
       { ...aktivTrupp(), id: 'o', name: 'Over Otto', lastContactTime: iso(8 * 60_000) },
     ] })
     const tab = (name: string) => screen.getByRole('tab', { name: new RegExp(name) })
-    expect(tab('Calm Karl').querySelector(`.${s.tabTier}`)).toBeNull()
-    expect(tab('Due Dora').textContent).toContain(az.rowDue)
-    // «Fällig» is the chip's amber and its spoken word — no clock glyph (owner, 30.10.2026)
-    expect(tab('Due Dora').querySelector(`.${s.tabTier}`)).toBeNull()
-    expect(tab('Over Otto').textContent).toContain(az.clockOverdue)
-    expect(tab('Over Otto').querySelector(`.${s.tabTier} use`)?.getAttribute('href')).toBe('#warn')
+    expect(tab('Calm Karl').querySelector('.sr-only')).toBeNull()
+    expect(tab('Due Dora').querySelector('.sr-only')?.textContent).toBe(az.rowDue)
+    expect(tab('Over Otto').querySelector('.sr-only')?.textContent).toBe(az.clockOverdue)
+    for (const name of ['Calm Karl', 'Due Dora', 'Over Otto']) expect(tab(name).querySelector('use[href="#warn"]')).toBeNull()
   })
 
   /* ── The two-line head (Atemschutz-Link redesign, owner pick R1 on AB, 30.10.2026) ──────────

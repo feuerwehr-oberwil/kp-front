@@ -33,10 +33,13 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     (`.sr-only`), and an out Trupp's card carries no «Draussen» — it keeps the words colour cannot
     carry (the Alarmdruck with its limit, the stopped clock, «Nicht eingesetzt», «Bereit», a work
     squad's state). An überfällig card has NO red wash since 24.10.2026 (sweep M3, G.7 – red for
-    danger, a quiet ground): the red left edge, the red clock with ONE triangle in front of its
-    digits, and the red «Kontakt» carry it; the triangle is what says «überfällig» without colour.
-    Fällig has no glyph (30.10.2026, owner: «remove the ugly clock icon» — the amber digits carry
-    it, on the link's tabs too); only the Notfall banner keeps a red wash. A Trupp still at the
+    danger, a quiet ground): the red left edge, the red clock and the red «Kontakt» carry it. No
+    glyph at the clock for überfällig, the Alarmdruck or fällig (30.10.2026, owner: «we don't need
+    the triangle thing. red and notfall is already enough»; before that «remove the ugly clock
+    icon» for fällig) — the digits' colour is the tier, on the link's tabs too, and the WORD
+    («Überfällig», «Alarmdruck», «Fällig») stays in the row's and the tab's spoken name and the
+    card's `role=status` line for a screen reader (`truppCardText · tierMark`); only the Notfall
+    banner keeps a red wash. A Trupp still at the
     door has no «–:––» (30.10.2026, owner: «show the next action rather than the empty time»):
     its phone row wears «Im Einsatz» in the clock's place (`TruppCard · RowEnter`, the
     Sicherungstrupp row's button), its opened card leaves that cell empty because the «Im
@@ -51,7 +54,7 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     Schätzung ≈ 0 bar ⌄» — and the word, not a dimmed grey, is what keeps it from being read as a
     logged Druck, and it is never red (24.10.2026, sweep M3). Its alarm case is the note under
     the tiles – «Alarmdruck 100 bar (Schätzung)», number included – as a quiet
-    outlined box (grey edge, `--ink-dim` 14/700, no tint, no ⚠ of its own): the clock's triangle
+    outlined box (grey edge, `--ink-dim` 14/700, no tint, no ⚠ of its own): the red clock
     already says the card is in alarm.
   - *Rückzug and Raus are equal tiles on every board* (29.09.2026): both framed grey, «Rückzug»
     amber only at or under the Trupp's Alarmdruck (`.actAlarm`). A permanently amber «Rückzug
@@ -69,7 +72,11 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
 Redesigned 30.10.2026 (sweep #20/#21/#24, owner pick R1 on AB after three mock rounds: «r1 is
 good but we don't need the triangle thing. red and notfall is already enough»):
 
-- *The head*: the Einsatz in full on two lines — its title, then «Adresse · ✓ 12:12» (the save
+- *The head* is a band, like the tab rail under it (field notes 31.10.2026): `--surface` fill and
+  a hairline on its inner side (`.head.headCompact`), where Surface.module.css makes the in-app
+  phone board's head «the page's first row, not a band» (it sits flat between the app's top bar
+  and bottom bars). The link board has no top bar, so head and rail frame the screen
+  symmetrically; the notch is the shell's padding (`.as-link-shell`). It is the Einsatz in full on two lines — its title, then «Adresse · ✓ 12:12» (the save
   stamp's bare time is back now that it has a line of its own) — still the door to the ⌄ popover
   (title, address, the long «Gespeichert um …», and the link's way back «Der Link führt zurück …»
   as one line; it was a once-per-device toast until the link dropped toasts, sweep #23). ↶ ↷ 🔔
@@ -91,8 +98,8 @@ good but we don't need the triangle thing. red and notfall is already enough»):
 - *The tab row*: a flat bar — no framed chips — names at 16px (may wrap to two lines), the state
   as a line under the name (`truppCardText · tabState`): «Bereit» green, «Rückzug 0:49» amber,
   the clock otherwise. The open tab wears a soft ink wash; a Notfall (red) tab is red whether
-  open or not, filled when open. The TAB keeps a ⚠ before its clock on a red tier — it has no
-  word «Notfall», so colour must not be its only signal. «+ Trupp» is a narrow last cell.
+  open or not, filled when open. The tab draws no ⚠ either (owner, 30.10.2026) – a red
+  tier's word is `.sr-only` in the tab for a screen reader. «+ Trupp» is a narrow last cell.
 
 ## The Trupp form and its questions
 
@@ -262,7 +269,7 @@ reworded.
   under the name when they do not fit, never cut, then the act at its own width, then the clock
   and › — name side and clock side both lead to the card. The facts are always in the alert's
   aria label, the Meldeleiste row and the Verlauf. The crew's OWN card wears the same ⚠ in its
-  dot's place and drops the fällig/überfällig glyph at its clock while the Notfall runs. A
+  dot's place. A
   viewer gets the head and the note only. All banners share one sticky stack; with several
   Notfälle there are no facts. The board measures the stack (`--nf-h` on the port: its scroll
   padding, and the parking scroll of the phone's opened card), so an opened card lands below the

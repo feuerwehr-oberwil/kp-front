@@ -205,8 +205,8 @@
    this is the Planungshilfe, which must never raise the tier or read as a logged reading. The row
    spells out the limit and names the Schätzung as the source, so colour is never the only signal.
    ⚠️ A quiet outlined box since 24.10.2026 (owner, sweep M3): no red tint, no ⚠ of its own, a grey
-   edge and ink-dim 14/700 text. On an overdue card the clock's triangle and the red edge already
-   carry the alarm; a second filled red block with a second triangle said it twice, for an
+   edge and ink-dim 14/700 text. On an overdue card the red clock and the red edge already
+   carry the alarm; a second filled red block with a triangle said it twice, for an
    estimate. The words — «Alarmdruck 100 bar (Schätzung)» — stay, number included. */
 .airNote { padding: var(--sp-2) var(--sp-3); border: 1.5px solid var(--border); border-radius: var(--r-sm);
   font: var(--fw-bold) var(--fs-2)/1.4 var(--body); color: var(--ink-dim); }
@@ -1090,7 +1090,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   --trow-dot: 11px; }
 .trowWarn { border-left-color: var(--amber); background: color-mix(in srgb, var(--amber) 6%, var(--surface)); }
 /* ⚠️ Überfällig has NO wash since 24.10.2026 (owner, sweep M3 — G.7: red for danger, quiet ground):
-   the red edge, the red clock with its triangle in front and the red «Kontakt» say it. The
+   the red edge, the red clock and the red «Kontakt» say it (no triangle at the clock since 30.10.2026). The
    Notfall banner keeps the wash (`.nfBanner`). */
 .trowCrit { border-left-color: var(--red); background: var(--surface); }
 /* registered, still to come — blue, like the card's own .st-angemeldet */
@@ -1156,16 +1156,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .clockGroup { margin-left: .15em; }
 .trowSub { display: block; font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .05em;
   text-transform: uppercase; color: var(--ink-faint); margin-top: var(--sp-1); white-space: nowrap; }
-/* the tier as a glyph at the clock (B5, 08.10.2026; glyph only since 09.10.2026, owner: «Symbol
-   only») — überfällig and Alarmdruck (triangle) no longer ride on colour alone. Fällig has no
-   glyph since 30.10.2026 (owner: «remove the ugly clock icon»): its amber carries it. Inside the
-   clock cell, so the row keeps its lines; shown on every width (unlike `.trowSub`), because the
-   phone is where the sun is. */
-/* überfällig / Alarmdruck: the triangle stands IN FRONT of the digits, on the clock's line (sweep
-   M3, 24.10.2026) — sized to the 25px clock, so it reads with the number as one «⚠ 30:22» */
+/* the clock's line: the digits, right-aligned in the clock cell. No tier glyph in front of them
+   since 30.10.2026 – the digits' colour (amber / red) is the tier. */
 .trowClockLine { display: flex; justify-content: flex-end; align-items: center; gap: var(--sp-2); }
-.trowTier { display: flex; line-height: 1; color: var(--red-strong); }
-.trowTier :global(.i) { width: 22px; height: 22px; flex: none; }
 
 .trowPress { text-align: right; font-family: var(--mono); font-size: var(--fs-3); font-weight: var(--fw-bold);
   color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -1277,6 +1270,15 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    depending on where either happens to sit in the file. Only the head's OWN padding shrinks;
    the gap to the card below is otherwise just `.focusCard`'s already-zero top padding. */
 .head.headCompact { padding-top: 8px; padding-bottom: 8px; }
+/* The handed-over phone board's head is a BAND, like the rail under it (30.10.2026 field notes):
+   Surface.module.css drops the head's fill and hairline at ≤600px («the page's first row, not a
+   band») because the in-app phone board sits flat between the app's top bar and its bottom bars.
+   The link board has no top bar – the head IS the top edge of the screen, the rail the bottom
+   one – so it takes the rail's treatment, mirrored: `--surface` fill and a hairline on the
+   inner side. `.headCompact` is set only for `lite && compact`, which is why the in-app phone
+   board is untouched. The shell (`.as-link-shell`) already pads the notch, so no inset here; a
+   real border, as on `.bottomRail`, hence the inset hairline of the wide head goes. */
+.head.headCompact { background: var(--surface); box-shadow: none; border-bottom: 1px solid var(--glass-edge); }
 .headTitlesCompact { display: flex; flex-direction: column; min-width: 0; }
 /* the ONLY `h2` inside `.headRow` is the repurposed Einsatz title (no kicker survives beside
    it) — «orientation, not information» (maintainer review, 03.09.): a modest weight, not the
@@ -1408,10 +1410,6 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    min-height is a minimum, not a cap, so the chip grows with it. */
 .tabNameWrap { display: block; width: 100%; white-space: normal; overflow-wrap: break-word; text-align: center; }
 .tabClock { display: inline-flex; align-items: center; gap: var(--sp-1); font-family: var(--mono); font-size: var(--fs-2); font-weight: var(--fw-heavy); color: var(--green); }
-/* the tier's glyph before the clock (UX sweep F6): the triangle for an alarm — so the state is a
-   shape too, not only the chip's red. «Fällig» is the chip's amber alone since 30.10.2026 (owner:
-   «remove the ugly clock icon»). Inherits the clock's ink. */
-.tabTier { width: 13px; height: 13px; flex: none; }
 /* ⚠️ ONE quiet format for every clock that is NOT running (05.09.): a Trupp that is angemeldet,
    one that is back out, and a work squad with no contact clock at all are all «nothing is
    ticking here», and the placeholder was carrying the same 800-weight mono presence as a live
