@@ -259,7 +259,7 @@
 /* Trupp picker + the jump to it, as ONE control group: the chevron sits against the picker the
    way a "go there" affordance does everywhere else in the panel, instead of repeating the name
    in a row of its own. The picker fills the column (27B), the jump stands at its end. */
-.draw-editor .de-trupp { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.draw-editor .de-trupp { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; }
 .draw-editor .de-trupp > .de-menu-trigger { flex: 1 1 auto; }
 /* the picker itself — our own button + Menu, sized and coloured like every other row control
    (a native <select> dropped macOS chrome into the middle of the panel) */
