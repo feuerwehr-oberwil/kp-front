@@ -2100,7 +2100,7 @@ describe('«Gelöscht / erledigt» on the plan', () => {
     // greyed on the board, the time in its corner
     expect(container.querySelector('.ts.ts-done .sym-done')?.textContent).toMatch(/^\d\d:\d\d$/)
     expect(screen.getAllByText(new RegExp(`^${O.word.fire.inline} \\d\\d:\\d\\d$`)).length).toBeGreaterThan(0)
-    fireEvent.click(screen.getAllByRole('button', { name: O.reopenHint })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: O.action, pressed: true })[0])
     expect(lastSaved(onChange)[0].done).toBeUndefined()
     expect(log.mock.calls[0][1]).toBe('Feuer EG wieder aktiv')
     expect(emit).toHaveBeenCalledWith('board.edit', expect.objectContaining({ id: 'f1', patch: { done: null } }))
@@ -2137,7 +2137,7 @@ describe('«Gelöscht / erledigt» on the plan', () => {
   it('…but a Fahrzeug that already carries `done` (an older record) can still be reopened', () => {
     const car: BoardAnno = { id: 'v1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'VKF Fahrzeug', label: 'TLF', done: { at: '2026-09-23T18:40:00.000Z' } }
     const { onChange } = open([car])
-    fireEvent.click(screen.getAllByRole('button', { name: O.reopenHint })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: O.action, pressed: true })[0])
     expect(lastSaved(onChange)[0].done).toBeUndefined()
   })
 
