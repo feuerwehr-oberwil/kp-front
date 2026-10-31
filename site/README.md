@@ -59,8 +59,11 @@ Decided deliberately, not accidental:
 - **No redirect based on `Accept-Language`.** A German-speaking firefighter whose browser
   setting sends them to `/fr/` is worse than a switcher they can see.
 - **The screenshots stay German, on every language version.** They come from a real
-  instance; staged images would be a claim. The FR and IT pages say so in one line – and add
-  that the app itself speaks the language.
+  instance; staged images would be a claim. The other language pages say so in one line.
+- **The app's languages are stated in exactly two places, apart from the website's:** the FAQ
+  «In welchen Sprachen ist KP Front verfügbar?» (German only today) and `product.inLanguage`
+  (`config.json`, → `SoftwareApplication.inLanguage`). Whoever ships another app language
+  updates both, in all five texts. The website's languages go on `WebSite`/`WebPage`.
 - **A translation that no fire-service person of that language has read says so at the top
   of the page** (`notice` in `fr.json`, `it.json` and `rm.json`). That line disappears once someone has
   proofread it – it is not decoration.
