@@ -16,7 +16,11 @@
       "Piano turni per interventi lunghi, con vista sulla copertura",
       "Rapporto d’intervento in PDF, precompilato con i dati dell’intervento",
       "Viaggio nel tempo: riprodurre l’intervento per il debriefing"
-    ]
+    ],
+    "audience": [
+      "Corpi pompieri"
+    ],
+    "demoAction": "Apri la demo di KP Front"
   },
   "nav": {
     "aria": "Navigazione principale",
@@ -390,7 +394,9 @@
       "send": "Invia il messaggio",
       "sending": "Invio in corso …",
       "ok": "Grazie – il messaggio è arrivato. Ci facciamo vivi.",
-      "error": "Non ha funzionato. Scrivete direttamente a bastian.eichenberger@feuerwehr-oberwil.ch."
+      "error": "Non ha funzionato. Scrivete direttamente a bastian.eichenberger@feuerwehr-oberwil.ch.",
+      "privacy": "Inviato per e-mail tramite il servizio di moduli staticforms.dev.",
+      "privacyLink": "Protezione dei dati"
     }
   },
   "lightbox": {
@@ -403,6 +409,12 @@
     "origin": "Nato nell’attività operativa dei <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pompieri di Oberwil BL</a> –\n      perché in intervento vedevamo sempre le stesse fonti di errore: doppie assegnazioni, informazioni\n      sparse e errori di trascrizione a mano.\n      Ogni corpo pompieri gestisce il proprio KP Front, con carte, piani e dati propri.",
     "demo": "Demo",
     "contact": "Contatto",
-    "org": "Pompieri di Oberwil su GitHub"
+    "org": "Pompieri di Oberwil su GitHub",
+    "release": {
+      "label": "Versione attuale",
+      "notes": "Note di rilascio",
+      "dateFormat": "DD.MM.YYYY"
+    },
+    "security": "Sicurezza"
   }
 }

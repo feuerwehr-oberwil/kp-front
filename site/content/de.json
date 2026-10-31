@@ -15,7 +15,11 @@
       "Schichtplanung für lange Einsätze mit Übersicht über die Deckung",
       "Einsatzrapport als PDF, aus den Einsatzdaten vorausgefüllt",
       "Zeitreise: den Einsatz für die Nachbesprechung nochmals abspielen"
-    ]
+    ],
+    "audience": [
+      "Feuerwehren"
+    ],
+    "demoAction": "KP Front Demo öffnen"
   },
   "nav": {
     "aria": "Hauptnavigation",
@@ -419,7 +423,9 @@
       "send": "Nachricht senden",
       "sending": "Wird gesendet …",
       "ok": "Danke – die Nachricht ist da. Wir melden uns.",
-      "error": "Das hat nicht geklappt. Schreibt bitte direkt an bastian.eichenberger@feuerwehr-oberwil.ch."
+      "error": "Das hat nicht geklappt. Schreibt bitte direkt an bastian.eichenberger@feuerwehr-oberwil.ch.",
+      "privacy": "Wird über den Formulardienst staticforms.dev per E-Mail zugestellt.",
+      "privacyLink": "Datenschutz"
     }
   },
   "lightbox": {
@@ -432,6 +438,12 @@
     "origin": "Entstanden im Einsatzbetrieb der <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> –\n      weil wir im Einsatz immer wieder dieselben Fehlerquellen gesehen haben: Doppelbelegungen, verstreute\n      Informationen und handschriftliche Übertragungsfehler.\n      Jede Feuerwehr betreibt ihr eigenes KP Front, mit eigenen Karten, Plänen und Daten.",
     "demo": "Demo",
     "contact": "Kontakt",
-    "org": "Feuerwehr Oberwil auf GitHub"
+    "org": "Feuerwehr Oberwil auf GitHub",
+    "release": {
+      "label": "Aktuelle Version",
+      "notes": "Release Notes",
+      "dateFormat": "DD.MM.YYYY"
+    },
+    "security": "Sicherheit"
   }
 }

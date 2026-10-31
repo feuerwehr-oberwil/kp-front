@@ -15,7 +15,11 @@
       "Shift planning for long incidents, with a coverage view",
       "Incident report as a PDF, pre-filled from the incident data",
       "Replay: play the incident back for the debrief"
-    ]
+    ],
+    "audience": [
+      "Fire services"
+    ],
+    "demoAction": "Open the KP Front demo"
   },
   "nav": {
     "aria": "Main navigation",
@@ -389,7 +393,9 @@
       "send": "Send message",
       "sending": "Sending …",
       "ok": "Thank you – the message is here. We will get back to you.",
-      "error": "That did not work. Please write directly to bastian.eichenberger@feuerwehr-oberwil.ch."
+      "error": "That did not work. Please write directly to bastian.eichenberger@feuerwehr-oberwil.ch.",
+      "privacy": "Delivered by e-mail via the form service staticforms.dev.",
+      "privacyLink": "Privacy"
     }
   },
   "lightbox": {
@@ -402,6 +408,12 @@
     "origin": "Born out of the operational work of <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> –\n      because at incident after incident we kept seeing the same sources of error: double bookings, information\n      scattered across places, and transcription mistakes made by hand.\n      Every fire brigade runs its own KP Front, with its own maps, plans and data.",
     "demo": "Demo",
     "contact": "Contact",
-    "org": "Feuerwehr Oberwil on GitHub"
+    "org": "Feuerwehr Oberwil on GitHub",
+    "release": {
+      "label": "Current version",
+      "notes": "Release notes",
+      "dateFormat": "DD/MM/YYYY"
+    },
+    "security": "Security"
   }
 }

@@ -16,7 +16,11 @@
       "Plan de relève pour les longues interventions, avec vue de la couverture",
       "Rapport d’intervention en PDF, prérempli à partir des données de l’intervention",
       "Rejouer : repasser l’intervention pour le débriefing"
-    ]
+    ],
+    "audience": [
+      "Corps de sapeurs-pompiers"
+    ],
+    "demoAction": "Ouvrir la démo KP Front"
   },
   "nav": {
     "aria": "Navigation principale",
@@ -390,7 +394,9 @@
       "send": "Envoyer le message",
       "sending": "Envoi en cours …",
       "ok": "Merci – le message est arrivé. Nous revenons vers vous.",
-      "error": "Cela n’a pas fonctionné. Écrivez directement à bastian.eichenberger@feuerwehr-oberwil.ch."
+      "error": "Cela n’a pas fonctionné. Écrivez directement à bastian.eichenberger@feuerwehr-oberwil.ch.",
+      "privacy": "Transmis par e-mail via le service de formulaires staticforms.dev.",
+      "privacyLink": "Protection des données"
     }
   },
   "lightbox": {
@@ -403,6 +409,12 @@
     "origin": "Né du service opérationnel des <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">sapeurs-pompiers d’Oberwil BL</a> –\n      parce qu’en intervention nous avons vu revenir les mêmes sources d’erreur : doubles\n      affectations, informations éparpillées et erreurs de recopie à la main.\n      Chaque corps exploite son propre KP Front, avec ses cartes, ses plans et ses données.",
     "demo": "Démo",
     "contact": "Contact",
-    "org": "Sapeurs-pompiers d’Oberwil sur GitHub"
+    "org": "Sapeurs-pompiers d’Oberwil sur GitHub",
+    "release": {
+      "label": "Version actuelle",
+      "notes": "Notes de version",
+      "dateFormat": "DD.MM.YYYY"
+    },
+    "security": "Sécurité"
   }
 }

@@ -22,9 +22,17 @@ site/
 ## Building
 
 ```bash
-node site/build.mjs          # writes index.html, the fr/ it/ rm/ en/ pages and dist/
-node site/build.mjs --check  # writes nothing, only reports drift (this is what CI does)
+node site/build.mjs            # asks GitHub for the latest release, writes index.html, the fr/ it/ rm/ en/ pages and dist/
+node site/build.mjs --offline  # the same from content/release.json, without asking GitHub
+node site/build.mjs --check    # writes nothing, only reports drift (this is what CI does – offline)
 ```
+
+**After publishing a release, rebuild and commit.** The footer line («Aktuelle Version v… · date ·
+Release Notes») and the app's `softwareVersion`, `dateModified` and `releaseNotes` come from the
+latest GitHub release, stored in `content/release.json`. If GitHub cannot be reached, the stored
+release stays; without one, the line and the three properties are left out – never empty.
+Each page's `WebPage.dateModified` is the day that language page last changed: a rebuild that
+changes nothing keeps it.
 
 ⚠️ **`index.html` and the `fr/` `it/` `rm/` `en/` pages are outputs, not sources.** Whoever writes into them
 loses it on the next build. They are checked in anyway: GitHub Pages serves `site/` as-is,

@@ -16,7 +16,11 @@
       "Plan da temp per acziuns lungas, cun survista da la cuvrida",
       "Rapport d’acziun sco PDF, preemplenì cun las datas da l’acziun",
       "Viadi en il temp: reproducir l’acziun per la discussiun finala"
-    ]
+    ],
+    "audience": [
+      "Corps da pumpiers"
+    ],
+    "demoAction": "Avrir la demo da KP Front"
   },
   "nav": {
     "aria": "Navigaziun principala",
@@ -390,7 +394,9 @@
       "send": "Trametter il messadi",
       "sending": "Vegn tramess …",
       "ok": "Grazia – il messadi è arrivà. Nus ans annunziain.",
-      "error": "Quai n’ha betg funcziunà. Scrivai per plaschair directamain a bastian.eichenberger@feuerwehr-oberwil.ch."
+      "error": "Quai n’ha betg funcziunà. Scrivai per plaschair directamain a bastian.eichenberger@feuerwehr-oberwil.ch.",
+      "privacy": "Vegn tramess per e-mail via il servetsch da formulars staticforms.dev.",
+      "privacyLink": "Protecziun da datas"
     }
   },
   "lightbox": {
@@ -403,6 +409,12 @@
     "origin": "Nascì dal manaschi d’acziun dals <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pumpiers d’Oberwil BL</a> –\n      perquai che nus avain adina puspè vesì las medemas funtaunas d’errurs: attribuziuns dublas, infurmaziuns\n      sparpagliadas ed errurs da transcripziun a maun.\n      Mintga corps da pumpiers maina ses agen KP Front cun atgnas chartas, agens plans ed atgnas datas.",
     "demo": "Demo",
     "contact": "Contact",
-    "org": "Pumpiers d’Oberwil sin GitHub"
+    "org": "Pumpiers d’Oberwil sin GitHub",
+    "release": {
+      "label": "Versiun actuala",
+      "notes": "Notizias da la versiun",
+      "dateFormat": "DD.MM.YYYY"
+    },
+    "security": "Segirezza"
   }
 }
