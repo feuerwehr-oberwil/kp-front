@@ -2,10 +2,10 @@
   "_comment": "Warnings per eslint rule, and (`silenced`) what eslint-disable directives silence per rule; `pnpm lint` (scripts/lint-ratchet.mjs) fails when a count goes up OR down. Lower with `pnpm lint:update`; never raise one to pass.",
   "rules": {
     "@typescript-eslint/no-explicit-any": 3,
-    "@typescript-eslint/no-non-null-assertion": 366,
+    "@typescript-eslint/no-non-null-assertion": 364,
     "react-hooks/exhaustive-deps": 20,
     "react-hooks/immutability": 20,
-    "react-hooks/preserve-manual-memoization": 8,
+    "react-hooks/preserve-manual-memoization": 7,
     "react-hooks/purity": 13,
     "react-hooks/refs": 114,
     "react-hooks/set-state-in-effect": 69,
