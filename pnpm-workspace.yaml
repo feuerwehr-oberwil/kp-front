@@ -24,11 +24,21 @@ overrides:
   # Mutation tooling only (Stryker > typed-rest-client): the parent's qs 6.15.1 pin has
   # four DoS advisories. Patched floor 6.16.1 (GHSA-6pq8-jhm2-2vcw), added 2026-10-28.
   typed-rest-client>qs: "^6.16.1"
+  # Build tooling only (vite-plugin-pwa › workbox-build): GHSA-3g3m-2fjr-6pw4, AbortSignal
+  # cancellation bypass, fixed in 14.0.2 (31.10.2026). workbox-build still asks for ^11.
+  glob@11: "^14.0.3"
 
 # ── Audit exceptions ────────────────────────────────────────────────────────────
 # One advisory, one reason, one expiry — the rule ci.yml states for any exception. Add them as
-# `auditConfig: ignoreGhsas: [GHSA-…]`, the reason beside each entry. Currently none
-# (GHSA-jrc7-96c5-q579 went with maplibre-gl 6, #193).
+# `auditConfig: ignoreGhsas: [GHSA-…]`, the reason beside each entry.
+auditConfig:
+  ignoreGhsas:
+    # minimatch < 11.0.1, pattern DoS (31.10.2026). Dev tooling only (Stryker, ESLint,
+    # openapi-typescript › @redocly/openapi-core 1.x, workbox's ejs › jake › filelist), and every
+    # pattern they match comes from this repo's own config – never user input. No floor fixes
+    # it: redocly 1.x calls `minimatch()` itself, which 11 no longer exports. Expires 31.12.2026,
+    # or sooner when openapi-typescript moves to redocly 2 and Stryker to minimatch 11.
+    - GHSA-g3hv-75wg-m249
 
 # openapi-typescript 7 declares typescript ^5. It only writes src/lib/api/schema.d.ts (`just
 # openapi`) and runs fine on 6 (checked 23.10.2026); drop this once it declares 6.
