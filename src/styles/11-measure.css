@@ -170,7 +170,7 @@
    chart itself keeps MeasurePanel's .mp-* classes (see components/ProfileChart), which are sized
    off width:100% and so fit the narrower ctx dock unchanged. */
 /* A read-only value sits where every other row in this panel has a CONTROL, so it needs to read
-   as data rather than as a disabled button: a quiet chip, aligned to the same right edge. */
+   as data rather than as a disabled button: a quiet chip, at the same edge the controls start. */
 .draw-editor .de-measure-v {
   flex: none; padding: 4px 8px; border-radius: var(--r-xs);
   background: var(--ink-8);
@@ -258,16 +258,19 @@
 .ctx-conn-release { flex: none; color: var(--red-strong); font-size: var(--fs-1); font-weight: var(--fw-bold); line-height: 1; }
 /* Trupp picker + the jump to it, as ONE control group: the chevron sits against the picker the
    way a "go there" affordance does everywhere else in the panel, instead of repeating the name
-   in a row of its own. */
-.draw-editor .de-trupp { display: inline-flex; align-items: center; gap: 4px; max-width: 62%; min-width: 0; }
+   in a row of its own. The picker fills the column (27B), the jump stands at its end. */
+.draw-editor .de-trupp { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+.draw-editor .de-trupp > .de-menu-trigger { flex: 1 1 auto; }
 /* the picker itself — our own button + Menu, sized and coloured like every other row control
    (a native <select> dropped macOS chrome into the middle of the panel) */
-/* 44px like the steppers beside them (owner, 28.10.2026 · 19x) – Typ and Trupp alike */
+/* 44px like the steppers beside them (owner, 28.10.2026 · 19x) – Typ and Trupp alike; as wide
+   as the column (27B), the value at its start and the chevron at its end, like a Combo */
 .draw-editor .de-menu-trigger { display: inline-flex; align-items: center; gap: 8px; min-width: 0; min-height: var(--tap);
   padding: 8px 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
   color: var(--ink); font: var(--fw-bold) var(--fs-2)/1.2 var(--body); cursor: pointer; }
 .draw-editor .de-menu-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .draw-editor .de-menu-trigger svg { width: 14px; height: 14px; flex: none; opacity: .65; }
+.draw-editor .de-menu-trigger > .chev { margin-left: auto; }
 /* the Trupp that laid this Leitung and is already out — same dim + strike as its map marker
    (.team-dot.raus), so «wer war hier» stays readable without reading as «wer ist hier» */
 .draw-editor .de-menu-trigger .de-trupp-out { color: var(--ink-dim); text-decoration: line-through; }
