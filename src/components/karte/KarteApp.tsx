@@ -722,6 +722,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             className="tool-rail"
             primary={{ id: '__none', icon: 'plus', label: '' }}
             tools={tabletTools}
+            hotkeys={false} // the viewer has no keyboard layer: no letters on Pin · Messen · ERG
             active={tool === 'layers' ? '' : tool ?? ''}
             onPick={(id) => setTool(id as Tool)}
             footer={(
