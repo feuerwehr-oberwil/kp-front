@@ -1610,10 +1610,11 @@ export function AtemschutzView({
             )}
           </div>
         ) : focusMode ? (
-          /* top-aligned: the card takes only what it needs, never stretched to fill the port
-             (`.focusCard`'s own `align-items: flex-start`) — the strip that used to sit above it
-             moved to the bottom rail below (mock 03: «status where the eyes land, actions where
-             the thumb lives»). */
+          /* the page fills the port at least, its reading on top and its tiles at the foot, right
+             over the bottom rail (TruppCard · `page`, `.pageActs`; 31.10.2026: «read at the top,
+             tap at the bottom») — the strip that used to sit above it moved to the rail below
+             (mock 03: «status where the eyes land, actions where the thumb lives»). Taller than
+             the port, the page scrolls and the tiles follow its content. */
           <div className={s.focusCard}>{cards(board.filter((t) => t.id === focusId))}</div>
         ) : phoneMode ? (
           // `.phoneBoard`: the one rule for the air above every section after the first (30.09.2026)

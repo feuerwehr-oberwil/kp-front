@@ -59,6 +59,16 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
   - *Rückzug and Raus are equal tiles on every board* (29.09.2026): both framed grey, «Rückzug»
     amber only at or under the Trupp's Alarmdruck (`.actAlarm`). A permanently amber «Rückzug
     melden» says «warning» about a Trupp at 300 bar.
+  - *«Rückzug» is a badge in the head, not a chip* (31.10.2026, owner: «filled pill in the head,
+    but just with an icon»): a Trupp in Rückzug wears a 26px filled amber circle (`--amber`,
+    icon `--on-amber`, the Rückzug tile's own `undo` glyph) after its name in `RowLine`, so the
+    collapsed row, the opened card and the phone page all show it; `aria-label` and `title` are the
+    status word («Rückzug»). `flex: none` – a long name ellipsises before the badge or the clock
+    is squeezed. It is not a tier: the side line stays amber only for «Fällig». A Notfall page
+    draws its own head (`pageHead`) and so not this badge.
+  - *Crew names are never cut* (31.10.2026, owner): the crew chip wraps BETWEEN people only – each
+    name is a nowrap span, the « · » is the break – and grows by a line each time; no ellipsis,
+    the 36px floor stays (`.factCrew` / `.crewName`). The other chips keep their ellipsis.
   - *A Trupps section head* (Drin · Sicherungstrupp · Bereit · Draussen, and the grid's
     Atemschutz / Weitere Trupps) is the eyebrow and the count badge — no hairline rule to the
     edge (29.09.2026); the boundary is the air above the head — ONE number, 26px (`.sectSecond`),
@@ -85,6 +95,18 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   its clock's colour — and the page scrolls (`.focusCard` is the port; sweep #21 found the card
   clipped). Every page opens with the NAME at 32px (`--fs-6`) and the clock at 40px with what it counts
   under it («SEIT LETZTEM KONTAKT»); a crew at the door says «Bereit» there (`TruppCard · page`).
+- *Read at the top, tap at the bottom* (31.10.2026, owner pick «A – Tasten nach unten»: the page
+  was top-heavy, the lower half empty where the thumb is): the head, the state words, the note,
+  the chips and the foot line («0:21 min · Schätzung ≈ 298 bar ⌄ ⋯») stand on top; the SAME
+  tiles stand at the page's foot, right over the tab rail — «Notfall» full width first (reachable,
+  but away from the thumb's resting spot), then Rückzug | Raus, then «Druck | Kontakt» lowest and
+  64px tall (the others keep 48px). Every state keeps its tiles (Fortsetzen, Notfall beendet,
+  Im Einsatz with «Nicht eingesetzt», Wieder in den Einsatz) – only their place moves. The order
+  is the DOM's (`TruppCard · page`), so the tab order follows it; the page grows to the port's
+  height and `.pageActs` takes the free air with `margin-top: auto`. Taller than the screen, the
+  page scrolls and the tiles follow the content – never a fixed bar over it. The Notfall page
+  follows the same order under its own head (its «Sicherungstrupp einsetzen» stays in the head).
+  The in-app board, the tablet grid and the wide Tafel keep the card's order (tiles under the line).
 - *The Notfall Trupp's own page IS the Notfall* (`AtemschutzNotfall · NotfallPageHead`): a red
   rail down the left and a red tint over the whole page, «NOTFALL SEIT 12:12», the name big and
   red, both clocks named («seit Notfall», «seit letztem Kontakt»), then «Sicherungstrupp einsetzen
@@ -210,8 +232,8 @@ Wording mirrors the AS emergency procedure (FwDV 7 / FKS) and is kept neutral an
 reworded.
 
 - *Raised and ended by a HOLD* (`NotfallHold`, `lib/nodeHold` — the app's one deliberate hold,
-  250 ms arm, fired at 825 ms): «Notfall» is a full-width tile under Rückzug | Raus on an
-  Atemschutz-Trupp that is inside, framed grey like its neighbours (colour is state). While held
+  250 ms arm, fired at 825 ms): «Notfall» is a full-width tile under Rückzug | Raus (on the link
+  board's page above them, «Read at the top, tap at the bottom») on an Atemschutz-Trupp that is inside, framed grey like its neighbours (colour is state). While held
   the WHOLE tile fills left→right in step with the hold (red; green for «Notfall beendet»; a
   `scaleX` layer, no reflow, tracking the hold under reduced motion too) and shows full for a beat
   when it fires — not a ring around the glyph (owner feedback 10.10.2026: it read as «loading»). A

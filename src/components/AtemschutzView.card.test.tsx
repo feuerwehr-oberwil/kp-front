@@ -159,10 +159,19 @@ describe('the contact times (the head of the Verlauf)', () => {
  * lifecycle word — and each is a fact a viewer, who has no action bar to read it off, would
  * otherwise get from a 5px border colour alone. */
 describe('the state a tier cannot say', () => {
-  it('names «Rückzug» as a fact chip, where the calm clock says nothing about it', () => {
+  it('names «Rückzug» as an icon-only amber badge in the head, where the calm clock says nothing about it', () => {
     mount({ trupps: [{ ...aktivTrupp(), status: 'rueckzug' }], canEdit: false })
     expect(screen.queryByText(az.clockOk)).toBeNull()                    // «Kontakt ok» is the green's
-    expect(screen.getByText(az.status.rueckzug).className).toContain(s.factState) // …the fact is a word
+    const badge = screen.getByRole('img', { name: az.status.rueckzug })  // …the state is a badge with a name…
+    expect(badge.className).toContain(s.rueckzugBadge)
+    expect(badge.getAttribute('title')).toBe(az.status.rueckzug)
+    expect(badge.textContent).toBe('')                                  // …and no word
+    expect(screen.queryByText(az.status.rueckzug)).toBeNull()            // the old text chip is gone
+  })
+
+  it('draws no Rückzug badge on a Trupp that is not in Rückzug', () => {
+    mount({ trupps: [aktivTrupp()], canEdit: false })
+    expect(screen.queryByRole('img', { name: az.status.rueckzug })).toBeNull()
   })
 
   /* WHICH time an out card carries depends on whether anybody was ever monitoring it (settled
