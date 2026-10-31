@@ -211,7 +211,6 @@
    editable key box + delete (.kv-row). */
 .kv-key-ro { font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-dim); }
 .field b.kv-val-ro { font-family: var(--mono); font-weight: var(--fw-medium); }
-.kv-row .combo { margin-left: auto; min-width: 132px; }
 /* editable custom key/value rows */
 /* a user-added field: same run as .field above, so the same treatment — no rule, and its key box
    IS the label column (27B), so its value starts at the edge every preset row's control does */
