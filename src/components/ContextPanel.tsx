@@ -677,7 +677,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   const O = appConfig.copy.objectDone
   const doneTile = onDone && !readOnly && !isNote ? (
     <button type="button" className="btn ctx-done" aria-pressed={!!doneAt} onClick={() => onDone(!doneAt)}
-      title={doneAt ? O.reopenHint : O.actionHint} aria-label={doneAt ? O.reopenHint : undefined}>
+      title={doneAt ? O.reopenHint : O.actionHint}>
       {doneAt && <Icon id="check" />}{O.action}
     </button>
   ) : null

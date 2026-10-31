@@ -169,6 +169,18 @@ describe('the state a tier cannot say', () => {
     expect(screen.queryByText(az.status.rueckzug)).toBeNull()            // the old text chip is gone
   })
 
+  // PR #530 review: overdue overlays the DERIVED status to «überfällig» – the crew is still on its
+  // way out, so the badge (and the row's spoken name) follow the recorded status
+  it('keeps the Rückzug badge and names it on the row when the crew on Rückzug is overdue', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.mocked(useIsPhone).mockReturnValue(true)   // the collapsed row is the phone's
+      mount({ trupps: [{ ...aktivTrupp(), status: 'rueckzug', lastContactTime: iso(8 * 60_000) }], canEdit: false })
+      expect(screen.getByRole('img', { name: az.status.rueckzug })).toBeTruthy()
+      expect(document.querySelector(`button.${s.trow}`)!.getAttribute('aria-label')).toContain(az.status.rueckzug)
+    } finally { vi.useRealTimers(); vi.mocked(useIsPhone).mockReturnValue(false) }
+  })
+
   it('draws no Rückzug badge on a Trupp that is not in Rückzug', () => {
     mount({ trupps: [aktivTrupp()], canEdit: false })
     expect(screen.queryByRole('img', { name: az.status.rueckzug })).toBeNull()

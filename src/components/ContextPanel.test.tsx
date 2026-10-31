@@ -839,9 +839,9 @@ describe('ContextPanel — «Gelöscht / erledigt»', () => {
 
   // ONE toggle (31.10.2026): set, the SAME tile stays in the same spot, pressed, and a tap
   // reopens – the time it was set moved into the header, beside the type.
-  it('set, the same foot tile stands pressed, says it reopens, and a tap takes it back; the header says when', () => {
+  it('set, the same foot tile (same name) stands pressed, its title says it reopens, and a tap takes it back; the header says when', () => {
     const p = setup({ onDone: vi.fn(), onCenter: vi.fn(), entity: { id: 's1', symbol: 'VKF Feuer', label: 'Brand', subtitle: 'Schadenlage', done: { at: AT } } })
-    const tile = screen.getAllByRole('button', { name: O.reopenHint })[0]
+    const tile = screen.getAllByRole('button', { name: O.action, pressed: true })[0]
     expect(tile.getAttribute('aria-pressed')).toBe('true')
     expect(tile.title).toBe(O.reopenHint)
     const foot = tile.closest('.ctx-actions')!

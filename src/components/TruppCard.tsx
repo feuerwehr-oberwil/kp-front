@@ -132,7 +132,8 @@ export function TruppRow({
   }, [focusNonce, focusScroll])
   return (
     <button ref={rowRef} type="button" className={cx(s.trow, acts ? s.trowTwo : s.trowOne, tone, conflict && s.cardConflict)} onClick={onOpen}
-      aria-label={[t.name, tier, words.status(status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status))]
+      aria-label={[t.name, tier, words.status(status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status)),
+        t.status === 'rueckzug' ? az.status.rueckzug : '']
         .filter((w, i, all) => w && all.indexOf(w) === i).join(' — ')}>
       <RowLine t={t} live={live} color={color} lite={lite}
         act={canEdit && onEnter ? <RowEnter onEnter={() => onEnter(t.id)} /> : null} />
@@ -184,7 +185,9 @@ function RowLine({ t, live, color, lite, act }: { t: Trupp; live: TruppLive; col
    * tile stands right under this line, and a viewer has nothing to press. The link board's page
    * says «Bereit» there instead (TruppCard · `page`, R1 30.10.2026). */
   const waiting = live.status === 'angemeldet'
-  const rueckzug = live.status === 'rueckzug' && isAtemschutzTrupp(t)
+  // the RECORDED status: an overdue crew on Rückzug overlays live.status to `ueberfaellig`, and
+  // it is still on its way out – the badge stays next to the red clock
+  const rueckzug = t.status === 'rueckzug' && isAtemschutzTrupp(t)
   const rueckzugLabel = az.status.rueckzug
   return (
     <>
