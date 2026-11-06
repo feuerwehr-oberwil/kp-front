@@ -6,7 +6,7 @@
 // Rules: every mutation joins the one timeline (docs/undo.md); synced state and the record:
 // docs/sync-and-offline.md.
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite } from './lib/icons'
@@ -180,6 +180,9 @@ import { useRecordSlices } from './workspace/useRecordSlices'
 import { useRosterRoles } from './workspace/useRosterRoles'
 import { useMediaOutbox } from './workspace/useMediaOutbox'
 import { useLifecycleElsewhere } from './workspace/useLifecycleElsewhere'
+import { useTutorialSession } from './lib/tutorials/session'
+import { tutorialEvent } from './lib/tutorials/bus'
+import { TutorialRunner } from './components/tutorial/lazy'
 
 /** How long an edit has to sit still before it earns a Verlauf row. Long enough that a sentence
  *  being typed is ONE edit, short enough that reading the Verlauf a moment later already shows
@@ -235,6 +238,8 @@ interface WorkspaceProps {
   onOpenObjectVisits?: (objectId?: string | null) => void
   /** opens «Karte & Objekte» over this Einsatz (App · enterKarte); undefined = a link session */
   onOpenKarte?: () => void
+  /** opens App's «Üben» sheet over this Einsatz (landingSheet 'ueben'); undefined = a link session */
+  onOpenUeben?: () => void
   /** another surface («Karte & Objekte», the Objektbesuche) is in front of this Einsatz: it stays
    *  MOUNTED — its state, sync and live poll, and above all its Atemschutz alarm — but renders
    *  only the headless hosts and the alarm rows (see the `covered` return below) */
@@ -276,7 +281,7 @@ interface WorkspaceProps {
 
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
-  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
+  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenUeben, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
   covered = false, onUncover, needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
   const { user, logout, asLink, isEl, linkRefused, roleReadOnly, isEditor, linkScoped } = useSessionRole(incidentMeta)
@@ -721,6 +726,8 @@ export function IncidentWorkspace({
     const r = dir === 'undo' ? undoHist.undo() : undoHist.redo()
     if (r.status === 'empty') return
     if (r.status === 'lost') { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
+    // a ↶ leaves no state a tutorial step could tell from «never placed» – it says so instead
+    tutorialEvent(dir)
     if (anchor) flashUndoCaption(anchor, fillTemplate(dir === 'undo' ? C_HIST.undoNamed : C_HIST.redoNamed, { action: undoCaption(r.entry) }))
   }
   /** …from a button, which anchors the caption at itself. Every ↶ ↷ in the app goes through this. */
@@ -2887,6 +2894,22 @@ export function IncidentWorkspace({
     />
   )
 
+  /* «Üben» – the tutorial runner (components/tutorial/TutorialRunner, its own chunk): binds a
+   * running tutorial to this Einsatz, watches the workspace, moves the steps. Mounted only while a
+   * session exists, never in a link session; in the full layout with its pill, bubble and done
+   * card, while covered without them (a run started over «Karte & Objekte» still binds there).
+   * The phone's FAB yields to the done card, so the runner says when that card stands. */
+  const tutorialSession = useTutorialSession()
+  const [tutorialEndCard, setTutorialEndCard] = useState(false)
+  const tutorialRunner = (layer: boolean) => tutorialSession && !linkScoped && (
+    <Suspense fallback={null}>
+      <TutorialRunner layer={layer} onEndCard={layer ? setTutorialEndCard : undefined} enabled
+        incident={{ id: incidentMeta.id, title: incidentMeta.title, isExercise: incidentMeta.is_exercise }}
+        entities={doc.entities} drawings={doc.drawings} trupps={trupps} journalRows={timeline.length}
+        present={presentIds.size} mode={mode} tool={tool} palette={paletteOpen} phone={isPhone} setMode={setMode} />
+    </Suspense>
+  )
+
   /* ── Covered: another surface is in front of this Einsatz ───────────────────────────────
    *
    * «Karte & Objekte» or the Objektbesuche opened over an open Einsatz (App · screen). The
@@ -2930,6 +2953,7 @@ export function IncidentWorkspace({
             onDeploySafety={(id) => setTruppStatus(id, 'aktiv')}
           />
         )}
+        {tutorialRunner(false)}
       </>
     )
   }
@@ -3107,7 +3131,7 @@ export function IncidentWorkspace({
         setPanel, setTruppFocus, mapUI, replayActive, gpsStale, gpsAgeMs, share, onShareChangeName,
         onBackFromArchive, onReactivateActive, isPhone, phoneTools, planFit, incidents, syncStatus, journal,
         auditDelivery, closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
-        onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, activeObjectId, canEditMeta, onEditMeta,
+        onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenUeben, activeObjectId, canEditMeta, onEditMeta,
         onOpenDivera, onOpenDatenquellen, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
         setHelpOpen, setInstallGuideOpen, setOfflineReadyOpen, syncNow, media, logout, settingsOpen,
         helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
@@ -3313,7 +3337,7 @@ export function IncidentWorkspace({
         setSettingsOpen, symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, railLabels,
         setRailLabels, offlineRadiusM, setOfflineRadiusM, offlineAuto, setOfflineAuto, keepScreenOn,
         setKeepScreenOn, linkScoped, setFeedbackParent, setFeedbackOpen, share, setShareParent, setSharePick,
-        feedbackParent, canWriteRecord, photoPosition, setPhotoPosition,
+        feedbackParent, canWriteRecord, photoPosition, setPhotoPosition, role: user?.role,
       }} />
 
       {/* phone field-capture: a editor can't draw tactical symbols on a phone, but can
@@ -3328,7 +3352,8 @@ export function IncidentWorkspace({
           that says a voice memo is being taken and the only way to stop it, so an open panel or
           the composer does not unmount it, and the CSS that yields it to a tool's dock, the armed
           pill or a detail sheet lets `.rec` stay (15-mobile · «while a tool-option dock …»). */}
-      {isPhone && !readOnly && !linkScoped && (voice.recording || (!composerOpen && !panel)) && (
+      {/* …and it yields to the «Üben» done card, which stands where it would (never while recording) */}
+      {isPhone && !readOnly && !linkScoped && (voice.recording || (!composerOpen && !panel && !tutorialEndCard)) && (
         <FabEntry
           recording={voice.recording}
           recStartedAt={voice.recStartedAt}
@@ -3357,6 +3382,10 @@ export function IncidentWorkspace({
           bars belong to the shell rather than to either one — on a phone the Plan is unmounted
           for the map half of every pair. Renders nothing while the mode is off. */}
       <GeorefModeBars planLabel={planDocs.find((p) => p.id === georefMode.planId)?.code} />
+
+      {/* «Üben»: the pill, the Sprechblase, the step list, the done card – over the map chrome,
+          under the Meldeleiste (components/tutorial/TutorialLayer) */}
+      {tutorialRunner(true)}
     </div>
   )
 }
