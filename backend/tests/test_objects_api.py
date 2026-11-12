@@ -14,7 +14,7 @@ import uuid
 
 import pytest
 
-from app.api.objects import _norm_addr
+from app.api.objects import _norm_addr, address_matches
 from app.models import Incident, ObjectSite, ReferenceDataset
 
 PIN = "135790"
@@ -44,6 +44,24 @@ def test_norm_addr_folds_diacritics_case_and_punctuation():
 def test_norm_addr_of_nothing_is_empty():
     assert _norm_addr(None) == ""
     assert _norm_addr("") == ""
+
+
+@pytest.mark.parametrize(
+    ("incident", "obj", "expected"),
+    [
+        # Divera's shape: Ort, street + number, Objekt (12.11.2026 – the Mühlemattcenter was «Nächstes Objekt»)
+        ("Oberwil (BL), Mühlemattstrasse 22, Mühlematt-Zentrum", "Mühlemattstrasse 22", True),
+        ("Bahnhofstrasse 12, 4104 Oberwil", "Bahnhofstrasse 12", True),
+        ("Bahnhofstrasse 12", "Bahnhofstrasse 12b", True),
+        ("Bahnhofstrasse 12b", "Bahnhofstrasse 12", True),
+        ("Bienenstrasse 3", "Bienenstrasse 30", False),
+        ("Oberwil (BL), Mühlemattstrasse 24", "Mühlemattstrasse 22", False),
+        ("", "Mühlemattstrasse 22", False),
+        ("Mühlemattstrasse 22", None, False),
+    ],
+)
+def test_address_matches_a_comma_part_of_the_incident(incident, obj, expected):
+    assert address_matches(incident, obj) is expected
 
 
 # --- list_objects ---------------------------------------------------------------------------
@@ -354,8 +372,8 @@ async def test_address_match_wins_over_a_closer_object(client, editor, db_sessio
 
 
 async def test_address_match_tolerates_a_house_number_suffix(client, editor, db_session):
-    """`oa.startswith(ia) or ia.startswith(oa)` — an incident address is a bare street+number
-    from dispatch, and an Einsatzobjekt's address may carry a letter suffix (12 vs. 12b)."""
+    """An incident address is a bare street+number from dispatch, and an Einsatzobjekt's address
+    may carry a letter suffix (12 vs. 12b) – `address_matches`."""
     inc = _incident(address="Bahnhofstrasse 12", lat=47.5, lng=7.5)
     obj = _obj(name="Hinterhaus", address="Bahnhofstrasse 12b", lat=47.9, lng=7.9)
     db_session.add_all([inc, obj])

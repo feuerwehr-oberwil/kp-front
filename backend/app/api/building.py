@@ -34,7 +34,7 @@ from ..schemas import (
     BuildingVisitOut,
     load_stored_config,
 )
-from .objects import _norm_addr, ranked_objects_near
+from .objects import address_matches, ranked_objects_near
 
 logger = logging.getLogger(__name__)
 
@@ -89,8 +89,7 @@ async def _object_for(
     if object_id is not None:
         o = (await db.execute(select(ObjectSite).where(ObjectSite.id == object_id))).scalar_one_or_none()
         if o is not None:
-            ia, oa = _norm_addr(inc.address), _norm_addr(o.address)
-            matched = bool(ia) and bool(oa) and (ia == oa or oa.startswith(ia) or ia.startswith(oa))
+            matched = address_matches(inc.address, o.address)
             dist = (
                 haversine_m(float(inc.lat), float(inc.lng), float(o.lat), float(o.lng))
                 if inc.lat is not None and inc.lng is not None and o.lat is not None and o.lng is not None

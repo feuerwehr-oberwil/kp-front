@@ -475,6 +475,26 @@ def _norm_addr(s: str | None) -> str:
     return re.sub(r"[^a-z0-9]", "", folded)
 
 
+def address_matches(incident_address: str | None, object_address: str | None) -> bool:
+    """Whether an incident's address names this Einsatzobjekt's street + number.
+
+    Dispatch sends more than the street: Divera's «Oberwil (BL), Mühlemattstrasse 22,
+    Mühlematt-Zentrum» never equalled the object's «Mühlemattstrasse 22» as one string, so the
+    object's own plans came up as «Nächstes Objekt, nicht die Einsatzadresse» (12.11.2026). So
+    each comma part of the incident is compared with the object's street (its first part); a
+    house-number letter on either side still matches (12 ↔ 12b), another digit never (3 ↔ 30).
+    """
+    street = _norm_addr((object_address or "").split(",")[0])
+    if not street:
+        return False
+
+    def same(part: str) -> bool:
+        short, long = sorted((part, street), key=len)
+        return long == short or (len(long) == len(short) + 1 and long.startswith(short) and long[-1].isalpha())
+
+    return any(same(_norm_addr(part)) for part in (incident_address or "").split(",") if _norm_addr(part))
+
+
 async def ranked_objects_near(db: AsyncSession, inc: Incident) -> list[tuple[ObjectSite, float | None, bool]]:
     """The Einsatzobjekte that belong to an incident, best first: ``(object, distance_m, address_match)``.
 
@@ -490,11 +510,9 @@ async def ranked_objects_near(db: AsyncSession, inc: Incident) -> list[tuple[Obj
     # is imprecise and many objects sit within 400 m of each other, so the nearest-by-coords
     # object can be a neighbour. When the incident's address matches an Einsatzobjekt's
     # address, surface THAT object first regardless of distance.
-    ia = _norm_addr(inc.address)
     candidates: list[tuple[ObjectSite, float | None, bool]] = []
     for o in objs:
-        oa = _norm_addr(o.address)
-        matched = bool(ia) and bool(oa) and (ia == oa or oa.startswith(ia) or ia.startswith(oa))
+        matched = address_matches(inc.address, o.address)
         dist = (
             haversine_m(float(inc.lat), float(inc.lng), float(o.lat), float(o.lng))
             if inc.lat is not None and inc.lng is not None and o.lat is not None and o.lng is not None
