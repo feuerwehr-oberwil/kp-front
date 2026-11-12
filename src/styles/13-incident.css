@@ -1923,11 +1923,12 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    DOWN over the bottom stack (the Rapport strip over the nav bar): measured to the screen edge they
    ran behind both bars, the last row cut and no end to the menu in sight (hill climb r36). So that menu ends 12px above the
    topmost bar (15-mobile · --float-bars, the stack's height incl. the strip) and scrolls inside
-   itself, its shell padding and rounded foot in view. `+ 10px` hands back the Menu's
-   `collisionPadding`, which `--available-height` already took off the screen's bottom. */
+   itself, its shell padding and rounded foot in view. `+ 8px` hands back the Menu's
+   `collisionPadding` (overlays · OVERLAY_EDGE), which `--available-height` already took off the
+   screen's bottom. */
 @media (--phone) {
   .ui-menu-pos[data-side="bottom"]:has(> .rp-pdf-menu) {
-    --menu-room: calc(var(--available-height, 70dvh) + 10px - var(--float-bars, 0px) - 12px - env(safe-area-inset-bottom)); }
+    --menu-room: calc(var(--available-height, 70dvh) + 8px - var(--float-bars, 0px) - 12px - env(safe-area-inset-bottom)); }
 }
 /* EVERY menu fits the screen and scrolls inside itself (05.10.2026, owner's iPhone: the Rapport's
    «PDF ▾» Abschnitte ran off the bottom). `--menu-room` is what the positioner measured between

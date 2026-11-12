@@ -356,9 +356,8 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
  *  instead (the bar is too narrow — it clipped at the screen edge). */
 export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, floating = false }: { weather: WeatherData; onOpenMeteo?: () => void; bearing?: number
   /** the phone's .phone-wx: the chip IS the visible control (no cluster around it since hill
-   *  climb r6), so the popover hangs 8px under the chip and keeps the chip's own 8px from the
-   *  screen edge (`--float-gap`), not Popover's default 10. In the bar (default) it hangs
-   *  BAR_POP_OFFSET under the chip, 8px under the bar's edge. */
+   *  climb r6), so the popover hangs Popover's own 8px under the chip. In the bar (default) it
+   *  hangs BAR_POP_OFFSET under the chip, 8px under the bar's edge. */
   floating?: boolean }) {
   const cond = condition(weather.weather_code)
   // turns with the finger while the Karte is being rotated, not only once it is let go
@@ -371,8 +370,7 @@ export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, floating = fal
         ariaLabel={appConfig.copy.weather.details}
         side="bottom"
         align="end"
-        sideOffset={floating ? 8 : BAR_POP_OFFSET}
-        collisionPadding={floating ? 8 : undefined}
+        sideOffset={floating ? undefined : BAR_POP_OFFSET}
         zIndex={201}
         trigger={
           <button className="tb-weather"

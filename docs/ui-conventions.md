@@ -218,7 +218,11 @@ reopens, while the head's subtitle says when («Schadenlage · erledigt 10:57»)
   **menu or popover** is the menu shell: `--r-bar` over `--bar-pad`, opaque `--surface` + its 1px
   `--glass-edge` (out of the top bar: the bar's glass + `--glass-line` instead), `--e4`; facts in it
   that are read, not tapped, stand at a menu row's 12px text inset. A one-of-N row in a menu is a
-  trailing ✓ (`Menu` · radio), a pick-several row the checkbox.
+  trailing ✓ (`Menu` · radio), a pick-several row the checkbox. Every anchored menu and popover
+  hangs ONE 8px off its trigger and keeps 8px from the screen edge, the bars' own distances
+  (`lib/overlays` · `OVERLAY_GAP` / `OVERLAY_EDGE`, owner 13.11.2026 – menus hung 4px off, both
+  kept 10 from the edge); one whose trigger sits inside a floating bar hangs 8px off the BAR
+  (`BAR_POP_OFFSET`: the Einsatzuhr, the weather, the Gebäude dial).
 
 Three rules the primitives own, so no surface re-answers them (18.09.2026):
 

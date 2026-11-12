@@ -40,8 +40,8 @@ export interface PopoverProps {
   alignOffset?: number
   /** z-index for the (fixed) Positioner — set it to stack above surrounding fixed chrome. */
   zIndex?: number
-  /** Keep-off distance from the viewport edge — the same default, and for the same reason, as
-   *  overlays · Menu: Base UI's own 5px leaves a popover on a control near the edge sitting flush
+  /** Keep-off distance from the viewport edge (`OVERLAY_EDGE`) — the same default, and for the
+   *  same reason, as overlays · Menu: Base UI's own 5px leaves a popover on a control near the edge sitting flush
    *  against it, and a panel of prose read flush to the glass reads as one that has been cut. On
    *  a phone the difference is not cosmetic — the Rapport's Kontrolle popover lost its first
    *  column of text off the left edge. A property of the surface being finite, not of a call site. */
@@ -54,13 +54,20 @@ export interface PopoverProps {
   onOpenChange?: (open: boolean, change: PopoverChange) => void
 }
 
+/** The two distances every anchored overlay keeps (owner pick 13.11.2026, consistency sweep R2-B):
+ *  `OVERLAY_EDGE` from the screen's edge, the bars' and chips' own 8px – it was 10, which stood a
+ *  popover 2px inside the bar it hung from – and `OVERLAY_GAP` from its trigger, one --float-gap
+ *  for menus and popovers alike (menus hung 4px under theirs, popovers 8). Menu reads both too. */
+export const OVERLAY_EDGE = 8
+export const OVERLAY_GAP = 8
+
 /** `sideOffset` for a popover whose trigger sits INSIDE a floating bar (the top bar, the view bar,
  *  the phone's bottom bars): 8px off the BAR's edge, which stands --bar-pad + its 1px border (7px)
  *  beyond the control. 8px off the control alone left the popup 1px off the bar (owner,
  *  20.10.2026: the weather popover; the Einsatzuhr menu and the Gebäude dial did the same). */
-export const BAR_POP_OFFSET = 8 + 7
+export const BAR_POP_OFFSET = OVERLAY_GAP + 7
 
-export function Popover({ trigger, anchor, children, ariaLabel, popupClassName, side = 'bottom', align = 'end', sideOffset = 8, alignOffset, collisionPadding = 10, collisionBoundary, zIndex, open, onOpenChange }: PopoverProps) {
+export function Popover({ trigger, anchor, children, ariaLabel, popupClassName, side = 'bottom', align = 'end', sideOffset = OVERLAY_GAP, alignOffset, collisionPadding = OVERLAY_EDGE, collisionBoundary, zIndex, open, onOpenChange }: PopoverProps) {
   // uncontrolled callers give us no `open` to read, so the Root reports it — a popover open over
   // a Sheet/Overlay keeps that sheet's backdrop/Esc dismissal off (popoverGuard)
   const [isOpen, setIsOpen] = useState(false)

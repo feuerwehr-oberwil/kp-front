@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject, type ReactElement, type ReactNode } from 'react'
 import { Menu as BaseMenu } from '@base-ui/react/menu'
 import { usePopoverGuard } from './popoverGuard'
+import { OVERLAY_EDGE, OVERLAY_GAP } from './Popover'
 import { attachMenuSlide } from './menuSlide'
 
 /**
@@ -86,7 +87,7 @@ function rowClass(skin: string | undefined, danger?: boolean, sticky?: boolean) 
     .filter(Boolean).join(' ')
 }
 
-export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = 4, alignOffset = 0, collisionPadding = 10, scrollToEnd = false, modal = true, keepFocusRef }: {
+export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = OVERLAY_GAP, alignOffset = 0, collisionPadding = OVERLAY_EDGE, scrollToEnd = false, modal = true, keepFocusRef }: {
   trigger: ReactElement
   items: (MenuActionItem | MenuCheckItem | MenuSeparator | MenuHeading | MenuRadioGroup)[]
   popupClassName?: string
@@ -106,7 +107,7 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
    *  one being reached for — showing the top means the answer is below the fold, which is
    *  worse than not having ordered it at all. */
   scrollToEnd?: boolean
-  /** Keep-off distance from the viewport edge. Without it a wide menu on a control near the right
+  /** Keep-off distance from the viewport edge (`OVERLAY_EDGE`, as Popover). Without it a wide menu on a control near the right
    *  edge is positioned flush to that edge and can render half off screen — which is exactly what
    *  the Rapport's print menu did on a tablet. Applies to every Menu in the app on purpose: this
    *  is a property of the surface being finite, not of any one call site. */
