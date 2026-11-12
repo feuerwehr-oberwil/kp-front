@@ -6,7 +6,7 @@ Synthetic configuration for a Chișinău-centred deployment. **Not operational c
 
 | Layer | Source | Coverage checked | Licence / conditions | Updated |
 |-------|--------|------------------|----------------------|---------|
-| Base map (day/night) | **CARTO** Voyager + Dark Matter (built into KP Front) | Chișinău, Bălți, Cahul, Ghidighici (rural) — roads, localities, building footprints via OSM | © CARTO, © OpenStreetMap; browser `CARTO_API_KEY` restricted to deploy domains; free-tier tile caps; device offline prefetch OK (not redistribution) | OSM continuously; CARTO tiles cached by CDN |
+| Base map (day/night) | **CARTO** Voyager + Dark Matter (built into KP Front) | Chișinău, Bălți, Cahul, Ghidighici (rural) — CARTO tile HTTP 200 at z14–15 on 2026-11-12; roads/localities via OSM | © CARTO, © OpenStreetMap; browser `CARTO_API_KEY` restricted to deploy domains; free-tier tile caps; device offline prefetch OK (not redistribution) | OSM continuously; CARTO tiles cached by CDN |
 | Online view only | OpenStreetMap raster | Same OSM data | ODbL; **no** bulk offline prefetch | — |
 | Satellite (`base-air`) | swisstopo swissimage | Switzerland only — leave unused for MD | © swisstopo | — |
 | Address search | Nominatim-compatible `GEOCODER_URL` (not public nominatim.openstreetmap.org for production autocomplete) | Diacritics / ASCII; duplicate street names; WGS84 pins | OSM attribution; self-host or a hosted Nominatim with an acceptable use policy | — |
