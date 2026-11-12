@@ -69,8 +69,10 @@ unchanged.
 - *The Einsatz pill says «Stichwort · street» over the Einsatzuhr* (12.11.2026, owner: «Wasser ·
   Sägestrasse 2»; the street alone since 07.10.). The street is street + house number only,
   whatever shape the address came in, and is said once when the title already carries it
-  (`lib/format · einsatzPillName`). The Stichwort ellipsises first and takes at most ~45% of
-  the line, so the house number stays; an Übung adds the amber «Ü». Tablet: the title alone.
+  (`lib/format · einsatzPillName`). The street keeps its width; the Stichwort takes the rest
+  and ellipsises first, so the house number stays (and ↷ and the weather yield before either part
+  is cut, `lib/useHeadFit`). An Übung adds
+  the amber «Ü». Tablet: the title alone.
 
 ## Page heads and pages
 

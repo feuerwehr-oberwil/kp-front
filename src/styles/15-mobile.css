@@ -491,12 +491,14 @@
      `.ip-switch-title`; here the title is half of what the pill says and never goes */
   .ip-switch-two .ip-switch-title, .topbar.fit-9 .ip-switch-two .ip-switch-title {
     display: flex; gap: var(--sp-1); max-width: 100%; font-size: var(--fs-2); font-weight: var(--fw-bold); }
-  /* «Stichwort · street» (12.11.2026, owner): the Stichwort never shrinks below its own width but
-     is capped at 45% and ellipsises there; the street takes the rest and ellipsises last, so a
-     long Stichwort never costs the house number */
-  .ip-switch-kw { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
+  /* «Stichwort · street» (12.11.2026, owner): the street keeps its whole width and ellipsises
+     only when it alone is wider than the line; the Stichwort takes what is left and ellipsises
+     first. ⚠️ Not a percentage cap on the Stichwort: on a 390px phone the line is ~185px, and a
+     45% cap still cut «Sägestrasse 2» to «Sägestra…» while it cut «Zimmerbrand» where the line
+     had room. The bar's ladder reads either part cut as a cut name (lib/useHeadFit). */
+  .ip-switch-kw { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .ip-switch-sep { flex: none; }
-  .ip-switch-street { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .ip-switch-street { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
   /* ⚠️ the clock is a FIGURE you read at a glance, not a caption (hill climb r18, Opus 4): at mono
      --fs-1 in --ink-dim it was the smallest, faintest text in the bar, where the tablet's and the
      laptop's bar clock is the boldest. Now --fs-2/700 mono in full ink – the title's size, mono's

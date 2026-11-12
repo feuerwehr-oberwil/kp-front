@@ -140,8 +140,8 @@ export function IncidentSwitcher({
   // tablet's bar menu (lib/einsatzuhr). Tablet unchanged.
   // 12.11.2026 (owner): line 1 is «Stichwort · street» («Wasser · Sägestrasse 2») — street and
   // number only, whatever shape the address came in, and the street said once when the title
-  // already carries it (lib/format · einsatzPillName). The Stichwort ellipsises first and takes
-  // at most ~45% of the line, so it never eats the house number (15-mobile.css).
+  // already carries it (lib/format · einsatzPillName). The street keeps its width; the
+  // Stichwort takes the rest and ellipsises first (15-mobile.css), so it never eats the number.
   const isPhone = useIsPhone()
   const uhr = useEinsatzuhr(startedAt, endedAt, undefined, !isPhone)
   const twoLine = isPhone && !!active
