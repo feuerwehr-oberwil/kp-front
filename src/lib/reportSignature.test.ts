@@ -3,7 +3,7 @@ import { mergeWorkspace } from './mergeWorkspace'
 import { buildDirectReportPayload, signedPartOf } from './reportPdfDirect'
 import {
   activeSignatures, addSignature, canonicalJson, isBlank, sha256Hex,
-  shortChecksum, signatureScope, signatureState, strokesPath, voidAll, type ReportSignature,
+  shortChecksum, signatureScope, signatureState, strokesPath, type ReportSignature,
 } from './reportSignature'
 import type { TimelineEvent } from '../types'
 
@@ -30,13 +30,6 @@ describe('reportSignature · the record', () => {
     expect(next).toHaveLength(2)
     expect(next[0]).toMatchObject({ id: 'old', voidReason: 'replaced', voidedAt: '2026-10-15T04:00:00.000Z' })
     expect(activeSignatures(next).el?.id).toBe('new')
-  })
-
-  it('«Ändern» voids every live signature and keeps the history', () => {
-    const out = voidAll([sig(), sig({ id: 'k', role: 'kdt' }), sig({ id: 'x', voidedAt: '2026-10-14T00:00:00.000Z', voidReason: 'replaced' })], '2026-10-15T05:00:00.000Z', 'aendern')
-    expect(out.map((g) => g.voidReason)).toEqual(['aendern', 'aendern', 'replaced'])
-    expect(out[2].voidedAt).toBe('2026-10-14T00:00:00.000Z')
-    expect(activeSignatures(out)).toEqual({})
   })
 
   it('is valid while the signed part hashes the same, and «ungültig» once it does not', () => {

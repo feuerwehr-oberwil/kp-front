@@ -46,7 +46,8 @@ export interface ReportSignature {
 }
 
 /** The live signature per role: the newest one that was not voided. Older ones stay in the list
- *  (history) — `replaced` when a role signs again, `aendern` when somebody chose to edit. */
+ *  (history) — `replaced` when a role signs again, `aendern` when somebody chose to edit (the «Ändern» of
+ *  builds before 12.11.2026; a closed Rapport is no longer edited). */
 export function activeSignatures(list: readonly ReportSignature[] | undefined): Partial<Record<SignatureRole, ReportSignature>> {
   const out: Partial<Record<SignatureRole, ReportSignature>> = {}
   for (const s of list ?? []) {
@@ -63,11 +64,6 @@ export type SignatureState = 'valid' | 'stale'
  *  (the hash is computed asynchronously) — treated as valid so the screen does not flash «ungültig» */
 export function signatureState(sig: ReportSignature, currentScope: string | undefined): SignatureState {
   return currentScope === undefined || sig.scope === currentScope ? 'valid' : 'stale'
-}
-
-/** «Ändern» and «neu unterschreiben» mark every live signature void; nothing is ever deleted */
-export function voidAll(list: readonly ReportSignature[] | undefined, at: string, reason: SignatureVoidReason): ReportSignature[] {
-  return (list ?? []).map((s) => (s.voidedAt ? s : { ...s, voidedAt: at, voidReason: reason }))
 }
 
 /** append a new signature; an older live one of the same role is marked `replaced` */

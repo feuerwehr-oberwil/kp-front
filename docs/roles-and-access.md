@@ -187,8 +187,9 @@ their offline copy already lives in IndexedDB (`lib/api/stationReference`).
 
 The door rule above, applied to the Rapport, Anwesenheit and lifecycle (RBAC audit, round 2):
 
-- **Rapport** for a session that cannot edit it (`canEditRapport` false: viewer, view link, a
-  closed Einsatz it may not correct; a signed Rapport too): every field is a read-out – the
+- **Rapport** for a session that cannot edit it (`canEditRapport` false: viewer, view link, and
+  every closed Einsatz since 12.11.2026 – its keeper only signs it, `canSignRapport`): every field
+  is a read-out – the
   value, or «Nicht erfasst» – with no «Jetzt», «Entfällt», steppers, pickers or ✕. The
   Kontaktperson keeps its working `tel:`. No «n offen» chip, phone-tab dot or Rapport-tile count
   (the editor's to-do list), no «Formulare & Links», no Unterschriften card until a signature

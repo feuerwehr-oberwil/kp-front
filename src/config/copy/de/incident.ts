@@ -91,12 +91,10 @@ export const incidentCopy = {
   // was es beschreibt: die Liste.
   archived: {
     title: 'Einsatz abgeschlossen',
-    // r3, F10: der Rapport bleibt nach dem Abschluss korrigierbar (Nachträge) – alles andere nicht
-    hint: 'Der Rapport bleibt korrigierbar (Nachträge) – für alles andere wieder öffnen.',
+    // 12.11.2026: abgeschlossen ist abgeschlossen, der Rapport inklusive – bearbeiten heisst wieder öffnen
+    hint: 'Zum Bearbeiten wieder öffnen.',
     // …und wer gar nichts wieder öffnen kann (Link-Sitzungen)
     hintViewOnly: 'Nur ansehen.',
-    // …and who corrects the Rapport but reopens nothing (the el, a Führungsansicht)
-    hintRapport: 'Der Rapport bleibt korrigierbar (Nachträge).',
     back: 'Zurück',
     reactivate: 'Wieder öffnen',
     // offline (05.10.2026): «Wieder öffnen» is the server's call (it writes the reopen boundary
@@ -110,7 +108,7 @@ export const incidentCopy = {
     // N3 (25.09.2026): das Einsatz wurde auf einem ANDEREN Gerät abgeschlossen, während es hier
     // offen war — die Meldeleiste sagt, warum der Bildschirm eben nur-lesend geworden ist.
     closedElsewhere: 'Einsatz wurde auf einem anderen Gerät abgeschlossen ({t})',
-    closedElsewhereSub: 'Der Rapport bleibt korrigierbar (Nachträge) – für alles andere wieder öffnen.',
+    closedElsewhereSub: 'Zum Bearbeiten wieder öffnen.',
     // …und was dieses Gerät danach noch schicken wollte (ein Kontakt, eine Tafel-Änderung von
     // offline): nicht übernommen, aber nicht verloren.
     closedRefusedOne: '1 Eintrag dieses Geräts kam nach dem Abschluss und wurde nicht mehr übernommen. Er bleibt auf diesem Gerät gespeichert.',
@@ -119,8 +117,9 @@ export const incidentCopy = {
     closedDismiss: 'Ausblenden',
     // …und der Weg zurück: auf einem anderen Gerät «Wieder öffnen» — der Bildschirm ist wieder live
     reopenedElsewhere: 'Einsatz wurde auf einem anderen Gerät wieder geöffnet ({t})',
-    // r3, F10: der Rapport eines abgeschlossenen Einsatzes bleibt korrigierbar – und sagt es
-    rapportClosedHint: 'Einsatz abgeschlossen – Änderungen am Rapport erscheinen als Nachträge.',
+    // …und der Rapport eines abgeschlossenen Einsatzes sagt es, mit «Wieder öffnen» daneben
+    rapportClosedHint: 'Einsatz abgeschlossen – zum Bearbeiten wieder öffnen.',
+    rapportClosedViewOnly: 'Einsatz abgeschlossen – nur ansehen.',
     // …und die Atemschutz-Link-Tafel, deren Halter nichts wieder öffnen kann
     linkClosedTitle: 'Einsatz abgeschlossen – diese Tafel zeigt nur noch an',
     // D1: der Link wurde für seinen eigenen Einsatz abgelehnt (widerrufen) – nichts mehr annehmen
@@ -203,7 +202,7 @@ export const incidentCopy = {
     completeShort: 'Abschliessen',
     backToRapport: 'Zurück zum Rapport',
     confirmTitle: 'Einsatz abschliessen',
-    confirmMsg: 'Der Rapport wird als abgeschlossen markiert und der Einsatz abgeschlossen. Spätere Korrekturen bleiben möglich und erscheinen als Nachträge.',
+    confirmMsg: 'Der Rapport wird als abgeschlossen markiert und der Einsatz abgeschlossen. Danach ist er nur noch zu lesen und zu unterschreiben – für Korrekturen wieder öffnen.',
     confirmBtn: 'Abschliessen',
     // …und wenn noch etwas offen ist, sagt es der Knopf. Abschliessen ist erlaubt – das ist der
     // Ort, an dem das ausgesprochen wird, statt hinter einem gleich beschrifteten Knopf.

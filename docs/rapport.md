@@ -69,6 +69,12 @@ scrolling body so it stays visible with the keyboard up):
   replaced the «Rapport erstellt · Nächster Schritt» strip and the grey «Abschliessen» tile that led
   the row from the first second (active at «4 offen», the irreversible step first – sweep R9).
   Before that moment the close is the Einsatz ▾ menu's. The ZIP of the Beilagen is in the PDF ▾ menu.
+- **Closed: one strip, the state** (owner, 12.11.2026: «either closed or the next step»). A closed
+  Einsatz shows the amber «Einsatz abgeschlossen – zum Bearbeiten wieder öffnen» with «Wieder
+  öffnen» beside it (the Einsatz card's action and confirm; «… – nur ansehen» without the button
+  for a session that cannot reopen). Nothing asks for a signature: closed means done, and signing
+  is the optional card below. The closing device lands on the launcher anyway – the strip is what
+  «Alle Einsätze» → a closed Einsatz shows. A print still out keeps its own amber band.
 
 ## Unterschriften – signing on the screen (15.10.2026)
 
@@ -84,9 +90,13 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
   Personal, Material, Kurzbericht, Einsatzleiter … do.
 - **Only on a closed Einsatz**, and a signature counts only if it was made after the LATEST close
   (`last_closed_at`): «Wieder öffnen» ends every signature without anybody voiding it.
-- **Signed = locked.** While a signature holds, the Rapport's form is read-only. «Ändern» (one
-  confirm) voids every live signature; nothing is deleted – voided ones stay in
-  `Saved.reportSignatures` with `voidedAt`/`voidReason` and in the Verlauf.
+- **Closed = locked, signed or not** (owner, 12.11.2026). The form of a closed Einsatz is
+  read-only (`workspace/access · canEditRapport` is the running record's); what the keeper of the
+  Rapport still writes is the signing and what goes with it (`canSignRapport`: the signature, the
+  Einsatzleiter it names, «Rapport erstellt», a print job). The way to a correction is «Wieder
+  öffnen», which ends every signature. The «Ändern» that voided them by hand is gone with that;
+  voided ones from before stay in `Saved.reportSignatures` with `voidedAt`/`voidReason` and in the
+  Verlauf.
 - **The server never refuses a save to keep a signature valid.** An offline tablet's Anwesenheit
   must still arrive. Validity is COMPUTED on every device (hash of now vs hash at signing); a
   signature that no longer holds shows «ungültig ›» and a tap signs anew.
