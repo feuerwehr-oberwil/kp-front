@@ -22,7 +22,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth.dependencies import CurrentUser
 from ..building_facts import in_switzerland, registers_cached
 from ..database import get_db
-from ..geo_util import haversine_m
 from ..incident_service import get_incident_or_404
 from ..models import DeploymentConfig, Incident, ObjectSite, ObjectVisit
 from ..object_visits import ov_config
@@ -34,7 +33,7 @@ from ..schemas import (
     BuildingVisitOut,
     load_stored_config,
 )
-from .objects import address_matches, ranked_objects_near
+from .objects import object_match, ranked_objects_near
 
 logger = logging.getLogger(__name__)
 
@@ -89,12 +88,7 @@ async def _object_for(
     if object_id is not None:
         o = (await db.execute(select(ObjectSite).where(ObjectSite.id == object_id))).scalar_one_or_none()
         if o is not None:
-            matched = address_matches(inc.address, o.address)
-            dist = (
-                haversine_m(float(inc.lat), float(inc.lng), float(o.lat), float(o.lng))
-                if inc.lat is not None and inc.lng is not None and o.lat is not None and o.lng is not None
-                else None
-            )
+            dist, matched = object_match(inc, o)
             return o, dist, matched
     ranked = await ranked_objects_near(db, inc)
     return ranked[0] if ranked else None
