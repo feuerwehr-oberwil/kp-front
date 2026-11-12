@@ -257,8 +257,9 @@ html.rail-dragging .layers-card { transition: none; }
    short phone viewport) scrolled the only way out of the sheet off the top. It was a sticky band
    painted in the card's colour; on the see-through glass (29.09.2026) the rows showed through it,
    so the card is a column now — head, then the one scroller `.lc-body` — and nothing passes under
-   the head at all. On a phone the head is the sheet's handle (15-mobile · swipeDismiss). */
-.lc-title { flex: none; padding: 8px 8px 8px 16px;
+   the head at all. On a phone the head is the sheet's handle (15-mobile · swipeDismiss).
+   The ✕ stands as far from the card's right edge as the title from its left (16; it was 8). */
+.lc-title { flex: none; padding: var(--sp-2) var(--sp-4);
   display: flex; align-items: center; gap: 8px;
   /* a card head is a SHEET TITLE (29.09.2026, K9): it wore the eyebrow while its section heads
      below wore title case, which put the hierarchy upside down. No leading glyph either — it only
