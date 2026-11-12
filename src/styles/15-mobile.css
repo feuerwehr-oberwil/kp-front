@@ -719,7 +719,9 @@
      tablet card under it, and at (0,2,0) it would hang this sheet from the top) */
   .map-util .layers-card { top: auto; bottom: 0;
     max-height: min(72dvh, calc(100dvh - var(--kb-inset, 0px) - 84px - env(safe-area-inset-top))); }
-  .layers-card .lc-title { padding: 4px 12px 8px 24px; touch-action: none; }
+  /* the ✕ as far from the sheet's right edge as the title from its left – 24 on a sheet
+     (ui-conventions · the ✕); it stood 12px in beside a title at 24 */
+  .layers-card .lc-title { padding: 4px var(--sp-5) 8px; touch-action: none; }
   .layers-card .lc-title button { touch-action: auto; }
   .layers-card > .ui-sheet-grab { margin-bottom: -4px; }
   .layers-card .lc-body { padding: 0 max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left)); }
