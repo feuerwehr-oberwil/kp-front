@@ -8,7 +8,7 @@
 import { useState, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
-import { Popover } from '../lib/overlays'
+import { BAR_POP_OFFSET, Popover } from '../lib/overlays'
 import s from './PlanCompass.module.css'
 
 /**
@@ -63,8 +63,10 @@ export function PlanCompass({ deg, controls, northUnknown = false, variant }: {
       ariaLabel={W.orientMenuTitle}
       popupClassName="wb-orient-popup"
       // out of its bar towards the plan: upward from the view bar in the bottom corner (tablet,
-      // laptop) and from the phone's bottom bar – never back over the control that opened it
+      // laptop) and from the phone's bottom bar – never back over the control that opened it. In a
+      // bar it stands 8px off the BAR, not off the button inside it (it touched the view bar)
       side={variant === 'float' ? 'bottom' : 'top'} align="end" zIndex={60}
+      sideOffset={variant === 'rail' ? BAR_POP_OFFSET : undefined}
       open={open} onOpenChange={setOpen}
       trigger={
         <button type="button" className={`${look} ${s.btn}${open && variant === 'rail' ? ' on' : ''}`}
