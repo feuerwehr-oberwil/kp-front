@@ -354,14 +354,14 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
 /** The tappable wind/weather readout + its detail popover. Lives in the TopBar on
  *  desktop/tablet; on phones App floats it in the top-right .phone-wx read-out
  *  instead (the bar is too narrow — it clipped at the screen edge). */
-export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, popAlignOffset, popInset = 7 }: { weather: WeatherData; onOpenMeteo?: () => void; bearing?: number
-  /** the phone's glass cluster wraps the chip in 5px of its own (padding + border) – see Popover · alignOffset */
-  popAlignOffset?: number
-  /** how far the chip's bottom sits INSIDE the visible control's bottom edge: the popover hangs
-   *  8px under that edge, as the app menu (.ip-menu) hangs 8px under the bar — not 8px under the
-   *  chip, which left it 1px below the bar (owner, 20.10.2026). Default: the bar's --bar-pad +
-   *  its 1px border; the phone's cluster passes its own 5px. */
-  popInset?: number }) {
+export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, floating = false }: { weather: WeatherData; onOpenMeteo?: () => void; bearing?: number
+  /** the phone's .phone-wx: the chip IS the visible control (no cluster around it since hill
+   *  climb r6), so the popover hangs 8px under the chip and keeps the chip's own 8px from the
+   *  screen edge (`--float-gap`), not Popover's default 10. In the bar (default) the chip sits
+   *  INSIDE the bar by its --bar-pad + 1px border, and the popover hangs 8px under the BAR's
+   *  edge, as the app menu (.ip-menu) does — not 8px under the chip, which left it 1px below the
+   *  bar (owner, 20.10.2026). */
+  floating?: boolean }) {
   const cond = condition(weather.weather_code)
   // turns with the finger while the Karte is being rotated, not only once it is let go
   const liveBearing = useLiveBearing(bearing)
@@ -370,11 +370,12 @@ export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, popAlignOffset
     <div className="tb-weather-wrap">
       <Popover
         popupClassName="tb-weather-pop"
-        alignOffset={popAlignOffset}
         ariaLabel={appConfig.copy.weather.details}
         side="bottom"
         align="end"
-        sideOffset={8 + popInset}
+        // 8px under the visible edge; in the bar that edge is 7px (--bar-pad + 1px) below the chip
+        sideOffset={floating ? 8 : 8 + 7}
+        collisionPadding={floating ? 8 : undefined}
         zIndex={201}
         trigger={
           <button className="tb-weather"

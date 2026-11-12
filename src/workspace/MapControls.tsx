@@ -121,7 +121,7 @@ export function MapControls({
               opened half a screen away from the thumb that asked for it. */}
           {isPhone && displayWeather?.wind_dir_deg != null && (
             <div className="phone-wx">
-              <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} popAlignOffset={-5} popInset={5} />
+              <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} floating />
             </div>
           )}
 
