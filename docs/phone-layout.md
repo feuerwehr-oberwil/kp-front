@@ -64,6 +64,14 @@ unchanged.
   same tile opening the GroupChooser behind a last-used first tap, and a «Karte» tile folding
   Ansichten + Ebenen. The vertical rails (tablet/desktop) are unchanged throughout.
 
+## The top bar
+
+- *The Einsatz pill says «Stichwort · street» over the Einsatzuhr* (12.11.2026, owner: «Wasser ·
+  Sägestrasse 2»; the street alone since 07.10.). The street is street + house number only,
+  whatever shape the address came in, and is said once when the title already carries it
+  (`lib/format · einsatzPillName`). The Stichwort ellipsises first and takes at most ~45% of
+  the line, so the house number stays; an Übung adds the amber «Ü». Tablet: the title alone.
+
 ## Page heads and pages
 
 - *A docked tab strip is RESERVED by a sum of tokens, never a number* (30.09.2026, owner: «the
