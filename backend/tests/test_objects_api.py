@@ -14,7 +14,7 @@ import uuid
 
 import pytest
 
-from app.api.objects import _norm_addr
+from app.api.objects import _norm_addr, address_matches
 from app.models import Incident, ObjectSite, ReferenceDataset
 
 PIN = "135790"
@@ -44,6 +44,24 @@ def test_norm_addr_folds_diacritics_case_and_punctuation():
 def test_norm_addr_of_nothing_is_empty():
     assert _norm_addr(None) == ""
     assert _norm_addr("") == ""
+
+
+@pytest.mark.parametrize(
+    ("incident", "obj", "expected"),
+    [
+        # Divera's shape: Ort, street + number, Objekt (12.11.2026 – the Mühlemattcenter was «Nächstes Objekt»)
+        ("Oberwil (BL), Mühlemattstrasse 22, Mühlematt-Zentrum", "Mühlemattstrasse 22", True),
+        ("Bahnhofstrasse 12, 4104 Oberwil", "Bahnhofstrasse 12", True),
+        ("Bahnhofstrasse 12", "Bahnhofstrasse 12b", True),
+        ("Bahnhofstrasse 12b", "Bahnhofstrasse 12", True),
+        ("Bienenstrasse 3", "Bienenstrasse 30", False),
+        ("Oberwil (BL), Mühlemattstrasse 24", "Mühlemattstrasse 22", False),
+        ("", "Mühlemattstrasse 22", False),
+        ("Mühlemattstrasse 22", None, False),
+    ],
+)
+def test_address_matches_a_comma_part_of_the_incident(incident, obj, expected):
+    assert address_matches(incident, obj) is expected
 
 
 # --- list_objects ---------------------------------------------------------------------------
@@ -339,10 +357,10 @@ async def test_objects_near_incident_404_for_unknown_incident(client, editor):
 async def test_address_match_wins_over_a_closer_object(client, editor, db_session):
     """The doctrine reason for the whole address-match branch: geocoding is imprecise and many
     objects sit within 400 m of each other, so the nearest-by-coordinates object can be a
-    neighbour. The address-matching one has to come first regardless of distance."""
+    neighbour. The address-matching one comes first even outside the 400 m radius."""
     inc = _incident(address="Bahnhofstrasse 12", lat=47.5, lng=7.5)
     same_spot_wrong_address = _obj(name="Nachbar", address="Nebenstrasse 3", lat=47.5, lng=7.5)
-    far_but_matching = _obj(name="Bahnhofstrasse Fern", address="Bahnhofstrasse 12", lat=47.9, lng=7.9)
+    far_but_matching = _obj(name="Bahnhofstrasse Fern", address="Bahnhofstrasse 12", lat=47.505, lng=7.5)  # ~556 m
     db_session.add_all([inc, same_spot_wrong_address, far_but_matching])
     await db_session.commit()
     await _login(client, editor)
@@ -353,11 +371,25 @@ async def test_address_match_wins_over_a_closer_object(client, editor, db_sessio
     assert names == ["Bahnhofstrasse Fern", "Nachbar"]
 
 
+async def test_a_namesake_street_in_another_village_is_no_match(client, editor, db_session):
+    """Street + number alone also fits «Hauptstrasse 10» in the next village (CodeRabbit on #589):
+    past `ADDRESS_MATCH_MAX_M` the address no longer counts, so it is not surfaced at all."""
+    inc = _incident(address="Oberwil (BL), Hauptstrasse 10", lat=47.5, lng=7.5)
+    namesake = _obj(name="Therwil", address="Hauptstrasse 10, 4106 Therwil", lat=47.52, lng=7.5)  # ~2.2 km
+    db_session.add_all([inc, namesake])
+    await db_session.commit()
+    await _login(client, editor)
+
+    r = await client.get(f"/api/incidents/{inc.id}/objects")
+    assert r.status_code == 200, r.text
+    assert r.json() == []
+
+
 async def test_address_match_tolerates_a_house_number_suffix(client, editor, db_session):
-    """`oa.startswith(ia) or ia.startswith(oa)` — an incident address is a bare street+number
-    from dispatch, and an Einsatzobjekt's address may carry a letter suffix (12 vs. 12b)."""
+    """An incident address is a bare street+number from dispatch, and an Einsatzobjekt's address
+    may carry a letter suffix (12 vs. 12b) – `address_matches`."""
     inc = _incident(address="Bahnhofstrasse 12", lat=47.5, lng=7.5)
-    obj = _obj(name="Hinterhaus", address="Bahnhofstrasse 12b", lat=47.9, lng=7.9)
+    obj = _obj(name="Hinterhaus", address="Bahnhofstrasse 12b", lat=47.505, lng=7.5)
     db_session.add_all([inc, obj])
     await db_session.commit()
     await _login(client, editor)

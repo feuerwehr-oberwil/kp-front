@@ -392,9 +392,10 @@ def pick_building(features: list[dict[str, Any]], lat: float, lng: float, addres
     identify answers in no particular order (on 08.10.2026 «Hauptstrasse 10» came third of four
     for a point on its own door). So: among the entries within MAX_DISTANCE_M, one whose street +
     number equals the incident's wins; otherwise the nearest. An entry without a usable point is
-    never picked — «somewhere» is not «here».
+    never picked — «somewhere» is not «here». Any comma part of the address may be the street:
+    Divera sends «Oberwil (BL), Mühlemattstrasse 22, Mühlematt-Zentrum» (12.11.2026).
     """
-    street = _street_of(address)
+    parts = {_norm_addr(p) for p in (address or "").split(",")} - {""}
     best: tuple[float, dict] | None = None
     for f in features:
         attrs = f.get("properties") or f.get("attributes") or {}
@@ -406,7 +407,7 @@ def pick_building(features: list[dict[str, Any]], lat: float, lng: float, addres
         dist = haversine_m(lat, lng, float(coords[1]), float(coords[0]))
         if dist > MAX_DISTANCE_M:
             continue
-        if street and _norm_addr(attrs.get("strname_deinr")) == street:
+        if _norm_addr(attrs.get("strname_deinr")) in parts:
             return attrs
         if best is None or dist < best[0]:
             best = (dist, attrs)

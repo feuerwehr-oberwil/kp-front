@@ -247,6 +247,8 @@ def test_pick_building_prefers_the_address_then_the_nearest():
     neighbour = _feature({**GWR_ATTRS, "egid": "1", "strname_deinr": "Wehrlingasse 4"}, lng, lat)
     ours = _feature(GWR_ATTRS, lng + 0.0002, lat)  # ~15 m off, but it IS the address
     assert bf.pick_building([neighbour, ours], lat, lng, "Hauptstrasse 10, 4104 Oberwil")["egid"] == "408319"
+    # Divera puts the Ort first: the street is any comma part, not the first one
+    assert bf.pick_building([neighbour, ours], lat, lng, "Oberwil (BL), Hauptstrasse 10, Zentrum")["egid"] == "408319"
     # no address to go by: the nearest one
     assert bf.pick_building([ours, neighbour], lat, lng, None)["egid"] == "1"
     # nothing within reach: no building rather than somebody else's

@@ -465,6 +465,11 @@ incidents_objects_router = APIRouter(prefix="/incidents", tags=["objects"])
 # this, a single seeded object surfaces on every incident regardless of distance.
 OBJECT_SURFACE_RADIUS_M = 400.0
 
+# …and an address match only counts this close. Street + number alone also fits «Hauptstrasse 10»
+# in the next village (the catalogue holds objects of the neighbouring municipalities); a geocoded
+# alarm point is off by a few hundred metres at most, a namesake street kilometres.
+ADDRESS_MATCH_MAX_M = 1000.0
+
 
 def _norm_addr(s: str | None) -> str:
     """Normalise an address for matching: fold diacritics (ü→u, NFC vs NFD from macOS
@@ -473,6 +478,39 @@ def _norm_addr(s: str | None) -> str:
     folded = unicodedata.normalize("NFKD", (s or "").lower())
     folded = "".join(c for c in folded if not unicodedata.combining(c))
     return re.sub(r"[^a-z0-9]", "", folded)
+
+
+def address_matches(incident_address: str | None, object_address: str | None) -> bool:
+    """Whether an incident's address names this Einsatzobjekt's street + number.
+
+    Dispatch sends more than the street: Divera's «Oberwil (BL), Mühlemattstrasse 22,
+    Mühlematt-Zentrum» never equalled the object's «Mühlemattstrasse 22» as one string, so the
+    object's own plans came up as «Nächstes Objekt, nicht die Einsatzadresse» (12.11.2026). So
+    each comma part of the incident is compared with the object's street (its first part); a
+    house-number letter on either side still matches (12 ↔ 12b), another digit never (3 ↔ 30).
+    """
+    street = _norm_addr((object_address or "").split(",")[0])
+    if not street:
+        return False
+
+    def same(part: str) -> bool:
+        short, long = sorted((part, street), key=len)
+        return long == short or (len(long) == len(short) + 1 and long.startswith(short) and long[-1].isalpha())
+
+    return any(same(_norm_addr(part)) for part in (incident_address or "").split(",") if _norm_addr(part))
+
+
+def object_match(inc: Incident, o: ObjectSite) -> tuple[float | None, bool]:
+    """``(distance_m, address_match)`` of one object for one incident – the pair the plan rail and
+    the Gebäude card both rank by. A matching address further than ``ADDRESS_MATCH_MAX_M`` is a
+    namesake street elsewhere, not this object; without coordinates the address decides alone."""
+    dist = (
+        haversine_m(float(inc.lat), float(inc.lng), float(o.lat), float(o.lng))
+        if inc.lat is not None and inc.lng is not None and o.lat is not None and o.lng is not None
+        else None
+    )
+    matched = address_matches(inc.address, o.address) and (dist is None or dist <= ADDRESS_MATCH_MAX_M)
+    return dist, matched
 
 
 async def ranked_objects_near(db: AsyncSession, inc: Incident) -> list[tuple[ObjectSite, float | None, bool]]:
@@ -490,16 +528,9 @@ async def ranked_objects_near(db: AsyncSession, inc: Incident) -> list[tuple[Obj
     # is imprecise and many objects sit within 400 m of each other, so the nearest-by-coords
     # object can be a neighbour. When the incident's address matches an Einsatzobjekt's
     # address, surface THAT object first regardless of distance.
-    ia = _norm_addr(inc.address)
     candidates: list[tuple[ObjectSite, float | None, bool]] = []
     for o in objs:
-        oa = _norm_addr(o.address)
-        matched = bool(ia) and bool(oa) and (ia == oa or oa.startswith(ia) or ia.startswith(oa))
-        dist = (
-            haversine_m(float(inc.lat), float(inc.lng), float(o.lat), float(o.lng))
-            if inc.lat is not None and inc.lng is not None and o.lat is not None and o.lng is not None
-            else None
-        )
+        dist, matched = object_match(inc, o)
         if matched or (dist is not None and dist <= OBJECT_SURFACE_RADIUS_M):
             candidates.append((o, dist, matched))
 
