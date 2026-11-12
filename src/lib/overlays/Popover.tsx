@@ -54,6 +54,12 @@ export interface PopoverProps {
   onOpenChange?: (open: boolean, change: PopoverChange) => void
 }
 
+/** `sideOffset` for a popover whose trigger sits INSIDE a floating bar (the top bar, the view bar,
+ *  the phone's bottom bars): 8px off the BAR's edge, which stands --bar-pad + its 1px border (7px)
+ *  beyond the control. 8px off the control alone left the popup 1px off the bar (owner,
+ *  20.10.2026: the weather popover; the Einsatzuhr menu and the Gebäude dial did the same). */
+export const BAR_POP_OFFSET = 8 + 7
+
 export function Popover({ trigger, anchor, children, ariaLabel, popupClassName, side = 'bottom', align = 'end', sideOffset = 8, alignOffset, collisionPadding = 10, collisionBoundary, zIndex, open, onOpenChange }: PopoverProps) {
   // uncontrolled callers give us no `open` to read, so the Root reports it — a popover open over
   // a Sheet/Overlay keeps that sheet's backdrop/Esc dismissal off (popoverGuard)

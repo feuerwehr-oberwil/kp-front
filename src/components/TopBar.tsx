@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
-import { Popover, PopoverClose } from '../lib/overlays'
+import { BAR_POP_OFFSET, Popover, PopoverClose } from '../lib/overlays'
 import { fmtMMSS } from '../lib/format'
 import { formatTime, fillTemplate } from '../lib/format'
 import { EntryGlyph, Icon } from '../lib/icons'
@@ -205,7 +205,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
           and the Einsatzuhr below can be cycled to the wall clock when needed. */}
       {/* Einsatzuhr: the long-incident awareness anchor — tap opens a labelled mode menu */}
       {startedAt && !isPhone && (
-        <EinsatzuhrMenu uhr={uhr} startedAt={startedAt} trigger={
+        <EinsatzuhrMenu uhr={uhr} startedAt={startedAt} sideOffset={BAR_POP_OFFSET} trigger={
           <button
             type="button"
             className="stat tb-einsatzuhr"
@@ -357,10 +357,8 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
 export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, floating = false }: { weather: WeatherData; onOpenMeteo?: () => void; bearing?: number
   /** the phone's .phone-wx: the chip IS the visible control (no cluster around it since hill
    *  climb r6), so the popover hangs 8px under the chip and keeps the chip's own 8px from the
-   *  screen edge (`--float-gap`), not Popover's default 10. In the bar (default) the chip sits
-   *  INSIDE the bar by its --bar-pad + 1px border, and the popover hangs 8px under the BAR's
-   *  edge, as the app menu (.ip-menu) does — not 8px under the chip, which left it 1px below the
-   *  bar (owner, 20.10.2026). */
+   *  screen edge (`--float-gap`), not Popover's default 10. In the bar (default) it hangs
+   *  BAR_POP_OFFSET under the chip, 8px under the bar's edge. */
   floating?: boolean }) {
   const cond = condition(weather.weather_code)
   // turns with the finger while the Karte is being rotated, not only once it is let go
@@ -373,8 +371,7 @@ export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, floating = fal
         ariaLabel={appConfig.copy.weather.details}
         side="bottom"
         align="end"
-        // 8px under the visible edge; in the bar that edge is 7px (--bar-pad + 1px) below the chip
-        sideOffset={floating ? 8 : 8 + 7}
+        sideOffset={floating ? 8 : BAR_POP_OFFSET}
         collisionPadding={floating ? 8 : undefined}
         zIndex={201}
         trigger={
