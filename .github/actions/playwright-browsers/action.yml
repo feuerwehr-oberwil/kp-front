@@ -32,7 +32,9 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/ms-playwright
-        key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-${{ inputs.browsers }}
+        # ImageOS (ubuntu24, ubuntu26 …) is part of the key: a WebKit built for one Ubuntu release
+        # does not start on the next (12.11.2026: libicudata.so.74 missing on 26.04)
+        key: playwright-${{ runner.os }}-${{ env.ImageOS }}-${{ steps.pw.outputs.version }}-${{ inputs.browsers }}
 
     - name: Download the browsers (cache miss)
       if: steps.cache.outputs.cache-hit != 'true'
