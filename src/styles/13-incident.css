@@ -117,7 +117,9 @@
    left stripe and the green breath in the fill said «läuft» a second and third time, and with the
    green ages under it turned green into decoration, dulling the one green that is a state. The
    fill is a soft ink tile — over the white day surface `--fill-soft` alone was invisible. */
-.ip-card { display: flex; flex-direction: column; gap: 4px; margin: 2px 2px 8px;
+/* No margin of its own on the sides or top: it stands at the menu's ONE --bar-pad like the rows
+   under it, so its corner runs parallel to the shell's --r-bar (it stood 2px further in). */
+.ip-card { display: flex; flex-direction: column; gap: 4px; margin: 0 0 var(--sp-2);
   padding: 12px; border-radius: var(--r-ctl);
   background: color-mix(in srgb, var(--ink) 4%, var(--fill-soft));
   border: 1px solid var(--glass-edge); }
