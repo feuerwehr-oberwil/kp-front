@@ -1287,21 +1287,31 @@
   .tb-share { position: absolute; top: calc(100% + 1px + var(--float-gap));
     left: -1px; z-index: var(--z-map-util-raised); }
   /* …and the GPS caveat keeps clear of the Standort slot, reserved or not: a chip that jumps
-     sideways when somebody starts sharing is worse than one that sits 52px in. */
+     sideways when somebody starts sharing is worse than one that sits one Standort chip in. */
   /* …in the floating family's material (S6, 20.10.2026): it wore an amber outline and a shadow
      of its own, and a STATE is a glyph colour, never an outline (docs/ui-conventions · ONE
-     floating family) — the locate glyph carries the amber, the words are ink, --tap tall */
+     floating family) — the locate glyph carries the amber, the words are ink.
+     The row under the bar is the floating family's (owner pick 13.11.2026, sweep R2-C): --float-h
+     tall, 14px before the glyph and after the words, 16px glyphs – the wind, Standort and GPS chips
+     were --tap (44), the one row of the family 8px short of the rest. */
   .tb-gps { position: absolute; top: calc(100% + 1px + var(--float-gap));
-    left: calc(var(--tap) + var(--float-gap) - 1px); max-width: calc(100vw - 142px); margin-right: 0;
-    min-height: var(--tap); padding: 0 var(--float-pad-x) 0 var(--sp-3);
+    left: calc(var(--float-h) + var(--float-gap) - 1px); margin-right: 0;
+    /* …and it ends one --float-gap before the wind chip: the room left of that chip's
+       `--wx-room` (two row heights + a gap = 112, the chip measures 100 at «↘ 11 km/h»). Its
+       words wrap onto a second line inside the 52px rather than run under the wind (a flat
+       `100vw - 142px` left them 0px apart at 390 and 30px over each other at 360). */
+    --wx-room: calc(2 * var(--float-h) + var(--float-gap));
+    max-width: calc(100vw - var(--float-h) - 4 * var(--float-gap) - var(--wx-room));
+    min-height: var(--float-h); padding: 0 var(--float-pad-x); line-height: var(--lh-1); text-align: left;
     background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); }
-  .tb-gps .i { color: var(--amber-strong); }
+  .tb-gps .i { color: var(--amber-strong); width: 16px; height: 16px; }
+  /* the Standort stop: a --float-h square in the same row (the FAB's and the ReadingsChip's size) */
+  .tb-share > * { width: var(--float-h); height: var(--float-h); }
   /* --tap, not 40 (UX sweep S9, 20.10.2026): at (0,2,0) this beat 20-touch-floors' coarse
      `.tb-weather` floor, so the Karte's one wind target on a phone stayed 4px short */
-  /* …and a little narrower than the family's 14px a side (owner note on the r11 checkpoint, 05.11.2026):
-     8px before the arrow, whose own box already carries air around the stroke, 12px after «km/h»;
-     the height stays the --tap target */
-  .phone-wx .tb-weather { min-height: var(--tap); padding: 0 var(--sp-3) 0 var(--sp-2); border-radius: inherit; }
+  /* …the family's row: --float-h tall with its 14px a side (owner pick 13.11.2026, sweep R2-C –
+     it was --tap tall, 8px before the arrow and 12px after «km/h», owner note r11, 05.11.2026) */
+  .phone-wx .tb-weather { min-height: var(--float-h); padding: 0 var(--float-pad-x); border-radius: inherit; }
 
   /* Einstellungen rows: the 3-segment controls (Farbschema, Beschriftungen) are wider than
      a phone row leaves next to the label — let the control wrap onto its own right-aligned
