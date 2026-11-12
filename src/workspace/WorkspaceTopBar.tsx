@@ -105,8 +105,6 @@ export interface WorkspaceTopBarProps {
   installGuideOpen: boolean
   offlineReadyOpen: boolean
   shareLink: ShareLinkKind | null
-  /** may correct the Rapport of a CLOSED Einsatz (workspace/access) – the closed chip's sentence */
-  canEditRapport: boolean
   /** bumped when the Einsatz-Menü has to go although no surface changed — «Abschliessen» asked
    *  from «Alle Einsätze» (IncidentWorkspace · abschlussRef) */
   menuCloseKey: number
@@ -124,7 +122,7 @@ export function WorkspaceTopBar({
   onOpenDivera, onOpenDatenquellen, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
   setHelpOpen, setInstallGuideOpen, setOfflineReadyOpen, syncNow, media, logout, settingsOpen,
   helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
-  canEditRapport, menuCloseKey,
+  menuCloseKey,
 }: WorkspaceTopBarProps) {
   return (
     <>
@@ -271,7 +269,6 @@ export function WorkspaceTopBar({
             // card's «Abgeschlossen 01:18» pill folding out its two exits
             onBackFromArchive={onBackFromArchive}
             onReactivate={onReactivateActive}
-            canCorrectRapport={canEditRapport}
             navKey={`${mode}|${journalOpen ? 'journal' : ''}|${menuCloseKey}`}
             sheetOpen={settingsOpen || helpOpen || installGuideOpen || offlineReadyOpen || !!shareLink}
           />

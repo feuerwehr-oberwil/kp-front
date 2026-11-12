@@ -2084,6 +2084,12 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    rather than squeezing it to two words per line */
 .rp-band-txt { flex: 1 1 260px; min-width: 0; font-size: var(--fs-2); color: var(--ink); }
 .rp-band-txt b { font-weight: var(--fw-heavy); }
+/* the closed Rapport's strip (ReportPreflight · ClosedStrip): one sentence and «Wieder öffnen» –
+   kept on ONE row on a phone too, the sentence wrapping beside the button instead of the button
+   dropping under it (a second row made it the tallest thing above the form) */
+.rp-band-closed { flex-wrap: nowrap; }
+.rp-band-closed .rp-band-txt { flex-basis: 0; }
+.rp-band-closed > button { flex: none; }
 /* (its buttons were held at 38px, «shorter than the head's controls, a suggestion»; since 08.10.2026
    they keep THE button's 44px floor like every other — the band's tint already says «suggestion») */
 /* the canEdit gate around the amber band's Prüfen/Abbrechen: the shared .report-fieldset is a

@@ -27,7 +27,7 @@ function fmtClock(ms: number): string {
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
   active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
-  onBackFromArchive, onReactivate, canCorrectRapport = false,
+  onBackFromArchive, onReactivate,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -94,9 +94,6 @@ export function IncidentSwitcher({
   onBackFromArchive?: () => void
   /** editors only: re-open the closed Einsatz (its own confirm lives upstream) */
   onReactivate?: () => Promise<ReactivateResult>
-  /** this session may still correct the closed Einsatz's Rapport (`canEditRapport`: the el, a
-   *  Führungsansicht) – the closed pill's sentence then says that much and no more */
-  canCorrectRapport?: boolean
 }) {
   const cp = appConfig.copy.incidentSwitcher
   // «Jetzt synchronisieren» reports what it did on the button itself: Shell trail runs for the
@@ -399,7 +396,7 @@ export function IncidentSwitcher({
               {closed && closedOpen && (
                 <div className="ip-card-closed-fold">
                   <p className="ip-card-closed-say">
-                    {onReactivate ? C.hint : canCorrectRapport ? C.hintRapport : C.hintViewOnly}
+                    {onReactivate ? C.hint : C.hintViewOnly}
                     {/* offline: «Wieder öffnen» stays (useOnline is a hint, never a gate) but says it needs the server */}
                     {onReactivate && !online && <small>{C.reactivateOffline}</small>}
                   </p>

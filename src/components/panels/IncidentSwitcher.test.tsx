@@ -165,14 +165,6 @@ describe('IncidentSwitcher · closed Einsatz', () => {
     expect(reopen).toHaveBeenCalledTimes(1)
   })
 
-  it('tells the el (corrects the Rapport, reopens nothing) only the Rapport half', () => {
-    renderActive({ active: closed, onBackFromArchive: () => {}, canCorrectRapport: true })
-    fireEvent.click(pill())
-    expect(screen.getByText(C.hintRapport)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: C.reactivate })).toBeNull()
-    expect(screen.getByRole('button', { name: C.back })).toBeTruthy()
-  })
-
   it('is the sentence alone in a link session', () => {
     renderActive({ active: closed, user: { display_name: 'Link', color: null, role: 'viewer' } })
     fireEvent.click(pill())
