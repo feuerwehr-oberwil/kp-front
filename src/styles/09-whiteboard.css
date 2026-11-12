@@ -1110,10 +1110,12 @@ span.wb-ghost-label { cursor: default; }
    overlapping symbol or Trupp own the contested pixel. */
 .line-end-tag-wrap { pointer-events: auto; touch-action: none; }
 
-/* Gebäude rotation popover (30.08.) — what the north dial (PlanCompass), its one door, opens */
+/* Gebäude rotation popover (30.08.) — what the north dial (PlanCompass), its one door, opens.
+   THE popover shell (ui-conventions · Overlays): --r-bar over the even --bar-pad, its label at a
+   menu row's 12px inset beyond it, as .tb-weather-pop – it was --r-ctl over 12/16. */
 .wb-orient-popup { background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--e4); }
-.wb-orient-pop { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); min-width: 250px; }
+  border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
+.wb-orient-pop { display: flex; flex-direction: column; gap: var(--sp-3); padding: calc(var(--bar-pad) + var(--sp-3)); min-width: 250px; }
 .wb-orient-row { display: flex; align-items: center; gap: var(--sp-2); }
 .wb-orient-lbl { font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--ink-dim); flex: none; }
 .wb-orient-val { font-family: var(--mono); font-size: var(--fs-2); font-weight: var(--fw-bold); min-width: 42px; text-align: right; }
