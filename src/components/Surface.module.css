@@ -195,7 +195,7 @@
      only this phone shell sets them. Tablet and desktop keep the card and the outlined items by
      construction (the variables are unset there). */
   :where(.shell) {
-    inset: calc(78px + env(safe-area-inset-top) + var(--ml-push, 0px)) env(safe-area-inset-right)
+    inset: calc(var(--under-bar) + var(--ml-push, 0px)) env(safe-area-inset-right)
       max(calc(var(--rail-h) + 14px + var(--rp-tabs-safe, 0px) + var(--float-clear, 0px) + env(safe-area-inset-bottom) - var(--vv-pan, 0px)),
         calc(var(--vv-foot, 0px) + var(--float-gap)))
       env(safe-area-inset-left);

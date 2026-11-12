@@ -321,7 +321,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     «they just hide things»; `<Overlays toasts={false} />`): undo is the header's ↶ ↷, the sync
     state its mark, and its Meldeleiste keeps only the rows that block work (`meldungen ·
     linkShowsMeldung`) (20.10.2026, owner: «all notifications appear at the same place: at the top
-    cleanly below the main navbar»): where the Meldeleiste starts (92px; 72px on a phone), one 8px
+    cleanly below the main navbar»): where the Meldeleiste starts (92px; on a phone `--msg-top`, 4px under the bar), one 8px
     channel under the strip while one stands (`--ml-reserve` from its measured `--ml-h`), at the
     bars' own width on a phone (8px in from each side). A mode's instruction and a tool's tip keep
     the phone's foot lane (`--msg-lane-bottom`, 15-mobile), one `--float-gap` above THE floating
