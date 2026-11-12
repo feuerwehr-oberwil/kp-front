@@ -273,7 +273,7 @@ async def reference_objects(db: AsyncSession, *, with_visits: bool) -> Reference
             )
 
     merged = await aliases_by_object(db)
-    default_locality, _bbox = await geocode._resolve_bias()
+    default_locality, _bbox, _bbox_wgs = await geocode._resolve_bias()
     out: list[ReferenceObjectOut] = []
     for o in objects:
         plans = plans_by_obj.get(o.id, [])

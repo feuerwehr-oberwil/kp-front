@@ -749,16 +749,21 @@ export const adminCopy = {
       centerLv95OutOfRange: 'Zentrum noch nicht gespeichert – LV95 liegt in der Schweiz bei E ≈ 2 480 000–2 840 000 und N ≈ 1 070 000–1 300 000. Sechsstellige Werte (600 000 / 200 000) sind das alte LV03: dort je 2 000 000 bzw. 1 000 000 dazuzählen.',
       // Adresssuche: ohne Heimatort sucht «Hauptstrasse 3» in der ganzen Schweiz.
       groupGeocoder: 'Adresssuche',
-      geocoderTip: 'Die Adresssuche im Einsatz-Eröffnen fragt swisstopo ab. Ohne diese beiden Angaben sucht sie landesweit – «Hauptstrasse 3» gibt es in jedem zweiten Dorf.',
+      geocoderTip: 'Die Adresssuche im Einsatz-Eröffnen geht an den konfigurierten Geocoder (Standard: swisstopo; ausserhalb CH ein Nominatim-kompatibler GEOCODER_URL). Ohne Heimatort und Suchbereich sucht sie unvoreingenommen – «Hauptstrasse 3» gibt es in jedem zweiten Dorf.',
       locality: 'Heimatort',
       localityTip: 'Wird angehängt, wenn jemand nur eine Strasse eintippt («Hauptstrasse 3» → «Hauptstrasse 3, 4104 Musterdorf BL»). Sobald selbst ein Ort oder eine PLZ getippt wird, bleibt die Eingabe unangetastet.',
       localityPlaceholder: 'z. B. 4104 Musterdorf BL',
       bbox: 'Suchbereich (LV95)',
-      bboxTip: 'Rechteck in Landeskoordinaten, innerhalb dessen Treffer zuerst kommen: minE,minN,maxE,maxN. Gefunden wird auch ausserhalb – der Bereich entscheidet nur die Reihenfolge.',
+      bboxTip: 'Rechteck in Landeskoordinaten für swisstopo: minE,minN,maxE,maxN. Gefunden wird auch ausserhalb – der Bereich entscheidet nur die Reihenfolge.',
       bboxPlaceholder: 'minE,minN,maxE,maxN',
       bboxInvalid: 'Suchbereich noch nicht gespeichert – erwartet werden vier LV95-Zahlen in der Reihenfolge minE,minN,maxE,maxN (min kleiner als max).',
       bboxFromCenter: 'Aus Kartenzentrum ableiten (±5 km)',
       bboxFromCenterHint: 'Braucht ein gespeichertes Kartenzentrum weiter oben.',
+      bboxWgs: 'Suchbereich (WGS84)',
+      bboxWgsTip: 'Für Nominatim-kompatible Geocoder (z. B. Republik Moldau): minLng,minLat,maxLng,maxLat. Leer lassen, wenn die Suche über swisstopo läuft.',
+      bboxWgsPlaceholder: 'minLng,minLat,maxLng,maxLat',
+      bboxWgsInvalid: 'Suchbereich noch nicht gespeichert – vier WGS84-Zahlen minLng,minLat,maxLng,maxLat (min kleiner als max).',
+      bboxWgsFromCenter: 'WGS84 aus Kartenzentrum ableiten (±5 km)',
       // Das Angebot in dem einen Moment, in dem alles Nötige bekannt ist: die Kartenmitte steht,
       // der Suchbereich nicht – und der abgeleitete Wert steht darunter, bevor er geschrieben
       // wird. Der Knopf darunter bleibt; das Angebot ist nur die Abkürzung dorthin.

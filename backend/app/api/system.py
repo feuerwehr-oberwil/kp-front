@@ -322,7 +322,8 @@ async def _setup(db: AsyncSession, counts: dict | None) -> dict:
         "personnel": personnel_active > 0,
         "fleet": len((cfg.get("fleet") or {}).get("vehicles") or []) > 0,
         "geocoder": bool((geocoder.get("defaultLocality") or "").strip())
-        or bool((geocoder.get("bboxLv95") or "").strip()),
+        or bool((geocoder.get("bboxLv95") or "").strip())
+        or bool((geocoder.get("bboxWgs84") or "").strip()),
         "sharepoint": sharepoint_configured,
         "monitoring": bool(credential("healthcheck_ping_url").strip()),
     }

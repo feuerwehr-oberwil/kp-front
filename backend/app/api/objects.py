@@ -203,7 +203,7 @@ async def position_search(
     """Register addresses for «Lage korrigieren» — the region-biased search, each hit with its
     town and whether that is the home town. ⚠️ Its own route rather than /api/geocode/search:
     that one wants a signed-in account, and /admin runs on the admin session."""
-    default_locality, _bbox = await geocode._resolve_bias()
+    default_locality, _bbox, _bbox_wgs = await geocode._resolve_bias()
     out: list[PlaceHitOut] = []
     for h in await geocode.search_area(q, limit=limit):
         street, plz, town = geocode.split_label(h.label)
@@ -233,7 +233,7 @@ async def set_position(
     if "address" in body.model_fields_set and (body.address or "").strip():
         o.address = body.address.strip()  # type: ignore[union-attr]
     if "locality" in body.model_fields_set:
-        default_locality, _bbox = await geocode._resolve_bias()
+        default_locality, _bbox, _bbox_wgs = await geocode._resolve_bias()
         town = (body.locality or "").strip() or None
         o.locality = None if town and geocode.is_home(town, None, default_locality) else town
     o.position_source = "station"

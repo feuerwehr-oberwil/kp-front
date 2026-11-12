@@ -1,20 +1,17 @@
-"""swisstopo geocoder (api3.geo.admin.ch) — address → WGS84 lat/lng.
+"""Address geocoder — address → WGS84 lat/lng.
 
-Biased to the brigade's region so a bare street name resolves locally instead of to a
-same-named street elsewhere in CH (e.g. a street name → the home region, not a far canton):
-- append a default locality when the address carries no 4-digit postal code, and
-- sort results by a regional bbox (sortbbox) so local hits rank first.
+Default upstream is swisstopo SearchServer (api3.geo.admin.ch). When ``GEOCODER_URL`` points
+at another https host, the Nominatim-compatible path is used (``/search``, ``/reverse``):
+same public ``GeoHit`` shape, no LV95 / GWR / street-dictionary.
 
-The bias (locality + bbox) is read from the deployment config (``map.geocoder`` in the
-admin-edited ``DeploymentConfig`` singleton) first, falling back to the ``geocoder_*``
-settings when the config is absent/empty. With no config and empty settings the search is
-unbiased (national) — a fresh/public deployment behaves neutrally.
+Regional bias (config ``map.geocoder``, else ``geocoder_*`` settings):
+- append a default locality when the address carries no postal hint, and
+- prefer hits inside a bbox (LV95 ``bboxLv95`` for swisstopo; WGS84 ``bboxWgs84`` for Nominatim).
 
-`geocode()` returns the single best match (used on manual create and Divera take when
-coords are missing); `locate()` is the strict twin for station OBJECTS (exact street + number in
-the brigade's area, never a fuzzy neighbour — see its block below); `search()` returns a ranked list for the intake autocomplete. Both
-return empty/None on no match or upstream failure (caller falls back to map-click). A miss is
-retried once with a typo-corrected street name (see street_dictionary) when a bbox is set.
+`geocode()` returns the single best match; `locate()` is the strict twin for station objects;
+`search()` returns a ranked list for intake autocomplete. Empty/None on miss or upstream
+failure (caller falls back to map-click). On swisstopo, a miss is retried once with a
+typo-corrected street name when an LV95 bbox is set.
 """
 
 import logging
@@ -52,16 +49,31 @@ class GeoHit:
 # re-query the DeploymentConfig singleton. Short TTL → an admin config edit takes effect
 # within a minute without a restart.
 _BIAS_TTL_SECONDS = 60.0
-_bias_cache: tuple[float, tuple[str, str]] | None = None
+_bias_cache: tuple[float, tuple[str, str, str]] | None = None
 
 
-async def _resolve_bias() -> tuple[str, str]:
-    """(default_locality, bbox_lv95), config-first then settings.
+def _is_swisstopo() -> bool:
+    """True when GEOCODER_URL is the Swiss SearchServer; otherwise Nominatim-shaped."""
+    host = (_GEOCODER_SPLIT.hostname or "").lower()
+    path = (_GEOCODER_SPLIT.path or "").lower()
+    return "geo.admin.ch" in host or "searchserver" in path
 
-    Reads ``map.geocoder.defaultLocality`` / ``map.geocoder.bboxLv95`` from the
+
+def _nominatim_root() -> str:
+    """Strip a trailing /search or /reverse so both endpoints share one configured root."""
+    url = settings.geocoder_url.rstrip("/")
+    for suffix in ("/search", "/reverse"):
+        if url.lower().endswith(suffix):
+            return url[: -len(suffix)]
+    return url
+
+
+async def _resolve_bias() -> tuple[str, str, str]:
+    """(default_locality, bbox_lv95, bbox_wgs84), config-first then settings.
+
+    Reads ``map.geocoder.defaultLocality`` / ``bboxLv95`` / ``bboxWgs84`` from the
     ``DeploymentConfig`` singleton (id=1) when present and non-empty, else falls back to
-    ``settings.geocoder_default_locality`` / ``settings.geocoder_bbox_lv95``. Never raises:
-    any DB/lookup failure degrades to settings so the geocoder never 500s.
+    ``settings.geocoder_*``. Never raises: any DB/lookup failure degrades to settings.
     """
     global _bias_cache
     now = time.monotonic()
@@ -70,6 +82,7 @@ async def _resolve_bias() -> tuple[str, str]:
 
     locality = settings.geocoder_default_locality
     bbox = settings.geocoder_bbox_lv95
+    bbox_wgs = ""
     try:
         # Imported lazily to avoid a circular import at module load and to keep geocode
         # importable in contexts without a configured DB.
@@ -82,15 +95,18 @@ async def _resolve_bias() -> tuple[str, str]:
         geo = ((cfg.get("map") or {}).get("geocoder") or {}) if isinstance(cfg, dict) else {}
         cfg_locality = str(geo.get("defaultLocality") or "").strip()
         cfg_bbox = str(geo.get("bboxLv95") or "").strip()
+        cfg_bbox_wgs = str(geo.get("bboxWgs84") or "").strip()
         if cfg_locality:
             locality = cfg_locality
         if cfg_bbox:
             bbox = cfg_bbox
+        if cfg_bbox_wgs:
+            bbox_wgs = cfg_bbox_wgs
     except Exception as e:  # noqa: BLE001 — never let config lookup break geocoding
         logger.warning("Geocoder bias config lookup failed; using settings defaults: %s", e)
 
-    _bias_cache = (now, (locality, bbox))
-    return locality, bbox
+    _bias_cache = (now, (locality, bbox, bbox_wgs))
+    return locality, bbox, bbox_wgs
 
 
 def _bias(text: str, default_locality: str) -> str:
@@ -167,6 +183,70 @@ def _parse(results: list[dict]) -> list[GeoHit]:
     return hits
 
 
+def _parse_nominatim(results: list[dict]) -> list[GeoHit]:
+    """Nominatim JSON array → GeoHit. Coordinates stay WGS84 [lng, lat] on the wire as lat/lng."""
+    hits: list[GeoHit] = []
+    for r in results:
+        try:
+            lat, lon = float(r["lat"]), float(r["lon"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        label = str(r.get("display_name") or "").strip()
+        if not label:
+            continue
+        hits.append(GeoHit(label=label, lat=lat, lng=lon))
+    return hits
+
+
+def _parse_bbox_wgs84(bbox: str) -> tuple[float, float, float, float] | None:
+    """``minLng,minLat,maxLng,maxLat`` or None when malformed."""
+    try:
+        parts = [float(v) for v in bbox.split(",")]
+        if len(parts) != 4:
+            return None
+        min_lng, min_lat, max_lng, max_lat = parts
+        if min_lng >= max_lng or min_lat >= max_lat:
+            return None
+        return min_lng, min_lat, max_lng, max_lat
+    except ValueError:
+        return None
+
+
+async def _nominatim_upstream(text: str, bbox_wgs84: str, limit: int) -> list[dict]:
+    """Nominatim /search: region (viewbox+bounded) first, then fill without the hard bound."""
+    root = _nominatim_root()
+    base: dict[str, str] = {
+        "q": text,
+        "format": "json",
+        "limit": str(max(1, min(limit, 20))),
+        "addressdetails": "0",
+    }
+    # Moldova stations set a WGS84 bbox; pin the country so duplicate RO/UA names stay out.
+    box = _parse_bbox_wgs84(bbox_wgs84)
+    if box:
+        min_lng, min_lat, max_lng, max_lat = box
+        # Heuristic: a box whose centre sits in Moldova → countrycodes=md
+        if 26.0 <= (min_lng + max_lng) / 2 <= 30.5 and 45.0 <= (min_lat + max_lat) / 2 <= 48.7:
+            base["countrycodes"] = "md"
+    async with httpx.AsyncClient(timeout=10.0, headers={"User-Agent": "KP-Front/geocode"}) as client:
+        params1 = dict(base)
+        if box:
+            min_lng, min_lat, max_lng, max_lat = box
+            # Nominatim viewbox is left,top,right,bottom
+            params1["viewbox"] = f"{min_lng},{max_lat},{max_lng},{min_lat}"
+            params1["bounded"] = "1"
+        r = await client.get(f"{root}/search", params=params1)
+        r.raise_for_status()
+        results = list(r.json() or [])
+        if box and len(results) < limit:
+            r = await client.get(f"{root}/search", params=base)
+            r.raise_for_status()
+            extra = list(r.json() or [])
+            seen = {(x.get("lat"), x.get("lon")) for x in results}
+            results = results + [x for x in extra if (x.get("lat"), x.get("lon")) not in seen]
+    return results
+
+
 async def _upstream(text: str, bbox: str, limit: int) -> list[dict]:
     """The two-pass SearchServer query for one search text: region first, then national fill.
 
@@ -217,29 +297,31 @@ async def _upstream(text: str, bbox: str, limit: int) -> list[dict]:
 async def search(address: str, limit: int = 6) -> list[GeoHit]:
     """Region-biased address search → ranked hits (best first). Empty on failure.
 
-    A query that finds nothing is retried once with its street token corrected against the
-    region's street dictionary («haupstrasse 12» → «Hauptstrasse 12»), when exactly one known
-    street is a single edit away – see street_dictionary. The hits carry swisstopo's label,
-    i.e. the corrected spelling. A hit that shares no word with the query is dropped
-    (`_shares_a_word`): the appended home locality must not answer for a query that named nothing.
+    On swisstopo, a miss is retried once with a typo-corrected street (street_dictionary).
+    A hit that shares no word with the query is dropped (`_shares_a_word`).
     """
     if not address or not address.strip():
         return []
     if not _GEOCODER_OK:
         logger.warning("Geocoder URL is not a valid https endpoint; skipping geocode")
         return []
-    default_locality, bbox = await _resolve_bias()
+    default_locality, bbox, bbox_wgs = await _resolve_bias()
     query = address.strip()
     try:
-        results = await _upstream(_bias(query, default_locality), bbox, limit)
-        if not results and (streets := _streets.get(bbox)) and (fixed := correct_query(query, streets)):
-            logger.info("Geocode retry with corrected street: %r → %r", query, fixed)
-            query = fixed
-            results = await _upstream(_bias(fixed, default_locality), bbox, limit)
-    except (httpx.HTTPError, ValueError) as e:
+        if _is_swisstopo():
+            results = await _upstream(_bias(query, default_locality), bbox, limit)
+            if not results and (streets := _streets.get(bbox)) and (fixed := correct_query(query, streets)):
+                logger.info("Geocode retry with corrected street: %r → %r", query, fixed)
+                query = fixed
+                results = await _upstream(_bias(fixed, default_locality), bbox, limit)
+            hits = _parse(results)
+        else:
+            results = await _nominatim_upstream(_bias(query, default_locality), bbox_wgs, limit)
+            hits = _parse_nominatim(results)
+    except (httpx.HTTPError, ValueError, TypeError) as e:
         logger.warning("Geocode failed for %r: %s", address, e)
         return []
-    return _home_first(_shares_a_word(_parse(results), query), default_locality)[:limit]
+    return _home_first(_shares_a_word(hits, query), default_locality)[:limit]
 
 
 async def geocode(address: str) -> tuple[float, float] | None:
@@ -288,6 +370,20 @@ async def reverse(lat: float, lng: float) -> GeoHit | None:
     if not _GEOCODER_OK:
         logger.warning("Geocoder URL is not a valid https endpoint; skipping reverse geocode")
         return None
+    if not _is_swisstopo():
+        try:
+            async with httpx.AsyncClient(timeout=10.0, headers={"User-Agent": "KP-Front/geocode"}) as client:
+                r = await client.get(
+                    f"{_nominatim_root()}/reverse",
+                    params={"lat": lat, "lon": lng, "format": "json", "addressdetails": "0"},
+                )
+                r.raise_for_status()
+                data = r.json() or {}
+        except (httpx.HTTPError, ValueError, TypeError) as e:
+            logger.warning("Reverse geocode failed for %s,%s: %s", lat, lng, e)
+            return None
+        label = str(data.get("display_name") or "").strip()
+        return GeoHit(label=label, lat=lat, lng=lng) if label else None
     # A small WGS84 window around the point satisfies the identify API's required
     # mapExtent/imageDisplay; tolerance widens the hit radius so a click near a building
     # still snaps to its address.
@@ -432,39 +528,62 @@ async def locate(address: str) -> Location:
         return Location(None, "not_an_address")
     if not _GEOCODER_OK:
         return Location(None, "unavailable")
-    default_locality, bbox = await _resolve_bias()
+    default_locality, bbox, bbox_wgs = await _resolve_bias()
     want = street_key(address)
     _street, want_plz, want_town = split_label(address.replace(",", " "))
+    found: dict[str, Located] = {}
     try:
-        results = await _upstream(address.strip(), bbox, 20)
-    except (httpx.HTTPError, ValueError) as e:
+        if _is_swisstopo():
+            results = await _upstream(address.strip(), bbox, 20)
+            for r in results:
+                attrs = r.get("attrs", {})
+                if attrs.get("origin", "address") != "address" or attrs.get("lat") is None or attrs.get("lon") is None:
+                    continue
+                label = _TAGS.sub("", attrs.get("label") or "").strip()
+                street, plz, town = split_label(label)
+                if street_key(street) != want or (bbox and not _in_bbox(attrs, bbox)):
+                    continue
+                if want_plz and plz and plz != want_plz:
+                    continue
+                if want_town and town and not want_plz and town_key(town) != town_key(want_town):
+                    continue
+                key = f"{plz}|{town_key(town)}"
+                found.setdefault(
+                    key,
+                    Located(
+                        label=f"{street}, {plz} {town}" if plz and town else label,
+                        lat=float(attrs["lat"]),
+                        lng=float(attrs["lon"]),
+                        street=street,
+                        town=town,
+                        home=is_home(town, plz, default_locality),
+                    ),
+                )
+        else:
+            results = await _nominatim_upstream(address.strip(), bbox_wgs, 20)
+            for h in _parse_nominatim(results):
+                if street_key(h.label) != want:
+                    continue
+                street, plz, town = split_label(h.label.replace(",", " "))
+                if want_plz and plz and plz != want_plz:
+                    continue
+                if want_town and town and not want_plz and town_key(town) != town_key(want_town):
+                    continue
+                key = f"{plz}|{town_key(town)}|{h.lat:.5f}|{h.lng:.5f}"
+                found.setdefault(
+                    key,
+                    Located(
+                        label=h.label,
+                        lat=h.lat,
+                        lng=h.lng,
+                        street=street or h.label,
+                        town=town,
+                        home=is_home(town, plz, default_locality),
+                    ),
+                )
+    except (httpx.HTTPError, ValueError, TypeError) as e:
         logger.warning("locate failed for %r: %s", address, e)
         return Location(None, "unavailable")
-    found: dict[str, Located] = {}
-    for r in results:
-        attrs = r.get("attrs", {})
-        if attrs.get("origin", "address") != "address" or attrs.get("lat") is None or attrs.get("lon") is None:
-            continue
-        label = _TAGS.sub("", attrs.get("label") or "").strip()
-        street, plz, town = split_label(label)
-        if street_key(street) != want or (bbox and not _in_bbox(attrs, bbox)):
-            continue
-        if want_plz and plz and plz != want_plz:
-            continue
-        if want_town and town and not want_plz and town_key(town) != town_key(want_town):
-            continue
-        key = f"{plz}|{town_key(town)}"
-        found.setdefault(
-            key,
-            Located(
-                label=f"{street}, {plz} {town}" if plz and town else label,
-                lat=float(attrs["lat"]),
-                lng=float(attrs["lon"]),
-                street=street,
-                town=town,
-                home=is_home(town, plz, default_locality),
-            ),
-        )
     hits = tuple(found.values())
     home = [h for h in hits if h.home]
     if home:
@@ -481,14 +600,18 @@ async def search_area(address: str, limit: int = 8) -> list[GeoHit]:
     «Vorderbergstrasse 60». Then `search`'s own hits behind, for a half-typed street."""
     if not address or not address.strip() or not _GEOCODER_OK:
         return []
-    default_locality, bbox = await _resolve_bias()
+    default_locality, bbox, bbox_wgs = await _resolve_bias()
     try:
-        results = await _upstream(address.strip(), bbox, max(limit, 10))
-    except (httpx.HTTPError, ValueError) as e:
+        if _is_swisstopo():
+            results = await _upstream(address.strip(), bbox, max(limit, 10))
+            hits = _parse(results)
+        else:
+            results = await _nominatim_upstream(address.strip(), bbox_wgs, max(limit, 10))
+            hits = _parse_nominatim(results)
+    except (httpx.HTTPError, ValueError, TypeError) as e:
         logger.warning("Area search failed for %r: %s", address, e)
-        results = []
+        hits = []
     want = street_key(address)
-    hits = _parse(results)
     exact = [h for h in hits if street_key(h.label) == want]
     rest = [h for h in hits if street_key(h.label) != want]
     out = _home_first(exact, default_locality) + _home_first(rest, default_locality)

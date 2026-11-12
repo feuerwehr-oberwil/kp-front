@@ -400,11 +400,19 @@ async def test_resolve_bias_prefers_deployment_config_over_settings(monkeypatch)
     monkeypatch.setattr(settings, "geocoder_bbox_lv95", "1,2,3,4", raising=False)
     row = DeploymentConfig(
         id=1,
-        config_json={"map": {"geocoder": {"defaultLocality": "4144 Arlesheim", "bboxLv95": "9,9,9,9"}}},
+        config_json={
+            "map": {
+                "geocoder": {
+                    "defaultLocality": "4144 Arlesheim",
+                    "bboxLv95": "9,9,9,9",
+                    "bboxWgs84": "28.7,46.9,29.0,47.1",
+                }
+            }
+        },
     )
     monkeypatch.setattr(database_module, "async_session_maker", _fake_session_maker(row))
 
-    assert await geocode._resolve_bias() == ("4144 Arlesheim", "9,9,9,9")
+    assert await geocode._resolve_bias() == ("4144 Arlesheim", "9,9,9,9", "28.7,46.9,29.0,47.1")
 
 
 async def test_resolve_bias_falls_back_to_settings_when_the_config_section_is_empty(monkeypatch):
@@ -416,7 +424,7 @@ async def test_resolve_bias_falls_back_to_settings_when_the_config_section_is_em
     row = DeploymentConfig(id=1, config_json={"map": {"geocoder": {}}})
     monkeypatch.setattr(database_module, "async_session_maker", _fake_session_maker(row))
 
-    assert await geocode._resolve_bias() == ("4104 Oberwil", "1,2,3,4")
+    assert await geocode._resolve_bias() == ("4104 Oberwil", "1,2,3,4", "")
 
 
 async def test_resolve_bias_degrades_to_settings_when_the_db_lookup_fails(monkeypatch):
@@ -430,7 +438,7 @@ async def test_resolve_bias_degrades_to_settings_when_the_db_lookup_fails(monkey
         raise RuntimeError("db is down")
 
     monkeypatch.setattr(database_module, "async_session_maker", _boom)
-    assert await geocode._resolve_bias() == ("4104 Oberwil", "1,2,3,4")
+    assert await geocode._resolve_bias() == ("4104 Oberwil", "1,2,3,4", "")
 
 
 async def test_resolve_bias_cache_hit_never_touches_the_db(monkeypatch):
@@ -442,8 +450,8 @@ async def test_resolve_bias_cache_hit_never_touches_the_db(monkeypatch):
         raise AssertionError("cache hit should not reach the DB")
 
     monkeypatch.setattr(database_module, "async_session_maker", _boom)
-    geocode._bias_cache = (geocode.time.monotonic(), ("cached-locality", "cached-bbox"))
-    assert await geocode._resolve_bias() == ("cached-locality", "cached-bbox")
+    geocode._bias_cache = (geocode.time.monotonic(), ("cached-locality", "cached-bbox", "cached-wgs"))
+    assert await geocode._resolve_bias() == ("cached-locality", "cached-bbox", "cached-wgs")
 
 
 # =====================================================================================

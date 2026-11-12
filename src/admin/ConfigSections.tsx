@@ -568,34 +568,53 @@ function parseBboxLv95(raw: string): [number, number, number, number] | null {
   return [minE, minN, maxE, maxN]
 }
 
+/** WGS84 «minLng,minLat,maxLng,maxLat» for Nominatim viewbox bias. */
+function parseBboxWgs84(raw: string): [number, number, number, number] | null {
+  const parts = raw.split(',').map((p) => Number(p.trim()))
+  if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return null
+  const [minLng, minLat, maxLng, maxLat] = parts as [number, number, number, number]
+  if (minLng >= maxLng || minLat >= maxLat) return null
+  if (Math.abs(minLng) > 180 || Math.abs(maxLng) > 180 || Math.abs(minLat) > 90 || Math.abs(maxLat) > 90) return null
+  return [minLng, minLat, maxLng, maxLat]
+}
+
+/** ~5 km in degrees at mid latitudes — same offer size as the LV95 ±5 km button. */
+const BBOX_HALF_DEG = BBOX_HALF_M / 111_320
+
 /**
- * Adresssuche — the two fields that decide whether «Hauptstrasse 3» finds the station's own
- * Hauptstrasse or one of the two hundred others in the country.
+ * Adresssuche — locality + regional bbox so a bare street resolves at the station.
  *
- * Both are read server-side (backend/app/geocode.py · _resolve_bias) and both were CLI-only.
- * The locality is free text (nothing to validate); the bbox is four LV95 numbers passed
- * STRAIGHT to swisstopo as a query parameter, so a malformed one silently un-biases every
- * search rather than failing loudly — which is exactly the class of value that has to be
- * checked here rather than discovered during an Einsatz. The API accepts any string
- * (schemas.py · MapGeocoder), so the check is ours alone to make.
+ * Read server-side (backend/app/geocode.py · _resolve_bias). LV95 bbox is for swisstopo;
+ * WGS84 bbox is for a Nominatim-compatible GEOCODER_URL (e.g. Moldova). Malformed bboxes
+ * are checked here — the API accepts any string (schemas.py · MapGeocoder).
  */
 function GeocoderCard({ centre }: { centre: [number, number] | null }) {
   const { draft, set } = useConfig()
   const C = appConfig.copy.admin.map
   const stored = getPath<string>(draft, ['map', 'geocoder', 'bboxLv95']) ?? ''
+  const storedWgs = getPath<string>(draft, ['map', 'geocoder', 'bboxWgs84']) ?? ''
   const [editing, setEditing] = useState<string | null>(null)
+  const [editingWgs, setEditingWgs] = useState<string | null>(null)
   // «Nicht jetzt» for this visit only. Deliberately NOT persisted: there is nothing to remember
   // — the offer disappears for good the moment a bbox exists, and an operator who declined it
   // once and came back to set it anyway should find it waiting, not have to hunt the button.
   const [dismissed, setDismissed] = useState(false)
   const text = editing ?? stored
+  const textWgs = editingWgs ?? storedWgs
   const problem = text.trim() === '' || parseBboxLv95(text) ? null : C.bboxInvalid
+  const problemWgs = textWgs.trim() === '' || parseBboxWgs84(textWgs) ? null : C.bboxWgsInvalid
 
   const writeBbox = (next: string) => {
     setEditing(next)
     if (next.trim() === '') set(['map', 'geocoder', 'bboxLv95'], null)
     else if (parseBboxLv95(next)) set(['map', 'geocoder', 'bboxLv95'], next.trim())
     // else: the stored bbox stays as it is, and `problem` says why
+  }
+
+  const writeBboxWgs = (next: string) => {
+    setEditingWgs(next)
+    if (next.trim() === '') set(['map', 'geocoder', 'bboxWgs84'], null)
+    else if (parseBboxWgs84(next)) set(['map', 'geocoder', 'bboxWgs84'], next.trim())
   }
 
   /** …because nobody knows their own bounding box by heart, and everybody knows where their
@@ -608,7 +627,16 @@ function GeocoderCard({ centre }: { centre: [number, number] | null }) {
           .map((v) => Math.round(v)).join(',')
       })()
     : null
+  const derivedWgs = centre
+    ? [
+        centre[0] - BBOX_HALF_DEG,
+        centre[1] - BBOX_HALF_DEG,
+        centre[0] + BBOX_HALF_DEG,
+        centre[1] + BBOX_HALF_DEG,
+      ].map((v) => v.toFixed(4)).join(',')
+    : null
   const fromCentre = () => { if (derived) writeBbox(derived) }
+  const fromCentreWgs = () => { if (derivedWgs) writeBboxWgs(derivedWgs) }
 
   // The one moment everything needed is known: a centre is stored, the search area is not.
   // Offering it here beats a button nobody scrolls to — and the value that would be written
@@ -659,6 +687,26 @@ function GeocoderCard({ centre }: { centre: [number, number] | null }) {
           onClick={fromCentre}
         >
           <Icon id="locate" />{C.bboxFromCenter}
+        </button>
+      </SettingsNote>
+      <SettingRow label={C.bboxWgs} tip={C.bboxWgsTip}>
+        <input
+          className="adm-input adm-input-mono"
+          type="text"
+          value={textWgs}
+          placeholder={C.bboxWgsPlaceholder}
+          aria-invalid={problemWgs ? true : undefined}
+          onChange={(e) => writeBboxWgs(e.target.value)}
+        />
+      </SettingRow>
+      {problemWgs && <SettingsNote tone="warn">{problemWgs}</SettingsNote>}
+      <SettingsNote>
+        <button
+          type="button" className="adm-formlink-add" disabled={!centre}
+          title={centre ? undefined : C.bboxFromCenterHint}
+          onClick={fromCentreWgs}
+        >
+          <Icon id="locate" />{C.bboxWgsFromCenter}
         </button>
       </SettingsNote>
     </SettingsSheet>

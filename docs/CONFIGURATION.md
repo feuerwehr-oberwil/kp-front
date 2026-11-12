@@ -27,6 +27,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
   - [1d. `report.links` – the station's own forms, on the Rapport](#1d-reportlinks--the-stations-own-forms-on-the-rapport)
   - [1e. `objectVisits` – the optional Objektbesuche module](#1e-objectvisits--the-optional-objektbesuche-module)
   - [1g. `incidentArchive` – the optional Einsatz-Ablage](#1g-incidentarchive--the-optional-einsatz-ablage)
+  - [1h. Republic of Moldova – demo station map](#1h-republic-of-moldova--demo-station-map)
   - [`doctrine.alarmBarRueckzug` – the quieter line on Rückzug](#doctrinealarmbarrueckzug--the-quieter-line-for-a-trupp-on-rückzug)
   - [`doctrine.entryPressureMin` – the one question about a low Eingangsdruck](#doctrineentrypressuremin--the-one-question-about-a-low-eingangsdruck)
   - [`doctrine.nearbyObjectWarnM` – when the nearest object is «nicht die Einsatzadresse»](#doctrinenearbyobjectwarnm--when-the-nearest-object-is-nicht-die-einsatzadresse)
@@ -284,10 +285,12 @@ both now have browser pages – §9e and §9f.
                                                  // (skipped once the operator types a locality
                                                  //  themselves – a PLZ, or anything after a
                                                  //  comma – and its town ranks hits first)
-      "bboxLv95": "2598000,1252000,2625000,1270000"  // "minE,minN,maxE,maxN" to rank local hits; "" = national
+      "bboxLv95": "2598000,1252000,2625000,1270000", // "minE,minN,maxE,maxN" to rank local hits; "" = national
                                                  // (also the region whose official street names
                                                  //  the backend caches to retry a typo –
                                                  //  «haupstrasse 12» → «Hauptstrasse 12»)
+      "bboxWgs84": null                          // Nominatim path only: "minLng,minLat,maxLng,maxLat"
+                                                 // (Republic of Moldova example: see §1h)
     },
     "serviceArea": { "municipalities": [2771] }, // the Einsatzgebiet (BFS numbers) for «Unterirdische
                                                  // Bauten»; [] = the municipality at defaultView. The
@@ -913,6 +916,36 @@ contract – placeholders, file names, versions, the outbox, the admin column �
 session only.
 
 ---
+
+### 1h. Republic of Moldova – demo station map
+
+Worked example (not production hydrant cadastre): [`examples/mics-data/`](../examples/mics-data/).
+
+```jsonc
+{
+  "identity": { "appName": "MICS", "shortName": "MICS", "locale": "ro-MD", "accentColor": "#c4161c" },
+  "map": {
+    "defaultView": { "center": [28.8638, 47.0105], "zoom": 13 },   // Chișinău, WGS84 [lng, lat]
+    "geocoder": {
+      "defaultLocality": "Chișinău",
+      "bboxLv95": null,
+      "bboxWgs84": "28.70,46.90,29.05,47.12"   // Nominatim viewbox
+    },
+    "buildingRegister": false                 // Swiss GWR/BFE off
+  }
+}
+```
+
+**Env for an MD deploy:** `CARTO_API_KEY` (basemap + offline prefetch + Kroki); `GEOCODER_URL`
+set to a Nominatim-compatible https root; leave `UNDERGROUND_WFS` / `FOOTPRINT_AREA_TILES` /
+`FOOTPRINT_BUILDINGS_WFS` / `HOUSES_WFS` empty unless you supply MD equivalents; `WEATHER_LAYER_ENABLED=false`.
+Keep the Swiss Musterdorf demo ([`examples/demo-data/`](../examples/demo-data/)) unchanged for regression.
+
+Basemap is the built-in **CARTO** Voyager / Dark Matter (global OSM-derived). Reference hydrants
+and objects load through `admin_geodata` / `referenceLayers` — see the pack README for sources,
+coverage (Chișinău / Bălți / Cahul / Ghidighici checked against OSM/CARTO), attribution and
+offline conditions. Rapport/Kroki already allowlists CARTO hosts; no extra `REPORT_TILE_HOSTS`
+needed for the default base.
 
 ## 2. Reference / werkleitungs layers – **station-supplied, nothing bundled**
 
@@ -1570,19 +1603,25 @@ and locks the field – see the rule above).
 > and every numeric setting do **not**, so a blank fallback for those crashes the boot with a
 > pydantic validation error. Give them a fallback that parses – which is what the file does.
 
-Weather (MeteoSwiss/Open-Meteo) and the swisstopo geocoder need **no** credentials – public
-endpoints, national, work everywhere *in Switzerland*. The same holds for the Karte's weather
-layer (MeteoSwiss radar); a station outside Switzerland sets `WEATHER_LAYER_ENABLED=false`, and
-the Ebenen offer no «Niederschlag». One honest limitation: the geocoder client speaks the swisstopo SearchServer API shape only, so outside Switzerland address
-autocomplete simply returns nothing (map-pick still works). `GEOCODER_URL` exists to point at
-a *compatible* endpoint (e.g. a proxy) – it is **not** a generic-geocoder swap point for
-Nominatim/Google/etc.
+Weather (MeteoSwiss/Open-Meteo) and the default swisstopo geocoder need **no** credentials –
+public endpoints that work *in Switzerland*. The Karte's weather layer is MeteoSwiss radar; a
+station outside Switzerland sets `WEATHER_LAYER_ENABLED=false`, and the Ebenen offer no
+«Niederschlag».
 
-With a `map.geocoder.bboxLv95` set, the autocomplete also tolerates a typo in the street name:
-the backend keeps the region's official street names (swisstopo Strassenverzeichnis, fetched
-in the background on first use and refreshed weekly) and retries an empty search once with the
-one street that is a single letter away – «haupstrasse 12» finds Hauptstrasse 12. Without a
-bbox there is no dictionary and nothing changes (`app/street_dictionary.py`).
+**Geocoder:** the default `GEOCODER_URL` is swisstopo SearchServer. When the URL host is **not**
+`geo.admin.ch` / SearchServer, the backend uses a **Nominatim-compatible** adapter
+(`/search`, `/reverse` → the same `GeoHit { label, lat, lng }`). Point `GEOCODER_URL` at a
+self-hosted or contracted Nominatim root (https). Do **not** aim production autocomplete at
+public `nominatim.openstreetmap.org` (their usage policy forbids high-rate autocomplete).
+Bias for Nominatim: `map.geocoder.defaultLocality` + optional `map.geocoder.bboxWgs84`
+(`minLng,minLat,maxLng,maxLat`). Map-pick still works if search is empty.
+
+With a `map.geocoder.bboxLv95` set **on the swisstopo path**, the autocomplete also tolerates a
+typo in the street name: the backend keeps the region's official street names (swisstopo
+Strassenverzeichnis, fetched in the background on first use and refreshed weekly) and retries
+an empty search once with the one street that is a single letter away – «haupstrasse 12» finds
+Hauptstrasse 12. Without an LV95 bbox there is no dictionary and nothing changes
+(`app/street_dictionary.py`). The Nominatim path does not use that dictionary.
 
 ### 6a. Objektplan-Pull (fetch Modul-PDFs instead of having them pushed in)
 

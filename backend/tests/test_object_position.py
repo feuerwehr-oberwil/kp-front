@@ -46,7 +46,7 @@ def upstream(monkeypatch):
         return answers
 
     async def fake_bias():
-        return HOME, BBOX
+        return HOME, BBOX, ""
 
     monkeypatch.setattr(geocode, "_upstream", fake_upstream)
     monkeypatch.setattr(geocode, "_resolve_bias", fake_bias)
@@ -165,7 +165,7 @@ async def test_the_station_corrects_a_position_and_no_push_moves_it_back(
     client, db_session, admin_login, monkeypatch, session_factory
 ):
     async def bias():
-        return HOME, BBOX
+        return HOME, BBOX, ""
 
     monkeypatch.setattr(geocode, "_resolve_bias", bias)
     o = await _ara(db_session)

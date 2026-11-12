@@ -66,8 +66,8 @@ async def _search_with(monkeypatch, query: str, labels: list[str]) -> list[str]:
     """`search` against a canned swisstopo answer: no network, the bias as on Oberwil."""
     from app import geocode
 
-    async def bias() -> tuple[str, str]:
-        return LOCALITY, ""
+    async def bias() -> tuple[str, str, str]:
+        return LOCALITY, "", ""
 
     async def upstream(_text: str, _bbox: str, _limit: int) -> list[dict]:
         return [_result(label) for label in labels]

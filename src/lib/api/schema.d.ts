@@ -6029,6 +6029,8 @@ export interface components {
             defaultLocality?: string | null;
             /** Bboxlv95 */
             bboxLv95?: string | null;
+            /** Bboxwgs84 */
+            bboxWgs84?: string | null;
         };
         /**
          * MapServiceArea

@@ -75,8 +75,8 @@ async def test_search_retries_once_with_the_corrected_street(monkeypatch):
         asked.append(text)
         return [] if len(asked) == 1 else [_result("Hauptstrasse 12 4104 Oberwil BL")]
 
-    async def bias() -> tuple[str, str]:
-        return "4104 Oberwil", "2598000,1252000,2625000,1270000"
+    async def bias() -> tuple[str, str, str]:
+        return "4104 Oberwil", "2598000,1252000,2625000,1270000", ""
 
     monkeypatch.setattr(geocode, "_upstream", fake_upstream)
     monkeypatch.setattr(geocode, "_resolve_bias", bias)
@@ -95,8 +95,8 @@ async def test_search_without_a_dictionary_asks_once(monkeypatch):
         asked.append(text)
         return []
 
-    async def bias() -> tuple[str, str]:
-        return "", ""
+    async def bias() -> tuple[str, str, str]:
+        return "", "", ""
 
     monkeypatch.setattr(geocode, "_upstream", fake_upstream)
     monkeypatch.setattr(geocode, "_resolve_bias", bias)

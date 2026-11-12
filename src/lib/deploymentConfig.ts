@@ -44,6 +44,8 @@ export interface DeploymentDefaultView {
 export interface DeploymentGeocoder {
   defaultLocality?: string | null
   bboxLv95?: string | null
+  /** WGS84 minLng,minLat,maxLng,maxLat — Nominatim viewbox (non-CH). */
+  bboxWgs84?: string | null
 }
 
 export interface DeploymentExternalLink {

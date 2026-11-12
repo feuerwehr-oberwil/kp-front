@@ -10,7 +10,7 @@ Response contract (both GET and PUT return the SAME projection ``DeploymentConfi
                     "assets": {"logo": null, "iconPng192": null, "iconPng512": null, "favicon": null},
                     "helpIntro": null },
       "map": { "defaultView": {"center": null, "centerLv95": null, "zoom": null},
-               "geocoder": {"defaultLocality": null, "bboxLv95": null} },
+               "geocoder": {"defaultLocality": null, "bboxLv95": null, "bboxWgs84": null} },
       "referenceLayers": [ { "id": ..., "group": ..., "label": ..., "icon": ...,
                              "kind": "wms"|"wmts"|"geojson", "tiles": [...]|null,
                              "geojson": ...|null, "vectorKind": ..., "symbol": ...,

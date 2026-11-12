@@ -1126,6 +1126,18 @@
           ],
           "default": null,
           "title": "Bboxlv95"
+        },
+        "bboxWgs84": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bboxwgs84"
         }
       },
       "title": "MapGeocoder",

@@ -1405,6 +1405,8 @@ class MapGeocoder(BaseModel):
     model_config = ConfigDict(extra="ignore")
     defaultLocality: str | None = None
     bboxLv95: str | None = None
+    #: WGS84 ``minLng,minLat,maxLng,maxLat`` — Nominatim viewbox bias (non-CH deployments).
+    bboxWgs84: str | None = None
 
 
 class MapExternalLink(BaseModel):

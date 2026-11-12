@@ -1,0 +1,17 @@
+[
+  {
+    "id": "mics-demo-hydrant",
+    "kind": "geojson",
+    "file": "hydrant.geojson",
+    "group": "Apă",
+    "label": "Hidranți (demo)",
+    "icon": "drop",
+    "vectorKind": "point",
+    "symbol": "SI Ueberflurhydrant",
+    "color": "#0f52b5",
+    "nightColor": "#5b9bff",
+    "attribution": "Demo MICS – date sintetice, nu IGSU",
+    "autoActivate": ["Brandbekämpfung"],
+    "sourceNote": "Puncte demonstrative WGS84 în Chișinău. Înlocuiți cu datele stației prin admin_geodata."
+  }
+]

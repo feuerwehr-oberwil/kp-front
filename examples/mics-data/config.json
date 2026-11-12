@@ -1,0 +1,302 @@
+{
+  "identity": {
+    "appName": "MICS",
+    "shortName": "MICS",
+    "locale": "ro-MD",
+    "accentColor": "#c4161c",
+    "helpIntro": "MICS — punct de comandă digital la fața locului pentru intervenții (incendiu): hartă tactică, simboluri și jurnal pe mai multe dispozitive.",
+    "kommandant": null
+  },
+  "map": {
+    "defaultView": {
+      "center": [
+        28.8638,
+        47.0105
+      ],
+      "zoom": 13
+    },
+    "geocoder": {
+      "defaultLocality": "Chișinău",
+      "bboxLv95": null,
+      "bboxWgs84": "28.70,46.90,29.05,47.12"
+    },
+    "buildingRegister": false,
+    "externalLinks": [
+      {
+        "label": "OpenStreetMap",
+        "urlTemplate": "https://www.openstreetmap.org/?mlat={lat}&mlon={lng}#map=17/{lat}/{lng}"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "id": "modul1",
+      "code": "M1",
+      "title": "Übersicht",
+      "order": 1,
+      "orientation": "portrait",
+      "match": "modul\\s*1(?!\\s*[-–/]\\s*\\d)",
+      "alignment": "auto"
+    },
+    {
+      "id": "modul2",
+      "code": "M2",
+      "title": "Umgebung",
+      "order": 2,
+      "match": "modul\\s*2(?!\\s*[-–/]\\s*\\d)",
+      "alignment": "auto"
+    },
+    {
+      "id": "modul3",
+      "code": "M3",
+      "title": "Objektplan",
+      "order": 3,
+      "match": "modul\\s*3(?!\\s*[-–/]\\s*\\d)"
+    },
+    {
+      "id": "modul2-3",
+      "code": "2/3",
+      "title": "Umgebung & Objekt",
+      "order": 4,
+      "match": "modul\\s*2\\s*[-–/]\\s*3",
+      "combinedWith": [
+        "modul2",
+        "modul3"
+      ],
+      "alignment": "auto"
+    },
+    {
+      "id": "modul6",
+      "code": "M6",
+      "title": "Gebäudepläne",
+      "order": 6,
+      "orientation": "portrait",
+      "viewer": true,
+      "match": "modul\\s*6"
+    },
+    {
+      "id": "modul5",
+      "code": "M5",
+      "title": "Spezialpläne",
+      "order": 5,
+      "family": true,
+      "match": "modul\\s*5(?:\\s*[-–—]\\s*([0-9A-Za-zÄÖÜäöü]+(?:\\s+\\d+)?))?"
+    },
+    {
+      "id": "modul4",
+      "code": "M4",
+      "title": "Spezialplan",
+      "order": 7,
+      "match": "modul\\s*4"
+    }
+  ],
+  "fleet": {
+    "attributeLists": [
+      {
+        "symbol": "VKF Fahrzeug",
+        "field": "title",
+        "options": [
+          "TLF",
+          "ADL",
+          "HLF",
+          "ELW"
+        ]
+      },
+      {
+        "symbol": "VKF Luefter mobil",
+        "field": "Typ",
+        "options": [
+          "Überdruck",
+          "Elektro",
+          "Akku"
+        ]
+      },
+      {
+        "symbol": "FW Kleinloeschgeraet",
+        "field": "Typ",
+        "options": [
+          "Wasser",
+          "Schaum",
+          "CO₂"
+        ]
+      },
+      {
+        "symbol": "VKF Bereich Feuerwehr",
+        "field": "Einheit",
+        "options": [
+          "Stützpunkt",
+          "Nachbarwehr"
+        ]
+      },
+      {
+        "symbol": "VKF Bereich Sanitaet",
+        "field": "Einheit",
+        "options": [
+          "Rettungsdienst",
+          "Rega"
+        ]
+      },
+      {
+        "symbol": "VKF Bereich Polizei",
+        "field": "Einheit",
+        "options": [
+          "Kantonspolizei"
+        ]
+      },
+      {
+        "symbol": "FW Offizier",
+        "field": "Funktion",
+        "options": [
+          "Of-Front",
+          "Lüften",
+          "Atemschutz",
+          "Retten",
+          "Logistik"
+        ]
+      }
+    ],
+    "origins": [
+      "Stützpunkt",
+      "Nachbarwehr",
+      "Zivilschutz"
+    ]
+  },
+  "doctrine": {
+    "defaultFunkkanal": 1,
+    "defaultFunkkanalEinfach": 4,
+    "contactIntervalMin": 5,
+    "contactGraceSec": 60,
+    "alarmBar": 100,
+    "alarmBarRueckzug": 50,
+    "entryPressureMin": 270,
+    "nearbyObjectWarnM": 25,
+    "defaultLineHose": "40",
+    "defaultRelayHose": "75"
+  },
+  "roster": {
+    "source": "manual",
+    "nameOrder": "last-first",
+    "ranks": [
+      {
+        "key": "kdt",
+        "label": "Kommandant",
+        "abbr": "Kdt",
+        "tier": "officer"
+      },
+      {
+        "key": "maj",
+        "label": "Major",
+        "abbr": "Maj",
+        "tier": "officer"
+      },
+      {
+        "key": "hptm",
+        "label": "Hauptmann",
+        "abbr": "Hptm",
+        "tier": "officer"
+      },
+      {
+        "key": "oblt",
+        "label": "Oberleutnant",
+        "abbr": "Oblt",
+        "tier": "officer"
+      },
+      {
+        "key": "lt",
+        "label": "Leutnant",
+        "abbr": "Lt",
+        "tier": "officer"
+      },
+      {
+        "key": "fw",
+        "label": "Feldweibel",
+        "abbr": "Fw",
+        "tier": "nco"
+      },
+      {
+        "key": "wm",
+        "label": "Wachtmeister",
+        "abbr": "Wm",
+        "tier": "nco"
+      },
+      {
+        "key": "kpl",
+        "label": "Korporal",
+        "abbr": "Kpl",
+        "tier": "nco"
+      },
+      {
+        "key": "gfr",
+        "label": "Gefreiter",
+        "abbr": "Gfr",
+        "tier": "crew"
+      },
+      {
+        "key": "fwm",
+        "label": "Feuerwehrmann",
+        "abbr": "Fwm",
+        "tier": "crew"
+      }
+    ]
+  },
+  "mittel": {
+    "catalogue": [
+      {
+        "id": "schaummittel",
+        "label": "Schaummittel",
+        "unit": "l",
+        "category": "Ölwehr"
+      },
+      {
+        "id": "bindemittel",
+        "label": "Ölbindemittel",
+        "unit": "Sack",
+        "category": "Ölwehr"
+      },
+      {
+        "id": "luefter",
+        "label": "Lüfter",
+        "unit": "Stk.",
+        "category": "Geräte",
+        "stock": [
+          {
+            "source": "tlf",
+            "qty": 2
+          },
+          {
+            "source": "lf",
+            "qty": 1
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "tlf",
+        "label": "TLF"
+      },
+      {
+        "id": "lf",
+        "label": "LF"
+      },
+      {
+        "id": "depot",
+        "label": "Magazin"
+      }
+    ],
+    "units": [
+      "Stk.",
+      "l",
+      "m",
+      "Sack",
+      "Flasche",
+      "kg"
+    ]
+  },
+  "alarms": {
+    "autoArchiveDays": 7,
+    "staleIncidentDays": 30,
+    "captureWindowHours": 12,
+    "webhooks": []
+  }
+}
