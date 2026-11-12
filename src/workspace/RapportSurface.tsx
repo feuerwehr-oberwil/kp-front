@@ -16,7 +16,7 @@ import type { useMediaQueue } from '../lib/useMediaQueue'
 import type { useSymbols } from '../lib/useSymbols'
 import type { ReportMeta } from '../lib/workspace'
 import type { ReportSignature } from '../lib/reportSignature'
-import type { Person, TimelineEvent, Trupp, AttendanceState, MittelEntry, Entity, Drawing, PlanDocument, LayerDef, Incident, LngLat, BoardDoc, BuildingDoc, ReportAttachment, CaptionMode } from '../types'
+import type { Person, TimelineEvent, Trupp, AttendanceState, MittelEntry, Entity, Drawing, PlanDocument, LayerDef, Incident, LngLat, BoardDoc, BuildingDoc, ReportAttachment, CaptionMode, ReactivateResult } from '../types'
 import { ReportPreflight } from './lazySurfaces'
 import type { WorkspaceMode } from './types'
 
@@ -49,6 +49,10 @@ export interface RapportSurfaceProps {
   captureUsage: { writes: number; lastAt: string | null } | null
   attachments: ReportAttachment[]
   canEditRapport: boolean
+  /** the closed Einsatz's Rapport: sign it (workspace/access · canSignRapport) */
+  canSignRapport: boolean
+  /** «Wieder öffnen» – the closed Rapport's strip offers it (absent where this session cannot) */
+  onReactivateActive?: () => Promise<ReactivateResult>
   addAttachments: (files: File[]) => void
   captionAttachment: (id: string, caption: string) => void
   removeAttachment: (id: string) => void
@@ -71,17 +75,16 @@ export interface RapportSurfaceProps {
   setJournalFromRapport: Dispatch<SetStateAction<boolean>>
   reportSignatures: ReportSignature[]
   signRapport?: (sig: ReportSignature) => void
-  voidSignatures?: () => void
 }
 
 export function RapportSurface({
   mode, guarded, incidentMeta, reportMeta, pickablePersonnel, presentIds, timeline, annotatedPlanCount,
   allTrupps, attendance, mittel, entities, drawings, media, azIntervalMin, azGraceSec, checklists,
   planDocs, mapLayers, sym, incidentView, view, symbolCaptions, board, effBuilding, captureUsage,
-  attachments, canEditRapport, addAttachments, captionAttachment, removeAttachment, canShareLink,
+  attachments, canEditRapport, canSignRapport, onReactivateActive, addAttachments, captionAttachment, removeAttachment, canShareLink,
   running, assignRole, assignTypedName, saveReportMeta, canEditMeta, onEditMeta, setMode,
   setRapportReturn, canWriteRecord, resolveAttendanceConflict, canCloseIncident, readOnly,
-  confirmAndComplete, setJournalOpen, setJournalFromRapport, reportSignatures, signRapport, voidSignatures,
+  confirmAndComplete, setJournalOpen, setJournalFromRapport, reportSignatures, signRapport,
 }: RapportSurfaceProps) {
   return (
     <>
@@ -128,15 +131,16 @@ export function RapportSurface({
           onAddAttachments={canEditRapport ? addAttachments : undefined}
           onCaptionAttachment={canEditRapport ? captionAttachment : undefined}
           onRemoveAttachment={canEditRapport ? removeAttachment : undefined}
-          canEdit={canEditRapport}
+          // the session that keeps the Rapport: it edits it while the Einsatz runs and signs it
+          // once it is closed (`closed` locks the form, owner 12.11.2026)
+          canEdit={canEditRapport || canSignRapport}
           canShare={canShareLink}
-          // a closed Einsatz's Rapport says so at the top: the changes are Nachträge (F10)
-          closedHint={!running && canEditRapport}
           // the Unterschriften card (lib/reportSignature): signed only on a closed Einsatz
           closed={!running}
+          // …whose strip offers the way back to editing
+          onReopen={onReactivateActive}
           reportSignatures={reportSignatures}
           onSign={signRapport}
-          onVoidSignatures={voidSignatures}
           onRolePicked={assignRole}
           // the Einsatzleiter / Rückmeldung pickers: a typed name is a Gast, so the EL named on
           // the front page of the rapport is on the Anwesenheit behind it even for a Nachbarwehr

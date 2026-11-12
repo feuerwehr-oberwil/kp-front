@@ -89,9 +89,9 @@ export function workspaceFlags({ user, asLink, isEl, isEditor, roleReadOnly, for
    *  over. A device that hears of the close with a Kontakt still in its outbox must send it, so
    *  the server can refuse it and the store park it as «refused» (kept, exported, said out loud);
    *  a read-only store would sit on it unclassified for ever. Nothing new is queued meanwhile:
-   *  every writer gates on the flags derived from `readOnly` above — except the Rapport, which a
-   *  closed Einsatz still takes (`canEditRapport`), so an Einsatz opened closed out of «Alle
-   *  Einsätze» (forceReadOnly) delivers too. */
+   *  every writer gates on the flags derived from `readOnly` above — except the Rapport's
+   *  signatures, which a closed Einsatz still takes (`canSignRapport`), so an Einsatz opened
+   *  closed out of «Alle Einsätze» (forceReadOnly) delivers too. */
   const outboxReadOnly = roleReadOnly || tabLockLost || replayActive
   // Führungsansicht: an EDITOR's hands-off mode — tactical editing locked like a phone, but
   // journal capture and read-only symbol details stay live. It belongs to the LOGIN, set by the
@@ -119,14 +119,18 @@ export function workspaceFlags({ user, asLink, isEl, isEditor, roleReadOnly, for
    *  backend enforces the same boundary (`workspace/record` · RECORD_WORKSPACE_KEYS), so this
    *  flag is presentation, not the protection. */
   const canEditRecord = (isEditor || isEl) && !readOnly
-  /** «may correct the RAPPORT» — the record surfaces, AND the Rapport of a CLOSED Einsatz
-   *  (staging r3, F10). The Abschluss promises «Spätere Korrekturen bleiben möglich und
-   *  erscheinen als Nachträge», and the server takes exactly that after the close (the record
-   *  keys, the `report.` events, the Verlauf rows that are not live — api/incidents ·
-   *  incident_closed). The Rapport therefore stays editable once the Einsatz is closed, its
-   *  changes printing as Nachträge; the Tafel, the Karte, the Anwesenheit/Mittel/Checklisten
-   *  surfaces stay read-only there (their unlock is «Wieder öffnen», as decided on 28.08.). */
-  const canEditRapport = canEditRecord || ((isEditor || isEl) && !running && !outboxReadOnly && !olderBuild)
+  /** «may edit the RAPPORT» — the record surfaces, so only while the Einsatz runs. A closed
+   *  Einsatz is closed for the Rapport too (owner, 12.11.2026: «if an emergency is closed we
+   *  shouldn't be able to edit it anymore unless we open it up again»); the unlock is «Wieder
+   *  öffnen», as for the Tafel, the Karte and the Anwesenheit/Mittel/Checklisten (28.08.). Until
+   *  then a correction after the close printed as a Nachtrag (staging r3, F10). */
+  const canEditRapport = canEditRecord
+  /** «may SIGN the Rapport» — the one write a closed Einsatz's Rapport still takes from this
+   *  session: the signatures (a signature counts only after the latest close, lib/reportSignature)
+   *  and what the signing and printing record with them (the Einsatzleiter a signature names, the
+   *  «Rapport erstellt» stamp, an outstanding print job). The server takes them as record keys
+   *  (api/incidents · incident_closed). */
+  const canSignRapport = (isEditor || isEl) && !running && !outboxReadOnly && !olderBuild
   /** «may correct the EINSATZDATEN» — the dispatch facts at the head of the record: Stichwort,
    *  Kategorie, Priorität, Ort, Alarmierungszeit, Alarmmeldung, Übung. The `el` role keeps the
    *  record, so it owns the head of it too (10.09.) — the asLink pattern again: not an editor,
@@ -162,7 +166,7 @@ export function workspaceFlags({ user, asLink, isEl, isEditor, roleReadOnly, for
   // (stacked above the surface bar). Viewers and the EL-Ansicht stay hands-off; a brigade
   // that wants a view-only phone uses exactly those.
   const tacticalLocked = readOnly || elView || isEl
-  return { running, readOnly, outboxReadOnly, elView, canEditIncident, canEditTrupps, canEditRecord, canEditRapport, canEditMeta, canCloseIncident, canWriteRecord, canWriteBlob, tacticalLocked }
+  return { running, readOnly, outboxReadOnly, elView, canEditIncident, canEditTrupps, canEditRecord, canEditRapport, canSignRapport, canEditMeta, canCloseIncident, canWriteRecord, canWriteBlob, tacticalLocked }
 }
 
 /** …as the workspace reads them. A hook only so the React Compiler treats the flags as frozen:

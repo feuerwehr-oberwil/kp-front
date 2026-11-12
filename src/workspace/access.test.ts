@@ -35,9 +35,11 @@ describe('workspaceFlags', () => {
       readOnly: false, canEditIncident: false, canEditTrupps: true, canEditRecord: false, canWriteRecord: false,
     })
   })
-  it('a closed Einsatz is read-only but its Rapport still takes corrections', () => {
+  // owner, 12.11.2026: closed is closed for the Rapport too – only signing it is left
+  it('a closed Einsatz is read-only, its Rapport too, and the Rapport can still be signed', () => {
     const f = flags({ incidentMeta: meta({ is_archived: true }) })
-    expect(f).toMatchObject({ running: false, readOnly: true, canEditIncident: false, canEditRecord: false, canEditRapport: true })
+    expect(f).toMatchObject({ running: false, readOnly: true, canEditIncident: false, canEditRecord: false, canEditRapport: false, canSignRapport: true })
+    expect(flags({}).canSignRapport).toBe(false)
     // …and its outboxes still deliver what was queued before the close
     expect(f.outboxReadOnly).toBe(false)
   })
@@ -53,9 +55,9 @@ describe('workspaceFlags', () => {
   it('data from a newer build locks every write of the blob – the Tafel and a closed Rapport too – but the outboxes deliver', () => {
     expect(flags({ olderBuild: true })).toMatchObject({ readOnly: true, outboxReadOnly: false, canEditIncident: false, canEditRecord: false, canWriteBlob: false })
     expect(flags({ user: user('viewer'), isEditor: false, asLink: true, olderBuild: true }).canEditTrupps).toBe(false)
-    expect(flags({ incidentMeta: meta({ is_archived: true }), olderBuild: true }).canEditRapport).toBe(false)
+    expect(flags({ incidentMeta: meta({ is_archived: true }), olderBuild: true }).canSignRapport).toBe(false)
   })
   it('a replay locks everything, the outboxes included', () => {
-    expect(flags({ replayActive: true })).toMatchObject({ readOnly: true, outboxReadOnly: true, canEditRapport: false, tacticalLocked: true })
+    expect(flags({ replayActive: true })).toMatchObject({ readOnly: true, outboxReadOnly: true, canEditRapport: false, canSignRapport: false, tacticalLocked: true })
   })
 })

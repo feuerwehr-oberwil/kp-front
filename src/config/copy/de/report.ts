@@ -161,10 +161,6 @@ export const reportCopy = {
     sign: 'Unterschreiben',
     resign: 'Neu unterschreiben',
     locked: 'Rapport gesperrt',
-    change: 'Ändern',
-    changeTitle: 'Unterschriften aufheben?',
-    changeMsg: 'Wer den Rapport ändert, muss ihn danach neu unterschreiben. Die alten Unterschriften bleiben im Verlauf.',
-    changeConfirm: 'Ändern',
     sheetTitle: 'Rapport unterschreiben',
     viewPdf: 'PDF ansehen',
     zeiten: 'Alarm {from} · Ende {to}',
@@ -182,7 +178,6 @@ export const reportCopy = {
     confirm: 'Unterschreiben',
     // ⚠️ Verlauf-Zeilen und die Zeile unter der Unterschrift auf dem Papier: kein «→» (Helvetica)
     logSigned: 'Rapport unterschrieben: {role} {name} (Prüfsumme {sum})',
-    logVoided: 'Unterschriften aufgehoben – der Rapport wird geändert',
     failed: 'Unterschrift nicht gespeichert – bitte nochmals versuchen',
   },
   preflight: {
@@ -260,9 +255,6 @@ export const reportCopy = {
     guideHide: 'Hinweis ausblenden',
     bandReady: 'Alles erfasst · Nächster Schritt',
     bandPdf: 'Einsatzrapport (PDF) erstellen',
-    // …and on a closed Einsatz nobody has signed yet: the strip opens «Rapport unterschreiben»
-    bandClosed: 'Abgeschlossen · Nächster Schritt',
-    bandLater: 'Später',
     exportIncompleteTitle: 'Angaben fehlen noch',
     exportIncompleteLead: 'Noch offen:',
     exportIncompleteMsg: 'Der Rapport lässt sich trotzdem erstellen – die offenen Felder bleiben leer und können von Hand ergänzt werden.',

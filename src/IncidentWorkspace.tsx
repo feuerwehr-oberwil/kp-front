@@ -36,7 +36,7 @@ import { newRowId } from './lib/ids'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
 import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, formatTime } from './lib/format'
-import { addSignature, shortChecksum, voidAll, type ReportSignature } from './lib/reportSignature'
+import { addSignature, shortChecksum, type ReportSignature } from './lib/reportSignature'
 import { circlePolygon } from './lib/geo'
 import { isPresent } from './lib/attendanceIntervals'
 import { registerMeldeleisteHost } from './lib/meldeleisteHost'
@@ -328,7 +328,7 @@ export function IncidentWorkspace({
   // …and a blob from a NEWER build makes this one read-only until that build is in (re-read on
   // every poll by useWorkspaceBlob · applyWorkspace; workspace/access · olderBuild)
   const [olderBuild, setOlderBuild] = useState(bootGate.newerSchema)
-  const { running, readOnly, outboxReadOnly, canEditIncident, canEditTrupps, canEditRecord, canEditRapport, canEditMeta, canCloseIncident, canWriteRecord, canWriteBlob, tacticalLocked } =
+  const { running, readOnly, outboxReadOnly, canEditIncident, canEditTrupps, canEditRecord, canEditRapport, canSignRapport, canEditMeta, canCloseIncident, canWriteRecord, canWriteBlob, tacticalLocked } =
     useWorkspaceFlags({ user, asLink, isEl, isEditor, roleReadOnly, forceReadOnly, tabLockLost, replayActive, incidentMeta, olderBuild })
   // «Standort zu Fotos» (lib/devicePosition): a session that writes the record lends the device's
   // position to a picture without one — after asking ONCE per device, with the reason.
@@ -1296,8 +1296,8 @@ export function IncidentWorkspace({
   // there: an Ebene toggled on the closed view would otherwise be queued, refused and counted as
   // «nicht übernommen» — a refusal of something nobody meant to record. Nothing new is emitted
   // once the Einsatz is over; what was queued before still goes out and is classified.
-  // …except the RECORD vocabulary, which a closed Einsatz still takes: a Rapport correction after
-  // the close emits its `report.` event like any other (canEditRapport).
+  // …except the RECORD vocabulary, which a closed Einsatz still takes: a signature after the
+  // close emits its `report.` event like any other (canSignRapport).
   const emit = useCallback<typeof emitAudit>((...args) => {
     if (running || EL_EVENT_PREFIXES.some((p) => args[0].startsWith(p))) emitAudit(...args)
   }, [emitAudit, running])
@@ -1374,8 +1374,8 @@ export function IncidentWorkspace({
   // persistence, teardown beacons, live-follow poll (with the tablet sync-race guard),
   // in-place auto-merge apply, and the reactive sync-status badge all live in useIncidentSync.
   const { syncStatus: workspaceSyncStatus, lastSyncedAt, syncNow: syncWorkspaceNow, clockSkewMs } = useIncidentSync({
-    // `outboxReadOnly`, not `readOnly`: a closed Einsatz still saves the Rapport corrections made
-    // on it (canEditRapport); nothing else writes a slice on a closed view — every writer gates
+    // `outboxReadOnly`, not `readOnly`: a closed Einsatz still saves the Rapport signatures made
+    // on it (canSignRapport); nothing else writes a slice on a closed view — every writer gates
     // on the flags derived from `readOnly`. …and never the blob of a newer build (olderBuild):
     // the Verlauf and audit outboxes still deliver, the workspace is not pushed or flushed.
     sync, readOnly: outboxReadOnly || olderBuild, incidentId: incidentMeta.id,
@@ -1844,22 +1844,17 @@ export function IncidentWorkspace({
   // plan events carry document + (optional) team / coordinate context for jump-back
   const logPlan = (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number; subjectId?: string }) =>
     pushEvent({ icon, text, kind: extra?.kind ?? 'symbol', surface: 'plan', planId: activePlanId, annoId: extra?.annoId, px: extra?.x, py: extra?.y, floor: extra?.floor, subjectId: extra?.subjectId })
-  // Rapport signatures (15.10.2026, lib/reportSignature). Appended / voided through the functional
-  // setter and NOT through undo: a step that takes a signature away again would be the one edit
-  // the lock exists to prevent. Each says so twice — a Verlauf row for people (a Nachtrag on a
-  // closed Einsatz, which is when signing happens) and a hash-chained audit event for the proof.
+  // Rapport signatures (15.10.2026, lib/reportSignature). Appended through the functional setter
+  // and NOT through undo: a step that takes a signature away again would be the one edit the lock
+  // exists to prevent. Nothing voids one by hand any more: a closed Rapport is not edited, and
+  // «Wieder öffnen» ends every signature (owner, 12.11.2026). Each says so twice — a Verlauf row
+  // for people (a Nachtrag on a closed Einsatz, which is when signing happens) and a hash-chained
+  // audit event for the proof.
   const signRapport = (sig: ReportSignature) => {
     const S = appConfig.copy.signature
     setReportSignatures((list) => addSignature(list, sig))
     emit('report.signature.add', { id: sig.id, role: sig.role, name: sig.name, scope: sig.scope })
     pushEvent({ icon: 'check', text: fillTemplate(S.logSigned, { role: sig.role === 'el' ? S.roleEl : S.roleKdt, name: sig.name, sum: shortChecksum(sig.scope) }) })
-  }
-  const voidSignatures = () => {
-    const ids = reportSignatures.filter((g) => !g.voidedAt).map((g) => g.id)
-    if (!ids.length) return
-    setReportSignatures((list) => voidAll(list, serverNowIso(), 'aendern'))
-    emit('report.signature.void', { ids, reason: 'aendern' })
-    pushEvent({ icon: 'pen', text: appConfig.copy.signature.logVoided })
   }
   // …and now that both exist, hand them to the timeline's entries (see `histSide` far above:
   // an entry is pushed long before this line runs and pressed long after it).
@@ -3178,7 +3173,7 @@ export function IncidentWorkspace({
         onOpenDivera, onOpenDatenquellen, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
         setHelpOpen, setInstallGuideOpen, setOfflineReadyOpen, syncNow, media, logout, settingsOpen,
         helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
-        canEditRapport, menuCloseKey,
+        menuCloseKey,
       }} />
 
       {/* unsent edits of ANOTHER account for this Einsatz are parked on this device (sweep
@@ -3341,8 +3336,9 @@ export function IncidentWorkspace({
         running, assignRole, assignTypedName, saveReportMeta, canEditMeta, onEditMeta, setMode,
         setRapportReturn, canWriteRecord, resolveAttendanceConflict, canCloseIncident, readOnly,
         confirmAndComplete, setJournalOpen, setJournalFromRapport, reportSignatures,
-        signRapport: canEditRapport ? signRapport : undefined,
-        voidSignatures: canEditRapport ? voidSignatures : undefined,
+        canSignRapport, onReactivateActive,
+        // while it runs too: the card then says the Rapport is signed after the close
+        signRapport: canEditRapport || canSignRapport ? signRapport : undefined,
       }} />
       <JournalLayer {...{
         journalOpen, guarded, journal, auditDelivery, closedRefusedTotal, workspaceRoleParked, exportEntries, journalVocab,

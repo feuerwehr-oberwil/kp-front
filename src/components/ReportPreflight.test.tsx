@@ -184,23 +184,38 @@ describe('ReportPreflight · Auswertung default and operator choice', () => {
   })
 })
 
-// staging r3, F10
+// owner, 12.11.2026: closed is closed – the Rapport too – and ONE strip says what is next
 describe('ReportPreflight · a CLOSED Einsatz', () => {
-  // The Abschluss promises «Spätere Korrekturen bleiben möglich und erscheinen als Nachträge», and
-  // the server takes Rapport writes after the close: the fields stay editable, and one line at
-  // the top says the changes are Nachträge — no fields that look open and do nothing.
-  it('stays editable and says so in one line at the top', async () => {
-    const closed = { ...incident, is_archived: true, closed_at: '2026-09-14T10:00:00.000Z' }
-    render(
-      <ReportPreflight
-        incident={closed} reportMeta={{}} events={[]} canEdit closedHint
-        annotatedPlanCount={0} truppCount={0} attendanceCount={1} mittelCount={1}
-        onSaveMeta={() => {}}
-      />,
-    )
-    expect(await screen.findByText(appConfig.copy.archived.rapportClosedHint)).toBeTruthy()
+  const closedAt = '2026-09-14T10:00:00.000Z'
+  const C = appConfig.copy.archived
+  const renderClosed = (id: string, extra: Partial<Parameters<typeof ReportPreflight>[0]> = {}) => render(
+    <ReportPreflight
+      incident={{ ...incident, id, is_archived: true, closed_at: closedAt }} reportMeta={{}} events={[]} canEdit closed
+      annotatedPlanCount={0} truppCount={0} attendanceCount={1} mittelCount={1}
+      onSaveMeta={() => {}} {...extra}
+    />,
+  )
+
+  it('locks the form and offers «Wieder öffnen» in the one strip', async () => {
+    const onReopen = vi.fn(async () => 'ok' as const)
+    renderClosed('closed-a', { onReopen })
+    expect(await screen.findByText(C.rapportClosedHint)).toBeTruthy()
     const fieldsets = [...document.querySelectorAll<HTMLFieldSetElement>('.report-fieldset')]
     expect(fieldsets.length).toBeGreaterThan(0)
-    expect(fieldsets.every((f) => !f.disabled)).toBe(true)
+    expect(fieldsets.every((f) => f.disabled)).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: C.reactivate }))
+    expect(onReopen).toHaveBeenCalledTimes(1)
+  })
+
+  it('says «nur ansehen» where this session cannot reopen', async () => {
+    renderClosed('closed-b')
+    expect(await screen.findByText(C.rapportClosedViewOnly)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: C.reactivate })).toBeNull()
+  })
+
+  it('asks for no signature: the closed strip is the only one, signing or not', async () => {
+    renderClosed('closed-c', { onSign: () => {}, onReopen: async () => 'ok' as const })
+    expect(await screen.findByText(C.rapportClosedHint)).toBeTruthy()
+    expect(document.querySelectorAll('.rp-strip, .rp-band')).toHaveLength(1)
   })
 })

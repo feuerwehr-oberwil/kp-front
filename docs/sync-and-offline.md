@@ -270,11 +270,13 @@ a raw network error. An offline reopen would need a client-stamped reopen time a
 precondition on the close it saw (`last_closed_at`, so a later close elsewhere wins), a local
 provisional boundary for the alarm, the reopen sent BEFORE any outbox on reconnect, and closed
 signals for that Einsatz ignored until then — a design, not a patch.
-After the close the RAPPORT stays editable (`canEditRapport`, one line at its top: «Änderungen
-… erscheinen als Nachträge») – until it is SIGNED: a signature that still holds locks the form,
-«Ändern» voids it, and a change that arrives anyway makes it «ungültig», never refused
-([`rapport.md`](rapport.md) · Unterschriften; `reportSignatures` is a record key, 15.10.2026); the Tafel, Karte, Anwesenheit/Mittel/Checklisten stay read-only
-until «Wieder öffnen». Every row the server accepts on a closed Einsatz is stamped
+After the close the RAPPORT is read-only too (owner, 12.11.2026; until then it stayed editable and
+its changes printed as Nachträge): the keeper only SIGNS it (`canSignRapport` – the signature, the
+Einsatzleiter it names, «Rapport erstellt», a print job; `reportSignatures` is a record key), and
+a change that arrives anyway – an offline device's – makes a signature «ungültig», never refused
+([`rapport.md`](rapport.md) · Unterschriften). The Tafel, Karte, Anwesenheit/Mittel/Checklisten
+and the Rapport all open again with «Wieder öffnen»; the server still takes record writes after
+the close (the line is the client's). Every row the server accepts on a closed Einsatz is stamped
 `receivedAfterClose` and prints as a Nachtrag whatever its time — except a row the Abschluss
 itself wrote between the confirm and the close (`atClose`, set by `useAbschluss · markClosing`;
 honoured up to 120 s past the close, `verlauf · isNachtrag`). A reopen clears

@@ -14,7 +14,7 @@ import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf, readyDirectReportPayload, signedPartOf, usedStackFloors } from '../lib/reportPdfDirect'
-import { SIGNATURE_ROLES, sha256Hex, type ReportSignature, type SignatureRole } from '../lib/reportSignature'
+import { sha256Hex, type ReportSignature } from '../lib/reportSignature'
 import { newId } from '../lib/ids'
 import { serverNowIso } from '../lib/serverClock'
 import type { SignSubmit } from './SignatureSheet'
@@ -54,7 +54,7 @@ import { abschlussOpenItems, abschlussSheet, controlChipLabel } from '../lib/abs
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { openConflicts, sideLabel, sideValue, type OpenConflict } from '../lib/attendanceConflict'
 import { incidentDays } from '../lib/zeitplanFormat'
-import type { AttendanceState, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
+import type { AttendanceState, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReactivateResult, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { visibleMittel } from '../lib/mittel'
 import { ClearableInput } from './ClearableInput'
 import { PersonField } from './PersonField'
@@ -114,12 +114,6 @@ function MissingFact() {
 }
 
 
-// «Später» on the «Rapport unterschreiben» strip of a closed Einsatz, per close (`signKey`). Same
-// kind of box as the kept place (useReportPlace · rapportKept) and for the same reason — the
-// surface unmounts on every hop to Anwesenheit/Mittel/Verlauf, and a dismissal that did not
-// survive that would put the strip back two taps later. Deliberately NOT in the workspace blob and
-// NOT on disk: it is one operator postponing one step on one device.
-const signBandDismissed = new Set<string>()
 
 /**
  * The open points inside the Kontrolle chip's popover – the rows of the «Angaben fehlen noch»
@@ -139,8 +133,8 @@ function ControlOpenList({ missing, onGo }: {
 }
 
 /**
- * One strip under the Rapport's head (28.10.2026): the guide to the next open point (#14), the
- * «Alles erfasst → PDF» band (#15) and «Rapport unterschreiben» wear it alike, at one size – a
+ * One strip under the Rapport's head (28.10.2026): the guide to the next open point (#14) and the
+ * «Alles erfasst → PDF» band (#15) wear it alike, at one size – a
  * tap target with a small lead line over the thing it goes to, and an optional ✕ in front.
  */
 function RpStrip({ lead, count, title, icon, done = false, busy = false, onGo, onHide, hideLabel }: {
@@ -173,9 +167,35 @@ function RpStrip({ lead, count, title, icon, done = false, busy = false, onGo, o
   )
 }
 
+/** The Rapport of a closed Einsatz (owner, 12.11.2026): read-only until «Wieder öffnen», and it
+ *  says so where the hand looks for the fields – with the reopen right beside it for a session
+ *  that may. The reopen runs while the strip stays up (the confirm is upstream, as on the Einsatz
+ *  card's closed fold); a success flips the workspace live and the strip goes with `closed`. */
+function ClosedStrip({ onReopen }: { onReopen?: () => Promise<ReactivateResult> }) {
+  const C = appConfig.copy.archived
+  const [busy, setBusy] = useState(false)
+  const alive = useRef(true)
+  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
+  const reopen = () => {
+    if (!onReopen || busy) return
+    setBusy(true)
+    // a failure is said by the caller's own toast; a cancelled confirm leaves the strip as it was
+    void onReopen().catch(() => {}).finally(() => { if (alive.current) setBusy(false) })
+  }
+  return (
+    <div className="rp-band rp-band-open rp-band-closed" role="note">
+      <Icon id="lock" className="rp-band-wait" />
+      <span className="rp-band-txt">{onReopen ? C.rapportClosedHint : C.rapportClosedViewOnly}</span>
+      {onReopen && (
+        <Button disabled={busy} aria-busy={busy || undefined} onClick={reopen}>{busy ? C.reopening : C.reactivate}</Button>
+      )}
+    </div>
+  )
+}
+
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, checklists, plans = [], scene, board, building, captureUsage, canEdit: canEditIn = true, canShare = canEditIn, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts, closedHint = false,
-  closed = false, reportSignatures = NO_SIGNATURES, onSign, onVoidSignatures,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, checklists, plans = [], scene, board, building, captureUsage, canEdit: canEditIn = true, canShare = canEditIn, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts,
+  closed = false, onReopen, reportSignatures = NO_SIGNATURES, onSign,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -243,9 +263,10 @@ export function ReportPreflight({
   onRemoveAttachment?: (id: string) => void
   /** persist the inline Rapportangaben edits (after-arrival fields) into the workspace */
   onSaveMeta: (next: ReportMeta) => void
-  /** may this session write the Rapportangaben? False for a viewer and for an ARCHIVED Einsatz
-   *  (which is «nur ansehen – zum Bearbeiten reaktivieren»): the fields render, filled in and
-   *  readable, but nothing in them can be changed. */
+  /** does this session keep this Rapport (workspace/access · canEditRapport || canSignRapport)?
+   *  False for a viewer: the fields render, filled in and readable, but nothing in them can be
+   *  changed. On a CLOSED Einsatz the fields are read-only for everybody and a keeper only signs
+   *  and prints (`closed`). */
   canEdit?: boolean
   /** may this session hand the Einsatz out (the «Weitergeben» section)? NOT `canEdit`: the `el`
    *  role keeps the record but minting and reading links is editor-only on the server — the
@@ -272,26 +293,30 @@ export function ReportPreflight({
   onComplete?: () => Promise<boolean>
   /** jump to the Verlauf to fill the still-missing audio transcripts */
   onFixTranscripts?: () => void
-  /** The Einsatz is CLOSED and this Rapport is still editable (staging r3, F10): one line at the
-   *  top says that the changes print as Nachträge — the Abschluss promised exactly that, and the
-   *  fields looking «open» on a closed Einsatz must not read as a mistake. */
-  closedHint?: boolean
-  /** the Einsatz is closed — the only time a Rapport is signed (a reopen ends every signature:
-   *  one only counts when it was made after the latest close) */
+  /** the Einsatz is closed: the form is read-only (owner, 12.11.2026) and the Rapport can be
+   *  signed – the only time it is (a reopen ends every signature: one only counts when it was
+   *  made after the latest close) */
   closed?: boolean
+  /** «Wieder öffnen» on the closed strip (its confirm lives upstream); omit where this session
+   *  cannot reopen the Einsatz */
+  onReopen?: () => Promise<ReactivateResult>
   /** the Rapport's digital signatures (lib/reportSignature), history included */
   reportSignatures?: ReportSignature[]
   /** append a signature; omit where this session may not sign */
   onSign?: (sig: ReportSignature) => void
-  /** «Ändern» on a signed Rapport: every live signature is voided (kept in the history) */
-  onVoidSignatures?: () => void
 }) {
   // ── Unterschriften (15.10.2026) ──────────────────────────────────────────────────────────
   // The lock has to be known up here, before anything uses `canEdit` (useSignatureLock); the
   // signed part's hash it checks against is computed below, once `meta` exists (setScopeHash).
   const closedAt = closeTimeOf(incident)
   const { liveSigs, sigValid, signedLock, setScopeHash } = useSignatureLock(reportSignatures, closedAt, closed)
-  const canEdit = canEditIn && !signedLock
+  // ⚠️ `canEditIn` is «this session keeps this Rapport». On a closed Einsatz that is no longer
+  // editing it (owner, 12.11.2026: «if an emergency is closed then we shouldn't be able to edit it
+  // anymore unless we open it up again») – only signing it, and what signing and printing record
+  // with it (`canRecord`: the Einsatzleiter a signature names, «Rapport erstellt», a print job).
+  // A signature can only exist on a closed Rapport, so the form needs no lock of its own for it.
+  const canEdit = canEditIn && !closed
+  const canRecord = canEditIn && !signedLock
 
   // Defaults follow the data: a rapport-only incident (nothing drawn) prints without the
   // map/plan pages, no configuration needed; every toggle stays available as an override.
@@ -700,9 +725,10 @@ export function ReportPreflight({
       // written back (with the role on the Anwesenheit), and the scope is hashed WITH it — never
       // while another signature already locks the Rapport, which that change would break
       let m = meta
-      if (role === 'el' && canEdit && slot.name !== (meta.einsatzleiter ?? '')) {
+      if (role === 'el' && canRecord && slot.name !== (meta.einsatzleiter ?? '')) {
         setEinsatzleiter(slot.name)
-        persist({ einsatzleiter: slot.name })
+        // not `persist`, which is the form's and so off on the closed Einsatz signing happens on
+        onSaveMeta({ ...metaRef.current, einsatzleiter: slot.name })
         onRolePicked?.(slot.personId, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter)
         m = { ...meta, einsatzleiter: slot.name }
       }
@@ -729,13 +755,13 @@ export function ReportPreflight({
    *  field on this surface already persists itself on change, so there is nothing else to carry
    *  — except `also`, the framing written by the same click (see startOutput). */
   const stampReportMade = (also: Partial<ReportMeta>) =>
-    canEdit && onSaveMeta({ ...metaRef.current, ...also, reportMadeAt: new Date().toISOString() })
+    canRecord && onSaveMeta({ ...metaRef.current, ...also, reportMadeAt: new Date().toISOString() })
   /** A job has been handed to the station relay and is not printed yet. Recorded on the blob,
    *  not just in the toast: «in der Warteschlange» is a STATE and a toast is an event, and the
    *  poll behind the toast gives up after 90 s. Whoever opens the Rapport next — after a reload,
    *  on another device — has to see that a print is still outstanding. */
   const holdPrintJob = (id: string, also: Partial<ReportMeta>) =>
-    canEdit && onSaveMeta({ ...metaRef.current, ...also, printJob: { id, at: new Date().toISOString() } })
+    canRecord && onSaveMeta({ ...metaRef.current, ...also, printJob: { id, at: new Date().toISOString() } })
   /** Jobs already settled on THIS surface — the double-settle guard. The toast's `onSettled`
    *  and this surface's own 15 s poll can both answer for the same job within one render, and
    *  `metaRef` only catches up on the NEXT render — so without this, the second settler saw the
@@ -751,7 +777,7 @@ export function ReportPreflight({
    *  ⚠️ Settles the NAMED job only: a settle that arrives late (the toast poll of a previous
    *  job) must not clear a newer job that has since been queued. */
   const settlePrintJob = (jobId: string, status: PrintJobStatus | 'gone') => {
-    if (!canEdit || metaRef.current.printJob?.id !== jobId || settledJobsRef.current.has(jobId)) return
+    if (!canRecord || metaRef.current.printJob?.id !== jobId || settledJobsRef.current.has(jobId)) return
     settledJobsRef.current.add(jobId)
     onSaveMeta({
       ...metaRef.current,
@@ -880,7 +906,7 @@ export function ReportPreflight({
   })
   const pendingJobId = pendingJob?.id
   useEffect(() => {
-    if (!pendingJobId || !canEdit) return
+    if (!pendingJobId || !canRecord) return
     let alive = true
     const t = editorPrintTransport()
     const read = async () => {
@@ -890,7 +916,7 @@ export function ReportPreflight({
     void read()
     const iv = setInterval(() => void read(), 15_000)
     return () => { alive = false; clearInterval(iv) }
-  }, [pendingJobId, canEdit])
+  }, [pendingJobId, canRecord])
   /** «Prüfen»: ask the relay once, now, and say what came back — including «nothing», which is
    *  its own answer and used to be indistinguishable from «still queued». */
   const checkPrintJob = async () => {
@@ -1164,19 +1190,10 @@ export function ReportPreflight({
   // Einsatz ▾ menu's (WorkspaceTopBar). Off the LIVE form state: an Einsatzende typed a second ago
   // turns it on without a round trip, exactly as it clears the head's «n offen».
   const closeReady = !!onComplete && !!meta.reportMadeAt && missing.length === 0
-  // …and ONE step later (owner pick A3, EL phone sweep 10.11.2026): the Einsatz is closed and
-  // nobody has signed. The card sits at the end of «Personal & Mittel», reads «optional» and only
-  // works after the close – nothing led there. The strip opens the Einsatzleiter's line of the
-  // same sheet; gone once one signature holds, or with ✕ – per CLOSE of this Einsatz (`signKey`):
-  // after «Wieder öffnen» and a new close the Rapport is unsigned again, and the strip is back.
-  const [signFor, setSignFor] = useState<SignatureRole | null>(null)
-  const signKey = `${incident.id}:${closedAt ?? ''}`
-  const [signDismissed, setSignDismissed] = useState(() => (signBandDismissed.has(signKey) ? signKey : null))
-  const showSignBand = canSign && !SIGNATURE_ROLES.some(sigValid) && signDismissed !== signKey
   // …and ONE step earlier (owner pick 15B, 28.10.2026): everything recorded, no PDF yet – the band
   // names the next step, «Einsatzrapport (PDF) erstellen». No «Später» on it (15x): it goes away by
   // itself once the PDF exists, and the head's green close takes over (`closeReady`).
-  const showReadyBand = !!onComplete && canEditIn && !closedHint && !meta.reportMadeAt && missing.length === 0
+  const showReadyBand = !!onComplete && canEdit && !meta.reportMadeAt && missing.length === 0
 
   // The guide strip (owner pick 14 «top strip», 28.10.2026). A jump from the «n offen» list (or
   // from the «Angaben fehlen noch» confirm) remembers WHERE it went; the strip under the head then
@@ -1187,7 +1204,7 @@ export function ReportPreflight({
   // (the list it walks is not drawn for one either).
   const [guideAt, setGuideAt] = useState<AbschlussStep | null>(null)
   const guideTo = (step: AbschlussStep) => { setGuideAt(step); jumpToStep(step) }
-  const guideNext = canEditIn && guideAt ? nextOpenStep(missing, guideAt) : null
+  const guideNext = canEdit && guideAt ? nextOpenStep(missing, guideAt) : null
 
   // ONE ROW (lib/pageHeadFit): the head folds its tiles' words — «Ausdrucken», «Abschliessen»,
   // then «Einsatzrapport (PDF)» → «PDF» — until it fits; the Kontrolle chip's words are never cut
@@ -1293,10 +1310,10 @@ export function ReportPreflight({
                 were cut off the left of the screen, hard-clipped by the surface's `overflow: hidden`.
                 Portalled + collision-aware, the panel is clamped to the viewport instead of to the
                 chip, so no breakpoint has to guess which way it should open.
-                ⚠️ Not for a session that cannot edit the Rapport (`canEditIn`, RBAC audit
-                22.10.2026): «4 noch offen» is the editor's to-do list, and on the Fahrer tablet it
+                ⚠️ Not for a session that cannot edit the Rapport (`canEdit`, RBAC audit
+                22.10.2026; nor on a closed Einsatz, whose form is read-only): «4 noch offen» is the editor's to-do list, and on the Fahrer tablet it
                 was an amber alarm about work the driver can do nothing about. */}
-            {canEditIn && ((!checking && !controlOk) || openInControl) && (
+            {canEdit && ((!checking && !controlOk) || openInControl) && (
               <Popover
                 open={controlOpen}
                 onOpenChange={setControlOpen}
@@ -1479,14 +1496,13 @@ export function ReportPreflight({
             </span>
           </div>
         </header>
-        {closedHint && (
-          <div className="rp-band rp-band-open" role="note">
-            <Icon id="lock" className="rp-band-wait" />
-            <span className="rp-band-txt">{appConfig.copy.archived.rapportClosedHint}</span>
-          </div>
-        )}
         {/* #14 · #15: one strip under the head, one size (owner: the band «a bit smaller, same as
-            the guide»). Outside the scrolling body, so it stays on screen with the keyboard up. */}
+            the guide»). Outside the scrolling body, so it stays on screen with the keyboard up.
+            ONE of them at a time (owner, 12.11.2026: «either closed or the next step»): a closed
+            Einsatz shows only its state and the way back to editing, «Wieder öffnen». No «Rapport
+            unterschreiben» step: closed means nothing is left to do, and signing stays an
+            optional card further down (owner, 12.11.2026). */}
+        {closed && <ClosedStrip onReopen={onReopen} />}
         {guideNext && (
           <RpStrip lead={missing.length === 1 ? P.guideLast : P.guideNext} count={fillTemplate(P.guideLeft, { n: missing.length })}
             title={A.steps[guideNext]} onGo={() => guideTo(guideNext)} onHide={() => setGuideAt(null)} hideLabel={P.guideHide} />
@@ -1494,11 +1510,6 @@ export function ReportPreflight({
         {showReadyBand && (
           <RpStrip done lead={P.bandReady} title={P.bandPdf} busy={pdfBusy}
             icon={pdfBusy ? <ShellLoader /> : <Icon id="doc" />} onGo={() => void startOutput()} />
-        )}
-        {showSignBand && (
-          <RpStrip done lead={P.bandClosed} title={appConfig.copy.signature.sheetTitle} icon={<Icon id="signature" />}
-            onGo={() => setSignFor('el')} hideLabel={P.bandLater}
-            onHide={() => { signBandDismissed.add(signKey); setSignDismissed(signKey) }} />
         )}
         {/* …and its counterpart: a print that has been handed over and has not come back. It is
             NOT dismissible — «Später» on the green band hides an offer, this one is an open
@@ -1517,7 +1528,7 @@ export function ReportPreflight({
                 surface (the disabled fieldsets above). A viewer's «Abbrechen» used to really
                 cancel the job at the relay while their own settlePrintJob no-oped: toast said
                 abgebrochen, the band stayed, and the editor's print was gone. */}
-            <fieldset className="report-fieldset" disabled={!canEdit}>
+            <fieldset className="report-fieldset" disabled={!canRecord}>
               <button type="button" className="ip-btn" disabled={jobBusy} onClick={() => void checkPrintJob()}>{R.jobCheck}</button>
               <button type="button" className="ip-btn ip-btn-danger" disabled={jobBusy} onClick={() => void dropPrintJob()}>{R.jobCancel}</button>
             </fieldset>
@@ -1537,7 +1548,7 @@ export function ReportPreflight({
           onChange={pickTab}
           options={PHONE_TABS.map((t) => {
             // the same to-do as the head's chip, so the same gate (a viewer gets no dot)
-            const open = canEditIn && missing.some((s) => STEP_TAB[s] === t)
+            const open = canEdit && missing.some((s) => STEP_TAB[s] === t)
             return {
               value: t,
               title: open ? `${P.tabs[t]} – ${P.headStillOpen}` : P.tabs[t],
@@ -2394,8 +2405,7 @@ export function ReportPreflight({
               closed={closed} maySign={maySign} canSign={canSign} signedLock={signedLock}
               liveSigs={liveSigs} sigValid={sigValid}
               elName={meta.einsatzleiter || einsatzleiter} kdtName={kdtDefault}
-              onVoidSignatures={canEditIn ? onVoidSignatures : undefined}
-              sheet={signSheet} signFor={signFor} setSignFor={setSignFor}
+              sheet={signSheet}
             />
             {/* Beilagen sit right under Partnerorganisationen: same family, same question —
                 what else belongs to this rapport. Tapping a thumbnail opens the picture full-size

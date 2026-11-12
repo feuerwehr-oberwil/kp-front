@@ -74,7 +74,7 @@ describe('the Abschluss band, one step earlier (#15)', () => {
     mount(done, { attendanceCount: 1, mittelCount: 0 })
     expect(strip()!.textContent).toContain(P.bandReady)
     expect(within(strip()!).getByRole('button', { name: (n) => n.includes(P.bandPdf) })).toBeTruthy()
-    expect(within(strip()!).queryByRole('button', { name: P.bandLater })).toBeNull()
+    expect(strip()!.querySelector('.rp-strip-x')).toBeNull()
   })
   // owner pick H2 C (11.11.2026): the close is the HEAD's green tile, no longer a strip
   it('grows the green «Einsatz abschliessen» in the head once the PDF exists – and only then', async () => {
