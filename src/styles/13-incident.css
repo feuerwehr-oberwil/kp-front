@@ -1589,6 +1589,7 @@ button.rp-sign-row:disabled { cursor: default; }
 /* keep name + von/bis + the date + time on one 360px row: tighter chrome inside the row (the
    field's own day replaced the separate date tag, 12.11.2026) */
 .cv-person-row .timefield { gap: 4px; }
+.cv-person-row .timefield-trigger.dt { min-width: 0; padding-inline: var(--sp-2); }
 
 /* 24h time / date-time fields: trigger buttons opening the wheel popover */
 .timefield { display: inline-flex; align-items: center; gap: 8px; }
