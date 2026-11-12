@@ -391,7 +391,11 @@ jobs:
   e2e:
     name: Browser tests (${{ matrix.suite }})
     needs: build-image
-    runs-on: ubuntu-latest
+    # ⚠️ PINNED, not `ubuntu-latest`: Playwright's browsers are built per Ubuntu release, and the
+    # baselines are shot on this one. When `ubuntu-latest` moved to 26.04 (12.11.2026) the cached
+    # 24.04 WebKit could not start (libicudata.so.74) and every recovery run went red. Move the pin
+    # on purpose, in its own PR, in all four browser jobs (e2e, perf, visual, visual-baselines.yml).
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -531,7 +535,7 @@ jobs:
   perf:
     name: Performance (user journeys vs baseline)
     needs: build-image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned with the browser jobs – see `e2e` above
     timeout-minutes: 15
     env:
       SEED_PIN: '194731'   # the same throwaway values as «Image» — see the notes there
@@ -622,7 +626,7 @@ jobs:
   visual:
     name: Visual (screenshots vs baseline)
     needs: build-image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned with the browser jobs – see `e2e` above
     timeout-minutes: 15
     env:
       SEED_PIN: '194731'   # the same throwaway values as «Image» — see the notes there
