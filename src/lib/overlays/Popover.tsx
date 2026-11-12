@@ -33,7 +33,9 @@ export interface PopoverProps {
   popupClassName?: string
   side?: 'top' | 'bottom' | 'left' | 'right'
   align?: 'start' | 'center' | 'end'
-  sideOffset?: number
+  /** a number, or a function Base UI calls at each placement – for a gap measured off something
+   *  other than the trigger (TopBar · the GPS caveat, a chip shorter than the bar it sits in) */
+  sideOffset?: PopoverPositionerProps['sideOffset']
   /** Shift along the aligned edge. For a trigger that sits INSIDE the visible control (a button
    *  in a padded glass cluster): the popup aligns to the trigger, and the eye aligns it to the
    *  cluster. With `align="end"` a NEGATIVE value moves the popup outward, past the trigger. */

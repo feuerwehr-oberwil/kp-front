@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
-import { BAR_POP_OFFSET, Popover, PopoverClose } from '../lib/overlays'
+import { BAR_POP_OFFSET, OVERLAY_GAP, Popover, PopoverClose } from '../lib/overlays'
 import { fmtMMSS } from '../lib/format'
 import { formatTime, fillTemplate } from '../lib/format'
 import { EntryGlyph, Icon } from '../lib/icons'
@@ -188,6 +188,13 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
 
   // the bar's priority ladder (lib/useHeadFit): measured, one step at a time, until it fits
   const barRef = useRef<HTMLDivElement>(null)
+  // the GPS caveat chip is shorter than the bar's 44px controls, so BAR_POP_OFFSET (which assumes
+  // a control filling the bar) left its popover on the bar's edge: measure the bar instead
+  const gpsRef = useRef<HTMLButtonElement>(null)
+  const underBar = () => {
+    const bar = barRef.current?.getBoundingClientRect(), chip = gpsRef.current?.getBoundingClientRect()
+    return bar && chip ? bar.bottom - chip.bottom + OVERLAY_GAP : BAR_POP_OFFSET
+  }
   useHeadFit(barRef, [
     incident.title, incident.address, clockText.length, hasWind, gpsStale ? 1 : 0,
     azAlarm?.urgent && !azChipHidden ? `${azAlarm.peak}:${azAlarm.urgent.reason}` : '', recording ? 1 : 0, reminderCount > 0 ? 1 : 0,
@@ -290,9 +297,12 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             ever shows. The popover is the house one (lib/overlays · Popover): non-modal, so the
             map stays live under it and a press elsewhere closes it. */}
         {gpsStale && (
+          // in the bar it hangs 8px under the BAR, measured (`underBar`); on a phone the chip
+          // floats under the bar on its own, so the popover hangs the plain 8px under the chip
           <Popover side="bottom" align="start" popupClassName="tb-gps-pop" ariaLabel={appConfig.copy.topBar.gpsFrozen} zIndex={201}
+            sideOffset={isPhone ? undefined : underBar}
             trigger={
-              <button type="button" className="tb-gps">
+              <button type="button" className="tb-gps" ref={gpsRef}>
                 {/* the app's own position glyph — a speedometer (`gauge`) named nothing about a
                     silent position feed. The amber pill carries the caveat; the icon says WHAT. */}
                 <Icon id="locate" />
