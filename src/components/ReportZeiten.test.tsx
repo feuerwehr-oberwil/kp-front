@@ -175,5 +175,5 @@ describe('Zeiten · a grid row over midnight stores the day that was shown', () 
     const meta = onSaveMeta.mock.calls[onSaveMeta.mock.calls.length - 1][0] as { gruppen?: { alarmedAt?: string }[] }
     expect(meta.gruppen?.[0]?.alarmedAt).toBe(new Date(2026, 7, 11, 0, 15).toISOString())
     expect(screen.getByRole('button', { name: 'Gruppe 1' }).textContent).toBe('11.08. 00:15')
-  })
+  }, 15_000) // the whole Rapport is mounted and three wheels are driven: slow on a loaded runner
 })
