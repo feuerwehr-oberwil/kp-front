@@ -126,9 +126,9 @@ describe('Rapport · Angaben von anderen Geräten', () => {
   })
 
   it('an unchanged field is absent from the payload — a round trip is not an edit', () => {
-    // `endedAt` lives on screen as a `dtLocal` string and in the blob as an ISO stamp; the
-    // conversion between them drops the seconds. Reading that as a change would put this
-    // device's copy of every clock back into the blob on every keystroke.
+    // `endedAt` carries seconds in the blob and the form only ever writes whole minutes, and one
+    // instant has more than one ISO spelling (useSyncedField · normIso). Reading either as a
+    // change would put this device's copy of every clock back into the blob on every keystroke.
     const { onSaveMeta } = setup({ endedAt: '2026-08-25T21:14:37.000Z', summary: 'Alt' })
     fireEvent.change(bemerkungen(), { target: { value: 'k' } })
 

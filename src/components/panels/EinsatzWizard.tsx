@@ -9,7 +9,7 @@ import { DateTimeField } from '../TimeField'
 import { Combo } from '../Combo'
 import { OnOff } from '../Segmented'
 import { appConfig } from '../../config/appConfig'
-import { dtLocalValue, dtLocalToIso, fillTemplate } from '../../lib/format'
+import { fillTemplate } from '../../lib/format'
 import { fmtDistance, haversineM } from '../../lib/geo'
 import { matchesAnyQuery, searchQuery } from '../../lib/search'
 import { incidentCategories, isDemoMode, shortAddress } from '../../lib/deploymentConfig'
@@ -71,6 +71,12 @@ export function changedOnly(next: Record<string, unknown>, seed: Record<string, 
   return out
 }
 
+/** An instant as ISO, or undefined when there is none to read. */
+const asIso = (v: string | undefined): string | undefined => {
+  const t = v ? Date.parse(v) : NaN
+  return Number.isFinite(t) ? new Date(t).toISOString() : undefined
+}
+
 /** What was typed when the sheet closed by anything but «Abbrechen» or a save (lib/draftKeep).
  *  `text` and `alarmiertAt` ride only once the operator set them: the Alarmmeldung of an edit is
  *  fetched and the Alarmzeit of a create is «now» – neither may come back stale. */
@@ -119,9 +125,11 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // Alarmierungszeit (= incident.started_at): correctable in edit mode, and settable on
   // MANUAL create so a fully analog incident (no Divera) can be nachgetragen days later
   // with its real alarm time — that timestamp is what a website/statistics feed reads.
-  // Defaults to now, so live creation needs no interaction.
-  const [openedAlarm] = useState(() => dtLocalValue(edit ? edit.started_at : new Date().toISOString()))
-  const [alarmiertAt, setAlarmiertAt] = useState(draft?.alarmiertAt ?? openedAlarm)
+  // Defaults to now, so live creation needs no interaction. Held as ISO like every Rapport time
+  // (TimeField · DateTimeField); a draft kept before 12.11.2026 holds a datetime-local string,
+  // which `asIso` reads as the same local instant.
+  const [openedAlarm] = useState(() => edit ? edit.started_at : new Date().toISOString())
+  const [alarmiertAt, setAlarmiertAt] = useState(() => asIso(draft?.alarmiertAt) ?? openedAlarm)
   // category defaults to the first VKF type (Brandbekämpfung) so the dropdown is never empty;
   // the list is the server's (`categoryLabels`), the option text translated per locale
   const kategorien = incidentCategories()
@@ -362,7 +370,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       ...(priority ? { priority } : {}),
       address: address.trim() || null,
       ...(textReady ? { text: text.trim() || null } : {}),
-      ...(dtLocalToIso(alarmiertAt) ? { started_at: dtLocalToIso(alarmiertAt) } : {}),
+      ...(asIso(alarmiertAt) ? { started_at: asIso(alarmiertAt) } : {}),
       is_exercise: isExercise,
       // ⚠️ `null`, not omitted, once there WAS one. The ✕ set `coord` to null and the read-out
       // agreed — but an omitted key is not written (the PATCH is exclude_unset), so the location
@@ -541,8 +549,8 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           enter an analog one afterwards (the paper report keeps the bookkeeping; this row is what
           puts the right date into the catalogue). --- */}
       <label className="ip-field"><span>{ix.alarmTime}</span>
-        <DateTimeField ariaLabel={ix.alarmTime} value={dtLocalToIso(alarmiertAt)}
-          onCommit={(iso) => setAlarmiertAt(dtLocalValue(iso))} />
+        <DateTimeField ariaLabel={ix.alarmTime} value={alarmiertAt}
+          onCommit={(iso) => setAlarmiertAt(iso ?? '')} />
       </label>
       <label className="ip-field"><span>{ix.alarmMessage}</span>
         {/* editing: disabled while the existing Meldungstext could not be read — editing it

@@ -1,7 +1,7 @@
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, fmtSpanShort, hhmm } from '../lib/format'
 import { fmtDayShort, fmtStartValue, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
-import { applyTimeToIso, isoOnDay, keepEndAfterStart, keepStartBeforeEnd } from '../lib/abschluss'
+import { keepEndAfterStart, keepStartBeforeEnd } from '../lib/abschluss'
 import { timeBlockLabels } from '../lib/timeBlockLabels'
 import type { Person, PresenceInterval, Shift } from '../types'
 import { TimeBlockReadOnly, TimeBlockSheet } from './TimeBlockSheet'
@@ -59,23 +59,14 @@ export function PersonShiftSheet({ person, shifts, blocks, canEdit, startedAt, c
       days={planDays}
       blocks={shifts.map((sh) => ({
         key: sh.id,
-        from: clock(sh.from),
-        to: clock(sh.to),
-        // the day each end sits on — see TimeBlock.fromDay
-        fromDay: sh.from ? new Date(sh.from) : undefined,
-        toDay: sh.to ? new Date(sh.to) : undefined,
+        from: sh.from,
+        to: sh.to,
         warn: conflicts.has(sh.id) || Date.parse(sh.to) <= Date.parse(sh.from),
-        // mirror of onTo: a von typed after the bis means the shift STARTED the previous day,
-        // not that it runs backwards — a reversed shift renders as nothing at all
-        onFrom: canEdit ? (v, day) => { const iso = day ? isoOnDay(day, v) : applyTimeToIso(sh.from, v, { prevDayIfAfter: sh.to }); if (iso) onSetTime(sh.id, { from: keepStartBeforeEnd(iso, sh.to) }) } : undefined,
-        // a bis before the von means the shift runs past midnight, not backwards
-        onTo: canEdit ? (v, day) => { const iso = day ? isoOnDay(day, v) : applyTimeToIso(sh.to, v, { nextDayIfBefore: sh.from }); if (iso) onSetTime(sh.id, { to: keepEndAfterStart(sh.from, iso) }) } : undefined,
+        // a reversed shift renders as nothing at all, so the planning sheet keeps its order guard:
+        // the day steps (visibly — both fields show their date) until the shift runs forwards
+        onFrom: canEdit ? (iso) => onSetTime(sh.id, { from: keepStartBeforeEnd(iso, sh.to) }) : undefined,
+        onTo: canEdit ? (iso) => onSetTime(sh.id, { to: keepEndAfterStart(sh.from, iso) }) : undefined,
         onRemove: canEdit ? () => onRemove(sh.id, person.displayName) : undefined,
-        // ALWAYS, not only when it differs: the clock alone never says which day, and «07:00» on
-        // day three of an Elementarereignis is a question. It is also what makes an overnight
-        // correction visible rather than silent.
-        dayLabel: fmtDayShort(new Date(sh.from)),
-        toDayLabel: fmtDayShort(new Date(sh.to)),
         // see the Anwesenheit twin: first shift only, and never when it would invert the block
         onFromStart: canEdit && startedAt && shifts[0]?.id === sh.id
           && Date.parse(startedAt) < Date.parse(sh.to)

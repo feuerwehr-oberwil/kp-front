@@ -16,7 +16,6 @@
 // Used by ReportPreflight; every synced field's wrapper carries a `data-sync` marker.
 
 import { useEffect, useState } from 'react'
-import { dtLocalToIso } from '../lib/format'
 import type { PartnerContact } from '../lib/workspace'
 import { numOrU, partnerFilled } from './reportForm'
 
@@ -29,11 +28,14 @@ const focusedSyncField = (): string | null => {
 }
 
 /** Canonical forms. A round trip through the LOCAL shape must not read as a change — a
- *  Kurzbericht is trimmed on the way to the blob, `dtLocalValue` drops the seconds off an ISO
- *  stamp, a Stepper writes «3» where the blob holds 3 — and a field that looks edited because
- *  of one of those would clobber the blob exactly as before. */
+ *  Kurzbericht is trimmed on the way to the blob, one instant can be spelled «…Z» or «…+00:00»,
+ *  a Stepper writes «3» where the blob holds 3 — and a field that looks edited because of one of
+ *  those would clobber the blob exactly as before. */
 export const normText = (v: string) => v.trim()
-export const normDtLocal = (v: string) => dtLocalToIso(v) ?? ''
+export const normIso = (v: string) => {
+  const t = Date.parse(v)
+  return Number.isFinite(t) ? new Date(t).toISOString() : ''
+}
 export const normCount = (v: string) => String(numOrU(v) ?? '')
 export const normList = (v: unknown[]) => JSON.stringify(v)
 /** blank partner rows live on screen and never reach the blob, so they are not a change either */
@@ -66,7 +68,7 @@ export function useBlurTick(): number {
  * One Rapportangabe, merged with whatever the other devices have made of it.
  *
  * @param name    the field's `data-sync` marker — how «is the caret in here right now» is asked
- * @param remote  what the blob says, already in this field's LOCAL shape (dtLocal string, list,
+ * @param remote  what the blob says, already in this field's LOCAL shape (an ISO string, list,
  *                «» for absent), so the two sides are comparable at all
  * @param norm    the field's canonical form (see above)
  * @param tick    bumped on every focus move inside the sheet (useBlurTick), so an adoption that

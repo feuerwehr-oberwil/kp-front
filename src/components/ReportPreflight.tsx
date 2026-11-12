@@ -31,10 +31,10 @@ import { ShareIncident } from './panels/ShareIncident'
 import { cancelPrint, editorPrintTransport, enqueuePrint, fetchJobStatus, fetchPrintStatus, prewarmPrint, type PrintJobStatus, type PrintRelayStatus } from '../lib/printRelay'
 import { trackPrintJob } from '../lib/printJobToast'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate, fmtSpanShort, hhmm, dtLocalValue, dtLocalToIso, stripUnprintable, telHref, unitLabel } from '../lib/format'
+import { fieldWhen, fillTemplate, fmtSpanShort, hhmm, stripUnprintable, telHref, unitLabel } from '../lib/format'
 import { closeTimeOf, getIncident, type IncidentMeta } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
-import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock, zeitIssues } from '../lib/alarmzeiten'
+import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitIssues } from '../lib/alarmzeiten'
 import { fahrtenText } from '../lib/vehiclePresence'
 import { VehicleGpsTable } from './VehicleGpsTable'
 import type { ZeitKind } from '../lib/alarmzeiten'
@@ -53,7 +53,7 @@ import { abschlussFacts, missingSteps, nextOpenStep, stepDone, type AbschlussFac
 import { abschlussOpenItems, abschlussSheet, controlChipLabel } from '../lib/abschlussOpen'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { openConflicts, sideLabel, sideValue, type OpenConflict } from '../lib/attendanceConflict'
-import { incidentDays } from '../lib/zeitplanFormat'
+import { incidentDays, isOtherDay } from '../lib/zeitplanFormat'
 import type { AttendanceState, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReactivateResult, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { visibleMittel } from '../lib/mittel'
 import { ClearableInput } from './ClearableInput'
@@ -62,12 +62,12 @@ import { PhoneTabBar } from './PhoneTabBar'
 import { useIsPhone } from '../lib/useIsPhone'
 import { journalVocabulary } from '../lib/journalLinks'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
-import { DateTimeField, TimeField } from './TimeField'
+import { DateTimeField, When } from './TimeField'
 import { Stepper } from './Stepper'
 import { Menu, Popover } from '../lib/overlays'
 import { CheckRow, StatusMark } from './ReportCheckRow'
 import { dirtyFormMeta, formToMeta, geretteteMeta, numOrU, partnerFilled, partnersMeta, remoteForm, rueckMeta, type ReportForm } from './reportForm'
-import { normCount, normDtLocal, normList, normPartners, normText, useBlurTick, useSyncedField } from './useSyncedField'
+import { normCount, normIso, normList, normPartners, normText, useBlurTick, useSyncedField } from './useSyncedField'
 import { ReportSignatures } from './ReportSignatures'
 import { printedSignatures, useSignatureLock } from './useReportSignatures'
 import { useAuditProof } from './useAuditProof'
@@ -87,7 +87,8 @@ const RP_FOLD = { print: 1, pdf: 2, complete: 3, title: 4 } as const
 // «Zeig mir diese offene Angabe» from outside the sheet — lives with the tabs (useReportPlace)
 export { requestReportStep } from './useReportPlace'
 
-/** HH:MM display value for the compact time inputs of the Zeiten grid. */
+/** HH:MM of a server read-out beside a vehicle (vor Ort / zurück) — not a field: every field of the
+ *  Rapport reads its date too (DateTimeField). */
 function clockOf(iso?: string): string {
   if (!iso) return ''
   const d = new Date(iso)
@@ -474,8 +475,8 @@ export function ReportPreflight({
   // map (Einsatzleiter glyph / KP Front), so typing it a second time is pure duplication. A
   // pre-fill only — the picker stays editable and the typed value wins from then on.
   const [einsatzleiter, setEinsatzleiter, einsatzleiterDirty] = useSyncedField('einsatzleiter', remote.einsatzleiter, normText, blurTick)
-  const [endedAt, setEndedAt, endedAtDirty] = useSyncedField('endedAt', remote.endedAt, normDtLocal, blurTick)
-  const [ausgerueckt, setAusgerueckt, ausgeruecktDirty] = useSyncedField('ausgerueckt', remote.ausgerueckt, normDtLocal, blurTick)
+  const [endedAt, setEndedAt, endedAtDirty] = useSyncedField('endedAt', remote.endedAt, normIso, blurTick)
+  const [ausgerueckt, setAusgerueckt, ausgeruecktDirty] = useSyncedField('ausgerueckt', remote.ausgerueckt, normIso, blurTick)
   const [remarks, setRemarks, remarksDirty] = useSyncedField('remarks', remote.remarks, normText, blurTick)
   const [lehren, setLehren, lehrenDirty] = useSyncedField('lehren', remote.lehren, normText, blurTick)
   // Alarmierungs-/Ausrückzeiten grid (G1/G2) + the paper-form Details fields (G4).
@@ -515,7 +516,7 @@ export function ReportPreflight({
   // midnight, or the morning after on a long Einsatz, and a bare clock had to guess which
   // day it meant (applyTimeToIso rolled it forward past the start). The Einsatzende beside
   // it has always asked for a date; this is the same question and now asks it the same way.
-  const [rueckAt, setRueckAt, rueckAtDirty] = useSyncedField('rueckAt', remote.rueckAt, normText, blurTick)
+  const [rueckAt, setRueckAt, rueckAtDirty] = useSyncedField('rueckAt', remote.rueckAt, normIso, blurTick)
 
   useEffect(() => {
     if (reportMeta.alarmText) return
@@ -649,11 +650,19 @@ export function ReportPreflight({
   // whenever anything on the form moves, which is precisely when it can change.
   // one render clock for the Zeiten checks and the day columns below (lib/zeitplanFormat · incidentDays)
   const renderNow = Date.now()
+  // ⚠️ A LIVE clock for the day list too, for the same reason: it runs from the Alarmierung to
+  // «now», and a «now» frozen when the surface mounted stops growing while the surface sits open.
+  // An Einsatz that started at 23:50 and is still being written at 00:30 — the ordinary night
+  // Einsatz — then offered only the day before.
+  const zeitDays = incidentDays(meta.startedAt ?? incident.started_at, renderNow)
+  // the Einsatz's year: every time on this form reads «12.11. 11:26», with the year only off it
+  // (docs/rapport.md › Times)
+  const einsatzYear = zeitDays[0]?.getFullYear() ?? new Date(renderNow).getFullYear()
   const issues = zeitIssues(
     {
       alarmiertAt: alarmiert,
-      ausgeruecktAt: derivedAus ?? dtLocalToIso(ausgerueckt),
-      endedAt: dtLocalToIso(endedAt),
+      ausgeruecktAt: derivedAus ?? (ausgerueckt || undefined),
+      endedAt: endedAt || undefined,
       rueckmeldungAt: rueckIso,
     },
     renderNow,
@@ -661,13 +670,13 @@ export function ReportPreflight({
   const issueFor = (kind: ZeitKind) => {
     const i = issues.find((x) => x.kind === kind)
     if (!i) return null
-    const t = i.ref ? formatDateTime(i.ref) : ''
+    const t = i.ref ? fieldWhen(i.ref, einsatzYear) : ''
     if (i.code === 'future') return P.zeitFuture
     return fillTemplate(i.code === 'beforeAusgerueckt' ? P.zeitBeforeAusgerueckt : P.zeitBeforeAlarm, { t })
   }
   // a plain call, not a component: one declared in the render body is re-created every pass
-  /** a recorded instant as the read-out says it («21.10.2026 23:14»), nothing when none */
-  const whenOf = (iso?: string) => (iso ? formatDateTime(iso) : undefined)
+  /** a recorded instant as the read-out says it — the field's own «21.10. 23:14» — nothing when none */
+  const whenOf = (iso?: string) => fieldWhen(iso, einsatzYear) || undefined
   const zeitWarn = (kind: ZeitKind) => {
     // a hint to CORRECT a time – nothing for a session that cannot (it reads the times as they are)
     const text = canEdit && issueFor(kind)
@@ -1647,7 +1656,7 @@ export function ReportPreflight({
                     </dd>
                   </div>
                 )}
-                <div><dt>{P.alarmierung}</dt><dd>{alarmiert ? formatDateTime(alarmiert) : <MissingFact />}</dd></div>
+                <div><dt>{P.alarmierung}</dt><dd>{alarmiert ? whenOf(alarmiert) : <MissingFact />}</dd></div>
               </dl>
             </div>
           </section>
@@ -1869,19 +1878,18 @@ export function ReportPreflight({
               <label className="ip-field">
                 <span>{A.ausgerueckt}</span>
                 <div className="report-meta-end rz-derived">
-                  <b>{clockOf(derivedAus)}</b>
+                  <b><When iso={derivedAus} refYear={einsatzYear} /></b>
                   <span className="rz-sub">{P.ausgeruecktDerived}</span>
                 </div>
               </label>
             ) : (getDeploymentConfig().fleet?.vehicles ?? []).length === 0 ? (
               !canEdit ? (
-                <div className="ip-field"><span>{A.ausgerueckt}</span><ReadOut value={whenOf(dtLocalToIso(ausgerueckt))} /></div>
+                <div className="ip-field"><span>{A.ausgerueckt}</span><ReadOut value={whenOf(ausgerueckt)} /></div>
               ) : <label className="ip-field" data-sync="ausgerueckt">
                 <span>{A.ausgerueckt}</span>
                 <div className="report-meta-end dtrow">
-                  <DateTimeField ariaLabel={A.ausgerueckt} value={dtLocalToIso(ausgerueckt)}
-                    days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)}
-                    onCommit={(iso) => { setAusgerueckt(dtLocalValue(iso ?? undefined)); persist({ ausgeruecktAt: iso ?? undefined }) }} />
+                  <DateTimeField ariaLabel={A.ausgerueckt} value={ausgerueckt} days={zeitDays} opensOn={alarmiert}
+                    onCommit={(iso) => { setAusgerueckt(iso ?? ''); persist({ ausgeruecktAt: iso ?? undefined }) }} />
                 </div>
                 {zeitWarn('ausgerueckt')}
               </label>
@@ -1891,28 +1899,26 @@ export function ReportPreflight({
             {(() => {
               const gRows = gruppenRows(getDeploymentConfig().alarms?.groups ?? [], gruppen)
               const vRows = fahrzeugRows(getDeploymentConfig().fleet?.vehicles ?? [], fahrzeuge)
-              // The grid shows a bare clock, so the calendar day is resolved against the alarm —
-              // an Ausrückzeit of 00:15 after an Alarmierung um 23:50 is the NEXT day, and used
-              // to land 23h35 before the alarm. Same rule and same day wheel as the Rückmeldung
-              // ELZ field below; `day` arrives only on an incident that spans more than one.
-              // ⚠️ A LIVE clock, for the same reason the plausibility check above uses one: this
-              // list runs from the Alarmierung to «now», and a «now» frozen when the surface
-              // mounted stops growing while the surface sits open. An Einsatz that started at
-              // 23:50 and is still being written at 00:30 — the ordinary night Einsatz — then
-              // offered only the day before, so a clock typed after midnight could not be put on
-              // the day it actually happened.
-              const zeitDays = incidentDays(meta.startedAt ?? incident.started_at, renderNow)
-              const onGruppe = (id: string, hhmm: string, day?: Date) => {
-                const iso = zeitFromClock(incident.started_at, hhmm, day)
+              // Every row is a date + time (owner, 12.11.2026): the day used to be GUESSED from the
+              // alarm (a bare clock rolled past midnight), and read-only the grid said «00:15» on
+              // an Einsatz over three days. Now the picker shows the day before «OK» and stores
+              // exactly what it showed; an empty row opens on the alarm, minutes before any of
+              // these times.
+              const onGruppe = (id: string, iso: string | null) => {
                 const next = setGruppeZeit(gruppen, id, iso)
                 setGruppen(next)
                 persist({ gruppen: next.length ? next : undefined })
               }
-              const onFahrzeug = (id: string, hhmm: string, day?: Date) => {
-                const iso = zeitFromClock(incident.started_at, hhmm, day)
+              const onFahrzeug = (id: string, iso: string | null) => {
                 const next = setFahrzeugZeit(fahrzeuge, id, 'ausgerueckt', iso)
                 setFahrzeuge(next)
-                persist({ fahrzeuge: next.length ? next : undefined, ausgeruecktAt: deriveAusgerueckt(next) ?? dtLocalToIso(ausgerueckt) })
+                persist({ fahrzeuge: next.length ? next : undefined, ausgeruecktAt: deriveAusgerueckt(next) ?? (ausgerueckt || undefined) })
+              }
+              /** a server read-out beside a vehicle («vor Ort 11:35») – with its day when that is
+               *  not the day of the row's own Ausrückzeit (or of the alarm, while it is empty) */
+              const subClock = (iso: string, rowIso?: string) => {
+                const row = new Date(rowIso ?? alarmiert ?? iso)
+                return isOtherDay(new Date(iso), row) ? fieldWhen(iso, einsatzYear) : clockOf(iso)
               }
               return (
                 <>
@@ -1923,16 +1929,10 @@ export function ReportPreflight({
                         {gRows.map(({ config: c, value: v }) => (
                           <label key={c.id} className="rz-row">
                             <span className="rz-name">{c.label}{c.color ? ` (${c.color})` : ''}</span>
-                            {/* ⚠️ `valueDay` is not optional here: the day wheel hands a day back
-                                on EVERY commit once the incident spans more than one, and without
-                                it the picker opens on TODAY — so correcting a Monday Ausrückzeit
-                                on Wednesday filed it as Wednesday, on the sheet that becomes the
-                                printed Rapport (see TimeField · valueDay). */}
                             {canEdit ? (
-                              <TimeField ariaLabel={c.label} value={clockOf(v?.alarmedAt)} days={zeitDays}
-                                valueDay={v?.alarmedAt ? new Date(v.alarmedAt) : undefined}
-                                onCommit={(hhmm, day) => onGruppe(c.id, hhmm ?? '', day)} />
-                            ) : <b className="rz-clock">{clockOf(v?.alarmedAt) || '–'}</b>}
+                              <DateTimeField ariaLabel={c.label} value={v?.alarmedAt} days={zeitDays}
+                                opensOn={alarmiert} onCommit={(iso) => onGruppe(c.id, iso)} />
+                            ) : <b className="rz-clock">{v?.alarmedAt ? <When iso={v.alarmedAt} refYear={einsatzYear} /> : '–'}</b>}
                           </label>
                         ))}
                       </div>
@@ -1949,19 +1949,17 @@ export function ReportPreflight({
                               {(v?.vorOrt || v?.zurueck || fahrtenText(v)) && (
                                 <span className="rz-sub">
                                   {[
-                                    v?.vorOrt ? `${P.vorOrtShort} ${clockOf(v.vorOrt)}` : '',
-                                    v?.zurueck ? `${P.zurueckShort} ${clockOf(v.zurueck)}` : '',
+                                    v?.vorOrt ? `${P.vorOrtShort} ${subClock(v.vorOrt, v.ausgerueckt)}` : '',
+                                    v?.zurueck ? `${P.zurueckShort} ${subClock(v.zurueck, v.ausgerueckt)}` : '',
                                     fahrtenText(v),
                                   ].filter(Boolean).map((t, i) => (i ? ` · ${t}` : ` ${t}`)).join('')}
                                 </span>
                               )}
                             </span>
-                            {/* …and the same day for the Ausrückzeit — see the Gruppen row above */}
                             {canEdit ? (
-                              <TimeField ariaLabel={c.label} value={clockOf(v?.ausgerueckt)} days={zeitDays}
-                                valueDay={v?.ausgerueckt ? new Date(v.ausgerueckt) : undefined}
-                                onCommit={(hhmm, day) => onFahrzeug(c.id, hhmm ?? '', day)} />
-                            ) : <b className="rz-clock">{clockOf(v?.ausgerueckt) || '–'}</b>}
+                              <DateTimeField ariaLabel={c.label} value={v?.ausgerueckt} days={zeitDays}
+                                opensOn={alarmiert} onCommit={(iso) => onFahrzeug(c.id, iso)} />
+                            ) : <b className="rz-clock">{v?.ausgerueckt ? <When iso={v.ausgerueckt} refYear={einsatzYear} /> : '–'}</b>}
                           </label>
                         ))}
                       </div>
@@ -2004,12 +2002,11 @@ export function ReportPreflight({
                 <span>{P.incidentEndLabel}</span>
                 {canEdit ? (
                   <div className="report-meta-end dtrow">
-                    <DateTimeField ariaLabel={P.incidentEndLabel} value={dtLocalToIso(endedAt)}
-                      days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)} dayAlways
-                      onCommit={(iso) => { setEndedAt(dtLocalValue(iso ?? undefined)); persist({ endedAt: iso ?? undefined }) }} />
-                    <button type="button" className="ip-btn" onClick={() => { const v = dtLocalValue(serverNowIso()); setEndedAt(v); persist({ endedAt: dtLocalToIso(v) }) }}>{P.now}</button>
+                    <DateTimeField ariaLabel={P.incidentEndLabel} value={endedAt} days={zeitDays}
+                      onCommit={(iso) => { setEndedAt(iso ?? ''); persist({ endedAt: iso ?? undefined }) }} />
+                    <button type="button" className="ip-btn" onClick={() => { const iso = serverNowIso(); setEndedAt(iso); persist({ endedAt: iso }) }}>{P.now}</button>
                   </div>
-                ) : <ReadOut value={whenOf(dtLocalToIso(endedAt))} />}
+                ) : <ReadOut value={whenOf(endedAt)} />}
                 {zeitWarn('ende')}
               </label>
               {/* ⚠️ `data-step` on the two Rückmeldung fields TOGETHER, never on the grid around
@@ -2091,8 +2088,7 @@ export function ReportPreflight({
                     {/* Datum + Zeit, the same control the Einsatzende uses — with «Jetzt» beside it,
                         because the ordinary case is that the call has just been made. */}
                     <div className="report-meta-end dtrow">
-                      <DateTimeField ariaLabel={P.rueckmeldungZeit} value={rueckAt}
-                        days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)}
+                      <DateTimeField ariaLabel={P.rueckmeldungZeit} value={rueckAt} days={zeitDays}
                         onCommit={(iso) => { setRueckAt(iso ?? ''); persist(rueckMeta(rueckName, iso ?? '')) }} />
                       <button type="button" className="ip-btn"
                         onClick={() => { const iso = serverNowIso(); setRueckAt(iso); persist(rueckMeta(rueckName, iso)) }}>{P.now}</button>
@@ -2154,7 +2150,7 @@ export function ReportPreflight({
                         {/* only somebody who actually LEFT gets a time. hoursRows fills an open
                             block with the Einsatzende, which put «· bis 09:00» behind every name
                             on the list — the exception it exists to flag then read as the rule. */}
-                        {r.leftEarly && <em>{fillTemplate(A.leftEarly, { t: dtLocalValue(r.to!).slice(11) })}</em>}
+                        {r.leftEarly && <em>{fillTemplate(A.leftEarly, { t: hhmm(r.to!) })}</em>}
                       </span>
                     ))}
                   </div>

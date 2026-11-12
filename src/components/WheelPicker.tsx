@@ -3,8 +3,8 @@
 // iOS-style scroll wheels with a GUARANTEED 24h clock on every device. Columns are
 // scroll-snap lists (hour/minute, plus a bounded day column when more than one day is on offer —
 // the ONE date control, 05.10.2026: no day/month/year wheels anywhere); the value is whatever rests
-// under the center band. «Jetzt» is the fast path (stamp current clock and close), «OK»
-// commits a scrolled selection. Portalled to <body> so no card/accordion can clip it.
+// under the center band. «Jetzt» is the fast path (stamp the DEPLOYMENT's clock, lib/serverClock,
+// and close – 12.11.2026, it was the device's), «OK» commits a scrolled selection. Portalled to <body> so no card/accordion can clip it.
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -12,6 +12,7 @@ import { appConfig } from '../config/appConfig'
 import { hhmm, pad2 } from '../lib/format'
 import { fmtWheelDay } from '../lib/zeitplanFormat'
 import { scrollBehavior } from '../lib/reducedMotion'
+import { serverNow } from '../lib/serverClock'
 import { pointAtField } from '../lib/pointAtField'
 import w from './WheelPicker.module.css'
 import { usePopoverGuard } from '../lib/overlays/popoverGuard'
@@ -232,7 +233,10 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
   }
 
   const stampNow = () => {
-    const n = new Date()
+    // the server's «now», like every «Jetzt» on the Rapport's form (docs/rapport.md › Times): a
+    // tablet running four minutes fast must not stamp a different Einsatzende from the button
+    // beside the field than from the one inside it
+    const n = new Date(serverNow())
     onCommit({ y: n.getFullYear(), mo: n.getMonth() + 1, d: n.getDate(), h: n.getHours(), mi: n.getMinutes() })
   }
 

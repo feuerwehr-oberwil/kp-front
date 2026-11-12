@@ -14,6 +14,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm, unitLabel } from './format'
 import { newId } from './ids'
 import { linkSessionHeaders } from './linkMode'
+import { isFreshSampleSource, noteServerTime } from './serverClock'
 
 // --- pure mutations -------------------------------------------------------------------
 
@@ -439,6 +440,7 @@ async function req<T>(token: string, path: string, init?: RequestInit): Promise<
     // Not the api client: the poster token is this surface's whole identity and a 15 s abort
     // clock its own. It is still an /api call, so the session-mode header rides first — the
     // poster page is never a link page, and must not be read as one (api · rawFetch).
+    const sentAt = Date.now()
     const r = await fetch(`/api/capture${path}`, {
       ...init,
       signal: ctl.signal,
@@ -451,6 +453,10 @@ async function req<T>(token: string, path: string, init?: RequestInit): Promise<
     })
     const serverTime = r.headers.get('X-Server-Time')
     if (serverTime) serverTimeListener?.(serverTime)
+    // …and the same header teaches the shared clock (lib/serverClock), so every «Jetzt» on the
+    // poster – the buttons and the pickers' – stamps the deployment's time like the Rapport's
+    // (docs/rapport.md › Times). Same freshness rule as api · rawFetch.
+    if (isFreshSampleSource(`/api/capture${path}`, init?.cache)) noteServerTime(serverTime, Date.now(), sentAt)
     if (!r.ok) {
       let detail = ''
       try { detail = (await r.json())?.detail ?? '' } catch { /* non-JSON error body */ }

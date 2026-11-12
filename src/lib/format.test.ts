@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { applyLocale } from '../config/copy'
-import { compareText, formatLocale, localeDate, localeDateTime, dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, fmtWhen, hhmm, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel, streetPart } from './format'
+import { compareText, fieldWhen, formatLocale, localeDate, localeDateTime, dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, fmtWhen, hhmm, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel, streetPart } from './format'
 
 describe('restoreUmlauts', () => {
   it('restores transliterated umlauts (lower + upper variants)', () => {
@@ -368,5 +368,17 @@ describe('streetPart', () => {
     expect(streetPart(null)).toBe('')
     expect(streetPart(undefined)).toBe('')
     expect(streetPart(', Musterdorf')).toBe('')
+  })
+})
+
+// docs/rapport.md › Times: every Rapport time reads «12.11. 11:26» on the form and its read-outs
+describe('fieldWhen (a Rapport time as its field reads it)', () => {
+  it('is the short day and the clock, the year only when it is not the Einsatz year', () => {
+    expect(fieldWhen(new Date(2026, 10, 12, 11, 26).toISOString(), 2026)).toBe('12.11. 11:26')
+    expect(fieldWhen(new Date(2025, 11, 31, 23, 50).toISOString(), 2026)).toBe('31.12.2025 23:50')
+  })
+  it('is empty for a missing or unparseable stamp', () => {
+    expect(fieldWhen(undefined, 2026)).toBe('')
+    expect(fieldWhen('kaputt', 2026)).toBe('')
   })
 })
