@@ -163,7 +163,7 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       // ── online: the reload was a save point offline — it goes up by itself; «Synchronisiert» only
       //    with the revision AND the photo on the server ──
       await context.setOffline(false)
-      await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf· Synchronisiert/ })).toBeVisible({ timeout: 45_000 })
+      await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf · Synchronisiert/ })).toBeVisible({ timeout: 45_000 })
       const saved = await (await api.get(`/api/object-visits/${visitId}`)).json()
       expect(saved).toMatchObject({ lifecycle: 'draft', ready: true, missing: [] })
       expect(saved.photos).toHaveLength(1)
@@ -174,12 +174,12 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       await page.getByLabel('Bemerkungen').fill('Hauswart neu')
       await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf · Änderungen auf Gerät/ })).toBeVisible()
       await page.clock.fastForward(QUIET_SAVE_MS + 2_000)
-      await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf· Synchronisiert/ })).toBeVisible({ timeout: 45_000 })
+      await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf · Synchronisiert/ })).toBeVisible({ timeout: 45_000 })
       expect((await (await api.get(`/api/object-visits/${visitId}`)).json()).notes).toBe('Hauswart neu')
 
       // ── «Abschliessen» → the read view ──
       await page.getByRole('button', { name: 'Abschliessen' }).click()
-      await expect(page.getByRole('button', { name: /^Stand anzeigen: Abgeschlossen· Synchronisiert/ })).toBeVisible({ timeout: 30_000 })
+      await expect(page.getByRole('button', { name: /^Stand anzeigen: Abgeschlossen · Synchronisiert/ })).toBeVisible({ timeout: 30_000 })
       await expect(page.getByRole('button', { name: /Bericht \(PDF\)/ })).toBeVisible()
       await expect(page.getByRole('button', { name: 'Abschliessen' })).toHaveCount(0)
       const done = await (await api.get(`/api/object-visits/${visitId}`)).json()
@@ -305,7 +305,7 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       await page.getByLabel('Beschreibung').fill('Neuer Hydrant fehlt im Plan')
       await page.getByRole('group', { name: 'Vor dem nächsten Einsatz nötig?' }).getByRole('button', { name: 'Nein' }).click()
       await page.getByRole('button', { name: 'Abschliessen' }).click()
-      await expect(page.getByRole('button', { name: /^Stand anzeigen: Abgeschlossen· Synchronisiert/ })).toBeVisible({ timeout: 30_000 })
+      await expect(page.getByRole('button', { name: /^Stand anzeigen: Abgeschlossen · Synchronisiert/ })).toBeVisible({ timeout: 30_000 })
       // a report says what was reported — not «Keine Mängel»
       await expect(page.getByText('Hydrant · Neuer Hydrant fehlt im Plan')).toBeVisible()
       await expect(page.getByText('Keine Mängel')).toHaveCount(0)
