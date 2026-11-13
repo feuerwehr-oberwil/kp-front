@@ -647,9 +647,10 @@
    8px out to each side – the 8px column gutters, up to the plain time span and the sentence's
    first glyph – and the row's height, and a miss lands on the row itself. The same trade the
    pinned block's ring makes, and for the same reason.
-   ⚠️ -14px, not -12: an absolute box's inset counts from the PADDING box, inside the ring's 2px
-   border – the 20px ring is 16 there, so -12 drew 40 and a finger measured 38 (13.11.2026). */
-.jr-ic-tick .jr-ring::before { content: ""; position: absolute; inset: -14px; border-radius: var(--r-sm); }
+   ⚠️ -15px, not -12: an absolute box's inset counts from the PADDING box, inside the ring's 2px
+   border – the 20px ring is 16 there, so -12 drew 40 and a finger measured 38; -15 draws 46, which
+   a finger meets as 44 between the row's own hit (13.11.2026). */
+.jr-ic-tick .jr-ring::before { content: ""; position: absolute; inset: -15px; border-radius: var(--r-sm); }
 /* ⚠️ No fill on hover — `--hover` is a neutral wash and the row already takes it. The RING
    answers: it greens and ghosts its check in, which is what the tap is about to make true, and
    which is exactly what `.jr-pinned-row .jr-rem` does in the block. Hover is the POINTER's
