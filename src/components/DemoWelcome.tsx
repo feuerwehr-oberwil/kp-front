@@ -2,7 +2,6 @@ import { Icon } from '../lib/icons'
 import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { Button } from './Button'
-import { NamePrefix } from './IncidentName'
 
 // First-visit welcome for demo instances: a light, one-screen intro of what this is and what a
 // visitor can / can't do (the shared-demo contract). Shown once per device (see demoWelcome.ts)
@@ -13,7 +12,8 @@ export function DemoWelcome({ onClose }: { onClose: () => void }) {
     <Overlay open onClose={onClose} className="dw-card" backdropClassName="modal-backdrop dw-scrim" ariaLabel={C.title}>
         <button className="ip-x dw-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
         <div className="dw-head">
-          <h2 className="dw-title"><NamePrefix word={appConfig.copy.demo.prefix} />{C.title}</h2>
+          <span className="ip-badge ip-badge-exercise">{appConfig.copy.demo.ribbon}</span>
+          <h2 className="dw-title">{C.title}</h2>
         </div>
         <p className="dw-intro">{C.intro}</p>
         <div className="form-warn form-warn-amber dw-warn" role="note"><Icon id="warn" /><span className="form-warn-text">{C.reloadWarn}</span></div>

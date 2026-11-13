@@ -21,7 +21,6 @@ import { fillTemplate, stripUnprintable, unitLabel, compareText, fmtWhen } from 
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { ShellLoader } from '../components/ShellLoader'
-import { IncidentName } from '../components/IncidentName'
 import { currentLineFor, mittelLineCount, visibleMittel } from '../lib/mittel'
 import { missingSteps, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { addPartnerOrg } from '../lib/partnerOrgs'
@@ -87,6 +86,11 @@ const STEP_TARGET: Record<AbschlussStep, Section | 'abschluss'> = {
  *  Material land on a list instead, and focusing their search box would raise the keyboard
  *  over the rows the chip just scrolled to. */
 const STEP_FOCUS = new Set<AbschlussStep>(['zeiten', 'einsatzleiter', 'kontaktperson', 'kurzbericht', 'rueckmeldung'])
+
+// «Übung» reaches the poster exactly like a real Einsatz — the badge is what keeps a drill
+// (or a test run before a rollout) from being ticked off as the real thing. Same amber
+// token as the tablet's switcher/history badge, so it reads the same on both surfaces.
+const ExerciseBadge = () => <span className="cv-badge-exercise">{appConfig.copy.exerciseBadge}</span>
 
 // a network hiccup, a real backend verdict, and a broken token read differently under
 // stress — only the truly token-shaped failure falls back to the generic «Link ungültig»
@@ -806,7 +810,7 @@ export default function CaptureApp() {
             {rows.map((i) => (
               <button key={i.id} className="cv-item" onClick={() => void openIncident(i)}>
                 <span className="cv-item-main">
-                  <span className="cv-item-title"><IncidentName exercise={i.is_exercise}>{i.title}</IncidentName></span>
+                  <span className="cv-item-title">{i.title}{i.is_exercise && <ExerciseBadge />}</span>
                   <span className="cv-item-sub">{i.address ?? ''} · {fmtWhen(i.started_at, { todayShort: true })}</span>
                 </span>
                 <Icon id="chevron" />
@@ -839,9 +843,7 @@ export default function CaptureApp() {
       <header className="cv-head">
         <button className="cv-back" onClick={() => setIncident(null)} aria-label={C.back}><Icon id="chevron" /></button>
         <div className="cv-head-main">
-          {/* «Übung · Zimmerbrand» – the same quiet prefix as on the tablet: a drill (or a test run
-              before a rollout) must never be ticked off as the real thing (components/IncidentName) */}
-          <h1><IncidentName exercise={incident.is_exercise}>{incident.title}</IncidentName></h1>
+          <h1>{incident.title}{incident.is_exercise && <ExerciseBadge />}</h1>
           <p>{incident.address ?? ''} · {fillTemplate(C.alarmedAt, { t: fmtWhen(incident.started_at, { todayShort: true }) })}</p>
           {/* reassurance, not an alarm: the KP tablet has this incident — the full rapport
               (incl. Lageskizze) comes from there */}

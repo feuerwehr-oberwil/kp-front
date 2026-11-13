@@ -41,7 +41,7 @@ import { getLocaleId } from '../../config/copy'
 import { Icon, IconSprite } from '../../lib/icons'
 import { MapPin } from '../MapPin'
 import { cx } from '../../lib/cx'
-import { fillTemplate, incidentLabel } from '../../lib/format'
+import { fillTemplate } from '../../lib/format'
 import { useAuth } from '../../lib/auth'
 import { useIsPhone } from '../../lib/useIsPhone'
 import { useRailLabels } from '../../lib/useDevicePrefs'
@@ -110,7 +110,6 @@ import { useKarteOverlays } from './useKarteOverlays'
 import { tagText, useTagPlacement } from './useKarteTags'
 import { NoBasemapMeldung } from '../NoBasemapMeldung'
 import { UpdateBanner } from '../UpdateBanner'
-import { IncidentName } from '../IncidentName'
 import s from './Karte.module.css'
 
 const NO_HYDRANTS: NamedPoint[] = []
@@ -414,8 +413,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // the running chip (owner's pick 6A, sweep F.2): it names the first REAL Einsatz — an Übung only
   // when nothing but Übungen runs — and ONE «+N» counts every other open one, Einsätze and Übungen
   // together. The name opens that Einsatz (the whole chip is its target, chevron included); «+N»
-  // opens the menu, which lists them all. Red for an Übung too: «Übung · Zimmerbrand» says which
-  // (components/IncidentName, owner's pick M12 C). In the bar on both devices; a phone's Checkliste, whose bar holds the library's search
+  // opens the menu, which lists them all. Red for an Einsatz, hatched when the one it names is an
+  // Übung. In the bar on both devices; a phone's Checkliste, whose bar holds the library's search
   // field, keeps it as a strip under the bar.
   // A live Ernstfall's Atemschutz alarm is said by the SAME chip (round 2b, owner 13.11.2026: «Same
   // chip says it» – two chips competed for the bar): it then names that Einsatz, «⚠ Zimmerbrand ·
@@ -424,15 +423,15 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const live = alarm?.incident ?? running.find((i) => !i.is_exercise) ?? running[0] ?? null
   const more = live ? running.length - 1 : 0
   const runningChip = live && (
-    <div className={cx(s.running, phone && !onLibrary && s.inBar)} data-karte-running-chip="" data-alarm={alarm ? '' : undefined}>
+    <div className={cx(s.running, live.is_exercise && s.runningExercise, phone && !onLibrary && s.inBar)} data-karte-running-chip="" data-alarm={alarm ? '' : undefined}>
       <button type="button" className={s.runningOpen}
         onClick={() => (alarm ? onOpenAlarm(alarm.incident, alarm.due[0].id) : onOpenIncident(live))}
         aria-label={alarm
-          ? fillTemplate(C.alarmChipOpen, { t: incidentLabel(live.title, live.is_exercise), names: alarm.due.map((t) => t.name).join(' · ') })
-          : fillTemplate(C.runningOpen, { t: incidentLabel(live.title, live.is_exercise) })}>
+          ? fillTemplate(C.alarmChipOpen, { t: live.title, names: alarm.due.map((t) => t.name).join(' · ') })
+          : fillTemplate(C.runningOpen, { t: live.title })}>
         {alarm ? <Icon id="warn" className={s.runningWarn} /> : <span className={s.pulse} aria-hidden />}
         <span className={s.runningText}>
-          <span className={s.runningLine}><b><IncidentName exercise={live.is_exercise}>{live.title}</IncidentName></b>
+          <span className={s.runningLine}><b>{live.title}</b>
             {alarm && <span className={s.alarmCount}>· {appConfig.copy.atemschutz.overdueBadge(alarm.due.length)}</span>}</span>
           {live.address && <small>{live.address.split(',')[0]}</small>}
         </span>

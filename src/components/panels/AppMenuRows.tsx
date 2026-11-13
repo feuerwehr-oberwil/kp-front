@@ -13,7 +13,6 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { ShellLoader } from '../ShellLoader'
-import { IncidentName } from '../IncidentName'
 import { Icon } from '../../lib/icons'
 import { initials, roleLabel, fillTemplate, fmtSpanShort } from '../../lib/format'
 import { buildLabel } from '../../lib/buildInfo'
@@ -106,6 +105,7 @@ export function AppMenuRows({
   // neither offered nor permitted. Derived rather than passed, so the menu never has to know why
   // the rows are missing.
   const showIncidents = running.length > 0 || alarmList.length > 0 || !!onLeave || !!onHistory || (isEditor && !!onCreate) || !hasCard
+  const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
   return (
     <>
       {showIncidents && (
@@ -125,8 +125,10 @@ export function AppMenuRows({
               <span className="ip-menu-when">{opening === i.id ? <ShellLoader /> : fmtSpanShort(now - Date.parse(i.started_at))}</span>
               <span className="ip-menu-rowmain">
                 <span className="ip-menu-titleline">
-                  {/* «Übung · Zimmerbrand»: a long name ellipsises at its end, the prefix stays */}
-                  <span className="ip-menu-title"><IncidentName exercise={i.is_exercise}>{i.title}</IncidentName></span>
+                  <span className="ip-menu-title">{i.title}</span>
+                  {/* beside the title, not inside it: a long Einsatzname ellipsises, and the
+                      marker that says «Übung» must not be the part that gets cut off */}
+                  {i.is_exercise && exerciseBadge}
                 </span>
                 {/* WHERE it is, the way the card says it for the active Einsatz — «Ölspur» is
                     not an Einsatz you can tell apart from another «Ölspur» without it. Same
