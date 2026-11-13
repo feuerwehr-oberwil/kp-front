@@ -1062,9 +1062,11 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
 .ip-badge-ok { background: var(--green-16); color: var(--green-strong); }
 /* Übung — a HATCHED, outlined tag with no hue, so a training is never mistaken for a real Einsatz
    and never for «needs you» (M2, owner's pick A, 13.11.2026 – it was amber, the open count's
-   colour). Top bar switcher, the phone's «Ü» square, lists and the poster: one look for one word. */
+   colour). Top bar switcher, the phone's «Ü» square, lists and the poster: one look for one word.
+   The stripes are the strong tint and 4px wide (14.11.2026): at 3px of --ink-tint they read as
+   flat grey on a 22px square, and the whole point is an Übung seen at a glance. */
 .ip-badge-exercise, .cv-badge-exercise { color: var(--ink);
-  background: repeating-linear-gradient(-45deg, var(--ink-tint) 0 3px, transparent 3px 6px);
+  background: repeating-linear-gradient(-45deg, var(--ink-tint-strong) 0 4px, transparent 4px 8px);
   box-shadow: inset 0 0 0 1.5px var(--ink-dim); }
 /* «2 offen» — the same amber, named after what it means rather than after the Übung it borrows
    from: something is outstanding and the operator is about to act as if it were not. */

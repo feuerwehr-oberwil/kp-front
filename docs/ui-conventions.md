@@ -581,9 +581,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     var(--done-opacity)` only; a strike-through may carry the word, a second dim may not. A
     read-only control that is NOT unavailable (`opacity: 1` on purpose) says so in a comment.
     (4) **Tag** (ÜBUNG, a status word): the `.ip-badge` recipe — 10px/700 uppercase .03em,
-    padding 2px 7px, `--r-xs`; ÜBUNG is a HATCHED, outlined tag with no hue (`--ink-tint` stripes, a
-    1.5px `--ink-dim` ring, `--ink` text) wherever it stands (top bar, the phone's «Ü» square, lists,
-    the poster's `.cv-badge-exercise` shares the selectors) – M2, owner's pick A, 13.11.2026: amber
+    padding 2px 7px, `--r-xs`; ÜBUNG is a HATCHED, outlined tag with no hue (4px `--ink-tint-strong` stripes
+    on an 8px period, a 1.5px `--ink-dim` ring, `--ink` text) wherever it stands (top bar, the
+    phone's «Ü» square, lists, the Karte chip, the poster's `.cv-badge-exercise` shares the
+    selectors) – M2, owner's pick A, 13.11.2026; back on 14.11.2026 after a round as a quiet «Übung ·»
+    prefix («almost invisible»), with stripes strong enough to read at a glance, not as flat grey. Amber
     on the Einsatz card is the COUNT of open points alone; «Abgeschlossen» is the grey tag «Archiv»
     wears, «Nicht synchronisiert» a cloud and the word, «Offline» the cloud struck through
     (`#cloud-off`, round 2b: a plain cloud reads «online»), «Abschliessen» a normal tile. The

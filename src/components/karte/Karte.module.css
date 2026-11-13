@@ -61,11 +61,11 @@
    13.11.2026 – it was a filled amber, the open count's colour): hatched over the surface, a ring in
    the quiet ink, ink text — the chip never reads as a real Einsatz, nor as «needs you». The pill
    and the press follow the ink; the hover is the house hover under the hatching. */
-.runningExercise { color: var(--ink); background: repeating-linear-gradient(-45deg, var(--ink-tint) 0 3px, transparent 3px 6px), var(--surface);
+.runningExercise { color: var(--ink); background: repeating-linear-gradient(-45deg, var(--ink-tint-strong) 0 4px, transparent 4px 8px), var(--surface);
   box-shadow: inset 0 0 0 1.5px var(--ink-dim); }
 .runningExercise .runningMore span { background: color-mix(in srgb, var(--ink) 12%, transparent); }
 @media (hover: hover) {
-  .running.runningExercise:hover:not(:has(.runningMore:hover)) { background: repeating-linear-gradient(-45deg, var(--ink-tint) 0 3px, transparent 3px 6px), linear-gradient(var(--hover-strong), var(--hover-strong)), var(--surface); }
+  .running.runningExercise:hover:not(:has(.runningMore:hover)) { background: repeating-linear-gradient(-45deg, var(--ink-tint-strong) 0 4px, transparent 4px 8px), linear-gradient(var(--hover-strong), var(--hover-strong)), var(--surface); }
   .runningExercise .runningMore:hover span { background: color-mix(in srgb, var(--ink) 20%, transparent); }
 }
 .runningText { min-width: 0; overflow: hidden; }
