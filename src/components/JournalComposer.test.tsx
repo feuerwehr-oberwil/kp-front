@@ -256,6 +256,63 @@ describe('JournalComposer · the Art', () => {
   })
 })
 
+// FLOW.7 (13.11.2026, owner pick): an Auftrag is something to follow up, so the kind opens the
+// ring the way a reminder time does – and only takes back a ring it opened itself
+describe('JournalComposer · «Auftrag» opens the ring', () => {
+  const chip = (name: string) => screen.getByRole('button', { name })
+  const dueRow = async (name: RegExp) => {
+    fireEvent.click(document.querySelector('.jc-due-btn') as HTMLButtonElement)
+    return await screen.findByRole('menuitem', { name })
+  }
+
+  it('files an Auftrag as an open Pendenz without touching the ring', () => {
+    const { onSubmit } = setup()
+    fireEvent.click(chip('Auftrag'))
+    expect(ring().dataset.state).toBe('1')
+    type('Wasserbezug ab Hydrant 12 sicherstellen')
+    send()
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ entryType: 'auftrag', pendenz: { urgent: false } })
+  })
+
+  it('closes the ring again when the kind moves away – and the ring menu takes it off', async () => {
+    const { onSubmit } = setup()
+    fireEvent.click(chip('Auftrag'))
+    fireEvent.click(chip('Sofortmassnahme'))
+    expect(ring().dataset.state).toBe('0')
+    fireEvent.click(chip('Auftrag'))
+    fireEvent.click(await menuRow(/Nicht offen halten/))
+    expect(ring().dataset.state).toBe('0')
+    type('Auftrag ohne Nachfassen')
+    send()
+    expect(onSubmit.mock.calls[0][0].pendenz).toBeUndefined()
+  })
+
+  it('never closes a ring the operator opened, or one a reminder needs', async () => {
+    setup()
+    fireEvent.click(await menuRow(/Dringende Pendenz/))
+    fireEvent.click(chip('Auftrag'))
+    fireEvent.click(chip('Info'))
+    expect(ring().dataset.state).toBe('2')
+    cleanup(); clearAllDrafts()
+
+    setup()
+    fireEvent.click(chip('Auftrag'))
+    fireEvent.click(await dueRow(/in 10 min/))
+    fireEvent.click(chip('Info'))
+    expect(ring().dataset.state).toBe('1')
+  })
+
+  it('leaves the link of a Meldung alone', () => {
+    const { onSubmit } = setup({ noteOn: { id: 'p1', text: OPEN[0].text } })
+    fireEvent.click(chip('Auftrag'))
+    type('Werkhof liefert in 20 min')
+    send()
+    const d = onSubmit.mock.calls[0][0]
+    expect(d.noteFor).toEqual({ id: 'p1' })
+    expect(d.pendenz).toBeUndefined()
+  })
+})
+
 // ⚠️ There is no «Eintrag · Erinnerung» mode any more: a due time is a property of ANY entry, so
 // «Auftrag erteilt» and «um 22:10 nachfassen» are one row rather than two rows about one thing.
 describe('JournalComposer · the clock', () => {
