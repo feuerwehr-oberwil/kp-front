@@ -54,6 +54,9 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     syncDone: 'Tutto sincronizzato',
     syncFailedToast: 'Sincronizzazione non riuscita – le modifiche restano salvate localmente.',
     editMeta: 'Modifica i dati dell\'intervento',
+    viewOnly: 'Solo visualizzazione',
+    viewOnlyWhy: { viewer: 'Osservatore', el: 'Direzione d\'intervento', link: 'Link d\'intervento' },
+    foreignAlarmDot: 'Allarme protezione respiratoria in un altro intervento',
   },
   archived: {
     title: 'Intervento chiuso',

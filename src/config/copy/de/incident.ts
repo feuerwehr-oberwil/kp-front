@@ -83,6 +83,11 @@ export const incidentCopy = {
     // …where only the Einsatz itself (Karte, Pläne, lists) is still unsent, no countable entry
     logoutUnsyncedChanges: 'Änderungen sind noch nicht übertragen. Sie bleiben auf diesem Gerät und werden gesendet, sobald du dich wieder anmeldest.',
     appVersion: 'App-Version (Build)',
+    // «Nur ansehen» in the pill's status slot (M6 A, 13.11.2026), the reason in the opened card
+    viewOnly: 'Nur ansehen',
+    viewOnlyWhy: { viewer: 'Betrachter', el: 'Einsatzleitung', link: 'Einsatz-Link' },
+    // the closed pill's red dot (M11 B): another Einsatz has a Trupp at the alarm tier
+    foreignAlarmDot: 'Atemschutz-Alarm in einem anderen Einsatz',
   },
   // Persistentes Band, solange ein abgeschlossener Einsatz nur-lesend offen ist (ArchivedBanner).
   // ⚠️ EIN WORTPAAR für den ganzen Lebenslauf: abschliessen / wieder öffnen. «Archiviert» und

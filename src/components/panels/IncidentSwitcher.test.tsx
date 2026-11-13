@@ -172,3 +172,49 @@ describe('IncidentSwitcher · closed Einsatz', () => {
     expect(screen.queryByRole('button', { name: C.back })).toBeNull()
   })
 })
+
+// M6 A (13.11.2026): a session that writes nothing here says «Nur ansehen» in the ✓'s slot, and
+// its reason in the opened card. M11 B: another Einsatz's alarm puts a red dot on the shut pill.
+describe('IncidentSwitcher · Nur ansehen and the foreign-alarm dot', () => {
+  const cp = appConfig.copy.incidentSwitcher
+  const active = {
+    id: 'inc-1', title: 'Zimmerbrand', address: 'Schlossgasse 10', started_at: new Date(Date.now() - 600_000).toISOString(),
+    status: 'offen', is_archived: false, is_exercise: false,
+  } as unknown as IncidentMeta
+  const pill = () => screen.getByRole('button', { name: (n) => n.startsWith(active.title) })
+  const renderShut = (extra: Partial<Parameters<typeof IncidentSwitcher>[0]>) => render(
+    <IncidentSwitcher active={active} incidents={[active]} isEditor={false} syncStatus="synced" lastSyncedAt={null}
+      user={{ display_name: 'Betrachter', color: null, role: 'viewer' }} onSwitch={() => {}} onDivera={() => {}}
+      onDatenquellen={() => {}} onHelp={() => {}} onOfflineReadiness={() => {}} onSyncNow={() => {}} {...extra} />,
+  )
+
+  it('wears «Nur ansehen» instead of the ✓, and the card names the reason', () => {
+    renderShut({ viewOnly: 'viewer' })
+    expect(pill().getAttribute('aria-label')).toContain(cp.viewOnly)
+    expect(pill().querySelector('.ip-viewonly-chip')?.textContent).toBe(cp.viewOnly)
+    expect(pill().querySelector('.ip-status')).toBeNull()
+    fireEvent.click(pill())
+    expect(screen.getByText(`${cp.viewOnly} · ${cp.viewOnlyWhy.viewer}`)).toBeTruthy()
+  })
+
+  it('keeps the ✓ where the session writes, and a sync warning outranks the mark', () => {
+    renderShut({ viewOnly: null })
+    expect(pill().querySelector('.ip-viewonly-chip')).toBeNull()
+    expect(pill().querySelector('.ip-status-synced')).not.toBeNull()
+    cleanup()
+    renderShut({ viewOnly: 'el', syncStatus: 'offline' })
+    expect(pill().querySelector('.ip-viewonly-chip')).toBeNull()
+    expect(pill().textContent).toContain(cp.offlineShort)
+  })
+
+  it('dots the shut pill while another running Einsatz has a Trupp at the alarm tier', () => {
+    const other = { ...active, id: 'inc-2', title: 'BMA Gewerbestrasse', atemschutz_due: [{ id: 't1', name: 'Trupp 1', reason: 'contact' }] } as unknown as IncidentMeta
+    renderShut({ incidents: [active, other] })
+    expect(pill().querySelector('.ip-foreign-dot')).not.toBeNull()
+    expect(pill().getAttribute('aria-label')).toContain(cp.foreignAlarmDot)
+    cleanup()
+    // its own Trupps are the workspace's alarm, not a dot; and the dot goes once the list is quiet
+    renderShut({ incidents: [{ ...active, atemschutz_due: [{ id: 't1', name: 'Trupp 1', reason: 'contact' }] } as unknown as IncidentMeta, { ...other, atemschutz_due: [] }] })
+    expect(pill().querySelector('.ip-foreign-dot')).toBeNull()
+  })
+})
