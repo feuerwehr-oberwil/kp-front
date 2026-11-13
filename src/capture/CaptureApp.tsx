@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { scrollBehavior } from '../lib/reducedMotion'
-import { fillTemplate, hhmm, stripUnprintable, unitLabel, compareText, fmtWhen } from '../lib/format'
+import { fillTemplate, stripUnprintable, unitLabel, compareText, fmtWhen } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { ShellLoader } from '../components/ShellLoader'
@@ -32,8 +32,9 @@ import { trackPrintJob } from '../lib/printJobToast'
 import type { AttendanceEntry, MittelEntry } from '../types'
 import type { PartnerContact, ReportMeta } from '../lib/workspace'
 import { Combo } from '../components/Combo'
-import { TimeField } from '../components/TimeField'
-import { fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock } from '../lib/alarmzeiten'
+import { DateTimeField } from '../components/TimeField'
+import { fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit } from '../lib/alarmzeiten'
+import { serverNow } from '../lib/serverClock'
 import { incidentDays } from '../lib/zeitplanFormat'
 import type { IncidentMeta, Workspace } from '../lib/incidents'
 import {
@@ -718,21 +719,16 @@ export default function CaptureApp() {
 
   const gruppenCfg = getDeploymentConfig().alarms?.groups ?? []
   const fahrzeugeCfg = getDeploymentConfig().fleet?.vehicles ?? []
-  // Both grids resolve an entered clock against the ALARM, exactly like the EL's Rapport form
-  // and the Ende/Rückmeldung fields further down. `incident.started_at` is the base that won:
-  // the poster is filled in hours after the Einsatz, so the old `?? new Date()` fallback dated
-  // an Ausrückzeit by when somebody happened to type it rather than by when they drove out —
-  // and past midnight the two are different days. The fallback is gone rather than repaired:
-  // these handlers only exist on screen 2, where an Einsatz is picked, and `run()` refuses to
-  // save without one anyway.
-  const onGruppeZeit = (id: string, hhmm: string | null, day?: Date) => {
+  // Both grids take the instant the picker showed, date included — the same control and the same
+  // rule as the EL's Rapport form (docs/rapport.md › Times); null clears the row.
+  const onGruppeZeit = (id: string, iso: string | null) => {
     if (!incident) return
-    const next = setGruppeZeit(rm?.gruppen, id, zeitFromClock(incident.started_at, hhmm ?? '', day))
+    const next = setGruppeZeit(rm?.gruppen, id, iso)
     void run({ kind: 'setMeta', patch: { gruppen: next.length ? next : undefined } }).then((ok) => { if (ok) savedToast() })
   }
-  const onFahrzeugZeit = (id: string, hhmm: string | null, day?: Date) => {
+  const onFahrzeugZeit = (id: string, iso: string | null) => {
     if (!incident) return
-    const next = setFahrzeugZeit(rm?.fahrzeuge, id, 'ausgerueckt', zeitFromClock(incident.started_at, hhmm ?? '', day))
+    const next = setFahrzeugZeit(rm?.fahrzeuge, id, 'ausgerueckt', iso)
     void run({ kind: 'setMeta', patch: { fahrzeuge: next.length ? next : undefined } }).then((ok) => { if (ok) savedToast() })
   }
 
@@ -835,7 +831,13 @@ export default function CaptureApp() {
   // afterwards could not be put on the right day. A read is not a ticking clock — nothing here
   // schedules a re-render, so the per-second re-render that once cost the phone its battery
   // stays gone.
-  const zeitDays = incidentDays(incident.started_at, Date.now())
+  const zeitDays = incidentDays(incident.started_at, serverNow())
+  /** the Rückmeldung's name + time as ONE key, like the tablet's (reportForm · rueckMeta): both
+   *  gone → no key at all */
+  const saveRueck = (patch: { name?: string; at?: string }) => {
+    const next = { ...rm?.rueckmeldungElz, ...patch }
+    return run({ kind: 'setMeta', patch: { rueckmeldungElz: next.name || next.at ? next : undefined } })
+  }
   return (
     <div className="cv-shell"><IconSprite /><Overlays />
       <header className="cv-head">
@@ -867,7 +869,7 @@ export default function CaptureApp() {
       <div className="cv-acc">
         {hasPersonen && (
           <PersonenSection open={openSection === 'personen'} onToggle={() => toggleSection('personen')} sectionRef={(el) => { sectionRefs.current.personen = el }}
-            incident={incident} zeitDays={zeitDays} busy={busy} attendance={attendance} rosterIds={rosterIds}
+            zeitDays={zeitDays} busy={busy} attendance={attendance} rosterIds={rosterIds}
             filteredRoster={filteredRoster} presentCount={presentCount} recordedCount={recordedCount}
             search={search} setSearch={setSearch} onlyRecorded={onlyRecorded} setOnlyRecorded={setOnlyRecorded}
             showTapHelp={showTapHelp} setShowTapHelp={setShowTapHelp} guestOffer={guestOffer}
@@ -883,7 +885,7 @@ export default function CaptureApp() {
 
         {hasZeiten && (
           <ZeitenSection open={openSection === 'zeiten'} onToggle={() => toggleSection('zeiten')} sectionRef={(el) => { sectionRefs.current.zeiten = el }}
-            busy={busy} rm={rm} zeitDays={zeitDays} gruppenCfg={gruppenCfg} fahrzeugeCfg={fahrzeugeCfg}
+            busy={busy} rm={rm} zeitDays={zeitDays} alarmIso={rm?.alarmiertAt ?? incident.started_at} gruppenCfg={gruppenCfg} fahrzeugeCfg={fahrzeugeCfg}
             onGruppeZeit={onGruppeZeit} onFahrzeugZeit={onFahrzeugZeit} />
         )}
 
@@ -909,11 +911,11 @@ export default function CaptureApp() {
                   either. The wheel stays for everything filled in the morning after. */}
               <div className="cv-row" data-step="zeiten">
                 <span>{C.ende}</span>
-                <TimeField ariaLabel={C.ende} value={hhmm(endedAt)} disabled={busy} nowLabel={C.jetzt}
-                  days={zeitDays} valueDay={endedAt ? new Date(endedAt) : undefined}
-                  onCommit={(hhmm, day) => {
-                    const iso = zeitFromClock(incident.started_at, hhmm ?? '', day)
-                    if (iso) void run({ kind: 'setMeta', patch: { endedAt: iso } }).then((ok) => { if (ok) savedToast() })
+                {/* the tablet's control and rule: date + time, «Leeren» clears it (12.11.2026 — a
+                    cleared field used to be ignored here, so a wrong Einsatzende stuck) */}
+                <DateTimeField ariaLabel={C.ende} value={endedAt} disabled={busy} nowLabel={C.jetzt} days={zeitDays}
+                  onCommit={(iso) => {
+                    void run({ kind: 'setMeta', patch: { endedAt: iso ?? undefined } }).then((ok) => { if (ok) savedToast() })
                   }} />
               </div>
               <div className="cv-row" data-step="rueckmeldung">
@@ -938,12 +940,9 @@ export default function CaptureApp() {
                       }}
                     />
                   </div>
-                  <TimeField ariaLabel={C.rueckZeit} value={hhmm(rm?.rueckmeldungElz?.at)} disabled={busy} nowLabel={C.jetzt}
-                    days={zeitDays} valueDay={rm?.rueckmeldungElz?.at ? new Date(rm.rueckmeldungElz.at) : undefined}
-                    onCommit={(hhmm, day) => {
-                      const iso = zeitFromClock(incident.started_at, hhmm ?? '', day)
-                      if (iso) void run({ kind: 'setMeta', patch: { rueckmeldungElz: { ...rm?.rueckmeldungElz, at: iso } } }).then((ok) => { if (ok) savedToast() })
-                    }} />
+                  <DateTimeField ariaLabel={C.rueckZeit} value={rm?.rueckmeldungElz?.at} disabled={busy} nowLabel={C.jetzt}
+                    days={zeitDays}
+                    onCommit={(iso) => { void saveRueck({ at: iso ?? undefined }).then((ok) => { if (ok) savedToast() }) }} />
                 </div>
               </div>
       </section>

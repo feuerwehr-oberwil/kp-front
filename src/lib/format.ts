@@ -149,17 +149,28 @@ export function fmtWhen(
   return d.toDateString() === now.toDateString() ? clock : `${localeDate(d, { day: '2-digit', month: '2-digit' })} ${clock}`
 }
 
-/** ISO ⇄ <input type="datetime-local"> string (local time, minute precision). */
-export function dtLocalValue(iso?: string | null): string {
+/**
+ * The day half of a Rapport time as its field reads it (docs/rapport.md › Times): «12.11.» – and
+ * «31.12.2025» when the day is not in `refYear`, the Einsatz's own year. Fixed Swiss order, like
+ * the trigger has always been: the field is narrow and its shape must not move with the locale.
+ */
+export function fieldDay(d: Date, refYear: number): string {
+  const dm = `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.`
+  return d.getFullYear() === refYear ? dm : `${dm}${d.getFullYear()}`
+}
+
+/** What an empty Rapport time field reads. */
+export const FIELD_WHEN_EMPTY = '--.--. --:--'
+
+/**
+ * A Rapport time as the form and every read-out of it say it: «12.11. 11:26», the year only off
+ * the Einsatz's year («31.12.2025 23:50»). Missing or unparseable → ''. The PDF keeps its own
+ * formats (lib/report · formatDateTime).
+ */
+export function fieldWhen(iso: string | null | undefined, refYear: number): string {
   if (!iso) return ''
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`
-}
-export function dtLocalToIso(local: string): string | undefined {
-  if (!local) return undefined
-  const d = new Date(local)
-  return Number.isNaN(d.getTime()) ? undefined : d.toISOString()
+  return Number.isNaN(d.getTime()) ? '' : `${fieldDay(d, refYear)} ${hhmm(d)}`
 }
 
 /**

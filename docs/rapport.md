@@ -76,6 +76,30 @@ scrolling body so it stays visible with the keyboard up):
   is the optional card below. The closing device lands on the launcher anyway – the strip is what
   «Alle Einsätze» → a closed Einsatz shows. A print still out keeps its own amber band.
 
+## Times – one control, date + time everywhere (12.11.2026)
+
+Owner pick A «Ein Feld» (`components/TimeField · DateTimeField`, header there):
+
+- **Every time of the Rapport is date + time**, on tablet, phone and the QR-Erfassung alike: the
+  Zeiten grid (Alarmierung Gruppen, Ausrückzeiten der Fahrzeuge), Ausgerückt, Einsatzende,
+  Rückmeldung ELZ, the Anwesenheit's von / bis (`TimeBlockSheet` – the Zeitplan's shift sheet
+  shares it) and the Einsatz wizard's Alarmzeit. **No day is guessed**: the picker always shows
+  its day column, and what «OK» commits is what it showed (the old clock-only grid rolled a bare
+  «00:15» past midnight after the commit – `zeitFromClock`, gone). An empty grid row opens on the
+  alarm, every other empty field on «now». Stored values stay ISO (UTC); the form holds ISO too.
+- **The read-out is «12.11. 11:26»** – the day quiet, the clock loud; the year only when it is not
+  the Einsatz's year («31.12.2025 23:50»), empty «--.--. --:--» (`format · fieldWhen`). The same on
+  every read-only rendering (viewer, closed or signed Rapport) and the derived «Ausgerückt». One
+  exception: the «Alarmierung» line of the Einsatzdaten block keeps the full date
+  («20.09.2026 14:05») – it is the Einsatz's own date, so the year rule would never show its year. A
+  vehicle's grey «vor Ort / zurück» line is a server read-out, not a field: a bare clock, with its
+  day only when that is not the row's. **The PDF keeps its own formats** (`report · formatDateTime`).
+- **«Jetzt» is the deployment's clock** (`lib/serverClock`), on the two form buttons (Einsatzende,
+  Rückmeldung ELZ – tablet, phone and QR-Erfassung) and inside every picker. Grid rows have no form
+  button. The QR-Erfassung learns the clock from its own answers (`captureClient · req`).
+- **The QR-Erfassung behaves like the tablet** for the same field: one control, and «Leeren» clears
+  an Einsatzende or a Rückmeldung there too (a null commit used to be ignored).
+
 ## Unterschriften – signing on the screen (15.10.2026)
 
 The two Visum lines (Einsatzleiter, Kommandant) can be signed with a finger instead of a pen.

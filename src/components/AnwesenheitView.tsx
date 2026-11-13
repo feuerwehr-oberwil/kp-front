@@ -12,7 +12,6 @@ import { incidentSlot, useIncidentSlot } from '../lib/draftKeep'
 import { usePageHeadFit } from '../lib/pageHeadFit'
 import { fillTemplate, fmtSpanShort, hhmm, stripUnprintable } from '../lib/format'
 import { personnelProviderName } from '../lib/deploymentConfig'
-import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
 import { rankDisplay, rankOrder } from '../lib/rank'
 import { RankBadge } from './RankBadge'
 import { matchesQuery, searchQuery } from '../lib/search'
@@ -75,12 +74,6 @@ const fmtHours = (h: number): string =>
  *  a narrowing survives the reload you did mid-Einsatz, and dies with the app. Default OFF — a
  *  list that opens already hiding people is a list that lies about the Mannschaft. */
 const keptOnlyPresent = incidentSlot<boolean>('kp-front-anwesenheit-present-only', 'session')
-
-// HH:MM of an ISO stamp — the tappable time chip / the <input type="time"> value
-function toHM(iso: string): string {
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '' : hhmm(d)
-}
 
 
 /** a block's duration for the card head — nothing (not «NaN min») when an end is unparseable */
@@ -167,12 +160,8 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
 
       blocks={blocks.map((iv, i) => ({
         key: String(i),
-        from: toHM(iv.from),
-        to: iv.to ? toHM(iv.to) : undefined,
-        // the day each end sits on — see TimeBlock.fromDay. Latent here today (the wheel only
-        // appears once the incident spans more than one day) and wrong the moment it does.
-        fromDay: new Date(iv.from),
-        toDay: iv.to ? new Date(iv.to) : undefined,
+        from: iv.from,
+        to: iv.to,
         openLabel: A.stillHere,
         // Same card as the Zeitplan, but the head is a READ-OUT here: a stretch of presence has no
         // second state to flip into — it is running or it is finished, and that is decided by the
@@ -181,12 +170,9 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
           ? { label: A.ended, tone: 'done' as const }
           : { label: A.running, tone: 'open' as const },
         duration: spanOrNothing((iv.to ? Date.parse(iv.to) : openedAt) - Date.parse(iv.from)),
-        // mirror of onTo: a von typed after the bis means the block STARTED the previous day
-        onFrom: canEdit && onSetTimes ? (v, day) => { const iso = day ? isoOnDay(day, v) : applyTimeToIso(iv.from, v, { prevDayIfAfter: iv.to }); if (iso) onSetTimes(person.id, { from: iso }, i) } : undefined,
-        // ALWAYS, not only on a multi-day Einsatz: the clock alone never says which day, and a
-        // recorded time is the half of this surface that ends up on the Rapport.
-        dayLabel: fmtDayShort(new Date(iv.from)),
-        toDayLabel: iv.to ? fmtDayShort(new Date(iv.to)) : undefined,
+        // the instant as the picker showed it, date included (docs/rapport.md › Times): no day is
+        // inferred from the other end any more, and a block that ends up reversed says so (warn)
+        onFrom: canEdit && onSetTimes ? (iso) => onSetTimes(person.id, { from: iso }, i) : undefined,
         warn: !!iv.to && Date.parse(iv.to) <= Date.parse(iv.from),
         // FIRST block only, and never when it would swallow this block's own end: pulling a
         // LATER block back to the alarm time made it span every earlier block, and totalMinutes
@@ -208,9 +194,8 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
         onReopen: canEdit && onSetTimes
           ? () => onSetTimes(person.id, { to: undefined }, i) : undefined,
         onRemove: canEdit && onRemoveBlock ? () => onRemoveBlock(person.id, i) : undefined,
-        // also offered while the stretch is still OPEN — that is how it gets closed from here.
-        // With no end yet, the start is the base the clock is written onto.
-        onTo: canEdit && onSetTimes ? (v, day) => { const iso = day ? isoOnDay(day, v) : applyTimeToIso(iv.to ?? iv.from, v, { nextDayIfBefore: iv.from }); if (iso) onSetTimes(person.id, { to: iso }, i) } : undefined,
+        // also offered while the stretch is still OPEN — that is how it gets closed from here
+        onTo: canEdit && onSetTimes ? (iso) => onSetTimes(person.id, { to: iso }, i) : undefined,
       }))}
     />
   )

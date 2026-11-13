@@ -1599,19 +1599,20 @@ button.rp-sign-row:disabled { cursor: default; }
 /* fixed width so «von» and «bis» rows align — the tag sits between the flexible name
    button and the time field; differing word widths would shift both per row */
 .cv-time-tag { flex: none; width: 28px; text-align: right; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); }
-/* the day behind a von/bis, and only when it is NOT the Einsatz' own (CaptureApp · dayTag).
-   On the ordinary same-evening Einsatz nothing renders here at all. */
-.cv-date-tag { flex: none; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
-/* keep name + von/bis + time + Jetzt on one 360px row: tighter chrome inside the row */
+/* keep name + von/bis + the date + time on one 360px row: tighter chrome inside the row (the
+   field's own day replaced the separate date tag, 12.11.2026) */
 .cv-person-row .timefield { gap: 4px; }
-.cv-person-row .timefield-trigger { min-width: 64px; }
+.cv-person-row .timefield-trigger.dt { min-width: 0; padding-inline: var(--sp-2); }
 
 /* 24h time / date-time fields: trigger buttons opening the wheel popover */
 .timefield { display: inline-flex; align-items: center; gap: 8px; }
 .timefield-trigger { min-width: 76px; min-height: 44px; padding: 4px 8px; text-align: center;
   border-radius: var(--r-ctl); border: 1px solid var(--glass-line); background: var(--surface);
   color: var(--ink); font: var(--fw-medium) var(--fs-2) var(--body); font-variant-numeric: tabular-nums; cursor: pointer; }
-.timefield-trigger.dt { min-width: 168px; }
+/* a Rapport time (DateTimeField · When, owner pick A 12.11.2026): «12.11. 11:26» on ONE trigger,
+   the day quiet and the clock loud; one line, never wrapped – the row's name gives way instead */
+.timefield-trigger.dt { min-width: 132px; white-space: nowrap; }
+.timefield-day { color: var(--ink-dim); font-weight: var(--fw-medium); margin-right: .2em; }
 .timefield-trigger.empty { color: var(--ink-faint); font-weight: var(--fw-medium); }
 .timefield-trigger:disabled { opacity: var(--disabled); cursor: default; }
 .timefield-now { min-height: 44px; padding: 8px 12px; border: 1px solid var(--glass-line);
