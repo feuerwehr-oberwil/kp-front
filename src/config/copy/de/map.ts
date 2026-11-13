@@ -72,8 +72,7 @@ export const mapCopy = {
     rename: 'Umbenennen',
     delete: 'Löschen',
     saved: 'Ansicht gespeichert',
-    deleteTitle: 'Ansicht löschen',
-    deleteMsg: '«{name}» löschen?',
+    deleted: 'Ansicht «{name}» gelöscht',
   },
   toast: {
     audioSaved: 'Audionotiz gespeichert ({secs}s)',

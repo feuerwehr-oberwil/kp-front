@@ -107,7 +107,7 @@ export interface PlanAnnoBoard {
   onShowTrupp?: (truppId: string) => void
   /** the selected Trupp chip's bar: stamp its position, clear its trail */
   markPosition: () => void
-  clearTrail: () => Promise<void>
+  clearTrail: () => void
   removeWithConnections: (a: BoardAnno) => Promise<boolean>
   removeWithTrail: (a: BoardAnno) => Promise<void>
   toggleTrail: (id: string) => void
@@ -348,7 +348,7 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
               pick: onTeamTrupp && ((truppId) => onTeamTrupp(a.id, truppId)),
               newTrupp: onTeamNewTrupp && (() => onTeamNewTrupp(a.id)),
               mark: markPosition,
-              clearTrail: () => void clearTrail(),
+              clearTrail: () => clearTrail(),
               remove: () => void removeWithConnections(a),
               removeWithTrail: () => void removeWithTrail(a),
               showTrupp: onShowTrupp,

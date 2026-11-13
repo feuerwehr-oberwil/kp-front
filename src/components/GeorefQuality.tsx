@@ -39,7 +39,7 @@ function warningText(w: GeorefWarning, fit: GeorefFit): string {
  * nothing but the reading and the actions that follow from it — set another point, check the
  * coverage, copy it, or throw the reference away.
  */
-export function GeorefQuality({ fit, auto = false, approved = false, realPoints = 0, embedded = false, readOnly = false, className, onClose, onAddPoint, onCheck, onTransfer, onReset }: {
+export function GeorefQuality({ fit, auto = false, approved = false, realPoints = 0, embedded = false, readOnly = false, className, onClose, onAddPoint, onCheck, onTransfer, onReset, undoable = false }: {
   fit: GeorefFit
   /** the reference still leans on the automatic scaffolding (georef · hasAutoPairs) — the
    *  summary then names the provenance instead of counting pairs nobody set, and no ⌀ is
@@ -62,8 +62,11 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
   onCheck: () => void
   /** Copies this fit to one of the object's other Modul sheets. Hidden when none exist. */
   onTransfer?: () => void
-  /** «Referenz zurücksetzen», already confirmed */
+  /** «Referenz zurücksetzen» — confirmed here unless `undoable` */
   onReset: () => void
+  /** the reset is a ↶ step (an Einsatz's own binding), so it acts at once and its toast takes
+   *  it back (the delete rule, lib/removalToast); a station sheet's reset is not, and asks */
+  undoable?: boolean
   /** the dock's own ✕ — this panel is not dismissed by pressing outside it (that press belongs
    *  to the board underneath), so it needs a visible way out */
   onClose: () => void
@@ -83,6 +86,7 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
   const linked = auto && approved && realPoints === 0
 
   const reset = async () => {
+    if (undoable) { onReset(); return }
     const ok = await confirmDialog({
       title: C.resetTitle,
       message: C.resetBody,

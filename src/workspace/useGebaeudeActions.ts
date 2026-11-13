@@ -12,9 +12,8 @@ import { buildView } from '../lib/footprint'
 import { fillTemplate } from '../lib/format'
 import type { IncidentPlanBinding } from '../lib/incidentPlanBindings'
 import { withoutOwnOnStorey, removeStorey } from '../lib/stackFloors'
-import { storeySubject, storeyAddedRow, storeyRemovedRow, askStoreyRemoval, storeyRestoredRow } from '../lib/storeyRemoval'
+import { storeySubject, storeyAddedRow, storeyRemovedRow, storeyRestoredRow } from '../lib/storeyRemoval'
 import { type TacticalObject, sheetAnchoredIds, withOwnAnnos } from '../lib/tacticalObjects'
-import { confirmDialog } from '../lib/ui'
 import { type RecordKey, recordKey, annoRefs } from '../lib/undoKeys'
 import type { Dropper } from '../lib/undoTimeline'
 import type { SetBoard } from '../lib/useObjectStore'
@@ -51,7 +50,7 @@ export function useGebaeudeActions({
   planBindings, activeObjectId, setActivePlanId, rememberGebaeudeStep, oneShotUndoToast, logPlan, lastReorient,
 }: GebaeudeActionDeps) {
   /** «Übernehmen» on the Umrisse: the picked footprint(s) become the building under the stack. */
-  const selectBuilding = async (src: [number, number][][], orientDeg: number, geo: SrcGeoref) => {
+  const selectBuilding = (src: [number, number][][], orientDeg: number, geo: SrcGeoref) => {
     if (tacticalLocked) return
     // Picking new footprint(s) changes the building under the floor-stack — usually an
     // AMENDMENT (a Nebengebäude added, a wrong footprint dropped), not a fresh start.
@@ -83,20 +82,8 @@ export function useGebaeudeActions({
     const owned = new Set([...ownIds, ...amend.annos.map((a) => a.id)])
     const hasWork = !!building && (markCount > 0 || building.floors.length > 1)
     const wb = appConfig.copy.whiteboard
-    if (hasWork) {
-      const message = amend.legacy
-        ? (markCount > 0 ? fillTemplate(wb.replaceBuildingConfirmMarks, { n: markCount }) : wb.replaceBuildingConfirm)
-        : amend.dropped > 0 ? fillTemplate(wb.replaceBuildingConfirmCarryDrop, { n: amend.carried, d: amend.dropped })
-        : markCount > 0 ? fillTemplate(wb.replaceBuildingConfirmCarry, { n: amend.carried })
-        : wb.replaceBuildingConfirmKeep
-      const ok = await confirmDialog({
-        title: wb.replaceBuilding, message,
-        confirmLabel: wb.replaceBuilding, cancelLabel: appConfig.copy.cancel,
-        // only a loss is a red button — an amendment that carries everything is not one
-        danger: amend.legacy ? markCount > 0 : amend.dropped > 0,
-      })
-      if (!ok) return
-    }
+    // no ask (the delete rule, lib/removalToast): where work was at stake the toast below
+    // repeats the counts and its «Rückgängig» brings back the old stack with every marking
     // auto-orient to longest-axis-horizontal by default; rings/ring/ringAspect
     // mirror the active (oriented) view for back-compat renderers + the north arrow
     const view = buildView(src, orientDeg)
@@ -163,7 +150,7 @@ export function useGebaeudeActions({
   }
 
   /** A storey taken off the stack, with what stood on it. */
-  const removeFloor = async (floor: number) => {
+  const removeFloor = (floor: number) => {
     if (tacticalLocked || building?.pack || floorPack?.tiles[floor]) return
     const prevBuilding = building
     const nextBuilding = prevBuilding ? { ...prevBuilding, floors: prevBuilding.floors.filter((f) => f !== floor) } : prevBuilding
@@ -176,9 +163,8 @@ export function useGebaeudeActions({
     // exactly the stack this removal produced, not re-run a sweep against a document that
     // has moved on since.
     const sweep = removeStorey(board.gebaeude ?? [], sheetAnchoredIds(objects, 'gebaeude'), floor, nextBuilding?.floors ?? [])
-    // asks only about what the sweep LOSES — own annos deleted or cut short, never a Karte
-    // object shown here — and not at all when that is nothing; the toast undoes either way
-    if (!await askStoreyRemoval(sweep.lost, floorLabel(floor))) return
+    // no ask (the delete rule, lib/removalToast): the toast below brings back what the sweep
+    // LOST — own annos deleted or cut short; a Karte object shown here is never lost
     // a machine write (`gesture: false`) — a sweep of what stood on the storey, no placement
     const writeOwn = (own: BoardAnno[]) => setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, sweep.owned, own) }), { gesture: false })
     setBuilding(nextBuilding)
@@ -202,8 +188,9 @@ export function useGebaeudeActions({
     const wrote = () => [recordKey('building'), recordKey('planview', 'gebaeude'),
       ...[...sweep.owned, ...sweep.before.map((a) => a.id), ...sweep.after.map((a) => a.id)].map((id) => recordKey('objects', id)),
       ...[...sweep.before, ...sweep.after].flatMap(annoRefs)]
-    const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorRemoved, restore, reapply, wrote, rows)
-    oneShotUndoToast(appConfig.copy.whiteboard.floorRemoved, appConfig.copy.whiteboard.floorRemoved, restore, drop, rows)
+    // the toast and the ↶ name the storey and what went with it — the act's own row
+    const drop = rememberGebaeudeStep(removedRow, restore, reapply, wrote, rows)
+    oneShotUndoToast(removedRow, removedRow, restore, drop, rows)
     logPlan('close', removedRow, subject)
   }
 

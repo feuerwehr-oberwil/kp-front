@@ -5,7 +5,8 @@ import { flippedRelay } from './hydraulics'
 import { drawingEditChanges, drawingLogName, pumpWarningRows } from './drawingEdit'
 import type { Doc } from './workspace'
 import type { Drawing, LineAttachment, LineEndpoint, LngLat, MapTool, TimelineEvent } from '../types'
-import { confirmDialog, toast } from './ui'
+import { toast } from './ui'
+import { removedText, removeWithUndo } from './removalToast'
 import { fillTemplate } from './format'
 import { newId } from './ids'
 import { canDropVertex, insertAt, minPoints, removeVertex } from './vertexOps'
@@ -50,6 +51,8 @@ interface MapDrawingDeps {
    *  drag-off. Handed up with the coupling it HAD, so the workspace can drop the Trupp link that
    *  coupling made (useTruppActions · unlinkLineFromDetachedTrupp). */
   onLineDetached?: (lineId: string, previous: LineAttachment) => void
+  /** the next store step's ↶ caption (IncidentWorkspace · onCheckpoint): a removal names itself */
+  stepLabelRef?: { current: string | null }
 }
 
 /**
@@ -67,7 +70,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   const {
     drawings, resolvedDrawings = drawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log,
-    setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds, onLineAttached, onLineDetached,
+    setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds, onLineAttached, onLineDetached, stepLabelRef,
   } = deps
 
   const [draft, setDraftRaw] = useState<LngLat[]>([])
@@ -406,34 +409,26 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     emit('draw.edit', { id, patch: wallRoleWire(patch) })
     commit((d) => ({ ...d, drawings: d.drawings.map((x) => (x.id === id ? { ...x, ...patch } : x)) }))
   }
-  const deleteDrawing = async (id: string) => {
+  /** «Entfernen» on a Linie / Fläche / Absperrkreis — at once, with the toast «… entfernt,
+   *  n Leitungen gelöst · Rückgängig» (the delete rule, lib/removalToast): the ONE store step
+   *  brings the drawing back with every Leitung end that hung on it. */
+  const deleteDrawing = (id: string) => {
     if (tacticalLocked) return
     const target = drawings.find((d) => d.id === id)
     const resolvedTarget = resolvedDrawings.find((d) => d.id === id) ?? target
-    const incoming = drawings.flatMap((d) => (['start', 'end'] as const).filter((ep) => {
-      const a = ep === 'start' ? d.startAttachment : d.endAttachment
-      return a?.target.kind === 'line' && a.target.id === id
-    }).map((ep) => ({ drawing: d, endpoint: ep })))
-    if (incoming.length) {
-      const ok = await confirmDialog({
-        title: fillTemplate(appConfig.copy.drawingEditor.removeConnectedTitle, { name: target?.label ?? appConfig.copy.drawingEditor.drawing }),
-        message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: incoming.length }),
-        confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
-      })
-      if (!ok) return
-    }
     // one patch per line, both ends in it — applied here and sent as ONE draw.edit (lib/lineAttachments · detachDrawings)
     const released = detachDrawings(drawings.filter((dr) => dr.id !== id), (_, ep, a, coords) => (a.target.kind !== 'line' || a.target.id !== id ? null
       : resolvedTarget?.coords[a.target.endpoint === 'start' ? 0 : resolvedTarget.coords.length - 1] ?? coords[ep === 'start' ? 0 : coords.length - 1]))
-    commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== id).map((dr) => withDetach(dr, released)) }))
+    // named like its creation row («Fläche gezeichnet» → «Fläche entfernt»), not the bare kind-blind
+    // «Zeichnung entfernt» the record used to close on
+    const row = target ? fillTemplate(appConfig.copy.log.objectDeleted, { name: drawingLogName(target) }) : appConfig.copy.log.drawingDeleted
+    const text = removedText(row, released.size)
+    if (stepLabelRef) stepLabelRef.current = text
+    removeWithUndo(text, () => commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== id).map((dr) => withDetach(dr, released)) })))
     emit('draw.delete', { id })
     released.forEach((patch, lineId) => emit('draw.edit', { id: lineId, patch: wireFreed(patch) }))
     if (selectedDrawingId === id) setSelectedDrawingId(null)
-    // named like its creation row («Fläche gezeichnet» → «Fläche gelöscht»), not the bare kind-blind
-    // «Zeichnung gelöscht» the record used to close on
-    log('close', target
-      ? fillTemplate(appConfig.copy.log.objectDeleted, { name: drawingLogName(target) })
-      : appConfig.copy.log.drawingDeleted, undefined, undefined, undefined, { subjectId: id })
+    log('close', row, undefined, undefined, undefined, { subjectId: id })
   }
 
   /** One magnetic attach/detach/retarget gesture = one document checkpoint and one audit event.

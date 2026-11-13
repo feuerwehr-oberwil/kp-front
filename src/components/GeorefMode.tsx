@@ -10,9 +10,10 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { confirmDialog, toast } from '../lib/ui'
-import { beginTap, endGeorefMode, georefDispatch, georefLamp, georefOnPlan, georefOpenHint, georefPairIndex, georefPhoneTargetPoint, peekGeorefPhoneTarget, georefOpenCount, georefPlacing, georefSideCount, georefSlotLabel, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type GeorefSide, type TapGesture } from '../lib/georefMode'
+import { beginTap, endGeorefMode, georefDispatch, georefLamp, georefOnPlan, georefOpenHint, georefPairIndex, georefPhoneTargetPoint, georefSnapshot, peekGeorefPhoneTarget, georefOpenCount, georefPlacing, georefSideCount, georefSlotLabel, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type GeorefSide, type TapGesture } from '../lib/georefMode'
 import { approvedUntouched, fitSimilarity, hasAutoPairs, residualClaim } from '../lib/georef'
-import { incidentBindingApproved } from '../lib/incidentPlanBindings'
+import { incidentBindingApproved, isIncidentGeorefKey } from '../lib/incidentPlanBindings'
+import { removeWithUndo } from '../lib/removalToast'
 import { useIsPhone } from '../lib/useIsPhone'
 import { SheetGrab, useSwipeDismiss } from '../lib/overlays'
 import { getMeldeleisteHost, subscribeMeldeleisteHost } from '../lib/meldeleisteHost'
@@ -621,11 +622,15 @@ function georefStatus(mode: GeorefModeState, { planLabel, phone = false }: { pla
   return { lamp, sub, foldPairs: `${mode.pairs.length} ${C.pairs}`, foldValue, foldBody: lamp.body }
 }
 
-/** «Alle Punkte zurücksetzen» — the one destructive action inside the running mode, behind the
- *  app's confirm. Shared by the desktop instrument and the phone bar, so the two cannot end up
- *  asking differently (or one of them not asking at all). */
+/** «Alle Punkte zurücksetzen» — the one destructive action inside the running mode. Shared by
+ *  the desktop instrument and the phone bar, so the two cannot end up asking differently (or one
+ *  of them not asking at all). An Einsatz's own binding is a ↶ step, so there it acts at once
+ *  and its toast takes it back (the delete rule, lib/removalToast); a station sheet's points
+ *  save to the station, which nothing takes back — that asks first. */
 async function clearGeorefPoints() {
   const C = appConfig.copy.whiteboard.georef
+  const key = georefSnapshot().storageKey
+  if (key && isIncidentGeorefKey(key)) { removeWithUndo(C.pointsCleared, () => georefDispatch({ type: 'clear' })); return }
   const ok = await confirmDialog({
     title: C.clearTitle,
     message: C.clearBody,

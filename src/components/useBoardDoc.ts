@@ -1,7 +1,6 @@
 import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
 import { newId } from '../lib/ids'
-import { confirmDialog } from '../lib/ui'
 import { annoRefs, recordKey, type HistoryStep, type RecordKey } from '../lib/undoKeys'
 import type { BoardAnno } from '../types'
 
@@ -159,17 +158,6 @@ export function useBoardDoc({ annos, onChange, emit, activeId, selId, setSelId, 
   // page: the cell that changed, not ~5 KB of page per keystroke-commit)
   const patchCommit = (id: string, p: Partial<BoardAnno>, audit?: Record<string, unknown>) => { commit(annos.map((a) => (a.id === id ? { ...a, ...p } : a))); emit('board.edit', { id, ...(audit ?? { patch: p }), planId: activeId }) }
   const remove = (id: string) => { commit(annos.filter((a) => a.id !== id)); emit('board.delete', { id, planId: activeId }); if (selId === id) setSelId(null); if (editId === id) setEditId(null) }
-  // confirm before deleting a note that has been written (parity with the Lage map note).
-  // Answers whether the object actually went: a caller that armed something on the way in
-  // («Marker und Spur löschen», Whiteboard) has to take that back when the ask was declined.
-  const removeAnno = async (a: BoardAnno): Promise<boolean> => {
-    if (a.kind === 'text' && a.text?.trim()) {
-      const ok = await confirmDialog({ title: appConfig.copy.notes.deleteTitle, message: appConfig.copy.notes.deleteMsg, confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
-      if (!ok) return false
-    }
-    remove(a.id)
-    return true
-  }
   // `expect` = the step the timeline entry stands for; a different top is not stepped
   const undo = (expect?: string): boolean => {
     const c = hist[activeId]
@@ -201,5 +189,5 @@ export function useBoardDoc({ annos, onChange, emit, activeId, selId, setSelId, 
   // state; cleared on unmount so a stale plan undo can't fire from another surface.
   useEffect(() => { if (historyRef) historyRef.current = { undo, redo }; return () => { if (historyRef) historyRef.current = null } })
 
-  return { canUndo, canRedo, pushPast, set, commit, add, patch, patchCommit, remove, removeAnno, undo, redo }
+  return { canUndo, canRedo, pushPast, set, commit, add, patch, patchCommit, remove, undo, redo }
 }

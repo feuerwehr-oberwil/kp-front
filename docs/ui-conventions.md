@@ -248,7 +248,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   finished or abandoned; NON-modal (a clear `.mapctl-backdrop`, no trap) when it only changes
   what the map shows — Ebenen is non-modal on purpose. (2) A **decision
   that blocks** — a confirm, «Welcher Trupp?», a one-field ask — is a **centred dialog**
-  (`ConfirmCard`, `Overlay` without `grab`): it is answered, not worked in. (3) A **short
+  (`ConfirmCard`, `Overlay` without `grab`): it is answered, not worked in. ⚠️ A red
+  `danger` ConfirmCard stands ONLY in front of what nothing brings back (the delete rule,
+  13.11.2026, [`undo.md`](undo.md) › One delete rule): a removal ↶ can take back acts at once
+  and shows «{Name} entfernt · Rückgängig» (`lib/removalToast`) instead of asking first. (3) A **short
   pick-one menu that belongs to its tile or chip** — Ansichten at the compass, the Einsatz-Menü,
   the Meteo chip, every `Menu` — is a **popover anchored to that control**. Three exceptions,
   each a rule: a page you READ (Hilfe) is full-screen, and a search that opens with the keyboard

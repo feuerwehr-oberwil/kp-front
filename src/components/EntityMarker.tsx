@@ -32,7 +32,7 @@ export type ShapeGripMode = 'rotate' | 'resize' | 'width' | 'rotate2' | 'cage' |
 
 type EntityMarkerProps = Pick<MapMarkersProps,
   'entities' | 'byName' | 'selectedId' | 'zoom' | 'suppressedLabels' | 'draggable' | 'project' | 'unproject'
-  | 'onDelete' | 'onRotate' | 'onShapeTransform' | 'onUnlockShape' | 'onNoteEdit' | 'trupps' | 'onShowTrupp'
+  | 'onSelect' | 'onDelete' | 'onRotate' | 'onShapeTransform' | 'onUnlockShape' | 'onNoteEdit' | 'trupps' | 'onShowTrupp'
   | 'onTeamTrupp' | 'onTeamNewTrupp' | 'onTeamMark' | 'onTeamRename' | 'onTeamClearTrail' | 'onTeamRemoveWithTrail'
   | 'hiddenTrails' | 'onToggleTrail' | 'teamLines' | 'onTeamUnlink' | 'onTeamUndock'>
   & Required<Pick<MapMarkersProps, 'groupSelectedIds' | 'networkEntityIds' | 'bearing' | 'symMul' | 'captionMode' | 'readOnly' | 'editNoteId'>> & {
@@ -120,7 +120,7 @@ export function EntityMarker({
   e, entities, byName, selectedId, groupSelectedIds, networkEntityIds, zoom, bearing, symMul, captionMode, suppressedLabels,
   readOnly, draggable, editNoteId, project, unproject, spoke, draggingId, grabbedId, dockedSlots, dockedHosts, onPress,
   rotDown, rotMove, rotUp, shapeDown, shapeMove, shapeUp, focusNote, focusTeam, noteChange, noteBlur, noteKeyDown, noteDone,
-  onDelete, onRotate, onShapeTransform, onUnlockShape, onNoteEdit, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp,
+  onSelect, onDelete, onRotate, onShapeTransform, onUnlockShape, onNoteEdit, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp,
   onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink,
   onTeamUndock,
 }: EntityMarkerProps) {
@@ -295,7 +295,7 @@ export function EntityMarker({
               chip stays upright (drawings' twin: MapView · lockChips) */}
           {lockedShape && onUnlockShape && (
             <span className="shape-lock-anchor">
-              <LockChip onUnlock={() => onUnlockShape(e.id)} />
+              <LockChip onUnlock={() => onUnlockShape(e.id)} onOpen={() => onSelect(e)} />
             </span>
           )}
         </>
