@@ -75,12 +75,10 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       saveFailed: 'Saving the scale failed',
     },
     georef: {
-      chipUnlinked: 'Link to map',
       chipLinked: 'linked',
       chipTwoPoints: 'from 2 points',
       chipResidual: '⌀ {m} m',
       linkTitle: 'Link this plan to the map',
-      openQuality: 'Review and correct the reference',
       freeOrderTap: 'Tap the same spot on module and map',
       freeOrderTip: 'Unmistakable points work best – building corner, hydrant, path junction. The order is free: placed halves find their counterpart by themselves.',
       howTitle: 'How to link',

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./KrokiFramingPanel', () => ({ KrokiFramingPanel: () => null }))
@@ -91,10 +91,8 @@ describe('Zeiten · «Jetzt» never warns about the time it just wrote', () => {
   })
 })
 
-// ⚠️ WHICH DAY a correction in the Alarmierungs-/Ausrückzeiten grid lands on. The picker hands a
-// day back on EVERY commit once the incident spans more than one (TimeField · valueDay), so a
-// field that does not say which day its value is already on opens the wheel on TODAY and writes
-// TODAY back. On this grid that reaches the printed Rapport: correcting a Monday-night
+// ⚠️ WHICH DAY a correction in the Alarmierungs-/Ausrückzeiten grid lands on. A field that does
+// not open on the day its value is already on opens the wheel on TODAY and writes TODAY back. On this grid that reaches the printed Rapport: correcting a Monday-night
 // Ausrückzeit on Wednesday morning filed it as Wednesday, silently.
 describe('Zeiten · a correction stays on the day the stamp is already on', () => {
   const MON = new Date(2026, 7, 10, 22, 0) // alarmiert Monday night…
@@ -134,4 +132,48 @@ describe('Zeiten · a correction stays on the day the stamp is already on', () =
     fireEvent.click(screen.getByRole('button', { name: 'OK' }))
     expect(savedGroupDay(onSaveMeta)).toBe(new Date(2026, 7, 10).toDateString())
   })
+})
+
+// Every grid row is date + time since 12.11.2026 (docs/rapport.md › Times): the day used to be
+// GUESSED from the alarm after the commit. Now what the row shows before «OK» is what is stored.
+describe('Zeiten · a grid row over midnight stores the day that was shown', () => {
+  const ALARM = new Date(2026, 7, 10, 23, 50) // alarmiert Monday 23:50…
+
+  beforeEach(() => {
+    Element.prototype.scrollTo = Element.prototype.scrollTo ?? (() => {})
+    window.matchMedia = ((q: string) => ({
+      matches: q.includes('coarse'), media: q, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {},
+      addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 7, 11, 1, 0)) // …the Rapport written at 01:00
+  })
+
+  it('an empty row opens on the alarm, and 00:15 on the Tuesday is filed on the Tuesday', () => {
+    const onSaveMeta = vi.fn()
+    render(
+      <ReportPreflight
+        incident={{ ...INCIDENT, started_at: ALARM.toISOString() }}
+        reportMeta={{ alarmiertAt: ALARM.toISOString(), gruppen: [{ id: 'gruppe-1', manual: true }] }}
+        events={[]}
+        annotatedPlanCount={0} truppCount={0} attendanceCount={0} mittelCount={0}
+        mapContentCount={0}
+        onSaveMeta={onSaveMeta}
+      />,
+    )
+    const field = screen.getByRole('button', { name: 'Gruppe 1' })
+    expect(field.textContent).toBe('--.--. --:--')
+    fireEvent.click(field)
+    const wheel = (name: string) => screen.getByRole('listbox', { name })
+    // preselected on the alarm day — visible before anything is committed
+    expect(wheel('Tag').querySelector('[aria-selected="true"]')?.textContent).toBe('Mo 10.08.')
+    fireEvent.click(within(wheel('Tag')).getByRole('option', { name: 'Di 11.08.' }))
+    fireEvent.click(within(wheel('Stunde')).getAllByRole('option', { name: '00' })[0])
+    fireEvent.click(within(wheel('Minute')).getAllByRole('option', { name: '15' })[0])
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+    const meta = onSaveMeta.mock.calls[onSaveMeta.mock.calls.length - 1][0] as { gruppen?: { alarmedAt?: string }[] }
+    expect(meta.gruppen?.[0]?.alarmedAt).toBe(new Date(2026, 7, 11, 0, 15).toISOString())
+    expect(screen.getByRole('button', { name: 'Gruppe 1' }).textContent).toBe('11.08. 00:15')
+  }, 15_000) // the whole Rapport is mounted and three wheels are driven: slow on a loaded runner
 })

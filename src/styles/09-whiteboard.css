@@ -118,7 +118,7 @@
   /* the NavRail is a bottom bar here – the banner takes the full width and wraps its actions. ⚠️
      The phone's top bar floats over the sheet (15-mobile · .topbar), so the banner starts under
      it, where the weather chip does – at 12px its first lines were hidden (owner, 22.10.2026) */
-  .wb-nearby-banner { top: calc(76px + env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); flex-wrap: wrap; }
+  .wb-nearby-banner { top: var(--under-bar, calc(76px + env(safe-area-inset-top))); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); flex-wrap: wrap; }
   .wb-nearby-text { flex-basis: calc(100% - 28px); }
 }
 /* the door between the two faces of the ONE «Gebäude» tile (Whiteboard · buildingChip). On the
@@ -1110,10 +1110,12 @@ span.wb-ghost-label { cursor: default; }
    overlapping symbol or Trupp own the contested pixel. */
 .line-end-tag-wrap { pointer-events: auto; touch-action: none; }
 
-/* Gebäude rotation popover (30.08.) — what the north dial (PlanCompass), its one door, opens */
+/* Gebäude rotation popover (30.08.) — what the north dial (PlanCompass), its one door, opens.
+   THE popover shell (ui-conventions · Overlays): --r-bar over the even --bar-pad, its label at a
+   menu row's 12px inset beyond it, as .tb-weather-pop – it was --r-ctl over 12/16. */
 .wb-orient-popup { background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--e4); }
-.wb-orient-pop { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); min-width: 250px; }
+  border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
+.wb-orient-pop { display: flex; flex-direction: column; gap: var(--sp-3); padding: calc(var(--bar-pad) + var(--sp-3)); min-width: 250px; }
 .wb-orient-row { display: flex; align-items: center; gap: var(--sp-2); }
 .wb-orient-lbl { font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--ink-dim); flex: none; }
 .wb-orient-val { font-family: var(--mono); font-size: var(--fs-2); font-weight: var(--fw-bold); min-width: 42px; text-align: right; }
@@ -1279,7 +1281,7 @@ span.wb-ghost-label { cursor: default; }
      top, pushed down to close. It was a card floating above the bars, 10px in from each side. It
      hugs its content up to the sheet cap and pays the bottom inset itself. */
   .wb-georef-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-drawer);
-    max-height: min(72dvh, calc(100dvh - 84px - env(safe-area-inset-top))); overflow-y: auto;
+    max-height: min(72dvh, calc(100dvh - var(--bar-foot) - var(--sp-4))); overflow-y: auto;
     border-radius: var(--r-hero) var(--r-hero) 0 0;
     padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     animation: sheetUp .22s var(--ease); }

@@ -38,15 +38,22 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   «THE TINTS»): type `--fs-1…7` (12.5 · 14 · 16 · 19 · 24 · 32 · 40, each with its `--lh-*`) and
   `--fs-micro` (11, read-only captions, never a tappable label); weight `--fw-regular/medium/
   bold/heavy` (400/500/700/800 – 600 is not a step); space `--sp-1…8` (4/8/12/16/24/32/48/64;
-  1–2px optical nudges stay literal); elevation `--e1…e5` (with night values; `--shadow-sm` and
-  `--shadow` are `--e3`/`--e4`); tints `--{blue,red,amber,green,ink}-{5,8,12,16,22,28,45,62}`
-  (= that hue at that % over transparent). The old literals move onto them surface by surface
+  1–2px optical nudges stay literal); elevation `--e1…e5` (with night values; `--shadow` is
+  `--e4`); tints `--{blue,red,amber,green,ink}-{5,8,12,16,22,28,45,62}`
+  (= that hue at that % over transparent; amber lacks 5/62 and green 5/8/62 until a rule needs
+  them). The old literals move onto them surface by surface
   (staged; the owner sees pairs for anything visible), so do not mass-convert a file on the side.
   **The pile only shrinks**: `src/styles/styleDebt.test.ts` counts per stylesheet the literal
   font sizes, off-step weights, off-grid spacings and literal-colour shadows against
   `styleDebt.baseline.json` and fails when one goes up; one that went down is a console note –
   lower the baseline when convenient (`STYLE_DEBT_UPDATE=1 pnpm vitest run
   src/styles/styleDebt.test.ts`, which only ever lowers it). Never raise it to pass.
+- **The neutral washes and hairlines are near-twins, not duplicates** (checked 13.11.2026):
+  `--fill-soft`, `--hover`, `--hover-strong`, `--press`, `--surface-2`, `--surface-veil`,
+  `--ink-tint(-strong)`, `--border(-soft)`, `--glass-edge`, `--glass-line` and `--ink-5…62` –
+  no two resolve to the same RGBA in both themes (several match at night only, e.g. `--border` =
+  `--glass-edge`). Folding any pair moves pixels, so it is an owner pick with before/after pairs,
+  not a cleanup.
 - **Breakpoints come from `src/lib/breakpoints.ts` only.** The one corner (`--r-sm`, `--r-bar`,
   `--r-xs`) is under «Buttons follow one spec» · *Radius*, the one button family under «Button
   components».
@@ -223,7 +230,11 @@ reopens, while the head's subtitle says when («Schadenlage · erledigt 10:57»)
   **menu or popover** is the menu shell: `--r-bar` over `--bar-pad`, opaque `--surface` + its 1px
   `--glass-edge` (out of the top bar: the bar's glass + `--glass-line` instead), `--e4`; facts in it
   that are read, not tapped, stand at a menu row's 12px text inset. A one-of-N row in a menu is a
-  trailing ✓ (`Menu` · radio), a pick-several row the checkbox.
+  trailing ✓ (`Menu` · radio), a pick-several row the checkbox. Every anchored menu and popover
+  hangs ONE 8px off its trigger and keeps 8px from the screen edge, the bars' own distances
+  (`lib/overlays` · `OVERLAY_GAP` / `OVERLAY_EDGE`, owner 13.11.2026 – menus hung 4px off, both
+  kept 10 from the edge); one whose trigger sits inside a floating bar hangs 8px off the BAR
+  (`BAR_POP_OFFSET`: the Einsatzuhr, the weather, the Gebäude dial).
 
 Three rules the primitives own, so no surface re-answers them (18.09.2026):
 
@@ -298,7 +309,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Verlauf's head of 44px buttons it is the same 36px plate, centred on its row – the 44px and
     ▶-framed copies there read as a different button. It stands as far from the sheet's right
     edge as the title from its left (24 on a sheet, 16 where a frame pads 16: composer, Palette,
-    Verlauf, the `.ctx` editors, Trupp finden; 12 on the Gebäude card).
+    Verlauf, the `.ctx` editors, Trupp finden; 12 on the Gebäude card). Where the body under the
+    head is a row of plates that stand outside the text edge (Ebenen: the quick row and the
+    tiles), the ✕'s plate ends on THEIR right edge instead (12 on the card, 20 on the phone
+    sheet) while the title keeps the text edge – a ✕ 4px inside the row below reads as shifted
+    for no reason (owner, 13.11.2026).
   - *Radius – ONE corner (25.09.2026):* **every** rectangle is `var(--r-sm)` (12px) – button,
     field, status box, row, card, page card (tablet and desktop – a phone page has no card,
     [`phone-layout.md`](phone-layout.md) · «No page card on a phone»), sheet, dialog, message; `--r-ctl`/`--r-surface`/
@@ -326,7 +341,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     «they just hide things»; `<Overlays toasts={false} />`): undo is the header's ↶ ↷, the sync
     state its mark, and its Meldeleiste keeps only the rows that block work (`meldungen ·
     linkShowsMeldung`) (20.10.2026, owner: «all notifications appear at the same place: at the top
-    cleanly below the main navbar»): where the Meldeleiste starts (92px; 72px on a phone), one 8px
+    cleanly below the main navbar»): where the Meldeleiste starts (92px; on a phone `--msg-top`, 4px under the bar), one 8px
     channel under the strip while one stands (`--ml-reserve` from its measured `--ml-h`), at the
     bars' own width on a phone (8px in from each side). A mode's instruction and a tool's tip keep
     the phone's foot lane (`--msg-lane-bottom`, 15-mobile), one `--float-gap` above THE floating
@@ -602,7 +617,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     `components/ListRow` – `ListRow` (lead slot · title · sub · end · ›; a button with `onClick`,
     static without), on a `ListCard` (white card with hairlines, 56px rows, 16px titles) or a
     `ListCard look="rail"` (a list column beside a document: --tap rows, 14px titles, the one
-    corner), under a `ListGroup` eyebrow. «Where you are» is `on` (the ink pill). The way one level
+    corner) or a `ListCard look="quiet"` (a secondary list under a surface's main content: flat,
+    no hairlines, medium `--ink-dim` titles, `--ink-faint` subs and glyphs, the container's row
+    height – the Karte panel's «In der Nähe», owner 12.11.2026), under a `ListGroup` eyebrow. «Where you are» is `on` (the ink pill). The way one level
     up is `BackRow` «‹ Label», naming where it goes, never a bare «Zurück». Over a reading column it
     takes that column's own width and sits flush left in it – it hugs its label, so a pane that
     centres its children would otherwise centre the WORD and leave the chevron adrift from the
@@ -611,8 +628,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     slot and places them, never a `.row` of its own. A row's extra line under its text (a round's
     progress bar) goes in as `children`. On it: the library, the Einsatz rail, the devices, the
     Karte's lists (search, Pläne, In der Nähe, Besuche, the device sheet) and every Objektbesuche
-    list. What a surface may still add is meaning, compounded with `.list-row` (the hydrant's blue
-    tint, a plan's --tap-lg height, a quiet fact line in the visit card) – never another size.
+    list. What a surface may still add is meaning, compounded with `.list-row` (a lit hydrant's
+    wash, a plan's --tap-lg height, a quiet fact line in the visit card) – never another size.
     A title hyphenates ONLY where that saves a line (owner 20.10.2026, «Trink-wasser»): whole words
     when they take as many lines, `hyphens: auto` when hyphenating is shorter or a word is wider
     than the line on its own. CSS cannot say this, so `lib/smartHyphens` (a ref on the text: the

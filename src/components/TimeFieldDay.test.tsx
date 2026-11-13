@@ -56,15 +56,15 @@ describe('TimeField · the day a stamp lands on', () => {
     expect(committedDay(onCommit)).toBe(MON.toDateString())
   })
 
-  // ⚠️ …and the field being right is only half of it: something has to HAND it the day. TimeField
-  // has behaved correctly since the test above, but TimeBlockSheet never passed `valueDay`, so
-  // every Zeitplan and Anwesenheit block re-opened on today and wrote today back. Reproduced by
-  // hand on 16.08.: setting «bis» to Tuesday, then correcting only the MINUTE, moved it to today.
-  // This pins the wiring, not the control — that is where the bug actually lived.
-  it('a block sheet hands each end its own day, so correcting the clock cannot move it', () => {
+  // ⚠️ …and the field being right is only half of it: the SHEET has to hand it the day. It never
+  // did, so every Zeitplan and Anwesenheit block re-opened on today and wrote today back
+  // (reproduced by hand on 16.08.). Since 12.11.2026 the block's ends are ISO and the sheet's
+  // fields are date + time, so the day travels with the value.
+  it('a block sheet keeps each end on its own day, so correcting the clock cannot move it', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 7, 12, 9, 0)) // Wednesday morning — neither end is today
     const onFrom = vi.fn()
+    const at = (day: Date, h: number, mi = 0) => new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, mi).toISOString()
     render(
       <TimeBlockSheet
         title="Schicht" subject="Müller Hans" sectionTitle="Zeiten" emptyLabel="keine"
@@ -72,8 +72,7 @@ describe('TimeField · the day a stamp lands on', () => {
         labels={{ from: 'von', to: 'bis', remove: 'entfernen',
                   fromStart: 'ab Beginn', reopen: 'noch da', flip: 'umschalten' }}
         blocks={[{
-          key: 'a', from: '22:15', to: '06:00',
-          fromDay: MON, toDay: TUE,           // ← the wiring under test
+          key: 'a', from: at(MON, 22, 15), to: at(TUE, 6),
           head: { label: 'beendet', tone: 'done' as const },
           onFrom, onTo: () => {},
         }]}
@@ -81,7 +80,7 @@ describe('TimeField · the day a stamp lands on', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'von – Müller Hans' }))
     fireEvent.click(screen.getByRole('button', { name: 'OK' }))
-    expect(committedDay(onFrom)).toBe(MON.toDateString())
+    expect(new Date(onFrom.mock.calls[0][0] as string).toDateString()).toBe(MON.toDateString())
   })
 
   // ⚠️ «Jetzt» used to hand back a bare HH:MM. Every caller then had to infer the day from a

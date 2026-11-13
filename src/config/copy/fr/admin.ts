@@ -1588,7 +1588,6 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
         regionHint: '{floor} : tracer un rectangle autour du dessin',
         joinHint1: '{floor} : toucher un point de ce dessin – cage d’escalier, ascenseur ou croisement de trame',
         joinHint2: 'Choisir un autre étage dans la liste, puis toucher le même point de la cage d’escalier – même sur une autre page.',
-        stateRegion: 'Zone',
         stateWhole: 'Page entière',
         stateJoined: 'Relié',
         stateUnjoined: 'Non relié',

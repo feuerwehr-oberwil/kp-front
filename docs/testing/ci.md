@@ -252,9 +252,16 @@ rejects empty suites, duplicate cases or missing cases.
 
 Every browser job (the three suites, Performance, Visual, «Visual baselines») installs its
 browsers through `.github/actions/playwright-browsers`: `~/.cache/ms-playwright` comes from the
-Actions cache, keyed on the Playwright version and the browser list, and a hit installs only the
-apt dependencies. The CDN download was what stalled jobs into their 10-minute timeout (seven of
-sixteen runs re-run by hand in October 2026); a Playwright bump starts one cold run per key.
+Actions cache, keyed on the runner image, the Playwright version and the browser list, and a hit
+installs only the apt dependencies. The CDN download was what stalled jobs into their 10-minute
+timeout (seven of sixteen runs re-run by hand in October 2026); a Playwright bump starts one cold
+run per key.
+
+These jobs run on a **pinned** image (`ubuntu-24.04`), not `ubuntu-latest`: Playwright builds its
+browsers per Ubuntu release and the visual baselines are shot on this one. On 2026-11-12
+`ubuntu-latest` moved to 26.04, the cache handed its 24.04 WebKit to the new image, it could not
+start (`libicudata.so.74`), and every recovery run failed without a line of the diff being at
+fault. Move the pin in its own PR, in all four jobs at once, and expect one cold run per key.
 
 Before installing system packages, the action removes the Azure mirror from the runner's
 `/etc/apt/apt-mirrors.txt`, leaving the official Ubuntu archive and security mirrors. A slow

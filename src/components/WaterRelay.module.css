@@ -27,10 +27,12 @@
 .result { grid-area: result; display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
 .title { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 /* the ⓘ's popover: the sources in small type, over the panel instead of in its flow – the app's
-   popup chrome (the set 13-incident.css · .az-head-detail carries), on the portalled popup itself */
-.sourcesPop { max-width: min(300px, calc(100vw - 24px)); box-sizing: border-box; padding: var(--sp-2) var(--sp-3);
+   popup chrome (the set 13-incident.css · .az-head-detail carries), on the portalled popup itself.
+   THE popover shell: --r-bar over --bar-pad, the text a menu row's 12px further in, 8px clear of
+   the screen edges (it was --r-ctl over 8/12, consistency sweep R2-A) */
+.sourcesPop { max-width: min(300px, calc(100vw - 2 * var(--float-gap))); box-sizing: border-box; padding: calc(var(--bar-pad) + var(--sp-3));
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--e4); }
+  border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
 .sources { margin: 0; text-align: left; font-size: var(--fs-micro); line-height: var(--lh-micro); color: var(--ink-dim); }
 
 /* the inputs are the editor's own rows (the global `.field`, 06-contextpanel): its label column

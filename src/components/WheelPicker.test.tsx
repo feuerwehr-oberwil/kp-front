@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WheelPopover } from './WheelPicker'
 import { fmtWheelDay } from '../lib/zeitplanFormat'
 import { DateTimeField } from './TimeField'
+import { noteServerTime, resetServerClock } from '../lib/serverClock'
 
 afterEach(cleanup)
 
@@ -90,5 +91,60 @@ describe('DateTimeField · one date control', () => {
     render(<DateTimeField ariaLabel="Ende" value={new Date(2026, 8, 20, 8, 0).toISOString()} days={days} onCommit={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: 'Ende' }))
     expect(wheel('Tag').querySelector('[aria-selected="true"]')?.textContent).toBe('So 20.09.')
+  })
+
+  // owner pick A «Ein Feld» (12.11.2026): the day quiet, the clock loud, the year only off the
+  // Einsatz's year — `days` start on the alarm day, so that is the year the field reads against
+  it('reads «05.10. 13:06», and the year only when it is not the Einsatz year', () => {
+    const days = [new Date(2026, 9, 5)]
+    render(<>
+      <DateTimeField ariaLabel="A" value={new Date(2026, 9, 5, 13, 6).toISOString()} days={days} onCommit={vi.fn()} />
+      <DateTimeField ariaLabel="B" value={new Date(2025, 11, 31, 23, 50).toISOString()} days={days} onCommit={vi.fn()} />
+      <DateTimeField ariaLabel="C" days={days} onCommit={vi.fn()} />
+    </>)
+    expect(screen.getByRole('button', { name: 'A' }).textContent).toBe('05.10. 13:06')
+    expect(screen.getByRole('button', { name: 'B' }).textContent).toBe('31.12.2025 23:50')
+    expect(screen.getByRole('button', { name: 'C' }).textContent).toBe('--.--. --:--')
+  })
+
+  // owner pick A «Gestapelt» (13.11.2026, the QR-Erfassung's Personen rows): the word + day on a
+  // small line above the clock; same year rule, same empty shape, the full name stays accessible
+  it('stacked: «von 05.10.» over «13:06», the year rule, and an empty field in the same shape', () => {
+    const days = [new Date(2026, 9, 5)]
+    render(<>
+      <DateTimeField ariaLabel="von, Amrein Patrick" stacked="von" value={new Date(2026, 9, 5, 13, 6).toISOString()} days={days} onCommit={vi.fn()} />
+      <DateTimeField ariaLabel="bis, Baumann Michael" stacked="bis" value={new Date(2025, 11, 31, 23, 50).toISOString()} days={days} onCommit={vi.fn()} />
+      <DateTimeField ariaLabel="von, Frei Nina" stacked="von" days={days} onCommit={vi.fn()} />
+    </>)
+    const lines = (name: string) => [...screen.getByRole('button', { name }).children].map((el) => el.textContent)
+    expect(lines('von, Amrein Patrick')).toEqual(['von 05.10.', '13:06'])
+    expect(lines('bis, Baumann Michael')).toEqual(['bis 31.12.2025', '23:50'])
+    expect(lines('von, Frei Nina')).toEqual(['von --.--.', '--:--'])
+  })
+
+  it('always shows the day column, and an empty field opens where it is told to', () => {
+    const days = [new Date(2026, 9, 5)]
+    render(<DateTimeField ariaLabel="Ende" days={days} opensOn={new Date(2026, 9, 5, 23, 50).toISOString()} onCommit={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Ende' }))
+    expect(wheel('Tag').querySelector('[aria-selected="true"]')?.textContent).toBe('Mo 05.10.')
+    expect(wheel('Stunde').querySelector('[aria-selected="true"]')?.textContent).toBe('23')
+  })
+
+  // every «Jetzt» is the deployment's clock (docs/rapport.md › Times) — the picker's used to be
+  // the device's, so the button beside the field and the one inside it stamped different times
+  it('«Jetzt» in the picker takes the server clock, not the device clock', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 9, 5, 13, 10)) // the device runs four minutes fast
+    noteServerTime(new Date(2026, 9, 5, 13, 6).toISOString())
+    try {
+      const onCommit = vi.fn()
+      render(<DateTimeField ariaLabel="Ende" days={[new Date(2026, 9, 5)]} onCommit={onCommit} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Ende' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Jetzt' }))
+      expect(new Date(onCommit.mock.calls[0][0]).getTime()).toBe(new Date(2026, 9, 5, 13, 6).getTime())
+    } finally {
+      resetServerClock()
+      vi.useRealTimers()
+    }
   })
 })

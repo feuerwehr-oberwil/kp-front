@@ -3,60 +3,35 @@
 
 import type { Dispatch, SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate, hhmm, localeDate } from '../lib/format'
+import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { SearchField } from '../components/SearchField'
 import { InfoToggle } from '../components/InfoToggle'
-import { TimeField } from '../components/TimeField'
-import { applyTimeToIso, isoOnDay, keepEndAfterStart, keepStartBeforeEnd } from '../lib/abschluss'
+import { DateTimeField } from '../components/TimeField'
+import { keepEndAfterStart, keepStartBeforeEnd } from '../lib/abschluss'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
 import type { AttendanceEntry } from '../types'
-import type { IncidentMeta, Workspace } from '../lib/incidents'
+import type { Workspace } from '../lib/incidents'
 import type { CaptureAction, CapturePerson } from '../lib/captureClient'
 import { AccSection } from './AccSection'
 
 /**
- * Where a corrected «von»/«bis» on a person's row lands.
- *
- * A day picked off the wheel is the operator's ANSWER and is kept as such — only the ordering
- * guard survives it, so a presence block can never end before it starts (a reversed block
- * renders as nothing and counts zero minutes on the Rapport). Without a day nothing changes:
- * the day is inferred from the neighbouring stamp, the same rule the Anwesenheit view applies,
- * so the two surfaces cannot drift.
+ * Where a corrected «von»/«bis» on a person's row lands: the instant the picker showed, kept as
+ * the operator's answer — only the ordering guard survives it, so a presence block can never end
+ * before it starts (a reversed block renders as nothing and counts zero minutes on the Rapport,
+ * and the poster has no sheet that would show it). The guard steps the DAY, and the field then
+ * shows the date it stepped to.
  */
-const personTimeIso = (
-  clock: string, day: Date | undefined, edge: 'from' | 'to',
-  block: { from?: string; to?: string }, baseIso: string,
-): string | null => {
-  if (!day) {
-    return edge === 'to'
-      ? applyTimeToIso(block.to ?? baseIso, clock, { nextDayIfBefore: block.from })
-      : applyTimeToIso(baseIso, clock, { prevDayIfAfter: block.to })
-  }
-  const iso = isoOnDay(day, clock)
-  if (!iso) return null
+const personTimeIso = (iso: string, edge: 'from' | 'to', block: { from?: string; to?: string }): string => {
   if (edge === 'to') return block.from ? keepEndAfterStart(block.from, iso) : iso
   return block.to ? keepStartBeforeEnd(iso, block.to) : iso
-}
-
-/** The calendar day of a recorded time — but ONLY when it is not the Einsatz' own start day.
- *  An Einsatz that ends the same evening (nearly all of them) reads as a bare clock exactly as
- *  before; one that runs past midnight says which day a «bis 01:15» belongs to. */
-const dayTag = (iso: string | undefined, baseIso: string): string | null => {
-  if (!iso) return null
-  const d = new Date(iso)
-  const base = new Date(baseIso)
-  if (!Number.isFinite(d.getTime()) || !Number.isFinite(base.getTime())) return null
-  if (d.toDateString() === base.toDateString()) return null
-  return localeDate(d, { day: '2-digit', month: '2-digit' })
 }
 
 /** the shell's wiring for one section (CaptureApp owns which one is open) */
 type Shell = { open: boolean; onToggle: () => void; sectionRef: (el: HTMLElement | null) => void }
 
 type Props = Shell & {
-  incident: IncidentMeta
   /** the Einsatz' own days, for a clock that may fall on another one (CaptureApp · zeitDays) */
   zeitDays: Date[]
   busy: boolean
@@ -81,7 +56,7 @@ type Props = Shell & {
 
 /** The Personen section: search · «Erfasste» filter · tap help, then one row per person. */
 export function PersonenSection({
-  open, onToggle, sectionRef, incident, zeitDays, busy, attendance, rosterIds, filteredRoster, presentCount,
+  open, onToggle, sectionRef, zeitDays, busy, attendance, rosterIds, filteredRoster, presentCount,
   recordedCount, search, setSearch, onlyRecorded, setOnlyRecorded, showTapHelp, setShowTapHelp, guestOffer,
   tapPerson, addGuest, run, savedToast,
 }: Props) {
@@ -127,7 +102,6 @@ export function PersonenSection({
           const blocks = intervalsOf(a)
           const bi = blocks.length - 1
           const cur = blocks[bi]
-          const vonBase = cur?.from ?? incident.started_at
           return (
             <div key={p.id} className="cv-person-row">
               <button className={`cv-person ${state}`} disabled={busy}
@@ -148,42 +122,27 @@ export function PersonenSection({
               </button>
               {/* ONE inline time, same model as the Anwesenheit view: arrival while
                   anwesend, leave time once gegangen — the flipping meaning is SAID
-                  with a von/bis tag, not implied (feedback 2026-07-18) */}
-              {a && <span className="cv-time-tag">{here ? C.von : C.bis}</span>}
+                  with «von»/«bis», not implied (feedback 2026-07-18). The word rides on
+                  the field's own small line («von 12.11.» over «23:37», owner pick A
+                  «Gestapelt» 13.11.2026), so the name keeps one line at 390px. */}
               {a && (
-                <TimeField
+                <DateTimeField
                   className="cv-person-time"
-                  ariaLabel={here ? C.von : C.bis}
-                  value={hhmm(here ? cur?.from : cur?.to)}
-                  disabled={busy}
-                  // the Einsatz' own days, exactly like the Zeiten grid below. The poster
-                  // is filled in hours later and an Einsatz that ran past midnight has two
-                  // of them — «bis 01:15» was silently filed on the wrong one, because a
-                  // bare clock can only be inferred from the neighbouring stamp.
+                  stacked={here ? C.von : C.bis}
+                  ariaLabel={fillTemplate(C.personTime, { edge: here ? C.von : C.bis, name: p.display_name })}
+                  value={here ? cur?.from : cur?.to}
+                  disabled={busy} required
+                  // the Einsatz' own days, exactly like the Zeiten grid below: the field shows
+                  // the date it stores, like the tablet's Anwesenheit sheet (TimeBlockSheet)
                   days={zeitDays}
-                  // …and the wheel opens on the day this stamp is ON (see TimeField ·
-                  // valueDay). Without it the day wheel starts at today, and a correction
-                  // made the morning after would move the block to the morning after.
-                  valueDay={(() => {
-                    const iso = here ? cur?.from : cur?.to
-                    return iso ? new Date(iso) : undefined
-                  })()}
-                  onCommit={(hhmm, day) => {
-                    if (!hhmm) return
-                    const iso = personTimeIso(hhmm, day, here ? 'from' : 'to',
-                      { from: cur?.from, to: cur?.to }, vonBase)
-                    if (!iso) return
+                  onCommit={(picked) => {
+                    if (!picked) return
+                    const iso = personTimeIso(picked, here ? 'from' : 'to', { from: cur?.from, to: cur?.to })
                     const patch = here ? { from: iso } : { to: iso }
                     void run({ kind: 'setTimes', personId: p.id, index: bi, ...patch }).then((ok) => { if (ok) savedToast() })
                   }}
                 />
               )}
-              {/* the day, and ONLY when it is not the Einsatz' own — see dayTag. On the
-                  ordinary same-evening Einsatz the row looks exactly as it did. */}
-              {a && (() => {
-                const tag = dayTag(here ? cur?.from : cur?.to, incident.started_at)
-                return tag ? <span className="cv-date-tag">{tag}</span> : null
-              })()}
             </div>
           )
         })}

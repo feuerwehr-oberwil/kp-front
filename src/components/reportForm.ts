@@ -5,7 +5,6 @@
 
 import { deriveAusgerueckt } from '../lib/alarmzeiten'
 import { closeTimeOf, type IncidentMeta } from '../lib/incidents'
-import { dtLocalToIso, dtLocalValue } from '../lib/format'
 import { einsatzleiterFromScene } from '../lib/report'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
 import type { Entity } from '../types'
@@ -19,8 +18,8 @@ export const numOrU = (s: string): number | undefined => {
   return s.trim() !== '' && Number.isFinite(n) && n >= 0 ? Math.round(n) : undefined
 }
 
-/** The synced Rapportangaben, each in the shape its control holds it (a dtLocal string, «» for
- *  absent, a list). The partner list is synced too but kept apart: it never reaches `meta`. */
+/** The synced Rapportangaben, each in the shape its control holds it (an ISO string for every
+ *  time, «» for absent, a list). The partner list is synced too but kept apart: it never reaches `meta`. */
 export type ReportForm = {
   summary: string
   kontaktperson: string
@@ -50,8 +49,8 @@ export function remoteForm(reportMeta: ReportMeta, sceneEntities: Entity[] | und
     // field sitting on the seeded name is in agreement with the blob and must not count as an
     // edit this device has to defend (ReportPreflight · seededEinsatzleiter persists it, once).
     einsatzleiter: reportMeta.einsatzleiter ?? einsatzleiterFromScene(sceneEntities) ?? '',
-    endedAt: dtLocalValue(reportMeta.endedAt ?? closeTimeOf(incident) ?? undefined),
-    ausgerueckt: dtLocalValue(reportMeta.ausgeruecktAt),
+    endedAt: reportMeta.endedAt ?? closeTimeOf(incident) ?? '',
+    ausgerueckt: reportMeta.ausgeruecktAt ?? '',
     remarks: reportMeta.remarks ?? '',
     lehren: reportMeta.lehren ?? '',
     gruppen: reportMeta.gruppen ?? [],
@@ -97,8 +96,8 @@ export function formToMeta(f: ReportForm): Partial<ReportMeta> {
     kontaktperson: f.kontaktperson.trim() || undefined,
     kontaktpersonTelefon: f.kontaktTel.trim() || undefined,
     einsatzleiter: f.einsatzleiter.trim() || undefined,
-    endedAt: dtLocalToIso(f.endedAt),
-    ausgeruecktAt: deriveAusgerueckt(f.fahrzeuge) ?? dtLocalToIso(f.ausgerueckt),
+    endedAt: f.endedAt || undefined,
+    ausgeruecktAt: deriveAusgerueckt(f.fahrzeuge) ?? (f.ausgerueckt || undefined),
     remarks: f.remarks.trim() || undefined,
     lehren: f.lehren.trim() || undefined,
     gruppen: f.gruppen.length ? f.gruppen : undefined,

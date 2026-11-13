@@ -364,7 +364,7 @@
   --surface: #fff; --surface-2: rgba(255, 255, 255, .6);
   --border: rgba(0, 0, 0, .1); --border-soft: rgba(0, 0, 0, .06); --fill-soft: rgba(0, 0, 0, .045);
   --glass: rgba(255, 255, 255, .9); --glass-line: rgba(255, 255, 255, .7); --glass-edge: rgba(30, 45, 70, .1);
-  --label-bg: rgba(255, 255, 255, .92); --label-soft: rgba(255, 255, 255, .82);
+  --label-bg: rgba(255, 255, 255, .92);
   --blue: #1f6feb; --red: #e8392b; --green: #178a4a; --amber: #e2920a;
   --blue-strong: #1a5fd0; --green-strong: #12743d; --amber-strong: #9e5c08; --red-strong: #bd2f21;
   --note-bg: #fff8d6; --note-border: #e8d68a; --note-ink: #5a4b12;

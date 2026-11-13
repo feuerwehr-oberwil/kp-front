@@ -24,7 +24,8 @@ it('«Besucht am» is the app\'s own wheel picker: 24h, «Jetzt», no «Leeren»
   let edited: VisitDoc | null = null
   render(<DetailsCard doc={doc()} readOnly={false} onEdit={(fn) => { edited = fn(doc()) }} />)
   const trigger = screen.getByRole('button', { name: 'Besucht am' })
-  expect(trigger.textContent).toBe('01.10.2026 08:14')
+  // the shared read-out (TimeField · When): the year only off this year
+  expect(trigger.textContent).toBe('01.10. 08:14')
   fireEvent.click(trigger)
   expect(screen.queryByRole('button', { name: 'Leeren' })).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Jetzt' }))

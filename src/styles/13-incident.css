@@ -88,12 +88,13 @@
    a CSS-module hash on the surface around it reaches nothing.
    The width is the phone's, capped: wrapping is the whole point (an address that ellipsized
    here would repeat the row's own failure), and a panel wider than the screen cannot wrap. */
-.az-head-detail { width: min(320px, calc(100vw - 24px)); padding: 12px 16px;
+.az-head-detail { width: min(320px, calc(100vw - 2 * var(--float-gap))); padding: calc(var(--bar-pad) + var(--sp-3));
   display: flex; flex-direction: column; gap: 4px;
   /* the app's popup chrome, the same set `.tb-uhr-menu` carries — `.ui-pop` owns only the
-     enter/exit hook, not the surface */
+     enter/exit hook, not the surface. THE popover shell: --r-bar over --bar-pad, the facts a
+     menu row's 12px further in (it was --r-ctl over 12/16, consistency sweep R2-A) */
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--e4); }
+  border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
 .az-head-detail .az-hd-title { margin: 0; font: var(--fw-heavy) var(--fs-3)/1.35 var(--body); color: var(--ink);
   overflow-wrap: anywhere; }
 .az-head-detail .az-hd-addr { margin: 0; font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink-dim);
@@ -117,7 +118,9 @@
    left stripe and the green breath in the fill said «läuft» a second and third time, and with the
    green ages under it turned green into decoration, dulling the one green that is a state. The
    fill is a soft ink tile — over the white day surface `--fill-soft` alone was invisible. */
-.ip-card { display: flex; flex-direction: column; gap: 4px; margin: 2px 2px 8px;
+/* No margin of its own on the sides or top: it stands at the menu's ONE --bar-pad like the rows
+   under it, so its corner runs parallel to the shell's --r-bar (it stood 2px further in). */
+.ip-card { display: flex; flex-direction: column; gap: 4px; margin: 0 0 var(--sp-2);
   padding: 12px; border-radius: var(--r-ctl);
   background: color-mix(in srgb, var(--ink) 4%, var(--fill-soft));
   border: 1px solid var(--glass-edge); }
@@ -863,7 +866,8 @@
    One row for every list of things to open – lead · title/sub · end · › – where four were built
    in four weeks (reuse audit 19.10.). The container sets the density: on a .list-card (or alone)
    56px with a 16px title, the station library's phone look; in .list-card-rail the compact
-   --tap row with a 14px title and the one corner, a list column beside a document. `.on` = where
+   --tap row with a 14px title and the one corner, a list column beside a document; in
+   .list-card-quiet a secondary list, flat and one step back in colour. `.on` = where
    you are (the ink pill, «Selected» role 3). A surface places these, never re-skins them. */
 .list-row { display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-width: 0; min-height: 56px; margin: 0;
   padding: var(--sp-2) var(--sp-4); border: 0; background: none; color: var(--ink); text-align: left; font: inherit; }
@@ -903,6 +907,15 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
    over three and four lines at 14/12.5) */
 .list-card-rail .list-row-title { font-size: var(--fs-1); }
 .list-card-rail .list-row-sub { font-size: var(--fs-micro); }
+/* a secondary list under a surface's main content (ListCard look="quiet", owner 12.11.2026 – the
+   Karte panel's «In der Nähe» was its one lifted card): no card, no hairlines, the words one step
+   back; the row keeps its container's height (it is a button, ≥44px) and the one corner for its
+   wash. A state the row wears (.on, a surface's «lit» wash) still reads on top */
+.list-card-quiet { background: none; box-shadow: none; border-radius: 0; overflow: visible; }
+.list-card-quiet > .list-row + .list-row { box-shadow: none; }
+.list-card-quiet > .list-row { padding-inline: var(--sp-2); border-radius: var(--r-ctl); }
+.list-card-quiet > .list-row:not(.on) .list-row-title { font-weight: var(--fw-medium); color: var(--ink-dim); }
+.list-card-quiet > .list-row:not(.on) :is(.list-row-sub, .list-row-lead) { color: var(--ink-faint); }
 
 /* a labelled group: the eyebrow, a word or count at its right end, then the card */
 .list-group { display: flex; flex-direction: column; gap: var(--sp-2); }
@@ -1581,25 +1594,28 @@ button.rp-sign-row:disabled { cursor: default; }
   .cv-row > span:first-child { font-size: var(--fs-1); color: var(--ink-dim); }
   .cv-row .cv-input, .cv-acc .cv-input { min-height: 48px; font-size: var(--fs-3); }
 }
-/* the von/bis word before a person's time — the field's meaning flips with the status,
-   so SAY it instead of implying it (Feedback 2026-07-18) */
-/* fixed width so «von» and «bis» rows align — the tag sits between the flexible name
-   button and the time field; differing word widths would shift both per row */
-.cv-time-tag { flex: none; width: 28px; text-align: right; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); }
-/* the day behind a von/bis, and only when it is NOT the Einsatz' own (CaptureApp · dayTag).
-   On the ordinary same-evening Einsatz nothing renders here at all. */
-.cv-date-tag { flex: none; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
-/* keep name + von/bis + time + Jetzt on one 360px row: tighter chrome inside the row */
+/* a person's time wears the stacked face (DateTimeField `stacked`, owner pick A «Gestapelt»
+   13.11.2026): «von 12.11.» over «23:37» in ≈ the clock-only width, so the name keeps one line
+   at 390px. The von/bis word rides on the field's small line – the meaning flips with the
+   status, so it is SAID (Feedback 2026-07-18). The field never shrinks; the name gives way. */
 .cv-person-row .timefield { gap: 4px; }
-.cv-person-row .timefield-trigger { min-width: 64px; }
 
 /* 24h time / date-time fields: trigger buttons opening the wheel popover */
 .timefield { display: inline-flex; align-items: center; gap: 8px; }
 .timefield-trigger { min-width: 76px; min-height: 44px; padding: 4px 8px; text-align: center;
   border-radius: var(--r-ctl); border: 1px solid var(--glass-line); background: var(--surface);
   color: var(--ink); font: var(--fw-medium) var(--fs-2) var(--body); font-variant-numeric: tabular-nums; cursor: pointer; }
-.timefield-trigger.dt { min-width: 168px; }
+/* a Rapport time (DateTimeField · When, owner pick A 12.11.2026): «12.11. 11:26» on ONE trigger,
+   the day quiet and the clock loud; one line, never wrapped – the row's name gives way instead */
+.timefield-trigger.dt { min-width: 132px; white-space: nowrap; }
+.timefield-day { color: var(--ink-dim); font-weight: var(--fw-medium); margin-right: .2em; }
 .timefield-trigger.empty { color: var(--ink-faint); font-weight: var(--fw-medium); }
+/* the stacked face (When `stacked`): the word + day small and quiet above the loud clock, both
+   right-aligned. The small line stays at the tap floor (--fs-1): it is part of the button. */
+.timefield-trigger.dt.stacked { display: inline-flex; flex-direction: column; align-items: flex-end;
+  justify-content: center; gap: 1px; min-width: 84px; padding: var(--sp-1) var(--sp-2); }
+.timefield-trigger.stacked .timefield-day { margin: 0; font-size: var(--fs-1); line-height: 1.1; }
+.timefield-trigger.stacked .timefield-clock { font-size: var(--fs-3); line-height: 1.15; }
 .timefield-trigger:disabled { opacity: var(--disabled); cursor: default; }
 .timefield-now { min-height: 44px; padding: 8px 12px; border: 1px solid var(--glass-line);
   border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
@@ -1921,11 +1937,12 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    DOWN over the bottom stack (the Rapport strip over the nav bar): measured to the screen edge they
    ran behind both bars, the last row cut and no end to the menu in sight (hill climb r36). So that menu ends 12px above the
    topmost bar (15-mobile · --float-bars, the stack's height incl. the strip) and scrolls inside
-   itself, its shell padding and rounded foot in view. `+ 10px` hands back the Menu's
-   `collisionPadding`, which `--available-height` already took off the screen's bottom. */
+   itself, its shell padding and rounded foot in view. `+ 8px` hands back the Menu's
+   `collisionPadding` (overlays · OVERLAY_EDGE), which `--available-height` already took off the
+   screen's bottom. */
 @media (--phone) {
   .ui-menu-pos[data-side="bottom"]:has(> .rp-pdf-menu) {
-    --menu-room: calc(var(--available-height, 70dvh) + 10px - var(--float-bars, 0px) - 12px - env(safe-area-inset-bottom)); }
+    --menu-room: calc(var(--available-height, 70dvh) + 8px - var(--float-bars, 0px) - 12px - env(safe-area-inset-bottom)); }
 }
 /* EVERY menu fits the screen and scrolls inside itself (05.10.2026, owner's iPhone: the Rapport's
    «PDF ▾» Abschnitte ran off the bottom). `--menu-room` is what the positioner measured between

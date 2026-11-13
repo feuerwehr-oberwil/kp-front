@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
 import { Sheet } from '../lib/overlays'
-import { TimeField } from './TimeField'
+import { DateTimeField } from './TimeField'
 import { Button, IconButton } from './Button'
 import { DoneChip } from './DoneChip'
 import { useOneShot } from '../lib/useOneShot'
@@ -34,7 +34,8 @@ const TONE: Record<TimeBlockHead['tone'], string> = {
   available: s.toneAvailable, planned: s.tonePlanned, open: s.toneOpen, done: s.toneDone,
 }
 
-/** One von–bis row. `to` absent = still running, drawn as a state chip instead of a second field. */
+/** One von–bis row, both ends ISO and read as date + time (DateTimeField). `to` absent = still
+ *  running: the «bis» field then reads `openLabel`. */
 export interface TimeBlock {
   key: string
   from: string
@@ -42,16 +43,8 @@ export interface TimeBlock {
   /** shown in place of the «bis» field while the block is open (e.g. «noch da») */
   openLabel?: string
   /** flagged as a problem — a shift overlapping another, or a block whose end is not after its
-   *  start. The caller decides, because only it holds the INSTANTS: `from`/`to` here are HH:MM
-   *  labels, and comparing those called every 22:00→06:00 night shift reversed while missing a
-   *  genuinely inverted cross-day block. */
+   *  start. The caller decides: an overlap needs the person's other blocks. */
   warn?: boolean
-  /** date shown above the row when the block is not on the incident's opening day — on a
-   *  multi-day Einsatz «07:29» alone never said which day it belonged to */
-  dayLabel?: string
-  /** date beside «bis» when the end falls on a different day than the start — a 22:00→06:00
-   *  block otherwise reads as eight hours backwards */
-  toDayLabel?: string
   /** «ab Einsatzbeginn»: set this block's start to the incident start in one tap. Offered INSIDE
    *  the «von» picker — it answers the question that picker asks, and beside the field it was one
    *  more shape in a row that already had too many. */
@@ -70,14 +63,9 @@ export interface TimeBlock {
   head: TimeBlockHead
   /** how long it lasts, already formatted (fmtSpanShort) — «4 h 00», «seit 29 min» */
   duration?: string
-  /** the DAY each end actually sits on. ⚠️ Without these the day wheel opens on TODAY and writes
-   *  today back on the next commit — so correcting only the minute of a shift silently moved it
-   *  to the current date. `TimeField` documents the trap; only CaptureApp had been fixed. The
-   *  callers hold the full ISO anyway, so this is the value they already have, passed on. */
-  fromDay?: Date
-  toDay?: Date
-  onFrom?: (hhmm: string, day?: Date) => void
-  onTo?: (hhmm: string, day?: Date) => void
+  /** the instant the picker committed — the day it showed, never one inferred afterwards */
+  onFrom?: (iso: string) => void
+  onTo?: (iso: string) => void
   onRemove?: () => void
 }
 
@@ -115,7 +103,7 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
   danger?: ReactNode
   onClose: () => void
   labels: { from: string; to: string; remove: string; fromStart: string; reopen: string; flip: string }
-  /** the incident's own days — the picker shows a day wheel only when there is more than one */
+  /** the days the pickers offer — the incident's own (or the planning horizon) */
   days?: Date[]
 }) {
   const shot = useOneShot()
@@ -173,16 +161,14 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                 </IconButton>
               )}
             </div>
-            {/* THE BODY: nothing but the two times, read as one pair. The date hangs under the
-                field it dates — as a sibling of the fields it wrapped onto a line of its own and
-                orphaned, and that also lost which end it belonged to. Over midnight each side
-                carries its own day. */}
+            {/* THE BODY: nothing but the two times, read as one pair. Each field carries its own
+                date («12.11. 22:15») since 12.11.2026 — the caption that hung under the field to
+                say which day it was is gone with the guess it explained. */}
             <span className={s.times}>
               <span className={s.field}>
                 <span className={s.label}>{labels.from}</span>
-                <TimeField className={s.time} ariaLabel={`${labels.from} – ${subject}`} value={b.from}
-                  valueDay={b.fromDay}
-                  disabled={!b.onFrom} onCommit={(v, day) => { if (v) b.onFrom?.(v, day) }}
+                <DateTimeField className={s.time} ariaLabel={`${labels.from} – ${subject}`} value={b.from}
+                  required disabled={!b.onFrom} onCommit={(iso) => { if (iso) b.onFrom?.(iso) }}
                   days={days}
                   token={b.fromIsStart ? { label: labels.fromStart, tone: 'start' as const } : undefined}
                   shortcut={b.onFromStart && {
@@ -191,7 +177,6 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                     // vanished exactly when you needed it to get back to that state
                     active: b.fromIsStart, onPick: b.onFromStart,
                   }} />
-                {b.dayLabel && <span className={s.day}>{b.dayLabel}</span>}
               </span>
               <span className={s.sep} aria-hidden>–</span>
               <span className={s.field}>
@@ -199,16 +184,13 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                 {/* An open stretch keeps a real field, reading «noch da». It used to be an <em>:
                     it looked like a value, and there was no way to close the stretch from here at
                     all — the one place its times are edited. */}
-                <TimeField className={cx(s.time, b.to == null && s.timeOpen)}
-                  ariaLabel={`${labels.to} – ${subject}`} value={b.to ?? ''}
+                <DateTimeField className={cx(s.time, b.to == null && s.timeOpen)}
+                  ariaLabel={`${labels.to} – ${subject}`} value={b.to}
                   token={b.to == null && b.openLabel ? { label: b.openLabel, tone: 'open' as const } : undefined}
-                  valueDay={b.toDay}
-                  disabled={!b.onTo} onCommit={(v, day) => { if (v == null) b.onReopen?.(); else b.onTo?.(v, day) }}
+                  required={!b.onReopen}
+                  disabled={!b.onTo} onCommit={(iso) => { if (iso == null) b.onReopen?.(); else b.onTo?.(iso) }}
                   clearLabel={b.onReopen ? labels.reopen : undefined}
                   clearActive={b.to == null} days={days} />
-                {/* both ends carry a day or neither does — one dated field beside an undated one
-                    reads as though only that end were known */}
-                {(b.toDayLabel ?? b.dayLabel) && <span className={s.day}>{b.toDayLabel ?? b.dayLabel}</span>}
               </span>
             </span>
           </div>

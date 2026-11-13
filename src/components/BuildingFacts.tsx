@@ -13,8 +13,10 @@ import s from './BuildingFacts.module.css'
 
 /** The register facts (`buildingChips`) as a bullet list, one fact a line, read like the
  *  station's notes (owner, 27.10.2026: «bullet points instead of the tags» – the Karte panel and the
- *  Einsatz's Gebäude card alike), the size and weight of the Sofortmassnahmen. The caller orders
- *  them (hazards first); a hazard's bullet IS the warn glyph – the glyph marks it, never colour. */
+ *  Einsatz's Gebäude card alike), the size and weight of the Sofortmassnahmen, one step quieter in
+ *  colour (owner, 12.11.2026: the register out-shouted the station's word). The caller orders them
+ *  (hazards first); a hazard's bullet IS the warn glyph, and its line keeps full ink – a known
+ *  hazard never fades with the rest. */
 export function RegisterLines({ chips, className }: { chips: BuildingChip[]; className?: string }) {
   if (!chips.length) return null
   return (
@@ -48,8 +50,9 @@ export function RegisterSection({ title, chips, className, end, below }: {
   )
 }
 
-/** The station's own word about the object – Sofortmassnahmen (read first, full ink) and
- *  Bemerkungen (quieter), each under its head – then, only where the caller has one, a caption (`source`: the
+/** The station's own word about the object – Sofortmassnahmen and Bemerkungen, both in full ink
+ *  (owner, 12.11.2026: the Bemerkungen were dimmed while the register beside them was bright),
+ *  each under its head – then, only where the caller has one, a caption (`source`: the
  *  Gebäude card's «… · in der Nähe (120 m)»; no «Modul 1» source line since 27.10.2026). Lines come
  *  from `noteLines`; nothing to say → nothing drawn. */
 export function StationNotes({ measures, remarks, source, className, end }: {
@@ -70,7 +73,7 @@ export function StationNotes({ measures, remarks, source, className, end }: {
       {remarks.length > 0 && (
         <>
           <Head end={measures.length ? undefined : end}>{C.remarks}</Head>
-          <ul className={cx(s.lines, s.quiet)}>{remarks.map((l, i) => <li key={i}>{l}</li>)}</ul>
+          <ul className={s.lines}>{remarks.map((l, i) => <li key={i}>{l}</li>)}</ul>
         </>
       )}
       {source && <p className={s.source}>{source}</p>}
