@@ -32,8 +32,19 @@ Rapport's own «Jetzt» buttons.
 **The crews question comes first, once** (`useAbschluss`): a Notfall, then Trupps still inside,
 then Trupps still angemeldet. «Zur Tafel» is the focused answer only for a closer who can write the
 Tafel; the `el` role gets «Trotzdem abschliessen» / «Abbrechen» («Abbrechen» focused) and the line
-«Austragen kann nur, wer die Atemschutz-Tafel führt.» (sweep R2, 11.11.2026). Answered «trotzdem»,
-the Trupps are not listed again on the sheet after it.
+«Austragen kann nur, wer die Atemschutz-Tafel führt.» (sweep R2, 11.11.2026). The Notfall and the
+«noch drin» sheets mark a Trupp in alarm red, in the board's word («Überfällig», «Alarmdruck»,
+«Notfall» – the tier from the alarm fold the board reads), and say «Mit dem Abschluss endet die
+Überwachung dieser Trupps auf allen Geräten.» – every closer may still close over them, the `el`
+included (FLOW.5, owner pick 13.11.2026).
+
+**A crew question answered «Trotzdem abschliessen» IS the confirm** (FLOW.4, owner pick
+13.11.2026): the Einsatz closes at once and the toast «Einsatz abgeschlossen · Wieder öffnen» is
+the way back – no second «Einsatz abschliessen» sheet. The last question of the chain carries the
+confirm's own sentence (the Rapport closes; corrections by reopening), and the Einsatzende is
+pre-filled as on the sheet. The FU's «Noch angemeldet» answers with the stand-down, not a
+«trotzdem», so the normal sheet still follows it. ⚠️ The skipped sheet's open points (missing
+Mindestangaben, pending uploads) are then not shown before the close.
 
 **The print's «Angaben fehlen noch» is the same list (31.10.2026)**: both confirms take rows and
 order from ONE builder (`lib/abschlussOpen · abschlussSheet`); only the words around the list are

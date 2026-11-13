@@ -157,6 +157,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     insideClose: 'Complete anyway',
     insideTitle: 'Teams still inside',
     boardNotYours: 'Only whoever runs the breathing-apparatus board can sign them out.',
+    watchEnds: 'Closing ends the monitoring of these teams on every device.',
     confirmBack: 'Back',
     endeNow: 'now {t}',
     done: 'Incident closed',
