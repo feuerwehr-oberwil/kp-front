@@ -32,7 +32,8 @@ import { ROTATION_DEFAULT_RUN_M, ROTATION_W_M, SHAPE_DEFS, SHAPE_MIN_M, SHAPE_TW
 import { seedSymbolProps, VEHICLE_SYMBOLS } from '../lib/symbols'
 import type { TacticalObject } from '../lib/tacticalObjects'
 import { lineTakesTrupp } from '../lib/truppLines'
-import { toast, confirmDialog, undoToast } from '../lib/ui'
+import { toast, undoToast } from '../lib/ui'
+import { removedText, removeWithUndo } from '../lib/removalToast'
 import { recordKey, type RecordKey } from '../lib/undoKeys'
 import type { Dropper, UndoDomain } from '../lib/undoTimeline'
 import { useCoordPicker } from '../lib/useCoordPicker'
@@ -395,18 +396,19 @@ export function useMapActions({
         () => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name } : v))),
         () => [recordKey('cameraViews', id)], 'silent')
     },
-    onDelete: async (id) => {
+    // the delete rule (lib/removalToast): the Ansicht goes at once, «… gelöscht · Rückgängig» —
+    // the timeline entry brings it back at the position it stood in (the list is in save order)
+    onDelete: (id) => {
       const index = cameraViews.findIndex((x) => x.id === id)
       const v = cameraViews[index]; if (!v) return
-      const ok = await confirmDialog({ title: appConfig.copy.mapViews.deleteTitle, message: fillTemplate(appConfig.copy.mapViews.deleteMsg, { name: v.name }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
-      if (!ok) return
-      setCameraViews((vs) => vs.filter((x) => x.id !== id))
-      // the confirm asked; the timeline entry is what makes the answer reversible — the view
-      // comes back at the position it stood in, because the list is in save order
-      rememberOneShotRef.current('ansicht', C_HIST.undoDomains.ansicht,
-        () => setCameraViews((vs) => (vs.some((x) => x.id === id) ? vs : [...vs.slice(0, index), v, ...vs.slice(index)])),
-        () => setCameraViews((vs) => vs.filter((x) => x.id !== id)),
-        () => [recordKey('cameraViews', id)], 'silent')
+      const text = fillTemplate(appConfig.copy.mapViews.deleted, { name: v.name })
+      removeWithUndo(text, () => {
+        setCameraViews((vs) => vs.filter((x) => x.id !== id))
+        rememberOneShotRef.current('ansicht', text,
+          () => setCameraViews((vs) => (vs.some((x) => x.id === id) ? vs : [...vs.slice(0, index), v, ...vs.slice(index)])),
+          () => setCameraViews((vs) => vs.filter((x) => x.id !== id)),
+          () => [recordKey('cameraViews', id)], 'silent')
+      })
     },
   }
   // Open/close the views popover. Opening it first drops any active tool and the Ebenen
@@ -686,31 +688,27 @@ export function useMapActions({
   const deleteGroup = async (ids: string[], entIds: string[]) => {
     if (tacticalLocked) return
     const ents = entIds.filter((id) => !liveIds.has(id))
-    const affected = drawings.flatMap((dr) => ids.includes(dr.id) ? [] : (['start', 'end'] as const).flatMap((endpoint) => {
-      const a = endpoint === 'start' ? dr.startAttachment : dr.endAttachment
-      return a && ((a.target.kind === 'object' && ents.includes(a.target.id)) || (a.target.kind === 'line' && ids.includes(a.target.id))) ? [{ dr, endpoint, a }] : []
-    }))
-    if (affected.length) {
-      const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleteTitle, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
-      if (!ok) return
-    }
     // one patch per line, both ends in it — applied here and sent as ONE draw.edit (detachDrawings)
     const released = detachDrawings(drawings.filter((dr) => !ids.includes(dr.id)), (_, __, a) => {
       const object = a.target.kind === 'object' && ents.includes(a.target.id) ? entities.find((e) => e.id === a.target.id) : null
       const targetLine = a.target.kind === 'line' && ids.includes(a.target.id) ? drawings.find((x) => x.id === a.target.id) : null
       return object?.coord ?? (targetLine && a.target.kind === 'line' ? targetLine.coords[a.target.endpoint === 'start' ? 0 : targetLine.coords.length - 1] : null)
     })
-    commit((d) => ({
+    // ONE row, counted or named (lib/drawingEdit · removalRowText) — «… entfernt»; the toast and
+    // the ↶ say the same words, with the Leitungen the group set loose (the delete rule)
+    const row = removalRowText(drawings.filter((d) => ids.includes(d.id)), entities.filter((e) => ents.includes(e.id)))
+    const toastText = removedText(row, released.size)
+    stepLabelRef.current = toastText
+    removeWithUndo(toastText, () => commit((d) => ({
       ...d,
       drawings: d.drawings.filter((dr) => !ids.includes(dr.id)).map((dr) => withDetach(dr, released)),
       entities: d.entities.filter((e) => !ents.includes(e.id)),
-    }))
+    })))
     ids.forEach((id) => emit('draw.delete', { id }))
     ents.forEach((id) => emit('entity.delete', { id }))
     released.forEach((patch, id) => emit('draw.edit', { id, patch: wireFreed(patch) }))
     setSelectedDrawIds([]); setSelectedEntityIds([])
-    // ONE row, counted or named (lib/drawingEdit · removalRowText) — «… entfernt»
-    log('close', removalRowText(drawings.filter((d) => ids.includes(d.id)), entities.filter((e) => ents.includes(e.id))),
+    log('close', row,
       // …named by WHAT was removed, so two «Feuerwehr entfernt» seconds apart stay two rows
       undefined, undefined, undefined, { subjectId: ids[0] ?? ents[0] })
   }
@@ -908,37 +906,40 @@ export function useMapActions({
     setMode('plans'); setActivePlanId(t.target.planId)
     setPlanFocus({ x: t.target.x, y: t.target.y, floor: t.target.floor, annoId: t.target.annoId, nonce: Date.now() })
   }
-  const deleteEntity = async (id: string) => {
+  /**
+   * «Entfernen» on a Karte object – a symbol, a Form, a Notiz, a Truppmarker. The delete rule
+   * (lib/removalToast): it goes at once and the toast names it, with the Leitungen that hung on
+   * it – «TLF entfernt, 2 Leitungen gelöst · Rückgängig». ONE store step brings back the object,
+   * every Leitung end on it and a docked placard's bond, so nothing is asked first. `text`
+   * overrides the toast's sentence («Marker und Spur entfernen» says what else went).
+   * Answers whether it went (it is `async` for its callers, who used to await a confirm).
+   */
+  const deleteEntity = async (id: string, text?: string) => {
     if (tacticalLocked) return false
     const ent = entities.find((e) => e.id === id)
     const connected = drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === id))
-    // Written notes and any indirectly detached lines ask once before the structural change.
-    if ((ent?.kind === 'note' && (ent.label ?? '').trim()) || connected.length) {
-      const ok = await confirmDialog({
-        title: connected.length ? fillTemplate(appConfig.copy.drawingEditor.removeConnectedTitle, { name: ent?.label ?? appConfig.copy.entities.fallbackObjectName }) : appConfig.copy.notes.deleteTitle,
-        message: connected.length ? fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: connected.length }) : appConfig.copy.notes.deleteMsg,
-        confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
-      })
-      if (!ok) return false
-    }
+    const emptyNote = ent?.kind === 'note' && !(ent.label ?? '').trim()
+    const what = ent?.kind === 'note' ? appConfig.copy.removedToast.note : removalRowText([], ent ? [ent] : [])
     // every Leitung end on the symbol lets go where it stood, so the line does not jump — one patch
     // per line, applied here and sent as ONE draw.edit below (lib/lineAttachments · detachDrawings)
     const released = ent ? detachDrawings(connected, (_, __, a) => (a.target.kind === 'object' && a.target.id === ent.id ? ent.coord : null)) : new Map<string, DetachPatch>()
-    commit((d) => ({
+    const toastText = text ?? removedText(what, released.size)
+    // the ↶ names the act too (FLOW.3), not «Änderung auf der Karte»
+    stepLabelRef.current = toastText
+    removeWithUndo(toastText, () => commit((d) => ({
       ...d,
       // …and a deleted host releases its angedockte Gefahrentafel (the placard stays — it is
       // still a record of the substance — it just stops following a ghost)
       entities: d.entities.filter((e) => e.id !== id).map((e) => (e.dockedTo === id ? { ...e, dockedTo: undefined } : e)),
       drawings: d.drawings.map((dr) => withDetach(dr, released)),
-    }))
+    })))
     if (selectedId === id) setSelectedId(null)
     if (editNoteId === id) setEditNoteId(null)
     // ⚠️ An EMPTY Notiz writes no row. Its label is `''`, not undefined, so `??` never reached the
     // fallback name and the Verlauf printed a bare «gelöscht» — a row that names nothing, about a
-    // note that said nothing. The same predicate already decides that this deletion asks nothing
-    // (see the confirm above): a note with no text is a placement being taken back, not a record.
+    // note that said nothing: a note with no text is a placement being taken back, not a record.
     // Rows already written stay: the journal is append-only, this only stops writing a new one.
-    if (!(ent?.kind === 'note' && !(ent.label ?? '').trim())) {
+    if (!emptyNote) {
       log('close', fillTemplate(appConfig.copy.log.objectDeleted, { name: ent?.label ?? appConfig.copy.entities.fallbackObjectName }),
         undefined, undefined, undefined, { subjectId: id })
     }

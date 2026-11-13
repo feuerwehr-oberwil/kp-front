@@ -43,10 +43,8 @@ export const panelsCopy = {
   // running incident clock in the TopBar
   einsatzuhr: {
     title: 'Einsatzdauer – Beginn {t}',
-    /** aria/labels for the tap-to-cycle clock modes */
-    modeElapsed: 'Einsatzdauer',
-    modeNow: 'Uhrzeit',
-    modeStart: 'Einsatzbeginn',
+    /** the read-out's accessible name: «Einsatzdauer: 1:54» */
+    label: 'Einsatzdauer',
   },
   // self-contained location picker for the intake wizard (MapPicker)
   mapPicker: {
@@ -153,23 +151,19 @@ export const panelsCopy = {
     symbolCaptionsSub: 'Kennwert unter dem Symbol',
     railLabels: 'Beschriftung der Werkzeugleisten',
     railLabelsSub: 'Wort unter jedem Zeichen in allen Leisten',
-    // Gerätepräferenz, Standard AN (lib/prefs · keyHints): der Buchstabe auf jedem Feld beider Leisten
-    keyHints: 'Tastenkürzel anzeigen',
-    keyHintsSub: 'Buchstaben an den Werkzeugleisten – nur auf Geräten mit Tastatur und Maus.',
     captionsOff: 'Aus',
     captionsAuto: 'Auto',
     captionsAll: 'Alle',
-    offlineRadius: 'Offline-Umkreis',
-    offlineRadiusSub: 'Karte & Leitungen um den Einsatz',
-    // Offline-Vorbereitung: automatic self-warm shortly after opening an Einsatz (installed app
-    // only). Two states — see lib/prefs · offlineAuto for why there is no «nur WLAN» tier.
-    offlineAuto: 'Offline-Vorbereitung',
-    offlineAutoSub: 'Lädt Karte und Pläne kurz nach dem Öffnen des Einsatzes automatisch herunter',
     keepScreenOn: 'Bildschirm eingeschaltet lassen',
     keepScreenOnSub: 'Verhindert das Abdunkeln während des Einsatzes',
     // No «Führungsansicht» row any more (05.10.2026): it is the login's, set in the admin's
     // Benutzer (admin · members · elViewDefault), not a per-device switch.
-    deviceFoot: 'Gilt nur auf diesem Gerät. Kleinerer Umkreis = schnellerer, kleinerer Offline-Download.',
+    deviceFoot: 'Gilt nur auf diesem Gerät.',
+    // «Gerät auf Standard zurücksetzen» (lib/useDevicePrefs · resetDevicePrefs) – the sub names what resets
+    resetDevice: 'Gerät auf Standard zurücksetzen',
+    resetDeviceSub: 'Farbschema, Symbolgrössen, Beschriftungen, Werkzeugleisten, Bildschirm und Reihenfolge der Trupps. Alarm, Anmeldung und Offline-Daten bleiben.',
+    resetDeviceBtn: 'Zurücksetzen',
+    resetDeviceDone: 'Gerät auf Standard zurückgesetzt',
     contactInterval: 'Atemschutz-Funkkontakt',
     grace: 'Nachfrist',
     funkkanal: 'Funkkanal',

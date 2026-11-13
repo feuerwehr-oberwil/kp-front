@@ -31,10 +31,10 @@
 // The letters are SHOWN on the rails (31.10.2026, owner: «clear, uniform and configurable»): a
 // small badge on every tile of the left NavRail (SURFACE_KEY) and of the right ToolRail
 // (TOOL_KEY via `railToolKey`), the same `.rail-key` look on both. One rule, in
-// 04b-rail.css: shown whenever the device preference «Tastenkürzel anzeigen» (lib/prefs ·
-// keyHints, default ON) is on AND the device has hover and a fine pointer – a touch-only device
-// has no keyboard to read them for. They used to appear only while ⌘/Ctrl/Alt was held, and only
-// on the left rail; a hint that is hidden until you already know the shortcut teaches nothing.
+// 04b-rail.css: shown whenever the device has hover and a fine pointer – a touch-only device
+// has no keyboard to read them for (the «Tastenkürzel anzeigen» switch went 13.11.2026, owner
+// pick PLACE.7: always on). They used to appear only while ⌘/Ctrl/Alt was held, and only on the
+// left rail; a hint that is hidden until you already know the shortcut teaches nothing.
 // The top bar's Verlauf and Eintrag wear theirs too (PANEL_KEY · J, E; staging review 06.11.2026,
 // S6: «listed like the sidebar tools»), and so do the tool rail's view-bar buttons that have a
 // key: the Karte's Ebenen (B) and the Plan's Einpassen (FIT_KEY · 0). Zoom − / + wear none – their

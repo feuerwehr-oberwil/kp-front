@@ -159,6 +159,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     insideClose: 'Clore quand même',
     insideTitle: 'Binômes encore engagés',
     boardNotYours: 'Seul qui tient le tableau ARI peut les sortir.',
+    watchEnds: 'La clôture met fin à la surveillance de ces binômes sur tous les appareils.',
     confirmBack: 'Retour',
     endeNow: 'maintenant {t}',
     done: 'Intervention clôturée',

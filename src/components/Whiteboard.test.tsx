@@ -287,36 +287,24 @@ describe('the plan chip’s trash', () => {
     expect(onTrailDrop).not.toHaveBeenCalled() // …so the ghosting is left to do its work
   })
 
-  it('«Marker und Spur löschen» asks first, then arms the ghosting and removes the chip', async () => {
-    ui.answer = true
+  // the delete rule (13.11.2026, lib/removalToast): no ask — the chip's ONE removal step brings
+  // it back with its trail, and the line says both went
+  it('«Marker und Spur entfernen» arms the ghosting, removes the chip and says both went', () => {
     const onTrailDrop = vi.fn()
     const { onChange } = renderPlan([walked], { onTrailDrop })
     openTrash()
     fireEvent.click(screen.getByRole('menuitem', { name: W.removeMarkerTrail }))
-    await act(async () => {})
-    expect(ui.confirms[0]?.message).toBe(
-      fillTemplate(W.clearTrailConfirm, { name: 'Trupp 1', n: 2 }))
+    expect(ui.confirms).toEqual([])
     expect(onTrailDrop).toHaveBeenCalledWith('c1', true)
     expect(onChange).toHaveBeenCalledWith([])
+    expect(ui.toasts.map((t) => t.text)).toContain(fillTemplate(W.markerTrailRemoved, { name: 'Trupp 1' }))
   })
 
-  it('destroys nothing when that ask is declined — and takes its arming back', async () => {
-    const onTrailDrop = vi.fn()
-    const { onChange } = renderPlan([walked], { onTrailDrop })
-    openTrash()
-    fireEvent.click(screen.getByRole('menuitem', { name: W.removeMarkerTrail }))
-    await act(async () => {})
-    expect(ui.confirms).toHaveLength(1)
-    expect(onChange).not.toHaveBeenCalled()
-    expect(onTrailDrop).not.toHaveBeenCalled()
-  })
-
-  it('«Spur löschen» empties the trail and leaves the chip standing', async () => {
-    ui.answer = true
+  it('«Spur entfernen» empties the trail at once and leaves the chip standing', () => {
     const { onChange } = renderPlan([walked])
     openTrash()
     fireEvent.click(screen.getByRole('menuitem', { name: W.clearTrail }))
-    await act(async () => {})
+    expect(ui.confirms).toEqual([])
     expect(onChange).toHaveBeenCalledWith([{ ...walked, trail: [] }])
   })
 })

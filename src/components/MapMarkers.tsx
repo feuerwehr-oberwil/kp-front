@@ -656,7 +656,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
           dockedSlots={dockedSlots} dockedHosts={dockedHosts} onPress={pressMarker}
           rotDown={rotDown} rotMove={rotMove} rotUp={rotUp} shapeDown={shapeDown} shapeMove={shapeMove} shapeUp={shapeUp}
           focusNote={focusNote} focusTeam={focusTeam} noteChange={noteChange} noteBlur={noteBlur} noteKeyDown={noteKeyDown} noteDone={noteDone}
-          onDelete={onDelete} onRotate={onRotate} onShapeTransform={onShapeTransform} onUnlockShape={onUnlockShape} onNoteEdit={onNoteEdit}
+          onSelect={onSelect} onDelete={onDelete} onRotate={onRotate} onShapeTransform={onShapeTransform} onUnlockShape={onUnlockShape} onNoteEdit={onNoteEdit}
           trupps={trupps} onShowTrupp={onShowTrupp} onTeamTrupp={onTeamTrupp} onTeamNewTrupp={onTeamNewTrupp} onTeamMark={onTeamMark}
           onTeamRename={onTeamRename} onTeamClearTrail={onTeamClearTrail} onTeamRemoveWithTrail={onTeamRemoveWithTrail}
           hiddenTrails={hiddenTrails} onToggleTrail={onToggleTrail} teamLines={teamLines} onTeamUnlink={onTeamUnlink} onTeamUndock={onTeamUndock}

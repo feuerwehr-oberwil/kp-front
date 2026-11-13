@@ -68,6 +68,9 @@
      `.ip-card-act` here lost to it and Bearbeiten · Teilen · Abschliessen stood 36px under a finger
      (hill climb r34). Named with the tile's classes, so the floor outranks it in any order. */
   .ip-card-act.head-tile.sm, .ip-menu-logout { min-height: var(--tap); }
+  /* the Hilfe index rows (34px, 13.11.2026): a column of rows 2px apart, so they grow rather
+     than wear a pad that would answer for the neighbour */
+  .help-toc-i { min-height: var(--tap); }
   /* the latched hold's two targets (Sprachnotiz · Foto, 10-journal) take the button's height,
      and the button is --tap under a finger (`.tb-act` above) – they stood at 42 */
   .hold-target { min-height: var(--tap); }

@@ -280,7 +280,7 @@ export const editorsCopy = {
     // ⚠️ Was der Halte-/Hover-Tooltip auf den vier Bildern sagt (Segmented · explain): WAS es ist,
     // in einer Zeile — «Pfeil mit Stopp» heisst Entwicklungsgrenze, das Teilstück ist eine Gabel
     // mit drei Anschlüssen. Keine Folgen: dass ein gelöschtes Teilstück seine Linien freigibt,
-    // sagt `removeEMessage` in dem Moment, in dem es tatsächlich passiert.
+    // sagt `endingReleased` in dem Moment, in dem es tatsächlich passiert.
     endingNoneWhat: 'Ohne Abschluss',
     endingArrowWhat: 'Pfeilspitze',
     endingArrowStopWhat: 'Pfeil mit Stopp-Balken – Entwicklungsgrenze',
@@ -378,9 +378,7 @@ export const editorsCopy = {
     gpsDistanceNow: 'jetzt {distance} entfernt',
     hiddenTarget: 'Ziel ausgeblendet',
     revealTarget: 'Ebene einblenden',
-    removeConnectedTitle: '{name} entfernen',
-    removeConnectedMessage: '{n} Linien werden gelöst.',
-    removeEMessage: 'Teilstück löschen? {n} angeschlossene Linien werden gelöst.',
+    endingReleased: 'Teilstück aufgehoben, {n} Leitungen gelöst',
   },
   topBar: {
     offline: 'Offline',

@@ -260,9 +260,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     gpsDistanceNow: 'ora a {distance}',
     hiddenTarget: 'Bersaglio nascosto',
     revealTarget: 'Mostra il livello',
-    removeConnectedTitle: 'Rimuovere {name}?',
-    removeConnectedMessage: '{n} linee verranno liberate.',
-    removeEMessage: 'Eliminare il tratto? {n} linee collegate verranno liberate.',
+    endingReleased: 'Tratto rimosso, {n} linee staccate',
   },
   topBar: {
     offline: 'Offline',

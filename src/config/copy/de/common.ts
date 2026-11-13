@@ -45,6 +45,14 @@ export const commonCopy = {
   // Der Schritt zeigte auf etwas, das es nicht mehr gibt (Fremdgerät hat es gelöscht, Merge hat
   // die Fläche ersetzt). Kein Fehler des Bedieners – darum ohne Knopf und ohne «fehlgeschlagen».
   undoLost: 'Nicht mehr rückgängig machbar',
+  /** Die eine Lösch-Regel (13.11.2026, lib/removalToast): was ↶ zurückholt, geht sofort und sagt
+   *  es – «TLF entfernt · Rückgängig». Der Satz ist die Verlauf-Zeile der Entfernung; eine Notiz
+   *  heisst «Notiz» (ihr Text wäre der Satz), und die Leitungen, die an ihr hingen, werden gezählt. */
+  removedToast: {
+    note: 'Notiz entfernt',
+    freed: '{what}, {n} Leitungen gelöst',
+    freedOne: '{what}, 1 Leitung gelöst',
+  },
   /** Womit «Rückgängig: …» weitergeht, wenn die Fläche selbst die Aktion nicht benennt. Die
    *  Atemschutz-Tafel, Mittel und die Checklisten benennen sie (dieselbe Zeile, die der Verlauf
    *  bekommen hat); Karte und Plan führen ein Dokument, das viele kleine Schritte kennt. */

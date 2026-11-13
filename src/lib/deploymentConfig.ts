@@ -59,6 +59,9 @@ export interface DeploymentMap {
   /** «Karte & Objekte»: the station's object colours — ordered rules, first match wins
    *  (lib/karte/categories). Unset = every object red, a key box its FKS glyph. */
   objectCategories?: ObjectCategoryRule[] | null
+  /** half-width (m) of the box «Alles für offline laden» caches around an Einsatz – see
+   *  `offlineRadiusM` below */
+  offlineRadiusM?: number | null
 }
 
 export interface DeploymentReferenceLayer {
@@ -695,6 +698,20 @@ export function atemschutzDoctrine() {
 export function nearbyObjectWarnM(): number {
   return resolved.doctrine?.nearbyObjectWarnM ?? appConfig.defaults.nearbyObjectWarnM
 }
+
+/** The bounds of `map.offlineRadiusM` (backend schemas · MapConfig) and its default. */
+export const OFFLINE_RADIUS_M = { min: 500, max: 3000, default: 1200 } as const
+
+/** The box (half-width, m) every device caches around an Einsatz for offline use, and crops the
+ *  Leitungskataster layers to (workspace/useOfflinePrefetch) – the station's `map.offlineRadiusM`,
+ *  else the shipped 1200 m. A station setting since 13.11.2026 (PLACE.7): how much of the Wehr's
+ *  area is ready offline is not a choice for each device. Out-of-range values (the backend
+ *  bounds them, 500–3000) never reach here as anything but the default. */
+export function offlineRadiusM(): number {
+  const r = resolved.map?.offlineRadiusM
+  return typeof r === 'number' && r >= OFFLINE_RADIUS_M.min && r <= OFFLINE_RADIUS_M.max ? r : OFFLINE_RADIUS_M.default
+}
+
 
 /**
  * The station's colour per Atemschutz-Auftrag (auftrag id → colour) — the colour a Trupp with

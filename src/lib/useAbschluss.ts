@@ -89,6 +89,7 @@ export function useAbschluss({
   // so the confirm is not re-created on every Kontakt somebody writes while the Rapport is open
   const truppsRef = useRef(trupps)
   useEffect(() => { truppsRef.current = trupps }, [trupps])
+  // …and their tiers and clock, for the same reason
   /** The moment every Trupp clock is read against once the Einsatz is abgeschlossen — after that
    *  no more time passes on this Einsatz, and a board that kept counting was describing a
    *  situation that had ended (see AtemschutzView · `frozenAt`).
@@ -132,31 +133,20 @@ export function useAbschluss({
        role closes too, and for it the filled, focused answer led to a board where nothing could be
        reported out. It gets «Trotzdem abschliessen» / «Abbrechen» – «Abbrechen» focused – and a
        line saying who reports the crews out. */
-    const askCrew = (spec: Pick<ConfirmSpec, 'title' | 'message' | 'items' | 'confirmLabel'>) => standDownTrupps
-      ? confirmDialog({ ...spec, altLabel: A.registeredToBoard, cancelLabel: appConfig.copy.cancel, safeAnswer: 'alt' })
-      : confirmDialog({ ...spec, note: A.boardNotYours, cancelLabel: appConfig.copy.cancel, safeAnswer: 'cancel' })
+    /* ⚠️ The crew questions say what the close does to the crews (FLOW.5, 13.11.2026): the Tafel
+       freezes and every alarm stops, on every device — so the sheet says so, in a line of its own.
+       ⚠️ It does NOT mark an overdue Trupp red (tried 13.11., owner: crews still «drin» at the
+       close are nearly always crews nobody reported out while the Einsatz winds down — red made
+       the ordinary close look like an emergency). Asked of every closer: the `el` may close too. */
+    /* ⚠️ ONE ask, not two (FLOW.4, owner pick 13.11.2026): a crew question answered «Trotzdem
+       abschliessen» IS the confirm — the Einsatz closes at once, and the toast «Einsatz
+       abgeschlossen · Wieder öffnen» is the way back. The LAST question of the chain whose «yes»
+       is that answer carries the confirm's own sentence (the Rapport closes, Nachträge by
+       reopening). The FU's «Noch angemeldet» answers «Als «nicht eingesetzt» schliessen» — a
+       stand-down, not a «trotzdem» — so the normal confirm still follows it. */
     const notfall = truppsRef.current.filter(truppInNotfall)
-    if (notfall.length > 0) {
-      const nf = appConfig.copy.atemschutz.notfall
-      const answer = await askCrew({
-        title: nf.abschlussTitle,
-        message: fillTemplate(nf.abschlussMsg, { list: notfall.map((t) => fillTemplate(nf.who, { name: truppLogName(t) })).join(', ') }),
-        confirmLabel: nf.abschlussClose,
-      })
-      if (answer === 'alt') { setMode('atemschutz'); setPanel(null); return false }
-      if (answer !== true) return false
-    }
     const inside = truppsRef.current.filter(truppStillDeployed)
-    if (inside.length > 0) {
-      const answer = await askCrew({
-        title: A.insideTitle,
-        ...insideAbschlussSpec(inside),
-        confirmLabel: A.insideClose,
-      })
-      if (answer === 'alt') { setMode('atemschutz'); setPanel(null); return false }
-      if (answer !== true) return false
-    }
-    /* ⚠️ A Trupp still ANGEMELDET is asked about FIRST, on its own (24.09.2026, D1 ⑦). On 23.09.
+    /* ⚠️ A Trupp still ANGEMELDET is asked about on its own (24.09.2026, D1 ⑦). On 23.09.
        the Sicherungstrupp T6 stood «angemeldet» to the end, and the confirm below counted only
        the crews inside, so the record closed with a crew neither sent in nor stood down. Three
        answers: «Zur Tafel» (the focused, safe one) goes there and closes nothing; «Als «nicht
@@ -165,25 +155,15 @@ export function useAbschluss({
        ⚠️ The answer is only RECORDED here (review 25.09.2026). The stand-down runs after the
        final «Abschliessen» below — «schliessen» and then «Abbrechen» on the next question must
        leave every Trupp exactly as it was.
-       ⚠️ Not while a crew is still recorded inside: that is the question that matters, and the
-       confirm below asks it («Noch im Einsatz …»). Closing the waiting crews first would put
-       «nicht eingesetzt» rows beside a Trupp nobody has reported out. */
-    /* ⚠️ Asked of EVERY closer (review of #581): the `el` role closes too and cannot write the
+       ⚠️ Not while a crew is still recorded inside: that is the question that matters.
+       Closing the waiting crews first would put «nicht eingesetzt» rows beside a Trupp nobody
+       has reported out.
+       ⚠️ Asked of EVERY closer (review of #581): the `el` role closes too and cannot write the
        Tafel (no `standDownTrupps`). It gets the same question with «Trotzdem abschliessen» in
        place of the stand-down – as with crews still inside, its close writes nothing for them. */
     const registered = truppsStillOut === 0 ? truppsRef.current.filter(truppStillRegistered) : []
-    let standDown: string[] = []
-    if (registered.length > 0) {
-      const answer = await askCrew({
-        // every question of the chain carries a title (owner review 26.09.2026)
-        title: A.registeredTitle,
-        message: registeredAbschlussMessage(registered),
-        confirmLabel: standDownTrupps ? A.registeredStandDown : A.insideClose,
-      })
-      if (answer === 'alt') { setMode('atemschutz'); setPanel(null); return false }
-      if (answer !== true) return false
-      if (standDownTrupps) standDown = registered.map((t) => t.id)
-    }
+    const crewConfirms = registered.length > 0 ? !standDownTrupps : notfall.length > 0 || inside.length > 0
+    const lastAsked = registered.length > 0 ? 'registered' : inside.length > 0 ? 'inside' : notfall.length > 0 ? 'notfall' : null
     // ⚠️ Pending media belongs in this list. The Abschluss closes the incident, and a Foto or a
     // Sprachnotiz that never got a connection is still sitting on THIS device — the operator is
     // about to walk away, so that is part of what they are confirming.
@@ -220,7 +200,58 @@ export function useAbschluss({
     // message and the button both have to say that something is being closed over
     const { items, anyOpen } = abschlussSheet(abschlussOpenPoints(abschlussMissing, inside.length > 0 ? 0 : truppsStillOut, media.pendingCount), go,
       pendingEnde ? { zeiten: abschlussEndeItem(pendingEnde, () => { patchReportMeta!({ endedAt: pendingEnde }); go.step('zeiten') }) } : undefined)
-    const ok = await confirmDialog({
+    const askCrew = (which: NonNullable<typeof lastAsked>, spec: Pick<ConfirmSpec, 'title' | 'message' | 'items' | 'confirmLabel'>) => {
+      const isConfirm = crewConfirms && which === lastAsked
+      const note = [standDownTrupps ? '' : A.boardNotYours, isConfirm ? A.confirmMsg : ''].filter(Boolean).join(' ')
+      const ask = {
+        ...spec,
+        /* ⚠️ The question that IS the confirm shows what the confirm showed (lead review of FLOW.4,
+           13.11.2026): the open Mindestangaben and the uploads still on this device, as the same
+           link rows, under the crews. Dropping the second sheet must not drop the last look at them. */
+        items: isConfirm ? [...(spec.items ?? []), ...items] : spec.items,
+        // the one sentence that says what the close does to the crews stands alone, in ink
+        noteLead: which !== 'registered' ? A.watchEnds : undefined,
+        note: note || undefined,
+        cancelLabel: appConfig.copy.cancel,
+      }
+      return standDownTrupps
+        ? confirmDialog({ ...ask, altLabel: A.registeredToBoard, safeAnswer: 'alt' })
+        : confirmDialog({ ...ask, safeAnswer: 'cancel' })
+    }
+    const az = appConfig.copy.atemschutz
+    if (notfall.length > 0) {
+      const nf = az.notfall
+      const answer = await askCrew('notfall', {
+        title: nf.abschlussTitle,
+        message: fillTemplate(nf.abschlussMsg, { list: notfall.map((t) => fillTemplate(nf.who, { name: truppLogName(t) })).join(', ') }),
+        confirmLabel: nf.abschlussClose,
+      })
+      if (answer === 'alt') { setMode('atemschutz'); setPanel(null); return false }
+      if (answer !== true) return false
+    }
+    if (inside.length > 0) {
+      const answer = await askCrew('inside', {
+        title: A.insideTitle,
+        ...insideAbschlussSpec(inside),
+        confirmLabel: A.insideClose,
+      })
+      if (answer === 'alt') { setMode('atemschutz'); setPanel(null); return false }
+      if (answer !== true) return false
+    }
+    let standDown: string[] = []
+    if (registered.length > 0) {
+      const answer = await askCrew('registered', {
+        // every question of the chain carries a title (owner review 26.09.2026)
+        title: A.registeredTitle,
+        message: registeredAbschlussMessage(registered),
+        confirmLabel: standDownTrupps ? A.registeredStandDown : A.insideClose,
+      })
+      if (answer === 'alt') { setMode('atemschutz'); setPanel(null); return false }
+      if (answer !== true) return false
+      if (standDownTrupps) standDown = registered.map((t) => t.id)
+    }
+    // …asked only when no crew question already was the confirm (FLOW.4, above)
+    const ok = crewConfirms || await confirmDialog({
       title: A.confirmTitle,
       message: anyOpen ? P.exportIncompleteLead : A.confirmMsg,
       items,

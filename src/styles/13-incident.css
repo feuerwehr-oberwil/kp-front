@@ -233,6 +233,8 @@
    off a touch screen, under the 44px floor; the negative margins keep the title row's height. */
 .ip-card-sync { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
   margin: -12px -12px -12px 0; padding: 0; border: none; border-radius: var(--r-sm);
+  /* above the address line under the title, whose box took the square's bottom 7px (13.11.2026) */
+  position: relative; z-index: 1;
   background: none; color: var(--blue-strong); cursor: pointer; }
 @media (hover: hover) {
   .ip-card-sync:hover { background: var(--blue-12); }
@@ -328,6 +330,9 @@
 .ip-menu-alarm-mark { display: flex; align-items: center; color: var(--red-strong); }
 .ip-menu-alarm-mark svg { width: 18px; height: 18px; }
 .ip-menu-kicker { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--red-strong); }
+/* another Einsatz's Atemschutz alarm on its row (AppMenuRows · foreignMark, FLOW.1): the kicker's red, led by ⚠ */
+.ip-menu-az { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.ip-menu-az svg { width: 12px; height: 12px; flex: none; }
 .ip-menu-alarm-go { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--red-strong); }
 .ip-menu-alarm-x { flex: none; display: grid; place-items: center; width: var(--tap); border: none; background: none;
   border-radius: var(--r-ctl); cursor: pointer; color: var(--ink-faint); }

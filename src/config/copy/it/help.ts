@@ -99,7 +99,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
       {
         id: 'tastatur', title: 'Scorciatoie da tastiera', icon: 'type', only: 'keyboard',
         blocks: [
-          { kind: 'lead', text: 'Con la tastiera tutto è raggiungibile senza mouse. Le scorciatoie non fanno nulla mentre si scrive in un campo, né dietro una finestra aperta. Dove una casella ha un tasto, la sua lettera vi è scritta – in entrambe le barre, nella barra di visualizzazione in basso a destra e su «Registro» e «Voce» in alto (finché «Mostra le scorciatoie da tastiera» è attivo nelle **Impostazioni**).' },
+          { kind: 'lead', text: 'Con la tastiera tutto è raggiungibile senza mouse. Le scorciatoie non fanno nulla mentre si scrive in un campo, né dietro una finestra aperta. Dove una casella ha un tasto, la sua lettera vi è scritta – in entrambe le barre, nella barra di visualizzazione in basso a destra e su «Registro» e «Voce» in alto.' },
           { kind: 'sub', text: 'Cambiare area' },
           { kind: 'list', items: [
             'I numeri aprono il modulo di piano con quel numero – quali esistono dipende dai moduli di questo corpo: [[1]] modulo 1, [[2]] o [[3]] il modulo «2/3», [[4]] modulo 4 …',
@@ -403,8 +403,8 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           ] },
           { kind: 'sub', text: 'Offline' },
           { kind: 'list', items: [
-            'La **Preparazione offline** nelle **Impostazioni** ([[⌘]] [[,]]) è su **Automatico**: l’app installata scarica da sé carta, piani, simboli e livelli di riferimento poco dopo l’apertura di un intervento – senza dialoghi, senza notifiche. Vengono presi **tutti** i livelli cartografici configurati, anche quello ora nascosto: l’esperienza dice che lo si attiva quando la rete è già andata. **Solo manuale** lascia il compito al pulsante **Carica tutto per l’offline**.',
-            'Quanto viene caricato dipende dal **Raggio offline** (anch’esso nelle Impostazioni, vale solo su questo dispositivo): raggio più piccolo = download più rapido e più leggero.',
+            '**Preparazione offline**: l’app installata scarica da sé carta, piani, simboli e livelli di riferimento poco dopo l’apertura di un intervento – senza dialoghi, senza notifiche. Vengono presi **tutti** i livelli cartografici configurati, anche quello ora nascosto: l’esperienza dice che lo si attiva quando la rete è già andata. Il pulsante **Carica tutto per l’offline** fa lo stesso in qualsiasi momento, a mano.',
+            'Quanto viene caricato dipende dal **Raggio offline** della stazione (nell’amministrazione, uguale per tutti i dispositivi).',
             'Che cosa sia davvero pronto lo dice la **Prontezza offline** nel menu dell’intervento – riga per riga: carta, piani, simboli, merci pericolose, livelli di riferimento, personale, memoria del dispositivo. **Meteo** e **Ricerca oggetti** richiedono una connessione e vi figurano come «solo online».',
             'Affidabile offline è solo l’**app installata**. In una scheda del browser la memoria può essere svuotata in qualsiasi momento, e la scheda dovrebbe essere ancora aperta al prossimo intervento.',
             'Senza rete continua a funzionare tutto ciò che sta sul dispositivo: disegnare e posare simboli, autoprotezione, presenze, materiale, diario e rapporto. Foto e note vocali restano salvate e partono più tardi.',

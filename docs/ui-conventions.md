@@ -229,7 +229,7 @@ reopens, while the head's subtitle says when («Schadenlage · erledigt 10:57»)
   hangs ONE 8px off its trigger and keeps 8px from the screen edge, the bars' own distances
   (`lib/overlays` · `OVERLAY_GAP` / `OVERLAY_EDGE`, owner 13.11.2026 – menus hung 4px off, both
   kept 10 from the edge); one whose trigger sits inside a floating bar hangs 8px off the BAR
-  (`BAR_POP_OFFSET`: the Einsatzuhr, the weather, the Gebäude dial).
+  (`BAR_POP_OFFSET`: the weather, the GPS caveat, the Gebäude dial).
 
 Three rules the primitives own, so no surface re-answers them (18.09.2026):
 
@@ -248,7 +248,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   finished or abandoned; NON-modal (a clear `.mapctl-backdrop`, no trap) when it only changes
   what the map shows — Ebenen is non-modal on purpose. (2) A **decision
   that blocks** — a confirm, «Welcher Trupp?», a one-field ask — is a **centred dialog**
-  (`ConfirmCard`, `Overlay` without `grab`): it is answered, not worked in. (3) A **short
+  (`ConfirmCard`, `Overlay` without `grab`): it is answered, not worked in. ⚠️ A red
+  `danger` ConfirmCard stands ONLY in front of what nothing brings back (the delete rule,
+  13.11.2026, [`undo.md`](undo.md) › One delete rule): a removal ↶ can take back acts at once
+  and shows «{Name} entfernt · Rückgängig» (`lib/removalToast`) instead of asking first. (3) A **short
   pick-one menu that belongs to its tile or chip** — Ansichten at the compass, the Einsatz-Menü,
   the Meteo chip, every `Menu` — is a **popover anchored to that control**. Three exceptions,
   each a rule: a page you READ (Hilfe) is full-screen, and a search that opens with the keyboard
@@ -407,7 +410,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     `--float-edge` (or the sheets' `--glass`), light by day and dark by night, with theme inks
     (`--ink`, `--ink-dim`, `--ink-faint`, `--fill-soft`) — never a frozen `rgba(255,255,255,…)`. Every popup
     OUT OF THE TOP BAR wears the bar's own glass (`--glass` + blur + `--glass-line` + `--shadow`):
-    the Einsatzuhr menu, the Atemschutz head detail and the Meteo details (30.09.2026:
+    the Atemschutz head detail and the Meteo details (30.09.2026:
     `.tb-weather-pop` wore `--surface`, a lighter slate than the bar at night).
     **Dark in both themes (`--ink-fill` + `--on-accent-ink`) is the Trupp marker's action bar
     alone** (`.wb-pill-acts` — this marker is in hand); a new surface that is dark by day is a

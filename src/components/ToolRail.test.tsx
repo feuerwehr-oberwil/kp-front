@@ -6,7 +6,6 @@ import { PANEL_KEY } from '../lib/hotkeys'
 import { karteToolKey } from '../lib/karte/hotkeys'
 import { appConfig } from '../config/appConfig'
 import { slimTools, MAP_READONLY_TOOLS } from '../lib/readOnlyTools'
-import { loadPrefs, savePrefs } from '../lib/prefs'
 
 afterEach(() => { cleanup(); document.cookie = 'kp-front-prefs=; max-age=0; path=/' })
 
@@ -321,14 +320,14 @@ describe('the phone bar', () => {
   })
 })
 
-// «Tastenkürzel anzeigen» (lib/prefs · keyHints): each tool tile wears the letter the keyboard binds
+// each tool tile wears the letter the keyboard binds
 describe('the shortcut letters', () => {
   const rail = (over: Partial<React.ComponentProps<typeof ToolRail>> = {}) => render(
     <ToolRail className="tool-rail" primary={appConfig.copy.primarySymbol} tools={appConfig.copy.mapTools}
       active="line" onPick={vi.fn()} controls={null} {...over} />)
   const letters = () => [...document.querySelectorAll('.vrail-tool .rail-key')].map((el) => el.textContent)
 
-  it('are on every tool tile by default – Symbol included', () => {
+  it('are on every tool tile – Symbol included', () => {
     rail()
     // Auswahl · Symbol · Linie · Fläche · Absperrkreis · Notiz · Trupp · Messen
     expect(letters()).toEqual(['V', 'S', 'L', 'F', 'U', 'N', 'T', 'D'])
@@ -340,12 +339,6 @@ describe('the shortcut letters', () => {
     cleanup()
     rail({ active: 'lasso' })
     expect(letters()[0]).toBe('W') // the tile wears Mehrfach, and Mehrfach is W
-  })
-
-  it('are not rendered when the device pref is off', () => {
-    savePrefs({ ...loadPrefs(), keyHints: false })
-    rail()
-    expect(letters()).toEqual([])
   })
 
   // the Karte & Objekte viewer binds its own keys (lib/karte/hotkeys): Pin P · Messen D · Gefahrgut U
@@ -368,12 +361,6 @@ describe('the shortcut letters', () => {
     it('Ebenen wears B', () => {
       bar()
       expect(barLetter()).toBe('B')
-    })
-
-    it('follows the same device pref', () => {
-      savePrefs({ ...loadPrefs(), keyHints: false })
-      bar()
-      expect(barLetter()).toBeNull()
     })
 
     it('never on a phone, where the controls are the folded bar\'s', () => {

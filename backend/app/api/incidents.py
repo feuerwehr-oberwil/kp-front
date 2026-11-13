@@ -7,6 +7,7 @@ rule, the shared workspace save – is `app/incident_service`; the per-incident 
 
 import logging
 import uuid
+from collections.abc import Sequence
 from copy import deepcopy
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -19,7 +20,7 @@ from sqlalchemy.orm import defer
 
 from .. import audit, incident_archive, live_wait, storage
 from ..alarm_validation import validate_trupp
-from ..alarms import is_demo_deployment
+from ..alarms import get_config_model, is_demo_deployment
 from ..auth.dependencies import (
     CurrentAtemschutzWriter,
     CurrentEditor,
@@ -47,7 +48,9 @@ from ..incident_service import (
     workspace_revision_conflict,
 )
 from ..models import INCIDENT_ACTIVE_STATUSES, Incident, lifecycle_open
+from ..push import due_trupps
 from ..schemas import (
+    AtemschutzDue,
     IncidentCreate,
     IncidentFull,
     IncidentMeta,
@@ -141,7 +144,7 @@ async def list_incidents(
     limit: int = Query(default=100, ge=1, le=500),
     skip: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
-) -> list[Incident]:
+) -> Sequence[Incident | IncidentMeta]:
     # IncidentMeta never carries the heavy JSONB blobs — defer them so the list (hit on open
     # and every 30 s) doesn't drag every workspace + details out of Postgres.
     q = select(Incident).options(defer(Incident.map_workspace_json), defer(Incident.details_json))
@@ -150,7 +153,40 @@ async def list_incidents(
     if user is not None and is_viewer(user):
         q = q.where(viewer_window_clause(await viewer_history(db)))  # running + the last days (auth/viewer_scope)
     q = q.order_by(Incident.started_at.desc()).limit(limit).offset(skip)
-    return list((await db.execute(q)).scalars())
+    rows = list((await db.execute(q)).scalars())
+    due = await _atemschutz_due(db, [i.id for i in rows if i.is_open])
+    if not due:
+        return rows
+    return [
+        IncidentMeta.model_validate(i).model_copy(update={"atemschutz_due": due[i.id]}) if i.id in due else i
+        for i in rows
+    ]
+
+
+async def _atemschutz_due(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, list[AtemschutzDue]]:
+    """The Trupps at the alarm tier per RUNNING Einsatz (FLOW.1, 13.11.2026) — the push sweep's own
+    computation (push · due_trupps), so the switcher's mark, the alarm row raised from an Übung and
+    the killed-app push can never disagree. Only the two slices it reads leave Postgres, never the
+    blob; a closed Einsatz alarms nothing (useAbschluss · azMonitoring), and neither does the demo,
+    whose stored clocks are rebased in the visitor's browser (push · check_and_push)."""
+    if not ids or await is_demo_deployment(db):
+        return {}
+    ws = Incident.map_workspace_json
+    slices = (await db.execute(select(Incident.id, ws["trupps"], ws["settings"]).where(Incident.id.in_(ids)))).all()
+    if not any(trupps for _, trupps, _ in slices):
+        return {}
+    doctrine = (await get_config_model(db)).doctrine.model_dump()
+    now_ms = datetime.now(UTC).timestamp() * 1000
+    out: dict[uuid.UUID, list[AtemschutzDue]] = {}
+    for inc_id, trupps, settings in slices:
+        found = [
+            AtemschutzDue(id=str(t["id"]), name=str(t["name"]), reason=t["reason"])
+            for t in due_trupps({"trupps": trupps, "settings": settings}, doctrine, now_ms)
+            if t.get("id")
+        ]
+        if found:
+            out[inc_id] = found
+    return out
 
 
 @router.post("", response_model=IncidentFull, status_code=status.HTTP_201_CREATED)

@@ -15888,6 +15888,35 @@
         ],
         "title": "Assignment"
       },
+      "AtemschutzDue": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "contact",
+              "pressure",
+              "notfall"
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "reason"
+        ],
+        "title": "AtemschutzDue",
+        "description": "One Trupp at the alarm tier, as the incident list names it."
+      },
       "Body_capture_report_pdf_api_capture_incidents__incident_id__report_pdf_post": {
         "properties": {
           "payload": {
@@ -19415,6 +19444,14 @@
             "format": "date-time",
             "title": "Updated At"
           },
+          "atemschutz_due": {
+            "items": {
+              "$ref": "#/components/schemas/AtemschutzDue"
+            },
+            "type": "array",
+            "title": "Atemschutz Due",
+            "default": []
+          },
           "text": {
             "anyOf": [
               {
@@ -19675,6 +19712,14 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
+          },
+          "atemschutz_due": {
+            "items": {
+              "$ref": "#/components/schemas/AtemschutzDue"
+            },
+            "type": "array",
+            "title": "Atemschutz Due",
+            "default": []
           }
         },
         "type": "object",
@@ -20027,6 +20072,19 @@
           },
           "serviceArea": {
             "$ref": "#/components/schemas/MapServiceArea"
+          },
+          "offlineRadiusM": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "maximum": 3000.0,
+            "minimum": 500.0,
+            "title": "Offlineradiusm"
           }
         },
         "type": "object",

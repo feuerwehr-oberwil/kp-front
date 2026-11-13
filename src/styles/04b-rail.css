@@ -134,8 +134,8 @@
 
 /* ── The shortcut-letter badge (`.rail-key`, lib/hotkeys) – ONE look on both rails (31.10.2026).
    The left NavRail wears a surface's letter (K · C · A …), the right ToolRail a tool's (V · L · F …).
-   One rule decides whether it is there: the device pref «Tastenkürzel anzeigen» (lib/prefs ·
-   keyHints, default ON) renders it, and this media gate shows it only on a device with hover AND
+   One rule decides whether it is there: it is always rendered (the «Tastenkürzel anzeigen» switch
+   went 13.11.2026), and this media gate shows it only on a device with hover AND
    a fine pointer – a touch-only device has no keyboard to read it for. No modifier-held reveal any
    more: a hint hidden until you already know the shortcut taught nothing. The phone's folded bar
    never wears them (its tiles are doors to groups, and a bar you touch needs no letter).

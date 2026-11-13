@@ -406,3 +406,17 @@ ends an alarm with a Funkkontakt from another device, and the same `AtemschutzAl
 back on this board at that card. Until then the Objektbesuche over an Einsatz unmounted it and
 the alarm went silent. Details: docs/karte-objekte.md · «Home»; pinned by
 `IncidentWorkspace.harness.lifecycle.test.tsx` · (k).
+
+## Another Einsatz's alarm (FLOW.1, 13.11.2026)
+
+The incident list carries each running Einsatz's Trupps at the alarm tier (`IncidentMeta ·
+atemschutz_due`, the push sweep's `due_trupps`, refreshed by the 30 s list watch; dropped from a
+cached list offline). The owner's rule (`lib/foreignAlarm`): two real Einsätze in parallel are
+run by two teams and must not distract each other. So every other running Einsatz with such a
+Trupp gets a red «Atemschutz-Alarm» / «Atemschutz-Notfall» over its row in the Einsatz list
+(AppMenuRows) – and that is all while this device works a live Ernstfall. A device standing in an
+Übung or a closed Einsatz gets the full alarm of a live Ernstfall: the known red row in the
+Meldeleiste with the Einsatz's name in front, and the tone (`ForeignAtemschutzMeldungen`), muted
+per Einsatz; its «Zum Trupp» mutes that Einsatz, switches to it and opens the board on the Trupp
+(`notifyTarget · handOverNotifyTarget`). An Übung's Trupps never do more than the list mark. Not on
+the Atemschutz-Link, and not on «Karte & Objekte» with no Einsatz open behind it.

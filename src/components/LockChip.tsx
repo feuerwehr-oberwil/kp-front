@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { useNodeHold } from '../lib/nodeHold'
@@ -19,14 +20,24 @@ import { NodeDeleteChip } from './NodeDeleteChip'
  * sync dropping the anno) still unlocked the shape 700 ms later. `useNodeHold` cancels on
  * unmount, on release and on any movement past 10 px.
  *
- * Shared by the Lage (MapView, over `Drawing.locked`) and the Plan (Whiteboard, over
- * `BoardAnno.locked`): one gesture, one hold duration, one wording — the two surfaces cannot
- * teach the same hand two different unlocks.
+ * A TAP opens the drawing's editor (`onOpen`, CTL.8, 13.11.2026), as a tap on any drawing
+ * does: there the «Sperren» toggle that locked it stands pressed and unlocks it. A tap on the
+ * chip used to do nothing at all — no word, no selection — and the operator who had to move a
+ * locked Absperrkreis had to KNOW «press and hold». The tap still moves and edits nothing: the
+ * surfaces give a locked selection no handles. The hold stays as the fast way.
+ *
+ * Shared by the Lage (MapView, over `Drawing.locked`; EntityMarker, over a locked Form) and the
+ * Plan (Whiteboard, over `BoardAnno.locked`): one gesture, one hold duration, one wording — the
+ * two surfaces cannot teach the same hand two different unlocks.
  */
-export function LockChip({ onUnlock }: { onUnlock: () => void }) {
+export function LockChip({ onUnlock, onOpen }: { onUnlock: () => void; onOpen?: () => void }) {
   const hold = useNodeHold()
   const label = appConfig.copy.drawingEditor.unlockHold
-  const press = hold.press('unlock', onUnlock)
+  // the click that trails a finished hold is the hold's, not a tap: it must not open the editor
+  // over the shape the hold just unlocked and selected
+  // (state, not a ref: the hold fires mid-press, so the release's click sees the new render)
+  const [held, setHeld] = useState(false)
+  const press = hold.press('unlock', () => { setHeld(true); onUnlock() })
   return (
     <button
       className={`draw-lock-chip${hold.armed ? ' holding' : ''}`}
@@ -38,8 +49,12 @@ export function LockChip({ onUnlock }: { onUnlock: () => void }) {
       // it: `stopPropagation()` during React's capture phase also cancels the bubble-phase
       // handler on this very element, so a separate `onPointerDownCapture` silently ate every
       // hold. The surface underneath must still not start a pan under this chip.
-      onPointerDown={(e) => { e.stopPropagation(); press.onPointerDown(e) }}
-      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => { e.stopPropagation(); setHeld(false); press.onPointerDown(e) }}
+      onClick={(e) => {
+        e.stopPropagation()
+        if (held) { setHeld(false); return }
+        onOpen?.()
+      }}
     >
       {/* the ring sits BESIDE the chip (.node-del is absolutely placed off it), so the
           fingertip never covers the one thing that says how much longer to hold */}

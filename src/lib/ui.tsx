@@ -188,6 +188,7 @@ export function confirmDialog(opts: ConfirmOpts): Promise<boolean | 'alt'> {
       message: opts.message,
       items: opts.items,
       note: opts.note,
+      noteLead: opts.noteLead,
       confirmLabel: opts.confirmLabel ?? appConfig.copy.confirm.ok,
       cancelLabel: opts.cancelLabel ?? appConfig.copy.confirm.cancel,
       danger: opts.danger,
@@ -475,6 +476,7 @@ export function Overlays({ toasts: showToasts = true }: { toasts?: boolean } = {
         message={req?.message ?? ''}
         items={req?.items}
         note={req?.note}
+        noteLead={req?.noteLead}
         confirmLabel={req?.confirmLabel ?? ''}
         cancelLabel={req?.cancelLabel ?? ''}
         danger={req?.danger}

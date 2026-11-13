@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { alarmProviderName, atemschutzDoctrine, incidentCategories, atemschutzEquipment, carrySessionOnly, demoNote, getDeploymentConfig, loadDeploymentConfig, bootDeploymentConfig, mapReferenceLayers, moduleAlignment, moduleViewer, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
+import { alarmProviderName, atemschutzDoctrine, incidentCategories, atemschutzEquipment, carrySessionOnly, demoNote, getDeploymentConfig, loadDeploymentConfig, bootDeploymentConfig, mapReferenceLayers, moduleAlignment, moduleViewer, offlineRadiusM, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
 import { idbSet, __resetIdbForTests } from './idb'
 
 describe('mapReferenceLayers', () => {
@@ -492,5 +492,28 @@ describe('a module can step behind the Gebäude', () => {
     expect(moduleHiddenWithGebaeude('modul5-pv')).toBe(true) // family
     expect(moduleHiddenWithGebaeude('modul5-wasser2')).toBe(false) // the numbered sibling's own slot
     expect(moduleHiddenWithGebaeude('modul1')).toBe(false)
+  })
+})
+
+// PLACE.7 (13.11.2026): the box every device caches for offline is the station's, not a slider
+describe('offlineRadiusM', () => {
+  const load = async (cfg: unknown) => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(cfg), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    })))
+    await loadDeploymentConfig()
+  }
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it('is the shipped 1200 m until the station sets one, then the station\'s', async () => {
+    await load({})
+    expect(offlineRadiusM()).toBe(1200)
+    await load({ map: { offlineRadiusM: 2500 } })
+    expect(offlineRadiusM()).toBe(2500)
+  })
+
+  it('never serves a value outside the 500–3000 m the box allows', async () => {
+    await load({ map: { offlineRadiusM: 50 } })
+    expect(offlineRadiusM()).toBe(1200)
   })
 })

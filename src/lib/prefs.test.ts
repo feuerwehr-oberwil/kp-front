@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SYMBOL_SCALE, clampSymbolScale, initialMode, keyHintsFor, legacySymbolMul, planSymbolScale, railLabelsFor, resolveTheme, symbolScales, type Prefs } from './prefs'
+import { SYMBOL_SCALE, clampSymbolScale, initialMode, legacySymbolMul, planSymbolScale, railLabelsFor, resolveTheme, symbolScales, twinLayersIn, withDevicePrefsOf, withoutDevicePrefs, type Prefs } from './prefs'
 
 // The Symbolgrösse rework: one global S/M/L pref became one multiplier PER SURFACE (Karte /
 // Module). Two things have to hold — the bands the sliders offer, and that nobody's stored
@@ -133,15 +133,36 @@ describe('railLabelsFor', () => {
   })
 })
 
-// «Tastenkürzel anzeigen» (31.10.2026): on until somebody switches it off
-describe('keyHintsFor', () => {
-  it('defaults to on, including for a cookie written before the pref existed', () => {
-    expect(keyHintsFor({})).toBe(true)
+// PLACE.6 (13.11.2026): a plan raster switched in one Einsatz stays in that Einsatz
+describe('twinLayersIn', () => {
+  const stored: Prefs = { twinLayersIn: { incidentId: 'e1', visible: { 'twin:plan-image:m2': true }, opacity: { 'twin:plan-image:m2': 30 } } }
+
+  it('hands the Einsatz it was set in its rows back', () => {
+    expect(twinLayersIn(stored, 'e1')).toEqual({ visible: { 'twin:plan-image:m2': true }, opacity: { 'twin:plan-image:m2': 30 } })
   })
 
-  it('keeps a device\'s own choice', () => {
-    expect(keyHintsFor({ keyHints: false })).toBe(false)
-    expect(keyHintsFor({ keyHints: true })).toBe(true)
+  it('gives any other Einsatz – and an old unscoped cookie – the defaults', () => {
+    expect(twinLayersIn(stored, 'e2')).toEqual({ visible: {}, opacity: {} })
+    expect(twinLayersIn({ twinLayers: { 'twin:plan-image:m2': true } } as Prefs, 'e1')).toEqual({ visible: {}, opacity: {} })
+  })
+})
+
+// PLACE.7 (13.11.2026): «Gerät auf Standard zurücksetzen» and its undo
+describe('withoutDevicePrefs / withDevicePrefsOf', () => {
+  const before: Prefs = {
+    theme: 'night', symbolScaleMap: 1.3, symbolSize: 'L', railLabels: 'short', railLabelsChosen: true, atemschutzOrder: 'name',
+    // not device look-and-feel: these stay
+    incidentId: 'e1', photoPosition: true, sharePosition: { allowed: true }, weatherRadarIn: 'e1',
+  }
+
+  it('clears the look-and-feel, and keeps the permissions, the place and the per-Einsatz state', () => {
+    expect(withoutDevicePrefs(before)).toEqual({ incidentId: 'e1', photoPosition: true, sharePosition: { allowed: true }, weatherRadarIn: 'e1' })
+  })
+
+  it('puts back exactly what was there – including a key that was absent', () => {
+    // after the reset the app saved its defaults again, and the device moved on to another Einsatz
+    const now: Prefs = { ...withoutDevicePrefs(before), symbolScaleMap: 1, keepScreenOn: true, incidentId: 'e2' }
+    expect(withDevicePrefsOf(now, before)).toEqual({ ...before, incidentId: 'e2' })
   })
 })
 

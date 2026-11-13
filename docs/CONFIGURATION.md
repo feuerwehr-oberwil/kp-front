@@ -86,13 +86,19 @@ The code-side rules behind the layers (moved here from AGENTS.md on 2026-10-18, 
 unchanged):
 
 - **A setting lives in one of three places – pick by who owns it, not by what is easiest to
-  reach.** (1) *Device preference* – theme (day/night/auto), symbol scale, rail words, shortcut
-  letters («Tastenkürzel anzeigen», `keyHints`, default ON – the letter on both rails, the view
-  bar and the top bar's Verlauf / Eintrag, `.rail-key`, shown only with hover + a fine pointer;
-  letters from `lib/hotkeys`, on «Karte & Objekte» from `lib/karte/hotkeys`), offline
-  radius, screen wake: cookie via `src/lib/prefs.ts`, not synced, surfaced in the **Einstellungen
-  sheet** (`src/components/panels/SettingsSheet.tsx`), which since 28.08. carries device prefs
-  plus per-device utilities and **nothing else**. (2) *Station doctrine* – Funkkontakt-Intervall,
+  reach.** (1) *Device preference* – theme (day/night/auto), symbol scale, captions, rail words,
+  screen wake, the Trupps order: cookie via `src/lib/prefs.ts`, not synced, surfaced in the
+  **Einstellungen sheet** (`src/components/panels/SettingsSheet.tsx`), which since 28.08. carries
+  device prefs plus per-device utilities and **nothing else** – and since 13.11.2026 the row
+  «Gerät auf Standard zurücksetzen» (`lib/prefs · DEVICE_PREF_KEYS`, undo by toast; the two
+  standing permissions, the alarm opt-in, the login and offline data stay). What a device looks at
+  in ONE Einsatz – the plan rasters (`twinLayersIn`), the radar (`weatherRadarIn`), the Atemschutz
+  mute – is scoped to that Einsatz, so nothing set at a drill follows into the next Einsatz.
+  Retired 13.11.2026 (owner picks PLACE.5 / PLACE.7), an old stored value is ignored: the
+  Einsatzuhr mode (the bar always shows the Einsatzdauer), «Tastenkürzel anzeigen» (always on –
+  `.rail-key` shows only with hover + a fine pointer; letters from `lib/hotkeys`, on «Karte &
+  Objekte» from `lib/karte/hotkeys`), «Offline-Vorbereitung» (always on in the installed app) and
+  the offline radius (now the station's `map.offlineRadiusM`). (2) *Station doctrine* – Funkkontakt-Intervall,
   Nachfrist, Funkkanal, Auftragsfarben: deployment config `doctrine.*`, edited **only** in
   `/admin › Doktrin` (`DoctrineSection` in `src/admin/ConfigSections.tsx`) and read **only**
   through `atemschutzDoctrine()` in `src/lib/deploymentConfig.ts`, never off
@@ -145,6 +151,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `identity.*` (`appName`, `shortName`, `locale`, `accentColor`, `helpIntro`, `kommandant`) | ✅ | Station › **Station & Karte** |
 | `identity.assets` | ✅ | the branding uploads – **not** part of this document (see the ⚠️ below and §3a) |
 | `map.defaultView`, `map.geocoder.*` | ✅ | Station › **Station & Karte** |
+| `map.offlineRadiusM` | ✅ | Station › **Station & Karte** › «Offline-Umkreis (m)» – the box (half-width) every device caches around an Einsatz and crops the Leitungskataster to; 500–3000, unset = 1200 m. A device slider until 13.11.2026 |
 | `map.buildingRegister` | ❌ | config-as-code only (`admin_config`); unset = on in CH ([`building-card.md`](building-card.md)) |
 | `map.serviceArea.municipalities` | ❌ | config-as-code only (`admin_config`); the Einsatzgebiet's BFS numbers for «Unterirdische Bauten» and the houses a building tap selects – unset = the municipality at `map.defaultView` ([`karte-objekte.md`](karte-objekte.md)) |
 | `map.objectCategories` | ✅ | Station › **Station & Karte** › «Objektfarben» ([`karte-objekte.md`](karte-objekte.md) · Object colours) |
@@ -289,6 +296,8 @@ both now have browser pages – §9e and §9f.
                                                  //  the backend caches to retry a typo –
                                                  //  «haupstrasse 12» → «Hauptstrasse 12»)
     },
+    "offlineRadiusM": 1200,                      // m around the Einsatz every device caches for offline
+                                                 // (map + Leitungen); 500–3000, null = 1200
     "serviceArea": { "municipalities": [2771] }, // the Einsatzgebiet (BFS numbers) for «Unterirdische
                                                  // Bauten»; [] = the municipality at defaultView. The
                                                  // station's objects get 500 m around them either way

@@ -46,6 +46,9 @@ export interface ConfirmSpec {
   items?: (string | ConfirmItem | ConfirmLine)[]
   /** the sentence AFTER the list — what happens if you go ahead anyway */
   note?: string
+  /** …and the ONE consequence that must not drown in that note: its own line above it, in ink
+   *  («Mit dem Abschluss endet die Überwachung dieser Trupps auf allen Geräten.», FLOW.5) */
+  noteLead?: string
   confirmLabel: string
   cancelLabel: string
   danger?: boolean
@@ -76,7 +79,7 @@ export interface ConfirmSpec {
  * app answers to. A modal that does not respond to a tap beside it reads as a frozen app, and
  * that is the wrong thing to be wondering about with an Einsatz open.
  */
-export function ConfirmCard({ open, title, message, items, note, confirmLabel, cancelLabel, danger, altLabel, altDanger, safeAnswer, onResolve }: ConfirmSpec & {
+export function ConfirmCard({ open, title, message, items, note, noteLead, confirmLabel, cancelLabel, danger, altLabel, altDanger, safeAnswer, onResolve }: ConfirmSpec & {
   open: boolean
   onResolve: (confirmed: boolean | 'alt') => void
 }) {
@@ -131,7 +134,11 @@ export function ConfirmCard({ open, title, message, items, note, confirmLabel, c
               {items.map((it) => typeof it === 'string'
                 ? <li key={it}>{it}</li>
                 : !('onClick' in it)
-                  ? <li key={it.head ?? it.text} className="confirm-line">{it.head && <b>{it.head}</b>}{it.head && ' – '}{it.text}</li>
+                  ? (
+                    <li key={it.head ?? it.text} className="confirm-line">
+                      {it.head && <b>{it.head}</b>}{it.head && ' – '}{it.text}
+                    </li>
+                  )
                   : (
                   <li key={it.label} className="confirm-list-go">
                     {/* a full-width row, not a link in a bullet: ≥44px so a thumb lands on it at
@@ -147,6 +154,7 @@ export function ConfirmCard({ open, title, message, items, note, confirmLabel, c
                 ))}
             </ul>
           )}
+          {noteLead && <p className="confirm-note confirm-note-lead">{noteLead}</p>}
           {note && <p className="confirm-note">{note}</p>}
           <div className="confirm-actions">{actions}</div>
         </Dialog.Popup>

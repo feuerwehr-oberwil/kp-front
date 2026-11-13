@@ -287,7 +287,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
   const actions = readOnly ? null : (
     <div className="ctx-actions">
       {onToggleLock && (
-        <button className="btn" onClick={onToggleLock} title={appConfig.copy.drawingEditor.lockHint} aria-pressed={!!locked}>
+        <button className="btn de-lock" onClick={onToggleLock} title={appConfig.copy.drawingEditor.lockHint} aria-pressed={!!locked}>
           <Icon id="lock" />{appConfig.copy.drawingEditor.lock}
         </button>
       )}
