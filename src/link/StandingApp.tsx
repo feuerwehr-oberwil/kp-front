@@ -19,6 +19,7 @@ import { deploymentName } from '../lib/deploymentConfig'
 import { formatTime, formatLocale } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
+import { IncidentName } from '../components/IncidentName'
 import { AuthProvider, useAuth } from '../lib/auth'
 import App from '../App'
 import { TERMINAL_PATH } from '../lib/linkMode'
@@ -141,10 +142,12 @@ function Chooser({ candidates, onPick }: { candidates: StandingCandidate[]; onPi
       <p className="cv-hint">{C.chooseHint}</p>
       {candidates.map((c) => (
         <button key={c.id} type="button" className="cv-btn" onClick={() => onPick(c.id)}>
-          {c.title}
-          {c.is_exercise ? ` (${C.exerciseTag})` : ''}
-          {c.address ? ` – ${c.address}` : ''}
-          {c.started_at ? ` – ${time(c.started_at)}` : ''}
+          {/* one flex item: the button's gap would otherwise open between the prefix and the name */}
+          <span>
+            <IncidentName exercise={c.is_exercise}>{c.title}</IncidentName>
+            {c.address ? ` – ${c.address}` : ''}
+            {c.started_at ? ` – ${time(c.started_at)}` : ''}
+          </span>
         </button>
       ))}
     </Shell>

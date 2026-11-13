@@ -97,7 +97,11 @@
 .topbar.fit-8 .tb-az-name { display: none; }
 .topbar.fit-9 .ip-switch-title { display: none; }
 .topbar.fit-9 .ip-switch-glyph { display: grid; }
-.topbar.fit-9:has(.ip-switch-btn > .ip-badge-exercise) .ip-switch-glyph { display: none; }
+/* …but an Übung keeps its «Übung» there instead of the glyph (components/IncidentName): a drill
+   must never read as a real Einsatz mid-use. The name and the «·» go, the word stays whole. */
+.topbar.fit-9 .ip-switch-btn:not(.ip-switch-two) > .ip-switch-title:has(> .name-prefix) { display: block; flex: none; }
+.topbar.fit-9 .ip-switch-btn:not(.ip-switch-two) > .ip-switch-title :is(.ip-switch-name, .name-prefix > [aria-hidden]) { display: none; }
+.topbar.fit-9 .ip-switch-btn:has(> .ip-switch-title > .name-prefix) > .ip-switch-glyph { display: none; }
 /* «Eintrag» gives its word LAST (29.09.2026, sweep K2): its glyph is the journal pen now, not a
    «+» that the rail's «+ Symbol» beside it also wears, so a bare glyph still says what it is */
 .topbar.fit-11 .tb-act-add :is(.tb-act-label, .tb-key) { display: none; }

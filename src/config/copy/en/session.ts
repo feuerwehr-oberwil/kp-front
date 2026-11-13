@@ -160,5 +160,6 @@ export const sessionCopy: Localizable<Pick<Copy, Keys>> = {
       cta: 'Let\'s go',
       meta: 'No real incident data – new incidents are disabled',
     },
+    prefix: 'Demo',
   },
 }

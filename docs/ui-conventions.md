@@ -580,10 +580,12 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     fallback). **Gone** (a person who left, a Trupp raus, a layer off) = `opacity:
     var(--done-opacity)` only; a strike-through may carry the word, a second dim may not. A
     read-only control that is NOT unavailable (`opacity: 1` on purpose) says so in a comment.
-    (4) **Tag** (ÜBUNG, a status word): the `.ip-badge` recipe — 10px/700 uppercase .03em,
-    padding 2px 7px, `--r-xs`; ÜBUNG is a HATCHED, outlined tag with no hue (`--ink-tint` stripes, a
-    1.5px `--ink-dim` ring, `--ink` text) wherever it stands (top bar, the phone's «Ü» square, lists,
-    the poster's `.cv-badge-exercise` shares the selectors) – M2, owner's pick A, 13.11.2026: amber
+    (4) **Tag** (a status word): the `.ip-badge` recipe — 10px/700 uppercase .03em,
+    padding 2px 7px, `--r-xs`. An **Übung is not a tag** (round 2b, owner's pick M12 C, 13.11.2026;
+    it was amber, then hatched): a quiet «Übung ·» before the name in `--ink-dim`, the name's own
+    size and weight – «Übung · Zimmerbrand» – the same in the head, the card, every list, the Karte
+    chip (its on-colour at medium weight there), the poster and the admin list. ONE piece renders it
+    (`components/IncidentName`); the name ellipsises at its end, the prefix never. Amber
     on the Einsatz card is the COUNT of open points alone; «Abgeschlossen» is the grey tag «Archiv»
     wears, «Nicht synchronisiert» a cloud and the word, «Offline» the cloud struck through
     (`#cloud-off`, round 2b: a plain cloud reads «online»), «Abschliessen» a normal tile. The

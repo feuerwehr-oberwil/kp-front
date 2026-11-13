@@ -7,6 +7,7 @@ import { NO_HISTORY_FILTER, applyHistoryFilter, filterIncidents, historyGroupKey
 import { appConfig } from '../../config/appConfig'
 import { shortAddress } from '../../lib/deploymentConfig'
 import { EmptyState } from '../EmptyState'
+import { IncidentName } from '../IncidentName'
 import { Menu } from '../../lib/overlays'
 import { cx } from '../../lib/cx'
 import c from '../SurfaceControls.module.css'
@@ -187,8 +188,7 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
             <div className={`ip-hist${i.is_archived ? '' : ' ip-hist-live'}`}>
               <button className="ip-hist-main" onClick={() => onOpen(i.id, i.is_archived)}>
                 <div className="ip-hist-title">
-                  <span className="ip-hist-name">{i.title}</span>
-                  {i.is_exercise && <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>}
+                  <span className="ip-hist-name"><IncidentName exercise={i.is_exercise}>{i.title}</IncidentName></span>
                   {i.is_archived && <span className="ip-badge ip-badge-arch">{h.statusArchived}</span>}
                 </div>
                 {whenOf(i) && <div className="ip-hist-when">{whenOf(i)}</div>}

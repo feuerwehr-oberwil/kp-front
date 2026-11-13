@@ -88,7 +88,7 @@ registerHarnessHooks()
 describe('(c) the Abschluss', () => {
   const pressAbschluss = async () => {
     // the Einsatz menu (the title pill), then its «Einsatz abschliessen» row
-    fireEvent.click(screen.getByRole('button', { name: 'Harness' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Übung, Harness' }))
     await settle()
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.incidentSwitcher.archive }))
     await settle()
@@ -109,7 +109,7 @@ describe('(c) the Abschluss', () => {
     const abschlussRef: WsProps['abschlussRef'] = { current: null }
     await mount({ abschlussRef })
     rec.answer = false
-    fireEvent.click(screen.getByRole('button', { name: 'Harness' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Übung, Harness' }))
     await settle()
     const menuRow = () => screen.queryByRole('button', { name: appConfig.copy.incidentSwitcher.archive })
     expect(menuRow()).toBeTruthy()
