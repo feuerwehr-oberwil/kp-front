@@ -575,6 +575,13 @@
    hourglass drew a 7×9px mark beside the bold mono figure, the smallest thing in the bar (hill climb r11;
    the symbol itself was redrawn fuller the same day, lib/icons · #hourglass) */
 .tb-einsatzuhr .i { width: 16px; height: 16px; }
+/* «EINSATZDAUER» over the digits (M3, owner's pick B, 13.11.2026: every duration says what it
+   counts; a time of day gets none). THE eyebrow (ui-conventions · eyebrows) in --ink-faint; the
+   stack sits in the box the clock had, so the bar keeps its height. The phone pill wears the same
+   eyebrow on the clock's own line, before the digits (15-mobile · .ip-switch-clock). */
+.clock-eyebrow { display: block; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase;
+  color: var(--ink-faint); white-space: nowrap; }
+.tb-uhr-stack { display: flex; flex-direction: column; gap: 1px; line-height: 1.1; }
 .tb-uhr-chev { width: 12px; height: 12px; opacity: .5; margin-left: 1px; }
 /* Einsatzuhr mode dropdown: labelled, selectable rows (Dauer / Uhrzeit / Beginn) so the reading
    is never ambiguous — recognition over the old blind tap-to-cycle. */

@@ -126,7 +126,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     reenterSubmit: 'Engager',
     reenterStandby: 'Mettre en réserve',
     reenterStandbyHint: 'Annoncer le binôme comme réserve – le compteur de contact ne démarre qu\'à «Engager».',
-    sinceContact: 'Depuis le dernier contact',
+    sinceContact: 'Depuis contact',
     elapsed: 'Temps d’intervention',
     outFor: 'Sorti depuis',
     outForPlain: 'Sans mission depuis', // ⚠️ app only — see de/atemschutz.ts · outForPlain
@@ -443,6 +443,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logInsideAtClose: 'Binôme {name} encore engagé à la clôture',
     cycleEndAtClose: '{t} (encore engagé à la clôture)',
     logClockRestart: 'Binôme {name} : horloge de contact redémarrée – intervention rouverte',
+    underAir: 'Sous ARI',
   },
   lineDecor: {
     W: 'Eau',
