@@ -244,9 +244,8 @@ export const karteCopy = {
       foot: 'Die ganze Station wird nicht heruntergeladen (mehrere GB). Gezielt Objekte oder Gebiete für offline speichern: später.',
       lampWord: { device: 'auf diesem Gerät', part: 'teilweise auf diesem Gerät', online: 'nur mit Netz' },
     },
-    // the home's red alarm chip (M1, owner's pick A, 13.11.2026): a live Einsatz's Trupp at the
-    // alarm tier – «2 Alarme» (atemschutz.overdueBadge) over the reason; a tap opens it on its Trupps
-    alarmChipSub: { contact: 'Atemschutz überfällig', pressure: 'Alarmdruck erreicht', notfall: 'Atemschutz-Notfall' },
+    // the running chip while it says a live Einsatz's Atemschutz alarm (round 2b, 13.11.2026): its
+    // accessible name; the chip shows «⚠ <title> · 2 Alarme» (atemschutz.overdueBadge)
     alarmChipOpen: 'Atemschutz-Alarm in {t}: {names} – zum Trupp',
   },
 }

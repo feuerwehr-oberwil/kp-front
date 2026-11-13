@@ -286,8 +286,7 @@ The rules that are easy to break:
   plans»). Whether an object has plans is its colour: the station's category (below), or, with
   no categories configured, the default look — ink rim, dot and outline with plans (the named
   token `--obj-plans`: near-white at night, near-black by day; owner's pick 7A, 23.10.2026 — it was
-  red, and red is danger's; since M1, 13.11.2026, the Karte's one red is a live Einsatz's
-  Atemschutz alarm chip), a faded grey rim
+  red, and red is danger's: the running Einsatz's chip is the Karte's one red), a faded grey rim
   and dot without (`Karte.module.css · .bare`). No count on any tag or row; the sheet's plan rows are
   the only list of plans.
 - **Dots, and a name only where it fits** (owner, 17.10.2026; `lib/karte/labels`). Below z16 every
@@ -803,9 +802,9 @@ The rules that are easy to break:
   opened from it has no Übersicht behind it: its «Zurück» (to its work list or the Übersicht)
   lands on the viewer's own address again — read views and reports included (`App` · `ovReturn`).
 - **Alarms** reach the viewer through the Meldeleiste and the same two banners as the
-  Objektbesuche; nothing switches by itself. A running Einsatz is the ink chip in the bar (a strip
-  under it on a phone's Checkliste); a tap opens it. A live Einsatz's Atemschutz alarm is a red chip
-  of its own beside it (below) – shown, with no tone and no Meldeleiste row on the home.
+  Objektbesuche; nothing switches by itself. A running Einsatz is the red chip in the bar (a strip
+  under it on a phone's Checkliste); a tap opens it. A live Einsatz's Atemschutz alarm is said by
+  that same chip (below) – shown, with no tone and no Meldeleiste row on the home.
 - **«Update verfügbar»** (review round 7, owner: no word of a new version on the new home): the
   viewer mounts the Einsatz's own `UpdateBanner`, so a waiting build is the same calm row in the
   same strip — «Jetzt aktualisieren» everywhere but iOS, «App schliessen & neu öffnen» there,
@@ -1140,9 +1139,8 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   «FWO»), then ▾. Neither set → a neutral menu symbol (☰ ▾), never the word «Einsätze»; a mark that
   does not load steps back to the symbol. Phone and tablet alike (the tablet's «keiner offen / 1
   läuft» sub line went with the word — the chip beside it names the running Einsatz). A small
-  **dot** on its corner while an Einsatz runs or an alarm waits (it was a count): ink for a running
-  Einsatz, red while an alarm waits to be taken or an Atemschutz alarm stands (M1, 13.11.2026: no
-  alarm → no red on the home). The count is in its accessible name: «Menü – <appName>, 2 offen».
+  **red dot** on its corner while an Einsatz runs or an alarm waits (it was a count); the count is
+  in its accessible name: «Menü – <appName>, 2 offen».
 - **The running chip** (owner's pick 6A, 23.10.2026, sweep F.2) names the first REAL Einsatz —
   an Übung only when nothing but Übungen runs — with its short address, and ONE «+N» for every other
   open one, Einsätze and Übungen together (no separate Übung count). The name opens that Einsatz;
@@ -1151,17 +1149,15 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   was a strip under the bar), where it takes what the two leave: the title and the address end in
   «…», «+N» never gives way. Only the phone's Checkliste, whose bar holds the library's field, keeps
   it as a strip under the bar. The Einsatz's own bar (IncidentSwitcher, the title ▾) is not this button.
-  It is solid INK like every main button (`--btn-primary`, M1 · owner's pick A, 13.11.2026 – it was
-  red), with its live dot; an Übung's chip wears the Übung tag's hatching (M2). A token, never a
-  station colour: `/api/config` recolours only `--accent` and the categories.
-- **The alarm chip** (M1, owner's pick A, 13.11.2026): a live Ernstfall with a Trupp at the alarm
-  tier (`atemschutz_due` on the incident list, lib/foreignAlarm · `homeAlarm`) stands as its OWN
-  solid red chip after the running one — «2 Alarme» over its most urgent reason («Atemschutz
-  überfällig», «Alarmdruck erreicht», «Atemschutz-Notfall»; the phone keeps the count alone). It is
-  the loudest thing on the home and its only red. It never ellipsises – the Einsatz's name gives way.
-  No tone and no Meldeleiste row on the home; an Übung's Trupps keep to their mark in the list. A
-  tap mutes that Einsatz's tone (as «Zum Trupp») and opens it ON the most urgent Trupp
-  (App · openOnTrupp, notifyTarget · handOverNotifyTarget).
+  It is solid red (it was ink with a red alarm chip beside it in round 2; owner, 13.11.2026: the two
+  competed for the bar – one red chip again); an Übung's chip wears the Übung tag's hatching (M2).
+- **The chip says an alarm** (owner's pick «Same chip says it», 13.11.2026): while a live
+  Ernstfall has a Trupp at the alarm tier (`atemschutz_due` on the incident list, lib/foreignAlarm ·
+  `homeAlarm`) the chip names THAT Einsatz and says so on its own line: «⚠ Zimmerbrand · 2 Alarme»
+  – the name ellipsises, the count never does. No tone and no Meldeleiste row on the home; an
+  Übung's alarm never changes the chip. A tap then mutes that Einsatz's tone (as «Zum Trupp») and
+  opens it ON the most urgent Trupp (App · openOnTrupp, notifyTarget · handOverNotifyTarget); with
+  no alarm it opens the Einsatz as always.
 - **The arrival** (owner, 20.10.2026, after Wispr Flow's streak grid: «a very subtle loading
   animation for the stuff that arrives» — picked «Welle» from a gallery of real-app clips). The
   catalogue answers in one go and the dots and name tags used to land in one frame; now each
