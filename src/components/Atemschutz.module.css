@@ -1858,12 +1858,12 @@ button.crewLine { cursor: pointer; -webkit-tap-highlight-color: transparent; }
    grid sizes the rows around it and the two never overlap however short the left block is */
 .grid .trowHeadStatic .trowClock { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column;
   align-items: flex-end; justify-content: space-between; }
-/* ⚠️ No lift of the digits onto the crew's baseline: caption 3 + 11 + time 24 = 38px is all the
+/* ⚠️ No lift of the digits onto the crew's baseline: caption 2 + 11 + time 24 = 37px is all the
    column may be – name + one crew line is 43px on touch – or it grows the rows and opens a gap
    between the name and its crew, the very gap this head closes (tried 3 and 6px, 13.11.2026) */
 /* the caption's caps level with the name's: the 19px name's line box puts its cap height ~4px
-   down, the 11px caps at line-height 1 sit ~1px down – so 3px */
-.grid .trowHeadStatic .trowSub { display: block; line-height: 1; margin-top: 3px; }
+   down, the 11px caps at line-height 1 sit ~1px down – 2px (the scale's step; 3 is a literal) */
+.grid .trowHeadStatic .trowSub { display: block; line-height: 1; margin-top: 2px; }
 .grid .trowHeadStatic .trowSub:empty { display: none; }
 /* a card without the band: its first tile 5px under the crew line's box (8 under its glyphs), not
    the zone's 8 (r18, above) */
