@@ -148,10 +148,12 @@
   .tb-gps:hover { background: var(--amber-28); }
 }
 .tb-gps:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* its sentence, out of the top bar — so the bar's own glass, as every popup out of the bar */
-.tb-gps-pop { max-width: min(300px, calc(100vw - 20px)); padding: var(--sp-3) var(--sp-4);
+/* its sentence, out of the top bar — so the bar's own glass, as every popup out of the bar, in
+   THE popover shell: --r-bar over --bar-pad, the sentence a menu row's 12px further in (as
+   .tb-weather-pop; it was --r-sm over 12/16), 8px clear of both screen edges */
+.tb-gps-pop { max-width: min(300px, calc(100vw - 2 * var(--float-gap))); padding: calc(var(--bar-pad) + var(--sp-3));
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  border-radius: var(--r-sm); box-shadow: var(--e4); animation: popIn .15s var(--ease); }
+  border-radius: var(--r-bar); box-shadow: var(--e4); animation: popIn .15s var(--ease); }
 .tb-gps-hint { margin: 0; font: var(--fw-medium) var(--fs-2) / var(--lh-2) var(--body); color: var(--ink); }
 @keyframes tb-az-pulse { 0%, 100% { background-color: var(--red-16); } 50% { background-color: color-mix(in srgb, var(--red) 34%, transparent); } }
 

@@ -24,13 +24,14 @@
 
 /* Phone: the trigger is the compass in the bottom tool bar, so the dock opens ABOVE the bars,
    next to the thumb that pressed it, rather than jumping to the far top corner.
-   Its bottom edge lands exactly where the Ebenen sheet's does (`--rail-h * 2 + 26px`, see
-   .layers-card in app.css) — the two open from the same bar and must line up. That also keeps
-   the Eintrag FAB, which floats just above the bar, from peeking out beside the dock's own ⓘ
-   button, where the two round controls read as a pair. */
+   It stands where the floating row does (`--float-floor`: one --float-gap above the highest bar)
+   and 8px from the edge, like every piece over the bars (docs/ui-conventions · ONE floating
+   row) — it was 10px up and 10px in (`--rail-h * 2 + 26px`), lined up with an Ebenen card that
+   is a bottom sheet since 29.09.2026. Covering that row also keeps the Eintrag FAB from peeking
+   out beside the dock's own ⓘ button, where the two round controls read as a pair. */
 @media (--phone) {
-  .dock { top: auto; right: max(10px, env(safe-area-inset-right));
-    bottom: calc(var(--rail-h) * 2 + 26px + env(safe-area-inset-bottom)); transform: none;
+  .dock { top: auto; right: max(var(--float-gap), env(safe-area-inset-right));
+    bottom: var(--float-floor); transform: none;
     max-height: calc(100dvh - 220px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 }
 

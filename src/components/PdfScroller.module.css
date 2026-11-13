@@ -50,7 +50,7 @@
    stacked bars at the foot */
 @media (--phone) {
   .reader {
-    --lane-top: calc(76px + env(safe-area-inset-top));
+    --lane-top: var(--under-bar);
     --lane-l: var(--sp-2);
     --lane-r: var(--sp-2);
     /* …plus the docked section strip's lane while it stands (15-mobile · --rp-tabs-safe) */

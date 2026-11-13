@@ -430,8 +430,17 @@
   html:not(.page-scroll), html:not(.page-scroll) body, html:not(.page-scroll) #root { overflow-x: hidden; }
 
   /* top bar — one clean full-width row; the title truncates, Eintrag is the FAB.
-     top/left/right hug the safe area so the bar clears the notch + rounded corners */
-  .topbar { top: calc(10px + env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left));
+     top/left/right hug the safe area so the bar clears the notch + rounded corners, 8px from all
+     three edges like the bars at the foot (owner, 13.11.2026: it stood 10px from the top).
+     ⚠️ Everything hung under the bar reads these three, never a number of its own:
+     --bar-top (its top edge), --bar-foot (its bottom edge: --tap + 2 × --bar-pad + its 2px of
+     border) and --under-bar (one --float-gap below that – the chip row, banners, page tops). */
+  :root { --bar-top: calc(var(--float-gap) + env(safe-area-inset-top));
+    --bar-foot: calc(var(--bar-top) + var(--tap) + 2 * var(--bar-pad) + 2px);
+    --under-bar: calc(var(--bar-foot) + var(--float-gap));
+    /* where the Meldeleiste and the toasts start: a --sp-1 under the bar (08-toasts · .ml) */
+    --msg-top: calc(var(--bar-foot) + var(--sp-1)); }
+  .topbar { top: var(--bar-top); left: max(8px, env(safe-area-inset-left));
     right: max(8px, env(safe-area-inset-right)); max-width: none; gap: 8px; flex-wrap: nowrap; }
   .eaddr { display: none; }
   /* ⚠️ `0 1 auto`, not `0 0 auto`. With the title hidden every remaining child of the switcher
@@ -598,7 +607,7 @@
      navigation bar. Its own 1px edge stays visible (+1px). */
   .topbar::before { content: ''; position: absolute; pointer-events: none;
     bottom: calc(100% + 1px); left: calc(-1px - max(8px, env(safe-area-inset-left))); right: calc(-1px - max(8px, env(safe-area-inset-right)));
-    height: min(var(--vv-pan, 0px), calc(10px + env(safe-area-inset-top))); background: var(--app-bg); }
+    height: min(var(--vv-pan, 0px), var(--bar-top)); background: var(--app-bg); }
 
   /* ── NavRail → bottom bar on a phone ── the SAME surface items, re-laid-out as a
      horizontally-scrollable row in the thumb zone (Karte · M1 M2 … · Checkliste ·
@@ -718,7 +727,7 @@
      lifts it through `--kb-inset` / the inline margin (SucheCard · keyboardLift). */
   .layers-card {
     left: 0; right: 0; bottom: 0; top: auto; width: auto; max-width: none; transform: none; box-sizing: border-box;
-    max-height: min(72dvh, calc(100dvh - var(--kb-inset, 0px) - 84px - env(safe-area-inset-top)));
+    max-height: min(72dvh, calc(100dvh - var(--kb-inset, 0px) - var(--bar-foot) - var(--sp-4)));
     border-radius: var(--r-hero) var(--r-hero) 0 0;
     padding-bottom: env(safe-area-inset-bottom);
     animation: sheetUp .22s var(--ease); }
@@ -726,8 +735,11 @@
   /* …in replay too, where the door is the top-right cluster (05-navrail · .map-util re-anchors the
      tablet card under it, and at (0,2,0) it would hang this sheet from the top) */
   .map-util .layers-card { top: auto; bottom: 0;
-    max-height: min(72dvh, calc(100dvh - var(--kb-inset, 0px) - 84px - env(safe-area-inset-top))); }
-  .layers-card .lc-title { padding: 4px 12px 8px 24px; touch-action: none; }
+    max-height: min(72dvh, calc(100dvh - var(--kb-inset, 0px) - var(--bar-foot) - var(--sp-4))); }
+  /* the ✕'s plate ends on the content's right edge, as on the tablet card (05-navrail ·
+     .lc-title): the sheet's body pad (.lc-body below, safe area included) + .lc-quick's 4 = 20;
+     the title starts on the text edge, 24. It stood 12px in, then 24 (owner, 13.11.2026). */
+  .layers-card .lc-title { padding: 4px calc(max(16px, env(safe-area-inset-right)) + var(--sp-1)) 8px var(--sp-5); touch-action: none; }
   .layers-card .lc-title button { touch-action: auto; }
   .layers-card > .ui-sheet-grab { margin-bottom: -4px; }
   .layers-card .lc-body { padding: 0 max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left)); }
@@ -745,7 +757,7 @@
      why it could not be pushed down (swipeDismiss measures «flush with the bottom») and why, with
      the keyboard up, 8px + the home-indicator inset stood open between it and the keys. */
   .journal-drawer { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-width: none;
-    max-height: calc(100dvh - 70px - env(safe-area-inset-top));
+    max-height: calc(100dvh - var(--bar-foot) - 2px);
     padding-bottom: 0;
     border-radius: var(--r-hero) var(--r-hero) 0 0; animation: sheetUp .22s var(--ease); }
   /* ⚠️ Keyboard up (the Verlauf search, 15.09.2026): the Overlay lifts this bottom-anchored
@@ -753,7 +765,7 @@
      screen – so a full drawer rode up with its HEAD, the row holding the search field, above the
      top of the screen, and the operator typed into a field they could not see. The cap gives the
      keyboard its share, the same way the incident sheet's `.is-kb` does (13-incident.css). */
-  .journal-drawer.is-kb { max-height: calc(100dvh - 70px - env(safe-area-inset-top) - var(--kb-inset, 0px)); }
+  .journal-drawer.is-kb { max-height: calc(100dvh - var(--bar-foot) - 2px - var(--kb-inset, 0px)); }
   /* ⚠️ …and that bottom inset is the LOG's, not the drawer's (30.09.2026, staging phone pass:
      «there is a gap at the bottom where things don't scroll down below»). As the drawer's own
      padding it was a dead band — 10px + the home indicator, ~44px on an iPhone — under the
@@ -958,7 +970,7 @@
      by the display's rounded corner. Its top is the inset + 8 + the 60px top bar + 8; the bottom
      bar stands `8px + env(safe-area-inset-bottom)` off the edge and is --rail-h tall; anything
      longer scrolls inside (`overflow: auto`). Same reservation as `.tb-weather-pop` above. */
-  .ip-menu { max-height: calc(100dvh - 76px - env(safe-area-inset-top) - var(--rail-h) - 16px - env(safe-area-inset-bottom));
+  .ip-menu { max-height: calc(100dvh - var(--under-bar) - var(--rail-h) - 16px - env(safe-area-inset-bottom));
     width: calc(100% + 2px); min-width: 0; max-width: none; }
   /* …the «Einsätze ▾» sheet of «Karte & Objekte» too (13-incident · .ip-einsaetze) */
   .ip-menu.ip-einsaetze { width: calc(100% + 2px); }
@@ -1136,15 +1148,15 @@
   :root[data-stack-lane] { --msg-lane-bottom: calc(var(--stack-lane) + var(--stack-foot-lift, 0px)); }
   /* ⚠️ …which the TOASTER left on 20.10.2026 (S3, owner: «all notifications at the same place:
      at the top cleanly below the main navbar»): it stands under the bar, where the Meldeleiste
-     starts (72px), one 8px channel under the strip while one stands (`--ml-reserve`, the strip's
+     starts (--msg-top), one 8px channel under the strip while one stands (`--ml-reserve`, the strip's
      measured `--ml-h`), and under the Karte's running-Einsatz strip (`--strip-reserve`). Its
      edges are the strip's (08-toasts · --lane-l/--lane-r), which are the bars' 8px here. The instruction of a pick mode and a tool's tip keep the foot lane. */
   .toaster {
-    top: min(calc(72px + var(--ml-reserve, 0px) + var(--strip-reserve, 0px) + var(--nudge-reserve, 0px) + env(safe-area-inset-top)), calc(100dvh - 160px));
+    top: min(calc(var(--msg-top) + var(--ml-reserve, 0px) + var(--strip-reserve, 0px) + var(--nudge-reserve, 0px)), calc(100dvh - 160px));
     bottom: auto; align-items: stretch;
     max-height: min(32dvh, 240px);
   }
-  /* The Meldeleiste hangs from the same 72px, at z54 under the toaster's z90 — so the lane starts
+  /* The Meldeleiste hangs from the same --msg-top, at z54 under the toaster's z90 — so the lane starts
      under it, never on its first row's «Erledigt» / «Übernehmen»: `--ml-reserve` is the strip's
      MEASURED height (Meldeleiste · `--ml-h`) + an 8px channel. It used to be the strip's CAP
      (`min(32dvh, 240px)`), from before the strip published its height, which left a pill under a
@@ -1152,11 +1164,11 @@
   :root:has(.ml) .toaster { --ml-reserve: calc(var(--ml-h, 0px) + 8px); }
   /* …below the Karte's running-Einsatz strip (Karte.module.css · .runningStrip: 88px down, one
      --tap tall), one --float-gap under it: the top lane lay on «● Brand Musterstrasse ›» */
-  :root:has([data-karte-running]) .toaster { --strip-reserve: calc(88px + var(--tap) + var(--float-gap) - 72px); }
+  :root:has([data-karte-running]) .toaster { --strip-reserve: calc(88px + env(safe-area-inset-top) + var(--tap) + var(--float-gap) - var(--msg-top)); }
   /* …and below the alarm card (karte/AlarmReadiness · .alarmCardPhone: 88px down, its measured
      `--nudge-h`), one --float-gap under it – the toast lay on the card's head (owner, 25.10.2026);
      the Meldeleiste too (08-toasts · .ml, owner 31.10.2026: «Update bereit» lay on the card) */
-  :root:has([data-alarm-nudge]) :is(.ml, .toaster) { --nudge-reserve: calc(88px + var(--nudge-h, 0px) + var(--float-gap) - 72px); }
+  :root:has([data-alarm-nudge]) :is(.ml, .toaster) { --nudge-reserve: calc(88px + env(safe-area-inset-top) + var(--nudge-h, 0px) + var(--float-gap) - var(--msg-top)); }
   /* ⚠️ …but a MODAL bottom sheet no longer sends it up there (30.09.2026, owner, staging phone
      pass: «slightly odd positioning of the toasts» — with «Seite wählen» open the undo pill jumped
      from the foot of the list to the head of the page, over its blurred title). The sheet is the
@@ -1248,24 +1260,25 @@
   /* floating compass + wind cluster on the phone map (rendered only there) — the
      rail-footer compass is hidden in the bottom tool bar, and the wind readout moved out
      of the top bar (it clipped at the screen edge on 375–393px). Sits BELOW the bar
-     (74px clears the 10px offset + ~58px bar), mirroring the desktop .toputil placement. */
+     (--under-bar: one --float-gap under the bar), mirroring the desktop .toputil placement. */
   /* Wind, floating top-right. It used to share this box with the compass; the compass lives in
      the tool bar (05.08.2026, and again since 19.09. after one day back up here) — the wind
      stayed: it is a READ-OUT, and the bar has no room for it. */
   /* …in the floating family's material and at the height of the GPS caveat / Standort stop it
-     shares the 76px row with (hill climb r6, 04.11.2026): it used to be a bar-padded cluster with
-     an e4 shadow, 58px of card around one 44px read-out. Now the read-out IS the chip. */
-  .phone-wx { position: absolute; top: calc(76px + env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); z-index: var(--z-map-util);
+     shares the row under the bar with (hill climb r6, 04.11.2026): it used to be a bar-padded cluster with
+     an e4 shadow, 58px of card around one 44px read-out. Now the read-out IS the chip, so it
+     wears the one corner (`--r-sm`, as the GPS chip beside it), not the cluster's --r-bar. */
+  .phone-wx { position: absolute; top: var(--under-bar); right: max(8px, env(safe-area-inset-right)); z-index: var(--z-map-util);
     display: flex; align-items: center;
     background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
-    border-radius: var(--r-cluster); }
+    border-radius: var(--r-sm); }
   /* the bar's own weather readout is phone-hidden — it lives in this cluster instead */
   .topbar .tb-weather-wrap { display: none; }
   /* …and the GPS caveat leaves the bar for the same reason the weather did: there is no room
      for it. At 390px the bar's action cluster is already full at 132px of a 134px budget
      (undo · redo · Verlauf), so the chip — 198px with its age — simply painted off the right
      edge. It is a caveat about the vehicles on the MAP, so it floats over the map instead:
-     out of flow (the bar fits again), pinned under the bar on the left, at the same 76px the
+     out of flow (the bar fits again), pinned under the bar on the left, on the same row the
      wind read-out uses on the right so the two read as one row. Its text is the whole point,
      so it keeps it. */
   /* While this device is broadcasting somebody's location, the stop has to be on screen on
@@ -1273,26 +1286,41 @@
      undo · redo · Verlauf already fill the same 134px budget that pushed the GPS caveat out,
      and a fourth 44px control overflowed by 23px, hanging the pill half off the right edge —
      i.e. the one control that must never be hard to reach was the one being clipped. So it
-     leaves the flow and floats under the bar on the left, at the same 76px the wind read-out
-     uses on the right, and the bar fits again. Still 44px, still tappable, still everywhere. */
-  .tb-share { position: fixed; top: calc(76px + env(safe-area-inset-top));
-    left: max(10px, env(safe-area-inset-left)); z-index: var(--z-map-util-raised); }
+     leaves the flow and floats under the bar on the left, on the same row the wind read-out
+     uses on the right, and the bar fits again. Still 44px, still tappable, still everywhere.
+     ⚠️ ABSOLUTE to the bar, not fixed to the screen: the bar's backdrop-filter makes it the
+     containing block of a fixed child anyway, so `fixed; top: 76px; left: 10px` counted from the
+     bar's inner edge and stood the chip at 87/19 – 11px under the wind chip it shares a row with.
+     From the bar: one --float-gap under its outer edge (100% + its 1px border) and flush with its
+     left edge, which is the screen's 8px (consistency sweep 12.11.2026). */
+  .tb-share { position: absolute; top: calc(100% + 1px + var(--float-gap));
+    left: -1px; z-index: var(--z-map-util-raised); }
   /* …and the GPS caveat keeps clear of the Standort slot, reserved or not: a chip that jumps
-     sideways when somebody starts sharing is worse than one that sits 52px in. */
+     sideways when somebody starts sharing is worse than one that sits one Standort chip in. */
   /* …in the floating family's material (S6, 20.10.2026): it wore an amber outline and a shadow
      of its own, and a STATE is a glyph colour, never an outline (docs/ui-conventions · ONE
-     floating family) — the locate glyph carries the amber, the words are ink, --tap tall */
-  .tb-gps { position: fixed; top: calc(76px + env(safe-area-inset-top));
-    left: calc(max(10px, env(safe-area-inset-left)) + 52px); max-width: calc(100vw - 142px); margin-right: 0;
-    min-height: var(--tap); padding: 0 var(--float-pad-x) 0 var(--sp-3);
+     floating family) — the locate glyph carries the amber, the words are ink.
+     The row under the bar is the floating family's (owner pick 13.11.2026, sweep R2-C): --float-h
+     tall, 14px before the glyph and after the words, 16px glyphs – the wind, Standort and GPS chips
+     were --tap (44), the one row of the family 8px short of the rest. */
+  .tb-gps { position: absolute; top: calc(100% + 1px + var(--float-gap));
+    left: calc(var(--float-h) + var(--float-gap) - 1px); margin-right: 0;
+    /* …and it ends one --float-gap before the wind chip: the room left of that chip's
+       `--wx-room` (two row heights + a gap = 112, the chip measures 100 at «↘ 11 km/h»). Its
+       words wrap onto a second line inside the 52px rather than run under the wind (a flat
+       `100vw - 142px` left them 0px apart at 390 and 30px over each other at 360). */
+    --wx-room: calc(2 * var(--float-h) + var(--float-gap));
+    max-width: calc(100vw - var(--float-h) - 4 * var(--float-gap) - var(--wx-room));
+    min-height: var(--float-h); padding: 0 var(--float-pad-x); line-height: var(--lh-1); text-align: left;
     background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); }
-  .tb-gps .i { color: var(--amber-strong); }
+  .tb-gps .i { color: var(--amber-strong); width: 16px; height: 16px; }
+  /* the Standort stop: a --float-h square in the same row (the FAB's and the ReadingsChip's size) */
+  .tb-share > * { width: var(--float-h); height: var(--float-h); }
   /* --tap, not 40 (UX sweep S9, 20.10.2026): at (0,2,0) this beat 20-touch-floors' coarse
      `.tb-weather` floor, so the Karte's one wind target on a phone stayed 4px short */
-  /* …and a little narrower than the family's 14px a side (owner note on the r11 checkpoint, 05.11.2026):
-     8px before the arrow, whose own box already carries air around the stroke, 12px after «km/h»;
-     the height stays the --tap target */
-  .phone-wx .tb-weather { min-height: var(--tap); padding: 0 var(--sp-3) 0 var(--sp-2); border-radius: inherit; }
+  /* …the family's row: --float-h tall with its 14px a side (owner pick 13.11.2026, sweep R2-C –
+     it was --tap tall, 8px before the arrow and 12px after «km/h», owner note r11, 05.11.2026) */
+  .phone-wx .tb-weather { min-height: var(--float-h); padding: 0 var(--float-pad-x); border-radius: inherit; }
 
   /* Einstellungen rows: the 3-segment controls (Farbschema, Beschriftungen) are wider than
      a phone row leaves next to the label — let the control wrap onto its own right-aligned
