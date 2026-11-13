@@ -3,6 +3,7 @@ import { Marker } from 'react-map-gl/maplibre'
 import type { CaptionMode, Entity, LngLat, Trupp } from '../types'
 import { buzz } from '../lib/haptics'
 import { appConfig } from '../config/appConfig'
+import { shownTeamColor } from '../lib/teamColors'
 import { DRAG_DEADZONE_PX, useHoldToDrag } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { Icon } from '../lib/icons'
@@ -718,7 +719,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
           // or a dot lying under the pill (marked without moving) swallows the pill's tap
           <Marker key={`${e.id}-trail-${i}`} longitude={p.coord[0]} latitude={p.coord[1]} anchor="center" draggable={false} style={{ pointerEvents: 'none' }}>
             <div className={raus ? 'map-trail-dot raus' : 'map-trail-dot'}>
-              <span className="wb-trail-mark" style={{ background: e.color || appConfig.drawing.teamColors[0] }} />
+              <span className="wb-trail-mark" style={{ background: shownTeamColor(e.color) }} />
               {!suppressedLabels?.has(`crumb:${e.id}:${i}`) && <i><span>{p.t}</span></i>}
             </div>
           </Marker>

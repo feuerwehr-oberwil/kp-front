@@ -9,6 +9,7 @@ import { useEffect, useRef } from 'react'
 import { Marker } from 'react-map-gl/maplibre'
 import type { Entity, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
+import { shownTeamColor } from '../lib/teamColors'
 import { thumbUrl } from '../lib/mediaUrl'
 import { Icon } from '../lib/icons'
 import { LockChip } from './LockChip'
@@ -221,7 +222,7 @@ export function EntityMarker({
         // full pill (the plan board's resource chip, shared wb-resource CSS) with the
         // timestamp. A Trupp marked «raus» on the Atemschutz board dims here too.
         const isRaus = !!e.truppId && !!trupps?.some((t) => t.id === e.truppId && t.status === 'raus')
-        const teamCol = e.color || appConfig.drawing.teamColors[0]
+        const teamCol = shownTeamColor(e.color)
         // The Leitung this Trupp works (MapView · teamLineBadges): its ink and, where the
         // hose actually ends here, a coupling. ⚠️ Name only, no Leitung number (11.10.2026,
         // owner — the Gebäude chip's look): the hose's end tag says which Leitung. Absent

@@ -9,6 +9,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactElement } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import { shownTeamColor } from '../lib/teamColors'
 import { fillTemplate, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { cx } from '../lib/cx'
@@ -1953,7 +1954,7 @@ export function AtemschutzView({
                   <button key={m.key} className={cx(s.placeOpt, s.placeOptMarker)}
                     onClick={() => { adoptMarker(placePick, m.key); setPlacePick(null) }}>
                     <span>
-                      <span className={s.placeOptCap} style={{ background: m.color || appConfig.drawing.teamColors[0] }} aria-hidden />
+                      <span className={s.placeOptCap} style={{ background: shownTeamColor(m.color) }} aria-hidden />
                       {m.name}
                     </span>
                     <span className={s.placeOptWhere}>

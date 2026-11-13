@@ -13,6 +13,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import '../lib/maplibreWorker'
 import type { Drawing, LineAttachment, LineEndpoint, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
+import { shownTeamColor } from '../lib/teamColors'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { motionDuration } from '../lib/reducedMotion'
 import { createNorthSnap, gateTouchRotation, NORTH_SNAP_MS } from '../lib/mapTwist'
@@ -1189,7 +1190,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   const trailFC = useMemo(() => fc(entities
     .filter((e) => e.kind === 'team' && isVisible(effectiveLayer(e)) && (e.trail?.length ?? 0) >= 2 && !hiddenTrails.has(e.id))
     .map((e) => lineFeat((e.trail ?? []).map((p) => p.coord), {
-      color: e.color || appConfig.drawing.teamColors[0],
+      color: shownTeamColor(e.color),
       done: !!e.truppId && !!trupps?.some((t) => t.id === e.truppId && t.status === 'raus'),
     }))), [entities, isVisible, hiddenTrails, trupps])
   const doneOpacity = Number(themeToken('--done-opacity', '.5')) || 0.5
