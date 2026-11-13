@@ -870,7 +870,9 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // editing a selected drawing: show draggable vertex handles + a move handle.
   // read-only never gets handles: the app's edit callbacks are no-ops there, so grabbable-looking
   // vertices would move under the finger and snap back — the worst kind of 3am lie.
-  const editDraw = !georefOn && !readOnly && !picking && !freehand && !draftKind && !measureKind && resolvedSelectedDrawing && Array.isArray(resolvedSelectedDrawing.coords) && resolvedSelectedDrawing.coords.length > 0 ? resolvedSelectedDrawing : null
+  // …and neither does a LOCKED one, opened from its 🔒 chip (LockChip · onOpen): its editor is
+  // where it unlocks, and a tap there must not have armed the shape for a move
+  const editDraw = !georefOn && !readOnly && !picking && !freehand && !draftKind && !measureKind && resolvedSelectedDrawing && !resolvedSelectedDrawing.locked && Array.isArray(resolvedSelectedDrawing.coords) && resolvedSelectedDrawing.coords.length > 0 ? resolvedSelectedDrawing : null
   const editCircle = !!editDraw && editDraw.kind === 'circle'
   const editArea = !!editDraw && editDraw.kind === 'area' && editDraw.coords.length >= 3
   // circle: no per-vertex handles (it's centre + radius, not a polyline) — the centre
@@ -1706,12 +1708,12 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
         </Marker>
       ))}
 
-      {/* lock chip on every locked drawing — the click-through shape's only tap target;
-          tapping it unlocks + selects the shape (Figma/Miro-style lock affordance). Its only
-          job is unlocking, so it stays away when editing is locked anyway. */}
+      {/* lock chip on every locked drawing — the click-through shape's only tap target: a tap
+          opens its editor («Sperren» pressed), a hold unlocks + selects it. Its only job is
+          unlocking, so it stays away when editing is locked anyway. */}
       {nativeDrawingChrome && !readOnly && onUnlockDrawing && lockChips.map((c) => (
         <Marker key={`lk${c.id}`} longitude={c.coord[0]} latitude={c.coord[1]} anchor="center">
-          <LockChip onUnlock={() => onUnlockDrawing(c.id)} />
+          <LockChip onUnlock={() => onUnlockDrawing(c.id)} onOpen={() => onSelectDrawing(c.id)} />
         </Marker>
       ))}
 
