@@ -75,24 +75,62 @@ a Checkliste, a Verlauf-Eintrag, a Mittel line).
   Anwesenheit head and the Rapport's «Personal & Mittel» row say the same word for the head
   count (the Rapport said «erfasst»).
 
+## One word per fact (3am sweep, 13.11.2026)
+
+One line per rule from the design-language sweep (`words.md`, WORD.1–WORD.13); en/fr/it follow
+with their own pair (saved / sent · enregistré / transmis · salvato / trasmesso; network ·
+réseau · rete).
+
+- **«abschliessen / Abschluss» is closing a record** – the Einsatz, an Objektbesuch – and nothing
+  else. The ✓ that ends a drawing is «fertig», a line's cap is the «Linienende», leaving a
+  surface is «Zur …» / «Zurück» (WORD.1).
+- **«gespeichert» = safe on this device, «übertragen» = reached the others, «Netz» = the
+  network.** «Sync», «synchronisiert», «Server», «lokal gespeichert», «Upload», «Verbindung» (for
+  the network) do not appear in operator copy. Personnel import from an external system is a
+  «Abgleich» (WORD.2).
+- **Never claim a state the code has not verified.** A lost response is «… nicht bestätigt», an
+  unreachable request «Nicht erreichbar», a timeout «Keine Antwort» – not «Kein Netz» (WORD.2/6).
+- **The Atemschutz surface is «Trupps» on screen**, «Atemschutzüberwachung» only in print,
+  «Tafel» only the Plan's template pages; a Trupp leaves «die Überwachung», not «die Tafel» (WORD.3).
+- **«sichern» is the Auftrag only**; a file leaving the app is «herunterladen» (WORD.4).
+- **A ✕ or a button that empties a pad or a field is «leeren»** (WORD.5, extends the line below).
+- **A failure after the operator's own act says the state it leaves** («Nicht gelöscht – bleibt
+  in der Liste», «… – erneut versuchen»), never only «X fehlgeschlagen»; a hint says what to do,
+  not why the network did it, and is dropped when it would only repeat the title (WORD.6).
+- **A confirm button never starts with «Ja,»** – it is the verb of the consequence, «Teilen» not
+  «Weitergeben», «Drucken» not «Ausdrucken» (WORD.7).
+- **A confirm's button repeats the verb of its title** («… aufheben?» → «Link aufheben») or names
+  who gets what («Trupp {to} auf Leitung {n}») (WORD.8).
+- **A tool ⓘ is one line: the gesture and the finish**; what the editor offers is the editor's
+  job (WORD.9).
+- **An empty state names the button that fills it, in the button's own words** (WORD.10).
+- **A plan on the map is «verknüpft» / a «Verknüpfung»; its quality is «Genauigkeit»**;
+  «Referenz», «Passung» and «Deckung» are not words for it; its scale chip says «Massstab»; copying
+  it to another Modul is «Kopieren» (WORD.11).
+- **A recording made in the app is a «Sprachnotiz», an imported one an «Audiodatei».** Durations
+  are number, space, unit: «12 min», «2 h», «40 s». No «Update» on a screen – «Neue Version» (WORD.12).
+- **An abbreviation a volunteer may not hold gets its long form once**: «Notfall-Leitfaden
+  (ERG)», «unter Atemschutz» (not «AS»); doctrine shorts (ELZ, EL, GF, KP) stay (WORD.13).
+
 ## Failure, clear and search copy
 
 - **Failure copy has two shapes, and they are not interchangeable** (settled 2026-08-27 after a
   sweep found 35 of one and 20+ of the other with no rule between them):
-  - *«X fehlgeschlagen»* – the action the operator just triggered failed, on a surface that
-    already says which one it was (the toast right after the button). It is a **fragment**.
+  - *«X nicht <Partizip> – <was bleibt / erneut versuchen>»* – the action the operator just
+    triggered failed (the toast right after the button). It is a **fragment** and names the
+    state it leaves; a bare «X fehlgeschlagen» is no longer enough (WORD.6, 13.11.2026).
   - *«X konnte nicht … werden»* – the failure is about a **named thing** the operator did not
     just act on, or the sentence has to carry *which* object failed («Plan konnte nicht
     hochgeladen werden»). Losing the object name to shorten it is the wrong trade.
   - **Punctuation follows the last segment, not the string.** A string ends with a period only
-    when its final segment is a full clause (subject + finite verb): «… – Änderungen sind lokal
-    gespeichert.» keeps it, «Löschen fehlgeschlagen» does not.
+    when its final segment is a full clause (subject + finite verb): «… – Änderungen sind auf diesem
+    Gerät gespeichert.» keeps it, «Nicht gelöscht – bleibt in der Liste» does not.
     Headings and titles never take one, even when they are full clauses («Ein Fehler ist
     aufgetreten»). The rule is per locale – French «La suppression a échoué.» is a clause where
     German «Löschen fehlgeschlagen» is a fragment, and both are right.
   - **A retry sentence says what happened, the button says «Erneut versuchen»** (29.09.2026) —
     never «… nochmals versuchen» in the sentence next to it; one button word in every locale.
-- **A ✕ that empties a field says «leeren», never «löschen»** (29.09.2026) — «löschen» is the
+- **A ✕ that empties a pad or a field says «leeren», never «löschen»** (29.09.2026) — «löschen» is the
   delete verb. `copy.clear` «Leeren», `copy.clearSearch` «Suche leeren»; no per-surface «Suche löschen» copies.
 - **A search field's placeholder is «<Thing> suchen …», or bare «Suchen …» where the surface
   already names the thing** (swept 18.09.2026: «Suchen», «Name suchen», «Suchen oder Name
