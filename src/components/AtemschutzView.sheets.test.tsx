@@ -338,7 +338,7 @@ describe('the handed-over board on a phone (focus mode)', () => {
     fireEvent.click(opener)
     await waitFor(() => {
       const panel = document.querySelector('.az-head-detail')!.textContent
-      expect(panel).toMatch(/Übertragen um.*18:05/)
+      expect(panel).toMatch(/Synchronisiert um.*18:05/)
       // the link hint is a line here now — the link board shows no toasts (sweep #23)
       expect(panel).toContain(az.linkReentryHint)
     })

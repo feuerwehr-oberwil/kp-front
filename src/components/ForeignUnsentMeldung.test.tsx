@@ -37,7 +37,7 @@ afterEach(cleanup)
 
 it('names the account whose edits are parked and says who has to sign in', async () => {
   await show(['anna'])
-  expect(titles()).toEqual(['Nicht übertragene Änderungen von Keller Mara auf diesem Gerät'])
+  expect(titles()).toEqual(['Nicht synchronisierte Änderungen von Keller Mara auf diesem Gerät'])
   expect(document.querySelector('.ml-sub')?.textContent).toBe('Keller Mara muss sich hier anmelden')
   // it informs: no button that could act on somebody else's edits
   expect(document.querySelector('.ml-act button')).toBeNull()
@@ -50,7 +50,7 @@ it('shows nothing while no other account has parked work', async () => {
 
 it('an account the roster no longer lists is «einem früheren Konto»', async () => {
   await show(['gone'])
-  expect(titles()).toEqual(['Nicht übertragene Änderungen von einem früheren Konto auf diesem Gerät'])
+  expect(titles()).toEqual(['Nicht synchronisierte Änderungen von einem früheren Konto auf diesem Gerät'])
   expect(document.querySelector('.ml-sub')?.textContent).toBe('Sie bleiben auf diesem Gerät gespeichert')
 })
 

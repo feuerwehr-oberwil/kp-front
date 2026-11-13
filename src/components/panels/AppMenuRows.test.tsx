@@ -84,12 +84,13 @@ describe('AppMenuRows · home (no card)', () => {
     expect(screen.queryByRole('button', { name: appConfig.copy.tutorials.menu })).toBeNull()
   })
 
-  it('draws ONE «Dieses Gerät» row when handed the door, and no second device row', () => {
+  // round 2b: the one sheet is «Einstellungen» again, and so is its one row
+  it('draws ONE «Einstellungen» row when handed the door, and no second device row', () => {
     const onDevice = vi.fn()
     renderHome({ onDevice })
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.settings.sheetTitle }))
     expect(onDevice).toHaveBeenCalledTimes(1)
-    expect(screen.getAllByRole('button').filter((b) => /Einstellungen|Offline|Auf diesem Gerät/.test(b.textContent ?? ''))).toEqual([])
+    expect(screen.getAllByRole('button').filter((b) => /Einstellungen|Dieses Gerät|Offline|Auf diesem Gerät/.test(b.textContent ?? ''))).toHaveLength(1)
   })
 })
 

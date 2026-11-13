@@ -770,8 +770,8 @@ export default function App() {
     if (i.id === activeId && activeMeta && einsatzBehind) uncoverEinsatz()
     else void openIncident(i.id, { meta: i })
   }
-  // the viewer's red alarm chip (KarteApp · alarmChip): acknowledge that Einsatz's tone, as «Zum
-  // Trupp» does (IncidentWorkspace · goToForeignTrupp), and land ON the Trupp — the workspace that
+  // the viewer's running chip while it says an alarm (KarteApp · runningChip): acknowledge that
+  // Einsatz's tone, as «Zum Trupp» does (IncidentWorkspace · goToForeignTrupp), and land ON the Trupp — the workspace that
   // mounts for it claims the target; one already open behind the viewer is only uncovered
   const openOnTrupp = (i: IncidentMeta, truppId: string) => {
     muteAtemschutzFor(i.id)
@@ -911,7 +911,7 @@ export default function App() {
         // the banners below: shown, never switched to by themselves (owner, 16.10.2026).
         <Suspense fallback={<Splash />}>
           <KarteApp
-            einsaetze={{ badge: runningNow.length + landingAlarms.length, alarm: landingAlarms.length > 0, render: (close, onDevice) => <HomeMenu {...home} close={close} onDevice={onDevice} /> }}
+            einsaetze={{ badge: runningNow.length + landingAlarms.length, render: (close, onDevice) => <HomeMenu {...home} close={close} onDevice={onDevice} /> }}
             announceReturn={karteFromEinsatz}
             onOpenVisits={openVisitsFromKarte}
             running={runningNow}

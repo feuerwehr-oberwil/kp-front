@@ -971,11 +971,19 @@ span.wb-ghost-label { cursor: default; }
 /* the ONE disabled (28.09.2026): the dim alone, no repainted fill */
 .wb-dock-go:disabled { opacity: var(--disabled); cursor: default; }
 .wb-dock-go .i { width: 18px; height: 18px; stroke-width: 2.4; }
-/* «✓ Fertig» wears its word (M7 C, 13.11.2026): it is the one control that COMMITS a draft, and a
-   bare ✓ beside the ✕ read as two ways out. The dock grows to the word; on the phone's row the
-   46px tile becomes a pill of the same height. */
-.wb-dock .wb-dock-go { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
-  width: auto; min-width: 46px; padding-inline: var(--sp-3); font: var(--fw-bold) var(--fs-2)/1 var(--body); white-space: nowrap; }
+/* ── the worded dock (ToolDock · `worded`, round 2b, owner 13.11.2026: «only labels for some of the
+   tool items, and thus the spacing of the Fertig looks completely off») ── with «Beschriftung der
+   Werkzeugleisten» on, the column is the labelled rail's twin: as wide (--vrail-w-labelled), every
+   item a --vrail-tile tile with its word under the glyph in the rail's `.vrail-label` voice; «✓
+   Fertig» the one FILLED tile. Off, every item is the bare 46px glyph and «Fertig» the filled ✓. */
+.wb-dock.wb-dock-worded { width: var(--vrail-w-labelled, 92px); }
+.wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded) {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+  width: 100%; height: var(--vrail-tile); padding: 0 2px; }
+.wb-dock-word { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center;
+  font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 1.1; }
+/* the glyph in the rail's 26px band over its word */
+.wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded) .i { margin-block: 2px; }
 /* (.wb-dock-info / .wb-dock-ibtn / .wb-dock-tip migrated → DockInfo.module.css) */
 /* toggle inside the dock (e.g. the armed Messen mode, the "keep placing" lock) — the accent fill
    when engaged: that fill is what says «armed», on day and night glass alike */

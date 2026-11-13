@@ -78,18 +78,21 @@ a Checkliste, a Verlauf-Eintrag, a Mittel line).
 ## One word per fact (3am sweep, 13.11.2026)
 
 One line per rule from the design-language sweep (`words.md`, WORD.1–WORD.13); en/fr/it follow
-with their own pair (saved / sent · enregistré / transmis · salvato / trasmesso; network ·
+with their own pair (saved / synced · enregistré / synchronisé · salvato / sincronizzato; network ·
 réseau · rete).
 
 - **«abschliessen / Abschluss» is closing a record** – the Einsatz, an Objektbesuch – and nothing
   else. The ✓ that ends a drawing is «fertig», a line's cap is the «Linienende», leaving a
   surface is «Zur …» / «Zurück» (WORD.1).
-- **«gespeichert» = safe on this device, «übertragen» = reached the others, «Netz» = the
-  network.** «Sync», «synchronisiert», «Server», «lokal gespeichert», «Upload», «Verbindung» (for
-  the network) do not appear in operator copy. Personnel import from an external system is a
-  «Abgleich» (WORD.2).
+- **«gespeichert» = safe on this device, «synchronisiert» = reached the other devices, «Netz» =
+  the network** (owner, 13.11.2026: «we use "synchronisiert" everywhere» – round 2's «übertragen»
+  is gone again). The noun is «Synchronisierung»; «Sync» as a bare word, «lokal gespeichert»,
+  «Upload», «Verbindung» (for the network) do not appear in operator copy. Personnel import from
+  an external system is a «Abgleich» (WORD.2).
 - **Never claim a state the code has not verified.** A lost response is «… nicht bestätigt», an
-  unreachable request «Nicht erreichbar», a timeout «Keine Antwort» – not «Kein Netz» (WORD.2/6).
+  unreachable request «Server nicht erreichbar», a timeout «Keine Antwort» – not «Kein Netz»
+  (WORD.2/6). «Server» is allowed on an operator screen for this one meaning (owner, 13.11.2026:
+  a bare «Nicht erreichbar» left open WHAT was not reachable).
 - **The Atemschutz surface is «Trupps» on screen**, «Atemschutzüberwachung» only in print,
   «Tafel» only the Plan's template pages; a Trupp leaves «die Überwachung», not «die Tafel» (WORD.3).
 - **«sichern» is the Auftrag only**; a file leaving the app is «herunterladen» (WORD.4).

@@ -101,13 +101,15 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     filled tile (owner, 27.09.2026).
   - *The grid's card names its clock and is denser* (hill climb r2, 04.11.2026): on the tablet /
     desktop grid the caption the link board's page wears names the clock («SEIT KONTAKT»,
-    «DRAUSSEN SEIT», «EINSATZZEIT», «ANGEMELDET UM») on a row of its own across the head,
-    so it never squeezes the name; under the grouped orders' «Draussen» head the break clock goes
+    «DRAUSSEN SEIT», «EINSATZZEIT», «ANGEMELDET UM»). Since round 2b (owner, 13.11.2026: «two
+    opposing empty spaces») the head is two blocks of one height: the name on the caption's line,
+    tops level, and the time's foot on the crew line's foot (`.grid .trowHeadStatic`); under the grouped orders' «Draussen» head the break clock goes
     unnamed (`RowLine · headed`). No separate state word by the name. The phone ROW names its clock
     the same way since M3 (owner's pick B, 13.11.2026: every duration says what it counts — «SEIT
     LETZTEM KONTAKT» became «SEIT KONTAKT» on both form factors so it fits); the opened phone card
-    keeps the caption hidden (owner 24.09.2026 — its section heads say it). The card foot names the
-    time under air with the eyebrow «UNTER ATEMSCHUTZ»; a time of day gets none. Fact chips are compact fields everywhere (28px drawn, 8px pad above/below on
+    keeps the caption hidden (owner 24.09.2026 — its section heads say it). The card foot is ONE line,
+    «drin 10:00 min · Schätzung ≈ 263 bar» (round 2b: M3's «UNTER ATEMSCHUTZ» wrapped it); a foot
+    row too narrow for it drops the Schätzung's word first (`.metaDrop`, a container query). Fact chips are compact fields everywhere (28px drawn, 8px pad above/below on
     touch so a chip owns 44px), rows 8px apart on every device since owner pick A2 (05.11.2026).
     Two rows 8px apart cannot both own 44px in 8px of air, so on the grid on touch the strip stands
     16px under the tiles and the first row's pad reaches 16px up; the second row (`.factsEnd`) owns
@@ -143,8 +145,8 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     fällig, red überfällig, blue angemeldet, green Sicherungstrupp); a calm inside card, an out
     card and a work squad have just the 1px card border — the phone rows too since owner pick C2
     (05.11.2026). An out card's foot words its finished values: «drin 29:00 min · raus mit 175
-    bar» (owner pick C18; not on a crew stood down at the door) — the joining words «drin» /
-    «raus mit» in the dim ink at 500, so the values read first (r13); the inside card's «Schätzung ≈»
+    bar» (owner pick C18; not on a crew stood down at the door), an inside card's «drin 10:00 min ·
+    Schätzung ≈ 263 bar» — the joining words «drin» / «raus mit» in the dim ink at 500, so the values read first (r13); the inside card's «Schätzung ≈»
     keeps full ink and weight.
   - *The tablet grid shows every foot* (hill climb r4, 04.11.2026): on the 1180×820 iPad the second
     row's foot (duration, Schätzung) met the panel's bottom edge. The space came out of air, never a

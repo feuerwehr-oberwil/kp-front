@@ -209,7 +209,6 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
       foot: 'Le corps entier n’est pas téléchargé (plusieurs Go). Enregistrer des objets ou zones choisis pour le hors-ligne : plus tard.',
       lampWord: { device: 'sur cet appareil', part: 'en partie sur cet appareil', online: 'avec réseau seulement' },
     },
-    alarmChipSub: { contact: 'ARI en retard', pressure: 'Pression d\'alarme atteinte', notfall: 'Urgence ARI' },
     alarmChipOpen: 'Alarme ARI dans {t} : {names} – vers l\'équipe',
   },
 }

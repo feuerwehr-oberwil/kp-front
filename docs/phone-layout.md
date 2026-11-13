@@ -69,7 +69,8 @@ unchanged.
 ## The top bar
 
 - *The Einsatz pill says «Stichwort · street» over the Einsatzuhr* (12.11.2026, owner: «Wasser ·
-  Sägestrasse 2»; the street alone since 07.10.). The street is street + house number only,
+  Sägestrasse 2»; the street alone since 07.10.). The Einsatzuhr is hourglass + digits, no label
+  (round 2b, 13.11.2026; the tablet bar's clock names itself on a tap, «Einsatzdauer · seit 14:02»). The street is street + house number only,
   whatever shape the address came in, and is said once when the title already carries it
   (`lib/format · einsatzPillName`). The street keeps its width; the Stichwort takes the rest
   and ellipsises first, so the house number stays (and ↷ and the weather yield before either part

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { IncidentSwitcher } from './IncidentSwitcher'
 import { appConfig } from '../../config/appConfig'
 import type { IncidentMeta } from '../../lib/incidents'
@@ -193,14 +193,31 @@ describe('IncidentSwitcher · Nur ansehen and the foreign-alarm dot', () => {
     expect(screen.getByText(`${cp.viewOnly} · ${cp.viewOnlyWhy.viewer}`)).toBeTruthy()
   })
 
-  it('keeps the ✓ where the session writes, and a sync warning outranks the mark', () => {
+  // round 2b (owner's pick «Only show problems»): all saved → no mark; the ✓ is the card's
+  it('shows no mark where the session writes and all is saved, and a sync warning outranks «Nur ansehen»', () => {
     renderShut({ viewOnly: null })
     expect(pill().querySelector('.ip-viewonly-chip')).toBeNull()
-    expect(pill().querySelector('.ip-status-synced')).not.toBeNull()
+    expect(pill().querySelector('.ip-status')).toBeNull()
+    expect(pill().dataset.sync).toBe('synced')
     cleanup()
     renderShut({ viewOnly: 'el', syncStatus: 'offline' })
     expect(pill().querySelector('.ip-viewonly-chip')).toBeNull()
     expect(pill().textContent).toContain(cp.offlineShort)
+  })
+
+  // round 2b: «Nicht synchronisiert» speaks up only once it outlasts a normal save; Offline wears
+  // the struck-through cloud, pending the plain one
+  it('marks pending only after the grace, and offline with the struck-through cloud', () => {
+    vi.useFakeTimers()
+    try {
+      renderShut({ syncStatus: 'pending' })
+      expect(pill().querySelector('.ip-status')).toBeNull()
+      act(() => { vi.advanceTimersByTime(10_000) })
+      expect(pill().querySelector('.ip-status-pending use')?.getAttribute('href')).toBe('#wx-cloud')
+      cleanup()
+      renderShut({ syncStatus: 'offline' })
+      expect(pill().querySelector('.ip-sync-word use')?.getAttribute('href')).toBe('#cloud-off')
+    } finally { vi.useRealTimers() }
   })
 
   it('dots the shut pill while another running Einsatz has a Trupp at the alarm tier', () => {
@@ -212,5 +229,38 @@ describe('IncidentSwitcher · Nur ansehen and the foreign-alarm dot', () => {
     // its own Trupps are the workspace's alarm, not a dot; and the dot goes once the list is quiet
     renderShut({ incidents: [{ ...active, atemschutz_due: [{ id: 't1', name: 'Trupp 1', reason: 'contact' }] } as unknown as IncidentMeta, { ...other, atemschutz_due: [] }] })
     expect(pill().querySelector('.ip-foreign-dot')).toBeNull()
+  })
+})
+
+// Round 2b (owner's pick M12 C «Der Name sagt es», 13.11.2026): an Übung wears no tag – a quiet
+// «Übung ·» stands before its name in the head, on the card and in the running rows, and a screen
+// reader hears «Übung, <name>» once.
+describe('IncidentSwitcher · Übung', () => {
+  const drill = {
+    id: 'inc-1', title: 'Brand Musterhaus', address: null, started_at: new Date(Date.now() - 600_000).toISOString(),
+    status: 'offen', is_archived: false, is_exercise: true,
+  } as unknown as IncidentMeta
+  const otherDrill = { ...drill, id: 'inc-2', title: 'Ölspur Hauptstrasse' } as IncidentMeta
+  /** what the eye reads: the text without the screen reader's hidden comma */
+  const seen = (sel: string) => {
+    const el = document.querySelector(sel)!.cloneNode(true) as HTMLElement
+    el.querySelectorAll('.sr-only').forEach((n) => n.remove())
+    return el.textContent
+  }
+
+  it('puts «Übung ·» before the name everywhere it shows, and says it once', () => {
+    render(
+      <IncidentSwitcher active={drill} incidents={[drill, otherDrill]} isEditor syncStatus="synced" lastSyncedAt={null}
+        user={{ display_name: 'Muster Anna', color: null, role: 'editor' }}
+        onSwitch={() => {}} onDivera={() => {}} onHelp={() => {}} onSyncNow={() => {}} />,
+    )
+    const head = screen.getByRole('button', { name: 'Übung, Brand Musterhaus' })
+    expect(seen('.ip-switch-title')).toBe('Übung · Brand Musterhaus')
+    fireEvent.click(head)
+    expect(seen('.ip-card-name')).toBe('Übung · Brand Musterhaus')
+    // the row of the other Übung: its accessible name reads the prefix with a pause, not «·»
+    // (jsdom trims each piece of a name; a browser reads the space after the comma)
+    expect(screen.getByRole('button', { name: /Übung,\s?Ölspur Hauptstrasse/ })).toBeTruthy()
+    expect(document.querySelector('.ip-badge')).toBeNull()
   })
 })

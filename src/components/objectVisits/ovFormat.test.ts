@@ -8,7 +8,7 @@ describe('syncShort', () => {
   const at = '2026-10-03T13:42:00+02:00'
   it('drops the word where the glyph says it', () => {
     expect(syncShort({ kind: 'saved', at } as never)).toBe(syncLabel({ kind: 'saved', at } as never).replace(/^\D+/, ''))
-    expect(syncShort({ kind: 'saved', at } as never)).not.toContain('Übertragen')
+    expect(syncShort({ kind: 'saved', at } as never)).not.toContain('Synchronisiert')
     expect(syncShort({ kind: 'local', at } as never)).not.toMatch(/Gerät/)
   })
   it('keeps the word where there is no time to show', () => {

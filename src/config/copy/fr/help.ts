@@ -67,7 +67,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', only: 'phone', items: [
             'La **barre des espaces** tout en bas a cinq cases : Carte, Plans, Checklist, Binômes et Rapport. **Plans** et **Rapport** regroupent plusieurs pages (Rapport, Présence, Matériel) : toucher la case une seconde fois ou la maintenir ouvre le choix.',
             'Au-dessus, la **barre d’outils** de la carte ou du plan. **+** est l’unique porte vers tout ce qu’on y place.',
-            'Un bouton qui ne porte qu’un symbole dit son nom quand on le **maintient appuyé**. Dans **Cet appareil**, «Étiquettes des barres» écrit les mots dessous en permanence.',
+            'Un bouton qui ne porte qu’un symbole dit son nom quand on le **maintient appuyé**. Dans les **Réglages**, «Étiquettes des barres» écrit les mots dessous en permanence.',
           ] },
           { kind: 'sub', text: 'Barre de gauche', only: 'wide' },
           { kind: 'list', items: [
@@ -330,7 +330,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             '**Tactique · mots-clés** – rechercher un mot-clé et ouvrir l’entrée correspondante (avec code couleur des dangers et croquis).',
             'Lors de la reprise d’une alarme, un mot-clé adapté est proposé automatiquement.',
           ] },
-          { kind: 'lead', text: 'L’état est conservé et transmis à tous les appareils.' },
+          { kind: 'lead', text: 'L’état est conservé et synchronisé sur tous les appareils.' },
         ],
       },
       {
@@ -374,7 +374,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'Si le corps a déposé ses propres formulaires (Administration › Rapport), **Formulaires et liens** apparaît à la fin, sous le cadrage du croquis – une liste à cocher. **Ouvrir** appelle le formulaire avec le mot-clé, le lieu, la date et le chef d’intervention déjà remplis, dans la mesure où le lien le prévoit. La coche se met à la main : l’application ne voit pas si un formulaire a été envoyé.',
             'Si quelque chose cloche dans l’enregistrement – une chaîne de vérification rompue, une note vocale sans transcription, une photo encore en file d’attente –, une **pastille d’avertissement orange** apparaît à côté des boutons. Elle compte les points et les ouvre ; si tout est en ordre, elle n’apparaît pas.',
             'La personne de contact et le retour à la centrale portent un **Sans objet** en fin de ligne – pour la fausse alarme ou la nappe d’huile où ni l’un ni l’autre n’existe. C’est une réponse, pas un contournement : elle est consignée et figure ainsi au rapport.',
-            '**Clore l’intervention** clôt l’intervention et fixe l’heure de fin. Les photos et notes vocales non encore transmises sont transmises d’abord ; si c’est impossible (hors ligne), elles **restent enregistrées sur cet appareil** et seront transmises à la prochaine ouverture – la confirmation dit combien.',
+            '**Clore l’intervention** clôt l’intervention et fixe l’heure de fin. Les photos et notes vocales non encore synchronisées sont synchronisées d’abord ; si c’est impossible (hors ligne), elles **restent enregistrées sur cet appareil** et seront synchronisées à la prochaine ouverture – la confirmation dit combien.',
             '**Partager** (en bas du rapport, et sous **Partager l’intervention** dans le menu de l’intervention) : un lien vers cette intervention uniquement – carte, plans, journal, photos, heures. Lecture seule, sans connexion, rien ne peut être modifié. Pour la centrale, le CI et un corps voisin pendant l’intervention – et pour la commune et les corps voisins après : il reste valable au-delà de la clôture, jusqu’à ce que quelqu’un le révoque.',
           ] },
           { kind: 'note', text: 'Une intervention close peut être **rouverte** – les compléments ultérieurs apparaissent dans le journal et dans le rapport comme **ajouts**, et rien n’est perdu.' },
@@ -397,7 +397,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         blocks: [
           { kind: 'lead', text: 'Tous les appareils voient la même intervention en direct.' },
           { kind: 'list', items: [
-            'Les modifications sont transmises automatiquement ; l’indicateur en haut montre l’état de la transmission.',
+            'Les modifications sont synchronisées automatiquement ; l’indicateur en haut montre l’état.',
             'Les éditions simultanées sont fusionnées par objet (la modification la plus récente l’emporte).',
             '**Lecture seule** : les observateurs voient la situation en direct, sans les outils tactiques.',
           ] },
@@ -405,10 +405,10 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             '**Préparation hors ligne** : l’application installée va chercher d’elle-même carte, plans, symboles et couches de référence peu après l’ouverture d’une intervention – sans dialogue, sans notification. **Toutes** les couches cartographiques configurées sont chargées, y compris celle qui est masquée : l’expérience montre qu’on l’active une fois le réseau déjà perdu. Le bouton **Tout charger pour le hors ligne** fait de même à tout moment, à la main.',
             'La quantité chargée dépend du **Rayon hors ligne** de la station (dans l’administration, le même pour tous les appareils).',
-            'Ce qui est réellement prêt est indiqué par **Cet appareil** dans le menu (sous « Prêt ? ») – ligne par ligne : carte, plans, symboles, matières dangereuses, couches de référence, personnel, stockage de l’appareil. **Météo** et **Recherche d’objets** nécessitent du réseau et y figurent comme « avec réseau seulement ».',
+            'Ce qui est réellement prêt est indiqué par **Réglages › Cet appareil** dans le menu – ligne par ligne : carte, plans, symboles, matières dangereuses, couches de référence, personnel, stockage de l’appareil. **Météo** et **Recherche d’objets** nécessitent du réseau et y figurent comme « avec réseau seulement ».',
             'Seule l’**application installée** est fiable hors ligne. Dans un onglet de navigateur, le stockage peut être vidé à tout moment, et l’onglet devrait encore être ouvert à la prochaine intervention.',
             'Sans réseau, tout ce qui est sur l’appareil continue de fonctionner : dessiner et poser des symboles, ARI, présence, matériel, journal et rapport. Photos et notes vocales restent enregistrées et partent plus tard.',
-            'Dès que le réseau revient, les modifications partent d’elles-mêmes et sont fusionnées avec les autres appareils – par objet, la modification la plus récente l’emporte. Tant que quelque chose est en attente, l’indicateur de transmission en haut le dit.',
+            'Dès que le réseau revient, les modifications partent d’elles-mêmes et sont fusionnées avec les autres appareils – par objet, la modification la plus récente l’emporte. Tant que quelque chose est en attente, l’indicateur en haut le dit.',
           ] },
         ],
       },

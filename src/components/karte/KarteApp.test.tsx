@@ -174,7 +174,6 @@ const mount = (over: Partial<KarteAppProps> = {}) => {
   const launcherRow = vi.fn()
   const einsaetze = {
     badge: 0,
-    alarm: false,
     render: (close: () => void) => <button type="button" onClick={() => { launcherRow(); close() }}>Manueller Einsatz</button>,
   }
   const onHelp = vi.fn()
@@ -626,7 +625,7 @@ describe('KarteApp', () => {
   // home (variant B): the old launcher card is the menu sheet — App's content, opened here
   it('opens the launcher content as the menu sheet and shuts it when a row acts', async () => {
     brand.short = 'FWM'
-    const { launcherRow } = mount({ einsaetze: { badge: 2, alarm: false, render: (close) => <button type="button" onClick={() => { close() }}>Manueller Einsatz</button> } })
+    const { launcherRow } = mount({ einsaetze: { badge: 2, render: (close) => <button type="button" onClick={() => { close() }}>Manueller Einsatz</button> } })
     void launcherRow
     // the count is in the name; on the button it is a dot (owner, review round 5)
     const button = screen.getByRole('button', { name: 'Menü – Feuerwehr Musterdorf, 2 offen' })
@@ -647,7 +646,7 @@ describe('KarteApp', () => {
 
   // the app menu's «Dieses Gerät» row on home opens the viewer's own (with what it holds offline)
   it('hands the sheet a door to «Dieses Gerät», which shuts the sheet and opens it', async () => {
-    mount({ einsaetze: { badge: 0, alarm: false, render: (_close, onDevice) => <button type="button" onClick={onDevice}>Gerät</button> } })
+    mount({ einsaetze: { badge: 0, render: (_close, onDevice) => <button type="button" onClick={onDevice}>Gerät</button> } })
     fireEvent.click(screen.getByRole('button', { name: /^Menü/ }))
     fireEvent.click(within(screen.getByRole('dialog', { name: 'Menü' })).getByRole('button', { name: 'Gerät' }))
     expect(screen.queryByRole('dialog', { name: 'Menü' })).toBeNull()
@@ -663,7 +662,7 @@ describe('KarteApp', () => {
     const inc = (id: string, title: string, is_exercise: boolean) =>
       ({ id, title, address: 'Schlossgasse 9, Musterdorf', is_exercise }) as unknown as Meta
     const onOpenIncident = vi.fn()
-    mount({ running: [inc('u1', 'Übung Atemschutz', true), inc('e1', 'Zimmerbrand Schloss', false), inc('e2', 'Ölspur', false)], onOpenIncident })
+    mount({ running: [inc('u1', 'Atemschutz', true), inc('e1', 'Zimmerbrand Schloss', false), inc('e2', 'Ölspur', false)], onOpenIncident })
     const chip = document.querySelector('[data-karte-running-chip]')!
     expect(within(chip as HTMLElement).getByText('Zimmerbrand Schloss')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Einsatz öffnen: Zimmerbrand Schloss' }))
@@ -673,24 +672,30 @@ describe('KarteApp', () => {
     fireEvent.click(more)
     expect(screen.getByRole('dialog', { name: 'Menü' })).toBeTruthy()
     cleanup()
-    mount({ running: [inc('u1', 'Übung Atemschutz', true)] })
-    expect(screen.getByRole('button', { name: 'Einsatz öffnen: Übung Atemschutz' })).toBeTruthy()
+    // an Übung's chip is red like any Einsatz's and says so in its name (owner's pick M12 C)
+    mount({ running: [inc('u1', 'Atemschutz', true)] })
+    expect(screen.getByRole('button', { name: 'Einsatz öffnen: Übung, Atemschutz' })).toBeTruthy()
+    expect(document.querySelector('[data-karte-running-chip] .name-prefix')).toBeTruthy()
     expect(document.querySelector('[data-karte-running-more]')).toBeNull()
   })
 
-  // M1 (owner's pick A, 13.11.2026): a live Einsatz's Atemschutz alarm is its own red chip beside
-  // the ink one, and a tap lands on the most urgent Trupp; an Übung's alarm stays off the home
-  it('shows a live Einsatz\'s Atemschutz alarm as its own chip that opens it on the Trupp', () => {
+  // round 2b (owner's pick «Same chip says it», 13.11.2026): a live Einsatz's Atemschutz alarm is
+  // said by the running chip itself, and a tap lands on the most urgent Trupp; an Übung's alarm
+  // never changes the chip
+  it('says a live Einsatz\'s Atemschutz alarm on the running chip, which then opens it on the Trupp', () => {
     type Meta = KarteAppProps['running'][number]
     const inc = (id: string, is_exercise: boolean, due: Meta['atemschutz_due']) =>
       ({ id, title: id, status: 'offen', is_archived: false, started_at: '2026-11-13T02:00:00Z', is_exercise, atemschutz_due: due }) as unknown as Meta
-    const onOpenAlarm = vi.fn()
-    mount({ running: [inc('Übung', true, [{ id: 'u', name: 'Uebung', reason: 'notfall' }])], onOpenAlarm })
-    expect(document.querySelector('[data-karte-alarm-chip]')).toBeNull()
+    const onOpenAlarm = vi.fn(), onOpenIncident = vi.fn()
+    mount({ running: [inc('Übung', true, [{ id: 'u', name: 'Uebung', reason: 'notfall' }])], onOpenAlarm, onOpenIncident })
+    fireEvent.click(screen.getByRole('button', { name: /Übung/ }))
+    expect(onOpenIncident).toHaveBeenCalled()
+    expect(document.querySelector('[data-karte-running-chip][data-alarm]')).toBeNull()
     cleanup()
     mount({ running: [inc('Zimmerbrand', false, [{ id: 'p', name: 'Weber', reason: 'pressure' }, { id: 'c', name: 'Müller', reason: 'contact' }])], onOpenAlarm })
     const chip = screen.getByRole('button', { name: 'Atemschutz-Alarm in Zimmerbrand: Müller · Weber – zum Trupp' })
-    expect(chip.textContent).toBe('2 AlarmeAtemschutz überfällig')
+    expect(chip.textContent).toBe('Zimmerbrand· 2 Alarme')
+    expect(document.querySelectorAll('[data-karte-running-chip]')).toHaveLength(1)
     fireEvent.click(chip)
     expect(onOpenAlarm).toHaveBeenCalledWith(expect.objectContaining({ id: 'Zimmerbrand' }), 'c')
   })

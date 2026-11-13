@@ -5,8 +5,8 @@ import type { Copy, Localizable } from '../index'
 
 type Keys =
   | 'baseMap' | 'floor' | 'hoseHint' | 'symbolSearchPlaceholder' | 'closeDialog'
-  | 'sheetGrip' | 'edit' | 'primarySymbol' | 'done' | 'cancel' | 'exerciseBadge'
-  | 'exerciseInitial' | 'keepPlacing' | 'delete' | 'remove' | 'undo' | 'redo' | 'undoNamed'
+  | 'sheetGrip' | 'edit' | 'primarySymbol' | 'done' | 'cancel' | 'exercisePrefix'
+  | 'keepPlacing' | 'delete' | 'remove' | 'undo' | 'redo' | 'undoNamed'
   | 'redoNamed' | 'undoLost' | 'removedToast' | 'undoDomains' | 'undoSurfaces' | 'undoTopDropped'
   | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'noHits'
 
@@ -21,8 +21,7 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   primarySymbol: { label: 'Symbol' },
   done: 'Done',
   cancel: 'Cancel',
-  exerciseBadge: 'Exercise',
-  exerciseInitial: 'E',
+  exercisePrefix: 'Exercise',
   keepPlacing: 'Place several',
   delete: 'Delete',
   remove: 'Remove',

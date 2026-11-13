@@ -60,6 +60,7 @@ import { useGlRecovery } from '../lib/useGlRecovery'
 import { useNightTheme } from '../lib/useNightTheme'
 import { themeToken, uiBlue } from '../lib/themeToken'
 import { fillTemplate } from '../lib/format'
+import { OpenPill } from './OpenPill'
 import { useIsPhone } from '../lib/useIsPhone'
 import { reportMapError } from '../lib/mapError'
 import { isTypingTarget } from '../lib/hotkeys'
@@ -1562,7 +1563,8 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       {/* «Linie offen» at the open drawing's last point, pulsing — the Plan's .wb-open-pill */}
       {draftKind && draft.length > 0 && (
         <Marker longitude={draft[draft.length - 1][0]} latitude={draft[draft.length - 1][1]} anchor="bottom-left" offset={[14, -14]} style={{ pointerEvents: 'none' }}>
-          <span className="map-open-pill">{fillTemplate(appConfig.copy.toolDock.openPill, { name: draftKind === 'area' ? appConfig.copy.drawingEditor.area : appConfig.copy.drawingEditor.line })}</span>
+          <OpenPill className="map-open-pill" at={draft[draft.length - 1].join()}
+            text={fillTemplate(appConfig.copy.toolDock.openPill, { name: draftKind === 'area' ? appConfig.copy.drawingEditor.area : appConfig.copy.drawingEditor.line })} />
         </Marker>
       )}
 

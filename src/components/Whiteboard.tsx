@@ -52,6 +52,7 @@ import { useNotePanelClosing } from '../lib/useNotePanelClosing'
 import { usePlacement } from '../lib/useTacticalSelection'
 import { endingWireFlags, type LineEnding } from '../lib/drawingEdit'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
+import { OpenPill } from './OpenPill'
 import { toast } from '../lib/ui'
 import { removeWithUndo } from '../lib/removalToast'
 import { isIncidentGeorefKey } from '../lib/incidentPlanBindings'
@@ -2778,7 +2779,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             {noding && !!draft?.length && openName && (() => {
               const last = draft[draft.length - 1]
               const x = last[0] * sW, y = mapY(last[2], last[1]) * sH // a Punkte point always carries its storey
-              return <span className="wb-open-pill" style={{ transform: `translate(${x + 14}px, ${y - 34}px)` }}>{fillTemplate(appConfig.copy.toolDock.openPill, { name: openName })}</span>
+              return <OpenPill className="wb-open-pill" at={`${x},${y}`} style={{ transform: `translate(${x + 14}px, ${y - 34}px)` }}
+                text={fillTemplate(appConfig.copy.toolDock.openPill, { name: openName })} />
             })()}
             {/* …and under a Wand corner being dragged (useWbVertexEdit · snapWallVertex) */}
             {(noding || tool === 'pan') && ring && <WbSnapRing ring={ring} sW={sW} sH={sH} />}

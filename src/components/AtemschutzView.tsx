@@ -1239,7 +1239,7 @@ export function AtemschutzView({
       ) : syncStatus ? (
         <span className={cx('ip-offline-chip', syncStatus !== 'offline' && 'ip-error-chip')}
           title={syncLong[syncStatus]} aria-label={syncLong[syncStatus]}>
-          {syncStatus === 'offline' ? <span className="ip-status-dot" /> : <Icon id="warn" />}
+          <Icon id={syncStatus === 'offline' ? 'cloud-off' : 'warn'} />
           <span>{lastSyncedAt != null
             ? fillTemplate(az.syncStand, { status: syncShort[syncStatus], t: formatTime(new Date(lastSyncedAt)) })
             : syncShort[syncStatus]}</span>
@@ -1288,7 +1288,7 @@ export function AtemschutzView({
             </span>
           ) : syncStatus ? (
             <span className={cx('ip-offline-chip', syncStatus !== 'offline' && 'ip-error-chip')}>
-              {syncStatus === 'offline' ? <span className="ip-status-dot" /> : <Icon id="warn" />}
+              <Icon id={syncStatus === 'offline' ? 'cloud-off' : 'warn'} />
               <span>{syncLong[syncStatus]}</span>
             </span>
           ) : null}
@@ -1443,10 +1443,10 @@ export function AtemschutzView({
                   <p title={lite.subtitle}>{lite.subtitle}</p>
                 </>
               ) : (
-                <>
-                  <h2>{az.boardTitle}</h2>
-                  {syncLine}
-                </>
+                /* the full app: the title alone – the workspace head above says whether the work
+                   is saved (round 2b, owner's pick «Only show problems», 13.11.2026); `syncLine`
+                   is the handed-over Tafel's, which has no workspace head */
+                <h2>{az.boardTitle}</h2>
               )}
             </>
           )}

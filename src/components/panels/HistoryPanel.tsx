@@ -7,6 +7,7 @@ import { NO_HISTORY_FILTER, applyHistoryFilter, filterIncidents, historyGroupKey
 import { appConfig } from '../../config/appConfig'
 import { shortAddress } from '../../lib/deploymentConfig'
 import { EmptyState } from '../EmptyState'
+import { IncidentName } from '../IncidentName'
 import { Menu } from '../../lib/overlays'
 import { cx } from '../../lib/cx'
 import c from '../SurfaceControls.module.css'
@@ -138,7 +139,7 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
       {sorted.length === 0 && (windowNote
         ? <EmptyState icon="list" title={h.emptyWindow} sub={windowNote} />
         : <EmptyState icon="list" title={h.empty} sub={h.emptySub} />)}
-      {!online && onArchive && sorted.length > 0 && <p className="ip-hist-offline"><Icon id="warn" /> {h.offlineNote}</p>}
+      {!online && onArchive && sorted.length > 0 && <p className="ip-hist-offline"><Icon id="cloud-off" /> {h.offlineNote}</p>}
       {/* the search line of a working list (owner, 27.10.2026 r2: «in-line with a filter button
           the same way we have it for … people in Anwesenheiten») – SurfaceControls' search and
           filter button, the filters behind it as ticks in a Menu. ONE channel for «filter is on»,
@@ -187,8 +188,7 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
             <div className={`ip-hist${i.is_archived ? '' : ' ip-hist-live'}`}>
               <button className="ip-hist-main" onClick={() => onOpen(i.id, i.is_archived)}>
                 <div className="ip-hist-title">
-                  <span className="ip-hist-name">{i.title}</span>
-                  {i.is_exercise && <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>}
+                  <span className="ip-hist-name"><IncidentName exercise={i.is_exercise}>{i.title}</IncidentName></span>
                   {i.is_archived && <span className="ip-badge ip-badge-arch">{h.statusArchived}</span>}
                 </div>
                 {whenOf(i) && <div className="ip-hist-when">{whenOf(i)}</div>}

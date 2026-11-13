@@ -50,13 +50,15 @@ describe('IncidentHistoryView — what a row says', () => {
   it('names the Herkunft in words, keeps an unknown slug, and marks an Übung', async () => {
     listIncidents.mockResolvedValue([
       closed,
-      { ...closed, id: 'inc-2', title: 'Übung Steiger', source: 'pager-x', is_exercise: true },
+      { ...closed, id: 'inc-2', title: 'Steiger', source: 'pager-x', is_exercise: true },
     ])
     render(<IncidentHistoryView />)
     expect(await screen.findByText(C.sources.manual)).toBeTruthy()
     expect(screen.getByText('pager-x')).toBeTruthy()
     expect(screen.queryByText('manual')).toBeNull()
-    expect(screen.getAllByText(appConfig.copy.exerciseBadge)).toHaveLength(1)
+    // «Übung · Steiger»: the prefix before the name, no tag (owner's pick M12 C)
+    const titles = [...document.querySelectorAll('.adm-ref-title')]
+    expect(titles.filter((t) => t.querySelector('.name-prefix')).map((t) => t.lastChild?.textContent)).toEqual(['Steiger'])
   })
 })
 

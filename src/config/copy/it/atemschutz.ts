@@ -443,7 +443,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logInsideAtClose: 'Squadra {name} ancora dentro alla chiusura',
     cycleEndAtClose: '{t} (ancora dentro alla chiusura)',
     logClockRestart: 'Squadra {name}: orologio di contatto riavviato – intervento riaperto',
-    underAir: 'Sotto ARA',
   },
   lineDecor: {
     W: 'Acqua',

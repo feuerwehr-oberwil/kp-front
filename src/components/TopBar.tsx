@@ -206,16 +206,19 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
         </>
       )}
       {/* No fixed wall clock in the bar — the OS status bar (iPad navbar) already shows the time. */}
-      {/* Einsatzuhr: the long-incident awareness anchor — the Einsatzdauer, read, never tapped */}
+      {/* Einsatzuhr: the long-incident awareness anchor — the Einsatzdauer. Hourglass + digits, no
+          label (round 2b, owner 13.11.2026: «the hourglass is understandable enough … less
+          text»); a TAP says what it is, «Einsatzdauer · seit 14:02», in the house popover. */}
       {startedAt && !isPhone && (
-        <span
-          className="stat tb-einsatzuhr"
-          title={fillTemplate(E.title, { t: formatTime(new Date(startedAt)) })}
-          aria-label={`${E.label}: ${clockText}`}
+        <Popover side="bottom" align="start" popupClassName="tb-gps-pop tb-uhr-pop" ariaLabel={E.label} zIndex={201} sideOffset={BAR_POP_OFFSET}
+          trigger={
+            <button type="button" className="stat tb-einsatzuhr" aria-label={`${E.label}: ${clockText}`} data-einsatzuhr="">
+              <Icon id="hourglass" /><b>{clockText}</b>
+            </button>
+          }
         >
-          {/* the eyebrow names what the digits count (M3, owner's pick B, 13.11.2026) */}
-          <Icon id="hourglass" /><span className="tb-uhr-stack"><small className="clock-eyebrow" aria-hidden>{E.label}</small><b>{clockText}</b></span>
-        </span>
+          <p className="tb-gps-hint">{fillTemplate(E.tap, { t: formatTime(new Date(startedAt)) })}</p>
+        </Popover>
       )}
 
       {/* Journal + undo/redo, reachable from both surfaces. Do not open this comment with the

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useState, useEffect, type ReactNode } from 'react'
 import { Icon } from '../../lib/icons'
 import { toast, undoToast } from '../../lib/ui'
 import { loadPrefs, savePrefs, applyTheme, resolveTheme, SYMBOL_SCALE, type ThemeMode, type RailLabels, type SymbolSurface } from '../../lib/prefs'
@@ -13,6 +13,10 @@ import { Button } from '../Button'
 import { ShellLoader } from '../ShellLoader'
 import { compareText } from '../../lib/format'
 import { AlarmReadinessRows } from '../karte/AlarmReadiness'
+import { useAlarmReadiness } from '../karte/useAlarmReadiness'
+import { readinessSummary } from '../../lib/alarmReadiness'
+import { ListCard, ListRow } from '../ListRow'
+import { OfflineStateContext, type DevicePartState } from './deviceState'
 import { onDevicePrefsReset, resetDevicePrefs, useDevicePrefs } from '../../lib/useDevicePrefs'
 
 /** Percent for a symbol multiplier — «110 %» is a size anyone reads at a glance, «1.1» is not.
@@ -44,15 +48,20 @@ function ScaleRow({ surface, label, sub, value, onChange }: {
   )
 }
 
-/** «Dieses Gerät» (13.11.2026, M9 – owner pick A): ONE sheet for what this device can do, one
- *  scroll, on home and inside an Einsatz. It was three: Einstellungen, the Einsatz's
- *  «Offline-Bereitschaft» and home's «Auf diesem Gerät». Top to bottom –
- *   · «Bereit?»: the Alarm line (AlarmReadinessRows, once) and the caller's `readiness` block –
- *     the Einsatz's OfflineReadiness or home's KarteDeviceRows; the menu row, home's Offline chip
- *     and the «Keine Basiskarte» Meldung open the sheet with `focus="offline"`, scrolled to it;
+/** «Einstellungen» (13.11.2026, M9 – owner pick A; named «Dieses Gerät» until round 2b): ONE sheet
+ *  for this device, one scroll, on home and inside an Einsatz. It was three: Einstellungen, the
+ *  Einsatz's «Offline-Bereitschaft» and home's «Auf diesem Gerät». Top to bottom –
  *   · «Bedienung»: the device prefs (theme, symbol size, captions, rail words, screen wake,
- *     Standort – local cookie);
- *   · «Gerät auf Standard zurücksetzen», then the per-device utilities (Vorlagen, Rückmeldung).
+ *     Standort – local cookie) – the settings come first (owner, 13.11.2026: «the settings should
+ *     be the settings and not just some info»);
+ *   · «Gerät auf Standard zurücksetzen»;
+ *   · «Dieses Gerät» FOLDED (`DeviceSection`): one summary row «Alarm ✓ · Offline ✓ · App
+ *     installiert» over the Alarm line (AlarmReadinessRows) and the caller's `readiness` block –
+ *     the Einsatz's OfflineReadiness or home's KarteDeviceRows. It opens by itself for an opener
+ *     that points at it (`focus="offline"`: home's Offline chip, «Keine Basiskarte», the close's
+ *     media step – scrolled to) and while a part needs the operator (alarm not set up, nothing
+ *     offline yet);
+ *   · the per-device utilities (Vorlagen, Rückmeldung).
  *  Three rows left on 13.11.2026 (owner picks PLACE.7): «Tastenkürzel anzeigen» and
  *  «Offline-Vorbereitung» are fixed on, the «Offline-Umkreis» is the station's (/admin › Station &
  *  Karte, `map.offlineRadiusM`). The «Einsatz» doctrine values (Funkkontakt-Intervall, Nachfrist,
@@ -125,15 +134,6 @@ export function SettingsSheet({
 
   const cp = appConfig.copy.settings
 
-  // opened from an offline door (home's Offline chip, «Keine Basiskarte», the close's media
-  // step): start there. A callback ref – the sheet mounts its body after this component's effects.
-  const scrolled = useRef(false)
-  const offlineRef = (el: HTMLDivElement | null) => {
-    if (!el || focus !== 'offline' || scrolled.current) return
-    scrolled.current = true
-    el.scrollIntoView?.({ block: 'start' })
-  }
-
   // Leeres Erfassungsblatt — per-device utility ACTION (not a setting): an AdFU can produce
   // a fresh paper hand-fill sheet in the field. Same generator as the admin's Erfassung view;
   // the jsPDF chunk loads lazily so it stays out of the critical bundle. Offline it prints the
@@ -169,14 +169,6 @@ export function SettingsSheet({
   return (
     <Modal title={cp.sheetTitle} onClose={onClose}>
       <div className="set-sheet">
-        <section className="set-group">
-          <h3 className="set-group-t">{cp.readyGroup}</h3>
-          {/* «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026): would a «Neuer Einsatz» wake this
-              device? One line that opens (sweep 28.10.2026, 17A) */}
-          <AlarmReadinessRows className="set-alarm" />
-          {readiness && <div ref={offlineRef} className="set-ready" data-device-part="offline">{readiness}</div>}
-        </section>
-
         <section className="set-group">
           <h3 className="set-group-t">{cp.handGroup}</h3>
           <div className="set-card">
@@ -265,6 +257,8 @@ export function SettingsSheet({
           </div>
         </div>
 
+        <DeviceSection readiness={readiness} focus={focus} />
+
         {/* The «Einsatz» group (Funkkontakt-Intervall, Nachfrist, Funkkanal) left this sheet
             28.08.: station doctrine belongs in /admin, where whoever set it up changes it — not
             under the finger of an unknowing operator at 3am. The per-incident override plumbing
@@ -295,7 +289,68 @@ export function SettingsSheet({
   )
 }
 
-/** «Dieses Gerät» with no Einsatz open (the launcher, «Karte & Objekte», the Objektbesuche): owns
+/** One part of the summary row: its word after a ✓ (green) or a dot in its state's colour. */
+function SumPart({ state, word }: { state: DevicePartState | null; word: string }) {
+  return (
+    <span className={`set-sum-part set-sum-${state ?? 'unknown'}`}>
+      {state === 'ok' ? <Icon id="check" /> : <span className="set-sum-dot" aria-hidden />}{word}
+    </span>
+  )
+}
+
+/** «Dieses Gerät» as ONE folded section of the Einstellungen (round 2b, owner's pick 13.11.2026):
+ *  the summary row «Alarm ✓ · Offline ✓ · App installiert» – a part that is not green in its
+ *  state's colour – opens the full rows. The body stays MOUNTED while folded (`hidden`): the
+ *  Offline block probes the device to know its own state and reports it up (panels/deviceState),
+ *  which is what the summary and the self-opening read. A tap decides for good, once made. */
+function DeviceSection({ readiness, focus }: { readiness?: ReactNode; focus?: 'offline' }) {
+  const cp = appConfig.copy.settings
+  const { rows, available, store, linkSession } = useAlarmReadiness()
+  const [offline, setOffline] = useState<DevicePartState | null>(null)
+  const report = useCallback((v: DevicePartState) => setOffline(v), [])
+  const installed = rows.find((r) => r.key === 'installed')
+  const alarm: DevicePartState | null = linkSession ? null
+    : available === false || store.optedOut ? 'warn'
+      : readinessSummary(rows.filter((r) => r.key !== 'installed')).state
+  const needs = alarm === 'red' || offline === 'red'
+  const [chosen, setChosen] = useState<boolean | null>(null)
+  const open = chosen ?? (focus === 'offline' || needs)
+  // opened from an offline door: start there. A callback ref – the sheet mounts its body after
+  // this component's effects.
+  const [scrolled, setScrolled] = useState(false)
+  const offlineRef = (el: HTMLDivElement | null) => {
+    if (!el || focus !== 'offline' || scrolled) return
+    setScrolled(true)
+    el.scrollIntoView?.({ block: 'start' })
+  }
+  const parts = (
+    <span className="set-sum">
+      {alarm && <SumPart state={alarm} word={cp.deviceSumAlarm} />}
+      {readiness && <SumPart state={offline} word={cp.deviceSumOffline} />}
+      {installed && <SumPart state={installed.state} word={installed.state === 'ok' ? cp.deviceSumApp : cp.deviceSumNoApp} />}
+    </span>
+  )
+  return (
+    <section className="set-group" data-device-section={open ? 'open' : 'folded'}>
+      <ListCard>
+        <ListRow title={cp.deviceGroup} sub={parts} chevron={false} onClick={() => setChosen(!open)} aria-expanded={open}
+          end={<Icon id="chevron-down" className="chev" />} data-device-summary="" />
+      </ListCard>
+      <div className="set-device-body" hidden={!open}>
+        {/* «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026): would a «Neuer Einsatz» wake this
+            device? One line that opens (sweep 28.10.2026, 17A) */}
+        <AlarmReadinessRows className="set-alarm" />
+        {readiness && (
+          <OfflineStateContext.Provider value={report}>
+            <div ref={offlineRef} className="set-ready" data-device-part="offline">{readiness}</div>
+          </OfflineStateContext.Provider>
+        )}
+      </div>
+    </section>
+  )
+}
+
+/** «Einstellungen» with no Einsatz open (the launcher, «Karte & Objekte», the Objektbesuche): owns
  *  the pref state itself (mounted only while open, reads/writes the prefs cookie directly). The
  *  Karte home hands it its `readiness` (KarteDeviceRows); the launcher has none to hand. */
 export function HomeDeviceSheet({ onClose, onFeedback, readiness, focus }: {
