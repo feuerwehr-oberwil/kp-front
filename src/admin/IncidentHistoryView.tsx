@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { deleteIncident, listIncidents, type IncidentMeta } from '../lib/incidents'
 import { appConfig } from '../config/appConfig'
 import { ConfirmCard } from '../lib/overlays/ConfirmCard'
+import { IncidentName } from '../components/IncidentName'
 import { Card, CopyChip, EmptyState, StatusBadge, Table, fmtDateTime } from './ui'
 import { fillTemplate } from '../lib/format'
 import { apiGet, apiPost } from '../lib/api'
@@ -99,7 +100,7 @@ export function IncidentHistoryView() {
     if (state.kind !== 'ok') return []
     const q = query.trim().toLocaleLowerCase()
     // the search finds what the row SAYS («manuell», «Übung») as well as the stored slug
-    return q ? state.data.filter((i) => `${i.title} ${i.address ?? ''} ${i.type ?? ''} ${i.source} ${sourceLabel(i.source)} ${i.is_exercise ? appConfig.copy.exerciseBadge : ''}`
+    return q ? state.data.filter((i) => `${i.title} ${i.address ?? ''} ${i.type ?? ''} ${i.source} ${sourceLabel(i.source)} ${i.is_exercise ? appConfig.copy.exercisePrefix : ''}`
       .toLocaleLowerCase().includes(q)) : state.data
   }, [query, state])
 
@@ -128,8 +129,7 @@ export function IncidentHistoryView() {
                       line, and tabular numerals line the columns up without the code face. */}
                   <td className="adm-time">{fmtDateTime(incident.started_at)}</td>
                   {/* an Übung says so in its row – it is the one kind that deletes while still open */}
-                  <td className="adm-c-main"><span className="adm-ref-title">{incident.title}</span>
-                    {incident.is_exercise && <span className="adm-view-badge adm-view-badge-warn adm-history-exercise">{appConfig.copy.exerciseBadge}</span>}
+                  <td className="adm-c-main"><span className="adm-ref-title"><IncidentName exercise={incident.is_exercise}>{incident.title}</IncidentName></span>
                     {incident.address && <span className="adm-ref-note">{incident.address}</span>}</td>
                   {/* The badge carries no label of its own — the STATUS column already names it. */}
                   <td className="adm-c-side"><StatusBadge tone={closed ? 'off' : 'on'} label="" state={closed ? C.closed : C.open} /></td>
