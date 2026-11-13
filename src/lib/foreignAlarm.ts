@@ -51,3 +51,15 @@ export function loudForeignAlarms(incidents: readonly IncidentMeta[], here: Inci
     })
     .sort((a, b) => (a.started_at < b.started_at ? 1 : -1))
 }
+
+/** The Karte home's red alarm chip (M1, owner's pick A, 13.11.2026): the newest live Ernstfall
+ *  with Trupps at the alarm tier, its most urgent reason (Notfall › überfällig › Alarmdruck) and
+ *  the Trupp to land on. The chip only SHOWS it – no tone, no Meldeleiste row on the home; an
+ *  Übung's Trupps keep to their mark in the list. Null when no live Ernstfall has one. */
+export function homeAlarm(running: readonly IncidentMeta[]): { incident: IncidentMeta; reason: ForeignDue['reason']; due: ForeignDue[] } | null {
+  const [incident] = loudForeignAlarms(running, null)
+  if (!incident) return null
+  const due = incident.atemschutz_due ?? []
+  const reason = (['notfall', 'contact', 'pressure'] as const).find((r) => due.some((t) => t.reason === r)) ?? 'contact'
+  return { incident, reason, due: [...due.filter((t) => t.reason === reason), ...due.filter((t) => t.reason !== reason)] }
+}

@@ -210,5 +210,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
       foot: 'The whole station is not downloaded (several GB). Saving chosen objects or areas for offline: later.',
       lampWord: { device: 'on this device', part: 'partly on this device', online: 'online only' },
     },
+    alarmChipSub: { contact: 'SCBA overdue', pressure: 'Alarm pressure reached', notfall: 'SCBA emergency' },
+    alarmChipOpen: 'SCBA alarm in {t}: {names} – go to the team',
   },
 }

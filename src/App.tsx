@@ -25,7 +25,8 @@ import { InstallBanner } from './components/InstallBanner'
 import { InstallGuide } from './components/InstallGuide'
 import { getInstallPlatform, isStandalone } from './lib/installPrompt'
 import { installOffered } from './lib/installPolicy'
-import { claimBootNotifyTarget } from './lib/notifyTarget'
+import { claimBootNotifyTarget, handOverNotifyTarget } from './lib/notifyTarget'
+import { muteAtemschutzFor } from './lib/useAtemschutzMute'
 import { useIncidentTabLock } from './lib/tabLock'
 import { clearIncidentMedia, listMediaQueue } from './lib/mediaQueue'
 import { MediaPendingMeldung, type ClosedMediaPending } from './components/MediaPendingMeldung'
@@ -764,6 +765,14 @@ export default function App() {
     if (i.id === activeId && activeMeta && einsatzBehind) uncoverEinsatz()
     else void openIncident(i.id, { meta: i })
   }
+  // the viewer's red alarm chip (KarteApp · alarmChip): acknowledge that Einsatz's tone, as «Zum
+  // Trupp» does (IncidentWorkspace · goToForeignTrupp), and land ON the Trupp — the workspace that
+  // mounts for it claims the target; one already open behind the viewer is only uncovered
+  const openOnTrupp = (i: IncidentMeta, truppId: string) => {
+    muteAtemschutzFor(i.id)
+    if (!(i.id === activeId && activeMeta && einsatzBehind)) handOverNotifyTarget(`atemschutz:${truppId}`)
+    openOrUncover(i)
+  }
 
   // the two home menus (components/HomeMenus): the launcher card and «Einsätze ▾» on the viewer
   const home: HomeActions = {
@@ -783,7 +792,7 @@ export default function App() {
     onLogout: () => void askLogout(),
   }
 
-  // the viewer's red chip: the Einsatz it was entered from first, else the newest running one
+  // the viewer's running chip: the Einsatz it was entered from first, else the newest running one
   const runningNow = openIncidents.filter((i) => isIncidentRunning(i))
     .sort((a, b) => (a.id === activeId ? -1 : b.id === activeId ? 1 : (b.started_at ?? '').localeCompare(a.started_at ?? '')))
 
@@ -896,11 +905,12 @@ export default function App() {
         // the banners below: shown, never switched to by themselves (owner, 16.10.2026).
         <Suspense fallback={<Splash />}>
           <KarteApp
-            einsaetze={{ badge: runningNow.length + landingAlarms.length, render: (close, onDevice) => <HomeMenu {...home} close={close} onDevice={onDevice} /> }}
+            einsaetze={{ badge: runningNow.length + landingAlarms.length, alarm: landingAlarms.length > 0, render: (close, onDevice) => <HomeMenu {...home} close={close} onDevice={onDevice} /> }}
             announceReturn={karteFromEinsatz}
             onOpenVisits={openVisitsFromKarte}
             running={runningNow}
             onOpenIncident={openOrUncover}
+            onOpenAlarm={openOnTrupp}
             onSettings={home.onSettings}
             onHelp={home.onHelp}
             // App's sheets and dialogs over the viewer own the keyboard (KarteApp · useKarteKeys)

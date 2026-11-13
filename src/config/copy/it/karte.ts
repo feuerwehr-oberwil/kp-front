@@ -210,5 +210,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
       foot: 'L’intero corpo non viene scaricato (diversi GB). Salvare oggetti o aree scelti per l’offline: più tardi.',
       lampWord: { device: 'su questo dispositivo', part: 'in parte su questo dispositivo', online: 'solo online' },
     },
+    alarmChipSub: { contact: 'Autoprotezione in ritardo', pressure: 'Pressione d\'allarme raggiunta', notfall: 'Emergenza autoprotezione' },
+    alarmChipOpen: 'Allarme autoprotezione in {t}: {names} – alla squadra',
   },
 }

@@ -32,8 +32,11 @@
    widened it – the input's own ~200px default did. It still gives way on a narrow bar (shrink, no
    min-width). */
 .search { flex: 0 1 auto; width: 380px; min-width: 0; }
+/* the running Einsatz wears the main button's ink (M1, owner's pick A, 13.11.2026 – it was red; red
+   on the home is the alarm's alone). A token, never a station colour: /api/config recolours only
+   --accent and the Karte's categories, so no station can turn this chip red again. */
 .running { position: relative; display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3);
-  border-radius: var(--r-sm); background: var(--red-fill); color: var(--on-fill, #fff);
+  border-radius: var(--r-sm); background: var(--btn-primary); color: var(--on-btn-primary);
   font: var(--fw-bold) var(--fs-2)/1.15 var(--body); max-width: 280px; flex: 0 1 auto; }
 .running small { display: block; font: var(--fw-medium) var(--fs-micro)/1.2 var(--body); opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* the chip is two buttons (KarteApp · runningChip): the name opens the Einsatz and its ::after
@@ -45,38 +48,49 @@
 .runningMore { position: relative; z-index: 1; flex: none; display: grid; place-items: center; min-width: var(--tap); min-height: var(--tap);
   margin: 0 calc(-1 * var(--sp-1)); padding: 0; border: none; background: none; color: inherit; font: inherit; cursor: pointer; }
 .runningMore span { display: grid; place-items: center; min-width: 34px; height: 26px; padding: 0 var(--sp-2); border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--on-fill, #fff) 18%, transparent); font-variant-numeric: tabular-nums; }
+  background: color-mix(in srgb, var(--on-btn-primary) 18%, transparent); font-variant-numeric: tabular-nums; }
 .runningChev { width: 16px; height: 16px; flex: none; pointer-events: none; }
-/* hover / press (owner, 20.10.2026: a hover on everything that answers a click) – the red's own
-   darker step, then the house press over it; on «+N» only its own pill */
+/* hover / press (owner, 20.10.2026: a hover on everything that answers a click) – the main
+   button's hover step, then the house press over it; on «+N» only its own pill */
 @media (hover: hover) {
-  .running:hover:not(:has(.runningMore:hover)) { background: var(--red-strong); }
-  .runningMore:hover span { background: color-mix(in srgb, var(--on-fill, #fff) 28%, transparent); }
+  .running:hover:not(:has(.runningMore:hover)) { background: var(--btn-primary-hover); }
+  .runningMore:hover span { background: color-mix(in srgb, var(--on-btn-primary) 28%, transparent); }
 }
 .running:has(.runningOpen:active) { background-image: linear-gradient(var(--press), var(--press)); }
 .runningMore:active span { background-image: linear-gradient(var(--press), var(--press)); }
-/* an Übung is amber, as everywhere (.ip-badge-exercise): the chip never reads as a real Einsatz.
-   A FILLED amber, so the chip keeps its weight in the bar; its ink is --on-amber (dark – white is
-   2.5:1 on amber by day) and the hover is the amber one step darker, ink-mixed so that ink stays
-   legible (--amber-strong is a text colour, too dark under dark ink). The pill and the press
-   follow the ink. */
-.runningExercise { background: var(--amber); color: var(--on-amber); }
-.runningExercise .runningMore span { background: color-mix(in srgb, var(--on-amber) 16%, transparent); }
+/* an Übung wears the Übung tag's look, as everywhere (.ip-badge-exercise · M2, owner's pick A,
+   13.11.2026 – it was a filled amber, the open count's colour): hatched over the surface, a ring in
+   the quiet ink, ink text — the chip never reads as a real Einsatz, nor as «needs you». The pill
+   and the press follow the ink; the hover is the house hover under the hatching. */
+.runningExercise { color: var(--ink); background: repeating-linear-gradient(-45deg, var(--ink-tint) 0 3px, transparent 3px 6px), var(--surface);
+  box-shadow: inset 0 0 0 1.5px var(--ink-dim); }
+.runningExercise .runningMore span { background: color-mix(in srgb, var(--ink) 12%, transparent); }
 @media (hover: hover) {
-  .running.runningExercise:hover:not(:has(.runningMore:hover)) { background: color-mix(in srgb, var(--amber) 86%, var(--on-amber)); }
-  .runningExercise .runningMore:hover span { background: color-mix(in srgb, var(--on-amber) 26%, transparent); }
+  .running.runningExercise:hover:not(:has(.runningMore:hover)) { background: repeating-linear-gradient(-45deg, var(--ink-tint) 0 3px, transparent 3px 6px), linear-gradient(var(--hover-strong), var(--hover-strong)), var(--surface); }
+  .runningExercise .runningMore:hover span { background: color-mix(in srgb, var(--ink) 20%, transparent); }
 }
 .runningText { min-width: 0; overflow: hidden; }
 .runningText b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; animation: koPulse 1.4s infinite; }
 @keyframes koPulse { 50% { opacity: .3; } }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+/* a live Ernstfall's Atemschutz alarm (KarteApp · alarmChip, M1): its own chip after the running
+   one, solid red – the loudest thing on the home, and the only red there. It never gives way: the
+   Einsatz's name ellipsises first (flex: none here, min-width: 0 there). */
+.alarmChip { display: inline-flex; align-items: center; gap: var(--sp-2); flex: none; min-height: var(--tap); padding: 0 var(--sp-3);
+  border: none; border-radius: var(--r-sm); background: var(--red-fill); color: var(--on-fill);
+  font: var(--fw-bold) var(--fs-2)/1.15 var(--body); text-align: left; white-space: nowrap; cursor: pointer; }
+.alarmChip svg { width: 20px; height: 20px; flex: none; }
+.alarmChip small { display: block; font: var(--fw-medium) var(--fs-micro)/1.2 var(--body); }
+@media (hover: hover) { .alarmChip:hover { background: var(--red-strong); } }
+.alarmChip:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* the phone's Checkliste (its bar holds the library's field): the running Einsatz is a strip of its
    own under the bar. ⚠️ `min-width: 0`: a flex
    item never shrinks below its content, and a long title ran off the screen's edge instead of
    ending in «…» (owner, 22.10.2026) */
 .runningStrip { position: absolute; top: calc(88px + env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
   z-index: var(--z-topbar); display: flex; }
+.runningStrip { gap: var(--sp-2); }
 .runningStrip .running { max-width: none; min-width: 0; flex: 1; }
 /* …and on the phone's Karte it is IN the bar (owner's pick 6, 23.10.2026: «move phone one into
    the top bar too»), between the menu button and the search: it takes what the two leave, the
@@ -450,15 +464,17 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .surfaceNote .note { max-width: 360px; }
 .floors > .note { width: min(980px, 100%); }
 
-/* ── the menu button's red dot (owner, review round 5: «a small red dot» — it was a count): an
+/* ── the menu button's dot (owner, review round 5: «a small red dot» — it was a count): an
    Einsatz running or an alarm waiting; the number is in the button's accessible name. On the
-   corner of the button's FACE (the mark / name), since the quiet pill has no frame (28.10.2026) */
+   corner of the button's FACE (the mark / name), since the quiet pill has no frame (28.10.2026).
+   Ink while only Einsätze run, red while an alarm waits (.alarmDot, M1: no alarm → no red) */
 .menuFace { position: relative; display: inline-flex; align-items: center; gap: var(--sp-2); }
 /* a superscript beside the face's top-right corner, never on a letter (owner, 28.10.2026: the 12px
    dot sat on the «O» of «FWO»): its 2px ring clears the last glyph, and above the caps it stays out
    of the chevron's way too */
 .einsaetzeBadge { position: absolute; top: -9px; right: -12px; width: 9px; height: 9px;
-  border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
+  border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
+.einsaetzeBadge.alarmDot { background: var(--red); }
 
 /* ── a tap tool armed (Messen, Punkt setzen, Gefahrgut's centre — lib/karte/camera · toolTakesTaps):
    the objects stay drawn, but their dots and tags let the finger through to the map (owner, review
