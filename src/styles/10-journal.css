@@ -202,12 +202,12 @@
   /* landscape phones: the pop is taller than the leftover viewport below the bar —
      cap it and scroll instead of pushing the MeteoSchweiz link off-screen */
   max-height: calc(100dvh - 90px - env(safe-area-inset-top)); overflow-y: auto; overscroll-behavior: contain;
-  /* ⚠️ the top bar's own glass, the set every popup out of the bar wears (`.tb-uhr-menu`,
-     `.az-head-detail`) — 30.09.2026, staging phone pass: «the toolbar, the weather details have
+  /* ⚠️ the top bar's own glass, the set every popup out of the bar wears (`.az-head-detail`
+     too) — 30.09.2026, staging phone pass: «the toolbar, the weather details have
      different colors (at least in dark mode)». It was `--surface`, the raised BUTTON fill, a
      visibly lighter slate than the bar at night, with a heavier shadow of its own. */
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  /* THE popover shell, the Einsatzuhr menu's beside it (18-audio · .tb-uhr-menu): --r-bar over the
+  /* THE popover shell, the Atemschutz head's beside it (13-incident · .az-head-detail): --r-bar over the
      even --bar-pad (r35, 06.11.2026 – it was --r-ctl over 16px). What it holds is READ, not tapped
      row by row, so it stands one inset further in – a menu row's text inset (--sp-3), the one
      inset every popover's facts take (13-incident · .rp-control) – nothing in it re-laid out. */

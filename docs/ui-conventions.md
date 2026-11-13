@@ -294,7 +294,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   keyboard `[data-highlighted]`, the `--press` wash and the `--r-ctl` row radius
   (13-incident.css · «ONE menu row»). A caller's `itemClassName` skin owns padding, type and
   icons — never what a press looks like. Hand-rolled option lists (`.combo-opt`, `.pickOpt`,
-  `.pp-row`, `.tb-uhr-row`, `.ip-ac-row`, `.lrow`) match those values.
+  `.pp-row`, `.ip-ac-row`, `.lrow`) match those values.
 
 ## Buttons follow one spec
 
