@@ -75,12 +75,10 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       saveFailed: 'Échec de l’enregistrement de l’échelle',
     },
     georef: {
-      chipUnlinked: 'Lier à la carte',
       chipLinked: 'lié',
       chipTwoPoints: 'à partir de 2 points',
       chipResidual: '⌀ {m} m',
       linkTitle: 'Lier ce plan à la carte',
-      openQuality: 'Vérifier et corriger la référence',
       freeOrderTap: 'Touchez le même endroit sur le module et la carte',
       freeOrderTip: 'Les points sans ambiguïté sont les meilleurs – angle de bâtiment, hydrant, croisement. L’ordre est libre : les moitiés posées trouvent leur homologue toutes seules.',
       howTitle: 'Comment lier',

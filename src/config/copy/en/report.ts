@@ -248,7 +248,6 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     attachmentsNone: 'none',
     attachmentsCaption: 'Caption (e.g. «Driver\'s licence»)',
     attachmentsPending: 'not uploaded yet',
-    attachmentsFailed: 'Photo {name} could not be uploaded – it will not appear in print.',
     attachmentAdded: 'Photo added',
     attachmentCaptioned: 'Caption',
     attachmentRemoved: 'Photo removed',

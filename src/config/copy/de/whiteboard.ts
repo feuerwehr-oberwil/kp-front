@@ -88,7 +88,6 @@ export const whiteboardCopy = {
     // «Karte verknüpfen» – die Paarung markanter Punkte, die den Plan auf die Karte legt
     // (lib/georef · fitSimilarity, lib/georefMode). Zwei Punkte genügen; erst der dritte misst.
     georef: {
-      chipUnlinked: 'Karte verknüpfen',
       // ⚠️ Der Chip sagt EIN Wort: dass dieses Blatt an der Karte hängt. Die Güte stand früher
       // daneben («Verknüpft · ⌀ 10.8 m») – ein Satz in einer Reihe von Dreiwort-Pillen, und eine
       // Zahl ohne «aus wie vielen Paaren» sagt nichts. Der Farbton trägt weiterhin, ob die
@@ -100,7 +99,6 @@ export const whiteboardCopy = {
       chipTwoPoints: 'aus 2 Punkten',
       chipResidual: '⌀ {m} m',
       linkTitle: 'Plan mit der Karte verknüpfen',
-      openQuality: 'Referenz prüfen und korrigieren',
       // ⚠️ Die Naht trägt KEINE Beschriftung mehr – weder «KARTE VERKNÜPFEN» noch «Karte
       // geliehen». Beides war Erklärung des Layouts statt Anweisung; die Leiste am Fuss sagt,
       // welcher Modus läuft und was als Nächstes zu tippen ist. Die gestrichelte Linie genügt.

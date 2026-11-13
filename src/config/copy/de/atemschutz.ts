@@ -337,7 +337,6 @@ export const atemschutzCopy = {
     // reached the threshold – an estimate must never sound like a reported Druckmeldung.
     alarmNote: 'Alarmdruck {bar} bar erreicht',
     alarmNoteEst: 'Alarmdruck {bar} bar (Schätzung)',
-    lineField: 'Leitung',
     edit: 'Bearbeiten',
     // per-Trupp contact/pressure log (expandable on the card)
     verlauf: 'Verlauf',
@@ -567,7 +566,6 @@ export const atemschutzCopy = {
     logRenumbered: 'Trupp {name} heisst jetzt Trupp {no}',
     // …und ein loser Trupp-Marker, mit den Namen, die er auf dem Bild trug
     logRenumberedChip: '{from} heisst jetzt {to}',
-    logSafetyFunkkanal: 'Funkkanal {from} → {to}',
     logPlaced: 'Trupp {name} auf Plan platziert',
     logPlacedMap: 'Trupp {name} auf der Karte platziert',
     placeLage: 'Karte',
@@ -686,8 +684,8 @@ export const atemschutzCopy = {
     changeLineCleared: 'Leitung gelöst',
     /**
      * ⚠️ VON → NACH, wie beim Eingangsdruck (04.09., Feldtest Manuel: «Trupp Antoine DJ:
-     * Funkkanal 12» – gesetzt? geändert? bloss bestätigt?). Dieselbe Sprache, die die
-     * Sicherheitswerte längst sprechen (`logSafetyFunkkanal`), also eine Stimme für eine Sache.
+     * Funkkanal 12» – gesetzt? geändert? bloss bestätigt?). Dieselbe Sprache wie beim
+     * Eingangsdruck, also eine Stimme für eine Sache.
      * Beim ERSTEN Kanal gibt es kein Vorher, das man nennen könnte: dann sagt die Zeile, dass er
      * gesetzt wurde – ein «– → 12» wäre ein Strich, den niemand lesen muss.
      */

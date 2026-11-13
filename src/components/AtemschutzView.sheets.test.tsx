@@ -138,7 +138,7 @@ describe('the mini sheets', () => {
     const card = document.querySelector('[data-az-open]') as HTMLElement
     const add = within(card).getByRole('button', { name: az.auftragAdd })
     expect(add.className).toContain(s.factDash)
-    expect(within(card).queryByText(new RegExp(`^${az.lineField}`))).toBeNull()
+    expect(within(card).queryByText(/^Leitung/)).toBeNull()
     fireEvent.click(add)
     expect(screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })).toBeTruthy()
   })

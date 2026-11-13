@@ -1650,8 +1650,8 @@ describe('truppEditChanges (what the Verlauf line says)', () => {
   })
 
   /* ⚠️ BOTH numbers, like the Eingangsdruck (04.09., Feldtest Manuel: «Trupp Antoine DJ:
-   * Funkkanal 12» — set? changed? merely confirmed?). Same voice as the Sicherheitswerte row
-   * (logSafetyFunkkanal), so the app says it one way. */
+   * Funkkanal 12» — set? changed? merely confirmed?). Same voice as the Eingangsdruck, so the
+   * app says it one way. */
   it('names the Funkkanal it came from and the one it went to', () => {
     expect(truppEditChanges(prev, fields({ funkkanal: 12 }))).toEqual(['Funkkanal 11 → 12'])
   })

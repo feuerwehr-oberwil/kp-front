@@ -247,7 +247,6 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     attachmentsNone: 'aucune',
     attachmentsCaption: 'Légende (p. ex. «Permis du conducteur»)',
     attachmentsPending: 'pas encore téléversée',
-    attachmentsFailed: 'La photo {name} n’a pas pu être téléversée – elle ne figurera pas à l’impression.',
     attachmentAdded: 'Photo ajoutée',
     attachmentCaptioned: 'Légende',
     attachmentRemoved: 'Photo supprimée',
