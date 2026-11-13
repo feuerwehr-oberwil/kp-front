@@ -1594,15 +1594,11 @@ button.rp-sign-row:disabled { cursor: default; }
   .cv-row > span:first-child { font-size: var(--fs-1); color: var(--ink-dim); }
   .cv-row .cv-input, .cv-acc .cv-input { min-height: 48px; font-size: var(--fs-3); }
 }
-/* the von/bis word before a person's time — the field's meaning flips with the status,
-   so SAY it instead of implying it (Feedback 2026-07-18) */
-/* fixed width so «von» and «bis» rows align — the tag sits between the flexible name
-   button and the time field; differing word widths would shift both per row */
-.cv-time-tag { flex: none; width: 28px; text-align: right; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); }
-/* keep name + von/bis + the date + time on one 360px row: tighter chrome inside the row (the
-   field's own day replaced the separate date tag, 12.11.2026) */
+/* a person's time wears the stacked face (DateTimeField `stacked`, owner pick A «Gestapelt»
+   13.11.2026): «von 12.11.» over «23:37» in ≈ the clock-only width, so the name keeps one line
+   at 390px. The von/bis word rides on the field's small line – the meaning flips with the
+   status, so it is SAID (Feedback 2026-07-18). The field never shrinks; the name gives way. */
 .cv-person-row .timefield { gap: 4px; }
-.cv-person-row .timefield-trigger.dt { min-width: 0; padding-inline: var(--sp-2); }
 
 /* 24h time / date-time fields: trigger buttons opening the wheel popover */
 .timefield { display: inline-flex; align-items: center; gap: 8px; }
@@ -1614,6 +1610,12 @@ button.rp-sign-row:disabled { cursor: default; }
 .timefield-trigger.dt { min-width: 132px; white-space: nowrap; }
 .timefield-day { color: var(--ink-dim); font-weight: var(--fw-medium); margin-right: .2em; }
 .timefield-trigger.empty { color: var(--ink-faint); font-weight: var(--fw-medium); }
+/* the stacked face (When `stacked`): the word + day small and quiet above the loud clock, both
+   right-aligned. The small line stays at the tap floor (--fs-1): it is part of the button. */
+.timefield-trigger.dt.stacked { display: inline-flex; flex-direction: column; align-items: flex-end;
+  justify-content: center; gap: 1px; min-width: 84px; padding: var(--sp-1) var(--sp-2); }
+.timefield-trigger.stacked .timefield-day { margin: 0; font-size: var(--fs-1); line-height: 1.1; }
+.timefield-trigger.stacked .timefield-clock { font-size: var(--fs-3); line-height: 1.15; }
 .timefield-trigger:disabled { opacity: var(--disabled); cursor: default; }
 .timefield-now { min-height: 44px; padding: 8px 12px; border: 1px solid var(--glass-line);
   border-radius: var(--r-sm); background: var(--surface); color: var(--ink);

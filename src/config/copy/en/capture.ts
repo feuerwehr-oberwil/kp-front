@@ -50,6 +50,7 @@ export const captureCopy: Localizable<Pick<Copy, 'capture'>> = {
     kontaktpersonCall: 'Call contact person',
     von: 'from',
     bis: 'to',
+    personTime: '{edge}, {name}',
     ende: 'Incident end',
     sectionPersonen: 'Attendance',
     presentCount: '{n} present',
