@@ -16,11 +16,13 @@ vi.mock('../../lib/auth', async (importOriginal) => {
 
 // the Alarm part's facts: green, or (per test) red – the device's real ones are jsdom's
 const alarm = { state: 'ok' as 'ok' | 'red' }
-vi.mock('../karte/AlarmReadiness', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('../karte/AlarmReadiness')>()
+vi.mock('../karte/AlarmReadiness', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../karte/AlarmReadiness')>(), AlarmReadinessRows: () => null,
+}))
+vi.mock('../karte/useAlarmReadiness', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../karte/useAlarmReadiness')>()
   return {
     ...mod,
-    AlarmReadinessRows: () => null,
     useAlarmReadiness: () => ({
       rows: [{ key: 'installed', state: 'ok' }, { key: 'permission', state: alarm.state }],
       available: true, store: { optedOut: false }, linkSession: false,

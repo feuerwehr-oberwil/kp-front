@@ -8,21 +8,21 @@
 // this browser, «Keine Alarme auf diesem Gerät» = push off (undo toast; reversible in the rows).
 // The 3am rule: nothing modal by itself, no OS dialog without a tap.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { appConfig } from '../../config/appConfig'
-import { useAuth } from '../../lib/auth'
 import { cx } from '../../lib/cx'
 import { fillTemplate } from '../../lib/format'
 import { fmtDay } from '../../lib/buildingCard'
 import { Icon } from '../../lib/icons'
 import { toast, undoToast } from '../../lib/ui'
 import { ensureNotifyPermission } from '../../lib/alarm'
-import { getInstallPlatform, isStandalone, onInstallStateChange } from '../../lib/installPrompt'
+import { isStandalone } from '../../lib/installPrompt'
+import { permissionNow, useAlarmReadiness } from './useAlarmReadiness'
 import {
-  LATER_DAYS, alarmReady, nudgeDue, onReadinessStore, patchReadinessStore, readReadinessStore, readinessRows, readinessSummary,
-  type ReadinessFix, type ReadinessRow, type ReadinessState, type ReadinessStore,
+  LATER_DAYS, alarmReady, nudgeDue, patchReadinessStore, readinessSummary,
+  type ReadinessFix, type ReadinessRow, type ReadinessState,
 } from '../../lib/alarmReadiness'
-import { disablePush, enablePush, ensurePushSubscription, pushAvailable, renewPushSubscription, sendTestPush } from '../../lib/push'
+import { disablePush, enablePush, ensurePushSubscription, renewPushSubscription, sendTestPush } from '../../lib/push'
 import { Button, IconButton } from '../Button'
 import { InstallGuide } from '../InstallGuide'
 import { ListCard, ListRow } from '../ListRow'
@@ -30,39 +30,6 @@ import s from './Karte.module.css'
 import { publishHeight } from '../../lib/publishHeight'
 
 const DAY = 24 * 3600 * 1000
-const permissionNow = (): NotificationPermission | 'unsupported' =>
-  typeof Notification === 'undefined' ? 'unsupported' : Notification.permission
-
-/** The facts, re-read whenever something that moves them happens: the device record, the
- *  install state, the page coming back (the person may have allowed notifications in the
- *  system settings meanwhile), or a fix this surface ran. */
-export function useAlarmReadiness() {
-  const { user } = useAuth()
-  // the clock the rows are judged against — moved on every re-read, never read in render
-  const [now, setNow] = useState(() => Date.now())
-  const refresh = useCallback(() => setNow(Date.now()), [])
-  const [store, setStore] = useState<ReadinessStore>(readReadinessStore)
-  const [available, setAvailable] = useState<boolean | null>(null)
-  useEffect(() => onReadinessStore(() => { setStore(readReadinessStore()); refresh() }), [refresh])
-  useEffect(() => onInstallStateChange(refresh), [refresh])
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') refresh() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [refresh])
-  useEffect(() => {
-    let alive = true
-    void pushAvailable().then((v) => { if (alive) setAvailable(v) })
-    return () => { alive = false }
-  }, [])
-  const sessionUntil = user?.session_until ? new Date(user.session_until).getTime() : null
-  const rows = readinessRows({
-    now, standalone: isStandalone(), platform: getInstallPlatform(), permission: permissionNow(),
-    subscribedAt: store.subscribedAt, sessionUntil: Number.isFinite(sessionUntil) ? sessionUntil : null,
-  })
-  return { now, rows, store, available, refresh, linkSession: !!user?.link_scoped }
-}
-
 /** The fixes. Each ends in a re-read so the row it belongs to answers at once. */
 function useFixes(refresh: () => void) {
   const [guide, setGuide] = useState(false)
