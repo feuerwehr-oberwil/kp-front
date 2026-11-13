@@ -450,7 +450,7 @@ function Nearby({ rows, lit, onHydrant, onSelectObject }: { rows: NearRow[]; lit
     <div className={s.sec} data-section="nearby">
       <div className={s.secHead}><span className={s.eyebrow}>{C.nearTitle}</span></div>
       {rows.length > 0 ? (
-        <ListCard>
+        <ListCard look="quiet" className={s.nearList}>
           {rows.map((r) => r.kind === 'object' ? (
             <ListRow key={r.item.id} lead={<Icon id="footprint" />} title={r.item.name} sub={objectRowSub(r.item, C.kind[r.item.kind])}
               end={fmtDistance(r.distanceM)} onClick={() => onSelectObject(r.item.id)} />
