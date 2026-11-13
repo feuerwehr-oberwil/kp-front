@@ -562,8 +562,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     var(--done-opacity)` only; a strike-through may carry the word, a second dim may not. A
     read-only control that is NOT unavailable (`opacity: 1` on purpose) says so in a comment.
     (4) **Tag** (ÜBUNG, a status word): the `.ip-badge` recipe — 10px/700 uppercase .03em,
-    padding 2px 7px, `--r-xs`; ÜBUNG is amber 16% + `--amber-strong` wherever it stands (top bar,
-    lists, the poster's `.cv-badge-exercise` shares the selectors). Status words in a picker row
+    padding 2px 7px, `--r-xs`; ÜBUNG is a HATCHED, outlined tag with no hue (`--ink-tint` stripes, a
+    1.5px `--ink-dim` ring, `--ink` text) wherever it stands (top bar, the phone's «Ü» square, lists,
+    the poster's `.cv-badge-exercise` shares the selectors) – M2, owner's pick A, 13.11.2026: amber
+    on the Einsatz card is the COUNT of open points alone; «Abgeschlossen» is the grey tag «Archiv»
+    wears, «Offline» / «Nicht synchronisiert» a cloud and the word, «Abschliessen» a normal tile. Status words in a picker row
     («AS», «raus» in the TruppFinder) are this tag in ink on `--fill-soft` — never blue (blue is
     «chosen»), never a pill.
     (5) **Search field** (29.09.2026): every «type to narrow this list» is `components/SearchField`

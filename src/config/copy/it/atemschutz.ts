@@ -126,7 +126,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     reenterSubmit: 'Entrare',
     reenterStandby: 'Tenere di riserva',
     reenterStandbyHint: 'Registra la squadra come riserva – il contatore parte solo con «Entrare».',
-    sinceContact: 'Dall’ultimo contatto',
+    sinceContact: 'Dal contatto',
     elapsed: 'Tempo d’intervento',
     outFor: 'Fuori da',
     outForPlain: 'Senza compito da', // ⚠️ app only — see de/atemschutz.ts · outForPlain
@@ -443,6 +443,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logInsideAtClose: 'Squadra {name} ancora dentro alla chiusura',
     cycleEndAtClose: '{t} (ancora dentro alla chiusura)',
     logClockRestart: 'Squadra {name}: orologio di contatto riavviato – intervento riaperto',
+    underAir: 'Sotto ARA',
   },
   lineDecor: {
     W: 'Acqua',

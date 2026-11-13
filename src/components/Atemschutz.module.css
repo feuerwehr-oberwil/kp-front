@@ -254,6 +254,9 @@
    ran together as one grey line; the 400 / 700 mono step is the split. Set per item
    (TruppCard · sockelLine `quiet`), so the Schätzung's word can never wear it. */
 .metaLine i.metaWordQuiet { font-weight: var(--fw-regular); color: var(--ink-dim); }
+/* …and the time under air's word is THE eyebrow (M3, owner's pick B, 13.11.2026 — «UNTER
+   ATEMSCHUTZ 28:32»): the clocks' caption voice, so a duration says what it counts */
+.metaLine i.metaEyebrow { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .metaLine b { font: var(--fw-bold) var(--fs-1) var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 /* (`.metaEst`, the Schätzung's dimmed + lighter value, went on 29.09.2026, T2: the owner wants the
    Schätzung CLEARLY visible, so it keeps full ink and its WORD — «Schätzung ≈ 0 bar» — and the word
@@ -1340,11 +1343,13 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    narrowest width. What goes, in order: the caption · the pressure · the state word. Nothing
    that goes is lost — it is all on the card behind the tap. */
 @media (max-width: 1023px) {
-  /* «SEIT LETZTEM KONTAKT» is ~118px of nowrap text; below this the clock track can no longer hold
-     it and it ran out under the Kontakt button. The column stays self-evident: one mono number per
-     row, colour-coded, under a header that already says what the board is. */
+  /* The caption STAYS (M3, owner's pick B, 13.11.2026: every duration says what it counts): it was
+     «SEIT LETZTEM KONTAKT», ~118px that ran out under the Kontakt button, and the row hid it; one
+     wording on both form factors now, «SEIT KONTAKT». The clock cell is a right-aligned column, so
+     a caption wider than its track («DRAUSSEN SEIT») reaches left into the gap, never right. */
   .trow { grid-template-columns: minmax(120px, 1fr) 96px 92px 140px var(--tap); }
-  .trowSub, .trowPress { display: none; }
+  .trow .trowClock { display: flex; flex-direction: column; align-items: flex-end; }
+  .trowPress { display: none; }
 }
 @media (max-width: 760px) {
   /* the state word goes too — the left border colour and the clock colour already carry it, and

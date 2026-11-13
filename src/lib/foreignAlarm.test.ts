@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { foreignMark, loudForeignAlarms, worksLiveErnstfall } from './foreignAlarm'
+import { foreignMark, homeAlarm, loudForeignAlarms, worksLiveErnstfall } from './foreignAlarm'
 import type { IncidentMeta } from './incidents'
 import { appConfig } from '../config/appConfig'
 
@@ -37,5 +37,21 @@ describe('another Einsatz\'s Atemschutz alarm', () => {
     }
     // …its own alarm is its workspace's, never a second «foreign» one
     expect(loudForeignAlarms([{ ...uebung, id: 'drill2' }], { ...uebung, id: 'drill2' })).toEqual([])
+  })
+})
+
+// M1 (owner's pick A, 13.11.2026): the Karte home's red chip
+describe('the Karte home\'s alarm chip', () => {
+  it('names the newest live Ernstfall with a Trupp at the alarm tier, its most urgent reason first', () => {
+    const older = inc('a', { atemschutz_due: overdue })
+    const newer = inc('bbb', { atemschutz_due: [{ id: 'p', name: 'Druck', reason: 'pressure' }, { id: 'n', name: 'Not', reason: 'notfall' }] })
+    const got = homeAlarm([older, newer, inc('cc', { is_exercise: true, atemschutz_due: overdue })])
+    expect(got?.incident.id).toBe('bbb')
+    expect(got?.reason).toBe('notfall')
+    expect(got?.due.map((t) => t.id)).toEqual(['n', 'p'])
+  })
+
+  it('stays away for an Übung, a closed Einsatz and a calm one', () => {
+    expect(homeAlarm([inc('u', { is_exercise: true, atemschutz_due: overdue }), inc('x', { is_archived: true, atemschutz_due: overdue }), inc('q')])).toBeNull()
   })
 })

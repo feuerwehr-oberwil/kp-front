@@ -13,6 +13,23 @@
 
 import { appConfig } from '../config/appConfig'
 
+/** The hues the palette wore until 13.11.2026 that are STATE colours (red, green, amber) or sit
+ *  beside them (lime, brown) – M4, owner's pick A. A marker or plan chip placed before then keeps
+ *  the colour it stored (synced state is never rewritten); it is SHOWN in a stand-in. The three
+ *  common ones (the 2nd–4th Trupp) get the three hues the old palette did not have, so an old
+ *  Einsatz gains no duplicate; lime and brown (a 8th / 9th Trupp) share theirs. */
+const RETIRED: Readonly<Record<string, string>> = {
+  '#e8392b': '#c42fd8', '#1f9d57': '#6366f1', '#e2920a': '#0284c7', '#65a30d': '#6366f1', '#b45309': '#0284c7',
+}
+
+/** The colour a Trupp's ring, dot, chip or trail is DRAWN in: its stored colour, a retired hue
+ *  mapped to its stand-in, and the palette's first one when nothing is stored. Every place that
+ *  paints a Trupp colour reads it here, so the board and the Lage never disagree. */
+export function shownTeamColor(color: string | null | undefined): string {
+  if (!color) return appConfig.drawing.teamColors[0]
+  return RETIRED[color.toLowerCase()] ?? color
+}
+
 /**
  * Pick a distinct team colour.
  *
@@ -23,7 +40,8 @@ import { appConfig } from '../config/appConfig'
 export function pickTeamColor(preferred: string | undefined, used: Iterable<string | undefined>): string {
   const palette = appConfig.drawing.teamColors
   const taken = new Set<string>()
-  for (const c of used) if (c) taken.add(c.toLowerCase())
+  // a stored retired hue is worn as its stand-in (shownTeamColor): that stand-in is what is taken
+  for (const c of used) if (c) taken.add(shownTeamColor(c).toLowerCase())
   if (preferred && !taken.has(preferred.toLowerCase())) return preferred
   const free = palette.find((c) => !taken.has(c.toLowerCase()))
   if (free) return free

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import { shownTeamColor } from '../lib/teamColors'
 import { cx } from '../lib/cx'
 import { TruppNo } from './TruppNo'
 import { SearchField } from './SearchField'
@@ -83,7 +84,7 @@ export function TruppFinder({ trupps, onPick, onClose }: {
               >
                 {/* the colour this Trupp wears out there — the same cap the plan chip and the
                     map dot carry, so the row and the marker read as one thing */}
-                <span className={s.cap} style={{ background: t.color || appConfig.drawing.teamColors[0] }} />
+                <span className={s.cap} style={{ background: shownTeamColor(t.color) }} />
                 <span className={s.main}>
                   <span className={s.name}>{t.name}<TruppNo no={t.no} /></span>
                   {/* WHERE first, then who ELSE is in it: the question this list answers is where.

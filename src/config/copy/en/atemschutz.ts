@@ -128,7 +128,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     reenterSubmit: 'Deploy',
     reenterStandby: 'Put on standby',
     reenterStandbyHint: 'Register the team as reserve – the contact clock only starts on «Deploy».',
-    sinceContact: 'Since last contact',
+    sinceContact: 'Since contact',
     elapsed: 'Deployment time',
     outFor: 'Out for',
     outForPlain: 'No task for', // ⚠️ app only — see de/atemschutz.ts · outForPlain
@@ -447,6 +447,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logInsideAtClose: 'Team {name} still inside at closing',
     cycleEndAtClose: '{t} (still inside at closing)',
     logClockRestart: 'Team {name}: contact clock restarted – incident reopened',
+    underAir: 'Under SCBA',
   },
   lineDecor: {
     W: 'Water',

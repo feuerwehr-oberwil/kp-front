@@ -303,7 +303,9 @@ export const atemschutzCopy = {
     // sonst die nächste freie). «Automatisch» bleibt als Wort der Auftragsfarben-Tabelle.
     colorAuto: 'Automatisch',
     // board card
-    sinceContact: 'Seit letztem Kontakt',
+    // one wording on the tablet card and the phone row (M3, owner's pick B, 13.11.2026): the eyebrow
+    // over the contact clock; «Seit letztem Kontakt» did not fit the phone row
+    sinceContact: 'Seit Kontakt',
     elapsed: 'Einsatzzeit',
     // Break clock: how long the Trupp has been out. The Einsatzzeit stands still from «Raus» on
     // (it is finished), this one runs instead – that is the number the Überwacher needs for the
@@ -952,6 +954,8 @@ export const atemschutzCopy = {
     // Nach «Wieder öffnen»: die Kontaktuhr eines Trupps, der noch drin steht, läuft ab dem
     // Wiederöffnen neu – die geschlossene Zeit zählt nicht als Zeit ohne Kontakt (r3, F4).
     logClockRestart: 'Trupp {name}: Kontaktuhr neu gestartet – Einsatz wieder geöffnet',
+    // the eyebrow on the card foot's time under air (M3, owner's pick B, 13.11.2026)
+    underAir: 'Unter Atemschutz',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {

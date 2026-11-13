@@ -8,6 +8,7 @@ import type { BoardAnno, BoardTool, CaptionMode, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import { shownTeamColor } from '../lib/teamColors'
 import { DEFAULT_INK } from '../lib/lineStyle'
 import { lineLabel } from '../lib/lineDecor'
 import { teamNoTaken } from '../lib/placedTrupps'
@@ -28,7 +29,6 @@ import type { useBoardDoc } from './useBoardDoc'
 import type { useWbChipDrag } from './useWbChipDrag'
 import type { useWbRotor } from './useWbRotor'
 
-const TEAM_COLORS = appConfig.drawing.teamColors // distinct accent per team (cycled)
 // a composite symbol (Grosslüfter vehicle+fan, Drehleiter/Hubretter body+ladder/boom): a two-handle
 // rotor + two-layer render, like the map. Returns the spec (base/part/scale/label) or undefined.
 const annoComposite = (a: BoardAnno) => (a.kind === 'symbol' ? compositeSpec(a.symbol) : undefined)
@@ -298,7 +298,7 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
         // a chip linked to a Trupp that's been marked «raus» (Atemschutz board)
         // dims + strikes through, so the plan reflects that the team is out.
         const isRaus = !!a.truppId && trupps.some((t) => t.id === a.truppId && t.status === 'raus')
-        const teamCol = a.color || TEAM_COLORS[0]
+        const teamCol = shownTeamColor(a.color)
         // parity with the Lage map: a compact dot + name at rest, expanding to the full
         // pill (cap · rename · time badge) only when the team is selected.
         if (!selected) {

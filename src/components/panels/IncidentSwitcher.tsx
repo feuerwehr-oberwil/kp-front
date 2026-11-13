@@ -200,14 +200,16 @@ export function IncidentSwitcher({
   // was «Gespeichert um 23:16»). The other states keep their words — they are warnings.
   const savedPill = syncStatus === 'synced' ? cp.saved : savedText
   // «Speicher voll» wears its own glyph (lib/icons · #storage, S1): on a phone the chip is its
-  // glyph alone, and the ⚠ it shared with «Sync-Fehler» made the worse state read as the milder
+  // glyph alone, and the ⚠ it shared with «Sync-Fehler» made the worse state read as the milder.
+  // Offline / not yet synced are a cloud in the quiet ink (M2, owner's pick A, 13.11.2026: amber is
+  // the open count's alone) – an amber dot until then.
   const statusMark = syncStatus === 'synced'
     ? <Icon id="check" />
     : syncStatus === 'storage'
       ? <Icon id="storage" />
       : syncStatus === 'error'
         ? <Icon id="warn" />
-        : <span className="ip-status-dot" />
+        : <Icon id="wx-cloud" />
   const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
   // ── a CLOSED Einsatz (27.10.2026, sweep #5 · owner pick B) ──
   // The lock rides in the pill's ✓ slot — the amber «Einsatz abgeschlossen» chip beside the pill
@@ -280,7 +282,9 @@ export function IncidentSwitcher({
               {pill.street && <span className="ip-switch-street">{pill.street}</span>}
             </span>
             {uhr && (
-              <span className="ip-switch-clock"><Icon id="hourglass" /><b>{uhr}</b></span>
+              // the eyebrow on the clock's own line, before the digits (M3, owner's pick B): the
+              // phone pill keeps its two lines – above the digits it would have been a third
+              <span className="ip-switch-clock"><Icon id="hourglass" /><small className="clock-eyebrow" aria-hidden>{U.label}</small><b>{uhr}</b></span>
             )}
           </span>
         ) : (
@@ -293,9 +297,9 @@ export function IncidentSwitcher({
         )}
         {/* persistent ÜBUNG marker in the chrome — a training must never read as a real
             Einsatz mid-use (it also survives the phone's CSS-hidden title).
-            PHONE (08.10.2026, owner): ONE letter, «Ü», in a square amber tag. The word ellipsised
+            PHONE (08.10.2026, owner): ONE letter, «Ü», in a square tag (hatched since M2, 13.11.2026). The word ellipsised
             into «ÜBU…» and took the street with it («Sägestrass…») — the street is what the pill
-            is for, and the amber square says «Übung» as well as the word does. The word stays
+            is for, and the square says «Übung» as well as the word does. The word stays
             the title and is part of the button's accessible name above. */}
         {active?.is_exercise && (twoLine
           ? <span className="ip-badge ip-badge-exercise ip-badge-initial" title={appConfig.copy.exerciseBadge}>{appConfig.copy.exerciseInitial}</span>
@@ -313,8 +317,8 @@ export function IncidentSwitcher({
             <Icon id="storage" /><span className="ip-chip-word">{cp.storageShort}</span>
           </span>
         ) : active && syncStatus === 'offline' ? (
-          <span className="ip-offline-chip" title={savedText} aria-label={savedText}>
-            <span className="ip-status-dot" />{cp.offlineShort}
+          <span className="ip-offline-chip ip-sync-word" title={savedText} aria-label={savedText}>
+            <Icon id="wx-cloud" />{cp.offlineShort}
           </span>
         ) : active && syncStatus === 'error' ? (
           <span className="ip-offline-chip ip-error-chip" title={savedText} aria-label={savedText}>
@@ -380,7 +384,8 @@ export function IncidentSwitcher({
                 })()}
               </div>
               {/* the closed pill's fold: the sentence, then the exits on one line — «Wieder öffnen»
-                  first and wider, amber like «Abschliessen», the tile family of the card's own acts */}
+                  first and wider, the tile family of the card's own acts (neutral since M2: a button
+                  is not a state) */}
               {closed && closedOpen && (
                 <div className="ip-card-closed-fold">
                   <p className="ip-card-closed-say">
@@ -391,7 +396,7 @@ export function IncidentSwitcher({
                   {(onReactivate || onBackFromArchive) && (
                     <div className="ip-card-acts">
                       {onReactivate && (
-                        <button type="button" className="ip-card-act head-tile sm amber ip-card-reopen"
+                        <button type="button" className="ip-card-act head-tile sm ip-card-reopen"
                           disabled={reopening} aria-busy={reopening} onClick={reopen}>
                           {reopening && <span aria-hidden><SyncGlyph done={false} label={C.reopening} /></span>}
                           <span>{reopening ? C.reopening : C.reactivate}</span>
@@ -417,7 +422,8 @@ export function IncidentSwitcher({
                   is the one that ends the Einsatz; a terminal action sitting between two
                   everyday ones is a mis-tap waiting for a gloved thumb.
                   Three tiles of the head's family since 27.09.2026 (slim sweep · mockup 10) —
-                  Abschliessen amber, its count on the tile's corner. Content-sized and NEVER
+                  Abschliessen neutral since M2 (13.11.2026: a button is not a state) – only its
+                  count on the tile's corner is amber. Content-sized and NEVER
                   truncated since the same evening (owner screenshot r2-6: «Abschliess…» — the
                   equal thirds ellipsised the verb on a 390px phone; .ip-card-acts).
                   A wrong ADDRESS is noticed while looking at the map, long before anybody opens
@@ -437,7 +443,7 @@ export function IncidentSwitcher({
                     </button>
                   )}
                   {onArchive && (
-                    <button className="ip-card-act head-tile sm amber" title={cp.archive} aria-label={cp.archive}
+                    <button className="ip-card-act head-tile sm" title={cp.archive} aria-label={cp.archive}
                       onClick={onArchive}>
                       <Icon id="archive" /><span>{cp.archiveShort}</span>
                       {/* The counter BEFORE the press, not only in the dialog after it. Bare
