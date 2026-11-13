@@ -58,13 +58,13 @@ import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
 import { connectRemovalToasts, removeWithUndo } from './lib/removalToast'
 import { usePlacementLane } from './lib/toastLane'
-import { initialMode, loadPrefs, savePrefs } from './lib/prefs'
+import { initialMode, loadPrefs, savePrefs, twinLayersIn } from './lib/prefs'
 import { makePhotoPositionSource } from './lib/devicePosition'
 import { useAttendanceActions } from './lib/useAttendanceActions'
 import { changedAttendanceNames } from './lib/attendanceDiff'
 import { useChecklistActions } from './lib/useChecklistActions'
 import { useTeamMarkerActions } from './lib/useTeamMarkerActions'
-import { useDevicePrefs } from './lib/useDevicePrefs'
+import { onDevicePrefsReset, useDevicePrefs } from './lib/useDevicePrefs'
 import { useSheets } from './lib/useSheets'
 import { muteAtemschutzFor, useAtemschutzMute } from './lib/useAtemschutzMute'
 import { useTacticalSelection } from './lib/useTacticalSelection'
@@ -77,7 +77,7 @@ import { useIsPhone, useMediaQuery } from './lib/useIsPhone'
 import { onReachable } from './lib/connectivity'
 import { Splash } from './components/Splash'
 import { NavRail } from './components/NavRail'
-import { twinVisible, isTwinLayerId } from './lib/georefTwins'
+import { twinVisible, twinsAtDefault, isTwinLayerId } from './lib/georefTwins'
 import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
 import { SHAPE_TWO_POINT } from './lib/shapes'
 import { AtemschutzAlarmMeldungen, ForeignAtemschutzMeldungen } from './components/AtemschutzAlarmMeldung'
@@ -944,7 +944,7 @@ export function IncidentWorkspace({
   // tactical-symbol size (Karte / standalone Module; linked Module follow Karte), captions, offline cache radius,
   // keep-screen-on — device prefs shared with the landing Einstellungen (see useDevicePrefs;
   // lazy loadPrefs seed). Their persistence rides the mode/activePlanId effect below.
-  const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, offlineAuto, setOfflineAuto, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
+  const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
   // "Mein Standort": bumping this takes a single GPS fix + flies to it. On-demand (no continuous
   // watch) so the GPS chip isn't powered all shift — see MapView.locateNonce.
   const [locateReq, setLocateReq] = useState(0)
@@ -1001,12 +1001,15 @@ export function IncidentWorkspace({
   // order it can show (Trupp.order) is synced, so «wie gesetzt» is the same board everywhere.
   const [atemschutzOrder, setAtemschutzOrderState] = useState<TruppOrder>(() => loadPrefs().atemschutzOrder ?? 'manuell')
   const setAtemschutzOrder = (o: TruppOrder) => { setAtemschutzOrderState(o); savePrefs({ ...loadPrefs(), atemschutzOrder: o }) }
-  // Which linked sheets this device lays under the Karte as a raster. A DEVICE pref like every
-  // other «what am I looking at» switch, persisted the way `atemschutzOrder` above is: seeded
-  // lazily from the cookie, written on the toggle. The `twin:` prefix is what the persisted keys
-  // have always said (lib/prefs) — renaming it would rewrite device preferences for a word.
-  const [twinLayers, setTwinLayers] = useState<Record<string, boolean>>(() => loadPrefs().twinLayers ?? {})
-  const [twinLayerOpacity, setTwinLayerOpacity] = useState<Record<string, number>>(() => loadPrefs().twinLayerOpacity ?? {})
+  // …and back to the default with «Gerät auf Standard zurücksetzen» (lib/useDevicePrefs)
+  useEffect(() => onDevicePrefsReset(() => setAtemschutzOrderState(loadPrefs().atemschutzOrder ?? 'manuell')), [])
+  // Which linked sheets this device lays under the Karte as a raster, and how transparent. A
+  // DEVICE pref like every other «what am I looking at» switch, persisted the way
+  // `atemschutzOrder` above is: seeded lazily from the cookie, written on the toggle — and for
+  // THIS Einsatz only (lib/prefs · twinLayersIn, 13.11.2026): the next one starts on the
+  // defaults, as the radar and the Atemschutz mute do. (The workspace remounts per Einsatz.)
+  const [twinLayers, setTwinLayers] = useState<Record<string, boolean>>(() => twinLayersIn(loadPrefs(), incidentMeta.id).visible)
+  const [twinLayerOpacity, setTwinLayerOpacity] = useState<Record<string, number>>(() => twinLayersIn(loadPrefs(), incidentMeta.id).opacity)
   const [mapSuppressedCaptions, setMapSuppressedCaptions] = useState<ReadonlySet<string>>(new Set())
   /**
    * ⚠️ The cookie write happens OUTSIDE the updater, exactly as `setAtemschutzOrder` above does
@@ -1016,9 +1019,10 @@ export function IncidentWorkspace({
    * claimed they were "persisted the same way `atemschutzOrder` is", which is precisely what they
    * were not doing.
    */
-  const persistTwinLayers = (next: Record<string, boolean>) => {
-    setTwinLayers(next)
-    savePrefs({ ...loadPrefs(), twinLayers: next })
+  const persistTwinLayers = (visible: Record<string, boolean>, opacity = twinLayerOpacity) => {
+    setTwinLayers(visible)
+    setTwinLayerOpacity(opacity)
+    savePrefs({ ...loadPrefs(), twinLayersIn: { incidentId: incidentMeta.id, visible, opacity } })
   }
   const toggleTwinLayer = (id: string) => persistTwinLayers({ ...twinLayers, [id]: !twinVisible(twinLayers, id) })
   // a Rapport checklist row navigated to Anwesenheit/Mittel → offer the one-tap way back
@@ -1056,7 +1060,7 @@ export function IncidentWorkspace({
   // PWA: the Offline-Vorbereitung — the incident box, the warm download and its probe URLs
   // (workspace/useOfflinePrefetch).
   const { withGeoBbox, online, offlineProgress, cancelOffline, downloadOffline, offlineProbeUrls } = useOfflinePrefetch({
-    incidentId: incidentMeta.id, center: incidentView.center, offlineRadiusM, offlineAuto, mapRef, layers, backendPlans,
+    incidentId: incidentMeta.id, center: incidentView.center, mapRef, layers, backendPlans,
   })
   // the Gebäude (floor-stack) document only exists once a building is picked; it sits
   // directly after «Umrisse» (the OSM outline you pick the building from) in the CATALOG —
@@ -1723,7 +1727,7 @@ export function IncidentWorkspace({
   // remember the active surface + plan document in a cookie (preserve incidentId)
   // (…but never FROM a link session: its surface is forced, so remembering it would make the
   // next ordinary open of this browser land on the Atemschutz board for no reason anyone gave.)
-  useEffect(() => { savePrefs({ ...loadPrefs(), ...(asLink ? {} : { mode, modeIncidentId: incidentMeta.id }), activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels }) }, [asLink, mode, incidentMeta.id, activePlanId, symbolScale, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels])
+  useEffect(() => { savePrefs({ ...loadPrefs(), ...(asLink ? {} : { mode, modeIncidentId: incidentMeta.id }), activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, keepScreenOn, railLabels }) }, [asLink, mode, incidentMeta.id, activePlanId, symbolScale, symbolCaptions, keepScreenOn, railLabels])
 
   // …and the CODE of the two lazy surfaces (Plan, Rapport — see loadWhiteboard at the top), on
   // idle after the first paint, so a mode switch finds its chunk already parsed. Not for an
@@ -2051,18 +2055,18 @@ export function IncidentWorkspace({
     setLayers(next)
     // no Einsatz category opens with the radar on: «Standard» switches it off (10.10.2026)
     weather.setRadar(false)
+    // …nor with a plan raster away from its default (13.11.2026, PLACE.6)
+    persistTwinLayers({}, {})
   }
   // which quick-tap the Ebenen on screen match — lit in the panel, named in the Ebenen button's
   // tooltip / accessible name (lib/layerPreset, 05.10.2026)
-  const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type), weather.on && weather.radarOn),
-    [layers, incidentMeta.type, weather.on, weather.radarOn])
+  const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type), weather.on && weather.radarOn, twinsAtDefault(twinLayers)),
+    [layers, incidentMeta.type, weather.on, weather.radarOn, twinLayers])
   const setOpacity = (id: LayerId, v: number) => {
     if (weather.handlesLayer(id)) { weather.setRadarOpacity(v); return }
     if (isTwinLayerId(id)) {
       // written outside the updater — see the note on persistTwinLayers
-      const next = { ...twinLayerOpacity, [id]: v }
-      setTwinLayerOpacity(next)
-      savePrefs({ ...loadPrefs(), twinLayerOpacity: next })
+      persistTwinLayers(twinLayers, { ...twinLayerOpacity, [id]: v })
       return
     }
     setLayers((ls) => ls.map((l) => (l.id === id ? { ...l, opacity: v } : l)))
@@ -3359,7 +3363,7 @@ export function IncidentWorkspace({
         manualObject, liveWeather, personnel, syncStatus, lastSyncedAt, syncNow, downloadOffline,
         reloadPersonnel, cancelOffline, offlineProgress, settingsOpen, feedbackOpen, sharePick, shareParent,
         setSettingsOpen, symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, railLabels,
-        setRailLabels, offlineRadiusM, setOfflineRadiusM, offlineAuto, setOfflineAuto, keepScreenOn,
+        setRailLabels, keepScreenOn,
         setKeepScreenOn, linkScoped, setFeedbackParent, setFeedbackOpen, share, setShareParent, setSharePick,
         feedbackParent, canWriteRecord, photoPosition, setPhotoPosition,
       }} />

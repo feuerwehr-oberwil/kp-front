@@ -1461,6 +1461,11 @@ class MapServiceArea(BaseModel):
     municipalities: list[int] = Field(default_factory=list, max_length=50)
 
 
+#: The bounds of ``map.offlineRadiusM`` (the device slider's range it replaced, 13.11.2026).
+OFFLINE_RADIUS_MIN_M = 500
+OFFLINE_RADIUS_MAX_M = 3000
+
+
 class MapConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     defaultView: MapDefaultView = Field(default_factory=MapDefaultView)
@@ -1487,6 +1492,29 @@ class MapConfig(BaseModel):
     # «Unterirdische Bauten» draws, plus the surroundings of every station object. Unset = the
     # municipality the station's map centre (`defaultView`) lies in.
     serviceArea: MapServiceArea = Field(default_factory=MapServiceArea)
+    #: Half-width (m) of the box «Alles für offline laden» caches around an Einsatz on every
+    #: device, and crops the Leitungskataster layers to (src/workspace/useOfflinePrefetch). A
+    #: per-device setting until 13.11.2026 (owner pick PLACE.7): how much of the area is ready
+    #: offline is the station's call. Unset = 1200 m. The bounds are published in the schema
+    #: (the /admin field reads them) but enforced in `_offline_radius_in_range`, so a stored
+    #: value outside them degrades instead of failing the whole document.
+    offlineRadiusM: int | None = Field(
+        default=None, json_schema_extra={"minimum": OFFLINE_RADIUS_MIN_M, "maximum": OFFLINE_RADIUS_MAX_M}
+    )
+
+    @model_validator(mode="after")
+    def _offline_radius_in_range(self, info: ValidationInfo) -> "MapConfig":
+        """500–3000 m; a stored value outside drops to unset (the shipped 1200 m) – see
+        `DoctrineConfig._pressure_lines_stay_in_range` for why stored documents degrade."""
+        r = self.offlineRadiusM
+        if r is not None and not (OFFLINE_RADIUS_MIN_M <= r <= OFFLINE_RADIUS_MAX_M):
+            if not (info.context or {}).get("stored"):
+                raise ValueError(
+                    f"map.offlineRadiusM ({r}) must be between {OFFLINE_RADIUS_MIN_M} and {OFFLINE_RADIUS_MAX_M}"
+                )
+            logger.warning("map.offlineRadiusM %r is out of range — serving the default", r)
+            self.offlineRadiusM = None
+        return self
 
 
 class ReferenceLayerConfig(BaseModel):

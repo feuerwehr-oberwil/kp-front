@@ -3,7 +3,7 @@ import { fitSimilarity, type GeorefPair } from './georef'
 import {
   fitSignature, boardSymbolToEntity, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, planAspect,
   planRasterRows, sheetKeyOf, fitChangeCause, fitChangeRow, fitChangeUndoLabel, referenceDelta,
-  twinPlanImageLayerId, twinVisible,
+  twinPlanImageLayerId, twinVisible, twinsAtDefault,
 } from './georefTwins'
 import { appConfig } from '../config/appConfig'
 import type { StationPlanScales } from './stationPlanScale'
@@ -188,11 +188,19 @@ describe('the Ebenen rows', () => {
 
   it('a raster row defaults OFF and reflects a switched-on one', () => {
     const id = twinPlanImageLayerId('modul2')
-    expect(twinVisible(undefined, id)).toBe(true)      // the shared default…
-    expect(planRasterRows(linked, undefined)[0].visible).toBe(false) // …but a sheet is opt-in
+    // the toggle reads the same default the row shows: a sheet is opt-in, so its first tap shows it
+    expect(twinVisible(undefined, id)).toBe(false)
+    expect(planRasterRows(linked, undefined)[0].visible).toBe(false)
     expect(planRasterRows(linked, { [id]: true })[0].visible).toBe(true)
   })
 
+
+  it('reads every row on its default as «Standard» material, and a switched raster as not', () => {
+    const id = twinPlanImageLayerId('modul2')
+    expect(twinsAtDefault({})).toBe(true)
+    expect(twinsAtDefault({ [id]: false })).toBe(true)
+    expect(twinsAtDefault({ [id]: true })).toBe(false)
+  })
 
   it('claims a measured residual only once a third pair has measured one', () => {
     // a third pair that does not fit perfectly — now there IS a residual to state

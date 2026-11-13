@@ -229,7 +229,7 @@ reopens, while the head's subtitle says when («Schadenlage · erledigt 10:57»)
   hangs ONE 8px off its trigger and keeps 8px from the screen edge, the bars' own distances
   (`lib/overlays` · `OVERLAY_GAP` / `OVERLAY_EDGE`, owner 13.11.2026 – menus hung 4px off, both
   kept 10 from the edge); one whose trigger sits inside a floating bar hangs 8px off the BAR
-  (`BAR_POP_OFFSET`: the Einsatzuhr, the weather, the Gebäude dial).
+  (`BAR_POP_OFFSET`: the weather, the GPS caveat, the Gebäude dial).
 
 Three rules the primitives own, so no surface re-answers them (18.09.2026):
 
@@ -410,7 +410,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     `--float-edge` (or the sheets' `--glass`), light by day and dark by night, with theme inks
     (`--ink`, `--ink-dim`, `--ink-faint`, `--fill-soft`) — never a frozen `rgba(255,255,255,…)`. Every popup
     OUT OF THE TOP BAR wears the bar's own glass (`--glass` + blur + `--glass-line` + `--shadow`):
-    the Einsatzuhr menu, the Atemschutz head detail and the Meteo details (30.09.2026:
+    the Atemschutz head detail and the Meteo details (30.09.2026:
     `.tb-weather-pop` wore `--surface`, a lighter slate than the bar at night).
     **Dark in both themes (`--ink-fill` + `--on-accent-ink`) is the Trupp marker's action bar
     alone** (`.wb-pill-acts` — this marker is in hand); a new surface that is dark by day is a

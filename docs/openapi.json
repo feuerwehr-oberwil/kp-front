@@ -20072,6 +20072,19 @@
           },
           "serviceArea": {
             "$ref": "#/components/schemas/MapServiceArea"
+          },
+          "offlineRadiusM": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "maximum": 3000.0,
+            "minimum": 500.0,
+            "title": "Offlineradiusm"
           }
         },
         "type": "object",

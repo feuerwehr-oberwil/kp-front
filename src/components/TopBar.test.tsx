@@ -2,10 +2,9 @@
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { TopBar, windArrowRotation } from './TopBar'
-import { loadPrefs, savePrefs } from '../lib/prefs'
 import type { Incident } from '../types'
 
-afterEach(() => { cleanup(); savePrefs({ ...loadPrefs(), keyHints: undefined }) })
+afterEach(() => { cleanup() })
 
 const INCIDENT: Incident = {
   type: 'Brand', title: 'Brand Hauptstrasse', address: 'Hauptstrasse 1', center: [7.55, 47.51],
@@ -22,12 +21,6 @@ describe('the top bar\'s shortcut letters', () => {
     expect(letters()).toEqual(['J', 'E'])
     expect(screen.getByRole('button', { name: /Verlauf/ }).title).toBe('Verlauf – Taste J')
     expect(screen.getByRole('button', { name: 'Eintrag' }).title).toMatch(/– Taste E$/)
-  })
-
-  it('follow the device pref «Tastenkürzel anzeigen»', () => {
-    savePrefs({ ...loadPrefs(), keyHints: false })
-    bar()
-    expect(letters()).toEqual([])
   })
 })
 

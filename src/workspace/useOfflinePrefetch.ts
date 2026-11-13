@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import { appConfig } from '../config/appConfig'
+import { offlineRadiusM as stationOfflineRadiusM } from '../lib/deploymentConfig'
 import { cartoRasterTiles } from '../lib/carto'
 import { LABEL_WARM_BYTES, labelWarmUrls } from '../lib/basemapLabels'
 import { fillTemplate, fmtFileSize } from '../lib/format'
@@ -20,19 +21,19 @@ import type { LayerDef, LngLat } from '../types'
 export interface OfflinePrefetchInputs {
   incidentId: string
   center: LngLat
-  offlineRadiusM: number
-  offlineAuto: boolean
   mapRef: RefObject<MapRef | null>
   layers: LayerDef[]
   backendPlans: Record<string, string>
 }
 
-export function useOfflinePrefetch({ incidentId, center, offlineRadiusM, offlineAuto, mapRef, layers, backendPlans }: OfflinePrefetchInputs) {
+export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backendPlans }: OfflinePrefetchInputs) {
   // PWA: pre-download the current map area + plans/symbols/geodata so the base map and
   // reference data render offline at the scene (delivers the `offline`/`cachedTiles` promise).
-  // One box around the incident (editable radius) — caches the map AND crops the region-wide
+  // One box around the incident (the STATION's radius, `map.offlineRadiusM`, default 1200 m –
+  // a device setting until 13.11.2026, PLACE.7; a device's old stored radius is ignored) — caches the map AND crops the region-wide
   // Leitungskataster GeoJSON to the scene via a `bbox` query the backend honours. A FIXED box
   // (not unioned with the viewport) keeps the tile count predictable on a memory-tight iPad.
+  const offlineRadiusM = stationOfflineRadiusM()
   const incidentBounds = useMemo(() => {
     const [clng, clat] = center
     const dLat = offlineRadiusM / 111320
@@ -189,15 +190,16 @@ export function useOfflinePrefetch({ incidentId, center, offlineRadiusM, offline
   // browser tab's cache is evicted too readily to call it «bereit». Re-armed when what there is
   // to warm changes (another Objekt's plans, a new Leitungs-Ebene), so a plan attached mid-
   // incident still gets pulled; the signature keeps one warm per state, not one per minute.
-  // Offline-Vorbereitung «Aus» (device pref) switches all of this off; the button always stays.
-  // …and re-armed when the operator grows the offline radius (29.08.): the readiness probe
+  // Always on in the installed app since 13.11.2026 (the «Offline-Vorbereitung» switch went,
+  // owner pick PLACE.7); the button in the Offline-Bereitschaft sheet stays.
+  // …and re-armed when the station changes the offline radius (29.08.): the readiness probe
   // measures against the CURRENT bbox, so a warm run for the old radius would keep reporting
   // «nicht geladen» forever. Centre and raster-reference ids are explicit too: a corrected
   // Einsatz location or newly configured WMS/WMTS layer owes the device another warm pass.
   const offlineWarmSig = `${incidentId}|${center.join(',')}|${offlineRadiusM}|${Object.values(backendPlans).sort().join(',')}|${layers.filter((l) => l.geojson || (!l.base && l.tiles?.length)).map((l) => l.id).join(',')}`
   const offlineWarmed = useRef('')
   useEffect(() => {
-    if (!offlineAuto || !isStandalone()) return
+    if (!isStandalone()) return
     if (offlineWarmed.current === offlineWarmSig) return
     const t = setTimeout(() => {
       if (!navigator.onLine || isStorageDegraded()) return // this round stays owed — the ref is only stamped on a start
@@ -205,7 +207,7 @@ export function useOfflinePrefetch({ incidentId, center, offlineRadiusM, offline
       void downloadOfflineRef.current({ quiet: true })
     }, 30_000)
     return () => clearTimeout(t)
-  }, [offlineAuto, offlineWarmSig])
+  }, [offlineWarmSig])
   // Offline-readiness: the representative URLs the readiness sheet probes against the SW
   // Cache to report REAL offline presence (not a guess) for the runtime-cached resources.
   const offlineProbeUrls = useMemo(() => {

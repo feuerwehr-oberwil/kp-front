@@ -91,22 +91,11 @@ export interface Prefs {
   /** the device's own hand set `railLabels` in the Einstellungen. Until then the stored value is
    *  only the default the app saved along with everything else, and a phone reads 'short'. */
   railLabelsChosen?: boolean
-  /** «Tastenkürzel anzeigen» (31.10.2026): the shortcut letter badge (K · C · A … V · L · F …) on
-   *  every tile of both rails. A DEVICE pref – it is about the keyboard in front of THIS device,
-   *  never synced and never station config. Default ON (absent = on, see `keyHintsFor`); `false`
-   *  hides them. It only ever shows on a fine pointer with hover (CSS · 04b-rail.css): a touch-only
-   *  device has no keyboard to read them for, whatever this says. */
-  keyHints?: boolean
-  /** radius (metres) of the box cached around the incident by "Alles für offline laden".
-   *  Device pref — each device decides how much to store. Default 1200. */
-  offlineRadiusM?: number
-  /** Offline-Vorbereitung: the installed app quietly runs «Alles für offline laden» itself,
-   *  shortly after an Einsatz is opened, so devices are simply ready without anybody pressing
-   *  the button (28.08. field feedback — the button relies on someone remembering it).
-   *  Default TRUE. `false` = «Aus» (manual only). Two states, deliberately no «nur WLAN» tier:
-   *  Safari/iPadOS exposes no network-type API, so a WLAN gate could not work on the primary
-   *  devices and would be a setting that lies. A station worried about SIM data opts out. */
-  offlineAuto?: boolean
+  /** RETIRED (13.11.2026, owner pick PLACE.7): `keyHints` («Tastenkürzel anzeigen» – the letters
+   *  are always on, and CSS shows them only with hover + a fine pointer anyway), `offlineRadiusM`
+   *  (now the station's `map.offlineRadiusM`, lib/deploymentConfig · offlineRadiusM) and
+   *  `offlineAuto` («Offline-Vorbereitung» – always on). A cookie from an older build may still
+   *  carry them; nothing reads them. */
   /** keep the screen awake (Screen Wake Lock) while an incident is open. Default true — a
    *  command tablet at the scene must not dim mid-operation — but a personal device idling in the
    *  background may prefer to let the screen sleep, so it's a per-device toggle. */
@@ -127,8 +116,8 @@ export interface Prefs {
    *  than dropped: a cookie written by an older build may still carry it, and it is ignored —
    *  nothing reads it, so a device that once switched it on is not stuck hands-off. */
   elView?: boolean
-  /** what the top Einsatzuhr shows — tap it to cycle. Default 'elapsed' (running duration). */
-  clockMode?: 'elapsed' | 'now' | 'start'
+  /** RETIRED (13.11.2026, owner pick PLACE.5): `clockMode`, what the Einsatzuhr showed. It
+   *  always shows the Einsatzdauer now (lib/einsatzuhr); an old stored mode is ignored. */
   /** How the Atemschutz board is ordered. Default 'manuell' — «wie gesetzt», the hand-set order,
    *  so a card keeps its slot and «Trupp 2 is the second one» stays true for the whole Einsatz.
    *  A device pref because it is a way of LOOKING at the board; the hand-set order itself is
@@ -147,19 +136,14 @@ export interface Prefs {
    *  compass menu and off again when that Einsatz ends — so nobody's phone starts broadcasting
    *  because of something they agreed to months ago. */
   sharePosition?: SharePositionPref
-  /** Georeferenz twin layers that have been switched OFF on this device, keyed by their Ebenen
-   *  row id (lib/georefTwins · twinPlanImageLayerId). Absent or `true` = shown, which is
-   *  the default: a georeference exists because somebody deliberately made one, and seeing both
-   *  pictures at once is what they made it for.
-   *
-   *  A DEVICE pref, exactly like the map's own layer visibility — that rides the workspace blob
-   *  but `mergeWorkspace` keeps `layerState` local, so «which layers am I looking at» has never
-   *  been something one device imposes on another. Same rule, kept in the same place a twin row
-   *  can actually reach: the plan ids are per object and would have no home in the fixed
-   *  `LayerDef` list `layerState` is reconciled against (lib/workspace · deriveInitial). */
-  twinLayers?: Record<string, boolean>
-  /** Transparency (0..100) of opt-in georeferenced plan rasters on the Lage map. */
-  twinLayerOpacity?: Record<string, number>
+  /** The Georeferenz twin layers (lib/georefTwins · twinPlanImageLayerId) switched away from
+   *  their default on this device, and their transparency – for ONE Einsatz (13.11.2026, PLACE.6),
+   *  like the radar below: a plan hidden at an Übung stayed hidden for a year, in every later
+   *  Einsatz on that object, and «Standard» did not bring it back. Another Einsatz reads none of
+   *  it (`twinLayersIn`). A DEVICE pref, exactly like the map's own layer visibility (`layerState`
+   *  rides the workspace blob but `mergeWorkspace` keeps it local). The old unscoped
+   *  `twinLayers` / `twinLayerOpacity` keys an older build wrote are ignored. */
+  twinLayersIn?: TwinLayerPrefs & { incidentId: string }
   /** The Karte's «Niederschlag (Radar)» row in Ebenen (components/WeatherLayer): the id of the
    *  Einsatz it is switched on in (workspace/useKarteWeather · einsatzRadarStore). A device pref
    *  like the plan rasters – what this screen looks at, not the Einsatz's tactical picture – but
@@ -168,6 +152,45 @@ export interface Prefs {
   weatherRadarIn?: string
   /** its transparency (0..100), the Ebenen panel's own slider */
   weatherRadarOpacity?: number
+}
+
+/** What a twin row remembers: visibility (absent = the row's default, lib/georefTwins ·
+ *  twinVisible / twinPlanImageVisible) and transparency (0..100), by Ebenen row id. */
+export interface TwinLayerPrefs {
+  visible: Record<string, boolean>
+  opacity: Record<string, number>
+}
+
+/** The twin rows' state for this Einsatz – empty for any other (see `Prefs.twinLayersIn`). */
+export function twinLayersIn(p: Prefs, incidentId: string): TwinLayerPrefs {
+  const t = p.twinLayersIn
+  return t?.incidentId === incidentId ? { visible: t.visible ?? {}, opacity: t.opacity ?? {} } : { visible: {}, opacity: {} }
+}
+
+/** The keys «Gerät auf Standard zurücksetzen» clears (13.11.2026, PLACE.7): the device's own
+ *  look-and-feel choices, each of which reads its default once absent. NOT on the list, on
+ *  purpose: the two standing permissions (`photoPosition`, `sharePosition` – a consent is not a
+ *  preference, like the alarm opt-in, which lives elsewhere), where the device was
+ *  (`mode`, `incidentId`, `activePlanId`, `adminSection`, …) and the per-Einsatz state
+ *  (`twinLayersIn`, `weatherRadarIn`). The legacy `symbolSize` goes too, or it would come back as
+ *  the migrated size. */
+export const DEVICE_PREF_KEYS = [
+  'theme', 'symbolSize', 'symbolScaleMap', 'symbolScaleBoard', 'symbolCaptions',
+  'railLabels', 'railLabelsChosen', 'keepScreenOn', 'atemschutzOrder',
+] as const satisfies readonly (keyof Prefs)[]
+
+/** `p` without the device preferences – what the reset writes */
+export function withoutDevicePrefs(p: Prefs): Prefs {
+  const rest = { ...p }
+  for (const k of DEVICE_PREF_KEYS) delete rest[k]
+  return rest
+}
+
+/** `now` with the device preferences of `before` put back – what the reset's undo writes */
+export function withDevicePrefsOf(now: Prefs, before: Prefs): Prefs {
+  const back: Prefs = withoutDevicePrefs(now)
+  for (const k of DEVICE_PREF_KEYS) if (before[k] !== undefined) Object.assign(back, { [k]: before[k] })
+  return back
 }
 
 export interface SharePositionPref {
@@ -282,9 +305,6 @@ export function railLabelsFor(p: Pick<Prefs, 'railLabels' | 'railLabelsChosen'>,
   if (p.railLabelsChosen || p.railLabels === 'short') return p.railLabels ?? 'off'
   return phone ? 'short' : 'off'
 }
-
-/** «Tastenkürzel anzeigen» as this device reads it: ON until somebody switches it off. */
-export const keyHintsFor = (p: Pick<Prefs, 'keyHints'>): boolean => p.keyHints ?? true
 
 export function loadPrefs(): Prefs {
   try {
