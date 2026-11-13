@@ -67,7 +67,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', only: 'phone', items: [
             'La **barre des espaces** tout en bas a cinq cases : Carte, Plans, Checklist, Binômes et Rapport. **Plans** et **Rapport** regroupent plusieurs pages (Rapport, Présence, Matériel) : toucher la case une seconde fois ou la maintenir ouvre le choix.',
             'Au-dessus, la **barre d’outils** de la carte ou du plan. **+** est l’unique porte vers tout ce qu’on y place.',
-            'Un bouton qui ne porte qu’un symbole dit son nom quand on le **maintient appuyé**. Dans **Cet appareil**, «Étiquettes des barres» écrit les mots dessous en permanence.',
+            'Un bouton qui ne porte qu’un symbole dit son nom quand on le **maintient appuyé**. Dans les **Réglages**, «Étiquettes des barres» écrit les mots dessous en permanence.',
           ] },
           { kind: 'sub', text: 'Barre de gauche', only: 'wide' },
           { kind: 'list', items: [
@@ -405,7 +405,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             '**Préparation hors ligne** : l’application installée va chercher d’elle-même carte, plans, symboles et couches de référence peu après l’ouverture d’une intervention – sans dialogue, sans notification. **Toutes** les couches cartographiques configurées sont chargées, y compris celle qui est masquée : l’expérience montre qu’on l’active une fois le réseau déjà perdu. Le bouton **Tout charger pour le hors ligne** fait de même à tout moment, à la main.',
             'La quantité chargée dépend du **Rayon hors ligne** de la station (dans l’administration, le même pour tous les appareils).',
-            'Ce qui est réellement prêt est indiqué par **Cet appareil** dans le menu (sous « Prêt ? ») – ligne par ligne : carte, plans, symboles, matières dangereuses, couches de référence, personnel, stockage de l’appareil. **Météo** et **Recherche d’objets** nécessitent du réseau et y figurent comme « avec réseau seulement ».',
+            'Ce qui est réellement prêt est indiqué par **Réglages › Cet appareil** dans le menu – ligne par ligne : carte, plans, symboles, matières dangereuses, couches de référence, personnel, stockage de l’appareil. **Météo** et **Recherche d’objets** nécessitent du réseau et y figurent comme « avec réseau seulement ».',
             'Seule l’**application installée** est fiable hors ligne. Dans un onglet de navigateur, le stockage peut être vidé à tout moment, et l’onglet devrait encore être ouvert à la prochaine intervention.',
             'Sans réseau, tout ce qui est sur l’appareil continue de fonctionner : dessiner et poser des symboles, ARI, présence, matériel, journal et rapport. Photos et notes vocales restent enregistrées et partent plus tard.',
             'Dès que le réseau revient, les modifications partent d’elles-mêmes et sont fusionnées avec les autres appareils – par objet, la modification la plus récente l’emporte. Tant que quelque chose est en attente, l’indicateur de transmission en haut le dit.',

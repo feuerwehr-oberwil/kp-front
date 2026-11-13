@@ -131,7 +131,7 @@ export const panelsCopy = {
       unknown: 'Grund unbekannt.',
     },
   },
-  // «Dieses Gerät» sheet (SettingsSheet: Bereit?, the device prefs, the utilities)
+  // «Einstellungen» sheet (SettingsSheet: the device prefs, «Dieses Gerät» folded, the utilities)
   settings: {
     colorScheme: 'Farbschema',
     // the line under «Farbschema»: what the selected option does («Automatisch» vs «Gerät»)
@@ -177,10 +177,17 @@ export const panelsCopy = {
     feedbackRow: 'Rückmeldung geben',
     feedbackRowSub: 'Was umständlich war oder gefehlt hat',
     feedbackOpen: 'Schreiben',
-    // «Dieses Gerät» (M9, 13.11.2026): the one device sheet, its menu row and its two groups
-    sheetTitle: 'Dieses Gerät',
-    readyGroup: 'Bereit?',
+    // «Einstellungen» (M9, 13.11.2026 – «Dieses Gerät» until round 2b, owner's pick): the one device
+    // sheet, its menu row and its groups
+    sheetTitle: 'Einstellungen',
     handGroup: 'Bedienung',
+    // the folded readiness section (round 2b, owner 13.11.2026: «the settings should be the
+    // settings and not just some info»): its title and the parts of its one summary row
+    deviceGroup: 'Dieses Gerät',
+    deviceSumAlarm: 'Alarm',
+    deviceSumOffline: 'Offline',
+    deviceSumApp: 'App installiert',
+    deviceSumNoApp: 'Nicht installiert',
   },
   // Rückmeldung — the feedback composer + the prompt after something went wrong. Nothing here
   // is sent automatically: the app writes the text, the operator sends it (see lib/feedbackReport).

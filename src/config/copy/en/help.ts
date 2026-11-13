@@ -69,7 +69,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', only: 'phone', items: [
             'The **area bar** at the very bottom has five tiles: Map, Plans, Checklist, Teams and Report. **Plans** and **Report** stand for several pages (Report, Attendance, Materiel): tap the tile again or hold it to open the chooser.',
             'Above it, the **tool bar** of the map or the plan. **+** is the one door to everything that is put on it.',
-            'A button that carries only an icon says its word when you **hold it down**. In **This device**, «Rail labels» writes the words underneath for good.',
+            'A button that carries only an icon says its word when you **hold it down**. In **Settings**, «Rail labels» writes the words underneath for good.',
           ] },
           { kind: 'sub', text: 'Left rail', only: 'wide' },
           { kind: 'list', items: [
@@ -407,7 +407,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             '**Offline preparation**: the installed app fetches map, plans, symbols and reference layers by itself shortly after an incident is opened – no dialog, no toast. **Every** configured map layer comes along, including the one currently hidden: experience says it gets switched on once the network is already gone. The **Load everything for offline** button fetches the same at any time by hand.',
             'How much is loaded is set by the station\'s **Offline radius** (in the administration, the same for every device).',
-            'What is actually ready is shown by **This device** in the menu (under «Ready?») – row by row: map, plans, symbols, hazmat, reference layers, personnel, device storage. **Weather** and **Object search** need network and stand there as «network only».',
+            'What is actually ready is shown by **Settings › This device** in the menu – row by row: map, plans, symbols, hazmat, reference layers, personnel, device storage. **Weather** and **Object search** need network and stand there as «network only».',
             'Only the **installed app** is reliably offline. In a browser tab the storage can be cleared at any time, and the tab would have to still be open at the next incident.',
             'Without a network everything on the device keeps working: drawing and placing symbols, SCBA, attendance, materiel, log and report. Photos and voice notes stay stored and go out later.',
             'As soon as there is a network again the changes go out by themselves and are merged with the other devices – per object, latest change wins. While anything is pending, the transfer indicator on top says so.',

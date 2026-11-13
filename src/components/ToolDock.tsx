@@ -108,7 +108,8 @@ export function ToolDock({ groups }: { groups: DockItem[][] }) {
   const level = useRailLevel(ref, !phone)
   // the tablet column only: the phone's dock is a one-row bar over the bottom bars (15-mobile),
   // its tiles bare glyphs at the bar's height
-  const worded = !phone && useRailLabels() === 'short' && groups.flat().every(canWord)
+  const labels = useRailLabels()
+  const worded = !phone && labels === 'short' && groups.flat().every(canWord)
   return (
     <div ref={ref} className={`wb-dock wb-dock-map${worded ? ' wb-dock-worded' : ''}`} style={level}>
       {visible.map((g, gi) => (

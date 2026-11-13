@@ -218,14 +218,14 @@ The rules that are easy to break:
   «the keyboard shortcuts … also in the peacetime mode»). `lib/karte/hotkeys · resolveKarteHotkey`
   decodes on top of `lib/hotkeys · resolveHotkey`, so K Karte · C Checkliste · 1–9 the selected
   object's module · D Messen · B Ebenen · G Mein Standort · 0 Einpassen · + − zoom (the map, or the
-  open plan through the reader's `fitRef` / `keysRef`) · ⌘ , «Dieses Gerät» · ? Hilfe mean the same
+  open plan through the reader's `fitRef` / `keysRef`) · ⌘ , «Einstellungen» · ? Hilfe mean the same
   in both. Only what the Einsatz has no surface for is the viewer's own: **P** Punkt setzen, **U**
   Gefahrgut (UN number), **/** and **⌘ K** the search; every other Einsatz key decodes to nothing
   here and is never claimed. Escape peels one layer back towards the plain map: search → compass
   menu → armed tool → open plan → selection. The letters stand on the tiles from the same tables
   (`KARTE_TOOL_KEY` through ToolRail's `toolKey`, `SURFACE_KEY` on Karte · Checkliste,
   `PANEL_KEY` on Ebenen). ⚠️ Nothing reaches the viewer while one of App's sheets is over it
-  (`keysOff`: Hilfe, Rückmeldung, the demo welcome …), nor with its own menu or «Dieses Gerät»
+  (`keysOff`: Hilfe, Rückmeldung, the demo welcome …), nor with its own menu or the «Einstellungen»
   open, nor from inside a dialog or a field.
 - **Own state, never an Einsatz's.** No workspace, no saved drawing, no plan binding, no journal
   row. Measurements, the Gefahrgut rings and a dropped pin are component state; only the Ebenen and
@@ -1040,8 +1040,10 @@ and `KarteDevice.tsx · KarteDeviceRows` probe). No «ganze Station herunterlade
 
 What the surface shows offline:
 
-- **«Dieses Gerät» opens with «Bereit?» › «Alarm auf diesem Gerät»** (3am sweep §1, 23.10.2026;
-  one sheet with the Einstellungen since 13.11.2026, M9 – it was «Auf diesem Gerät» on home): the
+- **«Einstellungen» › «Dieses Gerät» › «Alarm auf diesem Gerät»** (3am sweep §1, 23.10.2026;
+  one sheet with the Einstellungen since 13.11.2026, M9 – it was «Auf diesem Gerät» on home; since
+  round 2b a FOLDED section after the prefs: one summary row «Alarm ✓ · Offline ✓ · App
+  installiert», opening by itself for an offline door or a part that needs the operator): the
   four readiness rows (installed · Benachrichtigung · Alarm-Abo · Anmeldung) with their one-tap
   fixes, the Testalarm and the opt-out – the same sheet inside an Einsatz. Since 28.10.2026 (owner's
   pick 17A) they fold into ONE line with no heading: «✓ Alarm bereit · Getestet am …» with the
@@ -1183,8 +1185,8 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   the one the viewer covers too, whose row only steps the viewer aside), the alarms waiting to be
   taken (bell · «Neuer Alarm» · title · address · «Öffnen», and the × that hides one on this
   device only — both locked while a take runs), «Alle Einsätze», «Einsatz eröffnen» (editors);
-  then «App»: Objektbesuche, **«Dieses Gerät»** (ONE row and word in both menus since 13.11.2026,
-  M9; on home with the viewer's own availability rows, in an Einsatz with its Offline-Bereitschaft),
+  then «App»: Objektbesuche, **«Einstellungen»** (ONE row and word in both menus since 13.11.2026,
+  M9 – «Dieses Gerät» for a day, the folded section's name since round 2b; on home with the viewer's own availability rows, in an Einsatz with its Offline-Bereitschaft),
   Funktionen & Hilfe, Installieren where offered; who is signed in with Abmelden, the
   build label. With nothing running and nothing to take, one quiet line says «Keine offenen
   Einsätze». The Rückmeldung prompt (`trouble`) heads the sheet. App hands the handlers to

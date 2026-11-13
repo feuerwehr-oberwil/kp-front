@@ -18,6 +18,7 @@ import { cacheProbeable, deviceRows, planKey, planLamp, type DeviceFacts, type L
 import { heldPlanPages } from './useKarteOffline'
 import { ListCard, ListRow } from '../ListRow'
 import s from './Karte.module.css'
+import { useReportOfflineState } from '../panels/deviceState'
 
 export function LampDot({ lamp, className }: { lamp: Lamp; className?: string }) {
   return <span className={cx(s.lamp, lamp === 'part' && s.lampPart, lamp === 'online' && s.lampOff, className)} aria-hidden />
@@ -58,6 +59,11 @@ export function KarteDeviceRows({ offline, objects, map }: {
     return () => { alive = false }
   }, [objects])
   const rows = facts ? deviceRows({ ...facts, offline, map }, C, { day: fmtDay, size: fmtFileSize }) : null
+  // the Einstellungen' summary (panels/deviceState): no catalogue on the device = nothing to find
+  // offline, the operator is needed; a browser tab or low storage is a hint
+  useReportOfflineState(!rows ? null
+    : rows.some((r) => r.key === 'catalogue' && r.lamp === 'online') ? 'red'
+      : !isStandalone() || rows.some((r) => r.key === 'storage' && r.lamp === 'part') ? 'warn' : 'ok')
   return (
     <div className={s.deviceRows}>
       <p className={s.deviceLead}>{offline ? C.leadOffline : C.leadOnline}</p>

@@ -36,7 +36,7 @@ const permissionNow = (): NotificationPermission | 'unsupported' =>
 /** The facts, re-read whenever something that moves them happens: the device record, the
  *  install state, the page coming back (the person may have allowed notifications in the
  *  system settings meanwhile), or a fix this surface ran. */
-function useAlarmReadiness() {
+export function useAlarmReadiness() {
   const { user } = useAuth()
   // the clock the rows are judged against — moved on every re-read, never read in render
   const [now, setNow] = useState(() => Date.now())
