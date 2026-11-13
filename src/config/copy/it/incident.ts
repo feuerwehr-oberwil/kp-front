@@ -159,6 +159,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     insideClose: 'Chiudere comunque',
     insideTitle: 'Squadre ancora dentro',
     boardNotYours: 'Solo chi gestisce la lavagna autoprotettori può registrarne l’uscita.',
+    watchEnds: 'La chiusura termina la sorveglianza di queste squadre su tutti i dispositivi.',
     confirmBack: 'Indietro',
     endeNow: 'ora {t}',
     done: 'Intervento chiuso',

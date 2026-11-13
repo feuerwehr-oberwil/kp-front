@@ -101,7 +101,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
       {
         id: 'tastatur', title: 'Keyboard shortcuts', icon: 'type', only: 'keyboard',
         blocks: [
-          { kind: 'lead', text: 'With a keyboard everything is reachable without a mouse. Shortcuts do nothing while you are typing in a text field, nor behind an open window. Where a tile has a key, its letter is printed on it – in both rails, in the view bar at the bottom right and on «Log» and «Entry» at the top (while «Show keyboard shortcuts» is on in **Settings**).' },
+          { kind: 'lead', text: 'With a keyboard everything is reachable without a mouse. Shortcuts do nothing while you are typing in a text field, nor behind an open window. Where a tile has a key, its letter is printed on it – in both rails, in the view bar at the bottom right and on «Log» and «Entry» at the top.' },
           { kind: 'sub', text: 'Switching areas' },
           { kind: 'list', items: [
             'Numbers open the plan module with that number – which ones exist depends on this brigade’s modules: [[1]] module 1, [[2]] or [[3]] the «2/3» module, [[4]] module 4 …',
@@ -405,8 +405,8 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           ] },
           { kind: 'sub', text: 'Offline' },
           { kind: 'list', items: [
-            '**Offline preparation** in **Settings** ([[⌘]] [[,]]) is set to **Automatic**: the installed app fetches map, plans, symbols and reference layers by itself shortly after an incident is opened – no dialog, no toast. **Every** configured map layer comes along, including the one currently hidden: experience says it gets switched on once the network is already gone. **Manual only** leaves that to the **Load everything for offline** button.',
-            'How much is loaded is set by the **Offline radius** (Settings as well, this device only): a smaller radius = a faster, smaller download.',
+            '**Offline preparation**: the installed app fetches map, plans, symbols and reference layers by itself shortly after an incident is opened – no dialog, no toast. **Every** configured map layer comes along, including the one currently hidden: experience says it gets switched on once the network is already gone. The **Load everything for offline** button fetches the same at any time by hand.',
+            'How much is loaded is set by the station\'s **Offline radius** (in the administration, the same for every device).',
             'What is actually ready is shown by **Offline readiness** in the incident menu – row by row: map, plans, symbols, hazmat, reference layers, personnel, device storage. **Weather** and **Object search** need a connection and stand there as «online only».',
             'Only the **installed app** is reliably offline. In a browser tab the storage can be cleared at any time, and the tab would have to still be open at the next incident.',
             'Without a network everything on the device keeps working: drawing and placing symbols, SCBA, attendance, materiel, log and report. Photos and voice notes stay stored and go out later.',

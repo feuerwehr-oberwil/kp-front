@@ -167,6 +167,20 @@ def test_the_nearby_object_warning_distance_defaults_to_25_m_and_is_bounded():
     assert doc.doctrine.nearbyObjectWarnM == 25
 
 
+def test_the_offline_radius_is_a_bounded_station_setting():
+    """PLACE.7 (13.11.2026): the box every device caches around an Einsatz moved from a device
+    slider to the station's `map.offlineRadiusM` – unset is the shipped 1200 m, 500–3000 m."""
+    assert DeploymentConfigIn.model_validate({"map": {}}).map.offlineRadiusM is None
+    assert DeploymentConfigIn.model_validate({"map": {"offlineRadiusM": 2000}}).map.offlineRadiusM == 2000
+    for value in (499, 3001):
+        with pytest.raises(ValidationError):
+            DeploymentConfigIn.model_validate({"map": {"offlineRadiusM": value}})
+    # a stored value out of range costs the station this one number, not its configuration
+    doc = load_stored_config({"identity": {"appName": "Feuerwehr Steintal"}, "map": {"offlineRadiusM": 9000}})
+    assert doc.identity.appName == "Feuerwehr Steintal"
+    assert doc.map.offlineRadiusM is None
+
+
 def test_the_hose_defaults_survive_a_save_and_a_relay_never_starts_on_40():
     """Owner 05.11.2026: a plain Linie is 40 mm, a Wassertransport 75 mm – both station doctrine
     (src/lib/hydraulics · hoseDefaults). Unset serves nothing, so the shipped values apply."""

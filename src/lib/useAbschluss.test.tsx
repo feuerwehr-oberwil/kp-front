@@ -5,7 +5,6 @@ import { renderHook } from '@testing-library/react'
 vi.mock('./ui', () => ({ confirmDialog: vi.fn() }))
 import { confirmDialog } from './ui'
 import { useAbschluss } from './useAbschluss'
-import { abschlussOpenLabel } from './abschlussOpen'
 import type { ReportMeta } from './workspace'
 import type { Trupp } from '../types'
 import type { ConfirmItem } from './overlays/ConfirmCard'
@@ -15,6 +14,7 @@ import { appConfig } from '../config/appConfig'
 // order is pinned end to end in IncidentWorkspace.harness; these pin the derived values.
 const args = (over: Partial<Parameters<typeof useAbschluss>[0]> = {}): Parameters<typeof useAbschluss>[0] => ({
   reportMeta: {} as ReportMeta, attendance: {}, mittel: [], openConflictCount: 0, trupps: [],
+  alarmSeverities: {}, intervalMin: 5, graceSec: 60,
   incidentMeta: { is_archived: false, status: 'offen', closed_at: null }, replayActive: false,
   media: { pendingCount: 0, flush: vi.fn(async () => {}) } as never,
   onCompleteRapport: vi.fn(async () => true),
@@ -101,8 +101,8 @@ describe('useAbschluss', () => {
 
   // #227 × #235, staging integration
   it('the «beim Abschluss noch drin» rows are written under the close mark', async () => {
-    // the crews question («trotzdem») and then the Abschluss confirm
-    vi.mocked(confirmDialog).mockResolvedValueOnce(true).mockResolvedValueOnce(true)
+    // the crews question («trotzdem») — which is the confirm (FLOW.4)
+    vi.mocked(confirmDialog).mockResolvedValueOnce(true)
     const marks: boolean[] = []
     const noted: boolean[] = []
     const inside = { id: 'in', no: 1, name: 'Tst', auftrag: 'loeschen', status: 'aktiv',
@@ -175,8 +175,10 @@ describe('useAbschluss', () => {
       const a = args({ trupps: [sich], onCompleteRapport: vi.fn(async () => true) })
       await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(true)
       const spec = ask.mock.calls[0][0]
-      expect(spec).toMatchObject({ title: A.registeredTitle, confirmLabel: A.insideClose, safeAnswer: 'cancel', note: A.boardNotYours })
+      // its «Trotzdem abschliessen» is the confirm (FLOW.4): the confirm's own sentence comes along
+      expect(spec).toMatchObject({ title: A.registeredTitle, confirmLabel: A.insideClose, safeAnswer: 'cancel', note: `${A.boardNotYours} ${A.confirmMsg}` })
       expect(spec.altLabel).toBeUndefined()
+      expect(ask).toHaveBeenCalledTimes(1)
     })
 
     it('«Zur Tafel» goes to the board and closes nothing', async () => {
@@ -204,16 +206,16 @@ describe('useAbschluss', () => {
 
     it('is not offered while a crew is still inside — the Abschluss asks about that one first', async () => {
       const ask = vi.mocked(confirmDialog)
-      // «trotzdem» on the crews-inside question, then «Abbrechen» on the Abschluss itself
-      ask.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+      // «trotzdem» on the crews-inside question closes (FLOW.4) — nothing about the waiting crew
+      ask.mockReset().mockResolvedValueOnce(true)
       const standDownTrupps = vi.fn()
       const a = args({
         trupps: [sich, { ...sich, id: 'in', no: 1, auftrag: 'loeschen', status: 'aktiv', entryTime: '2026-09-23T19:00:00Z' }],
         standDownTrupps,
       })
       await renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()
-      expect(ask).toHaveBeenCalledTimes(2)
-      expect(ask.mock.calls[1][0].message).not.toContain('angemeldet')
+      expect(ask).toHaveBeenCalledTimes(1)
+      expect(ask.mock.calls[0][0].title).toBe(A.insideTitle)
       expect(standDownTrupps).not.toHaveBeenCalled()
     })
 
@@ -257,7 +259,7 @@ describe('useAbschluss', () => {
       await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(false)
       expect(ask.mock.calls[0][0]).toMatchObject({
         message: '1 Trupp ist noch drin:',
-        items: [{ head: 'Trupp 1', text: 'Muster Leo / Graf Eva' }],
+        items: expect.arrayContaining([expect.objectContaining({ head: 'Trupp 1', text: 'Muster Leo / Graf Eva' })]),
         altLabel: appConfig.copy.abschluss.registeredToBoard,
         confirmLabel: appConfig.copy.abschluss.insideClose,
         safeAnswer: 'alt',
@@ -266,17 +268,52 @@ describe('useAbschluss', () => {
       expect(a.onCompleteRapport).not.toHaveBeenCalled()
     })
 
-    it('closing anyway goes on to the Abschluss itself — writes no Austritt, and does not ask again', async () => {
+    // FLOW.4 (owner pick 13.11.2026): one ask, not two
+    it('closing anyway IS the confirm — the Einsatz closes at once, writes no Austritt', async () => {
       const ask = vi.mocked(confirmDialog)
-      ask.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(true)
+      ask.mockReset().mockResolvedValueOnce(true)
       const standDownTrupps = vi.fn()
       const a = args({ trupps: [inside], standDownTrupps })
       await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(true)
-      expect(ask).toHaveBeenCalledTimes(2)
+      expect(ask).toHaveBeenCalledTimes(1)
+      expect(a.onCompleteRapport).toHaveBeenCalledTimes(1)
       expect(standDownTrupps).not.toHaveBeenCalled()
-      // sweep R2: the list after it carries no «Trupps noch im Einsatz» row – that was just answered
-      const labels = ask.mock.calls[1][0].items?.map((i) => (typeof i === 'string' ? i : 'label' in i ? i.label : i.text))
-      expect(labels).not.toContain(abschlussOpenLabel({ kind: 'trupps', n: 1 }))
+      // the dropped confirm's sentence rides on the crew sheet, after what the close does to the crews
+      const A = appConfig.copy.abschluss
+      expect(ask.mock.calls[0][0]).toMatchObject({ noteLead: A.watchEnds, note: A.confirmMsg })
+    })
+
+    // FLOW.5: the `el` closes over an overdue crew it cannot report out — told which, and what follows
+    it('marks the Trupp in alarm red in the board\'s word, and says the watch ends on every device', async () => {
+      const ask = vi.mocked(confirmDialog)
+      ask.mockReset().mockResolvedValueOnce(false)
+      const quiet: Trupp = { ...inside, id: 'q', no: 2, name: 'Graf Eva', members: [] }
+      const a = args({ trupps: [inside, quiet], alarmSeverities: { in: 2 } })
+      await renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()
+      const A = appConfig.copy.abschluss
+      const spec = ask.mock.calls[0][0]
+      expect(spec.items?.slice(0, 2)).toEqual([
+        { head: 'Trupp 1', text: 'Muster Leo / Graf Eva', alarm: appConfig.copy.atemschutz.clockOverdue },
+        { head: 'Trupp 2', text: 'Graf Eva', alarm: undefined },
+      ])
+      // …and because this question IS the confirm, the open Mindestangaben follow the crews as the
+      // same link rows the dropped confirm showed (lead review of FLOW.4)
+      expect(spec.items?.slice(2)).toEqual(expect.arrayContaining([expect.objectContaining({ label: 'Kurzbericht' })]))
+      expect(spec).toMatchObject({ noteLead: A.watchEnds, note: `${A.boardNotYours} ${A.confirmMsg}` })
+      expect(spec.safeAnswer).toBe('cancel')
+    })
+
+    it('a Notfall and crews inside: only the LAST question carries the confirm\'s sentence', async () => {
+      const ask = vi.mocked(confirmDialog)
+      ask.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(true)
+      const a = args({ trupps: [{ ...inside, notfallAt: '2026-09-25T10:20:00Z' }], standDownTrupps: vi.fn() })
+      await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(true)
+      const A = appConfig.copy.abschluss
+      expect(ask.mock.calls.map((c) => [c[0].noteLead, c[0].note])).toEqual([[A.watchEnds, undefined], [A.watchEnds, A.confirmMsg]])
+      // …and the Notfall Trupp is marked in the list of the second
+      expect(ask.mock.calls[1][0].items?.[0]).toMatchObject({ alarm: appConfig.copy.atemschutz.notfall.title })
+      // the first question is not the confirm: it lists the crews only
+      expect(ask.mock.calls[0][0].items).toBeUndefined()
     })
 
     // staging r3 F4: closing over them wrote nothing, and the record ended with open sorties
@@ -284,13 +321,13 @@ describe('useAbschluss', () => {
       const ask = vi.mocked(confirmDialog)
       const order: string[] = []
       const noteInsideAtClose = vi.fn((ts: Trupp[]) => { order.push(`note ${ts.map((t) => t.id).join(',')}`) })
-      ask.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(true)
+      ask.mockReset().mockResolvedValueOnce(true)
       const a = args({ trupps: [inside], noteInsideAtClose, onCompleteRapport: vi.fn(async () => { order.push('complete'); return true }) })
       await renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()
       expect(order).toEqual(['note in', 'complete'])
-      // «Trotzdem» on the crews question, then «Zurück» on the list: nothing written
+      // «Abbrechen» on the crews question: nothing written
       noteInsideAtClose.mockClear()
-      ask.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+      ask.mockReset().mockResolvedValueOnce(false)
       await renderHook(() => useAbschluss(args({ trupps: [inside], noteInsideAtClose }))).result.current.confirmAndComplete()
       expect(noteInsideAtClose).not.toHaveBeenCalled()
     })

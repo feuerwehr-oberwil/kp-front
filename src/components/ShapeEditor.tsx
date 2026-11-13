@@ -80,7 +80,7 @@ export function ShapeEditor({ entity, readOnly = false, onColor, onScale, onScal
       {/* the same lock a drawn Fläche has (DrawEditor · onToggleLock): a Rechteck is often the
           Absperrung everything else is drawn on top of, and the thing you must not nudge. */}
       {!readOnly && onToggleLock && (
-        <button className="btn" onClick={onToggleLock} title={appConfig.copy.drawingEditor.lockHint} aria-pressed={!!locked}>
+        <button className="btn de-lock" onClick={onToggleLock} title={appConfig.copy.drawingEditor.lockHint} aria-pressed={!!locked}>
           <Icon id="lock" />{appConfig.copy.drawingEditor.lock}
         </button>
       )}

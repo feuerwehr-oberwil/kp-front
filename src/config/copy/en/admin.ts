@@ -632,6 +632,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       centerOutOfRange: 'Centre not saved yet – longitude is between −180 and 180, latitude between −90 and 90. In Switzerland: longitude ≈ 8, latitude ≈ 47.',
       zoom: 'Zoom',
       zoomTip: 'Initial zoom level of the map (higher = closer; ~16 shows a neighbourhood extent).',
+      offlineRadius: 'Offline radius (m)',
+      offlineRadiusTip: 'How far around the incident every device loads map and lines for offline use – {min} to {max} m. Smaller = faster, smaller download.',
       crs: 'Coordinates',
       crsTip: 'Which form the coordinates are typed in. Switching converts what is already entered – only one of the two forms is ever stored.',
       crsWgs84: 'WGS84 – longitude / latitude',

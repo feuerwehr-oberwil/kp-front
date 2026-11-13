@@ -7,7 +7,6 @@ import { useRail } from '../lib/useRail'
 import { useIsPhone } from '../lib/useIsPhone'
 import { addFace, barTools } from '../lib/toolFold'
 import { railToolKey } from '../lib/hotkeys'
-import { useKeyHints } from '../lib/useDevicePrefs'
 import { tut, toolAnchor } from '../lib/tutorials/anchors'
 
 export interface ToolDef {
@@ -209,16 +208,14 @@ export function ToolRail({ primary, tools, active, open = false, onPick, toolRef
   return phone || controls == null ? aside : <>{aside}<ViewBar label={nav.viewBar} labelled={labels === 'short'}>{controls}</ViewBar></>
 }
 
-/** A tile's shortcut letter (lib/hotkeys) – the same badge as the left rail, shown by the device
- *  pref «Tastenkürzel anzeigen» (lib/prefs · keyHints) and, in CSS (04b-rail · .rail-key), only
- *  with a mouse and keyboard, in the tile's top-left corner. Never on a phone: its folded bar's
+/** A tile's shortcut letter (lib/hotkeys) – the same badge as the left rail, shown in CSS
+ *  (04b-rail · .rail-key) only with a mouse and keyboard, in the tile's top-left corner. Never on a phone: its folded bar's
  *  tiles are doors to many tools. The rail puts it on its tools; a surface puts it on a view-bar
  *  button whose key its keyboard layer binds (MapToolDocks and KarteApp · Ebenen B, Whiteboard ·
  *  Einpassen 0). The tile must be `position: relative`. */
 export function RailKey({ k }: { k: string | undefined }) {
-  const [keyHints] = useKeyHints()
   const phone = useIsPhone()
-  return k && keyHints && !phone ? <span className="rail-key" aria-hidden>{k}</span> : null
+  return k && !phone ? <span className="rail-key" aria-hidden>{k}</span> : null
 }
 
 /** The tablet/laptop home of a ToolRail's view controls: one small bar in the bottom corner on

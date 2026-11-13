@@ -17,21 +17,16 @@ const pictureRows = {
   'whiteboard.floorRemovedLog': de.whiteboard.floorRemovedLog,
   'whiteboard.floorRemovedLogMarks': de.whiteboard.floorRemovedLogMarks,
   'atemschutz.logRemoved': de.atemschutz.logRemoved,
+  'whiteboard.markerTrailRemoved': de.whiteboard.markerTrailRemoved,
+  'removedToast.note': de.removedToast.note,
 }
 const pictureActions = {
   remove: de.remove,
   'whiteboard.removeMarker': de.whiteboard.removeMarker,
   'whiteboard.removeMarkerTrail': de.whiteboard.removeMarkerTrail,
   'whiteboard.clearTrail': de.whiteboard.clearTrail,
-  'whiteboard.clearTrailConfirm': de.whiteboard.clearTrailConfirm,
   'whiteboard.ghostTrailAsk': de.whiteboard.ghostTrailAsk,
   'whiteboard.removeFloor': de.whiteboard.removeFloor,
-  'whiteboard.removeFloorConfirm': de.whiteboard.removeFloorConfirm,
-  'whiteboard.removeFloorConfirmOne': de.whiteboard.removeFloorConfirmOne,
-  'whiteboard.groupDeleteTitle': de.whiteboard.groupDeleteTitle,
-  'drawingEditor.removeConnectedTitle': de.drawingEditor.removeConnectedTitle,
-  'notes.deleteTitle': de.notes.deleteTitle,
-  'notes.deleteMsg': de.notes.deleteMsg,
 }
 
 describe('removing from the picture is «entfernt», never «gelöscht»', () => {

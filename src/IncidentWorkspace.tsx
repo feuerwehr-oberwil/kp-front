@@ -56,16 +56,17 @@ import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
+import { connectRemovalToasts, removeWithUndo } from './lib/removalToast'
 import { usePlacementLane } from './lib/toastLane'
-import { initialMode, loadPrefs, savePrefs } from './lib/prefs'
+import { initialMode, loadPrefs, savePrefs, twinLayersIn } from './lib/prefs'
 import { makePhotoPositionSource } from './lib/devicePosition'
 import { useAttendanceActions } from './lib/useAttendanceActions'
 import { changedAttendanceNames } from './lib/attendanceDiff'
 import { useChecklistActions } from './lib/useChecklistActions'
 import { useTeamMarkerActions } from './lib/useTeamMarkerActions'
-import { useDevicePrefs } from './lib/useDevicePrefs'
+import { onDevicePrefsReset, useDevicePrefs } from './lib/useDevicePrefs'
 import { useSheets } from './lib/useSheets'
-import { useAtemschutzMute } from './lib/useAtemschutzMute'
+import { muteAtemschutzFor, useAtemschutzMute } from './lib/useAtemschutzMute'
 import { useTacticalSelection } from './lib/useTacticalSelection'
 import { useWorkspaceDoc } from './lib/useWorkspaceDoc'
 import { addPlanBindings, fillBindingFloors, hasLegacyAlignmentContext } from './lib/incidentPlanBindings'
@@ -76,14 +77,15 @@ import { useIsPhone, useMediaQuery } from './lib/useIsPhone'
 import { onReachable } from './lib/connectivity'
 import { Splash } from './components/Splash'
 import { NavRail } from './components/NavRail'
-import { twinVisible, isTwinLayerId } from './lib/georefTwins'
+import { twinVisible, twinsAtDefault, isTwinLayerId } from './lib/georefTwins'
 import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
 import { SHAPE_TWO_POINT } from './lib/shapes'
-import { AtemschutzAlarmMeldungen } from './components/AtemschutzAlarmMeldung'
+import { AtemschutzAlarmMeldungen, ForeignAtemschutzMeldungen } from './components/AtemschutzAlarmMeldung'
 import { AtemschutzNotfallMeldungen } from './components/AtemschutzNotfall'
 import { floorLabel } from './lib/whiteboard'
 import { liveTargets } from './lib/verlauf'
-import { claimBootNotifyTarget } from './lib/notifyTarget'
+import { claimBootNotifyTarget, handOverNotifyTarget } from './lib/notifyTarget'
+import { loudForeignAlarms } from './lib/foreignAlarm'
 import { TabLockBanner } from './components/TabLockBanner'
 import { SurfaceBoundary } from './components/SurfaceBoundary'
 import { RemindersHost } from './lib/useReminders'
@@ -143,7 +145,7 @@ import { serverNow, serverNowIso } from './lib/serverClock'
 import { clockRestartRowId, clocksAfterReopen } from './lib/reopenClocks'
 import { IncidentClosedMeldung, LinkRefusedMeldung } from './components/IncidentClosedMeldung'
 import { useGhostTrails } from './lib/useGhostTrails'
-import { ghostRevival, ghostTrailLabel, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources } from './lib/truppTrails'
+import { ghostRevival, ghostTrailLabel, removeGhostTrail, restoreGhostTrail, trailSources } from './lib/truppTrails'
 import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
 import { useAbschluss } from './lib/useAbschluss'
 import { useRowMediaUpload } from './lib/useRowMediaUpload'
@@ -742,6 +744,9 @@ export function IncidentWorkspace({
   /** …from a button, which anchors the caption at itself. Every ↶ ↷ in the app goes through this. */
   const onHistoryPress = (dir: 'undo' | 'redo') => (e: ReactMouseEvent<HTMLButtonElement>) => stepHistory(dir, e.currentTarget)
   useEffect(() => clearUndoCaption, [])
+  // the delete rule's toasts take back THEIR step through this same ↶ (lib/removalToast)
+  // (re-plugged every render, so the toast's ↶ is always this render's `stepHistory`)
+  useEffect(() => connectRemovalToasts({ peek: () => undoHist.peekUndo(), undo: () => stepHistory('undo') }))
   // ⚠️ The live values the timeline's plan entries read (workspace/usePlanStacks · planStepAt).
   // A step is pressed long after the render that recorded it, so nothing there may close over
   // this render's `board`, `activePlanId` or plan titles (filled in below, with the plan catalog).
@@ -947,7 +952,7 @@ export function IncidentWorkspace({
   // tactical-symbol size (Karte / standalone Module; linked Module follow Karte), captions, offline cache radius,
   // keep-screen-on — device prefs shared with the landing Einstellungen (see useDevicePrefs;
   // lazy loadPrefs seed). Their persistence rides the mode/activePlanId effect below.
-  const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, offlineAuto, setOfflineAuto, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
+  const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
   // "Mein Standort": bumping this takes a single GPS fix + flies to it. On-demand (no continuous
   // watch) so the GPS chip isn't powered all shift — see MapView.locateNonce.
   const [locateReq, setLocateReq] = useState(0)
@@ -1004,12 +1009,15 @@ export function IncidentWorkspace({
   // order it can show (Trupp.order) is synced, so «wie gesetzt» is the same board everywhere.
   const [atemschutzOrder, setAtemschutzOrderState] = useState<TruppOrder>(() => loadPrefs().atemschutzOrder ?? 'manuell')
   const setAtemschutzOrder = (o: TruppOrder) => { setAtemschutzOrderState(o); savePrefs({ ...loadPrefs(), atemschutzOrder: o }) }
-  // Which linked sheets this device lays under the Karte as a raster. A DEVICE pref like every
-  // other «what am I looking at» switch, persisted the way `atemschutzOrder` above is: seeded
-  // lazily from the cookie, written on the toggle. The `twin:` prefix is what the persisted keys
-  // have always said (lib/prefs) — renaming it would rewrite device preferences for a word.
-  const [twinLayers, setTwinLayers] = useState<Record<string, boolean>>(() => loadPrefs().twinLayers ?? {})
-  const [twinLayerOpacity, setTwinLayerOpacity] = useState<Record<string, number>>(() => loadPrefs().twinLayerOpacity ?? {})
+  // …and back to the default with «Gerät auf Standard zurücksetzen» (lib/useDevicePrefs)
+  useEffect(() => onDevicePrefsReset(() => setAtemschutzOrderState(loadPrefs().atemschutzOrder ?? 'manuell')), [])
+  // Which linked sheets this device lays under the Karte as a raster, and how transparent. A
+  // DEVICE pref like every other «what am I looking at» switch, persisted the way
+  // `atemschutzOrder` above is: seeded lazily from the cookie, written on the toggle — and for
+  // THIS Einsatz only (lib/prefs · twinLayersIn, 13.11.2026): the next one starts on the
+  // defaults, as the radar and the Atemschutz mute do. (The workspace remounts per Einsatz.)
+  const [twinLayers, setTwinLayers] = useState<Record<string, boolean>>(() => twinLayersIn(loadPrefs(), incidentMeta.id).visible)
+  const [twinLayerOpacity, setTwinLayerOpacity] = useState<Record<string, number>>(() => twinLayersIn(loadPrefs(), incidentMeta.id).opacity)
   const [mapSuppressedCaptions, setMapSuppressedCaptions] = useState<ReadonlySet<string>>(new Set())
   /**
    * ⚠️ The cookie write happens OUTSIDE the updater, exactly as `setAtemschutzOrder` above does
@@ -1019,9 +1027,10 @@ export function IncidentWorkspace({
    * claimed they were "persisted the same way `atemschutzOrder` is", which is precisely what they
    * were not doing.
    */
-  const persistTwinLayers = (next: Record<string, boolean>) => {
-    setTwinLayers(next)
-    savePrefs({ ...loadPrefs(), twinLayers: next })
+  const persistTwinLayers = (visible: Record<string, boolean>, opacity = twinLayerOpacity) => {
+    setTwinLayers(visible)
+    setTwinLayerOpacity(opacity)
+    savePrefs({ ...loadPrefs(), twinLayersIn: { incidentId: incidentMeta.id, visible, opacity } })
   }
   const toggleTwinLayer = (id: string) => persistTwinLayers({ ...twinLayers, [id]: !twinVisible(twinLayers, id) })
   // a Rapport checklist row navigated to Anwesenheit/Mittel → offer the one-tap way back
@@ -1059,7 +1068,7 @@ export function IncidentWorkspace({
   // PWA: the Offline-Vorbereitung — the incident box, the warm download and its probe URLs
   // (workspace/useOfflinePrefetch).
   const { withGeoBbox, online, offlineProgress, cancelOffline, downloadOffline, offlineProbeUrls } = useOfflinePrefetch({
-    incidentId: incidentMeta.id, center: incidentView.center, offlineRadiusM, offlineAuto, mapRef, layers, backendPlans,
+    incidentId: incidentMeta.id, center: incidentView.center, mapRef, layers, backendPlans,
   })
   // the Gebäude (floor-stack) document only exists once a building is picked; it sits
   // directly after «Umrisse» (the OSM outline you pick the building from) in the CATALOG —
@@ -1579,6 +1588,7 @@ export function IncidentWorkspace({
   const openConflictCount = useMemo(() => openConflicts(timeline).length, [timeline])
   const { abschlussMissing, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
     reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
+    alarmSeverities: azAlarm.severities, intervalMin: azIntervalMin, graceSec: azGraceSec,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
     // only where the Tafel may be written — a viewer's or a replay's Abschluss has nothing to close
     standDownTrupps: canEditTrupps ? standDownTrupps : undefined,
@@ -1612,6 +1622,17 @@ export function IncidentWorkspace({
   const reopenPending = running && lifecycleBoundary?.kind === 'closed'
   const alarmTrupps = useMemo(() => clocksAfterReopen(trupps, running ? lifecycleBoundary : null), [trupps, running, lifecycleBoundary])
   const azAlarmActive = azMonitoring && !reopenPending
+  /* ANOTHER Einsatz's overdue / Notfall Trupps (FLOW.1, 13.11.2026; lib/foreignAlarm): the full
+   * alarm only while this device is not working a live Ernstfall itself, and only a live
+   * Ernstfall's — otherwise the red mark on its row in the Einsatz list is all. «Zum Trupp» mutes
+   * that Einsatz, switches to it and lands on the Trupp (notifyTarget · handOverNotifyTarget). */
+  const foreignLoud = useMemo(() => (replayActive ? [] : loudForeignAlarms(incidents, incidentMeta)), [incidents, incidentMeta, replayActive])
+  const goToForeignTrupp = useCallback((inc: IncidentMeta, truppId: string) => {
+    muteAtemschutzFor(inc.id)
+    handOverNotifyTarget(`atemschutz:${truppId}`)
+    onUncover?.()
+    onSwitchIncident(inc)
+  }, [onUncover, onSwitchIncident])
   /* A Notfall re-arms a muted bell (F1, 08.10.2026). The mute is per Einsatz and «Zum Trupp» sets
    * it, so a tablet that acknowledged an überfällig crew at 02:10 would hear nothing of a Notfall
    * at 02:40. Every Notfall THIS session has not met yet (a new trigger, or one found running on
@@ -1714,7 +1735,7 @@ export function IncidentWorkspace({
   // remember the active surface + plan document in a cookie (preserve incidentId)
   // (…but never FROM a link session: its surface is forced, so remembering it would make the
   // next ordinary open of this browser land on the Atemschutz board for no reason anyone gave.)
-  useEffect(() => { savePrefs({ ...loadPrefs(), ...(asLink ? {} : { mode, modeIncidentId: incidentMeta.id }), activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels }) }, [asLink, mode, incidentMeta.id, activePlanId, symbolScale, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels])
+  useEffect(() => { savePrefs({ ...loadPrefs(), ...(asLink ? {} : { mode, modeIncidentId: incidentMeta.id }), activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, keepScreenOn, railLabels }) }, [asLink, mode, incidentMeta.id, activePlanId, symbolScale, symbolCaptions, keepScreenOn, railLabels])
 
   // …and the CODE of the two lazy surfaces (Plan, Rapport — see loadWhiteboard at the top), on
   // idle after the first paint, so a mode switch finds its chunk already parsed. Not for an
@@ -1865,7 +1886,7 @@ export function IncidentWorkspace({
   // threaded in so the handlers behave identically to their former inline selves.
   const mapDrawing = useMapDrawing({
     drawings, resolvedDrawings: resolvedMapDrawings, selectedDrawingId, tacticalLocked, tool, setTool,
-    commit, setDocRaw, beginDrag, endDrag, emit, log,
+    commit, setDocRaw, beginDrag, endDrag, emit, log, stepLabelRef: stepLabel,
     setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds,
     // a Leitung end snapped onto a Trupp's marker IS the Leitung pick (15.09.) — the same call
     // the Plan makes from its own magnet (Whiteboard · onLineAttached)
@@ -1878,17 +1899,13 @@ export function IncidentWorkspace({
     patchDrawingLabelLive, commitDrawingLabel,
     deleteDrawing, reverseDrawing, setDrawingWallRole, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
   } = mapDrawing
-  const changeMapEnding = async (ending: LineEnding, drawing = selectedDrawing) => {
+  const changeMapEnding = (ending: LineEnding, drawing = selectedDrawing) => {
     if (!drawing) return
     const incoming = drawing.teilstueck && ending !== 'teilstueck'
       ? drawings.flatMap((d) => (['start', 'end'] as const).filter((endpoint) => {
         const a = endpoint === 'start' ? d.startAttachment : d.endAttachment
         return a?.target.kind === 'line' && a.target.id === drawing.id && a.target.endpoint === 'end'
       }).map((endpoint) => ({ id: d.id, endpoint }))) : []
-    if (incoming.length) {
-      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
-      if (!ok) return
-    }
     const resolvedTarget = resolvedMapDrawings.find((d) => d.id === drawing.id)
     const fallback = resolvedTarget?.coords[resolvedTarget.coords.length - 1] ?? drawing.coords[drawing.coords.length - 1]
     // the Abschluss is a semantic edit like any DrawEditor field — one settled Verlauf row
@@ -1898,9 +1915,13 @@ export function IncidentWorkspace({
     // the ends that hung on the «E» let go where it stood — one patch per line, both ends in it,
     // applied here and sent as ONE draw.edit (lib/lineAttachments · detachDrawings)
     const released = detachDrawings(drawings.filter((d) => d.id !== drawing.id), (d, endpoint) => (incoming.some((x) => x.id === d.id && x.endpoint === endpoint) ? fallback : null))
-    commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => (d.id === drawing.id
+    const write = () => commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => (d.id === drawing.id
       ? { ...d, ...endingFlags(ending) }
       : withDetach(d, released))) }))
+    // the lines that hung on the «E» go loose at once, and the toast says how many (the delete
+    // rule, lib/removalToast) — the same store step brings every end back
+    if (incoming.length) removeWithUndo(fillTemplate(appConfig.copy.drawingEditor.endingReleased, { n: incoming.length }), write)
+    else write()
     emit('draw.edit', { id: drawing.id, patch: endingWireFlags(ending) })
     released.forEach((patch, id) => emit('draw.edit', { id, patch: wireFreed(patch) }))
   }
@@ -2042,18 +2063,18 @@ export function IncidentWorkspace({
     setLayers(next)
     // no Einsatz category opens with the radar on: «Standard» switches it off (10.10.2026)
     weather.setRadar(false)
+    // …nor with a plan raster away from its default (13.11.2026, PLACE.6)
+    persistTwinLayers({}, {})
   }
   // which quick-tap the Ebenen on screen match — lit in the panel, named in the Ebenen button's
   // tooltip / accessible name (lib/layerPreset, 05.10.2026)
-  const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type), weather.on && weather.radarOn),
-    [layers, incidentMeta.type, weather.on, weather.radarOn])
+  const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type), weather.on && weather.radarOn, twinsAtDefault(twinLayers)),
+    [layers, incidentMeta.type, weather.on, weather.radarOn, twinLayers])
   const setOpacity = (id: LayerId, v: number) => {
     if (weather.handlesLayer(id)) { weather.setRadarOpacity(v); return }
     if (isTwinLayerId(id)) {
       // written outside the updater — see the note on persistTwinLayers
-      const next = { ...twinLayerOpacity, [id]: v }
-      setTwinLayerOpacity(next)
-      savePrefs({ ...loadPrefs(), twinLayerOpacity: next })
+      persistTwinLayers(twinLayers, { ...twinLayerOpacity, [id]: v })
       return
     }
     setLayers((ls) => ls.map((l) => (l.id === id ? { ...l, opacity: v } : l)))
@@ -2586,17 +2607,12 @@ export function IncidentWorkspace({
     if (tacticalLocked) return
     const e = entities.find((x) => x.id === id)
     if (!e || e.kind !== 'team' || !e.trail?.length) return
-    // a trail is never destroyed without the ask, wherever the door is (Plan parity)
-    const ok = await confirmDialog({
-      title: appConfig.copy.whiteboard.removeMarkerTrail,
-      message: fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name: e.label ?? '', n: e.trail.length }),
-      confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
-    })
-    if (!ok) return
+    // no ask (the delete rule, lib/removalToast): the ONE store step brings the marker back with
+    // its trail, and the toast says both went
     armTrailDrop(id, true)
-    // the connection question inside deleteEntity may still be answered with «Abbrechen» — then
-    // the marker stays and the arming has to go, or its next removal would eat the trail
-    if (!await deleteEntity(id)) { armTrailDrop(id, false); return }
+    // a refused removal (the Karte locked meanwhile) keeps the marker — then the arming has to
+    // go, or its next removal would eat the trail
+    if (!await deleteEntity(id, fillTemplate(appConfig.copy.whiteboard.markerTrailRemoved, { name: e.label ?? '' }))) { armTrailDrop(id, false); return }
     // the Verlauf says BOTH things happened; no `entity.edit` beside it, because the entity the
     // edit would describe is the one just deleted (the `entity.delete` row carries the act)
     log('cross', fillTemplate(appConfig.copy.whiteboard.trailCleared, { name: e.label ?? '' }))
@@ -2613,7 +2629,6 @@ export function IncidentWorkspace({
     const g = trails.find((t) => t.id === id)
     if (!g || g.removedAt) return
     const name = ghostTrailLabel(g, appConfig.copy.whiteboard.team, allTrupps)
-    const message = fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name, n: trailPointCount(g) })
     // ⚠️ offered for EVERY ghost that has somewhere to return to, not only one with a live Trupp
     // behind it (first cut, 20.09.2026 – and the field's first try was a loose «Trupp 1» chip,
     // which got the delete-only ask again). A marker joined to a Trupp that still exists goes
@@ -2649,22 +2664,21 @@ export function IncidentWorkspace({
         return
       }
       if (answer !== 'alt') return
-    } else {
-      const ok = await confirmDialog({
-        title: appConfig.copy.whiteboard.clearTrail, message,
-        confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
-      })
-      if (!ok) return
     }
+    // a ghost with nowhere to return to simply goes — the delete rule (lib/removalToast): its
+    // timeline entry brings it back, so the toast says so instead of a confirm asking first
     const at = serverNowIso()
-    setTrails((ts) => removeGhostTrail(ts, id, at))
-    log('cross', fillTemplate(appConfig.copy.whiteboard.trailCleared, { name }))
-    // the domain is where the trail was WALKED — a ghost on a sheet is the Plan's act, so the
-    // header's «Rückgängig: …» names the surface the operator is standing on
-    rememberOneShot(g.planId ? 'plan' : 'karte', appConfig.copy.whiteboard.clearTrail,
-      () => setTrails((ts) => restoreGhostTrail(ts, id)),
-      () => setTrails((ts) => removeGhostTrail(ts, id, at)),
-      () => [recordKey('trails', id)])
+    const line = fillTemplate(appConfig.copy.whiteboard.trailCleared, { name })
+    removeWithUndo(line, () => {
+      setTrails((ts) => removeGhostTrail(ts, id, at))
+      // the domain is where the trail was WALKED — a ghost on a sheet is the Plan's act, so the
+      // header's «Rückgängig: …» names the surface the operator is standing on
+      rememberOneShot(g.planId ? 'plan' : 'karte', line,
+        () => setTrails((ts) => restoreGhostTrail(ts, id)),
+        () => setTrails((ts) => removeGhostTrail(ts, id, at)),
+        () => [recordKey('trails', id)])
+    })
+    log('cross', line)
   }
   // …and what each person's Bemerkung said, for as long as this incident is open here. The record
   // loses it when a row is cycled to «frei» (the entry goes, as it must); this is what puts it back
@@ -2981,6 +2995,7 @@ export function IncidentWorkspace({
           onAcknowledge={muteAtemschutz}
           onGoToTrupp={goToTrupp}
         />
+        <ForeignAtemschutzMeldungen incidents={foreignLoud} onGo={goToForeignTrupp} />
         {azAlarmActive && (
           <AtemschutzNotfallMeldungen
             trupps={trupps}
@@ -3146,6 +3161,7 @@ export function IncidentWorkspace({
       )}
       <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
         {...alarmLog} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
+      <ForeignAtemschutzMeldungen incidents={foreignLoud} onGo={goToForeignTrupp} />
       {/* the reminder clock, hosted for the same reason as the alarm above (10 s ≠ 1 Hz, same shape);
           it rings only for the Verlauf's writers, editor and el (RemindersHost · alert) */}
       <RemindersHost {...reminders.host} alert={remindersAlert} />
@@ -3381,7 +3397,7 @@ export function IncidentWorkspace({
         manualObject, liveWeather, personnel, syncStatus, lastSyncedAt, syncNow, downloadOffline,
         reloadPersonnel, cancelOffline, offlineProgress, settingsOpen, feedbackOpen, sharePick, shareParent,
         setSettingsOpen, symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, railLabels,
-        setRailLabels, offlineRadiusM, setOfflineRadiusM, offlineAuto, setOfflineAuto, keepScreenOn,
+        setRailLabels, keepScreenOn,
         setKeepScreenOn, linkScoped, setFeedbackParent, setFeedbackOpen, share, setShareParent, setSharePick,
         feedbackParent, canWriteRecord, photoPosition, setPhotoPosition, role: user?.role,
       }} />

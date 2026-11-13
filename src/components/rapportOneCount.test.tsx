@@ -69,6 +69,7 @@ describe('the Rapport\'s «noch offen» is ONE number', () => {
     // 1 · the workspace's count — what the Abschluss confirm, the archive row and the badge read
     const r = renderHook(() => useAbschluss({
       reportMeta, attendance, mittel: [], openConflictCount: openConflicts([conflict]).length, trupps: [],
+      alarmSeverities: {}, intervalMin: 5, graceSec: 60,
       incidentMeta: { is_archived: false, status: 'offen', closed_at: null }, replayActive: false,
       media: { pendingCount: 0, flush: vi.fn(async () => {}) } as never,
       onCompleteRapport: vi.fn(async () => true),

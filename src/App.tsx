@@ -74,11 +74,11 @@ const KarteApp = lazy(() => import('./components/karte/KarteApp'))
  *  pref state itself (mounted only while open, reads/writes the prefs cookie directly);
  *  the synced per-incident section is hidden by omitting settings/onSettings. */
 function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedback?: () => void }) {
-  const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, offlineRadiusM, setOfflineRadiusM, offlineAuto, setOfflineAuto, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
+  const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
   useEffect(() => {
     // the legacy `symbolSize` key rides along in the spread untouched — see prefs · symbolScales
-    savePrefs({ ...loadPrefs(), symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels })
-  }, [symbolScale, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels])
+    savePrefs({ ...loadPrefs(), symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, keepScreenOn, railLabels })
+  }, [symbolScale, symbolCaptions, keepScreenOn, railLabels])
   return (
     <SettingsSheet
       onClose={onClose}
@@ -88,10 +88,6 @@ function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedb
       onSymbolScale={setSymbolScale}
       symbolCaptions={symbolCaptions}
       onSymbolCaptions={setSymbolCaptions}
-      offlineRadiusM={offlineRadiusM}
-      onOfflineRadius={setOfflineRadiusM}
-      offlineAuto={offlineAuto}
-      onOfflineAuto={setOfflineAuto}
       keepScreenOn={keepScreenOn}
       onKeepScreenOn={setKeepScreenOn}
       themeCoord={null}

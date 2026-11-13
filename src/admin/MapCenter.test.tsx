@@ -28,8 +28,8 @@ import { appConfig } from '../config/appConfig'
 
 const C = appConfig.copy.admin.map
 
-/** lon / lat / zoom, in DOM order — of the FIRST card only. MapSection also renders the
- *  Adresssuche and the Kartenportale below it, and their inputs are not this pair. */
+/** lon / lat / zoom / Offline-Umkreis, in DOM order — of the FIRST card only. MapSection also
+ *  renders the Adresssuche and the Kartenportale below it, and their inputs are not this pair. */
 const boxes = () =>
   Array.from(document.querySelectorAll<HTMLElement>('.adm-card')[0]?.querySelectorAll<HTMLInputElement>('input') ?? [])
 const type = (i: number, value: string) => act(async () => { fireEvent.change(boxes()[i], { target: { value } }) })
@@ -56,7 +56,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 async function setup(cfg: unknown = EMPTY) {
   apiGet.mockResolvedValue(cfg)
   await act(async () => { render(<ConfigProvider><MapSection /></ConfigProvider>) })
-  await waitFor(() => expect(boxes().length).toBe(3))
+  await waitFor(() => expect(boxes().length).toBe(4))
 }
 
 describe('Kartenzentrum — one value in two boxes', () => {

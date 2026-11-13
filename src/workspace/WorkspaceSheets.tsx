@@ -56,10 +56,6 @@ export interface WorkspaceSheetsProps {
   setSymbolCaptions: Dispatch<SetStateAction<CaptionMode>>
   railLabels: RailLabels
   setRailLabels: (v: RailLabels) => void
-  offlineRadiusM: number
-  setOfflineRadiusM: Dispatch<SetStateAction<number>>
-  offlineAuto: boolean
-  setOfflineAuto: Dispatch<SetStateAction<boolean>>
   keepScreenOn: boolean
   setKeepScreenOn: Dispatch<SetStateAction<boolean>>
   linkScoped: boolean
@@ -84,7 +80,7 @@ export function WorkspaceSheets({
   manualObject, liveWeather, personnel, syncStatus, lastSyncedAt, syncNow, downloadOffline,
   reloadPersonnel, cancelOffline, offlineProgress, settingsOpen, feedbackOpen, sharePick, shareParent,
   setSettingsOpen, symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, railLabels,
-  setRailLabels, offlineRadiusM, setOfflineRadiusM, offlineAuto, setOfflineAuto, keepScreenOn,
+  setRailLabels, keepScreenOn,
   setKeepScreenOn, linkScoped, role, setFeedbackParent, setFeedbackOpen, share, setShareParent, setSharePick,
   feedbackParent, canWriteRecord, photoPosition, setPhotoPosition,
 }: WorkspaceSheetsProps) {
@@ -136,10 +132,6 @@ export function WorkspaceSheets({
           onSymbolCaptions={setSymbolCaptions}
           railLabels={railLabels}
           onRailLabels={setRailLabels}
-          offlineRadiusM={offlineRadiusM}
-          onOfflineRadius={setOfflineRadiusM}
-          offlineAuto={offlineAuto}
-          onOfflineAuto={setOfflineAuto}
           keepScreenOn={keepScreenOn}
           onKeepScreenOn={setKeepScreenOn}
           // «Standort zu Fotos» — switching it on here asks the browser right away, on this tap

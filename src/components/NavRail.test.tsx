@@ -4,7 +4,6 @@ import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { NavRail } from './NavRail'
 import type { PlanDocument } from '../types'
 import { SURFACE_KEY } from '../lib/hotkeys'
-import { loadPrefs, savePrefs } from '../lib/prefs'
 
 afterEach(() => { cleanup(); document.cookie = 'kp-front-prefs=; max-age=0; path=/' })
 
@@ -386,20 +385,13 @@ describe('the folded bar carries no separators', () => {
   })
 })
 
-// «Tastenkürzel anzeigen» (lib/prefs · keyHints): the surface letters are on the tiles by default
-// and gone once the device switches them off (CSS then shows them on a mouse + keyboard only)
+// the surface letters are on the tiles, always (CSS shows them on a mouse + keyboard only)
 describe('the shortcut letters', () => {
   const letters = () => [...document.querySelectorAll('.rail-key')].map((el) => el.textContent)
 
-  it('are on every surface tile by default, from the same table the keyboard reads', () => {
+  it('are on every surface tile, from the same table the keyboard reads', () => {
     setup()
     expect(letters()).toEqual(['K', 'C', 'A', 'P', 'M', 'R'])
     expect([...letters()].sort()).toEqual(Object.values(SURFACE_KEY).sort())
-  })
-
-  it('are not rendered when the device pref is off', () => {
-    savePrefs({ ...loadPrefs(), keyHints: false })
-    setup()
-    expect(letters()).toEqual([])
   })
 })

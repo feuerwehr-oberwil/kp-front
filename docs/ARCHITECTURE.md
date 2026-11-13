@@ -90,7 +90,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | Tactical symbols (FKS) | KP-Front-authored (`tools/gen_symbols.py`) | bundled `public/tactical-symbols.json`, also seeded into the reference store | ✅ cached |
 | Hazmat UN-Nr → Stoff (ADR) | UNECE ADR table | static `public/un-hazard.json` (lib/unHazard) | ✅ in-app |
-| Base map tiles | swisstopo WMTS · OSM · canton WMS | **browser fetches tile servers directly** | ⚠️ pre-cached areas only – a per-device setting (Offline-Vorbereitung) can pre-cache automatically shortly after an incident opens, instead of relying on the manual «Alles für offline laden» |
+| Base map tiles | swisstopo WMTS · OSM · canton WMS | **browser fetches tile servers directly** | ⚠️ pre-cached areas only – the installed app pre-caches by itself shortly after an incident opens (Offline-Vorbereitung, always on since 13.11.2026; the box is the station's `map.offlineRadiusM`), besides the manual «Alles für offline laden» |
 | Geocoding / address search | swisstopo geo.admin | backend proxy `GET /api/geocode` | ✗ online only |
 | Weather / wind | MeteoSwiss → Open-Meteo fallback | backend proxy `GET /api/weather`; recorded by the scheduler (`weather.observe`) | last value cached |
 | Weather layer (radar) | MeteoSwiss radar (ODIM HDF5, open data) | polled by the backend in EVERY serving process (`weather_layer.py`, every 5 min), not by the leader — it is a display cache that records nothing; devices read `GET /api/weather/layer` and `GET /api/weather/radar/{key}.png` | last answer kept, greyed with «Stand hh:mm» once stale |

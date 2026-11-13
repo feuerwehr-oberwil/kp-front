@@ -535,6 +535,12 @@
   .btn.ctx-done[aria-pressed='true']:hover { background: color-mix(in srgb, var(--green) 18%, var(--surface)); }
 }
 .btn.ctx-done[aria-pressed='true'] .i { stroke-width: 2.6; }
+/* «Sperren» in the line / Fläche / Form editor (DrawEditor, ShapeEditor), SET: the same pressed
+   tile in the constructive blue (the unlock ring's tone, LockChip). Reached since 13.11.2026 by a
+   tap on a locked drawing's 🔒 chip – the editor opens with this pressed, and a tap unlocks. */
+.btn.de-lock[aria-pressed='true'] { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 45%, var(--border));
+  background: color-mix(in srgb, var(--blue) 12%, var(--surface-2)); }
+.btn.de-lock[aria-pressed='true'] .i { stroke-width: 2.6; }
 /* A DOOR to the object's original («Zum Original») takes a row of its own, above the foot's acts
    (30.09.2026, owner: «fix this» – in the equal split above, a door's label ran out of its third
    of the row and over «Zentrieren»). Its label is cut, never spilled (ContextPanel · LinkBtn). */

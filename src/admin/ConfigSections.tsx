@@ -1,7 +1,7 @@
 import { ShellLoader } from '../components/ShellLoader'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { AlarmGroup, DeploymentConfig, DeploymentFleet, FleetVehicle } from '../lib/deploymentConfig'
-import { legacyFleetToAttributeLists, DEFAULT_MODULES } from '../lib/deploymentConfig'
+import { legacyFleetToAttributeLists, DEFAULT_MODULES, OFFLINE_RADIUS_M } from '../lib/deploymentConfig'
 import { CONTACT_BOUNDS } from '../lib/workspace'
 import { geoDatasetId, geoLayerUrl, inspectGeojson, listReference, uploadReference, type ReferenceDataset } from '../lib/incidents'
 import { ApiError, apiGet } from '../lib/api'
@@ -428,6 +428,7 @@ const roundFor = (crs: CenterCrs, v: number) => Number(v.toFixed(crs === 'lv95' 
  */
 export function MapSection() {
   const { draft, set } = useConfig()
+  const numberField = useNumberField()
   const C = appConfig.copy.admin.map
   // Array.isArray, not `?? []`: the document can also be written straight into the DB by the
   // `admin_config` CLI, and a hand-edited `center: {}` must not white-screen the one page
@@ -541,6 +542,15 @@ export function MapSection() {
           onChange={(e) => set(['map', 'defaultView', 'zoom'], numOrNull(e.target.value))}
         />
       </SettingRow>
+      {/* How far around an Einsatz every device caches for offline (workspace/useOfflinePrefetch).
+          A device slider in the Einstellungen until 13.11.2026 (owner pick PLACE.7). `int | None`
+          on the backend, so an emptied box is the shipped 1200 m again. */}
+      {numberField({
+        path: ['map', 'offlineRadiusM'], label: C.offlineRadius,
+        tip: fillTemplate(C.offlineRadiusTip, { min: OFFLINE_RADIUS_M.min, max: OFFLINE_RADIUS_M.max }),
+        guard: { kind: 'int', min: OFFLINE_RADIUS_M.min, max: OFFLINE_RADIUS_M.max, nullable: true },
+        fallback: OFFLINE_RADIUS_M.default,
+      })}
     </SettingsSheet>
     <GeocoderCard centre={centreWgs84} />
     <ExternalLinksCard centre={centreWgs84} />

@@ -22,6 +22,7 @@ import { getInstallPlatform } from '../../lib/installPrompt'
 import { appConfig } from '../../config/appConfig'
 import { shortAddress } from '../../lib/deploymentConfig'
 import { runningOthers } from '../../lib/switcherLists'
+import { foreignMark } from '../../lib/foreignAlarm'
 import { loadKarteView } from '../../lib/karte/session'
 import type { DiveraAlarm, IncidentMeta } from '../../lib/incidents'
 
@@ -117,10 +118,15 @@ export function AppMenuRows({
               one quiet line (no intro paragraph: the rows below are what to do). */}
           {!hasCard && <div className="ip-menu-label">{cp.incidents}</div>}
           {!hasCard && running.length === 0 && alarmList.length === 0 && <div className="ip-menu-empty">{cp.noOpenIncidents}</div>}
-          {running.map((i) => (
+          {running.map((i) => {
+            // a Trupp of THAT Einsatz at the alarm tier: a red word over its name, and nothing more
+            // here (FLOW.1, 13.11.2026 — what else it may do is lib/foreignAlarm's rule)
+            const mark = foreignMark(i)
+            return (
             <button key={i.id} type="button" className="ip-menu-row" disabled={opening != null} onClick={() => onSwitch(i)}>
               <span className="ip-menu-when">{opening === i.id ? <ShellLoader /> : fmtSpanShort(now - Date.parse(i.started_at))}</span>
               <span className="ip-menu-rowmain">
+                {mark && <span className="ip-menu-kicker ip-menu-az" title={mark.names}><Icon id="warn" />{mark.word}</span>}
                 <span className="ip-menu-titleline">
                   <span className="ip-menu-title">{i.title}</span>
                   {/* beside the title, not inside it: a long Einsatzname ellipsises, and the
@@ -133,7 +139,8 @@ export function AppMenuRows({
                 {shortAddress(i.address) && <span className="ip-menu-rowsub">{shortAddress(i.address)}</span>}
               </span>
             </button>
-          ))}
+            )
+          })}
           {alarmList.map((a) => (
             // ⚠️ Take, or × to hide it on THIS device only (per-device, kp.divera.dismissed) — the
             // × NEVER archives a live dispatch for the crew (that would be a server delete). The

@@ -263,9 +263,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     gpsDistanceNow: 'now {distance} away',
     hiddenTarget: 'Target hidden',
     revealTarget: 'Show the layer',
-    removeConnectedTitle: 'Remove {name}?',
-    removeConnectedMessage: '{n} lines will be released.',
-    removeEMessage: 'Delete the segment? {n} attached lines will be released.',
+    endingReleased: 'Section removed, {n} lines released',
   },
   topBar: {
     offline: 'Offline',

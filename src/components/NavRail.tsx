@@ -7,7 +7,6 @@ import type { PlanDocument } from '../types'
 import { RAIL_COMPACT, RAIL_LABELLED, RAIL_WIDE, foldPlanTiles, railMonoMax } from '../lib/navRail'
 import { RAPPORT_PAGES, type RapportPage } from '../lib/rapportPages'
 import { useRail } from '../lib/useRail'
-import { useKeyHints } from '../lib/useDevicePrefs'
 import { useLongPress } from '../lib/useLongPress'
 import { markChooserOffered, offerChooser } from '../lib/chooserOffer'
 import { buzz } from '../lib/haptics'
@@ -177,11 +176,9 @@ export function NavRail(p: Props) {
   // keeps its height and hugs its text, so «RWA» in a fixed 26px column painted through its own
   // border (22.09.2026). CSS cannot count letters, so the rail says how many its longest has —
   // and with a digit or none the column stays the 26px an icon needs.
-  // the shortcut letter on each surface tile: there while the device pref «Tastenkürzel anzeigen»
-  // is on (lib/prefs · keyHints), and CSS shows it only with a mouse and keyboard to use it
-  // (04b-rail.css · .rail-key). The same badge the ToolRail wears.
-  const [keyHints] = useKeyHints()
-  const keyHint = (k: string) => (keyHints ? <span className="rail-key" aria-hidden>{k}</span> : null)
+  // the shortcut letter on each surface tile: always there, and CSS shows it only with a mouse and
+  // keyboard to use it (04b-rail.css · .rail-key). The same badge the ToolRail wears.
+  const keyHint = (k: string) => <span className="rail-key" aria-hidden>{k}</span>
   const monoMax = railMonoMax(p.planDocs)
 
   return (

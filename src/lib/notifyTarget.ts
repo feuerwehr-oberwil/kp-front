@@ -50,3 +50,12 @@ export function claimBootNotifyTarget(accepted: string[]): string | null {
   }
   return null
 }
+
+/** Hand a target to the NEXT surface that claims it, as if a notification had cold-started the
+ *  app with it — the alarm row of another Einsatz (AtemschutzAlarmMeldung ·
+ *  ForeignAtemschutzMeldungen) switches Einsatz, and the workspace that mounts for it claims
+ *  'atemschutz:<truppId>' and opens the board ON that Trupp (IncidentWorkspace · route). */
+export function handOverNotifyTarget(target: string): void {
+  consumeBootNotifyTarget()
+  bootTarget = target
+}

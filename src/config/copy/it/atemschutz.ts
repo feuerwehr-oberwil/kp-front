@@ -387,6 +387,13 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     alarmRowGo: 'Alla squadra',
     alarmRowAck: 'Preso atto',
     alarmRowReadOnly: 'sola lettura',
+    foreign: {
+      mark: 'Allarme autoprotezione',
+      markNotfall: 'Emergenza autoprotezione',
+      markTitle: 'Autoprotezione: {names}',
+      rowTitle: '{einsatz} · {title}',
+      notfallSub: 'Impiegare la squadra di sicurezza.',
+    },
     logEditFields: 'Squadra {name}: {changes}',
     changeLeader: 'Capo squadra {from} → {to}',
     changeMemberOut: '{names} tolti dalla squadra',

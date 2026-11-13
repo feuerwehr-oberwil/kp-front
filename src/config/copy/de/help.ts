@@ -96,7 +96,7 @@ export const helpCopy = {
           ] },
           { kind: 'sub', text: 'Linke Leiste', only: 'wide' },
           { kind: 'list', items: [
-            'Mit Tastatur und Maus steht an den Feldern der linken und der rechten Leiste, die ein Tastaturkürzel haben, der Buchstabe dazu – ebenso an «Verlauf» und «Eintrag» oben (abschaltbar in den **Einstellungen**: «Tastenkürzel anzeigen»). Alle Kürzel stehen unter **Tastaturkürzel**.',
+            'Mit Tastatur und Maus steht an den Feldern der linken und der rechten Leiste, die ein Tastaturkürzel haben, der Buchstabe dazu – ebenso an «Verlauf» und «Eintrag» oben. Alle Kürzel stehen unter **Tastaturkürzel**.',
             'Am rechten Rand der Leiste ziehen klappt sie mit Beschriftungen auf bzw. wieder zu.',
           ], only: 'wide' },
           { kind: 'sub', text: 'Obere Einsatzleiste' },
@@ -124,7 +124,7 @@ export const helpCopy = {
       {
         id: 'tastatur', title: 'Tastaturkürzel', icon: 'type', only: 'keyboard',
         blocks: [
-          { kind: 'lead', text: 'Wer mit Tastatur arbeitet, erreicht alles ohne Maus. Kürzel wirken nicht, während in einem Textfeld getippt wird, und nicht hinter einem offenen Fenster. Hat ein Feld eine Taste, steht ihr Buchstabe darauf – in beiden Leisten, in der Ansichtsleiste unten rechts und an «Verlauf» und «Eintrag» oben (solange «Tastenkürzel anzeigen» in den **Einstellungen** an ist).' },
+          { kind: 'lead', text: 'Wer mit Tastatur arbeitet, erreicht alles ohne Maus. Kürzel wirken nicht, während in einem Textfeld getippt wird, und nicht hinter einem offenen Fenster. Hat ein Feld eine Taste, steht ihr Buchstabe darauf – in beiden Leisten, in der Ansichtsleiste unten rechts und an «Verlauf» und «Eintrag» oben.' },
           { kind: 'sub', text: 'Bereiche wechseln' },
           { kind: 'list', items: [
             'Zahlen öffnen das Plan-Modul mit dieser Nummer – welche es gibt, richtet sich nach den Modulen dieser Wehr: [[1]] Modul 1, [[2]] oder [[3]] das Modul «2/3», [[4]] Modul 4 …',
@@ -442,8 +442,8 @@ export const helpCopy = {
           ] },
           { kind: 'sub', text: 'Offline' },
           { kind: 'list', items: [
-            '**Offline-Vorbereitung** in den **Einstellungen** ([[⌘]] [[,]]) steht auf **Automatisch**: die installierte App holt Karte, Pläne, Symbole und Referenzebenen kurz nach dem Öffnen eines Einsatzes von selbst – ohne Dialog, ohne Toast. Mitgeladen wird **jede** eingerichtete Kartenebene, auch die gerade ausgeblendete: eingeblendet wird sie erfahrungsgemäss erst, wenn das Netz schon weg ist. **Nur manuell** überlässt das dem Knopf **Alles für offline laden**.',
-            'Wie viel geladen wird, bestimmt der **Offline-Umkreis** (ebenfalls Einstellungen, gilt nur auf diesem Gerät): kleinerer Umkreis = schnellerer, kleinerer Download.',
+            '**Offline-Vorbereitung**: die installierte App holt Karte, Pläne, Symbole und Referenzebenen kurz nach dem Öffnen eines Einsatzes von selbst – ohne Dialog, ohne Toast. Mitgeladen wird **jede** eingerichtete Kartenebene, auch die gerade ausgeblendete: eingeblendet wird sie erfahrungsgemäss erst, wenn das Netz schon weg ist. Der Knopf **Alles für offline laden** holt dasselbe jederzeit von Hand.',
+            'Wie viel geladen wird, bestimmt der **Offline-Umkreis** der Station (in der Verwaltung, für alle Geräte gleich).',
             'Was tatsächlich bereit ist, sagt **Offline-Bereitschaft** im Einsatz-Menü – Zeile für Zeile: Karte, Pläne, Symbole, Gefahrgut, Referenzebenen, Personal, Gerätespeicher. **Wetter** und **Objektsuche** brauchen eine Verbindung und stehen dort als «nur online».',
             'Verlässlich offline ist nur die **installierte App**. In einem Browser-Tab kann der Speicher jederzeit geleert werden, und der Tab müsste beim nächsten Einsatz noch offen sein.',
             'Ohne Netz läuft weiter, was auf dem Gerät liegt: zeichnen und Symbole setzen, Atemschutz, Anwesenheit, Material, Verlauf und Rapport. Fotos und Sprachnotizen bleiben gespeichert und gehen später raus.',

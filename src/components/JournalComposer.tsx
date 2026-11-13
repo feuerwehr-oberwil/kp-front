@@ -273,7 +273,14 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // line taken off the Pendenzen would keep an alarm nothing owns. Setting a time therefore opens
   // the ring, and closing the ring drops the time.
   const setDue = (sel: DueSel) => { setDueSel(sel); if (sel && openState === 0) setOpenState(1) }
-  const setOpen = (s: 0 | 1 | 2) => { setOpenState(s); if (s === 0) setDueSel(null) }
+  const setOpen = (s: 0 | 1 | 2) => { setOpenState(s); setRingByKind(false); if (s === 0) setDueSel(null) }
+  // ⚠️ …and «Auftrag» is the third: an Auftrag is something somebody has to do, so picking the kind
+  // opens the ring the same way (13.11.2026, owner pick FLOW.7) – it used to file as a label only,
+  // in no Pendenzen and with nobody reminded. The ring is still the operator's: the menu takes it
+  // off («Keine Pendenz»). `ringByKind` remembers that only the kind opened it, so switching the
+  // kind away closes it again – never a ring opened by hand (`setOpen` clears the mark), and never
+  // one a reminder time needs. A Meldung on an open Pendenz (`noteOn`) has no ring to open.
+  const [ringByKind, setRingByKind] = useState(false)
   // …and the open Pendenzen this sentence already names. Offered only while writing an ordinary
   // entry: once it IS a Meldung the question is answered.
   const pendenzHits = useMemo(
@@ -316,6 +323,16 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
    *  at all, exactly what an untouched composer wrote before the preselect (lib/journalEntry
    *  prints no marker for it either way). */
   const writtenType = entryType === 'info' ? undefined : entryType
+  /** pick the kind – and the ring with it for an «Auftrag» (see `ringByKind` above) */
+  const pickEntryType = (t: JournalEntryType) => {
+    setEntryType(t)
+    if (t === 'auftrag') {
+      if (openState === 0 && !noteOn) { setOpenState(1); setRingByKind(true) }
+    } else if (ringByKind) {
+      if (!dueSel) setOpenState(0)
+      setRingByKind(false)
+    }
+  }
   const [recording, setRecording] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [clip, setClip] = useState<{ url: string; secs: number; startedAt: string } | null>(rest0.clip)
@@ -959,7 +976,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   // in what a screen reader reads out or a tooltip shows.
                   title={C.entryTypes[t]}
                   aria-label={C.entryTypes[t]}
-                  onClick={() => setEntryType(t)}
+                  onClick={() => pickEntryType(t)}
                 >
                   {/* ⚠️ …the label with its break points written in (copy · entryTypesWrap), never
                       the plain one. This chip is the narrowest control on the sheet; the word that

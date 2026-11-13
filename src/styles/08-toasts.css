@@ -473,6 +473,8 @@
 /* …and the consequence AFTER them, where it reads as the answer to the list rather than as
    more of the same sentence */
 .confirm-note { margin: 0 0 var(--sp-4); font: var(--fw-medium) var(--fs-1)/1.45 var(--body); color: var(--ink-faint); }
+/* the one consequence that must be read: its own line above the note, in ink (FLOW.5) */
+.confirm-note-lead { margin-bottom: var(--sp-2); color: var(--ink); }
 .confirm-msg:last-of-type:not(:only-of-type) { margin-bottom: var(--sp-4); }
 /* ⚠️ …and it WRAPS on a wide screen too (staging walk-through 25.09.2026, N22): three long
    answers («Trotzdem abschliessen · Zur Tafel · Abbrechen») pushed «Abbrechen» out past the
@@ -499,6 +501,9 @@
 .confirm-list li.confirm-line { padding-left: 0; font-weight: var(--fw-regular); }
 .confirm-list li.confirm-line::before { display: none; }
 .confirm-line b { font-weight: var(--fw-bold); }
+/* a crew line in alarm (ConfirmLine · alarm, FLOW.5): the board's red, its word at the end */
+.confirm-list li.confirm-line-alarm { color: var(--red-strong); }
+.confirm-line-mark { margin-left: var(--sp-2); padding: 0 var(--sp-1); border: 1px solid currentColor; border-radius: var(--r-sm); font: var(--fw-bold) var(--fs-1) var(--body); white-space: nowrap; }
 /* 800: the single action of its surface, like `.ip-btn.primary` (docs/ui-conventions · Type) */
 .btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); font-weight: var(--fw-heavy); }
 @media (hover: hover) {

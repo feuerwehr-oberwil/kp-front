@@ -1018,6 +1018,20 @@
         },
         "serviceArea": {
           "$ref": "#/$defs/MapServiceArea"
+        },
+        "offlineRadiusM": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "maximum": 3000,
+          "minimum": 500,
+          "title": "Offlineradiusm"
         }
       },
       "title": "MapConfig",
