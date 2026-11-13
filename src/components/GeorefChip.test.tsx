@@ -358,9 +358,9 @@ describe('the phone can start a pair on either surface', () => {
     }
   })
 
-  // «Schliessen» turns into «Fertig» the moment two pairs stand; «+» stays one tap away for the
-  // optional third point the steps offer as a check.
-  it('turns the exit into «Fertig» once two pairs link the plan', () => {
+  // The exit stays ✕ «Schliessen» once two pairs stand (M7 C, 13.11.2026: closing loses nothing,
+  // «Fertig» only commits a draft); the status says «Verknüpft», and it leaves the mode.
+  it('keeps the exit «Schliessen» once two pairs link the plan, and leaves the mode', () => {
     const previous = window.matchMedia
     window.matchMedia = ((q: string) => ({
       matches: q === PHONE_QUERY, media: q, onchange: null,
@@ -370,7 +370,8 @@ describe('the phone can start a pair on either surface', () => {
       act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: TWO, aspect: 1.5 }))
       render(<GeorefModeBars planLabel="Modul 2" />)
       expect(screen.getByRole('button', { name: /^2\/2 Verknüpft/ })).toBeTruthy()
-      fireEvent.click(screen.getByRole('button', { name: 'Fertig' }))
+      expect(screen.queryByRole('button', { name: 'Fertig' })).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Schliessen' }))
       expect(georefSnapshot().planId).toBeNull()
     } finally {
       window.matchMedia = previous

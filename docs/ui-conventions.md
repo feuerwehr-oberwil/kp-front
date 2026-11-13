@@ -496,6 +496,19 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     menu has no ✕ row and no lone ⓘ row (29.09.2026): its tile toggles it and a row or a press
     elsewhere closes it; an ⓘ sits at the END of the last row and opens its sentence under that
     row (Ansichten).
+  - *Close and commit (13.11.2026, owner, M7 C: «keep the X as generic closing and finishing if
+    something is actually done, and otherwise, "would be destroyed" is fertig»):* ✕ means «zu»
+    everywhere, and closing with ✕ never loses anything – a card, a sheet, a tool dock, a mode bar,
+    the Passung (its points save as they are placed, so its exit stays ✕ «Schliessen» also once a
+    fit stands; «Deckung prüfen» closes with ✕ «Schliessen» too). **«✓ Fertig» exists ONLY while
+    something is being made that a close would throw away** – a Punkte-Linie, -Fläche or Wand
+    being drawn: there it is THE way to commit, glyph + word (`ToolDock` · `go`), and the dock's ✕
+    / Esc leave the draft through `settleDraft` (a committable draft is asked about – «Speichern ·
+    Verwerfen · Weiterzeichnen» – never silently dropped). So one exit per state: a SELECTED
+    object's is its editor card's ✕, and the `SelectionBar` carries no «Fertig» beside it; only a
+    Mehrfach group, which has no card, gets a ✕ at the bar's end. The armed-tool pill at the bottom
+    centre stays glyph + name, no buttons. Text editors' in-place ✓ (a Notiz, a box label) commit
+    typed text and keep their ✓.
   - *Cancel (28.09.2026, owner pick A):* «Abbrechen» in a footer is a FRAMED `.ip-btn` 14/700 at
     its word's width, never a ghost word; the primary takes the rest of the row, same height (on a
     phone `[role=dialog] .ui-sheet-foot > .ip-btn.primary` flexes).

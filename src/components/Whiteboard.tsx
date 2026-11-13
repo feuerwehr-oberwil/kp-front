@@ -2861,7 +2861,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             <SelectionBar
               onMove={barMove}
               onRotate={barCanRotate ? barRotate : undefined}
-              onDone={barDone}
+              // the ✕ is a group's only — a single Linie/Fläche/Form has its editor card's ✕
+              onClose={barIds.length > 1 ? barDone : undefined}
               armed={arm.armed} onArm={arm.toggle}
             />
           )}
