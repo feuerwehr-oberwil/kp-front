@@ -99,6 +99,10 @@ Owner pick A «Ein Feld» (`components/TimeField · DateTimeField`, header there
   button. The QR-Erfassung learns the clock from its own answers (`captureClient · req`).
 - **The QR-Erfassung behaves like the tablet** for the same field: one control, and «Leeren» clears
   an Einsatzende or a Rückmeldung there too (a null commit used to be ignored).
+- **The QR-Erfassung's Personen rows wear the stacked face** (owner pick A «Gestapelt», 13.11.2026,
+  `DateTimeField · stacked`): «von 12.11.» small above a loud «23:37», ≈ 84px wide, so a name keeps
+  one line at 390px; the von/bis word moved into the field (its accessible name: «von, <Name>»).
+  Every other field keeps the one-line read-out.
 
 ## Unterschriften – signing on the screen (15.10.2026)
 

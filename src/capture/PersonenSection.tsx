@@ -122,12 +122,14 @@ export function PersonenSection({
               </button>
               {/* ONE inline time, same model as the Anwesenheit view: arrival while
                   anwesend, leave time once gegangen — the flipping meaning is SAID
-                  with a von/bis tag, not implied (feedback 2026-07-18) */}
-              {a && <span className="cv-time-tag">{here ? C.von : C.bis}</span>}
+                  with «von»/«bis», not implied (feedback 2026-07-18). The word rides on
+                  the field's own small line («von 12.11.» over «23:37», owner pick A
+                  «Gestapelt» 13.11.2026), so the name keeps one line at 390px. */}
               {a && (
                 <DateTimeField
                   className="cv-person-time"
-                  ariaLabel={here ? C.von : C.bis}
+                  stacked={here ? C.von : C.bis}
+                  ariaLabel={fillTemplate(C.personTime, { edge: here ? C.von : C.bis, name: p.display_name })}
                   value={here ? cur?.from : cur?.to}
                   disabled={busy} required
                   // the Einsatz' own days, exactly like the Zeiten grid below: the field shows

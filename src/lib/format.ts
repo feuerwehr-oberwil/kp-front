@@ -159,8 +159,10 @@ export function fieldDay(d: Date, refYear: number): string {
   return d.getFullYear() === refYear ? dm : `${dm}${d.getFullYear()}`
 }
 
-/** What an empty Rapport time field reads. */
-export const FIELD_WHEN_EMPTY = '--.--. --:--'
+/** What an empty Rapport time field reads: its day half, its clock half, and both on one line. */
+export const FIELD_DAY_EMPTY = '--.--.'
+export const FIELD_CLOCK_EMPTY = '--:--'
+export const FIELD_WHEN_EMPTY = `${FIELD_DAY_EMPTY} ${FIELD_CLOCK_EMPTY}`
 
 /**
  * A Rapport time as the form and every read-out of it say it: «12.11. 11:26», the year only off

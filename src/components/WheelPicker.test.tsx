@@ -107,6 +107,21 @@ describe('DateTimeField · one date control', () => {
     expect(screen.getByRole('button', { name: 'C' }).textContent).toBe('--.--. --:--')
   })
 
+  // owner pick A «Gestapelt» (13.11.2026, the QR-Erfassung's Personen rows): the word + day on a
+  // small line above the clock; same year rule, same empty shape, the full name stays accessible
+  it('stacked: «von 05.10.» over «13:06», the year rule, and an empty field in the same shape', () => {
+    const days = [new Date(2026, 9, 5)]
+    render(<>
+      <DateTimeField ariaLabel="von, Amrein Patrick" stacked="von" value={new Date(2026, 9, 5, 13, 6).toISOString()} days={days} onCommit={vi.fn()} />
+      <DateTimeField ariaLabel="bis, Baumann Michael" stacked="bis" value={new Date(2025, 11, 31, 23, 50).toISOString()} days={days} onCommit={vi.fn()} />
+      <DateTimeField ariaLabel="von, Frei Nina" stacked="von" days={days} onCommit={vi.fn()} />
+    </>)
+    const lines = (name: string) => [...screen.getByRole('button', { name }).children].map((el) => el.textContent)
+    expect(lines('von, Amrein Patrick')).toEqual(['von 05.10.', '13:06'])
+    expect(lines('bis, Baumann Michael')).toEqual(['bis 31.12.2025', '23:50'])
+    expect(lines('von, Frei Nina')).toEqual(['von --.--.', '--:--'])
+  })
+
   it('always shows the day column, and an empty field opens where it is told to', () => {
     const days = [new Date(2026, 9, 5)]
     render(<DateTimeField ariaLabel="Ende" days={days} opensOn={new Date(2026, 9, 5, 23, 50).toISOString()} onCommit={vi.fn()} />)

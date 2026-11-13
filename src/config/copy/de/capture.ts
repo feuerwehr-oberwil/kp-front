@@ -88,6 +88,7 @@ export const captureCopy = {
     kontaktpersonCall: 'Kontaktperson anrufen',
     von: 'von',
     bis: 'bis',
+    personTime: '{edge}, {name}',
     ende: 'Einsatzende',
     sectionPersonen: 'Anwesenheit',
     presentCount: '{n} anwesend',

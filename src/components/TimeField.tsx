@@ -21,6 +21,9 @@
  *   «12.11. 11:26» (day quiet, clock loud; the year only off the Einsatz's year, `format ·
  *   fieldWhen`), and the picker ALWAYS shows its bounded day column («Mo 05.10.», `lib/zeitplanFormat
  *   · fmtWheelDay`) from `days` – the incident's (`incidentDays`) or by default the last 60 days.
+ *   One narrow row may wear its `stacked` face instead (owner pick A «Gestapelt», 13.11.2026): the
+ *   word and the day small above the loud clock – «von 12.11.» / «23:37» – so the QR-Erfassung's
+ *   Personen rows keep a one-line name at 390px. Same control, same picker, same value.
  * - A bare clock is `TimeField` (HH:MM + an optional day column), kept for the surfaces outside
  *   the Rapport that ask for one: the Zeitplan's bands (`BandGrid`) and the imported memo's
  *   «Aufnahme begann» (a `required` `TimeField`). The Verlauf composer's «Uhrzeit …» (Wiedervorlage)
@@ -30,7 +33,7 @@
 
 import { useRef, useState } from 'react'
 import { WheelPopover, type WheelValue } from './WheelPicker'
-import { FIELD_WHEN_EMPTY, fieldDay, hhmm, pad2 } from '../lib/format'
+import { FIELD_CLOCK_EMPTY, FIELD_DAY_EMPTY, FIELD_WHEN_EMPTY, fieldDay, hhmm, pad2 } from '../lib/format'
 import { serverNow } from '../lib/serverClock'
 import { dayRange, RECENT_DAYS } from '../lib/zeitplanFormat'
 
@@ -142,10 +145,19 @@ export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowL
  * 12.11.2026) — the trigger's face, and the face of every read-out of a Rapport time that is not
  * a plain string (the derived «Ausgerückt», a read-only grid row). Empty → «--.--. --:--».
  * `refYear`: the Einsatz's year; the day carries its year only when it is another one.
+ * `stacked`: a word that leads the day on its own small line above the clock — «von 12.11.» /
+ * «23:37», empty «von --.--.» / «--:--» (the CSS of `.timefield-trigger.stacked` breaks the lines).
  */
-export function When({ iso, refYear }: { iso?: string | null; refYear: number }) {
+export function When({ iso, refYear, stacked }: { iso?: string | null; refYear: number; stacked?: string }) {
   const d = iso ? new Date(iso) : null
-  if (!d || !Number.isFinite(d.getTime())) return <>{FIELD_WHEN_EMPTY}</>
+  const ok = !!d && Number.isFinite(d.getTime())
+  if (stacked !== undefined) {
+    return <>
+      <span className="timefield-day">{stacked} {ok && d ? fieldDay(d, refYear) : FIELD_DAY_EMPTY}</span>
+      <span className="timefield-clock">{ok && d ? hhmm(d) : FIELD_CLOCK_EMPTY}</span>
+    </>
+  }
+  if (!ok || !d) return <>{FIELD_WHEN_EMPTY}</>
   return <><span className="timefield-day">{fieldDay(d, refYear)}</span> <span className="timefield-clock">{hhmm(d)}</span></>
 }
 
@@ -159,7 +171,7 @@ export function When({ iso, refYear }: { iso?: string | null; refYear: number })
  * outside the list still opens on itself instead of silently moving. The day column shows for a
  * single day too: the picker always says which date it commits.
  */
-export function DateTimeField({ value, onCommit, disabled, ariaLabel, className, days, opensOn, refYear, nowLabel, required, shortcut, clearLabel, clearActive, token }: {
+export function DateTimeField({ value, onCommit, disabled, ariaLabel, className, days, opensOn, refYear, nowLabel, required, shortcut, clearLabel, clearActive, token, stacked }: {
   /** ISO datetime ('' /undefined = unset) */
   value?: string
   onCommit: (iso: string | null) => void
@@ -184,6 +196,9 @@ export function DateTimeField({ value, onCommit, disabled, ariaLabel, className,
   clearLabel?: string
   clearActive?: boolean
   token?: Token
+  /** the two-line face for a narrow row: this word + the day small above the clock (`When`). The
+   *  word is only seen – `ariaLabel` must still name the field in full. */
+  stacked?: string
 }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -208,10 +223,10 @@ export function DateTimeField({ value, onCommit, disabled, ariaLabel, className,
     <span className={`timefield${className ? ` ${className}` : ''}`}>
       <button
         type="button" ref={btnRef}
-        className={`timefield-trigger dt${valid || token ? '' : ' empty'}${token ? ` tok-${token.tone}` : ''}`}
+        className={`timefield-trigger dt${stacked !== undefined ? ' stacked' : ''}${valid || token ? '' : ' empty'}${token ? ` tok-${token.tone}` : ''}`}
         disabled={disabled} aria-label={token ? `${ariaLabel}: ${token.label}` : ariaLabel} onClick={() => setOpen(true)}
       >
-        {token ? token.label : <When iso={valid ? value : null} refYear={year} />}
+        {token ? token.label : <When iso={valid ? value : null} refYear={year} stacked={stacked} />}
       </button>
       {nowLabel && (
         <button type="button" className="timefield-now" disabled={disabled}
