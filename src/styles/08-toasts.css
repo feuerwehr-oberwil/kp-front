@@ -500,8 +500,8 @@
 .confirm-list li.confirm-line::before { display: none; }
 .confirm-line b { font-weight: var(--fw-bold); }
 /* a crew line in alarm (ConfirmLine · alarm, FLOW.5): the board's red, its word at the end */
-.confirm-line-alarm { color: var(--red-strong); }
-.confirm-line-mark { margin-left: 8px; padding: 0 6px; border: 1px solid currentColor; border-radius: var(--r-sm); font: var(--fw-bold) var(--fs-1) var(--body); white-space: nowrap; }
+.confirm-list li.confirm-line-alarm { color: var(--red-strong); }
+.confirm-line-mark { margin-left: var(--sp-2); padding: 0 var(--sp-1); border: 1px solid currentColor; border-radius: var(--r-sm); font: var(--fw-bold) var(--fs-1) var(--body); white-space: nowrap; }
 /* 800: the single action of its surface, like `.ip-btn.primary` (docs/ui-conventions · Type) */
 .btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); font-weight: var(--fw-heavy); }
 @media (hover: hover) {

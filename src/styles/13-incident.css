@@ -329,7 +329,7 @@
 .ip-menu-alarm-mark svg { width: 18px; height: 18px; }
 .ip-menu-kicker { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--red-strong); }
 /* another Einsatz's Atemschutz alarm on its row (AppMenuRows · foreignMark, FLOW.1): the kicker's red, led by ⚠ */
-.ip-menu-az { display: inline-flex; align-items: center; gap: 4px; }
+.ip-menu-az { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .ip-menu-az svg { width: 12px; height: 12px; flex: none; }
 .ip-menu-alarm-go { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--red-strong); }
 .ip-menu-alarm-x { flex: none; display: grid; place-items: center; width: var(--tap); border: none; background: none;
