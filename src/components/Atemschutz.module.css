@@ -261,7 +261,10 @@
    its title keeps the Planungshilfe sentence. The wrap stays the safety net for a viewer's
    three-item line, never a cut number. */
 .vrowTerse { container-type: inline-size; }
-@container (max-width: 290px) { .metaLine i.metaDrop { display: none; } }
+/* 320px: the foot row the word needs – «drin 19:41 min · Schätzung ≈ 152 bar» is ~252px of line,
+   and the row gives the line its width less the ⌄ and the padding (~60px); measured on the 1180
+   tablet's three-column grid, where the row is 285px and the word goes */
+@container (max-width: 320px) { .metaLine i.metaDrop { display: none; } }
 .metaLine b { font: var(--fw-bold) var(--fs-1) var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 /* (`.metaEst`, the Schätzung's dimmed + lighter value, went on 29.09.2026, T2: the owner wants the
    Schätzung CLEARLY visible, so it keeps full ink and its WORD — «Schätzung ≈ 0 bar» — and the word
@@ -1850,13 +1853,17 @@ button.crewLine { cursor: pointer; -webkit-tap-highlight-color: transparent; }
    tops level – and the time spanning both rows, its foot on the crew line's foot. A card without a
    crew line keeps the time's foot on the name's. */
 .grid .trowHeadStatic { grid-template-rows: auto auto; padding-top: calc(var(--sp-2) + 1px); }
-.grid .trowHeadStatic .trowClock { display: contents; }
 .grid .trowHeadStatic .trowId { grid-column: 1; grid-row: 1; align-self: start; }
-.grid .trowHeadStatic .trowClockLine { grid-column: 2; grid-row: 1 / span 2; align-self: end; }
+/* the right block is ONE column across both rows – caption at its top, time at its foot – so the
+   grid sizes the rows around it and the two never overlap however short the left block is */
+.grid .trowHeadStatic .trowClock { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column;
+  align-items: flex-end; justify-content: space-between; }
+/* ⚠️ No lift of the digits onto the crew's baseline: caption 3 + 11 + time 24 = 38px is all the
+   column may be – name + one crew line is 43px on touch – or it grows the rows and opens a gap
+   between the name and its crew, the very gap this head closes (tried 3 and 6px, 13.11.2026) */
 /* the caption's caps level with the name's: the 19px name's line box puts its cap height ~4px
    down, the 11px caps at line-height 1 sit ~1px down – so 3px */
-.grid .trowHeadStatic .trowSub { display: block; grid-column: 2; grid-row: 1; justify-self: end; align-self: start;
-  line-height: 1; margin-top: 3px; }
+.grid .trowHeadStatic .trowSub { display: block; line-height: 1; margin-top: 3px; }
 .grid .trowHeadStatic .trowSub:empty { display: none; }
 /* a card without the band: its first tile 5px under the crew line's box (8 under its glyphs), not
    the zone's 8 (r18, above) */
