@@ -258,8 +258,11 @@ html.rail-dragging .layers-card { transition: none; }
    painted in the card's colour; on the see-through glass (29.09.2026) the rows showed through it,
    so the card is a column now — head, then the one scroller `.lc-body` — and nothing passes under
    the head at all. On a phone the head is the sheet's handle (15-mobile · swipeDismiss).
-   The ✕ stands as far from the card's right edge as the title from its left (16; it was 8). */
-.lc-title { flex: none; padding: var(--sp-2) var(--sp-4);
+   The ✕'s plate ends on the CONTENT's right edge – the quick row and the tiles below, 12 in
+   (.lc-body 8 + .lc-quick 4) – and the title starts on the content's text edge, 16 (owner,
+   13.11.2026: «the closing button should be aligned to the edges of the card, the same as the
+   stuff below is»; it stood 8 in, then 16 – 4px off the row either way). */
+.lc-title { flex: none; padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4);
   display: flex; align-items: center; gap: 8px;
   /* a card head is a SHEET TITLE (29.09.2026, K9): it wore the eyebrow while its section heads
      below wore title case, which put the hierarchy upside down. No leading glyph either — it only

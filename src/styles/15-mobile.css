@@ -736,9 +736,10 @@
      tablet card under it, and at (0,2,0) it would hang this sheet from the top) */
   .map-util .layers-card { top: auto; bottom: 0;
     max-height: min(72dvh, calc(100dvh - var(--kb-inset, 0px) - var(--bar-foot) - var(--sp-4))); }
-  /* the ✕ as far from the sheet's right edge as the title from its left – 24 on a sheet
-     (ui-conventions · the ✕); it stood 12px in beside a title at 24 */
-  .layers-card .lc-title { padding: 4px var(--sp-5) 8px; touch-action: none; }
+  /* the ✕'s plate ends on the content's right edge, as on the tablet card (05-navrail ·
+     .lc-title): the sheet's body pad (.lc-body below, safe area included) + .lc-quick's 4 = 20;
+     the title starts on the text edge, 24. It stood 12px in, then 24 (owner, 13.11.2026). */
+  .layers-card .lc-title { padding: 4px calc(max(16px, env(safe-area-inset-right)) + var(--sp-1)) 8px var(--sp-5); touch-action: none; }
   .layers-card .lc-title button { touch-action: auto; }
   .layers-card > .ui-sheet-grab { margin-bottom: -4px; }
   .layers-card .lc-body { padding: 0 max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left)); }
