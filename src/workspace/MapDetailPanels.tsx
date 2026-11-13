@@ -83,7 +83,7 @@ export interface MapDetailPanelsProps {
   selectedDrawingId: string | null
   patchDrawingLabelLive: (id: string, label: string) => void
   commitDrawingLabel: (id: string, label: string) => void
-  changeMapEnding: (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck', drawing?: Drawing | null) => Promise<void>
+  changeMapEnding: (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck', drawing?: Drawing | null) => void
   reverseDrawing: (id: string) => void
   /** «Art: Linie | Wand» (useMapDrawing · setDrawingWallRole) */
   setDrawingWallRole: (id: string, wand: boolean) => void
@@ -106,7 +106,7 @@ export interface MapDetailPanelsProps {
   focusEntity: (id: string) => void
   isVisible: (id: LayerId) => boolean
   toggleLayer: (id: LayerId) => void
-  deleteDrawing: (id: string) => Promise<void>
+  deleteDrawing: (id: string) => void
 }
 
 export function MapDetailPanels({
@@ -249,7 +249,7 @@ export function MapDetailPanels({
             const id = createCircle(placard.coord, radiusM)
             patchEntity(placard.id, { ergRings: 'off' })
             undoToast(fillTemplate(appConfig.copy.contextPanel.ergAdoptedToast, { r: fmtDistance(radiusM) }), () => {
-              void deleteDrawing(id)
+              deleteDrawing(id)
               patchEntity(placard.id, { ergRings: rings })
             }, [recordKey('objects', id), recordKey('objects', placard.id)])
           } : undefined}
@@ -431,7 +431,7 @@ export function MapDetailPanels({
           onLabelCommit={(label) => { if (selectedDrawingId) commitDrawingLabel(selectedDrawingId, label) }}
           onMarker={(marker) => patchDrawing({ marker })}
           onArrow={(arrow) => patchDrawing({ arrow })}
-          onEnding={(ending) => void changeMapEnding(ending)}
+          onEnding={(ending) => changeMapEnding(ending)}
           onReverse={tacticalLocked ? undefined : () => reverseDrawing(selectedDrawing.id)}
           // a Wand is layout, not a hose: no Typ, no Leitung Nr., no Trupp (types · Drawing.role)
           onContent={selectedDrawing.role ? undefined : (content) => patchDrawing({ content })}

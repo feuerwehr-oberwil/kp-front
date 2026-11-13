@@ -7,7 +7,7 @@ type Keys =
   | 'baseMap' | 'floor' | 'hoseHint' | 'symbolSearchPlaceholder' | 'closeDialog'
   | 'sheetGrip' | 'edit' | 'primarySymbol' | 'done' | 'cancel' | 'exerciseBadge'
   | 'exerciseInitial' | 'keepPlacing' | 'delete' | 'remove' | 'undo' | 'redo' | 'undoNamed'
-  | 'redoNamed' | 'undoLost' | 'undoDomains' | 'undoSurfaces' | 'undoTopDropped'
+  | 'redoNamed' | 'undoLost' | 'removedToast' | 'undoDomains' | 'undoSurfaces' | 'undoTopDropped'
   | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'noHits'
 
 export const commonCopy: Localizable<Pick<Copy, Keys>> = {
@@ -28,6 +28,7 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   undoNamed: 'Annuler : {action}',
   redoNamed: 'Rétablir : {action}',
   undoLost: 'Plus annulable',
+  removedToast: { note: 'Note retirée', freed: '{what}, {n} lignes détachées', freedOne: '{what}, 1 ligne détachée' },
   undoDomains: {
     reference: 'Référence ajustée',
     blattform: 'Forme de la feuille mesurée',

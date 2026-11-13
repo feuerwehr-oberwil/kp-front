@@ -84,7 +84,6 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     rename: 'Renommer',
     delete: 'Supprimer',
     saved: 'Vue enregistrée',
-    deleteTitle: 'Supprimer la vue',
-    deleteMsg: 'Supprimer «{name}» ?',
+    deleted: 'Vue «{name}» supprimée',
   },
 }

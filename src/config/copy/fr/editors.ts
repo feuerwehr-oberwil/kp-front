@@ -260,9 +260,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     gpsDistanceNow: 'actuellement à {distance}',
     hiddenTarget: 'Cible masquée',
     revealTarget: 'Afficher la couche',
-    removeConnectedTitle: 'Retirer {name} ?',
-    removeConnectedMessage: '{n} lignes seront libérées.',
-    removeEMessage: 'Supprimer le tronçon ? {n} lignes raccordées seront libérées.',
+    endingReleased: 'Tronçon retiré, {n} lignes détachées',
   },
   topBar: {
     offline: 'Hors ligne',

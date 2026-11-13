@@ -56,6 +56,7 @@ import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
+import { connectRemovalToasts, removeWithUndo } from './lib/removalToast'
 import { usePlacementLane } from './lib/toastLane'
 import { initialMode, loadPrefs, savePrefs } from './lib/prefs'
 import { makePhotoPositionSource } from './lib/devicePosition'
@@ -143,7 +144,7 @@ import { serverNow, serverNowIso } from './lib/serverClock'
 import { clockRestartRowId, clocksAfterReopen } from './lib/reopenClocks'
 import { IncidentClosedMeldung, LinkRefusedMeldung } from './components/IncidentClosedMeldung'
 import { useGhostTrails } from './lib/useGhostTrails'
-import { ghostRevival, ghostTrailLabel, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources } from './lib/truppTrails'
+import { ghostRevival, ghostTrailLabel, removeGhostTrail, restoreGhostTrail, trailSources } from './lib/truppTrails'
 import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
 import { useAbschluss } from './lib/useAbschluss'
 import { useRowMediaUpload } from './lib/useRowMediaUpload'
@@ -734,6 +735,9 @@ export function IncidentWorkspace({
   /** …from a button, which anchors the caption at itself. Every ↶ ↷ in the app goes through this. */
   const onHistoryPress = (dir: 'undo' | 'redo') => (e: ReactMouseEvent<HTMLButtonElement>) => stepHistory(dir, e.currentTarget)
   useEffect(() => clearUndoCaption, [])
+  // the delete rule's toasts take back THEIR step through this same ↶ (lib/removalToast)
+  // (re-plugged every render, so the toast's ↶ is always this render's `stepHistory`)
+  useEffect(() => connectRemovalToasts({ peek: () => undoHist.peekUndo(), undo: () => stepHistory('undo') }))
   // ⚠️ The live values the timeline's plan entries read (workspace/usePlanStacks · planStepAt).
   // A step is pressed long after the render that recorded it, so nothing there may close over
   // this render's `board`, `activePlanId` or plan titles (filled in below, with the plan catalog).
@@ -1857,7 +1861,7 @@ export function IncidentWorkspace({
   // threaded in so the handlers behave identically to their former inline selves.
   const mapDrawing = useMapDrawing({
     drawings, resolvedDrawings: resolvedMapDrawings, selectedDrawingId, tacticalLocked, tool, setTool,
-    commit, setDocRaw, beginDrag, endDrag, emit, log,
+    commit, setDocRaw, beginDrag, endDrag, emit, log, stepLabelRef: stepLabel,
     setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds,
     // a Leitung end snapped onto a Trupp's marker IS the Leitung pick (15.09.) — the same call
     // the Plan makes from its own magnet (Whiteboard · onLineAttached)
@@ -1870,17 +1874,13 @@ export function IncidentWorkspace({
     patchDrawingLabelLive, commitDrawingLabel,
     deleteDrawing, reverseDrawing, setDrawingWallRole, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
   } = mapDrawing
-  const changeMapEnding = async (ending: LineEnding, drawing = selectedDrawing) => {
+  const changeMapEnding = (ending: LineEnding, drawing = selectedDrawing) => {
     if (!drawing) return
     const incoming = drawing.teilstueck && ending !== 'teilstueck'
       ? drawings.flatMap((d) => (['start', 'end'] as const).filter((endpoint) => {
         const a = endpoint === 'start' ? d.startAttachment : d.endAttachment
         return a?.target.kind === 'line' && a.target.id === drawing.id && a.target.endpoint === 'end'
       }).map((endpoint) => ({ id: d.id, endpoint }))) : []
-    if (incoming.length) {
-      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
-      if (!ok) return
-    }
     const resolvedTarget = resolvedMapDrawings.find((d) => d.id === drawing.id)
     const fallback = resolvedTarget?.coords[resolvedTarget.coords.length - 1] ?? drawing.coords[drawing.coords.length - 1]
     // the Abschluss is a semantic edit like any DrawEditor field — one settled Verlauf row
@@ -1890,9 +1890,13 @@ export function IncidentWorkspace({
     // the ends that hung on the «E» let go where it stood — one patch per line, both ends in it,
     // applied here and sent as ONE draw.edit (lib/lineAttachments · detachDrawings)
     const released = detachDrawings(drawings.filter((d) => d.id !== drawing.id), (d, endpoint) => (incoming.some((x) => x.id === d.id && x.endpoint === endpoint) ? fallback : null))
-    commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => (d.id === drawing.id
+    const write = () => commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => (d.id === drawing.id
       ? { ...d, ...endingFlags(ending) }
       : withDetach(d, released))) }))
+    // the lines that hung on the «E» go loose at once, and the toast says how many (the delete
+    // rule, lib/removalToast) — the same store step brings every end back
+    if (incoming.length) removeWithUndo(fillTemplate(appConfig.copy.drawingEditor.endingReleased, { n: incoming.length }), write)
+    else write()
     emit('draw.edit', { id: drawing.id, patch: endingWireFlags(ending) })
     released.forEach((patch, id) => emit('draw.edit', { id, patch: wireFreed(patch) }))
   }
@@ -2578,17 +2582,12 @@ export function IncidentWorkspace({
     if (tacticalLocked) return
     const e = entities.find((x) => x.id === id)
     if (!e || e.kind !== 'team' || !e.trail?.length) return
-    // a trail is never destroyed without the ask, wherever the door is (Plan parity)
-    const ok = await confirmDialog({
-      title: appConfig.copy.whiteboard.removeMarkerTrail,
-      message: fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name: e.label ?? '', n: e.trail.length }),
-      confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
-    })
-    if (!ok) return
+    // no ask (the delete rule, lib/removalToast): the ONE store step brings the marker back with
+    // its trail, and the toast says both went
     armTrailDrop(id, true)
-    // the connection question inside deleteEntity may still be answered with «Abbrechen» — then
-    // the marker stays and the arming has to go, or its next removal would eat the trail
-    if (!await deleteEntity(id)) { armTrailDrop(id, false); return }
+    // a refused removal (the Karte locked meanwhile) keeps the marker — then the arming has to
+    // go, or its next removal would eat the trail
+    if (!await deleteEntity(id, fillTemplate(appConfig.copy.whiteboard.markerTrailRemoved, { name: e.label ?? '' }))) { armTrailDrop(id, false); return }
     // the Verlauf says BOTH things happened; no `entity.edit` beside it, because the entity the
     // edit would describe is the one just deleted (the `entity.delete` row carries the act)
     log('cross', fillTemplate(appConfig.copy.whiteboard.trailCleared, { name: e.label ?? '' }))
@@ -2605,7 +2604,6 @@ export function IncidentWorkspace({
     const g = trails.find((t) => t.id === id)
     if (!g || g.removedAt) return
     const name = ghostTrailLabel(g, appConfig.copy.whiteboard.team, allTrupps)
-    const message = fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name, n: trailPointCount(g) })
     // ⚠️ offered for EVERY ghost that has somewhere to return to, not only one with a live Trupp
     // behind it (first cut, 20.09.2026 – and the field's first try was a loose «Trupp 1» chip,
     // which got the delete-only ask again). A marker joined to a Trupp that still exists goes
@@ -2641,22 +2639,21 @@ export function IncidentWorkspace({
         return
       }
       if (answer !== 'alt') return
-    } else {
-      const ok = await confirmDialog({
-        title: appConfig.copy.whiteboard.clearTrail, message,
-        confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
-      })
-      if (!ok) return
     }
+    // a ghost with nowhere to return to simply goes — the delete rule (lib/removalToast): its
+    // timeline entry brings it back, so the toast says so instead of a confirm asking first
     const at = serverNowIso()
-    setTrails((ts) => removeGhostTrail(ts, id, at))
-    log('cross', fillTemplate(appConfig.copy.whiteboard.trailCleared, { name }))
-    // the domain is where the trail was WALKED — a ghost on a sheet is the Plan's act, so the
-    // header's «Rückgängig: …» names the surface the operator is standing on
-    rememberOneShot(g.planId ? 'plan' : 'karte', appConfig.copy.whiteboard.clearTrail,
-      () => setTrails((ts) => restoreGhostTrail(ts, id)),
-      () => setTrails((ts) => removeGhostTrail(ts, id, at)),
-      () => [recordKey('trails', id)])
+    const line = fillTemplate(appConfig.copy.whiteboard.trailCleared, { name })
+    removeWithUndo(line, () => {
+      setTrails((ts) => removeGhostTrail(ts, id, at))
+      // the domain is where the trail was WALKED — a ghost on a sheet is the Plan's act, so the
+      // header's «Rückgängig: …» names the surface the operator is standing on
+      rememberOneShot(g.planId ? 'plan' : 'karte', line,
+        () => setTrails((ts) => restoreGhostTrail(ts, id)),
+        () => setTrails((ts) => removeGhostTrail(ts, id, at)),
+        () => [recordKey('trails', id)])
+    })
+    log('cross', line)
   }
   // …and what each person's Bemerkung said, for as long as this incident is open here. The record
   // loses it when a row is cycled to «frei» (the entry goes, as it must); this is what puts it back

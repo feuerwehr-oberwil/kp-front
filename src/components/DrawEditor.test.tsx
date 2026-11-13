@@ -90,10 +90,6 @@ describe('shared magnetic connection controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Am Einsatzort lösen' }))
     expect(onDetach).toHaveBeenCalledWith('end')
   })
-
-  it('uses the reviewed indirect-removal consequence copy', () => {
-    expect(fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: 2 })).toBe('2 Linien werden gelöst.')
-  })
 })
 
 // Measuring a line AFTER it was drawn: before this the length was only reachable by re-drawing
@@ -342,11 +338,11 @@ describe('the Abschluss options explain themselves', () => {
     expect(teil.getAttribute('data-holdexplain')).not.toBeNull()
     // ⚠️ no `title`, or the native tooltip arrives a second later and says it twice
     expect(teil.getAttribute('title')).toBeNull()
-    // …and it says WHAT the thing is; the delete consequence lives in `removeEMessage`, shown at
-    // the moment a Teilstück is actually deleted
+    // …and it says WHAT the thing is; the consequence lives in `endingReleased`, the toast at
+    // the moment a Teilstück actually lets its lines go
     expect(C.endingTeilstueckWhat).toMatch(/Anschlüssen/)
     expect(C.endingArrowStopWhat).toMatch(/Entwicklungsgrenze/)
-    expect(C.removeEMessage).toMatch(/gelöst/)
+    expect(C.endingReleased).toMatch(/gelöst/)
 
     // the Strichart pictures answer the same way — «welche Seite zeigen die Zähne»
     const teeth = screen.getByRole('button', { name: C.lineHalteliniUp })

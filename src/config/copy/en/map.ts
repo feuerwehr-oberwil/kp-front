@@ -83,7 +83,6 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     rename: 'Rename',
     delete: 'Delete',
     saved: 'View saved',
-    deleteTitle: 'Delete view',
-    deleteMsg: 'Delete «{name}»?',
+    deleted: 'View «{name}» deleted',
   },
 }

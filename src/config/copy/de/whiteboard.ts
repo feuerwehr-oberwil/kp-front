@@ -15,8 +15,6 @@ export const whiteboardCopy = {
     fallbackObjectName: 'Objekt',
   },
   notes: {
-    deleteTitle: 'Notiz entfernen',
-    deleteMsg: 'Diese Notiz enthält Text. Wirklich entfernen?',
     // note styling — shared by the Karte map and the Plan whiteboard (same controls in the
     // armed-tool dock before placing and in the detail panel afterwards)
     section: 'Notiz',
@@ -237,6 +235,7 @@ export const whiteboardCopy = {
       resetTitle: 'Referenz zurücksetzen?',
       resetBody: 'Die Verknüpfung zwischen diesem Plan und der Karte wird gelöscht. Die Punkte müssen danach neu gesetzt werden.',
       resetDone: 'Referenz zurückgesetzt',
+      pointsCleared: 'Punkte zurückgesetzt',
       // In der Leiste des laufenden Modus: alle Paare weg, der Modus bleibt an – man setzt ja
       // sofort neu. «Abbrechen» daneben behält, was steht.
       clearPoints: 'Zurücksetzen',
@@ -263,7 +262,6 @@ export const whiteboardCopy = {
     insertVertex: 'Punkt einfügen',
     dragVertex: 'Eckpunkt ziehen, gedrückt halten zum Löschen',
     dragRadius: 'Radius ziehen',
-    groupDeleteTitle: 'Auswahl entfernen',
     groupDeleted: 'Auswahl entfernt',
     groupDeletedN: '{n} Objekte vom Plan entfernt',
     placeText: 'Notiz auf Plan gesetzt',
@@ -288,8 +286,8 @@ export const whiteboardCopy = {
     removeMarker: 'Marker entfernen',
     removeMarkerTrail: 'Marker und Spur entfernen',
     clearTrail: 'Spur entfernen',
-    clearTrailConfirm: 'Alle {n} markierten Positionen von {name} entfernen? Die Spur verschwindet von Karte und Plan.',
     trailCleared: '{name}: Spur entfernt',
+    markerTrailRemoved: '{name} und Spur entfernt',
     trails: 'Spuren',
     trailsOn: 'Spuren einblenden',
     trailsOff: 'Spuren ausblenden',
@@ -342,8 +340,6 @@ export const whiteboardCopy = {
     floorShow: 'einblenden',
     floorHidden: 'ausgeblendet',
     removeFloor: 'Geschoss entfernen',
-    removeFloorConfirm: '{floor}: {n} Markierungen dieses Geschosses werden entfernt oder gekürzt. Geschoss trotzdem entfernen?',
-    removeFloorConfirmOne: '{floor}: 1 Markierung dieses Geschosses wird entfernt oder gekürzt. Geschoss trotzdem entfernen?',
     floorRemoved: 'Geschoss entfernt',
     /** the Verlauf row for the act itself (25.09.2026) — it used to write only its ↶ row */
     floorRemovedLog: 'Geschoss {floor} entfernt',
@@ -385,20 +381,16 @@ export const whiteboardCopy = {
     /** Ein Gebäude zum ersten Mal übernommen (noch kein Stapel da) — der ↶-Schritt dafür. */
     buildingTaken: 'Gebäude übernommen',
     replaceBuilding: 'Anderes Gebäude wählen',
-    replaceBuildingConfirm: 'Der bisherige Geschoss-Stapel wird verworfen und durch den neuen Umriss ersetzt.',
     // ⚠️ Der LEGACY-Fall: ein Gebäude ohne Georeferenz lässt sich nicht auf dem Boden verorten,
     // also gibt es nichts, woran die Markierungen hängen könnten. Sie liegen im Koordinaten-
     // system des ALTEN Umrisses und würden auf einem anderen stillschweigend woanders bedeuten.
-    // Sie gehen weg – aber nie ungefragt und nie ohne Rückweg.
-    replaceBuildingConfirmMarks: 'Auf den Geschossen stehen {n} Markierungen. Sie hängen am bisherigen Umriss und lassen sich nicht auf einen anderen übertragen – sie werden entfernt. «Rückgängig» im Hinweis holt sie zurück.',
+    // Sie gehen weg – aber nie still und nie ohne Rückweg: der Hinweis danach zählt sie und holt
+    // sie zurück (die Lösch-Regel, 13.11.2026: kein Rückfragen mehr vor dem Wechsel).
     // Trägt das bestehende Gebäude eine Georeferenz, wird umgerechnet statt verworfen: jede
     // Markierung geht über den BODEN in den neuen Umriss, behält also den Ort, den sie meint,
     // statt den Platz, den sie im alten Rechteck hatte. Die Geschosse kommen mit.
-    replaceBuildingConfirmKeep: 'Der neue Umriss tritt an die Stelle des bisherigen. Die Geschosse bleiben erhalten.',
-    replaceBuildingConfirmCarry: 'Der neue Umriss tritt an die Stelle des bisherigen. Die Geschosse bleiben, und {n} Markierungen werden mit übertragen – sie behalten ihren Ort am Boden.',
     // ⚠️ Was nicht mehr auf dem neuen Umriss liegt, wird weggelassen und nicht an den Rand
     // geschoben: eine an eine falsche Wand geheftete Markierung liest sich wie Wissen.
-    replaceBuildingConfirmCarryDrop: '{n} Markierungen werden auf den neuen Umriss übertragen und behalten ihren Ort am Boden. {d} liegen nicht mehr darauf und fallen weg. «Rückgängig» im Hinweis holt alles zurück.',
     // ⚠️ Der Weg zurück zur Auswahl. «Umrisse» und «Gebäude» sind EINE Kachel in der Leiste
     // (23.08.) – wer ein anderes Gebäude will, tippt hier, nicht auf eine zweite Kachel.
     backToBuilding: 'Zurück zum Gebäude',
@@ -494,8 +486,6 @@ export const whiteboardCopy = {
     // the page's timeline on screen and paper (lib/boardForm · pageStamp)
     stampCreated: 'Erstellt {at}',
     stampEdited: 'zuletzt bearbeitet {at}',
-    removeTitle: 'Seite entfernen?',
-    removeMsg: 'Alles, was auf «{page}» steht, geht mit. Rückgängig (↶) holt es zurück.',
     mapLabel: 'Lagekarte – tippen öffnet die Karte',
     mapOpen: 'Zur Karte',
     mapPrint: 'Im Rapport: die Karte zum Zeitpunkt des Drucks',

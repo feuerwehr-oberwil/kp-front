@@ -52,7 +52,9 @@ import { useNotePanelClosing } from '../lib/useNotePanelClosing'
 import { usePlacement } from '../lib/useTacticalSelection'
 import { endingWireFlags, type LineEnding } from '../lib/drawingEdit'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
-import { confirmDialog, toast } from '../lib/ui'
+import { toast } from '../lib/ui'
+import { removeWithUndo } from '../lib/removalToast'
+import { isIncidentGeorefKey } from '../lib/incidentPlanBindings'
 import { usePlacementLane } from '../lib/toastLane'
 import { Menu, Overlay } from '../lib/overlays'
 import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
@@ -945,7 +947,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const boardDoc = useBoardDoc({
     annos: annosAll, onChange: writeBoard, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd, onRestore,
   })
-  const { pushPast, add, patch, patchCommit, removeAnno } = boardDoc
+  const { pushPast, add, patch, patchCommit, remove: removeOne } = boardDoc
   const set = (next: BoardAnno[]) => boardDoc.set(withForms(next))
   const commit = (next: BoardAnno[]) => boardDoc.commit(withForms(next))
 
@@ -1334,18 +1336,15 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     log('flag', fillTemplate(appConfig.copy.whiteboard.positionMarked, { name: a.text ?? '' }) + where, { kind: 'team', annoId: a.id, x: a.x, y: a.y, floor: a.floor ?? 0 })
     // no toast (20.09.2026): the dot lands under the finger and the Verlauf has the row
   }
-  const clearTrail = async () => {
+  // one mis-tap must not SILENTLY wipe the recorded Truppverfolgung (Lage parity): it goes at once
+  // and the toast takes it back (the delete rule, lib/removalToast) — one plan step
+  const clearTrail = () => {
     const a = annos.find((x) => x.id === selId)
     if (!a || a.kind !== 'resource' || !a.trail?.length) return
-    // confirm first — one mis-tap must not silently wipe the recorded Truppverfolgung (Lage parity)
-    const ok = await confirmDialog({
-      title: appConfig.copy.whiteboard.clearTrail,
-      message: fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name: a.text ?? '', n: a.trail.length }),
-      confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
-    })
-    if (!ok) return
-    patchCommit(a.id, { trail: [] })
-    log('cross', fillTemplate(appConfig.copy.whiteboard.trailCleared, { name: a.text ?? '' }))
+    const line = fillTemplate(appConfig.copy.whiteboard.trailCleared, { name: a.text ?? '' })
+    onStepLabel?.(line)
+    removeWithUndo(line, () => patchCommit(a.id, { trail: [] }))
+    log('cross', line)
   }
   // ⚠️ No recolouring of a team chip any more (04.09.): a colour is changed on the Karte's
   // marker or not at all, so there is nothing here to write and nothing to carry to the card.
@@ -1621,7 +1620,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
    *  that look grabbable but move under the finger and snap back are the worst kind of 3am lie.
    *  ⚠️ `readOnly` here is BROADER than the onChange guard upstream (tacticalLocked alone), so on
    *  a phone with the Verlauf open these handles did not merely lie — they wrote. */
-  const editDraw = readOnly ? undefined : selDraw
+  // a LOCKED one opened from its 🔒 chip (LockChip · onOpen) gets its editor, not its handles:
+  // the editor is where it unlocks, and the tap that opened it must not arm a move
+  const editDraw = readOnly || selDraw?.locked ? undefined : selDraw
   // Explicit detach for a plan line endpoint (the × chip on the canvas + the Verbindung lösen button
   // in the editor both call this) — materialize the endpoint at its resolved point, drop the link.
   const detachPlanEndpoint = (endpoint: LineEndpoint) => {
@@ -1651,7 +1652,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // --- removing objects: with their coupled Leitungen, with a Trupp's trail, a group, the Delete
   // key — components/usePlanRemoval
   const { removeWithConnections, removeWithTrail } = usePlanRemoval({
-    readOnly, annos, renderAnnos, selId, setSelId, selIds, setSelIds, barIds, removeAnno, commit, emit, log, activeId, onTrailDrop,
+    readOnly, annos, renderAnnos, selId, setSelId, selIds, setSelIds, barIds, remove: removeOne, commit, emit, log, onStepLabel, activeId, onTrailDrop,
   })
 
   /**
@@ -1679,16 +1680,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     flip.incoming.forEach((i) => emit('board.edit', { id: i.lineId, patch: { [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment }, planId: activeId }))
   }
 
-  const changePlanEnding = async (ending: LineEnding) => {
+  const changePlanEnding = (ending: LineEnding) => {
     if (!selDraw) return
     const incoming = selDraw.teilstueck && ending !== 'teilstueck' ? annos.flatMap((a) => (['start', 'end'] as const).filter((endpoint) => {
       const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
       return rel?.target.kind === 'line' && rel.target.id === selDraw.id && rel.target.endpoint === 'end'
     }).map((endpoint) => ({ id: a.id, endpoint }))) : []
-    if (incoming.length) {
-      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
-      if (!ok) return
-    }
     const resolved = renderAnnos.find((a) => a.id === selDraw.id)?.pts
     const fallback = resolved?.[resolved.length - 1] ?? selDraw.pts?.[selDraw.pts.length - 1]
     // the ends that hung on the «E» let go where it stood — one patch per line, both ends in it,
@@ -1696,9 +1693,13 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const released = fallback
       ? detachAnnos(annos.filter((a) => a.id !== selDraw.id), (a, endpoint) => (incoming.some((x) => x.id === a.id && x.endpoint === endpoint) ? fallback : null))
       : new Map<string, AnnoDetachPatch>()
-    commit(annos.map((a) => (a.id === selDraw.id
+    const write = () => commit(annos.map((a) => (a.id === selDraw.id
       ? { ...a, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
       : withDetach(a, released))))
+    // the lines on the «E» go loose at once and the toast counts them (the delete rule,
+    // lib/removalToast — the Karte's changeMapEnding says the same)
+    if (incoming.length) removeWithUndo(fillTemplate(appConfig.copy.drawingEditor.endingReleased, { n: incoming.length }), write)
+    else write()
     emit('board.edit', { id: selDraw.id, patch: endingWireFlags(ending), planId: activeId })
     released.forEach((patch, id) => emit('board.edit', { id, patch: wireFreed(patch), planId: activeId }))
   }
@@ -2146,7 +2147,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             // split is — so the check arms the mode and comes up with the outline already drawn.
             onCheck={() => beginGeoref({ check: true, returnToQuality: true })}
             onTransfer={georefTransferTargets.length ? () => setGeorefTransferOpen(true) : undefined}
-            onReset={() => { closeFacts(); resetGeorefPlan(activeGeorefKey); toast(C.georef.resetDone) }}
+            // an Einsatz's own binding is a ↶ step: reset at once, the toast takes it back (the
+            // delete rule, lib/removalToast); a station sheet's reset asks in the panel first
+            undoable={isIncidentGeorefKey(activeGeorefKey)}
+            onReset={() => {
+              closeFacts()
+              if (isIncidentGeorefKey(activeGeorefKey)) removeWithUndo(C.georef.resetDone, () => resetGeorefPlan(activeGeorefKey))
+              else { resetGeorefPlan(activeGeorefKey); toast(C.georef.resetDone) }
+            }}
           />
         ),
       }
@@ -2203,7 +2211,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         {/* the Präsentationsmodus' rings and lines on the page, and «Zeigen» on it */}
         {presentation && <PageMarks key={`marks-${formPage.id}`} p={presentation} top={topRes} />}
         <TafelFormPage key={formPage.id} pageKey={formPage.id} title={titles.get(formPage.id)} data={viewOf(formPage)} readOnly={readOnly} isPhone={isPhone}
-          onChange={(next, act) => editPage(formPage.id, next, act)} onRemove={() => void removePage(formPage.id)}
+          onChange={(next, act) => editPage(formPage.id, next, act)} onRemove={() => removePage(formPage.id)}
           // typed over another device's value for the same cell: the later stands, the Verlauf says so
           onConflict={(where, kept, lost) => log('warn', fillTemplate(appConfig.copy.journal.tafelConflict, { page: titles.get(formPage.id) ?? labelText(formPage.form.page.title), where, kept, lost }), { subjectId: formPage.id })}
           onPrint={incidentId ? (all) => void printPages(all ? pages : [formPage]) : undefined} pageCount={pages.length} printing={printing}
@@ -2647,7 +2655,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 onRadiusDown={(e) => rotDown(e, editDraw.id, 'radius')} onMove={rotMove} onUp={rotUp} />
             )}
             {/* unlock chip on every locked line/area/shape — the click-through ink's only tap
-                target, a SHORT HOLD to unlock + select (the Lage's twin, MapView · LockChip /
+                target: a tap opens its editor («Sperren» pressed), a SHORT HOLD unlocks + selects (the Lage's twin, MapView · LockChip /
                 MapMarkers · shape-lock-anchor). Its only job is unlocking, so it stays away where
                 editing is locked anyway. Position mirrors the map: an area is chipped at its
                 centroid, a line at its middle vertex, a shape at its centre. */}
@@ -2660,7 +2668,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 : [pts[Math.floor((pts.length - 1) / 2)][0], mapY(pts[Math.floor((pts.length - 1) / 2)][2] ?? a.floor, pts[Math.floor((pts.length - 1) / 2)][1])] as const
               return (
                 <span key={`lk${a.id}`} className="wb-lock-anchor" style={{ left: p[0] * sW, top: p[1] * sH }}>
-                  <LockChip onUnlock={() => { patchCommit(a.id, { locked: undefined }); setSelId(a.id) }} />
+                  <LockChip onUnlock={() => { patchCommit(a.id, { locked: undefined }); setSelId(a.id) }} onOpen={() => setSelId(a.id)} />
                 </span>
               )
             })}

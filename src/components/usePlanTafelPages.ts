@@ -1,6 +1,6 @@
 // The Tafel's pages on the Plan (docs/board-templates.md): «+ Seite» pre-filled from what the
 // Einsatz knows, writing on a page, printing one or all as a PDF, removing one (a tombstone, one
-// ↶ step) and landing on it again when ↶ brings it back, and PageUp / PageDown along the strip.
+// ↶ step, no ask – its toast takes it back) and landing on it again when ↶ brings it back, and PageUp / PageDown along the strip.
 // Each act is ONE ↶ step on the Tafel's own stack. Lifted out of the Whiteboard (sweep A.1,
 // 25.10.2026); which page this device looks at is lib/tafelPages · useTafelPage.
 // A page with a problem section is drawn and printed as its VIEW (lib/problemLink · problemView),
@@ -11,9 +11,10 @@ import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import type { BoardAnno } from '../types'
 import { fillTemplate } from '../lib/format'
-import { confirmDialog, toast, undoToast } from '../lib/ui'
+import { toast, undoToast } from '../lib/ui'
+import { removeWithUndo } from '../lib/removalToast'
 import { serverNow, serverNowIso } from '../lib/serverClock'
-import { TAFEL_ID, formAnno, formDelta, formHasContent, newFormPage, type BoardFormData, type FormAnno } from '../lib/boardForm'
+import { TAFEL_ID, formAnno, formDelta, newFormPage, type BoardFormData, type FormAnno } from '../lib/boardForm'
 import { labelText, type BoardTemplate, type TemplatePage } from '../lib/boardTemplate'
 import { SKIZZE, stepPage } from '../lib/tafelPages'
 import { hasProblems, problemView, splitProblemEdit } from '../lib/problemLink'
@@ -107,7 +108,6 @@ export function usePlanTafelPages({ onTafel, pages, titles, page, setPageSel, re
     const top = h.top()
     undoToast(text, () => h.undo(), () => top != null && h.top() === top, { kind: 'tafel-row' })
   }
-  /** a page with writing on it asks first; ↶ brings it back either way */
   /** «Drucken» on a page (owner): this page or all of them as a PDF — the server draws the
    *  paper (lib/tafelPrint, loaded on the tap); offline that is said calmly, never an error */
   const [printing, setPrinting] = useState(false)
@@ -129,20 +129,18 @@ export function usePlanTafelPages({ onTafel, pages, titles, page, setPageSel, re
       setPrinting(false)
     }
   }
-  const removePage = async (id: string) => {
+  /** «Seite entfernen» — at once, written on or not: the toast «Seite «…» entfernt · Rückgängig»
+   *  takes back the one step that holds everything on it (the delete rule, lib/removalToast) */
+  const removePage = (id: string) => {
     const a = pages.find((x) => x.id === id)
     if (!a || readOnly) return
     const name = titles.get(a.id) ?? labelText(a.form.page.title)
-    if (formHasContent(a.form) && !await confirmDialog({
-      title: TP().removeTitle, message: fillTemplate(TP().removeMsg, { page: name }),
-      confirmLabel: TP().removePage, cancelLabel: appConfig.copy.cancel, danger: true,
-    })) return
     const line = fillTemplate(TP().pageRemoved, { page: name })
     onStepLabel?.(line)
     // a TOMBSTONE, not a deletion (re-review of #338): a device still writing on the page must be
     // able to tell whether its writing came after this (lib/mergeWorkspace · resolveTactical).
     // One ↶ step like any edit; findForms no longer shows, prints or offers it.
-    patchCommit(a.id, { form: { ...a.form, removedAt: serverNow() } }, { form: { page: a.form.page.id, removed: true } })
+    removeWithUndo(line, () => patchCommit(a.id, { form: { ...a.form, removedAt: serverNow() } }, { form: { page: a.form.page.id, removed: true } }))
     log('trash', line, { subjectId: a.id })
     removedPage.current = a.id
     setPageSel(SKIZZE)

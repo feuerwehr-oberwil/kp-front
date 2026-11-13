@@ -16,6 +16,38 @@ it (`lib/undoTimeline`, `lib/undoKeys`). Moved here from AGENTS.md on 2026-10-08
   new appended rows), device preferences (Ebenen, Einstellungen sheet) and server-side incident
   metadata (`PATCH /incidents`). Add undo for new mutations; don't skip it.
 
+## One delete rule
+
+Owner, 13.11.2026 (sweep CTL.1 / CTL.2 / FLOW.2, «one rule everywhere»): **a removal the ↶
+timeline or an inverse can bring back acts at once and says so — «{Name} entfernt · Rückgängig»;
+a red ConfirmCard stands only where nothing brings it back.** What happens after a delete
+depends on whether it can come back, never on what was deleted.
+
+- One helper: `lib/removalToast · removeWithUndo(text, act)`. The act lays its own step (any of
+  the three ways below); the toast's «Rückgängig» is the header's ↶ for THAT step, read off the
+  top right after the act, and it declines («Nicht mehr rückgängig machbar») once another step
+  stands on top — ↶ still reaches the removal then. That binding is exact on the snapshot stacks
+  (the Karte store, a Plan): one step gives back the object, every Leitung end on it, a docked
+  placard's bond, a sheet anchor, a page's writing — nothing re-implements an inverse. A
+  one-shot that already has its own closure toast (`oneShotUndoToast`: a Geschoss, a Gebäude
+  swap, a Beilage) keeps it; that one undoes its act even after others.
+- The sentence is the removal's own Verlauf words, the object's name in it, and the Leitungen it
+  set loose are counted («TLF entfernt, 2 Leitungen gelöst», `removedText`); a Notiz is «Notiz
+  entfernt». The ↶ caption says the same (`stepLabelRef` / `onStepLabel`). Toasts of the rule
+  replace each other (`kind: 'removal'`).
+- Under the rule (no ConfirmCard since 13.11.): a symbol, Form, Notiz (written or not), line,
+  Fläche, Absperrkreis, a Mehrfach group — Lage and Plan alike, Leitungen attached or not;
+  «Marker und Spur entfernen», «Spur entfernen» (marker, chip, Geister-Spur); a Teilstück's «E»
+  letting its lines go; a saved Ansicht; a Tafel page; a Geschoss; a Gebäude replaced; the
+  Passung's points and «Referenz zurücksetzen» on an Einsatz's own binding.
+- The ConfirmCard stays where nothing brings it back: Einsatz löschen, Link widerrufen, Besuch
+  verwerfen, the Atemschutz Notfall, the Abschluss checks, admin (peacetime) — and the Passung
+  of a STATION sheet, which saves to the station (`GeorefQuality · undoable`). The Atemschutz
+  «Überwachung aus» on a Trupp inside is a safety call, not a delete, and keeps its card. The
+  press-and-hold on a line / Messen node (`lib/nodeHold`) is a gesture, not a confirm, and stays.
+- Records that are not on the picture keep «gelöscht» in their toast (Schicht, Schichtband,
+  Anwesenheits-Block — `copy/removalWords.test.ts`); their shape is already «… · Rückgängig».
+
 ## How an act joins the timeline
 
 One act spanning several domains uses `UndoTimeline.group`. A toast's dropper removes the
