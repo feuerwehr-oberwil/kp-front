@@ -119,14 +119,13 @@ export function AppMenuRows({
           {!hasCard && <div className="ip-menu-label">{cp.incidents}</div>}
           {!hasCard && running.length === 0 && alarmList.length === 0 && <div className="ip-menu-empty">{cp.noOpenIncidents}</div>}
           {running.map((i) => {
-            // a Trupp of THAT Einsatz at the alarm tier: a red word over its name, and nothing more
+            // a Trupp of THAT Einsatz at the alarm tier: a red word under its name, and nothing more
             // here (FLOW.1, 13.11.2026 — what else it may do is lib/foreignAlarm's rule)
             const mark = foreignMark(i)
             return (
             <button key={i.id} type="button" className="ip-menu-row" disabled={opening != null} onClick={() => onSwitch(i)}>
               <span className="ip-menu-when">{opening === i.id ? <ShellLoader /> : fmtSpanShort(now - Date.parse(i.started_at))}</span>
               <span className="ip-menu-rowmain">
-                {mark && <span className="ip-menu-kicker ip-menu-az" title={mark.names}><Icon id="warn" />{mark.word}</span>}
                 <span className="ip-menu-titleline">
                   <span className="ip-menu-title">{i.title}</span>
                   {/* beside the title, not inside it: a long Einsatzname ellipsises, and the
@@ -137,6 +136,9 @@ export function AppMenuRows({
                     not an Einsatz you can tell apart from another «Ölspur» without it. Same
                     shortened form as everywhere else: the own Gemeinde is left off. */}
                 {shortAddress(i.address) && <span className="ip-menu-rowsub">{shortAddress(i.address)}</span>}
+                {/* UNDER the name and the place (owner, 13.11.2026): the row is read name first,
+                    the alarm is what it says about that Einsatz */}
+                {mark && <span className="ip-menu-kicker ip-menu-az" title={mark.names}><Icon id="warn" />{mark.word}</span>}
               </span>
             </button>
             )

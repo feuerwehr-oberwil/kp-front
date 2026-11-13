@@ -7,6 +7,7 @@ rule, the shared workspace save – is `app/incident_service`; the per-incident 
 
 import logging
 import uuid
+from collections.abc import Sequence
 from copy import deepcopy
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -147,7 +148,7 @@ async def list_incidents(
     limit: int = Query(default=100, ge=1, le=500),
     skip: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
-) -> list[Incident | IncidentMeta]:
+) -> Sequence[Incident | IncidentMeta]:
     # IncidentMeta never carries the heavy JSONB blobs — defer them so the list (hit on open
     # and every 30 s) doesn't drag every workspace + details out of Postgres.
     q = select(Incident).options(defer(Incident.map_workspace_json), defer(Incident.details_json))
