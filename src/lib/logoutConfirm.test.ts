@@ -17,9 +17,9 @@ describe('logoutAsk — «Abmelden» always asks, and says what it costs', () =>
 
   it('counts the unsent entries in the singular and the plural', () => {
     expect(logoutAsk({ online: true, unsyncedEntries: 1 }).note)
-      .toBe('1 Eintrag ist noch nicht übertragen. Er bleibt auf diesem Gerät und wird gesendet, sobald du dich wieder anmeldest.')
+      .toBe('1 Eintrag ist noch nicht übertragen. Er bleibt auf diesem Gerät und wird übertragen, sobald du dich wieder anmeldest.')
     expect(logoutAsk({ online: true, unsyncedEntries: 3 }).note)
-      .toBe('3 Einträge sind noch nicht übertragen. Sie bleiben auf diesem Gerät und werden gesendet, sobald du dich wieder anmeldest.')
+      .toBe('3 Einträge sind noch nicht übertragen. Sie bleiben auf diesem Gerät und werden übertragen, sobald du dich wieder anmeldest.')
   })
 
   it('names uncounted changes only when no entry can be counted', () => {
@@ -29,6 +29,6 @@ describe('logoutAsk — «Abmelden» always asks, and says what it costs', () =>
 
   it('offline AND unsent: both, the network first', () => {
     expect(logoutAsk({ online: false, unsyncedEntries: 2 }).note)
-      .toBe('Eine neue Anmeldung ist erst wieder mit Netz möglich – bis dahin öffnet dieses Gerät keinen Einsatz. 2 Einträge sind noch nicht übertragen. Sie bleiben auf diesem Gerät und werden gesendet, sobald du dich wieder anmeldest.')
+      .toBe('Eine neue Anmeldung ist erst wieder mit Netz möglich – bis dahin öffnet dieses Gerät keinen Einsatz. 2 Einträge sind noch nicht übertragen. Sie bleiben auf diesem Gerät und werden übertragen, sobald du dich wieder anmeldest.')
   })
 })

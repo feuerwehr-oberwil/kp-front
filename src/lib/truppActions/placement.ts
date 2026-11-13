@@ -186,7 +186,7 @@ export function truppPlacementActions(deps: PlacementDeps) {
       const ok = await confirmDialog({
         title: fillTemplate(az.markerTakeTitle, { from: join.holder.name }),
         message: fillTemplate(az.markerTakeMsg, { from: join.holder.name, to: tr.name }),
-        confirmLabel: az.markerTakeConfirm,
+        confirmLabel: fillTemplate(az.markerTakeConfirm, { to: tr.name }),
         cancelLabel: appConfig.copy.cancel,
       })
       if (!ok) return false

@@ -11,7 +11,7 @@ it('does not claim local safety when persistence failed, and permits export with
   render(<JournalDeliveryNotice status="storage" count={2} onRetry={vi.fn()} onExport={save} />)
   expect(screen.getByRole('alert').textContent).toContain('App offen lassen')
   expect(screen.queryByText(/Auf diesem Gerät gespeichert/)).toBeNull()
-  fireEvent.click(screen.getByRole('button', { name: 'Einträge sichern' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Einträge herunterladen' }))
   expect(save).toHaveBeenCalledOnce()
   expect(screen.getByRole('alert')).toBeTruthy()
 })
@@ -50,7 +50,7 @@ it('parked (refused) events are a calm note with export only, never an alert or 
   expect(screen.queryByRole('alert')).toBeNull()
   expect(screen.getByRole('status').textContent).toContain('5 Einträge für diese Rolle nicht vorgesehen')
   expect(screen.queryByRole('button', { name: 'Erneut versuchen' })).toBeNull()
-  fireEvent.click(screen.getByRole('button', { name: 'Einträge sichern' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Einträge herunterladen' }))
   expect(save).toHaveBeenCalledOnce()
 })
 

@@ -34,7 +34,7 @@ export const materialCopy = {
     // klappt der Tipp die Quellen auf und fragt «von wo», statt eine zu raten.
     addPickSource: '{label} – Quelle wählen',
     emptyTitle: 'Noch kein Material erfasst.',
-    emptyHint: 'Erfasse mit «+ Material», was verbraucht wurde – fürs Rapport und um zu sehen, ob Nachschub nötig ist.',
+    emptyHint: 'Mit «+ Material» erfassen, was verbraucht wurde.',
     emptyReadonly: 'Noch kein Material erfasst.',
     // Composer
     composerTitle: 'Material erfassen',

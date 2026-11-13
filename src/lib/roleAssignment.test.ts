@@ -26,10 +26,10 @@ describe('roleConflictHint', () => {
     expect(roleConflictHint(undefined, 'el', '', {}, [])).toBeUndefined()
   })
 
-  it('flags a Fahrer who is under AS — one person in two places', () => {
+  it('flags a Fahrer who is under Atemschutz — one person in two places', () => {
     const hint = roleConflictHint('p1', 'fahrer', 'Schmid Peter', present, [trupp({ memberPersonIds: ['p1'] })])
     expect(hint).toContain('Schmid Peter')
-    expect(hint).toContain('AS')
+    expect(hint).toContain('unter Atemschutz')
     expect(hint).toContain('Trupp 2')
   })
 

@@ -5,7 +5,7 @@ import type { Copy, Localizable } from '../index'
 
 export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>> = {
   atemschutz: {
-    title: 'Surveillance ARI',
+    title: 'Binômes',
     // titre du tableau dans l'application complète — il porte les deux sections (voir de/atemschutz.ts)
     boardTitle: 'Binômes',
     // le titre tronqué ouvre les indications de l'intervention (09.09., voir de/atemschutz.ts)
@@ -19,12 +19,12 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     kindPlain: 'Sans ARI',
     asMark: 'ARI',
     empty: 'Aucun binôme en surveillance.',
-    emptyHint: 'Créez un binôme pour démarrer la surveillance.',
+    emptyHint: '«Annoncer un binôme» démarre la surveillance.',
     newTrupp: 'Annoncer le binôme',
     shareLink: 'Transmettre la surveillance',
     shareLinkShort: 'Transmettre',
     shareLinkOn: 'Transmettre la surveillance – un lien est actif',
-    linkReentryHint: 'Le lien ramène à ce tableau – si la page est fermée par mégarde, il suffit d’ouvrir à nouveau le code QR.',
+    linkReentryHint: 'Le lien ramène ici – si la page est fermée par mégarde, il suffit d’ouvrir à nouveau le code QR.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     /** the three-section stack on ANY phone (TruppForm · stack, 04.09.) – replaces the two-step
      *  wizard; «Mission et ligne» is one section (see de/atemschutz.ts). */
@@ -33,7 +33,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     colorAuto: 'Automatique',
     // état sync/horloge dans l'en-tête du tableau (voir de/atemschutz.ts)
     syncStand: '{status} · {t}',
-    clockSkewChip: 'Horloge de l\'appareil décalée ({d} min)',
+    clockSkewChip: 'Horloge de l’appareil décalée ({d} min)',
     formCreateTitle: 'Annoncer le binôme',
     formEditTitle: 'Modifier le binôme',
     formRedeployTitle: 'Réengager',
@@ -83,7 +83,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     lineTyped: 'N° …',
     lineTakeTitle: 'La conduite {n} est occupée',
     lineTakeMsg: 'L’équipe {from} est sur la conduite {n}. Y mettre l’équipe {to} ?',
-    lineTakeConfirm: 'Reprendre',
+    lineTakeConfirm: 'Binôme {to} sur la conduite {n}',
     lineHeldToast: 'La conduite est occupée par le binôme {name}.',
 
     lineOptTaken: 'L’équipe {name} est sur cette conduite',
@@ -97,7 +97,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     markerOptTaken: 'Appartient à l’équipe {name}',
     markerTakeTitle: 'L’équipe {from} est ici',
     markerTakeMsg: 'Cette équipe placée appartient à l’équipe {from}. La donner à l’équipe {to} ?',
-    markerTakeConfirm: 'Reprendre',
+    markerTakeConfirm: 'Reprendre pour le binôme {to}',
     logMarkerUnlinked: 'L’équipe {name} n’est plus placée',
     entryAskTitle: 'Engager l’équipe ?',
     entryAskMsg: 'L’équipe {name} est annoncée mais pas encore engagée. L’engager maintenant ? Le chrono de contact démarre immédiatement.',
@@ -183,11 +183,11 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     actReenter: 'Réengager',
     actNotDeployed: 'Non engagée',
     statusNotDeployed: 'Non engagée',
-    statusRemoved: 'Retiré du tableau',
+    statusRemoved: 'Retiré',
     logNotDeployed: 'Équipe {name} non engagée',
     remove: 'Retirer',
     removeUnusedTitle: 'L’équipe n’est pas intervenue',
-    removeUnusedMsg: 'Clore {name} comme «non engagée» plutôt que la retirer ? L’équipe reste prête au tableau – «Retirer» sert aux annonces erronées.',
+    removeUnusedMsg: 'Clore {name} comme «non engagée» plutôt que la retirer ? L’équipe reste prête parmi les binômes – «Retirer» sert aux annonces erronées.',
     place: 'Placer',
     placeWhere: 'Placer où ?',
     placeNoTarget: 'Aucun plan disponible – choisissez d’abord un bâtiment via « Bâtiment » dans la barre.',
@@ -316,10 +316,10 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       abschlussMsg: '{list} – pas encore terminée.',
       abschlussClose: 'Clôturer quand même',
       // «Entfernen» on a Trupp in a Notfall is refused until it is ended (review of #300)
-      removeBlocked: 'Maintenir d’abord «Urgence terminée» – un binôme en urgence reste au tableau',
+      removeBlocked: 'Maintenir d’abord «Urgence terminée» – un binôme en urgence reste sous surveillance',
     },
     removeInsideTitle: 'Le binôme {name} est engagé – l’annoncer sorti d’abord ?',
-    removeInsideMsg: 'Retirer enlève le binôme du tableau et de toute alarme. En général, on veut dire : le binôme est sorti.',
+    removeInsideMsg: 'Retirer enlève le binôme de la surveillance et de toute alarme. En général, on veut dire : le binôme est sorti.',
     actEnterFirst: 'Engager',
     contactDone: 'Confirmé',
     pressureLockedLabelPlain: 'Pression d’entrée',

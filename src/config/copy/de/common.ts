@@ -5,7 +5,7 @@
 import type { UndoDomain } from '../../../lib/undoTimeline'
 
 export const commonCopy = {
-  baseMap: 'Grundkarte',
+  baseMap: 'Basiskarte',
   // floor (Geschoss) short labels — shared by the Plan floor-stack and the report plan labels.
   // ground floor is a literal; upper/basement carry the number via {n}.
   floor: { eg: 'EG', og: '{n}. OG', ug: '{n}. UG' },
@@ -58,7 +58,7 @@ export const commonCopy = {
    *  bekommen hat); Karte und Plan führen ein Dokument, das viele kleine Schritte kennt. */
   undoDomains: {
     /** Die Passung eines Plans wurde korrigiert — ein Schritt für alle neu verorteten Objekte. */
-    reference: 'Referenz angepasst',
+    reference: 'Verknüpfung angepasst',
     /** ⚠️ Dieselbe Rückverortung, aber NIEMAND hat die Referenz angefasst: die App hat das
      *  Blatt vermessen und dieselben Passpunkte in der richtigen Form neu gelöst. Der Verlauf
      *  behauptet keine Handlung, die niemand ausgeführt hat — und ein ↶ hat zu benennen, was

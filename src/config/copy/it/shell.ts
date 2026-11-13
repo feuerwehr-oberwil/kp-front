@@ -36,8 +36,8 @@ export const shellCopy: Localizable<Pick<Copy, Keys>> = {
     title: 'Trova una squadra',
     placeholder: 'Squadra o nome …',
     noMatches: 'Nessuna squadra trovata',
-    empty: 'Nessuna squadra posata.',
-    emptyHint: 'Le squadre si posano sulla situazione o su un piano – dalla scheda della squadra sotto «Squadre» o con lo strumento squadra.',
+    empty: 'Ancora nessuna squadra sulla carta o su un piano.',
+    emptyHint: 'Posare una squadra sulla carta o su un piano sotto «Squadre» o con lo strumento squadra.',
     raus: 'uscito',
   },
 }
