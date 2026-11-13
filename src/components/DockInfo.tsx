@@ -31,7 +31,8 @@ export function MapHelpCard({ children, role }: { children: ReactNode; role: 'to
   return <span className={s['wb-dock-tip']} role={role} data-lane-msg="">{children}</span>
 }
 
-export function DockInfo({ text, inline }: { text: string; inline?: boolean }) {
+/** `word`: the tile's word under the ⓘ, when the dock wears its words (ToolDock · `worded`) */
+export function DockInfo({ text, inline, word }: { text: string; inline?: boolean; word?: string }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   // ⚠️ inline, the paragraph opens ABOVE the ⓘ and pushes it down. In a popover that is already
@@ -56,7 +57,7 @@ export function DockInfo({ text, inline }: { text: string; inline?: boolean }) {
   const button = (
     <button
       ref={btnRef}
-      className={cx(s['wb-dock-ibtn'], open && s.on)}
+      className={cx(s['wb-dock-ibtn'], open && s.on, word && 'wb-dock-ibtn-worded')}
       aria-label={text}
       aria-expanded={open}
       onClick={() => setOpen((v) => !v)}
@@ -66,6 +67,7 @@ export function DockInfo({ text, inline }: { text: string; inline?: boolean }) {
       onKeyDown={(e) => { if (e.key === 'Escape' && open) { e.stopPropagation(); setOpen(false) } }}
     >
       <Icon id="info" />
+      {word && <span className="wb-dock-word">{word}</span>}
     </button>
   )
   if (inline) {
