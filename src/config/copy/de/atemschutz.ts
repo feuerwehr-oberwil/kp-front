@@ -435,6 +435,16 @@ export const atemschutzCopy = {
     // stünde die Zeile sonst für immer. «Zur Kenntnis genommen» beendet sie nur auf diesem Gerät.
     alarmRowAck: 'Zur Kenntnis genommen',
     alarmRowReadOnly: 'nur lesend',
+    // Der Alarm eines ANDEREN Einsatzes (FLOW.1, 13.11.2026; lib/foreignAlarm): die rote Marke auf
+    // seiner Zeile in der Einsatz-Liste – und, wo dieses Gerät keinen echten Einsatz führt, dieselbe
+    // Zeile in der Meldeleiste mit dem Einsatznamen vorne.
+    foreign: {
+      mark: 'Atemschutz-Alarm',
+      markNotfall: 'Atemschutz-Notfall',
+      markTitle: 'Atemschutz: {names}',
+      rowTitle: '{einsatz} · {title}',
+      notfallSub: 'Sicherungstrupp einsetzen.',
+    },
     // back from an opened card to the compact row it was opened from (only shown in that mode —
     // «Übersicht» rather than «Einklappen», because what you go back to is the comparison)
     collapse: 'Zur Übersicht',

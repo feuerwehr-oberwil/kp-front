@@ -182,6 +182,14 @@ class IncidentPatch(_IncidentInput):
         return self
 
 
+class AtemschutzDue(BaseModel):
+    """One Trupp at the alarm tier, as the incident list names it."""
+
+    id: str
+    name: str
+    reason: Literal["contact", "pressure", "notfall"]
+
+
 class IncidentMeta(BaseModel):
     """List/metadata view — never carries the workspace blob."""
 
@@ -217,6 +225,10 @@ class IncidentMeta(BaseModel):
     created_by: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime
+    #: the Trupps of a RUNNING Einsatz at the alarm tier right now (push · due_trupps) — filled by
+    #: the list route only, so a device standing in another Einsatz can mark this one in its
+    #: switcher and, from an Übung, raise the alarm (FLOW.1, 13.11.2026). Empty elsewhere.
+    atemschutz_due: list[AtemschutzDue] = []
 
 
 class IncidentFull(IncidentMeta):

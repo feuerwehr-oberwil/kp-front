@@ -210,6 +210,12 @@ describe('sameIncidentList', () => {
     const a = inc({ id: 'a' })
     expect(sameIncidentList([a], [inc({ id: 'a', capture_writes: 1 })])).toBe(false)
   })
+
+  // FLOW.1: a Trupp goes overdue by time passing — nothing is saved, updated_at stands still
+  it('a Trupp crossing into the alarm tier still counts as a change', () => {
+    const a = inc({ id: 'a' })
+    expect(sameIncidentList([a], [inc({ id: 'a', atemschutz_due: [{ id: 't', name: 'A', reason: 'contact' }] })])).toBe(false)
+  })
 })
 
 describe('needsIntakeReview', () => {

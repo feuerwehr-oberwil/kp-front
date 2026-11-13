@@ -388,6 +388,13 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     alarmRowGo: 'Vers le binôme',
     alarmRowAck: 'Pris connaissance',
     alarmRowReadOnly: 'lecture seule',
+    foreign: {
+      mark: 'Alarme ARI',
+      markNotfall: 'Urgence ARI',
+      markTitle: 'ARI : {names}',
+      rowTitle: '{einsatz} · {title}',
+      notfallSub: 'Engager l’équipe de sécurité.',
+    },
     logSafetyFunkkanal: 'Canal radio {from} → {to}',
     logEditFields: 'Binôme {name} : {changes}',
     changeLeader: 'Chef de binôme {from} → {to}',
