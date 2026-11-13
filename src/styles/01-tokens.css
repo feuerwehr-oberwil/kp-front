@@ -63,7 +63,6 @@
   /* layered shadow: hairline edge + tight contact + soft ambient — holds the
      panel edge over dark aerial imagery where the white border alone vanishes */
   --shadow: var(--e4);      /* (the values live in «THE SCALES» below, with their night twins) */
-  --shadow-sm: var(--e3);
   /* ── ONE corner (25.09.2026) ────────────────────────────────────────────────────────────
      Every rectangle in the app wears --r-sm: a button, a field, a status box, a card, a row,
      the page card, a sheet, a dialog, a message. The old scale (10 · 14 · 16 · 20 · 22, chosen per
@@ -180,14 +179,12 @@
   --green-strong: #0f6a37;
   --amber-strong: #8a5007;   /* #9e5c08 until 04.11.2026: 3.8:1 on --app-bg, 4.4:1 on the Verlauf button's wash */
   --red-strong: #bd2f21;
-  --red-solid-hover: #cf2c1f; /* hover bg on a solid-red (warn) button */
   --green-solid-hover: #1f9d57; /* hover bg on a solid-green (enter) button */
   /* floating label badges drawn over the map / plan board (coords, trail times,
      measure labels). Day = white plate + dark ink; night = dark plate + light ink. Opaque since
      04.11.2026: two plates that overlap (hand-placed labels are never suppressed) showed the
      lower one's letters through the upper one and read as one smear. */
   --label-bg: #fff;
-  --label-soft: rgba(255, 255, 255, .82); /* slightly more translucent variant */
   /* faint white veil tiles over glass/imagery (incident rows, hold-cue) */
   --surface-veil: rgba(255, 255, 255, .55);
   /* "active" tint on a LIGHT panel: a dark wash marking a selected swatch/toggle in
@@ -411,8 +408,8 @@
   --sp-6: 32px;
   --sp-7: 48px;
   --sp-8: 64px;
-  /* Elevation: five heights, each with its night value (below). e3/e4 ARE --shadow-sm/--shadow,
-     which now point here; e1/e2/e5 are the most common literals of their height, which were
+  /* Elevation: five heights, each with its night value (below). e4 IS --shadow, which
+     points here; e1/e2/e5 are the most common literals of their height, which were
      day-tinted rgba(30, 45, 70, …) and stayed blue-grey on a black map at night.
      e1 a marker, handle or note resting on the map/plan · e2 lifted (a dragged chip, a selected note) ·
      e3 a small floating card · e4 a panel, a bar, a sheet · e5 a blocking card over a scrim. */
@@ -467,7 +464,7 @@
   --green: #38c172;
   --amber: #f4b033;
   --snap: #f472b6;
-  /* elevation (--shadow/--shadow-sm are --e4/--e3): black, not the day's blue-grey, and stronger —
+  /* elevation (--shadow is --e4): black, not the day's blue-grey, and stronger —
      a dark panel on a dark map needs more shadow to lift, not less */
   /* …except the contact step under map label plates: in a pile of plates (council r12) the night .45
      stacked into a heavy fringe, .3 still did (r16, Sol 2); the plate's edge separates it */
@@ -526,10 +523,8 @@
   --green-strong: #66dc93;   /* #5fd68c until r35: 4.46:1 on its tint on the Einsatz card's tile */
   --amber-strong: #f0b04a;
   --red-strong: #ff8a7d;
-  --red-solid-hover: #ff7567;
   --green-solid-hover: #46d684;
   --label-bg: rgb(20, 28, 40);
-  --label-soft: rgba(20, 28, 40, .82);
   /* the map label plates' edge a SOLID slate a step up from the fill (hill climb r23, Opus 5):
      the day ring's 22 % of the light ink came out #424955 here, lost on the grey map, and a pile of
      plates fused into one block. 55 % of the dim ink since r26 (Opus r25 7, was 40 %): beside the
@@ -556,7 +551,8 @@
    var(--blue) 12%, transparent)`, the number is the percentage. The app mixed 158 different
    token+percentage pairs (--blue alone at 33); these eight steps are the most common ones, and
    84% of today's hue-over-transparent mixes sit within 2 points of a step (the migration plan
-   lists which are exact). Night needs nothing: the hues flip, so their tints do.
+   lists which are exact). Night needs nothing: the hues flip, so their tints do. A step no rule
+   uses is not declared (13.11.2026): amber has no 5/62, green no 5/8/62 – add one when a rule needs it.
    ⚠️ Declared on `.kf-paper` too. A custom property holding var() is resolved where it is
    DECLARED: the Kroki paper pins the day hues locally (17-rapport.css), and a tint computed on
    :root would carry the night blue onto the day paper. A new scope that re-declares a hue must
@@ -576,7 +572,6 @@
   --sel-wash: color-mix(in srgb, var(--blue) 14%, transparent);
   --del-ink: var(--red-strong);
   --del-edge: color-mix(in srgb, var(--red) 40%, transparent);
-  --del-wash: color-mix(in srgb, var(--red) 10%, transparent);
   --focus-edge: color-mix(in srgb, var(--blue) 50%, transparent);
   --focus-halo: 0 0 0 3px color-mix(in srgb, var(--blue) 12%, transparent);
   --blue-5: color-mix(in srgb, var(--blue) 5%, transparent);
@@ -595,22 +590,17 @@
   --red-28: color-mix(in srgb, var(--red) 28%, transparent);
   --red-45: color-mix(in srgb, var(--red) 45%, transparent);
   --red-62: color-mix(in srgb, var(--red) 62%, transparent);
-  --amber-5: color-mix(in srgb, var(--amber) 5%, transparent);
   --amber-8: color-mix(in srgb, var(--amber) 8%, transparent);
   --amber-12: color-mix(in srgb, var(--amber) 12%, transparent);
   --amber-16: color-mix(in srgb, var(--amber) 16%, transparent);
   --amber-22: color-mix(in srgb, var(--amber) 22%, transparent);
   --amber-28: color-mix(in srgb, var(--amber) 28%, transparent);
   --amber-45: color-mix(in srgb, var(--amber) 45%, transparent);
-  --amber-62: color-mix(in srgb, var(--amber) 62%, transparent);
-  --green-5: color-mix(in srgb, var(--green) 5%, transparent);
-  --green-8: color-mix(in srgb, var(--green) 8%, transparent);
   --green-12: color-mix(in srgb, var(--green) 12%, transparent);
   --green-16: color-mix(in srgb, var(--green) 16%, transparent);
   --green-22: color-mix(in srgb, var(--green) 22%, transparent);
   --green-28: color-mix(in srgb, var(--green) 28%, transparent);
   --green-45: color-mix(in srgb, var(--green) 45%, transparent);
-  --green-62: color-mix(in srgb, var(--green) 62%, transparent);
   --ink-5: color-mix(in srgb, var(--ink) 5%, transparent);
   --ink-8: color-mix(in srgb, var(--ink) 8%, transparent);
   --ink-12: color-mix(in srgb, var(--ink) 12%, transparent);

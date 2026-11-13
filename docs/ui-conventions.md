@@ -38,15 +38,22 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   «THE TINTS»): type `--fs-1…7` (12.5 · 14 · 16 · 19 · 24 · 32 · 40, each with its `--lh-*`) and
   `--fs-micro` (11, read-only captions, never a tappable label); weight `--fw-regular/medium/
   bold/heavy` (400/500/700/800 – 600 is not a step); space `--sp-1…8` (4/8/12/16/24/32/48/64;
-  1–2px optical nudges stay literal); elevation `--e1…e5` (with night values; `--shadow-sm` and
-  `--shadow` are `--e3`/`--e4`); tints `--{blue,red,amber,green,ink}-{5,8,12,16,22,28,45,62}`
-  (= that hue at that % over transparent). The old literals move onto them surface by surface
+  1–2px optical nudges stay literal); elevation `--e1…e5` (with night values; `--shadow` is
+  `--e4`); tints `--{blue,red,amber,green,ink}-{5,8,12,16,22,28,45,62}`
+  (= that hue at that % over transparent; amber lacks 5/62 and green 5/8/62 until a rule needs
+  them). The old literals move onto them surface by surface
   (staged; the owner sees pairs for anything visible), so do not mass-convert a file on the side.
   **The pile only shrinks**: `src/styles/styleDebt.test.ts` counts per stylesheet the literal
   font sizes, off-step weights, off-grid spacings and literal-colour shadows against
   `styleDebt.baseline.json` and fails when one goes up; one that went down is a console note –
   lower the baseline when convenient (`STYLE_DEBT_UPDATE=1 pnpm vitest run
   src/styles/styleDebt.test.ts`, which only ever lowers it). Never raise it to pass.
+- **The neutral washes and hairlines are near-twins, not duplicates** (checked 13.11.2026):
+  `--fill-soft`, `--hover`, `--hover-strong`, `--press`, `--surface-2`, `--surface-veil`,
+  `--ink-tint(-strong)`, `--border(-soft)`, `--glass-edge`, `--glass-line` and `--ink-5…62` –
+  no two resolve to the same RGBA in both themes (several match at night only, e.g. `--border` =
+  `--glass-edge`). Folding any pair moves pixels, so it is an owner pick with before/after pairs,
+  not a cleanup.
 - **Breakpoints come from `src/lib/breakpoints.ts` only.** The one corner (`--r-sm`, `--r-bar`,
   `--r-xs`) is under «Buttons follow one spec» · *Radius*, the one button family under «Button
   components».
