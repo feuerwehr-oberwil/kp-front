@@ -184,16 +184,16 @@ export async function retireIncident(baseURL: string, id: string) {
 
 /** Nothing left to arrive: fonts in, no shell-trail loader (components/ShellLoader — its viewBox
  *  is its only stable mark), no opening cover, no image still decoding, and — inside an Einsatz —
- *  every outbox acknowledged: the head's mark is «Gespeichert» (panels/IncidentSwitcher ·
- *  `ip-status-synced`). The opening saves once; a shot taken while that save was in flight
- *  showed the amber «pending» dot instead of the ✓ (09.10.2026). */
+ *  every outbox acknowledged: the head's pill says `data-sync="synced"` (panels/IncidentSwitcher –
+ *  it draws no ✓ since round 2b). The opening saves once; a shot taken while that save was in
+ *  flight showed the «pending» mark instead of the ✓ (09.10.2026). */
 export async function settled(page: Page) {
   await page.evaluate(() => document.fonts.ready)
   await page.waitForFunction((faces) => faces.every((face) => document.fonts.check(face)), FACES, { polling: POLL_MS, timeout: 10_000 })
   await page.waitForFunction(() => {
     if (document.querySelector('svg[viewBox="480 245 270 315"], .login.splash')) return false
-    const sync = document.querySelector('.ip-status, .ip-offline-chip')
-    if (sync && !sync.classList.contains('ip-status-synced')) return false
+    const sync = document.querySelector('[data-sync]')
+    if (sync && sync.getAttribute('data-sync') !== 'synced') return false
     return [...document.images].every((img) => img.complete)
   }, undefined, { polling: POLL_MS, timeout: 30_000 })
 }

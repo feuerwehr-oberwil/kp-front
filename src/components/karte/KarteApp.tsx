@@ -713,7 +713,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           {/* offline: the chip stands where the weather was and opens «Dieses Gerät» at its Offline part */}
           {!online ? (
             <button type="button" className={cx('ip-offline-chip', s.offChip)} onClick={() => openDevice('offline')} title={C.offlineChipTitle} aria-label={C.offlineChipTitle}>
-              <span className={s.offDot} aria-hidden />{!phone && C.offlineChip}
+              <Icon id="cloud-off" className={s.offCloud} />{!phone && C.offlineChip}
             </button>
           ) : !phone && liveWeather.data?.wind_dir_deg != null && <WeatherBadge weather={liveWeather.data} bearing={view.bearing} />}
           {(!phone || !onLibrary) && runningChip}

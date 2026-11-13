@@ -581,7 +581,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     1.5px `--ink-dim` ring, `--ink` text) wherever it stands (top bar, the phone's «Ü» square, lists,
     the poster's `.cv-badge-exercise` shares the selectors) – M2, owner's pick A, 13.11.2026: amber
     on the Einsatz card is the COUNT of open points alone; «Abgeschlossen» is the grey tag «Archiv»
-    wears, «Offline» / «Nicht synchronisiert» a cloud and the word, «Abschliessen» a normal tile. Status words in a picker row
+    wears, «Nicht synchronisiert» a cloud and the word, «Offline» the cloud struck through
+    (`#cloud-off`, round 2b: a plain cloud reads «online»), «Abschliessen» a normal tile. The
+    Einsatz head shows a state mark only for a problem (round 2b, owner's pick «Only show
+    problems»): no ✓ while all is saved – that lives in the card's pill – and «Nicht
+    synchronisiert» only after 10 s (a normal save is pending for ~3 s). Status words in a picker row
     («AS», «raus» in the TruppFinder) are this tag in ink on `--fill-soft` — never blue (blue is
     «chosen»), never a pill.
     (5) **Search field** (29.09.2026): every «type to narrow this list» is `components/SearchField`

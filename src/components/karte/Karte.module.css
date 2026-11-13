@@ -449,6 +449,8 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 @media (hover: hover) { .offChip:hover { background: var(--amber-22); } }
 .offChip:active { background: var(--amber-22); background-image: linear-gradient(var(--press), var(--press)); }
 .offDot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+/* the bar chip's glyph: the struck-through cloud of every «Offline» (lib/icons · #cloud-off, round 2b) */
+.offCloud { width: 18px; height: 18px; flex: none; }
 .deviceLead { margin: 0 0 var(--sp-3); font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink-dim); }
 .deviceRows :global(.list-card) + .note, .deviceRows :global(.list-card) + .src, .deviceRows .note + .src { margin-top: var(--sp-3); }
 /* offline, the open document not on this device: the sentence instead of the reader */

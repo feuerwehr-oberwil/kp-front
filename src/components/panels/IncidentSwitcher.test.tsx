@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { IncidentSwitcher } from './IncidentSwitcher'
 import { appConfig } from '../../config/appConfig'
 import type { IncidentMeta } from '../../lib/incidents'
@@ -193,14 +193,31 @@ describe('IncidentSwitcher · Nur ansehen and the foreign-alarm dot', () => {
     expect(screen.getByText(`${cp.viewOnly} · ${cp.viewOnlyWhy.viewer}`)).toBeTruthy()
   })
 
-  it('keeps the ✓ where the session writes, and a sync warning outranks the mark', () => {
+  // round 2b (owner's pick «Only show problems»): all saved → no mark; the ✓ is the card's
+  it('shows no mark where the session writes and all is saved, and a sync warning outranks «Nur ansehen»', () => {
     renderShut({ viewOnly: null })
     expect(pill().querySelector('.ip-viewonly-chip')).toBeNull()
-    expect(pill().querySelector('.ip-status-synced')).not.toBeNull()
+    expect(pill().querySelector('.ip-status')).toBeNull()
+    expect(pill().dataset.sync).toBe('synced')
     cleanup()
     renderShut({ viewOnly: 'el', syncStatus: 'offline' })
     expect(pill().querySelector('.ip-viewonly-chip')).toBeNull()
     expect(pill().textContent).toContain(cp.offlineShort)
+  })
+
+  // round 2b: «Nicht synchronisiert» speaks up only once it outlasts a normal save; Offline wears
+  // the struck-through cloud, pending the plain one
+  it('marks pending only after the grace, and offline with the struck-through cloud', () => {
+    vi.useFakeTimers()
+    try {
+      renderShut({ syncStatus: 'pending' })
+      expect(pill().querySelector('.ip-status')).toBeNull()
+      act(() => { vi.advanceTimersByTime(10_000) })
+      expect(pill().querySelector('.ip-status-pending use')?.getAttribute('href')).toBe('#wx-cloud')
+      cleanup()
+      renderShut({ syncStatus: 'offline' })
+      expect(pill().querySelector('.ip-sync-word use')?.getAttribute('href')).toBe('#cloud-off')
+    } finally { vi.useRealTimers() }
   })
 
   it('dots the shut pill while another running Einsatz has a Trupp at the alarm tier', () => {

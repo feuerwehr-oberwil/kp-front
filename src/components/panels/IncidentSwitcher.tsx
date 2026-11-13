@@ -9,10 +9,14 @@ import { closeTimeOf, type IncidentMeta, type SyncStatus } from '../../lib/incid
 import type { ReactivateResult } from '../../types'
 import { useIsPhone } from '../../lib/useIsPhone'
 import { useEinsatzuhr } from '../../lib/einsatzuhr'
+import { useLate } from '../../lib/useLate'
 import { AppMenuRows } from './AppMenuRows'
 import { foreignMark } from '../../lib/foreignAlarm'
 import { runningOthers } from '../../lib/switcherLists'
 import type { ViewOnlyReason } from '../../workspace/access'
+
+/** how long «pending» may last before the head says so (IncidentSwitcher · pendingLate) */
+const PENDING_GRACE_MS = 10_000
 
 // HH:MM for the positive "gespeichert" trust signal next to the sync badge.
 function fmtClock(ms: number): string {
@@ -207,15 +211,21 @@ export function IncidentSwitcher({
   const savedPill = syncStatus === 'synced' ? cp.saved : savedText
   // «Speicher voll» wears its own glyph (lib/icons · #storage, S1): on a phone the chip is its
   // glyph alone, and the ⚠ it shared with «Sync-Fehler» made the worse state read as the milder.
-  // Offline / not yet synced are a cloud in the quiet ink (M2, owner's pick A, 13.11.2026: amber is
-  // the open count's alone) – an amber dot until then.
+  // Not yet synced is a cloud in the quiet ink (M2, owner's pick A, 13.11.2026: amber is the open
+  // count's alone), Offline the same cloud struck through (round 2b: a plain cloud reads «online»).
+  // The ✓ is the CARD's alone (round 2b, owner's pick «Only show problems»): the head shows no mark
+  // while all is saved – see `headMark`.
   const statusMark = syncStatus === 'synced'
     ? <Icon id="check" />
     : syncStatus === 'storage'
       ? <Icon id="storage" />
       : syncStatus === 'error'
         ? <Icon id="warn" />
-        : <Icon id="wx-cloud" />
+        : <Icon id={syncStatus === 'offline' ? 'cloud-off' : 'wx-cloud'} />
+  // «Nicht synchronisiert» in the head only once it outlasts a normal save (the 3 s debounce + the
+  // round trip): every edit is «pending» for a moment, and with the ✓ gone that flicker would be
+  // the head's only movement
+  const pendingLate = useLate(syncStatus === 'pending', PENDING_GRACE_MS)
   const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
   // ── a CLOSED Einsatz (27.10.2026, sweep #5 · owner pick B) ──
   // The lock rides in the pill's ✓ slot — the amber «Einsatz abgeschlossen» chip beside the pill
@@ -290,7 +300,9 @@ export function IncidentSwitcher({
   )
   return (
     <div className="ip-switch" ref={ref}>
-      <button ref={triggerRef} className={`ip-switch-btn${twoLine ? ' ip-switch-two' : ''}`} onClick={() => { setClosedOpen(false); setOpen((v) => !v) }}
+      {/* data-sync: the state for what waits on «saved» (e2e/visual/harness · settled) – the head
+          draws no mark for it any more */}
+      <button ref={triggerRef} className={`ip-switch-btn${twoLine ? ' ip-switch-two' : ''}`} data-sync={active ? syncStatus : undefined} onClick={() => { setClosedOpen(false); setOpen((v) => !v) }}
         aria-label={twoLine
           ? [pill.street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', uhr ? `${U.label} ${uhr}` : '', foreignDot ? cp.foreignAlarmDot : ''].filter(Boolean).join(', ')
           : active ? [active.title, closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', foreignDot ? cp.foreignAlarmDot : ''].filter(Boolean).join(', ') : cp.noIncident}
@@ -340,13 +352,13 @@ export function IncidentSwitcher({
           </span>
         ) : active && syncStatus === 'offline' ? (
           <span className="ip-offline-chip ip-sync-word" title={savedText} aria-label={savedText}>
-            <Icon id="wx-cloud" />{cp.offlineShort}
+            <Icon id="cloud-off" />{cp.offlineShort}
           </span>
         ) : active && syncStatus === 'error' ? (
           <span className="ip-offline-chip ip-error-chip" title={savedText} aria-label={savedText}>
             <Icon id="warn" /><span className="ip-chip-word">{cp.errorShort}</span>
           </span>
-        ) : viewOnlyMark ? (twoLine ? null : viewOnlyMark) : active && (
+        ) : viewOnlyMark ? (twoLine ? null : viewOnlyMark) : active && (closedMark || pendingLate) && (
           <span className={`ip-status ip-status-${closedMark ? 'closed' : syncStatus}`}
             title={closedMark ? `${closedWord} · ${savedText}` : savedText} aria-label={closedMark ? closedWord : savedText}>
             {closedMark ? <Icon id="lock" /> : statusMark}

@@ -138,7 +138,7 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
       {sorted.length === 0 && (windowNote
         ? <EmptyState icon="list" title={h.emptyWindow} sub={windowNote} />
         : <EmptyState icon="list" title={h.empty} sub={h.emptySub} />)}
-      {!online && onArchive && sorted.length > 0 && <p className="ip-hist-offline"><Icon id="warn" /> {h.offlineNote}</p>}
+      {!online && onArchive && sorted.length > 0 && <p className="ip-hist-offline"><Icon id="cloud-off" /> {h.offlineNote}</p>}
       {/* the search line of a working list (owner, 27.10.2026 r2: «in-line with a filter button
           the same way we have it for … people in Anwesenheiten») – SurfaceControls' search and
           filter button, the filters behind it as ticks in a Menu. ONE channel for «filter is on»,
