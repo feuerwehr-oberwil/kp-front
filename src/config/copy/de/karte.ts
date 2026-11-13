@@ -158,7 +158,7 @@ export const karteCopy = {
     offlineChip: 'Offline',
     offlineChipTitle: 'Offline – was auf diesem Gerät liegt',
     basemapSub: 'Offline – Objekte werden ohne Karte gezeigt',
-    basemapAction: 'Verfügbarkeit',
+    basemapAction: 'Dieses Gerät',
     device: {
       // «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026): the four readiness rows, their
       // one-tap fixes, the Testalarm, the opt-out, and the Karte home's nudge card

@@ -196,7 +196,7 @@ export const helpCopy = {
             '**Formen** – im selben Fenster, hinter den Gefahren: **Pfeil** und **Rechteck**, für alles, wofür es kein taktisches Zeichen gibt. Der Griff dreht, die Ecke zieht das Rechteck in die Länge (der Pfeil bleibt proportional, eine verzerrte Spitze liest sich schlecht). Beim Pfeil schaltet **Stopp-Balken** den Querbalken quer zur Spitze ein – die Entwicklungsgrenze: bis hier, und dort gestoppt.',
             '**Auswahl** – Objekte antippen, verschieben, im Editor anpassen.',
             '**Mehrfach** – nochmals auf **Auswahl** tippen, während sie aktiv ist: der Knopf wechselt auf Mehrfach (Zeichen und Wort), und ein gezogener Rahmen wählt mehrere Symbole/Zeichnungen auf einmal aus. Ein weiterer Tipp führt zurück zur Auswahl.',
-            '**Linie** – ziehen oder Punkte tippen; der Stil wird danach im Editor gewählt: **Freihand**, **Pfeil** oder **Rettungsachse**. Darunter der **Linienende** – **Keiner**, **Pfeil**, **Pfeil mit Stopp** (derselbe Querbalken an der Spitze) oder **Teilstück**; **Richtung umkehren** setzt ihn ans andere Ende, ohne die Linie zu verschieben.',
+            '**Linie** – ziehen oder Punkte tippen; der Stil wird danach im Editor gewählt: **Freihand**, **Pfeil** oder **Rettungsachse**. Darunter das **Linienende** – **Keiner**, **Pfeil**, **Pfeil mit Stopp** (derselbe Querbalken an der Spitze) oder **Teilstück**; **Richtung umkehren** setzt es ans andere Ende, ohne die Linie zu verschieben.',
             '**Fläche** – Eckpunkte tippen (ab 3 Punkten mit Flächeninhalt); Eckpunkte ziehen/einfügen/löschen.',
             '**Absperrkreis** – von der Mitte zum Rand ziehen setzt den Radius in Metern (Füllung einstellbar).',
             '**Notiz** – freier Text direkt auf die Karte.',
