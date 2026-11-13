@@ -176,6 +176,12 @@
 .ip-card-pill.ip-status-pending, .ip-card-pill.ip-status-offline { padding-inline: 0; color: var(--ink-dim); background: none; }
 .ip-card-pill.ip-status-error, .ip-card-pill.ip-status-storage {
   color: var(--red-strong); background: var(--red-16); }
+/* ⚠️ A state SENTENCE never clips (round 2b, owner 13.11.2026: «too long and clipped» – «Offline –
+   lokal gespeichert, wird synchronisiert sobald wieder v…»): the four warning states wrap inside
+   the card, their glyph on the first line. Only «✓ Gespeichert» and the clock stay one line. */
+.ip-card-pill:is(.ip-status-pending, .ip-status-offline, .ip-status-error, .ip-status-storage) { align-items: flex-start; line-height: 1.35; }
+.ip-card-pill:is(.ip-status-pending, .ip-status-offline, .ip-status-error, .ip-status-storage) > span { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.ip-card-pill:is(.ip-status-pending, .ip-status-offline, .ip-status-error, .ip-status-storage) > .i { margin-top: 1px; }
 /* «🔒 Abgeschlossen 01:18 ⌄» where «✓ Gespeichert» stands on a running one (sweep #5, 27.10.2026,
    owner pick B + «only on tap»): a button folding out the state's sentence and its exits, in the
    neutral grey tag «Archiv» wears in the list (M2, owner's pick A, 13.11.2026 – it was amber) */
