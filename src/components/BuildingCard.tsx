@@ -4,7 +4,7 @@ import { cx } from '../lib/cx'
 import { Icon } from '../lib/icons'
 import type { BuildingInfo } from '../lib/api/building'
 import { buildingChips, buildingSources, hasBuildingContent, noteLines, objectCaption, visitLine } from '../lib/buildingCard'
-import { GeoLinks, RegisterHintBody, RegisterHintButton, RegisterSection, StationNotes } from './BuildingFacts'
+import { RegisterHintBody, RegisterHintButton, RegisterSection, StationNotes } from './BuildingFacts'
 import s from './BuildingCard.module.css'
 
 /**
@@ -15,8 +15,7 @@ import s from './BuildingCard.module.css'
  * "Sofortmassnahmen" then "Gebäude"»): the Einsatzobjekt's Sofortmassnahmen and Bemerkungen when
  * the station wrote some (named only when they are a neighbour's, `objectCaption`), then «Gebäude»
  * – the hazard lines first (the warn glyph as the bullet), then the register facts, all one size
- * and weight – then the last Objektbesuch, and at the foot the station's map links for the
- * Einsatz's place (`at`, BuildingFacts · GeoLinks; none configured → nothing). No head row: the first heading carries the ✕, the
+ * and weight – then the last Objektbesuch. No head row: the first heading carries the ✕, the
  * «Gebäude» heading «Register-Hinweis». The
  * pieces are the Karte panel's own (BuildingFacts), so the two surfaces cannot drift apart.
  * Nothing to say → nothing drawn (lib/buildingCard).
@@ -26,12 +25,7 @@ import s from './BuildingCard.module.css'
  * open, the disclaimer stood between Sofortmassnahmen and the facts; it was open since sweep
  * 30.10.2026 #6). BuildingFloat mounts the card only while open, so every open starts here.
  */
-export function BuildingCard({ info, onClose, at }: {
-  info: BuildingInfo | null
-  onClose?: () => void
-  /** the Einsatz's place [lng, lat] — what the station's map links open */
-  at?: readonly [number, number] | null
-}) {
+export function BuildingCard({ info, onClose }: { info: BuildingInfo | null; onClose?: () => void }) {
   const [hint, setHint] = useState(false)
   if (!info || !hasBuildingContent(info)) return null
   const C = appConfig.copy.building
@@ -66,7 +60,6 @@ export function BuildingCard({ info, onClose, at }: {
       {/* neither section (a last Objektbesuch alone): the ✕ needs a row of its own */}
       {!notes && !lines.length && close && <div className={s.head}>{close}</div>}
       {visit && <p className={s.visit}><Icon id="clipboard" /><span>{visit}</span></p>}
-      <GeoLinks at={at} />
     </section>
   )
 }

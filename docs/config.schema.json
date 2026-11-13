@@ -989,13 +989,6 @@
         "geocoder": {
           "$ref": "#/$defs/MapGeocoder"
         },
-        "externalLinks": {
-          "items": {
-            "$ref": "#/$defs/MapExternalLink"
-          },
-          "title": "Externallinks",
-          "type": "array"
-        },
         "objectCategories": {
           "items": {
             "$ref": "#/$defs/ObjectCategoryConfig"
@@ -1083,36 +1076,6 @@
         }
       },
       "title": "MapDefaultView",
-      "type": "object"
-    },
-    "MapExternalLink": {
-      "properties": {
-        "label": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Label"
-        },
-        "urlTemplate": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Urltemplate"
-        }
-      },
-      "title": "MapExternalLink",
       "type": "object"
     },
     "MapGeocoder": {

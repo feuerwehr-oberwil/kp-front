@@ -19,13 +19,7 @@
     "geocoder": {
       "defaultLocality": "9999 Musterdorf",
       "bboxLv95": "2606000,1258000,2614000,1266000"
-    },
-    "externalLinks": [
-      {
-        "label": "map.geo.admin.ch",
-        "urlTemplate": "https://map.geo.admin.ch/?lang=de&E={E}&N={N}&zoom=10"
-      }
-    ]
+    }
   },
   "alarms": {
     "groups": [

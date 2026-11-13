@@ -100,6 +100,36 @@ async def test_a_field_this_build_retired_is_not_held_against_the_caller(client,
     assert "retiredSwitch" not in (await _stored(client))["report"]
 
 
+async def test_a_stored_config_still_carrying_map_external_links_loads_and_saves(
+    client, admin_login, put_config, db_session
+):
+    """`map.externalLinks` («Geoportal Oberwil», «GeoView BL») was retired on 14.11.2026, and
+    stored documents – prod's among them – still carry it. GET serves the rest of `map` without
+    it, the admin's next save (its draft is that GET) is not refused over it, keeps every other
+    `map` field and drops the key from the row."""
+    await admin_login(client)
+    await _seed(client, put_config)
+    row = (await db_session.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one()
+    links = [{"label": "Geoportal Oberwil", "urlTemplate": "https://geo.example/?E={E}&N={N}"}]
+    row.config_json = {
+        **row.config_json,
+        "map": {"geocoder": {"defaultLocality": "4104 Oberwil"}, "externalLinks": links},
+    }
+    await db_session.commit()
+
+    served = await _stored(client)
+    assert "externalLinks" not in served["map"]
+    assert served["map"]["geocoder"]["defaultLocality"] == "4104 Oberwil"
+
+    draft = {k: served[k] for k in ("identity", "report", "roster", "referenceLayers", "map")}
+    r = await client.put("/api/config", json=draft, headers={"If-Match": served["version"]})
+    assert r.status_code == 200, r.text
+    await db_session.refresh(row)
+    assert "externalLinks" not in row.config_json["map"]
+    assert row.config_json["map"]["geocoder"]["defaultLocality"] == "4104 Oberwil"
+    assert row.config_json["report"]["partnerOrgs"] == ["Polizei", "Sanität"]
+
+
 async def test_force_performs_the_emptying_it_named(client, admin_login, put_config):
     """A station dropping its Partnerliste is a real edit — it just has to say so."""
     await admin_login(client)

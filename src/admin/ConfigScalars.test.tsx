@@ -41,7 +41,7 @@ const type = (el: Element, value: string) => act(async () => { fireEvent.change(
 const STATION = {
   version: 'v1',
   identity: { appName: 'Feuerwehr Musterdorf', helpIntro: null },
-  map: { defaultView: { center: [7.5547, 47.5072], zoom: 14 }, geocoder: { defaultLocality: null, bboxLv95: null }, externalLinks: [] },
+  map: { defaultView: { center: [7.5547, 47.5072], zoom: 14 }, geocoder: { defaultLocality: null, bboxLv95: null } },
   report: { reversePrintOrder: true, links: [], partnerOrgs: [] },
   alarms: { autoArchiveDays: 7, staleIncidentDays: 30, captureWindowHours: 12, webhooks: [] },
 }
@@ -140,33 +140,6 @@ describe('map.geocoder — without these two, address search is national', () =>
   })
 })
 
-describe('map.externalLinks — the cantonal GIS deep links', () => {
-  it('stores a complete row and holds back the empty one «hinzufügen» creates', async () => {
-    await setup(<MapSection />, () => screen.queryByText(M.extAdd))
-    await act(async () => { fireEvent.click(screen.getByText(M.extAdd)) })
-    await settle()
-    // an empty row is a dead button in the panel — it must not reach the document, and since
-    // the filtered list is still `[]` there is nothing to save at all
-    expect(apiPut).not.toHaveBeenCalled()
-    await type(screen.getByPlaceholderText(M.extLabelPlaceholder), 'GeoView BL')
-    await type(screen.getByPlaceholderText(M.extUrlPlaceholder), 'https://geoview.bl.ch/?E={E}&N={N}')
-    await settle()
-    expect(sent()?.map.externalLinks).toEqual([
-      { label: 'GeoView BL', urlTemplate: 'https://geoview.bl.ch/?E={E}&N={N}' },
-    ])
-  })
-
-  it('resolves the placeholders in the preview, so a wrong parameter name shows up here', async () => {
-    await setup(<MapSection />, () => screen.queryByText(M.extAdd))
-    await act(async () => { fireEvent.click(screen.getByText(M.extAdd)) })
-    await type(screen.getByPlaceholderText(M.extLabelPlaceholder), 'GeoView BL')
-    await type(screen.getByPlaceholderText(M.extUrlPlaceholder), 'https://geoview.bl.ch/?E={E}&N={N}')
-    const preview = document.querySelector('.adm-formlink-preview')!.textContent!
-    expect(preview).toContain('E=26')
-    expect(preview).not.toContain('{E}')
-  })
-})
-
 describe('report.reversePrintOrder — the one switch a print-relay station meets', () => {
   it('starts from the shipped default (on) and stores the flip', async () => {
     await setup(<ReportSection />, () => screen.queryByText(R.reverseOrder))
@@ -259,17 +232,4 @@ describe('config-list bins ask before they delete', () => {
     expect(sent()?.alarms.webhooks).toEqual([])
   })
 
-  it('a map portal answers «Abbrechen» by staying', async () => {
-    apiGet.mockResolvedValue({
-      ...structuredClone(STATION),
-      map: { ...STATION.map, externalLinks: [{ label: 'GeoView BL', urlTemplate: 'https://geoview.bl.ch/?E={E}&N={N}' }] },
-    })
-    await setup(<MapSection />, () => screen.queryByLabelText(M.extRemove))
-    await act(async () => { fireEvent.click(screen.getByLabelText(M.extRemove)) })
-    expect(screen.getByText(M.extRemoveConfirm)).toBeTruthy()
-    await act(async () => { fireEvent.click(screen.getByText(appConfig.copy.admin.common.confirmNo)) })
-    await settle()
-    expect(screen.getByLabelText(M.extRemove)).toBeTruthy()
-    expect(apiPut).not.toHaveBeenCalled()
-  })
 })

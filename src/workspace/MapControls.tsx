@@ -46,8 +46,6 @@ export interface MapControlsProps {
   replayActive: boolean
   georefMode: ReturnType<typeof useGeorefMode>
   buildingInfo: ReturnType<typeof useBuildingInfo>
-  /** the Einsatz's place [lng, lat], for the Gebäude card's map links (BuildingFacts · GeoLinks) */
-  incidentAt: readonly [number, number] | null
   /** the Gebäude card's first open on this device (lib/buildingFirstOpen) */
   buildingFirst: { autoOpen: boolean; markRead: () => void }
   setPanel: Dispatch<SetStateAction<'layers' | null>>
@@ -72,7 +70,7 @@ export interface MapControlsProps {
 export function MapControls({
   mapUI, mapUtility, mapRef, view, viewsApi, readOnly, isEl, viewsOpen, toggleViews, coord, panel,
   layersPreset, togglePanel, isPhone, displayWeather, openWeatherDetails, replayActive,
-  georefMode, buildingInfo, incidentAt, buildingFirst, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
+  georefMode, buildingInfo, buildingFirst, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
   toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
   weather, readings,
 }: MapControlsProps) {
@@ -143,7 +141,7 @@ export function MapControls({
               Gebäude chip keeps its words, the radar pill gives way (WeatherLayer.module.css). */}
           {(showBuilding || showReadings || wxRadarInRow) && (
             <div className="wb-botleft wx-row">
-              {showBuilding && <BuildingFloat info={buildingInfo} at={incidentAt} autoOpen={buildingAutoOpen} onRead={buildingFirst.markRead} />}
+              {showBuilding && <BuildingFloat info={buildingInfo} autoOpen={buildingAutoOpen} onRead={buildingFirst.markRead} />}
               {/* «Messungen» + the worst reading: the list of every Messpunkt (ReadingsChip) */}
               {showReadings && <ReadingsChip points={readings.points} compact={isPhone} onGo={readings.go} />}
               {wxRadarInRow && (
