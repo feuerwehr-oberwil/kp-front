@@ -517,12 +517,14 @@
     font: var(--fw-bold) var(--fs-2)/1 var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
   /* the time is a <b> inside this bold line: the UA's `bolder` would make it 900, off the scale */
   .ip-switch-clock b { font-weight: inherit; }
+  /* the eyebrow inline, before the digits: above them it would grow the pill a third line (M3) */
+  .ip-switch-clock .clock-eyebrow { display: inline; line-height: 1; }
   /* the glyph as tall as the figure's line and at full ink: at 12px and .8 opacity the hourglass
      was a hairline beside the bold mono time (hill climb r11); the heavier stroke keeps it level
      with the 700 figures beside it (r18) */
   .ip-switch-btn .ip-switch-clock svg { width: 14px; height: 14px; stroke-width: 2.2; }
   .topbar .ip-switch-two .ip-status { display: inline-flex; }
-  /* the Übung marker in this pill is ONE letter («Ü», copy.exerciseInitial) in an amber square
+  /* the Übung marker in this pill is ONE letter («Ü», copy.exerciseInitial) in a hatched square (amber until M2, 13.11.2026)
      (08.10.2026, owner): the word ellipsised to «ÜBU…» and cost the street its last letters. A
      fixed square — it never yields, there is nothing left in it to cut. */
   .ip-switch-btn > .ip-badge-initial { flex: none; display: grid; place-items: center; width: 22px; height: 22px;

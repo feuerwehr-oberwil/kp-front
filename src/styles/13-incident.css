@@ -41,15 +41,16 @@
 .ip-status svg { width: 14px !important; height: 14px !important; opacity: 1 !important; }
 .ip-status-dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
 .ip-status-synced { color: var(--green); }
-.ip-status-pending { color: var(--amber); }
+.ip-status-pending { color: var(--ink-dim); }   /* a cloud since M2 (13.11.2026): amber is the open count's */
 .ip-status-offline { color: var(--ink-dim); }
 .ip-status-error { color: var(--red-strong); }
 /* storage-full: red like a sync error, because it is the more severe of the two — the work
    isn't merely un-synced, it isn't saved anywhere */
 .ip-status-storage { color: var(--red-strong); }
-/* a CLOSED Einsatz's lock in the same slot (sweep #5 B) – amber, the state to be aware of, as the
-   card's «Abgeschlossen» pill that it opens onto */
-.ip-status-closed { color: var(--amber-strong); }
+/* a CLOSED Einsatz's lock in the same slot (sweep #5 B) – the quiet ink of «Archiv», as the
+   card's «Abgeschlossen» pill that it opens onto (M2, owner's pick A, 13.11.2026: a past state is
+   not «needs you», so it is not amber) */
+.ip-status-closed { color: var(--ink-dim); }
 /* loud offline pill in the switcher header — only shows while offline, so it never causes the
    constant saving↔saved layout flip; amber-on-tint so it reads at a glance at 3am */
 .ip-offline-chip { display: inline-flex; align-items: center; gap: 4px; flex: none;
@@ -58,6 +59,11 @@
 /* ↑ the tag's corner and no edge (29.09.2026): roundness is map furniture's, and the tone is the
    tint + ink, never an outline besides */
 .ip-offline-chip .ip-status-dot { width: 7px; height: 7px; }
+/* …in the Einsatz head «Offline» is no pill at all (M2, owner's pick A, 13.11.2026): a cloud and
+   the word in the quiet ink. Amber is the open count's alone; the class stays for what reads it
+   (e2e/visual/harness · settled). The Atemschutz board's line and the Karte keep the pill. */
+.ip-offline-chip.ip-sync-word { padding: 0; background: none; color: var(--ink-dim); }
+.ip-switch-btn .ip-sync-word svg { width: 14px; height: 14px; opacity: 1; }
 /* sync-error variant of the chip — red-on-tint with the warn glyph, same slot/behaviour */
 .ip-error-chip { color: var(--red-strong); background: var(--red-16);
 }
@@ -160,11 +166,15 @@
    spelled out here because the pill's own rule would otherwise win on order */
 .ip-card-pill.ip-status-synced { color: var(--green-strong); background: var(--green-16); }
 .ip-card-pill.ip-status-pending { color: var(--amber-strong); background: var(--amber-16); }
+/* …except the two that are only news (M2, owner's pick A, 13.11.2026): «Offline» and «Nicht
+   synchronisiert» are a cloud and their words in the quiet ink, no pill – amber is the open count's */
+.ip-card-pill.ip-status-pending, .ip-card-pill.ip-status-offline { padding-inline: 0; color: var(--ink-dim); background: none; }
 .ip-card-pill.ip-status-error, .ip-card-pill.ip-status-storage {
   color: var(--red-strong); background: var(--red-16); }
 /* «🔒 Abgeschlossen 01:18 ⌄» where «✓ Gespeichert» stands on a running one (sweep #5, 27.10.2026,
-   owner pick B + «only on tap»): amber, a button folding out the state's sentence and its exits */
-.ip-card-pill.ip-card-closed { color: var(--amber-strong); background: var(--amber-16); }
+   owner pick B + «only on tap»): a button folding out the state's sentence and its exits, in the
+   neutral grey tag «Archiv» wears in the list (M2, owner's pick A, 13.11.2026 – it was amber) */
+.ip-card-pill.ip-card-closed { color: var(--ink-dim); background: var(--fill-soft); }
 .ip-card-closed-fold { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
 .ip-card-closed-say { margin: 0; font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
 .ip-card-closed-say small { display: block; margin-top: 2px; font-size: var(--fs-1); color: var(--ink-faint); }
@@ -1020,9 +1030,12 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
 .ip-badge-arch { background: var(--fill-soft); color: var(--ink-dim); }
 /* a good-news tag («empfohlen») — the green of «done», never a fill */
 .ip-badge-ok { background: var(--green-16); color: var(--green-strong); }
-/* Übung — amber so a training is never mistaken for a real Einsatz (top bar switcher, lists,
-   and the poster: one look for one word, 28.09.2026) */
-.ip-badge-exercise, .cv-badge-exercise { background: var(--amber-16); color: var(--amber-strong); }
+/* Übung — a HATCHED, outlined tag with no hue, so a training is never mistaken for a real Einsatz
+   and never for «needs you» (M2, owner's pick A, 13.11.2026 – it was amber, the open count's
+   colour). Top bar switcher, the phone's «Ü» square, lists and the poster: one look for one word. */
+.ip-badge-exercise, .cv-badge-exercise { color: var(--ink);
+  background: repeating-linear-gradient(-45deg, var(--ink-tint) 0 3px, transparent 3px 6px);
+  box-shadow: inset 0 0 0 1.5px var(--ink-dim); }
 /* «2 offen» — the same amber, named after what it means rather than after the Übung it borrows
    from: something is outstanding and the operator is about to act as if it were not. */
 .ip-badge-todo { background: var(--amber-16); color: var(--amber-strong); text-transform: none; }
@@ -1408,7 +1421,7 @@ button.rp-sign-row:disabled { cursor: default; }
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
 .cv-list + .cv-list { margin-top: 4px; }
-/* Übung — the tablet's .ip-badge-exercise itself (shape, type and amber are shared above): a
+/* Übung — the tablet's .ip-badge-exercise itself (shape, type and the hatching are shared above): a
    drill or a test run must never be mistaken for the real Einsatz, on the surface where
    untrained people tick names off. Only its place in the title line is its own; nowrap (above)
    sends it to its own line on a narrow phone rather than splitting it. */
