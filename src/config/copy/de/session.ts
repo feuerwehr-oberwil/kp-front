@@ -21,9 +21,6 @@ export const sessionCopy = {
       cta: 'Los geht’s',
       meta: 'Keine echten Einsatzdaten – neue Einsätze sind gesperrt',
     },
-    /** the welcome's title wears it before itself, «Demo · Willkommen …» – the Übung's quiet
-     *  prefix (components/IncidentName), not a tag */
-    prefix: 'Demo',
   },
   login: {
     subtitle: 'Führungsunterstützung',

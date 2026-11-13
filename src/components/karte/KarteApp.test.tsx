@@ -662,7 +662,7 @@ describe('KarteApp', () => {
     const inc = (id: string, title: string, is_exercise: boolean) =>
       ({ id, title, address: 'Schlossgasse 9, Musterdorf', is_exercise }) as unknown as Meta
     const onOpenIncident = vi.fn()
-    mount({ running: [inc('u1', 'Atemschutz', true), inc('e1', 'Zimmerbrand Schloss', false), inc('e2', 'Ölspur', false)], onOpenIncident })
+    mount({ running: [inc('u1', 'Übung Atemschutz', true), inc('e1', 'Zimmerbrand Schloss', false), inc('e2', 'Ölspur', false)], onOpenIncident })
     const chip = document.querySelector('[data-karte-running-chip]')!
     expect(within(chip as HTMLElement).getByText('Zimmerbrand Schloss')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Einsatz öffnen: Zimmerbrand Schloss' }))
@@ -672,10 +672,8 @@ describe('KarteApp', () => {
     fireEvent.click(more)
     expect(screen.getByRole('dialog', { name: 'Menü' })).toBeTruthy()
     cleanup()
-    // an Übung's chip is red like any Einsatz's and says so in its name (owner's pick M12 C)
-    mount({ running: [inc('u1', 'Atemschutz', true)] })
-    expect(screen.getByRole('button', { name: 'Einsatz öffnen: Übung, Atemschutz' })).toBeTruthy()
-    expect(document.querySelector('[data-karte-running-chip] .name-prefix')).toBeTruthy()
+    mount({ running: [inc('u1', 'Übung Atemschutz', true)] })
+    expect(screen.getByRole('button', { name: 'Einsatz öffnen: Übung Atemschutz' })).toBeTruthy()
     expect(document.querySelector('[data-karte-running-more]')).toBeNull()
   })
 
