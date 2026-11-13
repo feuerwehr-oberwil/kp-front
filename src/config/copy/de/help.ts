@@ -92,7 +92,7 @@ export const helpCopy = {
           { kind: 'list', only: 'phone', items: [
             'Die **Bereichsleiste** ganz unten hat fünf Felder: Karte, Pläne, Checkliste, Trupps und Rapport. **Pläne** und **Rapport** stehen für mehrere Seiten (Rapport, Anwesenheit, Material): das Feld nochmals antippen oder gedrückt halten öffnet die Auswahl.',
             'Darüber die **Werkzeugleiste** der Karte bzw. des Plans. **+** ist die eine Tür zu allem, was darauf gesetzt wird.',
-            'Ein Knopf, auf dem nur ein Zeichen steht, sagt sein Wort, wenn man ihn **gedrückt hält**. Im Blatt **Dieses Gerät** schreibt «Beschriftung der Werkzeugleisten» die Wörter dauerhaft darunter.',
+            'Ein Knopf, auf dem nur ein Zeichen steht, sagt sein Wort, wenn man ihn **gedrückt hält**. In den **Einstellungen** schreibt «Beschriftung der Werkzeugleisten» die Wörter dauerhaft darunter.',
           ] },
           { kind: 'sub', text: 'Linke Leiste', only: 'wide' },
           { kind: 'list', items: [
@@ -101,11 +101,11 @@ export const helpCopy = {
           ], only: 'wide' },
           { kind: 'sub', text: 'Obere Einsatzleiste' },
           { kind: 'list', items: [
-            'Links der Einsatz-Name mit dem **Menü** (Einsatz abschliessen, Einsatz wechseln, Dieses Gerät, diese Hilfe …) und der **Einsatzuhr**.',
+            'Links der Einsatz-Name mit dem **Menü** (Einsatz abschliessen, Einsatz wechseln, Einstellungen, diese Hilfe …) und der **Einsatzuhr**.',
             'Rechts **Rückgängig/Wiederherstellen**, **Verlauf** und **+ Eintrag**.',
           ], only: 'wide' },
           { kind: 'list', only: 'phone', items: [
-            'Links der Einsatz-Name mit dem **Menü** (Einsatz abschliessen, Einsatz wechseln, Dieses Gerät, diese Hilfe …), rechts **Rückgängig** und der **Verlauf**.',
+            'Links der Einsatz-Name mit dem **Menü** (Einsatz abschliessen, Einsatz wechseln, Einstellungen, diese Hilfe …), rechts **Rückgängig** und der **Verlauf**.',
             'Der runde Knopf unten rechts ist **+ Eintrag**.',
           ] },
           { kind: 'sub', text: 'Meldeleiste' },
@@ -444,7 +444,7 @@ export const helpCopy = {
           { kind: 'list', items: [
             '**Offline-Vorbereitung**: die installierte App holt Karte, Pläne, Symbole und Referenzebenen kurz nach dem Öffnen eines Einsatzes von selbst – ohne Dialog, ohne Toast. Mitgeladen wird **jede** eingerichtete Kartenebene, auch die gerade ausgeblendete: eingeblendet wird sie erfahrungsgemäss erst, wenn das Netz schon weg ist. Der Knopf **Alles für offline laden** holt dasselbe jederzeit von Hand.',
             'Wie viel geladen wird, bestimmt der **Offline-Umkreis** der Station (in der Verwaltung, für alle Geräte gleich).',
-            'Was tatsächlich bereit ist, sagt **Dieses Gerät** im Menü (unter «Bereit?») – Zeile für Zeile: Karte, Pläne, Symbole, Gefahrgut, Referenzebenen, Personal, Gerätespeicher. **Wetter** und **Objektsuche** brauchen Netz und stehen dort als «nur mit Netz».',
+            'Was tatsächlich bereit ist, sagt **Einstellungen › Dieses Gerät** im Menü – Zeile für Zeile: Karte, Pläne, Symbole, Gefahrgut, Referenzebenen, Personal, Gerätespeicher. **Wetter** und **Objektsuche** brauchen Netz und stehen dort als «nur mit Netz».',
             'Verlässlich offline ist nur die **installierte App**. In einem Browser-Tab kann der Speicher jederzeit geleert werden, und der Tab müsste beim nächsten Einsatz noch offen sein.',
             'Ohne Netz läuft weiter, was auf dem Gerät liegt: zeichnen und Symbole setzen, Atemschutz, Anwesenheit, Material, Verlauf und Rapport. Fotos und Sprachnotizen bleiben gespeichert und gehen später raus.',
             'Sobald wieder Netz da ist, gehen die Änderungen von selbst hinaus und werden mit den anderen Geräten zusammengeführt – pro Objekt, jüngste Änderung gewinnt. Solange etwas aussteht, sagt es die Anzeige oben.',
@@ -471,13 +471,13 @@ export const helpCopy = {
           ] },
           { kind: 'sub', text: 'Beschriftete Leisten' },
           { kind: 'list', items: [
-            'Im Blatt **Dieses Gerät** ([[⌘]] [[,]]) unter «Beschriftung der Werkzeugleisten»: **Ein** schreibt unter jedes Zeichen sein Wort – in der linken und der rechten Leiste und in der Ansichtsleiste unten rechts, im Einsatz wie auf «Karte & Objekte». **Aus** lässt überall nur die Zeichen stehen. Für alle, die die Symbole noch nicht auswendig kennen – die Leisten werden dafür etwas breiter, und im Einsatz braucht es «Ausklappen» dann nicht mehr. Auf dem **Telefon** ist sie von Anfang an ein.',
+            'In den **Einstellungen** ([[⌘]] [[,]]) unter «Beschriftung der Werkzeugleisten»: **Ein** schreibt unter jedes Zeichen sein Wort – in der linken und der rechten Leiste und in der Ansichtsleiste unten rechts, im Einsatz wie auf «Karte & Objekte». **Aus** lässt überall nur die Zeichen stehen. Für alle, die die Symbole noch nicht auswendig kennen – die Leisten werden dafür etwas breiter, und im Einsatz braucht es «Ausklappen» dann nicht mehr. Auf dem **Telefon** ist sie von Anfang an ein.',
             'Ist sie aus, bleibt es beim Zeichen; ein Tipp auf **Ausklappen** zeigt die Namen für so lange, wie die Leiste offen bleibt.',
             'Überall sonst gilt: einen Knopf, auf dem nur ein Zeichen steht, **gedrückt halten** – nach einem kurzen Moment steht sein Wort als Blase darüber, auf Touch mit einem kurzen Summen. Das Loslassen löst den Knopf dabei **nicht** aus: fragen, was etwas ist, darf es nicht gleich auch tun. An der Maus genügt Draufzeigen.',
           ] },
           { kind: 'sub', text: 'Tag / Nacht' },
           { kind: 'list', items: [
-            'Im Blatt **Dieses Gerät** ([[⌘]] [[,]]) unter «Farbschema»: Automatisch (folgt dem Tageslicht), Gerät (folgt dem Hell/Dunkel des Tablets oder Telefons), Tag oder Nacht. Der Nachtmodus dämpft Karte und Oberfläche fürs Dunkle.',
+            'In den **Einstellungen** ([[⌘]] [[,]]) unter «Farbschema»: Automatisch (folgt dem Tageslicht), Gerät (folgt dem Hell/Dunkel des Tablets oder Telefons), Tag oder Nacht. Der Nachtmodus dämpft Karte und Oberfläche fürs Dunkle.',
           ] },
         ],
       },

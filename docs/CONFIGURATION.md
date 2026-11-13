@@ -88,9 +88,9 @@ unchanged):
 - **A setting lives in one of three places – pick by who owns it, not by what is easiest to
   reach.** (1) *Device preference* – theme (day/night/auto), symbol scale, captions, rail words,
   screen wake, the Trupps order: cookie via `src/lib/prefs.ts`, not synced, surfaced in the
-  **«Dieses Gerät» sheet** (`src/components/panels/SettingsSheet.tsx`; «Einstellungen» until
-  13.11.2026, when it took in «Offline-Bereitschaft» and home's «Auf diesem Gerät» as its «Bereit?»
-  part), which since 28.08. carries device prefs plus per-device utilities and **nothing else**
+  **«Einstellungen» sheet** (`src/components/panels/SettingsSheet.tsx`; it took in
+  «Offline-Bereitschaft» and home's «Auf diesem Gerät» on 13.11.2026 – named «Dieses Gerät» for a
+  day – and since round 2b folds them into ONE section «Dieses Gerät» after the prefs), which since 28.08. carries device prefs plus per-device utilities and **nothing else**
   (station or Einsatz values) – and since 13.11.2026 the row
   «Gerät auf Standard zurücksetzen» (`lib/prefs · DEVICE_PREF_KEYS`, undo by toast; the two
   standing permissions, the alarm opt-in, the login and offline data stay). What a device looks at

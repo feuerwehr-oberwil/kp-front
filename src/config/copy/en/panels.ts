@@ -112,9 +112,13 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     feedbackRow: 'Give feedback',
     feedbackRowSub: 'What was awkward or missing',
     feedbackOpen: 'Write',
-    sheetTitle: 'This device',
-    readyGroup: 'Ready?',
+    sheetTitle: 'Settings',
     handGroup: 'Controls',
+    deviceGroup: 'This device',
+    deviceSumAlarm: 'Alarm',
+    deviceSumOffline: 'Offline',
+    deviceSumApp: 'App installed',
+    deviceSumNoApp: 'Not installed',
   },
   offline: {
     browserTitle: 'Reliably offline as the installed app',
@@ -223,6 +227,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
   einsatzuhr: {
     title: 'Incident duration – started {t}',
     label: 'Incident duration',
+    tap: 'Incident duration · since {t}',
   },
   feedback: {
     title: 'Feedback',

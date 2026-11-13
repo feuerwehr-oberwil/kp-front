@@ -67,7 +67,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', only: 'phone', items: [
             'La **barra delle aree** in fondo ha cinque caselle: Carta, Piani, Checklist, Squadre e Rapporto. **Piani** e **Rapporto** raggruppano più pagine (Rapporto, Presenza, Materiale): toccare di nuovo la casella o tenerla premuta apre la scelta.',
             'Sopra, la **barra degli strumenti** della carta o del piano. **+** è l’unica porta verso tutto ciò che vi si posiziona.',
-            'Un pulsante che porta solo un simbolo dice il suo nome quando lo si **tiene premuto**. In **Questo dispositivo**, «Etichette delle barre» scrive le parole sotto in modo permanente.',
+            'Un pulsante che porta solo un simbolo dice il suo nome quando lo si **tiene premuto**. Nelle **Impostazioni**, «Etichette delle barre» scrive le parole sotto in modo permanente.',
           ] },
           { kind: 'sub', text: 'Barra sinistra', only: 'wide' },
           { kind: 'list', items: [
@@ -405,7 +405,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             '**Preparazione offline**: l’app installata scarica da sé carta, piani, simboli e livelli di riferimento poco dopo l’apertura di un intervento – senza dialoghi, senza notifiche. Vengono presi **tutti** i livelli cartografici configurati, anche quello ora nascosto: l’esperienza dice che lo si attiva quando la rete è già andata. Il pulsante **Carica tutto per l’offline** fa lo stesso in qualsiasi momento, a mano.',
             'Quanto viene caricato dipende dal **Raggio offline** della stazione (nell’amministrazione, uguale per tutti i dispositivi).',
-            'Che cosa sia davvero pronto lo dice **Questo dispositivo** nel menu (sotto «Pronto?») – riga per riga: carta, piani, simboli, merci pericolose, livelli di riferimento, personale, memoria del dispositivo. **Meteo** e **Ricerca oggetti** richiedono la rete e vi figurano come «solo con rete».',
+            'Che cosa sia davvero pronto lo dice **Impostazioni › Questo dispositivo** nel menu – riga per riga: carta, piani, simboli, merci pericolose, livelli di riferimento, personale, memoria del dispositivo. **Meteo** e **Ricerca oggetti** richiedono la rete e vi figurano come «solo con rete».',
             'Affidabile offline è solo l’**app installata**. In una scheda del browser la memoria può essere svuotata in qualsiasi momento, e la scheda dovrebbe essere ancora aperta al prossimo intervento.',
             'Senza rete continua a funzionare tutto ciò che sta sul dispositivo: disegnare e posare simboli, autoprotezione, presenze, materiale, diario e rapporto. Foto e note vocali restano salvate e partono più tardi.',
             'Appena la rete torna, le modifiche escono da sé e vengono unite con gli altri dispositivi – per oggetto, vince la modifica più recente. Finché qualcosa è in attesa, lo dice l’indicatore in alto.',

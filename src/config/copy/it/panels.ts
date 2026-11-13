@@ -113,9 +113,13 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     feedbackRow: 'Dai un riscontro',
     feedbackRowSub: 'Cosa era scomodo o mancava',
     feedbackOpen: 'Scrivi',
-    sheetTitle: 'Questo dispositivo',
-    readyGroup: 'Pronto?',
+    sheetTitle: 'Impostazioni',
     handGroup: 'Comandi',
+    deviceGroup: 'Questo dispositivo',
+    deviceSumAlarm: 'Allarme',
+    deviceSumOffline: 'Offline',
+    deviceSumApp: 'App installata',
+    deviceSumNoApp: 'Non installata',
   },
   offline: {
     syncedAgo: 'Dati dell’intervento sincronizzati {ago}',
@@ -225,6 +229,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
   einsatzuhr: {
     title: 'Durata dell\'intervento – inizio {t}',
     label: 'Durata dell\'intervento',
+    tap: 'Durata dell\'intervento · da {t}',
   },
   feedback: {
     title: 'Riscontro',

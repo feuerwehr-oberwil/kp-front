@@ -429,3 +429,7 @@
 .map-open-pill { display: block; white-space: nowrap; padding: 2px var(--sp-2); border-radius: var(--r-pill);
   background: var(--open); color: var(--on-amber); font-size: var(--fs-1); font-weight: var(--fw-bold);
   animation: wb-pulse 1.2s ease-in-out infinite; }
+/* …and to the point's LEFT where the right one would lie under the tool dock (components/OpenPill,
+   round 2b): its own width plus the 14px it stood off the point on each side. `translate` composes
+   with the Plan pill's inline `transform`. */
+:is(.map-open-pill, .wb-open-pill)[data-flip] { translate: calc(-100% - 28px) 0; }

@@ -519,8 +519,6 @@
     font: var(--fw-bold) var(--fs-2)/1 var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
   /* the time is a <b> inside this bold line: the UA's `bolder` would make it 900, off the scale */
   .ip-switch-clock b { font-weight: inherit; }
-  /* the eyebrow inline, before the digits: above them it would grow the pill a third line (M3) */
-  .ip-switch-clock .clock-eyebrow { display: inline; line-height: 1; }
   /* the glyph as tall as the figure's line and at full ink: at 12px and .8 opacity the hourglass
      was a hairline beside the bold mono time (hill climb r11); the heavier stroke keeps it level
      with the 700 figures beside it (r18) */

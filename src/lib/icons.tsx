@@ -240,6 +240,10 @@ export function IconSprite() {
           box was too small, not the cloud: one shared "-1 -2 26 26" gives the whole family the
           headroom and keeps the six the same size as each other. */}
       <symbol id="wx-cloud" viewBox="-1 -2 26 26"><path d="M7 18a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 18z" /></symbol>
+      {/* «Offline» (round 2b, owner 13.11.2026: «a strikethrough cloud … instead of a cloud, which
+          symbolizes to me that it's online»): the weather cloud, struck through. The plain cloud
+          stays «Nicht synchronisiert» – online, not sent yet. */}
+      <symbol id="cloud-off" viewBox="-1 -2 26 26"><path d="M7 18a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 18z" /><path d="M3 3l18 18" /></symbol>
       <symbol id="wx-partly" viewBox="-1 -2 26 26"><circle cx="8" cy="8" r="3.2" /><path d="M8 1.8v1.6M1.8 8h1.6M3.6 3.6l1.1 1.1M12.4 3.6l-1.1 1.1" /><path d="M9 19a3.5 3.5 0 0 1-.4-6.98 4.8 4.8 0 0 1 9.2-.9A3.3 3.3 0 0 1 18 19z" /></symbol>
       <symbol id="wx-rain" viewBox="-1 -2 26 26"><path d="M7 15a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 15z" /><path d="M8 18l-1 2.5M12 18l-1 2.5M16 18l-1 2.5" /></symbol>
       <symbol id="wx-snow" viewBox="-1 -2 26 26"><path d="M7 14a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 14z" /><path d="M8.5 18.5v2M11.5 17.5v2M14.5 18.5v2" stroke-linecap="round" /></symbol>

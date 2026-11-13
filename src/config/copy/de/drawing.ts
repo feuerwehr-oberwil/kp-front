@@ -340,5 +340,7 @@ export const drawingCopy = {
     openDiscard: 'Verwerfen',
     openContinue: 'Weiterzeichnen',
     openPill: '{name} offen',
+    // the ⓘ tile's word when the dock wears its words (ToolDock · worded, round 2b)
+    infoWord: 'Info',
   },
 } as const

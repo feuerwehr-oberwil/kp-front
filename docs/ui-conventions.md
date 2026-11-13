@@ -504,7 +504,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     the Passung (its points save as they are placed, so its exit stays ✕ «Schliessen» also once a
     fit stands; «Deckung prüfen» closes with ✕ «Schliessen» too). **«✓ Fertig» exists ONLY while
     something is being made that a close would throw away** – a Punkte-Linie, -Fläche or Wand
-    being drawn: there it is THE way to commit, glyph + word (`ToolDock` · `go`), and the dock's ✕
+    being drawn: there it is THE way to commit, the dock's one filled tile (`ToolDock` · `go`). The
+    tablet dock follows the rail beside it (round 2b): «Beschriftung der Werkzeugleisten» on, EVERY
+    item wears its word under its glyph («Abbrechen», the modes, «Fertig», «Info»); off, every item
+    is a bare glyph – never a mix; the phone's row dock stays bare. The «Linie offen» pill at the
+    draft's last point steps to the point's left rather than lie under the dock (`OpenPill`). The dock's ✕
     / Esc leave the draft through `settleDraft` (a committable draft is asked about – «Speichern ·
     Verwerfen · Weiterzeichnen» – never silently dropped). So one exit per state: a SELECTED
     object's is its editor card's ✕, and the `SelectionBar` carries no «Fertig» beside it; only a
@@ -581,7 +585,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     1.5px `--ink-dim` ring, `--ink` text) wherever it stands (top bar, the phone's «Ü» square, lists,
     the poster's `.cv-badge-exercise` shares the selectors) – M2, owner's pick A, 13.11.2026: amber
     on the Einsatz card is the COUNT of open points alone; «Abgeschlossen» is the grey tag «Archiv»
-    wears, «Offline» / «Nicht synchronisiert» a cloud and the word, «Abschliessen» a normal tile. Status words in a picker row
+    wears, «Nicht synchronisiert» a cloud and the word, «Offline» the cloud struck through
+    (`#cloud-off`, round 2b: a plain cloud reads «online»), «Abschliessen» a normal tile. The
+    Einsatz head shows a state mark only for a problem (round 2b, owner's pick «Only show
+    problems»): no ✓ while all is saved – that lives in the card's pill – and «Nicht
+    synchronisiert» only after 10 s (a normal save is pending for ~3 s). Status words in a picker row
     («AS», «raus» in the TruppFinder) are this tag in ink on `--fill-soft` — never blue (blue is
     «chosen»), never a pill.
     (5) **Search field** (29.09.2026): every «type to narrow this list» is `components/SearchField`

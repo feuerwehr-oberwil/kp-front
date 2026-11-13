@@ -10,6 +10,7 @@ import { getInstallPlatform, isStandalone } from '../../lib/installPrompt'
 import { installOffered } from '../../lib/installPolicy'
 import { estimateStorage } from '../../lib/storageBudget'
 import { InstallSteps } from '../InstallGuide'
+import { useReportOfflineState } from './deviceState'
 
 // --- Offline-Bereitschaft (readiness diagnostics) ----------------------------------
 // The «Offline» part of «Dieses Gerät» inside an Einsatz (SettingsSheet · `readiness`; a sheet
@@ -156,6 +157,12 @@ export function OfflineReadiness({
         : probe.geo.cached >= probe.geo.total
           ? { s: 'ready', n: fillTemplate(o.geoAllReady, { n: probe.geo.total }) }
           : { s: 'online', n: fillTemplate(o.geoSome, { cached: probe.geo.cached, total: probe.geo.total }) }
+  // the Einstellungen' summary (panels/deviceState): no map stored, or storage refusing writes =
+  // nothing offline, the operator is needed; a browser tab, a plan or a layer missing is a hint
+  useReportOfflineState(browserOnly ? 'warn'
+    : degraded || tile.s === 'missing' ? 'red'
+      : tile.s === 'unknown' ? null
+        : (plan.s === 'missing' && planCount > 0) || (geo.s === 'missing' && probeUrls.references.length > 0) ? 'warn' : 'ok')
 
   const syncMark = syncStatus === 'synced'
     ? <Icon id="check" />

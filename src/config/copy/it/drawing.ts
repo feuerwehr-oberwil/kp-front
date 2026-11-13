@@ -207,5 +207,6 @@ export const drawingCopy: Localizable<Pick<Copy, Keys>> = {
     openDiscard: 'Scarta',
     openContinue: 'Continua a disegnare',
     openPill: '{name} aperto',
+    infoWord: 'Info',
   },
 }

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, it, expect, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { formatTime } from '../lib/format'
 import { TopBar, windArrowRotation } from './TopBar'
 import type { Incident } from '../types'
 
@@ -10,7 +11,8 @@ const INCIDENT: Incident = {
   type: 'Brand', title: 'Brand Hauptstrasse', address: 'Hauptstrasse 1', center: [7.55, 47.51],
   startedAt: '2026-11-06T10:00:00Z', durationSec: 0, offline: false, cachedTiles: 0, recording: false, recDurationSec: 0,
 }
-const bar = () => render(<TopBar incident={INCIDENT} recording={false} recStartedAt={null} journalOpen={false}
+const STARTED = '2026-11-06T10:00:00Z'
+const bar = () => render(<TopBar incident={INCIDENT} startedAt={STARTED} recording={false} recStartedAt={null} journalOpen={false}
   onToggleJournal={vi.fn()} onAddEntry={vi.fn()} onUndo={vi.fn()} onRedo={vi.fn()} canUndo={false} canRedo={false} />)
 const letters = () => [...document.querySelectorAll('.tb-act .tb-key')].map((el) => el.textContent)
 
@@ -21,6 +23,17 @@ describe('the top bar\'s shortcut letters', () => {
     expect(letters()).toEqual(['J', 'E'])
     expect(screen.getByRole('button', { name: /Verlauf/ }).title).toBe('Verlauf – Taste J')
     expect(screen.getByRole('button', { name: 'Eintrag' }).title).toMatch(/– Taste E$/)
+  })
+})
+
+// round 2b (owner 13.11.2026): the clock wears no label; a tap names it in a popover
+describe('the Einsatzuhr', () => {
+  it('shows hourglass and digits only, and a tap says «Einsatzdauer · seit …»', async () => {
+    bar()
+    const clock = screen.getByRole('button', { name: /^Einsatzdauer: / })
+    expect(clock.textContent).not.toContain('Einsatzdauer')
+    fireEvent.click(clock)
+    expect(await screen.findByText(`Einsatzdauer · seit ${formatTime(new Date(STARTED))}`)).toBeTruthy()
   })
 })
 
