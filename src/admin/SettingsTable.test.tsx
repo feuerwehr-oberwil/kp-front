@@ -265,7 +265,7 @@ describe('the settings grid', () => {
     apiGet.mockReset().mockResolvedValue({
       version: 'v1',
       identity: {}, doctrine: { alarmBar: SHIPPED_ALARM_BAR },
-      map: { defaultView: {}, geocoder: {}, externalLinks: [] },
+      map: { defaultView: {}, geocoder: {} },
       report: { hoursRounding: { stepMin: 30, graceMin: 5 }, reversePrintOrder: true, links: [], partnerOrgs: [] },
       alarms: { autoArchiveDays: 7, staleIncidentDays: 30, captureWindowHours: 12, webhooks: [], groups: [] },
     })

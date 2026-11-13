@@ -20044,13 +20044,6 @@
           "geocoder": {
             "$ref": "#/components/schemas/MapGeocoder"
           },
-          "externalLinks": {
-            "items": {
-              "$ref": "#/components/schemas/MapExternalLink"
-            },
-            "type": "array",
-            "title": "Externallinks"
-          },
           "objectCategories": {
             "items": {
               "$ref": "#/components/schemas/ObjectCategoryConfig"
@@ -20134,34 +20127,6 @@
         },
         "type": "object",
         "title": "MapDefaultView"
-      },
-      "MapExternalLink": {
-        "properties": {
-          "label": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Label"
-          },
-          "urlTemplate": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Urltemplate"
-          }
-        },
-        "type": "object",
-        "title": "MapExternalLink"
       },
       "MapGeocoder": {
         "properties": {

@@ -14,10 +14,22 @@
   background: var(--ink-fill); color: var(--on-accent-ink); font: var(--fw-heavy) var(--fs-micro) var(--body);
   line-height: 16px; text-align: center; }
 /* docked one --float-gap above the row, like the Passung over its chip; the map stays live. One
-   card of the row at a time (lib/floatCards). */
-.pop { position: absolute; left: 0; bottom: calc(100% + var(--float-gap)); z-index: 1;
+   card of the row at a time (lib/floatCards).
+   ⚠️ ABOVE the wind chip, and never past the top (owner, 14.11.2026: «opens above the weather
+   button and is scrollable if it's too large»). The row is a stacking context (09-whiteboard ·
+   .wb-botleft, z 8), so the card's own z-index only orders it inside the row – the phone's wind
+   chip (.phone-wx, --z-map-util) lay over its ✕. While the card is open the ROW stands at
+   --z-map-card, under the Meldeleiste and the bars. Its height is the room between its foot and
+   `--pop-top` – where the Meldeleiste starts under the top bar, or one gap under the strip while
+   it stands (`--ml-h`) – so a long card scrolls inside itself (its ✕ pinned, BuildingCard · dock)
+   instead of running under the strip, the bar or off the screen. */
+:global(.wb-botleft):has(> .anchor > .pop) { z-index: var(--z-map-card); }
+.pop { --pop-top: calc(92px + env(safe-area-inset-top));
+  position: absolute; left: 0; bottom: calc(100% + var(--float-gap)); z-index: 1;
   box-sizing: border-box; width: min(380px, calc(100vw - var(--rail-w, 0px) - 44px));
-  max-height: min(64vh, 560px); overflow: auto; overscroll-behavior: contain;
+  /* the row's foot (16px) + the chip + the gap, counted from the bottom */
+  max-height: min(64vh, 560px, calc(100dvh - var(--pop-top) - 16px - var(--float-h) - var(--float-gap)));
+  overflow: auto; overscroll-behavior: contain;
   padding: var(--sp-3); border-radius: var(--r-sm);
   /* ⚠️ OPAQUE: the glass tone laid over the solid surface (owner, staging iPad 27.10.2026: «check
      why it's transparent» – the plan's lines read through the card). --float-bg is 90 % by day and
@@ -26,13 +38,17 @@
   background: linear-gradient(var(--float-bg), var(--float-bg)), var(--surface);
   /* the sheets' outline, --e4 – no inset --glass-line ring (r35, 06.11.2026: the sheets draw none) */
   box-shadow: var(--e4); }
+/* the Meldeleiste stands (tablet: from 92px, 08-toasts · .ml): the card ends one gap under it */
+:global(:root:has(.ml)) .pop { --pop-top: calc(92px + var(--ml-h, 0px) + var(--float-gap) + env(safe-area-inset-top)); }
 @media (--phone) {
   /* the bars' width, in THE message lane (15-mobile · --msg-lane-bottom): one gap above the
      highest thing in the stack – the floating row at rest, the armed tool's pill while a tool is
      out (sweep 30.10.2026 #7: it stood a whole chip row above the floating row's baseline, 16px
      over «Linie · Freihand» while the chip sat beside the dock) */
-  .pop { position: fixed; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
-    bottom: var(--msg-lane-bottom); width: auto; max-height: 56vh; }
+  .pop { --pop-top: var(--under-bar);
+    position: fixed; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
+    bottom: var(--msg-lane-bottom); width: auto; max-height: min(56vh, calc(100dvh - var(--pop-top) - var(--msg-lane-bottom))); }
+  :global(:root:has(.ml)) .pop { --pop-top: calc(var(--msg-top) + var(--ml-h, 0px) + var(--float-gap)); }
 }
 /* ⚠️ ONE thing in the lane at a time (owner, sweep 30.10.2026 #7: the Linie tip lay over the open
    card): while a map tool explains itself (DockInfo · MapHelpCard, `data-lane-msg` – the dock's ⓘ

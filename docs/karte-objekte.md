@@ -332,9 +332,8 @@ The rules that are easy to break:
   the station's word (Sofortmassnahmen, then Bemerkungen, no source line since 27.10.2026 — what matters most in
   a hurry) · Pläne & Module as tiles, two to a line (the plan's name only, offline the «auf diesem
   Gerät» mark — below) · Gebäude laut Register as bullets (the hazards first, each with ⚠ and its word) · In der Nähe ·
-  Objektbesuche · the actions, «Objektbesuch» and «Melden» · for an object, at the very foot, the
-  station's map links (`map.externalLinks`, the Gebäude card's `GeoLinks`; M10, 13.11.2026 – none
-  configured, nothing). A plain building or a dropped pin keeps that order with what
+  Objektbesuche · the actions, «Objektbesuch» and «Melden» (no map-portal links under them since
+  14.11.2026). A plain building or a dropped pin keeps that order with what
   it has (Register as the same bullets, In der Nähe, Melden; a pin also «Koordinaten kopieren»), a
   plan-less object too (no tiles). Every part is a top-level section with its head — no card
   around the first ones, no tabs (owner, 27.10.2026: «keep everything top level»). The action row is two equal halves where both labels fit; else the longer

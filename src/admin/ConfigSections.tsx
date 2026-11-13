@@ -31,7 +31,7 @@ import {
 import { Icon } from '../lib/icons'
 import { StringList } from './StringList'
 import { lv95ToWgs84, wgs84ToLV95 } from '../lib/geo'
-import type { DeploymentExternalLink, DeploymentReferenceLayer } from '../lib/deploymentConfig'
+import type { DeploymentReferenceLayer } from '../lib/deploymentConfig'
 
 // The five "Station" pages. Each edits one facet of the single config document via the
 // shared ConfigContext (draft + Save live in the provider, not here). Section-level help
@@ -553,15 +553,10 @@ export function MapSection() {
       })}
     </SettingsSheet>
     <GeocoderCard centre={centreWgs84} />
-    <ExternalLinksCard centre={centreWgs84} />
     <ObjectCategoriesCard />
     </>
   )
 }
-
-/** A plausible Swiss point, so the external-link preview reads as a real URL on a station that
- *  has not set a centre yet. North-west Switzerland, the same reference the geo tests use. */
-const SAMPLE_CENTRE: [number, number] = [7.5547, 47.5072]
 
 /** Half-width of the bbox the «aus dem Kartenzentrum» button derives, in metres. Five kilometres
  *  is the Einzugsgebiet of a village Wehr plus its Nachbarhilfe — wide enough that the next
@@ -672,134 +667,6 @@ function GeocoderCard({ centre }: { centre: [number, number] | null }) {
         </button>
       </SettingsNote>
     </SettingsSheet>
-  )
-}
-
-/**
- * Externe Kartenportale — the cantonal GIS deep links that appear as buttons at the foot of the
- * Einsatz's Gebäude card and the Karte object panel (`deploymentConfig · externalMapLinks`,
- * BuildingFacts · GeoLinks). Optional: empty by default, and a station with none sees nothing.
- *
- * Shaped exactly like ReportLinksEditor, including the placeholder chips and the live preview,
- * because it is the same job: a URL somebody pastes out of a portal's address bar, with the
- * coordinates in it swapped for placeholders. The preview resolves against the station's own
- * centre where there is one, so «did I get the right parameter names» is answerable before an
- * Einsatz asks.
- *
- * ⚠️ Only COMPLETE rows enter the draft — same rule as every other list editor on these pages.
- * Both fields are optional in the schema (`schemas.py · MapExternalLink`), so a blank row does
- * NOT 422; it would simply be a dead button in the panel, which `externalMapLinks` then filters
- * out at render time. Holding it back here keeps what the preview promises and what the panel
- * shows in step.
- */
-function ExternalLinksCard({ centre }: { centre: [number, number] | null }) {
-  const { draft, set } = useConfig()
-  const C = appConfig.copy.admin.map
-  const raw = getPath<DeploymentExternalLink[]>(draft, ['map', 'externalLinks'])
-  const stored = Array.isArray(raw) ? raw : []
-  const [editing, setEditing] = useState<DeploymentExternalLink[] | null>(null)
-  const rows = editing ?? stored
-  const urlRef = useRef<HTMLTextAreaElement | null>(null)
-  const [lng, lat] = centre ?? SAMPLE_CENTRE
-  const [sampleE, sampleN] = wgs84ToLV95(lng, lat)
-  /** The same substitution `externalMapLinks` performs, so the preview cannot drift from it. */
-  const resolve = (t: string) => t
-    .replaceAll('{E}', sampleE.toFixed(2)).replaceAll('{N}', sampleN.toFixed(2))
-    .replaceAll('{lng}', String(lng)).replaceAll('{lat}', String(lat))
-
-  const write = (next: DeploymentExternalLink[]) => {
-    setEditing(next)
-    set(['map', 'externalLinks'], next.filter(
-      (l) => !!l.label?.trim() && isOpenableUrl(resolve(l.urlTemplate ?? '')),
-    ))
-  }
-  const patch = (i: number, over: Partial<DeploymentExternalLink>) =>
-    write(rows.map((r, j) => (j === i ? { ...r, ...over } : r)))
-
-  const insertToken = (i: number, token: string) => {
-    const el = urlRef.current
-    const url = rows[i]?.urlTemplate ?? ''
-    // matched by the field's own row index AND liveness — see ReportLinksEditor for why a
-    // detached textarea must never answer for the row that moved up into its place
-    const live = el && el.dataset.row === String(i) && el.isConnected ? el : null
-    const at = live ? (live.selectionStart ?? url.length) : url.length
-    patch(i, { urlTemplate: `${url.slice(0, at)}{${token}}${url.slice(at)}` })
-    if (live) {
-      const caret = at + token.length + 2
-      requestAnimationFrame(() => { live.focus(); live.setSelectionRange(caret, caret) })
-    }
-  }
-
-  return (
-    /* A list editor, not a list of settings: every row is a whole RECORD with its own token
-       chips and preview, so it is a RecordTable (ui · RecordTable) rather than a sheet with a
-       divider per portal. It was already a card of its own on this page, so lifting it took
-       nothing with it. The card's explanation stays in the head's ⓘ like everywhere else. */
-    <RecordTable title={C.groupExternal} tip={C.externalTip} recordLabel={C.colExternal} fieldLabel={C.extLabel}>
-      {rows.map((row, i) => {
-        const preview = resolve(row.urlTemplate ?? '')
-        return (
-          // index key: an external link has no id of its own, and every value in the row is
-          // controlled from `rows` anyway. No meta: a portal has no fact about itself beyond
-          // the two fields under it, and the preview row is already the second of them.
-          <RecordRows
-            key={i}
-            name={row.label?.trim() || appConfig.copy.admin.common.newEntry}
-            action={(
-              <ConfirmButton
-                className="adm-formlink-x" ariaLabel={C.extRemove} label={<Icon id="trash" />}
-                question={C.extRemoveConfirm} danger
-                onConfirm={() => write(rows.filter((_, j) => j !== i))}
-              />
-            )}
-          >
-            <SettingRow label={C.extLabel}>
-              <input
-                className="adm-input" type="text" value={row.label ?? ''}
-                placeholder={C.extLabelPlaceholder}
-                onChange={(e) => patch(i, { label: e.target.value })}
-              />
-            </SettingRow>
-            <SettingRow label={C.extUrl} tip={C.extUrlTip} span>
-              {/* two boxes, one value: the template and the chips that write into it. They stack
-                  INSIDE the cell (`.adm-set-col`) rather than leaving the columns. */}
-              <div className="adm-set-col">
-                <textarea
-                  className="adm-input adm-input-mono adm-formlink-url" rows={3}
-                  value={row.urlTemplate ?? ''} placeholder={C.extUrlPlaceholder} data-row={i}
-                  onFocus={(e) => { urlRef.current = e.currentTarget }}
-                  onChange={(e) => patch(i, { urlTemplate: e.target.value })}
-                />
-                <span className="adm-formlink-tokens" role="group" aria-label={C.extTokens}>
-                  {['E', 'N', 'lng', 'lat'].map((t) => (
-                    <button type="button" key={t} className="adm-token" onClick={() => insertToken(i, t)}>
-                      {`{${t}}`}
-                    </button>
-                  ))}
-                </span>
-              </div>
-            </SettingRow>
-            <SettingRow label={C.extPreview} span>
-              {isOpenableUrl(preview) && !!row.label?.trim()
-                ? <p className="adm-formlink-preview">{preview}</p>
-                : (
-                  <p className="adm-hint adm-formlink-warn">
-                    {row.label?.trim() ? C.extNoUrl : C.extNoTitle}
-                  </p>
-                )}
-            </SettingRow>
-          </RecordRows>
-        )
-      })}
-      <SettingsNote>
-        <button
-          type="button" className="adm-formlink-add"
-          onClick={() => write([...rows, { label: '', urlTemplate: '' }])}
-        >
-          <Icon id="plus" />{C.extAdd}
-        </button>
-      </SettingsNote>
-    </RecordTable>
   )
 }
 
