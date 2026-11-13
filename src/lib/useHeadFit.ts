@@ -46,9 +46,10 @@ const TITLE_FLOOR = 112
 
 /**
  * PHONE: the street before ↷ and the weather (08.10.2026, coordinator's call after the one-letter
- * Übung marker). On the phone the pill's first line is the STREET (panels/IncidentSwitcher ·
- * twoLine) — where the Einsatz is, the one line the bar exists to show. Up to and including the
- * ↷ step, a street that ellipsises at all counts as «does not fit», so the weather, the
+ * Übung marker). On the phone the pill's first line is «Stichwort · street» (since 12.11.2026;
+ * the street alone before — panels/IncidentSwitcher · twoLine) — where the Einsatz is, the one
+ * line the bar exists to show. Up to and including the ↷ step, a name that ellipsises at all —
+ * either part of it — counts as «does not fit», so the weather, the
  * Einsatzdauer and ↷ only come back with what is LEFT once the street is whole (up to the pill's
  * own max). Past that step the 112px floor rules again: a very long street does not take the
  * Verlauf word, the alarm's name or ↶ with it. ↶ and Verlauf are not on this part of the ladder.
@@ -68,10 +69,15 @@ export function headCrowded(bar: HTMLElement, step = Infinity): boolean {
   if (badge && badge.offsetParent !== null && badge.scrollWidth > badge.clientWidth + 1) return true
   // the title may ellipsise, but not below a readable floor
   const title = btn.querySelector<HTMLElement>('.ip-switch-title')
-  const cut = !!title && title.offsetParent !== null && title.scrollWidth > title.clientWidth + 1
-  // the phone's street: whole before ↷ and the weather (STREET_BEFORE_STEP)
+  if (!title || title.offsetParent === null) return false
+  // what the title would take whole: the phone's «Stichwort · street» is a row of parts that
+  // each ellipsise, so the title itself never overflows — what its parts lost is added back
+  const wanted = title.scrollWidth + [...title.children].reduce(
+    (lost, c) => lost + Math.max(0, c.scrollWidth - c.clientWidth), 0)
+  const cut = wanted > title.clientWidth + 1
+  // the phone's name: whole before ↷ and the weather (STREET_BEFORE_STEP)
   if (cut && step < STREET_BEFORE_STEP && btn.classList.contains('ip-switch-two')) return true
-  if (cut && title.clientWidth < Math.min(title.scrollWidth, TITLE_FLOOR)) return true
+  if (cut && title.clientWidth < Math.min(wanted, TITLE_FLOOR)) return true
   return false
 }
 

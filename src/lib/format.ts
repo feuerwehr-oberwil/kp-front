@@ -217,11 +217,53 @@ export function fillTemplate(template: string, values: Record<string, string | n
   return template.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ''))
 }
 
-/** The street part of an address — everything before its first comma («Schlossgasse 9, 9999
- *  Musterdorf» → «Schlossgasse 9»); '' for none. What the phone's Einsatz pill leads with
- *  (owner, 07.10.2026: «the address is more important than the type»). */
+// A trailing «4104 Oberwil BL»: a postal code and a town word after it (so a 4-digit house
+// number before the postal code, «Hauptstrasse 1001 4104 Oberwil», is not taken for one).
+const PLZ_TOWN = /\s+\d{4,5}\s+\p{L}.*$/u
+// «Sägestrasse 2», «Im Link 12a»: a word, then a house number at the end.
+const HOUSE_NO = /\p{L}.*\s\d{1,4}\s?[a-z]?$/iu
+// A segment that is only a locality: «4104 Oberwil», «Oberwil (BL)».
+const LOCALITY = /^\d{4,5}\s|\([A-Z]{2}\)$/
+
+/**
+ * The street + house number of an address, '' for none — for every shape the app stores:
+ * swisstopo's comma-less label («Sägestrasse 2 4104 Oberwil BL», map search · backend
+ * app/geocode), the comma form («Sägestrasse 2, 4104 Oberwil») and Divera's locality-first
+ * one («Oberwil (BL), Sägestrasse 2»), in town or not. An address without a house number
+ * keeps its first non-locality segment («Bahnhof Oberwil»). The street half of the phone's
+ * Einsatz pill (`einsatzPillName`).
+ */
 export function streetPart(address: string | null | undefined): string {
-  return (address ?? '').split(',')[0].trim()
+  const parts = (address ?? '').split(',').map((p) => p.replace(PLZ_TOWN, '').trim()).filter(Boolean)
+  return parts.find((p) => HOUSE_NO.test(p)) ?? parts.find((p) => !LOCALITY.test(p)) ?? parts[0] ?? ''
+}
+
+const escapeRe = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+// what is left between two cuts or at the ends: commas, dashes, slashes, colons
+const SEP_RUN = /(?:\s*[,;:/–-]\s*){2,}/g
+const SEP_ENDS = /^[\s,;:/–-]+|[\s,;:/–-]+$/g
+
+/**
+ * What the phone's Einsatz pill names (owner, 12.11.2026: «Wasser · Sägestrasse 2»): the
+ * Stichwort — the title with the incident's own address cut out of it (whole, as street +
+ * number and as the bare street name; backend · incident_archive · stichwort makes the same cut
+ * for folder names) — and the street. Cutting is what keeps the pill from saying a street twice: the wizard falls back to the short
+ * address as the title, and Divera titles often carry it. A title that WAS the street leaves
+ * `stichwort` empty; no address leaves `street` empty and the title whole.
+ */
+export function einsatzPillName(title: string, address: string | null | undefined): { stichwort: string; street: string } {
+  const street = streetPart(address)
+  if (!street) return { stichwort: title.trim(), street: '' }
+  let text = title
+  const bare = street.replace(/\s+\d+\s?[a-z]?$/i, '')
+  // longest first: the whole address (the wizard's fallback title for an out-of-town one), the
+  // street with its number, the bare street name
+  for (const needle of [(address ?? '').trim(), street, bare].filter((n, i, all) => n.length >= 4 && all.indexOf(n) === i)) {
+    // whole words only: «Hauptstrasse» must not eat into «Hauptstrassenkreuzung»
+    text = text.replace(new RegExp(`(?<![\\p{L}\\p{N}])${escapeRe(needle)}(?![\\p{L}\\p{N}])`, 'giu'), ' ')
+  }
+  const stichwort = text.replace(SEP_RUN, ' ').replace(SEP_ENDS, '').replace(/\s+/g, ' ').replace(/\s+,/g, ',')
+  return { stichwort, street }
 }
 
 /**
