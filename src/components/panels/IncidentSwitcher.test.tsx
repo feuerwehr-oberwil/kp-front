@@ -231,3 +231,27 @@ describe('IncidentSwitcher · Nur ansehen and the foreign-alarm dot', () => {
     expect(pill().querySelector('.ip-foreign-dot')).toBeNull()
   })
 })
+
+// An Übung wears the hatched tag in the head, on the card and in the other running rows (M2,
+// back on 14.11.2026 after the «Übung ·» prefix read as «almost invisible»), and the head's
+// accessible name says «Übung» – the aria-label replaces the tag's own text.
+describe('IncidentSwitcher · Übung', () => {
+  const drill = {
+    id: 'inc-1', title: 'Brand Musterhaus', address: null, started_at: new Date(Date.now() - 600_000).toISOString(),
+    status: 'offen', is_archived: false, is_exercise: true,
+  } as unknown as IncidentMeta
+  const otherDrill = { ...drill, id: 'inc-2', title: 'Ölspur Hauptstrasse' } as IncidentMeta
+
+  it('tags the head, the card and the row, and names the head an Übung', () => {
+    render(
+      <IncidentSwitcher active={drill} incidents={[drill, otherDrill]} isEditor syncStatus="synced" lastSyncedAt={null}
+        user={{ display_name: 'Muster Anna', color: null, role: 'editor' }}
+        onSwitch={() => {}} onDivera={() => {}} onHelp={() => {}} onSyncNow={() => {}} />,
+    )
+    const head = screen.getByRole('button', { name: `Brand Musterhaus, ${appConfig.copy.exerciseBadge}` })
+    expect(head.querySelector('.ip-badge-exercise')?.textContent).toBe(appConfig.copy.exerciseBadge)
+    fireEvent.click(head)
+    expect(document.querySelector('.ip-card-title > .ip-badge-exercise')).not.toBeNull()
+    expect(screen.getByRole('button', { name: /Ölspur Hauptstrasse/ }).querySelector('.ip-badge-exercise')).not.toBeNull()
+  })
+})
