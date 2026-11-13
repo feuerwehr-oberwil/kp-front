@@ -247,7 +247,6 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     attachmentsNone: 'nessuna',
     attachmentsCaption: 'Didascalia (p. es. «Licenza di condurre»)',
     attachmentsPending: 'non ancora caricata',
-    attachmentsFailed: 'La foto {name} non è stata caricata – non comparirà nella stampa.',
     attachmentAdded: 'Foto aggiunta',
     attachmentCaptioned: 'Didascalia',
     attachmentRemoved: 'Foto rimossa',

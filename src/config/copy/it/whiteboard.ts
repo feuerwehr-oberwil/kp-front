@@ -75,12 +75,10 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       saveFailed: 'Salvataggio della scala non riuscito',
     },
     georef: {
-      chipUnlinked: 'Collega alla mappa',
       chipLinked: 'collegato',
       chipTwoPoints: 'da 2 punti',
       chipResidual: '⌀ {m} m',
       linkTitle: 'Collega questo piano alla mappa',
-      openQuality: 'Verifica e correggi il riferimento',
       freeOrderTap: 'Tocca lo stesso punto su modulo e mappa',
       freeOrderTip: 'Meglio punti inequivocabili – spigolo, idrante, incrocio. L’ordine è libero: le metà poste trovano da sole la loro controparte.',
       howTitle: 'Come collegare',

@@ -129,7 +129,6 @@ export const drawingCopy = {
     // Ein Rechteck hat zwei Achsen und je einen Griff dafür – waagrecht die Breite, senkrecht
     // die Höhe. Dieselbe Aufteilung wie bei der Rotation (Länge/Breite), nur heissen die Achsen
     // hier anders: ein Rechteck pendelt nicht.
-    heightLabel: 'Höhe',
     boxWidthHint: 'Griff ziehen – Breite',
     boxHeightHint: 'Griff ziehen – Höhe',
     endHint: 'Ende ziehen – Strecke und Richtung',
@@ -331,7 +330,6 @@ export const drawingCopy = {
     // a committable draft auto-commits with this toast, whose «Rückgängig» hands the
     // shape BACK as an editable draft rather than merely deleting it.
     autoCommitted: '{name} gespeichert',
-    autoCommitUndo: 'Rückgängig',
     // A fragment below the minimum (1-point line, 2-point area) has nothing to keep.
     draftDiscarded: 'Unvollständige Zeichnung verworfen',
     // «… noch offen» (27.10.2026): an open drawing that is being left asks — lib/draftMachine ·

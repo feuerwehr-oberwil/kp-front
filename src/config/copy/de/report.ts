@@ -400,7 +400,6 @@ export const reportCopy = {
     attachmentsNone: 'keine',
     attachmentsCaption: 'Bildlegende (z. B. «Ausweis Lenker»)',
     attachmentsPending: 'noch nicht hochgeladen',
-    attachmentsFailed: 'Foto {name} konnte nicht hochgeladen werden – es erscheint nicht im Druck.',
     // Was ↶ zurücknimmt, in der Sprache der Beilage – und der Toast, der das Löschen sofort
     // zurückholt (Bestätigen-mit-Rückgängig, wie beim Geschoss).
     attachmentAdded: 'Foto hinzugefügt',
