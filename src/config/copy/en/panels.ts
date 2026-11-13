@@ -75,8 +75,6 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     },
   },
   settings: {
-    title: 'Settings',
-    deviceGroup: 'Device',
     colorScheme: 'Color scheme',
     colorSchemeHint: {
       auto: 'Changes with the time of day – light from sunrise, dark from sunset',
@@ -114,9 +112,11 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     feedbackRow: 'Give feedback',
     feedbackRowSub: 'What was awkward or missing',
     feedbackOpen: 'Write',
+    sheetTitle: 'This device',
+    readyGroup: 'Ready?',
+    handGroup: 'Controls',
   },
   offline: {
-    title: 'Offline readiness',
     browserTitle: 'Reliably offline as the installed app',
     browserBody: 'Nothing is reliably stored in a browser tab: map tiles, plans and utility layers can be cleared at any time, and the tab has to still be open at the next incident. Installed, KP Front runs with no signal.',
     browserNoInstall: 'This device offers no installation. For use without a signal, install KP Front on the tablet or phone.',

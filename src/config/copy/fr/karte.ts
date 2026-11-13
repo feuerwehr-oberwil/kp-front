@@ -128,7 +128,6 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     basemapSub: 'Hors ligne – les objets sont affichés sans carte',
     basemapAction: 'Disponibilité',
     device: {
-      title: 'Sur cet appareil',
       alarm: {
         title: 'Alarme sur cet appareil',
         lead: 'Pour que «Neuer Einsatz» réveille cet appareil – même app fermée.',

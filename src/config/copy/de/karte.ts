@@ -154,13 +154,12 @@ export const karteCopy = {
     loadFailed: 'Stationsobjekte liessen sich nicht laden.',
     fromDevice: 'Stationsobjekte vom Gerät · Stand {d}',
     noCatalogue: 'Noch keine Stationsobjekte auf diesem Gerät.',
-    // the bar's offline chip and «Auf diesem Gerät» (mockup s-j7-3)
+    // the bar's offline chip and the Offline part of «Dieses Gerät» (mockup s-j7-3; M9)
     offlineChip: 'Offline',
     offlineChipTitle: 'Offline – was auf diesem Gerät liegt',
     basemapSub: 'Offline – Objekte werden ohne Karte gezeigt',
     basemapAction: 'Verfügbarkeit',
     device: {
-      title: 'Auf diesem Gerät',
       // «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026): the four readiness rows, their
       // one-tap fixes, the Testalarm, the opt-out, and the Karte home's nudge card
       alarm: {

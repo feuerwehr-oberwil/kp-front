@@ -18,9 +18,7 @@ function renderSwitcher(extra: Partial<Parameters<typeof IncidentSwitcher>[0]> =
       user={{ display_name: 'Muster Anna', color: null, role: 'editor' }}
       onSwitch={() => {}}
       onDivera={() => {}}
-      onDatenquellen={() => {}}
       onHelp={() => {}}
-      onOfflineReadiness={() => {}}
       onSyncNow={() => {}}
       {...extra}
     />,
@@ -39,9 +37,7 @@ function renderActive(extra: Partial<Parameters<typeof IncidentSwitcher>[0]> & {
       user={{ display_name: 'Muster Anna', color: null, role: 'editor' }}
       onSwitch={() => {}}
       onDivera={() => {}}
-      onDatenquellen={() => {}}
       onHelp={() => {}}
-      onOfflineReadiness={() => {}}
       onSyncNow={() => {}}
       {...extra}
     />,

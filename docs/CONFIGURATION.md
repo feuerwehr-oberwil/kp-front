@@ -88,8 +88,10 @@ unchanged):
 - **A setting lives in one of three places – pick by who owns it, not by what is easiest to
   reach.** (1) *Device preference* – theme (day/night/auto), symbol scale, captions, rail words,
   screen wake, the Trupps order: cookie via `src/lib/prefs.ts`, not synced, surfaced in the
-  **Einstellungen sheet** (`src/components/panels/SettingsSheet.tsx`), which since 28.08. carries
-  device prefs plus per-device utilities and **nothing else** – and since 13.11.2026 the row
+  **«Dieses Gerät» sheet** (`src/components/panels/SettingsSheet.tsx`; «Einstellungen» until
+  13.11.2026, when it took in «Offline-Bereitschaft» and home's «Auf diesem Gerät» as its «Bereit?»
+  part), which since 28.08. carries device prefs plus per-device utilities and **nothing else**
+  (station or Einsatz values) – and since 13.11.2026 the row
   «Gerät auf Standard zurücksetzen» (`lib/prefs · DEVICE_PREF_KEYS`, undo by toast; the two
   standing permissions, the alarm opt-in, the login and offline data stay). What a device looks at
   in ONE Einsatz – the plan rasters (`twinLayersIn`), the radar (`weatherRadarIn`), the Atemschutz
@@ -155,7 +157,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `map.buildingRegister` | ❌ | config-as-code only (`admin_config`); unset = on in CH ([`building-card.md`](building-card.md)) |
 | `map.serviceArea.municipalities` | ❌ | config-as-code only (`admin_config`); the Einsatzgebiet's BFS numbers for «Unterirdische Bauten» and the houses a building tap selects – unset = the municipality at `map.defaultView` ([`karte-objekte.md`](karte-objekte.md)) |
 | `map.objectCategories` | ✅ | Station › **Station & Karte** › «Objektfarben» ([`karte-objekte.md`](karte-objekte.md) · Object colours) |
-| `map.externalLinks` | ✅ | Station › **Station & Karte** – ⚠️ editable, but as shipped its only renderer is the field app's «Datenquellen» panel, which is **unreachable**. Configuring it changes nothing anybody can see today |
+| `map.externalLinks` | ✅ | Station › **Station & Karte** – optional, empty by default. Each link (label + URL template with `{E}`/`{N}` LV95, `{lng}`/`{lat}`) is a button at the foot of the Einsatz's Gebäude card and of the object panel on «Karte & Objekte», opening the portal at that place (`BuildingFacts · GeoLinks`; disabled offline, «Nur mit Netz»). None configured → nothing is drawn. The «Datenquellen» panel that held them until 13.11.2026 had no door and is gone |
 | `referenceLayers` – raster (WMS/WMTS) and GeoJSON, incl. the file upload | ✅ | Station › **Kartenebenen** (§2) |
 | `referenceLayers[].nightColor` · `.opacity` · `.maxzoom` · `.symbol` · `.autoActivate` | ❌ | file only – the forms **merge** over the stored row, so a CLI-set value survives an edit |
 | `modules` (the Objektplan-Modul catalogue) | ❌ | **file only** – the Objektpläne page lists the catalogue read-only; the objects and their PDFs are what you edit there ([`objektplaene-architecture.md`](objektplaene-architecture.md)) |
@@ -1965,7 +1967,8 @@ frontend persists as `layerState`, so saved layer visibility carries across a re
 goes through the API so the server writes its own volume. There is also
 **`load --config-only`** (inject `DATABASE_PUBLIC_URL`, like `admin_config`): it writes just
 `referenceLayers` and never touches files, for the case where the files are already on the
-server. The in-app **Datenquellen** upload is a third route, good for a one-off correction.
+server. (The in-app «Datenquellen» upload that was a third route is gone, 13.11.2026: it had no
+door; the Verwaltung's **Kartenebenen** upload is the browser route.)
 
 ### 9e. `admin_objects` – Einsatzobjekte + Modul-PDFs
 

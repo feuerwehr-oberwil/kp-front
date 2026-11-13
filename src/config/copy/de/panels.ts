@@ -129,10 +129,8 @@ export const panelsCopy = {
       unknown: 'Grund unbekannt.',
     },
   },
-  // Einstellungen sheet (device prefs + synced per-incident settings)
+  // «Dieses Gerät» sheet (SettingsSheet: Bereit?, the device prefs, the utilities)
   settings: {
-    title: 'Einstellungen',
-    deviceGroup: 'Gerät',
     colorScheme: 'Farbschema',
     // the line under «Farbschema»: what the selected option does («Automatisch» vs «Gerät»)
     colorSchemeHint: {
@@ -177,6 +175,10 @@ export const panelsCopy = {
     feedbackRow: 'Rückmeldung geben',
     feedbackRowSub: 'Was umständlich war oder gefehlt hat',
     feedbackOpen: 'Schreiben',
+    // «Dieses Gerät» (M9, 13.11.2026): the one device sheet, its menu row and its two groups
+    sheetTitle: 'Dieses Gerät',
+    readyGroup: 'Bereit?',
+    handGroup: 'Bedienung',
   },
   // Rückmeldung — the feedback composer + the prompt after something went wrong. Nothing here
   // is sent automatically: the app writes the text, the operator sends it (see lib/feedbackReport).
@@ -246,9 +248,8 @@ export const panelsCopy = {
       noDescription: '(keine Beschreibung)',
     },
   },
-  // Offline-Bereitschaft readiness diagnostics
+  // Offline-Bereitschaft readiness diagnostics – the Offline part of «Dieses Gerät» in an Einsatz
   offline: {
-    title: 'Offline-Bereitschaft',
     // Shown in a browser tab instead of the readiness list: a tab is no reliable offline state
     // (iOS clears caches after days without use, and the tab then has to still be open at all).
     // Rather than claim a Bereitschaft that won't hold at 3am, the card says what is missing and

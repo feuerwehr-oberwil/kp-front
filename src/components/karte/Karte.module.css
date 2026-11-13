@@ -441,10 +441,8 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 @media (hover: hover) { .offChip:hover { background: var(--amber-22); } }
 .offChip:active { background: var(--amber-22); background-image: linear-gradient(var(--press), var(--press)); }
 .offDot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
-.deviceSheet { max-width: 520px; }
-.deviceAlarm { margin-bottom: var(--sp-4); }
 .deviceLead { margin: 0 0 var(--sp-3); font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink-dim); }
-.deviceSheet :global(.list-card) + .note, .deviceSheet :global(.list-card) + .src, .deviceSheet .note + .src { margin-top: var(--sp-3); }
+.deviceRows :global(.list-card) + .note, .deviceRows :global(.list-card) + .src, .deviceRows .note + .src { margin-top: var(--sp-3); }
 /* offline, the open document not on this device: the sentence instead of the reader */
 .surfaceNote { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: var(--sp-4); }
 .surfaceNote .note { max-width: 360px; }

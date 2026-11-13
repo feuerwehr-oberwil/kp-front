@@ -102,7 +102,7 @@ export const workspaceTree = (m: IncidentMeta, over: Partial<WsProps>, onRender?
   const tree = <IncidentWorkspace
     incidentMeta={m} incidents={[m]} workspace={{ entities: [truck] } as unknown as Saved} sync={new WorkspaceSync(m.id)}
     forceReadOnly={false} tabLockLost={false} onTakeOverTab={() => {}}
-    onSwitchIncident={() => {}} onOpenHistory={() => {}} onOpenDivera={() => {}} onOpenDatenquellen={() => {}}
+    onSwitchIncident={() => {}} onOpenHistory={() => {}} onOpenDivera={() => {}}
     needsReview={false} onReviewDone={() => {}} onEditMeta={() => {}}
     onCompleteRapport={onCompleteRapport}
     {...over}

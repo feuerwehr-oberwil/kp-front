@@ -9,12 +9,12 @@ import { isStorageDegraded, onStorageDegraded } from '../../lib/idb'
 import { getInstallPlatform, isStandalone } from '../../lib/installPrompt'
 import { installOffered } from '../../lib/installPolicy'
 import { estimateStorage } from '../../lib/storageBudget'
-import { Modal } from './_shared'
 import { InstallSteps } from '../InstallGuide'
 
 // --- Offline-Bereitschaft (readiness diagnostics) ----------------------------------
-// A single glance, BEFORE losing coverage, at what field-critical data this device has
-// offline. Honest by construction: bundled data (symbols, Gefahrgut) is always ready;
+// The «Offline» part of «Dieses Gerät» inside an Einsatz (SettingsSheet · `readiness`; a sheet
+// of its own until 13.11.2026, M9). A single glance, BEFORE losing coverage, at what
+// field-critical data this device has offline. Honest by construction: bundled data (symbols, Gefahrgut) is always ready;
 // runtime-cached data (map tiles, plans, Leitungen) is PROBED against the SW Cache so we
 // never claim "bereit" for something that isn't actually stored; network-only data
 // (Wetter, Mannschaft, Objektsuche) is labelled "nur online" so it's clear it WON'T be
@@ -50,12 +50,11 @@ function fmtAgo(ms: number | null): string {
   return fillTemplate(o.agoHour, { n: h })
 }
 
-export function OfflineReadinessSheet({
-  onClose, probeUrls, symbolsReady, planCount, objectLabel,
+export function OfflineReadiness({
+  probeUrls, symbolsReady, planCount, objectLabel,
   weatherOk, weatherError, personnelCount, syncStatus, lastSyncedAt,
   onLoadAll, onCancel, loading, progress,
 }: {
-  onClose: () => void
   /** URLs probed against the SW Cache for real offline presence. tiles = the incident-centre
    *  tile across all base subdomains (any hit = cached); references = every vector/raster layer. */
   probeUrls: { tiles: string[]; plan: string | null; references: string[] }
@@ -67,12 +66,6 @@ export function OfflineReadinessSheet({
   personnelCount: number
   syncStatus: SyncStatus
   lastSyncedAt: number | null
-  /** ⚠️ Dropped 05.09.: this sheet no longer offers a manual «Jetzt synchronisieren» — sync
-   *  already runs automatically (queued edits push on reconnect), and the button did nothing an
-   *  operator could tell apart from that. Kept OPTIONAL rather than removed outright, because
-   *  IncidentWorkspace still passes it into both mount sites; drop the prop there when that
-   *  wiring is cleaned up too. */
-  onSyncNow?: () => void
   /** warm everything cacheable (tiles, plans, symbols, geojson) + refresh the roster */
   onLoadAll: () => void
   /** abort a running download — what is already stored stays stored, the button returns */
@@ -193,86 +186,82 @@ export function OfflineReadinessSheet({
   if (browserOnly) {
     const canInstall = installOffered(getInstallPlatform())
     return (
-      <Modal title={o.title} onClose={onClose} fit>
-        <div className="or-sheet">
-          {syncRow}
-          <div className="or-browser">
-            <Icon id="info" />
-            <div>
-              <p className="or-browser-t">{o.browserTitle}</p>
-              <p className="or-browser-b">{o.browserBody}</p>
-              {!canInstall && <p className="or-browser-b">{o.browserNoInstall}</p>}
-            </div>
+      <div className="or-sheet">
+        {syncRow}
+        <div className="or-browser">
+          <Icon id="info" />
+          <div>
+            <p className="or-browser-t">{o.browserTitle}</p>
+            <p className="or-browser-b">{o.browserBody}</p>
+            {!canInstall && <p className="or-browser-b">{o.browserNoInstall}</p>}
           </div>
-          {/* The steps stand here rather than behind a button into a second modal — this sheet
-              is already the answer to "how do I get offline", and four lines do not deserve
-              their own screen.
-              «Alles für offline laden» is deliberately NOT offered: the card directly above
-              says offline needs the installed app, and a download button under that sentence
-              contradicts it. It still runs in the installed sheet, where the claim holds. */}
-          {canInstall && <div className="or-install"><InstallSteps lead={false} /></div>}
         </div>
-      </Modal>
+        {/* The steps stand here rather than behind a button into a second modal — this sheet
+            is already the answer to "how do I get offline", and four lines do not deserve
+            their own screen.
+            «Alles für offline laden» is deliberately NOT offered: the card directly above
+            says offline needs the installed app, and a download button under that sentence
+            contradicts it. It still runs in the installed sheet, where the claim holds. */}
+        {canInstall && <div className="or-install"><InstallSteps lead={false} /></div>}
+      </div>
     )
   }
 
   return (
-    <Modal title={o.title} onClose={onClose} fit>
-      <div className="or-sheet">
-        {syncRow}
+    <div className="or-sheet">
+      {syncRow}
 
-        <div className="or-list">
-          <ReadyRow label={o.rowSymbols} state={symbolsReady ? 'ready' : 'unknown'} note={symbolsReady ? o.ready : o.loading} />
-          <ReadyRow label={o.rowHazmat} state="ready" note={o.ready} />
-          <ReadyRow label={`${o.rowMap}${probeUrls.tiles.length ? '' : ` (${o.noLayer})`}`} state={probeUrls.tiles.length ? tile.s : 'unknown'} note={tile.n} />
-          <ReadyRow label={planCount > 0 ? `${o.rowPlans} · ${objectLabel ?? `${planCount}`}` : o.rowPlans} state={plan.s} note={plan.n} />
-          <ReadyRow label={o.rowLeitung} state={geo.s} note={geo.n} />
-          <ReadyRow label={o.rowWeather} state={weatherError ? 'missing' : weatherOk ? 'online' : 'unknown'} note={weatherError ? o.weatherUnreachable : weatherOk ? o.onlineOnly : o.loading} />
-          <ReadyRow label={o.rowPersonnel} state={personnelCount > 0 ? 'ready' : 'missing'} note={personnelCount > 0 ? fillTemplate(o.personnelCount, { n: personnelCount }) : o.notLoaded} />
-          <ReadyRow label={o.rowObjectSearch} state="online" note={o.onlineOnly} />
-          {/* Device storage: 'missing' whenever a write has actually been refused — that outranks
-              a healthy-looking free figure, since it's the observed fact rather than an estimate. */}
-          <ReadyRow
-            label={o.rowStorage}
-            state={degraded ? 'missing' : space === undefined ? 'unknown' : space === null ? 'online' : 'ready'}
-            note={degraded
-              ? o.storageFullShort
-              : space === undefined ? o.checking
-                : space === null ? o.storageUnknown
-                  : fillTemplate(o.storageFree, { size: fmtFileSize(space.free) })}
-          />
-        </div>
-
-        {loading ? (
-          <div className="or-prog" role="progressbar"
-            aria-valuemin={0} aria-valuemax={progress?.total ?? 0} aria-valuenow={progress?.done ?? 0}>
-            <div className="or-prog-track">
-              <div className="or-prog-fill" style={{ width: `${progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%` }} />
-            </div>
-            <div className="or-prog-meta">
-              <span><ShellLoader /> {o.loadingForOffline}</span>
-              <span className="or-prog-end">
-                <span className="or-prog-pct">{progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0} %</span>
-                {/* the download had no way out until 02.09.: three workers on a dead WLAN ran until
-                    their timeouts, and the button under them was gone for the duration */}
-                <button type="button" className="ip-btn or-prog-cancel" onClick={onCancel}>{o.cancel}</button>
-              </span>
-            </div>
-          </div>
-        ) : justLoaded ? (
-          <div className="or-done" role="status">
-            <SyncGlyph done label={o.ready} />
-            <span>{o.ready}</span>
-          </div>
-        ) : (
-          <button className="or-load" onClick={onLoadAll}>
-            <Icon id="map" /> {o.loadAll}
-          </button>
-        )}
-        <p className="or-foot">
-          {o.foot}
-        </p>
+      <div className="or-list">
+        <ReadyRow label={o.rowSymbols} state={symbolsReady ? 'ready' : 'unknown'} note={symbolsReady ? o.ready : o.loading} />
+        <ReadyRow label={o.rowHazmat} state="ready" note={o.ready} />
+        <ReadyRow label={`${o.rowMap}${probeUrls.tiles.length ? '' : ` (${o.noLayer})`}`} state={probeUrls.tiles.length ? tile.s : 'unknown'} note={tile.n} />
+        <ReadyRow label={planCount > 0 ? `${o.rowPlans} · ${objectLabel ?? `${planCount}`}` : o.rowPlans} state={plan.s} note={plan.n} />
+        <ReadyRow label={o.rowLeitung} state={geo.s} note={geo.n} />
+        <ReadyRow label={o.rowWeather} state={weatherError ? 'missing' : weatherOk ? 'online' : 'unknown'} note={weatherError ? o.weatherUnreachable : weatherOk ? o.onlineOnly : o.loading} />
+        <ReadyRow label={o.rowPersonnel} state={personnelCount > 0 ? 'ready' : 'missing'} note={personnelCount > 0 ? fillTemplate(o.personnelCount, { n: personnelCount }) : o.notLoaded} />
+        <ReadyRow label={o.rowObjectSearch} state="online" note={o.onlineOnly} />
+        {/* Device storage: 'missing' whenever a write has actually been refused — that outranks
+            a healthy-looking free figure, since it's the observed fact rather than an estimate. */}
+        <ReadyRow
+          label={o.rowStorage}
+          state={degraded ? 'missing' : space === undefined ? 'unknown' : space === null ? 'online' : 'ready'}
+          note={degraded
+            ? o.storageFullShort
+            : space === undefined ? o.checking
+              : space === null ? o.storageUnknown
+                : fillTemplate(o.storageFree, { size: fmtFileSize(space.free) })}
+        />
       </div>
-    </Modal>
+
+      {loading ? (
+        <div className="or-prog" role="progressbar"
+          aria-valuemin={0} aria-valuemax={progress?.total ?? 0} aria-valuenow={progress?.done ?? 0}>
+          <div className="or-prog-track">
+            <div className="or-prog-fill" style={{ width: `${progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%` }} />
+          </div>
+          <div className="or-prog-meta">
+            <span><ShellLoader /> {o.loadingForOffline}</span>
+            <span className="or-prog-end">
+              <span className="or-prog-pct">{progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0} %</span>
+              {/* the download had no way out until 02.09.: three workers on a dead WLAN ran until
+                  their timeouts, and the button under them was gone for the duration */}
+              <button type="button" className="ip-btn or-prog-cancel" onClick={onCancel}>{o.cancel}</button>
+            </span>
+          </div>
+        </div>
+      ) : justLoaded ? (
+        <div className="or-done" role="status">
+          <SyncGlyph done label={o.ready} />
+          <span>{o.ready}</span>
+        </div>
+      ) : (
+        <button className="or-load" onClick={onLoadAll}>
+          <Icon id="map" /> {o.loadAll}
+        </button>
+      )}
+      <p className="or-foot">
+        {o.foot}
+      </p>
+    </div>
   )
 }
