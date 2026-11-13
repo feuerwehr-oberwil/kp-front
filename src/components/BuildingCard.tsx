@@ -15,8 +15,9 @@ import s from './BuildingCard.module.css'
  * "Sofortmassnahmen" then "Gebäude"»): the Einsatzobjekt's Sofortmassnahmen and Bemerkungen when
  * the station wrote some (named only when they are a neighbour's, `objectCaption`), then «Gebäude»
  * – the hazard lines first (the warn glyph as the bullet), then the register facts, all one size
- * and weight – then the last Objektbesuch. No head row: the first heading carries the ✕, the
- * «Gebäude» heading «Register-Hinweis». The
+ * and weight – then the last Objektbesuch. No head row: the ✕ stands at the first heading's right
+ * end (pinned there, so it stays put while a long card scrolls), the «Gebäude» heading carries
+ * «Register-Hinweis». The
  * pieces are the Karte panel's own (BuildingFacts), so the two surfaces cannot drift apart.
  * Nothing to say → nothing drawn (lib/buildingCard).
  *
@@ -45,20 +46,25 @@ export function BuildingCard({ info, onClose }: { info: BuildingInfo | null; onC
       <Icon id="close" />
     </button>
   )
+  // …pinned: the ✕ stands in a sticky dock at the card's top, so it stays put while a long card
+  // scrolls under it (owner, 14.11.2026); the heading row keeps an invisible slot of its size
+  // where it used to stand, so at rest nothing moves
+  const slot = close && <span className={cx('ip-x', s.slot)} aria-hidden />
   return (
     // No head row of its own (owner, 27.10.2026: an empty «Register-Hinweis ✕» row was wasted): the
     // FIRST section's heading carries the ✕ at its right end, and «Register-Hinweis» always sits on
     // the «Gebäude» heading's row, its body opening right under it. «Gebäude» stays the card's name.
     <section className={s.card} aria-label={C.title}>
-      <StationNotes measures={measures} remarks={remarks} source={caption} end={close} />
+      {close && <div className={s.dock}>{close}</div>}
+      <StationNotes measures={measures} remarks={remarks} source={caption} end={slot} />
       <RegisterSection title={C.title} chips={lines} className={notes ? s.facts : undefined}
         end={<>
           <RegisterHintButton className={cx(s.hint, s.hintBtn)} open={hint} onToggle={() => setHint((o) => !o)} />
-          {!notes && close}
+          {!notes && slot}
         </>}
         below={hint && <RegisterHintBody className={s.hintBody} textClassName={s.sources}>{sources && <div className={s.sources}>{sources}</div>}</RegisterHintBody>} />
       {/* neither section (a last Objektbesuch alone): the ✕ needs a row of its own */}
-      {!notes && !lines.length && close && <div className={s.head}>{close}</div>}
+      {!notes && !lines.length && slot && <div className={s.head}>{slot}</div>}
       {visit && <p className={s.visit}><Icon id="clipboard" /><span>{visit}</span></p>}
     </section>
   )

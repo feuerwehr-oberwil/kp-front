@@ -10,6 +10,11 @@ Closed, it names the hazards as glyph + word («⚠ Gebäude-Info · Gas · PV»
 – the same words on every surface and size (owner pick C8, 05.11.2026; the phone and the plan's
 row said «⚠ Gas» alone until then). A tap opens the card docked one row above it.
 The card is non-modal, like the Passung: the map stays live, and ✕, the chip or Esc close it.
+Open, it stands above the phone's wind chip (the row rises to `--z-map-card`, under the
+Meldeleiste and the bars) and never reaches past the top: its height is the room between its foot
+and where the Meldeleiste starts – one gap under the strip while one stands. A longer card scrolls
+inside itself with its ✕ pinned in the corner (owner, 14.11.2026: «opens above the weather button
+and is scrollable if it's too large»).
 Until 09.10.2026 the card sat in the incident menu; the owner wanted it «on the map directly».
 
 ## It opens by itself the first time
@@ -43,10 +48,9 @@ too, on every new Einsatz. A building with nothing at all has no chip and no car
   Bemerkungen (no source line – «drop the source»; only a NEIGHBOUR's notes are named, «Schloss
   Musterdorf · in der Nähe (118 m)», because they read exactly like this building's), then
   **Gebäude** – the hazard lines first, then the register facts, bullets of the Sofortmassnahmen's
-  size and weight (the Karte panel's `RegisterLines`) – then the last Objektbesuch, and at the
-  foot, under a hairline, the station's map links for the Einsatz's place (`map.externalLinks`,
-  `BuildingFacts · GeoLinks`, M10 13.11.2026: «Geoportal Oberwil ↗» … – none configured, nothing;
-  offline disabled with «Nur mit Netz»). There is no head
+  size and weight (the Karte panel's `RegisterLines`) – then the last Objektbesuch (no map-portal
+  links at the foot: they came 13.11.2026 and went again 14.11.2026, owner: «bloat up the
+  information without providing value»). There is no head
   row: the FIRST section's heading carries the ✕ at its right end, and «Register-Hinweis» (the
   source line right under it, FOLDED each time the card opens, as on the Karte panel – Manuel
   09.11.2026; open since sweep 30.10.2026 #6 until then; a tap opens it) always sits on the «Gebäude» heading's row – [GEBÄUDE ·

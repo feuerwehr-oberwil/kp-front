@@ -35,18 +35,27 @@ describe('BuildingCard', () => {
     expect(screen.getByRole('region', { name: 'Gebäude' })).toBeTruthy()
   })
 
-  // owner, 27.10.2026: no wasted head row – the first heading carries the ✕, «Register-Hinweis»
-  // always sits on the Gebäude heading's row
-  it('puts the ✕ on the first heading, «Register-Hinweis» on the Gebäude one', () => {
+  // owner, 27.10.2026: no wasted head row – the ✕ stands at the first heading's end, «Register-
+  // Hinweis» always on the Gebäude heading's row; 14.11.2026: the ✕ is pinned (a sticky dock first
+  // in the card, so it stays put while a long card scrolls) and the row keeps its invisible slot
+  it('pins the ✕ first in the card, its slot on the first heading, «Register-Hinweis» on the Gebäude one', () => {
     const row = (word: string) => screen.getByText(word).parentElement!
+    const slot = '.ip-x[aria-hidden]'
+    const pinned = () => {
+      const x = screen.getByRole('button', { name: 'Schliessen' })
+      return screen.getByRole('region', { name: 'Gebäude' }).firstElementChild === x.parentElement
+    }
     const { unmount } = render(<BuildingCard info={base} onClose={() => {}} />)
+    expect(pinned()).toBe(true)
     expect(row('Gebäude').querySelector('button[aria-expanded]')).toBeTruthy()
-    expect(row('Gebäude').querySelector('button[aria-label="Schliessen"]')).toBeTruthy()
+    expect(row('Gebäude').querySelector(slot)).toBeTruthy()
     unmount()
     render(<BuildingCard info={{ ...base, object: { id: 'o', name: 'S', address_match: true, distance_m: 0, measures: 'Tor öffnen', remarks: null, measures_source: null, updated_at: null } }} onClose={() => {}} />)
-    expect(row('Sofortmassnahmen').querySelector('button[aria-label="Schliessen"]')).toBeTruthy()
+    expect(pinned()).toBe(true)
+    expect(screen.getAllByRole('button', { name: 'Schliessen' })).toHaveLength(1)
+    expect(row('Sofortmassnahmen').querySelector(slot)).toBeTruthy()
     expect(row('Gebäude').querySelector('button[aria-expanded]')).toBeTruthy()
-    expect(row('Gebäude').querySelector('button[aria-label="Schliessen"]')).toBeNull()
+    expect(row('Gebäude').querySelector(slot)).toBeNull()
     // opened, right under the Gebäude heading
     fireEvent.click(screen.getByRole('button', { name: /Register-Hinweis/ }))
     expect(row('Gebäude').nextElementSibling?.getAttribute('data-testid')).toBe('register-hint')
