@@ -277,10 +277,12 @@
      measured 40px high; 44 until the M8 rework), every icon 18px — was a jumble (34/38 buttons,
      16/17/18 icons). ℹ matches (DockInfo). */
   .phone-tools .wb-dock .wb-dock-tog, .phone-tools .wb-dock .wb-dock-go,
-  .phone-tools .wb-dock .wb-ww, .phone-tools .wb-dock .wb-ls { width: 46px; min-width: 46px; height: 46px; border-radius: var(--r-sm); }
+  .phone-tools .wb-dock .wb-ww { width: 46px; min-width: 46px; height: 46px; border-radius: var(--r-sm); }
   /* the ✕ at the bar's END (ToolDock · close, sweep 27.10.2026 #3): its DOM place, not the
      column's `order` lift, and the group gap on the side that faces the options */
   .phone-tools .wb-dock .wb-dock-x { width: 46px; height: 46px; order: 0; margin: 0 0 0 4px; }
+  /* «✓ Fertig» keeps its word on the phone's row too (09-whiteboard · M7 C) */
+  .phone-tools .wb-dock .wb-dock-go { width: auto; padding-inline: var(--sp-3); }
   .phone-tools .wb-dock .i { width: 18px; height: 18px; }
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
   /* …but a Tafel PAGE is a form with no tool bar under it: it runs down to the nav bar (Whiteboard · formPage) */

@@ -6,7 +6,8 @@
 // push computation, refreshed by the 30 s watch). What that may do here is the owner's rule:
 //
 //  · every other running Einsatz with such a Trupp gets a red mark on its row in the Einsatz list
-//    (AppMenuRows) — and that is ALL, while this device works a live Ernstfall of its own: two
+//    (AppMenuRows), and the shut Einsatz pill a red dot at its chevron (IncidentSwitcher, M11 B)
+//    — and that is ALL, while this device works a live Ernstfall of its own: two
 //    real Einsätze in parallel are run by two teams, and one must not be distracted by the other.
 //  · a device NOT working a live Ernstfall (it stands in an Übung, or in a closed Einsatz) gets
 //    the full alarm for a live Ernstfall's Trupps: the red row with the Einsatz's name in front,

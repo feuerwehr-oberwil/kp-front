@@ -26,6 +26,7 @@ import type { ShareLinkKind } from '../lib/viewLink'
 import type { ReportMeta } from '../lib/workspace'
 import type { Incident, WeatherData, LngLat, ReactivateResult } from '../types'
 import type { WorkspaceMode } from './types'
+import type { ViewOnlyReason } from './access'
 
 export interface WorkspaceTopBarProps {
   incidentView: Incident
@@ -106,6 +107,8 @@ export interface WorkspaceTopBarProps {
   /** bumped when the Einsatz-Menü has to go although no surface changed — «Abschliessen» asked
    *  from «Alle Einsätze» (IncidentWorkspace · abschlussRef) */
   menuCloseKey: number
+  /** «Nur ansehen» in the pill's status slot, and why (workspace/access · viewOnlyReason) */
+  viewOnly: ViewOnlyReason | null
 }
 
 export function WorkspaceTopBar({
@@ -120,7 +123,7 @@ export function WorkspaceTopBar({
   onOpenDivera, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
   setHelpOpen, setInstallGuideOpen, syncNow, media, logout, settingsOpen,
   helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
-  menuCloseKey,
+  menuCloseKey, viewOnly,
 }: WorkspaceTopBarProps) {
   return (
     <>
@@ -269,6 +272,7 @@ export function WorkspaceTopBar({
             onReactivate={onReactivateActive}
             navKey={`${mode}|${journalOpen ? 'journal' : ''}|${menuCloseKey}`}
             sheetOpen={settingsOpen || helpOpen || installGuideOpen || offlineReadyOpen || !!shareLink}
+            viewOnly={viewOnly}
           />
         }
       />

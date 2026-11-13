@@ -941,8 +941,9 @@ describe('KarteApp', () => {
     expect(await screen.findByTestId('pdf')).toBeTruthy()
     fireEvent.click(within(screen.getByRole('navigation', { name: /Schloss Musterdorf/ })).getByRole('button', { name: 'Karte' }))
     await waitFor(() => expect(easeTo).toHaveBeenCalledTimes(1))
-    // right of the panel beside the rail, left of the tool rail (lib/karte/camera · besidePanel)
-    expect(easeTo).toHaveBeenCalledWith(expect.objectContaining({ center: [7.570188, 47.523773], padding: { top: 80, bottom: 0, left: 496, right: 76 } }))
+    // right of the panel beside the rail, left of the tool rail (lib/karte/camera · besidePanel);
+    // both rails wear their words by default since 13.11.2026 (M8), 32px wider each
+    expect(easeTo).toHaveBeenCalledWith(expect.objectContaining({ center: [7.570188, 47.523773], padding: { top: 80, bottom: 0, left: 528, right: 108 } }))
   })
 
   it('comes back on the Checkliste with the session, unless a deep link asks for an object', async () => {

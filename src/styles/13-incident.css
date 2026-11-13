@@ -68,6 +68,15 @@
 .ip-error-chip { color: var(--red-strong); background: var(--red-16);
 }
 .ip-switch-btn .ip-error-chip svg { width: 12px; height: 12px; opacity: 1; }
+/* «Nur ansehen» (M6 A, 13.11.2026) – the same tag in ink, not amber: a state to know, not a
+   problem. Body type also inside the phone's mono clock line, where it rides (IncidentSwitcher). */
+.ip-viewonly-chip { color: var(--ink); background: var(--ink-12); font-family: var(--body); }
+.ip-switch-btn .ip-viewonly-chip svg { width: 14px; height: 14px; opacity: 1; }
+/* the chevron's red dot: another Einsatz has a Trupp at the alarm tier (M11 B) – 9px, ringed in
+   the pill's paper so it reads off the chevron's grey */
+.ip-switch-chev { position: relative; display: inline-flex; flex: none; }
+.ip-foreign-dot { position: absolute; top: -3px; right: -4px; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--red-strong); box-shadow: 0 0 0 2px var(--surface); }
 /* ── Atemschutz board: its own sync/clock line (AtemschutzView header, under the subtitle) ──
    The safety review (01.09.) asked that the ONE surface a life depends on says ITSELF whether
    what it shows is saved and current — the top-bar pill is invisible to somebody watching
@@ -171,6 +180,7 @@
    owner pick B + «only on tap»): a button folding out the state's sentence and its exits, in the
    neutral grey tag «Archiv» wears in the list (M2, owner's pick A, 13.11.2026 – it was amber) */
 .ip-card-pill.ip-card-closed { color: var(--ink-dim); background: var(--fill-soft); }
+.ip-card-pill.ip-card-viewonly { color: var(--ink); background: var(--ink-12); }
 .ip-card-closed-fold { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
 .ip-card-closed-say { margin: 0; font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
 .ip-card-closed-say small { display: block; margin-top: 2px; font-size: var(--fs-1); color: var(--ink-faint); }

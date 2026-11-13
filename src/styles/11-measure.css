@@ -366,11 +366,12 @@ body[data-sel-arm="rotate"] .maplibregl-map,
 body[data-sel-arm="rotate"] .wb-canvas {
   cursor: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23ffffff' stroke-width='5'%3E%3Cpath d='M20 11a8 8 0 1 1-2.4-5.7'/%3E%3Cpath d='M20 4v4.2h-4.2'/%3E%3C/g%3E%3Cg stroke='%231f2937' stroke-width='2.4'%3E%3Cpath d='M20 11a8 8 0 1 1-2.4-5.7'/%3E%3Cpath d='M20 4v4.2h-4.2'/%3E%3C/g%3E%3C/svg%3E") 12 12, grab;
 }
-/* «Fertig» carries its word: it is the way OUT of the editing state, and the bar's only label.
-   ⚠️ NOT «Löschen» (02.09.) — deleting belongs in the object's own editor sheet and on the Delete
+/* A Mehrfach group's ✕ (SelectionBar · onClose): the global `.ip-x`, placed at the bar's end. A
+   single object has none here – its editor card's ✕ is the exit (M7 C, 13.11.2026: ✕ closes,
+   «Fertig» only commits a draft; the bar's «Fertig» beside the card's ✕ was two exits for one).
+   ⚠️ NOT «Löschen» (02.09.) – deleting belongs in the object's own editor sheet and on the Delete
    key, not on chrome sitting two taps from every grip. */
-/* …and it is THE button (<Button>, 08.10.2026); placement only here */
-.sel-bar-done { flex: none; white-space: nowrap; }
+.sel-bar-x { flex: none; }
 
 /* ── the grips step aside while the whole object is moving (lib/transformChrome) ──────────────
    A selected Linie wears a pad on every vertex, a «+» in every gap, Verlängern on both ends and

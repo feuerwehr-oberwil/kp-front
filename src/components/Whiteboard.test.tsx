@@ -1161,36 +1161,44 @@ describe('the plan’s selection bar', () => {
     expect(within(bar()!).getByRole('button', { name: D.moveArmed })).toBeTruthy()
   })
 
-  // ⚠️ «Löschen» left the bar on 02.09.: its third slot is «Fertig», which ENDS the editing state
-  // — nothing selected, no mode armed, the sheets that were open for it closed. Deleting stays on
-  // the Delete key and in the object's own editor sheet (see the A21 block below).
-  it('ends the editing state on «Fertig», and offers no trash at all', () => {
-    const { container, onChange } = renderPlan([line])
+  // M7 C (13.11.2026): ✕ closes, «Fertig» only commits a draft. A single Linie's exit is its editor
+  // card's ✕, so the bar has none; a Mehrfach group has no card, so the bar carries the ✕. Neither
+  // deletes (A21 below: the Delete key and the editor sheet do).
+  const boxGroup = (container: HTMLElement) => {
+    armMehrfach()
+    const stage = container.querySelector('.wb-stage > div')!
+    fireEvent.pointerDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
+    fireEvent.pointerMove(stage, { clientX: 400, clientY: 400, pointerId: 1 })
+    fireEvent.pointerUp(stage, { clientX: 400, clientY: 400, pointerId: 1 })
+  }
+  const closeX = () => within(bar()!).queryByRole('button', { name: appConfig.copy.closeDialog })
+
+  it('gives a single Linie no second exit beside its card, and no trash', () => {
+    const { container } = renderPlan([line])
     fireEvent.pointerDown(hitShape(container))
     expect(within(bar()!).queryByRole('button', { name: appConfig.copy.remove })).toBeNull()
-    fireEvent.click(within(bar()!).getByRole('button', { name: appConfig.copy.done }))
-    expect(bar()).toBeNull()
-    // …and it deletes nothing on the way out
-    expect(onChange.mock.calls.length === 0
-      || onChange.mock.calls[onChange.mock.calls.length - 1][0].some((a: BoardAnno) => a.id === 'l1')).toBe(true)
+    expect(within(bar()!).queryByRole('button', { name: appConfig.copy.done })).toBeNull()
+    expect(closeX()).toBeNull()
   })
 
-  it('drops an armed mode with the editing state', () => {
-    const { container, onChange } = renderPlan([line])
-    fireEvent.pointerDown(hitShape(container))
+  it('ends a group\'s editing state on its ✕ — armed mode included — and deletes nothing', () => {
+    const { container, onChange } = renderPlan([line, box])
+    boxGroup(container)
     const grip = within(bar()!).getByRole('button', { name: D.move })
-    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
-    fireEvent.pointerUp(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 2 })
+    fireEvent.pointerUp(grip, { clientX: 100, clientY: 100, pointerId: 2 })
     expect(within(bar()!).getByRole('button', { name: D.moveArmed })).toBeTruthy()
-    fireEvent.click(within(bar()!).getByRole('button', { name: appConfig.copy.done }))
+    fireEvent.click(closeX()!)
     expect(bar()).toBeNull()
+    const out = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as BoardAnno[] | undefined
+    expect(!out || (out.some((a) => a.id === 'l1') && out.some((a) => a.id === 'f1'))).toBe(true)
     // …and a drag on the sheet is a plain board gesture again, not a move of what was selected
     const canvas = container.querySelector('.wb-canvas')!
-    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40, pointerId: 2, isPrimary: true })
-    fireEvent.pointerMove(window, { clientX: 40, clientY: 160, pointerId: 2 })
-    fireEvent.pointerUp(window, { clientX: 40, clientY: 160, pointerId: 2 })
-    const out = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as BoardAnno[] | undefined
-    expect(out?.find((a) => a.id === 'l1')?.pts?.[0][1] ?? 0.2).toBeCloseTo(0.2)
+    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40, pointerId: 3, isPrimary: true })
+    fireEvent.pointerMove(window, { clientX: 40, clientY: 160, pointerId: 3 })
+    fireEvent.pointerUp(window, { clientX: 40, clientY: 160, pointerId: 3 })
+    const after = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as BoardAnno[] | undefined
+    expect(after?.find((a) => a.id === 'l1')?.pts?.[0][1] ?? 0.2).toBeCloseTo(0.2)
   })
 
   it('is the SAME bar for a Mehrfach group — one drag moves every boxed object', () => {

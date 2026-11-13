@@ -668,13 +668,13 @@ function GeorefActions({ mode, onReset }: { mode: GeorefModeState; onReset?: () 
     return (
       <>
         <CheckBlend mode={mode} />
-        <button className={`btn primary ${s.finishAction}`} onClick={() => georefDispatch({ type: 'finishCheck' })}>
-          <Icon id="check" />{C.done}
+        {/* ✕ «Schliessen»: the check makes nothing, so it is closed, not finished (M7 C) */}
+        <button className={`btn ${s.finishAction}`} onClick={() => georefDispatch({ type: 'finishCheck' })}>
+          <Icon id="close" />{C.closeMode}
         </button>
       </>
     )
   }
-  const done = mode.pairs.length >= 2 && georefOpenCount(mode) === 0
   return (
     <>
       {/* «Verschieben» armed: the visible way to put the cross back down — Esc alone is not an
@@ -701,16 +701,16 @@ function GeorefActions({ mode, onReset }: { mode: GeorefModeState; onReset?: () 
         <button className={`btn link ${s.checkAction}${mode.check ? ' on' : ''}`} aria-pressed={mode.check}
           onClick={() => georefDispatch({ type: 'check', on: !mode.check })}><Icon id="eye" />{C.checkFit}</button>
       )}
-      {/* One way out, with the word matching what it does. Once a usable fit stands it says so
-          («Fertig»); before that it is «Schliessen».
+      {/* One way out, with the word matching what it does: ✕ «Schliessen», also once a usable fit
+          stands (it said «✓ Fertig» then until 13.11.2026) – closing loses nothing here, and
+          «Fertig» is the app's word for committing a draft a close would throw away (owner, M7 C ·
+          ui-conventions › Close and commit). The status says «Verknüpft».
           ⚠️ NOT «Abbrechen», which it said until 27.08. and never once did: pairs are saved as
           they are placed (georefMode · the debounced save), so leaving keeps every one of them.
           Somebody who pressed it to get rid of a crooked alignment found the plan georeferenced
           anyway. Throwing the points away is «Alle Punkte zurücksetzen», and that one asks. */}
-      <button className={`btn ${s.finishAction} ${done ? 'primary' : ''}`}
-        onClick={() => endGeorefMode()}>
-        <Icon id={done ? 'check' : 'close'} />
-        {done ? C.done : C.closeMode}
+      <button className={`btn ${s.finishAction}`} onClick={() => endGeorefMode()}>
+        <Icon id="close" />{C.closeMode}
       </button>
     </>
   )
@@ -771,7 +771,7 @@ export function GeorefInstrument({ mode, inline = false, onReset }: { mode: Geor
 /**
  * The armed mode ON A PHONE: one slim bar in the tool bar's lane (sweep 27.10.2026 #13, the
  * owner's pick «A»): the status «n/2 Paare» · the Karte | plan switch with each half's count · a
- * round «+». «Schliessen» (✓ «Fertig» once a fit stands) sits top right, the loupe bottom left
+ * round «+». ✕ «Schliessen» sits top right, the loupe bottom left
  * just above the bar, by the thumb.
  *
  * ⚠️ The instruction lives behind the STATUS, not under the button. It used to be a sentence below
@@ -864,7 +864,6 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
   const st = georefStatus(mode, { planLabel, phone: true })
   const n = mode.pairs.length
   const open = georefOpenCount(mode)
-  const done = n >= 2 && open === 0
   const onPlan = georefOnPlan(planLabel)
   const place = () => {
     if (!placeGeorefPhoneTarget(shownSurface)) toast(C.targetOutside, { icon: 'warn', tone: 'warn' })
@@ -880,14 +879,14 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
         {crossSvg}
       </div>
     )}
-    {/* the way out, top right under the TopBar — the word matches what it does: «Schliessen»,
-        never «Abbrechen» (see the same button in GeorefActions), and «Fertig» once a fit stands.
-        Hidden during «Deckung prüfen», whose own bar carries its «Fertig». */}
+    {/* the way out, top right under the TopBar — ✕ «Schliessen», never «Abbrechen» and, since
+        13.11.2026, never «Fertig» either (see the same button in GeorefActions). Hidden during
+        «Deckung prüfen», whose own bar carries its ✕. */}
     {!mode.check && (
-      <button type="button" className={`${s.exitPill} ${done ? s.exitDone : ''}`}
+      <button type="button" className={s.exitPill}
         style={topbarBottom != null ? { top: topbarBottom + 10 } : undefined}
         onClick={() => endGeorefMode()}>
-        <Icon id={done ? 'check' : 'close'} />{done ? C.done : C.closeMode}
+        <Icon id="close" />{C.closeMode}
       </button>
     )}
     <div ref={barRef} data-georef-controls className={s.dock}>

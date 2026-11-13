@@ -489,7 +489,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   ]
   // «Beschriftung» from the Einstellungen, live (App's settings sheet sits over this surface): the
   // word under the glyph on all three bars and the view bar, as in an Einsatz (owner, 07.11.2026)
-  const railLabels = useRailLabels(phone)
+  const railLabels = useRailLabels()
 
   // ── the keyboard (lib/karte/hotkeys · useKarteKeys) ───────────────────────────────────────
   // the bar's field, whichever it is (the map's search or, on the Checkliste, the library's)

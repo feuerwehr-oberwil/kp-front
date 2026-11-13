@@ -76,8 +76,8 @@ export function SettingsSheet({
   /** on-canvas symbol captions (Aus/Auto/Alle) — device pref like the symbol sizes */
   symbolCaptions: CaptionMode
   onSymbolCaptions: (m: CaptionMode) => void
-  /** words under the rail glyphs — device pref, off by default, ON on a phone (lib/prefs ·
-   *  railLabelsFor, 29.09.2026). Both rails at once: they are one decision («soll da Text
+  /** words under the rail glyphs — device pref, ON by default on every device (lib/prefs ·
+   *  railLabelsFor, 13.11.2026). Both rails at once: they are one decision («soll da Text
    *  stehen»), not two. */
   railLabels: RailLabels
   onRailLabels: (v: RailLabels) => void

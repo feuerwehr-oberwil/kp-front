@@ -29,6 +29,9 @@ export type DockItem =
   /** `text` renders a short word/letter instead of a glyph — for options that have no honest
    *  icon (the note's S/M/L size steps, Zettel↔Klartext). Exactly one of icon/text is used. */
   | { type: 'toggle'; icon?: string; text?: string; label: string; on: boolean; onClick: () => void; disabled?: boolean }
+  /** «✓ Fertig» — commits the draft being drawn (a Punkte-Linie, -Fläche, a Wand). Glyph AND word
+   *  (owner, 13.11.2026, M7 C): the one control that commits, not a ✕ look-alike; the ✕ beside it
+   *  closes, and a committable draft is asked about, never thrown away (useMapDrawing · settleDraft). */
   | { type: 'go'; onClick: () => void; disabled?: boolean; title?: string }
   | { type: 'glyph'; node: ReactNode }
   | { type: 'action'; icon: string; label: string; onClick: () => void; disabled?: boolean; cls?: string }
@@ -46,7 +49,7 @@ function renderItem(item: DockItem, key: string): ReactNode {
     case 'toggle':
       return <button key={key} className={`wb-dock-tog ${item.text ? 'wb-dock-txt ' : ''}${item.on ? 'on' : ''}`} title={item.label} aria-label={item.label} aria-pressed={item.on} disabled={item.disabled} onClick={item.onClick}>{item.text ?? <Icon id={item.icon ?? ''} />}</button>
     case 'go':
-      return <button key={key} className="wb-dock-go" disabled={item.disabled} title={item.title ?? appConfig.copy.done} aria-label={item.title ?? appConfig.copy.done} onClick={item.onClick}><Icon id="check" /></button>
+      return <button key={key} className="wb-dock-go" disabled={item.disabled} title={item.title ?? appConfig.copy.done} aria-label={item.title ?? appConfig.copy.done} onClick={item.onClick}><Icon id="check" /><span className="wb-dock-go-t">{item.title ?? appConfig.copy.done}</span></button>
     case 'glyph':
       return <span key={key} className="wb-dock-ic wb-dock-shape">{item.node}</span>
     case 'action':

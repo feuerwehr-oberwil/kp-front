@@ -10,11 +10,14 @@
  * the finger off the screen within ~28px. Only one of the two is ever armed; tapping it again,
  * Esc, a selection change and a tool change all disarm, and while armed the surface answers no
  * taps at all – a press that never travels is nothing, so nothing can be placed, selected or
- * deselected under the finger. **The bar has three slots and no fourth: ✥ · ⟳ · Fertig.** The
+ * deselected under the finger. **The bar has ✥ · ⟳ and, for a Mehrfach group only, a ✕.** The
  * turn's degrees are read *on the surface*, beside the pivot and the radius the finger is
  * swinging (`components/SelectionTurn`), never off a button at the far edge of a tablet – so the
- * two grips are icon-only and never re-flow mid-gesture. «Fertig» ends the editing state
- * (disarm + clear the selection + close its sheets); **«Entfernen» is not on the bar** (it was
+ * two grips are icon-only and never re-flow mid-gesture. The way out is the ✕ of the object's
+ * editor card; a Mehrfach group has no card, so the bar carries its ✕ (disarm + clear the
+ * selection) – ✕ closes, «Fertig» only commits a draft (owner, 13.11.2026, M7 C · ui-conventions
+ * › Close and commit; until then the bar said «Fertig» beside the card's ✕, two exits for one
+ * thing). **«Entfernen» is not on the bar** (it was
  * called «Löschen» until 25.09.2026) – an object is removed from its own editor sheet and with the
  * Delete key, which on both surfaces reaches a
  * Mehrfach group and a mirrored selection too. On the object itself only **geometry** grips live:
@@ -33,7 +36,6 @@
 import { useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
-import { Button } from './Button'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { beginTransformChrome, endTransformChrome } from '../lib/transformChrome'
 
@@ -56,10 +58,11 @@ interface Props {
    *  turn (an Absperrkreis, and anything else whose model carries none): the button is then
    *  absent rather than inert, because a dead control at 3am is a control you keep pressing. */
   onRotate?: (deg: number, phase: TransformPhase) => void
-  /** «Fertig» — the editing state ends: any armed mode is dropped, the selection is cleared and
-   *  every sheet that was open FOR it closes. Deleting is not on this bar: it lives in the
-   *  object's own editor sheet and on the Delete key, where it does for every other object. */
-  onDone: () => void
+  /** ✕ — the editing state ends: any armed mode is dropped and the selection is cleared. Given
+   *  ONLY where no editor card with its own ✕ is up (a Mehrfach group): beside a card it would be
+   *  a second exit doing the same thing. Deleting is not on this bar: it lives in the object's
+   *  own editor sheet and on the Delete key, where it does for every other object. */
+  onClose?: () => void
   /** A drag on ✥ / ⟳ has been taken (true) or released (false).
    *  ⚠️ The Lage needs this: MapLibre arms its DragPan on the separate NATIVE mousedown /
    *  touchstart, which no React stopPropagation can reach, so without holding it off for the
@@ -84,7 +87,7 @@ interface Props {
  * aside for the length of a transform (lib/transformChrome), so the object reads as one thing
  * while it moves. Body-drag on the object stays as the tolerant shortcut.
  *
- * Three slots, and no fourth: ✥ · ⟳ · Fertig. The turn's degrees are read ON THE SURFACE, beside
+ * ✥ · ⟳, and a ✕ only for a group (see `onClose`). The turn's degrees are read ON THE SURFACE, beside
  * the pivot (components/SelectionTurn), not off a button at the far edge of the screen; and
  * «Löschen» is not here at all — an object is deleted from its own editor sheet and with the
  * Delete key, where every other change to it is made.
@@ -100,7 +103,7 @@ interface Props {
  * undo or the journal. Each surface maps the delta onto its own writers, which is also what lets
  * a further selection source (a Georeferenz-Zwilling) be added later without touching this file.
  */
-export function SelectionBar({ onMove, onRotate, onDone, onGrab, armed = null, onArm }: Props) {
+export function SelectionBar({ onMove, onRotate, onClose, onGrab, armed = null, onArm }: Props) {
   const drag = useRef<{ kind: 'move' | 'rotate'; x0: number; y0: number; live: boolean } | null>(null)
   // «the drag is on the bar itself» — the ONE thing the stylesheet cannot work out on its own.
   // On a phone the bar follows the peeking detail sheet down for the length of a transform
@@ -176,13 +179,16 @@ export function SelectionBar({ onMove, onRotate, onDone, onGrab, armed = null, o
           </button>
         )
       })()}
-      {/* the bar's one word, and the way out of the editing state. NOT «Löschen»: deleting an
-          object belongs in that object's own editor sheet (and on the Delete key), next to
-          everything else that changes it — a destructive button on a chrome bar two taps from
-          every grip is the near-miss the map's old hub ✕ was removed for. */}
-      <Button className="sel-bar-done" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onDone() }}>
-        {appConfig.copy.done}
-      </Button>
+      {/* a group's way out of the editing state, at the bar's END («X on the right everywhere»).
+          NOT «Löschen»: deleting belongs in the object's own editor sheet (and on the Delete
+          key) — a destructive button on a chrome bar two taps from every grip is the near-miss
+          the map's old hub ✕ was removed for. */}
+      {onClose && (
+        <button type="button" className="ip-x sel-bar-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}
+          onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onClose() }}>
+          <Icon id="close" />
+        </button>
+      )}
     </div>
   )
 }

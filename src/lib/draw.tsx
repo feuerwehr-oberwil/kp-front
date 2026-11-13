@@ -1,4 +1,5 @@
 import { appConfig } from '../config/appConfig'
+import { Segmented } from '../components/Segmented'
 
 // Single source of truth for line drawing style, shared by BOTH surfaces:
 // the Lage map (MapLibre line layers) and the Plan whiteboard (SVG polylines).
@@ -168,8 +169,8 @@ interface LineStylePickerProps {
 /**
  * How a line is stroked — solid, dashed, or one of the FKS chains.
  *
- * A fragment of buttons dropped into whatever style bar hosts it (map draw bar, DrawEditor,
- * whiteboard dock), so the choice is identical wherever it is made.
+ * The DrawEditor's «Linie» row on the Lage and the Plan alike – one shared editor, so the choice
+ * is identical wherever it is made.
  *
  * ⚠️ The chains live HERE, next to solid and dashed, rather than as line PRESETS (decision
  * 01.09., reconfirmed 09.09.). A Haltelinie is not a different kind of object with its own
@@ -185,26 +186,29 @@ export function LineStylePicker({ dashed, onChange, marker, onMarker }: LineStyl
   const c = appConfig.copy.drawingEditor
   const CHAINS = ['▲', '▼', '◯'] as const
   const chain = (CHAINS as readonly string[]).includes(marker ?? '') ? marker! : ''
-  const plain = (d: boolean) => { onChange(d); if (chain) onMarker?.('') }
-  const pick = (m: string) => { onMarker?.(m); if (dashed) onChange(false) }
+  const value = chain || (dashed ? 'dashed' : 'solid')
+  const pick = (v: string) => {
+    if (v === 'solid' || v === 'dashed') { onChange(v === 'dashed'); if (chain) onMarker?.('') }
+    else { onMarker?.(v); if (dashed) onChange(false) }
+  }
+  // ONE look for a picked choice in a panel (owner, 13.11.2026, M5): a real `Segmented`, so the
+  // picked stroke wears the same blue fill as the «Abschluss» right above it – it was a grey wash.
+  // `scroll`: a track like the «Abschluss», not the ≥5 chip mode, which wrapped the fifth to a line of its own.
+  // ⚠️ `explain`, like the Typ letters and the Abschluss glyphs: these five are pictures of a
+  // stroke, and «Haltelinie – Zähne oberhalb» is the only thing that says which one. Hold (touch)
+  // or hover (mouse) answers with it; no `title`, or the native tooltip repeats it a second later.
+  // Both Haltelinien-Seiten are their own option rather than a flip on one: which side the teeth
+  // face is an operational fact (they face the fire) and cannot be read off the geometry.
   return (
-    <>
-      <button className={`wb-ls ${!dashed && !chain ? 'on' : ''}`} data-holdexplain aria-label={c.lineSolid} aria-pressed={!dashed && !chain} onClick={() => plain(false)}><span className="ls-solid" /></button>
-      <button className={`wb-ls ${dashed && !chain ? 'on' : ''}`} data-holdexplain aria-label={c.lineDashed} aria-pressed={dashed && !chain} onClick={() => plain(true)}><span className="ls-dashed" /></button>
-      {onMarker && (
-        <>
-          {/* Both Haltelinien-Seiten are their own button rather than a flip on one: which side the
-              teeth face is an operational fact (they face the fire) and cannot be read off the
-              geometry, so it must be visible rather than a state you tap into.
-              ⚠️ `data-holdexplain`, like the Typ letters and the Abschluss glyphs: these five are
-              pictures of a stroke, and «Haltelinie – Zähne oberhalb» is the only thing that says
-              which one. Hold (touch) or hover (mouse) answers with it; no `title`, or the native
-              tooltip repeats the same sentence a second later. */}
-          <button className={`wb-ls ${chain === '▲' ? 'on' : ''}`} data-holdexplain aria-label={c.lineHalteliniUp} aria-pressed={chain === '▲'} onClick={() => pick('▲')}><span className="ls-teeth" /></button>
-          <button className={`wb-ls ${chain === '▼' ? 'on' : ''}`} data-holdexplain aria-label={c.lineHalteliniDown} aria-pressed={chain === '▼'} onClick={() => pick('▼')}><span className="ls-teeth down" /></button>
-          <button className={`wb-ls ${chain === '◯' ? 'on' : ''}`} data-holdexplain aria-label={c.lineAbwurfzone} aria-pressed={chain === '◯'} onClick={() => pick('◯')}><span className="ls-rings" /></button>
-        </>
-      )}
-    </>
+    <Segmented ariaLabel={c.lineStyle} value={value} onChange={pick} explain scroll
+      options={[
+        { value: 'solid', label: <span className="ls-solid" />, title: c.lineSolid },
+        { value: 'dashed', label: <span className="ls-dashed" />, title: c.lineDashed },
+        ...(onMarker ? [
+          { value: '▲', label: <span className="ls-teeth" />, title: c.lineHalteliniUp },
+          { value: '▼', label: <span className="ls-teeth down" />, title: c.lineHalteliniDown },
+          { value: '◯', label: <span className="ls-rings" />, title: c.lineAbwurfzone },
+        ] : []),
+      ]} />
   )
 }

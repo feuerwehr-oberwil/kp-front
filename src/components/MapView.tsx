@@ -1074,9 +1074,10 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
     } else if (groupActive) onGroupTransform?.(selectedDrawIds, selectedEntityIds, { dLng: 0, dLat: 0, deg }, phase)
     if (phase === 'end') barFrom.current = null
   }
-  /** «Fertig» — the editing state ends. The bar carries no Löschen any more: an object is
-   *  deleted from its own editor sheet and with the Delete key, so the one destructive action
-   *  is not sitting on chrome two taps from every grip. */
+  /** the bar's ✕ — the editing state ends. A group's only: a single object's editor card carries
+   *  the ✕ (SelectionBar · onClose). No Löschen on the bar: an object is deleted from its own
+   *  editor sheet and with the Delete key, so the one destructive action is not sitting on chrome
+   *  two taps from every grip. */
   const barDone = () => { onSelectionDone?.() }
   // ⟳ is absent, not inert, where the model carries no angle: an Absperrkreis is a centre and a
   // radius, and a dead button at 3am is a button you keep pressing.
@@ -2079,7 +2080,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
 
       {/* ONE bar for every selection this surface has — see components/SelectionBar */}
       {barShown && (
-        <SelectionBar onMove={barMove} onRotate={barCanRotate ? barRotate : undefined} onDone={barDone}
+        <SelectionBar onMove={barMove} onRotate={barCanRotate ? barRotate : undefined} onClose={groupActive ? barDone : undefined}
           onGrab={(grabbing) => setDragPanEnabled(!grabbing)}
           armed={arm.armed} onArm={arm.toggle} />
       )}
