@@ -315,10 +315,10 @@ export function IncidentSwitcher({
               {pill.street && <span className="ip-switch-street">{pill.street}</span>}
             </span>
             {(uhr || viewOnlyMark) && (
-              // the eyebrow on the clock's own line, before the digits (M3, owner's pick B): the
-              // phone pill keeps its two lines – above the digits it would have been a third.
-              // «Nur ansehen» rides on the same line (M6): in the title row it cut the Einsatz name
-              <span className="ip-switch-clock">{uhr && <><Icon id="hourglass" /><small className="clock-eyebrow" aria-hidden>{U.label}</small><b>{uhr}</b></>}{viewOnlyMark}</span>
+              // hourglass + digits, no label (round 2b, owner 13.11.2026: «less text»); the tap
+              // opens the card, whose «🕓 14:02 · 1 h 54» row says when it began. «Nur ansehen»
+              // rides on the same line (M6): in the title row it cut the Einsatz name
+              <span className="ip-switch-clock">{uhr && <><Icon id="hourglass" /><b>{uhr}</b></>}{viewOnlyMark}</span>
             )}
           </span>
         ) : (

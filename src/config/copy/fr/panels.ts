@@ -225,6 +225,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
   einsatzuhr: {
     title: 'Durée de l\'intervention – début {t}',
     label: 'Durée de l\'intervention',
+    tap: 'Durée de l\'intervention · depuis {t}',
   },
   feedback: {
     title: 'Retour',

@@ -45,6 +45,8 @@ export const panelsCopy = {
     title: 'Einsatzdauer – Beginn {t}',
     /** the read-out's accessible name: «Einsatzdauer: 1:54» */
     label: 'Einsatzdauer',
+    // what a tap on the head's clock says (round 2b: the clock wears no label, the tap names it)
+    tap: 'Einsatzdauer · seit {t}',
   },
   // self-contained location picker for the intake wizard (MapPicker)
   mapPicker: {
