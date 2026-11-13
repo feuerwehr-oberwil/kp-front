@@ -89,7 +89,9 @@ Owner pick A «Ein Feld» (`components/TimeField · DateTimeField`, header there
   alarm, every other empty field on «now». Stored values stay ISO (UTC); the form holds ISO too.
 - **The read-out is «12.11. 11:26»** – the day quiet, the clock loud; the year only when it is not
   the Einsatz's year («31.12.2025 23:50»), empty «--.--. --:--» (`format · fieldWhen`). The same on
-  every read-only rendering (viewer, closed or signed Rapport) and the derived «Ausgerückt». A
+  every read-only rendering (viewer, closed or signed Rapport) and the derived «Ausgerückt». One
+  exception: the «Alarmierung» line of the Einsatzdaten block keeps the full date
+  («20.09.2026 14:05») – it is the Einsatz's own date, so the year rule would never show its year. A
   vehicle's grey «vor Ort / zurück» line is a server read-out, not a field: a bare clock, with its
   day only when that is not the row's. **The PDF keeps its own formats** (`report · formatDateTime`).
 - **«Jetzt» is the deployment's clock** (`lib/serverClock`), on the two form buttons (Einsatzende,

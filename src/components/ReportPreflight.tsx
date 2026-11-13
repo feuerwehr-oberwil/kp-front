@@ -1655,7 +1655,10 @@ export function ReportPreflight({
                     </dd>
                   </div>
                 )}
-                <div><dt>{P.alarmierung}</dt><dd>{alarmiert ? whenOf(alarmiert) : <MissingFact />}</dd></div>
+                {/* the FULL date, the one exception to the fields' short read-out (owner, 13.11.2026):
+                    «year only when it is not the Einsatz's year» can never show a year on the line
+                    that IS the Einsatz's date, and this block is where a Rapport says which year it was */}
+                <div><dt>{P.alarmierung}</dt><dd>{alarmiert ? formatDateTime(alarmiert) : <MissingFact />}</dd></div>
               </dl>
             </div>
           </section>
