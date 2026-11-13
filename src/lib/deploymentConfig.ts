@@ -1041,7 +1041,8 @@ export function applyDeploymentBranding(cfg: DeploymentConfig): void {
 }
 
 /**
- * Station-supplied external map deep-links for the given incident coords (Datenquellen panel).
+ * Station-supplied external map deep-links for one place (BuildingFacts · GeoLinks: the Gebäude
+ * card's and the Karte object panel's foot).
  * Each config entry's `urlTemplate` is filled with {E}/{N} (LV95) and {lng}/{lat} (WGS84).
  * Returns [] when no links are configured — so a generic deployment shows none.
  */

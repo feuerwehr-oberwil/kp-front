@@ -4,7 +4,7 @@
 import type { Copy, Localizable } from '../index'
 
 type Keys =
-  | 'incidentSwitcher' | 'archived' | 'history' | 'abschluss' | 'datenquellen' | 'personnelSync'
+  | 'incidentSwitcher' | 'archived' | 'history' | 'abschluss' | 'personnelSync'
   | 'planPicker' | 'replay'
 
 export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
@@ -170,37 +170,6 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     failed: 'Échec de la clôture',
     corrected: 'Heures corrigées : {name}',
     attendanceRemoved: 'Présence de {name} retirée',
-  },
-  datenquellen: {
-    title: 'Sources de données',
-    uploaded: 'Téléversé',
-    uploadFailed: 'Échec du téléversement',
-    invalidFilename: 'Le nom de fichier ne donne pas d’identifiant valide',
-    layerAdded: 'Couche « {name} » ajoutée – visible au prochain chargement',
-    addLayerFailed: 'Impossible d’ajouter la couche',
-    layerConflict: 'Les couches cartographiques viennent d’être modifiées ailleurs. Appuyer à nouveau sur « Ajouter ».',
-    layerNoVersion: 'La configuration n’a pas pu être lue – la couche n’a pas été enregistrée. Merci de vérifier la connexion et de recharger la page.',
-    globalDatasets: 'Jeux de données globaux',
-    objectsCount: 'objets',
-    replace: 'Remplacer',
-    adminOnlyNote: 'Remplacer un jeu de données ou ajouter une couche exige que /admin soit déverrouillé dans ce navigateur (ADMIN_SECRET).',
-    newGeoLayer: 'Nouvelle couche géo …',
-    chooseGeojson: 'Choisir un GeoJSON …',
-    labelPlaceholder: 'Désignation (p. ex. hydrantes)',
-    groupPlaceholder: 'Groupe (p. ex. eau)',
-    defaultGroup: 'Référence',
-    kindLines: 'Lignes',
-    kindPoints: 'Points',
-    color: 'Couleur',
-    adding: 'Chargement …',
-    add: 'Ajouter',
-    geojsonNoteBefore: 'GeoJSON en WGS84 [lng, lat]. Enregistré comme jeu de données global ',
-    geojsonNoteAfter: '.',
-    incidentObjects: 'Objets d’intervention',
-    plansWord: 'plans',
-    nearby: 'À proximité ({n})',
-    allOther: 'Tous les autres objets',
-    allObjects: 'Tous les objets',
   },
   personnelSync: {
     title: 'Synchroniser l’effectif avec {provider}',

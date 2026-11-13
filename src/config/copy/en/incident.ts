@@ -4,7 +4,7 @@
 import type { Copy, Localizable } from '../index'
 
 type Keys =
-  | 'incidentSwitcher' | 'archived' | 'history' | 'abschluss' | 'datenquellen' | 'personnelSync'
+  | 'incidentSwitcher' | 'archived' | 'history' | 'abschluss' | 'personnelSync'
   | 'planPicker' | 'replay'
 
 export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
@@ -168,37 +168,6 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     failed: 'Completion failed',
     corrected: 'Hours corrected: {name}',
     attendanceRemoved: '{name} attendance removed',
-  },
-  datenquellen: {
-    title: 'Data sources',
-    uploaded: 'Uploaded',
-    uploadFailed: 'Upload failed',
-    invalidFilename: 'File name yields no valid identifier',
-    layerAdded: 'Layer "{name}" added – visible on the next load',
-    addLayerFailed: 'Could not add layer',
-    layerConflict: 'The map layers were just changed elsewhere. Please press «Add» again.',
-    layerNoVersion: 'The configuration could not be read – the layer was not saved. Please check the connection and reload the page.',
-    globalDatasets: 'Global datasets',
-    objectsCount: 'objects',
-    replace: 'Replace',
-    adminOnlyNote: 'Replacing a dataset or adding a layer needs /admin unlocked in this browser (ADMIN_SECRET).',
-    newGeoLayer: 'New geo layer …',
-    chooseGeojson: 'Choose GeoJSON …',
-    labelPlaceholder: 'Label (e.g. hydrants)',
-    groupPlaceholder: 'Group (e.g. water)',
-    defaultGroup: 'Reference',
-    kindLines: 'Lines',
-    kindPoints: 'Points',
-    color: 'Color',
-    adding: 'Loading …',
-    add: 'Add',
-    geojsonNoteBefore: 'GeoJSON in WGS84 [lng, lat]. Stored as a global dataset ',
-    geojsonNoteAfter: '.',
-    incidentObjects: 'Incident objects',
-    plansWord: 'plans',
-    nearby: 'Nearby ({n})',
-    allOther: 'All other objects',
-    allObjects: 'All objects',
   },
   personnelSync: {
     title: 'Sync personnel with {provider}',

@@ -676,8 +676,9 @@ function GeocoderCard({ centre }: { centre: [number, number] | null }) {
 }
 
 /**
- * Externe Kartenportale — the cantonal GIS deep links that appear as buttons in the Datenquellen
- * panel of a running Einsatz (`deploymentConfig · externalMapLinks`).
+ * Externe Kartenportale — the cantonal GIS deep links that appear as buttons at the foot of the
+ * Einsatz's Gebäude card and the Karte object panel (`deploymentConfig · externalMapLinks`,
+ * BuildingFacts · GeoLinks). Optional: empty by default, and a station with none sees nothing.
  *
  * Shaped exactly like ReportLinksEditor, including the placeholder chips and the live preview,
  * because it is the same job: a URL somebody pastes out of a portal's address bar, with the
@@ -1367,11 +1368,11 @@ const GEOJSON_ACCEPT = 'application/geo+json,application/json,.geojson,.json'
  * Raster-Ebenen (WMS/WMTS) — the one reference layer a canton hands over ready-made.
  *
  * The canton publishes a URL template and, until now, there was nowhere in the browser to paste
- * it: the Kartenebenen page is a viewer, and the field app's Datenquellen panel can only add a
- * GeoJSON, because that route starts from a file upload. A raster layer has no file at all.
+ * it: the Kartenebenen page is a viewer, and the field app's Datenquellen panel (gone since
+ * 13.11.2026) could only add a GeoJSON, from a file upload. A raster layer has no file at all.
  *
- * ⚠️ THREE writers share `referenceLayers` — `admin_geodata push`, this page, and the field
- * app's panel (`lib/api/reference · upsertReferenceLayer`). So every row is MERGED over, never
+ * ⚠️ Several writers share `referenceLayers` — `admin_geodata push`, `admin_config load` and this
+ * page (LayersSection's shared `write`). So every row is MERGED over, never
  * rebuilt: `nightColor`, `opacity`, `maxzoom`, `symbol` and `autoActivate` are all fields the CLI
  * writes and this form does not show, and rebuilding a row from the visible fields would delete
  * them the first time somebody fixed a label. (`admin_config load` carries the whole section over

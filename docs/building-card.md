@@ -43,7 +43,10 @@ too, on every new Einsatz. A building with nothing at all has no chip and no car
   Bemerkungen (no source line – «drop the source»; only a NEIGHBOUR's notes are named, «Schloss
   Musterdorf · in der Nähe (118 m)», because they read exactly like this building's), then
   **Gebäude** – the hazard lines first, then the register facts, bullets of the Sofortmassnahmen's
-  size and weight (the Karte panel's `RegisterLines`) – then the last Objektbesuch. There is no head
+  size and weight (the Karte panel's `RegisterLines`) – then the last Objektbesuch, and at the
+  foot, under a hairline, the station's map links for the Einsatz's place (`map.externalLinks`,
+  `BuildingFacts · GeoLinks`, M10 13.11.2026: «Geoportal Oberwil ↗» … – none configured, nothing;
+  offline disabled with «Nur mit Netz»). There is no head
   row: the FIRST section's heading carries the ✕ at its right end, and «Register-Hinweis» (the
   source line right under it, FOLDED each time the card opens, as on the Karte panel – Manuel
   09.11.2026; open since sweep 30.10.2026 #6 until then; a tap opens it) always sits on the «Gebäude» heading's row – [GEBÄUDE ·

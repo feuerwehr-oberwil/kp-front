@@ -771,7 +771,7 @@ export const adminCopy = {
       bboxOfferDismiss: 'Nicht jetzt',
       // Kantonale GIS-Portale, aufgerufen mit den Koordinaten des Einsatzes.
       groupExternal: 'Externe Kartenportale',
-      externalTip: 'Erscheinen im Einsatz unter «Datenquellen» als Knöpfe, die das Portal direkt auf dem Einsatzort öffnen. Ohne Eintrag gibt es dort keine Knöpfe.',
+      externalTip: 'Erscheinen als Knöpfe am Fuss der Gebäude-Karte im Einsatz und des Objekts auf «Karte & Objekte» und öffnen das Portal direkt am Ort. Ohne Eintrag gibt es dort keine Knöpfe.',
       extLabel: 'Beschriftung',
       extLabelPlaceholder: 'z. B. GeoView Kanton',
       extUrl: 'URL-Vorlage',
@@ -804,8 +804,8 @@ export const adminCopy = {
       catModules: 'Pläne',
       catModulesTip: 'Nur Objekte mit einem Plan dieses Moduls, durch Komma getrennt; * steht für beliebig viele Zeichen (modul5-pv* trifft modul5-pv, modul5-pv15 …). Leer = egal welche Pläne.',
       catAdd: 'Kategorie hinzufügen',
-      extNoTitle: 'Ohne Beschriftung erscheint dieser Eintrag nicht unter «Datenquellen».',
-      extNoUrl: 'Keine gültige Adresse (http oder https) – dieser Eintrag erscheint nicht unter «Datenquellen».',
+      extNoTitle: 'Ohne Beschriftung erscheint dieser Eintrag nirgends.',
+      extNoUrl: 'Keine gültige Adresse (http oder https) – dieser Eintrag erscheint nirgends.',
     },
     journal: {
       quickPhrases: 'Textbausteine',
