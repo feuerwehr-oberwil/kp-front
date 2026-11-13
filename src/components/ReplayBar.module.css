@@ -137,8 +137,11 @@
 
 @media (--phone) {
   /* replay scrubber → full-width, lifted above the NavRail bottom bar (still lets you
-     toggle Lage/Plan during replay); drop the inline subtitle + end label */
-  .replay { left: 10px; right: 10px; bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); width: auto; transform: none; }
+     toggle Lage/Plan during replay); drop the inline subtitle + end label. It stands where the
+     floating row does – one --float-gap over the highest bar, 8px from the edges (--float-floor;
+     it was 10px up and 10px in, ui-conventions · ONE floating row) */
+  .replay { left: max(var(--float-gap), env(safe-area-inset-left)); right: max(var(--float-gap), env(safe-area-inset-right));
+    bottom: var(--float-floor); width: auto; transform: none; }
   .replay-sub { display: none; }
   /* transport + speed stay on the top row; the scrub track drops to its own full-width row
      below so it isn't squeezed to a sliver (and the time bubble no longer runs off the edge) */

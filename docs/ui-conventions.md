@@ -218,7 +218,11 @@ reopens, while the head's subtitle says when («Schadenlage · erledigt 10:57»)
   **menu or popover** is the menu shell: `--r-bar` over `--bar-pad`, opaque `--surface` + its 1px
   `--glass-edge` (out of the top bar: the bar's glass + `--glass-line` instead), `--e4`; facts in it
   that are read, not tapped, stand at a menu row's 12px text inset. A one-of-N row in a menu is a
-  trailing ✓ (`Menu` · radio), a pick-several row the checkbox.
+  trailing ✓ (`Menu` · radio), a pick-several row the checkbox. Every anchored menu and popover
+  hangs ONE 8px off its trigger and keeps 8px from the screen edge, the bars' own distances
+  (`lib/overlays` · `OVERLAY_GAP` / `OVERLAY_EDGE`, owner 13.11.2026 – menus hung 4px off, both
+  kept 10 from the edge); one whose trigger sits inside a floating bar hangs 8px off the BAR
+  (`BAR_POP_OFFSET`: the Einsatzuhr, the weather, the Gebäude dial).
 
 Three rules the primitives own, so no surface re-answers them (18.09.2026):
 
@@ -293,7 +297,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Verlauf's head of 44px buttons it is the same 36px plate, centred on its row – the 44px and
     ▶-framed copies there read as a different button. It stands as far from the sheet's right
     edge as the title from its left (24 on a sheet, 16 where a frame pads 16: composer, Palette,
-    Verlauf, the `.ctx` editors, Trupp finden; 12 on the Gebäude card).
+    Verlauf, the `.ctx` editors, Trupp finden; 12 on the Gebäude card). Where the body under the
+    head is a row of plates that stand outside the text edge (Ebenen: the quick row and the
+    tiles), the ✕'s plate ends on THEIR right edge instead (12 on the card, 20 on the phone
+    sheet) while the title keeps the text edge – a ✕ 4px inside the row below reads as shifted
+    for no reason (owner, 13.11.2026).
   - *Radius – ONE corner (25.09.2026):* **every** rectangle is `var(--r-sm)` (12px) – button,
     field, status box, row, card, page card (tablet and desktop – a phone page has no card,
     [`phone-layout.md`](phone-layout.md) · «No page card on a phone»), sheet, dialog, message; `--r-ctl`/`--r-surface`/
@@ -321,7 +329,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     «they just hide things»; `<Overlays toasts={false} />`): undo is the header's ↶ ↷, the sync
     state its mark, and its Meldeleiste keeps only the rows that block work (`meldungen ·
     linkShowsMeldung`) (20.10.2026, owner: «all notifications appear at the same place: at the top
-    cleanly below the main navbar»): where the Meldeleiste starts (92px; 72px on a phone), one 8px
+    cleanly below the main navbar»): where the Meldeleiste starts (92px; on a phone `--msg-top`, 4px under the bar), one 8px
     channel under the strip while one stands (`--ml-reserve` from its measured `--ml-h`), at the
     bars' own width on a phone (8px in from each side). A mode's instruction and a tool's tip keep
     the phone's foot lane (`--msg-lane-bottom`, 15-mobile), one `--float-gap` above THE floating

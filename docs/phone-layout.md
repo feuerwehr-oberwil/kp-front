@@ -76,6 +76,14 @@ unchanged.
 
 ## Page heads and pages
 
+- *The top bar stands 8px from the top and both sides* (owner, 13.11.2026; it stood 10 from the
+  top). What hangs under it is placed from three tokens (15-mobile): `--bar-top`, `--bar-foot`
+  (its bottom edge) and `--under-bar` (one `--float-gap` below) – the chip row, the page shells,
+  banners and sheet caps. `--msg-top` (4px under the bar) is where the Meldeleiste and the toasts
+  start. Never a literal «76px» again. The row at `--under-bar` – Standort · GPS caveat on the
+  left, the wind on the right – is the floating family (`--float-h` tall, 14px a side, 16px
+  glyphs, owner 13.11.2026); the GPS chip's words wrap before they reach the wind chip.
+
 - *A docked tab strip is RESERVED by a sum of tokens, never a number* (30.09.2026, owner: «the
   journal entry slightly overlaps with the selector below»): `--rp-tabs-safe` (15-mobile) is the
   strip's height — `--tap` + the `.useg` track's 3px + `--bar-pad` + 1px edge, top and bottom —

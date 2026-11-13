@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
-import { Popover, PopoverClose } from '../lib/overlays'
+import { BAR_POP_OFFSET, OVERLAY_GAP, Popover, PopoverClose } from '../lib/overlays'
 import { fmtMMSS } from '../lib/format'
 import { formatTime, fillTemplate } from '../lib/format'
 import { EntryGlyph, Icon } from '../lib/icons'
@@ -188,6 +188,13 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
 
   // the bar's priority ladder (lib/useHeadFit): measured, one step at a time, until it fits
   const barRef = useRef<HTMLDivElement>(null)
+  // the GPS caveat chip is shorter than the bar's 44px controls, so BAR_POP_OFFSET (which assumes
+  // a control filling the bar) left its popover on the bar's edge: measure the bar instead
+  const gpsRef = useRef<HTMLButtonElement>(null)
+  const underBar = () => {
+    const bar = barRef.current?.getBoundingClientRect(), chip = gpsRef.current?.getBoundingClientRect()
+    return bar && chip ? bar.bottom - chip.bottom + OVERLAY_GAP : BAR_POP_OFFSET
+  }
   useHeadFit(barRef, [
     incident.title, incident.address, clockText.length, hasWind, gpsStale ? 1 : 0,
     azAlarm?.urgent && !azChipHidden ? `${azAlarm.peak}:${azAlarm.urgent.reason}` : '', recording ? 1 : 0, reminderCount > 0 ? 1 : 0,
@@ -205,7 +212,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
           and the Einsatzuhr below can be cycled to the wall clock when needed. */}
       {/* Einsatzuhr: the long-incident awareness anchor — tap opens a labelled mode menu */}
       {startedAt && !isPhone && (
-        <EinsatzuhrMenu uhr={uhr} startedAt={startedAt} trigger={
+        <EinsatzuhrMenu uhr={uhr} startedAt={startedAt} sideOffset={BAR_POP_OFFSET} trigger={
           <button
             type="button"
             className="stat tb-einsatzuhr"
@@ -290,9 +297,12 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             ever shows. The popover is the house one (lib/overlays · Popover): non-modal, so the
             map stays live under it and a press elsewhere closes it. */}
         {gpsStale && (
+          // in the bar it hangs 8px under the BAR, measured (`underBar`); on a phone the chip
+          // floats under the bar on its own, so the popover hangs the plain 8px under the chip
           <Popover side="bottom" align="start" popupClassName="tb-gps-pop" ariaLabel={appConfig.copy.topBar.gpsFrozen} zIndex={201}
+            sideOffset={isPhone ? undefined : underBar}
             trigger={
-              <button type="button" className="tb-gps">
+              <button type="button" className="tb-gps" ref={gpsRef}>
                 {/* the app's own position glyph — a speedometer (`gauge`) named nothing about a
                     silent position feed. The amber pill carries the caveat; the icon says WHAT. */}
                 <Icon id="locate" />
@@ -354,14 +364,11 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
 /** The tappable wind/weather readout + its detail popover. Lives in the TopBar on
  *  desktop/tablet; on phones App floats it in the top-right .phone-wx read-out
  *  instead (the bar is too narrow — it clipped at the screen edge). */
-export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, popAlignOffset, popInset = 7 }: { weather: WeatherData; onOpenMeteo?: () => void; bearing?: number
-  /** the phone's glass cluster wraps the chip in 5px of its own (padding + border) – see Popover · alignOffset */
-  popAlignOffset?: number
-  /** how far the chip's bottom sits INSIDE the visible control's bottom edge: the popover hangs
-   *  8px under that edge, as the app menu (.ip-menu) hangs 8px under the bar — not 8px under the
-   *  chip, which left it 1px below the bar (owner, 20.10.2026). Default: the bar's --bar-pad +
-   *  its 1px border; the phone's cluster passes its own 5px. */
-  popInset?: number }) {
+export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, floating = false }: { weather: WeatherData; onOpenMeteo?: () => void; bearing?: number
+  /** the phone's .phone-wx: the chip IS the visible control (no cluster around it since hill
+   *  climb r6), so the popover hangs Popover's own 8px under the chip. In the bar (default) it
+   *  hangs BAR_POP_OFFSET under the chip, 8px under the bar's edge. */
+  floating?: boolean }) {
   const cond = condition(weather.weather_code)
   // turns with the finger while the Karte is being rotated, not only once it is let go
   const liveBearing = useLiveBearing(bearing)
@@ -370,11 +377,10 @@ export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, popAlignOffset
     <div className="tb-weather-wrap">
       <Popover
         popupClassName="tb-weather-pop"
-        alignOffset={popAlignOffset}
         ariaLabel={appConfig.copy.weather.details}
         side="bottom"
         align="end"
-        sideOffset={8 + popInset}
+        sideOffset={floating ? undefined : BAR_POP_OFFSET}
         zIndex={201}
         trigger={
           <button className="tb-weather"

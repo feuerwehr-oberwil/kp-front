@@ -88,12 +88,13 @@
    a CSS-module hash on the surface around it reaches nothing.
    The width is the phone's, capped: wrapping is the whole point (an address that ellipsized
    here would repeat the row's own failure), and a panel wider than the screen cannot wrap. */
-.az-head-detail { width: min(320px, calc(100vw - 24px)); padding: 12px 16px;
+.az-head-detail { width: min(320px, calc(100vw - 2 * var(--float-gap))); padding: calc(var(--bar-pad) + var(--sp-3));
   display: flex; flex-direction: column; gap: 4px;
   /* the app's popup chrome, the same set `.tb-uhr-menu` carries — `.ui-pop` owns only the
-     enter/exit hook, not the surface */
+     enter/exit hook, not the surface. THE popover shell: --r-bar over --bar-pad, the facts a
+     menu row's 12px further in (it was --r-ctl over 12/16, consistency sweep R2-A) */
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--e4); }
+  border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
 .az-head-detail .az-hd-title { margin: 0; font: var(--fw-heavy) var(--fs-3)/1.35 var(--body); color: var(--ink);
   overflow-wrap: anywhere; }
 .az-head-detail .az-hd-addr { margin: 0; font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink-dim);
@@ -117,7 +118,9 @@
    left stripe and the green breath in the fill said «läuft» a second and third time, and with the
    green ages under it turned green into decoration, dulling the one green that is a state. The
    fill is a soft ink tile — over the white day surface `--fill-soft` alone was invisible. */
-.ip-card { display: flex; flex-direction: column; gap: 4px; margin: 2px 2px 8px;
+/* No margin of its own on the sides or top: it stands at the menu's ONE --bar-pad like the rows
+   under it, so its corner runs parallel to the shell's --r-bar (it stood 2px further in). */
+.ip-card { display: flex; flex-direction: column; gap: 4px; margin: 0 0 var(--sp-2);
   padding: 12px; border-radius: var(--r-ctl);
   background: color-mix(in srgb, var(--ink) 4%, var(--fill-soft));
   border: 1px solid var(--glass-edge); }
@@ -1931,11 +1934,12 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    DOWN over the bottom stack (the Rapport strip over the nav bar): measured to the screen edge they
    ran behind both bars, the last row cut and no end to the menu in sight (hill climb r36). So that menu ends 12px above the
    topmost bar (15-mobile · --float-bars, the stack's height incl. the strip) and scrolls inside
-   itself, its shell padding and rounded foot in view. `+ 10px` hands back the Menu's
-   `collisionPadding`, which `--available-height` already took off the screen's bottom. */
+   itself, its shell padding and rounded foot in view. `+ 8px` hands back the Menu's
+   `collisionPadding` (overlays · OVERLAY_EDGE), which `--available-height` already took off the
+   screen's bottom. */
 @media (--phone) {
   .ui-menu-pos[data-side="bottom"]:has(> .rp-pdf-menu) {
-    --menu-room: calc(var(--available-height, 70dvh) + 10px - var(--float-bars, 0px) - 12px - env(safe-area-inset-bottom)); }
+    --menu-room: calc(var(--available-height, 70dvh) + 8px - var(--float-bars, 0px) - 12px - env(safe-area-inset-bottom)); }
 }
 /* EVERY menu fits the screen and scrolls inside itself (05.10.2026, owner's iPhone: the Rapport's
    «PDF ▾» Abschnitte ran off the bottom). `--menu-room` is what the positioner measured between

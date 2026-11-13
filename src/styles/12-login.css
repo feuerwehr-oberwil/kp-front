@@ -44,7 +44,7 @@
 .sb-wrap .eb-card { animation: none; }
 @media (--phone) {
   /* the phone's rail is a bottom bar (Atemschutz.module.css · .surface uses the same insets) */
-  .sb-wrap { padding: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+  .sb-wrap { padding: var(--under-bar) max(8px, env(safe-area-inset-right))
     calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
 }
 

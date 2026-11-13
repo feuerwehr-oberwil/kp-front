@@ -213,8 +213,8 @@
   /* …at the head's and the bars' 8px (S3 rework, 21.10.2026): it was 12, the one card on the
      screen with an edge of its own, and the toast under it stood at the bars' 8 */
   :is(.ml, .toaster) { --lane-l: max(8px, env(safe-area-inset-left)); --lane-r: max(8px, env(safe-area-inset-right)); }
-  .ml { top: calc(72px + var(--nudge-reserve, 0px) + env(safe-area-inset-top));
-    max-height: calc(100dvh - 72px - var(--nudge-reserve, 0px) - env(safe-area-inset-top) - var(--msg-lane-bottom)); }
+  .ml { top: calc(var(--msg-top) + var(--nudge-reserve, 0px));
+    max-height: calc(100dvh - var(--msg-top) - var(--nudge-reserve, 0px) - var(--msg-lane-bottom)); }
   /* the ✕ keeps its 44px slot beside the title, so the title's room is what the gaps leave: 8 and a
      12px inset (not 12 and 16) keep «TLF fährt weg · 340 m vom Einsatzort» on one 14px line at 390 */
   .ml-row { flex-wrap: wrap; column-gap: var(--sp-2); padding-bottom: 8px; padding-left: var(--sp-3); }

@@ -5,19 +5,22 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { CLOCK_ICON, CLOCK_MODES, type Einsatzuhr } from '../lib/einsatzuhr'
 
-/** The mode menu, opened by whatever `trigger` the reader draws (the bar's clock button, or the
- *  Einsatz card's Beginn pill on a phone). */
-export function EinsatzuhrMenu({ uhr, startedAt, trigger, align = 'start' }: {
+/** The mode menu, opened by whatever `trigger` the reader draws (today the bar's clock button;
+ *  the phone's Einsatz card lists the modes inline, EinsatzuhrChoices). `sideOffset` lets a
+ *  trigger inside a padded bar hang the menu under the BAR's edge (overlays · BAR_POP_OFFSET). */
+export function EinsatzuhrMenu({ uhr, startedAt, trigger, align = 'start', sideOffset }: {
   uhr: Einsatzuhr
   startedAt: string
   trigger: ReactElement
   align?: 'start' | 'center' | 'end'
+  sideOffset?: number
 }) {
   const E = appConfig.copy.einsatzuhr
   return (
     <Popover
       side="bottom"
       align={align}
+      sideOffset={sideOffset}
       popupClassName="tb-uhr-menu"
       ariaLabel={fillTemplate(E.title, { t: formatTime(new Date(startedAt)) })}
       trigger={trigger}

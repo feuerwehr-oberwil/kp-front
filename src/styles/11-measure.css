@@ -450,3 +450,7 @@ body.sel-transforming .wb-grow { display: none; }
 @media (max-width: 860px) {
   .measure-readout { top: calc(76px + env(safe-area-inset-top)); }
 }
+/* …and on a phone, where the bar sits 8px down, one --float-gap under it (15-mobile · --under-bar) */
+@media (--phone) {
+  .measure-readout { top: var(--under-bar); }
+}
