@@ -196,7 +196,7 @@ nothing, and a new scheduler leader starts from the record.
 
 | Observation | Where | Record |
 | --- | --- | --- |
-| Fahrzeug «vor Ort» / «verlassen» | `vehicle_presence.py`, inside the 30 s GPS sweep (`_vehicle_samples_sweep`); rings ≤ 150 m / ≥ 300 m, 90 s settle, stamped with the FIRST report in the new zone | a `vehicle.presence` audit event per transition (`vp:<device>:<n>`, the restart memory); Verlauf rows for the first arrival and the last departure only (`vps-<n>-<zone>-gps-<device>`, the departure once the vehicle stayed away 20 min or observation ends); `reportMeta.fahrzeuge[].gps` (zone, an, ab, Fahrten) for the vehicle table and the Rapport — server-owned, kept on every client save (`keep_server_gps`); `vorOrt` first-writer-wins against the external geofence (`api/alarms · apply_milestones`). Never `zurueck`: that is «back at the depot», the geofence's |
+| Fahrzeug «vor Ort» / «verlassen» | `vehicle_presence.py`, inside the 30 s GPS sweep (`_vehicle_samples_sweep`); rings ≤ 150 m / ≥ 300 m, 90 s settle, stamped with the FIRST report in the new zone | a `vehicle.presence` audit event per transition (`vp:<device>:<n>`, the restart memory); Verlauf rows for the first arrival and the last departure only (`vps-<n>-<zone>-gps-<device>`, the departure once the vehicle stayed away 20 min or observation ends); `reportMeta.fahrzeuge[].gps` (zone, an, ab, Fahrten) for the Rapport (the «n Fahrten» in the Zeiten section and on paper, the Auswertung) — server-owned, kept on every client save (`keep_server_gps`); `vorOrt` first-writer-wins against the external geofence (`api/alarms · apply_milestones`). Never `zurueck`: that is «back at the depot», the geofence's |
 | Wetter | `observations.py`, every 10 min (`_weather_sweep`), past the request cache | one `weather.observe` event per reading, `wx:<incident>:<observed_at>` (the shape the replay reads) |
 | Winddrehung | `observations.py` — ≥ 45° at ≥ 10 km/h, held over two readings on the same side, from one source + station | one Verlauf row `wxd-<observed_at>` with `writtenAt`; devices show it once on the Meldeleiste for 30 min from `writtenAt` |
 | Divera-Alarme | `_divera_tick`: 30 s while no incident runs, 120 s while one does, exponential back-off on 429 | the pool; the webhook stays the primary intake, devices only READ `/api/divera/pool` |
@@ -224,7 +224,7 @@ all of it runs on dev and demo data.
   vehicles «vor Ort» at 19:43 because a tablet woke up (GPS said 19:23–19:28), one weather
   reading ×5, 469 Divera polls — and writes nothing while every screen sleeps. Devices only
   READ (the pool, the Verlauf, the `reportMeta.fahrzeuge[].gps` block behind the Rapport's
-  «Fahrzeuge GPS · live» table); an older build's own copies are acknowledged and dropped at
+  «n Fahrten»); an older build's own copies are acknowledged and dropped at
   the endpoints (`api/journal · observed_by_server`, `api/events · SERVER_OBSERVED_OPS`). A
   new observation ⇒ a scheduler job registered unconditionally (no-op when unconfigured) with
   a derived id, never a device-side effect. Three rules an observer keeps (review 25.09.2026):

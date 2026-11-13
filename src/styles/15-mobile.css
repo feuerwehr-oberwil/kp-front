@@ -479,7 +479,7 @@
      below stays the last resort for a bar that is fuller still. */
   .topbar .ip-switch-btn { padding: 6px 7px; gap: 4px; }
   /* ── «name over the clock» (07.10.2026, UI sweep · owner pick B3 D) ──
-     The pill is the Stichwort (--fs-2/700, ellipsis; 13.5 off the scale until 23.10.2026) over the Einsatzuhr (mono --fs-2/700
+     The pill is the name («Stichwort · street» since 12.11.2026; --fs-2/700, ellipsis; 13.5 off the scale until 23.10.2026) over the Einsatzuhr (mono --fs-2/700
      in full ink, its mode's glyph): panels/IncidentSwitcher · twoLine. The bar's own clock button is not rendered here
      any more (TopBar), so the pill may take the width the clock had; it is still the bar's
      yielder, and only the title ellipsises. The quiet «gespeichert» ✓ comes back beside it — a
@@ -490,7 +490,15 @@
   /* ⚠️ also past the bar's ladder: its title step (fit-9) is the TABLET's last resort and hides
      `.ip-switch-title`; here the title is half of what the pill says and never goes */
   .ip-switch-two .ip-switch-title, .topbar.fit-9 .ip-switch-two .ip-switch-title {
-    display: block; max-width: 100%; font-size: var(--fs-2); font-weight: var(--fw-bold); }
+    display: flex; gap: var(--sp-1); max-width: 100%; font-size: var(--fs-2); font-weight: var(--fw-bold); }
+  /* «Stichwort · street» (12.11.2026, owner): the street keeps its whole width and ellipsises
+     only when it alone is wider than the line; the Stichwort takes what is left and ellipsises
+     first. ⚠️ Not a percentage cap on the Stichwort: on a 390px phone the line is ~185px, and a
+     45% cap still cut «Sägestrasse 2» to «Sägestra…» while it cut «Zimmerbrand» where the line
+     had room. The bar's ladder reads either part cut as a cut name (lib/useHeadFit). */
+  .ip-switch-kw { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .ip-switch-sep { flex: none; }
+  .ip-switch-street { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
   /* ⚠️ the clock is a FIGURE you read at a glance, not a caption (hill climb r18, Opus 4): at mono
      --fs-1 in --ink-dim it was the smallest, faintest text in the bar, where the tablet's and the
      laptop's bar clock is the boldest. Now --fs-2/700 mono in full ink – the title's size, mono's

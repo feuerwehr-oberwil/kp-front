@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
-import { fillTemplate, fmtSpanShort, fmtWhen, streetPart, formatTime } from '../../lib/format'
+import { einsatzPillName, fillTemplate, fmtSpanShort, fmtWhen, formatTime } from '../../lib/format'
 import { appConfig } from '../../config/appConfig'
 import { toast } from '../../lib/ui'
 import { SyncGlyph } from '../SyncGlyph'
@@ -131,17 +131,21 @@ export function IncidentSwitcher({
   const [open, setOpen] = useState(false)
   // ⚠️ PHONE: «where over the clock» (07.10.2026, UI sweep · owner pick B3 D). The pill carried a
   // doc glyph and nothing else — the Stichwort was hidden as a useless «C…» — while the bar spent
-  // a second control on the Einsatzuhr beside it. Now the pill IS both: the ADDRESS's street part
-  // (owner: «the address is more important than the type»; the Stichwort where there is none),
+  // a second control on the Einsatzuhr beside it. Now the pill IS both: the name (until
+  // 12.11.2026 the ADDRESS's street part alone, owner: «the address is more important than the
+  // type»; see below),
   // 13.5/700 with an ellipsis, over the Einsatzuhr (mono 12.5, its mode's glyph); the bar's own
   // clock button goes (TopBar). The clock's modes are an INLINE choice under the Einsatz card's
   // Beginn pill below (never a popover over this menu) — the same per-device choice as the
   // tablet's bar menu (lib/einsatzuhr). Tablet unchanged.
+  // 12.11.2026 (owner): line 1 is «Stichwort · street» («Wasser · Sägestrasse 2») — street and
+  // number only, whatever shape the address came in, and the street said once when the title
+  // already carries it (lib/format · einsatzPillName). The street keeps its width; the
+  // Stichwort takes the rest and ellipsises first (15-mobile.css), so it never eats the number.
   const isPhone = useIsPhone()
   const uhr = useEinsatzuhr(startedAt, endedAt, undefined, !isPhone)
   const twoLine = isPhone && !!active
-  const street = streetPart(active?.address)
-  const pillName = street || active?.title || ''
+  const pill = einsatzPillName(active?.title ?? '', active?.address)
   // the inline clock choice starts folded every time the menu is opened (the switch button below)
   const [clockOpen, setClockOpen] = useState(false)
   // the card's Einsatzbeginn/-dauer pill (phones hide the TopBar clocks, so the times live here)
@@ -272,12 +276,16 @@ export function IncidentSwitcher({
     <div className="ip-switch" ref={ref}>
       <button ref={triggerRef} className={`ip-switch-btn${twoLine ? ' ip-switch-two' : ''}`} onClick={() => { setClockOpen(false); setClosedOpen(false); setOpen((v) => !v) }}
         aria-label={twoLine
-          ? [street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', uhr.text ? `${uhr.label[uhr.mode]} ${uhr.text}` : ''].filter(Boolean).join(', ')
+          ? [pill.street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', uhr.text ? `${uhr.label[uhr.mode]} ${uhr.text}` : ''].filter(Boolean).join(', ')
           : active ? [active.title, closed ? C.title : ''].filter(Boolean).join(', ') : cp.noIncident}
         aria-expanded={open && !sheetOpen}>
         {twoLine ? (
           <span className="ip-switch-lines">
-            <span className="ip-switch-title">{pillName}</span>
+            <span className="ip-switch-title">
+              {pill.stichwort && <span className="ip-switch-kw">{pill.stichwort}</span>}
+              {pill.stichwort && pill.street && <span className="ip-switch-sep" aria-hidden>·</span>}
+              {pill.street && <span className="ip-switch-street">{pill.street}</span>}
+            </span>
             {uhr.text && (
               <span className="ip-switch-clock"><Icon id={CLOCK_ICON[uhr.mode]} /><b>{uhr.text}</b></span>
             )}
