@@ -1,42 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { fahrtenText, fixAgeText, freshWindShift, vehicleTableRows, WIND_SHIFT_FRESH_MS } from './vehiclePresence'
-import type { FahrzeugZeit } from './workspace'
+import { fahrtenText, freshWindShift, WIND_SHIFT_FRESH_MS } from './vehiclePresence'
 import type { TimelineEvent } from '../types'
 
-const FLEET = [
-  { id: 'tlf', label: 'TLF' },
-  { id: 'mtf', label: 'MTF' },
-  { id: 'pio', label: 'PIO' },
-]
 const NOW = Date.parse('2026-09-23T18:40:00Z')
 
-describe('vehicleTableRows — what the server observed, for display', () => {
-  const fahrzeuge: FahrzeugZeit[] = [
-    { id: 'mtf', vorOrt: '2026-09-23T17:28:00Z', gps: { zone: 'away', device: 8, an: '2026-09-23T17:28:00Z', ab: '2026-09-23T18:37:00Z', fahrten: 3 } },
-    { id: 'tlf', gps: { zone: 'scene', device: 3, an: '2026-09-23T17:23:00Z', fahrten: 1 } },
-    // a row the geofence/an operator filled but the server never observed: not in the table
-    { id: 'pio', vorOrt: '2026-09-23T17:23:30Z' },
-  ]
-
-  it('lists observed vehicles in the grid order with their tracker age', () => {
-    const fixes = new Map([[3, '2026-09-23T18:39:48Z'], [8, '2026-09-23T17:58:00Z']])
-    expect(vehicleTableRows(FLEET, fahrzeuge, fixes, NOW)).toEqual([
-      { id: 'tlf', label: 'TLF', zone: 'scene', an: '2026-09-23T17:23:00Z', ab: undefined, fahrten: 1, fixAgeMs: 12_000 },
-      { id: 'mtf', label: 'MTF', zone: 'away', an: '2026-09-23T17:28:00Z', ab: '2026-09-23T18:37:00Z', fahrten: 3, fixAgeMs: 42 * 60_000 },
-    ])
-  })
-
-  it('has no age for a tracker the feed does not carry, and nothing without observations', () => {
-    expect(vehicleTableRows(FLEET, fahrzeuge, new Map(), NOW).map((r) => r.fixAgeMs)).toEqual([null, null])
-    expect(vehicleTableRows(FLEET, undefined, new Map(), NOW)).toEqual([])
-  })
-
-  it('says the age the way the design mock does', () => {
-    expect(fixAgeText(12_000)).toBe('vor 12 s')
-    expect(fixAgeText(42 * 60_000)).toBe('vor 42 min')
-    expect(fixAgeText(3 * 3600_000 + 5)).toBe('vor 3 h')
-  })
-
+describe('fahrtenText — the shuttle trips, on screen and paper', () => {
   it('counts the trips only where there was more than one', () => {
     expect(fahrtenText({ id: 'mtf', gps: { zone: 'away', fahrten: 3 } })).toBe('3 Fahrten')
     expect(fahrtenText({ id: 'tlf', gps: { zone: 'scene', fahrten: 1 } })).toBe('')

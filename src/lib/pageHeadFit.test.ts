@@ -148,6 +148,15 @@ describe('the top bar · the phone street before ↷ (headCrowded)', () => {
     expect(headCrowded(bar(128, 146, false), 0)).toBe(false)
     expect(headCrowded(bar(100, 146, false), 0)).toBe(true)
   })
+  it('reads a cut part of «Stichwort · street» as a cut name (12.11.2026)', () => {
+    // the parts ellipsise inside a title that itself never overflows
+    const el = bar(160, 160)
+    const title = el.querySelector<HTMLElement>('.ip-switch-title')!
+    title.innerHTML = '<span>Wasser</span><span>·</span><span>Sägestrasse 2</span>'
+    Object.defineProperties(title.children[0], { scrollWidth: { get: () => 50 }, clientWidth: { get: () => 14 } })
+    expect(headCrowded(el, 0)).toBe(true)
+    expect(headCrowded(el, STREET_BEFORE_STEP)).toBe(false) // 160px shown, above the floor
+  })
   it('fitHead hands the step to the judge: a cut street stops the climb right after ↷', () => {
     const el = bar(128, 146)
     expect(fitHead(el)).toBe(STREET_BEFORE_STEP)

@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { applyLocale } from '../config/copy'
-import { compareText, formatLocale, localeDate, localeDateTime, dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, fmtWhen, hhmm, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel, streetPart } from './format'
+import { compareText, formatLocale, localeDate, localeDateTime, dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, fmtWhen, hhmm, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel, streetPart, einsatzPillName } from './format'
 
 describe('restoreUmlauts', () => {
   it('restores transliterated umlauts (lower + upper variants)', () => {
@@ -358,15 +358,41 @@ describe('unitLabel', () => {
   })
 })
 
-describe('streetPart', () => {
-  it('is everything before the first comma', () => {
-    expect(streetPart('Schlossgasse 9, 9999 Musterdorf')).toBe('Schlossgasse 9')
+describe('streetPart — street + house number of every address shape', () => {
+  it('cuts the town off swisstopo, comma and Divera forms, in town and out', () => {
+    expect(streetPart('Sägestrasse 2 4104 Oberwil BL')).toBe('Sägestrasse 2')
+    expect(streetPart('Sägestrasse 2, 4104 Oberwil')).toBe('Sägestrasse 2')
+    expect(streetPart('Oberwil (BL), Sägestrasse 2')).toBe('Sägestrasse 2')
+    expect(streetPart('Erlenstrasse 60 4106 Therwil')).toBe('Erlenstrasse 60')
+    expect(streetPart('Therwil (BL), Bahnhofstrasse 12a')).toBe('Bahnhofstrasse 12a')
     expect(streetPart('  Hauptstrasse 1 ,4104 Oberwil, CH')).toBe('Hauptstrasse 1')
-    expect(streetPart('Bahnhof Oberwil')).toBe('Bahnhof Oberwil')
   })
-  it('is empty for no address', () => {
+  it('keeps a four-digit house number apart from the postal code', () => {
+    expect(streetPart('Hauptstrasse 1001 4104 Oberwil')).toBe('Hauptstrasse 1001')
+  })
+  it('keeps a place without a house number, but never a bare locality', () => {
+    expect(streetPart('Bahnhof Oberwil')).toBe('Bahnhof Oberwil')
+    expect(streetPart('Oberwil (BL), Bahnhofplatz')).toBe('Bahnhofplatz')
     expect(streetPart(null)).toBe('')
-    expect(streetPart(undefined)).toBe('')
-    expect(streetPart(', Musterdorf')).toBe('')
+    expect(streetPart('')).toBe('')
+  })
+})
+
+describe('einsatzPillName — Stichwort · street, the street said once', () => {
+  it('pairs the title with the short street', () => {
+    expect(einsatzPillName('Wasser', 'Sägestrasse 2 4104 Oberwil BL')).toEqual({ stichwort: 'Wasser', street: 'Sägestrasse 2' })
+  })
+  it('cuts the address out of a title that carries it', () => {
+    expect(einsatzPillName('Brand Wohnhaus, Sägestrasse 2', 'Oberwil (BL), Sägestrasse 2').stichwort).toBe('Brand Wohnhaus')
+    expect(einsatzPillName('BMA Sägestrasse – Ausgelöst', 'Sägestrasse 2, 4104 Oberwil').stichwort).toBe('BMA – Ausgelöst')
+    // whole words only
+    expect(einsatzPillName('Hauptstrassenkreuzung', 'Hauptstrasse 1, 4104 Oberwil').stichwort).toBe('Hauptstrassenkreuzung')
+  })
+  it('leaves no Stichwort when the title was the address (the wizard fallback)', () => {
+    expect(einsatzPillName('Sägestrasse 2', 'Sägestrasse 2 4104 Oberwil BL').stichwort).toBe('')
+    expect(einsatzPillName('Erlenstrasse 60 4106 Therwil', 'Erlenstrasse 60 4106 Therwil').stichwort).toBe('')
+  })
+  it('is the title alone without an address', () => {
+    expect(einsatzPillName('Wasser', null)).toEqual({ stichwort: 'Wasser', street: '' })
   })
 })
