@@ -1580,7 +1580,6 @@ export function IncidentWorkspace({
   const openConflictCount = useMemo(() => openConflicts(timeline).length, [timeline])
   const { abschlussMissing, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
     reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
-    alarmSeverities: azAlarm.severities, intervalMin: azIntervalMin, graceSec: azGraceSec,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
     // only where the Tafel may be written — a viewer's or a replay's Abschluss has nothing to close
     standDownTrupps: canEditTrupps ? standDownTrupps : undefined,

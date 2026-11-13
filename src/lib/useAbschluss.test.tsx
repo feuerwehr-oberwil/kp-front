@@ -14,7 +14,6 @@ import { appConfig } from '../config/appConfig'
 // order is pinned end to end in IncidentWorkspace.harness; these pin the derived values.
 const args = (over: Partial<Parameters<typeof useAbschluss>[0]> = {}): Parameters<typeof useAbschluss>[0] => ({
   reportMeta: {} as ReportMeta, attendance: {}, mittel: [], openConflictCount: 0, trupps: [],
-  alarmSeverities: {}, intervalMin: 5, graceSec: 60,
   incidentMeta: { is_archived: false, status: 'offen', closed_at: null }, replayActive: false,
   media: { pendingCount: 0, flush: vi.fn(async () => {}) } as never,
   onCompleteRapport: vi.fn(async () => true),
@@ -283,18 +282,18 @@ describe('useAbschluss', () => {
       expect(ask.mock.calls[0][0]).toMatchObject({ noteLead: A.watchEnds, note: A.confirmMsg })
     })
 
-    // FLOW.5: the `el` closes over an overdue crew it cannot report out — told which, and what follows
-    it('marks the Trupp in alarm red in the board\'s word, and says the watch ends on every device', async () => {
+    // FLOW.5: the `el` closes over crews it cannot report out — told what follows, in a line of its own
+    it('says the watch ends on every device, and lists the crews without marking one', async () => {
       const ask = vi.mocked(confirmDialog)
       ask.mockReset().mockResolvedValueOnce(false)
-      const quiet: Trupp = { ...inside, id: 'q', no: 2, name: 'Graf Eva', members: [] }
-      const a = args({ trupps: [inside, quiet], alarmSeverities: { in: 2 } })
+      const second: Trupp = { ...inside, id: 'q', no: 2, name: 'Graf Eva', members: [] }
+      const a = args({ trupps: [inside, second] })
       await renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()
       const A = appConfig.copy.abschluss
       const spec = ask.mock.calls[0][0]
       expect(spec.items?.slice(0, 2)).toEqual([
-        { head: 'Trupp 1', text: 'Muster Leo / Graf Eva', alarm: appConfig.copy.atemschutz.clockOverdue },
-        { head: 'Trupp 2', text: 'Graf Eva', alarm: undefined },
+        { head: 'Trupp 1', text: 'Muster Leo / Graf Eva' },
+        { head: 'Trupp 2', text: 'Graf Eva' },
       ])
       // …and because this question IS the confirm, the open Mindestangaben follow the crews as the
       // same link rows the dropped confirm showed (lead review of FLOW.4)
@@ -310,8 +309,8 @@ describe('useAbschluss', () => {
       await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(true)
       const A = appConfig.copy.abschluss
       expect(ask.mock.calls.map((c) => [c[0].noteLead, c[0].note])).toEqual([[A.watchEnds, undefined], [A.watchEnds, A.confirmMsg]])
-      // …and the Notfall Trupp is marked in the list of the second
-      expect(ask.mock.calls[1][0].items?.[0]).toMatchObject({ alarm: appConfig.copy.atemschutz.notfall.title })
+      // …and the second lists the crew plainly, like any other (no red mark — owner, 13.11.2026)
+      expect(ask.mock.calls[1][0].items?.[0]).toEqual({ head: 'Trupp 1', text: 'Muster Leo / Graf Eva' })
       // the first question is not the confirm: it lists the crews only
       expect(ask.mock.calls[0][0].items).toBeUndefined()
     })

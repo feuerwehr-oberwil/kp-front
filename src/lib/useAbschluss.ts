@@ -6,9 +6,8 @@ import type { ReportMeta } from './workspace'
 import type { MediaQueueApi } from './useMediaQueue'
 import { abschlussFacts, missingSteps, type AbschlussStep } from './abschluss'
 import { abschlussEndeItem, abschlussOpenPoints, abschlussSheet, insideAbschlussSpec, registeredAbschlussMessage } from './abschlussOpen'
-import { serverNow, serverNowIso } from './serverClock'
-import { deriveTruppLive, truppAlarm, truppInNotfall, truppLogName, truppStillDeployed, truppStillRegistered } from './atemschutz'
-import { atemschutzDoctrine } from './deploymentConfig'
+import { serverNowIso } from './serverClock'
+import { truppInNotfall, truppLogName, truppStillDeployed, truppStillRegistered } from './atemschutz'
 import { fillTemplate } from './format'
 import { mittelLineCount } from './mittel'
 import { confirmDialog } from './ui'
@@ -23,11 +22,6 @@ interface Args {
   openConflictCount: number
   /** the board's Trupps (removed ones already filtered out) */
   trupps: Trupp[]
-  /** per-Trupp tier from the alarm fold the board and the tone read (AtemschutzAlarmHost ·
-   *  severities), and the Einsatz's contact clock — the crew sheet marks a Trupp in alarm (FLOW.5) */
-  alarmSeverities: Record<string, 1 | 2>
-  intervalMin: number
-  graceSec: number
   incidentMeta: Pick<IncidentMeta, 'is_archived' | 'status' | 'closed_at' | 'last_closed_at'>
   replayActive: boolean
   media: MediaQueueApi
@@ -76,7 +70,7 @@ interface Args {
  * used to stand, so the hook order and every identity downstream are unchanged.
  */
 export function useAbschluss({
-  reportMeta, attendance, mittel, openConflictCount, trupps, alarmSeverities, intervalMin, graceSec, incidentMeta, replayActive, media, onCompleteRapport,
+  reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
   setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing,
   patchReportMeta,
 }: Args) {
@@ -96,10 +90,6 @@ export function useAbschluss({
   const truppsRef = useRef(trupps)
   useEffect(() => { truppsRef.current = trupps }, [trupps])
   // …and their tiers and clock, for the same reason
-  const severitiesRef = useRef(alarmSeverities)
-  useEffect(() => { severitiesRef.current = alarmSeverities }, [alarmSeverities])
-  const clockRef = useRef({ intervalMin, graceSec })
-  useEffect(() => { clockRef.current = { intervalMin, graceSec } }, [intervalMin, graceSec])
   /** The moment every Trupp clock is read against once the Einsatz is abgeschlossen — after that
    *  no more time passes on this Einsatz, and a board that kept counting was describing a
    *  situation that had ended (see AtemschutzView · `frozenAt`).
@@ -144,9 +134,10 @@ export function useAbschluss({
        reported out. It gets «Trotzdem abschliessen» / «Abbrechen» – «Abbrechen» focused – and a
        line saying who reports the crews out. */
     /* ⚠️ The crew questions say what the close does to the crews (FLOW.5, 13.11.2026): the Tafel
-       freezes and every alarm stops, on every device — so the sheet says so, and it marks the
-       Trupp that is in alarm right now in red, in the board's word (`alarmOf`). Asked of every
-       closer: the `el` may close over an overdue crew it cannot report out (owner pick). */
+       freezes and every alarm stops, on every device — so the sheet says so, in a line of its own.
+       ⚠️ It does NOT mark an overdue Trupp red (tried 13.11., owner: crews still «drin» at the
+       close are nearly always crews nobody reported out while the Einsatz winds down — red made
+       the ordinary close look like an emergency). Asked of every closer: the `el` may close too. */
     /* ⚠️ ONE ask, not two (FLOW.4, owner pick 13.11.2026): a crew question answered «Trotzdem
        abschliessen» IS the confirm — the Einsatz closes at once, and the toast «Einsatz
        abgeschlossen · Wieder öffnen» is the way back. The LAST question of the chain whose «yes»
@@ -227,16 +218,7 @@ export function useAbschluss({
         ? confirmDialog({ ...ask, altLabel: A.registeredToBoard, safeAnswer: 'alt' })
         : confirmDialog({ ...ask, safeAnswer: 'cancel' })
     }
-    // the board's word for a Trupp in alarm — its tier from the very fold the board and the tone
-    // read (`alarmSeverities`), its reason from `truppAlarm`, as the Meldeleiste row asks it
     const az = appConfig.copy.atemschutz
-    const alarmOf = (t: Trupp): string | undefined => {
-      if (truppInNotfall(t)) return az.notfall.title
-      if (severitiesRef.current[t.id] !== 2) return undefined
-      const { intervalMin, graceSec } = clockRef.current
-      const { reason } = truppAlarm(t, deriveTruppLive(t, serverNow(), intervalMin, graceSec), intervalMin, graceSec, atemschutzDoctrine())
-      return reason === 'pressure' ? az.clockAlarmPressure : az.clockOverdue
-    }
     if (notfall.length > 0) {
       const nf = az.notfall
       const answer = await askCrew('notfall', {
@@ -250,7 +232,7 @@ export function useAbschluss({
     if (inside.length > 0) {
       const answer = await askCrew('inside', {
         title: A.insideTitle,
-        ...insideAbschlussSpec(inside, alarmOf),
+        ...insideAbschlussSpec(inside),
         confirmLabel: A.insideClose,
       })
       if (answer === 'alt') { setMode('atemschutz'); setPanel(null); return false }
