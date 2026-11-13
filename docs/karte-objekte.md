@@ -318,8 +318,7 @@ The rules that are easy to break:
   1: «prioritize … based on proximity and not based on their type»). ONE list, nearest first, at
   most five rows: station objects within `NEARBY_RADIUS_M` (160 m) and hydrants mixed
   (`lib/karte/places · nearbyPlaces`). The nearest hydrant is always in it, however far — in place
-  of the fifth row when five closer things fill it (no «Nächster» tag since 20.10.2026: the order says it). A hydrant row is tinted
-  blue, titled «Hydrant» (the FireGIS export has no numbers; the old «Hydrant 632» was an index)
+  of the fifth row when five closer things fill it (no «Nächster» tag since 20.10.2026: the order says it). A hydrant row is titled «Hydrant» (the FireGIS export has no numbers; the old «Hydrant 632» was an index)
   with the compass direction from the selected place (8 directions) under it. The mouse over the
   row (a tap on touch, which keeps it until tapped again) shows that hydrant on the map: a ring on
   it, a dashed line from the selected place, the metres at the line's middle; the map moves when
@@ -344,6 +343,14 @@ The rules that are easy to break:
   viewer's `karte:objektplan` twin), which keeps the capability. Section titles are the sheet's
   group heads (eyebrow, no glyph); a missing or quiet fact is a line, not a box — only a warning
   (no coordinates, the register unreachable) keeps its box.
+- **The eye goes to the station's word** (owner, 12.11.2026 · variant A «Leiser Rest»: «focus is
+  directed here to the other stuff rather than the current plans»). Same order, colour only, in
+  the panel and in the Einsatz's Gebäude card alike (`BuildingFacts`): Sofortmassnahmen AND
+  Bemerkungen in full `--ink`; the plan tiles the panel's ONE lifted surface (`--surface` + the
+  1px `--border-soft` ring, the glyph in `--ink`); the register lines one step back in `--ink-dim`
+  (a hazard line stays `--ink` – a known hazard never fades with the rest); «In der Nähe» flat
+  (`ListCard look="quiet"`: no card, no hairlines, no blue on hydrant rows; a lit row keeps its
+  `--sel-wash`). Every eyebrow is `--ink-faint`; «Register-Hinweis» is `--ink-dim` in both.
 - **One rhythm** (owner, Karte Haus review round 4: «do a ui hierarchy pass. it feels like some
   buttons are larger than others»; picked mock A, the phone sheet too): one size per role in the
   panel. Every list row is 44px with a 14px title (round 6) and its quiet sub on the title's line («Hydrant südlich»; it

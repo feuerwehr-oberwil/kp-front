@@ -11,7 +11,7 @@ import { smartHyphens } from '../lib/smartHyphens'
 // (`className`, margins) and fills the lead slot, it never re-skins them.
 //
 // The look is global (13-incident · «THE LIST ROW»), so a `*.module.css` surface can reach it too:
-// `.list-row`, `.list-card` (+ `.list-card-rail`), `.list-group`, `.back-row`.
+// `.list-row`, `.list-card` (+ `.list-card-rail`, `.list-card-quiet`), `.list-group`, `.back-row`.
 //
 //   <ListGroup label="Checklisten" end="zum Lesen">
 //     <ListRow lead={<Icon id="check" />} title="Aufgaben FU" end="3 Phasen" onClick={…} />
@@ -61,13 +61,16 @@ export function ListRow({ lead, title, sub, end, chevron, on, disabled, onClick,
 
 /** Rows on one white card with hairlines between them. `look="rail"`: a list column's rows on
  *  the column's own ground – no card, compact rows with the one corner (the tablet library column,
- *  the Einsatz Checkliste rail). */
+ *  the Einsatz Checkliste rail). `look="quiet"`: a SECONDARY list under the surface's main content
+ *  – no card, no hairlines, the rows' words one step back (medium `--ink-dim` titles, `--ink-faint`
+ *  subs and glyphs), the container's row height kept (the Karte panel's «In der Nähe», owner
+ *  12.11.2026: it was the one lifted card and out-shouted the plans). */
 export function ListCard({ look = 'card', className, children, ...rest }: {
-  look?: 'card' | 'rail'
+  look?: 'card' | 'rail' | 'quiet'
   className?: string
   children: ReactNode
 } & Omit<HTMLAttributes<HTMLDivElement>, 'className'>) {
-  return <div className={cx('list-card', look === 'rail' && 'list-card-rail', className)} {...rest}>{children}</div>
+  return <div className={cx('list-card', look !== 'card' && `list-card-${look}`, className)} {...rest}>{children}</div>
 }
 
 /** A labelled group: the eyebrow (with an optional word or count at its right end), then its rows
@@ -75,7 +78,7 @@ export function ListCard({ look = 'card', className, children, ...rest }: {
 export function ListGroup({ label, end, look, bare, className, children }: {
   label: string
   end?: ReactNode
-  look?: 'card' | 'rail'
+  look?: 'card' | 'rail' | 'quiet'
   bare?: boolean
   className?: string
   children: ReactNode
