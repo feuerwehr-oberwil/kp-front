@@ -8,6 +8,18 @@ const MUTE_KEY = 'kp.atemschutz.alarmMute'
 // unlocks (a pure viewer), after the first resume-driven re-check instead of running for good.
 const AUDIO_POLL_MS = 2000
 
+/** Is the bell muted for this Einsatz on this device? Read outside the hook by the alarm of an
+ *  Einsatz this device is NOT standing in (AtemschutzAlarmMeldung · ForeignAtemschutzMeldungen). */
+export function atemschutzMutedFor(incidentId: string): boolean {
+  try { return localStorage.getItem(MUTE_KEY) === incidentId } catch { return false }
+}
+
+/** Mute the bell for this Einsatz — what «Zum Trupp» does, from an Einsatz not on screen yet.
+ *  The workspace that then mounts reads it (useAtemschutzMute), so it arrives muted. */
+export function muteAtemschutzFor(incidentId: string): void {
+  try { localStorage.setItem(MUTE_KEY, incidentId) } catch { /* preference only */ }
+}
+
 /**
  * What the Atemschutz bell actually controls — one button, three honest states.
  *

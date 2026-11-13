@@ -390,6 +390,13 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     alarmRowGo: 'To the team',
     alarmRowAck: 'Acknowledged',
     alarmRowReadOnly: 'read-only',
+    foreign: {
+      mark: 'SCBA alarm',
+      markNotfall: 'SCBA emergency',
+      markTitle: 'SCBA: {names}',
+      rowTitle: '{einsatz} · {title}',
+      notfallSub: 'Deploy safety team.',
+    },
     logEditFields: 'Team {name}: {changes}',
     changeLeader: 'Team leader {from} → {to}',
     changeMemberOut: '{names} taken out of the team',

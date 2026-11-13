@@ -4608,6 +4608,21 @@ export interface components {
              */
             scheduledOn: string;
         };
+        /**
+         * AtemschutzDue
+         * @description One Trupp at the alarm tier, as the incident list names it.
+         */
+        AtemschutzDue: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "contact" | "pressure" | "notfall";
+        };
         /** Body_capture_report_pdf_api_capture_incidents__incident_id__report_pdf_post */
         Body_capture_report_pdf_api_capture_incidents__incident_id__report_pdf_post: {
             /** Payload */
@@ -5804,6 +5819,11 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /**
+             * Atemschutz Due
+             * @default []
+             */
+            atemschutz_due?: components["schemas"]["AtemschutzDue"][];
             /** Text */
             text?: string | null;
             /** Details Json */
@@ -5896,6 +5916,11 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /**
+             * Atemschutz Due
+             * @default []
+             */
+            atemschutz_due?: components["schemas"]["AtemschutzDue"][];
         };
         /**
          * IncidentPatch

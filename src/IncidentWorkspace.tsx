@@ -65,7 +65,7 @@ import { useChecklistActions } from './lib/useChecklistActions'
 import { useTeamMarkerActions } from './lib/useTeamMarkerActions'
 import { useDevicePrefs } from './lib/useDevicePrefs'
 import { useSheets } from './lib/useSheets'
-import { useAtemschutzMute } from './lib/useAtemschutzMute'
+import { muteAtemschutzFor, useAtemschutzMute } from './lib/useAtemschutzMute'
 import { useTacticalSelection } from './lib/useTacticalSelection'
 import { useWorkspaceDoc } from './lib/useWorkspaceDoc'
 import { addPlanBindings, fillBindingFloors, hasLegacyAlignmentContext } from './lib/incidentPlanBindings'
@@ -79,11 +79,12 @@ import { NavRail } from './components/NavRail'
 import { twinVisible, isTwinLayerId } from './lib/georefTwins'
 import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
 import { SHAPE_TWO_POINT } from './lib/shapes'
-import { AtemschutzAlarmMeldungen } from './components/AtemschutzAlarmMeldung'
+import { AtemschutzAlarmMeldungen, ForeignAtemschutzMeldungen } from './components/AtemschutzAlarmMeldung'
 import { AtemschutzNotfallMeldungen } from './components/AtemschutzNotfall'
 import { floorLabel } from './lib/whiteboard'
 import { liveTargets } from './lib/verlauf'
-import { claimBootNotifyTarget } from './lib/notifyTarget'
+import { claimBootNotifyTarget, handOverNotifyTarget } from './lib/notifyTarget'
+import { loudForeignAlarms } from './lib/foreignAlarm'
 import { TabLockBanner } from './components/TabLockBanner'
 import { SurfaceBoundary } from './components/SurfaceBoundary'
 import { RemindersHost } from './lib/useReminders'
@@ -1571,6 +1572,7 @@ export function IncidentWorkspace({
   const openConflictCount = useMemo(() => openConflicts(timeline).length, [timeline])
   const { abschlussMissing, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
     reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
+    alarmSeverities: azAlarm.severities, intervalMin: azIntervalMin, graceSec: azGraceSec,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
     // only where the Tafel may be written — a viewer's or a replay's Abschluss has nothing to close
     standDownTrupps: canEditTrupps ? standDownTrupps : undefined,
@@ -1604,6 +1606,17 @@ export function IncidentWorkspace({
   const reopenPending = running && lifecycleBoundary?.kind === 'closed'
   const alarmTrupps = useMemo(() => clocksAfterReopen(trupps, running ? lifecycleBoundary : null), [trupps, running, lifecycleBoundary])
   const azAlarmActive = azMonitoring && !reopenPending
+  /* ANOTHER Einsatz's overdue / Notfall Trupps (FLOW.1, 13.11.2026; lib/foreignAlarm): the full
+   * alarm only while this device is not working a live Ernstfall itself, and only a live
+   * Ernstfall's — otherwise the red mark on its row in the Einsatz list is all. «Zum Trupp» mutes
+   * that Einsatz, switches to it and lands on the Trupp (notifyTarget · handOverNotifyTarget). */
+  const foreignLoud = useMemo(() => (replayActive ? [] : loudForeignAlarms(incidents, incidentMeta)), [incidents, incidentMeta, replayActive])
+  const goToForeignTrupp = useCallback((inc: IncidentMeta, truppId: string) => {
+    muteAtemschutzFor(inc.id)
+    handOverNotifyTarget(`atemschutz:${truppId}`)
+    onUncover?.()
+    onSwitchIncident(inc)
+  }, [onUncover, onSwitchIncident])
   /* A Notfall re-arms a muted bell (F1, 08.10.2026). The mute is per Einsatz and «Zum Trupp» sets
    * it, so a tablet that acknowledged an überfällig crew at 02:10 would hear nothing of a Notfall
    * at 02:40. Every Notfall THIS session has not met yet (a new trigger, or one found running on
@@ -2948,6 +2961,7 @@ export function IncidentWorkspace({
           onAcknowledge={muteAtemschutz}
           onGoToTrupp={goToTrupp}
         />
+        <ForeignAtemschutzMeldungen incidents={foreignLoud} onGo={goToForeignTrupp} />
         {azAlarmActive && (
           <AtemschutzNotfallMeldungen
             trupps={trupps}
@@ -3112,6 +3126,7 @@ export function IncidentWorkspace({
       )}
       <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
         {...alarmLog} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
+      <ForeignAtemschutzMeldungen incidents={foreignLoud} onGo={goToForeignTrupp} />
       {/* the reminder clock, hosted for the same reason as the alarm above (10 s ≠ 1 Hz, same shape);
           it rings only for the Verlauf's writers, editor and el (RemindersHost · alert) */}
       <RemindersHost {...reminders.host} alert={remindersAlert} />

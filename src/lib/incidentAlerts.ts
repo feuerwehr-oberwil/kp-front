@@ -136,11 +136,15 @@ export function freshAlarmCandidate(
 
 /** Cheap change check so the 30 s poll doesn't re-render an unchanged list. capture_writes
  *  is compared explicitly: a QR journal append bumps only the counter (updated_at is pinned
- *  — bookkeeping, not a content change), and the QR-usage chip must still refresh. */
+ *  — bookkeeping, not a content change), and the QR-usage chip must still refresh. So are the
+ *  Trupps at the alarm tier (lib/foreignAlarm): a Trupp goes overdue by time passing, with
+ *  nothing saved. */
 export function sameIncidentList(a: IncidentMeta[] | null, b: IncidentMeta[]): boolean {
   if (!a || a.length !== b.length) return false
-  return a.every((x, n) => x.id === b[n].id && x.updated_at === b[n].updated_at && x.capture_writes === b[n].capture_writes)
+  return a.every((x, n) => x.id === b[n].id && x.updated_at === b[n].updated_at && x.capture_writes === b[n].capture_writes
+    && dueKey(x) === dueKey(b[n]))
 }
+const dueKey = (i: IncidentMeta) => (i.atemschutz_due ?? []).map((t) => `${t.id}:${t.reason}`).join('|')
 
 // Per-device dismissal (same pattern as the Divera pool banner's kp.divera.dismissed):
 // a given incident only nags once on this device, across reloads. Capped so the tiny

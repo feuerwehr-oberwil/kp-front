@@ -8,8 +8,12 @@
  * it with CSS `:has(...)`.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
+import { Alarm } from '../lib/alarm'
+import type { ForeignDue } from '../lib/foreignAlarm'
+import type { IncidentMeta } from '../lib/incidents'
+import { atemschutzMutedFor } from '../lib/useAtemschutzMute'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import { alarmRowKey, deriveTruppLive, truppAlarm } from '../lib/atemschutz'
 import { serverNow } from '../lib/serverClock'
@@ -259,6 +263,64 @@ function AtemschutzAlarmMeldung({ group, onAcknowledge, onGo, onAck }: {
     // Since the label is the button's, the strip draws the title WITHOUT its underline (T13,
     // 29.09.2026): a link look on the loudest words, beside a button saying the same, was a
     // second door drawn twice.
+    onOpen: { label: az.alarmRowGo, onClick: go },
+  })
+  return null
+}
+
+/**
+ * ANOTHER Einsatz's Atemschutz alarm, raised in full on a device that is not working a live
+ * Ernstfall itself (FLOW.1, 13.11.2026 — which Einsätze qualify is lib/foreignAlarm ·
+ * loudForeignAlarms). The rows are the known ones with the Einsatz's name in front, one per
+ * Einsatz and reason, and the tone sounds while one stands that is not muted FOR THAT Einsatz (the
+ * mute stays per Einsatz, useAtemschutzMute). «Zum Trupp» mutes that Einsatz and switches to it,
+ * ON the Trupp (`onGo`). The tiers come from the incident list (`atemschutz_due`, the server's
+ * push computation), so they are as fresh as its 30 s poll — and gone while offline.
+ * No OS notification of its own: the server's push already carries the same alarm.
+ */
+export function ForeignAtemschutzMeldungen({ incidents, onGo }: {
+  /** the Einsätze loudForeignAlarms picked — empty silences everything */
+  incidents: readonly IncidentMeta[]
+  /** mute that Einsatz, switch to it, focus this Trupp */
+  onGo: (incident: IncidentMeta, truppId: string) => void
+}) {
+  const sounding = incidents.some((i) => !atemschutzMutedFor(i.id))
+  const alarm = useRef<Alarm | null>(null)
+  useEffect(() => {
+    if (!sounding && !alarm.current) return
+    alarm.current ??= new Alarm()
+    alarm.current.set(sounding ? 2 : 0)
+  }, [sounding])
+  useEffect(() => () => alarm.current?.stop(), [])
+  return <>{incidents.flatMap((i) => (['notfall', 'contact', 'pressure'] as const).map((reason) => {
+    const due = (i.atemschutz_due ?? []).filter((t) => t.reason === reason)
+    return due.length ? <ForeignAlarmMeldung key={`${i.id}:${reason}`} incident={i} reason={reason} due={due} onGo={onGo} /> : null
+  }))}</>
+}
+
+function ForeignAlarmMeldung({ incident, reason, due, onGo }: {
+  incident: IncidentMeta
+  reason: ForeignDue['reason']
+  due: ForeignDue[]
+  onGo: (incident: IncidentMeta, truppId: string) => void
+}) {
+  const az = appConfig.copy.atemschutz
+  const names = due.map((t) => t.name || az.truppFallbackName).join(' · ')
+  const many = due.length > 1
+  const title = reason === 'notfall'
+    ? fillTemplate(az.notfall.rowTitle, { name: names })
+    : reason === 'pressure'
+      ? fillTemplate(many ? az.alarmRowPressureMany : az.alarmRowPressure, { count: due.length, names, name: names })
+      : fillTemplate(many ? az.alarmRowOverdueMany : az.alarmRowOverdue, { count: due.length, names, name: names })
+  const go = () => onGo(incident, due[0].id)
+  useMeldung({
+    id: `atemschutz:foreign:${incident.id}:${reason}`,
+    kind: 'atemschutz',
+    tone: 'alarm',
+    icon: reason === 'pressure' ? 'manometer' : 'gauge',
+    title: fillTemplate(az.foreign.rowTitle, { einsatz: incident.title, title }),
+    sub: reason === 'notfall' ? az.foreign.notfallSub : reason === 'pressure' ? az.alarmRowPressureManySub : az.alarmRowOverdueSub,
+    actions: [{ label: az.alarmRowGo, primary: true, onClick: go }],
     onOpen: { label: az.alarmRowGo, onClick: go },
   })
   return null

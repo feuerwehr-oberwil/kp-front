@@ -155,14 +155,19 @@ export function controlChipLabel(open: number, hints: number): string {
  * / Graf Eva». Every Trupp by its number and its whole crew (truppLogName) — who is in the building
  * is the one thing this question is for. It used to be the 7th grey row of the paperwork list under
  * a filled «Trotzdem abschliessen». A Trupp without a number is its crew alone.
+ * `alarmOf` names a Trupp's alarm in the board's word (FLOW.5, 13.11.2026: one of three was
+ * overdue and the sheet did not say which) — such a line is drawn red, as the board draws the card.
  */
-export function insideAbschlussSpec(trupps: readonly Trupp[]): { message: string; items: ConfirmLine[] } {
+export function insideAbschlussSpec(
+  trupps: readonly Trupp[], alarmOf: (t: Trupp) => string | undefined = () => undefined,
+): { message: string; items: ConfirmLine[] } {
   const A = appConfig.copy.abschluss
   return {
     message: trupps.length === 1 ? A.insideOne : fillTemplate(A.insideMany, { n: trupps.length }),
     items: trupps.map((t) => ({
       head: typeof t.no === 'number' ? fillTemplate(A.insideTrupp, { no: t.no }) : undefined,
       text: truppLogName({ ...t, no: undefined }),
+      alarm: alarmOf(t),
     })),
   }
 }

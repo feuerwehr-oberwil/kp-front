@@ -31,10 +31,12 @@ export function closeTimeOf(i: Pick<IncidentMeta, 'closed_at' | 'last_closed_at'
  *  `report_done_at` the Abschluss-Assistent's bookmark (rapportStatus.ts). `last_closed_at` is the
  *  CURRENT close (D2, 25.09.2026) where `closed_at` keeps the first; `exercise_since_creation` =
  *  Übung since creation, never marked real — the only kind an editor may hard-delete;
- *  `editor_opened_at` / `capture_*` are the QR ↔ KP cross-visibility. Those five are optional
- *  here because a list cached before they existed lacks them. */
+ *  `editor_opened_at` / `capture_*` are the QR ↔ KP cross-visibility; `atemschutz_due` the
+ *  Trupps of a running Einsatz at the alarm tier, list route only (lib/foreignAlarm). Those six
+ *  are optional here because a list cached before they existed lacks them, and a meta read from
+ *  any other route has no `atemschutz_due`. */
 export type IncidentMeta = CachedWithout<Out<'IncidentMeta'>,
-  'last_closed_at' | 'exercise_since_creation' | 'editor_opened_at' | 'capture_writes' | 'capture_last_at'>
+  'last_closed_at' | 'exercise_since_creation' | 'editor_opened_at' | 'capture_writes' | 'capture_last_at' | 'atemschutz_due'>
 export type IncidentFull = IncidentMeta & Pick<Out<'IncidentFull'>, 'text' | 'map_workspace_json' | 'details_json'>
 /** `started_at` is the Alarmierungszeit — backdatable so an analog incident can be nachgetragen. */
 export type IncidentCreate = In<'IncidentCreate'>
@@ -72,7 +74,10 @@ export async function listIncidentsResilient(): Promise<{ list: IncidentMeta[]; 
     validate: isIncidentList,
     fallback: () => [],
   })
-  return { list: value, offline: source !== 'network' }
+  const offline = source !== 'network'
+  // ⚠️ a cached list's alarm tiers are as old as the cache: offline, nothing is known about the
+  // other Einsätze' Trupps, and a mark from hours ago must not stand as if it were now
+  return { list: offline ? value.map(({ atemschutz_due: _stale, ...i }) => i) : value, offline }
 }
 /** `listIncidentsResilient` for the callers that ask at the same moment: the boot list and the
  *  watch's first round start in one commit and used to send two identical requests. While a

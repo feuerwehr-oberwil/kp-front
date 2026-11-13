@@ -225,6 +225,7 @@ export const incidentCopy = {
     insideTitle: 'Trupps noch drin',
     // …für wen die Tafel nicht schreibbar ist (Rolle el): kein «Zur Tafel», dafür wer austrägt
     boardNotYours: 'Austragen kann nur, wer die Atemschutz-Tafel führt.',
+    watchEnds: 'Mit dem Abschluss endet die Überwachung dieser Trupps auf allen Geräten.',
     // die sichere, fokussierte Antwort auf der Liste der offenen Punkte
     confirmBack: 'Zurück',
     // the pre-filled Einsatzende row: «Einsatzende · jetzt 23:41», written with the close
