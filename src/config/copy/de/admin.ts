@@ -148,7 +148,7 @@ export const adminCopy = {
       standardOn: 'Ja',
       standardOff: 'Nein',
       // Überschrift einer Listen-Zeile, solange sie noch keinen eigenen Namen trägt
-      // (Alarmgruppe, Fahrzeug, Formular, Kartenportal).
+      // (Alarmgruppe, Fahrzeug, Formular).
       newEntry: 'Neuer Eintrag',
       // Zeilentitel des frisch erzeugten Werts auf jeder Schlüssel-Seite. Er steht genau
       // einmal – nach dem Erzeugen –, darum sagt der Titel, dass er neu ist, und nicht bloss
@@ -722,7 +722,6 @@ export const adminCopy = {
       helpIntroTip: 'Steht zuoberst unter «Was kann KP Front?». Ein bis zwei Sätze in den Worten der Wehr – wofür diese App bei euch da ist. Leer = der mitgelieferte Text.',
     },
     map: {
-      colExternal: 'Kartenportal',
       centerLon: 'Zentrum – Länge (lon)',
       centerLonTip: 'Längengrad (WGS84) des Kartenstarts, bevor ein Einsatz gewählt ist.',
       centerLat: 'Zentrum – Breite (lat)',
@@ -769,19 +768,6 @@ export const adminCopy = {
       bboxOfferBody: 'Ohne Suchbereich sucht die Adresssuche landesweit und bietet «Hauptstrasse 3» aus dem halben Land an. ±5 km um die Kartenmitte deckt das Einzugsgebiet der Wehr und die Nachbarhilfe ab.',
       bboxOfferApply: 'Suchbereich übernehmen',
       bboxOfferDismiss: 'Nicht jetzt',
-      // Kantonale GIS-Portale, aufgerufen mit den Koordinaten des Einsatzes.
-      groupExternal: 'Externe Kartenportale',
-      externalTip: 'Erscheinen als Knöpfe am Fuss der Gebäude-Karte im Einsatz und des Objekts auf «Karte & Objekte» und öffnen das Portal direkt am Ort. Ohne Eintrag gibt es dort keine Knöpfe.',
-      extLabel: 'Beschriftung',
-      extLabelPlaceholder: 'z. B. GeoView Kanton',
-      extUrl: 'URL-Vorlage',
-      extUrlTip: 'Im Kartenportal auf den Einsatzort zoomen, die Adresszeile hierher kopieren – und die Koordinaten darin durch die Platzhalter unten ersetzen. {E}/{N} sind Landeskoordinaten (LV95), {lng}/{lat} Länge/Breite (WGS84).',
-      extUrlPlaceholder: 'https://…?E={E}&N={N}',
-      extTokens: 'Platzhalter einfügen',
-      extPreview: 'Vorschau mit einem Beispiel-Standort',
-      extAdd: 'Kartenportal hinzufügen',
-      extRemove: 'Kartenportal löschen',
-      extRemoveConfirm: 'Kartenportal löschen?',
       groupCategories: 'Objektfarben (Karte & Objekte)',
       categoriesTip: 'Färbt Punkte, Namensschilder und Umrisse der Stationsobjekte nach Kategorie, z. B. PV-Anlagen, Wasserpläne. Die Regeln gelten von oben nach unten, die erste passende gewinnt; jede Kategorie ist in «Ebenen» einzeln ein- und ausschaltbar. Ohne Regeln: mit Plänen in Tinte (tagsüber fast schwarz, nachts fast weiss), ohne Pläne grau.',
       colCategory: 'Kategorie',
@@ -804,8 +790,6 @@ export const adminCopy = {
       catModules: 'Pläne',
       catModulesTip: 'Nur Objekte mit einem Plan dieses Moduls, durch Komma getrennt; * steht für beliebig viele Zeichen (modul5-pv* trifft modul5-pv, modul5-pv15 …). Leer = egal welche Pläne.',
       catAdd: 'Kategorie hinzufügen',
-      extNoTitle: 'Ohne Beschriftung erscheint dieser Eintrag nirgends.',
-      extNoUrl: 'Keine gültige Adresse (http oder https) – dieser Eintrag erscheint nirgends.',
     },
     journal: {
       quickPhrases: 'Textbausteine',

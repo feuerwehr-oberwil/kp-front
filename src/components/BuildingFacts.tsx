@@ -3,8 +3,6 @@ import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
 import type { BuildingChip } from '../lib/buildingCard'
-import { externalMapLinks } from '../lib/deploymentConfig'
-import { useOnline } from '../lib/useOnline'
 import s from './BuildingFacts.module.css'
 
 // What a building says, drawn ONE way wherever it is shown: the Karte's panel (karte/KartePanel ·
@@ -112,30 +110,6 @@ export function RegisterHintBody({ className, textClassName, children }: { class
     <div className={className} data-testid="register-hint">
       <div className={textClassName}>{C.hintTitle}</div>
       {children}
-    </div>
-  )
-}
-
-/** The station's map links (`map.externalLinks`, /admin › Station & Karte: label + URL template
- *  with {E}/{N}) for one place, as quiet buttons at the FOOT of the Einsatz's Gebäude card and the
- *  Karte's object panel (M10, 13.11.2026 – the «Datenquellen» sheet that held them had no door).
- *  Each opens the template filled for `at` in a new tab. A station with none configured, or a place
- *  with no coordinate, draws nothing at all. Offline they stay where they are, disabled, with
- *  «Nur mit Netz» under them: a page on the open web cannot load, and a link that silently
- *  fails at 3am costs a try. */
-export function GeoLinks({ at, className }: { at: readonly [number, number] | null | undefined; className?: string }) {
-  const online = useOnline()
-  const C = appConfig.copy.building
-  const links = at ? externalMapLinks(at[0], at[1]) : []
-  if (!links.length) return null
-  return (
-    <div className={cx(s.geo, className)} role="group" aria-label={C.geoLinks} data-section="geo-links">
-      <div className={s.geoRow}>
-        {links.map((l) => online
-          ? <a key={l.label} className="ip-btn" href={l.href} target="_blank" rel="noopener noreferrer">{l.label}<Icon id="external" /></a>
-          : <button key={l.label} type="button" className="ip-btn" disabled>{l.label}<Icon id="external" /></button>)}
-      </div>
-      {!online && <p className={s.geoOff}>{C.geoLinksOffline}</p>}
     </div>
   )
 }

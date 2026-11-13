@@ -139,16 +139,17 @@
   padding: 12px; border-radius: var(--r-ctl);
   background: color-mix(in srgb, var(--ink) 4%, var(--fill-soft));
   border: 1px solid var(--glass-edge); }
-/* Title row: «Übung ·» Einsatzname · Sync. It does NOT wrap — the button would drop to a line
-   of its own and stop being «top right» — so the NAME is the flexible one and the button is
-   `flex: none`. */
+/* Title row: Einsatzname · ÜBUNG · Sync, in that order of who gives way. It does NOT wrap —
+   the marker and the button would drop to a line of their own and the button would stop being
+   «top right» — so the NAME is the flexible one and everything else is `flex: none`. */
 .ip-card-title { display: flex; align-items: flex-start; flex-wrap: nowrap; gap: 8px; min-width: 0; }
 /* two lines, then ellipsis. Not one: on a phone this card is the only place the full
    Einsatzname is shown at all (the bar's title is hidden ≤600px), and «Zimmerbrand
-   Hauptstrasse 24» does not fit one 180px line beside a button. */
+   Hauptstrasse 24» does not fit one 180px line beside a badge and a button. */
 .ip-card-name { flex: 1 1 auto; min-width: 0; font: var(--fw-bold) var(--fs-3) var(--body); color: var(--ink);
   overflow-wrap: anywhere; overflow: hidden; text-overflow: ellipsis;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.ip-card-title > .ip-badge { flex: none; margin-top: 2px; }
 .ip-card-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); overflow-wrap: anywhere; }
 /* the pills WRAP instead of clipping: on a 360px phone «Gespeichert um 20:14» and
    «Einsatzbeginn 20:14 · 1 h 32» never fit on one line, and both are read, not glanced at */
@@ -1049,8 +1050,9 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
 .ip-hist-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* incident status badge in the Einsätze list (own class — must NOT collide with the
    fixed-size sync .ip-status above, which would clamp it to 16px and clip the label) */
-/* …and the ONE tag recipe (28.09.2026) */
-.ip-badge { font: var(--fw-bold) var(--fs-micro) var(--body); letter-spacing: .03em; text-transform: uppercase; padding: 2px 8px; border-radius: var(--r-xs); white-space: nowrap; }
+/* …and the ONE tag recipe (28.09.2026): the poster's «ÜBUNG» (.cv-badge-exercise) wears it too —
+   it was a 10.5/800 pill beside the tablet's 10/700 corner for the same word. */
+.ip-badge, .cv-badge-exercise { font: var(--fw-bold) var(--fs-micro) var(--body); letter-spacing: .03em; text-transform: uppercase; padding: 2px 8px; border-radius: var(--r-xs); white-space: nowrap; }
 .ip-badge { flex: none; }
 /* ONE status tag, «Abgeschlossen» (29.09.2026, owner: «we just need tags to say an emergency is
    closed. open is the default state»). «Offen» and «In Arbeit» (a blue pill until today) are gone
@@ -1058,14 +1060,21 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
 .ip-badge-arch { background: var(--fill-soft); color: var(--ink-dim); }
 /* a good-news tag («empfohlen») — the green of «done», never a fill */
 .ip-badge-ok { background: var(--green-16); color: var(--green-strong); }
-/* Übung — no tag (round 2b, owner's pick M12 C, 13.11.2026; it was amber, then hatched): a quiet
-   «Übung ·» before the name in the dimmer ink (components/IncidentName), the name's own weight and
-   size. It rides inside the name's line, which ellipsises at its end, so the prefix never goes.
-   The same everywhere – head, card, lists, poster, admin; the red Karte chip keeps its on-colour
-   (Karte.module · .runningLine). */
-.name-prefix { color: var(--ink-dim); white-space: nowrap; }
-/* «2 offen» — amber: something is outstanding and the operator is about to act as if it were not. */
+/* Übung — a HATCHED, outlined tag with no hue, so a training is never mistaken for a real Einsatz
+   and never for «needs you» (M2, owner's pick A, 13.11.2026 – it was amber, the open count's
+   colour). Top bar switcher, the phone's «Ü» square, lists and the poster: one look for one word.
+   The stripes are the strong tint and 4px wide (14.11.2026): at 3px of --ink-tint they read as
+   flat grey on a 22px square, and the whole point is an Übung seen at a glance. */
+.ip-badge-exercise, .cv-badge-exercise { color: var(--ink);
+  background: repeating-linear-gradient(-45deg, var(--ink-tint-strong) 0 4px, transparent 4px 8px);
+  box-shadow: inset 0 0 0 1.5px var(--ink-dim); }
+/* «2 offen» — the same amber, named after what it means rather than after the Übung it borrows
+   from: something is outstanding and the operator is about to act as if it were not. */
 .ip-badge-todo { background: var(--amber-16); color: var(--amber-strong); text-transform: none; }
+/* the ÜBUNG marker rides BESIDE the row title, never inside it — the title is the part that
+   ellipsises, and a drill must never lose the word that says so (the card's title line spaces
+   its own badge via flex gap) */
+.ip-menu-row .ip-badge { flex: none; }
 /* the per-row «Abschliessen» / «Wieder öffnen» stays at its word's width (29.09.2026: five of them
    down the list must not out-shout the row's real action, opening it) — but at THE button's
    14/700 since r35 (06.11.2026): a 44px button with a 12.5px label was a third button size */
@@ -1444,6 +1453,11 @@ button.rp-sign-row:disabled { cursor: default; }
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
 .cv-list + .cv-list { margin-top: 4px; }
+/* Übung — the tablet's .ip-badge-exercise itself (shape, type and the hatching are shared above): a
+   drill or a test run must never be mistaken for the real Einsatz, on the surface where
+   untrained people tick names off. Only its place in the title line is its own; nowrap (above)
+   sends it to its own line on a narrow phone rather than splitting it. */
+.cv-badge-exercise { display: inline-block; margin-left: 8px; vertical-align: 1px; }
 .cv-input { min-height: 44px; padding: 8px 12px; border-radius: var(--r-ctl); border: 1px solid var(--glass-line);
   background: var(--surface); color: var(--ink); font: var(--fw-medium) var(--fs-3) var(--body); width: 100%; }
 /* search + ⓘ: the tap-cycle explanation hides behind the info toggle (inline it crowded the card) */

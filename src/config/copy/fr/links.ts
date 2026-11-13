@@ -36,6 +36,7 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     checkedLabel: 'Dernière vérification',
     chooseTitle: 'Plusieurs interventions en cours',
     chooseHint: 'Choisis quelle intervention cet écran doit afficher.',
+    exerciseTag: 'Exercice',
     notEnrolledTitle: 'Cet appareil n\'est pas configuré comme terminal de caserne.',
     notEnrolledHint: 'Dans l\'administration, sous « Liens et accès », générer le lien de configuration et l\'ouvrir sur cet appareil.',
     asInvalidTitle: 'Ce code de protection respiratoire n\'est plus valable.',

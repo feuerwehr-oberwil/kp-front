@@ -64,8 +64,10 @@ export function headCrowded(bar: HTMLElement, step = Infinity): boolean {
   if (!btn) return false
   // a glyph, a chevron or a sync chip painting out of the pill: the pill was squeezed
   if (btn.scrollWidth > btn.clientWidth + 1) return true
-  // the title may ellipsise, but not below a readable floor. An Übung's «Übung ·» is the title's
-  // start (components/IncidentName), so the floor keeps it whole; past fit-9 it is all that stays
+  // the ÜBUNG marker never truncates (a drill must never read as a real Einsatz)
+  const badge = btn.querySelector<HTMLElement>(':scope > .ip-badge-exercise')
+  if (badge && badge.offsetParent !== null && badge.scrollWidth > badge.clientWidth + 1) return true
+  // the title may ellipsise, but not below a readable floor
   const title = btn.querySelector<HTMLElement>('.ip-switch-title')
   if (!title || title.offsetParent === null) return false
   // what the title would take whole: the phone's «Stichwort · street» is a row of parts that

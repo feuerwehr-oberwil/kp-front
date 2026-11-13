@@ -63,7 +63,7 @@ import { planKey, type ObjectAvailability } from '../../lib/karte/availability'
 import type { VisitSummary } from '../../objectVisits/types'
 import type { LngLat } from '../../types'
 import { Button } from '../Button'
-import { GeoLinks, RegisterHintBody, RegisterHintButton, RegisterLines, StationNotes } from '../BuildingFacts'
+import { RegisterHintBody, RegisterHintButton, RegisterLines, StationNotes } from '../BuildingFacts'
 import { ListCard, ListRow } from '../ListRow'
 import { LampDot } from './KarteDevice'
 import s from './Karte.module.css'
@@ -193,8 +193,6 @@ export function KartePanel(p: {
         <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
         <Visits visits={p.visits} canCapture={p.canCapture} empty={C.visitsNever} onOpenVisit={p.onOpenVisit} offline={p.offline} last={o.lastVisit} />
         <Actions canCapture={p.canCapture} onVisit={p.onStartVisit} onReport={p.onReport} />
-        {/* the station's map links at the very foot, in the quiet part (M10, 13.11.2026) */}
-        <GeoLinks at={o.lng != null && o.lat != null ? [o.lng, o.lat] : null} />
       </>
     )
   } else if (sel.kind === 'building') {

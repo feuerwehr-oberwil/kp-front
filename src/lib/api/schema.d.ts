@@ -6158,8 +6158,6 @@ export interface components {
         MapConfig: {
             defaultView?: components["schemas"]["MapDefaultView"];
             geocoder?: components["schemas"]["MapGeocoder"];
-            /** Externallinks */
-            externalLinks?: components["schemas"]["MapExternalLink"][];
             /** Objectcategories */
             objectCategories?: components["schemas"]["ObjectCategoryConfig"][];
             /** Buildingregister */
@@ -6176,13 +6174,6 @@ export interface components {
             centerLv95?: number[] | null;
             /** Zoom */
             zoom?: number | null;
-        };
-        /** MapExternalLink */
-        MapExternalLink: {
-            /** Label */
-            label?: string | null;
-            /** Urltemplate */
-            urlTemplate?: string | null;
         };
         /** MapGeocoder */
         MapGeocoder: {

@@ -456,6 +456,11 @@
      instead; the full title lives one tap away in the dropdown header */
   .ip-switch-title { display: none; }
   .ip-switch-glyph { display: grid; }
+  /* …and the ÜBUNG marker is what actually yields, as the last resort before the bar breaks.
+     It never disappears (a drill must never read as a real Einsatz), it only ellipsises — and
+     only where the width truly runs out: German «ÜBUNG» stays whole on every phone in service,
+     the long translations («Esercitazione») trim on the narrow ones. */
+  .ip-switch-btn > .ip-badge { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   /* Sync state on a phone: the loud chips stay (offline · Sync-Fehler · Speicher voll — those
      are their own branch in IncidentSwitcher), the quiet «gespeichert / speichert…» mark goes.
      It is 24px of the tightest bar in the app spent on the state that needs no action, and the
@@ -470,6 +475,9 @@
      «Offline» keeps its word: its mark is a dot, and a dot alone says nothing. */
   .topbar .ip-error-chip .ip-chip-word { display: none; }
   .topbar .ip-error-chip { padding: 2px 5px; }
+  /* With a drill running, the doc glyph is a second «this is an Einsatz» beside a marker that
+     already says which KIND of Einsatz it is — and it costs the 25px the marker needs. */
+  .topbar:has(.ip-switch-btn > .ip-badge-exercise) .ip-switch-glyph { display: none; }
   /* The Einsatzuhr at the size of everything else in the bar. `.tb-einsatzuhr { font: inherit }`
      (18-audio.css) resets the button chrome but also overrides the 12px `.stat` carries, so the
      clock rendered at the inherited 16px — the largest text in the bar by a third, and ~10px of
@@ -516,10 +524,11 @@
      with the 700 figures beside it (r18) */
   .ip-switch-btn .ip-switch-clock svg { width: 14px; height: 14px; stroke-width: 2.2; }
   .topbar .ip-switch-two .ip-status { display: inline-flex; }
-  /* «Übung · Stichwort · street» (round 2b, owner's pick M12 C): the prefix is the row's first
-     part and never yields – the Stichwort ellipsises first, as without it. It costs about a third
-     of the name's room on a phone; accepted with the pick. */
-  .ip-switch-title > .name-prefix { flex: none; }
+  /* the Übung marker in this pill is ONE letter («Ü», copy.exerciseInitial) in a hatched square (amber until M2, 13.11.2026)
+     (08.10.2026, owner): the word ellipsised to «ÜBU…» and cost the street its last letters. A
+     fixed square — it never yields, there is nothing left in it to cut. */
+  .ip-switch-btn > .ip-badge-initial { flex: none; display: grid; place-items: center; width: 22px; height: 22px;
+    padding: 0; font-size: var(--fs-1); line-height: 1; letter-spacing: 0; overflow: visible; }
   .tb-act-add { display: none; }                    /* Eintrag handled by the FAB on phones */
   /* Verlauf goes icon-only. :not(.tb-rem-count) — the bare `span` selector also caught the
      reminder-count badge, so the number of due reminders vanished on exactly the device most

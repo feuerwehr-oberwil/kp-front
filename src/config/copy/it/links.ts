@@ -36,6 +36,7 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     checkedLabel: 'Ultimo controllo',
     chooseTitle: 'Più interventi in corso',
     chooseHint: 'Scegli quale intervento deve mostrare questo schermo.',
+    exerciseTag: 'Esercitazione',
     notEnrolledTitle: 'Questo dispositivo non è configurato come terminale di caserma.',
     notEnrolledHint: 'Nell\'amministrazione, sotto «Link e accessi», generare il link di configurazione e aprirlo su questo dispositivo.',
     asInvalidTitle: 'Questo codice per la protezione respiratoria non è più valido.',

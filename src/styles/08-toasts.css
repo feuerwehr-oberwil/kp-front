@@ -27,8 +27,8 @@
 /* the right margin keeps the title clear of the ✕ (36px at 12px from the corner, i.e. 48px of the
    card's edge); the card's own 24px padding covers the rest */
 .dw-head { display: flex; align-items: center; gap: var(--sp-2); margin: 0 var(--sp-6) var(--sp-3) 0; }
-/* «Demo · Willkommen …»: the Übung's quiet prefix (components/IncidentName · NamePrefix), round
-   2b – it was the Übung tag beside the title */
+/* (the DEMO tag is THE tag recipe, `.ip-badge .ip-badge-exercise`, 29.09.2026 — it was an
+   amber-filled round pill in 800) */
 .dw-title { margin: 0; font: var(--sheet-title); color: var(--ink); } /* the one sheet title (28.09.2026; was 19) */
 .dw-intro { margin: 0 0 var(--sp-3); font-size: var(--fs-2); line-height: 1.5; color: var(--ink-dim); font-weight: var(--fw-medium); }
 /* large reload caveat — the one thing a visitor must know (edits vanish on reload) */

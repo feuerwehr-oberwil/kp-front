@@ -1844,6 +1844,7 @@ p.adm-sys-path { margin: 3px 0 0; }
 
 .adm-history-table { min-width: 920px; }
 .adm-history-table .adm-ref-note { display: block; margin-top: 3px; }
+.adm-history-exercise { margin-left: 8px; vertical-align: 2px; }
 /* «Ablage» (IncidentHistoryView · ArchiveCell): one line per destination – state, folder, error.
    The Objektbesuche' filing cell (objectVisits.css · .adm-ov-filing) is the same shape; that one
    belongs to its module's stylesheet, so this list keeps its own three rules. */

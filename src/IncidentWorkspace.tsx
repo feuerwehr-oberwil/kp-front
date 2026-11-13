@@ -3248,7 +3248,6 @@ export function IncidentWorkspace({
         mapUI, mapUtility, mapRef, view, viewsApi, readOnly, isEl, viewsOpen, toggleViews, coord, panel,
         layersPreset, togglePanel, isPhone, displayWeather, openWeatherDetails, replayActive,
         georefMode, buildingInfo, buildingFirst, setPanel, composerOpen, journalOpen, offlineReadyOpen,
-        incidentAt: incidentMeta.lng != null && incidentMeta.lat != null ? [incidentMeta.lng, incidentMeta.lat] : null,
         // an incident link may not read the station: no «Unterirdische Bauten» row it could never fill
         layers: linkScoped ? layers.filter((l) => l.id !== UNDERGROUND_LAYER_ID) : layers,
         toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,

@@ -160,6 +160,5 @@ export const sessionCopy: Localizable<Pick<Copy, Keys>> = {
       cta: 'Si parte',
       meta: 'Nessun dato reale – la creazione di interventi è bloccata',
     },
-    prefix: 'Demo',
   },
 }

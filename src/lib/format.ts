@@ -245,11 +245,6 @@ const escapeRe = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const SEP_RUN = /(?:\s*[,;:/–-]\s*){2,}/g
 const SEP_ENDS = /^[\s,;:/–-]+|[\s,;:/–-]+$/g
 
-/** An Einsatz's name as words, for an aria-label or a title: «Übung, Zimmerbrand» – what the
- *  quiet «Übung ·» before the name says to the eye (components/IncidentName). */
-export const incidentLabel = (title: string, exercise: boolean): string =>
-  exercise ? `${appConfig.copy.exercisePrefix}, ${title}` : title
-
 /**
  * What the phone's Einsatz pill names (owner, 12.11.2026: «Wasser · Sägestrasse 2»): the
  * Stichwort — the title with the incident's own address cut out of it (whole, as street +

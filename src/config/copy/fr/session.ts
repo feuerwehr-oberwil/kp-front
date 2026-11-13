@@ -160,6 +160,5 @@ export const sessionCopy: Localizable<Pick<Copy, Keys>> = {
       cta: 'C\'est parti',
       meta: 'Aucune donnée réelle – la création d’interventions est bloquée',
     },
-    prefix: 'Démo',
   },
 }

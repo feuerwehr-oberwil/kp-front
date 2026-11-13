@@ -18,9 +18,11 @@ export const commonCopy = {
   primarySymbol: { id: 'symbol', icon: 'plus-bold', label: 'Symbol' },
   done: 'Fertig',
   cancel: 'Abbrechen',
-  /** THE Übung marker: the word before an Übung's name, «Übung · Zimmerbrand», everywhere a name
-   *  is shown (components/IncidentName) */
-  exercisePrefix: 'Übung',
+  // shared «Übung» marker — switcher, dropdown rows, Alle Einsätze (is_exercise incidents)
+  exerciseBadge: 'Übung',
+  /** …its one-letter form for the phone's Einsatz pill, where the street needs the width (the
+   *  full word stays the badge's title and part of the pill's accessible name) */
+  exerciseInitial: 'Ü',
   keepPlacing: 'Mehrere platzieren',
   delete: 'Löschen',
   /** ⚠️ The ONE word for taking a tactical object (Symbol, Notiz, Form, Linie, Fläche,

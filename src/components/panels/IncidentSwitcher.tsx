@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
-import { einsatzPillName, fillTemplate, incidentLabel, fmtSpanShort, fmtWhen, formatTime } from '../../lib/format'
+import { einsatzPillName, fillTemplate, fmtSpanShort, fmtWhen, formatTime } from '../../lib/format'
 import { appConfig } from '../../config/appConfig'
 import { toast } from '../../lib/ui'
 import { SyncGlyph } from '../SyncGlyph'
-import { IncidentName } from '../IncidentName'
 import { useOnline } from '../../lib/useOnline'
 import { closeTimeOf, type IncidentMeta, type SyncStatus } from '../../lib/incidents'
 import type { ReactivateResult } from '../../types'
@@ -231,6 +230,7 @@ export function IncidentSwitcher({
   // round trip): every edit is «pending» for a moment, and with the ✓ gone that flicker would be
   // the head's only movement
   const pendingLate = useLate(syncStatus === 'pending', PENDING_GRACE_MS)
+  const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
   // ── a CLOSED Einsatz (27.10.2026, sweep #5 · owner pick B) ──
   // The lock rides in the pill's ✓ slot — the amber «Einsatz abgeschlossen» chip beside the pill
   // left the bar — and the card's «Gespeichert» becomes «🔒 Abgeschlossen 01:18 ⌄», at the CURRENT
@@ -308,17 +308,15 @@ export function IncidentSwitcher({
           draws no mark for it any more */}
       <button ref={triggerRef} {...tut('menu.einsatz')} className={`ip-switch-btn${twoLine ? ' ip-switch-two' : ''}`} data-sync={active ? syncStatus : undefined} onClick={() => { setClosedOpen(false); setOpen((v) => !v) }}
         aria-label={twoLine
-          ? [incidentLabel(active.title, active.is_exercise), pill.street, closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', uhr ? `${U.label} ${uhr}` : '', foreignDot ? cp.foreignAlarmDot : ''].filter(Boolean).join(', ')
-          : active ? [incidentLabel(active.title, active.is_exercise), closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', foreignDot ? cp.foreignAlarmDot : ''].filter(Boolean).join(', ') : cp.noIncident}
+          ? [pill.street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', uhr ? `${U.label} ${uhr}` : '', foreignDot ? cp.foreignAlarmDot : ''].filter(Boolean).join(', ')
+          : active ? [active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', foreignDot ? cp.foreignAlarmDot : ''].filter(Boolean).join(', ') : cp.noIncident}
         aria-expanded={open && !sheetOpen}>
         {twoLine ? (
           <span className="ip-switch-lines">
             <span className="ip-switch-title">
-              <IncidentName exercise={active.is_exercise}>
-                {pill.stichwort && <span className="ip-switch-kw">{pill.stichwort}</span>}
-                {pill.stichwort && pill.street && <span className="ip-switch-sep" aria-hidden>·</span>}
-                {pill.street && <span className="ip-switch-street">{pill.street}</span>}
-              </IncidentName>
+              {pill.stichwort && <span className="ip-switch-kw">{pill.stichwort}</span>}
+              {pill.stichwort && pill.street && <span className="ip-switch-sep" aria-hidden>·</span>}
+              {pill.street && <span className="ip-switch-street">{pill.street}</span>}
             </span>
             {(uhr || viewOnlyMark) && (
               // hourglass + digits, no label (round 2b, owner 13.11.2026: «less text»); the tap
@@ -330,14 +328,20 @@ export function IncidentSwitcher({
         ) : (
           <>
             {/* a narrow TABLET bar's last step (fit-9): the title gives way to a doc glyph; the full
-                title heads the dropdown instead. An Übung keeps its «Übung» there instead of the
-                glyph (10-journal · fit-9): a drill must never read as a real Einsatz mid-use */}
+                title heads the dropdown instead */}
             <span className="ip-switch-glyph" aria-hidden><Icon id="doc" /></span>
-            <span className="ip-switch-title">{active
-              ? <IncidentName exercise={active.is_exercise}><span className="ip-switch-name">{active.title}</span></IncidentName>
-              : cp.noIncident}</span>
+            <span className="ip-switch-title">{active ? active.title : cp.noIncident}</span>
           </>
         )}
+        {/* persistent ÜBUNG marker in the chrome — a training must never read as a real
+            Einsatz mid-use (it also survives the phone's CSS-hidden title).
+            PHONE (08.10.2026, owner): ONE letter, «Ü», in a square tag (hatched since M2, 13.11.2026). The word ellipsised
+            into «ÜBU…» and took the street with it («Sägestrass…») — the street is what the pill
+            is for, and the square says «Übung» as well as the word does. The word stays
+            the title and is part of the button's accessible name above. */}
+        {active?.is_exercise && (twoLine
+          ? <span className="ip-badge ip-badge-exercise ip-badge-initial" title={appConfig.copy.exerciseBadge}>{appConfig.copy.exerciseInitial}</span>
+          : <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>)}
         {/* Offline and sync-error get a LOUD text chip (not just the tiny mark) — offline
             blocks switching incidents to the server, and a failing sync means edits are
             stranded on this device; the operator needs to recognise both at a glance
@@ -393,11 +397,10 @@ export function IncidentSwitcher({
           {active && (
             <div className="ip-card">
               <div className="ip-card-title">
-                {/* the name gives way first — it clamps to two lines and then ellipsises at its
-                    end, so neither the «Übung ·» before it nor the Sync button is ever cut off */}
-                <span className="ip-card-name" title={incidentLabel(active.title, active.is_exercise)}>
-                  <IncidentName exercise={active.is_exercise}>{active.title}</IncidentName>
-                </span>
+                {/* the name gives way first — it clamps to two lines and then ellipsises, so
+                    neither the ÜBUNG marker nor the Sync button is ever what gets cut off */}
+                <span className="ip-card-name" title={active.title}>{active.title}</span>
+                {active.is_exercise && exerciseBadge}
                 {syncButton}
               </div>
               {active.address && <span className="ip-card-sub">{active.address}</span>}

@@ -9,6 +9,19 @@
    stands centred on it, as a sheet title does beside its ✕ (r35, 06.11.2026: a 44px bare button
    hung 4px off the corner over negative margins) */
 .close { flex: none; }
+/* …in a sticky dock of no height at the card's top (owner, 14.11.2026: a long card scrolls, its ✕
+   stays put): the ✕ stands exactly where the heading row's slot is – the row is the ✕'s height,
+   so its top is the card's – and the body scrolls under it. The negative margin takes back the
+   card's gap the dock would add. `.slot` is the ✕'s invisible twin in the row, so at rest the
+   heading keeps its height and its right end. */
+.dock { position: sticky; top: 0; z-index: 1; display: flex; justify-content: flex-end; height: 0; margin-bottom: calc(var(--sp-1) * -1); }
+.slot { flex: none; visibility: hidden; }
+/* …and opaque there: `.ip-x`'s plate is a see-through --ink-8, and the lines scrolling under it read
+   through the ✕ – the same plate laid over the card's own surface (BuildingFloat · .pop) */
+.dock .close { background: linear-gradient(var(--ink-8), var(--ink-8)), linear-gradient(var(--float-bg), var(--float-bg)), var(--surface); }
+@media (hover: hover) {
+  .dock .close:hover { background: linear-gradient(var(--ink-12), var(--ink-12)), linear-gradient(var(--float-bg), var(--float-bg)), var(--surface); }
+}
 .hint svg { width: 12px; height: 12px; flex: none; }
 .hint { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; font: var(--fw-medium) var(--fs-micro)/var(--lh-micro) var(--body);
   color: var(--ink-dim); white-space: nowrap; }
