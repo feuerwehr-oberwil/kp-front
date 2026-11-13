@@ -92,14 +92,14 @@
 .quiet { font: var(--fw-medium) var(--fs-1)/var(--lh-1, 1.35) var(--body); color: var(--ink-dim); padding: 0 var(--sp-2); }
 
 /* ── the lists of rows (search, Pläne, In der Nähe, Besuche, the device sheet) are THE ListRow
-   (components/ListRow, 13-incident); only the hydrant's tint and the plan row's height live here,
-   compounded with .list-row so they outrank its global look ─────────────────────────────────── */
-/* a hydrant row of In der Nähe (Karte Haus round 1): tinted blue; «lit» while its hydrant is shown
-   on the map (the row hovered or tapped, or the hydrant under the mouse) */
-.hydRow:global(.list-row) { background-color: var(--blue-5); }
-.hydRow :global(.list-row-lead) { color: var(--blue); }
-@media (hover: hover) { button.hydRow:global(.list-row):not(.lit):hover { background-color: var(--blue-8); } }
-/* lit = the picked row's wash alone (ui-conventions · Selected: nothing else rides on it) */
+   (components/ListRow, 13-incident); only the hydrant's «lit» wash lives here, compounded with
+   .list-row so it outranks the global look ─────────────────────────────────────────────────── */
+/* In der Nähe is the quiet ListCard (owner, 12.11.2026 · variant A: it was the panel's one lifted
+   card); the panel only places it, its rows' words flush with the eyebrow over them */
+.nearList { margin-inline: calc(var(--sp-2) * -1); }
+/* a hydrant row is «lit» while its hydrant is shown on the map (the row hovered or tapped, or the
+   hydrant under the mouse): the picked row's wash alone (ui-conventions · Selected: nothing else
+   rides on it). No blue tint at rest since 12.11.2026 – it lifted the list over the plans */
 button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel-wash); }
 .chev { width: 16px; height: 16px; color: var(--ink-faint); }
 
@@ -129,7 +129,9 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .glyph :global(.fks) svg { width: 100%; height: 100%; display: block; }
 /* the pack's art is black ink on paper, like every placed symbol: it keeps its white ground at night */
 .glyph :global(.fks) { background: #fff; border-radius: var(--r-xs); }
-.eyebrow { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-dim); }
+/* THE eyebrow in its one colour, --ink-faint (ui-conventions · eyebrows; owner, 12.11.2026: the
+   panel's section heads were --ink-dim beside the Bemerkungen's --ink-faint) */
+.eyebrow { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .title { font: var(--fw-heavy) var(--fs-4)/1.25 var(--body); color: var(--ink); margin: 0; overflow-wrap: anywhere; }
 .sub { font: var(--fw-medium) var(--fs-1)/1.35 var(--body); color: var(--ink-dim); }
 .coords { font-family: var(--mono); font-size: var(--fs-1); line-height: 1.5; color: var(--ink-dim); }
@@ -174,12 +176,14 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .note.amber { background: var(--amber-12); }
 .note.amber svg { color: var(--amber-strong); }
 /* the plan tiles, two to a line (PlanTiles, owner 27.10.2026 · mock 2C): the list row's height and
-   type (one rhythm, below), a quiet fill instead of a card's hairline; a long name ends in «…» rather than growing the tile */
+   type (one rhythm, below); a long name ends in «…» rather than growing the tile. The panel's ONE
+   lifted surface – the .list-card's opaque fill and hairline ring, the glyph in full ink (owner,
+   12.11.2026 · variant A «Leiser Rest»: the plans are what matters, they were the dimmest thing) */
 .planTiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
 .planTile { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; min-height: var(--tap); padding: 0 var(--sp-3);
-  border: none; border-radius: var(--r-sm); background: var(--ink-5); color: var(--ink); font: var(--fw-bold) var(--fs-2)/1.2 var(--body);
+  border: none; border-radius: var(--r-sm); background: var(--surface); box-shadow: 0 0 0 1px var(--border-soft); color: var(--ink); font: var(--fw-bold) var(--fs-2)/1.2 var(--body);
   text-align: left; cursor: pointer; }
-.planTile > svg:first-child { width: 18px; height: 18px; flex: none; color: var(--ink-dim); }
+.planTile > svg:first-child { width: 18px; height: 18px; flex: none; color: var(--ink); }
 .planTile .chev { margin-left: auto; width: 14px; height: 14px; flex: none; }
 .planTile .lamp { margin-left: auto; }
 .planTileText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

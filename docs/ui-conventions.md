@@ -597,7 +597,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     `components/ListRow` – `ListRow` (lead slot · title · sub · end · ›; a button with `onClick`,
     static without), on a `ListCard` (white card with hairlines, 56px rows, 16px titles) or a
     `ListCard look="rail"` (a list column beside a document: --tap rows, 14px titles, the one
-    corner), under a `ListGroup` eyebrow. «Where you are» is `on` (the ink pill). The way one level
+    corner) or a `ListCard look="quiet"` (a secondary list under a surface's main content: flat,
+    no hairlines, medium `--ink-dim` titles, `--ink-faint` subs and glyphs, the container's row
+    height – the Karte panel's «In der Nähe», owner 12.11.2026), under a `ListGroup` eyebrow. «Where you are» is `on` (the ink pill). The way one level
     up is `BackRow` «‹ Label», naming where it goes, never a bare «Zurück». Over a reading column it
     takes that column's own width and sits flush left in it – it hugs its label, so a pane that
     centres its children would otherwise centre the WORD and leave the chevron adrift from the
@@ -606,8 +608,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     slot and places them, never a `.row` of its own. A row's extra line under its text (a round's
     progress bar) goes in as `children`. On it: the library, the Einsatz rail, the devices, the
     Karte's lists (search, Pläne, In der Nähe, Besuche, the device sheet) and every Objektbesuche
-    list. What a surface may still add is meaning, compounded with `.list-row` (the hydrant's blue
-    tint, a plan's --tap-lg height, a quiet fact line in the visit card) – never another size.
+    list. What a surface may still add is meaning, compounded with `.list-row` (a lit hydrant's
+    wash, a plan's --tap-lg height, a quiet fact line in the visit card) – never another size.
     A title hyphenates ONLY where that saves a line (owner 20.10.2026, «Trink-wasser»): whole words
     when they take as many lines, `hyphens: auto` when hyphenating is shorter or a word is wider
     than the line on its own. CSS cannot say this, so `lib/smartHyphens` (a ref on the text: the
