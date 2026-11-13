@@ -113,23 +113,19 @@ describe('initialMode', () => {
   })
 })
 
-// «Beschriftung der Werkzeugleisten» (29.09.2026, sweep T8): a phone reads the words by default
+// «Beschriftung der Werkzeugleisten» (13.11.2026, owner pick M8 A): words on every device by default
 describe('railLabelsFor', () => {
-  it('gives a phone the words and a tablet the glyphs when nobody chose', () => {
-    expect(railLabelsFor({}, true)).toBe('short')
-    expect(railLabelsFor({}, false)).toBe('off')
+  it('gives every device the words when nobody chose', () => {
+    expect(railLabelsFor({})).toBe('short')
   })
 
   it('reads a stored «off» without a choice as the old default, not a choice', () => {
-    expect(railLabelsFor({ railLabels: 'off' }, true)).toBe('short')
-    expect(railLabelsFor({ railLabels: 'off' }, false)).toBe('off')
+    expect(railLabelsFor({ railLabels: 'off' })).toBe('short')
   })
 
   it('keeps a device\'s own choice', () => {
-    expect(railLabelsFor({ railLabels: 'off', railLabelsChosen: true }, true)).toBe('off')
-    expect(railLabelsFor({ railLabels: 'short', railLabelsChosen: true }, false)).toBe('short')
-    // «Wörter» was never a default, so a stored one is a choice even from before the flag
-    expect(railLabelsFor({ railLabels: 'short' }, false)).toBe('short')
+    expect(railLabelsFor({ railLabels: 'off', railLabelsChosen: true })).toBe('off')
+    expect(railLabelsFor({ railLabels: 'short', railLabelsChosen: true })).toBe('short')
   })
 })
 

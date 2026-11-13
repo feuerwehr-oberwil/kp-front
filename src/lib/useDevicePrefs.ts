@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { clampSymbolScale, loadPrefs, railLabelsFor, savePrefs, symbolScales, withDevicePrefsOf, withoutDevicePrefs, type Prefs, type RailLabels, type SymbolSurface } from './prefs'
-import { PHONE_QUERY } from './useIsPhone'
 import { appConfig } from '../config/appConfig'
 import type { CaptionMode } from '../types'
 
@@ -9,8 +8,6 @@ const RAIL_LABELS_EVENT = 'kp:rail-labels'
 /** fired on `window` when «Gerät auf Standard zurücksetzen» (or its undo) rewrote the device
  *  prefs – every holder of one re-reads the cookie (`onDevicePrefsReset`) */
 const DEVICE_PREFS_EVENT = 'kp:device-prefs'
-
-const isPhoneNow = () => typeof window !== 'undefined' && !!window.matchMedia?.(PHONE_QUERY).matches
 
 /** Subscribe to a device-prefs reset; returns the unsubscribe. */
 export function onDevicePrefsReset(cb: () => void): () => void {
@@ -52,10 +49,9 @@ export function useDevicePrefs() {
   }, [])
   const [symbolCaptions, setSymbolCaptions] = useState<CaptionMode>(() => loadPrefs().symbolCaptions ?? appConfig.symbols.captionDefault as CaptionMode)
   const [keepScreenOn, setKeepScreenOn] = useState<boolean>(() => loadPrefs().keepScreenOn ?? true)
-  // a phone reads the words by default (29.09.2026, sweep T8 — prefs · railLabelsFor); the device
-  // class is read once, like the rest of these seeds
-  const [railLabels, setLabels] = useState<RailLabels>(() => railLabelsFor(loadPrefs(), isPhoneNow()))
-  /** a hand choice in the Einstellungen: marked as one, so the phone default never overrides it */
+  // every device reads the words by default (13.11.2026, owner pick M8 A — prefs · railLabelsFor)
+  const [railLabels, setLabels] = useState<RailLabels>(() => railLabelsFor(loadPrefs()))
+  /** a hand choice in the Einstellungen: marked as one, so the default never overrides it */
   const setRailLabels = useCallback((v: RailLabels) => {
     savePrefs({ ...loadPrefs(), railLabels: v, railLabelsChosen: true })
     setLabels(v)
@@ -67,7 +63,7 @@ export function useDevicePrefs() {
     setScale(symbolScales(p))
     setSymbolCaptions(p.symbolCaptions ?? appConfig.symbols.captionDefault as CaptionMode)
     setKeepScreenOn(p.keepScreenOn ?? true)
-    setLabels(railLabelsFor(p, isPhoneNow()))
+    setLabels(railLabelsFor(p))
   }), [])
   return {
     symbolScale, setSymbolScale,
@@ -85,6 +81,6 @@ const onRailLabels = (cb: () => void) => {
 /** «Beschriftung» as a surface that does not own the Einstellungen reads it – the Karte's rail
  *  (components/karte), under the home's own settings sheet (App · LandingSettings). Live: a change
  *  made there shows on the rail at once, without a remount. */
-export function useRailLabels(phone: boolean): RailLabels {
-  return useSyncExternalStore(onRailLabels, () => railLabelsFor(loadPrefs(), phone))
+export function useRailLabels(): RailLabels {
+  return useSyncExternalStore(onRailLabels, () => railLabelsFor(loadPrefs()))
 }
