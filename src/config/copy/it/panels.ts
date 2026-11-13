@@ -76,8 +76,6 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     },
   },
   settings: {
-    title: 'Impostazioni',
-    deviceGroup: 'Dispositivo',
     colorScheme: 'Schema colori',
     colorSchemeHint: {
       auto: 'Cambia con l’ora del giorno – chiaro dall’alba, scuro dal tramonto',
@@ -115,9 +113,11 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     feedbackRow: 'Dai un riscontro',
     feedbackRowSub: 'Cosa era scomodo o mancava',
     feedbackOpen: 'Scrivi',
+    sheetTitle: 'Questo dispositivo',
+    readyGroup: 'Pronto?',
+    handGroup: 'Comandi',
   },
   offline: {
-    title: 'Prontezza offline',
     syncedAgo: 'Dati dell’intervento trasmessi {ago}',
     offline: 'Offline – salvato su questo dispositivo',
     pending: 'Trasmissione …',

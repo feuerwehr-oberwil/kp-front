@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
-import { OfflineReadinessSheet } from './OfflineReadinessSheet'
+import { OfflineReadiness } from './OfflineReadiness'
 import { appConfig } from '../../config/appConfig'
 
 // The one thing pinned here: a running download has a way out. «Abbrechen» stands beside the
@@ -12,7 +12,6 @@ vi.mock('../../lib/installPrompt', () => ({ isStandalone: () => true, getInstall
 vi.mock('../../lib/storageBudget', () => ({ estimateStorage: async () => null }))
 
 const base = {
-  onClose: () => {},
   probeUrls: { tiles: [], plan: null, references: [] },
   symbolsReady: true, planCount: 0, objectLabel: null,
   weatherOk: false, weatherError: false, personnelCount: 0,
@@ -22,10 +21,10 @@ const base = {
 
 afterEach(cleanup)
 
-describe('OfflineReadinessSheet · Abbrechen', () => {
+describe('OfflineReadiness · Abbrechen', () => {
   it('offers «Abbrechen» beside the percentage while loading, and it aborts', () => {
     const onCancel = vi.fn()
-    render(<OfflineReadinessSheet {...base} onCancel={onCancel} loading progress={{ done: 38, total: 100 }} />)
+    render(<OfflineReadiness {...base} onCancel={onCancel} loading progress={{ done: 38, total: 100 }} />)
     expect(screen.getByText('38 %')).toBeTruthy()
     const cancel = screen.getByRole('button', { name: appConfig.copy.offline.cancel })
     // a framed secondary since 28.09.2026 (owner pick A) — never the ghost word, never the primary
@@ -36,7 +35,7 @@ describe('OfflineReadinessSheet · Abbrechen', () => {
   })
 
   it('has no «Abbrechen» once nothing is loading — the button to start is back', () => {
-    render(<OfflineReadinessSheet {...base} loading={false} progress={null} />)
+    render(<OfflineReadiness {...base} loading={false} progress={null} />)
     expect(screen.queryByRole('button', { name: appConfig.copy.offline.cancel })).toBeNull()
     expect(screen.getByRole('button', { name: new RegExp(appConfig.copy.offline.loadAll) })).toBeTruthy()
   })

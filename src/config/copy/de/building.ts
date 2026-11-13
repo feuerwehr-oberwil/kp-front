@@ -118,5 +118,9 @@ export const buildingCopy = {
     readingsChip: 'Messungen',
     readingsChipLabel: 'Alle Messpunkte zeigen',
     readingsOnMap: 'Karte',
+    // the station's map links at the foot of the Gebäude card and the Karte object panel (M10,
+    // 13.11.2026; `map.externalLinks`, empty by default): the group's name and the offline line
+    geoLinks: 'Weitere Karten',
+    geoLinksOffline: 'Nur mit Netz',
   },
 } as const

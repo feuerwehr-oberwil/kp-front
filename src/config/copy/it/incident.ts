@@ -4,7 +4,7 @@
 import type { Copy, Localizable } from '../index'
 
 type Keys =
-  | 'incidentSwitcher' | 'archived' | 'history' | 'abschluss' | 'datenquellen' | 'personnelSync'
+  | 'incidentSwitcher' | 'archived' | 'history' | 'abschluss' | 'personnelSync'
   | 'planPicker' | 'replay'
 
 export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
@@ -170,37 +170,6 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     failed: 'Chiusura non confermata – controllare lo stato dell’intervento',
     corrected: 'Ore corrette: {name}',
     attendanceRemoved: 'Presenza di {name} rimossa',
-  },
-  datenquellen: {
-    title: 'Fonti dati',
-    uploaded: 'Caricato',
-    uploadFailed: 'Caricamento non riuscito',
-    invalidFilename: 'Il nome del file non produce un identificativo valido',
-    layerAdded: 'Livello «{name}» aggiunto – visibile al prossimo caricamento',
-    addLayerFailed: 'Impossibile aggiungere il livello',
-    layerConflict: 'I livelli cartografici sono appena stati modificati altrove. Premi di nuovo «Aggiungi».',
-    layerNoVersion: 'Non è stato possibile leggere la configurazione – il livello non è stato salvato. Controllare la rete e ricaricare la pagina.',
-    globalDatasets: 'Set di dati globali',
-    objectsCount: 'oggetti',
-    replace: 'Sostituisci',
-    adminOnlyNote: 'Per sostituire un set di dati o aggiungere un livello occorre che /admin sia sbloccato in questo browser (ADMIN_SECRET).',
-    newGeoLayer: 'Nuovo livello geo …',
-    chooseGeojson: 'Scegli GeoJSON …',
-    labelPlaceholder: 'Denominazione (es. idranti)',
-    groupPlaceholder: 'Gruppo (es. acqua)',
-    defaultGroup: 'Riferimento',
-    kindLines: 'Linee',
-    kindPoints: 'Punti',
-    color: 'Colore',
-    adding: 'Caricamento …',
-    add: 'Aggiungi',
-    geojsonNoteBefore: 'GeoJSON in WGS84 [lng, lat]. Salvato come set di dati globale ',
-    geojsonNoteAfter: '.',
-    incidentObjects: 'Oggetti dell’intervento',
-    plansWord: 'piani',
-    nearby: 'Nelle vicinanze ({n})',
-    allOther: 'Tutti gli altri oggetti',
-    allObjects: 'Tutti gli oggetti',
   },
   personnelSync: {
     title: 'Allinea l’effettivo con {provider}',

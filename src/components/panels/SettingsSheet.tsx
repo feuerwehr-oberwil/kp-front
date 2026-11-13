@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../../lib/icons'
 import { toast, undoToast } from '../../lib/ui'
 import { loadPrefs, savePrefs, applyTheme, resolveTheme, SYMBOL_SCALE, type ThemeMode, type RailLabels, type SymbolSurface } from '../../lib/prefs'
@@ -13,7 +13,7 @@ import { Button } from '../Button'
 import { ShellLoader } from '../ShellLoader'
 import { compareText } from '../../lib/format'
 import { AlarmReadinessRows } from '../karte/AlarmReadiness'
-import { onDevicePrefsReset, resetDevicePrefs } from '../../lib/useDevicePrefs'
+import { onDevicePrefsReset, resetDevicePrefs, useDevicePrefs } from '../../lib/useDevicePrefs'
 
 /** Percent for a symbol multiplier — «110 %» is a size anyone reads at a glance, «1.1» is not.
  *  No-break space before the sign, so the number and its unit never split across a line. */
@@ -44,18 +44,32 @@ function ScaleRow({ surface, label, sub, value, onChange }: {
   )
 }
 
-/** Einstellungen: device prefs only (theme, symbol size, captions, rail words, screen wake —
- *  local cookie), the way back to their defaults, plus per-device utilities. Three rows left on
- *  13.11.2026 (owner picks PLACE.7): «Tastenkürzel anzeigen» and «Offline-Vorbereitung» are fixed
- *  on, the «Offline-Umkreis» is the station's (/admin › Station & Karte, `map.offlineRadiusM`). The «Einsatz» doctrine values (Funkkontakt-
- *  Intervall, Nachfrist, Funkkanal) left this sheet 28.08.: station configuration belongs in
- *  /admin, where whoever set it up changes it — not under the finger of an unknowing operator
- *  at 3am (per-incident overrides already written keep working; the doctrine is the source). */
+/** «Dieses Gerät» (13.11.2026, M9 – owner pick A): ONE sheet for what this device can do, one
+ *  scroll, on home and inside an Einsatz. It was three: Einstellungen, the Einsatz's
+ *  «Offline-Bereitschaft» and home's «Auf diesem Gerät». Top to bottom –
+ *   · «Bereit?»: the Alarm line (AlarmReadinessRows, once) and the caller's `readiness` block –
+ *     the Einsatz's OfflineReadiness or home's KarteDeviceRows; the menu row, home's Offline chip
+ *     and the «Keine Basiskarte» Meldung open the sheet with `focus="offline"`, scrolled to it;
+ *   · «Bedienung»: the device prefs (theme, symbol size, captions, rail words, screen wake,
+ *     Standort – local cookie);
+ *   · «Gerät auf Standard zurücksetzen», then the per-device utilities (Vorlagen, Rückmeldung).
+ *  Three rows left on 13.11.2026 (owner picks PLACE.7): «Tastenkürzel anzeigen» and
+ *  «Offline-Vorbereitung» are fixed on, the «Offline-Umkreis» is the station's (/admin › Station &
+ *  Karte, `map.offlineRadiusM`). The «Einsatz» doctrine values (Funkkontakt-Intervall, Nachfrist,
+ *  Funkkanal) left this sheet 28.08.: station configuration belongs in /admin, where whoever set it
+ *  up changes it — not under the finger of an unknowing operator at 3am (per-incident overrides
+ *  already written keep working; the doctrine is the source). */
 export function SettingsSheet({
   onClose, symbolScale, onSymbolScale, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, keepScreenOn, onKeepScreenOn, photoPosition, onPhotoPosition, themeCoord, onFeedback,
-  shareAs, onSharePosition, onChangeShareName,
+  shareAs, onSharePosition, onChangeShareName, readiness, focus,
 }: {
   onClose: () => void
+  /** what this device holds offline, under the Alarm line in «Bereit?» — the caller's, because
+   *  only it knows the facts (an Einsatz: OfflineReadiness; home: KarteDeviceRows). Omitted
+   *  where there is nothing to probe (the launcher). */
+  readiness?: ReactNode
+  /** open scrolled to that part instead of the top */
+  focus?: 'offline'
   /** tactical-symbol size per surface, as multipliers (lib/prefs · SYMBOL_SCALE) */
   symbolScale: Record<SymbolSurface, number>
   onSymbolScale: (surface: SymbolSurface, v: number) => void
@@ -111,6 +125,15 @@ export function SettingsSheet({
 
   const cp = appConfig.copy.settings
 
+  // opened from an offline door (home's Offline chip, «Keine Basiskarte», the close's media
+  // step): start there. A callback ref – the sheet mounts its body after this component's effects.
+  const scrolled = useRef(false)
+  const offlineRef = (el: HTMLDivElement | null) => {
+    if (!el || focus !== 'offline' || scrolled.current) return
+    scrolled.current = true
+    el.scrollIntoView?.({ block: 'start' })
+  }
+
   // Leeres Erfassungsblatt — per-device utility ACTION (not a setting): an AdFU can produce
   // a fresh paper hand-fill sheet in the field. Same generator as the admin's Erfassung view;
   // the jsPDF chunk loads lazily so it stays out of the critical bundle. Offline it prints the
@@ -144,14 +167,18 @@ export function SettingsSheet({
   }
 
   return (
-    <Modal title={cp.title} onClose={onClose}>
+    <Modal title={cp.sheetTitle} onClose={onClose}>
       <div className="set-sheet">
         <section className="set-group">
-          <h3 className="set-group-t">{cp.deviceGroup}</h3>
-          {/* «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026): the same line as the Karte home's
-              «Auf diesem Gerät», so the fix is also where somebody looks for a switch — one line
-              that opens, no heading of its own (sweep 28.10.2026, 17A) */}
+          <h3 className="set-group-t">{cp.readyGroup}</h3>
+          {/* «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026): would a «Neuer Einsatz» wake this
+              device? One line that opens (sweep 28.10.2026, 17A) */}
           <AlarmReadinessRows className="set-alarm" />
+          {readiness && <div ref={offlineRef} className="set-ready" data-device-part="offline">{readiness}</div>}
+        </section>
+
+        <section className="set-group">
+          <h3 className="set-group-t">{cp.handGroup}</h3>
           <div className="set-card">
             <div className="set-row">
               {/* the line under the name says what the selected option does – it is what tells
@@ -220,19 +247,23 @@ export function SettingsSheet({
                 </Button>
               </div>
             )}
-            {/* The way back (13.11.2026, PLACE.7): a slider pushed to the end at a drill has no mark
-                to find 100 % again. The sub names what resets and what stays; the toast takes it
-                back (lib/useDevicePrefs · resetDevicePrefs) – a device pref is not on the
-                Einsatz's undo timeline (docs/undo.md), so the toast is the only undo. */}
-            <div className="set-row">
-              <span className="set-row-l">{cp.resetDevice}<small>{cp.resetDeviceSub}</small></span>
-              <Button icon={<Icon id="undo" />} onClick={() => undoToast(cp.resetDeviceDone, resetDevicePrefs())}>
-                {cp.resetDeviceBtn}
-              </Button>
-            </div>
           </div>
           <p className="set-group-foot">{cp.deviceFoot}</p>
         </section>
+
+        {/* The way back (13.11.2026, PLACE.7): a slider pushed to the end at a drill has no mark
+            to find 100 % again. The sub names what resets and what stays; the toast takes it
+            back (lib/useDevicePrefs · resetDevicePrefs) – a device pref is not on the
+            Einsatz's undo timeline (docs/undo.md), so the toast is the only undo. Its own card
+            after the prefs it resets (M9 A). */}
+        <div className="set-card">
+          <div className="set-row">
+            <span className="set-row-l">{cp.resetDevice}<small>{cp.resetDeviceSub}</small></span>
+            <Button icon={<Icon id="undo" />} onClick={() => undoToast(cp.resetDeviceDone, resetDevicePrefs())}>
+              {cp.resetDeviceBtn}
+            </Button>
+          </div>
+        </div>
 
         {/* The «Einsatz» group (Funkkontakt-Intervall, Nachfrist, Funkkanal) left this sheet
             28.08.: station doctrine belongs in /admin, where whoever set it up changes it — not
@@ -261,5 +292,38 @@ export function SettingsSheet({
         </section>
       </div>
     </Modal>
+  )
+}
+
+/** «Dieses Gerät» with no Einsatz open (the launcher, «Karte & Objekte», the Objektbesuche): owns
+ *  the pref state itself (mounted only while open, reads/writes the prefs cookie directly). The
+ *  Karte home hands it its `readiness` (KarteDeviceRows); the launcher has none to hand. */
+export function HomeDeviceSheet({ onClose, onFeedback, readiness, focus }: {
+  onClose: () => void
+  onFeedback?: () => void
+  readiness?: ReactNode
+  focus?: 'offline'
+}) {
+  const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
+  useEffect(() => {
+    // the legacy `symbolSize` key rides along in the spread untouched — see prefs · symbolScales
+    savePrefs({ ...loadPrefs(), symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, keepScreenOn, railLabels })
+  }, [symbolScale, symbolCaptions, keepScreenOn, railLabels])
+  return (
+    <SettingsSheet
+      onClose={onClose}
+      symbolScale={symbolScale}
+      railLabels={railLabels}
+      onRailLabels={setRailLabels}
+      onSymbolScale={setSymbolScale}
+      symbolCaptions={symbolCaptions}
+      onSymbolCaptions={setSymbolCaptions}
+      keepScreenOn={keepScreenOn}
+      onKeepScreenOn={setKeepScreenOn}
+      themeCoord={null}
+      onFeedback={onFeedback}
+      readiness={readiness}
+      focus={focus}
+    />
   )
 }

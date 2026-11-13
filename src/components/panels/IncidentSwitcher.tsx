@@ -25,7 +25,7 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
   onBackFromArchive, onReactivate,
 }: {
   active: IncidentMeta | null
@@ -39,9 +39,7 @@ export function IncidentSwitcher({
    *  On a phone the clock is the pill's second line (see `twoLine` below). */
   startedAt?: string | null
   endedAt?: string | null
-  /** open the Einstellungen sheet (device prefs + synced incident settings) */
-  /** Omitted hides the Einstellungen row — an Einsatz-Link has no device or incident
-      settings to change, and every write behind them is refused anyway. */
+  /** open «Dieses Gerät» (SettingsSheet: Alarm, offline, device prefs); omitted hides the row */
   onSettings?: () => void
   onSwitch: (i: IncidentMeta) => void
   /** «Alle Einsätze» — absent for an Einsatz-Link session, which may only ever see its own */
@@ -52,7 +50,6 @@ export function IncidentSwitcher({
    *  enterKarte). Absent for an Einsatz-Link session. */
   onKarte?: () => void
   onDivera: () => void
-  onDatenquellen: () => void
   /** Einsatzrapport (PDF / Drucken) — absent for an Einsatz-Link session, which may not
    *  generate documents or reach the station printer */
   /** correct the dispatch facts (address, category, Stichwort) — omitted for a viewer */
@@ -72,7 +69,6 @@ export function IncidentSwitcher({
   onHelp: () => void
   /** open the "Als App installieren" guide — App passes it only in a plain browser tab */
   onInstall?: () => void
-  onOfflineReadiness: () => void
   /** push edits queued while offline (also auto-fires on reconnect) */
   /** awaited so the button can spin for the round trip and report the outcome */
   onSyncNow: () => void | Promise<void>
@@ -475,8 +471,7 @@ export function IncidentSwitcher({
             onHistory={onHistory}
             onCreate={onDivera}
             onObjectVisits={onObjectVisits && (() => { setOpen(false); onObjectVisits() })}
-            onSettings={onSettings}
-            offline={active ? { label: appConfig.copy.offline.title, onOpen: onOfflineReadiness } : undefined}
+            onDevice={onSettings}
             onHelp={onHelp}
             onInstall={onInstall}
             onLogout={onLogout && (() => { onLogout(); setOpen(false) })}

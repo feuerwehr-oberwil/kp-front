@@ -176,9 +176,9 @@ const mount = (over: Partial<KarteAppProps> = {}) => {
     badge: 0,
     render: (close: () => void) => <button type="button" onClick={() => { launcherRow(); close() }}>Manueller Einsatz</button>,
   }
-  const onSettings = vi.fn(), onHelp = vi.fn()
-  render(<KarteApp einsaetze={einsaetze} onOpenVisits={onOpenVisits} running={[]} onOpenIncident={vi.fn()} onSettings={onSettings} onHelp={onHelp} {...over} />)
-  return { onOpenVisits, launcherRow, onSettings, onHelp }
+  const onHelp = vi.fn()
+  render(<KarteApp einsaetze={einsaetze} onOpenVisits={onOpenVisits} running={[]} onOpenIncident={vi.fn()} onHelp={onHelp} {...over} />)
+  return { onOpenVisits, launcherRow, onHelp }
 }
 
 describe('KarteApp', () => {
@@ -644,13 +644,15 @@ describe('KarteApp', () => {
     expect(screen.queryByRole('dialog', { name: 'Menü' })).toBeNull()
   })
 
-  // the app menu's offline row on home is the viewer's own «Auf diesem Gerät» (panels/AppMenuRows)
-  it('hands the sheet a door to «Auf diesem Gerät», which shuts the sheet and opens it', async () => {
+  // the app menu's «Dieses Gerät» row on home opens the viewer's own (with what it holds offline)
+  it('hands the sheet a door to «Dieses Gerät», which shuts the sheet and opens it', async () => {
     mount({ einsaetze: { badge: 0, render: (_close, onDevice) => <button type="button" onClick={onDevice}>Gerät</button> } })
     fireEvent.click(screen.getByRole('button', { name: /^Menü/ }))
     fireEvent.click(within(screen.getByRole('dialog', { name: 'Menü' })).getByRole('button', { name: 'Gerät' }))
     expect(screen.queryByRole('dialog', { name: 'Menü' })).toBeNull()
-    expect(await screen.findByRole('dialog', { name: appConfig.copy.karte.device.title })).toBeTruthy()
+    const sheet = await screen.findByRole('dialog', { name: appConfig.copy.settings.sheetTitle })
+    // the Offline part is the viewer's (KarteDeviceRows), under the sheet's «Bereit?»
+    expect(within(sheet).getByText(appConfig.copy.karte.device.leadOnline)).toBeTruthy()
   })
 
   // owner's pick 6A (sweep F.2): the chip names the first REAL Einsatz, not `running[0]`; one «+N»
@@ -852,12 +854,13 @@ describe('KarteApp', () => {
       expect(document.activeElement).toBe(screen.getByPlaceholderText('Adresse oder Objekt suchen …', PLAIN))
     })
 
-    it('⌘, and ? hand over to App\'s Einstellungen and Hilfe – and nothing reaches the viewer while App holds the keys', async () => {
-      const { onSettings, onHelp } = mount()
+    it('⌘, opens «Dieses Gerät», ? hands over to App\'s Hilfe – and nothing reaches the viewer while App holds the keys', async () => {
+      const { onHelp } = mount()
       await act(async () => {})
       key(',', { metaKey: true })
+      expect(await screen.findByRole('dialog', { name: appConfig.copy.settings.sheetTitle })).toBeTruthy()
+      fireEvent.keyDown(document, { key: 'Escape' })
       key('?')
-      expect(onSettings).toHaveBeenCalledTimes(1)
       expect(onHelp).toHaveBeenCalledTimes(1)
       cleanup()
       const off = mount({ keysOff: true })

@@ -243,44 +243,6 @@ export const incidentCopy = {
     corrected: 'Stunden korrigiert: {name}',
     attendanceRemoved: '{name} Anwesenheit entfernt',
   },
-  // Datenquellen panel (reference datasets + objects)
-  datenquellen: {
-    title: 'Datenquellen',
-    uploaded: 'Hochgeladen',
-    uploadFailed: 'Hochladen fehlgeschlagen',
-    invalidFilename: 'Dateiname ergibt keine gültige Kennung',
-    layerAdded: 'Ebene «{name}» hinzugefügt – beim nächsten Laden sichtbar',
-    addLayerFailed: 'Konnte Ebene nicht hinzufügen',
-    // ⚠️ Die Konfiguration wurde zwischen Lesen und Schreiben anderswo geändert (CLI, Verwaltung,
-    // zweites Tablet). Nochmals drücken liest neu und legt die Ebene sauber obendrauf – blind
-    // überschreiben würde genau das kaputtmachen, wogegen der Schutz eingebaut wurde.
-    layerConflict: 'Die Kartenebenen wurden gerade an anderer Stelle geändert. Bitte nochmals «Hinzufügen» drücken.',
-    // ⚠️ Etwas anderes als ein Konflikt: die Konfiguration liess sich gar nicht erst lesen (die
-    // Antwort war nicht das Dokument – Portal-Seite, Proxy-Fehler, Offline-Hülle). Nochmals
-    // drücken hilft hier nie, deshalb steht hier auch nicht «nochmals versuchen».
-    layerNoVersion: 'Die Konfiguration konnte nicht gelesen werden – die Ebene wurde nicht gespeichert. Netz prüfen und die Seite neu laden.',
-    globalDatasets: 'Globale Datensätze',
-    objectsCount: 'Objekte',
-    replace: 'Ersetzen',
-    adminOnlyNote: 'Datensätze ersetzen oder eine neue Ebene hinzufügen kann nur, wer /admin in diesem Browser entsperrt hat (ADMIN_SECRET).',
-    newGeoLayer: 'Neue Geo-Ebene …',
-    chooseGeojson: 'GeoJSON wählen …',
-    labelPlaceholder: 'Bezeichnung (z. B. Hydranten)',
-    groupPlaceholder: 'Gruppe (z. B. Wasser)',
-    defaultGroup: 'Referenz',
-    kindLines: 'Linien',
-    kindPoints: 'Punkte',
-    color: 'Farbe',
-    adding: 'Wird geladen …',
-    add: 'Hinzufügen',
-    geojsonNoteBefore: 'GeoJSON in WGS84 [lng, lat]. Wird als globaler Datensatz ',
-    geojsonNoteAfter: ' gespeichert.',
-    incidentObjects: 'Einsatzobjekte',
-    plansWord: 'Pläne',
-    nearby: 'In der Nähe ({n})',
-    allOther: 'Alle übrigen Objekte',
-    allObjects: 'Alle Objekte',
-  },
   // sync the roster with the configured personnel source
   personnelSync: {
     title: 'Personal mit {provider} abgleichen',
