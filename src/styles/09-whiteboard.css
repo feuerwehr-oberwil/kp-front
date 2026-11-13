@@ -974,8 +974,8 @@ span.wb-ghost-label { cursor: default; }
 /* «✓ Fertig» wears its word (M7 C, 13.11.2026): it is the one control that COMMITS a draft, and a
    bare ✓ beside the ✕ read as two ways out. The dock grows to the word; on the phone's row the
    46px tile becomes a pill of the same height. */
-.wb-dock .wb-dock-go { display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  width: auto; min-width: 46px; padding-inline: 14px; font: var(--fw-bold) var(--fs-2)/1 var(--body); white-space: nowrap; }
+.wb-dock .wb-dock-go { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  width: auto; min-width: 46px; padding-inline: var(--sp-3); font: var(--fw-bold) var(--fs-2)/1 var(--body); white-space: nowrap; }
 /* (.wb-dock-info / .wb-dock-ibtn / .wb-dock-tip migrated → DockInfo.module.css) */
 /* toggle inside the dock (e.g. the armed Messen mode, the "keep placing" lock) — the accent fill
    when engaged: that fill is what says «armed», on day and night glass alike */
