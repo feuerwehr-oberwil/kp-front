@@ -149,21 +149,14 @@ export function ShapeEditor({ entity, readOnly = false, onColor, onScale, onScal
             </span>
           </div>
         )}
-        {/* ⚠️ The SAME three steps and the same control as a drawn Fläche (DrawEditor · WIDTHS).
-            A Form is a pre-shaped area: the operator who has already learnt one line-width picker
-            should not meet a second grammar for the same property. */}
+        {/* ⚠️ The app's three stroke steps (appConfig.drawing.widths), in the panel's one choice
+            control: the operator who has learnt one picker should not meet a second grammar. */}
         {onStrokeW && (
           <div className="de-row">
             <span>{appConfig.copy.shapes.strokeLabel}</span>
-            <span className="dh-widths">
-              {WIDTHS.map((w) => (
-                <button
-                  key={w} className={`dh-width ${(entity.strokeW ?? SHAPE_STROKE_DEFAULT) === w ? 'on' : ''}`}
-                  aria-label={`${appConfig.copy.shapes.strokeLabel} ${w}`}
-                  onClick={() => onStrokeW(w)}
-                ><span style={{ height: w }} /></button>
-              ))}
-            </span>
+            {/* a `Segmented` (M5, 13.11.2026): one blue fill for every picked choice in a panel */}
+            <Segmented ariaLabel={appConfig.copy.shapes.strokeLabel} value={entity.strokeW ?? SHAPE_STROKE_DEFAULT} onChange={onStrokeW}
+              options={WIDTHS.map((w) => ({ value: w, label: <span className="dh-width-bar" style={{ height: w }} />, title: `${appConfig.copy.shapes.strokeLabel} ${w}` }))} />
           </div>
         )}
         {/* A Rotation has ONE size and it is the run: how far the shuttle goes. Its width follows

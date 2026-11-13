@@ -872,29 +872,25 @@ span.wb-ghost-label { cursor: default; }
 .wb-ww.on { background: var(--sel-wash); }
 .wb-ww:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-ww span { display: block; width: 18px; background: var(--ink); border-radius: 4px; }
-/* line-style toggle (solid / dashed) — shares the width-button frame; the preview
-   line colour follows --ls-ink, the dock's own ink (the DrawEditor panel restyles the frame,
-   08-toasts) */
-.wb-ls { --ls-ink: var(--ink); width: 38px; height: 34px; display: grid; place-items: center; background: var(--dock-control-bg); border: none; border-radius: var(--r-sm); cursor: pointer; padding: 0; }
-.wb-ls.on { background: var(--sel-wash); }
-.wb-ls:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* the stroke pictures of the Linie row (lib/draw · LineStylePicker, a `Segmented` since
+   13.11.2026, M5): drawn in currentColor, so a picked segment's --on-sel ink carries them */
 @media (hover: hover) {
   .wb-sw:hover:not(.on) { border-color: var(--ink-45); }
-  .wb-dock :is(.wb-ww, .wb-ls):hover:not(.on) { background: var(--dock-control-hover); }
+  .wb-dock .wb-ww:hover:not(.on) { background: var(--dock-control-hover); }
 }
 .ls-solid, .ls-dashed { display: block; width: 20px; height: 3px; border-radius: 3px; }
-.ls-solid { background: var(--ls-ink); }
-.ls-dashed { background: repeating-linear-gradient(to right, var(--ls-ink) 0 5px, transparent 5px 8px); }
+.ls-solid { background: currentColor; }
+.ls-dashed { background: repeating-linear-gradient(to right, currentColor 0 5px, transparent 5px 8px); }
 /* the two FKS chains, as swatches: a saw edge and a row of rings. Drawn with gradients/borders
-   rather than an icon so they tint with --ls-ink like the two above and stay one row of peers. */
+   rather than an icon so they tint with currentColor like the two above and stay one row of peers. */
 .ls-teeth, .ls-rings { display: block; width: 20px; height: 9px; }
 .ls-teeth { clip-path: polygon(0 100%, 16.7% 0, 33.3% 100%, 50% 0, 66.7% 100%, 83.3% 0, 100% 100%);
-  background: var(--ls-ink); }
+  background: currentColor; }
 /* the same saw, pointing the other way — the second Haltelinien button */
 .ls-teeth.down { clip-path: polygon(0 0, 16.7% 100%, 33.3% 0, 50% 100%, 66.7% 0, 83.3% 100%, 100% 0); }
 .ls-rings { display: flex; gap: 0; align-items: center; justify-content: center; }
 .ls-rings::before, .ls-rings::after { content: ''; width: 9px; height: 9px; border-radius: 50%;
-  border: 1.5px solid var(--ls-ink); }
+  border: 1.5px solid currentColor; }
 .ls-rings::after { margin-left: -4px; }
 
 /* vertical tool-option dock — anchored to the right edge beside the rail, so a

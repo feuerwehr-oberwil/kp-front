@@ -456,7 +456,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     segment).* (1) A **choice** — a segment, a chip, an option tile, a toggle chip, single or
     multi — is `--sel` filled with `--on-sel` text and `--sel-shadow` (01-tokens), whether it
     sits in a Segmented track, stands as chips (the Segmented's ≥5 mode too) or is a module's
-    own class. (2) A **row** in a list or menu (a combo option, a picker row, an option card
+    own class – best a real `Segmented` (13.11.2026, owner M5: the Linien-Editor's «Linie» stood
+    as a grey wash right under the blue «Abschluss»; it and the Form's «Strichstärke» are
+    `Segmented` now). (2) A **row** in a list or menu (a combo option, a picker row, an option card
     with a radio mark) is picked by `--sel-wash`, never filled — a filled row is a slab. **Nothing
     else rides on the wash** (29.09.2026): no ring, no recoloured read-out; a count keeps its own
     ink (an open count is amber on every row, current or not — `.group-choose-count.open`); a ✓
