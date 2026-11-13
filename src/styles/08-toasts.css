@@ -689,16 +689,16 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 }
 
 /* swatch / width pickers — shared by the draw-style bar and the draw editor */
-.dh-swatches, .dh-widths { display: flex; align-items: center; gap: var(--sp-2); }
+.dh-swatches { display: flex; align-items: center; gap: var(--sp-2); }
 .dh-color { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .5); cursor: pointer; padding: 0;
   box-shadow: inset 0 0 0 1px var(--border); } /* inner edge so a white/light swatch stays visible (and a black one at night) */
 /* .draw-editor already overrides this pair (see below) because a white ring on a light panel is
    invisible — but the ContextPanel renders the same swatches outside .draw-editor, where the ring
    sat at ~1.1:1 in day and the selected colour was indistinguishable from the rest. */
 .dh-color.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink-tint-strong); }
-.dh-width { width: 38px; height: 34px; display: grid; place-items: center; background: rgba(255, 255, 255, .12); border: none; border-radius: var(--r-sm); cursor: pointer; }
-.dh-width.on { background: rgba(255, 255, 255, .3); }
-.dh-width span { display: block; width: 18px; background: var(--on-accent-ink); border-radius: 4px; }
+/* the Form editor's Strichstärke picture inside its `Segmented` (ShapeEditor, M5): currentColor,
+   so a picked segment's --on-sel ink carries it */
+.dh-width-bar { display: block; width: 18px; background: currentColor; border-radius: 4px; }
 
 /* drawing editor reuses .ctx; dark swatches/widths on light bg */
 /* grouped sections: a divider BETWEEN groups, not between every row (cleaner, shorter) */
@@ -732,23 +732,25 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    A colour swatch was 30, a width/style button 38×34, a preset chip ~26, the Abschluss segment
    40, a ± stepper 44, an input ~28 — six heights stacked down one 360px column, so the panel read
    as a pile of unrelated widgets rather than one instrument. Two heights now, one per kind:
-   · every BOX control (a field, a menu, a ± stepper, segments, a preset chip) is --de-h = --tap.
+   · every BOX control (a field, a menu, a ± stepper, segments – Linie and Strichstärke among them
+     since 13.11.2026, M5 –, a preset chip) is --de-h = --tap.
      It was 34 from 01.09. – which took the Abschluss segments and the steppers under the gloved
      floor; the owner's pick 27x put them back on it, and Geschoss is now as tall as Typ;
-   · every ROUND pick button (Farbe, Füllung, Linie, Strichstärke) is 36px, the column's width
+   · every ROUND pick button (Farbe, Füllung) is 36px, the column's width
      spread among them. Six of them do not fit the desktop panel's column at 36 + a gap, so they
      SHRINK to fit (flex-shrink, kept round by aspect-ratio) rather than wrap or run out. */
 .draw-editor { --de-h: var(--tap); }
-.draw-editor .dh-swatches, .draw-editor .dh-widths { display: flex; align-items: center; justify-content: space-between; gap: 2px; }
-/* rounded squares touching read as one segmented bar; circles only touch at a point */
-.draw-editor .dh-widths { gap: var(--sp-2); }
-.draw-editor .dh-color,
-.draw-editor .dh-width,
-.draw-editor .wb-ls { flex: 0 1 36px; min-width: 0; width: auto; height: auto; aspect-ratio: 1; }
+.draw-editor .dh-swatches { display: flex; align-items: center; justify-content: space-between; gap: 2px; }
+.draw-editor .dh-color { flex: 0 1 36px; min-width: 0; width: auto; height: auto; aspect-ratio: 1; }
 .draw-editor .de-preset { min-height: var(--de-h); display: inline-flex; align-items: center; justify-content: center; padding: 0 var(--sp-3); }
 .draw-editor .useg { border-radius: var(--r-sm); padding: 2px; gap: 2px; --useg-in: calc(var(--r-sm) - 2px); }
 /* 8px a side, not 12: the four Abschluss glyphs share a ~200px column on the desktop panel */
 .draw-editor .useg-btn { min-height: calc(var(--de-h) - 4px); padding: 0 var(--sp-2); }
+/* the Linie row's five strokes (lib/draw · LineStylePicker, `scroll`): ONE line in the ~186px
+   column – the segments shrink to the 36px the round stroke buttons had before 13.11.2026 (M5)
+   instead of wrapping the fifth under the four */
+.draw-editor .useg-scroll { flex-wrap: nowrap; }
+.draw-editor .useg-scroll > .useg-btn { min-width: 0; padding-inline: 0; }
 .draw-editor .step-btn { width: var(--de-h); height: var(--de-h); min-height: var(--de-h); }
 /* duplicate-Leitung notice: a warning, never a block — a real incident sometimes needs the wrong
    thing typed for a moment, and the operator is told why it matters instead of being stopped */
@@ -766,11 +768,6 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .dh-color.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink-tint-strong); }
 /* fill-transparency swatches (circle/area): the 0% option shows a ∅ on an empty chip */
 .de-fill { display: grid; place-items: center; font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink-faint); line-height: 1; }
-.draw-editor .dh-width { background: var(--fill-soft); }
-.draw-editor .dh-width.on { background: var(--ink-tint); }
-.draw-editor .dh-width span { background: var(--ink); }
-.draw-editor .wb-ls { --ls-ink: var(--ink); background: var(--fill-soft); }
-.draw-editor .wb-ls.on { background: var(--ink-tint); }
 /* the text fields: --tap tall, the one corner, the Combo's fill. They took one column on
    30.10.2026 (owner: «the input areas look a bit messy with clipped labels and different input
    field sizes»); since 27B every control does, so a field is simply the row's control – the

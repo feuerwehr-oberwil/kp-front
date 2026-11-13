@@ -81,17 +81,17 @@ export const karteCopy = {
     // over an open plan (lib/planSharpness): the sharper picture of this view is still coming / cannot come
     planSharpening: 'Schärfere Ansicht wird geladen …',
     planSharpOffline: 'Schärfere Ansicht nur mit Netz',
-    planSharpFailed: 'Schärfere Ansicht konnte nicht geladen werden',
+    planSharpFailed: 'Schärfere Ansicht nicht geladen – die einfache bleibt',
     floorsFailed: 'Die Geschosse liessen sich nicht laden.',
     floorFailed: 'Dieses Geschoss liess sich nicht zeichnen.',
     // offline (docs/karte-objekte.md · Offline): «●» only for what this device really holds
     onDevice: 'auf diesem Gerät',
     planOnDevice: 'Auf diesem Gerät',
-    planOnlineOnly: 'Nur online',
+    planOnlineOnly: 'Nur mit Netz',
     planNotStored: 'Nicht auf diesem Gerät gespeichert',
     railNotStored: '{t} – nicht auf diesem Gerät',
-    planOfflineMissing: 'Keine Verbindung – dieser Plan ist auf diesem Gerät nicht gespeichert.',
-    floorsOfflineMissing: 'Keine Verbindung – die Geschosse sind auf diesem Gerät nicht gespeichert.',
+    planOfflineMissing: 'Ohne Netz – dieser Plan ist auf diesem Gerät nicht gespeichert.',
+    floorsOfflineMissing: 'Ohne Netz – die Geschosse sind auf diesem Gerät nicht gespeichert.',
     floorsPartOffline: 'Nicht alle Geschosse sind auf diesem Gerät gespeichert – hier fehlen welche.',
     // Gebäude laut Register
     registerTitle: 'Gebäude laut Register',
@@ -154,13 +154,12 @@ export const karteCopy = {
     loadFailed: 'Stationsobjekte liessen sich nicht laden.',
     fromDevice: 'Stationsobjekte vom Gerät · Stand {d}',
     noCatalogue: 'Noch keine Stationsobjekte auf diesem Gerät.',
-    // the bar's offline chip and «Auf diesem Gerät» (mockup s-j7-3)
+    // the bar's offline chip and the Offline part of «Dieses Gerät» (mockup s-j7-3; M9)
     offlineChip: 'Offline',
     offlineChipTitle: 'Offline – was auf diesem Gerät liegt',
     basemapSub: 'Offline – Objekte werden ohne Karte gezeigt',
-    basemapAction: 'Verfügbarkeit',
+    basemapAction: 'Dieses Gerät',
     device: {
-      title: 'Auf diesem Gerät',
       // «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026): the four readiness rows, their
       // one-tap fixes, the Testalarm, the opt-out, and the Karte home's nudge card
       alarm: {
@@ -222,28 +221,32 @@ export const karteCopy = {
       mapPartOffline: 'Dieser Ausschnitt nur teilweise – ohne Karte schraffiert',
       mapNone: 'Für diesen Ausschnitt keine Karte gespeichert',
       mapFar: 'Zum Prüfen näher heranzoomen',
-      mapUnknown: 'Nicht prüfbar – nur online angenommen',
+      mapUnknown: 'Nicht prüfbar – nur mit Netz angenommen',
       plans: 'Pläne',
       plansAll: 'alle {total} Pläne',
       plansPart: '{n} von {total} Plänen · zuletzt angesehene',
-      plansNone: 'keiner von {total} Plänen · nur online',
+      plansNone: 'keiner von {total} Plänen · nur mit Netz',
       plansEmpty: 'Keine Pläne im Katalog',
-      plansUnknown: 'Nicht prüfbar – nur online angenommen',
+      plansUnknown: 'Nicht prüfbar – nur mit Netz angenommen',
       buildings: 'Gebäuderegister',
       buildingsSome: '{n} zuletzt angesehene Gebäude',
       buildingsOne: '1 zuletzt angesehenes Gebäude',
-      buildingsNone: 'Noch keines gespeichert · nur online',
+      buildingsNone: 'Noch keines gespeichert · nur mit Netz',
       hazmat: 'Gefahrgut (UN/ADR)',
       hazmatSub: 'bereit',
       address: 'Adresssuche',
       weather: 'Wetter · Fahrzeuge',
-      onlineOnly: 'nur online',
+      onlineOnly: 'nur mit Netz',
       storage: 'Gerätespeicher',
       storageFree: '{free} frei',
       storageLow: '{free} frei · knapp',
       browserTab: 'Im Browser kann das Gerät Gespeichertes jederzeit löschen. Für offline die App installieren.',
       foot: 'Die ganze Station wird nicht heruntergeladen (mehrere GB). Gezielt Objekte oder Gebiete für offline speichern: später.',
-      lampWord: { device: 'auf diesem Gerät', part: 'teilweise auf diesem Gerät', online: 'nur online' },
+      lampWord: { device: 'auf diesem Gerät', part: 'teilweise auf diesem Gerät', online: 'nur mit Netz' },
     },
+    // the home's red alarm chip (M1, owner's pick A, 13.11.2026): a live Einsatz's Trupp at the
+    // alarm tier – «2 Alarme» (atemschutz.overdueBadge) over the reason; a tap opens it on its Trupps
+    alarmChipSub: { contact: 'Atemschutz überfällig', pressure: 'Alarmdruck erreicht', notfall: 'Atemschutz-Notfall' },
+    alarmChipOpen: 'Atemschutz-Alarm in {t}: {names} – zum Trupp',
   },
 }

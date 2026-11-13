@@ -72,7 +72,7 @@ describe('Einsatzrapport · phone tabs', () => {
 
   it('switches when a tab is picked', () => {
     const { body } = setup()
-    fireEvent.click(screen.getByRole('button', { name: /Personal & Mittel/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Personal & Material/ }))
     expect(body().dataset.phoneTab).toBe('werwas')
   })
 
@@ -214,7 +214,7 @@ describe('Einsatzrapport · phone tabs', () => {
 
     const onComplete = vi.fn(async () => true)
     const first = render(sheet(onComplete))
-    fireEvent.click(screen.getByRole('button', { name: /Personal & Mittel/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Personal & Material/ }))
     openMenu()
     fireEvent.click(journal())
     fireEvent.click(screen.getAllByRole('button', { name: 'Einsatz abschliessen' })[0])
@@ -323,7 +323,7 @@ describe('Einsatzrapport · phone tabs · the first card sits at the same height
 
   it.each([
     ['bericht', /Bericht/, '.rp-col-form', '.report-pre-meta'],
-    ['werwas', /Personal & Mittel/, '.rp-col-side', '.rp-check[data-step="anwesenheit"]'],
+    ['werwas', /Personal & Material/, '.rp-col-side', '.rp-check[data-step="anwesenheit"]'],
     ['beilagen', /Beilagen/, '.rp-col-side', '.rp-check[data-tab="beilagen"]'],
   ])('opens %s on its own first card, with no empty wrapper above it', (tab, name, col, card) => {
     const { body } = setup()
@@ -353,7 +353,7 @@ describe('Einsatzrapport · phone tabs · the first card sits at the same height
   // first one of the tab, right under the head's own edge. Exactly one section per tab drops it.
   it.each([
     ['bericht', /Bericht/, '.report-pre-meta'],
-    ['werwas', /Personal & Mittel/, '.rp-check[data-step="anwesenheit"]'],
+    ['werwas', /Personal & Material/, '.rp-check[data-step="anwesenheit"]'],
     ['beilagen', /Beilagen/, '.rp-check[data-tab="beilagen"]'],
   ])('draws no hairline over the first section of %s, and one over every other', (tab, name, first) => {
     const { body } = setup()
@@ -371,7 +371,7 @@ describe('Einsatzrapport · phone tabs · the first card sits at the same height
   // 12px gaps paid above the first card, and that is zero on every tab.
   it('pays no gap for a wrapper that holds nothing for the tab on screen', () => {
     const { body } = setup()
-    for (const [name, tab] of [[/Bericht/, 'bericht'], [/Personal & Mittel/, 'werwas'], [/Beilagen/, 'beilagen']] as const) {
+    for (const [name, tab] of [[/Bericht/, 'bericht'], [/Personal & Material/, 'werwas'], [/Beilagen/, 'beilagen']] as const) {
       pick(name)
       expect(body().dataset.phoneTab).toBe(tab)
       const empties: string[] = []

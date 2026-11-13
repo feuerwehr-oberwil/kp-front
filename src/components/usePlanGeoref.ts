@@ -113,7 +113,7 @@ export function usePlanGeoref({
       const replace = await confirmDialog({
         title: fillTemplate(C.transferReplaceTitle, { target: target.plan.code }),
         message: fillTemplate(C.transferReplaceBody, { target: target.plan.code, source: active?.code ?? activeId }),
-        confirmLabel: C.transfer,
+        confirmLabel: C.transferReplaceConfirm,
         cancelLabel: C.cancel,
       })
       if (!replace) return false

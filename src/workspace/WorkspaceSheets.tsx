@@ -1,5 +1,5 @@
 // The workspace's sheets that are not a surface: the Hilfe, the one «Teilen» sheet for every link,
-// the install guide, the Offline-Bereitschaft, the Einstellungen and the Rückmeldung. Split out of
+// the install guide, «Dieses Gerät» (its Offline part included) and the Rückmeldung. Split out of
 // IncidentWorkspace (E1, 09.10.2026) verbatim: which of them is open, and what each one's parent
 // is (a child sheet suspends its parent rather than destroying it), is still the workspace's
 // state — see useSheets and the `*Parent` states there.
@@ -9,7 +9,7 @@ import { HelpOverlay } from '../components/HelpOverlay'
 import { offeredTutorials } from '../lib/tutorials/offer'
 import type { AuthUser } from '../lib/auth'
 import { InstallGuide } from '../components/InstallGuide'
-import { ShareIncidentSheet, OfflineReadinessSheet, SettingsSheet, FeedbackSheet } from '../components/panels'
+import { ShareIncidentSheet, OfflineReadiness, SettingsSheet, FeedbackSheet } from '../components/panels'
 import { isDemoMode } from '../lib/deploymentConfig'
 import { currentFix } from '../lib/devicePosition'
 import type { IncidentMeta, SyncStatus } from '../lib/incidents'
@@ -30,6 +30,8 @@ export interface WorkspaceSheetsProps {
   setAtemschutzLinkOn: Dispatch<SetStateAction<boolean>>
   installGuideOpen: boolean
   setInstallGuideOpen: Dispatch<SetStateAction<boolean>>
+  /** «Dieses Gerät» opened from an offline door — the same sheet as `settingsOpen`, scrolled to
+   *  its Offline part (M9, 13.11.2026: «Offline-Bereitschaft» is no sheet of its own any more) */
   offlineReadyOpen: boolean
   setOfflineReadyOpen: Dispatch<SetStateAction<boolean>>
   offlineProbeUrls: { tiles: string[]; plan: string; references: string[] }
@@ -40,7 +42,6 @@ export interface WorkspaceSheetsProps {
   personnel: Person[]
   syncStatus: SyncStatus
   lastSyncedAt: number | null
-  syncNow: () => Promise<void>
   downloadOffline: (opts?: { quiet?: boolean }) => Promise<void>
   reloadPersonnel: () => Promise<void>
   cancelOffline: () => void
@@ -77,7 +78,7 @@ export interface WorkspaceSheetsProps {
 export function WorkspaceSheets({
   helpOpen, setHelpOpen, shareLink, incidentMeta, setShareLink, setAtemschutzLinkOn, installGuideOpen,
   setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen, offlineProbeUrls, sym, backendPlans,
-  manualObject, liveWeather, personnel, syncStatus, lastSyncedAt, syncNow, downloadOffline,
+  manualObject, liveWeather, personnel, syncStatus, lastSyncedAt, downloadOffline,
   reloadPersonnel, cancelOffline, offlineProgress, settingsOpen, feedbackOpen, sharePick, shareParent,
   setSettingsOpen, symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, railLabels,
   setRailLabels, keepScreenOn,
@@ -104,28 +105,27 @@ export function WorkspaceSheets({
         />
       )}
       {installGuideOpen && <InstallGuide onClose={() => setInstallGuideOpen(false)} />}
-      {offlineReadyOpen && (
-        <OfflineReadinessSheet
-          onClose={() => setOfflineReadyOpen(false)}
-          probeUrls={offlineProbeUrls}
-          symbolsReady={sym.ready}
-          planCount={Object.keys(backendPlans).length}
-          objectLabel={manualObject?.name ?? null}
-          weatherOk={liveWeather.data != null}
-          weatherError={liveWeather.error != null}
-          personnelCount={personnel.length}
-          syncStatus={syncStatus}
-          lastSyncedAt={lastSyncedAt}
-          onSyncNow={syncNow}
-          onLoadAll={() => { void downloadOffline(); void reloadPersonnel() }}
-          onCancel={cancelOffline}
-          loading={offlineProgress != null}
-          progress={offlineProgress}
-        />
-      )}
-      {settingsOpen && !feedbackOpen && !(sharePick && shareParent === 'settings') && (
+      {(settingsOpen || offlineReadyOpen) && !feedbackOpen && !(sharePick && shareParent === 'settings') && (
         <SettingsSheet
-          onClose={() => setSettingsOpen(false)}
+          onClose={() => { setSettingsOpen(false); setOfflineReadyOpen(false) }}
+          focus={offlineReadyOpen ? 'offline' : undefined}
+          readiness={
+            <OfflineReadiness
+              probeUrls={offlineProbeUrls}
+              symbolsReady={sym.ready}
+              planCount={Object.keys(backendPlans).length}
+              objectLabel={manualObject?.name ?? null}
+              weatherOk={liveWeather.data != null}
+              weatherError={liveWeather.error != null}
+              personnelCount={personnel.length}
+              syncStatus={syncStatus}
+              lastSyncedAt={lastSyncedAt}
+              onLoadAll={() => { void downloadOffline(); void reloadPersonnel() }}
+              onCancel={cancelOffline}
+              loading={offlineProgress != null}
+              progress={offlineProgress}
+            />
+          }
           symbolScale={symbolScale}
           onSymbolScale={setSymbolScale}
           symbolCaptions={symbolCaptions}
@@ -144,7 +144,7 @@ export function WorkspaceSheets({
           // verwenden» — never the act. Switching it on opens the sheet (the device has to know
           // whose position it would be reporting); switching it off revokes and stops.
           shareAs={share.ready ? (share.pref?.displayName ?? null) : null}
-          onSharePosition={!isDemoMode()
+          onSharePosition={!isDemoMode() && !linkScoped
             ? (on) => {
               if (on) {
                 setShareParent('settings')
@@ -163,7 +163,7 @@ export function WorkspaceSheets({
           operator mid-incident — the trouble prompt lives on the launcher (see lib/trouble). */}
       {feedbackOpen && <FeedbackSheet onClose={(reason) => {
         setFeedbackOpen(false)
-        if (reason === 'complete' && feedbackParent === 'settings') setSettingsOpen(false)
+        if (reason === 'complete' && feedbackParent === 'settings') { setSettingsOpen(false); setOfflineReadyOpen(false) }
         setFeedbackParent(null)
       }} />}
     </>

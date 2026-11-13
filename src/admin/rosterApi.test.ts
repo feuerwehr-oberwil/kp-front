@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // The CSV import's REQUEST, not its screen. RosterView.test.tsx mocks this whole module away and
 // asserts the component handed an array to a `vi.fn()` – which says nothing about the endpoint,
 // the multipart field names, or how the decisions are encoded. A mock that cannot fail is not
-// coverage: `upsertReferenceLayer` sent no `If-Match` for weeks under exactly that arrangement.
+// coverage: the browser's reference-layer write sent no `If-Match` for weeks under exactly that arrangement.
 //
 // The field names are load-bearing here, and asymmetrically so:
 //

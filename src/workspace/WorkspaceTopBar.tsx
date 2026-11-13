@@ -26,6 +26,7 @@ import type { ShareLinkKind } from '../lib/viewLink'
 import type { ReportMeta } from '../lib/workspace'
 import type { Incident, WeatherData, LngLat, ReactivateResult } from '../types'
 import type { WorkspaceMode } from './types'
+import type { ViewOnlyReason } from './access'
 
 export interface WorkspaceTopBarProps {
   incidentView: Incident
@@ -91,14 +92,12 @@ export interface WorkspaceTopBarProps {
   canEditMeta: boolean
   onEditMeta: () => void
   onOpenDivera: () => void
-  onOpenDatenquellen: () => void
   confirmAndComplete: () => Promise<boolean>
   abschlussMissing: AbschlussStep[]
   canShareLink: boolean
   setShareLink: Dispatch<SetStateAction<ShareLinkKind | null>>
   setHelpOpen: Dispatch<SetStateAction<boolean>>
   setInstallGuideOpen: Dispatch<SetStateAction<boolean>>
-  setOfflineReadyOpen: Dispatch<SetStateAction<boolean>>
   syncNow: () => Promise<void>
   media: ReturnType<typeof useMediaQueue>
   logout: () => Promise<void>
@@ -110,6 +109,8 @@ export interface WorkspaceTopBarProps {
   /** bumped when the Einsatz-Menü has to go although no surface changed — «Abschliessen» asked
    *  from «Alle Einsätze» (IncidentWorkspace · abschlussRef) */
   menuCloseKey: number
+  /** «Nur ansehen» in the pill's status slot, and why (workspace/access · viewOnlyReason) */
+  viewOnly: ViewOnlyReason | null
 }
 
 export function WorkspaceTopBar({
@@ -121,10 +122,10 @@ export function WorkspaceTopBar({
   onBackFromArchive, onReactivateActive, isPhone, phoneTools, planFit, incidents, syncStatus, journal,
   auditDelivery, closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
   onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenUeben, activeObjectId, canEditMeta, onEditMeta,
-  onOpenDivera, onOpenDatenquellen, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
-  setHelpOpen, setInstallGuideOpen, setOfflineReadyOpen, syncNow, media, logout, settingsOpen,
+  onOpenDivera, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
+  setHelpOpen, setInstallGuideOpen, syncNow, media, logout, settingsOpen,
   helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
-  menuCloseKey,
+  menuCloseKey, viewOnly,
 }: WorkspaceTopBarProps) {
   return (
     <>
@@ -228,14 +229,15 @@ export function WorkspaceTopBar({
             startedAt={incidentMeta.started_at}
             endedAt={reportMeta.endedAt ?? (running ? undefined : closeTimeOf(incidentMeta))}
             user={{ display_name: user?.display_name ?? '', color: user?.color ?? null, role: user?.role ?? 'viewer' }}
-            onSettings={linkScoped ? undefined : () => setSettingsOpen(true)}
+            // «Dieses Gerät» for a link session too (M9, 13.11.2026): it holds the Offline part the
+            // link always had, and every write in it is gated on its own (Rückmeldung, Standort)
+            onSettings={() => setSettingsOpen(true)}
             onSwitch={onSwitchIncident}
             onHistory={linkScoped ? undefined : onOpenHistory}
             onObjectVisits={linkScoped || !onOpenObjectVisits ? undefined : () => onOpenObjectVisits(activeObjectId ?? null)}
             onKarte={linkScoped ? undefined : onOpenKarte}
             onEditMeta={canEditMeta ? onEditMeta : undefined}
             onDivera={onOpenDivera}
-            onDatenquellen={onOpenDatenquellen}
             // Einsatzrapport (PDF + Drucken) and «Alle Einsätze» are both refused for a link
             // session — one generates a document with everyone's names, the other lists the
             // Einsätze this link has nothing to do with.
@@ -255,7 +257,6 @@ export function WorkspaceTopBar({
             onUeben={linkScoped ? undefined : onOpenUeben}
             onHelp={() => setHelpOpen(true)}
             onInstall={isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true)}
-            onOfflineReadiness={() => setOfflineReadyOpen(true)}
             onSyncNow={syncNow}
             // ⚠️ No «Abmelden» for a link session (02.09.): a link is the literal page and owns
             // no login on this device, so there is none to end here — and the row used to end
@@ -274,6 +275,7 @@ export function WorkspaceTopBar({
             onReactivate={onReactivateActive}
             navKey={`${mode}|${journalOpen ? 'journal' : ''}|${menuCloseKey}`}
             sheetOpen={settingsOpen || helpOpen || installGuideOpen || offlineReadyOpen || !!shareLink}
+            viewOnly={viewOnly}
           />
         }
       />

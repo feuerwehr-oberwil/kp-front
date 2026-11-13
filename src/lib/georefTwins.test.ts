@@ -400,7 +400,7 @@ describe('the fit effect’s vocabulary — cause, row, and whether a step is ow
     const r = effect(pairsSignature(docs, only2(moved)), before, false, 4)
     expect(r.cause).toBe('reference')
     expect(r.undoLabel).toBe(C.undoDomains.reference)
-    expect(r.row).toBe('Referenz angepasst – 4 Objekte neu verortet')
+    expect(r.row).toBe('Verknüpfung angepasst – 4 Objekte neu verortet')
   })
 
   it('the server REFUSED the write: the refusal row, and NO step', () => {

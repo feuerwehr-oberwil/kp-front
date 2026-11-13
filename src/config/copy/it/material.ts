@@ -70,7 +70,7 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     noch: 'restano {n}',
     stockAria: '{label}: restano {remaining} su {total}',
     emptyTitle: 'Nessun materiale registrato.',
-    emptyHint: 'Registra con «+ Materiale» ciò che è stato consumato – per il rapporto e per vedere se serve rifornimento.',
+    emptyHint: 'Registrare con «+ Materiale» ciò che è stato consumato.',
     emptyReadonly: 'Nessun materiale registrato.',
     composerTitle: 'Registra materiale',
     materialLabel: 'Materiale',

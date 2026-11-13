@@ -36,8 +36,10 @@ import s from './BuildingFloat.module.css'
  * the card opens by itself (`autoOpen`, lib/buildingFirstOpen —
  * the workspace decides when); closing it marks it read (`onRead`). The plan's row never passes it.
  */
-export function BuildingFloat({ info, autoOpen = false, onRead }: {
+export function BuildingFloat({ info, autoOpen = false, onRead, at }: {
   info: BuildingInfo | null
+  /** the Einsatz's place, for the card's map links (BuildingCard · `at`) */
+  at?: readonly [number, number] | null
   /** the card's FIRST open on this device (lib/buildingFirstOpen): it opens by itself while this
    *  is true — still non-modal, the map stays live — and stays as the operator leaves it */
   autoOpen?: boolean
@@ -85,7 +87,7 @@ export function BuildingFloat({ info, autoOpen = false, onRead }: {
       </button>
       {open && (
         <div className={s.pop} role="dialog" aria-label={C.title}>
-          <BuildingCard info={info} onClose={close} />
+          <BuildingCard info={info} onClose={close} at={at} />
         </div>
       )}
     </span>

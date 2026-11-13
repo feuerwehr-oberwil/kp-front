@@ -84,11 +84,12 @@ describe('AppMenuRows · home (no card)', () => {
     expect(screen.queryByRole('button', { name: appConfig.copy.tutorials.menu })).toBeNull()
   })
 
-  it('draws the offline row it is handed, in the App group', () => {
-    const onOpen = vi.fn()
-    renderHome({ offline: { label: appConfig.copy.karte.device.title, onOpen } })
-    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.karte.device.title }))
-    expect(onOpen).toHaveBeenCalledTimes(1)
+  it('draws ONE «Dieses Gerät» row when handed the door, and no second device row', () => {
+    const onDevice = vi.fn()
+    renderHome({ onDevice })
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.settings.sheetTitle }))
+    expect(onDevice).toHaveBeenCalledTimes(1)
+    expect(screen.getAllByRole('button').filter((b) => /Einstellungen|Offline|Auf diesem Gerät/.test(b.textContent ?? ''))).toEqual([])
   })
 })
 

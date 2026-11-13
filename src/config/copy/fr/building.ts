@@ -107,5 +107,7 @@ export const buildingCopy: Localizable<Pick<Copy, 'building'>> = {
     readingsChip: 'Mesures gaz',
     readingsChipLabel: 'Afficher tous les points de mesure',
     readingsOnMap: 'Carte',
+    geoLinks: 'Autres cartes',
+    geoLinksOffline: 'Seulement avec réseau',
   },
 }

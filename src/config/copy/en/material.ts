@@ -26,7 +26,7 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     noch: '{n} left',
     stockAria: '{label}: {remaining} of {total} left',
     emptyTitle: 'No material recorded yet.',
-    emptyHint: 'Use «+ Material» to record what was used – for the report and to see whether resupply is needed.',
+    emptyHint: 'Use «+ Material» to record what was used.',
     emptyReadonly: 'No material recorded yet.',
     composerTitle: 'Record material',
     materialLabel: 'Material',

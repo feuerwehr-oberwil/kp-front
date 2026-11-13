@@ -70,7 +70,7 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     noch: 'reste {n}',
     stockAria: '{label} : reste {remaining} sur {total}',
     emptyTitle: 'Aucun matériel saisi.',
-    emptyHint: 'Saisis avec «+ Matériel» ce qui a été consommé – pour le rapport et pour voir s\'il faut du réapprovisionnement.',
+    emptyHint: 'Saisir avec «+ Matériel» ce qui a été consommé.',
     emptyReadonly: 'Aucun matériel saisi.',
     composerTitle: 'Saisir du matériel',
     materialLabel: 'Matériel',

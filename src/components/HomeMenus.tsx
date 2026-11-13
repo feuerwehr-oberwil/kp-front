@@ -159,7 +159,7 @@ export function LauncherBody({
           )}
         </div>
         <div className="ip-emptyapp-utils">
-          <button className="ip-foot-util" onClick={() => onSettings()}><Icon id="gear" />{appConfig.copy.settings.title}</button>
+          <button className="ip-foot-util" onClick={() => onSettings()}><Icon id="gear" />{appConfig.copy.settings.sheetTitle}</button>
           <button className="ip-foot-util" onClick={() => onHelp()}><Icon id="info" />{appConfig.copy.help.menu}</button>
           {onInstall && (
             <button className="ip-foot-util" onClick={() => onInstall()}><Icon id="share-ios" />{appConfig.copy.install.menu}</button>
@@ -173,12 +173,12 @@ export function LauncherBody({
 
 /** Home's «Einsätze ▾» (owner, 17.10.2026): the SAME menu as inside an Einsatz — the same rows
  *  (panels/AppMenuRows), without the card, plus the alarms waiting to be taken. A row that opens
- *  something over the viewer shuts the sheet (`close`); «Auf diesem Gerät» is the viewer's own
- *  (`onDevice`), in the slot the Einsatz menu gives «Offline-Bereitschaft». Never for a link
+ *  something over the viewer shuts the sheet (`close`); «Dieses Gerät» is the viewer's own
+ *  (`onDevice`: KarteApp mounts it, with what the viewer holds offline). Never for a link
  *  session (appScreen gives it no viewer), so every account door is drawn here. */
 export function HomeMenu({
   close, onDevice, trouble, onTrouble, onTroubleDismiss, linkScoped, isEditor, user, incidents, activeId, opening,
-  alarms, taking, onTake, onDismissAlarm, onOpenIncident, onHistory, onCreate, onObjectVisits, onSettings, onUeben, onHelp,
+  alarms, taking, onTake, onDismissAlarm, onOpenIncident, onHistory, onCreate, onObjectVisits, onUeben, onHelp,
   onInstall, onLogout,
 }: HomeActions & { close: () => void; onDevice: () => void }) {
   return (
@@ -198,8 +198,7 @@ export function HomeMenu({
         onHistory={() => { close(); onHistory() }}
         onCreate={() => { close(); onCreate() }}
         onObjectVisits={onObjectVisits ? () => { close(); onObjectVisits() } : undefined}
-        onSettings={() => { close(); onSettings() }}
-        offline={{ label: appConfig.copy.karte.device.title, onOpen: onDevice }}
+        onDevice={onDevice}
         onUeben={onUeben ? () => { close(); onUeben() } : undefined}
         onHelp={() => { close(); onHelp() }}
         onInstall={onInstall ? () => { close(); onInstall() } : undefined}

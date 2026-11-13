@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { LINK_REFUSED_EVENT } from '../lib/api'
 import { isAtemschutzLinkKind, useAuth, type AuthUser } from '../lib/auth'
 import { isIncidentRunning, type IncidentMeta } from '../lib/incidents'
+import type { WorkspaceMode } from './types'
 
 /** The session's identity and role, and the one piece of state it carries: a refused link. */
 export function useSessionRole(incidentMeta: IncidentMeta) {
@@ -174,4 +175,36 @@ export function workspaceFlags({ user, asLink, isEl, isEditor, roleReadOnly, for
  *  callback that depends on `running`. */
 export function useWorkspaceFlags(inputs: FlagInputs) {
   return workspaceFlags(inputs)
+}
+
+/** Why the head pill says «Nur ansehen» (owner pick M6 A, 13.11.2026): a viewer, an Einsatz-Link,
+ *  or the Einsatzleitung (the `el` role and an editor's Führungsansicht) on a surface it does not
+ *  keep. */
+export type ViewOnlyReason = 'viewer' | 'link' | 'el'
+
+/** the surfaces the record keepers write (`canEditRecord`), the Verlauf among them */
+const RECORD_MODES: ReadonlySet<WorkspaceMode> = new Set(['anwesenheit', 'mittel', 'checklists', 'rapport'])
+
+/**
+ * The read-only mark in the head pill's status slot (IncidentSwitcher), per SURFACE: it must be
+ * true where it stands — the el writes the Rapport, so the Rapport shows its ✓ «Gespeichert» and
+ * the Karte shows «Nur ansehen». Null wherever this session can write what is on screen, and on
+ * a closed Einsatz: its lock owns the slot (one mark at a time). A tab that lost its lock, a
+ * replay or an older build are not «Nur ansehen» sessions – each has its own row that says so.
+ */
+export function viewOnlyReason({ flags, roleReadOnly, linkScoped, isEl, mode, journalOpen }: {
+  flags: Pick<ReturnType<typeof workspaceFlags>, 'running' | 'elView' | 'canEditRecord' | 'canEditTrupps' | 'tacticalLocked'>
+  roleReadOnly: boolean
+  linkScoped: boolean
+  isEl: boolean
+  mode: WorkspaceMode
+  journalOpen: boolean
+}): ViewOnlyReason | null {
+  if (!flags.running) return null
+  const writesHere = journalOpen || RECORD_MODES.has(mode) ? flags.canEditRecord
+    : mode === 'atemschutz' ? flags.canEditTrupps
+      : !flags.tacticalLocked
+  if (writesHere) return null
+  if (roleReadOnly) return linkScoped ? 'link' : 'viewer'
+  return isEl || flags.elView ? 'el' : null
 }

@@ -29,8 +29,8 @@ export const shellCopy = {
     noMatches: 'Kein Trupp gefunden',
     // shown INSTEAD of the list when nothing is placed anywhere — the honest answer, and it
     // says where a Trupp comes from rather than leaving an empty box
-    empty: 'Noch kein Trupp platziert.',
-    emptyHint: 'Trupps werden auf der Karte oder auf einem Plan platziert – über die Truppkarte unter «Trupps» oder das Trupp-Werkzeug.',
+    empty: 'Noch kein Trupp auf Karte oder Plan.',
+    emptyHint: 'Trupp unter «Trupps» oder mit dem Trupp-Werkzeug auf Karte oder Plan setzen.',
     // the row's own status word, when the Trupp board says the Trupp has come back out
     raus: 'raus',
   },

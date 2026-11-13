@@ -121,18 +121,16 @@ export const panelsCopy = {
     // einfach «geht nicht» meldet. Zuordnung: lib/pdfDiagnosis.ts.
     reason: {
       stale: 'Die App läuft auf einer alten Version – App schliessen und neu öffnen.',
-      offline: 'Keine Verbindung – das PDF ist auf diesem Gerät nicht gespeichert.',
-      missing: 'Das PDF ist auf dem Server nicht mehr vorhanden.',
+      offline: 'Ohne Netz – das PDF ist auf diesem Gerät nicht gespeichert.',
+      missing: 'Das PDF ist nicht mehr verfügbar.',
       denied: 'Die Anmeldung gilt nicht mehr – neu anmelden.',
-      timeout: 'Der Server hat nicht geantwortet.',
+      timeout: 'Keine Antwort – erneut versuchen',
       unsupported: 'Dieser Browser ist zu alt für die PDF-Anzeige.',
       unknown: 'Grund unbekannt.',
     },
   },
-  // Einstellungen sheet (device prefs + synced per-incident settings)
+  // «Dieses Gerät» sheet (SettingsSheet: Bereit?, the device prefs, the utilities)
   settings: {
-    title: 'Einstellungen',
-    deviceGroup: 'Gerät',
     colorScheme: 'Farbschema',
     // the line under «Farbschema»: what the selected option does («Automatisch» vs «Gerät»)
     colorSchemeHint: {
@@ -173,10 +171,14 @@ export const panelsCopy = {
     blankSheet: 'Leeres Erfassungsblatt (PDF)',
     blankSheetSub: 'Papierblatt zum Handausfüllen',
     blankSheetDownload: 'Herunterladen',
-    blankSheetFailed: 'PDF fehlgeschlagen – nochmals versuchen',
+    blankSheetFailed: 'PDF nicht erstellt – erneut versuchen',
     feedbackRow: 'Rückmeldung geben',
     feedbackRowSub: 'Was umständlich war oder gefehlt hat',
     feedbackOpen: 'Schreiben',
+    // «Dieses Gerät» (M9, 13.11.2026): the one device sheet, its menu row and its two groups
+    sheetTitle: 'Dieses Gerät',
+    readyGroup: 'Bereit?',
+    handGroup: 'Bedienung',
   },
   // Rückmeldung — the feedback composer + the prompt after something went wrong. Nothing here
   // is sent automatically: the app writes the text, the operator sends it (see lib/feedbackReport).
@@ -200,7 +202,7 @@ export const panelsCopy = {
       crash: 'Absturz der Oberfläche',
       renderStorm: 'Dauerlast der Oberfläche',
       storageFull: 'Gerätespeicher voll',
-      syncConflict: 'Sync-Konflikt beim Zusammenführen',
+      syncConflict: 'Konflikt beim Zusammenführen',
     },
     subject: 'Rückmeldung',
     intro: 'Was ist passiert, und was hättest du erwartet? Ein, zwei Sätze genügen.',
@@ -221,14 +223,14 @@ export const panelsCopy = {
     // The Diagnose-Datei. `{n}` is the number of recorded errors, `{name}` the filename that
     // landed in Downloads – naming it is the difference between «hänge die Datei an» and a
     // person hunting through a folder.
-    diagNote: 'Beide Wege: die Diagnose-Datei ({n}) wird beim Weiterklicken gesichert – im '
-      + 'Issue bzw. in der Mail anhängen. Ohne sie fehlt die eigentliche Fehlermeldung.',
+    diagNote: 'Beide Wege: die Diagnose-Datei ({n}) wird beim Weiterklicken heruntergeladen – im Issue '
+      + 'bzw. in der Mail anhängen. Ohne sie fehlt die eigentliche Fehlermeldung.',
     diagNoteEmpty: 'Beide Wege: es sind zurzeit keine Fehlerprotokolle aufgezeichnet. '
       + 'Beschreib einfach, was passiert ist.',
     diagCount: '{n} Fehlerprotokolle',
     diagCountOne: '1 Fehlerprotokoll',
     diagLine: 'Fehler: ',
-    diagSaved: 'Diagnose-Datei «{name}» gesichert – bitte anhängen.',
+    diagSaved: 'Diagnose-Datei «{name}» heruntergeladen – bitte anhängen.',
     diagFailed: 'Diagnose-Datei liess sich nicht erstellen – die Meldung geht trotzdem.',
     privacy: 'Nichts wird automatisch gesendet. Du entscheidest, ob, wie und an wen.',
     // the foot's cancel: nothing was sent, the words stay a draft (lib/feedbackDraft) – the same
@@ -246,9 +248,8 @@ export const panelsCopy = {
       noDescription: '(keine Beschreibung)',
     },
   },
-  // Offline-Bereitschaft readiness diagnostics
+  // Offline-Bereitschaft readiness diagnostics – the Offline part of «Dieses Gerät» in an Einsatz
   offline: {
-    title: 'Offline-Bereitschaft',
     // Shown in a browser tab instead of the readiness list: a tab is no reliable offline state
     // (iOS clears caches after days without use, and the tab then has to still be open at all).
     // Rather than claim a Bereitschaft that won't hold at 3am, the card says what is missing and
@@ -258,14 +259,14 @@ export const panelsCopy = {
     // Platforms with no install path (desktop Firefox …) — say honestly that there is nothing to
     // install here, instead of pointing at instructions that don't exist.
     browserNoInstall: 'Dieses Gerät bietet keine Installation an. Für den Einsatz offline KP Front auf dem Tablet oder Handy installieren.',
-    syncedAgo: 'Einsatzdaten {ago} synchronisiert',
-    offline: 'Offline – lokal gespeichert',
-    pending: 'Wird gespeichert …',
-    error: 'Sync-Fehler – lokal gespeichert',
+    syncedAgo: 'Einsatzdaten {ago} übertragen',
+    offline: 'Offline – auf diesem Gerät gespeichert',
+    pending: 'Wird übertragen …',
+    error: 'Nicht übertragen – auf diesem Gerät gespeichert',
     agoNever: 'noch nicht',
     agoJustNow: 'gerade eben',
-    agoMin: 'vor {n} Min',
-    agoHour: 'vor {n} Std',
+    agoMin: 'vor {n} min',
+    agoHour: 'vor {n} h',
     checking: 'wird geprüft …',
     ready: 'bereit',
     notLoaded: 'nicht geladen',
@@ -281,7 +282,7 @@ export const panelsCopy = {
     geoSome: '{cached}/{total} geladen',
     rowWeather: 'Wetter',
     weatherUnreachable: 'nicht erreichbar',
-    onlineOnly: 'nur online',
+    onlineOnly: 'nur mit Netz',
     rowPersonnel: 'Personal',
     personnelCount: '{n} Personen',
     rowObjectSearch: 'Objektsuche',
@@ -290,8 +291,8 @@ export const panelsCopy = {
     rowStorage: 'Gerätespeicher',
     storageFree: '{size} frei',
     storageUnknown: 'Gerät meldet keinen Speicherstand',
-    storageFullShort: 'Voll – nichts wird lokal gesichert',
-    storageFull: 'Speicher voll – Änderungen sind nicht lokal gesichert',
+    storageFullShort: 'Voll – nichts wird gespeichert',
+    storageFull: 'Speicher voll – Änderungen sind nicht auf diesem Gerät gespeichert',
     // Pre-flight check for «Alles für offline laden»: the offline stock and the Einsatzrapport
     // share the same storage, so a map download must not crowd the Rapport out.
     dlTightTitle: 'Wenig Speicher auf diesem Gerät',
@@ -302,7 +303,7 @@ export const panelsCopy = {
     // aborts the running download; the tiles already stored stay stored
     cancel: 'Abbrechen',
     loadAll: 'Alles für offline laden',
-    foot: 'Lädt Karte, Pläne, Symbole und Leitungen für diesen Einsatz auf dieses Gerät. Wetter und Objektsuche brauchen eine Verbindung und sind offline nicht verfügbar.',
+    foot: 'Lädt Karte, Pläne, Symbole und Leitungen für diesen Einsatz auf dieses Gerät. Wetter und Objektsuche brauchen Netz.',
     // workspace load gate (lib/workspace sanitizeWorkspace): honest reporting, never silent
     wsDropped: '{n} beschädigte Einträge beim Laden übersprungen',
     // a blob from a newer build: this build fetches it and reloads by itself; the row stands only
@@ -328,7 +329,7 @@ export const panelsCopy = {
     dlNoCoverage: 'Nichts geladen – die Kartenquelle kennt dieses Gebiet nicht. Kartenebene bzw. Kachel-URL prüfen.',
     dlContinue: 'Weiterladen',
     dlRetry: 'Erneut versuchen',
-    dlFailed: 'Offline-Download fehlgeschlagen',
+    dlFailed: 'Karte nicht für offline geladen – erneut versuchen',
   },
   // App empty state — shown when no incident is open (viewer vs. editor variants)
   emptyApp: {

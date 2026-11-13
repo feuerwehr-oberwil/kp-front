@@ -213,7 +213,8 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
           title={fillTemplate(E.title, { t: formatTime(new Date(startedAt)) })}
           aria-label={`${E.label}: ${clockText}`}
         >
-          <Icon id="hourglass" /><b>{clockText}</b>
+          {/* the eyebrow names what the digits count (M3, owner's pick B, 13.11.2026) */}
+          <Icon id="hourglass" /><span className="tb-uhr-stack"><small className="clock-eyebrow" aria-hidden>{E.label}</small><b>{clockText}</b></span>
         </span>
       )}
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AuthUser } from '../lib/auth'
 import type { IncidentMeta } from '../lib/incidents'
-import { workspaceFlags, type FlagInputs } from './access'
+import { viewOnlyReason, workspaceFlags, type FlagInputs } from './access'
 
 const user = (role: AuthUser['role'], extra: Partial<AuthUser> = {}): AuthUser =>
   ({ id: 'u', username: 'u', display_name: 'U', role, color: null, last_login: null, ...extra })
@@ -59,5 +59,35 @@ describe('workspaceFlags', () => {
   })
   it('a replay locks everything, the outboxes included', () => {
     expect(flags({ replayActive: true })).toMatchObject({ readOnly: true, outboxReadOnly: true, canEditRapport: false, canSignRapport: false, tacticalLocked: true })
+  })
+})
+
+// M6 A (13.11.2026): «Nur ansehen» in the head pill – true per surface, never beside the closed lock
+describe('viewOnlyReason', () => {
+  const reason = (over: Partial<FlagInputs>, mode: Parameters<typeof viewOnlyReason>[0]['mode'], extra: { linkScoped?: boolean; journalOpen?: boolean } = {}) =>
+    viewOnlyReason({ flags: flags(over), roleReadOnly: over.roleReadOnly ?? false, linkScoped: extra.linkScoped ?? false, isEl: over.isEl ?? false, mode, journalOpen: extra.journalOpen ?? false })
+  const viewer = { user: user('viewer'), isEditor: false, roleReadOnly: true }
+  const el = { user: user('el'), isEditor: false, isEl: true }
+
+  it('an editor writes every surface, so it never sees the mark', () => {
+    for (const m of ['map', 'plans', 'atemschutz', 'rapport'] as const) expect(reason({}, m)).toBeNull()
+  })
+  it('a viewer and an Einsatz-Link say so on every surface, each with its own reason', () => {
+    expect(reason(viewer, 'map')).toBe('viewer')
+    expect(reason(viewer, 'rapport')).toBe('viewer')
+    expect(reason(viewer, 'map', { linkScoped: true })).toBe('link')
+  })
+  it('the el is «Nur ansehen» on the picture and the Tafel, not on the record it keeps', () => {
+    expect(reason(el, 'map')).toBe('el')
+    expect(reason(el, 'plans')).toBe('el')
+    expect(reason(el, 'atemschutz')).toBe('el')
+    expect(reason(el, 'rapport')).toBeNull()
+    expect(reason(el, 'anwesenheit')).toBeNull()
+    expect(reason(el, 'map', { journalOpen: true })).toBeNull()
+    // …and the Führungsansicht reads the same
+    expect(reason({ user: user('editor', { el_view_default: true }) }, 'map')).toBe('el')
+  })
+  it('a closed Einsatz keeps its lock alone in the slot', () => {
+    expect(reason({ ...viewer, incidentMeta: meta({ is_archived: true }) }, 'map')).toBeNull()
   })
 })

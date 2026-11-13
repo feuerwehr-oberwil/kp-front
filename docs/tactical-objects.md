@@ -32,7 +32,7 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   pass through. The symbol tool has no option dock any more – the pill is its readout, «Mehrere
   platzieren» is a 44 px toggle with its word beside the pill, and the way out is the ✕ beside that
   toggle or Escape on the Karte and the Plan alike (27.10.2026: with «Mehrere platzieren» on, the
-  Plan's Escape did nothing and there was no ✕ – no way to stop placing Durchgänge). The other tools keep their option docks (Freihand ↔ Punkte, ✓,
+  Plan's Escape did nothing and there was no ✕ – no way to stop placing Durchgänge). The other tools keep their option docks (Freihand ↔ Punkte, «✓ Fertig» – the one commit, ui-conventions › Close and commit –,
   Strecke ↔ Fläche, Trupp finden). On a phone the pill stands on the floating row (above the dock
   while one is out). While Messen is armed there is no pill, on any size – its results panel
   stands in that spot (sweep 30.10.2026 #3: the pill covered the Distanz on a tablet).

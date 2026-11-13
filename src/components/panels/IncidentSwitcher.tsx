@@ -11,6 +11,9 @@ import { useIsPhone } from '../../lib/useIsPhone'
 import { useEinsatzuhr } from '../../lib/einsatzuhr'
 import { AppMenuRows } from './AppMenuRows'
 import { tut } from '../../lib/tutorials/anchors'
+import { foreignMark } from '../../lib/foreignAlarm'
+import { runningOthers } from '../../lib/switcherLists'
+import type { ViewOnlyReason } from '../../workspace/access'
 
 // HH:MM for the positive "gespeichert" trust signal next to the sync badge.
 function fmtClock(ms: number): string {
@@ -26,8 +29,8 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onUeben, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
-  onBackFromArchive, onReactivate,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onUeben, onHelp, onInstall, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
+  onBackFromArchive, onReactivate, viewOnly = null,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -40,9 +43,7 @@ export function IncidentSwitcher({
    *  On a phone the clock is the pill's second line (see `twoLine` below). */
   startedAt?: string | null
   endedAt?: string | null
-  /** open the Einstellungen sheet (device prefs + synced incident settings) */
-  /** Omitted hides the Einstellungen row — an Einsatz-Link has no device or incident
-      settings to change, and every write behind them is refused anyway. */
+  /** open «Dieses Gerät» (SettingsSheet: Alarm, offline, device prefs); omitted hides the row */
   onSettings?: () => void
   onSwitch: (i: IncidentMeta) => void
   /** «Alle Einsätze» — absent for an Einsatz-Link session, which may only ever see its own */
@@ -53,7 +54,6 @@ export function IncidentSwitcher({
    *  enterKarte). Absent for an Einsatz-Link session. */
   onKarte?: () => void
   onDivera: () => void
-  onDatenquellen: () => void
   /** Einsatzrapport (PDF / Drucken) — absent for an Einsatz-Link session, which may not
    *  generate documents or reach the station printer */
   /** correct the dispatch facts (address, category, Stichwort) — omitted for a viewer */
@@ -76,7 +76,6 @@ export function IncidentSwitcher({
   onHelp: () => void
   /** open the "Als App installieren" guide — App passes it only in a plain browser tab */
   onInstall?: () => void
-  onOfflineReadiness: () => void
   /** push edits queued while offline (also auto-fires on reconnect) */
   /** awaited so the button can spin for the round trip and report the outcome */
   onSyncNow: () => void | Promise<void>
@@ -97,6 +96,9 @@ export function IncidentSwitcher({
   onBackFromArchive?: () => void
   /** editors only: re-open the closed Einsatz (its own confirm lives upstream) */
   onReactivate?: () => Promise<ReactivateResult>
+  /** this session writes nothing on the surface on screen, and why (workspace/access ·
+   *  viewOnlyReason) — «Nur ansehen» takes the ✓'s place */
+  viewOnly?: ViewOnlyReason | null
 }) {
   const cp = appConfig.copy.incidentSwitcher
   // «Jetzt synchronisieren» reports what it did on the button itself: Shell trail runs for the
@@ -208,14 +210,16 @@ export function IncidentSwitcher({
   // was «Gespeichert um 23:16»). The other states keep their words — they are warnings.
   const savedPill = syncStatus === 'synced' ? cp.saved : savedText
   // «Speicher voll» wears its own glyph (lib/icons · #storage, S1): on a phone the chip is its
-  // glyph alone, and the ⚠ it shared with «Sync-Fehler» made the worse state read as the milder
+  // glyph alone, and the ⚠ it shared with «Sync-Fehler» made the worse state read as the milder.
+  // Offline / not yet synced are a cloud in the quiet ink (M2, owner's pick A, 13.11.2026: amber is
+  // the open count's alone) – an amber dot until then.
   const statusMark = syncStatus === 'synced'
     ? <Icon id="check" />
     : syncStatus === 'storage'
       ? <Icon id="storage" />
       : syncStatus === 'error'
         ? <Icon id="warn" />
-        : <span className="ip-status-dot" />
+        : <Icon id="wx-cloud" />
   const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
   // ── a CLOSED Einsatz (27.10.2026, sweep #5 · owner pick B) ──
   // The lock rides in the pill's ✓ slot — the amber «Einsatz abgeschlossen» chip beside the pill
@@ -248,6 +252,21 @@ export function IncidentSwitcher({
       .finally(() => { if (alive.current) setReopening(false) })
   }
   const closedMark = closed && syncStatus === 'synced'
+  // ── «Nur ansehen» (13.11.2026, owner pick M6 A) ── a session that writes nothing here says so
+  // in the ✓'s slot (a viewer saw the green ✓ for work it cannot do); the reason (Betrachter ·
+  // Einsatzleitung · Einsatz-Link) is the card's pill. Neutral, not amber: it is not a problem.
+  // Never beside the closed lock (viewOnlyReason is null then) and never over a sync warning. On
+  // a phone it rides the clock line — in the title row it cut the Einsatz name.
+  const viewOnlyMark = active && viewOnly && syncStatus === 'synced' && (
+    <span className="ip-offline-chip ip-viewonly-chip" title={`${cp.viewOnly} · ${cp.viewOnlyWhy[viewOnly]}`}>
+      <Icon id="eye" /><span className="ip-chip-word">{cp.viewOnly}</span>
+    </span>
+  )
+  // ── another Einsatz's Atemschutz alarm (13.11.2026, owner pick M11 B) ── its row in the list
+  // carries the red mark (AppMenuRows · foreignMark); the CLOSED pill carries a red dot at its
+  // chevron, a reason to open the list – no tone, no Meldeleiste row (lib/foreignAlarm's rule).
+  // It goes with the mark: the server's list drops a Trupp once it is acknowledged or out.
+  const foreignDot = runningOthers(incidents, active?.id ?? null).some((i) => foreignMark(i) != null)
   /**
    * «Jetzt synchronisieren» — offered whenever the device has a link, not only on error: it forces a push AND an
    * immediate pull, the "make everything fresh right now" action when things feel stale. It has
@@ -277,8 +296,8 @@ export function IncidentSwitcher({
     <div className="ip-switch" ref={ref}>
       <button ref={triggerRef} {...tut('menu.einsatz')} className={`ip-switch-btn${twoLine ? ' ip-switch-two' : ''}`} onClick={() => { setClosedOpen(false); setOpen((v) => !v) }}
         aria-label={twoLine
-          ? [pill.street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', uhr ? `${U.label} ${uhr}` : ''].filter(Boolean).join(', ')
-          : active ? [active.title, closed ? C.title : ''].filter(Boolean).join(', ') : cp.noIncident}
+          ? [pill.street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', uhr ? `${U.label} ${uhr}` : '', foreignDot ? cp.foreignAlarmDot : ''].filter(Boolean).join(', ')
+          : active ? [active.title, closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', foreignDot ? cp.foreignAlarmDot : ''].filter(Boolean).join(', ') : cp.noIncident}
         aria-expanded={open && !sheetOpen}>
         {twoLine ? (
           <span className="ip-switch-lines">
@@ -287,8 +306,11 @@ export function IncidentSwitcher({
               {pill.stichwort && pill.street && <span className="ip-switch-sep" aria-hidden>·</span>}
               {pill.street && <span className="ip-switch-street">{pill.street}</span>}
             </span>
-            {uhr && (
-              <span className="ip-switch-clock"><Icon id="hourglass" /><b>{uhr}</b></span>
+            {(uhr || viewOnlyMark) && (
+              // the eyebrow on the clock's own line, before the digits (M3, owner's pick B): the
+              // phone pill keeps its two lines – above the digits it would have been a third.
+              // «Nur ansehen» rides on the same line (M6): in the title row it cut the Einsatz name
+              <span className="ip-switch-clock">{uhr && <><Icon id="hourglass" /><small className="clock-eyebrow" aria-hidden>{U.label}</small><b>{uhr}</b></>}{viewOnlyMark}</span>
             )}
           </span>
         ) : (
@@ -301,9 +323,9 @@ export function IncidentSwitcher({
         )}
         {/* persistent ÜBUNG marker in the chrome — a training must never read as a real
             Einsatz mid-use (it also survives the phone's CSS-hidden title).
-            PHONE (08.10.2026, owner): ONE letter, «Ü», in a square amber tag. The word ellipsised
+            PHONE (08.10.2026, owner): ONE letter, «Ü», in a square tag (hatched since M2, 13.11.2026). The word ellipsised
             into «ÜBU…» and took the street with it («Sägestrass…») — the street is what the pill
-            is for, and the amber square says «Übung» as well as the word does. The word stays
+            is for, and the square says «Übung» as well as the word does. The word stays
             the title and is part of the button's accessible name above. */}
         {active?.is_exercise && (twoLine
           ? <span className="ip-badge ip-badge-exercise ip-badge-initial" title={appConfig.copy.exerciseBadge}>{appConfig.copy.exerciseInitial}</span>
@@ -321,21 +343,25 @@ export function IncidentSwitcher({
             <Icon id="storage" /><span className="ip-chip-word">{cp.storageShort}</span>
           </span>
         ) : active && syncStatus === 'offline' ? (
-          <span className="ip-offline-chip" title={savedText} aria-label={savedText}>
-            <span className="ip-status-dot" />{cp.offlineShort}
+          <span className="ip-offline-chip ip-sync-word" title={savedText} aria-label={savedText}>
+            <Icon id="wx-cloud" />{cp.offlineShort}
           </span>
         ) : active && syncStatus === 'error' ? (
           <span className="ip-offline-chip ip-error-chip" title={savedText} aria-label={savedText}>
             <Icon id="warn" /><span className="ip-chip-word">{cp.errorShort}</span>
           </span>
-        ) : active && (
+        ) : viewOnlyMark ? (twoLine ? null : viewOnlyMark) : active && (
           <span className={`ip-status ip-status-${closedMark ? 'closed' : syncStatus}`}
             title={closedMark ? `${closedWord} · ${savedText}` : savedText} aria-label={closedMark ? closedWord : savedText}>
             {closedMark ? <Icon id="lock" /> : statusMark}
           </span>
         )}
-        {/* ▾ while the dropdown is shut, ▴ while it stands open (02-base.css · .chev) */}
-        <Icon id="chevron-down" className="chev" />
+        {/* ▾ while the dropdown is shut, ▴ while it stands open (02-base.css · .chev); the red
+            dot of another Einsatz's alarm sits on it while the list is shut */}
+        <span className="ip-switch-chev">
+          <Icon id="chevron-down" className="chev" />
+          {foreignDot && !open && <span className="ip-foreign-dot" aria-hidden />}
+        </span>
       </button>
       {open && !sheetOpen && (
         <div className="ip-menu">
@@ -369,6 +395,9 @@ export function IncidentSwitcher({
               <div className="ip-card-pills">
                 {/* «Gespeichert» is about THIS device's work – a viewer never saves, so its card
                     says nothing while all is well (RBAC audit 22.10.2026); the warnings stay */}
+                {viewOnly && !closed && (
+                  <span className="ip-card-pill ip-card-viewonly"><Icon id="eye" /><span>{cp.viewOnly} · {cp.viewOnlyWhy[viewOnly]}</span></span>
+                )}
                 {closed && (
                   <button type="button" className="ip-card-pill ip-card-pill-btn ip-card-closed" title={C.title}
                     aria-expanded={closedOpen} onClick={() => setClosedOpen((v) => !v)}>
@@ -388,7 +417,8 @@ export function IncidentSwitcher({
                 })()}
               </div>
               {/* the closed pill's fold: the sentence, then the exits on one line — «Wieder öffnen»
-                  first and wider, amber like «Abschliessen», the tile family of the card's own acts */}
+                  first and wider, the tile family of the card's own acts (neutral since M2: a button
+                  is not a state) */}
               {closed && closedOpen && (
                 <div className="ip-card-closed-fold">
                   <p className="ip-card-closed-say">
@@ -399,7 +429,7 @@ export function IncidentSwitcher({
                   {(onReactivate || onBackFromArchive) && (
                     <div className="ip-card-acts">
                       {onReactivate && (
-                        <button type="button" className="ip-card-act head-tile sm amber ip-card-reopen"
+                        <button type="button" className="ip-card-act head-tile sm ip-card-reopen"
                           disabled={reopening} aria-busy={reopening} onClick={reopen}>
                           {reopening && <span aria-hidden><SyncGlyph done={false} label={C.reopening} /></span>}
                           <span>{reopening ? C.reopening : C.reactivate}</span>
@@ -425,7 +455,8 @@ export function IncidentSwitcher({
                   is the one that ends the Einsatz; a terminal action sitting between two
                   everyday ones is a mis-tap waiting for a gloved thumb.
                   Three tiles of the head's family since 27.09.2026 (slim sweep · mockup 10) —
-                  Abschliessen amber, its count on the tile's corner. Content-sized and NEVER
+                  Abschliessen neutral since M2 (13.11.2026: a button is not a state) – only its
+                  count on the tile's corner is amber. Content-sized and NEVER
                   truncated since the same evening (owner screenshot r2-6: «Abschliess…» — the
                   equal thirds ellipsised the verb on a 390px phone; .ip-card-acts).
                   A wrong ADDRESS is noticed while looking at the map, long before anybody opens
@@ -445,7 +476,7 @@ export function IncidentSwitcher({
                     </button>
                   )}
                   {onArchive && (
-                    <button className="ip-card-act head-tile sm amber" title={cp.archive} aria-label={cp.archive}
+                    <button className="ip-card-act head-tile sm" title={cp.archive} aria-label={cp.archive}
                       onClick={onArchive}>
                       <Icon id="archive" /><span>{cp.archiveShort}</span>
                       {/* The counter BEFORE the press, not only in the dialog after it. Bare
@@ -479,8 +510,7 @@ export function IncidentSwitcher({
             onHistory={onHistory}
             onCreate={onDivera}
             onObjectVisits={onObjectVisits && (() => { setOpen(false); onObjectVisits() })}
-            onSettings={onSettings}
-            offline={active ? { label: appConfig.copy.offline.title, onOpen: onOfflineReadiness } : undefined}
+            onDevice={onSettings}
             onUeben={onUeben && (() => { setOpen(false); onUeben() })}
             onHelp={onHelp}
             onInstall={onInstall}

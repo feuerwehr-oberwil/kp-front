@@ -77,7 +77,11 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     name is a nowrap span, the « · » is the break – and grows by a line each time; no ellipsis
     (`.crewName`). The chips keep their ellipsis.
   - *Truppfarbe as a ring* (owner pick C5, 05.11.2026): the identity mark before the name is a
-    hollow ring in the Trupp's colour, not a filled disc — a red disc read as an alarm.
+    hollow ring in the Trupp's colour, not a filled disc — a red disc read as an alarm. The palette
+    (`appConfig.drawing.teamColors`) holds no state hue since M4 (owner's pick A, 13.11.2026): no
+    red, green or amber (nor lime or brown beside them), violet first so the first Trupp never
+    wears the «Bereit» edge's blue. A marker stored with a retired hue keeps it in the synced state
+    and is SHOWN in a stand-in (lib/teamColors · `shownTeamColor`) on the board, the Lage and the Plan.
   - *A Trupps section head* (Drin · Sicherungstrupp · Bereit · Draussen, and the grid's
     Atemschutz / Weitere Trupps) is the eyebrow and the count badge — no hairline rule to the
     edge (29.09.2026); the boundary is the air above the head — ONE number, 26px (`.sectSecond`),
@@ -96,12 +100,14 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     kept for Kontakt and the filled primaries. «Wieder in den Einsatz» stays the out card's one
     filled tile (owner, 27.09.2026).
   - *The grid's card names its clock and is denser* (hill climb r2, 04.11.2026): on the tablet /
-    desktop grid the caption the link board's page wears names the clock («SEIT LETZTEM
-    KONTAKT», «DRAUSSEN SEIT», «EINSATZZEIT», «ANGEMELDET UM») on a row of its own across the head,
+    desktop grid the caption the link board's page wears names the clock («SEIT KONTAKT»,
+    «DRAUSSEN SEIT», «EINSATZZEIT», «ANGEMELDET UM») on a row of its own across the head,
     so it never squeezes the name; under the grouped orders' «Draussen» head the break clock goes
-    unnamed (`RowLine · headed`). No separate state word by the name. The phone row and its opened
-    card keep the caption hidden (owner 24.09.2026: «drop the blabla, just the time» — its section
-    heads say it). Fact chips are compact fields everywhere (28px drawn, 8px pad above/below on
+    unnamed (`RowLine · headed`). No separate state word by the name. The phone ROW names its clock
+    the same way since M3 (owner's pick B, 13.11.2026: every duration says what it counts — «SEIT
+    LETZTEM KONTAKT» became «SEIT KONTAKT» on both form factors so it fits); the opened phone card
+    keeps the caption hidden (owner 24.09.2026 — its section heads say it). The card foot names the
+    time under air with the eyebrow «UNTER ATEMSCHUTZ»; a time of day gets none. Fact chips are compact fields everywhere (28px drawn, 8px pad above/below on
     touch so a chip owns 44px), rows 8px apart on every device since owner pick A2 (05.11.2026).
     Two rows 8px apart cannot both own 44px in 8px of air, so on the grid on touch the strip stands
     16px under the tiles and the first row's pad reaches 16px up; the second row (`.factsEnd`) owns
@@ -175,7 +181,7 @@ good but we don't need the triangle thing. red and notfall is already enough»):
 - *No card*: the open Trupp is a flat PAGE — no frame, tint or edge; the tier is on its tab and in
   its clock's colour — and the page scrolls (`.focusCard` is the port; sweep #21 found the card
   clipped). Every page opens with the NAME at 32px (`--fs-6`) and the clock at 40px with what it counts
-  above it («SEIT LETZTEM KONTAKT»); a crew at the door says «Bereit» there (`TruppCard · page`).
+  above it («SEIT KONTAKT»); a crew at the door says «Bereit» there (`TruppCard · page`).
 - *Read at the top, tap at the bottom* (31.10.2026, owner pick «A – Tasten nach unten»: the page
   was top-heavy, the lower half empty where the thumb is): the head, the state words, the note,
   the chips and the foot line («0:21 min · Schätzung ≈ 298 bar ⌄ ⋯») stand on top; the SAME
@@ -414,7 +420,9 @@ atemschutz_due`, the push sweep's `due_trupps`, refreshed by the 30 s list watch
 cached list offline). The owner's rule (`lib/foreignAlarm`): two real Einsätze in parallel are
 run by two teams and must not distract each other. So every other running Einsatz with such a
 Trupp gets a red «Atemschutz-Alarm» / «Atemschutz-Notfall» over its row in the Einsatz list
-(AppMenuRows) – and that is all while this device works a live Ernstfall. A device standing in an
+(AppMenuRows), and while such a row exists the SHUT Einsatz pill carries a small red dot at its
+chevron – a reason to open the list (owner pick M11 B, 13.11.2026; `IncidentSwitcher`), gone with
+the row – and that is all while this device works a live Ernstfall. A device standing in an
 Übung or a closed Einsatz gets the full alarm of a live Ernstfall: the known red row in the
 Meldeleiste with the Einsatz's name in front, and the tone (`ForeignAtemschutzMeldungen`), muted
 per Einsatz; its «Zum Trupp» mutes that Einsatz, switches to it and opens the board on the Trupp

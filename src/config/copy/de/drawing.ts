@@ -153,7 +153,7 @@ export const drawingCopy = {
     names: { arrow: 'Pfeil', cloud: 'Rauch', square: 'Rechteck', rotation: 'Rotation' } as Record<string, string>,
   },
   log: {
-    audioNote: 'Audionotiz',
+    audioNote: 'Sprachnotiz',
     symbolPlaced: 'Symbol «{name}» gesetzt',
     // «Pumpen auf Karte» einer Leitung an / aus (lib/drawingEdit, hinter «{name}: »)
     pumpsShown: 'Pumpen auf der Karte',
@@ -179,7 +179,7 @@ export const drawingCopy = {
     teamUndocked: '{name} von «{host}» gelöst',
     /** Die Passung eines Plans wurde korrigiert: alles, was auf diesem Blatt gezeichnet ist,
      *  steht damit an einem anderen Ort auf der Karte. Eine Zeile, nicht n Zeilen. */
-    referenceRebaked: 'Referenz angepasst – {n} Objekte neu verortet',
+    referenceRebaked: 'Verknüpfung angepasst – {n} Objekte neu verortet',
     /** ⚠️ Dieselbe Wirkung, andere Ursache — und darum eine andere Zeile. Hier hat die App
      *  das Blatt vermessen und die Passung mit denselben Passpunkten in der richtigen Form
      *  neu gelöst; «Referenz angepasst» würde dem Bediener eine Korrektur zuschreiben, die er
@@ -190,15 +190,15 @@ export const drawingCopy = {
      *  so da wie vorher. Die Objekte stehen ebenfalls wieder dort, wo sie standen – niemand hat
      *  etwas verschoben, und darum gibt es hier auch keinen ↶: Es gibt nichts zurückzunehmen.
      *  Ohne die Zeile hätte der Verlauf «Referenz angepasst» ein zweites Mal behauptet. */
-    referenceRolledBack: 'Referenz-Änderung verworfen – Speichern fehlgeschlagen',
+    referenceRolledBack: 'Verknüpfung nicht geändert – Speichern fehlgeschlagen',
     /** …und die Passung wurde ENTFERNT («Referenz zurücksetzen»). Dabei verschiebt sich nichts:
      *  Was auf dem Blatt gezeichnet ist, bleibt dort UND behält seine zuletzt berechnete Position
      *  auf der Karte – letzte bekannte Wahrheit, wie ein Fahrzeug, das aufgehört hat zu melden.
      *  Genau darum braucht es die Zeile: die Rückverortung meldet 0 verschobene Objekte, und ohne
      *  sie stünde über eine bewusste Handlung gar nichts im Verlauf. Zwei Fassungen, weil «0
      *  Objekte behalten ihre letzte Position» keine Aussage ist. */
-    referenceDropped: 'Referenz entfernt',
-    referenceDroppedKept: 'Referenz entfernt – {n} Objekte behalten ihre letzte Position',
+    referenceDropped: 'Verknüpfung entfernt',
+    referenceDroppedKept: 'Verknüpfung entfernt – {n} Objekte behalten ihre letzte Position',
     /** …und das Gegenstück: ein Blatt OHNE Passung wurde VON HAND mit der Karte verknüpft
      *  (zweiter Passpunkt gesetzt, Vorschlag übernommen, Passung übertragen). Die Zeile kommt aus
      *  der Handlung selbst – ein Plan, der bloss fertig lädt, schreibt nichts. «Verortet», nicht

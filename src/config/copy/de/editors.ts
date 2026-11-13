@@ -68,7 +68,7 @@ export const editorsCopy = {
     // the tooltip below it, not on the button
     stopSharing: 'Standort entfernen',
     stopSharingTitle: 'Selbstgemeldete Position dieser Person entfernen. Sie kann danach jederzeit wieder teilen.',
-    stopSharingFailed: 'Standort konnte nicht entfernt werden.',
+    stopSharingFailed: 'Entfernen des Standorts nicht bestätigt – Karte prüfen',
     // Driver of a LIVE Fahrzeug: the GPS feed knows where it is, never who is at the wheel. The
     // placeholder is one word (24.09.2026) – the long one ran past the phone sheet's field.
     driverLabel: 'Fahrer',
@@ -171,7 +171,7 @@ export const editorsCopy = {
     unPacking: 'Verpackungsgruppe',
     unNoMatch: 'UN-Nr. nicht in ADR-Tabelle gefunden',
     // ERG 2024 response block (bundled, offline): guide number + TIH-Distanzen — Planungshilfe
-    ergGuide: 'ERG-Leitfaden',
+    ergGuide: 'Notfall-Leitfaden (ERG)',
     ergPolymerization: 'Polymerisationsgefahr (P) – Behälter kann gewaltsam bersten',
     ergIsolate: 'Isolation (kleine Menge)',
     ergProtectDay: 'Schutzabstand Tag',
@@ -272,7 +272,7 @@ export const editorsCopy = {
     marker: 'Marker',
     markerPlaceholder: 'z. B. R',
     arrow: 'Pfeilspitze',
-    ending: 'Abschluss',
+    ending: 'Linienende',
     endingNone: 'Keiner',
     endingArrow: 'Pfeil',
     endingArrowStop: 'Pfeil mit Stopp',
@@ -281,7 +281,7 @@ export const editorsCopy = {
     // in einer Zeile — «Pfeil mit Stopp» heisst Entwicklungsgrenze, das Teilstück ist eine Gabel
     // mit drei Anschlüssen. Keine Folgen: dass ein gelöschtes Teilstück seine Linien freigibt,
     // sagt `endingReleased` in dem Moment, in dem es tatsächlich passiert.
-    endingNoneWhat: 'Ohne Abschluss',
+    endingNoneWhat: 'Ohne Linienende',
     endingArrowWhat: 'Pfeilspitze',
     endingArrowStopWhat: 'Pfeil mit Stopp-Balken – Entwicklungsgrenze',
     endingTeilstueckWhat: 'Teilstück – Gabel mit drei Anschlüssen',

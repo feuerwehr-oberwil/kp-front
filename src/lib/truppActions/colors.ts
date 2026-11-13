@@ -1,6 +1,6 @@
 import type { Trupp } from '../../types'
 import { appConfig } from '../../config/appConfig'
-import { pickTeamColor } from '../teamColors'
+import { pickTeamColor, shownTeamColor } from '../teamColors'
 import { atemschutzAuftragColors } from '../deploymentConfig'
 import type { TruppActionDeps } from './core'
 
@@ -87,7 +87,8 @@ export function truppColorActions(deps: ColorDeps) {
       const placed = t.entityId ? entities.find((e) => e.id === t.entityId)?.color
         : t.annoId && t.planId ? (board[t.planId] ?? []).find((a) => a.id === t.annoId)?.color
         : undefined
-      const c = placed ?? chosenColor(t)
+      // a placed marker that stored a retired state hue wears its stand-in (teamColors · shownTeamColor)
+      const c = placed ? shownTeamColor(placed) : chosenColor(t)
       if (c) { out[t.id] = c; used.push(c) }
     }
     for (const t of trupps) {

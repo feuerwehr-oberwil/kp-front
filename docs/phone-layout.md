@@ -20,14 +20,16 @@ unchanged.
 - *The compass lives in the BAR, beside Ebenen* (05.08.2026). It floated top-right on the map
   for one day (18.09.) and came back: up there its menu opened half a screen from the thumb that
   asked for it. «Mein Standort» is a row of that menu, not a tile of its own (also tried 18.09.).
-- *Words under the glyphs by default on a phone* (29.09.2026, owner: «at least on mobile
-  default to "Wörter" so that all toolbars and views are always labelled»). The Einstellungen
-  «Beschriftung der Werkzeugleisten» (`lib/prefs · railLabels`) reads ON on a phone
-  (`railLabelsFor`, `PHONE_QUERY` at boot) and OFF on a tablet (the words widen the rails into
-  the map). It covers the nav bar (Karte · Pläne · Checkliste · Trupps · Einsatz) and the tool
-  bar of the Karte and of every Plan; the tool DOCKS (a tool's options) are not rails and stay
-  icon + ⓘ. A hand choice is marked (`railLabelsChosen`) and always wins; a stored 'off' without
-  the mark is the old default the app saved for everybody, not a choice.
+- *Words under the glyphs by default* – on a phone since 29.09.2026 (owner: «at least on mobile
+  default to "Wörter" so that all toolbars and views are always labelled»), on the tablet too
+  since 13.11.2026 (owner pick M8 A: «by default, have it activated everywhere, so on both
+  sides»). The Einstellungen «Beschriftung der Werkzeugleisten» (`lib/prefs · railLabels`) reads
+  ON on every device (`railLabelsFor`); it stays a switch for those who want the map width back.
+  It covers the nav bar (Karte · Pläne · Checkliste · Trupps · Einsatz) and the tool bar of the
+  Karte and of every Plan; the tool DOCKS (a tool's options) are not rails and stay icon + ⓘ. A
+  hand choice is marked (`railLabelsChosen`) and always wins; a stored 'off' without the mark is
+  the old default the app saved for everybody, not a choice. «Gerät auf Standard zurücksetzen»
+  clears the mark, so it lands on the words.
 - *«Einpassen» on a Plan is the bar's tile*; the top bar's twin (`TopBar · mapNav`) survives only
   where there is no bar at all (viewer-only Modul, Gebäude pick surface, replay — 20.09.2026).
 

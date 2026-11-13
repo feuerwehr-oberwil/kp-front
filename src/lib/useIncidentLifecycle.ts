@@ -278,7 +278,11 @@ export function useCloseReopen({
       }
       return true
     } catch (e) {
-      toast(e instanceof ApiError ? e.detail : appConfig.copy.abschluss.failed, { icon: 'warn', tone: 'warn' })
+      // ⚠️ The STATE first, the reason after it (lead review of the wording round, 13.11.2026): a bare
+      // «Nicht erreichbar» did not say what became of the close – and it is not known here: the
+      // request may have landed before the answer was lost.
+      const failed = appConfig.copy.abschluss.failed
+      toast(e instanceof ApiError && e.detail ? `${failed} (${e.detail})` : failed, { icon: 'warn', tone: 'warn' })
       return false
     } finally {
       if (closingLocallyRef.current === id) closingLocallyRef.current = null

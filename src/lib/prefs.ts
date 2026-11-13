@@ -79,17 +79,16 @@ export interface Prefs {
   /** on-canvas symbol captions (metadata printed under each glyph) — a personal legibility
    *  preference like `symbolSize`. Default falls to appConfig.symbols.captionDefault ('auto'). */
   symbolCaptions?: CaptionMode
-  /** Words under the glyphs in both rails. Off by default — the icons ARE the rail for anybody who
-   *  uses this app regularly, and the labels cost 10px of map for good.
+  /** Words under the glyphs in both rails. ON by default on every device (13.11.2026, owner pick
+   *  M8 A); the labelled rails cost 32px of map each (navRail · RAIL_LABELLED), the price of a
+   *  rail a first-timer can read.
    *  ⚠️ Not the same thing as the rails' expand chevron: that one widens the rail and puts the word
    *  BESIDE the glyph, and it is a transient state (nothing remembers it). This is a device
    *  preference and stacks the word UNDER the glyph, which is what a first-timer needs on a rail
-   *  of seven surfaces and nine tools with no words at all. Default 'off' — on a PHONE 'short'
-   *  (29.09.2026, owner: «at least on mobile default to "Wörter" so that all toolbars and views
-   *  are always labelled»); see `railLabelsFor`. */
+   *  of seven surfaces and nine tools with no words at all. See `railLabelsFor`. */
   railLabels?: RailLabels
   /** the device's own hand set `railLabels` in the Einstellungen. Until then the stored value is
-   *  only the default the app saved along with everything else, and a phone reads 'short'. */
+   *  only the default the app saved along with everything else, and the device reads 'short'. */
   railLabelsChosen?: boolean
   /** RETIRED (13.11.2026, owner pick PLACE.7): `keyHints` («Tastenkürzel anzeigen» – the letters
    *  are always on, and CSS shows them only with hover + a fine pointer anyway), `offlineRadiusM`
@@ -293,17 +292,16 @@ export function initialMode(prefs: Prefs, incidentId: string, asLink: boolean): 
 }
 
 /**
- * «Beschriftung der Werkzeugleisten» as this device reads it (29.09.2026, sweep T8). A phone
- * defaults to the words: its nav bar and tool bar are five even tiles with room for a word under
- * each, and a gloved first-timer at 3am cannot hover for a tooltip. A tablet keeps the glyphs
- * (the words there widen the rails into the map). A device that chose keeps its choice.
+ * «Beschriftung der Werkzeugleisten» as this device reads it. Words under every glyph on every
+ * device by default (13.11.2026, owner pick M8 A: «by default, have it activated everywhere, so on
+ * both sides» – the tablet is the device a six-months-out operator meets at 3am; until then only a
+ * phone defaulted to words, 29.09.2026). The switch stays: a device that chose keeps its choice.
  * ⚠️ The app saved `railLabels: 'off'` with every other pref long before anyone could choose, so
- * a stored 'off' without `railLabelsChosen` is the old default, not a choice — a phone reads
- * 'short' over it. A stored 'short' is always a choice (it was never a default before).
+ * a stored 'off' without `railLabelsChosen` is the old default, not a choice — it reads 'short'.
+ * A stored 'short' is always a choice (it was never a default before).
  */
-export function railLabelsFor(p: Pick<Prefs, 'railLabels' | 'railLabelsChosen'>, phone: boolean): RailLabels {
-  if (p.railLabelsChosen || p.railLabels === 'short') return p.railLabels ?? 'off'
-  return phone ? 'short' : 'off'
+export function railLabelsFor(p: Pick<Prefs, 'railLabels' | 'railLabelsChosen'>): RailLabels {
+  return p.railLabelsChosen ? (p.railLabels ?? 'short') : 'short'
 }
 
 export function loadPrefs(): Prefs {

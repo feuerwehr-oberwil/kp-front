@@ -220,6 +220,16 @@ The door rule above, applied to the Rapport, Anwesenheit and lifecycle (RBAC aud
   opens read-only. Writer hints (empty roster «Synchronisiere …», «Hier korrigieren …», the
   Trupp-lock title, the Zeitplan's gesture help) are not shown.
 - A disabled tick (`TickRow`) is a read-out at full opacity.
+- **«Nur ansehen» in the head pill** (owner pick M6 A, 13.11.2026): the doors are not drawn, so
+  the session says once that it may not write – an eye + «Nur ansehen» in the pill's status slot
+  where the ✓ «Gespeichert» stands (`IncidentSwitcher`; on a phone on the clock line, the title
+  row keeps the Einsatz name). It is true PER SURFACE (`workspace/access · viewOnlyReason`): a
+  viewer and an Einsatz-Link everywhere; the `el` and a Führungsansicht only where they keep
+  nothing – the Karte, the Plan, the Trupps – never on the Rapport, Anwesenheit, Mittel,
+  Checklisten or with the Verlauf open. The opened card names the reason («Nur ansehen ·
+  Betrachter / Einsatzleitung / Einsatz-Link»). A sync warning outranks it in the slot, and a
+  closed Einsatz shows only its lock (one mark at a time). A lost tab lock, a replay and an older
+  build are not «Nur ansehen» sessions – each has its own row.
 - **Closed Einsatz**: «… für alles andere wieder öffnen» only beside «Wieder öffnen»; a
   Führungsansicht hears «Der Rapport bleibt korrigierbar», a viewer «Nur ansehen». The `el`
   closes and reopens like an editor (owner, 10.11.2026: who writes the Rapport ends the Einsatz –

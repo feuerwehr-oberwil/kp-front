@@ -174,11 +174,12 @@ const mount = (over: Partial<KarteAppProps> = {}) => {
   const launcherRow = vi.fn()
   const einsaetze = {
     badge: 0,
+    alarm: false,
     render: (close: () => void) => <button type="button" onClick={() => { launcherRow(); close() }}>Manueller Einsatz</button>,
   }
-  const onSettings = vi.fn(), onHelp = vi.fn()
-  render(<KarteApp einsaetze={einsaetze} onOpenVisits={onOpenVisits} running={[]} onOpenIncident={vi.fn()} onSettings={onSettings} onHelp={onHelp} {...over} />)
-  return { onOpenVisits, launcherRow, onSettings, onHelp }
+  const onHelp = vi.fn()
+  render(<KarteApp einsaetze={einsaetze} onOpenVisits={onOpenVisits} running={[]} onOpenIncident={vi.fn()} onOpenAlarm={vi.fn()} onHelp={onHelp} {...over} />)
+  return { onOpenVisits, launcherRow, onHelp }
 }
 
 describe('KarteApp', () => {
@@ -625,7 +626,7 @@ describe('KarteApp', () => {
   // home (variant B): the old launcher card is the menu sheet — App's content, opened here
   it('opens the launcher content as the menu sheet and shuts it when a row acts', async () => {
     brand.short = 'FWM'
-    const { launcherRow } = mount({ einsaetze: { badge: 2, render: (close) => <button type="button" onClick={() => { close() }}>Manueller Einsatz</button> } })
+    const { launcherRow } = mount({ einsaetze: { badge: 2, alarm: false, render: (close) => <button type="button" onClick={() => { close() }}>Manueller Einsatz</button> } })
     void launcherRow
     // the count is in the name; on the button it is a dot (owner, review round 5)
     const button = screen.getByRole('button', { name: 'Menü – Feuerwehr Musterdorf, 2 offen' })
@@ -644,13 +645,15 @@ describe('KarteApp', () => {
     expect(screen.queryByRole('dialog', { name: 'Menü' })).toBeNull()
   })
 
-  // the app menu's offline row on home is the viewer's own «Auf diesem Gerät» (panels/AppMenuRows)
-  it('hands the sheet a door to «Auf diesem Gerät», which shuts the sheet and opens it', async () => {
-    mount({ einsaetze: { badge: 0, render: (_close, onDevice) => <button type="button" onClick={onDevice}>Gerät</button> } })
+  // the app menu's «Dieses Gerät» row on home opens the viewer's own (with what it holds offline)
+  it('hands the sheet a door to «Dieses Gerät», which shuts the sheet and opens it', async () => {
+    mount({ einsaetze: { badge: 0, alarm: false, render: (_close, onDevice) => <button type="button" onClick={onDevice}>Gerät</button> } })
     fireEvent.click(screen.getByRole('button', { name: /^Menü/ }))
     fireEvent.click(within(screen.getByRole('dialog', { name: 'Menü' })).getByRole('button', { name: 'Gerät' }))
     expect(screen.queryByRole('dialog', { name: 'Menü' })).toBeNull()
-    expect(await screen.findByRole('dialog', { name: appConfig.copy.karte.device.title })).toBeTruthy()
+    const sheet = await screen.findByRole('dialog', { name: appConfig.copy.settings.sheetTitle })
+    // the Offline part is the viewer's (KarteDeviceRows), under the sheet's «Bereit?»
+    expect(within(sheet).getByText(appConfig.copy.karte.device.leadOnline)).toBeTruthy()
   })
 
   // owner's pick 6A (sweep F.2): the chip names the first REAL Einsatz, not `running[0]`; one «+N»
@@ -673,6 +676,23 @@ describe('KarteApp', () => {
     mount({ running: [inc('u1', 'Übung Atemschutz', true)] })
     expect(screen.getByRole('button', { name: 'Einsatz öffnen: Übung Atemschutz' })).toBeTruthy()
     expect(document.querySelector('[data-karte-running-more]')).toBeNull()
+  })
+
+  // M1 (owner's pick A, 13.11.2026): a live Einsatz's Atemschutz alarm is its own red chip beside
+  // the ink one, and a tap lands on the most urgent Trupp; an Übung's alarm stays off the home
+  it('shows a live Einsatz\'s Atemschutz alarm as its own chip that opens it on the Trupp', () => {
+    type Meta = KarteAppProps['running'][number]
+    const inc = (id: string, is_exercise: boolean, due: Meta['atemschutz_due']) =>
+      ({ id, title: id, status: 'offen', is_archived: false, started_at: '2026-11-13T02:00:00Z', is_exercise, atemschutz_due: due }) as unknown as Meta
+    const onOpenAlarm = vi.fn()
+    mount({ running: [inc('Übung', true, [{ id: 'u', name: 'Uebung', reason: 'notfall' }])], onOpenAlarm })
+    expect(document.querySelector('[data-karte-alarm-chip]')).toBeNull()
+    cleanup()
+    mount({ running: [inc('Zimmerbrand', false, [{ id: 'p', name: 'Weber', reason: 'pressure' }, { id: 'c', name: 'Müller', reason: 'contact' }])], onOpenAlarm })
+    const chip = screen.getByRole('button', { name: 'Atemschutz-Alarm in Zimmerbrand: Müller · Weber – zum Trupp' })
+    expect(chip.textContent).toBe('2 AlarmeAtemschutz überfällig')
+    fireEvent.click(chip)
+    expect(onOpenAlarm).toHaveBeenCalledWith(expect.objectContaining({ id: 'Zimmerbrand' }), 'c')
   })
 
   it('keeps no dot with nothing running and no alarm to take', async () => {
@@ -852,12 +872,13 @@ describe('KarteApp', () => {
       expect(document.activeElement).toBe(screen.getByPlaceholderText('Adresse oder Objekt suchen …', PLAIN))
     })
 
-    it('⌘, and ? hand over to App\'s Einstellungen and Hilfe – and nothing reaches the viewer while App holds the keys', async () => {
-      const { onSettings, onHelp } = mount()
+    it('⌘, opens «Dieses Gerät», ? hands over to App\'s Hilfe – and nothing reaches the viewer while App holds the keys', async () => {
+      const { onHelp } = mount()
       await act(async () => {})
       key(',', { metaKey: true })
+      expect(await screen.findByRole('dialog', { name: appConfig.copy.settings.sheetTitle })).toBeTruthy()
+      fireEvent.keyDown(document, { key: 'Escape' })
       key('?')
-      expect(onSettings).toHaveBeenCalledTimes(1)
       expect(onHelp).toHaveBeenCalledTimes(1)
       cleanup()
       const off = mount({ keysOff: true })
@@ -920,8 +941,9 @@ describe('KarteApp', () => {
     expect(await screen.findByTestId('pdf')).toBeTruthy()
     fireEvent.click(within(screen.getByRole('navigation', { name: /Schloss Musterdorf/ })).getByRole('button', { name: 'Karte' }))
     await waitFor(() => expect(easeTo).toHaveBeenCalledTimes(1))
-    // right of the panel beside the rail, left of the tool rail (lib/karte/camera · besidePanel)
-    expect(easeTo).toHaveBeenCalledWith(expect.objectContaining({ center: [7.570188, 47.523773], padding: { top: 80, bottom: 0, left: 496, right: 76 } }))
+    // right of the panel beside the rail, left of the tool rail (lib/karte/camera · besidePanel);
+    // both rails wear their words by default since 13.11.2026 (M8), 32px wider each
+    expect(easeTo).toHaveBeenCalledWith(expect.objectContaining({ center: [7.570188, 47.523773], padding: { top: 80, bottom: 0, left: 528, right: 108 } }))
   })
 
   it('comes back on the Checkliste with the session, unless a deep link asks for an object', async () => {

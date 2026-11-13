@@ -50,7 +50,7 @@ export {
 export type { ObjectWithPlans } from './api/objects'
 
 export {
-  listReference, referenceUrl, uploadReference, upsertReferenceLayer, inspectGeojson,
+  listReference, referenceUrl, uploadReference, inspectGeojson,
   geoDatasetId, geoLayerUrl, isGeoDataset, floorKey, joinKey,
   getApprovedPlanAlignments, storedPlanAlignments,
 } from './api/reference'

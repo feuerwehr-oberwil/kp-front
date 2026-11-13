@@ -6,7 +6,7 @@ import type { LineContent } from '../../../types'
 
 export const atemschutzCopy = {
   atemschutz: {
-    title: 'Atemschutzüberwachung',
+    title: 'Trupps',
     // Der Titel über der Tafel in der VOLLEN App (Mock «Sektionen», 03.09.): die Fläche trägt seit
     // 03.09. beide Abschnitte – die Atemschutzkarten oben, die Arbeitstrupps darunter –, und
     // «Atemschutzüberwachung» über einer Zeile «Verkehr» wäre schlicht falsch. Die abgegebene
@@ -38,7 +38,7 @@ export const atemschutzCopy = {
     // Personenzeile schreibt (personnel · roleAtemschutz).
     asMark: 'AS',
     empty: 'Noch kein Trupp in Überwachung.',
-    emptyHint: 'Lege einen Trupp an, um die Überwachung zu starten.',
+    emptyHint: 'Mit «Trupp anmelden» beginnt die Überwachung.',
     newTrupp: 'Trupp anmelden',
     // «Überwachung abgeben» — der QR neben der Glocke: die Tafel dieses Einsatzes auf ein
     // fremdes Handy geben, damit jemand ohne Login nur den Atemschutz bedient. Nur für
@@ -53,7 +53,7 @@ export const atemschutzCopy = {
     // 02.09.: ein versehentliches Schliessen im Browser brauchte danach wieder den Zugang).
     // Reassurance, not an instruction. ⚠️ Es geht um den LINK, nie um dieses Gerät: der Link
     // meldet niemanden an, und genau diesen Eindruck darf der Satz nicht erwecken (02.09.).
-    linkReentryHint: 'Der Link führt zurück auf diese Tafel – wird die Seite versehentlich geschlossen, einfach den QR-Code nochmals öffnen.',
+    linkReentryHint: 'Der Link führt hierher zurück – wird die Seite versehentlich geschlossen, einfach den QR-Code nochmals öffnen.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     /* ── Der Stapel: das Trupp-Formular auf dem Telefon (TruppForm · stack, 04.09.) ───────────
      * Löst den zweischrittigen Wizard ab (02.–04.09.). DREI Abschnitte, die immer alle sichtbar
@@ -79,7 +79,7 @@ export const atemschutzCopy = {
     // ist Date.now() dieses Geräts. {d} trägt das Vorzeichen (+ = Gerät geht vor); die
     // Langfassung (Tooltip) ist incidentSwitcher.clockSkewToast – gleiche Formulierung wie die
     // Erfassungs-App (capture.clockSkew).
-    clockSkewChip: 'Geräteuhr weicht ab ({d} Min.)',
+    clockSkewChip: 'Geräteuhr weicht ab ({d} min)',
     // create / edit / re-deploy form (one shared form, section labels + per-mode titles)
     formCreateTitle: 'Trupp anmelden',
     formEditTitle: 'Trupp bearbeiten',
@@ -199,7 +199,7 @@ export const atemschutzCopy = {
     lineTyped: 'Nr. …',
     lineTakeTitle: 'Leitung {n} ist vergeben',
     lineTakeMsg: 'Auf Leitung {n} ist Trupp {from}. Neu Trupp {to} darauf?',
-    lineTakeConfirm: 'Übernehmen',
+    lineTakeConfirm: 'Trupp {to} auf Leitung {n}',
     // ein Trupp pro Leitung (15.09.): die Leitung ist belegt, der Link wird verweigert
     lineHeldToast: 'Leitung ist von Trupp {name} belegt.',
 
@@ -222,7 +222,7 @@ export const atemschutzCopy = {
     markerOptTaken: 'Gehört zu Trupp {name}',
     markerTakeTitle: 'Trupp {from} steht hier',
     markerTakeMsg: 'Der gesetzte Trupp gehört zu Trupp {from}. Neu Trupp {to}?',
-    markerTakeConfirm: 'Übernehmen',
+    markerTakeConfirm: 'Für Trupp {to} übernehmen',
     logMarkerUnlinked: 'Trupp {name} ist nicht mehr gesetzt',
     // Ein gesetzter Trupp sagt «hier steht die Mannschaft» – die Tafel sagt beim angemeldeten
     // Trupp «noch niemand drin». Beim Platzieren wird deshalb gefragt, statt die Kontaktuhr
@@ -303,7 +303,9 @@ export const atemschutzCopy = {
     // sonst die nächste freie). «Automatisch» bleibt als Wort der Auftragsfarben-Tabelle.
     colorAuto: 'Automatisch',
     // board card
-    sinceContact: 'Seit letztem Kontakt',
+    // one wording on the tablet card and the phone row (M3, owner's pick B, 13.11.2026): the eyebrow
+    // over the contact clock; «Seit letztem Kontakt» did not fit the phone row
+    sinceContact: 'Seit Kontakt',
     elapsed: 'Einsatzzeit',
     // Break clock: how long the Trupp has been out. The Einsatzzeit stands still from «Raus» on
     // (it is finished), this one runs instead – that is the number the Überwacher needs for the
@@ -488,7 +490,7 @@ export const atemschutzCopy = {
     actNotDeployed: 'Nicht eingesetzt',
     // status word and Verlauf row for exactly this case: «draussen» claims it had been inside
     statusNotDeployed: 'Nicht eingesetzt',
-    statusRemoved: 'Von Tafel entfernt',
+    statusRemoved: 'Entfernt',
     logNotDeployed: 'Trupp {name} nicht eingesetzt',
     remove: 'Entfernen',
     // removal happens immediately, no dialog and no toast — the way back is the global ↶
@@ -497,7 +499,7 @@ export const atemschutzCopy = {
     // eingesetzt» instead — that is the honest record for a Sicherungstrupp that stood
     // ready, while Entfernen is for the erroneous Anmeldung.
     removeUnusedTitle: 'Trupp war nicht im Einsatz',
-    removeUnusedMsg: '{name} als «nicht eingesetzt» abmelden statt entfernen? Der Trupp bleibt auf der Tafel bereit – «Entfernen» ist für irrtümliche Anmeldungen.',
+    removeUnusedMsg: '{name} als «nicht eingesetzt» abmelden statt entfernen? Der Trupp bleibt bei den Trupps bereit – «Entfernen» ist für irrtümliche Anmeldungen.',
     place: 'Platzieren',
     placeWhere: 'Wohin platzieren?',
     placeNoTarget: 'Kein Plan vorhanden – zuerst über «Gebäude» in der Leiste ein Gebäude wählen.',
@@ -857,11 +859,11 @@ export const atemschutzCopy = {
       abschlussMsg: '{list} – noch nicht beendet.',
       abschlussClose: 'Trotzdem abschliessen',
       // «Entfernen» on a Trupp in a Notfall is refused until it is ended (review of #300)
-      removeBlocked: 'Erst «Notfall beendet» halten – ein Trupp im Notfall bleibt auf der Tafel',
+      removeBlocked: 'Erst «Notfall beendet» halten – ein Trupp im Notfall bleibt in der Überwachung',
     },
     // «Entfernen» auf einem Trupp, der DRIN ist: zuerst fragen, «Raus melden» ist die sichere Antwort
     removeInsideTitle: 'Trupp {name} ist drin – erst rausmelden?',
-    removeInsideMsg: 'Entfernen nimmt den Trupp von der Tafel und aus jedem Alarm. Meist ist gemeint: Der Trupp ist draussen.',
+    removeInsideMsg: 'Entfernen nimmt den Trupp aus der Überwachung und aus jedem Alarm. Meist ist gemeint: Der Trupp ist draussen.',
     // der Weg hinein für einen Trupp, der nie drin war («Wieder» wäre falsch)
     actEnterFirst: 'In den Einsatz',
     contactDone: 'Bestätigt',
@@ -952,6 +954,8 @@ export const atemschutzCopy = {
     // Nach «Wieder öffnen»: die Kontaktuhr eines Trupps, der noch drin steht, läuft ab dem
     // Wiederöffnen neu – die geschlossene Zeit zählt nicht als Zeit ohne Kontakt (r3, F4).
     logClockRestart: 'Trupp {name}: Kontaktuhr neu gestartet – Einsatz wieder geöffnet',
+    // the eyebrow on the card foot's time under air (M3, owner's pick B, 13.11.2026)
+    underAir: 'Unter Atemschutz',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {

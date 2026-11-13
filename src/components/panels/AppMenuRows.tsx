@@ -6,7 +6,7 @@
 //
 // What it renders, top to bottom: the «Einsätze» group (the running ones as rows, the alarms
 // waiting to be taken, «Einsatz verlassen», «Alle Einsätze», «Einsatz eröffnen»), the «App» group
-// (Objektbesuche, Einstellungen, the offline row, Üben, Hilfe, Installieren), who is signed in with
+// (Objektbesuche, «Dieses Gerät», Üben, Hilfe, Installieren), who is signed in with
 // «Abmelden», the build label and a waiting update. Every row is drawn only when its handler is
 // handed in — a door the session cannot go through is not drawn (docs/roles-and-access.md) — and
 // the callers decide whether a row closes the menu, so this file never needs to know.
@@ -45,7 +45,7 @@ const ActLabel = ({ children }: { children: ReactNode }) => <span className="ip-
 
 export function AppMenuRows({
   activeId, incidents, isEditor, user, opening = null, alarms, onSwitch, onLeave, onHistory, onCreate,
-  onObjectVisits, onSettings, offline, onUeben, onHelp, onInstall, onLogout,
+  onObjectVisits, onDevice, onUeben, onHelp, onInstall, onLogout,
 }: {
   /** the Einsatz the menu's card names (IncidentSwitcher); null on home's sheet, which has no card
    *  — so the Einsatz a «Karte & Objekte» covers is listed there as a row, the way back into it */
@@ -66,10 +66,10 @@ export function AppMenuRows({
   /** «Einsatz eröffnen» — editors only */
   onCreate?: () => void
   onObjectVisits?: () => void
-  onSettings?: () => void
-  /** the device's offline row: «Offline-Bereitschaft» of the open Einsatz, or on home «Auf diesem
-   *  Gerät» of «Karte & Objekte» — the same slot, the same glyph */
-  offline?: { label: string; onOpen: () => void }
+  /** «Dieses Gerät» (SettingsSheet) — ONE row and ONE word in both menus (M9, 13.11.2026): the
+   *  Einsatz menu used to say «Einstellungen» + «Offline-Bereitschaft», home «Einstellungen» +
+   *  «Auf diesem Gerät». */
+  onDevice?: () => void
   /** «Üben» – the tutorials sheet (App · landingSheet 'ueben'); absent for a link session */
   onUeben?: () => void
   onHelp: () => void
@@ -196,8 +196,7 @@ export function AppMenuRows({
           <Icon id="clipboard" /><ActLabel>{appConfig.copy.objectVisits.launcher}</ActLabel>
         </button>
       )}
-      {onSettings && <button type="button" className="ip-menu-act" onClick={onSettings}><Icon id="gear" /><ActLabel>{appConfig.copy.settings.title}</ActLabel></button>}
-      {offline && <button type="button" className="ip-menu-act" onClick={offline.onOpen}><Icon id="snapshot" /><ActLabel>{offline.label}</ActLabel></button>}
+      {onDevice && <button type="button" className="ip-menu-act" onClick={onDevice}><Icon id="gear" /><ActLabel>{appConfig.copy.settings.sheetTitle}</ActLabel></button>}
       {/* «Üben» right above the Hilfe it practises (owner, 05.11.2026: one row, both menus) */}
       {onUeben && <button type="button" className="ip-menu-act" onClick={onUeben}><Icon id="play" /><ActLabel>{appConfig.copy.tutorials.menu}</ActLabel></button>}
       <button type="button" className="ip-menu-act" onClick={onHelp}><Icon id="info" /><ActLabel>{appConfig.copy.help.menu}</ActLabel></button>

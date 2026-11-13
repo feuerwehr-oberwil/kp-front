@@ -62,6 +62,7 @@ import { fmtDistance, fmtLV95, fmtWGS, haversineM } from '../../lib/geo'
 import { dismissToast, toast } from '../../lib/ui'
 import { usePlacementLane } from '../../lib/toastLane'
 import { geocodeSearch, type GeoHit, type IncidentMeta } from '../../lib/incidents'
+import { homeAlarm } from '../../lib/foreignAlarm'
 import type { StationObject } from '../../lib/api/stationReference'
 import { ovHref } from '../../objectVisits/route'
 import { coordOf } from '../../lib/karte/search'
@@ -89,7 +90,8 @@ import { KarteSearch } from './KarteSearch'
 import { KarteGefahrgut } from './KarteGefahrgut'
 import { KarteKeySheet } from './KarteKeySheet'
 import { KarteNavRail, KarteSurface, type ReaderHandles } from './KartePlans'
-import { KarteDevice } from './KarteDevice'
+import { KarteDeviceRows } from './KarteDevice'
+import { HomeDeviceSheet } from '../panels/SettingsSheet'
 import { AlarmNudgeCard } from './AlarmReadiness'
 import { useBasemapOffline, usePlansHeld } from './useKarteOffline'
 import { karteStart, useKarteCatalogue } from './useKarteCatalogue'
@@ -116,24 +118,28 @@ const LIBRARY = 'karte:checkliste'
 
 export interface KarteAppProps {
   /** the menu button: the app menu as a sheet (App owns the rows and their handlers) and the count
-   *  behind the button's red dot — running Einsätze + alarms waiting to be taken. `onDevice` opens this
-   *  viewer's «Auf diesem Gerät», the menu's offline row on home. */
-  einsaetze: { badge: number; render: (close: () => void, onDevice: () => void) => ReactNode }
+   *  behind the button's dot — running Einsätze + alarms waiting to be taken. The dot is red only
+   *  while `alarm` (an alarm waits to be taken), else ink: red on the home is the alarm's alone (M1).
+   *  `onDevice` opens «Dieses Gerät» with what this viewer holds offline (the menu's row of that name). */
+  einsaetze: { badge: number; alarm: boolean; render: (close: () => void, onDevice: () => void) => ReactNode }
   /** entered from an Einsatz (its menu's «Karte & Objekte» row): say where it picked up again */
   announceReturn?: boolean
   /** hand over to the Objektbesuche surface at this address */
   onOpenVisits: (href: string) => void
-  /** the open Einsätze, the newest first (the red chip names the first real one — see `runningChip`) */
+  /** the open Einsätze, the newest first (the ink chip names the first real one — see `runningChip`) */
   running: IncidentMeta[]
   onOpenIncident: (i: IncidentMeta) => void
-  /** ⌘ , and ? (useKarteKeys): App's own Einstellungen and Hilfe, the menu's rows */
-  onSettings: () => void
+  /** the red alarm chip's tap (lib/foreignAlarm · homeAlarm): open that Einsatz ON this Trupp */
+  onOpenAlarm: (i: IncidentMeta, truppId: string) => void
+  /** ? (useKarteKeys): App's own Hilfe, the menu's row */
   onHelp: () => void
+  /** «Rückmeldung geben» in «Dieses Gerät» — App's composer (the sheet shuts first) */
+  onFeedback?: () => void
   /** one of App's sheets stands over the viewer (Einstellungen, Hilfe, a dialog): no keys reach it */
   keysOff?: boolean
 }
 
-export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisits, running, onOpenIncident, onSettings, onHelp, keysOff = false }: KarteAppProps) {
+export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisits, running, onOpenIncident, onOpenAlarm, onHelp, onFeedback, keysOff = false }: KarteAppProps) {
   const C = appConfig.copy.karte
   const { user } = useAuth()
   const phone = useIsPhone()
@@ -202,7 +208,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   useKeepKarteView({ ready: catLoaded, view, selObj, openDoc, onLibrary, tool })
   useReturnToasts(announceReturn, start.view?.label)
   const { sheetOpen, setSheetOpen, closeSheet, barRef, short: menuShort, mark, onMarkError, menuName } = useKarteMenu()
-  const openDevice = () => { setSheetOpen(false); setDeviceOpen(true) }
+  // «Dieses Gerät» (M9): from the menu and ⌘ , at the top; from the Offline chip and the «Keine
+  // Basiskarte» Meldung scrolled to what this device holds
+  const [deviceFocus, setDeviceFocus] = useState<'offline' | undefined>(undefined)
+  const openDevice = (focus?: 'offline') => { setSheetOpen(false); setDeviceFocus(focus); setDeviceOpen(true) }
   const search = useKarteSearch(objects, view.center, online, phone)
   const { query, setQuery, searchOpen, setSearchOpen, libQuery, setLibQuery, sheetFieldRef } = search
   /** a tool tapped: on a phone it goes back to the map (the Checkliste, a plan, the search close) */
@@ -405,9 +414,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // the running chip (owner's pick 6A, sweep F.2): it names the first REAL Einsatz — an Übung only
   // when nothing but Übungen runs — and ONE «+N» counts every other open one, Einsätze and Übungen
   // together. The name opens that Einsatz (the whole chip is its target, chevron included); «+N»
-  // opens the menu, which lists them all. Red for an Einsatz, amber when the one it names is an
-  // Übung. In the bar on both devices; a phone's Checkliste, whose bar holds the library's search
-  // field, keeps it as a strip under the bar.
+  // opens the menu, which lists them all. Ink like every main button (M1, owner's pick A,
+  // 13.11.2026 – it was red, and red on the home is the alarm's alone), amber when the one it names
+  // is an Übung. In the bar on both devices; a phone's Checkliste, whose bar holds the library's
+  // search field, keeps it as a strip under the bar.
   const live = running.find((i) => !i.is_exercise) ?? running[0] ?? null
   const more = live ? running.length - 1 : 0
   const runningChip = live && (
@@ -424,6 +434,17 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       )}
       <Icon id="chevron" className={s.runningChev} />
     </div>
+  )
+  // …and beside it a live Ernstfall's Atemschutz alarm as its OWN red chip, the loudest thing on
+  // the home (M1): «2 Alarme» over the reason (the phone keeps the count alone). Shown only – no
+  // tone, no Meldeleiste row here; a tap opens that Einsatz on the most urgent Trupp.
+  const alarm = homeAlarm(running)
+  const alarmChip = alarm && (
+    <button type="button" className={s.alarmChip} onClick={() => onOpenAlarm(alarm.incident, alarm.due[0].id)} data-karte-alarm-chip=""
+      aria-label={fillTemplate(C.alarmChipOpen, { t: alarm.incident.title, names: alarm.due.map((t) => t.name).join(' · ') })}>
+      <Icon id="warn" />
+      <span className={s.runningText}><b>{appConfig.copy.atemschutz.overdueBadge(alarm.due.length)}</b>{!phone && <small>{C.alarmChipSub[alarm.reason]}</small>}</span>
+    </button>
   )
   const panelSel: PanelSel | null = !sel ? null
     : sel.kind === 'object' ? (selObj ? { kind: 'object', obj: selObj } : null)
@@ -468,7 +489,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   ]
   // «Beschriftung» from the Einstellungen, live (App's settings sheet sits over this surface): the
   // word under the glyph on all three bars and the view bar, as in an Einsatz (owner, 07.11.2026)
-  const railLabels = useRailLabels(phone)
+  const railLabels = useRailLabels()
 
   // ── the keyboard (lib/karte/hotkeys · useKarteKeys) ───────────────────────────────────────
   // the bar's field, whichever it is (the map's search or, on the Checkliste, the library's)
@@ -512,7 +533,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       },
       fit: () => { if (openDoc) reader.fitRef.current?.(); else if (onMapSurface) viewsApi.onFit() },
       locate: () => { if (onMapSurface) viewsApi.onLocate() },
-      settings: onSettings,
+      settings: () => openDevice(),
       help: onHelp,
     },
   })
@@ -656,7 +677,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
               {mark ? <img className={s.menuMark} src={mark} alt="" onError={onMarkError} />
                 : !menuShort && <Icon id="menu" />}
               {menuShort && <span className={s.menuName}>{menuShort}</span>}
-              {einsaetze.badge > 0 && <span className={s.einsaetzeBadge} data-karte-menu-dot="" aria-hidden />}
+              {einsaetze.badge > 0 && <span className={cx(s.einsaetzeBadge, (einsaetze.alarm || alarm) && s.alarmDot)} data-karte-menu-dot="" aria-hidden />}
             </span>
             {/* `chev` = the app's shared flip on [aria-expanded=true] (02-base.css), as every other dropdown */}
             <Icon id="chevron-down" className={cx('chev', s.chev)} />
@@ -690,13 +711,14 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
               aria-label={defuseAutofill(C.searchPlaceholder)}
             />
           )}
-          {/* offline: the chip stands where the weather was and opens «Auf diesem Gerät» */}
+          {/* offline: the chip stands where the weather was and opens «Dieses Gerät» at its Offline part */}
           {!online ? (
-            <button type="button" className={cx('ip-offline-chip', s.offChip)} onClick={() => setDeviceOpen(true)} title={C.offlineChipTitle} aria-label={C.offlineChipTitle}>
+            <button type="button" className={cx('ip-offline-chip', s.offChip)} onClick={() => openDevice('offline')} title={C.offlineChipTitle} aria-label={C.offlineChipTitle}>
               <span className={s.offDot} aria-hidden />{!phone && C.offlineChip}
             </button>
           ) : !phone && liveWeather.data?.wind_dir_deg != null && <WeatherBadge weather={liveWeather.data} bearing={view.bearing} />}
           {(!phone || !onLibrary) && runningChip}
+          {(!phone || !onLibrary) && alarmChip}
           {phone && !onLibrary && (
             <button type="button" className={cx('ip-switch-btn', s.searchBtn)} onClick={() => (searchOpen ? setSearchOpen(false) : openPhoneSearch())}
               aria-label={C.searchOpen} title={C.searchOpen} aria-expanded={searchOpen} data-karte-search-open="">
@@ -707,13 +729,13 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
               .ip-menu) — the same rows (panels/AppMenuRows), without the Einsatz card */}
           {sheetOpen && (
             <div className="ip-menu ip-einsaetze" role="dialog" aria-label={C.menu}>
-              {einsaetze.render(closeSheet, openDevice)}
+              {einsaetze.render(closeSheet, () => openDevice())}
             </div>
           )}
         </div>
         {/* a phone's Checkliste: the bar holds the library's field, so the chip is a strip under it,
             where the «Einsätze» sheet hangs — and the sheet lists the same Einsatz */}
-        {phone && onLibrary && live && !sheetOpen && <div className={s.runningStrip} data-karte-running="">{runningChip}</div>}
+        {phone && onLibrary && live && !sheetOpen && <div className={s.runningStrip} data-karte-running="">{runningChip}{alarmChip}</div>}
         {/* «Alarm auf diesem Gerät» (3am sweep §1): the nudge under the bar — never while an Einsatz
             runs on this device, never under the menu or the search, nothing at all when green */}
         {!live && !sheetOpen && !searchOpen && !onLibrary && <AlarmNudgeCard inIncident={running.length > 0} phone={phone} />}
@@ -895,14 +917,16 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
 
         {noBasemap && !online && (
           <NoBasemapMeldung sub={C.basemapSub} actionLabel={C.basemapAction}
-            onOpenOffline={() => { setNoBasemap(false); setDeviceOpen(true) }} onDismiss={() => setNoBasemap(false)} />
+            onOpenOffline={() => { setNoBasemap(false); openDevice('offline') }} onDismiss={() => setNoBasemap(false)} />
         )}
         {/* «Neue Version bereit» — the Einsatz's own row (UpdateBanner), in the same strip: the Karte
             is home with no Einsatz open, and a covered Einsatz behind it paints no rows of its own
             but the alarms (review round 7) */}
         <UpdateBanner />
         {deviceOpen && (
-          <KarteDevice offline={!online} objects={objects} map={coverage === 'far' ? 'far' : coverage ? { held: coverage.held, total: coverage.total } : null} onClose={() => setDeviceOpen(false)} />
+          <HomeDeviceSheet onClose={() => setDeviceOpen(false)} focus={deviceFocus}
+            onFeedback={onFeedback && (() => { setDeviceOpen(false); onFeedback() })}
+            readiness={<KarteDeviceRows offline={!online} objects={objects} map={coverage === 'far' ? 'far' : coverage ? { held: coverage.held, total: coverage.total } : null} />} />
         )}
       </div>
     </>

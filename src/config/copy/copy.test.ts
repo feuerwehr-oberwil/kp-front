@@ -12,7 +12,7 @@ describe('locale resolution', () => {
   it('defaults to German (de-CH) and its strings', async () => {
     await applyLocale('de-CH')
     expect(getLocaleId()).toBe('de-CH')
-    expect(getCopy().atemschutz.title).toBe('Atemschutzüberwachung')
+    expect(getCopy().atemschutz.title).toBe('Trupps')
     expect(getCopy().modes.map).toBe('Karte')
   })
 
@@ -31,7 +31,7 @@ describe('English (full overlay)', () => {
   it('translates the general UI and the SCBA section', async () => {
     await applyLocale('en')
     expect(getCopy().modes.map).toBe('Map')
-    expect(getCopy().atemschutz.title).toBe('SCBA monitoring')
+    expect(getCopy().atemschutz.title).toBe('Teams')
   })
 
   it('preserves functions across the overlay', async () => {
@@ -51,10 +51,10 @@ describe('French / Italian (full translations)', () => {
   it('translate the chrome AND the SCBA section (Swiss fire-service terms)', async () => {
     await applyLocale('fr')
     expect(getCopy().nav.dayMode).toBe('Jour')
-    expect(getCopy().atemschutz.title).toBe('Surveillance ARI') // now translated, not a fallback
+    expect(getCopy().atemschutz.title).toBe('Binômes') // now translated, not a fallback
     await applyLocale('it')
     expect(getCopy().nav.dayMode).toBe('Giorno')
-    expect(getCopy().atemschutz.title).toBe('Sorveglianza autoprotezione')
+    expect(getCopy().atemschutz.title).toBe('Squadre')
   })
 
   it('still fall back to German for the 4 structural data keys (not translated by design)', async () => {
