@@ -749,6 +749,11 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .useg { border-radius: var(--r-sm); padding: 2px; gap: 2px; --useg-in: calc(var(--r-sm) - 2px); }
 /* 8px a side, not 12: the four Abschluss glyphs share a ~200px column on the desktop panel */
 .draw-editor .useg-btn { min-height: calc(var(--de-h) - 4px); padding: 0 var(--sp-2); }
+/* the Linie row's five strokes (lib/draw · LineStylePicker, `scroll`): ONE line in the ~186px
+   column – the segments shrink to the 36px the round stroke buttons had before 13.11.2026 (M5)
+   instead of wrapping the fifth under the four */
+.draw-editor .useg-scroll { flex-wrap: nowrap; }
+.draw-editor .useg-scroll > .useg-btn { min-width: 0; padding-inline: 0; }
 .draw-editor .step-btn { width: var(--de-h); height: var(--de-h); min-height: var(--de-h); }
 /* duplicate-Leitung notice: a warning, never a block — a real incident sometimes needs the wrong
    thing typed for a moment, and the operator is told why it matters instead of being stopped */

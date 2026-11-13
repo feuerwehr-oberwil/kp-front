@@ -193,13 +193,14 @@ export function LineStylePicker({ dashed, onChange, marker, onMarker }: LineStyl
   }
   // ONE look for a picked choice in a panel (owner, 13.11.2026, M5): a real `Segmented`, so the
   // picked stroke wears the same blue fill as the «Abschluss» right above it – it was a grey wash.
+  // `scroll`: a track like the «Abschluss», not the ≥5 chip mode, which wrapped the fifth to a line of its own.
   // ⚠️ `explain`, like the Typ letters and the Abschluss glyphs: these five are pictures of a
   // stroke, and «Haltelinie – Zähne oberhalb» is the only thing that says which one. Hold (touch)
   // or hover (mouse) answers with it; no `title`, or the native tooltip repeats it a second later.
   // Both Haltelinien-Seiten are their own option rather than a flip on one: which side the teeth
   // face is an operational fact (they face the fire) and cannot be read off the geometry.
   return (
-    <Segmented ariaLabel={c.lineStyle} value={value} onChange={pick} explain
+    <Segmented ariaLabel={c.lineStyle} value={value} onChange={pick} explain scroll
       options={[
         { value: 'solid', label: <span className="ls-solid" />, title: c.lineSolid },
         { value: 'dashed', label: <span className="ls-dashed" />, title: c.lineDashed },
