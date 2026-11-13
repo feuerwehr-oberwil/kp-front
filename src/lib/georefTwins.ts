@@ -592,10 +592,18 @@ export interface TwinLayerRow {
   swatch?: string
 }
 
-/** Twin layers default ON: a georeference exists because somebody deliberately made one, and
- *  the whole point of making it was to see both pictures at once. */
+/** Is this twin row on? Its own default when it stores nothing: a plan raster is OFF
+ *  (`twinPlanImageVisible`), any other twin row ON – a georeference exists because somebody
+ *  deliberately made one. ⚠️ The toggle reads this, so it must know the raster's default: with a
+ *  bare `?? true` the first tap on «Plan (M2)» stored `false` over a row that was already off,
+ *  and nothing happened until the second (13.11.2026). */
 export function twinVisible(prefs: Record<string, boolean> | undefined, id: string): boolean {
-  return prefs?.[id] ?? true
+  return prefs?.[id] ?? !id.startsWith(TWIN_PLAN_IMAGE_PREFIX)
+}
+
+/** Every twin row on its default – what «Standard» in Ebenen leaves (lib/layerPreset). */
+export function twinsAtDefault(prefs: Record<string, boolean>): boolean {
+  return Object.keys(prefs).every((id) => prefs[id] === twinVisible(undefined, id))
 }
 
 

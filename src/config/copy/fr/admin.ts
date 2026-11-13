@@ -633,6 +633,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       centerOutOfRange: 'Centre pas encore enregistré – la longitude est entre −180 et 180, la latitude entre −90 et 90. En Suisse : longitude ≈ 8, latitude ≈ 47.',
       zoom: 'Zoom',
       zoomTip: 'Niveau de zoom initial de la carte (plus élevé = plus proche ; ~16 montre l’étendue d’un quartier).',
+      offlineRadius: 'Rayon hors ligne (m)',
+      offlineRadiusTip: 'Jusqu’où autour de l’intervention chaque appareil charge carte et conduites pour le hors ligne – {min} à {max} m. Plus petit = téléchargement plus rapide et plus léger.',
       crs: 'Coordonnées',
       crsTip: 'Sous quelle forme les coordonnées sont saisies. Le changement convertit ce qui est déjà inscrit – une seule des deux formes est enregistrée.',
       crsWgs84: 'WGS84 – longitude / latitude',

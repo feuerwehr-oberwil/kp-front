@@ -28,4 +28,9 @@ describe('layerPreset', () => {
     expect(layerPreset(allOff, defaults, true)).toBe('custom')
     expect(layerPreset(defaults, defaults, false)).toBe('standard')
   })
+  // PLACE.6 (13.11.2026): «Standard» puts the plan rasters back too, so it is not lit while one is off its default
+  it('is not «standard» while a plan raster is away from its default', () => {
+    expect(layerPreset(defaults, defaults, false, false)).toBe('custom')
+    expect(layerPreset(defaults, defaults, false, true)).toBe('standard')
+  })
 })

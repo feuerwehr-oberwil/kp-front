@@ -99,7 +99,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
       {
         id: 'tastatur', title: 'Raccourcis clavier', icon: 'type', only: 'keyboard',
         blocks: [
-          { kind: 'lead', text: 'Au clavier, tout est accessible sans souris. Les raccourcis ne font rien pendant la saisie dans un champ, ni derrière une fenêtre ouverte. Quand une case a une touche, sa lettre y est inscrite – dans les deux barres, dans la barre d’affichage en bas à droite et sur «Journal» et «Entrée» en haut (tant que «Afficher les raccourcis clavier» est activé dans les **Réglages**).' },
+          { kind: 'lead', text: 'Au clavier, tout est accessible sans souris. Les raccourcis ne font rien pendant la saisie dans un champ, ni derrière une fenêtre ouverte. Quand une case a une touche, sa lettre y est inscrite – dans les deux barres, dans la barre d’affichage en bas à droite et sur «Journal» et «Entrée» en haut.' },
           { kind: 'sub', text: 'Changer d’espace' },
           { kind: 'list', items: [
             'Les chiffres ouvrent le module de plan portant ce numéro – lesquels existent dépend des modules de ce corps : [[1]] module 1, [[2]] ou [[3]] le module «2/3», [[4]] module 4 …',
@@ -403,8 +403,8 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           ] },
           { kind: 'sub', text: 'Hors ligne' },
           { kind: 'list', items: [
-            'La **Préparation hors ligne** dans les **Réglages** ([[⌘]] [[,]]) est sur **Automatique** : l’application installée va chercher d’elle-même carte, plans, symboles et couches de référence peu après l’ouverture d’une intervention – sans dialogue, sans notification. **Toutes** les couches cartographiques configurées sont chargées, y compris celle qui est masquée : l’expérience montre qu’on l’active une fois le réseau déjà perdu. **Manuel seulement** laisse cela au bouton **Tout charger pour le hors ligne**.',
-            'La quantité chargée dépend du **Rayon hors ligne** (également dans les Réglages, valable uniquement sur cet appareil) : un rayon plus petit = un téléchargement plus rapide et plus léger.',
+            '**Préparation hors ligne** : l’application installée va chercher d’elle-même carte, plans, symboles et couches de référence peu après l’ouverture d’une intervention – sans dialogue, sans notification. **Toutes** les couches cartographiques configurées sont chargées, y compris celle qui est masquée : l’expérience montre qu’on l’active une fois le réseau déjà perdu. Le bouton **Tout charger pour le hors ligne** fait de même à tout moment, à la main.',
+            'La quantité chargée dépend du **Rayon hors ligne** de la station (dans l’administration, le même pour tous les appareils).',
             'Ce qui est réellement prêt est indiqué par la **Préparation hors ligne** du menu d’intervention – ligne par ligne : carte, plans, symboles, matières dangereuses, couches de référence, personnel, stockage de l’appareil. **Météo** et **Recherche d’objets** exigent une connexion et y figurent comme « en ligne seulement ».',
             'Seule l’**application installée** est fiable hors ligne. Dans un onglet de navigateur, le stockage peut être vidé à tout moment, et l’onglet devrait encore être ouvert à la prochaine intervention.',
             'Sans réseau, tout ce qui est sur l’appareil continue de fonctionner : dessiner et poser des symboles, ARI, présence, matériel, journal et rapport. Photos et notes vocales restent enregistrées et partent plus tard.',

@@ -18,14 +18,18 @@ import { appConfig } from '../config/appConfig'
  *  `radarOn` – the «Niederschlag (Radar)» row (workspace/useKarteWeather), a device pref outside
  *  `layers`: «Standard» and «Alle aus» switch it off, so while it is on the set is neither of them,
  *  and «Alle ein» leaves it alone, so it is not that either – «Eigene Auswahl» (10.10.2026, owner:
- *  «Standard» lit with the radar on the map). */
+ *  «Standard» lit with the radar on the map).
+ *
+ *  `twinsDefault` – the plan rasters (lib/georefTwins · twinsAtDefault), also outside `layers`:
+ *  «Standard» puts them back to their defaults (13.11.2026, PLACE.6), so while one is not, the set
+ *  is not «Standard». «Alle ein» / «Alle aus» leave them alone, so they are no part of those. */
 export type LayerPreset = 'standard' | 'all' | 'none' | 'custom'
 
-export function layerPreset(layers: LayerDef[], defaults: LayerDef[], radarOn = false): LayerPreset {
+export function layerPreset(layers: LayerDef[], defaults: LayerDef[], radarOn = false, twinsDefault = true): LayerPreset {
   if (radarOn) return 'custom'
   const byId = new Map(defaults.map((l) => [l.id, l.visible]))
   const matchesDefault = layers.every((l) => !byId.has(l.id) || byId.get(l.id) === l.visible)
-  if (matchesDefault) return 'standard'
+  if (matchesDefault && twinsDefault) return 'standard'
   const overlays = layers.filter((l) => !l.base)
   if (overlays.length && overlays.every((l) => l.visible)) return 'all'
   if (overlays.length && overlays.every((l) => !l.visible)) return 'none'

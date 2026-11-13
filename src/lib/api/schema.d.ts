@@ -6006,6 +6006,8 @@ export interface components {
             /** Buildingregister */
             buildingRegister?: boolean | null;
             serviceArea?: components["schemas"]["MapServiceArea"];
+            /** Offlineradiusm */
+            offlineRadiusM?: number | null;
         };
         /** MapDefaultView */
         MapDefaultView: {

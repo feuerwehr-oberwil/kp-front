@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 // «Beschriftung» set in the home's Einstellungen reaches a surface that reads it with
 // useRailLabels (the Karte's rail) at once – the sheet sits over that surface, nothing remounts.
+// …and «Gerät auf Standard zurücksetzen» reaches every holder of a device pref the same way.
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, expect, it } from 'vitest'
-import { useDevicePrefs, useKeyHints, useRailLabels } from './useDevicePrefs'
+import { loadPrefs, savePrefs } from './prefs'
+import { resetDevicePrefs, useDevicePrefs, useRailLabels } from './useDevicePrefs'
 
 afterEach(() => { cleanup(); document.cookie = 'kp-front-prefs=; max-age=0; path=/' })
 
@@ -17,12 +19,24 @@ it('a change in the Einstellungen shows on a useRailLabels reader without a remo
   expect(screen.getByTestId('labels').textContent).toBe('short')
 })
 
-it('«Tastenkürzel anzeigen» is on by default and a switch in the sheet reaches a rail live', () => {
-  let set: ((v: boolean) => void) | null = null
-  const Sheet = () => { set = useKeyHints()[1]; return null }
-  const Rail = () => <span data-testid="hints">{String(useKeyHints()[0])}</span>
-  render(<><Sheet /><Rail /></>)
-  expect(screen.getByTestId('hints').textContent).toBe('true')
-  act(() => set!(false))
-  expect(screen.getByTestId('hints').textContent).toBe('false')
+it('a reset puts every holder back on the defaults, and its undo brings the choices back', () => {
+  savePrefs({ symbolScaleMap: 1.3, keepScreenOn: false, railLabels: 'short', railLabelsChosen: true, theme: 'night', incidentId: 'e1' })
+  const Holder = () => {
+    const p = useDevicePrefs()
+    return <span data-testid="p">{`${p.symbolScale.map} ${p.keepScreenOn} ${p.railLabels}`}</span>
+  }
+  const Rail = () => <span data-testid="rail">{useRailLabels(false)}</span>
+  render(<><Holder /><Rail /></>)
+  expect(screen.getByTestId('p').textContent).toBe('1.3 false short')
+
+  let undo: () => void = () => {}
+  act(() => { undo = resetDevicePrefs() })
+  expect(screen.getByTestId('p').textContent).toBe('1 true off')
+  expect(screen.getByTestId('rail').textContent).toBe('off')
+  expect(loadPrefs()).toEqual({ incidentId: 'e1' })
+
+  act(() => undo())
+  expect(screen.getByTestId('p').textContent).toBe('1.3 false short')
+  expect(screen.getByTestId('rail').textContent).toBe('short')
+  expect(loadPrefs().theme).toBe('night')
 })

@@ -633,6 +633,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       centerOutOfRange: 'Centro non ancora salvato – la longitudine è tra −180 e 180, la latitudine tra −90 e 90. In Svizzera: longitudine ≈ 8, latitudine ≈ 47.',
       zoom: 'Zoom',
       zoomTip: 'Livello di zoom iniziale della carta (più alto = più vicino; ~16 mostra un’estensione di quartiere).',
+      offlineRadius: 'Raggio offline (m)',
+      offlineRadiusTip: 'Fin dove attorno all’intervento ogni dispositivo carica carta e condotte per l’uso offline – da {min} a {max} m. Più piccolo = download più veloce e più piccolo.',
       crs: 'Coordinate',
       crsTip: 'In quale forma vengono digitate le coordinate. Il cambio converte quanto già inserito – viene salvata sempre una sola delle due forme.',
       crsWgs84: 'WGS84 – longitudine / latitudine',

@@ -7,10 +7,8 @@ import { fmtClock, type AtemschutzAlarmState } from '../lib/atemschutz'
 import { serverNow } from '../lib/serverClock'
 import type { Incident, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
-import { CLOCK_ICON, useEinsatzuhr } from '../lib/einsatzuhr'
-import { EinsatzuhrMenu } from './Einsatzuhr'
+import { useEinsatzuhr } from '../lib/einsatzuhr'
 import { useIsPhone } from '../lib/useIsPhone'
-import { useKeyHints } from '../lib/useDevicePrefs'
 import { PANEL_KEY } from '../lib/hotkeys'
 import { useHoldEntry } from '../lib/useHoldEntry'
 import { useLiveBearing } from '../lib/liveBearing'
@@ -156,22 +154,20 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   const undoWord = undoLabel ? fillTemplate(appConfig.copy.undoNamed, { action: undoLabel }) : appConfig.copy.undo
   const redoWord = redoLabel ? fillTemplate(appConfig.copy.redoNamed, { action: redoLabel }) : appConfig.copy.redo
 
-  // Einsatzuhr: the running duration, the wall clock or the start time, from a labelled menu
-  // (lib/einsatzuhr). It's the only clock in the bar (the OS status bar covers wall time).
+  // Einsatzuhr: the running Einsatzdauer, nothing else (lib/einsatzuhr, owner pick 13.11.2026) —
+  // a read-out, not a control. It's the only clock in the bar (the OS status bar covers wall time,
+  // the Einsatz card the Beginn).
   // ⚠️ Not on a PHONE (07.10.2026, UI sweep · owner pick B3 D): there it is the Einsatz pill's
-  // second line, under the Stichwort, and its menu opens from the Einsatz card's Beginn pill
-  // (panels/IncidentSwitcher) — the same choice, read and written through the same hook.
+  // second line, under the Stichwort (panels/IncidentSwitcher).
   const isPhone = useIsPhone()
   const E = appConfig.copy.einsatzuhr
-  const uhr = useEinsatzuhr(startedAt, endedAt, now)
-  const clockText = uhr.text
+  const clockText = useEinsatzuhr(startedAt, endedAt, now)
 
   // Verlauf (J) and Eintrag (E) wear their letter like the rails' tiles do (staging review
-  // 06.11.2026, S6): the same `.rail-key` badge, the same device pref «Tastenkürzel anzeigen»
-  // (lib/prefs · keyHints), and in CSS only with a mouse and keyboard (10-journal.css · .tb-key).
-  // Not on a phone, whose bar is icons only. The tooltip names the key either way.
-  const [keyHints] = useKeyHints()
-  const keyHint = (k: string) => (keyHints && !isPhone ? <span className="rail-key tb-key" aria-hidden>{k}</span> : null)
+  // 06.11.2026, S6): the same `.rail-key` badge, in CSS only with a mouse and keyboard
+  // (10-journal.css · .tb-key). Not on a phone, whose bar is icons only. The tooltip names the key
+  // either way.
+  const keyHint = (k: string) => (!isPhone ? <span className="rail-key tb-key" aria-hidden>{k}</span> : null)
   const keyTitle = (label: string, key: string) => fillTemplate(appConfig.copy.journal.keyTitle, { label, key })
 
   // Eintrag gesture (shared with the mobile FAB so they behave identically). The hook runs
@@ -208,20 +204,16 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
           <span className="eaddr">{incident.address}</span>
         </>
       )}
-      {/* No fixed wall clock in the bar — the OS status bar (iPad navbar) already shows the time,
-          and the Einsatzuhr below can be cycled to the wall clock when needed. */}
-      {/* Einsatzuhr: the long-incident awareness anchor — tap opens a labelled mode menu */}
+      {/* No fixed wall clock in the bar — the OS status bar (iPad navbar) already shows the time. */}
+      {/* Einsatzuhr: the long-incident awareness anchor — the Einsatzdauer, read, never tapped */}
       {startedAt && !isPhone && (
-        <EinsatzuhrMenu uhr={uhr} startedAt={startedAt} sideOffset={BAR_POP_OFFSET} trigger={
-          <button
-            type="button"
-            className="stat tb-einsatzuhr"
-            title={fillTemplate(E.title, { t: formatTime(new Date(startedAt)) })}
-            aria-label={`${uhr.label[uhr.mode]}: ${clockText}`}
-          >
-            <Icon id={CLOCK_ICON[uhr.mode]} /><b>{clockText}</b><Icon id="chevron-down" className="tb-uhr-chev chev" />
-          </button>
-        } />
+        <span
+          className="stat tb-einsatzuhr"
+          title={fillTemplate(E.title, { t: formatTime(new Date(startedAt)) })}
+          aria-label={`${E.label}: ${clockText}`}
+        >
+          <Icon id="hourglass" /><b>{clockText}</b>
+        </span>
       )}
 
       {/* Journal + undo/redo, reachable from both surfaces. Do not open this comment with the

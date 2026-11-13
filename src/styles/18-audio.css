@@ -566,15 +566,11 @@
 /* …the title is «Meldung»; what it is about stays read-out size under the 17px title type */
 .jc-mode-note em, .jc-mode-note-name { font-size: var(--fs-2); }
 
-/* Einsatzuhr: tap-to-cycle clock (duration / wall time / start) beside the wall clock. It's a
-   <button> now — strip the native chrome and give it a comfortable tap area. */
-.tb-einsatzuhr { color: var(--ink-dim); background: none; border: none; cursor: pointer; font: inherit;
-  padding: var(--sp-2) var(--sp-1); margin: -8px 0; border-radius: var(--r-sm); -webkit-tap-highlight-color: transparent;
+/* Einsatzuhr: the Einsatzdauer as a read-out (lib/einsatzuhr, 13.11.2026) – no hover, no press,
+   nothing to tap. It keeps the box it had as a button so the bar does not move. */
+.tb-einsatzuhr { color: var(--ink-dim); font: inherit;
+  padding: var(--sp-2) var(--sp-1); margin: -8px 0;
   min-height: 42px; }   /* as tall as the Einsatz pill and `.tb-act` (owner 27.10.2026); touch: 20-touch-floors */
-@media (hover: hover) {
-  .tb-einsatzuhr:hover { color: var(--ink); background: var(--fill-soft); }
-}
-.tb-einsatzuhr:active { background: var(--fill-soft); }
 /* the mode's glyph at the size of the bar's action glyphs (Eintrag's 16px, 10-journal): at 14px the
    hourglass drew a 7×9px mark beside the bold mono figure, the smallest thing in the bar (hill climb r11;
    the symbol itself was redrawn fuller the same day, lib/icons · #hourglass) */

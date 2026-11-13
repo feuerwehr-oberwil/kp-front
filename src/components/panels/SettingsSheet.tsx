@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon } from '../../lib/icons'
-import { toast } from '../../lib/ui'
+import { toast, undoToast } from '../../lib/ui'
 import { loadPrefs, savePrefs, applyTheme, resolveTheme, SYMBOL_SCALE, type ThemeMode, type RailLabels, type SymbolSurface } from '../../lib/prefs'
 import { appConfig } from '../../config/appConfig'
 import type { CaptionMode } from '../../types'
@@ -8,13 +8,12 @@ import { getDeploymentConfig } from '../../lib/deploymentConfig'
 import { loadRoster } from '../../lib/usePersonnel'
 import { Modal } from './_shared'
 import { OnOff, Segmented } from '../Segmented'
-import { Stepper } from '../Stepper'
 import { Slider } from '../Slider'
 import { Button } from '../Button'
 import { ShellLoader } from '../ShellLoader'
 import { compareText } from '../../lib/format'
 import { AlarmReadinessRows } from '../karte/AlarmReadiness'
-import { useKeyHints } from '../../lib/useDevicePrefs'
+import { onDevicePrefsReset, resetDevicePrefs } from '../../lib/useDevicePrefs'
 
 /** Percent for a symbol multiplier — «110 %» is a size anyone reads at a glance, «1.1» is not.
  *  No-break space before the sign, so the number and its unit never split across a line. */
@@ -45,13 +44,15 @@ function ScaleRow({ surface, label, sub, value, onChange }: {
   )
 }
 
-/** Einstellungen: device prefs only (theme, symbol size, rail words, shortcut letters, offline
- *  radius, screen wake — local cookie) plus per-device utilities. The «Einsatz» doctrine values (Funkkontakt-
+/** Einstellungen: device prefs only (theme, symbol size, captions, rail words, screen wake —
+ *  local cookie), the way back to their defaults, plus per-device utilities. Three rows left on
+ *  13.11.2026 (owner picks PLACE.7): «Tastenkürzel anzeigen» and «Offline-Vorbereitung» are fixed
+ *  on, the «Offline-Umkreis» is the station's (/admin › Station & Karte, `map.offlineRadiusM`). The «Einsatz» doctrine values (Funkkontakt-
  *  Intervall, Nachfrist, Funkkanal) left this sheet 28.08.: station configuration belongs in
  *  /admin, where whoever set it up changes it — not under the finger of an unknowing operator
  *  at 3am (per-incident overrides already written keep working; the doctrine is the source). */
 export function SettingsSheet({
-  onClose, symbolScale, onSymbolScale, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, offlineRadiusM, onOfflineRadius, offlineAuto, onOfflineAuto, keepScreenOn, onKeepScreenOn, photoPosition, onPhotoPosition, themeCoord, onFeedback,
+  onClose, symbolScale, onSymbolScale, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, keepScreenOn, onKeepScreenOn, photoPosition, onPhotoPosition, themeCoord, onFeedback,
   shareAs, onSharePosition, onChangeShareName,
 }: {
   onClose: () => void
@@ -66,13 +67,6 @@ export function SettingsSheet({
    *  stehen»), not two. */
   railLabels: RailLabels
   onRailLabels: (v: RailLabels) => void
-  /** radius (m) cached around the incident for offline + scope of the Leitungskataster layers */
-  offlineRadiusM: number
-  onOfflineRadius: (m: number) => void
-  /** quiet self-warm shortly after opening an Einsatz (lib/prefs · offlineAuto). Default true;
-   *  false = «Aus» (manual only) — the button in the Offline-Bereitschaft sheet stays either way. */
-  offlineAuto: boolean
-  onOfflineAuto: (v: boolean) => void
   /** keep the screen awake while an incident is open — device pref, default on */
   keepScreenOn: boolean
   onKeepScreenOn: (v: boolean) => void
@@ -94,7 +88,8 @@ export function SettingsSheet({
   onChangeShareName?: () => void
 }) {
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => loadPrefs().theme ?? 'auto')
-  const [keyHints, setKeyHints] = useKeyHints()
+  // a reset (or its undo, from the toast) rewrote the theme too
+  useEffect(() => onDevicePrefsReset(() => setThemeMode(loadPrefs().theme ?? 'auto')), [])
   const setTheme = (m: ThemeMode) => {
     setThemeMode(m)
     savePrefs({ ...loadPrefs(), theme: m })
@@ -183,24 +178,10 @@ export function SettingsSheet({
                   «Aus | Wörter»; the stored value keeps its 'off' | 'short' names */}
               <OnOff ariaLabel={cp.railLabels} value={railLabels === 'short'} onChange={(v) => onRailLabels(v ? 'short' : 'off')} />
             </div>
-            <div className="set-row">
-              <span className="set-row-l">{cp.keyHints}<small>{cp.keyHintsSub}</small></span>
-              {/* its own device-pref store (useKeyHints), not a prop: the rails read it too and the
-                  sheet sits over them – no parent threads it, nothing remounts */}
-              <OnOff ariaLabel={cp.keyHints} value={keyHints} onChange={setKeyHints} />
-            </div>
-            <div className="set-row">
-              <span className="set-row-l">{cp.offlineRadius}<small>{cp.offlineRadiusSub}</small></span>
-              <Stepper value={offlineRadiusM} min={500} max={3000} step={250} format={(v) => (v < 1000 ? `${v} m` : `${v / 1000} km`)} onChange={onOfflineRadius} ariaLabel={cp.offlineRadius} />
-            </div>
             {/* The yes/no rows below are the ONE binary idiom, `OnOff` – «Aus | An», in that
                 order (28.09.2026). They each built their own pair, «Ein | Aus» or «Erlaubt | Aus»,
                 with «on» on the LEFT – the mirror image of every editor sheet's switch, so the same
                 thumb-position meant «on» here and «off» there. */}
-            <div className="set-row">
-              <span className="set-row-l">{cp.offlineAuto}<small>{cp.offlineAutoSub}</small></span>
-              <OnOff ariaLabel={cp.offlineAuto} value={offlineAuto} onChange={onOfflineAuto} />
-            </div>
             <div className="set-row">
               <span className="set-row-l">{cp.keepScreenOn}<small>{cp.keepScreenOnSub}</small></span>
               <OnOff ariaLabel={cp.keepScreenOn} value={keepScreenOn} onChange={onKeepScreenOn} />
@@ -239,6 +220,16 @@ export function SettingsSheet({
                 </Button>
               </div>
             )}
+            {/* The way back (13.11.2026, PLACE.7): a slider pushed to the end at a drill has no mark
+                to find 100 % again. The sub names what resets and what stays; the toast takes it
+                back (lib/useDevicePrefs · resetDevicePrefs) – a device pref is not on the
+                Einsatz's undo timeline (docs/undo.md), so the toast is the only undo. */}
+            <div className="set-row">
+              <span className="set-row-l">{cp.resetDevice}<small>{cp.resetDeviceSub}</small></span>
+              <Button icon={<Icon id="undo" />} onClick={() => undoToast(cp.resetDeviceDone, resetDevicePrefs())}>
+                {cp.resetDeviceBtn}
+              </Button>
+            </div>
           </div>
           <p className="set-group-foot">{cp.deviceFoot}</p>
         </section>

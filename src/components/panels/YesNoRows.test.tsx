@@ -2,7 +2,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { appConfig } from '../../config/appConfig'
-import { loadPrefs } from '../../lib/prefs'
 
 // ⚠️ The decision this file pins (owner, 28.09.2026): a yes/no is ONE control app-wide — the
 // `OnOff` pair, the false answer left and the true one right. The Einstellungen built their own
@@ -75,26 +74,16 @@ describe('the Einstellungen yes/no rows', () => {
   const mount = () => render(
     <SettingsSheet onClose={() => {}} symbolScale={{ map: 1, board: 1 }} onSymbolScale={() => {}}
       symbolCaptions="auto" onSymbolCaptions={() => {}} railLabels="off" onRailLabels={onRailLabels}
-      offlineRadiusM={1000} onOfflineRadius={() => {}} offlineAuto onOfflineAuto={() => {}}
       keepScreenOn onKeepScreenOn={onKeepScreenOn} themeCoord={null}
       shareAs={null} onSharePosition={() => {}} />)
 
   it('all read «Aus | An», in that order', () => {
     mount()
-    for (const label of [cp.railLabels, cp.keyHints, cp.offlineAuto, cp.keepScreenOn, appConfig.copy.sharePosition.settingsLabel]) {
+    for (const label of [cp.railLabels, cp.keepScreenOn, appConfig.copy.sharePosition.settingsLabel]) {
       expect(pair(label).words, label).toEqual([D.off, D.on])
     }
     expect(pair(cp.keepScreenOn).pressed).toEqual(['false', 'true'])
     expect(pair(cp.railLabels).pressed).toEqual(['true', 'false'])
-  })
-
-  // 31.10.2026: «Tastenkürzel anzeigen» – a device pref, ON until switched off, stored in the cookie
-  it('show «Tastenkürzel anzeigen» as on by default and store the switch on the device', () => {
-    mount()
-    expect(pair(cp.keyHints).pressed).toEqual(['false', 'true'])
-    fireEvent.click(pair(cp.keyHints).btns[0])
-    expect(loadPrefs().keyHints).toBe(false)
-    expect(pair(cp.keyHints).pressed).toEqual(['true', 'false'])
   })
 
   // 05.10.2026: the Führungsansicht is the login's (admin · Benutzer), not a device switch
@@ -109,7 +98,6 @@ describe('the Einstellungen yes/no rows', () => {
     render(
       <SettingsSheet onClose={() => {}} symbolScale={{ map: 1, board: 1 }} onSymbolScale={() => {}}
         symbolCaptions="auto" onSymbolCaptions={() => {}} railLabels="off" onRailLabels={() => {}}
-        offlineRadiusM={1000} onOfflineRadius={() => {}} offlineAuto onOfflineAuto={() => {}}
         keepScreenOn onKeepScreenOn={() => {}} themeCoord={null}
         shareAs="Muster Felix" onSharePosition={() => {}} onChangeShareName={onChangeShareName} />)
     fireEvent.click(screen.getByRole('button', { name: /Muster Felix/ }))

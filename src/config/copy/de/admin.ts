@@ -734,6 +734,9 @@ export const adminCopy = {
       centerOutOfRange: 'Zentrum noch nicht gespeichert – Länge liegt zwischen −180 und 180, Breite zwischen −90 und 90. In der Schweiz: Länge ≈ 8, Breite ≈ 47.',
       zoom: 'Zoom',
       zoomTip: 'Anfangs-Zoomstufe der Karte (höher = näher; ~16 zeigt einen Quartierausschnitt).',
+      // Stationseinstellung seit 13.11.2026 (PLACE.7) – war ein Regler je Gerät in den Einstellungen
+      offlineRadius: 'Offline-Umkreis (m)',
+      offlineRadiusTip: 'Wie weit um den Einsatz jedes Gerät Karte und Leitungen für offline lädt – {min} bis {max} m. Kleiner = schnellerer, kleinerer Download.',
       // Das Zentrum wird in EINER von zwei Formen gespeichert – nie in beiden (schemas.py ·
       // MapDefaultView). Die Umschaltung rechnet den eingetippten Wert um, statt ein zweites
       // Feld anzubieten, das dem ersten widersprechen kann.
