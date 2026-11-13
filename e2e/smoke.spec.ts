@@ -140,7 +140,7 @@ test.describe(() => {
     const notice = page.locator('.jr-delivery')
     await expect(notice).toContainText('Auf diesem Gerät gespeichert')
     const downloading = page.waitForEvent('download')
-    await notice.getByRole('button', { name: 'Einträge sichern' }).click()
+    await notice.getByRole('button', { name: 'Einträge herunterladen' }).click()
     const path = await (await downloading).path()
     if (!path) throw new Error('Recovery export was not downloaded')
     expect(await readFile(path, 'utf8')).toContain(rejected)

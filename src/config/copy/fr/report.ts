@@ -104,7 +104,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
 
     pdf: 'Télécharger le PDF',
     pdfBusy: 'Création du PDF …',
-    pdfFailed: 'Le PDF n\'a pas pu être créé.',
+    pdfFailed: 'PDF non créé – réessayer',
     lehren: 'Enseignements / sécurité',
   },
   wheel: {
@@ -138,11 +138,11 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     kdtNameHint: 'Valeur des réglages – un remplaçant se choisit lui-même.',
     padHint: 'Signer ici avec le doigt',
     padAria: 'Champ de signature',
-    clear: 'Effacer',
+    clear: 'Vider',
     cancel: 'Annuler',
     confirm: 'Signer',
     logSigned: 'Rapport signé : {role} {name} (somme de contrôle {sum})',
-    failed: 'Signature non enregistrée – veuillez réessayer',
+    failed: 'Signature non enregistrée – réessayer',
   },
   preflight: {
     pdfFull: 'Rapport d’intervention (PDF)',
@@ -246,12 +246,12 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     attachmentsCount: '{n} photo(s)',
     attachmentsNone: 'aucune',
     attachmentsCaption: 'Légende (p. ex. «Permis du conducteur»)',
-    attachmentsPending: 'pas encore téléversée',
+    attachmentsPending: 'pas encore transmise',
     attachmentAdded: 'Photo ajoutée',
     attachmentCaptioned: 'Légende',
     attachmentRemoved: 'Photo supprimée',
     linksHead: 'Formulaires & liens',
-    shareHead: 'Transmettre',
+    shareHead: 'Partager',
     shareLede: 'Sans connexion, reste valable après la clôture.',
     shareLiveLede: 'Sans connexion, reste valable après la clôture.',
     shareCreate: 'Créer le lien',
@@ -259,7 +259,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     shareLoading: 'Chargement du lien …',
     shareLoadFailed: 'Le lien n’a pas pu être chargé.',
     shareRetry: 'Réessayer',
-    shareCreateFailed: 'La création du lien a échoué.',
+    shareCreateFailed: 'Lien non reçu – réessayer',
     shareCopy: 'Copier l’adresse',
     shareCopied: 'Copié',
     shareScan: 'Scanner avec l’appareil photo',
@@ -270,21 +270,20 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     shareRevokeTitle: 'Révoquer le lien vers toute l’intervention ?',
     shareRevokeBody: 'L’adresse cessera de fonctionner. Qui l’a ouverte perd l’accès '
       + 'immédiatement. Un nouveau lien peut être créé à tout moment – ce sera une autre adresse.',
-    shareRevokeConfirm: 'Oui, révoquer',
-    shareRevokeFailed: 'La révocation du lien a échoué.',
+    shareRevokeConfirm: 'Révoquer le lien',
+    shareRevokeFailed: 'Révocation non confirmée – recharger l’état du lien',
     shareKindLabel: 'Ce que le lien donne',
     shareKindFull: 'Intervention · lire',
     shareKindAtem: 'Binômes · utiliser',
-    shareAsLede: 'Qui ouvre le lien ne voit que le tableau des binômes de cette intervention – la '
-      + 'surveillance ARI – et l’utilise : annoncer un binôme, contact, pression, repli, sorti. '
-      + 'Pas de carte, pas de journal. Valable jusqu’à la clôture de l’intervention.',
+    shareAsLede: 'Qui ouvre le lien ne voit que les binômes de cette intervention et les utilise : annoncer '
+      + 'un binôme, contact, pression, repli, sorti. Pas de carte, pas de journal. Valable jusqu’à '
+      + 'la clôture de l’intervention.',
     shareAsLiveLede: 'Valable jusqu’à la clôture.',
     shareAsWarn: 'Ce qui y est saisi figure au rapport sous «Surveillance ARI». Ne donnez le lien qu’à la '
       + 'personne qui surveille.',
-    shareAsRevokeTitle: 'Révoquer le lien vers le tableau des binômes ?',
-    shareAsRevokeBody: 'L’adresse cessera de fonctionner. Qui a le tableau ouvert ne peut plus '
-      + 'rien saisir. Un nouveau lien peut être créé à tout moment – ce sera alors une autre '
-      + 'adresse.',
+    shareAsRevokeTitle: 'Révoquer le lien binômes ?',
+    shareAsRevokeBody: 'L’adresse cessera de fonctionner. Qui a les binômes ouverts ne peut plus rien saisir. Un '
+      + 'nouveau lien peut être créé à tout moment – ce sera alors une autre adresse.',
     linksCount: '{done} sur {n} faits',
     linksOpen: 'Ouvrir',
     linksMarkDone: 'Marquer {title} comme fait',
@@ -349,8 +348,8 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     metaNoneOn: '{label} : sans objet',
     metaNoneOff: '{label} : «sans objet» retiré',
     unresolvedHours: '{names} : les heures sont inversées ou manquent – pas comptées dans les heures d\'intervention.',
-    pendingMedia: '{n} photo/audio pas encore téléversés – seront complétés dès qu\'une connexion existe ; peut-être pas encore visibles sur d\'autres appareils.',
-    pendingMediaConfirm: '{n} photo/audio pas encore envoyé – conservé sur cet appareil',
+    pendingMedia: '{n} photo/audio pas encore transmis – seront complétés avec du réseau ; peut-être pas encore visibles sur d’autres appareils.',
+    pendingMediaConfirm: '{n} photo/audio pas encore transmis – restent enregistrés sur cet appareil',
     truppsDeployedConfirm: 'Encore engagés : {n} – jamais annoncés sortis',
   },
   printRelay: {
@@ -368,7 +367,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     jobOpenSince: 'Dans la file d’attente depuis {t}',
     jobCheck: 'Vérifier',
     jobCancel: 'Annuler',
-    jobUnreachable: 'Impression injoignable – vérifier la connexion',
+    jobUnreachable: 'Impression injoignable – vérifier le réseau',
     jobGone: 'Impression introuvable – si aucune sortie papier n’est arrivée, imprimer à nouveau.',
     confirmTitle: 'Imprimer',
     confirmMsg: 'Envoyer le rapport d’intervention à l’imprimante de caserne ?',
@@ -376,7 +375,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     undo: 'Annuler',
     cancelled: 'Impression annulée',
     undoTooLate: 'Trop tard – le document est déjà à l’imprimante',
-    failed: 'Échec de l’envoi à l’imprimante de caserne',
+    failed: 'Non imprimé – télécharger le PDF et l’imprimer à la main',
     online: 'Imprimante de caserne joignable',
     offline: 'Imprimante de caserne hors ligne',
     offlineConfirmTitle: 'Imprimante de caserne hors ligne',

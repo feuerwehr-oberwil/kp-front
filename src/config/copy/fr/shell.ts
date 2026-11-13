@@ -36,8 +36,8 @@ export const shellCopy: Localizable<Pick<Copy, Keys>> = {
     title: 'Trouver un binôme',
     placeholder: 'Binôme ou nom …',
     noMatches: 'Aucun binôme trouvé',
-    empty: 'Aucun binôme placé.',
-    emptyHint: 'Les binômes se placent sur la situation ou sur un plan – depuis la fiche du binôme sous «Binômes» ou avec l\'outil binôme.',
+    empty: 'Aucun binôme sur la carte ou un plan.',
+    emptyHint: 'Placer un binôme sur la carte ou un plan sous «Binômes» ou avec l’outil binôme.',
     raus: 'sorti',
   },
 }

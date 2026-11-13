@@ -5,7 +5,7 @@ import type { Copy, Localizable } from '../index'
 
 export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>> = {
   atemschutz: {
-    title: 'Sorveglianza autoprotezione',
+    title: 'Squadre',
     // titolo della tavola nell'app completa — porta entrambe le sezioni (vedi de/atemschutz.ts)
     boardTitle: 'Squadre',
     // il titolo troncato apre i dati dell'intervento (09.09., vedi de/atemschutz.ts)
@@ -19,12 +19,12 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     kindPlain: 'Senza ARA',
     asMark: 'ARA',
     empty: 'Ancora nessuna squadra in sorveglianza.',
-    emptyHint: 'Crea una squadra per avviare la sorveglianza.',
+    emptyHint: '«Annuncia squadra» avvia la sorveglianza.',
     newTrupp: 'Annuncia squadra',
     shareLink: 'Cedi la sorveglianza',
     shareLinkShort: 'Cedi',
     shareLinkOn: 'Cedi la sorveglianza – un link è attivo',
-    linkReentryHint: 'Il link riporta a questa tavola – se la pagina viene chiusa per errore, basta aprire di nuovo il codice QR.',
+    linkReentryHint: 'Il link riporta qui – se la pagina viene chiusa per errore, basta aprire di nuovo il codice QR.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     /** the three-section stack on ANY phone (TruppForm · stack, 04.09.) – replaces the two-step
      *  wizard; «Incarico e linea» è una sola sezione (vedi de/atemschutz.ts). */
@@ -83,7 +83,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     lineTyped: 'N. …',
     lineTakeTitle: 'La linea {n} è occupata',
     lineTakeMsg: 'La squadra {from} è sulla linea {n}. Mettere la squadra {to}?',
-    lineTakeConfirm: 'Subentra',
+    lineTakeConfirm: 'Squadra {to} sulla condotta {n}',
     lineHeldToast: 'La linea è occupata dalla squadra {name}.',
 
     lineOptTaken: 'La squadra {name} è su questa linea',
@@ -97,7 +97,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     markerOptTaken: 'Appartiene alla squadra {name}',
     markerTakeTitle: 'Qui è la squadra {from}',
     markerTakeMsg: 'Questa squadra posata appartiene alla squadra {from}. Passarla alla squadra {to}?',
-    markerTakeConfirm: 'Riprendi',
+    markerTakeConfirm: 'Riprendi per la squadra {to}',
     logMarkerUnlinked: 'La squadra {name} non è più posata',
     entryAskTitle: 'Far entrare la squadra?',
     entryAskMsg: 'La squadra {name} è annunciata ma non è ancora entrata. Farla entrare ora? Il cronometro dei contatti parte subito.',
@@ -183,11 +183,11 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     actReenter: 'Rientrare',
     actNotDeployed: 'Non impiegata',
     statusNotDeployed: 'Non impiegata',
-    statusRemoved: 'Rimosso dalla lavagna',
+    statusRemoved: 'Rimosso',
     logNotDeployed: 'Squadra {name} non impiegata',
     remove: 'Rimuovi',
     removeUnusedTitle: 'La squadra non è stata impiegata',
-    removeUnusedMsg: 'Chiudere {name} come «non impiegata» invece di rimuoverla? La squadra resta pronta sulla lavagna – «Rimuovi» serve per le registrazioni errate.',
+    removeUnusedMsg: 'Chiudere {name} come «non impiegata» invece di rimuoverla? La squadra resta pronta tra le squadre – «Rimuovi» serve per le registrazioni errate.',
     place: 'Posiziona',
     placeWhere: 'Dove posizionare?',
     placeNoTarget: 'Nessun piano disponibile – scegli prima un edificio con «Edificio» nella barra.',
@@ -316,10 +316,10 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       abschlussMsg: '{list} – non ancora conclusa.',
       abschlussClose: 'Chiudere comunque',
       // «Entfernen» on a Trupp in a Notfall is refused until it is ended (review of #300)
-      removeBlocked: 'Tenere prima «Emergenza conclusa» – una squadra in emergenza resta sulla lavagna',
+      removeBlocked: 'Tenere prima «Emergenza conclusa» – una squadra in emergenza resta sorvegliata',
     },
     removeInsideTitle: 'La squadra {name} è dentro – annunciarla fuori prima?',
-    removeInsideMsg: 'Rimuovere toglie la squadra dalla lavagna e da ogni allarme. Di solito si intende: la squadra è uscita.',
+    removeInsideMsg: 'Rimuovere toglie la squadra dalla sorveglianza e da ogni allarme. Di solito si intende: la squadra è uscita.',
     actEnterFirst: 'Impiegare',
     contactDone: 'Confermato',
     pressureLockedLabelPlain: 'Pressione d’entrata',

@@ -81,7 +81,7 @@ describe('the mini sheets', () => {
 
   /* the one question the form's save asks in front of a Leitung is asked here too — ONE helper
    * (AtemschutzView · confirmLineTake), so the sheet is not a way around it */
-  it('a Leitung another Trupp is on asks first; «Übernehmen» unlinks the other and writes, cancel keeps the sheet open', async () => {
+  it('a Leitung another Trupp is on asks first; «Trupp Steiner auf Leitung 3» unlinks the other and writes, cancel keeps the sheet open', async () => {
     render(<Overlays />)
     const editTrupp = vi.fn(), unlinkTruppLine = vi.fn()
     mount({
@@ -99,7 +99,7 @@ describe('the mini sheets', () => {
     expect(screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })).toBeTruthy()
     fireEvent.click(within(sheet).getByRole('button', { name: az.save }))
     ask = await screen.findByRole('alertdialog')
-    fireEvent.click(within(ask).getByRole('button', { name: az.lineTakeConfirm }))
+    fireEvent.click(within(ask).getByRole('button', { name: fillTemplate(az.lineTakeConfirm, { n: '3', to: 'Steiner' }) }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(unlinkTruppLine).toHaveBeenCalledWith('tr2')
     expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ lineNo: 3 }))
@@ -338,7 +338,7 @@ describe('the handed-over board on a phone (focus mode)', () => {
     fireEvent.click(opener)
     await waitFor(() => {
       const panel = document.querySelector('.az-head-detail')!.textContent
-      expect(panel).toMatch(/Gespeichert um.*18:05/)
+      expect(panel).toMatch(/Übertragen um.*18:05/)
       // the link hint is a line here now — the link board shows no toasts (sweep #23)
       expect(panel).toContain(az.linkReentryHint)
     })

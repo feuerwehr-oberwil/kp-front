@@ -767,7 +767,7 @@ export function AtemschutzView({
     return confirmDialog({
       title: fillTemplate(az.lineTakeTitle, { n: String(f.lineNo) }),
       message: fillTemplate(az.lineTakeMsg, { n: String(f.lineNo), from: clash.name, to: f.name }),
-      confirmLabel: az.lineTakeConfirm,
+      confirmLabel: fillTemplate(az.lineTakeConfirm, { n: String(f.lineNo), to: f.name }),
       cancelLabel: appConfig.copy.cancel,
     }).then((ok) => {
       if (!ok) return false

@@ -72,7 +72,7 @@ describe('noteDrawingEdit via patchDrawing (C1)', () => {
     act(() => { result.current.noteDrawingEdit(line(), { teilstueck: true }) })
     act(() => { vi.advanceTimersByTime(4000) })
     expect(deps.log).toHaveBeenCalledTimes(1)
-    expect(deps.log.mock.calls[0][1]).toContain('Abschluss')
+    expect(deps.log.mock.calls[0][1]).toContain('Linienende')
   })
 })
 

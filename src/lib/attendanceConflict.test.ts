@@ -230,7 +230,7 @@ describe('openConflicts + conflictResolvedRow — the divergence gets an answer'
     expect(conflictResolvedRow(open, 0, 'Hauptmann Paul').text)
       .toBe('Abweichung Probst Tristan geprüft – Angabe vom Kommandoposten, Hauptmann Paul')
     expect(conflictResolvedRow(open, 1, 'Hauptmann Paul').text)
-      .toContain('Angabe vom Erfassungsbogen')
+      .toContain('Angabe vom Erfassungsblatt')
     expect(conflictResolvedRow(open, 'both', 'Hauptmann Paul').text)
       .toContain('beide Angaben stimmen so')
   })

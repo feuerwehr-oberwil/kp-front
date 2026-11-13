@@ -99,7 +99,7 @@ describe('KarteSurface · the plan', () => {
     await act(async () => {})
     report('failed')
     wait(300)
-    expect(screen.getByText('Schärfere Ansicht konnte nicht geladen werden')).toBeTruthy()
+    expect(screen.getByText('Schärfere Ansicht nicht geladen – die einfache bleibt')).toBeTruthy()
   })
 })
 

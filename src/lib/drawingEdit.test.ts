@@ -37,22 +37,22 @@ describe('drawingEditChanges (the Verlauf line for editing a drawing)', () => {
   // line whose Abschluss is an arrow IS called «Pfeil» — so naming the value spelled the row's
   // own name a second time. The value is the first word of the line; the change names the field.
   it('does not stutter when the value would repeat the drawing’s own name', () => {
-    expect(drawingEditChanges(line({}), line({ arrow: true }))).toEqual(['Abschluss gesetzt'])
+    expect(drawingEditChanges(line({}), line({ arrow: true }))).toEqual(['Linienende gesetzt'])
     // …and a CORRECTION says so, with the same word left out
-    expect(drawingEditChanges(line({ teilstueck: true }), line({ arrow: true }))).toEqual(['Abschluss geändert'])
-    // the value survives wherever it is not the name — «Linie: Abschluss auf Teilstück geändert»
+    expect(drawingEditChanges(line({ teilstueck: true }), line({ arrow: true }))).toEqual(['Linienende geändert'])
+    // the value survives wherever it is not the name — «Linie: Linienende auf Teilstück geändert»
     expect(drawingLogName(line({ teilstueck: true }))).not.toBe('Teilstück')
     expect(drawingEditChanges(line({ arrow: true }), line({ teilstueck: true })))
-      .toEqual(['Abschluss auf Teilstück geändert'])
+      .toEqual(['Linienende auf Teilstück geändert'])
   })
 
-  it('reports the Abschluss as one statement, whatever combination of flags carries it', () => {
+  it('reports the Linienende as one statement, whatever combination of flags carries it', () => {
     expect(drawingEditChanges(line({ arrow: true }), line({ arrow: true, arrowStop: true })))
-      .toEqual(['Abschluss auf Pfeil mit Stopp geändert'])
+      .toEqual(['Linienende auf Pfeil mit Stopp geändert'])
     expect(drawingEditChanges(line({ arrow: true }), line({ teilstueck: true })))
-      .toEqual(['Abschluss auf Teilstück geändert'])
+      .toEqual(['Linienende auf Teilstück geändert'])
     expect(drawingEditChanges(line({ arrow: true, arrowStop: true }), line({})))
-      .toEqual(['Abschluss auf Keiner geändert'])
+      .toEqual(['Linienende auf Keiner geändert'])
   })
 
   it('stays silent on styling and geometry — arranging the picture is not an event', () => {
