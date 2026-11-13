@@ -473,6 +473,8 @@
 /* …and the consequence AFTER them, where it reads as the answer to the list rather than as
    more of the same sentence */
 .confirm-note { margin: 0 0 var(--sp-4); font: var(--fw-medium) var(--fs-1)/1.45 var(--body); color: var(--ink-faint); }
+/* the one consequence that must be read: its own line above the note, in ink (FLOW.5) */
+.confirm-note-lead { margin-bottom: var(--sp-2); color: var(--ink); }
 .confirm-msg:last-of-type:not(:only-of-type) { margin-bottom: var(--sp-4); }
 /* ⚠️ …and it WRAPS on a wide screen too (staging walk-through 25.09.2026, N22): three long
    answers («Trotzdem abschliessen · Zur Tafel · Abbrechen») pushed «Abbrechen» out past the

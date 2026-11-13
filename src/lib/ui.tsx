@@ -475,6 +475,7 @@ export function Overlays({ toasts: showToasts = true }: { toasts?: boolean } = {
         message={req?.message ?? ''}
         items={req?.items}
         note={req?.note}
+        noteLead={req?.noteLead}
         confirmLabel={req?.confirmLabel ?? ''}
         cancelLabel={req?.cancelLabel ?? ''}
         danger={req?.danger}

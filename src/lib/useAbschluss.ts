@@ -173,15 +173,59 @@ export function useAbschluss({
     const registered = truppsStillOut === 0 ? truppsRef.current.filter(truppStillRegistered) : []
     const crewConfirms = registered.length > 0 ? !standDownTrupps : notfall.length > 0 || inside.length > 0
     const lastAsked = registered.length > 0 ? 'registered' : inside.length > 0 ? 'inside' : notfall.length > 0 ? 'notfall' : null
+    // ⚠️ Pending media belongs in this list. The Abschluss closes the incident, and a Foto or a
+    // Sprachnotiz that never got a connection is still sitting on THIS device — the operator is
+    // about to walk away, so that is part of what they are confirming.
+    /* ⚠️ A Trupp that was never reported out belongs on this list (04.09.). It is not a missing
+       Angabe — that is what `abschlussMissing` collects — but a fact about the Einsatz being
+       closed over it: nobody said the crew came back, and from here on the board freezes at the
+       Einsatzende, so this is the last moment anybody is asked. The Abschluss still goes through
+       («Trotzdem abschliessen»), and it writes nothing by itself: closing an Einsatz must never
+       put an Austritt on the record that nobody reported.
+       ⚠️ …but only when the first question did not already ask it (sweep R2, 11.11.2026): an
+       operator who just answered «Trupps noch drin» with «Trotzdem abschliessen» was asked the
+       same thing again on the next sheet.
+       ⚠️ Pending media belongs here too. The Abschluss closes the incident, and a Foto or a
+       Sprachnotiz that never got a connection is still sitting on THIS device — the operator is
+       about to walk away, so that is part of what they are confirming. */
+    const go = {
+      step: (st: AbschlussStep) => { setMode('rapport'); setPanel(null); requestReportStep(st) },
+      trupps: () => { setMode('atemschutz'); setPanel(null) },
+      media: () => setOfflineReadyOpen(true),
+    }
+    /* ⚠️ The Einsatzende is PRE-FILLED with «jetzt» (owner's pick): «Zeiten» stood open on
+       almost every close because nothing ever set it, and the answer is nearly always «now».
+       Shown as already set in the step's own place on the list (a tap changes it); written with the
+       close (below), on the server clock. Only for a caller that may write the Rapport.
+       ⚠️ Closing-only: the print's «Angaben fehlen noch» does not pre-fill (printing sets no
+       Einsatzende), its row is open like the others (ReportPreflight · startOutput). */
+    const pendingEnde = patchReportMeta && !reportMeta.endedAt ? serverNowIso() : null
+    /* The rows and their order are the ONE list both confirms read (lib/abschlussOpen ·
+       abschlussSheet). ⚠️ Every row is a LINK, and only that (owner, 11.11.2026: no one-tap
+       answers): naming a gap on the last screen before the Akte closes and leaving the operator
+       to hunt for it is the failure the «noch offen» chips fixed on the sheet itself. Tapping one
+       resolves the ask false — going there is not going ahead. */
+    // a Trupp still out counts as open for the WORDING, the way a missing Angabe does: the
+    // message and the button both have to say that something is being closed over
+    const { items, anyOpen } = abschlussSheet(abschlussOpenPoints(abschlussMissing, inside.length > 0 ? 0 : truppsStillOut, media.pendingCount), go,
+      pendingEnde ? { zeiten: abschlussEndeItem(pendingEnde, () => { patchReportMeta!({ endedAt: pendingEnde }); go.step('zeiten') }) } : undefined)
     const askCrew = (which: NonNullable<typeof lastAsked>, spec: Pick<ConfirmSpec, 'title' | 'message' | 'items' | 'confirmLabel'>) => {
-      const note = [
-        which !== 'registered' ? A.watchEnds : '',
-        standDownTrupps ? '' : A.boardNotYours,
-        crewConfirms && which === lastAsked ? A.confirmMsg : '',
-      ].filter(Boolean).join(' ')
+      const isConfirm = crewConfirms && which === lastAsked
+      const note = [standDownTrupps ? '' : A.boardNotYours, isConfirm ? A.confirmMsg : ''].filter(Boolean).join(' ')
+      const ask = {
+        ...spec,
+        /* ⚠️ The question that IS the confirm shows what the confirm showed (lead review of FLOW.4,
+           13.11.2026): the open Mindestangaben and the uploads still on this device, as the same
+           link rows, under the crews. Dropping the second sheet must not drop the last look at them. */
+        items: isConfirm ? [...(spec.items ?? []), ...items] : spec.items,
+        // the one sentence that says what the close does to the crews stands alone, in ink
+        noteLead: which !== 'registered' ? A.watchEnds : undefined,
+        note: note || undefined,
+        cancelLabel: appConfig.copy.cancel,
+      }
       return standDownTrupps
-        ? confirmDialog({ ...spec, note, altLabel: A.registeredToBoard, cancelLabel: appConfig.copy.cancel, safeAnswer: 'alt' })
-        : confirmDialog({ ...spec, note, cancelLabel: appConfig.copy.cancel, safeAnswer: 'cancel' })
+        ? confirmDialog({ ...ask, altLabel: A.registeredToBoard, safeAnswer: 'alt' })
+        : confirmDialog({ ...ask, safeAnswer: 'cancel' })
     }
     // the board's word for a Trupp in alarm — its tier from the very fold the board and the tone
     // read (`alarmSeverities`), its reason from `truppAlarm`, as the Meldeleiste row asks it
@@ -224,42 +268,6 @@ export function useAbschluss({
       if (answer !== true) return false
       if (standDownTrupps) standDown = registered.map((t) => t.id)
     }
-    // ⚠️ Pending media belongs in this list. The Abschluss closes the incident, and a Foto or a
-    // Sprachnotiz that never got a connection is still sitting on THIS device — the operator is
-    // about to walk away, so that is part of what they are confirming.
-    /* ⚠️ A Trupp that was never reported out belongs on this list (04.09.). It is not a missing
-       Angabe — that is what `abschlussMissing` collects — but a fact about the Einsatz being
-       closed over it: nobody said the crew came back, and from here on the board freezes at the
-       Einsatzende, so this is the last moment anybody is asked. The Abschluss still goes through
-       («Trotzdem abschliessen»), and it writes nothing by itself: closing an Einsatz must never
-       put an Austritt on the record that nobody reported.
-       ⚠️ …but only when the first question did not already ask it (sweep R2, 11.11.2026): an
-       operator who just answered «Trupps noch drin» with «Trotzdem abschliessen» was asked the
-       same thing again on the next sheet.
-       ⚠️ Pending media belongs here too. The Abschluss closes the incident, and a Foto or a
-       Sprachnotiz that never got a connection is still sitting on THIS device — the operator is
-       about to walk away, so that is part of what they are confirming. */
-    const go = {
-      step: (st: AbschlussStep) => { setMode('rapport'); setPanel(null); requestReportStep(st) },
-      trupps: () => { setMode('atemschutz'); setPanel(null) },
-      media: () => setOfflineReadyOpen(true),
-    }
-    /* ⚠️ The Einsatzende is PRE-FILLED with «jetzt» (owner's pick): «Zeiten» stood open on
-       almost every close because nothing ever set it, and the answer is nearly always «now».
-       Shown as already set in the step's own place on the list (a tap changes it); written with the
-       close (below), on the server clock. Only for a caller that may write the Rapport.
-       ⚠️ Closing-only: the print's «Angaben fehlen noch» does not pre-fill (printing sets no
-       Einsatzende), its row is open like the others (ReportPreflight · startOutput). */
-    const pendingEnde = patchReportMeta && !reportMeta.endedAt ? serverNowIso() : null
-    /* The rows and their order are the ONE list both confirms read (lib/abschlussOpen ·
-       abschlussSheet). ⚠️ Every row is a LINK, and only that (owner, 11.11.2026: no one-tap
-       answers): naming a gap on the last screen before the Akte closes and leaving the operator
-       to hunt for it is the failure the «noch offen» chips fixed on the sheet itself. Tapping one
-       resolves the ask false — going there is not going ahead. */
-    // a Trupp still out counts as open for the WORDING, the way a missing Angabe does: the
-    // message and the button both have to say that something is being closed over
-    const { items, anyOpen } = abschlussSheet(abschlussOpenPoints(abschlussMissing, inside.length > 0 ? 0 : truppsStillOut, media.pendingCount), go,
-      pendingEnde ? { zeiten: abschlussEndeItem(pendingEnde, () => { patchReportMeta!({ endedAt: pendingEnde }); go.step('zeiten') }) } : undefined)
     // …asked only when no crew question already was the confirm (FLOW.4, above)
     const ok = crewConfirms || await confirmDialog({
       title: A.confirmTitle,

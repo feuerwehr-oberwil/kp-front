@@ -259,7 +259,7 @@ describe('useAbschluss', () => {
       await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(false)
       expect(ask.mock.calls[0][0]).toMatchObject({
         message: '1 Trupp ist noch drin:',
-        items: [{ head: 'Trupp 1', text: 'Muster Leo / Graf Eva' }],
+        items: expect.arrayContaining([expect.objectContaining({ head: 'Trupp 1', text: 'Muster Leo / Graf Eva' })]),
         altLabel: appConfig.copy.abschluss.registeredToBoard,
         confirmLabel: appConfig.copy.abschluss.insideClose,
         safeAnswer: 'alt',
@@ -280,7 +280,7 @@ describe('useAbschluss', () => {
       expect(standDownTrupps).not.toHaveBeenCalled()
       // the dropped confirm's sentence rides on the crew sheet, after what the close does to the crews
       const A = appConfig.copy.abschluss
-      expect(ask.mock.calls[0][0].note).toBe(`${A.watchEnds} ${A.confirmMsg}`)
+      expect(ask.mock.calls[0][0]).toMatchObject({ noteLead: A.watchEnds, note: A.confirmMsg })
     })
 
     // FLOW.5: the `el` closes over an overdue crew it cannot report out — told which, and what follows
@@ -292,11 +292,14 @@ describe('useAbschluss', () => {
       await renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()
       const A = appConfig.copy.abschluss
       const spec = ask.mock.calls[0][0]
-      expect(spec.items).toEqual([
+      expect(spec.items?.slice(0, 2)).toEqual([
         { head: 'Trupp 1', text: 'Muster Leo / Graf Eva', alarm: appConfig.copy.atemschutz.clockOverdue },
         { head: 'Trupp 2', text: 'Graf Eva', alarm: undefined },
       ])
-      expect(spec.note).toBe(`${A.watchEnds} ${A.boardNotYours} ${A.confirmMsg}`)
+      // …and because this question IS the confirm, the open Mindestangaben follow the crews as the
+      // same link rows the dropped confirm showed (lead review of FLOW.4)
+      expect(spec.items?.slice(2)).toEqual(expect.arrayContaining([expect.objectContaining({ label: 'Kurzbericht' })]))
+      expect(spec).toMatchObject({ noteLead: A.watchEnds, note: `${A.boardNotYours} ${A.confirmMsg}` })
       expect(spec.safeAnswer).toBe('cancel')
     })
 
@@ -306,9 +309,11 @@ describe('useAbschluss', () => {
       const a = args({ trupps: [{ ...inside, notfallAt: '2026-09-25T10:20:00Z' }], standDownTrupps: vi.fn() })
       await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(true)
       const A = appConfig.copy.abschluss
-      expect(ask.mock.calls.map((c) => c[0].note)).toEqual([A.watchEnds, `${A.watchEnds} ${A.confirmMsg}`])
+      expect(ask.mock.calls.map((c) => [c[0].noteLead, c[0].note])).toEqual([[A.watchEnds, undefined], [A.watchEnds, A.confirmMsg]])
       // …and the Notfall Trupp is marked in the list of the second
-      expect(ask.mock.calls[1][0].items).toMatchObject([{ alarm: appConfig.copy.atemschutz.notfall.title }])
+      expect(ask.mock.calls[1][0].items?.[0]).toMatchObject({ alarm: appConfig.copy.atemschutz.notfall.title })
+      // the first question is not the confirm: it lists the crews only
+      expect(ask.mock.calls[0][0].items).toBeUndefined()
     })
 
     // staging r3 F4: closing over them wrote nothing, and the record ended with open sorties
