@@ -726,7 +726,7 @@ span.wb-ghost-label { cursor: default; }
   /* the bar's sideways nudge, written by components/TwinTeamPill · useBarPlacement */
   transform: translateX(calc(-50% + var(--acts-dx, 0px)));
   width: min(290px, 70vw); padding: var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-ctl);
-  background: var(--surface); box-shadow: var(--shadow-pop); color: var(--ink); }
+  background: var(--surface); box-shadow: var(--e3); color: var(--ink); }
 .wb-resource-connections .ctx-section-label { font-size: var(--fs-micro); font-weight: var(--fw-heavy); color: var(--ink-dim); }
 
 /* The three MODAL surfaces that wear this chrome — "Welcher Trupp?" on the Plan, its twin on the
