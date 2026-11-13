@@ -35,10 +35,6 @@ export interface ConfirmItem {
 export interface ConfirmLine {
   head?: string
   text: string
-  /** the line is in ALARM, and this is its word — «Überfällig», «Alarmdruck», «Notfall»: drawn
-   *  red with the word at its end, as the board marks the card (useAbschluss · the crews still
-   *  inside, FLOW.5) */
-  alarm?: string
 }
 
 export interface ConfirmSpec {
@@ -139,9 +135,8 @@ export function ConfirmCard({ open, title, message, items, note, noteLead, confi
                 ? <li key={it}>{it}</li>
                 : !('onClick' in it)
                   ? (
-                    <li key={it.head ?? it.text} className={`confirm-line${it.alarm ? ' confirm-line-alarm' : ''}`}>
+                    <li key={it.head ?? it.text} className="confirm-line">
                       {it.head && <b>{it.head}</b>}{it.head && ' – '}{it.text}
-                      {it.alarm && <span className="confirm-line-mark">{it.alarm}</span>}
                     </li>
                   )
                   : (
