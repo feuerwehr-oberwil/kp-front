@@ -18,7 +18,7 @@ export const linksCopy = {
     invalidHint: 'Öffne den Link direkt aus der aktuellen Alarmmeldung.',
     disabledTitle: 'Einsatz-Links sind bei dieser Feuerwehr nicht freigeschaltet.',
     disabledHint: 'Die Einsatzleitung kann sie in der Konfiguration aktivieren.',
-    offlineTitle: 'Nicht erreichbar',
+    offlineTitle: 'Server nicht erreichbar',
     offlineHint: 'Ohne Netz lässt sich der Einsatz nicht öffnen.',
     errorTitle: 'Einsatz nicht geöffnet',
     errorHint: 'Bleibt es dabei: bei der Einsatzleitung melden.',

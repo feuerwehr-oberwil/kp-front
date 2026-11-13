@@ -17,7 +17,7 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     invalidHint: 'Apri il link direttamente dal messaggio d\'allarme attuale.',
     disabledTitle: 'I link d\'intervento non sono attivati in questo corpo pompieri.',
     disabledHint: 'Il comando d\'intervento può attivarli nella configurazione.',
-    offlineTitle: 'Non raggiungibile',
+    offlineTitle: 'Server non raggiungibile',
     offlineHint: 'Senza rete l’intervento non può essere aperto.',
     errorTitle: 'Intervento non aperto',
     errorHint: 'Se il problema persiste, avvisare il comando d\'intervento.',

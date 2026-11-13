@@ -118,10 +118,10 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     handGroup: 'Comandi',
   },
   offline: {
-    syncedAgo: 'Dati dell’intervento trasmessi {ago}',
+    syncedAgo: 'Dati dell’intervento sincronizzati {ago}',
     offline: 'Offline – salvato su questo dispositivo',
-    pending: 'Trasmissione …',
-    error: 'Non trasmesso – salvato su questo dispositivo',
+    pending: 'Sincronizzazione …',
+    error: 'Non sincronizzato – salvato su questo dispositivo',
     agoNever: 'non ancora',
     agoJustNow: 'proprio ora',
     agoMin: '{n} min fa',

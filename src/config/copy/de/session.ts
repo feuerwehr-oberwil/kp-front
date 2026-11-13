@@ -32,11 +32,11 @@ export const sessionCopy = {
     // the banner above the grid while this device holds unsent work of an account (lib/
     // unsentAccounts, sweep 09.11.2026 UX.2): one line per account, {name} from the roster –
     // or `unsentFormer` in its place when the roster no longer lists the account
-    unsentTitle: 'Nicht übertragene Änderungen von {name}',
+    unsentTitle: 'Nicht synchronisierte Änderungen von {name}',
     unsentFormer: 'einem früheren Konto',
     unsentLogin: 'Als {name} anmelden',
     unsentMore: 'und {n} weitere',
-    unsentBody: 'Sie liegen nur auf diesem Gerät und werden erst übertragen, wenn sich dieses Konto hier anmeldet.',
+    unsentBody: 'Sie liegen nur auf diesem Gerät und werden erst synchronisiert, wenn sich dieses Konto hier anmeldet.',
     loginFailed: 'Nicht angemeldet – PIN erneut eingeben',
     pleaseWait: 'Bitte kurz warten …',
     clearDigit: 'Letzte Ziffer entfernen',
@@ -73,14 +73,14 @@ export const sessionCopy = {
   errorBoundary: {
     title: 'Ein Fehler ist aufgetreten',
     body: 'Die Ansicht konnte nicht geladen werden. Bereits gespeicherte Änderungen bleiben erhalten.',
-    bodyRepeat: 'Dieser Einsatz lässt sich nicht öffnen – auch nach dem Neuladen nicht. Über «Zur Einsatzliste» geht es weiter; übertragene Daten bleiben erhalten.',
+    bodyRepeat: 'Dieser Einsatz lässt sich nicht öffnen – auch nach dem Neuladen nicht. Über «Zur Einsatzliste» geht es weiter; synchronisierte Daten bleiben erhalten.',
     reload: 'Neu laden',
     closeIncident: 'Zur Einsatzliste',
     discardLocal: 'Kopie auf diesem Gerät verwerfen',
-    discardLocalHint: 'Verwirft nur die Kopie auf diesem Gerät und lädt den Einsatz neu. Noch nicht übertragene Änderungen von diesem Gerät gehen dabei verloren.',
+    discardLocalHint: 'Verwirft nur die Kopie auf diesem Gerät und lädt den Einsatz neu. Noch nicht synchronisierte Änderungen von diesem Gerät gehen dabei verloren.',
     // …and why it is greyed out while offline (ErrorBoundary · discardBlocked)
     discardLocalOffline: 'Ohne Netz nicht möglich – der Einsatz liesse sich danach nicht neu laden.',
-    discardLocalOfflineUnsynced: 'Änderungen von diesem Gerät sind noch nicht übertragen.',
+    discardLocalOfflineUnsynced: 'Änderungen von diesem Gerät sind noch nicht synchronisiert.',
     // the ROOT boundary's repeat crash (launcher, login, a lazy chunk — no Einsatz to close):
     // «App zurücksetzen» drops only the cached incident list and user, never a workspace cache
     bodyRepeatRoot: 'Die App startet nicht – auch nach dem Neuladen nicht. Setze die App zurück; gespeicherte Einsätze und Änderungen bleiben erhalten.',
@@ -194,15 +194,15 @@ export const sessionCopy = {
   // and nothing used to say so. No ✕ — the row ends only by signing in again.
   session: {
     expiredTitle: 'Anmeldung abgelaufen',
-    expiredHint: 'Änderungen bleiben auf diesem Gerät und werden nach der Anmeldung übertragen',
+    expiredHint: 'Änderungen bleiben auf diesem Gerät und werden nach der Anmeldung synchronisiert',
     // …naming the account, where the device knows it: on a shared tablet «nach der Anmeldung»
     // holds only for the SAME account (sweep 09.11.2026, UX.2)
-    expiredHintNamed: 'Änderungen bleiben auf diesem Gerät und werden nach der Anmeldung von {name} übertragen',
+    expiredHintNamed: 'Änderungen bleiben auf diesem Gerät und werden nach der Anmeldung von {name} synchronisiert',
     relogin: 'Neu anmelden',
     // an Einsatz opened by ANOTHER account while unsent edits of {name} for it are parked on this
     // device (ForeignUnsentMeldung): they are neither shown nor sent until {name} signs in here.
     // {name} is `login.unsentFormer` when the roster no longer lists the account.
-    foreignUnsentTitle: 'Nicht übertragene Änderungen von {name} auf diesem Gerät',
+    foreignUnsentTitle: 'Nicht synchronisierte Änderungen von {name} auf diesem Gerät',
     foreignUnsentSub: '{name} muss sich hier anmelden',
     foreignUnsentFormerSub: 'Sie bleiben auf diesem Gerät gespeichert',
     foreignUnsentDismiss: 'Ausblenden',

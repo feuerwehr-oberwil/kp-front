@@ -259,10 +259,10 @@ export const panelsCopy = {
     // Platforms with no install path (desktop Firefox …) — say honestly that there is nothing to
     // install here, instead of pointing at instructions that don't exist.
     browserNoInstall: 'Dieses Gerät bietet keine Installation an. Für den Einsatz offline KP Front auf dem Tablet oder Handy installieren.',
-    syncedAgo: 'Einsatzdaten {ago} übertragen',
+    syncedAgo: 'Einsatzdaten {ago} synchronisiert',
     offline: 'Offline – auf diesem Gerät gespeichert',
-    pending: 'Wird übertragen …',
-    error: 'Nicht übertragen – auf diesem Gerät gespeichert',
+    pending: 'Wird synchronisiert …',
+    error: 'Nicht synchronisiert – auf diesem Gerät gespeichert',
     agoNever: 'noch nicht',
     agoJustNow: 'gerade eben',
     agoMin: 'vor {n} min',

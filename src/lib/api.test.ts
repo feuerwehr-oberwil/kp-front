@@ -372,7 +372,7 @@ describe('request — timeouts (half-open connections)', () => {
   it('distinguishes a hard network failure from a timeout in the message', async () => {
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
     const err = await apiGet('/api/x').catch((e: unknown) => e)
-    expect((err as ApiError).detail).toBe('Nicht erreichbar')
+    expect((err as ApiError).detail).toBe('Server nicht erreichbar')
   })
 
   it('leaves a keepalive beacon UNBOUNDED — its whole point is to outlive the page', () => {

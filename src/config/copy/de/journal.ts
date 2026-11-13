@@ -5,26 +5,26 @@
 export const journalCopy = {
   journal: {
     delivery: {
-      failedTitleOne: '1 Eintrag nicht übertragen',
-      failedTitle: '{n} Einträge nicht übertragen',
+      failedTitleOne: '1 Eintrag nicht synchronisiert',
+      failedTitle: '{n} Einträge nicht synchronisiert',
       storageTitle: 'Einträge nicht auf diesem Gerät gespeichert',
       storageBody: 'App offen lassen und Einträge herunterladen. Beim Schliessen können diese Einträge verloren gehen.',
       savedBody: 'Auf diesem Gerät gespeichert. Auf anderen Geräten fehlen diese Einträge.',
-      offlineBody: 'Auf diesem Gerät gespeichert. Wird mit Netz übertragen.',
+      offlineBody: 'Auf diesem Gerät gespeichert. Wird mit Netz synchronisiert.',
       retry: 'Erneut versuchen',
       retrying: 'Wird versucht …',
       export: 'Einträge herunterladen',
-      short: 'Einträge nicht übertragen',
+      short: 'Einträge nicht synchronisiert',
       // 24.09.2026: audit events this ROLE can never write (the `el` phone's Atemschutz alarm) —
       // parked on the device, not an error, but still exportable. No «Erneut versuchen».
       // 22.10.2026 (RBAC S4): also unsynced saves a wider role left on this device (a role change)
       refusedTitleOne: '1 Eintrag für diese Rolle nicht vorgesehen',
       refusedTitle: '{n} Einträge für diese Rolle nicht vorgesehen',
-      refusedBody: 'Diese Anmeldung darf diese Einträge nicht übertragen – etwa Änderungen von vor einem Rollenwechsel. Sie bleiben auf diesem Gerät und lassen sich herunterladen; der Verlauf ist davon nicht betroffen.',
+      refusedBody: 'Diese Anmeldung darf diese Einträge nicht synchronisieren – etwa Änderungen von vor einem Rollenwechsel. Sie bleiben auf diesem Gerät und lassen sich herunterladen; der Verlauf ist davon nicht betroffen.',
       // 25.09.2026 (N3): was nach dem Abschluss des Einsatzes noch ankam — nicht übernommen, gesichert
       closedTitleOne: '1 Eintrag nach dem Abschluss nicht übernommen',
       closedTitle: '{n} Einträge nach dem Abschluss nicht übernommen',
-      closedBody: 'Der Einsatz war bereits abgeschlossen, als diese Einträge ankamen. Sie stehen nicht im Verlauf, bleiben aber auf diesem Gerät und lassen sich herunterladen. Wird der Einsatz wieder geöffnet, werden sie übertragen.',
+      closedBody: 'Der Einsatz war bereits abgeschlossen, als diese Einträge ankamen. Sie stehen nicht im Verlauf, bleiben aber auf diesem Gerät und lassen sich herunterladen. Wird der Einsatz wieder geöffnet, werden sie synchronisiert.',
       // die Statusleuchte, solange solche Einträge nur auf dem Gerät liegen
       closedShort: 'Einträge nach dem Abschluss nicht übernommen – herunterladen',
     },
@@ -82,7 +82,7 @@ export const journalCopy = {
     audioStartConfirm: 'Startzeit bestätigen',
     audioImportedNote: 'Audiodatei ({duration})',
     audioDiscardImport: 'Audiodatei verwerfen',
-    audioUploading: 'Wird übertragen …',
+    audioUploading: 'Wird synchronisiert …',
     photoLocating: 'Position wird gelesen …',
     audioOffline: 'Audiodatei anhängen braucht Netz. Datei später erneut auswählen.',
     audioTooLarge: 'Audiodatei ist zu gross. Maximum: {max} MB.',
@@ -111,7 +111,7 @@ export const journalCopy = {
     sttRunning: 'Transkription läuft … Das kann einige Minuten dauern.',
     sttFailed: 'Transkription fehlgeschlagen: {error}',
     sttRetry: 'Erneut versuchen',
-    sttErrorGeneric: 'nicht erreichbar',
+    sttErrorGeneric: 'Server nicht erreichbar',
     sttBanner: '{n} Entwürfe erkannt – prüfen und übernehmen.',
     sttTakeAll: 'Alle übernehmen',
     sttTake: 'Übernehmen',
@@ -407,7 +407,7 @@ export const journalCopy = {
     moreSignatures: 'weitere Fehlersignaturen (über {n})',
     // network failures, both with ApiError status 0 — the app falls back to its offline caches
     // either way; the wording only tells the operator WHICH kind of dead line they have.
-    serverUnreachable: 'Nicht erreichbar',
+    serverUnreachable: 'Server nicht erreichbar',
     serverUnreachableHint: 'Gespeicherte Einsätze bleiben offline verfügbar.',
     serverTimeout: 'Keine Antwort',
     serverTimeoutHint: 'Keine Antwort erhalten. Gespeicherte Einsätze bleiben offline verfügbar.',

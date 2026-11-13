@@ -17,7 +17,7 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     invalidHint: 'Open the link straight from the current alert message.',
     disabledTitle: 'Incident links are not enabled for this brigade.',
     disabledHint: 'The incident commander can switch them on in the configuration.',
-    offlineTitle: 'Not reachable',
+    offlineTitle: 'Server unreachable',
     offlineHint: 'The incident cannot be opened without network.',
     errorTitle: 'Incident not opened',
     errorHint: 'If it persists, tell the incident commander.',

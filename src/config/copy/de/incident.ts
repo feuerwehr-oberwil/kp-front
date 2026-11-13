@@ -6,26 +6,26 @@ export const incidentCopy = {
   // TopBar incident switcher dropdown
   incidentSwitcher: {
     noIncident: 'Kein Einsatz',
-    savedAt: 'Übertragen um {t}',
+    savedAt: 'Synchronisiert um {t}',
     // the card's clock pill (27.09.2026, slim sweep · mockup 10): the glyph is the label, the
     // full sentence is its title (startedFull)
     startedRow: '{t} · {d}',
     startedFull: 'Einsatzbeginn {t} · {d}',
-    saved: 'Übertragen',
-    badgePending: 'Wird gespeichert und übertragen',
-    badgeOffline: 'Offline – auf diesem Gerät gespeichert, wird mit Netz übertragen',
-    badgeError: 'Übertragen klappt nicht – auf diesem Gerät gespeichert, wird weiter versucht',
-    // Storage full: the other states promise «lokal gespeichert» – and that is exactly what does
+    saved: 'Synchronisiert',
+    badgePending: 'Wird gespeichert und synchronisiert',
+    badgeOffline: 'Offline – auf diesem Gerät gespeichert',
+    badgeError: 'Nicht synchronisiert – auf diesem Gerät gespeichert',
+    // Storage full: the other states promise «auf diesem Gerät gespeichert» – and that is exactly what does
     // NOT hold here, the changes only live for this app session.
     badgeStorage: 'Speicher voll – Änderungen sind NICHT auf diesem Gerät gespeichert und gehen beim Schliessen der App verloren',
     offlineShort: 'Offline',
-    errorShort: 'Nicht übertragen',
+    errorShort: 'Nicht synchronisiert',
     storageShort: 'Speicher voll',
     // …and its Meldeleiste row (S1, 20.10.2026): the state that loses work says so where messages stand
     storageMeldung: 'Speicher voll – Änderungen nicht auf diesem Gerät gespeichert',
     storageMeldungSub: 'App offen lassen und Einträge herunterladen – beim Schliessen gehen sie sonst verloren.',
     // one-shot warning toasts (useIncidentSync) — once per episode
-    syncErrorToast: 'Nicht übertragen – Änderungen sind auf diesem Gerät gespeichert.',
+    syncErrorToast: 'Nicht synchronisiert – Änderungen sind auf diesem Gerät gespeichert.',
     syncOfflineToast: 'Immer noch offline – Änderungen sind auf diesem Gerät gespeichert.',
     // clock skew (useIncidentSync · X-Server-Time): device-local timestamps feed the legal
     // record, so a clock minutes off is said once per episode — same wording as the capture
@@ -41,12 +41,12 @@ export const incidentCopy = {
     openFailed: 'Einsatz nicht geöffnet – erneut versuchen',
     // …because the server could not be asked and no workspace is cached on this device
     openFailedNoCache: 'Dieser Einsatz ist auf diesem Gerät nicht gespeichert – braucht Netz',
-    syncNow: 'Jetzt übertragen',
+    syncNow: 'Jetzt synchronisieren',
     // The button used to run silently: on an already-synced Einsatz — the normal case — a tap
     // looked exactly like no tap at all. Now the icon spins while it runs and a message says
     // what came of it.
-    syncDone: 'Alles übertragen',
-    syncFailedToast: 'Nicht übertragen – Änderungen bleiben auf diesem Gerät gespeichert.',
+    syncDone: 'Alles synchronisiert',
+    syncFailedToast: 'Nicht synchronisiert – Änderungen bleiben auf diesem Gerät gespeichert.',
     // group titles in the menu: this Einsatz first (its card), then WHICH Einsatz, then the app.
     incidents: 'Einsätze',
     app: 'App',
@@ -78,10 +78,10 @@ export const incidentCopy = {
     logoutTitle: 'Abmelden?',
     logoutMsg: 'Danach öffnet dieses Gerät Einsätze erst wieder nach einer Anmeldung mit PIN.',
     logoutOffline: 'Eine neue Anmeldung ist erst wieder mit Netz möglich – bis dahin öffnet dieses Gerät keinen Einsatz.',
-    logoutUnsyncedOne: '1 Eintrag ist noch nicht übertragen. Er bleibt auf diesem Gerät und wird übertragen, sobald du dich wieder anmeldest.',
-    logoutUnsyncedMany: '{n} Einträge sind noch nicht übertragen. Sie bleiben auf diesem Gerät und werden übertragen, sobald du dich wieder anmeldest.',
+    logoutUnsyncedOne: '1 Eintrag ist noch nicht synchronisiert. Er bleibt auf diesem Gerät und wird synchronisiert, sobald du dich wieder anmeldest.',
+    logoutUnsyncedMany: '{n} Einträge sind noch nicht synchronisiert. Sie bleiben auf diesem Gerät und werden synchronisiert, sobald du dich wieder anmeldest.',
     // …where only the Einsatz itself (Karte, Pläne, lists) is still unsent, no countable entry
-    logoutUnsyncedChanges: 'Änderungen sind noch nicht übertragen. Sie bleiben auf diesem Gerät und werden übertragen, sobald du dich wieder anmeldest.',
+    logoutUnsyncedChanges: 'Änderungen sind noch nicht synchronisiert. Sie bleiben auf diesem Gerät und werden synchronisiert, sobald du dich wieder anmeldest.',
     appVersion: 'App-Version (Build)',
     // «Nur ansehen» in the pill's status slot (M6 A, 13.11.2026), the reason in the opened card
     viewOnly: 'Nur ansehen',
@@ -131,8 +131,8 @@ export const incidentCopy = {
     linkRefusedTitle: 'Dieser Link gilt nicht mehr – nur noch ansehen',
     reopenedElsewhereSub: 'Wieder bearbeitbar – spätere Einträge erscheinen als Nachträge.',
     // was beim Abschluss zurückgestellt wurde, geht jetzt raus – als Nachtrag
-    reopenedParkedOne: 'Wieder bearbeitbar. 1 Eintrag dieses Geräts, der nach dem Abschluss nicht übernommen wurde, wird jetzt übertragen – als Nachtrag.',
-    reopenedParked: 'Wieder bearbeitbar. {n} Einträge dieses Geräts, die nach dem Abschluss nicht übernommen wurden, werden jetzt übertragen – als Nachträge.',
+    reopenedParkedOne: 'Wieder bearbeitbar. 1 Eintrag dieses Geräts, der nach dem Abschluss nicht übernommen wurde, wird jetzt synchronisiert – als Nachtrag.',
+    reopenedParked: 'Wieder bearbeitbar. {n} Einträge dieses Geräts, die nach dem Abschluss nicht übernommen wurden, werden jetzt synchronisiert – als Nachträge.',
   },
   // Einsätze history list
   history: {
@@ -241,10 +241,10 @@ export const incidentCopy = {
     reopen: 'Wieder öffnen',
     // what an Abschluss left in the media queue stands in the Meldeleiste while it is there — it
     // was the closing toast's second half (S3, 20.10.2026; components/MediaPendingMeldung)
-    mediaPendingTitle: '{n} Foto/Audio von «{title}» noch nicht übertragen',
-    mediaPendingSub: 'Bleiben auf diesem Gerät gespeichert und werden beim nächsten Öffnen übertragen.',
+    mediaPendingTitle: '{n} Foto/Audio von «{title}» noch nicht synchronisiert',
+    mediaPendingSub: 'Bleiben auf diesem Gerät gespeichert und werden beim nächsten Öffnen synchronisiert.',
     mediaPendingDismiss: 'Ausblenden',
-    failed: 'Abschluss nicht bestätigt – Einsatzstatus prüfen',
+    failed: 'Abschluss nicht bestätigt – Status prüfen',
     corrected: 'Stunden korrigiert: {name}',
     attendanceRemoved: '{name} Anwesenheit entfernt',
   },

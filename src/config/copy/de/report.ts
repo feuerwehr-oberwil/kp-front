@@ -399,7 +399,7 @@ export const reportCopy = {
     attachmentsCount: '{n} Foto(s)',
     attachmentsNone: 'keine',
     attachmentsCaption: 'Bildlegende (z. B. «Ausweis Lenker»)',
-    attachmentsPending: 'noch nicht übertragen',
+    attachmentsPending: 'noch nicht synchronisiert',
     // Was ↶ zurücknimmt, in der Sprache der Beilage – und der Toast, der das Löschen sofort
     // zurückholt (Bestätigen-mit-Rückgängig, wie beim Geschoss).
     attachmentAdded: 'Foto hinzugefügt',
@@ -547,8 +547,8 @@ export const reportCopy = {
     // an abstraction nobody could do anything with. Most common cause: an open block inheriting
     // the Einsatzende, which lies BEFORE its own start.
     unresolvedHours: '{names}: Zeiten laufen rückwärts oder fehlen – nicht in den Einsatzstunden.',
-    pendingMedia: '{n} Foto/Audio noch nicht übertragen – wird mit Netz ergänzt; auf anderen Geräten evtl. noch nicht sichtbar.',
-    pendingMediaConfirm: '{n} Foto/Audio noch nicht übertragen – bleiben auf diesem Gerät gespeichert',
+    pendingMedia: '{n} Foto/Audio noch nicht synchronisiert – wird mit Netz ergänzt; auf anderen Geräten evtl. noch nicht sichtbar.',
+    pendingMediaConfirm: '{n} Foto/Audio noch nicht synchronisiert – bleiben auf diesem Gerät gespeichert',
     // Kein fehlendes Feld, sondern ein Zustand: Es hat nie jemand gemeldet, dass diese Trupps
     // zurück sind. Ab dem Abschluss stehen ihre Uhren auf dem Einsatzende – das hier ist der
     // letzte Moment, in dem gefragt wird. Ohne Zahlwort-Plural: «Noch im Einsatz: 1» liest sich

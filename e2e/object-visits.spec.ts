@@ -6,7 +6,7 @@ import { ADMIN_SECRET, adminContext, expect, expectNoCrash, login, OFFLINE_FETCH
 //   prepare online (the catalogue lands on the device) → go offline → start a visit, answer it,
 //   take a photo → reload WHILE offline: the draft and its photo are still there (IndexedDB +
 //   the precached shell) → online: the save point that failed offline goes up by itself → the
-//   status line reaches «Übertragen» only once the server holds the revision AND the photo → one
+//   status line reaches «Synchronisiert» only once the server holds the revision AND the photo → one
 //   more change is saved ~20 s later without any tap → «Abschliessen» → the read view.
 //
 // Needs the deployment's admin secret: the module is switched on through the config API, and
@@ -103,7 +103,7 @@ async function captureVisit(page: Page, objectName: string, jpeg: Buffer): Promi
   await page.getByRole('group', { name: 'Schlüsselhülse zugänglich' }).getByRole('button', { name: 'OK' }).click()
   await page.getByRole('group', { name: 'Grob gereinigt' }).getByRole('button', { name: 'Ja' }).click()
   await page.getByTestId('ov-photo-input').setInputFiles({ name: 'foto.jpg', mimeType: 'image/jpeg', buffer: jpeg })
-  await expect(page.getByText('Auf diesem Gerät gespeichert – wird mit Netz übertragen')).toBeVisible()
+  await expect(page.getByText('Auf diesem Gerät gespeichert – wird mit Netz synchronisiert')).toBeVisible()
   await page.getByLabel('Beschriftung').fill('Zugang Nord')
   await page.getByRole('button', { name: 'Fertig' }).click()
   await expect(page.getByRole('button', { name: /^Foto öffnen: Zugang Nord/ })).toBeVisible()
@@ -160,10 +160,10 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       await expect(page.getByRole('button', { name: /^Foto öffnen: Zugang Nord/ })).toBeVisible()
       expect((await api.get(`/api/object-visits/${visitId}`)).status(), 'nothing was sent while offline').toBe(404)
 
-      // ── online: the reload was a save point offline — it goes up by itself; «Übertragen» only
+      // ── online: the reload was a save point offline — it goes up by itself; «Synchronisiert» only
       //    with the revision AND the photo on the server ──
       await context.setOffline(false)
-      await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf · Übertragen/ })).toBeVisible({ timeout: 45_000 })
+      await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf· Synchronisiert/ })).toBeVisible({ timeout: 45_000 })
       const saved = await (await api.get(`/api/object-visits/${visitId}`)).json()
       expect(saved).toMatchObject({ lifecycle: 'draft', ready: true, missing: [] })
       expect(saved.photos).toHaveLength(1)
@@ -174,12 +174,12 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       await page.getByLabel('Bemerkungen').fill('Hauswart neu')
       await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf · Änderungen auf Gerät/ })).toBeVisible()
       await page.clock.fastForward(QUIET_SAVE_MS + 2_000)
-      await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf · Übertragen/ })).toBeVisible({ timeout: 45_000 })
+      await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf· Synchronisiert/ })).toBeVisible({ timeout: 45_000 })
       expect((await (await api.get(`/api/object-visits/${visitId}`)).json()).notes).toBe('Hauswart neu')
 
       // ── «Abschliessen» → the read view ──
       await page.getByRole('button', { name: 'Abschliessen' }).click()
-      await expect(page.getByRole('button', { name: /^Stand anzeigen: Abgeschlossen · Übertragen/ })).toBeVisible({ timeout: 30_000 })
+      await expect(page.getByRole('button', { name: /^Stand anzeigen: Abgeschlossen· Synchronisiert/ })).toBeVisible({ timeout: 30_000 })
       await expect(page.getByRole('button', { name: /Bericht \(PDF\)/ })).toBeVisible()
       await expect(page.getByRole('button', { name: 'Abschliessen' })).toHaveCount(0)
       const done = await (await api.get(`/api/object-visits/${visitId}`)).json()
@@ -220,8 +220,8 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       expect((await api.get(`/api/object-visits/${visitId}`)).status(), 'nothing was sent while offline').toBe(404)
 
       await context.setOffline(false)
-      // a saved draft wears a tick named «Übertragen {Zeit}», not the word (sweep 28.10.2026 #16)
-      await expect(row.locator('[aria-label^="Übertragen"]'), 'the draft reaches «Übertragen» by itself').toBeVisible({ timeout: 45_000 })
+      // a saved draft wears a tick named «Synchronisiert {Zeit}», not the word (sweep 28.10.2026 #16)
+      await expect(row.locator('[aria-label^="Synchronisiert"]'), 'the draft reaches «Synchronisiert» by itself').toBeVisible({ timeout: 45_000 })
       await expectSaved(api, visitId, 3)
       await expectNoCrash(page, 'object visit · reconnect')
     } finally {
@@ -253,7 +253,7 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       await expectSaved(api, visitId)
 
       await openApp(page, '/besuche')
-      await expect(page.getByRole('button', { name: new RegExp(objectName) }).locator('[aria-label^="Übertragen"]')).toBeVisible()
+      await expect(page.getByRole('button', { name: new RegExp(objectName) }).locator('[aria-label^="Synchronisiert"]')).toBeVisible()
       await expectNoCrash(page, 'object visit · start')
     } finally {
       await context.setOffline(false)
@@ -305,7 +305,7 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       await page.getByLabel('Beschreibung').fill('Neuer Hydrant fehlt im Plan')
       await page.getByRole('group', { name: 'Vor dem nächsten Einsatz nötig?' }).getByRole('button', { name: 'Nein' }).click()
       await page.getByRole('button', { name: 'Abschliessen' }).click()
-      await expect(page.getByRole('button', { name: /^Stand anzeigen: Abgeschlossen · Übertragen/ })).toBeVisible({ timeout: 30_000 })
+      await expect(page.getByRole('button', { name: /^Stand anzeigen: Abgeschlossen· Synchronisiert/ })).toBeVisible({ timeout: 30_000 })
       // a report says what was reported — not «Keine Mängel»
       await expect(page.getByText('Hydrant · Neuer Hydrant fehlt im Plan')).toBeVisible()
       await expect(page.getByText('Keine Mängel')).toHaveCount(0)
