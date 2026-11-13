@@ -156,7 +156,10 @@ async def list_incidents(
     due = await _atemschutz_due(db, [i.id for i in rows if i.is_open])
     if not due:
         return rows
-    return [IncidentMeta.model_validate(i).model_copy(update={"atemschutz_due": due[i.id]}) if i.id in due else i for i in rows]
+    return [
+        IncidentMeta.model_validate(i).model_copy(update={"atemschutz_due": due[i.id]}) if i.id in due else i
+        for i in rows
+    ]
 
 
 async def _atemschutz_due(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, list[AtemschutzDue]]:
