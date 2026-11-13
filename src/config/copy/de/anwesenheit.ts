@@ -80,7 +80,7 @@ export const anwesenheitCopy = {
     // the Funktion written on an Offizier-Symbol, forwarded to that person's Anwesenheits-
     // Bemerkung — «Offizier SiBe», «Offizier Lüften». Without one: just «Offizier».
     roleOffizier: 'Offizier {funktion}',
-    // somebody in an Atemschutz-Trupp — the same fact the picker states as «unter AS», written
+    // somebody in an Atemschutz-Trupp — the same fact the picker states as «unter Atemschutz», written
     // onto their Anwesenheits-Zeile so the Personalblatt can tell them from the crew that stayed
     // at the Magazin. Short, because it shares a narrow column with «Fahrer TLF».
     roleAtemschutz: 'AS',
@@ -89,7 +89,7 @@ export const anwesenheitCopy = {
     // Flasche gesehen hat. Der Verlauf druckt diese Bemerkung hinter den Namen (lib/journalLinks),
     // also stand «Müller Hans (AS)» in einem Rechtsdokument über jemanden, der nicht unter
     // Atemschutz war. Dieselbe Unterscheidung, die die Personenliste längst macht
-    // («unter AS» / «im Trupp»), nur auf der Zeile selbst.
+    // («unter Atemschutz» / «im Trupp»), nur auf der Zeile selbst.
     roleTrupp: 'Trupp',
     /**
      * …und der GRUPPENFÜHRER dieses Trupps – «AS-GF», «Trupp-GF» (04.09., Feldtest).
@@ -115,15 +115,15 @@ export const anwesenheitCopy = {
     // both simply state what somebody is. So does this one.
     alreadyBooked: '{role}',
     // Hints, never blocks: the app says what it knows and lets people decide.
-    conflictUnderPa: '{name} ist unter AS – Trupp {trupp}.',
+    conflictUnderPa: '{name} ist unter Atemschutz – Trupp {trupp}.',
     // …und dasselbe für einen Trupp OHNE Atemschutz (types · TruppKind `einfach`, 03.09.):
-    // «unter AS» über einem Verkehrstrupp wäre eine falsche Aussage darüber, wo jemand war.
+    // «unter Atemschutz» über einem Verkehrstrupp wäre eine falsche Aussage darüber, wo jemand war.
     conflictInTrupp: '{name} ist im Trupp {trupp}.',
     // the same thing as a short badge ON the list row — that is where it is decided, not after
     // ⚠️ «AS», not «PA» (10.08.). PA is the Pressluftatmer — the device. What this badge says
     // is that somebody is under ATEMSCHUTZ, which is the doctrine word, the name of the board
     // and the name of the whole surface. One thing, one abbreviation.
-    statusUnderPa: 'unter AS',
+    statusUnderPa: 'unter Atemschutz',
     // …und für einen Trupp ohne Atemschutz (siehe conflictInTrupp). Gleicher Slot, gleiche Länge.
     statusInTrupp: 'im Trupp',
     conflictElInTrupp: '{name} ist Einsatzleiter und zugleich im Trupp {trupp}.',
@@ -156,11 +156,11 @@ export const anwesenheitCopy = {
     statusFilterLabel: 'Nach Status filtern',
     noteOnly: 'Nur mit Bemerkung',
     loadFailedTitle: 'Personal konnte nicht geladen werden.',
-    loadFailedHint: 'Offline oder Server nicht erreichbar. Zuletzt geladene Liste bleibt erhalten.',
+    loadFailedHint: 'Liste nicht geladen. Die zuletzt geladene Liste bleibt.',
     emptyTitle: 'Noch kein Personal erfasst.',
     // same rule as emptyApp.bodyEditor: name the source only where there is one to name
-    emptyHint: 'Personal wird in der Verwaltung erfasst oder synchronisiert.',
-    emptyHintSync: 'Synchronisiere das Personal aus {provider}.',
+    emptyHint: 'Personal wird in der Verwaltung erfasst oder abgeglichen.',
+    emptyHintSync: 'Personal aus {provider} abgleichen.',
     retry: 'Erneut versuchen',
     // ⚠️ Nennt die TASTE, die den Trupp löst, und zwar wie sie heisst (04.09.). «zuerst Trupp
     // draussen melden» war eine Umschreibung: auf der Tafel steht «Raus melden», und wer eine
@@ -213,6 +213,8 @@ export const anwesenheitCopy = {
     viewPlan: 'Zeitplan',
     viewBands: 'Schichten',
     viewLabel: 'Ansicht',
+    // the tick after «Neu laden» fetched the roster – its own word, not the Einsatz menu's «synchronisiert»
+    reloadDone: 'Liste aktualisiert',
   },
   // «Anrückend» — die Divera-Rückmeldungen über der Anwesenheit (AnrueckendBlock, X1 08.10.2026).
   // Nur ja / nein und Namen (Besitzer, 09.10.2026). ⚠️ Eine Divera-Antwort ist KEINE Anwesenheit:
@@ -274,7 +276,7 @@ export const anwesenheitCopy = {
     planned: 'verfügbar',
     actual: 'anwesend',
     emptyTitle: 'Noch keine Schicht geplant.',
-    emptyHint: 'Plane pro Person, von wann bis wann sie verfügbar ist. Der Plan verändert die Anwesenheit nicht – abgehakt wird sie weiterhin in der Anwesenheitsliste.',
+    emptyHint: 'Pro Person planen, wann sie verfügbar ist. Die Anwesenheit bleibt, wie sie ist.',
     legendHint: 'Hohl = verfügbar · gefüllt = eingeteilt · grün = tatsächlich anwesend',
     print: 'Zeitplan drucken',
     // TWO sheets, picked separately – they answer different questions, so which one was meant is
@@ -298,7 +300,7 @@ export const anwesenheitCopy = {
     pdf: 'Als PDF',
     pdfBusy: 'PDF wird erstellt …',
     paperMenu: 'Aufs Papier',
-    printFailed: 'Zeitplan konnte nicht gedruckt werden.',
+    printFailed: 'Zeitplan nicht ausgegeben – erneut versuchen',
     // head of the name column – as on the printed form
     who: 'Wer',
     editTitle: 'Schichten – {name}',
@@ -350,8 +352,8 @@ export const anwesenheitCopy = {
     // head of the name column, as on the printed Führungsformular
     who: 'Wer',
     // The ONE way in: no suggestion, no adopting from a bar, no harvesting.
-    addBand: 'Schicht definieren',
-    addBandFirst: 'Erste Schicht definieren',
+    addBand: 'Schicht erstellen',
+    addBandFirst: 'Erste Schicht erstellen',
     emptyTitle: 'Noch keine Schicht.',
     emptyHint: 'Leg die Zeitfenster an, die du besetzen willst – danach wird pro Person nur noch angetippt.',
     emptyAxisHint: 'Oder im Zeitplan pro Person frei einzeichnen.',

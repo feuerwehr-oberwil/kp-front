@@ -75,34 +75,34 @@ export const mapCopy = {
     deleted: 'Ansicht «{name}» gelöscht',
   },
   toast: {
-    audioSaved: 'Audionotiz gespeichert ({secs}s)',
+    audioSaved: 'Sprachnotiz gespeichert ({secs} s)',
     micDenied: 'Kein Mikrofonzugriff – als Platzhalter vermerkt',
     // the mic WAS granted; the recorder itself would not start (unsupported format/hardware)
-    micFailed: 'Aufnahme konnte nicht gestartet werden',
+    micFailed: 'Aufnahme nicht gestartet – erneut versuchen',
     merged: 'Änderungen zusammengeführt',
   },
   // help shown by the info (ℹ) button on each tool dock — the instructions
   // that used to sit in the bottom hint bar
   dockHints: {
-    lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte. Nochmals auf «Mehrfach» tippen führt zurück zur Auswahl.',
-    line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Farbe, Breite und Stil danach im Editor.',
+    lasso: 'Rahmen um mehrere Objekte ziehen.',
+    line: 'Ziehen oder Punkte tippen.',
     /** …per input mode, because the two take different gestures: «Freihand» draws only with a
      *  drag (a tap does nothing), «Punkte» only with taps and ✓. These and `area` are the Karte's
      *  AND the Plan's (WbControls), so they name no surface (UX sweep M4, 20.10.2026): a node
      *  draft finishes on ✓ on both, never on a double tap — that zooms, as everywhere. */
-    lineFreehand: 'Ziehen, um eine Linie zu zeichnen. Für einzelne Punkte: «Punkte». Farbe, Breite und Stil danach im Editor.',
-    lineNodes: 'Punkte tippen, mit ✓ abschliessen. Farbe, Breite und Stil danach im Editor.',
-    area: 'Ziehen zeichnet den Umriss frei – für einen Brandrand, der keine Ecken hat. Oder mindestens drei Eckpunkte tippen, mit ✓ abschliessen.',
-    circle: 'Von der Mitte zum Rand ziehen setzt den Radius in Metern. Radius und Füllung danach im Editor anpassen.',
-    note: 'Auf die Karte tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
-    team: 'Auf die Karte tippen und den Trupp aus der Liste wählen. Zum Verschieben ziehen.',
-    shape: 'Auf die Karte tippen, um die Form zu platzieren. «Mehrere platzieren» einschalten, um mehrere nacheinander zu setzen.',
+    lineFreehand: 'Ziehen zeichnet die Linie. Einzelne Punkte: «Punkte».',
+    lineNodes: 'Punkte tippen, ✓ – fertig.',
+    area: 'Umriss frei ziehen – oder Eckpunkte tippen, ✓ – fertig.',
+    circle: 'Von der Mitte zum Rand ziehen.',
+    note: 'Tippen, wo die Notiz hin soll – dann schreiben.',
+    team: 'Tippen und den Trupp wählen. Ziehen verschiebt ihn.',
+    shape: 'Tippen setzt die Form. Für mehrere: «Mehrere platzieren».',
     // Eine Rotation ist eine Strecke zwischen zwei Orten, also wird sie auch so gelegt:
     // erst der Wasserbezug, dann die Brandstelle. Auf einem Symbol halten, bis der Ring
     // zu ist, setzt den Punkt genau darauf.
-    rotationStart: 'Ersten Punkt tippen – dort, wo das Wasser bezogen wird. Auf einem Zeichen halten, bis der Ring voll ist, setzt den Punkt genau darauf.',
-    rotationEnd: 'Zweiten Punkt tippen – die Brandstelle. Nochmals auf denselben Punkt tippen legt eine Rotation in Standardlänge hin.',
-    measure: 'Punkte auf die Karte tippen. Strecke zeigt Distanz und Höhenprofil, Fläche zeigt Flächeninhalt und Umfang. Punkte ziehen zum Verschieben, das + in der Mitte einer Strecke setzt einen Zwischenpunkt, einen Punkt gedrückt halten (am Computer Rechtsklick) entfernt ihn.',
+    rotationStart: 'Ersten Punkt tippen – wo das Wasser bezogen wird. Auf einem Zeichen halten rastet ein.',
+    rotationEnd: 'Zweiten Punkt tippen – die Brandstelle. Denselben Punkt nochmals: Standardlänge.',
+    measure: 'Punkte tippen. Punkt halten entfernt ihn.',
   },
   map: {
     incidentHere: 'Einsatzort',
@@ -118,7 +118,7 @@ export const mapCopy = {
     // and nothing said why. One Meldeleiste row per Einsatz, gone the moment the link is back.
     noTilesTitle: 'Keine Basiskarte für diesen Ausschnitt gespeichert',
     noTilesSub: 'Offline – Objekte und Linien werden ohne Karte gezeigt',
-    noTilesAction: 'Offline-Bereitschaft',
+    noTilesAction: 'Dieses Gerät',
     noTilesDismiss: 'Ausblenden',
   },
 } as const

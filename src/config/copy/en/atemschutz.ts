@@ -5,7 +5,7 @@ import type { Copy, Localizable } from '../index'
 
 export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>> = {
   atemschutz: {
-    title: 'SCBA monitoring',
+    title: 'Teams',
     // the board title in the FULL app — it carries both sections since 03.09. (see de/atemschutz.ts)
     boardTitle: 'Teams',
     // the cut-off title is the door to the full incident details (09.09., see de/atemschutz.ts)
@@ -19,12 +19,12 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     kindPlain: 'Without SCBA',
     asMark: 'SCBA',
     empty: 'No team under monitoring yet.',
-    emptyHint: 'Create a team to start monitoring.',
+    emptyHint: '«Register team» starts the monitoring.',
     newTrupp: 'Register team',
     shareLink: 'Hand over monitoring',
     shareLinkShort: 'Hand over',
     shareLinkOn: 'Hand over monitoring – a link is active',
-    linkReentryHint: 'The link leads back to this board – if the page is closed by accident, simply open the QR code again.',
+    linkReentryHint: 'The link leads back here – if the page is closed by accident, simply open the QR code again.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     /** the three-section stack on ANY phone (TruppForm · stack, 04.09.) – replaces the two-step
      *  wizard. Titles name the FIELDS; a collapsed section reads its own answer out beside the
@@ -85,7 +85,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     lineTyped: 'No. …',
     lineTakeTitle: 'Line {n} is taken',
     lineTakeMsg: 'Team {from} is on line {n}. Put team {to} on it instead?',
-    lineTakeConfirm: 'Take over',
+    lineTakeConfirm: 'Team {to} on line {n}',
     lineHeldToast: 'Line is held by team {name}.',
 
     lineOptTaken: 'Team {name} is on this line',
@@ -99,7 +99,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     markerOptTaken: 'Belongs to team {name}',
     markerTakeTitle: 'Team {from} stands here',
     markerTakeMsg: 'This placed team belongs to team {from}. Hand it to team {to}?',
-    markerTakeConfirm: 'Take over',
+    markerTakeConfirm: 'Take over for team {to}',
     logMarkerUnlinked: 'Team {name} is no longer placed',
     entryAskTitle: 'Send team in?',
     entryAskMsg: 'Team {name} is registered but has not gone in yet. Send them in now? The contact clock starts immediately.',
@@ -128,7 +128,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     reenterSubmit: 'Deploy',
     reenterStandby: 'Put on standby',
     reenterStandbyHint: 'Register the team as reserve – the contact clock only starts on «Deploy».',
-    sinceContact: 'Since last contact',
+    sinceContact: 'Since contact',
     elapsed: 'Deployment time',
     outFor: 'Out for',
     outForPlain: 'No task for', // ⚠️ app only — see de/atemschutz.ts · outForPlain
@@ -195,11 +195,11 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     actReenter: 'Re-deploy',
     actNotDeployed: 'Not deployed',
     statusNotDeployed: 'Not deployed',
-    statusRemoved: 'Removed from board',
+    statusRemoved: 'Removed',
     logNotDeployed: 'Team {name} not deployed',
     remove: 'Remove',
     removeUnusedTitle: 'Team was never deployed',
-    removeUnusedMsg: 'Stand {name} down as “not deployed” instead of removing it? The team stays ready on the board – “Remove” is for erroneous registrations.',
+    removeUnusedMsg: 'Stand {name} down as “not deployed” instead of removing it? The team stays ready with the teams – “Remove” is for erroneous registrations.',
     place: 'Place',
     placeWhere: 'Place where?',
     placeNoTarget: 'No plan available – pick a building via «Building» in the rail first.',
@@ -328,10 +328,10 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       abschlussMsg: '{list} – not ended yet.',
       abschlussClose: 'Close anyway',
       // «Entfernen» on a Trupp in a Notfall is refused until it is ended (review of #300)
-      removeBlocked: 'Hold «Emergency ended» first – a team in an emergency stays on the board',
+      removeBlocked: 'Hold «Emergency ended» first – a team in an emergency stays monitored',
     },
     removeInsideTitle: 'Team {name} is inside – report it out first?',
-    removeInsideMsg: 'Removing takes the team off the board and out of every alarm. What is usually meant: the team is out.',
+    removeInsideMsg: 'Removing takes the team out of monitoring and out of every alarm. What is usually meant: the team is out.',
     actEnterFirst: 'Deploy',
     contactDone: 'Confirmed',
     pressureLockedLabelPlain: 'Entry pressure',

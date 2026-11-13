@@ -13,6 +13,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import '../lib/maplibreWorker'
 import type { Drawing, LineAttachment, LineEndpoint, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
+import { shownTeamColor } from '../lib/teamColors'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { motionDuration } from '../lib/reducedMotion'
 import { createNorthSnap, gateTouchRotation, NORTH_SNAP_MS } from '../lib/mapTwist'
@@ -59,6 +60,7 @@ import { useGlRecovery } from '../lib/useGlRecovery'
 import { useNightTheme } from '../lib/useNightTheme'
 import { themeToken, uiBlue } from '../lib/themeToken'
 import { fillTemplate } from '../lib/format'
+import { OpenPill } from './OpenPill'
 import { useIsPhone } from '../lib/useIsPhone'
 import { reportMapError } from '../lib/mapError'
 import { isTypingTarget } from '../lib/hotkeys'
@@ -1073,9 +1075,10 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
     } else if (groupActive) onGroupTransform?.(selectedDrawIds, selectedEntityIds, { dLng: 0, dLat: 0, deg }, phase)
     if (phase === 'end') barFrom.current = null
   }
-  /** «Fertig» — the editing state ends. The bar carries no Löschen any more: an object is
-   *  deleted from its own editor sheet and with the Delete key, so the one destructive action
-   *  is not sitting on chrome two taps from every grip. */
+  /** the bar's ✕ — the editing state ends. A group's only: a single object's editor card carries
+   *  the ✕ (SelectionBar · onClose). No Löschen on the bar: an object is deleted from its own
+   *  editor sheet and with the Delete key, so the one destructive action is not sitting on chrome
+   *  two taps from every grip. */
   const barDone = () => { onSelectionDone?.() }
   // ⟳ is absent, not inert, where the model carries no angle: an Absperrkreis is a centre and a
   // radius, and a dead button at 3am is a button you keep pressing.
@@ -1189,7 +1192,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   const trailFC = useMemo(() => fc(entities
     .filter((e) => e.kind === 'team' && isVisible(effectiveLayer(e)) && (e.trail?.length ?? 0) >= 2 && !hiddenTrails.has(e.id))
     .map((e) => lineFeat((e.trail ?? []).map((p) => p.coord), {
-      color: e.color || appConfig.drawing.teamColors[0],
+      color: shownTeamColor(e.color),
       done: !!e.truppId && !!trupps?.some((t) => t.id === e.truppId && t.status === 'raus'),
     }))), [entities, isVisible, hiddenTrails, trupps])
   const doneOpacity = Number(themeToken('--done-opacity', '.5')) || 0.5
@@ -1560,7 +1563,8 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       {/* «Linie offen» at the open drawing's last point, pulsing — the Plan's .wb-open-pill */}
       {draftKind && draft.length > 0 && (
         <Marker longitude={draft[draft.length - 1][0]} latitude={draft[draft.length - 1][1]} anchor="bottom-left" offset={[14, -14]} style={{ pointerEvents: 'none' }}>
-          <span className="map-open-pill">{fillTemplate(appConfig.copy.toolDock.openPill, { name: draftKind === 'area' ? appConfig.copy.drawingEditor.area : appConfig.copy.drawingEditor.line })}</span>
+          <OpenPill className="map-open-pill" at={draft[draft.length - 1].join()}
+            text={fillTemplate(appConfig.copy.toolDock.openPill, { name: draftKind === 'area' ? appConfig.copy.drawingEditor.area : appConfig.copy.drawingEditor.line })} />
         </Marker>
       )}
 
@@ -2078,7 +2082,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
 
       {/* ONE bar for every selection this surface has — see components/SelectionBar */}
       {barShown && (
-        <SelectionBar onMove={barMove} onRotate={barCanRotate ? barRotate : undefined} onDone={barDone}
+        <SelectionBar onMove={barMove} onRotate={barCanRotate ? barRotate : undefined} onClose={groupActive ? barDone : undefined}
           onGrab={(grabbing) => setDragPanEnabled(!grabbing)}
           armed={arm.armed} onArm={arm.toggle} />
       )}

@@ -112,7 +112,7 @@ function statusMessage(status: number): { detail: string; hint?: string } | null
   // 502/503/504: the server is down or restarting — the one case where waiting genuinely helps.
   if (status === 502 || status === 503 || status === 504) return { detail: c.httpGateway, hint: c.httpGatewayHint }
   if (status >= 500) return { detail: c.httpServerError, hint: c.httpServerErrorHint }
-  if (status >= 400) return { detail: c.httpRejected, hint: c.httpRejectedHint }
+  if (status >= 400) return { detail: c.httpRejected } // the title says it all – a hint would only repeat it
   return null
 }
 

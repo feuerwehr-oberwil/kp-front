@@ -4,6 +4,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { DockInfo } from './DockInfo'
 import { useIsPhone } from '../lib/useIsPhone'
+import { useRailLabels } from '../lib/useDevicePrefs'
 
 /** What a colour swatch is CALLED. The dock item's own title names the group («Truppfarbe»); the
  *  index names the one square, in the palette's order — a hex value is not a name for anybody. */
@@ -29,6 +30,10 @@ export type DockItem =
   /** `text` renders a short word/letter instead of a glyph — for options that have no honest
    *  icon (the note's S/M/L size steps, Zettel↔Klartext). Exactly one of icon/text is used. */
   | { type: 'toggle'; icon?: string; text?: string; label: string; on: boolean; onClick: () => void; disabled?: boolean }
+  /** «✓ Fertig» — commits the draft being drawn (a Punkte-Linie, -Fläche, a Wand). The one FILLED
+   *  tile (M7 C, 13.11.2026): the control that commits, not a ✕ look-alike; the ✕ beside it closes,
+   *  and a committable draft is asked about, never thrown away (useMapDrawing · settleDraft). It
+   *  wears its word exactly when every item does (round 2b – see ToolDock · `worded`). */
   | { type: 'go'; onClick: () => void; disabled?: boolean; title?: string }
   | { type: 'glyph'; node: ReactNode }
   | { type: 'action'; icon: string; label: string; onClick: () => void; disabled?: boolean; cls?: string }
@@ -39,18 +44,25 @@ export type DockItem =
   // happens AFTER the draw, in the DrawEditor the finished line lands in)
   | { type: 'info'; text: string }
 
-function renderItem(item: DockItem, key: string): ReactNode {
+/** an item that can wear a word under its glyph (ToolDock · `worded`) */
+const canWord = (item: DockItem): boolean =>
+  item.type === 'close' || item.type === 'go' || item.type === 'action' || item.type === 'info' || (item.type === 'toggle' && !item.text)
+
+/** a dock tile's word under its glyph, the rail tile's `.vrail-label` look (09-whiteboard) */
+const word = (w: string | undefined, on: boolean) => on && w ? <span className="wb-dock-word">{w}</span> : null
+
+function renderItem(item: DockItem, key: string, worded: boolean): ReactNode {
   switch (item.type) {
     case 'close':
-      return <button key={key} className="wb-dock-x" title={item.title ?? appConfig.copy.cancel} aria-label={item.title ?? appConfig.copy.cancel} onClick={item.onClick}><Icon id="close" /></button>
+      return <button key={key} className="wb-dock-x" title={item.title ?? appConfig.copy.cancel} aria-label={item.title ?? appConfig.copy.cancel} onClick={item.onClick}><Icon id="close" />{word(appConfig.copy.cancel, worded)}</button>
     case 'toggle':
-      return <button key={key} className={`wb-dock-tog ${item.text ? 'wb-dock-txt ' : ''}${item.on ? 'on' : ''}`} title={item.label} aria-label={item.label} aria-pressed={item.on} disabled={item.disabled} onClick={item.onClick}>{item.text ?? <Icon id={item.icon ?? ''} />}</button>
+      return <button key={key} className={`wb-dock-tog ${item.text ? 'wb-dock-txt ' : ''}${item.on ? 'on' : ''}`} title={item.label} aria-label={item.label} aria-pressed={item.on} disabled={item.disabled} onClick={item.onClick}>{item.text ?? <Icon id={item.icon ?? ''} />}{word(item.label, worded && !item.text)}</button>
     case 'go':
-      return <button key={key} className="wb-dock-go" disabled={item.disabled} title={item.title ?? appConfig.copy.done} aria-label={item.title ?? appConfig.copy.done} onClick={item.onClick}><Icon id="check" /></button>
+      return <button key={key} className="wb-dock-go" disabled={item.disabled} title={item.title ?? appConfig.copy.done} aria-label={item.title ?? appConfig.copy.done} onClick={item.onClick}><Icon id="check" />{word(item.title ?? appConfig.copy.done, worded)}</button>
     case 'glyph':
       return <span key={key} className="wb-dock-ic wb-dock-shape">{item.node}</span>
     case 'action':
-      return <button key={key} className={item.cls ?? 'wb-dock-tog'} disabled={item.disabled} title={item.label} aria-label={item.label} onClick={item.onClick}><Icon id={item.icon} /></button>
+      return <button key={key} className={item.cls ?? 'wb-dock-tog'} disabled={item.disabled} title={item.label} aria-label={item.label} onClick={item.onClick}><Icon id={item.icon} />{word(item.label, worded)}</button>
     case 'colors':
       // 2-wide grid (same as colorGrid) so the swatches form a compact block instead of a tall
       // single-file ribbon — keeps the whole dock short without wrapping the dock itself
@@ -66,7 +78,7 @@ function renderItem(item: DockItem, key: string): ReactNode {
         title={fillTemplate(appConfig.copy.toolDock.widthName, { n: String(w) })}
         aria-label={fillTemplate(appConfig.copy.toolDock.widthName, { n: String(w) })}><span style={{ height: w }} /></button>)}</Fragment>
     case 'info':
-      return <DockInfo key={key} text={item.text} />
+      return <DockInfo key={key} text={item.text} word={worded ? appConfig.copy.toolDock.infoWord : undefined} />
   }
 }
 
@@ -79,6 +91,12 @@ function renderItem(item: DockItem, key: string): ReactNode {
  * Controls only — no line of text (20.10.2026, owner: «Remove the line. I don't think they add
  * any value.»). The phone's one-line hint row (3am test r3, 25.09.2026) is gone on every surface;
  * what an armed tool expects is its ⓘ (`info` item).
+ *
+ * The dock follows the rail beside it (round 2b, owner 13.11.2026: «only labels for some of the
+ * tool items»): with «Beschriftung der Werkzeugleisten» on, EVERY item wears its word under its
+ * glyph like a rail tile («Abbrechen», the mode names, «Fertig», «Info»), off every item is a bare
+ * glyph – never a mix. A dock with an item that has no word (swatches, widths, a shape preview,
+ * a lettered toggle) stays bare throughout, and so does the phone's row dock.
  */
 export function ToolDock({ groups }: { groups: DockItem[][] }) {
   // the ✕ leaves its group for the dock's end (see DockItem · close); it carries its own group gap
@@ -86,16 +104,21 @@ export function ToolDock({ groups }: { groups: DockItem[][] }) {
   const close = groups.flat().filter(isClose)
   const visible = groups.map((g) => g.filter((item) => !isClose(item))).filter((g) => g.length)
   const ref = useRef<HTMLDivElement>(null)
-  const level = useRailLevel(ref, !useIsPhone())
+  const phone = useIsPhone()
+  const level = useRailLevel(ref, !phone)
+  // the tablet column only: the phone's dock is a one-row bar over the bottom bars (15-mobile),
+  // its tiles bare glyphs at the bar's height
+  const labels = useRailLabels()
+  const worded = !phone && labels === 'short' && groups.flat().every(canWord)
   return (
-    <div ref={ref} className="wb-dock wb-dock-map" style={level}>
+    <div ref={ref} className={`wb-dock wb-dock-map${worded ? ' wb-dock-worded' : ''}`} style={level}>
       {visible.map((g, gi) => (
         <Fragment key={gi}>
           {gi > 0 && <span className="wb-dock-gap" aria-hidden />}
-          {g.map((item, ii) => renderItem(item, `${gi}-${ii}`))}
+          {g.map((item, ii) => renderItem(item, `${gi}-${ii}`, worded))}
         </Fragment>
       ))}
-      {close.map((item, i) => renderItem(item, `x-${i}`))}
+      {close.map((item, i) => renderItem(item, `x-${i}`, worded))}
     </div>
   )
 }

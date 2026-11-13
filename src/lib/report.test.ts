@@ -540,7 +540,7 @@ describe('report proof and Atemschutz labels', () => {
       id: 't1', name: 'Meier', entryPressureBar: 300, entryTime: '2026-08-08T22:20:00Z',
       lastContactTime: '2026-08-08T22:30:00Z', lowestBar: 260, status: 'aktiv', readings: [], ...over,
     })
-    expect(truppStatusLabel(t({ removedAt: '2026-08-08T22:50:00Z' }))).toBe('Von Tafel entfernt')
+    expect(truppStatusLabel(t({ removedAt: '2026-08-08T22:50:00Z' }))).toBe('Entfernt')
     expect(truppStatusLabel(t({}))).toBe('Im Einsatz')
   })
 })

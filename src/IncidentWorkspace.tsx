@@ -156,7 +156,7 @@ import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { photoUrlKey, setDevicePositionSource, withPhotoUrls } from './lib/photoGeo'
 import { whenIdle } from './lib/idle'
-import { useSessionRole, useWorkspaceFlags } from './workspace/access'
+import { useSessionRole, useWorkspaceFlags, viewOnlyReason } from './workspace/access'
 import { useOfflinePrefetch } from './workspace/useOfflinePrefetch'
 import { loadReportPreflight, loadWhiteboard, requestReportStep } from './workspace/lazySurfaces'
 import { useTafelPages } from './workspace/useTafelPages'
@@ -249,7 +249,6 @@ interface WorkspaceProps {
   /** bring this Einsatz back in front (App · uncoverEinsatz) — an alarm row's «Zum Trupp» */
   onUncover?: () => void
   onOpenDivera: () => void
-  onOpenDatenquellen: () => void
   /** freshly one-tap-taken Divera incident: show the correct-in-place review banner */
   needsReview: boolean
   onReviewDone: () => void
@@ -286,7 +285,7 @@ interface WorkspaceProps {
 
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport, abschlussRef,
-  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
+  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, onReactivateActive, onBackFromArchive,
   covered = false, onUncover, needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
   const { user, logout, asLink, isEl, linkRefused, roleReadOnly, isEditor, linkScoped } = useSessionRole(incidentMeta)
@@ -324,7 +323,7 @@ export function IncidentWorkspace({
   // …and a blob from a NEWER build makes this one read-only until that build is in (re-read on
   // every poll by useWorkspaceBlob · applyWorkspace; workspace/access · olderBuild)
   const [olderBuild, setOlderBuild] = useState(bootGate.newerSchema)
-  const { running, readOnly, outboxReadOnly, canEditIncident, canEditTrupps, canEditRecord, canEditRapport, canSignRapport, canEditMeta, canCloseIncident, canWriteRecord, canWriteBlob, tacticalLocked } =
+  const { running, readOnly, outboxReadOnly, elView, canEditIncident, canEditTrupps, canEditRecord, canEditRapport, canSignRapport, canEditMeta, canCloseIncident, canWriteRecord, canWriteBlob, tacticalLocked } =
     useWorkspaceFlags({ user, asLink, isEl, isEditor, roleReadOnly, forceReadOnly, tabLockLost, replayActive, incidentMeta, olderBuild })
   // «Standort zu Fotos» (lib/devicePosition): a session that writes the record lends the device's
   // position to a picture without one — after asking ONCE per device, with the reason.
@@ -1176,6 +1175,10 @@ export function IncidentWorkspace({
   // unified journal (Verlauf): a single append-only stream shared by both
   // surfaces, plus its quick-add composer — both reachable from the TopBar.
   const [journalOpen, setJournalOpen] = useState(false)
+  // «Nur ansehen» in the head pill, true for the surface on screen (workspace/access · viewOnlyReason)
+  const viewOnly = viewOnlyReason({
+    flags: { running, elView, canEditRecord, canEditTrupps, tacticalLocked }, roleReadOnly, linkScoped, isEl, mode, journalOpen,
+  })
   /** «Show me that card»: alarm and attendance routes carry a nonce so tapping the same Trupp
    *  twice points again. Pointing is a gesture, not durable state; AtemschutzView clears its
    *  highlight on its own timer. */
@@ -3151,10 +3154,10 @@ export function IncidentWorkspace({
         onBackFromArchive, onReactivateActive, isPhone, phoneTools, planFit, incidents, syncStatus, journal,
         auditDelivery, closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
         onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, activeObjectId, canEditMeta, onEditMeta,
-        onOpenDivera, onOpenDatenquellen, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
-        setHelpOpen, setInstallGuideOpen, setOfflineReadyOpen, syncNow, media, logout, settingsOpen,
+        onOpenDivera, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
+        setHelpOpen, setInstallGuideOpen, syncNow, media, logout, settingsOpen,
         helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
-        menuCloseKey,
+        menuCloseKey, viewOnly,
       }} />
 
       {/* unsent edits of ANOTHER account for this Einsatz are parked on this device (sweep
@@ -3359,7 +3362,7 @@ export function IncidentWorkspace({
       <WorkspaceSheets {...{
         helpOpen, setHelpOpen, shareLink, incidentMeta, setShareLink, setAtemschutzLinkOn, installGuideOpen,
         setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen, offlineProbeUrls, sym, backendPlans,
-        manualObject, liveWeather, personnel, syncStatus, lastSyncedAt, syncNow, downloadOffline,
+        manualObject, liveWeather, personnel, syncStatus, lastSyncedAt, downloadOffline,
         reloadPersonnel, cancelOffline, offlineProgress, settingsOpen, feedbackOpen, sharePick, shareParent,
         setSettingsOpen, symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, railLabels,
         setRailLabels, keepScreenOn,

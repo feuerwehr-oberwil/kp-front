@@ -25,3 +25,4 @@
    should land on (owner, 12.11.2026; the Bemerkungen were --ink-dim until then) */
 .lines { margin: 0; padding-left: var(--sp-5); font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink); }
 .source { margin: 0; font: var(--fw-medium) var(--fs-micro)/1.4 var(--body); color: var(--ink-dim); overflow-wrap: anywhere; }
+

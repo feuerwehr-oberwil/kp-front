@@ -41,13 +41,13 @@ export const whiteboardCopy = {
     // pill's second word and «… offen»
     grundriss: { wand: 'Wand' },
     dockHints: {
-      wand: 'Punkte tippen – nahe am rechten Winkel rastet die Wand gerade oder rechtwinklig ein, sonst läuft sie frei. Den letzten Punkt nochmals tippen oder ✓ beendet sie, der erste Punkt schliesst sie. Das Werkzeug bleibt aktiv.',
-      draw: 'Auf den Plan ziehen, um frei zu zeichnen. Farbe, Breite und Stil danach im Editor.',
-      circle: 'Von der Mitte zum Rand ziehen setzt den Radius. Radius, Farbe und Füllung danach im Editor anpassen – in echten Metern, sobald der Massstab kalibriert ist.',
-      text: 'Auf den Plan tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
-      resource: 'Auf den Plan tippen, um einen Trupp zu setzen. Zum Verschieben ziehen.',
-      scale: 'Die zwei Endpunkte des gedruckten Massstabs antippen, dann die reale Länge eingeben. Danach zeigen Linien mit «Länge» echte Meter.',
-      measure: 'Punkte auf den Plan tippen. «Strecke» zeigt die Distanz, «Fläche» den Inhalt + Umfang – in echten Metern, sobald der Massstab kalibriert ist. Punkte ziehen zum Verschieben, einen Punkt gedrückt halten entfernt ihn.',
+      wand: 'Punkte tippen – rastet rechtwinklig ein. ✓ oder erster Punkt – fertig.',
+      draw: 'Ziehen zeichnet frei.',
+      circle: 'Von der Mitte zum Rand ziehen.',
+      text: 'Tippen, wo die Notiz hin soll – dann schreiben.',
+      resource: 'Tippen setzt einen Trupp. Ziehen verschiebt ihn.',
+      scale: 'Beide Enden des gedruckten Massstabs tippen, dann die Länge eingeben.',
+      measure: 'Punkte tippen. Punkt halten entfernt ihn.',
     },
     // Plan-Massstab (calibrate against a printed scale bar so plan lines read in metres)
     scale: {
@@ -59,17 +59,17 @@ export const whiteboardCopy = {
       cancel: 'Abbrechen',
       // The chip floats ABOVE the plan, so every word costs plan. The icon already says
       // «Massstab»; the text only says where you stand.
-      chipCalibrated: 'Ref. {m} m',
-      chipAuto: 'Ref. auto',
-      chipAutoHint: 'Ref. automatisch – Massstab aus der Kartenverknüpfung',
+      chipCalibrated: 'Massstab {m} m',
+      chipAuto: 'Massstab auto',
+      chipAutoHint: 'Massstab automatisch – aus der Verknüpfung mit der Karte',
       // the Gebäude floor-stack (A7): the scale comes from the footprint's ground size, not a fit
-      chipAutoStackHint: 'Ref. automatisch – Massstab aus dem Gebäudegrundriss',
+      chipAutoStackHint: 'Massstab automatisch – aus dem Gebäudegrundriss',
       chipUncalibrated: 'nicht kalibriert',
       recalibrate: 'Neu kalibrieren',
       calibrate: 'Massstab kalibrieren',
       calibrateHint: 'Zwei Punkte des Massstabs antippen',
       stale: 'Massstab neu prüfen',
-      saved: 'Massstab kalibriert ({m} m Referenz)',
+      saved: 'Massstab kalibriert ({m} m Strecke)',
       // #3: persist a calibration station-wide (across incidents) so plans measure out of the box
       persistTitle: 'Massstab merken?',
       saveAll: 'Für alle Pläne',
@@ -79,7 +79,7 @@ export const whiteboardCopy = {
       /** ⚠️ Der Massstab landet im STATIONS-Dokument, nicht im Einsatz — das kann scheitern
        *  (kein Empfang, oder jemand anders hat das Dokument inzwischen geändert). Die beiden
        *  Zeilen darüber wurden früher gemeldet, bevor überhaupt jemand geantwortet hatte. */
-      saveFailed: 'Massstab speichern fehlgeschlagen',
+      saveFailed: 'Massstab nicht als Vorgabe gespeichert – erneut versuchen',
       needsCalibration: 'Massstab festlegen: die zwei Enden des Massstabs antippen',
       needsCalibrationViewer: 'Messen erst möglich, wenn der Massstab kalibriert ist',
     },
@@ -155,8 +155,8 @@ export const whiteboardCopy = {
       targetOutside: 'Fadenkreuz zuerst auf die sichtbare Fläche bewegen',
       // Sichtprüfung nach dem Ausrichten: der Blattumriss liegt auf der Karte, man sieht sofort,
       // ob die Ecken zusammenfallen. Einmalig – kein Dauer-Layer.
-      checkFit: 'Deckung prüfen',
-      checkOpacity: 'Sichtbarkeit der Modul-Deckung',
+      checkFit: 'Überlagerung prüfen',
+      checkOpacity: 'Deckkraft des Moduls',
       checkMap: 'Karte',
       checkPlan: 'Modul',
       crossTitle: 'Punkt {n} – ziehen verschiebt, antippen zeigt Optionen',
@@ -170,21 +170,21 @@ export const whiteboardCopy = {
       popOpen: 'offen',
       // steht im Popover einer OFFENEN Hälfte: so entsteht ein Paar von Hand (bleibt fix)
       popPairHint: 'Zum Zuordnen den offenen Punkt auf der anderen Fläche antippen',
-      detailsTitle: 'Details zur Passung',
-      saveFailed: 'Verknüpfung speichern fehlgeschlagen',
+      detailsTitle: 'Genauigkeit',
+      saveFailed: 'Verknüpfung nicht gespeichert – erneut versuchen',
       // Passungs-Anzeige. ⚠️ EINE Zeile zur Güte, mehr nicht: Blattbreite, Drehung und die
       // Restfehler je Punkt standen hier, weil sie sich rechnen liessen – gelesen hat sie
       // niemand mitten im Einsatz. Was zählt, ist «wie viele Paare» und «wie weit daneben».
-      qualityTitle: 'Passung',
+      qualityTitle: 'Genauigkeit',
       pairs: 'Paare',
       // aus 3 Paaren gemessen; bei 2 Paaren steht stattdessen chipTwoPoints (georef · residualClaim)
       qualityDeviation: 'Abweichung ⌀ {m} m',
       // ⚠️ Anweisungen, keine Vorhaltungen (29.08.): zuerst, was zu TUN ist – fett auf der
       // Karte –, nach dem Gedankenstrich der Grund. «kleine Tippfehler wirken über den ganzen
       // Plan» war die Folge ohne den Ausweg.
-      warnTwoPoints: 'Zwei Paare lösen exakt – erst ein dritter Punkt zeigt, wie gut die Passung wirklich ist.',
+      warnTwoPoints: 'Zwei Paare lösen exakt – erst ein dritter Punkt zeigt, wie genau die Verknüpfung wirklich ist.',
       warnCollinear: 'Den nächsten Punkt abseits der Linie setzen – die bisherigen liegen fast auf einer Linie, quer dazu ist die Lage unbestimmt.',
-      warnBaseline: 'Den nächsten Punkt weiter weg setzen – die Punkte liegen erst {m} m auseinander, grössere Abstände machen die Passung stabiler.',
+      warnBaseline: 'Den nächsten Punkt weiter weg setzen – die Punkte liegen erst {m} m auseinander, grössere Abstände machen die Verknüpfung genauer.',
       // ── Ampel (lib/georefMode · georefLamp) ────────────────────────────────────────────────
       // ⚠️ Sie steht die ganze Zeit im Balken, nicht erst in der Passung. Der Balken zählte
       // bisher Paare («2 Paare») – eine Zahl, zu der niemand eine Meinung haben kann. Was fehlt,
@@ -208,39 +208,39 @@ export const whiteboardCopy = {
       // …und eine freigegebene Passung gilt als VERKNÜPFT (18.09.2026): kein «ungemessen»,
       // kein Warnton. Ein ⌀ steht trotzdem nicht da – aus zwei synthetischen Paaren gibt es
       // keinen zu berechnen; der Satz sagt stattdessen, wer für die Passung geradesteht.
-      lampApprovedBody: 'Die Station hat die Deckung geprüft und diese Passung freigegeben.',
+      lampApprovedBody: 'Die Station hat diese Verknüpfung geprüft und freigegeben.',
       chipAuto: 'ungemessen',
-      warnAuto: 'Referenzpunkte setzen, um die Passung zu messen – bisher gilt die Sichtprüfung der Deckung.',
-      autoAddPoints: 'Referenzpunkte setzen',
+      warnAuto: 'Punkte setzen, um die Genauigkeit zu messen – bisher ist sie nur von Auge geprüft.',
+      autoAddPoints: 'Punkte setzen',
       // genau EIN eigener Punkt neben der Automatik (zwei ersetzen sie – settleSlots)
       autoOneHead: 'Automatisch ausgerichtet · 1 Punkt',
-      autoOneBody: 'Ein zweiter Punkt ersetzt die Automatik durch echte Referenzpunkte.',
+      autoOneBody: 'Ein zweiter Punkt ersetzt die Automatik durch gesetzte Punkte.',
       autoOnePoint: '1 Punkt',
       // «Fertig»/«Schliessen» mit offenen Hälften: sagen, was wegfiel, statt still zu schlucken
-      openDroppedOne: 'Offener Punkt verworfen – ein Referenzpunkt braucht beide Flächen',
-      openDroppedMany: '{k} offene Punkte verworfen – ein Referenzpunkt braucht beide Flächen',
+      openDroppedOne: 'Offener Punkt verworfen – ein Punkt braucht beide Flächen',
+      openDroppedMany: '{k} offene Punkte verworfen – ein Punkt braucht beide Flächen',
       // ab dem dritten Paar: es gibt keinen «vierten Punkt» zu lehren, nur noch einen weiteren
       addMore: 'Punkte hinzufügen',
-      transfer: 'Übertragen',
-      transferTitle: 'Passung übertragen',
-      transferBody: 'Die Referenzpunkte von {source} werden kopiert. Danach kann jedes Modul separat angepasst werden.',
+      transfer: 'Kopieren',
+      transferTitle: 'Verknüpfung kopieren',
+      transferBody: 'Die Punkte von {source} werden kopiert. Danach kann jedes Modul separat angepasst werden.',
       transferLinked: 'bereits verknüpft',
-      transferCompleted: 'übertragen',
-      transferReplaceTitle: 'Passung von {target} ersetzen?',
-      transferReplaceBody: 'Die vorhandenen Referenzpunkte von {target} werden durch die Passung von {source} ersetzt.',
-      transferDone: 'Passung auf {target} übertragen – Deckung dort prüfen',
-      reset: 'Zurücksetzen',
-      resetTitle: 'Referenz zurücksetzen?',
-      resetBody: 'Die Verknüpfung zwischen diesem Plan und der Karte wird gelöscht. Die Punkte müssen danach neu gesetzt werden.',
-      resetDone: 'Referenz zurückgesetzt',
+      transferCompleted: 'kopiert',
+      transferReplaceTitle: 'Verknüpfung von {target} ersetzen?',
+      transferReplaceBody: 'Die Punkte von {target} werden durch die Verknüpfung von {source} ersetzt.',
+      transferDone: 'Verknüpfung auf {target} kopiert – Überlagerung dort prüfen',
+      reset: 'Entfernen',
+      resetTitle: 'Verknüpfung entfernen?',
+      resetBody: 'Die Verknüpfung zwischen diesem Plan und der Karte wird entfernt. Die Punkte müssen danach neu gesetzt werden.',
+      resetDone: 'Verknüpfung entfernt',
       pointsCleared: 'Punkte zurückgesetzt',
       // In der Leiste des laufenden Modus: alle Paare weg, der Modus bleibt an – man setzt ja
       // sofort neu. «Abbrechen» daneben behält, was steht.
       clearPoints: 'Zurücksetzen',
       clearTitle: 'Alle Punkte zurücksetzen?',
-      clearBody: 'Die gesetzten Punkte werden gelöscht, die Verknüpfung des Plans mit der Karte fällt damit weg. Das Setzen beginnt von vorn.',
+      clearBody: 'Die gesetzten Punkte werden entfernt, die Verknüpfung des Plans mit der Karte fällt damit weg. Das Setzen beginnt von vorn.',
       // ein aufgenommener Punkt: entweder neu setzen (antippen) oder ganz weg
-      removePoint: 'Punkt löschen',
+      removePoint: 'Punkt entfernen',
       // In den Ebenen bekommt jedes verknüpfte Blatt seine eigene Zeile (lib/georefTwins ·
       // planRasterRows): das Blatt selbst als Bild unter der Tinte der Karte. Der Plan-Code steht
       // drin, damit «welches Blatt liegt hier?» keine Rückfrage ist. Die Objekte darauf brauchen
@@ -254,6 +254,8 @@ export const whiteboardCopy = {
       // Rückfallname eines Symbols ohne Beschriftung: das Wort steht im Etikett, damit die
       // Plakette nie leer bleibt (lib/entityGlyph, lib/georefTwins · contentTwinName).
       twinUnnamed: 'Symbol',
+      // der Bestätigen-Knopf der Frage «Verknüpfung von … ersetzen?» – nicht «Kopieren» (transfer)
+      transferReplaceConfirm: 'Ersetzen',
     },
     finishShape: 'Fertig',
     cancelShape: 'Abbrechen',
@@ -479,8 +481,8 @@ export const whiteboardCopy = {
     printThis: 'Diese Seite',
     printAll: 'Alle Seiten ({n})',
     printBusy: 'PDF wird erstellt …',
-    printOffline: 'Drucken braucht die Verbindung zum Server. Die Seite ist gespeichert – drucken, sobald das Gerät wieder online ist.',
-    printFailed: 'Die Seite konnte nicht gedruckt werden – bitte nochmals versuchen.',
+    printOffline: 'Drucken braucht Netz. Die Seite ist gespeichert – drucken, sobald das Gerät wieder Netz hat.',
+    printFailed: 'Seite nicht gedruckt – erneut versuchen',
     // the page's timeline on screen and paper (lib/boardForm · pageStamp)
     stampCreated: 'Erstellt {at}',
     stampEdited: 'zuletzt bearbeitet {at}',

@@ -9,6 +9,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactElement } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import { shownTeamColor } from '../lib/teamColors'
 import { fillTemplate, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { cx } from '../lib/cx'
@@ -767,7 +768,7 @@ export function AtemschutzView({
     return confirmDialog({
       title: fillTemplate(az.lineTakeTitle, { n: String(f.lineNo) }),
       message: fillTemplate(az.lineTakeMsg, { n: String(f.lineNo), from: clash.name, to: f.name }),
-      confirmLabel: az.lineTakeConfirm,
+      confirmLabel: fillTemplate(az.lineTakeConfirm, { n: String(f.lineNo), to: f.name }),
       cancelLabel: appConfig.copy.cancel,
     }).then((ok) => {
       if (!ok) return false
@@ -1237,7 +1238,7 @@ export function AtemschutzView({
       ) : syncStatus ? (
         <span className={cx('ip-offline-chip', syncStatus !== 'offline' && 'ip-error-chip')}
           title={syncLong[syncStatus]} aria-label={syncLong[syncStatus]}>
-          {syncStatus === 'offline' ? <span className="ip-status-dot" /> : <Icon id="warn" />}
+          <Icon id={syncStatus === 'offline' ? 'cloud-off' : 'warn'} />
           <span>{lastSyncedAt != null
             ? fillTemplate(az.syncStand, { status: syncShort[syncStatus], t: formatTime(new Date(lastSyncedAt)) })
             : syncShort[syncStatus]}</span>
@@ -1286,7 +1287,7 @@ export function AtemschutzView({
             </span>
           ) : syncStatus ? (
             <span className={cx('ip-offline-chip', syncStatus !== 'offline' && 'ip-error-chip')}>
-              {syncStatus === 'offline' ? <span className="ip-status-dot" /> : <Icon id="warn" />}
+              <Icon id={syncStatus === 'offline' ? 'cloud-off' : 'warn'} />
               <span>{syncLong[syncStatus]}</span>
             </span>
           ) : null}
@@ -1441,10 +1442,10 @@ export function AtemschutzView({
                   <p title={lite.subtitle}>{lite.subtitle}</p>
                 </>
               ) : (
-                <>
-                  <h2>{az.boardTitle}</h2>
-                  {syncLine}
-                </>
+                /* the full app: the title alone – the workspace head above says whether the work
+                   is saved (round 2b, owner's pick «Only show problems», 13.11.2026); `syncLine`
+                   is the handed-over Tafel's, which has no workspace head */
+                <h2>{az.boardTitle}</h2>
               )}
             </>
           )}
@@ -1953,7 +1954,7 @@ export function AtemschutzView({
                   <button key={m.key} className={cx(s.placeOpt, s.placeOptMarker)}
                     onClick={() => { adoptMarker(placePick, m.key); setPlacePick(null) }}>
                     <span>
-                      <span className={s.placeOptCap} style={{ background: m.color || appConfig.drawing.teamColors[0] }} aria-hidden />
+                      <span className={s.placeOptCap} style={{ background: shownTeamColor(m.color) }} aria-hidden />
                       {m.name}
                     </span>
                     <span className={s.placeOptWhere}>

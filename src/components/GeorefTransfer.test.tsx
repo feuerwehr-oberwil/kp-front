@@ -28,7 +28,7 @@ describe('Passung auf mehrere Module übertragen', () => {
       onTransfer={onTransfer} onClose={onClose} onDone={onDone} />)
 
     fireEvent.click(screen.getByRole('button', { name: /Modul 2/ }))
-    await waitFor(() => expect(screen.getByText('übertragen')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('kopiert')).toBeTruthy())
 
     expect(screen.getByRole('dialog')).toBeTruthy()
     expect((screen.getByRole('button', { name: /Modul 2/ }) as HTMLButtonElement).disabled).toBe(true)

@@ -32,6 +32,8 @@
    widened it – the input's own ~200px default did. It still gives way on a narrow bar (shrink, no
    min-width). */
 .search { flex: 0 1 auto; width: 380px; min-width: 0; }
+/* the running Einsatz is solid red (round 2b, 13.11.2026: the ink chip + a separate red alarm chip
+   competed for the bar – one red chip again, and it says an Atemschutz alarm itself, .alarmCount) */
 .running { position: relative; display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3);
   border-radius: var(--r-sm); background: var(--red-fill); color: var(--on-fill, #fff);
   font: var(--fw-bold) var(--fs-2)/1.15 var(--body); max-width: 280px; flex: 0 1 auto; }
@@ -55,22 +57,28 @@
 }
 .running:has(.runningOpen:active) { background-image: linear-gradient(var(--press), var(--press)); }
 .runningMore:active span { background-image: linear-gradient(var(--press), var(--press)); }
-/* an Übung is amber, as everywhere (.ip-badge-exercise): the chip never reads as a real Einsatz.
-   A FILLED amber, so the chip keeps its weight in the bar; its ink is --on-amber (dark – white is
-   2.5:1 on amber by day) and the hover is the amber one step darker, ink-mixed so that ink stays
-   legible (--amber-strong is a text colour, too dark under dark ink). The pill and the press
-   follow the ink. */
-.runningExercise { background: var(--amber); color: var(--on-amber); }
-.runningExercise .runningMore span { background: color-mix(in srgb, var(--on-amber) 16%, transparent); }
+/* an Übung wears the Übung tag's look, as everywhere (.ip-badge-exercise · M2, owner's pick A,
+   13.11.2026 – it was a filled amber, the open count's colour): hatched over the surface, a ring in
+   the quiet ink, ink text — the chip never reads as a real Einsatz, nor as «needs you». The pill
+   and the press follow the ink; the hover is the house hover under the hatching. */
+.runningExercise { color: var(--ink); background: repeating-linear-gradient(-45deg, var(--ink-tint-strong) 0 4px, transparent 4px 8px), var(--surface);
+  box-shadow: inset 0 0 0 1.5px var(--ink-dim); }
+.runningExercise .runningMore span { background: color-mix(in srgb, var(--ink) 12%, transparent); }
 @media (hover: hover) {
-  .running.runningExercise:hover:not(:has(.runningMore:hover)) { background: color-mix(in srgb, var(--amber) 86%, var(--on-amber)); }
-  .runningExercise .runningMore:hover span { background: color-mix(in srgb, var(--on-amber) 26%, transparent); }
+  .running.runningExercise:hover:not(:has(.runningMore:hover)) { background: repeating-linear-gradient(-45deg, var(--ink-tint-strong) 0 4px, transparent 4px 8px), linear-gradient(var(--hover-strong), var(--hover-strong)), var(--surface); }
+  .runningExercise .runningMore:hover span { background: color-mix(in srgb, var(--ink) 20%, transparent); }
 }
 .runningText { min-width: 0; overflow: hidden; }
 .runningText b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; animation: koPulse 1.4s infinite; }
 @keyframes koPulse { 50% { opacity: .3; } }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+/* a live Ernstfall's Atemschutz alarm on the SAME chip (KarteApp · runningChip, round 2b): ⚠ before
+   the name, «· 2 Alarme» after it – the name ellipsises, the count never does */
+.runningLine { display: flex; align-items: baseline; gap: .3em; min-width: 0; }
+.runningLine b { min-width: 0; }
+.alarmCount { flex: none; white-space: nowrap; }
+.runningWarn { width: 18px; height: 18px; flex: none; }
 /* the phone's Checkliste (its bar holds the library's field): the running Einsatz is a strip of its
    own under the bar. ⚠️ `min-width: 0`: a flex
    item never shrinks below its content, and a long title ran off the screen's edge instead of
@@ -441,16 +449,16 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 @media (hover: hover) { .offChip:hover { background: var(--amber-22); } }
 .offChip:active { background: var(--amber-22); background-image: linear-gradient(var(--press), var(--press)); }
 .offDot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
-.deviceSheet { max-width: 520px; }
-.deviceAlarm { margin-bottom: var(--sp-4); }
+/* the bar chip's glyph: the struck-through cloud of every «Offline» (lib/icons · #cloud-off, round 2b) */
+.offCloud { width: 18px; height: 18px; flex: none; }
 .deviceLead { margin: 0 0 var(--sp-3); font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink-dim); }
-.deviceSheet :global(.list-card) + .note, .deviceSheet :global(.list-card) + .src, .deviceSheet .note + .src { margin-top: var(--sp-3); }
+.deviceRows :global(.list-card) + .note, .deviceRows :global(.list-card) + .src, .deviceRows .note + .src { margin-top: var(--sp-3); }
 /* offline, the open document not on this device: the sentence instead of the reader */
 .surfaceNote { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: var(--sp-4); }
 .surfaceNote .note { max-width: 360px; }
 .floors > .note { width: min(980px, 100%); }
 
-/* ── the menu button's red dot (owner, review round 5: «a small red dot» — it was a count): an
+/* ── the menu button's dot (owner, review round 5: «a small red dot» — it was a count): an
    Einsatz running or an alarm waiting; the number is in the button's accessible name. On the
    corner of the button's FACE (the mark / name), since the quiet pill has no frame (28.10.2026) */
 .menuFace { position: relative; display: inline-flex; align-items: center; gap: var(--sp-2); }

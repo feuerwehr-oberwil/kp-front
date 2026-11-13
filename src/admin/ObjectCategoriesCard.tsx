@@ -10,7 +10,7 @@ import { ConfirmButton, RecordRows, RecordTable, SettingRow, SettingsNote } from
 // Ordered rules, first match wins; a rule names the object kinds and/or plan modules (globs) it
 // takes. A colour is a #rrggbb or «Tinte» (`ink`: the default look, near-black by day, near-white
 // at night — owner, 25.10.2026). A row the server would refuse — no name, neither colour — stays on
-// screen with its reason and is not written, the ExternalLinksCard's rule.
+// screen with its reason and is not written, like every list editor in the Verwaltung.
 
 const HEX = /^#[0-9a-fA-F]{6}$/
 const KINDS: ObjectKind[] = ['einsatzobjekt', 'objekt'] // «depot» is retired (lib/karte/categories)

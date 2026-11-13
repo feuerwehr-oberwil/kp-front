@@ -113,7 +113,7 @@ describe('the Plan sheet behind the Objekt chip', () => {
     const { container } = renderBoard()
     expect(container.querySelectorAll('.wb-botleft .wb-lamp')).toHaveLength(1)
     expect(screen.queryByText('Verknüpft')).toBeNull()
-    expect(screen.queryByText('Ref. auto')).toBeNull()
+    expect(screen.queryByText('Massstab auto')).toBeNull()
     expect(objectChip().getAttribute('aria-expanded')).toBe('false')
   })
 
@@ -147,8 +147,8 @@ describe('the Plan sheet behind the Objekt chip', () => {
     const karte = fact(/^Karte: Verknüpft/)
     expect(within(karte).getByText('aus 2 Punkten')).toBeTruthy()
     expect(within(karte).getByRole('button', { name: 'Dritten Punkt setzen' })).toBeTruthy()
-    expect(within(karte).getByRole('button', { name: 'Deckung prüfen' })).toBeTruthy()
-    expect(within(karte).getByRole('button', { name: 'Zurücksetzen' })).toBeTruthy()
+    expect(within(karte).getByRole('button', { name: 'Überlagerung prüfen' })).toBeTruthy()
+    expect(within(karte).getByRole('button', { name: 'Entfernen' })).toBeTruthy()
   })
 
   it('offers to add points instead of claiming it will correct a calculated pair', () => {
@@ -165,7 +165,7 @@ describe('the Plan sheet behind the Objekt chip', () => {
     store.pairs = TWO
     renderBoard()
     openSheet()
-    const massstab = fact(/^Massstab: Ref\. auto/)
+    const massstab = fact(/^Massstab: Massstab auto/)
     expect(within(massstab).getByText(/aus der Kartenverknüpfung/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /kalibrieren/i })).toBeNull()
   })
@@ -198,9 +198,9 @@ describe('the Plan sheet behind the Objekt chip', () => {
     renderBoard('modul2', true)
     openSheet()
     expect(fact(/^Karte: Verknüpft/)).toBeTruthy()
-    expect(fact(/^Massstab: Ref\. auto/)).toBeTruthy()
+    expect(fact(/^Massstab: Massstab auto/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Dritten Punkt setzen' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Zurücksetzen' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Entfernen' })).toBeNull()
     expect(screen.queryByRole('button', { name: /kalibrieren/i })).toBeNull()
   })
 })
@@ -248,8 +248,8 @@ describe('an idle georeference never intercepts the board', () => {
     store.pairs = TWO
     renderBoard()
     openSheet()
-    fireEvent.click(screen.getByRole('button', { name: 'Übertragen' }))
-    expect(screen.getByRole('heading', { name: /Passung übertragen/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Kopieren' }))
+    expect(screen.getByRole('heading', { name: /Verknüpfung kopieren/ })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }))
     expect(sheet()).toBeTruthy()
   })
@@ -258,11 +258,11 @@ describe('an idle georeference never intercepts the board', () => {
     store.pairs = TWO
     renderBoard()
     openSheet()
-    fireEvent.click(screen.getByRole('button', { name: 'Übertragen' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Kopieren' }))
     fireEvent.click(screen.getByRole('button', { name: /Modul 3/ }))
     const confirm = await screen.findByRole('alertdialog')
     fireEvent.click(within(confirm).getByRole('button', { name: 'Abbrechen' }))
-    expect(await screen.findByRole('heading', { name: /Passung übertragen/ })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: /Verknüpfung kopieren/ })).toBeTruthy()
     // under the open picker the sheet is aria-hidden, so it is found by its words, not its role
     expect(screen.getByText('Plan · Modul 2')).toBeTruthy()
   })
@@ -271,7 +271,7 @@ describe('an idle georeference never intercepts the board', () => {
     store.pairs = TWO
     renderBoard()
     openSheet()
-    fireEvent.click(screen.getByRole('button', { name: 'Zurücksetzen' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Entfernen' }))
     const confirm = await screen.findByRole('alertdialog')
     fireEvent.keyDown(confirm, { key: 'Escape' })
     expect(await screen.findByRole('group', { name: 'Plan · Modul 2' })).toBeTruthy()
@@ -288,21 +288,21 @@ describe('an idle georeference never intercepts the board', () => {
     expect(screen.getByRole('button', { name: /^Punkt 1 –/ })).toBeTruthy()
   })
 
-  it('opens Deckung prüfen directly and keeps that action available with an unmatched point', () => {
+  it('opens Überlagerung prüfen directly and keeps that action available with an unmatched point', () => {
     store.pairs = TWO
     renderBoard()
     openSheet()
-    fireEvent.click(screen.getByRole('button', { name: 'Deckung prüfen' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Überlagerung prüfen' }))
     expect(georefSnapshot().check).toBe(true)
 
     act(() => georefDispatch({ type: 'check', on: false }))
     act(() => georefDispatch({ type: 'planTap', pt: { x: 0.4, y: 0.4 } }))
     expect(georefSnapshot().slots.filter((sl) => !sl.map)).toHaveLength(1)
-    expect(screen.getByRole('button', { name: 'Deckung prüfen' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Überlagerung prüfen' })).toBeTruthy()
   })
 })
 
-describe('leaving Deckung prüfen', () => {
+describe('leaving Überlagerung prüfen', () => {
   it('uses the coverage return path on Escape instead of abandoning its parent', () => {
     georefDispatch({ type: 'start', planId: 'modul2', pairs: TWO, aspect: 1.5, check: true, returnToQuality: true })
     render(<GeorefModeBars />)
@@ -358,9 +358,9 @@ describe('the phone can start a pair on either surface', () => {
     }
   })
 
-  // «Schliessen» turns into «Fertig» the moment two pairs stand; «+» stays one tap away for the
-  // optional third point the steps offer as a check.
-  it('turns the exit into «Fertig» once two pairs link the plan', () => {
+  // The exit stays ✕ «Schliessen» once two pairs stand (M7 C, 13.11.2026: closing loses nothing,
+  // «Fertig» only commits a draft); the status says «Verknüpft», and it leaves the mode.
+  it('keeps the exit «Schliessen» once two pairs link the plan, and leaves the mode', () => {
     const previous = window.matchMedia
     window.matchMedia = ((q: string) => ({
       matches: q === PHONE_QUERY, media: q, onchange: null,
@@ -370,7 +370,8 @@ describe('the phone can start a pair on either surface', () => {
       act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: TWO, aspect: 1.5 }))
       render(<GeorefModeBars planLabel="Modul 2" />)
       expect(screen.getByRole('button', { name: /^2\/2 Verknüpft/ })).toBeTruthy()
-      fireEvent.click(screen.getByRole('button', { name: 'Fertig' }))
+      expect(screen.queryByRole('button', { name: 'Fertig' })).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Schliessen' }))
       expect(georefSnapshot().planId).toBeNull()
     } finally {
       window.matchMedia = previous
@@ -537,16 +538,16 @@ describe('the Gebäude measures off its Grundriss, not off a hand calibration', 
     renderStack()
     const sh = stackSheet()
     expect(within(sh).queryByRole('region', { name: /^Karte:/ })).toBeNull()
-    const massstab = within(sh).getByRole('region', { name: /^Massstab: Ref\. auto/ })
+    const massstab = within(sh).getByRole('region', { name: /^Massstab: Massstab auto/ })
     expect(within(massstab).getByText(/aus dem Gebäudegrundriss/)).toBeTruthy()
   })
 
-  it('reads «Ref. auto» even with a stored calibration on the stack, and offers no calibration', () => {
+  it('reads «Massstab auto» even with a stored calibration on the stack, and offers no calibration', () => {
     // ⚠️ `ar` must be the stack's own measure space (1 / TILE_AR) or isStale drops the
     // calibration before the precedence question is even asked — and the test proves nothing.
     renderStack({ gebaeude: { mPerU: 999, refM: 12, ar: 1 / TILE_AR } })
     const sh = stackSheet()
-    expect(within(sh).getByRole('region', { name: /^Massstab: Ref\. auto/ })).toBeTruthy()
+    expect(within(sh).getByRole('region', { name: /^Massstab: Massstab auto/ })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /kalibrieren/i })).toBeNull()
   })
 })

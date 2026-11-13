@@ -111,25 +111,25 @@ describe('request — error mapping', () => {
     fetchMock.mockResolvedValueOnce(new Response('<html>502</html>', { status: 502, statusText: 'Bad Gateway' }))
     await expect(apiGet('/api/x')).rejects.toMatchObject({
       status: 502,
-      detail: 'Server nicht erreichbar',
-      hint: expect.stringContaining('startet er gerade neu'),
+      detail: 'Keine Antwort',
+      hint: expect.stringContaining('gleich erneut versuchen'),
     })
   })
 
   it('says the same for 503/504 — down or restarting is one situation to the operator', async () => {
     for (const status of [503, 504]) {
       fetchMock.mockResolvedValueOnce(new Response('', { status }))
-      await expect(apiGet('/api/x')).rejects.toMatchObject({ status, detail: 'Server nicht erreichbar' })
+      await expect(apiGet('/api/x')).rejects.toMatchObject({ status, detail: 'Keine Antwort' })
     }
   })
 
   it('separates a 500 from a gateway error — waiting does not help there', async () => {
     fetchMock.mockResolvedValueOnce(new Response('', { status: 500 }))
-    await expect(apiGet('/api/x')).rejects.toMatchObject({ status: 500, detail: 'Fehler auf dem Server' })
+    await expect(apiGet('/api/x')).rejects.toMatchObject({ status: 500, detail: 'Fehler bei der Verarbeitung' })
   })
 
   it('names the common client statuses', async () => {
-    const cases: [number, string][] = [[403, 'Keine Berechtigung'], [404, 'Vom Server nicht gefunden'], [413, 'Datei zu gross']]
+    const cases: [number, string][] = [[403, 'Keine Berechtigung'], [404, 'Nicht gefunden'], [413, 'Datei zu gross']]
     for (const [status, detail] of cases) {
       fetchMock.mockResolvedValueOnce(new Response('', { status }))
       await expect(apiGet('/api/x')).rejects.toMatchObject({ status, detail })
@@ -358,7 +358,7 @@ describe('request — timeouts (half-open connections)', () => {
     const err = await apiGet('/api/x').catch((e: unknown) => e)
     expect(err).toBeInstanceOf(ApiError)
     expect((err as ApiError).status).toBe(0) // offline fallbacks key off this
-    expect((err as ApiError).detail).toMatch(/Zeitüberschreitung/)
+    expect((err as ApiError).detail).toBe('Keine Antwort')
   })
 
   it('carries a hint on the offline path too — cached Einsätze are still there', async () => {
@@ -372,7 +372,7 @@ describe('request — timeouts (half-open connections)', () => {
   it('distinguishes a hard network failure from a timeout in the message', async () => {
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
     const err = await apiGet('/api/x').catch((e: unknown) => e)
-    expect((err as ApiError).detail).toMatch(/nicht erreichbar/)
+    expect((err as ApiError).detail).toBe('Server nicht erreichbar')
   })
 
   it('leaves a keepalive beacon UNBOUNDED — its whole point is to outlive the page', () => {

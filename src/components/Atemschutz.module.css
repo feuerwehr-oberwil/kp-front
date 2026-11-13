@@ -254,6 +254,17 @@
    ran together as one grey line; the 400 / 700 mono step is the split. Set per item
    (TruppCard · sockelLine `quiet`), so the Schätzung's word can never wear it. */
 .metaLine i.metaWordQuiet { font-weight: var(--fw-regular); color: var(--ink-dim); }
+/* …and a crew inside says «drin» the same way (round 2b, 13.11.2026: M3's eyebrow «UNTER
+   ATEMSCHUTZ» wrapped the foot to two lines). The foot is ONE line: where the card's foot row is too
+   narrow for «drin 1:11:51 h · Schätzung ≈ 263 bar», the Schätzung's word drops (`.metaDrop`,
+   TruppCard · sockelLine `drop`) before anything wraps – the «≈» still marks it as no reading, and
+   its title keeps the Planungshilfe sentence. The wrap stays the safety net for a viewer's
+   three-item line, never a cut number. */
+.vrowTerse { container-type: inline-size; }
+/* 320px: the foot row the word needs – «drin 19:41 min · Schätzung ≈ 152 bar» is ~252px of line,
+   and the row gives the line its width less the ⌄ and the padding (~60px); measured on the 1180
+   tablet's three-column grid, where the row is 285px and the word goes */
+@container (max-width: 320px) { .metaLine i.metaDrop { display: none; } }
 .metaLine b { font: var(--fw-bold) var(--fs-1) var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 /* (`.metaEst`, the Schätzung's dimmed + lighter value, went on 29.09.2026, T2: the owner wants the
    Schätzung CLEARLY visible, so it keeps full ink and its WORD — «Schätzung ≈ 0 bar» — and the word
@@ -1340,11 +1351,13 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    narrowest width. What goes, in order: the caption · the pressure · the state word. Nothing
    that goes is lost — it is all on the card behind the tap. */
 @media (max-width: 1023px) {
-  /* «SEIT LETZTEM KONTAKT» is ~118px of nowrap text; below this the clock track can no longer hold
-     it and it ran out under the Kontakt button. The column stays self-evident: one mono number per
-     row, colour-coded, under a header that already says what the board is. */
+  /* The caption STAYS (M3, owner's pick B, 13.11.2026: every duration says what it counts): it was
+     «SEIT LETZTEM KONTAKT», ~118px that ran out under the Kontakt button, and the row hid it; one
+     wording on both form factors now, «SEIT KONTAKT». The clock cell is a right-aligned column, so
+     a caption wider than its track («DRAUSSEN SEIT») reaches left into the gap, never right. */
   .trow { grid-template-columns: minmax(120px, 1fr) 96px 92px 140px var(--tap); }
-  .trowSub, .trowPress { display: none; }
+  .trow .trowClock { display: flex; flex-direction: column; align-items: flex-end; }
+  .trowPress { display: none; }
 }
 @media (max-width: 760px) {
   /* the state word goes too — the left border colour and the clock colour already carry it, and
@@ -1821,7 +1834,7 @@ button.crewLine { cursor: pointer; -webkit-tap-highlight-color: transparent; }
    with it the state: no extra state word by the name (owner 29.09.2026: «the draussen subtitle is
    probably not even required»). Under a «Draussen» head (the grouped orders) the out card drops
    its caption (RowLine · `headed`). The clock cell dissolves into the head's grid (`display:
-   contents`), three rows: 1 the caption ABOVE the time (owner pick A1/C7, 05.11.2026), across the
+   contents`). UNTIL round 2b (the rule below replaced it) three rows: 1 the caption ABOVE the time (owner pick A1/C7, 05.11.2026), across the
    whole head so its nowrap width never squeezes the name; 2 the name | the clock; 3 the crew line.
    Row 1 is reserved (the 11px caps' 1-line box + 5px) even where the caption is absent, and row 2
    is at least the inside clock's 24px line box (its 32px digits fill it — see the grid clock rule
@@ -1834,16 +1847,23 @@ button.crewLine { cursor: pointer; -webkit-tap-highlight-color: transparent; }
    the crew the band's foot (`.trowIn` …) gives 4 or, on a card without the band, the air over the
    first tile 3 (`+ .actZone`; its crew line keeps 8px to the tile). The iPad's two rows and the
    laptop's board keep their insets. The phone keeps its name-and-time row (settled). */
-.grid .trowHeadStatic { grid-template-rows: calc(var(--fs-micro) + var(--sp-1) + 1px) minmax(24px, auto);
-  padding-top: calc(var(--sp-2) + 1px); }
-.grid .trowHeadStatic .trowClock { display: contents; }
-.grid .trowHeadStatic .trowId { grid-column: 1; grid-row: 2; }
-.grid .trowHeadStatic .trowClockLine { grid-column: 2; grid-row: 2; }
-/* …and 2px lower in its reserved row since hill climb r31 (Opus 6, 06.11.2026): 4px from its caps to
-   the digits, so caption and time read as one unit; 12px over its cap line. Every grid card, out
-   ones too, so the captions of one grid row stay on one line. The name row does not move. */
-.grid .trowHeadStatic .trowSub { display: block; grid-column: 1 / -1; grid-row: 1; justify-self: end; align-self: start;
-  line-height: 1; margin-top: 2px; }
+/* ⚠️ Round 2b (owner, 13.11.2026: «a space above the group leader's name and a space below the time
+   … two opposing empty spaces»): the head is TWO blocks of one height, no reserved caption row.
+   Left the name on row 1 and the crew on row 2; right the caption on row 1 – on the NAME's line,
+   tops level – and the time spanning both rows, its foot on the crew line's foot. A card without a
+   crew line keeps the time's foot on the name's. */
+.grid .trowHeadStatic { grid-template-rows: auto auto; padding-top: calc(var(--sp-2) + 1px); }
+.grid .trowHeadStatic .trowId { grid-column: 1; grid-row: 1; align-self: start; }
+/* the right block is ONE column across both rows – caption at its top, time at its foot – so the
+   grid sizes the rows around it and the two never overlap however short the left block is */
+.grid .trowHeadStatic .trowClock { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column;
+  align-items: flex-end; justify-content: space-between; }
+/* ⚠️ No lift of the digits onto the crew's baseline: caption 2 + 11 + time 24 = 37px is all the
+   column may be – name + one crew line is 43px on touch – or it grows the rows and opens a gap
+   between the name and its crew, the very gap this head closes (tried 3 and 6px, 13.11.2026) */
+/* the caption's caps level with the name's: the 19px name's line box puts its cap height ~4px
+   down, the 11px caps at line-height 1 sit ~1px down – 2px (the scale's step; 3 is a literal) */
+.grid .trowHeadStatic .trowSub { display: block; line-height: 1; margin-top: 2px; }
 .grid .trowHeadStatic .trowSub:empty { display: none; }
 /* a card without the band: its first tile 5px under the crew line's box (8 under its glyphs), not
    the zone's 8 (r18, above) */
@@ -1854,7 +1874,7 @@ button.crewLine { cursor: pointer; -webkit-tap-highlight-color: transparent; }
    r18 took the top pad for the caption's air) – and an invisible pad so it still owns 44px: 4px
    down (a card without the band has its first tile 5px under it, `+ .actZone`) and the rest up
    over the name row, where nothing on the grid takes a tap. */
-.grid .trowHeadStatic .crewLine { grid-row: 3; padding-block: 2px var(--sp-1); }
+.grid .trowHeadStatic .crewLine { grid-column: 1; grid-row: 2; padding-block: 2px var(--sp-1); }
 @media (pointer: coarse) {
   .grid .trowHeadStatic .crewLine { padding-block: 0 2px; line-height: 18px; }
   .grid button.crewLine::before { inset: calc(20px + var(--sp-1) - var(--tap)) 0 calc(-1 * var(--sp-1)); }

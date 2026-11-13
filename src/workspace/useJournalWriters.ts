@@ -165,7 +165,7 @@ export function useJournalWriters({
         // is the opposite case and keeps its label: audio has nothing to look at, so without the
         // words the row would be a blank line with a play button. (Rows already written with the
         // placeholder are cleaned at render — lib/verlauf · rowText.)
-        : d.audioUrl ? `${appConfig.copy.log.audioNote}${d.secs ? ` (${d.secs}s)` : ''}` : photoUrls.length ? '' : appConfig.copy.log.journalNote)
+        : d.audioUrl ? `${appConfig.copy.log.audioNote}${d.secs ? ` (${d.secs} s)` : ''}` : photoUrls.length ? '' : appConfig.copy.log.journalNote)
     const rowId = newRowId('j')
     // ── Pendenz / Meldung ────────────────────────────────────────────────────────────────────
     // ⚠️ The lifecycle event rides on THIS row — the entry IS the Pendenz. «Auftrag · Trupp 2
@@ -361,7 +361,7 @@ export function useJournalWriters({
     const { onPlan, planId } = voiceStartCtx.current
     const rowId = newRowId('v')
     pushEvent({
-      icon: 'mic', text: `${appConfig.copy.log.audioNote} (${secs}s)`, kind: 'audio', audioUrl: url,
+      icon: 'mic', text: `${appConfig.copy.log.audioNote} (${secs} s)`, kind: 'audio', audioUrl: url,
       audioMeta: { source: 'recorded', startedAt: new Date(Date.now() - secs * 1000).toISOString(), durationSec: secs },
       surface: onPlan ? 'plan' : 'map', planId: onPlan ? planId : undefined,
     }, rowId)

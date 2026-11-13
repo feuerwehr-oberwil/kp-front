@@ -708,8 +708,13 @@ const base = {
     atemschutzTone: { warn: '#e2920a', crit: '#e8392b' },
     /** distinct, well-separated accent colours assigned to teams (cycled by creation
      *  order). Kept apart from the draw `colors` so adding team hues never changes the
-     *  ink palette. Each is legible on white and against the others on a busy plan. */
-    teamColors: ['#1f6feb', '#e8392b', '#1f9d57', '#e2920a', '#8b5cf6', '#0891b2', '#db2777', '#65a30d', '#b45309', '#475569'],
+     *  ink palette. ⚠️ No state hue (M4, owner's pick A, 13.11.2026): no red, green or amber –
+     *  they say überfällig / gut / fällig right beside the ring – and no lime or brown, which
+     *  sit next to them. Violet first, never blue: the «Bereit» card's edge is the state blue.
+     *  Each is ≥ 3:1 against white, the day map and the night surface (lib/teamColors.test.ts);
+     *  the first six are the well-separated ones, indigo and sky only come with a seventh Trupp.
+     *  Markers stored with a retired hue are shown in its stand-in (lib/teamColors · shownTeamColor). */
+    teamColors: ['#8b5cf6', '#0891b2', '#db2777', '#1f6feb', '#6b7a90', '#c42fd8', '#6366f1', '#0284c7'],
   },
   // Atemschutzüberwachung (SCBA breathing-apparatus monitoring) defaults — Swiss FKS/CSSP
   // contact-timer model. The 5-min contact interval (+1 min Nachfrist before the hard alarm)

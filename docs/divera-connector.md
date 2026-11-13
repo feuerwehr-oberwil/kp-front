@@ -206,8 +206,8 @@ webhooks cannot call a `divera247.com/api/...` URL. There is no loopback.
   service worker shows it with icon, badge and vibration, keeps it on the lock screen until
   somebody acts (`requireInteraction`) and sets the home-screen badge until the app has the alarm
   in front of the operator (`public/sw-notify.js`, `src/lib/push.ts · clearAppBadge`).
-- **Whether THIS device would wake** is on the Karte home – «Auf diesem Gerät» › «Alarm auf diesem
-  Gerät», and under Einstellungen › Gerät (`src/lib/alarmReadiness.ts`, 3am sweep §1,
+- **Whether THIS device would wake** is in «Einstellungen» › «Dieses Gerät» › «Alarm auf
+  diesem Gerät», on home and inside an Einsatz (`src/lib/alarmReadiness.ts`, 3am sweep §1,
   23.10.2026): installed · Benachrichtigung · Alarm-Abo · Anmeldung, each red row with its one-tap
   fix, «Testalarm senden» (`POST /api/push/test`, one push to the caller's own registration, one
   per minute) and the opt-out «Keine Alarme auf diesem Gerät» (push off, reversible there). A nudge

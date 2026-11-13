@@ -46,16 +46,9 @@ export interface DeploymentGeocoder {
   bboxLv95?: string | null
 }
 
-export interface DeploymentExternalLink {
-  label?: string | null
-  /** URL template; supports {E}/{N} (LV95 easting/northing) and {lng}/{lat} (WGS84). */
-  urlTemplate?: string | null
-}
-
 export interface DeploymentMap {
   defaultView?: DeploymentDefaultView | null
   geocoder?: DeploymentGeocoder | null
-  externalLinks?: DeploymentExternalLink[] | null
   /** «Karte & Objekte»: the station's object colours — ordered rules, first match wins
    *  (lib/karte/categories). Unset = every object red, a key box its FKS glyph. */
   objectCategories?: ObjectCategoryRule[] | null
@@ -534,7 +527,7 @@ export interface AlarmGroup {
 
 import { apiGet } from './api'
 import { idbGet, idbSet } from './idb'
-import { wgs84ToLV95, lv95ToWgs84 } from './geo'
+import { lv95ToWgs84 } from './geo'
 import { appConfig } from '../config/appConfig'
 import { DEFAULT_ATTENDANCE_MERGE_GAP_MIN } from './attendanceIntervals'
 import type { HoseSize, LayerDef, PlanDocument } from '../types'
@@ -1038,21 +1031,4 @@ export function applyDeploymentBranding(cfg: DeploymentConfig): void {
     }
     link.href = favicon
   }
-}
-
-/**
- * Station-supplied external map deep-links for the given incident coords (Datenquellen panel).
- * Each config entry's `urlTemplate` is filled with {E}/{N} (LV95) and {lng}/{lat} (WGS84).
- * Returns [] when no links are configured — so a generic deployment shows none.
- */
-export function externalMapLinks(lng: number, lat: number): { label: string; href: string }[] {
-  const links = resolved.map?.externalLinks
-  if (!Array.isArray(links) || links.length === 0) return []
-  const [e, n] = wgs84ToLV95(lng, lat)
-  const fill = (t: string) =>
-    t.replaceAll('{E}', e.toFixed(2)).replaceAll('{N}', n.toFixed(2))
-      .replaceAll('{lng}', String(lng)).replaceAll('{lat}', String(lat))
-  return links
-    .filter((l): l is { label: string; urlTemplate: string } => !!l?.label && !!l?.urlTemplate)
-    .map((l) => ({ label: l.label, href: fill(l.urlTemplate) }))
 }

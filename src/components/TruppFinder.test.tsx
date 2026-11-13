@@ -56,7 +56,7 @@ describe('TruppFinder', () => {
   // an empty list would read as a broken search — it has to say that nothing is placed YET
   it('explains where a Trupp comes from when none is placed', () => {
     open([])
-    expect(screen.getByText('Noch kein Trupp platziert.')).toBeTruthy()
+    expect(screen.getByText('Noch kein Trupp auf Karte oder Plan.')).toBeTruthy()
   })
 
   // ONE ✕ (29.09.2026, owner): the finder IS the search, so the field has no clear-✕ of its own

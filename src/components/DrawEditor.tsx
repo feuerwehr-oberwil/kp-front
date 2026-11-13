@@ -423,11 +423,9 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
         {!readOnly && <div className="de-group">
           {isLine && (
             <div className="de-row"><span>{appConfig.copy.drawingEditor.lineStyle}</span>
-              <span className="dh-widths">
-                {/* the chains belong to the STROKE, so they sit here with solid and dashed — the
-                    letter field below stays the letter field (lib/draw · LineStylePicker) */}
-                <LineStylePicker dashed={dashed} onChange={onDashed} marker={drawing.marker} onMarker={onMarker} />
-              </span>
+              {/* the chains belong to the STROKE, so they sit here with solid and dashed — the
+                  letter field below stays the letter field (lib/draw · LineStylePicker) */}
+              <LineStylePicker dashed={dashed} onChange={onDashed} marker={drawing.marker} onMarker={onMarker} />
             </div>
           )}
           {(isCircle || isArea) && (

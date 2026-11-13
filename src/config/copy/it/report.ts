@@ -104,7 +104,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
 
     pdf: 'Scarica il PDF',
     pdfBusy: 'Creazione del PDF …',
-    pdfFailed: 'Impossibile creare il PDF.',
+    pdfFailed: 'PDF non creato – riprovare',
     lehren: 'Insegnamenti / sicurezza',
   },
   wheel: {
@@ -138,7 +138,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     kdtNameHint: 'Valore dalle impostazioni – un sostituto sceglie sé stesso.',
     padHint: 'Firmare qui con il dito',
     padAria: 'Campo firma',
-    clear: 'Cancellare',
+    clear: 'Svuota',
     cancel: 'Annulla',
     confirm: 'Firmare',
     logSigned: 'Rapporto firmato: {role} {name} (checksum {sum})',
@@ -246,12 +246,12 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     attachmentsCount: '{n} foto',
     attachmentsNone: 'nessuna',
     attachmentsCaption: 'Didascalia (p. es. «Licenza di condurre»)',
-    attachmentsPending: 'non ancora caricata',
+    attachmentsPending: 'non ancora sincronizzata',
     attachmentAdded: 'Foto aggiunta',
     attachmentCaptioned: 'Didascalia',
     attachmentRemoved: 'Foto rimossa',
     linksHead: 'Moduli e link',
-    shareHead: 'Condividere',
+    shareHead: 'Condividi',
     shareLede: 'Senza login, resta valido dopo la chiusura.',
     shareLiveLede: 'Senza login, resta valido dopo la chiusura.',
     shareCreate: 'Crea link',
@@ -259,7 +259,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     shareLoading: 'Caricamento del link …',
     shareLoadFailed: 'Non è stato possibile caricare il link.',
     shareRetry: 'Riprova',
-    shareCreateFailed: 'Creazione del link non riuscita',
+    shareCreateFailed: 'Link non ricevuto – riprovare',
     shareCopy: 'Copia indirizzo',
     shareCopied: 'Copiato',
     shareScan: 'Inquadra con la fotocamera',
@@ -270,21 +270,20 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     shareRevokeTitle: 'Revocare il link a tutto l’intervento?',
     shareRevokeBody: 'L’indirizzo smetterà di funzionare. Chi lo ha aperto perde subito l’accesso. '
       + 'Un nuovo link può essere creato in qualsiasi momento – sarà un altro indirizzo.',
-    shareRevokeConfirm: 'Sì, revoca',
-    shareRevokeFailed: 'Revoca del link non riuscita',
+    shareRevokeConfirm: 'Revoca il link',
+    shareRevokeFailed: 'Revoca non confermata – ricaricare lo stato del link',
     shareKindLabel: 'Cosa apre il link',
     shareKindFull: 'Intervento · leggere',
     shareKindAtem: 'Squadre · operare',
-    shareAsLede: 'Chi apre il link vede solo la lavagna delle squadre di questo intervento – la '
-      + 'sorveglianza APR – e la usa: annunciare una squadra, contatto, pressione, ripiegamento, '
-      + 'fuori. Nessuna carta, nessun diario. Vale finché l’intervento non è chiuso.',
+    shareAsLede: 'Chi apre il link vede solo le squadre di questo intervento e le usa: annunciare una '
+      + 'squadra, contatto, pressione, ripiegamento, fuori. Nessuna carta, nessun diario. Vale '
+      + 'finché l’intervento non è chiuso.',
     shareAsLiveLede: 'Vale fino alla chiusura.',
     shareAsWarn: 'Quanto viene inserito lì compare nel rapporto sotto «Sorveglianza autoprotezione». Dai il link '
       + 'solo alla persona che sorveglia.',
-    shareAsRevokeTitle: 'Revocare il link alla lavagna delle squadre?',
-    shareAsRevokeBody: 'L’indirizzo smetterà di funzionare. Chi ha la tabella aperta non può più '
-      + 'inserire nulla. Un nuovo link può essere creato in qualsiasi momento – sarà un altro '
-      + 'indirizzo.',
+    shareAsRevokeTitle: 'Revocare il link squadre?',
+    shareAsRevokeBody: 'L’indirizzo smetterà di funzionare. Chi ha le squadre aperte non può più inserire nulla. Un '
+      + 'nuovo link può essere creato in qualsiasi momento – sarà un altro indirizzo.',
     linksCount: '{done} di {n} fatti',
     linksOpen: 'Apri',
     linksMarkDone: 'Segna {title} come fatto',
@@ -349,8 +348,8 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     metaNoneOn: '{label}: non applicabile',
     metaNoneOff: '{label}: «non applicabile» revocato',
     unresolvedHours: '{names}: gli orari sono invertiti o mancano – non nelle ore d\'intervento.',
-    pendingMedia: '{n} foto/audio non ancora caricati – verranno aggiunti appena c\'è una connessione; forse non ancora visibili su altri dispositivi.',
-    pendingMediaConfirm: '{n} foto/audio non ancora caricati – restano su questo dispositivo',
+    pendingMedia: '{n} foto/audio non ancora sincronizzati – verranno aggiunti con la rete; forse non ancora visibili su altri dispositivi.',
+    pendingMediaConfirm: '{n} foto/audio non ancora sincronizzati – restano salvati su questo dispositivo',
     truppsDeployedConfirm: 'Ancora in servizio: {n} – mai annunciate uscite',
   },
   printRelay: {
@@ -368,7 +367,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     jobOpenSince: 'In coda di stampa da {t}',
     jobCheck: 'Verifica',
     jobCancel: 'Annulla',
-    jobUnreachable: 'Stampa non raggiungibile – controllare la connessione',
+    jobUnreachable: 'Stampa non raggiungibile – controllare la rete',
     jobGone: 'Stampa non più rintracciabile – se non è uscito alcun foglio, stampare di nuovo.',
     confirmTitle: 'Stampa',
     confirmMsg: 'Inviare il rapporto d’intervento alla stampante di caserma?',
@@ -376,7 +375,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     undo: 'Annulla',
     cancelled: 'Stampa annullata',
     undoTooLate: 'Troppo tardi – il documento è già alla stampante',
-    failed: 'Invio alla stampante di caserma non riuscito',
+    failed: 'Non stampato – scaricare il PDF e stamparlo a mano',
     online: 'Stampante di caserma raggiungibile',
     offline: 'Stampante di caserma offline',
     offlineConfirmTitle: 'Stampante di caserma offline',

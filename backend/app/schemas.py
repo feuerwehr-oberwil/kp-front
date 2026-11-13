@@ -1419,14 +1419,6 @@ class MapGeocoder(BaseModel):
     bboxLv95: str | None = None
 
 
-class MapExternalLink(BaseModel):
-    # A station-supplied deep link to an external map portal, built per-incident. The
-    # urlTemplate may use {E}/{N} (LV95 easting/northing) and {lng}/{lat} (WGS84).
-    model_config = ConfigDict(extra="ignore")
-    label: str | None = None
-    urlTemplate: str | None = None
-
-
 class ObjectCategoryMatch(BaseModel):
     """When an object belongs to a category: every condition NAMED holds (none named = always)."""
 
@@ -1470,7 +1462,6 @@ class MapConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     defaultView: MapDefaultView = Field(default_factory=MapDefaultView)
     geocoder: MapGeocoder = Field(default_factory=MapGeocoder)
-    externalLinks: list[MapExternalLink] = Field(default_factory=list)
     # «Karte & Objekte»: the station's object colours (docs/karte-objekte.md · Categories). Empty
     # = the default look for every object (ink, grey without plans).
     objectCategories: list[ObjectCategoryConfig] = Field(default_factory=list, max_length=20)

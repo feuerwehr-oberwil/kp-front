@@ -3,12 +3,12 @@
   "rules": {
     "@typescript-eslint/no-explicit-any": 3,
     "@typescript-eslint/no-non-null-assertion": 349,
-    "react-hooks/exhaustive-deps": 20,
+    "react-hooks/exhaustive-deps": 19,
     "react-hooks/immutability": 20,
     "react-hooks/preserve-manual-memoization": 5,
     "react-hooks/purity": 11,
     "react-hooks/refs": 114,
-    "react-hooks/set-state-in-effect": 69,
+    "react-hooks/set-state-in-effect": 68,
     "react-refresh/only-export-components": 104
   },
   "silenced": {

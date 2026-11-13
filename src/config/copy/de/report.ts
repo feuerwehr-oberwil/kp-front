@@ -65,7 +65,7 @@ export const reportCopy = {
     print: 'Drucken',
     pdf: 'PDF herunterladen',
     pdfBusy: 'PDF wird erstellt …',
-    pdfFailed: 'PDF konnte nicht erstellt werden.',
+    pdfFailed: 'PDF nicht erstellt – erneut versuchen',
     // Haupt-Rapport form rows (value or write-in line)
     keyword: 'Stichwort',
     einsatzleiter: 'Einsatzleiter',
@@ -173,12 +173,12 @@ export const reportCopy = {
     kdtNameHint: 'Vorgabe aus den Einstellungen – eine Stellvertretung wählt sich selbst.',
     padHint: 'Hier mit dem Finger unterschreiben',
     padAria: 'Unterschriftenfeld',
-    clear: 'Löschen',
+    clear: 'Leeren',
     cancel: 'Abbrechen',
     confirm: 'Unterschreiben',
     // ⚠️ Verlauf-Zeilen und die Zeile unter der Unterschrift auf dem Papier: kein «→» (Helvetica)
     logSigned: 'Rapport unterschrieben: {role} {name} (Prüfsumme {sum})',
-    failed: 'Unterschrift nicht gespeichert – bitte nochmals versuchen',
+    failed: 'Unterschrift nicht gespeichert – erneut versuchen',
   },
   preflight: {
     pdfFull: 'Einsatzrapport (PDF)',
@@ -197,7 +197,7 @@ export const reportCopy = {
     // Handy (≤600px): die drei Reiter, die den Rapport in drei Bildschirme statt fünf teilen.
     // Tablet und Desktop sehen sie nie — siehe ReportPreflight · PhoneTab.
     tabsLabel: 'Teil des Rapports',
-    tabs: { bericht: 'Bericht', werwas: 'Personal & Mittel', beilagen: 'Beilagen' },
+    tabs: { bericht: 'Bericht', werwas: 'Personal & Material', beilagen: 'Beilagen' },
     sectionBericht: 'Bericht & Beteiligte',
     sectionZeiten: 'Zeiten',
     sectionNachbearbeitung: 'Nachbearbeitung',
@@ -399,7 +399,7 @@ export const reportCopy = {
     attachmentsCount: '{n} Foto(s)',
     attachmentsNone: 'keine',
     attachmentsCaption: 'Bildlegende (z. B. «Ausweis Lenker»)',
-    attachmentsPending: 'noch nicht hochgeladen',
+    attachmentsPending: 'noch nicht synchronisiert',
     // Was ↶ zurücknimmt, in der Sprache der Beilage – und der Toast, der das Löschen sofort
     // zurückholt (Bestätigen-mit-Rückgängig, wie beim Geschoss).
     attachmentAdded: 'Foto hinzugefügt',
@@ -414,10 +414,10 @@ export const reportCopy = {
     // sie ist das eine, was jemand gelesen haben muss, bevor er ihn verschickt.
     // ⚠️ EINE Zeile (29.09.2026): der Reiter sagt schon «lesen»; die fünf Zeilen darunter sagten
     // es nochmals und schoben «Link erstellen» auf dem Handy unter den Falz – im Teilen-Blatt und
-    // wortgleich in «Weitergeben». Die lange Erklärung (beide Zielgruppen, beide Zeiträume) steht
+    // wortgleich in «Teilen». Die lange Erklärung (beide Zielgruppen, beide Zeiträume) steht
     // jetzt in der Hilfe, «Rapport & Abschluss». Vor und nach dem Erstellen derselbe Satz: «bis du
     // ihn aufhebst» sagt der Knopf «Link aufheben» direkt darunter.
-    shareHead: 'Weitergeben',
+    shareHead: 'Teilen',
     shareLede: 'Kein Login, gilt auch nach dem Abschluss.',
     shareLiveLede: 'Kein Login, gilt auch nach dem Abschluss.',
     shareCreate: 'Link erstellen',
@@ -432,7 +432,7 @@ export const reportCopy = {
     // wird erst wieder, wenn die Antwort da ist.
     shareLoadFailed: 'Link konnte nicht geladen werden.',
     shareRetry: 'Erneut versuchen',
-    shareCreateFailed: 'Link erstellen fehlgeschlagen',
+    shareCreateFailed: 'Link nicht erhalten – erneut versuchen',
     shareCopy: 'Adresse kopieren',
     shareCopied: 'Kopiert',
     // Der QR ist die eigentliche Übergabe im Einsatz: Tablet hinhalten statt Adresse diktieren.
@@ -449,8 +449,8 @@ export const reportCopy = {
     shareRevokeBody: 'Die Adresse funktioniert danach nicht mehr. Wer sie gerade offen hat, sieht '
       + 'ab sofort nichts mehr. Ein neuer Link lässt sich jederzeit erstellen – er ist dann eine '
       + 'andere Adresse.',
-    shareRevokeConfirm: 'Ja, aufheben',
-    shareRevokeFailed: 'Link aufheben fehlgeschlagen',
+    shareRevokeConfirm: 'Link aufheben',
+    shareRevokeFailed: 'Aufheben nicht bestätigt – Linkstatus erneut laden',
     // ── Zweite Art Link: «Nur Atemschutz – bedienen» (01.09.) ──
     // Ein Einsatz kann seine Atemschutz-Überwachung abgeben: wer den Link öffnet, bekommt die
     // Tafel dieses einen Einsatzes auf dem eigenen Handy und bedient sie. Beide Arten wohnen im
@@ -471,19 +471,19 @@ export const reportCopy = {
     // Atemschutzüberwachung, und genau das muss der Lauftext darunter weiterhin sagen: der Link
     // gibt eine Sicherheitsaufgabe aus der Hand, nicht eine Liste.
     shareKindAtem: 'Trupps · bedienen',
-    shareAsLede: 'Wer den Link öffnet, sieht nur die Trupp-Tafel dieses Einsatzes – die '
-      + 'Atemschutzüberwachung – und bedient sie mit: Trupp anmelden, Kontakt, Druck, Rückzug, '
-      + 'Draussen. Keine Karte, kein Verlauf. Gilt, bis der Einsatz abgeschlossen ist.',
+    shareAsLede: 'Wer den Link öffnet, sieht nur die Trupps dieses Einsatzes und bedient sie mit: Trupp '
+      + 'anmelden, Kontakt, Druck, Rückzug, Draussen. Keine Karte, kein Verlauf. Gilt, bis der '
+      + 'Einsatz abgeschlossen ist.',
     // «… oder bis du ihn aufhebst» sagt der rote Knopf «Link aufheben» direkt darunter (27.09.2026)
     shareAsLiveLede: 'Gilt bis zum Abschluss.',
     shareAsWarn: 'Was hier eingetragen wird, steht im Rapport unter «Atemschutzüberwachung». Gib den '
       + 'Link nur an die Person, die überwacht.',
     // …und heisst wie der Reiter darüber («Nur Trupps»), dieselbe Regel wie bei shareRevokeTitle:
     // ein Name pro Link.
-    shareAsRevokeTitle: 'Link zur Trupp-Tafel aufheben?',
-    shareAsRevokeBody: 'Die Adresse funktioniert danach nicht mehr. Wer die Tafel gerade offen '
-      + 'hat, kann ab sofort nichts mehr eintragen. Ein neuer Link lässt sich jederzeit erstellen '
-      + '– er ist dann eine andere Adresse.',
+    shareAsRevokeTitle: 'Trupps-Link aufheben?',
+    shareAsRevokeBody: 'Die Adresse funktioniert danach nicht mehr. Wer die Trupps gerade offen hat, kann ab sofort '
+      + 'nichts mehr eintragen. Ein neuer Link lässt sich jederzeit erstellen – er ist dann eine '
+      + 'andere Adresse.',
     // ⚠️ Hier stand bis 03.09. eine dritte Art Link: der Einsatz-Link der Alarmierung, von Hand
     // erzeugt. Er sagte denselben Satz wie der Lese-Link oben, brauchte aber den Schlüssel der
     // Wehr und starb mit dem Abschluss – also war er als Übergabe immer die schlechtere Hälfte
@@ -547,17 +547,17 @@ export const reportCopy = {
     // an abstraction nobody could do anything with. Most common cause: an open block inheriting
     // the Einsatzende, which lies BEFORE its own start.
     unresolvedHours: '{names}: Zeiten laufen rückwärts oder fehlen – nicht in den Einsatzstunden.',
-    pendingMedia: '{n} Foto/Audio noch nicht hochgeladen – wird bei Verbindung ergänzt; auf anderen Geräten evtl. noch nicht sichtbar.',
-    pendingMediaConfirm: '{n} Foto/Audio noch nicht hochgeladen – bleiben auf diesem Gerät gespeichert',
+    pendingMedia: '{n} Foto/Audio noch nicht synchronisiert – wird mit Netz ergänzt; auf anderen Geräten evtl. noch nicht sichtbar.',
+    pendingMediaConfirm: '{n} Foto/Audio noch nicht synchronisiert – bleiben auf diesem Gerät gespeichert',
     // Kein fehlendes Feld, sondern ein Zustand: Es hat nie jemand gemeldet, dass diese Trupps
     // zurück sind. Ab dem Abschluss stehen ihre Uhren auf dem Einsatzende – das hier ist der
     // letzte Moment, in dem gefragt wird. Ohne Zahlwort-Plural: «Noch im Einsatz: 1» liest sich
     // genauso wie «Noch im Einsatz: 3».
     truppsDeployedConfirm: 'Noch im Einsatz: {n} – nie rausgemeldet',
   },
-  // Station print relay — «Ausdrucken» (preflight + capture)
+  // Station print relay — «Drucken» (preflight + capture)
   printRelay: {
-    send: 'Ausdrucken',
+    send: 'Drucken',
     // the folded head tile's word (beside «PDF»)
     sendShort: 'Drucken',
     sending: 'Wird gesendet …',
@@ -580,20 +580,20 @@ export const reportCopy = {
     jobOpenSince: 'Seit {t} in der Warteschlange',
     jobCheck: 'Prüfen',
     jobCancel: 'Abbrechen',
-    jobUnreachable: 'Druckauftrag nicht erreichbar – Verbindung prüfen',
+    jobUnreachable: 'Druckauftrag nicht erreichbar – Netz prüfen',
     // 404 vom Relay: der 7-Tage-Sweep des Backends hat den Auftrag weggeräumt – genau der Fall
     // «Relay war eine Woche down». Ohne eigene Antwort blieb das Band für immer stehen, und
     // «Prüfen» sagte «nicht erreichbar» über einen Host, der soeben geantwortet hatte. Kein
     // «Rapport erstellt»-Stempel: ob je ein Blatt herauskam, weiss niemand – der Satz sagt das.
     jobGone: 'Druckauftrag nicht mehr auffindbar – falls kein Ausdruck herauskam, erneut drucken.',
     // every print goes through a confirm modal — no accidental paper (2026-07-18)
-    confirmTitle: 'Ausdrucken',
+    confirmTitle: 'Drucken',
     confirmMsg: 'Einsatzrapport an den Stationsdrucker senden?',
-    confirmBtn: 'Ausdrucken',
+    confirmBtn: 'Drucken',
     undo: 'Rückgängig',
     cancelled: 'Druckauftrag abgebrochen',
     undoTooLate: 'Zu spät – der Auftrag ist schon beim Drucker',
-    failed: 'Senden an Stationsdrucker fehlgeschlagen',
+    failed: 'Nicht gedruckt – PDF herunterladen und von Hand drucken',
     online: 'Stationsdrucker erreichbar',
     offline: 'Stationsdrucker offline',
     // ⚠️ Nur der Titel, kein Erklärtext. «Der Auftrag wird gedruckt, sobald das Relay wieder

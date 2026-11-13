@@ -5,28 +5,28 @@
 export const journalCopy = {
   journal: {
     delivery: {
-      failedTitleOne: '1 Eintrag nicht übertragen',
-      failedTitle: '{n} Einträge nicht übertragen',
-      storageTitle: 'Einträge nicht sicher gespeichert',
-      storageBody: 'App offen lassen und Einträge sichern. Beim Schliessen können diese Einträge verloren gehen.',
+      failedTitleOne: '1 Eintrag nicht synchronisiert',
+      failedTitle: '{n} Einträge nicht synchronisiert',
+      storageTitle: 'Einträge nicht auf diesem Gerät gespeichert',
+      storageBody: 'App offen lassen und Einträge herunterladen. Beim Schliessen können diese Einträge verloren gehen.',
       savedBody: 'Auf diesem Gerät gespeichert. Auf anderen Geräten fehlen diese Einträge.',
-      offlineBody: 'Auf diesem Gerät gespeichert. Die Übertragung wird automatisch erneut versucht, sobald eine Verbindung besteht.',
+      offlineBody: 'Auf diesem Gerät gespeichert. Wird mit Netz synchronisiert.',
       retry: 'Erneut versuchen',
       retrying: 'Wird versucht …',
-      export: 'Einträge sichern',
-      short: 'Einträge nicht übertragen',
+      export: 'Einträge herunterladen',
+      short: 'Einträge nicht synchronisiert',
       // 24.09.2026: audit events this ROLE can never write (the `el` phone's Atemschutz alarm) —
       // parked on the device, not an error, but still exportable. No «Erneut versuchen».
       // 22.10.2026 (RBAC S4): also unsynced saves a wider role left on this device (a role change)
       refusedTitleOne: '1 Eintrag für diese Rolle nicht vorgesehen',
       refusedTitle: '{n} Einträge für diese Rolle nicht vorgesehen',
-      refusedBody: 'Der Server nimmt diese Einträge von dieser Anmeldung nicht an – etwa Änderungen von vor einem Rollenwechsel. Sie bleiben auf diesem Gerät und können gesichert werden; der Verlauf ist davon nicht betroffen.',
+      refusedBody: 'Diese Anmeldung darf diese Einträge nicht synchronisieren – etwa Änderungen von vor einem Rollenwechsel. Sie bleiben auf diesem Gerät und lassen sich herunterladen; der Verlauf ist davon nicht betroffen.',
       // 25.09.2026 (N3): was nach dem Abschluss des Einsatzes noch ankam — nicht übernommen, gesichert
       closedTitleOne: '1 Eintrag nach dem Abschluss nicht übernommen',
       closedTitle: '{n} Einträge nach dem Abschluss nicht übernommen',
-      closedBody: 'Der Einsatz war bereits abgeschlossen, als diese Einträge den Server erreichten. Sie stehen nicht im Verlauf, bleiben aber auf diesem Gerät und können gesichert werden. Wird der Einsatz wieder geöffnet, werden sie nachgesendet.',
+      closedBody: 'Der Einsatz war bereits abgeschlossen, als diese Einträge ankamen. Sie stehen nicht im Verlauf, bleiben aber auf diesem Gerät und lassen sich herunterladen. Wird der Einsatz wieder geöffnet, werden sie synchronisiert.',
       // die Statusleuchte, solange solche Einträge nur auf dem Gerät liegen
-      closedShort: 'Einträge nach dem Abschluss nicht übernommen – sichern',
+      closedShort: 'Einträge nach dem Abschluss nicht übernommen – herunterladen',
     },
     open: 'Verlauf',
     add: 'Eintrag',
@@ -34,7 +34,7 @@ export const journalCopy = {
     // der Tooltip von Verlauf und Eintrag oben, mit ihrer Taste (lib/hotkeys · PANEL_KEY)
     keyTitle: '{label} – Taste {key}',
     title: 'Verlauf',
-    empty: 'Noch keine Ereignisse erfasst.',
+    empty: 'Noch keine Einträge.',
     surfaceMap: 'Karte',
     surfacePlan: 'Plan',
     replay: 'Wiedergabe starten',
@@ -52,17 +52,17 @@ export const journalCopy = {
     discardAudio: 'Aufnahme verwerfen',
     // ONE upload button for everything that is picked rather than captured: Bild, Aufnahme,
     // Dokument. What was picked decides where it lands (lib/audioImport · classifyPick).
-    attachUpload: 'Datei hochladen',
+    attachUpload: 'Datei anhängen',
     // short form for the phone row, where the three media buttons get a third of the width each
     attachUploadShort: 'Datei',
     attachLabel: 'Beilage',
     attachDiscard: 'Beilage entfernen',
     attachOpen: 'Beilage herunterladen',
-    attachOffline: 'Datei-Upload benötigt eine Verbindung. Datei später erneut auswählen.',
+    attachOffline: 'Datei anhängen braucht Netz. Datei später erneut auswählen.',
     attachOfflineSkip: 'Ohne Beilage erfassen',
     attachTooLarge: 'Datei ist zu gross. Maximum: {max} MB.',
     attachUnsupported: 'Dieser Dateityp wird nicht unterstützt.',
-    attachUploadFailed: 'Datei-Upload fehlgeschlagen. Verbindung prüfen und erneut versuchen.',
+    attachUploadFailed: 'Datei nicht angehängt – Netz prüfen und erneut versuchen.',
     // ⚠️ Same reason as audioImportDropped below: a picked file cannot be handed back on the
     // next open, so a composer that closes with one on it says so.
     attachDropped: 'Beilage «{name}» verworfen – bitte neu auswählen.',
@@ -76,22 +76,22 @@ export const journalCopy = {
     attachAudioExtra: 'Nur eine Aufnahme pro Eintrag – «{names}» nicht übernommen.',
     // external voice-memo import
     audioClipLabel: 'Sprachnotiz',
-    audioImportLabel: 'Externe Audioaufnahme',
+    audioImportLabel: 'Audiodatei',
     audioStartLabel: 'Aufnahme begann',
-    audioStartHint: 'Startzeit anhand der Sprachmemo kontrollieren.',
+    audioStartHint: 'Startzeit anhand der Audiodatei prüfen.',
     audioStartConfirm: 'Startzeit bestätigen',
-    audioImportedNote: 'Externe Audioaufnahme ({duration})',
+    audioImportedNote: 'Audiodatei ({duration})',
     audioDiscardImport: 'Audiodatei verwerfen',
-    audioUploading: 'Wird hochgeladen …',
+    audioUploading: 'Wird synchronisiert …',
     photoLocating: 'Position wird gelesen …',
-    audioOffline: 'Audio-Upload benötigt eine Verbindung. Datei später erneut auswählen.',
+    audioOffline: 'Audiodatei anhängen braucht Netz. Datei später erneut auswählen.',
     audioTooLarge: 'Audiodatei ist zu gross. Maximum: {max} MB.',
     audioUnsupported: 'Dieses Audioformat wird nicht unterstützt.',
-    audioUploadFailed: 'Upload fehlgeschlagen. Verbindung prüfen und erneut versuchen.',
+    audioUploadFailed: 'Audiodatei nicht angehängt – Netz prüfen und erneut versuchen.',
     // ⚠️ Said out loud when the composer closes with an unsaved imported memo on it. Everything
     // else on the sheet is handed back on the next open (lib/draftKeep); this one cannot be —
     // its preview URL is released on close and the file itself is up to 100 MB.
-    audioImportDropped: 'Externe Audioaufnahme «{name}» verworfen – bitte neu auswählen.',
+    audioImportDropped: 'Audiodatei «{name}» verworfen – neu auswählen.',
     // audio player (Durchhören)
     playerOpen: 'Durchhören',
     editEntry: 'Text bearbeiten',
@@ -105,7 +105,7 @@ export const journalCopy = {
     playerSkipFwd: '15 Sekunden vor',
     playerSpeed: 'Wiedergabegeschwindigkeit',
     playerSeek: 'Wiedergabeposition',
-    playerOffline: 'Wiedergabe benötigt eine Verbindung.',
+    playerOffline: 'Wiedergabe braucht Netz.',
     // speech-to-text drafts in the player (fail-closed: button only when konfiguriert)
     sttTranscribe: 'Transkribieren',
     sttRunning: 'Transkription läuft … Das kann einige Minuten dauern.',
@@ -145,7 +145,7 @@ export const journalCopy = {
     // die Zeile kam über den Atemschutz-Link herein — von einem Handy, das nur die Tafel
     // bedient und darum bewusst nach keinem Namen gefragt wurde (types · TimelineEvent.via)
     viaAtemschutzLink: 'Atemschutz-Link',
-    viaAtemschutzLinkTitle: 'Eingetragen auf der abgegebenen Atemschutz-Tafel.',
+    viaAtemschutzLinkTitle: 'Eingetragen über den abgegebenen Trupps-Link.',
     // ── the row's detail sheet (owner's pick 8, sweep E.4): the message is the title, a meta line
     // under it «16:30:56 · Sofortmassnahme · von Hand erfasst» (time · Art/Bereich · Quelle), then a
     // fact table for what the meta line does not say ──
@@ -201,7 +201,7 @@ export const journalCopy = {
     attendanceConflictByUnknown: 'ohne Namen',
     // die zwei Seiten, wo bekannt beim Namen genannt – siehe attendanceConflict · sideLabel
     attendanceConflictFromKp: 'Angabe vom Kommandoposten',
-    attendanceConflictFromCapture: 'Angabe vom Erfassungsbogen',
+    attendanceConflictFromCapture: 'Angabe vom Erfassungsblatt',
     attendanceConflictKeepBoth: 'beide Angaben stimmen so',
     attendanceConflictOpenEnd: 'offen',
     // die Knöpfe auf der Karte
@@ -400,19 +400,19 @@ export const journalCopy = {
     emptyRo: 'Noch keine Pendenzen im Verlauf.',
   },
   errors: {
-    updateFailed: 'Aktualisierung fehlgeschlagen',
+    updateFailed: 'Nicht wieder geöffnet – der Einsatz bleibt abgeschlossen',
     // a 422 field error the server sent without its own message (lib/api · ApiError.fields)
     invalidValue: 'Ungültiger Wert',
     // the error report's one row past its cap of distinct signatures (lib/reportError)
     moreSignatures: 'weitere Fehlersignaturen (über {n})',
     // network failures, both with ApiError status 0 — the app falls back to its offline caches
     // either way; the wording only tells the operator WHICH kind of dead line they have.
-    serverUnreachable: 'Netzwerkfehler – Server nicht erreichbar',
-    serverUnreachableHint: 'Kein Netz, oder der Server ist unter dieser Adresse nicht da. Gespeicherte Einsätze bleiben offline verfügbar.',
-    serverTimeout: 'Server antwortet nicht – Zeitüberschreitung',
-    serverTimeoutHint: 'Die Verbindung steht, es kommt nur nichts zurück – typisch für ein sterbendes WLAN. Gespeicherte Einsätze bleiben offline verfügbar.',
+    serverUnreachable: 'Server nicht erreichbar',
+    serverUnreachableHint: 'Gespeicherte Einsätze bleiben offline verfügbar.',
+    serverTimeout: 'Keine Antwort',
+    serverTimeoutHint: 'Keine Antwort erhalten. Gespeicherte Einsätze bleiben offline verfügbar.',
     // a 200 that is not ours: a captive portal or a proxy answered for the server (lib/api · request)
-    serverUnexpected: 'Server nicht erreichbar (unerwartete Antwort)',
+    serverUnexpected: 'Unerwartete Antwort – erneut versuchen',
     // What an HTTP status MEANS, for when the server sent no message of its own (a 502 from the
     // reverse proxy is an HTML page, not our JSON). «HTTP 502» names the plumbing; it doesn't say
     // whether the tablet, the link or the server is at fault, whether waiting helps, or whether
@@ -421,20 +421,19 @@ export const journalCopy = {
     httpUnauthorizedHint: 'Bitte neu anmelden.',
     httpForbidden: 'Keine Berechtigung',
     httpForbiddenHint: 'Dieses Konto darf das nicht. Mit einem Konto mit Bearbeitungsrecht anmelden.',
-    httpNotFound: 'Vom Server nicht gefunden',
-    httpNotFoundHint: 'Diese Adresse kennt der Server nicht. Möglicherweise läuft dort eine andere Version.',
+    httpNotFound: 'Nicht gefunden',
+    httpNotFoundHint: 'Seite neu laden.',
     httpTooLarge: 'Datei zu gross',
-    httpTooLargeHint: 'Der Server nimmt Dateien dieser Grösse nicht an.',
+    httpTooLargeHint: 'Datei zu gross – kleinere Datei auswählen.',
     httpStale: 'Seite veraltet',
     httpStaleHint: 'Diese Seite kennt einen älteren Stand. Neu laden und die Änderung wiederholen.',
     httpTooMany: 'Zu viele Versuche',
-    httpTooManyHint: 'Kurz warten, dann nochmals versuchen.',
+    httpTooManyHint: 'Kurz warten, dann erneut versuchen.',
     httpRejected: 'Anfrage abgelehnt',
-    httpRejectedHint: 'Der Server hat die Anfrage zurückgewiesen.',
-    httpGateway: 'Server nicht erreichbar',
-    httpGatewayHint: 'Der Server antwortet nicht – vermutlich startet er gerade neu. Gleich nochmals versuchen; gespeicherte Einsätze bleiben offline verfügbar.',
-    httpServerError: 'Fehler auf dem Server',
-    httpServerErrorHint: 'Die Anfrage kam an, der Server kam damit nicht zurecht. Nochmals versuchen – bleibt es dabei, liegt es nicht am Gerät.',
+    httpGateway: 'Keine Antwort',
+    httpGatewayHint: 'Vermutlich gerade nicht verfügbar – gleich erneut versuchen. Gespeicherte Einsätze bleiben offline verfügbar.',
+    httpServerError: 'Fehler bei der Verarbeitung',
+    httpServerErrorHint: 'Erneut versuchen – bleibt es, Rückmeldung senden.',
     /** the raw status, kept visible in small print: useless in the moment, decisive on the phone
      *  to whoever runs the server */
     httpCode: 'Fehlercode {code}',

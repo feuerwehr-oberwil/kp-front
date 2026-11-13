@@ -809,7 +809,7 @@ export function AnwesenheitView({
               aria-label={A.reload} title={error ? A.loadFailedHint : undefined}>
               {loading || reloadPhase !== 'idle'
                 ? <SyncGlyph done={reloadPhase === 'done'}
-                    label={reloadPhase === 'done' ? appConfig.copy.incidentSwitcher.syncDone : A.loading} />
+                    label={reloadPhase === 'done' ? A.reloadDone : A.loading} />
                 : <Icon id="warn" />}
               {reloadPhase !== 'done' && (
                 <span className="fold-long">{loading || reloadPhase === 'busy' ? A.loading : A.retry}</span>

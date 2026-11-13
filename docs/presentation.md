@@ -54,8 +54,9 @@ Rules that span modules live here; each module's header says what it owns.
   aside while a tab follows (`following` or `detached` – `lib/presentation · isFollower`): the
   second tab of a browser is typically open just to follow, and the pill says so. It comes back
   unchanged the moment the following ends («✕», «Beenden», a takeover). The tab stays read-only
-  meanwhile, and no other mark says so: there is no read-only chip in the top bar, only the pill
-  saying that the tab follows (`WorkspaceMeldungen`).
+  meanwhile, and the pill saying that the tab follows (`WorkspaceMeldungen`) is what says so: a
+  following tab is not a «Nur ansehen» session (the head pill's eye mark is the role's and the
+  link's – `workspace/access · viewOnlyReason`, docs/roles-and-access.md).
 - **Zeigen**: a switch in the pill for everyone joined. On, a one-finger tap (or a click) leaves a
   named ring; a press-and-drag draws a line that follows the finger and wears its name at the tip
   once the finger is up. ⚠️ A mark STANDS (owner pick 09.11.2026, mock `nov09-zeigen-banner` A –

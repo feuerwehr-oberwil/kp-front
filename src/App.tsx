@@ -13,7 +13,6 @@ import { Overlays, toast, confirmDialog } from './lib/ui'
 import { confirmLogout } from './lib/logoutConfirm'
 import { persistedPendingRows } from './lib/journalStore'
 import { loadPrefs, savePrefs } from './lib/prefs'
-import { useDevicePrefs } from './lib/useDevicePrefs'
 import { useAutoTheme } from './lib/useAutoTheme'
 import { useCloseReopen, useIncidentLifecycle } from './lib/useIncidentLifecycle'
 import { Splash } from './components/Splash'
@@ -25,7 +24,8 @@ import { InstallBanner } from './components/InstallBanner'
 import { InstallGuide } from './components/InstallGuide'
 import { getInstallPlatform, isStandalone } from './lib/installPrompt'
 import { installOffered } from './lib/installPolicy'
-import { claimBootNotifyTarget } from './lib/notifyTarget'
+import { claimBootNotifyTarget, handOverNotifyTarget } from './lib/notifyTarget'
+import { muteAtemschutzFor } from './lib/useAtemschutzMute'
 import { useIncidentTabLock } from './lib/tabLock'
 import { clearIncidentMedia, listMediaQueue } from './lib/mediaQueue'
 import { MediaPendingMeldung, type ClosedMediaPending } from './components/MediaPendingMeldung'
@@ -45,7 +45,7 @@ import { useDiveraWatch } from './lib/useDiveraWatch'
 import { dismissAlarm, loadDismissedAlarms, shownAlarms } from './lib/diveraDismiss'
 import { useIncidentWatch } from './lib/useIncidentWatch'
 import { loadReviewedIncidents, needsIntakeReview, sameIncidentList, saveReviewedIncident, shouldReopenClosed, undoTakeReturn } from './lib/incidentAlerts'
-import { EinsatzWizard, DatenquellenPanel, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, SettingsSheet } from './components/panels'
+import { EinsatzWizard, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, HomeDeviceSheet } from './components/panels'
 import { Meldeleiste } from './components/Meldeleiste'
 import { linkShowsMeldung } from './lib/meldungen'
 import { SessionExpiredMeldung } from './components/SessionExpiredMeldung'
@@ -67,32 +67,6 @@ const KarteApp = lazy(() => import('./components/karte/KarteApp'))
 // WorkspaceSync. The workspace below is keyed by incident id so switching remounts it,
 // hydrating cleanly from that incident's own blob.
 // ---------------------------------------------------------------------------------
-/** Einstellungen opened from the landing card (no incident): device prefs only. Owns the
- *  pref state itself (mounted only while open, reads/writes the prefs cookie directly);
- *  the synced per-incident section is hidden by omitting settings/onSettings. */
-function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedback?: () => void }) {
-  const { symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, keepScreenOn, setKeepScreenOn, railLabels, setRailLabels } = useDevicePrefs()
-  useEffect(() => {
-    // the legacy `symbolSize` key rides along in the spread untouched — see prefs · symbolScales
-    savePrefs({ ...loadPrefs(), symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, keepScreenOn, railLabels })
-  }, [symbolScale, symbolCaptions, keepScreenOn, railLabels])
-  return (
-    <SettingsSheet
-      onClose={onClose}
-      symbolScale={symbolScale}
-      railLabels={railLabels}
-      onRailLabels={setRailLabels}
-      onSymbolScale={setSymbolScale}
-      symbolCaptions={symbolCaptions}
-      onSymbolCaptions={setSymbolCaptions}
-      keepScreenOn={keepScreenOn}
-      onKeepScreenOn={setKeepScreenOn}
-      themeCoord={null}
-      onFeedback={onFeedback}
-    />
-  )
-}
-
 
 export default function App() {
   const { user, logout, sessionExpired } = useAuth()
@@ -169,7 +143,7 @@ export default function App() {
   // single-editor-per-browser: only one tab may edit an incident (they'd race the shared
   // IDB sync cache); a second tab is read-only with a one-tap take-over.
   const tabLock = useIncidentTabLock(activeId)
-  const [overlay, setOverlay] = useState<null | 'create' | 'history' | 'daten'>(null)
+  const [overlay, setOverlay] = useState<null | 'create' | 'history'>(null)
   // closed Einsätze whose captures are still queued on this device (completeRapport) — a Meldung
   // each while true; re-read whenever the list refreshes, gone once the queue is empty
   const [closedMedia, setClosedMedia] = useState<ClosedMediaPending[]>([])
@@ -764,6 +738,14 @@ export default function App() {
     if (i.id === activeId && activeMeta && einsatzBehind) uncoverEinsatz()
     else void openIncident(i.id, { meta: i })
   }
+  // the viewer's running chip while it says an alarm (KarteApp · runningChip): acknowledge that
+  // Einsatz's tone, as «Zum Trupp» does (IncidentWorkspace · goToForeignTrupp), and land ON the Trupp — the workspace that
+  // mounts for it claims the target; one already open behind the viewer is only uncovered
+  const openOnTrupp = (i: IncidentMeta, truppId: string) => {
+    muteAtemschutzFor(i.id)
+    if (!(i.id === activeId && activeMeta && einsatzBehind)) handOverNotifyTarget(`atemschutz:${truppId}`)
+    openOrUncover(i)
+  }
 
   // the two home menus (components/HomeMenus): the launcher card and «Einsätze ▾» on the viewer
   const home: HomeActions = {
@@ -783,7 +765,7 @@ export default function App() {
     onLogout: () => void askLogout(),
   }
 
-  // the viewer's red chip: the Einsatz it was entered from first, else the newest running one
+  // the viewer's running chip: the Einsatz it was entered from first, else the newest running one
   const runningNow = openIncidents.filter((i) => isIncidentRunning(i))
     .sort((a, b) => (a.id === activeId ? -1 : b.id === activeId ? 1 : (b.started_at ?? '').localeCompare(a.started_at ?? '')))
 
@@ -855,7 +837,6 @@ export default function App() {
           // (testing feedback 2026-07-18): incoming alarms are taken via home or
           // the mid-incident banner, never via a separate pool screen.
           onOpenDivera={() => setOverlay('create')}
-          onOpenDatenquellen={() => setOverlay('daten')}
           // ⚠️ There is no separate «archive the active one» prop any more. The Einsatz-Menü row
           // used to hang off `archiveById`, which archived plainly — no report_done_at, nothing
           // checked — while the Rapport path stamped and counted. Both doors run the SAME confirm
@@ -901,7 +882,8 @@ export default function App() {
             onOpenVisits={openVisitsFromKarte}
             running={runningNow}
             onOpenIncident={openOrUncover}
-            onSettings={home.onSettings}
+            onFeedback={linkScoped ? undefined : () => setFeedbackFor('plain')}
+            onOpenAlarm={openOnTrupp}
             onHelp={home.onHelp}
             // App's sheets and dialogs over the viewer own the keyboard (KarteApp · useKarteKeys)
             keysOff={landingSheet !== null || feedbackFor !== null || overlay !== null || showWelcome}
@@ -918,7 +900,7 @@ export default function App() {
       ) : null}
       {/* home's device utilities (no incident open): settings / help / install, and Rückmeldung */}
       {screen !== 'einsatz' && landingSheet === 'settings' && !feedbackFor && (
-        <LandingSettings
+        <HomeDeviceSheet
           onClose={() => setLandingSheet(null)}
           // Rückmeldung posts a diagnostic report — refused for a link session
           onFeedback={linkScoped ? undefined : () => setFeedbackFor('plain')}
@@ -1021,13 +1003,6 @@ export default function App() {
           onArchive={canLifecycle ? archiveById : undefined}
           // a viewer reads only the last few days (docs/roles-and-access.md · the viewer's window)
           windowDays={user?.role === 'viewer' ? getDeploymentConfig().access?.viewerHistoryDays ?? undefined : undefined} />
-      )}
-      {overlay === 'daten' && (
-        <DatenquellenPanel
-          isEditor={isEditor}
-          incidentCoord={activeMeta?.lng != null && activeMeta?.lat != null ? [activeMeta.lng, activeMeta.lat] : null}
-          onClose={() => setOverlay(null)}
-        />
       )}
 
       {/* toast/confirm host — LAST at the ROOT, not inside the workspace's .app div:

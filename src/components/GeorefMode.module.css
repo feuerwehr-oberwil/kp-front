@@ -532,8 +532,6 @@
      are. Both step aside for the mode; the TopBar itself stays. */
   :global(.app.georef-mode :is(.tb-weather-wrap, .phone-wx)),
   :global(.whiteboard.wb-georef-armed .wb-botleft) { display: none; }
-  /* a standing fit: the exit IS the finish — the primary's fill, «✓ Fertig» */
-  .exitPill.exitDone { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
   /* the steps, the quality and the two rarer actions, folded behind the status */
   .fold {
     flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;

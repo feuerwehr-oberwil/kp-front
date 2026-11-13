@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { IncidentSwitcher } from './IncidentSwitcher'
 import { appConfig } from '../../config/appConfig'
 import type { IncidentMeta } from '../../lib/incidents'
@@ -18,9 +18,7 @@ function renderSwitcher(extra: Partial<Parameters<typeof IncidentSwitcher>[0]> =
       user={{ display_name: 'Muster Anna', color: null, role: 'editor' }}
       onSwitch={() => {}}
       onDivera={() => {}}
-      onDatenquellen={() => {}}
       onHelp={() => {}}
-      onOfflineReadiness={() => {}}
       onSyncNow={() => {}}
       {...extra}
     />,
@@ -39,9 +37,7 @@ function renderActive(extra: Partial<Parameters<typeof IncidentSwitcher>[0]> & {
       user={{ display_name: 'Muster Anna', color: null, role: 'editor' }}
       onSwitch={() => {}}
       onDivera={() => {}}
-      onDatenquellen={() => {}}
       onHelp={() => {}}
-      onOfflineReadiness={() => {}}
       onSyncNow={() => {}}
       {...extra}
     />,
@@ -170,5 +166,92 @@ describe('IncidentSwitcher · closed Einsatz', () => {
     fireEvent.click(pill())
     expect(screen.getByText(C.hintViewOnly)).toBeTruthy()
     expect(screen.queryByRole('button', { name: C.back })).toBeNull()
+  })
+})
+
+// M6 A (13.11.2026): a session that writes nothing here says «Nur ansehen» in the ✓'s slot, and
+// its reason in the opened card. M11 B: another Einsatz's alarm puts a red dot on the shut pill.
+describe('IncidentSwitcher · Nur ansehen and the foreign-alarm dot', () => {
+  const cp = appConfig.copy.incidentSwitcher
+  const active = {
+    id: 'inc-1', title: 'Zimmerbrand', address: 'Schlossgasse 10', started_at: new Date(Date.now() - 600_000).toISOString(),
+    status: 'offen', is_archived: false, is_exercise: false,
+  } as unknown as IncidentMeta
+  const pill = () => screen.getByRole('button', { name: (n) => n.startsWith(active.title) })
+  const renderShut = (extra: Partial<Parameters<typeof IncidentSwitcher>[0]>) => render(
+    <IncidentSwitcher active={active} incidents={[active]} isEditor={false} syncStatus="synced" lastSyncedAt={null}
+      user={{ display_name: 'Betrachter', color: null, role: 'viewer' }} onSwitch={() => {}} onDivera={() => {}}
+      onHelp={() => {}} onSyncNow={() => {}} {...extra} />,
+  )
+
+  it('wears «Nur ansehen» instead of the ✓, and the card names the reason', () => {
+    renderShut({ viewOnly: 'viewer' })
+    expect(pill().getAttribute('aria-label')).toContain(cp.viewOnly)
+    expect(pill().querySelector('.ip-viewonly-chip')?.textContent).toBe(cp.viewOnly)
+    expect(pill().querySelector('.ip-status')).toBeNull()
+    fireEvent.click(pill())
+    expect(screen.getByText(`${cp.viewOnly} · ${cp.viewOnlyWhy.viewer}`)).toBeTruthy()
+  })
+
+  // round 2b (owner's pick «Only show problems»): all saved → no mark; the ✓ is the card's
+  it('shows no mark where the session writes and all is saved, and a sync warning outranks «Nur ansehen»', () => {
+    renderShut({ viewOnly: null })
+    expect(pill().querySelector('.ip-viewonly-chip')).toBeNull()
+    expect(pill().querySelector('.ip-status')).toBeNull()
+    expect(pill().dataset.sync).toBe('synced')
+    cleanup()
+    renderShut({ viewOnly: 'el', syncStatus: 'offline' })
+    expect(pill().querySelector('.ip-viewonly-chip')).toBeNull()
+    expect(pill().textContent).toContain(cp.offlineShort)
+  })
+
+  // round 2b: «Nicht synchronisiert» speaks up only once it outlasts a normal save; Offline wears
+  // the struck-through cloud, pending the plain one
+  it('marks pending only after the grace, and offline with the struck-through cloud', () => {
+    vi.useFakeTimers()
+    try {
+      renderShut({ syncStatus: 'pending' })
+      expect(pill().querySelector('.ip-status')).toBeNull()
+      act(() => { vi.advanceTimersByTime(10_000) })
+      expect(pill().querySelector('.ip-status-pending use')?.getAttribute('href')).toBe('#wx-cloud')
+      cleanup()
+      renderShut({ syncStatus: 'offline' })
+      expect(pill().querySelector('.ip-sync-word use')?.getAttribute('href')).toBe('#cloud-off')
+    } finally { vi.useRealTimers() }
+  })
+
+  it('dots the shut pill while another running Einsatz has a Trupp at the alarm tier', () => {
+    const other = { ...active, id: 'inc-2', title: 'BMA Gewerbestrasse', atemschutz_due: [{ id: 't1', name: 'Trupp 1', reason: 'contact' }] } as unknown as IncidentMeta
+    renderShut({ incidents: [active, other] })
+    expect(pill().querySelector('.ip-foreign-dot')).not.toBeNull()
+    expect(pill().getAttribute('aria-label')).toContain(cp.foreignAlarmDot)
+    cleanup()
+    // its own Trupps are the workspace's alarm, not a dot; and the dot goes once the list is quiet
+    renderShut({ incidents: [{ ...active, atemschutz_due: [{ id: 't1', name: 'Trupp 1', reason: 'contact' }] } as unknown as IncidentMeta, { ...other, atemschutz_due: [] }] })
+    expect(pill().querySelector('.ip-foreign-dot')).toBeNull()
+  })
+})
+
+// An Übung wears the hatched tag in the head, on the card and in the other running rows (M2,
+// back on 14.11.2026 after the «Übung ·» prefix read as «almost invisible»), and the head's
+// accessible name says «Übung» – the aria-label replaces the tag's own text.
+describe('IncidentSwitcher · Übung', () => {
+  const drill = {
+    id: 'inc-1', title: 'Brand Musterhaus', address: null, started_at: new Date(Date.now() - 600_000).toISOString(),
+    status: 'offen', is_archived: false, is_exercise: true,
+  } as unknown as IncidentMeta
+  const otherDrill = { ...drill, id: 'inc-2', title: 'Ölspur Hauptstrasse' } as IncidentMeta
+
+  it('tags the head, the card and the row, and names the head an Übung', () => {
+    render(
+      <IncidentSwitcher active={drill} incidents={[drill, otherDrill]} isEditor syncStatus="synced" lastSyncedAt={null}
+        user={{ display_name: 'Muster Anna', color: null, role: 'editor' }}
+        onSwitch={() => {}} onDivera={() => {}} onHelp={() => {}} onSyncNow={() => {}} />,
+    )
+    const head = screen.getByRole('button', { name: `Brand Musterhaus, ${appConfig.copy.exerciseBadge}` })
+    expect(head.querySelector('.ip-badge-exercise')?.textContent).toBe(appConfig.copy.exerciseBadge)
+    fireEvent.click(head)
+    expect(document.querySelector('.ip-card-title > .ip-badge-exercise')).not.toBeNull()
+    expect(screen.getByRole('button', { name: /Ölspur Hauptstrasse/ }).querySelector('.ip-badge-exercise')).not.toBeNull()
   })
 })

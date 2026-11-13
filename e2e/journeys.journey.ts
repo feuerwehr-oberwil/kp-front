@@ -268,13 +268,18 @@ test('karte & tafel: draw ten Linien, drop ten Absperrkreise', async ({ page, ba
   const cordonTool = page.getByRole('button', { name: 'Absperrkreis', exact: true })
   await cordonTool.click() // the ink layer is there only while a drawing tool is armed
   await page.locator('.wb-ink').first().waitFor({ state: 'visible' })
-  const ink = (await page.locator('.wb-ink').first().boundingBox())!
   const rings = page.locator('.wb-ink-svg circle')
   await drain(page)
   const taps: number[] = []
   for (let i = 0; i < 10; i++) {
     // a placed circle hands the board back to «Auswahl»: arm the tool again, untimed
     if (i) await cordonTool.click()
+    // ⚠️ Where the sheet is NOW, not where it was before the first tap (13.11.2026): a placed circle
+    // opens its editor card, and the board pans the sheet aside when the circle would lie under it.
+    // With words under the rail glyphs (M8) the card stands 32px further in, the pans grew, and a
+    // spot measured once landed beside the sheet on the tenth tap – no circle, a 30 s timeout. A crew
+    // taps the sheet where it sees it.
+    const ink = (await page.locator('.wb-ink').first().boundingBox())!
     const before = await rings.count()
     const x = ink.x + ink.width * (0.2 + (i % 5) * 0.15), y = ink.y + ink.height * (i < 5 ? 0.35 : 0.65)
     taps.push(await timeTo(page, () => page.mouse.click(x, y),

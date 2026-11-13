@@ -3,6 +3,8 @@ import type { BoardAnno, Entity, Trupp } from '../../types'
 import type { Doc } from '../workspace'
 import { formatTime } from '../format'
 import { truppPlacementActions } from './placement'
+import { confirmDialog } from '../ui'
+import type { TacticalObject } from '../tacticalObjects'
 
 // The placement family's chip/marker time («seit hh:mm» on the plan chip and the Lage marker)
 // counts in the DEPLOYMENT's time (lib/serverClock), like the clock and lifecycle families: a
@@ -23,11 +25,11 @@ afterEach(() => { vi.useRealTimers() })
 
 const trupp: Trupp = { id: 'T1', name: 'Keller Anna', entryPressureBar: 300, entryTime: '', lastContactTime: '', status: 'aktiv' }
 
-function placement() {
+function placement(trupps: Trupp[] = [trupp], objects: TacticalObject[] = []) {
   let board: Record<string, BoardAnno[]> = {}
   let doc = { entities: [] as Entity[], drawings: [] } as unknown as Doc
   const actions = truppPlacementActions({
-    trupps: [trupp], drawings: [], objects: [], board, building: null,
+    trupps, drawings: [], objects, board, building: null,
     setBoard: (u) => { board = typeof u === 'function' ? u(board) : u },
     setDocRaw: (u) => { doc = typeof u === 'function' ? u(doc) : u },
     log: vi.fn(), logPlan: vi.fn(), emit: vi.fn(), setMode: vi.fn(), setActivePlanId: vi.fn(), setPanel: vi.fn(),
@@ -50,5 +52,17 @@ describe('placement — the chip/marker time is server time', () => {
     const p = placement()
     const entityId = p.actions.placeTruppOnMap('T1', [7.5, 47.5])
     expect(p.doc().entities.find((e) => e.id === entityId)?.t).toBe(serverHHMM())
+  })
+})
+
+// A marker another Trupp holds asks first, and the button answers the question with WHO takes it
+// («Für Trupp {to} übernehmen», WORD.8) – not a bare «Übernehmen».
+describe('adoptTruppMarker — the takeover confirm names the new Trupp', () => {
+  it('fills {to} with the adopting Trupp and writes nothing on cancel', async () => {
+    const holder: Trupp = { ...trupp, id: 'T2', name: 'Graf Jonas', entityId: 'e1' }
+    const marker = { id: 'e1', entity: { id: 'e1', kind: 'team' } } as unknown as TacticalObject
+    const p = placement([trupp, holder], [marker])
+    expect(await p.actions.adoptTruppMarker('T1', 'e1')).toBe(false)
+    expect(vi.mocked(confirmDialog)).toHaveBeenCalledWith(expect.objectContaining({ confirmLabel: 'Für Trupp Keller Anna übernehmen' }))
   })
 })

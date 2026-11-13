@@ -25,21 +25,21 @@ export const sessionCopy = {
   login: {
     subtitle: 'Führungsunterstützung',
     pinEnter: 'PIN eingeben',
-    connectionFailed: 'Verbindung zum Server fehlgeschlagen',
+    connectionFailed: 'Kontenliste nicht geladen – erneut versuchen',
     loadingRoster: 'Personal wird geladen …',
-    noUsers: 'Keine Benutzer hinterlegt',
+    noUsers: 'Keine Konten hinterlegt',
     whoAreYou: 'Wer bist du?',
     // the banner above the grid while this device holds unsent work of an account (lib/
     // unsentAccounts, sweep 09.11.2026 UX.2): one line per account, {name} from the roster –
     // or `unsentFormer` in its place when the roster no longer lists the account
-    unsentTitle: 'Ungesendete Änderungen von {name}',
+    unsentTitle: 'Nicht synchronisierte Änderungen von {name}',
     unsentFormer: 'einem früheren Konto',
     unsentLogin: 'Als {name} anmelden',
     unsentMore: 'und {n} weitere',
-    unsentBody: 'Sie liegen nur auf diesem Gerät und werden erst übertragen, wenn sich dieses Konto hier anmeldet.',
-    loginFailed: 'Anmeldung fehlgeschlagen',
+    unsentBody: 'Sie liegen nur auf diesem Gerät und werden erst synchronisiert, wenn sich dieses Konto hier anmeldet.',
+    loginFailed: 'Nicht angemeldet – PIN erneut eingeben',
     pleaseWait: 'Bitte kurz warten …',
-    clearDigit: 'Löschen',
+    clearDigit: 'Letzte Ziffer entfernen',
     // the ✓ key on the pad — a PIN submits deliberately, never on some Nth digit
     submitPin: 'Anmelden',
     retry: 'Erneut versuchen',
@@ -47,15 +47,15 @@ export const sessionCopy = {
     // has ended, and every retry fails identically until that session is dropped
     // status 0 on the roster: the shared «Gespeicherte Einsätze bleiben offline verfügbar» is
     // not true from HERE — a device that reaches the login screen is not signed in any more
-    offlineHint: 'Ohne Verbindung ist keine Anmeldung möglich. Gespeicherte Einsätze öffnen sich nur, wenn dieses Gerät noch angemeldet war.',
+    offlineHint: 'Ohne Netz ist keine Anmeldung möglich. Gespeicherte Einsätze öffnen sich nur, wenn dieses Gerät noch angemeldet war.',
     // optional second door onto the SAME accounts (backend auth/microsoft) — only drawn when the
     // station set it up; the PIN tiles above stay the way in at the Schadenplatz
     microsoft: 'Mit Microsoft anmelden',
     // ?msLogin=<reason> on the way back from Microsoft
     microsoftErrors: {
       cancelled: 'Microsoft-Anmeldung abgebrochen.',
-      expired: 'Die Microsoft-Anmeldung hat zu lange gedauert. Bitte nochmals.',
-      failed: 'Microsoft-Anmeldung fehlgeschlagen. Bitte nochmals oder mit PIN anmelden.',
+      expired: 'Die Microsoft-Anmeldung hat zu lange gedauert. Erneut versuchen.',
+      failed: 'Microsoft-Anmeldung fehlgeschlagen. Erneut versuchen oder mit PIN anmelden.',
       unknown: 'Dieses Microsoft-Konto ist für KP Front nicht freigeschaltet. Bitte mit PIN anmelden oder den Admin fragen.',
       inactive: 'Das zugehörige Konto ist deaktiviert. Bitte den Admin fragen.',
     },
@@ -65,25 +65,25 @@ export const sessionCopy = {
   // is never a dead screen the operator can only escape by killing the app.
   splash: {
     stuck: 'Start dauert länger als gewöhnlich',
-    stuckHint: 'Verbindung schwach oder Server nicht erreichbar. Gespeicherte Einsätze sind offline verfügbar.',
+    stuckHint: 'Das Laden dauert länger. Gespeicherte Einsätze sind offline verfügbar.',
     reload: 'Neu starten',
   },
   // render-throw fallback (ErrorBoundary). Escalates on a repeat crash of the same Einsatz:
   // reloading auto-reopens it, so after the second crash the escape actions take over.
   errorBoundary: {
     title: 'Ein Fehler ist aufgetreten',
-    body: 'Die Ansicht konnte nicht geladen werden. Deine lokalen Änderungen sind gespeichert und bleiben erhalten.',
-    bodyRepeat: 'Dieser Einsatz lässt sich nicht öffnen – auch nach dem Neuladen nicht. Schliesse ihn, um zur Übersicht zu kommen; die gespeicherten Daten bleiben auf dem Server.',
+    body: 'Die Ansicht konnte nicht geladen werden. Bereits gespeicherte Änderungen bleiben erhalten.',
+    bodyRepeat: 'Dieser Einsatz lässt sich nicht öffnen – auch nach dem Neuladen nicht. Über «Zur Einsatzliste» geht es weiter; synchronisierte Daten bleiben erhalten.',
     reload: 'Neu laden',
-    closeIncident: 'Einsatz schliessen',
-    discardLocal: 'Lokale Kopie verwerfen',
-    discardLocalHint: 'Verwirft nur die Kopie auf diesem Gerät und lädt den Einsatz neu vom Server. Noch nicht synchronisierte Änderungen von diesem Gerät gehen dabei verloren.',
+    closeIncident: 'Zur Einsatzliste',
+    discardLocal: 'Kopie auf diesem Gerät verwerfen',
+    discardLocalHint: 'Verwirft nur die Kopie auf diesem Gerät und lädt den Einsatz neu. Noch nicht synchronisierte Änderungen von diesem Gerät gehen dabei verloren.',
     // …and why it is greyed out while offline (ErrorBoundary · discardBlocked)
-    discardLocalOffline: 'Ohne Verbindung nicht möglich – der Einsatz liesse sich danach nicht neu vom Server laden.',
-    discardLocalOfflineUnsynced: 'Änderungen von diesem Gerät sind noch nicht übertragen.',
+    discardLocalOffline: 'Ohne Netz nicht möglich – der Einsatz liesse sich danach nicht neu laden.',
+    discardLocalOfflineUnsynced: 'Änderungen von diesem Gerät sind noch nicht synchronisiert.',
     // the ROOT boundary's repeat crash (launcher, login, a lazy chunk — no Einsatz to close):
     // «App zurücksetzen» drops only the cached incident list and user, never a workspace cache
-    bodyRepeatRoot: 'Die App startet nicht – auch nach dem Neuladen nicht. Setze die lokalen Listen zurück; gespeicherte Einsätze und Änderungen bleiben erhalten.',
+    bodyRepeatRoot: 'Die App startet nicht – auch nach dem Neuladen nicht. Setze die App zurück; gespeicherte Einsätze und Änderungen bleiben erhalten.',
     resetShell: 'App zurücksetzen',
     resetShellHint: 'Leert nur die Einsatzliste und die Anmeldedaten auf diesem Gerät. Einsätze und ihre Änderungen bleiben gespeichert.',
   },
@@ -91,7 +91,7 @@ export const sessionCopy = {
   // rest of the Einsatz — rail, top bar, Meldeleiste, the Atemschutz alarm — keeps running
   surfaceError: {
     title: 'Diese Ansicht konnte nicht geladen werden',
-    body: 'Der übrige Einsatz läuft weiter – die Atemschutzüberwachung bleibt aktiv, deine Änderungen sind gespeichert.',
+    body: 'Der übrige Einsatz läuft weiter – die Trupps werden weiter überwacht. Bereits gespeicherte Änderungen bleiben erhalten.',
     retry: 'Ansicht neu aufbauen',
     toMap: 'Zur Karte',
     repeatHint: 'Diese Ansicht stürzt wiederholt ab – bitte in der Rückmeldung melden.',
@@ -111,7 +111,7 @@ export const sessionCopy = {
     // in der laufenden App hängt sich dort auf, Entscheid 2026-07-09), überall sonst genügt
     // ein Tipp – dort hilft Schliessen allein oft nicht, weil ein vergessener Browser-Tab den
     // alten Stand festhält (16.09.2026).
-    available: 'Update bereit',
+    available: 'Neue Version bereit',
     hint: 'Wird beim Neustart aktiv – App schliessen & neu öffnen.',
     hintApply: 'Ein Tipp genügt – die App lädt kurz neu.',
     apply: 'Jetzt aktualisieren',
@@ -135,7 +135,7 @@ export const sessionCopy = {
     nativeButton: 'Jetzt installieren',
     nativeHint: 'Der Browser fragt kurz nach – mit «Installieren» bestätigen.',
     manualIntro: 'Oder manuell:',
-    installed: 'Installiert! KP Front ab jetzt über das App-Symbol starten.',
+    installed: 'Installiert – KP Front ab jetzt über das App-Symbol starten.',
     alreadyStandalone: 'KP Front läuft bereits als installierte App.',
     ios: {
       intro: 'Auf iPad/iPhone:',
@@ -202,7 +202,7 @@ export const sessionCopy = {
     // an Einsatz opened by ANOTHER account while unsent edits of {name} for it are parked on this
     // device (ForeignUnsentMeldung): they are neither shown nor sent until {name} signs in here.
     // {name} is `login.unsentFormer` when the roster no longer lists the account.
-    foreignUnsentTitle: 'Nicht übertragene Änderungen von {name} auf diesem Gerät',
+    foreignUnsentTitle: 'Nicht synchronisierte Änderungen von {name} auf diesem Gerät',
     foreignUnsentSub: '{name} muss sich hier anmelden',
     foreignUnsentFormerSub: 'Sie bleiben auf diesem Gerät gespeichert',
     foreignUnsentDismiss: 'Ausblenden',

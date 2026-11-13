@@ -29,7 +29,7 @@ import { appConfig } from '../config/appConfig'
 const C = appConfig.copy.admin.map
 
 /** lon / lat / zoom / Offline-Umkreis, in DOM order — of the FIRST card only. MapSection also
- *  renders the Adresssuche and the Kartenportale below it, and their inputs are not this pair. */
+ *  renders the Adresssuche and the Objektfarben below it, and their inputs are not this pair. */
 const boxes = () =>
   Array.from(document.querySelectorAll<HTMLElement>('.adm-card')[0]?.querySelectorAll<HTMLInputElement>('input') ?? [])
 const type = (i: number, value: string) => act(async () => { fireEvent.change(boxes()[i], { target: { value } }) })

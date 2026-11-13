@@ -30,7 +30,7 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   undoLost: 'Plus annulable',
   removedToast: { note: 'Note retirée', freed: '{what}, {n} lignes détachées', freedOne: '{what}, 1 ligne détachée' },
   undoDomains: {
-    reference: 'Référence ajustée',
+    reference: 'Lien ajusté',
     blattform: 'Forme de la feuille mesurée',
     karte: 'Modification sur la carte',
     plan: 'Modification sur «{plan}»',

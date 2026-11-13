@@ -566,34 +566,20 @@
 /* …the title is «Meldung»; what it is about stays read-out size under the 17px title type */
 .jc-mode-note em, .jc-mode-note-name { font-size: var(--fs-2); }
 
-/* Einsatzuhr: the Einsatzdauer as a read-out (lib/einsatzuhr, 13.11.2026) – no hover, no press,
-   nothing to tap. It keeps the box it had as a button so the bar does not move. */
-.tb-einsatzuhr { color: var(--ink-dim); font: inherit;
+/* Einsatzuhr: the Einsatzdauer (lib/einsatzuhr). A button since round 2b: a tap opens the popover
+   that names it (TopBar · «Einsatzdauer · seit 14:02», the GPS caveat's shell `.tb-gps-pop`) – no
+   label in the bar, no chevron, no menu. The quiet hover of the bar's other read-outs. */
+.tb-einsatzuhr { color: var(--ink-dim); font: inherit; border: none; background: transparent; border-radius: var(--r-sm); cursor: pointer;
+  display: inline-flex; align-items: center; gap: var(--sp-1);
   padding: var(--sp-2) var(--sp-1); margin: -8px 0;
   min-height: 42px; }   /* as tall as the Einsatz pill and `.tb-act` (owner 27.10.2026); touch: 20-touch-floors */
 /* the mode's glyph at the size of the bar's action glyphs (Eintrag's 16px, 10-journal): at 14px the
    hourglass drew a 7×9px mark beside the bold mono figure, the smallest thing in the bar (hill climb r11;
    the symbol itself was redrawn fuller the same day, lib/icons · #hourglass) */
 .tb-einsatzuhr .i { width: 16px; height: 16px; }
-.tb-uhr-chev { width: 12px; height: 12px; opacity: .5; margin-left: 1px; }
-/* Einsatzuhr mode dropdown: labelled, selectable rows (Dauer / Uhrzeit / Beginn) so the reading
-   is never ambiguous — recognition over the old blind tap-to-cycle. */
-.tb-uhr-menu { background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
-  border-radius: var(--r-bar); box-shadow: var(--e4); padding: var(--bar-pad); min-width: 236px; }
-/* a menu row, so it wears the app's one option-row treatment: --r-ctl, 8 % of --blue on hover,
-   and the --press wash it had no answer of at all (13-incident.css · «ONE menu row»). */
-.tb-uhr-row { display: flex; align-items: center; gap: var(--sp-3); width: 100%; height: 42px; padding: 0 var(--sp-3); border: 0;
-  background: transparent; border-radius: var(--r-ctl); cursor: pointer; color: var(--ink); font: inherit; text-align: left; }
-@media (hover: hover) {
-  .tb-uhr-row:hover { background: var(--blue-8); }
-}
-.tb-uhr-row:active { background-image: linear-gradient(var(--press), var(--press)); }
-.tb-uhr-row.on { background: var(--fill-soft); }
-.tb-uhr-row .i { width: 18px; height: 18px; color: var(--ink-dim); flex: none; }
-.tb-uhr-lbl { font-size: var(--fs-2); font-weight: var(--fw-medium); flex: 1; }
-.tb-uhr-val { font-family: var(--mono); font-size: var(--fs-1); color: var(--ink-dim); }
-.tb-uhr-row .tb-uhr-chk { width: 16px; height: 16px; color: var(--green); flex: none; visibility: hidden; }
-.tb-uhr-row.on .tb-uhr-chk { visibility: visible; }
+@media (hover: hover) { .tb-einsatzuhr:hover { color: var(--ink); background: var(--fill-soft); } }
+.tb-einsatzuhr:active, .tb-einsatzuhr[aria-expanded='true'] { background-image: linear-gradient(var(--press), var(--press)); }
+.tb-einsatzuhr b { font-weight: inherit; }
 /* ERG response block inside the UN-hazard readout */
 .un-erg { margin-top: var(--sp-2); padding-top: var(--sp-2); border-top: 1px dashed var(--glass-edge); }
 .un-erg-tih { margin-top: 4px; }

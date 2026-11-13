@@ -134,7 +134,7 @@ describe('LoginScreen — auto-login at the remembered PIN length', () => {
   it('ends the pad with ⌫ on the left and ✓ on the right of the 0', async () => {
     await openPad()
     const lastRow = [...document.querySelectorAll('.pin-grid > *')].slice(-3)
-    expect(lastRow.map((k) => k.getAttribute('aria-label') ?? k.textContent)).toEqual(['Löschen', '0', 'Anmelden'])
+    expect(lastRow.map((k) => k.getAttribute('aria-label') ?? k.textContent)).toEqual(['Letzte Ziffer entfernen', '0', 'Anmelden'])
   })
 })
 
@@ -178,7 +178,7 @@ describe('LoginScreen — «Mit Microsoft anmelden»', () => {
 
 // Sweep 09.11.2026, UX.2 (owner pick «5B»): unsent work of an account waits on this device, and
 // the gate says whose — with the one tap that brings that person to their PIN pad.
-describe('LoginScreen — «Ungesendete Änderungen von …»', () => {
+describe('LoginScreen — «Nicht synchronisierte Änderungen von …»', () => {
   const person = (id: string, display_name: string) => ({ id, display_name, color: null, role: 'editor' as const })
   const banner = () => document.querySelector('[role="status"].form-warn')
   const lineTitles = () => [...(banner()?.querySelectorAll('p > span') ?? [])].map((n) => n.textContent)
@@ -195,7 +195,7 @@ describe('LoginScreen — «Ungesendete Änderungen von …»', () => {
     device.unsent = [{ id: 'u2', at: 5 }]
     render(<LoginScreen />)
     await act(async () => {})
-    expect(lineTitles()).toEqual(['Ungesendete Änderungen von Graf Jonas'])
+    expect(lineTitles()).toEqual(['Nicht synchronisierte Änderungen von Graf Jonas'])
     expect(signIns()).toEqual(['Als Graf Jonas anmelden'])
     expect(document.querySelectorAll('.roster-tile')).toHaveLength(2)
     fireEvent.click(screen.getByRole('button', { name: 'Als Graf Jonas anmelden' }))
@@ -217,7 +217,7 @@ describe('LoginScreen — «Ungesendete Änderungen von …»', () => {
     device.unsent = [{ id: 'gone', at: 5 }]
     render(<LoginScreen />)
     await act(async () => {})
-    expect(lineTitles()).toEqual(['Ungesendete Änderungen von einem früheren Konto'])
+    expect(lineTitles()).toEqual(['Nicht synchronisierte Änderungen von einem früheren Konto'])
     expect(signIns()).toEqual([])
   })
 
@@ -227,7 +227,7 @@ describe('LoginScreen — «Ungesendete Änderungen von …»', () => {
     device.cachedRoster = [person('u2', 'Graf Jonas')]
     render(<LoginScreen />)
     await act(async () => {})
-    expect(lineTitles()).toEqual(['Ungesendete Änderungen von Graf Jonas'])
+    expect(lineTitles()).toEqual(['Nicht synchronisierte Änderungen von Graf Jonas'])
     expect(signIns()).toEqual([])
   })
 })

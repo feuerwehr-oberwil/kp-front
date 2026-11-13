@@ -218,15 +218,15 @@ The rules that are easy to break:
   «the keyboard shortcuts … also in the peacetime mode»). `lib/karte/hotkeys · resolveKarteHotkey`
   decodes on top of `lib/hotkeys · resolveHotkey`, so K Karte · C Checkliste · 1–9 the selected
   object's module · D Messen · B Ebenen · G Mein Standort · 0 Einpassen · + − zoom (the map, or the
-  open plan through the reader's `fitRef` / `keysRef`) · ⌘ , Einstellungen · ? Hilfe mean the same
+  open plan through the reader's `fitRef` / `keysRef`) · ⌘ , «Einstellungen» · ? Hilfe mean the same
   in both. Only what the Einsatz has no surface for is the viewer's own: **P** Punkt setzen, **U**
   Gefahrgut (UN number), **/** and **⌘ K** the search; every other Einsatz key decodes to nothing
   here and is never claimed. Escape peels one layer back towards the plain map: search → compass
   menu → armed tool → open plan → selection. The letters stand on the tiles from the same tables
   (`KARTE_TOOL_KEY` through ToolRail's `toolKey`, `SURFACE_KEY` on Karte · Checkliste,
   `PANEL_KEY` on Ebenen). ⚠️ Nothing reaches the viewer while one of App's sheets is over it
-  (`keysOff`: Einstellungen, Hilfe, Rückmeldung, the demo welcome …), nor with its own menu or
-  «Auf diesem Gerät» open, nor from inside a dialog or a field.
+  (`keysOff`: Hilfe, Rückmeldung, the demo welcome …), nor with its own menu or the «Einstellungen»
+  open, nor from inside a dialog or a field.
 - **Own state, never an Einsatz's.** No workspace, no saved drawing, no plan binding, no journal
   row. Measurements, the Gefahrgut rings and a dropped pin are component state; only the Ebenen and
   the view (`KarteView`: frame, selected object, open plan or the Checkliste, in sessionStorage) are kept —
@@ -286,7 +286,7 @@ The rules that are easy to break:
   plans»). Whether an object has plans is its colour: the station's category (below), or, with
   no categories configured, the default look — ink rim, dot and outline with plans (the named
   token `--obj-plans`: near-white at night, near-black by day; owner's pick 7A, 23.10.2026 — it was
-  red, and red is danger's: the running Einsatz's chip is now the Karte's one red), a faded grey rim
+  red, and red is danger's: the running Einsatz's chip is the Karte's one red), a faded grey rim
   and dot without (`Karte.module.css · .bare`). No count on any tag or row; the sheet's plan rows are
   the only list of plans.
 - **Dots, and a name only where it fits** (owner, 17.10.2026; `lib/karte/labels`). Below z16 every
@@ -332,7 +332,8 @@ The rules that are easy to break:
   the station's word (Sofortmassnahmen, then Bemerkungen, no source line since 27.10.2026 — what matters most in
   a hurry) · Pläne & Module as tiles, two to a line (the plan's name only, offline the «auf diesem
   Gerät» mark — below) · Gebäude laut Register as bullets (the hazards first, each with ⚠ and its word) · In der Nähe ·
-  Objektbesuche · the actions LAST, «Objektbesuch» and «Melden». A plain building or a dropped pin keeps that order with what
+  Objektbesuche · the actions, «Objektbesuch» and «Melden» (no map-portal links under them since
+  14.11.2026). A plain building or a dropped pin keeps that order with what
   it has (Register as the same bullets, In der Nähe, Melden; a pin also «Koordinaten kopieren»), a
   plan-less object too (no tiles). Every part is a top-level section with its head — no card
   around the first ones, no tabs (owner, 27.10.2026: «keep everything top level»). The action row is two equal halves where both labels fit; else the longer
@@ -801,7 +802,8 @@ The rules that are easy to break:
   lands on the viewer's own address again — read views and reports included (`App` · `ovReturn`).
 - **Alarms** reach the viewer through the Meldeleiste and the same two banners as the
   Objektbesuche; nothing switches by itself. A running Einsatz is the red chip in the bar (a strip
-  under it on a phone); a tap opens it.
+  under it on a phone's Checkliste); a tap opens it. A live Einsatz's Atemschutz alarm is said by
+  that same chip (below) – shown, with no tone and no Meldeleiste row on the home.
 - **«Update verfügbar»** (review round 7, owner: no word of a new version on the new home): the
   viewer mounts the Einsatz's own `UpdateBanner`, so a waiting build is the same calm row in the
   same strip — «Jetzt aktualisieren» everywhere but iOS, «App schliessen & neu öffnen» there,
@@ -1020,7 +1022,7 @@ for that layer:
 
 The viewer never downloads anything on its own for offline use; it READS what the device already
 holds and says so (`src/lib/karte/availability.ts` decides, `components/karte/useKarteOffline.ts`
-and `KarteDevice.tsx` probe). No «ganze Station herunterladen»: that would be several GB (owner,
+and `KarteDevice.tsx · KarteDeviceRows` probe). No «ganze Station herunterladen»: that would be several GB (owner,
 16.10.2026); deliberate downloads of chosen objects or areas come later.
 
 | What | Where it is kept | Filled by |
@@ -1037,9 +1039,12 @@ and `KarteDevice.tsx` probe). No «ganze Station herunterladen»: that would be 
 
 What the surface shows offline:
 
-- **«Auf diesem Gerät» opens with «Alarm auf diesem Gerät»** (3am sweep §1, 23.10.2026): the four
-  readiness rows (installed · Benachrichtigung · Alarm-Abo · Anmeldung) with their one-tap fixes,
-  the Testalarm and the opt-out – the same as under Einstellungen › Gerät. Since 28.10.2026 (owner's
+- **«Einstellungen» › «Dieses Gerät» › «Alarm auf diesem Gerät»** (3am sweep §1, 23.10.2026;
+  one sheet with the Einstellungen since 13.11.2026, M9 – it was «Auf diesem Gerät» on home; since
+  round 2b a FOLDED section after the prefs: one summary row «Alarm ✓ · Offline ✓ · App
+  installiert», opening by itself for an offline door or a part that needs the operator): the
+  four readiness rows (installed · Benachrichtigung · Alarm-Abo · Anmeldung) with their one-tap
+  fixes, the Testalarm and the opt-out – the same sheet inside an Einsatz. Since 28.10.2026 (owner's
   pick 17A) they fold into ONE line with no heading: «✓ Alarm bereit · Getestet am …» with the
   Testalarm on it and a ⌄ that opens the green rows and the opt-out; a row that is amber
   («Alarm bereit · 1 Hinweis …») or red («Kein Alarm auf diesem Gerät») always stands open under it
@@ -1049,7 +1054,8 @@ What the surface shows offline:
   never under the menu or the search; «Später» hides it 30 days, «Keine Alarme auf diesem Gerät»
   for good. Green = no card, not a line.
 - **The bar's «Offline» chip** (a dot only on the phone) stands where the weather was and opens
-  **«Auf diesem Gerät»**: Objektkatalog · Karte (this view) · Pläne (PDFs of the whole catalogue) ·
+  **«Dieses Gerät»** scrolled to what the device holds (`KarteDeviceRows`, under the Alarm line;
+  the «Keine Basiskarte» Meldung opens it the same way): Objektkatalog · Karte (this view) · Pläne (PDFs of the whole catalogue) ·
   Gebäuderegister · Gefahrgut · Adresssuche · Wetter/Fahrzeuge · Gerätespeicher (Pläne counts the
   plans that open here, by the rule above), each with ● on
   this device / ◐ partly / ○ only online AND the same in words. The Gebäuderegister is never ●: only
@@ -1072,7 +1078,7 @@ What the surface shows offline:
 - **The base map:** where the device holds neither a tile nor a parent MapLibre could scale up (4
   levels), the viewer HATCHES the tile (a `polygons` overlay with `hatch`, the Schraffur pattern),
   so a blank area reads as «no map stored» and objects stay on top. Probed only while offline or
-  while «Auf diesem Gerät» is open, 300 ms after the map settles, at most 96 tiles a view. The
+  while «Dieses Gerät» is open, 300 ms after the map settles, at most 96 tiles a view. The
   first base tile that fails offline also raises the Einsatz's «Keine Basiskarte» Meldung
   (`NoBasemapMeldung`, here with its action «Verfügbarkeit»), once per visit, withdrawn when the
   link is back.
@@ -1133,7 +1139,7 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   name (`identity.shortName`, ≤ 8 characters, Verwaltung › Station & Karte › «Kurzname»; FWO:
   «FWO»), then ▾. Neither set → a neutral menu symbol (☰ ▾), never the word «Einsätze»; a mark that
   does not load steps back to the symbol. Phone and tablet alike (the tablet's «keiner offen / 1
-  läuft» sub line went with the word — the red chip beside it names the running Einsatz). A small
+  läuft» sub line went with the word — the chip beside it names the running Einsatz). A small
   **red dot** on its corner while an Einsatz runs or an alarm waits (it was a count); the count is
   in its accessible name: «Menü – <appName>, 2 offen».
 - **The running chip** (owner's pick 6A, 23.10.2026, sweep F.2) names the first REAL Einsatz —
@@ -1144,6 +1150,15 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   was a strip under the bar), where it takes what the two leave: the title and the address end in
   «…», «+N» never gives way. Only the phone's Checkliste, whose bar holds the library's field, keeps
   it as a strip under the bar. The Einsatz's own bar (IncidentSwitcher, the title ▾) is not this button.
+  It is solid red (it was ink with a red alarm chip beside it in round 2; owner, 13.11.2026: the two
+  competed for the bar – one red chip again); an Übung's chip wears the Übung tag's hatching (M2).
+- **The chip says an alarm** (owner's pick «Same chip says it», 13.11.2026): while a live
+  Ernstfall has a Trupp at the alarm tier (`atemschutz_due` on the incident list, lib/foreignAlarm ·
+  `homeAlarm`) the chip names THAT Einsatz and says so on its own line: «⚠ Zimmerbrand · 2 Alarme»
+  – the name ellipsises, the count never does. No tone and no Meldeleiste row on the home; an
+  Übung's alarm never changes the chip. A tap then mutes that Einsatz's tone (as «Zum Trupp») and
+  opens it ON the most urgent Trupp (App · openOnTrupp, notifyTarget · handOverNotifyTarget); with
+  no alarm it opens the Einsatz as always.
 - **The arrival** (owner, 20.10.2026, after Wispr Flow's streak grid: «a very subtle loading
   animation for the stuff that arrives» — picked «Welle» from a gallery of real-app clips). The
   catalogue answers in one go and the dots and name tags used to land in one frame; now each
@@ -1169,9 +1184,9 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   the one the viewer covers too, whose row only steps the viewer aside), the alarms waiting to be
   taken (bell · «Neuer Alarm» · title · address · «Öffnen», and the × that hides one on this
   device only — both locked while a take runs), «Alle Einsätze», «Einsatz eröffnen» (editors);
-  then «App»: Objektbesuche, Einstellungen, **«Auf diesem Gerät»** (the viewer's own availability
-  sheet, in the slot the Einsatz menu gives «Offline-Bereitschaft», which is about an open
-  Einsatz), Funktionen & Hilfe, Installieren where offered; who is signed in with Abmelden, the
+  then «App»: Objektbesuche, **«Einstellungen»** (ONE row and word in both menus since 13.11.2026,
+  M9 – «Dieses Gerät» for a day, the folded section's name since round 2b; on home with the viewer's own availability rows, in an Einsatz with its Offline-Bereitschaft),
+  Funktionen & Hilfe, Installieren where offered; who is signed in with Abmelden, the
   build label. With nothing running and nothing to take, one quiet line says «Keine offenen
   Einsätze». The Rückmeldung prompt (`trouble`) heads the sheet. App hands the handlers to
   `components/HomeMenus · HomeMenu`; the viewer only opens and closes the sheet (`einsaetze.render(close, onDevice)`). The

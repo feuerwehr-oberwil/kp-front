@@ -675,12 +675,16 @@ export function TruppCard({
    * unworded read as a running clock and a live reading. In the line's one word style (the
    * Schätzung's). Only out of a real run: a crew stood down at the door was never «drin».
    * Those two joining words are `quiet` (hill climb r13/r27, 05.11.2026): dim ink, regular, so the
-   * values read first — never the Schätzung's word, which keeps full ink and weight (T2). */
+   * values read first — never the Schätzung's word, which keeps full ink and weight (T2).
+   * A crew still INSIDE names its time under air with the same quiet «drin» (round 2b, 13.11.2026:
+   * the eyebrow «UNTER ATEMSCHUTZ» wrapped the line) — «drin 10:00 min · Schätzung ≈ 263 bar», ONE
+   * line at every card width; where it cannot fit, the Schätzung's word drops first (`drop`,
+   * Atemschutz.module.css · .metaDrop). */
   const outWords = out && !neverDeployed
-  const sockelLine: { key: string; label: string; value: string; alarm?: boolean; labelled?: boolean; quiet?: boolean; title?: string }[] = [
+  const sockelLine: { key: string; label: string; value: string; alarm?: boolean; labelled?: boolean; quiet?: boolean; drop?: boolean; title?: string }[] = [
     ...(monitored && t.entryTime
       // a DURATION that says so — «23:39» read at 23:58 was taken for a clock time (staging r4)
-      ? [{ key: 'elapsed', label: outWords ? az.footInside : az.elapsed, value: fmtDuration(live.elapsedSec), labelled: outWords, quiet: outWords }] : []),
+      ? [{ key: 'elapsed', label: az.footInside, value: fmtDuration(live.elapsedSec), labelled: true, quiet: true }] : []),
     ...(live.outSec != null && !out
       ? [{ key: 'out', label: words.outFor, value: fmtDuration(live.outSec), labelled: true }] : []),
     ...(monitored && !(canEdit && inField)
@@ -697,6 +701,7 @@ export function TruppCard({
         // MEASURED «240 bar», an unnamed «≈ 0 bar» is exactly the mix-up this guards against — the
         // word does it now, not a dimmed grey that also made the number easy to read past
         labelled: true,
+        drop: true,
         // the Planungshilfe caveat travels with the number, exactly as it did on the old row
         title: estimate.source === 'history'
           ? az.estimatedHintHistory
@@ -971,7 +976,7 @@ export function TruppCard({
           <span className={s.metaLine}>
             {sockelLine.length > 0 ? sockelLine.map((it) => (
               <span key={it.key} title={it.title}>
-                {it.labelled && <i className={cx(it.quiet && s.metaWordQuiet)}>{it.label}</i>}
+                {it.labelled && <i className={cx(it.quiet && s.metaWordQuiet, it.drop && s.metaDrop)}>{it.label}</i>}
                 {/* the Einsatzzeit / «Draussen seit» past a day in the head's compact «3d 10h» — one card, one spelling */}
                 <b className={cx(it.alarm && s.metaAlarm)}><ClockVal val={it.value} /></b>
               </span>

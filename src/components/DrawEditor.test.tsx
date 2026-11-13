@@ -396,3 +396,19 @@ describe('Abschnitt on a Fläche', () => {
     expect(screen.getByText('Wasserversorgung')).toBeTruthy()
   })
 })
+
+// M5 (13.11.2026): the Linie row is a real Segmented – the picked stroke wears the choice fill
+// like the «Abschluss» above it, and a chain and a dash stay one choice.
+describe('Linie row', () => {
+  const C = appConfig.copy.drawingEditor
+  it('marks the picked stroke as the Segmented choice, and a chain clears the dash', () => {
+    const onDashed = vi.fn(), onMarker = vi.fn()
+    render(<DrawEditor {...base} drawing={{ kind: 'line', dashed: true }} onDashed={onDashed} onMarker={onMarker} />)
+    const dashed = screen.getByRole('button', { name: C.lineDashed })
+    expect(dashed.classList.contains('useg-btn')).toBe(true)
+    expect(dashed.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: C.lineHalteliniUp }))
+    expect(onMarker).toHaveBeenCalledWith('▲')
+    expect(onDashed).toHaveBeenCalledWith(false)
+  })
+})

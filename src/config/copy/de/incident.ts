@@ -6,27 +6,27 @@ export const incidentCopy = {
   // TopBar incident switcher dropdown
   incidentSwitcher: {
     noIncident: 'Kein Einsatz',
-    savedAt: 'Gespeichert um {t}',
+    savedAt: 'Synchronisiert um {t}',
     // the card's clock pill (27.09.2026, slim sweep · mockup 10): the glyph is the label, the
     // full sentence is its title (startedFull)
     startedRow: '{t} · {d}',
     startedFull: 'Einsatzbeginn {t} · {d}',
-    saved: 'Gespeichert',
-    badgePending: 'Nicht synchronisiert – wird gespeichert',
-    badgeOffline: 'Offline – lokal gespeichert, wird synchronisiert sobald wieder verbunden',
-    badgeError: 'Synchronisierung fehlgeschlagen – lokal gespeichert, wird erneut versucht',
-    // Storage full: the other states promise «lokal gespeichert» – and that is exactly what does
+    saved: 'Synchronisiert',
+    badgePending: 'Wird gespeichert und synchronisiert',
+    badgeOffline: 'Offline – auf diesem Gerät gespeichert',
+    badgeError: 'Nicht synchronisiert – auf diesem Gerät gespeichert',
+    // Storage full: the other states promise «auf diesem Gerät gespeichert» – and that is exactly what does
     // NOT hold here, the changes only live for this app session.
-    badgeStorage: 'Speicher voll – Änderungen sind NICHT lokal gesichert und gehen beim Schliessen verloren',
+    badgeStorage: 'Speicher voll – Änderungen sind NICHT auf diesem Gerät gespeichert und gehen beim Schliessen der App verloren',
     offlineShort: 'Offline',
-    errorShort: 'Sync-Fehler',
+    errorShort: 'Nicht synchronisiert',
     storageShort: 'Speicher voll',
     // …and its Meldeleiste row (S1, 20.10.2026): the state that loses work says so where messages stand
-    storageMeldung: 'Speicher voll – Änderungen nicht lokal gesichert',
-    storageMeldungSub: 'App offen lassen und Einträge sichern – beim Schliessen gehen sie sonst verloren.',
+    storageMeldung: 'Speicher voll – Änderungen nicht auf diesem Gerät gespeichert',
+    storageMeldungSub: 'App offen lassen und Einträge herunterladen – beim Schliessen gehen sie sonst verloren.',
     // one-shot warning toasts (useIncidentSync) — once per episode
-    syncErrorToast: 'Synchronisierung fehlgeschlagen – Änderungen sind lokal gespeichert.',
-    syncOfflineToast: 'Immer noch offline – Änderungen werden lokal gespeichert.',
+    syncErrorToast: 'Nicht synchronisiert – Änderungen sind auf diesem Gerät gespeichert.',
+    syncOfflineToast: 'Immer noch offline – Änderungen sind auf diesem Gerät gespeichert.',
     // clock skew (useIncidentSync · X-Server-Time): device-local timestamps feed the legal
     // record, so a clock minutes off is said once per episode — same wording as the capture
     // surface's skew line (capture.clockSkew)
@@ -35,18 +35,18 @@ export const incidentCopy = {
     bootOffline: 'Offline – gespeicherte Daten werden angezeigt.',
     // Boot: the server REFUSED the list (not silence — that takes the cached list above); the
     // launcher then shows no Einsätze and this says why
-    bootListFailed: 'Einsatzliste konnte nicht geladen werden',
+    bootListFailed: 'Einsatzliste nicht geladen',
     // A human's open (launch card / switcher / banner / Verlauf) failed and the server gave no
     // usable reason of its own (App · openIncident)
-    openFailed: 'Einsatz konnte nicht geöffnet werden',
+    openFailed: 'Einsatz nicht geöffnet – erneut versuchen',
     // …because the server could not be asked and no workspace is cached on this device
-    openFailedNoCache: 'Dieser Einsatz ist auf diesem Gerät nicht gespeichert – Verbindung nötig',
+    openFailedNoCache: 'Dieser Einsatz ist auf diesem Gerät nicht gespeichert – braucht Netz',
     syncNow: 'Jetzt synchronisieren',
     // The button used to run silently: on an already-synced Einsatz — the normal case — a tap
     // looked exactly like no tap at all. Now the icon spins while it runs and a message says
     // what came of it.
     syncDone: 'Alles synchronisiert',
-    syncFailedToast: 'Synchronisieren fehlgeschlagen – Änderungen bleiben lokal gespeichert.',
+    syncFailedToast: 'Nicht synchronisiert – Änderungen bleiben auf diesem Gerät gespeichert.',
     // group titles in the menu: this Einsatz first (its card), then WHICH Einsatz, then the app.
     incidents: 'Einsätze',
     app: 'App',
@@ -78,11 +78,16 @@ export const incidentCopy = {
     logoutTitle: 'Abmelden?',
     logoutMsg: 'Danach öffnet dieses Gerät Einsätze erst wieder nach einer Anmeldung mit PIN.',
     logoutOffline: 'Eine neue Anmeldung ist erst wieder mit Netz möglich – bis dahin öffnet dieses Gerät keinen Einsatz.',
-    logoutUnsyncedOne: '1 Eintrag ist noch nicht übertragen. Er bleibt auf diesem Gerät und wird gesendet, sobald du dich wieder anmeldest.',
-    logoutUnsyncedMany: '{n} Einträge sind noch nicht übertragen. Sie bleiben auf diesem Gerät und werden gesendet, sobald du dich wieder anmeldest.',
+    logoutUnsyncedOne: '1 Eintrag ist noch nicht synchronisiert. Er bleibt auf diesem Gerät und wird synchronisiert, sobald du dich wieder anmeldest.',
+    logoutUnsyncedMany: '{n} Einträge sind noch nicht synchronisiert. Sie bleiben auf diesem Gerät und werden synchronisiert, sobald du dich wieder anmeldest.',
     // …where only the Einsatz itself (Karte, Pläne, lists) is still unsent, no countable entry
-    logoutUnsyncedChanges: 'Änderungen sind noch nicht übertragen. Sie bleiben auf diesem Gerät und werden gesendet, sobald du dich wieder anmeldest.',
+    logoutUnsyncedChanges: 'Änderungen sind noch nicht synchronisiert. Sie bleiben auf diesem Gerät und werden synchronisiert, sobald du dich wieder anmeldest.',
     appVersion: 'App-Version (Build)',
+    // «Nur ansehen» in the pill's status slot (M6 A, 13.11.2026), the reason in the opened card
+    viewOnly: 'Nur ansehen',
+    viewOnlyWhy: { viewer: 'Betrachter', el: 'Einsatzleitung', link: 'Einsatz-Link' },
+    // the closed pill's red dot (M11 B): another Einsatz has a Trupp at the alarm tier
+    foreignAlarmDot: 'Atemschutz-Alarm in einem anderen Einsatz',
   },
   // Persistentes Band, solange ein abgeschlossener Einsatz nur-lesend offen ist (ArchivedBanner).
   // ⚠️ EIN WORTPAAR für den ganzen Lebenslauf: abschliessen / wieder öffnen. «Archiviert» und
@@ -99,12 +104,12 @@ export const incidentCopy = {
     reactivate: 'Wieder öffnen',
     // offline (05.10.2026): «Wieder öffnen» is the server's call (it writes the reopen boundary
     // the Atemschutz clocks restart from), so it is said up front, not discovered by a failure
-    reactivateOffline: 'Braucht Verbindung zum Server',
+    reactivateOffline: 'Braucht Netz',
     // the Einsatz card's closed pill (27.10.2026, sweep #5 B): the CURRENT close time, a tap opens the exits
     closedAt: 'Abgeschlossen {t}',
     // …and «Wieder öffnen» while it runs (#6): the reopen is three server round trips
     reopening: 'Wird geöffnet …',
-    reactivateNeedsServer: 'Wieder öffnen braucht Verbindung zum Server – der Einsatz bleibt abgeschlossen. Online nochmals versuchen.',
+    reactivateNeedsServer: 'Wieder öffnen nicht bestätigt – Netz und Einsatzstatus prüfen.',
     // N3 (25.09.2026): das Einsatz wurde auf einem ANDEREN Gerät abgeschlossen, während es hier
     // offen war — die Meldeleiste sagt, warum der Bildschirm eben nur-lesend geworden ist.
     closedElsewhere: 'Einsatz wurde auf einem anderen Gerät abgeschlossen ({t})',
@@ -113,7 +118,7 @@ export const incidentCopy = {
     // offline): nicht übernommen, aber nicht verloren.
     closedRefusedOne: '1 Eintrag dieses Geräts kam nach dem Abschluss und wurde nicht mehr übernommen. Er bleibt auf diesem Gerät gespeichert.',
     closedRefused: '{n} Einträge dieses Geräts kamen nach dem Abschluss und wurden nicht mehr übernommen. Sie bleiben auf diesem Gerät gespeichert.',
-    closedExport: 'Einträge sichern',
+    closedExport: 'Einträge herunterladen',
     closedDismiss: 'Ausblenden',
     // …und der Weg zurück: auf einem anderen Gerät «Wieder öffnen» — der Bildschirm ist wieder live
     reopenedElsewhere: 'Einsatz wurde auf einem anderen Gerät wieder geöffnet ({t})',
@@ -121,13 +126,13 @@ export const incidentCopy = {
     rapportClosedHint: 'Einsatz abgeschlossen – zum Bearbeiten wieder öffnen.',
     rapportClosedViewOnly: 'Einsatz abgeschlossen – nur ansehen.',
     // …und die Atemschutz-Link-Tafel, deren Halter nichts wieder öffnen kann
-    linkClosedTitle: 'Einsatz abgeschlossen – diese Tafel zeigt nur noch an',
+    linkClosedTitle: 'Einsatz abgeschlossen – nur noch ansehen',
     // D1: der Link wurde für seinen eigenen Einsatz abgelehnt (widerrufen) – nichts mehr annehmen
-    linkRefusedTitle: 'Dieser Link gilt nicht mehr – diese Tafel zeigt nur noch an',
+    linkRefusedTitle: 'Dieser Link gilt nicht mehr – nur noch ansehen',
     reopenedElsewhereSub: 'Wieder bearbeitbar – spätere Einträge erscheinen als Nachträge.',
     // was beim Abschluss zurückgestellt wurde, geht jetzt raus – als Nachtrag
-    reopenedParkedOne: 'Wieder bearbeitbar. 1 Eintrag dieses Geräts, der nach dem Abschluss nicht übernommen wurde, wird jetzt nachgesendet – als Nachtrag.',
-    reopenedParked: 'Wieder bearbeitbar. {n} Einträge dieses Geräts, die nach dem Abschluss nicht übernommen wurden, werden jetzt nachgesendet – als Nachträge.',
+    reopenedParkedOne: 'Wieder bearbeitbar. 1 Eintrag dieses Geräts, der nach dem Abschluss nicht übernommen wurde, wird jetzt synchronisiert – als Nachtrag.',
+    reopenedParked: 'Wieder bearbeitbar. {n} Einträge dieses Geräts, die nach dem Abschluss nicht übernommen wurden, werden jetzt synchronisiert – als Nachträge.',
   },
   // Einsätze history list
   history: {
@@ -145,7 +150,7 @@ export const incidentCopy = {
     groupOpen: 'Offen',
     groupToday: 'Heute',
     groupWeek: 'Letzte 7 Tage',
-    offlineNote: 'Offline: Ansehen geht, Abschliessen und Wieder öffnen brauchen Verbindung zum Server.',
+    offlineNote: 'Offline: Ansehen geht, Abschliessen und Wieder öffnen brauchen Netz.',
     // a running Einsatz's span in its row: «seit 14:00» (no end yet)
     since: 'seit {t}',
     reactivate: 'Wieder öffnen',
@@ -154,7 +159,7 @@ export const incidentCopy = {
     reactivateConfirmBtn: 'Wieder öffnen',
     statusArchived: 'Abgeschlossen',
     archiveConfirmTitle: 'Einsatz abschliessen',
-    archiveConfirmMsg: 'Der Einsatz wird abgeschlossen und das Einsatzende festgehalten. Spätere Ergänzungen erscheinen im Verlauf und Rapport als Nachträge.',
+    archiveConfirmMsg: 'Der Einsatz wird abgeschlossen und das Einsatzende festgehalten. Danach nur noch lesen und unterschreiben – für Korrekturen wieder öffnen.',
     archiveConfirmBtn: 'Abschliessen',
     // hard delete — Übungen only (the backend rejects everything else); deliberately NOT
     // undoable, hence the danger confirm instead of confirm-with-undo
@@ -172,7 +177,7 @@ export const incidentCopy = {
     filterType: 'Einsatzart',
     filterRapportOpen: 'Rapport offen',
     filterNoHits: 'Kein Einsatz passt zu diesen Filtern.',
-    deleteFailed: 'Löschen fehlgeschlagen',
+    deleteFailed: 'Nicht gelöscht – bleibt in der Liste',
   },
   // Abschluss-Assistent — the guided closing ritual over the EXISTING views. Every small
   // incident is a training run on the big-incident tool (practice rationale, 2026-07-08).
@@ -202,7 +207,7 @@ export const incidentCopy = {
     completeShort: 'Abschliessen',
     backToRapport: 'Zurück zum Rapport',
     confirmTitle: 'Einsatz abschliessen',
-    confirmMsg: 'Der Rapport wird als abgeschlossen markiert und der Einsatz abgeschlossen. Danach ist er nur noch zu lesen und zu unterschreiben – für Korrekturen wieder öffnen.',
+    confirmMsg: 'Der Einsatz wird abgeschlossen und das Einsatzende festgehalten. Danach nur noch lesen und unterschreiben – für Korrekturen wieder öffnen.',
     confirmBtn: 'Abschliessen',
     // …und wenn noch etwas offen ist, sagt es der Knopf. Abschliessen ist erlaubt – das ist der
     // Ort, an dem das ausgesprochen wird, statt hinter einem gleich beschrifteten Knopf.
@@ -214,7 +219,7 @@ export const incidentCopy = {
     registeredOne: '1 Trupp noch angemeldet ({list}).',
     registeredMany: '{n} Trupps noch angemeldet ({list}).',
     registeredSafety: '{name}, Sicherungstrupp',
-    registeredToBoard: 'Zur Tafel',
+    registeredToBoard: 'Zu den Trupps',
     registeredTitle: 'Noch angemeldet',
     registeredStandDown: 'Als «nicht eingesetzt» schliessen',
     // Trupps, die beim Abschluss noch DRIN sind: eine eigene, erste Frage
@@ -223,8 +228,8 @@ export const incidentCopy = {
     insideTrupp: 'Trupp {no}',
     insideClose: 'Trotzdem abschliessen',
     insideTitle: 'Trupps noch drin',
-    // …für wen die Tafel nicht schreibbar ist (Rolle el): kein «Zur Tafel», dafür wer austrägt
-    boardNotYours: 'Austragen kann nur, wer die Atemschutz-Tafel führt.',
+    // …für wen die Trupps nicht schreibbar sind (Rolle el): kein «Zu den Trupps», dafür wer raus meldet
+    boardNotYours: 'Raus melden kann nur, wer die Trupps führt.',
     watchEnds: 'Mit dem Abschluss endet die Überwachung dieser Trupps auf allen Geräten.',
     // die sichere, fokussierte Antwort auf der Liste der offenen Punkte
     confirmBack: 'Zurück',
@@ -236,70 +241,32 @@ export const incidentCopy = {
     reopen: 'Wieder öffnen',
     // what an Abschluss left in the media queue stands in the Meldeleiste while it is there — it
     // was the closing toast's second half (S3, 20.10.2026; components/MediaPendingMeldung)
-    mediaPendingTitle: '{n} Foto/Audio von «{title}» noch nicht hochgeladen',
-    mediaPendingSub: 'Bleiben auf diesem Gerät gespeichert und gehen beim nächsten Öffnen raus.',
+    mediaPendingTitle: '{n} Foto/Audio von «{title}» noch nicht synchronisiert',
+    mediaPendingSub: 'Bleiben auf diesem Gerät gespeichert und werden beim nächsten Öffnen synchronisiert.',
     mediaPendingDismiss: 'Ausblenden',
-    failed: 'Abschluss fehlgeschlagen',
+    failed: 'Abschluss nicht bestätigt – Status prüfen',
     corrected: 'Stunden korrigiert: {name}',
     attendanceRemoved: '{name} Anwesenheit entfernt',
   },
-  // Datenquellen panel (reference datasets + objects)
-  datenquellen: {
-    title: 'Datenquellen',
-    uploaded: 'Hochgeladen',
-    uploadFailed: 'Upload fehlgeschlagen',
-    invalidFilename: 'Dateiname ergibt keine gültige Kennung',
-    layerAdded: 'Ebene «{name}» hinzugefügt – beim nächsten Laden sichtbar',
-    addLayerFailed: 'Konnte Ebene nicht hinzufügen',
-    // ⚠️ Die Konfiguration wurde zwischen Lesen und Schreiben anderswo geändert (CLI, Verwaltung,
-    // zweites Tablet). Nochmals drücken liest neu und legt die Ebene sauber obendrauf – blind
-    // überschreiben würde genau das kaputtmachen, wogegen der Schutz eingebaut wurde.
-    layerConflict: 'Die Kartenebenen wurden gerade an anderer Stelle geändert. Bitte nochmals «Hinzufügen» drücken.',
-    // ⚠️ Etwas anderes als ein Konflikt: die Konfiguration liess sich gar nicht erst lesen (die
-    // Antwort war nicht das Dokument – Portal-Seite, Proxy-Fehler, Offline-Hülle). Nochmals
-    // drücken hilft hier nie, deshalb steht hier auch nicht «nochmals versuchen».
-    layerNoVersion: 'Die Konfiguration konnte nicht gelesen werden – die Ebene wurde nicht gespeichert. Bitte die Verbindung prüfen und die Seite neu laden.',
-    globalDatasets: 'Globale Datensätze',
-    objectsCount: 'Objekte',
-    replace: 'Ersetzen',
-    adminOnlyNote: 'Datensätze ersetzen oder eine neue Ebene hinzufügen kann nur, wer /admin in diesem Browser entsperrt hat (ADMIN_SECRET).',
-    newGeoLayer: 'Neue Geo-Ebene …',
-    chooseGeojson: 'GeoJSON wählen …',
-    labelPlaceholder: 'Bezeichnung (z. B. Hydranten)',
-    groupPlaceholder: 'Gruppe (z. B. Wasser)',
-    defaultGroup: 'Referenz',
-    kindLines: 'Linien',
-    kindPoints: 'Punkte',
-    color: 'Farbe',
-    adding: 'Wird geladen …',
-    add: 'Hinzufügen',
-    geojsonNoteBefore: 'GeoJSON in WGS84 [lng, lat]. Wird als globaler Datensatz ',
-    geojsonNoteAfter: ' gespeichert.',
-    incidentObjects: 'Einsatzobjekte',
-    plansWord: 'Pläne',
-    nearby: 'In der Nähe ({n})',
-    allOther: 'Alle übrigen Objekte',
-    allObjects: 'Alle Objekte',
-  },
   // sync the roster with the configured personnel source
   personnelSync: {
-    title: 'Personal mit {provider} synchronisieren',
+    title: 'Personal mit {provider} abgleichen',
     unknownError: 'Unbekannter Fehler',
-    syncFailed: 'Synchronisierung fehlgeschlagen',
+    syncFailed: 'Personalabgleich fehlgeschlagen – erneut versuchen',
     countNew: 'neu',
     countUpdated: 'aktualisiert',
     countUnchanged: 'unverändert',
     countStale: 'nicht mehr bei {provider}',
     querying: '{provider} wird abgefragt …',
-    done: 'Synchronisierung abgeschlossen.',
+    done: 'Personalabgleich abgeschlossen.',
     resultCreated: '{n} neu angelegt',
     resultUpdated: '{n} aktualisiert',
     resultReactivated: ' (davon {n} reaktiviert)',
     resultUnchanged: '{n} unverändert',
     resultDeactivated: '{n} deaktiviert',
     staleHide: '{n} nicht mehr bei {provider} vorhandene Personen ausblenden (bleiben für alte Einsätze erhalten, werden nicht gelöscht)',
-    syncing: 'Synchronisiere …',
-    sync: 'Synchronisieren',
+    syncing: 'Wird abgeglichen …',
+    sync: 'Abgleichen',
   },
   // PlanPicker (manually pick an Einsatzobjekt)
   planPicker: {

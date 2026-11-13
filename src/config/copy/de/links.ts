@@ -18,19 +18,19 @@ export const linksCopy = {
     invalidHint: 'Öffne den Link direkt aus der aktuellen Alarmmeldung.',
     disabledTitle: 'Einsatz-Links sind bei dieser Feuerwehr nicht freigeschaltet.',
     disabledHint: 'Die Einsatzleitung kann sie in der Konfiguration aktivieren.',
-    offlineTitle: 'Kein Empfang',
-    offlineHint: 'Ohne Verbindung lässt sich der Einsatz nicht öffnen.',
-    errorTitle: 'Der Server antwortet nicht.',
+    offlineTitle: 'Server nicht erreichbar',
+    offlineHint: 'Ohne Netz lässt sich der Einsatz nicht öffnen.',
+    errorTitle: 'Einsatz nicht geöffnet',
     errorHint: 'Bleibt es dabei: bei der Einsatzleitung melden.',
     retry: 'Erneut versuchen',
     // an Atemschutz-Link reloaded while its Einsatz is closed (staging r6, F2): the page asks
     // once a minute and opens the board by itself after «Wieder öffnen»
     closedTitle: 'Einsatz abgeschlossen',
     closedAt: 'Abgeschlossen um {time}.',
-    closedHint: 'Wird der Einsatz wieder geöffnet, erscheint die Tafel hier von selbst.',
+    closedHint: 'Wird der Einsatz wieder geöffnet, erscheint er hier von selbst.',
     // the Einsatz could not be loaded after opening the link (signal gone) – the landing page
     // says so instead of showing an empty incident list
-    unavailable: 'Dieser Einsatz ist gerade nicht abrufbar. Seite neu laden, sobald du wieder Empfang hast.',
+    unavailable: 'Dieser Einsatz ist gerade nicht abrufbar. Seite neu laden, sobald du wieder Netz hast.',
   },
   // Standing links (Stations-Terminal /terminal + fixe Atemschutz-URL /l/s…): the states such
   // a page can be in besides «the app» — src/link/StandingApp renders them. Both bind to
@@ -48,7 +48,7 @@ export const linksCopy = {
      * Karte hängt bereits, und ein Satz, der das Offensichtliche beruhigt, liest sich, als
      * gäbe es einen Grund zur Sorge. */
     idleHintTerminal: 'Geht ein Alarm ein, wechselt dieser Bildschirm von selbst auf den Einsatz.',
-    idleHintAs: 'Sobald ein Einsatz oder eine Übung läuft, öffnet dieser Code die Atemschutzüberwachung.',
+    idleHintAs: 'Sobald ein Einsatz oder eine Übung läuft, öffnet dieser Code die Trupps.',
     // Die Kopfzeile des Wartezustands: welche Fläche das hier ist. Beim Terminal hinter dem
     // Namen der Wehr, beim QR allein – wer den Code scannt, steht in der eigenen Station.
     terminalKicker: 'Stations-Terminal',
@@ -85,7 +85,7 @@ export const linksCopy = {
     pickAgain: 'Neuer Einsatz – bitte bestätige nochmals, wer du bist. Der zuletzt gewählte Name steht zuoberst.',
     pickLast: 'zuletzt',
     search: 'Name suchen …',
-    yes: 'Ja, Standort teilen',
+    yes: 'Standort teilen',
     no: 'Nein, danke',
     // compass menu: the one row that switches sharing on and off
     menuOff: 'Standort teilen',
@@ -107,7 +107,7 @@ export const linksCopy = {
     taken: 'Name bereits vergeben',
     takenHint: 'Ein anderes Gerät teilt unter diesem Namen. Wähle deinen Namen neu oder bitte die Einsatzleitung, den alten Standort zu entfernen.',
     failing: 'Standort kommt nicht an',
-    failingHint: 'Das Handy findet deinen Standort, aber der Server nimmt ihn nicht entgegen – meist fehlender Empfang. Es wird weiter versucht.',
+    failingHint: 'Das Handy findet deinen Standort, aber er kommt nicht an – meist fehlt das Netz. Es wird weiter versucht.',
     // A reason for still searching, not a state of its own: indoors/in a cellar a phone happily
     // reports an accuracy of several hundred metres, and such a dot on the map would be a lie.
     impreciseHint: 'Der Empfang ist noch zu ungenau für einen Punkt auf der Karte. Draussen wird es meist innert Sekunden besser.',
@@ -141,7 +141,7 @@ export const linksCopy = {
     runningMine: 'Du präsentierst gerade.',
     runningOther: '{name} präsentiert gerade.',
     takeOver: 'Übernehmen',
-    needsServer: 'Braucht Verbindung zum Server.',
+    needsServer: 'Braucht Netz.',
     youPresent: 'Du präsentierst',
     followersNone: 'noch niemand folgt',
     followersOne: '1 folgt',
@@ -161,8 +161,8 @@ export const linksCopy = {
     askName: 'Dein Name für die anderen',
     namePlaceholder: 'Vorname Name',
     pill: 'Präsentation',
-    startFailed: 'Präsentation nicht gestartet – braucht Verbindung zum Server.',
-    endFailed: 'Präsentation nicht beendet – nochmals versuchen.',
+    startFailed: 'Präsentation nicht gestartet – erneut versuchen',
+    endFailed: 'Präsentation nicht beendet – erneut versuchen',
     full: 'Präsentation voll – zu viele Teilnehmende über einen Link. Später nochmals «Folgen».',
   },
 } as const

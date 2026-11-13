@@ -294,7 +294,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   keyboard `[data-highlighted]`, the `--press` wash and the `--r-ctl` row radius
   (13-incident.css · «ONE menu row»). A caller's `itemClassName` skin owns padding, type and
   icons — never what a press looks like. Hand-rolled option lists (`.combo-opt`, `.pickOpt`,
-  `.pp-row`, `.tb-uhr-row`, `.ip-ac-row`, `.lrow`) match those values.
+  `.pp-row`, `.ip-ac-row`, `.lrow`) match those values.
 
 ## Buttons follow one spec
 
@@ -456,7 +456,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     segment).* (1) A **choice** — a segment, a chip, an option tile, a toggle chip, single or
     multi — is `--sel` filled with `--on-sel` text and `--sel-shadow` (01-tokens), whether it
     sits in a Segmented track, stands as chips (the Segmented's ≥5 mode too) or is a module's
-    own class. (2) A **row** in a list or menu (a combo option, a picker row, an option card
+    own class – best a real `Segmented` (13.11.2026, owner M5: the Linien-Editor's «Linie» stood
+    as a grey wash right under the blue «Abschluss»; it and the Form's «Strichstärke» are
+    `Segmented` now). (2) A **row** in a list or menu (a combo option, a picker row, an option card
     with a radio mark) is picked by `--sel-wash`, never filled — a filled row is a slab. **Nothing
     else rides on the wash** (29.09.2026): no ring, no recoloured read-out; a count keeps its own
     ink (an open count is amber on every row, current or not — `.group-choose-count.open`); a ✓
@@ -496,6 +498,23 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     menu has no ✕ row and no lone ⓘ row (29.09.2026): its tile toggles it and a row or a press
     elsewhere closes it; an ⓘ sits at the END of the last row and opens its sentence under that
     row (Ansichten).
+  - *Close and commit (13.11.2026, owner, M7 C: «keep the X as generic closing and finishing if
+    something is actually done, and otherwise, "would be destroyed" is fertig»):* ✕ means «zu»
+    everywhere, and closing with ✕ never loses anything – a card, a sheet, a tool dock, a mode bar,
+    the Passung (its points save as they are placed, so its exit stays ✕ «Schliessen» also once a
+    fit stands; «Deckung prüfen» closes with ✕ «Schliessen» too). **«✓ Fertig» exists ONLY while
+    something is being made that a close would throw away** – a Punkte-Linie, -Fläche or Wand
+    being drawn: there it is THE way to commit, the dock's one filled tile (`ToolDock` · `go`). The
+    tablet dock follows the rail beside it (round 2b): «Beschriftung der Werkzeugleisten» on, EVERY
+    item wears its word under its glyph («Abbrechen», the modes, «Fertig», «Info»); off, every item
+    is a bare glyph – never a mix; the phone's row dock stays bare. The «Linie offen» pill at the
+    draft's last point steps to the point's left rather than lie under the dock (`OpenPill`). The dock's ✕
+    / Esc leave the draft through `settleDraft` (a committable draft is asked about – «Speichern ·
+    Verwerfen · Weiterzeichnen» – never silently dropped). So one exit per state: a SELECTED
+    object's is its editor card's ✕, and the `SelectionBar` carries no «Fertig» beside it; only a
+    Mehrfach group, which has no card, gets a ✕ at the bar's end. The armed-tool pill at the bottom
+    centre stays glyph + name, no buttons. Text editors' in-place ✓ (a Notiz, a box label) commit
+    typed text and keep their ✓.
   - *Cancel (28.09.2026, owner pick A):* «Abbrechen» in a footer is a FRAMED `.ip-btn` 14/700 at
     its word's width, never a ghost word; the primary takes the rest of the row, same height (on a
     phone `[role=dialog] .ui-sheet-foot > .ip-btn.primary` flexes).
@@ -562,8 +581,17 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     var(--done-opacity)` only; a strike-through may carry the word, a second dim may not. A
     read-only control that is NOT unavailable (`opacity: 1` on purpose) says so in a comment.
     (4) **Tag** (ÜBUNG, a status word): the `.ip-badge` recipe — 10px/700 uppercase .03em,
-    padding 2px 7px, `--r-xs`; ÜBUNG is amber 16% + `--amber-strong` wherever it stands (top bar,
-    lists, the poster's `.cv-badge-exercise` shares the selectors). Status words in a picker row
+    padding 2px 7px, `--r-xs`; ÜBUNG is a HATCHED, outlined tag with no hue (4px `--ink-tint-strong` stripes
+    on an 8px period, a 1.5px `--ink-dim` ring, `--ink` text) wherever it stands (top bar, the
+    phone's «Ü» square, lists, the Karte chip, the poster's `.cv-badge-exercise` shares the
+    selectors) – M2, owner's pick A, 13.11.2026; back on 14.11.2026 after a round as a quiet «Übung ·»
+    prefix («almost invisible»), with stripes strong enough to read at a glance, not as flat grey. Amber
+    on the Einsatz card is the COUNT of open points alone; «Abgeschlossen» is the grey tag «Archiv»
+    wears, «Nicht synchronisiert» a cloud and the word, «Offline» the cloud struck through
+    (`#cloud-off`, round 2b: a plain cloud reads «online»), «Abschliessen» a normal tile. The
+    Einsatz head shows a state mark only for a problem (round 2b, owner's pick «Only show
+    problems»): no ✓ while all is saved – that lives in the card's pill – and «Nicht
+    synchronisiert» only after 10 s (a normal save is pending for ~3 s). Status words in a picker row
     («AS», «raus» in the TruppFinder) are this tag in ink on `--fill-soft` — never blue (blue is
     «chosen»), never a pill.
     (5) **Search field** (29.09.2026): every «type to narrow this list» is `components/SearchField`

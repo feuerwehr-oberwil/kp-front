@@ -104,7 +104,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
 
     pdf: 'Download PDF',
     pdfBusy: 'Creating the PDF …',
-    pdfFailed: 'The PDF could not be created.',
+    pdfFailed: 'PDF not created – try again',
     lehren: 'Lessons / safety',
   },
   wheel: {
@@ -142,7 +142,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     cancel: 'Cancel',
     confirm: 'Sign',
     logSigned: 'Report signed: {role} {name} (checksum {sum})',
-    failed: 'Signature not saved – please try again',
+    failed: 'Signature not saved – try again',
   },
   preflight: {
     pdfFull: 'Incident report (PDF)',
@@ -247,7 +247,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     attachmentsCount: '{n} photo(s)',
     attachmentsNone: 'none',
     attachmentsCaption: 'Caption (e.g. «Driver\'s licence»)',
-    attachmentsPending: 'not uploaded yet',
+    attachmentsPending: 'not synced yet',
     attachmentAdded: 'Photo added',
     attachmentCaptioned: 'Caption',
     attachmentRemoved: 'Photo removed',
@@ -260,7 +260,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     shareLoading: 'Loading link …',
     shareLoadFailed: 'The link could not be loaded.',
     shareRetry: 'Try again',
-    shareCreateFailed: 'Creating the link failed',
+    shareCreateFailed: 'Link not received – try again',
     shareCopy: 'Copy address',
     shareCopied: 'Copied',
     shareScan: 'Scan with the camera',
@@ -271,20 +271,19 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     shareRevokeTitle: 'Revoke the link to the whole incident?',
     shareRevokeBody: 'The address stops working. Anyone who has it open right now loses access '
       + 'immediately. A new link can be created at any time – it will be a different address.',
-    shareRevokeConfirm: 'Yes, revoke',
-    shareRevokeFailed: 'Revoking the link failed',
+    shareRevokeConfirm: 'Revoke link',
+    shareRevokeFailed: 'Revoking not confirmed – reload the link status',
     shareKindLabel: 'What the link opens',
     shareKindFull: 'Incident · read',
     shareKindAtem: 'Teams · operate',
-    shareAsLede: 'Whoever opens the link sees only this incident’s team board – the SCBA '
-      + 'monitoring – and operates it: register a team, contact, pressure, withdrawal, out. No '
-      + 'map, no log. Valid until the incident is closed.',
+    shareAsLede: 'Whoever opens the link sees only this incident’s teams and operates them: register a team, '
+      + 'contact, pressure, withdrawal, out. No map, no log. Valid until the incident is closed.',
     shareAsLiveLede: 'Valid until the incident is closed.',
     shareAsWarn: 'Whatever is entered there appears in the report under «SCBA monitoring». Give the link only '
       + 'to the person doing the monitoring.',
-    shareAsRevokeTitle: 'Revoke the link to the team board?',
-    shareAsRevokeBody: 'The address stops working. Anyone with the board open can no longer enter '
-      + 'anything. A new link can be created at any time – it is then a different address.',
+    shareAsRevokeTitle: 'Revoke the teams link?',
+    shareAsRevokeBody: 'The address stops working. Anyone with the teams open can no longer enter anything. A new '
+      + 'link can be created at any time – it is then a different address.',
     linksCount: '{done} of {n} done',
     linksOpen: 'Open',
     linksMarkDone: 'Mark {title} as done',
@@ -348,8 +347,8 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     controlHints: '{n} notes',
     controlOpenHead: 'Still open',
     unresolvedHours: '{names}: times run backwards or are missing — not in the deployment hours.',
-    pendingMedia: '{n} photo/audio not uploaded yet — it will be added once there is a connection; it may not be visible on other devices yet.',
-    pendingMediaConfirm: '{n} photo/audio not uploaded yet – kept on this device',
+    pendingMedia: '{n} photo/audio not synced yet – added once there is network; may not be visible on other devices yet.',
+    pendingMediaConfirm: '{n} photo/audio not synced yet – kept saved on this device',
     truppsDeployedConfirm: 'Still deployed: {n} – never reported out',
   },
   printRelay: {
@@ -367,7 +366,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     jobOpenSince: 'In the queue for {t}',
     jobCheck: 'Check',
     jobCancel: 'Cancel',
-    jobUnreachable: 'Print job unreachable – check the connection',
+    jobUnreachable: 'Print job unreachable – check the network',
     jobGone: 'Print job no longer traceable – print again if no printout arrived.',
     confirmTitle: 'Print',
     confirmMsg: 'Send the incident report to the station printer?',
@@ -375,7 +374,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     undo: 'Undo',
     cancelled: 'Print job cancelled',
     undoTooLate: 'Too late – the job is already at the printer',
-    failed: 'Sending to station printer failed',
+    failed: 'Not printed – download the PDF and print it by hand',
     online: 'Station printer reachable',
     offline: 'Station printer offline',
     offlineConfirmTitle: 'Station printer offline',
