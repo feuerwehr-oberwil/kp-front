@@ -213,7 +213,7 @@ export const anwesenheitCopy = {
     viewPlan: 'Zeitplan',
     viewBands: 'Schichten',
     viewLabel: 'Ansicht',
-    // the tick after «Neu laden» fetched the roster – its own word, not the Einsatz menu's «übertragen»
+    // the tick after «Neu laden» fetched the roster – its own word, not the Einsatz menu's «synchronisiert»
     reloadDone: 'Liste aktualisiert',
   },
   // «Anrückend» — die Divera-Rückmeldungen über der Anwesenheit (AnrueckendBlock, X1 08.10.2026).

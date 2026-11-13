@@ -332,7 +332,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             '**Tactics · keywords** – search a keyword and open the matching entry (with hazard colour code and sketches).',
             'When an alarm is taken over, a matching keyword is suggested automatically.',
           ] },
-          { kind: 'lead', text: 'The state is preserved and sent to all devices.' },
+          { kind: 'lead', text: 'The state is preserved and synced to all devices.' },
         ],
       },
       {
@@ -376,7 +376,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'If the brigade has stored its own forms (Administration › Report), **Forms & links** appears at the end, below the sketch crop – a list to tick off. **Open** calls the form up with keyword, location, date and incident commander already filled in, as far as the link allows. The tick is set by hand: the app cannot see whether a form was submitted.',
             'If something about the record is off – a broken audit chain, a voice memo without a transcript, a photo still queued – an **orange notice chip** appears next to the buttons. It counts the points and opens them; when everything is in order it does not appear at all.',
             'Contact person and dispatch feedback carry a **Not applicable** at the end of the line – for the false alarm or the oil spill where neither exists. That is an answer, not a skip: it is recorded and reads that way on the report.',
-            '**Close incident** closes the incident and records the time it ended. Photos and voice notes that have not been sent yet are sent first; if that is impossible (offline) they **stay saved on this device** and are sent the next time the incident is opened – the confirmation says how many.',
+            '**Close incident** closes the incident and records the time it ended. Photos and voice notes that have not been synced yet are synced first; if that is impossible (offline) they **stay saved on this device** and are synced the next time the incident is opened – the confirmation says how many.',
             '**Share** (at the bottom of the report, and **Share incident** in the incident menu): a link to this incident alone – map, plans, log, photos, times. Read-only, no login, nothing can be changed. For dispatch, the IC and a neighbouring brigade during the incident – and for the municipality and neighbouring brigades afterwards: it outlives the closure until somebody revokes it.',
           ] },
           { kind: 'note', text: 'A closed incident can be **reopened** – later additions appear in the log and the report as **addenda**, and nothing is lost.' },
@@ -399,7 +399,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         blocks: [
           { kind: 'lead', text: 'All devices see the same incident live.' },
           { kind: 'list', items: [
-            'Changes are sent automatically; the indicator on top shows how far sending has got.',
+            'Changes are synced automatically; the indicator on top shows the state.',
             'Concurrent editing is merged per object (latest change wins).',
             '**Read-only**: viewers see the situation live, without the tactical tools.',
           ] },
@@ -410,7 +410,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'What is actually ready is shown by **This device** in the menu (under «Ready?») – row by row: map, plans, symbols, hazmat, reference layers, personnel, device storage. **Weather** and **Object search** need network and stand there as «network only».',
             'Only the **installed app** is reliably offline. In a browser tab the storage can be cleared at any time, and the tab would have to still be open at the next incident.',
             'Without a network everything on the device keeps working: drawing and placing symbols, SCBA, attendance, materiel, log and report. Photos and voice notes stay stored and go out later.',
-            'As soon as there is a network again the changes go out by themselves and are merged with the other devices – per object, latest change wins. While anything is pending, the transfer indicator on top says so.',
+            'As soon as there is a network again the changes go out by themselves and are merged with the other devices – per object, latest change wins. While anything is pending, the indicator on top says so.',
           ] },
         ],
       },

@@ -359,7 +359,7 @@ export const helpCopy = {
             '**Taktik · Stichworte** – Stichwort suchen und den passenden Eintrag öffnen (mit Gefahren-Farbcode und Skizzen).',
             'Bei einem übernommenen Alarm wird automatisch ein passendes Stichwort vorgeschlagen.',
           ] },
-          { kind: 'lead', text: 'Der Stand bleibt erhalten und wird auf alle Geräte übertragen.' },
+          { kind: 'lead', text: 'Der Stand bleibt erhalten und wird auf alle Geräte synchronisiert.' },
         ],
       },
       {
@@ -413,7 +413,7 @@ export const helpCopy = {
             'Hat die Wehr eigene Formulare hinterlegt (Verwaltung › Rapport), steht am Ende, unter dem Kroki-Ausschnitt, **Formulare & Links** – eine Liste zum Abhaken. **Öffnen** ruft das Formular auf, mit Stichwort, Ort, Datum und Einsatzleiter bereits ausgefüllt, soweit der Link das vorsieht. Der Haken wird von Hand gesetzt: ob ein Formular abgeschickt wurde, sieht die App nicht.',
             'Stimmt etwas mit dem Datensatz nicht – eine unterbrochene Prüfkette, eine Sprachnotiz ohne Transkript, ein Foto noch in der Warteschlange –, erscheint neben den Knöpfen ein **oranger Hinweis-Chip**. Er zählt die Punkte und öffnet sie; ist alles in Ordnung, erscheint er gar nicht.',
             'Kontaktperson und Rückmeldung ELZ haben am Ende der Zeile ein **Entfällt** – für den Fehlalarm oder die Ölspur, wo es beides nicht gibt. Das ist eine Antwort, keine Übergehung: sie wird festgehalten und steht so im Rapport.',
-            '**Einsatz abschliessen** schliesst den Einsatz ab und hält das Einsatzende fest. Fotos und Sprachnotizen, die noch nicht übertragen sind, werden vorher übertragen; geht das nicht (offline), **bleiben sie auf diesem Gerät gespeichert** und werden beim nächsten Öffnen übertragen – die Bestätigung sagt, wie viele.',
+            '**Einsatz abschliessen** schliesst den Einsatz ab und hält das Einsatzende fest. Fotos und Sprachnotizen, die noch nicht synchronisiert sind, werden vorher synchronisiert; geht das nicht (offline), **bleiben sie auf diesem Gerät gespeichert** und werden beim nächsten Öffnen synchronisiert – die Bestätigung sagt, wie viele.',
             '**Teilen** (unten im Rapport, und im Einsatz-Menü unter **Einsatz teilen**): ein Link auf genau diesen Einsatz – Karte, Pläne, Verlauf, Fotos, Zeiten. Nur lesen, kein Login, nichts lässt sich ändern. Für Zentrale, EL und Nachbarwehr mitten im Einsatz – und für Gemeinde und Nachbarwehr danach: er gilt über den Abschluss hinaus, bis ihn jemand aufhebt.',
           ] },
           { kind: 'note', text: 'Ein abgeschlossener Einsatz lässt sich **wieder öffnen** – spätere Ergänzungen erscheinen in Verlauf und Rapport als **Nachträge**, nichts geht verloren.' },
@@ -436,7 +436,7 @@ export const helpCopy = {
         blocks: [
           { kind: 'lead', text: 'Alle Geräte sehen denselben Einsatz live.' },
           { kind: 'list', items: [
-            'Änderungen werden automatisch übertragen; die Anzeige oben zeigt den Stand der Übertragung.',
+            'Änderungen werden automatisch synchronisiert; die Anzeige oben zeigt den Stand.',
             'Gleichzeitige Bearbeitung wird pro Objekt zusammengeführt (jüngste Änderung gewinnt).',
             '**Nur-Lesen**: Betrachter sehen die Karte live, ohne die taktischen Werkzeuge.',
           ] },
@@ -447,7 +447,7 @@ export const helpCopy = {
             'Was tatsächlich bereit ist, sagt **Dieses Gerät** im Menü (unter «Bereit?») – Zeile für Zeile: Karte, Pläne, Symbole, Gefahrgut, Referenzebenen, Personal, Gerätespeicher. **Wetter** und **Objektsuche** brauchen Netz und stehen dort als «nur mit Netz».',
             'Verlässlich offline ist nur die **installierte App**. In einem Browser-Tab kann der Speicher jederzeit geleert werden, und der Tab müsste beim nächsten Einsatz noch offen sein.',
             'Ohne Netz läuft weiter, was auf dem Gerät liegt: zeichnen und Symbole setzen, Atemschutz, Anwesenheit, Material, Verlauf und Rapport. Fotos und Sprachnotizen bleiben gespeichert und gehen später raus.',
-            'Sobald wieder Netz da ist, gehen die Änderungen von selbst hinaus und werden mit den anderen Geräten zusammengeführt – pro Objekt, jüngste Änderung gewinnt. Solange etwas aussteht, sagt es die Übertragungsanzeige oben.',
+            'Sobald wieder Netz da ist, gehen die Änderungen von selbst hinaus und werden mit den anderen Geräten zusammengeführt – pro Objekt, jüngste Änderung gewinnt. Solange etwas aussteht, sagt es die Anzeige oben.',
           ] },
         ],
       },

@@ -330,7 +330,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             '**Tattica · parole chiave** – cerca una parola chiave e apri la voce corrispondente (con codice colore dei pericoli e schizzi).',
             'Quando si rileva un allarme, una parola chiave adatta viene proposta automaticamente.',
           ] },
-          { kind: 'lead', text: 'Lo stato viene conservato e trasmesso a tutti i dispositivi.' },
+          { kind: 'lead', text: 'Lo stato viene conservato e sincronizzato su tutti i dispositivi.' },
         ],
       },
       {
@@ -374,7 +374,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'Se il corpo ha depositato moduli propri (Amministrazione › Rapporto), alla fine, sotto il ritaglio dello schizzo, compare **Moduli e link** – un elenco da spuntare. **Apri** richiama il modulo con parola chiave, luogo, data e capo intervento già compilati, per quanto il link lo preveda. La spunta si mette a mano: l’app non vede se un modulo è stato inviato.',
             'Se qualcosa non torna nel record – una catena di verifica interrotta, una nota vocale senza trascrizione, una foto ancora in coda – accanto ai pulsanti compare una **pastiglia arancione di avviso**. Conta i punti e li apre; se tutto è in ordine non compare affatto.',
             'Persona di contatto e riscontro alla centrale hanno un **Non applicabile** a fine riga – per il falso allarme o la perdita d’olio dove non esistono. È una risposta, non un salto: viene registrata e appare così nel rapporto.',
-            '**Chiudi intervento** chiude l’intervento e fissa l’ora di fine. Le foto e le note vocali non ancora trasmesse vengono trasmesse prima; se non è possibile (offline) **restano salvate su questo dispositivo** e vengono trasmesse alla prossima apertura – la conferma dice quante.',
+            '**Chiudi intervento** chiude l’intervento e fissa l’ora di fine. Le foto e le note vocali non ancora sincronizzate vengono sincronizzate prima; se non è possibile (offline) **restano salvate su questo dispositivo** e vengono sincronizzate alla prossima apertura – la conferma dice quante.',
             '**Condividi** (in fondo al rapporto, e sotto **Condividi l’intervento** nel menu): un link a questo solo intervento – carta, piani, diario, foto, orari. Sola lettura, senza login, nulla è modificabile. Per la centrale, il CI e un corpo vicino durante l’intervento – e per il comune e i corpi vicini dopo: resta valido oltre la chiusura, finché qualcuno non lo revoca.',
           ] },
           { kind: 'note', text: 'Un intervento chiuso si può **riaprire** – le aggiunte successive compaiono nella cronologia e nel rapporto come **integrazioni**, e nulla va perso.' },
@@ -397,7 +397,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         blocks: [
           { kind: 'lead', text: 'Tutti i dispositivi vedono lo stesso intervento in tempo reale.' },
           { kind: 'list', items: [
-            'Le modifiche vengono trasmesse automaticamente; l’indicatore in alto mostra lo stato della trasmissione.',
+            'Le modifiche vengono sincronizzate automaticamente; l’indicatore in alto mostra lo stato.',
             'La modifica simultanea viene unita per oggetto (vince la modifica più recente).',
             '**Sola lettura**: gli osservatori vedono la situazione in tempo reale, senza gli strumenti tattici.',
           ] },
@@ -408,7 +408,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'Che cosa sia davvero pronto lo dice **Questo dispositivo** nel menu (sotto «Pronto?») – riga per riga: carta, piani, simboli, merci pericolose, livelli di riferimento, personale, memoria del dispositivo. **Meteo** e **Ricerca oggetti** richiedono la rete e vi figurano come «solo con rete».',
             'Affidabile offline è solo l’**app installata**. In una scheda del browser la memoria può essere svuotata in qualsiasi momento, e la scheda dovrebbe essere ancora aperta al prossimo intervento.',
             'Senza rete continua a funzionare tutto ciò che sta sul dispositivo: disegnare e posare simboli, autoprotezione, presenze, materiale, diario e rapporto. Foto e note vocali restano salvate e partono più tardi.',
-            'Appena la rete torna, le modifiche escono da sé e vengono unite con gli altri dispositivi – per oggetto, vince la modifica più recente. Finché qualcosa è in attesa, lo dice l’indicatore di trasmissione in alto.',
+            'Appena la rete torna, le modifiche escono da sé e vengono unite con gli altri dispositivi – per oggetto, vince la modifica più recente. Finché qualcosa è in attesa, lo dice l’indicatore in alto.',
           ] },
         ],
       },
