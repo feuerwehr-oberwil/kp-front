@@ -24,6 +24,14 @@ describe('confirmDialog (Base UI AlertDialog)', () => {
     await expect(p).resolves.toBe(true)
   })
 
+  // the request copies its fields one by one: a field the card knows but the request drops never shows
+  it('shows the lead line above the note', () => {
+    render(<Overlays />)
+    act(() => { void confirmDialog({ message: 'X?', noteLead: 'Die Überwachung endet.', note: 'Danach nur noch lesen.', confirmLabel: 'Ja', cancelLabel: 'Nein' }) })
+    const lead = screen.getByText('Die Überwachung endet.')
+    expect(lead.compareDocumentPosition(screen.getByText('Danach nur noch lesen.')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('resolves false when cancelled', async () => {
     render(<Overlays />)
     let p!: Promise<boolean>

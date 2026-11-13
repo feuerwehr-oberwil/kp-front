@@ -188,6 +188,7 @@ export function confirmDialog(opts: ConfirmOpts): Promise<boolean | 'alt'> {
       message: opts.message,
       items: opts.items,
       note: opts.note,
+      noteLead: opts.noteLead,
       confirmLabel: opts.confirmLabel ?? appConfig.copy.confirm.ok,
       cancelLabel: opts.cancelLabel ?? appConfig.copy.confirm.cancel,
       danger: opts.danger,
