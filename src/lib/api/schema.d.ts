@@ -3033,8 +3033,9 @@ export interface paths {
         };
         /**
          * Samples
-         * @description Vehicle GPS samples in the window (for vehicle replay). May be empty today —
-         *     the Traccar→samples capture job isn't wired yet (PLAN-audit-trail §4, Phase 6).
+         * @description Vehicle GPS samples in the window (for the vehicle replay), each with the name its
+         *     tracker had on the live feed (`vehicle_presence · names_seen`) – the rows themselves carry
+         *     only the device id.
          */
         get: operations["samples_api_incidents__incident_id__samples_get"];
         put?: never;
@@ -8033,6 +8034,8 @@ export interface components {
             course?: number | null;
             /** Speed */
             speed?: number | null;
+            /** Device Name */
+            device_name?: string | null;
         };
         /** VehicleTrail */
         VehicleTrail: {

@@ -64,10 +64,13 @@ describe('useKrokiMoment', () => {
   })
 
   it('draws the recorded vehicles into the past Lage', async () => {
-    vi.mocked(vehiclesAt).mockReturnValue([{ deviceId: 7, coord: [7.51, 47.51], course: 90 }] as unknown as ReturnType<typeof vehiclesAt>)
+    vi.mocked(vehiclesAt).mockReturnValue([{ deviceId: 7, name: 'TLF', coord: [7.51, 47.51], course: 90 }])
     const { result } = hook({ initialAt: AT })
     await waitFor(() => expect(result.current.pastScene).not.toBeNull())
     expect(result.current.pastScene?.entities.map((e) => e.id)).toEqual(['e1', 'replay-veh-7'])
+    const veh = result.current.pastScene?.entities[1]
+    expect(veh?.label).toBe('TLF')
+    expect(veh?.symbolSvg).toContain('>TLF</text>')
   })
 
   it('a reconstruction that fails says so and falls back to live — no caption', async () => {

@@ -572,6 +572,9 @@ class VehicleSampleOut(BaseModel):
     lng: float
     course: float | None = None
     speed: float | None = None
+    #: the tracker's name on the live feed during this Einsatz (`vehicle_presence · names_seen`);
+    #: None when none was recorded – the client then says «Fahrzeug <id>»
+    device_name: str | None = None
 
 
 # --- Divera ------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 // The Präsentationsmodus on screen (mock 8B, owner pick 05.11.2026; docs/presentation.md):
 //   · PresentationPill – bottom centre, the floating family of the armed-tool pill:
 //       presenting «BA Du präsentierst · 4 folgen · ◎◎◎ · Zeigen · Beenden»
+//                  (phone: «Du präsentierst · 4 folgen · ◎◎◎ · Zeigen · ■», owner pick 5B 14.11.2026)
 //       invited    «BA Bastian präsentiert · Folgen» (a link holder gives a name first, once)
 //       following  «BA Folgst Bastian · Zeigen · ✕»
 //       detached   the pill itself becomes the chip «BA Wieder folgen»
@@ -131,8 +132,10 @@ function PillBody({ p }: { p: Presentation }) {
   if (p.follow.kind === 'presenting') {
     const n = s.participants.length
     const shown = s.participants.slice(0, 3)
+    // phone (owner pick 5B, 14.11.2026 – «Du präsentier» was cut on a 390px iPhone): no avatar of
+    // yourself (it tells you nothing), «Beenden» the red ■ square; «Zeigen» keeps its word
     body = <>
-      <Avatar name={presenter} tone={1} />
+      {!phone && <Avatar name={presenter} tone={1} />}
       <span className="present-who"><b>{C.youPresent}</b>
         <span>{n === 0 ? C.followersNone : n === 1 ? C.followersOne : C.followersMany.replace('{n}', String(n))}</span></span>
       {n > 0 && (
@@ -142,7 +145,9 @@ function PillBody({ p }: { p: Presentation }) {
         </span>
       )}
       {zeigen}
-      <button type="button" className="ip-btn danger present-end" onClick={() => void p.end()}><Icon id="stop" />{C.end}</button>
+      {phone
+        ? <button type="button" className="ip-btn danger present-end present-sq" onClick={() => void p.end()} aria-label={C.end} title={C.end}><Icon id="stop" /></button>
+        : <button type="button" className="ip-btn danger present-end" onClick={() => void p.end()}><Icon id="stop" />{C.end}</button>}
     </>
   } else if (p.follow.kind === 'following') {
     body = <>
@@ -441,17 +446,22 @@ export function PresentCard() {
   const s = p.state
   const mine = p.follow.kind === 'presenting'
   const line = mine ? C.runningMine : s ? C.runningOther.replace('{name}', s.presenter?.name ?? '') : C.lede
+  // one title row – glyph · «Präsentieren» · the button – and the text under it across the whole
+  // card (owner pick 6B, 14.11.2026: beside the button it was a 7-line column on a phone)
   return (
     <div className="present-card">
-      <span className="present-card-glyph" aria-hidden><Icon id="present" /></span>
-      <span className="present-card-text"><b>{C.title}</b><span>{p.canStart ? line : C.needsServer}</span></span>
-      {mine
-        ? <button type="button" className="ip-btn danger" onClick={() => void p.end()}><Icon id="stop" />{C.end}</button>
-        : p.canStart && (
-          <button type="button" className="ip-btn primary" onClick={() => void p.start()}>
-            <Icon id="present" />{s ? C.takeOver : C.start}
-          </button>
-        )}
+      <div className="present-card-head">
+        <span className="present-card-glyph" aria-hidden><Icon id="present" /></span>
+        <b className="present-card-title">{C.title}</b>
+        {mine
+          ? <button type="button" className="ip-btn danger" onClick={() => void p.end()}><Icon id="stop" />{C.end}</button>
+          : p.canStart && (
+            <button type="button" className="ip-btn primary" onClick={() => void p.start()}>
+              <Icon id="present" />{s ? C.takeOver : C.start}
+            </button>
+          )}
+      </div>
+      <p className="present-card-text">{p.canStart ? line : C.needsServer}</p>
     </div>
   )
 }

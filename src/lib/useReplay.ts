@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from './format'
 import { vehicleSymbolSvg, autoRotation } from './useVehiclePositions'
 import { normalizeBoard, type Saved } from './workspace'
 import type { VehicleAt } from './replay'
@@ -38,14 +37,15 @@ export function useReplay(): Replay {
   const exit = useCallback(() => { setActive(false); setWs(null); setVehicles([]) }, [])
 
   // reconstructed entities/drawings during replay: the past blob's tactical layer plus
-  // interpolated vehicle glyphs (empty today — no captured samples). Live GPS is hidden.
+  // interpolated vehicle glyphs, named like the live map named them (VehicleAt · name).
+  // Live GPS is hidden.
   const entities = useMemo<Entity[]>(() => {
     if (!active) return []
     const base = ws?.entities ?? []
     const veh: Entity[] = vehicles.map((v) => ({
       id: `replay-veh-${v.deviceId}`, kind: 'symbol', layer: appConfig.defaults.operationalLayerId,
-      coord: v.coord, symbolSvg: vehicleSymbolSvg(String(v.deviceId), autoRotation(v.course), v.course != null),
-      label: fillTemplate(appConfig.copy.replay.vehicle, { id: v.deviceId }), live: true,
+      coord: v.coord, symbolSvg: vehicleSymbolSvg(v.name, autoRotation(v.course), v.course != null),
+      label: v.name, live: true,
     }))
     return [...base, ...veh]
   }, [active, ws, vehicles])
