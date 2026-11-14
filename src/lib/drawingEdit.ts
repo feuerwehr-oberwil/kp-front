@@ -70,8 +70,10 @@ export function drawingEditChanges(prev: Drawing, next: Drawing): string[] {
 
   // ── Schlauch: the Leitung's Ø — what was laid. Its Wassertransport assumptions (`relay`:
   // flow, source, pumps moved by hand) are planning, tweaked tap by tap, and write no row.
-  if ((prev.hose ?? '') !== (next.hose ?? '') && next.hose) {
-    out.push(statement(E.hose, appConfig.copy.relay.hoseLabels[next.hose], !!prev.hose))
+  // «Kein» (14.11.2026) clears a picked Ø and is named by the menu's own word – «Schlauch
+  // entfernt» would read as a hose taken off the Leitung.
+  if ((prev.hose ?? '') !== (next.hose ?? '')) {
+    out.push(statement(E.hose, next.hose ? appConfig.copy.relay.hoseLabels[next.hose] : E.hoseNone, !!prev.hose))
   }
   // …save ONE: «Pumpen auf Karte» (relay.showPumps, lib/linePumps). It is no assumption: it puts
   // Motorspritzen on the Karte and the printed Kroki, or takes them off – the picture changes, so

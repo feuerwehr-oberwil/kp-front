@@ -22,7 +22,7 @@ import { MenuPick } from './MenuPick'
 import { Menu } from '../lib/overlays'
 import { OnOff, Segmented } from './Segmented'
 import { AddRelayButton, WaterRelay } from './WaterRelay'
-import { HOSE_SIZES, HOSES, hoseDefaults, lineHose, relayAddPatch } from '../lib/hydraulics'
+import { HOSE_SIZES, hoseDefaults, hoseLines, lineHose, relayAddPatch } from '../lib/hydraulics'
 import { useLineMeasureAsk, usePublishRelay, useRelay, type RelayValue } from '../lib/useRelay'
 import type { HoseSize, LineAttachment, LineContent, LineEndpoint, LngLat, LineRoutingMode, RelaySettings } from '../types'
 
@@ -135,8 +135,9 @@ interface Props {
   onReverse?: () => void
   /** FKS device letter at the end (S/W/H/P) or undefined for plain Wasser */
   onContent?: (content: LineContent | undefined) => void
-  /** the «Schlauch» row: the Leitung's Ø (Lage and Plan alike). Omitted ⇒ the row is hidden. */
-  onHose?: (hose: HoseSize) => void
+  /** the «Schlauch» row: the Leitung's Ø (Lage and Plan alike); undefined = «Kein», the picked Ø
+   *  cleared. Omitted ⇒ the row is hidden. */
+  onHose?: (hose: HoseSize | undefined) => void
   /** the Wassertransport section inside «Messung» — Lage only: it needs real ground and the
    *  Höhenprofil (`profileCoords`). `onChange` absent ⇒ shown read-only. `lineId`: the Leitung's
    *  id, so its resting pumps on the map step aside while this section shows the live ones
@@ -298,10 +299,15 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
   const sheetDrag = useSheetDrag({ onClose, tapToggles: false })
   /** a picked Ø – through the relay where there is one: a new Ø sends its pumps moved by hand back
    *  to automatic, in the same edit (lib/useRelay · set) */
-  const setHose = (h: HoseSize) => {
+  const setHose = (h: HoseSize | undefined) => {
     if (h === lineHose(drawing) || !onHose) return
-    if (relayCtrl.readOnly) onHose(h); else relayCtrl.set({ hose: h })
+    if (relayCtrl.readOnly || !h) onHose(h); else relayCtrl.set({ hose: h })
   }
+  // the Ø shown – absent on a plain Leitung nobody picked one for (owner 14.11.2026, hydraulics ·
+  // lineHose). «Kein» clears a picked one, offered only where clearing CAN read as none: a Leitung
+  // with a Wassertransport (or a station Linie default) would fall straight back to a Ø.
+  const hose = lineHose(drawing)
+  const hoseClearable = !lineHose({ relay: drawing.relay })
   /** one «Typ» menu entry: the letter as a small badge, the word, the tick on the current one */
   const contentItem = (c: LineContent) => ({
     label: <MenuPick badge={c} label={CONTENT_LABELS[c]} on={(drawing.content ?? 'W') === c} />,
@@ -630,25 +636,29 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             )}
             {/* «Schlauch»: the Leitung's Ø, right under what it carries. It is what the Messung's
                 Wassertransport computes with (lib/hydraulics · HOSES); absent reads as the
-                station's relay default on a Leitung with a Wassertransport, else its Linie default
-                (hydraulics · lineHose). The «Typ» row's menu, every Ø with its unit, the current
-                one ticked (owner 05.11.2026: as five chips «110» wrapped onto a row of its own on
-                the iPhone – and in the tablet's 360px sheet just the same). */}
+                station's relay default on a Leitung with a Wassertransport, else as none – «–»,
+                like the Stockwerk row below (hydraulics · lineHose, owner 14.11.2026). The «Typ»
+                row's menu, every Ø with its unit, the current one ticked, and «Kein» first where
+                a picked Ø can be cleared (owner 05.11.2026: as five chips «110» wrapped onto a row
+                of its own on the iPhone – and in the tablet's 360px sheet just the same). */}
             {onHose && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.hose}</span>
                 <Menu
                   trigger={
-                    <button className="de-menu-trigger" aria-label={`${appConfig.copy.drawingEditor.hose}: ${appConfig.copy.relay.hoseLabels[lineHose(drawing)]}`}>
-                      <span>{appConfig.copy.relay.hoseLabels[lineHose(drawing)]}</span>
+                    <button className="de-menu-trigger" aria-label={`${appConfig.copy.drawingEditor.hose}: ${hose ? appConfig.copy.relay.hoseLabels[hose] : appConfig.copy.drawingEditor.hoseNone}`}>
+                      <span>{hose ? appConfig.copy.relay.hoseLabels[hose] : '–'}</span>
                       <Icon id="chevron-down" className="chev" />
                     </button>
                   }
                   popupClassName="de-menu-pop"
                   itemClassName={() => 'de-menu-item'}
-                  items={HOSE_SIZES.map((h) => ({
-                    label: <MenuPick label={appConfig.copy.relay.hoseLabels[h]} on={lineHose(drawing) === h} />,
-                    onClick: () => setHose(h),
-                  }))}
+                  items={[
+                    ...(hoseClearable ? [{ label: <MenuPick label={appConfig.copy.drawingEditor.hoseNone} on={!hose} />, onClick: () => setHose(undefined) }] : []),
+                    ...HOSE_SIZES.map((h) => ({
+                      label: <MenuPick label={appConfig.copy.relay.hoseLabels[h]} on={hose === h} />,
+                      onClick: () => setHose(h),
+                    })),
+                  ]}
                 />
               </div>
             )}
@@ -751,7 +761,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                     «m» (owner 05.11.2026: the Messung's labels looked different from the rows above).
                     The reserve is named apart («34 + 3 Reserve × 20 m», Manuel 09.11.2026) */}
                 <div className="de-row"><span>{appConfig.copy.measure.hoses}</span>
-                  <b className="de-measure-v">{hosesText(lengthM, HOSES[lineHose(drawing)].lines)}</b>
+                  <b className="de-measure-v">{hosesText(lengthM, hoseLines(drawing))}</b>
                 </div>
               </>
             )}

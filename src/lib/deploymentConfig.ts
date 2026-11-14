@@ -169,7 +169,8 @@ export interface DeploymentDoctrine {
   /** metres the nearest object with plans may lie from the Einsatzadresse before the Plan warns
    *  «nicht die Einsatzadresse» (useObjectPlans · objectNearbyOnly). Absent = 25. */
   nearbyObjectWarnM?: number | null
-  /** the Ø a Leitung that stores none reads as (lib/hydraulics · hoseDefaults). Absent = 40. */
+  /** the Ø a plain Leitung that stores none reads as (lib/hydraulics · hoseDefaults). Absent =
+   *  none: the Leitung has no Ø until one is picked (owner 14.11.2026). */
   defaultLineHose?: HoseSize | null
   /** the Ø a Wassertransport in Messen starts on, never 40 (hydraulics · RELAY_HOSE_SIZES).
    *  Absent = 75. */

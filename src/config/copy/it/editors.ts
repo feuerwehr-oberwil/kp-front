@@ -261,6 +261,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     hiddenTarget: 'Bersaglio nascosto',
     revealTarget: 'Mostra il livello',
     endingReleased: 'Tratto rimosso, {n} linee staccate',
+    hoseNone: 'Nessuno',
   },
   topBar: {
     offline: 'Offline',

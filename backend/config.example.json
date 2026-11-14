@@ -162,7 +162,7 @@
     "alarmBarRueckzug": 50,
     "entryPressureMin": 270,
     "nearbyObjectWarnM": 25,
-    "defaultLineHose": "40",
+    "defaultLineHose": null,
     "defaultRelayHose": "75"
   },
   "roster": {
