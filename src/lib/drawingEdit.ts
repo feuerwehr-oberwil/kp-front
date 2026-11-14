@@ -167,12 +167,14 @@ export function removalRowText(drawings: readonly Drawing[], entities: readonly 
   const gone = drawings.length + entities.length
   if (gone > 1) return fillTemplate(L.selectionDeleted, { n: gone })
   if (drawings.length === 1) return fillTemplate(L.objectDeleted, { name: drawingLogName(drawings[0]) })
-  if (entities.length === 1) {
-    const e = entities[0]
-    const name = (e.label ?? '').trim() || (e.symbol ? formatSymbolName(e.symbol) : appConfig.copy.entities.fallbackObjectName)
-    return fillTemplate(L.objectDeleted, { name })
-  }
+  if (entities.length === 1) return fillTemplate(L.objectDeleted, { name: entityRemovalName(entities[0]) })
   return L.drawingDeleted
+}
+
+/** What a removal calls ONE Karte object: its label, else a symbol's display name (not the pack's
+ *  key) – «TLF» in «TLF entfernt» and in the joined-lines card's «TLF hat 2 Leitungen». */
+export function entityRemovalName(e: Pick<Entity, 'label' | 'symbol'>): string {
+  return (e.label ?? '').trim() || (e.symbol ? formatSymbolName(e.symbol) : appConfig.copy.entities.fallbackObjectName)
 }
 
 /**
