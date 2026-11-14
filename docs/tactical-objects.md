@@ -21,7 +21,9 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   `components/useMapMagnet`), the draft contract (`lib/draftMachine` – ✓ «Fertig», and
   the «Speichern · Verwerfen · Weiterzeichnen» question when an open drawing is left, 27.10.2026,
   which replaced the A6 tap-away auto-commit), «mit verbundenen Leitungen entfernen» (`lineAttachments · detachEnds`; the Lage sends
-  it as ONE `draw.edit` per line, both ends in it – `detachDrawings` – so replay keeps both ends moved),
+  it as ONE `draw.edit` per line, both ends in it – `detachDrawings` – so replay keeps both ends moved;
+  since 14.11.2026 the «TLF hat 2 Leitungen» card asks «Nur Symbol» or «Mit Leitungen» first,
+  `removalToast · askJoinedLines`, docs/undo.md › One delete rule),
   ⌘D (`lib/duplicate`), and the armed tool + per-team trails + note-panel closing rules
   (`useTacticalSelection · usePlacement`, `lib/useHiddenTrails`, `lib/useNotePanelClosing`).
 - **The armed tool's readout is one pill** (`components/ArmedToolPill`, `lib/armedTool`,
