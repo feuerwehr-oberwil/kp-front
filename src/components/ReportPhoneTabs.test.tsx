@@ -244,6 +244,9 @@ describe('Einsatzrapport · phone tabs', () => {
 //
 // So: on each tab the FIRST child of the body that is not hidden must be the column the tab's
 // content lives in, and nothing empty may stand between the top of the body and the first card.
+/** the body of a rule that drops a section's hairline: the line, its padding, and the press
+ *  wash's top that follows the padding (13-incident · `--rp-pt`, 14.11.2026) */
+const NO_LINE = 'border-top:0;padding-top:0;--rp-pt:0px;'
 const phoneTabCss = (() => {
   // …from the repo root: under jsdom `import.meta.url` is an http URL, not a file one
   const css = readFileSync(`${process.cwd()}/src/styles/13-incident.css`, 'utf8')
@@ -255,7 +258,7 @@ const phoneTabCss = (() => {
     // section (one surface, 30.09.2026), which must never touch `display`. Anything else keyed
     // on the tab means this test has to be re-read.
     const flat = body.replace(/\s/g, '')
-    if (flat === 'border-top:0;padding-top:0;') continue
+    if (flat === NO_LINE) continue
     expect(flat).toBe('display:none;')
     out.push(...sel.split(',').map((s) => s.trim()).filter(Boolean))
   }
@@ -269,7 +272,7 @@ const noLineCss = (() => {
     .replace(/\/\*[\s\S]*?\*\//g, '')
   const out: string[] = []
   for (const [, sel, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    if (body.replace(/\s/g, '') !== 'border-top:0;padding-top:0;') continue
+    if (body.replace(/\s/g, '') !== NO_LINE) continue
     // split on the commas BETWEEN selectors only — `:not(a, b)` carries its own
     let depth = 0, cur = ''
     for (const ch of sel) {
