@@ -68,7 +68,14 @@ describe('Rapport · a viewer reads values, it meets no doors', () => {
   it('asks a session that never signs for no signature', () => {
     setup({ canEdit: false })
     expect(screen.queryByText(appConfig.copy.signature.cardTitle)).toBeNull()
-    expect(screen.queryByText(appConfig.copy.signature.runningHint)).toBeNull()
+  })
+})
+
+// owner, 14.11.2026: signing is the current state, independent of open / closed
+describe('Rapport · Unterschriften on an open Einsatz', () => {
+  it('offers both lines to the keeper of a running Rapport', () => {
+    setup({ canEdit: true })
+    expect(screen.getAllByRole('button', { name: appConfig.copy.signature.sign })).toHaveLength(2)
   })
 })
 

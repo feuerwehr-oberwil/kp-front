@@ -120,7 +120,6 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     optional: 'facoltativo',
     count: '{n} di 2',
     invalid: 'non valida',
-    runningHint: 'Firmare qui dopo la chiusura – senza penna e carta.',
     roleEl: 'Capo intervento',
     roleKdt: 'Comandante',
     sign: 'Firmare',

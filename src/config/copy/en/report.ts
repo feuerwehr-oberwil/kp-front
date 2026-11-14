@@ -120,7 +120,6 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     optional: 'optional',
     count: '{n} of 2',
     invalid: 'invalid',
-    runningHint: 'Sign here after the incident is closed – no pen and paper needed.',
     roleEl: 'Incident commander',
     roleKdt: 'Chief',
     sign: 'Sign',

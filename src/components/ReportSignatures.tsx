@@ -1,9 +1,10 @@
 // The Rapport's «Unterschriften» card and the sheet a line is signed in (15.10.2026,
 // docs/rapport.md · Unterschriften). Rendered by ReportPreflight in its right-hand column, after
 // the Partnerorganisationen — where the Visum sits on the paper. Optional: nothing asks for it,
-// nothing waits for it. A signature that still holds locks the form; one that no longer holds
-// says «ungültig» and a tap signs anew (owner: no explanation box). The lock itself is decided
-// above the form (useReportSignatures · useSignatureLock).
+// nothing waits for it. Signed on an open Einsatz or a closed one alike (owner, 14.11.2026): a
+// signature holds while the signed part is unchanged; one that no longer holds says «ungültig» and
+// a tap signs anew (owner: no explanation box). Validity is decided above the form
+// (useReportSignatures · useSignatureLock).
 
 import { useState, type ComponentProps } from 'react'
 import { appConfig } from '../config/appConfig'
@@ -19,13 +20,10 @@ import type { LiveSignatures } from './useReportSignatures'
 /** what the signing sheet needs beyond the card's own state */
 type SheetProps = Omit<ComponentProps<typeof SignatureSheet>, 'open' | 'onClose' | 'initialRole' | 'signedRoles' | 'elName' | 'kdtName'>
 
-export function ReportSignatures({ closed, maySign, canSign, signedLock, liveSigs, sigValid, elName, kdtName, sheet }: {
-  /** the Einsatz is closed — the only time a Rapport is signed */
-  closed: boolean
-  /** this session signs Rapporte at all (not a viewer, a link, an archived view) */
+export function ReportSignatures({ maySign, signedLock, liveSigs, sigValid, elName, kdtName, sheet }: {
+  /** this session signs the Rapport (not a viewer, a link, an archived view) – open or closed */
   maySign: boolean
-  /** …and can sign NOW (the Einsatz is closed) */
-  canSign: boolean
+  /** a closed Rapport with a signature that holds: the footer says «Rapport gesperrt» */
   signedLock: boolean
   liveSigs: LiveSignatures
   sigValid: (r: SignatureRole) => boolean
@@ -39,20 +37,19 @@ export function ReportSignatures({ closed, maySign, canSign, signedLock, liveSig
   const S = appConfig.copy.signature
   const stale = SIGNATURE_ROLES.filter((r) => liveSigs[r] && !sigValid(r))
   const valid = SIGNATURE_ROLES.filter(sigValid)
-  const sub = !closed ? S.optional
-    : stale.length ? S.invalid
+  const sub = stale.length ? S.invalid
     : valid.length ? fillTemplate(S.count, { n: valid.length }) : S.optional
   const nameOf = (r: SignatureRole) => (r === 'el' ? elName : kdtName)
   const roleLabel = (r: SignatureRole) => (r === 'el' ? S.roleEl : S.roleKdt)
   // A session that never signs reads signatures, it is not asked for them: no card at
-  // all until one exists – «nach dem Abschluss hier unterschreiben» and two empty lines
-  // were an instruction to a driver (RBAC audit 22.10.2026).
-  if (!maySign && (!closed || !SIGNATURE_ROLES.some((r) => liveSigs[r]))) return null
+  // all until one exists – two empty lines were an instruction to a driver (RBAC audit
+  // 22.10.2026).
+  if (!maySign && !SIGNATURE_ROLES.some((r) => liveSigs[r])) return null
   return (
     <>
-      <CheckRow tab="werwas" done={closed && valid.length > 0 && !stale.length} label={S.cardTitle} sub={sub}>
+      <CheckRow tab="werwas" done={valid.length > 0 && !stale.length} label={S.cardTitle} sub={sub}>
         <div className="rp-check-extra rp-sign">
-          {!closed ? <p className="rp-sign-hint">{S.runningHint}</p> : SIGNATURE_ROLES.map((r) => {
+          {SIGNATURE_ROLES.map((r) => {
             const g = liveSigs[r]
             const who = (
               <span className="rp-sign-who">
@@ -69,7 +66,7 @@ export function ReportSignatures({ closed, maySign, canSign, signedLock, liveSig
             )
             // a signature that no longer holds: a tap signs anew – for a session that
             // cannot sign, the same row as a read-out (no dead button, no chevron)
-            if (g && !canSign) return (
+            if (g && !maySign) return (
               <div className="rp-sign-row rp-sign-void" key={r}>
                 {who}
                 <SignatureImage strokes={g.strokes} className="rp-sign-img" />
@@ -88,7 +85,7 @@ export function ReportSignatures({ closed, maySign, canSign, signedLock, liveSig
             return (
               <div className="rp-sign-row" key={r}>
                 {who}
-                {canSign && <Button onClick={() => setSignFor(r)}>{S.sign}</Button>}
+                {maySign && <Button onClick={() => setSignFor(r)}>{S.sign}</Button>}
               </div>
             )
           })}

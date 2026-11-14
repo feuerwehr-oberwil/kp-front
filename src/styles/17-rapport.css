@@ -34,7 +34,8 @@
    `.report-pre-section` itself, and its states are the round-up cards' beside it (13-incident ·
    `.rp-check`, owner #32 30.10.2026): a hover lights the card's own edge, a press washes the card
    once – no inner box, no fill. Where the sections are flat (<1080px) there is no edge to light,
-   so a hover keeps the hairline, as `.rp-check` does. No pencil in the head any more (owner,
+   so a hover keeps the hairline, as `.rp-check` does, and the press is an inset rounded patch
+   (13-incident · «ONE SURFACE», 14.11.2026). No pencil in the head any more (owner,
    31.10.2026): the card is the target, the same as Anwesenheit/Material beside it. */
 .report-meta-dispatch-click { cursor: pointer; }
 @media (hover: hover) {

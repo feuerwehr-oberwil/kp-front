@@ -1259,7 +1259,6 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
    paper's Visum — who, the drawn signature, the time. No rules between the rows, like every other
    card in this column (owner, round 3). */
 .rp-sign { align-items: stretch; gap: var(--sp-1); }
-.rp-sign-hint { margin: 0; font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink-faint); }
 .rp-sign-row { display: flex; align-items: center; gap: var(--sp-3); min-height: var(--tap); width: 100%;
   padding: 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; }
 button.rp-sign-row { cursor: pointer; border-radius: var(--r-xs); }
@@ -2240,9 +2239,10 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   .report-preflight-body, .report-preflight-body > .rp-col, .rp-col-form > .report-fieldset, .rp-checks { gap: 16px; }
   .report-preflight-body :is(.report-pre-section, .rp-check) {
     border: 0; border-top: 1px solid var(--glass-edge); border-radius: 0; background: none; padding: 16px 0 0;
+    --rp-pt: 16px; --rp-lead: 0px; /* the press wash's top, below */
   }
-  .report-preflight-body .rp-check { padding-top: 4px; } /* + the title row's own 12px = 16 */
-  .report-preflight-body .rp-col-form > .report-fieldset > [data-tab]:not([data-tab] ~ *) { border-top: 0; padding-top: 0; }
+  .report-preflight-body .rp-check { padding-top: 4px; --rp-pt: 4px; --rp-lead: var(--sp-4); } /* + the title row's own 12px = 16 */
+  .report-preflight-body .rp-col-form > .report-fieldset > [data-tab]:not([data-tab] ~ *) { border-top: 0; padding-top: 0; --rp-pt: 0px; }
   /* a round-up row is a row of the page now: no card inset — the title row keeps its --tap
      height, the body stays under the label (at the page's inset: the ring follows the label) */
   .report-preflight-body .rp-check-main { padding-inline: 0; }
@@ -2250,6 +2250,29 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   /* the whole row still opens it (the stretched ::after); with no edge to light, a mouse hover
      keeps the hairline as it is */
   .report-preflight-body .rp-check:has(.rp-check-main:not(:disabled)):hover { border-color: var(--glass-edge); }
+  /* …and the PRESS keeps its breathing room (owner, 14.11.2026, «close without padding»): with no
+     card the box-wide wash sat flush on the text with square corners. Here it is a rounded patch
+     (`--r-ctl`) standing 8px off the content on every side – out into the gutter at the sides,
+     below the hairline at the top – while the text keeps its place in the form's column. A
+     `::before` under the content (`isolation` keeps the -1 inside the section), so neither the
+     hairline nor the layout moves. The dispatch card («Aus den Einsatzdaten») and the round-up
+     rows that go somewhere share it. Its top follows the content: `--rp-pt` is the section's
+     padding-top (set beside every padding-top above, and in the first-of-tab rule below),
+     `--rp-lead` what stands above the first text inside it (a round-up row's title row, 16). */
+  .report-preflight-body .report-meta-dispatch-click,
+  .report-preflight-body .rp-check { position: relative; isolation: isolate; }
+  .report-preflight-body .report-meta-dispatch-click:active,
+  .report-preflight-body .rp-check:has(.rp-check-main:not(:disabled)):active { background-image: none; }
+  .report-preflight-body .report-meta-dispatch-click::before,
+  .report-preflight-body .rp-check::before {
+    content: ''; position: absolute; z-index: -1; pointer-events: none; opacity: 0;
+    inset: calc(var(--rp-pt) + var(--rp-lead) - var(--sp-2)) calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2));
+    border-radius: var(--r-ctl); background: var(--press);
+  }
+  /* a round-up row's body ends 4px above its edge (.rp-check-extra): 4 more make the 8 */
+  .report-preflight-body .rp-check::before { bottom: calc(-1 * var(--sp-1)); }
+  .report-preflight-body .report-meta-dispatch-click:active::before,
+  .report-preflight-body .rp-check:has(.rp-check-main:not(:disabled)):active::before { opacity: 1; }
 }
 /* (the phone inset — one breakpoint for every surface, at 600px — is the shared shell's, in
    components/Surface.module.css.) */
@@ -2346,7 +2369,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
      and on «Beilagen» the Kroki after the rows' box is not a first). */
   .report-preflight-body[data-phone-tab="werwas"] [data-tab="werwas"]:not([data-tab="werwas"] ~ *, :has([data-tab="werwas"]) ~ *),
   .report-preflight-body[data-phone-tab="beilagen"] [data-tab="beilagen"]:not([data-tab="beilagen"] ~ *, :has([data-tab="beilagen"]) ~ *) {
-    border-top: 0; padding-top: 0;
+    border-top: 0; padding-top: 0; --rp-pt: 0px;
   }
   .report-preflight-body[data-phone-tab="bericht"] > .rp-col:not(:has([data-tab="bericht"])),
   .report-preflight-body[data-phone-tab="werwas"] > .rp-col:not(:has([data-tab="werwas"])),

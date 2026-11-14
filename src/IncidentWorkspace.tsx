@@ -1861,10 +1861,9 @@ export function IncidentWorkspace({
     pushEvent({ icon, text, kind: extra?.kind ?? 'symbol', surface: 'plan', planId: activePlanId, annoId: extra?.annoId, px: extra?.x, py: extra?.y, floor: extra?.floor, subjectId: extra?.subjectId })
   // Rapport signatures (15.10.2026, lib/reportSignature). Appended through the functional setter
   // and NOT through undo: a step that takes a signature away again would be the one edit the lock
-  // exists to prevent. Nothing voids one by hand any more: a closed Rapport is not edited, and
-  // «Wieder öffnen» ends every signature (owner, 12.11.2026). Each says so twice — a Verlauf row
-  // for people (a Nachtrag on a closed Einsatz, which is when signing happens) and a hash-chained
-  // audit event for the proof.
+  // exists to prevent. Nothing voids one by hand any more: a signature holds, open or closed, while
+  // the signed part hashes the same (owner, 14.11.2026). Each says so twice — a Verlauf row for
+  // people (a Nachtrag on a closed Einsatz) and a hash-chained audit event for the proof.
   const signRapport = (sig: ReportSignature) => {
     const S = appConfig.copy.signature
     setReportSignatures((list) => addSignature(list, sig))
@@ -3321,7 +3320,7 @@ export function IncidentWorkspace({
         setRapportReturn, canWriteRecord, resolveAttendanceConflict, canCloseIncident, readOnly,
         confirmAndComplete, setJournalOpen, setJournalFromRapport, reportSignatures,
         canSignRapport, onReactivateActive,
-        // while it runs too: the card then says the Rapport is signed after the close
+        // open or closed alike (owner, 14.11.2026)
         signRapport: canEditRapport || canSignRapport ? signRapport : undefined,
       }} />
       <JournalLayer {...{
