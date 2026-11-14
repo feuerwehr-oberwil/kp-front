@@ -6,7 +6,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
 import { toast } from '../lib/ui'
 import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
@@ -25,8 +24,8 @@ export function initialKrokiAt(kept: { krokiAt: number | null } | null, lastPrin
 function replayVehicles(bundle: ReplayBundle, at: number): Entity[] {
   return vehiclesAt(bundle.samples, at).map((v) => ({
     id: `replay-veh-${v.deviceId}`, kind: 'vehicle', layer: appConfig.gps.layerId,
-    coord: v.coord, symbolSvg: vehicleSymbolSvg(String(v.deviceId), autoRotation(v.course), v.course != null),
-    label: fillTemplate(appConfig.copy.replay.vehicle, { id: v.deviceId }), live: true, directed: v.course != null,
+    coord: v.coord, symbolSvg: vehicleSymbolSvg(v.name, autoRotation(v.course), v.course != null),
+    label: v.name, live: true, directed: v.course != null,
   }))
 }
 

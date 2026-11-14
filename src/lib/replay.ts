@@ -39,7 +39,10 @@
  * `docs/verlauf-coverage.md`.
  */
 
+import { appConfig } from '../config/appConfig'
 import { apiGet } from './api'
+import type { Out } from './api/wire'
+import { fillTemplate } from './format'
 import { isBoardAnno, isDrawing, isEntity, sanitizeWorkspace, type Saved } from './workspace'
 import { applyFormDelta, isFormData } from './boardForm'
 import type { BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LayerId, LngLat, WeatherData } from '../types'
@@ -60,14 +63,9 @@ interface SnapshotResponse {
   seq_at: number | null
   workspace: Saved | null
 }
-export interface VehicleSampleRow {
-  device_id: number
-  ts: string
-  lat: number
-  lng: number
-  course?: number | null
-  speed?: number | null
-}
+/** One recorded GPS fix; `device_name` is the tracker's name on the live feed during the
+ *  Einsatz (backend `vehicle_presence · names_seen`), null when none was recorded. */
+export type VehicleSampleRow = Out<'VehicleSampleOut'>
 
 // --- API client (kept here so we don't touch lib/incidents.ts) ----------------------
 const enc = encodeURIComponent
@@ -629,17 +627,20 @@ export async function stateAt(bundle: ReplayBundle, tMs: number): Promise<Replay
 
 // --- Vehicle replay (interpolated sample paths) -------------------------------------
 
-/** A vehicle's position at instant T, linearly interpolated between samples. */
+/** A vehicle's position at instant T, linearly interpolated between samples. `name` is what
+ *  the replay writes on the glyph and the label: the tracker's live-feed name, «Fahrzeug <id>»
+ *  only when the server recorded none. */
 export interface VehicleAt {
   deviceId: number
+  name: string
   coord: LngLat
   course: number | null
 }
 
 /**
- * Interpolate every device's position at `tMs` from its samples. Empty when the
- * samples table is empty (it is today — the Traccar→samples capture job isn't wired
- * yet, so vehicle replay gracefully degrades to "keine Fahrzeugdaten").
+ * Interpolate every device's position at `tMs` from its samples. Empty when the Einsatz
+ * recorded no samples (no tracker, or no Traccar connected), so the vehicle replay
+ * gracefully degrades to "keine Fahrzeugdaten".
  */
 export function vehiclesAt(samples: VehicleSampleRow[], tMs: number): VehicleAt[] {
   if (!samples.length) return []
@@ -660,14 +661,17 @@ export function vehiclesAt(samples: VehicleSampleRow[], tMs: number): VehicleAt[
       if (rt > tMs) { next = r; break }
     }
     if (!prev) continue // device not yet present at T
+    const name = rows.find((r) => r.device_name)?.device_name
+      ?? fillTemplate(appConfig.copy.replay.vehicle, { id: deviceId })
     if (!next) {
-      out.push({ deviceId, coord: [prev.lng, prev.lat], course: prev.course ?? null })
+      out.push({ deviceId, name, coord: [prev.lng, prev.lat], course: prev.course ?? null })
       continue
     }
     const t0 = ms(prev.ts), t1 = ms(next.ts)
     const f = t1 > t0 ? (tMs - t0) / (t1 - t0) : 0
     out.push({
       deviceId,
+      name,
       coord: [prev.lng + (next.lng - prev.lng) * f, prev.lat + (next.lat - prev.lat) * f],
       course: prev.course ?? next.course ?? null,
     })
