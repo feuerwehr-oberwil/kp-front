@@ -6,18 +6,26 @@ export type ScheduleGroup = 'today' | 'overdue' | 'upcoming' | 'undated' | 'rece
 /** How long a finished round stays on the overview («Kürzlich erledigt») before it is history. */
 export const RECENT_DAYS = 7
 
+/** A round that takes no new visits: withdrawn (`archived`) or past its `closesAt` deadline.
+ *  Its visits still open and late offline ones still sync — the server refuses neither. */
+export function listClosed(list: VisitList, now = Date.now()): boolean {
+  return !!list.archived || (!!list.closesAt && Date.parse(list.closesAt) <= now)
+}
+
 /** Dates describe a calendar day, not UTC midnight. Old cached catalogues remain usable.
- *  `history` (withdrawn rounds, and finished ones older than RECENT_DAYS) is not shown in the
- *  field app — the organizer keeps the record (fwo-admin, the filed reports). */
-export function visitSchedule(lists: VisitList[], visits: Parameters<typeof listProgress>[1], today: string) {
+ *  `history` (closed rounds – withdrawn or past `closesAt`, complete or not – and finished ones
+ *  older than RECENT_DAYS) is not shown in the field app — the organizer keeps the record
+ *  (fwo-admin, the filed reports). */
+export function visitSchedule(lists: VisitList[], visits: Parameters<typeof listProgress>[1], today: string, now = Date.now()) {
   const groups: Record<ScheduleGroup, VisitList[]> = { today: [], overdue: [], upcoming: [], undated: [], recent: [], history: [] }
   const recentFrom = addDays(today, -RECENT_DAYS)
   for (const list of lists) {
     const p = listProgress(list, visits)
     const complete = p.total > 0 && p.done === p.total && !list.unresolved?.length
-    const finished = complete && !list.archived ? finishedOn(p.stops) : ''
+    const closed = listClosed(list, now)
+    const finished = complete && !closed ? finishedOn(p.stops) : ''
     // capped at today: an organizer's `done.at` in the future must not stay «recent» for good
-    const group = list.archived ? 'history'
+    const group = closed ? 'history'
       : complete ? (finished >= recentFrom && finished <= today ? 'recent' : 'history')
       : !list.scheduledOn ? 'undated'
         : list.scheduledOn === today ? 'today' : list.scheduledOn < today ? 'overdue' : 'upcoming'

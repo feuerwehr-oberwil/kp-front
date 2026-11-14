@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { visitSchedule } from './visitSchedule'
+import { listClosed, visitSchedule } from './visitSchedule'
 import type { VisitList } from '../objectVisits/types'
 
 const list = (ref: string, scheduledOn?: string): VisitList => ({ ref, title: ref, scheduledOn, objectIds: ['a'] })
@@ -45,5 +45,19 @@ describe('dated rounds', () => {
     ], [], '2027-03-28')
     expect(groups.recent.map(l => l.ref)).toEqual(['stamped'])
     expect(groups.history.map(l => l.ref)).toEqual(['future'])
+  })
+  it('sends a round past its closesAt to history, complete or not; one still open goes where its day says', () => {
+    const now = Date.parse('2027-03-28T10:00:00+01:00')
+    const evening = (ref: string, day: string): VisitList => ({ ...list(ref, day), closesAt: `${day}T23:59:59+01:00` })
+    const lists = [evening('last-week', '2027-03-23'), evening('done-last-night', '2027-03-27'), evening('tonight', '2027-03-28'), evening('next-week', '2027-04-04')]
+    const visits = [{ id: 'v', objectId: 'a', workRef: 'done-last-night', lifecycle: 'completed', visitedAt: '2027-03-27T19:00:00Z' }]
+    const groups = visitSchedule(lists, visits, '2027-03-28', now)
+    expect(groups.history.map(l => l.ref)).toEqual(['done-last-night', 'last-week'])
+    expect(groups.recent).toEqual([])
+    expect(groups.overdue).toEqual([])
+    expect(groups.today.map(l => l.ref)).toEqual(['tonight'])
+    expect(groups.upcoming.map(l => l.ref)).toEqual(['next-week'])
+    // the field app reads «closed» the same way to stop new captures
+    expect(lists.map(l => listClosed(l, now))).toEqual([true, true, false, false])
   })
 })

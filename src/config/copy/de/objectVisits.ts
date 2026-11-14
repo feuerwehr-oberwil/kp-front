@@ -216,5 +216,6 @@ export const objectVisitsCopy = {
     conflictCurrent: 'Im Besuch',
     storageWait: 'Der Gerätespeicher konnte nicht gelesen werden. Damit kein zweiter Entwurf entsteht, wird jetzt kein neuer Besuch angelegt.',
     sendOffline: 'Offline – wird mit Netz synchronisiert',
+    listClosed: 'Abgelaufen – keine neuen Besuche',
   },
 } as const

@@ -11,6 +11,7 @@ import { pendingUploads } from '../../objectVisits/outbox'
 import { Head } from './common'
 import { fmtDate, fmtDayShort, plural } from './ovFormat'
 import { useOv } from './ovContext'
+import { listClosed } from '../../lib/visitSchedule'
 import { ListCard, ListRow } from '../ListRow'
 import s from './ObjectVisits.module.css'
 
@@ -37,13 +38,15 @@ export function WorkList({ listRef }: { listRef: string }) {
     .filter(Boolean).join(' · ')
   const unresolved = list.unresolved?.length ?? 0
   const missingHere = list.objectIds.filter((id) => !byId.has(id)).length
+  // a closed round (withdrawn or past its deadline) opens its visits but takes no new ones
+  const closed = listClosed(list)
 
   return (
     <>
       <Head title={list.title} sub={sub} onBack={back} />
       <div className={s.body}>
         <div className={s.col}>
-          {list.archived && <p className={s.lead}>{C.listArchived}</p>}
+          {closed && <p className={s.lead}>{list.archived ? C.listArchived : C.listClosed}</p>}
           {list.note && <p className={s.lead}>{list.note}</p>}
           {unresolved + missingHere > 0 && (
             <div className="form-warn form-warn-amber form-warn-compact" role="status">
@@ -85,9 +88,9 @@ export function WorkList({ listRef }: { listRef: string }) {
               ].filter(Boolean).join(' · ')
               const open = () => {
                 if (v) ov.go({ kind: 'visit', id: v.id })
-                else if (ov.canCapture && !list.archived) ov.go({ kind: 'new', object: o.id, ref: list.ref })
+                else if (ov.canCapture && !closed) ov.go({ kind: 'new', object: o.id, ref: list.ref })
               }
-              const door = !!v || (ov.canCapture && !list.archived)
+              const door = !!v || (ov.canCapture && !closed)
               const num = (
                 <span className={stop.done ? `${s.num} ${s.numDone}` : s.num} {...(stop.done ? { role: 'img', 'aria-label': `${i + 1} · ${C.listDoneElsewhere}` } : {})}>
                   {stop.done ? <Icon id="check" /> : i + 1}

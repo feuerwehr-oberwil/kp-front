@@ -214,5 +214,6 @@ export const objectVisitsCopy: Localizable<Pick<Copy, 'objectVisits'>> = {
     conflictCurrent: 'In the visit',
     storageWait: 'The device storage could not be read. So that no second draft is created, no new visit is started now.',
     sendOffline: 'Offline – synced once there is network',
+    listClosed: 'Closed – no new visits',
   },
 }
