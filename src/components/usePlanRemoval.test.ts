@@ -10,7 +10,7 @@ vi.mock('../lib/ui', () => ({ toast: vi.fn(), confirmDialog: vi.fn(async () => t
 const onObject = (id: string): LineAttachment => ({ target: { kind: 'object', id }, routing: 'direct' })
 const tlf: BoardAnno = { id: 'a', kind: 'symbol', x: 0.1, y: 0.1, label: 'TLF' }
 const other: BoardAnno = { id: 'b', kind: 'symbol', x: 0.9, y: 0.9, label: 'HRB' }
-const hose = (id: string, over: Partial<BoardAnno> = {}): BoardAnno => ({ id, kind: 'draw', pts: [{ x: 0.2, y: 0.2 }, { x: 0.5, y: 0.5 }], ...over })
+const hose = (id: string, over: Partial<BoardAnno> = {}): BoardAnno => ({ id, kind: 'draw', pts: [[0.2, 0.2], [0.5, 0.5]], ...over })
 
 // The Plan's removals over a live list the commit stub applies to.
 function setup(annos: BoardAnno[], selIds: string[] = []) {
