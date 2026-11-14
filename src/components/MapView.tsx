@@ -23,7 +23,7 @@ import { LockChip } from './LockChip'
 import { LINE_DASH_ML } from '../lib/draw'
 import { DRAFT_ANTS, marchDraftAnts } from '../lib/draftAnts'
 import { MapImages } from './MapImages'
-import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, arrowEndIndices, DEFAULT_INK, EXTEND_STEP_PX } from '../lib/lineStyle'
+import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, endMarkIndices, DEFAULT_INK, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
@@ -35,7 +35,7 @@ import { WAND_MAP_PX } from '../lib/grundriss'
 import { cachedLabelSize, MARKER_Z } from '../lib/labelPass'
 import { END_TAG_HELD_OFFSET, endDirection, endTagOffset, endTagSide, endTagText, MAP_ARROW_BACK_PX } from '../lib/endTagSpots'
 import { lineTakesTrupp, teamLineBadges, truppForLine, truppLineTone } from '../lib/truppLines'
-import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon, haversineM } from '../lib/geo'
+import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon, haversineM, bearingDeg } from '../lib/geo'
 import { hoseLines } from '../lib/hydraulics'
 import { useVehicleTrails } from '../lib/useVehicleTrails'
 import { useMapCanvasGestures } from './useMapCanvasGestures'
@@ -73,6 +73,7 @@ import { useFreshPoint } from '../lib/useFreshPoint'
 import { setLiveBearing } from '../lib/liveBearing'
 import { dismissRelayBubble } from '../lib/useRelay'
 import { LABEL_ABOVE, measureLabelPlacement } from '../lib/measureLabelPlace'
+import { ARROW_BOX, ARROW_STOP_BAR, arrowHeadPoints } from '../lib/mapImages'
 import { attachInsetPx, lineJoints, boundaryPoint, DETACH_SHOW_PROGRESS, dwellFor, forkPortPoint, gpsGuard, moveLineBody, relationshipNetwork, resolveLinePoints, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 
 /** The ink a ghost «Spur» is drawn in — neutral grey, not the Trupp's colour: colour means
@@ -121,6 +122,26 @@ function syncMapKeyboard(map: MlMap | null): void {
   if (!map?.keyboard) return
   if (isTypingTarget(document.activeElement)) map.keyboard.disable()
   else map.keyboard.enable()
+}
+
+// The arrowhead of the line being EDITED, painted again as a DOM marker ABOVE its node pads
+// (round 14.11.2026 #8). The canvas head (`l-draw-arrow`) lies under every DOM marker, so the
+// selected line's «Anschluss frei» disc and its end node still hid the spitze while the line was
+// worked on. Same outline as the canvas icon (lib/mapImages · arrowHeadPoints), same size (the
+// 48px box at pixelRatio 2 × `icon-size` 1.1), rotated with the map like the icon; the white edge
+// keeps it legible on the blue ring. Pointer-inert: the ring under it stays the grip.
+const ARROW_MARK_PX = (ARROW_BOX / 2) * 1.1
+/** a line's final-segment bearing, clockwise from NORTH (MapLibre's `icon-rotate` / Marker
+ *  `rotation`) — lib/geo · bearingDeg counts from east */
+const endBearing = (c: LngLat[]) => bearingDeg(c[c.length - 2], c[c.length - 1]) + 90
+function EditArrowMark({ color, stop }: { color: string; stop: boolean }) {
+  const [x, y, w, h] = ARROW_STOP_BAR
+  return (
+    <svg className="draw-end-mark" width={ARROW_MARK_PX} height={ARROW_MARK_PX} viewBox={`0 0 ${ARROW_BOX} ${ARROW_BOX}`} aria-hidden>
+      {stop && <rect x={x} y={y} width={w} height={h} fill={color} />}
+      <polygon points={arrowHeadPoints(stop).map((p) => p.join(',')).join(' ')} fill={color} paintOrder="stroke" />
+    </svg>
+  )
 }
 
 // The grip that MAKES a node and hands it straight to the finger. Two of them are built on it: the
@@ -671,20 +692,12 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   })), [drawings, trupps, truppSeverities, relationship])
 
   // arrowheads: a Point per line carrying an `arrow` flag, placed at the LAST coord with
-  // a `bearing` (deg, clockwise-from-north) derived from the final segment in a local
-  // east/north frame (lng delta scaled by cos(lat)) so the rotation looks geographically
-  // correct. Rendered by a symbol layer with a registered arrow icon.
+  // a `bearing` (endBearing) so the rotation looks geographically correct. Rendered by
+  // a symbol layer with a registered arrow icon.
   const arrowFC = useMemo(() => fc(drawings
     .filter((d) => d.kind !== 'area' && d.arrow && Array.isArray(d.coords) && d.coords.length >= 2)
-    .map((d) => {
-      const n = d.coords.length
-      const [aLng, aLat] = d.coords[n - 2]
-      const [bLng, bLat] = d.coords[n - 1]
-      const cosL = Math.cos((bLat * Math.PI) / 180) || 1e-6
-      const dx = (bLng - aLng) * cosL, dy = bLat - aLat
-      const bearing = (Math.atan2(dx, dy) * 180) / Math.PI // 0 = north, +clockwise
-      return { type: 'Feature', geometry: { type: 'Point', coordinates: d.coords[n - 1] }, properties: { id: d.id, color: d.color || DEFAULT_INK, bearing, icon: d.arrowStop ? 'draw-arrow-stop' : 'draw-arrow' } }
-    })), [drawings])
+    .map((d) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: d.coords[d.coords.length - 1] },
+      properties: { id: d.id, color: d.color || DEFAULT_INK, bearing: endBearing(d.coords), icon: d.arrowStop ? 'draw-arrow-stop' : 'draw-arrow' } }))), [drawings])
   // «Angekuppelt» (11.10.2026): a dot in the hose's ink on every line → line joint, so a branch
   // coupled onto a Teilstück's prong (or a line continued from another's end) says so — a line
   // target attaches instantly and draws no ring, and a joined end looked exactly like a free end
@@ -890,10 +903,13 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       ? vertexHandleIndices(editDraw.coords.map((c) => { const p = mapInst.current!.project(c as [number, number]); return [p.x, p.y] as [number, number] }))
       : evenIndices(editDraw.coords.length)
     : []
-  // The vertex that carries the arrowhead is drawn HOLLOW, so the spitze stays visible through it
-  // (the arrow is a symbol layer on the canvas and a node pad is a DOM marker — nothing can paint
-  // the head above it). Same helper the Plan uses, so the two surfaces ring the same node.
-  const editRingIdx = editDraw ? arrowEndIndices(editDraw, editDraw.coords.length) : []
+  // The vertex that carries the end mark (arrowhead, Teilstück fork) is drawn HOLLOW, and the mark
+  // is painted again ABOVE it (EditArrowMark; the fork's marker lifts to MARKER_Z.endMark): the
+  // arrow is a symbol layer on the canvas and every node pad is a DOM marker, so a hollow ring
+  // alone still lay over the head (round 14.11.2026 #8, owner: «the -> isn't shown above the
+  // nodes»). Same helper the Plan uses, so the two surfaces ring the same node.
+  const editRingIdx = editDraw ? endMarkIndices(editDraw, editDraw.coords.length) : []
+  const editArrow = editDraw && editDraw.arrow && editRingIdx.length ? editDraw : null
   // A «+» in every gap between two SHOWN pads — one per gap, never one per stored segment.
   // ⚠️ Until 05.09. the «+» row was all-or-nothing: it appeared only while EVERY vertex still had
   // a pad, on the grounds that the midpoint of the chord between two shown nodes is nowhere near
@@ -1725,7 +1741,9 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       {nativeDrawingChrome && lineDecor.map((ld) => (
         <Fragment key={`ld${ld.d.id}`}>
           {ld.d.teilstueck && (
-            <Marker longitude={ld.end[0]} latitude={ld.end[1]} anchor="center">
+            <Marker longitude={ld.end[0]} latitude={ld.end[1]} anchor="center"
+              // above the node pads while its line is edited (endMarkIndices hollows the pad under it)
+              style={ld.d.id === editDraw?.id ? { zIndex: MARKER_Z.endMark, pointerEvents: 'none' } : undefined}>
               <TeilstueckFork angleDeg={ld.angleDeg} color={ld.color} width={ld.width} />
             </Marker>
           )}
@@ -1947,6 +1965,14 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
         </Marker>
         )
       })}
+      {/* the edited line's arrowhead, above its pads (EditArrowMark) – the Teilstück fork lifts
+          the same way on its own marker (lineDecor, MARKER_Z.endMark) */}
+      {editNodes && editArrow && (
+        <Marker longitude={editArrow.coords[editArrow.coords.length - 1][0]} latitude={editArrow.coords[editArrow.coords.length - 1][1]} anchor="center"
+          rotation={endBearing(editArrow.coords)} rotationAlignment="map" style={{ zIndex: MARKER_Z.endMark, pointerEvents: 'none' }}>
+          <EditArrowMark color={editArrow.color || DEFAULT_INK} stop={!!editArrow.arrowStop} />
+        </Marker>
+      )}
       {/* ── Verlängern ─────────────────────────────────────────────────────────────────────────
           The arrow tip sitting `EXTEND_STEP_PX` PAST each open end of a selected line, pointing the
           way the line runs. Until now the only way to lengthen a line was to draw a second one and

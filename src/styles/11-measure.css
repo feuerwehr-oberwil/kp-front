@@ -59,8 +59,16 @@
    selecting an arrowed Linie hid the one thing that says which end it points at. Dropping the
    white fill gives the head its tip and flanks back; the grip is otherwise untouched — 24px,
    the same 3px --blue ring, the same 44px ::after hit pad, and it still steps aside during a
-   transform. Which node this is comes from lib/lineStyle · arrowEndIndices, shared with the Plan. */
+   transform. Which node this is comes from lib/lineStyle · endMarkIndices, shared with the Plan. */
 .draw-handle--ring { background: transparent; }
+/* …and the mark itself paints ABOVE that ring while the line is edited (round 14.11.2026 #8,
+   owner: «the -> isn't shown above the nodes»): MapView · EditArrowMark, a DOM copy of the canvas
+   head at MARKER_Z.endMark, and the Teilstück fork's own marker lifted to the same level – over
+   the ring AND the «Anschluss frei» disc (.free-coupling), which lay on the canvas head too. A thin
+   near-white edge (night too, like the marker plates) keeps the head legible on the blue ring.
+   Pointer-inert, so the ring under it stays the grip; and it stays while ✥ / ⟳ clears the grips
+   (lib/transformChrome) – it is the object's own picture, not furniture. */
+.draw-end-mark { display: block; overflow: visible; stroke: var(--on-accent-ink); stroke-width: 4; stroke-linejoin: round; }
 /* Insert-a-node «+» at a segment's midpoint — Messung, Lage-Zeichnung and the Plan's .wb-vins,
    which this matches pixel for pixel.
    ⚠️ DASHED and hollow, not a filled blue dot (19.08.): filled, it read as a node that is already

@@ -292,20 +292,25 @@ export function lookbackPoint(px: readonly (readonly [number, number])[], dist: 
 }
 
 /**
- * Which vertex indices of a selected line carry an ARROWHEAD, and therefore get drawn as a hollow
- * ring instead of a white-filled dot (decision 18.09.2026).
+ * Which vertex indices of a selected line carry an END MARK – an arrowhead or the FKS Teilstück
+ * fork – and therefore get drawn as a hollow ring instead of a white-filled dot (decision
+ * 18.09.2026; the fork joined on 14.11.2026, owner: «the linienende isn't very clear when still
+ * editing»).
  *
  * The node dot is the last thing painted at an end (a DOM marker on the Karte, z 7 on the Plan),
  * so a 24px white disc sat exactly on top of the spitze and swallowed it — the operator selected
- * a Pfeil and the pfeil disappeared. Hollowing the ring gives the head its own tip and flanks back
- * while the grip keeps its geometry: same 24px, same 3px `--blue` ring, same 44px hit pad.
+ * a Pfeil and the pfeil disappeared. Hollowing the ring gives the mark its tip and flanks back
+ * while the grip keeps its geometry: same 24px, same 3px `--blue` ring, same 44px hit pad. The
+ * mark itself is then painted ABOVE the ring on both surfaces (MapView · the edited line's end
+ * mark, 09-whiteboard · `.wb-arrowhead` / `.wb-line-fork`).
  *
- * The rule mirrors what the two renderers actually draw a head for (MapView · `arrowFeats`,
- * Whiteboard · `a.arrow &&`): the END vertex only, an `arrow` line only, never a closed `area`,
- * and never a line too short to have a bearing. It is ONE function so the two surfaces cannot
- * disagree about which node is hollow — the Lage↔Plan parity rule applied to edit chrome.
+ * The rule mirrors what the two renderers actually draw a mark for (MapView · `arrowFC` /
+ * `lineDecor`, PlanLineDecor): the END vertex only, an `arrow` or `teilstueck` line only, never
+ * a closed `area`, and never a line too short to have a bearing. It is ONE function so the two
+ * surfaces cannot disagree about which node is hollow — the Lage↔Plan parity rule applied to edit
+ * chrome.
  */
-export function arrowEndIndices(d: { kind?: string; arrow?: boolean }, pointCount: number): number[] {
-  if (!d.arrow || d.kind === 'area' || pointCount < 2) return []
+export function endMarkIndices(d: { kind?: string; arrow?: boolean; teilstueck?: boolean }, pointCount: number): number[] {
+  if (!(d.arrow || d.teilstueck) || d.kind === 'area' || pointCount < 2) return []
   return [pointCount - 1]
 }

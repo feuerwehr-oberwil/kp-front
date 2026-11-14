@@ -24,6 +24,12 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   it as ONE `draw.edit` per line, both ends in it – `detachDrawings` – so replay keeps both ends moved),
   ⌘D (`lib/duplicate`), and the armed tool + per-team trails + note-panel closing rules
   (`useTacticalSelection · usePlacement`, `lib/useHiddenTrails`, `lib/useNotePanelClosing`).
+- **A line's end mark stays on top while it is edited** (round 14.11.2026 #8, owner: «the -> isn't
+  shown above the nodes»): the node at an arrow or Teilstück end is a hollow ring
+  (`lib/lineStyle · endMarkIndices`, one helper for both surfaces) and the mark paints above it –
+  on the Karte a DOM copy of the canvas head (`MapView · EditArrowMark`) and the fork's marker at
+  `MARKER_Z.endMark`, on the Plan `.wb-arrowhead` / `.wb-line-fork` over `.wb-vertex`. Pointer-inert:
+  the ring under it stays the grip.
 - **The armed tool's readout is one pill** (`components/ArmedToolPill`, `lib/armedTool`,
   23.10.2026, 3am sweep point 3 – owner: «a small little info thing at the bottom that now you're
   placing symbol XYZ and that's it»). Bottom centre of the Karte, the Einsatz map, a Plan and the

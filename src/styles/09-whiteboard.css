@@ -1112,6 +1112,10 @@ span.wb-ghost-label { cursor: default; }
 /* plan-side wrapper for FKS line decorations (fork / content chip / number badge) in board px */
 .wb-line-deco { position: absolute; left: 0; top: 0; pointer-events: none; }
 .wb-line-deco.draggable { pointer-events: auto; touch-action: none; }
+/* the Teilstück fork is an END MARK like the arrowhead: z 8 above the vertex grips (7), so a
+   selected line's end reads as a fork over its hollow node (lib/lineStyle · endMarkIndices,
+   round 14.11.2026 #8) – never the end tag, which stays under the grips it could otherwise hide */
+.wb-line-fork { z-index: 8; }
 /* Map-side wrapper for the FKS end tag. Interactive at rest so the tag answers a TAP (opens the
    line / routes to its überfällig Trupp) — but the DRAG arms only once its line is selected
    (MapView gates labelDown): f4ad5c3 measured that an always-armed tag stole gestures right at
@@ -1316,9 +1320,9 @@ span.wb-ghost-label { cursor: default; }
   background: var(--on-accent-ink); border: 3px solid var(--blue); cursor: grab; touch-action: none; box-shadow: var(--e3); }
 .wb-vertex::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .wb-vertex:active { cursor: grabbing; }
-/* The end node of an arrowed Linie is hollow, so the spitze reads through it — the Karte's
-   .draw-handle--ring, same rule and same helper (lib/lineStyle · arrowEndIndices). Here the
-   arrowhead is a sibling SVG, so it is ALSO lifted above the node (see .wb-arrowhead's z-index). */
+/* The end node of an arrowed or Teilstück Linie is hollow, so the end mark reads through it — the
+   Karte's .draw-handle--ring, same rule and same helper (lib/lineStyle · endMarkIndices). Here the
+   mark is a sibling, so it is ALSO lifted above the node (.wb-arrowhead's and .wb-line-fork's z). */
 .wb-vertex--ring { background: transparent; }
 /* Verlängern-Griff auf dem Plan: dieselbe Optik wie auf der Lage (.draw-grow in 11-measure.css),
    hier nur absolut im Board-Layer positioniert statt in einem Marker. z 8 über Knoten (7) und
