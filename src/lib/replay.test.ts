@@ -296,7 +296,19 @@ describe('vehiclesAt — interpolated sample paths', () => {
     ts: iso(0),
     lat: 47,
     lng: 7,
+    course: null,
+    speed: null,
+    device_name: null,
     ...over,
+  })
+
+  it('names a vehicle like the live feed did, «Fahrzeug <id>» only when no name was recorded', () => {
+    const samples = [
+      sample({ device_id: 3, ts: iso(0), device_name: 'TLF' }),
+      sample({ device_id: 8, ts: iso(0) }),
+    ]
+    const names = Object.fromEntries(vehiclesAt(samples, 500).map((v) => [v.deviceId, v.name]))
+    expect(names).toEqual({ 3: 'TLF', 8: 'Fahrzeug 8' })
   })
 
   it('returns an empty array when there are no samples', () => {
