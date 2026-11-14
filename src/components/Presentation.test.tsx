@@ -4,7 +4,10 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { appConfig } from '../config/appConfig'
 import type { Follow, PresentationState } from '../lib/presentation'
 import type { Presentation } from '../workspace/usePresentation'
+import { useIsPhone } from '../lib/useIsPhone'
 import { PresentationPill } from './Presentation'
+
+vi.mock('../lib/useIsPhone', () => ({ useIsPhone: vi.fn(() => false) }))
 
 const state: PresentationState = {
   active: true, id: 'p1', seq: 3, started_at: '2026-11-05T20:00:00Z',
@@ -22,7 +25,7 @@ function pill(kind: Follow['kind'], over: Partial<Presentation> = {}) {
 }
 
 describe('the presentation pill', () => {
-  afterEach(() => { cleanup(); localStorage.clear() })
+  afterEach(() => { cleanup(); localStorage.clear(); vi.mocked(useIsPhone).mockReturnValue(false) })
   const C = () => appConfig.copy.presentation
 
   it('asks a link holder for a name once, then follows under it', () => {
@@ -55,6 +58,17 @@ describe('the presentation pill', () => {
     ] } })
     const marked = [...document.querySelectorAll('.present-avs .present-av')].map((el) => el.hasAttribute('data-link'))
     expect(marked).toEqual([true, false])
+  })
+
+  it('on a phone the presenter sees no avatar of itself and «Beenden» as a named ■ square', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const p = pill('presenting')
+    expect(document.querySelector('.present-pill > .present-av')).toBeNull()
+    const end = screen.getByRole('button', { name: C().end })
+    expect(end.textContent).toBe('')
+    expect(screen.getByRole('button', { name: new RegExp(C().zeigen) }).textContent).toContain(C().zeigen)
+    fireEvent.click(end)
+    expect(p.end).toHaveBeenCalled()
   })
 
   it('offline or nothing running: no pill at all', () => {

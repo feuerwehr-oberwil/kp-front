@@ -871,7 +871,10 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   padding: var(--sp-1) var(--sp-1) var(--sp-1) var(--sp-3); border-radius: var(--r-bar);
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); }
 .present-who { display: flex; flex-direction: column; min-width: 0; font-size: var(--fs-1); line-height: var(--lh-1); color: var(--ink-dim); white-space: nowrap; }
-.present-who b { font-size: var(--fs-2); line-height: var(--lh-2); color: var(--ink); font-weight: var(--fw-bold); overflow: hidden; text-overflow: clip; }
+/* both lines ellipsize as the last resort – never cut mid-letter, never run under the buttons
+   (owner's iPhone 14.11.2026: «Du präsentier», «noch niemand folgt» under «Zeigen») */
+.present-who b { font-size: var(--fs-2); line-height: var(--lh-2); color: var(--ink); font-weight: var(--fw-bold); overflow: hidden; text-overflow: ellipsis; }
+.present-who > span { overflow: hidden; text-overflow: ellipsis; }
 /* «<Name> präsentiert» on one line, wrapping to two for a long name (never cut: the name is the
    whole point of the line) */
 .present-who-line { flex-flow: row wrap; align-items: baseline; column-gap: var(--sp-1); row-gap: 0; white-space: normal;
@@ -902,7 +905,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .present-pill .present-zeigen[aria-pressed='true'] { background: color-mix(in srgb, var(--present) 12%, var(--surface)); color: var(--present);
   box-shadow: inset 0 0 0 1.5px var(--present); }
 .present-end, .present-follow, .present-x { flex: none; min-height: var(--tap); }
-.present-x { width: var(--tap); padding: 0; justify-content: center; }
+.present-x, .present-sq { width: var(--tap); padding: 0; justify-content: center; }
 /* a link holder's name, once: the question over the field, «Folgen» beside the field */
 .present-ask { display: flex; align-items: flex-end; gap: var(--sp-2); min-width: 0; padding: var(--sp-1) 0; }
 .present-ask-field { flex: 1 1 auto; gap: var(--sp-1); }
@@ -973,13 +976,15 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   color: var(--on-accent-ink); font-size: var(--fs-1); font-weight: var(--fw-bold); white-space: nowrap; box-shadow: var(--e1); }
 .present-arrow[data-side='left'] .present-arrow-name { left: auto; right: 22px; }
 
-/* «Präsentieren» in «Einsatz teilen», under the read link (ShareIncident · PresentCard) */
-.present-card { display: flex; align-items: center; gap: var(--sp-3); width: 100%; padding: var(--sp-3) var(--sp-4);
+/* «Präsentieren» in «Einsatz teilen», under the read link (ShareIncident · PresentCard): one
+   title row – glyph · title · button – and the text under it across the card (owner pick 6B) */
+.present-card { display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; padding: var(--sp-3) var(--sp-4);
   border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); }
+.present-card-head { display: flex; align-items: center; gap: var(--sp-3); }
 .present-card-glyph { flex: none; color: var(--present); }
 .present-card-glyph .i { width: 22px; height: 22px; }
-.present-card-text { display: flex; flex-direction: column; flex: 1; min-width: 0; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--ink-dim); }
-.present-card-text b { color: var(--ink); font-size: var(--fs-3); font-weight: var(--fw-bold); }
+.present-card-title { flex: 1; min-width: 0; color: var(--ink); font-size: var(--fs-3); font-weight: var(--fw-bold); }
+.present-card-text { margin: 0; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--ink-dim); }
 .present-card .ip-btn { flex: none; }
 
 /* a phone, on every surface: on the floating baseline (the bars', --float-bottom) – never over
