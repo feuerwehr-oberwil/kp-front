@@ -49,7 +49,7 @@ export interface RapportSurfaceProps {
   captureUsage: { writes: number; lastAt: string | null } | null
   attachments: ReportAttachment[]
   canEditRapport: boolean
-  /** the closed Einsatz's Rapport: sign it (workspace/access · canSignRapport) */
+  /** sign the Rapport, open or closed (workspace/access · canSignRapport) */
   canSignRapport: boolean
   /** «Wieder öffnen» – the closed Rapport's strip offers it (absent where this session cannot) */
   onReactivateActive?: () => Promise<ReactivateResult>
@@ -132,10 +132,10 @@ export function RapportSurface({
           onCaptionAttachment={canEditRapport ? captionAttachment : undefined}
           onRemoveAttachment={canEditRapport ? removeAttachment : undefined}
           // the session that keeps the Rapport: it edits it while the Einsatz runs and signs it
-          // once it is closed (`closed` locks the form, owner 12.11.2026)
+          // open or closed (`closed` locks the form, owner 12.11.2026)
           canEdit={canEditRapport || canSignRapport}
           canShare={canShareLink}
-          // the Unterschriften card (lib/reportSignature): signed only on a closed Einsatz
+          // a closed Einsatz's form is read-only; the Unterschriften card does not care
           closed={!running}
           // …whose strip offers the way back to editing
           onReopen={onReactivateActive}

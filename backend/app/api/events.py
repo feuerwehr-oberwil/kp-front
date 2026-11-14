@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import audit
+from .. import audit, vehicle_presence
 from ..auth.dependencies import (
     CurrentAppendWriter,
     CurrentUser,
@@ -202,11 +202,14 @@ async def samples(
     from_: datetime | None = None,
     to: datetime | None = None,
     db: AsyncSession = Depends(get_db),
-):
-    """Vehicle GPS samples in the window (for vehicle replay). May be empty today —
-    the Traccar→samples capture job isn't wired yet (PLAN-audit-trail §4, Phase 6)."""
+) -> list[VehicleSampleOut]:
+    """Vehicle GPS samples in the window (for the vehicle replay), each with the name its
+    tracker had on the live feed (`vehicle_presence · names_seen`) – the rows themselves carry
+    only the device id."""
     await _ensure(db, incident_id)
-    return await audit.samples_in_window(db, incident_id, from_, to)
+    rows = await audit.samples_in_window(db, incident_id, from_, to)
+    names = await vehicle_presence.names_seen(db, incident_id) if rows else {}
+    return [VehicleSampleOut.model_validate(r).model_copy(update={"device_name": names.get(r.device_id)}) for r in rows]
 
 
 @router.get("/{incident_id}/state")

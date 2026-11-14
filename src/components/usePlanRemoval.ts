@@ -1,17 +1,18 @@
 // Removing objects from the Plan: «Entfernen» with the Leitungen coupled to the object let go where
 // they stand (lib/lineAttachments · detachEnds — the Karte's useMapActions · deleteEntity runs the
 // same fold), «Marker und Spur löschen», the Mehrfach group delete, and the Delete key. Each act
-// is ONE ↶ step and ONE Verlauf row, and asks nothing: the delete rule (lib/removalToast) – it
-// goes at once and the toast says what went, with «Rückgängig». Lifted out of the Whiteboard
-// (sweep A.1, 25.10.2026).
+// is ONE ↶ step and ONE Verlauf row: the delete rule (lib/removalToast) – it goes at once and the
+// toast says what went, with «Rückgängig». It asks only when Leitungen hang on the object (or the
+// group) – «TLF hat 2 Leitungen» · [Nur Symbol] [Mit Leitungen] [Abbrechen], owner 14.11.2026,
+// the Karte's card (`askJoinedLines`). Lifted out of the Whiteboard (sweep A.1, 25.10.2026).
 
 import { useEffect } from 'react'
 import type React from 'react'
 import type { BoardAnno } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { removedText, removeWithUndo } from '../lib/removalToast'
-import { detachEnds, wireFreed } from '../lib/lineAttachments'
+import { askJoinedLines, removedText, removeWithUndo, withLinesText } from '../lib/removalToast'
+import { detachEnds, linesOnObjects, wireFreed } from '../lib/lineAttachments'
 import { annoLogName } from '../lib/drawingEdit'
 import type { useBoardDoc } from './useBoardDoc'
 import type { PlanLogExtra } from './Whiteboard'
@@ -66,11 +67,27 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
   const removedLine = (a: BoardAnno, freed: number) => removedText(a.kind === 'text'
     ? appConfig.copy.removedToast.note
     : fillTemplate(appConfig.copy.log.objectDeleted, { name: annoLogName(a) ?? appConfig.copy.entities.fallbackObjectName }), freed)
+  /** the bare name the joined-lines card and its «Mit Leitungen» sentence use – the Karte's too */
+  const joinedName = (a: BoardAnno) => (a.kind === 'text'
+    ? appConfig.copy.removedToast.noteWhat
+    : annoLogName(a) ?? appConfig.copy.entities.fallbackObjectName)
 
   // returns whether the object actually went — «Marker und Spur löschen» has to take its arming
   // back when it did not. `text` overrides the toast's sentence (that door says the Spur went too).
   const removeWithConnections = async (target: BoardAnno, text?: string): Promise<boolean> => {
     if (readOnly) return false
+    // Leitungen on it ask first; «Mit Leitungen» is the group write over it and them
+    const joined = linesOnObjects(annos, [target.id])
+    if (joined.length) {
+      const name = joinedName(target)
+      const answer = await askJoinedLines(name, joined.length)
+      if (!answer) return false
+      if (answer === 'with') {
+        const row = withLinesText(name, joined.length)
+        removeMany([target.id, ...joined.map((a) => a.id)], (freed) => removedText(row, freed), () => log('close', row, { subjectId: target.id }))
+        return true
+      }
+    }
     const affected = annos.flatMap((a) => (['start', 'end'] as const).flatMap((endpoint) => {
       const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
       return rel && ((rel.target.kind === 'object' && rel.target.id === target.id) || (rel.target.kind === 'line' && rel.target.id === target.id)) ? [{ a, endpoint, rel }] : []
@@ -124,18 +141,37 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
   }
 
   // group delete — removes the whole selection; a trail-carrying team goes with it and leaves
-  // its ghost trail behind (see removeWithConnections).
-  const deleteGroup = () => {
+  // its ghost trail behind (see removeWithConnections). Leitungen outside the selection that hang
+  // on a member ask first – one card for the group, the lines counted over all of it.
+  const deleteGroup = async () => {
     if (readOnly) return
-    const removable = selIds.filter((id) => annos.some((x) => x.id === id))
+    let removable = selIds.filter((id) => annos.some((x) => x.id === id))
     if (!removable.length) return
-    // the lines OUTSIDE the selection that hung on it, and now stand loose — the toast counts them
-    const freed = annos.filter((a) => !removable.includes(a.id) && [a.startAttachment, a.endAttachment].some((rel) => rel && removable.includes(rel.target.id))).length
     const lone = removable.length === 1 ? annos.find((a) => a.id === removable[0]) : undefined
     const row = removable.length > 1
       ? fillTemplate(appConfig.copy.whiteboard.groupDeletedN, { n: removable.length })
       : appConfig.copy.whiteboard.groupDeleted
-    const line = lone ? removedLine(lone, freed) : removedText(row, freed)
+    const joined = linesOnObjects(annos, removable, removable)
+    if (joined.length) {
+      const C = appConfig.copy.removedToast
+      const answer = await askJoinedLines(lone ? joinedName(lone) : C.group, joined.length, !lone)
+      if (!answer) return
+      if (answer === 'with') {
+        const withRow = withLinesText(lone ? joinedName(lone) : fillTemplate(C.groupN, { n: removable.length }), joined.length)
+        removable = [...removable, ...joined.map((a) => a.id)]
+        removeMany(removable, (freed) => removedText(withRow, freed), () => log('close', withRow, lone ? { subjectId: lone.id } : undefined))
+        return
+      }
+    }
+    removeMany(removable, (freed) => (lone ? removedLine(lone, freed) : removedText(row, freed)), () => (lone ? logRemoved(lone) : log('close', row)))
+  }
+  /** The ONE write of a removal of several annos: every line end outside `removable` that hung on
+   *  one lets go where it stands on screen now. One ↶ step; `sentence` is the toast and the ↶
+   *  caption, given the count of lines set loose; `logIt` writes the one Verlauf row. */
+  const removeMany = (removable: string[], sentence: (freed: number) => string, logIt: () => void) => {
+    // the lines OUTSIDE the removal that hung on it, and now stand loose — the toast counts them
+    const freed = annos.filter((a) => !removable.includes(a.id) && [a.startAttachment, a.endAttachment].some((rel) => rel && removable.includes(rel.target.id))).length
+    const line = sentence(freed)
     onStepLabel?.(line)
     removeWithUndo(line, () => commit(annos.filter((a) => !removable.includes(a.id)).map((a) => {
       if (!a.pts?.length) return a
@@ -149,8 +185,7 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
     removable.forEach((id) => emit('board.delete', { id, planId: activeId }))
     setSelIds((ids) => ids.filter((id) => !removable.includes(id)))
     setSelId(null)
-    if (lone) { logRemoved(lone); return }
-    log('close', row)
+    logIt()
   }
 
   /** Remove whatever the bar is pointed at — a Mehrfach group, a single Linie/Fläche/
@@ -160,7 +195,7 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
    *  object's own editor sheet runs. The bar's third slot is «Fertig». */
   const deleteSelection = () => {
     if (readOnly) return
-    if (selIds.length > 1) { deleteGroup(); return }
+    if (selIds.length > 1) { void deleteGroup(); return }
     const a = annos.find((x) => barIds.includes(x.id))
     if (a) void removeWithConnections(a)
   }

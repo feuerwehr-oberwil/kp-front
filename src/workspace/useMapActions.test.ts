@@ -74,3 +74,80 @@ describe('delete — replay clears the freed ends\' attachments', () => {
     expect(replayed).not.toHaveProperty('endAttachment')
   })
 })
+
+// Owner 14.11.2026: a symbol that Leitungen hang on asks first – «TLF hat 2 Leitungen» ·
+// [Nur Symbol] [Mit Leitungen] [Abbrechen]; either answer is ONE commit (one ↶ step that gives
+// back everything), and a symbol with nothing joined goes without a card.
+describe('delete — the joined-lines card', () => {
+  const tlf = (): Entity => ({ ...ent('a', [1, 1]), label: 'TLF' })
+  const hoses = () => [
+    leitung({ id: 'h1', startAttachment: onObject('a') }),
+    // its other end hangs on another symbol: it still goes with «Mit Leitungen»
+    leitung({ id: 'h2', startAttachment: onObject('b'), endAttachment: onObject('a') }),
+    leitung({ id: 'free' }),
+  ]
+  const answer = async (a: boolean | 'alt') => {
+    const ui = await import('../lib/ui')
+    vi.mocked(ui.confirmDialog).mockResolvedValueOnce(a as never)
+    return ui
+  }
+
+  it('nothing joined: no card, one commit', async () => {
+    const ui = await import('../lib/ui')
+    const { deps, given, live } = makeDeps([tlf()], [leitung({ id: 'free' })])
+    const { result } = renderHook(() => useMapActions(deps))
+    await act(async () => { await result.current.deleteEntity('a') })
+    expect(ui.confirmDialog).not.toHaveBeenCalled()
+    expect(given.commit).toHaveBeenCalledTimes(1)
+    expect(live().entities).toEqual([])
+  })
+
+  it('«Nur Symbol»: the lines stay, let go where the symbol stood – one commit', async () => {
+    const ui = await answer(true)
+    const { deps, given, live } = makeDeps([tlf(), ent('b', [3, 3])], hoses())
+    const { result } = renderHook(() => useMapActions(deps))
+    await act(async () => { await result.current.deleteEntity('a') })
+    expect(vi.mocked(ui.confirmDialog).mock.calls[0][0]).toMatchObject({ title: 'TLF hat 2 Leitungen', confirmLabel: 'Nur Symbol', altLabel: 'Mit Leitungen' })
+    expect(given.commit).toHaveBeenCalledTimes(1)
+    expect(live().drawings.map((d) => d.id)).toEqual(['h1', 'h2', 'free'])
+    expect(live().drawings[0].startAttachment).toBeUndefined()
+    expect(ui.toast).toHaveBeenCalledWith('TLF entfernt, 2 Leitungen gelöst', expect.anything())
+  })
+
+  it('«Mit Leitungen»: the symbol and every line on it go in one commit, and the toast says so', async () => {
+    const ui = await answer('alt')
+    const { deps, given, live } = makeDeps([tlf(), ent('b', [3, 3])], hoses())
+    const { result } = renderHook(() => useMapActions(deps))
+    let went: boolean | undefined
+    await act(async () => { went = await result.current.deleteEntity('a') })
+    expect(went).toBe(true)
+    expect(given.commit).toHaveBeenCalledTimes(1)
+    expect(live().entities.map((e) => e.id)).toEqual(['b'])
+    expect(live().drawings.map((d) => d.id)).toEqual(['free'])
+    expect(ui.toast).toHaveBeenCalledWith('TLF und 2 Leitungen entfernt', expect.anything())
+    expect(given.emit.mock.calls.filter(([op]) => op === 'draw.delete').map(([, p]) => p.id)).toEqual(['h1', 'h2'])
+  })
+
+  it('Abbrechen: nothing is written', async () => {
+    await answer(false)
+    const { deps, given } = makeDeps([tlf()], hoses())
+    const { result } = renderHook(() => useMapActions(deps))
+    let went: boolean | undefined
+    await act(async () => { went = await result.current.deleteEntity('a') })
+    expect(went).toBe(false)
+    expect(given.commit).not.toHaveBeenCalled()
+    expect(given.emit).not.toHaveBeenCalled()
+  })
+
+  it('a group asks once, the lines counted over all of it', async () => {
+    const ui = await answer('alt')
+    const { deps, given, live } = makeDeps([tlf(), ent('b', [3, 3])], hoses())
+    const { result } = renderHook(() => useMapActions(deps))
+    await act(async () => { await result.current.deleteGroup(['free'], ['a', 'b']) })
+    expect(ui.confirmDialog).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(ui.confirmDialog).mock.calls[0][0]).toMatchObject({ title: 'Auswahl hat 2 Leitungen', confirmLabel: 'Nur Auswahl' })
+    expect(given.commit).toHaveBeenCalledTimes(1)
+    expect(live()).toMatchObject({ entities: [], drawings: [] })
+    expect(ui.toast).toHaveBeenCalledWith('3 Objekte und 2 Leitungen entfernt', expect.anything())
+  })
+})

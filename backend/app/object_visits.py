@@ -1413,6 +1413,16 @@ async def upsert_integration_object(
     return {"objectId": str(obj.id), "created": created}
 
 
+def _calendar_day(value: Any, where: str) -> date:
+    """A ``YYYY-MM-DD`` calendar day (no time, no timezone) or a 422 naming ``where``."""
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        raise invalid(f"{where} muss ein Datum JJJJ-MM-TT sein")
+    try:
+        return date.fromisoformat(value)
+    except ValueError as e:
+        raise invalid(f"{where} ist kein gültiges Datum") from e
+
+
 def _prior_completion(value: Any, external_id: str) -> dict[str, str]:
     """A completion the organizer already holds for this stop (e.g. a tour done in SchlüHü).
 
@@ -1423,14 +1433,7 @@ def _prior_completion(value: Any, external_id: str) -> dict[str, str]:
     unknown = set(value) - {"at", "by", "source", "note"}
     if unknown:
         raise invalid(f"{where}: unbekannte Felder {sorted(unknown)}")
-    at = value.get("at")
-    if not isinstance(at, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", at):
-        raise invalid(f"{where}.at muss ein Datum JJJJ-MM-TT sein")
-    try:
-        date.fromisoformat(at)
-    except ValueError as e:
-        raise invalid(f"{where}.at ist kein gültiges Datum") from e
-    out = {"at": at}
+    out = {"at": _calendar_day(value.get("at"), f"{where}.at").isoformat()}
     for key, limit in (("by", 120), ("source", 60), ("note", 500)):
         text = _text(value.get(key), limit, f"{where}.{key}")
         if text is not None and text.strip():
@@ -1448,6 +1451,9 @@ async def put_visit_list(db: AsyncSession, ref: str, body: dict[str, Any]) -> di
     closes_at = _parse_time(closes) if closes is not None else None
     if closes is not None and closes_at is None:
         raise invalid("closesAt muss ein Zeitpunkt (ISO 8601) sein")
+    # the round's calendar day (no timezone): the field app files it under Heute / Noch offen / …
+    scheduled = body.get("scheduledOn")
+    scheduled_on = _calendar_day(scheduled, "scheduledOn") if scheduled is not None else None
     items = body.get("objects")
     if not isinstance(items, list) or len(items) > 500:
         raise invalid("objects: eine Liste von höchstens 500 {source, id}")
@@ -1473,6 +1479,7 @@ async def put_visit_list(db: AsyncSession, ref: str, body: dict[str, Any]) -> di
     row.title = title.strip()
     row.note = note
     row.closes_at = closes_at
+    row.scheduled_on = scheduled_on
     row.items = clean
     row.updated_at = datetime.now(UTC)
     await db.flush()

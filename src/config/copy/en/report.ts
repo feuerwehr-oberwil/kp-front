@@ -120,7 +120,6 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     optional: 'optional',
     count: '{n} of 2',
     invalid: 'invalid',
-    runningHint: 'Sign here after the incident is closed – no pen and paper needed.',
     roleEl: 'Incident commander',
     roleKdt: 'Chief',
     sign: 'Sign',
@@ -143,6 +142,9 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     confirm: 'Sign',
     logSigned: 'Report signed: {role} {name} (checksum {sum})',
     failed: 'Signature not saved – try again',
+    // an open Rapport signed without an Einsatzende: the close writes one and voids the signature (owner, 14.11.2026)
+    endMissing: 'Incident end missing – the close sets it, which voids the signature.',
+    endNow: 'Set to now',
   },
   preflight: {
     pdfFull: 'Incident report (PDF)',

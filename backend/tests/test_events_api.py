@@ -484,6 +484,34 @@ async def test_samples_filters_the_window_and_orders_by_ts(client, editor, db_se
     assert len(got) == 2
 
 
+async def test_samples_carry_the_name_the_tracker_had_on_the_live_feed(client, editor, db_session):
+    """The rows hold only a device id; the replay must still say «TLF», not «Fahrzeug 3» – also
+    for an old Einsatz whose tracker is offline today. The name comes from the Einsatz's own
+    presence events (the newest wins); a device without one answers null (client fallback)."""
+    from app import vehicle_presence as vp
+
+    await _login(client, editor)
+    inc = await _incident(client)
+    inc_id = uuid.UUID(inc)
+    t = datetime(2020, 1, 1, 6, tzinfo=UTC)
+    for n, name in enumerate(("TLF alt", "TLF")):
+        await audit.append_event(
+            db_session,
+            incident_id=inc_id,
+            op_type=vp.OP_TYPE,
+            source=vp.EVENT_SOURCE,
+            payload={"device_id": 3, "name": name, "vehicle": None, "zone": "away", "n": n},
+            occurred_at=t,
+            client_id=vp.event_id(3, n),
+        )
+    for device_id in (3, 8):
+        db_session.add(VehicleSample(incident_id=inc_id, device_id=device_id, ts=t, lat=47.5, lng=7.5))
+    await db_session.commit()
+
+    got = (await client.get(f"/api/incidents/{inc}/samples")).json()
+    assert {s["device_id"]: s["device_name"] for s in got} == {3: "TLF", 8: None}
+
+
 # --- verify: the whole point of the hash chain ------------------------------------------------
 
 

@@ -663,6 +663,33 @@ async def test_organizer_lists_and_change_feed(client, editor, on, obj, db_sessi
     assert (await client.get("/api/object-visits/catalogue")).json()["lists"] == []
 
 
+async def test_organizer_list_round_trips_its_day_and_deadline(client, editor, on, db_session):
+    """A Fahrschule evening: ``scheduledOn`` is a calendar day, ``closesAt`` the end of it."""
+    await set_key(db_session)
+    ref = "fwo-admin:fahrschule/2026-11-03/4280"
+    body = {
+        "title": "Fahrschule Di 03.11.",
+        "scheduledOn": "2026-11-03",
+        "closesAt": "2026-11-03T23:59:59+01:00",
+        "objects": [],
+    }
+    for bad in ("03.11.2026", "2026-02-30", 20261103):
+        r = await client.put(
+            f"/api/integrations/visit-lists/{ref}", json={**body, "scheduledOn": bad}, headers=bearer()
+        )
+        assert r.status_code == 422 and "scheduledOn" in r.text
+    assert (await client.put(f"/api/integrations/visit-lists/{ref}", json=body, headers=bearer())).status_code == 200
+
+    await login(client, editor)
+    [row] = (await client.get("/api/object-visits/catalogue")).json()["lists"]
+    assert row["scheduledOn"] == "2026-11-03" and row["closesAt"] == "2026-11-03T22:59:59+00:00"
+
+    # a PUT replaces the list: without the day it is undated again
+    await client.put(f"/api/integrations/visit-lists/{ref}", json={"title": "t", "objects": []}, headers=bearer())
+    [row] = (await client.get("/api/object-visits/catalogue")).json()["lists"]
+    assert row["scheduledOn"] is None and row["closesAt"] is None
+
+
 # --- the report -------------------------------------------------------------------------------
 
 

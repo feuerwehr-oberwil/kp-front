@@ -32,6 +32,7 @@ import { Icon } from '../lib/icons'
 import { StringList } from './StringList'
 import { lv95ToWgs84, wgs84ToLV95 } from '../lib/geo'
 import type { DeploymentReferenceLayer } from '../lib/deploymentConfig'
+import type { HoseSize } from '../types'
 
 // The five "Station" pages. Each edits one facet of the single config document via the
 // shared ConfigContext (draft + Save live in the provider, not here). Section-level help
@@ -891,21 +892,27 @@ export function DoctrineSection() {
       })}
 
       {/* The hose Ø a plain Linie without one reads as, and the one a Wassertransport (in Messen,
-          or on a Leitung without a picked Ø) starts on (lib/hydraulics · lineHose, 05.11.2026). Unset shows the shipped Ø as chosen,
-          like the name order, and writes nothing until a pick. The relay list has no 40 mm. */}
+          or on a Leitung without a picked Ø) starts on (lib/hydraulics · lineHose). Unset shows the
+          shipped value as chosen, like the name order, and writes nothing until a pick. The Linie
+          ships with none (owner 14.11.2026) – «Kein Standard» is its first entry, and picking it
+          writes null; the relay ships 75 (05.11.2026) and its list has no 40 mm. */}
       <SettingsGroup title={C.groupHose} />
       {([
         ['defaultLineHose', HOSE_SIZES, SHIPPED_HOSE.line, C.defaultLineHose, C.defaultLineHoseTip],
         ['defaultRelayHose', RELAY_HOSE_SIZES, SHIPPED_HOSE.relay, C.defaultRelayHose, C.defaultRelayHoseTip],
       ] as const).map(([key, sizes, shipped, label, tip]) => {
         const labels = appConfig.copy.relay.hoseLabels
+        const name = (h: HoseSize | undefined) => (h ? labels[h] : C.defaultLineHoseNone)
         const stored = getPath<string>(draft, ['doctrine', key])
         const value = sizes.find((h) => h === stored) ?? shipped
         return (
-          <SettingRow key={key} label={label} tip={fillTemplate(tip, { n: labels[shipped] })}
-            standard={standardNote(stored == null ? null : labels[value], labels[shipped])}>
-            <Select value={value} ariaLabel={label} onChange={(v) => set(['doctrine', key], v)}
-              options={sizes.map((h) => ({ value: h, label: labels[h] }))} />
+          <SettingRow key={key} label={label} tip={fillTemplate(tip, { n: name(shipped) })}
+            standard={standardNote(stored == null ? null : name(value), name(shipped))}>
+            <Select value={value ?? ''} ariaLabel={label} onChange={(v) => set(['doctrine', key], v || null)}
+              options={[
+                ...(shipped ? [] : [{ value: '', label: C.defaultLineHoseNone }]),
+                ...sizes.map((h) => ({ value: h, label: labels[h] })),
+              ]} />
           </SettingRow>
         )
       })}

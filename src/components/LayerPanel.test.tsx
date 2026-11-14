@@ -261,3 +261,23 @@ describe('LayerPanel · an Ebene that is still loading', () => {
     expect(document.querySelector('.lrow .ic-loading')).toBeNull()
   })
 })
+
+// «Standard» keeps a layer on when the Einsatz's category auto-activates it (the station config's
+// `autoActivate`) – round 14.11.2026 #11: the owner saw the Abwasser layers survive «Standard» in
+// an Elementarereignis and nothing said why. The row says it now; any other row stays one line.
+describe('LayerPanel · why «Standard» switches a row on', () => {
+  const abwasser: LayerDef = { id: 'lk-abwasser-regen', group: 'Leitungen', label: 'Abwasser Regen', icon: 'layers', visible: true, autoActivate: ['Elementarereignis'] }
+  const hydrant: LayerDef = { id: 'lk-hydrant', group: 'Leitungen', label: 'Hydranten', icon: 'layers', visible: false, autoActivate: ['Brandbekämpfung'] }
+  const why = fillTemplate(appConfig.copy.layerPanel.standardFor, { kategorie: 'Elementarereignis' })
+
+  it('names the category on the rows it switches on, and only there', () => {
+    render(<LayerPanel layers={[abwasser, hydrant]} onToggle={noop} onOpacity={noop} category="Elementarereignis" />)
+    expect(screen.getAllByText(why)).toHaveLength(1)
+    expect(screen.getByRole('button', { name: new RegExp(`^${abwasser.label} – .* – ${why}$`) })).toBeTruthy()
+  })
+
+  it('says nothing without a category (the Karte home)', () => {
+    render(<LayerPanel layers={[abwasser]} onToggle={noop} onOpacity={noop} />)
+    expect(screen.queryByText(why)).toBeNull()
+  })
+})

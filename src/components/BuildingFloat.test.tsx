@@ -4,11 +4,17 @@
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BuildingFloat } from './BuildingFloat'
 import type { BuildingInfo } from '../lib/api/building'
 
-afterEach(cleanup)
+afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+
+/** every media query matches — useIsPhone reads a phone */
+const asPhone = () => vi.stubGlobal('matchMedia', (q: string) => ({
+  matches: true, media: q, onchange: null, addEventListener: () => {}, removeEventListener: () => {},
+  addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+}))
 
 const base: BuildingInfo = {
   registers: 'on', egid: '409428', address: 'Mühlemattstrasse 18, 4104 Oberwil',
@@ -54,6 +60,20 @@ describe('BuildingFloat', () => {
     const chip = screen.getByRole('button', { name: 'Gebäude-Steckbrief öffnen' })
     expect(chip.textContent).toBe('Gebäude-Info')
     expect(chip.querySelector('use')?.getAttribute('href')).toBe('#info')
+  })
+
+  // round 14.11.2026, owner pick 12A: on a phone the chip is the hazard alone, the label stays whole
+  it('phone: glyph + hazard words alone, or (i) «Gebäude»; the count and the full label stay', () => {
+    asPhone()
+    render(<BuildingFloat info={base} />)
+    const chip = screen.getByRole('button', { name: 'Gebäude: Gas, PV – Steckbrief öffnen · 1 Sofortmassnahme' })
+    expect(chip.textContent).toBe('Gas · PV1')
+    expect(chip.getAttribute('title')).toBe(chip.getAttribute('aria-label'))
+    cleanup()
+    render(<BuildingFloat info={{ ...base, gwr: { ...base.gwr!, heating: ['district'], hot_water: [] }, plants: [], object: null }} />)
+    const calm = screen.getByRole('button', { name: 'Gebäude-Steckbrief öffnen' })
+    expect(calm.textContent).toBe('Gebäude')
+    expect(calm.querySelector('use')?.getAttribute('href')).toBe('#info')
   })
 
   it('autoOpen (the first open, lib/buildingFirstOpen) opens the card by itself; any close marks it read', () => {

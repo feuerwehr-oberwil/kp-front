@@ -566,6 +566,14 @@ export type DetachPatch = { coords: LngLat[] } & FreedEnds
 export type AnnoDetachPatch = { pts: BoardPoint[] } & FreedEnds
 
 type Releasable = { id: string; startAttachment?: LineAttachment; endAttachment?: LineAttachment }
+
+/** The lines with an end on one of the OBJECTS `hostIds` (never a line end), leaving out those in
+ *  `going` – the Leitungen a symbol's removal asks about (lib/removalToast · askJoinedLines) and
+ *  takes along on «Mit Leitungen». Lage drawings and Plan annos alike. */
+export function linesOnObjects<L extends Releasable>(lines: readonly L[], hostIds: readonly string[], going: readonly string[] = []): L[] {
+  return lines.filter((l) => !going.includes(l.id)
+    && [l.startAttachment, l.endAttachment].some((a) => a?.target.kind === 'object' && hostIds.includes(a.target.id)))
+}
 type Release<L, P> = (line: L, endpoint: LineEndpoint, attachment: LineAttachment, points: readonly P[]) => P | null | undefined
 
 /** `detachEnds` over a list of lines: each line that let go of something, ONCE, both ends folded. */

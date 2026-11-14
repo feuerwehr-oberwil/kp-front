@@ -149,13 +149,12 @@ export const reportCopy = {
   },
   // Digitale Unterschriften auf dem Rapport (15.10.2026, lib/reportSignature). Freiwillig: die
   // Karte «Unterschriften» in der rechten Spalte, nach den Partnerorganisationen (Reihenfolge des
-  // Papiers). Unterschrieben = gesperrt; eine Änderung danach macht die Unterschrift ungültig.
+  // Papiers). Offen oder abgeschlossen: gültig, solange der unterschriebene Teil unverändert ist.
   signature: {
     cardTitle: 'Unterschriften',
     optional: 'optional',
     count: '{n} von 2',
     invalid: 'ungültig',
-    runningHint: 'Nach dem Abschluss hier unterschreiben – ohne Stift und Papier.',
     roleEl: 'Einsatzleiter',
     roleKdt: 'Kommandant',
     sign: 'Unterschreiben',
@@ -179,6 +178,9 @@ export const reportCopy = {
     // ⚠️ Verlauf-Zeilen und die Zeile unter der Unterschrift auf dem Papier: kein «→» (Helvetica)
     logSigned: 'Rapport unterschrieben: {role} {name} (Prüfsumme {sum})',
     failed: 'Unterschrift nicht gespeichert – erneut versuchen',
+    // an open Rapport signed without an Einsatzende: the close writes one and voids the signature (owner, 14.11.2026)
+    endMissing: 'Einsatzende fehlt – beim Abschluss wird es gesetzt, die Unterschrift wird dann ungültig.',
+    endNow: 'Jetzt eintragen',
   },
   preflight: {
     pdfFull: 'Einsatzrapport (PDF)',

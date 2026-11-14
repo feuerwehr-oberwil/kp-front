@@ -290,6 +290,9 @@ export const MARKER_Z = {
   tagSelected: 9,
   /** whatever the operator just tapped or is dragging (see markerZ) */
   selected: 10,
+  /** the end mark (arrowhead, Teilstück fork) of the line being EDITED – above its own node pads,
+   *  pointer-inert, so the end still reads as an end while its grip is on it (round 14.11.2026 #8) */
+  endMark: 11,
   /** a fanned pile — transient, and it has to clear even the selection to be readable */
   fanned: 12,
 } as const
