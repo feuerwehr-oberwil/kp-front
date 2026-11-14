@@ -102,7 +102,7 @@ export function PlanLineDecor({ a, sW, sH, mapY, onSection, trupps, truppSeverit
       )}
       {/* FKS Teilstück fork at the tip (rotated to the line's screen angle) */}
       {a.teilstueck && endShown && (
-        <span className="wb-line-deco" style={{ transform: `translate(${end[0]}px, ${end[1]}px) translate(-50%, -50%)` }}>
+        <span className="wb-line-deco wb-line-fork" style={{ transform: `translate(${end[0]}px, ${end[1]}px) translate(-50%, -50%)` }}>
           <TeilstueckFork angleDeg={ang} color={color} width={a.width ?? 5} />
         </span>
       )}

@@ -7,8 +7,9 @@ chip row beside the Objekt chip whenever an Objekt is bound, and on the Gebäude
 building chip (`components/BuildingFloat`; not on a phone's plan, whose one-line row needs the
 room for the Objekt's name). On a phone it is part of the Karte's one floating row, left of the FAB.
 Closed, it names the hazards as glyph + word («⚠ Gebäude-Info · Gas · PV»), or just «Gebäude-Info»
-– the same words on every surface and size (owner pick C8, 05.11.2026; the phone and the plan's
-row said «⚠ Gas» alone until then). A tap opens the card docked one row above it.
+(owner pick C8, 05.11.2026). On a PHONE it is the hazard alone again – «⚠ Gas · PV» at 700, or
+(i) «Gebäude» without one, the count badge and the full aria-label/title kept (owner pick 12A,
+14.11.2026: the long amber chip outweighed the row). A tap opens the card docked one row above it.
 The card is non-modal, like the Passung: the map stays live, and ✕, the chip or Esc close it.
 Open, it stands above the phone's wind chip (the row rises to `--z-map-card`, under the
 Meldeleiste and the bars) and never reaches past the top: its height is the room between its foot

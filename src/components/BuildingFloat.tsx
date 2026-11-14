@@ -5,6 +5,7 @@ import { cx } from '../lib/cx'
 import type { BuildingInfo } from '../lib/api/building'
 import { buildingChipSummary } from '../lib/buildingCard'
 import { useOnlyOpenCard } from '../lib/floatCards'
+import { useIsPhone } from '../lib/useIsPhone'
 import { BuildingCard } from './BuildingCard'
 import s from './BuildingFloat.module.css'
 
@@ -26,6 +27,11 @@ import s from './BuildingFloat.module.css'
  * the plan's row said «⚠ Gas» alone, or the bare glyph). Not «Gebäude» + the storey glyph: that is
  * the rail's Gebäude tile, a surface of its own. Nothing to say → no chip (lib/buildingCard ·
  * hasBuildingContent).
+ *
+ * ⚠️ Smaller on a PHONE (round 14.11.2026, owner pick 12A, chip-shot: «Gebäude-Info · Heizöl» in
+ * 800 amber outweighed everything in the row): there the chip is the glyph + the hazard word(s)
+ * alone («⚠ Heizöl», 700), or (i) + «Gebäude» with none – same height as the floating family, the
+ * count badge stays, and `aria-label` / `title` keep the full sentence. The tablet is unchanged.
  *
  * ⚠️ ONE action, so one glyph and one label (owner, 09.11.2026 – mock nov09-gebaeude-sofort, «do not
  * split»): the Objekt's Sofortmassnahmen are a count badge on the chip («Gebäude-Info ②»), the way
@@ -49,6 +55,7 @@ export function BuildingFloat({ info, autoOpen = false, onRead }: {
   const [auto, setAuto] = useState(autoOpen)
   if (autoOpen !== auto) { setAuto(autoOpen); if (autoOpen) setOpen(true) }
   const summary = buildingChipSummary(info)
+  const phone = useIsPhone()
   const read = useRef(onRead)
   useEffect(() => { read.current = onRead })
   const close = useCallback(() => { setOpen(false); read.current?.() }, [])
@@ -79,7 +86,9 @@ export function BuildingFloat({ info, autoOpen = false, onRead }: {
         {/* a KNOWN hazard is the words after the dot, in the hazard tone (hill climb r15, Opus 5):
             in ink the chip read as one more neutral control. The plate stays neutral – no fill,
             this is a fact to read, not an alarm. */}
-        <span>{C.chipTitle}{summary.hazard && <> · <b className={s.words}>{summary.words.join(' · ')}</b></>}</span>
+        <span>{phone
+          ? summary.hazard ? <b className={s.words}>{summary.words.join(' · ')}</b> : C.chipTitleShort
+          : <>{C.chipTitle}{summary.hazard && <> · <b className={s.words}>{summary.words.join(' · ')}</b></>}</>}</span>
         {/* the Objekt's Sofortmassnahmen are inside: their count, in the one count-badge idiom */}
         {summary.measures > 0 && <span className={s.count} aria-hidden>{summary.measures}</span>}
       </button>
