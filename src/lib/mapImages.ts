@@ -61,21 +61,26 @@ export function pointIconVariants(
 /** Is this an image id the point-symbol layers (MapLayers) ask for? */
 export const isPointIconId = (id: string) => id.startsWith('icon-')
 
+/** The arrowhead's outline in its 48px box, tip up: tip · right barb · notch · left barb, and the
+ *  «Stopp» bar as x, y, w, h. ONE geometry for the canvas icon below and the DOM copy the Karte
+ *  paints above the edit nodes of the selected line (MapView · EditArrowMark), so the two can
+ *  never draw different heads. */
+export const ARROW_BOX = 48
+export const arrowHeadPoints = (stop: boolean): [number, number][] =>
+  [[ARROW_BOX / 2, stop ? 10 : 4], [ARROW_BOX - 6, ARROW_BOX - 8], [ARROW_BOX / 2, ARROW_BOX - 16], [6, ARROW_BOX - 8]]
+export const ARROW_STOP_BAR = [8, 0, ARROW_BOX - 16, 5] as const
+
 /** The Messpfeil / Rettungsachse arrowhead: white, pointing UP (bearing 0), recoloured through
  *  SDF by `icon-color`. The «Stopp» variant carries the Entwicklungsgrenze bar past its tip — the
  *  same statement the fire's bounded spread arrow makes, on a line. */
 export function arrowImage(stop: boolean): ImageDataLike | null {
-  const S = 48 // rendered large so the head stays crisp when scaled up
+  const S = ARROW_BOX // rendered large so the head stays crisp when scaled up
   const cv = document.createElement('canvas'); cv.width = S; cv.height = S
   const ctx = cv.getContext('2d'); if (!ctx) return null
   ctx.fillStyle = '#fff'
-  const top = stop ? 10 : 4
-  if (stop) ctx.fillRect(8, 0, S - 16, 5)
+  if (stop) ctx.fillRect(...ARROW_STOP_BAR)
   ctx.beginPath()
-  ctx.moveTo(S / 2, top)          // tip (top)
-  ctx.lineTo(S - 6, S - 8)        // bottom-right
-  ctx.lineTo(S / 2, S - 16)       // notch
-  ctx.lineTo(6, S - 8)            // bottom-left
+  arrowHeadPoints(stop).forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
   ctx.closePath()
   ctx.fill()
   const d = ctx.getImageData(0, 0, S, S)

@@ -3217,7 +3217,7 @@ export function IncidentWorkspace({
         // an incident link may not read the station: no «Unterirdische Bauten» row it could never fill
         layers: linkScoped ? layers.filter((l) => l.id !== UNDERGROUND_LAYER_ID) : layers,
         toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
-        weather,
+        weather, incidentType: incidentMeta.type,
         readings: replayActive ? null : { points: readingPoints, go: goToReading },
       }} />
 

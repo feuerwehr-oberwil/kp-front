@@ -30,6 +30,7 @@ export const shellCopy: Localizable<Pick<Copy, Keys>> = {
     loadingOf: 'Caricamento … {done} di {total}',
     loadEmpty: 'Nessun dato in questo livello',
     loadFailed: 'Non caricato – disattivare e riattivare',
+    standardFor: 'Predefinito per {kategorie}',
   },
 
   truppFinder: {

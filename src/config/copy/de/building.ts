@@ -118,5 +118,8 @@ export const buildingCopy = {
     readingsChip: 'Messungen',
     readingsChipLabel: 'Alle Messpunkte zeigen',
     readingsOnMap: 'Karte',
+    // the chip's word on a PHONE when no hazard is known (round 14.11.2026, owner pick 12A): the
+    // phone chip is glyph + hazard alone («⚠ Heizöl»), or (i) + this word; aria/title stay full
+    chipTitleShort: 'Gebäude',
   },
 } as const

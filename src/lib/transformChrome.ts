@@ -13,6 +13,10 @@
  * mode is on, every press on the surface belongs to it, so a grip that can no longer be grabbed
  * must not still be offered. Armed reads as a clean object, a mode cursor and a lit button.
  *
+ * On a PHONE the same class also steps the tool bar and the chip row aside (15-mobile.css, round
+ * 14.11.2026 #7): the selection bar rides one gap above the peeked sheet, which is exactly where
+ * those two stand, so the bar, the Gebäude chip and the tools lay on top of each other.
+ *
  * A body class rather than props, for the same reason `sheetPeek` is one: the grips are rendered
  * by five components across two surfaces with no shared owner, and this changes nothing but what
  * is painted — no unmount, no state, no gesture rewired (the drag already owns the pointer).

@@ -30,6 +30,7 @@ export const shellCopy: Localizable<Pick<Copy, Keys>> = {
     loadingOf: 'Chargement … {done} sur {total}',
     loadEmpty: 'Aucune donnée dans cette couche',
     loadFailed: 'Non chargé – désactiver puis réactiver',
+    standardFor: 'Par défaut pour {kategorie}',
   },
 
   truppFinder: {
