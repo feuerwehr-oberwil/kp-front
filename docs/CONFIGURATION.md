@@ -980,6 +980,8 @@ and additively when an incident is later re-categorized (a BMA that turns out to
 fire brings the hydrants up). It only ever turns layers **on**, and once the operator has
 toggled layers in an incident their choice is authoritative – a deliberately hidden layer is
 not re-forced on reopen. Unset = the layer never auto-activates (the default).
+Ebenen' «Standard» returns to the same set, so such a layer stays on there too – its row says why,
+«Standard bei Elementarereignis» (components/LayerPanel · category, round 14.11.2026).
 You never write the `geojson` URL by hand. Two doors put the file in the reference store and
 write this render config (with the resolved `/api/reference/geo:<slug>` URL) into
 `referenceLayers`:

@@ -30,6 +30,7 @@ export const shellCopy: Localizable<Pick<Copy, Keys>> = {
     loadingOf: 'Loading … {done} of {total}',
     loadEmpty: 'No data in this layer',
     loadFailed: 'Not loaded – switch off and on to retry',
+    standardFor: 'Default for {kategorie}',
   },
 
   truppFinder: {

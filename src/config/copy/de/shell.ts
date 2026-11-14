@@ -56,5 +56,8 @@ export const shellCopy = {
     loadingOf: 'Wird geladen … {done} von {total}',
     loadEmpty: 'Keine Daten in dieser Ebene',
     loadFailed: 'Nicht geladen – aus- und wieder einschalten',
+    // Die leise Zeile unter einer Ebene, die «Standard» wegen der Einsatzkategorie einschaltet
+    // (Runde 14.11.2026 #11: «Standard» liess die Abwasser-Leitungen an – ohne zu sagen, warum)
+    standardFor: 'Standard bei {kategorie}',
   },
 } as const

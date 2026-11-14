@@ -64,13 +64,18 @@ interface Props {
    *  selected, none of them for a hand-switched set (05.10.2026, owner: «ebenen should have an
    *  indication when using standard or all on / off») */
   preset?: LayerPreset
+  /** the Einsatz's category (its German label, incidentMeta.type). A row that «Standard» switches
+   *  on BECAUSE of it (`LayerDef.autoActivate`) says so in a quiet second line – «Standard bei
+   *  Elementarereignis» (round 14.11.2026 #11: «Standard» kept the Abwasser layers on and nothing
+   *  said why). Absent on the Karte home, whose «Standard» knows no category. */
+  category?: string | null
   /** the weather radar row, last on the panel (its own group, «Wetter») */
   weather?: WeatherLayerRow
   /** one quiet line above the credits — «Karte & Objekte» says there that its Ebenen are its own */
   note?: string
 }
 
-export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, leadTwinGroups = NO_GROUPS, groupsAfterTwins = NO_GROUPS, onClose, onShowAll, onHideAll, onReset, preset, weather, note }: Props) {
+export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, leadTwinGroups = NO_GROUPS, groupsAfterTwins = NO_GROUPS, onClose, onShowAll, onHideAll, onReset, preset, category, weather, note }: Props) {
   /* One transparency row, for a real `LayerDef` and for a Georeferenz twin alike — the twin ids
      are not `LayerDef` ids and persist elsewhere (georefTwins · isTwinLayerId → the device's
      `twinLayerOpacity`), but the row is the panel's, so both go through the same control and the
@@ -111,6 +116,10 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
     const note = load ? loadNote(load) : null
     return { loading: load?.state === 'loading', note }
   }
+  /** why «Standard» switches this row on, if the Einsatz's category is the reason */
+  const standardWhy = (l: LayerDef) => category && l.autoActivate?.includes(category)
+    ? fillTemplate(L.standardFor, { kategorie: appConfig.copy.intake.kategorienLabels[category] ?? category })
+    : null
   const bases = layers.filter((l) => l.base)
   // What the map on screen is made of, credited: every VISIBLE layer's attribution, split at its
   // commas so «© OpenStreetMap-Mitwirkende» from two layers is named once. On a phone this is
@@ -243,6 +252,8 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
             <div className="lgroup">{group}</div>
             {rows.map((l) => {
               const { loading, note } = loadRow(l)
+              // the download's state outranks the reason: it is the line that is changing
+              const sub = note?.sub ?? standardWhy(l)
               return (
               <Fragment key={l.id}>
                 {/* a real <button> so the toggle is keyboard-operable + focusable; the inline
@@ -255,7 +266,7 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
                   /* …and what it is doing is part of what the row announces — the status line
                      itself is NOT a live region: at one update per 120 ms it would read the
                      megabytes out loud over and over. */
-                  aria-label={`${l.label} – ${l.visible ? appConfig.copy.layerPanel.stateVisible : appConfig.copy.layerPanel.stateHidden}${note ? ` – ${note.sub}` : ''}`}
+                  aria-label={`${l.label} – ${l.visible ? appConfig.copy.layerPanel.stateVisible : appConfig.copy.layerPanel.stateHidden}${sub ? ` – ${sub}` : ''}`}
                   onClick={() => onToggle(l.id)}
                 >
                   {/* `ShellLoader`, not the boot mascot: in-workspace activity is what it is
@@ -267,7 +278,7 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
                   </span>
                   <span className="name">
                     {l.label}
-                    {note && <small>{note.sub}</small>}
+                    {sub && <small>{sub}</small>}
                     {note?.pct != null && (
                       <span className="lload-bar"><i style={{ width: `${note.pct}%` }} /></span>
                     )}
