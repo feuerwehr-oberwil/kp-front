@@ -126,12 +126,14 @@ export function workspaceFlags({ user, asLink, isEl, isEditor, roleReadOnly, for
    *  öffnen», as for the Tafel, the Karte and the Anwesenheit/Mittel/Checklisten (28.08.). Until
    *  then a correction after the close printed as a Nachtrag (staging r3, F10). */
   const canEditRapport = canEditRecord
-  /** «may SIGN the Rapport» — the one write a closed Einsatz's Rapport still takes from this
-   *  session: the signatures (a signature counts only after the latest close, lib/reportSignature)
-   *  and what the signing and printing record with them (the Einsatzleiter a signature names, the
-   *  «Rapport erstellt» stamp, an outstanding print job). The server takes them as record keys
+  /** «may SIGN the Rapport» — open or closed (owner, 14.11.2026: «signing is just the current state
+   *  independent of the open/close state»; a signature holds while the signed part hashes the same,
+   *  lib/reportSignature). While the Einsatz runs that is whoever edits the Rapport. On a closed one
+   *  it is the one write its Rapport still takes from the same roles: the signatures and what the
+   *  signing and printing record with them (the Einsatzleiter a signature names, the «Rapport
+   *  erstellt» stamp, an outstanding print job). The server takes them as record keys
    *  (api/incidents · incident_closed). */
-  const canSignRapport = (isEditor || isEl) && !running && !outboxReadOnly && !olderBuild
+  const canSignRapport = canEditRapport || ((isEditor || isEl) && !running && !outboxReadOnly && !olderBuild)
   /** «may correct the EINSATZDATEN» — the dispatch facts at the head of the record: Stichwort,
    *  Kategorie, Priorität, Ort, Alarmierungszeit, Alarmmeldung, Übung. The `el` role keeps the
    *  record, so it owns the head of it too (10.09.) — the asLink pattern again: not an editor,

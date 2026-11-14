@@ -39,9 +39,15 @@ describe('workspaceFlags', () => {
   it('a closed Einsatz is read-only, its Rapport too, and the Rapport can still be signed', () => {
     const f = flags({ incidentMeta: meta({ is_archived: true }) })
     expect(f).toMatchObject({ running: false, readOnly: true, canEditIncident: false, canEditRecord: false, canEditRapport: false, canSignRapport: true })
-    expect(flags({}).canSignRapport).toBe(false)
     // …and its outboxes still deliver what was queued before the close
     expect(f.outboxReadOnly).toBe(false)
+  })
+  // owner, 14.11.2026: signing is the current state, independent of open / closed
+  it('the Rapport is signed while the Einsatz runs too – by the same roles, never a viewer', () => {
+    expect(flags({}).canSignRapport).toBe(true)
+    expect(flags({ user: user('el'), isEditor: false, isEl: true }).canSignRapport).toBe(true)
+    expect(flags({ user: user('viewer'), isEditor: false, roleReadOnly: true }).canSignRapport).toBe(false)
+    expect(flags({ user: user('viewer'), isEditor: false, asLink: true }).canSignRapport).toBe(false)
   })
   // RBAC audit S4c (22.10.2026): a machine seed of a non-record key only where the push carries it
   it('only an editor\'s session pushes the whole blob – the el and the Atemschutz-Link do not', () => {

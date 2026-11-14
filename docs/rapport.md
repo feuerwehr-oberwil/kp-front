@@ -84,7 +84,7 @@ scrolling body so it stays visible with the keyboard up):
   Einsatz shows the amber «Einsatz abgeschlossen – zum Bearbeiten wieder öffnen» with «Wieder
   öffnen» beside it (the Einsatz card's action and confirm; «… – nur ansehen» without the button
   for a session that cannot reopen). Nothing asks for a signature: closed means done, and signing
-  is the optional card below. The closing device lands on the launcher anyway – the strip is what
+  is the optional card below – open or closed alike (14.11.2026). The closing device lands on the launcher anyway – the strip is what
   «Alle Einsätze» → a closed Einsatz shows. A print still out keeps its own amber band.
 
 ## Times – one control, date + time everywhere (12.11.2026)
@@ -115,7 +115,7 @@ Owner pick A «Ein Feld» (`components/TimeField · DateTimeField`, header there
   one line at 390px; the von/bis word moved into the field (its accessible name: «von, <Name>»).
   Every other field keeps the one-line read-out.
 
-## Unterschriften – signing on the screen (15.10.2026)
+## Unterschriften – signing on the screen (15.10.2026, open or closed since 14.11.2026)
 
 The two Visum lines (Einsatzleiter, Kommandant) can be signed with a finger instead of a pen.
 **Optional**, never asked for: the «Unterschriften» card in the right-hand column, after the
@@ -127,15 +127,21 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
   Beilage left out (`reportPdfDirect · signedPartOf`, `reportSignature · signatureScope`). The
   Journal is a Beilage: a late Funk row is a Nachtrag and does not touch a signature. Times,
   Personal, Material, Kurzbericht, Einsatzleiter … do.
-- **Only on a closed Einsatz**, and a signature counts only if it was made after the LATEST close
-  (`last_closed_at`): «Wieder öffnen» ends every signature without anybody voiding it.
+- **Open or closed, the hash decides** (owner, 14.11.2026: «signing is just the current state
+  independent of the open/close state» – closing usually means leaving the screen). The same roles
+  sign a running Einsatz and a closed one (`workspace/access · canSignRapport`: editor / `el`). A
+  signature holds while the signed part hashes as it did at signing: closing, «Wieder öffnen» and
+  closing again without an edit keep it; a content change makes it «ungültig», open or closed. An
+  open, signed Rapport stays editable – an edit is what invalidates. ⚠️ An Einsatzende left empty
+  is part of what was signed: the close then writes «jetzt» into it (Abschluss above), which is a
+  content change and voids a signature made before it.
 - **Closed = locked, signed or not** (owner, 12.11.2026). The form of a closed Einsatz is
   read-only (`workspace/access · canEditRapport` is the running record's); what the keeper of the
   Rapport still writes is the signing and what goes with it (`canSignRapport`: the signature, the
   Einsatzleiter it names, «Rapport erstellt», a print job). The way to a correction is «Wieder
-  öffnen», which ends every signature. The «Ändern» that voided them by hand is gone with that;
-  voided ones from before stay in `Saved.reportSignatures` with `voidedAt`/`voidReason` and in the
-  Verlauf.
+  öffnen». The «Ändern» that voided signatures by hand is gone with that; voided ones from before
+  stay in `Saved.reportSignatures` with `voidedAt`/`voidReason` and in the Verlauf. Signing writes
+  the Einsatzleiter back only while no other signature holds – that change would break it.
 - **The server never refuses a save to keep a signature valid.** An offline tablet's Anwesenheit
   must still arrive. Validity is COMPUTED on every device (hash of now vs hash at signing); a
   signature that no longer holds shows «ungültig ›» and a tap signs anew.
@@ -147,8 +153,8 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
   hash-chained audit event (`report.signature.add` / `.void`).
 - **On paper** (`app/report · _draw_signature`): the strokes sit on the line beside the name,
   «Ort, Datum» is filled in (`map.geocoder.defaultLocality` without its postcode), and a small line
-  says «Am Bildschirm unterschrieben … · Prüfsumme …». A signature that no longer holds is not
-  sent; its line prints empty. **Decision E stands**: the printed paper is the record – the
+  says «Am Bildschirm unterschrieben … · Prüfsumme …», on the print of an open Einsatz as on a
+  closed one. A signature that no longer holds is not sent; its line prints empty. **Decision E stands**: the printed paper is the record – the
   strokes are only how its signature got onto it. No PDF is stored, no PDF seal. (One exception,
   off by default: while the Einsatz-Ablage is on, the server keeps the newest composed Rapport-PDF
   of each Einsatz to file it – [`incident-archive.md`](incident-archive.md).)

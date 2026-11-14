@@ -14,7 +14,7 @@ import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf, readyDirectReportPayload, signedPartOf, usedStackFloors } from '../lib/reportPdfDirect'
-import { sha256Hex, type ReportSignature } from '../lib/reportSignature'
+import { sha256Hex, SIGNATURE_ROLES, type ReportSignature } from '../lib/reportSignature'
 import { newId } from '../lib/ids'
 import { serverNowIso } from '../lib/serverClock'
 import type { SignSubmit } from './SignatureSheet'
@@ -293,9 +293,8 @@ export function ReportPreflight({
   onComplete?: () => Promise<boolean>
   /** jump to the Verlauf to fill the still-missing audio transcripts */
   onFixTranscripts?: () => void
-  /** the Einsatz is closed: the form is read-only (owner, 12.11.2026) and the Rapport can be
-   *  signed – the only time it is (a reopen ends every signature: one only counts when it was
-   *  made after the latest close) */
+  /** the Einsatz is closed: the form is read-only (owner, 12.11.2026). Signing does not care
+   *  (owner, 14.11.2026): a signature holds, open or closed, while the signed part is unchanged */
   closed?: boolean
   /** «Wieder öffnen» on the closed strip (its confirm lives upstream); omit where this session
    *  cannot reopen the Einsatz */
@@ -309,12 +308,12 @@ export function ReportPreflight({
   // The lock has to be known up here, before anything uses `canEdit` (useSignatureLock); the
   // signed part's hash it checks against is computed below, once `meta` exists (setScopeHash).
   const closedAt = closeTimeOf(incident)
-  const { liveSigs, sigValid, signedLock, setScopeHash } = useSignatureLock(reportSignatures, closedAt, closed)
+  const { liveSigs, sigValid, anyValid, signedLock, setScopeHash } = useSignatureLock(reportSignatures, closed)
   // ⚠️ `canEditIn` is «this session keeps this Rapport». On a closed Einsatz that is no longer
   // editing it (owner, 12.11.2026: «if an emergency is closed then we shouldn't be able to edit it
   // anymore unless we open it up again») – only signing it, and what signing and printing record
   // with it (`canRecord`: the Einsatzleiter a signature names, «Rapport erstellt», a print job).
-  // A signature can only exist on a closed Rapport, so the form needs no lock of its own for it.
+  // A signature on an OPEN Rapport locks nothing: an edit there makes it «ungültig» (14.11.2026).
   const canEdit = canEditIn && !closed
   const canRecord = canEditIn && !signedLock
 
@@ -707,22 +706,21 @@ export function ReportPreflight({
     vocab: journalVocabulary(personnel, attendance, undefined, trupps),
     roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
   })
-  // the signed part's hash, recomputed a moment after the record settles — only on a closed
-  // Einsatz, the one time there is anything to sign or to check
-  const scopeKey = closed ? JSON.stringify([meta, attendance, mittel, events.length, personnel.length, incident.title, incident.address, incident.type]) : ''
+  // the signed part's hash, recomputed a moment after the record settles — only while a signature
+  // exists, the one time there is anything to check (signing hashes for itself, doSign)
+  const hasSigs = SIGNATURE_ROLES.some((r) => liveSigs[r])
+  const scopeKey = hasSigs ? JSON.stringify([meta, attendance, mittel, events.length, personnel.length, incident.title, incident.address, incident.type, closedAt]) : ''
   useEffect(() => {
-    if (!closed) return
+    if (!hasSigs) return
     let alive = true
     const t = setTimeout(() => {
       void sha256Hex(signedPartOf(pdfArgs(buildDraft()))).then((h) => { if (alive) setScopeHash(h) }, () => {})
     }, 250)
     return () => { alive = false; clearTimeout(t) }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the record, not on every render's closures
-  }, [closed, scopeKey])
-  /** this session signs Rapporte at all (not a viewer, a link, an archived view) – on a running
-   *  Einsatz it cannot sign YET, which `canSign` adds */
+  }, [hasSigs, scopeKey])
+  /** this session signs the Rapport (not a viewer, a link, an archived view) – open or closed */
   const maySign = canEditIn && !!onSign
-  const canSign = closed && maySign
   const kdtDefault = getDeploymentConfig().identity?.kommandant ?? ''
   // «Ort» of «Ort, Datum»: the station's town — without the postcode the setting may carry
   const signPlace = (getDeploymentConfig().map?.geocoder?.defaultLocality ?? '').replace(/^\d{4,5}\s+/, '').trim()
@@ -731,11 +729,11 @@ export function ReportPreflight({
     try {
       // the Einsatzleiter's line IS the Rapport's Einsatzleiter: a name picked in the sheet is
       // written back (with the role on the Anwesenheit), and the scope is hashed WITH it — never
-      // while another signature already locks the Rapport, which that change would break
+      // while another signature still holds, which that change would break
       let m = meta
-      if (role === 'el' && canRecord && slot.name !== (meta.einsatzleiter ?? '')) {
+      if (role === 'el' && canRecord && !anyValid && slot.name !== (meta.einsatzleiter ?? '')) {
         setEinsatzleiter(slot.name)
-        // not `persist`, which is the form's and so off on the closed Einsatz signing happens on
+        // not `persist`, which is the form's and so off on a closed Einsatz, where signing still happens
         onSaveMeta({ ...metaRef.current, einsatzleiter: slot.name })
         onRolePicked?.(slot.personId, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter)
         m = { ...meta, einsatzleiter: slot.name }
@@ -808,7 +806,7 @@ export function ReportPreflight({
     const draft = buildDraft(also)
     setPdfBusy(true)
     try {
-      await downloadDirectReportPdf({ ...pdfArgs(draft), signatures: printedSignatures(liveSigs, sigValid, closed) })
+      await downloadDirectReportPdf({ ...pdfArgs(draft), signatures: printedSignatures(liveSigs, sigValid) })
       // The PDF is the proof; the next step («Einsatz abschliessen») is the green head tile, which
       // `reportMadeAt` turns on once nothing is open. No toast beside it (owner #31, 30.10.2026).
       stampReportMade(also)
@@ -857,7 +855,7 @@ export function ReportPreflight({
     try {
       const t = editorPrintTransport()
       // the SAME arguments the PDF download sends, signatures included — paper and PDF are one document
-      const payload = await readyDirectReportPayload({ ...pdfArgs(buildDraft(also)), signatures: printedSignatures(liveSigs, sigValid, closed) })
+      const payload = await readyDirectReportPayload({ ...pdfArgs(buildDraft(also)), signatures: printedSignatures(liveSigs, sigValid) })
       const jobId = await enqueuePrint(t, incident.id, payload)
       // ⚠️ NOT `stampReportMade`. EINGEREIHT IST NICHT GEDRUCKT: the stamp is the sole condition
       // for the head's green «Einsatz abschliessen» (`closeReady`), and until
@@ -2396,7 +2394,7 @@ export function ReportPreflight({
             {/* Unterschriften (15.10.2026): after the Partnerorganisationen, where the Visum sits on
                 the paper (ReportSignatures — the card and the sheet a line is signed in). */}
             <ReportSignatures
-              closed={closed} maySign={maySign} canSign={canSign} signedLock={signedLock}
+              maySign={maySign} signedLock={signedLock}
               liveSigs={liveSigs} sigValid={sigValid}
               elName={meta.einsatzleiter || einsatzleiter} kdtName={kdtDefault}
               sheet={signSheet}

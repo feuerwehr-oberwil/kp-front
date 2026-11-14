@@ -149,13 +149,12 @@ export const reportCopy = {
   },
   // Digitale Unterschriften auf dem Rapport (15.10.2026, lib/reportSignature). Freiwillig: die
   // Karte «Unterschriften» in der rechten Spalte, nach den Partnerorganisationen (Reihenfolge des
-  // Papiers). Unterschrieben = gesperrt; eine Änderung danach macht die Unterschrift ungültig.
+  // Papiers). Offen oder abgeschlossen: gültig, solange der unterschriebene Teil unverändert ist.
   signature: {
     cardTitle: 'Unterschriften',
     optional: 'optional',
     count: '{n} von 2',
     invalid: 'ungültig',
-    runningHint: 'Nach dem Abschluss hier unterschreiben – ohne Stift und Papier.',
     roleEl: 'Einsatzleiter',
     roleKdt: 'Kommandant',
     sign: 'Unterschreiben',
