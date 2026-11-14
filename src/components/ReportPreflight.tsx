@@ -1238,6 +1238,8 @@ export function ReportPreflight({
     onSign: doSign,
     personnel, presentIds, rolesById,
     onAddGuest: onAddGuest && ((name: string) => onAddGuest(name, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter)),
+    // open and no Einsatzende yet: the close would write one and void the signature – offer it here
+    onSetEndNow: !closed && !endedAt ? () => { const iso = serverNowIso(); setEndedAt(iso); persist({ endedAt: iso }) } : undefined,
   }
 
   return (

@@ -178,6 +178,9 @@ export const reportCopy = {
     // ⚠️ Verlauf-Zeilen und die Zeile unter der Unterschrift auf dem Papier: kein «→» (Helvetica)
     logSigned: 'Rapport unterschrieben: {role} {name} (Prüfsumme {sum})',
     failed: 'Unterschrift nicht gespeichert – erneut versuchen',
+    // an open Rapport signed without an Einsatzende: the close writes one and voids the signature (owner, 14.11.2026)
+    endMissing: 'Einsatzende fehlt – beim Abschluss wird es gesetzt, die Unterschrift wird dann ungültig.',
+    endNow: 'Jetzt eintragen',
   },
   preflight: {
     pdfFull: 'Einsatzrapport (PDF)',

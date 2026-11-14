@@ -134,7 +134,9 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
   closing again without an edit keep it; a content change makes it «ungültig», open or closed. An
   open, signed Rapport stays editable – an edit is what invalidates. ⚠️ An Einsatzende left empty
   is part of what was signed: the close then writes «jetzt» into it (Abschluss above), which is a
-  content change and voids a signature made before it.
+  content change and voids a signature made before it. So the signing sheet of an open Rapport
+  without an Einsatzende says «Einsatzende fehlt» with «Jetzt eintragen» above the pad (owner,
+  14.11.2026) – a hint, signing is not blocked.
 - **Closed = locked, signed or not** (owner, 12.11.2026). The form of a closed Einsatz is
   read-only (`workspace/access · canEditRapport` is the running record's); what the keeper of the
   Rapport still writes is the signing and what goes with it (`canSignRapport`: the signature, the

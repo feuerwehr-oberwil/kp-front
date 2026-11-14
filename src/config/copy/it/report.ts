@@ -142,6 +142,9 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     confirm: 'Firmare',
     logSigned: 'Rapporto firmato: {role} {name} (checksum {sum})',
     failed: 'Firma non salvata – riprovare',
+    // an open Rapport signed without an Einsatzende: the close writes one and voids the signature (owner, 14.11.2026)
+    endMissing: 'Fine intervento mancante – la chiusura la imposta e la firma non è più valida.',
+    endNow: 'Adesso',
   },
   preflight: {
     pdfFull: 'Rapporto d’intervento (PDF)',

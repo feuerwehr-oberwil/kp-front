@@ -142,6 +142,9 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     confirm: 'Signer',
     logSigned: 'Rapport signé : {role} {name} (somme de contrôle {sum})',
     failed: 'Signature non enregistrée – réessayer',
+    // an open Rapport signed without an Einsatzende: the close writes one and voids the signature (owner, 14.11.2026)
+    endMissing: 'Fin d\'intervention manquante – la clôture la fixe, ce qui annule la signature.',
+    endNow: 'Maintenant',
   },
   preflight: {
     pdfFull: 'Rapport d’intervention (PDF)',
