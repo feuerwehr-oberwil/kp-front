@@ -347,18 +347,25 @@
      are the sheet's own defaults, repeated here on purpose and kept in this one place beside
      them — there is no way for a sibling to read a fixed sheet's height in CSS.
      ⚠️ Reversed in part on 05.09. — see the peek rule under these two. */
-  .app:has(.ctx) .sel-bar { bottom: calc(46dvh + 12px); transition: bottom .22s var(--ease); }
-  .app:has(.ctx.sheet-full) .sel-bar { bottom: calc(88dvh + 12px); }
+  .app:has(.ctx) .sel-bar { bottom: calc(46dvh + var(--float-gap)); transition: bottom .22s var(--ease); }
+  .app:has(.ctx.sheet-full) .sel-bar { bottom: calc(88dvh + var(--float-gap)); }
   /* …and it follows the sheet DOWN for the length of a drag (05.09.). It used to stay put on
      purpose, on the grounds that a bar jumping 300px the moment ✥ is pressed is worse than one
      sitting a little high — but a bar parked at 46/88dvh stands in the middle of the very
      surface the object is being dragged across, which is the whole reason the sheet peeked away.
-     So it rides 12px above the peeked sheet, on the same eased travel, and springs back with it.
+     So it rides one --float-gap above the peeked sheet, on the same eased travel, and springs back with it.
      ⚠️ EXCEPT while the drag is on the bar's OWN ✥ / ⟳ grip (`.grabbing`, set by SelectionBar
      once the press becomes a drag): there the finger IS on the button, and a control that runs
      away from the hand holding it is exactly what the old rule refused. The armed mode's drags —
      the ones taken anywhere on the Karte or the Kroki — are the ones this was asked for. */
-  body.sheet-peek .app .sel-bar:not(.grabbing) { bottom: calc(88px + env(safe-area-inset-bottom)); }
+  body.sheet-peek .app .sel-bar:not(.grabbing) { bottom: calc(76px + env(safe-area-inset-bottom) + var(--float-gap)); }
+  /* …and for as long as ✥ / ⟳ is armed or the bar's grip is dragged (body.sel-transforming,
+     lib/transformChrome) the tool bar and the chip row step aside (round 14.11.2026 #7, owner:
+     «hide the "gebäude info" and footer menu in the meantime to not cause this clash»): the
+     peeked sheet is 76px tall, so the bar riding on it stood ON the tool bar and the Gebäude chip.
+     PAINTED away like the grips – `visibility`, never an unmount – so every piece is back, with
+     its state, the moment the mode ends. The nav bar stays: the peeked sheet already covers it. */
+  body.sel-transforming :is(.tool-rail, .wb-tools, .wb-botleft) { visibility: hidden; }
   /* phone scroll model: the sheet is a fixed flex column. The grip + header are pinned, and so
      is the ACTIONS row — by layout, never position:sticky, because sticky inside a
      backdrop-filtered scroller proved unreliable on iOS and `.ctx` carries a blur.
