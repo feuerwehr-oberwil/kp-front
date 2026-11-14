@@ -140,14 +140,14 @@ describe('Messung on an already drawn line', () => {
   })
 
   // lead 05.11.2026: a Leitung with a Wassertransport reads as the relay Ø (lib/hydraulics ·
-  // lineHose), so adding one writes that Ø out at once – the Schlauch row never jumps 40 → 75
+  // lineHose), so adding one writes that Ø out at once – the Schlauch row never jumps «–» → 75
   it('adding a Wassertransport stores the relay Ø on a Leitung without one, and keeps a picked one', () => {
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
     const coords: [number, number][] = [[7.5, 47.5], [7.51, 47.51]]
     for (const [hose, written] of [[undefined, { hose: '75', relay: {} }], ['40', { relay: {} }]] as const) {
       const onChange = vi.fn()
       render(<DrawEditor {...base} drawing={{ kind: 'line', hose }} lengthM={412} profileCoords={coords} onHose={noop} waterRelay={{ onChange }} />)
-      expect(screen.getByRole('button', { name: `${D.hose}: ${appConfig.copy.relay.hoseLabels[hose ?? '40']}` })).toBeTruthy()
+      expect(screen.getByRole('button', { name: `${D.hose}: ${hose ? appConfig.copy.relay.hoseLabels[hose] : D.hoseNone}` })).toBeTruthy()
       fireEvent.click(screen.getByRole('button', { name: D.measurement }))
       fireEvent.click(screen.getByRole('button', { name: appConfig.copy.relay.add }))
       expect(onChange).toHaveBeenCalledTimes(1)
@@ -243,9 +243,28 @@ describe('the Schlauch menu', () => {
     expect(screen.queryByRole('button', { name: '110' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: `${D.hose}: ${R.hoseLabels['75']}` }))
     const items = await screen.findAllByRole('menuitem')
-    expect(items.map((i) => i.textContent)).toEqual(HOSE_SIZES.map((h) => R.hoseLabels[h]))
-    fireEvent.click(items[4])
+    expect(items.map((i) => i.textContent)).toEqual([D.hoseNone, ...HOSE_SIZES.map((h) => R.hoseLabels[h])])
+    fireEvent.click(items[5])
     expect(onHose).toHaveBeenCalledWith('110')
+  })
+
+  // owner 14.11.2026: «schlauch should be empty by default and not 40mm»
+  it('a Leitung nobody picked a Ø for shows none, and «Kein» clears a picked one', async () => {
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} onHose={noop} />)
+    expect(screen.getByRole('button', { name: `${D.hose}: ${D.hoseNone}` }).textContent).toBe('–')
+    cleanup()
+    const onHose = vi.fn()
+    render(<DrawEditor {...base} drawing={{ kind: 'line', hose: '55' }} onHose={onHose} />)
+    fireEvent.click(screen.getByRole('button', { name: `${D.hose}: ${R.hoseLabels['55']}` }))
+    fireEvent.click((await screen.findAllByRole('menuitem'))[0])
+    expect(onHose).toHaveBeenCalledWith(undefined)
+  })
+
+  it('offers no «Kein» on a Wassertransport: its calculation needs a Ø', async () => {
+    render(<DrawEditor {...base} drawing={{ kind: 'line', hose: '75', relay: {} }} onHose={noop} />)
+    fireEvent.click(screen.getByRole('button', { name: `${D.hose}: ${R.hoseLabels['75']}` }))
+    const items = await screen.findAllByRole('menuitem')
+    expect(items.map((i) => i.textContent)).toEqual(HOSE_SIZES.map((h) => R.hoseLabels[h]))
   })
 })
 

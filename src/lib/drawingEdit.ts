@@ -70,8 +70,10 @@ export function drawingEditChanges(prev: Drawing, next: Drawing): string[] {
 
   // ── Schlauch: the Leitung's Ø — what was laid. Its Wassertransport assumptions (`relay`:
   // flow, source, pumps moved by hand) are planning, tweaked tap by tap, and write no row.
-  if ((prev.hose ?? '') !== (next.hose ?? '') && next.hose) {
-    out.push(statement(E.hose, appConfig.copy.relay.hoseLabels[next.hose], !!prev.hose))
+  // «Kein» (14.11.2026) clears a picked Ø and is named by the menu's own word – «Schlauch
+  // entfernt» would read as a hose taken off the Leitung.
+  if ((prev.hose ?? '') !== (next.hose ?? '')) {
+    out.push(statement(E.hose, next.hose ? appConfig.copy.relay.hoseLabels[next.hose] : E.hoseNone, !!prev.hose))
   }
   // …save ONE: «Pumpen auf Karte» (relay.showPumps, lib/linePumps). It is no assumption: it puts
   // Motorspritzen on the Karte and the printed Kroki, or takes them off – the picture changes, so
@@ -165,12 +167,14 @@ export function removalRowText(drawings: readonly Drawing[], entities: readonly 
   const gone = drawings.length + entities.length
   if (gone > 1) return fillTemplate(L.selectionDeleted, { n: gone })
   if (drawings.length === 1) return fillTemplate(L.objectDeleted, { name: drawingLogName(drawings[0]) })
-  if (entities.length === 1) {
-    const e = entities[0]
-    const name = (e.label ?? '').trim() || (e.symbol ? formatSymbolName(e.symbol) : appConfig.copy.entities.fallbackObjectName)
-    return fillTemplate(L.objectDeleted, { name })
-  }
+  if (entities.length === 1) return fillTemplate(L.objectDeleted, { name: entityRemovalName(entities[0]) })
   return L.drawingDeleted
+}
+
+/** What a removal calls ONE Karte object: its label, else a symbol's display name (not the pack's
+ *  key) – «TLF» in «TLF entfernt» and in the joined-lines card's «TLF hat 2 Leitungen». */
+export function entityRemovalName(e: Pick<Entity, 'label' | 'symbol'>): string {
+  return (e.label ?? '').trim() || (e.symbol ? formatSymbolName(e.symbol) : appConfig.copy.entities.fallbackObjectName)
 }
 
 /**

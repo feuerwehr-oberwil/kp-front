@@ -10,7 +10,7 @@ import { appConfig } from '../config/appConfig'
 import type { AuthUser } from '../lib/auth'
 import { isDemoMode } from '../lib/deploymentConfig'
 import { carryDocked, dockRadiusFor, isDockable, isPlacard, nearestDockHost } from '../lib/docking'
-import { removalRowText } from '../lib/drawingEdit'
+import { entityRemovalName, removalRowText } from '../lib/drawingEdit'
 import { duplicateDrawing, duplicateEntity } from '../lib/duplicate'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { bearingDeg, circlePolygon, haversineM, midCoord } from '../lib/geo'
@@ -18,7 +18,7 @@ import { georefDispatch, useGeorefMode } from '../lib/georefMode'
 import { routeEscape, routeHotkey } from '../lib/hotkeyRoute'
 import { resolveHotkey, isTypingTarget, type ToolCmd } from '../lib/hotkeys'
 import { newId } from '../lib/ids'
-import { applyRouting, detachDrawings, moveLineBody, objectAttachment, wireFreed, withDetach, type DetachPatch } from '../lib/lineAttachments'
+import { applyRouting, detachDrawings, linesOnObjects, moveLineBody, objectAttachment, wireFreed, withDetach, type DetachPatch } from '../lib/lineAttachments'
 import { moduleNumbers } from '../lib/navRail'
 import { autoNoteWPx } from '../lib/notes'
 import { doneAct, donePlace } from '../lib/objectDone'
@@ -33,7 +33,7 @@ import { seedSymbolProps, VEHICLE_SYMBOLS } from '../lib/symbols'
 import type { TacticalObject } from '../lib/tacticalObjects'
 import { lineTakesTrupp } from '../lib/truppLines'
 import { toast, undoToast } from '../lib/ui'
-import { removedText, removeWithUndo } from '../lib/removalToast'
+import { askJoinedLines, removedText, removeWithUndo, withLinesText } from '../lib/removalToast'
 import { recordKey, type RecordKey } from '../lib/undoKeys'
 import type { Dropper, UndoDomain } from '../lib/undoTimeline'
 import { useCoordPicker } from '../lib/useCoordPicker'
@@ -685,29 +685,52 @@ export function useMapActions({
   // ⚠️ A trail no longer LOCKS its marker (18.09.2026, Karte/Plan parity). The record is
   // protected by outliving the marker instead: the removed marker's recorded positions move into
   // a ghost trail the incident owns (lib/truppTrails · reconcileGhostTrails, the effect below).
+  //
+  // Leitungen hanging on a member that is not itself selected ask first (owner 14.11.2026,
+  // lib/removalToast · askJoinedLines): one card for the group, the lines counted over all of it.
   const deleteGroup = async (ids: string[], entIds: string[]) => {
     if (tacticalLocked) return
     const ents = entIds.filter((id) => !liveIds.has(id))
+    const joined = linesOnObjects(drawings, ents, ids)
+    let row = removalRowText(drawings.filter((d) => ids.includes(d.id)), entities.filter((e) => ents.includes(e.id)))
+    if (joined.length) {
+      const C = appConfig.copy.removedToast
+      const gone = ids.length + ents.length
+      const lone = gone === 1 ? entities.find((e) => e.id === ents[0]) : undefined
+      const answer = await askJoinedLines(lone ? entityRemovalName(lone) : C.group, joined.length, !lone)
+      if (!answer) return
+      if (answer === 'with') {
+        row = withLinesText(lone ? entityRemovalName(lone) : fillTemplate(C.groupN, { n: gone }), joined.length)
+        ids = [...ids, ...joined.map((d) => d.id)]
+      }
+    }
+    removeObjects(ids, ents, row)
+    setSelectedDrawIds([]); setSelectedEntityIds([])
+  }
+  /**
+   * The ONE write of a removal of several things – the lines `ids` and the objects `ents`: every
+   * Leitung end outside them that hung on one lets go where its target stood, a docked placard
+   * lets go of a removed host. One ↶ step, one toast, one Verlauf row (`row`, counted or named –
+   * lib/drawingEdit · removalRowText – or «TLF und 2 Leitungen entfernt»), the Leitungen it set
+   * loose counted in the toast and the ↶ (the delete rule).
+   */
+  const removeObjects = (ids: string[], ents: string[], row: string) => {
     // one patch per line, both ends in it — applied here and sent as ONE draw.edit (detachDrawings)
     const released = detachDrawings(drawings.filter((dr) => !ids.includes(dr.id)), (_, __, a) => {
       const object = a.target.kind === 'object' && ents.includes(a.target.id) ? entities.find((e) => e.id === a.target.id) : null
       const targetLine = a.target.kind === 'line' && ids.includes(a.target.id) ? drawings.find((x) => x.id === a.target.id) : null
       return object?.coord ?? (targetLine && a.target.kind === 'line' ? targetLine.coords[a.target.endpoint === 'start' ? 0 : targetLine.coords.length - 1] : null)
     })
-    // ONE row, counted or named (lib/drawingEdit · removalRowText) — «… entfernt»; the toast and
-    // the ↶ say the same words, with the Leitungen the group set loose (the delete rule)
-    const row = removalRowText(drawings.filter((d) => ids.includes(d.id)), entities.filter((e) => ents.includes(e.id)))
     const toastText = removedText(row, released.size)
     stepLabelRef.current = toastText
     removeWithUndo(toastText, () => commit((d) => ({
       ...d,
       drawings: d.drawings.filter((dr) => !ids.includes(dr.id)).map((dr) => withDetach(dr, released)),
-      entities: d.entities.filter((e) => !ents.includes(e.id)),
+      entities: d.entities.filter((e) => !ents.includes(e.id)).map((e) => (e.dockedTo && ents.includes(e.dockedTo) ? { ...e, dockedTo: undefined } : e)),
     })))
     ids.forEach((id) => emit('draw.delete', { id }))
     ents.forEach((id) => emit('entity.delete', { id }))
     released.forEach((patch, id) => emit('draw.edit', { id, patch: wireFreed(patch) }))
-    setSelectedDrawIds([]); setSelectedEntityIds([])
     log('close', row,
       // …named by WHAT was removed, so two «Feuerwehr entfernt» seconds apart stay two rows
       undefined, undefined, undefined, { subjectId: ids[0] ?? ents[0] })
@@ -908,16 +931,29 @@ export function useMapActions({
   }
   /**
    * «Entfernen» on a Karte object – a symbol, a Form, a Notiz, a Truppmarker. The delete rule
-   * (lib/removalToast): it goes at once and the toast names it, with the Leitungen that hung on
-   * it – «TLF entfernt, 2 Leitungen gelöst · Rückgängig». ONE store step brings back the object,
-   * every Leitung end on it and a docked placard's bond, so nothing is asked first. `text`
-   * overrides the toast's sentence («Marker und Spur entfernen» says what else went).
-   * Answers whether it went (it is `async` for its callers, who used to await a confirm).
+   * (lib/removalToast): it goes at once and the toast names it – «TLF entfernt · Rückgängig».
+   * ONE store step brings back the object, every Leitung end on it and a docked placard's bond.
+   * ⚠️ Leitungen hanging on it ask first (owner 14.11.2026, `askJoinedLines`): «Nur Symbol» lets
+   * their ends go where they stood («TLF entfernt, 2 Leitungen gelöst»), «Mit Leitungen» removes
+   * them in the same step («TLF und 2 Leitungen entfernt»), Abbrechen keeps everything. `text`
+   * overrides the «Nur Symbol» toast's sentence («Marker und Spur entfernen» says what else went).
+   * Answers whether it went («Marker und Spur» takes its arming back when it did not).
    */
   const deleteEntity = async (id: string, text?: string) => {
     if (tacticalLocked) return false
     const ent = entities.find((e) => e.id === id)
-    const connected = drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === id))
+    const connected = linesOnObjects(drawings, [id])
+    if (connected.length && ent) {
+      const name = ent.kind === 'note' ? appConfig.copy.removedToast.noteWhat : entityRemovalName(ent)
+      const answer = await askJoinedLines(name, connected.length)
+      if (!answer) return false
+      if (answer === 'with') {
+        removeObjects(connected.map((d) => d.id), [id], withLinesText(name, connected.length))
+        if (selectedId === id) setSelectedId(null)
+        if (editNoteId === id) setEditNoteId(null)
+        return true
+      }
+    }
     const emptyNote = ent?.kind === 'note' && !(ent.label ?? '').trim()
     const what = ent?.kind === 'note' ? appConfig.copy.removedToast.note : removalRowText([], ent ? [ent] : [])
     // every Leitung end on the symbol lets go where it stood, so the line does not jump — one patch

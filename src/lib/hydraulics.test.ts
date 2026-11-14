@@ -184,12 +184,13 @@ describe('the stored relay', () => {
   })
 })
 
-// owner 05.11.2026: a plain Linie is a 40 mm Druckleitung, a Wassertransport a 75 mm
-// Transportleitung – both station doctrine
+// owner 05.11.2026: a Wassertransport is a 75 mm Transportleitung; owner 14.11.2026: a plain
+// Linie has no Ø until one is picked – both station doctrine
 describe('hoseDefaults — the Ø a Leitung and a Messen relay start on', () => {
-  it('ships 40 for a Linie and 75 for a Wassertransport', () => {
-    expect(hoseDefaults()).toEqual({ line: '40', relay: '75' })
-    expect(lineHose({})).toBe('40')
+  it('ships none for a Linie and 75 for a Wassertransport', () => {
+    expect(hoseDefaults()).toEqual({ line: undefined, relay: '75' })
+    expect(lineHose({})).toBeUndefined()
+    expect(hoseLines({})).toBe(1)
   })
 
   it('takes the station\'s doctrine', () => {
@@ -210,23 +211,24 @@ describe('hoseDefaults — the Ø a Leitung and a Messen relay start on', () => 
 
   it('falls back on a value this build does not know, and never starts a relay on 40', () => {
     deployment = { doctrine: { defaultLineHose: '90' as never, defaultRelayHose: '40' } }
-    expect(hoseDefaults()).toEqual({ line: '40', relay: '75' })
+    expect(hoseDefaults()).toEqual({ line: undefined, relay: '75' })
   })
 })
 
 // lead 05.11.2026: a Leitung with a Wassertransport is a transport line – the ones laid since #536
-// (04.11.) were computed on 75 and must not re-plan to 40; a picked Ø always wins
-describe('lineHose — which default a Leitung without a Ø reads as', () => {
+// (04.11.) were computed on 75 and must not re-plan; a picked Ø always wins
+describe('lineHose — which Ø a Leitung without a stored one reads as', () => {
   it('absent with a relay: the relay default', () => {
     expect(lineHose({ relay: {} })).toBe('75')
     expect(lineHose({ relay: { flow: 1200 } })).toBe('75')
   })
 
-  it('absent without a relay: the Linie default', () => {
-    expect(lineHose({})).toBe('40')
+  it('absent without a relay: none (owner 14.11.2026: «empty by default and not 40mm»)', () => {
+    expect(lineHose({})).toBeUndefined()
   })
 
-  it('a picked 40 stays 40 with a relay', () => {
+  it('a stored Ø stays, 40 included', () => {
+    expect(lineHose({ hose: '40' })).toBe('40')
     expect(lineHose({ hose: '40', relay: {} })).toBe('40')
   })
 })

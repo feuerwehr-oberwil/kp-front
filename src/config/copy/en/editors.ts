@@ -264,6 +264,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     hiddenTarget: 'Target hidden',
     revealTarget: 'Show the layer',
     endingReleased: 'Section removed, {n} lines released',
+    hoseNone: 'None',
   },
   topBar: {
     offline: 'Offline',

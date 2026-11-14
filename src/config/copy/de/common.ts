@@ -52,6 +52,19 @@ export const commonCopy = {
     note: 'Notiz entfernt',
     freed: '{what}, {n} Leitungen gelöst',
     freedOne: '{what}, 1 Leitung gelöst',
+    /** Hängen Leitungen an einem Symbol, fragt eine Karte zuerst (Owner 14.11.2026): «TLF hat 2
+     *  Leitungen» – [Nur Symbol] [Mit Leitungen] [Abbrechen]. Beide Antworten sind EIN ↶-Schritt. */
+    joinedTitle: '{what} hat {n} Leitungen',
+    joinedTitleOne: '{what} hat 1 Leitung',
+    joinedOnly: 'Nur Symbol',
+    joinedOnlyGroup: 'Nur Auswahl',
+    joinedWith: 'Mit Leitungen',
+    withLines: '{what} und {n} Leitungen entfernt',
+    withLine: '{what} und 1 Leitung entfernt',
+    /** wie die Karte eine Auswahl nennt – im Titel «Auswahl hat …», im Satz «3 Objekte und …» */
+    group: 'Auswahl',
+    groupN: '{n} Objekte',
+    noteWhat: 'Notiz',
   },
   /** Womit «Rückgängig: …» weitergeht, wenn die Fläche selbst die Aktion nicht benennt. Die
    *  Atemschutz-Tafel, Mittel und die Checklisten benennen sie (dieselbe Zeile, die der Verlauf

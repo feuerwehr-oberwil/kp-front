@@ -379,7 +379,7 @@ both now have browser pages – §9e and §9f.
                                                   // its own colour (overridable per Trupp)
     "nearbyObjectWarnM": 25,                      // Modul-Pläne: warn «nicht die Einsatzadresse»
                                                   // only beyond this many metres – see below
-    "defaultLineHose": "40",                      // the Ø a Leitung without one reads as, and the
+    "defaultLineHose": null,                      // the Ø a Leitung without one reads as, and the
     "defaultRelayHose": "75",                     // one a Messen Wassertransport starts on – see below
     "equipment": [                                // Ausrüstung a Trupp can take in – short labels,
       { "id": "retthaube", "label": "Retthaube" }, // printed on the card and the Rapport. Absent /
@@ -589,20 +589,23 @@ as `25` and logged, the rest of the document stays.
 ### `doctrine.defaultLineHose` / `defaultRelayHose` – the Ø a Linie and a Wassertransport start on
 
 A Leitung's «Schlauch» row (line editor) stores its Ø only once somebody picks one. Until then a
-plain line reads as **`defaultLineHose`**, and one that carries a Wassertransport as
+plain line reads as **`defaultLineHose`** – unset, it has NO Ø: the row shows «–», the menu's
+«Kein» clears a picked one, and nothing prints a diameter for it (owner 14.11.2026: «schlauch
+should be empty by default and not 40mm») –, and one that carries a Wassertransport as
 **`defaultRelayHose`** – a Wassertransport line is a transport line, and those laid since
 04.11.2026 were computed on 75 (`lib/hydraulics · lineHose`). Adding a Wassertransport in the line
 editor writes the relay Ø out in the same edit, so the row never jumps under the operator's finger;
 a picked Ø is never touched. A Wassertransport under **Messen › Strecke** is no Leitung yet and
 starts on **`defaultRelayHose`**; «Als Leitung auf die Karte» (or «Als Linie übernehmen» with it
-open) writes that Ø onto the new Leitung. Owner pick 05.11.2026: a plain Linie is a 40 mm
-Druckleitung, a Wassertransport a 75 mm Transportleitung.
+open) writes that Ø onto the new Leitung. Owner picks: a Wassertransport is a 75 mm
+Transportleitung (05.11.2026); a plain Linie has no Ø until one is picked (14.11.2026, before that
+it read as a 40 mm Druckleitung – a line that stored `"40"` keeps it).
 
 | | |
 | --- | --- |
 | Values | `"40"`, `"55"`, `"75"`, `"2x75"` (the identical double line), `"110"` – the frontend's `HoseSize` |
 | `defaultRelayHose` | every value but `"40"`: the 40 mm friction table (GVB Behelf TLF/MS) ends at 500 l/min, below a relay's usual flows. A Leitung that IS 40 mm still computes as one |
-| Unset in the config | `defaultLineHose` `40`, `defaultRelayHose` `75` (`lib/hydraulics · SHIPPED_HOSE`) |
+| Unset in the config | `defaultLineHose` none («Kein Standard» on /admin), `defaultRelayHose` `75` (`lib/hydraulics · SHIPPED_HOSE`) |
 
 Set it on **Station › Doktrin › Schläuche** or in the config file; read through `hoseDefaults()`
 (`src/lib/hydraulics.ts`). A value this build does not know falls back to the shipped Ø. ⚠️ A

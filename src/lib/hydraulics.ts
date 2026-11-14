@@ -8,12 +8,13 @@ import type { ProfilePoint } from './profile'
 // ONE read: `hoseDefaults()`, the station's doctrine for the Ø a Leitung or a Messen relay
 // starts on (deployment config `doctrine.defaultLineHose` / `defaultRelayHose`).
 //
-// ⚠️ Which default a Leitung without a stored Ø reads as (`lineHose`, lead 05.11.2026): one that
-// carries a Wassertransport (`relay`) is a TRANSPORT line and reads as the relay default (75) –
-// the Leitungen laid since #536 (04.11.2026) were computed on it and must not re-plan to 40; a
-// plain one reads as the Linie default (40). A Ø picked by hand always wins. Adding a relay in
-// the line editor writes the Ø out in the same edit (`relayAddPatch`), so the «Schlauch» row
-// never jumps from 40 to 75 under the operator's finger.
+// ⚠️ Which Ø a Leitung without a stored one reads as (`lineHose`, lead 05.11.2026; owner
+// 14.11.2026): one that carries a Wassertransport (`relay`) is a TRANSPORT line and reads as the
+// relay default (75) – the Leitungen laid since #536 (04.11.2026) were computed on it and must not
+// re-plan; a plain one has NO Ø until somebody picks one («schlauch should be empty by default and
+// not 40mm»), unless the station sets a Linie default (`doctrine.defaultLineHose`). A Ø picked by
+// hand always wins. Adding a relay in the line editor writes the Ø out in the same edit
+// (`relayAddPatch`), so the «Schlauch» row never jumps from «Kein» to 75 under the operator's finger.
 //
 // ⚠️ The numbers are doctrine, not tuning. Friction: AGV Kantonale Beilage Basiswissen KB 06.06
 // (55 mm), 06.07 (75 mm), 06.08 (110 mm), «Druckverlust in bar» per 100 m by the flow in ONE line.
@@ -85,16 +86,18 @@ export const HOSE_SIZES = ['40', '55', '75', '2x75', '110'] as const satisfies r
  *  table ends below the relay's usual flows. A Leitung that IS 40 mm still computes as one. */
 export const RELAY_HOSE_SIZES = ['55', '75', '2x75', '110'] as const satisfies readonly HoseSize[]
 
-/** The shipped Ø: a plain Linie is a 40 mm Druckleitung, a Wassertransport a 75 mm
- *  Transportleitung (owner 05.11.2026). A station overrides both (`hoseDefaults`). */
-export const SHIPPED_HOSE = { line: '40', relay: '75' } as const satisfies Record<string, HoseSize>
+/** The shipped Ø: a plain Linie has none until one is picked (owner 14.11.2026), a
+ *  Wassertransport is a 75 mm Transportleitung (owner 05.11.2026). A station overrides both
+ *  (`hoseDefaults`). */
+export const SHIPPED_HOSE: { line: HoseSize | undefined; relay: HoseSize } = { line: undefined, relay: '75' }
 
 const isOneOf = <T extends string>(list: readonly T[], v: unknown): v is T => (list as readonly unknown[]).includes(v)
 
-/** The Ø a Leitung that stores none reads as (`line`), and the one a Wassertransport in Messen
- *  starts on (`relay`) — the station's doctrine, else `SHIPPED_HOSE`. A value this build does not
- *  know falls back too. Call at use, never at module level (the config resolves at boot). */
-export function hoseDefaults(): { line: HoseSize; relay: HoseSize } {
+/** The Ø a plain Leitung that stores none reads as (`line`, absent = none), and the one a
+ *  Wassertransport in Messen starts on (`relay`) — the station's doctrine, else `SHIPPED_HOSE`. A
+ *  value this build does not know falls back too. Call at use, never at module level (the config
+ *  resolves at boot). */
+export function hoseDefaults(): { line: HoseSize | undefined; relay: HoseSize } {
   const { defaultLineHose: line, defaultRelayHose: relay } = getDeploymentConfig().doctrine ?? {}
   return {
     line: isOneOf(HOSE_SIZES, line) ? line : SHIPPED_HOSE.line,
@@ -106,8 +109,9 @@ export function hoseDefaults(): { line: HoseSize; relay: HoseSize } {
 export interface LineHoseFields { hose?: HoseSize; relay?: RelaySettings }
 
 /** The Ø a Leitung computes and shows with: its own; else, carrying a Wassertransport, the
- *  station's relay default; else its Linie default (the rule in this module's header). */
-export const lineHose = ({ hose, relay }: LineHoseFields): HoseSize => {
+ *  station's relay default; else the station's Linie default — shipped: none (the rule in this
+ *  module's header). Undefined = the Leitung has no Ø, and nothing may show one. */
+export const lineHose = ({ hose, relay }: LineHoseFields): HoseSize | undefined => {
   const d = hoseDefaults()
   return hose ?? (relay ? d.relay : d.line)
 }
@@ -262,8 +266,12 @@ export function pumpRange(plan: RelayPlan, pins: readonly (number | null | undef
   return [lo, Math.max(lo, hi)]
 }
 
-/** How many lines a Leitung's hose lays side by side (a «2× 75» is two) – the hose count's factor. */
-export const hoseLines = (line: LineHoseFields): number => HOSES[lineHose(line)].lines
+/** How many lines a Leitung's hose lays side by side (a «2× 75» is two) – the hose count's
+ *  factor. A Leitung without a Ø is one line: counting 20 m hoses needs no diameter. */
+export const hoseLines = (line: LineHoseFields): number => {
+  const hose = lineHose(line)
+  return hose ? HOSES[hose].lines : 1
+}
 
 /** A Leitung's relay once its points are turned round (Richtung umkehren): the water keeps its
  *  physical source, so the calculation flips with the points – and the pumps, measured from that

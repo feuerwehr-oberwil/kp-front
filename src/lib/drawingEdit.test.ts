@@ -69,6 +69,8 @@ describe('drawingEditChanges (the Verlauf line for editing a drawing)', () => {
   it('names a new Schlauch, and stays quiet on the Wassertransport planning', () => {
     expect(drawingEditChanges(line({}), line({ hose: '110' }))).toEqual(['Schlauch: 110 mm'])
     expect(drawingEditChanges(line({ hose: '75' }), line({ hose: '2x75' }))).toEqual(['Schlauch auf 2× 75 geändert'])
+    // «Kein» clears a picked Ø (14.11.2026) in the menu's own word
+    expect(drawingEditChanges(line({ hose: '55' }), line({}))).toEqual(['Schlauch auf Kein geändert'])
     expect(drawingEditChanges(line({}), line({ relay: { flow: 1200, pumps: [{ atM: 100 }] } }))).toEqual([])
     // …but «Pumpen auf Karte» puts Motorspritzen on the Karte, or takes them off
     expect(drawingEditChanges(line({ relay: {} }), line({ relay: { showPumps: true } }))).toEqual([appConfig.copy.log.pumpsShown])

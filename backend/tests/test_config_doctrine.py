@@ -182,8 +182,9 @@ def test_the_offline_radius_is_a_bounded_station_setting():
 
 
 def test_the_hose_defaults_survive_a_save_and_a_relay_never_starts_on_40():
-    """Owner 05.11.2026: a plain Linie is 40 mm, a Wassertransport 75 mm – both station doctrine
-    (src/lib/hydraulics · hoseDefaults). Unset serves nothing, so the shipped values apply."""
+    """Owner 05.11.2026 / 14.11.2026: a Wassertransport is 75 mm, a plain Linie has no Ø until one
+    is picked – both station doctrine (src/lib/hydraulics · hoseDefaults). Unset serves nothing, so
+    the shipped values apply."""
     cfg = DeploymentConfigIn.model_validate({"doctrine": {"defaultLineHose": "55", "defaultRelayHose": "2x75"}})
     assert (cfg.doctrine.defaultLineHose, cfg.doctrine.defaultRelayHose) == ("55", "2x75")
     unset = DeploymentConfigIn.model_validate({"doctrine": {}})

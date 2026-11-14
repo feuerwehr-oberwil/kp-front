@@ -261,6 +261,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     hiddenTarget: 'Cible masquée',
     revealTarget: 'Afficher la couche',
     endingReleased: 'Tronçon retiré, {n} lignes détachées',
+    hoseNone: 'Aucun',
   },
   topBar: {
     offline: 'Hors ligne',

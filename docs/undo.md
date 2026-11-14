@@ -36,7 +36,8 @@ depends on whether it can come back, never on what was deleted.
   entfernt». The ↶ caption says the same (`stepLabelRef` / `onStepLabel`). Toasts of the rule
   replace each other (`kind: 'removal'`).
 - Under the rule (no ConfirmCard since 13.11.): a symbol, Form, Notiz (written or not), line,
-  Fläche, Absperrkreis, a Mehrfach group — Lage and Plan alike, Leitungen attached or not;
+  Fläche, Absperrkreis, a Mehrfach group — Lage and Plan alike (Leitungen attached: the one
+  exception below);
   «Marker und Spur entfernen», «Spur entfernen» (marker, chip, Geister-Spur); a Teilstück's «E»
   letting its lines go; a saved Ansicht; a Tafel page; a Geschoss; a Gebäude replaced; the
   Passung's points and «Referenz zurücksetzen» on an Einsatz's own binding.
@@ -45,6 +46,18 @@ depends on whether it can come back, never on what was deleted.
   of a STATION sheet, which saves to the station (`GeorefQuality · undoable`). The Atemschutz
   «Überwachung aus» on a Trupp inside is a safety call, not a delete, and keeps its card. The
   press-and-hold on a line / Messen node (`lib/nodeHold`) is a gesture, not a confirm, and stays.
+- ⚠️ **The one exception: Leitungen hang on it** (owner, 14.11.2026 – «when deleting a symbol that
+  is joined with a line … ask … if the connected part should also be deleted or not»). A symbol,
+  Form, Notiz or Trupp – or a Mehrfach group – with Leitungen on it that are not themselves going
+  asks first: «TLF hat 2 Leitungen» · [Abbrechen] [Mit Leitungen] [Nur Symbol] (the group: «Auswahl
+  hat … Leitungen», «Nur Auswahl», the lines counted over all of it). It asks because the answer
+  is a CHOICE of what goes, not a doubt about the delete: «Nur Symbol» is the rule's act (the ends
+  let go where they stood, «TLF entfernt, 2 Leitungen gelöst»), «Mit Leitungen» removes every line
+  on it as well, one at its other end on another symbol included («TLF und 2 Leitungen
+  entfernt»). Either answer is ONE ↶ step with the rule's toast, so it is still no red card.
+  Nothing joined → no card, exactly as above. `lib/removalToast · askJoinedLines`,
+  `lib/lineAttachments · linesOnObjects`; Lage `workspace/useMapActions · deleteEntity /
+  deleteGroup`, Plan `components/usePlanRemoval` – the Delete key and every 🗑 go through them.
 - Records that are not on the picture keep «gelöscht» in their toast (Schicht, Schichtband,
   Anwesenheits-Block — `copy/removalWords.test.ts`); their shape is already «… · Rückgängig».
 
