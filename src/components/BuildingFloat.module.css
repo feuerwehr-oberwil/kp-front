@@ -8,6 +8,8 @@
    (no fill: a known hazard is a fact, not an alarm). */
 .hazard svg:first-child { color: var(--amber-strong); }
 .words { color: var(--amber-strong); font-weight: var(--fw-heavy); }
+/* …at 700 on a phone, where the words are the chip's whole label (BuildingFloat · 12A) */
+@media (--phone) { .words { font-weight: var(--fw-bold); } }
 /* the Sofortmassnahmen's count: the ONE count badge (05-navrail · .nav-count – 16px, 11/800,
    --r-xs, a plain count is INK), inline after the label, so the chip stays one action */
 .count { flex: none; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: var(--r-xs);

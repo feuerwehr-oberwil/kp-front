@@ -12,3 +12,8 @@
 .label { font: var(--field-label); color: var(--ink-dim); }
 .hint { font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-faint); }
 .done { font-weight: var(--fw-medium); opacity: .75; }
+/* «Einsatzende fehlt» over the pad: the warn glyph in the hazard tone, the line, «Jetzt eintragen» */
+.endMissing { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-3); }
+.endMissing > svg { flex: none; width: 18px; height: 18px; color: var(--amber-strong); }
+.endText { flex: 1; min-width: 0; font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink); }
+.endMissing :global(.ip-btn) { flex: none; }

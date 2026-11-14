@@ -14,7 +14,7 @@ import { HatchDefs, LINE_DASH_SVG, hatchPatternId } from '../lib/draw'
 import { ToolDock } from './ToolDock'
 import { NODE_HOLD_ARM_MS, useNodeHold } from '../lib/nodeHold'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
-import { vertexHandleIndices, arrowEndIndices, EXTEND_STEP_PX } from '../lib/lineStyle'
+import { vertexHandleIndices, endMarkIndices, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { NodeDeleteChip } from './NodeDeleteChip'
 import { lineJoints } from '../lib/lineAttachments'
 import { floorSections, signedFloor } from '../lib/whiteboard'
@@ -505,9 +505,9 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
   const closed = anno.kind === 'area'
   const sp: [number, number][] = pts.map(([x, y, floor]) => [x * sW, mapY(floor ?? anno.floor, y) * sH])
   const gripIdx = vertexHandleIndices(sp)
-  // the node under an arrowhead is drawn hollow so the spitze reads through it — the same rule,
-  // from the same helper, as on the Karte (lib/lineStyle · arrowEndIndices)
-  const ringIdx = arrowEndIndices(anno, pts.length)
+  // the node under an end mark (arrowhead, Teilstück fork) is drawn hollow so the mark reads through it — the same rule,
+  // from the same helper, as on the Karte (lib/lineStyle · endMarkIndices)
+  const ringIdx = endMarkIndices(anno, pts.length)
   const allShown = gripIdx.length === sp.length
   const segs: number[] = [] // segment i runs from vertex i → i+1 (wraps to 0 for a closed area)
   if (allShown) {

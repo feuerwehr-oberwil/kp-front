@@ -572,6 +572,30 @@ async def _geofence_writes(db: AsyncSession, incident_id: uuid.UUID) -> bool:
     return False
 
 
+async def names_seen(db: AsyncSession, incident_id: uuid.UUID) -> dict[int, str]:
+    """The name each tracker had on the live feed during this Einsatz (Traccar's device name –
+    what the live map wrote on its glyph), from the Einsatz's own presence events: every tracker
+    the sweep saw has at least its baseline event here. The replay labels its vehicles with it
+    (`api/events · samples`), so it works long after the device went offline or was renamed. The
+    newest event wins; a device without one is simply absent (the client falls back to
+    «Fahrzeug <id>»)."""
+    from .models import IncidentEvent
+
+    events = (
+        await db.execute(
+            select(IncidentEvent.payload_json)
+            .where(IncidentEvent.incident_id == incident_id, IncidentEvent.op_type == OP_TYPE)
+            .order_by(IncidentEvent.seq.desc())
+        )
+    ).scalars()
+    names: dict[int, str] = {}
+    for ev in events:
+        name = ev.get("name") if isinstance(ev, dict) else None
+        if isinstance(name, str) and name.strip() and isinstance(ev.get("device_id"), int):
+            names.setdefault(ev["device_id"], name)
+    return names
+
+
 def _label(vehicle: str | None, name: str, fleet: list) -> str:
     return next((str(v.label) for v in fleet if v.id == vehicle), None) or name
 

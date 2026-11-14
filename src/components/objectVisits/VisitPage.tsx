@@ -47,6 +47,7 @@ import { CardRow, LockedRow, VisitHistory } from './StopCards'
 import { PlaceCard, PlaceLine } from './PlaceCard'
 import { useStopDocs } from './useStopDocs'
 import { useOv } from './ovContext'
+import { listClosed } from '../../lib/visitSchedule'
 import { ListCard, ListRow } from '../ListRow'
 import s from './ObjectVisits.module.css'
 
@@ -398,7 +399,7 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
   })()
   // «Weitere Checkliste»: a new visit beside this one — the route resumes this person's open
   // draft for the stop instead, so a second tap never makes a third visit
-  const canAnother = canEdit && lifecycle === 'completed' && !list?.archived
+  const canAnother = canEdit && lifecycle === 'completed' && !(list && listClosed(list))
 
   // the next stop of the work list: the first object after this one without a completed visit
   const next = (() => {

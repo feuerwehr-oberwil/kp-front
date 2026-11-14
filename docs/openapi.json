@@ -10398,7 +10398,7 @@
           "events"
         ],
         "summary": "Samples",
-        "description": "Vehicle GPS samples in the window (for vehicle replay). May be empty today —\nthe Traccar→samples capture job isn't wired yet (PLAN-audit-trail §4, Phase 6).",
+        "description": "Vehicle GPS samples in the window (for the vehicle replay), each with the name its\ntracker had on the live feed (`vehicle_presence · names_seen`) – the rows themselves carry\nonly the device id.",
         "operationId": "samples_api_incidents__incident_id__samples_get",
         "parameters": [
           {
@@ -25349,6 +25349,17 @@
               }
             ],
             "title": "Speed"
+          },
+          "device_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Name"
           }
         },
         "type": "object",

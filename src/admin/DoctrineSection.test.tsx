@@ -397,15 +397,15 @@ describe('Objekt-Warnung ab — the distance behind «nicht die Einsatzadresse»
   })
 })
 
-// owner 05.11.2026: a plain Linie is a 40 mm Druckleitung, a Wassertransport a 75 mm
-// Transportleitung – the station's call, both (lib/hydraulics · hoseDefaults)
+// owner 05.11.2026: a Wassertransport is a 75 mm Transportleitung; owner 14.11.2026: a plain Linie
+// has no Ø until one is picked – the station's call, both (lib/hydraulics · hoseDefaults)
 describe('Schläuche — the Ø a Linie and a Wassertransport start on', () => {
   const C = appConfig.copy.admin.doctrine
   const picker = (label: string) => screen.getByRole('button', { name: label })
 
-  it('shows the shipped 40 / 75 mm without writing them, and stores a pick', async () => {
+  it('shows the shipped «Kein Standard» / 75 mm without writing them, and stores a pick', async () => {
     await open()
-    expect(picker(C.defaultLineHose).textContent).toContain('40 mm')
+    expect(picker(C.defaultLineHose).textContent).toContain(C.defaultLineHoseNone)
     expect(picker(C.defaultRelayHose).textContent).toContain('75 mm')
     await click(picker(C.defaultLineHose))
     await click(screen.getByRole('option', { name: '55 mm' }))
@@ -413,6 +413,11 @@ describe('Schläuche — the Ø a Linie and a Wassertransport start on', () => {
     expect(sent()?.doctrine).toMatchObject({ defaultLineHose: '55' })
     expect(sent()?.doctrine?.defaultRelayHose).toBeUndefined()
     expectAccepted(sent())
+    // …and «Kein Standard» takes the Linie default back to none
+    await click(picker(C.defaultLineHose))
+    await click(screen.getByRole('option', { name: C.defaultLineHoseNone }))
+    await settle()
+    expect(sent()?.doctrine?.defaultLineHose).toBeNull()
   })
 
   it('offers no 40 mm for the Wassertransport', async () => {

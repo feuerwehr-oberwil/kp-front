@@ -93,6 +93,22 @@ describe('reportSignature · signedPartOf (the PDF payload\'s signed part)', () 
     expect(signedPartOf(args({ attendance: present }))).not.toBe(signedPartOf(args()))
   })
 
+  // owner, 14.11.2026: signed while open, the signature survives the close and a reopen without edits
+  it('closing and reopening alone do not change it once the Einsatzende is set – an edit does', () => {
+    const ended = { summary: 'Küche', einsatzleiter: 'Widmer Céline', endedAt: '2026-10-15T02:05:00.000Z' }
+    const at = (state: object, meta: object = ended) => signedPartOf({
+      ...args({ attendance: { p1: { status: 'present', in: '2026-10-15T00:55:00.000Z' } } }),
+      incident: { id: 'i1', title: 'Brand', started_at: '2026-10-15T00:47:00.000Z', ...state } as never,
+      draft: { meta, generatedAt: '2026-10-15T02:20:00.000Z', proof: {}, options: { journal: true, attendance: true, mittel: true } } as never,
+    })
+    const open = at({ is_archived: false })
+    const closed = at({ is_archived: true, closed_at: '2026-10-15T02:06:00.000Z', last_closed_at: '2026-10-15T02:06:00.000Z' })
+    const reopened = at({ is_archived: false, closed_at: '2026-10-15T02:06:00.000Z', last_closed_at: '2026-10-15T02:06:00.000Z' })
+    expect(closed).toBe(open)
+    expect(reopened).toBe(open)
+    expect(at({ is_archived: false }, { ...ended, summary: 'Keller' })).not.toBe(open)
+  })
+
   it('the printed payload carries the signatures it was given', () => {
     const printed = [{ role: 'el' as const, name: 'Widmer Céline', placeDate: 'Oberwil, 15.10.2026', at: '15.10.2026 04:12', checksum: '3fa9 c210 7be1', strokes }]
     const out = buildDirectReportPayload({ ...args(), signatures: printed }) as { signatures: unknown[] }

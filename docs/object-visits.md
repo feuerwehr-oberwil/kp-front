@@ -41,8 +41,8 @@ Naming: the code domain is `object_visits` / `objectVisits` / `ov`. **`backend/a
   holds reusable organizer routes, never visible to crews. Annual publication is one
   transaction with a stale-revision guard; a round's stable ref and stop snapshot survive
   rescheduling/withdrawal. Never copy last year's completions into a new round. `scheduledOn`
-  is a calendar day, separate from `closesAt`; archived rounds retain visits and accept late
-  offline sync. Field history is collapsed, overdue work stays visible. Contract:
+  is a calendar day, separate from `closesAt`; archived and past-`closesAt` rounds retain
+  visits and accept late offline sync. Field history is collapsed, overdue work stays visible. Contract:
   `docs/object-visits.md` · Visit programmes.
 
 ## Ids
@@ -306,7 +306,7 @@ either form arrives as the same id.
 | `GET /objects/by-ref/{source}/{externalId}` | resolve the organizer's id: `200 {objectId, name, address, lat, lng, folder, refs, hasPlans}` · `404` unknown ref. (The catalogue's `objects[].refs` resolves the same way in bulk.) |
 | `GET /objects/{objectId}/plans` | the object's plans, read-only, one per Modul-Slot: `200 [{module, title, revision, contentType, size}]` (`revision` = the plan's current version) · `404` unknown object. Plan-less object ⇒ `[]` |
 | `GET /objects/{objectId}/plans/{module}[?revision=n]` | the plan bytes (`application/pdf`, inline, header `X-Plan-Revision`) — current, or the pinned revision `n` (the same immutable revision store an Einsatz pins) · `404` unknown object/module/revision |
-| `PUT /visit-lists/{ref}` | body `{title, note?, closesAt?, objects:[{source, id, done?}]}` (ordered, ≤ 500). `done` = a completion the ORGANIZER already holds for that stop (e.g. last round in SchlüHü): `{at: "YYYY-MM-DD", by?: ≤120, source?: ≤60 (e.g. "SchlüHü"), note?: ≤500}`; unknown keys, a non-date `at` or NUL/surrogates ⇒ 422. Stored as sent and shown — KP Front never turns it into a visit. Unresolved refs (and their `done`) are kept and reported. `200 {ref, objectIds, unresolved, done: {"<objectId>": {…}}}` (resolved stops only; first entry wins if two refs name one object) · `DELETE /visit-lists/{ref}` → `200 {ref, deleted}` (idempotent) |
+| `PUT /visit-lists/{ref}` | body `{title, note?, closesAt?, scheduledOn?, objects:[{source, id, done?}]}` (ordered, ≤ 500). `closesAt` = ISO 8601 instant; `scheduledOn` = the round's calendar day `YYYY-MM-DD` (else 422); a PUT replaces the list, so a field left out is cleared. `done` = a completion the ORGANIZER already holds for that stop (e.g. last round in SchlüHü): `{at: "YYYY-MM-DD", by?: ≤120, source?: ≤60 (e.g. "SchlüHü"), note?: ≤500}`; unknown keys, a non-date `at` or NUL/surrogates ⇒ 422. Stored as sent and shown — KP Front never turns it into a visit. Unresolved refs (and their `done`) are kept and reported. `200 {ref, objectIds, unresolved, done: {"<objectId>": {…}}}` (resolved stops only; first entry wins if two refs name one object) · `DELETE /visit-lists/{ref}` → `200 {ref, deleted}` (idempotent) |
 | `GET /object-visits/changes?after=<seq>&limit=<≤500>` | `{items:[FeedItem], nextAfter}`; `FeedItem = {seq, id, objectId, objectRefs, objectName, workRef, revision, lifecycle, ready, visitedAt, updatedAt, by, with, findings, proposals:[…], deliveries:[…], url, target_kind, location}` — one item per visit at its latest state, ordered by `seq`. `objectRefs` is read LIVE from `object_refs`, so a ref attached later (an object upsert matching by folder) appears on the next poll. `nextAfter` = the last item's `seq`, or `after` when empty. **Downstream contract (C2, 16.10.2026):** `target_kind` is `"object"` or `"location"`; for `"location"` the object fields are null (`objectId`, `objectName`, `objectRefs: []`); `location` = `{label, address, lat, lng}` — the place as captured, or for an object visit the object's name, address and position. A reader tolerates both an item without them (an older server) and one with them |
 | `GET /object-visits/{id}` · `/report.pdf` · `/attachments/{attId}` | read-only copies for review |
 
@@ -335,12 +335,15 @@ and no imported completion ticks. Direct legacy list PUT/DELETE against a manage
 returns 409 `managed_list`; use the programme endpoint.
 
 Catalogue lists add `scheduledOn` (calendar date, no timezone conversion) and `archived`.
-The existing `closesAt` deadline remains separate. Field overview groups Today, Overdue,
-Upcoming and Undated, then «Kürzlich erledigt»: a complete round whose last stop was done in
-the last 7 days. Withdrawn rounds and older complete ones are not listed in the field app —
-the organizer holds that record (fwo-admin, the filed reports). An archived list (reached by
-link) opens existing visits but offers no new capture. Already captured/offline visits remain
-syncable after withdrawal. Old cached catalogues lacking these fields remain usable.
+The `closesAt` deadline is separate: once it has passed the round is over, complete or not
+(fwo-admin's Fahrschule evenings send the session day plus 23:59:59 Europe/Zurich, 14.11.2026).
+Field overview groups Today, Overdue, Upcoming and Undated, then «Kürzlich erledigt»: a complete
+round whose last stop was done in the last 7 days. Closed rounds – withdrawn (`archived`) or
+past `closesAt` – and older complete ones are not listed in the field app — the organizer holds
+that record (fwo-admin, the filed reports). A closed list (reached by link) opens existing
+visits but offers no new capture (`listClosed` in `src/lib/visitSchedule.ts`). Already
+captured/offline visits remain syncable after withdrawal or the deadline: the server checks
+neither. Old cached catalogues lacking these fields remain usable.
 
 Storage: `visit_programmes` plus `visit_lists.scheduled_on/archived`, Alembic
 `e2f3a4b5c6d7`. Old lists are undated/unarchived; migrations do not select or schedule them.

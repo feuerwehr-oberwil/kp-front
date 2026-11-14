@@ -57,6 +57,14 @@ unchanged.
   reserve (owner pick A4/C10, 05.11.2026): clock and chevron sit at the row's right edge and the
   FAB floats over whichever row rests under it. A RUNNING recording never yields — not to a dock, the armed pill, a panel or a detail sheet
   (it rides on the sheet's top edge). Only «Karte verknüpfen» still hides it.
+- *While ✥ / ⟳ is armed the tool bar and the chip row step aside* (round 14.11.2026 #7, owner
+  screenshot: the bar over a peeked Linie sheet lay on «Auswahl» and the Gebäude chip):
+  `body.sel-transforming` (lib/transformChrome) hides `.tool-rail` / `.wb-tools` / `.wb-botleft`
+  by `visibility` for the mode or the grip drag, and the selection bar stands one `--float-gap`
+  above the sheet – half, full or peeked (76px). The nav bar stays; the peeked sheet covers it.
+- *The Gebäude chip is the hazard alone on a phone* (owner pick 12A, 14.11.2026): «⚠ Heizöl» at
+  700, or (i) «Gebäude» without one; the count badge stays and the label stays the full sentence.
+  The tablet keeps «Gebäude-Info · Heizöl» (components/BuildingFloat).
 - *Karte & Objekte has ONE bar* (Karte · Messen · Gefahrgut · Ebenen, no tool bar and no «Pläne»
   tab — 17.10.2026): Messen keeps the same 8px steps, only from the nav bar (the dock where the
   tool bar would stand, `--tools-bottom`; the readout where the dock would, `--dock-bottom`), and a selected place is one slide-up sheet whose rows are the

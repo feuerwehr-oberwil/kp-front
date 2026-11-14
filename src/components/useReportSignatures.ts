@@ -1,4 +1,4 @@
-// Which of the Rapport's signatures still hold, and whether they lock the form (15.10.2026,
+// Which of the Rapport's signatures still hold (15.10.2026; open or closed since 14.11.2026,
 // docs/rapport.md · Unterschriften). Used by ReportPreflight and drawn by <ReportSignatures>.
 
 import { useMemo, useState } from 'react'
@@ -10,20 +10,12 @@ import {
 
 export type LiveSignatures = Partial<Record<SignatureRole, ReportSignature>>
 
-/** The live signature per role — minus any made before the latest close, which signed a Rapport
- *  that has since been reopened (a reopen ends every signature). */
-export function liveSignatures(all: readonly ReportSignature[], closedAt: string | null | undefined): LiveSignatures {
-  const a = activeSignatures(all)
-  for (const r of SIGNATURE_ROLES) if (a[r] && closedAt && a[r].at < closedAt) delete a[r]
-  return a
-}
-
-/** The valid signatures as the paper prints them; a signature that no longer holds is left off,
- *  and its line prints empty (decision 15.10.2026). Nothing on a running Einsatz. */
-export function printedSignatures(live: LiveSignatures, isValid: (r: SignatureRole) => boolean, closed: boolean): PrintedSignature[] {
+/** The valid signatures as the paper prints them – open or closed alike; a signature that no
+ *  longer holds is left off, and its line prints empty (decision 15.10.2026). */
+export function printedSignatures(live: LiveSignatures, isValid: (r: SignatureRole) => boolean): PrintedSignature[] {
   return SIGNATURE_ROLES.flatMap((r) => {
     const g = live[r]
-    if (!closed || !g || !isValid(r)) return []
+    if (!g || !isValid(r)) return []
     const date = formatDateTime(g.at)
     return [{
       role: r, name: g.name,
@@ -40,12 +32,17 @@ export function printedSignatures(live: LiveSignatures, isValid: (r: SignatureRo
  * uses `canEdit`. The signed part's hash as it stands now (`scopeHash`) is computed further down,
  * once the form exists, and handed back through `setScopeHash`; until it is known every live
  * signature counts as valid (lib/reportSignature · signatureState), so nothing flashes «ungültig».
+ * Closing or reopening the Einsatz does not touch a signature (owner, 14.11.2026): only the hash
+ * decides.
  */
-export function useSignatureLock(reportSignatures: readonly ReportSignature[], closedAt: string | null | undefined, closed: boolean) {
+export function useSignatureLock(reportSignatures: readonly ReportSignature[], closed: boolean) {
   const [scopeHash, setScopeHash] = useState<string | undefined>()
-  const liveSigs = useMemo(() => liveSignatures(reportSignatures, closedAt), [reportSignatures, closedAt])
+  const liveSigs: LiveSignatures = useMemo(() => activeSignatures(reportSignatures), [reportSignatures])
   const sigValid = (r: SignatureRole) => !!liveSigs[r] && signatureState(liveSigs[r], scopeHash) === 'valid'
-  /** signed and still valid: the form is read-only until somebody chooses «Ändern» */
-  const signedLock = closed && SIGNATURE_ROLES.some(sigValid)
-  return { liveSigs, sigValid, signedLock, setScopeHash }
+  /** a signature still holds – the open form stays editable (an edit makes it «ungültig») */
+  const anyValid = SIGNATURE_ROLES.some(sigValid)
+  /** …on a closed Einsatz the Rapport is read-only anyway; a valid signature also stops what the
+   *  signing and printing would still record (the Einsatzleiter written back, the stamps) */
+  const signedLock = closed && anyValid
+  return { liveSigs, sigValid, anyValid, signedLock, setScopeHash }
 }

@@ -17,6 +17,8 @@ import s from './SignatureSheet.module.css'
 // The role is a CHOICE in the form («Unterschreibt als»), the Segmented's blue, not a tab: it is an
 // answer, not a place (docs/ui-conventions · Selected). The name is the roster picker, prefilled;
 // for the Einsatzleiter it IS the Rapport's Einsatzleiter, written back when the signature is made.
+// An open Rapport without an Einsatzende says so above the pad, with «Jetzt eintragen»: the close
+// would write one later, which changes the signed part and voids the signature (owner, 14.11.2026).
 // ⚠️ `swipeToClose={false}`: the pad owns the vertical gesture — a downward stroke of a signature
 // must never dismiss the sheet it is being written on.
 
@@ -28,7 +30,7 @@ export interface SignSubmit {
 
 export function SignatureSheet({
   open, onClose, initialRole, signedRoles, elName, kdtName, summary, placeDate, onViewPdf, onSign,
-  personnel, presentIds, rolesById, onAddGuest,
+  personnel, presentIds, rolesById, onAddGuest, onSetEndNow,
 }: {
   open: boolean
   onClose: () => void
@@ -45,6 +47,8 @@ export function SignatureSheet({
   presentIds: Set<string>
   rolesById?: Map<string, string>
   onAddGuest?: (name: string) => string | undefined
+  /** set only while the Einsatzende is empty on an open Rapport: writes «jetzt» into it */
+  onSetEndNow?: () => void
 }) {
   const S = appConfig.copy.signature
   const [role, setRole] = useState<SignatureRole>(initialRole)
@@ -85,6 +89,13 @@ export function SignatureSheet({
         {/* «PDF», the word the Rapport head uses for the same document on a phone */}
         {onViewPdf && <Button icon={<Icon id="doc" />} onClick={onViewPdf} aria-label={S.viewPdf}>{phone ? appConfig.copy.preflight.pdfShort : S.viewPdf}</Button>}
       </div>
+      {onSetEndNow && (
+        <div className={s.endMissing} role="status">
+          <Icon id="warn" />
+          <span className={s.endText}>{S.endMissing}</span>
+          <Button onClick={onSetEndNow}>{S.endNow}</Button>
+        </div>
+      )}
       <div className={s.field}>
         <span className={s.label}>{S.signsAs}</span>
         <Segmented<SignatureRole>
