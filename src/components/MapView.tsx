@@ -6,7 +6,7 @@
 // Rules: docs/tactical-objects.md; the station viewer: docs/karte-objekte.md.
 
 import { forwardRef, Fragment, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
+import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent, type MarkerEvent } from 'react-map-gl/maplibre'
 import type { Map as MlMap } from 'maplibre-gl'
 import { useHiddenTrails } from '../lib/useHiddenTrails'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -292,6 +292,16 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // a tap, and the Messen/Zeichnen tool put a fresh point back at exactly that spot — so a
   // deleted node reappeared and the hold looked broken (19.08.).
   const deletePointKeepTool = (fn?: (i: number) => void) => (i: number) => { suppressClick.current = true; fn?.(i) }
+  // ⚠️ A tap on a node pad is the pad's, never the map's. The pad's click bubbles from its Marker
+  // to maplibre's listener on the canvas container, which fires the map click with the path's hit
+  // band under it – and handleClick inserted a node right on the tapped one (a selected Linie
+  // grew 8 → 9 Punkte per tap, its pads stacking up; the same for Messen and the open draft;
+  // 15.11.2026, e2e/node-pad-tap.spec.ts). react-map-gl binds a Marker's `onClick` NATIVELY on
+  // the marker element, below the container, so stopping it there keeps the map out. A React
+  // `onClick` on the pad would run too late (React delegates at the root, above the container).
+  // The click a hold-delete leaves can land on a pad too (a duplicate under the finger) – it is
+  // used up here, so the flag must not wait for the next real tap.
+  const keepClickOnPad = (e: MarkerEvent<MouseEvent>) => { e.originalEvent.stopPropagation(); suppressClick.current = false }
   const [mapReady, setMapReady] = useState(false)
   // MapLibre paint specs can't read CSS vars, so the two TRANSIENT overlays drawn in the UI blue —
   // the draft shape and the measure path — resolve `--blue` off the live theme (lib/themeToken)
@@ -1596,6 +1606,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
           draggable
           onDrag={(e) => { vertexPress.cancel(); onDraftDrag?.(i, [e.lngLat.lng, e.lngLat.lat]) }}
           onDragEnd={(e) => onDraftDrag?.(i, [e.lngLat.lng, e.lngLat.lat])}
+          onClick={keepClickOnPad}
         >
           <div
             className={`measure-handle ${vertexPress.armed?.key === `draft:${i}` ? 'doomed' : ''}`}
@@ -1643,6 +1654,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
           onDragStart={() => setMeasureDragNode(i)}
           onDrag={(e) => { vertexPress.cancel(); onMeasureDrag?.(i, [e.lngLat.lng, e.lngLat.lat]) }}
           onDragEnd={(e) => { setMeasureDragNode(null); onMeasureDrag?.(i, [e.lngLat.lng, e.lngLat.lat]) }}
+          onClick={keepClickOnPad}
         >
           <div
             className={`measure-handle ${vertexPress.armed?.key === `measure:${i}` ? 'doomed' : ''}`}
@@ -1955,6 +1967,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
             if (endpoint && onDrawingAttachment) { moveEndpointDrag([e.lngLat.lng, e.lngLat.lat]); finishEndpointDrag() }
             else onDrawingEdit(editDraw.id, editDraw.coords.map((q, j) => (j === i ? [e.lngLat.lng, e.lngLat.lat] : q)), 'end')
           }}
+          onClick={keepClickOnPad}
         >
           <div
             className={`draw-handle ${editRingIdx.includes(i) ? 'draw-handle--ring' : ''} ${vertexPress.armed?.key === `draw:${i}` ? 'doomed' : ''}`}
