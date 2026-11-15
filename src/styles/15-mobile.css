@@ -269,21 +269,23 @@
   /* buttons keep their size instead of flex-shrinking when a busy dock overflows — otherwise the
      round × / ℹ squashed into ovals in line/area docks while the bar scrolled */
   .phone-tools .wb-dock > * { flex: none; }
-  /* colours: a single full-size row (not a cramped 2-row grid) */
-  .phone-tools .wb-dock .wb-sw-grid { display: flex; grid-template-columns: none; gap: 8px; }
-  .phone-tools .wb-dock .wb-sw { width: 30px; height: 30px; }
   /* UNIFORM button + icon size across the whole bar: every control the bars' 46px tile (the bar
      is --rail-h 60 with 4px padding — 3am test r2, 25.09.2026: ✕ · Freihand · Punkte · ✓ · ⓘ
      measured 40px high; 44 until the M8 rework), every icon 18px — was a jumble (34/38 buttons,
      16/17/18 icons). ℹ matches (DockInfo). */
-  .phone-tools .wb-dock .wb-dock-tog, .phone-tools .wb-dock .wb-dock-go,
-  .phone-tools .wb-dock .wb-ww { width: 46px; min-width: 46px; height: 46px; border-radius: var(--r-sm); }
+  .phone-tools .wb-dock :is(.wb-dock-tog, .wb-dock-go) { width: 46px; min-width: 46px; height: 46px; border-radius: var(--r-sm); }
   /* the ✕ at the bar's END (ToolDock · close, sweep 27.10.2026 #3): its DOM place, not the
      column's `order` lift, and the group gap on the side that faces the options */
   .phone-tools .wb-dock .wb-dock-x { width: 46px; height: 46px; order: 0; margin: 0 0 0 4px; }
-  /* «✓ Fertig» keeps its word on the phone's row too (09-whiteboard · M7 C) */
-  .phone-tools .wb-dock .wb-dock-go { width: auto; padding-inline: var(--sp-3); }
   .phone-tools .wb-dock .i { width: 18px; height: 18px; }
+  /* «Beschriftung» on (ToolDock · worded, round 15.11.2026 #2, owner pick 2A): every item is the
+     labelled tool bar's tile under it – glyph over its word, at least 50px and as wide as its word
+     (never an ellipsis: a busy dock scrolls, the ✕ sticky at its end), 46px high, so the row keeps
+     the bars' height and reads as their twin. The column's labelled width does not apply here. */
+  .phone-tools .wb-dock.wb-dock-worded { width: max-content; }
+  .phone-tools .wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded, .wb-dock-ic) {
+    width: auto; min-width: 50px; height: 46px; padding: 0 8px; }
+  .phone-tools .wb-dock.wb-dock-worded .wb-dock-word { max-width: none; overflow: visible; }
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
   /* …but a Tafel PAGE is a form with no tool bar under it: it runs down to the nav bar (Whiteboard · formPage) */
   .phone-tools .whiteboard.wb-tafel-page { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
@@ -364,8 +366,11 @@
      «hide the "gebäude info" and footer menu in the meantime to not cause this clash»): the
      peeked sheet is 76px tall, so the bar riding on it stood ON the tool bar and the Gebäude chip.
      PAINTED away like the grips – `visibility`, never an unmount – so every piece is back, with
-     its state, the moment the mode ends. The nav bar stays: the peeked sheet already covers it. */
-  body.sel-transforming :is(.tool-rail, .wb-tools, .wb-botleft) { visibility: hidden; }
+     its state, the moment the mode ends. The nav bar stays: the peeked sheet already covers it.
+     …and the same for the length of ANY drag on an object's geometry – a vertex, a «+», Verlängern,
+     a Form's grip, a symbol (body.geom-dragging, lib/sheetPeek; round 15.11.2026 #4): the sheet
+     peeks for those too, so the bar stood on the tools the same way. The grips stay for that one. */
+  :is(body.sel-transforming, body.geom-dragging) :is(.tool-rail, .wb-tools, .wb-botleft) { visibility: hidden; }
   /* phone scroll model: the sheet is a fixed flex column. The grip + header are pinned, and so
      is the ACTIONS row — by layout, never position:sticky, because sticky inside a
      backdrop-filtered scroller proved unreliable on iOS and `.ctx` carries a blur.

@@ -314,6 +314,14 @@ describe('the phone bar', () => {
     expect(onPick).not.toHaveBeenCalledWith('area')
   })
 
+  // round 15.11.2026 r2: «Absperrkreis» does not fit the «+» tile – the tile wears the short word,
+  // the button keeps the long name
+  it('wears an armed tool\'s short word where its name does not fit the tile', () => {
+    renderPhone('circle')
+    const tile = screen.getByRole('button', { name: 'Absperrkreis' })
+    expect(tile.querySelector('.vrail-label')?.textContent).toBe('Sperrkreis')
+  })
+
   it('leaves the vertical rail every tool and its old word', () => {
     render(<ToolRail className="tool-rail" primary={appConfig.copy.primarySymbol} tools={appConfig.copy.mapTools} active="select" onPick={vi.fn()} controls={null} />)
     for (const name of ['Linie', 'Trupp', appConfig.copy.primarySymbol.label]) expect(screen.getByRole('button', { name })).toBeTruthy()

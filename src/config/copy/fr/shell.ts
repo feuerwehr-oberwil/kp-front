@@ -40,5 +40,6 @@ export const shellCopy: Localizable<Pick<Copy, Keys>> = {
     empty: 'Aucun binôme sur la carte ou un plan.',
     emptyHint: 'Placer un binôme sur la carte ou un plan sous «Binômes» ou avec l’outil binôme.',
     raus: 'sorti',
+    titleShort: 'Trouver',
   },
 }

@@ -471,7 +471,7 @@ export const helpCopy = {
           ] },
           { kind: 'sub', text: 'Beschriftete Leisten' },
           { kind: 'list', items: [
-            'In den **Einstellungen** ([[⌘]] [[,]]) unter «Beschriftung der Werkzeugleisten»: **Ein** schreibt unter jedes Zeichen sein Wort – in der linken und der rechten Leiste und in der Ansichtsleiste unten rechts, im Einsatz wie auf «Karte & Objekte». **Aus** lässt überall nur die Zeichen stehen. Für alle, die die Symbole noch nicht auswendig kennen – die Leisten werden dafür etwas breiter, und im Einsatz braucht es «Ausklappen» dann nicht mehr. Auf dem **Telefon** ist sie von Anfang an ein.',
+            'In den **Einstellungen** ([[⌘]] [[,]]) unter «Beschriftung der Werkzeugleisten»: **Ein** schreibt unter jedes Zeichen sein Wort – in der linken und der rechten Leiste, in der Leiste des gewählten Werkzeugs (bei der Linie «Freihand» · «Punkte» · «Abbrechen») und in der Ansichtsleiste unten rechts, im Einsatz wie auf «Karte & Objekte». **Aus** lässt überall nur die Zeichen stehen. Für alle, die die Symbole noch nicht auswendig kennen – die Leisten werden dafür etwas breiter, und im Einsatz braucht es «Ausklappen» dann nicht mehr. Auf dem **Telefon** ist sie von Anfang an ein.',
             'Ist sie aus, bleibt es beim Zeichen; ein Tipp auf **Ausklappen** zeigt die Namen für so lange, wie die Leiste offen bleibt.',
             'Überall sonst gilt: einen Knopf, auf dem nur ein Zeichen steht, **gedrückt halten** – nach einem kurzen Moment steht sein Wort als Blase darüber, auf Touch mit einem kurzen Summen. Das Loslassen löst den Knopf dabei **nicht** aus: fragen, was etwas ist, darf es nicht gleich auch tun. An der Maus genügt Draufzeigen.',
           ] },

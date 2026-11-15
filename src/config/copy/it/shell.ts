@@ -40,5 +40,6 @@ export const shellCopy: Localizable<Pick<Copy, Keys>> = {
     empty: 'Ancora nessuna squadra sulla carta o su un piano.',
     emptyHint: 'Posare una squadra sulla carta o su un piano sotto «Squadre» o con lo strumento squadra.',
     raus: 'uscito',
+    titleShort: 'Trova',
   },
 }

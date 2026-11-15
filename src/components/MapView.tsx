@@ -1303,7 +1303,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       // moves far past the slop before release, a tap does not.
       onDragStart={(e) => {
         if (e.originalEvent && 'touches' in e.originalEvent) beginPanGesture()
-        beginSheetPeek()
+        beginSheetPeek('view')
         place.cancel() // panning away is not a tap on anything
         if (georefOn && !(e.originalEvent && 'touches' in e.originalEvent)) georefTap.panned()
       }}
@@ -1311,7 +1311,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       // A pinch that never armed drag-pan (two fingers down together) still moves the map, so it
       // closes the same gesture. Touch only: a wheel zoom leaves no click behind, and swallowing
       // one would cost the desktop operator the tap right after a zoom.
-      onZoomStart={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) { beginPanGesture(); beginSheetPeek() } }}
+      onZoomStart={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) { beginPanGesture(); beginSheetPeek('view') } }}
       onZoomEnd={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) { endPanGesture(); endSheetPeek() } }}
       // North-snap on release (18.10.2026, owner): a turn by HAND (fingers or the mouse's
       // right-drag) that comes to rest within NORTH_SNAP_DEG (10°) of north settles on exactly
@@ -2096,11 +2096,12 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
                 // React stopPropagation can reach — without this the map pans under the grip
                 // (the same disable/enable pair the line-label drag needs, see labelDown).
                 setDragPanEnabled(false)
+                beginSheetPeek() // an object's geometry is travelling – lib/sheetPeek
                 onDrawingRadius(editDraw.id, editDraw.radiusM ?? 0, 'start')
               }}
               onPointerMove={(ev) => { if ((ev.currentTarget as HTMLElement).hasPointerCapture(ev.pointerId)) onDrawingRadius(editDraw.id, radiusAt(ev), 'move') }}
-              onPointerUp={(ev) => { setDragPanEnabled(true); if ((ev.currentTarget as HTMLElement).hasPointerCapture(ev.pointerId)) onDrawingRadius(editDraw.id, radiusAt(ev), 'end') }}
-              onPointerCancel={() => { setDragPanEnabled(true); onDrawingRadius(editDraw.id, editDraw.radiusM ?? 0, 'end') }}
+              onPointerUp={(ev) => { setDragPanEnabled(true); endSheetPeek(); if ((ev.currentTarget as HTMLElement).hasPointerCapture(ev.pointerId)) onDrawingRadius(editDraw.id, radiusAt(ev), 'end') }}
+              onPointerCancel={() => { setDragPanEnabled(true); endSheetPeek(); onDrawingRadius(editDraw.id, editDraw.radiusM ?? 0, 'end') }}
             />
           </Marker>
         )

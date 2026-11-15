@@ -34,6 +34,7 @@ export const drawingCopy: Localizable<Pick<Copy, Keys>> = {
     hintArea: 'At least 3 points for the area',
     adoptLine: 'Keep as a line',
     adoptArea: 'Keep as an area',
+    clearShort: 'Clear',
   },
   relay: {
     title: 'Water relay',
@@ -196,9 +197,6 @@ export const drawingCopy: Localizable<Pick<Copy, Keys>> = {
   },
   addSheet: { tile: 'Add', tools: 'Draw & crew' },
   toolDock: {
-    colorGroup: 'Colour',
-    colorName: '{group} {n}',
-    widthName: 'Line width {n} px',
     autoCommitted: '{name} saved',
     draftDiscarded: 'Incomplete drawing discarded',
     openTitle: '{name} still open',

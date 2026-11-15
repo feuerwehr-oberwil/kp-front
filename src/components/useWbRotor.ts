@@ -3,6 +3,7 @@ import type React from 'react'
 import type { BoardAnno, BoardTool } from '../types'
 import { appConfig } from '../config/appConfig'
 import { buzz } from '../lib/haptics'
+import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { MAGNET_DWELL_MS, MAGNET_RADIUS_PX } from '../lib/lineAttachments'
 import { SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_N, SHAPE_MIN_N, rotationBoundsN, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
 import { freeResizeLocal, rotationEnd, rotationEndDeg, rotorDeg } from '../lib/rotorMath'
@@ -184,7 +185,8 @@ export function useWbRotor({ tool, readOnly, annos, boardRef, inkTap, toNorm, lo
   }
   const rotMove = (e: React.PointerEvent) => {
     const st = rotate.current; if (!st) return
-    if (!st.moved) { pushPast(); st.moved = true } // one checkpoint per rotate/resize gesture
+    // one checkpoint per rotate/resize gesture; the phone sheet and bottom bars step aside (lib/sheetPeek)
+    if (!st.moved) { pushPast(); st.moved = true; beginSheetPeek() }
     if ((st.mode === 'endA' || st.mode === 'endB') && st.fixed) {
       // One end moves, the other stays: position, length, bearing and width all fall out of the
       // pair (lib/shapes · rotationBox). Same maths as the map, in plan-width fractions.
@@ -265,6 +267,7 @@ export function useWbRotor({ tool, readOnly, annos, boardRef, inkTap, toNorm, lo
   }
   const rotUp = () => {
     const st = rotate.current; rotate.current = null
+    endSheetPeek()
     clearRotMagnet()
     onStepEnd?.()
     if (!st?.moved) return
