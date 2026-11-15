@@ -35,7 +35,7 @@ vi.mock('./api/workspace', async () => {
   return {
     getWorkspace: vi.fn(async () => ({ workspace: structuredClone(server.ws), workspace_rev: server.rev })),
     putWorkspace: vi.fn(put),
-    putWorkspaceBeacon: vi.fn(), putWorkspaceTrupps: vi.fn(), putWorkspaceTruppsBeacon: vi.fn(),
+    putWorkspaceTrupps: vi.fn(), putWorkspaceTruppsBeacon: vi.fn(),
     putWorkspaceRecord: vi.fn(), putWorkspaceRecordBeacon: vi.fn(),
   }
 })
