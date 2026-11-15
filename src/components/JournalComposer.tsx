@@ -736,7 +736,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // which is what the `pointer: fine` card had (see 10-journal.css) — hides the overflow from the
   // first limit but not from the second. The element measured is the popup itself — `cardRef` is
   // filled by the `setCard` callback ref handed to `<Overlay popupRef>` below, so it is the box
-  // that carries the cap and does the scrolling, with no boxless wrapper to climb out of.
+  // that carries the cap, with no boxless wrapper to climb out of; its `.jc-body` does the scrolling.
   const cardRef = useRef<HTMLDivElement | null>(null)
   const [compact, setCompact] = useState(false)
   const frameRef = useRef(0)
@@ -755,8 +755,12 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       // …and the card's USED cap, not the height it happens to have right now: «would the full
       // layout fit» has to answer the same from either rung, or the sheet flips between them.
       const cap = parseFloat(getComputedStyle(card).maxHeight)
+      // what the whole sheet needs: the card's used height plus what its one scroller hides
+      // (`.jc-body`, since 15.11.2026 — the frame itself no longer scrolls)
+      const body = card.querySelector<HTMLElement>('.jc-body')
+      const hidden = body ? body.scrollHeight - body.clientHeight : card.scrollHeight - card.clientHeight
       setCompact((cur) => nextCompact(cur, {
-        needed: card.scrollHeight, cap: Number.isNaN(cap) ? Infinity : cap, screen,
+        needed: card.clientHeight + hidden, cap: Number.isNaN(cap) ? Infinity : cap, screen,
       }))
     })
   }, [])
@@ -859,402 +863,408 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             onClick={onClose}><Icon id="close" /></button>
         </div>
 
-        {/* The backdrop that marks known names. A <textarea> cannot style part of its own
-            content, so the same text is painted behind it in a transparent div and only the
-            <mark> spans show — the field itself is see-through. Both share one font, one
-            padding and one line-height, and the backdrop follows the field's scroll, or the
-            marks would drift off their words the moment the text got long. */}
-        <div className="jc-text-wrap">
-          <div className="jc-text-marks" ref={marksRef} aria-hidden>
-            {parts.map((p, i) => (p.kind
-              ? <mark key={i} className={`jc-mark-${p.kind}`}>{p.text}</mark>
-              : <span key={i}>{p.text}</span>))}
-            {/* the trailing newline needs a character after it or the div collapses a line
-                short of the textarea and every mark below it sits one line too high */}
-            {'\n'}
+        {/* ⚠️ ONE scroller under the head (scroll sweep 15.11.2026 #6): the frame used to be the
+            scroller, so on rung 3 the grab bar, the title and the ✕ scrolled off the top with the
+            rows. The head stays put; everything below it scrolls here. The rows are THIS box's
+            children now, so `.jc-body > *` is where «nothing shrinks» reaches them (10-journal.css). */}
+        <div className="jc-body">
+          {/* The backdrop that marks known names. A <textarea> cannot style part of its own
+              content, so the same text is painted behind it in a transparent div and only the
+              <mark> spans show — the field itself is see-through. Both share one font, one
+              padding and one line-height, and the backdrop follows the field's scroll, or the
+              marks would drift off their words the moment the text got long. */}
+          <div className="jc-text-wrap">
+            <div className="jc-text-marks" ref={marksRef} aria-hidden>
+              {parts.map((p, i) => (p.kind
+                ? <mark key={i} className={`jc-mark-${p.kind}`}>{p.text}</mark>
+                : <span key={i}>{p.text}</span>))}
+              {/* the trailing newline needs a character after it or the div collapses a line
+                  short of the textarea and every mark below it sits one line too high */}
+              {'\n'}
+            </div>
+          <textarea
+            // ⚠️ focused the moment it ATTACHES, not an effect later. iOS raises the keyboard only
+            // for a focus() made inside the tap's own call stack; the opener commits this sheet with
+            // flushSync from its click handler, so this ref runs inside that stack. The dialog's
+            // `initialFocus` still names the same field – it lands a frame later, on a field that
+            // already has the caret, and is what every other way of opening the sheet relies on.
+            ref={attachText}
+            className="jc-text"
+            value={text}
+            onChange={(e) => {
+              const v = stripUnprintable(e.target.value)
+              setText(v)
+              setSelection({
+                start: stripUnprintable(e.target.value.slice(0, e.target.selectionStart)).length,
+                end: stripUnprintable(e.target.value.slice(0, e.target.selectionEnd)).length,
+              })
+              // …and an emptied field is a fresh start: the chips come back
+              setTyped(v.trim().length > 0)
+            }}
+            placeholder={C.textPlaceholder}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit()
+              // Tab completes active typing or inserts the existing → shortcut; other offers keep focus navigation.
+              else if (e.key === 'Tab' && !e.shiftKey && !e.nativeEvent.isComposing && suggestions[0]
+                && suggestions[0].source !== 'starter' && suggestions[0].source !== 'next') {
+                e.preventDefault()
+                accept(suggestions[0])
+              }
+            }}
+            onSelect={(e) => readSelection(e.currentTarget)}
+            onFocus={(e) => caretToEnd(e.currentTarget)}
+            onScroll={(e) => { if (marksRef.current) marksRef.current.scrollTop = e.currentTarget.scrollTop }}
+          />
           </div>
-        <textarea
-          // ⚠️ focused the moment it ATTACHES, not an effect later. iOS raises the keyboard only
-          // for a focus() made inside the tap's own call stack; the opener commits this sheet with
-          // flushSync from its click handler, so this ref runs inside that stack. The dialog's
-          // `initialFocus` still names the same field – it lands a frame later, on a field that
-          // already has the caret, and is what every other way of opening the sheet relies on.
-          ref={attachText}
-          className="jc-text"
-          value={text}
-          onChange={(e) => {
-            const v = stripUnprintable(e.target.value)
-            setText(v)
-            setSelection({
-              start: stripUnprintable(e.target.value.slice(0, e.target.selectionStart)).length,
-              end: stripUnprintable(e.target.value.slice(0, e.target.selectionEnd)).length,
-            })
-            // …and an emptied field is a fresh start: the chips come back
-            setTyped(v.trim().length > 0)
-          }}
-          placeholder={C.textPlaceholder}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit()
-            // Tab completes active typing or inserts the existing → shortcut; other offers keep focus navigation.
-            else if (e.key === 'Tab' && !e.shiftKey && !e.nativeEvent.isComposing && suggestions[0]
-              && suggestions[0].source !== 'starter' && suggestions[0].source !== 'next') {
-              e.preventDefault()
-              accept(suggestions[0])
-            }
-          }}
-          onSelect={(e) => readSelection(e.currentTarget)}
-          onFocus={(e) => caretToEnd(e.currentTarget)}
-          onScroll={(e) => { if (marksRef.current) marksRef.current.scrollTop = e.currentTarget.scrollTop }}
-        />
-        </div>
 
-        {/* A single ranked band; its empty row keeps the phone sheet steady while typing. */}
-        {(suggestions.length === 0 && pendenzHits.length === 0)
-          ? <div className="jc-phrases is-empty" aria-hidden /> : (
-          // Keep the keyboard focused on mousedown (the chips' own onMouseDown); the row itself
-          // scrolls NATIVELY — see .jc-phrases in 18-audio.css for why the hand-rolled pan went.
-          <div className="jc-phrases" data-swipe-ignore onMouseDown={(e) => { if (phone) e.preventDefault() }} role="group" aria-label={C.quickPhrasesAria}>
-            {suggestions.map((c) => (
-              <button
-                key={c.label}
-                className={`jc-phrase${c.opener ? ' jc-phrase-starter' : ''}${c.source === 'arrow' ? ' jc-phrase-arrow' : ''}${c.kind ? ` jc-phrase-link jc-link-${c.kind}` : ''}`}
-                title={c.source === 'arrow' ? (c.label === ARROW ? C.arrowTitle : C.arrowBackTitle) : undefined}
-                aria-label={c.source === 'arrow' ? (c.label === ARROW ? C.arrowTitle : C.arrowBackTitle) : undefined}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => accept(c)}
-              >{c.label}{c.hint && <em className="jc-phrase-hint">{c.hint}</em>}</button>
-            ))}
-            {/* ── an open Pendenz this sentence already names ──
-                ⚠️ LAST in the row, and never the Tab target. Every other chip here INSERTS TEXT;
-                these change what the entry is. Tab takes the top suggestion, so a Pendenz sitting
-                first would mean a reflex keystroke re-filed the entry instead of completing a
-                name — and both look like «the thing I was about to type» from the corner of an eye.
-                Amber and ringed, the colours of the link chip they produce, so the row shows at a
-                glance which of its chips write words and which one changes the sheet. */}
-            {pendenzHits.map((r) => (
-              <button
-                key={`p:${r.id}`}
-                className="jc-phrase jc-phrase-pendenz"
-                title={C.linkPendenzTitle}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => onLinkPendenz?.({ id: r.id, text: r.text })}
-              ><span className="jc-ring" /><span className="jc-phrase-text">{C.noteOnLabel}{r.text}</span></button>
-            ))}
-          </div>
-        )}
-
-        {/* ── Who said it, what kind of statement it is, and whether it has to come back ──
-            All of it lives BELOW the text and above the media, in one quiet strip: the sentence is
-            still what this surface is for, and none of these may look like a field that has to be
-            filled in before it will accept one. */}
-        {/* ⚠️ ONE wrapper around the Art strip and the media strip, and that is what it is for:
-            rung 2 of the ladder lays the two out side by side on a single line (see
-            10-journal.css · .jc-controls). Stacked, it is the sheet's own 8px column and changes
-            nothing. */}
-        <div className="jc-controls">
-          <div className="jc-meta">
-            {/* Art — quiet by design: three small chips, one of three, «Info» preselected
-                (29.09.2026). «Info» is the ordinary case and prints no marker at all
-                (lib/journalEntry); a tap on the lit chip leaves it lit — «Info» is the way back.
-                ⚠️ No «ART» eyebrow above them. Info · Auftrag · Sofortmassnahme say what they
-                are; a heading that only repeated it cost a row on the one surface fighting the
-                keyboard for every row it has. The group keeps the word as its accessible name,
-                so a screen reader still hears it. */}
-            <div className="jc-meta-row" role="group" aria-label={C.typeLabel}>
-              {(['info', 'auftrag', 'sofort'] as const).map((t) => (
+          {/* A single ranked band; its empty row keeps the phone sheet steady while typing. */}
+          {(suggestions.length === 0 && pendenzHits.length === 0)
+            ? <div className="jc-phrases is-empty" aria-hidden /> : (
+            // Keep the keyboard focused on mousedown (the chips' own onMouseDown); the row itself
+            // scrolls NATIVELY — see .jc-phrases in 18-audio.css for why the hand-rolled pan went.
+            <div className="jc-phrases" data-swipe-ignore onMouseDown={(e) => { if (phone) e.preventDefault() }} role="group" aria-label={C.quickPhrasesAria}>
+              {suggestions.map((c) => (
                 <button
-                  key={t}
-                  type="button"
-                  onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
-                  className={`jc-chip jc-type-${t}${entryType === t ? ' on' : ''}`}
-                  aria-pressed={entryType === t}
-                  // ⚠️ The WORD is the accessible name on both rungs of the ladder — the compact
-                  // row shows the initial alone, and «I» is not something anybody can be asked to
-                  // tap. The plain label, never the hyphenated one: a soft hyphen has no business
-                  // in what a screen reader reads out or a tooltip shows.
-                  title={C.entryTypes[t]}
-                  aria-label={C.entryTypes[t]}
-                  onClick={() => pickEntryType(t)}
-                >
-                  {/* ⚠️ …the label with its break points written in (copy · entryTypesWrap), never
-                      the plain one. This chip is the narrowest control on the sheet; the word that
-                      has to wrap in it is a doctrine word, and where it breaks is not the browser's
-                      guess to make. What gets WRITTEN is still `entryTypes` (lib/journalEntry). */}
-                  <span className="jc-chip-word">{C.entryTypesWrap[t] ?? C.entryTypes[t]}</span>
-                  {/* …and the single letter that stands for the word once there is no room for it
-                      (see 10-journal.css · .is-compact). Taken off the LOCALE's own label, so it is
-                      «I · A · S» in German and whatever the other three read in theirs. */}
-                  <span className="jc-chip-letter" aria-hidden>{C.entryTypes[t].charAt(0)}</span>
-                </button>
+                  key={c.label}
+                  className={`jc-phrase${c.opener ? ' jc-phrase-starter' : ''}${c.source === 'arrow' ? ' jc-phrase-arrow' : ''}${c.kind ? ` jc-phrase-link jc-link-${c.kind}` : ''}`}
+                  title={c.source === 'arrow' ? (c.label === ARROW ? C.arrowTitle : C.arrowBackTitle) : undefined}
+                  aria-label={c.source === 'arrow' ? (c.label === ARROW ? C.arrowTitle : C.arrowBackTitle) : undefined}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => accept(c)}
+                >{c.label}{c.hint && <em className="jc-phrase-hint">{c.hint}</em>}</button>
               ))}
-              {/* ── … and whether anything has to come back to it ──
-                  Separated from the three by a rule, because it answers a DIFFERENT question.
-                  The chips say what kind of statement this is; the ring says whether it stays
-                  open. Folding it in as a fourth chip would pretend the four are alternatives —
-                  and then «Auftrag» and «Pendenz» would both be true of the same sentence.
-                  ⚠️ The ring, not a word: it is the same ring that appears on the Verlauf row and
-                  in the Pendenzen list, where tapping it fills it in. Three sightings of one shape
-                  carry further than a label that only exists here.
-                  ⚠️ It stays while writing a MELDUNG, and carries that mode's menu — re-target the
-                  item, or let the link go. It was hidden there for a while and the same choices
-                  lived on the header link instead, which meant the control moved to the other end
-                  of the sheet depending on how the sheet had been opened. One place for «what is
-                  this line?», whatever the answer currently is.
-                  ⚠️ What it does NOT do while a Meldung is linked is set urgency ON THAT ITEM. That
-                  was tried, as a two-state switch, and it re-ranked the whole Pendenz the Meldung
-                  merely reports on. «Dringende Pendenz» in that menu means something else: let the
-                  link go and make THIS line a dringende one. */}
-              {/* ── … and WHEN it has to come back ──
-                  A second round control beside the ring, and deliberately a second one: the ring
-                  says «bleibt offen», the clock says «meldet sich». It carries a MENU rather than a
-                  strip of chips, for the same reason the ring does — a row that unfolds inside the
-                  sheet pushes the field it belongs to under the keyboard, and the answers here are
-                  one-of-N. The preset minutes and «Uhrzeit …» live in that one popup.
-                  ⚠️ The two controls are not independent (see setDue/setOpen): a Fälligkeit implies
-                  an open item, because a banner nobody can tick off has no answer. */}
-              <span className="jc-openwrap" ref={dueWrapRef}>
-              <Menu
-                keepFocusRef={phone ? textRef : undefined}
-                modal={!phone}
-                side="top"
-                align="end"
-                popupClassName="rp-print-menu jc-pendenz-menu"
-                itemClassName={() => 'rp-print-menu-item'}
-                // ASCENDING, always — «Uhrzeit …», then the minutes short-to-long, and never the
-                // other way round: these rows are read as a scale, and a scale that flips with the
-                // menu's open direction has to be re-read every time. The order does NOT depend on
-                // which way the popup opens (unlike the ring's menu, a different physical control).
-                items={[
-                  { kind: 'head' as const, label: C.dueHead },
-                  { label: dueRow(<Icon id="clock" />, C.reminderExact, dueSel?.kind === 'at'),
-                    onClick: () => {
-                      const anchor = dueWrapRef.current?.getBoundingClientRect()
-                      if (anchor) setExact({ ...(dueSel?.kind === 'at' ? { day: dueSel.day, hhmm: dueSel.hhmm } : defaultExact()), anchor })
-                      // the wheels need no keyboard, and on a phone it would cover them
-                      if (phone) textRef.current?.blur()
-                    } },
-                  ...C.reminderChips.map((n) => ({
-                    label: dueRow(null, C.reminderChipLabel.replace('{n}', String(n)), dueSel?.kind === 'in' && dueSel.mins === n),
-                    onClick: () => setDue({ kind: 'in', mins: n }),
-                  })),
-                  // …and the way back out, pinned under the thumb — only once there is one
-                  ...(dueSel ? [{ label: dueRow(null, C.dueNone, false), onClick: () => setDueSel(null), sticky: true }] : []),
-                ]}
-                trigger={(
+              {/* ── an open Pendenz this sentence already names ──
+                  ⚠️ LAST in the row, and never the Tab target. Every other chip here INSERTS TEXT;
+                  these change what the entry is. Tab takes the top suggestion, so a Pendenz sitting
+                  first would mean a reflex keystroke re-filed the entry instead of completing a
+                  name — and both look like «the thing I was about to type» from the corner of an eye.
+                  Amber and ringed, the colours of the link chip they produce, so the row shows at a
+                  glance which of its chips write words and which one changes the sheet. */}
+              {pendenzHits.map((r) => (
+                <button
+                  key={`p:${r.id}`}
+                  className="jc-phrase jc-phrase-pendenz"
+                  title={C.linkPendenzTitle}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => onLinkPendenz?.({ id: r.id, text: r.text })}
+                ><span className="jc-ring" /><span className="jc-phrase-text">{C.noteOnLabel}{r.text}</span></button>
+              ))}
+            </div>
+          )}
+
+          {/* ── Who said it, what kind of statement it is, and whether it has to come back ──
+              All of it lives BELOW the text and above the media, in one quiet strip: the sentence is
+              still what this surface is for, and none of these may look like a field that has to be
+              filled in before it will accept one. */}
+          {/* ⚠️ ONE wrapper around the Art strip and the media strip, and that is what it is for:
+              rung 2 of the ladder lays the two out side by side on a single line (see
+              10-journal.css · .jc-controls). Stacked, it is the sheet's own 8px column and changes
+              nothing. */}
+          <div className="jc-controls">
+            <div className="jc-meta">
+              {/* Art — quiet by design: three small chips, one of three, «Info» preselected
+                  (29.09.2026). «Info» is the ordinary case and prints no marker at all
+                  (lib/journalEntry); a tap on the lit chip leaves it lit — «Info» is the way back.
+                  ⚠️ No «ART» eyebrow above them. Info · Auftrag · Sofortmassnahme say what they
+                  are; a heading that only repeated it cost a row on the one surface fighting the
+                  keyboard for every row it has. The group keeps the word as its accessible name,
+                  so a screen reader still hears it. */}
+              <div className="jc-meta-row" role="group" aria-label={C.typeLabel}>
+                {(['info', 'auftrag', 'sofort'] as const).map((t) => (
                   <button
+                    key={t}
                     type="button"
                     onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
-                    className="jc-due-btn"
-                    data-on={dueAt ? '1' : undefined}
-                    title={dueAt ? fillTemplate(C.dueSetTitle, { t: formatTime(new Date(dueAt)) }) : C.dueHead}
-                    aria-label={dueAt ? fillTemplate(C.dueSetTitle, { t: formatTime(new Date(dueAt)) }) : C.dueHead}
+                    className={`jc-chip jc-type-${t}${entryType === t ? ' on' : ''}`}
+                    aria-pressed={entryType === t}
+                    // ⚠️ The WORD is the accessible name on both rungs of the ladder — the compact
+                    // row shows the initial alone, and «I» is not something anybody can be asked to
+                    // tap. The plain label, never the hyphenated one: a soft hyphen has no business
+                    // in what a screen reader reads out or a tooltip shows.
+                    title={C.entryTypes[t]}
+                    aria-label={C.entryTypes[t]}
+                    onClick={() => pickEntryType(t)}
                   >
-                    <Icon id="clock" />
-                    {/* the time itself on the button, not just a lit icon: «meldet sich» without
-                        «wann» is the half of the answer nobody can act on */}
-                    {dueAt && <span className="jc-due-badge">{formatTime(new Date(dueAt))}</span>}
+                    {/* ⚠️ …the label with its break points written in (copy · entryTypesWrap), never
+                        the plain one. This chip is the narrowest control on the sheet; the word that
+                        has to wrap in it is a doctrine word, and where it breaks is not the browser's
+                        guess to make. What gets WRITTEN is still `entryTypes` (lib/journalEntry). */}
+                    <span className="jc-chip-word">{C.entryTypesWrap[t] ?? C.entryTypes[t]}</span>
+                    {/* …and the single letter that stands for the word once there is no room for it
+                        (see 10-journal.css · .is-compact). Taken off the LOCALE's own label, so it is
+                        «I · A · S» in German and whatever the other three read in theirs. */}
+                    <span className="jc-chip-letter" aria-hidden>{C.entryTypes[t].charAt(0)}</span>
                   </button>
-                )}
-              />
-              </span>
-              <span className="jc-openwrap">
-              <Menu
-                keepFocusRef={phone ? textRef : undefined}
-                modal={!phone}
-                side="top"
-                align="end"
-                popupClassName="rp-print-menu jc-pendenz-menu"
-                itemClassName={() => 'rp-print-menu-item'}
-                // ⚠️ BOTTOM-UP, because this menu opens UPWARDS (side="top"): the ring sits low in
-                // the sheet — on a phone right above the thumb — so a list read top-first put its
-                // most-used row furthest from the finger that just pressed. The nearest row to the
-                // control is the one it is usually reached for: «Neue Pendenz» is LAST here, which
-                // on screen means bottom, which means under the thumb.
-                // The «Meldung zu» group keeps its heading ABOVE its own rows: a label under the
-                // things it names is not a heading, whichever way the list is read.
-                items={noteOn
-                  ? [
-                    // Writing a Meldung — and the menu asks the SAME question it asks anywhere
-                    // else, with the same rows in the same places. «this is its own thing after
-                    // all» is a normal thing to realise halfway through a sentence, and it was
-                    // two steps: let the link go, then say what the line is instead.
-                    { kind: 'head' as const, label: C.linkPendenzTitle },
-                    ...openPendenzen.map((r) => ({
-                      label: menuRow(r.urgent ? 2 : 1, r.text, r.id === noteOn.id),
-                      onClick: () => onLinkPendenz?.(r),
+                ))}
+                {/* ── … and whether anything has to come back to it ──
+                    Separated from the three by a rule, because it answers a DIFFERENT question.
+                    The chips say what kind of statement this is; the ring says whether it stays
+                    open. Folding it in as a fourth chip would pretend the four are alternatives —
+                    and then «Auftrag» and «Pendenz» would both be true of the same sentence.
+                    ⚠️ The ring, not a word: it is the same ring that appears on the Verlauf row and
+                    in the Pendenzen list, where tapping it fills it in. Three sightings of one shape
+                    carry further than a label that only exists here.
+                    ⚠️ It stays while writing a MELDUNG, and carries that mode's menu — re-target the
+                    item, or let the link go. It was hidden there for a while and the same choices
+                    lived on the header link instead, which meant the control moved to the other end
+                    of the sheet depending on how the sheet had been opened. One place for «what is
+                    this line?», whatever the answer currently is.
+                    ⚠️ What it does NOT do while a Meldung is linked is set urgency ON THAT ITEM. That
+                    was tried, as a two-state switch, and it re-ranked the whole Pendenz the Meldung
+                    merely reports on. «Dringende Pendenz» in that menu means something else: let the
+                    link go and make THIS line a dringende one. */}
+                {/* ── … and WHEN it has to come back ──
+                    A second round control beside the ring, and deliberately a second one: the ring
+                    says «bleibt offen», the clock says «meldet sich». It carries a MENU rather than a
+                    strip of chips, for the same reason the ring does — a row that unfolds inside the
+                    sheet pushes the field it belongs to under the keyboard, and the answers here are
+                    one-of-N. The preset minutes and «Uhrzeit …» live in that one popup.
+                    ⚠️ The two controls are not independent (see setDue/setOpen): a Fälligkeit implies
+                    an open item, because a banner nobody can tick off has no answer. */}
+                <span className="jc-openwrap" ref={dueWrapRef}>
+                <Menu
+                  keepFocusRef={phone ? textRef : undefined}
+                  modal={!phone}
+                  side="top"
+                  align="end"
+                  popupClassName="rp-print-menu jc-pendenz-menu"
+                  itemClassName={() => 'rp-print-menu-item'}
+                  // ASCENDING, always — «Uhrzeit …», then the minutes short-to-long, and never the
+                  // other way round: these rows are read as a scale, and a scale that flips with the
+                  // menu's open direction has to be re-read every time. The order does NOT depend on
+                  // which way the popup opens (unlike the ring's menu, a different physical control).
+                  items={[
+                    { kind: 'head' as const, label: C.dueHead },
+                    { label: dueRow(<Icon id="clock" />, C.reminderExact, dueSel?.kind === 'at'),
+                      onClick: () => {
+                        const anchor = dueWrapRef.current?.getBoundingClientRect()
+                        if (anchor) setExact({ ...(dueSel?.kind === 'at' ? { day: dueSel.day, hhmm: dueSel.hhmm } : defaultExact()), anchor })
+                        // the wheels need no keyboard, and on a phone it would cover them
+                        if (phone) textRef.current?.blur()
+                      } },
+                    ...C.reminderChips.map((n) => ({
+                      label: dueRow(null, C.reminderChipLabel.replace('{n}', String(n)), dueSel?.kind === 'in' && dueSel.mins === n),
+                      onClick: () => setDue({ kind: 'in', mins: n }),
                     })),
-                    ...(onClearNote
+                    // …and the way back out, pinned under the thumb — only once there is one
+                    ...(dueSel ? [{ label: dueRow(null, C.dueNone, false), onClick: () => setDueSel(null), sticky: true }] : []),
+                  ]}
+                  trigger={(
+                    <button
+                      type="button"
+                      onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
+                      className="jc-due-btn"
+                      data-on={dueAt ? '1' : undefined}
+                      title={dueAt ? fillTemplate(C.dueSetTitle, { t: formatTime(new Date(dueAt)) }) : C.dueHead}
+                      aria-label={dueAt ? fillTemplate(C.dueSetTitle, { t: formatTime(new Date(dueAt)) }) : C.dueHead}
+                    >
+                      <Icon id="clock" />
+                      {/* the time itself on the button, not just a lit icon: «meldet sich» without
+                          «wann» is the half of the answer nobody can act on */}
+                      {dueAt && <span className="jc-due-badge">{formatTime(new Date(dueAt))}</span>}
+                    </button>
+                  )}
+                />
+                </span>
+                <span className="jc-openwrap">
+                <Menu
+                  keepFocusRef={phone ? textRef : undefined}
+                  modal={!phone}
+                  side="top"
+                  align="end"
+                  popupClassName="rp-print-menu jc-pendenz-menu"
+                  itemClassName={() => 'rp-print-menu-item'}
+                  // ⚠️ BOTTOM-UP, because this menu opens UPWARDS (side="top"): the ring sits low in
+                  // the sheet — on a phone right above the thumb — so a list read top-first put its
+                  // most-used row furthest from the finger that just pressed. The nearest row to the
+                  // control is the one it is usually reached for: «Neue Pendenz» is LAST here, which
+                  // on screen means bottom, which means under the thumb.
+                  // The «Meldung zu» group keeps its heading ABOVE its own rows: a label under the
+                  // things it names is not a heading, whichever way the list is read.
+                  items={noteOn
+                    ? [
+                      // Writing a Meldung — and the menu asks the SAME question it asks anywhere
+                      // else, with the same rows in the same places. «this is its own thing after
+                      // all» is a normal thing to realise halfway through a sentence, and it was
+                      // two steps: let the link go, then say what the line is instead.
+                      { kind: 'head' as const, label: C.linkPendenzTitle },
+                      ...openPendenzen.map((r) => ({
+                        label: menuRow(r.urgent ? 2 : 1, r.text, r.id === noteOn.id),
+                        onClick: () => onLinkPendenz?.(r),
+                      })),
+                      ...(onClearNote
+                        ? [
+                          { label: menuRow(0, C.noteOnClear, false), onClick: onClearNote, sticky: true },
+                          // ⚠️ Both of these UNLINK first. `submit` reads `noteFor` before `pendenz`,
+                          // so a draft still carrying the link would quietly ignore the choice just
+                          // made and file the line as a Meldung anyway.
+                          { label: menuRow(2, C.pendenzNewUrgent, false), onClick: () => { onClearNote(); setOpen(2) }, sticky: true },
+                          { label: menuRow(1, C.pendenzNew, false), onClick: () => { onClearNote(); setOpen(1) }, sticky: true },
+                        ]
+                        : []),
+                    ]
+                    : [
+                    // ⚠️ Every row carries THE RING, in the state it produces — empty, amber, or red
+                    // with the bang. The menu is opened from that ring and sets that ring, so a list
+                    // of bare sentences made the two look like unrelated things; the same shape in
+                    // three fills says what the words would have to spell out.
+                    ...(canLink
                       ? [
-                        { label: menuRow(0, C.noteOnClear, false), onClick: onClearNote, sticky: true },
-                        // ⚠️ Both of these UNLINK first. `submit` reads `noteFor` before `pendenz`,
-                        // so a draft still carrying the link would quietly ignore the choice just
-                        // made and file the line as a Meldung anyway.
-                        { label: menuRow(2, C.pendenzNewUrgent, false), onClick: () => { onClearNote(); setOpen(2) }, sticky: true },
-                        { label: menuRow(1, C.pendenzNew, false), onClick: () => { onClearNote(); setOpen(1) }, sticky: true },
+                        { kind: 'head' as const, label: C.linkPendenzTitle },
+                        // the open items in the order the Pendenzen block itself uses: dringend
+                        // first, then the oldest. An item shows ITS OWN urgency, the block's red.
+                        ...openPendenzen.map((r) => ({ label: menuRow(r.urgent ? 2 : 1, r.text, false), onClick: () => onLinkPendenz?.(r) })),
+                        // …no separator: the pinned block below carries its own edge, and one in the
+                        // flow would scroll away from the boundary it is supposed to mark
                       ]
                       : []),
-                  ]
-                  : [
-                  // ⚠️ Every row carries THE RING, in the state it produces — empty, amber, or red
-                  // with the bang. The menu is opened from that ring and sets that ring, so a list
-                  // of bare sentences made the two look like unrelated things; the same shape in
-                  // three fills says what the words would have to spell out.
-                  ...(canLink
-                    ? [
-                      { kind: 'head' as const, label: C.linkPendenzTitle },
-                      // the open items in the order the Pendenzen block itself uses: dringend
-                      // first, then the oldest. An item shows ITS OWN urgency, the block's red.
-                      ...openPendenzen.map((r) => ({ label: menuRow(r.urgent ? 2 : 1, r.text, false), onClick: () => onLinkPendenz?.(r) })),
-                      // …no separator: the pinned block below carries its own edge, and one in the
-                      // flow would scroll away from the boundary it is supposed to mark
-                    ]
-                    : []),
-                  // ⚠️ PINNED to the bottom, not merely last. Last alone meant one of the two ends
-                  // of a scrolling list had to lose: opening at the top hid «Neue Pendenz» below
-                  // the fold, opening at the bottom hid the most pressing items above it. Pinned,
-                  // the list keeps its own order — dringend first, then oldest, read from the top —
-                  // while the rows you nearly always want stay under the thumb.
-                  ...(openState > 0 ? [{ label: menuRow(0, C.pendenzNotOpen, false), onClick: () => setOpen(0), sticky: true }] : []),
-                  { label: menuRow(2, C.pendenzNewUrgent, openState === 2), onClick: () => setOpen(2), sticky: true },
-                  { label: menuRow(1, C.pendenzNew, openState === 1), onClick: () => setOpen(1), sticky: true },
-                  ]}
-                // ⚠️ The ring IS the trigger. It was an invisible anchor beside it for a while,
-                // with the open state held here — and then a second press on the ring counted as
-                // an OUTSIDE press, so Base UI closed the menu and the click handler opened it
-                // again on the same tap. Base UI's own trigger toggles, and it is the only thing
-                // that can: it knows about the press before the outside-press handler runs.
-                trigger={(
-                  <button
-                    type="button"
-                    onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
-                    className="jc-open"
-                    data-state={noteOn ? 1 : openState}
-                    title={noteOn ? C.linkPendenzTitle : C.openStates[openState]}
-                    aria-label={noteOn ? C.linkPendenzTitle : C.openStates[openState]}
-                  >
-                    {/* ⚠️ Not the `warn` triangle. A triangle's optical centre sits below its
-                        bounding box, so inside a ring it reads as hanging — and a triangle inside
-                        a circle is two outlines fighting at 21px. Solid disc + a drawn bang. */}
-                    <span className="jc-ring">{openState === 2 && <span className="jc-bang" />}</span>
-                  </button>
-                )}
-              />
-              </span>
-            </div>
-          </div>
-
-          {/* media: record a voice memo or attach a photo — on EVERY entry now, including one that
-              carries a due time. An Erinnerung used to be text-only, which is why «Foto vom
-              Zähler, in 10 min nachschauen» had to be two rows. */}
-          <div className="jc-audio">
-            {/* recording shows the stop square + the running time, NOT «Aufnahme stoppen · 22s»:
-                this button is one of three in a fixed 1fr grid and that label never fitted, so it
-                ran out past the red rounded corner. It is also what the TopBar and the FAB already
-                turn into while recording — a red pulsing button with a square and a clock reads as
-                «tap to stop» without spending a third of the row saying so. */}
-            {/* ⚠️ Every label in this row sits in its own <span class="jc-lbl">. On a phone with
-                the keyboard up the row shrinks to four icons (see 15-mobile.css · .is-kb), and a
-                bare text node cannot be hidden by CSS. The `title` carries the word for anyone
-                hovering, and the labels come straight back the moment the keyboard closes. */}
-            <button className={`jc-rec ${recording ? 'on' : ''}`} onClick={toggleRecord} title={recording ? C.recordStop : C.record} aria-label={recording ? C.recordStop : C.record}>
-              {recording
-                ? <><span className="tb-stop" /><span className="jc-rec-time">{elapsed}s</span></>
-                : <><Icon id="mic" /><span className="jc-lbl">{C.record}</span></>}
-            </button>
-            {/* ONE upload button for everything that already exists as a file — a picture from
-                the gallery, an externally recorded memo, the PDF the Eigentümer just sent. It
-                used to accept audio only, so the commonest Beilage of all had no way in at all.
-                What was picked decides where it lands (lib/audioImport · classifyPick).
-                The media buttons share one row at a third of the width each — not even a desktop
-                third fits «Datei hochladen», so the short form labels the button and the full one
-                stays as its tooltip. The upload arrow carries the rest. */}
-            <button className="jc-rec" onClick={() => attachRef.current?.click()} title={C.attachUpload} aria-label={C.attachUpload}>
-              <Icon id="upload" /><span className="jc-lbl">{C.attachUploadShort}</span>
-            </button>
-            <button className="jc-rec" onClick={() => fileRef.current?.click()} title={C.photo} aria-label={C.photo}><Icon id="cam" /><span className="jc-lbl">{C.photo}</span></button>
-            {clip && (
-              <span className="jc-clip">
-                <button className={`tl-play ${clipPlaying ? 'playing' : ''}`} title={clipPlaying ? C.recordStop : appConfig.copy.play} aria-label={clipPlaying ? C.recordStop : appConfig.copy.play} onClick={toggleClip}><Icon id={clipPlaying ? 'pause' : 'play'} /></button>
-                <span className="jc-clip-name">
-                  <strong>{C.audioClipLabel}</strong>
-                  <em>{clip.secs}s</em>
+                    // ⚠️ PINNED to the bottom, not merely last. Last alone meant one of the two ends
+                    // of a scrolling list had to lose: opening at the top hid «Neue Pendenz» below
+                    // the fold, opening at the bottom hid the most pressing items above it. Pinned,
+                    // the list keeps its own order — dringend first, then oldest, read from the top —
+                    // while the rows you nearly always want stay under the thumb.
+                    ...(openState > 0 ? [{ label: menuRow(0, C.pendenzNotOpen, false), onClick: () => setOpen(0), sticky: true }] : []),
+                    { label: menuRow(2, C.pendenzNewUrgent, openState === 2), onClick: () => setOpen(2), sticky: true },
+                    { label: menuRow(1, C.pendenzNew, openState === 1), onClick: () => setOpen(1), sticky: true },
+                    ]}
+                  // ⚠️ The ring IS the trigger. It was an invisible anchor beside it for a while,
+                  // with the open state held here — and then a second press on the ring counted as
+                  // an OUTSIDE press, so Base UI closed the menu and the click handler opened it
+                  // again on the same tap. Base UI's own trigger toggles, and it is the only thing
+                  // that can: it knows about the press before the outside-press handler runs.
+                  trigger={(
+                    <button
+                      type="button"
+                      onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
+                      className="jc-open"
+                      data-state={noteOn ? 1 : openState}
+                      title={noteOn ? C.linkPendenzTitle : C.openStates[openState]}
+                      aria-label={noteOn ? C.linkPendenzTitle : C.openStates[openState]}
+                    >
+                      {/* ⚠️ Not the `warn` triangle. A triangle's optical centre sits below its
+                          bounding box, so inside a ring it reads as hanging — and a triangle inside
+                          a circle is two outlines fighting at 21px. Solid disc + a drawn bang. */}
+                      <span className="jc-ring">{openState === 2 && <span className="jc-bang" />}</span>
+                    </button>
+                  )}
+                />
                 </span>
-                <button className="jc-clip-x" title={C.discardAudio} aria-label={C.discardAudio} onClick={discardClip}><Icon id="close" /></button>
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* ⚠️ `.file-picker`, never `hidden`: Safari opens a file chooser only for an input it
-            actually renders, so `.click()` on a display:none input is a silent no-op on iOS
-            (see 02-base.css). Off-screen and transparent, both pickers work on a phone.
-            Fixed-positioned, so they are out of the sheet's flow wherever they sit. */}
-        <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple
-          className="file-picker" tabIndex={-1} onChange={onPhotoPicked} />
-        <input ref={attachRef} type="file" accept={MEDIA_IMPORT_ACCEPT} multiple
-          className="file-picker" tabIndex={-1} onChange={onAttachPicked} />
-        {imported && (
-          <div className="jc-import">
-            <div className="jc-import-row">
-              <button className={`tl-play ${clipPlaying ? 'playing' : ''}`} title={clipPlaying ? C.recordStop : appConfig.copy.play} aria-label={clipPlaying ? C.recordStop : appConfig.copy.play} onClick={toggleClip}><Icon id={clipPlaying ? 'pause' : 'play'} /></button>
-              <span className="jc-import-name">
-                <strong>{C.audioImportLabel}</strong>
-                <em>{imported.name}{imported.durationSec != null ? ` · ${formatAudioDuration(imported.durationSec)}` : ''}</em>
-              </span>
-              <button className="jc-clip-x" title={C.audioDiscardImport} aria-label={C.audioDiscardImport} onClick={discardImport}><Icon id="close" /></button>
-            </div>
-            <div className="jc-import-start">
-              <span className="jc-due-label">{C.audioStartLabel}</span>
-              {/* THE time field (TimeField · WheelPopover), not a stepper of its own: the same wheels
-                  and typed field as every other clock in the app. Committing it counts as the
-                  confirmation the gate waits for, as moving the ± did. */}
-              <TimeField required value={startHHMM} ariaLabel={C.audioStartLabel}
-                onCommit={(v) => { if (v) { setStartHHMM(v); setStartConfirmed(true) } }} />
-              <Chip selected={startConfirmed} icon={<Icon id="check" />} onClick={() => setStartConfirmed(true)}>
-                {C.audioStartConfirm}
-              </Chip>
-            </div>
-            <p className="jc-import-hint">{C.audioStartHint}</p>
-          </div>
-        )}
-        {photos.length > 0 && (
-          <div className="jc-photos">
-            {photos.map((url) => (
-              <div className="jc-photo" key={url}>
-                {/* the session thumbnail, not the camera file (see addPhotos) */}
-                <img src={thumbUrl(url)} alt="" decoding="async" />
-                <button className="jc-clip-x" title={C.discardPhoto} aria-label={C.discardPhoto} onClick={() => discardPhoto(url)}><Icon id="close" /></button>
               </div>
-            ))}
-          </div>
-        )}
-        {/* staged Beilagen: a document has no thumbnail worth showing, so the chip says the two
-            things that identify it — the name it was picked under and how big it is. Each one
-            keeps its own ✕ (entfernen: nothing has been saved yet). */}
-        {files.length > 0 && (
-          <div className="jc-files">
-            {files.map((f, i) => (
-              <span className="jc-file" key={`${f.name}:${i}`}>
-                <Icon id="attach" />
-                {/* «Beilage / Name · Grösse» — the shape .jc-clip and .jc-import already use */}
-                <span className="jc-file-name">
-                  <strong>{C.attachLabel}</strong>
-                  <em>{f.name} · {fmtFileSize(f.file.size)}</em>
-                </span>
-                <button className="jc-clip-x" title={C.attachDiscard} aria-label={C.attachDiscard} onClick={() => discardFile(i)}><Icon id="close" /></button>
-              </span>
-            ))}
-          </div>
-        )}
+            </div>
 
-        {/* the send, alone. The pin moved up into the media row (see .jc-audio) — it describes
-            the entry, not the act of saving it, and «Erfassen» is the one thing on this sheet
-            that must never share a row with anything else. */}
-        <div className="jc-foot">
-          <Button variant="primary" block disabled={!canSend || uploading || locating} onClick={submit}
-            icon={uploading || locating ? <ShellLoader /> : <Icon id="check" />}>
-            {uploading ? C.audioUploading : locating ? C.photoLocating : C.send}
-          </Button>
+            {/* media: record a voice memo or attach a photo — on EVERY entry now, including one that
+                carries a due time. An Erinnerung used to be text-only, which is why «Foto vom
+                Zähler, in 10 min nachschauen» had to be two rows. */}
+            <div className="jc-audio">
+              {/* recording shows the stop square + the running time, NOT «Aufnahme stoppen · 22s»:
+                  this button is one of three in a fixed 1fr grid and that label never fitted, so it
+                  ran out past the red rounded corner. It is also what the TopBar and the FAB already
+                  turn into while recording — a red pulsing button with a square and a clock reads as
+                  «tap to stop» without spending a third of the row saying so. */}
+              {/* ⚠️ Every label in this row sits in its own <span class="jc-lbl">. On a phone with
+                  the keyboard up the row shrinks to four icons (see 15-mobile.css · .is-kb), and a
+                  bare text node cannot be hidden by CSS. The `title` carries the word for anyone
+                  hovering, and the labels come straight back the moment the keyboard closes. */}
+              <button className={`jc-rec ${recording ? 'on' : ''}`} onClick={toggleRecord} title={recording ? C.recordStop : C.record} aria-label={recording ? C.recordStop : C.record}>
+                {recording
+                  ? <><span className="tb-stop" /><span className="jc-rec-time">{elapsed}s</span></>
+                  : <><Icon id="mic" /><span className="jc-lbl">{C.record}</span></>}
+              </button>
+              {/* ONE upload button for everything that already exists as a file — a picture from
+                  the gallery, an externally recorded memo, the PDF the Eigentümer just sent. It
+                  used to accept audio only, so the commonest Beilage of all had no way in at all.
+                  What was picked decides where it lands (lib/audioImport · classifyPick).
+                  The media buttons share one row at a third of the width each — not even a desktop
+                  third fits «Datei hochladen», so the short form labels the button and the full one
+                  stays as its tooltip. The upload arrow carries the rest. */}
+              <button className="jc-rec" onClick={() => attachRef.current?.click()} title={C.attachUpload} aria-label={C.attachUpload}>
+                <Icon id="upload" /><span className="jc-lbl">{C.attachUploadShort}</span>
+              </button>
+              <button className="jc-rec" onClick={() => fileRef.current?.click()} title={C.photo} aria-label={C.photo}><Icon id="cam" /><span className="jc-lbl">{C.photo}</span></button>
+              {clip && (
+                <span className="jc-clip">
+                  <button className={`tl-play ${clipPlaying ? 'playing' : ''}`} title={clipPlaying ? C.recordStop : appConfig.copy.play} aria-label={clipPlaying ? C.recordStop : appConfig.copy.play} onClick={toggleClip}><Icon id={clipPlaying ? 'pause' : 'play'} /></button>
+                  <span className="jc-clip-name">
+                    <strong>{C.audioClipLabel}</strong>
+                    <em>{clip.secs}s</em>
+                  </span>
+                  <button className="jc-clip-x" title={C.discardAudio} aria-label={C.discardAudio} onClick={discardClip}><Icon id="close" /></button>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* ⚠️ `.file-picker`, never `hidden`: Safari opens a file chooser only for an input it
+              actually renders, so `.click()` on a display:none input is a silent no-op on iOS
+              (see 02-base.css). Off-screen and transparent, both pickers work on a phone.
+              Fixed-positioned, so they are out of the sheet's flow wherever they sit. */}
+          <input ref={fileRef} type="file" accept="image/*" capture="environment" multiple
+            className="file-picker" tabIndex={-1} onChange={onPhotoPicked} />
+          <input ref={attachRef} type="file" accept={MEDIA_IMPORT_ACCEPT} multiple
+            className="file-picker" tabIndex={-1} onChange={onAttachPicked} />
+          {imported && (
+            <div className="jc-import">
+              <div className="jc-import-row">
+                <button className={`tl-play ${clipPlaying ? 'playing' : ''}`} title={clipPlaying ? C.recordStop : appConfig.copy.play} aria-label={clipPlaying ? C.recordStop : appConfig.copy.play} onClick={toggleClip}><Icon id={clipPlaying ? 'pause' : 'play'} /></button>
+                <span className="jc-import-name">
+                  <strong>{C.audioImportLabel}</strong>
+                  <em>{imported.name}{imported.durationSec != null ? ` · ${formatAudioDuration(imported.durationSec)}` : ''}</em>
+                </span>
+                <button className="jc-clip-x" title={C.audioDiscardImport} aria-label={C.audioDiscardImport} onClick={discardImport}><Icon id="close" /></button>
+              </div>
+              <div className="jc-import-start">
+                <span className="jc-due-label">{C.audioStartLabel}</span>
+                {/* THE time field (TimeField · WheelPopover), not a stepper of its own: the same wheels
+                    and typed field as every other clock in the app. Committing it counts as the
+                    confirmation the gate waits for, as moving the ± did. */}
+                <TimeField required value={startHHMM} ariaLabel={C.audioStartLabel}
+                  onCommit={(v) => { if (v) { setStartHHMM(v); setStartConfirmed(true) } }} />
+                <Chip selected={startConfirmed} icon={<Icon id="check" />} onClick={() => setStartConfirmed(true)}>
+                  {C.audioStartConfirm}
+                </Chip>
+              </div>
+              <p className="jc-import-hint">{C.audioStartHint}</p>
+            </div>
+          )}
+          {photos.length > 0 && (
+            <div className="jc-photos">
+              {photos.map((url) => (
+                <div className="jc-photo" key={url}>
+                  {/* the session thumbnail, not the camera file (see addPhotos) */}
+                  <img src={thumbUrl(url)} alt="" decoding="async" />
+                  <button className="jc-clip-x" title={C.discardPhoto} aria-label={C.discardPhoto} onClick={() => discardPhoto(url)}><Icon id="close" /></button>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* staged Beilagen: a document has no thumbnail worth showing, so the chip says the two
+              things that identify it — the name it was picked under and how big it is. Each one
+              keeps its own ✕ (entfernen: nothing has been saved yet). */}
+          {files.length > 0 && (
+            <div className="jc-files">
+              {files.map((f, i) => (
+                <span className="jc-file" key={`${f.name}:${i}`}>
+                  <Icon id="attach" />
+                  {/* «Beilage / Name · Grösse» — the shape .jc-clip and .jc-import already use */}
+                  <span className="jc-file-name">
+                    <strong>{C.attachLabel}</strong>
+                    <em>{f.name} · {fmtFileSize(f.file.size)}</em>
+                  </span>
+                  <button className="jc-clip-x" title={C.attachDiscard} aria-label={C.attachDiscard} onClick={() => discardFile(i)}><Icon id="close" /></button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* the send, alone. The pin moved up into the media row (see .jc-audio) — it describes
+              the entry, not the act of saving it, and «Erfassen» is the one thing on this sheet
+              that must never share a row with anything else. */}
+          <div className="jc-foot">
+            <Button variant="primary" block disabled={!canSend || uploading || locating} onClick={submit}
+              icon={uploading || locating ? <ShellLoader /> : <Icon id="check" />}>
+              {uploading ? C.audioUploading : locating ? C.photoLocating : C.send}
+            </Button>
+          </div>
         </div>
       {/* «Uhrzeit …» — the one answer that is not a row in a menu. It opens THE time picker
           (WheelPopover: wheels for a finger, a typed field for a keyboard, a day column) straight
