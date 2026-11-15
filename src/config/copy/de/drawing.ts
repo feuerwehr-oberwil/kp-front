@@ -323,9 +323,6 @@ export const drawingCopy = {
   // Linie · Fläche · Absperrkreis · Notiz · Trupp leave the bar for it
   addSheet: { tile: 'Hinzufügen', tools: 'Zeichnen & Trupp' },
   toolDock: {
-    colorGroup: 'Farbe',
-    colorName: '{group} {n}',
-    widthName: 'Linienstärke {n} px',
     // Tap-away while a node draft is in progress no longer discards silently (29.08.):
     // a committable draft auto-commits with this toast, whose «Rückgängig» hands the
     // shape BACK as an editable draft rather than merely deleting it.

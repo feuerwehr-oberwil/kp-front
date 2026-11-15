@@ -505,9 +505,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     fit stands; «Deckung prüfen» closes with ✕ «Schliessen» too). **«✓ Fertig» exists ONLY while
     something is being made that a close would throw away** – a Punkte-Linie, -Fläche or Wand
     being drawn: there it is THE way to commit, the dock's one filled tile (`ToolDock` · `go`). The
-    tablet dock follows the rail beside it (round 2b): «Beschriftung der Werkzeugleisten» on, EVERY
-    item wears its word under its glyph («Abbrechen», the modes, «Fertig», «Info»); off, every item
-    is a bare glyph – never a mix; the phone's row dock stays bare. The «Linie offen» pill at the
+    dock follows the rails (round 2b; the phone's row too since round 15.11.2026 #2): «Beschriftung
+    der Werkzeugleisten» on, EVERY item wears its word under its glyph («Abbrechen», the modes,
+    «Fertig», «Info», the Form being placed by name); off, every item is a bare glyph – never a mix.
+    A dock item has a word by type (`ToolDock` · `DockItem`); there is no wordless item. The «Linie offen» pill at the
     draft's last point steps to the point's left rather than lie under the dock (`OpenPill`). The dock's ✕
     / Esc leave the draft through `settleDraft` (a committable draft is asked about – «Speichern ·
     Verwerfen · Weiterzeichnen» – never silently dropped). So one exit per state: a SELECTED

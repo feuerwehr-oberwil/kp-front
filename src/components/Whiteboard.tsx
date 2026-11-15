@@ -2993,7 +2993,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('pan') } }],
           // currentColor, not #fff: the dock is light by day since 20.10.2026 (3am sweep, nit)
-          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
+          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />,
+            label: appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel }],
           // «mehrere nacheinander» has no meaning for a shape laid between two named places
           ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'place-repeat', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
           [{ type: 'info', text: !SHAPE_TWO_POINT[pendingShape] ? appConfig.copy.dockHints.shape
