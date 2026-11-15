@@ -971,13 +971,17 @@ span.wb-ghost-label { cursor: default; }
    same height with its name. Off, every item is the bare 46px glyph and «Fertig» the filled ✓.
    The phone's row wears the same words (15-mobile · .phone-tools .wb-dock-worded). */
 .wb-dock.wb-dock-worded { width: var(--vrail-w-labelled, 92px); }
+/* ⚠️ Every tile is the same two-row grid – a glyph BAND of one fixed height, the word under it –
+   so the words stand on ONE line across the dock (owner, 15.11.2026: «labels at the bottom, the
+   same way the toolbars are … not further up or down depending on the labels»). A centred flex
+   column let the taller Form preview push its «Rechteck» a few px below «Mehrere» and «Info». */
 .wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded, .wb-dock-ic) {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+  display: grid; grid-template-rows: 24px auto; align-content: center; justify-items: center; align-items: center; gap: 2px;
   width: 100%; height: var(--vrail-tile); padding: 0 2px; }
+/* the Form preview fits the band like a glyph does */
+.wb-dock.wb-dock-worded .wb-dock-shape { width: 22px; height: 22px; }
 .wb-dock-word { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center;
   font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 1.1; }
-/* the glyph in the rail's 26px band over its word */
-.wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded) .i { margin-block: 2px; }
 /* (.wb-dock-info / .wb-dock-ibtn / .wb-dock-tip migrated → DockInfo.module.css) */
 /* toggle inside the dock (e.g. the armed Messen mode, the "keep placing" lock) — the accent fill
    when engaged: that fill is what says «armed», on day and night glass alike */
