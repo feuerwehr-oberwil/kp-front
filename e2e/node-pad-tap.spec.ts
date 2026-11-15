@@ -11,6 +11,13 @@ import { EINSATZ_RAIL, expect, login, openApp, test } from './helpers'
 // Each tap is checked against the control that the map's own route still works: a tap on the line
 // BETWEEN two nodes adds one.
 //
+// …and a DRAG of a node is the node's, never the «+» beside it (same round, «i still got this while
+// moving»: node pairs). The «+» and the pads stood on one z level, so mount order decided, and
+// MapLibre appends a Marker when it is created: the «+» an insert adds sat on top of the older
+// pads, and a finger on a node took the «+» – it inserts on pointer-down and drags the new node, so
+// every move left the old node behind as a twin (MapView · insertGripZ). Red on 5e42e896 in
+// Chromium and in WebKit's hit test alike.
+//
 // It opens an Einsatz of its own on a phone (touch) and archives it again afterwards. Red on
 // 42e535b8 in Chromium and WebKit alike, finger and mouse alike; it runs on chromium.
 //
@@ -112,4 +119,43 @@ test('a tap on a node of a Messung adds no point', async ({ page }) => {
 test('a tap on a node of a Linie still being drawn adds no point', async ({ page }) => {
   await drawLinie(page)
   await padTapsKeepThePoints(page, page.locator('.measure-handle'), 'the open Linie')
+})
+
+/** A finger drag the engine itself turns into touch + pointer events (CDP: Playwright's touchscreen
+ *  can only tap). */
+async function drag(page: Page, [x, y]: Point, [dx, dy]: Point) {
+  const cdp = await page.context().newCDPSession(page)
+  const at = (k: number) => [{ x: x + dx * k, y: y + dy * k, id: 1 }]
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(0) })
+  for (let k = 1; k <= 8; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(k / 8) })
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await cdp.detach()
+  await page.waitForTimeout(300)
+}
+
+test('a drag on a node of a selected Linie moves it and adds no point – also beside a fresh «+»', async ({ page }) => {
+  await drawLinie(page)
+  await page.locator('.wb-dock-go').first().tap()
+  const pads = page.locator('.draw-handle')
+  // one «+» tapped: the node it adds and the «+» markers it brings are the ones mounted LAST
+  await tap(page, await centreOf(page.locator('.measure-insert').nth(2)))
+  await expect(page.getByText('5 Punkte')).toBeVisible()
+  await expect(pads).toHaveCount(5)
+  for (let i = 0; i < 5; i++) {
+    // a finger 6 px off the pad's centre, toward the nearest «+» – still well inside the pad
+    const c = await centreOf(pads.nth(i))
+    const plus = await page.locator('.measure-insert').evaluateAll((els, [cx, cy]) => els
+      .map((e) => { const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2] })
+      .sort((a, b) => Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy))[0], c)
+    const d = Math.hypot(plus[0] - c[0], plus[1] - c[1]) || 1
+    const at: Point = [c[0] + (6 * (plus[0] - c[0])) / d, c[1] + (6 * (plus[1] - c[1])) / d]
+    await drag(page, at, [0, 40])
+    await expect(pads, `a drag on node ${i + 1} adds no node`).toHaveCount(5)
+    const moved = await centreOf(pads.nth(i))
+    expect(moved[1] - c[1], `node ${i + 1} followed the finger`).toBeGreaterThan(30)
+  }
+  await expect(page.getByText('5 Punkte'), 'the sheet counts what the map shows').toBeVisible()
+  // the control: a drag that starts on a «+» still adds exactly one
+  await drag(page, await centreOf(page.locator('.measure-insert').first()), [0, 40])
+  await expect(pads, 'a drag on a «+» adds one node').toHaveCount(6)
 })
