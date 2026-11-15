@@ -2398,10 +2398,9 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .ip-group-count { font-weight: var(--fw-medium); color: var(--ink-faint); text-transform: none; letter-spacing: 0; }
 /* section subhead = the shared uppercase eyebrow (.ctx-section-label spec), not a blue sentence-case one-off */
 .ip-sub2 { margin: 8px 0 2px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-/* the object search (Datenquellen, the Einsatz form's object picker) is THE search
+/* the object search (Datenquellen) is THE search
    (components/SearchField, 29.09.2026) — it was a bare native `type=search` box at 13px */
 .ip-ds-search { margin: 4px 0 8px; }
-.ip-objpick-search { margin-bottom: 8px; }
 /* "Neue Geo-Ebene" form: a small card under the global datasets list */
 .ip-addlayer { margin-top: 8px; padding: 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: color-mix(in srgb, var(--surface) 70%, transparent); display: flex; flex-direction: column; gap: 8px; }
@@ -2418,19 +2417,12 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
    Kategorie, Alarmierung) went on 10.11.2026 (owner review: «only like 5 things to put in»). */
 .ip-btn.on { background: var(--sel); color: var(--on-sel); border-color: var(--sel); }
 
-/* address autocomplete */
+/* THE list under the address field (EinsatzWizard, round 2 · 15.11.2026): the matching objects
+   and the geocoder's addresses in one menu, each a `ListGroup` of `ListRow`s – the Karte search's
+   pieces (karte/KarteSearch), so no row of its own. Tall enough for a group head and a few rows. */
 .ip-ac-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; margin-top: 4px;
-  max-height: 220px; overflow-y: auto; overscroll-behavior: contain; background: var(--surface); border: 1px solid var(--glass-edge);
-  border-radius: var(--r-bar); box-shadow: var(--e4); padding: var(--bar-pad); }
-.ip-ac-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; border: none;
-  background: none; cursor: pointer; text-align: left; border-radius: var(--r-ctl);
-  font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); }
-@media (hover: hover) {
-  .ip-ac-row:hover { background: var(--blue-8); }
-}
-.ip-ac-row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.ip-ac-row:disabled { opacity: var(--disabled); cursor: default; }
-.ip-ac-row svg { width: 15px; height: 15px; flex: none; color: var(--ink-faint); }
+  max-height: 320px; overflow-y: auto; overscroll-behavior: contain; background: var(--surface); border: 1px solid var(--glass-edge);
+  border-radius: var(--r-bar); box-shadow: var(--e4); padding: var(--sp-2); display: flex; flex-direction: column; gap: var(--sp-3); }
 /* «Aus Plänen» · «Auf Karte» | «Hier» riding the field's right edge (EinsatzWizard, owner pick 1A,
    15.11.2026) – the overlap idiom of the ClearableInput ✕ (`.ci-clear`), each a full --tap square.
    They were a row of two buttons under the field. The field's right padding is the three squares
@@ -2454,24 +2446,6 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .ip-ac-locate { color: var(--blue); }
 .ip-ac-sep { width: 1px; height: 24px; margin: 0 4px; background: var(--glass-edge); flex: none; }
 .ip-ac-note { padding: 8px 12px; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
-
-/* object library picker */
-.ip-objpick { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 8px; background: var(--surface-2); }
-.ip-objlist { max-height: 240px; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 2px; }
-.ip-objgroup { padding: 8px 8px 2px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-/* ⚠️ flex: none – the list is a scrolling flex COLUMN, and a flex item may shrink below its
-   content: once the list overflowed, every row was squeezed to its min-height and a name that
-   wrapped onto two lines painted its sub-line under the next row's title (20.09.2026). */
-.ip-objrow { flex: none; display: flex; width: 100%; padding: 8px 12px; border: none; background: none; cursor: pointer;
-  text-align: left; border-radius: var(--r-ctl); }
-@media (hover: hover) {
-  .ip-objrow:hover { background: var(--hover-strong); }
-}
-.ip-objrow:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.ip-objrow-main { display: flex; flex-direction: column; min-width: 0; }
-.ip-objrow-name { font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
-.ip-objrow-dist { color: var(--blue); font-weight: var(--fw-medium); }
-.ip-objrow-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); margin-top: 1px; }
 
 .ip-textarea { padding: 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: var(--surface); font: var(--fw-medium) var(--fs-3) var(--body); color: var(--ink); resize: vertical; }

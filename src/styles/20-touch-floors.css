@@ -1,14 +1,3 @@
-/* ---- Einsatzdaten: the gloved floor ---------------------------------------------------------
-   Nothing in this panel reached --tap, and the two extremes were the wrong way round: the
-   SMALLEST target (≈19px) removed the incident's location, and the largest was a full-width
-   primary that moves it. Same instrument the Rapport uses — raised where a finger aims, left
-   alone for a mouse. */
-@media (pointer: coarse) {
-  .ip-ac-row { min-height: var(--tap); }
-  .ip-objrow { min-height: var(--tap); }
-  /* the «Übung» row is an `OnOff` pair (28.09.2026) — `.useg` is tap-tall unconditionally,
-     so it needs no floor here (it was a native checkbox with a ~16px hit box once). */
-}
 
 /* ---- Rapport: the gloved floor ------------------------------------------------------------
    Everything on this surface that a finger aims at reaches --tap on a touch screen. These sit

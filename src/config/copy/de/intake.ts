@@ -13,14 +13,13 @@ export const intakeCopy = {
     titleNewExercise: 'Übung eröffnen',
     // --- Standort section ---
     addressLabel: 'Adresse',
-    addressPlaceholder: 'Strasse Nr, PLZ Ort',
+    addressPlaceholder: 'Strasse oder Objekt',
     addressSearching: 'Wird gesucht …',
     addressNoHits: 'Keine Adresse gefunden',
-    // «Aus Plänen» · «Auf Karte» (27.09.2026, slim sweep · mockup 4a): the app's last two-line
-    // buttons. The verb «setzen» is where the buttons sit (under the address); «Feuerwehrpläne»
-    // is the only source of objects the app has, and the list that folds open says so.
+    // «Aus Plänen» · «Auf Karte» – icon buttons on the address field (owner pick 1A, 15.11.2026),
+    // the words are their aria-label and title. «Aus Plänen» opens the field's one list on the
+    // station's objects; typing finds objects there too, so the placeholder names both.
     objectButton: 'Aus Plänen',
-    objectSearchPlaceholder: 'Objekt oder Adresse suchen …',
     objectNear: 'In der Nähe',
     objectNoHits: 'Keine Objekte gefunden',
     objectPlans: (n: number) => (n === 1 ? '1 Plan' : `${n} Pläne`),
@@ -109,5 +108,10 @@ export const intakeCopy = {
     // The one line under the address field when the form has no coordinate yet (owner pick
     // 1A, 15.11.2026) – on create and edit alike; set, the form says nothing about it.
     coordMissing: 'Noch kein Standort',
+    // The two group heads of the one list under the address field (round 2, 15.11.2026):
+    // the objects first, then the geocoder's addresses; «Weitere» = the rest A–Z under «In der Nähe».
+    objectsGroup: 'Objekte',
+    objectsMore: 'Weitere Objekte',
+    addressGroup: 'Adressen',
   },
 } as const
