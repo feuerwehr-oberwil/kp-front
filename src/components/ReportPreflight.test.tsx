@@ -5,8 +5,9 @@ import { ReportPreflight } from './ReportPreflight'
 import { Overlays } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import type { IncidentMeta } from '../lib/incidents'
-import { downloadDirectReportPdf } from '../lib/reportPdfDirect'
-import type { Trupp } from '../types'
+import { downloadDirectReportPdf, signedPartOf } from '../lib/reportPdfDirect'
+import { sha256Hex, type ReportSignature } from '../lib/reportSignature'
+import type { Person, Trupp } from '../types'
 
 // The «Angaben fehlen noch» ask in front of the Rapport-PDF (14.09.): it used to list the open
 // points as plain text, so the operator closed it and hunted for the section. Each point is now a
@@ -14,10 +15,11 @@ import type { Trupp } from '../types'
 // ahead. Pinned: the rows are there, tapping one closes the ask, scrolls the sheet to the step and
 // focuses its field, and no PDF was made.
 
-vi.mock('../lib/reportPdfDirect', async (orig) => ({
-  ...(await orig<typeof import('../lib/reportPdfDirect')>()),
-  downloadDirectReportPdf: vi.fn(async () => {}),
-}))
+vi.mock('../lib/reportPdfDirect', async (orig) => {
+  const real = await orig<typeof import('../lib/reportPdfDirect')>()
+  // spied, not replaced: a signature test reads back what the Rapport hashes
+  return { ...real, downloadDirectReportPdf: vi.fn(async () => {}), signedPartOf: vi.fn(real.signedPartOf) }
+})
 // no station printer here: the relay answers «not configured», so the head carries the PDF only
 vi.mock('../lib/printRelay', async (orig) => ({
   ...(await orig<typeof import('../lib/printRelay')>()),
@@ -217,5 +219,49 @@ describe('ReportPreflight · a CLOSED Einsatz', () => {
     renderClosed('closed-c', { onSign: () => {}, onReopen: async () => 'ok' as const })
     expect(await screen.findByText(C.rapportClosedHint)).toBeTruthy()
     expect(document.querySelectorAll('.rp-strip, .rp-band')).toHaveLength(1)
+  })
+})
+
+// A signature holds while the signed part is unchanged – checked against the content itself, so
+// an edit that keeps every count (a renamed person, a reworded line) still makes it «ungültig»,
+// and the paper never carries a signature the content no longer matches.
+describe('ReportPreflight · a signature after an edit', () => {
+  const at = '2026-09-14T08:05:00.000Z'
+  const person = (displayName: string): Person => ({ id: 'p1', displayName, active: true, updatedAt: at })
+  const sheet = (displayName: string, sigs: ReportSignature[]) => (<>
+    <Overlays />
+    <ReportPreflight
+      incident={{ ...incident, id: 'sig-edit' }} reportMeta={{ summary: 'Küche' }} events={[]}
+      personnel={[person(displayName)]} attendance={{ p1: { status: 'present', checkedInAt: at, displayNameSnapshot: 'Amrein Patrick' } }}
+      annotatedPlanCount={0} truppCount={0} attendanceCount={1} mittelCount={1}
+      onSaveMeta={() => {}} onSign={() => {}} reportSignatures={sigs}
+    />
+  </>)
+  const signed = (scope: string): ReportSignature => ({
+    id: 'g1', role: 'el', name: 'Amrein Patrick', at, scope, strokes: { w: 100, h: 40, d: [[1, 1, 50, 30]] },
+  })
+  const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 300)) })
+  const S = appConfig.copy.signature
+
+  it('goes «ungültig» on a renamed person and leaves the printed line empty', async () => {
+    const view = render(sheet('Amrein Patrick', [signed('0'.repeat(64))]))
+    await settle()
+    // sign the content exactly as it stands
+    const results = vi.mocked(signedPartOf).mock.results
+    const part = results[results.length - 1].value as string
+    view.rerender(sheet('Amrein Patrick', [signed(await sha256Hex(part))]))
+    await settle()
+    expect(screen.queryByText(S.invalid)).toBeNull()
+
+    view.rerender(sheet('Amrein Peter', [signed(await sha256Hex(part))]))
+    await settle()
+    expect(screen.getAllByText(S.invalid).length).toBeGreaterThan(0)
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: P.pdfFull })) })
+    // the Mindestangaben ask: make it anyway
+    const ask = screen.getByRole('alertdialog')
+    await act(async () => { fireEvent.click(within(ask).getByRole('button', { name: P.pdfFull })) })
+    const calls = vi.mocked(downloadDirectReportPdf).mock.calls
+    expect(calls[calls.length - 1][0].signatures).toEqual([])
   })
 })

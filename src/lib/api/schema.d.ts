@@ -4708,6 +4708,8 @@ export interface components {
             file: string;
             /** Kind */
             kind: string;
+            /** Upload Id */
+            upload_id?: string | null;
         };
         /** Body_upload_plan_api_objects__object_id__plans__module__put */
         Body_upload_plan_api_objects__object_id__plans__module__put: {

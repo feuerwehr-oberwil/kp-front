@@ -43,7 +43,7 @@ vi.mock('./workspace', async () => {
       await wait() // …and so does the answer
       return { workspace: null, workspace_rev: rev }
     },
-    putWorkspaceBeacon: () => {},
+   
     putWorkspaceTrupps: () => { throw new Error('not in this test') },
     putWorkspaceTruppsBeacon: () => {},
     putWorkspaceRecord: () => { throw new Error('not in this test') },

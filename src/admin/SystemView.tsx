@@ -163,6 +163,8 @@ interface SharePointArea {
   /** pending | ok | unchanged | refused | unreachable | auth_failed | error | needs_review */
   status: string
   detail: string | null
+  /** plans area only: objects that carry plans but no coordinates, read live (0 elsewhere) */
+  objectsWithoutCoordinates: number
   imported: number
   skipped: number
   missing: number
@@ -485,6 +487,11 @@ function SharePointCard({
                       {/* The server's own sentence — «AADSTS7000222: … expired» is the thing an
                           operator can act on, and translating it would lose the code. */}
                       {a.detail && <p className="adm-card-cap">{a.detail}</p>}
+                      {/* Not the run's fault – every plan arrived – but those plans surface at no
+                          Einsatz until the object has a position (backend · sharepoint_status). */}
+                      {a.objectsWithoutCoordinates > 0 && (
+                        <p className="adm-card-cap">{fillTemplate(C.spNoCoords, { count: String(a.objectsWithoutCoordinates) })}</p>
+                      )}
                     </td>
                     <td>
                       <span className="adm-time">{fmtDateTime(a.lastSuccessAt)}</span>

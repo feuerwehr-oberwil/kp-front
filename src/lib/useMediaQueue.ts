@@ -63,7 +63,7 @@ export interface MediaQueueApi {
   replayReceipts: () => Promise<void>
   /** persist a blob before upload (attachments), or after a direct upload failed (journal).
    *  Resolves false when it could only be held in memory (see mediaQueue · enqueueMedia). */
-  enqueue: (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string, localUrl?: string, target?: MediaTarget) => Promise<boolean>
+  enqueue: (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string, localUrl?: string, target?: MediaTarget, uploadId?: string) => Promise<boolean>
   /** attempt to upload everything queued for this incident (best-effort, never throws) */
   flush: (options?: { retry?: boolean }) => Promise<void>
   /** this queue's part of the shared sync status (mediaSyncStatus) */
@@ -186,8 +186,8 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
     return () => clearTimeout(timer)
   }, [items, flush, readOnly, reconnected])
 
-  const enqueue = useCallback(async (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string, localUrl?: string, target?: MediaTarget) => {
-    const stored = await enqueueMedia(incidentId, rowId, kind, blob, filename, createdAt, localUrl, target)
+  const enqueue = useCallback(async (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string, localUrl?: string, target?: MediaTarget, uploadId?: string) => {
+    const stored = await enqueueMedia(incidentId, rowId, kind, blob, filename, createdAt, localUrl, target, uploadId)
     await refresh()
     return stored
   }, [incidentId, refresh])

@@ -34,10 +34,6 @@ export const putWorkspace = (id: string, workspace: Workspace, base_rev: number,
     base_rev,
     ...(edited_at ? { edited_at } : {}),
   }, writerHeader(writer))
-/** Fire-and-forget workspace PUT for page teardown — survives the document unloading.
- *  `slim=1` here saves only server-side serialisation: the response is never read. */
-export const putWorkspaceBeacon = (id: string, workspace: Workspace, base_rev: number, edited_at?: string) =>
-  apiBeacon(`/api/incidents/${id}/workspace?slim=1`, { workspace, base_rev, ...(edited_at ? { edited_at } : {}) }, 'PUT')
 
 // --- the trupp slice on its own ------------------------------------------------------------
 // An Atemschutz-Link session (auth · AuthUser.link_kind) may write the Überwachungstafel and
@@ -56,7 +52,8 @@ export const putWorkspaceTrupps = (id: string, trupps: readonly Trupp[], base_re
     ...(edited_at ? { edited_at } : {}),
     ...(schemaVersion != null ? { schemaVersion } : {}),
   }, writerHeader(writer))
-/** Teardown twin of putWorkspaceTrupps — see putWorkspaceBeacon. */
+/** Fire-and-forget twin of putWorkspaceTrupps for page teardown (api · apiBeacon, keepalive):
+ *  survives the document unloading, the response is never read. */
 export const putWorkspaceTruppsBeacon = (id: string, trupps: readonly Trupp[], base_rev: number, edited_at?: string, schemaVersion?: number) =>
   apiBeacon(`/api/incidents/${id}/workspace/trupps`, { trupps, base_rev, ...(edited_at ? { edited_at } : {}), ...(schemaVersion != null ? { schemaVersion } : {}) }, 'PUT')
 
@@ -76,7 +73,7 @@ export const putWorkspaceRecord = (id: string, workspace: Workspace, base_rev: n
     workspace: stamped(workspace, schemaVersion),
     base_rev,
   }, writerHeader(writer))
-/** Teardown twin of putWorkspaceRecord — see putWorkspaceBeacon. */
+/** Teardown twin of putWorkspaceRecord — see putWorkspaceTruppsBeacon. */
 export const putWorkspaceRecordBeacon = (id: string, workspace: Workspace, base_rev: number, schemaVersion?: number) =>
   apiBeacon(`/api/incidents/${id}/workspace/record`, { workspace: stamped(workspace, schemaVersion), base_rev }, 'PUT')
 

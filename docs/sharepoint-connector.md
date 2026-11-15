@@ -214,9 +214,8 @@ are** – the names a brigade already gives its scans are the names KP Front rea
   `uv run python -m app.admin_objects_repair merge <old-id> --into <new-id>` (dry run; `--apply`).
   ⚠️ Until 11.09.2026 the whole folder string was keyed instead, which minted a second,
   address-less object beside every one a station had loaded by hand. A deployment that synced
-  before that repairs itself with
-  `cd backend && uv run python -m app.admin_objects_repair repair-sharepoint-keys` (dry-run; `--apply`
-  to perform it).
+  before that repaired itself with a one-off command, removed on 15.11.2026 – one that never
+  ran it does so on release 0.12.0 first (docs/AGENT-RUNBOOK.md › Census and repair).
 - **A folder whose files are not Modul plans never becomes an Einsatzobjekt.** A category folder
   full of overview sheets (`Grosspläne/`) or an empty one is skipped whole, and nothing is
   created for it. Say so up front with `ignore` (below) – this is only the safety net.
@@ -228,9 +227,9 @@ are** – the names a brigade already gives its scans are the names KP Front rea
   the app offers an Einsatzobjekt at an incident by distance, so an object without them appears
   at no Einsatz however many plans hang off it. The SharePoint card on `/admin` → System counts
   the ones that carry plans and no coordinates, and
-  `python -m app.admin_objects_repair repair-sharepoint-keys` lists them by name and address. Give those
-  a position in `/admin` → Objektpläne; the connector never overwrites a name, an address or a
-  coordinate anybody has typed.
+  `python -m app.admin_objects_repair geocode-missing` lists them by name and address (and places
+  what it can with `--apply`). Give the rest a position in `/admin` → Objektpläne; the connector
+  never overwrites a name, an address or a coordinate anybody has typed.
 - The same key produces the same object as the `admin_objects` CLI would, so a station that has
   been loading plans by hand and now switches to SharePoint **updates** its objects rather than
   duplicating them.
@@ -456,16 +455,14 @@ name in the source's `ignore` list so the log stops mentioning it.
 **"A building shows up twice in Objektpläne."** Two folder names whose NAME halves differ in any
 way – a trailing word, a different spelling – are two objects, because that name is the key. Merge
 them in SharePoint, then fix up the leftover object in `/admin` → Objektpläne. Two rows that are
-the same building under two spellings fold together with `python -m app.admin_objects_repair
-merge-duplicates`; a pair minted by the pre-11.09.2026 whole-folder key (one row rich and one
-bare, the bare one holding the newer sheets) folds with `repair-sharepoint-keys`. Both report by
-default and write only with `--apply`.
+the same building under two names fold together with `python -m app.admin_objects_repair merge
+<loser-id> --into <survivor-id>` (`twins` lists likely pairs). It reports by default and writes
+only with `--apply`.
 
 **"A plan synced but no Einsatz shows it."** Look for coordinates. An Einsatzobjekt is offered at
 an incident by distance, so an object without a position never appears – and the plans under it
-are reachable by nobody. `python -m app.admin_objects_repair repair-sharepoint-keys` names every such
-object (with its address) without writing anything, and the System card carries the same count.
-To place them in one go, `python -m app.admin_objects_repair geocode-missing` looks each one up – by its
+are reachable by nobody. The System card carries the count. To list and place them in one go,
+`python -m app.admin_objects_repair geocode-missing` looks each one up – by its
 address, or by its **name** where the row has none, which is what an object imported years ago as
 a bare street («Benkenstrasse 66a») carries. It reports by default, prints the coordinates it
 would write, and writes them with `--apply`; anything the geocoder cannot place is left untouched
