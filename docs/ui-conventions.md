@@ -48,6 +48,14 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   `styleDebt.baseline.json` and fails when one goes up; one that went down is a console note –
   lower the baseline when convenient (`STYLE_DEBT_UPDATE=1 pnpm vitest run
   src/styles/styleDebt.test.ts`, which only ever lowers it). Never raise it to pass.
+- **Mono is for numbers** (style sweep T1, 15.11.2026): `--mono` (or `tabular-nums` in the body
+  face) on a figure – a count, a time, a distance, a code compared against a printed table – never
+  on a sentence or a word («siehe ERG Tabelle 3», «aktiv», «Von der Station freigegeben»). A
+  sentence is never set in a number's size either: the Passung's «3 Paare» is 16/700 mono, its
+  «Von der Station freigegeben» 14/500 body.
+- **Text sizes have floors** (style sweep T4): a hint sentence is the `.ip-hint` voice (12.5/500
+  `--ink-dim`), a row's second line the `.list-row-sub` voice (the same, 1.3 leading) – never 11px,
+  never `--ink-faint` plus an opacity dim. `--fs-micro` stays for captions, tags and eyebrows.
 - **The neutral washes and hairlines are near-twins, not duplicates** (checked 13.11.2026):
   `--fill-soft`, `--hover`, `--hover-strong`, `--press`, `--surface-2`, `--surface-veil`,
   `--ink-tint(-strong)`, `--border(-soft)`, `--glass-edge`, `--glass-line` and `--ink-5…62` –
@@ -283,6 +291,17 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   under a SLIDING finger and lifting on a row presses it (a checkbox row toggles, the menu stays
   open); lifting elsewhere does nothing, a plain tap is the browser's. A menu whose content scrolls
   keeps its native scroll, and `ComboMenu` lists are not menus (`lib/overlays/menuSlide`).
+- **A scroll body is `overscroll-behavior: contain`** (scroll sweep 15.11.2026): the body of a
+  sheet or page (`.ip-sheet > .ip-body`, `.lc-body`, `.ctx-body`, the Verlauf, the Atemschutz
+  `.body` / `.modalBody` / `.miniBody`, the Mittel, Anwesenheit and Checkliste lists) and every list
+  nested inside one – it bounces on its own and never carries the flick on to what is behind it. A
+  new scroller takes the same value, set on its own class. Two documented exceptions are `none`
+  (no bounce at all): the Zeitplan's time axis and the Karte's search/Gefahrgut list. The home
+  indicator's inset is the scroller's LAST padding, never the frame's (a frame's padding is a
+  dead band the rows are cut at); the keyboard covers the indicator, so `is-kb` drops it. A head
+  never scrolls with the body: the frame is a flex column, the head `flex: none`, ONE inner body
+  scrolls (the composer's `.jc-body`). A sheet closes by a pull only while EVERY scroller between
+  the finger and the popup is at its top (`overlays/swipeDismiss` · rule 2).
 - **A sheet's footer row is `SheetFoot`** (`.ui-sheet-foot`, 26.09.2026): `Sheet` draws it for
   `footer`, and a bespoke frame whose footer is its bottom edge on a phone wears it (the Trupp
   form, the Mittel note, the Georef transfer). ONE rule in 15-mobile.css insets it on a phone —
@@ -330,7 +349,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *Messages – ONE surface, ONE lane (25.09.2026):* a toast, a mode's instruction (Gebäude
     wählen), a tool's tip and the hold-tip wear the same look (08-toasts.css · «ONE message
     surface»): the floating family's material (below — light by day, dark by night, never a dark
-    pill on a light UI), ink 14/500 (13/600 until 08.10.2026), the one corner, no outline of its own. A tone is the colour of
+    pill on a light UI), ink 14/700 like a Meldeleiste row's `.ml-title` (13/600 until 08.10.2026, 14/500 until the S3 rework of 21.10.2026), the one corner, no outline of its own. A tone is the colour of
     the glyph the sentence leads with – never an edge, never a fill. What goes away **by itself**
     shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
     mode is on shows neither. A tap on the pill itself does nothing (05.10.2026): the ✕ closes,
@@ -435,7 +454,12 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *Colour:* the primary fill is `var(--btn-primary)` (+ `--btn-primary-hover` /
     `--on-btn-primary`), never `--ink-fill`/`--blue`/`--accent` directly. **Red never fills an
     action** – it means danger/delete only. Amber = warning but not critical; red = danger,
-    broken, act now; blue/grey = normal status and in-progress.
+    broken, act now; grey = normal status and in-progress. **Blue means «chosen» and nothing else**
+    (style sweep T2, owner pick A, 15.11.2026): a filled `--sel` or a `--sel-wash` marks the
+    SELECTED thing (and the «open/armed» wash). A text link is ink (an `<a>` keeps its underline),
+    a text action is the neutral `<Button>` or a `.row-go` row («Alle zeigen», «Zum Original»), a
+    count is `--ink-dim`, a decorative glyph or bullet `--ink-dim`/`--ink-faint`. A drawing's own
+    colour (the Messen/Massstab path, the edit handles) is not chrome and keeps its blue.
   - *Text on colour (23.10.2026, sweep G.2/G.4–G.6):* red as TEXT or a glyph is `--red-strong`;
     `--red` only fills and strokes. A word on an `--amber` fill is `--on-amber` (dark in both
     themes – white on amber is 2.5:1 by day), on the other hues `--on-fill`. A green or red fill
@@ -505,9 +529,14 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     fit stands; «Deckung prüfen» closes with ✕ «Schliessen» too). **«✓ Fertig» exists ONLY while
     something is being made that a close would throw away** – a Punkte-Linie, -Fläche or Wand
     being drawn: there it is THE way to commit, the dock's one filled tile (`ToolDock` · `go`). The
-    tablet dock follows the rail beside it (round 2b): «Beschriftung der Werkzeugleisten» on, EVERY
-    item wears its word under its glyph («Abbrechen», the modes, «Fertig», «Info»); off, every item
-    is a bare glyph – never a mix; the phone's row dock stays bare. The «Linie offen» pill at the
+    dock follows the rails (round 2b; the phone's row too since round 15.11.2026 #2): «Beschriftung
+    der Werkzeugleisten» on, EVERY item wears its word under its glyph («Abbrechen», the modes,
+    «Fertig», «Info», the Form being placed by name); off, every item is a bare glyph – never a mix.
+    A dock item has a word by type (`ToolDock` · `DockItem`); there is no wordless item. A word that
+    does not fit a tile (the tablet column's ≈74px, the phone's «+» tile) gets a short tile word of
+    its own – a `…Short` copy key, the item's / tool's `short` – and the long form stays its title and
+    accessible name: «Mehrere» for «Mehrere platzieren», «Leeren» for «Zurücksetzen», «Sperrkreis» on
+    the «+» tile (round 15.11.2026 r2). Never an abbreviation with a dot. The «Linie offen» pill at the
     draft's last point steps to the point's left rather than lie under the dock (`OpenPill`). The dock's ✕
     / Esc leave the draft through `settleDraft` (a committable draft is asked about – «Speichern ·
     Verwerfen · Weiterzeichnen» – never silently dropped). So one exit per state: a SELECTED
@@ -592,8 +621,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Einsatz head shows a state mark only for a problem (round 2b, owner's pick «Only show
     problems»): no ✓ while all is saved – that lives in the card's pill – and «Nicht
     synchronisiert» only after 10 s (a normal save is pending for ~3 s). Status words in a picker row
-    («AS», «raus» in the TruppFinder) are this tag in ink on `--fill-soft` — never blue (blue is
-    «chosen»), never a pill.
+    («AS», «raus» in the TruppFinder) and «Gast» wherever it stands (Anwesenheit, the Trupp pickers,
+    the QR-Bogen) are this tag in ink on `--fill-soft` (`.ip-badge .ip-badge-arch`, the neutral tag)
+    — never blue (blue is «chosen»), never a pill, never the Dienstgrad chip.
     (5) **Search field** (29.09.2026): every «type to narrow this list» is `components/SearchField`
     (`.ui-search`, 13-incident) — glyph · input · ✕ · optional count slot; the grey pill
     (`--fill-soft`) that turns white on focus with the one field focus on the BOX, `--tap` tall,
@@ -635,7 +665,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Entwicklung toggles are drawn `#spread-*` arrows with their `#grenze-*` bar on the tip side,
     one capsule per direction (sweep G.10).
     (11) **Anwesend = the green tint, nothing else** (29.09.2026, owner pick B): no status dot, no
-    green border. Not colour alone: present rows are the ones with the Ort + Uhr buttons, gone
+    green border – on the QR-Bogen too (15.11.2026), whose state chip carries the Ort button's
+    glyph in its inks. Not colour alone: present rows are the ones with the Ort + Uhr buttons, gone
     rows are `--done-opacity`, and the state word is in the row button's accessible name
     (`.sr-only`). The filter menu shows each state as a small row swatch (plain · tint · dimmed),
     the look the row has.
@@ -677,6 +708,13 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     are for alarms and warnings only; a routine «Ausrücken TLF» in the station red read as the
     loudest row on a page that carries real Atemschutz alarms. The composer's phrase chips wear
     the one corner (`--r-sm`), never a pill.
+  - *Blue means «chosen», mono means a figure* (15.11.2026, style sweep T1/T2, owner pick A): blue
+    marks only the SELECTED thing (`--sel`, a filled choice, a picked radio). A link, a count, an
+    icon, a «has a note» marker or a decoration is ink / `--ink-dim` / `--ink-faint`, an action
+    the neutral `Button` – the field focus edge and the menu row's hover wash keep their documented
+    blue. `--mono` is for figures only (a clock, a duration, a pressure, a count): a word or a
+    sentence beside them – «Jetzt», «Deckung», «Sa 16.11.», «bis 14:00», a free-text value – is the
+    body face, with `font-variant-numeric: tabular-nums` where its figures should line up.
   - *One green per surface that means «saved / alive»* (29.09.2026): the Einsatz menu card's green
     is its «✓ Gespeichert» pill – no green stripe, no green fill, the other Einsätze' ages
     `--ink-dim`.

@@ -926,8 +926,12 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   font: var(--fw-bold) var(--fs-3) var(--body); box-shadow: inset 0 0 0 2.5px var(--present), var(--e4); cursor: pointer; }
 .present-again .present-av { box-shadow: none; background: var(--present); }
 .present-again:active { background-image: linear-gradient(var(--press), var(--press)); }
-.present-hint { padding: var(--sp-1) var(--sp-3); border-radius: var(--r-xs); background: var(--float-bg); box-shadow: var(--float-edge);
-  color: var(--ink); font-size: var(--fs-1); font-weight: var(--fw-medium); max-width: 100%; text-align: center; text-wrap: balance; }
+/* «Zeigen ist an – …»: a mode's instruction, so THE message surface (`.toast` above, a toast with no
+   button: --sp-2 / --sp-4 padding) – it was a 12.5/500 chip of its own with a small corner (style
+   sweep T5, 15.11.2026). It keeps its place over the pill it explains. */
+.present-hint { padding: var(--sp-2) var(--sp-4); border-radius: var(--r-sm); background: var(--float-bg); backdrop-filter: var(--float-blur);
+  box-shadow: var(--float-edge); color: var(--ink); font: var(--fw-bold) var(--fs-2)/1.35 var(--body);
+  max-width: 100%; text-align: center; text-wrap: balance; }
 
 /* the rings: a named circle that stands until somebody taps the × on its name (owner pick
    09.11.2026 – they faded after 4 s before); it pops in once */

@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
+import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { buildAnrueckend } from '../lib/diveraResponses'
@@ -117,9 +118,9 @@ export function AnrueckendBlock({ incidentId, people, attendance, canEdit, onMar
         <div className={s.anrBody}>
           {data.coming.length > 0
             ? <ul className={s.anrList}>{data.coming.map(row)}</ul>
-            : <p className={s.anrFoot}>{R.allHere}</p>}
+            : <p className={cx('ip-hint', s.anrFoot)}>{R.allHere}</p>}
           {/* the one sentence the block owes: an answer is not a check-in */}
-          <p className={s.anrFoot}>
+          <p className={cx('ip-hint', s.anrFoot)}>
             {data.unmapped > 0 && <>{R.unmapped(data.unmapped)} · </>}
             {R.hint}
           </p>

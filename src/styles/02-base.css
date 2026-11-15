@@ -204,7 +204,7 @@ button, input, select, textarea { font-family: inherit; }
    A reserved lane is only ever right where the box stands alone; in a shared column the column's
    edge wins and the bar overlays. */
 .ctx-body, .history-list, .sym-scroll, .pp-list, .roster, .rp-people, .cv-people,
-.report-preflight > .ip-body, .ip-sheet > .ip-body, .ip-objlist,
+.report-preflight > .ip-body, .ip-sheet > .ip-body,
 .ip-emptyapp, .help-toc, .help-content { scrollbar-gutter: stable; }
 
 /* Breathing room for every scroll that REVEALS a field — Safari's own «keep the caret visible»

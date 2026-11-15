@@ -96,7 +96,7 @@ export function PersonField({
                 {/* not on the Mannschaftsliste (lib/guests) — offered like anybody else, but
                     SAID, so nobody picks a Nachbarwehr's AdF thinking they are looking at
                     their own crew */}
-                {p.guest && <span className={s.comboGuest}>{appConfig.copy.anwesenheit.guestBadge}</span>}
+                {p.guest && <span className="ip-badge ip-badge-arch">{appConfig.copy.anwesenheit.guestBadge}</span>}
               </>
             ),
             // the job they already hold outranks «nicht anwesend»: somebody with a Funktion IS

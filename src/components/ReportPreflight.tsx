@@ -2211,7 +2211,7 @@ export function ReportPreflight({
               >
                 <div className="rp-check-extra rp-conf">
                   {conflicts.map((c) => (
-                    <div key={c.sig} className="rp-conf-item">
+                    <div key={c.sig} className="form-warn form-warn-amber rp-conf-item">
                       <div className="rp-conf-head">
                         <b>{c.name}</b>
                         <span>{c.what}</span>

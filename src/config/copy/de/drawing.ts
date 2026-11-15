@@ -49,6 +49,8 @@ export const drawingCopy = {
     // Das Gegenstück für die Fläche: der gemessene Umriss wird zur gezeichneten Fläche,
     // statt ihn ein zweites Mal von Hand nachzuziehen.
     adoptArea: 'Als Fläche übernehmen',
+    // «Zurücksetzen» as the dock tile's word (ToolDock · short): the app's ✕-clear word, it fits a tile
+    clearShort: 'Leeren',
   },
   // Wassertransport (components/WaterRelay): Druck entlang einer Schlauchleitung und wo die
   // Pumpen hinkommen – in Messen › Strecke und in der Leitung. ⚠️ Kurz halten (Besitzer,
@@ -323,9 +325,6 @@ export const drawingCopy = {
   // Linie · Fläche · Absperrkreis · Notiz · Trupp leave the bar for it
   addSheet: { tile: 'Hinzufügen', tools: 'Zeichnen & Trupp' },
   toolDock: {
-    colorGroup: 'Farbe',
-    colorName: '{group} {n}',
-    widthName: 'Linienstärke {n} px',
     // Tap-away while a node draft is in progress no longer discards silently (29.08.):
     // a committable draft auto-commits with this toast, whose «Rückgängig» hands the
     // shape BACK as an editable draft rather than merely deleting it.

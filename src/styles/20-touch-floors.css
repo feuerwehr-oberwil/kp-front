@@ -1,16 +1,3 @@
-/* ---- Einsatzdaten: the gloved floor ---------------------------------------------------------
-   Nothing in this panel reached --tap, and the two extremes were the wrong way round: the
-   SMALLEST target (≈19px) removed the incident's location, and the largest was a full-width
-   primary that moves it. Same instrument the Rapport uses — raised where a finger aims, left
-   alone for a mouse. */
-@media (pointer: coarse) {
-  .ip-ac-row { min-height: var(--tap); }
-  .ip-objrow { min-height: var(--tap); }
-  .ip-loc-clear { width: var(--tap); height: var(--tap); display: grid; place-items: center; }
-  /* (`.ip-ix-methods .ip-btn` — every .ip-btn is --tap tall on every pointer since 08.10.2026) */
-  /* the «Übung» row is an `OnOff` pair (28.09.2026) — `.useg` is tap-tall unconditionally,
-     so it needs no floor here (it was a native checkbox with a ~16px hit box once). */
-}
 
 /* ---- Rapport: the gloved floor ------------------------------------------------------------
    Everything on this surface that a finger aims at reaches --tap on a touch screen. These sit
@@ -87,8 +74,8 @@
 @media (pointer: coarse) {
   /* (a Detail field's remove ✕ and the drawing editor's «›» to the coupled Trupp stood here at 32px;
      both are <IconButton> since 08.10.2026, a --tap square at every pointer) */
-  /* the capture app's «fehlt noch» chips (32px), wrapping in a 6px-gap row */
-  .cv-missing-go { min-height: var(--tap); }
+  /* (the capture app's «fehlt noch» chips are the form warning's `.form-warn-act` since 15.11.2026,
+     36px with its own 44px pad) */
   /* the Verlauf's «wieder in …» offers on a closed Pendenz (≈24px), side by side 5px apart */
   .jr-again-btn { min-height: var(--tap); }
   /* A segmented option (06-contextpanel · .useg) is --tap less the track's 3px on each side, so
@@ -113,7 +100,7 @@
 
 /* ---- The drawing controls stay as they are — decided, not overlooked ------------------------
    A sweep on 28.08. listed the plan dock's own controls as under the floor: the colour swatches
-   at 30px (.wb-sw, .dh-color), the width buttons at 38×34 (.wb-ww; the editors' width and line-style
+   at 30px (.wb-sw – gone with the dock's swatches, «D pur» –, .dh-color), the width buttons at 38×34 (.wb-ww, gone likewise; the editors' width and line-style
    pickers are `Segmented` since 13.11.2026 and carry the tap floor) and the plan-picker pin at 34 (.pp-pin). (The list also named the shape editor's
    own 40×36 size stepper; that one is gone — it is the shared ±stepper now, on the drawing
    panel's `--de-h`, which is the same call made once for the whole panel in 08-toasts.) They are deliberately left alone, and the three ways of «fixing» them were drawn

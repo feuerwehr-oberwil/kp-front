@@ -91,7 +91,7 @@
 .msg { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-2); }
 .msgHead { display: flex; align-items: center; gap: 8px; }
 .msgHead > :global(.i), .msgHead > svg { flex: none; width: 16px; height: 16px; color: var(--warn-glyph); }
-.msgTitle { font: var(--fw-heavy) var(--fs-2) var(--body); color: var(--ink); }
+.msgTitle { font: var(--fw-bold) var(--fs-2)/1.4 var(--body); color: var(--ink); }   /* the form-warn sentence's 700, never 800 (T3) */
 .msgBody { margin: 0; font: var(--fw-medium) var(--fs-2)/1.45 var(--body); color: var(--ink-dim); }
 .msgActs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
 .versions { display: grid; gap: var(--sp-2); margin: 2px 0; }

@@ -34,6 +34,7 @@ export const drawingCopy: Localizable<Pick<Copy, Keys>> = {
     hintArea: 'Au moins 3 points pour la surface',
     adoptLine: 'Reprendre comme ligne',
     adoptArea: 'Reprendre comme surface',
+    clearShort: 'Effacer',
   },
   relay: {
     title: 'Transport d’eau',
@@ -196,9 +197,6 @@ export const drawingCopy: Localizable<Pick<Copy, Keys>> = {
   },
   addSheet: { tile: 'Ajouter', tools: 'Dessin & équipe' },
   toolDock: {
-    colorGroup: 'Couleur',
-    colorName: '{group} {n}',
-    widthName: 'Épaisseur {n} px',
     autoCommitted: '{name} enregistré',
     draftDiscarded: 'Dessin incomplet abandonné',
     openTitle: '{name} encore ouvert',

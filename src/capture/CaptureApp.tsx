@@ -953,11 +953,11 @@ export default function CaptureApp() {
           read «Noch leer: Einsatzende, Kurzbericht», then hunted for them yourself down a page
           six sections long, after having already pressed print. */}
       {shownMissing.length > 0 && (
-        <div className="cv-missing" role="status">
+        <div className="form-warn form-warn-amber cv-missing" role="status">
           <Icon id="warn" />
-          <span className="cv-missing-k">{C.missingHead}</span>
+          <span>{C.missingHead}</span>
           {shownMissing.map((s) => (
-            <button key={s} type="button" className="cv-missing-go"
+            <button key={s} type="button" className="form-warn-act"
               title={fillTemplate(C.missingGo, { step: AB.steps[s] })}
               aria-label={fillTemplate(C.missingGo, { step: AB.steps[s] })}
               onClick={() => jumpToStep(s)}
@@ -1008,7 +1008,7 @@ export default function CaptureApp() {
           {/* an Übung produces a Rapport that looks exactly like a real one on paper — say
               so at the one moment it can still be stopped, right before it is printed */}
           {incident.is_exercise && (
-            <p className="cv-hint cv-modal-warn"><Icon id="warn" /> {C.exerciseHint}</p>
+            <p className="form-warn form-warn-amber form-warn-compact"><Icon id="warn" /><span className="form-warn-text">{C.exerciseHint}</span></p>
           )}
           {/* the title + Ausdrucken button ARE the confirmation — no filler sentence;
               only the offline store-and-forward warning earns a line */}
@@ -1016,7 +1016,7 @@ export default function CaptureApp() {
             /* just the fact. The sentence that used to stand here promised that the job «wird
                gedruckt, sobald das Relay wieder erreichbar ist» — a claim about the future that
                made queuing sound like printing. */
-            <p className="cv-hint cv-modal-warn"><Icon id="warn" /> {R.offline}</p>
+            <p className="form-warn form-warn-amber form-warn-compact"><Icon id="warn" /><span className="form-warn-text">{R.offline}</span></p>
           )}
           <div className="cv-modal-actions">
             <button className="cv-btn" onClick={() => setConfirmOut(null)}>{C.cancel}</button>

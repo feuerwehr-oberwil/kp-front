@@ -8,7 +8,7 @@ type Keys =
   | 'sheetGrip' | 'edit' | 'primarySymbol' | 'done' | 'cancel' | 'exerciseBadge'
   | 'exerciseInitial' | 'keepPlacing' | 'delete' | 'remove' | 'undo' | 'redo' | 'undoNamed'
   | 'redoNamed' | 'undoLost' | 'removedToast' | 'undoDomains' | 'undoSurfaces' | 'undoTopDropped'
-  | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'noHits'
+  | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'noHits' | 'keepPlacingShort'
 
 export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   baseMap: 'Carte de base',
@@ -58,4 +58,5 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   sheetGrip: 'Ajuster la hauteur du détail',
   exerciseBadge: 'Exercice',
   exerciseInitial: 'E',
+  keepPlacingShort: 'Plusieurs',
 }

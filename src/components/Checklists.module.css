@@ -14,7 +14,7 @@
    Heim / Saal)» is 300px in Sora bold 16 – with the row's and the rail's padding it needs ~380px) on
    ONE line. 40vw − 150px is 248px up to ~1000px, ~320px on an iPad landscape (1180), ~396px at 1366.
    `--cl-rail-w` so the Karte library's wider column (ChecklistLibrary · .column) follows the same curve. */
-.cl-rail { --cl-rail-w: clamp(248px, 40vw - 150px, 400px); flex: 0 0 var(--cl-rail-w); overflow-y: auto; scrollbar-gutter: stable; padding: var(--sp-3) var(--sp-2); background: var(--surface);
+.cl-rail { --cl-rail-w: clamp(248px, 40vw - 150px, 400px); flex: 0 0 var(--cl-rail-w); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: var(--sp-3) var(--sp-2); background: var(--surface);
   border-right: 1px solid var(--glass-edge); display: flex; flex-direction: column; gap: 16px; }
 .cl-rail-search { margin: 2px 0 4px; }   /* THE search (components/SearchField, 29.09.2026) — placement only */
 /* all groups («Passend», Aufgaben, each reference template, the devices) are peers under the search bar –
@@ -33,7 +33,7 @@
    --cl-col on that white, CENTRED in the pane (owner 20.10.2026, after round 5: «not all to the
    left with a huge gap to the right»). The phone and the ≤760 one-page layout keep the page
    ground (below). */
-.cl-main { --cl-col: 760px; flex: 1 1 auto; min-width: 0; overflow-y: auto; scrollbar-gutter: stable;
+.cl-main { --cl-col: 760px; flex: 1 1 auto; min-width: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
   padding: var(--sp-6) clamp(var(--sp-5), 4vw, var(--sp-7)); background: var(--surface); }
 .cl-main > * { margin-inline: auto; }
 
@@ -104,20 +104,18 @@
 .cl-trend :global(.useg-btn:not(.on)) .cl-trend-glyph[data-trend='up'] { color: var(--red-strong); }
 .cl-trend :global(.useg-btn:not(.on)) .cl-trend-glyph[data-trend='down'] { color: var(--green); }
 /* the deep link (Zeichnen / Verlauf / Plan): its glyph alone in a --tap square, so the item's text
-   keeps the row (27.10.2026, owner pick 11A); the word is its aria-label and title */
-.cl-deeplink { flex: none; align-self: center; display: grid; place-items: center; width: var(--tap); height: var(--tap);
-  padding: 0; border: none; background: var(--blue-12); color: var(--blue-strong); cursor: pointer; border-radius: var(--r-sm); }
-@media (hover: hover) { .cl-deeplink:hover { background: var(--blue-16); } }
-.cl-deeplink:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.cl-deeplink :global(.i) { width: 19px; height: 19px; }
+   keeps the row (27.10.2026, owner pick 11A); the word is its aria-label and title. THE framed
+   <IconButton variant="secondary"> – it was a blue tile (style sweep T2); this only places it */
+.cl-deeplink { align-self: center; }
 
 /* read, not ticked (ChecklistReader, 19.10.2026): the items stand in an <ol>, each with its
    number where the box would be, and one quiet line above the first phase says where ticking
    happens */
 ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
 ol.cl-items > .cl-item { padding: var(--sp-3); }
-.cl-num { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
-  box-shadow: inset 0 0 0 2px var(--border); font: var(--fw-heavy) var(--fs-2) var(--body); color: var(--ink-dim);
+/* THE step number of Nachschlagen = ManualReader.module.css · .mn-num (style sweep T5, 15.11.2026) */
+.cl-num { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  box-shadow: inset 0 0 0 1.5px var(--ink-28); font: var(--fw-heavy) var(--fs-2) var(--body); color: var(--ink);
   font-variant-numeric: tabular-nums; }
 .cl-num + .cl-item-body { align-self: center; }
 .cl-ro-note { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-4); padding: var(--sp-2) var(--sp-3);

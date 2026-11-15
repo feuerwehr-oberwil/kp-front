@@ -13,28 +13,17 @@ export const intakeCopy = {
     titleNewExercise: 'Übung eröffnen',
     // --- Standort section ---
     addressLabel: 'Adresse',
-    addressPlaceholder: 'Strasse Nr, PLZ Ort',
+    addressPlaceholder: 'Strasse oder Objekt',
     addressSearching: 'Wird gesucht …',
     addressNoHits: 'Keine Adresse gefunden',
-    // «Aus Plänen» · «Auf Karte» (27.09.2026, slim sweep · mockup 4a): the app's last two-line
-    // buttons. The verb «setzen» is where the buttons sit (under the address); «Feuerwehrpläne»
-    // is the only source of objects the app has, and the list that folds open says so.
-    objectButton: 'Aus Plänen',
-    objectSearchPlaceholder: 'Objekt oder Adresse suchen …',
-    objectNear: 'In der Nähe',
-    objectNoHits: 'Keine Objekte gefunden',
+    // «Auf Karte» · «Hier» – icon buttons on the address field (owner pick 1A, 15.11.2026), the
+    // words are their aria-label and title. «Aus Plänen» went (15.11.): typing finds the station's
+    // objects in the field's one list, so the placeholder names both.
     objectPlans: (n: number) => (n === 1 ? '1 Plan' : `${n} Pläne`),
     objectNoPlans: 'keine Pläne',
     mapPickButton: 'Auf Karte',
     hereButton: 'Hier',
     hereFailed: 'Standort nicht verfügbar',
-    coordSet: 'Koordinate gesetzt',
-    coordNone: 'Kein Standort – wird ohne Koordinate eröffnet',
-    // the edit form: the Einsatz is already open, so nothing «wird eröffnet» any more
-    coordNoneEdit: 'Kein Standort – Einsatz ohne Koordinate',
-    coordClear: 'Standort entfernen',
-    // The fold over the literal coordinate (owner, 18.09.2026) — see EinsatzWizard.
-    coordFold: 'Koordinaten',
     // --- Stichwort section ---
     titleLabel: 'Stichwort / Titel',
     titlePlaceholder: 'z. B. Gebäudebrand Schulhaus',
@@ -129,5 +118,12 @@ export const intakeCopy = {
       'Dienstleistungen': 'Dienstleistungen',
       'Diverse Einsätze': 'Diverse Einsätze',
     } as Record<string, string>,
+    // The one line under the address field when the form has no coordinate yet (owner pick
+    // 1A, 15.11.2026) – on create and edit alike; set, the form says nothing about it.
+    coordMissing: 'Noch kein Standort',
+    // The two group heads of the one list under the address field (round 2, 15.11.2026):
+    // the objects first, then the geocoder's addresses; «Weitere» = the rest A–Z under «In der Nähe».
+    objectsGroup: 'Objekte',
+    addressGroup: 'Adressen',
   },
 } as const

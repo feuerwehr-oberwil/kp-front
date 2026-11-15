@@ -655,7 +655,7 @@ export function TruppForm({
             <b><UnitVal val={`${initial!.entryPressureBar} bar`} /></b>
             <Icon id="lock" className={s.pressureLockedIcon} />
           </div>
-          <p className={s.fieldNote}>{lockedExit
+          <p className="ip-hint">{lockedExit
             ? fillTemplate(az.pressureLockedWhyExit, { bar: lockedExit.bar })
             : az.pressureLocked}</p>
         </div>
@@ -687,7 +687,7 @@ export function TruppForm({
           </div>
           {/* said out loud, because the same grid on the CARD does the opposite: there it is a
               Druckmeldung and resets the contact clock. Here it corrects the record. */}
-          {isEdit && !upgrading && <p className={s.fieldNote}>{az.editPressureHint}</p>}
+          {isEdit && !upgrading && <p className="ip-hint">{az.editPressureHint}</p>}
         </div>
       )}
       {/* Kanal rides with the Druck: the pair you set on every single Trupp.
@@ -794,7 +794,7 @@ export function TruppForm({
            Leitungen actually DRAWN («Ltg 1 · Müller H.»), and «Nr. …» for a number nobody has drawn
            yet — typing a number blind is how the two sides end up disagreeing */
         <LeitungField label={az.lineNoLabel} value={lineNo} options={leitungOptions} onChange={setLineNo}>
-          {legacyLine && <p className={s.fieldNote}>{fillTemplate(az.lineLegacyNote, { value: legacyLine })}</p>}
+          {legacyLine && <p className="ip-hint">{fillTemplate(az.lineLegacyNote, { value: legacyLine })}</p>}
         </LeitungField>
       )}
     </>
