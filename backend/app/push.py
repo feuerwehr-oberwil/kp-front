@@ -54,7 +54,8 @@ logger = logging.getLogger(__name__)
 
 # What the push service said about one send. Only "accepted" is a real delivery — a "retry"
 # (transient failure, e.g. 503) must NOT be recorded as delivered, or the renotify ledger would
-# suppress that endpoint's next Atemschutz alarm for a whole window; "gone" (404/410) is pruned.
+# suppress that endpoint's next Atemschutz alarm for a whole window; "gone" (404/410, unusable
+# keys) is pruned.
 SendOutcome = Literal["accepted", "retry", "gone"]
 
 
