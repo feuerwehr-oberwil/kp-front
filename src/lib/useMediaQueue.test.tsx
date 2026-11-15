@@ -25,9 +25,10 @@ it('renders failures without a retry loop, stops after three rejections, and all
   expect(upload).toHaveBeenCalledTimes(1)
   await act(async () => { await vi.advanceTimersByTimeAsync(4_000) })
   expect(upload).toHaveBeenCalledTimes(1)
-  await act(async () => { await vi.advanceTimersByTimeAsync(6_000) })
+  // the pauses are 10 s and 20 s, ±10 % jitter
+  await act(async () => { await vi.advanceTimersByTimeAsync(8_000) })
   expect(upload).toHaveBeenCalledTimes(2)
-  await act(async () => { await vi.advanceTimersByTimeAsync(20_000) })
+  await act(async () => { await vi.advanceTimersByTimeAsync(24_000) })
   expect(upload).toHaveBeenCalledTimes(3)
   expect(result.current.syncStatus).toBe('error')
   await act(async () => { await vi.advanceTimersByTimeAsync(120_000) })
