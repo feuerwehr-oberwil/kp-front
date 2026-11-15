@@ -151,3 +151,17 @@ async def test_an_update_identical_to_the_einsatz_makes_no_row(client, db_sessio
     await client.patch(f"/api/incidents/{opened.id}", json={"text": "Rauch sichtbar"})
     await _send(client, _update(1))
     assert await _served(client, opened) is None
+
+
+async def test_a_field_taken_through_bearbeiten_is_not_a_hand_edit(client, db_session, opened):
+    await _send(client, _update(1, **NEW_ADDR))
+    # «Bearbeiten» → «Übernehmen» beside the address → «Speichern»: the form PATCHes the alarm's values
+    r = await client.patch(f"/api/incidents/{opened.id}", json=NEW_ADDR)
+    assert r.status_code == 200
+    assert r.json()["alarm_update"] is None
+    assert (await _verlauf(db_session, opened))[-1] == "Alarm-Aktualisierung übernommen: Adresse (über Einsatzdaten)"
+
+    # the next follow-up moves the address again: the crew never disagreed with the alarm, so
+    # «Übernehmen» takes it like any untouched field
+    await _send(client, _update(2, address="Musterweg 33, 9999 Beispielstadt", lat=47.3, lng=8.3))
+    assert [(f["field"], f["edited"]) for f in (await _served(client, opened))["fields"]] == [("address", False)]

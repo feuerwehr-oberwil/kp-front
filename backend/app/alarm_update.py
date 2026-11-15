@@ -97,6 +97,24 @@ async def hand_edited(db: AsyncSession, incident_id: Any) -> set[str]:
     return {f for f, cols in _EDIT_KEYS.items() if keys.intersection(cols)}
 
 
+def taken_in_form(inc: Incident, changed: dict[str, Any]) -> set[str]:
+    """The columns of an Einsatzdaten save (`changed`, the meta.change payload, already applied
+    to `inc`) that put the pending alarm's value in place – «Bearbeiten» → «Übernehmen» beside a
+    field, then «Speichern». The caller records those under this module's SOURCE, not as a hand
+    edit: the crew agreed with the alarm, so the next follow-up of that field is not «von euch».
+    A taken address brings its pin along (lat/lng of the same save)."""
+    rec = inc.alarm_update_json
+    if not isinstance(rec, dict) or rec.get("state") != "pending":
+        return set()
+    alarm = rec["alarm"]
+    cols: set[str] = {
+        f for f in FIELDS if f in changed and _norm(alarm.get(f)) and _norm(alarm.get(f)) == _norm(getattr(inc, f))
+    }
+    if "address" in cols:
+        cols |= {"lat", "lng"} & changed.keys()
+    return cols
+
+
 def _added(old: str, new: str) -> str | None:
     """What a new text appends to the old one («ergänzt»), or None if it is not an append."""
     if old and new.startswith(old) and len(new) > len(old):

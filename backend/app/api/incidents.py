@@ -657,14 +657,22 @@ async def patch_incident(
         if k in data and _numeric(getattr(inc, k)) != _numeric(before[k])
     }
     if changed:
-        await audit.append_event(
-            db,
-            incident_id=inc.id,
-            op_type="meta.change",
-            source="einsatzdaten",
-            user_id=user.id,
-            payload={"fields": changed},
-        )
+        # what the save took from a pending «Alarm aktualisiert» is the alarm's value, not a hand
+        # edit – recorded under that module's source, so its next follow-up is taken normally
+        taken = alarm_update.taken_in_form(inc, changed)
+        for source, fields in (
+            ("einsatzdaten", {k: v for k, v in changed.items() if k not in taken}),
+            (alarm_update.SOURCE, {k: v for k, v in changed.items() if k in taken}),
+        ):
+            if fields:
+                await audit.append_event(
+                    db,
+                    incident_id=inc.id,
+                    op_type="meta.change",
+                    source=source,
+                    user_id=user.id,
+                    payload={"fields": fields},
+                )
         # a pending «Alarm aktualisiert» is re-diffed against the corrected Einsatz (app/alarm_update)
         await alarm_update.after_edit(db, inc)
     if data.get("started_at") is not None:
