@@ -203,7 +203,8 @@ export function MapToolDocks({
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('select') } }],
           // currentColor, not #fff: the dock is light by day since 20.10.2026 (3am sweep, nit)
-          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
+          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />,
+            label: appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel }],
           // a two-point shape is placed by naming two places, so «mehrere nacheinander» has no
           // meaning for it — the «Mehrere platzieren» toggle is simply not offered
           ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'place-repeat', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),

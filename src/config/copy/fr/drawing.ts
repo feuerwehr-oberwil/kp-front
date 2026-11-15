@@ -196,9 +196,6 @@ export const drawingCopy: Localizable<Pick<Copy, Keys>> = {
   },
   addSheet: { tile: 'Ajouter', tools: 'Dessin & équipe' },
   toolDock: {
-    colorGroup: 'Couleur',
-    colorName: '{group} {n}',
-    widthName: 'Épaisseur {n} px',
     autoCommitted: '{name} enregistré',
     draftDiscarded: 'Dessin incomplet abandonné',
     openTitle: '{name} encore ouvert',

@@ -15,7 +15,9 @@
  *
  * On a PHONE the same class also steps the tool bar and the chip row aside (15-mobile.css, round
  * 14.11.2026 #7): the selection bar rides one gap above the peeked sheet, which is exactly where
- * those two stand, so the bar, the Gebäude chip and the tools lay on top of each other.
+ * those two stand, so the bar, the Gebäude chip and the tools lay on top of each other. A plain
+ * drag on the geometry (a vertex, a Form's grip, a symbol) steps the same bars aside through
+ * `body.geom-dragging` (lib/sheetPeek) – but keeps the grips: the finger is on one.
  *
  * A body class rather than props, for the same reason `sheetPeek` is one: the grips are rendered
  * by five components across two surfaces with no shared owner, and this changes nothing but what

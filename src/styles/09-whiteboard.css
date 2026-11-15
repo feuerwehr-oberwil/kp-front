@@ -864,20 +864,8 @@ span.wb-ghost-label { cursor: default; }
 /* cumulative-distance labels mirror the map's .measure-label (mono, strong contrast) */
 .wb-meas-label { z-index: 7; font-family: var(--mono); }
 
-/* draw style picker (floats over canvas bottom) */
-.wb-sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--ink-16); cursor: pointer; padding: 0; }
-.wb-sw.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink-22); }
-.wb-sw:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.wb-ww { width: 38px; height: 34px; display: grid; place-items: center; background: var(--dock-control-bg); border: none; border-radius: var(--r-sm); cursor: pointer; }
-.wb-ww.on { background: var(--sel-wash); }
-.wb-ww:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.wb-ww span { display: block; width: 18px; background: var(--ink); border-radius: 4px; }
 /* the stroke pictures of the Linie row (lib/draw · LineStylePicker, a `Segmented` since
    13.11.2026, M5): drawn in currentColor, so a picked segment's --on-sel ink carries them */
-@media (hover: hover) {
-  .wb-sw:hover:not(.on) { border-color: var(--ink-45); }
-  .wb-dock .wb-ww:hover:not(.on) { background: var(--dock-control-hover); }
-}
 .ls-solid, .ls-dashed { display: block; width: 20px; height: 3px; border-radius: 3px; }
 .ls-solid { background: currentColor; }
 .ls-dashed { background: repeating-linear-gradient(to right, currentColor 0 5px, transparent 5px 8px); }
@@ -909,7 +897,7 @@ span.wb-ghost-label { cursor: default; }
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   /* On a short viewport the stack can exceed the available height. Scroll it as ONE column
      (thin scrollbar) instead of flex-wrapping into a lopsided second column — which overflowed
-     the sidebar ugly. Colour swatches stay compact via the 2-wide .wb-sw-grid. */
+     the sidebar ugly. */
   flex-wrap: nowrap; max-height: calc(100dvh - 168px); overflow-y: auto; overflow-x: hidden;
   scrollbar-width: thin; scrollbar-color: var(--ink-22) transparent;
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink);
@@ -934,7 +922,6 @@ span.wb-ghost-label { cursor: default; }
 /* between groups: 4px more air, no line (ToolDock · M8 rework) — it grows along the dock's axis */
 .wb-dock-gap { flex: none; width: 4px; height: 4px; }
 .wb-dock-ic { display: grid; place-items: center; height: 30px; color: var(--ink-dim); }
-.wb-dock-ic .i { width: 18px; height: 18px; }
 /* ⚠️ The ✕ STAYS on screen while the dock scrolls. On a busy tool (line/area, whose colours +
    widths overflow the port) it scrolled away with the options — off the top of the desktop
    column, off the end of the phone's horizontal bar — and the only way out of the mode was to
@@ -975,9 +962,11 @@ span.wb-ghost-label { cursor: default; }
    tool items, and thus the spacing of the Fertig looks completely off») ── with «Beschriftung der
    Werkzeugleisten» on, the column is the labelled rail's twin: as wide (--vrail-w-labelled), every
    item a --vrail-tile tile with its word under the glyph in the rail's `.vrail-label` voice; «✓
-   Fertig» the one FILLED tile. Off, every item is the bare 46px glyph and «Fertig» the filled ✓. */
+   Fertig» the one FILLED tile; the Form being placed (`.wb-dock-ic`, not a control) a tile of the
+   same height with its name. Off, every item is the bare 46px glyph and «Fertig» the filled ✓.
+   The phone's row wears the same words (15-mobile · .phone-tools .wb-dock-worded). */
 .wb-dock.wb-dock-worded { width: var(--vrail-w-labelled, 92px); }
-.wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded) {
+.wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded, .wb-dock-ic) {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
   width: 100%; height: var(--vrail-tile); padding: 0 2px; }
 .wb-dock-word { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center;
@@ -996,11 +985,8 @@ span.wb-ghost-label { cursor: default; }
   .wb-dock-tog.on:hover:not(:disabled) { filter: brightness(1.08); }
 }
 .wb-dock-tog:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* word/letter toggles (note size steps, Zettel↔Klartext) — the dock is narrow, so the label
-   shrinks to fit rather than widening the whole column */
-.wb-dock-txt { font: var(--fw-bold) var(--fs-micro) var(--body); letter-spacing: .01em; padding: 0 var(--sp-1); white-space: nowrap; }
-/* shape-placement glyph preview in the dock */
-.wb-dock-shape { width: 26px; height: 26px; }
+/* shape-placement glyph preview in the dock (inside .wb-dock-ic, the tile that carries its word) */
+.wb-dock-shape { width: 26px; height: 26px; flex: none; }
 .wb-dock-shape svg { width: 100%; height: 100%; display: block; }
 /* Lage map: the tool rail is vertically centred at right:16px (width 88px), so the
    draw dock sits just left of it and is centred to match — same right-edge, top-down,
@@ -1052,10 +1038,6 @@ span.wb-ghost-label { cursor: default; }
   .wb-dock-x { width: 40px; height: 40px; }
   .wb-dock-go, .wb-dock-tog { width: 44px; height: 40px; }
 }
-
-/* recolour swatches in a 2-wide grid so the larger team palette stays compact in
-   the vertical dock instead of growing into a tall single column */
-.wb-sw-grid { display: grid; grid-template-columns: repeat(2, auto); gap: var(--sp-2); }
 
 /* tool rail (right) — uses the shared .vrail look; floats over the canvas exactly
    like the Lage tool rail (absolute, hung from --rail-top, content-height) */
