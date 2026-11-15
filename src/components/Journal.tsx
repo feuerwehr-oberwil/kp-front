@@ -736,7 +736,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                 {fillTemplate(C.searchCount, { n: totalRows, m: events.length })}
               </span>
             )}
-            <button type="button" className="jr-filter-all" onClick={() => setFilterSel(new Set())}>{C.filterAll}</button>
+            <Button className="jr-filter-all" onClick={() => setFilterSel(new Set())}>{C.filterAll}</Button>
           </div>
         )}
         {showLegend && !searching && (

@@ -1,7 +1,7 @@
 {
   "src/admin/admin.css": {
-    "fontSize": 91,
-    "weight": 42,
+    "fontSize": 87,
+    "weight": 41,
     "spacing": 235
   },
   "src/admin/credentials.css": {

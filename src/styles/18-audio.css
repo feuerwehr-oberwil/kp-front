@@ -147,8 +147,9 @@
    under «Abbrechen» (08.10.2026). */
 .jr-transcript-actions > .ip-btn { padding-inline: var(--sp-3); }
 /* «Der ursprüngliche Wortlaut bleibt im Protokoll» — beside the buttons, because the question it
-   answers («überschreibe ich hier gerade den Einsatz?») is asked exactly while deciding to save. */
-.jr-korr-hint { flex: 1 1 160px; min-width: 0; font-size: var(--fs-micro); color: var(--ink-faint); line-height: 1.35; }
+   answers («überschreibe ich hier gerade den Einsatz?») is asked exactly while deciding to save.
+   The `.ip-hint` voice, 12.5 / ink-dim (style sweep T4, 15.11.2026 – it was 11px ink-faint). */
+.jr-korr-hint { flex: 1 1 160px; min-width: 0; font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
 
 /* Mannschaft sync dialog */
 .psync-counts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }

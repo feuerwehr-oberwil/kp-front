@@ -59,17 +59,19 @@
 @media (prefers-reduced-motion: reduce) { .help-content { scroll-behavior: auto; } }
 .help-sec { padding-top: var(--sp-5); scroll-margin-top: 12px; }
 .help-sec > h3 { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-2); font-size: var(--fs-3); font-weight: var(--fw-heavy); color: var(--ink); }
-.help-sec > h3 .i { width: 19px; height: 19px; color: var(--blue); }
+/* the section glyphs, bullets and the note's ⓘ are decoration: ink-dim, never the blue of «chosen»
+   (style sweep T2, owner pick A, 15.11.2026) */
+.help-sec > h3 .i { width: 19px; height: 19px; color: var(--ink-dim); }
 .help-lead { margin: 0 0 var(--sp-3); font-size: var(--fs-2); line-height: 1.55; color: var(--ink-dim); }
 .help-sub { margin: var(--sp-4) 0 var(--sp-2); font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); }
 .help-list { margin: var(--sp-1) 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); }
 .help-list li { position: relative; padding-left: var(--sp-4); font-size: var(--fs-2); line-height: 1.5; color: var(--ink); }
-.help-list li::before { content: ""; position: absolute; left: 3px; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: var(--blue); }
+.help-list li::before { content: ""; position: absolute; left: 3px; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-dim); }
 .help-list b { font-weight: var(--fw-bold); }
 .help-kbd { font-family: var(--mono); font-size: var(--fs-micro); background: var(--fill-soft); border: 1px solid var(--border); border-radius: var(--r-xs); padding: 1px var(--sp-1); color: var(--ink); white-space: nowrap; }
 .help-note { display: flex; gap: var(--sp-2); margin: var(--sp-3) 0 2px; padding: var(--sp-3); border-radius: var(--r-ctl); background: var(--fill-soft);
   border: 1px solid var(--border); font-size: var(--fs-1); line-height: 1.5; color: var(--ink-dim); }
-.help-note .i { width: 16px; height: 16px; flex: none; color: var(--blue); margin-top: 1px; }
+.help-note .i { width: 16px; height: 16px; flex: none; color: var(--ink-dim); margin-top: 1px; }
 
 @media (max-width: 720px) {
   .help-scrim { padding: 0; }

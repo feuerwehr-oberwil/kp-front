@@ -146,7 +146,7 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRad
               return (
                 <div className="un-haz-row">
                   <span className="un-haz-k">{label}</span>
-                  <span className="un-haz-v">{value}</span>
+                  <span className="un-haz-v num">{value}</span>
                   {onAdoptRadius && metres != null && (isErgAdopted(adoptedRadii, metres)
                     // «30 m ✓ gesetzt»: the short word beside the value (the row has the 44px button's room), the
                     // full words as its name
@@ -171,7 +171,7 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRad
                 : row.l && (
                   <div className="un-haz-row">
                     <span className="un-haz-k">{C.ergLarge}</span>
-                    <span className="un-haz-v">{[row.l.li, row.l.ld && `${C.ergDayShort} ${row.l.ld}`, row.l.ln && `${C.ergNightShort} ${row.l.ln}`].filter(Boolean).join(' · ')}</span>
+                    <span className="un-haz-v num">{[row.l.li, row.l.ld && `${C.ergDayShort} ${row.l.ld}`, row.l.ln && `${C.ergNightShort} ${row.l.ln}`].filter(Boolean).join(' · ')}</span>
                   </div>
                 )}
             </div>

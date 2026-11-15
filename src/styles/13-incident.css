@@ -257,9 +257,10 @@
   margin: -12px -12px -12px 0; padding: 0; border: none; border-radius: var(--r-sm);
   /* above the address line under the title, whose box took the square's bottom 7px (13.11.2026) */
   position: relative; z-index: 1;
-  background: none; color: var(--blue-strong); cursor: pointer; }
+  /* ink-dim glyph, the neutral hover: an action, never the blue of «chosen» (style sweep T2, 15.11.2026) */
+  background: none; color: var(--ink-dim); cursor: pointer; }
 @media (hover: hover) {
-  .ip-card-sync:hover { background: var(--blue-12); }
+  .ip-card-sync:hover { background: var(--ink-8); }
 }
 .ip-card-sync:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-card-sync svg { width: 16px; height: 16px; opacity: 1; }
@@ -333,7 +334,8 @@
 .ip-menu-rowmain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .ip-menu-titleline { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .ip-menu-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ip-menu-rowsub { font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--ink-faint);
+/* the `.list-row-sub` voice, 12.5 / ink-dim, on one line (style sweep T4, 15.11.2026 – it was 11px ink-faint) */
+.ip-menu-rowsub { font: var(--fw-medium) var(--fs-1)/1.3 var(--body); color: var(--ink-dim);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* (.section-pager and the phone .edge-swipe strips are gone — 2026-08-14, with swipe-to-page
    itself. The section views carry their own absolute inset/z-index, so they never needed the
@@ -416,8 +418,11 @@
 /* fixed, tabular value slot: the two rows sit above each other, so «60 %» and «140 %» must not
    shift the slider's right edge between them */
 .set-range-val { min-width: 46px; text-align: right; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); font-variant-numeric: tabular-nums; }
-.set-row-l { display: flex; flex-direction: column; gap: 2px; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); }
-.set-row-l small { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
+/* a setting's label reads like the ListRow beside it in this sheet («Dieses Gerät»: `.list-row-title`
+   at the sheet's 14px, `.list-row-sub`) – ONE row look per sheet (style sweep T5, 15.11.2026; the
+   label was 500 and its line ink-faint) */
+.set-row-l { display: flex; flex-direction: column; gap: 2px; font: var(--fw-bold) var(--fs-2)/1.3 var(--body); color: var(--ink); }
+.set-row-l small { font: var(--fw-medium) var(--fs-1)/1.3 var(--body); color: var(--ink-dim); }
 .set-group-foot { margin: 2px 4px 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); line-height: 1.4; }
 /* the Einstellungen segmented controls + ±steppers now use the shared <Segmented>/.useg and
    <Stepper>/.step (components/Segmented, components/Stepper) — the old .set-seg / .set-step chrome
@@ -471,7 +476,7 @@
 /* 12 round and an 8 gap: the 14px title «Offline zuverlässig als installierte App» stays one line at 375 */
 .or-browser { display: flex; gap: var(--sp-2); padding: var(--sp-3); border-radius: var(--r-ctl);
   background: var(--fill-soft); border: 1px solid var(--border); }
-.or-browser > .i { width: 17px; height: 17px; flex: none; color: var(--blue); margin-top: 2px; }
+.or-browser > .i { width: 17px; height: 17px; flex: none; color: var(--ink-dim); margin-top: 2px; } /* decoration: never blue (T2) */
 .or-browser-t { margin: 0 0 4px; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
 .or-browser-b { margin: 0; font: var(--fw-medium) var(--fs-1) var(--body); line-height: 1.5; color: var(--ink-dim); }
 .or-browser-b + .or-browser-b { margin-top: 8px; }
@@ -495,7 +500,7 @@
 .or-prog-fill { height: 100%; border-radius: var(--r-pill); background: var(--blue);
   transition: width .25s var(--ease); min-width: 10px; }
 .or-prog-meta { display: flex; align-items: center; justify-content: space-between; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
-.or-prog-pct { font-family: var(--mono); font-weight: var(--fw-bold); color: var(--blue-strong); font-variant-numeric: tabular-nums; }
+.or-prog-pct { font-family: var(--mono); font-weight: var(--fw-bold); color: var(--ink); font-variant-numeric: tabular-nums; } /* a count: ink (T2) */
 /* percentage + «Abbrechen» beside it — 44px tall so the glove finds it. ⚠️ Framed since
    28.09.2026 (owner pick A: a cancel is a framed `.ip-btn`, never a bare word), so it no longer
    pulls itself in: its edge IS the bar's edge now. */
@@ -547,7 +552,7 @@
    the rest of the time. Quiet: the update is good news, not a demand. */
 .ip-menu-update { display: inline-flex; align-items: center; gap: 8px; flex: none; min-height: var(--tap);
   padding: 4px 12px; border: 1px solid var(--glass-line); border-radius: var(--r-sm);   /* a button: one corner, --tap (29.09.2026) */
-  background: var(--surface); color: var(--blue); font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; }
+  background: var(--surface); color: var(--ink); font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; } /* ink, not blue (T2) */
 .ip-menu-update .i { width: 13px; height: 13px; stroke-width: 2.2; }
 /* the ONE disabled (28.09.2026): the dim, not a colour swap */
 .ip-menu-update:disabled { opacity: var(--disabled); cursor: default; }
@@ -2387,9 +2392,6 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
   border-radius: var(--r-ctl); background: var(--surface); font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); }
 .ip-addlayer-row input[type="color"] { width: 38px; height: 38px; padding: 2px; border: 1px solid var(--glass-edge);
   border-radius: var(--r-ctl); background: var(--surface); cursor: pointer; }
-.ip-ds-compact { padding: 8px 12px; }
-.ip-ds-compact .ip-ds-title { font-size: var(--fs-2); }
-.ip-ds-dist { color: var(--blue); font-weight: var(--fw-medium); }
 /* --- Einsatz eröffnen wizard --- */
 /* ONE flat list of fields – the three section eyebrows (`.ip-ix-head`: Standort, Stichwort &
    Kategorie, Alarmierung) went on 10.11.2026 (owner review: «only like 5 things to put in»). */
@@ -2474,7 +2476,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .ip-launch > svg { width: 17px; height: 17px; flex: none; color: var(--ink-faint); }
 .ip-launch-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .ip-launch-title { font: var(--fw-bold) var(--fs-3) var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ip-launch-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ip-launch-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Divera-alarm row: red kicker + pulse to read as the loud, fresh thing */
 .ip-launch.alarm { border-color: color-mix(in srgb, var(--red) 35%, var(--glass-edge)); }
 .ip-launch-kicker { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--red-strong); }
@@ -2505,7 +2507,8 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 /* identity card reuses the in-incident menu classes (ip-menu-user/-av/-userinfo) so both
    surfaces render "who am I" identically; only spacing differs in the card footer */
 .ip-emptyapp-foot .ip-menu-user { padding: 0 2px; }
-.ip-foot-logout { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: none; border-radius: var(--r-sm);
+/* the foot's doors are --tap tall like every control (style sweep T4, 15.11.2026 – they were ~31px) */
+.ip-foot-logout { display: inline-flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 0 12px; border: none; border-radius: var(--r-sm);
   background: none; cursor: pointer; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-faint);
   transition: background .14s var(--ease), color .14s var(--ease); }
 @media (hover: hover) {
@@ -2513,7 +2516,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 }
 .ip-foot-logout .i { width: 15px; height: 15px; }
 .ip-emptyapp-utils { display: flex; flex-wrap: wrap; gap: 2px; margin-left: -8px; }
-.ip-foot-util { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: none; border-radius: var(--r-sm);
+.ip-foot-util { display: inline-flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 0 12px; border: none; border-radius: var(--r-sm);
   background: none; cursor: pointer; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim);
   transition: background .14s var(--ease), color .14s var(--ease); }
 @media (hover: hover) {

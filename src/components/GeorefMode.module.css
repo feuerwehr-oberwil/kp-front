@@ -146,9 +146,10 @@
    Wegkreu…» teaches nothing. The ellipsis used to be undone for phones alone — but during the
    split the bar's text column is HALF a screen while the window is still a tablet's, so every
    width from ~600 to ~900px cut the sentence mid-word: the same «the window is not the pane»
-   trap as lib/whiteboard · sideInsets. Two lines of 11.5px cost less than an unreadable line. */
+   trap as lib/whiteboard · sideInsets. Two lines of hint cost less than an unreadable line.
+   The `.ip-hint` voice (12.5 / ink-dim) like every hint sentence (style sweep T4, 15.11.2026). */
 .promptHint {
-  display: block; font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--ink-dim); margin-top: 2px;
+  display: block; font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); margin-top: 2px;
 }
 /* The Ampel as a LINE, for the bar that has no room for a band. Same reading as the phone card's
    status row, same source (georefMode · georefLamp) — only the shape differs, because the
@@ -234,9 +235,9 @@
 /* red never fills — it marks the destructive choice apart from the harmless one beside it */
 .popWarn { color: var(--red-strong); border-color: var(--del-edge); }
 .popActs button.popWarn { color: var(--red-strong); }
-/* how an OPEN half becomes a pair by hand — one quiet line, only where it applies */
+/* how an OPEN half becomes a pair by hand — one quiet line in the `.ip-hint` voice, only where it applies */
 .popHint {
-  padding: var(--sp-2) var(--sp-1) 2px; font: var(--fw-medium) var(--fs-micro)/1.35 var(--body); color: var(--ink-dim);
+  padding: var(--sp-2) var(--sp-1) 2px; font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim);
 }
 /* the do-nothing exit, full width and quiet: Esc must never be the only way out on touch. THE quiet
    button (<Button variant="quiet" block>, 08.10.2026 — it was a 38px dim word of its own) */
@@ -386,8 +387,9 @@
   gap: 2px 16px; padding: 2px 2px 4px; color: var(--ink-dim); font: var(--fw-medium) var(--fs-1)/1.4 var(--body); }
 .qSummary span, .qSummary strong { min-width: 0; overflow-wrap: anywhere; }
 .qSummary span b { color: var(--ink); font: var(--fw-bold) var(--fs-3) var(--mono); }
-/* mono is for the pair COUNT; a sentence («Von der Station freigegeben») reads in the body font */
-.qSummary span b.qHeadline { font-family: var(--body); }
+/* mono and the count's size are for the pair COUNT; a sentence («Von der Station freigegeben»)
+   reads in the body voice, a step over the column's 12.5 (15.11.2026, owner: «why is it so large») */
+.qSummary span b.qHeadline { font: var(--fw-medium) var(--fs-2)/1.4 var(--body); }
 .qSummary strong { color: var(--ink); font: var(--fw-bold) var(--fs-3)/1.35 var(--body); text-align: right; }
 /* the calm twin of .qWarn: an approved fit states who vouches for it, and states it in the
    panel's own voice — an amber box would call a published reference a defect */
@@ -434,11 +436,11 @@
 .transferRow:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .transferRow:disabled { opacity: var(--disabled); cursor: default; }
 .transferIcon { width: 34px; height: 34px; flex: none; display: grid; place-items: center;
-  border-radius: var(--r-sm); color: var(--blue); background: var(--blue-12); }
+  border-radius: var(--r-sm); color: var(--ink-dim); background: var(--fill-soft); } /* a picture, never blue (T2) */
 .transferIcon svg, .transferRow > svg { width: 17px; height: 17px; }
 .transferName { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .transferName b { font: var(--fw-bold) var(--fs-2) var(--body); }
-.transferName small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-dim); font: var(--fw-medium) var(--fs-micro) var(--body); }
+.transferName small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-dim); font: var(--fw-medium) var(--fs-1)/1.3 var(--body); } /* = .list-row-sub (T4) */
 .transferLinked { flex: none; color: var(--amber-strong); font: var(--fw-bold) var(--fs-micro) var(--body); }
 
 @keyframes georefIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -524,7 +526,7 @@
     z-index: var(--z-chrome-raised);
     min-height: var(--tap); padding: 0 var(--sp-4) 0 var(--sp-3); border-radius: var(--r-pill);
     border: 1px solid var(--glass-edge); background: var(--surface); box-shadow: var(--e3);
-    color: var(--blue-strong); font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer;
+    color: var(--ink); font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; /* ink: an action, not «chosen» (T2) */
   }
   .exitPill svg { width: 16px; height: 16px; }
   /* …which is the corner the wind chip hangs in under the TopBar, and the plan's own chip row
@@ -543,7 +545,7 @@
   .foldOpen { margin: 0 0 var(--sp-2); color: var(--amber-strong); font-weight: var(--fw-bold); }
   .steps { margin: 0 0 var(--sp-2); padding-left: 1.3em; color: var(--ink); }
   .steps li + li { margin-top: var(--sp-1); }
-  .foldNote { margin: var(--sp-1) 0 0; font-size: var(--fs-micro); }
+  .foldNote { margin: var(--sp-1) 0 0; } /* the fold's own 12.5 / ink-dim = the `.ip-hint` voice */
   .qrow {
     display: flex; justify-content: space-between; gap: 12px; margin-top: var(--sp-2);
     font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink);
