@@ -18,11 +18,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     objectPlans: (n: number) => (n === 1 ? '1 piano' : `${n} piani`),
     objectNoPlans: 'nessun piano',
     mapPickButton: 'Sulla carta',
-    coordSet: 'Coordinata impostata',
-    coordNone: 'Nessuna posizione – verrà aperto senza coordinata',
-    coordNoneEdit: 'Nessuna posizione – intervento senza coordinata',
-    coordClear: 'Rimuovi posizione',
-    coordFold: 'Coordinate',
     titleLabel: 'Parola chiave / titolo',
     titlePlaceholder: 'es. Incendio edificio scuola',
     categoryLabel: 'Categoria',
@@ -85,5 +80,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     moveConfirmBtn: 'Sposta',
     alarmTextUnavailable: 'Impossibile caricare il messaggio d\'allarme – resta invariato',
     demoBlocked: 'Disattivato nella demo – qui non si può aprire un nuovo intervento.',
+    coordMissing: 'Ancora nessuna posizione',
   },
 }

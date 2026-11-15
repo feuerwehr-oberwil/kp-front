@@ -28,13 +28,6 @@ export const intakeCopy = {
     mapPickButton: 'Auf Karte',
     hereButton: 'Hier',
     hereFailed: 'Standort nicht verfügbar',
-    coordSet: 'Koordinate gesetzt',
-    coordNone: 'Kein Standort – wird ohne Koordinate eröffnet',
-    // the edit form: the Einsatz is already open, so nothing «wird eröffnet» any more
-    coordNoneEdit: 'Kein Standort – Einsatz ohne Koordinate',
-    coordClear: 'Standort entfernen',
-    // The fold over the literal coordinate (owner, 18.09.2026) — see EinsatzWizard.
-    coordFold: 'Koordinaten',
     // --- Stichwort section ---
     titleLabel: 'Stichwort / Titel',
     titlePlaceholder: 'z. B. Gebäudebrand Schulhaus',
@@ -113,5 +106,8 @@ export const intakeCopy = {
       'Dienstleistungen': 'Dienstleistungen',
       'Diverse Einsätze': 'Diverse Einsätze',
     } as Record<string, string>,
+    // The one line under the address field when the form has no coordinate yet (owner pick
+    // 1A, 15.11.2026) – on create and edit alike; set, the form says nothing about it.
+    coordMissing: 'Noch kein Standort',
   },
 } as const

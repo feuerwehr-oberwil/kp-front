@@ -36,8 +36,8 @@ import { clearDraft, keepDraft, readDraft } from '../../lib/draftKeep'
 // `ix` (appConfig.copy.intake) is read inside each function below rather than captured at
 // module-load, so the locale resolved at boot (config/copy) applies.
 //
-// Two jobs, one panel: a blank MANUAL create (three location methods — object library ·
-// address autocomplete · map-pick), and correcting an EXISTING incident in place. There is
+// Two jobs, one panel: a blank MANUAL create (four location methods, all on the address field —
+// address autocomplete · object library · map-pick · «Hier» GPS), and correcting an EXISTING incident in place. There is
 // no third «take the alarm» mode any more: an alarm opens its Einsatz on arrival (2026-08-02),
 // so this panel is where the expert fixes what the dispatch got wrong — Stichwort, Kategorie,
 // Priorität, Ort — with the crew already on the map instead of waiting behind a wizard.
@@ -187,7 +187,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   const addrSeq = useRef(0)
   // ⚠️ The menu has to CLOSE on an outside tap, the way Combo does. Nothing but picking a hit
   // ever closed it, so in edit mode — where the field is prefilled — merely tapping in to fix a
-  // typo opened a 220px list over the three location buttons and the Stichwort field below it.
+  // typo opened a 220px list over the Stichwort field below it.
   // The next tap anywhere in that band landed on an address row and silently rewrote the address
   // AND the coordinate. Esc closes the menu before the sheet, so the way out is not «discard
   // every edit».
@@ -217,12 +217,6 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
 
   // map picker (self-contained — works with no active incident yet)
   const [mapOpen, setMapOpen] = useState(false)
-
-  // The «Koordinaten» fold. DERIVED until the operator says otherwise (null = nobody has),
-  // so picking an address or an object closes it on its own and clearing the address opens it
-  // again — the fold follows the fact instead of freezing whatever was true at mount.
-  const [coordOverride, setCoordOverride] = useState<boolean | null>(null)
-  const coordOpen = coordOverride ?? !(coord && address.trim())
 
   // «Hier» — the PRIMARY location method: the EL usually stands at (or near) the Einsatzort,
   // so one tap takes a GPS fix; object library / map pick are the fallbacks for elsewhere
@@ -372,11 +366,9 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       ...(textReady ? { text: text.trim() || null } : {}),
       ...(asIso(alarmiertAt) ? { started_at: asIso(alarmiertAt) } : {}),
       is_exercise: isExercise,
-      // ⚠️ `null`, not omitted, once there WAS one. The ✕ set `coord` to null and the read-out
-      // agreed — but an omitted key is not written (the PATCH is exclude_unset), so the location
-      // was cleared on screen, «Einsatz aktualisiert» came back, and the old coordinate was still
-      // on the record and still driving the map.
-      ...(coord ? { lng: coord[0], lat: coord[1] } : edit && realCoord(edit.lng, edit.lat) ? { lng: null, lat: null } : {}),
+      // the form can set or move the location, never clear it: the ✕ «Standort entfernen» went
+      // with the «Koordinaten» fold (owner pick 1A, 15.11.2026), so no coordinate = nothing to send
+      ...(coord ? { lng: coord[0], lat: coord[1] } : {}),
     } satisfies IncidentCreate
     // ⚠️ On EDIT, send only what actually changed. The full body re-wrote eight fields every
     // time, including three the operator may never have looked at — and `started_at` is the
@@ -428,11 +420,14 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     </>}>
       {/* ONE flat list of fields, no section eyebrows (owner review 10.11.2026: «only like 5
           things to put in») – each field's own label says what it is. --- Standort --- */}
-      <div className="ip-field ip-ac" ref={addrRef}>
+      <div className="ip-field" ref={addrRef}>
         <span>{ix.addressLabel}</span>
-        {/* «Hier» (GPS) is an icon-only button riding the field's own right edge — the EL usually
-            stands at (or near) the Einsatzort, so it has to be reachable the moment the address
-            field is in view, not buried as the first row of a menu that only opens on focus. */}
+        {/* ALL THREE location methods ride the field's own right edge (owner pick 1A, 15.11.2026):
+            «Aus Plänen» · «Auf Karte» | «Hier». They used to be a row of two buttons under the field
+            plus «Hier» in it, and a «Koordinaten» fold under those – three rows for one question.
+            «Hier» (GPS) stays last, after the divider: the EL usually stands at (or near) the
+            Einsatzort, so it is the primary method and has to be reachable the moment the field is
+            in view. Icon-only, so each carries its word as `aria-label` and `title`. */}
         <div className="ip-ac-input-wrap">
           <input
             value={address}
@@ -440,32 +435,45 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
             onChange={(e) => { setAddress(e.target.value); setAddrOpen(true) }}
             onFocus={() => setAddrOpen(true)}
           />
-          <button type="button" className="ip-ac-locate" disabled={locating} onClick={useHere} aria-label={ix.hereButton}>
-            {locating ? <ShellLoader /> : <Icon id="locate" />}
-          </button>
-        </div>
-        {addrOpen && address.trim().length >= 3 && (
-          <div className="ip-ac-menu">
-            {addrLoading && <div className="ip-ac-note"><LoadingStatus>{ix.addressSearching}</LoadingStatus></div>}
-            {!addrLoading && hits.length === 0 && <div className="ip-ac-note">{ix.addressNoHits}</div>}
-            {hits.map((h, i) => (
-              <button key={i} type="button" className="ip-ac-row" onClick={() => pickHit(h)}>
-                <Icon id="flag" /> <span>{h.label}</span>
-              </button>
-            ))}
+          <div className="ip-ac-tools">
+            {/* it FOLDS the object list open under the field — so it says so, and the `.on` state
+                is not the only thing a screen reader has to go on */}
+            <button type="button" className={`ip-ac-tool${objOpen ? ' on' : ''}`} aria-expanded={objOpen}
+              aria-label={ix.objectButton} title={ix.objectButton} onClick={() => { setAddrOpen(false); setObjOpen((v) => !v) }}>
+              <Icon id="doc" />
+            </button>
+            <button type="button" className="ip-ac-tool" aria-label={ix.mapPickButton} title={ix.mapPickButton} onClick={() => { setAddrOpen(false); setMapOpen(true) }}>
+              <Icon id="map" />
+            </button>
+            <span className="ip-ac-sep" aria-hidden="true" />
+            <button type="button" className="ip-ac-tool ip-ac-locate" disabled={locating} onClick={useHere}
+              aria-label={ix.hereButton} title={ix.hereButton}>
+              {locating ? <ShellLoader /> : <Icon id="locate" />}
+            </button>
           </div>
+          {/* inside the wrap so it hangs from the INPUT, not from the warning line under it */}
+          {addrOpen && address.trim().length >= 3 && (
+            <div className="ip-ac-menu">
+              {addrLoading && <div className="ip-ac-note"><LoadingStatus>{ix.addressSearching}</LoadingStatus></div>}
+              {!addrLoading && hits.length === 0 && <div className="ip-ac-note">{ix.addressNoHits}</div>}
+              {hits.map((h, i) => (
+                <button key={i} type="button" className="ip-ac-row" onClick={() => pickHit(h)}>
+                  <Icon id="flag" /> <span>{h.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* ⚠️ The ONLY trace of the coordinate left on the form (owner pick 1A, 15.11.2026). The
+            literal coordinate and its ✕ «Standort entfernen» went with the «Koordinaten» fold –
+            five decimals nobody read. What stays is the one fact that matters: this Einsatz has NO
+            location yet (no address hit, object, map pick or GPS fix), which an address typed by
+            hand does not give it. A warning, so it is never behind anything; nothing when set. */}
+        {!coord && (
+          <p className="form-warn form-warn-amber form-warn-compact" role="status">
+            <Icon id="warn" /><span className="form-warn-text">{ix.coordMissing}</span>
+          </p>
         )}
-      </div>
-
-      <div className="ip-ix-methods">
-        {/* it FOLDS the object list open — so it says so, and the `.on` state is not the only
-            thing a screen reader has to go on */}
-        <button type="button" className={`ip-btn${objOpen ? ' on' : ''}`} aria-expanded={objOpen} onClick={() => setObjOpen((v) => !v)}>
-          <Icon id="doc" /> {ix.objectButton}
-        </button>
-        <button type="button" className="ip-btn" onClick={() => setMapOpen(true)}>
-          <Icon id="map" /> {ix.mapPickButton}
-        </button>
       </div>
 
       {objOpen && (
@@ -479,39 +487,6 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           </div>
         </div>
       )}
-
-      {/* --- Koordinaten, behind a fold (owner, 18.09.2026) ---------------------------------
-          People enter an ADDRESS. The literal coordinate is what the address resolved to, and
-          it stood open between the location methods and the Stichwort field on every incident
-          anybody ever corrected — a row of five decimal places nobody reads and a ✕ that quietly
-          clears the Einsatzort. Folded away it is still one tap from being read, cleared and
-          re-picked; nothing about how it is stored or edited changed, and the map picker is
-          exactly where it was, above.
-          ⚠️ It opens ITSELF whenever it is the only thing left saying where this Einsatz is: no
-          address, or an address that never resolved to a coordinate. «Kein Standort – wird ohne
-          Koordinate eröffnet» is a warning, and a warning behind a fold is not a warning. The
-          moment the operator works the head, their choice wins over the derivation. */}
-      {/* ⚠️ ONE row, open or shut (20.09.2026). Opened, the head used to stay and the coordinate
-          came in as a second row under it – so the fold that was meant to save the line cost two.
-          Now the head BECOMES the line: the chevron stays the way back, the title gives way to
-          what it was hiding, and the ✕ sits beside it as its own button. */}
-      <div className="ip-fold-row">
-        <button
-          type="button" className={`ip-fold-head${coordOpen ? ` ip-loc${coord ? ' set' : ''}` : ''}`} aria-expanded={coordOpen}
-          aria-label={ix.coordFold} onClick={() => setCoordOverride(!coordOpen)}
-        >
-          <Icon id="chevron-down" className="chev" aria-hidden="true" />
-          {!coordOpen ? <span className="ip-fold-title">{ix.coordFold}</span> : (
-            <>
-              <Icon id={coord ? 'flag' : 'warn'} />
-              <span className="ip-loc-txt">{coord ? `${ix.coordSet} · ${coord[1].toFixed(5)}, ${coord[0].toFixed(5)}` : edit ? ix.coordNoneEdit : ix.coordNone}</span>
-            </>
-          )}
-        </button>
-        {coordOpen && coord && (
-          <button type="button" className="ip-loc-clear" onClick={() => setCoord(null)} aria-label={ix.coordClear}><Icon id="close" /></button>
-        )}
-      </div>
 
       {/* --- Stichwort & Kategorie --- */}
       <label ref={titleRef} className="ip-field"><span>{ix.titleLabel} *</span>
