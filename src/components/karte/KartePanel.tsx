@@ -185,7 +185,7 @@ export function KartePanel(p: {
     body = (
       <>
         {(o.lat == null || o.lng == null) && (
-          <div className={cx(s.note, s.amber)}><Icon id="warn" /><span><b>{C.approxHead}</b> {C.approxBody}</span></div>
+          <div className="form-warn form-warn-amber"><Icon id="warn" /><span className="form-warn-text">{C.approxHead} {C.approxBody}</span></div>
         )}
         <StationWord obj={o} />
         <PlanTiles docs={p.docs} onOpenDoc={p.onOpenDoc} avail={p.offline ? p.avail ?? null : undefined} />
@@ -273,6 +273,19 @@ export function KartePanel(p: {
           rememberScroll(key, el.scrollTop)
         }}>{p.level && <LevelSwitch level={p.level} />}{body}</div>
     </section>
+  )
+}
+
+/** The register did not answer: THE form warning, amber (nothing is blocked – the Karte still works),
+ *  with «Erneut versuchen» as its one compact action (style sweep T3, 15.11.2026 – it was a grey
+ *  note with a loose quiet button under it). */
+function RegisterFailed({ onRetry }: { onRetry: () => void }) {
+  const C = appConfig.copy.karte
+  return (
+    <div className="form-warn form-warn-amber">
+      <Icon id="warn" /><span className="form-warn-text">{C.registerError}</span>
+      <button type="button" className="form-warn-act" onClick={onRetry}>{C.retry}</button>
+    </div>
   )
 }
 
@@ -382,13 +395,13 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
   } else if (!info) {
     inner = reg.state === 'offline'
       ? <Quiet>{C.registerOffline}</Quiet>
-      : <><div className={s.note}><Icon id="warn" /><span>{C.registerError}</span></div><Button variant="quiet" className={s.retry} onClick={onRetry}>{C.retry}</Button></>
+      : <RegisterFailed onRetry={onRetry} />
   } else if (info.registers === 'off') {
     inner = <Quiet>{C.registerOff}</Quiet>
   } else if (info.registers === 'outside_ch' || info.registers === 'no_location') {
     inner = <Quiet>{C.registerOutside}</Quiet>
   } else if (info.gwr_status === 'error' && !info.gwr) {
-    inner = <><div className={s.note}><Icon id="warn" /><span>{C.registerError}</span></div><Button variant="quiet" className={s.retry} onClick={onRetry}>{C.retry}</Button></>
+    inner = <RegisterFailed onRetry={onRetry} />
   } else if (info.gwr_status === 'none' && !info.plants.length) {
     inner = <Quiet>{C.registerNone}</Quiet>
   } else {

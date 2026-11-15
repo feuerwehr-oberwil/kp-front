@@ -106,7 +106,7 @@ function MicrosoftLogin({ error }: { error: MicrosoftError | null }) {
   const C = appConfig.copy.login
   return (
     <div className="login-ms">
-      {error && <p className="login-ms-error" role="alert">{C.microsoftErrors[error]}</p>}
+      {error && <p className="form-warn form-warn-compact" role="alert"><Icon id="warn" /><span className="form-warn-text">{C.microsoftErrors[error]}</span></p>}
       <a className="ip-btn block" href="/api/auth/microsoft/start">
         <svg viewBox="0 0 16 16" aria-hidden>
           <rect width="7.5" height="7.5" fill="#f25022" /><rect x="8.5" width="7.5" height="7.5" fill="#7fba00" />
@@ -185,16 +185,19 @@ function Roster({ roster, error, onPick, onRetry }: {
 }) {
   if (error) {
     return (
-      <div className="login-state login-state-err">
-        <div className="login-err-head">
-          <Icon id="warn" />
-          <span>{error.detail}</span>
-        </div>
-        {error.hint && <p className="login-err-hint">{error.hint}</p>}
-        {error.code !== undefined && (
-          <p className="login-err-code">{fillTemplate(appConfig.copy.errors.httpCode, { code: error.code })}</p>
-        )}
-        <button type="button" className="ip-btn" onClick={onRetry}>{appConfig.copy.login.retry}</button>
+      // THE form warning (style sweep T3, 15.11.2026 – it was a red headline over loose lines and a
+      // full-width button): the failure in bold ink, the advice and the raw status under it in the
+      // sentence, «Erneut versuchen» its one compact action
+      <div className="form-warn login-err" role="alert">
+        <Icon id="warn" />
+        <span className="form-warn-text">
+          {error.detail}
+          {error.hint && <span className="login-err-hint">{error.hint}</span>}
+          {error.code !== undefined && (
+            <span className="login-err-code">{fillTemplate(appConfig.copy.errors.httpCode, { code: error.code })}</span>
+          )}
+        </span>
+        <button type="button" className="form-warn-act" onClick={onRetry}>{appConfig.copy.login.retry}</button>
       </div>
     )
   }

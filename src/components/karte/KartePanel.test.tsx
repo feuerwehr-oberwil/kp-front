@@ -153,6 +153,17 @@ describe('KartePanel', () => {
     expect(container.textContent).not.toMatch(/Gefahrenangaben/)
   })
 
+  // a register that did not answer is THE amber form warning with its retry (style sweep T3,
+  // 15.11.2026 – it was a grey note and a loose quiet button)
+  it('says a failed register in the amber warning, whose own action asks again', () => {
+    const onRetryRegister = vi.fn()
+    const { container } = panel({ register: { state: 'error', info: null, cached: false }, onRetryRegister })
+    const warn = container.querySelector('[data-section="register"] .form-warn.form-warn-amber')!
+    expect(warn.textContent).toMatch(/Gebäuderegister gerade nicht erreichbar/)
+    fireEvent.click(within(warn as HTMLElement).getByRole('button', { name: 'Erneut versuchen' }))
+    expect(onRetryRegister).toHaveBeenCalledOnce()
+  })
+
   // a dropped pin keeps the FACT and loses the «Fehlende Angaben heissen nicht …» tail
   it('keeps a pin factual without the missing-data tail', () => {
     const at: [number, number] = [7.57175, 47.52015]

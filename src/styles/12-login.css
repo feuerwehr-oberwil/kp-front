@@ -61,14 +61,13 @@
 }
 .login-state { display: flex; align-items: center; justify-content: center; gap: 8px;
   padding: var(--sp-6) 0; font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-faint); text-align: center; }
-/* the roster-failed state carries a retry action: the headline reads in red, the instruction
-   underneath in normal ink (it is advice, not alarm), the raw status in small print for the call
-   to whoever runs the server — and the button on its own full-width row */
-.login-state-err { color: var(--red-strong); flex-direction: column; align-items: stretch; gap: 0; }
-.login-err-head { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); font-weight: var(--fw-bold); }
-.login-err-hint { margin: 8px 0 0; font-size: var(--fs-1); font-weight: var(--fw-medium); line-height: 1.45; color: var(--ink-dim); }
-.login-err-code { margin: var(--sp-1) 0 0; font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-faint); }
-.login-state-err .ip-btn { justify-content: center; margin-top: 12px; }
+/* the roster-failed state is THE form warning (`.form-warn`, red: nothing to sign in to) with its
+   retry as `.form-warn-act` (LoginScreen · Roster, style sweep T3, 15.11.2026). Inside its
+   sentence: the instruction in the `.ip-hint` voice (advice, not alarm), the raw status in small
+   print for the call to whoever runs the server. The glyph keeps to the first line. */
+.login-err { align-items: flex-start; }
+.login-err-hint { display: block; margin-top: var(--sp-1); font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
+.login-err-code { display: block; margin-top: var(--sp-1); font-family: var(--mono); font-size: var(--fs-micro); font-weight: var(--fw-medium); color: var(--ink-faint); }
 .login-state .i { width: 18px; height: 18px; flex: none; }
 
 /* roster — large tappable tiles (2-up grid for many; one prominent row for a single user) */
@@ -168,4 +167,4 @@
 
 /* «Mit Microsoft anmelden» (LoginScreen · MicrosoftLogin): below the roster, only where set up */
 .login-ms { display: flex; flex-direction: column; gap: var(--sp-2); padding-top: var(--sp-3); border-top: 1px solid var(--glass-edge); }
-.login-ms-error { margin: 0; font-size: var(--fs-1); font-weight: var(--fw-medium); line-height: 1.45; color: var(--red-strong); }
+/* (its error is THE form warning, compact – `.login-ms-error`, red body text, is gone, T3) */

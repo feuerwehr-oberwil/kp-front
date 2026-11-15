@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 
 // The remembered-length auto-login (07.09.): a device that has signed an account in once
 // submits by itself the moment the typed PIN reaches that account's proven length — no ✓.
@@ -229,5 +229,23 @@ describe('LoginScreen — «Nicht synchronisierte Änderungen von …»', () => 
     await act(async () => {})
     expect(lineTitles()).toEqual(['Nicht synchronisierte Änderungen von Graf Jonas'])
     expect(signIns()).toEqual([])
+  })
+})
+
+// A roster that does not load is THE form warning (style sweep T3, 15.11.2026): one alert with the
+// failure, the advice and the status in its sentence, and «Erneut versuchen» as its one action.
+describe('LoginScreen — a roster that failed to load', () => {
+  it('says so in one warning whose action loads the roster again', async () => {
+    vi.mocked(apiGet).mockRejectedValueOnce(new ApiError(503, 'Server nicht erreichbar'))
+    render(<LoginScreen />)
+    await act(async () => {})
+    const warn = screen.getByRole('alert')
+    expect(warn.classList.contains('form-warn')).toBe(true)
+    expect(warn.textContent).toContain('Server nicht erreichbar')
+    expect(warn.textContent).toContain('503')
+    fireEvent.click(within(warn).getByRole('button', { name: 'Erneut versuchen' }))
+    await act(async () => {})
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.getByText('Keller Anna')).toBeTruthy()
   })
 })

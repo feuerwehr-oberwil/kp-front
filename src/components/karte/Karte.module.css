@@ -178,11 +178,13 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .hintBody { display: flex; flex-direction: column; gap: var(--sp-1); }
 .src { font: var(--fw-medium) var(--fs-micro)/1.4 var(--body); color: var(--ink-dim); }
 .src b { color: var(--ink); }
+/* an INFO note (offline, not stored here): a quiet grey box with its ⓘ. A failure or a warning is
+   never this – it is THE form warning, amber (`.form-warn .form-warn-amber`, 13-incident), with
+   `.form-warn-act` for its retry (style sweep T3, 15.11.2026: the register, Pläne and address
+   failures were this grey note) */
 .note { display: flex; gap: var(--sp-2); align-items: flex-start; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--ink-5);
   font: var(--fw-medium) var(--fs-1)/1.4 var(--body); color: var(--ink); }
 .note svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--ink-dim); }
-.note.amber { background: var(--amber-12); }
-.note.amber svg { color: var(--amber-strong); }
 /* the plan tiles, two to a line (PlanTiles, owner 27.10.2026 · mock 2C): the list row's height and
    type (one rhythm, below); a long name ends in «…» rather than growing the tile. The panel's ONE
    lifted surface – the .list-card's opaque fill and hairline ring, the glyph in full ink (owner,
@@ -205,7 +207,6 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .headSkeleton { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-1) 0 2px; }
 .skTitle { height: 20px; width: 62%; }
 .skSub { height: 12px; width: 40%; }
-.retry { align-self: flex-start; }
 
 /* ── phone: the panel is the Ebenen sheet (R2, 17.10.2026) ──────────────────────────────────────
    KartePanel wears `.layers-card` on a phone, so the frame IS Ebenen's (15-mobile · flush with the
@@ -456,7 +457,7 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 /* offline, the open document not on this device: the sentence instead of the reader */
 .surfaceNote { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: var(--sp-4); }
 .surfaceNote .note { max-width: 360px; }
-.floors > .note { width: min(980px, 100%); }
+.floors > :global(.form-warn) { width: min(980px, 100%); }
 
 /* ── the menu button's dot (owner, review round 5: «a small red dot» — it was a count): an
    Einsatz running or an alarm waiting; the number is in the button's accessible name. On the
