@@ -103,9 +103,10 @@ function wizardDraft(now: WizardFields, opened: WizardFields): WizardFields | nu
   return same ? null : now
 }
 
-/** «Alarm neu: …» under a field a pending «Alarm aktualisiert» changes (Banners ·
+/** «Alarm neu: …» beside a field a pending «Alarm aktualisiert» changes (Banners ·
  *  AlarmUpdateBanner → «Bearbeiten»): one tap puts the alarm's value into the field – saving stays
- *  the operator's. Gone once the field holds it. */
+ *  the operator's. The address hint sits above its input so the suggestions cannot hide it.
+ *  Gone once the field holds it. */
 function AlarmNew({ field, value, onTake }: { field: AlarmUpdateField | undefined; value: string; onTake: (v: string) => void }) {
   const alarm = field?.alarm
   if (alarm == null || alarm.trim() === value.trim()) return null
@@ -464,6 +465,14 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           things to put in») – each field's own label says what it is. --- Standort --- */}
       <div className="ip-field" ref={addrRef}>
         <span>{ix.addressLabel}</span>
+        <AlarmNew field={alarmNew('address')} value={address} onTake={(v) => {
+          setAddress(v); closeMenu()
+          // the pin comes along: the alarm's own coordinate, else the first hit for the address
+          const u = edit?.alarm_update
+          const c = realCoord(u?.lng, u?.lat)
+          if (c) setCoord(c)
+          else geocodeSearch(v).then((h) => { if (h[0]) setCoord([h[0].lng, h[0].lat]) }).catch(() => {})
+        }} />
         {/* The location methods ride the field's own right edge (owner pick 1A, 15.11.2026):
             «Auf Karte» | «Hier». They used to be a row of two buttons under the field plus «Hier»
             in it, and a «Koordinaten» fold under those – three rows for one question. «Aus Plänen»
@@ -502,14 +511,6 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           </p>
         )}
       </div>
-      <AlarmNew field={alarmNew('address')} value={address} onTake={(v) => {
-        setAddress(v); closeMenu()
-        // the pin comes along: the alarm's own coordinate, else the first hit for the address
-        const u = edit?.alarm_update
-        const c = realCoord(u?.lng, u?.lat)
-        if (c) setCoord(c)
-        else geocodeSearch(v).then((h) => { if (h[0]) setCoord([h[0].lng, h[0].lat]) }).catch(() => {})
-      }} />
 
       {/* --- Stichwort & Kategorie --- */}
       <label ref={titleRef} className="ip-field"><span>{ix.titleLabel} *</span>
