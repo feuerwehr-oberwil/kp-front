@@ -20,7 +20,7 @@ import { MERGE_POLICY, mergeWorkspace, type RecordConflict } from '../mergeWorks
 import { crewFiledOf, unionCrewFiled } from '../crewFiling'
 import { truppRenumberings, type NumberScope, type TruppRenumbering } from '../truppNumbers'
 import {
-  getWorkspace, putWorkspace, putWorkspaceBeacon, putWorkspaceRecord, putWorkspaceRecordBeacon, putWorkspaceTrupps, putWorkspaceTruppsBeacon,
+  getWorkspace, putWorkspace, putWorkspaceRecord, putWorkspaceRecordBeacon, putWorkspaceTrupps, putWorkspaceTruppsBeacon,
   type Workspace,
 } from './workspace'
 import type { Trupp } from '../../types'
@@ -1045,15 +1045,18 @@ export class WorkspaceSync {
    * a same-device reopen still reconciles from the cache, and once the server accepts this
    * push every device's next load (or live-poll) pulls the up-to-date revision. If the push
    * raced a concurrent server edit (409) it's simply dropped server-side; the next real
-   * flush() resolves it via the normal three-way merge. No-op when clean. */
+   * flush() resolves it via the normal three-way merge. No-op when clean.
+   * ⚠️ Only the SMALL saves go (the Trupp slice, the record slice). The browser caps every
+   * in-flight keepalive body together at ~64 KB and a real 5 h Einsatz is ~97 KB
+   * (docs/testing/fat-incident.md): the whole document was refused, and one just under the cap
+   * starved the Trupp and Verlauf beacons beside it. A whole-document edit waits in the cache
+   * for the next open (15.11.2026). */
   flushKeepalive(): void {
     this.flushCache() // the page is dying — the debounce would never fire
     if (!this.entry.dirty || this.disposed) return
     const v = versionOf(this.entry.workspace)
-    if (this.opts.slice === 'trupps') putWorkspaceTruppsBeacon(this.incidentId, truppSlice(this.entry.workspace), this.entry.baseRev, this.editedAtIso(), v)
-    else if (this.opts.slice === 'record') putWorkspaceRecordBeacon(this.incidentId, recordSlice(this.entry.workspace), this.entry.baseRev, v)
-    else if (onlyTruppsChanged(this.entry.base, this.entry.workspace)) putWorkspaceTruppsBeacon(this.incidentId, truppSlice(this.entry.workspace), this.entry.baseRev, this.editedAtIso(), v)
-    else putWorkspaceBeacon(this.incidentId, this.entry.workspace, this.entry.baseRev, this.editedAtIso())
+    if (this.opts.slice === 'record') putWorkspaceRecordBeacon(this.incidentId, recordSlice(this.entry.workspace), this.entry.baseRev, v)
+    else if (this.opts.slice === 'trupps' || onlyTruppsChanged(this.entry.base, this.entry.workspace)) putWorkspaceTruppsBeacon(this.incidentId, truppSlice(this.entry.workspace), this.entry.baseRev, this.editedAtIso(), v)
   }
 
   /** The ONE write. A `slice` sends its subset on its own route; everything else about a

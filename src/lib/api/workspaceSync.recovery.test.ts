@@ -5,7 +5,7 @@ const state = vi.hoisted(() => ({ store: new Map<string, unknown>(), failMain: f
 const get = vi.hoisted(() => vi.fn())
 const put = vi.hoisted(() => vi.fn())
 vi.mock('./workspace', () => ({
-  getWorkspace: get, putWorkspace: put, putWorkspaceBeacon: vi.fn(),
+  getWorkspace: get, putWorkspace: put,
   putWorkspaceRecord: vi.fn(), putWorkspaceRecordBeacon: vi.fn(),
   putWorkspaceTrupps: vi.fn(), putWorkspaceTruppsBeacon: vi.fn(),
 }))

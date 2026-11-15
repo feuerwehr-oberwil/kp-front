@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import type { ReportSignature } from '../lib/reportSignature'
-import { printedSignatures, useSignatureLock } from './useReportSignatures'
+import { sha256Hex, type ReportSignature } from '../lib/reportSignature'
+import { printedSignatures, signaturesToPrint, useSignatureLock } from './useReportSignatures'
 
 const sig = (over: Partial<ReportSignature>): ReportSignature => ({
   id: 's1', role: 'el', name: 'Muster Hans', place: 'Oberwil', at: '2026-10-24T22:10:00.000Z',
@@ -24,27 +24,38 @@ describe('printedSignatures', () => {
 })
 
 describe('useSignatureLock', () => {
-  it('locks a closed Rapport while a signature holds, and lets go once the signed part changes', () => {
-    const { result } = renderHook(() => useSignatureLock([sig({})], true))
-    // hash not known yet: counted valid, so nothing flashes «ungültig»
-    expect(result.current.signedLock).toBe(true)
-    act(() => result.current.setScopeHash('a'.repeat(64)))
-    expect(result.current.sigValid('el')).toBe(true)
-    act(() => result.current.setScopeHash('b'.repeat(64)))
-    expect(result.current.sigValid('el')).toBe(false)
+  // SHA-256 is WebCrypto: it resolves on a later task, not a microtask
+  const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 20)) })
+  it('checks the signed part as it stands: an edit is never «valid» on an earlier hash', async () => {
+    // the scope `sig` carries is the hash of this part
+    const part = 'signed part'
+    const live = { el: sig({ scope: await sha256Hex(part) }) }
+    const { result, rerender } = renderHook(({ p }) => useSignatureLock(live, p, true), { initialProps: { p: part } })
+    expect(result.current.sigState('el')).toBe('pending')
+    await settle()
+    expect(result.current).toMatchObject({ anyValid: true, signedLock: true })
+    // same length, different content: pending at once, then «ungültig» – and nothing locked
+    rerender({ p: 'signed Part' })
+    expect(result.current.sigState('el')).toBe('pending')
     expect(result.current.signedLock).toBe(false)
+    await settle()
+    expect(result.current.sigState('el')).toBe('stale')
   })
   // owner, 14.11.2026: a signature is the current state, independent of open / closed
-  it('a signature made while open holds through the close and a reopen – only the hash decides', () => {
-    const { result, rerender } = renderHook(({ closed }) => useSignatureLock([sig({})], closed), { initialProps: { closed: false } })
-    act(() => result.current.setScopeHash('a'.repeat(64)))
+  it('a signature made while open holds through the close and a reopen – only the hash decides', async () => {
+    const scoped = { el: sig({ scope: await sha256Hex('x') }) }
+    const { result, rerender } = renderHook(({ closed }) => useSignatureLock(scoped, 'x', closed), { initialProps: { closed: false } })
+    await settle()
     expect(result.current).toMatchObject({ anyValid: true, signedLock: false })
     rerender({ closed: true })
     expect(result.current).toMatchObject({ anyValid: true, signedLock: true })
     rerender({ closed: false })
-    expect(result.current.sigValid('el')).toBe(true)
-    // an edit on the reopened Rapport: «ungültig»
-    act(() => result.current.setScopeHash('b'.repeat(64)))
-    expect(result.current.sigValid('el')).toBe(false)
+    expect(result.current.sigState('el')).toBe('valid')
+  })
+  it('prints only what the content still matches, hashed at the moment of printing', async () => {
+    const scoped = { el: sig({ scope: await sha256Hex('x') }) }
+    expect((await signaturesToPrint(scoped, 'x')).map((p) => p.role)).toEqual(['el'])
+    expect(await signaturesToPrint(scoped, 'y')).toEqual([])
+    expect(await signaturesToPrint({}, 'x')).toEqual([])
   })
 })

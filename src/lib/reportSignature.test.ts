@@ -35,8 +35,8 @@ describe('reportSignature · the record', () => {
   it('is valid while the signed part hashes the same, and «ungültig» once it does not', () => {
     expect(signatureState(sig(), 'aaa')).toBe('valid')
     expect(signatureState(sig(), 'bbb')).toBe('stale')
-    // not computed yet: no flash of «ungültig» while the hash is on its way
-    expect(signatureState(sig(), undefined)).toBe('valid')
+    // not computed yet: pending – never «valid» for content nobody has hashed
+    expect(signatureState(sig(), undefined)).toBe('pending')
   })
 
   it('the workspace merge keeps both devices\' signatures and an earlier void', () => {

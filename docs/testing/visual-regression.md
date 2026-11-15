@@ -1,7 +1,8 @@
 # Screenshot regression tests – did this change the look by accident?
 
-**Status:** CI job «Visual», since 2026-10-09 – a required check since 2026-10-10 (owner decision)
-**Audience:** anyone whose PR turns the «Visual» check red, and whoever accepts a new baseline
+**Status:** CI job «Visual», since 2026-10-09 – a required check since 2026-10-10, advisory since
+2026-11-15 (owner decisions): a difference warns and uploads the pictures, it no longer fails the check
+**Audience:** anyone whose PR gets the «Visual differs» warning, and whoever accepts a new baseline
 
 Every PR shoots sixteen frozen states of the app and compares them pixel by pixel with the baselines
 committed in `e2e/visual/baseline/`. Unit tests and the e2e specs assert what someone thought to

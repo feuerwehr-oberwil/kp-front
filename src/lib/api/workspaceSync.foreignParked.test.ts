@@ -7,7 +7,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 const state = vi.hoisted(() => ({ store: new Map<string, unknown>() }))
 const get = vi.hoisted(() => vi.fn())
 vi.mock('./workspace', () => ({
-  getWorkspace: get, putWorkspace: vi.fn(), putWorkspaceBeacon: vi.fn(),
+  getWorkspace: get, putWorkspace: vi.fn(),
   putWorkspaceRecord: vi.fn(), putWorkspaceRecordBeacon: vi.fn(),
   putWorkspaceTrupps: vi.fn(), putWorkspaceTruppsBeacon: vi.fn(),
 }))

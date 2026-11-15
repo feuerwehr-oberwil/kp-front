@@ -194,8 +194,10 @@ webhooks cannot call a `divera247.com/api/...` URL. There is no loopback.
 - **The Einsatz opens itself.** No wizard between the crew and the Karte (decided 2026-08-02);
   correcting type, priority or position afterwards costs seconds. An incident nobody attended is
   not silently counted – `editor_opened_at` stays empty and the statistics export drops it.
-- **⚠️ Except while one is already running.** If an unarchived Einsatz was started within the
-  last **4 hours**, the new alarm is *held in the pool* instead. A second alarm during a running
+- **⚠️ Except while one is already running.** If a real Einsatz that is still running (status
+  offen or in Arbeit, not archived, not an Übung) was started within the last **4 hours**, the new
+  alarm is *held in the pool* instead. A closed Einsatz with its Rapport still open, or an Übung,
+  never holds a real alarm. A second alarm during a running
   Einsatz is far more often a Nachalarm or a reworded group SMS than a second Einsatz, and
   opening it would split the operational picture in two. The incoming-alarm banner then offers
   both «öffnen» and «zuordnen» – zuordnen is the one that keeps the GPS milestones together.
@@ -355,5 +357,5 @@ Where the data comes from, so nothing new has to be set up:
 | Sync succeeds but **everybody is rankless** | the alarm key is doing the personnel pull – it returns an empty `qualifications` list | fill in **Divera Accesskey (Personal)** with a key that can read Qualifikationen (Step 1) |
 | Ranks come back **unchanged after a Divera edit** | the qualification name does not match any entry in `roster.ranks` | compare the two lists; either rename in Divera or add the spelling to the station's rank list |
 | A member who left is **still active** | `roster.autoSync` is `"safe"` – by design | deactivate them under `/admin` → **Personal**, or set `"full"` |
-| A second alarm **did not open an Einsatz** | the split-dispatch guard: an Einsatz started less than 4 h ago is running | open or attach it from the incoming-alarm banner. Attaching is what keeps the milestones together |
+| A second alarm **did not open an Einsatz** | the split-dispatch guard: a real Einsatz started less than 4 h ago is still running | open or attach it from the incoming-alarm banner. Attaching is what keeps the milestones together |
 | «zuletzt synchronisiert» **stands still** while the row is green | it cannot: a failed run does not move it. The row is telling you the truth – look at the last attempt and the last error |

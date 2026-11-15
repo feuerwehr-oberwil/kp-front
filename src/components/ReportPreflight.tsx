@@ -14,7 +14,7 @@ import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf, readyDirectReportPayload, signedPartOf, usedStackFloors } from '../lib/reportPdfDirect'
-import { sha256Hex, SIGNATURE_ROLES, type ReportSignature } from '../lib/reportSignature'
+import { activeSignatures, sha256Hex, SIGNATURE_ROLES, type ReportSignature } from '../lib/reportSignature'
 import { newId } from '../lib/ids'
 import { serverNowIso } from '../lib/serverClock'
 import type { SignSubmit } from './SignatureSheet'
@@ -68,7 +68,7 @@ import { CheckRow, StatusMark } from './ReportCheckRow'
 import { dirtyFormMeta, formToMeta, geretteteMeta, numOrU, partnerFilled, partnersMeta, remoteForm, rueckMeta, type ReportForm } from './reportForm'
 import { normCount, normIso, normList, normPartners, normText, useBlurTick, useSyncedField } from './useSyncedField'
 import { ReportSignatures } from './ReportSignatures'
-import { printedSignatures, useSignatureLock } from './useReportSignatures'
+import { signaturesToPrint, useSignatureLock } from './useReportSignatures'
 import { useAuditProof } from './useAuditProof'
 import { initialKrokiAt, useKrokiMoment } from './useKrokiMoment'
 import { PHONE_TABS, STEP_TAB, rapportKept, useReportPlace, type PhoneTab } from './useReportPlace'
@@ -304,18 +304,14 @@ export function ReportPreflight({
   /** append a signature; omit where this session may not sign */
   onSign?: (sig: ReportSignature) => void
 }) {
-  // ── Unterschriften (15.10.2026) ──────────────────────────────────────────────────────────
-  // The lock has to be known up here, before anything uses `canEdit` (useSignatureLock); the
-  // signed part's hash it checks against is computed below, once `meta` exists (setScopeHash).
   const closedAt = closeTimeOf(incident)
-  const { liveSigs, sigValid, anyValid, signedLock, setScopeHash } = useSignatureLock(reportSignatures, closed)
   // ⚠️ `canEditIn` is «this session keeps this Rapport». On a closed Einsatz that is no longer
   // editing it (owner, 12.11.2026: «if an emergency is closed then we shouldn't be able to edit it
   // anymore unless we open it up again») – only signing it, and what signing and printing record
-  // with it (`canRecord`: the Einsatzleiter a signature names, «Rapport erstellt», a print job).
-  // A signature on an OPEN Rapport locks nothing: an edit there makes it «ungültig» (14.11.2026).
+  // with it (`canRecord`, below with the Unterschriften: the Einsatzleiter a signature names,
+  // «Rapport erstellt», a print job). A signature on an OPEN Rapport locks nothing: an edit there
+  // makes it «ungültig» (14.11.2026).
   const canEdit = canEditIn && !closed
-  const canRecord = canEditIn && !signedLock
 
   // Defaults follow the data: a rapport-only incident (nothing drawn) prints without the
   // map/plan pages, no configuration needed; every toggle stays available as an override.
@@ -706,19 +702,17 @@ export function ReportPreflight({
     vocab: journalVocabulary(personnel, attendance, undefined, trupps),
     roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
   })
-  // the signed part's hash, recomputed a moment after the record settles — only while a signature
-  // exists, the one time there is anything to check (signing hashes for itself, doSign)
+  // ── Unterschriften (15.10.2026) ──────────────────────────────────────────────────────────
+  // The signed part as it stands in THIS render, from the very arguments the PDF is built from –
+  // only while a signature exists, the one time there is anything to check (signing hashes for
+  // itself, doSign). useSignatureLock hashes it whenever it changes.
+  const liveSigs = useMemo(() => activeSignatures(reportSignatures), [reportSignatures])
   const hasSigs = SIGNATURE_ROLES.some((r) => liveSigs[r])
-  const scopeKey = hasSigs ? JSON.stringify([meta, attendance, mittel, events.length, personnel.length, incident.title, incident.address, incident.type, closedAt]) : ''
-  useEffect(() => {
-    if (!hasSigs) return
-    let alive = true
-    const t = setTimeout(() => {
-      void sha256Hex(signedPartOf(pdfArgs(buildDraft()))).then((h) => { if (alive) setScopeHash(h) }, () => {})
-    }, 250)
-    return () => { alive = false; clearTimeout(t) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the record, not on every render's closures
-  }, [hasSigs, scopeKey])
+  const signedPart = hasSigs ? signedPartOf(pdfArgs(buildDraft())) : ''
+  const { sigState, anyValid, signedLock } = useSignatureLock(liveSigs, signedPart, closed)
+  const canRecord = canEditIn && !signedLock
+  /** the signatures for the paper of `draft`, checked against exactly what that paper prints */
+  const signaturesFor = (draft: ReportDraft) => signaturesToPrint(liveSigs, signedPartOf(pdfArgs(draft)))
   /** this session signs the Rapport (not a viewer, a link, an archived view) – open or closed */
   const maySign = canEditIn && !!onSign
   const kdtDefault = getDeploymentConfig().identity?.kommandant ?? ''
@@ -743,7 +737,6 @@ export function ReportPreflight({
         id: newId('sig'), role, name: slot.name, ...(slot.personId ? { personId: slot.personId } : {}),
         ...(signPlace ? { place: signPlace } : {}), at: serverNowIso(), scope, strokes,
       })
-      setScopeHash(scope)
       return true
     } catch {
       toast(appConfig.copy.signature.failed, { icon: 'warn', tone: 'warn' })
@@ -806,7 +799,7 @@ export function ReportPreflight({
     const draft = buildDraft(also)
     setPdfBusy(true)
     try {
-      await downloadDirectReportPdf({ ...pdfArgs(draft), signatures: printedSignatures(liveSigs, sigValid) })
+      await downloadDirectReportPdf({ ...pdfArgs(draft), signatures: await signaturesFor(draft) })
       // The PDF is the proof; the next step («Einsatz abschliessen») is the green head tile, which
       // `reportMadeAt` turns on once nothing is open. No toast beside it (owner #31, 30.10.2026).
       stampReportMade(also)
@@ -855,7 +848,8 @@ export function ReportPreflight({
     try {
       const t = editorPrintTransport()
       // the SAME arguments the PDF download sends, signatures included — paper and PDF are one document
-      const payload = await readyDirectReportPayload({ ...pdfArgs(buildDraft(also)), signatures: printedSignatures(liveSigs, sigValid) })
+      const draft = buildDraft(also)
+      const payload = await readyDirectReportPayload({ ...pdfArgs(draft), signatures: await signaturesFor(draft) })
       const jobId = await enqueuePrint(t, incident.id, payload)
       // ⚠️ NOT `stampReportMade`. EINGEREIHT IST NICHT GEDRUCKT: the stamp is the sole condition
       // for the head's green «Einsatz abschliessen» (`closeReady`), and until
@@ -2397,7 +2391,7 @@ export function ReportPreflight({
                 the paper (ReportSignatures — the card and the sheet a line is signed in). */}
             <ReportSignatures
               maySign={maySign} signedLock={signedLock}
-              liveSigs={liveSigs} sigValid={sigValid}
+              liveSigs={liveSigs} sigState={sigState}
               elName={meta.einsatzleiter || einsatzleiter} kdtName={kdtDefault}
               sheet={signSheet}
             />

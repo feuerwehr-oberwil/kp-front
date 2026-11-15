@@ -1219,3 +1219,55 @@ async def test_testalarm_goes_to_the_callers_own_registration_only(client, edito
     assert login.status_code == 200
     assert (await client.post("/api/push/test", json={"endpoint": sub["endpoint"]})).status_code == 404
     assert len(sent) == 1
+
+
+# ---------------------------------------------------------------------------------------
+# _send_one: only a dead endpoint or unusable keys prune a subscription
+# ---------------------------------------------------------------------------------------
+
+
+def _real_keys() -> dict[str, str]:
+    """A browser-shaped subscription key pair (P-256 point + 16-byte auth secret)."""
+    import base64
+    import os
+
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    point = (
+        ec.generate_private_key(ec.SECP256R1())
+        .public_key()
+        .public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+    )
+    b64 = lambda raw: base64.urlsafe_b64encode(raw).rstrip(b"=").decode()  # noqa: E731
+    return {"p256dh": b64(point), "auth": b64(os.urandom(16))}
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param(lambda: __import__("requests").exceptions.ConnectTimeout("timed out"), id="timeout"),
+        pytest.param(lambda: __import__("requests").exceptions.ConnectionError("DNS failure"), id="connection"),
+        pytest.param(lambda: __import__("pywebpush").WebPushException("no response"), id="webpush-no-response"),
+    ],
+)
+def test_a_network_failure_is_retried_not_pruned(monkeypatch, error):
+    """A push service we could not reach says nothing about the subscription. Pruning on it
+    silently unsubscribed a device after one bad network moment, and it never heard an alarm again."""
+    import pywebpush
+
+    from app.push import _send_one
+
+    def fake_webpush(**_kw):
+        raise error()
+
+    monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
+    assert _send_one({"endpoint": "https://fcm.googleapis.com/fcm/send/x", **_real_keys()}, "{}") == "retry"
+
+
+def test_unusable_subscription_keys_are_pruned():
+    """Keys that are no P-256 point never decrypt anywhere: that subscription is dead."""
+    from app.push import _send_one
+
+    sub = {"endpoint": "https://fcm.googleapis.com/fcm/send/x", "p256dh": "not-a-key", "auth": "a"}
+    assert _send_one(sub, "{}") == "gone"

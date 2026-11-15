@@ -11,7 +11,7 @@ const putWorkspaceTrupps = vi.fn()
 vi.mock('./workspace', () => ({
   getWorkspace: (...a: unknown[]) => getWorkspace(...a),
   putWorkspace: (...a: unknown[]) => putWorkspace(...a),
-  putWorkspaceBeacon: vi.fn(),
+ 
   putWorkspaceTrupps: (...a: unknown[]) => putWorkspaceTrupps(...a),
   putWorkspaceTruppsBeacon: vi.fn(),
 }))

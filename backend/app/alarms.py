@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import audit, live_wait
 from .config import settings
 from .geocode import geocode
-from .models import LERN_UEBUNG_SOURCE, DeploymentConfig, Incident
+from .models import DeploymentConfig, Incident
 from .schemas import AlarmsConfig, DeploymentConfigIn, load_stored_config
 from .transaction_hooks import after_completion
 from .vehicle_presence import last_activity
@@ -120,7 +120,7 @@ async def open_pooled_alarm(db: AsyncSession, *, source: str, ref: str) -> Incid
     except (TypeError, ValueError):
         return None
 
-    from .divera import open_emergency  # lazy — avoids an import cycle
+    from .divera import open_emergency, running_real_incident  # lazy — avoids an import cycle
     from .models import DiveraEmergency
 
     em = (await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == divera_id))).scalar_one_or_none()
@@ -145,18 +145,7 @@ async def open_pooled_alarm(db: AsyncSession, *, source: str, ref: str) -> Incid
     # answer: a Nachalarm for the same incident wants that incident's Lage, not a fresh
     # empty one. The EL can still attach the pool row properly afterwards; this only
     # decides what the responder sees in the meantime.
-    running = (
-        await db.execute(
-            select(Incident)
-            .where(
-                Incident.is_archived.is_(False),
-                Incident.started_at > datetime.now(UTC) - timedelta(hours=4),
-                Incident.source != LERN_UEBUNG_SOURCE,  # never a tutorial (models · LERN_UEBUNG_SOURCE)
-            )
-            .order_by(Incident.started_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
+    running = await running_real_incident(db)
     if running is not None:
         logger.info(
             "Einsatz-Link für Divera %s: laufender Einsatz %s statt zweitem Einsatz",

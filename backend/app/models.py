@@ -393,6 +393,20 @@ class Media(Base):
     content_type: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # The client's id for this ONE capture (api/media · upload_media): a retry after a lost
+    # response sends it again and gets this row back instead of a second copy. Unique per
+    # Einsatz; NULL for uploads that carry none (older builds, the capture surface).
+    upload_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    __table_args__ = (
+        Index(
+            "ix_media_incident_upload_id",
+            "incident_id",
+            "upload_id",
+            unique=True,
+            postgresql_where=text("upload_id IS NOT NULL"),
+        ),
+    )
 
 
 class SttJob(Base):

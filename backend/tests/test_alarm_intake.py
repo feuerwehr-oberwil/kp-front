@@ -324,6 +324,27 @@ async def test_divera_auto_open_ignores_stale_open_incident(client, webhook_secr
     assert r.json()["incident_id"] is not None
 
 
+@pytest.mark.parametrize(
+    "held",
+    [
+        pytest.param({"status": "abgeschlossen"}, id="closed-but-unarchived"),
+        pytest.param({"status": "offen", "is_exercise": True}, id="running-uebung"),
+    ],
+)
+async def test_divera_auto_open_ignores_what_is_not_a_running_real_einsatz(client, webhook_secret, db_session, held):
+    """Only a RUNNING real Einsatz holds a new alarm in the pool. A closed Einsatz whose Rapport
+    is still open, or an Übung, is no re-dispatch target: holding a real alarm behind it left
+    the crew without an Einsatz."""
+    db_session.add(
+        Incident(title="Vorher", source="manual", started_at=datetime.now(UTC) - timedelta(minutes=30), **held)
+    )
+    await db_session.commit()
+
+    r = await client.post("/api/divera/webhook", json=DIVERA_PAYLOAD, headers={"X-Webhook-Secret": "hook-secret-123"})
+    assert r.status_code == 200
+    assert r.json()["incident_id"] is not None
+
+
 # --- report_done_at (Abschluss-Assistent completion bookmark) --------------------------
 
 

@@ -2150,6 +2150,8 @@ export const adminCopy = {
       spArea: 'Bereich',
       spLastSuccess: 'Zuletzt erfolgreich',
       spCounts: '{imported} übernommen · {skipped} übersprungen · {missing} fehlen in SharePoint',
+      // Objekte mit Plänen, aber ohne Position: der Abgleich ist nicht schuld (alle Pläne sind da), darum steht es hier.
+      spNoCoords: '{count} Einsatzobjekt(e) mit Plänen, aber ohne Koordinaten – diese Pläne erscheinen bei keinem Einsatz. Position unter «Objektpläne» setzen; viele auf einmal setzt «admin_objects_repair geocode-missing» (docs/AGENT-RUNBOOK.md).',
       spSyncNow: 'Jetzt abgleichen',
       spSyncing: 'Wird abgeglichen …',
       // Fortschritt: der Lauf meldet, in welchem Bereich er steht und wieviele Dateien davon
