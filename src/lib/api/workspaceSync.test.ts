@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // the server would refuse (leaving a link holder's Kontakt stuck in the offline cache).
 const getWorkspace = vi.fn()
 const putWorkspace = vi.fn()
-const putWorkspaceBeacon = vi.fn()
 const putWorkspaceTrupps = vi.fn()
 const putWorkspaceTruppsBeacon = vi.fn()
 const putWorkspaceRecord = vi.fn()
@@ -14,7 +13,6 @@ const putWorkspaceRecordBeacon = vi.fn()
 vi.mock('./workspace', () => ({
   getWorkspace: (...a: unknown[]) => getWorkspace(...a),
   putWorkspace: (...a: unknown[]) => putWorkspace(...a),
-  putWorkspaceBeacon: (...a: unknown[]) => putWorkspaceBeacon(...a),
   putWorkspaceTrupps: (...a: unknown[]) => putWorkspaceTrupps(...a),
   putWorkspaceTruppsBeacon: (...a: unknown[]) => putWorkspaceTruppsBeacon(...a),
   putWorkspaceRecord: (...a: unknown[]) => putWorkspaceRecord(...a),
@@ -43,7 +41,6 @@ const blob = { trupps: [trupp], drawings: [{ id: 'd1' }] }
 beforeEach(() => {
   getWorkspace.mockReset().mockResolvedValue({ workspace: {}, workspace_rev: 7 })
   putWorkspace.mockReset().mockResolvedValue({ workspace: null, workspace_rev: 8 })
-  putWorkspaceBeacon.mockReset()
   putWorkspaceTrupps.mockReset().mockResolvedValue({ workspace: null, workspace_rev: 8 })
   putWorkspaceTruppsBeacon.mockReset()
   putWorkspaceRecord.mockReset().mockResolvedValue({ workspace: null, workspace_rev: 8 })
@@ -69,7 +66,6 @@ describe('WorkspaceSync · slice: «trupps»', () => {
     sync.save(blob)
     sync.flushKeepalive()
     expect(putWorkspaceTruppsBeacon).toHaveBeenCalledWith('i1', [trupp], 7, expect.stringMatching(/^\d{4}-\d\d-\d\dT/), undefined)
-    expect(putWorkspaceBeacon).not.toHaveBeenCalled()
     sync.dispose()
   })
 
@@ -101,7 +97,20 @@ describe('WorkspaceSync · slice: «trupps»', () => {
     sync.flushKeepalive()
     expect(putWorkspaceRecordBeacon).toHaveBeenCalledWith('i1', expect.objectContaining({ attachments: [{ id: 'a1' }] }), 7, undefined)
     expect(putWorkspaceRecordBeacon.mock.calls[0][1]).not.toHaveProperty('entities')
-    expect(putWorkspaceBeacon).not.toHaveBeenCalled()
+    sync.dispose()
+  })
+
+  // The browser caps ALL in-flight keepalive bodies at ~64 KB together, and a real 5 h Einsatz is
+  // ~97 KB (docs/testing/fat-incident.md): the whole document never fits, and one that nearly does
+  // starves the small beacons beside it. Teardown keeps the slices; the cache holds the rest.
+  it('sends no whole-document beacon on teardown – the cache keeps the edit', async () => {
+    const sync = new WorkspaceSync('i1', { debounceMs: 10_000 })
+    await sync.init()
+    sync.save(blob)
+    sync.flushKeepalive()
+    expect(putWorkspaceTruppsBeacon).not.toHaveBeenCalled()
+    expect(putWorkspaceRecordBeacon).not.toHaveBeenCalled()
+    expect(idbSet.mock.calls[idbSet.mock.calls.length - 1][1]).toMatchObject({ workspace: blob, dirty: true })
     sync.dispose()
   })
 
@@ -306,7 +315,6 @@ describe('WorkspaceSync · an editor\'s Trupp-only save takes the trupp slice', 
     sync.save({ ...server, trupps: [kontakt] })
     sync.flushKeepalive()
     expect(putWorkspaceTruppsBeacon).toHaveBeenCalledWith('i1', [kontakt], 7, iso, undefined)
-    expect(putWorkspaceBeacon).not.toHaveBeenCalled()
     sync.dispose()
   })
 })
