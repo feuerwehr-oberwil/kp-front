@@ -20,11 +20,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     mapPickButton: 'On map',
     hereButton: 'Here',
     hereFailed: 'Location unavailable',
-    coordSet: 'Coordinate set',
-    coordNone: 'No location – will open without a coordinate',
-    coordNoneEdit: 'No location – incident without a coordinate',
-    coordClear: 'Remove location',
-    coordFold: 'Coordinates',
     titleLabel: 'Keyword / title',
     titlePlaceholder: 'e.g. Building fire, school',
     categoryLabel: 'Category',
@@ -86,5 +81,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     moveConfirmBtn: 'Move',
     alarmTextUnavailable: 'The alarm message could not be loaded — it stays unchanged',
     demoBlocked: 'Disabled in the demo — no new incident can be opened here.',
+    coordMissing: 'No location yet',
   },
 }

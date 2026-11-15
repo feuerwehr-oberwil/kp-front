@@ -2416,21 +2416,11 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 /* --- Einsatz eröffnen wizard --- */
 /* ONE flat list of fields – the three section eyebrows (`.ip-ix-head`: Standort, Stichwort &
    Kategorie, Alarmierung) went on 10.11.2026 (owner review: «only like 5 things to put in»). */
-/* «Objekt aus Feuerwehrplänen» / «Auf Karte setzen» — the two location fallbacks share a row;
-   «Hier» (GPS) lives as an icon-only button on the address field itself (`.ip-ac-locate`
-   below), because it is the PRIMARY method and has to be reachable without opening anything. */
-/* «Aus Plänen» · «Auf Karte» — ONE line each, --tap tall (27.09.2026, slim sweep · mockup 4a): they
-   were the form's only two-line buttons («Objekt aus / Feuerwehrplänen»). The words are short now
-   (copy · intake.objectButton/mapPickButton); nowrap keeps a longer locale from wrapping again,
-   and 12px of padding gives «Dai piani» its icon at 360px. */
-.ip-ix-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.ip-ix-methods .ip-btn { min-width: 0; padding: 0 12px; white-space: nowrap; }
 .ip-btn.on { background: var(--sel); color: var(--on-sel); border-color: var(--sel); }
 
 /* address autocomplete */
-.ip-ac { position: relative; }
 .ip-ac-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; margin-top: 4px;
-  max-height: 220px; overflow-y: auto; background: var(--surface); border: 1px solid var(--glass-edge);
+  max-height: 220px; overflow-y: auto; overscroll-behavior: contain; background: var(--surface); border: 1px solid var(--glass-edge);
   border-radius: var(--r-bar); box-shadow: var(--e4); padding: var(--bar-pad); }
 .ip-ac-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; border: none;
   background: none; cursor: pointer; text-align: left; border-radius: var(--r-ctl);
@@ -2441,24 +2431,33 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .ip-ac-row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-ac-row:disabled { opacity: var(--disabled); cursor: default; }
 .ip-ac-row svg { width: 15px; height: 15px; flex: none; color: var(--ink-faint); }
-/* the «Hier» (GPS) button riding the field's right edge — same overlap idiom as the ClearableInput
-   ✕ above (`.ci-clear`), sized to the full ≥44px tap target rather than the label's own font size.
-   The field gets matching right padding (below) so typed text never runs under the glyph. */
+/* «Aus Plänen» · «Auf Karte» | «Hier» riding the field's right edge (EinsatzWizard, owner pick 1A,
+   15.11.2026) – the overlap idiom of the ClearableInput ✕ (`.ci-clear`), each a full --tap square.
+   They were a row of two buttons under the field. The field's right padding is the three squares
+   plus the divider, so typed text ellipsises before it would run under them. */
 .ip-ac-input-wrap { position: relative; }
-.ip-ac-input-wrap input { width: 100%; box-sizing: border-box; padding: 12px var(--tap) 12px 12px; }
-.ip-ac-locate {
-  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
-  display: grid; place-items: center; width: 44px; height: 44px;
-  border: none; background: none; cursor: pointer; color: var(--blue); padding: 0;
+.ip-ac-input-wrap input { width: 100%; box-sizing: border-box; text-overflow: ellipsis;
+  padding: 12px calc(3 * var(--tap) + var(--sp-3)) 12px 12px; }
+.ip-ac-tools { position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: flex; align-items: center; }
+.ip-ac-tool {
+  display: grid; place-items: center; width: var(--tap); height: var(--tap); flex: none;
+  border: none; border-radius: var(--r-ctl); background: none; cursor: pointer; color: var(--ink-dim); padding: 0;
   -webkit-tap-highlight-color: transparent;
 }
-.ip-ac-locate:disabled { opacity: var(--disabled); cursor: default; }
-.ip-ac-locate svg { width: 17px; height: 17px; }
+@media (hover: hover) { .ip-ac-tool:hover:not(:disabled):not(.on) { color: var(--ink); } }
+.ip-ac-tool:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.ip-ac-tool:disabled { opacity: var(--disabled); cursor: default; }
+/* «Aus Plänen» while its list is folded open – the selected look of `.ui-info.on` */
+.ip-ac-tool.on { background: var(--sel-wash); color: var(--blue-strong); }
+.ip-ac-tool svg { width: 17px; height: 17px; }
+/* «Hier» is the primary method (GPS), so it alone is blue, after the hairline */
+.ip-ac-locate { color: var(--blue); }
+.ip-ac-sep { width: 1px; height: 24px; margin: 0 4px; background: var(--glass-edge); flex: none; }
 .ip-ac-note { padding: 8px 12px; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 
 /* object library picker */
 .ip-objpick { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 8px; background: var(--surface-2); }
-.ip-objlist { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.ip-objlist { max-height: 240px; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 2px; }
 .ip-objgroup { padding: 8px 8px 2px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 /* ⚠️ flex: none – the list is a scrolling flex COLUMN, and a flex item may shrink below its
    content: once the list overflowed, every row was squeezed to its min-height and a name that
@@ -2473,39 +2472,6 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .ip-objrow-name { font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
 .ip-objrow-dist { color: var(--blue); font-weight: var(--fw-medium); }
 .ip-objrow-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); margin-top: 1px; }
-
-/* «Koordinaten» — the fold the resolved-location line lives behind (EinsatzWizard, 18.09.2026).
-   The whole ROW is the button, at the touch floor, with the app's one disclosure chevron
-   (02-base · .chev, which flips off `aria-expanded`). Its word wears the field
-   label's type (`--field-label`, like «Adresse» above it) since the form lost its section
-   eyebrows on 10.11.2026 – in eyebrow capitals it would be the form's one remaining heading. */
-.ip-fold-head { display: flex; align-items: center; gap: 8px; min-height: var(--tap);
-  margin: 4px 0 -2px; padding: 0 2px; border: none; background: none; cursor: pointer; text-align: left; }
-.ip-fold-head .i { width: 14px; height: 14px; flex: none; color: var(--ink-faint); }
-/* open, the head IS the coordinate line (EinsatzWizard): same row, the ✕ beside it */
-.ip-fold-row { display: flex; align-items: center; gap: 4px; margin: 4px 0 -2px; }
-.ip-fold-row .ip-fold-head { flex: 1 1 auto; min-width: 0; margin: 0; }
-.ip-fold-title { font: var(--field-label); color: var(--ink-dim); }
-@media (hover: hover) {
-  .ip-fold-head:hover .ip-fold-title, .ip-fold-head:hover .i { color: var(--ink); }
-}
-
-/* resolved-location line — a QUIET one-line hint, not a boxed warning (the dashed
-   mono-font box read louder than the actual inputs; cleanup 2026-07-15) */
-.ip-loc { display: flex; align-items: center; gap: 8px; padding: 2px 2px;
-  color: var(--ink-faint); font: var(--fw-medium) var(--fs-1) var(--body); }
-.ip-loc.set { color: var(--ink-dim); }
-.ip-loc svg { width: 15px; height: 15px; flex: none; }
-.ip-loc.set svg { color: var(--blue); }
-.ip-loc-txt { flex: 1; min-width: 0; }
-/* 24px square, the pointer floor (it was 19, hill climb r34); --tap under a finger (20-touch-floors) */
-.ip-loc-clear { display: grid; place-items: center; border: none; background: none; cursor: pointer;
-  color: var(--ink-faint); width: 24px; height: 24px; padding: 0; border-radius: var(--r-sm); }
-@media (hover: hover) {
-  .ip-loc-clear:hover { background: var(--hover-strong); color: var(--ink); }
-}
-.ip-loc-clear svg { width: 15px; height: 15px; }
-
 
 .ip-textarea { padding: 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: var(--surface); font: var(--fw-medium) var(--fs-3) var(--body); color: var(--ink); resize: vertical; }
