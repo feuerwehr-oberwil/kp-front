@@ -390,7 +390,8 @@
 .reading-info .a1 { color: var(--amber-strong); font-weight: var(--fw-bold); }
 .reading-info .a2 { color: var(--red-strong); font-weight: var(--fw-bold); }
 .reading-info p { margin: var(--sp-2) 0 0; font-size: var(--fs-1); line-height: 1.4; color: var(--ink-dim); }
-.combo-type { color: var(--blue-strong); font-weight: var(--fw-bold); border-top: 1px solid var(--border-soft); margin-top: 2px; }
+/* «+ Typ»: an action row in the combo, ink like every other action (blue = «chosen», T2) */
+.combo-type { color: var(--ink); font-weight: var(--fw-bold); border-top: 1px solid var(--border-soft); margin-top: 2px; }
 .combo-type .i { width: 14px; height: 14px; }
 /* "nur Offiziere" filter pinned atop the roster picker on leadership symbols */
 .combo-toggle { color: var(--ink-dim); font-weight: var(--fw-bold); border-bottom: 1px solid var(--border-soft); margin-bottom: 2px; }
@@ -398,7 +399,7 @@
    red — painting a selection alarm-red is the one thing the token rule forbids, and this control
    sits in a roster where red already means something. */
 .combo-toggle.on { color: var(--ink); background: var(--sel-wash); }
-.combo-toggle .i { width: 14px; height: 14px; color: var(--blue); }
+.combo-toggle .i { width: 14px; height: 14px; color: var(--ink-dim); }
 .combo-empty { padding: 8px 12px; font-size: var(--fs-1); color: var(--ink-faint); }
 .combo-group { list-style: none; }
 .combo-group > ul { list-style: none; margin: 0; padding: 0; }
@@ -412,7 +413,10 @@
 .un-haz { background: var(--fill-soft); border-radius: var(--r-sm); padding: 12px; }
 .un-haz-row { display: flex; gap: 8px; padding: 4px 0; font-size: var(--fs-2); }
 .un-haz-k { flex: 0 0 44%; color: var(--ink-dim); font-weight: var(--fw-medium); }
-.un-haz-v { flex: 1; color: var(--ink); font-family: var(--mono); }
+/* the body face; `.num` (a distance, «60 m») keeps the mono, like `.un-haz-tile.num` below – a
+   sentence («siehe ERG Tabelle 3 …») never reads in the number voice (style sweep T1, 15.11.2026) */
+.un-haz-v { flex: 1; color: var(--ink); }
+.un-haz-v.num { font-family: var(--mono); }
 /* The substance's name (the Karte's Gefahrgut, UnHazardSection · nameHero) as the card's hero
    line: words, not a code, so the body face — the one thing read before anything else. */
 .un-haz-hero { margin: 0 0 var(--sp-2); font-size: var(--fs-3); font-weight: var(--fw-bold); line-height: 1.25;
@@ -443,9 +447,10 @@
 .un-haz-list { margin: var(--sp-3) 0 0; padding: var(--sp-2) 0 0 var(--sp-4); border-top: 1px solid var(--border-soft); }
 .un-haz-list li { font-size: var(--fs-1); color: var(--ink-dim); padding: 2px 0; }
 .un-haz-none { margin: 2px 0 2px; font-size: var(--fs-1); color: var(--ink-faint); }
-/* 12.5px, the floor for interactive text (was 12, 23.09.2026) */
+/* 12.5px, the floor for interactive text (was 12, 23.09.2026); ink + its ↗ glyph, never the blue
+   of «chosen» (style sweep T2, 15.11.2026) */
 .un-haz-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; font-size: var(--fs-1);
-  font-weight: var(--fw-bold); color: var(--blue, #1f6feb); text-decoration: none; }
+  font-weight: var(--fw-bold); color: var(--ink); text-decoration: none; }
 @media (hover: hover) {
   .un-haz-link:hover { text-decoration: underline; }
 }
@@ -563,12 +568,9 @@
 @media (hover: hover) {
   .btn.warn:hover { background: color-mix(in srgb, var(--red) 10%, var(--surface)); border-color: var(--del-edge); }
 }
-/* «Zum Original» on a Georeferenz twin's panel — the link tone (--blue), like every other part
-   of «Karte verknüpfen», and never --accent: the station's alarm red is not a hyperlink. */
-.btn.link { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 34%, transparent); }
-@media (hover: hover) {
-  .btn.link:hover { background: var(--blue-8); border-color: color-mix(in srgb, var(--blue) 52%, transparent); }
-}
+/* `.btn.link` («Zum Original» on a Georeferenz twin's panel, the Passung's quiet actions) is a
+   placement hook only: it wears the neutral `.btn`. Blue means «chosen» and nothing else (style
+   sweep T2, owner pick A, 15.11.2026 – it was the blue «link tone»); a pressed one is `--sel`. */
 
 /* overflow-x hidden: with overflow-y:auto the x-axis otherwise computes to `auto` and the
    Verlauf scrolls sideways on a tablet — rows must line-wrap, never scroll horizontally */
@@ -1000,7 +1002,8 @@ span.jr-pinned-text::after { display: none; }
   font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
 .jr-pinned-from { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: var(--sp-1);
   min-height: var(--tap); padding: 0; border: none; background: none;
-  font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body); color: var(--blue); }
+  font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink); }
+/* the jump is ink + its glyph, never the blue of «chosen» (style sweep T2, 15.11.2026) */
 button.jr-pinned-from { cursor: pointer; }
 span.jr-pinned-from { color: var(--ink-dim); }
 .jr-pinned-from .i { width: 16px; height: 16px; }

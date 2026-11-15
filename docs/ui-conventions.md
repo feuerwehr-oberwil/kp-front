@@ -48,6 +48,14 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   `styleDebt.baseline.json` and fails when one goes up; one that went down is a console note –
   lower the baseline when convenient (`STYLE_DEBT_UPDATE=1 pnpm vitest run
   src/styles/styleDebt.test.ts`, which only ever lowers it). Never raise it to pass.
+- **Mono is for numbers** (style sweep T1, 15.11.2026): `--mono` (or `tabular-nums` in the body
+  face) on a figure – a count, a time, a distance, a code compared against a printed table – never
+  on a sentence or a word («siehe ERG Tabelle 3», «aktiv», «Von der Station freigegeben»). A
+  sentence is never set in a number's size either: the Passung's «3 Paare» is 16/700 mono, its
+  «Von der Station freigegeben» 14/500 body.
+- **Text sizes have floors** (style sweep T4): a hint sentence is the `.ip-hint` voice (12.5/500
+  `--ink-dim`), a row's second line the `.list-row-sub` voice (the same, 1.3 leading) – never 11px,
+  never `--ink-faint` plus an opacity dim. `--fs-micro` stays for captions, tags and eyebrows.
 - **The neutral washes and hairlines are near-twins, not duplicates** (checked 13.11.2026):
   `--fill-soft`, `--hover`, `--hover-strong`, `--press`, `--surface-2`, `--surface-veil`,
   `--ink-tint(-strong)`, `--border(-soft)`, `--glass-edge`, `--glass-line` and `--ink-5…62` –
@@ -330,7 +338,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *Messages – ONE surface, ONE lane (25.09.2026):* a toast, a mode's instruction (Gebäude
     wählen), a tool's tip and the hold-tip wear the same look (08-toasts.css · «ONE message
     surface»): the floating family's material (below — light by day, dark by night, never a dark
-    pill on a light UI), ink 14/500 (13/600 until 08.10.2026), the one corner, no outline of its own. A tone is the colour of
+    pill on a light UI), ink 14/700 like a Meldeleiste row's `.ml-title` (13/600 until 08.10.2026, 14/500 until the S3 rework of 21.10.2026), the one corner, no outline of its own. A tone is the colour of
     the glyph the sentence leads with – never an edge, never a fill. What goes away **by itself**
     shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
     mode is on shows neither. A tap on the pill itself does nothing (05.10.2026): the ✕ closes,
@@ -435,7 +443,12 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *Colour:* the primary fill is `var(--btn-primary)` (+ `--btn-primary-hover` /
     `--on-btn-primary`), never `--ink-fill`/`--blue`/`--accent` directly. **Red never fills an
     action** – it means danger/delete only. Amber = warning but not critical; red = danger,
-    broken, act now; blue/grey = normal status and in-progress.
+    broken, act now; grey = normal status and in-progress. **Blue means «chosen» and nothing else**
+    (style sweep T2, owner pick A, 15.11.2026): a filled `--sel` or a `--sel-wash` marks the
+    SELECTED thing (and the «open/armed» wash). A text link is ink (an `<a>` keeps its underline),
+    a text action is the neutral `<Button>` or a `.row-go` row («Alle zeigen», «Zum Original»), a
+    count is `--ink-dim`, a decorative glyph or bullet `--ink-dim`/`--ink-faint`. A drawing's own
+    colour (the Messen/Massstab path, the edit handles) is not chrome and keeps its blue.
   - *Text on colour (23.10.2026, sweep G.2/G.4–G.6):* red as TEXT or a glyph is `--red-strong`;
     `--red` only fills and strokes. A word on an `--amber` fill is `--on-amber` (dark in both
     themes – white on amber is 2.5:1 by day), on the other hues `--on-fill`. A green or red fill

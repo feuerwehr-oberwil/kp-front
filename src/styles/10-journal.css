@@ -519,11 +519,12 @@
 .jr-filter-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-3); }
 .jr-filter-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jr-filter-count { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
-/* «Alle zeigen» is the way OUT, not one more category — the word in the action blue, full strength.
-   While nothing is filtered there is no way out to take (the row is disabled, Journal · filterItems):
-   then it is the quiet ink instead of the dimmed blue (r35, 06.11.2026 – a pale blue word read as a
-   broken link, not as «nothing to undo»), and its count stays as it was. */
-.jr-filter-reset .jr-filter-label { color: var(--blue-strong); font-weight: var(--fw-bold); }
+/* «Alle zeigen» is the way OUT, not one more category — the word in bold ink (it was the action
+   blue until 15.11.2026: blue means «chosen», style sweep T2). While nothing is filtered there is
+   no way out to take (the row is disabled, Journal · filterItems): then it is the quiet ink-faint
+   instead of a dimmed word (r35, 06.11.2026 – a pale word read as a broken link, not as «nothing
+   to undo»), and its count stays as it was. */
+.jr-filter-reset .jr-filter-label { color: var(--ink); font-weight: var(--fw-bold); }
 .jr-filter-item[data-disabled]:has(> .jr-filter-reset) { opacity: 1; }
 .jr-filter-item[data-disabled] > .jr-filter-reset .jr-filter-label { color: var(--ink-faint); }
 /* the one-line «Gefiltert: … · Alle zeigen» under the head, where the timeline strip stands
@@ -532,14 +533,9 @@
   font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
 .jr-filter-strip-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jr-filter-strip-text b { color: var(--ink); font-weight: var(--fw-bold); }
-.jr-filter-all { flex: none; height: var(--tap); padding: 0 var(--sp-3); border: none; border-radius: var(--r-sm);
-  background: var(--blue-8); color: var(--blue-strong);
-  font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; }
-/* (--tap to the eye, like the head above it – 30.10.2026; it was a 32px chip over a 44px pad) */
-@media (hover: hover) {
-  .jr-filter-all:hover { background: var(--blue-16); }
-}
-.jr-filter-all:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* «Alle zeigen» is THE neutral <Button> (--tap, framed): an action, not a blue word on a blue wash
+   (style sweep T2, owner pick A, 15.11.2026); this only places it */
+.jr-filter-all { flex: none; }
 /* ⚠️ On a phone the head is 22px too wide for four items, and «Wiedergabe starten» is the one
    that can most afford to lose its word — the same trade the TopBar already makes for «Verlauf»
    above. The button keeps its `aria-label` (Journal.tsx), so nothing is lost but the letters. */
@@ -934,12 +930,10 @@
    name longer than the line wraps inside itself instead of running out of the drawer. */
 .jr-link-unit { display: inline-block; max-width: 100%; overflow-wrap: break-word; }
 /* the address in the Verlauf: a real <a>, so it carries the underline that says «this opens»
-   rather than a colour that only says «this is a thing» */
-a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-offset: 2px;
+   rather than a colour that only says «this is a thing» – ink, never the blue of «chosen»
+   (style sweep T2, 15.11.2026) */
+a.jr-link-url { color: var(--ink); text-decoration: underline; text-underline-offset: 2px;
   overflow-wrap: anywhere; }
-@media (hover: hover) {
-  a.jr-link-url:hover { color: var(--blue-strong); }
-}
 .jc-text { position: relative; display: block;
   width: 100%; min-height: 92px; resize: vertical; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   padding: var(--sp-2) var(--sp-3); font-family: inherit; font-size: var(--fs-2); line-height: normal; color: var(--ink);
@@ -1131,7 +1125,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 .jr-file:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* offline media-queue chip on a Verlauf row (photo/audio not yet on the server) */
 .jr-media-state { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-micro); font-weight: var(--fw-bold);
-  padding: 1px var(--sp-2); border-radius: var(--r-pill); white-space: nowrap;
+  padding: 1px var(--sp-2); border-radius: var(--r-xs); white-space: nowrap; /* a tag's corner, never a pill */
   color: var(--amber-strong); background: color-mix(in srgb, var(--amber-strong) 14%, transparent); }
 .jr-media-state .i { width: 12px; height: 12px; }
 .jr-media-state.failed { color: var(--red-strong, #d33); background: color-mix(in srgb, var(--red-strong, #d33) 14%, transparent); }
