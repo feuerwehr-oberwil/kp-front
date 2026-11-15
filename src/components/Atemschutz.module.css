@@ -655,9 +655,8 @@
 /* a labelled field that CONTAINS the flexing Trupp block passes the room through */
 .formCol > .field:has(> .team) { flex: 1 1 0; min-height: 0; }
 .field > span { font: var(--field-label); color: var(--ink-dim); }
-/* what an older Trupp record had typed in the free-text Leitung field, shown as entered — the
-   record is never rewritten, so the Überwacher can still read what they wrote */
-.fieldNote { margin: 0; font-size: var(--fs-micro); font-weight: var(--fw-medium); color: var(--ink-faint); }
+/* (a field's note – the locked Austritt, the Eingangsdruck hint, an older record's free-text
+   Leitung – is THE hint, `.ip-hint`, since 15.11.2026; it was 11px --ink-faint) */
 /* Eingangsdruck and Funkkanal: ONE row each, «Eingangsdruck 300 bar ›» / «Funkkanal 11 ›», that
    opens the Druck / Kanal sheet (30.09.2026, owner: the grid and the pad do not sit in the form).
    The whole row is the button (13-incident · `.row-go`, owner pick A of 28.09.) on the soft inset of
@@ -801,7 +800,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    is a SIBLING of the button that carries it, so the state is handed down from the wrapper here.
    The rotation + transition stay the shared ones — this rule only says when. */
 .combo:has([aria-expanded='true']) :global(.chev) { transform: rotate(180deg); }
-.comboType { color: var(--blue-strong); font-weight: var(--fw-bold); border-top: 1px solid var(--glass-edge); margin-top: 2px; }
+/* «„…" übernehmen» – an action row, so ink, never blue (blue only ever means «chosen»; style
+   sweep T2, 15.11.2026 – twin of 06-contextpanel · .combo-type) */
+.comboType { color: var(--ink); font-weight: var(--fw-bold); border-top: 1px solid var(--glass-edge); margin-top: 2px; }
 .comboType :global(.i) { width: 15px; height: 15px; }
 .comboEmpty { padding: 8px 12px; font-size: var(--fs-1); color: var(--ink-faint); }
 .comboMenu {
@@ -829,13 +830,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .comboDot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .comboDotPresent { background: var(--green); }
 .comboDotOff { background: var(--ink-faint); opacity: .4; }
-/* «Gast» on a roster option — somebody recorded on this Einsatz who is not on the
-   Mannschaftsliste (lib/guests). It states a fact, it does not disable anything — a Nachbarwehr's
-   AdF is pickable like anyone. ONE tag look for a crew fact (r35, 06.11.2026): ink on grey, as
-   the Anwesenheit's «Gast» (.guestBadge) and the Trupp-Suche's «AS» (TruppFinder · .tag) – it was
-   a blue pill here, 3.9:1 by day. */
-.comboGuest { flex: none; font: var(--fw-heavy) var(--fs-micro) var(--body); letter-spacing: .02em; color: var(--ink-dim);
-  background: var(--fill-soft); border-radius: 5px; padding: 2px var(--sp-1); }
+/* («Gast» on a roster option – somebody recorded on this Einsatz who is not on the
+   Mannschaftsliste, lib/guests – is THE neutral tag `.ip-badge .ip-badge-arch` since 15.11.2026,
+   like the Anwesenheit's and the QR-Bogen's; it was an 800 chip of its own here.) */
 .comboHint { flex: none; font-size: var(--fs-micro); color: var(--ink-faint); }
 /* The Dienstgrad chip, the option's name cell and the sticky search row are the SKINLESS parts
    of this control — identical here and in the global `.combo-*` copy, so ComboMenu draws them
@@ -994,9 +991,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    query), and the tablet's roster rules must not follow it around. */
 .teamHits { list-style: none; margin: 0; padding: 4px; border: 1px solid var(--glass-edge);
   border-radius: var(--r-ctl); background: var(--surface); }
-/* The one line under the chips (phone, at rest) — just the crowning rule, since 09.09.: a count
-   plus a second sentence read as «blabla» in the field. */
-.teamHint { margin: 0; font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--ink-faint); }
+/* (the one line under the chips – phone, at rest, just the crowning rule since 09.09. – is THE
+   hint, `.ip-hint`, since 15.11.2026) */
 
 /* the field is THE search (components/SearchField · `.ui-search`, 29.09.2026 — it was a framed
    white box with a 28px ✕). `.teamSearch` stays as the NAME the phone's keyboard takeover finds it
@@ -2131,7 +2127,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .miniSub { display: block; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); margin-top: 2px; }
 .miniBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--sp-1) var(--sp-5) var(--sp-4);
   display: flex; flex-direction: column; gap: 12px; }
-.miniHint { margin: 0; font-size: var(--fs-micro); line-height: 1.4; color: var(--ink-faint); }
+/* (a mini sheet's hint line is THE hint, `.ip-hint`, since 15.11.2026) */
 /* the keypad: 4 columns of the station's channels, the current one filled; 46px keys — a number
    pad's key, the same corner and edge as the card's tiles */
 .pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); }
@@ -2411,13 +2407,13 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 
 
 /* «Person in zwei Trupps» (DoubleAssignmentBanner, audit F05 · owner pick B, 26.10.2026): the
-   amber of a warning that waits for a decision — red stays the alarm's. The form-warn recipe
-   (tint + strong leading glyph, ink text), with the choice under it. */
-.dupBanner { display: grid; gap: var(--sp-1); margin: 0 0 var(--sp-3); padding: var(--sp-3); border-radius: var(--r-ctl);
-  background: color-mix(in srgb, var(--amber) 14%, var(--surface)); border: 1.5px solid var(--amber); }
-.dupHead { margin: 0; display: flex; align-items: center; gap: var(--sp-2); font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
-.dupHead > svg { width: 16px; height: 16px; flex: none; color: var(--amber-strong); }
-.dupText { margin: 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
-.dupActs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--sp-2); margin-top: var(--sp-1); }
+   amber of a warning that waits for a decision — red stays the alarm's. THE form warning
+   (`.form-warn .form-warn-amber`, 15.11.2026 – it had a 1.5px amber border of its own); this only
+   places it, puts the explanation under the title, and lays its `.form-warn-act` choices out in a
+   row of equal shares under the sentence (the glyph's 16px + gap in). */
+.dupBanner { margin: 0 0 var(--sp-3); align-items: flex-start; }
+.dupText { display: block; font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
+.dupActs { flex: 1 0 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--sp-2);
+  padding-left: 24px; }
 /* …and the cards it names wear the same amber as a steady ring, so they can be found on the board */
 .cardConflict { box-shadow: 0 0 0 2px var(--amber); }

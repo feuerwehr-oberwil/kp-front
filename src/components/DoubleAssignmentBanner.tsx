@@ -4,7 +4,7 @@ import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { doubleAssignments, rosterIdByName, truppCrewSlots } from '../lib/personnel'
 import type { Person, Trupp } from '../types'
-import { Button } from './Button'
+import { cx } from '../lib/cx'
 import s from './Atemschutz.module.css'
 
 /**
@@ -17,6 +17,8 @@ import s from './Atemschutz.module.css'
  * tap on «Bleibt in …» takes the person out of the other crew(s) (useTruppActions ·
  * keepInOneTrupp: one Verlauf row, undoable). A choice that would leave a crew without anybody is
  * not offered; a viewer sees the band without the buttons. The affected cards wear `.cardConflict`.
+ * The band is THE amber form warning (`.form-warn-amber`, its choices `.form-warn-act`; style
+ * sweep T3, 15.11.2026 – it had a border and buttons of its own).
  */
 export function DoubleAssignmentBanner({ trupps, personnel, onKeep }: {
   trupps: Trupp[]
@@ -38,18 +40,21 @@ export function DoubleAssignmentBanner({ trupps, personnel, onKeep }: {
     const person = roster.get(personId)?.displayName
       || slotsOf(held[0]).find((sl) => sl.personId === personId)?.name.trim() || az.assignedFallbackName
     return (
-      <div key={personId} className={s.dupBanner} role="alert">
-        <p className={s.dupHead}><Icon id="warn" />{fillTemplate(az.doubleTitle, { person, n: held.length })}</p>
-        <p className={s.dupText}>{fillTemplate(az.doubleText, { person })}</p>
+      <div key={personId} className={cx('form-warn form-warn-amber', s.dupBanner)} role="alert">
+        <Icon id="warn" />
+        <span className="form-warn-text">
+          {fillTemplate(az.doubleTitle, { person, n: held.length })}
+          <span className={s.dupText}>{fillTemplate(az.doubleText, { person })}</span>
+        </span>
         {onKeep && (
-          <div className={s.dupActs}>
+          <span className={s.dupActs}>
             {held.map((keep) => (
-              <Button key={keep.id} onClick={() => onKeep(keep.id, personId)}
+              <button key={keep.id} type="button" className="form-warn-act" onClick={() => onKeep(keep.id, personId)}
                 disabled={held.some((t) => t !== keep && !truppCrewWithout(t, personId, slotsOf(t)))}>
                 {fillTemplate(az.doubleKeep, { trupp: truppLogName(keep, 'leader') })}
-              </Button>
+              </button>
             ))}
-          </div>
+          </span>
         )}
       </div>
     )

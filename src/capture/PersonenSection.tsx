@@ -110,7 +110,7 @@ export function PersonenSection({
                 {/* a row with no Mannschaftsliste behind it SAYS so — the same word the
                     tablet's pickers put on the same person (anwesenheit.guestBadge), so
                     nobody wonders later why this name is in no export */}
-                {!rosterIds.has(p.id) && <span className="cv-person-guest">{A.guestBadge}</span>}
+                {!rosterIds.has(p.id) && <span className="ip-badge ip-badge-arch cv-person-guest">{A.guestBadge}</span>}
                 {/* state as a glyph chip — the pin and the Magazin are the same two
                     glyphs the tablet's Anwesenheit uses, so the poster and the KP say
                     the same thing the same way. The word rides as the aria-label. */}

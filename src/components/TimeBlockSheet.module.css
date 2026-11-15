@@ -27,11 +27,12 @@
 .cardWarn { border-color: var(--red); }
 
 /* the head — colour, word, duration, the bin. `overflow: hidden` on the card clips its tint to the
-   card's own corners, so no inner radius has to be kept in sync. */
-.head { display: flex; align-items: center; gap: 8px; padding: 0 var(--sp-1) 0 var(--sp-3); min-height: 40px; }
+   card's own corners, so no inner radius has to be kept in sync. --tap tall: the head is the
+   button that folds the block (it was 40, 15.11.2026). */
+.head { display: flex; align-items: center; gap: 8px; padding: 0 var(--sp-1) 0 var(--sp-3); min-height: var(--tap); }
 .headMain {
   flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px;
-  border: none; background: none; padding: 0; min-height: 40px; font: inherit; text-align: left;
+  border: none; background: none; padding: 0; min-height: var(--tap); font: inherit; text-align: left;
   color: inherit; -webkit-tap-highlight-color: transparent;
 }
 button.headMain { cursor: pointer; }
@@ -67,8 +68,8 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
   color: var(--ink-faint); font: var(--fw-medium) var(--fs-2) var(--mono); }
 /* the day this end falls on. A CAPTION under its own field, not a chip beside the row: as a
    sibling of the fields it wrapped to its own line and orphaned, and it no longer said which end
-   it dated. Over midnight both sides carry one. */
-.day { font: var(--fw-medium) var(--fs-micro) var(--mono); color: var(--ink-faint); white-space: nowrap; }
+   it dated. Over midnight both sides carry one. A day word, so the body face (T1, 15.11.2026). */
+.day { font: var(--fw-medium) var(--fs-micro) var(--body); font-variant-numeric: tabular-nums; color: var(--ink-faint); white-space: nowrap; }
 .field { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .label { font: var(--field-label); line-height: var(--lh-1); color: var(--ink-dim); } /* the one field label (28.09.2026; was an uppercase eyebrow) */
 .time { flex: none; }

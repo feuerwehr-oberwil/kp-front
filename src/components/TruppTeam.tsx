@@ -340,7 +340,7 @@ export function TruppTeam({
             >
               {o.personId && <span className={cx(s.comboDot, o.present ? s.comboDotPresent : s.comboDotOff)} />}
               {o.rank && <ComboRank rank={o.rank} />}
-              {o.guest && <span className={s.comboGuest}>{appConfig.copy.anwesenheit.guestBadge}</span>}
+              {o.guest && <span className="ip-badge ip-badge-arch">{appConfig.copy.anwesenheit.guestBadge}</span>}
               <span className={c.name}>{o.name}</span>
               {/* ONE note per row, most operational first: already in a Trupp beats «still at
                   the Magazin», which beats a Funktion, which beats «nicht anwesend». Where
@@ -388,7 +388,7 @@ export function TruppTeam({
           the count + a second sentence read as «blabla»). With 0 or 1 people, tapping a name
           would promote nobody or nobody-else, so the hint saying it means nothing yet either. */}
       {phone && !needle && value.length >= 2 && (
-        <p className={s.teamHint}>{az.teamHintChips}</p>
+        <p className="ip-hint">{az.teamHintChips}</p>
       )}
     </div>
   )

@@ -104,9 +104,9 @@ export function TruppFinder({ trupps, onPick, onClose }: {
                     `kind` as «unter Atemschutz» (that is what it meant before 03.09.), which on a
                     loose «Team 2» marker would be a claim nobody made. */}
                 {!!t.truppId && isAtemschutzTrupp(t) && (
-                  <span className={cx('ip-badge', s.tag)} title={appConfig.copy.atemschutz.kindAtemschutz}>{appConfig.copy.atemschutz.asMark}</span>
+                  <span className={'ip-badge ip-badge-arch'} title={appConfig.copy.atemschutz.kindAtemschutz}>{appConfig.copy.atemschutz.asMark}</span>
                 )}
-                {t.status === 'raus' && <span className={cx('ip-badge', s.tag)}>{C.raus}</span>}
+                {t.status === 'raus' && <span className={'ip-badge ip-badge-arch'}>{C.raus}</span>}
                 <span className={s.go} aria-hidden><Icon id="chevron" /></span>
               </button>
             </li>
