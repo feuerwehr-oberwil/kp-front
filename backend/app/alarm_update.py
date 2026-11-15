@@ -292,6 +292,8 @@ def _float(v: Any) -> float | None:
 
 
 async def _verlauf(db: AsyncSession, inc: Incident, text: str) -> None:
+    """One Verlauf row about the Einsatz's alarm update. They share a subject, so the Rapport's
+    repeat fold never prints «übernommen» → «rückgängig» → «übernommen» as «übernommen 2×»."""
     from .api.journal import append_system_row  # lazy – the api package imports the services
 
-    await append_system_row(db, inc.id, icon="bell", text=text)
+    await append_system_row(db, inc.id, icon="bell", text=text, subject=SOURCE)

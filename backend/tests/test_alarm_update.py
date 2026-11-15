@@ -122,6 +122,14 @@ async def test_accept_moves_the_pin_keeps_the_einsatzart_and_undo_brings_it_all_
     assert (body["title"], body["address"], body["lat"]) == (FIRST["title"], FIRST["address"], FIRST["lat"])
     assert {f["field"] for f in body["alarm_update"]["fields"]} == {"address", "title"}
 
+    # taken → undone → taken again: one subject on every row, so the Rapport's repeat fold
+    # (lib/verlauf · repeatRuns) keeps the three apart instead of printing «übernommen 2×»
+    await client.post(f"/api/incidents/{opened.id}/alarm-update/accept")
+    rows = (
+        await db_session.execute(select(JournalEntry.row_json).where(JournalEntry.incident_id == opened.id))
+    ).scalars()
+    assert {r.get("subjectId") for r in rows} == {"alarm_update"}
+
 
 async def test_dismiss_hides_it_for_every_device(client, db_session, opened, viewer):
     await _send(client, _update(1, **NEW_TEXT))
