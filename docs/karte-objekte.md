@@ -135,9 +135,9 @@ How each field is derived – none of them is a new column:
 
 An object's position comes from its import: the station's private importer and `admin_objects
 load/push` write the manifest's `lat`/`lng`, the SharePoint pull geocodes the folder's address
-when it creates an object, `admin_objects_repair geocode-missing` / `repair-sharepoint-keys` fill the
-ones without. ⚠️ **None of them may take a fuzzy match** (review round 2, 17.10.2026: ARA Birsig,
-«Erlenstrasse 60» without its town — `geocode()` appended the home locality, swisstopo had no
+when it creates an object, `admin_objects_repair geocode-missing` fills the ones without. ⚠️
+**None of them may take a fuzzy match** (review round 2, 17.10.2026: ARA Birsig, «Erlenstrasse
+60» without its town — `geocode()` appended the home locality, swisstopo had no
 Erlenstrasse in Oberwil and answered «Vorderbergstrasse 60, 4104 Oberwil», 1.1 km from the real
 place in Therwil). They all go through `geocode.locate`: an EXACT street + number, inside the
 region bias's bbox (`map.geocoder.bboxLv95` — the brigade's area, never a hard-coded town list),

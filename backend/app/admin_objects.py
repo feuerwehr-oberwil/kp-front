@@ -28,8 +28,7 @@ no database file anywhere. SQLite exists solely as a pytest fallback.)
                            refuses a manifest none of whose ids the deployment has, unless --allow-create
     show                   print the objects + plan counts currently stored
 
-The one-off repairs of a station's object table (merging twins, re-keying what the SharePoint pull
-minted under the whole folder name, geocoding, removing empty rows) live in
+The repairs of a station's object table (merging a twin, listing likely twins, geocoding) live in
 ``app.admin_objects_repair`` – see docs/AGENT-RUNBOOK.md. `objects_without_coordinates` stays
 here: the SharePoint status card reads it live.
 
@@ -151,8 +150,8 @@ class FolderIdentity:
     One convention, three doors: the private importer
     (``scripts/import_einsatzplaene.py``) has always written «Adresse - Name» folders into a
     manifest as ``address`` + ``name`` and keyed the object on the NAME alone, the SharePoint pull
-    reads the same folders off Graph, and `admin_objects_repair._repair_sharepoint_keys` repairs what the pull
-    minted before it agreed. Verified against production on 11.09.2026: folder «Im Buech 10 - Hof
+    reads the same folders off Graph (a one-off repair, removed 15.11.2026, folded what the pull
+    minted before it agreed). Verified against production on 11.09.2026: folder «Im Buech 10 - Hof
     Thürkauf, Im Buech 15, Im Buech 20» is stored as ``301a412f…`` =
     ``object_id_for_key('Hof Thürkauf, Im Buech 15, Im Buech 20')``, address «Im Buech 10» — NOT
     the uuid5 of the whole folder string.
@@ -657,8 +656,8 @@ async def objects_without_coordinates(db: AsyncSession) -> list[ObjectSite]:
     Einsatz whatever, however many sheets hang off it. That is the second half of the
     two-conventions defect: 150 objects minted from a folder name, none of them geocoded, ~334
     freshly synced plans reachable by nobody — and nothing said so anywhere. Read live by the
-    SharePoint status card and printed by `admin_objects_repair._repair_sharepoint_keys`, whose dry run is
-    therefore also the way to check afterwards that the repair worked.
+    SharePoint status card and printed by `admin_objects_repair geocode-missing`, whose dry run is
+    therefore also the way to check afterwards that the geocoding worked.
     """
     with_plans = select(ReferenceDataset.object_id).where(ReferenceDataset.object_id.is_not(None))
     stmt = (

@@ -825,9 +825,7 @@ async def _follow_renames(
             continue
         name = new_id.name if obj.name == old_id.name else obj.name
         address = new_id.address if obj.address in (None, old_id.address) else obj.address
-        plan = await _plan_rekey(
-            db, obj, new_id.object_id, also=[], moved_datasets=[], scales=scales, name=name, address=address
-        )
+        plan = await _plan_rekey(db, obj, new_id.object_id, scales=scales, name=name, address=address)
         if plan.blocked:
             logger.warning("SharePoint plans: «%s» → «%s» not followed: %s", old_folder, new_folder, plan.blocked)
             continue
@@ -867,14 +865,14 @@ async def _object_for(db: AsyncSession, folder: FolderIdentity, raw_folder: str 
     result was a station whose scheduled pull skipped every plan until somebody loaded the
     objects by hand. Hashing the WHOLE folder string instead — what this did until 11.09.2026 —
     was the same failure one layer down: 150 objects the importer had already created grew a
-    second, address-less copy each, and the Einsatz surfaced the old one
-    (`admin_objects_repair repair-sharepoint-keys` folds those back together).
+    second, address-less copy each, and the Einsatz surfaced the old one (folded back together by
+    a one-off repair, removed 15.11.2026).
 
     A created object gets the folder's two fields and, best-effort, coordinates for the address:
     `useObjectPlans` surfaces an object at an incident by DISTANCE, so an object without them is
     a set of plans no crew can reach. The geocode never fails or delays the run — a lookup that
-    times out or finds nothing leaves the object exactly as it would have been, and the repair
-    CLI (and the status card) count what is still without coordinates.
+    times out or finds nothing leaves the object exactly as it would have been, and the status
+    card (and `admin_objects_repair geocode-missing`) count what is still without coordinates.
 
     ⚠️ `source_key` is deliberately NOT set: it is what the S3 snapshot pull matches on
     (`plans.pull_plans`), it is UNIQUE, and only `admin_objects` writes it. A folder name
@@ -1304,19 +1302,13 @@ async def sharepoint_status(db: AsyncSession) -> dict[str, Any]:
     areas = []
     for source in config.sources:
         row = rows.get(source.area)
+        # ⚠️ An object with plans and no coordinates is said on the card (`objectsWithoutCoordinates`,
+        # worded by the app), not in the run's status, because it is not the RUN that is wrong:
+        # every plan arrived. `useObjectPlans` surfaces an Einsatzobjekt by distance, so an object
+        # without coordinates never appears at an incident and its sheets are reachable by nobody —
+        # invisible until it is said out loud. Grading the area `needs_review` for it would also
+        # drop the delta cursor on every poll for as long as one object stays ungeocoded.
         detail = row.detail if row else None
-        if source.area == "plans" and blind:
-            # ⚠️ Said on the card rather than in the run's status, because it is not the RUN that
-            # is wrong: every plan arrived. `useObjectPlans` surfaces an Einsatzobjekt by
-            # distance, so an object without coordinates never appears at an incident and its
-            # sheets are reachable by nobody — invisible until it is said out loud. Grading the
-            # area `needs_review` for it would also drop the delta cursor on every poll for as
-            # long as one object stays ungeocoded.
-            note = (
-                f"{blind} Einsatzobjekt(e) carry plans but no coordinates — those plans surface at no "
-                "incident. `python -m app.admin_objects_repair repair-sharepoint-keys` lists and geocodes them."
-            )
-            detail = f"{detail} · {note}" if detail else note
         areas.append(
             {
                 "area": source.area,
@@ -1324,8 +1316,8 @@ async def sharepoint_status(db: AsyncSession) -> dict[str, Any]:
                 "site": source.siteUrl or (f"drive {source.driveId}" if source.driveId else None),
                 "status": row.status if row else "pending",
                 "detail": detail,
-                #: Objects with plans and no coordinates (plans area only) — the machine-readable
-                #: half of the sentence above, so this is checkable without parsing prose.
+                #: Objects with plans and no coordinates (plans area only), read live — the card
+                #: words it (SystemView · spNoCoords).
                 "objectsWithoutCoordinates": blind if source.area == "plans" else 0,
                 "imported": row.imported if row else 0,
                 "skipped": row.skipped if row else 0,

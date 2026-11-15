@@ -1,12 +1,12 @@
-"""Two folder names that look identical are one Einsatzobjekt — and merging them may not lose a
-single plan, landmark pair or picked object.
+"""What a merge carries over (`admin_objects_repair merge <loser> --into <survivor>`) — and that it
+may not lose a single plan, landmark pair or picked object, nor rewrite the history.
 
-The FWO deployment carries ~195 objects for ~157 real ones: an import that read the plan-library
-folder names off a Mac spelled «ü» as ``u`` + U+0308 while every other run spelled it U+00FC, and
-``object_id_for_key`` hashes the string, so the same letters minted two ids. `merge-duplicates`
-folds them back together; these tests pin the parts that are dangerous — that everything pointing
-at the loser follows it, that a plan slot already on the survivor is never overwritten, and that
-the default run writes nothing at all.
+The planning and apply here (`_plan_merge` / `_apply_pair`) were written for the NFD/NFC twins an
+import minted from a Mac-run folder listing (11.09.2026), so the fixtures are still two spellings
+of one name; the one-off fold that found them by name is gone (15.11.2026), a person now names
+the pair. These tests pin the parts that are dangerous — that everything pointing at the loser
+follows it, that a plan slot already on the survivor is never overwritten, and that the history
+stays as it was.
 """
 
 import unicodedata
@@ -95,10 +95,9 @@ async def _count(db, model) -> int:
     return int((await db.execute(select(func.count()).select_from(model))).scalar_one())
 
 
-async def test_the_nfc_twin_survives_and_the_nfd_row_hands_everything_over(db_session, capsys):
-    """The prod case: the NFC-keyed row is the id every future import mints, so it is the one
-    that may stay — and the twin's plans, calibration, source_key and picked-object references
-    all have to arrive on it."""
+async def test_the_loser_hands_everything_over(db_session, capsys):
+    """The twin's plans, calibration, source_key and picked-object references all have to arrive
+    on the survivor."""
     survivor = await _object(db_session, NFC_NAME, plans={"modul1": "a" * 64})
     loser = await _object(
         db_session,
@@ -117,7 +116,7 @@ async def test_the_nfc_twin_survives_and_the_nfd_row_hands_everything_over(db_se
     )
     incident = await _incident(db_session, picked=loser)
 
-    assert await admin_objects_repair._merge_duplicates(apply=True) == 0
+    assert await admin_objects_repair._merge_into(loser, survivor, apply=True) == 0
 
     objects = list((await db_session.execute(select(ObjectSite))).scalars())
     assert [o.id for o in objects] == [survivor]
@@ -156,7 +155,7 @@ async def test_a_merge_is_a_new_workspace_revision_so_a_stale_save_gets_its_409(
     before = (await db_session.execute(select(Incident).where(Incident.id == incident))).scalar_one()
     base_rev, updated_at = before.workspace_rev, before.updated_at
 
-    assert await admin_objects_repair._merge_duplicates(apply=True) == 0
+    assert await admin_objects_repair._merge_into(loser, survivor, apply=True) == 0
 
     async with session_factory() as db:
         row = (await db.execute(select(Incident).where(Incident.id == incident))).scalar_one()
@@ -171,183 +170,9 @@ async def test_a_merge_is_a_new_workspace_revision_so_a_stale_save_gets_its_409(
         assert refused.value.detail["server_rev"] == base_rev + 1
 
 
-async def test_the_dry_run_is_the_default_and_writes_nothing(db_session, capsys):
-    """A maintenance command that deletes rows earns its default the hard way."""
-    survivor = await _object(db_session, NFC_NAME, plans={"modul1": "a" * 64})
-    loser = await _object(db_session, NFD_NAME, oid=object_id_for_key(NFD_NAME), plans={"modul2": "b" * 64})
-    await _scales(db_session, {"georefByPlan": {f"object:{loser}:plan:modul2": {"pairs": []}}})
-    incident = await _incident(db_session, picked=loser)
-
-    assert await admin_objects_repair._amain(["merge-duplicates"]) == 0
-
-    assert await _count(db_session, ObjectSite) == 2
-    assert {d.id for d in (await db_session.execute(select(ReferenceDataset))).scalars()} == {
-        f"plan:{survivor}:modul1",
-        f"plan:{loser}:modul2",
-    }
-    scales = (await db_session.execute(select(DeploymentConfig))).scalar_one().plan_scales_json or {}
-    assert list(scales["georefByPlan"]) == [f"object:{loser}:plan:modul2"]
-    workspace = (await db_session.execute(select(Incident).where(Incident.id == incident))).scalar_one()
-    assert (workspace.map_workspace_json or {})["pickedObjectId"] == str(loser)
-
-    out = capsys.readouterr().out
-    assert "dry-run" in out and "Nothing written" in out
-    assert "--apply" in out, "the report has to say how to actually do it"
-
-
-async def test_a_byte_identical_pair_keeps_the_richer_twin(db_session, capsys):
-    """Two rows under the exact same name and neither carrying the NFC-key id — the one holding
-    more data is the one the other folds into (and is then re-keyed onto the NFC id)."""
-    poor = await _object(db_session, NFC_NAME, oid=uuid.uuid4(), plans={"modul1": "a" * 64})
-    rich = await _object(db_session, NFC_NAME, oid=uuid.uuid4(), plans={"modul2": "b" * 64, "modul3": "c" * 64})
-
-    assert await admin_objects_repair._merge_duplicates(apply=True) == 0
-
-    canonical = object_id_for_key(NFC_NAME)
-    assert [o.id for o in (await db_session.execute(select(ObjectSite))).scalars()] == [canonical]
-    assert {d.id for d in (await db_session.execute(select(ReferenceDataset))).scalars()} == {
-        f"plan:{canonical}:modul{n}" for n in (1, 2, 3)
-    }
-    out = capsys.readouterr().out
-    assert f"keep   {rich}" in out and f"merge  {poor}" in out, "the emptier row was the one kept"
-    assert "no row carries the NFC-key id" in out
-
-
-async def test_the_survivor_is_re_keyed_onto_the_nfc_id_and_takes_everything_with_it(db_session, capsys):
-    """A merge that leaves the survivor on a non-NFC id is a merge the next sync undoes: the
-    SharePoint pull creates objects under ``object_id_for_key(NFC name)``, so it would mint a
-    third row under the same name. 27 of 79 prod groups look like this."""
-    poor = await _object(db_session, NFC_NAME, oid=uuid.uuid4(), plans={"modul1": "a" * 64})
-    rich = await _object(
-        db_session,
-        NFC_NAME,
-        oid=uuid.uuid4(),
-        plans={"modul2": "b" * 64},
-        source_key="Kindergarten Hüsli",
-    )
-    await _scales(db_session, {"georefByPlan": {f"object:{rich}:plan:modul2": {"pairs": []}}})
-    picked_the_loser = await _incident(db_session, picked=poor)
-    picked_the_survivor = await _incident(db_session, picked=rich)
-    canonical = object_id_for_key(NFC_NAME)
-    assert canonical not in {poor, rich}
-
-    assert await admin_objects_repair._merge_duplicates(apply=False) == 0
-    assert {o.id for o in (await db_session.execute(select(ObjectSite))).scalars()} == {poor, rich}, (
-        "the dry run minted the canonical row"
-    )
-
-    assert await admin_objects_repair._merge_duplicates(apply=True) == 0
-
-    row = (await db_session.execute(select(ObjectSite))).scalar_one()
-    assert row.id == canonical, "the survivor kept an id the next sync does not resolve to"
-    assert row.source_key == "Kindergarten Hüsli", "the pull key did not survive the re-key"
-    assert {d.id for d in (await db_session.execute(select(ReferenceDataset))).scalars()} == {
-        f"plan:{canonical}:modul1",
-        f"plan:{canonical}:modul2",
-    }
-    scales = (await db_session.execute(select(DeploymentConfig))).scalar_one().plan_scales_json or {}
-    assert list(scales["georefByPlan"]) == [f"object:{canonical}:plan:modul2"]
-    for incident in (picked_the_loser, picked_the_survivor):
-        workspace = (await db_session.execute(select(Incident).where(Incident.id == incident))).scalar_one()
-        assert (workspace.map_workspace_json or {})["pickedObjectId"] == str(canonical)
-
-    out = capsys.readouterr().out
-    assert f"rekey  {rich} → {canonical}" in out
-    assert "1 survivor(s) re-keyed to the NFC id" in out
-
-
-async def test_the_modul1_notes_survive_a_merge_and_a_re_key(db_session):
-    """The Gebäude card's Sofortmassnahmen / Bemerkungen belong to the OBJECT: folding a twin and
-    then moving the survivor onto the NFC id must lose neither, and the survivor's own text wins."""
-    loser = await _object(
-        db_session,
-        NFC_NAME,
-        oid=uuid.uuid4(),
-        plans={"modul1": "a" * 64},
-        measures="Gas zu",
-        remarks="vom Zwilling",
-        measures_source="Modul 1 (alt)",
-    )
-    survivor = await _object(
-        db_session,
-        NFC_NAME,
-        oid=uuid.uuid4(),
-        plans={"modul2": "b" * 64},
-        source_key="Kindergarten Hüsli",
-        remarks="Brandlast Keller",
-    )
-    assert loser != survivor
-
-    assert await admin_objects_repair._merge_duplicates(apply=True) == 0
-
-    row = (await db_session.execute(select(ObjectSite))).scalar_one()
-    assert row.id == object_id_for_key(NFC_NAME)
-    assert row.measures == "Gas zu", "the twin's measures did not come over"
-    assert row.remarks == "Brandlast Keller", "the survivor's own note was overwritten"
-    assert row.measures_source == "Modul 1 (alt)"
-
-
-async def test_a_survivor_that_already_carries_the_nfc_id_is_left_alone(db_session, capsys):
-    """Nothing to do is nothing done — no new row, no re-key line, no id churn."""
-    survivor = await _object(db_session, NFC_NAME, plans={"modul1": "a" * 64})
-    await _object(db_session, NFD_NAME, oid=object_id_for_key(NFD_NAME), plans={"modul2": "b" * 64})
-
-    assert await admin_objects_repair._merge_duplicates(apply=True) == 0
-
-    assert [o.id for o in (await db_session.execute(select(ObjectSite))).scalars()] == [survivor]
-    out = capsys.readouterr().out
-    assert "rekey" not in out
-    assert "0 survivor(s) re-keyed" in out
-    assert "the survivor carries the NFC-key id" in out
-
-
-async def test_a_group_kept_back_by_a_conflict_is_not_re_keyed(db_session, capsys):
-    """Half a merge on a fresh id is worse than none: the conflicting twin would be left under a
-    spelling the pull no longer resolves to anything."""
-    poor = await _object(db_session, NFC_NAME, oid=uuid.uuid4(), plans={"modul1": "a" * 64})
-    rich = await _object(db_session, NFC_NAME, oid=uuid.uuid4(), plans={"modul1": "b" * 64, "modul2": "c" * 64})
-
-    assert await admin_objects_repair._merge_duplicates(apply=True) == 1
-
-    assert {o.id for o in (await db_session.execute(select(ObjectSite))).scalars()} == {poor, rich}
-    out = capsys.readouterr().out
-    assert f"rekey {rich} → {object_id_for_key(NFC_NAME)} NOT done" in out
-    assert "would mint a THIRD row" in out
-    assert "1 re-key(s) left undone by conflicts" in out
-
-
-async def test_a_stray_row_already_on_the_nfc_id_is_refused_not_guessed_at(db_session, capsys):
-    """The NFC id belonging to a row under ANOTHER name is not this command's call to make."""
-    stray = object_id_for_key(NFC_NAME)
-    await _object(db_session, "Ganz anderes Objekt", oid=stray)
-    poor = await _object(db_session, NFC_NAME, oid=uuid.uuid4())
-    rich = await _object(db_session, NFC_NAME, oid=uuid.uuid4(), plans={"modul1": "b" * 64})
-
-    assert await admin_objects_repair._merge_duplicates(apply=True) == 1, "a refused re-key is not a clean run"
-
-    assert {o.id for o in (await db_session.execute(select(ObjectSite))).scalars()} == {stray, rich}
-    assert poor not in {o.id for o in (await db_session.execute(select(ObjectSite))).scalars()}
-    out = capsys.readouterr().out
-    assert f"REFUSED: an object already carries {stray}" in out
-
-
-async def test_an_equal_pair_is_broken_the_same_way_every_run(db_session, capsys):
-    """Same plan count, same timestamp: the lowest id wins, so two operators comparing two dry
-    runs see the same answer about which row's address and coordinates are kept."""
-    same_moment = datetime(2026, 9, 11, 8, 0, tzinfo=UTC)
-    low = uuid.UUID("00000000-0000-4000-8000-000000000001")
-    high = uuid.UUID("ffffffff-0000-4000-8000-000000000001")
-    await _object(db_session, NFC_NAME, oid=high, updated_at=same_moment)
-    await _object(db_session, NFC_NAME, oid=low, updated_at=same_moment)
-
-    assert await admin_objects_repair._merge_duplicates(apply=False) == 0
-    out = capsys.readouterr().out
-    assert f"keep   {low}" in out and f"merge  {high}" in out
-
-
 async def test_a_slot_the_survivor_already_holds_is_reported_not_overwritten(db_session, capsys):
-    """Two different sheets under one module is the one case this command must NOT decide. The
-    survivor's plan stays, the loser keeps its own — and its row survives with it."""
+    """Two different sheets under one module is the one case a merge must NOT decide. Nothing is
+    written: the survivor's plan stays, the loser keeps its own — and its row survives with it."""
     survivor = await _object(db_session, NFC_NAME, plans={"modul1": "a" * 64})
     loser = await _object(
         db_session,
@@ -357,7 +182,9 @@ async def test_a_slot_the_survivor_already_holds_is_reported_not_overwritten(db_
         source_key="Kindergarten Hüsli",
     )
 
-    assert await admin_objects_repair._merge_duplicates(apply=True) == 1, "an unfinished merge exits non-zero"
+    assert await admin_objects_repair._merge_into(loser, survivor, apply=True) == 1, (
+        "an unfinished merge exits non-zero"
+    )
 
     assert await _count(db_session, ObjectSite) == 2, "a row still holding a plan was deleted"
     surviving_row = (await db_session.execute(select(ObjectSite).where(ObjectSite.id == loser))).scalar_one()
@@ -380,7 +207,7 @@ async def test_an_identical_duplicate_plan_row_is_dropped(db_session, monkeypatc
     loser = await _object(db_session, NFD_NAME, oid=object_id_for_key(NFD_NAME), plans={"modul1": None})
     monkeypatch.setattr(admin_objects_repair.storage, "get_bytes", lambda key: b"%PDF-1.4 same sheet")
 
-    assert await admin_objects_repair._merge_duplicates(apply=True) == 0
+    assert await admin_objects_repair._merge_into(loser, survivor, apply=True) == 0
 
     assert [o.id for o in (await db_session.execute(select(ObjectSite))).scalars()] == [survivor]
     rows = list((await db_session.execute(select(ReferenceDataset))).scalars())
@@ -391,7 +218,7 @@ async def test_an_identical_duplicate_plan_row_is_dropped(db_session, monkeypatc
 async def test_the_history_is_counted_and_left_alone(db_session, capsys):
     """The audit chain is the record of what was true that night. Rewriting it to tidy the object
     table would break the hash chain and lie about the Einsatz."""
-    await _object(db_session, NFC_NAME)
+    survivor = await _object(db_session, NFC_NAME)
     loser = await _object(db_session, NFD_NAME, oid=object_id_for_key(NFD_NAME))
     incident = await _incident(db_session)
     db_session.add(
@@ -410,53 +237,13 @@ async def test_the_history_is_counted_and_left_alone(db_session, capsys):
     )
     await db_session.commit()
 
-    assert await admin_objects_repair._merge_duplicates(apply=True) == 0
+    assert await admin_objects_repair._merge_into(loser, survivor, apply=True) == 0
 
     event = (await db_session.execute(select(IncidentEvent))).scalar_one()
     assert (event.payload_json or {})["objectId"] == str(loser), "the audit trail was rewritten"
     journal = (await db_session.execute(select(JournalEntry))).scalar_one()
     assert str(loser) in (journal.row_json or {})["text"]
     assert "left untouched" in capsys.readouterr().out
-
-
-async def test_an_empty_object_goes_and_a_junk_folder_goes_when_it_is_named(db_session, capsys):
-    """«Grosspläne» is a category folder an import read as an Einsatzobjekt. With no plans under it
-    it falls out on its own; with plans it takes naming it out loud."""
-    keeper = await _object(db_session, "Wache", plans={"modul1": "a" * 64})
-    empty = await _object(db_session, "Leerer Ordner")
-    junk = await _object(db_session, "Grosspläne", plans={"modul1": "z" * 64})
-
-    assert await admin_objects_repair._remove_empty(apply=False, names=["Grosspläne"]) == 0
-    assert await _count(db_session, ObjectSite) == 3, "the dry run deleted something"
-
-    assert await admin_objects_repair._remove_empty(apply=True, names=["grosspläne"]) == 0  # name match is case-folded
-    assert {o.id for o in (await db_session.execute(select(ObjectSite))).scalars()} == {keeper}
-    assert {d.object_id for d in (await db_session.execute(select(ReferenceDataset))).scalars()} == {keeper}
-    out = capsys.readouterr().out
-    assert str(empty) in out and str(junk) in out
-
-
-async def test_an_object_something_still_points_at_is_refused(db_session, capsys):
-    """An object with no plans but a georeference or an incident behind it is not junk — deleting
-    it would take a station's landmark work with it."""
-    calibrated = await _object(db_session, "Vermessen")
-    picked = await _object(db_session, "Gewählt")
-    await _scales(db_session, {"georefByPlan": {f"object:{calibrated}:plan:modul2": {"pairs": []}}})
-    await _incident(db_session, picked=picked)
-
-    assert await admin_objects_repair._remove_empty(apply=True, names=[]) == 0
-
-    assert await _count(db_session, ObjectSite) == 2
-    err = capsys.readouterr().err
-    assert "NOT removed" in err and str(calibrated) in err and str(picked) in err
-
-
-async def test_a_deployment_without_duplicates_says_so(db_session, capsys):
-    await _object(db_session, "Wache")
-    await _object(db_session, "Schulhaus")
-
-    assert await admin_objects_repair._merge_duplicates(apply=True) == 0
-    assert "No duplicate object names" in capsys.readouterr().out
 
 
 async def _revision(db, dataset_id: str, *, version: int = 1, approved: bool = False) -> int:
@@ -505,7 +292,7 @@ async def test_a_folded_sheet_takes_its_revisions_and_alignments_with_it(db_sess
     await _revision(db_session, f"plan:{loser}:modul1")
     moved_alignment = await _revision(db_session, f"plan:{loser}:modul2", approved=True)
 
-    assert await admin_objects_repair._merge_duplicates(apply=True) == 0
+    assert await admin_objects_repair._merge_into(loser, survivor, apply=True) == 0
 
     revisions = {r.dataset_id for r in (await db_session.execute(select(PlanRevision))).scalars()}
     assert revisions == {f"plan:{survivor}:modul1", f"plan:{survivor}:modul2"}
@@ -520,21 +307,3 @@ async def test_a_folded_sheet_takes_its_revisions_and_alignments_with_it(db_sess
     # The dropped sheet's alignment history goes with it; the moved one keeps its own.
     events = list((await db_session.execute(select(PlanAlignmentEvent))).scalars())
     assert {e.alignment_id for e in events} == {a.id for a in alignments}
-
-
-async def test_an_object_removed_by_name_takes_its_revisions_with_it(db_session):
-    """`remove-empty --name` deletes plans and all — and a plan row that still has a revision
-    cannot be deleted at all (ON DELETE RESTRICT), so the revisions have to go first."""
-    keeper = await _object(db_session, "Wache", plans={"modul1": "a" * 64})
-    junk = await _object(db_session, "Grosspläne", plans={"modul1": "z" * 64})
-    await _revision(db_session, f"plan:{keeper}:modul1")
-    await _revision(db_session, f"plan:{junk}:modul1")
-
-    assert await admin_objects_repair._remove_empty(apply=True, names=["Grosspläne"]) == 0
-
-    assert {r.dataset_id for r in (await db_session.execute(select(PlanRevision))).scalars()} == {
-        f"plan:{keeper}:modul1"
-    }
-    assert await _count(db_session, PlanAlignment) == 1
-    assert await _count(db_session, PlanPageFloor) == 1
-    assert await _count(db_session, PlanAlignmentEvent) == 1

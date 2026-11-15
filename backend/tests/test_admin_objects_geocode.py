@@ -1,8 +1,8 @@
 """An Einsatzobjekt without coordinates is offered at no incident — so its plans are reachable by
 nobody, however correct its key is.
 
-After the two object-key conventions were folded back together (`repair-sharepoint-keys`, PR #156)
-the FWO deployment still carried 52 such objects, written that way by the ORIGINAL importer years
+After the two object-key conventions were folded back together (a one-off repair, PR #156) the
+FWO deployment still carried 52 such objects, written that way by the ORIGINAL importer years
 earlier: their name is a bare street address («Benkenstrasse 66a»), their address column is empty,
 and they carry plans. `geocode-missing` gives them a position. These tests pin what it looks the
 address up BY, that a row it cannot resolve is left exactly as it was, and that the default run
