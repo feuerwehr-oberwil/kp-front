@@ -192,7 +192,7 @@
    the same, kroki · _symbol_badges) */
 .ts:has(> .sym-floor) > .sym-done { right: calc(100% + 3px); }
 .sym-done { position: absolute; top: calc(var(--badge-out, 8px) * -1); right: calc(100% - 7px); z-index: 6; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box;
-  border-radius: var(--r-sm); background: var(--surface); color: var(--ink-dim); line-height: 18px; text-align: center; font-size: var(--fs-micro); font-weight: var(--fw-heavy); letter-spacing: -.2px;
+  border-radius: var(--r-xs); background: var(--surface); color: var(--ink-dim); line-height: 18px; text-align: center; font-size: var(--fs-micro); font-weight: var(--fw-heavy); letter-spacing: -.2px;
   font-variant-numeric: tabular-nums; white-space: nowrap;
   box-shadow: var(--label-plate), 0 0 0 1.5px var(--label-bg); pointer-events: none; }
 /* metadata caption — a symbol's discriminating value(s) printed just under its glyph (e.g.

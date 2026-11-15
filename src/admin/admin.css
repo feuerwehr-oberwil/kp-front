@@ -48,8 +48,8 @@
   color: var(--ink-faint); white-space: nowrap;
 }
 .adm-header-right { display: flex; align-items: center; gap: 14px; }
-.adm-link {
-  font-size: 13px; font-weight: 600; color: var(--blue); text-decoration: none;
+.adm-link {   /* ink: blue means «chosen» and nothing else (style sweep T2, 15.11.2026) */
+  font-size: 13px; font-weight: 600; color: var(--ink); text-decoration: none;
   white-space: nowrap;
 }
 @media (hover: hover) {
@@ -181,7 +181,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-autosave.warn .adm-autosave-dot { background: var(--amber); }
 .adm-autosave-retry {
   margin-left: 2px; padding: 0; border: none; background: transparent;
-  color: var(--blue); font: inherit; font-weight: var(--fw-bold); text-decoration: underline; cursor: pointer;
+  color: var(--ink); font: inherit; font-weight: var(--fw-bold); text-decoration: underline; cursor: pointer; /* ink + underline, not blue (T2) */
 }
 /* message over instruction. The chip is a pill on one line until there IS a hint — a save error
    is the one place here that has to be readable rather than compact. */
@@ -260,7 +260,9 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    and space-between would park it on the left. The rule is «the control is right-aligned», in
    every one of the three head shapes. */
 .adm-card-act { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-left: auto; }
-.adm-card-title { font-size: 15px; font-weight: var(--fw-bold); letter-spacing: .01em; margin: 0; }
+/* THE sheet / card title, `--sheet-title` 16/800 (ui-conventions · titles; style sweep T5, 15.11.2026 –
+   it was a 15/700 cut of its own) */
+.adm-card-title { font: var(--sheet-title); margin: 0; }
 /* the ⓘ after a card title: the «ⓘ» character brought its own side bearing, the #info icon does not */
 .adm-card-title > .adm-tip { margin-left: 6px; }
 .adm-card-cap { font-size: 12px; color: var(--ink-faint); margin: 5px 0 0; line-height: 1.45; }
@@ -366,8 +368,9 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   grid-column: 1 / -1;
   display: flex; align-items: center; gap: 7px;
   margin: 0; padding: 14px 18px 6px;
-  font-size: 10.5px; font-weight: var(--fw-bold); letter-spacing: .07em; text-transform: uppercase;
-  color: var(--blue);
+  /* THE eyebrow in its ink-faint – it was a 10.5px cut in blue, and blue means «chosen» (style sweep T2) */
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase;
+  color: var(--ink-faint);
 }
 .adm-set-grp-act { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 /* the bin of a record head — the two-step ConfirmButton keeps its own width when armed.
@@ -882,10 +885,10 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   color: color-mix(in srgb, var(--ink) 52%, transparent);
   background: transparent; border-color: var(--border); border-style: dashed;
 }
-.adm-fleet-badge-cfg {
-  color: var(--blue);
-  background: var(--blue-8);
-  border-color: color-mix(in srgb, var(--blue) 35%, var(--border));
+.adm-fleet-badge-cfg {   /* a neutral tag, never the blue of «chosen» (T2) */
+  color: var(--ink);
+  background: var(--fill-soft);
+  border-color: var(--border);
 }
 /* roster field — read-only "filled from Mannschaft" pill */
 .adm-fleet-rosterpill {
@@ -910,7 +913,8 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    so by passing `label=""` (ui · StatusBadge). The span is still in the DOM, so without this it
    keeps eating one 9px flex gap and the pill reads with a hole in it. */
 .adm-badge-label:empty { display: none; }
-.adm-badge-state { font-family: var(--mono); font-size: var(--fs-micro); font-weight: var(--fw-medium); }
+/* a state WORD («aktiv», «aus»): the body face – mono is for numbers (style sweep T1, 15.11.2026) */
+.adm-badge-state { font-size: var(--fs-micro); font-weight: var(--fw-medium); }
 .adm-badge.on .adm-badge-dot { background: var(--green); }
 .adm-badge.on .adm-badge-state { color: var(--green-strong); }
 .adm-badge.off .adm-badge-dot { background: var(--ink-faint); }
@@ -1260,7 +1264,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   border-radius: var(--r-sm);
 }
 .adm-plan-mod { font-size: 12px; font-weight: var(--fw-bold); color: var(--ink); }
-.adm-plan-ver { font-family: var(--mono); font-size: var(--fs-micro); font-weight: 600; color: var(--blue); }
+.adm-plan-ver { font-family: var(--mono); font-size: var(--fs-micro); font-weight: 600; color: var(--ink-dim); } /* a number: ink-dim (T2) */
 .adm-plan-date { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
 
 /* ── reference table ──────────────────────────────────────────────────────── */
@@ -1383,11 +1387,8 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   border: 1px solid var(--border);
 }
 
-.adm-members-role.editor {
-  color: var(--blue);
-  border-color: color-mix(in srgb, var(--blue) 35%, var(--border-soft));
-  background: color-mix(in srgb, var(--blue) 10%, var(--surface-2));
-}
+/* (`.adm-members-role.editor` wore blue until 15.11.2026: a role tag is neutral for every role –
+   ui-conventions · «A role or status TAG is neutral»; blue means «chosen», style sweep T2) */
 
 /* The status pill in the two people tables is tighter than a standalone badge, or the rows grow.
    ⚠️ Targeted at the badge INSIDE the cell, not at a class on it: these are `StatusBadge` now
@@ -1969,8 +1970,9 @@ p.adm-sys-path { margin: 3px 0 0; }
 /* the live document, marked as such: the newest KEPT entry is the state BEFORE the most recent
    write, and confusing the two is the one mistake somebody restoring under pressure must not make */
 .adm-hist-now { background: var(--blue-8); }
-.adm-hist-badge { flex: none; font: var(--fw-bold) 10.5px var(--body); letter-spacing: .06em;
-  text-transform: uppercase; color: var(--blue); }
+/* «Aktuell»: THE tag (`.ip-badge` type, ink) – it was a blue word (style sweep T2, 15.11.2026) */
+.adm-hist-badge { flex: none; font: var(--fw-bold) var(--fs-micro) var(--body); letter-spacing: .03em;
+  text-transform: uppercase; color: var(--ink); }
 .adm-hist-when { flex: none; width: 152px; font: 600 12px var(--mono); color: var(--ink); }
 .adm-hist-what { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .adm-hist-src { font: 600 13px var(--body); color: var(--ink); }
@@ -1987,7 +1989,7 @@ p.adm-sys-path { margin: 3px 0 0; }
    padding negated on the left so the label still starts on the column above it */
 .adm-hist-toggle { align-self: flex-start; display: inline-flex; align-items: center;
   min-height: var(--tap); margin: 0 0 0 -8px; padding: 0 8px; border-radius: var(--r-ctl); cursor: pointer;
-  border: 0; background: none; color: var(--blue); font: 600 11.5px var(--body); }
+  border: 0; background: none; color: var(--ink); font: var(--fw-bold) var(--fs-1) var(--body); } /* ink 12.5, not a blue 11.5 word (T2/T4) */
 @media (hover: hover) {
   .adm-hist-toggle:hover { text-decoration: underline; }
 }

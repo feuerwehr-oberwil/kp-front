@@ -164,15 +164,60 @@ describe('a phone bottom sheet closes by being pushed down', () => {
   it('leaves a body that has been scrolled to its own scroller', () => {
     const { popup, onClose } = open()
     const body = popup.querySelector('.ip-body') as HTMLElement
-    Object.defineProperties(body, {
-      scrollTop: { value: 120, writable: true },
-      scrollHeight: { value: 900 },
-      clientHeight: { value: 400 },
-    })
-    // jsdom reports no computed overflow for the class, so say what the stylesheet says
-    body.style.overflowY = 'auto'
+    scroller(body, 120)
     swipe(popup, body, 160)
     expect(onClose).not.toHaveBeenCalled()
+  })
+})
+
+/** Make `el` a vertical scroller of the given state — jsdom lays nothing out and reports no
+ *  computed overflow for a class, so say what the stylesheet and the scroll position say. */
+function scroller(el: HTMLElement, scrollTop: number) {
+  Object.defineProperties(el, {
+    scrollTop: { value: scrollTop, writable: true },
+    scrollHeight: { value: 900 },
+    clientHeight: { value: 400 },
+  })
+  el.style.overflowY = 'auto'
+}
+
+// scroll sweep 15.11.2026 #1: only the innermost scroller was asked, and never the popup, so a
+// list at its top inside a scrolled-down form closed the sheet instead of scrolling it back up
+describe('every scroller between the finger and the popup must be at its top', () => {
+  it('a list at its top inside a scrolled body scrolls the body, it does not close', () => {
+    const onClose = vi.fn()
+    render(<Sheet open onClose={onClose} title="Einsatz eröffnen"><ul data-testid="list"><li>Objekt</li></ul></Sheet>)
+    const popup = screen.getByRole('dialog')
+    asBottomSheet(popup)
+    scroller(popup.querySelector('.ip-body') as HTMLElement, 300)
+    scroller(screen.getByTestId('list'), 0)
+    swipe(popup, screen.getByText('Objekt'), 160)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('a popup that scrolls itself, scrolled down, keeps the gesture for its content', () => {
+    const onClose = vi.fn()
+    function Composer() {
+      const swipe = useSwipeDismiss({ onClose })
+      return <section data-testid="sheet" {...swipe}><p>Text</p></section>
+    }
+    render(<Composer />)
+    const sheet = screen.getByTestId('sheet')
+    asBottomSheet(sheet)
+    scroller(sheet, 200)
+    swipe(sheet, screen.getByText('Text'), 160)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('…and with all of them at their top the same pull closes', () => {
+    const onClose = vi.fn()
+    render(<Sheet open onClose={onClose} title="Einsatz eröffnen"><ul data-testid="list"><li>Objekt</li></ul></Sheet>)
+    const popup = screen.getByRole('dialog')
+    asBottomSheet(popup)
+    scroller(popup.querySelector('.ip-body') as HTMLElement, 0)
+    scroller(screen.getByTestId('list'), 0)
+    swipe(popup, screen.getByText('Objekt'), 160)
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })
 

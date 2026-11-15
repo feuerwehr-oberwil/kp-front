@@ -12,6 +12,7 @@ import { appConfig } from '../config/appConfig'
 import { shownTeamColor } from '../lib/teamColors'
 import { thumbUrl } from '../lib/mediaUrl'
 import { Icon } from '../lib/icons'
+import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { LockChip } from './LockChip'
 import { TwinTeamPill } from './TwinTeamPill'
 import { SHAPE_AXIS_GRIPS, SHAPE_MAX_PX, SHAPE_TWO_POINT, ShapeGlyph, rotationGripOffPx, shapeAspect } from '../lib/shapes'
@@ -86,9 +87,12 @@ function TransformHandle({ className, icon, title, onStart, onMove, onEnd, style
       e.stopPropagation(); e.preventDefault()
       el.setPointerCapture(e.pointerId)
       onStart(e.clientX, e.clientY, el)
-      const move = (ev: PointerEvent) => { ev.stopPropagation(); onMove(ev.clientX, ev.clientY) }
+      // once the grip really moves, the phone sheet and bottom bars step aside (lib/sheetPeek);
+      // a plain tap on a grip leaves them be
+      const move = (ev: PointerEvent) => { ev.stopPropagation(); beginSheetPeek(); onMove(ev.clientX, ev.clientY) }
       const end = (ev: PointerEvent) => {
         ev.stopPropagation()
+        endSheetPeek()
         el.removeEventListener('pointermove', move)
         el.removeEventListener('pointerup', end)
         el.removeEventListener('pointercancel', end)

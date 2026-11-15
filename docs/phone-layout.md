@@ -26,7 +26,8 @@ unchanged.
   sides»). The Einstellungen «Beschriftung der Werkzeugleisten» (`lib/prefs · railLabels`) reads
   ON on every device (`railLabelsFor`); it stays a switch for those who want the map width back.
   It covers the nav bar (Karte · Pläne · Checkliste · Trupps · Einsatz) and the tool bar of the
-  Karte and of every Plan; the tool DOCKS (a tool's options) are not rails and stay icon + ⓘ. A
+  Karte and of every Plan, and the tool DOCK over them (a tool's options, round 15.11.2026 #2, owner
+  pick 2A: every item glyph over word, the bar's 46px tiles, the row scrolling with the ✕ sticky). A
   hand choice is marked (`railLabelsChosen`) and always wins; a stored 'off' without the mark is
   the old default the app saved for everybody, not a choice. «Gerät auf Standard zurücksetzen»
   clears the mark, so it lands on the words.
@@ -62,6 +63,10 @@ unchanged.
   `body.sel-transforming` (lib/transformChrome) hides `.tool-rail` / `.wb-tools` / `.wb-botleft`
   by `visibility` for the mode or the grip drag, and the selection bar stands one `--float-gap`
   above the sheet – half, full or peeked (76px). The nav bar stays; the peeked sheet covers it.
+  The same bars step aside for the length of ANY drag on an object's geometry – a vertex, a «+»,
+  Verlängern, a Form's grip, a symbol (round 15.11.2026 #4): `body.geom-dragging`, set with the
+  sheet's peek (lib/sheetPeek · `beginSheetPeek('object')`; a map pan is `'view'` and keeps them).
+  The grips stay for that one – the finger is on one.
 - *The Gebäude chip is the hazard alone on a phone* (owner pick 12A, 14.11.2026): «⚠ Heizöl» at
   700, or (i) «Gebäude» without one; the count badge stays and the label stays the full sentence.
   The tablet keeps «Gebäude-Info · Heizöl» (components/BuildingFloat).

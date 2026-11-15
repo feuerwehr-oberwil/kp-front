@@ -132,4 +132,7 @@ export const commonCopy = {
   // THE «no hits» line (29.09.2026) — says what was searched; a list keeps a noun of its own only
   // where the noun helps («Kein Trupp gefunden»). Drawn as `.no-hits` (13-incident.css).
   noHits: 'Keine Treffer für «{q}».',
+  /** «Mehrere platzieren» as a dock tile's word (ToolDock · short, round 15.11.2026 r2): the long
+   *  form does not fit a tile and stays its title / aria-label */
+  keepPlacingShort: 'Mehrere',
 } as const

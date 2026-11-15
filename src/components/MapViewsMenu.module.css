@@ -66,8 +66,10 @@
    the .go rule's specificity so it actually wins it back) */
 .rowOff:active:not(:disabled) { background-image: none; }
 .rowOff .ico, .rowOff .name { opacity: var(--disabled); }
-.why { display: block; margin-top: 1px; font-size: var(--fs-micro); line-height: 1.25;
-  white-space: normal; opacity: .85; }
+/* why, in the `.list-row-sub` voice (12.5 / ink-dim; style sweep T4, 15.11.2026 – it was 11px at
+   .85 opacity, a second dim on a row the name's dim already marks) */
+.why { display: block; margin-top: 1px; font: var(--fw-medium) var(--fs-1)/1.3 var(--body); color: var(--ink-dim);
+  white-space: normal; }
 /* the only row with a caption: `.row`'s `align-items: center` centres the icon on the WHOLE
    flex item, and with `.why` wrapping onto two more lines that item is a lot taller than the
    icon — so the icon slid down to the midpoint of label+caption instead of sitting next to the
@@ -87,7 +89,8 @@
 /* the ⓘ at the last row's end, while its sentence is open */
 .miniOn { color: var(--blue-strong); background: var(--sel-wash); }
 /* its sentence, under the row — the 8px inset the row labels carry (see .sep's note below) */
-.help { margin: 0 8px 8px; font-size: var(--fs-1); line-height: 1.4; opacity: .85; }
+/* …in the `.ip-hint` voice (12.5 / ink-dim), never an opacity dim (T4) */
+.help { margin: 0 8px 8px; font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
 
 .sep { height: 1px; background: var(--border-soft); margin: 4px; }
 /* ⚠️ 8px, the same inset the row labels carry (.go/.north/.save) — and the same the inline
@@ -95,7 +98,8 @@
    popover sat at 10px and 2px, so one paragraph started six pixels right of the other. */
 
 .editing { padding: 0 8px; gap: 8px; }
-.input { flex: 1 1 auto; min-width: 0; height: 34px; padding: 0 8px; font: inherit; font-size: var(--fs-2);
+/* --tap tall like every field (style sweep T4, 15.11.2026 – it was 34px) */
+.input { flex: 1 1 auto; min-width: 0; height: var(--tap); padding: 0 8px; font: inherit; font-size: var(--fs-2);
   color: var(--ink); background: var(--surface);
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); outline: none; }
 .input:focus { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }

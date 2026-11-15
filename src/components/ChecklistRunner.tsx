@@ -5,6 +5,7 @@ import { cx } from '../lib/cx'
 import { useRef, useState } from 'react'
 import { usePageHeadFit } from '../lib/pageHeadFit'
 import { Segmented } from './Segmented'
+import { IconButton } from './Button'
 import { TickRow } from './TickRow'
 import { fillTemplate, formatTime } from '../lib/format'
 import { appConfig } from '../config/appConfig'
@@ -97,12 +98,13 @@ function ItemRow({
       {checked && problem && onTrend && <TrendRow item={item} trend={trend} canTick={canTick} onTrend={onTrend} />}
       {/* the deep link is its glyph alone, a --tap square at the row's right edge (27.10.2026,
           owner pick 11A: «Zeichnen ›» took a third of a phone row and broke the text into five
-          lines); the word stays its name for the reader and the tooltip */}
+          lines); the word stays its name for the reader and the tooltip. THE icon button, framed:
+          an action, never the blue of «chosen» (style sweep T2, 15.11.2026) */}
       {item.action && onAction && (
-        <button className={s['cl-deeplink']} onClick={() => onAction(item.action!)}
-          title={CL.actionLabels[item.action]} aria-label={CL.actionLabels[item.action]}>
+        <IconButton variant="secondary" className={s['cl-deeplink']} onClick={() => onAction(item.action!)}
+          label={CL.actionLabels[item.action]}>
           <Icon id={actionIcon[item.action]} />
-        </button>
+        </IconButton>
       )}
     </div>
   )

@@ -519,11 +519,12 @@
 .jr-filter-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-3); }
 .jr-filter-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jr-filter-count { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
-/* «Alle zeigen» is the way OUT, not one more category — the word in the action blue, full strength.
-   While nothing is filtered there is no way out to take (the row is disabled, Journal · filterItems):
-   then it is the quiet ink instead of the dimmed blue (r35, 06.11.2026 – a pale blue word read as a
-   broken link, not as «nothing to undo»), and its count stays as it was. */
-.jr-filter-reset .jr-filter-label { color: var(--blue-strong); font-weight: var(--fw-bold); }
+/* «Alle zeigen» is the way OUT, not one more category — the word in bold ink (it was the action
+   blue until 15.11.2026: blue means «chosen», style sweep T2). While nothing is filtered there is
+   no way out to take (the row is disabled, Journal · filterItems): then it is the quiet ink-faint
+   instead of a dimmed word (r35, 06.11.2026 – a pale word read as a broken link, not as «nothing
+   to undo»), and its count stays as it was. */
+.jr-filter-reset .jr-filter-label { color: var(--ink); font-weight: var(--fw-bold); }
 .jr-filter-item[data-disabled]:has(> .jr-filter-reset) { opacity: 1; }
 .jr-filter-item[data-disabled] > .jr-filter-reset .jr-filter-label { color: var(--ink-faint); }
 /* the one-line «Gefiltert: … · Alle zeigen» under the head, where the timeline strip stands
@@ -532,14 +533,9 @@
   font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
 .jr-filter-strip-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jr-filter-strip-text b { color: var(--ink); font-weight: var(--fw-bold); }
-.jr-filter-all { flex: none; height: var(--tap); padding: 0 var(--sp-3); border: none; border-radius: var(--r-sm);
-  background: var(--blue-8); color: var(--blue-strong);
-  font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; }
-/* (--tap to the eye, like the head above it – 30.10.2026; it was a 32px chip over a 44px pad) */
-@media (hover: hover) {
-  .jr-filter-all:hover { background: var(--blue-16); }
-}
-.jr-filter-all:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* «Alle zeigen» is THE neutral <Button> (--tap, framed): an action, not a blue word on a blue wash
+   (style sweep T2, owner pick A, 15.11.2026); this only places it */
+.jr-filter-all { flex: none; }
 /* ⚠️ On a phone the head is 22px too wide for four items, and «Wiedergabe starten» is the one
    that can most afford to lose its word — the same trade the TopBar already makes for «Verlauf»
    above. The button keeps its `aria-label` (Journal.tsx), so nothing is lost but the letters. */
@@ -769,7 +765,7 @@
    1180×820 with a 380px keyboard: 35px of the card under it, and at 740×620 with 260px: 93px.
    `min()` of the two, so with no keyboard the number is exactly the old one and nothing moves. */
 .journal-composer { position: fixed; left: 50%; top: 11vh; transform: translateX(-50%); z-index: var(--z-dialog);
-  width: min(460px, 92vw); overflow-y: auto; overscroll-behavior: contain;
+  width: min(460px, 92vw); overflow: hidden;
   max-height: min(calc(88dvh - 11vh), calc(100dvh - 11vh - 12px - var(--jc-kb, 0px)));
   /* THE sheet material (13-incident · .ip-sheet, hill climb r35, 06.11.2026): --glass + its blur,
      no edge, --e4. It was opaque --surface (#fff / #232c3a) with a --glass-line edge and NO blur –
@@ -779,7 +775,7 @@
      16px all round, not the sheets' 24: this card's rows are dense (the Art strip, the media
      strip) and on a phone 24 a side squeezes them – so its ✕ stands 16 from the edge too. */
   background: var(--glass); backdrop-filter: blur(16px);
-  border-radius: var(--r-hero); box-shadow: var(--e4); padding: 16px;
+  border-radius: var(--r-hero); box-shadow: var(--e4); padding: 16px 16px 0;
   /* ⚠️ ONE gap on this whole sheet, sideways and downwards alike: 8px. It was 12 between the
      banks and 8 inside them, which is why «Anheften» sat closer to the media row than that row
      sat to ART. One number means there is no second one to get wrong, and the tighter of the
@@ -804,6 +800,17 @@
    it took driving the real app at 744×400 to see it (JournalComposer · the paste listener). Any
    `> *` rule on this card carries the same condition. */
 .journal-composer > * { flex: none; }
+/* ⚠️ …and the rows are `.jc-body`'s since 15.11.2026 (scroll sweep #6): the frame was the
+   scroller, so on rung 3 below the grab bar, the title and the ✕ scrolled off the top with the
+   rows, and a list at its top inside it closed the sheet (overlays/swipeDismiss). The head is the
+   card's own child and stays; this ONE box under it scrolls – the card's full width (its 16px
+   sides as padding, so a focus ring is not clipped). «Erfassen» (.jc-foot) is the card's child
+   again BELOW it, pinned like every sheet's footer, and carries the card's bottom 16. The same
+   «nothing shrinks» holds one level down; only the scroller itself gives. */
+.journal-composer > .jc-body { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 8px; margin: -4px -16px 0; padding: 4px 16px; }
+.journal-composer > .jc-foot { padding-bottom: 16px; }
+.jc-body > * { flex: none; }
 
 /* ── the degradation ladder: today's layout → one compact row → scrolling ──────────────────
    `flex: none` above ended the silent squeeze, and traded it for the other failure: a sheet a
@@ -815,7 +822,7 @@
      2. `.is-compact` — the Art strip and the media strip become ONE row of symbols
         («I · A · S», the clock, the ring, mic · upload · camera). Worth 44px of row plus the
         8px gap that went with it = 52px, which is `COMPACT_SAVES` in lib/composerFit.ts;
-     3. only then `overflow-y: auto` above does what it has always done.
+     3. only then the sheet scrolls – `.jc-body` above, under a head that stays.
    ⚠️ Rung 2 is switched by MEASURING, not by a height media query: on iOS the layout viewport
    does not shrink for the keyboard (which is why the caps have to subtract `--jc-kb` at all), so
    `@media (max-height: …)` reports the full screen at exactly the moment half of it is gone. The
@@ -834,27 +841,27 @@
 .jc-controls { display: flex; flex-direction: column; gap: 8px; }
 /* the same «nothing shrinks» rule as the sheet's, one level down */
 .jc-controls > * { flex: none; }
-/* ⚠️ …and only where the row can BE a row. Its own minimum is 326px — three 32px letters, two
-   44px round controls, three 36px media buttons and the gaps between them — which is 358px of
-   screen once the sheet's 16px frame is counted on both sides. Below that (a 320px phone) rung 2
-   is simply skipped and the sheet goes straight to rung 3: eight controls do not fit across a
-   320px card at any size a glove can hit, and a row that overflows sideways is a worse answer
-   than one that scrolls. */
+/* ⚠️ …and only where the row can BE a row. On a 360px screen the eight buttons are 37.5px
+   wide; on a 320px phone they would be 32 — so there rung 2 is simply skipped and the sheet goes
+   straight to rung 3: a row of eight controls at the edge of what a glove can hit is a worse
+   answer than one that scrolls. */
 @media (min-width: 360px) {
-  .journal-composer.is-compact .jc-controls { flex-direction: row; align-items: center; gap: var(--sp-1); }
-  /* ⚠️ The Art strip is the one that GIVES: its three letters shrink 44 → 32 (the track minmax
-     below) while the media buttons keep a floor of their own (.jc-rec min-width). The other way
-     round — `flex: 1 1 0` on the media strip — it took only what was left over, which on a 375px
-     card was 46px for three buttons: they came out 10px wide and the row still overflowed
-     sideways. Measured at 320 · 360 · 375 · 460. */
-  .journal-composer.is-compact .jc-meta { flex: 0 1 auto; }
-  .journal-composer.is-compact .jc-audio { flex: 1 1 auto; }
+  /* ONE grid of eight equal columns (owner, 15.11.2026: «the buttons all the same in the I/A/S
+     line»): the three letters, the clock, the ring and the three media buttons are all one width
+     and one height, glyphs centred. Each strip spans its share of the columns and lays its own
+     buttons out on equal tracks with the SAME 4px gap – n tracks across n columns' width minus
+     the same gaps come out exactly one column each, so the eight line up without a subgrid.
+     (It was a flex row that let the letters shrink to 32 while the round controls kept 44 and the
+     media buttons 36: three widths in one row.) `start`, so a recorded clip or a photo row under
+     the media buttons does not drag the letters down to its middle. */
+  .journal-composer.is-compact .jc-controls { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr));
+    align-items: start; gap: var(--sp-1); }
+  .journal-composer.is-compact .jc-meta { grid-column: span 5; min-width: 0; }
+  .journal-composer.is-compact .jc-audio { grid-column: span 3; min-width: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: var(--sp-1); }
   /* ⚠️ Overrides the `:has(.jc-due-btn)` template in 18-audio.css, which is imported AFTER this
-     file — hence the extra class on every selector below. A tie would go to the later file.
-     `minmax(32px, var(--tap))`: a full 44px target wherever there is room, and never below 32
-     before the sheet gives up and scrolls. The two round controls keep --tap at every width. */
-  .journal-composer.is-compact .jc-meta-row {
-    grid-template-columns: repeat(3, minmax(32px, var(--tap))) var(--tap) var(--tap); gap: 4px; }
+     file — hence the extra class on every selector below. A tie would go to the later file. */
+  .journal-composer.is-compact .jc-meta-row { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--sp-1); }
   /* the clock and the ring move with the template (five tracks now, not six) */
   .journal-composer.is-compact .jc-meta-row > :nth-last-child(2) { grid-column: 4; }
   .journal-composer.is-compact .jc-meta-row > :last-child { grid-column: 5; }
@@ -866,7 +873,7 @@
   .journal-composer.is-compact .jc-meta-row .jc-chip-letter { display: block; }
   /* …and the media buttons drop their labels, exactly as the phone already does with the keyboard
      up (15-mobile.css · .is-kb). The word stays as `title`/`aria-label` on the button. */
-  .journal-composer.is-compact .jc-rec { min-width: 36px; padding: 8px 4px; }
+  .journal-composer.is-compact .jc-rec { padding: 8px 4px; }
   .journal-composer.is-compact .jc-rec .jc-lbl { display: none; }
   .journal-composer.is-compact .jc-rec .i { width: 19px; height: 19px; }
 }
@@ -934,12 +941,10 @@
    name longer than the line wraps inside itself instead of running out of the drawer. */
 .jr-link-unit { display: inline-block; max-width: 100%; overflow-wrap: break-word; }
 /* the address in the Verlauf: a real <a>, so it carries the underline that says «this opens»
-   rather than a colour that only says «this is a thing» */
-a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-offset: 2px;
+   rather than a colour that only says «this is a thing» – ink, never the blue of «chosen»
+   (style sweep T2, 15.11.2026) */
+a.jr-link-url { color: var(--ink); text-decoration: underline; text-underline-offset: 2px;
   overflow-wrap: anywhere; }
-@media (hover: hover) {
-  a.jr-link-url:hover { color: var(--blue-strong); }
-}
 .jc-text { position: relative; display: block;
   width: 100%; min-height: 92px; resize: vertical; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   padding: var(--sp-2) var(--sp-3); font-family: inherit; font-size: var(--fs-2); line-height: normal; color: var(--ink);
@@ -1131,7 +1136,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 .jr-file:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* offline media-queue chip on a Verlauf row (photo/audio not yet on the server) */
 .jr-media-state { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-micro); font-weight: var(--fw-bold);
-  padding: 1px var(--sp-2); border-radius: var(--r-pill); white-space: nowrap;
+  padding: 1px var(--sp-2); border-radius: var(--r-xs); white-space: nowrap; /* a tag's corner, never a pill */
   color: var(--amber-strong); background: color-mix(in srgb, var(--amber-strong) 14%, transparent); }
 .jr-media-state .i { width: 12px; height: 12px; }
 .jr-media-state.failed { color: var(--red-strong, #d33); background: color-mix(in srgb, var(--red-strong, #d33) 14%, transparent); }

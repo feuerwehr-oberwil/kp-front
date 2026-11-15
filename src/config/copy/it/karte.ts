@@ -99,7 +99,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     visitNoChecklist: 'Senza lista di controllo',
     visitsOffline: 'Le visite agli oggetti richiedono una connessione.',
     visitsLast: 'Ultima: {c} · {d}',
-    tools: { pin: 'Posa punto', measure: 'Misura', erg: 'Merci pericolose', layers: 'Livelli', map: 'Mappa' },
+    tools: { pin: 'Posa punto', measure: 'Misura', erg: 'Merci pericolose', layers: 'Livelli', map: 'Mappa', pinShort: 'Posa punto', ergShort: 'Pericolo' },
     pinHint: 'Tocca la mappa per posare un punto.',
     ergUn: 'N. ONU',
     ergPlaceholder: 'p. es. 1203',

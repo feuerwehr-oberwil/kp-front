@@ -7,7 +7,7 @@
 
 export { Sheet, SheetClose } from './Sheet'
 export { Overlay } from './Overlay'
-// for the ONE hand-rolled bottom sheet (components/Palette): the same bar, the same gesture
+// for the hand-rolled NON-modal sheets (Ebenen, the Karte sheets, the Passung dock): the same bar, the same gesture
 export { SheetGrab } from './SheetGrab'
 // the footer row of a bespoke bottom-sheet frame — the same insets <Sheet>'s own footer pays
 export { SheetFoot } from './SheetFoot'

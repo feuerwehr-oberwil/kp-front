@@ -234,7 +234,8 @@
 .pp-row-addr { font-size: var(--fs-1); line-height: 16px; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pp-row-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none; }
 .pp-dist { font-family: var(--mono); font-size: var(--fs-micro); line-height: 18px; color: var(--ink-dim); }
-.pp-mods { font-size: var(--fs-micro); line-height: 16px; font-weight: var(--fw-bold); color: var(--blue); }
+/* «3 Pläne» is a count, so ink-dim – never the blue of «chosen» (style sweep T2, 15.11.2026) */
+.pp-mods { font-size: var(--fs-micro); line-height: 16px; font-weight: var(--fw-bold); color: var(--ink-dim); }
 .pp-mods-none { color: var(--ink-faint); font-weight: var(--fw-medium); }
 .pp-map { flex: 1 1 46%; position: relative; min-height: 380px; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--glass-edge); }
 .pp-map .maplibregl-map { width: 100%; height: 100%; }
@@ -387,8 +388,9 @@
 .wb-floor-idx { display: inline-block; flex: none; min-width: 22px; text-align: center; padding: 2px var(--sp-1); border-radius: 5px;
   font: var(--fw-bold) var(--fs-1) var(--mono, ui-monospace, Menlo, monospace); font-variant-numeric: tabular-nums;
   color: var(--ink); background: var(--fill-soft); }
-/* the EG is the base the whole stack hangs off, so its chip is the one that carries a fill */
-.wb-floor-idx.zero { color: var(--on-fill); background: var(--blue); }
+/* the EG is the base the whole stack hangs off, so its chip is the one that carries a fill – the
+   ink of a plain count, never blue: blue means «chosen», and the EG is not (style sweep T2, 15.11.2026) */
+.wb-floor-idx.zero { color: var(--on-accent-ink); background: var(--ink-fill); }
 /* never wraps: on a zoomed-out stack the tile is ~330px or less and «1. OG» broke after «1.» */
 .wb-floor-name { font-weight: var(--fw-bold); flex: none; white-space: nowrap; }
 .wb-floor-svg polygon { fill: var(--blue-5); stroke: var(--ink-faint); stroke-width: 1.5; stroke-linejoin: round; }
@@ -466,7 +468,8 @@
 .wb-floor-folded .wb-floor-idx { opacity: .55; flex: none; }
 .wb-floor-folded .wb-floor-name { flex: 0 1 auto; min-width: 4.5em; overflow: hidden; text-overflow: ellipsis; }
 .wb-floor-folded-state { flex: 0 1 auto; min-width: 0; overflow: hidden; color: var(--ink-faint); font-weight: var(--fw-medium); }
-.wb-floor-folded-cta { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--blue); font-weight: var(--fw-bold); }
+/* «einblenden»: the strip's verb in bold ink, like a `.row-go` verb (no blue word as an action, T2) */
+.wb-floor-folded-cta { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--ink); font-weight: var(--fw-bold); }
 /* The strip is FOLDED_H (28px) tall so the stack's geometry stays what it is, but it is the whole
    way back from a hidden storey, so its hit area is grown to 44px past the clip (the clip margin
    above lets the pad through while the row's text is still clipped to the strip). */
@@ -515,7 +518,8 @@
 .wb-readings section { position: absolute; left: 0; right: 0; overflow-y: auto; padding: var(--sp-1) 0;
   border-radius: var(--r-sm); background: var(--glass); border: 1px solid var(--glass-line); box-shadow: var(--e3); pointer-events: auto; }
 .wb-readings h4 { margin: 0; padding: var(--sp-1) var(--sp-3); font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.wb-readings button { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 36px; padding: 0 var(--sp-3);
+/* --tap rows (style sweep T4, 15.11.2026 – they were 36px) */
+.wb-readings button { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: var(--tap); padding: 0 var(--sp-3);
   border: 0; border-top: 1px solid var(--border-soft); background: none; color: var(--ink); font: var(--fw-medium) var(--fs-1) var(--body); text-align: left; cursor: pointer; }
 .wb-readings button > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (hover: hover) {
@@ -699,7 +703,8 @@ span.wb-ghost-label { cursor: default; }
    past the canvas edge. The decision is measured in components/TwinTeamPill (`data-flip`), which
    also writes the horizontal nudge as an inline transform — here we only restate the anchor. */
 .wb-pill-acts[data-flip="up"] { top: auto; bottom: calc(100% + 9px); }
-.wb-pa { width: 40px; height: 40px; border-radius: var(--r-sm); border: none; padding: 0; color: var(--on-accent-ink);
+/* --tap square, the gloved floor (style sweep T4, 15.11.2026 – it was 40px) */
+.wb-pa { width: var(--tap); height: var(--tap); border-radius: var(--r-sm); border: none; padding: 0; color: var(--on-accent-ink);
   background: color-mix(in srgb, var(--on-accent-ink) 14%, transparent); display: grid; place-items: center; cursor: pointer; }
 @media (hover: hover) {
   .wb-pa:hover:not(:disabled) { background: color-mix(in srgb, var(--on-accent-ink) 28%, transparent); }
@@ -727,7 +732,7 @@ span.wb-ghost-label { cursor: default; }
   transform: translateX(calc(-50% + var(--acts-dx, 0px)));
   width: min(290px, 70vw); padding: var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-ctl);
   background: var(--surface); box-shadow: var(--e3); color: var(--ink); }
-.wb-resource-connections .ctx-section-label { font-size: var(--fs-micro); font-weight: var(--fw-heavy); color: var(--ink-dim); }
+/* (its head is the panel's own `.ctx-section-label`, unchanged – it was an 11px/800 cut of its own) */
 
 /* The three MODAL surfaces that wear this chrome — "Welcher Trupp?" on the Plan, its twin on the
    Lage map, and the Maßstab metre entry — go through lib/overlays now (Base UI: focus trap +
@@ -761,7 +766,7 @@ span.wb-ghost-label { cursor: default; }
    up on a picker. ONE tag look for a crew fact (r35, 06.11.2026): ink on grey, the Trupp-Suche's
    «AS» (TruppFinder.module.css · .tag, since 29.09.2026) and the Anwesenheit's «Gast» – it was a
    blue pill here, plain --blue on --blue-12 at 3.9:1 by day. */
-.wb-trupp-as { flex: none; font: var(--fw-heavy) var(--fs-micro) var(--body); padding: 2px var(--sp-2); border-radius: var(--r-pill);
+.wb-trupp-as { flex: none; font: var(--fw-heavy) var(--fs-micro) var(--body); padding: 2px var(--sp-2); border-radius: var(--r-xs);
   background: var(--fill-soft); color: var(--ink-dim); }
 /* already placed on this surface: visible (so you can see WHY it is not offered) but inert —
    picking it would move the existing marker, not add a second one */
@@ -864,20 +869,8 @@ span.wb-ghost-label { cursor: default; }
 /* cumulative-distance labels mirror the map's .measure-label (mono, strong contrast) */
 .wb-meas-label { z-index: 7; font-family: var(--mono); }
 
-/* draw style picker (floats over canvas bottom) */
-.wb-sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--ink-16); cursor: pointer; padding: 0; }
-.wb-sw.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink-22); }
-.wb-sw:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.wb-ww { width: 38px; height: 34px; display: grid; place-items: center; background: var(--dock-control-bg); border: none; border-radius: var(--r-sm); cursor: pointer; }
-.wb-ww.on { background: var(--sel-wash); }
-.wb-ww:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.wb-ww span { display: block; width: 18px; background: var(--ink); border-radius: 4px; }
 /* the stroke pictures of the Linie row (lib/draw · LineStylePicker, a `Segmented` since
    13.11.2026, M5): drawn in currentColor, so a picked segment's --on-sel ink carries them */
-@media (hover: hover) {
-  .wb-sw:hover:not(.on) { border-color: var(--ink-45); }
-  .wb-dock .wb-ww:hover:not(.on) { background: var(--dock-control-hover); }
-}
 .ls-solid, .ls-dashed { display: block; width: 20px; height: 3px; border-radius: 3px; }
 .ls-solid { background: currentColor; }
 .ls-dashed { background: repeating-linear-gradient(to right, currentColor 0 5px, transparent 5px 8px); }
@@ -909,7 +902,7 @@ span.wb-ghost-label { cursor: default; }
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   /* On a short viewport the stack can exceed the available height. Scroll it as ONE column
      (thin scrollbar) instead of flex-wrapping into a lopsided second column — which overflowed
-     the sidebar ugly. Colour swatches stay compact via the 2-wide .wb-sw-grid. */
+     the sidebar ugly. */
   flex-wrap: nowrap; max-height: calc(100dvh - 168px); overflow-y: auto; overflow-x: hidden;
   scrollbar-width: thin; scrollbar-color: var(--ink-22) transparent;
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink);
@@ -934,7 +927,6 @@ span.wb-ghost-label { cursor: default; }
 /* between groups: 4px more air, no line (ToolDock · M8 rework) — it grows along the dock's axis */
 .wb-dock-gap { flex: none; width: 4px; height: 4px; }
 .wb-dock-ic { display: grid; place-items: center; height: 30px; color: var(--ink-dim); }
-.wb-dock-ic .i { width: 18px; height: 18px; }
 /* ⚠️ The ✕ STAYS on screen while the dock scrolls. On a busy tool (line/area, whose colours +
    widths overflow the port) it scrolled away with the options — off the top of the desktop
    column, off the end of the phone's horizontal bar — and the only way out of the mode was to
@@ -975,15 +967,21 @@ span.wb-ghost-label { cursor: default; }
    tool items, and thus the spacing of the Fertig looks completely off») ── with «Beschriftung der
    Werkzeugleisten» on, the column is the labelled rail's twin: as wide (--vrail-w-labelled), every
    item a --vrail-tile tile with its word under the glyph in the rail's `.vrail-label` voice; «✓
-   Fertig» the one FILLED tile. Off, every item is the bare 46px glyph and «Fertig» the filled ✓. */
+   Fertig» the one FILLED tile; the Form being placed (`.wb-dock-ic`, not a control) a tile of the
+   same height with its name. Off, every item is the bare 46px glyph and «Fertig» the filled ✓.
+   The phone's row wears the same words (15-mobile · .phone-tools .wb-dock-worded). */
 .wb-dock.wb-dock-worded { width: var(--vrail-w-labelled, 92px); }
-.wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded) {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+/* ⚠️ Every tile is the same two-row grid – a glyph BAND of one fixed height, the word under it –
+   so the words stand on ONE line across the dock (owner, 15.11.2026: «labels at the bottom, the
+   same way the toolbars are … not further up or down depending on the labels»). A centred flex
+   column let the taller Form preview push its «Rechteck» a few px below «Mehrere» and «Info». */
+.wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded, .wb-dock-ic) {
+  display: grid; grid-template-rows: 24px auto; align-content: center; justify-items: center; align-items: center; gap: 2px;
   width: 100%; height: var(--vrail-tile); padding: 0 2px; }
+/* the Form preview fits the band like a glyph does */
+.wb-dock.wb-dock-worded .wb-dock-shape { width: 22px; height: 22px; }
 .wb-dock-word { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center;
   font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 1.1; }
-/* the glyph in the rail's 26px band over its word */
-.wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded) .i { margin-block: 2px; }
 /* (.wb-dock-info / .wb-dock-ibtn / .wb-dock-tip migrated → DockInfo.module.css) */
 /* toggle inside the dock (e.g. the armed Messen mode, the "keep placing" lock) — the accent fill
    when engaged: that fill is what says «armed», on day and night glass alike */
@@ -996,11 +994,8 @@ span.wb-ghost-label { cursor: default; }
   .wb-dock-tog.on:hover:not(:disabled) { filter: brightness(1.08); }
 }
 .wb-dock-tog:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* word/letter toggles (note size steps, Zettel↔Klartext) — the dock is narrow, so the label
-   shrinks to fit rather than widening the whole column */
-.wb-dock-txt { font: var(--fw-bold) var(--fs-micro) var(--body); letter-spacing: .01em; padding: 0 var(--sp-1); white-space: nowrap; }
-/* shape-placement glyph preview in the dock */
-.wb-dock-shape { width: 26px; height: 26px; }
+/* shape-placement glyph preview in the dock (inside .wb-dock-ic, the tile that carries its word) */
+.wb-dock-shape { width: 26px; height: 26px; flex: none; }
 .wb-dock-shape svg { width: 100%; height: 100%; display: block; }
 /* Lage map: the tool rail is vertically centred at right:16px (width 88px), so the
    draw dock sits just left of it and is centred to match — same right-edge, top-down,
@@ -1052,10 +1047,6 @@ span.wb-ghost-label { cursor: default; }
   .wb-dock-x { width: 40px; height: 40px; }
   .wb-dock-go, .wb-dock-tog { width: 44px; height: 40px; }
 }
-
-/* recolour swatches in a 2-wide grid so the larger team palette stays compact in
-   the vertical dock instead of growing into a tall single column */
-.wb-sw-grid { display: grid; grid-template-columns: repeat(2, auto); gap: var(--sp-2); }
 
 /* tool rail (right) — uses the shared .vrail look; floats over the canvas exactly
    like the Lage tool rail (absolute, hung from --rail-top, content-height) */
@@ -1179,7 +1170,7 @@ span.wb-ghost-label { cursor: default; }
    Trupp picker, which it shares the modal recipe with) */
 .wb-cal-pop { width: min(320px, calc(100vw - 32px)); background: var(--surface); border-radius: var(--r-surface);
   box-shadow: var(--e4); padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
-.wb-cal-title { font: var(--fw-bold) var(--fs-3) var(--body); color: var(--ink); }
+.wb-cal-title { font: var(--sheet-title); color: var(--ink); } /* THE sheet title (it was 700, T5) */
 .wb-cal-body { font-size: var(--fs-1); color: var(--ink-dim); line-height: 1.35; }
 /* quick-pick reference lengths (the common scale-bar values) above the stepper — THE choice chip
    (<Chip>, 08.10.2026; it was a framed 14px copy of one); this only shares the row out */
@@ -1292,11 +1283,14 @@ span.wb-ghost-label { cursor: default; }
      surface IS on a phone»): flush with the bottom edge and both sides, over the two bars (GeorefDock
      portals it into `.app` for that — `.whiteboard` is its own stacking context), the grab bar on
      top, pushed down to close. It was a card floating above the bars, 10px in from each side. It
-     hugs its content up to the sheet cap and pays the bottom inset itself. */
+     hugs its content up to the sheet cap. ⚠️ It does not scroll itself (scroll sweep 15.11.2026
+     #6): a flex column whose content's own body scrolls under its head, and that body's last row
+     pays the bottom inset (PlanFactsSheet.module.css · .rows). */
   .wb-georef-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-drawer);
-    max-height: min(72dvh, calc(100dvh - var(--bar-foot) - var(--sp-4))); overflow-y: auto;
+    max-height: min(72dvh, calc(100dvh - var(--bar-foot) - var(--sp-4))); overflow: hidden;
+    display: flex; flex-direction: column;
     border-radius: var(--r-hero) var(--r-hero) 0 0;
-    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
     animation: sheetUp .22s var(--ease); }
   .wb-georef-dock > .ui-sheet-grab { margin-bottom: -4px; }
 }
@@ -1365,8 +1359,9 @@ polygon.wb-draft-open { fill: var(--open); fill-opacity: .1; }
 @media (prefers-reduced-motion: reduce) { .wb-draft-open, .wb-open-pill { animation: none; } }
 
 /* «Kopieren nach …» (components/StoreyCopySheet) – A «Stapel»: a narrow sheet, one line of what
-   goes, the storeys as rows top to bottom (the source tinted, «Vorlage»), a quiet footer line with
-   «Alle», one full-width button. On a phone it is the usual bottom sheet. */
+   goes, the storeys as rows top to bottom (the source on the grey wash, «Vorlage» its tag), a quiet
+   footer line with «Alle», one full-width button. No blue but the ticked rows' choice: the source
+   wore a blue tint, its tag a blue pill and «Alle» a blue word (style sweep T2, 15.11.2026). On a phone it is the usual bottom sheet. */
 @media (--not-phone) { .ip-sheet.wb-copy { width: min(360px, 100%); } }
 .wb-copy .ip-body { padding-bottom: var(--sp-2); }
 .wb-copy-what { margin: 0 0 var(--sp-3); color: var(--ink-dim); font-size: var(--fs-2); }
@@ -1376,20 +1371,20 @@ polygon.wb-draft-open { fill: var(--open); fill-opacity: .1; }
 .wb-copy-rows > .wb-copy-row[aria-checked="true"] { border-color: var(--blue-45); background: var(--sel-wash); }
 .wb-copy-rows > .wb-copy-src {
   display: flex; align-items: center; gap: var(--sp-3); box-sizing: border-box; min-height: var(--tap);
-  border-color: var(--blue-45); background: var(--blue-12);
+  border-color: var(--border); background: var(--fill-soft);
 }
 /* the source has no box – this keeps its name on the same column as the others' */
 .wb-copy-gap { flex: none; width: 24px; }
 .wb-copy-name { flex: none; min-width: 3.5em; font-weight: var(--fw-bold); }
 .wb-copy-meta { flex: 1 1 auto; min-width: 0; color: var(--ink-dim); font-size: var(--fs-1); font-weight: var(--fw-regular); }
 .wb-copy-pill {
-  margin-left: auto; padding: 1px 8px; border: 1px solid var(--blue-45); border-radius: var(--r-pill);
-  color: var(--blue-strong); font-size: var(--fs-1); font-weight: var(--fw-bold);
+  margin-left: auto; padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--r-xs);
+  color: var(--ink-dim); font-size: var(--fs-1); font-weight: var(--fw-bold);
 }
 .wb-copy-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-top: var(--sp-2); color: var(--ink-dim); font-size: var(--fs-1); }
 .wb-copy-all {
   flex: none; min-width: var(--tap); min-height: var(--tap); padding: 0; text-align: right;
-  border: none; background: none; color: var(--blue-strong); font: inherit; font-weight: var(--fw-bold); cursor: pointer;
+  border: none; background: none; color: var(--ink); font: inherit; font-weight: var(--fw-bold); cursor: pointer;
 }
 
 /* the storey label menu's host: only there to stop its portalled items' pointer events (Whiteboard).

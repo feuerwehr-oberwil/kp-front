@@ -6,7 +6,9 @@
   color: var(--ink); cursor: pointer; transition: background .14s var(--ease), transform .12s var(--ease); }
 @media (hover: hover) { .tu-btn:hover { background: var(--hover-strong); } }
 .tu-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.tu-btn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+/* «where you are» (Ebenen open) is the rails' pill, `--here-fill` (05.11.2026) – `--ink-fill` was a
+   dark patch on the dark glass at night, the ON button nearly invisible (style sweep T5, 15.11.2026) */
+.tu-btn.on { background: var(--here-fill); color: var(--on-here); }
 .tu-btn :global(.i) { width: 19px; height: 19px; }
 .tu-divider { width: 6px; flex: none; }   /* spacing between the zoom pair and Ebenen, not a line (22.09.2026) */
 

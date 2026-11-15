@@ -558,7 +558,7 @@
 .report-att-thumb:active { background-image: linear-gradient(var(--press), var(--press)); }
 .report-att-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .report-att-pending { font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--amber-strong); }
-.report-att-x { flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; cursor: pointer;
+.report-att-x { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap); padding: 0; cursor: pointer;
   border: none; border-radius: var(--r-sm); background: transparent; color: var(--ink-faint); }
 @media (hover: hover) {
   .report-att-x:hover { background: var(--red-12); color: var(--red-strong); }
@@ -630,14 +630,15 @@
    The row does not merely acknowledge a «bitte prüfen» line, it shows both values and asks which
    one holds — so it needs a shape the other CheckRows do not have: two side-by-side panels and a
    row of answers under them. `.rp-check-extra` is a flex column with `align-items: flex-start`,
-   so each item claims its own width. */
+   so each item claims its own width.
+   Each item IS the form warning (`.form-warn .form-warn-amber`, 15.11.2026 – it was an amber box
+   with a border of its own): its tint, corner and ink. It stacks its three parts instead of
+   running one sentence, so this class only turns the box into a column and steps the sub-line
+   back to medium. */
 .rp-conf { align-self: stretch; gap: var(--sp-3); }
-.rp-conf-item { align-self: stretch; padding: var(--sp-3); border-radius: var(--r-sm);
-  background: var(--amber-8);
-  border: 1px solid var(--amber-22); }
+.rp-conf-item { align-self: stretch; flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 0; }
 .rp-conf-head { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
-.rp-conf-head b { font-size: var(--fs-2); }
-.rp-conf-head span { font-size: var(--fs-1); color: var(--ink-dim); }
+.rp-conf-head span { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
 /* the two sides. One column on a phone: side by side they would be two ~40px shreds, and which
    value is which is the one thing this card exists to make readable. */
 .rp-conf-sides { display: grid; gap: 8px; margin-top: var(--sp-2); }
@@ -648,7 +649,8 @@
   margin: 0 0 2px;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
-.rp-conf-val { font: var(--fw-bold) var(--fs-2) var(--mono); overflow-wrap: anywhere; }
+/* free text («anwesend seit 14:02, Magazin»), so the body face – mono is for figures only (T1) */
+.rp-conf-val { font: var(--fw-bold) var(--fs-2) var(--body); overflow-wrap: anywhere; }
 /* the answers wrap rather than shrink — a button whose label is «Angabe vom Erfassungsbogen
    übernehmen» must not ellipsize into a different sentence */
 .rp-conf-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: var(--sp-3); }

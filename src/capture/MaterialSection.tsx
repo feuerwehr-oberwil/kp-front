@@ -61,7 +61,7 @@ export function MaterialSection({
           shows «picked» by its fill – it used to grow a «✓» into its label, a chip whose
           words flipped (docs/ui-conventions.md · Editor sheets: one control per kind of question). */}
       {lines.length === 0 && (
-        <button type="button" className={`cv-none${rm?.mittelConfirmedNone ? ' on' : ''}`} disabled={busy}
+        <button type="button" className={`ip-btn cv-none${rm?.mittelConfirmedNone ? ' on' : ''}`} disabled={busy}
           aria-pressed={!!rm?.mittelConfirmedNone}
           onClick={() => { void run({ kind: 'setMeta', patch: { mittelConfirmedNone: !rm?.mittelConfirmedNone } }).then((ok) => { if (ok) savedToast() }) }}>
           {AB.mittelNone}

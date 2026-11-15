@@ -40,5 +40,6 @@ export const shellCopy: Localizable<Pick<Copy, Keys>> = {
     empty: 'No team on the map or a plan yet.',
     emptyHint: 'Place a team on the map or a plan under «Teams» or with the team tool.',
     raus: 'out',
+    titleShort: 'Find a team',
   },
 }

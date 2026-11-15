@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
-import { beginSheetPeek, endSheetPeek, sheetPeeked } from './sheetPeek'
+import { beginSheetPeek, endSheetPeek, geometryDragging, sheetPeeked } from './sheetPeek'
 
 // The phone detail sheet gets out of the way while an object is dragged (see lib/sheetPeek).
 // What matters here is the state machine, not the pixels: the flag goes on when a drag starts
@@ -38,5 +38,15 @@ describe('sheetPeek', () => {
     beginSheetPeek()
     window.dispatchEvent(new Event('blur'))
     expect(sheetPeeked()).toBe(false)
+  })
+
+  it('steps the phone bars aside for an object drag, never for a map pan, and lets go with the peek', () => {
+    beginSheetPeek('view')
+    expect(geometryDragging()).toBe(false)
+    beginSheetPeek() // an object drag starting while the map still settles
+    expect(geometryDragging()).toBe(true)
+    window.dispatchEvent(new Event('pointerup'))
+    expect(sheetPeeked()).toBe(false)
+    expect(geometryDragging()).toBe(false)
   })
 })

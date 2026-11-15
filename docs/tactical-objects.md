@@ -32,6 +32,13 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   on the Karte a DOM copy of the canvas head (`MapView · EditArrowMark`) and the fork's marker at
   `MARKER_Z.endMark`, on the Plan `.wb-arrowhead` / `.wb-line-fork` over `.wb-vertex`. Pointer-inert:
   the ring under it stays the grip.
+- **A tap on a node is the node's, never the map's** (round 15.11.2026): a node is dragged or
+  held, a tap on it does nothing. On the Karte its click would bubble from the Marker to
+  maplibre's container and insert a node under the finger (a selected Linie grew a stacked
+  duplicate per tap, Messen and the open draft alike), so the node pads stop it on the marker
+  element (`MapView · keepClickOnPad`; check: `e2e/node-pad-tap.spec.ts`). The Plan's `.wb-vertex`
+  never had it: its pads take the pointer themselves (`useWbVertexEdit · vertDown`) and only the
+  «+» inserts.
 - **The armed tool's readout is one pill** (`components/ArmedToolPill`, `lib/armedTool`,
   23.10.2026, 3am sweep point 3 – owner: «a small little info thing at the bottom that now you're
   placing symbol XYZ and that's it»). Bottom centre of the Karte, the Einsatz map, a Plan and the
