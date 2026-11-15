@@ -33,6 +33,8 @@ export const shellCopy = {
     emptyHint: 'Trupp unter «Trupps» oder mit dem Trupp-Werkzeug auf Karte oder Plan setzen.',
     // the row's own status word, when the Trupp board says the Trupp has come back out
     raus: 'raus',
+    // the dock tile's word (ToolDock · short) – the title, which fits; fr/it need a shorter one
+    titleShort: 'Trupp finden',
   },
   panels: { layers: 'Ebenen', history: 'Verlauf' },
   // LayerPanel: the toggle aria-label appends one of these state words after the layer name

@@ -508,7 +508,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     dock follows the rails (round 2b; the phone's row too since round 15.11.2026 #2): «Beschriftung
     der Werkzeugleisten» on, EVERY item wears its word under its glyph («Abbrechen», the modes,
     «Fertig», «Info», the Form being placed by name); off, every item is a bare glyph – never a mix.
-    A dock item has a word by type (`ToolDock` · `DockItem`); there is no wordless item. The «Linie offen» pill at the
+    A dock item has a word by type (`ToolDock` · `DockItem`); there is no wordless item. A word that
+    does not fit a tile (the tablet column's ≈74px, the phone's «+» tile) gets a short tile word of
+    its own – a `…Short` copy key, the item's / tool's `short` – and the long form stays its title and
+    accessible name: «Mehrere» for «Mehrere platzieren», «Leeren» for «Zurücksetzen», «Sperrkreis» on
+    the «+» tile (round 15.11.2026 r2). Never an abbreviation with a dot. The «Linie offen» pill at the
     draft's last point steps to the point's left rather than lie under the dock (`OpenPill`). The dock's ✕
     / Esc leave the draft through `settleDraft` (a committable draft is asked about – «Speichern ·
     Verwerfen · Weiterzeichnen» – never silently dropped). So one exit per state: a SELECTED

@@ -49,6 +49,8 @@ export const drawingCopy = {
     // Das Gegenstück für die Fläche: der gemessene Umriss wird zur gezeichneten Fläche,
     // statt ihn ein zweites Mal von Hand nachzuziehen.
     adoptArea: 'Als Fläche übernehmen',
+    // «Zurücksetzen» as the dock tile's word (ToolDock · short): the app's ✕-clear word, it fits a tile
+    clearShort: 'Leeren',
   },
   // Wassertransport (components/WaterRelay): Druck entlang einer Schlauchleitung und wo die
   // Pumpen hinkommen – in Messen › Strecke und in der Leitung. ⚠️ Kurz halten (Besitzer,

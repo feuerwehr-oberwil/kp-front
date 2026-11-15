@@ -126,7 +126,9 @@ export const karteCopy = {
     visitsOffline: 'Objektbesuche brauchen Netz.',
     visitsLast: 'Zuletzt: {c} · {d}',
     // tools
-    tools: { pin: 'Punkt setzen', measure: 'Messen', erg: 'Gefahrgut', layers: 'Ebenen', map: 'Karte' },
+    // …Short: the rail tile's word (ToolRail · short); the long form stays the tile's title – equal
+    // where it fits, shorter where a translation does not
+    tools: { pin: 'Punkt setzen', measure: 'Messen', erg: 'Gefahrgut', layers: 'Ebenen', map: 'Karte', pinShort: 'Punkt setzen', ergShort: 'Gefahrgut' },
     pinHint: 'Auf die Karte tippen, um einen Punkt zu setzen.',
     ergUn: 'UN-Nr.',
     ergPlaceholder: 'z. B. 1203',

@@ -99,7 +99,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     visitNoChecklist: 'Without checklist',
     visitsOffline: 'Object visits need a connection.',
     visitsLast: 'Last: {c} · {d}',
-    tools: { pin: 'Drop pin', measure: 'Measure', erg: 'Dangerous goods', layers: 'Layers', map: 'Map' },
+    tools: { pin: 'Drop pin', measure: 'Measure', erg: 'Dangerous goods', layers: 'Layers', map: 'Map', pinShort: 'Drop pin', ergShort: 'Hazmat' },
     pinHint: 'Tap the map to drop a pin.',
     ergUn: 'UN no.',
     ergPlaceholder: 'e.g. 1203',
