@@ -443,8 +443,20 @@ it('backs off automatic uploads, stops after three rejections, and allows an exp
   expect((await flushMediaQueue(INC, upload, { retry: true })).uploaded).toHaveLength(1)
 })
 
-it('keeps a backend restart retryable without burning rejection attempts', async () => {
+// a 5xx reached a server (or its proxy) – it counts, or a backend that keeps failing is retried forever
+it.each([502, 503, 504])('counts a %i as an attempt', async (status) => {
   await enqueueMedia(INC, 'restart', 'audio', blob(), 'voice', '')
-  await flushMediaQueue(INC, vi.fn().mockRejectedValue(new ApiError(503, 'restart')))
-  expect((await listMediaQueue(INC))[0]).toMatchObject({ status: 'pending', attempts: 0 })
+  await flushMediaQueue(INC, vi.fn().mockRejectedValue(new ApiError(status, 'down')))
+  expect((await listMediaQueue(INC))[0]).toMatchObject({ status: 'pending', attempts: 1 })
+})
+
+// a retry after a lost response must be recognisable as the same capture (api/media · upload_id)
+it('sends the same upload id on every attempt of one capture – the one its direct upload used', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  await enqueueMedia(INC, 'r', 'photo', blob(), 'p', '', 'blob:x', undefined, 'mq-direct-1')
+  const upload = vi.fn<MediaUploader>().mockRejectedValueOnce(new ApiError(504, 'timeout')).mockResolvedValue({ url: '/api/media/m' })
+  await flushMediaQueue(INC, upload)
+  vi.setSystemTime(Date.now() + 60_000)
+  await flushMediaQueue(INC, upload)
+  expect(upload.mock.calls.map((c) => c[4])).toEqual(['mq-direct-1', 'mq-direct-1'])
 })

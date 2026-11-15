@@ -63,14 +63,16 @@ export function useRowMediaUpload({
       blob = await (await fetch(localUrl)).blob()
     } catch { return }
     blob = await prepareUploadImage(blob)
+    // one id for this capture, sent by this attempt and every queued retry (mediaQueue · rev)
+    const uploadId = newId('mq')
     try {
-      const { url } = await uploadMedia(incidentMeta.id, blob, 'photo', `photo-${rowId}`)
+      const { url } = await uploadMedia(incidentMeta.id, blob, 'photo', `photo-${rowId}`, uploadId)
       swapPhoto(rowId, localUrl, url)
       forgetLocalThumb(localUrl) // the chip reads the server's small copy from here on
     } catch {
       // queue THIS picture (keyed by its own blob: URL) — a row-wide key made each photo of a
       // multi-photo row evict the previous one, losing every capture but the last while offline
-      await media.enqueue(rowId, 'photo', blob, `photo-${rowId}`, new Date().toISOString(), localUrl)
+      await media.enqueue(rowId, 'photo', blob, `photo-${rowId}`, new Date().toISOString(), localUrl, undefined, uploadId)
     }
   }, [incidentMeta.id, canWriteRecord, media, swapPhoto])
 
@@ -85,12 +87,13 @@ export function useRowMediaUpload({
     // to 4xx, retry forever from the offline queue, and the picture quietly never reached the
     // printed Rapport. See lib/imagePrep.
     if (kind === 'photo') blob = await prepareUploadImage(blob)
+    const uploadId = newId('mq')
     try {
-      const { url } = await uploadMedia(incidentMeta.id, blob, kind, `${kind}-${rowId}`)
+      const { url } = await uploadMedia(incidentMeta.id, blob, kind, `${kind}-${rowId}`, uploadId)
       swapRowMedia(rowId, kind, url, localUrl)
     } catch {
       // offline / server error — keep the blob for later instead of losing it this session
-      await media.enqueue(rowId, kind, blob, `${kind}-${rowId}`, new Date().toISOString(), kind === 'photo' ? localUrl : undefined)
+      await media.enqueue(rowId, kind, blob, `${kind}-${rowId}`, new Date().toISOString(), kind === 'photo' ? localUrl : undefined, undefined, uploadId)
     }
   }, [incidentMeta.id, canWriteRecord, media, swapRowMedia])
 

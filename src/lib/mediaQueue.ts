@@ -33,11 +33,12 @@
 // acknowledged. Linking must therefore be idempotent. A receipt is «not saved yet» for the sync
 // status, but not a capture «not uploaded» (useMediaQueue · pendingCount). Entries stored
 // before the receipt carry no `url` and are captures, as ever. A response lost on the way back
-// still uploads the bytes twice (no idempotent upload by capture id on the server) — but only
-// one of them is linked. A receipt keeps its `target`: an attachment's link goes to the Rapport,
+// (a proxy timeout while the server was still storing) is retried under the capture's `rev`,
+// which the server keeps as the upload id (api/media · upload_id) and answers with the file it
+// already has – the bytes are stored once. A receipt keeps its `target`: an attachment's link goes to the Rapport,
 // never to a Verlauf patch (useMediaOutbox).
 
-import { isUnverifiable } from './api'
+import { ApiError } from './api'
 import { idbDel, idbRead, idbSet } from './idb'
 import { newId } from './ids'
 import { serialQueue } from './serialQueue'
@@ -65,9 +66,11 @@ interface MediaQueueEntry {
   /** the row's blob: URL this capture stands for — the picture the server URL replaces once
    *  it uploads. Absent on audio (a row has one voice memo) and on pre-2026-08 queue entries. */
   localUrl?: string
-  /** which CAPTURE this entry is — minted per enqueue. The queue id alone cannot say it: a
-   *  re-recorded voice memo reuses its row's id, and a flush that uploaded the old recording
-   *  must not drop the new one queued behind it. Absent on entries queued before 23.09.2026. */
+  /** which CAPTURE this entry is — minted per capture (by its direct upload attempt, or here at
+   *  enqueue). The queue id alone cannot say it: a re-recorded voice memo reuses its row's id,
+   *  and a flush that uploaded the old recording must not drop the new one queued behind it.
+   *  Also the upload id every attempt sends (api/media · upload_id), so a retry after a lost
+   *  response is not stored twice. Absent on entries queued before 23.09.2026. */
   rev?: string
   /** Absent for journal media; Rapport-Beilagen restore/swap only the attachment with rowId. */
   target?: MediaTarget
@@ -81,7 +84,7 @@ export type MediaQueueItem = MediaCapture | MediaReceipt
 
 export const isReceipt = (item: MediaQueueItem): item is MediaReceipt => item.status === 'uploaded'
 
-/** After this many server-side (non-network) failures an item is surfaced as `failed`
+/** After this many failed attempts that reached a server (any HTTP answer, 5xx included) an item is surfaced as `failed`
  *  rather than an ever-pending upload the operator can't reason about. */
 const MAX_ATTEMPTS = 3
 
@@ -162,8 +165,9 @@ export const isMediaQueueDurable = (incidentId: string): boolean => !unstored.ha
 
 /** Persist a captured blob for later upload, replacing any prior entry with the same queue id
  *  (a re-recorded voice memo supersedes the old one; photos key per picture, so they stack).
- *  Resets it to `pending` for a fresh retry cycle. Resolves whether the capture is DURABLY
- *  queued; when not, it is held in memory (still listed, still flushed) and written by the next
+ *  Resets it to `pending` for a fresh retry cycle. `uploadId`: the id the capture's direct
+ *  upload already sent, so the retries are recognisably the same upload. Resolves whether the
+ *  capture is DURABLY queued; when not, it is held in memory (still listed, still flushed) and written by the next
  *  queue operation whose write lands. */
 export async function enqueueMedia(
   incidentId: string,
@@ -174,9 +178,10 @@ export async function enqueueMedia(
   createdAt: string,
   localUrl?: string,
   target?: MediaTarget,
+  uploadId?: string,
 ): Promise<boolean> {
   const id = mediaQueueId(rowId, kind, localUrl)
-  const rev = newId('mq')
+  const rev = uploadId ?? newId('mq')
   return laneFor(incidentId).edit(async () => {
     const { items, known } = await readQueue(incidentId)
     const next = items.filter((i) => i.id !== id)
@@ -221,6 +226,8 @@ export type MediaUploader = (
   blob: Blob,
   kind: 'photo' | 'audio',
   filename: string,
+  /** the capture's id, the same on every attempt (api/media · upload_id) */
+  uploadId?: string,
 ) => Promise<{ url: string }>
 
 export interface FlushOutcome {
@@ -231,8 +238,9 @@ export interface FlushOutcome {
 /** Attempt every queued capture of an incident. A successful upload becomes a RECEIPT (its server
  *  URL, the bytes dropped — see the header) and is returned too; linking it to the timeline row
  *  is the caller's, from the stored receipts. A network drop leaves the item `pending` (attempts
- *  unchanged — it never got to the server); a real server error counts an attempt and flips to
- *  `failed` past MAX_ATTEMPTS. Receipts are never uploaded again, `retry` or not. Never throws —
+ *  unchanged — it never got to the server); any HTTP error, a 502/503/504 included, counts an
+ *  attempt and flips to `failed` past MAX_ATTEMPTS – a backend that keeps failing must end in
+ *  something the operator sees, not an upload retried forever. Receipts are never uploaded again, `retry` or not. Never throws —
  *  a bad flush just leaves work queued for the next one. */
 export function flushMediaQueue(incidentId: string, upload: MediaUploader, { retry = false }: { retry?: boolean } = {}): Promise<FlushOutcome> {
   const lane = laneFor(incidentId)
@@ -251,14 +259,14 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader, { ret
         continue
       }
       try {
-        const { url } = await upload(incidentId, item.blob, item.kind, item.filename)
+        const { url } = await upload(incidentId, item.blob, item.kind, item.filename, item.rev)
         uploaded.push({ id: item.id, rowId: item.rowId, kind: item.kind, url, localUrl: item.localUrl, ...(item.target ? { target: item.target } : {}) })
         const { blob: _bytes, status: _status, lastError: _error, retryAt: _retryAt, ...entry } = item
         settled.push({ item, next: { ...entry, status: 'uploaded', url } })
       } catch (e) {
-        // A network failure (offline / server unreachable) is not the item's fault — keep it
-        // pending without burning an attempt. Only a reachable-but-rejecting server counts.
-        const networkDown = !navigatorOnline() || isUnverifiable(e)
+        // No answer at all (offline, our own timeout) is not the item's fault — keep it pending
+        // without burning an attempt. Any HTTP answer counts, a proxy's 502/503/504 too.
+        const networkDown = !navigatorOnline() || (e instanceof ApiError && e.status === 0)
         const previous = retry && item.status === 'failed' ? 0 : item.attempts
         const attempts = networkDown ? previous : previous + 1
         const status: MediaStatus = !networkDown && attempts >= MAX_ATTEMPTS ? 'failed' : 'pending'

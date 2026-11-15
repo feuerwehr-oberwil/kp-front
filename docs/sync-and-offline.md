@@ -198,7 +198,12 @@ beendet». The rules: [`presentation.md`](presentation.md).
   markers for crash-safe retry, before clearing the parked originals.
 - Blob data never falls back to JSON storage. Failed local media persistence retains bytes in
   memory and reports storage failure. Pending uploads retry with a bounded delay; exhausted
-  uploads wait for explicit retry. Rendering the queue must never trigger an upload loop.
+  uploads wait for explicit retry. Only «no answer at all» (offline, timeout) leaves the attempt
+  count alone – any HTTP error, a proxy's 502/503/504 included, counts. Rendering the queue must
+  never trigger an upload loop.
+- Every attempt of one capture sends the same `upload_id` (the queue entry's `rev`, minted by
+  the direct upload); the server returns the file it already stored for that id, so a retry
+  after a lost response does not store a second copy.
 - An upload that landed leaves a stored **receipt** in the media queue (server URL, bytes
   dropped) until the Verlauf link it enriches is acknowledged; a reload replays it, and a row
   already carrying the URL is not patched twice (`mediaQueue` / `useMediaQueue` headers, audit
