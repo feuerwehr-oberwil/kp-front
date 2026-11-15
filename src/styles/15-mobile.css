@@ -374,8 +374,13 @@
      bottom toolbar»), for as long as the ✥ / ⟳ bar is on screen AT ALL: after a move the sheet
      can stay peeked, and the bar then sat on «Hinzufügen» and the Gebäude chip at rest too. With
      the sheet half or full open the tools are under it anyway, so this only ever removes a clash.
-     Deselecting (the sheet's ✕) brings both straight back. */
-  :is(body.sel-transforming, body.geom-dragging, body:has(.sel-bar)) :is(.tool-rail, .wb-tools, .wb-botleft) { visibility: hidden; }
+     Deselecting (the sheet's ✕) brings both straight back.
+     ⚠️ Per SURFACE, never `body:has(.sel-bar)`: the Karte stays mounted behind a Plan, and a jump to
+     the Plan (a Verlauf entry, «zum Trupp») keeps the map's selection – its bar, out of sight, would
+     hide the Plan's tools. On the Karte only the map's bar counts, on a Plan only the board's own. */
+  :is(body.sel-transforming, body.geom-dragging) :is(.tool-rail, .wb-tools, .wb-botleft),
+  :is(.app.mode-map:has(.sel-bar:not(.whiteboard .sel-bar)), .app:not(.mode-map):has(.whiteboard .sel-bar))
+    :is(.tool-rail, .wb-tools, .wb-botleft) { visibility: hidden; }
   /* phone scroll model: the sheet is a fixed flex column. The grip + header are pinned, and so
      is the ACTIONS row — by layout, never position:sticky, because sticky inside a
      backdrop-filtered scroller proved unreliable on iOS and `.ctx` carries a blur.
