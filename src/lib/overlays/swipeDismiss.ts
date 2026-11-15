@@ -37,9 +37,10 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
  *    to sit ON the bottom edge and leave real screen above it. That excludes the centred dialogs
  *    (ConfirmCard, every sheet on a tablet) and the surfaces that are effectively full-screen, and
  *    it needs no media query in JS to agree with one in CSS — the layout has already decided.
- * 2. **Scrolled content wins.** A drag that starts over the sheet's scroller only dismisses while
- *    that scroller is at the very top, and only downwards; the moment the body has been scrolled
- *    the gesture is the scroller's. Dragging the HEADER (or the grab bar) always dismisses — the
+ * 2. **Scrolled content wins.** A drag that starts over the sheet's body only dismisses while
+ *    EVERY scroller between the finger and the popup (the popup included) is at its very top, and
+ *    only downwards; the moment any of them has been scrolled the gesture is the content's — a
+ *    list at its top inside a scrolled-down form scrolls the form back up (15.11.2026). Dragging the HEADER (or the grab bar) always dismisses — the
  *    header is the part of a bottom sheet that is a handle everywhere else.
  * 3. **A field is a field, a row is a handle.** (sweep 28.10.2026 #1, owner: «Ebenen just continues
  *    scrolling the content instead of closing it» — its body is nearly all rows and sliders, and
@@ -85,8 +86,8 @@ type Drag = {
   x0: number
   t0: number
   el: HTMLElement
-  /** the scroller the gesture started over, if it was not the header */
-  scroller: HTMLElement | null
+  /** every scroller the gesture started inside (none on the header) */
+  scrollers: HTMLElement[]
   engaged: boolean
   dy: number
 }
@@ -139,18 +140,22 @@ function isBottomSheet(el: HTMLElement) {
   return Math.abs(r.bottom - vh) <= 2 && r.top >= MIN_HEADROOM_PX
 }
 
-/** The scrolling ancestor between `from` and the popup — a sheet's `.ip-body`, a bespoke body. */
-function scrollerWithin(from: Element | null, popup: HTMLElement): HTMLElement | null {
-  let node: Element | null = from
-  while (node && node !== popup) {
+/** Every vertical scroller from `from` up to AND including the popup — a list nested in a sheet's
+ *  `.ip-body`, the body itself, a frame that scrolls itself (15.11.2026: checking the innermost one
+ *  only let a list at its top close a sheet whose body was scrolled down). */
+function scrollersWithin(from: Element | null, popup: HTMLElement): HTMLElement[] {
+  const out: HTMLElement[] = []
+  for (let node = from; node; node = node.parentElement) {
     if (node instanceof HTMLElement) {
       const oy = getComputedStyle(node).overflowY
-      if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight) return node
+      if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight) out.push(node)
     }
-    node = node.parentElement
+    if (node === popup) break
   }
-  return null
+  return out
 }
+
+const anyScrolled = (scrollers: HTMLElement[]) => scrollers.some((s) => s.scrollTop > 0)
 
 export interface SwipeDismissOptions {
   onClose: () => void
@@ -213,8 +218,8 @@ export function useSwipeDismiss({ onClose, enabled = true, headOnly = false }: S
       // `[data-sheet-head]`: a head of another shape, the Karte's field line)
       const onHead = !!target?.closest('.ip-head, .ui-sheet-grab, .lc-title, [data-sheet-head]')
       if (headOnly && !onHead) return
-      const scroller = onHead ? null : scrollerWithin(target, el)
-      if (!onHead && scroller && scroller.scrollTop > 0) return
+      const scrollers = onHead ? [] : scrollersWithin(target, el)
+      if (anyScrolled(scrollers)) return
       if (!onHead && inSidewaysScroller(target, el)) return
       const y0 = e.clientY, x0 = e.clientX
       // rule 3's ⚠️ — pointer events arrive before their touch events, so by the time a touchmove
@@ -228,7 +233,7 @@ export function useSwipeDismiss({ onClose, enabled = true, headOnly = false }: S
       document.addEventListener('touchmove', claim, { passive: false })
       drag.current = {
         id: e.pointerId, claim, y0, x0, t0: e.timeStamp,
-        el, scroller, engaged: false, dy: 0,
+        el, scrollers, engaged: false, dy: 0,
       }
     },
     onPointerMove: (e: ReactPointerEvent<HTMLElement>) => {
@@ -240,8 +245,8 @@ export function useSwipeDismiss({ onClose, enabled = true, headOnly = false }: S
         // upwards, or mostly sideways: this gesture belongs to the content, not to the sheet
         if (dy < -2 || Math.abs(dx) > Math.abs(dy)) { drop(); return }
         if (dy < ENGAGE_PX) return
-        // re-check at the moment of engaging: the scroller may have moved under the finger
-        if (d.scroller && d.scroller.scrollTop > 0) { drop(); return }
+        // re-check at the moment of engaging: a scroller may have moved under the finger
+        if (anyScrolled(d.scrollers)) { drop(); return }
         d.engaged = true
         d.el.style.transition = ''
       }
