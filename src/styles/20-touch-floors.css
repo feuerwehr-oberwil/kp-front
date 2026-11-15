@@ -74,8 +74,8 @@
 @media (pointer: coarse) {
   /* (a Detail field's remove ✕ and the drawing editor's «›» to the coupled Trupp stood here at 32px;
      both are <IconButton> since 08.10.2026, a --tap square at every pointer) */
-  /* the capture app's «fehlt noch» chips (32px), wrapping in a 6px-gap row */
-  .cv-missing-go { min-height: var(--tap); }
+  /* (the capture app's «fehlt noch» chips are the form warning's `.form-warn-act` since 15.11.2026,
+     36px with its own 44px pad) */
   /* the Verlauf's «wieder in …» offers on a closed Pendenz (≈24px), side by side 5px apart */
   .jr-again-btn { min-height: var(--tap); }
   /* A segmented option (06-contextpanel · .useg) is --tap less the track's 3px on each side, so

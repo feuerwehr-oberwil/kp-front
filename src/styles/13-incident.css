@@ -1058,6 +1058,9 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
 /* ONE status tag, «Abgeschlossen» (29.09.2026, owner: «we just need tags to say an emergency is
    closed. open is the default state»). «Offen» and «In Arbeit» (a blue pill until today) are gone
    from every list: a running Einsatz is the normal case, and a tag on the normal case is noise. */
+/* …and the same ink on grey is THE neutral tag for any other fact on a row: «Entwurf», «Adresse»,
+   and a crew fact – «Gast», «AS», «raus» (15.11.2026, style sweep T5: «Gast» wore three looks, a
+   rank chip, a pill and an 800 chip). */
 .ip-badge-arch { background: var(--fill-soft); color: var(--ink-dim); }
 /* a good-news tag («empfohlen») — the green of «done», never a fill */
 .ip-badge-ok { background: var(--green-16); color: var(--green-strong); }
@@ -1415,19 +1418,10 @@ button.rp-sign-row:disabled { cursor: default; }
    names (CaptureApp · jumpToStep) — the tablet's «noch offen» chips, on the poster. As one
    comma-separated sentence under the buttons it named the gaps and then left you to find them
    yourself down a six-section page, after the paper was already on its way. */
-.cv-missing { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 12px 0 0;
-  padding: 12px; border-radius: var(--r-sm);
-  background: var(--amber-12);
-  border: 1px solid var(--amber-28);
-  font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink); }
-.cv-missing svg { width: 16px; height: 16px; flex: none; color: var(--amber-strong); }
-.cv-missing-k { color: var(--ink-dim); }
-.cv-missing-go { font: inherit; font-weight: var(--fw-bold); min-height: 32px; padding: 4px 12px; border: none;
-  border-radius: var(--r-pill); cursor: pointer;
-  color: var(--amber-strong); background: var(--amber-22); }
-@media (hover: hover) {
-  .cv-missing-go:hover { background: var(--amber-28); }
-}
+.cv-missing { margin: 12px 0 0; }
+/* ⚠️ THE form warning (`.form-warn .form-warn-amber`) since 15.11.2026 (style sweep T3): it was an
+   amber box with its own border and 32px pill chips. The chips are its compact framed
+   `.form-warn-act` (36px, 44 hit); this class only places the box. */
 /* the reassurance, on its own line: nothing here blocks the print */
 .cv-missing-note { flex: 1 0 100%; font-weight: var(--fw-medium); color: var(--ink-dim); }
 /* …and the target says «here», with the shared ink ring the whole app points with
@@ -1486,25 +1480,19 @@ button.rp-sign-row:disabled { cursor: default; }
   border-bottom: 1px solid var(--glass-line); }
 /* (the ⓘ beside the search is THE InfoToggle since 29.09.2026 — it wore a 44px frame that
    turned station red while its help was open) */
-/* «Erfasste N» — the check-back filter beside the search box. GREEN when on, the same ink the
-   anwesend rows carry, so the filter and what it keeps read as one idea; --accent is the brand
-   red and never means state. Off it is a plain neutral control, so an unfiltered roster can
-   never be mistaken for a filtered one. */
+/* «Erfasste N» — the check-back filter beside the search box. On it is THE filter-on look, the
+   choice fill (--sel, docs/ui-conventions.md · Small roles (9); 15.11.2026 – it was green, the
+   anwesend tint, so «filtered» read as «present»). Off it is a plain neutral control, so an
+   unfiltered roster can never be mistaken for a filtered one. */
 .cv-filter { display: inline-flex; align-items: center; gap: 8px; flex: none; height: 44px; padding: 0 12px;
   cursor: pointer; border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink-dim);
   border-radius: var(--r-sm); font: var(--fw-bold) var(--fs-2) var(--body); white-space: nowrap; }
 .cv-filter svg { width: 15px; height: 15px; }
-.cv-filter.on { color: var(--green-strong); border-color: var(--green-45);
-  background: color-mix(in srgb, var(--green) 14%, var(--surface)); }
-/* «Nichts verwendet» — the one tick that makes the Material Mindestangabe answerable from here
-   (see lib/abschluss · stepDone). Pressed = the answer is on the record. */
-.cv-none { align-self: flex-start; min-height: 44px; padding: 8px 16px; cursor: pointer;
-  border: 1px dashed var(--glass-edge); border-radius: var(--r-sm);
-  background: none; color: var(--ink); font: var(--fw-bold) var(--fs-2) var(--body); }
-.cv-none.on { border-style: solid; color: var(--green-strong);
-  border-color: var(--green-45);
-  background: var(--green-16); }
-.cv-none:disabled { opacity: var(--disabled); cursor: default; }
+.cv-filter.on { color: var(--on-sel); border-color: var(--sel); background: var(--sel); }
+/* «Nichts verwendet» — the one answer that makes the Material Mindestangabe answerable from here
+   (see lib/abschluss · stepDone). The tablet Rapport's own control (`.ip-btn` + `.on`, the choice
+   fill; 15.11.2026 – it was dashed and turned green here); this only places it. */
+.cv-none { align-self: flex-start; }
 /* Partnerorganisationen on the poster: organisation + one free line, same two fields the
    tablet asks for. Stacks on a phone, which is what the poster is scanned with. */
 .cv-partners { display: flex; flex-direction: column; gap: 8px; width: 100%; }
@@ -1512,16 +1500,9 @@ button.rp-sign-row:disabled { cursor: default; }
    only once the row is ticked. On a phone the line wraps under its own tick rather than
    halving both — this page is filled in standing up, with one thumb. */
 .cv-partner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.cv-partner-tick { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-width: 160px;
-  min-height: 44px; padding: 0 8px 0 4px; border: none; border-radius: var(--r-sm);
-  background: none; color: var(--ink-dim); cursor: pointer; text-align: left; }
-.cv-partner-box { flex: none; display: grid; place-items: center; width: 24px; height: 24px;
-  border: 1.5px solid var(--glass-line); border-radius: var(--r-sm); color: var(--blue); }
-.cv-partner-box svg { width: 15px; height: 15px; }
-.cv-partner.on .cv-partner-tick { color: var(--ink); }
-.cv-partner.on .cv-partner-box { border-color: color-mix(in srgb, var(--blue) 55%, var(--glass-line)); }
-.cv-partner-org { font: var(--fw-medium) var(--fs-3) var(--body); }
-.cv-partner-tick.bare { flex: none; min-width: 0; padding-right: 0; }
+/* the tick is THE `TickRow` (15.11.2026 – it was a box of the poster's own, ticked in blue line
+   work); this only places it in the row */
+.cv-partner-tick { flex: 1 1 auto; min-width: 160px; }
 /* the add row (type-to-create): a <fieldset> only so `busy` can disable what is inside it —
    strip the UA chrome, it is a gate and not a box (same trick as .report-fieldset) */
 .cv-partner-add { display: flex; align-items: center; gap: 8px; border: 0; margin: 0; padding: 0; min-width: 0; }
@@ -1565,7 +1546,7 @@ button.rp-sign-row:disabled { cursor: default; }
 @media (hover: hover) {
   .cv-btn-add:hover:not(:disabled) { border-color: var(--ink-faint); }
 }
-.cv-btn-ghost { min-height: 40px; padding: 0 12px; background: none; border-color: transparent; color: var(--ink-faint); }
+.cv-btn-ghost { min-height: var(--tap); min-width: var(--tap); padding: 0 12px; background: none; border-color: transparent; color: var(--ink-faint); }
 @media (hover: hover) {
   .cv-btn-ghost:hover:not(:disabled) { background: var(--red-12); color: var(--red-strong); }
 }
@@ -1575,28 +1556,22 @@ button.rp-sign-row:disabled { cursor: default; }
 .cv-person { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; padding: 8px 12px;
   border: 1px solid var(--glass-line); border-radius: var(--r-ctl); background: var(--surface); color: var(--ink);
   font: var(--fw-medium) var(--fs-3) var(--body); cursor: pointer; text-align: left; }
-.cv-person.on { border-color: color-mix(in srgb, var(--green) 45%, var(--glass-line));
-  background: color-mix(in srgb, var(--green) 14%, var(--surface)); }
-/* im MAGAZIN: present, but not where the Einsatz is. Blue, the same ink the tablet's Ort chip
-   uses, so the two surfaces read as one idea — and distinctly NOT the green of «vor Ort», which
-   is the whole reason this state is visible at all. */
-.cv-person.station { border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-line));
-  background: color-mix(in srgb, var(--blue) 12%, var(--surface)); }
-.cv-person.station .cv-person-state { color: var(--blue-strong);
-  background: var(--blue-16); }
+/* Anwesend = the green tint, nothing else (docs/ui-conventions.md · Small roles (11)): the
+   tablet's `.isPresent` – no green border (15.11.2026). Magazin is present too, so it shares the
+   tint; WHERE is the state chip's glyph. */
+.cv-person:is(.on, .station) { background: color-mix(in srgb, var(--green) 14%, var(--surface)); }
 /* gegangen = GONE: the ONE done dim (01-tokens · --done-opacity, 28.09.2026 — it was .65) */
 .cv-person.left { opacity: var(--done-opacity); }
-/* «Gast» — a row that no Mannschaftsliste is behind. Neutral, quiet, and BEFORE the state chip:
-   it says where the name came from, not how the person is doing. */
-.cv-person-guest { flex: none; margin-left: auto; padding: 2px 8px; border-radius: var(--r-pill);
-  background: var(--fill-soft); color: var(--ink-faint); font: var(--fw-bold) var(--fs-micro) var(--body); }
-/* state chip: ✓ (anwesend, GREEN like the main app's Anwesenheit grid) / exit-arrow
-   (gegangen, muted) — shape + tint together, never colour alone; word = aria-label */
+/* «Gast» — a row that no Mannschaftsliste is behind: THE neutral tag (`.ip-badge .ip-badge-arch`), BEFORE
+   the state chip – it says where the name came from, not how the person is doing. This places it. */
+.cv-person-guest { margin-left: auto; }
+/* state chip: the glyphs of the tablet's Ort button – pin (vor Ort), house (Magazin), exit arrow
+   (gegangen) – in its inks: --ink-dim bare, the Magazin on an --ink-12 square, because that is the
+   state worth seeing (Anwesenheit.module.css · .ortStation). It was a green/blue/amber disc
+   (15.11.2026: blue only ever means «chosen», amber a warning). Word = aria-label. */
 .cv-person-state { display: grid; place-items: center; width: 26px; height: 26px; flex: none;
-  border-radius: var(--r-pill); color: var(--green);
-  background: var(--green-16); }
-.cv-person.left .cv-person-state { color: var(--amber-strong);
-  background: var(--amber-16); }
+  border-radius: var(--r-xs); color: var(--ink-dim); }
+.cv-person.station .cv-person-state { color: var(--ink); background: var(--ink-12); }
 .cv-person-state svg { width: 15px; height: 15px; }
 .cv-mittel { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .cv-mittel li { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px;
@@ -1810,8 +1785,10 @@ button.rp-sign-row:disabled { cursor: default; }
 .cv-modal.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-dialog); }
 .cv-modal { width: min(420px, calc(100vw - 36px)); gap: 12px; background: var(--surface); box-shadow: var(--e4);
   max-height: 90dvh; overflow-y: auto; }
-.cv-modal-warn { color: var(--amber-strong); display: flex; align-items: center; gap: 8px; }
-.cv-modal-warn svg { width: 14px; height: 14px; flex: none; }
+/* the title is THE sheet title (--sheet-title; it was the cards' 700); the amber lines under it
+   are THE compact form warning (`.form-warn .form-warn-amber .form-warn-compact`, 15.11.2026 –
+   they were amber body text) */
+.cv-modal h2 { font: var(--sheet-title); }
 .cv-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }
 
 /* native selects styled like the rest of the inputs (default chrome looked foreign) */

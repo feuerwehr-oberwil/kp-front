@@ -112,7 +112,7 @@ export function PressureSheet({ t, sub, title, hint, last, alarmBar, chosen = fa
       footer={footer && <SheetFoot className={s.modalFoot}><Button block onClick={footer.onClick}>{footer.label}</Button></SheetFoot>}>
       <PressureGrid value={last} alarmBar={alarmBar} onPick={onPick} chosen={chosen} ariaLabel={title} />
       {/* under the grid, like the Kanal pad's hint: what a tap does */}
-      {hint && <p className={s.miniHint}>{hint}</p>}
+      {hint && <p className="ip-hint">{hint}</p>}
     </MiniSheet>
   )
 }
@@ -202,7 +202,7 @@ export function KanalPickSheet({ value, sub, name, takeLabel, onPick, onClose }:
       {pad ? (
         <>
           <KanalPicker value={value} onPick={(n) => void pick(n)} />
-          <p className={s.miniHint}>{az.kanalSheetHint}</p>
+          <p className="ip-hint">{az.kanalSheetHint}</p>
         </>
       ) : (
         <div className={s.field}>

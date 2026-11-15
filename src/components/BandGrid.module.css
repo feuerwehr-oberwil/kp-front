@@ -255,7 +255,8 @@
    `flex-end` did the moment a band ran past midnight. */
 .times { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sp-2) var(--sp-3); margin-top: var(--sp-4); }
 .sep { align-self: center; padding-top: var(--sp-4); color: var(--ink-faint); font: var(--fw-medium) var(--fs-2) var(--mono); }
-.day { font: var(--fw-medium) var(--fs-micro) var(--mono); color: var(--ink-faint); white-space: nowrap; }
+/* «Sa 16.11.» – a day word, so the body face with tabular figures (T1, 15.11.2026) */
+.day { font: var(--fw-medium) var(--fs-micro) var(--body); font-variant-numeric: tabular-nums; color: var(--ink-faint); white-space: nowrap; }
 .note { margin: var(--sp-4) 0 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 
 /* The desk end of the same trade the phone block below makes, and the same two steps the Zeitplan
