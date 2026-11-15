@@ -1,7 +1,7 @@
 """«Alarm aktualisiert»: the pending Divera update of an open Einsatz
 
-Revision ID: d5f9b3a7c1e2
-Revises: c4e8a2f6d0b1
+Revision ID: e7a2c5b9d3f1
+Revises: d5f9b3a7c1e2
 Create Date: 2026-11-15 12:00:00.000000
 
 One nullable JSONB column, `incidents.alarm_update_json` (app/alarm_update): a follow-up of the
@@ -16,8 +16,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 from alembic import op
 
-revision: str = "d5f9b3a7c1e2"
-down_revision: str | None = "c4e8a2f6d0b1"
+revision: str = "e7a2c5b9d3f1"
+down_revision: str | None = "d5f9b3a7c1e2"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -117,7 +117,7 @@ automatic and with a downgrade. Read on for what behaves differently afterwards.
   hand – the pin moves with the address, with «Rückgängig»), «Bearbeiten» (the Einsatzdaten with
   «Alarm neu» beside each field) or ✕ (hidden on every device). Nothing is overwritten by itself;
   the arrival and the decision are Verlauf rows. It used to be thrown away once an editor had
-  opened the Einsatz. Migration `d5f9b3a7c1e2` adds one nullable column.
+  opened the Einsatz. Migration `e7a2c5b9d3f1` adds one nullable column.
 - **Karte & Objekte: the station map is home when no Einsatz is open.** The station's objects
   stand on the map as building outlines, coloured by category, with a search over objects and
   addresses, «In der Nähe», and a panel per object: Sofortmassnahmen, the plans («Modul 1» …),
