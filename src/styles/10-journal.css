@@ -769,7 +769,7 @@
    1180×820 with a 380px keyboard: 35px of the card under it, and at 740×620 with 260px: 93px.
    `min()` of the two, so with no keyboard the number is exactly the old one and nothing moves. */
 .journal-composer { position: fixed; left: 50%; top: 11vh; transform: translateX(-50%); z-index: var(--z-dialog);
-  width: min(460px, 92vw); overflow-y: auto; overscroll-behavior: contain;
+  width: min(460px, 92vw); overflow: hidden;
   max-height: min(calc(88dvh - 11vh), calc(100dvh - 11vh - 12px - var(--jc-kb, 0px)));
   /* THE sheet material (13-incident · .ip-sheet, hill climb r35, 06.11.2026): --glass + its blur,
      no edge, --e4. It was opaque --surface (#fff / #232c3a) with a --glass-line edge and NO blur –
@@ -779,7 +779,7 @@
      16px all round, not the sheets' 24: this card's rows are dense (the Art strip, the media
      strip) and on a phone 24 a side squeezes them – so its ✕ stands 16 from the edge too. */
   background: var(--glass); backdrop-filter: blur(16px);
-  border-radius: var(--r-hero); box-shadow: var(--e4); padding: 16px;
+  border-radius: var(--r-hero); box-shadow: var(--e4); padding: 16px 16px 0;
   /* ⚠️ ONE gap on this whole sheet, sideways and downwards alike: 8px. It was 12 between the
      banks and 8 inside them, which is why «Anheften» sat closer to the media row than that row
      sat to ART. One number means there is no second one to get wrong, and the tighter of the
@@ -804,6 +804,17 @@
    it took driving the real app at 744×400 to see it (JournalComposer · the paste listener). Any
    `> *` rule on this card carries the same condition. */
 .journal-composer > * { flex: none; }
+/* ⚠️ …and the rows are `.jc-body`'s since 15.11.2026 (scroll sweep #6): the frame was the
+   scroller, so on rung 3 below the grab bar, the title and the ✕ scrolled off the top with the
+   rows, and a list at its top inside it closed the sheet (overlays/swipeDismiss). The head is the
+   card's own child and stays; this ONE box under it scrolls – the card's full width (its 16px
+   sides as padding, so a focus ring is not clipped). «Erfassen» (.jc-foot) is the card's child
+   again BELOW it, pinned like every sheet's footer, and carries the card's bottom 16. The same
+   «nothing shrinks» holds one level down; only the scroller itself gives. */
+.journal-composer > .jc-body { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 8px; margin: -4px -16px 0; padding: 4px 16px; }
+.journal-composer > .jc-foot { padding-bottom: 16px; }
+.jc-body > * { flex: none; }
 
 /* ── the degradation ladder: today's layout → one compact row → scrolling ──────────────────
    `flex: none` above ended the silent squeeze, and traded it for the other failure: a sheet a
@@ -815,7 +826,7 @@
      2. `.is-compact` — the Art strip and the media strip become ONE row of symbols
         («I · A · S», the clock, the ring, mic · upload · camera). Worth 44px of row plus the
         8px gap that went with it = 52px, which is `COMPACT_SAVES` in lib/composerFit.ts;
-     3. only then `overflow-y: auto` above does what it has always done.
+     3. only then the sheet scrolls – `.jc-body` above, under a head that stays.
    ⚠️ Rung 2 is switched by MEASURING, not by a height media query: on iOS the layout viewport
    does not shrink for the keyboard (which is why the caps have to subtract `--jc-kb` at all), so
    `@media (max-height: …)` reports the full screen at exactly the moment half of it is gone. The

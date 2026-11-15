@@ -1,5 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { Fragment, useMemo, useRef, useState } from 'react'
 import type { SymbolsApi } from '../lib/useSymbols'
 import type { ShapeKind } from '../types'
 import { Icon } from '../lib/icons'
@@ -12,9 +11,9 @@ import { FORMEN_ORDER, SHAPE_DEFS, ShapeGlyph } from '../lib/shapes'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
 import { bareBlack } from '../lib/glyphTile'
 import { useIsPhone } from '../lib/useIsPhone'
-import { addTools } from '../lib/toolFold'
-import { SheetGrab, useSwipeDismiss } from '../lib/overlays'
 import { tut, toolAnchor } from '../lib/tutorials/anchors'
+import { addTools } from '../lib/toolFold'
+import { Overlay } from '../lib/overlays'
 
 // the geometric «Formen» section (Pfeil · Rechteck) renders right after this pack category,
 // before Wasser (the pack's order: tools/gen_symbols.py · ORDER).
@@ -85,31 +84,10 @@ export function Palette({ sym, onPick, onClose, onPickShape, tools, onPickTool }
   const [q, setQ] = useState('')
   const phone = useIsPhone()
   const sheetTools = phone && tools && onPickTool ? addTools(tools) : []
-  const inputRef = useRef<HTMLInputElement>(null)
+  // the search is NOT autofocused — opening the palette shouldn't grab the keyboard (or pop the
+  // on-screen keyboard on touch): focus lands on the sheet itself. The user taps the field to
+  // type, or just taps a symbol. Identical on both surfaces (Lage + Plan share this palette).
   const modalRef = useRef<HTMLDivElement>(null)
-
-  // the search is NOT autofocused — opening the palette shouldn't grab the keyboard
-  // (or pop the on-screen keyboard on touch). The user clicks the field to type, or
-  // just taps a symbol. Identical on both surfaces (Lage + Plan share this palette).
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  const swipe = useSwipeDismiss({ onClose, enabled: true })
-  // keep Tab focus inside the dialog
-  const trapFocus = (e: React.KeyboardEvent) => {
-    if (e.key !== 'Tab') return
-    const focusable = modalRef.current?.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    )
-    if (!focusable || !focusable.length) return
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
-  }
 
   const query = q.trim().toLowerCase()
   // full synonym search — raw key, display label, copy.symbolAliases, and category heading
@@ -121,78 +99,67 @@ export function Palette({ sym, onPick, onClose, onPickShape, tools, onPickTool }
   // …and a tool is found by its word too: somebody who types «Linie» must not be told there is
   // no such symbol
   const toolMatches = query ? sheetTools.filter((t) => t.label.toLowerCase().includes(query)) : []
-  // portal to <body> so the backdrop escapes the .surface stacking context (z-index 20) and
-  // covers the left NavRail (z-index 35) instead of rendering beneath it.
-  // Scrim and sheet are SIBLINGS, the shape Base UI gives every other dialog (r35, 06.11.2026): the
-  // sheet centres itself (07-toolrail · .sym-modal), and nothing the scroller clips under its edge
-  // counts as «inside» the scrim any more.
-  return createPortal((
-    <>
-      <div className="modal-backdrop" onClick={onClose} />
-      <div
-        ref={modalRef}
-        className="sym-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={appConfig.copy.symbolSearchPlaceholder}
-        onKeyDown={trapFocus}
-        {...swipe}
-      >
-        {/* hand-rolled, so it borrows the two things every other phone sheet gets from the
-            primitives: the grab bar and the push-down that closes it (20.09.2026) */}
-        <SheetGrab />
-        <div className="sym-top">
-          {/* just «Suchen …». The total used to ride in the placeholder as «(184)», which
-              answers a question nobody asks — how many symbols the pack has changes nothing
-              about the one you are looking for. */}
-          <SearchField ref={inputRef} className="sym-search" value={q} onChange={setQ}
-            placeholder={appConfig.copy.symbolSearchPlaceholder} aria-label={appConfig.copy.symbolSearchPlaceholder} {...tut('add.search')} />
-          <button className="sym-close" onClick={onClose} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
-        </div>
+  // an `Overlay` since 15.11.2026 (scroll sweep #5): it was the one hand-rolled sheet, and the
+  // one that ignored the keyboard – the keys covered the lower half of the grid. The primitive
+  // brings what every other sheet has: focus trap, Esc, backdrop, scroll lock, the grab bar and
+  // the push-down, and the keyboard lift + `is-kb` (07-toolrail / 15-mobile cap the height).
+  // The portal puts it over the left NavRail; the sheet centres itself (07-toolrail · .sym-modal).
+  return (
+    <Overlay
+      open onClose={onClose} className="sym-modal" backdropClassName="modal-backdrop"
+      ariaLabel={appConfig.copy.symbolSearchPlaceholder} popupRef={modalRef} initialFocus={modalRef} grab
+    >
+      <div className="sym-top">
+        {/* just «Suchen …». The total used to ride in the placeholder as «(184)», which
+            answers a question nobody asks — how many symbols the pack has changes nothing
+            about the one you are looking for. */}
+        <SearchField className="sym-search" value={q} onChange={setQ}
+          placeholder={appConfig.copy.symbolSearchPlaceholder} aria-label={appConfig.copy.symbolSearchPlaceholder} {...tut('add.search')} />
+        <button className="sym-close" onClick={onClose} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
+      </div>
 
-        <div className="sym-scroll">
-          {query ? (
-            matches.length + toolMatches.length === 0
-              ? <div className="sym-empty no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</div>
-              : <div className="sym-grid">
-                  {toolMatches.map((t) => <ToolCell key={t.id} tool={t} onPick={onPickTool!} />)}
-                  {matches.map((s) => <Cell key={s.name} name={s.name} svg={s.svg} onPick={onPick} />)}
+      <div className="sym-scroll">
+        {query ? (
+          matches.length + toolMatches.length === 0
+            ? <div className="sym-empty no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</div>
+            : <div className="sym-grid">
+                {toolMatches.map((t) => <ToolCell key={t.id} tool={t} onPick={onPickTool!} />)}
+                {matches.map((s) => <Cell key={s.name} name={s.name} svg={s.svg} onPick={onPick} />)}
+              </div>
+        ) : (
+          <>
+            {sheetTools.length > 0 && (
+              <section>
+                <div className="sym-ghead">{appConfig.copy.addSheet.tools}</div>
+                <div className="sym-grid">
+                  {sheetTools.map((t) => <ToolCell key={t.id} tool={t} onPick={onPickTool!} />)}
                 </div>
-          ) : (
-            <>
-              {sheetTools.length > 0 && (
+              </section>
+            )}
+            {sym.order.map((cat) => (
+              <Fragment key={cat}>
                 <section>
-                  <div className="sym-ghead">{appConfig.copy.addSheet.tools}</div>
+                  <div className="sym-ghead">{appConfig.copy.symbolCategories[cat] ?? cat}</div>
                   <div className="sym-grid">
-                    {sheetTools.map((t) => <ToolCell key={t.id} tool={t} onPick={onPickTool!} />)}
+                    {/* Rauch is now a real «VKF Rauch» symbol in the pack (Schadenlage), so it
+                        renders as a normal symbol cell below — no special shape injection. */}
+                    {sym.symbols.filter((s) => s.cat === cat).map((s) => <Cell key={s.name} name={s.name} svg={s.svg} onPick={onPick} />)}
                   </div>
                 </section>
-              )}
-              {sym.order.map((cat) => (
-                <Fragment key={cat}>
+                {/* the geometric Formen (Pfeil · Rechteck) sit between Gefahren and Wasser */}
+                {onPickShape && cat === FORMEN_AFTER_CAT && (
                   <section>
-                    <div className="sym-ghead">{appConfig.copy.symbolCategories[cat] ?? cat}</div>
+                    <div className="sym-ghead">{appConfig.copy.shapes.sectionTitle}</div>
                     <div className="sym-grid">
-                      {/* Rauch is now a real «VKF Rauch» symbol in the pack (Schadenlage), so it
-                          renders as a normal symbol cell below — no special shape injection. */}
-                      {sym.symbols.filter((s) => s.cat === cat).map((s) => <Cell key={s.name} name={s.name} svg={s.svg} onPick={onPick} />)}
+                      {FORMEN_ORDER.map((kind) => <ShapeCell key={kind} kind={kind} onPick={onPickShape} />)}
                     </div>
                   </section>
-                  {/* the geometric Formen (Pfeil · Rechteck) sit between Gefahren and Wasser */}
-                  {onPickShape && cat === FORMEN_AFTER_CAT && (
-                    <section>
-                      <div className="sym-ghead">{appConfig.copy.shapes.sectionTitle}</div>
-                      <div className="sym-grid">
-                        {FORMEN_ORDER.map((kind) => <ShapeCell key={kind} kind={kind} onPick={onPickShape} />)}
-                      </div>
-                    </section>
-                  )}
-                </Fragment>
-              ))}
-            </>
-          )}
-        </div>
+                )}
+              </Fragment>
+            ))}
+          </>
+        )}
       </div>
-    </>
-  ), document.body)
+    </Overlay>
+  )
 }

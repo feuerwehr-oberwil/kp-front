@@ -77,7 +77,7 @@
      symmetric, but the whole grid then sat 11px inside the search bar above it. Without the
      gutter the rows are flush at 22px on both sides, and when the list IS long enough to
      scroll the space is taken by a scrollbar somebody can see. */
-  flex: 1 1 auto; overflow-y: auto; margin: 0; padding: 2px var(--head-pad-x) var(--sp-4);
+  flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 2px var(--head-pad-x) var(--sp-4);
   /* ⚠️ 228px was measured against a row that carried a name and a clock. It now also carries
      the Ort, and «Baumann Michael» went to «Baumann Mich…» — the one thing this list exists to
      show. 300px was still not enough: Ort (108) + clock (39) + the dot and the AT badge left the

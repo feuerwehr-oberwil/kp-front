@@ -4,6 +4,8 @@
 /* the sheet inset, 16 at the top and 24 at the sides, as every sheet's head (r35, 06.11.2026: it was
    12 all round, the ✕ 13 off the corner) – the Passung's card (.quality) keeps the same numbers */
 .sheet { width: min(92vw, 420px); max-width: 100%; display: grid; gap: var(--sp-2); padding: var(--sp-4) var(--sp-5); box-sizing: border-box; }
+/* the head, then ONE box of rows under it – on a phone that box is the sheet's scroller */
+.rows { display: grid; gap: var(--sp-2); }
 .head { display: flex; align-items: center; gap: 8px;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .x { margin-left: auto; flex: none; }
@@ -39,7 +41,14 @@
    a class and a type deep, so it outranks that panel's own single-class rules whichever loads last */
 .body > div { width: auto; max-width: none; padding: 0; }
 @media (--phone) {
-  .sheet { width: auto; padding: var(--sp-2) var(--sp-5) var(--sp-4); }
+  /* ⚠️ The head stays, the rows scroll (scroll sweep 15.11.2026 #6): the dock was the scroller and
+     took the grab bar, the title and the ✕ off the top with the rows. The sheet fills the dock
+     (09-whiteboard · .wb-georef-dock, a capped flex column); `.rows` is its one scroller, its
+     sides and its foot – the home indicator included, inside the scroll – are the rows' padding. */
+  .sheet { width: auto; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: var(--sp-2) 0 0; }
+  .head { flex: none; padding-inline: var(--sp-5); }
+  .rows { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+    padding: 0 var(--sp-5) calc(var(--sp-4) + env(safe-area-inset-bottom)); }
   .head { touch-action: none; }
   .head button { touch-action: auto; }
 }

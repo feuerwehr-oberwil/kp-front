@@ -35,7 +35,7 @@
 .field label { font: var(--field-label); color: var(--ink-dim); }
 
 /* grouped list — 8px between rows inside a group, a clear 16px break before the next group */
-.list { flex: 1 1 auto; overflow-y: auto; scrollbar-gutter: stable; padding: var(--sp-2) var(--head-pad-x) var(--sp-4); }
+.list { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: var(--sp-2) var(--head-pad-x) var(--sp-4); }
 .group { margin-top: 16px; }
 .group:first-child { margin-top: 4px; }
 
