@@ -808,10 +808,12 @@
    scroller, so on rung 3 below the grab bar, the title and the ✕ scrolled off the top with the
    rows, and a list at its top inside it closed the sheet (overlays/swipeDismiss). The head is the
    card's own child and stays; this ONE box under it scrolls – the card's full width (its 16px
-   sides as padding, so a focus ring is not clipped), the bottom 16 as its last padding, inside the
-   scroll. The same «nothing shrinks» holds one level down; only the scroller itself gives. */
+   sides as padding, so a focus ring is not clipped). «Erfassen» (.jc-foot) is the card's child
+   again BELOW it, pinned like every sheet's footer, and carries the card's bottom 16. The same
+   «nothing shrinks» holds one level down; only the scroller itself gives. */
 .journal-composer > .jc-body { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
-  display: flex; flex-direction: column; gap: 8px; margin: -4px -16px 0; padding: 4px 16px 16px; }
+  display: flex; flex-direction: column; gap: 8px; margin: -4px -16px 0; padding: 4px 16px; }
+.journal-composer > .jc-foot { padding-bottom: 16px; }
 .jc-body > * { flex: none; }
 
 /* ── the degradation ladder: today's layout → one compact row → scrolling ──────────────────

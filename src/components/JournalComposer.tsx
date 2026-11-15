@@ -1256,15 +1256,16 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             </div>
           )}
 
-          {/* the send, alone. The pin moved up into the media row (see .jc-audio) — it describes
-              the entry, not the act of saving it, and «Erfassen» is the one thing on this sheet
-              that must never share a row with anything else. */}
-          <div className="jc-foot">
-            <Button variant="primary" block disabled={!canSend || uploading || locating} onClick={submit}
-              icon={uploading || locating ? <ShellLoader /> : <Icon id="check" />}>
-              {uploading ? C.audioUploading : locating ? C.photoLocating : C.send}
-            </Button>
-          </div>
+        </div>
+        {/* the send, alone. The pin moved up into the media row (see .jc-audio) — it describes
+            the entry, not the act of saving it, and «Erfassen» is the one thing on this sheet
+            that must never share a row with anything else. It stands BELOW the scroller, pinned
+            like every sheet's footer: on a short screen the rows scroll, the send never does. */}
+        <div className="jc-foot">
+          <Button variant="primary" block disabled={!canSend || uploading || locating} onClick={submit}
+            icon={uploading || locating ? <ShellLoader /> : <Icon id="check" />}>
+            {uploading ? C.audioUploading : locating ? C.photoLocating : C.send}
+          </Button>
         </div>
       {/* «Uhrzeit …» — the one answer that is not a row in a menu. It opens THE time picker
           (WheelPopover: wheels for a finger, a typed field for a keyboard, a day column) straight
