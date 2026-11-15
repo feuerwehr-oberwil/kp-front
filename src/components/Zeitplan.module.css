@@ -580,7 +580,8 @@
   /* overflow-x: hidden is stated, not left to default — an unset `visible` next to `overflow-y:
      auto` is promoted to `auto` by the spec, which would have made `.coverage` its OWN horizontal
      scroll container and pulled `.covKeys`' sticky `left` off the outer `.scroll` it depends on. */
-  .coverage:has(.covRow) { max-height: 124px; overflow-y: auto; overflow-x: hidden; }
+  /* (contain: at the numbers' end the list behind does not carry on – scroll sweep 15.11.2026 #4) */
+  .coverage:has(.covRow) { max-height: 124px; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 }
 
 /* ── the span being swept or dragged, in numbers ──
