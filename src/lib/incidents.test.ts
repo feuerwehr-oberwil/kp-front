@@ -63,20 +63,15 @@ describe('WorkspaceSync.flush — happy path', () => {
 })
 
 describe('WorkspaceSync.flushKeepalive — teardown beacon', () => {
-  it('beacons the dirty workspace at the current baseRev (survives page unload)', () => {
+  it('sends no whole-document beacon – the edit stays dirty for the next flush', () => {
     const sync = mk(ID, { debounceMs: 0 })
     sync.save({ a: 1 })
 
     sync.flushKeepalive()
 
-    expect(apiBeacon).toHaveBeenCalledTimes(1)
-    expect(apiBeacon).toHaveBeenCalledWith(
-      `/api/incidents/${ID}/workspace?slim=1`,
-      // `edited_at`: when the edit was made — a closed Einsatz takes a save from before its close
-      { workspace: { a: 1 }, base_rev: 0, edited_at: expect.stringMatching(/^\d{4}-\d\d-\d\dT/) },
-      'PUT',
-    )
-    // fire-and-forget: dirty stays set so a same-device reopen / next flush still reconciles
+    // a whole document does not fit the browser's keepalive budget, so teardown never sends it
+    expect(apiBeacon).not.toHaveBeenCalled()
+    // dirty stays set so a same-device reopen / next flush still reconciles
     expect(sync.hasUnsynced).toBe(true)
     // and it never touches the normal async transport
     expect(apiPut).not.toHaveBeenCalled()
