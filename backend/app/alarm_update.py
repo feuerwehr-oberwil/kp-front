@@ -76,25 +76,30 @@ def changed_fields(inc: Incident, alarm: dict[str, Any]) -> list[str]:
 
 
 async def hand_edited(db: AsyncSession, incident_id: Any) -> set[str]:
-    """The fields somebody changed in the Einsatzdaten panel since the Einsatz was opened.
+    """The fields whose LATEST change was by hand in the Einsatzdaten panel.
 
     Read from the audit chain: `patch_incident` writes `meta.change` (source «einsatzdaten»)
-    with the changed columns. This module's own writes carry another source, so taking an
-    update never makes its fields count as edited."""
-    payloads = (
+    with the changed columns; this module's own writes (accept, undo, a value taken in the form)
+    carry SOURCE. The last of them per field decides – once the crew takes the alarm's value
+    after typing their own, the next follow-up of that field is taken normally again."""
+    rows = (
         await db.execute(
-            select(IncidentEvent.payload_json).where(
+            select(IncidentEvent.source, IncidentEvent.payload_json)
+            .where(
                 IncidentEvent.incident_id == incident_id,
                 IncidentEvent.op_type == "meta.change",
-                IncidentEvent.source == "einsatzdaten",
+                IncidentEvent.source.in_(("einsatzdaten", SOURCE)),
             )
+            .order_by(IncidentEvent.seq)
         )
-    ).scalars()
-    keys: set[str] = set()
-    for p in payloads:
-        if isinstance(p, dict) and isinstance(p.get("fields"), dict):
-            keys.update(p["fields"])
-    return {f for f, cols in _EDIT_KEYS.items() if keys.intersection(cols)}
+    ).all()
+    edited: set[str] = set()
+    for source, p in rows:
+        if not (isinstance(p, dict) and isinstance(p.get("fields"), dict)):
+            continue
+        touched = {f for f, cols in _EDIT_KEYS.items() if p["fields"].keys() & set(cols)}
+        edited = edited | touched if source == "einsatzdaten" else edited - touched
+    return edited
 
 
 def taken_in_form(inc: Incident, changed: dict[str, Any]) -> set[str]:

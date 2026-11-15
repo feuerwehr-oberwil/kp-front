@@ -154,6 +154,8 @@ async def test_an_update_identical_to_the_einsatz_makes_no_row(client, db_sessio
 
 
 async def test_a_field_taken_through_bearbeiten_is_not_a_hand_edit(client, db_session, opened):
+    # the crew had typed their own address – then the alarm's takes its place in the form
+    await client.patch(f"/api/incidents/{opened.id}", json={"address": "Musterweg 14, 9999 Beispielstadt"})
     await _send(client, _update(1, **NEW_ADDR))
     # «Bearbeiten» → «Übernehmen» beside the address → «Speichern»: the form PATCHes the alarm's values
     r = await client.patch(f"/api/incidents/{opened.id}", json=NEW_ADDR)
