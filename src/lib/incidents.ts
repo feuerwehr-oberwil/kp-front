@@ -20,9 +20,9 @@
 export {
   listIncidents, cacheIncidentList, readCachedIncidentList, listIncidentsResilient, listIncidentsShared,
   getIncident, createIncident, patchIncident, archiveIncident, reactivateIncident,
-  deleteIncident, migrateLegacyWorkspace,
+  deleteIncident, migrateLegacyWorkspace, acceptAlarmUpdate, dismissAlarmUpdate, undoAlarmUpdate,
 } from './api/incidents'
-export type { IncidentCreate, IncidentMeta, IncidentFull } from './api/incidents'
+export type { IncidentCreate, IncidentMeta, IncidentFull, AlarmUpdate, AlarmUpdateField } from './api/incidents'
 export { isIncidentRunning, closeTimeOf } from './api/incidents'
 
 export { pollWorkspaceSince } from './api/workspace'

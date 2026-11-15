@@ -159,6 +159,15 @@ the same rows:
   new – the alarm's Verlauf row is created once per cycle as before (see above).
 - **Swiping away (✕), take-over navigation, «Zum Trupp»** write nothing – view, not
   content. Taking over an alarm itself writes through its existing path.
+- **«Alarm aktualisiert»** (15.11.2026, `backend/app/alarm_update.py`) is the one row whose ✕
+  IS a record: the crew decides for the whole Einsatz whether a Divera follow-up enters it. Every
+  row is the server's (`sys…` id, icon `bell`, «System» in the Rapport): the arrival («Alarm
+  aktualisiert: Adresse A → B, Meldung ergänzt «…»»), and the decision – «Alarm-Aktualisierung
+  übernommen: Meldung (Adresse bleibt)», «… übernommen: Adresse (über Einsatzdaten)» when the
+  crew took everything through «Bearbeiten», «Alarm-Aktualisierung ausgeblendet», «Übernahme der
+  Alarm-Aktualisierung rückgängig gemacht». The fields a take writes are a `meta.change` with
+  source `alarm_update` – which is how a take is told apart from a hand edit (source
+  `einsatzdaten`, which since this change also covers the Alarmmeldung `text`).
 
 ## The Tafel's «Aufträge / Pendenzen» page (05.11.2026) writes Verlauf rows, never page values
 
@@ -496,8 +505,8 @@ version of this file:
 - **The remark of a partner organisation** reaches the Verlauf and thus the printed
   Journal. It used to go only into the Rapport field. **Deleting** a remark now says so too.
 
-**Partially closed:** corrections to the alarm time, address, Stichwort (dispatch keyword) and
-priority create an audit event (`meta.change`, `_TRACKED_META` in `backend/app/api/incidents.py`) –
+**Partially closed:** corrections to the alarm time, address, Stichwort (dispatch keyword),
+priority and (since 15.11.2026) the Alarmmeldung create an audit event (`meta.change`, `_TRACKED_META` in `backend/app/api/incidents.py`) –
 but still **no Verlauf row**. Whoever reads the Verlauf does not see the correction.
 
 ## Gaps – known, not yet closed

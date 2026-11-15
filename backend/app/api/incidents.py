@@ -18,7 +18,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
-from .. import audit, incident_archive, live_wait, storage
+from .. import alarm_update, audit, incident_archive, live_wait, storage
 from ..alarm_validation import validate_trupp
 from ..alarms import get_config_model, is_demo_deployment
 from ..auth.dependencies import (
@@ -51,6 +51,7 @@ from ..incident_service import (
 from ..models import INCIDENT_ACTIVE_STATUSES, LERN_UEBUNG_SOURCE, Incident, lifecycle_open
 from ..push import due_trupps
 from ..schemas import (
+    AlarmUpdateAccept,
     AtemschutzDue,
     IncidentCreate,
     IncidentFull,
@@ -73,8 +74,10 @@ router = APIRouter(prefix="/incidents", tags=["incidents"])
 
 
 #: The Einsatzdaten a correction is worth recording. Everything a reconstruction needs to say
-#: «the sheet was signed with THIS address» — and nothing that is not a dispatch fact.
-_TRACKED_META = ("title", "type", "priority", "address", "lng", "lat", "started_at")
+#: «the sheet was signed with THIS address» — and nothing that is not a dispatch fact. `text` (the
+#: Alarmmeldung) since 15.11.2026: «Alarm aktualisiert» reads these events to know which fields
+#: the crew changed by hand (app/alarm_update · hand_edited).
+_TRACKED_META = ("title", "type", "priority", "text", "address", "lng", "lat", "started_at")
 
 
 def _numeric(v: object) -> object:
@@ -747,14 +750,24 @@ async def patch_incident(
         if k in data and _numeric(getattr(inc, k)) != _numeric(before[k])
     }
     if changed:
-        await audit.append_event(
-            db,
-            incident_id=inc.id,
-            op_type="meta.change",
-            source="einsatzdaten",
-            user_id=user.id,
-            payload={"fields": changed},
-        )
+        # what the save took from a pending «Alarm aktualisiert» is the alarm's value, not a hand
+        # edit – recorded under that module's source, so its next follow-up is taken normally
+        taken = alarm_update.taken_in_form(inc, changed)
+        for source, fields in (
+            ("einsatzdaten", {k: v for k, v in changed.items() if k not in taken}),
+            (alarm_update.SOURCE, {k: v for k, v in changed.items() if k in taken}),
+        ):
+            if fields:
+                await audit.append_event(
+                    db,
+                    incident_id=inc.id,
+                    op_type="meta.change",
+                    source=source,
+                    user_id=user.id,
+                    payload={"fields": fields},
+                )
+        # a pending «Alarm aktualisiert» is re-diffed against the corrected Einsatz (app/alarm_update)
+        await alarm_update.after_edit(db, inc)
     if data.get("started_at") is not None:
         # A correction in the Einsatzdaten panel is a human asserting the Alarmierungszeit —
         # it overrides whatever the alerting system said, and it upgrades an unknown
@@ -864,6 +877,64 @@ async def patch_incident(
     # phone and the tablet learn within a second that this Einsatz is over (N3, 25.09.2026).
     if inc.is_open != lifecycle_open(archived_before, status_before):
         live_wait.notify_after_commit(db, live_wait.workspace_topic(inc.id))
+    await db.flush()
+    await db.refresh(inc)
+    return inc
+
+
+# --- «Alarm aktualisiert» (app/alarm_update) -----------------------------------------------
+# The crew's three answers to a pending Divera update. The record writers, like the Einsatzdaten
+# panel the update belongs to (EL_META_FIELDS). Each writes its own Verlauf row server-side, so
+# every device and the Rapport show the one decision. Online only: the row's buttons say so.
+
+NO_ALARM_UPDATE = "Keine Alarm-Aktualisierung offen"
+
+
+async def _alarm_update_target(db: AsyncSession, incident_id: uuid.UUID) -> Incident:
+    # locked: two devices answering at once must not both take, or take and hide
+    inc = await get_incident_or_404(db, incident_id, lock=True)
+    if inc.is_archived:
+        raise HTTPException(status_code=409, detail="Einsatz ist archiviert")
+    return inc
+
+
+@router.post("/{incident_id}/alarm-update/accept", response_model=IncidentFull)
+async def accept_alarm_update(
+    incident_id: uuid.UUID,
+    user: CurrentRecordWriter,
+    body: AlarmUpdateAccept | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> Incident:
+    """Take the pending update: every changed field nobody edited by hand, or `fields`."""
+    inc = await _alarm_update_target(db, incident_id)
+    if not await alarm_update.accept(db, inc, body.fields if body else None, user.id):
+        raise HTTPException(status_code=409, detail=NO_ALARM_UPDATE)
+    await db.flush()
+    await db.refresh(inc)
+    return inc
+
+
+@router.post("/{incident_id}/alarm-update/dismiss", response_model=IncidentFull)
+async def dismiss_alarm_update(
+    incident_id: uuid.UUID, user: CurrentRecordWriter, db: AsyncSession = Depends(get_db)
+) -> Incident:
+    """✕ on the row: hidden for every device of this Einsatz, not just the one that tapped."""
+    inc = await _alarm_update_target(db, incident_id)
+    if not await alarm_update.dismiss(db, inc, user.id):
+        raise HTTPException(status_code=409, detail=NO_ALARM_UPDATE)
+    await db.flush()
+    await db.refresh(inc)
+    return inc
+
+
+@router.post("/{incident_id}/alarm-update/undo", response_model=IncidentFull)
+async def undo_alarm_update(
+    incident_id: uuid.UUID, user: CurrentRecordWriter, db: AsyncSession = Depends(get_db)
+) -> Incident:
+    """«Rückgängig» after a take: the overwritten values back, the update pending again."""
+    inc = await _alarm_update_target(db, incident_id)
+    if not await alarm_update.undo(db, inc, user.id):
+        raise HTTPException(status_code=409, detail=NO_ALARM_UPDATE)
     await db.flush()
     await db.refresh(inc)
     return inc

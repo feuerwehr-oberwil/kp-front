@@ -55,6 +55,17 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     reviewTitle: 'Check the incident data',
     noLocationOnMap: 'No location – set on map',
     ok: 'Looks good',
+    alarmUpdate: {
+      title: 'Alarm updated',
+      take: 'Apply',
+      takeSome: 'Apply: {fields}',
+      fields: { address: 'Address', title: 'Keyword', text: 'Message' },
+      keeps: '{field} stays',
+      byHand: '(changed by you)',
+      alarmNew: 'Alarm now:',
+      taken: 'Incident updated',
+      failed: 'Not saved – needs a connection, try again',
+    },
     // DISPLAY labels for the category select — keyed by the German category value (the submitted
     // value stays German; only the option text is localized).
     kategorienLabels: {

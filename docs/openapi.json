@@ -2377,6 +2377,203 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/alarm-update/accept": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Accept Alarm Update",
+        "description": "Take the pending update: every changed field nobody edited by hand, or `fields`.",
+        "operationId": "accept_alarm_update_api_incidents__incident_id__alarm_update_accept_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/AlarmUpdateAccept"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentFull"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/alarm-update/dismiss": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Dismiss Alarm Update",
+        "description": "✕ on the row: hidden for every device of this Einsatz, not just the one that tapped.",
+        "operationId": "dismiss_alarm_update_api_incidents__incident_id__alarm_update_dismiss_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentFull"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/alarm-update/undo": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Undo Alarm Update",
+        "description": "«Rückgängig» after a take: the overwritten values back, the update pending again.",
+        "operationId": "undo_alarm_update_api_incidents__incident_id__alarm_update_undo_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentFull"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/view-link": {
       "get": {
         "tags": [
@@ -15762,6 +15959,134 @@
         ],
         "title": "AlarmOut"
       },
+      "AlarmUpdateAccept": {
+        "properties": {
+          "fields": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "title",
+                    "address",
+                    "text"
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fields"
+          }
+        },
+        "type": "object",
+        "title": "AlarmUpdateAccept",
+        "description": "Body of POST …/alarm-update/accept. No `fields` = every changed field nobody edited by\nhand; a list = exactly those (the crew chose them)."
+      },
+      "AlarmUpdateField": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "enum": [
+              "title",
+              "address",
+              "text"
+            ],
+            "title": "Field"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
+          },
+          "alarm": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alarm"
+          },
+          "edited": {
+            "type": "boolean",
+            "title": "Edited",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "field"
+        ],
+        "title": "AlarmUpdateField",
+        "description": "One field a pending alarm update would change (app/alarm_update)."
+      },
+      "AlarmUpdateOut": {
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lng": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lng"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/AlarmUpdateField"
+            },
+            "type": "array",
+            "title": "Fields"
+          }
+        },
+        "type": "object",
+        "required": [
+          "at",
+          "fields"
+        ],
+        "title": "AlarmUpdateOut",
+        "description": "«Alarm aktualisiert»: the pending Divera update of this Einsatz's own alarm."
+      },
       "AlarmVocabularyStatus": {
         "properties": {
           "source": {
@@ -19525,6 +19850,16 @@
             "title": "Atemschutz Due",
             "default": []
           },
+          "alarm_update": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AlarmUpdateOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "text": {
             "anyOf": [
               {
@@ -19793,6 +20128,16 @@
             "type": "array",
             "title": "Atemschutz Due",
             "default": []
+          },
+          "alarm_update": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AlarmUpdateOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",

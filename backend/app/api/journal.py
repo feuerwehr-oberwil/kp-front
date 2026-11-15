@@ -163,7 +163,13 @@ async def patches_stay_in_channel(db: AsyncSession, incident_id: uuid.UUID, entr
 
 
 async def append_system_row(
-    db: AsyncSession, incident_id: uuid.UUID, *, icon: str, text: str, lifecycle: str | None = None
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+    *,
+    icon: str,
+    text: str,
+    lifecycle: str | None = None,
+    subject: str | None = None,
 ) -> None:
     """Server-authored boundary row (Einsatz abgeschlossen / wiedereröffnet). `t` stays empty —
     clients localise the display time from `at` (the server clock is UTC).
@@ -182,6 +188,10 @@ async def append_system_row(
     # from THIS row's `at` (lib/reopenClocks), and they hold the alarm until it has arrived.
     if lifecycle:
         row["lifecycle"] = lifecycle
+    # `subject` (types · TimelineEvent.subjectId) names what the row is about, so the repeat fold
+    # (lib/verlauf · repeatRuns) ends a run when something else happens to that subject
+    if subject:
+        row["subjectId"] = subject
     await append_rows(db, incident_id, [row])
 
 

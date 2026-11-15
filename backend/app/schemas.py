@@ -190,6 +190,36 @@ class AtemschutzDue(BaseModel):
     reason: Literal["contact", "pressure", "notfall"]
 
 
+class AlarmUpdateField(BaseModel):
+    """One field a pending alarm update would change (app/alarm_update)."""
+
+    field: Literal["title", "address", "text"]
+    #: the Einsatz's value now, and the alarm's
+    current: str | None = None
+    alarm: str | None = None
+    #: changed by hand in the Einsatzdaten since the Einsatz opened – «Übernehmen» skips it
+    edited: bool = False
+
+
+class AlarmUpdateOut(BaseModel):
+    """«Alarm aktualisiert»: the pending Divera update of this Einsatz's own alarm."""
+
+    at: datetime
+    #: the alarm's (new) title – the row names the Einsatzart from it
+    title: str | None = None
+    #: the alarm's coordinate, offered with the address in the edit form
+    lat: float | None = None
+    lng: float | None = None
+    fields: list[AlarmUpdateField]
+
+
+class AlarmUpdateAccept(BaseModel):
+    """Body of POST …/alarm-update/accept. No `fields` = every changed field nobody edited by
+    hand; a list = exactly those (the crew chose them)."""
+
+    fields: list[Literal["title", "address", "text"]] | None = None
+
+
 class IncidentMeta(BaseModel):
     """List/metadata view — never carries the workspace blob."""
 
@@ -229,6 +259,9 @@ class IncidentMeta(BaseModel):
     #: the list route only, so a device standing in another Einsatz can mark this one in its
     #: switcher and, from an Übung, raise the alarm (FLOW.1, 13.11.2026). Empty elsewhere.
     atemschutz_due: list[AtemschutzDue] = []
+    #: a Divera update of the alarm this Einsatz came from, waiting for the crew (models ·
+    #: Incident.alarm_update) – rides the list poll, so every device sees it within a tick
+    alarm_update: AlarmUpdateOut | None = None
 
 
 class IncidentFull(IncidentMeta):
