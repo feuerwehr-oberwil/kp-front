@@ -369,8 +369,13 @@
      its state, the moment the mode ends. The nav bar stays: the peeked sheet already covers it.
      …and the same for the length of ANY drag on an object's geometry – a vertex, a «+», Verlängern,
      a Form's grip, a symbol (body.geom-dragging, lib/sheetPeek; round 15.11.2026 #4): the sheet
-     peeks for those too, so the bar stood on the tools the same way. The grips stay for that one. */
-  :is(body.sel-transforming, body.geom-dragging) :is(.tool-rail, .wb-tools, .wb-botleft) { visibility: hidden; }
+     peeks for those too, so the bar stood on the tools the same way. The grips stay for that one.
+     …and, since the owner's 18:29 screenshot (15.11.2026: «the movement that still shows the
+     bottom toolbar»), for as long as the ✥ / ⟳ bar is on screen AT ALL: after a move the sheet
+     can stay peeked, and the bar then sat on «Hinzufügen» and the Gebäude chip at rest too. With
+     the sheet half or full open the tools are under it anyway, so this only ever removes a clash.
+     Deselecting (the sheet's ✕) brings both straight back. */
+  :is(body.sel-transforming, body.geom-dragging, body:has(.sel-bar)) :is(.tool-rail, .wb-tools, .wb-botleft) { visibility: hidden; }
   /* phone scroll model: the sheet is a fixed flex column. The grip + header are pinned, and so
      is the ACTIONS row — by layout, never position:sticky, because sticky inside a
      backdrop-filtered scroller proved unreliable on iOS and `.ctx` carries a blur.
