@@ -19,8 +19,9 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
 
-  # Backend (uv / pip-compatible)
-  - package-ecosystem: pip
+  # Backend (uv). ⚠️ Not `pip`: the backend has only pyproject.toml + uv.lock, and the pip
+  # ecosystem never opened a backend PR against them (found 15.11.2026).
+  - package-ecosystem: uv
     directory: "/backend"
     schedule:
       interval: weekly
