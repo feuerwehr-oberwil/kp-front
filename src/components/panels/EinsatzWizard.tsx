@@ -3,7 +3,6 @@ import { Icon } from '../../lib/icons'
 import { LoadingStatus, ShellLoader } from '../ShellLoader'
 import { confirmDialog, toast } from '../../lib/ui'
 import { ApiError } from '../../lib/api'
-import { useGeoPosition } from '../../lib/useGeoPosition'
 import { MapPicker } from '../MapPicker'
 import { DateTimeField } from '../TimeField'
 import { Combo } from '../Combo'
@@ -184,15 +183,15 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // THE list under the address field (owner 15.11.2026, round 2: «objekt oder adresse suchen
   // should just be in-line with the normal search bar»): typing shows the matching Feuerwehrpläne
   // objects AND the geocoder's addresses in one menu, objects first – the Karte & Objekte search
-  // is the model (karte/KarteSearch). The object picker's own search field and fold are gone.
-  // `browse` = opened by «Aus Plänen» on an EMPTY field: the whole library, «In der Nähe» first.
-  const [menu, setMenu] = useState<'closed' | 'typing' | 'browse'>('closed')
+  // is the model (karte/KarteSearch). The object picker's own search field and fold are gone, and
+  // so is the «Aus Plänen» button (owner, 15.11.2026: «the map and current location are enough») –
+  // an object is found by typing its name or address, like everywhere else.
+  const [menu, setMenu] = useState<'closed' | 'typing'>('closed')
   const [hits, setHits] = useState<GeoHit[]>([])
   const [addrLoading, setAddrLoading] = useState(false)
   const addrOpen = menu !== 'closed'
   const closeMenu = () => setMenu('closed')
   const addrSeq = useRef(0)
-  const addrInput = useRef<HTMLInputElement>(null)
   // ⚠️ The menu has to CLOSE on an outside tap, the way Combo does. Nothing but picking a hit
   // ever closed it, so in edit mode — where the field is prefilled — merely tapping in to fix a
   // typo opened a 220px list over the Stichwort field below it.
@@ -256,12 +255,6 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     )
   }
 
-  // device GPS (watched only while «Aus Plänen» browses the library) so «In der Nähe» ranks by
-  // where the responder actually stands, not the incident coord. Not on a mere focus of the field:
-  // tapping in to type must not throw the browser's location dialog. NOT on the public demo
-  // either (same line as MapView · autoCoarseFixWanted)
-  const myPos = useGeoPosition(menu === 'browse' && !isDemoMode())
-
   // a coordinate from the map picker → set it and reverse-geocode the address (so a
   // map-click fills the nearest registered address, not just bare coords)
   const applyPicked = (c: [number, number]) => {
@@ -287,8 +280,8 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     return () => clearTimeout(t)
   }, [address, addrOpen])
 
-  // load the object library while the menu is open. Rank by the responder's own GPS first
-  // (where they stand), falling back to the being-set / incident coord if denied.
+  // load the object library while the menu is open, ranked by the being-set / incident coord.
+  // (No device GPS here: tapping in to type must not throw the browser's location dialog.)
   //
   // The whole library comes down once and the typing is filtered HERE, exactly as the
   // Planauswahl does it (components/PlanPicker): the list is ~150 objects, so filtering is
@@ -297,10 +290,10 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // while the object sitting at Grenzweg 1 was two rows down, and a typo emptied the list.
   useEffect(() => {
     if (!addrOpen) return
-    const ref = myPos ?? coord ?? nearCoord
+    const ref = coord ?? nearCoord
     const near = ref ? `${ref[0]},${ref[1]}` : undefined
     listObjects(undefined, near).then(setObjects).catch(() => setObjects([]))
-  }, [addrOpen, myPos, coord, nearCoord])
+  }, [addrOpen, coord, nearCoord])
 
   // …the same tolerance every other picker has (lib/search): umlauts in either spelling and one
   // typo from four characters up. Name OR address — «BLT» and «Grenzweg» must both find the
@@ -338,13 +331,6 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     if (o.address) setAddress(o.address)
     if (o.lng != null && o.lat != null) setCoord([o.lng, o.lat])
     closeMenu()
-  }
-  // «Aus Plänen»: on an empty field it browses the library (and shuts it again); with text in the
-  // field the list under it already holds the matching objects, so it just brings that up
-  const onPlans = () => {
-    if (!typed) { setMenu((m) => (m === 'browse' ? 'closed' : 'browse')); return }
-    setMenu((m) => (m === 'closed' ? 'typing' : m))
-    addrInput.current?.focus()
   }
 
   // «Eröffnen» must never be a dead-end: after the primary «Hier»/GPS path the title is often
@@ -420,15 +406,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       sub={objectPicklistSub(o, o.plans.length ? ix.objectPlans(o.plans.length) : ix.objectNoPlans)}
       end={o.distance_m != null ? fmtDistance(o.distance_m) : undefined} />
   )
-  const browsing = menu === 'browse' && !typed
-  const menuBody = browsing ? (
-    objects == null ? <div className="ip-ac-note"><LoadingStatus>{ix.addressSearching}</LoadingStatus></div>
-      : !objects.length ? <div className="ip-ac-note">{ix.objectNoHits}</div>
-        : <>
-          {near.length > 0 && <ListGroup label={ix.objectNear}>{near.map(objRow)}</ListGroup>}
-          {rest.length > 0 && <ListGroup label={near.length ? ix.objectsMore : ix.objectsGroup}>{rest.map(objRow)}</ListGroup>}
-        </>
-  ) : !!typed && (typed.length >= 3 || shownObjects.length > 0) && (
+  const menuBody = !!typed && (typed.length >= 3 || shownObjects.length > 0) && (
     <>
       {shownObjects.length > 0 && <ListGroup label={ix.objectsGroup}>{[...near, ...rest].map(objRow)}</ListGroup>}
       {typed.length >= 3 && (
@@ -465,28 +443,21 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           things to put in») – each field's own label says what it is. --- Standort --- */}
       <div className="ip-field" ref={addrRef}>
         <span>{ix.addressLabel}</span>
-        {/* ALL THREE location methods ride the field's own right edge (owner pick 1A, 15.11.2026):
-            «Aus Plänen» · «Auf Karte» | «Hier». They used to be a row of two buttons under the field
-            plus «Hier» in it, and a «Koordinaten» fold under those – three rows for one question.
+        {/* The location methods ride the field's own right edge (owner pick 1A, 15.11.2026):
+            «Auf Karte» | «Hier». They used to be a row of two buttons under the field plus «Hier»
+            in it, and a «Koordinaten» fold under those – three rows for one question. «Aus Plänen»
+            went too (round 2): typing finds the Feuerwehrpläne objects in the field's one menu.
             «Hier» (GPS) stays last, after the divider: the EL usually stands at (or near) the
             Einsatzort, so it is the primary method and has to be reachable the moment the field is
-            in view. Icon-only, so each carries its word as `aria-label` and `title`. «Aus Plänen» has
-            no list of its own any more (round 2): it opens the field's one menu (onPlans). */}
+            in view. Icon-only, so each carries its word as `aria-label` and `title`. */}
         <div className="ip-ac-input-wrap">
           <input
-            ref={addrInput}
             value={address}
             placeholder={ix.addressPlaceholder}
             onChange={(e) => { setAddress(e.target.value); setMenu((m) => (m === 'closed' ? 'typing' : m)) }}
             onFocus={() => setMenu((m) => (m === 'closed' ? 'typing' : m))}
           />
           <div className="ip-ac-tools">
-            {/* it opens the list under the field (onPlans) — so it says so, and the `.on` state
-                is not the only thing a screen reader has to go on */}
-            <button type="button" className={`ip-ac-tool${menuShown ? ' on' : ''}`} aria-expanded={menuShown}
-              aria-label={ix.objectButton} title={ix.objectButton} onClick={onPlans}>
-              <Icon id="doc" />
-            </button>
             <button type="button" className="ip-ac-tool" aria-label={ix.mapPickButton} title={ix.mapPickButton} onClick={() => { closeMenu(); setMapOpen(true) }}>
               <Icon id="map" />
             </button>

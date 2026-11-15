@@ -43,7 +43,6 @@ const BASE = {
 const meta = (over: Partial<typeof BASE>): IncidentMeta => ({ ...BASE, ...over }) as unknown as IncidentMeta
 const warning = () => screen.queryByText(ix.coordMissing)
 const field = () => screen.getByPlaceholderText(ix.addressPlaceholder)
-const plans = () => screen.getByRole('button', { name: ix.objectButton })
 const group = (label: string) => screen.findByRole('region', { name: label })
 
 describe('the one list under the address field', () => {
@@ -60,20 +59,11 @@ describe('the one list under the address field', () => {
     expect(document.querySelector('.ui-search')).toBeNull()
   })
 
-  it('«Aus Plänen» on an empty field lists the objects, «In der Nähe» first, and shuts again', async () => {
+  // «Aus Plänen» went (owner, 15.11.2026: «the map and current location are enough») – an
+  // object is found by typing, and a tap into the empty field drops no list over the form
+  it('has no «Aus Plänen» button, and a tap into the empty field opens nothing', async () => {
     render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
-    expect(plans().getAttribute('aria-expanded')).toBe('false')
-    fireEvent.click(plans())
-    expect(within(await group(ix.objectNear)).getByRole('button', { name: /Tramdepot/ })).toBeTruthy()
-    expect(within(await group(ix.objectsMore)).getByRole('button', { name: /Schulhaus Mitte/ })).toBeTruthy()
-    expect(plans().getAttribute('aria-expanded')).toBe('true')
-    expect(document.querySelector('.ui-search')).toBeNull()
-    fireEvent.click(plans())
-    expect(screen.queryByRole('region', { name: ix.objectNear })).toBeNull()
-  })
-
-  it('a tap into the empty field opens nothing – the library is «Aus Plänen»', async () => {
-    render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
+    expect(screen.queryByRole('button', { name: 'Aus Plänen' })).toBeNull()
     fireEvent.focus(field())
     await Promise.resolve()
     expect(screen.queryByRole('button', { name: /Tramdepot/ })).toBeNull()
@@ -95,7 +85,7 @@ describe('«Noch kein Standort»', () => {
   it('shows on a blank create, and goes once an object gives the form a coordinate', async () => {
     render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
     expect(warning()).toBeTruthy()
-    fireEvent.click(plans())
+    fireEvent.change(field(), { target: { value: 'Tramdepot' } })
     fireEvent.click(await screen.findByRole('button', { name: /Tramdepot/ }))
     expect(warning()).toBeNull()
     expect((field() as HTMLInputElement).value).toBe(DEPOT.address)

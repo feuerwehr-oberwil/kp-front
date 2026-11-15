@@ -16,12 +16,9 @@ export const intakeCopy = {
     addressPlaceholder: 'Strasse oder Objekt',
     addressSearching: 'Wird gesucht …',
     addressNoHits: 'Keine Adresse gefunden',
-    // «Aus Plänen» · «Auf Karte» – icon buttons on the address field (owner pick 1A, 15.11.2026),
-    // the words are their aria-label and title. «Aus Plänen» opens the field's one list on the
-    // station's objects; typing finds objects there too, so the placeholder names both.
-    objectButton: 'Aus Plänen',
-    objectNear: 'In der Nähe',
-    objectNoHits: 'Keine Objekte gefunden',
+    // «Auf Karte» · «Hier» – icon buttons on the address field (owner pick 1A, 15.11.2026), the
+    // words are their aria-label and title. «Aus Plänen» went (15.11.): typing finds the station's
+    // objects in the field's one list, so the placeholder names both.
     objectPlans: (n: number) => (n === 1 ? '1 Plan' : `${n} Pläne`),
     objectNoPlans: 'keine Pläne',
     mapPickButton: 'Auf Karte',
@@ -111,7 +108,6 @@ export const intakeCopy = {
     // The two group heads of the one list under the address field (round 2, 15.11.2026):
     // the objects first, then the geocoder's addresses; «Weitere» = the rest A–Z under «In der Nähe».
     objectsGroup: 'Objekte',
-    objectsMore: 'Weitere Objekte',
     addressGroup: 'Adressen',
   },
 } as const
