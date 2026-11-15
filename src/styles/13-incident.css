@@ -581,8 +581,9 @@
    every sheet the Einsatzleitung switches between during an Einsatz. */
 .ip-sheet.ip-wide { width: min(980px, 94vw); }
 .ip-sheet > .ip-head { flex: none; }
-/* same x-axis trap as .ctx-body — see 06-contextpanel.css */
-.ip-sheet > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+/* same x-axis trap as .ctx-body — see 06-contextpanel.css; `contain`: THE scroll body's overscroll
+   (docs/ui-conventions.md · Overlays, scroll sweep 15.11.2026 #8) */
+.ip-sheet > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 /* fit variant: hug the content instead of the fixed 800px frame (short one-off modals) */
 .ip-sheet.ip-fit { height: auto; max-height: min(800px, 88dvh); }
 /* Base UI Dialog wrapper (src/lib/overlays/Sheet.tsx). Base UI portals the Backdrop and the
@@ -2480,8 +2481,9 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
    inset itself: no own padding, no reserved scrollbar lane (02-base.css keeps .ip-launch-list
    out of the `scrollbar-gutter: stable` set for exactly this reason). A scrolling list here
    lets its bar overlay the rows instead. */
+/* (contain: at the list's end the landing behind does not carry on – scroll sweep 15.11.2026 #4) */
 .ip-launch-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;
-  max-height: 46dvh; overflow-y: auto; }
+  max-height: 46dvh; overflow-y: auto; overscroll-behavior: contain; }
 /* belt and braces for the bug above: an empty launcher takes no room at all, so a future path
    that renders it with nothing in it cannot reopen the hole */
 .ip-launch-list:empty { display: none; }

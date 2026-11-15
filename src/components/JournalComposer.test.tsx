@@ -627,11 +627,16 @@ describe('JournalComposer · what gives way when the room runs out', () => {
   // an element the layout does not give a box, so `.journal-composer > * { flex: none }` addressed
   // the wrapper and nothing else: the predictive band was flex-squeezed to 0 in the real app for
   // as long as that rule has existed, which is «the chips are cut off» as reported.
-  it('hangs its rows straight off the card, so a `> *` rule reaches them', () => {
+  // …and since 15.11.2026 (scroll sweep #6) the head hangs off the card and the rows off its ONE
+  // scroller under it, so the head stays put while the rows scroll – and «Erfassen» hangs off the
+  // card BELOW that scroller, pinned like every sheet's footer
+  it('hangs its rows straight off the one scroller under the head, with the send pinned below it', () => {
     setup()
-    for (const row of ['.jc-mode', '.jc-text-wrap', '.jc-phrases', '.jc-controls', '.jc-foot']) {
-      expect(document.querySelector(`.journal-composer > ${row}`)).toBeTruthy()
+    expect(document.querySelector('.journal-composer > .jc-mode')).toBeTruthy()
+    for (const row of ['.jc-text-wrap', '.jc-phrases', '.jc-controls']) {
+      expect(document.querySelector(`.journal-composer > .jc-body > ${row}`)).toBeTruthy()
     }
+    expect(document.querySelector('.journal-composer > .jc-body + .jc-foot')).toBeTruthy()
   })
 
   // ⚠️ Where the paste handler LIVES is the other half of that: it used to ride on the wrapper,

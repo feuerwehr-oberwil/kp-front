@@ -737,15 +737,16 @@
      It HUGS its content up to the cap, so a short list stands low and a new row grows it upward
      — the Suche's foot, the two buttons under the thumb, never moves. The cap keeps the top of
      the map and the top bar clear: the sheet is a tool over the map, not a page.
-     ⚠️ The bottom inset is the sheet's own (the bars under it are covered), and the keyboard
-     lifts it through `--kb-inset` / the inline margin (SucheCard · keyboardLift). */
+     ⚠️ The bottom inset is the sheet's own (the bars under it are covered), paid by its SCROLLER's
+     last row, never the frame (scroll sweep 15.11.2026 #2: as the frame's padding it was a 34px
+     dead band under the list, rows cut at a hard line – the Verlauf and the KeySheet fixed the
+     same); the keyboard lifts it through `--kb-inset` / the inline margin (SucheCard · keyboardLift). */
   .layers-card {
     left: 0; right: 0; bottom: 0; top: auto; width: auto; max-width: none; transform: none; box-sizing: border-box;
     max-height: min(72dvh, calc(100dvh - var(--kb-inset, 0px) - var(--bar-foot) - var(--sp-4)));
     border-radius: var(--r-hero) var(--r-hero) 0 0;
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: 0;
     animation: sheetUp .22s var(--ease); }
-  .layers-card[style*='--kb-inset'] { padding-bottom: 0; }
   /* …in replay too, where the door is the top-right cluster (05-navrail · .map-util re-anchors the
      tablet card under it, and at (0,2,0) it would hang this sheet from the top) */
   .map-util .layers-card { top: auto; bottom: 0;
@@ -756,7 +757,9 @@
   .layers-card .lc-title { padding: 4px calc(max(16px, env(safe-area-inset-right)) + var(--sp-1)) 8px var(--sp-5); touch-action: none; }
   .layers-card .lc-title button { touch-action: auto; }
   .layers-card > .ui-sheet-grab { margin-bottom: -4px; }
-  .layers-card .lc-body { padding: 0 max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left)); }
+  .layers-card .lc-body { padding: 0 max(16px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+  /* (the keyboard covers the home indicator, so its inset is not paid twice) */
+  .layers-card[style*='--kb-inset'] .lc-body { padding-bottom: 12px; }
 
   /* coordinate readout + selection bar sit above the bottom bar + home indicator */
   :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
@@ -844,10 +847,12 @@
      the old 86dvh so the map still shows above it. */
   .journal-composer { left: 0; right: 0; bottom: 0; top: auto; transform: none;
     width: 100%; max-width: none;
-    border-radius: var(--r-hero) var(--r-hero) 0 0; overflow-y: auto;
+    border-radius: var(--r-hero) var(--r-hero) 0 0;
     max-height: min(86dvh, calc(100dvh - var(--jc-kb, 0px) - 10px - env(safe-area-inset-top)));
-    padding-bottom: calc(16px + env(safe-area-inset-bottom));
     animation: sheetUp .22s var(--ease); }
+  /* the home indicator's inset is the pinned foot's last padding (10-journal · .jc-foot), the
+     frame pays none – «Erfassen» stands clear of the indicator (scroll sweep 15.11.2026 #6) */
+  .journal-composer > .jc-foot { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
   /* (`.journal-composer > * { flex: none }` used to live here — it is a base rule now, in
      10-journal.css: the tablet card is the same capped flex column and clipped the same row.) */
 
@@ -858,7 +863,7 @@
      keyboard and every word is back. The labels live in .jc-lbl for exactly this. */
   /* the keyboard covers the home indicator, so the safe-area reserve below is dead space —
      16px, the same as the top, so the sheet is framed evenly */
-  .journal-composer.is-kb { padding-bottom: 16px; }
+  .journal-composer.is-kb > .jc-foot { padding-bottom: 16px; }
   .journal-composer.is-kb .jc-rec { padding: 8px 4px; }
   .journal-composer.is-kb .jc-rec .jc-lbl { display: none; }
   .journal-composer.is-kb .jc-rec .i { width: 19px; height: 19px; }
@@ -911,7 +916,7 @@
   .ui-sheet-grab { display: flex; align-items: flex-end; justify-content: center; flex: none;
     height: 24px; padding: 0 0 5px; }
   .ui-sheet-grab span { width: 40px; height: 5px; border-radius: var(--r-pill); background: var(--border); }
-  /* …and the bespoke frames that wear it (Overlay · grab, Palette): each gives back the top
+  /* …and the bespoke frames that wear it (Overlay · grab): each gives back the top
      padding the 24px band replaces, so the bar hangs where it hangs on an .ip-sheet – and the
      band itself is a handle, so it must not hand the vertical gesture to the browser first. */
   .ui-sheet-grab { touch-action: none; }
@@ -956,7 +961,14 @@
      field + close reachable). Symbol picking is editor-only so this is rare on a phone.
      The sheet places itself (its scrim is a sibling since r35, Palette.tsx): flush with the foot. */
   .sym-modal { inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; height: 92dvh;
-    border-radius: var(--r-hero) var(--r-hero) 0 0; }
+    border-radius: var(--r-hero) var(--r-hero) 0 0; padding-bottom: 0; }
+  /* the keyboard (scroll sweep 15.11.2026 #5): lifted by the Overlay's margin, so the height gives
+     the keys their share – the `.ip-sheet.is-kb` cap – and the grid scrolls above them */
+  .sym-modal.is-kb { height: min(92dvh, calc(100dvh - var(--kb-inset, 0px) - 10px - env(safe-area-inset-top))); }
+  /* the last row scrolls clear of the home indicator: the grid pays the inset, the frame none
+     (#3 – it ended 16px off the foot, inside the indicator's band); the keys cover the indicator */
+  .sym-scroll { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .sym-modal.is-kb .sym-scroll { padding-bottom: 16px; }
   /* FOUR columns, not auto-fill (owner, 27.09.2026: «maybe change the symbol selection to 4
      columns?»). The tablet's `minmax(94px, 1fr)` gave a 390px phone three 114px cells with the
      glyph lost in the middle of each; four cells are ~86px at 390 and ~77px at 360 — still

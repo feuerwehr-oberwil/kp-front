@@ -283,6 +283,17 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   under a SLIDING finger and lifting on a row presses it (a checkbox row toggles, the menu stays
   open); lifting elsewhere does nothing, a plain tap is the browser's. A menu whose content scrolls
   keeps its native scroll, and `ComboMenu` lists are not menus (`lib/overlays/menuSlide`).
+- **A scroll body is `overscroll-behavior: contain`** (scroll sweep 15.11.2026): the body of a
+  sheet or page (`.ip-sheet > .ip-body`, `.lc-body`, `.ctx-body`, the Verlauf, the Atemschutz
+  `.body` / `.modalBody` / `.miniBody`, the Mittel, Anwesenheit and Checkliste lists) and every list
+  nested inside one – it bounces on its own and never carries the flick on to what is behind it. A
+  new scroller takes the same value, set on its own class. Two documented exceptions are `none`
+  (no bounce at all): the Zeitplan's time axis and the Karte's search/Gefahrgut list. The home
+  indicator's inset is the scroller's LAST padding, never the frame's (a frame's padding is a
+  dead band the rows are cut at); the keyboard covers the indicator, so `is-kb` drops it. A head
+  never scrolls with the body: the frame is a flex column, the head `flex: none`, ONE inner body
+  scrolls (the composer's `.jc-body`). A sheet closes by a pull only while EVERY scroller between
+  the finger and the popup is at its top (`overlays/swipeDismiss` · rule 2).
 - **A sheet's footer row is `SheetFoot`** (`.ui-sheet-foot`, 26.09.2026): `Sheet` draws it for
   `footer`, and a bespoke frame whose footer is its bottom edge on a phone wears it (the Trupp
   form, the Mittel note, the Georef transfer). ONE rule in 15-mobile.css insets it on a phone —

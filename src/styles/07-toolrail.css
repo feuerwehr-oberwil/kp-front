@@ -353,6 +353,9 @@
 }
 .sym-close:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .sym-close .i { width: 18px; height: 18px; }
+/* the iPad's on-screen keyboard: the Overlay's margin lifts the centred card, the height leaves the
+   keys their share (scroll sweep 15.11.2026 #5; the phone's sheet: 15-mobile) */
+.sym-modal.is-kb { height: min(620px, calc(100dvh - var(--kb-inset, 0px) - 24px)); }
 .sym-scroll { flex: 1; overflow-y: auto; scrollbar-width: thin; }
 .sym-ghead { position: sticky; top: 0; z-index: 1;
   /* the sheet's own tone, laid opaque so a scrolled row never shows through the head */

@@ -51,10 +51,13 @@ export function PlanFactsSheet({ title, onClose, place, link, scale }: {
         <span>{title}</span>
         <button type="button" className={cx('ip-x', s.x)} onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
-      <ListRow className={cx(s.place, place.warn && s.warn)} lead={<Icon id={place.icon} />}
-        title={place.name} sub={place.sub} onClick={place.onClick} aria-label={place.label} />
-      {link && <Fact icon="link" title={appConfig.copy.whiteboard.facts.karte} fact={link} />}
-      {scale && <Fact icon="measure" title={appConfig.copy.whiteboard.scale.tool} fact={scale} />}
+      {/* the rows scroll under the head, never the head with them (scroll sweep 15.11.2026 #6) */}
+      <div className={s.rows}>
+        <ListRow className={cx(s.place, place.warn && s.warn)} lead={<Icon id={place.icon} />}
+          title={place.name} sub={place.sub} onClick={place.onClick} aria-label={place.label} />
+        {link && <Fact icon="link" title={appConfig.copy.whiteboard.facts.karte} fact={link} />}
+        {scale && <Fact icon="measure" title={appConfig.copy.whiteboard.scale.tool} fact={scale} />}
+      </div>
     </div>
   )
 }
