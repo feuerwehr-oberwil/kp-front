@@ -22,6 +22,7 @@ the right failure direction for a safety alarm.
 """
 
 import asyncio
+import base64
 import json
 import logging
 import time
@@ -512,10 +513,28 @@ def _no_redirect_session() -> "requests.Session":
     return session
 
 
+def _keys_usable(sub: dict) -> bool:
+    """Whether the subscription's keys parse the way Web Push encryption needs them: ``p256dh``
+    a P-256 point, ``auth`` a non-empty secret, both base64url. A row failing this can never be
+    delivered to, wherever the network stands — the only non-HTTP reason to prune it."""
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    def b64url(value: str) -> bytes:
+        return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+
+    try:
+        ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), b64url(sub["p256dh"]))
+        return bool(b64url(sub["auth"]))
+    except (KeyError, TypeError, ValueError):  # binascii.Error is a ValueError
+        return False
+
+
 def _send_one(sub: dict, payload: str, *, ttl: int = DEFAULT_TTL_SECONDS, urgency: str | None = None) -> SendOutcome:
     """Blocking pywebpush send. "accepted" = the push service took it; "gone" = the endpoint is
-    dead (404/410) or its keys are unusable, so the caller prunes it; "retry" = a transient failure
-    (e.g. 503) — keep the row and let the next sweep try again (never counted as delivered).
+    dead (404/410) or its keys are unusable (`_keys_usable`), so the caller prunes it; "retry" =
+    anything else — a 503, a timeout, DNS, a refused connection, our own VAPID config — keep the
+    row and let the next sweep try again (never counted as delivered). A network failure says
+    nothing about the subscription, and pruning on it unsubscribed a device for good.
     ``ttl``/``urgency`` are the Web Push delivery hints (RFC 8030 §5.2/§5.3)."""
     from pywebpush import WebPushException, webpush
 
@@ -537,11 +556,19 @@ def _send_one(sub: dict, payload: str, *, ttl: int = DEFAULT_TTL_SECONDS, urgenc
         code = getattr(getattr(e, "response", None), "status_code", None)
         if code in (404, 410):
             return "gone"  # endpoint gone — caller prunes it
+        # An HTTP answer means the payload was encrypted, so the keys are fine; without one,
+        # pywebpush may have refused the keys themselves.
+        if code is None and not _keys_usable(sub):
+            logger.warning("Web push subscription keys unusable — pruning %s", sub["endpoint"][:60])
+            return "gone"
         logger.warning("Web push failed (%s): %s", code, e)
-        return "retry"  # transient (503, timeout, …): NOT a delivery — retry next sweep
-    except Exception:  # intake must survive a broken push path  # malformed keys must not abort the whole sweep
-        logger.exception("Web push subscription unusable — pruning %s", sub["endpoint"][:60])
-        return "gone"
+        return "retry"  # transient (503, …): NOT a delivery — retry next sweep
+    except Exception:  # timeout, DNS, refused connection, a key the crypto rejects — never abort the sweep
+        if not _keys_usable(sub):
+            logger.warning("Web push subscription keys unusable — pruning %s", sub["endpoint"][:60])
+            return "gone"
+        logger.exception("Web push failed — retrying next sweep: %s", sub["endpoint"][:60])
+        return "retry"
 
 
 async def broadcast(
