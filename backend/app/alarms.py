@@ -120,7 +120,7 @@ async def open_pooled_alarm(db: AsyncSession, *, source: str, ref: str) -> Incid
     except (TypeError, ValueError):
         return None
 
-    from .divera import open_emergency  # lazy — avoids an import cycle
+    from .divera import open_emergency, running_real_incident  # lazy — avoids an import cycle
     from .models import DiveraEmergency
 
     em = (await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == divera_id))).scalar_one_or_none()
@@ -145,17 +145,7 @@ async def open_pooled_alarm(db: AsyncSession, *, source: str, ref: str) -> Incid
     # answer: a Nachalarm for the same incident wants that incident's Lage, not a fresh
     # empty one. The EL can still attach the pool row properly afterwards; this only
     # decides what the responder sees in the meantime.
-    running = (
-        await db.execute(
-            select(Incident)
-            .where(
-                Incident.is_archived.is_(False),
-                Incident.started_at > datetime.now(UTC) - timedelta(hours=4),
-            )
-            .order_by(Incident.started_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
+    running = await running_real_incident(db)
     if running is not None:
         logger.info(
             "Einsatz-Link für Divera %s: laufender Einsatz %s statt zweitem Einsatz",
