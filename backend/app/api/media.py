@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from PIL import Image, ImageOps
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.background import BackgroundTask
 
@@ -122,8 +123,12 @@ async def upload_media(
     user: CurrentRecordWriter,
     file: UploadFile = File(...),
     kind: str = Form(...),
+    upload_id: str | None = Form(None, max_length=64, pattern=r"^[A-Za-z0-9_-]+$"),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
+    # `upload_id` is the client's id for the capture: the same id again (a retry after a proxy
+    # timeout lost the first response) returns the file already stored rather than a second copy.
+    # (A comment, not a docstring – FastAPI publishes a docstring as the operation description.)
     if kind not in ("photo", "audio", "file"):
         raise HTTPException(status_code=422, detail="kind muss 'photo', 'audio' oder 'file' sein")
     inc = (
@@ -131,6 +136,8 @@ async def upload_media(
     ).one_or_none()
     if inc is None:
         raise HTTPException(status_code=404, detail=INCIDENT_NOT_FOUND)
+    if upload_id and (stored := await _uploaded(db, incident_id, upload_id)):
+        return _media_body(stored)
 
     content_type = file.content_type or "application/octet-stream"
     allowed = {"photo": _ALLOWED_PHOTO, "audio": _ALLOWED_AUDIO}.get(kind, _ALLOWED_FILE)
@@ -165,18 +172,49 @@ async def upload_media(
             status_code=413,
             detail=f"Datei zu gross (Maximum {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)",
         ) from None
-    storage.created_in_transaction(db, key)
 
     # The DB row exists only after a complete, size-checked write — an aborted upload leaves
     # neither a partial blob (put_astream cleans up) nor a dangling Media record.
-    media = Media(incident_id=incident_id, kind=kind, storage_key=key, content_type=content_type, created_by=user.id)
-    db.add(media)
-    await db.flush()
+    media = Media(
+        incident_id=incident_id,
+        kind=kind,
+        storage_key=key,
+        content_type=content_type,
+        created_by=user.id,
+        upload_id=upload_id,
+    )
+    try:
+        # A savepoint: the retry can arrive while the first request is still writing, and the
+        # loser of that race must give back its blob (rolled back with the savepoint) and answer
+        # with the winner's row.
+        async with db.begin_nested():
+            storage.created_in_transaction(db, key)
+            db.add(media)
+            await db.flush()
+    except IntegrityError:
+        if upload_id and (stored := await _uploaded(db, incident_id, upload_id)):
+            return _media_body(stored)
+        raise
     # A capture that reaches an Einsatz after its close (the offline queue, a late Beilage) is
     # owed to the Einsatz-Ablage too (docs/incident-archive.md) – one outbox row, no Graph call.
     if inc.is_archived and not inc.is_exercise:
         await incident_archive.enqueue(db, incident_id)
-    return {"id": str(media.id), "url": f"/api/media/{media.id}", "kind": kind, "content_type": content_type}
+    return _media_body(media)
+
+
+async def _uploaded(db: AsyncSession, incident_id: uuid.UUID, upload_id: str) -> Media | None:
+    return (
+        await db.execute(select(Media).where(Media.incident_id == incident_id, Media.upload_id == upload_id))
+    ).scalar_one_or_none()
+
+
+def _media_body(media: Media) -> dict:
+    return {
+        "id": str(media.id),
+        "url": f"/api/media/{media.id}",
+        "kind": media.kind,
+        "content_type": media.content_type,
+    }
 
 
 def _deny_media_outside_link_scope(request: Request, media: Media) -> None:

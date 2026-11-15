@@ -443,8 +443,36 @@ it('backs off automatic uploads, stops after three rejections, and allows an exp
   expect((await flushMediaQueue(INC, upload, { retry: true })).uploaded).toHaveLength(1)
 })
 
-it('keeps a backend restart retryable without burning rejection attempts', async () => {
+// a backend down for a while (a deploy) must not leave captures waiting for a tap – retries are
+// safe since every attempt carries the upload id
+it.each([502, 503, 504])('keeps retrying a %i by itself, one attempt per growing, capped pause', async (status) => {
+  vi.useFakeTimers({ toFake: ['Date'] })
   await enqueueMedia(INC, 'restart', 'audio', blob(), 'voice', '')
-  await flushMediaQueue(INC, vi.fn().mockRejectedValue(new ApiError(503, 'restart')))
-  expect((await listMediaQueue(INC))[0]).toMatchObject({ status: 'pending', attempts: 0 })
+  const upload = vi.fn<MediaUploader>().mockRejectedValue(new ApiError(status, 'down'))
+  const pauses: number[] = []
+  for (let step = 1; step <= 8; step++) {
+    await flushMediaQueue(INC, upload)
+    await flushMediaQueue(INC, upload) // before the pause is over: no second attempt
+    expect(upload).toHaveBeenCalledTimes(step)
+    const [item] = await listMediaQueue(INC)
+    expect(item).toMatchObject({ status: 'pending', attempts: step })
+    pauses.push(item.retryAt! - Date.now())
+    vi.setSystemTime(item.retryAt!)
+  }
+  expect(pauses[1]).toBeGreaterThan(pauses[0])
+  expect(Math.max(...pauses)).toBeLessThanOrEqual(330_000) // 5 min + 10 % jitter
+  expect(pauses[pauses.length - 1]).toBeGreaterThanOrEqual(270_000)
+  upload.mockResolvedValue({ url: '/api/media/saved' })
+  expect((await flushMediaQueue(INC, upload)).uploaded).toHaveLength(1)
+})
+
+// a retry after a lost response must be recognisable as the same capture (api/media · upload_id)
+it('sends the same upload id on every attempt of one capture – the one its direct upload used', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  await enqueueMedia(INC, 'r', 'photo', blob(), 'p', '', 'blob:x', undefined, 'mq-direct-1')
+  const upload = vi.fn<MediaUploader>().mockRejectedValueOnce(new ApiError(504, 'timeout')).mockResolvedValue({ url: '/api/media/m' })
+  await flushMediaQueue(INC, upload)
+  vi.setSystemTime(Date.now() + 60_000)
+  await flushMediaQueue(INC, upload)
+  expect(upload.mock.calls.map((c) => c[4])).toEqual(['mq-direct-1', 'mq-direct-1'])
 })

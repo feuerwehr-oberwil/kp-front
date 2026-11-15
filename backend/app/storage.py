@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import tempfile
+import time
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from typing import BinaryIO
@@ -166,6 +167,35 @@ async def put_astream(key: str, chunks: AsyncIterator[bytes], max_bytes: int | N
         with contextlib.suppress(FileNotFoundError):
             os.remove(temporary)
     return total
+
+
+#: How old an unpublished `.upload-*` temporary file must be before the startup sweep takes it.
+#: Far beyond any real upload, so a rolling deploy never deletes one another process is writing.
+UPLOAD_LEFTOVER_AGE_SECONDS = 60 * 60
+
+
+def sweep_upload_leftovers() -> int:
+    """Remove `.upload-*` temporary files older than :data:`UPLOAD_LEFTOVER_AGE_SECONDS`.
+    Returns how many went. Run once at startup (main · lifespan, on a worker thread).
+
+    Every write removes its own temporary file, success or failure — except when the process
+    dies mid-write (a deploy, an OOM kill during a 100 MB upload). Nothing references such a
+    file and nothing ever published it, so it is never a backup original."""
+    root = os.path.realpath(_ROOT)
+    cutoff = time.time() - UPLOAD_LEFTOVER_AGE_SECONDS
+    removed = 0
+    for directory, subdirs, files in os.walk(root):
+        if directory == root and _BACKUP_INTERNAL in subdirs:
+            subdirs.remove(_BACKUP_INTERNAL)
+        for name in files:
+            if not name.startswith(".upload-"):
+                continue
+            path = os.path.join(directory, name)
+            with contextlib.suppress(FileNotFoundError):
+                if os.lstat(path).st_mtime < cutoff:
+                    os.remove(path)
+                    removed += 1
+    return removed
 
 
 def get_bytes(key: str) -> bytes:
