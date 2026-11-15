@@ -43,7 +43,7 @@ vi.mock('./workspace', async () => {
       return { workspace: structuredClone(server.ws), workspace_rev: server.rev }
     },
     putWorkspace: (_id: string, ws: Record<string, unknown>, baseRev: number) => put(() => ws, baseRev),
-    putWorkspaceBeacon: () => {},
+   
     putWorkspaceTrupps: (_id: string, trupps: unknown[], baseRev: number) => put((s) => ({ ...s, trupps }), baseRev),
     putWorkspaceTruppsBeacon: () => {},
     putWorkspaceRecord: (_id: string, ws: Record<string, unknown>, baseRev: number) => put((s) => ({ ...s, ...ws }), baseRev),

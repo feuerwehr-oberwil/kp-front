@@ -16481,6 +16481,19 @@
           "kind": {
             "type": "string",
             "title": "Kind"
+          },
+          "upload_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upload Id"
           }
         },
         "type": "object",

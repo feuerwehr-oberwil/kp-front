@@ -58,12 +58,14 @@ export function activeSignatures(list: readonly ReportSignature[] | undefined): 
   return out
 }
 
-export type SignatureState = 'valid' | 'stale'
+export type SignatureState = 'valid' | 'stale' | 'pending'
 
-/** valid while the signed part still hashes the same; `currentScope` undefined = not known yet
- *  (the hash is computed asynchronously) — treated as valid so the screen does not flash «ungültig» */
+/** valid while the signed part still hashes the same; `currentScope` undefined = the hash of the
+ *  content as it stands is not known yet (it is computed asynchronously) – `pending`, never
+ *  `valid`: an edited Rapport must not show a signature that may no longer hold */
 export function signatureState(sig: ReportSignature, currentScope: string | undefined): SignatureState {
-  return currentScope === undefined || sig.scope === currentScope ? 'valid' : 'stale'
+  if (currentScope === undefined) return 'pending'
+  return sig.scope === currentScope ? 'valid' : 'stale'
 }
 
 /** append a new signature; an older live one of the same role is marked `replaced` */

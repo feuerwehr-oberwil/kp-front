@@ -191,6 +191,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception:
         logger.exception("Priming the integration credentials failed (continuing — they reload on demand)")
 
+    # Unpublished `.upload-*` files a process killed mid-upload left behind (storage ·
+    # sweep_upload_leftovers). On a worker thread; a failure costs disk space, never the boot.
+    try:
+        import anyio
+
+        from . import storage
+
+        swept = await anyio.to_thread.run_sync(storage.sweep_upload_leftovers)
+        if swept:
+            logger.info("Swept %d stale upload temp file(s)", swept)
+    except Exception:
+        logger.exception("Sweeping stale upload temp files failed (continuing)")
+
     await token_blocklist.start_cleanup_task()
 
     # Divera poll scheduler (Phase 3) is started here once that module lands.

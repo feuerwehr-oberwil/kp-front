@@ -352,3 +352,51 @@ async def test_thumb_requires_a_session(client, editor):
     mid = r.json()["id"]
     client.cookies.clear()
     assert (await client.get(f"/api/media/{mid}/thumb")).status_code == 401
+
+
+# --- idempotent upload: a retry after a lost response must not store a second copy -------
+
+
+async def test_a_retried_upload_returns_the_first_and_stores_nothing_new(client, editor, db_session, tmp_path):
+    """A proxy timeout loses the response, not the upload: the client retries with the SAME
+    upload id, and gets the file the first request already stored."""
+    from sqlalchemy import func, select
+
+    from app.models import Media
+
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    form = {"kind": "photo", "upload_id": "mq1763200000000-01abc"}
+    first = await client.post(f"/api/incidents/{inc}/media", files=_photo(), data=form)
+    again = await client.post(f"/api/incidents/{inc}/media", files=_photo(), data=form)
+    assert first.status_code == 201, first.text
+    assert again.status_code in (200, 201), again.text
+    assert again.json() == first.json()
+    assert (await db_session.execute(select(func.count()).select_from(Media))).scalar_one() == 1
+    assert len([p for p in tmp_path.rglob("*") if p.is_file() and ".kp-backup" not in p.parts]) == 1
+
+    # the id is per Einsatz – and a different capture is a different file
+    other = await client.post(f"/api/incidents/{inc}/media", files=_photo(), data={**form, "upload_id": "mq2"})
+    assert other.json()["id"] != first.json()["id"]
+
+
+# --- crash leftovers: an upload killed mid-write leaves only an unpublished temp file -----
+
+
+def test_stale_upload_temp_files_are_swept_and_fresh_ones_kept(tmp_path):
+    import os
+    import time
+
+    media = tmp_path / "media" / "inc"
+    media.mkdir(parents=True)
+    stale, fresh, blob = media / ".upload-dead", media / ".upload-live", media / "photo.jpg"
+    for p in (stale, fresh, blob):
+        p.write_bytes(b"x")
+    old = time.time() - 2 * 3600
+    os.utime(stale, (old, old))
+    os.utime(blob, (old, old))
+
+    assert storage_mod.sweep_upload_leftovers() == 1
+    assert not stale.exists()
+    assert fresh.exists(), "an upload still being written by another process stays"
+    assert blob.exists()

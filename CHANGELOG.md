@@ -277,6 +277,12 @@ automatic and with a downgrade. Read on for what behaves differently afterwards.
   fitted by point pairs or `§GEO` markers as before.
 - **Small things:** «+ Feld» and «Auf … zeigen» on a symbol's card (existing free fields still
   show and edit), «Stärke» on a line, and the symbol dock beside the palette.
+- **The one-off object repairs** `admin_objects_repair merge-duplicates`, `repair-sharepoint-keys`
+  and `remove-empty`. They folded the twins a Mac-run import and the SharePoint pull minted
+  before 11.09.2026; a station that synced before then and never ran them does so on 0.12.0
+  (`python -m app.admin_objects <cmd>` there) before updating.
+  `merge --into`, `twins` and `geocode-missing` stay, and the SharePoint card now says in the
+  app's language how many objects carry plans without coordinates and how to place them.
 
 ### Fixed
 

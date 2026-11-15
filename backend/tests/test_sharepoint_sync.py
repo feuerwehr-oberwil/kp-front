@@ -265,7 +265,7 @@ async def test_a_folder_without_the_separator_keeps_its_whole_name_as_its_key(
 
 async def test_an_object_with_plans_and_no_coordinates_is_said_out_loud(db_session, blank_env, storage_root):
     """An object nobody can reach must not be a silence. Every plan arrived, so the run is `ok`
-    — the sentence belongs on the card beside it, read LIVE, because it stays true until somebody
+    — the count belongs on the card beside it, read LIVE, because it stays true until somebody
     geocodes the thing (and would otherwise drop the delta cursor on every poll for ever)."""
     await configure(db_session, [source("plans")])
     tenant = FakeTenant({f"{OBERWIL_FOLDER}/Modul 1.pdf": PDF})
@@ -274,9 +274,7 @@ async def test_an_object_with_plans_and_no_coordinates_is_said_out_loud(db_sessi
     status = await sharepoint_status(db_session)
     plans = next(a for a in status["areas"] if a["area"] == "plans")
     assert plans["status"] == "ok"
-    assert plans["objectsWithoutCoordinates"] == 1
-    assert "carry plans but no coordinates" in (plans["detail"] or "")
-    assert "repair-sharepoint-keys" in (plans["detail"] or "")
+    assert plans["objectsWithoutCoordinates"] == 1  # the card words it (SystemView · spNoCoords)
 
     obj = (await db_session.execute(select(ObjectSite))).scalar_one()
     obj.lat, obj.lng = 47.5, 7.57

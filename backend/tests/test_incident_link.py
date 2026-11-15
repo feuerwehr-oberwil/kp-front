@@ -881,6 +881,29 @@ async def test_a_link_during_a_running_einsatz_joins_it_instead_of_forking(clien
     assert pooled_alarm.is_taken is False, "the pool row stays, so the EL can still attach it"
 
 
+@pytest.mark.parametrize(
+    "held",
+    [
+        pytest.param({"status": "abgeschlossen"}, id="closed-but-unarchived"),
+        pytest.param({"status": "offen", "is_exercise": True}, id="running-uebung"),
+    ],
+)
+async def test_a_link_opens_its_alarm_beside_what_is_not_a_running_real_einsatz(
+    client, link_key, pooled_alarm, db_session, held
+):
+    """The link's split-dispatch rescue follows the auto-open guard: a closed Einsatz or an
+    Übung is not where a real alarm's responders belong."""
+    other = Incident(title="Vorher", source="manual", **held)
+    db_session.add(other)
+    await db_session.commit()
+
+    r = await client.post("/api/incident-link/session", json={"token": _mint_divera()})
+    assert r.status_code == 200, r.text
+    assert r.json()["incident_id"] != str(other.id)
+    await db_session.refresh(pooled_alarm)
+    assert pooled_alarm.is_taken is True
+
+
 # --- scope on routes that cannot express it -----------------------------------------------
 #
 # `enforce_link_scope` binds an allowlisted route to the token's incident by matching an

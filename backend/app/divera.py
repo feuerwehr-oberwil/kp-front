@@ -38,7 +38,7 @@ from .config import settings
 from .credentials import get as credential
 from .database import dialect_insert
 from .divera_responses import cached_catalogue, classify_answers, ensure_catalogue, parse_responses_by_alarm, resolvable
-from .models import DiveraEmergency, Incident
+from .models import INCIDENT_ACTIVE_STATUSES, DiveraEmergency, Incident
 from .push import notify_new_alarm
 from .schemas import DiveraWebhookPayload
 
@@ -343,6 +343,35 @@ async def open_emergency(db: AsyncSession, em: DiveraEmergency) -> Incident:
     return inc
 
 
+#: How long after its start an Einsatz is still a plausible re-dispatch target. Matches the
+#: dispatch pipeline's active-alarm timeout; an older open incident (unfinished rapport, days
+#: later) must not hold a genuinely new alarm.
+SPLIT_DISPATCH_WINDOW = timedelta(hours=4)
+
+
+async def running_real_incident(db: AsyncSession) -> Incident | None:
+    """The latest real Einsatz still running inside :data:`SPLIT_DISPATCH_WINDOW`, if any.
+
+    The split-dispatch guard of both auto-open paths (`maybe_auto_open`, the Einsatz-Link's
+    `alarms.open_pooled_alarm`) hangs off this. Running is `Incident.is_open` (status offen /
+    in_arbeit, not archived): a closed Einsatz whose Rapport is still being written is no
+    re-dispatch target. An Übung never is — a real alarm during a drill is a real Einsatz.
+    """
+    return (
+        await db.execute(
+            select(Incident)
+            .where(
+                Incident.is_archived.is_(False),
+                Incident.status.in_(INCIDENT_ACTIVE_STATUSES),
+                Incident.is_exercise.is_(False),
+                Incident.started_at > datetime.now(UTC) - SPLIT_DISPATCH_WINDOW,
+            )
+            .order_by(Incident.started_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
 async def maybe_auto_open(db: AsyncSession, em: DiveraEmergency) -> Incident | None:
     """Open a NEW pool alarm into an incident. Unconditional — the split guard is the one no.
 
@@ -354,28 +383,19 @@ async def maybe_auto_open(db: AsyncSession, em: DiveraEmergency) -> Incident | N
     an authenticated editor opens the workspace, and the stats export drops those.
     """
     # Split-dispatch guard — with the human take gone, this is now the ONLY thing standing
-    # between a Nachalarm and a duplicate Einsatz. While an Einsatz is RUNNING (unarchived
-    # incident started within the last few hours), a new alarm is far more likely a
-    # re-dispatch of the same Einsatz (Nachalarm, reworded group SMS — 2026-07-15 Grenzweg 1)
-    # than a concurrent second incident. Opening it would split the operational picture in
-    # two and misroute the re-dispatch's GPS milestones (which follow `taken_incident_id`)
-    # into a duplicate nobody has open. Hold it in the pool instead — the incoming-alarm
-    # banner offers both open AND attach, and attach is what keeps the milestones together.
-    # The 4h window matches the dispatch pipeline's active-alarm timeout; an older open
-    # incident (unfinished rapport, days later) must not suppress a genuinely new alarm.
-    cutoff = datetime.now(UTC) - timedelta(hours=4)
-    running = (
-        await db.execute(
-            select(func.count())
-            .select_from(Incident)
-            .where(Incident.is_archived.is_(False), Incident.started_at > cutoff)
-        )
-    ).scalar_one()
-    if running:
+    # between a Nachalarm and a duplicate Einsatz. While an Einsatz is RUNNING, a new alarm is
+    # far more likely a re-dispatch of the same Einsatz (Nachalarm, reworded group SMS —
+    # 2026-07-15 Grenzweg 1) than a concurrent second incident. Opening it would split the
+    # operational picture in two and misroute the re-dispatch's GPS milestones (which follow
+    # `taken_incident_id`) into a duplicate nobody has open. Hold it in the pool instead — the
+    # incoming-alarm banner offers both open AND attach, and attach is what keeps the
+    # milestones together. What counts as running: `running_real_incident`.
+    running = await running_real_incident(db)
+    if running is not None:
         logger.info(
-            "Auto-open suppressed for Divera %s: %d running incident(s) — pooled for open/attach",
+            "Auto-open suppressed for Divera %s: incident %s running — pooled for open/attach",
             em.divera_id,
-            running,
+            running.id,
         )
         return None
     return await open_emergency(db, em)

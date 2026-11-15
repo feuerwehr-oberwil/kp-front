@@ -1,28 +1,24 @@
-"""Admin CLI: one-off repairs of a station's Einsatzobjekte table (moved out of admin_objects,
-sweep A.19, 23.10.2026 – that module keeps the load/push pipeline every station runs weekly).
+"""Admin CLI: repairs of a station's Einsatzobjekte table (moved out of admin_objects, sweep A.19,
+23.10.2026 – that module keeps the load/push pipeline every station runs weekly). Run from
+``backend/`` via ``uv run python -m app.admin_objects_repair <cmd>``, against whatever
+``DATABASE_URL`` points at (docs/AGENT-RUNBOOK.md › Census and repair).
 
-Most of this was written on 11.09.2026 for twins minted before that date (a Mac-run import's
-NFD names, the SharePoint pull's whole-folder keys); once a station's census is clean it is not
-needed again. Run from ``backend/`` via ``uv run python -m app.admin_objects_repair <cmd>``, against
-whatever ``DATABASE_URL`` points at (docs/AGENT-RUNBOOK.md › Einsatzobjekte).
-
-    merge-duplicates       fold objects whose names differ only in Unicode form into one, onto the
-                           id every future import mints for that name (report only)
     merge <loser> --into <survivor>
                            fold one twin under ANOTHER name into an object (report only)
     twins                  list likely twins: a plan-less object whose buildings are another's
-    repair-sharepoint-keys fold what the SharePoint pull minted under the WHOLE folder name onto
-                           the «Adresse - Name» convention, geocoding what it splits out, and list
-                           every object that still has no coordinates (report only)
     geocode-missing        look up a position for every object that carries plans and has none —
                            by its address, or by its name when the row has no address (report only)
-    remove-empty           delete objects that carry no plans and nothing points at (report only)
 
-`merge-duplicates`, `merge`, `repair-sharepoint-keys`, `geocode-missing` and `remove-empty` REPORT by
-default and write only with ``--apply`` — see :func:`_merge_duplicates`,
-:func:`_repair_sharepoint_keys` and :func:`_geocode_missing`. The last two end with the same
-census, which is the read-only way to CHECK a deployment: every Einsatzobjekt that carries plans
-but no coordinates, and so surfaces at no incident whatever its plans say.
+`merge` and `geocode-missing` REPORT by default and write only with ``--apply`` — see
+:func:`_merge_into` and :func:`_geocode_missing`. The latter ends with a census, which is the
+read-only way to CHECK a deployment: every Einsatzobjekt that carries plans but no coordinates,
+and so surfaces at no incident whatever its plans say.
+
+The re-key helpers (:func:`_plan_rekey`, :func:`_apply_rekey`, :func:`_retarget_scales`) are
+also the SharePoint pull's, which follows a renamed plans folder with them
+(sharepoint_sync · _follow_renames). The one-off folds of the twins minted before 11.09.2026
+(`merge-duplicates`, `repair-sharepoint-keys`, `remove-empty`) were removed on 15.11.2026 once
+the deployments had run them; they are in the git history.
 """
 
 import argparse
@@ -32,7 +28,6 @@ import sys
 import unicodedata
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC
 from typing import Any, Literal
 
 from sqlalchemy import Text, cast, delete, func, insert, literal, select, update
@@ -40,7 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import storage
 from .admin_cli import fail
-from .admin_objects import FolderIdentity, _plan_counts, folder_identity, object_id_for_key, objects_without_coordinates
+from .admin_objects import _plan_counts, objects_without_coordinates
 from .database import async_session_maker, execute_dml
 from .geocode import locate_coordinates
 from .models import (
@@ -59,7 +54,7 @@ from .models import (
     ReferenceDataset,
 )
 
-# --- maintenance: duplicate merge + junk removal -----------------------------------------
+# --- maintenance: what a merge or re-key touches -----------------------------------------
 #
 # Every place a deployment writes an Einsatzobjekt's id down — what a merge has to re-point,
 # and what it deliberately does not:
@@ -88,20 +83,9 @@ from .models import (
 #                                  a crew its plan.
 
 
-def _name_key(name: str) -> str:
-    """The string :func:`object_id_for_key` would hash for this name — NFC-composed first.
-
-    Two folder names that look identical on screen hash to two different ids when one spells «ü»
-    as ``u`` + U+0308 and the other as U+00FC: that is the 195-objects-for-157 split on the FWO
-    deployment, minted by an import that read the names off a Mac filesystem. Composing before
-    normalising is what puts both spellings in one group here.
-    """
-    return " ".join(unicodedata.normalize("NFC", name).split()).casefold()
-
-
 def _spelling(name: str) -> str:
     """A name as the diff prints it: with its Unicode form and non-ASCII codepoints when it has
-    any — the whole difficulty of this merge is that the two spellings look the same."""
+    any — two spellings that differ only in Unicode form look the same."""
     marks = " ".join(f"U+{ord(c):04X}" for c in name if ord(c) > 127)
     if not marks:
         return repr(name)
@@ -166,24 +150,6 @@ def _same_bytes(a: ReferenceDataset, b: ReferenceDataset) -> Literal["same", "di
     return "same" if digests[0] == digests[1] else "differs"
 
 
-def _when(ds: ReferenceDataset) -> str:
-    """A plan row's write date as the report prints it — the operator's way of telling the two
-    copies of a sheet apart at a glance."""
-    return ds.updated_at.strftime("%d.%m.%Y %H:%M") if ds.updated_at else "undated"
-
-
-def _stamp(ds: ReferenceDataset) -> tuple[float, int]:
-    """How recent a plan row is: when it was last written, then its version counter.
-
-    ⚠️ A naive `updated_at` is read as UTC rather than compared raw — SQLite hands back naive
-    datetimes where Postgres hands back aware ones, and comparing the two raises.
-    """
-    at = ds.updated_at
-    if at is None:
-        return (0.0, ds.current_version or 0)
-    return ((at if at.tzinfo else at.replace(tzinfo=UTC)).timestamp(), ds.current_version or 0)
-
-
 @dataclass
 class SlotDecision:
     """What happens to one of the loser's plan rows."""
@@ -191,12 +157,8 @@ class SlotDecision:
     module: str
     dataset_id: str
     target_id: str  # the key it moves to — decided here, so the apply invents nothing
-    #: `replace` only exists where the two rows are the same sheet under two conventions
-    #: (`repair-sharepoint-keys`): the survivor's row goes and the loser's takes its key.
-    action: Literal["move", "drop", "conflict", "replace"]
+    action: Literal["move", "drop", "conflict"]
     why: str
-    #: The survivor row `replace` deletes — carried so the apply re-reads nothing.
-    replaces: str | None = None
 
 
 @dataclass
@@ -251,20 +213,12 @@ async def _plan_merge(
     counts: dict[uuid.UUID | None, int],
     slots: dict[str, ReferenceDataset],
     scales: dict[str, object],
-    newest_wins: bool = False,
 ) -> MergePair:
     """Decide (and only decide) how the loser folds into the survivor.
 
-    ``slots`` is the survivor's module → plan map, carried across the whole group and updated as
-    moves are decided, so a third twin sees what the second one already handed over — in a dry
-    run exactly as in a real one.
-
-    ``newest_wins`` decides the one case the two callers disagree on: a slot BOTH rows hold with
-    different bytes. For a duplicate name that is a genuine conflict — two sheets somebody drew,
-    and picking one is a decision a person makes. For the two-conventions repair it is the same
-    sheet pulled twice, so the more recently written row is simply the current one and the other
-    is a superseded copy (that is the whole defect: the pull kept updating the copy nobody could
-    see, so the SharePoint side is normally the newer).
+    ``slots`` is the survivor's module → plan map, updated as moves are decided. A slot BOTH rows
+    hold with different bytes is a conflict: two sheets somebody drew, and picking one is a
+    decision a person makes.
     """
     pair = MergePair(
         survivor=survivor,
@@ -305,36 +259,13 @@ async def _plan_merge(
         verdict = _same_bytes(held, ds)
         if verdict == "same":
             pair.slots.append(SlotDecision(shown, ds.id, target_id, "drop", "identical bytes on the survivor"))
-        elif not newest_wins:
+        else:
             why = (
                 "the survivor's sheet holds different bytes"
                 if verdict == "differs"
                 else "the two sheets could not be compared (blob unreadable)"
             )
             pair.slots.append(SlotDecision(shown, ds.id, target_id, "conflict", why))
-        elif _stamp(ds) > _stamp(held):
-            pair.slots.append(
-                SlotDecision(
-                    shown,
-                    ds.id,
-                    held.id,
-                    "replace",
-                    f"v{ds.current_version} ({_when(ds)}, {ds.source_type}) is newer than the survivor's "
-                    f"v{held.current_version} ({_when(held)}, {held.source_type})",
-                    replaces=held.id,
-                )
-            )
-            slots[module] = ds
-        else:
-            pair.slots.append(
-                SlotDecision(
-                    shown,
-                    ds.id,
-                    target_id,
-                    "drop",
-                    f"the survivor's v{held.current_version} ({_when(held)}) is the newer sheet",
-                )
-            )
 
     _, pair.scales_moved, pair.scales_kept = _retarget_scales(scales, loser.id, survivor.id)
     pair.incidents = await _incidents_naming(db, loser.id)
@@ -346,17 +277,6 @@ async def _plan_merge(
 #: Mirrors api/plan_scales.PlanScales — a section added there and forgotten here is a station
 #: calibration that survives the merge pointing at a deleted object.
 SHEET_SECTIONS = ("byPlan", "georefByPlan", "measuredArByPlan")
-
-
-def _scale_keys_for(doc: dict[str, object], oid: uuid.UUID) -> list[str]:
-    """The station calibration/georeference keys that belong to one object."""
-    prefix = f"object:{oid}:plan:"
-    found: list[str] = []
-    for section_name in SHEET_SECTIONS:
-        section = doc.get(section_name)
-        if isinstance(section, dict):
-            found += [f"{section_name}/{k}" for k in section if str(k).startswith(prefix)]
-    return found
 
 
 def _retarget_scales(
@@ -395,13 +315,8 @@ def _print_pair(pair: MergePair) -> None:
     print(f"  keep   {pair.survivor.id}  {_spelling(pair.survivor.name)}  ({pair.survivor_plans} plan(s))")
     print(f"  merge  {pair.loser.id}  {_spelling(pair.loser.name)}  ({pair.loser_plans} plan(s))")
     for slot in pair.slots:
-        mark = {"move": "→", "drop": "·", "conflict": "!", "replace": "→"}[slot.action]
-        label = {
-            "move": "moves",
-            "drop": "dropped",
-            "conflict": "CONFLICT",
-            "replace": "replaces the survivor's sheet",
-        }[slot.action]
+        mark = {"move": "→", "drop": "·", "conflict": "!"}[slot.action]
+        label = {"move": "moves", "drop": "dropped", "conflict": "CONFLICT"}[slot.action]
         print(f"       {mark} plan {slot.module}: {label} — {slot.why}")
     if pair.scales_moved or pair.scales_kept:
         print(
@@ -423,48 +338,16 @@ def _print_pair(pair: MergePair) -> None:
         print(f"       ! object row {pair.loser.id} KEPT — {len(pair.conflicts)} conflict(s) still hang off it")
 
 
-def _pick_survivor(group: list[ObjectSite], counts: dict[uuid.UUID | None, int]) -> tuple[ObjectSite, uuid.UUID | None]:
-    """The row the others fold into, and the NFC-key id it still has to be re-keyed to (or None).
-
-    The uuid5 of the NFC-composed name is the id every future import mints — the SharePoint pull
-    matches and creates objects with exactly it (``sharepoint_sync._object_for``). A row carrying
-    it is the obvious survivor. When NO row carries it (both spellings were keyed by something
-    other than the bare name — 27 of 79 groups on the FWO deployment) the richest row wins (most
-    plans, then most recently updated, then lowest id, so two runs agree) and the caller re-keys
-    it afterwards: leaving it under its own id would let the next sync mint a THIRD row.
-    """
-    try:
-        canonical = object_id_for_key(_name_key(group[0].name))
-    except ValueError:  # a blank name hashes to nothing; the richest row still wins, un-re-keyed
-        canonical = None
-    for o in group:
-        if o.id == canonical:
-            return o, None
-    richest = sorted(
-        group,
-        key=lambda o: (-counts.get(o.id, 0), -(o.updated_at.timestamp() if o.updated_at else 0.0), str(o.id)),
-    )[0]
-    return richest, canonical
-
-
 @dataclass
 class Rekey:
-    """The survivor's own move onto the NFC-key id, decided before anything is written."""
+    """One object's move onto another id, decided before anything is written."""
 
     row: ObjectSite
     target: uuid.UUID
     name: str  # the NFC-composed spelling the re-keyed row carries
-    #: The address the re-keyed row carries. The repair splits one out of «Adresse - Name»; the
-    #: duplicate merge keeps whatever the row had.
-    address: str | None = None
-    #: Coordinates geocoded for a row that had none — set by the repair, never overwriting a
-    #: pair the station already has.
-    coords: tuple[float, float] | None = None
+    address: str | None = None  # the address the re-keyed row carries
     datasets: list[tuple[str, str]] = field(default_factory=list)  # (old key, new key)
-    scales_moved: list[str] = field(default_factory=list)
     incidents: list[uuid.UUID] = field(default_factory=list)
-    events: int = 0
-    journal: int = 0
     blocked: str | None = None  # set when something already sits on the target id
 
 
@@ -473,35 +356,27 @@ async def _plan_rekey(
     row: ObjectSite,
     target: uuid.UUID,
     *,
-    also: list[uuid.UUID],
-    moved_datasets: list[str],
     scales: dict[str, object],
     name: str | None = None,
     address: str | None = None,
-    coords: tuple[float, float] | None = None,
 ) -> Rekey:
-    """Decide the survivor's re-key onto ``target`` — the same move a loser makes, one row over.
-
-    ``also`` are the ids folded into this survivor a moment ago: in a dry run their workspaces
-    still name the loser, so the incidents that need rewriting are the union. ``moved_datasets``
-    are the plan keys that same fold hands over, which a dry run cannot yet read back from the DB.
+    """Decide an object's re-key onto ``target`` — the same move a merge loser makes, one row
+    over. Used by the SharePoint pull to follow a renamed plans folder (sharepoint_sync ·
+    _follow_renames), carried out by :func:`_apply_rekey`.
 
     Anything already sitting on the target id blocks the re-key rather than being merged into
-    blind: the group scan is one transaction, so this can only be a row keyed by a different name.
+    blind: that is a row keyed by a different name, and folding it is `merge`'s, by hand.
     """
     plan = Rekey(
         row=row,
         target=target,
         name=name if name is not None else unicodedata.normalize("NFC", row.name),
         address=address if address is not None else row.address,
-        coords=coords,
     )
     if (await db.execute(select(ObjectSite.id).where(ObjectSite.id == target))).scalar_one_or_none() is not None:
         plan.blocked = f"an object already carries {target} — merge that one first"
         return plan
-    own = set(
-        (await db.execute(select(ReferenceDataset.id).where(ReferenceDataset.object_id == row.id))).scalars()
-    ) | set(moved_datasets)
+    own = set((await db.execute(select(ReferenceDataset.id).where(ReferenceDataset.object_id == row.id))).scalars())
     plan.datasets = sorted((did, did.replace(str(row.id), str(target))) for did in own)
     taken = (
         set(
@@ -516,32 +391,12 @@ async def _plan_rekey(
     if taken:
         plan.blocked = f"{len(taken)} plan key(s) already exist under {target}, e.g. {sorted(taken)[0]}"
         return plan
-    _, plan.scales_moved, kept = _retarget_scales(scales, row.id, target)
+    _, _, kept = _retarget_scales(scales, row.id, target)
     if kept:
         plan.blocked = f"{len(kept)} calibration key(s) already exist under {target}"
         return plan
-    for oid in [row.id, *also]:
-        plan.incidents += [i for i in await _incidents_naming(db, oid) if i not in plan.incidents]
-    plan.events, plan.journal = await _history_naming(db, row.id)
+    plan.incidents = await _incidents_naming(db, row.id)
     return plan
-
-
-def _print_rekey(plan: Rekey) -> None:
-    if plan.blocked:
-        print(f"  ! rekey {plan.row.id} → {plan.target} REFUSED: {plan.blocked}")
-        return
-    bits = [f"{len(plan.datasets)} plan(s)"]
-    if plan.name != plan.row.name or plan.address != plan.row.address:
-        bits.append(f"name «{plan.name}», address «{plan.address or '—'}»")
-    if plan.coords:
-        bits.append(f"geocoded to {plan.coords[0]:.5f}, {plan.coords[1]:.5f}")
-    if plan.scales_moved:
-        bits.append(f"{len(plan.scales_moved)} calibration key(s)")
-    if plan.incidents:
-        bits.append(f"{len(plan.incidents)} workspace(s)")
-    if plan.events or plan.journal:
-        bits.append(f"{plan.events + plan.journal} history row(s) named, left untouched")
-    print(f"  rekey  {plan.row.id} → {plan.target}  ({', '.join(bits)})")
 
 
 #: Everything that hangs off ONE plan dataset row, in the order a delete has to walk it. A plan
@@ -550,8 +405,8 @@ def _print_rekey(plan: Rekey) -> None:
 #: ⚠️ `plan_revisions.dataset_id` is ON DELETE RESTRICT and carries no ON UPDATE CASCADE, so a
 #: dataset row that still has a revision can be neither deleted NOR re-keyed — without the two
 #: helpers below, every merge that folds a REAL sheet aborts its whole transaction. That is not
-#: theoretical: on the FWO deployment (16.09.2026) all 574 plan rows had a revision, and
-#: `merge-duplicates --apply` could not fold the one duplicate object on it.
+#: theoretical: on the FWO deployment (16.09.2026) all 574 plan rows had a revision, and a
+#: duplicate merge could not fold the one duplicate object on it.
 
 
 async def _drop_plan_rows(db: AsyncSession, dataset_id: str) -> None:
@@ -692,7 +547,7 @@ def _carry_notes(survivor: ObjectSite, loser: ObjectSite) -> None:
 
 
 async def _apply_rekey(db: AsyncSession, plan: Rekey) -> None:
-    """Move the survivor itself onto the NFC-key id. Only under ``--apply``, same transaction.
+    """Move an object onto the id a :func:`_plan_rekey` decided, in the caller's transaction.
 
     The row is re-created rather than updated in place: the plans reference ``objects.id`` and the
     FK has no ON UPDATE CASCADE, so a parent key cannot change while children point at it. Same
@@ -700,13 +555,12 @@ async def _apply_rekey(db: AsyncSession, plan: Rekey) -> None:
     """
     old = plan.row
     source_key = old.source_key
-    lat, lng = (old.lat, old.lng) if old.lat is not None and old.lng is not None else (plan.coords or (None, None))
     fresh = ObjectSite(
         id=plan.target,
         name=plan.name,
         address=plan.address,
-        lat=lat,
-        lng=lng,
+        lat=old.lat,
+        lng=old.lng,
         source_note=old.source_note,
         filing_folder=old.filing_folder,
         # the Gebäude card's Modul-1 notes are the object's, not the id's — a re-key keeps them
@@ -737,18 +591,7 @@ async def _apply_rekey(db: AsyncSession, plan: Rekey) -> None:
 async def _apply_pair(db: AsyncSession, pair: MergePair) -> None:
     """Carry out one decided merge. Called only under ``--apply``, inside the one transaction."""
     for slot in pair.slots:
-        if slot.action == "replace":
-            # The superseded row goes FIRST — its id is the key the newer row is about to take.
-            # Its blob stays in the store, like every other row this module retires.
-            assert slot.replaces is not None  # noqa: S101 — a "replace" decision always names the row it takes over
-            await _drop_plan_rows(db, slot.replaces)
-            await db.execute(
-                delete(ReferenceDataset)
-                .where(ReferenceDataset.id == slot.replaces)
-                .execution_options(synchronize_session=False)
-            )
-            await _rekey_dataset(db, slot.dataset_id, slot.target_id, pair.survivor.id)
-        elif slot.action == "move":
+        if slot.action == "move":
             # Re-KEYED, not just re-pointed: the primary key encodes the object, and a row left
             # under the old key is a row the next `load` or pull would mint a second time.
             await _rekey_dataset(db, slot.dataset_id, slot.target_id, pair.survivor.id)
@@ -776,132 +619,14 @@ async def _apply_pair(db: AsyncSession, pair: MergePair) -> None:
         )
 
 
-async def _merge_duplicates(*, apply: bool) -> int:
-    """Fold objects whose names are the same name into one row — REPORT ONLY unless ``apply``.
-
-    Duplicates are grouped by the string :func:`object_id_for_key` hashes (NFC-composed, whitespace
-    collapsed, case folded), so an NFD/NFC twin pair and a byte-identical pair are the same case
-    here. A plan slot the survivor already holds is never overwritten: identical bytes let the
-    duplicate row go, anything else is reported as a conflict and the loser row stays whole.
-
-    A group that folds completely also ends up ON the NFC-key id: where no row carried it, the
-    survivor is re-keyed onto it once the losers are in (:func:`_apply_rekey`). That id is what
-    the SharePoint pull and every future import mint for this name, so a merge that skipped it
-    would be undone by the next sync — a third row under the same name. A group kept back by a
-    conflict is NOT re-keyed: half a merge on a new id is worse than none.
-
-    Under ``--apply`` the whole run is ONE transaction: either every group folds or none does. A
-    sheet that moves or goes takes its revisions, alignments and floor packs with it — see the
-    note above :func:`_drop_plan_rows` for why nothing here may touch a dataset row on its own.
-
-    ⚠️ Writes ``plan_scales_json`` directly, outside the If-Match guard a human write gets
-    (api/plan_scales). Run it in a maintenance window, not while an Einsatz is being drawn on.
-    """
-    async with async_session_maker() as db:
-        rows = list((await db.execute(select(ObjectSite).order_by(ObjectSite.name))).scalars())
-        counts = await _plan_counts(db)
-        groups: dict[str, list[ObjectSite]] = {}
-        for row in rows:
-            groups.setdefault(_name_key(row.name), []).append(row)
-        duplicates = {k: v for k, v in sorted(groups.items()) if len(v) > 1}
-        if not duplicates:
-            print(f"No duplicate object names among {len(rows)} object(s). Nothing to merge.")
-            return 0
-
-        station = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-        scales: dict[str, object] = dict(station.plan_scales_json) if station and station.plan_scales_json else {}
-        pairs: list[MergePair] = []
-        rekeys: list[Rekey] = []
-        unfinished = 0  # groups whose conflicts keep the survivor on its old, non-NFC id
-        for group in duplicates.values():
-            survivor, rekey_to = _pick_survivor(group, counts)
-            note = (
-                "the survivor carries the NFC-key id"
-                if rekey_to is None
-                else f"no row carries the NFC-key id — the richest is re-keyed to {rekey_to}"
-            )
-            print(f"\n«{unicodedata.normalize('NFC', survivor.name)}» — {len(group)} rows ({note})")
-            slots: dict[str, ReferenceDataset] = {
-                ds.module: ds
-                for ds in (
-                    await db.execute(select(ReferenceDataset).where(ReferenceDataset.object_id == survivor.id))
-                ).scalars()
-                if ds.module
-            }
-            folded: list[MergePair] = []
-            for loser in [o for o in group if o.id != survivor.id]:
-                pair = await _plan_merge(db, survivor, loser, counts=counts, slots=slots, scales=scales)
-                _print_pair(pair)
-                scales, _, _ = _retarget_scales(scales, loser.id, survivor.id)
-                folded.append(pair)
-                pairs.append(pair)
-                if apply:
-                    await _apply_pair(db, pair)
-            if rekey_to is None:
-                continue
-            if not all(p.deletable for p in folded):
-                # Half a merge re-keyed is worse than none: the conflicting twin would stay behind
-                # under a spelling the pull no longer resolves to anything.
-                print(
-                    f"       ! rekey {survivor.id} → {rekey_to} NOT done — this group did not fold; "
-                    "a later import under the NFC spelling would mint a THIRD row"
-                )
-                unfinished += 1
-                continue
-            if apply:
-                await db.flush()  # the folds above must be readable by the scan below
-            rekey = await _plan_rekey(
-                db,
-                survivor,
-                rekey_to,
-                also=[p.loser.id for p in folded],
-                moved_datasets=[s.target_id for p in folded for s in p.slots if s.action == "move"],
-                scales=scales,
-            )
-            _print_rekey(rekey)
-            rekeys.append(rekey)
-            if rekey.blocked is None:
-                scales, _, _ = _retarget_scales(scales, survivor.id, rekey_to)
-                if apply:
-                    await _apply_rekey(db, rekey)
-
-        moved = sum(1 for p in pairs for s in p.slots if s.action == "move")
-        dropped = sum(1 for p in pairs for s in p.slots if s.action == "drop")
-        conflicts = sum(len(p.conflicts) for p in pairs)
-        deletions = sum(1 for p in pairs if p.deletable)
-        rekeyed = sum(1 for r in rekeys if r.blocked is None)
-        refused = len(rekeys) - rekeyed
-        summary = (
-            f"{len(pairs)} merge(s) in {len(duplicates)} name group(s): {deletions} object row(s) deleted, "
-            f"{len(pairs) - deletions} kept for conflicts, {moved} plan(s) re-pointed, "
-            f"{dropped} duplicate plan row(s) dropped, {conflicts} conflict(s), "
-            f"{rekeyed} survivor(s) re-keyed to the NFC id"
-            + (f", {refused} re-key(s) refused" if refused else "")
-            + (f", {unfinished} re-key(s) left undone by conflicts" if unfinished else "")
-        )
-        if not apply:
-            print(f"\nOK (dry-run): would be {summary}. Nothing written. Repeat with --apply to perform it.")
-            return 0
-        if station is not None and scales != (station.plan_scales_json or {}):
-            station.plan_scales_json = scales
-        await db.commit()
-        incomplete = bool(conflicts or refused)
-        print(f"\n{'INCOMPLETE' if incomplete else 'OK'}: {summary}.")
-        if conflicts:
-            print("       The conflicting sheets are still on their old object — decide those by hand.")
-        if refused:
-            print("       A refused re-key leaves that survivor on its old id — the next sync would mint a third.")
-        return 1 if incomplete else 0
-
-
 # --- maintenance: one named twin onto another --------------------------------------------
 #
-# `merge-duplicates` folds rows whose NAMES are the same name. A twin under ANOTHER name needs a
-# person to say which two rows are one object (review round 3, 17.10.2026: «Stallenmattstrasse
-# 2-14, Kaibmattweg 1-5 (EH)», a plan-less row, is the plan library's «Stallenmattstrasse 1-14 …»
-# — owner: «merge number 2 onto 1 and drop 2»). `merge <loser> --into <survivor>` is that, with
-# the same planning and apply as the name merge (plans, calibration, incidents, visits, outside
-# ids, notes, folder), plus what a hand-picked twin also carries:
+# A twin under ANOTHER name needs a person to say which two rows are one object (review round 3,
+# 17.10.2026: «Stallenmattstrasse 2-14, Kaibmattweg 1-5 (EH)», a plan-less row, is the plan
+# library's «Stallenmattstrasse 1-14 …» — owner: «merge number 2 onto 1 and drop 2»).
+# `merge <loser> --into <survivor>` is that: plans, calibration, incidents, visits, outside ids,
+# notes and folder move over (:func:`_plan_merge` / :func:`_apply_pair`), plus what a hand-picked
+# twin also carries:
 #
 #   object_position_events         the station's «Lage korrigieren» history of the loser — moved
 #                                  onto the survivor as history; the survivor's own position and
@@ -1060,54 +785,12 @@ async def _report_twins() -> int:
     return 0
 
 
-# --- maintenance: the two object-key conventions -----------------------------------------
-
-
-def _whole_folder_keyed(row: ObjectSite) -> FolderIdentity | None:
-    """The folder identity of an object keyed on the WHOLE «Adresse - Name» string, or None.
-
-    Exact rather than heuristic, because it decides what gets merged: the row's id IS the uuid5
-    of its own entire name, and that name carries the address separator. An object the importer
-    wrote is keyed on the NAME half and never matches; one typed in the browser is keyed on
-    whatever the operator typed, which is not a folder name with an address in front of it.
-    """
-    identity = folder_identity(row.name)
-    if identity.address is None:
-        return None
-    try:
-        return identity if row.id == object_id_for_key(_name_key(row.name)) else None
-    except ValueError:  # a blank name hashes to nothing
-        return None
-
-
-@dataclass
-class Repair:
-    """One bare SharePoint object's repair, fully decided before anything is written."""
-
-    row: ObjectSite
-    identity: FolderIdentity
-    target: uuid.UUID
-    twin: ObjectSite | None = None  # the older, richer object under the corrected key
-    pair: MergePair | None = None
-    rekey: Rekey | None = None
-    address_filled: str | None = None  # an empty survivor address taken from the folder name
-    coords: tuple[float, float] | None = None  # geocoded for a survivor that had none
-
-    @property
-    def survivor(self) -> ObjectSite:
-        return self.twin or self.row
-
-    @property
-    def done(self) -> bool:
-        """Whether this repair ends with the object reachable under the corrected key."""
-        if self.pair is not None and not self.pair.deletable:
-            return False
-        return self.rekey is None or self.rekey.blocked is None
+# --- maintenance: objects without coordinates --------------------------------------------
 
 
 async def _lookup_coordinates(address: str) -> tuple[float, float] | None:
-    """Best-effort position for the repair. Never raises: a repair that cannot reach swisstopo
-    still merges and re-keys, and the census at the end says which objects still have none.
+    """Best-effort position for `geocode-missing`. Never raises: an object swisstopo cannot be
+    reached for stays on the census at the end, like one it found nothing for.
 
     ⚠️ `locate`, not `geocode`: only an EXACT street + number in the brigade's area, home town
     first — never the fuzzy neighbour `geocode` would answer with (ARA Birsig, 17.10.2026: an
@@ -1123,12 +806,10 @@ async def _lookup_coordinates(address: str) -> tuple[float, float] | None:
 async def _coordinate_census(db: AsyncSession, resolved: set[uuid.UUID]) -> int:
     """Print the Einsatzobjekte that carry plans and no coordinates, and count them.
 
-    ⚠️ This is the point of the whole repair, not a footnote to it: an object without
-    coordinates is surfaced at no incident (:func:`objects_without_coordinates`), so a run that
-    merged everything perfectly and geocoded nothing has fixed half the defect. ``resolved`` are
-    the ids a dry run WOULD take off this list; under ``--apply`` it is empty, because by then
-    the list is read back from what was actually written — which is what makes a second
-    ``repair-sharepoint-keys`` (dry-run, read-only) the way to verify the first.
+    An object without coordinates is surfaced at no incident (:func:`objects_without_coordinates`).
+    ``resolved`` are the ids a dry run WOULD take off this list; under ``--apply`` it is empty,
+    because by then the list is read back from what was actually written — which is what makes a
+    second ``geocode-missing`` (dry-run, read-only) the way to verify the first.
     """
     blind = [o for o in await objects_without_coordinates(db) if o.id not in resolved]
     total = int((await db.execute(select(func.count()).select_from(ObjectSite))).scalar_one())
@@ -1145,9 +826,9 @@ async def _coordinate_census(db: AsyncSession, resolved: set[uuid.UUID]) -> int:
 async def _geocode_missing(*, apply: bool) -> int:
     """Give every plan-carrying Einsatzobjekt without a position one — REPORT ONLY unless ``apply``.
 
-    The other half of the same defect, and the older half: after the two conventions were folded
-    back together (:func:`_repair_sharepoint_keys`), the FWO deployment still carried 52 objects
-    the ORIGINAL importer had written without coordinates, and an object without coordinates is
+    Still needed today: the SharePoint pull geocodes a new object best-effort and leaves it without
+    a position when the lookup fails or is ambiguous. On 11.09.2026 the FWO deployment carried 52
+    objects the ORIGINAL importer had written without coordinates, and an object without them is
     offered at no incident (:func:`objects_without_coordinates`) — its plans are reachable by
     nobody, however correct its key is.
 
@@ -1198,256 +879,15 @@ async def _geocode_missing(*, apply: bool) -> int:
         return 0
 
 
-async def _repair_sharepoint_keys(*, apply: bool, do_geocode: bool) -> int:
-    """Fold the SharePoint pull's whole-folder-name objects onto the address-split convention.
-
-    THE DEFECT (production, 11.09.2026). A plans folder is named «Adresse - Name». The importer
-    has always keyed an Einsatzobjekt on the NAME half and stored the address separately; the
-    SharePoint connector hashed the WHOLE folder string instead. So every folder minted a
-    SECOND, address-less, coordinate-less object beside the one the station already had, the
-    pull kept updating that copy — «Im Buech 15» was at v2 on one object while the Einsatz
-    showed v1 on the other — and because an object with no coordinates is surfaced at no
-    incident at all, ~334 freshly synced plans were reachable by nobody.
-
-    WHAT THIS DOES, per object the connector minted under the old convention
-    (:func:`_whole_folder_keyed`, an exact id test — nothing typed by hand is touched):
-
-    * **With an older twin** — found under the corrected key, or by the twin's own
-      ``address + ' - ' + name`` — the bare object folds INTO it, because the older row is the
-      one carrying the address, the coordinates, the station's georeference and whatever an FU
-      picked in an Einsatz. Plans move slot by slot and the NEWER sheet wins each slot
-      (``newest_wins``): the pull's v2 replaces the v1 nobody could open, an identical copy is
-      dropped, and the survivor's own newer sheet stays. The bare row's empty address and
-      coordinates never overwrite the survivor's real ones — but an EMPTY survivor address is
-      filled from the folder name, because that address is the other way an object surfaces
-      (api/objects · objects_near_incident matches it against the incident's).
-    * **Without one** — 68 of the 150 on this deployment — the object is re-keyed onto the
-      corrected id and its name is split into address + name, so the next sync finds it.
-    * **Either way**, a survivor that ends up with an address and no coordinates is geocoded
-      (best-effort, ``--no-geocode`` to skip), and everything still without any is listed.
-
-    Its own subcommand rather than a flag on ``merge-duplicates``: that one folds rows whose
-    NAMES are the same name, this one folds rows whose names deliberately differ because two
-    conventions read one folder — and at 3am «merge the duplicates» and «repair what SharePoint
-    keyed wrongly» are two different questions with two different answers.
-
-    REPORT ONLY unless ``apply``, and under ``--apply`` the whole run is ONE transaction.
-
-    ⚠️ Writes ``plan_scales_json`` directly, outside the If-Match guard a human write gets
-    (api/plan_scales). Run it in a maintenance window, not while an Einsatz is being drawn on.
-    """
-    async with async_session_maker() as db:
-        rows = list((await db.execute(select(ObjectSite).order_by(ObjectSite.name))).scalars())
-        counts = await _plan_counts(db)
-        station = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-        scales: dict[str, object] = dict(station.plan_scales_json) if station and station.plan_scales_json else {}
-        by_id = {r.id: r for r in rows}
-        # The twin an id lookup misses: the older row was keyed by something else (a decomposed
-        # spelling, a hand-typed key), but it IS this building — it says so in its own two fields.
-        by_fields: dict[tuple[str, str], ObjectSite] = {}
-        for stored in rows:
-            if stored.address and stored.name:
-                by_fields.setdefault((_name_key(stored.address), _name_key(stored.name)), stored)
-
-        bare = [(r, i) for r in rows if (i := _whole_folder_keyed(r)) is not None]
-        if not bare:
-            print(f"No object is keyed on a whole «Adresse - Name» folder name among {len(rows)} object(s).")
-            await _coordinate_census(db, set())
-            return 0
-
-        repairs: list[Repair] = []
-        resolved: set[uuid.UUID] = set()
-        for row, identity in bare:
-            twin = by_id.get(identity.object_id)
-            if twin is None:
-                twin = by_fields.get((_name_key(identity.address or ""), _name_key(identity.name)))
-            if twin is not None and twin.id == row.id:
-                twin = None  # itself is not a twin
-            rep = Repair(row=row, identity=identity, target=identity.object_id, twin=twin)
-            repairs.append(rep)
-            found = (
-                "the object the importer created is below"  # `_print_pair` names it as `keep`
-                if twin is not None
-                else "no older twin — this one is re-keyed alone"
-            )
-            print(f"\n«{unicodedata.normalize('NFC', row.name)}» — keyed on the whole folder name ({found})")
-
-            if twin is not None:
-                slots: dict[str, ReferenceDataset] = {
-                    ds.module: ds
-                    for ds in (
-                        await db.execute(select(ReferenceDataset).where(ReferenceDataset.object_id == twin.id))
-                    ).scalars()
-                    if ds.module
-                }
-                pair = await _plan_merge(db, twin, row, counts=counts, slots=slots, scales=scales, newest_wins=True)
-                rep.pair = pair
-                _print_pair(pair)
-                scales, _, _ = _retarget_scales(scales, row.id, twin.id)
-                if apply:
-                    await _apply_pair(db, pair)
-                if not pair.deletable:
-                    print("       ! left as it is — the bare object still holds a sheet the survivor also has")
-                    continue
-                resolved.add(row.id)  # its plans are the survivor's now
-
-            survivor = rep.survivor
-            address = (survivor.address or "").strip() or identity.address
-            if not (survivor.address or "").strip() and identity.address:
-                rep.address_filled = identity.address
-            if do_geocode and address and (survivor.lat is None or survivor.lng is None):
-                rep.coords = await _lookup_coordinates(address)
-                if rep.coords:
-                    resolved.add(survivor.id)
-            if survivor.id != rep.target:
-                if apply:
-                    await db.flush()  # the fold above must be readable by the scan below
-                rep.rekey = await _plan_rekey(
-                    db,
-                    survivor,
-                    rep.target,
-                    also=[row.id] if rep.pair else [],
-                    moved_datasets=[
-                        s.target_id for s in (rep.pair.slots if rep.pair else []) if s.action in ("move", "replace")
-                    ],
-                    scales=scales,
-                    name=identity.name if survivor is row else unicodedata.normalize("NFC", survivor.name),
-                    address=address,
-                    coords=rep.coords,
-                )
-                _print_rekey(rep.rekey)
-                if rep.rekey.blocked is None:
-                    scales, _, _ = _retarget_scales(scales, survivor.id, rep.target)
-                    resolved.add(survivor.id)
-                    if apply:
-                        await _apply_rekey(db, rep.rekey)
-                continue
-            # Already on the corrected id: only the two fields can still be wrong.
-            if rep.address_filled:
-                print(f"       → address «{rep.address_filled}» filled in from the folder name")
-            if rep.coords:
-                print(f"       → geocoded to {rep.coords[0]:.5f}, {rep.coords[1]:.5f}")
-            if apply:
-                if rep.address_filled:
-                    survivor.address = rep.address_filled
-                if rep.coords:
-                    survivor.lat, survivor.lng = rep.coords
-            print("       · the survivor already carries the key the corrected sync derives — no re-key")
-
-        merged = sum(1 for r in repairs if r.pair is not None and r.pair.deletable)
-        rekeyed = sum(1 for r in repairs if r.rekey is not None and r.rekey.blocked is None)
-        replaced = sum(1 for r in repairs if r.pair for s in r.pair.slots if s.action == "replace")
-        moved = sum(1 for r in repairs if r.pair for s in r.pair.slots if s.action == "move")
-        geocoded = sum(1 for r in repairs if r.coords)
-        stuck = [r for r in repairs if not r.done]
-        summary = (
-            f"{len(repairs)} object(s) keyed on a whole folder name: {merged} merged into an older twin "
-            f"({moved} plan(s) moved, {replaced} superseded sheet(s) replaced), {rekeyed} re-keyed onto the "
-            f"corrected key, {geocoded} geocoded" + (f", {len(stuck)} left untouched" if stuck else "")
-        )
-        if not apply:
-            print(f"\nOK (dry-run): would be {summary}. Nothing written. Repeat with --apply to perform it.")
-            await _coordinate_census(db, resolved)
-            return 1 if stuck else 0
-        if station is not None and scales != (station.plan_scales_json or {}):
-            station.plan_scales_json = scales
-        await db.commit()
-        print(f"\n{'INCOMPLETE' if stuck else 'OK'}: {summary}.")
-        for unfinished in stuck:
-            print(f"       ! {unfinished.row.id} «{unfinished.row.name}» — decide this one by hand")
-        # Read back from what was WRITTEN: the same census a second, read-only dry run prints.
-        # It does not decide the exit code — a coordinate nobody can geocode is a person's job,
-        # not an unfinished repair.
-        await _coordinate_census(db, set())
-        return 1 if stuck else 0
-
-
-async def _remove_empty(*, apply: bool, names: list[str]) -> int:
-    """Delete objects that carry no plans and that nothing points at — REPORT ONLY unless ``apply``.
-
-    The «Grosspläne» case: a category folder that an import read as an Einsatzobjekt. With no plans
-    under it, it falls out here on its own; if it did pick up plans, name it with ``--name`` and it
-    goes with them — sheets, revisions, alignments and floor packs alike (:func:`_drop_plan_rows`).
-    Either way an object that an incident, a calibration or the audit trail names is REFUSED — a
-    station that used the thing is not a station that can lose it silently.
-    """
-    wanted = {_name_key(n) for n in names}
-    async with async_session_maker() as db:
-        rows = list((await db.execute(select(ObjectSite).order_by(ObjectSite.name))).scalars())
-        counts = await _plan_counts(db)
-        station = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-        scales: dict[str, object] = dict(station.plan_scales_json) if station and station.plan_scales_json else {}
-        named = {_name_key(r.name) for r in rows}
-        for missing in sorted(wanted - named):
-            print(f"  ? --name {missing!r}: no object stored under that name")
-
-        removed: list[ObjectSite] = []
-        refused: list[tuple[ObjectSite, str]] = []
-        for row in rows:
-            explicit = _name_key(row.name) in wanted
-            plans = counts.get(row.id, 0)
-            if plans and not explicit:
-                continue
-            holds = len(_scale_keys_for(scales, row.id))
-            incidents = len(await _incidents_naming(db, row.id))
-            events, journal = await _history_naming(db, row.id)
-            if holds or incidents or events or journal:
-                refused.append(
-                    (
-                        row,
-                        f"{holds} calibration key(s), {incidents} incident(s), "
-                        f"{events + journal} history row(s) name it",
-                    )
-                )
-                continue
-            removed.append(row)
-            print(f"  - {row.id}  {_spelling(row.name)}  ({plans} plan(s){', named explicitly' if explicit else ''})")
-            if apply:
-                doomed = list(
-                    (
-                        await db.execute(select(ReferenceDataset.id).where(ReferenceDataset.object_id == row.id))
-                    ).scalars()
-                )
-                for dataset_id in doomed:
-                    await _drop_plan_rows(db, dataset_id)
-                await db.execute(
-                    delete(ReferenceDataset)
-                    .where(ReferenceDataset.object_id == row.id)
-                    .execution_options(synchronize_session=False)
-                )
-                await db.execute(
-                    delete(ObjectSite).where(ObjectSite.id == row.id).execution_options(synchronize_session=False)
-                )
-        for row, why in refused:
-            print(f"  ! {row.id}  {_spelling(row.name)} — NOT removed: {why}", file=sys.stderr)
-
-        if not removed and not refused:
-            print(f"No empty objects among {len(rows)} object(s). Nothing to remove.")
-            return 0
-        plans_gone = sum(counts.get(r.id, 0) for r in removed)
-        summary = f"{len(removed)} object(s) with {plans_gone} plan(s) deleted, {len(refused)} refused"
-        if not apply:
-            print(f"\nOK (dry-run): would be {summary}. Nothing written. Repeat with --apply to perform it.")
-            return 0
-        await db.commit()
-        print(f"\nOK: {summary}.")
-        return 0
-
-
 # --- CLI --------------------------------------------------------------------------------
 
 
 async def _amain(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m app.admin_objects_repair",
-        description="Repair a deployment's Einsatzobjekte: merge twins, re-key, geocode, remove empty rows.",
+        description="Repair a deployment's Einsatzobjekte: merge a twin, list likely twins, geocode.",
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
-    p_merge = sub.add_parser(
-        "merge-duplicates",
-        help="fold objects whose names are the same name (NFD/NFC twins, exact duplicates) into one",
-    )
-    p_merge.add_argument("--apply", action="store_true", help="perform the merge (default: report only, no writes)")
     p_into = sub.add_parser(
         "merge",
         help="fold ONE object into another (a twin under another name): plans, visits, outside ids, "
@@ -1460,49 +900,21 @@ async def _amain(argv: list[str]) -> int:
         "twins",
         help="list likely twins: a plan-less object whose derived buildings are another's (report only)",
     )
-    p_repair = sub.add_parser(
-        "repair-sharepoint-keys",
-        help="fold objects the SharePoint pull keyed on a whole «Adresse - Name» folder name onto the "
-        "convention the importer uses, and report every object without coordinates",
-    )
-    p_repair.add_argument("--apply", action="store_true", help="perform the repair (default: report only, no writes)")
-    p_repair.add_argument(
-        "--no-geocode",
-        action="store_true",
-        help="do not look addresses up at swisstopo (the dry run geocodes too, so its report says "
-        "which coordinates the objects would get)",
-    )
     p_geo = sub.add_parser(
         "geocode-missing",
         help="geocode every object that carries plans and has no coordinates (by its address, or "
         "by its name when it has none) — without them an object surfaces at no incident",
     )
     p_geo.add_argument("--apply", action="store_true", help="write the coordinates (default: report only, no writes)")
-    p_empty = sub.add_parser("remove-empty", help="delete objects with no plans and no references")
-    p_empty.add_argument("--apply", action="store_true", help="perform the deletion (default: report only, no writes)")
-    p_empty.add_argument(
-        "--name",
-        action="append",
-        default=[],
-        metavar="NAME",
-        help="also remove the object stored under this name, plans and all (repeatable) — for a "
-        "category folder an import read as an Einsatzobjekt, e.g. 'Grosspläne'",
-    )
 
     args = parser.parse_args(argv)
 
-    if args.cmd == "merge-duplicates":
-        return await _merge_duplicates(apply=args.apply)
     if args.cmd == "merge":
         return await _merge_into(args.loser, args.survivor, apply=args.apply)
     if args.cmd == "twins":
         return await _report_twins()
-    if args.cmd == "repair-sharepoint-keys":
-        return await _repair_sharepoint_keys(apply=args.apply, do_geocode=not args.no_geocode)
-    if args.cmd == "geocode-missing":
-        return await _geocode_missing(apply=args.apply)
-    # remove-empty
-    return await _remove_empty(apply=args.apply, names=args.name)
+    # geocode-missing
+    return await _geocode_missing(apply=args.apply)
 
 
 def main() -> None:

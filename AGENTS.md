@@ -45,7 +45,8 @@ Alembic, one service serving the frontend same-origin – **uv** ([`backend/READ
 
 - **Every change goes through a branch and a fully green PR**; nothing reaches `main` red. Branch
   protection requires the seven `ci.yml` checks (frontend, backend, image + e2e, secrets, visual,
-  performance, shared files). The one intended bypass is a 3am prod hotfix (`enforce_admins` is
+  performance, shared files) – «Visual» is advisory since 15.11.2026 (it reports a changed
+  screenshot, it does not fail on one), and «Performance» does not fail a Dependabot PR. The one intended bypass is a 3am prod hotfix (`enforce_admins` is
   off for that), after `just ci` locally. What each check runs and how to read a red one:
   [`docs/testing/ci.md`](docs/testing/ci.md).
 - **Sign off every commit** (`git commit -s`, DCO) with a Conventional Commits subject (git-cliff
