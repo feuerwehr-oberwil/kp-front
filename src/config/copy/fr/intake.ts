@@ -60,6 +60,17 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     reviewTitle: 'Vérifier les données de l’intervention',
     noLocationOnMap: 'Aucun lieu – placer sur la carte',
     ok: 'Ça convient',
+    alarmUpdate: {
+      title: 'Alarme mise à jour',
+      take: 'Reprendre',
+      takeSome: 'Reprendre : {fields}',
+      fields: { address: 'Adresse', title: 'Mot-clé', text: 'Message' },
+      keeps: '{field} reste',
+      byHand: '(modifié par vous)',
+      alarmNew: 'Nouveau selon l’alarme :',
+      taken: 'Intervention mise à jour',
+      failed: 'Non enregistré – connexion nécessaire, réessayer',
+    },
     // Libellés d'AFFICHAGE de la liste des catégories — la valeur soumise reste l'allemand.
     kategorienLabels: {
       'Brandbekämpfung': 'Lutte contre l\'incendie',

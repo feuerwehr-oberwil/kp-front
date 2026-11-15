@@ -6,7 +6,7 @@ import { getMeldeleisteHost, subscribeMeldeleisteHost } from '../lib/meldeleiste
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
-import { rankMeldungen, type Meldung } from '../lib/meldungen'
+import { rankMeldungen, type Meldung, type MeldungText } from '../lib/meldungen'
 import { getMeldungen, subscribeMeldungen } from '../lib/useMeldung'
 
 // ══ Die Meldeleiste ══════════════════════════════════════════════════════════════════════
@@ -90,7 +90,8 @@ export function Meldeleiste({ only }: { only?: (m: Meldung) => boolean } = {}) {
           <Icon id={m.icon} className="ml-ic" />
           <span className="ml-txt">
             <MeldungTitle m={m} />
-            {m.sub && <span className="ml-sub">{m.sub}</span>}
+            {m.sub && <span className="ml-sub"><MeldungSpans text={m.sub} /></span>}
+            {m.sub2 && <span className="ml-sub"><MeldungSpans text={m.sub2} /></span>}
           </span>
           <MeldungActions m={m} />
           <MeldungDismiss m={m} column={anyDismiss} />
@@ -135,6 +136,17 @@ function MeldungTitle({ m }: { m: Meldung }) {
       <span className="ml-title">{m.title}</span>
     </button>
   )
+}
+
+/** A sub-line's text with its emphasis (lib/meldungen · MeldungSpan) – `<ins>` new, `<del>`
+ *  replaced, `<b>` a value; 08-toasts styles them inside `.ml-sub`. The Einsatzdaten's «Alarm neu»
+ *  hint (EinsatzWizard · AlarmNew) writes the same spans. */
+export function MeldungSpans({ text }: { text: MeldungText }) {
+  if (typeof text === 'string') return text
+  return text.map((s, i) => (typeof s === 'string' ? s
+    : 'ins' in s ? <ins key={i}>{s.ins}</ins>
+    : 'del' in s ? <del key={i}>{s.del}</del>
+    : <b key={i}>{s.b}</b>))
 }
 
 /** The message's own buttons, at most two — THE button (`.ml-btn` is their handle and placement).

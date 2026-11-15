@@ -1,12 +1,16 @@
+import { useState } from 'react'
 import { shownAlarms } from '../../lib/diveraDismiss'
 import { useMeldung, useMeldungKindPending } from '../../lib/useMeldung'
 import { appConfig } from '../../config/appConfig'
 import { shortAddress } from '../../lib/deploymentConfig'
-import type { DiveraAlarm, IncidentMeta } from '../../lib/incidents'
+import { acceptAlarmUpdate, dismissAlarmUpdate, undoAlarmUpdate, type DiveraAlarm, type IncidentFull, type IncidentMeta } from '../../lib/incidents'
+import { alarmUpdateRow } from '../../lib/alarmUpdate'
+import { ApiError } from '../../lib/api'
+import { toast } from '../../lib/ui'
 import { realCoord } from './_shared'
 import { fmtWhen } from '../../lib/format'
 
-// ⚠️ None of the three below paints anything any more (23.08.). Each publishes ONE record into
+// ⚠️ None of the four below paints anything any more (23.08.). Each publishes ONE record into
 // the Meldeleiste — `{ id, kind, tone, title, sub, actions }` — and the strip decides which one
 // is read. They keep their names because App and IncidentWorkspace mount them where the state
 // they watch lives; what changed is that they no longer bring their own geometry, z-index and
@@ -66,6 +70,56 @@ export function IncomingAlarmBanner({ alarms, dismissed, taking, attachFirst, on
     sub: `${shortAddress(top.address) ?? ix.addressUnknown} · ${fmtWhen(top.received_at)}`,
     actions: actionsFor(top),
     dismiss: { label: ix.hide, onClick: () => onDismiss(top) },
+  })
+  return null
+}
+
+// --- «Alarm aktualisiert» row (decide, never overwrite) ------------------------------------
+// The Leitstelle sent a follow-up for the open Einsatz's own alarm (backend app/alarm_update). The
+// sibling of «Neuer Alarm» – same red bell, same row – showing old → new per field. «Übernehmen»
+// takes every changed field nobody edited by hand (the label names them when it is not all of
+// them), with «Rückgängig» on the toast; «Bearbeiten» opens the Einsatzdaten with the alarm's
+// value offered beside each field; ✕ hides it for EVERY device – one decision for the Einsatz.
+// All three are the server's (Verlauf row included) and need a connection: no outbox, because
+// the Einsatzdaten they change have none either; a failure says so and the row stays.
+export function AlarmUpdateBanner({ meta, onChanged, onEdit }: {
+  /** the open Einsatz as the list poll last served it – `alarm_update` set */
+  meta: IncidentMeta
+  /** the incident as the server now has it (App · reflectMeta) */
+  onChanged: (inc: IncidentFull) => void
+  onEdit: () => void
+}) {
+  const C = appConfig.copy.intake.alarmUpdate
+  const [busy, setBusy] = useState(false)
+  const update = meta.alarm_update
+  const run = async (call: () => Promise<IncidentFull>, done?: string) => {
+    if (busy) return
+    setBusy(true)
+    try {
+      onChanged(await call())
+      if (done) toast(done, { icon: 'check', tone: 'success', action: { label: appConfig.copy.undo, onClick: () => void run(() => undoAlarmUpdate(meta.id)) } })
+    } catch (e) {
+      toast(e instanceof ApiError && e.status !== 0 ? e.detail : C.failed, { icon: 'warn', tone: 'warn' })
+    } finally {
+      setBusy(false)
+    }
+  }
+  const row = update ? alarmUpdateRow(update, meta.title) : null
+  useMeldung(row == null ? null : {
+    // one row per pending update: a newer one replaces it in place
+    id: `alarm-update:${meta.id}`,
+    kind: 'alarm',
+    tone: 'alarm',
+    icon: 'bell',
+    title: row.title,
+    sub: row.sub,
+    sub2: row.sub2,
+    subLines: 2,
+    actions: [
+      { label: appConfig.copy.edit, icon: 'pen', disabled: busy, onClick: onEdit },
+      ...(row.takeLabel ? [{ label: row.takeLabel, icon: 'check', primary: true, busy, disabled: busy, onClick: () => void run(() => acceptAlarmUpdate(meta.id), C.taken) }] : []),
+    ],
+    dismiss: { label: appConfig.copy.intake.hide, onClick: () => void run(() => dismissAlarmUpdate(meta.id)) },
   })
   return null
 }

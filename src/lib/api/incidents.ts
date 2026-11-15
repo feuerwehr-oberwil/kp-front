@@ -32,11 +32,12 @@ export function closeTimeOf(i: Pick<IncidentMeta, 'closed_at' | 'last_closed_at'
  *  CURRENT close (D2, 25.09.2026) where `closed_at` keeps the first; `exercise_since_creation` =
  *  Übung since creation, never marked real — the only kind an editor may hard-delete;
  *  `editor_opened_at` / `capture_*` are the QR ↔ KP cross-visibility; `atemschutz_due` the
- *  Trupps of a running Einsatz at the alarm tier, list route only (lib/foreignAlarm). Those six
- *  are optional here because a list cached before they existed lacks them, and a meta read from
- *  any other route has no `atemschutz_due`. */
+ *  Trupps of a running Einsatz at the alarm tier, list route only (lib/foreignAlarm);
+ *  `alarm_update` the pending «Alarm aktualisiert» (backend app/alarm_update). Those seven are
+ *  optional here because a list cached before they existed lacks them, and a meta read from any
+ *  other route has no `atemschutz_due`. */
 export type IncidentMeta = CachedWithout<Out<'IncidentMeta'>,
-  'last_closed_at' | 'exercise_since_creation' | 'editor_opened_at' | 'capture_writes' | 'capture_last_at' | 'atemschutz_due'>
+  'last_closed_at' | 'exercise_since_creation' | 'editor_opened_at' | 'capture_writes' | 'capture_last_at' | 'atemschutz_due' | 'alarm_update'>
 export type IncidentFull = IncidentMeta & Pick<Out<'IncidentFull'>, 'text' | 'map_workspace_json' | 'details_json'>
 /** `started_at` is the Alarmierungszeit — backdatable so an analog incident can be nachgetragen. */
 export type IncidentCreate = In<'IncidentCreate'>
@@ -96,6 +97,18 @@ export const createIncident = (body: IncidentCreate) => apiPost<IncidentFull>('/
 // accepts it (and started_at) — the Einsatzdaten panel corrects both in place.
 export const patchIncident = (id: string, body: Partial<IncidentMeta> & { text?: string | null }) =>
   apiPatch<IncidentFull>(`/api/incidents/${id}`, body)
+/** «Alarm aktualisiert»: the pending Divera update of an open Einsatz (backend app/alarm_update).
+ *  Online only, like the Einsatzdaten panel they belong to – each answers with the incident as it
+ *  now stands, and the server writes the Verlauf row. */
+export type AlarmUpdate = NonNullable<Out<'IncidentMeta'>['alarm_update']>
+export type AlarmUpdateField = AlarmUpdate['fields'][number]
+/** take every changed field nobody edited by hand – or exactly `fields` */
+export const acceptAlarmUpdate = (id: string, fields?: AlarmUpdateField['field'][]) =>
+  apiPost<IncidentFull>(`/api/incidents/${id}/alarm-update/accept`, fields ? { fields } : {})
+/** hide it for every device of the Einsatz */
+export const dismissAlarmUpdate = (id: string) => apiPost<IncidentFull>(`/api/incidents/${id}/alarm-update/dismiss`, {})
+/** «Rückgängig» after a take: the old values back, the update pending again */
+export const undoAlarmUpdate = (id: string) => apiPost<IncidentFull>(`/api/incidents/${id}/alarm-update/undo`, {})
 export const archiveIncident = (id: string) => patchIncident(id, { is_archived: true })
 export const reactivateIncident = (id: string) => patchIncident(id, { is_archived: false })
 /** Hard delete — the backend only permits this for Übungen (403 otherwise). */

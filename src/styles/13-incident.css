@@ -2506,6 +2506,15 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 }
 .ip-loc-clear svg { width: 15px; height: 15px; }
 
+/* «Alarm neu: …» under a field a pending «Alarm aktualisiert» changes (EinsatzWizard · AlarmNew):
+   the alarm's value on the same amber wash the Meldeleiste row marks it with, its «Übernehmen»
+   at the right edge. A status box, so the one corner. */
+.ip-alarm-new { display: flex; align-items: center; gap: var(--sp-2); margin-top: 6px; padding: 4px 4px 4px 12px;
+  border-radius: var(--r-sm); background: color-mix(in srgb, var(--amber) 14%, var(--surface));
+  font: var(--fw-medium) var(--fs-1)/1.4 var(--body); color: var(--ink-dim); }
+.ip-alarm-new > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ip-alarm-new ins { text-decoration: none; font-weight: var(--fw-bold); color: var(--ink); }
+
 
 .ip-textarea { padding: 12px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: var(--surface); font: var(--fw-medium) var(--fs-3) var(--body); color: var(--ink); resize: vertical; }

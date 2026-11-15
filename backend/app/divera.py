@@ -18,7 +18,8 @@ history, not for a reason; only the HTTP client below is genuinely the Divera at
 Moving the matcher out is a separate change, and a noisier one than it looks.
 
 Improvement over kp-rueck: an existing pool alarm whose `ts_update` advanced gets its fields
-refreshed.
+refreshed – and if it is the alarm of an open Einsatz, the update waits on that Einsatz as
+«Alarm aktualisiert» (app/alarm_update).
 """
 
 import logging
@@ -31,7 +32,7 @@ import httpx
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import audit
+from . import alarm_update, audit
 from .alarm_keywords import SHIPPED, InvalidVocabularyError, Vocabulary, parse
 from .config import settings
 from .credentials import get as credential
@@ -279,7 +280,8 @@ async def upsert_emergency(db: AsyncSession, payload: DiveraWebhookPayload) -> D
     # whether a person has worked the Einsatz, and `editor_opened_at` is what answers
     # that now. Until someone has, the mirror keeps mirroring.
     worked = await _incident_is_confirmed(db, existing.taken_incident_id)
-    if payload.ts_update and (existing.ts_update or 0) < payload.ts_update and not worked:
+    advanced = bool(payload.ts_update) and (existing.ts_update or 0) < (payload.ts_update or 0)
+    if advanced and not worked:
         existing.title = payload.title or existing.title
         existing.text = payload.text
         existing.address = payload.address
@@ -290,6 +292,14 @@ async def upsert_emergency(db: AsyncSession, payload: DiveraWebhookPayload) -> D
         existing.ts_create = existing.ts_create or payload.ts_create
         existing.ts_update = payload.ts_update
         existing.raw_payload_json = payload.model_dump()
+    # «Alarm aktualisiert»: an update of the alarm an open Einsatz was opened FROM waits on that
+    # Einsatz for the crew's decision – worked or not, never applied by itself (app/alarm_update).
+    # Once the mirror above stops, every poll sees the stamp as advanced again; `record` keeps
+    # its own stamp and does nothing twice. An attached alarm's update stays a pool matter.
+    if advanced and existing.taken_incident_id is not None:
+        inc = await db.get(Incident, existing.taken_incident_id)
+        if inc is not None and inc.is_open and alarm_update.is_own_alarm(inc, payload.id):
+            await alarm_update.record(db, inc, payload)
     return None
 
 

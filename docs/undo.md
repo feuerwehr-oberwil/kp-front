@@ -15,6 +15,9 @@ it (`lib/undoTimeline`, `lib/undoKeys`). Moved here from AGENTS.md on 2026-10-08
   Deliberately NOT undoable: append-only records (Verlauf rows, audit events – corrections are
   new appended rows), device preferences (Ebenen, Einstellungen sheet) and server-side incident
   metadata (`PATCH /incidents`). Add undo for new mutations; don't skip it.
+  (One door into that metadata has its own inverse: taking an «Alarm aktualisiert» – its toast's
+  «Rückgängig» puts the old values back server-side and writes the counter-row, `backend/app/alarm_update ·
+  undo`. It is not on the ↶ timeline, like the rest of the Einsatzdaten.)
 
 ## One delete rule
 

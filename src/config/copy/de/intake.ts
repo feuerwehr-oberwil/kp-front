@@ -93,6 +93,22 @@ export const intakeCopy = {
     reviewTitle: 'Einsatzdaten prüfen',
     noLocationOnMap: 'Kein Standort – auf Karte setzen',
     ok: 'Passt',
+    // «Alarm aktualisiert» (15.11.2026, Mock Variante A): die Leitstelle meldet für ein offenes
+    // Einsatz nach. Nichts wird automatisch überschrieben – die Zeile zeigt alt → neu, die Mannschaft
+    // übernimmt, bearbeitet oder blendet aus (für alle Geräte). Banners · AlarmUpdateBanner.
+    alarmUpdate: {
+      title: 'Alarm aktualisiert',
+      take: 'Übernehmen',
+      // wenn ein Feld von Hand geändert wurde: der Knopf nennt, was er nimmt («Meldung übernehmen»)
+      takeSome: '{fields} übernehmen',
+      fields: { address: 'Adresse', title: 'Stichwort', text: 'Meldung' } as Record<string, string>,
+      // «Adresse bleibt Musterweg 14 (von euch) · Alarm neu: Musterweg 21»
+      keeps: '{field} bleibt',
+      byHand: '(von euch)',
+      alarmNew: 'Alarm neu:',
+      taken: 'Einsatz aktualisiert',
+      failed: 'Nicht gespeichert – braucht Verbindung, erneut versuchen',
+    },
     // The VKF Schadenkategorien are the SERVER's (`categoryLabels` on GET /api/config, from
     // backend app/divera.py CATEGORY_LABELS) – read through `incidentCategories()`.
     // DISPLAY labels for the category picker, keyed by the German category VALUE (the server's

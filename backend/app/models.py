@@ -205,6 +205,10 @@ class Incident(Base):
     details_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     map_workspace_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     workspace_rev: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # «Alarm aktualisiert» (15.11.2026): the latest Divera update of the alarm this Einsatz was
+    # opened from, waiting for the crew's decision – never applied by itself. Shape and rules:
+    # app/alarm_update. NULL = the alarm was never updated.
+    alarm_update_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -240,6 +244,22 @@ class Incident(Base):
         one, still ends it immediately.
         """
         return lifecycle_open(self.is_archived, self.status)
+
+    @property
+    def alarm_update(self) -> dict | None:
+        """The served half of `alarm_update_json` (schemas · IncidentMeta): only a PENDING
+        update with something left to decide – taken, hidden or empty is nothing to show."""
+        rec = self.alarm_update_json
+        if not isinstance(rec, dict) or rec.get("state") != "pending" or not rec.get("fields"):
+            return None
+        alarm = rec["alarm"]
+        return {
+            "at": rec["at"],
+            "title": alarm.get("title"),
+            "lat": alarm.get("lat"),
+            "lng": alarm.get("lng"),
+            "fields": rec["fields"],
+        }
 
 
 def lifecycle_open(is_archived: bool, status: str) -> bool:

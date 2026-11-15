@@ -776,6 +776,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/incidents/{incident_id}/alarm-update/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Alarm Update
+         * @description Take the pending update: every changed field nobody edited by hand, or `fields`.
+         */
+        post: operations["accept_alarm_update_api_incidents__incident_id__alarm_update_accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/incidents/{incident_id}/alarm-update/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss Alarm Update
+         * @description ✕ on the row: hidden for every device of this Einsatz, not just the one that tapped.
+         */
+        post: operations["dismiss_alarm_update_api_incidents__incident_id__alarm_update_dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/incidents/{incident_id}/alarm-update/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo Alarm Update
+         * @description «Rückgängig» after a take: the overwritten values back, the update pending again.
+         */
+        post: operations["undo_alarm_update_api_incidents__incident_id__alarm_update_undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/incidents/{incident_id}/view-link": {
         parameters: {
             query?: never;
@@ -4515,6 +4575,54 @@ export interface components {
             created: boolean;
         };
         /**
+         * AlarmUpdateAccept
+         * @description Body of POST …/alarm-update/accept. No `fields` = every changed field nobody edited by
+         *     hand; a list = exactly those (the crew chose them).
+         */
+        AlarmUpdateAccept: {
+            /** Fields */
+            fields?: ("title" | "address" | "text")[] | null;
+        };
+        /**
+         * AlarmUpdateField
+         * @description One field a pending alarm update would change (app/alarm_update).
+         */
+        AlarmUpdateField: {
+            /**
+             * Field
+             * @enum {string}
+             */
+            field: "title" | "address" | "text";
+            /** Current */
+            current?: string | null;
+            /** Alarm */
+            alarm?: string | null;
+            /**
+             * Edited
+             * @default false
+             */
+            edited?: boolean;
+        };
+        /**
+         * AlarmUpdateOut
+         * @description «Alarm aktualisiert»: the pending Divera update of this Einsatz's own alarm.
+         */
+        AlarmUpdateOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Title */
+            title?: string | null;
+            /** Lat */
+            lat?: number | null;
+            /** Lng */
+            lng?: number | null;
+            /** Fields */
+            fields: components["schemas"]["AlarmUpdateField"][];
+        };
+        /**
          * AlarmVocabularyStatus
          * @description Which vocabulary is running, on the public GET — so «what classifies our alarms» is
          *     answerable with one request instead of a database session.
@@ -5825,6 +5933,7 @@ export interface components {
              * @default []
              */
             atemschutz_due?: components["schemas"]["AtemschutzDue"][];
+            alarm_update?: components["schemas"]["AlarmUpdateOut"] | null;
             /** Text */
             text?: string | null;
             /** Details Json */
@@ -5922,6 +6031,7 @@ export interface components {
              * @default []
              */
             atemschutz_due?: components["schemas"]["AtemschutzDue"][];
+            alarm_update?: components["schemas"]["AlarmUpdateOut"] | null;
         };
         /**
          * IncidentPatch
@@ -9369,6 +9479,109 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_alarm_update_api_incidents__incident_id__alarm_update_accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AlarmUpdateAccept"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentFull"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_alarm_update_api_incidents__incident_id__alarm_update_dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentFull"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    undo_alarm_update_api_incidents__incident_id__alarm_update_undo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentFull"];
                 };
             };
             /** @description Validation Error */

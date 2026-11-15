@@ -23,6 +23,7 @@ import {
   type GeoHit,
   type IncidentCreate,
   type IncidentFull,
+  type AlarmUpdateField,
   type IncidentMeta,
   type ObjectWithPlans,
 } from '../../lib/incidents'
@@ -31,6 +32,9 @@ import { SearchField } from '../SearchField'
 import { pointAtField } from '../../lib/pointAtField'
 import { objectPicklistSub } from '../../lib/karte/places'
 import { clearDraft, keepDraft, readDraft } from '../../lib/draftKeep'
+import { markNew } from '../../lib/alarmUpdate'
+import { Button } from '../Button'
+import { MeldungSpans } from '../Meldeleiste'
 
 // --- Einsatz eröffnen / Einsatzdaten korrigieren -------------------------------------
 // `ix` (appConfig.copy.intake) is read inside each function below rather than captured at
@@ -99,6 +103,21 @@ function wizardDraft(now: WizardFields, opened: WizardFields): WizardFields | nu
   return same ? null : now
 }
 
+/** «Alarm neu: …» under a field a pending «Alarm aktualisiert» changes (Banners ·
+ *  AlarmUpdateBanner → «Bearbeiten»): one tap puts the alarm's value into the field – saving stays
+ *  the operator's. Gone once the field holds it. */
+function AlarmNew({ field, value, onTake }: { field: AlarmUpdateField | undefined; value: string; onTake: (v: string) => void }) {
+  const alarm = field?.alarm
+  if (alarm == null || alarm.trim() === value.trim()) return null
+  const C = appConfig.copy.intake.alarmUpdate
+  return (
+    <div className="ip-alarm-new">
+      <span>{C.alarmNew} <MeldungSpans text={markNew(field?.current ?? '', alarm)} /></span>
+      <Button onClick={() => onTake(alarm)}>{C.take}</Button>
+    </div>
+  )
+}
+
 export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   /** existing incident to correct in place (PATCH) instead of creating; null = manual create */
   edit?: IncidentMeta | null
@@ -108,6 +127,8 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   onCreated: (inc: IncidentFull) => void
 }) {
   const ix = appConfig.copy.intake // read per-render so the resolved locale applies
+  // a pending «Alarm aktualisiert» offers the alarm's value beside each field it changes
+  const alarmNew = (f: AlarmUpdateField['field']) => edit?.alarm_update?.fields.find((x) => x.field === f)
   // ⚠️ An outside tap, a swipe down, Esc or the ✕ close this sheet, and they used to take the
   // address, Stichwort, Kategorie, Alarmzeit and Alarmmeldung with them (sweep 09.11.2026, UX.5).
   // What differs from what the sheet opened with is kept like the composer's draft and seeds the
@@ -457,6 +478,15 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
         )}
       </div>
 
+      <AlarmNew field={alarmNew('address')} value={address} onTake={(v) => {
+        setAddress(v); setAddrOpen(false)
+        // the pin comes along: the alarm's own coordinate, else the first hit for the address
+        const u = edit?.alarm_update
+        const c = realCoord(u?.lng, u?.lat)
+        if (c) setCoord(c)
+        else geocodeSearch(v).then((h) => { if (h[0]) setCoord([h[0].lng, h[0].lat]) }).catch(() => {})
+      }} />
+
       <div className="ip-ix-methods">
         {/* it FOLDS the object list open — so it says so, and the `.on` state is not the only
             thing a screen reader has to go on */}
@@ -519,6 +549,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
             opening with the keyboard up over the Stichwort field would be in the way */}
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={ix.titlePlaceholder} />
       </label>
+      <AlarmNew field={alarmNew('title')} value={title} onTake={setTitle} />
       <div className="ip-field"><span>{ix.categoryLabel}</span>
         {/* themed Combo instead of the OS select; options are display labels, the stored
             value stays the (German) kategorie key — mapped back on change */}
@@ -559,6 +590,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           onChange={(e) => { textTouched.current = true; setText(e.target.value) }}
           placeholder={textFailed ? ix.alarmTextUnavailable : ix.detailsPlaceholder} />
       </label>
+      {textReady && <AlarmNew field={alarmNew('text')} value={text} onTake={(v) => { textTouched.current = true; setText(v) }} />}
 
       {demoBlocked && <p ref={demoRef} className="ip-demo-block"><Icon id="info" /> {ix.demoBlocked}</p>}
     </Modal>

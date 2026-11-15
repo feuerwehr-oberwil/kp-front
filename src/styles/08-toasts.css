@@ -122,6 +122,12 @@
    lines, then the ellipsis, the title's own clamp */
 .ml-row.sub2 .ml-sub { white-space: normal; overflow-wrap: anywhere;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+/* a sub-line's emphasis (lib/meldungen · MeldungSpan) – «Alarm aktualisiert»: what is new on an
+   amber wash in the ink, what it replaces struck through and faint, a value to read in the ink */
+.ml-sub ins { text-decoration: none; font-weight: var(--fw-bold); color: var(--ink); border-radius: 4px; padding: 0 3px;
+  background: color-mix(in srgb, var(--amber) 26%, transparent); box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.ml-sub del { color: var(--ink-faint); text-decoration-thickness: 1.5px; }
+.ml-sub b { color: var(--ink); }
 /* the title as the row's way in: a LINK, not a button. No border, no fill, the same type as an
    inert title — a title first and a destination second, which is what «In Verlauf öffnen» stopped
    being the moment it was a third button beside Erledigt and +10 min.
