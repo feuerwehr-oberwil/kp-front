@@ -1783,6 +1783,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       spArea: 'Area',
       spLastSuccess: 'Last successful',
       spCounts: '{imported} imported · {skipped} skipped · {missing} gone from SharePoint',
+      spNoCoords: '{count} object(s) with plans but no coordinates – those plans appear at no incident. Set the position under «Object plans»; «admin_objects_repair geocode-missing» places many at once (docs/AGENT-RUNBOOK.md).',
       spSyncNow: 'Sync now',
       spSyncing: 'Syncing …',
       spProgressFiles: '{area} · {done} of {total} files',

@@ -221,38 +221,32 @@ is what writes.**
 
 ```bash
 uv run python -m app.admin_objects show                           # what is stored, with plan counts
-uv run python -m app.admin_objects_repair merge-duplicates        # fold NFD/NFC twins + exact duplicates
 uv run python -m app.admin_objects_repair twins                   # likely twins under another name (report only, always)
 uv run python -m app.admin_objects_repair merge <loser-id> --into <survivor-id>   # fold ONE such twin
-uv run python -m app.admin_objects_repair remove-empty            # objects with no plans and no references
-uv run python -m app.admin_objects_repair repair-sharepoint-keys  # fold pre-2026-09-11 whole-folder-key twins
 uv run python -m app.admin_objects_repair geocode-missing         # place plan-carrying objects without coordinates
 ```
 
-- `merge-duplicates` is the fix for the twins a Mac-run import mints: macOS writes decomposed
-  (NFD) filenames, so «Bürgerhaus» arrives a second time under a byte-different name. The
-  survivor also moves onto the NFC id, so the next SharePoint sync finds it instead of minting a
-  third.
-- `merge <loser-id> --into <survivor-id>` folds a twin under ANOTHER name that a person has
-  identified (review round 3, 17.10.2026: the plan-less «Stallenmattstrasse 2-14, Kaibmattweg 1-5
-  (EH)» onto the plan library's «… 1-14 …»). Same plans/calibration/incident/visit/outside-id
-  handling as `merge-duplicates`, plus the loser's «Lage korrigieren» history; the survivor keeps
-  its own name, position and outline choice, and the loser's name and folder become aliases on it
+- `merge <loser-id> --into <survivor-id>` folds a twin that a person has identified (review
+  round 3, 17.10.2026: the plan-less «Stallenmattstrasse 2-14, Kaibmattweg 1-5 (EH)» onto the plan
+  library's «… 1-14 …»). Plans, calibration, picked-object references, visits, outside ids and the
+  loser's «Lage korrigieren» history move over; a plan slot both hold with different bytes stops
+  the merge with nothing written. The survivor keeps its own name, position and outline choice,
+  and the loser's name and folder become aliases on it
   (`object_visits.ALIAS_SOURCE`, `:alias` refs no organizer can see or write): the viewer's search
   finds the old name, and an organizer push under that folder/name resolves to the survivor
   instead of minting the twin again. The dry run prints where the loser came from
   (`source_note`), its outside ids, visits and corrections. `twins` lists candidates: a plan-less
   object whose derived buildings (`object_footprints`) are mostly another object's, or whose point
   lies in one — with the dry-run command for each.
-- `repair-sharepoint-keys` folds the other twin class: objects a pre-2026-09-11 SharePoint sync
-  keyed on the whole «Adresse - Name» folder string. Each bare copy merges into the older, richer
-  object (newest sheet per slot wins), survivors are re-keyed onto the corrected convention, and
-  what it splits out is geocoded.
 - `geocode-missing` places every object that carries plans but no coordinates – by its address,
   or by its name where there is none. An object without a position is offered at **no** incident,
-  so its plans are reachable by nobody; both commands end with that census.
-- `remove-empty --name '<name>'` additionally deletes a named object, plans and all – for a
-  category folder («Grosspläne») an import read as an Einsatzobjekt.
+  so its plans are reachable by nobody; the command ends with that census, and the SharePoint
+  card on `/admin` → System shows the same count. What it cannot place, a person positions in
+  `/admin` → Objektpläne.
+- The one-off folds of the twins minted before 11.09.2026 (`merge-duplicates`,
+  `repair-sharepoint-keys`, `remove-empty`) were removed on 15.11.2026. A deployment that synced
+  SharePoint before that date and never ran them runs them from release 0.12.0 first (there
+  they are `python -m app.admin_objects <cmd>`).
 - **The verification is a second dry run.** Re-run without `--apply` after applying; a clean
   report is the confirmation. There is no undo.
 - ⚠️ **Eyeball a geocoding dry run, do not just count it.** A range address («Hauptstrasse

@@ -51,14 +51,14 @@ const C = appConfig.copy.admin.system
 
 interface Area {
   area: string; path: string; site: string | null
-  status: string; detail: string | null
+  status: string; detail: string | null; objectsWithoutCoordinates: number
   imported: number; skipped: number; missing: number
   lastRunAt: string | null; lastSuccessAt: string | null
 }
 
 const area = (over: Partial<Area>): Area => ({
   area: 'plans', path: 'kp-data/plans', site: 'https://x.sharepoint.com/sites/kp',
-  status: 'ok', detail: null, imported: 3, skipped: 1, missing: 0,
+  status: 'ok', detail: null, objectsWithoutCoordinates: 0, imported: 3, skipped: 1, missing: 0,
   lastRunAt: '2026-09-09T08:00:00Z', lastSuccessAt: '2026-09-09T08:00:00Z', ...over,
 })
 
@@ -204,6 +204,18 @@ describe('the per-area read-out', () => {
     render(<SystemView />)
 
     expect(await screen.findByText(C.spStates.refused!)).toBeTruthy()
+  })
+
+  // every plan arrived, so the run is `ok` – but plans under an object without coordinates
+  // surface at no Einsatz, and the card has to say so (and what fixes it)
+  it('says how many objects carry plans but no coordinates', async () => {
+    serve({
+      configured: true, credentials: true, intervalMinutes: 60, secretExpiresInDays: null,
+      areas: [area({ objectsWithoutCoordinates: 2 })],
+    })
+    render(<SystemView />)
+
+    expect(await screen.findByText(fillTemplate(C.spNoCoords, { count: '2' }))).toBeTruthy()
   })
 })
 
