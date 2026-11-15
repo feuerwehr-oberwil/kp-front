@@ -182,14 +182,15 @@ check` against the models); image, secrets, e2e, visual and perf stay CI's.
   24.09.2026). A spec imports `test` from `e2e/helpers`, never from `@playwright/test` (eslint
   enforces it). A report a test provokes on purpose is listed with `expectedClientErrors`;
   nothing turns the guard off.
-- **The look is gated too.** CI's «Visual» job shoots sixteen frozen states and compares them with
-  `e2e/visual/baseline/` (`maxDiffPixels: 20`). A changed pixel you did not mean is a regression;
+- **The look is checked, advisory.** CI's «Visual» job shoots sixteen frozen states and compares them with
+  `e2e/visual/baseline/` (`maxDiffPixels: 20`); since 15.11.2026 a difference is a warning with
+  the pictures attached, not a red check. A changed pixel you did not mean is still a regression;
   a look you changed on purpose gets new baselines from CI (`just visual-accept <run-id>`) in its
   own commit, saying why – never to turn the check green, never shot on a laptop
   ([`visual-regression.md`](visual-regression.md)).
 - **Performance is gated too.** CI's «Performance» job walks real user journeys on the busiest
   Einsatz on record and fails on regressions against `e2e/perf/baseline.json`; a red check
-  blocks the merge like a failing test, and a baseline is never accepted (nor a tolerance
+  blocks the merge like a failing test (except on a Dependabot PR, where it only reports), and a baseline is never accepted (nor a tolerance
   loosened) to turn it green. The rules for an agent are in
   [`perf-journeys.md`](perf-journeys.md#the-gate-is-part-of-done); read it before adding or
   changing a journey.
@@ -216,8 +217,8 @@ The required checks retain their names, so branch protection needs no migration:
 | Frontend (tsc + build) | Requires both static/build checks and the complete coverage run; they start in parallel. |
 | Backend (ruff + alembic + pytest) | Locked Python install, real PostgreSQL, migrations/schema check, four-worker pytest and audits. |
 | Image (hadolint + build + smoke) | Requires the image build and all three isolated browser suites. Builds the real production image once, then drives every e2e spec against it except the journeys and screenshots – among them the white-screen smoke (`e2e/smoke.spec.ts`) and the field scenario of the Übung on 23.09.2026 (`e2e/field-scenario.spec.ts`: a parked vehicle sending GPS, a coupled Leitung, a tapped Trupp, and then three devices on one login). |
-| Visual (screenshots vs baseline) | Loads that run's image into its own stack; unchanged screenshot thresholds. |
-| Performance (user journeys vs baseline) | Loads that run's image into its own stack; unchanged journeys, calibration, confirmation and budgets. |
+| Visual (screenshots vs baseline) | Loads that run's image into its own stack; unchanged screenshot thresholds. Advisory: a difference warns and uploads the pictures, only a failed stack fails it. |
+| Performance (user journeys vs baseline) | Loads that run's image into its own stack; unchanged journeys, calibration, confirmation and budgets. Reports without failing on a Dependabot PR. |
 | Secrets (gitleaks) | Scans the tracked tree. |
 | Shared files match KP Rück | Compares the shared manifest against the paired/default sibling branch. |
 
