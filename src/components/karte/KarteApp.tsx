@@ -482,9 +482,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // the tablet's left rail is always there (owner, 19.10.2026): Karte · Checkliste, then the plans
   const railShown = !phone
   const tabletTools = [
-    { id: 'pin', icon: 'pin', label: C.tools.pin },
+    { id: 'pin', icon: 'pin', label: C.tools.pin, short: C.tools.pinShort },
     { id: 'measure', icon: 'measure', label: C.tools.measure },
-    { id: 'erg', icon: 'warn', label: C.tools.erg },
+    { id: 'erg', icon: 'warn', label: C.tools.erg, short: C.tools.ergShort },
   ]
   // «Beschriftung» from the Einstellungen, live (App's settings sheet sits over this surface): the
   // word under the glyph on all three bars and the view bar, as in an Einsatz (owner, 07.11.2026)
@@ -842,7 +842,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
                 <div className={cx('nav-sep', s.barSep)} aria-hidden />
                 {(['measure', 'erg', 'layers'] as const).map((t) => (
                   <button key={t} type="button" className={cx('nav-item', tool === t && 'on')} aria-pressed={tool === t} aria-label={C.tools[t]} onClick={() => openPhoneTool(t)}>
-                    <span className="nav-glyph"><Icon id={t === 'erg' ? 'warn' : t} /></span><span className="nav-label">{C.tools[t]}</span>
+                    <span className="nav-glyph"><Icon id={t === 'erg' ? 'warn' : t} /></span><span className="nav-label">{t === 'erg' ? C.tools.ergShort : C.tools[t]}</span>
                   </button>
                 ))}
               </div></div>
@@ -867,7 +867,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
                 { type: 'toggle', icon: 'measure', label: appConfig.copy.measure.modeLine, on: measure.mode === 'line', onClick: () => measure.setMode('line') },
                 { type: 'toggle', icon: 'area', label: appConfig.copy.measure.modeArea, on: measure.mode === 'area', onClick: () => measure.setMode('area') },
               ],
-              [{ type: 'action', icon: 'trash', label: appConfig.copy.measure.clear, disabled: !measure.path.length, onClick: () => measure.setPath(() => []) }],
+              [{ type: 'action', icon: 'trash', label: appConfig.copy.measure.clear, short: appConfig.copy.measure.clearShort, disabled: !measure.path.length, onClick: () => measure.setPath(() => []) }],
               [{ type: 'info', text: appConfig.copy.dockHints.measure }],
             ]} />
             {/* temporary by construction: no «Als Linie/Fläche übernehmen» (no onAdopt) — and no

@@ -176,7 +176,7 @@ export function MapToolDocks({
           // on the tool's own dock, its absence would read as a tool that lost a button.
           [{
             // its OWN glyph (29.09.2026, T8), not the lens the Suche's tile wears right below
-            type: 'action', icon: 'trupp-find', label: appConfig.copy.truppFinder.title,
+            type: 'action', icon: 'trupp-find', label: appConfig.copy.truppFinder.title, short: appConfig.copy.truppFinder.titleShort,
             disabled: placed.length === 0, onClick: () => setFindTruppOpen(true),
           }],
           [{ type: 'info', text: appConfig.copy.dockHints.team }],
@@ -195,7 +195,7 @@ export function MapToolDocks({
             { type: 'toggle', icon: 'measure', label: appConfig.copy.measure.modeLine, on: measure.mode === 'line', onClick: () => measure.setMode('line') },
             { type: 'toggle', icon: 'area', label: appConfig.copy.measure.modeArea, on: measure.mode === 'area', onClick: () => measure.setMode('area') },
           ],
-          [{ type: 'action', icon: 'trash', label: appConfig.copy.measure.clear, disabled: !measure.path.length, onClick: () => measure.setPath(() => []) }],
+          [{ type: 'action', icon: 'trash', label: appConfig.copy.measure.clear, short: appConfig.copy.measure.clearShort, disabled: !measure.path.length, onClick: () => measure.setPath(() => []) }],
           [{ type: 'info', text: appConfig.copy.dockHints.measure }],
         ]} />
       )}
@@ -207,7 +207,7 @@ export function MapToolDocks({
             label: appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel }],
           // a two-point shape is placed by naming two places, so «mehrere nacheinander» has no
           // meaning for it — the «Mehrere platzieren» toggle is simply not offered
-          ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'place-repeat', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
+          ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'place-repeat', label: appConfig.copy.keepPlacing, short: appConfig.copy.keepPlacingShort, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
           // …and the hint says which of the two taps is due
           [{ type: 'info', text: !SHAPE_TWO_POINT[pendingShape] ? appConfig.copy.dockHints.shape
             : rotStart ? appConfig.copy.dockHints.rotationEnd : appConfig.copy.dockHints.rotationStart }],

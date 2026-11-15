@@ -348,11 +348,11 @@ function KarteFloors({ obj, partOffline }: { obj: StationObject; partOffline: bo
     })
     return () => { alive = false }
   }, [obj.plans])
-  if (failed) return <div className={s.floors}><div className={s.note}><Icon id="warn" /><span>{C.floorsFailed}</span></div></div>
+  if (failed) return <div className={s.floors}><div className="form-warn form-warn-amber"><Icon id="warn" /><span className="form-warn-text">{C.floorsFailed}</span></div></div>
   if (!drawings) return <div className={s.floors}><div className={s.floorWait}><ShellLoader /></div></div>
   return (
     <div className={s.floors}>
-      {partOffline && <div className={cx(s.note, s.amber)}><Icon id="warn" /><span>{C.floorsPartOffline}</span></div>}
+      {partOffline && <div className="form-warn form-warn-amber"><Icon id="warn" /><span className="form-warn-text">{C.floorsPartOffline}</span></div>}
       {drawings.map((d) => (
         <section key={d.key} className={s.floor}>
           <div className={s.floorHead}>{floorLabel(d.index)}{d.name && <small>{d.name}</small>}</div>

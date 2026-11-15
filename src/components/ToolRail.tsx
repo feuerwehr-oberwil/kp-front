@@ -13,6 +13,9 @@ export interface ToolDef {
   id: string
   icon: string
   label: string
+  /** the tile's word where `label` does not fit a tile (the phone's «+» tile, a translation on the
+   *  tablet's column; round 15.11.2026 r2) – `label` stays the title and accessible name */
+  short?: string
   /** render a group divider instead of a button */
   sep?: boolean
   /** render the `primary` (Symbol) button at this position instead of pinning it to the top */
@@ -132,7 +135,7 @@ export function ToolRail({ primary, tools, active, open = false, onPick, toolRef
         onClick={() => onPick(target)}
         {...toolAnchor('tool', t.id)}
       >
-        <span className="vrail-glyph"><Icon id={shown.icon} /></span><span className="vrail-label">{shown.label}</span>
+        <span className="vrail-glyph"><Icon id={shown.icon} /></span><span className="vrail-label">{alt?.label ?? t.short ?? t.label}</span>
         {keyHint(shown.id)}
       </button>
     )
@@ -181,7 +184,7 @@ export function ToolRail({ primary, tools, active, open = false, onPick, toolRef
                 onClick={() => onPick(primary.id)}
                 {...tut('tool.add')}
               >
-                <span className="vrail-glyph"><Icon id={face?.icon ?? primary.icon} /></span><span className="vrail-label">{label}</span>
+                <span className="vrail-glyph"><Icon id={face?.icon ?? primary.icon} /></span><span className="vrail-label">{face?.short ?? label}</span>
                 {keyHint(primary.id)}
               </button>
             )

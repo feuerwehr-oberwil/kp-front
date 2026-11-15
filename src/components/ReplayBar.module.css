@@ -125,8 +125,9 @@
    is the figure that gets read out in a debrief, not reference furniture. */
 .replay-elapsed { flex: 1; text-align: center; color: var(--ink); font-weight: var(--fw-bold); }
 /* «übersprungen 2 h 14» — takes the Einsatzuhr's centre slot while a jump is announced, so it
-   has a fixed position and a fixed width budget instead of riding the handle off the edge. */
-.replay-skipnote { flex: 1; text-align: center; color: var(--blue); font-weight: var(--fw-bold);
+   has a fixed position and a fixed width budget instead of riding the handle off the edge.
+   Ink-dim, never the blue of «chosen» (style sweep T2, 15.11.2026). */
+.replay-skipnote { flex: 1; text-align: center; color: var(--ink-dim); font-weight: var(--fw-bold);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Break durations live off the rail, in their own row, centred under the break they describe —
    so a long label can never squeeze the thing it is describing. */

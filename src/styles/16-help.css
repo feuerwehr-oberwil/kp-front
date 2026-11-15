@@ -59,16 +59,18 @@
 @media (prefers-reduced-motion: reduce) { .help-content { scroll-behavior: auto; } }
 .help-sec { padding-top: var(--sp-5); scroll-margin-top: 12px; }
 .help-sec > h3 { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-2); font-size: var(--fs-3); font-weight: var(--fw-heavy); color: var(--ink); }
-.help-sec > h3 .i { width: 19px; height: 19px; color: var(--blue); }
+/* the section glyphs, bullets and the note's ⓘ are decoration: ink-dim, never the blue of «chosen»
+   (style sweep T2, owner pick A, 15.11.2026) */
+.help-sec > h3 .i { width: 19px; height: 19px; color: var(--ink-dim); }
 /* «▶ Ausprobieren · Trupps · 6 Min. ›» under a section title (owner pick H = A, 05.11.2026): THE
    button (secondary, 44px), side by side where they fit, each on its own line where not; the
-   glyph blue like the heading's, the tutorial and its minutes quiet after the verb */
+   glyph ink-dim like the heading's, the tutorial and its minutes quiet after the verb */
 .help-try { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: 0 0 var(--sp-3); }
 .help-try > .ip-btn { max-width: 100%; }
 /* a phone column is too narrow for two side by side: one button per line, the whole width, the
    words from the start */
 @media (max-width: 720px) { .help-try > .ip-btn { flex: 1 1 100%; justify-content: flex-start; } .help-try-chev { margin-left: auto; } }
-.help-try > .ip-btn > .i:first-child { width: 14px; height: 14px; color: var(--blue); }
+.help-try > .ip-btn > .i:first-child { width: 14px; height: 14px; color: var(--ink-dim); }
 /* said whole, never «Atemschutznotfall · 4 …»: where the line is short it wraps inside the button,
    which grows past its 44px floor (min-height) */
 .help-try-what { min-width: 0; text-align: left; padding-block: var(--sp-1); font-weight: var(--fw-medium); color: var(--ink-dim); }
@@ -77,12 +79,12 @@
 .help-sub { margin: var(--sp-4) 0 var(--sp-2); font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); }
 .help-list { margin: var(--sp-1) 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); }
 .help-list li { position: relative; padding-left: var(--sp-4); font-size: var(--fs-2); line-height: 1.5; color: var(--ink); }
-.help-list li::before { content: ""; position: absolute; left: 3px; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: var(--blue); }
+.help-list li::before { content: ""; position: absolute; left: 3px; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-dim); }
 .help-list b { font-weight: var(--fw-bold); }
 .help-kbd { font-family: var(--mono); font-size: var(--fs-micro); background: var(--fill-soft); border: 1px solid var(--border); border-radius: var(--r-xs); padding: 1px var(--sp-1); color: var(--ink); white-space: nowrap; }
 .help-note { display: flex; gap: var(--sp-2); margin: var(--sp-3) 0 2px; padding: var(--sp-3); border-radius: var(--r-ctl); background: var(--fill-soft);
   border: 1px solid var(--border); font-size: var(--fs-1); line-height: 1.5; color: var(--ink-dim); }
-.help-note .i { width: 16px; height: 16px; flex: none; color: var(--blue); margin-top: 1px; }
+.help-note .i { width: 16px; height: 16px; flex: none; color: var(--ink-dim); margin-top: 1px; }
 
 @media (max-width: 720px) {
   .help-scrim { padding: 0; }

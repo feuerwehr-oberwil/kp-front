@@ -1061,7 +1061,7 @@ export function AnwesenheitView({
                   <RankBadge rank={p.rank} />
                   {/* somebody recorded for this Einsatz only — the badge sits where a Grad would,
                       so the row still reads «who is this» before it reads the name */}
-                  {p.guest && <span className={cx(s.rank, s.guestBadge)}>{A.guestBadge}</span>}
+                  {p.guest && <span className="ip-badge ip-badge-arch">{A.guestBadge}</span>}
                   <span className={s.name}>{p.displayName}</span>
                   {/* ⚠️ NO remark text in the row. It was shown here so it would not be
                       forgotten — and it took the width away from the NAME («Anna Me…»), which is
@@ -1134,7 +1134,7 @@ export function AnwesenheitView({
           {guestOffer && (
             <div className={s.person}>
               <button type="button" className={s.personMain} onClick={addGuest}>
-                <span className={cx(s.rank, s.guestBadge)}>{A.guestBadge}</span>
+                <span className="ip-badge ip-badge-arch">{A.guestBadge}</span>
                 <span className={s.name}>{fillTemplate(A.addGuest, { name: guestOffer })}</span>
               </button>
             </div>

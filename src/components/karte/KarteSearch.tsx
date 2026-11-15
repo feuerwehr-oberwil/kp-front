@@ -61,7 +61,7 @@ export function KarteSearch({ query, hits, nearest, addresses, addrState, onPick
         <>
           <div className={s.grp}>{C.searchAddresses}</div>
           {addrState === 'offline' ? <div className={s.note}><Icon id="info" /><span>{C.searchOffline}</span></div>
-            : addrState === 'error' ? <div className={s.note}><Icon id="warn" /><span>{C.searchFailed}</span></div>
+            : addrState === 'error' ? <div className="form-warn form-warn-amber form-warn-compact"><Icon id="warn" /><span className="form-warn-text">{C.searchFailed}</span></div>
               : addrState === 'short' ? <div className={s.quiet}>{C.searchMinChars}</div>
                 : addrState === 'loading' && !addresses.length ? <div className={s.skeleton} />
                   : addresses.length ? (

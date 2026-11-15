@@ -27,9 +27,9 @@ import {
   type ObjectWithPlans,
 } from '../../lib/incidents'
 import { Modal, realCoord } from './_shared'
-import { SearchField } from '../SearchField'
+import { ListGroup, ListRow } from '../ListRow'
 import { pointAtField } from '../../lib/pointAtField'
-import { objectPicklistSub } from '../../lib/karte/places'
+import { objectPicklistSub, splitAddress } from '../../lib/karte/places'
 import { clearDraft, keepDraft, readDraft } from '../../lib/draftKeep'
 
 // --- Einsatz eröffnen / Einsatzdaten korrigieren -------------------------------------
@@ -37,7 +37,8 @@ import { clearDraft, keepDraft, readDraft } from '../../lib/draftKeep'
 // module-load, so the locale resolved at boot (config/copy) applies.
 //
 // Two jobs, one panel: a blank MANUAL create (four location methods, all on the address field —
-// address autocomplete · object library · map-pick · «Hier» GPS), and correcting an EXISTING incident in place. There is
+// ONE list under it for the typed objects and addresses · map-pick · «Hier» GPS), and correcting an
+// EXISTING incident in place. There is
 // no third «take the alarm» mode any more: an alarm opens its Einsatz on arrival (2026-08-02),
 // so this panel is where the expert fixes what the dispatch got wrong — Stichwort, Kategorie,
 // Priorität, Ort — with the crew already on the map instead of waiting behind a wizard.
@@ -180,11 +181,18 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     lat: realCoord(edit.lng, edit.lat)?.[1] ?? null,
   } as Record<string, unknown> : null).current
 
-  // address autocomplete
+  // THE list under the address field (owner 15.11.2026, round 2: «objekt oder adresse suchen
+  // should just be in-line with the normal search bar»): typing shows the matching Feuerwehrpläne
+  // objects AND the geocoder's addresses in one menu, objects first – the Karte & Objekte search
+  // is the model (karte/KarteSearch). The object picker's own search field and fold are gone.
+  // `browse` = opened by «Aus Plänen» on an EMPTY field: the whole library, «In der Nähe» first.
+  const [menu, setMenu] = useState<'closed' | 'typing' | 'browse'>('closed')
   const [hits, setHits] = useState<GeoHit[]>([])
   const [addrLoading, setAddrLoading] = useState(false)
-  const [addrOpen, setAddrOpen] = useState(false)
+  const addrOpen = menu !== 'closed'
+  const closeMenu = () => setMenu('closed')
   const addrSeq = useRef(0)
+  const addrInput = useRef<HTMLInputElement>(null)
   // ⚠️ The menu has to CLOSE on an outside tap, the way Combo does. Nothing but picking a hit
   // ever closed it, so in edit mode — where the field is prefilled — merely tapping in to fix a
   // typo opened a 220px list over the Stichwort field below it.
@@ -195,12 +203,12 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   useEffect(() => {
     if (!addrOpen) return
     const onDown = (e: PointerEvent) => {
-      if (!addrRef.current?.contains(e.target as Node)) setAddrOpen(false)
+      if (!addrRef.current?.contains(e.target as Node)) closeMenu()
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       e.stopPropagation()   // the sheet's own Esc must not fire and throw the edits away
-      setAddrOpen(false)
+      closeMenu()
     }
     document.addEventListener('pointerdown', onDown, true)
     document.addEventListener('keydown', onKey, true)
@@ -210,10 +218,8 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     }
   }, [addrOpen])
 
-  // object library picker
-  const [objOpen, setObjOpen] = useState(false)
-  const [objQuery, setObjQuery] = useState('')
-  const [objects, setObjects] = useState<ObjectWithPlans[]>([])
+  // the object library, loaded while the menu is open (null = not here yet)
+  const [objects, setObjects] = useState<ObjectWithPlans[] | null>(null)
 
   // map picker (self-contained — works with no active incident yet)
   const [mapOpen, setMapOpen] = useState(false)
@@ -250,16 +256,16 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     )
   }
 
-  // device GPS (watched only while the object picker is open) so "Objekt aus
-  // Feuerwehrplänen" ranks by where the responder actually stands, not the incident coord
-  // NOT on the public demo: opening the Objekt step must not throw the browser's location
-  // dialog at a visitor (same line as MapView · autoCoarseFixWanted)
-  const myPos = useGeoPosition(objOpen && !isDemoMode())
+  // device GPS (watched only while «Aus Plänen» browses the library) so «In der Nähe» ranks by
+  // where the responder actually stands, not the incident coord. Not on a mere focus of the field:
+  // tapping in to type must not throw the browser's location dialog. NOT on the public demo
+  // either (same line as MapView · autoCoarseFixWanted)
+  const myPos = useGeoPosition(menu === 'browse' && !isDemoMode())
 
   // a coordinate from the map picker → set it and reverse-geocode the address (so a
   // map-click fills the nearest registered address, not just bare coords)
   const applyPicked = (c: [number, number]) => {
-    setCoord(c); setMapOpen(false); setAddrOpen(false)
+    setCoord(c); setMapOpen(false); closeMenu()
     // ⚠️ Fills a BLANK address only — the same rule the Rapport uses for the Kroki-seeded
     // Einsatzleiter. A nudge of the map pin used to overwrite an address somebody had just
     // typed by hand, and a typed address is a statement; a reverse-geocode is a guess.
@@ -281,7 +287,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     return () => clearTimeout(t)
   }, [address, addrOpen])
 
-  // load the object library when its picker is open. Rank by the responder's own GPS first
+  // load the object library while the menu is open. Rank by the responder's own GPS first
   // (where they stand), falling back to the being-set / incident coord if denied.
   //
   // The whole library comes down once and the typing is filtered HERE, exactly as the
@@ -290,20 +296,23 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // server's `q` matches one field at a time and forgives nothing — «grenzweg» found nothing
   // while the object sitting at Grenzweg 1 was two rows down, and a typo emptied the list.
   useEffect(() => {
-    if (!objOpen) return
+    if (!addrOpen) return
     const ref = myPos ?? coord ?? nearCoord
     const near = ref ? `${ref[0]},${ref[1]}` : undefined
     listObjects(undefined, near).then(setObjects).catch(() => setObjects([]))
-  }, [objOpen, myPos, coord, nearCoord])
+  }, [addrOpen, myPos, coord, nearCoord])
 
   // …the same tolerance every other picker has (lib/search): umlauts in either spelling and one
   // typo from four characters up. Name OR address — «BLT» and «Grenzweg» must both find the
-  // Tramdepot, because an alarm names whichever of the two the caller knows.
+  // Tramdepot, because an alarm names whichever of the two the caller knows. Objects match from
+  // TWO characters (they are on the device, «BLT» is three); the geocoder keeps its three.
+  const typed = address.trim()
   const shownObjects = useMemo(() => {
-    const needle = searchQuery(objQuery)
-    if (!needle) return objects
-    return objects.filter((o) => matchesAnyQuery(needle, o.name, o.address))
-  }, [objects, objQuery])
+    if (!objects) return []
+    if (!typed) return objects
+    const needle = searchQuery(typed)
+    return needle && typed.length >= 2 ? objects.filter((o) => matchesAnyQuery(needle, o.name, o.address)) : []
+  }, [objects, typed])
 
   // Edit mode: pull the incident's Meldungstext (Alarmmeldung) — it isn't in IncidentMeta.
   useEffect(() => {
@@ -322,13 +331,20 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   }, [edit?.id])
 
   const pickHit = (h: GeoHit) => {
-    setAddress(h.label); setCoord([h.lng, h.lat]); setAddrOpen(false); setHits([])
+    setAddress(h.label); setCoord([h.lng, h.lat]); closeMenu(); setHits([])
   }
   const pickObject = (o: ObjectWithPlans) => {
     if (!title.trim()) setTitle(o.name)
     if (o.address) setAddress(o.address)
     if (o.lng != null && o.lat != null) setCoord([o.lng, o.lat])
-    setObjOpen(false); setAddrOpen(false)
+    closeMenu()
+  }
+  // «Aus Plänen»: on an empty field it browses the library (and shuts it again); with text in the
+  // field the list under it already holds the matching objects, so it just brings that up
+  const onPlans = () => {
+    if (!typed) { setMenu((m) => (m === 'browse' ? 'closed' : 'browse')); return }
+    setMenu((m) => (m === 'closed' ? 'typing' : m))
+    addrInput.current?.focus()
   }
 
   // «Eröffnen» must never be a dead-end: after the primary «Hier»/GPS path the title is often
@@ -392,19 +408,46 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     }
   }
 
-  // near objects float to the top of the picker when we have a coordinate
+  // near objects float to the top of the list when we have a coordinate, the rest A–Z
   const near = shownObjects.filter((o) => o.distance_m != null && o.distance_m <= 1000)
                        .sort((a, b) => (a.distance_m ?? 0) - (b.distance_m ?? 0))
   const nearIds = new Set(near.map((o) => o.id))
   const rest = shownObjects.filter((o) => !nearIds.has(o.id)).sort((a, b) => a.name.localeCompare(b.name))
-  const ObjRow = (o: ObjectWithPlans) => (
-    <button key={o.id} type="button" className="ip-objrow" onClick={() => pickObject(o)}>
-      <span className="ip-objrow-main">
-        <span className="ip-objrow-name">{o.name}{o.distance_m != null ? <span className="ip-objrow-dist"> · {Math.round(o.distance_m)} m</span> : null}</span>
-        <span className="ip-objrow-sub">{objectPicklistSub(o, o.plans.length ? ix.objectPlans(o.plans.length) : ix.objectNoPlans)}</span>
-      </span>
-    </button>
+  // the Karte search's rows (karte/KarteSearch): glyph · name · address · distance. No chevron –
+  // a pick fills the form, it opens nothing
+  const objRow = (o: ObjectWithPlans) => (
+    <ListRow key={o.id} onClick={() => pickObject(o)} chevron={false} lead={<Icon id="footprint" />} title={o.name}
+      sub={objectPicklistSub(o, o.plans.length ? ix.objectPlans(o.plans.length) : ix.objectNoPlans)}
+      end={o.distance_m != null ? fmtDistance(o.distance_m) : undefined} />
   )
+  const browsing = menu === 'browse' && !typed
+  const menuBody = browsing ? (
+    objects == null ? <div className="ip-ac-note"><LoadingStatus>{ix.addressSearching}</LoadingStatus></div>
+      : !objects.length ? <div className="ip-ac-note">{ix.objectNoHits}</div>
+        : <>
+          {near.length > 0 && <ListGroup label={ix.objectNear}>{near.map(objRow)}</ListGroup>}
+          {rest.length > 0 && <ListGroup label={near.length ? ix.objectsMore : ix.objectsGroup}>{rest.map(objRow)}</ListGroup>}
+        </>
+  ) : !!typed && (typed.length >= 3 || shownObjects.length > 0) && (
+    <>
+      {shownObjects.length > 0 && <ListGroup label={ix.objectsGroup}>{[...near, ...rest].map(objRow)}</ListGroup>}
+      {typed.length >= 3 && (
+        addrLoading || !hits.length ? (
+          <ListGroup label={ix.addressGroup} bare>
+            <div className="ip-ac-note">{addrLoading ? <LoadingStatus>{ix.addressSearching}</LoadingStatus> : ix.addressNoHits}</div>
+          </ListGroup>
+        ) : (
+          <ListGroup label={ix.addressGroup}>
+            {hits.map((h, i) => {
+              const [street, place] = splitAddress(h.label)
+              return <ListRow key={`${h.label}:${i}`} onClick={() => pickHit(h)} chevron={false} lead={<Icon id="pin" />} title={street} sub={place} />
+            })}
+          </ListGroup>
+        )
+      )}
+    </>
+  )
+  const menuShown = addrOpen && !!menuBody
 
   return (
     <>
@@ -427,22 +470,24 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
             plus «Hier» in it, and a «Koordinaten» fold under those – three rows for one question.
             «Hier» (GPS) stays last, after the divider: the EL usually stands at (or near) the
             Einsatzort, so it is the primary method and has to be reachable the moment the field is
-            in view. Icon-only, so each carries its word as `aria-label` and `title`. */}
+            in view. Icon-only, so each carries its word as `aria-label` and `title`. «Aus Plänen» has
+            no list of its own any more (round 2): it opens the field's one menu (onPlans). */}
         <div className="ip-ac-input-wrap">
           <input
+            ref={addrInput}
             value={address}
             placeholder={ix.addressPlaceholder}
-            onChange={(e) => { setAddress(e.target.value); setAddrOpen(true) }}
-            onFocus={() => setAddrOpen(true)}
+            onChange={(e) => { setAddress(e.target.value); setMenu((m) => (m === 'closed' ? 'typing' : m)) }}
+            onFocus={() => setMenu((m) => (m === 'closed' ? 'typing' : m))}
           />
           <div className="ip-ac-tools">
-            {/* it FOLDS the object list open under the field — so it says so, and the `.on` state
+            {/* it opens the list under the field (onPlans) — so it says so, and the `.on` state
                 is not the only thing a screen reader has to go on */}
-            <button type="button" className={`ip-ac-tool${objOpen ? ' on' : ''}`} aria-expanded={objOpen}
-              aria-label={ix.objectButton} title={ix.objectButton} onClick={() => { setAddrOpen(false); setObjOpen((v) => !v) }}>
+            <button type="button" className={`ip-ac-tool${menuShown ? ' on' : ''}`} aria-expanded={menuShown}
+              aria-label={ix.objectButton} title={ix.objectButton} onClick={onPlans}>
               <Icon id="doc" />
             </button>
-            <button type="button" className="ip-ac-tool" aria-label={ix.mapPickButton} title={ix.mapPickButton} onClick={() => { setAddrOpen(false); setMapOpen(true) }}>
+            <button type="button" className="ip-ac-tool" aria-label={ix.mapPickButton} title={ix.mapPickButton} onClick={() => { closeMenu(); setMapOpen(true) }}>
               <Icon id="map" />
             </button>
             <span className="ip-ac-sep" aria-hidden="true" />
@@ -452,17 +497,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
             </button>
           </div>
           {/* inside the wrap so it hangs from the INPUT, not from the warning line under it */}
-          {addrOpen && address.trim().length >= 3 && (
-            <div className="ip-ac-menu">
-              {addrLoading && <div className="ip-ac-note"><LoadingStatus>{ix.addressSearching}</LoadingStatus></div>}
-              {!addrLoading && hits.length === 0 && <div className="ip-ac-note">{ix.addressNoHits}</div>}
-              {hits.map((h, i) => (
-                <button key={i} type="button" className="ip-ac-row" onClick={() => pickHit(h)}>
-                  <Icon id="flag" /> <span>{h.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
+          {menuShown && <div className="ip-ac-menu">{menuBody}</div>}
         </div>
         {/* ⚠️ The ONLY trace of the coordinate left on the form (owner pick 1A, 15.11.2026). The
             literal coordinate and its ✕ «Standort entfernen» went with the «Koordinaten» fold –
@@ -475,18 +510,6 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           </p>
         )}
       </div>
-
-      {objOpen && (
-        <div className="ip-objpick">
-          <SearchField className="ip-objpick-search" value={objQuery} onChange={setObjQuery} placeholder={ix.objectSearchPlaceholder} aria-label={ix.objectSearchPlaceholder} />
-          <div className="ip-objlist">
-            {shownObjects.length === 0 && <div className="no-hits">{ix.objectNoHits}</div>}
-            {near.length > 0 && <div className="ip-objgroup">{ix.objectNear}</div>}
-            {near.map(ObjRow)}
-            {rest.map(ObjRow)}
-          </div>
-        </div>
-      )}
 
       {/* --- Stichwort & Kategorie --- */}
       <label ref={titleRef} className="ip-field"><span>{ix.titleLabel} *</span>

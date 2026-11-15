@@ -104,20 +104,18 @@
 .cl-trend :global(.useg-btn:not(.on)) .cl-trend-glyph[data-trend='up'] { color: var(--red-strong); }
 .cl-trend :global(.useg-btn:not(.on)) .cl-trend-glyph[data-trend='down'] { color: var(--green); }
 /* the deep link (Zeichnen / Verlauf / Plan): its glyph alone in a --tap square, so the item's text
-   keeps the row (27.10.2026, owner pick 11A); the word is its aria-label and title */
-.cl-deeplink { flex: none; align-self: center; display: grid; place-items: center; width: var(--tap); height: var(--tap);
-  padding: 0; border: none; background: var(--blue-12); color: var(--blue-strong); cursor: pointer; border-radius: var(--r-sm); }
-@media (hover: hover) { .cl-deeplink:hover { background: var(--blue-16); } }
-.cl-deeplink:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.cl-deeplink :global(.i) { width: 19px; height: 19px; }
+   keeps the row (27.10.2026, owner pick 11A); the word is its aria-label and title. THE framed
+   <IconButton variant="secondary"> – it was a blue tile (style sweep T2); this only places it */
+.cl-deeplink { align-self: center; }
 
 /* read, not ticked (ChecklistReader, 19.10.2026): the items stand in an <ol>, each with its
    number where the box would be, and one quiet line above the first phase says where ticking
    happens */
 ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
 ol.cl-items > .cl-item { padding: var(--sp-3); }
-.cl-num { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
-  box-shadow: inset 0 0 0 2px var(--border); font: var(--fw-heavy) var(--fs-2) var(--body); color: var(--ink-dim);
+/* THE step number of Nachschlagen = ManualReader.module.css · .mn-num (style sweep T5, 15.11.2026) */
+.cl-num { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  box-shadow: inset 0 0 0 1.5px var(--ink-28); font: var(--fw-heavy) var(--fs-2) var(--body); color: var(--ink);
   font-variant-numeric: tabular-nums; }
 .cl-num + .cl-item-body { align-self: center; }
 .cl-ro-note { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-4); padding: var(--sp-2) var(--sp-3);

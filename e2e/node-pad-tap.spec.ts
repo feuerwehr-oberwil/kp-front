@@ -97,9 +97,10 @@ async function drawLinie(page: Page) {
 test('a tap on a node of a selected Linie adds no point', async ({ page }) => {
   await drawLinie(page)
   await page.locator('.wb-dock-go').first().tap() // «Fertig» commits it and leaves it selected
-  await expect(page.getByText(`${NODES.length} Punkte`)).toBeVisible()
+  // the sheet's «{n} Punkte» – literal, so the copy guard (e2eSelectors.test) can read it; NODES has 4
+  await expect(page.getByText('4 Punkte')).toBeVisible()
   await padTapsKeepThePoints(page, page.locator('.draw-handle'), 'the selected Linie')
-  await expect(page.getByText(`${NODES.length + 1} Punkte`), 'the sheet counts what the map shows').toBeVisible()
+  await expect(page.getByText('5 Punkte'), 'the sheet counts what the map shows').toBeVisible()
 })
 
 test('a tap on a node of a Messung adds no point', async ({ page }) => {

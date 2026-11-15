@@ -686,7 +686,7 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
             { type: 'toggle', icon: 'measure', label: appConfig.copy.measure.modeLine, on: measMode === 'line', onClick: () => setMeasMode('line') },
             { type: 'toggle', icon: 'area', label: appConfig.copy.measure.modeArea, on: measMode === 'area', onClick: () => setMeasMode('area') },
           ],
-          [{ type: 'action', icon: 'trash', label: appConfig.copy.measure.clear, disabled: !measCount, onClick: onMeasClear }],
+          [{ type: 'action', icon: 'trash', label: appConfig.copy.measure.clear, short: appConfig.copy.measure.clearShort, disabled: !measCount, onClick: onMeasClear }],
           [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.measure }],
         ]} />
       )}
@@ -717,7 +717,7 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
         <ToolDock groups={[
           [{ type: 'close', onClick: () => setTool('pan') }],
           ...(truppFinder ? [[{
-            type: 'action' as const, icon: 'trupp-find', label: appConfig.copy.truppFinder.title,
+            type: 'action' as const, icon: 'trupp-find', label: appConfig.copy.truppFinder.title, short: appConfig.copy.truppFinder.titleShort,
             disabled: truppFinder.disabled, onClick: truppFinder.open,
           }]] : []),
           [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.resource }],

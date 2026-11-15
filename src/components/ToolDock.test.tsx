@@ -47,6 +47,13 @@ describe('ToolDock', () => {
     expect(words(phone.container)).toEqual(lineWords)
   })
 
+  // round 15.11.2026 r2: a label too long for a tile brings a short word; the long form stays the name
+  it('words a control with its short word and keeps the long one as its name', () => {
+    const { container } = render(<ToolDock groups={[[{ type: 'toggle', icon: 'place-repeat', label: 'Mehrere platzieren', short: 'Mehrere', on: false, onClick: () => {} }]]} />)
+    expect(words(container)).toEqual(['Mehrere'])
+    expect(screen.getByRole('button', { name: 'Mehrere platzieren' }).title).toBe('Mehrere platzieren')
+  })
+
   it('words the Form preview with its name, and draws every item bare with the words off', () => {
     const shapeDock: DockItem[][] = [[{ type: 'close', onClick: () => {} }], [{ type: 'glyph', node: <svg />, label: 'Rechteck' }]]
     const { container } = render(<ToolDock groups={shapeDock} />)

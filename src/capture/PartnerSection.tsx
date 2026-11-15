@@ -14,6 +14,7 @@ import { Icon } from '../lib/icons'
 import type { PartnerContact } from '../lib/workspace'
 import type { Workspace } from '../lib/incidents'
 import type { CaptureAction } from '../lib/captureClient'
+import { TickRow } from '../components/TickRow'
 import { AccSection } from './AccSection'
 
 
@@ -49,16 +50,15 @@ export function PartnerSection({
           return (
             <div className={`cv-partner${on ? ' on' : ''}`} key={r.custom ? `c${r.i}` : r.org}>
               {/* a free row names itself in its own field — see the Rapport sheet */}
-              <button
-                type="button" className={`cv-partner-tick${r.custom ? ' bare' : ''}`}
-                role="checkbox" aria-checked={on} disabled={busy} aria-label={r.org || C.partnerOrg}
-                onClick={() => (on
+              <TickRow
+                className={r.custom ? undefined : 'cv-partner-tick'} checked={on} disabled={busy}
+                aria-label={r.org || C.partnerOrg}
+                onToggle={() => (on
                   ? removePartner(r.i)
                   : void run({ kind: 'setMeta', patch: { partnerContacts: [...partners, { org: r.org }] } }))}
               >
-                <span className="cv-partner-box">{on && <Icon id="check" />}</span>
-                {!r.custom && <span className="cv-partner-org">{r.org}</span>}
-              </button>
+                {r.custom ? undefined : r.org}
+              </TickRow>
               {on && r.custom && (
                 <input
                   className="cv-input cv-partner-name" defaultValue={partners[r.i].org ?? ''}

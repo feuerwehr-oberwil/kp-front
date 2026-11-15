@@ -34,6 +34,7 @@ export const drawingCopy: Localizable<Pick<Copy, Keys>> = {
     hintArea: 'Au moins 3 points pour la surface',
     adoptLine: 'Reprendre comme ligne',
     adoptArea: 'Reprendre comme surface',
+    clearShort: 'Effacer',
   },
   relay: {
     title: 'Transport d’eau',

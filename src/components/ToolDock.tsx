@@ -14,6 +14,11 @@ import { useRailLabels } from '../lib/useDevicePrefs'
  * Every item has a WORD (ToolDock · `worded`). The colour swatches, width steps and lettered
  * S/M/L toggles the dock once carried left it with «D pur» (09.09.2026: styling happens after the
  * draw, in the editor) and are gone from this list (round 15.11.2026) – a new item brings its word.
+ *
+ * A control's `label` is its title and accessible name. Where that is longer than a tile's word
+ * room (the tablet column's ≈74px: «Mehrere platzieren», «Zurücksetzen»; round 15.11.2026 r2, owner:
+ * «check some of the widths of words») the item brings a `short` – its own `…Short` copy key – and
+ * the tile wears that; the long form stays the title / aria-label / long-press tip.
  */
 export type DockItem =
   /** Listed first by every caller, but the dock draws it at the END: «X on the right everywhere»
@@ -22,14 +27,14 @@ export type DockItem =
    *  lifts it back to its head with `order` (09-whiteboard.css), so the way out of a tool never
    *  scrolls away with a busy tool's options. */
   | { type: 'close'; onClick: () => void; title?: string }
-  | { type: 'toggle'; icon: string; label: string; on: boolean; onClick: () => void; disabled?: boolean }
+  | { type: 'toggle'; icon: string; label: string; short?: string; on: boolean; onClick: () => void; disabled?: boolean }
   /** «✓ Fertig» — commits the draft being drawn (a Punkte-Linie, -Fläche, a Wand). The one FILLED
    *  tile (M7 C, 13.11.2026): the control that commits, not a ✕ look-alike; the ✕ beside it closes,
    *  and a committable draft is asked about, never thrown away (useMapDrawing · settleDraft). */
   | { type: 'go'; onClick: () => void; disabled?: boolean; title?: string }
   /** a preview, not a control (the Form being placed); `label` names it («Rechteck») */
   | { type: 'glyph'; node: ReactNode; label: string }
-  | { type: 'action'; icon: string; label: string; onClick: () => void; disabled?: boolean; cls?: string }
+  | { type: 'action'; icon: string; label: string; short?: string; onClick: () => void; disabled?: boolean; cls?: string }
   | { type: 'info'; text: string }
 
 /** a dock tile's word under its glyph, the rail tile's `.vrail-label` look (09-whiteboard) */
@@ -40,13 +45,13 @@ function renderItem(item: DockItem, key: string, worded: boolean): ReactNode {
     case 'close':
       return <button key={key} className="wb-dock-x" title={item.title ?? appConfig.copy.cancel} aria-label={item.title ?? appConfig.copy.cancel} onClick={item.onClick}><Icon id="close" />{word(appConfig.copy.cancel, worded)}</button>
     case 'toggle':
-      return <button key={key} className={`wb-dock-tog ${item.on ? 'on' : ''}`} title={item.label} aria-label={item.label} aria-pressed={item.on} disabled={item.disabled} onClick={item.onClick}><Icon id={item.icon} />{word(item.label, worded)}</button>
+      return <button key={key} className={`wb-dock-tog ${item.on ? 'on' : ''}`} title={item.label} aria-label={item.label} aria-pressed={item.on} disabled={item.disabled} onClick={item.onClick}><Icon id={item.icon} />{word(item.short ?? item.label, worded)}</button>
     case 'go':
       return <button key={key} className="wb-dock-go" disabled={item.disabled} title={item.title ?? appConfig.copy.done} aria-label={item.title ?? appConfig.copy.done} onClick={item.onClick}><Icon id="check" />{word(item.title ?? appConfig.copy.done, worded)}</button>
     case 'glyph':
       return <span key={key} className="wb-dock-ic" role="img" aria-label={item.label}><span className="wb-dock-shape">{item.node}</span>{word(item.label, worded)}</span>
     case 'action':
-      return <button key={key} className={item.cls ?? 'wb-dock-tog'} disabled={item.disabled} title={item.label} aria-label={item.label} onClick={item.onClick}><Icon id={item.icon} />{word(item.label, worded)}</button>
+      return <button key={key} className={item.cls ?? 'wb-dock-tog'} disabled={item.disabled} title={item.label} aria-label={item.label} onClick={item.onClick}><Icon id={item.icon} />{word(item.short ?? item.label, worded)}</button>
     case 'info':
       return <DockInfo key={key} text={item.text} word={worded ? appConfig.copy.toolDock.infoWord : undefined} />
   }

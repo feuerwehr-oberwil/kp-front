@@ -126,10 +126,12 @@
    control, so it needs no tap target. */
 /* square, and both layers take the row colour: head and foot are CHROME spanning the full width,
    not cards on the board, so a board-coloured mask would cut a dark notch into the strip */
+/* «DECKUNG» is a section label, so it wears THE eyebrow (body face) – mono is for figures only
+   (style sweep T1, 15.11.2026) */
 .whoHead, .whoFoot {
   min-height: 0; background: var(--surface);
   align-items: center; padding-bottom: 4px;
-  font: var(--fw-bold) var(--fs-micro) var(--mono); color: var(--ink-faint); letter-spacing: .08em; text-transform: uppercase;
+  font: var(--eyebrow); color: var(--ink-faint); letter-spacing: var(--eyebrow-track); text-transform: uppercase;
 }
 .whoHead::before, .whoFoot::before { border: none; border-radius: 0; background: var(--surface); }
 
@@ -352,10 +354,11 @@
 }
 .nowLine { position: absolute; top: 0; bottom: 0; width: 1.5px; background: var(--red); z-index: 2; pointer-events: none; }
 /* the label rides ON the line and must stay readable where it lands on an hour tick, so it
-   carries the surface colour behind it rather than blending into the number underneath */
+   carries the surface colour behind it rather than blending into the number underneath. A word,
+   so the body face (T1, 15.11.2026) – the ticks beside it are the figures. */
 .nowLineHead em {
   position: absolute; top: 0; left: 3px; padding: 1px var(--sp-1); border-radius: 2px;
-  background: var(--surface); font: var(--fw-bold) var(--fs-micro) var(--mono); font-style: normal;
+  background: var(--surface); font: var(--fw-bold) var(--fs-micro) var(--body); font-style: normal;
   color: var(--red-strong); letter-spacing: .04em; text-transform: uppercase;
 }
 /* past the middle the flag reads to the LEFT of its line: the fitted window puts «Jetzt» at ~¾,

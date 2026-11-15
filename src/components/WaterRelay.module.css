@@ -113,4 +113,5 @@
    on it – inline left/top/width in per cent of the plot box */
 .plotBox { position: relative; }
 .pumpAnchor { position: absolute; aspect-ratio: 1; translate: -50% -50%; pointer-events: none; }
-.hint { margin: 0; font-size: var(--fs-micro); color: var(--ink-faint); }
+/* the `.ip-hint` voice, 12.5 / ink-dim (style sweep T4, 15.11.2026 – it was 11px ink-faint) */
+.hint { margin: 0; font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }

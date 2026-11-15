@@ -18,7 +18,7 @@ export const mapCopy = {
     { id: 'symbol-slot', slot: true, icon: '', label: '' },
     { id: 'line', icon: 'pen', label: 'Linie', kind: 'tool' },
     { id: 'area', icon: 'area', label: 'Fläche', kind: 'tool' },
-    { id: 'circle', icon: 'circle', label: 'Absperrkreis', kind: 'tool' },
+    { id: 'circle', icon: 'circle', label: 'Absperrkreis', kind: 'tool', short: 'Sperrkreis' },
     // (no divider between Absperrkreis and Notiz — it cost a rail row to separate two groups
     // that are both «etwas auf die Karte setzen»; the one before Symbol followed it on 22.09.)
     { id: 'note', icon: 'type', label: 'Notiz', kind: 'tool' },
@@ -36,7 +36,7 @@ export const mapCopy = {
     // single Linie tool (Freihand-drag ↔ Punkte toggle lives in its dock), mirroring the Karte map
     { id: 'line', icon: 'pen', label: 'Linie' },
     { id: 'area', icon: 'area', label: 'Fläche' },
-    { id: 'circle', icon: 'circle', label: 'Absperrkreis' },
+    { id: 'circle', icon: 'circle', label: 'Absperrkreis', short: 'Sperrkreis' },
     { id: 'text', icon: 'type', label: 'Notiz' },
     { id: 'resource', icon: 'flag', label: 'Trupp' },
     // Messen: node-based distance/area on the plan (uses the calibrated scale). Calibration
