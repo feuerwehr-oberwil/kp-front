@@ -4,6 +4,13 @@
 .ap-title h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ap-range { font-family: var(--mono); font-size: var(--fs-1); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .ap-body { display: flex; flex-direction: column; gap: 12px; padding: var(--sp-2) var(--sp-5) var(--sp-5); }
+/* ⚠️ The shorthand above loads after 15-mobile's `.ip-body` inset and wiped it: the last row ended
+   24px off the foot, inside the home indicator's band (scroll sweep 15.11.2026 #3). The phone's
+   sheet ends on its body, so the body pays the inset; the keyboard covers the indicator. */
+@media (--phone) {
+  .ap-body { padding-bottom: calc(var(--sp-5) + env(safe-area-inset-bottom)); }
+  .ap-sheet.is-kb .ap-body { padding-bottom: var(--sp-5); }
+}
 .ap-wave-wrap { flex: none; position: relative; }
 .ap-wave { display: block; width: 100%; height: 96px; border-radius: var(--r-sm); background: var(--fill-soft); cursor: pointer; touch-action: none; }
 /* Peaks are computing; keep the real player's canvas and transport steady. */
@@ -51,7 +58,7 @@
   background: transparent; padding: var(--sp-3); font: inherit; font-size: var(--fs-2); line-height: normal; color: var(--ink); }
 .ap-add-row input::placeholder { color: var(--ink-faint); }
 .ap-add-row input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
-.ap-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
+.ap-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 2px;
   border-top: 1px solid var(--border-soft); padding-top: var(--sp-3); }
 .ap-list-head { margin: 0 0 var(--sp-2); font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .ap-empty { margin: 0; color: var(--ink-faint); font-size: var(--fs-2); }

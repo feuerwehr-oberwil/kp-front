@@ -103,7 +103,8 @@
    gutter to BOTH sides, so the visible inset was never the padding): a board that fits shows the
    padding exactly; one that scrolls shows its scrollbar where a scrollbar goes. An overlay
    scrollbar (the iPad, a phone, macOS) never reserved anything. */
-.body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--sp-4) var(--page-x) var(--sp-3); }
+/* (`contain` on every scroll body of a sheet or page – docs/ui-conventions.md, scroll sweep 15.11.2026 #8) */
+.body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp-4) var(--page-x) var(--sp-3); }
 
 .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
   height: 100%; color: var(--ink-faint); text-align: center; }
@@ -364,7 +365,8 @@
 /* ⚠️ The seam under the look-up panel is this border (09.09., ex-`.readHead`): without it the
    first reading butts straight against «Schätzung …» and the two read as one list. `:first-child`
    keeps it off a fold that has no panel above it — the `.vopen` hairline is already there. */
-.logList { list-style: none; margin: 0; padding: var(--sp-2) var(--sp-3); max-height: 168px; overflow-y: auto; scrollbar-gutter: stable;
+/* (contain: a nested list keeps its flick – at its end the board does not carry on; scroll sweep 15.11.2026 #4) */
+.logList { list-style: none; margin: 0; padding: var(--sp-2) var(--sp-3); max-height: 168px; overflow-y: auto; scrollbar-gutter: stable; overscroll-behavior: contain;
   border-top: 1px solid var(--glass-edge); }
 .logList:first-child { border-top: none; padding-top: 0; }
 /* «Tafel pur»: the CARD is the page and the page already scrolls (.focusCard .card) — a 168px
@@ -490,7 +492,7 @@
    field columns under it, and it sits directly above `.formCol`'s own gap between two fields —
    12 against 10 read as a ladder nobody chose. The COLUMN gap (24px, the sheet's gutter) is a
    different question. */
-.modalBody { flex: 1 1 auto; min-height: 0; overflow-y: auto;
+.modalBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
   padding: var(--sp-1) var(--sp-5) var(--sp-4); display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3) var(--sp-5);
   /* `stretch`, not `start`: the Trupp column has to be as tall as ITS ROW for its list to have
      anything to grow into. This only says the column fills the row; how tall that row is, and
@@ -1014,7 +1016,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* fills whatever the slots and the search leave over — down to eight rows, which
    is a Trupp plus the crew you are choosing it from. 208px was a fixed box that wasted the room
    a tall modal has and starved a ten-person Trupp of the room it needs. */
-.teamList { list-style: none; margin: 0; padding: 4px; flex: 1 1 0; min-height: 168px; overflow-y: auto;
+.teamList { list-style: none; margin: 0; padding: 4px; flex: 1 1 0; min-height: 168px; overflow-y: auto; overscroll-behavior: contain; /* #4, as .logList */
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
 .teamOptTaken { opacity: .45; cursor: default; }
 /* «Magazin» is the one hint on this list that is operational rather than advisory: somebody
@@ -2129,7 +2131,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 /* the Trupp sheet carries the crew picker: wider on a tablet, the same bottom sheet on a phone */
 .miniSheetTall { width: min(520px, calc(100vw - 24px)); }
 .miniSub { display: block; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); margin-top: 2px; }
-.miniBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--sp-1) var(--sp-5) var(--sp-4);
+.miniBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp-1) var(--sp-5) var(--sp-4);
   display: flex; flex-direction: column; gap: 12px; }
 .miniHint { margin: 0; font-size: var(--fs-micro); line-height: 1.4; color: var(--ink-faint); }
 /* the keypad: 4 columns of the station's channels, the current one filled; 46px keys — a number
@@ -2162,6 +2164,11 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
   /* the grab bar is the sheet's top gutter, and a head under a bar is the handle */
   .miniSheet .modalHead { padding-top: var(--sp-1); touch-action: none; }   /* .ip-sheet's 4px under the bar (15-mobile) */
   .miniSheet .modalHead button { touch-action: auto; }
+  /* a sheet without a footer ends on its body: the body's last row pays the home indicator, or
+     the last key of the Druck / Kanal pad sat in its band (scroll sweep 15.11.2026 #3); with a
+     footer the footer pays it (SheetFoot), and the keyboard covers the indicator */
+  .miniSheet .miniBody:last-child { padding-bottom: calc(var(--sp-4) + env(safe-area-inset-bottom)); }
+  .miniSheet:global(.is-kb) .miniBody:last-child { padding-bottom: var(--sp-4); }
 }
 
 /* «Gleiche Flasche oder neue?» above the Druck on a quick re-entry */
