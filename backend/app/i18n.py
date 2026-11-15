@@ -104,6 +104,11 @@ DETAIL_TRANSLATIONS: dict[str, dict[str, str]] = {
         "fr": "Aucun jeton de rafraîchissement",
         "it": "Nessun token di aggiornamento",
     },
+    "Keine Alarm-Aktualisierung offen": {
+        "en": "No alarm update pending",
+        "fr": "Aucune mise à jour d'alarme en attente",
+        "it": "Nessun aggiornamento d'allarme in sospeso",
+    },
     "Keine Wetterdaten für diese Koordinate": {
         "en": "No weather data for this coordinate",
         "fr": "Aucune donnée météo pour cette coordonnée",

@@ -93,6 +93,13 @@ export interface MeldungAction {
   disabled?: boolean
 }
 
+/** A piece of a sub-line: plain text, or a word the row emphasises – `ins` what is new, `del`
+ *  what it replaces, `b` a value to read (the «Alarm aktualisiert» diff, Banners · AlarmUpdateBanner).
+ *  Markup as data, never HTML: a sub-line carries text from outside (an alarm). */
+export type MeldungSpan = string | { ins: string } | { del: string } | { b: string }
+/** A sub-line: one string, or spans with emphasis. */
+export type MeldungText = string | readonly MeldungSpan[]
+
 /** A message, as a record. Every banner this layer replaced used to be a component with its own
  *  geometry, z-index and live region; now each is one of these and the strip owns all three. */
 export interface Meldung {
@@ -103,7 +110,10 @@ export interface Meldung {
   /** sprite id from lib/icons */
   icon: string
   title: string
-  sub?: string
+  sub?: MeldungText
+  /** a second sub-line, under `sub` – for a row that has two things to say (old → new, and the
+   *  new Meldung). Two at most: a third is a sheet, not a row. */
+  sub2?: MeldungText
   actions?: MeldungAction[]
   /** Where this message LEADS — and, if it is set, the row's title becomes the way there.
    *  The title only: the sub-line, the glyph and the space beside them stay dead, because a row

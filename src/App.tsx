@@ -45,7 +45,7 @@ import { useDiveraWatch } from './lib/useDiveraWatch'
 import { dismissAlarm, loadDismissedAlarms, shownAlarms } from './lib/diveraDismiss'
 import { useIncidentWatch } from './lib/useIncidentWatch'
 import { loadReviewedIncidents, needsIntakeReview, sameIncidentList, saveReviewedIncident, shouldReopenClosed, undoTakeReturn } from './lib/incidentAlerts'
-import { EinsatzWizard, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, HomeDeviceSheet } from './components/panels'
+import { AlarmUpdateBanner, EinsatzWizard, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, HomeDeviceSheet } from './components/panels'
 import { Meldeleiste } from './components/Meldeleiste'
 import { linkShowsMeldung } from './lib/meldungen'
 import { SessionExpiredMeldung } from './components/SessionExpiredMeldung'
@@ -957,6 +957,18 @@ export default function App() {
           attachFirst={activeMeta.source === 'manual' && isIncidentRunning(activeMeta)}
           onTake={(a) => void takeAndOpen(a)}
           onAttach={isIncidentRunning(activeMeta) ? (a) => void attachToActive(a) : undefined}
+        />
+      )}
+
+      {/* «Alarm aktualisiert»: the Leitstelle sent a follow-up for THIS Einsatz's alarm. It rides
+          the list poll (every device within a tick), so the list's copy of the Einsatz is read,
+          not `activeMeta`, which only moves when this device changes it. For whoever keeps the
+          Einsatzdaten (editor, el) on a running Einsatz – components/panels/Banners. */}
+      {(isEditor || isEl) && screen === 'einsatz' && activeMeta != null && isIncidentRunning(activeMeta) && (
+        <AlarmUpdateBanner
+          meta={incidents?.find((i) => i.id === activeMeta.id) ?? activeMeta}
+          onChanged={(inc) => reflectMeta(inc as IncidentMeta)}
+          onEdit={() => setEditMeta(incidents?.find((i) => i.id === activeMeta.id) ?? activeMeta)}
         />
       )}
 

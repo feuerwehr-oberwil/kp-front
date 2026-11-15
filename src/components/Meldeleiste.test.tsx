@@ -138,6 +138,22 @@ describe('Meldeleiste', () => {
     expect(reminderRow.querySelector('button.ml-x')).toBeNull()
     expect(reminderRow.querySelector('.ml-x.ghost')).not.toBeNull()
   })
+
+  // «Alarm aktualisiert» (Banners · AlarmUpdateBanner): two sub-lines, old struck and new marked –
+  // as elements, never as HTML from the alarm
+  it('paints a second sub-line and its emphasis as text, not markup', () => {
+    render(<Host items={[{
+      ...alarm,
+      sub: ['Adresse Musterweg ', { del: '12' }, ' ', { ins: '21' }],
+      sub2: ['Meldung Rauch', { ins: ', <b>Person</b> vermisst' }],
+    }]} />)
+    const [first, second] = Array.from(rows()[0].querySelectorAll('.ml-sub'))
+    expect(first.textContent).toBe('Adresse Musterweg 12 21')
+    expect(first.querySelector('del')?.textContent).toBe('12')
+    expect(first.querySelector('ins')?.textContent).toBe('21')
+    expect(second.querySelector('ins')?.textContent).toBe(', <b>Person</b> vermisst')
+    expect(second.querySelector('ins b')).toBeNull()
+  })
 })
 
 /* staging r3: on the Trupp-Tafel two rows sat on the first crew's clock. There the strip folds to

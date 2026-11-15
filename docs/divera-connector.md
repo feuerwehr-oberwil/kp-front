@@ -221,6 +221,18 @@ webhooks cannot call a `divera247.com/api/...` URL. There is no loopback.
   (`refresh_token_expire_days`), with rotation and revocation unchanged.
 - **The pool is visible** at `/admin` → **Alarmierung**: the alarms taken from Divera that are
   not yet assigned to an Einsatz, plus «Aktualisieren» and a connection test.
+- **A follow-up waits for the crew – «Alarm aktualisiert»** (15.11.2026, `app/alarm_update.py`).
+  When the Leitstelle sends a second SMS for the same incident, Divera merges it into the same
+  alarm and it arrives again with a later `ts_update`. If that alarm opened a still-running
+  Einsatz, the new title, Meldung and address are stored on the Einsatz as ONE pending update –
+  also after an editor opened it – and **nothing is overwritten**. Every editor and el device
+  shows a row in the Meldeleiste: old → new per field, «Übernehmen» (every field nobody changed
+  by hand in the Einsatzdaten; the pin follows the address, the Einsatzart does not follow the
+  title), «Bearbeiten» (the Einsatzdaten with the alarm's value beside each field) and ✕ (hidden
+  for every device). The arrival and the decision are Verlauf rows, so they print in the Rapport.
+  A later update replaces a pending one; one that says nothing new makes no row. An alarm only
+  *attached* to an Einsatz keeps the pool behaviour. The generic intake and FireHub have no such
+  path: they drop a repeated delivery and carry no update stamp.
 
 ---
 
