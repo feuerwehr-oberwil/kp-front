@@ -592,8 +592,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Einsatz head shows a state mark only for a problem (round 2b, owner's pick «Only show
     problems»): no ✓ while all is saved – that lives in the card's pill – and «Nicht
     synchronisiert» only after 10 s (a normal save is pending for ~3 s). Status words in a picker row
-    («AS», «raus» in the TruppFinder) are this tag in ink on `--fill-soft` — never blue (blue is
-    «chosen»), never a pill.
+    («AS», «raus» in the TruppFinder) and «Gast» wherever it stands (Anwesenheit, the Trupp pickers,
+    the QR-Bogen) are this tag in ink on `--fill-soft` (`.ip-badge .ip-badge-arch`, the neutral tag)
+    — never blue (blue is «chosen»), never a pill, never the Dienstgrad chip.
     (5) **Search field** (29.09.2026): every «type to narrow this list» is `components/SearchField`
     (`.ui-search`, 13-incident) — glyph · input · ✕ · optional count slot; the grey pill
     (`--fill-soft`) that turns white on focus with the one field focus on the BOX, `--tap` tall,
@@ -635,7 +636,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Entwicklung toggles are drawn `#spread-*` arrows with their `#grenze-*` bar on the tip side,
     one capsule per direction (sweep G.10).
     (11) **Anwesend = the green tint, nothing else** (29.09.2026, owner pick B): no status dot, no
-    green border. Not colour alone: present rows are the ones with the Ort + Uhr buttons, gone
+    green border – on the QR-Bogen too (15.11.2026), whose state chip carries the Ort button's
+    glyph in its inks. Not colour alone: present rows are the ones with the Ort + Uhr buttons, gone
     rows are `--done-opacity`, and the state word is in the row button's accessible name
     (`.sr-only`). The filter menu shows each state as a small row swatch (plain · tint · dimmed),
     the look the row has.
@@ -677,6 +679,13 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     are for alarms and warnings only; a routine «Ausrücken TLF» in the station red read as the
     loudest row on a page that carries real Atemschutz alarms. The composer's phrase chips wear
     the one corner (`--r-sm`), never a pill.
+  - *Blue means «chosen», mono means a figure* (15.11.2026, style sweep T1/T2, owner pick A): blue
+    marks only the SELECTED thing (`--sel`, a filled choice, a picked radio). A link, a count, an
+    icon, a «has a note» marker or a decoration is ink / `--ink-dim` / `--ink-faint`, an action
+    the neutral `Button` – the field focus edge and the menu row's hover wash keep their documented
+    blue. `--mono` is for figures only (a clock, a duration, a pressure, a count): a word or a
+    sentence beside them – «Jetzt», «Deckung», «Sa 16.11.», «bis 14:00», a free-text value – is the
+    body face, with `font-variant-numeric: tabular-nums` where its figures should line up.
   - *One green per surface that means «saved / alive»* (29.09.2026): the Einsatz menu card's green
     is its «✓ Gespeichert» pill – no green stripe, no green fill, the other Einsätze' ages
     `--ink-dim`.
