@@ -94,7 +94,8 @@ requests, bytes, writes, memory left behind or interaction times regress against
 `e2e/perf/baseline.json` (`scripts/perf-report.mjs`). For an agent this is part of «done»:
 - **Read the «Performance journeys» comment on your PR** (or the job summary), not only the colour. A ⚠️ (drifting) or 🟢 (better) line
   is worth a sentence in the PR description. You caused it, so you know why.
-- **A red Performance check blocks the merge** like a failing test. Fix the cause first: a new poll,
+- **A red Performance check blocks the merge** like a failing test (a Dependabot PR's only reports,
+  15.11.2026: a bump has no author to fix a number). Fix the cause first: a new poll,
   a save on open, a chunk pulled into the entry bundle, a listener a surface never removes. The
   summary names the routes that changed.
 - **Never accept a baseline to turn a check green.** `just perf-accept <run-id> …` is for a cost the
