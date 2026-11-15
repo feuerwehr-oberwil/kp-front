@@ -87,12 +87,16 @@ const GHOST_TRAIL_INK = '#8a8f98'
  *  brown, so the night wash is thinner and the zone reads as its stroke's hue. Day paints it whole. */
 const NIGHT_FILL_SCALE = 0.5
 // Every edit handle of a SELECTED drawing (node pads, «+» midpoints, grow arrows, detach chips,
-// the Absperrkreis's radius ring) rides at MARKER_Z.selected: a react-map-gl
+// the Absperrkreis's radius ring) rides at MARKER_Z.selected (the node-making grips one step under,
+// see insertGripZ): a react-map-gl
 // marker defaults to z-auto, which paints BELOW every resting symbol/team (MARKER_Z 4–8), so the
 // very handles a selection exists for disappeared behind the symbols the line ran under — the
 // endpoint could not be grabbed to extend it (28.08. field feedback). One stacking table for all
 // of it (lib/labelPass), like the end tags directly below.
 const handleZ: React.CSSProperties = { zIndex: MARKER_Z.selected }
+/** …except the grips that MAKE a node («+», Verlängern): one step under the pads, so a pad wins
+ *  wherever the two overlap however late either was mounted (MARKER_Z.insertGrip) */
+const insertGripZ: React.CSSProperties = { zIndex: MARKER_Z.insertGrip }
 /** …and a measuring point a tap JUST placed (lib/useFreshPoint): click-through for one tap gap, so
  *  the tap pair's second press reaches MapLibre's tap-and-drag zoom instead of grabbing the point.
  *  `auto` spelled out on the live one: react-map-gl writes the style keys it is given and never
@@ -1567,14 +1571,14 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
           selected drawing carry. Inserting into the in-progress shape used to work only through
           the line's invisible 18px hit band (l-draft-hit · segInsertIndex), with no sign it was
           possible at all; the segments now say so, and both routes insert at the same index.
-          Rendered BEFORE the vertices so a node handle wins wherever the two overlap. */}
+          A node handle wins wherever the two overlap: the «+» rides one z step under it (insertGripZ). */}
       {draftKind && onDraftInsert && draft.length >= 2 && (() => {
         const n = draft.length
         return Array.from({ length: pathSegmentCount(n, draftKind === 'area') }, (_, i) => {
           const a = draft[i], b = draft[(i + 1) % n]
           const mid: LngLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
           return (
-            <Marker key={`dfi${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center" style={handleZ}>
+            <Marker key={`dfi${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center" style={insertGripZ}>
               <NewNodeHandle title={appConfig.copy.measure.insertPoint}
                 onInsert={(ev) => {
                   onDraftInsert(i + 1, mid)
@@ -1619,14 +1623,14 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
 
       {/* a "+" at each segment's midpoint — the same segments segInsertIndex() recognises when the
           line itself is tapped (the area's closing edge included), so both routes insert the same
-          node at the same index. Rendered before the vertices so a handle wins where they overlap. */}
+          node at the same index. A handle wins where they overlap (insertGripZ – not the render order). */}
       {measureKind && onMeasureInsert && measurePoints.length >= 2 && (() => {
         const n = measurePoints.length
         return Array.from({ length: pathSegmentCount(n, measureKind === 'area') }, (_, i) => {
           const a = measurePoints[i], b = measurePoints[(i + 1) % n]
           const mid: LngLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
           return (
-            <Marker key={`mi${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center" style={handleZ}>
+            <Marker key={`mi${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center" style={insertGripZ}>
               <NewNodeHandle title={appConfig.copy.measure.insertPoint}
                 onInsert={(ev) => {
                   onMeasureInsert(i + 1, mid)
@@ -1928,10 +1932,11 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
           the line's invisible 18px hit-band with no sign that this was possible at all (19.08.).
           On a thinned stroke the grip sits half-way ALONG the ink rather than across the chord, so
           it is offered on every line and not only on one whose every vertex still has a pad — see
-          `editInserts`. Rendered BEFORE the vertices so a node handle wins wherever the two
-          overlap. */}
+          `editInserts`. A node handle wins wherever the two overlap: the «+» rides one z step under
+          it (insertGripZ). JSX order is no help – MapLibre appends a Marker when it is CREATED, so
+          the «+» an insert adds lands above every older pad. */}
       {editDraw && onDrawingVertexInsert && editInserts.map(({ index, coord }) => (
-        <Marker key={`di${index}`} longitude={coord[0]} latitude={coord[1]} anchor="center" style={handleZ}>
+        <Marker key={`di${index}`} longitude={coord[0]} latitude={coord[1]} anchor="center" style={insertGripZ}>
           <NewNodeHandle title={appConfig.copy.measure.insertPoint}
             onInsert={(ev) => {
               onDrawingVertexInsert(editDraw.id, index, coord)
@@ -2032,7 +2037,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
         // things at once.
         const magnetic = !!onDrawingAttachment && !(ep === 'start' ? selectedDrawing?.startAttachment : selectedDrawing?.endAttachment)
         return (
-          <Marker key={`grow-${ep}`} longitude={at[0]} latitude={at[1]} anchor="center" style={handleZ}>
+          <Marker key={`grow-${ep}`} longitude={at[0]} latitude={at[1]} anchor="center" style={insertGripZ}>
             <NewNodeHandle
               className="draw-grow" icon="arrow"
               title={appConfig.copy.measure.extendLine}

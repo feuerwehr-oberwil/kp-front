@@ -288,13 +288,19 @@ export const MARKER_Z = {
   team: 8,
   /** the end tag of the SELECTED Leitung — then it is the handle you are working with */
   tagSelected: 9,
+  /** a grip that MAKES a node – the «+» between two pads, «Verlängern» past an end – one step
+   *  UNDER the node pads (`selected`), as the Plan's .wb-vins sits under its .wb-vertex. Equal
+   *  levels left it to mount order: MapLibre appends every new Marker last, so the «+» an insert
+   *  created sat on top of the older pads, and a drag on a node took the «+» – a twin node per
+   *  move (round 15.11.2026, e2e/node-pad-tap.spec.ts). */
+  insertGrip: 10,
   /** whatever the operator just tapped or is dragging (see markerZ) */
-  selected: 10,
+  selected: 11,
   /** the end mark (arrowhead, Teilstück fork) of the line being EDITED – above its own node pads,
    *  pointer-inert, so the end still reads as an end while its grip is on it (round 14.11.2026 #8) */
-  endMark: 11,
+  endMark: 12,
   /** a fanned pile — transient, and it has to clear even the selection to be readable */
-  fanned: 12,
+  fanned: 13,
 } as const
 
 /**
