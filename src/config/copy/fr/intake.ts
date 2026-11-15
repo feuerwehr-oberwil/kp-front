@@ -11,9 +11,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     addressPlaceholder: 'Rue ou objet',
     addressSearching: 'Recherche …',
     addressNoHits: 'Aucune adresse trouvée',
-    objectButton: 'Des plans',
-    objectNear: 'À proximité',
-    objectNoHits: 'Aucun objet trouvé',
     objectPlans: (n: number) => (n === 1 ? '1 plan' : `${n} plans`),
     objectNoPlans: 'aucun plan',
     mapPickButton: 'Sur la carte',
@@ -81,7 +78,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     demoBlocked: 'Désactivé dans la démo – impossible d\'ouvrir une nouvelle intervention ici.',
     coordMissing: 'Pas encore de lieu',
     objectsGroup: 'Objets',
-    objectsMore: 'Autres objets',
     addressGroup: 'Adresses',
   },
 }

@@ -2403,13 +2403,13 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .ip-ac-menu { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; margin-top: 4px;
   max-height: 320px; overflow-y: auto; overscroll-behavior: contain; background: var(--surface); border: 1px solid var(--glass-edge);
   border-radius: var(--r-bar); box-shadow: var(--e4); padding: var(--sp-2); display: flex; flex-direction: column; gap: var(--sp-3); }
-/* «Aus Plänen» · «Auf Karte» | «Hier» riding the field's right edge (EinsatzWizard, owner pick 1A,
-   15.11.2026) – the overlap idiom of the ClearableInput ✕ (`.ci-clear`), each a full --tap square.
-   They were a row of two buttons under the field. The field's right padding is the three squares
-   plus the divider, so typed text ellipsises before it would run under them. */
+/* «Auf Karte» | «Hier» riding the field's right edge (EinsatzWizard, owner pick 1A, 15.11.2026) –
+   the overlap idiom of the ClearableInput ✕ (`.ci-clear`), each a full --tap square. They were a
+   row of buttons under the field («Aus Plänen» went on 15.11.: typing finds objects). The field's
+   right padding is the two squares plus the divider, so typed text ellipsises before them. */
 .ip-ac-input-wrap { position: relative; }
 .ip-ac-input-wrap input { width: 100%; box-sizing: border-box; text-overflow: ellipsis;
-  padding: 12px calc(3 * var(--tap) + var(--sp-3)) 12px 12px; }
+  padding: 12px calc(2 * var(--tap) + var(--sp-3)) 12px 12px; }
 .ip-ac-tools { position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: flex; align-items: center; }
 .ip-ac-tool {
   display: grid; place-items: center; width: var(--tap); height: var(--tap); flex: none;
@@ -2419,8 +2419,6 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 @media (hover: hover) { .ip-ac-tool:hover:not(:disabled):not(.on) { color: var(--ink); } }
 .ip-ac-tool:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-ac-tool:disabled { opacity: var(--disabled); cursor: default; }
-/* «Aus Plänen» while its list is folded open – the selected look of `.ui-info.on` */
-.ip-ac-tool.on { background: var(--sel-wash); color: var(--blue-strong); }
 .ip-ac-tool svg { width: 17px; height: 17px; }
 /* «Hier» is the primary method (GPS), so it alone is blue, after the hairline */
 .ip-ac-locate { color: var(--blue); }
