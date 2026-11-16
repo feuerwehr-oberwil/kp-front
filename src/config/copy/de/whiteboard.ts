@@ -276,7 +276,8 @@ export const whiteboardCopy = {
     // A Trupp stands in exactly ONE place. Tapping it again in this list MOVES it — what was
     // meant was almost always a second Trupp. Hence greyed out instead of selectable.
     truppPlacedHere: 'schon hier',
-    showTrupp: 'Bei den Trupps zeigen',
+    // = atemschutz.alarmRowGo / drawingEditor.truppShow – one word for the door (ENT.2)
+    showTrupp: 'Zum Trupp',
     markPosition: 'Position markieren',
     positionMarked: '{name}: Position markiert',
     // The trash on a Trupp marker that carries a Spur asks WHICH of the two goes (18.09.2026,

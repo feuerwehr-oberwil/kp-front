@@ -182,7 +182,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     placeTeam: '{name} posizionato sul piano',
     selectTrupp: 'Quale squadra?',
     newTeam: 'Nuova squadra',
-    showTrupp: 'Mostra in Squadre',
+    showTrupp: 'Alla squadra',
     markPosition: 'Segna posizione',
     positionMarked: '{name}: posizione segnata',
     removeMarker: 'Rimuovi marcatore',

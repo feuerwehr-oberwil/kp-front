@@ -73,6 +73,8 @@ export interface JournalLayerProps {
   linkScoped: boolean
   /** the Verlauf's «von der Tafel»: open the «Aufträge / Pendenzen» page (workspace/useTafelPendenzen) */
   openTafelPendenzen?: () => void
+  /** «Trupp N» in a row: the Atemschutz board at that Trupp's card (IncidentWorkspace · showTrupp) */
+  showTrupp?: (truppId: string) => void
 }
 
 export function JournalLayer({
@@ -81,7 +83,7 @@ export function JournalLayer({
   setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
   enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
   tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen, roleReadOnly,
-  addJournal, noteOn, linkScoped, openTafelPendenzen,
+  addJournal, noteOn, linkScoped, openTafelPendenzen, showTrupp,
 }: JournalLayerProps) {
   return (
     <>
@@ -115,6 +117,8 @@ export function JournalLayer({
           onReplay={!replayActive ? () => { setJournalOpen(false); enterReplay() } : undefined}
           openReminders={reminders.open}
           onOpenTafel={openTafelPendenzen}
+          // the drawer steps aside for the board it sends you to, landing consumed as on close
+          onShowTrupp={showTrupp && ((id) => { setJournalOpen(false); setJournalLandOn(null); showTrupp(id) })}
           onReminderDone={!readOnly ? reminders.markDone : undefined}
           // tap a Pendenz → write a Meldung on it. The Verlauf steps aside so the composer is
           // not stacked on a drawer the operator can no longer see behind it.

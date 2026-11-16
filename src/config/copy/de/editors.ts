@@ -297,7 +297,8 @@ export const editorsCopy = {
     // Atemschutzüberwachung recognises its Leitung by.
     lineNoDuplicate: 'Leitung {n} gibt es hier schon',
     trupp: 'Gehört zu Trupp',
-    truppShow: 'Trupp {name} zeigen',
+    // ONE word for the door to a Trupp's card, wherever it stands (ENT.2): «Zum Trupp»
+    truppShow: 'Zum Trupp',
     truppNone: 'Kein Trupp',
     // The Trupp that laid this Leitung is back out. It stays in the field – it is the entry that
     // says who was on this Leitung – just marked as «draussen».

@@ -536,7 +536,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                   {truppOnLineOut && <em className="de-trupp-outnote">{appConfig.copy.drawingEditor.truppOut}</em>}
                   {onShowTrupp && (
                     <IconButton onClick={onShowTrupp}
-                      label={fillTemplate(appConfig.copy.drawingEditor.truppShow, { name: truppOnLine })}>
+                      label={appConfig.copy.drawingEditor.truppShow}>
                       <span className="ctx-conn-go" aria-hidden>›</span>
                     </IconButton>
                   )}
@@ -728,7 +728,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                   />
                   {onShowTrupp && truppOnLine && (
                     <IconButton onClick={onShowTrupp}
-                      label={fillTemplate(appConfig.copy.drawingEditor.truppShow, { name: truppOnLine })}>
+                      label={appConfig.copy.drawingEditor.truppShow}>
                       <span className="ctx-conn-go" aria-hidden>›</span>
                     </IconButton>
                   )}

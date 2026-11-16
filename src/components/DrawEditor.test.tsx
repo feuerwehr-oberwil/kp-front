@@ -304,7 +304,7 @@ describe('read-only (viewer / Führungsansicht)', () => {
     expect(screen.getByText('3')).toBeTruthy()
     expect(screen.getByText('Meier Anna')).toBeTruthy()
     expect(screen.queryByRole('button', { name: D.trupp })).toBeNull() // the picker is not drawn
-    fireEvent.click(screen.getByRole('button', { name: fillTemplate(D.truppShow, { name: 'Meier Anna' }) }))
+    fireEvent.click(screen.getByRole('button', { name: D.truppShow }))
     expect(onShowTrupp).toHaveBeenCalledTimes(1)
   })
 

@@ -696,3 +696,22 @@ describe('Journal · Escape closes one thing, innermost first', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 })
+
+// ENT.2 (17.11.2026): «Trupp 1» in a row is the door to that Trupp's card
+describe('Journal · a Trupp named in a row', () => {
+  const vocab = [{ name: 'Trupp 1', kind: 'trupp' as const, truppId: 'T1' }]
+
+  it('opens that Trupp\'s card, and the row under it does not also act', () => {
+    const onShowTrupp = vi.fn()
+    const props = setup({ vocab, onShowTrupp })
+    fireEvent.click(screen.getByRole('button', { name: 'Trupp 1' }))
+    expect(onShowTrupp).toHaveBeenCalledWith('T1')
+    expect(props.onSelect).not.toHaveBeenCalled()
+  })
+
+  it('stays a plain word where there is no board to go to', () => {
+    setup({ vocab })
+    expect(screen.queryByRole('button', { name: 'Trupp 1' })).toBeNull()
+    expect(document.querySelector('[data-trupp="T1"]')?.textContent).toBe('Trupp 1')
+  })
+})

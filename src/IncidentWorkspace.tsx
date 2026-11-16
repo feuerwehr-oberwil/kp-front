@@ -3230,7 +3230,7 @@ export function IncidentWorkspace({
         noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
         selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
         changeMapEnding, reverseDrawing, setDrawingWallRole, objects, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
-        unlinkLine, setSelectedDrawingId, setMode, setPanel, setGpsRouting, revertAll, gpsEndOf, releaseHere,
+        unlinkLine, setSelectedDrawingId, setMode, setPanel, showTrupp, setGpsRouting, revertAll, gpsEndOf, releaseHere,
         releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing,
       }} />
 
@@ -3330,6 +3330,7 @@ export function IncidentWorkspace({
         enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
         tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen,
         addJournal, noteOn, roleReadOnly, linkScoped, openTafelPendenzen: linkScoped ? undefined : tafelPendenzen.openPage,
+        showTrupp: linkScoped ? undefined : showTrupp,
       }} />
       {sharePick && (
         <SharePositionSheet
