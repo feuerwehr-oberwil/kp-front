@@ -56,6 +56,10 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
 - **Text sizes have floors** (style sweep T4): a hint sentence is the `.ip-hint` voice (12.5/500
   `--ink-dim`), a row's second line the `.list-row-sub` voice (the same, 1.3 leading) – never 11px,
   never `--ink-faint` plus an opacity dim. `--fs-micro` stays for captions, tags and eyebrows.
+  …and a ceiling (owner 16.11.2026, «just a bit too big»): a READ value – a read-out beside its
+  key, a name in a list, a sheet's lede – is `--fs-2`. 16 (`--fs-3`) is a typed field's size (iOS
+  zooms into a smaller one), a title's, or a figure meant to be loud; a read-out does not borrow it
+  to match the fields around it (the Rapport's «Aus den Einsatzdaten» did, `readoutType.test.ts`).
 - **The neutral washes and hairlines are near-twins, not duplicates** (checked 13.11.2026):
   `--fill-soft`, `--hover`, `--hover-strong`, `--press`, `--surface-2`, `--surface-veil`,
   `--ink-tint(-strong)`, `--border(-soft)`, `--glass-edge`, `--glass-line` and `--ink-5…62` –

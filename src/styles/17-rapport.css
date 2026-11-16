@@ -60,14 +60,14 @@
    the value in full ink at the next size up – the VALUE is what is read (hill climb r16,
    05.11.2026: in --ink-dim the 700 keys outweighed their 400 values). A missing value keeps its
    warning tone (.report-meta-missing).
-   ONE value type on the whole Rapport (hill climb r22, Opus 5, 05.11.2026): a read-out and a typed
-   value are 16 / 400 in ink – the fields' 16px (iOS zooms into a smaller one) and the read-out's
-   regular weight. Measured before: read-outs 14 / 400, the fields 16 / 500 (the Einsatzleiter
-   picker 16 / 400), so «Brand» and «Oblt Muster» were two kinds of value in one column.
+   A READ value is 14 / 400 (`--fs-2`), the app's read-out step (owner 16.11.2026: «just a bit too
+   big for comfort» at 16 – a notch above the 14px Zeiten names and clocks around it). 16 stays
+   for what is TYPED: a field's 16px is iOS's zoom floor, not a reading size, so a read-out does
+   not borrow it (hill climb r22 had set both to 16 / 400).
    The Gerettete keys («Personen», «Tiere», .rz-count below) stand in the same key column and so
    wear this same key – one row-key voice down the form (hill climb r27, Opus 4). */
 .report-meta-readout dt, .rz-count > span { margin: 0; font: var(--field-label); color: var(--ink-faint); }
-.report-meta-readout dd, .rp-readout { margin: 0; font-size: var(--fs-3); line-height: 1.45; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.report-meta-readout dd, .rp-readout { margin: 0; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 .report-preflight-body :is(.ip-field input, .ip-input, .ip-textarea) { font-weight: var(--fw-regular); }
 .report-meta-empty { color: var(--ink-faint); }
 /* …and a REQUIRED dispatch fact that is missing (ReportPreflight · MissingFact, owner C1
@@ -79,8 +79,10 @@
    block's read-out type above, in the field's own place. `flex: 1` so a Kontaktperson's call
    button still sits at the end of its line. */
 .rp-readout { flex: 1 1 auto; min-width: 0; }
-/* …and a time or a count in the Zeiten grid / Gerettete rows: the value where the control stood */
-.rz-clock, .rz-count > b { flex: none; font: var(--fw-bold) var(--fs-2) var(--body); font-variant-numeric: tabular-nums; color: var(--ink); }
+/* …and a time or a count in the Zeiten grid / Gerettete rows: the value where the control stood.
+   «Ausgerückt» taken over from the vehicle times (.rz-derived) is one of those clocks too – it
+   was 16 / 700 above a grid of 14px ones (owner 16.11.2026). */
+.rz-clock, .rz-count > b, .rz-derived b { flex: none; font: var(--fw-bold) var(--fs-2) var(--body); font-variant-numeric: tabular-nums; color: var(--ink); }
 
 /* Right-click menu on the planning surfaces (lib/overlays/ContextMenu). Base UI's positioner
    owns the placement, so this styles the popup only — same surface vocabulary as .ip-menu,
@@ -216,7 +218,6 @@
 .rz-row input[type="time"] { flex: none; width: 112px; font-variant-numeric: tabular-nums; }
 .rz-sub { font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--ink-faint); }
 .rz-derived { align-items: baseline; gap: var(--sp-2); }
-.rz-derived b { font: var(--fw-bold) var(--fs-3) var(--body); color: var(--ink); }
 /* an impossible clock is SAID, not enforced — the field keeps the value, the print keeps going.
    THE form warning, amber and compact (`.form-warn`, 13-incident · 29.09.2026 — it was amber
    body text with no box); this only places it under the time field. */
