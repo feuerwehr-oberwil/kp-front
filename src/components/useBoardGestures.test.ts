@@ -34,7 +34,7 @@ const setup = (annos: BoardAnno[], tool: BoardTool = 'lasso') => {
     hook.result.current.stageMove(ptr(x1, y1))
     hook.result.current.stageUp()
   })
-  return { box, setSelId, setSelIds, setTool }
+  return { box, hook, setSelId, setSelIds, setTool }
 }
 
 const sym = (id: string, x: number, y: number): BoardAnno => ({ id, kind: 'symbol', x, y, floor: 0 })
@@ -56,20 +56,22 @@ describe('the marquee’s single-object fallback', () => {
     expect(setTool).toHaveBeenCalledWith('pan')
   })
 
-  it('still builds a real group from two or more, and leaves the lasso armed', () => {
+  // GESTURES.8 (17.11.2026): the lasso is one-shot whatever it caught, as on the Lage – the next
+  // finger pans instead of drawing another box
+  it('builds a real group from two or more, and goes back to Auswahl with it', () => {
     const { box, setSelId, setSelIds, setTool } = setup([sym('a1', 0.25, 0.25), sym('a2', 0.5, 0.5)])
     box(10, 10, 150, 150)
     expect(setSelIds).toHaveBeenLastCalledWith(['a1', 'a2'])
     expect(setSelId).toHaveBeenLastCalledWith(null)
-    expect(setTool).not.toHaveBeenCalled()
+    expect(setTool).toHaveBeenCalledWith('pan')
   })
 
-  it('clears on an empty box without disarming — the next box is the obvious retry', () => {
+  it('clears on an empty box and goes back to Auswahl too', () => {
     const { box, setSelId, setSelIds, setTool } = setup([sym('a1', 0.9, 0.9)])
     box(10, 10, 60, 60)
     expect(setSelIds).toHaveBeenLastCalledWith([])
     expect(setSelId).toHaveBeenLastCalledWith(null)
-    expect(setTool).not.toHaveBeenCalled()
+    expect(setTool).toHaveBeenCalledWith('pan')
   })
 
   // locked ink is click-through everywhere else, so the lasso may not pick it up either — and
@@ -280,5 +282,28 @@ describe('the board’s one-finger zoom', () => {
     b.down(110, 220, { t: 0, pointerType: 'mouse' }); b.up(110, 220, { t: 60, pointerType: 'mouse' })
     b.down(110, 220, { t: 200, pointerType: 'mouse' }); b.up(110, 220, { t: 260, pointerType: 'mouse' })
     expect(b.zoomTo).not.toHaveBeenCalled()
+  })
+})
+
+// ── GESTURES.2 (17.11.2026): a pan never deselects ───────────────────────────────────────────
+// The Lage's rule: only a stationary tap on empty board drops the selection. On a phone that
+// deselect closes the detail sheet, and a pan to see where a Trupp is going must not.
+describe('the board pan and the selection', () => {
+  it('keeps the selection under a pan, and drops it on a stationary tap', () => {
+    const g = setup([], 'pan')
+    g.box(50, 50, 120, 90) // under Auswahl the same down–move–up is a pan
+    expect(g.setSelId).not.toHaveBeenCalled()
+    g.box(50, 50, 53, 52) // a tap: inside the slop
+    expect(g.setSelId).toHaveBeenLastCalledWith(null)
+    expect(g.setSelIds).toHaveBeenLastCalledWith([])
+  })
+
+  it('never deselects for a press that began on an object – that release is the object’s tap', () => {
+    const g = setup([], 'pan')
+    act(() => {
+      g.hook.result.current.panFrom(ptr(50, 50))
+      g.hook.result.current.stageUp()
+    })
+    expect(g.setSelId).not.toHaveBeenCalled()
   })
 })

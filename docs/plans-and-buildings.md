@@ -22,7 +22,9 @@ AGENTS.md on 2026-10-08, wording unchanged.
   change coverage, and old single-floor values remain readable without inventing assignments.
   Removing a storey never deletes a range that still covers another one: it shrinks to the
   storeys left, and a home on the removed storey moves to the lowest of them.
-  A Linie/Fläche dragged or turned WHOLE keeps its shape: at a tile's edge the translation stops,
+  A Linie/Fläche dragged or turned WHOLE keeps its shape (its body drags only once it is selected
+  or held still – the Lage's press rule, [`tactical-objects.md`](tactical-objects.md) › A finger
+  on an object pans): at a tile's edge the translation stops,
   never each vertex (`whiteboard · floorGeometry.moveRigid`, 24.09.2026 — the per-vertex clamp
   flattened a Leitung onto the tile's rim in the field). Dragged ONTO another storey tile (body
   drag, or the bar's ✥ with the selection's centre over it), it goes to that storey (27.10.2026,

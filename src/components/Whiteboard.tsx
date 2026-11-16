@@ -1278,7 +1278,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // the storey tile a move would drop its selection onto – lit while the drag is over it
   const [dropFloor, setDropFloor] = useState<number | null>(null)
   const { drawDrag, drawDown, drawMove, drawUp, circleDrag, circleDown, circleMove, circleUp, labelDown, labelMove, labelUp } = useWbBodyDrag({
-    tool, readOnly, annos, setAnnoTap, setSelId, setSelIds, boardRef, boardPts, moveRigid, localY, mapY, stack, floorAt, floorsTTB, setDropFloor, pushPast, patch, emit, activeId, snapMove: snapMoveOf,
+    tool, readOnly, annos, selId, setAnnoTap, setSelId, setSelIds, boardRef, boardPts, moveRigid, localY, mapY, stack, floorAt, floorsTTB, setDropFloor, pushPast, patch, emit, activeId, snapMove: snapMoveOf,
+    // lazy: the board's pan lives in useBoardGestures, further down
+    panFrom: (e) => panFrom(e), stopPan: () => stopPan(),
   })
 
   // --- vertex editing of a selected line/area and of the in-progress node draft (drag a node,
@@ -1298,8 +1300,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   // --- chip dragging (resource / symbol / text in pan mode) — components/useWbChipDrag ---
   const { chipDrag, chipDown, chipMove, chipUp } = useWbChipDrag({
-    tool, readOnly, annos, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH, tileAR,
+    tool, readOnly, annos, selId, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH, tileAR,
     attachmentLines, pushPast, set, patch, emit, activeId, onLinkLineTrupp,
+    panFrom: (e) => panFrom(e), stopPan: () => stopPan(),
   })
 
   // object-manipulation hand-off for the stage dispatcher in useBoardGestures: when no
@@ -1320,7 +1323,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   // pan / pinch-zoom / marquee multi-select + the shared stage pointer dispatcher live in
   // useBoardGestures; object manipulation is reached through manipMove/manipUp above.
-  const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp, tapZoomPress, tapZoomOwns } = useBoardGestures({
+  const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp, tapZoomPress, tapZoomOwns, panFrom, stopPan } = useBoardGestures({
     tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
   })
 
@@ -2265,23 +2268,17 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           className={`wb-canvas tool-${tool} ${pending || pendingShape ? 'placing' : ''}`}
           // capture-phase bookkeeping FIRST — it sees the fingers a chip's own handler
           // swallows, which is what makes the two-finger gesture work on a busy board.
-          // ⚠️ The twin-panel dismissal must NOT fire for a press on a twin mark itself: capture
-          // runs before TwinMark can stop anything, so an unguarded setTwinView(null) here
-          // deselected the twin at the exact pointerdown that was meant to DRAG it — the halo
-          // vanished, `onMove` was withdrawn mid-gesture, and «twins cannot be moved» was the
-          // whole visible story. A press starting on the mark keeps the selection; any other
-          // press still dismisses (that is what makes tapping empty paper close the panel).
-          // ⚠️ …and it stands down entirely while ✥ / ⟳ are armed: React delegates at the app
-          // root, so this capture handler runs BEFORE useArmedTransform's listener on this very
-          // element and would dismiss the twin panel of the object the drag is about to move.
+          // ⚠️ It stands down entirely while ✥ / ⟳ are armed: React delegates at the app root, so
+          // this capture handler runs BEFORE useArmedTransform's listener on this very element.
+          // (A press no longer closes the note panel here: a pan keeps the selection – GESTURES.2 –
+          // and the panel follows the selection, useNotePanelClosing.)
           onPointerDownCapture={(e) => {
             if (arm.armed && !(e.target as HTMLElement | null)?.closest?.('[data-arm-exempt]')) return
-            if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) { setNotePanelId(null) }
             trackDown(e)
           }}
           onPointerUpCapture={trackUp}
           onPointerCancelCapture={trackUp}
-          onPointerDown={(e) => { if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) { setNotePanelId(null) } stageDown(e) }}
+          onPointerDown={stageDown}
           onPointerMove={stageMove}
           onPointerUp={stageUp}
           onPointerCancel={stageUp}

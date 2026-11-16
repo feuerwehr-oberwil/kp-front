@@ -7,6 +7,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import type { SymbolsApi } from '../lib/useSymbols'
 import { NODE_HOLD_ARM_MS, NODE_HOLD_FIRE_MS, NODE_HOLD_MOVE_PX } from '../lib/nodeHold'
+import { HOLD_DRAG_MS } from '../lib/holdTimings'
 
 // The OSM sheet fetches live footprints from the backend; the surface's CONTRACT is what is
 // under test, so the outline component is stubbed down to the one thing it does — report how it
@@ -48,6 +49,15 @@ vi.mock('../lib/ui', async (importOriginal) => {
 })
 
 import { Whiteboard } from './Whiteboard'
+
+/** A press with the mouse unless the test names its pointer: a mouse press selects and drags at
+ *  once, so these tests read the panels the old way. The touch press – pan unless selected or
+ *  held still (GESTURES.1) – has its own block, «a finger on a plan object». */
+const mouseDown = (el: Element | Window | Document, init: Parameters<typeof fireEvent.pointerDown>[1] = {}) =>
+  fireEvent.pointerDown(el, { pointerType: 'mouse', isPrimary: true, ...init })
+/** …and a whole tap: what selects an object that never drags (a Form, anything on a read-only
+ *  board) – on release, as on the Lage */
+const tapOn = (el: Element) => { mouseDown(el); fireEvent.pointerUp(el, { pointerType: 'mouse' }) }
 import { replayEmits } from '../lib/replay.test-utils'
 import { endingOf } from '../lib/drawingEdit'
 
@@ -273,7 +283,7 @@ describe('the plan chip’s trash', () => {
     trail: [{ x: 0.1, y: 0.1, floor: 0, t: '03:10' }, { x: 0.2, y: 0.2, floor: 0, t: '03:11' }],
   }
   const openTrash = () => {
-    fireEvent.pointerDown(screen.getByText('Trupp 1'))
+    mouseDown(screen.getByText('Trupp 1'))
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.remove }))
   }
 
@@ -315,7 +325,7 @@ describe('the plan chip’s «Atemschutz-Trupp» menu (the map marker’s twin)'
   it('joins a chip to a Trupp from the picture, not only from the AT card', () => {
     const onTeamTrupp = vi.fn()
     renderPlan([chip], { trupps: TRUPPS, onTeamTrupp })
-    fireEvent.pointerDown(screen.getByText('Trupp 1'))
+    mouseDown(screen.getByText('Trupp 1'))
     fireEvent.click(screen.getByRole('button', { name: A.markerLabel }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Trupp 1' }))
     expect(onTeamTrupp).toHaveBeenCalledWith('c1', 't1')
@@ -325,7 +335,7 @@ describe('the plan chip’s «Atemschutz-Trupp» menu (the map marker’s twin)'
   // or creates its crew here, and leaves the picture through the trash can
   it('offers no «Kein Trupp» on a chip that hangs on no hose', () => {
     renderPlan([{ ...chip, truppId: 't1' }], { trupps: TRUPPS, onTeamTrupp: vi.fn() })
-    fireEvent.pointerDown(screen.getByText('Trupp 1'))
+    mouseDown(screen.getByText('Trupp 1'))
     fireEvent.click(screen.getByRole('button', { name: A.markerLabel }))
     expect(screen.queryByRole('menuitem', { name: A.markerNone })).toBeNull()
   })
@@ -334,14 +344,14 @@ describe('the plan chip’s «Atemschutz-Trupp» menu (the map marker’s twin)'
   // standing here. Same filter as the map marker's menu.
   it('does not offer a Trupp that is already out', () => {
     renderPlan([chip], { trupps: TRUPPS, onTeamTrupp: vi.fn() })
-    fireEvent.pointerDown(screen.getByText('Trupp 1'))
+    mouseDown(screen.getByText('Trupp 1'))
     fireEvent.click(screen.getByRole('button', { name: A.markerLabel }))
     expect(screen.queryByRole('menuitem', { name: 'Trupp 2' })).toBeNull()
   })
 
   it('has no menu at all where the join is not on offer (locked / no Atemschutz board)', () => {
     renderPlan([chip], { trupps: TRUPPS })
-    fireEvent.pointerDown(screen.getByText('Trupp 1'))
+    mouseDown(screen.getByText('Trupp 1'))
     expect(screen.queryByRole('button', { name: A.markerLabel })).toBeNull()
   })
 
@@ -349,7 +359,7 @@ describe('the plan chip’s «Atemschutz-Trupp» menu (the map marker’s twin)'
   // fork the two apart, which is exactly why the map marker drops its pen too
   it('drops the rename pen once the chip belongs to a Trupp', () => {
     renderPlan([{ ...chip, truppId: 't1' }], { trupps: TRUPPS, onTeamTrupp: vi.fn() })
-    fireEvent.pointerDown(screen.getByText('Trupp 1'))
+    mouseDown(screen.getByText('Trupp 1'))
     expect(screen.queryByRole('button', { name: appConfig.copy.edit })).toBeNull()
   })
 })
@@ -359,7 +369,7 @@ describe('a locked line on the plan (BoardAnno.locked — the twin of Drawing.lo
 
   it('opens its editor when it is NOT locked', () => {
     const { container } = renderPlan([line])
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     // …twice: the editor pins its action row at the sheet bottom AND inside the scrolling body
     // for phones, and CSS shows exactly one of them (DrawEditor · actions)
     expect(screen.getAllByRole('button', { name: new RegExp(D.lock) }).length).toBeGreaterThan(0)
@@ -374,7 +384,7 @@ describe('a locked line on the plan (BoardAnno.locked — the twin of Drawing.lo
 
   it('is tap-through once locked — no selection, no editor, no drag', () => {
     const { container, onChange } = renderPlan([{ ...line, locked: true }])
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     fireEvent.pointerMove(hitShape(container), { clientX: 400, clientY: 400 })
     expect(screen.queryAllByRole('button', { name: new RegExp(D.lock) })).toHaveLength(0)
     expect(onChange).not.toHaveBeenCalled()
@@ -395,11 +405,11 @@ describe('a locked line on the plan (BoardAnno.locked — the twin of Drawing.lo
     vi.useFakeTimers()
     const { onChange } = renderPlan([{ ...line, locked: true }])
     const held = screen.getByRole('button', { name: D.unlockHold })
-    fireEvent.pointerDown(held)
+    mouseDown(held)
     fireEvent.pointerUp(held) // a tap: the hold is cancelled, nothing changes
     vi.advanceTimersByTime(NODE_HOLD_FIRE_MS * 2)
     expect(onChange).not.toHaveBeenCalled()
-    fireEvent.pointerDown(held)
+    mouseDown(held)
     // still short of the fire time: the ring is filling, but nothing has happened yet
     vi.advanceTimersByTime(NODE_HOLD_FIRE_MS - 50)
     expect(onChange).not.toHaveBeenCalled()
@@ -416,7 +426,7 @@ describe('a locked line on the plan (BoardAnno.locked — the twin of Drawing.lo
     vi.useFakeTimers()
     const { container, onChange } = renderPlan([{ ...line, locked: true }])
     const held = screen.getByRole('button', { name: D.unlockHold })
-    fireEvent.pointerDown(held, { clientX: 0, clientY: 0 })
+    mouseDown(held, { clientX: 0, clientY: 0 })
     act(() => { vi.advanceTimersByTime(NODE_HOLD_ARM_MS + 50) })
     expect(container.querySelector('.node-del.tone-unlock')).toBeTruthy()
     act(() => { fireEvent.pointerMove(window, { clientX: 0, clientY: NODE_HOLD_MOVE_PX + 6 }) })
@@ -435,7 +445,7 @@ describe('«Art: Linie | Wand» on a flat plan', () => {
 
   it('switches a drawn line to a Wand and back – one save each, the Wand look on it', () => {
     const { container, onChange, remoteWrite } = renderPlan([line])
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     fireEvent.click(art().getByRole('button', { name: D.kindWand }))
     expect(onChange).toHaveBeenCalledTimes(1)
     const wand = onChange.mock.calls[0][0][0] as BoardAnno
@@ -448,7 +458,7 @@ describe('«Art: Linie | Wand» on a flat plan', () => {
   it('offers «Wand» disabled, with the reason, while a Trupp is on the line', () => {
     const trupp = { id: 't1', name: 'Trupp 1', status: 'aktiv', entryPressureBar: 300, entryTime: '', lastContactTime: '', lineId: 'l1' } satisfies Trupp
     const { container } = renderPlan([line], { trupps: [trupp] })
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     expect((art().getByRole('button', { name: D.kindWand }) as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getAllByText(D.kindWandBlocked).length).toBeGreaterThan(0)
   })
@@ -477,7 +487,7 @@ describe('the Plan rail and its drafts', () => {
 
   const ink = (c: HTMLElement) => c.querySelector('.wb-ink')!
   const tapAt = (el: Element, x: number, y: number) => {
-    fireEvent.pointerDown(el, { clientX: x, clientY: y, pointerId: 1 })
+    mouseDown(el, { clientX: x, clientY: y, pointerId: 1 })
     fireEvent.pointerUp(el, { clientX: x, clientY: y, pointerId: 1 })
   }
   // three area taps, far enough apart that none reads as the double-tap finish
@@ -519,7 +529,7 @@ describe('the Plan rail and its drafts', () => {
     const inserts = screen.getAllByRole('button', { name: W.insertVertex })
     expect(inserts).toHaveLength(3)
     // pressing a «+» splices a node right there (and hands the same press its drag)
-    fireEvent.pointerDown(inserts[0], { clientX: 200, clientY: 100, pointerId: 2 })
+    mouseDown(inserts[0], { clientX: 200, clientY: 100, pointerId: 2 })
     expect(screen.getAllByRole('button', { name: W.dragVertex })).toHaveLength(4)
   })
 
@@ -610,7 +620,7 @@ describe('the Plan rail and its drafts', () => {
 
   it('shows no floating ✕ on a selected symbol — Löschen lives in its panel', () => {
     const { container } = renderPlan([{ id: 's1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'brand', label: 'Brand' }])
-    fireEvent.pointerDown(container.querySelector('.wb-symbol')!)
+    mouseDown(container.querySelector('.wb-symbol')!)
     expect(container.querySelector('.wb-del')).toBeNull()
     // the ContextPanel opened by the same tap carries the delete — «Entfernen» on a symbol since
     // it also offers «Gelöscht / erledigt» (review item 21b)
@@ -620,7 +630,7 @@ describe('the Plan rail and its drafts', () => {
   it('opens a note’s panel on a plain TAP — the symbol grammar, no grips row', () => {
     const { container } = renderPlan([{ id: 'n1', kind: 'text', x: 0.5, y: 0.5, floor: 0, text: 'Hallo' }])
     expect(screen.queryByRole('button', { name: appConfig.copy.remove })).toBeNull()
-    fireEvent.pointerDown(screen.getByText('Hallo'))
+    mouseDown(screen.getByText('Hallo'))
     expect(container.querySelector('.note-grips')).toBeNull()
     expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
   })
@@ -644,7 +654,7 @@ describe('the Grundriss preset', () => {
 
   const ink = () => document.querySelector('.wb-ink')!
   const tapAt = (x: number, y: number) => {
-    fireEvent.pointerDown(ink(), { clientX: x, clientY: y, pointerId: 1 })
+    mouseDown(ink(), { clientX: x, clientY: y, pointerId: 1 })
     fireEvent.pointerUp(ink(), { clientX: x, clientY: y, pointerId: 1 })
   }
   const armWand = () => {
@@ -677,7 +687,7 @@ describe('the Grundriss preset', () => {
     armWand()
     tapAt(100, 200); tapAt(180, 200)
     const grip = document.querySelectorAll('.wb-vertex')[1]
-    fireEvent.pointerDown(grip, { clientX: 180, clientY: 200, pointerId: 2 })
+    mouseDown(grip, { clientX: 180, clientY: 200, pointerId: 2 })
     fireEvent.pointerMove(grip, { clientX: 210, clientY: 203, pointerId: 2 })
     fireEvent.pointerMove(grip, { clientX: 236, clientY: 204, pointerId: 2 })
     expect(document.querySelector('.wb-snap-ring')).not.toBeNull()
@@ -753,7 +763,7 @@ describe('a locked plan surface hands out no reshape grips', () => {
     const grip = container.querySelector('.wb-vertex')!
     cleanup()
     const locked = renderPlan([line], { focus: focused('l1'), readOnly: true })
-    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    mouseDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
     fireEvent.pointerMove(grip, { clientX: 300, clientY: 300, pointerId: 1 })
     expect(onChange).not.toHaveBeenCalled()
     expect(locked.onChange).not.toHaveBeenCalled()
@@ -792,7 +802,7 @@ describe('the Absperrkreis on a plan', () => {
     const { container, onChange } = renderPlan([])
     fireEvent.click(screen.getByRole('button', { name: 'Absperrkreis' }))
     const el = ink(container)
-    fireEvent.pointerDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
+    mouseDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
     fireEvent.pointerMove(el, { clientX: 300, clientY: 200, pointerId: 1 })
     fireEvent.pointerUp(el, { clientX: 300, clientY: 200, pointerId: 1 })
     const [a] = placed(onChange)
@@ -804,7 +814,7 @@ describe('the Absperrkreis on a plan', () => {
     const { container, onChange } = renderPlan([])
     fireEvent.click(screen.getByRole('button', { name: 'Absperrkreis' }))
     const el = ink(container)
-    fireEvent.pointerDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
+    mouseDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
     fireEvent.pointerUp(el, { clientX: 200, clientY: 200, pointerId: 1 })
     expect(placed(onChange)[0].radiusN).toBe(C.circleInitialRadiusN)
   })
@@ -813,7 +823,7 @@ describe('the Absperrkreis on a plan', () => {
     const { container } = renderPlan([cordon])
     expect(container.querySelectorAll('.wb-ink-svg circle').length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: W.dragRadius })).toBeNull()
-    fireEvent.pointerDown(ring(container), { clientX: 200, clientY: 200, pointerId: 1 })
+    mouseDown(ring(container), { clientX: 200, clientY: 200, pointerId: 1 })
     expect(screen.getByRole('button', { name: W.dragRadius })).toBeTruthy()
   })
 
@@ -821,7 +831,7 @@ describe('the Absperrkreis on a plan', () => {
   // grab point would shift the ring out from under the hand
   it('moves by the pointer’s travel, not to the pointer', () => {
     const { container, onChange } = renderPlan([cordon])
-    fireEvent.pointerDown(ring(container), { clientX: 280, clientY: 200, pointerId: 1 })
+    mouseDown(ring(container), { clientX: 280, clientY: 200, pointerId: 1 })
     fireEvent.pointerMove(ring(container), { clientX: 320, clientY: 200, pointerId: 1 })
     const [a] = placed(onChange)
     expect(a.x).toBeCloseTo(0.6, 6) // 0.5 + 40/400
@@ -855,7 +865,7 @@ describe('the Absperrkreis on a plan', () => {
 
   it('never wears vertex grips — it is centre + radius, not a polyline', () => {
     const { container } = renderPlan([cordon])
-    fireEvent.pointerDown(ring(container), { clientX: 200, clientY: 200, pointerId: 1 })
+    mouseDown(ring(container), { clientX: 200, clientY: 200, pointerId: 1 })
     expect(container.querySelectorAll('.wb-vertex')).toHaveLength(1) // the radius grip, nothing else
     expect(container.querySelector('.wb-vins')).toBeNull()
   })
@@ -897,11 +907,11 @@ describe('the Rotation’s placement magnet pauses the board pan', () => {
     armRotation()
     const el = container.querySelector('.wb-ink')!
     // dead on the symbol (0.5/0.5 of a 400 px sheet), then the wobble the ring is meant to absorb
-    fireEvent.pointerDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
+    mouseDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
     fireEvent.pointerMove(el, { clientX: 209, clientY: 200, pointerId: 1 })
     fireEvent.pointerUp(el, { clientX: 209, clientY: 200, pointerId: 1 })
     // the second point finishes the run — it only exists if the first tap survived the wobble
-    fireEvent.pointerDown(el, { clientX: 340, clientY: 340, pointerId: 1 })
+    mouseDown(el, { clientX: 340, clientY: 340, pointerId: 1 })
     fireEvent.pointerUp(el, { clientX: 340, clientY: 340, pointerId: 1 })
     expect(shapes(onChange)).toHaveLength(1)
   })
@@ -910,10 +920,10 @@ describe('the Rotation’s placement magnet pauses the board pan', () => {
     const { container, onChange } = renderPlan([target], { sym: symApi })
     armRotation()
     const el = container.querySelector('.wb-ink')!
-    fireEvent.pointerDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
+    mouseDown(el, { clientX: 200, clientY: 200, pointerId: 1 })
     fireEvent.pointerMove(el, { clientX: 380, clientY: 200, pointerId: 1 }) // well out of the ring
     fireEvent.pointerUp(el, { clientX: 380, clientY: 200, pointerId: 1 })
-    fireEvent.pointerDown(el, { clientX: 340, clientY: 340, pointerId: 1 })
+    mouseDown(el, { clientX: 340, clientY: 340, pointerId: 1 })
     fireEvent.pointerUp(el, { clientX: 340, clientY: 340, pointerId: 1 })
     expect(shapes(onChange)).toHaveLength(0) // that second tap is only the FIRST point now
   })
@@ -925,10 +935,10 @@ describe('the Rotation’s placement magnet pauses the board pan', () => {
     const { container, onChange } = renderPlan([], { sym: symApi })
     armRotation()
     const el = container.querySelector('.wb-ink')!
-    fireEvent.pointerDown(el, { clientX: 60, clientY: 60, pointerId: 1 })
+    mouseDown(el, { clientX: 60, clientY: 60, pointerId: 1 })
     fireEvent.pointerUp(el, { clientX: 60, clientY: 60, pointerId: 1 })
     fireEvent.keyDown(window, { key: 'Escape' })
-    fireEvent.pointerDown(el, { clientX: 340, clientY: 340, pointerId: 1 })
+    mouseDown(el, { clientX: 340, clientY: 340, pointerId: 1 })
     fireEvent.pointerUp(el, { clientX: 340, clientY: 340, pointerId: 1 })
     expect(shapes(onChange)).toHaveLength(0)
   })
@@ -966,7 +976,7 @@ describe('a Rotation on the plan sheet', () => {
   // rotate knob, no stem and no size grip; moving and turning the whole loop is the fixed bar's.
   it('wears its two end grips and nothing else — no knob, no stem, no size grip', () => {
     const { container } = renderPlan([loop])
-    fireEvent.pointerDown(container.querySelector('.wb-shape')!)
+    tapOn(container.querySelector('.wb-shape')!)
     const ends = container.querySelectorAll('.handle.shape-end')
     expect(ends).toHaveLength(2)
     for (const g of ends) {
@@ -1004,7 +1014,7 @@ describe('the plan’s selection bar', () => {
   it('is absent until something is selected, then carries ✥ · ⟳ · Löschen', () => {
     const { container } = renderPlan([line])
     expect(bar()).toBeNull()
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     expect(bar()).toBeTruthy()
     expect(within(bar()!).getByRole('button', { name: D.move })).toBeTruthy()
     expect(within(bar()!).getByRole('button', { name: R })).toBeTruthy()
@@ -1012,9 +1022,9 @@ describe('the plan’s selection bar', () => {
 
   it('moves the whole selection by the ✥ drag, in one undo step', () => {
     const { container, onChange } = renderPlan([line])
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     const grip = within(bar()!).getByRole('button', { name: D.move })
-    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    mouseDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
     fireEvent.pointerMove(grip, { clientX: 180, clientY: 100, pointerId: 1 }) // +80px of a 400px board
     fireEvent.pointerUp(grip, { clientX: 180, clientY: 100, pointerId: 1 })
     const moved = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'l1')
@@ -1028,9 +1038,9 @@ describe('the plan’s selection bar', () => {
   it('reports a stroke’s release with its POINTS — the frame it ended on — for ✥ and ⟳ alike', () => {
     const emit = vi.fn()
     const { container, onChange } = renderPlan([line], { emit })
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     const grip = within(bar()!).getByRole('button', { name: D.move })
-    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    mouseDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
     fireEvent.pointerMove(grip, { clientX: 140, clientY: 100, pointerId: 1 })
     fireEvent.pointerUp(grip, { clientX: 180, clientY: 120, pointerId: 1 }) // the release moves on
     const written = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'l1')
@@ -1039,7 +1049,7 @@ describe('the plan’s selection bar', () => {
     expect(moves[0][1]).toEqual({ id: 'l1', pts: written.pts, planId: 'tafel' })
     expect(written.pts[0][0]).toBeCloseTo(0.4) // …the RELEASE frame, not the sample before it
     const dial = within(bar()!).getByRole('button', { name: R })
-    fireEvent.pointerDown(dial, { clientX: 200, clientY: 200, pointerId: 1 })
+    mouseDown(dial, { clientX: 200, clientY: 200, pointerId: 1 })
     fireEvent.pointerMove(dial, { clientX: 260, clientY: 200, pointerId: 1 })
     fireEvent.pointerUp(dial, { clientX: 260, clientY: 200, pointerId: 1 })
     const turned = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'l1')
@@ -1051,9 +1061,9 @@ describe('the plan’s selection bar', () => {
   it('writes a vertex back with the storey it was stored with — `[x, y]` stays `[x, y]`', () => {
     const bare: BoardAnno = { id: 'l1', kind: 'draw', pts: [[0.2, 0.2], [0.8, 0.8]] }
     const { container, onChange } = renderPlan([bare])
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     const grip = within(bar()!).getByRole('button', { name: D.move })
-    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    mouseDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
     fireEvent.pointerMove(grip, { clientX: 140, clientY: 100, pointerId: 1 })
     fireEvent.pointerUp(grip, { clientX: 140, clientY: 100, pointerId: 1 })
     const moved = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'l1')
@@ -1062,10 +1072,10 @@ describe('the plan’s selection bar', () => {
 
   it('turns a Form about the selection centre and its own bearing with it', () => {
     const { container, onChange } = renderPlan([box])
-    fireEvent.pointerDown(container.querySelector('.wb-shape')!)
+    tapOn(container.querySelector('.wb-shape')!)
     // the Form keeps its own knob on the glyph; the bar's is the one in the toolbar
     const dialBtn = within(bar()!).getByRole('button', { name: R })
-    fireEvent.pointerDown(dialBtn, { clientX: 200, clientY: 200, pointerId: 1 })
+    mouseDown(dialBtn, { clientX: 200, clientY: 200, pointerId: 1 })
     fireEvent.pointerMove(dialBtn, { clientX: 380, clientY: 200, pointerId: 1 }) // 180px = +90°
     fireEvent.pointerUp(dialBtn, { clientX: 380, clientY: 200, pointerId: 1 })
     const turned = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'f1')
@@ -1084,7 +1094,7 @@ describe('the plan’s selection bar', () => {
   it('gives a selected Form no halo, and no body drag either', () => {
     const { container, onChange } = renderPlan([box])
     const glyph = container.querySelector('.wb-shape')!
-    fireEvent.pointerDown(glyph, { pointerId: 1, clientX: 100, clientY: 100 })
+    mouseDown(glyph, { pointerId: 1, clientX: 100, clientY: 100 })
     expect(container.querySelector('.sel-halo')).toBeNull()
     fireEvent.pointerMove(glyph, { pointerId: 1, clientX: 200, clientY: 180 })
     fireEvent.pointerUp(glyph, { pointerId: 1, clientX: 200, clientY: 180 })
@@ -1096,7 +1106,7 @@ describe('the plan’s selection bar', () => {
     const sym: BoardAnno = { id: 'y1', kind: 'symbol', symbol: 'Feuer', x: 0.3, y: 0.3, floor: 0 }
     const { container, onChange } = renderPlan([sym])
     const chip = container.querySelector('.wb-anno')!
-    fireEvent.pointerDown(chip, { pointerId: 1, clientX: 100, clientY: 100 })
+    mouseDown(chip, { pointerId: 1, clientX: 100, clientY: 100 })
     expect(container.querySelector('.sel-halo')).toBeTruthy()
     fireEvent.pointerMove(chip, { pointerId: 1, clientX: 200, clientY: 100 })
     fireEvent.pointerUp(chip, { pointerId: 1, clientX: 200, clientY: 100 })
@@ -1106,7 +1116,7 @@ describe('the plan’s selection bar', () => {
 
   it('offers no ⟳ for an Absperrkreis — a centre and a radius have no angle', () => {
     const { container } = renderPlan([circle])
-    fireEvent.pointerDown(container.querySelector('.wb-ink-svg circle[style]')!)
+    mouseDown(container.querySelector('.wb-ink-svg circle[style]')!)
     expect(bar()).toBeTruthy()
     expect(within(bar()!).queryByRole('button', { name: R })).toBeNull()
   })
@@ -1116,14 +1126,14 @@ describe('the plan’s selection bar', () => {
   // arms the same writers for the whole sheet instead (lib/useArmedTransform).
   it('arms ✥ on a tap, then moves the selection from a drag on the paper itself', () => {
     const { container, onChange } = renderPlan([line])
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     const grip = within(bar()!).getByRole('button', { name: D.move })
-    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    mouseDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
     fireEvent.pointerUp(grip, { clientX: 100, clientY: 100, pointerId: 1 })
     expect(within(bar()!).getByRole('button', { name: D.moveArmed }).getAttribute('aria-pressed')).toBe('true')
     // …now a drag anywhere, including straight DOWN, which the grip had no room for
     const canvas = container.querySelector('.wb-canvas')!
-    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40, pointerId: 2, isPrimary: true })
+    mouseDown(canvas, { clientX: 40, clientY: 40, pointerId: 2, isPrimary: true })
     fireEvent.pointerMove(window, { clientX: 40, clientY: 160, pointerId: 2 })
     fireEvent.pointerUp(window, { clientX: 40, clientY: 160, pointerId: 2 })
     const moved = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'l1')
@@ -1133,13 +1143,13 @@ describe('the plan’s selection bar', () => {
 
   it('turns the selection about its centre while ⟳ is armed, following the pointer', () => {
     const { container, onChange } = renderPlan([box])
-    fireEvent.pointerDown(container.querySelector('.wb-shape')!)
+    tapOn(container.querySelector('.wb-shape')!)
     const dialBtn = within(bar()!).getByRole('button', { name: R })
-    fireEvent.pointerDown(dialBtn, { clientX: 100, clientY: 100, pointerId: 1 })
+    mouseDown(dialBtn, { clientX: 100, clientY: 100, pointerId: 1 })
     fireEvent.pointerUp(dialBtn, { clientX: 100, clientY: 100, pointerId: 1 })
     // the Form sits at (0.3, 0.3) of a 400px board → its centre is client (120, 120)
     const canvas = container.querySelector('.wb-canvas')!
-    fireEvent.pointerDown(canvas, { clientX: 220, clientY: 120, pointerId: 2, isPrimary: true }) // due east
+    mouseDown(canvas, { clientX: 220, clientY: 120, pointerId: 2, isPrimary: true }) // due east
     fireEvent.pointerMove(window, { clientX: 120, clientY: 220, pointerId: 2 })                  // due south
     fireEvent.pointerUp(window, { clientX: 120, clientY: 220, pointerId: 2 })
     const turned = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'f1')
@@ -1148,12 +1158,12 @@ describe('the plan’s selection bar', () => {
 
   it('keeps the selection under a tap that never travels while armed', () => {
     const { container } = renderPlan([line])
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     const grip = within(bar()!).getByRole('button', { name: D.move })
-    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    mouseDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
     fireEvent.pointerUp(grip, { clientX: 100, clientY: 100, pointerId: 1 })
     const canvas = container.querySelector('.wb-canvas')!
-    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40, pointerId: 2, isPrimary: true })
+    mouseDown(canvas, { clientX: 40, clientY: 40, pointerId: 2, isPrimary: true })
     fireEvent.pointerUp(window, { clientX: 40, clientY: 40, pointerId: 2 })
     fireEvent.click(canvas)
     // an empty-paper press normally clears the selection; while armed it is simply nothing
@@ -1167,7 +1177,7 @@ describe('the plan’s selection bar', () => {
   const boxGroup = (container: HTMLElement) => {
     armMehrfach()
     const stage = container.querySelector('.wb-stage > div')!
-    fireEvent.pointerDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
+    mouseDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
     fireEvent.pointerMove(stage, { clientX: 400, clientY: 400, pointerId: 1 })
     fireEvent.pointerUp(stage, { clientX: 400, clientY: 400, pointerId: 1 })
   }
@@ -1175,7 +1185,7 @@ describe('the plan’s selection bar', () => {
 
   it('gives a single Linie no second exit beside its card, and no trash', () => {
     const { container } = renderPlan([line])
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     expect(within(bar()!).queryByRole('button', { name: appConfig.copy.remove })).toBeNull()
     expect(within(bar()!).queryByRole('button', { name: appConfig.copy.done })).toBeNull()
     expect(closeX()).toBeNull()
@@ -1185,7 +1195,7 @@ describe('the plan’s selection bar', () => {
     const { container, onChange } = renderPlan([line, box])
     boxGroup(container)
     const grip = within(bar()!).getByRole('button', { name: D.move })
-    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 2 })
+    mouseDown(grip, { clientX: 100, clientY: 100, pointerId: 2 })
     fireEvent.pointerUp(grip, { clientX: 100, clientY: 100, pointerId: 2 })
     expect(within(bar()!).getByRole('button', { name: D.moveArmed })).toBeTruthy()
     fireEvent.click(closeX()!)
@@ -1194,7 +1204,7 @@ describe('the plan’s selection bar', () => {
     expect(!out || (out.some((a) => a.id === 'l1') && out.some((a) => a.id === 'f1'))).toBe(true)
     // …and a drag on the sheet is a plain board gesture again, not a move of what was selected
     const canvas = container.querySelector('.wb-canvas')!
-    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 40, pointerId: 3, isPrimary: true })
+    mouseDown(canvas, { clientX: 40, clientY: 40, pointerId: 3, isPrimary: true })
     fireEvent.pointerMove(window, { clientX: 40, clientY: 160, pointerId: 3 })
     fireEvent.pointerUp(window, { clientX: 40, clientY: 160, pointerId: 3 })
     const after = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0] as BoardAnno[] | undefined
@@ -1205,12 +1215,12 @@ describe('the plan’s selection bar', () => {
     const { container, onChange } = renderPlan([line, box])
     armMehrfach()
     const stage = container.querySelector('.wb-stage > div')!
-    fireEvent.pointerDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
+    mouseDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
     fireEvent.pointerMove(stage, { clientX: 400, clientY: 400, pointerId: 1 })
     fireEvent.pointerUp(stage, { clientX: 400, clientY: 400, pointerId: 1 })
     expect(bar()).toBeTruthy()
     const grip = within(bar()!).getByRole('button', { name: D.move })
-    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 2 })
+    mouseDown(grip, { clientX: 100, clientY: 100, pointerId: 2 })
     fireEvent.pointerMove(grip, { clientX: 100, clientY: 140, pointerId: 2 }) // +40px down of 400
     fireEvent.pointerUp(grip, { clientX: 100, clientY: 140, pointerId: 2 })
     const out = onChange.mock.calls[onChange.mock.calls.length - 1][0] as BoardAnno[]
@@ -1233,7 +1243,7 @@ describe('the plan’s selection bar', () => {
   it('deletes the selection by Delete, and by Backspace', () => {
     for (const key of ['Delete', 'Backspace'] as const) {
       const { container, onChange } = renderPlan([line])
-      fireEvent.pointerDown(hitShape(container))
+      mouseDown(hitShape(container))
       press(key)
       expect(survives(onChange, 'l1')).toBe(false)
       cleanup()
@@ -1244,7 +1254,7 @@ describe('the plan’s selection bar', () => {
     const { container, onChange } = renderPlan([line, box])
     armMehrfach()
     const stage = container.querySelector('.wb-stage > div')!
-    fireEvent.pointerDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
+    mouseDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
     fireEvent.pointerMove(stage, { clientX: 400, clientY: 400, pointerId: 1 })
     fireEvent.pointerUp(stage, { clientX: 400, clientY: 400, pointerId: 1 })
     press('Delete')
@@ -1256,7 +1266,7 @@ describe('the plan’s selection bar', () => {
   // field is a character, never a delete.
   it('stays out of the way while a field owns the press', () => {
     const { container, onChange } = renderPlan([line])
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     const field = document.createElement('input')
     container.appendChild(field)
     press('Backspace', field)
@@ -1282,7 +1292,7 @@ describe('the plan’s selection bar', () => {
 
   it('duplicates the one selected object a visible nudge away, and selects the copy', () => {
     const { container, onChange, keysRef, log } = withKeys([line])
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     act(() => { keysRef.current!.duplicate() })
     const annos = out(onChange)
     expect(annos).toHaveLength(2)
@@ -1300,7 +1310,7 @@ describe('the plan’s selection bar', () => {
   it('never copies «Gelöscht / erledigt» — a duplicated Feuer is a new, burning one', () => {
     const f: BoardAnno = { id: 'f1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'VKF Feuer', label: 'Feuer', done: { at: '2026-09-23T18:40:00.000Z' } }
     const { container, onChange, keysRef } = withKeys([f])
-    fireEvent.pointerDown(container.querySelector('.wb-symbol')!)
+    mouseDown(container.querySelector('.wb-symbol')!)
     act(() => { keysRef.current!.duplicate() })
     const copy = out(onChange).find((a) => a.id !== 'f1')!
     expect(copy.symbol).toBe('VKF Feuer')
@@ -1312,7 +1322,7 @@ describe('the plan’s selection bar', () => {
   it('never copies a Trupp’s recorded trail', () => {
     const trupp: BoardAnno = { id: 'r1', kind: 'resource', x: 0.5, y: 0.5, floor: 0, text: 'A1', trail: [{ x: 0.1, y: 0.1, floor: 0, t: '2026-09-02T08:00:00Z' }] }
     const { container, onChange, keysRef } = withKeys([trupp])
-    fireEvent.pointerDown(container.querySelector('.wb-anno')!)
+    mouseDown(container.querySelector('.wb-anno')!)
     act(() => { keysRef.current!.duplicate() })
     const copy = out(onChange).find((a) => a.id !== 'r1')!
     expect(copy.trail).toBeUndefined()
@@ -1322,7 +1332,7 @@ describe('the plan’s selection bar', () => {
     const { container, onChange, keysRef } = withKeys([line, box])
     armMehrfach()
     const stage = container.querySelector('.wb-stage > div')!
-    fireEvent.pointerDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
+    mouseDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
     fireEvent.pointerMove(stage, { clientX: 400, clientY: 400, pointerId: 1 })
     fireEvent.pointerUp(stage, { clientX: 400, clientY: 400, pointerId: 1 })
     act(() => { keysRef.current!.duplicate() })
@@ -1493,7 +1503,7 @@ describe('the Gebäude north dial answers one tap, every time', () => {
     const spy = vi.spyOn(Element.prototype, 'setPointerCapture').mockImplementation(function (this: Element) { cap.el = this })
     try {
       const at = { pointerId: 7, pointerType, isPrimary: true, button: 0, clientY: 100 }
-      fireEvent.pointerDown(down, { ...at, clientX: 100 })
+      mouseDown(down, { ...at, clientX: 100 })
       if (travel) fireEvent.pointerMove(cap.el ?? down, { ...at, clientX: 100 + travel })
       // a touch is implicitly captured by what it went down on; a mouse lands where it is released
       const up = cap.el ?? (pointerType === 'touch' ? down : upOn)
@@ -1566,14 +1576,14 @@ describe('das Geschoss einer Leitung ändern', () => {
     const step = screen.getByRole('group', { name: appConfig.copy.drawingEditor.floorTag })
     // ⚠️ the stepper repeats on HOLD, so its ± are pointer buttons, not click handlers
     const more = within(step).getByRole('button', { name: appConfig.copy.stepper.more })
-    fireEvent.pointerDown(more, { pointerId: 1 })
+    mouseDown(more, { pointerId: 1 })
     fireEvent.pointerUp(more, { pointerId: 1 })
   }
   // ⚠️ a line whose vertices sit on different storeys is drawn as one run PER storey, and a run
   // of a single vertex is a dot — so the tappable ink is a circle there, not a polyline
   const select = () => {
     const hit = document.querySelector('.wb-ink-svg polyline[style], .wb-ink-svg circle[style]')!
-    fireEvent.pointerDown(hit, { pointerId: 1, clientX: 10, clientY: 10 })
+    mouseDown(hit, { pointerId: 1, clientX: 10, clientY: 10 })
   }
 
   it('moves every vertex, so the hose actually changes storey', () => {
@@ -1698,7 +1708,7 @@ describe('prepared Gebäude floors and shared symbol instances', () => {
     expect(instances).toHaveLength(2)
     for (const instance of instances) {
       expect(instance.getAttribute('aria-hidden')).not.toBe('true')
-      fireEvent.pointerDown(instance, { pointerId: 1, clientX: 100, clientY: 100 })
+      mouseDown(instance, { pointerId: 1, clientX: 100, clientY: 100 })
       expect(instance.classList.contains('sel')).toBe(true)
     }
     expect(document.querySelector('.wb-span-copy')).toBeNull()
@@ -1750,7 +1760,7 @@ describe('gesture contracts of the plan surface', () => {
   const find = (id: string) => latest.annos.find((a) => a.id === id)!
   const drag = (el: Element, path: [number, number][]) => {
     const [first, ...rest] = path
-    fireEvent.pointerDown(el, { clientX: first[0], clientY: first[1], pointerId: 1 })
+    mouseDown(el, { clientX: first[0], clientY: first[1], pointerId: 1 })
     for (const [x, y] of rest) fireEvent.pointerMove(el, { clientX: x, clientY: y, pointerId: 1 })
     const last = path[path.length - 1]
     fireEvent.pointerUp(el, { clientX: last[0], clientY: last[1], pointerId: 1 })
@@ -1813,7 +1823,7 @@ describe('gesture contracts of the plan surface', () => {
     vi.useFakeTimers()
     const { container, onCheckpoint } = mount([three], { focus: focused('l1') })
     const grip = container.querySelectorAll('.wb-vertex')[1]
-    fireEvent.pointerDown(grip, { clientX: 200, clientY: 200, pointerId: 1 })
+    mouseDown(grip, { clientX: 200, clientY: 200, pointerId: 1 })
     act(() => { vi.advanceTimersByTime(NODE_HOLD_FIRE_MS + 50) })
     fireEvent.pointerUp(grip, { clientX: 200, clientY: 200, pointerId: 1 })
     expect(find('l1').pts).toEqual([[0.2, 0.2, 0], [0.8, 0.8, 0]])
@@ -1861,7 +1871,7 @@ describe('gesture contracts of the plan surface', () => {
       const cross: BoardAnno = { id: 'w3', kind: 'draw', role: 'wand', floor: 0, pts: [[0.6, 0.2, 0], [0.6, 0.8, 0]] }
       const { container } = mount([short, cross], twoStoreys)
       const hit = container.querySelector('polyline[stroke="transparent"]')!
-      fireEvent.pointerDown(hit, { clientX: 120, clientY: 300, pointerId: 1 })
+      mouseDown(hit, { clientX: 120, clientY: 300, pointerId: 1 })
       fireEvent.pointerMove(hit, { clientX: 160, clientY: 302, pointerId: 1 })
       fireEvent.pointerMove(hit, { clientX: 194, clientY: 303, pointerId: 1 }) // right end 6 px short of w3
       expect(container.querySelector('.wb-snap-ring')).not.toBeNull()
@@ -1878,7 +1888,7 @@ describe('gesture contracts of the plan surface', () => {
       const cross: BoardAnno = { id: 'w3', kind: 'draw', role: 'wand', floor: 0, pts: [[0.6, 0.2, 0], [0.6, 0.8, 0]] }
       const { container } = mount([short, cross], { ...twoStoreys, focus: focused('w1') })
       const grip = container.querySelectorAll('.wb-vertex')[1]
-      fireEvent.pointerDown(grip, { clientX: 160, clientY: 300, pointerId: 1 })
+      mouseDown(grip, { clientX: 160, clientY: 300, pointerId: 1 })
       fireEvent.pointerMove(grip, { clientX: 200, clientY: 302, pointerId: 1 })
       fireEvent.pointerMove(grip, { clientX: 236, clientY: 303, pointerId: 1 })
       expect(container.querySelector('.wb-snap-ring')).not.toBeNull()
@@ -1990,7 +2000,7 @@ describe('gesture contracts of the plan surface', () => {
       vi.useFakeTimers()
       const { container, onCheckpoint, emit } = mount([short, truck], { focus: focused('l1') })
       const g = growEnd(container)
-      fireEvent.pointerDown(g, { clientX: 230, clientY: 80, pointerId: 1 })
+      mouseDown(g, { clientX: 230, clientY: 80, pointerId: 1 })
       fireEvent.pointerMove(g, { clientX: 318, clientY: 80, pointerId: 1 })
       act(() => { vi.advanceTimersByTime(100) })
       fireEvent.pointerUp(g, { clientX: 318, clientY: 80, pointerId: 1 })
@@ -2006,7 +2016,7 @@ describe('gesture contracts of the plan surface', () => {
       vi.useFakeTimers()
       const { container, onCheckpoint, emit } = mount([short, truck], { focus: focused('l1') })
       const g = growEnd(container)
-      fireEvent.pointerDown(g, { clientX: 230, clientY: 80, pointerId: 1 })
+      mouseDown(g, { clientX: 230, clientY: 80, pointerId: 1 })
       fireEvent.pointerMove(g, { clientX: 318, clientY: 80, pointerId: 1 })
       act(() => { vi.advanceTimersByTime(1000) })
       fireEvent.pointerUp(g, { clientX: 318, clientY: 80, pointerId: 1 })
@@ -2043,12 +2053,61 @@ describe('gesture contracts of the plan surface', () => {
     })
   })
 
+  // GESTURES.1 (owner, 17.11.2026): the Lage's rule on the Plan – a finger on an object that is
+  // not selected pans; a tap selects on release; only a still hold (HOLD_DRAG_MS) or a selection
+  // lets it move. The FU who pans the Gebäude with the finger on a Trupp no longer moves the Trupp
+  // nor stamps it a new time.
+  describe('a finger on a plan object', () => {
+    const touch = { pointerType: 'touch', isPrimary: true, pointerId: 1 }
+    // the press lands on the object; its moves and release go to the board, which took the pointer
+    // (useBoardGestures · panFrom) – jsdom has no pointer capture, so the test sends them there
+    const finger = (el: Element, path: [number, number][], holdMs = 0) => {
+      const [first, ...rest] = path
+      const board = document.querySelector('.wb-canvas')!
+      fireEvent.pointerDown(el, { ...touch, clientX: first[0], clientY: first[1] })
+      if (holdMs) act(() => { vi.advanceTimersByTime(holdMs) })
+      for (const [x, y] of rest) fireEvent.pointerMove(board, { ...touch, clientX: x, clientY: y })
+      const last = path[path.length - 1]
+      fireEvent.pointerUp(board, { ...touch, clientX: last[0], clientY: last[1] })
+    }
+    const moves = (emit: Mock<Fn>) => emit.mock.calls.filter((c) => c[0] === 'board.move')
+
+    it('pans from an unselected Trupp chip: the chip stays, its time stays, nothing is selected', () => {
+      vi.useFakeTimers()
+      const { emit } = mount([chip])
+      finger(screen.getByText('Trupp 1'), [[200, 200], [240, 230], [300, 280]])
+      expect(find('c1')).toMatchObject({ x: 0.5, y: 0.5, t: '03:12' })
+      expect(moves(emit)).toEqual([])
+      expect(screen.queryByRole('button', { name: appConfig.copy.whiteboard.markPosition })).toBeNull()
+    })
+
+    it('lifts the chip after a still hold, and moves it with one board.move', () => {
+      vi.useFakeTimers()
+      const { emit } = mount([chip])
+      finger(screen.getByText('Trupp 1'), [[200, 200], [240, 230], [300, 280]], HOLD_DRAG_MS + 20)
+      expect(find('c1').x).not.toBe(0.5)
+      expect(moves(emit)).toHaveLength(1)
+    })
+
+    it('pans from an unselected Linie too – its body moves only once it is selected', () => {
+      vi.useFakeTimers()
+      const { container, emit } = mount([line])
+      finger(hitShape(container), [[200, 200], [260, 260]])
+      expect(find('l1').pts).toEqual(line.pts)
+      finger(hitShape(container), [[200, 200], [200, 200]]) // a tap selects it
+      // …and now the same finger drags it (pressed a way off the tap, or it is a double tap's zoom)
+      finger(hitShape(container), [[300, 300], [340, 340]])
+      expect(find('l1').pts).not.toEqual(line.pts)
+      expect(moves(emit)).toHaveLength(1)
+    })
+  })
+
   describe('rotor · cage · Rotation end — golden numbers for a fixed pointer path', () => {
     // every glyph rect is the mocked 400×400 board, so each gesture pivots on (200, 200)
     it('a directional symbol turns to the pointer bearing + 90°, one step, one board.edit', () => {
       const sperre: BoardAnno = { id: 's1', kind: 'symbol', symbol: 'FW Absperrung', x: 0.5, y: 0.5, floor: 0 }
       const { container, onCheckpoint, emit } = mount([sperre])
-      fireEvent.pointerDown(container.querySelector('.wb-symbol')!)
+      tapOn(container.querySelector('.wb-symbol')!)
       const knob = container.querySelector('.shape-rotate')!
       drag(knob, [[200, 100], [300, 200], [200, 300]])
       expect(find('s1').rotation).toBe(180)
@@ -2059,7 +2118,7 @@ describe('gesture contracts of the plan surface', () => {
     it('a Hubretter cage sets the boom bearing and reach from one handle', () => {
       const hub: BoardAnno = { id: 'h1', kind: 'symbol', symbol: 'VKF Hubretter', x: 0.5, y: 0.5, floor: 0 }
       const { container, onCheckpoint, emit } = mount([hub])
-      fireEvent.pointerDown(container.querySelector('.wb-symbol')!)
+      tapOn(container.querySelector('.wb-symbol')!)
       const cage = container.querySelector('.shape-cage')!
       drag(cage, [[250, 200], [260, 280]])
       const h = find('h1')
@@ -2073,7 +2132,7 @@ describe('gesture contracts of the plan surface', () => {
     it('a Rotation end pins the other end and sets position, run, bearing and width at once', () => {
       const loop: BoardAnno = { id: 'r1', kind: 'shape', shape: 'rotation', x: 0.5, y: 0.5, sizeN: 0.42, aspect: 0.13, rotation: 25, floor: 0 }
       const { container, onCheckpoint, emit } = mount([loop])
-      fireEvent.pointerDown(container.querySelector('.wb-shape')!)
+      tapOn(container.querySelector('.wb-shape')!)
       const [, endB] = container.querySelectorAll('.handle.shape-end')
       drag(endB, [[300, 250], [340, 300]])
       const r = find('r1')
@@ -2099,7 +2158,7 @@ describe('«Gelöscht / erledigt» on the plan', () => {
     const log = vi.fn()
     const emit = vi.fn()
     const utils = renderPlan(annos, { log, emit, authorName: 'Muster Anna', ...extra })
-    fireEvent.pointerDown(utils.container.querySelector('.wb-symbol')!)
+    tapOn(utils.container.querySelector('.wb-symbol')!)
     return { ...utils, log, emit }
   }
 
@@ -2204,7 +2263,7 @@ describe('a double tap on a Punkte draft finishes nothing', () => {
   afterEach(() => { vi.restoreAllMocks() })
   const W = appConfig.copy.whiteboard
   const tapAt = (el: Element, x: number, y: number) => {
-    fireEvent.pointerDown(el, { clientX: x, clientY: y, pointerId: 1, pointerType: 'touch' })
+    mouseDown(el, { clientX: x, clientY: y, pointerId: 1, pointerType: 'touch' })
     fireEvent.pointerUp(el, { clientX: x, clientY: y, pointerId: 1, pointerType: 'touch' })
   }
   const corners = (c: HTMLElement) => {
@@ -2243,7 +2302,7 @@ describe('the Abschluss «Keiner» on a Teilstück (changePlanEnding)', () => {
     const emit = vi.fn()
     ui.answer = true
     const { container } = renderPlan([teil, loop], { emit })
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: appConfig.copy.drawingEditor.endingNoneWhat })[0]) })
     const edits = emit.mock.calls.filter(([op, p]) => op === 'board.edit' && p?.id === 'h1')
     expect(edits).toHaveLength(1)
@@ -2262,7 +2321,7 @@ describe('Plan line ends in replay', () => {
     const coupled: BoardAnno = { ...line, endAttachment: onChip }
     const emit = vi.fn()
     const { container } = renderPlan([coupled], { emit })
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     fireEvent.click(screen.getAllByRole('button', { name: new RegExp(appConfig.copy.drawingEditor.reverse) })[0])
     const { board } = await replayEmits({ board: { tafel: [coupled] } }, emit.mock.calls)
     expect(board.tafel[0].startAttachment?.target).toEqual(onChip.target)
@@ -2275,7 +2334,7 @@ describe('Plan line ends in replay', () => {
     const emit = vi.fn()
     ui.answer = true
     const { container } = renderPlan([target, hanging], { emit })
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: new RegExp(appConfig.copy.remove) })[0]) })
     expect(emit.mock.calls.some(([op]) => op === 'board.delete')).toBe(true)
     const { board } = await replayEmits({ board: { tafel: [target, hanging] } }, emit.mock.calls)
@@ -2290,7 +2349,7 @@ describe('the Plan\'s Abschluss in replay', () => {
     const arrowLine: BoardAnno = { ...line, arrow: true, arrowStop: true }
     const emit = vi.fn()
     const { container } = renderPlan([arrowLine], { emit })
-    fireEvent.pointerDown(hitShape(container))
+    mouseDown(hitShape(container))
     await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: appConfig.copy.drawingEditor.endingNoneWhat })[0]) })
     const { board } = await replayEmits({ board: { tafel: [arrowLine] } }, emit.mock.calls)
     expect(endingOf(board.tafel[0])).toBe('none')

@@ -2,6 +2,7 @@ import { useRef, useState, type MutableRefObject, type RefObject, type PointerEv
 import type { BoardAnno, BoardTool } from '../types'
 import { isMarqueeTap, marqueeContains } from '../lib/marquee'
 import { createTapDragZoom, type OneFingerZoom, type TapSample, type TapZoomAction } from '../lib/tapDragZoom'
+import { TAP_TOL_PX } from '../lib/useHoldToDrag'
 
 interface BoardGesturesDeps {
   tool: BoardTool
@@ -42,10 +43,17 @@ const NOT_A_ZOOM_PRESS = 'button:not(.handle), input, textarea, select, a[href],
  * every gesture's up runs (each no-ops if its ref is null). Pointer bookkeeping and the handoff
  * to the two-finger gesture happen in the CAPTURE phase (trackDown/trackUp) so they see fingers
  * that a chip's own handler swallows — see the comment there.
+ *
+ * The Lage's two pan rules hold here too (duck sweep GESTURES.1/.2, 17.11.2026): a press on an
+ * object that is not selected PANS the board (`panFrom` – the object hooks call it and arm their
+ * drag only after a still hold, lib/useHoldToDrag), and a pan never deselects – only a stationary
+ * tap on empty board does (`panUp`).
  */
 export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp }: BoardGesturesDeps) {
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
-  const pan = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
+  /** `obj`: the pan started on an object (panFrom) – its release is the object's tap, never a
+   *  deselect; `far`: it travelled past the tap slop, so it is a pan and not a tap */
+  const pan = useRef<{ x: number; y: number; px: number; py: number; obj: boolean; far: boolean } | null>(null)
   const pointers = useRef<Map<number, { x: number; y: number }>>(new Map())
   const pinchDist = useRef<number | null>(null)
   const pinchMid = useRef<{ x: number; y: number } | null>(null)
@@ -79,13 +87,21 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
     zoomTo((tapZoomBase.current * a.factor) / scaleRef.current, fx, fy)
   }
 
-  // --- panning (pan tool, on empty board) ---
+  // --- panning (pan tool, on empty board – or from an object that is not held, panFrom) ---
   const panDown = (e: ReactPointerEvent) => {
     if (tool !== 'pan') return
-    pan.current = { x: e.clientX, y: e.clientY, px: posRef.current.x, py: posRef.current.y }
+    pan.current = { x: e.clientX, y: e.clientY, px: posRef.current.x, py: posRef.current.y, obj: false, far: false }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-    setSelId(null); setSelIds([])
   }
+  /** An object's press that is not (yet) its drag: the board pans from it, exactly as from empty
+   *  paper, and its release deselects nothing. The canvas takes the pointer, so the moves reach
+   *  stageMove whatever the object does meanwhile. */
+  const panFrom = (e: ReactPointerEvent) => {
+    pan.current = { x: e.clientX, y: e.clientY, px: posRef.current.x, py: posRef.current.y, obj: true, far: false }
+    canvasRef.current?.setPointerCapture?.(e.pointerId)
+  }
+  /** the object's still hold armed its drag – the finger is the object's now, the board stops */
+  const stopPan = () => { pan.current = null }
 
   // --- marquee (Mehrfach/lasso) multi-select — same gesture grammar as the map: ONE
   // finger / a plain mouse drag boxes, TWO fingers still pinch-zoom. On release every
@@ -105,6 +121,9 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
     const r = marqueeRef.current; marqueeRef.current = null; setMarquee(null)
     if (!r) return
     if (isMarqueeTap(r)) { setSelIds([]); return } // a tap, not a box
+    // the lasso is ONE-SHOT, whatever the box caught (GESTURES.8, the Lage's onMarquee): back in
+    // Auswahl, so a stray next finger pans the board instead of drawing another box
+    setTool('pan')
     const rect = boardRef.current?.getBoundingClientRect(); if (!rect || !rect.width) return
     // project a normalized board point (x, y, floor) into client px; shared bounds test does the rest
     const inBox = marqueeContains(r, ({ x, y, floor }: { x: number; y: number; floor: number | undefined }) => ({
@@ -119,22 +138,24 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
     ).map((a) => a.id)
     // Exactly one caught → drop into the normal single-edit selection, so the object gets its
     // editor, its grips and its Löschen; a group of one has none of that (groupCentroid needs
-    // two). Same fallback as the Karte (IncidentWorkspace · onMarquee), and like the Karte it
-    // hands the surface back to the selection tool — that IS where the single-edit affordances
-    // live ('pan' gates the editor slot and the vertex handles). A box that caught nothing or a
-    // real group leaves the lasso armed, as before.
+    // two). Same fallback as the Karte (useMapActions · onMarquee).
     if (ids.length <= 1) {
       setSelIds([]); setSelId(ids[0] ?? null)
-      if (ids.length === 1) setTool('pan')
       return
     }
     setSelId(null); setSelIds(ids)
   }
   const panMove = (e: ReactPointerEvent) => {
     if (!pan.current) return
+    if (Math.hypot(e.clientX - pan.current.x, e.clientY - pan.current.y) > TAP_TOL_PX) pan.current.far = true
     applyView(scaleRef.current, { x: pan.current.px + (e.clientX - pan.current.x), y: pan.current.py + (e.clientY - pan.current.y) })
   }
-  const panUp = () => { pan.current = null }
+  /** a release that never travelled, on empty board, is the deselect – the only one (the Lage's
+   *  rule: on a phone it IS the detail sheet's dismiss, and it must not fire on every pan) */
+  const panUp = () => {
+    const p = pan.current; pan.current = null
+    if (p && !p.obj && !p.far) { setSelId(null); setSelIds([]) }
+  }
 
   // --- two-finger pinch-zoom AND two-finger pan (modules, Gebäude floor-stack, any board) ---
   // With two pointers down we zoom by their distance ratio around their midpoint (same
@@ -189,7 +210,7 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
     pinchDist.current = null; pinchMid.current = null
     // lifting to a single finger resumes panning from where it rests
     const rem = [...pointers.current.values()][0]
-    if (rem && tool === 'pan') pan.current = { x: rem.x, y: rem.y, px: posRef.current.x, py: posRef.current.y }
+    if (rem && tool === 'pan') pan.current = { x: rem.x, y: rem.y, px: posRef.current.x, py: posRef.current.y, obj: false, far: true }
   }
 
   const stageDown = (e: ReactPointerEvent) => {
@@ -227,7 +248,9 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
     else if (pan.current) panMove(e)
     else manipMove(e)
   }
-  const stageUp = () => {
+  const stageUp = (e?: ReactPointerEvent) => {
+    // a cancelled press (the OS took the touch) is no tap – it must not deselect
+    if (e?.type === 'pointercancel' && pan.current) pan.current.far = true
     // trackUp (capture) already removed the pointer and closed out any pinch
     if (pointers.current.size === 0) { panUp(); marqueeUp(); manipUp() }
   }
@@ -240,5 +263,5 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
   const tapZoomPress = (e: ReactPointerEvent, allow: OneFingerZoom) =>
     applyTapZoom(allow.step || allow.drag ? tapZoom.down(sample(e), allow) : tapZoom.cancel())
 
-  return { marquee, stageDown, stageMove, stageUp, trackDown, trackUp, tapZoomPress, tapZoomOwns: tapZoom.owns }
+  return { marquee, stageDown, stageMove, stageUp, trackDown, trackUp, tapZoomPress, tapZoomOwns: tapZoom.owns, panFrom, stopPan }
 }

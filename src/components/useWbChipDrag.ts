@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import type React from 'react'
 import type { BoardAnno, BoardPoint, BoardTool } from '../types'
-import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
+import { DRAG_DEADZONE_PX, useHoldToDrag } from '../lib/useHoldToDrag'
 import { formatTime } from '../lib/format'
 import { serverNow } from '../lib/serverClock'
 import { applyRouting, nearestFreeEndpoint, objectAttachment, type AttachableLine } from '../lib/lineAttachments'
@@ -13,6 +13,8 @@ interface Args {
   tool: BoardTool
   readOnly: boolean
   annos: BoardAnno[]
+  /** the selected anno – a press on it drags at once (the Lage's rule) */
+  selId: string | null
   editId: string | null
   setSelId: (id: string | null) => void
   setSelIds: (ids: string[]) => void
@@ -36,22 +38,31 @@ interface Args {
   emit: (op: string, payload?: Record<string, unknown>) => void
   activeId: string
   onLinkLineTrupp?: (lineId: string, truppId: string) => void
+  /** useBoardGestures: pan the board from a press the chip does not (yet) take, and stop it */
+  panFrom: (e: React.PointerEvent) => void
+  stopPan: () => void
 }
 
 /**
  * Dragging a placed chip on the plan — a Trupp, a symbol, a note — lifted out of the Whiteboard
- * (23.09.2026): the press that selects (and opens a note's panel), the drag past the shared
- * deadzone that checkpoints ONCE and carries every trace-routed Leitung end along, and the
- * release that stamps a Trupp's time, writes the audit rows and joins a Trupp's chip dropped on a
- * free hose end to that hose. The handlers are the former inline ones, unchanged, re-created on
- * every render with that render's values (no memo). The drag ref is handed back for the stage
- * dispatcher (Whiteboard · manipMove).
+ * (23.09.2026): the press, the drag past the shared deadzone that checkpoints ONCE and carries
+ * every trace-routed Leitung end along, and the release that stamps a Trupp's time, writes the
+ * audit rows and joins a Trupp's chip dropped on a free hose end to that hose. The handlers are
+ * re-created on every render with that render's values (no memo). The drag ref is handed back for
+ * the stage dispatcher (Whiteboard · manipMove).
+ *
+ * ⚠️ The press is the Lage's (duck sweep GESTURES.1, owner 17.11.2026 – MapMarkers · pressMarker):
+ * a finger on a chip that is NOT selected pans the board, a tap selects on release, and only a
+ * still hold (lib/useHoldToDrag, HOLD_DRAG_MS) lifts the chip. A selected chip, and any mouse
+ * press, drags at once. Before, every press dragged: panning a Gebäude plan with the finger on a
+ * Trupp moved the Trupp and stamped it a new time.
  */
 export function useWbChipDrag({
-  tool, readOnly, annos, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH, tileAR,
-  attachmentLines, pushPast, set, patch, emit, activeId, onLinkLineTrupp,
+  tool, readOnly, annos, selId, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH, tileAR,
+  attachmentLines, pushPast, set, patch, emit, activeId, onLinkLineTrupp, panFrom, stopPan,
 }: Args) {
   const chipDrag = useRef<{ id: string; moved: boolean; sx: number; sy: number; floorOffset: number } | null>(null)
+  const hold = useHoldToDrag()
 
   // --- chip dragging (resource / symbol / text in pan mode) ---
   const chipDown = (e: React.PointerEvent, id: string, shownFloor?: number) => {
@@ -62,25 +73,35 @@ export function useWbChipDrag({
     // its detail panel, exactly as tapping a symbol opens its ContextPanel — the ⚙ grip that used
     // to be the panel's only door is gone. Not while the note is mid-edit (its textarea owns the
     // taps then), and never on placement: placeNode arms editId, not this.
-    const isNote = annos.find((x) => x.id === id)?.kind === 'text'
-    if (readOnly) {
-      // view-only (viewer / replay / EL view): a tap still SELECTS — so the read-only
-      // detail panel can open, parity with the Lage map — but never arms a drag
-      e.stopPropagation()
-      setSelId(id); setSelIds([])
-      if (isNote) setNotePanelId(id)
-      return
-    }
+    const kind = annos.find((x) => x.id === id)?.kind
+    const isNote = kind === 'text'
     e.stopPropagation()
+    const select = () => {
+      setSelId(id); setSelIds([])
+      if (isNote && (readOnly || editId !== id)) setNotePanelId(id)
+    }
+    const grab = (sx: number, sy: number) => {
+      chipDrag.current = { id, moved: false, sx, sy, floorOffset: (shownFloor ?? 0) - (annos.find((a) => a.id === id)?.floor ?? 0) }
+    }
+    // view-only (viewer / replay / EL view): a tap still SELECTS — so the read-only detail panel
+    // can open, parity with the Lage map — but nothing ever drags.
     // ⚠️ A FORM has no body drag (02.09., Karte parity): it is moved from the bar's ✥, and its
     // body only selects — so a press on a Rotation's loop cannot nudge it away from the end grip
     // somebody was aiming for.
-    if (annos.find((x) => x.id === id)?.kind !== 'shape') {
-      chipDrag.current = { id, moved: false, sx: e.clientX, sy: e.clientY, floorOffset: (shownFloor ?? 0) - (annos.find((a) => a.id === id)?.floor ?? 0) }
+    const canDrag = !readOnly && kind !== 'shape'
+    if (canDrag && (selId === id || e.pointerType === 'mouse')) {
+      grab(e.clientX, e.clientY)
       ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+      select()
+      return
     }
-    setSelId(id); setSelIds([])
-    if (isNote && editId !== id) setNotePanelId(id)
+    const sx = e.clientX, sy = e.clientY
+    panFrom(e)
+    hold.begin(e, {
+      onTap: select,
+      // the still hold lifted it: the board stops where it is and the chip follows the finger
+      onHoldStart: () => { stopPan(); grab(sx, sy); select() },
+    }, { mode: 'touch', canDrag })
   }
   const chipMove = (e: React.PointerEvent) => {
     if (!chipDrag.current) return
