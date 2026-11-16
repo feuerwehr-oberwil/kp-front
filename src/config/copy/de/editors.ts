@@ -302,6 +302,10 @@ export const editorsCopy = {
     // The Trupp that laid this Leitung is back out. It stays in the field – it is the entry that
     // says who was on this Leitung – just marked as «draussen».
     truppOut: 'draussen',
+    // A plain person on this Leitung, no Trupp needed (16.11.2026) – picked from the roster or
+    // typed. Printed under the Leitung's number on its end tag and on the Kroki.
+    person: 'Person',
+    personPlaceholder: 'Person wählen …',
     floorTag: 'Geschoss',
     // «Art» on the Gebäude stack (round 3): a drawn line is a Linie or a Wand, and switches
     kind: 'Art',

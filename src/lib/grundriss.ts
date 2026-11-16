@@ -277,7 +277,7 @@ export function grundrissKinds(items: readonly BoardAnno[]): { walls: number; sy
 }
 
 /** The fields «Art: Linie | Wand» writes – spelled alike on a Plan line and a Karte line. */
-type WallRoleFields = 'role' | 'color' | 'width' | 'dashed' | 'arrow' | 'arrowStop' | 'marker' | 'teilstueck' | 'content' | 'lineNo' | 'truppId'
+type WallRoleFields = 'role' | 'color' | 'width' | 'dashed' | 'arrow' | 'arrowStop' | 'marker' | 'teilstueck' | 'content' | 'lineNo' | 'truppId' | 'person'
 export type WallRolePatch = Partial<Pick<BoardAnno, WallRoleFields> & Pick<Drawing, WallRoleFields>>
 
 /**
@@ -286,7 +286,7 @@ export type WallRolePatch = Partial<Pick<BoardAnno, WallRoleFields> & Pick<Drawi
  * useMapDrawing · setDrawingWallRole; sweep 28.10.2026, round 4). Geometry stays.
  *
  *   · to a Wand: `role`, the Wand `look` (GRUNDRISS_STYLE), solid, no Pfeil and no Marker, and
- *     none of a hose's fields (Typ, Leitung Nr., Trupp anchor). `keepTeilstueck`: lines hang on
+ *     none of a hose's fields (Typ, Leitung Nr., Trupp anchor, Person). `keepTeilstueck`: lines hang on
  *     its «E», which a quiet switch must not cut – the Abschluss row lets go of them, with its
  *     own question. The caller refuses a line a Trupp is on (unlinking is not undoable here) and
  *     one that climbs storeys (wandBlock).
@@ -305,7 +305,7 @@ export function wallRolePatch(
     role: 'wand', color: look.color, width: look.width,
     dashed: undefined, arrow: undefined, arrowStop: undefined, marker: undefined,
     ...(keepTeilstueck ? null : { teilstueck: undefined }),
-    content: undefined, lineNo: undefined, truppId: undefined,
+    content: undefined, lineNo: undefined, truppId: undefined, person: undefined,
   }
 }
 

@@ -200,6 +200,8 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     truppShow: 'Mostra la squadra {name}',
     truppNone: 'Nessuna squadra',
     truppOut: 'fuori',
+    person: 'Persona',
+    personPlaceholder: 'Scegliere …',
     floorTag: 'Piano',
     kind: 'Genere',
     kindLine: 'Linea',

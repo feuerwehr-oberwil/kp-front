@@ -455,6 +455,8 @@ export function MapDetailPanels({
           // a Plan sketch is not an Abschnitt, so the Whiteboard passes no handlers.
           onAbschnittLeiter={selectedDrawing.kind === 'area' ? (name) => patchDrawing({ abschnittLeiter: name }) : undefined}
           onAbschnittAuftrag={selectedDrawing.kind === 'area' ? (auftrag) => patchDrawing({ abschnittAuftrag: auftrag }) : undefined}
+          // a plain person on the Leitung, no Trupp needed (types · Drawing.person) – Lage and Plan
+          onPerson={selectedDrawing.kind === 'line' && !selectedDrawing.role ? (person) => patchDrawing({ person }) : undefined}
           people={pickablePersonnel.map((p) => p.displayName)}
           // Flächen that carry Leiter or Auftrag, THIS one counted as if already assigned —
           // so the FKS hint (max 3–4) shows while the 5th is being set up, not one edit late

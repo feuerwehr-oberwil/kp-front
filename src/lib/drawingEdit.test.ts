@@ -27,6 +27,12 @@ describe('drawingEditChanges (the Verlauf line for editing a drawing)', () => {
     expect(drawingEditChanges(line({ lineNo: 3 }), line({}))).toEqual(['Leitung Nr. entfernt'])
   })
 
+  it('records the plain person on a Leitung set / changed / cleared', () => {
+    expect(drawingEditChanges(line({}), line({ person: 'Frei Nico' }))).toEqual(['Person: Frei Nico'])
+    expect(drawingEditChanges(line({ person: 'Frei Nico' }), line({ person: 'Meier Anna' }))).toEqual(['Person auf Meier Anna geändert'])
+    expect(drawingEditChanges(line({ person: 'Meier Anna' }), line({}))).toEqual(['Person entfernt'])
+  })
+
   it('names the Stockwerk the line works on, same wording as a symbol', () => {
     expect(drawingEditChanges(line({}), line({ floorTag: 2 }))).toEqual(['Geschoss 2. OG'])
     expect(drawingEditChanges(line({ floorTag: 2 }), line({ floorTag: 0 }))).toEqual(['Geschoss EG'])

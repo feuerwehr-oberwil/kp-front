@@ -6,7 +6,7 @@ import { boxesOverlap, cachedLabelSize, LABEL_RANK, placeLabels, type LabelBox, 
 import { CRUMB_LABEL_DX, CRUMB_LABEL_STYLE, effectiveLayer, END_TAG_LABEL_STYLE, READOUT_LABEL_STYLE, READOUT_WORDS_STYLE, shapePx, symPx, SYM_CAPTION_GAP, SYM_CAPTION_STYLE, SYM_PILL_STYLE, teamDockAnchor, teamStripPx, TEAM_DOT_GAP, TEAM_DOT_PX, TEAM_LABEL_STYLE } from '../lib/mapView'
 import { noteWPx } from '../lib/notes'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
-import { floorBadge } from '../lib/symbolRender'
+import { endTagLabel } from '../lib/endTagSpots'
 import { isNamedPerson, readingPillText, symbolCaptionBoxText, symbolReading } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import type { LineTone, TeamLineBadge } from '../lib/truppLines'
@@ -48,15 +48,6 @@ function readoutPlateSize(lines: readonly { text: string; words: boolean }[]): {
   return { w: w + chromeW, h: h + chromeH }
 }
 
-/** the end tag's text as the label pass measures it – the Leitung's own facts only. The Trupp on
- *  it is never printed here (15.09.): its marker stands at this very end, and that IS the name. */
-function endTagText(d: Drawing): string {
-  const parts: string[] = []
-  if (d.lineNo != null) parts.push(String(d.lineNo))
-  if (d.content) parts.push(d.content)
-  if (d.floorTag != null) parts.push(floorBadge(d.floorTag))
-  return parts.join(' · ')
-}
 
 /** Everything on the Lage that prints a label, as MapView has already resolved it. */
 export interface LabelPassScene {
@@ -179,7 +170,9 @@ export function mapLabelDecisions(px: (c: LngLat) => { x: number; y: number }, s
     // Leitung end tags. A tag whose Atemschutz-Trupp is due or overdue outranks everything
     // except the selection — that is the one label on the map somebody's air depends on.
     for (const ld of lineDecor) {
-      const text = endTagText(ld.d)
+      // the facts and the plain person on the Leitung – never its Trupp: the marker standing at
+      // this very end IS that name (lib/endTagSpots · endTagLabel)
+      const text = endTagLabel(ld.d)
       if (!text) continue
       const p = px(ld.tagAt)
       const s = cachedLabelSize(text, LABEL_STYLE.endTag)

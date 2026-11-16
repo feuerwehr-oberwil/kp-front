@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { endTagOffset, endTagSide, endTagText, placeEndTag, planArrowBackPx } from './endTagSpots'
+import { endTagLabel, endTagOffset, endTagSide, endTagText, placeEndTag, planArrowBackPx, tagSize } from './endTagSpots'
 
 // Sweep 28.10.2026 #8b: the plan's end tag is pinned to its line and dodges what stands there –
 // «i'm a bit worried if there are other symbols in the vicinity that they'll get blocked».
@@ -55,5 +55,18 @@ describe('endTagOffset — clear of the arrowhead', () => {
   it('a Plan arrowhead reaches back with the stroke; a plain end reaches nowhere', () => {
     expect(planArrowBackPx({ arrow: true, width: 8 })).toBeGreaterThan(planArrowBackPx({ arrow: true, width: 4 }))
     expect(planArrowBackPx({ width: 8 })).toBe(0)
+  })
+})
+
+// 16.11.2026: a plain person on a Leitung, no Trupp – the tag names it as a second row.
+describe('the person on a Leitung, on its end tag', () => {
+  it('rides as a second row, abbreviated; a blank name adds nothing', () => {
+    expect(endTagLabel({ lineNo: 1, person: 'Frei Nico' })).toBe('1\nFrei N.')
+    expect(endTagLabel({ person: 'Frei Nico' })).toBe('Frei N.')
+    expect(endTagLabel({ lineNo: 1, person: '  ' })).toBe('1')
+  })
+
+  it('a second row makes the estimated box one line taller, as wide as its longer row', () => {
+    expect(tagSize('1\nFrei N.')).toEqual({ w: tagSize('Frei N.').w, h: tagSize('1').h + 12.5 })
   })
 })

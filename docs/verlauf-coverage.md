@@ -206,6 +206,10 @@ is split per surface into `src/config/copy/de/<surface>.ts` since 2026-10-09):
 - **Arranging does not write:** color, style, geometry, vertices are operator actions and
   land only in the audit stream (`draw.edit`) – that's the deliberate silence from the table
   above, and it applies to the Fläche just like to every other drawing.
+- **A Leitung's Person writes, on the Karte and the Plan alike** (16.11.2026): «Linie: Person:
+  Frei Nico» / «Leitung 2: Person auf Meier Anna geändert» / «… Person entfernt»
+  (`lib/drawingEdit · personChange`). It is the one line edit a sheet journals – who stood on a
+  hose without a Trupp is the record, not the arrangement. No Atemschutz row: nothing times it.
 - **A Leitung's Schlauch writes, its Wassertransport does not** (04.11.2026): «Schlauch: 110 mm»
   / «Schlauch auf 2× 75 geändert» (`lib/drawingEdit`) – what was laid. The relay assumptions
   (`Drawing.relay`: Wasser, Start, a pump moved or set by hand) are planning, tweaked tap by
