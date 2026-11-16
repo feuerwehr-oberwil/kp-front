@@ -297,6 +297,9 @@ export function TruppTeam({
                 type="button" className={skin.remove}
                 title={fillTemplate(az.teamRemove, { name: m.name })}
                 aria-label={fillTemplate(az.teamRemove, { name: m.name })}
+                // ⚠️ refuses the focus too (keepSearch): on the phone «Art des Trupps» leads the form
+                // since 16.11.2026, so a blur here brought it back ABOVE the chips mid-tap
+                {...keepSearch}
                 onClick={() => remove(i)}
               ><Icon id="close" /></button>
             </li>

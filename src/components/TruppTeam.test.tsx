@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { appConfig } from '../config/appConfig'
 import type { Person } from '../types'
+import { fillTemplate } from '../lib/format'
 import { TruppTeam } from './TruppTeam'
 import type { Slot } from './PersonField'
 import s from './Atemschutz.module.css'
@@ -313,6 +314,21 @@ describe('TruppTeam', () => {
       fireEvent.click(screen.getByRole('option', { name: /Graf Stefan/ }))
       expect(screen.getByRole('button', { name: az.leaderLabel }).textContent).toContain('Brunner Thomas')
       expect(screen.getByRole('button', { name: 'Graf Stefan als Gruppenführer' })).toBeTruthy()
+      expect(document.activeElement).toBe(search)
+    })
+
+    // a chip's ✕ refuses the focus as well: a blur there re-lays the phone form out mid-tap
+    // (the Art row returns above the chips, 16.11.2026) and the tap misses the control
+    it('keeps the field focused when a chip is removed', () => {
+      render(<Stateful phone />)
+      const search = screen.getByLabelText(az.teamSearchPlaceholder) as HTMLInputElement
+      search.focus()
+      fireEvent.change(search, { target: { value: 'bru' } })
+      fireEvent.click(screen.getByRole('option', { name: /Brunner Thomas/ }))
+      const x = screen.getByRole('button', { name: fillTemplate(az.teamRemove, { name: 'Brunner Thomas' }) })
+      expect(fireEvent.mouseDown(x)).toBe(false)
+      fireEvent.click(x)
+      expect(screen.queryByRole('button', { name: fillTemplate(az.teamRemove, { name: 'Brunner Thomas' }) })).toBeNull()
       expect(document.activeElement).toBe(search)
     })
 
