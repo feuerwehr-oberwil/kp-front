@@ -95,9 +95,9 @@
      --msg-pad all round — the height a toast with its ✕ already had), the one corner, 14px of air
      before the first glyph, 16px glyphs. A state is the colour of a GLYPH inside it (a lamp, the
      leading icon), never an outline: the Massstab chip wore a blue ring and the object chip an
-     amber one, and beside the toasts they read as four different things. The FAB stays round —
-     roundness is what makes it THE Eintrag button (docs/ui-conventions.md · Buttons, «ONE corner») — but it is the row's
-     height and stands on the row's baseline (15-mobile · --float-bottom). */
+     amber one, and beside the toasts they read as four different things. The FAB wears the
+     one corner too since 16.11.2026 (it was the row's one round thing), the row's height, its word
+     under the glyph, on the row's baseline (15-mobile · --float-bottom). */
   --float-bg: var(--glass);
   --float-blur: blur(14px) saturate(1.4);
   --float-edge: inset 0 0 0 1px var(--glass-line), var(--shadow);

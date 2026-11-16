@@ -336,7 +336,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     [`phone-layout.md`](phone-layout.md) · «No page card on a phone»), sheet, dialog, message; `--r-ctl`/`--r-surface`/
     `--r-hero` are aliases of it, kept only as role names. Three exceptions, each a rule, never
     taste: (1) things under ~32px tall wear `--r-xs` (the same shape at that size) and map
-    furniture, dots, avatars and the FAB stay round – roundness is what tells map furniture
+    furniture, dots and avatars stay round – roundness is what tells map furniture
     apart from chrome; (2) a **floating container that hugs controls** (top bar, nav/tool bar,
     glass clusters, menus, docks) keeps ONE even gap all round – `--bar-pad` plus its
     1px border – and its corner is the controls' corner plus that gap, `--r-bar` (19px), so the
@@ -410,8 +410,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     antippen», a tap stops it). On a phone the pieces stand on ONE baseline,
     `--float-bottom` (15-mobile): `--float-gap` (8px) above the highest bar (nav bar · Rapport tab
     strip · tool bar · a tool's option dock), 8px from the screen's edge and from
-    each other. The FAB stays ROUND (the one-corner exception) but is `--float-h` across, on that
-    baseline; `--fab-safe` is its width + the gap. A new piece in that zone joins the family and
+    each other. The FAB is a `--float-h` square in the one corner (round until 16.11.2026, owner:
+    «match the corner radius of the other things»), «Eintrag» always under its glyph like a
+    worded tool-bar tile – not tied to «Beschriftung der Werkzeugleisten», which is the bars'
+    setting, not the floating row's – on that baseline; `--fab-safe` is its width + the gap. A new piece in that zone joins the family and
     the row (and the `--float-row` `:has` list) — never a height, material or offset of its own.
     The map's attribution ⓘ wears the family's MATERIAL only (03-map, 04.11.2026): a round 24px
     plate at the 16px inset (32px until 05.11.2026, owner: «small and quiet»), its outline glyph in
