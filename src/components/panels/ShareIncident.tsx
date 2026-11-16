@@ -237,18 +237,21 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, auto
      chooser step in front of this sheet on 03.09.). So that door mints as soon as the fetch says
      there is none, and what opens is the QR.
      Three guards, all load-bearing: only the kind the door meant (switching tabs by hand is a
-     decision of its own and must not mint anything), only once per sheet (`minted`, so «Link
-     aufheben» leaves the sheet revoked instead of instantly re-minting), and only on a REAL
-     answer — `links[kind] === undefined` is «not asked yet» and `failed[kind]` is «the question
-     came back unanswered», neither of which says a link does not exist. */
-  const minted = useRef(false)
+     decision of its own and must not mint anything), only on a REAL answer — `links[kind] ===
+     undefined` is «not asked yet» and `failed[kind]` is «the question came back unanswered»,
+     neither of which says a link does not exist — and only on the FIRST real answer (`decided`).
+     ⚠️ That last one is spent by a link that was already running too, not only by a mint
+     (16.11.2026, owner: «Link aufheben + the confirmation and nothing happened»): with the link
+     live on open the sheet minted nothing, the guard stayed armed, and the revoke's own «no link»
+     answer fired it — a fresh QR in the old one's place, and only the second round stuck. */
+  const decided = useRef(false)
   useEffect(() => {
-    if (!autoCreate || minted.current || busy) return
+    if (!autoCreate || decided.current || busy) return
     if (kind !== initialKind) return
     const known = links[kind]
     if (known === undefined || failed[kind]) return
+    decided.current = true
     if (known.enabled && viewLinkUrl(known)) return
-    minted.current = true
     void run(() => createShareLink(incidentId, kind), C.shareCreateFailed)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `run`/`C` are re-made every render
   }, [autoCreate, incidentId, initialKind, kind, links, failed, busy])

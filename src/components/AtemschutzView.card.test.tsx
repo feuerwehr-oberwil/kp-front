@@ -212,8 +212,7 @@ describe('the state a tier cannot say', () => {
     mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(5 * 60_000) }] })
     // no «Draussen» line on the card (owner, 29.09.2026): the grey card with «Wieder in den Einsatz» says it
     expect(document.querySelector(`.${s.stateLine}`)).toBeNull()
-    // «Draussen seit» names the break clock under it on the grid's card (hill climb r2, 04.11.2026;
-    // the phone's opened card hides it under its «Draussen» head — `.trowHead .trowSub`)
+    // «Draussen seit» names the break clock above it in the card's head (hill climb r2, 04.11.2026)
     expect(screen.getByText(az.outFor).closest(`.${s.trowHead}`)).toBeTruthy()
     expect(screen.queryByText(az.clockOk)).toBeNull()
     const clock = document.querySelector(`.${s.trowClockVal}`)!
@@ -486,6 +485,23 @@ describe('the opened phone card wears the collapsed row’s line and pair', () =
       expect(within(card).getByRole('status').textContent).toBe(tier === s.kontaktWarn ? az.clockWarn : az.clockOverdue)
       fireEvent.click(within(card).getByRole('button', { name: new RegExp(az.collapse) }))
     }
+  })
+
+  // owner 16.11.2026: «when opened, the trupp doesn't show the labels like "Seit Kontakt" above the
+  // number (unlike collapsed)» – the head draws the row's caption, and no phone rule hides it
+  it.each([
+    ['Drin', { lastContactTime: iso(60_000) }, az.sinceContact],
+    ['Draussen', { status: 'raus' as const, exitTime: iso(5 * 60_000) }, az.outFor],
+  ])('names the clock above it on an opened %s card, as the row does', (_label, patch, caption) => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [{ ...aktivTrupp(), ...patch }] })
+    const row = document.querySelector(`.${s.trow}`)!
+    expect(row.querySelector(`.${s.trowSub}`)!.textContent).toBe(caption)
+    fireEvent.click(row)
+    const head = document.querySelector(`[data-az-open] .${s.trowHead}`)!
+    expect(head.querySelector(`.${s.trowSub}`)!.textContent).toBe(caption)
+    const css = readFileSync(`${process.cwd()}/src/components/Atemschutz.module.css`, 'utf8')
+    expect(css).not.toMatch(/^\.trowHead \.trowSub \{[^}]*display: none/m)
   })
 
   it('opens without the band, the big Kontakt and the Druck row the card used to add', () => {

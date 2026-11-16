@@ -1116,11 +1116,11 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   .modalStack:global(.is-kb) .modalBody { padding: 2px var(--sp-5) var(--sp-2); }
   .modalStack:global(.is-kb) .modalFoot { padding: var(--sp-2) var(--sp-5); }
   .modalStack:global(.is-kb) .formBlocked { margin: 0 var(--sp-5) var(--sp-2); }
-  /* `.stack`'s first child is ALWAYS the Mannschaft block (TruppForm renders
-     `teamFields` first, on every mode) — everything after it is «Art des Trupps», Auftrag/Ziel/
-     Leitung and the folded Standard row. The `assignedConflict` warning and the `blocked` line
-     deliberately stay: both are about the very list on screen, and both already sit below it. */
-  .modalStack:global(.is-kb):has(.teamSearch input:focus) .stack > *:not(:first-child),
+  /* Every `.stack` row but the Mannschaft block (the `.field` holding `.team`) goes: «Art des
+     Trupps» above it (16.11.2026 – it leads the column now), Auftrag/Ziel/Leitung and the folded
+     Standard row below. The `assignedConflict` warning and the `blocked` line deliberately stay:
+     both are about the very list on screen, and both already sit below it. */
+  .modalStack:global(.is-kb):has(.teamSearch input:focus) .stack > :not(:has(> .team)),
   .modalStack:global(.is-kb):has(.teamSearch input:focus) .modalFoot,
   .modalStack:global(.is-kb) .formHintWaiting { display: none; }
   /* …and the amber «Auftrag fehlt» line goes with the keys in EVERY field (occlusion sweep O2,
@@ -1147,17 +1147,17 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      ⚠️ The height transition is on the FRAME, and only here: `.modal` is a fixed box whose
      children are a pinned head, a `flex: none` foot and one scroller, so the animated frames
      re-measure a scrollport — the form inside it does not re-flow. */
-  .modalStack:global(.is-kb) .stack > *:not(:first-child),
+  .modalStack:global(.is-kb) .stack > :not(:has(> .team)),
   .modalStack:global(.is-kb) .modalFoot { transition: opacity 160ms ease-out; }
   @starting-style {
-    .modalStack:global(.is-kb) .stack > *:not(:first-child),
+    .modalStack:global(.is-kb) .stack > :not(:has(> .team)),
     .modalStack:global(.is-kb) .modalFoot { opacity: 0; }
   }
   .modal { transition: height 160ms ease, max-height 160ms ease; }
   /* the movement carries nothing the colour and the words do not already say */
   @media (prefers-reduced-motion: reduce) {
     .modal,
-    .modalStack:global(.is-kb) .stack > *:not(:first-child),
+    .modalStack:global(.is-kb) .stack > :not(:has(> .team)),
     .modalStack:global(.is-kb) .modalFoot { transition: none; }
   }
 }
@@ -1675,9 +1675,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* every page opens with its NAME big (the scale's 32px; the mock's 30), the Notfall Trupp's
    included (NotfallPageHead) */
 .focusCard .trowHead .trowNameTxt { font-size: var(--fs-6); line-height: 1.1; }
-/* …and the clock names what it counts, above it («SEIT LETZTEM KONTAKT» – RowLine draws it first) */
+/* …and the clock names what it counts, above it («SEIT KONTAKT» – RowLine draws it first) */
 .focusCard .trowHead .trowClock { display: flex; flex-direction: column; align-items: flex-end; }
-.focusCard .trowHead .trowSub { display: block; }
 /* a crew at the door: «Bereit» where the clock would stand (TruppCard · `page`) */
 .pageReady { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border-radius: var(--r-xs);
   background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green-strong); font: var(--fw-heavy) var(--fs-1) var(--body); }
@@ -1693,9 +1692,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* «Art des Trupps» as its own compact pair (08.09., field ask — the two labelled tiles with
    explainer subtitles said what every AdF already knows and cost the form its first row).
    The pair keeps the form's own TILE chrome — `--surface` cards with the one 1px edge, the
-   choice fill (--sel) on the chosen one, the press wash on :active — just smaller. On ONE screen
-   it is its own labelled section (`.kindField`, two equal tiles) — leading the right column
-   on one screen, standing below the Mannschaft in the phone's flat column. */
+   choice fill (--sel) on the chosen one, the press wash on :active — just smaller. It is its own
+   labelled section (`.kindField`, two equal tiles) — leading the right column on one screen,
+   the FIRST row of the phone's flat column, above the Mannschaft and never under its search
+   (owner 16.11.2026, phone only). */
 .kindHeadSeg { flex: none; display: flex; gap: var(--sp-2); }
 /* the two options are THE choice chip (<Chip>, 08.10.2026, design-system stage 2): its 44px, its
    12.5/700 and THE «selected» (--sel). They were a white tile with its own 1px edge, a copy of the
@@ -1808,9 +1808,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* (No FAB column on the phone list since owner pick A4/C10, 05.11.2026: clock and chevron stand at
    the row's right edge, the chevron's glyph 17px in. The recording FAB floats over content and
    what it covers is reachable by scrolling — settled, sweep16 #10.) */
-/* The phone's opened card keeps the caption hidden — its section heads say Drin / Draussen (owner
-   24.09.2026: «just the time») — but the wide grid's card names its clock (below). */
-.trowHead .trowSub { display: none; }
+/* The phone's opened card names its clock like its collapsed row («SEIT KONTAKT» over the time –
+   owner 16.11.2026: «when opened, the trupp doesn't show the labels … unlike collapsed»); the head
+   draws the row's line (RowLine), so the caption takes the row's `.trowSub` look as it is. */
 /* ── The crew, its own line under the name (owner pick A3, 05.11.2026 — TruppCard · crewLine) ──────
    Plain 14px ink, not a chip: the Trupp's members after its leader («Widmer Lukas · Wyss Urs»),
    wrapping between people (`.crewName`), hung under the NAME past the ring. A button drawn as text

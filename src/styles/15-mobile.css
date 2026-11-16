@@ -8,7 +8,7 @@
    instead of inventing its own number — the old scattered 64/72/80/86px guesses each covered the
    place somebody remembered and missed the rest, and a hit-test found the circle sitting on the
    Atemschutz «Austritt» button, on Anwesenheit person rows, on a Mittel row and on the Checkliste
-   rail. 60px = the circle (--float-h, the floating family's one row height, 26.09.2026 — it was
+   rail. 60px = the tile (--float-h, the floating family's one row height, 26.09.2026 — it was
    58) plus the family's 8px gap.
    0 unless the FAB is actually on screen (viewer, composer, open panel, tool dock → no reserve). */
 .app { --fab-safe: 0px; }
@@ -24,7 +24,7 @@
 :root:has(.fab-entry) { --fab-safe: calc(var(--float-h) + var(--float-gap)); }
 .fab-entry { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: var(--z-fab);
   display: inline-flex; align-items: center; gap: 8px; padding: var(--sp-3) var(--sp-5) var(--sp-3) var(--sp-4);
-  border: none; border-radius: var(--r-pill); color: var(--ink);
+  border: none; border-radius: var(--r-sm); color: var(--ink);
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
   font: var(--fw-bold) var(--fs-3) var(--body); cursor: pointer; touch-action: none; user-select: none;
   animation: pop .2s var(--ease); transition: transform .12s var(--ease), filter .14s var(--ease); }
@@ -35,7 +35,9 @@
    cab. ⚠️ …and since 26.09.2026 it wears the floating family's material itself (01-tokens ·
    --float-*): the bars' glass by day and by night. Its own raised --ink-fill at night and a
    heavier drop shadow made it the one piece of the bottom row in a colour of its own (owner,
-   staging 26.09.2026); round is what still says «this is THE Eintrag button». */
+   staging 26.09.2026). ⚠️ …and since 16.11.2026 its corner too (owner: «match the corner radius
+   of the other things and also add a label below»): the one corner, `--r-sm`, with «Eintrag»
+   under the glyph (phone block below). It was the row's one round thing. */
 @media (hover: hover) {
   .fab-entry:hover { filter: brightness(1.05); }
 }
@@ -1258,17 +1260,30 @@
   /* the nav rail stays compact on a phone; drag-to-resize is a desktop affordance and
      would fight map gestures along the rail edge, so hide the grip (chevron still expands) */
   .nav-grip { display: none; }
-  /* + Eintrag FAB → a compact icon-only circle on a phone (the label crowded the weather
-     pill on the same bottom baseline). The recording state keeps its label/timer so the
-     running time stays legible. */
-  /* the row's one height (--float-h, 52px — 58 until 26.09.2026, when the circle stood 6px taller
-     than every chip and toast beside it); still inside the 48–56px of a primary action */
-  .fab-entry:not(.rec) { width: var(--float-h); height: var(--float-h); padding: 0; gap: 0; justify-content: center; border-radius: 50%; }
+  /* + Eintrag FAB → a square tile of the row's one height (--float-h, 52px — 58 until 26.09.2026,
+     when the circle stood 6px taller than every chip and toast beside it; still inside the 48–56px
+     of a primary action), its word UNDER the glyph like a worded tool-bar tile (round 16.11.2026 #4,
+     owner: «add a label below»; it was a bare circle from 08.2026, when a word BESIDE the glyph
+     crowded the weather pill on the same baseline). The tool docks' shape (09-whiteboard ·
+     .wb-dock-worded, #633): a glyph BAND of one fixed height over the word, so the word stands on
+     the bars' word line. ⚠️ ALWAYS worded, not tied to «Beschriftung der Werkzeugleisten»: that
+     setting is the BARS' (rail, tool bar, docks, view bar) — no piece of the floating row follows
+     it. The recording state keeps its timer beside the stop square so the running time stays
+     legible.
+     ⚠️ The tile's inside is the tool bar's worded tile, measured (round 16.11.2026, owner: «not sure
+     if the padding is correct compared to the other tools»): a 22px glyph flush on the 11/700 word,
+     no gap (07-toolrail · .vrail-glyph .i, 15-mobile · .labelled .vrail-label), the pair centred in
+     the square. It was an 18px glyph 2px over the word – smaller and looser than the tiles under it. */
+  .fab-entry:not(.rec) { width: var(--float-h); height: var(--float-h); padding: 0 2px;
+    display: inline-grid; grid-template-rows: 22px auto; align-content: center; justify-items: center; gap: 0; }
+  .fab-entry:not(.rec) .i { width: 22px; height: 22px; }
+  .fab-entry:not(.rec) .tb-act-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: var(--fs-micro); line-height: 1.3; }
+  /* while the chooser is up the glyph is its ✕ (10-journal · .cancelling), which drops the word —
+     here the word only goes INVISIBLE, so the ✕ stays in the glyph's band and nothing moves under
+     the finger mid-gesture */
+  .fab-entry.cancelling:not(.rec) .tb-act-label { display: block; visibility: hidden; }
   .fab-entry.rec { min-height: var(--float-h); padding-top: 0; padding-bottom: 0; }
-  /* ⚠️ the LABEL, not every span: since the ring wrapper (da52f1f, 28.08.) the + sits inside
-     `span.tb-act-ic`, and `span` here hid the glyph with it — a bare circle, nothing to read
-     (same trap as the `.cancelling` selector, see 10-journal.css) */
-  .fab-entry:not(.rec) .tb-act-label { display: none; }
   /* .cl-main FAB clearance migrated → Checklists.module.css */
 
   /* while a tool-option dock is open it owns the bottom-right corner — the FAB sat ON TOP

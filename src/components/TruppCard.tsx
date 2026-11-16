@@ -104,8 +104,9 @@ export function TruppRow({
   const sev = isAtemschutzTrupp(t) ? alarm.sev : 0
   const monitored = isAtemschutzTrupp(t)
   /* ⚠️ The row says NAME and TIME, nothing else (24.09.2026, maintainer: «drop the blabla, just
-   * the time»). The Schätzung line, the state word and the clock caption went: the section
-   * heading carries in/ready/out, and the pressure is one tap away on the card. What the row
+   * the time»). The Schätzung line and the state word went: the section heading carries
+   * in/ready/out, and the pressure is one tap away on the card (the clock caption went too, and
+   * came back with M3, 13.11.2026 – every duration says what it counts; RowLine). What the row
    * gained is the second action — «Druck» — and words on both buttons, which is why a Trupp inside
    * takes TWO lines on the phone (`.trowTwo`): at 360px a full name, a clock and two worded
    * buttons do not share one.
@@ -195,11 +196,11 @@ function RowLine({ t, live, color, lite, act, headed = false }: { t: Trupp; live
   // doc comment), so this swap is a no-op today. It stays here so a future edit to that branch
   // cannot silently leak «Draussen seit» onto a work squad's row without also failing the app-only
   // wording test below.
-  // The caption — what the clock counts — shows ABOVE the clock on the wide grid's card and the
-  // link board's page (hill climb r2, 04.11.2026: an out card's break clock and an inside card's
-  // contact clock stood in one place with nothing saying which is which; above since 05.11.2026,
-  // owner pick A1/C7 — German reads «Draussen seit 4:25:20»); the phone row and its opened card
-  // hide it (CSS), their section heads say Drin / Draussen.
+  // The caption — what the clock counts — shows ABOVE the clock on every board (hill climb r2,
+  // 04.11.2026: an out card's break clock and an inside card's contact clock stood in one place with
+  // nothing saying which is which; above since 05.11.2026, owner pick A1/C7 — German reads «Draussen
+  // seit 4:25:20»): the grid's card, the link board's page, the phone row (M3, 13.11.2026) and,
+  // since 16.11.2026, the row's opened card («unlike collapsed» — owner), which draws this line.
   const clockSub = clock.sub === az.outFor ? (headed ? '' : words.outFor) : clock.sub
   const inNotfall = truppInNotfall(t)
   /* ⚠️ A Trupp still at the door has no clock — «–:––» was an empty time where the next act

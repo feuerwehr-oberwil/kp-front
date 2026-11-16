@@ -89,13 +89,15 @@ export function TruppTeam({
    * form fighting the hits for the same band — the sheet's title clipped off the top, «Art des
    * Trupps», the Auftrag tiles and the Abbrechen/Bereitstellen footer all still holding rows,
    * and the four rows that ANSWER the typed query squeezed between them.
-   * So on the phone stack, while THIS field is focused, everything below the Mannschaft is
-   * hidden — the remaining sections and the footer — and the chips, the field and the hits get
-   * the whole band above the keyboard. Everything is back the moment the keyboard goes.
+   * So on the phone stack, while THIS field is focused, everything but the Mannschaft is
+   * hidden — «Art des Trupps» above it (it leads the column since 16.11.2026), the sections below
+   * and the footer — and the chips, the field and the hits get the whole band above the keyboard.
+   * Everything is back the moment the keyboard goes (the Art's return moves the field down then,
+   * together with the sheet growing back – never while the search keeps its focus).
    * ⚠️ It is CSS, not React state (Atemschutz.module.css · `.modalStack:global(.is-kb)` +
    * `:has(.teamSearch input:focus)`), and that is the load-bearing part: a blur handler would
-   * re-lay the form out mid-gesture. Only things BELOW the hits come and go, so the row under
-   * the thumb never moves — and there is no timer whose un-hide can be mistimed.
+   * re-lay the form out mid-gesture. While the field has the focus nothing comes or goes, so the
+   * row under the thumb never moves — and there is no timer whose un-hide can be mistimed.
    * ⚠️ …and because the takeover hangs on this field's `:focus`, a tap on a hits row must not
    * take it away — see `keepSearch` below, which is what lets a second and third person be
    * added without the search closing between them (09.09.).
@@ -295,6 +297,9 @@ export function TruppTeam({
                 type="button" className={skin.remove}
                 title={fillTemplate(az.teamRemove, { name: m.name })}
                 aria-label={fillTemplate(az.teamRemove, { name: m.name })}
+                // ⚠️ refuses the focus too (keepSearch): on the phone «Art des Trupps» leads the form
+                // since 16.11.2026, so a blur here brought it back ABOVE the chips mid-tap
+                {...keepSearch}
                 onClick={() => remove(i)}
               ><Icon id="close" /></button>
             </li>
