@@ -220,7 +220,11 @@ export function ChecklistsView({
         </button>
       ) : (
       <nav ref={railRef} className={cx(s['cl-rail'], railNarrow && railOpen && s['cl-rail-full'])} aria-label={CL.railLabel}>
-        <SearchField className={s['cl-rail-search']} value={query} onChange={setQuery} placeholder={CL.searchPlaceholder} aria-label={CL.searchAria} />
+        {/* the search stays pinned while the list scrolls (owner 16.11.2026: «keep the searchbar
+            sticky») – a band on the rail's own ground, so rows slide under it, not past it */}
+        <div className={s['cl-rail-search']}>
+          <SearchField value={query} onChange={setQuery} placeholder={CL.searchPlaceholder} aria-label={CL.searchAria} />
+        </div>
         {/* every group is a peer below the search: the checkable Aufgaben, then each reference
             template (Taktik-Stichworte, Grundlagen-Infos). One scroll region. */}
         <div className={s['cl-rail-groups']}>
