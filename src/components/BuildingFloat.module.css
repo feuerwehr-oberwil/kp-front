@@ -10,8 +10,11 @@
 .words { color: var(--amber-strong); font-weight: var(--fw-heavy); }
 /* …at 700 on a phone, where the words are the chip's whole label (BuildingFloat · 12A) */
 @media (--phone) { .words { font-weight: var(--fw-bold); } }
-/* the phone's bare (i) (BuildingFloat · `summary.quiet`): a square of the family's one height */
+/* the phone's bare (i) (BuildingFloat · `summary.quiet`): a square of the family's one height, its
+   glyph the tool bar tiles' 22px like the Eintrag square at the row's other end (15-mobile ·
+   .fab-entry) – the chip's 16px read as a dot in a box beside it */
 :global(.wb-scale-chip).bare { width: var(--float-h); padding: 0; justify-content: center; }
+:global(.wb-scale-chip).bare svg { width: 22px; height: 22px; }
 /* the Sofortmassnahmen's count: the ONE count badge (05-navrail · .nav-count – 16px, 11/800,
    --r-xs, a plain count is INK), inline after the label, so the chip stays one action */
 .count { flex: none; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: var(--r-xs);

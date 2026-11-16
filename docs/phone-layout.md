@@ -42,7 +42,8 @@ unchanged.
   edge. The other bars over the nav bar (`.rp-tabs`, the page in `Surface.module.css`) still
   keep their 6px channel (`--rail-h + 14px`).
 - *Messen's readout is a bar when folded* (round 16.11.2026 #8, owner: «match the other toolbars
-  when collapsed»): `--rail-h` tall, the 44px readout row 7px from its edges (it was 78px). Open
+  when collapsed»): `--rail-h` tall, the 44px readout row 7px from its edges (it was 78px), in
+  the bars' corner `--r-bar`; its 16px inline pad puts «Distanz» on the dock's word column. Open
   (Höhenprofil, Wassertransport) it ends one `--float-gap` under the top bar (`--under-bar`), lies
   over the wind chip like the Gebäude card (`--z-map-card`) and scrolls inside itself – it grew up
   behind the Einsatz header. Its foot is `--mp-bottom` (MeasurePanel.module), which the Karte
@@ -76,7 +77,8 @@ unchanged.
 - *The Gebäude chip is the hazard alone on a phone* (owner pick 12A, 14.11.2026): «⚠ Heizöl» at
   700, or (i) «Gebäude» without one; the count badge stays and the label stays the full sentence.
   With no hazard, no Sofortmassnahme and no Bemerkung – register lines only – it is the bare (i),
-  a `--float-h` square (round 16.11.2026 #9, `lib/buildingCard · summary.quiet`).
+  a `--float-h` square with the tiles' 22px glyph (round 16.11.2026 #9, `lib/buildingCard ·
+  summary.quiet`).
   The tablet keeps «Gebäude-Info · Heizöl» (components/BuildingFloat).
 - *Karte & Objekte has ONE bar* (Karte · Messen · Gefahrgut · Ebenen, no tool bar and no «Pläne»
   tab — 17.10.2026): Messen keeps the same 8px steps, only from the nav bar (the dock where the

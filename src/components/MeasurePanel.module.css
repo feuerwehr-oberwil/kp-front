@@ -110,6 +110,12 @@
        collapsed»): the 44px readout row + 7px a side + the 1px edge = --rail-h, the tool bar's and
        the dock's 60px under it. It stood 78px, 16px of padding round a row of 44. */
     padding-block: calc((var(--rail-h) - var(--tap)) / 2 - 1px);
+    /* …and the bars' corner: a bar of controls wears its controls' --r-sm plus the gap round them
+       (01-tokens · --r-bar), and the adopt ✎ sits 8px inside, like a tile in the bar under it. Measured
+       against the bars (round 16.11.2026): the inline 16px already puts «Distanz» on the dock's word
+       column (x 25), so only the corner moved – the panel's 12px was tighter than the 19px of the
+       bars it stacks on. */
+    border-radius: var(--r-bar);
     /* …and OPEN (Höhenprofil, Wassertransport) it ends one --float-gap under the top bar
        (`--under-bar`, where every phone piece hung under the bar starts) and scrolls inside
        itself – it grew up behind the Einsatz header (owner's screenshot, ~83 m Strecke) */
