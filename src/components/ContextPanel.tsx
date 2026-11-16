@@ -672,7 +672,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
      ONE toggle since 31.10.2026) ── the foot's middle tile, in the same spot in both states: one
      word for every family (the fire is gelöscht, the symbol erledigt). Open, its title says what the
      press will NOT do – the symbol stays, grey. Set, the SAME tile stands pressed (the check, the
-     green tint), and a tap takes it back – its name says so («Erledigt – wieder aktiv setzen»).
+     choice fill – done is blue, like the Pendenz tick: duck sweep ELEM.2), and a tap takes it back – its name says so («Erledigt – wieder aktiv setzen»).
      The foot is pinned on a phone, so it is at hand on every symbol without a reflex tap landing
      on it. WHEN it was set is the header's subtitle («Schadenlage · erledigt 20:40», doneAt), so a
      read-only panel, which has no tile, still states it. (Until 31.10.2026 the set state was a
@@ -699,8 +699,9 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
           entity gets neither — `readOnly` is already true for anything externally sourced.
           A self-reported crew position is the exception: it is somebody's own row, and the
           command post can clear it (see onStopSharing). */}
+      {/* neutral, not the delete red: it stops a share, the person can share again (ELEM.11) */}
       {onStopSharing && (
-        <button className="btn warn" onClick={onStopSharing} title={C.stopSharingTitle}>
+        <button className="btn" onClick={onStopSharing} title={C.stopSharingTitle}>
           <Icon id="close" />{C.stopSharing}
         </button>
       )}

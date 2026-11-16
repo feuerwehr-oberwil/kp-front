@@ -166,8 +166,9 @@ and wears no outline (10.11.2026: its blue frame read as «selected» or «tap m
 Linie / Fläche / Form frames it, in the drawing's own colour. A user-given name lives in its field
 («Bezeichnung») only — never twice, never an underlined head that jumps to a field. The foot's
 «Erledigt» wears the same ink as «Zentrieren» (a dimmed action reads «not available»); it is ONE
-toggle in one spot (31.10.2026): set, the same tile stands pressed (check, green tint) and a tap
-reopens, while the head's subtitle says when («Schadenlage · erledigt 10:57»).
+toggle in one spot (31.10.2026): set, the same tile stands pressed (check, the `--sel` choice fill
+– «done» is blue, see (13) Tick row; it was a green outline until 17.11.2026) and a tap reopens,
+while the head's subtitle says when («Schadenlage · erledigt 10:57»).
 
 ## Button components
 
@@ -706,6 +707,20 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     tick, never a box of a surface's own size. What being done MEANS stays the surface's (the
     Checkliste fades the text, the Tafel strikes the row through). Choosing ITEMS as the answer
     to a question (the Trupp's Ausrüstung) is a `Chip`, not a tick.
+    **«Done» is blue, once, everywhere** (duck sweep ELEM.2, 17.11.2026): a ticked box, the symbol
+    foot's pressed «Erledigt», a Pendenz ticked off – the choice fill, never green.
+    **A Pendenz is ticked with it on every surface** (owner, 17.11.2026, ELEM.2/ENT.5): the
+    Verlauf row that raised it, the pinned «Offene Pendenzen» block, the Tafel's «erledigt», all
+    TWO-WAY – a tap ticks (a `done` row), a tap on the ticked box reopens (a `reopened` row), both
+    on the undo timeline (`useReminders · setDone`); a row ticked in the pinned block stays there,
+    ticked, until the drawer closes, so a mis-tap is taken back where it happened. `pendenz` names
+    the open item's state and the unticked FRAME says it, the one look per state on screen and on
+    paper: amber «offen», red «überfällig», red with a drawn «!» «dringend» (the Tafel's Prio and
+    both PDFs print «!»); the legend, the filter menu and the composer's state switch draw the
+    same box (`TickBox` is its read-out). The Meldeleiste keeps its «✓ Erledigt» button – a
+    message's action. A tap on a Pendenz's WORDS opens its row's detail sheet, in the log and in
+    the block alike, and «Meldung erfassen» is one of its actions (LISTS.6); the Tafel's text is a
+    form cell, as every Tafel cell.
     `controlDebt.test.ts` is the ratchet for raw toggles, selects and search fields.
   - *Colour of a mention is not a state* (29.09.2026, owner pick A): every recognised word in the
     Verlauf – vehicle, partner, Trupp, person, material, group – is **medium (500) `--ink`**

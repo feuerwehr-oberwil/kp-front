@@ -358,8 +358,7 @@
   background: var(--amber-8);
   border-color: var(--amber-45);
   max-width: 100%; min-width: 0; overflow: hidden; }
-.jc-phrase-pendenz .jc-ring { width: 15px; height: 15px; border-width: 1.8px; flex: none;
-  background: currentColor; box-shadow: inset 0 0 0 2.5px var(--surface); }
+.jc-phrase-pendenz .jc-ring { width: 15px; height: 15px; border-width: 1.8px; flex: none; }
 /* the item's own words, truncated — the chip is a target, not the entry. ⚠️ On their own span
    (`.jc-phrase-text`): `text-overflow` does nothing on a flex container, so as bare text beside
    the ring the words ran through the chip's right padding and were cut mid-glyph at its edge
@@ -440,12 +439,11 @@
   background: var(--border); box-shadow: 0 -7px 9px -5px rgba(20, 30, 50, .16); }
 .jc-pendenz-menu .ui-menu-sticky + .ui-menu-sticky::before { display: none; }
 .jc-pendenz-menu .i { flex: none; width: 15px; height: 15px; color: var(--green); }
-/* the ring, in the state the row stands for — the same three fills the switch itself shows */
-.jc-menu-ring { flex: none; width: 19px; height: 19px; border-radius: 50%;
+/* the Pendenz box, in the state the row stands for — the same frames the switch itself shows */
+.jc-menu-ring { flex: none; width: 19px; height: 19px; border-radius: var(--r-xs); box-sizing: border-box;
   border: 2px solid var(--ink-faint); display: grid; place-items: center; }
-.jc-menu-ring[data-state="1"] { border-color: var(--amber-strong); background: var(--amber-strong);
-  box-shadow: inset 0 0 0 3px var(--surface); }
-.jc-menu-ring[data-state="2"] { border-color: var(--red); background: var(--red); }
+.jc-menu-ring[data-state="1"] { border-color: var(--amber-strong); }
+.jc-menu-ring[data-state="2"] { border-color: var(--red-strong); color: var(--red-strong); }
 .jc-menu-ring .jc-bang { transform: translateY(-1px); }
 
 /* ⚠️ There was a «Zu einer Pendenz» chip here, sticky at the row's right edge, and it is gone
@@ -464,29 +462,31 @@
 @media (hover: hover) {
   .jc-open:hover, .jc-due-btn:hover { color: var(--ink-dim); border-color: var(--ink-faint); }
 }
-.jc-ring { width: 21px; height: 21px; border-radius: 50%; border: 2px solid currentColor;
-  display: grid; place-items: center; }
+.jc-ring { width: 21px; height: 21px; border-radius: var(--r-xs); border: 2px solid currentColor;
+  display: grid; place-items: center; box-sizing: border-box; }
+/* ⚠️ The Pendenz's tick box, not a ring (duck sweep ENT.5, 17.11.2026): the switch draws what the
+   Verlauf row, the pinned block and the Tafel will draw for the item it sets – a box whose FRAME
+   is the state (TickRow · `pendenz`), amber «bleibt offen», red with «!» «dringend». Never filled:
+   a filled box is «erledigt» everywhere. */
 /* the urgency mark, drawn rather than iconised: a bar + a dot on the solid disc. The `warn`
    triangle was tried and pulled — a triangle's optical centre is below its bounding box, so it
    hung low inside the ring, and at 12px a triangle outline inside a circle outline is just two
    shapes competing. `translateY` because the mark is bar-plus-dot: its INK centre is above its
    box centre by half the gap. */
-.jc-bang { width: 2.5px; height: 7px; border-radius: 1.5px; background: var(--surface);
+.jc-bang { width: 2.5px; height: 7px; border-radius: 1.5px; background: currentColor;
   position: relative; transform: translateY(-1.5px); }
 .jc-bang::after { content: ""; position: absolute; left: 0; bottom: -4.5px;
-  width: 2.5px; height: 2.5px; border-radius: 50%; background: var(--surface); }
+  width: 2.5px; height: 2.5px; border-radius: 50%; background: currentColor; }
 /* offen — amber, the same ink the Pendenzen block is tinted with, so the switch and the list it
    feeds are visibly the same thing */
 .jc-open[data-state="1"] { color: var(--amber-strong);
   background: var(--amber-16);
   border-color: var(--amber-45); }
-.jc-open[data-state="1"] .jc-ring { background: currentColor; box-shadow: inset 0 0 0 3px var(--surface); }
 /* dringend — red, and the only state that carries a glyph. Not pulsing: a priority is not an
    alarm, and the pulsing red in this app belongs to the überfällige Trupp. */
 .jc-open[data-state="2"] { color: var(--red-strong);
   background: var(--red-12);
   border-color: var(--red-45); }
-.jc-open[data-state="2"] .jc-ring { background: currentColor; border-color: currentColor; }
 
 /* ── the clock beside the ring: when this entry has to come back ──
    Same shell as the ring's button, so the two read as one pair of questions about this line
@@ -565,8 +565,7 @@
    ring beside the Art chips is the control. */
 .jc-mode-note { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
   padding: 0 8px 0 0; color: var(--ink); }
-.jc-mode-note .jc-ring { width: 17px; height: 17px; flex: none; border: 2px solid var(--amber-strong);
-  border-radius: 50%; background: var(--amber-strong); box-shadow: inset 0 0 0 3px var(--surface); }
+.jc-mode-note .jc-ring { width: 17px; height: 17px; flex: none; border: 2px solid var(--amber-strong); }
 .jc-mode-note b { flex: none; font-weight: var(--fw-heavy); }
 .jc-mode-note em { flex: none; font-style: normal; font-weight: var(--fw-bold); color: var(--amber-strong); }
 .jc-mode-note-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

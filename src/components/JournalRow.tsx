@@ -16,6 +16,7 @@ import { isHandWritten, isNachtrag, rowGlyph, rowPhotos, rowTarget, rowText, row
 import { journalDisc } from '../lib/report'
 import type { OpenReminder } from '../lib/reminders'
 import { DoneChip } from './DoneChip'
+import { TickBox, TickRow, type PendenzState } from './TickRow'
 import type { JournalProps } from './Journal'
 
 /** What the disc draws for a Pendenz, or null on every other row.
@@ -24,13 +25,13 @@ import type { JournalProps } from './Journal'
  *  the anchor that names which item they answer. */
 export type RingState = 'open' | 'urgent' | 'overdue' | 'done'
 
-/** The 26px classification disc: the row's glyph in its Bereich tint, or the Pendenz ring.
- *  The ring is the composer's own ring (18-audio · .jc-ring) at row size — which is what
- *  JournalComposer's «the same ring that appears on the Verlauf row» has claimed all along.
+/** The 24px classification disc: the row's glyph in its Bereich tint, or – on a Pendenz – the
+ *  Pendenz's tick box (TickRow · TickBox, its frame the state: duck sweep ELEM.2/ENT.5, 17.11.2026),
+ *  the same box the pinned block, the Tafel, the legend and the composer's state switch draw.
  *
- *  ⚠️ With `onTick` the ring becomes the TICK-OFF control, identical to the one in the pinned
- *  Pendenzen block (.jr-pinned-row .jr-rem) — same ring, same call, same appended `done` row.
- *  It is offered on exactly the rows that are still open; a closed one is a fact, not a switch. */
+ *  ⚠️ With `onTick` the box is the TICK control, identical to the pinned block's – a checkbox, two
+ *  ways: unticked a tap appends a `done` row, ticked a tap appends a `reopened` row (useReminders ·
+ *  setDone). It is offered on the row that RAISED the item; the row that closed it is a fact. */
 export function Disc({ icon, surface, tone, ring, title, onTick, tickTitle }: {
   icon?: string
   surface?: 'map' | 'plan' | null
@@ -38,30 +39,22 @@ export function Disc({ icon, surface, tone, ring, title, onTick, tickTitle }: {
   tone?: ArtTone
   ring?: RingState | null
   title?: string
-  /** tick this row's Pendenz off in place — appends, never mutates (see onReminderDone) */
+  /** tick this row's Pendenz off – or, ticked, take it back – in place; appends, never mutates */
   onTick?: () => void
   tickTitle?: string
 }) {
   if (ring) {
-    const inner = (
-      <span className={`jr-ring jr-ring-${ring}`}>
-        {/* the ghost check a tickable ring shows under the finger — the pinned block's ring does
-            exactly this. Not on `urgent`: that ring is a filled disc with the drawn bang in it,
-            and a second glyph in the same 20px would be two marks fighting for one centre. */}
-        {(ring === 'done' || (!!onTick && ring !== 'urgent')) && <Icon id="check" />}
-        {ring === 'urgent' && <i className="jr-bang" />}
-      </span>
-    )
+    // a done box is still a Pendenz's (`data-pendenz='done'`); ticked, the frame's state is moot
+    const pendenz: PendenzState = ring === 'done' ? 'open' : ring
     if (onTick) {
       return (
-        <button
-          type="button" className="ic jr-ic-ring jr-ic-tick"
-          title={tickTitle} aria-label={tickTitle}
-          onClick={(ev) => { ev.stopPropagation(); onTick() }}
-        >{inner}</button>
+        <span className="ic jr-ic-ring" onClick={(ev) => ev.stopPropagation()}>
+          <TickRow className="jr-ic-tick" checked={ring === 'done'} pendenz={pendenz}
+            title={tickTitle} aria-label={tickTitle} onToggle={onTick} />
+        </span>
       )
     }
-    return <span className="ic jr-ic-ring" title={title}>{inner}</span>
+    return <span className="ic jr-ic-ring" title={title}><TickBox checked={ring === 'done'} pendenz={pendenz} /></span>
   }
   return (
     <span className={`ic${surface ? ` jr-ic-${surface}` : ''}${tone ? ` jr-ic-${tone}` : ''}`} title={title}>
@@ -78,7 +71,7 @@ type Draft = { id: string; value: string } | null
 
 type JournalRowProps = Pick<JournalProps,
   'live' | 'closedAt' | 'replayAtMs' | 'onSelect' | 'onSeekTo' | 'onTranscript' | 'onEditText' | 'onOpenPlayer'
-  | 'onReminderDone' | 'onReminderAgain' | 'mediaStatusOf'> & {
+  | 'onReminderTick' | 'onReminderNote' | 'onReminderAgain' | 'mediaStatusOf'> & {
   e: TimelineEvent
   plans: PlanDocument[]
   /** the drawer's clock, captured when it opened — flags overdue reminders */
@@ -117,7 +110,7 @@ type JournalRowProps = Pick<JournalProps,
 export function JournalRow({
   e, plans, live, closedAt, now, replayAtMs, openMap, repeated, sameMinute, pendenzTitles, pendenzRowIds, reRaised, audioWindows, playing,
   editTx, editRow, marked, jumpToRow, onTogglePlay, onOpenDetail, setEditTx, setEditRow, saveTranscript, saveRowText,
-  onSelect, onSeekTo, onTranscript, onEditText, onOpenPlayer, onReminderDone, onReminderAgain, mediaStatusOf,
+  onSelect, onSeekTo, onTranscript, onEditText, onOpenPlayer, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf,
 }: JournalRowProps) {
   const C = appConfig.copy.journal
   const target = rowTarget(e, live)
@@ -135,8 +128,11 @@ export function JournalRow({
   // hand-written line) open the detail sheet on their tap — variant 2, 29.08. The
   // jump the tap used to be moves into the sheet with them. NOT during a Wiedergabe:
   // there the tap keeps setting the moment, which outranks after-action paperwork.
+  // …and an open Pendenz's row, whose sheet offers «Meldung erfassen» – the pinned block's text
+  // opens the same sheet, so the item's words mean one thing in both places (duck sweep LISTS.6)
   const hasDetail = (!!e.audioUrl && ((!!e.audioMeta && !!onOpenPlayer) || !!onTranscript))
     || (!!onEditText && isHandWritten(e) && !e.audioUrl)
+    || (!!onReminderNote && e.reminder?.op === 'created' && openMap.has(e.reminder.id))
   const opensDetail = !seekable && hasDetail
   const clickable = seekable || opensDetail || target != null
   const onRow = seekable ? () => onSeekTo(e)
@@ -192,18 +188,20 @@ export function JournalRow({
       onKeyDown={onRow ? (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onRow() } } : undefined}
     >
       <span className="t" data-same={sameMinute || undefined}>{rowTime(e)}</span>
-      {/* ⚠️ The ring is the tick-off, HERE as well as in the pinned block. It was taken
+      {/* ⚠️ The box is the tick, HERE as well as in the pinned block. It was taken
           off the row on the grounds that two controls did the same thing and this one
           scrolls away — but a Pendenz is met in the log at least as often as in the
           block (a Meldung on it, a search, the row it was raised on), and «scroll back
-          up and find it again» is not a way to close an Auftrag at 3am. The ring is the
-          one vocabulary both places share, so it means the same thing in both: one tap
-          appends a `done` row (onReminderDone → useReminders · markDone). It is not a
-          second path to the state — it is the same call. */}
+          up and find it again» is not a way to close an Auftrag at 3am. The box is the
+          one vocabulary both places share, so it means the same thing in both: a tap
+          appends a `done` row, a tap on the ticked box a `reopened` one (onReminderTick →
+          useReminders · setDone) – a mis-tap is taken back where it happened. */}
       <Disc
         icon={glyph.icon} surface={disc.surface} tone={glyph.tone} ring={ring} title={disc.label}
-        onTick={openRem && onReminderDone ? () => onReminderDone(openRem) : undefined}
-        tickTitle={C.markDoneTitle}
+        onTick={onReminderTick && isReminder && e.reminder
+          ? () => onReminderTick(openRem ?? { id: e.reminder!.id, text: pendenzTitles.get(e.reminder!.id) ?? rowText(e), dueAt: e.reminder!.dueAt }, !!openRem)
+          : undefined}
+        tickTitle={openRem ? C.markDoneTitle : C.markOpenTitle}
       />
       {/* ⚠️ THE SENTENCE, and nothing before it. Every row's text starts on one x —
           the same axis the sub-lines below it use — so reading 200 rows in the dark is

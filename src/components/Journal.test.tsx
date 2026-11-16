@@ -150,36 +150,40 @@ describe('Journal · the Pendenzen block', () => {
     expect(screen.queryByText('Aufklappen')).toBeNull()
   })
 
-  it('tapping an item writes a Meldung on it; the ring ticks it off', () => {
+  // duck sweep LISTS.6: the item's words open the same detail sheet as its row in the log, and the
+  // sheet's «Meldung erfassen» is the Meldung; the box ticks it off
+  it('tapping an item opens its sheet, which writes a Meldung on it; the box ticks it off', () => {
     const onReminderNote = vi.fn()
-    const onReminderDone = vi.fn()
-    setup({ openReminders: open, onReminderNote, onReminderDone })
-    fireEvent.click(screen.getByText('Absperrmaterial Kreuzung'))
+    const onReminderTick = vi.fn()
+    setup({
+      events: [{ id: 'r-p1', t: '', at: new Date(1_000_000).toISOString(), text: 'Absperrmaterial Kreuzung',
+        icon: 'type', kind: 'journal', reminder: { op: 'created', id: 'p1', text: 'Absperrmaterial Kreuzung' } }],
+      openReminders: [pendenz('p1', 'Absperrmaterial Kreuzung', { rowId: 'r-p1' })], onReminderNote, onReminderTick,
+    })
+    fireEvent.click(document.querySelector('.jr-pinned-text')!)
+    fireEvent.click(screen.getByRole('button', { name: 'Meldung erfassen' }))
     expect(onReminderNote).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
-    fireEvent.click(document.querySelectorAll('.jr-pinned-row .jr-rem')[0])
-    expect(onReminderDone).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
+    fireEvent.click(document.querySelector('.jr-pinned-row [role="checkbox"]')!)
+    expect(onReminderTick).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }), true)
   })
 
-  // A session with neither hand (a viewer, a link) reads the block: the ring and the text are
+  // A session with neither hand (a viewer, a link) reads the block: the box and the text are
   // read-outs, not dead buttons (RBAC audit §4, 22.10.2026).
-  it('without handlers the ring and the text are read-outs, not buttons', () => {
+  it('without handlers the box and the text are read-outs, not buttons', () => {
     setup({ openReminders: open })
     const row = document.querySelector('.jr-pinned-row')!
-    expect(row.querySelector('.jr-rem')!.tagName).toBe('SPAN')
+    expect(row.querySelector('[role="checkbox"]')).toBeNull()
+    expect(row.querySelector('[data-pendenz]')!.tagName).toBe('SPAN')
     expect(row.querySelector('.jr-pinned-text')!.tagName).toBe('SPAN')
     expect(row.querySelector('button:disabled')).toBeNull()
   })
 
   // ⚠️ The time column says WHEN IT WAS RAISED — an Auftrag has no Fälligkeit, because nobody
-  // checks in on a Schadenplatz. One tap swaps the WHOLE column; a half-clock/half-age column
-  // cannot be read.
-  it('swaps the whole time column between the clock and the age', () => {
+  // checks in on a Schadenplatz. It is a read-out: the hidden clock ⇄ age toggle went (LISTS.6).
+  it('prints the raised clock in the time column, as a read-out', () => {
     setup({ openReminders: open })
-    const times = () => [...document.querySelectorAll('.jr-when')].map((e) => e.textContent ?? '')
-    expect(times().every((t) => /^\d{2}:\d{2}/.test(t))).toBe(true)
-    fireEvent.click(document.querySelector('.jr-when')!)
-    expect(times().every((t) => /^\d{2}:\d{2}/.test(t))).toBe(false)
-    expect(times()).toHaveLength(open.length)
+    const times = [...document.querySelectorAll('.jr-when')]
+    expect(times.every((e) => /^\d{2}:\d{2}/.test(e.textContent ?? '') && e.tagName === 'SPAN')).toBe(true)
   })
 
   // S5 (staging review 06.11.2026): across midnight a bare «23:43» above «00:40» read as the newer
@@ -193,36 +197,54 @@ describe('Journal · the Pendenzen block', () => {
     expect(days[1]).toBeNull()
   })
 
-  // ⚠️ The ring ticks off in BOTH places, and it is the same call in both — one appended `done`
-  // row, never a mutation of the row that raised the item. The row's ring was taken away once on
-  // the argument that two controls did the same thing; what was actually wrong was that they were
-  // two different SHAPES. Same ring, same gesture, same handler.
+  // ⚠️ The box ticks in BOTH places, and it is the same call in both — one appended row, never a
+  // mutation of the row that raised the item.
   it('ticks the same item off from the log row as from the block', () => {
-    const onReminderDone = vi.fn()
+    const onReminderTick = vi.fn()
     setup({
       events: [{ id: 'e1', t: '', at: new Date(1_000_000).toISOString(), text: 'Absperrmaterial Kreuzung',
         icon: 'type', kind: 'journal', reminder: { op: 'created', id: 'p1', text: 'Absperrmaterial Kreuzung' } }],
       openReminders: [pendenz('p1', 'Absperrmaterial Kreuzung')],
-      onReminderDone,
+      onReminderTick,
     })
-    fireEvent.click(document.querySelector('.hist-ev .jr-ic-tick')!)
-    expect(onReminderDone).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
-    fireEvent.click(document.querySelector('.jr-pinned-row .jr-rem')!)
-    expect(onReminderDone).toHaveBeenCalledTimes(2)
-    expect(onReminderDone).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'p1' }))
+    fireEvent.click(document.querySelector('.hist-ev [role="checkbox"]')!)
+    expect(onReminderTick).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }), true)
+    fireEvent.click(document.querySelector('.jr-pinned-row [role="checkbox"]')!)
+    expect(onReminderTick).toHaveBeenCalledTimes(2)
+    expect(onReminderTick).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'p1' }), true)
   })
 
-  // …and a row that is already closed is a FACT, not a switch: its green ring says what happened,
-  // and there is nothing left to tick.
-  it('a closed item’s ring is not a control', () => {
+  // duck sweep ELEM.2 (owner, 17.11.2026): the tick is TWO-WAY – a ticked box takes it back, in
+  // the log and in the block, where a row ticked in this opening stays (ticked) until it closes
+  it('a ticked box reopens the item, in the log row and in the block', () => {
+    const onReminderTick = vi.fn()
+    const events = [{ id: 'e1', t: '', at: new Date(1_000_000).toISOString(), text: 'Absperrmaterial Kreuzung',
+      icon: 'type', kind: 'journal' as const, reminder: { op: 'created' as const, id: 'p1', text: 'Absperrmaterial Kreuzung' } }]
+    const base = { events, plans: [], live: liveTargets([], [], {}), onSelect: vi.fn(), onClose: vi.fn(), onReminderTick }
+    const { rerender } = render(<Journal {...base} openReminders={[pendenz('p1', 'Absperrmaterial Kreuzung')]} />)
+    fireEvent.click(document.querySelector('.jr-pinned-row [role="checkbox"]')!)
+    // the item is closed now – the block keeps its row, ticked
+    rerender(<Journal {...base} openReminders={[]} />)
+    const pinned = document.querySelector('.jr-pinned-row [role="checkbox"]')!
+    expect(pinned.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(pinned)
+    expect(onReminderTick).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'p1' }), false)
+    const logBox = document.querySelector('.hist-ev [role="checkbox"]')!
+    expect(logBox.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(logBox)
+    expect(onReminderTick).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'p1', text: 'Absperrmaterial Kreuzung' }), false)
+  })
+
+  // …and the row that CLOSED it is a fact, not a switch: its box says what happened
+  it('the done row is a read-out', () => {
     setup({
-      events: [{ id: 'e1', t: '', at: new Date(1_000_000).toISOString(), text: 'Absperrmaterial Kreuzung',
-        icon: 'type', kind: 'journal', reminder: { op: 'created', id: 'p1', text: 'Absperrmaterial Kreuzung' } }],
+      events: [{ id: 'd1', t: '', at: new Date(1_030_000).toISOString(), icon: 'check', kind: 'reminder',
+        text: 'Pendenz erledigt: Absperrmaterial', reminder: { op: 'done', id: 'p1' } }],
       openReminders: [],
-      onReminderDone: vi.fn(),
+      onReminderTick: vi.fn(),
     })
-    expect(document.querySelector('.jr-ring-done')).toBeTruthy()
-    expect(document.querySelector('.jr-ic-tick')).toBeNull()
+    expect(document.querySelector('[data-ev="d1"] [data-pendenz="done"]')).toBeTruthy()
+    expect(document.querySelector('[data-ev="d1"] [role="checkbox"]')).toBeNull()
   })
 
   // ⚠️ A Meldung stands where it happened, among everything else — so it has to name the item it
@@ -323,9 +345,9 @@ describe('Journal · the classification column', () => {
       openReminders: [pendenz('p3', 'Lüftungsanlage prüfen', { urgent: true })],
     })
     // p3 is still open and dringend; p1 is gone from the open set, so its row is erledigt
-    expect(document.querySelector('[data-ev="u1"] .jr-ring-urgent')).toBeTruthy()
-    expect(document.querySelector('[data-ev="a1"] .jr-ring-done')).toBeTruthy()
-    expect(document.querySelector('[data-ev="d1"] .jr-ring-done')).toBeTruthy()
+    expect(document.querySelector('[data-ev="u1"] [data-pendenz="urgent"]')).toBeTruthy()
+    expect(document.querySelector('[data-ev="a1"] [data-pendenz="done"]')).toBeTruthy()
+    expect(document.querySelector('[data-ev="d1"] [data-pendenz="done"]')).toBeTruthy()
   })
 
   // «wieder in …» — the Führungsrhythmus move: the done row offers the next Wiedervorlage.
@@ -366,10 +388,10 @@ describe('Journal · the classification column', () => {
       openReminders: [pendenz('p2', 'Lagerapport durchführen', { rowId: 'c1' })],
       onReminderAgain,
     })
-    expect(document.querySelector('[data-ev="d1"] .jr-ring-done')).toBeNull()
+    expect(document.querySelector('[data-ev="d1"] [data-pendenz="done"]')).toBeNull()
     expect(document.querySelectorAll('[data-ev="d1"] .jr-again-btn')).toHaveLength(0)
     // the row that raised it is open again, and says so
-    expect(document.querySelector('[data-ev="c1"] .jr-ring-open')).toBeTruthy()
+    expect(document.querySelector('[data-ev="c1"] [data-pendenz="open"]')).toBeTruthy()
   })
 
   // a one-time action (05.11.2026: a double tap raised two) – while the item it raised is open,
@@ -407,7 +429,7 @@ describe('Journal · the classification column', () => {
       events: [{ id: 'n1', t: '', at: new Date(1_020_000).toISOString(), icon: 'type', kind: 'journal',
         text: 'Lüfter läuft', reminder: { op: 'note', id: 'p1' } }],
     })
-    expect(document.querySelector('[data-ev="n1"] .jr-ring')).toBeNull()
+    expect(document.querySelector('[data-ev="n1"] [data-pendenz]')).toBeNull()
     expect(document.querySelector('[data-ev="n1"] .ic use')?.getAttribute('href')).toBe('#type')
   })
 

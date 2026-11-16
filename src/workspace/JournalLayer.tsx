@@ -115,7 +115,7 @@ export function JournalLayer({
           onReplay={!replayActive ? () => { setJournalOpen(false); enterReplay() } : undefined}
           openReminders={reminders.open}
           onOpenTafel={openTafelPendenzen}
-          onReminderDone={!readOnly ? reminders.markDone : undefined}
+          onReminderTick={!readOnly ? reminders.setDone : undefined}
           // tap a Pendenz → write a Meldung on it. The Verlauf steps aside so the composer is
           // not stacked on a drawer the operator can no longer see behind it.
           // ⚠️ The Verlauf STAYS OPEN behind it. Closing it meant that finishing a Meldung — or

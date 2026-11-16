@@ -591,77 +591,19 @@
   border-color: var(--blue-22); color: var(--blue-strong); }
 .hist-ev .ic.jr-ic-plan { background: var(--green-16);
   border-color: var(--green-28); color: var(--green-strong); }
-/* ── …and on a Pendenz the disc becomes the ring ──
-   The same ring the composer's «bleibt offen» switch sets and the Pendenzen block ticks off
-   (18-audio · .jc-ring, 06-contextpanel · .jr-rem-box) — which is what JournalComposer's own
-   comment has claimed about the Verlauf row all along, and until 23.08. was not true.
+/* ── …and on a Pendenz the disc is the Pendenz's tick box ──
+   The box every surface ticks a Pendenz with (TickRow · `pendenz`, duck sweep ELEM.2/ENT.5,
+   17.11.2026): its frame says the state – amber offen, red überfällig, red with «!» dringend –
+   and ticked it is the one blue «erledigt». The pinned block, the Tafel, the legend and the
+   composer's state switch draw the same box.
    ⚠️ Only the row that RAISED the item and the row that CLOSED it. A Meldung and a snooze are
    log lines about the item, and they keep their own glyph. */
-.hist-ev .ic.jr-ic-ring { background: none; border-color: transparent; }
-/* ── …and a hand-written row's ART (owner pick B, UI sweep 07.10.2026) ──
-   Auftrag = the arrow on blue, Sofortmassnahme = the warning on amber; Info keeps the plain «T»
-   (lib/verlauf · rowGlyph, derived at render). The same discs in the legend and the filter menu,
-   so the three places cannot disagree. */
-:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-auftrag { background: var(--blue-12);
-  border-color: var(--blue-22); color: var(--blue); }
-:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-sofort { background: var(--amber-16);
-  border-color: var(--amber-28); color: var(--amber-strong); }
-.jr-ring { position: relative; width: 20px; height: 20px; border-radius: 50%; border: 2px solid currentColor;
-  display: grid; place-items: center; }
-/* ⚠️ The open states are a THICK BORDER over a transparent centre, not the composer's filled
-   donut. The composer's ring sits on a `--surface` card and punches its hole with an inset ring
-   of that colour; a row sits on the drawer's `--glass`, and on a hovered row on `--hover` over
-   that — a hard-coded hole would be a white disc floating in the ring exactly when the finger
-   is on it. Same shape, one less assumption. */
-/* offen — amber, the ink the Pendenzen block is tinted with, so the row and the list it feeds
-   are visibly the same thing */
-.jr-ring-open { border-width: 3px; border-color: var(--amber-strong); }
-/* überfällig — red, one step past «offen» (the words beside it say so too, see .jr-remstate).
-   Not pulsing: the pulsing red in this app belongs to the überfällige Trupp, and a Wiedervorlage
-   is not a life-safety alarm. */
-.jr-ring-overdue { border-width: 3px; border-color: var(--red-strong); }
-/* dringend — the solid red disc with the drawn bang, exactly the composer's state 2 */
-.jr-ring-urgent { color: var(--red); background: currentColor; border-color: currentColor; }
-.jr-bang { width: 2.5px; height: 7px; border-radius: 1.5px; background: var(--surface);
-  position: relative; transform: translateY(-1.5px); }
-.jr-bang::after { content: ""; position: absolute; left: 0; bottom: -4.5px;
-  width: 2.5px; height: 2.5px; border-radius: 50%; background: var(--surface); }
-/* erledigt — green and filled, the same tick the block leaves behind */
-.jr-ring-done { color: var(--green); background: currentColor; border-color: currentColor; }
-.jr-ring-done .i { width: 12px; height: 12px; color: var(--on-fill); }
-/* ── …and on a STILL-OPEN item the ring is the tick-off, in the log as well as in the block ──
-   One vocabulary, one gesture, one call (Journal · Disc · onTick → onReminderDone). It was in the
-   block only, on the argument that the row scrolls away while the block cannot — but a Pendenz is
-   met in the log too (a Meldung about it, a search, the row it was raised on), and «scroll back up
-   and find it again» is not how an Auftrag gets closed at 3am. */
-.hist-ev button.ic.jr-ic-tick { padding: 0; font: inherit; -webkit-appearance: none; appearance: none;
-  cursor: pointer; }
-/* ⚠️ The button STAYS the disc's 24 × 24 (26 until r11, 28 in r11). The disc is the anchor for
-   the timeline connector drawn above and below it (`.hist-ev .ic::before/::after` in 06-contextpanel.css), so
-   growing the element for a gloved finger would tear a gap in the line. The TARGET grows instead,
-   on a pseudo-element that is out of the ring's grid flow: 44 × 44 (23.09.2026, was 30 × 42), i.e.
-   8px out to each side – the 8px column gutters, up to the plain time span and the sentence's
-   first glyph – and the row's height, and a miss lands on the row itself. The same trade the
-   pinned block's ring makes, and for the same reason.
-   ⚠️ -15px, not -12: an absolute box's inset counts from the PADDING box, inside the ring's 2px
-   border – the 20px ring is 16 there, so -12 drew 40 and a finger measured 38; -15 draws 46, which
-   a finger meets as 44 between the row's own hit (13.11.2026). */
-.jr-ic-tick .jr-ring::before { content: ""; position: absolute; inset: -15px; border-radius: var(--r-sm); }
-/* ⚠️ No fill on hover — `--hover` is a neutral wash and the row already takes it. The RING
-   answers: it greens and ghosts its check in, which is what the tap is about to make true, and
-   which is exactly what `.jr-pinned-row .jr-rem` does in the block. Hover is the POINTER's
-   preview (gated below); on a finger, :active gives the same answer for as long as the press. */
-.jr-ic-tick .jr-ring .i { width: 12px; height: 12px; opacity: 0; transition: opacity .12s var(--ease); }
-.jr-ic-tick:focus-visible .jr-ring { color: var(--green); border-color: var(--green); }
-@media (hover: hover) {
-  .jr-ic-tick:hover .jr-ring { color: var(--green); border-color: var(--green); }
-}
-.jr-ic-tick:focus-visible .jr-ring .i { opacity: var(--disabled); }
-@media (hover: hover) {
-  .jr-ic-tick:hover .jr-ring .i { opacity: var(--disabled); }
-}
-.jr-ic-tick:active .jr-ring { color: var(--green); border-color: var(--green); }
-.jr-ic-tick:active .jr-ring .i { opacity: 1; }
+:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-ring { background: none; border-color: transparent; }
+/* ⚠️ The slot STAYS the disc's 24 × 24: the disc is the anchor for the timeline connector drawn
+   above and below it (`.hist-ev .ic::before/::after` in 06-contextpanel.css), so growing it for a
+   gloved finger would tear a gap in the line. The tick button is TickRow's 44px square laid over
+   the slot (10px out on every side), its box exactly where the disc is. */
+.hist-ev .jr-ic-tick { position: absolute; inset: -10px; }
 /* ── the footnotes, under the sentence (`.jr-meta`) ──
    «Nachtrag» · «Korrigiert HH:MM» · «Insgesamt 6×». Facts ABOUT the row, in the register of a footnote:
    they were chips in front of the text, where they pushed it off its axis and read as warnings.

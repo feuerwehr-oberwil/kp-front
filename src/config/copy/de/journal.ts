@@ -359,15 +359,14 @@ export const journalCopy = {
     // wrapped to three lines there and turned every row into a paragraph. The column is a toggle
     // between two readings of one instant, so the words are not what tells them apart — «21:58»
     // against «32′» could not be confused for each other if they tried.
-    ageLabel: '{n}′',
-    ageLabelHours: '{n} h',
-    ageToggle: 'Zeit / Alter umschalten',
     openState: 'offen',
     // the Pendenzen block's line under an item: who it is for (its assignee), and the mark of an
     // item typed on the Tafel's «Aufträge / Pendenzen» page — a tap opens that page
     pinnedWer: 'Wer: {wer}',
     fromTafel: 'von der Tafel',
     fromTafelTitle: 'Auf der Tafel eingetragen – tippen öffnet die Seite',
+    markOpenTitle: 'Wieder als offen markieren',
+    legendPendenzOverdue: 'Pendenz überfällig',
   },
   // ── The Tafel's «Aufträge / Pendenzen» page (05.11.2026, lib/pendenzenPage) ────────────────
   // A view on the Verlauf's Pendenzen and Erinnerungen: every act on the page appends a Verlauf

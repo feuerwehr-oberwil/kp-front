@@ -135,7 +135,8 @@ export function pendenzenForPdf(s: LiveSection, base: Record<string, unknown>, t
     switch (id) {
       case 'was': return p.text
       case 'wer': return p.assignee ?? ''
-      case 'prio': return p.urgent ? '1' : ''
+      // «!» – the mark dringend wears on every surface and on the Rapport (duck sweep ENT.5)
+      case 'prio': return p.urgent ? '!' : ''
       case 'status': return `${w.erteilt} ${clock(p.createdAt)}\n${w.erledigt} ${p.doneAt != null ? clock(p.doneAt) : '–'}`
       case 'zeit': return p.dueAt ? `${hhmm(p.dueAt)} ${isOverdue(p, nowMs) ? w.overdue : w.erinnerung}` : ''
     }
