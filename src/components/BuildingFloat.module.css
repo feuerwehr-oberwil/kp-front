@@ -10,11 +10,14 @@
 .words { color: var(--amber-strong); font-weight: var(--fw-heavy); }
 /* …at 700 on a phone, where the words are the chip's whole label (BuildingFloat · 12A) */
 @media (--phone) { .words { font-weight: var(--fw-bold); } }
-/* the phone's bare (i) (BuildingFloat · `summary.quiet`): a square of the family's one height, its
-   glyph the tool bar tiles' 22px like the Eintrag square at the row's other end (15-mobile ·
-   .fab-entry) – the chip's 16px read as a dot in a box beside it */
-:global(.wb-scale-chip).bare { width: var(--float-h); padding: 0; justify-content: center; }
-:global(.wb-scale-chip).bare svg { width: 22px; height: 22px; }
+/* the phone's quiet chip (BuildingFloat · `summary.quiet`): a worded tile like the Eintrag FAB at
+   the row's other end (15-mobile · .fab-entry) – a 22px glyph band over the 11/700 word, flush, the
+   pair centred in the family's one height. As wide as «Gebäude» needs (69px at --sp-2 a side): in a
+   52px square it truncated to «Gebäu…». The glyph stays the chip's --ink-dim, the word is ink. */
+:global(.wb-scale-chip).tile { display: inline-grid; grid-template-rows: 22px auto; align-content: center;
+  justify-items: center; gap: 0; min-width: var(--float-h); height: var(--float-h); padding: 0 var(--sp-2); }
+:global(.wb-scale-chip).tile svg { width: 22px; height: 22px; }
+.word { max-width: 100%; font-size: var(--fs-micro); line-height: 1.3; }
 /* the Sofortmassnahmen's count: the ONE count badge (05-navrail · .nav-count – 16px, 11/800,
    --r-xs, a plain count is INK), inline after the label, so the chip stays one action */
 .count { flex: none; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: var(--r-xs);

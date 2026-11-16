@@ -10,9 +10,10 @@ Closed, it names the hazards as glyph + word («⚠ Gebäude-Info · Gas · PV»
 (owner pick C8, 05.11.2026). On a PHONE it is the hazard alone again – «⚠ Gas · PV» at 700, or
 (i) «Gebäude» without one, the count badge and the full aria-label/title kept (owner pick 12A,
 14.11.2026: the long amber chip outweighed the row). With nothing entered by hand either – no
-Sofortmassnahme, no Bemerkung, register lines only – it is the bare (i), a square of the row's
-height (round 16.11.2026 #9, owner: «(i) chip … unless there is a custom entry … or hazard»;
-`lib/buildingCard · summary.quiet`). The auto-open on first view is unchanged. A tap opens the card docked one row above it.
+Sofortmassnahme, no Bemerkung, register lines only – it is a tile like the Eintrag FAB: the 22px
+(i) with «Gebäude» under it, the row's height, as wide as the word (round 16.11.2026 #9, owner:
+«(i) chip … unless there is a custom entry … or hazard», then picked the worded tile over the
+bare (i); `lib/buildingCard · summary.quiet`). The auto-open on first view is unchanged. A tap opens the card docked one row above it.
 The card is non-modal, like the Passung: the map stays live, and ✕, the chip or Esc close it.
 Open, it stands above the phone's wind chip (the row rises to `--z-map-card`, under the
 Meldeleiste and the bars) and never reaches past the top: its height is the room between its foot

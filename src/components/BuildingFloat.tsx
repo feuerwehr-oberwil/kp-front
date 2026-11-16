@@ -33,9 +33,11 @@ import s from './BuildingFloat.module.css'
  * alone («⚠ Heizöl», 700), or (i) + «Gebäude» with none – same height as the floating family, the
  * count badge stays, and `aria-label` / `title` keep the full sentence. The tablet is unchanged.
  * …and with nothing entered by hand either – no hazard, no Sofortmassnahme, no Bemerkung, only
- * register lines (`summary.quiet`) – it is the bare (i), a square of the family's height (round
- * 16.11.2026 #9, owner: «(i) chip or a smaller label unless there is a custom entry … or hazard»).
- * The tablet's row has the room and keeps its «Gebäude-Info».
+ * register lines (`summary.quiet`) – it is a TILE like the Eintrag FAB at the row's other end: the
+ * 22px (i) with «Gebäude» under it, the family's height, as wide as its word (round 16.11.2026 #9,
+ * owner: «(i) chip or a smaller label unless there is a custom entry … or hazard»; the bare (i)
+ * of round 1 → the worded tile, owner pick of mock 07). The tablet's row has the room and keeps
+ * its «Gebäude-Info».
  *
  * ⚠️ ONE action, so one glyph and one label (owner, 09.11.2026 – mock nov09-gebaeude-sofort, «do not
  * split»): the Objekt's Sofortmassnahmen are a count badge on the chip («Gebäude-Info ②»), the way
@@ -74,14 +76,14 @@ export function BuildingFloat({ info, autoOpen = false, onRead }: {
   }, [open, close])
   if (!summary) return null
   const C = appConfig.copy.building
-  const bare = phone && summary.quiet
+  const tile = phone && summary.quiet
   return (
     <span className={s.anchor}>
       <button
         type="button"
         // the floating family's own chip (`.wb-scale-chip`) — the module only adds the hazard tone;
         // it never had a `.chip` of its own, and reading one printed «undefined» into the class
-        className={cx('wb-scale-chip', open && 'arm', summary.hazard && s.hazard, bare && s.bare)}
+        className={cx('wb-scale-chip', open && 'arm', summary.hazard && s.hazard, tile && s.tile)}
         aria-label={summary.label}
         title={summary.label}
         aria-expanded={open}
@@ -91,7 +93,7 @@ export function BuildingFloat({ info, autoOpen = false, onRead }: {
         {/* a KNOWN hazard is the words after the dot, in the hazard tone (hill climb r15, Opus 5):
             in ink the chip read as one more neutral control. The plate stays neutral – no fill,
             this is a fact to read, not an alarm. */}
-        {!bare && <span>{phone
+        {tile ? <span className={s.word}>{C.chipTitleShort}</span> : <span>{phone
           ? summary.hazard ? <b className={s.words}>{summary.words.join(' · ')}</b> : C.chipTitleShort
           : <>{C.chipTitle}{summary.hazard && <> · <b className={s.words}>{summary.words.join(' · ')}</b></>}</>}</span>}
         {/* the Objekt's Sofortmassnahmen are inside: their count, in the one count-badge idiom */}

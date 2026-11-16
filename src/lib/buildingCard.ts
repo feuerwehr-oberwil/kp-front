@@ -221,7 +221,7 @@ export function hasBuildingContent(b: BuildingInfo | null): boolean {
 
 /** What the closed chip on the Karte / the plan's chip row says: the hazards as WORDS («Gas · PV»),
  *  or nothing beyond «Gebäude» when there are none. `hazard` drives the warn glyph, `quiet` the
- *  phone's bare (i). */
+ *  phone's (i) «Gebäude» tile. */
 export interface BuildingChipSummary {
   hazard: boolean
   /** the hazard words, deduplicated, in the chips' order («Gas», «Heizöl», «PV») */
@@ -229,7 +229,7 @@ export interface BuildingChipSummary {
   /** how many Sofortmassnahmen the Objekt has to be read (0 = none) – the chip's count badge */
   measures: number
   /** nothing a crew must not miss: no hazard, no Sofortmassnahme, no Bemerkung – only register
-   *  lines (or a past Objektbesuch). The phone draws the icon-only (i) then (round 16.11.2026 #9,
+   *  lines (or a past Objektbesuch). The phone draws the (i) «Gebäude» tile then (round 16.11.2026 #9,
    *  owner: «(i) chip … unless there is a custom entry (i.e. sofortmassnahme / bemerkung) or hazard»). */
   quiet: boolean
   /** the full sentence for aria-label / title */

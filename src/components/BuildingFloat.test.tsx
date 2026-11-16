@@ -6,6 +6,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BuildingFloat } from './BuildingFloat'
+import s from './BuildingFloat.module.css'
 import type { BuildingInfo } from '../lib/api/building'
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
@@ -63,7 +64,7 @@ describe('BuildingFloat', () => {
   })
 
   // round 14.11.2026, owner pick 12A: on a phone the chip is the hazard alone, the label stays whole
-  it('phone: glyph + hazard words alone, or (i) «Gebäude»; the count and the full label stay', () => {
+  it('phone: glyph + hazard words alone, or (i) «Gebäude» – a tile for register lines only; the count and the full label stay', () => {
     asPhone()
     render(<BuildingFloat info={base} />)
     const chip = screen.getByRole('button', { name: 'Gebäude: Gas, PV – Steckbrief öffnen · 1 Sofortmassnahme' })
@@ -74,12 +75,14 @@ describe('BuildingFloat', () => {
     render(<BuildingFloat info={{ ...base, gwr: calmGwr, plants: [], object: { ...base.object!, measures: null, remarks: 'Schlüssel beim Hauswart' } }} />)
     const noted = screen.getByRole('button', { name: 'Gebäude-Steckbrief öffnen' })
     expect(noted.textContent).toBe('Gebäude')
+    expect(noted.classList.contains(s.tile)).toBe(false)
     expect(noted.querySelector('use')?.getAttribute('href')).toBe('#info')
     cleanup()
-    // round 16.11.2026 #9: register lines only → the bare (i), the sentence kept as its name
+    // round 16.11.2026 #9: register lines only → the worded tile, the sentence kept as its name
     render(<BuildingFloat info={{ ...base, gwr: calmGwr, plants: [], object: null }} />)
     const calm = screen.getByRole('button', { name: 'Gebäude-Steckbrief öffnen' })
-    expect(calm.textContent).toBe('')
+    expect(calm.textContent).toBe('Gebäude')
+    expect(calm.classList.contains(s.tile)).toBe(true)
     expect(calm.getAttribute('title')).toBe('Gebäude-Steckbrief öffnen')
     expect(calm.querySelector('use')?.getAttribute('href')).toBe('#info')
   })
