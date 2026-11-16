@@ -1274,7 +1274,9 @@ button.rp-sign-row { cursor: pointer; border-radius: var(--r-xs); }
 button.rp-sign-row:disabled { cursor: default; }
 .rp-sign-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .rp-sign-role { font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-faint); }
-.rp-sign-name { font: var(--fw-bold) var(--fs-3)/var(--lh-3) var(--body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the name at the Anwesenheit names' 14px above it, bold because it is the row's one fact – it was
+   16, a notch above every other name on the tab (owner 16.11.2026, «slightly oversized» sweep) */
+.rp-sign-name { font: var(--fw-bold) var(--fs-2)/var(--lh-2) var(--body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rp-sign-img { display: block; width: 96px; height: 36px; flex: none; }
 .rp-sign-img path { fill: none; stroke: var(--ink); stroke-width: 2px; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
 .rp-sign-time { flex: none; min-width: 44px; text-align: right; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-faint); }

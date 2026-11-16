@@ -7,16 +7,33 @@
    surface does differently is the direction — its template rail sits BESIDE the pane, so it
    keeps the default row. No gap between the two: the rail's hairline is the seam (owner pick A,
    review round 5, 20.10.2026 – see .cl-main). */
-.cl-surface { composes: shell from './Surface.module.css'; }
+/* a size container: the sticky search band (below) paints the page's gradient ground at the
+   SURFACE's size (100cqw × 100cqh), so its strip of it lines up with the ground around it */
+.cl-surface { composes: shell from './Surface.module.css'; container-type: size; }
 
 /* left rail. 248px on a tablet, growing with the viewport to 400px: the document pane is a centred
    760px column anyway, so a wide screen has the room for a long title («Viele Personen (Schule /
    Heim / Saal)» is 300px in Sora bold 16 – with the row's and the rail's padding it needs ~380px) on
    ONE line. 40vw − 150px is 248px up to ~1000px, ~320px on an iPad landscape (1180), ~396px at 1366.
    `--cl-rail-w` so the Karte library's wider column (ChecklistLibrary · .column) follows the same curve. */
-.cl-rail { --cl-rail-w: clamp(248px, 40vw - 150px, 400px); flex: 0 0 var(--cl-rail-w); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: var(--sp-3) var(--sp-2); background: var(--surface);
+/* `--cl-pad-t` / `--cl-pad-x` / `--cl-ground` are the rail's padding and fill, named so the sticky
+   search band below can reach out over exactly that padding and wear exactly that fill */
+.cl-rail { --cl-rail-w: clamp(248px, 40vw - 150px, 400px); --cl-pad-t: var(--sp-3); --cl-pad-x: var(--sp-2); --cl-ground: var(--surface);
+  flex: 0 0 var(--cl-rail-w); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
+  padding: var(--cl-pad-t) var(--cl-pad-x); background: var(--cl-ground);
   border-right: 1px solid var(--glass-edge); display: flex; flex-direction: column; gap: 16px; }
-.cl-rail-search { margin: 2px 0 4px; }   /* THE search (components/SearchField, 29.09.2026) — placement only */
+/* THE search (components/SearchField, 29.09.2026) in a band that stays PINNED at the rail's top
+   while the list scrolls (owner 16.11.2026: «keep the searchbar sticky»): a long list is filtered
+   by scrolling to a name, and the field had already scrolled away. The band covers the rail's top
+   padding (negative margin, same padding back) on the rail's own fill, so rows slide under a solid
+   strip instead of showing above or through the grey pill – the ComboMenu `.searchRow` pattern.
+   The fill is sized to the surface (`.cl-surface` is the container) and anchored at the band's
+   top-left, which is the surface's: the phone's ground is a radial gradient, and sized to the band
+   it would be the whole gradient squeezed into one strip. A plain colour ignores the size. */
+.cl-rail-search { position: sticky; top: calc(-1 * var(--cl-pad-t)); z-index: 1; flex: none;
+  margin: calc(-1 * var(--cl-pad-t)) calc(-1 * var(--cl-pad-x)) 0;
+  padding: calc(var(--cl-pad-t) + 2px) var(--cl-pad-x) 4px;
+  background: var(--cl-ground) 0 0 / 100cqw 100cqh no-repeat; }
 /* all groups («Passend», Aufgaben, each reference template, the devices) are peers under the search bar –
    THE ListGroup with the shared rows (ChecklistRail); the Stichwort's dot as a row's lead */
 .cl-rail-groups { display: flex; flex-direction: column; gap: var(--sp-4); }
@@ -258,8 +275,8 @@ ol.cl-items > .cl-item { padding: var(--sp-3); }
   .cl-main { background: none; }
   /* the picker rail collapses to the .cl-rail-toggle row after a pick (ChecklistsView), so
      while open it may take real height — picking is the only job of that moment */
-  .cl-rail { flex: none; max-height: 44dvh; width: auto; border-right: none;
-    border-bottom: 1px solid var(--glass-edge); padding: 8px; gap: 8px; }
+  .cl-rail { --cl-pad-t: 8px; --cl-pad-x: 8px; flex: none; max-height: 44dvh; width: auto; border-right: none;
+    border-bottom: 1px solid var(--glass-edge); gap: 8px; }
   /* #4: list-only mode (nothing opened yet) — the list owns the whole surface instead of
      being capped at 44dvh with a preview beneath it */
   /* while the list owns the whole surface it is the thing the FAB lands on — .cl-main got its
@@ -267,8 +284,11 @@ ol.cl-items > .cl-item { padding: var(--sp-3); }
      circle. Same shared reserve, 0 for a viewer. */
   /* …and it is the Karte library's phone list (owner 20.10.2026: «the landing is the reference»):
      the groups' white cards and the device cards on the page ground, a step more between groups */
-  .cl-rail.cl-rail-full { max-height: none; flex: 1 1 auto; border-bottom: none; background: transparent; gap: var(--sp-3);
-    padding: var(--sp-3) var(--head-pad-x) calc(var(--sp-3) + var(--fab-safe, 0px)); }
+  /* on the page ground (the shell's `--app-bg`): the rail itself stays transparent, the sticky
+     search band wears the ground (`--cl-ground`) – transparent, the rows would show through it */
+  .cl-rail.cl-rail-full { --cl-pad-t: var(--sp-3); --cl-pad-x: var(--head-pad-x); --cl-ground: var(--app-bg);
+    max-height: none; flex: 1 1 auto; border-bottom: none; background: transparent; gap: var(--sp-3);
+    padding-bottom: calc(var(--sp-3) + var(--fab-safe, 0px)); }
   .cl-rail-full .cl-rail-groups { gap: var(--sp-5); }
   /* collapsed state: one slim row — current selection + chevron — reopens the list; the
      checklist/playbook below gets the full remaining height (the «fullsize text» ask) */

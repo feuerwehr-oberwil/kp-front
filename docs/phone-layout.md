@@ -41,6 +41,13 @@ unchanged.
   `--dock-bottom`). The floating row keeps the same 8px from the bars, from each other and from the
   edge. The other bars over the nav bar (`.rp-tabs`, the page in `Surface.module.css`) still
   keep their 6px channel (`--rail-h + 14px`).
+- *Messen's readout is a bar when folded* (round 16.11.2026 #8, owner: «match the other toolbars
+  when collapsed»): `--rail-h` tall, the 44px readout row 7px from its edges (it was 78px), in
+  the bars' corner `--r-bar`; its 16px inline pad puts «Distanz» on the dock's word column. Open
+  (Höhenprofil, Wassertransport) it ends one `--float-gap` under the top bar (`--under-bar`), lies
+  over the wind chip like the Gebäude card (`--z-map-card`) and scrolls inside itself – it grew up
+  behind the Einsatz header. Its foot is `--mp-bottom` (MeasurePanel.module), which the Karte
+  sets one bar lower, so the cap follows the foot.
 - *While a tool is out the message lane is measured* (`lib/floatRow · stackLane` → `--stack-lane`):
   one gap above the highest piece of the stack, so a tip or the Gebäude card stands 8px over the
   pill whether the chip sits beside the dock or had to rise onto the pill's line. And ONE thing in
@@ -69,6 +76,10 @@ unchanged.
   The grips stay for that one – the finger is on one.
 - *The Gebäude chip is the hazard alone on a phone* (owner pick 12A, 14.11.2026): «⚠ Heizöl» at
   700, or (i) «Gebäude» without one; the count badge stays and the label stays the full sentence.
+  With no hazard, no Sofortmassnahme and no Bemerkung – register lines only – it is a worded
+  tile like the Eintrag FAB: the tiles' 22px (i) over «Gebäude» at 11/700, `--float-h` tall and
+  as wide as its word (69px; a 52px square truncated it) (round 16.11.2026 #9, owner pick of the
+  tile over the bare (i); `lib/buildingCard · summary.quiet`).
   The tablet keeps «Gebäude-Info · Heizöl» (components/BuildingFloat).
 - *Karte & Objekte has ONE bar* (Karte · Messen · Gefahrgut · Ebenen, no tool bar and no «Pläne»
   tab — 17.10.2026): Messen keeps the same 8px steps, only from the nav bar (the dock where the

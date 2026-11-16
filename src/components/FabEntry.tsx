@@ -9,8 +9,10 @@ import { tut } from '../lib/tutorials/anchors'
 
 // Mobile field-capture FAB. Same tap / long-hold gesture as the TopBar "Eintrag": tap opens
 // the composer, hold offers Sprachnotiz · Foto, tap-while-recording stops it. The hold acts on
-// RELEASE — two targets rise above the circle and the finger slides onto one; release without
+// RELEASE — two targets rise above the button and the finger slides onto one; release without
 // moving and you get the voice memo (see lib/useHoldEntry).
+// A square of the floating row's height in the one corner, «Eintrag» always under the glyph
+// (15-mobile · .fab-entry, round 16.11.2026 #4).
 export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldStop, onHoldPhoto }: {
   recording: boolean
   recStartedAt: number | null
@@ -28,7 +30,7 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
   const recSec = recording && recStartedAt ? Math.max(0, Math.round((now - recStartedAt) / 1000)) : 0
   const { pressing, pressedSince, latched, anchor, pick, handlers } = useHoldEntry({ recording, onTap, onHoldStart, onHoldStop, onHoldPhoto })
   // ⚠️ Gone while «Karte verknüpfen» is armed. On a phone the mode's bar takes the foot of the
-  // screen and this circle floats ON its right end, over «Deckung prüfen» / «Fertig» — a button
+  // screen and this button floats ON its right end, over «Deckung prüfen» / «Fertig» — a button
   // that opens the journal, parked on top of the two that finish what you are doing. The
   // subscription lives HERE rather than in the shell, so one small component re-renders per
   // tap instead of the whole workspace.

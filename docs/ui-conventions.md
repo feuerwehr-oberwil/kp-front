@@ -56,6 +56,10 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
 - **Text sizes have floors** (style sweep T4): a hint sentence is the `.ip-hint` voice (12.5/500
   `--ink-dim`), a row's second line the `.list-row-sub` voice (the same, 1.3 leading) – never 11px,
   never `--ink-faint` plus an opacity dim. `--fs-micro` stays for captions, tags and eyebrows.
+  …and a ceiling (owner 16.11.2026, «just a bit too big»): a READ value – a read-out beside its
+  key, a name in a list, a sheet's lede – is `--fs-2`. 16 (`--fs-3`) is a typed field's size (iOS
+  zooms into a smaller one), a title's, or a figure meant to be loud; a read-out does not borrow it
+  to match the fields around it (the Rapport's «Aus den Einsatzdaten» did, `readoutType.test.ts`).
 - **The neutral washes and hairlines are near-twins, not duplicates** (checked 13.11.2026):
   `--fill-soft`, `--hover`, `--hover-strong`, `--press`, `--surface-2`, `--surface-veil`,
   `--ink-tint(-strong)`, `--border(-soft)`, `--glass-edge`, `--glass-line` and `--ink-5…62` –
@@ -341,7 +345,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     [`phone-layout.md`](phone-layout.md) · «No page card on a phone»), sheet, dialog, message; `--r-ctl`/`--r-surface`/
     `--r-hero` are aliases of it, kept only as role names. Three exceptions, each a rule, never
     taste: (1) things under ~32px tall wear `--r-xs` (the same shape at that size) and map
-    furniture, dots, avatars and the FAB stay round – roundness is what tells map furniture
+    furniture, dots and avatars stay round – roundness is what tells map furniture
     apart from chrome; (2) a **floating container that hugs controls** (top bar, nav/tool bar,
     glass clusters, menus, docks) keeps ONE even gap all round – `--bar-pad` plus its
     1px border – and its corner is the controls' corner plus that gap, `--r-bar` (19px), so the
@@ -415,8 +419,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     antippen», a tap stops it). On a phone the pieces stand on ONE baseline,
     `--float-bottom` (15-mobile): `--float-gap` (8px) above the highest bar (nav bar · Rapport tab
     strip · tool bar · a tool's option dock), 8px from the screen's edge and from
-    each other. The FAB stays ROUND (the one-corner exception) but is `--float-h` across, on that
-    baseline; `--fab-safe` is its width + the gap. A new piece in that zone joins the family and
+    each other. The FAB is a `--float-h` square in the one corner (round until 16.11.2026, owner:
+    «match the corner radius of the other things»), «Eintrag» always under its glyph like a
+    worded tool-bar tile (the 22px glyph flush on the 11/700 word, centred) – not tied to «Beschriftung der Werkzeugleisten», which is the bars'
+    setting, not the floating row's – on that baseline; `--fab-safe` is its width + the gap. A new piece in that zone joins the family and
     the row (and the `--float-row` `:has` list) — never a height, material or offset of its own.
     The map's attribution ⓘ wears the family's MATERIAL only (03-map, 04.11.2026): a round 24px
     plate at the 16px inset (32px until 05.11.2026, owner: «small and quiet»), its outline glyph in
