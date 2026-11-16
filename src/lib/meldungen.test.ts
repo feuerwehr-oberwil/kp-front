@@ -6,7 +6,7 @@ import { linkShowsMeldung, NEWER_BUILD_MELDUNG_ID, rankMeldungen, type Meldung, 
 // anything that would go away by itself.
 
 const TONE: Record<MeldungKind, MeldungTone> = {
-  notfall: 'alarm', atemschutz: 'alarm', alarm: 'alarm', lifecycle: 'info', storage: 'alarm', reminder: 'warn', wind: 'warn', gps: 'warn', review: 'info', workspace: 'warn', media: 'warn', tabLock: 'info', symbols: 'warn', basemap: 'warn', session: 'warn', update: 'calm', install: 'calm',
+  notfall: 'alarm', atemschutz: 'alarm', alarm: 'alarm', lifecycle: 'info', storage: 'alarm', refused: 'warn', safety: 'warn', reminder: 'warn', wind: 'warn', gps: 'warn', review: 'info', workspace: 'warn', media: 'warn', tabLock: 'info', symbols: 'warn', basemap: 'warn', session: 'warn', update: 'calm', install: 'calm',
 }
 const m = (kind: MeldungKind, id: string = kind): Meldung => ({ id, kind, tone: TONE[kind], icon: 'bell', title: kind })
 
@@ -21,9 +21,9 @@ describe('rankMeldungen', () => {
   })
 
   it('orders every kind, so the strip reads best-first from the top down', () => {
-    const all: MeldungKind[] = ['install', 'update', 'session', 'basemap', 'symbols', 'tabLock', 'media', 'workspace', 'review', 'gps', 'wind', 'reminder', 'storage', 'lifecycle', 'alarm', 'atemschutz', 'notfall']
+    const all: MeldungKind[] = ['install', 'update', 'session', 'basemap', 'symbols', 'tabLock', 'media', 'workspace', 'review', 'gps', 'wind', 'reminder', 'safety', 'refused', 'storage', 'lifecycle', 'alarm', 'atemschutz', 'notfall']
     expect(rankMeldungen(all.map((k) => m(k))).map((r) => r.kind))
-      .toEqual(['notfall', 'atemschutz', 'alarm', 'lifecycle', 'storage', 'reminder', 'wind', 'gps', 'review', 'workspace', 'media', 'tabLock', 'symbols', 'basemap', 'session', 'update', 'install'])
+      .toEqual(['notfall', 'atemschutz', 'alarm', 'lifecycle', 'storage', 'refused', 'safety', 'reminder', 'wind', 'gps', 'review', 'workspace', 'media', 'tabLock', 'symbols', 'basemap', 'session', 'update', 'install'])
   })
 
   it('keeps arrival order inside one class — two paused GPS connections stay in the order they came', () => {
@@ -68,9 +68,9 @@ describe('rankMeldungen', () => {
 
 // sweep 30.10.2026 #23 (owner picked «No toasts, keep blockers»)
 describe('linkShowsMeldung — the Atemschutz-Link keeps only what blocks work', () => {
-  it('lets through the blockers and the alarms, and nothing else', () => {
+  it('lets through the blockers, the alarms, a refusal and the missing Sicherungstrupp – nothing else', () => {
     const shown = (Object.keys(TONE) as MeldungKind[]).filter((k) => linkShowsMeldung(m(k)))
-    expect(shown.sort()).toEqual(['atemschutz', 'lifecycle', 'notfall', 'session', 'tabLock'])
+    expect(shown.sort()).toEqual(['atemschutz', 'lifecycle', 'notfall', 'refused', 'safety', 'session', 'tabLock'])
   })
   it('of the workspace rows, only «Neuere App-Version nötig»', () => {
     expect(linkShowsMeldung(m('workspace', NEWER_BUILD_MELDUNG_ID))).toBe(true)

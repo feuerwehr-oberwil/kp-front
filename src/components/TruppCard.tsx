@@ -7,7 +7,7 @@ import { Fragment, useEffect, useRef, useState, type KeyboardEvent as ReactKeybo
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { confirmDialog, toast } from '../lib/ui'
+import { confirmDialog } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { Button } from './Button'
 import { Menu } from '../lib/overlays'
@@ -18,6 +18,7 @@ import type { Trupp, TruppReading } from '../types'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import s from './Atemschutz.module.css'
 import { collapsedClock, fmtTime, plainWords, tierMark } from './truppCardText'
+import { refuse } from '../lib/meldungenRefusal'
 
 // (`PressureInline`, the tablet card's ± Druck stepper with its own «Bestätigen», went on
 // 29.09.2026 with the tablet card: every board's Druck is the pressure tile → PressureSheet.)
@@ -559,7 +560,7 @@ export function TruppCard({
   // the erroneous Anmeldung; dismissing does nothing.
   const doDelete = async () => {
     // a Trupp in a Notfall leaves the board only after «Notfall beendet» (useTruppActions · deleteTrupp)
-    if (truppInNotfall(t)) { toast(az.notfall.removeBlocked, { icon: 'warn', tone: 'warn' }); return }
+    if (truppInNotfall(t)) { refuse(az.notfall.removeBlocked); return }
     /* ⚠️ A crew that is INSIDE is asked about first (staging walk-through 25.09.2026, N4): one tap
        on «Entfernen» took a crew under PA off the board and out of every alarm, with no question.
        What the operator almost always means is «they are out» — so «Raus melden» is the filled,

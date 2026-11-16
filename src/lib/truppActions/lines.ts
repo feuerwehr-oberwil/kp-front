@@ -1,12 +1,12 @@
 import type { BoardPoint, LineAttachment, Trupp } from '../../types'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../format'
-import { toast } from '../ui'
 import { objectAttachment, wireFreed } from '../lineAttachments'
 import { lineTakesTrupp, resolveLinkNumber, truppForLine, truppIdForAttachment, type LinkableLine, type TruppMarker } from '../truppLines'
 import { truppLogName } from '../atemschutz'
 import { isOutTrupp, type TruppActionCore, type TruppActionDeps } from './core'
 import type { TruppPlacementActions } from './placement'
+import { refuse } from '../meldungenRefusal'
 
 // The Trupp LINES family — a Trupp and its Leitung: link / unlink from every door (form, line
 // editor, marker menu, magnet), the number kept in sync, and the reads the card shows (which
@@ -120,7 +120,7 @@ export function truppLineActions(deps: LineDeps) {
     // confirmed takeover still lands here with the line free.
     const holder = truppForLine(line, trupps)
     if (holder && holder.id !== truppId && !isOutTrupp(holder)) {
-      toast(fillTemplate(az.lineHeldToast, { name: holder.name }), { tone: 'warn' })
+      refuse(fillTemplate(az.lineHeldToast, { name: holder.name }))
       return false
     }
     const no = resolveLinkNumber(tr, line, lines, trupps)

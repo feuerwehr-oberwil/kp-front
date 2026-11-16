@@ -48,6 +48,7 @@ import { loadReviewedIncidents, needsIntakeReview, sameIncidentList, saveReviewe
 import { AlarmUpdateBanner, EinsatzWizard, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, HomeDeviceSheet } from './components/panels'
 import { Meldeleiste } from './components/Meldeleiste'
 import { linkShowsMeldung } from './lib/meldungen'
+import { RefusalMeldung } from './lib/meldungenRefusal'
 import { SessionExpiredMeldung } from './components/SessionExpiredMeldung'
 import { pickTrouble, readTrouble, recordTrouble, type TroubleEvent } from './lib/trouble'
 import { onStorageDegraded } from './lib/idb'
@@ -788,6 +789,8 @@ export default function App() {
           that surface, the way ShiftConflictNotice does — or it belongs in this strip. */}
       {/* …on the Atemschutz-Link only the rows that block work (meldungen · linkShowsMeldung) */}
       <Meldeleiste only={asLink ? linkShowsMeldung : undefined} />
+      {/* …where a refused act is said, since the link shows no toast (lib/meldungenRefusal) */}
+      {asLink && <RefusalMeldung />}
       {/* the session cookie died mid-Einsatz (lib/auth · sessionExpired): every request 401s,
           the badge cannot say why. Published HERE so it shows with or without an open Einsatz;
           it ends only by signing in again, which is what its one button does. */}

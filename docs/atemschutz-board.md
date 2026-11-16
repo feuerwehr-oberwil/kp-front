@@ -400,9 +400,15 @@ reworded.
   padding, and the parking scroll of the phone's opened card), so an opened card lands below the
   banners, never under them. Elsewhere the Meldeleiste row offers
   the same first (exactly one ready ⇒ it goes in and the Tafel opens).
-- *Ready* is what the board models: under PA, Auftrag «Sichern», angemeldet. An Atemschutz-Trupp
-  going in while none is ready gets one calm toast («Kein Sicherungstrupp bereit»), never a
-  question.
+- *Ready* is what the board models: under PA, Auftrag «Sichern», angemeldet. While an
+  Atemschutz-Trupp is inside and none is ready, a STANDING Meldeleiste row says «Kein
+  Sicherungstrupp bereit» and names the crews inside – on every surface, the board and the
+  Atemschutz-Link included, no ✕, gone the moment one is ready or the last crew is out, and
+  silent while a Notfall runs (its banner is the one row about the Sicherungstrupp). Never a
+  question (`atemschutz · safetyMissing`, `SafetyMissingMeldung`; FEEDBACK.1, 17.11.2026 – it was
+  a toast at the Eintritt, which vanished and on the link never showed). A refused act on the
+  board («Erst «Notfall beendet» halten …») goes through `lib/meldungenRefusal · refuse`: the warn
+  toast, and on the link a row until its ✕.
 - *Sync*: `notfallAt` merges per field; two devices holding at once raise ONE Notfall from the
   EARLIER hold (`mergeWorkspace · mergeTrupp`); «beendet» on one side survives an unrelated edit
   on the other.

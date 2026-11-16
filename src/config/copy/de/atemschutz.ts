@@ -860,6 +860,10 @@ export const atemschutzCopy = {
       abschlussClose: 'Trotzdem abschliessen',
       // «Entfernen» on a Trupp in a Notfall is refused until it is ended (review of #300)
       removeBlocked: 'Erst «Notfall beendet» halten – ein Trupp im Notfall bleibt in der Überwachung',
+      // die stehende Zeile in der Meldeleiste, solange ein AS-Trupp drin ist und niemand sichert
+      // (FEEDBACK.1, 17.11.2026): wer drin ist, und was die Zeile wegnimmt
+      noSafetySub: 'Drin: {names} – einen Trupp mit Auftrag «Sichern» anmelden',
+      noSafetyGo: 'Zu den Trupps',
     },
     // «Entfernen» auf einem Trupp, der DRIN ist: zuerst fragen, «Raus melden» ist die sichere Antwort
     removeInsideTitle: 'Trupp {name} ist drin – erst rausmelden?',
