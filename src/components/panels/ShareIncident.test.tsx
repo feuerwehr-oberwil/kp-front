@@ -277,4 +277,18 @@ describe('«Nur Atemschutz» aus dem QR — ein Tipp', () => {
     await waitFor(() => expect(screen.getByText(C.shareCreate)).toBeTruthy())
     expect(createShareLink).toHaveBeenCalledTimes(1)
   })
+
+  // Owner, 16.11.2026: «Link aufheben + the confirmation and nothing happened», a second round
+  // then worked. The link was ALREADY running when the QR opened the sheet, so the sheet never
+  // minted – and the one-tap mint was still armed: the revoke's «no link» answer fired it, and a
+  // fresh QR stood where the old one had been.
+  it('leaves a revoked link revoked when it was already running on open', async () => {
+    vi.mocked(fetchShareLink).mockResolvedValue(on)
+    confirmDialog.mockResolvedValue(true)
+    render(<ShareIncident incidentId="i1" initialKind="atemschutz" autoCreate />)
+    fireEvent.click(await screen.findByText(C.shareRevoke))
+    await screen.findByText(C.shareCreate)
+    expect(revokeShareLink).toHaveBeenCalledWith('i1', 'atemschutz')
+    expect(createShareLink).not.toHaveBeenCalled()
+  })
 })
