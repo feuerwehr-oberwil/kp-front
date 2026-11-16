@@ -556,20 +556,18 @@ describe('the Trupp form on the main board’s phone layout', () => {
     mount({ trupps: [aktivTrupp()] }) // useIsPhone false
     fireEvent.click(firstBtn(az.newTrupp))
     expect(document.querySelector(`.${s.stack}`)).toBeNull() // no phone column on a tablet
-    // …the Art leads the form across both columns (owner 16.11.2026: never beside or under the
-    // search as if it answered it) — named for a screen reader only since 27.09.2026 (the two
-    // tiles name themselves) — then the Mannschaft column, then Auftrag … with the folded
-    // Standard row at the right column's end, after the Leitung
+    // …the Art leads the RIGHT column as its own section (08.09.) — named for a screen reader
+    // only since 27.09.2026 (the two tiles name themselves) — with the folded Standard row at
+    // the column's end, after the Leitung. Only the phone moved it above the Mannschaft
+    // (owner 16.11.2026: «can stay on the right side, only on mobile»).
     expect(screen.getByRole('radiogroup', { name: az.kindLabel })).toBeTruthy()
     expect(screen.queryByText(az.kindLabel)).toBeNull()
     const body = document.querySelector(`.${s.modalBody}`)
-    const [art, team, right] = [...body!.children]
-    expect(art.className).toContain(s.formColWide)
-    expect(art.querySelector('[role="radiogroup"]')?.getAttribute('aria-label')).toBe(az.kindLabel)
-    expect(team.className).toContain(s.formCol)
-    expect(team.textContent).toContain(az.sectionTeam)
-    expect(right.firstElementChild?.textContent).toContain(az.auftragLabel)
-    expect(right.lastElementChild?.textContent).toContain(az.funkkanalSection)
+    expect(body?.firstElementChild?.className).toContain(s.formCol)
+    expect(body?.firstElementChild?.querySelector(`.${s.team}`)).toBeTruthy()
+    const right = body?.children[1]
+    expect(right?.firstElementChild?.querySelector('[role="radiogroup"]')?.getAttribute('aria-label')).toBe(az.kindLabel)
+    expect(right?.lastElementChild?.textContent).toContain(az.funkkanalSection)
     // …and the Kanal row opens the Kanal sheet, over the form
     fireEvent.click(kanalRow())
     expect(screen.getByRole('dialog', { name: az.funkkanalUnit })).toBeTruthy()

@@ -220,12 +220,13 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   `TruppSheets · LeitungField` («keine · Ltg n · Nr. …») for the Leitung. «Nr. …» turns into
   the stepper in its own place in the chip row, and a typed number lives there only, never as a
   chip as well (28.10.2026, owner).
-- *The form opens with the Art* (owner 16.11.2026: «i almost forgot to add people because it
-  looked like things were highlighted already»): «Unter / Ohne Atemschutz» is the form's first row
-  – the phone column's top, a row across both columns on the tablet – and the Mannschaft («Trupp»,
-  «Person suchen») comes after it. Under the search, the preselected blue chip read as a Trupp
-  already formed. The phone still opens with the caret in the search, and with the keys up the
-  search is the screen: the Art goes with the rest (`TruppTeam`).
+- *The phone form opens with the Art* (owner 16.11.2026: «i almost forgot to add people because it
+  looked like things were highlighted already»): on the PHONE «Unter / Ohne Atemschutz» is the
+  column's first row, and the Mannschaft («Trupp», «Person suchen») comes after it. Under the
+  search, the preselected blue chip read as a Trupp already formed. The phone still opens with the
+  caret in the search, and with the keys up the search is the screen: the Art goes with the rest
+  (`TruppTeam`). The tablet keeps it leading the right column, beside the Mannschaft (owner:
+  «can stay on the right side, only on mobile»).
 - *The form asks Druck and Kanal in the sheets that ask them on the card* (30.09.2026, owner):
   one row each in every mode, «Eingangsdruck 300 bar ›» / «Funkkanal 11 ›», opening the Druck
   sheet (20-bar grid, the form's value filled — `PressureSheet · chosen`) or the Kanal sheet
