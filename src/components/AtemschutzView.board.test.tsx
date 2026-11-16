@@ -506,17 +506,21 @@ describe('the Trupp form on the main board’s phone layout', () => {
     expect(screen.queryByRole('listbox', { name: az.sectionTeam })).toBeNull()
   })
 
-  /* The flat column's order (08.09.): Art above the form, then Mannschaft → Auftrag/Ziel/
-   * Leitung → the folded Standard line last — the same order the tablet's right column runs. */
+  /* The flat column's order (08.09.): Art first, then Mannschaft → Auftrag/Ziel/Leitung → the
+   * folded Standard line last. The Art stood UNDER the Mannschaft until 16.11.2026 (owner: its lit
+   * «Unter Atemschutz» right under «Person suchen» read as a Trupp already formed – «i almost
+   * forgot to add people»). */
   it('runs Art → Mannschaft → Auftrag → Standard-Zeile, all on one flat screen', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [aktivTrupp()] })
     fireEvent.click(firstBtn(az.newTrupp))
-    // the Art rides its own row above the fields it governs
-    expect(screen.getByRole('radiogroup', { name: az.kindLabel })).toBeTruthy()
-    // …and everything else stands in one column, in reading order
-    const txt = document.querySelector(`.${s.stack}`)?.textContent ?? ''
-    const order = [az.sectionTeam, az.auftragLabel, az.lineNoLabel, az.pressureLabel, az.funkkanalSection].map((t) => txt.indexOf(t))
+    // the Art is the column's first row, above the Mannschaft and its search
+    const stack = document.querySelector(`.${s.stack}`)!
+    expect(stack.firstElementChild?.querySelector('[role="radiogroup"]')?.getAttribute('aria-label')).toBe(az.kindLabel)
+    expect(stack.children[1].querySelector(`.${s.team}`)).toBeTruthy()
+    // …and everything stands in one column, in reading order
+    const txt = stack.textContent ?? ''
+    const order = [az.kindAtemschutz, az.sectionTeam, az.auftragLabel, az.lineNoLabel, az.pressureLabel, az.funkkanalSection].map((t) => txt.indexOf(t))
     expect(order.every((n) => n >= 0)).toBe(true)
     expect([...order]).toEqual([...order].slice().sort((a, b) => a - b))
     // the Druck row opens the Druck sheet — the grid is never inline
@@ -554,11 +558,13 @@ describe('the Trupp form on the main board’s phone layout', () => {
     expect(document.querySelector(`.${s.stack}`)).toBeNull() // no phone column on a tablet
     // …the Art leads the RIGHT column as its own section (08.09.) — named for a screen reader
     // only since 27.09.2026 (the two tiles name themselves) — with the folded Standard row at
-    // the column's end, after the Leitung
+    // the column's end, after the Leitung. Only the phone moved it above the Mannschaft
+    // (owner 16.11.2026: «can stay on the right side, only on mobile»).
     expect(screen.getByRole('radiogroup', { name: az.kindLabel })).toBeTruthy()
     expect(screen.queryByText(az.kindLabel)).toBeNull()
     const body = document.querySelector(`.${s.modalBody}`)
     expect(body?.firstElementChild?.className).toContain(s.formCol)
+    expect(body?.firstElementChild?.querySelector(`.${s.team}`)).toBeTruthy()
     const right = body?.children[1]
     expect(right?.firstElementChild?.querySelector('[role="radiogroup"]')?.getAttribute('aria-label')).toBe(az.kindLabel)
     expect(right?.lastElementChild?.textContent).toContain(az.funkkanalSection)
