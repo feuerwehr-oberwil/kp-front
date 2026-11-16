@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type { CameraView, LngLat } from '../types'
 import { Icon } from '../lib/icons'
@@ -7,7 +7,8 @@ import { cx } from '../lib/cx'
 import { DockInfo } from './DockInfo'
 import { useLongPress } from '../lib/useLongPress'
 import { useIsPhone } from '../lib/useIsPhone'
-import { usePopoverGuard } from '../lib/overlays/popoverGuard'
+import { useLayer } from '../lib/overlays/layer'
+import { keyboardMargin, useKeyboardInset } from '../lib/useKeyboardInset'
 import { useLiveBearing } from '../lib/liveBearing'
 import s from './MapViewsMenu.module.css'
 
@@ -63,7 +64,8 @@ function isOnView(v: CameraView, c: { bearing: number; center: LngLat; zoom: num
   return dLng < 1e-4 && dLat < 1e-4 && Math.abs(v.zoom - c.zoom) < 0.15 && dBear < 2
 }
 
-function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
+function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose, dockRef }: {
+  dockRef: RefObject<HTMLDivElement | null>
   api: ViewsApi
   readOnly: boolean
   coordsOn?: boolean
@@ -75,6 +77,9 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
   const [editingId, setEditingId] = useState<string | null>(null)
   const isPhone = useIsPhone()
   const commitRename = (id: string, name: string) => { api.onRename(id, name.trim()); setEditingId(null) }
+  // the rename field joins the Einsatz sheets' keyboard model (lib/useKeyboardInset, CONT.9): on a
+  // phone the dock stands on the bars, where the keys would cover the field – it rides up onto them
+  const kb = useKeyboardInset(editingId != null && isPhone)
   // the ⓘ at the end of the last row opens its sentence under that row (DockInfo's inline rule:
   // the menu has the room, a floating tip would land on the map) — and keeps it in view
   const [help, setHelp] = useState(false)
@@ -85,16 +90,18 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
       aria-expanded={help} onClick={() => setHelp((v) => !v)}><Icon id="info" /></button>
   )
 
-  // No backdrop scrim — exactly like the measure/draw ToolDock: the dock just sits over the map,
-  // the map stays fully draggable + clickable underneath, and it closes by tapping the compass
-  // again, a row, or activating another tool. (A scrim would swallow map drags/clicks.)
+  // No visible scrim — the dock sits over the map like the measure/draw ToolDock. A tap or a drag
+  // beside it only CLOSES it (lib/overlays/layer, owner call 2, 17.11.2026 – on every width; the
+  // phone's used to go on to the map and the tablet's did nothing), as do the compass tile, a row,
+  // Escape and the native back.
   // ⚠️ No ✕ row (29.09.2026, sweep K14): a menu closes on its own tile or on a row, like the
   // Einsatz menu, which has neither ✕ nor a lone ⓘ tile — the two cost ~120px on a phone.
   return createPortal(
     <>
       {/* same spot as the measure/draw ToolDock, and the same glass: centred just left of
           the right tool rail (see .wb-dock / .wb-dock-map); the ⓘ ends the last row. */}
-      <div className={cx(s.pop, s.dock, "mv-dock")} role="dialog" aria-label={cp.title}>
+      <div ref={dockRef} className={cx(s.pop, s.dock, "mv-dock")} role="dialog" aria-label={cp.title}
+        style={kb > 0 ? { bottom: `calc(${keyboardMargin(kb)} + var(--float-gap))` } : undefined}>
         <button className={cx(s.row, s.north)} onClick={() => { api.onResetNorth(); onClose() }}>
           <span className={s.ico}><Icon id="compass" /></span>
           <span className={s.name}>{cp.north}</span>
@@ -154,9 +161,11 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
         {api.list.map((v) => editingId === v.id ? (
           <div key={v.id} className={cx(s.row, s.editing)}>
             <span className={s.ico} style={{ transform: `rotate(${-v.bearing}deg)` }}><Icon id="compass" /></span>
+            {/* Return commits and puts the keys down, Esc KEEPS what was typed and leaves the field
+                (owner, 17.11.2026 – like tapping away; a typo is fixed with ↶) */}
             <input
-              className={s.input} autoFocus defaultValue={v.name} aria-label={cp.rename}
-              onKeyDown={(e) => { if (e.key === 'Enter') commitRename(v.id, e.currentTarget.value); else if (e.key === 'Escape') setEditingId(null) }}
+              className={s.input} autoFocus defaultValue={v.name} aria-label={cp.rename} enterKeyHint="done"
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); e.currentTarget.blur() } }}
               onBlur={(e) => commitRename(v.id, e.currentTarget.value)}
             />
           </div>
@@ -242,35 +251,12 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
   // shortcut for the one row that gets used over and over — deliberately undiscoverable by
   // accident (500 ms, cancels on any movement, so a pan or a scroll of the rail never trips
   // it) and never the ONLY way there: «Einpassen» stays a plain row one tap in.
-  const phone = useIsPhone()
   const triggerRef = useRef<HTMLButtonElement>(null)
-  usePopoverGuard(open && phone)
-  useEffect(() => {
-    if (!open || !phone) return
-    const outside = (e: PointerEvent) => {
-      const target = e.target instanceof Element ? e.target : null
-      if (target && !target.closest('.mv-dock') && !triggerRef.current?.contains(target)) onOpenChange(false)
-    }
-    document.addEventListener('pointerdown', outside, true)
-    return () => document.removeEventListener('pointerdown', outside, true)
-  }, [open, phone, onOpenChange])
-  // Escape closes the popover, and only it (S8, 20.10.2026). The Einsatz map's own Escape
-  // (IncidentWorkspace) reached it only after a pending placement and the crosshair, and the
-  // Karte's never did. Capture phase + stop, so one press is one layer; a field (the rename
-  // input) keeps its own Escape, which ends the rename first.
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      const t = e.target instanceof HTMLElement ? e.target : null
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
-      e.stopPropagation()
-      onOpenChange(false)
-      triggerRef.current?.focus()
-    }
-    document.addEventListener('keydown', onKey, true)
-    return () => document.removeEventListener('keydown', onKey, true)
-  }, [open, onOpenChange])
+  const dockRef = useRef<HTMLDivElement>(null)
+  // the way out is every layer's (lib/overlays/layer): a tap beside the dock only closes it, on
+  // every width; Escape closes it alone (a field – the rename input – leaves itself first) and
+  // focus goes back to the compass; the native back closes it
+  useLayer({ open, onClose: () => onOpenChange(false), inside: [dockRef, triggerRef], returnFocus: triggerRef })
   const hold = useLongPress()
   // A fired hold must not also open the menu: the browser still delivers the click on release.
   // Cleared at the START of every press, not only when that click arrives — a hold whose click
@@ -302,7 +288,7 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
           ? <><span className="vrail-glyph">{glyph}</span><span className="vrail-label">{label ?? cp.title}</span></>
           : glyph}
       </button>
-      {open && <ViewsPopover api={api} readOnly={readOnly} coordsOn={coordsOn} onToggleCoords={onToggleCoords} onClose={() => onOpenChange(false)} />}
+      {open && <ViewsPopover dockRef={dockRef} api={api} readOnly={readOnly} coordsOn={coordsOn} onToggleCoords={onToggleCoords} onClose={() => onOpenChange(false)} />}
     </>
   )
 }

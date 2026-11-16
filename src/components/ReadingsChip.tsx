@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
 import { useOnlyOpenCard } from '../lib/floatCards'
+import { useLayer } from '../lib/overlays/layer'
 import { useMinuteClock } from '../lib/minuteClock'
 import { worstFirst, type MeasuredPoint } from '../lib/readingsList'
 import { ReadingPill } from '../lib/symbolRender'
@@ -13,7 +14,8 @@ import s from './ReadingsChip.module.css'
  * the plan tabs beside it need the room – the value is one tap away, in the list); a tap opens
  * EVERY Messpunkt of the Einsatz as one list, worst first, the
  * place as a tag (pick L2: no groups). A row goes to its point – the sheet it was placed on, else
- * the Karte – and closes the list. Non-modal like the Gebäude-Info beside it: Esc or the chip close it.
+ * the Karte – and closes the list. Non-modal like the Gebäude-Info beside it: Esc, the chip, a tap
+ * beside it or the native back close it (lib/overlays/layer).
  * Rendered only once a Messpunkt exists (`points` non-empty).
  */
 export function ReadingsChip({ points, compact = false, onGo }: {
@@ -25,12 +27,11 @@ export function ReadingsChip({ points, compact = false, onGo }: {
   const [open, setOpen] = useState(false)
   // one chip-row card at a time: opening this list closes the Gebäude card, and vice versa
   useOnlyOpenCard(open, () => setOpen(false))
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open])
+  // the way out is the Gebäude card's, every layer's (lib/overlays/layer): a tap beside it only
+  // closes it, Esc closes it alone, the native back closes it, focus goes back to the chip
+  const anchor = useRef<HTMLSpanElement>(null)
+  const chip = useRef<HTMLButtonElement>(null)
+  useLayer({ open, onClose: () => setOpen(false), inside: [anchor], returnFocus: chip })
   // re-sorted on the minute clock the pills age by, so the chip's pill stays the list's first row
   // when a reading turns stale (measuredPoints sorted them when the Einsatz last changed)
   const now = useMinuteClock()
@@ -39,8 +40,8 @@ export function ReadingsChip({ points, compact = false, onGo }: {
   if (!worst) return null
   const C = appConfig.copy.building
   return (
-    <span className={s.anchor}>
-      <button type="button" className={cx('wb-scale-chip', compact && s.round, open && 'arm')} aria-expanded={open}
+    <span className={s.anchor} ref={anchor}>
+      <button ref={chip} type="button" className={cx('wb-scale-chip', compact && s.round, open && 'arm')} aria-expanded={open}
         title={C.readingsChipLabel} aria-label={C.readingsChipLabel} onClick={() => setOpen(!open)}>
         {!compact && <span>{C.readingsChip}</span>}
         <ReadingPill props={worst.props} inline bare />

@@ -5,6 +5,8 @@ import { useRef } from 'react'
 // spelled out is the same component with the behaviour we want, rather than one fought against.
 import { Dialog } from '@base-ui/react/dialog'
 import { Icon } from '../icons'
+import { usePopoverGuard } from './popoverGuard'
+import { useBackLayer } from './layer'
 
 /**
  * What a confirm ASKS. One declaration for all three places the same question travels through:
@@ -78,6 +80,12 @@ export interface ConfirmSpec {
  * the cost of the old behaviour was a dialog that ignores the gesture every other overlay in this
  * app answers to. A modal that does not respond to a tap beside it reads as a frozen app, and
  * that is the wrong thing to be wondering about with an Einsatz open.
+ *
+ * ⚠️ It is mounted ONCE, from lib/ui.tsx – outside every sheet's React tree, so Base UI does not
+ * count it as nested in the sheet that asked («Eingangsdruck tief», «Einsatzort verschieben?»).
+ * It registers in `popoverGuard` instead: while it is up, the sheet under it vetoes its own
+ * Escape / outside-press, and one Esc answers the confirm alone (CONT.2, 17.11.2026). The native
+ * back answers it «Abbrechen» like every other layer (overlays/layer).
  */
 export function ConfirmCard({ open, title, message, items, note, noteLead, confirmLabel, cancelLabel, danger, altLabel, altDanger, safeAnswer, onResolve }: ConfirmSpec & {
   open: boolean
@@ -86,6 +94,8 @@ export function ConfirmCard({ open, title, message, items, note, noteLead, confi
   const confirmRef = useRef<HTMLButtonElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
   const altRef = useRef<HTMLButtonElement>(null)
+  usePopoverGuard(open)
+  useBackLayer(open, () => onResolve(false))
   const cancelBtn = (
     <button key="cancel" ref={cancelRef} className={safeAnswer === 'cancel' ? 'ip-btn primary' : 'ip-btn'} onClick={() => onResolve(false)}>{cancelLabel}</button>
   )

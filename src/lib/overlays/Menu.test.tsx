@@ -11,7 +11,7 @@ describe('Menu', () => {
     const onClick = vi.fn()
     render(<>
       <textarea ref={keepFocusRef} />
-      <Menu modal={false} keepFocusRef={keepFocusRef} trigger={<button>Aktionen</button>}
+      <Menu keepFocusRef={keepFocusRef} trigger={<button>Aktionen</button>}
         items={[{ label: 'Umbenennen', onClick }]} />
     </>)
     const field = screen.getByRole('textbox')
