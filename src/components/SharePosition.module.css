@@ -5,13 +5,15 @@
 
 .ask { display: flex; flex-direction: column; gap: 14px; padding: 4px 2px 2px; }
 
-.lead { margin: 0; font: var(--fw-medium) 15px/1.45 var(--body); color: var(--ink); }
-.note { margin: 0; font: var(--fw-medium) 13px/1.4 var(--body); color: var(--ink-dim); }
+/* On the type scale (owner 16.11.2026, «slightly oversized» sweep): the lead is a sheet's lede
+   (14), the facts below and the note the hint voice (12.5) – they were 15 · 13.5 · 13, off every step. */
+.lead { margin: 0; font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink); }
+.note { margin: 0; font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
 
 /* The three facts somebody needs BEFORE tapping Ja: who sees it, how long, and what a locked
    phone does. Listed, not prose — this is read once, under stress, on a small screen. */
 .facts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.facts li { display: flex; gap: 10px; align-items: flex-start; font: var(--fw-medium) 13.5px/1.4 var(--body); color: var(--ink-dim); }
+.facts li { display: flex; gap: 10px; align-items: flex-start; font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
 .facts svg { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--ink-faint); }
 
 .actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
