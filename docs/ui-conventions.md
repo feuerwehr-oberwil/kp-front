@@ -444,8 +444,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     and every tool-option dock on the Karte, the Einsatz map and the Plan/Skizze, phone and tablet,
     wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
     The controls share one neutral fill (`--dock-control-bg`, opaque) and hover
-    (`--dock-control-hover`); a picked width/line style is the selected wash; the ARMED toggle
-    (`.wb-dock-tog.on`) is the `--sel` fill — that fill, not the dock, says «armed». The ✓ is
+    (`--dock-control-hover`); a picked width/line style is the selected wash; a dock toggle that
+    is ON (`.wb-dock-tog.on`, «Mehrere», the Messen mode) is a choice and wears the `--sel` fill.
+    **«Armed» is one look** (duck sweep ELEM.1, owner 17.11.2026): an armed tool or mode – the
+    rail's tool, the selection bar's ✥ «Verschieben» / ⟳ «Drehen» – is the ink pill (`--here-fill`,
+    role 3 below); at rest the bar's two grips are the neutral dock control with their word. The ✓ is
     `--btn-primary`. No dock carries a line of text, on any surface or width (20.10.2026, owner:
     «Remove the line. I don't think they add any value.»): a tool's instructions are its ⓘ.
     **The armed tool's name is the readout pill** (`.armed-pill`, 23.10.2026): glyph + word,
@@ -493,7 +496,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     else rides on the wash** (29.09.2026): no ring, no recoloured read-out; a count keeps its own
     ink (an open count is amber on every row, current or not — `.group-choose-count.open`); a ✓
     may stay as the cue that is not a colour. (3)
-    **Where you are** — the nav rail, the armed tool, a Trupp tab — keeps the ink pill
+    **Where you are** — the nav rail, the armed tool (and the bar's armed ✥ / ⟳), a Trupp tab — keeps the ink pill
     (`--here-fill` / `--on-here` in every bar: = `--ink-fill` by day, a lighter plate with a white
     glyph at night, 05.11.2026): a place, not an answer. A chip whose tone IS its meaning (the composer's
     Auftrag/Sofort) fills in that tone, same shape; colour swatches keep

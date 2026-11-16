@@ -339,30 +339,31 @@
   display: flex; align-items: center; gap: 8px; padding: var(--bar-pad);
   border-radius: var(--r-cluster); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); box-shadow: var(--e4); animation: pop .16s var(--ease); }
-/* ✥ and ⟳ are DRAG targets, so they are grab-cursored and take no scroll/pan (touch-action) —
-   solid blue, the app's one colour for an action grip that transforms the whole object.
-   Square and icon-only: nothing appears or disappears inside them (the turn's degrees are read on
-   the surface now — .sel-turn), so the bar never re-flows under the finger that is using it. */
-.sel-bar-act { width: 52px; height: 44px; border: none; border-radius: var(--r-sm); padding: 0;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: var(--blue); color: var(--on-fill); cursor: grab; touch-action: none;
-  transition: background-color .14s var(--ease), box-shadow .14s var(--ease); }
+/* ✥ and ⟳ are DRAG targets, so they are grab-cursored and take no scroll/pan (touch-action).
+   At rest they are the neutral bar control every dock wears (`--dock-control-bg`, ink); armed, the
+   ink pill (duck sweep ELEM.1, owner 17.11.2026 – «where you are», the same `--here-fill` the rail
+   marks its armed tool with). Blue stays «chosen» only: a resting solid-blue ✥ read as «move is
+   on» beside the dock's blue toggles. Each carries its word («Verschieben» / «Drehen») – the same
+   word armed or not, so the bar never re-flows under the finger that is using it (the turn's
+   degrees are read on the surface, .sel-turn). */
+.sel-bar-act { min-width: 52px; height: 44px; border: none; border-radius: var(--r-sm); padding: 0 var(--sp-3);
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
+  background: var(--dock-control-bg); color: var(--ink); cursor: grab; touch-action: none;
+  font: var(--fw-bold) var(--fs-2)/1 var(--body); white-space: nowrap;
+  transition: background-color .14s var(--ease), color .14s var(--ease); }
 .sel-bar-act:active { cursor: grabbing; }
+.sel-bar-act:active:not(.on) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) {
-  .sel-bar-act:not(.on):hover { background: var(--blue-strong); }
+  .sel-bar-act:not(.on):hover { background: var(--dock-control-hover); }
 }
 /* TAPPED rather than dragged, ✥ / ⟳ arm the same writers for the whole surface (the bar is
-   pinned bottom-centre, so pulling the grip DOWN runs the finger off the screen).
-   ⚠️ An armed grip is an ARMED TOOL, and it is painted like one: `--ink-fill`, exactly what the
-   tool rail marks its active tool with (.vrail-tool.on) — a deeper shade of the resting blue was
-   read as a hover, not as a mode. The blue ring around it keeps it in the bar's own family. The
-   ring is drawn OUTSIDE the button and the fill arrives on a transition, so nothing moves and
-   nothing flickers when a mode goes on or off. */
-.sel-bar-act.on { background: var(--here-fill); color: var(--on-here);
-  box-shadow: 0 0 0 2px var(--glass), 0 0 0 4px var(--blue); }
+   pinned bottom-centre, so pulling the grip DOWN runs the finger off the screen). An armed grip
+   is an ARMED TOOL, and it is painted like one. The fill arrives on a transition, so nothing
+   moves and nothing flickers when a mode goes on or off. */
+.sel-bar-act.on { background: var(--here-fill); color: var(--on-here); }
 @media (hover: hover) { .sel-bar-act.on:hover { background: var(--here-fill-hover); } }
 @media (prefers-reduced-motion: reduce) { .sel-bar-act { transition: none; } }
-.sel-bar-act .i { width: 19px; height: 19px; }
+.sel-bar-act .i { flex: none; width: 19px; height: 19px; }
 
 /* …and the whole surface says which mode is on, under the cursor that will act on it. Mouse-only
    by nature; a gloved tablet reads the lit button and the cleared grips instead.

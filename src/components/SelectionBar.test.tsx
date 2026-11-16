@@ -110,6 +110,17 @@ describe('SelectionBar · the one bar every selection is transformed from', () =
     expect(dial()!.getAttribute('aria-pressed')).toBe('false')
   })
 
+  // ELEM.1 (owner 17.11.2026): the grips carry their word, and the SAME word armed or not – the
+  // bar never re-flows under the finger that just armed it
+  it('shows «Verschieben» and «Drehen» on the grips, resting and armed alike', () => {
+    const words = () => screen.getAllByRole('button').map((b) => b.textContent)
+    const { rerender } = render(<SelectionBar onMove={() => {}} onRotate={() => {}} onArm={() => {}} />)
+    const resting = words()
+    expect(resting).toEqual([C.move, appConfig.copy.shapes.rotate])
+    rerender(<SelectionBar onMove={() => {}} onRotate={() => {}} onArm={() => {}} armed="rotate" />)
+    expect(words()).toEqual(resting)
+  })
+
   it('is exempt from the armed mode, so its own grips keep working while one is on', () => {
     render(<SelectionBar onMove={() => {}} armed="move" onArm={() => {}} />)
     expect(screen.getByRole('toolbar', { name: C.selectionBar }).hasAttribute('data-arm-exempt')).toBe(true)
