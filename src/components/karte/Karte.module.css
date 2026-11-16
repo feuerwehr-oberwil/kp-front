@@ -373,7 +373,8 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
    `:global(.measure-panel)` here matched nothing — the readout stood a whole bar too high, with
    the dock floating alone below it (owner-6). */
 .root.phone :global(.wb-dock) { bottom: var(--tools-bottom); }
-.root.phone .measurePanel { bottom: var(--dock-bottom); }
+/* (its foot var, not `bottom`: the panel's height cap reads it – MeasurePanel.module · --mp-bottom) */
+.root.phone .measurePanel { --mp-bottom: var(--dock-bottom); }
 
 /* ── the plan surface (a module PDF · the Gebäude floors) ─────────────────────────────────── */
 .surface { position: absolute; inset: 0; z-index: var(--z-surface); background: var(--board-bg, var(--app-bg)); display: flex; flex-direction: column; }

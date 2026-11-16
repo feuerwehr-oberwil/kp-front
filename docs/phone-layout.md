@@ -41,6 +41,12 @@ unchanged.
   `--dock-bottom`). The floating row keeps the same 8px from the bars, from each other and from the
   edge. The other bars over the nav bar (`.rp-tabs`, the page in `Surface.module.css`) still
   keep their 6px channel (`--rail-h + 14px`).
+- *Messen's readout is a bar when folded* (round 16.11.2026 #8, owner: «match the other toolbars
+  when collapsed»): `--rail-h` tall, the 44px readout row 7px from its edges (it was 78px). Open
+  (Höhenprofil, Wassertransport) it ends one `--float-gap` under the top bar (`--under-bar`), lies
+  over the wind chip like the Gebäude card (`--z-map-card`) and scrolls inside itself – it grew up
+  behind the Einsatz header. Its foot is `--mp-bottom` (MeasurePanel.module), which the Karte
+  sets one bar lower, so the cap follows the foot.
 - *While a tool is out the message lane is measured* (`lib/floatRow · stackLane` → `--stack-lane`):
   one gap above the highest piece of the stack, so a tip or the Gebäude card stands 8px over the
   pill whether the chip sits beside the dock or had to rise onto the pill's line. And ONE thing in

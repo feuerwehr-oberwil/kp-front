@@ -101,12 +101,35 @@
 @media (--phone) {
   /* 8px from the edges, like the bars and the floating row around it (ui-conventions · ONE
      floating row); it stood 10px in, 2px narrower than the dock and bars it stacks on */
-  .measure-panel { position: fixed; left: max(var(--float-gap), env(safe-area-inset-left)); right: max(var(--float-gap), env(safe-area-inset-right));
-    width: auto; transform: none;
-    bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
+  /* ⚠️ The foot is `--mp-bottom`, never `bottom` itself: the cap below reads it (and so does the
+     Karte, one bar lower – Karte.module · .measurePanel). */
+  .measure-panel { --mp-bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom));
+    position: fixed; left: max(var(--float-gap), env(safe-area-inset-left)); right: max(var(--float-gap), env(safe-area-inset-right));
+    width: auto; transform: none; bottom: var(--mp-bottom);
+    /* FOLDED it is the bars' height (round 16.11.2026 #8, owner: «match the other toolbars when
+       collapsed»): the 44px readout row + 7px a side + the 1px edge = --rail-h, the tool bar's and
+       the dock's 60px under it. It stood 78px, 16px of padding round a row of 44. */
+    padding-block: calc((var(--rail-h) - var(--tap)) / 2 - 1px);
+    /* …and OPEN (Höhenprofil, Wassertransport) it ends one --float-gap under the top bar
+       (`--under-bar`, where every phone piece hung under the bar starts) and scrolls inside
+       itself – it grew up behind the Einsatz header (owner's screenshot, ~83 m Strecke) */
+    max-height: calc(100dvh - var(--mp-bottom) - var(--under-bar));
+    overflow-y: auto; overscroll-behavior: contain;
+    /* …which is the wind chip's row (15-mobile · .phone-wx, --z-map-util): reaching it, the panel
+       lies OVER the chip, as the Gebäude card does (--z-map-card) – the chip lay on the
+       Wassertransport's ✕ */
+    z-index: var(--z-map-card); }
+  /* in a scrolling column a child keeps its height (the chart, the relay card) – the panel scrolls */
+  .measure-panel > * { flex-shrink: 0; }
+  /* the hint alone («Mind. 2 Punkte») and the Plan's source note are that one row too.
+     ⚠️ A floor on the ROW, never `justify-content: center` on the panel: a centred column that
+     overflows spills its head above the scroll origin, out of reach (the readout row vanished
+     under an open Wassertransport). */
+  .mp-hint, .mp-cal-note { min-height: var(--tap); }
+  .mp-hint { display: grid; align-content: center; }
   /* the Messen tool carries a tool-option dock (its own horizontal bar), so the results panel
      clears THREE bars: nav + tool bar + dock — one --float-gap above the dock, where the armed
      tool's pill would stand (15-mobile · the bottom stack; no pill while Messen is armed) */
   :global(.phone-tools) .measure-panel {
-    bottom: calc(var(--dock-bottom) + var(--rail-h) + var(--float-gap)); }
+    --mp-bottom: calc(var(--dock-bottom) + var(--rail-h) + var(--float-gap)); }
 }
