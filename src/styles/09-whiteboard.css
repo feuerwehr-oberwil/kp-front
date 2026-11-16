@@ -845,6 +845,22 @@ span.wb-ghost-label { cursor: default; }
 .team-dot.raus :is(b, .team-floor) > span { opacity: var(--done-opacity); }
 /* …and its track wears the same (.map-trail-dot.raus, with the Plan's breadcrumbs above): the whole
    out-Trupp group recedes together, not a dim marker beside a live-looking «15:15» */
+/* The Trupp's alarm tier ON its own marker (ENT.1, 17.11.2026 – lib/truppLines · truppMarkerTone):
+   `tone-warn` = Kontakt fällig / Alarmdruck (the board's amber), `tone-crit` = überfällig or Notfall
+   (its red) – so a Trupp in trouble reads as such on the Karte and the Plan even on no hose. The
+   same grammar as its Leitung's end tag (.line-end-tag.tone-*): the plate tinted, the box ringed,
+   NO animation (the board raises the alarm; the picture says WHERE). The dot keeps its surface halo
+   and gains a ring in the tier outside it; the name plate the tint and a tier edge. Box-shadow
+   only, so the 16px box the label pass books (TEAM_DOT_PX) does not grow. An out Trupp is never
+   toned (`muted`), so this never fights the `raus` dim. */
+.team-dot.tone-warn i { box-shadow: 0 0 0 2px var(--amber), var(--e0); }
+.team-dot.tone-crit i { box-shadow: 0 0 0 3px var(--red), var(--e0); }
+.team-dot.tone-warn b { background: color-mix(in srgb, var(--amber) 16%, var(--label-bg)); box-shadow: inset 0 0 0 1.5px var(--amber), var(--label-plate); }
+.team-dot.tone-crit b { background: color-mix(in srgb, var(--red) 18%, var(--label-bg)); box-shadow: inset 0 0 0 1.5px var(--red), var(--label-plate); }
+/* …and the selected pill (components/TwinTeamPill): the same tint and edge; the selection ring
+   in the team's colour stays outside it */
+.wb-resource-pill.tone-warn { background: color-mix(in srgb, var(--amber) 14%, var(--surface)); border-color: var(--amber); }
+.wb-resource-pill.tone-crit { background: color-mix(in srgb, var(--red) 16%, var(--surface)); border-color: var(--red); }
 .wb-resource-input { border: none; outline: none; background: var(--blue-8); border-radius: var(--r-xs); font-family: var(--body);
   font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--ink); width: 76px; padding: 2px var(--sp-1); }
 /* the ✕ that empties the name field — pill-sized (the form's 44px ClearableInput would be

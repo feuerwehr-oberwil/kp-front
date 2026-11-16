@@ -72,6 +72,7 @@ import { ShapeGlyph, SHAPE_DEFS, SHAPE_MAX_N, SHAPE_MIN_N, SHAPE_TWO_POINT, rota
 import { SYM_MIN, TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { noteScale, autoNoteWN, noteWN, stackNoteBoxPx, stackNoteShiftPx } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
+import { truppStateWord } from './truppCardText'
 import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
 import { carryDoors, copyGrundriss, grundrissOf, wallRolePatch, wallRoleWire, wandBlock, wandBlockHint, DOOR_SYMBOL, GEBAEUDE_CATEGORY, GRUNDRISS_STYLE } from '../lib/grundriss'
@@ -2242,7 +2243,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   // what every <PlanAnno> reads from this render — one object, handed to each
   const annoBoard: PlanAnnoBoard = {
-    sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, activeId, textEditId,
+    sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, truppSeverities, activeId, textEditId,
     chipRef, chipDown, setEditId, setSelId, setNotePanelId, pushPast, patch, patchCommit, emit, log,
     teamNameTaken, onTeamTrupp, onTeamNewTrupp, onShowTrupp, markPosition, clearTrail, removeWithConnections, removeWithTrail,
     toggleTrail, rotDown, rotMove, rotUp,
@@ -3336,7 +3337,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 {isAtemschutzTrupp(t) && <span className="wb-trupp-as" title={appConfig.copy.atemschutz.kindAtemschutz}>{appConfig.copy.atemschutz.asMark}</span>}
                 {here
                   ? <i>{appConfig.copy.whiteboard.truppPlacedHere}</i>
-                  : t.status === 'raus' ? <i>{appConfig.copy.atemschutz.status.raus}</i>
+                  : t.status === 'raus' ? <i>{truppStateWord(t)}</i>
                   : (t.lineNo != null || t.lineNumber) ? <i>Ltg {t.lineNo ?? t.lineNumber}</i> : null}
               </button>
             )

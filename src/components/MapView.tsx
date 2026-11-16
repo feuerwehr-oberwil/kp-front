@@ -2187,6 +2187,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
         ghostTrails={ghostTrails}
         onGhostTrail={onGhostTrail}
         teamLines={teamLines}
+        truppSeverities={truppSeverities}
         onTeamUnlink={onTeamUnlink}
         onTeamUndock={onTeamUndock}
         hiddenTrails={hiddenTrails}

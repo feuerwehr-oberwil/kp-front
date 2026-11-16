@@ -357,7 +357,9 @@ reworded.
   Auslösung».
 - *It outranks everything*: `truppAlarm` answers tier 2 with reason `notfall` before any clock,
   in the field or not (a crew reported out on an older build keeps it until «beendet»). The tone,
-  the OS notification, the TopBar chip («Notfall · name» and the Notfall clock), the hose tone,
+  the OS notification, the TopBar chip («Notfall · name» and the Notfall clock), the hose tone, the
+  Trupp's own marker on the Karte and the Plan (red ring and plate, `truppLines · truppMarkerTone` – also
+  on no hose, also when reported out),
   `MELDUNG_RANK.notfall = 0` (above the überfällig row and a dispatch) and the server push sweep
   (`push.py · due_trupps`, keyed on the trigger) all read it. The Web Push leaves the moment the
   save commits (`push.py · notify_notfall_changes`, from `apply_workspace_put` — every save path),

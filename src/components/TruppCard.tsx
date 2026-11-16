@@ -17,25 +17,7 @@ import { readingBarShown, truppAuftragLabel, truppEquipmentLabels, truppStatusLa
 import type { Trupp, TruppReading } from '../types'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import s from './Atemschutz.module.css'
-import { collapsedClock, fmtTime, tierMark } from './truppCardText'
-
-/** Non-AS Trupp wording — APP ONLY (09.09., field ask). A work squad reports a task done, not a
- *  radio check, so the app says «Auftrag erledigt» / «Ohne Auftrag» / «Ohne Auftrag seit» for
- *  one, instead of borrowing Atemschutz vocabulary. The handed-over link board (`lite`) keeps
- *  today's words for EVERY Trupp on it, plain ones included — it is the one screen an outside
- *  operator was handed, and it must keep meaning what it always meant.
- *  `truppStatusLabel` (lib/report.ts) stays AS vocabulary — it also prints the Rapport — so this
- *  only swaps its plain «Draussen» result at the view layer, never «Nicht eingesetzt» / «Von
- *  Tafel entfernt», which read true for a work squad exactly as they are. */
-function plainWords(t: Trupp, lite: boolean) {
-  const az = appConfig.copy.atemschutz
-  const plain = !lite && !isAtemschutzTrupp(t)
-  return {
-    exit: plain ? az.actExitPlain : az.actExit,
-    outFor: plain ? az.outForPlain : az.outFor,
-    status: (label: string) => (plain && label === az.status.raus ? az.statusPlainOut : label),
-  }
-}
+import { collapsedClock, fmtTime, plainWords, tierMark } from './truppCardText'
 
 // (`PressureInline`, the tablet card's ± Druck stepper with its own «Bestätigen», went on
 // 29.09.2026 with the tablet card: every board's Druck is the pressure tile → PressureSheet.)
