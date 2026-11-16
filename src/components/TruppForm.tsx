@@ -75,9 +75,10 @@ export type TruppSubmitExtra = {
  *     The Art may add or drop the Druck row inside «Luft & Funk» — ordinary form behaviour — but
  *     it must never change the SHAPE of the form. Collapsing to one screen under the thumb that
  *     had just tapped «Ohne Atemschutz» was the jarring part, not the length of a step.
- *   · ⚠️ «Art des Trupps» rides with the fields it GOVERNS (03.09.): on one screen it spans the
- *     form above both columns, on the stack it leads «Luft & Funk». Section 1 is the Mannschaft
- *     alone, because who is in the Trupp is the one thing the Art does not decide.
+ *   · ⚠️ «Art des Trupps» LEADS the form on every layout (owner 16.11.2026): on one screen it
+ *     spans the form above both columns, on the phone it is the column's first row – above the
+ *     Mannschaft, never under its search, where the preselected «Unter Atemschutz» read as a
+ *     Trupp already formed. It still stands above the Auftrag it governs.
  *
  * Leads with the AUFTRAG (what the Trupp is sent to do — the order you check them against on every
  * Kontakt), then the Trupp; the Druck section belongs to Atemschutz alone, and «Art des Trupps»
@@ -815,24 +816,26 @@ export function TruppForm({
           /* ── PHONE: ONE flat column (08.09., field ask) — the three collapsible sections
              went with the space problem they were built for: the Mannschaft is the search +
              a populate-on-pick list, Druck/Kanal sit folded in the Standard line, so the
-             whole form stands in one scroll. ORDER: who goes in first, then the Art as its
-             own labelled section (it governs the Auftrag vocabulary right below it), then
-             Auftrag / Ziel / Leitung, the folded Standard row last. */
+             whole form stands in one scroll. ORDER: the Art first (owner 16.11.2026: its lit
+             «Unter Atemschutz» right under «Person suchen» read as a Trupp already formed – «i
+             almost forgot to add people»), then who goes in, then Auftrag / Ziel / Leitung
+             (the Art governs their vocabulary), the folded Standard row last. */
           <div className={s.stack}>
-            {teamFields}
             {kindChooser && <div className={cx(s.field, s.kindField)}>{kindChooser}</div>}
+            {teamFields}
             {auftragFields}
             {luftFields}
           </div>
         ) : (<>
           {/* ── ONE SCREEN (tablet, desktop): nothing has to be walked to, and the whole Trupp
-              is visible while it is being formed. RIGHT-COLUMN ORDER (08.09.): the Art leads
-              as its own section (it governs the Auftrag vocabulary below it), then Auftrag /
-              Ziel / Leitung — and the folded Standard row goes LAST: defaults that are checked,
-              not typed, sit after everything that is actually asked. */}
+              is visible while it is being formed. The Art spans the form above both columns
+              (16.11.2026, the phone's reason: never beside the search as if it answered it);
+              RIGHT-COLUMN ORDER (08.09.): Auftrag / Ziel / Leitung — and the folded Standard
+              row goes LAST: defaults that are checked, not typed, sit after everything that is
+              actually asked. */}
+          {kindChooser && <div className={cx(s.formColWide, s.kindField)}>{kindChooser}</div>}
           <div className={s.formCol}>{teamFields}</div>
           <div className={s.formCol}>
-            {kindChooser && <div className={cx(s.field, s.kindField)}>{kindChooser}</div>}
             {auftragFields}
             {luftFields}
           </div>

@@ -106,8 +106,9 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     tops level, and the time's foot on the crew line's foot (`.grid .trowHeadStatic`); under the grouped orders' «Draussen» head the break clock goes
     unnamed (`RowLine · headed`). No separate state word by the name. The phone ROW names its clock
     the same way since M3 (owner's pick B, 13.11.2026: every duration says what it counts — «SEIT
-    LETZTEM KONTAKT» became «SEIT KONTAKT» on both form factors so it fits); the opened phone card
-    keeps the caption hidden (owner 24.09.2026 — its section heads say it). The card foot is ONE line,
+    LETZTEM KONTAKT» became «SEIT KONTAKT» on both form factors so it fits), and its opened card
+    since 16.11.2026 (owner: «when opened, the trupp doesn't show the labels … unlike collapsed»;
+    it was hidden since 24.09.2026). The card foot is ONE line,
     «drin 10:00 min · Schätzung ≈ 263 bar» (round 2b: M3's «UNTER ATEMSCHUTZ» wrapped it); a foot
     row too narrow for it drops the Schätzung's word first (`.metaDrop`, a container query). Fact chips are compact fields everywhere (28px drawn, 8px pad above/below on
     touch so a chip owns 44px), rows 8px apart on every device since owner pick A2 (05.11.2026).
@@ -219,6 +220,12 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   `TruppSheets · LeitungField` («keine · Ltg n · Nr. …») for the Leitung. «Nr. …» turns into
   the stepper in its own place in the chip row, and a typed number lives there only, never as a
   chip as well (28.10.2026, owner).
+- *The form opens with the Art* (owner 16.11.2026: «i almost forgot to add people because it
+  looked like things were highlighted already»): «Unter / Ohne Atemschutz» is the form's first row
+  – the phone column's top, a row across both columns on the tablet – and the Mannschaft («Trupp»,
+  «Person suchen») comes after it. Under the search, the preselected blue chip read as a Trupp
+  already formed. The phone still opens with the caret in the search, and with the keys up the
+  search is the screen: the Art goes with the rest (`TruppTeam`).
 - *The form asks Druck and Kanal in the sheets that ask them on the card* (30.09.2026, owner):
   one row each in every mode, «Eingangsdruck 300 bar ›» / «Funkkanal 11 ›», opening the Druck
   sheet (20-bar grid, the form's value filled — `PressureSheet · chosen`) or the Kanal sheet
