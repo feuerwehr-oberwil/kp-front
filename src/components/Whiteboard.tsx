@@ -50,7 +50,7 @@ import { DUP_PREFIX, duplicateAnno } from '../lib/duplicate'
 import { useHiddenTrails } from '../lib/useHiddenTrails'
 import { useNotePanelClosing } from '../lib/useNotePanelClosing'
 import { usePlacement } from '../lib/useTacticalSelection'
-import { endingWireFlags, personChange, type LineEnding } from '../lib/drawingEdit'
+import { endingWireFlags, personChange, wirePerson, type LineEnding } from '../lib/drawingEdit'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { OpenPill } from './OpenPill'
 import { toast } from '../lib/ui'
@@ -3207,7 +3207,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           // that writes a Verlauf row, as it does on the Karte (lib/drawingEdit · personChange)
           onPerson={selDraw.kind === 'draw' && !selDraw.role ? (person) => {
             const change = personChange(selDraw.person, person)
-            patchCommit(selDraw.id, { person })
+            patchCommit(selDraw.id, { person }, { patch: wirePerson({ person }) })
             const [x, y, floor] = selDraw.pts?.[0] ?? []
             if (change) log('pen', fillTemplate(appConfig.copy.log.entityEdited, { name: lineLabel(selDraw), changes: change }), { annoId: selDraw.id, x, y, floor: floor ?? selDraw.floor })
           } : undefined}

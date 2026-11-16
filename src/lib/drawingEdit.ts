@@ -148,6 +148,13 @@ export function pumpWarningRows(prev: Drawing | null, next: Drawing): string[] {
  *  kind falls back to its plain word («Fläche», «Absperrkreis», «Zeichnung»). Mirror of
  *  entityLogName, and the ONE place create, edit and delete rows take a drawing's name from, so
  *  «Rettungsachse gezeichnet» can never close on «Zeichnung gelöscht». */
+/** …and the audit patch that carries it: a cleared Person as `null`, since JSON drops an
+ *  `undefined` and the Wiedergabe would keep the old name (lib/replay · CLEARABLE folds the
+ *  `null` back to absent). Every other key passes through as it is. */
+export function wirePerson<T extends { person?: string }>(patch: T): Omit<T, 'person'> & { person?: string | null } {
+  return 'person' in patch ? { ...patch, person: patch.person ?? null } : patch
+}
+
 /** The Verlauf clause for a Leitung's «Person» changing – «Person: Meier Anna», «Person auf
  *  Frei Nico geändert», «Person entfernt». Shared by the Karte (drawingEditChanges) and the Plan,
  *  whose line edits write no other row (Whiteboard · the line editor's onPerson). Null: same name. */

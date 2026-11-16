@@ -1769,8 +1769,9 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
               it the decorations of a line that runs under its own tag paint straight through
               the text, and the tag is the one thing on a Leitung that has to stay readable.
               Both levels come from the one stacking table (lib/labelPass · MARKER_Z). */}
-          {/* …and suppressed ⇒ no marker at all, never an empty one (see the dl labels above). */}
-          {(ld.d.content || ld.d.lineNo != null || ld.d.floorTag != null) && !suppressedLabels.has(`tag:${ld.d.id}`) && (
+          {/* …and suppressed ⇒ no marker at all, never an empty one (see the dl labels above). A
+              Leitung with only a Person on it has a tag too (endTagLabel). */}
+          {endTagLabel(ld.d) && !suppressedLabels.has(`tag:${ld.d.id}`) && (
             <Marker longitude={ld.tagAt[0]} latitude={ld.tagAt[1]} anchor="center" offset={[ld.tagOffset[0], ld.tagOffset[1]]}
               // …and ABOVE the resting tactical symbols (MARKER_Z.note…team, 4–8) once its own
               // line is selected. At rest the tag stays under the symbols, so an overlapping
