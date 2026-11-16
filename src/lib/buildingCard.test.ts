@@ -181,4 +181,16 @@ describe('buildingChipSummary', () => {
     expect(calm).toMatchObject({ hazard: false, words: [], label: 'Gebäude-Steckbrief öffnen' })
     expect(buildingChipSummary(info({ gwr: null, gwr_status: 'error', plants: [], pv_status: 'error' }))).toBeNull()
   })
+
+  // round 16.11.2026 #9: the phone's bare (i) – only while nothing on the card was entered by hand
+  // or is a hazard
+  it('quiet = register lines only; a hazard, a Sofortmassnahme or a Bemerkung each makes it speak', () => {
+    const calm = { gwr: { ...gwr, heating: ['district'], hot_water: [] }, plants: [] }
+    const object = { id: 'o', name: 'Schulhaus', address_match: true, distance_m: 0, measures: null, remarks: null, measures_source: null, updated_at: null }
+    expect(buildingChipSummary(info(calm))?.quiet).toBe(true)
+    expect(buildingChipSummary(info({ ...calm, object, visit: { id: 'v', visited_at: '2026-09-01', findings: 2 } }))?.quiet).toBe(true)
+    expect(buildingChipSummary(info())?.quiet).toBe(false)
+    expect(buildingChipSummary(info({ ...calm, object: { ...object, measures: 'Gashaupthahn schliessen' } }))?.quiet).toBe(false)
+    expect(buildingChipSummary(info({ ...calm, object: { ...object, remarks: 'Schlüssel beim Hauswart' } }))?.quiet).toBe(false)
+  })
 })

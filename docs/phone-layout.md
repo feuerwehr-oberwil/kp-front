@@ -75,6 +75,8 @@ unchanged.
   The grips stay for that one – the finger is on one.
 - *The Gebäude chip is the hazard alone on a phone* (owner pick 12A, 14.11.2026): «⚠ Heizöl» at
   700, or (i) «Gebäude» without one; the count badge stays and the label stays the full sentence.
+  With no hazard, no Sofortmassnahme and no Bemerkung – register lines only – it is the bare (i),
+  a `--float-h` square (round 16.11.2026 #9, `lib/buildingCard · summary.quiet`).
   The tablet keeps «Gebäude-Info · Heizöl» (components/BuildingFloat).
 - *Karte & Objekte has ONE bar* (Karte · Messen · Gefahrgut · Ebenen, no tool bar and no «Pläne»
   tab — 17.10.2026): Messen keeps the same 8px steps, only from the nav bar (the dock where the

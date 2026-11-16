@@ -70,9 +70,17 @@ describe('BuildingFloat', () => {
     expect(chip.textContent).toBe('Gas · PV1')
     expect(chip.getAttribute('title')).toBe(chip.getAttribute('aria-label'))
     cleanup()
-    render(<BuildingFloat info={{ ...base, gwr: { ...base.gwr!, heating: ['district'], hot_water: [] }, plants: [], object: null }} />)
+    const calmGwr = { ...base.gwr!, heating: ['district'], hot_water: [] }
+    render(<BuildingFloat info={{ ...base, gwr: calmGwr, plants: [], object: { ...base.object!, measures: null, remarks: 'Schlüssel beim Hauswart' } }} />)
+    const noted = screen.getByRole('button', { name: 'Gebäude-Steckbrief öffnen' })
+    expect(noted.textContent).toBe('Gebäude')
+    expect(noted.querySelector('use')?.getAttribute('href')).toBe('#info')
+    cleanup()
+    // round 16.11.2026 #9: register lines only → the bare (i), the sentence kept as its name
+    render(<BuildingFloat info={{ ...base, gwr: calmGwr, plants: [], object: null }} />)
     const calm = screen.getByRole('button', { name: 'Gebäude-Steckbrief öffnen' })
-    expect(calm.textContent).toBe('Gebäude')
+    expect(calm.textContent).toBe('')
+    expect(calm.getAttribute('title')).toBe('Gebäude-Steckbrief öffnen')
     expect(calm.querySelector('use')?.getAttribute('href')).toBe('#info')
   })
 
