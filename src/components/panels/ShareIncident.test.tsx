@@ -14,6 +14,7 @@ import { createShareLink, fetchShareLink, revokeShareLink, type ShareLink } from
 //   3. Revoking asks first, and only revokes on a yes.
 //   4. Each door talks to its own link; switching never re-asks for one already fetched.
 //   5. A closed Einsatz is never offered the Atemschutz door: that link is dead (404).
+//   6. One «Ja» revokes – from every door, on either tab – and nothing is minted in its place.
 
 vi.mock('../../lib/viewLink', async (orig) => ({
   ...(await orig<typeof import('../../lib/viewLink')>()),
@@ -111,16 +112,6 @@ describe('… und «Trupps · bedienen»', () => {
     await waitFor(() => expect(screen.getByText(C.shareAsWarn)).toBeTruthy())
     expect(createShareLink).toHaveBeenCalledWith('i1', 'atemschutz')
     expect(createShareLink).not.toHaveBeenCalledWith('i1', 'view')
-  })
-
-  it('revokes the Atemschutz link from its own side of the switch', async () => {
-    vi.mocked(fetchShareLink).mockResolvedValue(on)
-    confirmDialog.mockResolvedValue(true)
-    render(<ShareIncident incidentId="i1" initialKind="atemschutz" />)
-    await screen.findByText(/\/l\/tok123$/)
-
-    fireEvent.click(screen.getByText(C.shareRevoke))
-    await waitFor(() => expect(revokeShareLink).toHaveBeenCalledWith('i1', 'atemschutz'))
   })
 
   // Switching must be instant in BOTH directions — a «noch keiner» flash over a link that exists
@@ -276,5 +267,40 @@ describe('«Nur Atemschutz» aus dem QR — ein Tipp', () => {
     fireEvent.click(screen.getByText(C.shareRevoke))
     await waitFor(() => expect(screen.getByText(C.shareCreate)).toBeTruthy())
     expect(createShareLink).toHaveBeenCalledTimes(1)
+  })
+})
+
+// Owner, 16.11.2026: «Link aufheben + the confirmation and nothing happened», a second round then
+// worked – and, asked which door: «check all of them and ensure that we always just need one
+// confirmation». It was the QR door: the link was ALREADY running when it opened the sheet, so the
+// sheet never minted, the one-tap mint stayed armed, and the revoke's «no link» answer fired it.
+// Every door × kind it offers, with the props that door passes (WorkspaceSheets, ReportPreflight):
+// a running link, «Link aufheben» once, «Ja» once → no link, and nothing minted in its place.
+describe('«Link aufheben» – one confirmation from every door', () => {
+  const doors = [
+    // `opens` = the tab the door lands on; the other one is reached by switching
+    { door: 'Einsatzkopf «Teilen»', opens: 'view', props: { initialKind: 'view' } },
+    { door: 'QR «Überwachung abgeben»', opens: 'atemschutz', props: { initialKind: 'atemschutz', autoCreate: true } },
+    { door: 'Rapport «Weitergeben»', opens: 'view', props: {} },
+  ] as const
+  const kinds = [
+    { kind: 'view', tab: C.shareKindFull, lede: C.shareLede },
+    { kind: 'atemschutz', tab: C.shareKindAtem, lede: C.shareAsLede },
+  ] as const
+
+  it.each(doors.flatMap((d) => kinds.map((k) => ({ ...d, ...k }))))('$door · $kind', async ({ props, opens, kind, tab, lede }) => {
+    vi.mocked(fetchShareLink).mockResolvedValue(on)
+    confirmDialog.mockResolvedValue(true)
+    render(<ShareIncident incidentId="i1" {...props} />)
+    await screen.findByText(C.shareRevoke)
+    if (opens !== kind) fireEvent.click(screen.getByText(tab))
+
+    fireEvent.click(await screen.findByText(C.shareRevoke))
+    await screen.findByText(C.shareCreate)
+    expect(screen.getByText(lede)).toBeTruthy()
+    expect(confirmDialog).toHaveBeenCalledTimes(1)
+    expect(revokeShareLink).toHaveBeenCalledTimes(1)
+    expect(revokeShareLink).toHaveBeenCalledWith('i1', kind)
+    expect(createShareLink).not.toHaveBeenCalled()
   })
 })
