@@ -87,6 +87,8 @@ export interface DrawStyle {
   abschnittAuftrag?: string
   /** the Atemschutz link anchor (Drawing/BoardAnno · truppId) */
   truppId?: string
+  /** a plain person on this Leitung (Drawing/BoardAnno · person) */
+  person?: string
   /** a line drawn as a Wand (BoardAnno · role, Drawing · role): the head says «Wand» */
   role?: 'wand'
   /** the Leitung's hose and Wassertransport assumptions (Drawing/BoardAnno · hose, relay) */
@@ -151,7 +153,10 @@ interface Props {
   onAbschnittLeiter?: (name: string | undefined) => void
   /** …and the Abschnitt's Auftrag, committed on blur/Enter (one undo step, one record row) */
   onAbschnittAuftrag?: (auftrag: string | undefined) => void
-  /** roster names for the Leiter picker (present people first is the caller's ordering) */
+  /** a plain person on this Leitung, no Trupp needed (undefined clears) – the «Person» row,
+   *  on every surface the line is drawn on. Omitted ⇒ the row is hidden (a Wand). */
+  onPerson?: (name: string | undefined) => void
+  /** roster names for the Leiter and Person pickers (present people first is the caller's ordering) */
   people?: string[]
   /** how many Flächen already carry Leiter or Auftrag, THIS one included — drives the quiet
    *  FKS hint above 4 (Richtwert 3–4 Abschnitte; a hint, never a block) */
@@ -214,7 +219,7 @@ function hosesText(lengthM: number, lines: number): string {
   return reserve ? fillTemplate(appConfig.copy.drawingEditor.hoseSplit, { n: need, r: reserve, m }) : `${need} × ${m} m`
 }
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onHose, waterRelay, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, onWand, wandBlocked, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onHose, waterRelay, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, onPerson, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, onWand, wandBlocked, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
   // The Auftrag input is uncontrolled (see its comment), so the unmount commit reads the DOM
   // node — kept, never nulled, because React detaches element refs before passive cleanups run.
   // Same idempotence guard as ContextPanel's Notizen: blur first, unmount second, one write.
@@ -480,7 +485,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             thing («Sektor A»), and on a small marker the map label can be hard to read. The
             Abschnitt fields ride along: who leads it is exactly what a Führungsansicht asks.
             …and a Leitung's FKS facts, each only where it is set (RBAC audit 22.10.2026): what
-            it carries, on which storey, its number and the Trupp on it — the jump to that
+            it carries, on which storey, its number and the Trupp or person on it — the jump to that
             Trupp's card stays, it changes nothing. */}
         {readOnly && ((drawing.label ?? '').trim() || drawing.abschnittLeiter || drawing.abschnittAuftrag) && (
           <div className="de-group">
@@ -502,7 +507,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
           </div>
         )}
 
-        {readOnly && isLine && (drawing.content || drawing.hose || drawing.floorTag != null || drawing.lineNo != null || truppOnLine) && (
+        {readOnly && isLine && (drawing.content || drawing.hose || drawing.floorTag != null || drawing.lineNo != null || truppOnLine || drawing.person) && (
           <div className="de-group">
             {drawing.content && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.content}</span>
@@ -536,6 +541,11 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                     </IconButton>
                   )}
                 </span>
+              </div>
+            )}
+            {drawing.person && (
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.person}</span>
+                <b className="de-measure-v">{drawing.person}</b>
               </div>
             )}
           </div>
@@ -723,6 +733,21 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                     </IconButton>
                   )}
                 </span>
+              </div>
+            )}
+            {/* «Person» – somebody on this Leitung without a Trupp (16.11.2026, owner: «just add a
+                normal person … without necessarily needing a Trupp»). The roster picker every
+                name field uses, free typing open for a guest; committed once from the Combo, so
+                one undo step and one Verlauf row. No Atemschutz record: nothing times it. */}
+            {onPerson && (
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.person}</span>
+                <Combo
+                  value={drawing.person ?? ''}
+                  options={people}
+                  placeholder={appConfig.copy.drawingEditor.personPlaceholder}
+                  allowCustom
+                  onChange={(v) => onPerson(v.trim() || undefined)}
+                />
               </div>
             )}
             {/* «Art» – a Linie or a Wand (round 3, owner: «detail sidebar but not the first row …

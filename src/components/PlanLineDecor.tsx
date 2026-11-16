@@ -11,7 +11,7 @@ import type { BoardAnno, BoardTool, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import { markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint } from '../lib/lineStyle'
 import { TeilstueckFork, EndTag } from '../lib/lineDecor'
-import { boardPts, endTagText, placeEndTag, planArrowBackPx, planArrowHead, tagSize } from '../lib/endTagSpots'
+import { boardPts, endTagLabel, endTagPerson, placeEndTag, planArrowBackPx, planArrowHead, tagSize } from '../lib/endTagSpots'
 import { truppForLine, truppLineTone } from '../lib/truppLines'
 import { fmtDistance, hoseLengthHint } from '../lib/geo'
 import { hoseLines } from '../lib/hydraulics'
@@ -106,14 +106,14 @@ export function PlanLineDecor({ a, sW, sH, mapY, onSection, trupps, truppSeverit
           <TeilstueckFork angleDeg={ang} color={color} width={a.width ?? 5} />
         </span>
       )}
-      {/* one combined FKS tag (Leitung-Nr · content · Stockwerk · the Trupp) — PINNED to its line
+      {/* one combined FKS tag (Leitung-Nr · content · Stockwerk · the person on it) — PINNED to its line
           (owner pick, sweep 28.10.2026 #8b): beside its end, short of the arrowhead (hill climb r16),
           a fixed gap off the stroke at every zoom, on the first spot that covers no symbol, chip or
           other tag (planEndTagSpots). Never nudged by hand: the old drag offset was in sheet units,
           so it grew with the zoom, and a Karte line brought the ground point of its tag
           (endLabelAt) – both left the tag floating off its line. */}
-      {(a.content || a.lineNo != null || a.floorTag != null || lineTrupp) && (() => {
-        const text = endTagText(a)
+      {(a.content || a.lineNo != null || a.floorTag != null || lineTrupp || endTagPerson(a)) && (() => {
+        const text = endTagLabel(a)
         const { w, h } = tagSize(text)
         const at = tagAt ?? placeEndTag(bpx, w, h, [], planArrowBackPx(a))
         if (!onLine(bpx.length - 1, at)) return null
@@ -121,6 +121,7 @@ export function PlanLineDecor({ a, sW, sH, mapY, onSection, trupps, truppSeverit
           <span className="wb-line-deco" style={{ transform: `translate(${at[0]}px, ${at[1]}px) translate(-50%, -50%)` }}>
             <EndTag
               lineNo={a.lineNo} content={a.content} floorTag={a.floorTag}
+              who={endTagPerson(a)}
               tone={lineTone}
               color={color}
             />

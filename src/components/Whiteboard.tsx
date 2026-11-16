@@ -50,7 +50,7 @@ import { DUP_PREFIX, duplicateAnno } from '../lib/duplicate'
 import { useHiddenTrails } from '../lib/useHiddenTrails'
 import { useNotePanelClosing } from '../lib/useNotePanelClosing'
 import { usePlacement } from '../lib/useTacticalSelection'
-import { endingWireFlags, type LineEnding } from '../lib/drawingEdit'
+import { endingWireFlags, personChange, wirePerson, type LineEnding } from '../lib/drawingEdit'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { OpenPill } from './OpenPill'
 import { toast } from '../lib/ui'
@@ -3139,7 +3139,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         <DrawEditor
           key={selDraw.id}
           readOnly={readOnly}
-          drawing={{ kind: selDraw.kind as 'draw' | 'area' | 'circle', radiusM: selCircleM, color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, arrowStop: selDraw.arrowStop, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, hatch: selDraw.hatch, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, role: selDraw.role, hose: selDraw.hose, relay: selDraw.relay, floorTag: stack ? selDraw.floorTag ?? selDraw.floor ?? 0 : selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
+          drawing={{ kind: selDraw.kind as 'draw' | 'area' | 'circle', radiusM: selCircleM, color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, arrowStop: selDraw.arrowStop, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, hatch: selDraw.hatch, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, person: selDraw.person, role: selDraw.role, hose: selDraw.hose, relay: selDraw.relay, floorTag: stack ? selDraw.floorTag ?? selDraw.floor ?? 0 : selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
           pointCount={selDraw.pts?.length ?? 0}
           /* the distance toggle appears once the plan is calibrated against its printed scale bar */
           supportsDistance={calibrated}
@@ -3203,6 +3203,15 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           // writing a badge (lib/whiteboard · movedToStorey)
           onFloorTag={stack ? (floorTag) => moveLineToStorey(selDraw.id, floorTag) : (floorTag) => patchCommit(selDraw.id, { floorTag })}
           onTrupp={onLinkLineTrupp && !selDraw.role ? (truppId) => onLinkLineTrupp(selDraw.id, truppId) : undefined}
+          // a plain person on the Leitung (types · BoardAnno.person) – the one line edit on a sheet
+          // that writes a Verlauf row, as it does on the Karte (lib/drawingEdit · personChange)
+          onPerson={selDraw.kind === 'draw' && !selDraw.role ? (person) => {
+            const change = personChange(selDraw.person, person)
+            patchCommit(selDraw.id, { person }, { patch: wirePerson({ person }) })
+            const [x, y, floor] = selDraw.pts?.[0] ?? []
+            if (change) log('pen', fillTemplate(appConfig.copy.log.entityEdited, { name: lineLabel(selDraw), changes: change }), { annoId: selDraw.id, x, y, floor: floor ?? selDraw.floor })
+          } : undefined}
+          people={rosterNames}
           trupps={trupps.filter((t) => t.status !== 'raus').map((t) => ({ id: t.id, name: t.name }))}
           usedLineNos={annos.filter((a) => a.kind === 'draw' && a.id !== selDraw.id && a.lineNo != null).map((a) => a.lineNo!)}
           truppOnLine={truppForLine(selDraw, trupps)?.name}

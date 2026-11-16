@@ -33,7 +33,7 @@ import { EMPTY_STYLE, END_TAG_LABEL_STYLE, mapMaxZoom, vis, fc, lineFeat, polyFe
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { WAND_MAP_PX } from '../lib/grundriss'
 import { cachedLabelSize, MARKER_Z } from '../lib/labelPass'
-import { END_TAG_HELD_OFFSET, endDirection, endTagOffset, endTagSide, endTagText, MAP_ARROW_BACK_PX } from '../lib/endTagSpots'
+import { END_TAG_HELD_OFFSET, endDirection, endTagOffset, endTagSide, endTagLabel, endTagPerson, MAP_ARROW_BACK_PX } from '../lib/endTagSpots'
 import { lineTakesTrupp, teamLineBadges, truppForLine, truppLineTone } from '../lib/truppLines'
 import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon, haversineM, bearingDeg } from '../lib/geo'
 import { hoseLines } from '../lib/hydraulics'
@@ -823,7 +823,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       // endTagSide – hill climb r16, Opus 4: at 72 % along a freehand stroke's tiny last segment it
       // sat ON the arrowhead). A hand-placed tag keeps its stored ground point and the drag's
       // offset (END_TAG_HELD_OFFSET).
-      const tagSize = cachedLabelSize(endTagText(d), END_TAG_LABEL_STYLE)
+      const tagSize = cachedLabelSize(endTagLabel(d), END_TAG_LABEL_STYLE)
       const tagAt: LngLat = d.endLabelAt ?? end
       const tagOffset = d.endLabelAt ? END_TAG_HELD_OFFSET : endTagOffset(dir, tagSize.w, tagSize.h, d.arrow ? MAP_ARROW_BACK_PX : 0, side)
       // the Atemschutz-Trupp working this Leitung (anchor or number) + how it is doing right now
@@ -1769,8 +1769,9 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
               it the decorations of a line that runs under its own tag paint straight through
               the text, and the tag is the one thing on a Leitung that has to stay readable.
               Both levels come from the one stacking table (lib/labelPass · MARKER_Z). */}
-          {/* …and suppressed ⇒ no marker at all, never an empty one (see the dl labels above). */}
-          {(ld.d.content || ld.d.lineNo != null || ld.d.floorTag != null) && !suppressedLabels.has(`tag:${ld.d.id}`) && (
+          {/* …and suppressed ⇒ no marker at all, never an empty one (see the dl labels above). A
+              Leitung with only a Person on it has a tag too (endTagLabel). */}
+          {endTagLabel(ld.d) && !suppressedLabels.has(`tag:${ld.d.id}`) && (
             <Marker longitude={ld.tagAt[0]} latitude={ld.tagAt[1]} anchor="center" offset={[ld.tagOffset[0], ld.tagOffset[1]]}
               // …and ABOVE the resting tactical symbols (MARKER_Z.note…team, 4–8) once its own
               // line is selected. At rest the tag stays under the symbols, so an overlapping
@@ -1816,6 +1817,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateLineLabel(e, ld.d.id, ld.trupp?.id, ld.tone) } }}>
                 <EndTag
                   lineNo={ld.d.lineNo} content={ld.d.content} floorTag={ld.d.floorTag}
+                  who={endTagPerson(ld.d)}
                   tone={ld.tone}
                   color={ld.color}
                 />

@@ -416,6 +416,25 @@ describe('Abschnitt on a Fläche', () => {
   })
 })
 
+// 16.11.2026: a plain person on a Leitung, without a Trupp («just add a normal person»).
+describe('Person on a Leitung', () => {
+  const D = appConfig.copy.drawingEditor
+
+  it('is offered on a line with no Trupp registered at all, and stated read-only', () => {
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} onPerson={vi.fn()} people={['Frei Nico']} />)
+    expect(screen.getByText(D.person)).toBeTruthy()
+    expect(screen.queryByText(D.trupp)).toBeNull() // the Trupp picker still needs a Trupp
+    cleanup()
+    render(<DrawEditor {...base} drawing={{ kind: 'line', person: 'Frei Nico' }} readOnly />)
+    expect(screen.getByText('Frei Nico')).toBeTruthy()
+  })
+
+  it('stays hidden without the handler (a Wand)', () => {
+    render(<DrawEditor {...base} drawing={{ kind: 'line', role: 'wand' }} />)
+    expect(screen.queryByText(D.person)).toBeNull()
+  })
+})
+
 // M5 (13.11.2026): the Linie row is a real Segmented – the picked stroke wears the choice fill
 // like the «Abschluss» above it, and a chain and a dash stay one choice.
 describe('Linie row', () => {

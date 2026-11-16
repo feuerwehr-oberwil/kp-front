@@ -527,8 +527,9 @@ const BOARD_PLAN_ONLY = [
   // the Gebäude Grundriss (27.10.2026): a Wand's role and a Durchgang's wall link are
   // layout of the floor stack and mean nothing on the map
   'role', 'onWall',
-  // a Leitung's hose and Wassertransport assumptions — line vocabulary, no symbol has them
-  'hose', 'relay',
+  // a Leitung's hose and Wassertransport assumptions, and the plain person on it — line
+  // vocabulary, no symbol has them
+  'hose', 'relay', 'person',
 ] as const satisfies readonly (keyof BoardAnno)[]
 type _BoardKeysAccounted = Assert<Exclude<keyof BoardAnno, (typeof BOARD_PLAN_ONLY)[number]> extends keyof Entity ? true : false>
 

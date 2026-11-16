@@ -203,6 +203,8 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     truppShow: 'Show team {name}',
     truppNone: 'No team',
     truppOut: 'out',
+    person: 'Person',
+    personPlaceholder: 'Choose person …',
     floorTag: 'Floor',
     kind: 'Type',
     kindLine: 'Line',

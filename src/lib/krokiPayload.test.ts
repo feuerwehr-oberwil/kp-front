@@ -280,6 +280,20 @@ describe('kroki payload · Atemschutz on a hose line', () => {
     expect(p?.drawings[1].trupp).toBeUndefined()
   })
 
+  it('a plain person on the Leitung prints too – after the Trupp when both are on it', () => {
+    const drawings: Drawing[] = [
+      { id: 'd1', kind: 'line', coords: [[7.55, 47.51], [7.56, 47.52]], lineNo: 1, person: 'Frei Nico' },
+      { id: 'd2', kind: 'line', coords: [[7.55, 47.51], [7.57, 47.52]], person: 'Frei Nico' },
+    ]
+    const trupps = [{
+      id: 't1', name: 'Müller Hans', lineNo: 1, entryPressureBar: 300,
+      entryTime: '2026-08-05T10:00:00Z', lastContactTime: '2026-08-05T10:03:00Z', status: 'aktiv' as const,
+    }]
+    const p = buildKrokiPayload({ entities: [], drawings, layers, byName: {}, center: [7.55, 47.51], trupps })
+    expect(p?.drawings[0].trupp).toBe('Müller H. · Frei N.')
+    expect(p?.drawings[1].trupp).toBe('Frei N.')
+  })
+
   it('prints no Trupp when none is monitored (the common case)', () => {
     const drawings: Drawing[] = [{ id: 'd1', kind: 'line', coords: [[7.55, 47.51], [7.56, 47.52]], lineNo: 1 }]
     const p = buildKrokiPayload({ entities: [], drawings, layers, byName: {}, center: [7.55, 47.51] })

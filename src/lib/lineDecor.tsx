@@ -31,9 +31,9 @@ export function lineLabel(a: { label?: string; lineNo?: number; content?: string
 
 /** A line carries any FKS decoration? (gates the per-line decoration render on both surfaces).
  *  An Atemschutz link counts: a hose picked for a Trupp before it was numbered still has a tag
- *  to show. */
-export function hasLineDecor(a: { teilstueck?: boolean; content?: string; lineNo?: number; floorTag?: number; truppId?: string }): boolean {
-  return !!a.teilstueck || !!a.content || a.lineNo != null || a.floorTag != null || !!a.truppId
+ *  to show – and so does a plain person on it (`person`). */
+export function hasLineDecor(a: { teilstueck?: boolean; content?: string; lineNo?: number; floorTag?: number; truppId?: string; person?: string }): boolean {
+  return !!a.teilstueck || !!a.content || a.lineNo != null || a.floorTag != null || !!a.truppId || !!a.person?.trim()
 }
 
 /** The forward "E"-fork Teilstück coupling: a perpendicular spine at the line tip with three
@@ -56,28 +56,29 @@ export function TeilstueckFork({ angleDeg, color, width = 5 }: { angleDeg: numbe
 }
 
 /** One compact boxed tag at the line end combining the Druckleitung number, FKS content letter,
- *  storey badge and — when an Atemschutz-Trupp works this Leitung — its leader (e.g.
- *  "1 · S · +2 · Müller H."). Keeps the tip uncluttered. Null when empty.
+ *  storey badge and — `who` — the name on this Leitung (e.g. "1 · S · +2 · Müller H."): on the
+ *  Karte and a Plan the plain person (lib/endTagSpots · endTagPerson), on the printed Kroki the
+ *  Trupp's leader too. Keeps the tip uncluttered. Null when empty.
  *
  *  `tone` colours the BOX, never the line: 'warn'/'crit' mirror the Atemschutz contact clock,
  *  'muted' is the record left behind by a Trupp that is out. The tone owns the box colour when
  *  set, so the alarm reads even on a line drawn in some arbitrary colour. */
-export function EndTag({ lineNo, content, floorTag, trupp, tone = 'idle', color, oneLine }: {
+export function EndTag({ lineNo, content, floorTag, who, tone = 'idle', color, oneLine }: {
   lineNo?: number
   content?: string
   floorTag?: number
-  /** the Trupp on this Leitung, as its tag text (lib/truppLines · truppTagText — the full name) */
-  trupp?: string
+  /** the name(s) on this Leitung, already abbreviated (endTagPerson, truppLines · truppTagText) */
+  who?: string
   tone?: LineTone
   color: string
-  /** Lay the tag out as ONE strip instead of stacking the Trupp under the Leitung's own facts.
+  /** Lay the tag out as ONE strip instead of stacking the name under the Leitung's own facts.
    *  `inline-grid` makes each text run its own row, which is the compact tag the map wants over
    *  a live hose — but `kroki.py` joins every part with « · » on a single line, so the print
    *  preview has to say the same thing in the same shape. */
   oneLine?: boolean
 }) {
   const facts = endTagText({ lineNo, content, floorTag })
-  if (!facts && !trupp) return null
+  if (!facts && !who) return null
   // tone colours come from the theme tokens (never a frozen rgba), so day/night both read right
   const ink = tone === 'crit' ? 'var(--red)' : tone === 'warn' ? 'var(--amber)' : tone === 'muted' ? 'var(--ink-dim)' : color
   // The Leitung's own facts (number, Inhalt, Stockwerk) stay as they are — the hose is still that
@@ -89,7 +90,9 @@ export function EndTag({ lineNo, content, floorTag, trupp, tone = 'idle', color,
     // labels' --ink on their --label-bg plate (09-whiteboard.css · .line-end-tag, hill climb r22)
     <span className={`line-end-tag tone-${tone}${oneLine ? ' one-line' : ''}`} style={{ '--tag-ink': ink } as CSSProperties}>
       {facts}
-      {trupp && <>{facts ? ' · ' : ''}<span className="line-end-trupp">{trupp}</span></>}
+      {/* « · » only on the one strip: stacked, the name is its own row and a trailing dot after
+          the facts («1 ·») read as a cut-off tag */}
+      {who && <>{facts && oneLine ? ' · ' : ''}<span className="line-end-trupp">{who}</span></>}
     </span>
   )
 }

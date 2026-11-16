@@ -2,7 +2,7 @@ import { type SetStateAction, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { detachDrawings, flipLine, wireFreed, withDetach } from './lineAttachments'
 import { flippedRelay } from './hydraulics'
-import { drawingEditChanges, drawingLogName, pumpWarningRows } from './drawingEdit'
+import { drawingEditChanges, drawingLogName, pumpWarningRows, wirePerson } from './drawingEdit'
 import type { Doc } from './workspace'
 import type { Drawing, LineAttachment, LineEndpoint, LngLat, MapTool, TimelineEvent } from '../types'
 import { toast } from './ui'
@@ -299,7 +299,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     const before = drawings.find((dr) => dr.id === selectedDrawingId)
     noteDrawingLabel(before, patch)
     noteDrawingEdit(before, patch)
-    emit('draw.edit', { id: selectedDrawingId, patch }); commit((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.id === selectedDrawingId ? { ...dr, ...patch } : dr)) }))
+    emit('draw.edit', { id: selectedDrawingId, patch: wirePerson(patch) }); commit((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.id === selectedDrawingId ? { ...dr, ...patch } : dr)) }))
   }
   // patch a specific drawing by id (e.g. unlock from the on-map lock chip, where the locked
   // shape isn't the selected one)
