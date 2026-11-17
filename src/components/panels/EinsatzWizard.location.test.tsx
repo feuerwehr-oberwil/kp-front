@@ -113,7 +113,7 @@ describe('«Noch kein Standort»', () => {
 
 describe('saving dispatch corrections', () => {
   const edit: IncidentMeta = { ...meta({}), type: 'Brand', alarm_update: {
-    at: BASE.started_at, title: null, lat: null, lng: null,
+    state: 'pending', at: BASE.started_at, title: null, lat: null, lng: null,
     fields: [{ field: 'address', alarm: 'New street 8', current: BASE.address, edited: false }],
   } }
   async function open(incident = edit) {
