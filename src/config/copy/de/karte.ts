@@ -167,13 +167,12 @@ export const karteCopy = {
       // one-tap fixes, the Testalarm, the opt-out, and the Karte home's nudge card
       alarm: {
         title: 'Alarm auf diesem Gerät',
-        lead: 'Damit «Neuer Einsatz» dieses Gerät weckt – auch wenn die App zu ist.',
         unavailable: 'Push ist auf dieser Installation nicht eingerichtet.',
         installed: 'Als App installiert',
         installedSub: { installed: 'vom Startbildschirm', browser: 'im Browser geöffnet – als App zuverlässiger', browserIos: 'im Browser geöffnet – Alarme nur in der installierten App' },
         install: 'Installieren',
         permission: 'Benachrichtigung',
-        permissionSub: { granted: 'erlaubt', ask: 'vom Gerät noch nicht erlaubt', denied: 'im System abgelehnt – in den Geräte-Einstellungen erlauben', afterInstall: 'erst in der installierten App' },
+        permissionSub: { granted: 'erlaubt', ask: 'vom Gerät noch nicht erlaubt', denied: 'abgelehnt – erlauben unter {path}', afterInstall: 'erst in der installierten App' },
         allow: 'Erlauben',
         subscription: 'Alarm-Abo',
         subscriptionSub: { subscribed: 'erneuert am {d}', stale: 'seit {d} nicht erneuert – läuft aus', none: 'nicht registriert' },
@@ -203,13 +202,16 @@ export const karteCopy = {
         // the undo toast after the opt-out, card and rows alike (sweep 09.11.2026, UX.8)
         optOutDone: 'Alarme auf diesem Gerät aus',
         optedOut: 'Alarme aus',
-        optedOutSub: 'Dieses Gerät bekommt keinen «Neuer Einsatz»',
+        optedOutSub: 'Dieses Gerät bekommt keine Alarme',
         optIn: 'Einschalten',
         nudgeRed: 'Dieses Gerät bekommt keinen Alarm',
         nudgeCheck: 'Alarm auf diesem Gerät noch nie getestet',
         nudgeCheckOld: 'Alarm auf diesem Gerät lange nicht getestet',
         later: 'Später',
         state: { ok: 'in Ordnung', warn: 'Hinweis', red: 'fehlt' },
+        role: 'Konto',
+        // the fifth row for an account «Neuer Einsatz» does not wake (el, viewer – rare-user round M2, 17.11.2026)
+        roleSub: '{r} · nur Atemschutz-Alarme, kein «Neuer Einsatz»',
       },
       leadOffline: 'Offline. Karte & Objekte zeigt, was wirklich auf diesem Gerät liegt.',
       leadOnline: 'Was ohne Netz zur Verfügung stünde.',

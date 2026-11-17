@@ -77,6 +77,31 @@ export const mapCopy = {
     micDenied: 'Kein Mikrofonzugriff – als Platzhalter vermerkt',
     // the mic WAS granted; the recorder itself would not start (unsupported format/hardware)
     micFailed: 'Aufnahme nicht gestartet – erneut versuchen',
+    // a permission denied long ago (rare-user round F9, 17.11.2026; lib/permissionPath): what is
+    // blocked, then where its switch is on THIS platform – «Mein Standort» never does nothing
+    micBlocked: 'Mikrofon gesperrt – erlauben unter {path}',
+    locateBlocked: 'Standort gesperrt – erlauben unter {path}',
+    locateNone: 'Kein Standort gefunden – erneut versuchen',
+    permissionPath: {
+      location: {
+        iosApp: 'iPhone-Einstellungen › Datenschutz & Sicherheit › Ortungsdienste › Safari-Websites',
+        iosSafari: 'Safari «aA» › Website-Einstellungen › Standort',
+        android: 'Chrome ⋮ › Einstellungen › Website-Einstellungen › Standort',
+        desktop: 'Schloss-Symbol links der Adresse › Standort',
+      },
+      microphone: {
+        iosApp: 'iPhone-Einstellungen › Apps › Safari › Mikrofon',
+        iosSafari: 'Safari «aA» › Website-Einstellungen › Mikrofon',
+        android: 'Chrome ⋮ › Einstellungen › Website-Einstellungen › Mikrofon',
+        desktop: 'Schloss-Symbol links der Adresse › Mikrofon',
+      },
+      notifications: {
+        iosApp: 'iPhone-Einstellungen › Mitteilungen › {app}',
+        iosSafari: 'iPhone-Einstellungen › Mitteilungen › {app}',
+        android: 'Android-Einstellungen › Apps › {app} › Benachrichtigungen',
+        desktop: 'Schloss-Symbol links der Adresse › Benachrichtigungen',
+      },
+    },
   },
   // help shown by the info (ℹ) button on each tool dock — the instructions
   // that used to sit in the bottom hint bar

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { LoadingStatus, ShellLoader } from '../ShellLoader'
 import { confirmDialog, toast } from '../../lib/ui'
+import { locateBlockedText } from '../../lib/permissionPath'
 import { ApiError } from '../../lib/api'
 import { MapPicker } from '../MapPicker'
 import { DateTimeField } from '../TimeField'
@@ -256,7 +257,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // 17.11.2026 – a refusal inside an open form is said at the field), for as long as the
   // coordinate it failed to replace still stands. Any new coordinate (address hit, map, object)
   // or the next «Hier» press ends it.
-  const [hereFailed, setHereFailed] = useState<{ at: [number, number] | null } | null>(null)
+  const [hereFailed, setHereFailed] = useState<{ at: [number, number] | null; blocked?: boolean } | null>(null)
   // ⚠️ On an EXISTING Einsatz «Hier» always asks first. It is the largest button in the panel
   // and it moves the Einsatzort to wherever the device is standing — and the panel is most often
   // opened from the Magazin, hours later, to fix an address. One mis-tap moved the incident to
@@ -273,7 +274,8 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   }
   const useHere = () => {
     if (locating) return
-    const failed = () => setHereFailed({ at: coord })
+    // blocked says where to allow it (lib/permissionPath, rare-user round F9)
+    const failed = (err?: GeolocationPositionError) => setHereFailed({ at: coord, blocked: err?.code === 1 })
     if (!navigator.geolocation) { failed(); return }
     setHereFailed(null)
     setLocating(true)
@@ -283,7 +285,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
         const c: [number, number] = [p.coords.longitude, p.coords.latitude]
         void confirmMove(c).then((ok) => { if (ok) applyPicked(c) })
       },
-      () => { setLocating(false); failed() },
+      (err) => { setLocating(false); failed(err) },
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
     )
   }
@@ -530,7 +532,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
             hand does not give it. A warning, so it is never behind anything; nothing when set. */}
         {hereFailed?.at === coord ? (
           <p className="form-warn form-warn-amber form-warn-compact" role="status">
-            <Icon id="warn" /><span className="form-warn-text">{ix.hereFailed}</span>
+            <Icon id="warn" /><span className="form-warn-text">{hereFailed.blocked ? locateBlockedText() : ix.hereFailed}</span>
           </p>
         ) : !coord && (
           <p className="form-warn form-warn-amber form-warn-compact" role="status">

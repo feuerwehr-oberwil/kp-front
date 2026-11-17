@@ -86,7 +86,7 @@ describe('AppMenuRows · home (no card)', () => {
 // the alarm on this device only and never takes it, and both lock while any take runs.
 describe('AppMenuRows · alarms to take', () => {
   const alarms = (extra: Partial<AppMenuAlarms> = {}): AppMenuAlarms => ({
-    list: [alarm(41, 'B2 Brand Wohnhaus')], taking: null, onTake: vi.fn(), onDismiss: vi.fn(), ...extra,
+    list: [alarm(41, 'B2 Brand Wohnhaus')], taking: null, onTake: vi.fn(), onDismiss: vi.fn(), hidden: [], onShow: vi.fn(), ...extra,
   })
 
   it('takes on the row, hides on the ×, and the × never takes', () => {
@@ -97,7 +97,7 @@ describe('AppMenuRows · alarms to take', () => {
     expect(row.textContent).toContain(ci.alarmOpen)
     // the running Einsatz first, then the alarm
     expect(screen.getByRole('button', { name: /Brand Musterhaus/ }).compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: ci.dismiss }))
+    fireEvent.click(screen.getByRole('button', { name: ci.hide }))
     expect(a.onDismiss).toHaveBeenCalledWith(a.list[0])
     expect(a.onTake).not.toHaveBeenCalled()
     fireEvent.click(row)
@@ -110,7 +110,18 @@ describe('AppMenuRows · alarms to take', () => {
     expect(taking.disabled).toBe(true)
     expect(taking.textContent).toContain(ci.alarmOpening)
     expect((screen.getByRole('button', { name: /Ölwehr/ }) as HTMLButtonElement).disabled).toBe(true)
-    for (const x of screen.getAllByRole('button', { name: ci.dismiss })) expect((x as HTMLButtonElement).disabled).toBe(true)
+    for (const x of screen.getAllByRole('button', { name: ci.hide })) expect((x as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  // rare-user round M3 = C (17.11.2026): a hidden alarm folds to a strip in its own place
+  it('a hidden alarm stands as «Ausgeblendet · <Stichwort>» and «Zeigen» brings it back', () => {
+    const a = alarms({ list: [], hidden: [alarm(43, 'B1 Rauch')] })
+    const { container } = renderHome({ alarms: a })
+    expect(within(container).getByText(`${ci.hiddenAlarm} · B1 Rauch`)).toBeTruthy()
+    expect(within(container).queryByText(cs.noOpenIncidents)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: ci.showAlarm }))
+    expect(a.onShow).toHaveBeenCalledWith(a.hidden[0])
+    expect(a.onTake).not.toHaveBeenCalled()
   })
 
   it('an alarm alone is not «nothing open»', () => {

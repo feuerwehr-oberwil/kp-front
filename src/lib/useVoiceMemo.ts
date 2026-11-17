@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from './ui'
+import { micFailedText } from './permissionPath'
 import { appConfig } from '../config/appConfig'
 
 // Voice-memo recording lifecycle, extracted from App's god component. Owns the
@@ -48,7 +49,7 @@ export function useVoiceMemo(onClip: (clip: { url: string; secs: number }) => vo
     let stream: MediaStream | null = null
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    } catch { toast(appConfig.copy.toast.micDenied, { icon: 'mic', tone: 'warn' }); return }
+    } catch (e) { toast(micFailedText(e), { icon: 'mic', tone: 'warn' }); return }
     try {
       const rec = new MediaRecorder(stream); const chunks: Blob[] = []
       const startedAt = Date.now()

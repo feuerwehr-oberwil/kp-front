@@ -10,6 +10,7 @@ import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { fillTemplate, fmtFileSize, formatTime, hhmm, pad2, stripUnprintable, formatLocale } from '../lib/format'
 import { toast } from '../lib/ui'
+import { micFailedText } from '../lib/permissionPath'
 import { ApiError } from '../lib/api'
 import { forgetLocalThumb, mintLocalThumb, thumbUrl } from '../lib/mediaUrl'
 import { forgetPhotoGeo, photoGeoSettled, rememberPhotoGeo } from '../lib/photoGeo'
@@ -482,7 +483,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
         setRecording(false); setElapsed(0)
       }
       recRef.current = { rec, startedAt }; setRecording(true); rec.start()
-    } catch { toast(appConfig.copy.toast.micDenied, { icon: 'mic', tone: 'warn' }) }
+    } catch (e) { toast(micFailedText(e), { icon: 'mic', tone: 'warn' }) }
   }
 
   const discardClip = () => { clipAudio.current?.pause(); setClipPlaying(false); if (clip) URL.revokeObjectURL(clip.url); setClip(null) }

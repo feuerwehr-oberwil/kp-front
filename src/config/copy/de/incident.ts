@@ -38,7 +38,7 @@ export const incidentCopy = {
     bootListFailed: 'Einsatzliste nicht geladen',
     // A human's open (launch card / switcher / banner / Verlauf) failed and the server gave no
     // usable reason of its own (App · openIncident)
-    openFailed: 'Einsatz nicht geöffnet – erneut versuchen',
+    openFailed: 'Einsatz nicht geöffnet – nichts verloren, erneut antippen',
     // …because the server could not be asked and no workspace is cached on this device
     openFailedNoCache: 'Dieser Einsatz ist auf diesem Gerät nicht gespeichert – braucht Netz',
     syncNow: 'Jetzt synchronisieren',

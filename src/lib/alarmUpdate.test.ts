@@ -4,6 +4,7 @@ import type { AlarmUpdate } from './incidents'
 
 // Invented example data: Musterweg in Beispielstadt.
 const update = (edited: boolean): AlarmUpdate => ({
+  state: 'pending',
   at: '2026-11-15T13:52:00Z',
   title: 'Brand, Musterweg 21',
   lat: 47.2,

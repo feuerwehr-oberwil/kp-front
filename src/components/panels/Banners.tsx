@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { shownAlarms } from '../../lib/diveraDismiss'
+import { hiddenAlarms, inAlarmWindow, shownAlarms } from '../../lib/diveraDismiss'
 import { useMeldung, useMeldungKindPending } from '../../lib/useMeldung'
 import { appConfig } from '../../config/appConfig'
 import { shortAddress } from '../../lib/deploymentConfig'
-import { acceptAlarmUpdate, dismissAlarmUpdate, undoAlarmUpdate, type DiveraAlarm, type IncidentFull, type IncidentMeta } from '../../lib/incidents'
+import { acceptAlarmUpdate, dismissAlarmUpdate, showAlarmUpdate, undoAlarmUpdate, type DiveraAlarm, type IncidentFull, type IncidentMeta } from '../../lib/incidents'
 import { alarmUpdateRow } from '../../lib/alarmUpdate'
 import { ApiError } from '../../lib/api'
 import { toast, undoToast } from '../../lib/ui'
@@ -21,14 +21,16 @@ import { fmtWhen } from '../../lib/format'
 // the dispatch finds the EL. The primary action takes the alarm AS-IS (everything Divera carries
 // + backend type/priority/geocode) and drops straight onto the map — corrections happen there
 // via the review row, not in a gating wizard. Dismissed alarms are remembered PER DEVICE
-// (localStorage), so a given alarm only ever nags once on this device — across reloads, and
-// whether it's X'd or taken.
+// (localStorage), so a given alarm only ever nags once on this device — across reloads. ✕ folds
+// the row to a grey strip in its own place, «Ausgeblendet · <Stichwort> · Zeigen» (rare-user
+// round M3 = C, 17.11.2026; lib/diveraDismiss · hiddenAlarms): it stays while the alarm is
+// untaken and younger than 3 h, and «Zeigen» brings the row back. No toast.
 //
 // One exception to «take leads» (`attachFirst`): an Einsatz started by hand — the Übung above
 // all — has no alarm behind it, so its Zeiten stay empty until one is attached and taking this
 // dispatch would open a second Einsatz next to the one the crew is in. There, «Zu Einsatz» is
 // the filled action. Same two buttons, swapped emphasis; nothing is hidden either way.
-export function IncomingAlarmBanner({ alarms, dismissed, taking, attachFirst, onTake, onAttach, onDismiss }: {
+export function IncomingAlarmBanner({ alarms, dismissed, taking, attachFirst, onTake, onAttach, onDismiss, onShow }: {
   alarms: DiveraAlarm[]
   /** the alarms hidden on this device (lib/diveraDismiss) – App's one set, shared with the
    *  «Einsätze» list and the «Neuer Einsatz» gate */
@@ -46,6 +48,8 @@ export function IncomingAlarmBanner({ alarms, dismissed, taking, attachFirst, on
   onAttach?: (a: DiveraAlarm) => void
   /** hide this alarm on this device (the row's ✕) */
   onDismiss: (a: DiveraAlarm) => void
+  /** «Zeigen» on the strip: the hidden alarm back as a row */
+  onShow: (a: DiveraAlarm) => void
 }) {
   const ix = appConfig.copy.intake
   const live = shownAlarms(alarms, dismissed)
@@ -71,6 +75,17 @@ export function IncomingAlarmBanner({ alarms, dismissed, taking, attachFirst, on
     actions: actionsFor(top),
     dismiss: { label: ix.hide, onClick: () => onDismiss(top) },
   })
+  // the newest hidden one folds in the row's place; showing it lets the next hidden one fold there
+  const folded = hiddenAlarms(alarms, dismissed)[0]
+  useMeldung(folded == null ? null : {
+    id: `alarm-hidden:${folded.divera_id}`,
+    kind: 'alarmHidden',
+    tone: 'calm',
+    icon: 'bell-off',
+    title: `${ix.hiddenAlarm} · ${folded.title}`,
+    fold: true,
+    actions: [{ label: ix.showAlarm, onClick: () => onShow(folded) }],
+  })
   return null
 }
 
@@ -79,8 +94,10 @@ export function IncomingAlarmBanner({ alarms, dismissed, taking, attachFirst, on
 // sibling of «Neuer Alarm» – same red bell, same row – showing old → new per field. «Übernehmen»
 // takes every changed field nobody edited by hand (the label names them when it is not all of
 // them), with «Rückgängig» on the toast; «Bearbeiten» opens the Einsatzdaten with the alarm's
-// value offered beside each field; ✕ hides it for EVERY device – one decision for the Einsatz.
-// All three are the server's (Verlauf row included) and need a connection: no outbox, because
+// value offered beside each field; ✕ hides it for EVERY device – one decision for the Einsatz –
+// and folds it to the same grey strip as a hidden «Neuer Alarm» («Ausgeblendet · … · Zeigen»,
+// rare-user round F7, 17.11.2026) on every device, inside the same 3-h window; «Zeigen» makes it
+// pending again (backend alarm_update · show). All four are the server's (Verlauf row included) and need a connection: no outbox, because
 // the Einsatzdaten they change have none either; a failure says so and the row stays.
 export function AlarmUpdateBanner({ meta, onChanged, onEdit }: {
   /** the open Einsatz as the list poll last served it – `alarm_update` set */
@@ -105,8 +122,18 @@ export function AlarmUpdateBanner({ meta, onChanged, onEdit }: {
       setBusy(false)
     }
   }
-  const row = update ? alarmUpdateRow(update, meta.title) : null
-  useMeldung(row == null ? null : {
+  const hidden = update?.state === 'hidden'
+  const row = update && !(hidden && !inAlarmWindow(update.at)) ? alarmUpdateRow(update, meta.title) : null
+  useMeldung(row == null ? null : hidden ? {
+    id: `alarm-update-hidden:${meta.id}`,
+    kind: 'alarmHidden',
+    tone: 'calm',
+    icon: 'bell-off',
+    // «Alarm aktualisiert» alone: the strip is about this Einsatz, and «Zeigen» needs the room
+    title: `${appConfig.copy.intake.hiddenAlarm} · ${C.title}`,
+    fold: true,
+    actions: [{ label: appConfig.copy.intake.showAlarm, busy, disabled: busy, onClick: () => void run(() => showAlarmUpdate(meta.id)) }],
+  } : {
     // one row per pending update: a newer one replaces it in place
     id: `alarm-update:${meta.id}`,
     kind: 'alarm',

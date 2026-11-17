@@ -105,7 +105,13 @@ réseau · rete).
 - **A ✕ or a button that empties a pad or a field is «leeren»** (WORD.5, extends the line below).
 - **A failure after the operator's own act says the state it leaves** («Nicht gelöscht – bleibt
   in der Liste», «… – erneut versuchen»), never only «X fehlgeschlagen»; a hint says what to do,
-  not why the network did it, and is dropped when it would only repeat the title (WORD.6).
+  not why the network did it, and is dropped when it would only repeat the title (WORD.6). Where
+  the server could not be asked, the act still leads and the reason goes into it in brackets:
+  «Alarm nicht übernommen (Server nicht erreichbar) – erneut «Öffnen», es entsteht kein zweiter
+  Einsatz» (`lib/actFailed`, rare-user round F8, 17.11.2026).
+- **A permission denied long ago names where its switch is on THIS device** – iPhone app, Safari
+  tab, Android, desktop (`lib/permissionPath`) – never «in den Browser-Einstellungen» alone, and a
+  tap that needs it is never silent («Standort gesperrt – erlauben unter …»; F9, 17.11.2026).
 - **A confirm button never starts with «Ja,»** – it is the verb of the consequence, «Teilen» not
   «Weitergeben», «Drucken» not «Ausdrucken» (WORD.7).
 - **A confirm's button repeats the verb of its title** («… aufheben?» → «Link aufheben») or names

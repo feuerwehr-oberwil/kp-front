@@ -47,7 +47,7 @@ export const intakeCopy = {
     demoBlocked: 'In der Demo deaktiviert – hier lässt sich kein neuer Einsatz eröffnen.',
     cancel: 'Abbrechen',
     errorCreate: 'Einsatz nicht eröffnet – erneut versuchen',
-    errorTake: 'Alarm nicht übernommen – erneut versuchen',
+    errorTake: 'Alarm nicht übernommen – erneut «Öffnen», es entsteht kein zweiter Einsatz',
     errorUpdate: 'Einsatzdaten nicht geändert – erneut versuchen',
     // --- edit mode + result toasts ---
     editTitle: 'Einsatzdaten bearbeiten',
@@ -60,7 +60,6 @@ export const intakeCopy = {
     addressUnknown: 'Adresse unbekannt',
     alarmOpen: 'Öffnen',
     alarmOpening: 'Öffne …',
-    dismiss: 'Verwerfen',
     manualIncident: 'Manueller Einsatz',
     // --- attach: split/Nachalarm dispatch joins an existing incident instead of a duplicate ---
     attach: 'Zu bestehendem Einsatz hinzufügen',
@@ -68,7 +67,7 @@ export const intakeCopy = {
     attachConfirmTitle: '«{alarm}» zu diesem Einsatz hinzufügen?',
     attachHint: 'Die Meldung landet im Verlauf, GPS-Zeiten folgen automatisch. Stichwort und Standort des Einsatzes bleiben unverändert.',
     attachConfirm: 'Hinzufügen',
-    attachError: 'Alarm nicht angehängt – erneut versuchen',
+    attachError: 'Alarm nicht angehängt – er bleibt in der Liste, erneut «Zu Einsatz»',
     newDiveraAlarm: 'Neuer Alarm',
     hide: 'Ausblenden',
     fromDivera: 'Aus der Alarmquelle übernommen',
@@ -129,5 +128,8 @@ export const intakeCopy = {
     // `exerciseLabel`, its consequence `exerciseSub` under it. The list filter's words.
     kindLabel: 'Ernstfall / Übung',
     kindReal: 'Ernstfall',
+    // ✕ on an alarm row folds it to a strip in its own place (rare-user round M3, 17.11.2026)
+    hiddenAlarm: 'Ausgeblendet',
+    showAlarm: 'Zeigen',
   },
 } as const
