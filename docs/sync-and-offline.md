@@ -38,6 +38,8 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
 - **A failed switch keeps the active incident live.** The workspace, alarm and sync engine stay
   mounted until the requested incident is ready. Two taps on the same incident share its load.
   A superseded request for a different incident disposes its candidate, as does a session change.
+  Recovery updates reach the view when that incident opens. A late save response from an ended
+  session leaves the next operator's pending edits intact.
   Undoing an alarm take leaves its workspace only after the server accepted the archive and only
   if the operator is still on that incident.
 - **Saved means every operational queue is acknowledged.** Workspace, journal and client audit

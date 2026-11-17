@@ -1,6 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { archiveIncident, getIncident, type IncidentMeta } from './api/incidents'
-import { WorkspaceSync } from './api/workspaceSync'
+import { WorkspaceSync, type WorkspaceSyncOptions } from './api/workspaceSync'
+import * as syncModule from './api/workspaceSync'
+import type { Workspace } from './api/workspace'
 import { clearIncidentMedia } from './mediaQueue'
 import { IncidentSelection, undoTakenIncident } from './incidentSelection'
 
@@ -109,4 +111,74 @@ it('retires the old engine only after the new one loads and its own last save fi
   expect(flush).toHaveBeenCalledOnce()
   expect(retire).toHaveBeenCalledOnce()
   expect(active.current?.incidentId).toBe('b')
+})
+
+// Deliver the same notices as a late recovery probe while the previous incident finishes saving.
+// Keep the candidate's live snapshot separate from the one its init() promise returned.
+function pendingRecovery() {
+  const active = new IncidentSelection()
+  const previous = new WorkspaceSync('a')
+  active.current = previous
+  let finish!: () => void
+  const flushing = new Promise<void>((resolve) => { finish = resolve })
+  const flush = vi.spyOn(previous, 'flush').mockReturnValue(flushing)
+  let notify!: (revision: number) => void
+  class RecoveringEngine extends WorkspaceSync {
+    private snapshot = { workspace: { recovered: 0 }, rev: 1, fromCache: false }
+    constructor(id: string, options: WorkspaceSyncOptions = {}) {
+      super(id, options)
+      notify = (revision) => {
+        this.snapshot = { workspace: { recovered: revision }, rev: revision, fromCache: false }
+        options.onRev?.(revision)
+        options.onServerWorkspace?.(this.workspace, revision)
+        options.onMerged?.()
+      }
+    }
+    override async init() { return this.snapshot }
+    override get workspace(): Workspace { return this.snapshot.workspace }
+    override get rev() { return this.snapshot.rev }
+  }
+  vi.spyOn(syncModule, 'WorkspaceSync').mockImplementation(function (id, options) { return new RecoveringEngine(id, options) })
+  const options = { onServerWorkspace: vi.fn(), onRev: vi.fn(), onMerged: vi.fn() }
+  const opening = active.open('b', { id: 'b' } as IncidentMeta, options)
+  return { active, opening, flush, finish, notify, options }
+}
+
+it('forwards candidate view callbacks only while its engine is current', async () => {
+  const { active, opening, flush, finish, notify, options } = pendingRecovery()
+  await vi.waitFor(() => expect(flush).toHaveBeenCalledOnce())
+  notify(2)
+  for (const callback of Object.values(options)) expect(callback).not.toHaveBeenCalled()
+  finish()
+  await opening
+  notify(3)
+  expect(options.onServerWorkspace).toHaveBeenCalledWith({ recovered: 3 }, 3)
+  active.dispose()
+  notify(4)
+  for (const callback of Object.values(options)) expect(callback).toHaveBeenCalledOnce()
+})
+
+it('ignores a discarded candidate when the operator returns to the current incident', async () => {
+  const { active, opening, flush, finish, notify, options } = pendingRecovery()
+  await vi.waitFor(() => expect(flush).toHaveBeenCalledOnce())
+  await active.open('a', { id: 'a' } as IncidentMeta, {})
+  notify(2)
+  finish()
+  expect(await opening).toBeNull()
+  expect(active.current?.incidentId).toBe('a')
+  for (const callback of Object.values(options)) expect(callback).not.toHaveBeenCalled()
+})
+
+it('keeps the null initial blob of a new incident when nothing arrived during the switch', async () => {
+  const active = new IncidentSelection()
+  vi.spyOn(WorkspaceSync.prototype, 'init').mockResolvedValueOnce({ workspace: null, rev: 0, fromCache: false })
+  expect(await active.open('empty', { id: 'empty' } as IncidentMeta, {})).toMatchObject({ workspace: null, rev: 0 })
+})
+
+it('hydrates the latest candidate workspace and revision after the previous flush', async () => {
+  const { opening, flush, finish, notify } = pendingRecovery()
+  await vi.waitFor(() => expect(flush).toHaveBeenCalledOnce())
+  notify(2)
+  finish()
+  expect(await opening).toMatchObject({ workspace: { recovered: 2 }, rev: 2 })
 })

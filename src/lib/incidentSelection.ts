@@ -1,5 +1,5 @@
 // The active Einsatz owns the live poll, alarm and edit queue. Only the selection that
-// actually opens may take that engine away from the operator.
+// actually opens may take that engine away from the operator or send updates to its view.
 import { archiveIncident, getIncident, type IncidentMeta } from './api/incidents'
 import { clearIncidentMedia } from './mediaQueue'
 import { WorkspaceSync, type WorkspaceSyncOptions } from './api/workspaceSync'
@@ -34,7 +34,16 @@ export class IncidentSelection {
       // A second tap on the same Einsatz joins its load. Two candidates for one id
       // would both write the same cache, including on teardown of the losing request.
       if (!this.pending) {
-        const engine = new WorkspaceSync(id, options)
+        // init can arm a recovery probe. Its result belongs to the engine, even while the
+        // previous Einsatz is still on screen and flushing its last edit.
+        const engine: WorkspaceSync = new WorkspaceSync(id, {
+          ...options,
+          onServerWorkspace: (workspace, rev) => {
+            if (this.current === engine) options.onServerWorkspace?.(workspace, rev)
+          },
+          onRev: (rev) => { if (this.current === engine) options.onRev?.(rev) },
+          onMerged: () => { if (this.current === engine) options.onMerged?.() },
+        })
         this.pending = { engine, loaded: engine.init() }
       }
       const candidate = this.pending
@@ -45,7 +54,10 @@ export class IncidentSelection {
       previous?.dispose()
       this.current = candidate.engine
       this.pending = null
-      return { meta: incident, workspace: opened.workspace, rev: opened.rev }
+      const { workspace, rev } = candidate.engine
+      // An untouched new Einsatz has a null initial blob (the engine represents it as {}).
+      const stillEmpty = opened.workspace === null && rev === opened.rev && !Object.keys(workspace).length
+      return { meta: incident, workspace: stillEmpty ? null : workspace, rev }
     } catch (error) {
       if (stillOpening()) throw error
       return null
