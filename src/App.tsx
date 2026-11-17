@@ -664,7 +664,7 @@ function IncidentApp() {
   // ── close / reopen: lib/useIncidentLifecycle ──
   /** the open Einsatz's counting confirm, set by IncidentWorkspace (prop `abschlussRef`) */
   const abschlussHereRef = useRef<(() => Promise<boolean>) | null>(null)
-  const { completeRapport, archiveById, reactivateById } = useCloseReopen({
+  const { completeRapport, archiveFromList, reactivateById } = useCloseReopen({
     closingLocallyRef, reopeningLocallyRef, activeId, activeMeta, incidents, syncRef, archiveReturnRef, refreshList, isSessionCurrent,
     selectIncident, markOpened, setIncidents, setClosedMedia, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly,
     abschlussHereRef,
@@ -1049,7 +1049,7 @@ function IncidentApp() {
       )}
       {overlay === 'history' && (
         <HistoryPanel onClose={() => setOverlay(null)} onOpen={(id, ro) => { setOverlay(null); void openIncident(id, { readOnly: ro }) }}
-          onArchive={canLifecycle ? archiveById : undefined}
+          onArchive={canLifecycle ? archiveFromList : undefined}
           // a viewer reads only the last few days (docs/roles-and-access.md · the viewer's window)
           windowDays={user?.role === 'viewer' ? getDeploymentConfig().access?.viewerHistoryDays ?? undefined : undefined} />
       )}

@@ -4,7 +4,7 @@
 //   · useIncidentLifecycle — closed or reopened ELSEWHERE (lib/incidentClosed's signals and the
 //     open-list watch), told apart from this device's own close/reopen by its two markers.
 //   · useCloseReopen — THE close (completeRapport) and THE reopen (reopenNow) this device runs,
-//     plus the two list doors onto them (archiveById, reactivateById).
+//     plus the two list doors onto them (archiveFromList, reactivateById).
 // The close commits the Rapport stamp and Einsatzende together. A list close asks again when
 // the other roster is unreadable, with an explicit override.
 
@@ -28,11 +28,11 @@ import { einsatzSubject } from './einsatzSubject'
 
 /** The close of another Einsatz cannot inspect a local Tafel. Retry reads the roster afresh;
  *  an explicit override is the only route to closing while its status is unknown. */
-async function confirmListClose(id: string, meta: IncidentMeta | null, isSessionCurrent: () => boolean): Promise<boolean> {
-  const subject = meta ? einsatzSubject(meta) : undefined
+async function confirmListClose(incident: IncidentMeta, isSessionCurrent: () => boolean): Promise<boolean> {
+  const subject = einsatzSubject(incident)
   const { abschluss, history, cancel } = appConfig.copy
   while (isSessionCurrent()) {
-    const inside = await getWorkspace(id).then(({ workspace }) => {
+    const inside = await getWorkspace(incident.id).then(({ workspace }) => {
       // Check only the part the question relies on: a malformed crew must not count as absent.
       if (workspace === null) return []
       if (!workspace || typeof workspace !== 'object' || Array.isArray(workspace)) return null
@@ -331,17 +331,17 @@ export function useCloseReopen({
   //   · The Einsatz open on this device goes through ITS counting confirm (`abschlussHereRef`,
   //     IncidentWorkspace · confirmAndComplete): Notfall, Trupps, Mindestangaben, «Zur Tafel».
   //   · Any other one: read its roster; losing that read leaves the crew status unknown.
-  const archiveById = useCallback(async (id: string) => {
+  const archiveFromList = useCallback(async (incident: IncidentMeta) => {
+    const { id } = incident
     if (!id) return
     // Demo: don't let a visitor close the one shared running incident (it would archive for
     // everyone until the nightly reset). Editing it stays open; only closing/creating is blocked.
     if (isDemoMode()) { toast(appConfig.copy.demo.actionBlocked, { icon: 'info' }); return }
     const here = id === activeId ? abschlussHereRef.current : null
     if (here) { showEinsatz(); await here(); return }
-    const meta = incidents?.find((x) => x.id === id) ?? (activeMeta?.id === id ? activeMeta : null)
-    if (!await confirmListClose(id, meta, isSessionCurrent)) return
+    if (!await confirmListClose(incident, isSessionCurrent)) return
     await completeRapport(id)
-  }, [completeRapport, activeId, activeMeta, incidents, abschlussHereRef, showEinsatz, isSessionCurrent])
+  }, [completeRapport, activeId, abschlussHereRef, showEinsatz, isSessionCurrent])
 
   // «Wieder öffnen» — the mirror of abschliessen (the ArchivedBanner action), and as deliberate:
   // the confirm also teaches the consequences (Nachträge, «geändert nach Abschluss»). On confirm
@@ -366,5 +366,5 @@ export function useCloseReopen({
     return reopenNow(id)
   }, [reopenNow, activeMeta, incidents])
 
-  return { reopenNow, completeRapport, archiveById, reactivateById }
+  return { reopenNow, completeRapport, archiveFromList, reactivateById }
 }

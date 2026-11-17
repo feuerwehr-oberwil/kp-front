@@ -117,7 +117,8 @@ describe('useCloseReopen · reopenNow', () => {
 
 // Sweep 09.11.2026, UX.10: «Abschliessen» in «Alle Einsätze» asked the plain question for every
 // Einsatz — also for one with crews still inside.
-describe('useCloseReopen · archiveById', () => {
+describe('useCloseReopen · archiveFromList', () => {
+  const other = meta({ id: 'inc-2', title: 'Ölspur', started_at: '2026-11-17T08:42:00Z', is_exercise: false })
   function list(activeId: string | null, abschlussHere: (() => Promise<boolean>) | null = null, incidents: IncidentMeta[] = []) {
     const deps = {
       isSessionCurrent: vi.fn(() => true),
@@ -135,7 +136,7 @@ describe('useCloseReopen · archiveById', () => {
   it('closes the Einsatz open on this device through its own counting confirm', async () => {
     const here = vi.fn(async () => false)
     const { result, deps } = list('inc-1', here)
-    await result.current.archiveById('inc-1')
+    await result.current.archiveFromList(meta())
     expect(deps.showEinsatz).toHaveBeenCalled()
     expect(here).toHaveBeenCalledOnce()
     expect(confirmDialog).not.toHaveBeenCalled() // not the plain question on top
@@ -169,7 +170,7 @@ describe('useCloseReopen · archiveById', () => {
       { id: 't2', no: 2, name: 'Keller Jan', status: 'raus', entryTime: '2026-11-09T02:00:00Z', exitTime: '2026-11-09T02:20:00Z' },
     ] } })
     const { result } = list('inc-1', vi.fn())
-    await result.current.archiveById('inc-2')
+    await result.current.archiveFromList(other)
     expect(getWorkspace).toHaveBeenCalledWith('inc-2')
     expect(confirmDialog).toHaveBeenCalledWith(expect.objectContaining({
       title: appConfig.copy.abschluss.insideTitle,
@@ -181,14 +182,14 @@ describe('useCloseReopen · archiveById', () => {
   it('asks the plain question after verifying that nobody is inside', async () => {
     getWorkspace.mockResolvedValue({ workspace_rev: 0, workspace: null })
     const { result } = list(null)
-    await result.current.archiveById('inc-2')
+    await result.current.archiveFromList(other)
     expect(confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: appConfig.copy.history.archiveConfirmTitle }))
   })
 
   it.each([[], { trupps: 'unreadable' }])('treats a malformed roster as unknown', async (workspace) => {
     getWorkspace.mockResolvedValue({ workspace })
     const { result } = list(null)
-    await result.current.archiveById('inc-2')
+    await result.current.archiveFromList(other)
     expect(confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: appConfig.copy.abschluss.crewStatusUnknown }))
     expect(patchIncident).not.toHaveBeenCalled()
   })
@@ -199,7 +200,7 @@ describe('useCloseReopen · archiveById', () => {
     })
     confirmDialog.mockResolvedValueOnce('alt')
     const { result } = list(null)
-    await result.current.archiveById('inc-2')
+    await result.current.archiveFromList(other)
     const C = appConfig.copy.abschluss
     expect(confirmDialog).toHaveBeenNthCalledWith(1, expect.objectContaining({
       title: C.crewStatusUnknown, altLabel: C.checkCrewsAgain, safeAnswer: 'alt', confirmLabel: C.insideClose,
@@ -213,7 +214,7 @@ describe('useCloseReopen · archiveById', () => {
     confirmDialog.mockResolvedValueOnce(true)
     vi.mocked(patchIncident).mockRejectedValueOnce(new Error('offline'))
     const { result } = list(null)
-    await result.current.archiveById('inc-2')
+    await result.current.archiveFromList(other)
     expect(patchIncident).toHaveBeenCalledExactlyOnceWith('inc-2', {
       is_archived: true, report_done_at: expect.any(String),
     })
@@ -223,16 +224,15 @@ describe('useCloseReopen · archiveById', () => {
     const { result, deps } = list(null)
     getWorkspace.mockResolvedValue({ workspace: null })
     confirmDialog.mockImplementationOnce(async () => { deps.isSessionCurrent.mockReturnValue(false); return true })
-    await result.current.archiveById('inc-2')
+    await result.current.archiveFromList(other)
     expect(patchIncident).not.toHaveBeenCalled()
     expect(deps.refreshList).not.toHaveBeenCalled()
   })
 
-  it('names the Einsatz it closes above the button (LISTS.11)', async () => {
+  it('names the selected row when the switcher still holds an older title', async () => {
     getWorkspace.mockRejectedValue(new Error('offline'))
-    const other = { id: 'inc-2', title: 'Ölspur', started_at: '2026-11-17T08:42:00', is_exercise: false } as IncidentMeta
-    const { result } = list(null, null, [other])
-    await result.current.archiveById('inc-2')
+    const { result } = list(null, null, [{ ...other, title: 'Brand' }])
+    await result.current.archiveFromList(other)
     expect(confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ subject: expect.objectContaining({ head: 'Ölspur' }) }))
   })
 })

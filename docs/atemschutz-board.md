@@ -286,7 +286,8 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   A Sicherungstrupp wears «SiTr» on its row and card at every width, sent in or not.
 - Closing a different Einsatz from «Alle Einsätze» reads its crew roster first. If it cannot
   be read, the dialog says «Truppstatus unbekannt» and focuses «Truppstatus erneut prüfen».
-  The operator can cancel or explicitly close despite the unknown status.
+  The operator can cancel or explicitly close despite the unknown status. The dialog identifies
+  the selected incident by its title and alarm time, including an incident another device just opened.
 
   ![The «Truppstatus unbekannt» dialog with the retry action focused](screenshots/crew-status-unknown.png)
 
