@@ -114,7 +114,7 @@ export function useAttendanceActions({ attendance, setAttendance: setAttendanceR
     undoToast(fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), () => {
       setAttendance((cur) => ({ ...cur, [p.id]: prev }))
       log('people', fillTemplate(appConfig.copy.anwesenheit.redone, { names: p.displayName }), 'team')
-    }, [recordKey('attendance', p.id)])
+    }, [recordKey('attendance', p.id)], { glyph: 'trash' })
   }
   // Stunden editor (Abschluss-Assistent): correct ONE block's von–bis (`index` defaults to the
   // block the surface is showing). After the Rapport was declared complete, a correction
@@ -144,7 +144,7 @@ export function useAttendanceActions({ attendance, setAttendance: setAttendanceR
       if (!rest.length) { const next = { ...cur }; delete next[personId]; return next }
       return { ...cur, [personId]: withIntervals(cur[personId], rest) }
     })
-    undoToast(fillTemplate(appConfig.copy.anwesenheit.blockRemoved, { name: prev.displayNameSnapshot }), () => setAttendance((cur) => ({ ...cur, [personId]: prev })), [recordKey('attendance', personId)])
+    undoToast(fillTemplate(appConfig.copy.anwesenheit.blockRemoved, { name: prev.displayNameSnapshot }), () => setAttendance((cur) => ({ ...cur, [personId]: prev })), [recordKey('attendance', personId)], { glyph: 'trash' })
   }
   /** Write (or clear) the free remark on a person's attendance row. Not a presence change, so
    *  it touches no interval and writes no «anwesend/gegangen» Verlauf line — but it IS part of

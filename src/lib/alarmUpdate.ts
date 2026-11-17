@@ -9,7 +9,8 @@
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import type { MeldungSpan } from './meldungen'
-import type { AlarmUpdate, AlarmUpdateField } from './incidents'
+import { inAlarmWindow } from './diveraDismiss'
+import type { AlarmUpdate, AlarmUpdateField, IncidentMeta } from './incidents'
 
 // words and the punctuation between them, separators kept, so a diff can splice the original text
 const tokens = (s: string): string[] => s.split(/(\s+|[,;.])/).filter(Boolean)
@@ -85,4 +86,12 @@ export function alarmUpdateRow(u: AlarmUpdate, einsatzTitle: string): AlarmUpdat
     : untouched.length === u.fields.length ? C.take
     : fillTemplate(C.takeSome, { fields: untouched.map((f) => C.fields[f.field] ?? f.field).join(' + ') })
   return { title: `${C.title} – ${kind}`, sub: lines[0] ?? [], sub2: lines[1], takeLabel }
+}
+
+/** Does the Einsatz menu offer «Alarm aktualisiert · Zeigen» for `meta` (rare-user round F7,
+ *  17.11.2026)? While its update was hidden with ✕ – the server serves it to every device then –
+ *  and for 3 h after it came, the same window a hidden alarm keeps its row (lib/diveraDismiss). */
+export function alarmUpdateHidden(meta: Pick<IncidentMeta, 'alarm_update'>, now = Date.now()): boolean {
+  const u = meta.alarm_update
+  return u?.state === 'hidden' && inAlarmWindow(u.at, now)
 }

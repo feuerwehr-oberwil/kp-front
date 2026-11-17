@@ -1,5 +1,5 @@
 // The Meldeleiste rows the workspace raises (and the banners beside them): due Wiedervorlagen,
-// the degraded-map rows, one row per Trupp in Alarm, the GPS ends, the wind shift, the way back
+// the degraded-map rows, one row per Trupp in Alarm, the missing Sicherungstrupp, the GPS ends, the wind shift, the way back
 // to the Rapport, update / install / tab-lock and the «Einsatzdaten prüfen» review. Split out of
 // IncidentWorkspace (E1, 09.10.2026) verbatim — every condition below is still the workspace's
 // state, handed in as props. The rows paint into the Meldeleiste host (lib/meldeleisteHost).
@@ -10,6 +10,7 @@ import { AtemschutzNotfallMeldungen } from '../components/AtemschutzNotfall'
 import { GpsFollowMeldung } from '../components/GpsFollowMeldung'
 import { NoBasemapMeldung } from '../components/NoBasemapMeldung'
 import { ReviewBanner } from '../components/panels'
+import { SafetyMissingMeldung } from '../components/SafetyMissingMeldung'
 import { ReminderBanner } from '../components/ReminderBanner'
 import { StorageFullMeldung } from '../components/StorageFullMeldung'
 import { SymbolsFailedMeldung } from '../components/SymbolsFailedMeldung'
@@ -99,7 +100,7 @@ export function WorkspaceMeldungen({
       <ReminderBanner
         due={reminders.due}
         // «Erledigt» / «+10 min» write Verlauf rows: only where the Verlauf ring offers its tick
-        // (JournalLayer · onReminderDone). A viewer or a link keeps the row and its way in.
+        // (JournalLayer · onReminderTick). A viewer or a link keeps the row and its way in.
         onDone={readOnly ? undefined : reminders.markDone}
         onSnooze={readOnly ? undefined : (r) => reminders.snooze(r, 10)}
         // …and the way in, on the row's TITLE (Meldeleiste · MeldungTitle) rather than a third
@@ -155,6 +156,13 @@ export function WorkspaceMeldungen({
           }}
           onDeploySafety={(id) => setTruppStatus(id, 'aktiv')}
         />
+      )}
+
+      {/* «Kein Sicherungstrupp bereit» – standing while a PA crew is inside uncovered, on every
+          surface, the board and the Link included (components/SafetyMissingMeldung, FEEDBACK.1) */}
+      {azAlarmActive && (
+        <SafetyMissingMeldung trupps={trupps}
+          onGoToBoard={mode === 'atemschutz' ? undefined : () => { setMode('atemschutz'); setPanel(null) }} />
       )}
 
       {/* one row per GPS end with something to say — they queue behind each other instead of

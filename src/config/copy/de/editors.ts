@@ -288,7 +288,7 @@ export const editorsCopy = {
     // Dreht die Punktreihenfolge um – der Abschluss (Pfeil bzw. Teilstück-«E») sitzt danach am
     // anderen Ende. Die Linie selbst bleibt, wo sie ist.
     reverse: 'Richtung umkehren',
-    content: 'Typ',
+    content: 'Inhalt',
     contentPlain: 'Wasser',
     // Ø der Leitung (40 / 55 / 75 / 2× 75 / 110) – trägt die Wassertransport-Rechnung der Messung
     hose: 'Schlauch',
@@ -297,11 +297,16 @@ export const editorsCopy = {
     // Atemschutzüberwachung recognises its Leitung by.
     lineNoDuplicate: 'Leitung {n} gibt es hier schon',
     trupp: 'Gehört zu Trupp',
-    truppShow: 'Trupp {name} zeigen',
+    // ONE word for the door to a Trupp's card, wherever it stands (ENT.2): «Zum Trupp»
+    truppShow: 'Zum Trupp',
     truppNone: 'Kein Trupp',
     // The Trupp that laid this Leitung is back out. It stays in the field – it is the entry that
     // says who was on this Leitung – just marked as «draussen».
     truppOut: 'draussen',
+    // A plain person on this Leitung, no Trupp needed (16.11.2026) – picked from the roster or
+    // typed. Printed under the Leitung's number on its end tag and on the Kroki.
+    person: 'Person',
+    personPlaceholder: 'Person wählen …',
     floorTag: 'Geschoss',
     // «Art» on the Gebäude stack (round 3): a drawn line is a Linie or a Wand, and switches
     kind: 'Art',
@@ -310,8 +315,9 @@ export const editorsCopy = {
     kindWandBlocked: 'Ein Trupp ist auf dieser Leitung – zuerst den Trupp lösen.',
     kindWandStoreys: 'Diese Linie geht über mehrere Geschosse – eine Wand liegt auf einem.',
     distance: 'Länge',
-    // Messung group: the numbers of an already drawn line (length, Schläuche, elevation profile)
-    measurement: 'Messung',
+    // Vermessung group: the numbers of an already drawn line or shape (length, Schläuche, elevation
+    // profile, area). Not «Messung» – that is ONE gas reading of a Messpunkt (docs/glossary.md, ENT.13)
+    measurement: 'Vermessung',
     // die Schläuche einer Leitung: was die Strecke braucht, und die Reserve darauf (lib/geo · hoseSplit)
     hoseSplit: '{n} + {r} Reserve × {m} m',
     showOnMap: 'Auf Karte',
@@ -333,7 +339,7 @@ export const editorsCopy = {
     connectedLines: 'Verbundene Linien ({n})',
     line: 'Linie',
     lineLabelNo: 'Leitung {n}',
-    route: 'Verlauf',
+    route: 'Mitziehen',
     routeDirect: 'Direkt',
     routeTrace: 'Spur',
     detachConnection: 'Verbindung lösen',
@@ -381,6 +387,9 @@ export const editorsCopy = {
     endingReleased: 'Teilstück aufgehoben, {n} Leitungen gelöst',
     // Leitung ohne gewählten Ø (14.11.2026: leer statt 40 mm) – der Menüeintrag, der ihn wieder leert
     hoseNone: 'Kein',
+    menuPicked: 'gewählt',
+    // the selection bar's copy of ONE object, ⌘D's twin for a touch tablet (rare-user F18)
+    duplicate: 'Duplizieren',
   },
   topBar: {
     offline: 'Offline',

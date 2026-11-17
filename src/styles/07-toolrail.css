@@ -40,8 +40,11 @@
   .vrail-nbtn:not(.on):hover:not(:disabled) { background: var(--hover); color: var(--ink); }
 }
 .vrail-nbtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.vrail-nbtn.on { background: var(--here-fill); color: var(--on-here); }
-@media (hover: hover) { .vrail-nbtn.on:hover:not(:disabled) { background: var(--here-fill-hover); } }
+/* OPEN (a panel or menu it opens stands open) is the «open/armed» wash – `--sel-wash` + the
+   `--blue-strong` glyph, as the ⓘ and the Verlauf lens – never the ink pill, which is «where you
+   are» on the nav rail beside it (duck sweep ELEM.6, 17.11.2026: open Ebenen read as a place) */
+.vrail-nbtn.on { background: var(--sel-wash); color: var(--blue-strong); }
+@media (hover: hover) { .vrail-nbtn.on:hover:not(:disabled) { background: var(--sel-wash); } }
 .vrail-nbtn:disabled { opacity: var(--disabled); cursor: default; }
 /* zoom ± is a MOUSE affordance: every touch form factor pinches, so the two buttons only cost
    room. The phone's bar drops them (15-mobile.css); this covers the tablet band in between.
@@ -75,6 +78,14 @@
 .vrail:not(.expanded) .vrail-tool, .vrail.dragging .vrail-tool { justify-content: center; }
 .vrail-glyph { width: 46px; min-width: 46px; height: 46px; display: grid; place-items: center; }
 .vrail-glyph .i { width: 22px; height: 22px; }
+/* The amber dot on the «Ebenen» glyph while a CONTENT layer is off on this device (rare-user round
+   17.11.2026, M6 = A · lib/layerPreset · contentLayerHidden) – the Lage rail / view bar, the phone
+   bar, the mouse twin (MapUtility) and the Karte. Amber like the Trupps tile's «fällig» dot: a
+   warning, not the alarm. Hung off the icon's top-right corner, so it sits on the glyph whatever
+   box the tile gives it (46px compact, 26px over a word). */
+.vrail-glyph { position: relative; }
+.layers-off-dot { position: absolute; top: calc(50% - 15px); left: calc(50% + 6px); width: 10px; height: 10px;
+  border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
 .vrail-label { display: none; white-space: nowrap; font-size: var(--fs-2); font-weight: var(--fw-bold); }
 .vrail.expanded:not(.dragging) .vrail-label { display: block; }
 
@@ -256,7 +267,8 @@
 @media (hover: hover) {
   .step-btn:hover:not(:disabled) { background: var(--surface); border-color: var(--border); }
 }
-.step-btn:active:not(:disabled) { background: var(--blue-12); border-color: var(--blue); }
+/* the press is THE press wash and nothing moves – never blue, which means «chosen» (duck sweep ELEM.14) */
+.step-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .step-btn:disabled { opacity: var(--disabled); cursor: default; }
 .step-val { font-family: var(--mono); font-size: var(--fs-2); font-weight: var(--fw-medium); min-width: 30px; text-align: center; color: var(--ink);
   /* digits must not change width as they change value, or the ± buttons twitch under the finger */
@@ -287,11 +299,16 @@
 .step-clear { width: var(--tap); height: var(--tap); flex: none; margin-left: 4px; border-radius: var(--r-sm); border: none; padding: 0;
   background: transparent; color: var(--ink-dim); cursor: pointer; display: grid; place-items: center; }
 @media (hover: hover) {
-  .step-clear:hover:not(:disabled) { background: var(--red-12); color: var(--red-strong); }
+  /* ✕ CLEARS, it does not delete: a grey hover, never the delete red (duck sweep ELEM.14) */
+  .step-clear:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
 }
 .step-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .step-clear:disabled { opacity: var(--disabled); cursor: default; }
 .step-clear .i { width: 16px; height: 16px; }
+/* a READ-OUT (Stepper · readOnly, FEEDBACK.5): the value alone at the control edge, full ink, the
+   row's --tap height so a locked panel keeps its rhythm */
+.step-ro { min-height: var(--tap); }
+.step-ro .step-val { min-width: 0; text-align: left; }
 
 /* ── The app's own slider (components/Slider) ────────────────────────────────────────────────
    Shared chrome, like `.step` above it: a 44px hit band with a thin painted track inside, so a

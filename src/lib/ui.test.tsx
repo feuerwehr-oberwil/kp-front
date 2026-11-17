@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { Overlays, toast, undoToast, updateToast, dismissToast, confirmDialog, openPhoto } from './ui'
+import { MAX_TOASTS, Overlays, toast, undoToast, updateToast, dismissToast, confirmDialog, openPhoto } from './ui'
 import { noteRemoteChanges } from './undoKeys'
 import { appConfig } from '../config/appConfig'
 
@@ -240,17 +240,17 @@ describe('sticky/updatable toast (live print status)', () => {
     act(() => dismissToast(id))
   })
 
-  // ⚠️ The red trace in the pill is for FAILURES (review 24.09.2026): the print pill wears the warn
-  // edge while queued/printing, and a busy printer must not read as a broken one.
+  // ⚠️ The red trace in the pill is for FAILURES (review 24.09.2026): the print pill is neutral
+  // while queued/printing (FEEDBACK.11), and a busy printer must not read as a broken one.
   it('tints only a failure: the running print job keeps the neutral pill, its failure does not', () => {
     render(<Overlays />)
     let id!: number
     const chain = [{ label: 'Gesendet', state: 'now' as const, icon: 'check' as const }, { label: 'Gedruckt', state: 'future' as const }]
-    act(() => { id = toast('An Stationsdrucker gesendet', { sticky: true, tone: 'warn', toneStyle: 'edge', steps: chain }) })
+    act(() => { id = toast('An Stationsdrucker gesendet', { sticky: true, steps: chain }) })
     const pill = () => screen.getByText(/Stationsdrucker|Druck fehlgeschlagen/).closest('.toast')!
-    expect(pill().className).toContain('toast-edge')
+    expect(pill().className).not.toContain('toast-warn')
     expect(pill().className).not.toContain('toast-fail')
-    act(() => updateToast(id, 'Druck fehlgeschlagen', { icon: 'warn', tone: 'warn', toneStyle: 'edge' }))
+    act(() => updateToast(id, 'Druck fehlgeschlagen', { icon: 'warn', tone: 'warn' }))
     expect(pill().className).toContain('toast-fail')
     // …and an ordinary failure toast is one too
     act(() => { toast('Synchronisierung fehlgeschlagen', { tone: 'warn' }) })
@@ -423,6 +423,45 @@ describe('toast · a `kind` replaces its predecessor instead of stacking', () =>
     act(() => { toast('eins'); toast('zwei') })
     expect(screen.getByText('eins')).toBeTruthy()
     expect(screen.getByText('zwei')).toBeTruthy()
+  })
+})
+
+// toast diet, 17.11.2026: one undo pill at a time, and never more than MAX_TOASTS pills at all
+describe('the stack stays short', () => {
+  const exit = () => act(() => { vi.advanceTimersByTime(200) })
+
+  it('a newer undo pill replaces the older one; an undo with its own kind stands beside it', () => {
+    vi.useFakeTimers()
+    render(<Overlays />)
+    act(() => { undoToast('Schicht A geplant', () => {}) })
+    act(() => { undoToast('Notfall Trupp 1 ausgelöst', () => {}, undefined, { kind: 'notfall' }) })
+    act(() => { undoToast('Schicht B geplant', () => {}) })
+    exit()
+    expect(screen.queryByText('Schicht A geplant')).toBeNull()
+    expect(screen.getByText('Schicht B geplant')).toBeTruthy()
+    expect(screen.getByText('Notfall Trupp 1 ausgelöst')).toBeTruthy()
+  })
+
+  it(`caps the stack at ${MAX_TOASTS}: the oldest timed pill leaves, a sticky live job stays`, () => {
+    vi.useFakeTimers()
+    render(<Overlays />)
+    let job = 0
+    act(() => { job = toast('In der Warteschlange', { sticky: true }) })
+    act(() => { for (const n of ['eins', 'zwei', 'drei']) toast(n) })
+    exit()
+    expect(document.querySelectorAll('.toast')).toHaveLength(MAX_TOASTS)
+    expect(screen.getByText('In der Warteschlange')).toBeTruthy()
+    expect(screen.queryByText('eins')).toBeNull()
+    expect(screen.getByText('drei')).toBeTruthy()
+    act(() => { dismissToast(job) })
+  })
+
+  it('leads with the glyph that names the act, in the one neutral tone', () => {
+    render(<Overlays />)
+    act(() => { undoToast('Foto entfernt', () => {}, undefined, { glyph: 'trash' }) })
+    const pill = screen.getByText('Foto entfernt').closest('.toast') as HTMLElement
+    expect(pill.className).toContain('toast-default')
+    expect(pill.querySelector('use')?.getAttribute('href')).toContain('trash')
   })
 })
 

@@ -462,6 +462,11 @@ export interface Drawing {
    *  can blank the tag. Never read by the contact clock: the drawing decorates the Atemschutz
    *  record, it never feeds it. */
   truppId?: string
+  /** a plain person on this Leitung, no Trupp needed (lines only; the line editor's «Person»
+   *  row, 16.11.2026) – a display NAME, roster-picked or typed, like `abschnittLeiter`. It is
+   *  no Atemschutz record: nothing times or resolves it. The end tag prints it under the
+   *  Leitung's facts (lib/endTagSpots · endTagPerson); crosses to a sheet (SHARED_PATH_PROPS). */
+  person?: string
   /** storey the line works on, shown as a signed badge (+2 / 0 / -1) by the number box. */
   floorTag?: number
   /** screen-space px offset of the FKS end-tag from its default spot (just before the line end),
@@ -575,6 +580,11 @@ export interface TimelineEvent {
      *  op would have been taken for «not done» and reopened a closed item there. The reducer
      *  (lib/reminders · foldPendenzen) applies it and keeps it out of the item's thread. */
     edit?: { text?: string; assignee?: string }
+    /** `done` only: the «Rückgängig» of a «wieder in …» re-raise (ENT.4, 17.11.2026) – the item is
+     *  taken back as if it had never been raised: no open item, and no «Erledigt» on the Tafel or
+     *  the paper (lib/reminders · foldPendenzen drops it). Rides on `done` for the older client,
+     *  which reads it as closed – what it showed before – never as open. */
+    withdrawn?: true
   }
   /**
    * A record divergence and its answer — the same append-only lifecycle the `reminder` above
@@ -989,6 +999,7 @@ export interface BoardAnno extends SymbolProps {
   // draw/line: the Atemschutz link ANCHOR — the Trupp this hose was picked for (mirrors
   // Trupp.lineId). Two meanings, one field, told apart by `kind`; both say "belongs to that Trupp".
   truppId?: string
+  person?: string            // draw: a plain person on this Leitung, no Trupp (mirrors Drawing.person)
   /** floor-stack only: which storey TILE this anno belongs to (0 = EG). x/y (and
    *  pts/trail) are then normalized 0..1 WITHIN that tile, so floors stay
    *  independent when storeys are added/removed. Absent = floor 0. NOTE: this is a

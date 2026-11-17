@@ -19,6 +19,7 @@
 
 import type { LineAttachment, Trupp } from '../types'
 import { abbreviateName } from './personnel'
+import { truppInNotfall } from './atemschutz'
 
 /** As much of a drawn line as the link cares about — the shape the Lage `Drawing` and the Plan
  *  `BoardAnno` already share. */
@@ -244,6 +245,23 @@ export function truppLineTone(t: Trupp, severity: 0 | 1 | 2 = 0): LineTone {
   if (severity >= 2) return 'crit'
   if (severity >= 1) return 'warn'
   return 'idle'
+}
+
+/**
+ * The tier a Trupp's OWN marker wears (ENT.1, 17.11.2026) – the Karte's team dot and pill, the
+ * Plan's chip. The same tone its Leitung's tag gets (`truppLineTone`), so a Trupp in Notfall or
+ * überfällig reads as alarm wherever it is drawn, on a hose or not. A marker nobody stands on is
+ * `idle`; an out Trupp is `muted` (the marker's own `raus` dim already says that) unless it is in
+ * a Notfall.
+ */
+export function truppMarkerTone(
+  truppId: string | undefined, trupps: readonly Trupp[] | undefined, severities: Readonly<Record<string, 1 | 2>> | undefined,
+): LineTone {
+  const t = truppId ? trupps?.find((x) => x.id === truppId) : undefined
+  if (!t) return 'idle'
+  // ⚠️ a Notfall outranks «out» here (docs/atemschutz-board.md · «It outranks everything»: a crew
+  // reported out on an older build keeps it until «beendet») – the marker never goes quiet on one
+  return truppInNotfall(t) ? 'crit' : truppLineTone(t, severities?.[t.id] ?? 0)
 }
 
 /** Leitung numbers already taken on THIS surface (the DrawEditor warns before a second «1»:

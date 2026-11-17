@@ -8,9 +8,16 @@
  */
 
 import { useEffect, useRef, type FocusEvent as ReactFocusEvent, type MouseEvent as ReactMouseEvent } from 'react'
+import { appConfig } from '../../config/appConfig'
 
 /** Input types that never raise the on-screen keyboard. */
 const NO_KEYBOARD = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file', 'image', 'hidden'])
+
+/** The frame's head ✕: its first button named «Schliessen» (see the ⚠️ on useFieldFirst). */
+function headClose(frame: HTMLElement): Element | null {
+  const name = appConfig.copy.closeDialog
+  return Array.from(frame.querySelectorAll('button')).find((b) => b.getAttribute('aria-label') === name) ?? null
+}
 
 /** Does focusing `el` raise the on-screen keyboard? */
 export function isTextField(el: Element | null): el is HTMLElement {
@@ -30,10 +37,16 @@ export function isTextField(el: Element | null): el is HTMLElement {
  * keyboard went down by itself and the sheet would close on the same tap, the very thing this
  * removes. A MOUSE press is let through: there is no on-screen keyboard to put away.
  *
- * ⚠️ The sheet's ✕ is the FIRST `.ip-x` in its frame (its head; docs/ui-conventions · Close).
- * A bespoke frame calls its own `onClose` from that button, so it is caught here, in capture,
- * before its handler runs. A later `.ip-x` (AudioPlayerSheet's per-row cancel) is a control
- * inside the sheet and works as before.
+ * ⚠️ The sheet's ✕ is found by what it IS, not by its class (duck sweep 17.11.2026, CONT.5): the
+ * FIRST button in the frame named «Schliessen» (`appConfig.copy.closeDialog`, the name every head ✕
+ * carries; docs/ui-conventions · Close). Keyed on `.ip-x` it missed the composer's and the
+ * Verlauf's `.journal-x`, the Palette's `.sym-close` and the `.ctx` editors' `.ctx-x` – the
+ * composer, the most-typed sheet, closed on the ✕ tapped to put the keys away. A bespoke frame
+ * calls its own `onClose` from that button, so it is caught here, in capture, before its handler
+ * runs. A later control inside the sheet (AudioPlayerSheet's per-row cancel) works as before.
+ *
+ * A NON-modal frame with fields (the `.ctx` editors, the Karte's search sheets) spreads the same
+ * two handlers and never asks `keyboardFirst` – nothing dismisses it from outside.
  */
 export function useFieldFirst(open: boolean) {
   /** the popup frame, learnt from focus entering it */
@@ -70,8 +83,8 @@ export function useFieldFirst(open: boolean) {
     keyboardFirst: (reason: string | undefined) => reason === 'outside-press' && spend(),
     onFocusCapture: (e: ReactFocusEvent<HTMLElement>) => { frame.current = e.currentTarget },
     onClickCapture: (e: ReactMouseEvent<HTMLElement>) => {
-      const x = e.target instanceof Element ? e.target.closest('.ip-x') : null
-      if (!x || x !== e.currentTarget.querySelector('.ip-x')) return
+      const x = e.target instanceof Element ? e.target.closest('button') : null
+      if (!x || x !== headClose(e.currentTarget)) return
       if (spend()) { e.preventDefault(); e.stopPropagation() }
     },
   }

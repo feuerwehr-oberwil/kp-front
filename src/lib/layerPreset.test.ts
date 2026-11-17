@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { layerPreset } from './layerPreset'
+import { contentLayerHidden, layerPreset } from './layerPreset'
 import type { LayerDef } from '../types'
 
 const L = (id: string, visible: boolean, base = false) => ({ id, visible, base, group: 'g', label: id, icon: 'map' }) as LayerDef
@@ -32,5 +32,17 @@ describe('layerPreset', () => {
   it('is not «standard» while a plan raster is away from its default', () => {
     expect(layerPreset(defaults, defaults, false, false)).toBe('custom')
     expect(layerPreset(defaults, defaults, false, true)).toBe('standard')
+  })
+})
+
+describe('contentLayerHidden', () => {
+  it('is set by a hidden content layer, never by a hidden reference layer', () => {
+    expect(contentLayerHidden([L('taktisch', true), L('fahrzeuge', true), L('markup', true), L('hydranten', false)])).toBe(false)
+    expect(contentLayerHidden([L('taktisch', false), L('hydranten', true)])).toBe(true)
+    expect(contentLayerHidden([L('markup', false)])).toBe(true)
+    expect(contentLayerHidden([L('fahrzeuge', false)])).toBe(true)
+  })
+  it('does not count a content layer the list does not have (the Karte has no Taktische Zeichen)', () => {
+    expect(contentLayerHidden([L('osm', true, true), L('hydranten', false)])).toBe(false)
   })
 })

@@ -22,7 +22,7 @@ describe('tap-to-type numeric entry', () => {
     expect(input.selectionEnd).toBe('300'.length)
   })
 
-  it('keeps the previous value when the field is left empty or escaped', () => {
+  it('keeps the previous value when the field is left empty', () => {
     const onCommit = vi.fn()
     render(<Probe onCommit={onCommit} />)
     fireEvent.click(screen.getByRole('button'))
@@ -30,9 +30,19 @@ describe('tap-to-type numeric entry', () => {
     fireEvent.change(input, { target: { value: '' } })
     fireEvent.blur(input)
     expect(onCommit).not.toHaveBeenCalled() // empty commits nothing — 300 stands
+  })
+
+  // Esc keeps what was typed and leaves the field, like tapping away (owner, 17.11.2026)
+  it('commits what was typed on Escape and leaves the field', () => {
+    const onCommit = vi.fn()
+    render(<Probe onCommit={onCommit} />)
     fireEvent.click(screen.getByRole('button'))
-    fireEvent.keyDown(screen.getByLabelText('wert'), { key: 'Escape' })
-    expect(onCommit).not.toHaveBeenCalled()
+    const input = screen.getByLabelText('wert') as HTMLInputElement
+    input.focus()
+    fireEvent.change(input, { target: { value: '180' } })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(onCommit).toHaveBeenCalledWith(180)
+    expect(screen.getByRole('button')).toBeTruthy()
   })
 
   it('commits a typed replacement, clamped', () => {

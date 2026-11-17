@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { leaveOnEnter } from '../lib/fieldKeys'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
@@ -24,6 +25,10 @@ const numericDraft = (s: string, decimals = 0) => {
  * `value` may be null for OPTIONAL fields (no badge yet): the display shows `placeholder` and the
  * first tap on + seeds `seed ?? min` — on − too when `seedOnDec` is set. `onChange` always
  * receives a concrete clamped number.
+ *
+ * `readOnly` draws the VALUE alone, at full ink – no −/+/✕ (duck sweep FEEDBACK.5, 17.11.2026,
+ * docs/roles-and-access.md: a locked session reads values, never faded controls; a viewer read
+ * «Geschoss 2–3» on dimmed buttons as «not available»).
  */
 export function Stepper({ value, min, max, step = 1, seed, seedOnDec, snap, decimals, format, placeholder = '–', onChange, onClear, canClear, readOnly, over, ariaLabel }: {
   value: number | null
@@ -80,7 +85,6 @@ export function Stepper({ value, min, max, step = 1, seed, seedOnDec, snap, deci
   // −46.50917745051447 is not a thing to edit character by character; with `decimals`, the value
   // to that many places
   const startEdit = () => {
-    if (readOnly) return
     setDraft(has ? (decimals ? value.toFixed(decimals) : String(Math.round(value))) : '')
     setEditing(true)
   }
@@ -98,22 +102,31 @@ export function Stepper({ value, min, max, step = 1, seed, seedOnDec, snap, deci
   const display = has ? (format ? format(value) : String(value)) : placeholder
   const st = appConfig.copy.stepper
 
+  if (readOnly) {
+    return (
+      <span className="step step-ro" role="group" aria-label={ariaLabel}>
+        <span className={`step-val${over ? ' step-over' : ''}${has ? '' : ' step-empty'}`}>{display}</span>
+      </span>
+    )
+  }
   return (
     <span className="step" role="group" aria-label={ariaLabel}>
-      <button className="step-btn" disabled={readOnly || (has ? value <= min : !seedOnDec)} {...dec} aria-label={st.less}>−</button>
+      <button className="step-btn" disabled={has ? value <= min : !seedOnDec} {...dec} aria-label={st.less}>−</button>
       {editing ? (
         <input
           className="step-val step-input" autoFocus value={draft} inputMode={decimals ? 'decimal' : 'numeric'} type="text" aria-label={ariaLabel}
           onFocus={(e) => e.currentTarget.select()}
           onChange={(e) => setDraft(numericDraft(e.target.value, decimals))} onBlur={commit}
-          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); else if (e.key === 'Escape') setEditing(false) }}
+          // Return and Esc both leave the field and the blur commits – Esc keeps what was typed
+          // like every text field (lib/fieldKeys, owner 17.11.2026; it used to cancel)
+          enterKeyHint="done" onKeyDown={(e) => { leaveOnEnter(e) }}
         />
       ) : (
-        <button className={`step-val step-val-btn${over ? ' step-over' : ''}${has ? '' : ' step-empty'}`} onClick={startEdit} disabled={readOnly} title={st.typeToEnter}>{display}</button>
+        <button className={`step-val step-val-btn${over ? ' step-over' : ''}${has ? '' : ' step-empty'}`} onClick={startEdit} title={st.typeToEnter}>{display}</button>
       )}
-      <button className="step-btn" disabled={readOnly || (has && value >= max)} {...inc} aria-label={st.more}>+</button>
+      <button className="step-btn" disabled={has && value >= max} {...inc} aria-label={st.more}>+</button>
       {onClear && (
-        <button className="step-clear" disabled={readOnly || !canClear} onClick={onClear} aria-label={st.reset}><Icon id="close" /></button>
+        <button className="step-clear" disabled={!canClear} onClick={onClear} aria-label={st.reset}><Icon id="close" /></button>
       )}
     </span>
   )

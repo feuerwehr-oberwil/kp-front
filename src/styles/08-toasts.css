@@ -425,8 +425,9 @@
 @media (prefers-reduced-motion: reduce) {
   .toast-check path { animation: none; stroke-dashoffset: 0; }
 }
-/* a FAILURE keeps a trace of red in the pill itself, so it tells apart from a live status that
-   merely wears the warn edge (the print job while queued/printing — lib/ui · isFailure). */
+/* a FAILURE keeps a trace of red in the pill itself (lib/ui · isFailure). A job still under way
+   (the print pill while queued/printing) is the default tone – its glyph in ink, never red
+   (duck sweep FEEDBACK.11, 17.11.2026). */
 .toast-warn.toast-fail { background: color-mix(in srgb, var(--red) 6%, var(--surface)); }
 @keyframes toastIn { from { opacity: 0; transform: translateY(10px) scale(.96); } }
 
@@ -481,6 +482,10 @@
 .confirm-note { margin: 0 0 var(--sp-4); font: var(--fw-medium) var(--fs-1)/1.45 var(--body); color: var(--ink-faint); }
 /* the one consequence that must be read: its own line above the note, in ink (FLOW.5) */
 .confirm-note-lead { margin-bottom: var(--sp-2); color: var(--ink); }
+/* WHAT the ask acts on, right above the buttons (ConfirmSpec.subject, LISTS.11): the Einsatz by
+   name and Zeit Alarmierung, ink on the soft fill so it reads as the thing, not as a note */
+.confirm-subject { margin: 0 0 var(--sp-4); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-ctl);
+  background: var(--fill-soft); font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); overflow-wrap: anywhere; }
 .confirm-msg:last-of-type:not(:only-of-type) { margin-bottom: var(--sp-4); }
 /* ⚠️ …and it WRAPS on a wide screen too (staging walk-through 25.09.2026, N22): three long
    answers («Trotzdem abschliessen · Zur Tafel · Abbrechen») pushed «Abbrechen» out past the
@@ -1009,4 +1014,13 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   .present-row[data-asking] .present-pill { padding-right: var(--sp-2); }
   .present-row[data-asking] .present-ask { width: 100%; }
   .present-row[data-asking] .present-name { width: 100%; }
+  /* F6 (rare-user round 17.11.2026): following opens the Verlauf and a symbol's sheet on this phone
+     by itself – exactly then the pill, the one thing that says why, lay under them. Over a detail
+     sheet it rides on the sheet's top edge, as the recording FAB does (15-mobile · .fab-entry.rec);
+     over the Verlauf it stands where it stands, on top of the drawer and its scrim – rendered at the
+     body then (Presentation · overVerlauf): `.app` is position: fixed, its own stacking context. */
+  :root:has(.journal-drawer, .ctx) .present-row { z-index: var(--z-present-over-sheet); }
+  :root:has(.ctx) .app .present-row { bottom: calc(46dvh + var(--float-gap)); }
+  :root:has(.ctx.sheet-full) .app .present-row { bottom: calc(88dvh + var(--float-gap)); }
+  body.sheet-peek:has(.ctx) .app .present-row { bottom: calc(76px + env(safe-area-inset-bottom) + var(--float-gap)); }
 }

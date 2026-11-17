@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { leaveOnEscape, ONE_LINE } from '../lib/fieldKeys'
 import type { CaptionMode, NoteSize, Spread, SymbolControl, SymbolProps } from '../types'
 import { thumbUrl } from '../lib/mediaUrl'
 import { Icon } from '../lib/icons'
@@ -8,6 +9,7 @@ import { fillTemplate, formatSymbolName, stripUnprintable } from '../lib/format'
 import { takenClock } from '../lib/photoGeo'
 import { CtxShell, SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
+import { removeWithUndo } from '../lib/removalToast'
 import { allStoffNames, lookupUN, lookupUNByName } from '../lib/unHazard'
 import { useHazardData } from '../lib/useHazardData'
 import { DEFAULT_ERG_RING_MODE } from '../lib/ergRings'
@@ -16,7 +18,7 @@ import { useCommitDraftOnUnmount } from '../lib/useCommitDraftOnUnmount'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
 import { Segmented } from './Segmented'
-import { IconButton } from './Button'
+import { Button, IconButton } from './Button'
 import { compositeSpec } from '../lib/symbolRender'
 import { bareBlack } from '../lib/glyphTile'
 import { UN_CAPABLE, countFieldValue, isMeasuredSymbol, symbolFieldKind } from '../lib/symbols'
@@ -75,7 +77,7 @@ function FieldControl({ fieldKey, value, kind, options, placeholder, officerFilt
       <input className="kv-val" value={value} placeholder={placeholder}
         onChange={(e) => onInput(e.target.value)}
         onBlur={() => onCommit(value)}
-        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
+        {...ONE_LINE} />
     )
   }
   // any list, short or long, roster or station list → the dropdown with free typing: the search
@@ -599,7 +601,13 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
     if (k === EL_STV) return { ...r, v: rows.find((x) => x.k.trim() === EL_NAME)?.v ?? '' }
     return r
   }))
-  const removeRow = (i: number) => commitRows(rows.filter((_, j) => j !== i))
+  // the handover is offered on the Einsatzleiter glyph once there is something to swap
+  const elPair = elSym && rows.some((r) => r.k.trim() === EL_NAME) && rows.some((r) => r.k.trim() === EL_STV)
+    && rows.some((r) => (r.k.trim() === EL_NAME || r.k.trim() === EL_STV) && r.v.trim())
+  // a removal says so, with the way back (duck sweep FEEDBACK.3); an empty row lays no step, so it goes quietly
+  const removeRow = (i: number) => removeWithUndo(
+    fillTemplate(appConfig.copy.removedToast.named, { what: rows[i].k.trim() || C.fieldKeyPlaceholder }),
+    () => commitRows(rows.filter((_, j) => j !== i)))
 
   // Details are stored as a key→value MAP, so two rows sharing a Bezeichnung silently collapse
   // into one — the last row wins and the earlier value is gone at the next reload. We neither
@@ -646,7 +654,8 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   const countLabel = (entity.symbol && C.countBySymbol[entity.symbol]) || C.count
   /** the symbol's own name, for the header of everything that is NOT user-labelled */
   const symbolName = entity.symbol ? formatSymbolName(entity.symbol) : ''
-  const showDetails = !isNote && (showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly)
+  // a live vehicle's Fahrer / Herkunft count as details too – a read-only sheet with no other row hid them
+  const showDetails = !isNote && (showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly || !!driver || !!origin)
 
   /* on-canvas caption override for THIS symbol — small + de-emphasised down by the actions
      (the field values matter first; visibility is a rare tweak). Standard follows the device
@@ -672,7 +681,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
      ONE toggle since 31.10.2026) ── the foot's middle tile, in the same spot in both states: one
      word for every family (the fire is gelöscht, the symbol erledigt). Open, its title says what the
      press will NOT do – the symbol stays, grey. Set, the SAME tile stands pressed (the check, the
-     green tint), and a tap takes it back – its name says so («Erledigt – wieder aktiv setzen»).
+     choice fill – done is blue, like the Pendenz tick: duck sweep ELEM.2), and a tap takes it back – its name says so («Erledigt – wieder aktiv setzen»).
      The foot is pinned on a phone, so it is at hand on every symbol without a reflex tap landing
      on it. WHEN it was set is the header's subtitle («Schadenlage · erledigt 20:40», doneAt), so a
      read-only panel, which has no tile, still states it. (Until 31.10.2026 the set state was a
@@ -699,8 +708,9 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
           entity gets neither — `readOnly` is already true for anything externally sourced.
           A self-reported crew position is the exception: it is somebody's own row, and the
           command post can clear it (see onStopSharing). */}
+      {/* neutral, not the delete red: it stops a share, the person can share again (ELEM.11) */}
       {onStopSharing && (
-        <button className="btn warn" onClick={onStopSharing} title={C.stopSharingTitle}>
+        <button className="btn" onClick={onStopSharing} title={C.stopSharingTitle}>
           <Icon id="close" />{C.stopSharing}
         </button>
       )}
@@ -969,11 +979,24 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
               {([[C.spreadH, ['left', 'right']], [C.spreadV, ['up', 'down']]] as const).map(([label, dirs]) => (
                 <div className="spread-row" key={label}>
                   <span className="spread-lbl">{label}</span>
+                  {/* a locked session READS the spread: the lit arrows (and their Grenze) as plain
+                      glyphs, «–» for none – never faded buttons (duck sweep FEEDBACK.5) */}
+                  {readOnly ? (
+                    <span className="kv-val-ro spread-ro">
+                      {dirs.some((d) => sp[d]) ? dirs.filter((d) => sp[d]).map((d) => (
+                        <span className="spread-unit" key={d} role="img" aria-label={sp[boundedKey(d)] ? `${C.spreadDirTitles[d]} · ${C.spreadBounded}` : C.spreadDirTitles[d]}>
+                          {d === 'left' && sp[boundedKey(d)] && <Icon id={GRENZE_GLYPH[d]} />}
+                          <Icon id={SPREAD_GLYPH[d]} />
+                          {d !== 'left' && sp[boundedKey(d)] && <Icon id={GRENZE_GLYPH[d]} />}
+                        </span>
+                      )) : '–'}
+                    </span>
+                  ) : (
                   <div className="spread-btns">
                     {dirs.map((d) => {
                       const dir = (
                         <button className={`spread-btn dir ${sp[d] ? 'on' : ''}`} title={C.spreadDirTitles[d]}
-                          aria-label={C.spreadDirTitles[d]} disabled={readOnly} onClick={() => toggleDir(d)}>
+                          aria-label={C.spreadDirTitles[d]} onClick={() => toggleDir(d)}>
                           <Icon id={SPREAD_GLYPH[d]} />
                         </button>
                       )
@@ -983,7 +1006,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                       const grenze = (
                         <button className={`spread-btn grenze ${sp[boundedKey(d)] ? 'on' : ''}`}
                           title={C.spreadBoundedTitle} aria-label={`${C.spreadBounded} ${C.spreadDirTitles[d]}`}
-                          disabled={readOnly} onClick={() => toggleBounded(d)}>
+                          onClick={() => toggleBounded(d)}>
                           <Icon id={GRENZE_GLYPH[d]} />
                         </button>
                       )
@@ -991,6 +1014,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                       return <span className="spread-unit" key={d}>{d === 'left' ? <>{grenze}{dir}</> : <>{dir}{grenze}</>}</span>
                     })}
                   </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1061,15 +1085,6 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                 // the control, no editable-key box, no delete — so a «Typ» sits identically to a
                 // «Luftrichtung». A free row from an older record keeps its editable key + delete
                 // (nothing new is added since 31.10.2026, but what was written stays editable).
-                // …and the Einsatzleiter pair gets the ⇄: the handover is a swap, and a swap is one
-                // gesture. A 44px square at the right end of the EL row (27.09.2026 — it was a
-                // sentence between the rows), and the Stv. row leaves the same space empty so the
-                // two fields align. Offered only once there is something to swap.
-                const k = r.k.trim()
-                const pair = elSym && rows.some((x) => x.k.trim() === EL_NAME) && rows.some((x) => x.k.trim() === EL_STV)
-                  && rows.some((x) => (x.k.trim() === EL_NAME || x.k.trim() === EL_STV) && x.v.trim())
-                const swap = pair && k === EL_NAME
-                const swapGap = pair && k === EL_STV
                 // the caption of the tick column, once, above the first measured gas (ReadingParts)
                 const overHead = !readOnly && i === firstMeasured && <ReadingOverHead />
                 return fixed ? (
@@ -1078,12 +1093,6 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                     <div className="field">
                       <span className="kv-key-ro">{rowLabel(r.k)}</span>
                       {readOnly ? <b className="kv-val-ro">{r.v || '–'}</b> : field}
-                      {swap && (
-                        <IconButton variant="secondary" onClick={swapEl} label={C.swapEl}>
-                          <Icon id="swap" />
-                        </IconButton>
-                      )}
-                      {swapGap && <span className="kv-swap-gap" aria-hidden />}
                     </div>
                   </Fragment>
                 ) : (
@@ -1093,7 +1102,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                       <input className="kv-key" value={r.k} placeholder={C.fieldKeyPlaceholder}
                         aria-invalid={dupRow[i] || undefined}
                         onChange={(e) => setRow(i, { k: e.target.value })} onBlur={() => commitRows(rows)}
-                        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
+                        {...ONE_LINE} />
                       {field}
                       <IconButton label={C.removeField} onClick={() => removeRow(i)}><Icon id="close" /></IconButton>
                     </div>
@@ -1105,6 +1114,15 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                   </Fragment>
                 )
               })}
+              {/* …and the Einsatzleiter pair gets «Führung übergeben»: the handover is a swap, and a
+                  swap is one gesture. One quiet worded button on its own line under the two names
+                  (rare-user r2 F17, 17.11.2026 – as a tile at the end of the EL row it squeezed the
+                  names to «W.» / «Nam…», and the names are what this panel is read for). */}
+              {elPair && (
+                <Button variant="quiet" className="kv-swap" icon={<Icon id="swap" />} onClick={swapEl}>
+                  {C.swapEl}
+                </Button>
+              )}
             </div>
           )}
 
@@ -1151,6 +1169,8 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                 placeholder={C.notesPlaceholder}
                 onChange={(e) => setNotes(stripUnprintable(e.target.value))}
                 onBlur={blurNotes}
+                // Esc keeps the text and leaves the field (lib/fieldKeys); Return is a new line
+                onKeyDown={leaveOnEscape}
               />
             </div>
           )}

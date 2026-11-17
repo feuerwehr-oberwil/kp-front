@@ -2709,19 +2709,8 @@ describe('useTruppActions — the Atemschutznotfall', () => {
     expect(b.state.trupps[1]).toMatchObject({ status: 'angemeldet', entryTime: '' })
   })
 
-  it('says calmly when an Atemschutz-Trupp goes in with no Sicherungstrupp ready — and only then', () => {
-    const waiting = (over: Partial<Trupp> = {}) => inside({ status: 'angemeldet', entryTime: '', lastContactTime: '', ...over })
-    board([waiting()]).act().setTruppStatus('T1', 'aktiv')
-    expect(ui.toasts.map((x) => x.text)).toEqual(['Kein Sicherungstrupp bereit'])
-    ui.toasts.length = 0
-    // a Sicherungstrupp stands ready: nothing to say
-    board([waiting(), sitr()]).act().setTruppStatus('T1', 'aktiv')
-    // …the Sicherungstrupp itself going in, a work squad, and a Rückzug called off say nothing either
-    board([sitr()]).act().setTruppStatus('S1', 'aktiv')
-    board([waiting({ kind: 'einfach' })]).act().setTruppStatus('T1', 'aktiv')
-    board([inside({ status: 'rueckzug' })]).act().setTruppStatus('T1', 'aktiv')
-    expect(ui.toasts).toEqual([])
-  })
+  // «Kein Sicherungstrupp bereit» is a standing Meldeleiste row since 17.11.2026 (FEEDBACK.1):
+  // pinned in atemschutz.test · safetyMissing and SafetyMissingMeldung.test, not here
 })
 
 // review of #300

@@ -68,13 +68,19 @@
 @media (hover: hover) { .addBtn:hover { border-color: var(--ink-faint); color: var(--ink); } }
 .addBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .addBtn svg { width: 18px; height: 18px; }
-/* a control WITH its word, on a wide screen (22.09.2026): rides on .iconBtn / .addBtn, which
-   keep the bare square for the phone, where the row has a field and two filters to fit. The
-   word is a fixed string, so the width it takes is fixed too — the filter's DOT stays the way
-   an active filter is shown, for the reason above.
+/* ONE labelling rule for these head buttons, decided here, not per surface (duck sweep ELEM.13,
+   17.11.2026 – the Anwesenheit worded its filters on a phone only, the Mittel on a tablet only):
+   a control that has a word (`.word`) shows it on every device – BESIDE the glyph on a tablet,
+   UNDER it on a phone, like the nav bar's tiles (EL phone sweep D2). The word is a fixed string,
+   so the width it takes is fixed too – an active filter is still shown by the fill.
    ⚠️ AFTER .addBtn: same specificity, and .addBtn's fixed --tap width would otherwise win. */
-.wordBtn { width: auto; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px;
+:is(.iconBtn, .addBtn):has(> .word) { width: auto; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px;
   font: var(--fw-bold) var(--fs-2) var(--body); white-space: nowrap; }
+@media (--phone) {
+  :is(.iconBtn, .addBtn):has(> .word) { display: inline-grid; grid-auto-flow: row; row-gap: var(--sp-1); align-content: center;
+    justify-items: center; padding: 0 var(--sp-2); }
+  .word { font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
+}
 
 /* the dropdown each filter button opens */
 .menuPop {

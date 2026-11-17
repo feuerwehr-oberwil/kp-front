@@ -8,7 +8,7 @@ wording unchanged.
 
 - **Role gating** – product model is three incident roles: `editor` (FU / can mutate incident
   state), `el` (Einsatzleiter function, 07.09.2026 – reads everything, writes ONLY the record
-  domains: Anwesenheit/Zeitplan, Mittel, Checklisten, Rapport + Beilagen, via the
+  domains: Anwesenheit/Zeitplan, Material, Checklisten, Rapport + Beilagen, via the
   server-enforced `PUT …/workspace/record` slice (`RECORD_WORKSPACE_KEYS`, plus the crew
   filing's markers, unioned onto the stored Trupps — `RECORD_CREW_FILED_KEY`, 22.10.2026), audit-event
   appends limited to the record vocabulary (`EL_EVENT_PREFIXES`), Verlauf rows of any kind like an
@@ -35,7 +35,9 @@ wording unchanged.
   the Lage and the Plan alike a locked session SELECTS every object (a Linie, Fläche or
   Absperrkreis on the Plan too – never dragged) and reads its panel: a Form its figures, a
   Leitung its Inhalt, Stockwerk, Leitung-Nr. and Trupp, a live vehicle its Fahrer, a
-  Gefahrentafel its Schutzabstand, a symbol its Beschriftung – read-outs, not faded controls. It
+  Gefahrentafel its Schutzabstand, a symbol its Beschriftung, Geschoss von/bis, Anzahl, Drehung
+  (the shared `Stepper`'s `readOnly` draws the value alone) and its Ausbreitung (the lit arrows as
+  glyphs, duck sweep FEEDBACK.5) – read-outs, not faded controls. It
   gets no rotate/resize handle, no ghost-trail «Spur löschen» (the label is a read-out), no vehicle
   «GPS» / «Hier festhalten» / Fahrer edit (the Führungsansicht included); a Trupp marker keeps
   «Im Atemschutz zeigen» and «Spur ein/aus», which change nothing shared. A Tafel page's Tendenz
@@ -90,7 +92,10 @@ wording unchanged.
   (`src/lib/linkMode.ts` ↔ `LINK_MODE_HEADER`). Consequences to keep true: the bare site after a
   link visit is whoever it was before, an Atemschutz link no longer signs the phone out to win
   precedence, `logout` is off the allowlist, and **no link surface offers «Abmelden»** — leaving
-  a link is closing the page, and coming back is the link URL. Two rules that fall out of the
+  a link is closing the page, and coming back is the link URL. What a view or alarm link page
+  DOES offer, when the browser holds no login (a link-scoped session there means none – those
+  links never outrank one), is «Anmelden» in the identity row: it opens the bare site, whose
+  sign-in it is (C8, 17.11.2026). Two rules that fall out of the
   same model and are easy to break: a page sending `use` with no live link session is **401, never
   the device's login** (falling through would turn a lapsed board into the phone owner's account),
   and the device's own «Abmelden» **does** clear the link cookie — headerless requests (typed
@@ -185,7 +190,7 @@ track, weather) never write into it.
 - **The el reads «Anrückend»** (`GET /divera/responses`, `CurrentRecordWriter`): it marks
   attendance like an editor. The rest of `/api/divera` stays editor-only.
 - **Who a push wakes** (owner's pick): the Atemschutz alarms go to every subscribed browser;
-  «Neuer Einsatz» only to `editor` accounts, «Wiedervorlage fällig» to `editor` and `el`
+  «Neuer Einsatz» only to `editor` accounts, «Erinnerung fällig» to `editor` and `el`
   (`push.py · role_recipients`, read when the push leaves). A viewer tablet, and a kiosk
   subscription without an account, hear only the Atemschutz alarms. Links never subscribe.
 - **«Standort teilen» posts under one name per device, held until let go.** No account or link
@@ -225,7 +230,7 @@ The door rule above, applied to the Rapport, Anwesenheit and lifecycle (RBAC aud
   where the ✓ «Gespeichert» stands (`IncidentSwitcher`; on a phone on the clock line, the title
   row keeps the Einsatz name). It is true PER SURFACE (`workspace/access · viewOnlyReason`): a
   viewer and an Einsatz-Link everywhere; the `el` and a Führungsansicht only where they keep
-  nothing – the Karte, the Plan, the Trupps – never on the Rapport, Anwesenheit, Mittel,
+  nothing – the Karte, the Plan, the Trupps – never on the Rapport, Anwesenheit, Material,
   Checklisten or with the Verlauf open. The opened card names the reason («Nur ansehen ·
   Betrachter / Einsatzleitung / Einsatz-Link»). A sync warning outranks it in the slot, and a
   closed Einsatz shows only its lock (one mark at a time). A lost tab lock, a replay and an older

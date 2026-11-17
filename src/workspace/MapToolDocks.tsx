@@ -15,6 +15,7 @@ import { RailKey, ToolRail } from '../components/ToolRail'
 import { appConfig } from '../config/appConfig'
 import { armedToolIcon, armedToolName } from '../lib/armedTool'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
+import { truppStateWord } from '../components/truppCardText'
 import { formatSymbolName } from '../lib/format'
 import { PANEL_KEY } from '../lib/hotkeys'
 import { Icon } from '../lib/icons'
@@ -63,6 +64,8 @@ export interface MapToolDocksProps {
   pick: (id: string) => void
   panel: 'layers' | null
   layersPreset: LayerPreset
+  /** a content layer is off on this device (lib/layerPreset · contentLayerHidden) */
+  layersHidden: boolean
   togglePanel: (name: 'layers') => void
   viewsApi: ViewsApi
   view: { bearing: number; center: LngLat; zoom: number }
@@ -91,7 +94,7 @@ export function MapToolDocks({
   mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, lineMode, settleDraft,
   setLineMode, draftActive, draftOpen, commitDraft, areaMode, setAreaMode, setTeamPick, placed, setFindTruppOpen,
   measure, pendingShape, setPendingShape, setRotStart, rotStart, tacticalLocked, createLine,
-  createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, togglePanel, viewsApi,
+  createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, layersHidden, togglePanel, viewsApi,
   view, readOnly, isEl, viewsOpen, sharePick, shareParent, toggleViews, coord, mapRef, paletteOpen,
   sym, setPaletteOpen, pickShape, teamPick, trupps, truppColors, placeTruppOnMap, placeGenericTeam,
 }: MapToolDocksProps) {
@@ -265,8 +268,10 @@ export function MapToolDocks({
                     the standalone Koordinaten button are folded away — coords is a row in
                     the compass menu now, testing feedback 2026-07-14) */}
                 {/* which preset the Ebenen match is lit in the panel and said in the name — no mark
-                    on the glyph (05.10.2026, owner: «no need for this indicator») */}
-                <button className={`vrail-nbtn vrail-layers ${panel === 'layers' ? 'on' : ''}`} title={`${appConfig.copy.panels.layers} · ${layerPresetLabel(layersPreset)}`} aria-label={`${appConfig.copy.panels.layers} – ${layerPresetLabel(layersPreset)}`} aria-pressed={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{appConfig.copy.panels.layers}</span><RailKey k={PANEL_KEY.layers} /></button>
+                    on the glyph for it (05.10.2026, owner: «no need for this indicator»). The one
+                    mark is the amber dot while a CONTENT layer is off (rare-user round 17.11.2026,
+                    M6 = A): an empty Lage that nothing explains. */}
+                <button className={`vrail-nbtn vrail-layers ${panel === 'layers' ? 'on' : ''}`} title={`${appConfig.copy.panels.layers} · ${layerPresetLabel(layersPreset)}`} aria-label={`${appConfig.copy.panels.layers} – ${layerPresetLabel(layersPreset)}${layersHidden ? ` · ${appConfig.copy.whiteboard.floorHidden}` : ''}`} aria-expanded={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" />{layersHidden && <span className="layers-off-dot" aria-hidden />}</span><span className="vrail-label">{appConfig.copy.panels.layers}</span><RailKey k={PANEL_KEY.layers} /></button>
                 {/* multi-purpose compass: always shown, rotates to the live bearing, and opens the
                     saved-views menu (Nach Norden · Einpassen · Standort · Koordinaten · saved
                     framings · Ansicht speichern). `|| isEl` as on MapUtility's twin: saved views
@@ -312,7 +317,8 @@ export function MapToolDocks({
           className="wb-trupp-pick ui-dialog"
           ariaLabel={appConfig.copy.whiteboard.selectTrupp}
         >
-          <div className="wb-trupp-pick-head">{appConfig.copy.whiteboard.selectTrupp}</div>
+          <div className="wb-trupp-pick-head">{appConfig.copy.whiteboard.selectTrupp}
+            <button type="button" className="ip-x" aria-label={appConfig.copy.closeDialog} onClick={() => { setTeamPick(null); setTool('select') }}><Icon id="close" /></button></div>
           {/* A Trupp lives at exactly ONE place, so picking one that is already on the map
               does not add a second marker — it MOVES the existing one, silently, and the
               operator who wanted a second Trupp has just relocated the first. Placed ones
@@ -335,7 +341,7 @@ export function MapToolDocks({
                 {isAtemschutzTrupp(t) && <span className="wb-trupp-as" title={appConfig.copy.atemschutz.kindAtemschutz}>{appConfig.copy.atemschutz.asMark}</span>}
                 {here
                   ? <i>{appConfig.copy.whiteboard.truppPlacedHere}</i>
-                  : t.status === 'raus' ? <i>{appConfig.copy.atemschutz.status.raus}</i>
+                  : t.status === 'raus' ? <i>{truppStateWord(t)}</i>
                   : t.lineNumber ? <i>Ltg {t.lineNumber}</i> : null}
               </button>
             )

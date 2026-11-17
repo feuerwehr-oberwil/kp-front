@@ -199,6 +199,9 @@ async def keep_report(db: AsyncSession, inc: Incident, data: ReportPayload, pdf:
     the callers run this in a savepoint and swallow what it raises."""
     if not active(await archive_config(db)):
         return
+    # Serialize with legacy print recovery and another compose: a newer PDF must be able to
+    # replace the recovered copy, never lose its insert to that copy in the best-effort wrapper.
+    await db.refresh(inc, with_for_update=True)
     sha = report_content_sha(data)
     row = await db.get(IncidentArchiveReport, inc.id)
     if row is not None and row.content_sha == sha:

@@ -65,6 +65,8 @@ export const commonCopy = {
     group: 'Auswahl',
     groupN: '{n} Objekte',
     noteWhat: 'Notiz',
+    connectionFreed: 'Verbindung gelöst',
+    named: '{what} entfernt',
   },
   /** Womit «Rückgängig: …» weitergeht, wenn die Fläche selbst die Aktion nicht benennt. Die
    *  Atemschutz-Tafel, Mittel und die Checklisten benennen sie (dieselbe Zeile, die der Verlauf
@@ -135,4 +137,7 @@ export const commonCopy = {
   /** «Mehrere platzieren» as a dock tile's word (ToolDock · short, round 15.11.2026 r2): the long
    *  form does not fit a tile and stays its title / aria-label */
   keepPlacingShort: 'Mehrere',
+  // …and THE line while only a FILTER narrows a list and nothing is typed (duck sweep LISTS.4,
+  // 17.11.2026 – «Keine Treffer für «».» read as a broken app). The list adds its way out.
+  filterNoHits: 'Keine Einträge in dieser Auswahl.',
 } as const

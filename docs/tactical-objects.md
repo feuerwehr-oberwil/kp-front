@@ -32,6 +32,30 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   on the Karte a DOM copy of the canvas head (`MapView · EditArrowMark`) and the fork's marker at
   `MARKER_Z.endMark`, on the Plan `.wb-arrowhead` / `.wb-line-fork` over `.wb-vertex`. Pointer-inert:
   the ring under it stays the grip.
+- **A finger on an object pans, unless the object is selected or held** (duck sweep GESTURES.1/.2,
+  owner 17.11.2026 – the Lage's rule on both surfaces). Touch or pen on an object that is not
+  selected: a move pans the map / the board, a tap selects on release, a still hold of
+  `HOLD_DRAG_MS` (180 ms, `lib/holdTimings`) lifts it with a buzz. A selected object, and any mouse
+  press, drags past the 8 px deadzone at once. Lage: `useHoldToDrag` in `MapMarkers · pressMarker`
+  (a Linie / Fläche / Kreis body has no drag there – the bar's ✥ moves it). Plan: every kind,
+  Trupp chips, symbols, notes, Linien, Flächen, Kreise and a Linie's label (`useWbChipDrag`,
+  `useWbBodyDrag`, the pan from `useBoardGestures · panFrom`). So a pan that starts on a Trupp
+  never moves it and never stamps it a new time. A pan never deselects either: only a stationary
+  tap on empty map / board does (`useMapActions` after `MapView`'s pan-click drop;
+  `useBoardGestures · panUp`). The lasso is one-shot on both: after any box you are back in
+  Auswahl (`useMapActions · onMarquee`, `useBoardGestures · marqueeUp`). A tap on a pile of compact
+  glyphs (symbols, Trupps) fans it out on short spokes and the next tap picks one – nearest
+  centre, never the top DOM node (`lib/labelPass · pileAt / fanOffsets`; Lage `MapMarkers`, Plan
+  `useWbChipDrag · fan`, GESTURES.9). Nothing drags while a pile is fanned; a press beside it or Esc folds it, on both surfaces. A double tap on a
+  named chip opens its name on both surfaces (GESTURES.10): a Notiz its inline text, a Trupp its
+  rename – unless the Atemschutz board names that Trupp (`truppId`, no pen either). The Lage
+  counts the two taps itself (`MapMarkers · namedDoubleTap`, the map's numbers from
+  `lib/tapDragZoom`); the Plan keeps those chips out of its one-finger zoom (`useBoardGestures`).
+- **Right-click means one thing** (GESTURES.13, 17.11.2026): on a node pad it is the hold's desktop
+  twin – delete that point, with the hold's own floor (a finished Linie / Messen-Strecke keeps 2
+  points, a Fläche 3; a draft may shrink to nothing), on the Lage, the Karte and the Plan, Messen
+  included. On an object body it does nothing (no select, no drag); a right drag still turns the
+  map. The Schichten / Zeitplan context menus are their own surfaces and keep theirs.
 - **A tap on a node is the node's, never the map's** (round 15.11.2026): a node is dragged or
   held, a tap on it does nothing. On the Karte its click would bubble from the Marker to
   maplibre's container and insert a node under the finger (a selected Linie grew a stacked
@@ -39,6 +63,17 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   element (`MapView · keepClickOnPad`; check: `e2e/node-pad-tap.spec.ts`). The Plan's `.wb-vertex`
   never had it: its pads take the pointer themselves (`useWbVertexEdit · vertDown`) and only the
   «+» inserts.
+- **Nothing stays armed across a pause** (rare-user round 17.11.2026, C3 – `lib/useOnResume`, one
+  hook for the Lage, the Plan and the Karte): when the app comes back from the background (the
+  page visible again after it was hidden), the armed tool, symbol or shape is put down, «Mehrere
+  platzieren» and «Zeigen» go off; a committable draft asks «Speichern · Verwerfen ·
+  Weiterzeichnen» exactly as leaving it any other way. No idle timer; the Wiedergabe is untouched.
+- **What this device makes, it sees** (F3, 17.11.2026): a symbol, shape, note, drawing or Trupp
+  marker placed into a layer this device has switched off switches that layer back on
+  (`IncidentWorkspace · revealLayer`, the ordinary `layer.toggle`). While a CONTENT layer –
+  Taktische Zeichen, Fahrzeuge, Skizzen & Notizen – is off, the «Ebenen» tile carries an amber
+  dot (M6, `lib/layerPreset · contentLayerHidden`); a reference layer off, or the preset, never
+  marks it (owner 05.10.2026).
 - **The armed tool's readout is one pill** (`components/ArmedToolPill`, `lib/armedTool`,
   23.10.2026, 3am sweep point 3 – owner: «a small little info thing at the bottom that now you're
   placing symbol XYZ and that's it»). Bottom centre of the Karte, the Einsatz map, a Plan and the
@@ -47,7 +82,14 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   pass through. The symbol tool has no option dock any more – the pill is its readout, «Mehrere
   platzieren» is a 44 px toggle with its word beside the pill, and the way out is the ✕ beside that
   toggle or Escape on the Karte and the Plan alike (27.10.2026: with «Mehrere platzieren» on, the
-  Plan's Escape did nothing and there was no ✕ – no way to stop placing Durchgänge). The other tools keep their option docks (Freihand ↔ Punkte, «✓ Fertig» – the one commit, ui-conventions › Close and commit –,
+  Plan's Escape did nothing and there was no ✕ – no way to stop placing Durchgänge). **Escape is one
+  ladder on the Karte, the Plan and the station viewer** (`lib/hotkeyRoute · routeEscape`, duck sweep
+  17.11.2026): the top layer (Ebenen, Ansichten, the Passung dock, the viewer's search) → what is
+  half-made (a placement, a rotation, a line or circle being laid, the Koordinaten crosshair) → the
+  armed tool, with no draft too (the Plan kept an armed Notiz, Trupp, Mehrfach or Messen until then)
+  → the note panel → the selection; one layer per press. A sheet, menu or card over the surface, and
+  the ✥ ⟳ mode, take their Esc first and alone (ui-conventions › Overlays). Delete/Backspace has the
+  same guard: never from a field, a dialog or a menu (`lib/hotkeys · keyOwnedElsewhere`). The other tools keep their option docks (Freihand ↔ Punkte, «✓ Fertig» – the one commit, ui-conventions › Close and commit –,
   Strecke ↔ Fläche, Trupp finden). On a phone the pill stands on the floating row (above the dock
   while one is out). While Messen is armed there is no pill, on any size – its results panel
   stands in that spot (sweep 30.10.2026 #3: the pill covered the Distanz on a tablet).
@@ -126,7 +168,11 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   the Karte and every plan – wears the worst value and lists every Messpunkt of the Einsatz,
   worst first, wherever it is anchored (`lib/readingsList`, `ReadingsChip`); a row goes to the
   point on its own surface. ONE order everywhere (`compareReadings`, 28.10.2026): stage, measured
-  before empty, fresh before stale, how far past the limit, newest reading.
+  before empty, fresh before stale, how far past the limit, newest reading – with an «Erledigt»
+  point below every live one (`readingsList · doneLast`, ENT.3 17.11.2026), so the chip never
+  wears a cleared room's A2. Erledigt recedes like every symbol: the pill goes to the done look
+  (`.sym-pill.done` – neutral plate, dim ink, the value still legible) on the Karte, every plan,
+  the Gebäude list and the chip; the printed Kroki greys the glyph the same way (`kroki · _greyed`).
 
 - **A Leitung's Wassertransport and the pumps it draws** (04./05.11.2026). One section
   (`components/WaterRelay`) in two hosts: Messen › Strecke and a drawn Leitung's «Messung»

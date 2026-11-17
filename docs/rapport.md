@@ -80,6 +80,14 @@ scrolling body so it stays visible with the keyboard up):
   replaced the «Rapport erstellt · Nächster Schritt» strip and the grey «Abschliessen» tile that led
   the row from the first second (active at «4 offen», the irreversible step first – sweep R9).
   Before that moment the close is the Einsatz ▾ menu's. The ZIP of the Beilagen is in the PDF ▾ menu.
+- **No paper, or old paper, is an open point of the close** (owner pick M5 · A, 17.11.2026): while
+  `reportMadeAt` is unset the sheet «Einsatz abschliessen» lists «Rapport noch nicht erstellt» on
+  top of its open points (lib/abschlussOpen · `report`), a tap opens the Rapport, and the sheet is
+  the «Noch offen» confirm with «Trotzdem abschliessen» – printing never blocks. A finished print
+  counts exactly like a PDF. An operator's edit of a Rapport field after the paper DROPS
+  `reportMadeAt` (ReportPreflight · `persist`, the app's bookkeeping does not count): the row comes
+  back and the head falls back to the band «… PDF erstellen» instead of the green close. Only the
+  Rapport's own fields – a Verlauf row, the Anwesenheit or Mittel do not make the paper stale.
 - **Closed: one strip, the state** (owner, 12.11.2026: «either closed or the next step»). A closed
   Einsatz shows the amber «Einsatz abgeschlossen – zum Bearbeiten wieder öffnen» with «Wieder
   öffnen» beside it (the Einsatz card's action and confirm; «… – nur ansehen» without the button
@@ -119,7 +127,7 @@ Owner pick A «Ein Feld» (`components/TimeField · DateTimeField`, header there
 
 The two Visum lines (Einsatzleiter, Kommandant) can be signed with a finger instead of a pen.
 **Optional**, never asked for: the «Unterschriften» card in the right-hand column, after the
-Partnerorganisationen (the paper's order; on a phone in «Personal & Mittel»). Owner decisions and
+Partnerorganisationen (the paper's order; on a phone in «Personal & Material»). Owner decisions and
 the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignored).
 
 - **What is signed** is the signed part of the paper form – Haupt-Rapport + Personal + Material –
@@ -187,7 +195,7 @@ Einsatzjournal and the Pendenzen (`lib/readingLog · readingsForReport` → `Rep
   then the history, oldest first, the newest row bold. One row per radio report (the panel's
   `readingRows` fold); it leads with the gas the map's pill wore for those values (`worstGas`), the
   other gases beside the Stufe. Points worst first by their last reading (`compareReadings`).
-- **The Stufe is a word** – «A1 Voralarm», «A2 Hauptalarm», «über Messbereich (A2 Hauptalarm)»,
+- **The Stufe is a word** – «A1 Voralarm», «A2 Hauptalarm», «über Messbereich, A2 Hauptalarm»,
   «unlesbar». The square before it and the colour only repeat it: a monochrome print says the
   same. Worded by the composer (`labels.py`), the client sends the state.
 - **The limits print once above the table** («Grenzwerte dieses Einsatzes: …», `readingLimitsText`):

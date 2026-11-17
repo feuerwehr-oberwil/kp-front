@@ -4,7 +4,7 @@ Pinned: a visit at a pin/address needs no object and keeps its place; an object 
 where the object is; what the document must say about its target (and what is refused); an older
 build that drops ``target`` on a merge keeps the stored place; the field list, the full document
 and the organizer's feed carry ``target_kind`` + ``location``; the report prints the place
-(«Ort ohne Stationsobjekt», LV95 + WGS84, Ablage); filing goes to ``Allgemeine Meldungen/`` with
+(«Ort ohne Objekt», LV95 + WGS84, Ablage); filing goes to ``Allgemeine Meldungen/`` with
 no object folder and no year; the checklist ``targets`` field is validated.
 """
 
@@ -235,7 +235,7 @@ async def test_the_report_prints_the_place(client, editor, db_session):
     assert r.status_code == 200
     text = _pdf_text(r.content)
     for needle in (
-        "Ort ohne Stationsobjekt",
+        "Ort ohne Objekt",
         "bei Talholzstrasse 15 (Pin)",
         "Talholzstrasse 15, 4103 Bottmingen",
         "LV95 2",

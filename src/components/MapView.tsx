@@ -33,7 +33,7 @@ import { EMPTY_STYLE, END_TAG_LABEL_STYLE, mapMaxZoom, vis, fc, lineFeat, polyFe
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { WAND_MAP_PX } from '../lib/grundriss'
 import { cachedLabelSize, MARKER_Z } from '../lib/labelPass'
-import { END_TAG_HELD_OFFSET, endDirection, endTagOffset, endTagSide, endTagText, MAP_ARROW_BACK_PX } from '../lib/endTagSpots'
+import { END_TAG_HELD_OFFSET, endDirection, endTagOffset, endTagSide, endTagLabel, endTagPerson, MAP_ARROW_BACK_PX } from '../lib/endTagSpots'
 import { lineTakesTrupp, teamLineBadges, truppForLine, truppLineTone } from '../lib/truppLines'
 import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon, haversineM, bearingDeg } from '../lib/geo'
 import { hoseLines } from '../lib/hydraulics'
@@ -75,6 +75,9 @@ import { dismissRelayBubble } from '../lib/useRelay'
 import { LABEL_ABOVE, measureLabelPlacement } from '../lib/measureLabelPlace'
 import { ARROW_BOX, ARROW_STOP_BAR, arrowHeadPoints } from '../lib/mapImages'
 import { attachInsetPx, lineJoints, boundaryPoint, DETACH_SHOW_PROGRESS, dwellFor, forkPortPoint, gpsGuard, moveLineBody, relationshipNetwork, resolveLinePoints, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
+import { removeWithUndo } from '../lib/removalToast'
+import { toast } from '../lib/ui'
+import { locateFailedText } from '../lib/permissionPath'
 
 /** The ink a ghost «Spur» is drawn in — neutral grey, not the Trupp's colour: colour means
  *  IDENTITY on this map (lib/teamColors), and a trail whose marker is gone must not claim that a
@@ -250,7 +253,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
     readOnly = false, drawings: storedDrawings = VIEWER_TACTICAL.drawings, drawingsVisible = VIEWER_TACTICAL.drawingsVisible, draft = VIEWER_TACTICAL.draft, draftKind = VIEWER_TACTICAL.draftKind, placing, tapsPlace, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draftStartAttachment, draggable = VIEWER_TACTICAL.draggable, onMarkerDragStart = VIEWER_TACTICAL.onMarkerDragStart, onMarkerMove = VIEWER_TACTICAL.onMarkerMove, onMarkerDragEnd = VIEWER_TACTICAL.onMarkerDragEnd, onRotate, onShapeTransform,
     onView, onBasemapUnavailable, onSettled, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand = VIEWER_TACTICAL.freehand, onFreehand = VIEWER_TACTICAL.onFreehand, drawColor = VIEWER_TACTICAL.drawColor, drawWidth = VIEWER_TACTICAL.drawWidth, drawDashed = VIEWER_TACTICAL.drawDashed, selectedDrawingId = VIEWER_TACTICAL.selectedDrawingId, flashDrawingId, onSelectDrawing = VIEWER_TACTICAL.onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete = VIEWER_TACTICAL.onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onLinePumpPin, onDrawingAttachment, onLabelMove,
-    marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, selectedEntityIds = [], circleEnabled = false, onCircle,
+    marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, onDuplicate, selectedEntityIds = [], circleEnabled = false, onCircle,
     onSelectionDone, georefPlanRasters = [], weatherRadar = null, children, showOrigin = true, zoomCapAtBase = false } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
@@ -559,12 +562,13 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // Einsatzort. ON DEMAND, not a continuous watch: a permanent high-accuracy watchPosition keeps
   // the GPS chip powered for the whole shift, one of the biggest battery drains — and once you know
   // where you are it rarely needs re-checking. So we take a single fix each time the operator taps
-  // "Mein Standort" (locateNonce bumps), then fly to it. Best-effort: silently absent if
-  // denied/unavailable. `maximumAge` lets a very recent fix answer instantly without waking the chip.
+  // "Mein Standort" (locateNonce bumps), then fly to it. A failure is SAID (rare-user round F9,
+  // 17.11.2026 – the row closed and nothing happened): blocked names where to allow it, anything
+  // else says try again (lib/permissionPath). `maximumAge` lets a very recent fix answer instantly.
   const [userPos, setUserPos] = useState<LngLat | null>(null)
   useEffect(() => {
     if (staticView || !locateNonce) return
-    if (!('geolocation' in navigator)) return
+    if (!('geolocation' in navigator)) { toast(locateFailedText(null), { icon: 'locate', tone: 'warn' }); return }
     navigator.geolocation.getCurrentPosition(
       (p) => {
         const c: LngLat = [p.coords.longitude, p.coords.latitude]
@@ -572,7 +576,8 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
         const m = mapInst.current
         if (m) m.flyTo({ center: c, zoom: Math.max(m.getZoom(), 16), duration: motionDuration(600) })
       },
-      () => { /* denied / unavailable — leave the last known dot (if any) as is */ },
+      // the last known dot (if any) stays as is
+      (err) => toast(locateFailedText(err), { icon: 'locate', tone: 'warn' }),
       { enableHighAccuracy: true, maximumAge: 30_000, timeout: 15_000 },
     )
   }, [locateNonce, staticView])
@@ -823,7 +828,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       // endTagSide – hill climb r16, Opus 4: at 72 % along a freehand stroke's tiny last segment it
       // sat ON the arrowhead). A hand-placed tag keeps its stored ground point and the drag's
       // offset (END_TAG_HELD_OFFSET).
-      const tagSize = cachedLabelSize(endTagText(d), END_TAG_LABEL_STYLE)
+      const tagSize = cachedLabelSize(endTagLabel(d), END_TAG_LABEL_STYLE)
       const tagAt: LngLat = d.endLabelAt ?? end
       const tagOffset = d.endLabelAt ? END_TAG_HELD_OFFSET : endTagOffset(dir, tagSize.w, tagSize.h, d.arrow ? MAP_ARROW_BACK_PX : 0, side)
       // the Atemschutz-Trupp working this Leitung (anchor or number) + how it is doing right now
@@ -1664,7 +1669,9 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
             className={`measure-handle ${vertexPress.armed?.key === `measure:${i}` ? 'doomed' : ''}`}
             title={appConfig.copy.measure.deleteNode}
             {...vertexPress.press(`measure:${i}`, () => deletePointKeepTool(onMeasureDelete)(i), measurePoints.length > (measureKind === 'area' ? 3 : 2))}
-            onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); onMeasureDelete?.(i) }}
+            // the right-click is the hold's desktop twin, with the hold's floor (GESTURES.13: it
+            // used to take a Messen Strecke down to one point)
+            onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); if (measurePoints.length > (measureKind === 'area' ? 3 : 2)) onMeasureDelete?.(i) }}
           >{vertexPress.armed?.key === `measure:${i}` && <NodeDeleteChip progress={vertexPress.armed.progress} />}</div>
         </Marker>
       ))}
@@ -1769,8 +1776,9 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
               it the decorations of a line that runs under its own tag paint straight through
               the text, and the tag is the one thing on a Leitung that has to stay readable.
               Both levels come from the one stacking table (lib/labelPass · MARKER_Z). */}
-          {/* …and suppressed ⇒ no marker at all, never an empty one (see the dl labels above). */}
-          {(ld.d.content || ld.d.lineNo != null || ld.d.floorTag != null) && !suppressedLabels.has(`tag:${ld.d.id}`) && (
+          {/* …and suppressed ⇒ no marker at all, never an empty one (see the dl labels above). A
+              Leitung with only a Person on it has a tag too (endTagLabel). */}
+          {endTagLabel(ld.d) && !suppressedLabels.has(`tag:${ld.d.id}`) && (
             <Marker longitude={ld.tagAt[0]} latitude={ld.tagAt[1]} anchor="center" offset={[ld.tagOffset[0], ld.tagOffset[1]]}
               // …and ABOVE the resting tactical symbols (MARKER_Z.note…team, 4–8) once its own
               // line is selected. At rest the tag stays under the symbols, so an overlapping
@@ -1816,6 +1824,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateLineLabel(e, ld.d.id, ld.trupp?.id, ld.tone) } }}>
                 <EndTag
                   lineNo={ld.d.lineNo} content={ld.d.content} floorTag={ld.d.floorTag}
+                  who={endTagPerson(ld.d)}
                   tone={ld.tone}
                   color={ld.color}
                 />
@@ -1978,7 +1987,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
             className={`draw-handle ${editRingIdx.includes(i) ? 'draw-handle--ring' : ''} ${vertexPress.armed?.key === `draw:${i}` ? 'doomed' : ''}`}
             title={appConfig.copy.measure.deleteNode}
             {...vertexPress.press(`draw:${i}`, () => deleteVertexKeepSelection(editDraw.id, i), editDraw.coords.length > (editArea ? 3 : 2))}
-            onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); deleteVertexKeepSelection(editDraw.id, i) }}
+            onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); if (editDraw.coords.length > (editArea ? 3 : 2)) deleteVertexKeepSelection(editDraw.id, i) }}
           >{vertexPress.armed?.key === `draw:${i}` && <NodeDeleteChip progress={vertexPress.armed.progress} />}</div>
         </Marker>
         )
@@ -2081,7 +2090,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
           <Marker key={`detach-${ep}`} longitude={pt[0]} latitude={pt[1]} anchor="center" offset={[18, -18]} style={handleZ}>
             <span className="line-detach-chip" role="button" title={appConfig.copy.drawingEditor.detachConnection} aria-label={appConfig.copy.drawingEditor.detachConnection}
               onPointerDown={(ev) => ev.stopPropagation()}
-              onClick={(ev) => { ev.stopPropagation(); onDrawingAttachment(editDraw.id, ep, undefined, detachAt()) }}><Icon id="close" /></span>
+              onClick={(ev) => { ev.stopPropagation(); removeWithUndo(appConfig.copy.removedToast.connectionFreed, () => onDrawingAttachment(editDraw.id, ep, undefined, detachAt())) }}><Icon id="close" /></span>
           </Marker>
         )
       })}
@@ -2128,6 +2137,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       {/* ONE bar for every selection this surface has — see components/SelectionBar */}
       {barShown && (
         <SelectionBar onMove={barMove} onRotate={barCanRotate ? barRotate : undefined} onClose={groupActive ? barDone : undefined}
+          onDuplicate={groupActive ? undefined : onDuplicate}
           onGrab={(grabbing) => setDragPanEnabled(!grabbing)}
           armed={arm.armed} onArm={arm.toggle} />
       )}
@@ -2185,6 +2195,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
         ghostTrails={ghostTrails}
         onGhostTrail={onGhostTrail}
         teamLines={teamLines}
+        truppSeverities={truppSeverities}
         onTeamUnlink={onTeamUnlink}
         onTeamUndock={onTeamUndock}
         hiddenTrails={hiddenTrails}

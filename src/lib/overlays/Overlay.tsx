@@ -5,6 +5,7 @@ import { useDismissGrace } from './dismissGrace'
 import { useSwipeDismiss } from './swipeDismiss'
 import { popoverOpen } from './popoverGuard'
 import { useFieldFirst } from './fieldFirst'
+import { useBackLayer } from './layer'
 import { SheetGrab } from './SheetGrab'
 import { useMobileScrollLock } from './useMobileScrollLock'
 
@@ -92,6 +93,8 @@ export function Overlay({ open, onClose, className, backdropClassName = 'ui-back
   // the keyboard goes first: with a field focused, the first ✕ (the frame's own `.ip-x`, even one
   // that calls onClose itself — the Trupp form's) or outside tap only blurs it (fieldFirst)
   const { keyboardFirst, ...kbFirst } = useFieldFirst(open)
+  // the native back (Android's back, the iOS edge swipe) closes it – one layer per press (overlays/layer)
+  useBackLayer(open, onClose)
   return (
     <Dialog.Root
       open={open}

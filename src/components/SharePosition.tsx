@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { fillTemplate, formatTime, compareText } from '../lib/format'
+import { permissionPath } from '../lib/permissionPath'
 import { rankAbbr, rankOrder } from '../lib/rank'
 import { matchesQuery, searchQuery } from '../lib/search'
 import { Button, IconButton } from './Button'
@@ -39,7 +40,9 @@ function labelFor(state: Exclude<ShareState, 'off'>): string {
 function hintFor(state: Exclude<ShareState, 'off'>, imprecise: boolean): string | null {
   const C = appConfig.copy.sharePosition
   if (state === 'starting') return imprecise ? C.impreciseHint : null
-  return { on: null, starting: null, paused: C.pausedHint, denied: C.deniedHint, taken: C.takenHint, failing: C.failingHint }[state]
+  // blocked: where the switch is on THIS platform (lib/permissionPath)
+  const denied = fillTemplate(C.deniedHint, { path: permissionPath('location') })
+  return { on: null, starting: null, paused: C.pausedHint, denied, taken: C.takenHint, failing: C.failingHint }[state]
 }
 
 /**
@@ -167,7 +170,8 @@ export function SharePositionPill({ share, onChangeName }: { share: ShareApi; on
               <p className={s.note}>{fillTemplate(C.lastAt, { t: formatTime(new Date(share.lastAt), true) })}</p>
             )}
             <div className={s.actions}>
-              <Button variant="danger" onClick={() => { setOpen(false); share.stop() }}>
+              {/* a stop, not a delete – neutral (duck sweep ELEM.11) */}
+              <Button onClick={() => { setOpen(false); share.stop() }}>
                 {C.stop}
               </Button>
               <Button onClick={() => { setOpen(false); onChangeName(() => setOpen(true)) }}>

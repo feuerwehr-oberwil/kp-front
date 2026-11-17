@@ -243,7 +243,7 @@ _MAX_DISPOSITION_LEN = 150
 
 
 def _disposition_name(given: str | None, media_id: uuid.UUID, ext: str) -> str:
-    """The name a Beilage is saved under: the operator's own, sanitised, or the id fallback.
+    """The name a Verlauf Datei is saved under: the operator's own, sanitised, or the id fallback.
 
     The store has no filename column, so the journal row hands its name over as ``?name=``.
     Path separators and non-printable characters are dropped and the length is capped; the
@@ -251,7 +251,9 @@ def _disposition_name(given: str | None, media_id: uuid.UUID, ext: str) -> str:
     a different one — gets the stored one appended), so the MIME allowlist keeps deciding what
     the saved file is, never the query string. Anything that sanitises to nothing falls back.
     """
-    fallback = f"beilage-{media_id}{ext}"
+    # «Datei», the Verlauf's word for a non-image file (a picture is a «Foto», `foto-…`; «Beilage»
+    # is an enclosure of the Rapport — docs/glossary.md, ENT.12)
+    fallback = f"datei-{media_id}{ext}"
     cleaned = "".join(c for c in (given or "")[: _MAX_DISPOSITION_LEN * 2] if c.isprintable() and c not in "/\\")
     stem = cleaned.strip().strip(".")
     if ext and stem.lower().endswith(ext.lower()):
@@ -272,11 +274,11 @@ async def get_media(
     if media is None or not storage.exists(media.storage_key):
         raise HTTPException(status_code=404, detail="Medium nicht gefunden")
     _deny_media_outside_link_scope(request, media)
-    # ⚠️ A generic Beilage goes out as a DOWNLOAD (`filename=` sets Content-Disposition:
+    # ⚠️ A generic Datei goes out as a DOWNLOAD (`filename=` sets Content-Disposition:
     # attachment), never inline: a stored document must not be rendered by the browser inside
     # the app's own origin. That header also OVERRIDES the client's `download` attribute, so the
     # operator's own filename has to arrive here — the journal chip appends `?name=` (Journal.tsx)
-    # and `_disposition_name` sanitises it; without it the row falls back to `beilage-<id><ext>`.
+    # and `_disposition_name` sanitises it; without it the row falls back to `datei-<id><ext>`.
     if media.kind == "file":
         ext = _EXT.get(media.content_type or "") or mimetypes.guess_extension(media.content_type or "") or ""
         return FileResponse(

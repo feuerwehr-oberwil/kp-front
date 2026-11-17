@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import { ConfirmCard } from './ConfirmCard'
+import { Sheet } from './Sheet'
 
 afterEach(cleanup)
 
@@ -76,5 +77,22 @@ describe('ConfirmCard · open-point rows', () => {
     expect(screen.getByText('jetzt 23:41')).toBeTruthy()
     expect(document.querySelector('.confirm-list-done')).toBeTruthy()
     expect(document.querySelector('.confirm-list-chev')).toBeNull()
+  })
+})
+
+// a confirm asked FROM a sheet («Eingangsdruck tief – bestätigen?» on the Trupp form) is mounted
+// outside that sheet's tree: one Esc answers the confirm alone, the sheet stands (CONT.2)
+describe('ConfirmCard · over a sheet', () => {
+  it('takes its own Escape – the sheet under it stays open', async () => {
+    const closeSheet = vi.fn()
+    const onResolve = vi.fn()
+    render(<>
+      <Sheet open onClose={closeSheet} title="Trupp"><input aria-label="Druck" /></Sheet>
+      <ConfirmCard open {...ask} onResolve={onResolve} />
+    </>)
+    await waitFor(() => expect(document.activeElement?.closest('.confirm-card')).toBeTruthy())
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    await waitFor(() => expect(onResolve).toHaveBeenCalledWith(false))
+    expect(closeSheet).not.toHaveBeenCalled()
   })
 })

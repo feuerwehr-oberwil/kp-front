@@ -16,6 +16,7 @@ import { storeySubject, storeyAddedRow, storeyRemovedRow, storeyRestoredRow } fr
 import { type TacticalObject, sheetAnchoredIds, withOwnAnnos } from '../lib/tacticalObjects'
 import { type RecordKey, recordKey, annoRefs } from '../lib/undoKeys'
 import type { Dropper } from '../lib/undoTimeline'
+import type { UndoGlyph } from '../lib/ui'
 import type { SetBoard } from '../lib/useObjectStore'
 import { floorLabel } from '../lib/whiteboard'
 import type { BoardAnno, BoardDoc, BuildingDoc, SrcGeoref, TimelineEvent } from '../types'
@@ -39,7 +40,7 @@ export interface GebaeudeActionDeps {
   activeObjectId: string | undefined
   setActivePlanId: Dispatch<SetStateAction<string>>
   rememberGebaeudeStep: (label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: OneShotRows | 'silent') => Dropper
-  oneShotUndoToast: (text: string, label: string, restore: () => void, drop: Dropper, rows?: OneShotRows | 'silent', opts?: { kind?: string }) => number
+  oneShotUndoToast: (text: string, label: string, restore: () => void, drop: Dropper, rows?: OneShotRows | 'silent', opts?: { glyph?: UndoGlyph }) => number
   logPlan: (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number; subjectId?: string }) => void
   /** the Drehung burst still folding into one step — reset by a remote hydrate (useWorkspaceBlob) */
   lastReorient: RefObject<{ at: number; from: BuildingDoc; drop: () => void } | null>
@@ -190,7 +191,7 @@ export function useGebaeudeActions({
       ...[...sweep.before, ...sweep.after].flatMap(annoRefs)]
     // the toast and the ↶ name the storey and what went with it — the act's own row
     const drop = rememberGebaeudeStep(removedRow, restore, reapply, wrote, rows)
-    oneShotUndoToast(removedRow, removedRow, restore, drop, rows)
+    oneShotUndoToast(removedRow, removedRow, restore, drop, rows, { glyph: 'trash' })
     logPlan('close', removedRow, subject)
   }
 

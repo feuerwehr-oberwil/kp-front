@@ -9,15 +9,30 @@ import { floorBadge } from './symbolRender'
 import { boxesOverlap, type LabelBox } from './labelPass'
 import { arrowTipLeadPx } from './lineAttachments'
 import { lookbackPoint } from './lineStyle'
+import { abbreviateName } from './personnel'
 import type { BoardAnno } from '../types'
 
 /** a storey's board y for a normalized y (Whiteboard · floorGeometry · mapY) */
 type MapY = (floor: number | undefined, ly: number) => number
 
 /** The end tag's own facts as one string – «1 · S · +2» (Leitung-Nr, content letter, storey); the
- *  Trupp rides after it (EndTag). Empty for a line without any. */
+ *  name rides after it (EndTag). Empty for a line without any. */
 export function endTagText({ lineNo, content, floorTag }: { lineNo?: number; content?: string; floorTag?: number }): string {
   return [lineNo != null ? String(lineNo) : '', content ?? '', floorTag != null ? floorBadge(floorTag) : ''].filter(Boolean).join(' · ')
+}
+
+/** The name the end tag carries on the Karte and a Plan: the plain person on the Leitung
+ *  (`person`, 16.11.2026), abbreviated like a Trupp's «Meier A.» – the tag hangs mid-picture and
+ *  a full name grows sideways across it. Never a Trupp's: its marker stands at this end and IS
+ *  that name (11.10.2026). The printed Kroki names both (krokiPayload · drawings). */
+export function endTagPerson({ person }: { person?: string }): string | undefined {
+  return person?.trim() ? abbreviateName(person) : undefined
+}
+
+/** …the whole tag as it is MEASURED: the facts, and the person as a second row – the tag stacks
+ *  every text run (09-whiteboard.css · .line-end-tag). Empty when the tag draws nothing. */
+export function endTagLabel(line: { lineNo?: number; content?: string; floorTag?: number; person?: string }): string {
+  return [endTagText(line), endTagPerson(line)].filter(Boolean).join('\n')
 }
 
 /** clearance between the stroke and the tag's near edge, px – a 15.25 px centre-lift on a level line (a 19.5 px tag) */
@@ -124,8 +139,12 @@ export function placeEndTag(pts: readonly (readonly [number, number])[], w: numb
 
 /** The end tag's box as the sheet will draw it – estimated, not measured, so the spot is known
  *  before the first paint and never jumps: the `.line-end-tag` (--fs-1/700, 2 px/4 px + the 1.5 px
- *  ring, hill climb r17) is 19.5 px tall and ~6.25 px per character plus its 11 px of chrome wide. */
-export const tagSize = (text: string) => ({ w: 11 + text.length * 6.25, h: 19.5 })
+ *  ring, hill climb r17) is 19.5 px tall and ~6.25 px per character plus its 11 px of chrome wide.
+ *  Each further row (`\n`, endTagLabel) stacks one more 12.5 px line (line-height 1). */
+export function tagSize(text: string): { w: number; h: number } {
+  const rows = text.split('\n')
+  return { w: 11 + Math.max(...rows.map((r) => r.length)) * 6.25, h: 19.5 + (rows.length - 1) * 12.5 }
+}
 
 /** a Linie's points in board px, each on its own storey's section (`mapY`) */
 export const boardPts = (a: BoardAnno, sW: number, sH: number, mapY: MapY) =>
@@ -142,7 +161,7 @@ export function planEndTagSpots(annos: readonly BoardAnno[], obstacles: readonly
   const spots = new Map<string, [number, number]>()
   for (const a of annos) {
     if (a.kind !== 'draw' || (a.pts?.length ?? 0) < 2) continue
-    const text = endTagText(a)
+    const text = endTagLabel(a)
     if (!text) continue
     const { w, h } = tagSize(text)
     const at = placeEndTag(boardPts(a, sW, sH, mapY), w, h, taken, planArrowBackPx(a))

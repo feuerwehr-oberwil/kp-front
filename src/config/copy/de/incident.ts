@@ -10,7 +10,7 @@ export const incidentCopy = {
     // the card's clock pill (27.09.2026, slim sweep · mockup 10): the glyph is the label, the
     // full sentence is its title (startedFull)
     startedRow: '{t} · {d}',
-    startedFull: 'Einsatzbeginn {t} · {d}',
+    startedFull: 'Zeit Alarmierung {t} · {d}',
     saved: 'Synchronisiert',
     badgePending: 'Wird gespeichert und synchronisiert',
     badgeOffline: 'Offline – auf diesem Gerät gespeichert',
@@ -38,7 +38,7 @@ export const incidentCopy = {
     bootListFailed: 'Einsatzliste nicht geladen',
     // A human's open (launch card / switcher / banner / Verlauf) failed and the server gave no
     // usable reason of its own (App · openIncident)
-    openFailed: 'Einsatz nicht geöffnet – erneut versuchen',
+    openFailed: 'Einsatz nicht geöffnet – nichts verloren, erneut antippen',
     // …because the server could not be asked and no workspace is cached on this device
     openFailedNoCache: 'Dieser Einsatz ist auf diesem Gerät nicht gespeichert – braucht Netz',
     syncNow: 'Jetzt synchronisieren',
@@ -46,7 +46,6 @@ export const incidentCopy = {
     // looked exactly like no tap at all. Now the icon spins while it runs and a message says
     // what came of it.
     syncDone: 'Alles synchronisiert',
-    syncFailedToast: 'Nicht synchronisiert – Änderungen bleiben auf diesem Gerät gespeichert.',
     // group titles in the menu: this Einsatz first (its card), then WHICH Einsatz, then the app.
     incidents: 'Einsätze',
     app: 'App',
@@ -64,7 +63,7 @@ export const incidentCopy = {
     editMetaShort: 'Bearbeiten',
     archiveShort: 'Abschliessen',
     // der Zähler schon im Menü, damit die Prüfung sichtbar ist, bevor jemand drückt
-    archiveOpen: '{n} offen',
+    archiveOpen: 'Rapport: {n} offen',
     // «Teilen» in der Karte des aktiven Einsatzes — die zweite Tür zum Einsatz-Link, der bis
     // 01.09. nur im Rapport stand. Mitten im Einsatz will ihn jemand einer Nachbarwehr
     // hinhalten und nicht dafür die Abschluss-Fläche öffnen. Gleiche Fläche wie dort.
@@ -88,6 +87,11 @@ export const incidentCopy = {
     viewOnlyWhy: { viewer: 'Betrachter', el: 'Einsatzleitung', link: 'Einsatz-Link' },
     // the closed pill's red dot (M11 B): another Einsatz has a Trupp at the alarm tier
     foreignAlarmDot: 'Atemschutz-Alarm in einem anderen Einsatz',
+    // C8 (17.11.2026): a view-link guest whose browser holds no login – the identity row says
+    // «Einsatz-Link · Betrachter» and offers the way to the bare site’s sign-in
+    login: 'Anmelden',
+    // …or (C10, 17.11.2026) simply another REAL Einsatz running – an Übung alone never lights it
+    otherEinsatzDot: 'Weiterer Einsatz läuft',
   },
   // Persistentes Band, solange ein abgeschlossener Einsatz nur-lesend offen ist (ArchivedBanner).
   // ⚠️ EIN WORTPAAR für den ganzen Lebenslauf: abschliessen / wieder öffnen. «Archiviert» und
@@ -167,7 +171,6 @@ export const incidentCopy = {
     deleteConfirmTitle: 'Übung löschen',
     deleteConfirmMsg: 'Die Übung wird mit allen Daten (Verlauf, Fotos, Rapport) endgültig gelöscht. Das kann nicht rückgängig gemacht werden.',
     deleteConfirmBtn: 'Endgültig löschen',
-    deleted: 'Übung gelöscht',
     // quick filters over the list (27.10.2026): Ernstfall | Übung, one Einsatzart, Rapport offen
     filterAria: 'Einsätze filtern',
     filterKindHead: 'Ernstfall / Übung',
@@ -176,8 +179,17 @@ export const incidentCopy = {
     filterExercise: 'Übung',
     filterType: 'Einsatzart',
     filterRapportOpen: 'Rapport offen',
-    filterNoHits: 'Kein Einsatz passt zu diesen Filtern.',
     deleteFailed: 'Nicht gelöscht – bleibt in der Liste',
+    // the list's own states, never folded into «Noch keine Einsätze» (LISTS.1, 17.11.2026)
+    loading: 'Einsätze werden geladen …',
+    loadFailed: 'Die Einsätze konnten nicht geladen werden.',
+    offlineCached: 'Ohne Netz – hier stehen die laufenden Einsätze dieses Geräts. Abgeschlossene braucht den Server.',
+    offlineNothing: 'Ohne Netz – die Liste braucht den Server. Auf diesem Gerät ist keine gespeichert.',
+    retry: 'Erneut versuchen',
+    // the line that names the Einsatz above a lifecycle confirm's buttons (lib/einsatzSubject)
+    confirmSubject: 'Zeit Alarmierung {t}',
+    confirmSubjectExercise: '{name} · Übung',
+    filterClear: 'Alle zeigen',
   },
   // Abschluss-Assistent — the guided closing ritual over the EXISTING views. Every small
   // incident is a training run on the big-incident tool (practice rationale, 2026-07-08).
@@ -247,6 +259,9 @@ export const incidentCopy = {
     failed: 'Abschluss nicht bestätigt – Status prüfen',
     corrected: 'Stunden korrigiert: {name}',
     attendanceRemoved: '{name} Anwesenheit entfernt',
+    // the close sheet's first open point while neither a PDF nor a finished print exists (M5 · A,
+    // 17.11.2026); an edit after the paper makes it «noch nicht erstellt» again
+    reportMissing: 'Rapport noch nicht erstellt',
   },
   // sync the roster with the configured personnel source
   personnelSync: {

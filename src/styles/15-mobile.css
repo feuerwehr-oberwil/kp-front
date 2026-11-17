@@ -822,18 +822,16 @@
      of the sentence shrink to what they hold: 40 for «19:05» (37.5px at 12.5 mono), the 24px disc
      with no band around it. 8 + 8 + 40 + 8 + 24 + 8 = 96. The Pendenzen rows mirror it (8 + 1 +
      7 + 40 + 8 + 24 + 8) — one axis, as on the tablet (06-contextpanel · .hist-ev, .jr-pinned-row).
-     ⚠️ 96 is the floor the Pendenzen TARGETS set, not a taste: the clock's pad and the ring's pad
-     are two 44px targets side by side between the box's inner edge (9) and the text, and the
-     ring's may not reach over the clock's digits (they end at 53.5). Clock pad 9…54, ring pad
-     54…98 — 2px into the text, which is the row's own target anyway (06 · .jr-pinned-text). */
+     ⚠️ 96 is the floor the Pendenzen tick sets, not a taste: its 44px button (TickRow) stands
+     10px out either side of the 24px slot, and may not reach over the clock's digits (they end
+     at 53.5) – 54…98, 2px into the text, which is the row's own target anyway (06 · .jr-pinned-text). */
   .journal-drawer > :is(.jr-strip, .jr-pinned, .history-list) { margin-inline: calc(-1 * var(--sp-1)); }
   .journal-drawer > .history-list { padding-inline: 0; }
   .hist-ev { grid-template-columns: 40px var(--jr-disc) minmax(0, 1fr) fit-content(50%); }
   .hist-ev .t { width: 40px; }
   .jr-pinned-row .jr-when { width: 40px; }
-  .jr-pinned-row .jr-rem { width: 24px; }
-  .jr-pinned-row .jr-when::before { width: 45px; }
-  .jr-pinned-row button.jr-rem::before { left: 45px; width: 44px; }
+  .jr-pinned-row .jr-pin-tick { width: 24px; }
+  .jr-pinned-row button.jr-pin-tick { width: var(--tap); margin-inline: -10px; }
 
   /* The suggestion row keeps its space even when it has nothing to suggest. The composer is
      bottom-anchored here, so a row that comes and goes between the field and the chips moves
@@ -1385,40 +1383,6 @@
   .set-row .useg, .set-row .step { margin-left: auto; }
   /* the sliders take the full wrapped row rather than a 260px slot — a thumb needs the travel */
   .set-row .set-range { flex: 1 1 100%; }
-
-  /* Einsätze list rows: title + two status badges + the Reaktivieren button never fit one
-     line — badges slid under the button and the title crushed to one character. Text block
-     takes the full width (badges wrap below the title), the action drops to its own line. */
-  .ip-hist { flex-wrap: wrap; }
-  .ip-hist-main { flex: 1 1 100%; }
-  .ip-hist-title { flex-wrap: wrap; row-gap: 4px; }
-  /* title ALWAYS owns its line (wrapping instead of mid-word ellipsis), so the badges land
-     together on the row below — not sometimes-beside, sometimes-under (landing feedback) */
-  .ip-hist-name { flex: 1 1 100%; white-space: normal; }
-  /* ⚠️ Only the FIRST action takes the auto margin. With it on every button the wrapped row had
-     two auto margins in it, and flexbox split the free space BETWEEN them — «Wieder öffnen» sat
-     at the left of the row and «Löschen» at the right, with a hand's width of nothing between
-     two actions that belong to the same Einsatz (18.09.2026). One auto margin pushes the whole
-     pair to the right end, the flex gap holds them apart. */
-  .ip-hist > .ip-btn { margin-left: auto; }
-  .ip-hist > .ip-btn + .ip-btn { margin-left: 0; }
-  /* …an OPEN row: the title spans the card, the metadata follows 8px under it, and the one
-     compact «Abschliessen» stands at the right end of its last line, the place (hill climb r36,
-     06.11.2026 – beside the whole text block the button squeezed the title into three lines and
-     broke the duration off its line; beside both metadata lines it still did, so the «when» line
-     keeps the card's width). The open button stays ONE button over the whole card: it spans the
-     grid and lays its lines out on the card's own columns (subgrid, MeasurePanel's `.mp-row-btn`
-     recipe), so the action – a sibling, a button cannot hold a button – lands in column 2, 8px
-     from the place. The first templates are the fallback for an engine without subgrid. */
-  .ip-hist-live { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto auto;
-    column-gap: var(--sp-2); row-gap: 0; }
-  .ip-hist-live > .ip-hist-main { grid-column: 1 / -1; grid-row: 1 / -1; display: grid;
-    grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto auto;
-    grid-template-columns: subgrid; grid-template-rows: subgrid; }
-  .ip-hist-live .ip-hist-title { grid-column: 1 / -1; grid-row: 1; padding-bottom: var(--sp-2); }
-  .ip-hist-live .ip-hist-when { grid-column: 1 / -1; grid-row: 2; margin-top: 0; padding-bottom: var(--sp-1); }
-  .ip-hist-live .ip-hist-sub { grid-column: 1; grid-row: 3; align-self: center; margin-top: 0; }
-  .ip-hist-live > .ip-btn { grid-column: 2; grid-row: 3; margin-left: 0; }
 }
 
 /* Below ~355px even the 88px freed by dropping undo/redo is not enough for the Atemschutz

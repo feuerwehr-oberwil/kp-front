@@ -1,7 +1,8 @@
 // The two sheets of a visit: Foto (caption + what it belongs to, right after the camera) and
 // Korrekturvorschlag. Phone bottom sheets through lib/overlays (Sheet, SheetFoot by `footer`).
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { pointAtField } from '../../lib/pointAtField'
 import { Icon } from '../../lib/icons'
 import { Button } from '../Button'
 import { appConfig } from '../../config/appConfig'
@@ -9,6 +10,7 @@ import { Menu, Sheet } from '../../lib/overlays'
 import { MenuPick } from '../MenuPick'
 import { LoadingStatus } from '../ShellLoader'
 import { Segmented } from '../Segmented'
+import { ONE_LINE } from '../../lib/fieldKeys'
 import type { Item } from '../../lib/checklists'
 import { newId } from '../../lib/ids'
 import type { ProposalField, VisitPhoto, VisitProposal, VisitTemplate } from '../../objectVisits/types'
@@ -41,11 +43,10 @@ export function PhotoSheet({ visitId, photo, preparing, stored, items, readOnly,
       open
       onClose={onClose}
       title={C.photoTitle}
+      // a LIVE sheet – the caption and the pick are saved as they are made – so it ends on its ✕
+      // and has no «Fertig» (docs/ui-conventions · editor sheets; duck sweep FEEDBACK.8, 17.11.2026)
       footer={readOnly ? undefined : (
-        <>
-          <Button icon={<Icon id="cam" />} onClick={onAnother} disabled={preparing}>{C.photoAnother}</Button>
-          <Button variant="primary" onClick={onClose}>{C.photoDone}</Button>
-        </>
+        <Button icon={<Icon id="cam" />} onClick={onAnother} disabled={preparing}>{C.photoAnother}</Button>
       )}
     >
       {preparing || !photo
@@ -58,7 +59,7 @@ export function PhotoSheet({ visitId, photo, preparing, stored, items, readOnly,
             <label className="ip-field">
               <span>{C.photoCaption}</span>
               <input className={s.input} value={photo.caption} placeholder={C.photoCaptionPlaceholder} maxLength={300}
-                onChange={(e) => onCaption(e.target.value)} />
+                {...ONE_LINE} onChange={(e) => onCaption(e.target.value)} />
             </label>
             {items.length > 0 && (
               <div className="ip-field">
@@ -122,6 +123,13 @@ export function ProposalSheet({ proposal, fields, asOf, onSave, onRemove, onClos
   const options = [...fields.map((f) => ({ value: f.id, label: f.label })), { value: OTHER, label: C.proposalOther }]
   const label = field === OTHER ? otherLabel.trim() : fields.find((f) => f.id === field)?.label ?? ''
   const valid = !!label && !!proposed.trim()
+  // a blocked «Speichern» points at what is missing (ui-conventions · F2, duck sweep ELEM.4)
+  const otherRef = useRef<HTMLInputElement>(null)
+  const proposedRef = useRef<HTMLInputElement>(null)
+  const pointAtMissing = () => {
+    const el = !label ? otherRef.current : proposedRef.current
+    pointAtField(el?.closest<HTMLElement>('.ip-field') ?? el, { focus: el })
+  }
 
   const save = () => {
     if (!valid) return
@@ -146,7 +154,7 @@ export function ProposalSheet({ proposal, fields, asOf, onSave, onRemove, onClos
           {proposal && onRemove && (
             <Button variant="danger" onClick={() => onRemove(proposal)} aria-label={C.proposalRemove}><Icon id="trash" /></Button>
           )}
-          <Button variant="primary" disabled={!valid} onClick={save}>{C.proposalSave}</Button>
+          <Button variant="primary" aria-disabled={!valid} onClick={valid ? save : pointAtMissing}>{C.proposalSave}</Button>
         </>
       )}
     >
@@ -157,20 +165,20 @@ export function ProposalSheet({ proposal, fields, asOf, onSave, onRemove, onClos
       {field === OTHER && (
         <label className="ip-field">
           <span>{C.proposalOtherLabel}</span>
-          <input className={s.input} value={otherLabel} onChange={(e) => setOtherLabel(e.target.value)} />
+          <input ref={otherRef} className={s.input} value={otherLabel} {...ONE_LINE} onChange={(e) => setOtherLabel(e.target.value)} />
         </label>
       )}
       <label className="ip-field">
         <span>{`${C.proposalCurrent} (${C.proposalCurrentHint})`}</span>
-        <input className={`${s.input} ${s.dashed}`} value={current} onChange={(e) => setCurrent(e.target.value)} />
+        <input className={`${s.input} ${s.dashed}`} value={current} {...ONE_LINE} onChange={(e) => setCurrent(e.target.value)} />
       </label>
       <label className="ip-field">
         <span>{C.proposalNew}</span>
-        <input className={s.input} value={proposed} onChange={(e) => setProposed(e.target.value)} />
+        <input ref={proposedRef} className={s.input} value={proposed} {...ONE_LINE} onChange={(e) => setProposed(e.target.value)} />
       </label>
       <label className="ip-field">
         <span>{C.proposalReason}</span>
-        <input className={s.input} value={reason} placeholder={C.proposalReasonPlaceholder} onChange={(e) => setReason(e.target.value)} />
+        <input className={s.input} value={reason} placeholder={C.proposalReasonPlaceholder} {...ONE_LINE} onChange={(e) => setReason(e.target.value)} />
       </label>
     </Sheet>
   )
@@ -188,10 +196,11 @@ export function ChecklistSheet({ templates, current, onPick, onClose }: {
   const isCurrent = (t: VisitTemplate | null) =>
     (t?.id ?? null) === (current?.id ?? null) && (t == null || (t.version ?? 0) === (current?.version ?? 0))
   const row = (t: VisitTemplate | null) => (
-    // the current one says so in its tag, not with the ink pill (`on` is «where you are» beside a list)
+    // a PICK-ONE list (duck sweep LISTS.9): no row wears a ›, since a tap only chooses; the current
+    // one is the trailing ✓ in the choice blue, its word for a screen reader – not a green tag
     <ListRow key={t?.id ?? '__none__'} lead={t ? <Icon id="checklist" /> : <span aria-hidden />} title={t ? t.title : C.noChecklist} sub={t?.subtitle}
-      onClick={() => onPick(t)} aria-current={isCurrent(t) || undefined} chevron={!isCurrent(t)}
-      end={isCurrent(t) && <span className="ip-badge ip-badge-ok">{C.checklistCurrent}</span>} />
+      onClick={() => onPick(t)} aria-current={isCurrent(t) || undefined} chevron={false}
+      end={isCurrent(t) && <span className={s.pickTick}><Icon id="check" /><span className="sr-only">{C.checklistCurrent}</span></span>} />
   )
   return (
     <Sheet open onClose={onClose} title={C.changeChecklist}>

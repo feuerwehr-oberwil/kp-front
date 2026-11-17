@@ -106,6 +106,21 @@ describe('ReportPreflight · the PDF with missing Mindestangaben', () => {
 
 })
 
+// ENT.9 (17.11.2026): the PDF printed «ÜBUNG» while the screen the EL signed on said nothing
+describe('ReportPreflight · an Übung', () => {
+  it('wears the Übung tag in its head, and a real Einsatz does not', async () => {
+    const props = { reportMeta: {}, events: [], annotatedPlanCount: 0, truppCount: 0, attendanceCount: 1, mittelCount: 1, onSaveMeta: () => {} }
+    render(<ReportPreflight incident={{ ...incident, is_exercise: true }} {...props} />)
+    await act(async () => {})
+    expect(document.querySelector('.rp-head h2 .ip-badge-exercise')?.textContent).toBe(appConfig.copy.exerciseBadge)
+    expect(screen.getByRole('heading', { level: 2 }).getAttribute('aria-label')).toContain(appConfig.copy.exerciseBadge)
+    cleanup()
+    render(<ReportPreflight incident={incident} {...props} />)
+    await act(async () => {})
+    expect(document.querySelector('.rp-head .ip-badge-exercise')).toBeNull()
+  })
+})
+
 // owner, 31.10.2026: the pencil went – the card is the pointer's target, its heading the keyboard's
 describe('ReportPreflight · the Einsatzdaten card', () => {
   it('opens from the keyboard on its heading, even where the Rapport itself may not be written', async () => {

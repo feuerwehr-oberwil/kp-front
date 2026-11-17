@@ -2,6 +2,7 @@ import { forwardRef } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
+import { leaveOnEnter } from '../lib/fieldKeys'
 
 /**
  * A one-line text field with a ✕ that empties it.
@@ -15,6 +16,9 @@ import { cx } from '../lib/cx'
  * ⚠️ NOT for fields whose content is a record. The ✕ is a one-tap wipe with no undo behind it,
  * so it belongs on values that are being composed, never on ones that have been committed
  * (times, pressures, names on the Anwesenheit). If in doubt it does not get one.
+ *
+ * Return is «done» (commit, keyboard down) and Esc keeps the text and leaves – lib/fieldKeys, once
+ * here for every caller (ELEM.8, 17.11.2026: the Rapport's Kontaktperson kept the keys up).
  *
  * The ✕ appears only when there is something to clear, keeps the input focused through the tap
  * (`onMouseDown` preventDefault — otherwise the field blurs and the phone keyboard closes on
@@ -39,7 +43,11 @@ export const ClearableInput = forwardRef<HTMLInputElement, {
           className={cx('ci-input', className)}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          enterKeyHint="done"
           {...rest}
+          // Return commits and puts the keyboard down, Esc keeps the text and leaves (lib/fieldKeys)
+          // – after the caller's own keys, which win where they take one (the partner row's add)
+          onKeyDown={(e) => { rest.onKeyDown?.(e); if (!e.defaultPrevented) leaveOnEnter(e) }}
         />
         {value !== '' && !rest.disabled && !rest.readOnly && (
           <button

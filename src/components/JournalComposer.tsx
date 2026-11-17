@@ -2,6 +2,7 @@ import { ShellLoader } from './ShellLoader'
 import { Button } from './Button'
 import { Chip } from './Chip'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { pointAtField } from '../lib/pointAtField'
 import { useIsPhone } from '../lib/useIsPhone'
 import { Icon } from '../lib/icons'
 import { Menu, Overlay } from '../lib/overlays'
@@ -9,6 +10,7 @@ import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { fillTemplate, fmtFileSize, formatTime, hhmm, pad2, stripUnprintable, formatLocale } from '../lib/format'
 import { toast } from '../lib/ui'
+import { micFailedText } from '../lib/permissionPath'
 import { ApiError } from '../lib/api'
 import { forgetLocalThumb, mintLocalThumb, thumbUrl } from '../lib/mediaUrl'
 import { forgetPhotoGeo, photoGeoSettled, rememberPhotoGeo } from '../lib/photoGeo'
@@ -255,6 +257,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // opens on; null = closed. Anchored to the clock button, which `dueWrapRef` holds.
   const [exact, setExact] = useState<{ day: string; hhmm: string; anchor: DOMRect } | null>(null)
   const dueWrapRef = useRef<HTMLSpanElement>(null)
+  /** the imported memo's «Startzeit» row – what a blocked «Erfassen» points at */
+  const importStartRef = useRef<HTMLDivElement>(null)
   // ── the ○ switch: aus → offen → dringend → aus ────────────────────────────────────────────
   // ⚠️ THREE states on ONE control, not a second chip appearing beside it. A chip that shows up
   // on tap pushes the row onto a second line — the sheet grows under the thumb on the one surface
@@ -400,6 +404,12 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   /** the ONE upload picker: pictures, recordings and documents in a single dialog (the camera
    *  button beside it stays, because «take a picture now» is a different gesture) */
   const attachRef = useRef<HTMLInputElement>(null)
+  /** Why the last pick / upload did not attach – ONE line at the attach row, not a toast over the
+   *  open sheet (toast diet, 17.11.2026, call 3: a refusal inside an open form is said at the
+   *  field). `skip`: the offline refusal's «Ohne Beilage erfassen» stands beside it. Cleared by the
+   *  next pick, a removal, or the next save attempt. */
+  const [attachWarn, setAttachWarn] = useState<{ text: string; skip?: boolean } | null>(null)
+  const sayAttach = (text: string, skip?: boolean) => setAttachWarn({ text, skip })
   // closing the composer mid-upload means "cancel": the upload may finish server-side (the
   // orphaned blob is harmless) but no journal row is created after unmount. The unmount also
   // revokes the imported preview URL — saves/closes must not pin up to 100 MB per import.
@@ -420,16 +430,15 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     alive.current = false
     const pending = importedRef.current
     if (pending) URL.revokeObjectURL(pending.url)
-    if (pending && !filedRef.current) {
-      // read here rather than off the render closure, so the resolved locale applies (config/copy)
-      const dropped = appConfig.copy.journal.audioImportDropped
-      toast(fillTemplate(dropped, { name: pending.name }), { icon: 'warn', tone: 'warn' })
-    }
-    if (!filedRef.current) {
-      for (const f of filesRef.current) {
-        toast(fillTemplate(appConfig.copy.journal.attachDropped, { name: f.name }), { icon: 'warn', tone: 'warn' })
-      }
-    }
+    if (filedRef.current) return
+    // ONE toast for everything the close dropped (toast diet, 17.11.2026 – it was one per file).
+    // Read here rather than off the render closure, so the resolved locale applies (config/copy).
+    const J = appConfig.copy.journal
+    const names = [...(pending ? [pending.name] : []), ...filesRef.current.map((f) => f.name)]
+    const said = names.length > 1 ? fillTemplate(J.attachDroppedMany, { n: names.length, names: names.map((n) => `«${n}»`).join(', ') })
+      : pending ? fillTemplate(J.audioImportDropped, { name: pending.name })
+        : names.length ? fillTemplate(J.attachDropped, { name: names[0] }) : null
+    if (said) toast(said, { icon: 'warn', tone: 'warn' })
   }, [])
 
   // In-app voice-to-text dictation was removed — use the native OS keyboard dictation
@@ -475,7 +484,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
         setRecording(false); setElapsed(0)
       }
       recRef.current = { rec, startedAt }; setRecording(true); rec.start()
-    } catch { toast(appConfig.copy.toast.micDenied, { icon: 'mic', tone: 'warn' }) }
+    } catch (e) { toast(micFailedText(e), { icon: 'mic', tone: 'warn' }) }
   }
 
   const discardClip = () => { clipAudio.current?.pause(); setClipPlaying(false); if (clip) URL.revokeObjectURL(clip.url); setClip(null) }
@@ -489,7 +498,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   const importAudioFile = async (f: File) => {
     const v = validateAudioImport(f)
     if (!v.ok) {
-      toast(v.reason === 'size' ? fillTemplate(C.audioTooLarge, { max: MAX_AUDIO_UPLOAD_MB }) : C.audioUnsupported, { icon: 'warn', tone: 'warn' })
+      sayAttach(v.reason === 'size' ? fillTemplate(C.audioTooLarge, { max: MAX_AUDIO_UPLOAD_MB }) : C.audioUnsupported)
       return
     }
     discardClip(); discardImport() // one audio per entry — the new pick replaces both
@@ -505,10 +514,10 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   const attachFile = (f: File) => {
     // no upload channel (a surface that renders the composer without one) — refuse the pick
     // here rather than staging a Beilage that would be dropped silently on save
-    if (!uploadFile) { toast(C.attachUploadFailed, { icon: 'warn', tone: 'warn' }); return }
+    if (!uploadFile) { sayAttach(C.attachUploadFailed); return }
     const v = validateFileImport(f)
     if (!v.ok) {
-      toast(v.reason === 'size' ? fillTemplate(C.attachTooLarge, { max: MAX_FILE_UPLOAD_MB }) : C.attachUnsupported, { icon: 'warn', tone: 'warn' })
+      sayAttach(v.reason === 'size' ? fillTemplate(C.attachTooLarge, { max: MAX_FILE_UPLOAD_MB }) : C.attachUnsupported)
       return
     }
     setFiles((list) => [...list, { file: f, name: f.name || 'Beilage', contentType: v.contentType }])
@@ -518,6 +527,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
    *  THE voice memo of the entry (one per row), everything else lands as a named Beilage. What
    *  was picked decides — the operator picks a file, not a category. */
   const takePick = (picked: File[]) => {
+    setAttachWarn(null) // a new pick answers for itself
     const images = picked.filter((f) => classifyPick(f) === 'photo')
     const audios = picked.filter((f) => classifyPick(f) === 'audio')
     if (images.length) addPhotos(images)
@@ -525,7 +535,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     // ⚠️ One recording per Eintrag — but a pick that brought several must SAY which ones it did
     // not take. Silently keeping the first is the loss the composer refuses everywhere else.
     if (audios.length > 1) {
-      toast(fillTemplate(C.attachAudioExtra, { names: audios.slice(1).map((f) => f.name).join(', ') }), { icon: 'warn', tone: 'warn' })
+      sayAttach(fillTemplate(C.attachAudioExtra, { names: audios.slice(1).map((f) => f.name).join(', ') }))
     }
     for (const f of picked) if (classifyPick(f) === 'file') attachFile(f)
   }
@@ -536,7 +546,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   }
   // by POSITION, not by name: two «Bericht.pdf» from two folders are two Beilagen, and removing
   // one of them may not take the other with it
-  const discardFile = (i: number) => setFiles((list) => list.filter((_, n) => n !== i))
+  const discardFile = (i: number) => { setAttachWarn(null); setFiles((list) => list.filter((_, n) => n !== i)) }
 
   // Pasting a copied Voice Memo (or photo, or PDF) is the easier mobile path than the Files
   // detour — handled on the composer root so a paste into the textarea bubbles here too.
@@ -567,11 +577,10 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     return out
   }
   const sayFileUploadFailed = (e: unknown) => {
-    toast(
+    sayAttach(
       e instanceof ApiError && e.status === 413 ? fillTemplate(C.attachTooLarge, { max: MAX_FILE_UPLOAD_MB })
         : e instanceof ApiError && e.status === 415 ? C.attachUnsupported
           : C.attachUploadFailed,
-      { icon: 'warn', tone: 'warn' },
     )
   }
 
@@ -584,7 +593,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     // (e.g. 23:50 entered at 23:49 rolled to yesterday, but the operator saves at 23:52)
     const startAt = resolveRecordingStart(startHHMM)
     if (!startAt) return
-    if (!navigator.onLine) { toast(C.audioOffline, { icon: 'warn', tone: 'warn' }); return }
+    if (!navigator.onLine) { sayAttach(C.audioOffline); return }
     setUploading(true)
     // Beilagen first — they are the cheap half, so a refusal comes back fast. Whichever half
     // fails, the sheet stays open with everything on it and a retry re-sends: an orphaned blob
@@ -627,7 +636,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       const msg = e instanceof ApiError && e.status === 413 ? fillTemplate(C.audioTooLarge, { max: MAX_AUDIO_UPLOAD_MB })
         : e instanceof ApiError && e.status === 415 ? C.audioUnsupported
         : C.audioUploadFailed
-      toast(msg, { icon: 'warn', tone: 'warn' })
+      sayAttach(msg)
       setUploading(false)
     }
   }
@@ -652,6 +661,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     : text.trim().length > 0 || clip != null || photos.length > 0 || files.length > 0
   const submit = () => {
     if (!canSend || uploading || locating) return
+    setAttachWarn(null) // this attempt answers for itself
     if (imported) { void submitImported(); return } // …which clears the draft once the upload lands
     if (files.length) { void submitWithFiles(); return } // …ditto, once the Beilagen land
     submitRow([])
@@ -684,8 +694,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       audioMeta: clip ? { source: 'recorded', startedAt: clip.startedAt, durationSec: clip.secs } : undefined,
     })
   }
-  // the toast's «Ohne Beilage erfassen» outlives the render that raised it: it files the sheet
-  // as it stands THEN, and nothing once the sheet is gone or the row was filed another way
+  // «Ohne Beilage erfassen» (the attach row's offline line) files the sheet as it stands at the
+  // press, and nothing once the sheet is gone or the row was filed another way
   const fileWithoutRef = useRef(() => {})
   useEffect(() => {
     fileWithoutRef.current = () => {
@@ -702,10 +712,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       // 09.11.2026, UX.12): «Ohne Beilage erfassen» files what was written, as it stands when the
       // button is pressed. Only where there IS something besides the Beilage.
       const rest = text.trim().length > 0 || clip != null || photos.length > 0
-      toast(C.attachOffline, {
-        icon: 'warn', tone: 'warn', kind: 'attach-offline',
-        ...(rest ? { action: { label: C.attachOfflineSkip, onClick: () => fileWithoutRef.current() } } : {}),
-      })
+      sayAttach(C.attachOffline, rest)
       return
     }
     setUploading(true)
@@ -994,7 +1001,10 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                     <span className="jc-chip-word">{C.entryTypesWrap[t] ?? C.entryTypes[t]}</span>
                     {/* …and the single letter that stands for the word once there is no room for it
                         (see 10-journal.css · .is-compact). Taken off the LOCALE's own label, so it is
-                        «I · A · S» in German and whatever the other three read in theirs. */}
+                        «I · A · S» in German and whatever the other three read in theirs. Back in
+                        the compact row since round 2 of the rare-user round (owner, 17.11.2026: a
+                        crew that uses it knows the letters; the two-line «Sofort-massnahme» was not
+                        better) */}
                     <span className="jc-chip-letter" aria-hidden>{C.entryTypes[t].charAt(0)}</span>
                   </button>
                 ))}
@@ -1026,7 +1036,6 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 <span className="jc-openwrap" ref={dueWrapRef}>
                 <Menu
                   keepFocusRef={phone ? textRef : undefined}
-                  modal={!phone}
                   side="top"
                   align="end"
                   popupClassName="rp-print-menu jc-pendenz-menu"
@@ -1071,7 +1080,6 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 <span className="jc-openwrap">
                 <Menu
                   keepFocusRef={phone ? textRef : undefined}
-                  modal={!phone}
                   side="top"
                   align="end"
                   popupClassName="rp-print-menu jc-pendenz-menu"
@@ -1183,6 +1191,33 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 <Icon id="upload" /><span className="jc-lbl">{C.attachUploadShort}</span>
               </button>
               <button className="jc-rec" onClick={() => fileRef.current?.click()} title={C.photo} aria-label={C.photo}><Icon id="cam" /><span className="jc-lbl">{C.photo}</span></button>
+              {/* ── rung 2 folds the three into ONE paper-clip (owner pick M9 · A, 17.11.2026) ──
+                  «I · A · S» beside three bare media glyphs was eight marks to decode; now it is
+                  the letters, the clock, the ring and the clip. The menu rows carry glyph + word.
+                  ⚠️ Not while recording: the lit mic (stop + seconds) stays in the row – the one
+                  way to end a recording cannot hide behind a menu. 10-journal.css · .is-compact */}
+              {compact && !recording && (
+                <Menu
+                  keepFocusRef={phone ? textRef : undefined}
+                  side="top"
+                  align="end"
+                  popupClassName="rp-print-menu jc-pendenz-menu"
+                  itemClassName={() => 'rp-print-menu-item'}
+                  items={[
+                    { label: dueRow(<Icon id="mic" />, C.record, false), onClick: toggleRecord },
+                    { label: dueRow(<Icon id="upload" />, C.attachUpload, false), onClick: () => attachRef.current?.click() },
+                    { label: dueRow(<Icon id="cam" />, C.photo, false), onClick: () => fileRef.current?.click() },
+                  ]}
+                  trigger={(
+                    <button
+                      type="button"
+                      // the caret and the keyboard stay, as on the clock and the ring beside it
+                      onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
+                      className="jc-rec jc-attach" title={C.attachMenu} aria-label={C.attachMenu}
+                    ><Icon id="attach" /></button>
+                  )}
+                />
+              )}
               {clip && (
                 <span className="jc-clip">
                   <button className={`tl-play ${clipPlaying ? 'playing' : ''}`} title={clipPlaying ? C.recordStop : appConfig.copy.play} aria-label={clipPlaying ? C.recordStop : appConfig.copy.play} onClick={toggleClip}><Icon id={clipPlaying ? 'pause' : 'play'} /></button>
@@ -1204,6 +1239,15 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             className="file-picker" tabIndex={-1} onChange={onPhotoPicked} />
           <input ref={attachRef} type="file" accept={MEDIA_IMPORT_ACCEPT} multiple
             className="file-picker" tabIndex={-1} onChange={onAttachPicked} />
+          {/* THE form warning at the attach row (see `attachWarn`): what did not attach, and why */}
+          {attachWarn && (
+            <p className="form-warn form-warn-amber form-warn-compact jc-attach-warn" role="status">
+              <Icon id="warn" /><span className="form-warn-text">{attachWarn.text}</span>
+              {attachWarn.skip && (
+                <button type="button" className="form-warn-act" onClick={() => fileWithoutRef.current()}>{C.attachOfflineSkip}</button>
+              )}
+            </p>
+          )}
           {imported && (
             <div className="jc-import">
               <div className="jc-import-row">
@@ -1214,7 +1258,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 </span>
                 <button className="jc-clip-x" title={C.audioDiscardImport} aria-label={C.audioDiscardImport} onClick={discardImport}><Icon id="close" /></button>
               </div>
-              <div className="jc-import-start">
+              <div className="jc-import-start" ref={importStartRef}>
                 <span className="jc-due-label">{C.audioStartLabel}</span>
                 {/* THE time field (TimeField · WheelPopover), not a stepper of its own: the same wheels
                     and typed field as every other clock in the app. Committing it counts as the
@@ -1264,7 +1308,13 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             that must never share a row with anything else. It stands BELOW the scroller, pinned
             like every sheet's footer: on a short screen the rows scroll, the send never does. */}
         <div className="jc-foot">
-          <Button variant="primary" block disabled={!canSend || uploading || locating} onClick={submit}
+          {/* `aria-disabled` while it waits on input (ui-conventions · F2, duck sweep ELEM.4): the tap
+              points at what is missing – an imported memo's start time, else the text – instead of
+              being swallowed. Only a save in flight (upload, position) is natively disabled. */}
+          <Button variant="primary" block aria-disabled={!canSend} disabled={uploading || locating}
+            onClick={canSend ? submit : () => (imported
+              ? pointAtField(importStartRef.current)
+              : pointAtField(textRef.current, { focus: textRef.current }))}
             icon={uploading || locating ? <ShellLoader /> : <Icon id="check" />}>
             {uploading ? C.audioUploading : locating ? C.photoLocating : C.send}
           </Button>

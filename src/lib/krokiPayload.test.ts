@@ -25,6 +25,21 @@ describe('krokiEntity (glyph resolution for the server compositor)', () => {
     expect(out?.symbolSvg).toBeUndefined()
   })
 
+  // ENT.13 (17.11.2026): the printed Kroki lost which room was A2 – the stage rides along, as a
+  // chip for the server and as words on the legend line; a calm or «erledigt» point sends none
+  it('sends a Messpunkt\'s A1/A2 stage and ends its legend line on the stage\'s words', () => {
+    const W = appConfig.copy.readingLog.state
+    const a2 = krokiEntity(sym({ symbol: 'FW Messpunkt', fields: { Raum: 'Heizraum', CO: '180' } }), {})
+    expect(a2?.stage).toBe('a2')
+    expect(a2?.caption?.endsWith(` · ${W.a2}`)).toBe(true)
+    expect(krokiEntity(sym({ symbol: 'FW Messpunkt', fields: { CO: '14', Ex: '12' } }), {})?.stage).toBe('a1')
+    const calm = krokiEntity(sym({ symbol: 'FW Messpunkt', fields: { CO: '2' } }), {})
+    expect(calm?.stage).toBeUndefined()
+    expect(calm?.caption).not.toContain(W.a1)
+    const done = krokiEntity(sym({ symbol: 'FW Messpunkt', fields: { CO: '180' }, done: { at: '2026-11-17T01:00:00Z' } }), {})
+    expect(done?.stage).toBeUndefined()
+  })
+
   it('passes a pre-2026-08 spread through untouched, for the server to normalise', () => {
     // ⚠️ The payload must not strip what it no longer types. An archived incident still carries
     // the exclusive `h`/`hBounded` shape, and kroki.py (`_spread_dirs`) is the one place that
@@ -278,6 +293,20 @@ describe('kroki payload · Atemschutz on a hose line', () => {
     expect(p?.drawings[0]).toMatchObject({ lineNo: 1, trupp: 'Müller H.' })
     // the other Leitung has nobody on it — no tag part, no invented link
     expect(p?.drawings[1].trupp).toBeUndefined()
+  })
+
+  it('a plain person on the Leitung prints too – after the Trupp when both are on it', () => {
+    const drawings: Drawing[] = [
+      { id: 'd1', kind: 'line', coords: [[7.55, 47.51], [7.56, 47.52]], lineNo: 1, person: 'Frei Nico' },
+      { id: 'd2', kind: 'line', coords: [[7.55, 47.51], [7.57, 47.52]], person: 'Frei Nico' },
+    ]
+    const trupps = [{
+      id: 't1', name: 'Müller Hans', lineNo: 1, entryPressureBar: 300,
+      entryTime: '2026-08-05T10:00:00Z', lastContactTime: '2026-08-05T10:03:00Z', status: 'aktiv' as const,
+    }]
+    const p = buildKrokiPayload({ entities: [], drawings, layers, byName: {}, center: [7.55, 47.51], trupps })
+    expect(p?.drawings[0].trupp).toBe('Müller H. · Frei N.')
+    expect(p?.drawings[1].trupp).toBe('Frei N.')
   })
 
   it('prints no Trupp when none is monitored (the common case)', () => {

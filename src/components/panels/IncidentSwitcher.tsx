@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useLayer } from '../../lib/overlays/layer'
 import { Icon } from '../../lib/icons'
 import { einsatzPillName, fillTemplate, fmtSpanShort, fmtWhen, formatTime } from '../../lib/format'
 import { appConfig } from '../../config/appConfig'
@@ -10,9 +11,9 @@ import type { ReactivateResult } from '../../types'
 import { useIsPhone } from '../../lib/useIsPhone'
 import { useEinsatzuhr } from '../../lib/einsatzuhr'
 import { useLate } from '../../lib/useLate'
-import { AppMenuRows } from './AppMenuRows'
+import { AppMenuRows, type AppMenuAlarms, type FoldedMenuRow } from './AppMenuRows'
 import { tut } from '../../lib/tutorials/anchors'
-import { foreignMark } from '../../lib/foreignAlarm'
+import { pillDot } from '../../lib/foreignAlarm'
 import { runningOthers } from '../../lib/switcherLists'
 import type { ViewOnlyReason } from '../../workspace/access'
 
@@ -33,7 +34,7 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onUeben, onHelp, onInstall, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onUeben, onHelp, onInstall, onSyncNow, onLogout, onLogin, onPresent, alarms, folded, navKey, sheetOpen = false, syncDetail,
   onBackFromArchive, onReactivate, viewOnly = null,
 }: {
   active: IncidentMeta | null
@@ -87,6 +88,17 @@ export function IncidentSwitcher({
    *  no login here to end — leaving it is closing the page — and the row used to sign the
    *  device's own account out with it. */
   onLogout?: () => void
+  /** «Anmelden» for a view-link guest whose browser holds no login (C8, 17.11.2026) – to the bare
+   *  site's sign-in. Never together with `onLogout`. */
+  onLogin?: () => void
+  /** «Präsentieren» – the card's fourth act, beside «Teilen» (F15, 17.11.2026): the second door
+   *  to the share sheet's «Präsentieren» card; editors only, like that card (`canShareLink`) */
+  onPresent?: () => void
+  /** the alarms waiting to be opened – listed here as on home, a row's tap takes it (AppMenuRows) */
+  alarms?: AppMenuAlarms
+  /** this Einsatz's hidden «Alarm aktualisiert» (F7, 17.11.2026): a quiet row in the menu's
+   *  «Einsätze» group (AppMenuRows · FoldedRow) */
+  folded?: FoldedMenuRow[]
   /** changes whenever the app navigates to another surface — closes a menu that was left
    *  open under a sheet (e.g. Rapport → Anwesenheit must not land back in the menu) */
   navKey?: string
@@ -131,7 +143,7 @@ export function IncidentSwitcher({
       doneTimer.current = setTimeout(() => setSyncPhase('idle'), 2500)
     } catch {
       setSyncPhase('idle')
-      toast(cp.syncFailedToast, { icon: 'warn', tone: 'warn' })
+      toast(cp.syncErrorToast, { icon: 'warn', tone: 'warn' })
     }
   }
   const badgeTitle: Record<Exclude<SyncStatus, 'synced'>, string> = {
@@ -165,43 +177,17 @@ export function IncidentSwitcher({
     return () => clearInterval(t)
   }, [open])
   const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    // clicks inside an overlay sheet/dialog don't count as "outside": a sheet opened FROM this
-    // menu suspends it via `sheetOpen` rather than closing it, so cancelling that sheet has to
-    // reveal the menu exactly as it was — a press inside it must not have closed it meanwhile.
-    // 'pointerdown', not 'mousedown': on touch the compat mousedown fires late or not at all,
-    // so tapping outside would not reliably dismiss (same pattern as Combo/PersonField).
-    const onDoc = (e: PointerEvent) => {
-      const t = e.target as Element
-      if (ref.current && !ref.current.contains(t) && !t.closest?.('.ip-sheet, .ui-backdrop, .help-scrim, .confirm-backdrop, .confirm-card, .toaster')) setOpen(false)
-    }
-    document.addEventListener('pointerdown', onDoc)
-    return () => document.removeEventListener('pointerdown', onDoc)
-  }, [])
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  // The way out is every layer's (lib/overlays/layer · useLayer, 17.11.2026): a tap beside the
+  // menu ONLY closes it – on the Lage that tap used to go on to the map and place the armed
+  // tool's symbol or select one; Escape closes it alone (capture + stop, the workspace's own
+  // Escape never peels the map's next layer with the same press) and focus goes back to the pill;
+  // the native back closes it. A sheet opened FROM this menu suspends it (`sheetOpen`) rather than
+  // closing it, so cancelling that sheet reveals the menu exactly as it was.
+  useLayer({ open, onClose: () => setOpen(false), inside: [ref], returnFocus: triggerRef, suspended: sheetOpen })
   // A sheet action that NAVIGATES (Rapport → Anwesenheit/Mittel/Verlauf) must not
   // leave the menu sitting on the new surface — any surface change closes it
   useEffect(() => { setOpen(false) }, [navKey])
-  // Escape closes the menu (S8, 20.10.2026, owner: «all dropdowns, popovers … closable by
-  // Escape») — and ONLY the menu. It stays non-modal (docs/ui-conventions · Overlays), so the key
-  // is taken in the CAPTURE phase and stopped here: the workspace's own Escape (IncidentWorkspace
-  // · «the universal bail-out») listens on window and would otherwise also peel the map's next
-  // layer — disarm a tool, drop a selection — with the same press. While a sheet opened from
-  // this menu is up the menu is suspended and the key is the sheet's. Focus goes back to the pill.
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  useEffect(() => {
-    if (!open || sheetOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      // a confirm asked FROM this menu («Wieder öffnen») takes its own Escape
-      if (document.querySelector('.confirm-card')) return
-      e.preventDefault()
-      e.stopPropagation()
-      setOpen(false)
-      triggerRef.current?.focus()
-    }
-    document.addEventListener('keydown', onKey, true)
-    return () => document.removeEventListener('keydown', onKey, true)
-  }, [open, sheetOpen])
 
   // Sync state surfaced two ways: a FIXED-WIDTH coloured mark in the header (so the constant
   // saving↔saved flip never shifts the title/chevron — no inline time/label), and the full
@@ -272,11 +258,13 @@ export function IncidentSwitcher({
       <Icon id="eye" /><span className="ip-chip-word">{cp.viewOnly}</span>
     </span>
   )
-  // ── another Einsatz's Atemschutz alarm (13.11.2026, owner pick M11 B) ── its row in the list
-  // carries the red mark (AppMenuRows · foreignMark); the CLOSED pill carries a red dot at its
-  // chevron, a reason to open the list – no tone, no Meldeleiste row (lib/foreignAlarm's rule).
-  // It goes with the mark: the server's list drops a Trupp once it is acknowledged or out.
-  const foreignDot = runningOthers(incidents, active?.id ?? null).some((i) => foreignMark(i) != null)
+  // ── the CLOSED pill's red dot at its chevron, a reason to open the list (M11 B, C10 17.11.2026):
+  // another Einsatz's Atemschutz alarm (its row carries the red mark, AppMenuRows · foreignMark),
+  // or another REAL Einsatz running – never a parallel Übung alone. No tone, no Meldeleiste row
+  // (lib/foreignAlarm · pillDot). The alarm goes with the mark: the server's list drops a Trupp
+  // once it is acknowledged or out.
+  const dot = pillDot(runningOthers(incidents, active?.id ?? null))
+  const dotWord = dot === 'alarm' ? cp.foreignAlarmDot : dot === 'einsatz' ? cp.otherEinsatzDot : ''
   /**
    * «Jetzt synchronisieren» — offered whenever the device has a link, not only on error: it forces a push AND an
    * immediate pull, the "make everything fresh right now" action when things feel stale. It has
@@ -308,8 +296,8 @@ export function IncidentSwitcher({
           draws no mark for it any more */}
       <button ref={triggerRef} {...tut('menu.einsatz')} className={`ip-switch-btn${twoLine ? ' ip-switch-two' : ''}`} data-sync={active ? syncStatus : undefined} onClick={() => { setClosedOpen(false); setOpen((v) => !v) }}
         aria-label={twoLine
-          ? [pill.street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', uhr ? `${U.label} ${uhr}` : '', foreignDot ? cp.foreignAlarmDot : ''].filter(Boolean).join(', ')
-          : active ? [active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', foreignDot ? cp.foreignAlarmDot : ''].filter(Boolean).join(', ') : cp.noIncident}
+          ? [pill.street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', uhr ? `${U.label} ${uhr}` : '', dotWord].filter(Boolean).join(', ')
+          : active ? [active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', dotWord].filter(Boolean).join(', ') : cp.noIncident}
         aria-expanded={open && !sheetOpen}>
         {twoLine ? (
           <span className="ip-switch-lines">
@@ -369,10 +357,10 @@ export function IncidentSwitcher({
           </span>
         )}
         {/* ▾ while the dropdown is shut, ▴ while it stands open (02-base.css · .chev); the red
-            dot of another Einsatz's alarm sits on it while the list is shut */}
+            dot (another real Einsatz, or an alarm there) sits on it while the list is shut */}
         <span className="ip-switch-chev">
           <Icon id="chevron-down" className="chev" />
-          {foreignDot && !open && <span className="ip-foreign-dot" aria-hidden />}
+          {dot && !open && <span className="ip-foreign-dot" title={dotWord} aria-hidden />}
         </span>
       </button>
       {open && !sheetOpen && (
@@ -463,7 +451,9 @@ export function IncidentSwitcher({
                   ⚠️ ONE LINE, always (decision 01.09.): three verbs that wrap to a second row
                   stop reading as one set of choices. The label is its own <span> (the badge is
                   the tile's other child) — see .ip-card-acts, which carries the measured widths.
-                  Order is Bearbeiten · Teilen · Abschliessen. Abschliessen goes LAST because it
+                  Order is Bearbeiten · Teilen · Präsentieren · Abschliessen (F15, 17.11.2026:
+                  «Präsentieren» beside «Teilen», whose card it opens alone – four acts break
+                  2 × 2 on a phone, two pairs still read as one set). Abschliessen goes LAST because it
                   is the one that ends the Einsatz; a terminal action sitting between two
                   everyday ones is a mis-tap waiting for a gloved thumb.
                   Three tiles of the head's family since 27.09.2026 (slim sweep · mockup 10) —
@@ -473,7 +463,7 @@ export function IncidentSwitcher({
                   equal thirds ellipsised the verb on a 390px phone; .ip-card-acts).
                   A wrong ADDRESS is noticed while looking at the map, long before anybody opens
                   the Rapport — whose «Bearbeiten» link was once the only way into the mask. */}
-              {(onEditMeta || onArchive || onShare) && (
+              {(onEditMeta || onArchive || onShare || onPresent) && (
                 <div className="ip-card-acts">
                   {onEditMeta && (
                     <button className="ip-card-act head-tile sm" title={cp.editMeta} aria-label={cp.editMeta}
@@ -485,6 +475,11 @@ export function IncidentSwitcher({
                     <button className="ip-card-act head-tile sm" title={cp.share} aria-label={cp.share}
                       onClick={onShare}>
                       <Icon id="external" /><span>{cp.shareShort}</span>
+                    </button>
+                  )}
+                  {onPresent && (
+                    <button className="ip-card-act head-tile sm" onClick={onPresent}>
+                      <Icon id="present" /><span>{appConfig.copy.presentation.title}</span>
                     </button>
                   )}
                   {onArchive && (
@@ -527,6 +522,9 @@ export function IncidentSwitcher({
             onHelp={onHelp}
             onInstall={onInstall}
             onLogout={onLogout && (() => { onLogout(); setOpen(false) })}
+            onLogin={onLogin}
+            alarms={alarms && { ...alarms, onTake: (a) => { setOpen(false); alarms.onTake(a) } }}
+            folded={folded}
           />
         </div>
       )}

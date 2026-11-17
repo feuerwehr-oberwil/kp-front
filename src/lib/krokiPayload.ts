@@ -14,7 +14,8 @@ import { SHAPE_DEFS, SHAPE_MAX_PX, rotationInner, rotationViewBox, shapeAspect, 
 import { operationalExtentPoints, type KrokiView } from './report'
 import { endOnTarget, resolveMapDrawings } from './lineAttachments'
 import { truppForLine, truppTagText } from './truppLines'
-import { symbolLegendText } from './symbols'
+import { endTagPerson } from './endTagSpots'
+import { symbolLegendText, symbolReading } from './symbols'
 import { doneBadge } from './objectDone'
 import { withCartoLabelsBaked, withoutCartoBasemapKey, withoutCartoRetina } from './carto'
 import { drawnPumpEntities } from './linePumps'
@@ -38,6 +39,10 @@ export interface KrokiEntityOut {
    *  glyph grey with this time in its top-left corner. ⚠️ Mirrored in backend/app/report ·
    *  KrokiEntityIn; the legend's word («gelöscht 20:40») already rides in `caption`. */
   done?: string
+  /** a Messpunkt's Stufe once it reached A1/A2 (lib/symbols · symbolReading), absent while calm or
+   *  «erledigt»: the sheet prints an «A1» / «A2» chip bottom-left of the glyph, and the legend line
+   *  ends on the stage's words (ENT.13). ⚠️ Mirrored in backend/app/report · KrokiEntityIn. */
+  stage?: 'a1' | 'a2'
   sizeM?: number
   /** generic shapes: which kind, so the server can apply the SAME size and aspect limits the
    *  client does (a Rotation spans the map and is far leaner than any box — lib/shapes ·
@@ -193,6 +198,14 @@ export function krokiEntity(e: Entity, byName: Record<string, string>, captionMo
     caption: symbolLegendText(e, captionMode) ?? undefined,
     done: doneBadge(e) ?? undefined,
   }
+  const level = base.done ? null : symbolReading(e)?.level
+  if (level === 'a1' || level === 'a2') {
+    base.stage = level
+    // the stage in words on the legend line too – «… · CO 180 ppm · A2 Hauptalarm»: the chip is the
+    // glance, the word is what a monochrome print and a reader of the legend keep
+    const word = appConfig.copy.readingLog.state[level]
+    base.caption = base.caption ? `${base.caption} · ${word}` : word
+  }
   if (e.kind === 'team') return { ...base, caption: e.label || undefined, color: e.color || undefined }
   if (e.kind === 'note') {
     return e.label?.trim()
@@ -244,6 +257,15 @@ export function krokiEntity(e: Entity, byName: Record<string, string>, captionMo
 /** The whole Kroki payload for the server compositor: visible entities + drawings, the
  *  fit extent (or the live view for «aktuelle Ansicht»), and the active base layer's
  *  tiles. Returns null when no base layer with raster tiles exists (nothing to render). */
+/** Who a Leitung's PRINTED end tag names: the Trupp's leader and the plain person on it
+ *  (types · Drawing.person), « · » between. Paper has no Trupp marker standing at the hose's end,
+ *  so it names the Trupp the screen leaves to that marker (lib/endTagSpots · endTagPerson). The
+ *  print preview's tag (KrokiFramingPanel) reads the same, so the crop shows what comes out. */
+export function paperTagWho(d: Drawing, trupps: Trupp[]): string | undefined {
+  const t = truppForLine(d, trupps)
+  return [t ? truppTagText(t) : undefined, endTagPerson(d)].filter(Boolean).join(' · ') || undefined
+}
+
 export function buildKrokiPayload(args: {
   entities: Entity[]
   drawings: Drawing[]
@@ -286,10 +308,6 @@ export function buildKrokiPayload(args: {
       return out && attachedIds.has(e.id) ? { ...out, id: e.id } : out
     })
     .filter((e): e is KrokiEntityOut => e !== null)
-  const truppLabel = (d: Drawing): string | undefined => {
-    const t = truppForLine(d, trupps)
-    return t ? truppTagText(t) : undefined
-  }
   const drawingsVisible = visible(appConfig.defaults.drawingLayerId)
   const draws = (drawingsVisible ? drawings : []).map((d) => ({
     kind: d.kind, coords: d.coords, color: d.color, width: d.width, dashed: d.dashed,
@@ -302,11 +320,12 @@ export function buildKrokiPayload(args: {
     startAt: objectTarget(d.startAttachment), endAt: objectTarget(d.endAttachment),
     id: targetLineIds.has(d.id) ? d.id : undefined,
     startAtLine: lineTarget(d.startAttachment), endAtLine: lineTarget(d.endAttachment),
-    // the Atemschutz-Trupp on this Leitung, already resolved + abbreviated: the server draws the
-    // Kroki from this payload alone and has no Trupp records to match against. Alarm TONES are
-    // deliberately not sent — paper has no live clock, and a red hose on a printed rapport would
-    // freeze a moment of the incident as if it were its outcome.
-    trupp: d.kind === 'line' ? truppLabel(d) : undefined,
+    // who is on this Leitung – the Atemschutz-Trupp and the plain person (paperTagWho), already
+    // resolved + abbreviated: the server draws the Kroki from this payload alone and has no Trupp
+    // records to match against. Alarm TONES are deliberately not sent — paper has no live clock,
+    // and a red hose on a printed rapport would freeze a moment of the incident as if it were its
+    // outcome.
+    trupp: d.kind === 'line' ? paperTagWho(d, trupps) : undefined,
   }))
   return {
     entities: ents,

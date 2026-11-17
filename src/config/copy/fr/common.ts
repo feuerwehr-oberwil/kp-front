@@ -8,7 +8,7 @@ type Keys =
   | 'sheetGrip' | 'edit' | 'primarySymbol' | 'done' | 'cancel' | 'exerciseBadge'
   | 'exerciseInitial' | 'keepPlacing' | 'delete' | 'remove' | 'undo' | 'redo' | 'undoNamed'
   | 'redoNamed' | 'undoLost' | 'removedToast' | 'undoDomains' | 'undoSurfaces' | 'undoTopDropped'
-  | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'noHits' | 'keepPlacingShort'
+  | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'noHits' | 'keepPlacingShort' | 'filterNoHits'
 
 export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   baseMap: 'Carte de base',
@@ -28,7 +28,10 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   undoNamed: 'Annuler : {action}',
   redoNamed: 'Rétablir : {action}',
   undoLost: 'Plus annulable',
-  removedToast: { note: 'Note retirée', freed: '{what}, {n} lignes détachées', freedOne: '{what}, 1 ligne détachée', joinedTitle: '{what} a {n} lignes', joinedTitleOne: '{what} a 1 ligne', joinedOnly: 'Symbole seul', joinedOnlyGroup: 'Sélection seule', joinedWith: 'Avec les lignes', withLines: '{what} et {n} lignes retirés', withLine: '{what} et 1 ligne retirés', group: 'Sélection', groupN: '{n} objets', noteWhat: 'Note' },
+  removedToast: { note: 'Note retirée', freed: '{what}, {n} lignes détachées', freedOne: '{what}, 1 ligne détachée', joinedTitle: '{what} a {n} lignes', joinedTitleOne: '{what} a 1 ligne', joinedOnly: 'Symbole seul', joinedOnlyGroup: 'Sélection seule', joinedWith: 'Avec les lignes', withLines: '{what} et {n} lignes retirés', withLine: '{what} et 1 ligne retirés', group: 'Sélection', groupN: '{n} objets', noteWhat: 'Note',
+    connectionFreed: 'Liaison détachée',
+    named: '{what} retiré',
+  },
   undoDomains: {
     reference: 'Lien ajusté',
     blattform: 'Forme de la feuille mesurée',
@@ -59,4 +62,5 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   exerciseBadge: 'Exercice',
   exerciseInitial: 'E',
   keepPlacingShort: 'Plusieurs',
+  filterNoHits: 'Aucune entrée dans cette sélection.',
 }

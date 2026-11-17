@@ -83,3 +83,14 @@ describe('«Art: Linie | Wand» on the Karte', () => {
     expect(screen.queryAllByRole('group', { name: D.kind })).toHaveLength(0)
   })
 })
+
+// ENT.2 (17.11.2026): «Zum Trupp» from the hose lands ON the card, as the Plan's twin does
+describe('«Zum Trupp» in the Karte\'s Leitung editor', () => {
+  it('focuses the Trupp working the hose, not just the board', () => {
+    const trupp = { id: 't9', name: 'Trupp 9', status: 'aktiv', entryPressureBar: 300, entryTime: '', lastContactTime: '' } satisfies Trupp
+    const showTrupp = vi.fn()
+    mount({ ...hose, truppId: 't9' }, { effTrupps: [trupp], showTrupp, setSelectedDrawingId: vi.fn() })
+    fireEvent.click(screen.getAllByRole('button', { name: D.truppShow })[0])
+    expect(showTrupp).toHaveBeenCalledWith('t9')
+  })
+})

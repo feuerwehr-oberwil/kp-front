@@ -32,6 +32,9 @@ interface Props {
   onVehicles: (v: VehicleAt[]) => void
   /** leave replay → back to live */
   onExit: () => void
+  /** the Einsatz is still running → the playhead opens at «Jetzt» (the live picture), not at the
+   *  start (owner call C4, 17.11.2026) */
+  running?: boolean
   /**
    * The incident's Verlauf — the lane under the track, the caption, and the activity signal
    * that decides where the gaps are.
@@ -77,13 +80,13 @@ const fmtClock = (ms: number) => formatTime(new Date(ms), true)
 /** the incident start as epoch ms, or `now` when it is absent or unparseable (never NaN into the slider) */
 const startMsOf = (iso: string) => { const n = Date.parse(iso); return Number.isFinite(n) ? n : Date.now() }
 
-export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit, onShowEntry, onPlayhead, seekRef, journal = [] }: Props) {
+export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit, running = false, onShowEntry, onPlayhead, seekRef, journal = [] }: Props) {
   const rp = appConfig.copy.replay
   const [bundle, setBundle] = useState<ReplayBundle | null>(null)
   const [loadError, setLoadError] = useState(false)
-  // start of the incident, not "now" — otherwise the first frame before the bundle loads is
-  // the live picture and the playhead visibly jumps left the moment it arrives
-  const [tMs, setTMs] = useState<number>(() => startMsOf(startedAt))
+  // where the playhead opens (below) already before the bundle loads — otherwise it visibly
+  // jumps the moment the bundle arrives
+  const [tMs, setTMs] = useState<number>(() => (running ? Date.now() : startMsOf(startedAt)))
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(4)
   /** «übersprungen 2 h 14» — set when playback jumps a gap, cleared on a timer. */
@@ -92,14 +95,18 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit, 
   /** the track's px width — the break labels need it to know whether they FIT (see below) */
   const [trackW, setTrackW] = useState(0)
 
-  // Load the event range + samples once, and park the playhead at the START of the incident.
-  // It used to open at the end — the live picture — which is the one frame the operator has
-  // just been looking at, and made «Abspielen» a button that did nothing until you first
-  // dragged the handle all the way left. This is a Wiedergabe: it begins at the beginning.
+  // Load the event range + samples once, and park the playhead.
+  // ⚠️ A RUNNING Einsatz opens at «Jetzt», the live picture (owner call C4, 17.11.2026): the
+  // replay is one tap from the Verlauf's ✕, and opening at the start swapped the Lage for an
+  // empty map – «my symbols are gone», not «I am in a replay». So a stray tap changes nothing
+  // visible, and «Abspielen» from the end starts at the beginning (togglePlay). A CLOSED Einsatz
+  // opens at the beginning – there the past is the reason to come, and the end is no «now».
+  // ⚠️ Read once: a close while the bar is open does not move the playhead.
+  const runningAtOpen = useRef(running)
   useEffect(() => {
     let alive = true
     loadReplay(incidentId, startMsOf(startedAt), Date.now())
-      .then((b) => { if (alive) { setBundle(b); setTMs(b.startMs) } })
+      .then((b) => { if (alive) { setBundle(b); setTMs(runningAtOpen.current ? b.endMs : b.startMs) } })
       .catch(() => { if (alive) setLoadError(true) })
     return () => { alive = false }
   }, [incidentId, startedAt])
@@ -240,6 +247,13 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit, 
   // Step to the next/previous thing that HAPPENED, rather than by a fixed number of seconds.
   // On a sparse timeline a ±10 s nudge usually lands on nothing at all; «next event» is the
   // move an operator actually wants, and the lane's ticks stay clickable for a precise seek.
+  // ▶ at the end plays from the beginning – the running Einsatz opens there (C4), and a play
+  // button that only stops again at once is a button that does nothing
+  const togglePlay = () => {
+    if (!playing && bundle && tMs >= bundle.endMs) setTMs(bundle.startMs)
+    setPlaying(!playing)
+  }
+
   const stepEvent = useCallback((dir: 1 | -1) => {
     if (!bundle) return
     setPlaying(false)
@@ -295,7 +309,7 @@ export function ReplayBar({ incidentId, startedAt, onState, onVehicles, onExit, 
             </button>
             <button
               className={s['replay-play']}
-              onClick={() => setPlaying((p) => !p)}
+              onClick={togglePlay}
               title={playing ? rp.pause : appConfig.copy.play}
               aria-label={playing ? rp.pause : appConfig.copy.play}
             >

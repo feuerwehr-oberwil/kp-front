@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
 import { Button } from './Button'
+import { matchesQuery, searchQuery } from '../lib/search'
 import { Overlay } from '../lib/overlays'
 import { scrollBehavior } from '../lib/reducedMotion'
 import { appConfig } from '../config/appConfig'
@@ -156,10 +157,11 @@ export function HelpOverlay({ onClose, tutorials = [] }: {
     [allSections, intro],
   )
   const q = query.trim().toLowerCase()
-  const sections = useMemo(
-    () => (q ? allSections.filter((s) => haystacks.get(s.id)?.includes(q)) : allSections),
-    [allSections, haystacks, q],
-  )
+  // found through the one search fold (lib/search: umlauts, one typo); `q` only marks the hits
+  const sections = useMemo(() => {
+    const sq = searchQuery(query)
+    return sq ? allSections.filter((s) => matchesQuery(sq, haystacks.get(s.id) ?? '')) : allSections
+  }, [allSections, haystacks, query])
   const [active, setActive] = useState(allSections[0].id)
   // ⚠️ STATE, not a ref: the <Overlay> mounts its popup after this component's first effects run,
   // so a ref read there is still null – and an effect keyed on [sections] alone never ran again.

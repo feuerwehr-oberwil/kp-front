@@ -97,6 +97,8 @@ export interface MapDetailPanelsProps {
   setSelectedDrawingId: Dispatch<SetStateAction<string | null>>
   setMode: Dispatch<SetStateAction<WorkspaceMode>>
   setPanel: Dispatch<SetStateAction<'layers' | null>>
+  /** «Zum Trupp»: the Atemschutz board, scrolled to that Trupp's card (IncidentWorkspace · showTrupp) */
+  showTrupp: (truppId: string) => void
   setGpsRouting: (drawing: Drawing, endpoint: 'start' | 'end', routing: 'direct' | 'trace') => void
   revertAll: (ends: readonly GpsEnd[]) => void
   gpsEndOf: (drawing: Drawing, endpoint: 'start' | 'end') => GpsEnd
@@ -119,7 +121,7 @@ export function MapDetailPanels({
   noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
   selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
   changeMapEnding, reverseDrawing, setDrawingWallRole, objects, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
-  unlinkLine, setSelectedDrawingId, setMode, setPanel, setGpsRouting, revertAll, gpsEndOf, releaseHere,
+  unlinkLine, setSelectedDrawingId, setMode, setPanel, showTrupp, setGpsRouting, revertAll, gpsEndOf, releaseHere,
   releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing,
 }: MapDetailPanelsProps) {
   // a Rechteck's figures, for its panel — editable or read-only alike
@@ -455,6 +457,8 @@ export function MapDetailPanels({
           // a Plan sketch is not an Abschnitt, so the Whiteboard passes no handlers.
           onAbschnittLeiter={selectedDrawing.kind === 'area' ? (name) => patchDrawing({ abschnittLeiter: name }) : undefined}
           onAbschnittAuftrag={selectedDrawing.kind === 'area' ? (auftrag) => patchDrawing({ abschnittAuftrag: auftrag }) : undefined}
+          // a plain person on the Leitung, no Trupp needed (types · Drawing.person) – Lage and Plan
+          onPerson={selectedDrawing.kind === 'line' && !selectedDrawing.role ? (person) => patchDrawing({ person }) : undefined}
           people={pickablePersonnel.map((p) => p.displayName)}
           // Flächen that carry Leiter or Auftrag, THIS one counted as if already assigned —
           // so the FKS hint (max 3–4) shows while the 5th is being set up, not one edit late
@@ -467,7 +471,13 @@ export function MapDetailPanels({
           usedLineNos={drawings.filter((d) => d.kind === 'line' && d.id !== selectedDrawing.id && d.lineNo != null).map((d) => d.lineNo!)}
           truppOnLine={truppForLine(selectedDrawing, effTrupps)?.name}
           truppOnLineOut={truppIsOut(truppForLine(selectedDrawing, effTrupps))}
-          onShowTrupp={() => { setSelectedDrawingId(null); setMode('atemschutz'); setPanel(null) }}
+          // the card is FOCUSED, as from the Plan's twin (Whiteboard · DrawEditor) – a bare mode
+          // switch left a long board unscrolled (ENT.2)
+          onShowTrupp={() => {
+            const t = truppForLine(selectedDrawing, effTrupps)
+            setSelectedDrawingId(null)
+            if (t) showTrupp(t.id); else { setMode('atemschutz'); setPanel(null) }
+          }}
           // «Art: Linie | Wand» – the Plan's row, same patch, same blocks (sweep 28.10.2026,
           // Lage ↔ Plan parity). The Wand TOOL and its snapping stay the Gebäude stack's.
           onWand={selectedDrawing.kind === 'line' ? (wand) => {

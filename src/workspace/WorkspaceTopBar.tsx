@@ -1,9 +1,15 @@
 // The workspace's TopBar: Einsatz title and mode chip, sync/clock state, ↶ ↷, the Einsatz-Menü
 // and the per-surface actions. Split out of IncidentWorkspace (E1, 09.10.2026) verbatim; the
 // menu's doors (switch, archive, share, settings, …) stay the workspace's and come in as props.
+// The one sheet it owns itself is the menu's «Präsentieren» (F15, 17.11.2026): the share sheet's
+// «Präsentieren» card alone, so the menu suspends under it like under any sheet it opened.
 
-import type { Dispatch, SetStateAction, MouseEvent as ReactMouseEvent, RefObject } from 'react'
-import { IncidentSwitcher } from '../components/panels'
+import { useState, type Dispatch, type SetStateAction, type MouseEvent as ReactMouseEvent, type RefObject } from 'react'
+import { IncidentSwitcher, type AppMenuAlarms, type FoldedMenuRow } from '../components/panels'
+import { Modal } from '../components/panels/_shared'
+import { PresentCard } from '../components/Presentation'
+import { linkPageOwnsSession } from '../lib/linkMode'
+import { PresentationContext, type Presentation } from './usePresentation'
 import { SharePositionPill } from '../components/SharePosition'
 import { TopBar } from '../components/TopBar'
 import { appConfig } from '../config/appConfig'
@@ -92,6 +98,10 @@ export interface WorkspaceTopBarProps {
   canEditMeta: boolean
   onEditMeta: () => void
   onOpenDivera: () => void
+  /** the alarms waiting to be opened, listed in the menu (App builds them) */
+  menuAlarms?: AppMenuAlarms
+  /** a hidden «Alarm aktualisiert», as the menu's quiet row (App builds it) */
+  menuFolded?: FoldedMenuRow[]
   confirmAndComplete: () => Promise<boolean>
   abschlussMissing: AbschlussStep[]
   canShareLink: boolean
@@ -111,6 +121,8 @@ export interface WorkspaceTopBarProps {
   menuCloseKey: number
   /** «Nur ansehen» in the pill's status slot, and why (workspace/access · viewOnlyReason) */
   viewOnly: ViewOnlyReason | null
+  /** the Präsentationsmodus, for the menu's own «Präsentieren» sheet (F15) */
+  presentation: Presentation
 }
 
 export function WorkspaceTopBar({
@@ -122,13 +134,21 @@ export function WorkspaceTopBar({
   onBackFromArchive, onReactivateActive, isPhone, phoneTools, planFit, incidents, syncStatus, journal,
   auditDelivery, closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
   onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenUeben, activeObjectId, canEditMeta, onEditMeta,
-  onOpenDivera, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
+  onOpenDivera, menuAlarms, menuFolded, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
   setHelpOpen, setInstallGuideOpen, syncNow, media, logout, settingsOpen,
   helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
-  menuCloseKey, viewOnly,
+  menuCloseKey, viewOnly, presentation,
 }: WorkspaceTopBarProps) {
+  const [presentOpen, setPresentOpen] = useState(false)
   return (
     <>
+      {presentOpen && (
+        <PresentationContext.Provider value={presentation}>
+          <Modal title={appConfig.copy.presentation.title} onClose={() => setPresentOpen(false)} fit>
+            <PresentCard bare />
+          </Modal>
+        </PresentationContext.Provider>
+      )}
       <TopBar
         incident={incidentView}
         startedAt={incidentMeta.started_at}
@@ -153,7 +173,7 @@ export function WorkspaceTopBar({
         onAddEntry={linkScoped ? undefined
           : !readOnly ? () => setComposerOpen(true)
           : tabLockLost && (isEditor || user?.role === 'el') ? () => toast(appConfig.copy.tabLock.hint, {
-              icon: 'info',
+              icon: 'info', kind: 'tab-lock', // each «Eintrag» tap used to add one
               action: { label: appConfig.copy.tabLock.takeOver, onClick: onTakeOverTab },
             })
           : undefined}
@@ -238,6 +258,8 @@ export function WorkspaceTopBar({
             onKarte={linkScoped ? undefined : onOpenKarte}
             onEditMeta={canEditMeta ? onEditMeta : undefined}
             onDivera={onOpenDivera}
+            alarms={menuAlarms}
+            folded={menuFolded}
             // Einsatzrapport (PDF + Drucken) and «Alle Einsätze» are both refused for a link
             // session — one generates a document with everyone's names, the other lists the
             // Einsätze this link has nothing to do with.
@@ -255,6 +277,8 @@ export function WorkspaceTopBar({
             // never a viewer, a read-only surface or a link session.
             onShare={canShareLink ? () => setShareLink('view') : undefined}
             onUeben={linkScoped ? undefined : onOpenUeben}
+            // «Präsentieren» (F15): the same gate as the share sheet's card, which it opens alone
+            onPresent={canShareLink ? () => setPresentOpen(true) : undefined}
             onHelp={() => setHelpOpen(true)}
             onInstall={isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true)}
             onSyncNow={syncNow}
@@ -269,12 +293,17 @@ export function WorkspaceTopBar({
                 unsyncedOther: syncStatus !== 'synced',
               }).then((ok) => { if (ok) void logout() })
             }}
+            // …and «Anmelden» in its place for a guest on a VIEW or ALARM link (C8, 17.11.2026).
+            // Those links never outrank a login (lib/linkMode · linkPageOwnsSession), so a
+            // link-scoped session there means this browser holds none: the bare site is its
+            // sign-in. An Atemschutz link may sit on top of a login – it gets no row.
+            onLogin={linkScoped && !linkPageOwnsSession() ? () => location.assign('/') : undefined}
             // «Einsatz abgeschlossen» (sweep #5, 27.10.2026): the lock in the pill's ✓ slot, the
             // card's «Abgeschlossen 01:18» pill folding out its two exits
             onBackFromArchive={onBackFromArchive}
             onReactivate={onReactivateActive}
             navKey={`${mode}|${journalOpen ? 'journal' : ''}|${menuCloseKey}`}
-            sheetOpen={settingsOpen || helpOpen || installGuideOpen || offlineReadyOpen || !!shareLink}
+            sheetOpen={settingsOpen || helpOpen || installGuideOpen || offlineReadyOpen || !!shareLink || presentOpen}
             viewOnly={viewOnly}
           />
         }

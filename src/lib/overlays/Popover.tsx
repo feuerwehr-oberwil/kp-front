@@ -1,16 +1,20 @@
 import { useState, type ReactElement, type ReactNode } from 'react'
 import { Popover as BasePopover, type PopoverPositionerProps, type PopoverRootChangeEventDetails } from '@base-ui/react/popover'
 import { usePopoverGuard } from './popoverGuard'
+import { useBackLayer } from './layer'
 
 /** Why a popover opened or closed, and the native event that did it — enough for a caller to
  *  ignore, say, an outside press that landed on a control which toggles the popover itself. */
 export type PopoverChange = Pick<PopoverRootChangeEventDetails, 'reason' | 'event'>
 
 /**
- * Anchored, non-modal popover — wraps Base UI's Popover. The Positioner anchors to the trigger
+ * Anchored popover — wraps Base UI's Popover. The Positioner anchors to the trigger
  * (collision-aware, auto-flips near a viewport edge), replacing hand-rolled
  * getBoundingClientRect math, and Base UI supplies outside-click + Esc dismissal and focus
- * management — so a hand-rolled full-screen scrim is no longer needed. The popup is portalled to
+ * management — so a hand-rolled full-screen scrim is no longer needed. It is MODAL like every
+ * `Menu` (owner call 2, 17.11.2026 – overlays/layer): Base UI's invisible backdrop takes a tap
+ * beside it and swallows it, so dismissing the weather or the Gebäude dial never also selects or
+ * places something on the map under it; the trigger is cut out of the backdrop and still toggles. The popup is portalled to
  * <body>, escaping any `backdrop-filter` containing block (the old reason the weather scrim was
  * trapped to the TopBar).
  *
@@ -20,13 +24,13 @@ export type PopoverChange = Pick<PopoverRootChangeEventDetails, 'reason' | 'even
  * trigger may be left out. The element's own tap handler opens and closes it; `onOpenChange`'s
  * second argument says why Base UI wants it closed, so that handler's own press can be ignored
  * (it would otherwise close the popover, and the tap reopen it).
+ * The native back closes it (overlays/layer · useBackLayer), as it closes every layer.
  * PERSISTENT mode (05.11.2026 – the «Üben» Sprechblase, components/tutorial): a controlled popover
  * that stands while the learner works AROUND it – it ignores the close requests, takes no focus
- * (`takeFocus={false}`, so a field being typed in keeps the keys) and does not register with the
- * popoverGuard (`guard={false}`: it is no transient layer, and a standing entry there would leave
- * every Sheet deaf to its backdrop and Esc). `arrowClassName` draws Base UI's Arrow at the anchor.
- * NOTE: for surfaces that must NOT be dismissed/focus-managed and must let the map stay live
- * underneath (map tool-docks like MapViewsMenu), keep the hand-rolled dock — do not use this.
+ * (`takeFocus={false}`, so a field being typed in keeps the keys) and is no layer (`guard={false}`):
+ * it does not register with the popoverGuard (a standing entry there would leave every Sheet deaf
+ * to its backdrop and Esc), is NOT modal (no backdrop swallowing the taps the learner is asked
+ * to make) and is not closed by the native back. `arrowClassName` draws Base UI's Arrow at the anchor.
  */
 export interface PopoverProps {
   /** the control that toggles it; optional when `anchor` places a controlled popover */
@@ -59,7 +63,7 @@ export interface PopoverProps {
   collisionBoundary?: PopoverPositionerProps['collisionBoundary']
   open?: boolean
   onOpenChange?: (open: boolean, change: PopoverChange) => void
-  /** register with the popoverGuard (default true) – false only for a PERSISTENT popover */
+  /** a layer: popoverGuard, modal backdrop, native back (default true) – false only for a PERSISTENT popover */
   guard?: boolean
   /** move focus into the popup on open and back on close (default true) */
   takeFocus?: boolean
@@ -84,9 +88,11 @@ export function Popover({ trigger, anchor, children, ariaLabel, popupClassName, 
   // uncontrolled callers give us no `open` to read, so the Root reports it — a popover open over
   // a Sheet/Overlay keeps that sheet's backdrop/Esc dismissal off (popoverGuard)
   const [isOpen, setIsOpen] = useState(false)
-  usePopoverGuard(guard && (open ?? isOpen))
+  const shown = open ?? isOpen
+  usePopoverGuard(guard && shown)
+  useBackLayer(guard && shown, () => { setIsOpen(false); onOpenChange?.(false, { reason: 'none', event: new Event('popstate') }) })
   return (
-    <BasePopover.Root open={open} onOpenChange={(next, { reason, event }) => { setIsOpen(next); onOpenChange?.(next, { reason, event }) }}>
+    <BasePopover.Root open={shown} modal={guard} onOpenChange={(next, { reason, event }) => { setIsOpen(next); onOpenChange?.(next, { reason, event }) }}>
       {trigger && <BasePopover.Trigger render={trigger} />}
       <BasePopover.Portal>
         <BasePopover.Positioner anchor={anchor} side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={collisionPadding} collisionBoundary={collisionBoundary} style={zIndex != null ? { zIndex } : undefined}>

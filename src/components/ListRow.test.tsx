@@ -51,3 +51,13 @@ describe('BackRow', () => {
     expect(onClick).toHaveBeenCalledOnce()
   })
 })
+
+describe('ListGroup', () => {
+  // duck sweep LISTS.12: a count sits right after the label («ANLEITUNGEN 12»), a word at the end
+  it('puts a count after its label and a word at its end', () => {
+    const { container } = render(<ListGroup label="Anleitungen" count={12} end="zum Lesen"><ListRow title="x" /></ListGroup>)
+    const head = container.querySelector('.list-group-label')!
+    expect(head.firstElementChild!.textContent).toBe('Anleitungen 12')
+    expect(head.querySelector('.list-group-end')!.textContent).toBe('zum Lesen')
+  })
+})

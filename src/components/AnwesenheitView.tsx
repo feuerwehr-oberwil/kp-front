@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { ONE_LINE } from '../lib/fieldKeys'
 import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
 import type { AttendanceState, LngLat, Person, PresenceInterval, Shift, ShiftBand } from '../types'
@@ -29,7 +30,7 @@ import { timeBlockLabels } from '../lib/timeBlockLabels'
 import { EmptyState } from './EmptyState'
 import { SyncGlyph } from './SyncGlyph'
 import { Button, IconButton } from './Button'
-import { ShellLoader } from './ShellLoader'
+import { LoadingStatus, ShellLoader } from './ShellLoader'
 import { ZeitplanView } from './ZeitplanView'
 import { BandGrid } from './BandGrid'
 import { AnrueckendBlock } from './AnrueckendBlock'
@@ -141,7 +142,7 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
             // here used to make the whole Rapport fail to compose (app/report · _clip_note)
             maxLength={240}
             onBlur={(e) => onSetNote(person.id, stripUnprintable(e.target.value))}
-            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+            {...ONE_LINE}
           />
         </label>
       ) : note ? (
@@ -865,9 +866,9 @@ export function AnwesenheitView({
               the ones that count right now». It used to be the people glyph, which the Grad
               filter beside it has a better claim to. */}
           <Icon id="check" />
-          {/* a WORD under the glyph on a phone, like the nav bar's tiles (EL phone sweep D2,
-              10.11.2026): three bare icons in a row had to be learned */}
-          <span className={s.iconWord} aria-hidden="true">{A.onlyPresentWord}</span>
+          {/* its WORD, on every device (SurfaceControls · `.word`, ELEM.13): under the glyph on a
+              phone like the nav bar's tiles (EL phone sweep D2), beside it on a tablet */}
+          <span className={c.word} aria-hidden="true">{A.onlyPresentWord}</span>
         </button>
         {/* ⚠️ TWO buttons, one per QUESTION — «welcher Grad» and «wer ist wo». They were one
             merged funnel for an afternoon and it was wrong: a menu you open to reach either
@@ -877,13 +878,11 @@ export function AnwesenheitView({
             Both narrow independently and AND together — «Of» + «anwesend» is one question.
             Neither button PRINTS what it has on (that changed its width and re-anchored the
             dropdown); each carries a fixed-position dot and names it in its tooltip.
-            Both are `modal={false}` (the app-wide default is modal): with the backdrop in place
-            a tap on the OTHER filter button first hits that backdrop, so switching between the
-            two — which is the whole point of splitting them — costs two taps. Safe exactly here,
-            because what lies under this bar is the filter row and the list, not the map. */}
+            Both are modal like every menu (owner, 17.11.2026 – a tap beside a menu only closes
+            it): switching from one to the other costs two taps, and a tap beside one never
+            cycles the presence of the name row under the finger. */}
         {ranksPresent.length > 1 && (
           <Menu
-            modal={false}
             trigger={
               <button className={cx(c.iconBtn, rankSel.size > 0 && c.iconBtnOn)}
                 aria-label={rankOn ? `${A.rankFilterLabel} – ${rankOn}` : A.rankFilterLabel}
@@ -893,7 +892,7 @@ export function AnwesenheitView({
                     matching Mittel's «In Verwendung»), because two identical glyphs side
                     by side on the planning tabs is worse than either choice of icon. */}
                 <Icon id="people" />
-                <span className={s.iconWord} aria-hidden="true">{A.rankFilterWord}</span>
+                <span className={c.word} aria-hidden="true">{A.rankFilterWord}</span>
               </button>
             }
             popupClassName={c.menuPop}
@@ -920,7 +919,6 @@ export function AnwesenheitView({
             are about time, and «wer ist im Magazin» is not a question you ask of a Zeitplan. */}
         {view === 'list' && (
           <Menu
-            modal={false} // one-tap switch with the rank filter beside it — see the note above
             trigger={
               /* «Nach Status filtern», not the bare «Filtern»: the rank filter beside it names
                  its facet and this popup's own heading already does, so the hold tooltip was
@@ -929,7 +927,7 @@ export function AnwesenheitView({
                 aria-label={stateOn ? `${A.statusFilterLabel} – ${stateOn}` : A.statusFilterLabel}
                 title={stateOn ? `${A.statusFilterLabel} – ${stateOn}` : A.statusFilterLabel}>
                 <Icon id="filter" />
-                <span className={s.iconWord} aria-hidden="true">{A.statusFilterWord}</span>
+                <span className={c.word} aria-hidden="true">{A.statusFilterWord}</span>
               </button>
             }
             popupClassName={c.menuPop}
@@ -979,7 +977,11 @@ export function AnwesenheitView({
           its own state: neutral for «Alle», tinted and naming the rank while a filter is on, so a
           filtered list can never look like the whole Mannschaft. */}
 
-      {empty && !guestOffer ? (
+      {/* not «Noch kein Personal erfasst» while the roster is still on its way (LISTS.1): the
+          frames before the IndexedDB seed, and a cold cache's whole fetch */}
+      {empty && !guestOffer && loading && !error ? (
+        <div className="empty-state empty-fill"><LoadingStatus size="surface">{A.loading}</LoadingStatus></div>
+      ) : empty && !guestOffer ? (
         <EmptyState className="empty-fill" icon={error ? 'warn' : 'people'}
           title={error ? A.loadFailedTitle : A.emptyTitle}
           // «Synchronisiere das Personal aus …» is an instruction for whoever keeps the roster;
@@ -990,7 +992,17 @@ export function AnwesenheitView({
           // a retry only for a fetch that FAILED – an empty roster that loaded fine has nothing to retry
           action={error ? <Button icon={<Icon id="rotate" />} onClick={onReload} disabled={loading}>{A.retry}</Button> : undefined} />
       ) : !rows.length && !guestOffer ? (
-        <div className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</div>
+        // a query says what was searched; ONLY a filter (the quick ✓ while nobody is present yet)
+        // gets the shared filter line and the one-tap way out – never «Keine Treffer für «».»
+        // (duck sweep LISTS.4, 17.11.2026)
+        q.trim()
+          ? <div className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</div>
+          : (
+            <div className="no-hits no-hits-way">
+              {appConfig.copy.filterNoHits}
+              <Button onClick={() => { setPresentOnly(false); setRankSel(new Set()); setStateSel(new Set()); setNoteOnly(false) }}>{A.filterClear}</Button>
+            </div>
+          )
       ) : showBands ? (
         <BandGrid
           people={rows}

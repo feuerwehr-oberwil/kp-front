@@ -1,6 +1,5 @@
-import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
-import { planGlyph } from '../lib/navRail'
+import { PlanChip } from './PlanGlyph'
 import { GroupChooser } from './GroupChooser'
 import type { PlanDocument } from '../types'
 
@@ -31,13 +30,12 @@ export function PlanChooser({ docs, activeId, onPick, onClose }: {
       onPick={onPick}
       onClose={onClose}
       rows={docs.map((d) => {
-        const g = planGlyph(d)
         return {
           id: d.id,
-          // ⚠️ the letter count rides on the chip: CSS cannot count characters, and «RWA» at
-          // the digit's size painted straight through its own border. The count picks the text
-          // size; the box keeps its height and hugs the rest (05-navrail.css · .group-choose-glyph)
-          glyph: 'mono' in g ? <span className="nav-mono-chip" data-mono-len={g.mono.length}>{g.mono}</span> : <Icon id={g.icon} />,
+          // ⚠️ the letter count rides on the chip (PlanChip): CSS cannot count characters, and
+          // «RWA» at the digit's size painted straight through its own border. The count picks the
+          // text size; the box keeps its height and hugs the rest (05-navrail.css · .group-choose-glyph)
+          glyph: <PlanChip doc={d} />,
           // the plan's name («Modul 1», «Wasser», «PV», «Gebäude»; lib/navRail · planLabel) — the
           // same word the rail wears. What a Modul holds differs per station and they know it best;
           // the catalogue's description only made every row two lines (18.09.2026).

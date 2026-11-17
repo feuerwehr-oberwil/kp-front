@@ -58,7 +58,7 @@ export function drawingEditChanges(prev: Drawing, next: Drawing): string[] {
   // ── Inhalt: the FKS device letter (S/W/H/P). Unset is not «cleared» — it is Wasser, a value
   // of its own, and the row says so the way the editor does.
   //
-  // ⚠️ A REPLACEMENT says so («Typ auf Gegenfeuer geändert»), the same rule every symbol field
+  // ⚠️ A REPLACEMENT says so («Inhalt auf Gegenfeuer geändert»), the same rule every symbol field
   // already follows (lib/entityEdit). Written as a bare «Typ: X» each time, somebody dialling
   // through the presets left three consecutive rows — «Typ: Nasse Haltelinie», «Typ: Gegenfeuer»,
   // «Typ: Wasser» (03.09., 07:52) — that read on paper as three properties holding at once
@@ -93,6 +93,10 @@ export function drawingEditChanges(prev: Drawing, next: Drawing): string[] {
       ? fillTemplate(L.fieldCleared, { field: E.lineNo })
       : fillTemplate(prev.lineNo == null ? L.fieldSet : L.fieldChanged, { field: E.lineNo, value: String(next.lineNo) }))
   }
+
+  // ── Person: who is on this Leitung without a Trupp (types · Drawing.person) ──
+  const person = personChange(prev.person, next.person)
+  if (person) out.push(person)
 
   // ── Stockwerk badge — same wording as a symbol's storey (lib/entityEdit) ──
   if (prev.floorTag !== next.floorTag) {
@@ -144,6 +148,24 @@ export function pumpWarningRows(prev: Drawing | null, next: Drawing): string[] {
  *  kind falls back to its plain word («Fläche», «Absperrkreis», «Zeichnung»). Mirror of
  *  entityLogName, and the ONE place create, edit and delete rows take a drawing's name from, so
  *  «Rettungsachse gezeichnet» can never close on «Zeichnung gelöscht». */
+/** …and the audit patch that carries it: a cleared Person as `null`, since JSON drops an
+ *  `undefined` and the Wiedergabe would keep the old name (lib/replay · CLEARABLE folds the
+ *  `null` back to absent). Every other key passes through as it is. */
+export function wirePerson<T extends { person?: string }>(patch: T): Omit<T, 'person'> & { person?: string | null } {
+  return 'person' in patch ? { ...patch, person: patch.person ?? null } : patch
+}
+
+/** The Verlauf clause for a Leitung's «Person» changing – «Person: Meier Anna», «Person auf
+ *  Frei Nico geändert», «Person entfernt». Shared by the Karte (drawingEditChanges) and the Plan,
+ *  whose line edits write no other row (Whiteboard · the line editor's onPerson). Null: same name. */
+export function personChange(prev: string | undefined, next: string | undefined): string | null {
+  const L = appConfig.copy.log
+  const field = appConfig.copy.drawingEditor.person
+  if ((prev ?? '') === (next ?? '')) return null
+  if (!next) return fillTemplate(L.fieldCleared, { field })
+  return fillTemplate(prev ? L.fieldChanged : L.fieldSet, { field, value: next })
+}
+
 export function drawingLogName(d: Drawing): string {
   const kinds = appConfig.copy.log.drawKinds
   const own = (d.label ?? '').trim()

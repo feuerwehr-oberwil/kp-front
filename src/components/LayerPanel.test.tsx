@@ -177,7 +177,7 @@ describe('LayerPanel · phone sheet', () => {
 describe('LayerPanel · leadTwinGroups', () => {
   const base: LayerDef = { id: 'base-osm', group: 'Grundkarte', label: 'OSM', icon: 'map', visible: true, base: true }
   const water: LayerDef = { id: 'hydranten', group: 'Wasser', label: 'Hydranten', icon: 'layers', visible: true }
-  const station: TwinLayerRow = { id: 'karte:objekte', group: 'Station', label: 'Stationsobjekte', icon: 'footprint', visible: true }
+  const station: TwinLayerRow = { id: 'karte:objekte', group: 'Station', label: 'Objekte', icon: 'footprint', visible: true }
   const plans: TwinLayerRow = { id: 'karte:objektplan', group: 'Pläne', label: 'Modul 1', icon: 'doc', visible: false }
   const heads = () => [...document.querySelectorAll('.lgroup')].map((el) => el.textContent)
   const all = { onShowAll: noop, onHideAll: noop, onReset: noop }

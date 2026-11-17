@@ -428,8 +428,9 @@ const coordOf = (p: Record<string, unknown> | null | undefined): LngLat | null =
 // fields through JSON. Ordinary surface patches keep their existing merge semantics.
 // A line end a detach cleared travels as `null` (lib/lineAttachments · wireFreed — JSON drops an
 // `undefined`), and so does the end label «Umkehren» clears (useMapDrawing · reverseDrawing);
-// folded, the key is absent again, as it is in the live document.
-const CLEARABLE = ['startAttachment', 'endAttachment', 'endLabelAt'] as const
+// folded, the key is absent again, as it is in the live document. A Leitung's cleared «Person»
+// travels the same way (drawingEdit · wirePerson), on the Karte and on a sheet.
+const CLEARABLE = ['startAttachment', 'endAttachment', 'endLabelAt', 'person'] as const
 const withoutClearedEnds = <T extends object>(v: T): T => {
   const r = v as Record<string, unknown>
   if (!CLEARABLE.some((k) => r[k] === null)) return v

@@ -79,9 +79,18 @@
    whatever sat under it. The WRAPPER, not `.marker`: `.maplibregl-marker` is what swallows the
    click for the map (MapMarkers · onClick stopPropagation). The class leaves with the tool, so
    the markers are live again the moment the placement is done. Same rule on the plan
-   (09-whiteboard.css · .wb-canvas.placing .wb-anno). ⚠️ The LINE tools are deliberately not in
-   this list: a stroke begun on a symbol is AIMED at it (the line-START magnet). */
-.placing .maplibregl-marker, .maptool-team .maplibregl-marker { pointer-events: none; }
+   (09-whiteboard.css · .wb-canvas.placing .wb-anno). Every tap-to-place tool, not only those
+   (duck sweep GESTURES.5, 17.11.2026): a Notiz, a Kreis, a Fläche's or a Linie's next point tapped
+   onto a symbol used to SELECT the symbol (no card – the tool is not Auswahl) and place nothing,
+   so a Sektor-Fläche drawn around the Brandobjekt lost a corner without a word. A Linie aimed at a
+   symbol still couples to it: the magnet is the canvas tap's (useMapMagnet), not the marker's.
+   ⚠️ Messen is the one named exception – its tap on a symbol measures from the symbol's CENTRE
+   (MapStage · onSelect), so its markers stay live. ⚠️ The drawing's OWN grips stay live: the
+   node pads and «+» / «Verlängern» of the Fläche or Linie being drawn or edited are markers too,
+   and a tap on one is the pad's, never a next point (e2e/node-pad-tap.spec.ts). */
+.placing .maplibregl-marker,
+:is(.maptool-team, .maptool-note, .maptool-circle, .maptool-area, .maptool-line)
+  .maplibregl-marker:not(:has(.measure-handle, .draw-handle, .measure-insert, .draw-grow)) { pointer-events: none; }
 
 /* markers — bare tactical symbol, real-world scaled. White fill only for outline-with-text.
    --gpx = the glyph's on-screen size; --badge-out = how far the corner badges (.sym-floor,
@@ -242,6 +251,12 @@
 .sym-pill.stale.a1 { color: var(--amber-strong); box-shadow: inset 0 0 0 1.5px var(--amber), var(--e0); }
 .sym-pill.stale.a2 { color: var(--red); box-shadow: inset 0 0 0 1.5px var(--red), var(--e0); }
 .sym-pill-age { font-weight: var(--fw-medium); opacity: .85; }
+/* «erledigt» (ENT.3, 17.11.2026, owner: «recedes like every symbol»): the room is cleared, so the
+   pill steps back to the done look a glyph gets (.ts-done) – neutral plate, dim ink, THE done
+   opacity – whatever its level or age. The value stays legible; nothing about it is amber or red.
+   Last in the cascade of pill states, so it wins over .a1/.a2/.stale. */
+.sym-pill.done, .sym-pill.done.stale { background: var(--label-bg); color: var(--ink-dim); box-shadow: inset 0 0 0 1.5px var(--ink-faint), var(--e0); }
+.sym-pill.done > :not(.sym-floor) { opacity: var(--done-opacity); }
 /* placed but not yet measured: the dashed pill with the icon alone */
 .sym-pill.empty { background: var(--label-bg); color: var(--ink-dim); box-shadow: var(--e0); outline: 1.5px dashed var(--ink-faint); outline-offset: -1.5px; }
 .sym-pill .sym-floor { right: -12px; }

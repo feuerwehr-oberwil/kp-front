@@ -113,5 +113,7 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     lagePickOpenOne: 'Ancora 1 domanda aperta',
     lagePickConfirm: 'Registra {n} posizioni',
     lagePickConfirmOne: 'Registra 1 posizione',
+    viewBySourceWord: 'Usato',
+    customMaterialWord: 'Altro',
   },
 }

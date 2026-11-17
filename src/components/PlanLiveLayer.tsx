@@ -24,7 +24,7 @@ import { glyphFor, twinName } from '../lib/entityGlyph'
 import { symbolCaptionText, symbolOriginText, isMeasuredSymbol } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
-import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
+import { DRAG_DEADZONE_PX, useHoldToDrag } from '../lib/useHoldToDrag'
 import { TacticalSymbol } from '../lib/symbolRender'
 import type { LiveMark, PhotoMark } from '../lib/planProjection'
 import { openPhoto } from '../lib/ui'
@@ -38,7 +38,7 @@ import s from './PlanLiveLayer.module.css'
  * — its position is the normalized plan point times the board's px size, which is the same
  * arithmetic every `.wb-anno` does.
  */
-export const PlanLiveLayer = memo(function PlanLiveLayer({ marks, byName, sW, sH, sizePx, captionMode = 'off', suppressedCaptions, onMove }: {
+export const PlanLiveLayer = memo(function PlanLiveLayer({ marks, byName, sW, sH, sizePx, captionMode = 'off', suppressedCaptions, onMove, onOpen, panFrom, stopPan }: {
   marks: LiveMark[]
   byName: Record<string, string>
   /** the board's rendered size in px (fit × zoom) */
@@ -52,6 +52,12 @@ export const PlanLiveLayer = memo(function PlanLiveLayer({ marks, byName, sW, sH
   /** Drag a live VEHICLE: the point comes back in the sheet's normalized space, and the caller
    *  folds it through the fit onto the one live entity. Omitted ⇒ nothing here answers a press. */
   onMove?: (id: string, pt: { x: number; y: number }, phase: 'start' | 'move' | 'end') => void
+  /** a TAP on a live vehicle opens its read-only sheet, as on the Karte (ENT.6, 17.11.2026) */
+  onOpen?: (id: string) => void
+  /** the board's pan from a press the mark does not (yet) take – the press rule of every object
+   *  on both surfaces (GESTURES.1): a finger pans, a still hold lifts the vehicle, a mouse drags */
+  panFrom: (e: React.PointerEvent) => void
+  stopPan: () => void
 }) {
   const C = appConfig.copy.whiteboard.georef
   /** Where the dragged mark STOOD when the finger went down. ⚠️ The delta is cumulative, so it
@@ -59,6 +65,7 @@ export const PlanLiveLayer = memo(function PlanLiveLayer({ marks, byName, sW, sH
    *  moved, and adding it to the live point re-applied the whole travel on every sample. */
   const from = useRef<{ x: number; y: number } | null>(null)
   const drag = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null)
+  const hold = useHoldToDrag()
   if (!sW || !sH) return null
   return (
     <>
@@ -85,6 +92,7 @@ export const PlanLiveLayer = memo(function PlanLiveLayer({ marks, byName, sW, sH
         const origin = suppressedCaptions?.has(e.id) ? null : symbolOriginText(e, captionMode)
         const title = fillTemplate(C.twinFromMap, { name })
         const movable = !!onMove && veh
+        const opens = !!onOpen && veh
         const report = (phase: 'start' | 'move' | 'end', dx: number, dy: number) => {
           const base = from.current ?? m.pt
           // clamped to the sheet: a point off the paper is not a place on this document, and
@@ -93,13 +101,21 @@ export const PlanLiveLayer = memo(function PlanLiveLayer({ marks, byName, sW, sH
         }
         return (
           <span key={m.id}
-            className={`${s.twin} ${movable ? s.grab : s.inert}`}
+            className={`${s.twin} ${movable ? s.grab : opens ? '' : s.inert}`}
             style={{ ...at, width: sizePx, height: sizePx, '--hbox': `${sizePx}px` } as React.CSSProperties}
             title={title} aria-label={title}
-            onPointerDown={movable ? (ev) => {
-              ev.stopPropagation() // the board must not start a pan under the same finger
-              ev.currentTarget.setPointerCapture?.(ev.pointerId)
-              drag.current = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, moved: false }
+            onPointerDown={movable || opens ? (ev) => {
+              if (ev.button > 0) return
+              ev.stopPropagation() // the board's own pan is started here, or not at all
+              const el = ev.currentTarget, pid = ev.pointerId, x = ev.clientX, y = ev.clientY
+              const grab = () => { el.setPointerCapture?.(pid); drag.current = { id: pid, x, y, moved: false } }
+              if (movable && ev.pointerType === 'mouse') { grab(); return }
+              panFrom(ev)
+              hold.begin(ev, {
+                onTap: () => onOpen?.(m.id),
+                // the still hold lifted it: the mark takes the pointer back from the board
+                onHoldStart: () => { stopPan(); grab() },
+              }, { mode: 'touch', canDrag: movable })
             } : undefined}
             onPointerMove={movable ? (ev) => {
               const d = drag.current
@@ -122,6 +138,7 @@ export const PlanLiveLayer = memo(function PlanLiveLayer({ marks, byName, sW, sH
               drag.current = null
               endSheetPeek()
               if (d.moved) report('end', ev.clientX - d.x, ev.clientY - d.y)
+              else onOpen?.(m.id) // a mouse click (or a held press let go unmoved) opens it too
               from.current = null
             } : undefined}
           >

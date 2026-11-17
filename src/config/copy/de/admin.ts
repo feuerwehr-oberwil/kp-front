@@ -204,16 +204,19 @@ export const adminCopy = {
       disabledBody: 'Auf diesem Server ist kein Adminschlüssel (ADMIN_SECRET) konfiguriert. Die Verwaltung ist deshalb gesperrt. Bitte richte ADMIN_SECRET in der Deployment-Konfiguration ein.',
     },
     nav: {
+      groupConnections: 'Anbindungen',
+      groupMap: 'Karte & Vorlagen',
+      groupFleet: 'Fahrzeuge & Material',
+      groupOverview: 'Übersicht',
       objektbesuche: {
         label: 'Objektbesuche',
         title: 'Objektbesuche',
         lede: 'Kontrollen bei Objekten: wer erfasst, was vorgeschlagen werden kann und wohin die Besuche abgelegt werden.',
         tip: 'Mitglieder öffnen «Objektbesuche» im Launcher, wählen ein Objekt und erfassen Checkliste, Bemerkungen, Fotos und Korrekturvorschläge – zuerst auf dem Gerät, gesendet bei Verbindung. Ein Ablageziel bekommt nur Kopien; der Besuch selbst bleibt in KP Front.',
       },
-      groupStation: 'Station',
-      groupPersonen: 'Personen',
-      groupDaten: 'Daten',
-      groupSystem: 'System',
+      groupStation: 'Station & Einsatz',
+      groupPersonen: 'Personal & Zugriff',
+      groupSystem: 'System & Sicherung',
       identitaet: { label: 'Station & Karte', title: 'Station & Karte', lede: 'Name, Sprache, Markenfarbe, Logos und Startansicht der Karte für diese Installation.' },
       // ⚠️ Kein eigener Menüpunkt mehr – aber `title` benennt weiterhin die Karten- bzw.
       // Journal-Gruppe auf «Station & Karte» und «Rapport» (ConfigSections, ConfigContext).
@@ -263,7 +266,7 @@ export const adminCopy = {
         label: 'Personal',
         title: 'Personal',
         lede: 'Der lokale Personenstamm dieser Wehr.',
-        tip: 'Handeingabe und CSV funktionieren immer; eine konfigurierte Personalquelle kann zusätzlich synchronisieren.',
+        tip: 'Handeingabe und CSV funktionieren immer; eine konfigurierte Personalquelle kann zusätzlich abgleichen.',
       },
       einsaetze: { label: 'Einsatzhistorie', title: 'Einsatzhistorie', lede: 'Alle aktuellen und historischen Einsätze mit Startzeit, Status, Herkunft, Rapportstand und letzter Änderung.' },
       divera: {
@@ -293,7 +296,7 @@ export const adminCopy = {
       arbeitsmappe: {
         label: 'Arbeitsmappe',
         title: 'Stationsdaten als Arbeitsmappe',
-        lede: 'Mannschaft, Dienstgrade, Fahrzeuge, Mittel und Partnerorganisationen als eine Excel-Datei herunterladen, bearbeiten und wieder einspielen.',
+        lede: 'Personal, Dienstgrade, Fahrzeuge, Mittel und Partnerorganisationen als eine Excel-Datei herunterladen, bearbeiten und wieder einspielen.',
         tip: 'Vor dem Schreiben zeigt die Vorschau je Blatt, was neu ist, was sich ändert und was wegfällt – benannt, nicht gezählt. Erst «Jetzt übernehmen» schreibt.',
       },
       // Der Mittel-Katalog war aus der Verwaltung heraus unsichtbar: er entsteht nur in der
@@ -308,14 +311,14 @@ export const adminCopy = {
       system: { label: 'System & Wartung', title: 'System & Wartung', lede: 'Status & Wartung: Version, Datenbank, Bestand, Speicher und der Offline-Cache dieses Geräts.' },
       sicherung: { label: 'Sicherung', title: 'Sicherung', lede: 'Konfiguration als Datei sichern oder eine gesicherte Datei einspielen.' },
     },
-    // Verwaltung › Daten › Arbeitsmappe (admin/StationWorkbookView). Die Vorschau IST das
+    // Verwaltung › Fahrzeuge & Material › Arbeitsmappe (admin/StationWorkbookView). Die Vorschau IST das
     // Feature: was neu ist, was sich ändert, was wegfällt – benannt, vor dem Schreiben.
     workbook: {
-      covers: 'Enthalten sind acht Blätter: Mannschaft, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen und Symbolfelder – so, wie sie in der Datei heissen.',
+      covers: 'Enthalten sind acht Blätter: Personal, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen und Symbolfelder – so, wie sie in der Datei heissen.',
       notBackup: 'Das ist keine Sicherung.',
       notBackupBody: 'Die Arbeitsmappe deckt nur die Listen ab. Name, Sprache, Markenfarbe, Karte, Doktrin, Alarmierung und Verlauf stehen nicht darin – wer sie zurückspielt, stellt davon nichts wieder her. Die Sicherung ist die JSON-Datei unter «Sicherung», zusammen mit «Letzte Änderungen».',
       carriesNot: 'Nicht enthalten – und absichtlich nicht: Schlüssel und Passwörter, Logos, Objektpläne, Kartenebenen, eigene Formulare und die Alarm-Stichwörter.',
-      nameNote: 'Ein Blatt ganz aus der Datei zu löschen lässt diese Liste unverändert; nur die Zeilen zu löschen und die Titelzeile stehen zu lassen leert sie – so leert man eine Liste absichtlich. Personen werden über Quelle + Externe ID erkannt, sonst über den Namen. Zwei Personen mit exakt gleicher Schreibweise gelten deshalb als eine – in dem Fall eine der beiden im Namen unterscheiden (z. B. zweiter Vorname) oder beiden eine Externe ID geben. Wer im Blatt «Mannschaft» fehlt, wird deaktiviert und nie gelöscht – abgeschlossene Einsätze lösen den Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird dagegen entfernt.',
+      nameNote: 'Ein Blatt ganz aus der Datei zu löschen lässt diese Liste unverändert; nur die Zeilen zu löschen und die Titelzeile stehen zu lassen leert sie – so leert man eine Liste absichtlich. Personen werden über Quelle + Externe ID erkannt, sonst über den Namen. Zwei Personen mit exakt gleicher Schreibweise gelten deshalb als eine – in dem Fall eine der beiden im Namen unterscheiden (z. B. zweiter Vorname) oder beiden eine Externe ID geben. Wer im Blatt «Personal» fehlt, wird deaktiviert und nie gelöscht – abgeschlossene Einsätze lösen den Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird dagegen entfernt.',
       step1Title: 'Herunterladen und einspielen',
       step1Body: 'Der aktuelle Stand der Station – gleichzeitig Vorlage und Rückgängig: dieselbe Datei nochmals eingespielt ändert nichts.',
       download: 'Arbeitsmappe herunterladen',
@@ -344,7 +347,7 @@ export const adminCopy = {
       errorsTitle: 'Abgelehnte Zeilen',
       errorsLead: 'Solange eine Zeile abgelehnt ist, wird nichts übernommen – auch die guten Zeilen nicht. Blatt und Zeilennummer stehen dabei, damit die Stelle in der eigenen Datei zu finden ist.',
       confirm: 'Jetzt übernehmen',
-      confirmHint: 'Abbrechen schreibt nichts. Nach dem Übernehmen steht der vorherige Stand der Listen unter «Sicherung» › «Letzte Änderungen» – die Mannschaft steht dort nicht drin. Rückgängig gemacht wird sie über die Datei, die du vor dem Import heruntergeladen hast; gelöscht wird ohnehin niemand, wer fehlt wird nur deaktiviert.',
+      confirmHint: 'Abbrechen schreibt nichts. Nach dem Übernehmen steht der vorherige Stand der Listen unter «Sicherung» › «Letzte Änderungen» – das Personal steht dort nicht drin. Rückgängig gemacht wird es über die Datei, die du vor dem Import heruntergeladen hast; gelöscht wird ohnehin niemand, wer fehlt wird nur deaktiviert.',
       blockedHint: 'Bitte die abgelehnten Zeilen in der Datei korrigieren und erneut prüfen.',
       importFailed: 'Die Arbeitsmappe wurde nicht übernommen.',
       doneTitle: 'Übernommen',
@@ -516,7 +519,7 @@ export const adminCopy = {
       nameStats: 'Statistik-Export',
       colActions: 'Aktionen',
       rotateNote: 'Ein rotierter Schlüssel macht die alte Adresse sofort ungültig – ausgedruckte Poster und QR-Karten danach ersetzen.',
-      purposeCapture: 'Mannschaft meldet sich am Poster an',
+      purposeCapture: 'Personal meldet sich am Poster an',
       purposeTerminal: 'Fixe Adresse für das Gerät im Depot',
       purposeAtemschutz: 'Fixe Adresse hinter dem laminierten QR-Code',
       purposeStats: 'Lesetoken für externe Auswertungen',
@@ -626,7 +629,7 @@ export const adminCopy = {
     },
     incidentHistory: {
       loading: 'Einsätze werden geladen …', error: 'Einsätze konnten nicht geladen werden.', search: 'Titel, Adresse oder Herkunft suchen …',
-      none: 'Noch keine Einsätze.', noMatches: 'Keine Einsätze passen zur Suche.', started: 'Beginn', incident: 'Einsatz', status: 'Status',
+      none: 'Noch keine Einsätze.', noMatches: 'Keine Einsätze passen zur Suche.', started: 'Zeit Alarmierung', incident: 'Einsatz', status: 'Status',
       source: 'Herkunft', report: 'Rapport', updated: 'Geändert', open: 'offen', closed: 'abgeschlossen', complete: 'vollständig', incomplete: 'offen',
       sources: { manual: 'Manuell erfasst', divera: 'Divera', firehub: 'FireHub', migrated: 'Übernommen' } as Record<string, string>,
       // ⚠️ Löschen vernichtet eine Einsatzakte: Verlauf, Prüfkette, Anwesenheit, Fotos und
@@ -647,6 +650,7 @@ export const adminCopy = {
         exercise: 'Übung – wird nicht abgelegt',
         onClose: 'beim Abschluss',
         none: 'nicht abgelegt',
+        empty: 'keine Dateien zum Ablegen',
         noReport: 'ohne Rapport-PDF',
         file: 'Ablegen',
         retry: 'Erneut versuchen',
@@ -1114,7 +1118,7 @@ export const adminCopy = {
       originsPlaceholder: 'z. B. Stützpunkt',
       // ── Symbol-Auswahllisten: hier nur Ansicht, geschrieben wird auf dem Blatt «Symbolfelder» ──
       attributesTitle: 'Auswahllisten der Symbole',
-      cliHint: 'Schreibgeschützt – bearbeitet werden die Listen unter «Daten» → «Arbeitsmappe».',
+      cliHint: 'Schreibgeschützt – bearbeitet werden die Listen unter «Fahrzeuge & Material» → «Arbeitsmappe».',
       cliTip: 'Auf dem Blatt «Symbolfelder», eine Zeile je Option (Symbol, Feld, Option). Ohne '
         + 'Tabellenprogramm: «Sicherung» → Konfiguration exportieren, in der Datei '
         + 'fleet.attributeLists ergänzen und wieder importieren.',
@@ -1152,7 +1156,7 @@ export const adminCopy = {
         airflow: 'Die Luftrichtung des Lüfters (Einblasen / Absaugen) kann umgeschaltet werden.',
       },
       listsMeaningTitle: 'Quelle & Auswahlliste.',
-      noConfiguredLists: 'Für diese Station sind keine eigenen Auswahllisten hinterlegt. Name und Fahrer kommen aus der Mannschaft; alle übrigen Felder bleiben frei editierbar.',
+      noConfiguredLists: 'Für diese Station sind keine eigenen Auswahllisten hinterlegt. Name und Fahrer kommen aus dem Personal; alle übrigen Felder bleiben frei editierbar.',
       configuredLists: '«Konfiguriert» zeigt Stationsvorschläge, «Aus Personal» übernimmt Personen. Die Vorschläge beschleunigen die Eingabe; Freitext bleibt möglich.',
       rosterField: 'Aus Personal',
       rosterBadgeHint: 'wird aus dem Personal gefüllt',
@@ -1163,6 +1167,8 @@ export const adminCopy = {
       freitextValue: 'frei eingeben',
     },
     members: {
+      search: 'Name oder Benutzername suchen …',
+      noMatches: 'Keine Anmeldekonten passen zur Suche.',
       add: 'Mitglied hinzufügen',
       addCaption: 'Benutzername zum Anmelden, Anzeigename auf den Login-Kacheln. PIN: {min}–{max} Ziffern.',
       username: 'Benutzername',
@@ -1232,9 +1238,12 @@ export const adminCopy = {
       pinSave: 'PIN speichern',
     },
     roster: {
+      search: 'Person suchen …',
+      noMatches: 'Keine Personen passen zur Suche.',
+      settingsAndImport: 'Einstellungen & Import',
       rankNoneOption: 'Kein Grad',
-      providerRankHint: '{provider} kann den Grad bei der nächsten Synchronisation überschreiben',
-      providerStatusHint: '{provider} aktiviert die Person bei der nächsten Synchronisation wieder',
+      providerRankHint: '{provider} kann den Grad beim nächsten Abgleich überschreiben',
+      providerStatusHint: '{provider} aktiviert die Person beim nächsten Abgleich wieder',
       // Name format — one order for the whole Wehr. It sits here because the effect is visible
       // directly below it in the list.
       nameOrderTitle: 'Namensformat',
@@ -1251,16 +1260,16 @@ export const adminCopy = {
       // ohne ihn erst aufzuklappen. Deaktiviert heisst nie gelöscht – vergangene Einsätze
       // behalten ihre Namen.
       autoSyncTitle: 'Automatischer Abgleich',
-      autoSyncCaption: 'Läuft nachts von selbst. «Mit Divera synchronisieren» oben bleibt jederzeit von Hand möglich.',
+      autoSyncCaption: 'Läuft nachts von selbst. «Mit Divera abgleichen» oben bleibt jederzeit von Hand möglich.',
       autoSyncLabel: 'Automatischer Divera-Abgleich',
-      autoSyncTip: 'Ohne ihn ist die Mannschaft so aktuell wie der letzte Abgleich von Hand. «Zugänge & Grade» übernimmt Eintritte, Namen und Dienstgrade und meldet Abgänge nur – ein Verschwinden ist ebenso oft ein kaputter Abruf wie ein Austritt. «Vollständig» deaktiviert diese Personen zusätzlich; gelöscht wird nie, vergangene Einsätze behalten ihre Namen.',
+      autoSyncTip: 'Ohne ihn ist das Personal so aktuell wie der letzte Abgleich von Hand. «Zugänge & Grade» übernimmt Eintritte, Namen und Dienstgrade und meldet Abgänge nur – ein Verschwinden ist ebenso oft ein kaputter Abruf wie ein Austritt. «Vollständig» deaktiviert diese Personen zusätzlich; gelöscht wird nie, vergangene Einsätze behalten ihre Namen.',
       autoSyncOff: 'Aus – nichts läuft von selbst',
       autoSyncSafe: 'Zugänge & Grade – Abgänge werden nur gemeldet',
       autoSyncFull: 'Vollständig – Abgänge werden deaktiviert',
       autoSyncShortOff: 'Aus',
       autoSyncShortSafe: 'Zugänge & Grade',
       autoSyncShortFull: 'Vollständig',
-      sourceHint: 'Spalten: name (Pflicht), rank (optional). UTF-8, kommagetrennt, mit Kopfzeile. Provider-Identitäten werden durch die Synchronisation verwaltet.',
+      sourceHint: 'Spalten: name (Pflicht), rank (optional). UTF-8, kommagetrennt, mit Kopfzeile. Provider-Identitäten werden durch den Abgleich verwaltet.',
       addPerson: 'Person hinzufügen',
       addPersonCaption: 'Name eingeben; Grad und Status lassen sich gleich mitgeben.',
       name: 'Name',
@@ -1270,16 +1279,16 @@ export const adminCopy = {
       importing: 'Wird importiert …',
       imported: '{n} importiert',
       skipped: '{n} übersprungen',
-      syncProvider: 'Mit {provider} synchronisieren',
+      syncProvider: 'Mit {provider} abgleichen',
       providerNotConfigured: 'Keine Personalquelle konfiguriert – CSV und Handeingabe verfügbar',
       title: 'Erfasste Personen',
       caption: 'Personen werden deaktiviert, nie gelöscht – der Verlauf bleibt erhalten.',
       showInactive: 'Inaktive anzeigen',
       loading: 'Personal wird geladen …',
       none: 'Noch keine Personen erfasst.',
-      // Der schnelle Weg für eine ganze Wehr steht sonst nur unter «Daten › Arbeitsmappe» –
+      // Der schnelle Weg für eine ganze Wehr steht sonst nur unter «Fahrzeuge & Material › Arbeitsmappe» –
       // also genau dort nicht, wo jemand mit vierzig Namen vor sich sitzt.
-      noneHint: 'Ohne Personen bleiben Anwesenheit und Rapport leere Listen. Einzeln erfassen oder als CSV importieren – für eine ganze Wehr ist «Daten › Arbeitsmappe» der schnelle Weg: alle Listen als eine Excel-Datei herunterladen, ausfüllen, wieder einspielen.',
+      noneHint: 'Ohne Personen bleiben Anwesenheit und Rapport leere Listen. Einzeln erfassen oder als CSV importieren – für eine ganze Wehr ist «Fahrzeuge & Material › Arbeitsmappe» der schnelle Weg: alle Listen als eine Excel-Datei herunterladen, ausfüllen, wieder einspielen.',
       colName: 'Name',
       colRank: 'Grad',
       colSource: 'Quelle',
@@ -1307,7 +1316,7 @@ export const adminCopy = {
       mapAdoptAndImport: 'Übernehmen und {n} importieren',
       mapAdoptAll: 'Alle {n} Grade übernehmen',
       mapNoOwnListTitle: 'Die Station hat noch keine eigene Gradliste.',
-      mapNoOwnListBody: 'Bis jetzt gilt die mitgelieferte Schweizer Liste. Kommt die Datei aus der bisherigen Mannschaftsliste, sind ihre Grade die richtigen – einmal übernehmen, dann sind sie bekannt.',
+      mapNoOwnListBody: 'Bis jetzt gilt die mitgelieferte Schweizer Liste. Kommt die Datei aus der bisherigen Personalliste, sind ihre Grade die richtigen – einmal übernehmen, dann sind sie bekannt.',
       mapAdoptNoteTitle: 'Übernommene Grade kommen in die Gradliste der Station.',
       mapAdoptNoteBody: 'Beim nächsten Import sind sie bekannt und diese Frage kommt nicht wieder. Neue Grade stehen am Ende der Liste – zuunterst in der Rangfolge.',
       mapMaterialiseHint: 'Die mitgelieferten Grade bleiben erhalten: sie werden zur eigenen Liste der Station, ergänzt um die neuen.',
@@ -2089,14 +2098,14 @@ export const adminCopy = {
       // ist seit einem Jahr rotiert, «konfiguriert» steht weiterhin grün da.
       connDiveraAlarms: 'Divera-Alarmabruf',
       connTraccar: 'Positionsabruf (Ortung)',
-      connDiveraPersonnel: 'Mannschaftsabgleich (Divera)',
+      connDiveraPersonnel: 'Personalabgleich (Divera)',
       connLastSuccess: 'Zuletzt erfolgreich: {time}',
       connNeverRan: 'noch nie gelaufen',
       // «veraltet», nicht «offline»: der letzte Abruf hat geklappt, er ist bloss zu lange her.
       // Wie lange zu lange ist, weiss nur diese Seite – der Server liefert die Zeitstempel roh.
       connStale: 'veraltet',
       // Die Zeile, die «safe» erzeugt: Abgänge werden gezählt und gemeldet, aber nie von selbst
-      // deaktiviert. Führt auf die Mannschaft, wo sie erledigt werden.
+      // deaktiviert. Führt aufs Personal, wo sie erledigt werden.
       connLeavers: '{n} Abgänge warten',
       // ── Personenstamm-Snapshot (docs/CONFIGURATION.md §4c) ──
       // «Angehalten», nicht «offline»: die Datei kam an, aber sie würde zu viele Personen auf

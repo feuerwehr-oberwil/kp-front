@@ -16,6 +16,8 @@ import {
   type RosterRankDecision,
 } from './rosterApi'
 import { appConfig } from '../config/appConfig'
+import { SearchField } from '../components/SearchField'
+import { searchQuery, matchesAnyQuery } from '../lib/search'
 import { fillTemplate } from '../lib/format'
 import { loadDeploymentConfig, providerLabel } from '../lib/deploymentConfig'
 import { activeRanks, rankAbbr, rankDisplay, rankLabel } from '../lib/rank'
@@ -563,7 +565,7 @@ type Async =
   | { kind: 'error'; detail: string }
 
 /** Station-wide name order. Sits on THIS page rather than under Doktrin because the list it
- *  changes is right underneath — you pick an order and read the result, instead of switching
+ *  changes remains on the same page — you pick an order and read the result, instead of switching
  *  pages to find out what you did. One order for the whole Wehr: two operators reading the same
  *  Trupp card differently is worse than either order being the "wrong" one. */
 function NameOrderCard() {
@@ -601,7 +603,7 @@ function NameOrderCard() {
 
 /**
  * How much the NIGHTLY Divera sync may do on its own. Same page and same pattern as the name
- * order: one config field, the list it changes right underneath.
+ * order: one config field beside the list it changes, under «Einstellungen & Import».
  *
  * ⚠️ Only shown where it can do anything — a station with no Divera personnel key runs the job
  * idle whatever this says, and a setting that changes nothing is worse than an absent one. The
@@ -650,6 +652,7 @@ export function RosterView() {
   const [personnelProvider, setPersonnelProvider] = useState<string | null | undefined>(undefined)
   const [syncOpen, setSyncOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  const [query, setQuery] = useState('')
 
   const load = useCallback(async () => {
     try {
@@ -698,6 +701,12 @@ export function RosterView() {
     mutate(p.id, () => updatePerson(p.id, { is_active: !p.is_active }))
 
   const C = appConfig.copy.admin.roster
+  const preparedQuery = searchQuery(query)
+  // A filter never hides a row with something unfinished: an edit, a write in flight or the
+  // error it left.
+  const visible = state.kind === 'ok' ? state.data.filter((p) =>
+    editing === p.id || busyId === p.id || rowErr?.id === p.id
+    || !preparedQuery || matchesAnyQuery(preparedQuery, p.display_name, p.first_name, p.last_name)) : []
 
   return (
     <div className="adm-editor">
@@ -715,10 +724,6 @@ export function RosterView() {
             )}
         </div>
       )}
-
-      <NameOrderCard />
-      <AutoSyncCard provider={personnelProvider} />
-      {personnelProvider === null && <CsvImportCard onImported={() => void load()} />}
 
       {/* Both belong to the card as a whole rather than to any row: «Inaktive anzeigen» filters
           the list, «Person hinzufügen» adds to it — that is what `action` is (ui · Card). The
@@ -751,6 +756,9 @@ export function RosterView() {
               onClose={() => setAddOpen(false)}
             />
           )}
+          <div className="adm-toolbar">
+            <SearchField className="adm-person-search" value={query} onChange={setQuery} placeholder={C.search} aria-label={C.search} />
+          </div>
           {state.kind === 'loading' && <EmptyState loading message={C.loading} />}
           {state.kind === 'error' && <EmptyState tone="err" message={state.detail} />}
           {/* «Einrichtung» sends a fresh station straight here for «Personal erfassen», and the
@@ -760,7 +768,10 @@ export function RosterView() {
           {state.kind === 'ok' && state.data.length === 0 && (
             <EmptyState message={C.none} hint={C.noneHint} />
           )}
-          {state.kind === 'ok' && state.data.length > 0 && (
+          {state.kind === 'ok' && state.data.length > 0 && visible.length === 0 && (
+            <EmptyState message={C.noMatches} />
+          )}
+          {state.kind === 'ok' && visible.length > 0 && (
             <div className="adm-table-wrap">
               <table ref={tableRef} className="adm-table adm-members-table">
                 <thead>
@@ -773,7 +784,7 @@ export function RosterView() {
                   </tr>
                 </thead>
                 <tbody>
-                  {state.data.map((p) => {
+                  {visible.map((p) => {
                     const busy = busyId === p.id
                     if (editing === p.id) {
                       return (
@@ -829,6 +840,16 @@ export function RosterView() {
           )}
         </>
       </Card>
+
+      {/* Native disclosure keeps setup/import out of the daily list. ListRow cannot own
+          summary's keyboard and expanded semantics. Settings remain mounted, so an import
+          preview or unsaved field is not lost when the block is collapsed. */}
+      <details className="adm-roster-settings">
+        <summary>{C.settingsAndImport}</summary>
+        <NameOrderCard />
+        <AutoSyncCard provider={personnelProvider} />
+        {personnelProvider === null && <CsvImportCard onImported={() => void load()} />}
+      </details>
 
       {syncOpen && (
         <PersonnelSyncDialog

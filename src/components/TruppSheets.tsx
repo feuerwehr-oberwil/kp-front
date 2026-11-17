@@ -42,9 +42,16 @@ import s from './Atemschutz.module.css'
  * The frame is the `.modal` head with the ✕, grown a grab bar and the push-down-to-close gesture,
  * because on a phone these ARE bottom sheets (lib/overlays · Overlay, `.miniSheet` in
  * Atemschutz.module.css); on a tablet the same frame is a centred card. The pressure picker was
- * the one sheet built otherwise (a centred card at every width) and joined them on 29.09.2026. ✕, backdrop and the swipe are «not now»: a mini sheet holds one to three
- * answers, and re-typing a Ziel costs less than a draft store for it would (the big form keeps
- * drafts — TruppForm · draftKeep — because it holds a whole crew).
+ * the one sheet built otherwise (a centred card at every width) and joined them on 29.09.2026.
+ *
+ * **Closing never loses what was typed** (owner, 17.11.2026 – duck sweep CONT.3 / FEEDBACK.8): the
+ * sheets keep their «Speichern», but ANY other way out – ✕, the swipe, a tap beside it, Esc, the
+ * native back (they all arrive as the frame's `onClose`) – with a CHANGE in it saves it, exactly as
+ * «Speichern» would. «Abbrechen» is the one control that throws the change away. Until then ✕ and
+ * the swipe were «not now» and a half-typed Ziel went with the radio call that interrupted it. A
+ * change that cannot be saved (a Mannschaft without its Gruppenführer, a crew member who is in
+ * another Trupp) is not forced through: the close leaves the Trupp as it was. A save the board
+ * asks about (the one-Leitung-one-Trupp question) keeps the sheet open on «Nein», as «Speichern» does.
  *
  * Every save goes through the ONE write path (useTruppActions · editTrupp), handed the Trupp as it
  * stands now with only this sheet's fields changed (lib/truppQuickEdit): same Verlauf row, same
@@ -191,8 +198,10 @@ export function KanalPickSheet({ value, sub, name, takeLabel, onPick, onClose }:
   const pad = kanalPad(dz.funkkanalMin, dz.funkkanalMax)
   const [typed, setTyped] = useState<number>(value)
   const pick = async (n: number) => { if (await onPick(n)) onClose() }
+  // the stepper's typed channel is taken by any close, not only by its foot button (header rule)
+  const dismiss = () => { if (!pad && typed !== value) void pick(typed); else onClose() }
   return (
-    <MiniSheet title={az.funkkanalUnit} sub={sub} ariaLabel={name ? `${az.funkkanalUnit} · ${name}` : az.funkkanalUnit} onClose={onClose} className={pad ? s.miniSheetPad : undefined}
+    <MiniSheet title={az.funkkanalUnit} sub={sub} ariaLabel={name ? `${az.funkkanalUnit} · ${name}` : az.funkkanalUnit} onClose={dismiss} className={pad ? s.miniSheetPad : undefined}
       footer={pad ? undefined : (
         <SheetFoot className={s.modalFoot}>
           <button type="button" className={cx('ip-btn', s.footCancel)} onClick={onClose}>{az.cancel}</button>
@@ -285,8 +294,11 @@ export function AuftragSheet({ t, leitungOptions, lite = false, onSave, onClose 
   const save = async () => {
     if (await onSave(auftragSheetFields(t, { auftrag, ziel, lineNo }))) onClose()
   }
+  // ✕ / swipe / a tap beside / Esc / back with a change saves it (header rule); «Abbrechen» drops it
+  const changed = auftrag !== t.auftrag || ziel !== (t.ziel ?? '') || lineNo !== (t.lineNo ?? null)
+  const dismiss = () => { if (changed) void save(); else onClose() }
   return (
-    <MiniSheet title={az.editFieldLabels.auftrag} sub={truppSheetSub(t)} ariaLabel={`${az.editFieldLabels.auftrag} · ${t.name}`} onClose={onClose}
+    <MiniSheet title={az.editFieldLabels.auftrag} sub={truppSheetSub(t)} ariaLabel={`${az.editFieldLabels.auftrag} · ${t.name}`} onClose={dismiss}
       footer={(
         <SheetFoot className={s.modalFoot}>
           {/* the one footer: [danger] · Abbrechen · primary (docs/ui-conventions · editor sheets) */}
@@ -335,7 +347,7 @@ export function LeitungChips({ value, options, onChange, ariaLabel, children }: 
           className={cx(!!o.takenBy && value !== o.no && s.miniChipTaken)}
           title={o.takenBy ? fillTemplate(az.lineOptTaken, { name: o.takenBy }) : undefined}
           onClick={() => onChange(o.no)}>
-          {fillTemplate(az.lineChip, { n: o.no })}{o.onPlan ? ' · P' : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
+          {fillTemplate(az.lineChip, { n: o.no })}{o.onPlan ? ` · ${az.lineOnPlan}` : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
         </Chip>
       ))}
       {children}
@@ -382,7 +394,9 @@ export function LeitungField({ label, value, options, onChange, children }: {
             ariaLabel={az.lineTyped}
           />
         ) : (
-          <Chip onClick={() => setTyping(true)}>{az.lineTyped}</Chip>
+          // an ACTION beside the answers – it opens a number field – so a quiet Button, not one
+          // more unlit choice Chip that reads as a number you cannot pick (duck sweep ELEM.10)
+          <Button variant="quiet" onClick={() => setTyping(true)}>{az.lineTyped}</Button>
         )}
       </LeitungChips>
       {children}
@@ -449,6 +463,8 @@ export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds,
   const [team, setTeam] = useState<CrewSlot[]>(() =>
     truppSlots(t, rosterByName, rosterById).map((sl) => (sl.personId ? sl : { ...sl, personId: personIdForName(rosterByName, sl.name) })))
   const [equipment, setEquipment] = useState<string[]>(t.equipment ?? [])
+  // what the sheet opened on, to tell a close with a change from one without (header rule)
+  const [opened] = useState(() => JSON.stringify([team, equipment]))
   const toggle = (id: string) => setEquipment(equipment.includes(id) ? equipment.filter((x) => x !== id) : [...equipment, id])
   const conflict = teamConflict(team, assignedIds, transferState, az.assignedFallbackName)
   const leaderOk = (team[0]?.name.trim().length ?? 0) > 0
@@ -463,10 +479,12 @@ export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds,
     const f = truppSheetFields(t, team, equipment, atemschutzEquipment().map((e) => e.id))
     if (await onSave({ ...f, ...fileGuestSlots(team, onAddGuest) })) onClose()
   }
+  // a close with a change saves it; one that cannot be saved leaves the Trupp as it was (header rule)
+  const dismiss = () => { if (canSave && JSON.stringify([team, equipment]) !== opened) void save(); else onClose() }
   // the question, like its three siblings (T5): «Mannschaft», whose under it
   const title = az.editFieldLabels.crew
   return (
-    <MiniSheet title={title} sub={truppSheetSub(t)} ariaLabel={`${title} · ${t.name}`} onClose={onClose}
+    <MiniSheet title={title} sub={truppSheetSub(t)} ariaLabel={`${title} · ${t.name}`} onClose={dismiss}
       className={s.miniSheetTall}
       footer={(
         <SheetFoot className={s.modalFoot}>

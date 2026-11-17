@@ -214,4 +214,5 @@ look, not a verdict. A loaded box skews every time. Counts and sizes compare as 
   one pill no longer reaches «Erfassen» at any phone or tablet size (the tablet composer is a
   dialog at the top, the phone's lane stands on the sheet), but every Meldung STACKED another
   pill, and a column of them grew up into the composer. Since then a new «Eintrag erfasst»
-  replaces the last one (`useJournalWriters · JOURNAL_SAVED_KIND`, e2e `workspace-flows` F8).
+  replaced the last one, and since the toast diet (17.11.2026) a plain Meldung raises no toast at
+  all – the composer closing is the confirmation (e2e `workspace-flows` F8 counts zero pills).

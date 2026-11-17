@@ -47,7 +47,6 @@ interface Args {
   setPendingShape: (kind: ShapeKind | null) => void
   placeLock: boolean
   setPaletteOpen: (open: boolean) => void
-  readOnly: boolean
   /** the Gebäude floor stack: a press lands on the storey under it */
   stack: boolean
   toNorm: (clientX: number, clientY: number) => [number, number] | null
@@ -101,7 +100,7 @@ interface Args {
 
 /** The ink overlay's pointer handlers and the placement they make; see the file header. */
 export function usePlanCreate({
-  tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, readOnly, stack,
+  tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, stack,
   toNorm, floorAt, localY, mapY, sW, sH, tileAR, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef,
   planDraft, rotor, measure, rotPlacing, rotStart, setRotStart, rotN, noteDefaults, txtBase, setNotePanelId, setNotePlacedId,
   sym, onRecent, annos, trupps, placedTeamNames, onLinkTrupp, setTruppPick, add, log, setSelId, tapZoomPress, tapZoomOwns,
@@ -113,7 +112,7 @@ export function usePlanCreate({
   // a Leitung's ends couple (the draft magnet); a Wand is layout and couples to nothing
   const magnetic = tool === 'line' && !grundriss
   const { claimRotTarget, clearRotMagnet, rotMagnetRef, rotPanPaused: rotPanPausedRef } = rotor
-  const { calNodes, setCalNodes, setCalPrompt, setRefMInput, lastRefM, calibrated, measPath, setMeasPath, setMeasLine, setMeasArea } = measure
+  const { calNodes, setCalNodes, setCalPrompt, calWhyRef, setRefMInput, lastRefM, calibrated, setMeasPath } = measure
   // two-finger pinch tracking ON the create-tool ink overlay, so the user can pinch-zoom the
   // plan WITHOUT leaving the active draw/measure tool (the overlay otherwise swallows pointers)
   const inkPtrs = useRef<Map<number, { x: number; y: number }>>(new Map())
@@ -233,24 +232,16 @@ export function usePlanCreate({
       // Maßstab: tap the TWO endpoints of the printed scale bar; the second tap opens the
       // metre-entry popover. Coords stay board-normalized (converted to measure space on confirm).
       const next: [number, number][] = [...calNodes, n]
-      if (next.length >= 2) { setCalNodes([]); setCalPrompt({ a: next[0], b: next[1] }); setRefMInput(String(lastRefM)) }
+      if (next.length >= 2) { setCalNodes([]); setCalPrompt({ a: next[0], b: next[1], why: calWhyRef.current }); setRefMInput(lastRefM == null ? '' : String(lastRefM)) }
       else setCalNodes(next)
       return
     }
     if (tool === 'measure') {
-      // Messen: each tap drops a measurement node (mirrors the Lage map's measure tool). But on an
-      // UNCALIBRATED plan the first segment IS the calibration — the two reference taps open the
-      // metre popover directly, so the user never has to find a separate Maßstab step first.
-      // …but calibration is a WRITE (it persists to the workspace and the station default), so a
-      // locked surface just can't measure until someone with edit rights has set the scale — the
-      // panel says exactly that instead of offering a button that would fail.
-      if (!calibrated) {
-        if (readOnly) return
-        const next: [number, number][] = [...measPath, n]
-        if (next.length >= 2) { setCalPrompt({ a: next[0], b: next[1] }); setRefMInput(String(lastRefM)); setMeasLine([]); setMeasArea([]) }
-        else setMeasPath(() => next)
-        return
-      }
+      // Messen: each tap drops a measurement node (mirrors the Lage map's measure tool). A plan
+      // without a scale has nothing to measure in: where it can be set, Messen is already at
+      // «Massstab» (usePlanMeasure); a locked surface just can't measure until someone with edit
+      // rights has set the scale – the panel says exactly that.
+      if (!calibrated) return
       setMeasPath((p) => [...p, n])
       return
     }
@@ -334,9 +325,11 @@ export function usePlanCreate({
         setRotStart(null)
       }
       add({ id, kind: 'shape', shape: k, color: def.defaultColor, label: name, ...geom })
-      log('hex', fillTemplate(appConfig.copy.whiteboard.placeSymbol, { name }), { annoId: id, x: geom.x, y: geom.y, floor: geom.floor })
-      // unlocked: place once → pan with the shape selected (its two ends usable); locked: keep placing
-      if (placeLock && !SHAPE_TWO_POINT[k]) setSelId(null)
+      // a Form's row is the Karte's («Pfeil platziert»), on the Plan (ENT.8) – not «Symbol …»
+      log('hex', fillTemplate(appConfig.copy.whiteboard.shapeOnPlan, { name }), { annoId: id, x: geom.x, y: geom.y, floor: geom.floor })
+      // unlocked: place once → pan with the shape selected (its two ends usable); locked: keep
+      // placing – a two-point Rotation too, as on the Lage (useMapActions · onMapClick, GESTURES.14)
+      if (placeLock) setSelId(null)
       else { setPendingShape(null); setTool('pan'); setSelId(id) }
       return
     }

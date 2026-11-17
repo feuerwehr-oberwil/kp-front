@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { drawingEditChanges, drawingLogName, endingFlags, endingOf, endingWireFlags, pumpWarningRows, type LineEnding } from './drawingEdit'
+import { drawingEditChanges, drawingLogName, endingFlags, endingOf, endingWireFlags, pumpWarningRows, wirePerson, type LineEnding } from './drawingEdit'
 import { fillTemplate } from './format'
 import { RELAY } from './hydraulics'
 import { replayEmits } from './replay.test-utils'
@@ -13,18 +13,24 @@ const line = (over: Partial<Drawing>): Drawing => ({
 // The same gap entityEditChanges closed for symbols: a Leitung's meaning-bearing attributes
 // used to change the Kroki without a Verlauf row.
 describe('drawingEditChanges (the Verlauf line for editing a drawing)', () => {
-  it('names the Typ letter as the word it means', () => {
-    expect(drawingEditChanges(line({}), line({ content: 'S' }))).toEqual(['Typ: Schaum'])
-    expect(drawingEditChanges(line({ content: 'S' }), line({ content: 'H' }))).toEqual(['Typ auf Hydroschild geändert'])
+  it('names the Inhalt letter as the word it means', () => {
+    expect(drawingEditChanges(line({}), line({ content: 'S' }))).toEqual(['Inhalt: Schaum'])
+    expect(drawingEditChanges(line({ content: 'S' }), line({ content: 'H' }))).toEqual(['Inhalt auf Hydroschild geändert'])
   })
 
-  it('unsetting the Typ is Wasser, not a cleared field', () => {
-    expect(drawingEditChanges(line({ content: 'S' }), line({}))).toEqual(['Typ auf Wasser geändert'])
+  it('unsetting the Inhalt is Wasser, not a cleared field', () => {
+    expect(drawingEditChanges(line({ content: 'S' }), line({}))).toEqual(['Inhalt auf Wasser geändert'])
   })
 
   it('carries the Leitungs-Nummer — the identity the Atemschutzüberwachung reads', () => {
     expect(drawingEditChanges(line({}), line({ lineNo: 3 }))).toEqual(['Leitung Nr.: 3'])
     expect(drawingEditChanges(line({ lineNo: 3 }), line({}))).toEqual(['Leitung Nr. entfernt'])
+  })
+
+  it('records the plain person on a Leitung set / changed / cleared', () => {
+    expect(drawingEditChanges(line({}), line({ person: 'Frei Nico' }))).toEqual(['Person: Frei Nico'])
+    expect(drawingEditChanges(line({ person: 'Frei Nico' }), line({ person: 'Meier Anna' }))).toEqual(['Person auf Meier Anna geändert'])
+    expect(drawingEditChanges(line({ person: 'Meier Anna' }), line({}))).toEqual(['Person entfernt'])
   })
 
   it('names the Stockwerk the line works on, same wording as a symbol', () => {
@@ -108,8 +114,8 @@ describe('drawingLogName', () => {
 // kind of line, whether that is a Druckleitung's device or a Haltelinie's water state.
 describe('drawingEditChanges — the Vegetationsbrand letters', () => {
   it('names N / T / G the way it names S / H / P', () => {
-    expect(drawingEditChanges(line({}), line({ content: 'N' }))).toEqual(['Typ: Nasse Haltelinie'])
-    expect(drawingEditChanges(line({ content: 'N' }), line({ content: 'G' }))).toEqual(['Typ auf Gegenfeuer geändert'])
+    expect(drawingEditChanges(line({}), line({ content: 'N' }))).toEqual(['Inhalt: Nasse Haltelinie'])
+    expect(drawingEditChanges(line({ content: 'N' }), line({ content: 'G' }))).toEqual(['Inhalt auf Gegenfeuer geändert'])
   })
 })
 
@@ -142,6 +148,24 @@ describe('endingWireFlags — the Abschluss in replay', () => {
     const drawings = [{ id: 'd', kind: 'line', coords: [[7, 47], [8, 48]], ...endingFlags(from) } as Drawing]
     const replayed = await replayEmits({ drawings }, [['draw.edit', { id: 'd', patch: endingWireFlags(to) }]])
     expect(endingOf(replayed.drawings[0])).toBe(to)
+  })
+})
+
+// JSON drops an `undefined`: a cleared Person has to travel as `null`, or the Wiedergabe keeps
+// the old name (CodeRabbit on #646).
+describe('wirePerson — a cleared Person in replay', () => {
+  it('the replayed Leitung has the person set, then nobody', async () => {
+    const drawings = [line({ id: 'd' })]
+    const replayed = await replayEmits({ drawings }, [
+      ['draw.edit', { id: 'd', patch: wirePerson({ person: 'Frei Nico' }) }],
+      ['draw.edit', { id: 'd', patch: wirePerson({ person: undefined }) }],
+    ])
+    expect(replayed.drawings[0]).not.toHaveProperty('person')
+  })
+
+  it('leaves a patch without a Person as it is', () => {
+    const patch: Partial<Drawing> = { lineNo: 2 }
+    expect(wirePerson(patch)).toEqual({ lineNo: 2 })
   })
 })
 

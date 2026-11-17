@@ -73,10 +73,14 @@ export function ListCard({ look = 'card', className, children, ...rest }: {
   return <div className={cx('list-card', look !== 'card' && `list-card-${look}`, className)} {...rest}>{children}</div>
 }
 
-/** A labelled group: the eyebrow (with an optional word or count at its right end), then its rows
- *  on a `ListCard`. `bare` puts the children straight under the label (photo cards, a grid). */
-export function ListGroup({ label, end, look, bare, className, children }: {
+/** A labelled group: the eyebrow, then its rows on a `ListCard`. `bare` puts the children straight
+ *  under the label (photo cards, a grid). A COUNT sits right after the label, the way the Trupps
+ *  board heads read («DRIN 3», «ANLEITUNGEN 12»); `end` is a WORD at the right end («zum Lesen») –
+ *  never a count there (duck sweep LISTS.12, 17.11.2026: the library put both in one slot). */
+export function ListGroup({ label, count, end, look, bare, className, children }: {
   label: string
+  /** how many rows the group shows */
+  count?: number
   end?: ReactNode
   look?: 'card' | 'rail' | 'quiet'
   bare?: boolean
@@ -85,7 +89,7 @@ export function ListGroup({ label, end, look, bare, className, children }: {
 }) {
   return (
     <section className={cx('list-group', className)} aria-label={label}>
-      <div className="list-group-label"><span>{label}</span>{end != null && <span className="list-group-end">{end}</span>}</div>
+      <div className="list-group-label"><span>{label}{count != null && <span className="list-group-count"> {count}</span>}</span>{end != null && <span className="list-group-end">{end}</span>}</div>
       {bare ? children : <ListCard look={look}>{children}</ListCard>}
     </section>
   )

@@ -43,10 +43,31 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     nightMode: 'Night',
   },
   toast: {
-    audioSaved: 'Voice note saved ({secs} s)',
     micDenied: 'No microphone access – noted as placeholder',
     micFailed: 'Recording not started – try again',
-    merged: 'Changes merged',
+    micBlocked: 'Microphone blocked – allow it via {path}',
+    locateBlocked: 'Location blocked – allow it via {path}',
+    locateNone: 'No location found – try again',
+    permissionPath: {
+      location: {
+        iosApp: 'iPhone Settings › Privacy & Security › Location Services › Safari Websites',
+        iosSafari: 'iPhone Settings › Apps › Safari › Location',
+        android: 'Chrome ⋮ › Settings › Site settings › Location',
+        desktop: 'the icon left of the address › Location',
+      },
+      microphone: {
+        iosApp: 'iPhone Settings › Apps › Safari › Microphone',
+        iosSafari: 'iPhone Settings › Apps › Safari › Microphone',
+        android: 'Chrome ⋮ › Settings › Site settings › Microphone',
+        desktop: 'the icon left of the address › Microphone',
+      },
+      notifications: {
+        iosApp: 'iPhone Settings › Notifications › {app}',
+        iosSafari: 'iPhone Settings › Notifications › {app}',
+        android: 'Android Settings › Apps › {app} › Notifications',
+        desktop: 'the icon left of the address › Notifications',
+      },
+    },
   },
   dockHints: {
     lasso: 'Drag a frame around several objects.',
@@ -70,7 +91,7 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     glLostAction: 'Rebuild map',
     noTilesTitle: 'No base map saved for this area',
     noTilesSub: 'Offline – objects and lines are shown without a map',
-    noTilesAction: 'This device',
+    noTilesAction: 'Available offline',
     noTilesDismiss: 'Hide',
   },
   mapViews: {
@@ -82,7 +103,6 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     hint: 'A view stores the map exactly as it is — position, zoom and rotation. Tap a saved view to jump there (e.g. between a north overview and the map turned the way you are standing). Long-press the compass to fit straight away.',
     rename: 'Rename',
     delete: 'Delete',
-    saved: 'View saved',
     deleted: 'View «{name}» deleted',
   },
 }

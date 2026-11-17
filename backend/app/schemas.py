@@ -202,8 +202,10 @@ class AlarmUpdateField(BaseModel):
 
 
 class AlarmUpdateOut(BaseModel):
-    """«Alarm aktualisiert»: the pending Divera update of this Einsatz's own alarm."""
+    """«Alarm aktualisiert»: the pending – or hidden – Divera update of this Einsatz's own alarm."""
 
+    #: hidden = ✕ was tapped: every device shows a grey strip with «Zeigen» (alarm-update/show)
+    state: Literal["pending", "hidden"] = "pending"
     at: datetime
     #: the alarm's (new) title – the row names the Einsatzart from it
     title: str | None = None
@@ -2140,7 +2142,7 @@ class RosterConfig(BaseModel):
     #     a disappearance is as often a broken feed as a resignation.
     #   "full"           — also deactivates the stale ones. Never a deletion: `is_active`
     #     goes false, and every past Einsatz keeps its names.
-    #   "off"            — nothing unattended; «Mannschaft synchronisieren» still works.
+    #   "off"            — nothing unattended; «Mit Divera abgleichen» still works.
     autoSync: Literal["off", "safe", "full"] = "safe"
     # What each Divera Rückmelde-Status MEANS for the Anwesenheit's «Anrückend» block (Divera
     # only; see docs/divera-connector.md «Rückmeldungen»). Keyed by the status id («13») or its

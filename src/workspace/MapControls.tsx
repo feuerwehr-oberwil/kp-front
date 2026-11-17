@@ -39,6 +39,8 @@ export interface MapControlsProps {
   coord: ReturnType<typeof useCoordPicker>
   panel: 'layers' | null
   layersPreset: LayerPreset
+  /** a content layer is off on this device – the Ebenen button's amber dot */
+  layersHidden: boolean
   /** the Einsatz's category: the Ebenen rows it switches on by default say so (LayerPanel · category) */
   incidentType?: string | null
   togglePanel: (name: 'layers') => void
@@ -71,7 +73,7 @@ export interface MapControlsProps {
 
 export function MapControls({
   mapUI, mapUtility, mapRef, view, viewsApi, readOnly, isEl, viewsOpen, toggleViews, coord, panel,
-  layersPreset, incidentType, togglePanel, isPhone, displayWeather, openWeatherDetails, replayActive,
+  layersPreset, layersHidden, incidentType, togglePanel, isPhone, displayWeather, openWeatherDetails, replayActive,
   georefMode, buildingInfo, buildingFirst, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
   toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
   weather, readings,
@@ -109,6 +111,7 @@ export function MapControls({
               onToggleCoords={coord.cycle}
               layersOn={panel === 'layers'}
               layersPreset={layersPreset}
+              layersHidden={layersHidden}
               onToggleLayers={() => togglePanel('layers')}
             />
           )}
@@ -172,14 +175,9 @@ export function MapControls({
         </>
       )}
 
-      {/* click-away: a transparent full-screen backdrop closes the open map panel */}
-      {/* phone only: a tap-catcher behind the panel sheet to close it. On desktop the panel
-          floats as a side card, so NO backdrop — the map stays pannable with Ebenen open. */}
-      {/* ⚠️ The KARTE's backdrop, and only it (15.09.2026). The Plan half used to be here for a
-          LayerPanel the Plan no longer has — and with the panel gone the catcher was the whole
-          bug it was once written to avoid: a full-screen z28 sheet over the z20 whiteboard,
-          eating the first tap on a board that looked perfectly normal. */}
-      {mapUI && panel !== null && isPhone && <div className="mapctl-backdrop" onClick={() => setPanel(null)} />}
+      {/* No click-away backdrop any more (17.11.2026): the Ebenen panel answers a tap beside it
+          itself, on every width (LayerPanel · lib/overlays/layer) – the phone's catcher was the
+          only one, the tablet's tap went on to the map. */}
 
       {/* the Ebenen dock (.layers-card z201) sits ABOVE the +Eintrag composer / Verlauf
           scrim that covers every other map popup, so it needs an explicit guard to hide

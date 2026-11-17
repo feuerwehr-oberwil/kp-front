@@ -38,6 +38,17 @@ describe('measuredPoints — the «Messungen» list', () => {
       .toEqual(['neu', 'alt'])
   })
 
+  // ENT.3 (17.11.2026): a cleared room recedes – below every live point, never the chip's worst
+  it('ranks an «erledigt» point below the live ones, however high its reading', () => {
+    const done = { by: 'x', at: '2026-11-17T02:00:00Z' }
+    const list = measuredPoints([
+      onMap(ent('cleared', { fields: { CO: '650' }, done })),
+      onMap(ent('calm', { fields: { CO: '3' } })),
+      onMap(ent('empty')),
+    ], names)
+    expect(list.map((p) => p.id)).toEqual(['calm', 'empty', 'cleared'])
+  })
+
   it('names the storey of a Karte point that has one', () => {
     const [p, q] = measuredPoints([
       onMap(ent('m', { floor: -1, fields: { CO: '3' } })),

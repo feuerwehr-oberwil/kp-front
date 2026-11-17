@@ -41,7 +41,10 @@
 @media (hover: hover) {
   .tb-act:disabled:hover { background: transparent; color: var(--ink-dim); }
 }
-.tb-act.on { background: var(--here-fill); color: var(--on-here); }
+/* OPEN (a panel or menu it opens stands open) is the «open/armed» wash – `--sel-wash` + the
+   `--blue-strong` glyph, as the ⓘ and the Verlauf lens – never the ink pill, which is «where you
+   are» on the nav rail beside it (duck sweep ELEM.6, 17.11.2026: open Ebenen read as a place) */
+.tb-act.on { background: var(--sel-wash); color: var(--blue-strong); }
 /* Atemschutz alarm chip — conditional (only rendered while a Trupp is fällig/überfällig).
    A compact chip, not a banner, so it's an ambient cue rather than an interruption.
    ⚠️ Not a pill (24.09.2026): it sits in the bar's padding like .tb-act beside it, so it takes
@@ -109,7 +112,7 @@
    (`span` above), Eintrag's at fit-11 – and while the Eintrag is an ✕ or recording. */
 .tb-act .tb-key { position: relative; top: auto; left: auto; z-index: 1; }
 .tb-act-add.cancelling .tb-key { display: none; }
-.tb-act.on .tb-key { color: color-mix(in srgb, var(--on-accent-ink) 70%, transparent); }
+.tb-act.on .tb-key { color: var(--blue-strong); }
 @media (hover: hover) and (pointer: fine) { .tb-act .tb-key { display: block; } }
 /* every chip in the bar is at least a tap wide, its glyph and its number together */
 .topbar .tb-az { min-width: var(--tap); justify-content: center; }
@@ -536,22 +539,15 @@
 /* «Alle zeigen» is THE neutral <Button> (--tap, framed): an action, not a blue word on a blue wash
    (style sweep T2, owner pick A, 15.11.2026); this only places it */
 .jr-filter-all { flex: none; }
-/* ⚠️ On a phone the head is 22px too wide for four items, and «Wiedergabe starten» is the one
-   that can most afford to lose its word — the same trade the TopBar already makes for «Verlauf»
-   above. The button keeps its `aria-label` (Journal.tsx), so nothing is lost but the letters. */
+/* ⚠️ On a phone ▶ is not in the head (owner pick M8 · C, 17.11.2026): a bare glyph one button left
+   of ✕ put the running Einsatz into the past on a stray tap. It stands at the ruler's left end
+   (Journal.tsx · `phoneReplay`), a bare 44px glyph like ⓘ · lens · funnel; the strip keeps the
+   rest of the row. Tablet and laptop keep «▶ Wiedergabe starten» framed in the head. */
 @media (--phone) {
-  .journal-replay span { display: none; }
-  /* …and word-less it is an icon action like ⓘ · lens · funnel beside it, so it rests BARE as they
-     do (hill climb r18, Opus 7: a framed ▶ among bare glyphs was two chromes for one kind of
-     button). The 44px box and the transparent edge keep its hit area and geometry; the ✕ keeps
-     its frame (settled r13). Tablet and laptop keep «▶ Wiedergabe starten» framed. Its glyph is the
-     outlined circle-play (icons · #play-circle, r23 Sol 1), the ⓘ's ring at the ⓘ's 18px and ink –
-     the bare filled ▶ was the smallest mark in the row. */
-  .journal-head .journal-replay { width: var(--tap); padding: 0;
-    background: none; border-color: transparent; color: var(--ink-dim); }
-  .journal-head .journal-replay svg { width: 18px; height: 18px; }
-  @media (hover: hover) { .journal-head .journal-replay:hover { background: var(--ink-8); color: var(--ink); } }
-  .journal-head .journal-replay:focus-visible { background: var(--ink-8); }
+  .jr-strip-row { display: flex; align-items: center; gap: var(--sp-1); flex: none;
+    margin: 0 calc(-1 * var(--sp-1)) var(--sp-2); }
+  .jr-strip-row > .jr-strip { flex: 1; min-width: 0; margin: 0; }
+  .jr-strip-replay { flex: none; }
   /* (the title is the tablet's 16/800 with its 18px glyph since r35 – the step down it took here
      at 19px is gone with the 19px; the glyph stays 8px off the word, hill climb r28, Opus 6) */
   /* the head's 4px gap plus this = the 8px that keeps the title group off the ⓘ (r6) */
@@ -561,10 +557,10 @@
      The gaps close up to 6px — the room a four-digit count needs — and no chip may shrink: the
      ✕ is the house 36px everywhere, and a squeezed target is the one thing a head cannot lose. */
   .journal-head { gap: var(--sp-1); }
-  .journal-replay, .journal-x { flex: none; }
-  /* …and the title's glyph (r28) costs 28px the head did not have at 390px: the four BARE glyph
-     buttons (ⓘ · lens · funnel · ▶) close up to touching 44px pads – their glyphs keep 26px of air
-     between them – and the head drops its right padding, the ✕ still inside the strip's edge. So
+  .journal-x { flex: none; }
+  /* …and the title's glyph (r28) costs 28px the head did not have at 390px: the BARE glyph
+     buttons (ⓘ · lens · funnel; ▶ stands at the ruler since M8 · C) close up to touching 44px
+     pads – their glyphs keep 26px of air between them – and the head drops its right padding, the ✕ still inside the strip's edge. So
      «Verlauf · 322» stands whole at 390px with room for a fourth digit. Narrower phones (375, 360)
      have no such room: there the glyph gives way, never the word.
      The ✕ is 36 to the eye since r35 (8px less than r13's framed 44), so the head keeps its 4px
@@ -591,13 +587,6 @@
   border-color: var(--blue-22); color: var(--blue-strong); }
 .hist-ev .ic.jr-ic-plan { background: var(--green-16);
   border-color: var(--green-28); color: var(--green-strong); }
-/* ── …and on a Pendenz the disc becomes the ring ──
-   The same ring the composer's «bleibt offen» switch sets and the Pendenzen block ticks off
-   (18-audio · .jc-ring, 06-contextpanel · .jr-rem-box) — which is what JournalComposer's own
-   comment has claimed about the Verlauf row all along, and until 23.08. was not true.
-   ⚠️ Only the row that RAISED the item and the row that CLOSED it. A Meldung and a snooze are
-   log lines about the item, and they keep their own glyph. */
-.hist-ev .ic.jr-ic-ring { background: none; border-color: transparent; }
 /* ── …and a hand-written row's ART (owner pick B, UI sweep 07.10.2026) ──
    Auftrag = the arrow on blue, Sofortmassnahme = the warning on amber; Info keeps the plain «T»
    (lib/verlauf · rowGlyph, derived at render). The same discs in the legend and the filter menu,
@@ -606,62 +595,19 @@
   border-color: var(--blue-22); color: var(--blue); }
 :is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-sofort { background: var(--amber-16);
   border-color: var(--amber-28); color: var(--amber-strong); }
-.jr-ring { position: relative; width: 20px; height: 20px; border-radius: 50%; border: 2px solid currentColor;
-  display: grid; place-items: center; }
-/* ⚠️ The open states are a THICK BORDER over a transparent centre, not the composer's filled
-   donut. The composer's ring sits on a `--surface` card and punches its hole with an inset ring
-   of that colour; a row sits on the drawer's `--glass`, and on a hovered row on `--hover` over
-   that — a hard-coded hole would be a white disc floating in the ring exactly when the finger
-   is on it. Same shape, one less assumption. */
-/* offen — amber, the ink the Pendenzen block is tinted with, so the row and the list it feeds
-   are visibly the same thing */
-.jr-ring-open { border-width: 3px; border-color: var(--amber-strong); }
-/* überfällig — red, one step past «offen» (the words beside it say so too, see .jr-remstate).
-   Not pulsing: the pulsing red in this app belongs to the überfällige Trupp, and a Wiedervorlage
-   is not a life-safety alarm. */
-.jr-ring-overdue { border-width: 3px; border-color: var(--red-strong); }
-/* dringend — the solid red disc with the drawn bang, exactly the composer's state 2 */
-.jr-ring-urgent { color: var(--red); background: currentColor; border-color: currentColor; }
-.jr-bang { width: 2.5px; height: 7px; border-radius: 1.5px; background: var(--surface);
-  position: relative; transform: translateY(-1.5px); }
-.jr-bang::after { content: ""; position: absolute; left: 0; bottom: -4.5px;
-  width: 2.5px; height: 2.5px; border-radius: 50%; background: var(--surface); }
-/* erledigt — green and filled, the same tick the block leaves behind */
-.jr-ring-done { color: var(--green); background: currentColor; border-color: currentColor; }
-.jr-ring-done .i { width: 12px; height: 12px; color: var(--on-fill); }
-/* ── …and on a STILL-OPEN item the ring is the tick-off, in the log as well as in the block ──
-   One vocabulary, one gesture, one call (Journal · Disc · onTick → onReminderDone). It was in the
-   block only, on the argument that the row scrolls away while the block cannot — but a Pendenz is
-   met in the log too (a Meldung about it, a search, the row it was raised on), and «scroll back up
-   and find it again» is not how an Auftrag gets closed at 3am. */
-.hist-ev button.ic.jr-ic-tick { padding: 0; font: inherit; -webkit-appearance: none; appearance: none;
-  cursor: pointer; }
-/* ⚠️ The button STAYS the disc's 24 × 24 (26 until r11, 28 in r11). The disc is the anchor for
-   the timeline connector drawn above and below it (`.hist-ev .ic::before/::after` in 06-contextpanel.css), so
-   growing the element for a gloved finger would tear a gap in the line. The TARGET grows instead,
-   on a pseudo-element that is out of the ring's grid flow: 44 × 44 (23.09.2026, was 30 × 42), i.e.
-   8px out to each side – the 8px column gutters, up to the plain time span and the sentence's
-   first glyph – and the row's height, and a miss lands on the row itself. The same trade the
-   pinned block's ring makes, and for the same reason.
-   ⚠️ -15px, not -12: an absolute box's inset counts from the PADDING box, inside the ring's 2px
-   border – the 20px ring is 16 there, so -12 drew 40 and a finger measured 38; -15 draws 46, which
-   a finger meets as 44 between the row's own hit (13.11.2026). */
-.jr-ic-tick .jr-ring::before { content: ""; position: absolute; inset: -15px; border-radius: var(--r-sm); }
-/* ⚠️ No fill on hover — `--hover` is a neutral wash and the row already takes it. The RING
-   answers: it greens and ghosts its check in, which is what the tap is about to make true, and
-   which is exactly what `.jr-pinned-row .jr-rem` does in the block. Hover is the POINTER's
-   preview (gated below); on a finger, :active gives the same answer for as long as the press. */
-.jr-ic-tick .jr-ring .i { width: 12px; height: 12px; opacity: 0; transition: opacity .12s var(--ease); }
-.jr-ic-tick:focus-visible .jr-ring { color: var(--green); border-color: var(--green); }
-@media (hover: hover) {
-  .jr-ic-tick:hover .jr-ring { color: var(--green); border-color: var(--green); }
-}
-.jr-ic-tick:focus-visible .jr-ring .i { opacity: var(--disabled); }
-@media (hover: hover) {
-  .jr-ic-tick:hover .jr-ring .i { opacity: var(--disabled); }
-}
-.jr-ic-tick:active .jr-ring { color: var(--green); border-color: var(--green); }
-.jr-ic-tick:active .jr-ring .i { opacity: 1; }
+/* ── …and on a Pendenz the disc is the Pendenz's tick box ──
+   The box every surface ticks a Pendenz with (TickRow · `pendenz`, duck sweep ELEM.2/ENT.5,
+   17.11.2026): its frame says the state – amber offen, red überfällig, red with «!» dringend –
+   and ticked it is the one blue «erledigt». The pinned block, the Tafel, the legend and the
+   composer's state switch draw the same box.
+   ⚠️ Only the row that RAISED the item and the row that CLOSED it. A Meldung and a snooze are
+   log lines about the item, and they keep their own glyph. */
+:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-ring { background: none; border-color: transparent; }
+/* ⚠️ The slot STAYS the disc's 24 × 24: the disc is the anchor for the timeline connector drawn
+   above and below it (`.hist-ev .ic::before/::after` in 06-contextpanel.css), so growing it for a
+   gloved finger would tear a gap in the line. The tick button is TickRow's 44px square laid over
+   the slot (10px out on every side), its box exactly where the disc is. */
+.hist-ev .jr-ic-tick { position: absolute; inset: -10px; }
 /* ── the footnotes, under the sentence (`.jr-meta`) ──
    «Nachtrag» · «Korrigiert HH:MM» · «Insgesamt 6×». Facts ABOUT the row, in the register of a footnote:
    they were chips in front of the text, where they pushed it off its axis and read as warnings.
@@ -820,8 +766,9 @@
    So the sheet gives things up in a decided order instead:
      1. by default nothing changes, and the predictive row is never what gives way;
      2. `.is-compact` — the Art strip and the media strip become ONE row of symbols
-        («I · A · S», the clock, the ring, mic · upload · camera). Worth 44px of row plus the
-        8px gap that went with it = 52px, which is `COMPACT_SAVES` in lib/composerFit.ts;
+        («I · A · S», the clock, the ring, one paper-clip for mic · upload · camera – M9 · A,
+        17.11.2026). Worth 44px of row plus the 8px gap that went with it = 52px, which is
+        `COMPACT_SAVES` in lib/composerFit.ts;
      3. only then the sheet scrolls – `.jc-body` above, under a head that stays.
    ⚠️ Rung 2 is switched by MEASURING, not by a height media query: on iOS the layout viewport
    does not shrink for the keyboard (which is why the caps have to subtract `--jc-kb` at all), so
@@ -846,19 +793,19 @@
    straight to rung 3: a row of eight controls at the edge of what a glove can hit is a worse
    answer than one that scrolls. */
 @media (min-width: 360px) {
-  /* ONE grid of eight equal columns (owner, 15.11.2026: «the buttons all the same in the I/A/S
-     line»): the three letters, the clock, the ring and the three media buttons are all one width
-     and one height, glyphs centred. Each strip spans its share of the columns and lays its own
-     buttons out on equal tracks with the SAME 4px gap – n tracks across n columns' width minus
-     the same gaps come out exactly one column each, so the eight line up without a subgrid.
-     (It was a flex row that let the letters shrink to 32 while the round controls kept 44 and the
-     media buttons 36: three widths in one row.) `start`, so a recorded clip or a photo row under
-     the media buttons does not drag the letters down to its middle. */
-  .journal-composer.is-compact .jc-controls { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr));
+  /* ONE grid of six equal columns (owner, 15.11.2026: «the buttons all the same in the I/A/S
+     line»): the three letters, the clock, the ring and the paper-clip that folds the three media
+     buttons (owner pick M9 · A, 17.11.2026 – JournalComposer · `.jc-attach`, its menu Aufnehmen ·
+     Datei · Foto) are one width and one height, glyphs centred. The Art strip spans five columns
+     and lays its buttons out on equal tracks with the SAME 4px gap, so the six line up without a
+     subgrid. `.jc-audio` dissolves into the grid (`display: contents`): the clip is its sixth
+     column, and a recorded clip's readout drops to a full-width line under the row. `start`, so
+     that clip or a photo row does not drag the letters down to its middle. */
+  .journal-composer.is-compact .jc-controls { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
     align-items: start; gap: var(--sp-1); }
   .journal-composer.is-compact .jc-meta { grid-column: span 5; min-width: 0; }
-  .journal-composer.is-compact .jc-audio { grid-column: span 3; min-width: 0;
-    grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: var(--sp-1); }
+  .journal-composer.is-compact .jc-audio { display: contents; }
+  .journal-composer.is-compact .jc-audio > .jc-clip { grid-column: 1 / -1; }
   /* ⚠️ Overrides the `:has(.jc-due-btn)` template in 18-audio.css, which is imported AFTER this
      file — hence the extra class on every selector below. A tie would go to the later file. */
   .journal-composer.is-compact .jc-meta-row { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--sp-1); }
@@ -871,8 +818,9 @@
   .journal-composer.is-compact .jc-meta-row .jc-chip { padding: var(--sp-1) 2px; font-size: var(--fs-3); }
   .journal-composer.is-compact .jc-meta-row .jc-chip-word { display: none; }
   .journal-composer.is-compact .jc-meta-row .jc-chip-letter { display: block; }
-  /* …and the media buttons drop their labels, exactly as the phone already does with the keyboard
-     up (15-mobile.css · .is-kb). The word stays as `title`/`aria-label` on the button. */
+  /* the three media buttons give way to the clip – all but a running recording, whose stop
+     square and seconds stay in the row (see JournalComposer · `compact && !recording`) */
+  .journal-composer.is-compact .jc-rec:not(.on, .jc-attach) { display: none; }
   .journal-composer.is-compact .jc-rec { padding: 8px 4px; }
   .journal-composer.is-compact .jc-rec .jc-lbl { display: none; }
   .journal-composer.is-compact .jc-rec .i { width: 19px; height: 19px; }
@@ -945,6 +893,11 @@
    (style sweep T2, 15.11.2026) */
 a.jr-link-url { color: var(--ink); text-decoration: underline; text-underline-offset: 2px;
   overflow-wrap: anywhere; }
+/* a Trupp's mark opens its card (ENT.2, 17.11.2026): a real <button> drawn as the inline word,
+   with the address's underline – «this opens» – and no button chrome */
+button.jr-link-go { all: unset; font: inherit; font-weight: var(--fw-medium); color: var(--ink); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px; }
+button.jr-link-go:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }  /* `all: unset` took 02-base's ring */
 .jc-text { position: relative; display: block;
   width: 100%; min-height: 92px; resize: vertical; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   padding: var(--sp-2) var(--sp-3); font-family: inherit; font-size: var(--fs-2); line-height: normal; color: var(--ink);
@@ -1134,7 +1087,9 @@ a.jr-link-url { color: var(--ink); text-decoration: underline; text-underline-of
   .jr-file:hover { color: var(--ink); border-color: var(--ink-faint); }
 }
 .jr-file:active { background-image: linear-gradient(var(--press), var(--press)); }
-/* offline media-queue chip on a Verlauf row (photo/audio not yet on the server) */
+/* THE «not synced yet» chip (duck sweep FEEDBACK.7, 17.11.2026): a photo/audio/Beilage still on
+   this device – the upload arrow + «noch nicht synchronisiert», on a Verlauf row and a Rapport Beilage
+   alike (the Objektbesuch thumbnail wears the same arrow as its badge); failed = ⚠ «Nicht synchronisiert» */
 .jr-media-state { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-micro); font-weight: var(--fw-bold);
   padding: 1px var(--sp-2); border-radius: var(--r-xs); white-space: nowrap; /* a tag's corner, never a pill */
   color: var(--amber-strong); background: color-mix(in srgb, var(--amber-strong) 14%, transparent); }

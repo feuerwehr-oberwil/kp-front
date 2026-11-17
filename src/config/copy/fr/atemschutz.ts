@@ -21,9 +21,9 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     empty: 'Aucun binôme en surveillance.',
     emptyHint: '«Annoncer un binôme» démarre la surveillance.',
     newTrupp: 'Annoncer le binôme',
-    shareLink: 'Transmettre la surveillance',
-    shareLinkShort: 'Transmettre',
-    shareLinkOn: 'Transmettre la surveillance – un lien est actif',
+    shareLink: 'Partager les binômes',
+    shareLinkShort: 'Partager',
+    shareLinkOn: 'Partager les binômes – un lien est actif',
     linkReentryHint: 'Le lien ramène ici – si la page est fermée par mégarde, il suffit d’ouvrir à nouveau le code QR.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     /** the three-section stack on ANY phone (TruppForm · stack, 04.09.) – replaces the two-step
@@ -58,11 +58,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       multiwarn: 'Multiwarn',
     },
     equipmentLabel: 'Équipement',
-    equipmentShort: {
-      retthaube: 'RH',
-      wbk: 'WBK',
-      multiwarn: 'MW',
-    },
     zielLabel: 'Objectif',
     // UN seul placeholder pour les deux types de binôme et chaque mission (voir de/atemschutz.ts).
     zielPlaceholder: 'Où / quoi …',
@@ -317,6 +312,8 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       abschlussClose: 'Clôturer quand même',
       // «Entfernen» on a Trupp in a Notfall is refused until it is ended (review of #300)
       removeBlocked: 'Maintenir d’abord «Urgence terminée» – un binôme en urgence reste sous surveillance',
+      noSafetySub: 'À l’intérieur : {names} – annoncer un binôme avec la mission «Sécuriser»',
+      noSafetyGo: 'Vers les binômes',
     },
     removeInsideTitle: 'Le binôme {name} est engagé – l’annoncer sorti d’abord ?',
     removeInsideMsg: 'Retirer enlève le binôme de la surveillance et de toute alarme. En général, on veut dire : le binôme est sorti.',
@@ -443,6 +440,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logInsideAtClose: 'Binôme {name} encore engagé à la clôture',
     cycleEndAtClose: '{t} (encore engagé à la clôture)',
     logClockRestart: 'Binôme {name} : horloge de contact redémarrée – intervention rouverte',
+    lineOnPlan: 'Plan',
   },
   lineDecor: {
     W: 'Eau',

@@ -152,9 +152,15 @@ the same rows:
 - **«↻ wieder in 30 / 60 min»** on a done row appends a fresh Wiedervorlage («Erinnerung gesetzt
   für …», `useJournalWriters · reRaisePendenz`) that names the item it re-raises
   (`reminder.again`); while it is open the done row shows ✓ «↻ in 30 min gesetzt» instead of the
-  chips (05.11.2026, a double tap raised two). Its toast «Wiedervorlage in 30 min gesetzt ·
-  Rückgängig» appends **«Wiedervorlage zurückgenommen: …»** (`reminder.op: 'done'`, icon ↶) –
-  append-only, the created row stays.
+  chips (05.11.2026, a double tap raised two). Its toast «Erinnerung in 30 min gesetzt ·
+  Rückgängig» appends **«Erinnerung zurückgenommen: …»** (`reminder.op: 'done'` with
+  `withdrawn: true`, icon ↶) – append-only, the created row stays, and the withdrawn item leaves
+  every reading: not open, not «Erledigt» on the Tafel or the paper, its source's chips are back
+  (ENT.4, 17.11.2026).
+- **The Einsatzende closes no Pendenz** (ENT.4, 17.11.2026, owner): an item still open when the
+  Einsatz is closed stays «offen» in the Verlauf, on the Tafel (its tick works) and on the paper;
+  only a timed Erinnerung due before the close never comes due – no banner, no tone after a
+  Nachtrag reopen (`reminders · isDue` · closedAt).
 - The **Atemschutz alarm row** reads the same fold that plays the sound and writes nothing
   new – the alarm's Verlauf row is created once per cycle as before (see above).
 - **Swiping away (✕), take-over navigation, «Zum Trupp»** write nothing – view, not
@@ -164,7 +170,8 @@ the same rows:
   row is the server's (`sys…` id, icon `bell`, «System» in the Rapport): the arrival («Alarm
   aktualisiert: Adresse A → B, Meldung ergänzt «…»»), and the decision – «Alarm-Aktualisierung
   übernommen: Meldung (Adresse bleibt)», «… übernommen: Adresse (über Einsatzdaten)» when the
-  crew took everything through «Bearbeiten», «Alarm-Aktualisierung ausgeblendet», «Übernahme der
+  crew took everything through «Bearbeiten», «Alarm-Aktualisierung ausgeblendet», «Alarm-
+  Aktualisierung wieder eingeblendet» («Zeigen» in the Einsatz menu, 17.11.2026), «Übernahme der
   Alarm-Aktualisierung rückgängig gemacht». The fields a take writes are a `meta.change` with
   source `alarm_update` – which is how a take is told apart from a hand edit (source
   `einsatzdaten`, which since this change also covers the Alarmmeldung `text`).
@@ -193,9 +200,11 @@ is split per surface into `src/config/copy/de/<surface>.ts` since 2026-10-09):
 
 - **Creating writes:** ONE row shape for every drawn shape, «{name} gezeichnet» (`shapeDrawn`,
   since 31.08.), named by `lib/drawingEdit` · `drawingLogName` – «Fläche gezeichnet»,
-  «Absperrkreis gezeichnet», a line preset's own name or «Linie gezeichnet». On the Plan: «Fläche
-  auf Plan gezeichnet» / «Linie auf Plan gezeichnet» / «Absperrkreis auf Plan gezeichnet»
-  (`whiteboard.placeArea` / `placeLine` / `placeCircle`, written by `Whiteboard.tsx`) – **since 23.08. with
+  «Absperrkreis gezeichnet», a line preset's own name or «Linie gezeichnet». On the Plan the SAME
+  name plus where (ENT.8, 17.11.2026 – a Verlauf filtered for «Rettungsachse» found only the Karte
+  half): «Rettungsachse auf Plan gezeichnet», «Fläche auf Plan gezeichnet» (`whiteboard.drawnOnPlan`,
+  named by `drawingEdit · annoLogName`, written by `usePlanDraft`; a Wand keeps `placeWand`), and a
+  Form «Pfeil auf Plan platziert» (`shapeOnPlan`, the Karte's «Pfeil platziert», not «Symbol …») – **since 23.08. with
   annotation, point and floor**, so that the jump from the row selects the object instead of
   merely opening the building. Older rows stay without coordinates (append-only) and keep
   opening only the Plan, as before.
@@ -206,6 +215,10 @@ is split per surface into `src/config/copy/de/<surface>.ts` since 2026-10-09):
 - **Arranging does not write:** color, style, geometry, vertices are operator actions and
   land only in the audit stream (`draw.edit`) – that's the deliberate silence from the table
   above, and it applies to the Fläche just like to every other drawing.
+- **A Leitung's Person writes, on the Karte and the Plan alike** (16.11.2026): «Linie: Person:
+  Frei Nico» / «Leitung 2: Person auf Meier Anna geändert» / «… Person entfernt»
+  (`lib/drawingEdit · personChange`). It is the one line edit a sheet journals – who stood on a
+  hose without a Trupp is the record, not the arrangement. No Atemschutz row: nothing times it.
 - **A Leitung's Schlauch writes, its Wassertransport does not** (04.11.2026): «Schlauch: 110 mm»
   / «Schlauch auf 2× 75 geändert» (`lib/drawingEdit`) – what was laid. The relay assumptions
   (`Drawing.relay`: Wasser, Start, a pump moved or set by hand) are planning, tweaked tap by
@@ -335,8 +348,8 @@ Karte does). Review item 21b split the two acts (`src/lib/objectDone.ts`):
 - ⚠️ **The two acts never share a verb** (decided 2026-09-25). Every removal row – Karte and
   Plan, every object kind – says «entfernt», the word of its button «Entfernen»: `objectDeleted`
   «{name} entfernt», `drawingDeleted` «Zeichnung entfernt», `selectionDeleted` «{n} Objekte
-  entfernt», `groupDeleted` / `groupDeletedN` «Auswahl entfernt» / «{n} Objekte vom Plan
-  entfernt». «gelöscht» is left to the extinguished Feuer. Rows written before keep «… gelöscht»
+  entfernt», `groupDeletedN` «{n} Objekte vom Plan entfernt» (one object on the Plan writes the
+  Karte's `objectDeleted`). «gelöscht» is left to the extinguished Feuer. Rows written before keep «… gelöscht»
   – the journal is append-only, and the Rapport prints the row text as written.
 - **Audited app-wide after the second staging walk-through (2026-09-25).** Every other template
   that takes something off the picture says «entfernt» too: `atemschutz.logRemoved` «Trupp {name}

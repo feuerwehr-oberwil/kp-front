@@ -11,6 +11,7 @@ import { SheetFoot } from './SheetFoot'
 import { useSwipeDismiss } from './swipeDismiss'
 import { popoverOpen } from './popoverGuard'
 import { useFieldFirst } from './fieldFirst'
+import { useBackLayer } from './layer'
 
 /**
  * The shared modal Sheet — ONE overlay primitive behind every `.ip-sheet`.
@@ -75,6 +76,8 @@ export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide,
   const swipe = useSwipeDismiss({ onClose, enabled: swipeToClose })
   // the keyboard goes first: with a field focused, the first ✕ / outside tap only blurs it (fieldFirst)
   const { keyboardFirst, ...kbFirst } = useFieldFirst(open)
+  // the native back (Android's back, the iOS edge swipe) closes it – one layer per press (overlays/layer)
+  useBackLayer(open, onClose)
   return (
     <Dialog.Root
       open={open}

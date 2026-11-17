@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { EINSATZ_RAIL, expect, expectNoCrash, login, openApp, test } from './helpers'
+import { EINSATZ_RAIL, dismissFirstViewGebaeude, expect, expectNoCrash, login, openApp, test } from './helpers'
 
 // The Wand's grips on the Gebäude stack, with a real mouse (owner, round 3 of the Gebäude
 // drawing, 27.10.2026). Two things jsdom cannot see, so the browser measures them:
@@ -51,6 +51,8 @@ test.beforeEach(async ({ page, context, browserName }, testInfo) => {
   }])
   await openApp(page, '/')
   await expect(page.locator(EINSATZ_RAIL)).toBeVisible()
+  // the card a fresh device opens by itself is a layer: a tap on the chip beside it would only close it
+  await dismissFirstViewGebaeude(page)
   await page.getByRole('button', { name: 'Gebäude', exact: true }).click()
   await page.getByRole('button', { name: /^Übernehmen/ }).click()
   await expect(storeys(page).first()).toBeVisible()

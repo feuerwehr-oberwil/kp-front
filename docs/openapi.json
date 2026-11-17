@@ -2514,6 +2514,66 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/alarm-update/show": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Show Alarm Update",
+        "description": "«Zeigen» on the strip a ✕ left: the update pending again, for every device.",
+        "operationId": "show_alarm_update_api_incidents__incident_id__alarm_update_show_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentFull"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/alarm-update/undo": {
       "post": {
         "tags": [
@@ -16033,6 +16093,15 @@
       },
       "AlarmUpdateOut": {
         "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "hidden"
+            ],
+            "title": "State",
+            "default": "pending"
+          },
           "at": {
             "type": "string",
             "format": "date-time",
@@ -16085,7 +16154,7 @@
           "fields"
         ],
         "title": "AlarmUpdateOut",
-        "description": "«Alarm aktualisiert»: the pending Divera update of this Einsatz's own alarm."
+        "description": "«Alarm aktualisiert»: the pending – or hidden – Divera update of this Einsatz's own alarm."
       },
       "AlarmVocabularyStatus": {
         "properties": {
@@ -25430,7 +25499,7 @@
           "present"
         ],
         "title": "SheetImpact",
-        "description": "What one sheet would do — the numbers the confirmation screen is built on.\n\n``removal_kind`` exists because \"absent\" means two different things in one workbook, and\nthe two need different German words. A person missing from ``Mannschaft`` is DEACTIVATED\n(soft — closed incidents resolve names through the row, so it is never deleted); a vehicle\nid missing from ``Fahrzeuge`` is REMOVED from the list. An operator who reads one and gets\nthe other has been misled by the screen that was supposed to protect them."
+        "description": "What one sheet would do — the numbers the confirmation screen is built on.\n\n``removal_kind`` exists because \"absent\" means two different things in one workbook, and\nthe two need different German words. A person missing from ``Personal`` is DEACTIVATED\n(soft — closed incidents resolve names through the row, so it is never deleted); a vehicle\nid missing from ``Fahrzeuge`` is REMOVED from the list. An operator who reads one and gets\nthe other has been misled by the screen that was supposed to protect them."
       },
       "SnapshotOut": {
         "properties": {

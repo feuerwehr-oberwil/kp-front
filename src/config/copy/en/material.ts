@@ -71,6 +71,8 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     logNote: '{label} – note: {note}',
     noteLabel: 'Note',
     notePlaceholder: 'e.g. handed over to the works depot',
+    viewBySourceWord: 'Used',
+    customMaterialWord: 'Other',
   },
   checklists: {
     railLabel: 'Checklists',

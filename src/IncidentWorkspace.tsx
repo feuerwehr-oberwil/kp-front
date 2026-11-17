@@ -6,11 +6,13 @@
 // Rules: every mutation joins the one timeline (docs/undo.md); synced state and the record:
 // docs/sync-and-offline.md.
 
+import type { AppMenuAlarms, FoldedMenuRow } from './components/panels/AppMenuRows'
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type MutableRefObject, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite } from './lib/icons'
-import { layerPreset } from './lib/layerPreset'
+import { contentLayerHidden, layerPreset } from './lib/layerPreset'
+import { useOnResume } from './lib/useOnResume'
 import { prefersReducedMotion } from './lib/reducedMotion'
 import { useSymbols } from './lib/useSymbols'
 import { useVehicleLayer } from './lib/useVehicleLayer'
@@ -24,7 +26,7 @@ import { themeToken } from './lib/themeToken'
 import { UNDERGROUND_LAYER_ID, undergroundOverlay, useUnderground } from './lib/underground'
 import { type PlanFit } from './lib/tacticalObjects'
 import { useReplay } from './lib/useReplay'
-import { isTypingTarget } from './lib/hotkeys'
+import { isTypingTarget, keyOwnedElsewhere } from './lib/hotkeys'
 import { navStops } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
 import { ergRingOverlays } from './lib/ergRings'
@@ -55,7 +57,7 @@ import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
 import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
-import { toast, confirmDialog, undoToast } from './lib/ui'
+import { toast, confirmDialog, undoToast, type UndoGlyph } from './lib/ui'
 import { connectRemovalToasts, removeWithUndo } from './lib/removalToast'
 import { usePlacementLane } from './lib/toastLane'
 import { initialMode, loadPrefs, savePrefs, twinLayersIn } from './lib/prefs'
@@ -168,6 +170,7 @@ import { WorkspaceSheets } from './workspace/WorkspaceSheets'
 import { JournalLayer } from './workspace/JournalLayer'
 import { MapToolDocks } from './workspace/MapToolDocks'
 import { MapDetailPanels } from './workspace/MapDetailPanels'
+import { SafetyMissingMeldung } from './components/SafetyMissingMeldung'
 import { RapportSurface } from './workspace/RapportSurface'
 import { PlansSurface } from './workspace/PlansSurface'
 import { MapControls } from './workspace/MapControls'
@@ -176,7 +179,7 @@ import { MapStage } from './workspace/MapStage'
 import { usePlanStacks } from './workspace/usePlanStacks'
 import { useGebaeudeActions } from './workspace/useGebaeudeActions'
 import { useJournalWriters } from './workspace/useJournalWriters'
-import { useWorkspaceBlob } from './workspace/useWorkspaceBlob'
+import { type UndoTopLost, useWorkspaceBlob } from './workspace/useWorkspaceBlob'
 import { prefs } from './workspace/bootPrefs'
 import { ATTENDANCE_RECORDS } from './workspace/recordShapes'
 import { useMapActions } from './workspace/useMapActions'
@@ -255,6 +258,11 @@ interface WorkspaceProps {
   /** bring this Einsatz back in front (App · uncoverEinsatz) — an alarm row's «Zum Trupp» */
   onUncover?: () => void
   onOpenDivera: () => void
+  /** the alarms waiting to be opened, listed in the Einsatz menu as on home (App · landingAlarms) */
+  menuAlarms?: AppMenuAlarms
+  /** the Einsatz menu's quiet row for this Einsatz's hidden «Alarm aktualisiert» (App builds it;
+   *  panels/AppMenuRows · FoldedRow) */
+  menuFolded?: FoldedMenuRow[]
   /** freshly one-tap-taken Divera incident: show the correct-in-place review banner */
   needsReview: boolean
   onReviewDone: () => void
@@ -291,7 +299,7 @@ interface WorkspaceProps {
 
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport, abschlussRef,
-  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenUeben, onOpenDivera, onReactivateActive, onBackFromArchive,
+  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenUeben, onOpenDivera, menuAlarms, menuFolded, onReactivateActive, onBackFromArchive,
   covered = false, onUncover, needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
   const { user, logout, asLink, isEl, linkRefused, roleReadOnly, isEditor, linkScoped } = useSessionRole(incidentMeta)
@@ -740,8 +748,22 @@ export function IncidentWorkspace({
     tutorialEvent(dir)
     if (anchor) flashUndoCaption(anchor, fillTemplate(dir === 'undo' ? C_HIST.undoNamed : C_HIST.redoNamed, { action: undoCaption(r.entry) }))
   }
-  /** …from a button, which anchors the caption at itself. Every ↶ ↷ in the app goes through this. */
-  const onHistoryPress = (dir: 'undo' | 'redo') => (e: ReactMouseEvent<HTMLButtonElement>) => stepHistory(dir, e.currentTarget)
+  /** A merge dropped ↶'s own step (useWorkspaceBlob · onTopDropped): the operator's next ↶ — a
+   *  button or the key, never a toast's — says so at the button and does not step, so ↶ never
+   *  quietly turns into an older act. The press after it steps as usual. */
+  const [undoTopLost, setUndoTopLost] = useState<UndoTopLost | null>(null)
+  const pressHistory = (dir: 'undo' | 'redo', anchor?: HTMLElement | null): void => {
+    const lost = undoTopLost
+    if (lost) setUndoTopLost(null)
+    if (dir === 'undo' && lost && undoHist.peekUndo() === lost.top) {
+      if (anchor) flashUndoCaption(anchor, lost.text)
+      else toast(lost.text, { icon: 'warn' })
+      return
+    }
+    stepHistory(dir, anchor)
+  }
+  /** …from a button, which anchors the caption at itself. Every ↶ ↷ button in the app goes through this. */
+  const onHistoryPress = (dir: 'undo' | 'redo') => (e: ReactMouseEvent<HTMLButtonElement>) => pressHistory(dir, e.currentTarget)
   useEffect(() => clearUndoCaption, [])
   // the delete rule's toasts take back THEIR step through this same ↶ (lib/removalToast)
   // (re-plugged every render, so the toast's ↶ is always this render's `stepHistory`)
@@ -1118,7 +1140,7 @@ export function IncidentWorkspace({
   // ⚠️ A half-typed Mittel (or guest) belongs to the Einsatz it was started on. Switching
   // incidents drops every kept draft, so the next one can never be handed the previous one's
   // entry — see lib/draftKeep.
-  useEffect(() => { clearAllDrafts() }, [incidentMeta.id])
+  useEffect(() => { clearAllDrafts(incidentMeta.id) }, [incidentMeta.id])
   // The Checkliste templates load the moment an Einsatz opens, not when the tab is first tapped
   // (lib/checklists · warmTemplates): the surface opens on a list that is already there, and the
   // offline cache is filled while there is still a network to fill it from.
@@ -1365,7 +1387,7 @@ export function IncidentWorkspace({
     bootGate, olderBuild, setOlderBuild, incidentMeta, setLayers, journal, setRecent, setBuilding, setVehicleOverrides, setChecklists,
     setTrupps, setAttendance, setMittel, setShifts, setBands, setCameraViews, setTrails, setPlanScale,
     setReportMeta, setAttachments, setReportSignatures, setIncidentSettings, setPlanBindings, setPickedObjectId,
-    setIntakeReviewedAt, undoHist, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
+    setIntakeReviewedAt, undoHist, setUndoTopLost, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
     setPlanHistory, lastReportStepRef: lastReportStep, lastCaptionStepRef: lastCaptionStep,
     lastReorientRef: lastReorient, setSelectedId, setSelectedDrawingId, setSelectedDrawIds, objects, recent,
     activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel,
@@ -1688,15 +1710,17 @@ export function IncidentWorkspace({
   }, [settingsOpen, paletteOpen, pickerOpen, helpOpen, installGuideOpen, offlineReadyOpen, shareLink, composerOpen, journalOpen, teamPick])
 
   // Delete / Backspace removes the current selection (drawing first, then entity) — but
-  // never while typing in a field. `doc` is a dep so the delete closes over fresh state.
+  // never while typing in a field or behind a dialog. `doc` is a dep so the delete closes over fresh state.
   // ⚠️ Map surface only: the Plan carries the same key on its own selection (Whiteboard, A21),
   // and this listener lives on the window whether the Karte is on screen or not.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Delete' && e.key !== 'Backspace') return
       if (mode !== 'map') return
-      const el = document.activeElement as HTMLElement | null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      // a field, a dialog or a menu with the focus owns the key – the same guard as Escape
+      // (lib/hotkeys · keyOwnedElsewhere, GESTURES.12): ⌫ to «go back» in Einstellungen, a confirm
+      // or the Trupp picker used to delete the selection behind it
+      if (keyOwnedElsewhere(e.target instanceof Element ? e.target : null) || keyOwnedElsewhere(document.activeElement)) return
       // ⚠️ The bar's «Löschen» left with the bar, so this key is where a boxed GROUP is deleted
       // from — plan-drawn members included: they are ordinary map objects now, and a group had
       // no other affordance at all.
@@ -1888,6 +1912,8 @@ export function IncidentWorkspace({
   const mapDrawing = useMapDrawing({
     drawings, resolvedDrawings: resolvedMapDrawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log, stepLabelRef: stepLabel,
+    // a lambda: revealLayer is declared further down, and only called on a tap
+    revealLayer: (id) => revealLayer(id),
     setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds,
     // a Leitung end snapped onto a Trupp's marker IS the Leitung pick (15.09.) — the same call
     // the Plan makes from its own magnet (Whiteboard · onLineAttached)
@@ -2038,6 +2064,15 @@ export function IncidentWorkspace({
       return ls.map((l) => (l.id === id ? { ...l, visible: !l.visible } : l))
     })
   }
+  /** Something placed or drawn on THIS device into a layer it has switched off: the layer comes
+   *  back on, so the new thing shows where it was made (rare-user round 17.11.2026, F3 · the
+   *  editor's coupling reveal is the same move). Idempotent – sets, never flips – so two placements
+   *  in one render cannot switch it off again. The same `layer.toggle` as a tap on the row. */
+  const revealLayer = (id: LayerId) => {
+    if (!layers.some((l) => l.id === id && !l.base && !l.visible)) return
+    if (!isEl) emit('layer.toggle', { id, base: false, visible: true })
+    setLayers((ls) => ls.map((l) => (l.id === id ? { ...l, visible: true } : l)))
+  }
   /** Ebenen quick-taps (field ask 07.09.): flip every overlay at once, or return to the layer
    *  set this Einsatz category opens with. Bases stay out of the bulk flip (a map with no base
    *  is a flat colour, and the base row is a radio, not an eye); the plan raster rows keep their
@@ -2071,6 +2106,8 @@ export function IncidentWorkspace({
   // tooltip / accessible name (lib/layerPreset, 05.10.2026)
   const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type), weather.on && weather.radarOn, twinsAtDefault(twinLayers)),
     [layers, incidentMeta.type, weather.on, weather.radarOn, twinLayers])
+  // a CONTENT layer off on this device – the amber dot on the Ebenen tile (lib/layerPreset)
+  const layersHidden = useMemo(() => contentLayerHidden(layers), [layers])
   const setOpacity = (id: LayerId, v: number) => {
     if (weather.handlesLayer(id)) { weather.setRadarOpacity(v); return }
     if (isTwinLayerId(id)) {
@@ -2123,6 +2160,15 @@ export function IncidentWorkspace({
     setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
     setNotePanelId(null); setEditNoteId(null)
   }
+
+  // Back from the background (C3, rare-user round 17.11.2026 · lib/useOnResume): the armed tool or
+  // symbol is put down – a committable draft asks, exactly as leaving it any other way –
+  // «Mehrere platzieren» goes off and so does «Zeigen». The Wiedergabe stays where it was.
+  useOnResume(() => {
+    if (tool !== 'select' || pending || pendingShape || teamPick) disarmMapTool()
+    setPlaceLock(false)
+    if (presentation.zeigen) presentation.toggleZeigen()
+  })
 
   // Locking the surface mid-draw (Führungsansicht toggled on, tab lock lost, replay entered)
   // must not leave a create tool armed behind a dock that is no longer rendered — disarm down to
@@ -2290,6 +2336,8 @@ export function IncidentWorkspace({
     },
     focusMapEntity: (entityId, coord, fly = true) => {
       setMode('map')
+      // a Trupp marker just placed, or jumped to, stands on «Taktische Zeichen»: shown (F3)
+      revealLayer(appConfig.defaults.operationalLayerId)
       if (!fly) { setSelectedId(entityId); setSelectedDrawingId(null); return }
       if (coord) { setSelectedId(entityId); setSelectedDrawingId(null); flyToMapVisible(coord, 18.4) }
       else focusEntity(entityId)
@@ -2310,14 +2358,14 @@ export function IncidentWorkspace({
     clearMapUi, setPaletteOpen, tool, setTool, setPending, setPendingShape, setSelectedId,
     setSelectedDrawingId, setSelectedDrawIds, setSelectedEntityIds, setNotePanelId, setEditNoteId, panel,
     setPanel, tacticalLocked, pendingShape, rotStart, setRotStart, commit, placeLock, log, emit, pending,
-    sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, settleDraft, lineMode, measure, mapRef,
+    revealLayer, sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, settleDraft, lineMode, measure, mapRef,
     incidentView, entities, liveIds, resolvedMapDrawings, cameraViews, view, setLocateReq, incidentOpen,
     share, setShareParent, setSharePick, setCameraViews, rememberOneShotRef, C_HIST, setViewsOpen,
     viewsOpen, selectedId, selectedDrawIds, selectedEntityIds, doc, truppCounterNames, selectedDrawingId,
     planDocs, mode, setMode, setActivePlanId,
     hotkeyRef, settingsOpen, paletteOpen, pickerOpen, helpOpen, installGuideOpen, offlineReadyOpen,
     shareLink, composerOpen, georefActive, georefMode, replayActive, readOnly, linkScoped, goToNav,
-    planFit, stepHistory, planKeys, setJournalOpen, setComposerOpen, togglePanel, setSettingsOpen,
+    planFit, stepHistory: pressHistory, planKeys, setJournalOpen, setComposerOpen, togglePanel, setSettingsOpen,
     setHelpOpen, coord, notePanelId, notePlacedId, mapWorkRect, drawings, drawTap, beginDrag, setDocRaw,
     endDrag, flyToMapVisible, setVehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef, objects,
     setPlanFocus, focusEntity, editNoteId, user, stepLabelRef: stepLabel,
@@ -2328,7 +2376,7 @@ export function IncidentWorkspace({
   } = mapActions
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const teamMarkers = useTeamMarkerActions({
-    entities, commit, log, emit, setSelectedId, setSelectedDrawingId,
+    entities, commit, log, emit, setSelectedId, setSelectedDrawingId, revealLayer,
     // every chip, every ghost trail and every registered Trupp count into the numbering: ONE
     // counter per Einsatz (docs/trupp-naming.md §1)
     placedTeamNames: () => truppCounterNames(),
@@ -2554,11 +2602,11 @@ export function IncidentWorkspace({
    * the toast left «Geschoss 3. OG entfernt» standing alone on the printed Einsatzjournal, about a
    * storey that still existed) — and drops the timeline entry, so the act is never taken back twice.
    * Guarded by the entry (`drop.standing`): once a merge dropped it, or a ↶ already took it, the
-   * toast declines instead of writing over another device's change. `opts.kind` (#232): a toast of
-   * the same kind still on screen gives way to this one.
+   * toast declines instead of writing over another device's change. Its own kind (`oneshot`, toast
+   * diet call 2): a closure one-shot is not pushed out by an ordinary undo pill.
    */
-  const oneShotUndoToast = (text: string, label: string, restore: () => void, drop: Dropper, rows?: OneShotRows | 'silent', opts?: { kind?: string }) =>
-    undoToast(text, () => { restore(); drop(); oneShotRow('undo', label, rows) }, drop.standing, opts)
+  const oneShotUndoToast = (text: string, label: string, restore: () => void, drop: Dropper, rows?: OneShotRows | 'silent', opts?: { glyph?: UndoGlyph }) =>
+    undoToast(text, () => { restore(); drop(); oneShotRow('undo', label, rows) }, drop.standing, { kind: 'oneshot', glyph: opts?.glyph })
   // the Gebäude's own acts on the Plan — pick, storeys, Drehung (workspace/useGebaeudeActions)
   const gebaeude = useGebaeudeActions({
     tacticalLocked, building, setBuilding, board, setBoard, objects, objectsRef, boardRef, floorPack: georefFits.floorPack,
@@ -2623,7 +2671,8 @@ export function IncidentWorkspace({
    * one step – and, where the Trupp behind it still exists, the way BACK first (20.09.2026): the
    * marker returns where the trail ends, under the id it was recorded on, and the reconciliation
    * takes the ghost home with it (lib/truppTrails · ghostRevival). One ask, three answers; the
-   * delete stays the red one and keeps its own wording.
+   * delete keeps its own wording, and is not red: it is undoable (removeWithUndo), and red on a
+   * choice card means «nothing brings it back» (undo.md › One delete rule; duck sweep FEEDBACK.2).
    */
   const deleteGhostTrail = async (id: string) => {
     if (tacticalLocked) return
@@ -2642,7 +2691,7 @@ export function IncidentWorkspace({
         title: fillTemplate(appConfig.copy.whiteboard.ghostTrailTitle, { name }),
         message: appConfig.copy.whiteboard.ghostTrailAsk,
         confirmLabel: appConfig.copy.whiteboard.ghostTrailRestore, cancelLabel: appConfig.copy.cancel,
-        altLabel: appConfig.copy.whiteboard.clearTrail, altDanger: true,
+        altLabel: appConfig.copy.whiteboard.clearTrail,
       })
       if (answer === true) {
         const revive = { id: back.markerId, trail: back.trail }
@@ -2906,7 +2955,7 @@ export function IncidentWorkspace({
       defaultFunkkanal={azFunkkanal}
       focus={truppFocus}
       createRequest={truppCreate}
-      // «Überwachung abgeben» — the QR beside the bell, on the page the FU is standing on when
+      // «Trupps teilen» — the QR beside the bell, on the page the FU is standing on when
       // they decide to hand the Tafel over. Same sheet as the Einsatz-Karte's «Teilen», opened
       // on its «Nur Atemschutz» half.
       onShareLink={canShareLive ? () => setShareLink('atemschutz') : undefined}
@@ -3056,6 +3105,8 @@ export function IncidentWorkspace({
         {/* …and the Notfall's row obeys the same contract: withheld on the board, whose banner
             stands in its place (AtemschutzNotfall) */}
         <AtemschutzNotfallMeldungen trupps={trupps} onBoard onGoToTrupp={(id) => setTruppFocus({ id, nonce: Date.now() })} />
+        {/* «Kein Sicherungstrupp bereit» – the person at the door is who most needs it (FEEDBACK.1) */}
+        {azAlarmActive && <SafetyMissingMeldung trupps={trupps} />}
       </div>
     )
   }
@@ -3187,10 +3238,10 @@ export function IncidentWorkspace({
         onBackFromArchive, onReactivateActive, isPhone, phoneTools, planFit, incidents, syncStatus, journal,
         auditDelivery, closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
         onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenUeben, activeObjectId, canEditMeta, onEditMeta,
-        onOpenDivera, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
+        onOpenDivera, menuAlarms, menuFolded, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
         setHelpOpen, setInstallGuideOpen, syncNow, media, logout, settingsOpen,
         helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
-        menuCloseKey, viewOnly,
+        menuCloseKey, viewOnly, presentation,
       }} />
 
       {/* unsent edits of ANOTHER account for this Einsatz are parked on this device (sweep
@@ -3245,7 +3296,7 @@ export function IncidentWorkspace({
 
       <MapControls {...{
         mapUI, mapUtility, mapRef, view, viewsApi, readOnly, isEl, viewsOpen, toggleViews, coord, panel,
-        layersPreset, togglePanel, isPhone, displayWeather, openWeatherDetails, replayActive,
+        layersPreset, layersHidden, togglePanel, isPhone, displayWeather, openWeatherDetails, replayActive,
         georefMode, buildingInfo, buildingFirst, setPanel, composerOpen, journalOpen, offlineReadyOpen,
         // an incident link may not read the station: no «Unterirdische Bauten» row it could never fill
         layers: linkScoped ? layers.filter((l) => l.id !== UNDERGROUND_LAYER_ID) : layers,
@@ -3264,7 +3315,7 @@ export function IncidentWorkspace({
         noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
         selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
         changeMapEnding, reverseDrawing, setDrawingWallRole, objects, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
-        unlinkLine, setSelectedDrawingId, setMode, setPanel, setGpsRouting, revertAll, gpsEndOf, releaseHere,
+        unlinkLine, setSelectedDrawingId, setMode, setPanel, showTrupp, setGpsRouting, revertAll, gpsEndOf, releaseHere,
         releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing,
       }} />
 
@@ -3272,14 +3323,14 @@ export function IncidentWorkspace({
         mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, lineMode, settleDraft,
         setLineMode, draftActive, draftOpen, commitDraft, areaMode, setAreaMode, setTeamPick, placed, setFindTruppOpen,
         measure, pendingShape, setPendingShape, setRotStart, rotStart, tacticalLocked, createLine,
-        createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, togglePanel, viewsApi,
+        createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, layersHidden, togglePanel, viewsApi,
         view, readOnly, isEl, viewsOpen, sharePick, shareParent, toggleViews, coord, mapRef, paletteOpen,
         sym, setPaletteOpen, pickShape, teamPick, trupps, placeTruppOnMap, placeGenericTeam,
         truppColors: truppColors(),
       }} />
 
       <PlansSurface {...{
-        mode, sym, guarded, railLabels, planDocs, tacticalLocked, isPhone, journalOpen, replayActive,
+        mode, vehicleOverrides, sym, guarded, railLabels, planDocs, tacticalLocked, isPhone, journalOpen, replayActive,
         linkScoped, activePlanId, setActivePlanId, objectPlans, buildingInfo, incidentMeta,
         setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, georefFits, mapActions,
         replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,
@@ -3330,6 +3381,7 @@ export function IncidentWorkspace({
           onState={onReplayState}
           onVehicles={onReplayVehicles}
           onExit={exitReplay}
+          running={running}
           journal={timeline}
           onPlayhead={onReplayPlayhead}
           seekRef={replaySeek}
@@ -3364,6 +3416,7 @@ export function IncidentWorkspace({
         enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
         tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen,
         addJournal, noteOn, roleReadOnly, linkScoped, openTafelPendenzen: linkScoped ? undefined : tafelPendenzen.openPage,
+        showTrupp: linkScoped ? undefined : showTrupp,
       }} />
       {sharePick && (
         <SharePositionSheet
@@ -3403,7 +3456,7 @@ export function IncidentWorkspace({
         feedbackParent, canWriteRecord, photoPosition, setPhotoPosition, role: user?.role,
       }} />
       </PresentationContext.Provider>
-      <PresentationPill p={presentation} />
+      <PresentationPill p={presentation} overVerlauf={isPhone && journalOpen} />
       <MapRings mapRef={mapRef} rings={presentation.mapRings} strokes={presentation.mapStrokes} presenter={presentation.state?.presenter?.client ?? null} onUnmark={presentation.unmark} />
 
       {/* phone field-capture: a editor can't draw tactical symbols on a phone, but can

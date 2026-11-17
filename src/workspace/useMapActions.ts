@@ -16,7 +16,7 @@ import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { bearingDeg, circlePolygon, haversineM, midCoord } from '../lib/geo'
 import { georefDispatch, useGeorefMode } from '../lib/georefMode'
 import { routeEscape, routeHotkey } from '../lib/hotkeyRoute'
-import { resolveHotkey, isTypingTarget, type ToolCmd } from '../lib/hotkeys'
+import { resolveHotkey, isTypingTarget, keyOwnedElsewhere, type ToolCmd } from '../lib/hotkeys'
 import { newId } from '../lib/ids'
 import { applyRouting, detachDrawings, linesOnObjects, moveLineBody, objectAttachment, wireFreed, withDetach, type DetachPatch } from '../lib/lineAttachments'
 import { moduleNumbers } from '../lib/navRail'
@@ -32,7 +32,7 @@ import { ROTATION_DEFAULT_RUN_M, ROTATION_W_M, SHAPE_DEFS, SHAPE_MIN_M, SHAPE_TW
 import { seedSymbolProps, VEHICLE_SYMBOLS } from '../lib/symbols'
 import type { TacticalObject } from '../lib/tacticalObjects'
 import { lineTakesTrupp } from '../lib/truppLines'
-import { toast, undoToast } from '../lib/ui'
+import { undoToast } from '../lib/ui'
 import { askJoinedLines, removedText, removeWithUndo, withLinesText } from '../lib/removalToast'
 import { recordKey, type RecordKey } from '../lib/undoKeys'
 import type { Dropper, UndoDomain } from '../lib/undoTimeline'
@@ -44,7 +44,7 @@ import { useSymbols } from '../lib/useSymbols'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
 import type { ShareLinkKind } from '../lib/viewLink'
 import type { Doc } from '../lib/workspace'
-import type { CameraView, Drawing, Entity, Incident, LineAttachment, LineEndpoint, LngLat, ShapeKind, TimelineEvent, Trupp, PlanDocument, NoteSize, MapTool } from '../types'
+import type { CameraView, Drawing, Entity, LayerId, Incident, LineAttachment, LineEndpoint, LngLat, ShapeKind, TimelineEvent, Trupp, PlanDocument, NoteSize, MapTool } from '../types'
 import type { OneShotRows, WorkspaceMode } from './types'
 import { useEffect, useMemo, useRef, type Dispatch, type RefObject, type SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
@@ -75,6 +75,8 @@ export interface UseMapActionsInputs {
   log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   emit: (op_type: string, payload?: Record<string, unknown>, opts?: { observed?: string }) => void
   pending: string | null
+  /** switch a layer this device has off back on – a placement into it (IncidentWorkspace · revealLayer) */
+  revealLayer: (id: LayerId) => void
   sym: ReturnType<typeof useSymbols>
   addRecent: (name: string) => void
   noteDefaults: { size: NoteSize; plain: boolean; color: string }
@@ -162,7 +164,7 @@ export function useMapActions({
   clearMapUi, setPaletteOpen, tool, setTool, setPending, setPendingShape, setSelectedId,
   setSelectedDrawingId, setSelectedDrawIds, setSelectedEntityIds, setNotePanelId, setEditNoteId, panel,
   setPanel, tacticalLocked, pendingShape, rotStart, setRotStart, commit, placeLock, log, emit, pending,
-  sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, settleDraft, lineMode, measure, mapRef,
+  revealLayer, sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, settleDraft, lineMode, measure, mapRef,
   incidentView, entities, liveIds, resolvedMapDrawings, cameraViews, view, setLocateReq, incidentOpen,
   share, setShareParent, setSharePick, setCameraViews, rememberOneShotRef, C_HIST, setViewsOpen,
   viewsOpen, selectedId, selectedDrawIds, selectedEntityIds, doc, truppCounterNames, selectedDrawingId,
@@ -219,6 +221,7 @@ export function useMapActions({
   const addSymbol = (s: string, c: LngLat): Entity => {
     const entity = symbolEntity(s, c)
     commit((d) => ({ ...d, entities: [...d.entities, entity] }))
+    revealLayer(entity.layer)
     log('hex', fillTemplate(appConfig.copy.log.symbolPlaced, { name: entity.label || formatSymbolName(s) }), 'symbol', undefined, entity.id)
     emit('entity.add', { id: entity.id, symbol: s, entity })
     return entity
@@ -257,6 +260,7 @@ export function useMapActions({
         setRotStart(null)
       }
       commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'shape', layer: appConfig.defaults.drawingLayerId, shape: pendingShape, color: def.defaultColor, label: name, ...geom }] }))
+      revealLayer(appConfig.defaults.drawingLayerId)
       // unlocked: place once, then drop back to select with the new shape active so
       // its edit handles are immediately usable. locked: stay in place-mode (no
       // selection so the editor doesn't interrupt) to drop several in a row.
@@ -276,6 +280,7 @@ export function useMapActions({
     } else if (tool === 'note') {
       const id = newId('n')
       commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: autoNoteWPx('', noteDefaults.size === 'm' ? undefined : noteDefaults.size), noteAutoW: true, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined }] }))
+      revealLayer(appConfig.defaults.drawingLayerId)
       // Straight into typing — in the detail sheet, with the caret already in its text field
       // (05.09.). It used to open the on-canvas inline editor instead, which is a text cursor
       // sitting on the map with no visible field, no room for a second line and, on a phone, the
@@ -385,7 +390,7 @@ export function useMapActions({
         () => setCameraViews((vs) => vs.filter((x) => x.id !== v.id)),
         () => setCameraViews((vs) => (vs.some((x) => x.id === v.id) ? vs : [...vs, v])),
         () => [recordKey('cameraViews', v.id)], 'silent')
-      toast(appConfig.copy.mapViews.saved, { icon: 'compass', tone: 'success' })
+      // no «gespeichert» toast: the new Ansicht stands in the list
     },
     onRename: (id, name) => {
       const prev = cameraViews.find((v) => v.id === id)
@@ -420,8 +425,8 @@ export function useMapActions({
   }
 
   // --- keyboard shortcuts ---------------------------------------------------------------------
-  // Duplicate the current selection (Cmd/Ctrl+D) — a small nudge so the copy is visibly offset and
-  // separately selectable (lib/duplicate). Single symbol/shape/note OR single drawing; live GPS
+  // Duplicate the current selection (Cmd/Ctrl+D, and the selection bar's «Duplizieren») – a small
+  // nudge so the copy is visibly offset and separately selectable (lib/duplicate). Single symbol/shape/note OR single drawing; live GPS
   // markers can't be copied. Multi-select duplicate isn't wired (rare; would need per-item id remap).
   const duplicateSelection = () => {
     // tacticalLocked, not readOnly: the drawing branch below used to duplicate for real in the
@@ -461,37 +466,33 @@ export function useMapActions({
     return true
   }
 
-  /** Escape: one layer of transient Karte state per press — lib/hotkeyRoute · routeEscape is the
-   *  order. (Modal sheets handle their own Esc via the overlay wrapper; this is only the non-modal
-   *  map chrome.) */
+  /** Escape: one layer of transient Lage state per press — lib/hotkeyRoute · routeEscape is the
+   *  order, the Plan's and the Karte viewer's too. (Sheets, menus, cards and the ✥ ⟳ mode take
+   *  their own Esc first and alone — lib/overlays/layer; this is only the surface's own state.) */
   const escape = (e: KeyboardEvent) => {
-    // typing in a field? Escape leaves the FIELD and nothing more — one key press must never
-    // both finish the text and drop the selection. Read the event TARGET, not activeElement:
-    // the field's own handler has already blurred by the time this bubbles up.
-    const el = e.target as HTMLElement | null
-    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
-    // …and a MODAL on top of the map owns Escape outright — it closes, and the map does NOT also
-    // peel a layer behind it (Esc in the «Welcher Trupp?» picker used to close the picker AND
-    // disarm the Team tool). Focus is trapped inside the dialog, so the event target is enough.
-    // ⚠️ `alertdialog` as well as `dialog`: ConfirmCard (lib/overlays/ConfirmCard) renders the
-    // alert role, and a delete confirm on the Lage must not peel a map layer behind it either.
-    if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
+    // a field keeps its Esc (it leaves the field and nothing more — one key press must never both
+    // finish the text and drop the selection), and a dialog or menu with the focus owns it: Esc in
+    // the «Welcher Trupp?» picker used to close the picker AND disarm the Team tool, a delete
+    // confirm (`alertdialog`) must not peel a map layer behind it either (lib/hotkeys)
+    if (keyOwnedElsewhere(e.target instanceof Element ? e.target : null)) return
     switch (routeEscape({
-      placing: !!(pending || pendingShape),
-      coordOn: coord.mode !== 'off',
-      chromeOpen: !!(panel || viewsOpen),
+      layerOpen: !!(panel || viewsOpen),
+      draft: !!(pending || pendingShape) || coord.mode !== 'off',
       toolArmed: tool !== 'select',
-      notePanelOpen: !!notePanelId,
+      panelOpen: !!notePanelId,
       selected: !!(selectedId || selectedDrawingId || selectedDrawIds.length || selectedEntityIds.length),
     })) {
-      case 'cancelPlacement': setPending(null); setPendingShape(null); setRotStart(null); setTool('select'); break
-      case 'coordOff': coord.setMode('off'); break
-      case 'closeChrome': setPanel(null); setViewsOpen(false); break
+      case 'closeLayer': setPanel(null); setViewsOpen(false); break
+      // a symbol or shape being placed goes first, then the Koordinaten crosshair
+      case 'dropDraft':
+        if (pending || pendingShape) { setPending(null); setPendingShape(null); setRotStart(null); setTool('select') }
+        else coord.setMode('off')
+        break
       // Escape leaves the tool like any other way out: a committable draft asks «Speichern ·
       // Verwerfen · Weiterzeichnen» (useMapDrawing · settleDraft, 27.10.2026 – until then Escape
       // was the one silent discard)
       case 'disarmTool': setTool('select'); settleDraft(); break
-      case 'closeNotePanel': setNotePanelId(null); break
+      case 'closePanel': setNotePanelId(null); break
       case 'clearSelection': setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); break
     }
   }
@@ -1022,5 +1023,5 @@ export function useMapActions({
     patchEntity(ent.id, { ...(again ? {} : { fields }), ...(act && { readings: act.readings }) })
     if (act) log(READING_ICON, act.text, 'symbol', undefined, ent.id)
   }
-  return { deleteGroup, deleteEntity, placed, goToModule, finishSelection, onMapClick, startEntityMove, streamEntityMove, finishEntityMove, onMarquee, transformGroup, goToTrupp, viewsApi, toggleViews, selected, undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, moveLiveOnSheet }
+  return { deleteGroup, deleteEntity, duplicateSelection, placed, goToModule, finishSelection, onMapClick, startEntityMove, streamEntityMove, finishEntityMove, onMarquee, transformGroup, goToTrupp, viewsApi, toggleViews, selected, undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, moveLiveOnSheet }
 }

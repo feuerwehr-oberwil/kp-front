@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
-import { Overlay, SheetFoot } from '../lib/overlays'
+import { Overlay } from '../lib/overlays'
 import type { PlanDocument } from '../types'
 import s from './GeorefMode.module.css'
 
@@ -27,7 +27,10 @@ export function GeorefTransfer({ source, targets, onTransfer, onClose, onDone }:
   const C = appConfig.copy.whiteboard.georef
   const [busy, setBusy] = useState<string | null>(null)
   const [completed, setCompleted] = useState<ReadonlySet<string>>(new Set())
-  const close = () => { if (!busy) onClose() }
+  // a LIVE sheet – each row copies at once – so it ends on its head ✕, no «Abbrechen → Fertig»
+  // footer (duck sweep CONT.10, 17.11.2026; docs/ui-conventions · editor sheets). After a copy the
+  // ✕ is the old «Fertig»: back to the plan, the Passung put away (`onDone`).
+  const close = () => { if (!busy) (completed.size ? onDone ?? onClose : onClose)() }
 
   const pick = async (target: GeorefTransferTarget) => {
     if (busy) return
@@ -63,10 +66,6 @@ export function GeorefTransfer({ source, targets, onTransfer, onClose, onDone }:
           ))}
         </div>
       </div>
-      <SheetFoot className="ip-actions">
-        <button className={`btn ${completed.size ? 'primary' : ''}`} disabled={busy != null}
-          onClick={completed.size ? onDone ?? onClose : close}>{completed.size ? C.done : C.cancel}</button>
-      </SheetFoot>
     </Overlay>
   )
 }

@@ -94,6 +94,9 @@ describe('searchEntries', () => {
     expect(searchEntries(entries, 'WESPE').map((e) => e.id)).toEqual(['wespen'])
     expect(searchEntries(entries, 'einstell').map((e) => e.id)).toEqual(['tg'])
   })
+  it('forgives one typo (lib/search)', () => {
+    expect(searchEntries(entries, 'Hornisen').map((e) => e.id)).toEqual(['wespen'])
+  })
 })
 
 describe('matchEntries', () => {
@@ -249,6 +252,10 @@ describe('searchLibrary', () => {
   })
   it('finds an Anleitung by its device name', () => {
     expect(searchLibrary(all, 'multiwarn').manuals.map((h) => h.item.id)).toEqual(['xam'])
+  })
+  it('folds umlauts both ways and forgives one typo (lib/search)', () => {
+    expect(searchLibrary(all, 'Fuehrungskreis').checklists.map((h) => h.item.id)).toEqual(['fk'])
+    expect(searchLibrary(all, 'Photovoltiak').references[0].entries.map((h) => h.item.id)).toEqual(['pv'])
   })
   it('finds nothing for an empty query (the surface shows its home)', () => {
     expect(searchLibrary(all, '  ')).toEqual({ manuals: [], checklists: [], references: [] })

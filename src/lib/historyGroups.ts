@@ -2,11 +2,14 @@
 // per Einsatz forever, so finding an old one to view/reactivate needs more than scrolling.
 // Pure — no React/DOM, node-testable; the HistoryPanel maps group keys to localized labels.
 
-/** case-insensitive title/address filter; an empty query passes everything through */
+import { matchesAnyQuery, searchQuery } from './search'
+
+/** title/address filter through the one search fold (lib/search: umlauts, one typo); an empty
+ *  query passes everything through */
 export function filterIncidents<T extends { title: string; address: string | null }>(items: T[], query: string): T[] {
-  const q = query.trim().toLowerCase()
+  const q = searchQuery(query)
   if (!q) return items
-  return items.filter((i) => i.title.toLowerCase().includes(q) || (i.address ?? '').toLowerCase().includes(q))
+  return items.filter((i) => matchesAnyQuery(q, i.title, i.address))
 }
 
 /** The quick filters over «Alle Einsätze» (owner, 27.10.2026): Ernstfall | Übung (one or the

@@ -30,5 +30,14 @@
   transition: background-color .12s var(--ease), border-color .12s var(--ease);
 }
 .box :global(.i) { width: 16px; height: 16px; }
-.on .box { background: var(--sel); border-color: var(--sel); box-shadow: var(--sel-shadow); }
+.boxOn { background: var(--sel); border-color: var(--sel); box-shadow: var(--sel-shadow); }
+/* a Pendenz, still open (TickRow · `pendenz`): the frame is its state – amber offen, red überfällig
+   and dringend, dringend with the drawn «!» (bar + dot, not a glyph: a triangle hangs low in a
+   24px box). Ticked it is the blue above, like every other done item. */
+.box[data-pendenz='open'] { border-color: var(--amber-strong); }
+.box:is([data-pendenz='overdue'], [data-pendenz='urgent']) { border-color: var(--red-strong); }
+.bang { position: relative; width: 2.5px; height: 8px; border-radius: 1.5px; background: var(--red-strong);
+  transform: translateY(-2px); }
+.bang::after { content: ""; position: absolute; left: 0; bottom: -4.5px; width: 2.5px; height: 2.5px;
+  border-radius: 50%; background: var(--red-strong); }
 @media (prefers-reduced-motion: reduce) { .box { transition: none; } }

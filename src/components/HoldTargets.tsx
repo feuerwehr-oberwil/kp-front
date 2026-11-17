@@ -11,7 +11,10 @@ const RING_R = 8
 const RING_LEN = 2 * Math.PI * RING_R
 
 /**
- * The «Eintrag» hold's charging cue: a small ring beside the label that fills over HOLD_MS.
+ * A hold's charging cue: a small ring around the held glyph that fills over the hold's window –
+ * the «Eintrag» hold (HOLD_MS), and every `useLongPress` handle (its `held`: the Plan / Seite
+ * chooser, the compass, the Trupp crown). The host wraps glyph + ring in a `position: relative`
+ * box (`.tb-act-ic`), so nothing reflows under the finger.
  *
  * JS-driven off the press's own start stamp (useTimedProgress — the nodeHold clock), NOT a CSS
  * keyframe: the old width bar animated over .22s while the hold latches at 350ms, so it read
@@ -19,8 +22,8 @@ const RING_LEN = 2 * Math.PI * RING_R
  * full on the first frame while the timer still ran. Same fix, same reasoning as the
  * node-delete ring (lib/nodeHold): the fill and the thing it promises share one clock.
  */
-export function HoldChargeRing({ since }: { since: number }) {
-  const progress = useTimedProgress(since, HOLD_MS)
+export function HoldChargeRing({ since, ms = HOLD_MS }: { since: number; ms?: number }) {
+  const progress = useTimedProgress(since, ms)
   return (
     <svg className="tb-hold-ring" viewBox="0 0 20 20" aria-hidden>
       <circle className="tb-hold-track" cx="10" cy="10" r={RING_R} />

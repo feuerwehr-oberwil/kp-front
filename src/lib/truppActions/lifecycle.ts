@@ -1,7 +1,7 @@
 import type { Trupp, TruppFields } from '../../types'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../format'
-import { toast, undoToast } from '../ui'
+import { undoToast } from '../ui'
 import { truppEquipmentLabels } from '../report'
 import { isAtemschutzTrupp, truppCrewWithout, truppInNotfall, truppLogName, truppTransferState } from '../atemschutz'
 // stamped in the DEPLOYMENT's time, like every Trupp timestamp (why: truppActions/clock)
@@ -14,6 +14,7 @@ import { correctEntryPressure } from './clock'
 import type { TruppColorActions } from './colors'
 import type { TruppLineActions } from './lines'
 import type { TruppPlacementActions } from './placement'
+import { refuse } from '../meldungenRefusal'
 
 // The Trupp LIFECYCLE family — a Trupp's record from Anmeldung to Löschen: register, edit,
 // re-deploy, crew transfer, the hand-set board order, remove / restore — and the pure wording
@@ -672,7 +673,7 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
      * every alarm with no «Notfall beendet» row and no end push — the record would show a Notfall
      * that simply stopped. The way is «Notfall beendet» first; refused here as well as in the
      * view, because a guard that lives only in the view is one a second call site walks past. */
-    if (tr && truppInNotfall(tr)) { toast(appConfig.copy.atemschutz.notfall.removeBlocked, { icon: 'warn', tone: 'warn' }); return }
+    if (tr && truppInNotfall(tr)) { refuse(appConfig.copy.atemschutz.notfall.removeBlocked); return }
     // ⚠️ STAMPED, not removed (17.08.). The board loses it — that is what was asked for, and the
     // live list is filtered at the source (IncidentWorkspace) so no alarm, marker or roster lock
     // can still see it. But the Atemschutz page of the Rapport is a safety document: a crew that
@@ -705,7 +706,7 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
     const drop = remember(id, line, tr && { ...tr, annoId: undefined, planId: undefined, entityId: undefined }, apply)
     // ⚠️ guarded by the Trupp's record (lib/undoKeys · watchRecords): once a merge changed it, the
     // toast declines instead of restoring the card as it stood before the other device's write
-    if (tr) undoToast(fillTemplate(appConfig.copy.atemschutz.removedToast, { name: truppLogName(tr) }), () => { drop(); restoreTrupp(tr) }, [recordKey('trupps', id)])
+    if (tr) undoToast(fillTemplate(appConfig.copy.atemschutz.removedToast, { name: truppLogName(tr) }), () => { drop(); restoreTrupp(tr) }, [recordKey('trupps', id)], { glyph: 'trash' })
     return drop
   }
 

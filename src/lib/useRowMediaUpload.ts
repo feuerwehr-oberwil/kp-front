@@ -193,7 +193,7 @@ export function useRowMediaUpload({
     )
     // …and the toast's «Rückgängig» owes the audit chain the same `report.undo` the header's ↶
     // sends (IncidentWorkspace · rememberOneShot) — `report.`, so an `el`'s reaches it too
-    undoToast(appConfig.copy.preflight.attachmentRemoved, () => { restore(); drop(); emit('report.undo') }, drop.standing)
+    undoToast(appConfig.copy.preflight.attachmentRemoved, () => { restore(); drop(); emit('report.undo') }, drop.standing, { glyph: 'trash' })
   }, [canWriteRecord, setAttachments, emit, rememberOneShotRef])
 
   return { uploadPhotoForRow, uploadMediaForRow, addAttachments, captionAttachment, removeAttachment, swapAttachmentMedia }

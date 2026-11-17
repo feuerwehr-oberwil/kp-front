@@ -22,8 +22,10 @@ span.prio { display: inline-flex; align-items: center; justify-content: center; 
 /* Status: two ticks, one over the other, each its word and time, as the form prints them */
 .status { flex-direction: column; justify-content: center; padding: var(--sp-1) 0; }
 .status > * + * { border-top: 1px dashed var(--ink-12); }
-.tickWord { flex: 1 1 auto; }
-.tickTime { flex: none; font-variant-numeric: tabular-nums; color: var(--ink-dim); }
+.tickWord { flex: 1 0 auto; }
+/* a time from another day is «17.11. 01:50» (LISTS.10): it may break after the day, right-aligned,
+   rather than run out of the Status column */
+.tickTime { flex: 0 1 auto; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-dim); }
 /* a tick this session cannot change is a read-out — full tone (TickRow's `:disabled` recipe,
    doubled class so it outranks the module that loads last) */
 .tickRo.tickRo:disabled { opacity: 1; cursor: default; }

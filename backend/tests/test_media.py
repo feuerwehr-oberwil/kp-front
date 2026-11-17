@@ -400,3 +400,11 @@ def test_stale_upload_temp_files_are_swept_and_fresh_ones_kept(tmp_path):
     assert not stale.exists()
     assert fresh.exists(), "an upload still being written by another process stays"
     assert blob.exists()
+
+
+def test_a_nameless_file_downloads_as_a_datei():
+    """ENT.12 (17.11.2026): a non-image Verlauf file is a «Datei» — «Beilage» is the Rapport's
+    enclosure — so the id fallback says so; the operator's own name still wins."""
+    mid = uuid.uuid4()
+    assert media_mod._disposition_name(None, mid, ".pdf") == f"datei-{mid}.pdf"
+    assert media_mod._disposition_name("Plan EG.pdf", mid, ".pdf") == "Plan EG.pdf"

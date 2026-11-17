@@ -13,26 +13,46 @@ import s from './TickRow.module.css'
 // What a ticked row MEANS beyond the box (a Checkliste item fades, a Tafel row is struck through)
 // stays the surface's; `className` places the row, it never re-skins the box. `disabled` makes the
 // row a READ-OUT (full opacity, no tap) for a session that cannot tick – never a faded door.
+// A PENDENZ is ticked with it too, on every surface (duck sweep ELEM.2/ENT.5, 17.11.2026): the
+// Verlauf row, the pinned «Offene Pendenzen» block, the Tafel, the legend. `pendenz` names the
+// open item's state, and the UNTICKED box's frame says it – amber «offen», red «überfällig», red
+// with the drawn «!» «dringend»; ticked is the one blue «erledigt» whatever it was. A tap ticks,
+// a second tap reopens; both are logged by the caller (useReminders · setDone).
 
 type TickRowProps = Omit<ComponentPropsWithRef<'button'>, 'role' | 'aria-checked' | 'aria-pressed' | 'onClick' | 'onChange'> & {
   checked: boolean
   onToggle: () => void
   /** the visible label — any phrasing content; leave it out for a box alone (then `aria-label`) */
   children?: ReactNode
+  /** a Pendenz's state while open: tones the unticked frame (see above) */
+  pendenz?: PendenzState
 }
 
-export function TickRow({ checked, onToggle, children, className, type = 'button', ...rest }: TickRowProps) {
+/** An open Pendenz's state, as its tick box draws it (TickRow · `pendenz`). */
+export type PendenzState = 'open' | 'urgent' | 'overdue'
+
+export function TickRow({ checked, onToggle, children, className, pendenz, type = 'button', ...rest }: TickRowProps) {
   return (
     <button
       type={type}
       role="checkbox"
       aria-checked={checked}
-      className={cx(s.row, children == null && s.solo, checked && s.on, className)}
+      className={cx(s.row, children == null && s.solo, className)}
       onClick={onToggle}
       {...rest}
     >
-      <span className={s.box} aria-hidden="true">{checked && <Icon id="check" />}</span>
+      <TickBox checked={checked} pendenz={pendenz} />
       {children}
     </button>
+  )
+}
+
+/** The box alone, as a READ-OUT where a row is no control (the Verlauf legend and filter menu, a
+ *  done row in the log, a session without a hand to tick): the same box, the same state frame. */
+export function TickBox({ checked, pendenz, className }: { checked: boolean; pendenz?: PendenzState; className?: string }) {
+  return (
+    <span className={cx(s.box, checked && s.boxOn, className)} data-pendenz={pendenz && (checked ? 'done' : pendenz)} aria-hidden="true">
+      {checked ? <Icon id="check" /> : pendenz === 'urgent' && <i className={s.bang} />}
+    </span>
   )
 }

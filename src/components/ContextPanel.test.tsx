@@ -691,6 +691,14 @@ describe('ContextPanel — the Einsatzleiter pair', () => {
     expect(onFields).toHaveBeenCalledWith({ Name: 'Müller Hans', 'Stv.': 'Widmer Céline' })
   })
 
+  // rare-user r2 F17 (17.11.2026): the handover is its own worded line, not a tile beside the EL name
+  it('puts «Führung übergeben» under the names, not inside the EL row', () => {
+    setup(el({ Name: 'Widmer Céline', 'Stv.': 'Müller Hans' }))
+    const swap = screen.getByRole('button', { name: SWAP })
+    expect(swap.textContent).toBe(SWAP)
+    expect(swap.closest('.field')).toBeNull()
+  })
+
   it('works with only one of the two filled — that is a handover to nobody yet', () => {
     const onFields = vi.fn()
     setup({ ...el({ Name: 'Widmer Céline', 'Stv.': '' }), onFields })
@@ -995,5 +1003,27 @@ describe('ContextPanel — «Gelöscht / erledigt»', () => {
     setup()
     expect(screen.queryByRole('button', { name: new RegExp(O.action) })).toBeNull()
     expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
+  })
+})
+
+// duck sweep FEEDBACK.3 (17.11.2026): the free field's ✕ removed a row with no word
+describe('ContextPanel – removing a free field', () => {
+  it('says «… entfernt · Rückgängig» and its button steps the ↶ back', async () => {
+    const { connectRemovalToasts } = await import('../lib/removalToast')
+    const { Overlays } = await import('../lib/ui')
+    const step = { label: 'Feld' } as unknown as import('../lib/undoTimeline').UndoEntry
+    let top: typeof step | null = null
+    const undo = vi.fn(() => { top = null })
+    const unplug = connectRemovalToasts({ peek: () => top, undo })
+    render(<Overlays />)
+    const onFields = vi.fn(() => { top = step })
+    setup({ entity: { id: 's1', symbol: 'VKF Feuer', label: 'Brand', fields: { Funk: 'K2' } }, onFields })
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.contextPanel.removeField }))
+    expect(onFields).toHaveBeenCalledTimes(1)
+    const text = fillTemplate(appConfig.copy.removedToast.named, { what: 'Funk' })
+    expect(screen.getByText(text)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.undo }))
+    expect(undo).toHaveBeenCalledTimes(1)
+    unplug()
   })
 })

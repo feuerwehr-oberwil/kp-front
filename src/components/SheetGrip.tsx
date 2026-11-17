@@ -2,6 +2,7 @@ import { useRef, type CSSProperties, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { useKeyboardInset } from '../lib/useKeyboardInset'
 import { useSwipeDismiss } from '../lib/overlays/swipeDismiss'
+import { useFieldFirst } from '../lib/overlays/fieldFirst'
 
 /**
  * The drag gesture behind the phone bottom sheet, as handlers any element can wear.
@@ -145,10 +146,14 @@ export function SheetGrip({ onClose }: { onClose?: () => void }) {
 export function CtxShell({ className, onClose, children }: { className?: string; onClose: () => void; children: ReactNode }) {
   const kbInset = useKeyboardInset()
   const swipe = useSwipeDismiss({ onClose })
+  // the keyboard goes first, as on every modal sheet (overlays/fieldFirst, CONT.5): with Bezeichnung
+  // or Notizen focused the first ✕ only puts the keys away, the second closes
+  const { onFocusCapture, onClickCapture } = useFieldFirst(true)
   return (
     <div className={className ? `ctx ${className}` : 'ctx'}
       style={kbInset > 0 ? ({ '--kb-inset': `${kbInset}px` } as CSSProperties) : undefined}
       {...swipe}
+      onFocusCapture={onFocusCapture} onClickCapture={onClickCapture}
       // the grip and the header keep THEIR drag (useSheetDrag: half ⇄ full, then away); the pull
       // from the body is the one every other phone sheet answers
       onPointerDown={(e) => { if (!(e.target as Element).closest('.sheet-grip, .ctx-head')) swipe.onPointerDown?.(e) }}>

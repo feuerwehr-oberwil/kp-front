@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { clearDraft, keepDraft, readDraft } from '../lib/draftKeep'
 import { scrollBehavior } from '../lib/reducedMotion'
+import { matchesQuery, searchQuery } from '../lib/search'
 import { pointAtField } from '../lib/pointAtField'
 import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
@@ -8,7 +9,8 @@ import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig, type DeploymentMittelItem, type DeploymentMittelSource } from '../lib/deploymentConfig'
 import { fillTemplate, stripUnprintable, unitLabel } from '../lib/format'
 import { cx } from '../lib/cx'
-import { caretToEnd, toast } from '../lib/ui'
+import { caretToEnd } from '../lib/ui'
+import { removeWithUndo } from '../lib/removalToast'
 import { Menu, Overlay, Sheet, SheetFoot } from '../lib/overlays'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
@@ -17,7 +19,7 @@ import { EmptyState } from './EmptyState'
 import type { MittelEntry } from '../types'
 import {
   visibleMittel, groupBySource, currentLineFor, currentMengeFor, availableFor, mittelListGroups, groupCatalogue,
-  mittelRecommendations, defaultSourceFor, tombstoneStands,
+  mittelRecommendations, defaultSourceFor,
   type CurrentMittel, type MittelListCell, type MittelListRow, type MittelRecommendation, type SymbolMatch,
   type TruppForMittel,
   type MittelDraft,
@@ -104,9 +106,6 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   const sources = cfg?.sources ?? appConfig.mittel.sources
   const units = cfg?.units?.length ? cfg.units : appConfig.mittel.units
   const categorised = catalogue.some((c) => c.category)
-  // the list as it stands NOW, for a toast pressed renders later (see deleteLine)
-  const entriesLive = useRef(entries)
-  useEffect(() => { entriesLive.current = entries }, [entries])
 
   const [view, setView] = useState<'list' | 'source'>('list')
   /* The composer, and what it opens WITH. `{}` is the bare «+» (nothing typed yet); a `seed`
@@ -141,7 +140,8 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
 
   const current = useMemo(() => visibleMittel(entries), [entries])
   const lines = current.length
-  const needle = q.trim().toLowerCase()
+  // the one search fold (lib/search): umlauts both ways, one typo
+  const needle = useMemo(() => searchQuery(q), [q])
   const bySource = useMemo(() => groupBySource(current, M.noSource), [current, M.noSource])
   const allGroups = useMemo(
     () => mittelListGroups(entries, catalogue, sources, { other: M.categoryOther, custom: M.customGroup }),
@@ -154,12 +154,12 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   const categoryOn = categories.filter((c) => categorySel.has(c)).join(' · ')
   const groups = useMemo(() => allGroups
     .filter((g) => categorySel.size === 0 || categorySel.has(g.category))
-    .map((g) => ({ ...g, rows: needle ? g.rows.filter((r) => r.label.toLowerCase().includes(needle)) : g.rows }))
+    .map((g) => ({ ...g, rows: needle ? g.rows.filter((r) => matchesQuery(needle, r.label)) : g.rows }))
     .filter((g) => g.rows.length), [allGroups, categorySel, needle])
   // the source view is grouped by Fahrzeug, so the category filter does not apply there — but
   // the search does: it is the same question asked of a shorter list.
   const bySourceShown = useMemo(() => (needle
-    ? bySource.map((g) => ({ ...g, items: g.items.filter((c) => c.label.toLowerCase().includes(needle)) })).filter((g) => g.items.length)
+    ? bySource.map((g) => ({ ...g, items: g.items.filter((c) => matchesQuery(needle, c.label)) })).filter((g) => g.items.length)
     : bySource), [bySource, needle])
 
   // expanding a multi-source row opens its sub-rows BELOW it, which on a full catalogue is
@@ -214,23 +214,12 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
     onSave({ materialId: c.materialId, label: c.label, unit: c.unit, sourceId: c.sourceId, sourceLabel: c.sourceLabel, menge })
   }
 
-  /** Remove a hand-added line for good, with the usual undo — the entries are append-only, so
-   *  undo is just another save that clears the tombstone. */
+  /** Remove a hand-added line for good, with the delete rule's toast (lib/removalToast). The
+   *  save lays its own ↶ step (the Mittel slice joins the Einsatz timeline, useRecordSlices), and
+   *  the toast's «Rückgängig» IS that ↶ – so the removal is never undoable twice (duck sweep
+   *  FEEDBACK.4: the toast used to save a restore of its own and leave the ↶ holding both). */
   const deleteLine = (probe: MatProbe, menge: number, label: string) => {
-    const since = new Date().toISOString()
-    onSave({ ...probe, menge, deleted: true })
-    toast(fillTemplate(M.removedToast, { label }), {
-      icon: 'trash',
-      action: {
-        label: appConfig.copy.undo,
-        // …only while this removal is still the line's newest word (lib/mittel · tombstoneStands):
-        // another device's later write to it is not ours to overwrite
-        onClick: () => {
-          if (!tombstoneStands(entriesLive.current, probe, since)) { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
-          onSave({ ...probe, menge, deleted: false })
-        },
-      },
-    })
+    removeWithUndo(fillTemplate(M.removedToast, { label }), () => onSave({ ...probe, menge, deleted: true }))
   }
 
   /** Apply the pencil dialog. A hand-added line is KEYED by label + unit + source, so renaming it
@@ -349,7 +338,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
               not shift the line under the thumb. */}
           <button
             type="button"
-            className={cx(c.iconBtn, !phone && c.wordBtn, view === 'source' && c.iconBtnOn)}
+            className={cx(c.iconBtn, view === 'source' && c.iconBtnOn)}
             aria-pressed={view === 'source'} disabled={lines === 0}
             title={M.viewBySource} aria-label={M.viewBySource}
             onClick={() => setView((v) => (v === 'source' ? 'list' : 'source'))}
@@ -357,7 +346,9 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
             {/* a TICK, not a truck: what the filter does is «show only the Positionen that have
                 a number on them». Grouping those by Fahrzeug is a consequence of that, not the
                 point, and a truck in a row of filters reads as a vehicle list. */}
-            <Icon id="check" />{!phone && <span>{M.viewBySource}</span>}
+            {/* worded on every device (SurfaceControls · `.word`, ELEM.13): the long word beside
+                the glyph on a tablet, the short one under it on a phone */}
+            <Icon id="check" /><span className={c.word} aria-hidden="true">{phone ? M.viewBySourceWord : M.viewBySource}</span>
           </button>
           {/* ONE filter button, not a row of chips — the same control the Anwesenheit uses. A
               category row is only worth its space if it is used often, and in the field it is
@@ -367,10 +358,10 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
           {view === 'list' && categories.length > 1 && (
             <Menu
               trigger={
-                <button className={cx(c.iconBtn, !phone && c.wordBtn, categorySel.size > 0 && c.iconBtnOn)}
+                <button className={cx(c.iconBtn, categorySel.size > 0 && c.iconBtnOn)}
                   aria-label={categoryOn ? `${M.categoryFilterLabel} – ${categoryOn}` : M.categoryFilterLabel}
                   title={categoryOn ? `${M.categoryFilterLabel} – ${categoryOn}` : M.categoryFilterLabel}>
-                  <Icon id="filter" />{!phone && <span>{M.categoryFilterWord}</span>}
+                  <Icon id="filter" /><span className={c.word} aria-hidden="true">{M.categoryFilterWord}</span>
                 </button>
               }
               popupClassName={c.menuPop}
@@ -394,9 +385,9 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
             // a bare +, like the Anwesenheit's «Weitere Person» — the words cost a search row
             // that has a field and a filter to fit as well. It stays the EMPTY-query door:
             // with something typed, the row under the list is the one that carries the name.
-            <button type="button" className={cx(c.addBtn, !phone && c.wordBtn)} onClick={() => setComposer({})}
+            <button type="button" className={c.addBtn} onClick={() => setComposer({})}
               title={M.customMaterial} aria-label={M.customMaterial}>
-              <Icon id="plus" />{!phone && <span>{M.customMaterial}</span>}
+              <Icon id="plus" /><span className={c.word} aria-hidden="true">{phone ? M.customMaterialWord : M.customMaterial}</span>
             </button>
           )}
         </div>
@@ -782,17 +773,23 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
     const field = !label.trim() ? labelRef.current : unitRef.current
     pointAtField(field, { focus: field?.querySelector<HTMLElement>('input, button') })
   }
+  // Any close but «Abbrechen» – ✕, the swipe, a tap beside it, Esc, the back – SAVES a change
+  // (owner, 17.11.2026 – duck sweep CONT.3); one that cannot be saved (an emptied Material or
+  // Einheit) leaves the line as it was rather than holding the dialog shut
+  const changed = label !== target.probe.label || unit !== target.probe.unit
+    || sourceLabel !== (target.probe.sourceLabel ?? '') || stock !== (target.stock ?? null) || note !== target.note
+  const dismiss = () => { if (changed && valid) onSave({ label, unit, sourceLabel, stock, note }); else onClose() }
 
   return (
     // the standard sheet chrome (.ip-head/.ip-body/.ip-actions each bring their own gutter) —
     // a hand-rolled padding on the popup stacked on top of theirs and the title sat further
     // in than the field under it. `mp-backdrop` because this opens OVER the Mittel sheet.
     <Overlay
-      open onClose={onClose} backdropClassName="mp-backdrop"
+      open onClose={dismiss} backdropClassName="mp-backdrop"
       className="ip-sheet ip-fit ui-dialog mv-note-dialog" ariaLabel={target.custom ? M.editLabel : M.noteLabel} grab
     >
       <div className="ip-head"><h2>{target.label}</h2>
-        <button className="ip-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
+        <button className="ip-x" onClick={dismiss} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
       <div className="ip-body">
         {target.custom && (
@@ -858,8 +855,10 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
 
 // The composer: free-typed entries (or a catalogue material with special unit/source) — the
 // catalogue itself edits inline via the list steppers, so this is the «Anderes Mittel» path.
-/** The composer's kept draft. Not cleared on «Abbrechen»: «weg» and «ich mache gleich weiter»
- *  look identical from here, and losing what was typed is the more expensive mistake. */
+/** The composer's kept draft. ✕, the swipe, a tap beside it, Esc and the back keep it – the
+ *  next «erfassen» gives it back; «Abbrechen» is the deliberate discard and drops it (owner,
+ *  17.11.2026 – «Abbrechen» means discard everywhere, as in the Einsatz wizard and the Trupp form;
+ *  it used to keep the draft here too). */
 const DRAFT_KEY = 'mittel:composer'
 const EMPTY_DRAFT = {
   label: '', materialId: undefined as string | undefined, unit: '',
@@ -948,7 +947,7 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, se
        survives leaving the surface, so the one thing the band was protecting is kept. */
     <Sheet open fit title={M.composerTitle} onClose={onCancel} ariaLabel={M.composerTitle}
       footer={<>
-        <button type="button" className="ip-btn" onClick={onCancel}>{M.cancel}</button>
+        <button type="button" className="ip-btn" onClick={() => { clearDraft(DRAFT_KEY); onCancel() }}>{M.cancel}</button>
         <button type="button" className="ip-btn primary" aria-disabled={!valid} onClick={submit}>{M.save}</button>
       </>}
     >

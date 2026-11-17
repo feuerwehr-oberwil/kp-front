@@ -72,7 +72,8 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     head's last row (inside the band); on the phone's opened card it stands under the collapse
     head, so opening a row moves nothing; the closed phone row never shows it. Still the Trupp
     sheet's door: a button drawn as text, 28px with an invisible 8px touch pad above and below.
-    The chips are Auftrag / Ziel, the jumps, Kanal and Ausrüstung only.
+    The chips are Auftrag / Ziel, the jumps, Kanal and Ausrüstung only. The Ausrüstung is ONE chip,
+    box glyph + the form's words «Retthaube · WBK · Multiwarn», never the Kürzel (rare-user M11).
   - *Crew names are never cut* (31.10.2026, owner): the crew line wraps BETWEEN people only – each
     name is a nowrap span, the « · » is the break – and grows by a line each time; no ellipsis
     (`.crewName`). The chips keep their ellipsis.
@@ -357,7 +358,9 @@ reworded.
   Auslösung».
 - *It outranks everything*: `truppAlarm` answers tier 2 with reason `notfall` before any clock,
   in the field or not (a crew reported out on an older build keeps it until «beendet»). The tone,
-  the OS notification, the TopBar chip («Notfall · name» and the Notfall clock), the hose tone,
+  the OS notification, the TopBar chip («Notfall · name» and the Notfall clock), the hose tone, the
+  Trupp's own marker on the Karte and the Plan (red ring and plate, `truppLines · truppMarkerTone` – also
+  on no hose, also when reported out),
   `MELDUNG_RANK.notfall = 0` (above the überfällig row and a dispatch) and the server push sweep
   (`push.py · due_trupps`, keyed on the trigger) all read it. The Web Push leaves the moment the
   save commits (`push.py · notify_notfall_changes`, from `apply_workspace_put` — every save path),
@@ -398,9 +401,15 @@ reworded.
   padding, and the parking scroll of the phone's opened card), so an opened card lands below the
   banners, never under them. Elsewhere the Meldeleiste row offers
   the same first (exactly one ready ⇒ it goes in and the Tafel opens).
-- *Ready* is what the board models: under PA, Auftrag «Sichern», angemeldet. An Atemschutz-Trupp
-  going in while none is ready gets one calm toast («Kein Sicherungstrupp bereit»), never a
-  question.
+- *Ready* is what the board models: under PA, Auftrag «Sichern», angemeldet. While an
+  Atemschutz-Trupp is inside and none is ready, a STANDING Meldeleiste row says «Kein
+  Sicherungstrupp bereit» and names the crews inside – on every surface, the board and the
+  Atemschutz-Link included, no ✕, gone the moment one is ready or the last crew is out, and
+  silent while a Notfall runs (its banner is the one row about the Sicherungstrupp). Never a
+  question (`atemschutz · safetyMissing`, `SafetyMissingMeldung`; FEEDBACK.1, 17.11.2026 – it was
+  a toast at the Eintritt, which vanished and on the link never showed). A refused act on the
+  board («Erst «Notfall beendet» halten …») goes through `lib/meldungenRefusal · refuse`: the warn
+  toast, and on the link a row until its ✕.
 - *Sync*: `notfallAt` merges per field; two devices holding at once raise ONE Notfall from the
   EARLIER hold (`mergeWorkspace · mergeTrupp`); «beendet» on one side survives an unrelated edit
   on the other.
@@ -431,8 +440,10 @@ cached list offline). The owner's rule (`lib/foreignAlarm`): two real Einsätze 
 run by two teams and must not distract each other. So every other running Einsatz with such a
 Trupp gets a red «Atemschutz-Alarm» / «Atemschutz-Notfall» over its row in the Einsatz list
 (AppMenuRows), and while such a row exists the SHUT Einsatz pill carries a small red dot at its
-chevron – a reason to open the list (owner pick M11 B, 13.11.2026; `IncidentSwitcher`), gone with
-the row – and that is all while this device works a live Ernstfall. A device standing in an
+chevron – a reason to open the list (owner pick M11 B, 13.11.2026; `IncidentSwitcher`). The same
+dot also lights while another REAL Einsatz runs at all, never for a parallel Übung alone; its name
+says which, the alarm winning (C10, 17.11.2026; `foreignAlarm · pillDot`) – and that is all while
+this device works a live Ernstfall. A device standing in an
 Übung or a closed Einsatz gets the full alarm of a live Ernstfall: the known red row in the
 Meldeleiste with the Einsatz's name in front, and the tone (`ForeignAtemschutzMeldungen`), muted
 per Einsatz; its «Zum Trupp» mutes that Einsatz, switches to it and opens the board on the Trupp

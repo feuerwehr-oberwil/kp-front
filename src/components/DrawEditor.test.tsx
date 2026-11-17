@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { DrawEditor } from './DrawEditor'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
 import { HOSE_SIZES } from '../lib/hydraulics'
 import { askLineMeasure } from '../lib/useRelay'
 
@@ -213,7 +212,8 @@ describe('the line Typ menu', () => {
     expect(trigger.textContent).toContain('G')
     fireEvent.click(trigger)
     const items = await screen.findAllByRole('menuitem')
-    expect(items.map((i) => i.textContent)).toEqual(['W' + L.W, 'WW' + L.WW, 'S' + L.S, 'H' + L.H, 'P' + L.P, 'N' + L.N, 'T' + L.T, 'G' + L.G])
+    // the current pick says so in words, after its label (MenuPick · duck sweep ELEM.7)
+    expect(items.map((i) => i.textContent)).toEqual(['W' + L.W, 'WW' + L.WW, 'S' + L.S, 'H' + L.H, 'P' + L.P, 'N' + L.N, 'T' + L.T, 'G' + L.G + D.menuPicked])
     expect(document.querySelectorAll('.ui-menu-sep')).toHaveLength(1)
     fireEvent.click(items[0])
     expect(onContent).toHaveBeenCalledWith(undefined)
@@ -243,7 +243,7 @@ describe('the Schlauch menu', () => {
     expect(screen.queryByRole('button', { name: '110' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: `${D.hose}: ${R.hoseLabels['75']}` }))
     const items = await screen.findAllByRole('menuitem')
-    expect(items.map((i) => i.textContent)).toEqual([D.hoseNone, ...HOSE_SIZES.map((h) => R.hoseLabels[h])])
+    expect(items.map((i) => i.textContent)).toEqual([D.hoseNone, ...HOSE_SIZES.map((h) => R.hoseLabels[h] + (h === '75' ? D.menuPicked : ''))])
     fireEvent.click(items[5])
     expect(onHose).toHaveBeenCalledWith('110')
   })
@@ -264,7 +264,7 @@ describe('the Schlauch menu', () => {
     render(<DrawEditor {...base} drawing={{ kind: 'line', hose: '75', relay: {} }} onHose={noop} />)
     fireEvent.click(screen.getByRole('button', { name: `${D.hose}: ${R.hoseLabels['75']}` }))
     const items = await screen.findAllByRole('menuitem')
-    expect(items.map((i) => i.textContent)).toEqual(HOSE_SIZES.map((h) => R.hoseLabels[h]))
+    expect(items.map((i) => i.textContent)).toEqual(HOSE_SIZES.map((h) => R.hoseLabels[h] + (h === '75' ? D.menuPicked : '')))
   })
 })
 
@@ -304,7 +304,7 @@ describe('read-only (viewer / Führungsansicht)', () => {
     expect(screen.getByText('3')).toBeTruthy()
     expect(screen.getByText('Meier Anna')).toBeTruthy()
     expect(screen.queryByRole('button', { name: D.trupp })).toBeNull() // the picker is not drawn
-    fireEvent.click(screen.getByRole('button', { name: fillTemplate(D.truppShow, { name: 'Meier Anna' }) }))
+    fireEvent.click(screen.getByRole('button', { name: D.truppShow }))
     expect(onShowTrupp).toHaveBeenCalledTimes(1)
   })
 
@@ -413,6 +413,25 @@ describe('Abschnitt on a Fläche', () => {
     render(<DrawEditor {...base} drawing={{ kind: 'area', abschnittLeiter: 'Oblt Steiner', abschnittAuftrag: 'Wasserversorgung' }} readOnly />)
     expect(screen.getByText('Oblt Steiner')).toBeTruthy()
     expect(screen.getByText('Wasserversorgung')).toBeTruthy()
+  })
+})
+
+// 16.11.2026: a plain person on a Leitung, without a Trupp («just add a normal person»).
+describe('Person on a Leitung', () => {
+  const D = appConfig.copy.drawingEditor
+
+  it('is offered on a line with no Trupp registered at all, and stated read-only', () => {
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} onPerson={vi.fn()} people={['Frei Nico']} />)
+    expect(screen.getByText(D.person)).toBeTruthy()
+    expect(screen.queryByText(D.trupp)).toBeNull() // the Trupp picker still needs a Trupp
+    cleanup()
+    render(<DrawEditor {...base} drawing={{ kind: 'line', person: 'Frei Nico' }} readOnly />)
+    expect(screen.getByText('Frei Nico')).toBeTruthy()
+  })
+
+  it('stays hidden without the handler (a Wand)', () => {
+    render(<DrawEditor {...base} drawing={{ kind: 'line', role: 'wand' }} />)
+    expect(screen.queryByText(D.person)).toBeNull()
   })
 })
 

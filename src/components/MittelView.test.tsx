@@ -7,6 +7,7 @@ import { fillTemplate } from '../lib/format'
 import type { DeploymentConfig } from '../lib/deploymentConfig'
 import type { MittelEntry } from '../types'
 import type { MittelDraft } from './MittelView'
+import { clearAllDrafts } from '../lib/draftKeep'
 
 // MittelView reads the deployment catalogue through the getDeploymentConfig() singleton — mock
 // just that accessor so each test can put its own catalogue/sources under the component.
@@ -289,6 +290,43 @@ describe('the pencil of a hand-added line', () => {
     fireEvent.click(screen.getByRole('button', { name: M.save }))
     expect(onSave.mock.lastCall?.[0]).toMatchObject({ label: 'Kanister', stock: 1 })
   })
+
+  // owner, 17.11.2026 (duck sweep CONT.3): any close but «Abbrechen» saves a change
+  it('saves a change on ✕ and drops it on «Abbrechen»', () => {
+    const onSave = mount({ entries: [kanister] })
+    // the Material field holds the caret from the open: with it, the first ✕ only puts the keys
+    // down (overlays/fieldFirst) – leave it first, as a tap on the stepper does on a device
+    const stepUp = () => {
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      const plus = screen.getByRole('group', { name: M.stockLabel }).querySelectorAll('button')[2]
+      fireEvent.pointerDown(plus, { pointerId: 1 }); fireEvent.pointerUp(plus, { pointerId: 1 })
+    }
+    openPencil(); stepUp()
+    fireEvent.click(screen.getByRole('button', { name: M.cancel }))
+    expect(onSave).not.toHaveBeenCalled()
+    openPencil(); stepUp()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.closeDialog }))
+    expect(onSave.mock.lastCall?.[0]).toMatchObject({ label: 'Kanister', stock: 1 })
+  })
+})
+
+// «Abbrechen» is the deliberate discard everywhere (owner, 17.11.2026): the composer's kept draft goes with it
+describe('the composer\'s kept draft', () => {
+  const fromQuery = (name: string) => fillTemplate(M.composerFromQuery, { name })
+  const type = (q: string) => fireEvent.change(screen.getByPlaceholderText(M.searchPlaceholder), { target: { value: q } })
+  it('survives ✕ and is dropped by «Abbrechen»', () => {
+    clearAllDrafts()
+    cfg.current = { mittel: { catalogue: [tauchpumpe], sources } }
+    mount()
+    type('Kanister')
+    fireEvent.click(screen.getByRole('button', { name: fromQuery('Kanister') }))
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.closeDialog }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(M.add) }))
+    expect(screen.getByRole('button', { name: /Kanister/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: M.cancel }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(M.add) }))
+    expect(screen.queryByRole('button', { name: /Kanister/ })).toBeNull()
+  })
 })
 
 // UX sweep F2: «Speichern» was a native `disabled` — grey, mute, the tap swallowed. It now stays
@@ -304,5 +342,30 @@ describe('a blocked «Speichern» in the composer', () => {
     expect(onSave).not.toHaveBeenCalled()
     const ringed = document.querySelector('.field-flash')
     expect(ringed?.textContent).toContain(M.materialLabel)
+  })
+})
+
+// duck sweep FEEDBACK.4 (17.11.2026): the bin's «Rückgängig» used to save a restore of its own and
+// leave the header's ↶ holding the removal too – one act, two ways back. Now it IS the ↶ step.
+describe('removing a hand-added line', () => {
+  const kanister: MittelEntry = { id: 'e1', label: 'Kanister', unit: 'Stk.', menge: 2, at: '2026-10-20T10:00:00.000Z' }
+
+  it('saves the tombstone once, and its «Rückgängig» steps the ↶ instead of saving a restore', async () => {
+    const { connectRemovalToasts } = await import('../lib/removalToast')
+    const { Overlays } = await import('../lib/ui')
+    const step = { label: 'Mittel' } as unknown as import('../lib/undoTimeline').UndoEntry
+    let top: typeof step | null = null
+    const undo = vi.fn(() => { top = null })
+    const unplug = connectRemovalToasts({ peek: () => top, undo })
+    render(<Overlays />)
+    const onSave = vi.fn((d: MittelDraft) => { if (d.deleted) top = step })
+    render(<MittelView entries={[kanister]} canEdit onSave={onSave} />)
+    fireEvent.click(screen.getByRole('button', { name: `Kanister – ${M.editLabel}` }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(M.deleteLine) }))
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.undo }))
+    expect(onSave).toHaveBeenCalledTimes(1)
+    expect(onSave.mock.lastCall?.[0]).toMatchObject({ label: 'Kanister', deleted: true })
+    expect(undo).toHaveBeenCalledTimes(1)
+    unplug()
   })
 })

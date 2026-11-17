@@ -75,15 +75,20 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
 - **The editor sheets have one control per kind of question** (decided 01.09., same sweep). A
   yes/no property is the `OnOff` Segmented pair (`components/Segmented`) – never a single chip
   whose text or glyph flips, which said «An» on one row and showed a state on the next.
-  That holds app-wide, not only in the editor sheets (28.09.2026): the Einstellungen, the Übung
-  on the Einsatz form and the Kroki's «Folgt der Karte» are `OnOff` rows too, the false answer
-  always on the left (a row's own «Ein | Aus» with «on» on the left reversed the thumb position).
-  The WORDS follow what the row is (20.10.2026, owner: «ja/nein everywhere»): a setting or a
-  property of a thing reads «Aus | An»; a row that asks a question about the record («Übung?»)
-  is `OnOff question`, «Nein | Ja» – on every device, never one pair on a tablet and the other
-  on a phone. A
-  **«none of these»** answer that stands in for a list (Material «Nichts verwendet») is a
-  CHOICE chip: one fixed text, picked = the choice fill, and no «✓» growing into the label. A
+  That holds app-wide, not only in the editor sheets (28.09.2026): the Einstellungen and the
+  Kroki's «Folgt der Karte» are `OnOff` rows too, the false answer always on the left (a row's
+  own «Ein | Aus» with «on» on the left reversed the thumb position). The WORDS follow what the
+  row is (20.10.2026, owner: «ja/nein everywhere»): a setting or a property of a thing reads
+  «Aus | An»; a row that asks a question about the record is `OnOff question`, «Nein | Ja» – on
+  every device, never one pair on a tablet and the other on a phone. Where both answers have a
+  name, the pair says the names: the Einsatz form's first control is «Ernstfall | Übung» (owner
+  pick C7, 17.11.2026 – the «Übung? Nein | Ja» row under Kategorie was missed). A
+  **«none»** answer to a question or a list – the Kontaktperson's «Entfällt», Gerettete's
+  «Keine», the Rückmeldung's, Material «Nichts verwendet» on the Rapport and the QR-Bogen – is
+  the **«Entfällt» model** (owner, duck sweep ELEM.9, 17.11.2026): a framed button that SETS
+  the answer; answered, the row shows the dashed read-out (`.rz-none-val`, never a tick – it was
+  answered, not filled in) and «Ändern» to take it back. A «none» that is one PICK AMONG OPTIONS
+  (the Trupp's Leitung «Keine» beside the numbers) stays a choice `Chip` in its row. A
   single option on a sheet is a yes/no too (PersonnelSync «… ausblenden» is an `OnOff` row, not
   a native checkbox). Only a control that picks ITEMS in a list is multi-select. The
   head-bar status buttons (bell, share QR, the menu's Standort row) name the state that is TRUE
@@ -121,7 +126,7 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   The Trupps section heads draw no rule either (29.09.2026 — see the Atemschutz board).
 
 A hairline also survives where it carries a label (`.jr-day-sep`) or guards a destructive row
-in a `Menu`, or splits a pick list into its two kinds (the line «Typ»: Leitungen W WW S H P │
+in a `Menu`, or splits a pick list into its two kinds (the line «Inhalt»: Leitungen W WW S H P │
 Haltelinien N T G, 28.10.2026).
 And **no native form
 control** on these surfaces: the app's own `Menu` instead of a `<select>`, the `Stepper`
@@ -141,7 +146,10 @@ auto-saved without manual confirmations»): ✕ and swipe close it. No line says
 «Speichern» stays only where something is CREATED (Trupp anmelden, Einsatz eröffnen, Eintrag /
 Mittel erfassen) or where a typed value would otherwise write a record per keystroke — the Trupp's
 Auftrag sheet, the Schichtband edit and the Mittel pencil KEEP their Speichern / Abbrechen (owner,
-29.09.2026: save-on-close was built and taken back; do not re-introduce it without asking).
+29.09.2026), and **any close – ✕, swipe, a tap beside it, Esc, the native back – with typed
+changes SAVES them** (owner, 17.11.2026, duck sweep call 7: the radio cut in while an Auftrag was
+half-typed, a swipe down and the Ziel was gone); only «Abbrechen» discards. «Abbrechen» means
+discard wherever it stands (the Mittel composer, the wizard, the Trupp form).
 **ONE footer, in this order** (UX sweep F5, 20.10.2026): **[danger, far left] · Abbrechen ·
 primary**. The sheet's one destructive action leads the row and stands in the FOOTER, never in
 the body (13-incident · `.ui-sheet-foot > .danger:first-child` pushes the rest right); then the
@@ -166,8 +174,9 @@ and wears no outline (10.11.2026: its blue frame read as «selected» or «tap m
 Linie / Fläche / Form frames it, in the drawing's own colour. A user-given name lives in its field
 («Bezeichnung») only — never twice, never an underlined head that jumps to a field. The foot's
 «Erledigt» wears the same ink as «Zentrieren» (a dimmed action reads «not available»); it is ONE
-toggle in one spot (31.10.2026): set, the same tile stands pressed (check, green tint) and a tap
-reopens, while the head's subtitle says when («Schadenlage · erledigt 10:57»).
+toggle in one spot (31.10.2026): set, the same tile stands pressed (check, the `--sel` choice fill
+– «done» is blue, see (13) Tick row; it was a green outline until 17.11.2026) and a tap reopens,
+while the head's subtitle says when («Schadenlage · erledigt 10:57»).
 
 ## Button components
 
@@ -203,7 +212,7 @@ reopens, while the head's subtitle says when («Schadenlage · erledigt 10:57»)
     `ONE_SHOT_HOLD_MS` (`lib/useOneShot`, `TimeBlockSheet · addedLabel`);
   - **the way back is the action's `undoToast` «Rückgängig»**, never a second press of the same
     button – where the act is undoable (records are append-only: a re-raised Pendenz is taken back
-    with a counter-row, «Wiedervorlage zurückgenommen»).
+    with a counter-row, «Erinnerung zurückgenommen»).
   A STATE is a switch, not a button (the Leitung's «Pumpen auf Karte»): a second tap of «An»
   changes nothing by construction. Tools meant for repeated placement (the palette, «Mehrere
   platzieren») are not one-time actions.
@@ -216,18 +225,34 @@ reopens, while the head's subtitle says when («Schadenlage · erledigt 10:57»)
   painted with the existing `.ip-*`/token CSS. That package is imported **only** inside
   `src/lib/overlays/` – every surface uses the wrappers, so behaviour/theming/a11y live in one
   place. Base UI portals Backdrop+Popup as siblings, so scrim = `.ui-backdrop` and centering =
-  `.ip-sheet.ui-dialog` (13-incident.css). **Modal surfaces only** – the non-modal map tool-docks
-  (`MapViewsMenu` views popover, the `.ctx` tool editors, the incident `ip-menu`) stay
-  hand-rolled: a focus-trapping/scroll-locking primitive would break map interaction. The
-  tap-open picker (`ComboMenu`, worn by `Combo` and the Atemschutz `PersonField`) and the
-  tap-toggle `DockInfo`/`InfoTip` also stay bespoke (free-type + in-menu toggle / a tablet tap
-  model don't map cleanly to Base UI Select/Tooltip); the admin `Select` stays hand-rolled too,
-  keyboard-driven and unportalled.
+  `.ip-sheet.ui-dialog` (13-incident.css). Every `Menu` and `Popover` is modal (an invisible
+  backdrop, no scrim); a `Menu` that keeps a composer field's caret (`keepFocusRef`) is the one
+  non-modal kind.
   ONE `Popover` is persistent (05.11.2026): the «Üben» Sprechblase (`components/tutorial`)
   stands on its control while the learner works around it – controlled and never closed by an
-  outside press, `takeFocus={false}` and `guard={false}` (it is no transient layer, so it must not
-  hold the popoverGuard warm and leave every Sheet deaf to its backdrop). It sits on
-  `--z-tutorial`, under the Meldeleiste; only on a control inside a modal does it rise over it.
+  outside press or the native back, not modal, `takeFocus={false}` and `guard={false}` (it is no
+  transient layer, so it must not hold the popoverGuard warm and leave every Sheet deaf to its
+  backdrop). It sits on `--z-tutorial`, under the Meldeleiste; only on a control inside a modal
+  does it rise over it.
+- **The way out of a layer is ONE rule** (duck sweep 17.11.2026, owner calls 2 + 3;
+  `lib/overlays/layer`): **a tap beside a menu, popover or card only closes it** – the whole
+  gesture is swallowed, it never places, selects, deselects or pans what lies under it, on every
+  width; **one Esc closes one layer** (taken in the capture phase and stopped, so the surface's
+  ladder never peels a second); **the native back closes the top layer**, one per press (Android's
+  back, the iOS edge swipe – the 05.10. rule «no entry behind the operational screens» stands when
+  nothing is open: then back does what it did before); and focus goes back to the opener. The
+  primitives carry it (`Sheet`, `Overlay`, `ConfirmCard`, `Menu`, `Popover`), and so does every
+  **hand-rolled** container through `useLayer`: the Einsatz-Menü (`IncidentSwitcher`), the Karte
+  menu (`useKarteMenu`), Ansichten (`MapViewsMenu`), `ComboMenu` (`Combo`, `PersonField`), the
+  Gebäude card (`BuildingFloat`), the Messungen list (`ReadingsChip`), Ebenen (`LayerPanel`); the ✥ ⟳
+  mode and a fanned pile join its Esc only. They stay hand-rolled because a focus trap would break
+  the map under them, not because their way out may differ. Bespoke beside them, each saying why in
+  its header: the time wheel (`WheelPicker`, its own swallowing scrim), `DockInfo`/`InfoTip` (a
+  tablet tap model), the admin `Select` (keyboard-driven, unportalled), the admin drawer. The
+  **work sheets** that stand beside a live map – the `.ctx` editors, the Karte object sheet and its
+  search / Gefahrgut sheets, the Passung dock – are not layers in this sense: a tap on the map is
+  the next thing being worked on (it selects or deselects), so it acts. A new hand-rolled popover
+  takes `useLayer`; copying the Gebäude card's old listeners is how the 16.11. outliers came about.
 - **One look per overlay kind** (hill climb r35, 06.11.2026 – converged on what most of them
   already did). A **modal** dims the room with ONE scrim, `.ui-backdrop`'s rgba(20,28,40,.32) + 2px
   blur (13-incident · «ONE modal scrim» paints `.modal-backdrop`, `.mp-backdrop` and `.help-scrim`
@@ -242,7 +267,11 @@ reopens, while the head's subtitle says when («Schadenlage · erledigt 10:57»)
   **menu or popover** is the menu shell: `--r-bar` over `--bar-pad`, opaque `--surface` + its 1px
   `--glass-edge` (out of the top bar: the bar's glass + `--glass-line` instead), `--e4`; facts in it
   that are read, not tapped, stand at a menu row's 12px text inset. A one-of-N row in a menu is a
-  trailing ✓ (`Menu` · radio), a pick-several row the checkbox. Every anchored menu and popover
+  trailing ✓ (`Menu` · radio) in the choice blue, announced – `MenuPick` (a pick row in an action
+menu) draws the same trailing ✓ and says «gewählt» to a screen reader, never a leading tick
+(duck sweep ELEM.7, 17.11.2026) –, a pick-several row the checkbox. A pick-one LIST (PlanPicker,
+«Checkliste wechseln») marks its current row with the wash and that trailing ✓, and no row wears
+a › (a tap there only chooses); a keyboard / pointer highlight is the menu row's wash (LISTS.9). Every anchored menu and popover
   hangs ONE 8px off its trigger and keeps 8px from the screen edge, the bars' own distances
   (`lib/overlays` · `OVERLAY_GAP` / `OVERLAY_EDGE`, owner 13.11.2026 – menus hung 4px off, both
   kept 10 from the edge); one whose trigger sits inside a floating bar hangs 8px off the BAR
@@ -268,11 +297,20 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   (`ConfirmCard`, `Overlay` without `grab`): it is answered, not worked in. ⚠️ A red
   `danger` ConfirmCard stands ONLY in front of what nothing brings back (the delete rule,
   13.11.2026, [`undo.md`](undo.md) › One delete rule): a removal ↶ can take back acts at once
-  and shows «{Name} entfernt · Rückgängig» (`lib/removalToast`) instead of asking first. (3) A **short
+  and shows «{Name} entfernt · Rückgängig» (`lib/removalToast`) instead of asking first. A confirm
+  that acts on ONE thing picked from a list of look-alikes names it right above its buttons
+  (`ConfirmSpec.subject`; every close, reopen and Übung delete names its Einsatz by name and Zeit
+  Alarmierung – `lib/einsatzSubject`, duck sweep LISTS.11, 17.11.2026). (3) A **short
   pick-one menu that belongs to its tile or chip** — Ansichten at the compass, the Einsatz-Menü,
   the Meteo chip, every `Menu` — is a **popover anchored to that control**. Three exceptions,
   each a rule: a page you READ (Hilfe) is full-screen, and a search that opens with the keyboard
-  (TruppFinder) hangs from the TOP edge so the keys never cover its results. And a place you AIM
+  never lets the keys cover its results: TruppFinder hangs from the TOP edge, the Karte's search
+  and Gefahrgut stand ON the keys (docs/karte-objekte.md · the phone's keyboard). **One caret
+  rule** (duck sweep CONT.6, 17.11.2026): a sheet whose job IS the search opens with the caret in
+  it (TruppFinder, the Karte search, PlanPicker «anderes Objekt»); a picker that shows its answers
+  before anything is typed (the symbol Palette, `ComboMenu`) opens with the keys DOWN – a keyboard
+  that opens by itself covers the very list it filters. ONE shape for the two kinds of search
+  sheet is still open (top-hung vs. on the keys, it needs a mock). And a place you AIM
   on a map – «Standort auf Karte setzen» (MapPicker, owner 30.10.2026, mock 5A) – is full-screen
   on every width: the pin fixed in the middle, the map moved under it, the map's centre the pick,
   one ‹ back and one action, the attribution a closed ⓘ; a sheet over the wizard's sheet left a
@@ -293,9 +331,17 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
 - **The keyboard goes first** (sweep 30.10.2026, owner: «the (x) of the card is an enticing
   place to close the keyboard»): while a text field inside a `Sheet`/`Overlay` has focus, the
   first ✕ or outside tap only blurs it (keys down); the next one closes. One gesture, one thing —
-  the same rule `popoverGuard` applies to a dropdown over a sheet. The ✕ is the frame's FIRST
-  `.ip-x`, so a bespoke frame whose ✕ calls `onClose` itself is covered; other controls, swipe-down,
-  Escape and a mouse press act at once (`lib/overlays/fieldFirst`).
+  the same rule `popoverGuard` applies to a dropdown over a sheet. The ✕ is found by its NAME –
+  the frame's first button called «Schliessen» (`copy.closeDialog`), never by its class – so the
+  composer's and the Verlauf's `.journal-x`, the Palette's `.sym-close` and a bespoke frame whose ✕
+  calls `onClose` itself are covered (CONT.5, 17.11.2026); the non-modal `.ctx` editors and the
+  Karte's search sheets spread the same handlers. Other controls, swipe-down, Escape and a mouse
+  press act at once (`lib/overlays/fieldFirst`).
+- **The keys of a text field** (duck sweep 17.11.2026, ELEM.8 + GESTURES.11; `lib/fieldKeys`):
+  Return in a one-line field commits and puts the keyboard down (its key says «Fertig» –
+  `enterKeyHint="done"` – and acts; a field whose Return sends or searches names that instead);
+  **Esc keeps what was typed and leaves the field**, one-liner and textarea alike – like tapping
+  away, nothing reverts (a typo is fixed with ↶). In a textarea Return stays a new line.
 - **A finger slides through a menu** (sweep 30.10.2026): on touch, a `Menu` highlights the row
   under a SLIDING finger and lifting on a row presses it (a checkbox row toggles, the menu stays
   open); lifting elsewhere does nothing, a plain tap is the browser's. A menu whose content scrolls
@@ -359,24 +405,29 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     wählen), a tool's tip and the hold-tip wear the same look (08-toasts.css · «ONE message
     surface»): the floating family's material (below — light by day, dark by night, never a dark
     pill on a light UI), ink 14/700 like a Meldeleiste row's `.ml-title` (13/600 until 08.10.2026, 14/500 until the S3 rework of 21.10.2026), the one corner, no outline of its own. A tone is the colour of
-    the glyph the sentence leads with – never an edge, never a fill. What goes away **by itself**
+    the glyph the sentence leads with – never an edge, never a fill; red is a failure's only, so
+    an act still under way (the print job queued or printing) leads with a neutral glyph
+    (FEEDBACK.11, 17.11.2026). What goes away **by itself**
     shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
     mode is on shows neither. A tap on the pill itself does nothing (05.10.2026): the ✕ closes,
     the action button acts, a sideways swipe throws it away. **The toasts stand under the head, on
     every width** — **except on the Atemschutz-Link, which shows none at all** (30.10.2026, owner:
     «they just hide things»; `<Overlays toasts={false} />`): undo is the header's ↶ ↷, the sync
     state its mark, and its Meldeleiste keeps only the rows that block work (`meldungen ·
-    linkShowsMeldung`) (20.10.2026, owner: «all notifications appear at the same place: at the top
+    linkShowsMeldung`), plus a refused act's row (`refuse()`, see the toast rule below) and
+    «Kein Sicherungstrupp bereit» (FEEDBACK.1, 17.11.2026). Where they stand (20.10.2026, owner:
+    «all notifications appear at the same place: at the top
     cleanly below the main navbar»): where the Meldeleiste starts (92px; on a phone `--msg-top`, 4px under the bar), one 8px
     channel under the strip while one stands (`--ml-reserve` from its measured `--ml-h`), at the
     bars' own width on a phone (8px in from each side). A mode's instruction and a tool's tip keep
     the phone's foot lane (`--msg-lane-bottom`, 15-mobile), one `--float-gap` above THE floating
     row (below) – while a tool is out, above the highest piece of the tool stack, measured
-    (lib/floatRow · stackLane, 30.10.2026) – never beside a piece of it. A repeat REPLACES (18.10.2026): a confirmation that comes again — «Eintrag erfasst» after
-    every Meldung, «Geschoss hinzugefügt» — carries a `kind` (lib/ui · toast) and takes its
-    predecessor's place instead of stacking on it; five Meldungen in a row grew a column of pills
-    up the screen into the composer's «Erfassen», and a confirmation never covers the next action
-    (`useJournalWriters · JOURNAL_SAVED_KIND`, e2e `workspace-flows` F8). A pill is ONE ROW (30.09.2026): the sentence wraps first, inside
+    (lib/floatRow · stackLane, 30.10.2026) – never beside a piece of it. A repeat REPLACES (18.10.2026): a toast that can come again — per tap, per sync
+    event, per timer — carries a `kind` (lib/ui · toast) and takes its predecessor's place instead
+    of stacking on it; five Meldungen in a row once grew a column of pills up the screen into the
+    composer's «Erfassen», and a confirmation never covers the next action. Every undo pill shares
+    ONE kind by default (`UNDO_KIND`), and the stack never stands higher than `MAX_TOASTS` (3) –
+    a new pill sends the oldest timed one out (see the toast rule below). A pill is ONE ROW (30.09.2026): the sentence wraps first, inside
     its column, and «Rückgängig» + ✕ stay beside it. The column has a floor of 10em (05.10.2026):
     only an action too wide to leave the sentence that much wraps under it, right-aligned. On
     the launcher the lane is the card's own column. There is no standing «Offline» row
@@ -388,14 +439,40 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Karte's Punkt setzen / Gefahrgut) calls `usePlacementLane(active)` (lib/toastLane → `<html
     data-placing>`), which bounds the strip so the lane under it stays near the head; a new mode
     calls the hook, it never adds a selector to a list. On the Karte the lane also clears the
-    running-Einsatz strip. The Karte's «Auf die Karte tippen …» is a sticky toast in that lane, not a
-    pill of its own. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
+    running-Einsatz strip. The Karte's «Auf die Karte tippen …» is a `MapHint` in the foot lane
+    (components/karte/KarteApp), not a toast. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
     bar first, then amber / blue / grey): a row's tone is its leading glyph's colour, so every
     `Meldung` carries an `icon`. A row TITLE whose way in is the same
     move as the row's filled button (the Atemschutz «Zum Trupp» — `Meldung.onOpen.label` = the
     primary action's label) stays tappable but draws NO underline (`.ml-open.plain`, derived in
     `Meldeleiste · MeldungTitle`); the underline is only the signal where the title is the ONLY
     door. A button never repeats the glyph its row already leads with.
+  - *The toast rule – only what is essential (17.11.2026, owner: «toasts are really only used for
+    things that are essential – not spamming the UI»):* **a toast is for what the operator must
+    know NOW and cannot see where they are looking – or the one tap back.** Five things earn one:
+    the confirm-with-undo of an act just done (`undoToast` / `removeWithUndo`); a failure after the
+    operator's own act, saying the state it leaves; a refusal the tapped control cannot show
+    itself – where the Atemschutz-Link can refuse the same act, through `refuse()`
+    (lib/meldungenRefusal): the warn toast, and on the Link, which has no toasts, a Meldeleiste row
+    until its ✕ (FEEDBACK.1); a loss nobody else reports (a draft, a file, an open georef point dropped); a live job
+    the operator waits on (the print chain). **Never a toast:** a success the screen already shows
+    (a row appeared, a lamp turned green, a sheet closed on its result, a stepper shows the number
+    – the composer closing IS «Eintrag erfasst»); a standing state (offline, catalogue missing,
+    read-only tab) – that is the head chip, the Meldeleiste or the empty state; a safety warning –
+    the Meldeleiste, it stays until it is resolved («Kein Sicherungstrupp bereit»); a refusal
+    inside an open form – inline at the field, `form-warn` (the composer's attach row, the
+    wizard's «Hier»); background news (a merge) – two stay by owner pick: «Aktualisiert – v…» once
+    per version, and «Wieder bei …» on a return (mock j8-5). A loop never toasts per item; what can
+    fire again carries a `kind`.
+    Busy inside an open sheet = loader + word; an act's failure there = a toast, the sheet stays
+    as it stood (inline only for a LOAD that failed). Test: would the operator be worse off if it
+    never appeared? If not, it goes. **Every «Rückgängig» comes through `undoToast`** (lib/ui):
+    one neutral tone (never green), one button, one guard, and a glyph that names the act – 🗑
+    removed, ✓ taken or ticked, ↶ anything else; an undo that doubles a ↶ step drops it (or steps
+    the ↶ itself, `removeWithUndo`), so nothing is undoable twice. Undo pills replace each other –
+    the older acts stay on ↶ – unless the pill is the act's ONLY way back (the Alarm take, a
+    Notfall, a device reset, a Verlauf patch), which brings its own `kind`. A merge that took ↶'s
+    own step is said at the NEXT ↶ press, at the button (`IncidentWorkspace · pressHistory`).
   - *ONE floating family, ONE floating row (26.09.2026, owner: «everything has the same shape,
     colour, padding»):* every small thing that floats over the Karte or a Plan — the messages
     above, the plan's chips (Objekt · Gebäude),
@@ -408,15 +485,30 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     amber ⚠ — never an outline (the Massstab chip wore a blue ring beside its green lamp); «open /
     armed» is a blue wash mixed into the glass. «Not yet» is GREY (29.09.2026): a plan with no
     scale and no link shows a grey lamp, never red (red = danger, act now; an unlinked plan read
-    as a picture is not an emergency). And ONE chip says it (sweep 28.10.2026 #8, owner pick «B's
+    as a picture is not an emergency). **A chip's trailing cue says its job** (duck sweep ELEM.3,
+    17.11.2026): a lamp = opens the Plan sheet, a › = goes somewhere (the object picker, a
+    building face), a ✕ = stops a mode; a piece with no job is a READ-OUT – a
+    `<span>`, `.wb-chip-ro`: the material, regular weight, the secondary ink, no cue, no hover
+    (the Karte's «Auf dem Gerät» status beside «‹ Zurück» is one). And ONE chip says it (sweep 28.10.2026 #8, owner pick «B's
     bar + A's sheet»): the Plan's row has no Massstab or Karte pill — the Objekt chip (on the
     Gebäude: the building chip; street and number only on a phone) carries ONE lamp, the worse of
     link and scale (`planScale · planFactsTone`; an unlinked plan's grey does not drag a hand
     calibration's green down), and a tap opens the Plan sheet (`components/PlanFactsSheet`):
     the Objekt row with its switch, «Karte» with the Passung's actions inline or «Karte
     verknüpfen» (the link glyph, never the locate crosshair), «Massstab» with its state and
-    «(Neu) kalibrieren». While calibrating, the row is the instrument («Zwei Punkte des Massstabs
-    antippen», a tap stops it). On a phone the pieces stand on ONE baseline,
+    «(Neu) kalibrieren». Calibrating is a MODE OF THE MESSEN DOCK (M13 A, 17.11.2026, owner: «do
+    everything in the sidebar»): «Massstab» (the `scalebar` glyph) lit beside «Strecke» / «Fläche»,
+    «Messen» lit on the rail, however it was entered (the Plan sheet's row, Messen's panel, the
+    tile, and Messen itself on a plan with no scale, rare-user r4: «Strecke» / «Fläche» wait
+    until there is one); «Strecke» / «Fläche» go back to measuring, «Abbrechen» stops. No «Leeren»
+    in this mode (the phone's row fits 360px): the length dialog's «Abbrechen» goes back to step 1,
+    which is how a wrong point is taken back. What to tap STANDS in the dock's ⓘ card while «Massstab» is lit
+    (`DockInfo · open`): the three steps, one per line, a done one reading ✓; the dock then draws
+    no ⓘ tile. No pill, no line at the bottom – the row keeps its chips. The length
+    dialog opens EMPTY – only a length typed earlier in the session is offered – and, when
+    «Massstab» was lit by Messen itself, first says why («Dieser Plan hat noch keinen Massstab …»);
+    a calibration goes on to «Strecke», and «Massstab kalibriert» carries «Rückgängig», which
+    restores what the plan had (C9). On a phone the pieces stand on ONE baseline,
     `--float-bottom` (15-mobile): `--float-gap` (8px) above the highest bar (nav bar · Rapport tab
     strip · tool bar · a tool's option dock), 8px from the screen's edge and from
     each other. The FAB is a `--float-h` square in the one corner (round until 16.11.2026, owner:
@@ -449,16 +541,22 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     and every tool-option dock on the Karte, the Einsatz map and the Plan/Skizze, phone and tablet,
     wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
     The controls share one neutral fill (`--dock-control-bg`, opaque) and hover
-    (`--dock-control-hover`); a picked width/line style is the selected wash; the ARMED toggle
-    (`.wb-dock-tog.on`) is the `--sel` fill — that fill, not the dock, says «armed». The ✓ is
+    (`--dock-control-hover`); a picked width/line style is the selected wash; a dock toggle that
+    is ON (`.wb-dock-tog.on`, «Mehrere», the Messen mode) is a choice and wears the `--sel` fill.
+    **«Armed» is one look** (duck sweep ELEM.1, owner 17.11.2026): an armed tool or mode – the
+    rail's tool, the selection bar's ✥ «Verschieben» / ⟳ «Drehen» – is the ink pill (`--here-fill`,
+    role 3 below); at rest the bar's two grips are the neutral dock control with their word. The ✓ is
     `--btn-primary`. No dock carries a line of text, on any surface or width (20.10.2026, owner:
     «Remove the line. I don't think they add any value.»): a tool's instructions are its ⓘ.
+    One exception: a tool whose use is a fixed sequence of steps opens its ⓘ card by itself and
+    draws no ⓘ tile (`DockInfo · open`) – calibrating the plan's scale, rare-user r4 17.11.2026.
     **The armed tool's name is the readout pill** (`.armed-pill`, 23.10.2026): glyph + word,
     bottom centre, the same glass, `--tap` high, no pointer events – a readout, not a control
     (tactical-objects.md · «The armed tool's readout»). The symbol tool has no dock since then.
     The sticky close button has no masking shadow: a solid surface patch mismatches the glass.
-    The blank Tafel offers no Messen on a phone; map and scaled plans keep it. The mobile
-    Ansichten popover dismisses on an outside pointer press, allowing the pressed control to act.
+    The blank Tafel offers no Messen on a phone; map and scaled plans keep it. The Ansichten
+    popover closes on a tap beside it and that tap does nothing else, on every width (Overlays ·
+    the way out of a layer, 17.11.2026 – it used to let the pressed control act).
   - *Height is a separate axis* – `--tap` (44px) by default, 48–50px for a card's main action.
     The 12 type combos happened because people enlarged the *label* when they wanted a bigger
     *target*; raise the height, not the font.
@@ -498,7 +596,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     else rides on the wash** (29.09.2026): no ring, no recoloured read-out; a count keeps its own
     ink (an open count is amber on every row, current or not — `.group-choose-count.open`); a ✓
     may stay as the cue that is not a colour. (3)
-    **Where you are** — the nav rail, the armed tool, a Trupp tab — keeps the ink pill
+    **Where you are** — the nav rail, the armed tool (and the bar's armed ✥ / ⟳), a Trupp tab — keeps the ink pill
     (`--here-fill` / `--on-here` in every bar: = `--ink-fill` by day, a lighter plate with a white
     glyph at night, 05.11.2026): a place, not an answer. A chip whose tone IS its meaning (the composer's
     Auftrag/Sofort) fills in that tone, same shape; colour swatches keep
@@ -509,21 +607,34 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     is a 1.14:1 patch on the sheet), never green. The tool dock's ✓ (`.wb-dock-go`) is THE
     primary too, since the dock is light by day (20.10.2026). The documented green «go» (`<Button variant="go">`, Atemschutz «Eintritt») is a
     tone, not the primary, and stays. The Trupp marker's action bar (`.wb-pill-acts`) is all
-    neutral wash (29.09.2026): no green «Bei den Trupps zeigen», no blue «Position markieren». A
-    door to a page wears that page's nav glyph («Bei den Trupps zeigen» = the Trupps stopwatch,
-    never ⚠). The bin keeps THE delete outline; the rename pen, while its field is open, is a
-    pressed toggle (`--sel`, like `.wb-dock-tog.on`).
+    neutral wash (29.09.2026): no green «Zum Trupp», no blue «Position markieren». A door to a page
+    wears that page's nav glyph («Zum Trupp» = the Trupps stopwatch, never ⚠); the join
+    («Atemschutz-Trupp») wears `link`. Three buttons (rare-user round 2, owner pick M12 A,
+    17.11.2026): ONE Trupp button that changes – «Zum Trupp» on a linked marker, «Trupp» (the join;
+    the bar's short word for «Atemschutz-Trupp») on a loose one, never both – then «Markieren» (the
+    bar's short word for «Position markieren»; full words as title / label), then «Mehr». «Mehr» rows carry glyph + full word:
+    Lösen · Atemschutz-Trupp (re-point, linked only; the row swaps the menu to the join list) ·
+    Bearbeiten (rename, loose only) · Spuren (✓ while shown) · the original (mirrors) · the delete
+    rows, last (the marker alone plain, the Spur rows danger). «Mehr» is drawn only with a row.
+    Same on phone and tablet, one row at 390 px. «Beschriftung» only changes the look: on, every
+    button wears its word under the glyph (like the rails); off, the SAME buttons as bare glyphs.
   - *Delete (28.09.2026, owner pick A):* a destructive action is THE delete look — `--del-ink`
     (red-strong) text, a `--del-edge` (red 40%) border, the surface it stands on; the bin and the
     word (a rare delete may be a square bin, still outlined). A bin at the end of a ROW — a time
     block, a Rapport line, a saved Ansicht, an admin record — is the quiet grey glyph instead
     (21.10.2026, owner, UX sweep F4/A3): the row is the context, and the admin ones ask first, their
     armed «Ja» wearing the delete look. Red never fills it (`.btn.warn`,
-    `.ip-btn-danger`/`.ip-btn.danger`, `.adm-danger-btn`, `.wb-pa-del`,
+    `.ip-btn-danger`/`.ip-btn.danger`, `.adm-danger-btn`,
     the audio player's marker row `.ap-row-del` all wear it; `.btn.warn-solid` is gone). ✕ only
-    ever closes or clears — a ✕ that deletes is a bug. The audio player's in-place editors are the
+    ever closes or clears — a ✕ that deletes is a bug. **Red is for what nothing brings back**
+    (duck sweep ELEM.11 + FEEDBACK.2, 17.11.2026): a STOP or a cancel – «■ Beenden» a
+    Präsentation, «Standort nicht mehr teilen», a print job's «Abbrechen» – is the neutral
+    `Button`, its ■ or ✕ carrying the act; an undoable removal on a choice card (an unused
+    Trupp's «Entfernen», a Geister-Spur's «Spur entfernen») is a plain answer, never `altDanger`. The audio player's in-place editors are the
     ✕ `.ip-x` + ✓ primary icon pair (36/44).
-  - *Close:* every sheet/dialog ✕ IS the global `.ip-x` in the TSX (36px, 18px glyph, grey fill);
+  - *Close:* every sheet/dialog ✕ IS the global `.ip-x` look (36px, 18px glyph, grey fill) and is
+    named «Schliessen» (`copy.closeDialog` – the name, not the class, is what «the keyboard goes
+    first» finds); a centred dialog without a footer «Abbrechen» («Welcher Trupp?») has one too;
     a module class may position it, never restyle it. 44px only beside a 44px search field
     (Palette, Verlauf search, TruppFinder — `.x:global(.ip-x)`). The armed material keeps its
     on-ink ✕ (`.wb-dock-x`), and it stands at the dock's END (27.10.2026, owner: «X on the right
@@ -535,7 +646,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     row (Ansichten).
   - *Close and commit (13.11.2026, owner, M7 C: «keep the X as generic closing and finishing if
     something is actually done, and otherwise, "would be destroyed" is fertig»):* ✕ means «zu»
-    everywhere, and closing with ✕ never loses anything – a card, a sheet, a tool dock, a mode bar,
+    everywhere, and closing with ✕ never loses anything (a «Speichern» sheet saves what was typed on
+    any close, Editor sheets above) – a card, a sheet, a tool dock, a mode bar,
     the Passung (its points save as they are placed, so its exit stays ✕ «Schliessen» also once a
     fit stands; «Deckung prüfen» closes with ✕ «Schliessen» too). **«✓ Fertig» exists ONLY while
     something is being made that a close would throw away** – a Punkte-Linie, -Fläche or Wand
@@ -552,8 +664,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     / Esc leave the draft through `settleDraft` (a committable draft is asked about – «Speichern ·
     Verwerfen · Weiterzeichnen» – never silently dropped). So one exit per state: a SELECTED
     object's is its editor card's ✕, and the `SelectionBar` carries no «Fertig» beside it; only a
-    Mehrfach group, which has no card, gets a ✕ at the bar's end. The armed-tool pill at the bottom
-    centre stays glyph + name, no buttons. Text editors' in-place ✓ (a Notiz, a box label) commit
+    Mehrfach group, which has no card, gets a ✕ at the bar's end. A single native object gets
+    «Duplizieren» there instead (a worded tap, ⌘D's touch twin – rare-user F18, 17.11.2026). The armed-tool pill at the bottom
+    centre is glyph + name, a readout; beside it, only while a symbol is armed, stand «Mehrere» and
+    its ✕ (`ArmedToolPill`). Every armed state has a visible ✕ – the Karte's «Punkt setzen» too. Text editors' in-place ✓ (a Notiz, a box label) commit
     typed text and keep their ✓.
   - *Cancel (28.09.2026, owner pick A):* «Abbrechen» in a footer is a FRAMED `.ip-btn` 14/700 at
     its word's width, never a ghost word; the primary takes the rest of the row, same height (on a
@@ -648,18 +762,34 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     TruppFinder), the field drops its inner ✕ — `noClear`, a prop, never CSS hiding; Escape still
     closes. The Palette keeps both: its ✕ closes the whole «+» chooser, clearing only the query.
     Never a bare native `type=search`, never a framed white box, never a ruled band.
+    What it FINDS is one rule too (duck sweep LISTS.3, 17.11.2026): every list search matches
+    through `lib/search` (`searchQuery` + `matchesQuery` / `matchesAnyQuery`) – umlauts fold both
+    ways («Mueller» ↔ Müller), one typo is forgiven from four letters up. Never a plain
+    `toLowerCase().includes`, never a fold of a surface's own; a list that ranks (the Karte search)
+    ranks on the same fold and puts a typo hit last.
     (6) **ⓘ toggle**: `components/InfoToggle` (`.ui-info`) — the grey 36px chip with a 44px pad;
     OPEN is `--sel-wash` + `--blue-strong` glyph (the «open/armed» look). Never the choice fill,
-    never the ink pill, never `--accent`. The tool docks keep DockInfo's ⓘ in the dock's control fill.
+    never the ink pill, never `--accent`. **Every control that opens a panel or menu wears that
+    same OPEN look and says `aria-expanded`** (duck sweep ELEM.6, 17.11.2026): Ebenen on the rail,
+    the view bar and the phone's map cluster, the Ansichten compass (the Karte phone's too), the
+    top bar's Verlauf, the Verlauf lens. The ink pill (`--here-fill`) is «where you are» only. The tool docks keep DockInfo's ⓘ in the dock's control fill.
     (7) **No hits**: one line, `.no-hits` (13/500 `--ink-faint`, centred, 20px pad, never italic),
-    worded `copy.noHits` «Keine Treffer für «{q}».»; a noun of its own only where it helps («Kein
-    Trupp gefunden»).
+    worded `copy.noHits` «Keine Treffer für «{q}».» while there IS a query – the Verlauf too, never
+    a big `EmptyState` for a search. While only a FILTER narrows the list (no query), the line is
+    `copy.filterNoHits` «Keine Einträge in dieser Auswahl.» plus the way out in its own words (the
+    Anwesenheit's «Alle zeigen», the Verlauf's «"Alle zeigen" hebt den Filter auf.») – never
+    «Keine Treffer für «».» (duck sweep LISTS.4, 17.11.2026). A noun of its own only where it helps
+    («Kein Trupp gefunden»); one catalogue, one noun («Kein Objekt gefunden.» on the Karte and in
+    the PlanPicker). An EMPTY list (nothing there yet, no query, no filter) is `EmptyState`.
     (8) **Fold**: every disclosure — a `<details>`, an accordion head, a notice that folds —
     carries the global `<Icon id="chevron-down" className="chev" />`, turned by `aria-expanded` /
     `details[open]` (02-base). Never an up/down icon swap, never a text ▸, never the UA marker
     alone.
     (9) **Filter on**: an active filter button is the choice fill (`--sel`) and nothing else — no
-    dot beside it (Anwesenheit/Mittel `.iconBtnOn`, the Verlauf funnel `.jr-filter-on`).
+    dot beside it (Anwesenheit/Mittel `.iconBtnOn`, the Verlauf funnel `.jr-filter-on`). Those
+    head buttons (`SurfaceControls`) wear their WORD on every device, one rule in the component:
+    beside the glyph on a tablet, under it on a phone like a nav tile (duck sweep ELEM.13,
+    17.11.2026 – the Anwesenheit was worded on the phone only, the Mittel on the tablet only).
     (10) **One glyph, one meaning, within a thumb's reach** (29.09.2026). «Eintrag» is the journal
     pen (`lib/icons` · `#entry`, drawn inline by `EntryGlyph` on the FAB and the top bar's
     Eintrag), never «+»: «+» means Hinzufügen only (the FAB stood 60px above the tool bar's «+
@@ -703,6 +833,18 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     than the line on its own. CSS cannot say this, so `lib/smartHyphens` (a ref on the text: the
     row title, the reader's chapter neighbours) lays it out both ways; never `hyphens: auto` in
     the CSS of a title.
+    One thing, one row (duck sweep LISTS.2/7/8, 17.11.2026): **an Einsatz** is `EinsatzRow` (name
+    with the hatched Übung tag and «Abgeschlossen» BESIDE it, `shortAddress` sub, the caller's time
+    line, the red Atemschutz word from `lib/foreignAlarm` under the place, ›) – «Alle Einsätze» and
+    the standing link's chooser; the Einsatz menu keeps its dense `.ip-menu-row` but the same parts
+    in the same order. **An Objekt** is footprint · name · address (`objectRowSub`; the
+    plan count in the sub only where picking depends on it: the Einsatz form, «Anderes Objekt») ·
+    distance, in ONE order – `lib/karte/places · sortObjects` (a name hit before an address-only
+    hit, then nearest, then A–Z; the Karte search keeps its finer rank). **A Messpunkt** row leads
+    with its pill. A row that only PICKS (the form, «Anderes Objekt») has no ›.
+    **A time in a row** is `fmtWhen(…, { todayShort: true })` – the clock today, «16.11. 23:50»
+    on another day – and a due time is `dueClock` («· morgen», or the day once it is past); never a
+    bare `hhmm` in a list that outlives midnight (the Tafel Pendenzen, LISTS.10).
     (13) **Tick row** (20.10.2026, UX sweep F7, owner: «shared primitive … the blue, not green»):
     every item that is TICKED OFF — a Checkliste item, a Rapport Partnerorganisation or «Formular
     & Link», a Tafel row's «erledigt» — is `components/TickRow`: box + label ONE button,
@@ -711,7 +853,24 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     tick, never a box of a surface's own size. What being done MEANS stays the surface's (the
     Checkliste fades the text, the Tafel strikes the row through). Choosing ITEMS as the answer
     to a question (the Trupp's Ausrüstung) is a `Chip`, not a tick.
-    `controlDebt.test.ts` is the ratchet for raw toggles, selects and search fields.
+    **«Done» is blue, once, everywhere** (duck sweep ELEM.2, 17.11.2026): a ticked box, the symbol
+    foot's pressed «Erledigt», a Pendenz ticked off – the choice fill, never green.
+    **A Pendenz is ticked with it on every surface** (owner, 17.11.2026, ELEM.2/ENT.5): the
+    Verlauf row that raised it, the pinned «Offene Pendenzen» block, the Tafel's «erledigt», all
+    TWO-WAY – a tap ticks (a `done` row), a tap on the ticked box reopens (a `reopened` row), both
+    on the undo timeline (`useReminders · setDone`); a row ticked in the pinned block stays there,
+    ticked, until the drawer closes, so a mis-tap is taken back where it happened. `pendenz` names
+    the open item's state and the unticked FRAME says it, the one look per state on screen and on
+    paper: amber «offen», red «überfällig», red with a drawn «!» «dringend» (the Tafel's Prio and
+    both PDFs print «!»); the legend, the filter menu and the composer's state switch draw the
+    same box (`TickBox` is its read-out). The Meldeleiste keeps its «✓ Erledigt» button – a
+    message's action. A tap on a Pendenz's WORDS opens its row's detail sheet, in the log and in
+    the block alike, and «Meldung erfassen» is one of its actions (LISTS.6); the Tafel's text is a
+    form cell, as every Tafel cell.
+    `controlDebt.test.ts` is the ratchet for raw toggles, selects and search fields – and since
+    17.11.2026 (LISTS.8, ELEM.15; `src/capture` included) for hand-built rows (a `…row…` class or
+    a › of its own on a `<button>`), written-out `.ip-btn` buttons, native-disabled primaries and
+    fields without the house class. Its counts only go down.
   - *Colour of a mention is not a state* (29.09.2026, owner pick A): every recognised word in the
     Verlauf – vehicle, partner, Trupp, person, material, group – is **medium (500) `--ink`**
     (`.jr-link`; bold until 05.11.2026, owner pick A5), prose regular, and in the composer one
@@ -739,13 +898,20 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
 
 - **Touch vocabulary – one beat, one buzz, one wash.** The primary devices are gloved tablets;
   a new gesture reuses these or it teaches a second language. Any new touch interaction must:
-  - *Hold on the 350 ms beat* when the hold **reveals or offers** – the icon-only hold-tooltip
-    (`src/lib/holdTooltip.ts` · `HOLD_MS`) and the Eintrag hold (`src/lib/useHoldEntry.ts` ·
-    `HOLD_MS`) share it, so every still hold answers alike. A disclosure (`aria-expanded`: the ⓘ,
-    a menu or card toggle) is never hold-explained – its tap already shows what it means, and
-    the same words twice read as a glitch (28.10.2026). The holds that are not «reveal» keep
-    their own documented numbers: `useHoldToDrag` arms a drag at 180 ms, `nodeHold.ts` arms at
-    250 ms and fires destructively at 825 ms. Reuse a constant; don't invent a third window.
+  - *A hold waits on one of four named windows* (`src/lib/holdTimings.ts`, duck sweep
+    GESTURES.6, 17.11.2026 – there were seven), chosen by what the hold does, never a new number:
+    **OFFER 350 ms** when it reveals, offers or does a small undoable thing – the icon-only
+    hold-tooltip (`lib/holdTooltip`), the Eintrag hold (`lib/useHoldEntry`), every
+    `lib/useLongPress` hold (the Plan / Seite chooser, the compass, the Trupp crown, the Karte's
+    pin) and the Zeitplan lane sheet (`lib/useLaneGesture`); **DRAG 180 ms** lifts a placed object
+    (`useHoldToDrag`); **GUARD 250 → 825 ms** when it takes something away (`lib/nodeHold`: a
+    node, «Entsperren», the Notfall tile – nothing shows before 250, it acts at 825). A
+    disclosure (`aria-expanded`: the ⓘ, a menu or card toggle) is never hold-explained – its tap
+    already shows what it means, and the same words twice read as a glitch (28.10.2026).
+  - *The compass hold* (GESTURES.7, owner 17.11.2026): **Einsatz → Einpassen, Frieden →
+    Standort.** In an Einsatz a hold on the Lage's compass and on the Plan's north dial
+    (`PlanCompass · onFit`, the whole plan) fits the view; on the peacetime Karte it finds
+    Mein Standort (else fits, `karte/useKarteCamera`). The keys stay 0 = Einpassen, G = Mein Standort.
   - *Meaning never lives in a `title` or a colour alone* (UX sweep F6, 20.10.2026): a tablet
     never shows a `title`. Where a control's visible word does not say what matters
     («Bereitstellen» does NOT start the contact clock, the Schichten head's «·», the Zeitplan's
@@ -756,11 +922,15 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     moment a held gesture becomes something (tooltip appears, drag latches, chooser opens, magnet
     dwell engages). Never on taps, successes or errors; never a pattern or a second duration
     (`navigator.vibrate` is Android-only, so anything expressive is inaudible to half the fleet).
-    The one inline `navigator.vibrate?.(12)` left is `src/lib/nodeHold.ts`, the same 12 ms – new
-    call sites go through `buzz()`. (`src/lib/alarm.ts`'s vibration pattern is the Atemschutz
-    alarm, not a gesture.)
+    Every hold that ACTS buzzes (FEEDBACK.9, 17.11.2026), and the hooks own it so no call site can
+    forget: `useLongPress` at fire (compass, crown, rail choosers), `useNodeHold` at fire (node
+    delete, «Entsperren», the Notfall tile – a held ring arms silently, the act is felt), the
+    Zeitplan lane's hold. No inline `navigator.vibrate` anywhere else. (`src/lib/alarm.ts`'s
+    vibration pattern is the Atemschutz alarm, not a gesture.)
   - *One hold ring, around the icon* – `HoldChargeRing` (`src/components/HoldTargets.tsx`, also
-    `NodeDeleteChip`), fed by `useTimedProgress` off the **same clock as the timer**. Never a CSS
+    `NodeDeleteChip`), fed by `useTimedProgress` off the **same clock as the timer**; a
+    `useLongPress` host paints it from the hook's `held` (the compass, the north dial, the rail's
+    chooser tiles). A hold on a row with no glyph (the Trupp crown) has no ring. Never a CSS
     keyframe: it drifts against the latch and, under `prefers-reduced-motion`, paints full on the
     first frame while the timer still runs. The ring haloes the glyph – never strokes across a
     label, and nothing may reflow under the finger mid-hold.

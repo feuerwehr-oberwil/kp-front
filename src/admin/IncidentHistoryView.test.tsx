@@ -60,6 +60,20 @@ describe('IncidentHistoryView — what a row says', () => {
   })
 })
 
+// ENT.9 (17.11.2026): a reopen keeps `closed_at`, so «closed» is `is_archived` – a running reopened
+// Einsatz reads «offen» and offers no «Löschen» (the server would answer 409)
+describe('IncidentHistoryView — a reopened Einsatz', () => {
+  it('reads open and offers no delete while it runs again', async () => {
+    listIncidents.mockResolvedValue([{ ...closed, is_archived: false, status: 'open' }])
+    render(<IncidentHistoryView />)
+    await screen.findByText(closed.title)
+    expect(document.querySelector('.adm-badge-state')?.textContent).toBe(C.open)
+    expect(screen.queryByText(C.closed)).toBeNull()
+    expect(screen.queryByLabelText(fillTemplate(C.deleteAria, { title: closed.title }))).toBeNull()
+    expect(screen.getByText(C.deleteOpenHint)).toBeTruthy()
+  })
+})
+
 // The Einsatz-Ablage (docs/incident-archive.md): «abgelegt / ausstehend / Fehler: …» per Einsatz,
 // and the one way out of a Fehler
 describe('IncidentHistoryView – the Ablage column', () => {
@@ -76,6 +90,28 @@ describe('IncidentHistoryView – the Ablage column', () => {
     await screen.findByText(closed.title)
     expect(screen.queryByText(A.column)).toBeNull()
   })
+
+  it('does not claim an empty delivery was filed, even if folders were created', async () => {
+    listIncidents.mockResolvedValue([closed])
+    apiGet.mockResolvedValueOnce({ enabled: true, deliveries: [{
+      ...row, state: 'delivered', folders: ['Einsätze/2026/empty'],
+    }] })
+    render(<IncidentHistoryView />)
+    expect(await screen.findByText('keine Dateien zum Ablegen')).toBeTruthy()
+    expect(screen.queryByText(A.states.delivered)).toBeNull()
+    expect(screen.queryByText(A.noReport)).toBeNull()
+  })
+
+  it.each([{ reportVersions: 1, filedMedia: 0 }, { reportVersions: 0, filedMedia: 2 }])(
+    'confirms a nonempty delivery and only flags a missing PDF when appropriate: %j',
+    async (files) => {
+      listIncidents.mockResolvedValue([closed])
+      apiGet.mockResolvedValueOnce({ enabled: true, deliveries: [{ ...row, state: 'delivered', ...files }] })
+      render(<IncidentHistoryView />)
+      expect(await screen.findByText(A.states.delivered)).toBeTruthy()
+      expect(!!screen.queryByText(A.noReport)).toBe(files.reportVersions === 0)
+    },
+  )
 
   it('says Fehler with the reason and retries that Einsatz', async () => {
     listIncidents.mockResolvedValue([closed, { ...closed, id: 'inc-2', title: 'Übung Steiger', is_exercise: true }])

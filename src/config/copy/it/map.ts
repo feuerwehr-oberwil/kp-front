@@ -43,10 +43,31 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     nightMode: 'Notte',
   },
   toast: {
-    audioSaved: 'Nota vocale salvata ({secs} s)',
     micDenied: 'Nessun accesso al microfono – annotato come segnaposto',
     micFailed: 'Registrazione non avviata – riprovare',
-    merged: 'Modifiche unite',
+    micBlocked: 'Microfono bloccato – consentirlo tramite {path}',
+    locateBlocked: 'Posizione bloccata – consentirla tramite {path}',
+    locateNone: 'Nessuna posizione trovata – riprovare',
+    permissionPath: {
+      location: {
+        iosApp: 'Impostazioni iPhone › Privacy e sicurezza › Localizzazione › Siti web Safari',
+        iosSafari: 'Impostazioni iPhone › App › Safari › Posizione',
+        android: 'Chrome ⋮ › Impostazioni › Impostazioni sito › Posizione',
+        desktop: 'l’icona a sinistra dell’indirizzo › Posizione',
+      },
+      microphone: {
+        iosApp: 'Impostazioni iPhone › App › Safari › Microfono',
+        iosSafari: 'Impostazioni iPhone › App › Safari › Microfono',
+        android: 'Chrome ⋮ › Impostazioni › Impostazioni sito › Microfono',
+        desktop: 'l’icona a sinistra dell’indirizzo › Microfono',
+      },
+      notifications: {
+        iosApp: 'Impostazioni iPhone › Notifiche › {app}',
+        iosSafari: 'Impostazioni iPhone › Notifiche › {app}',
+        android: 'Impostazioni Android › App › {app} › Notifiche',
+        desktop: 'l’icona a sinistra dell’indirizzo › Notifiche',
+      },
+    },
   },
   dockHints: {
     lasso: 'Trascina un riquadro attorno a più oggetti.',
@@ -71,7 +92,7 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     glLostAction: 'Ricostruisci mappa',
     noTilesTitle: 'Nessuna mappa di base salvata per questa zona',
     noTilesSub: 'Offline – oggetti e linee sono mostrati senza mappa',
-    noTilesAction: 'Questo dispositivo',
+    noTilesAction: 'Disponibile offline',
     noTilesDismiss: 'Nascondi',
   },
   mapViews: {
@@ -83,7 +104,6 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     hint: 'Una vista salva la carta com\'è – posizione, zoom e rotazione. Tocca una vista salvata per saltarci (p. es. tra una panoramica a nord e la carta girata come sei posizionato). Pressione lunga sulla bussola: adatta subito.',
     rename: 'Rinomina',
     delete: 'Elimina',
-    saved: 'Vista salvata',
     deleted: 'Vista «{name}» eliminata',
   },
 }

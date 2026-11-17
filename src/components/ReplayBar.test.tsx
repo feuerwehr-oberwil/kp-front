@@ -117,6 +117,24 @@ describe('ReplayBar', () => {
     expect(onPlayhead.mock.calls.length).toBeLessThanOrEqual(before + 3)
   })
 
+  // owner call C4 (17.11.2026): in a running Einsatz the replay opens on the live picture, so a
+  // stray ▶ changes nothing visible; ▶ «Abspielen» from there starts at the beginning
+  it('opens a running Einsatz at «Jetzt», and plays it from the beginning', async () => {
+    setup({ journal: rows, running: true })
+    await waitFor(() => expect(screen.getByRole('slider', { name: 'Zeitpunkt' }).getAttribute('aria-valuenow')).toBe('100'))
+    expect(screen.getByText('Feuer aus')).toBeTruthy()
+    expect(stateAt).toHaveBeenLastCalledWith(bundle, bundle.endMs)
+    fireEvent.click(screen.getByRole('button', { name: 'Abspielen' }))
+    await waitFor(() => expect(stateAt).toHaveBeenCalledWith(bundle, bundle.startMs))
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeTruthy()
+  })
+
+  it('opens a closed Einsatz at the beginning', async () => {
+    setup({ journal: rows })
+    await waitFor(() => expect(screen.getByRole('slider', { name: 'Zeitpunkt' }).getAttribute('aria-valuenow')).toBe('0'))
+    expect(stateAt).toHaveBeenLastCalledWith(bundle, bundle.startMs)
+  })
+
   it('shows the error state when the bundle fails to load', async () => {
     loadReplay.mockReset().mockRejectedValue(new Error('boom'))
     setup()

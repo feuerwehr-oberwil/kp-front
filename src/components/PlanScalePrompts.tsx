@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { pointAtField } from '../lib/pointAtField'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { Button, IconButton } from './Button'
@@ -14,8 +15,10 @@ import type { PlanScale } from '../lib/planScale'
  * in the same slots as before — the order matters, they are stacked overlays.
  */
 
-/** Metre entry after the two reference endpoints have been tapped. */
-export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose }: {
+/** Metre entry after the two reference endpoints have been tapped. `why`: reached from Messen on a
+ *  plan with no scale – the dialog first says so (C9, 17.11.2026), the field opens empty. */
+export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose, why = false }: {
+  why?: boolean
   refMInput: string
   setRefMInput: (v: string) => void
   onCommit: (refM: number) => void
@@ -35,6 +38,7 @@ export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose }: 
     // hand-rolled overlays covers the NON-modal tool docks, not this.)
     <Overlay open onClose={onClose} className="wb-cal-pop ui-dialog" ariaLabel={appConfig.copy.whiteboard.scale.promptTitle} initialFocus={inputRef}>
       <div className="wb-cal-title">{appConfig.copy.whiteboard.scale.promptTitle}</div>
+      {why && <div className="wb-cal-body wb-cal-why">{appConfig.copy.whiteboard.scale.promptWhy}</div>}
       <div className="wb-cal-body">{appConfig.copy.whiteboard.scale.promptBody}</div>
       <div className="wb-cal-chips">
         {appConfig.drawing.planScaleDefaultsM.map((m) => (
@@ -53,7 +57,9 @@ export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose }: 
       </div>
       <div className="wb-cal-actions">
         <Button onClick={onClose}>{appConfig.copy.whiteboard.scale.cancel}</Button>
-        <Button variant="primary" disabled={!(val > 0)} onClick={() => onCommit(val)}>{appConfig.copy.whiteboard.scale.confirm}</Button>
+        {/* no length yet: the tap points at the metre field (ui-conventions · F2, duck sweep ELEM.4) */}
+        <Button variant="primary" aria-disabled={!(val > 0)}
+          onClick={() => (val > 0 ? onCommit(val) : pointAtField(inputRef.current?.parentElement, { focus: inputRef.current }))}>{appConfig.copy.whiteboard.scale.confirm}</Button>
       </div>
     </Overlay>
   )
@@ -68,11 +74,12 @@ export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose }: 
  * gespeichert» while nothing of the sort had happened, and offline the claim was simply false. So
  * the save is awaited and its outcome reported, exactly as the Georeferenz's own writer does
  * (Whiteboard · setGeorefSaveErrorHandler). The prompt still closes at once — the operator has
- * answered its question, and a dialog that waits for the network is a dialog in the way.
+ * answered its question, and a dialog that waits for the network is a dialog in the way. Only
+ * the failure is said (toast diet, 17.11.2026): a prompt that closed on its answer needs no echo.
  */
-function persisting(save: Promise<void>, ok: string, onDone: () => void): void {
+function persisting(save: Promise<void>, onDone: () => void): void {
   const C = appConfig.copy.whiteboard.scale
-  void save.then(() => toast(ok)).catch(() => toast(C.saveFailed, { icon: 'warn', tone: 'warn' }))
+  void save.catch(() => toast(C.saveFailed, { icon: 'warn', tone: 'warn' }))
   onDone()
 }
 
@@ -84,10 +91,10 @@ export function PlanScalePersist({ scale, activeId, onDone }: {
   return (
     <div className="wb-scale-persist" role="group" aria-label={appConfig.copy.whiteboard.scale.persistTitle}>
       <span className="wb-scale-persist-t">{appConfig.copy.whiteboard.scale.persistTitle}</span>
-      <button className="btn" onClick={() => persisting(saveStationDefault(scale), appConfig.copy.whiteboard.scale.savedAll, onDone)}>
+      <button className="btn" onClick={() => persisting(saveStationDefault(scale), onDone)}>
         {appConfig.copy.whiteboard.scale.saveAll}
       </button>
-      <button className="btn" onClick={() => persisting(saveStationPlanOverride(activeId, scale), appConfig.copy.whiteboard.scale.savedThis, onDone)}>
+      <button className="btn" onClick={() => persisting(saveStationPlanOverride(activeId, scale), onDone)}>
         {appConfig.copy.whiteboard.scale.saveThis}
       </button>
       <IconButton className="wb-scale-persist-x" label={appConfig.copy.closeDialog} onClick={onDone}><Icon id="close" /></IconButton>

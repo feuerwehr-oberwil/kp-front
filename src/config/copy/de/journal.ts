@@ -55,22 +55,22 @@ export const journalCopy = {
     attachUpload: 'Datei anhängen',
     // short form for the phone row, where the three media buttons get a third of the width each
     attachUploadShort: 'Datei',
-    attachLabel: 'Beilage',
-    attachDiscard: 'Beilage entfernen',
-    attachOpen: 'Beilage herunterladen',
+    attachLabel: 'Datei',
+    attachDiscard: 'Datei entfernen',
+    attachOpen: 'Datei herunterladen',
     attachOffline: 'Datei anhängen braucht Netz. Datei später erneut auswählen.',
-    attachOfflineSkip: 'Ohne Beilage erfassen',
+    attachOfflineSkip: 'Ohne Datei erfassen',
     attachTooLarge: 'Datei ist zu gross. Maximum: {max} MB.',
     attachUnsupported: 'Dieser Dateityp wird nicht unterstützt.',
     attachUploadFailed: 'Datei nicht angehängt – Netz prüfen und erneut versuchen.',
     // ⚠️ Same reason as audioImportDropped below: a picked file cannot be handed back on the
     // next open, so a composer that closes with one on it says so.
-    attachDropped: 'Beilage «{name}» verworfen – bitte neu auswählen.',
-    // ⚠️ A Beilage has no plate in the Rapport the way a photo does (the file itself travels in
+    attachDropped: 'Datei «{name}» verworfen – bitte neu auswählen.',
+    // ⚠️ A Datei has no plate in the Rapport the way a photo does (the file itself travels in
     // the Beilagen-ZIP), so the printed line NAMES it – otherwise a row that is only a document
     // prints as an empty timestamped line (lib/report · journalRows).
-    attachPrint: 'Beilage: {names}',
-    attachPrintMany: 'Beilagen: {names}',
+    attachPrint: 'Datei: {names}',
+    attachPrintMany: 'Dateien: {names}',
     // one recording per Eintrag – a pick with several audio files keeps the first and says
     // out loud which ones it did not take (no silent loss)
     attachAudioExtra: 'Nur eine Aufnahme pro Eintrag – «{names}» nicht übernommen.',
@@ -122,9 +122,11 @@ export const journalCopy = {
     photoOpen: 'Foto gross ansehen',
     discardPhoto: 'Foto verwerfen',
     // offline media upload queue — status chip on a Verlauf row whose photo/audio is not yet
-    // on the server (captured offline; will upload automatically when reconnected)
-    mediaPending: 'Wird geladen',
-    mediaFailed: 'Nicht geladen',
+    // on the server (captured offline; will upload automatically when reconnected). The Rapport's
+    // Beilage and the Objektbesuch say the same words (duck sweep FEEDBACK.7: «Wird geladen» read
+    // as a download)
+    mediaPending: 'noch nicht synchronisiert',
+    mediaFailed: 'Nicht synchronisiert',
     // rows appended after the Einsatzende (archive → reopen, the correction path)
     nachtrag: 'Nachtrag',
     // a hand-written line corrected later (append-only patch — both wordings stay in the record).
@@ -145,7 +147,7 @@ export const journalCopy = {
     // die Zeile kam über den Atemschutz-Link herein — von einem Handy, das nur die Tafel
     // bedient und darum bewusst nach keinem Namen gefragt wurde (types · TimelineEvent.via)
     viaAtemschutzLink: 'Atemschutz-Link',
-    viaAtemschutzLinkTitle: 'Eingetragen über den abgegebenen Trupps-Link.',
+    viaAtemschutzLinkTitle: 'Eingetragen über den Trupps-Link.',
     // ── the row's detail sheet (owner's pick 8, sweep E.4): the message is the title, a meta line
     // under it «16:30:56 · Sofortmassnahme · von Hand erfasst» (time · Art/Bereich · Quelle), then a
     // fact table for what the meta line does not say ──
@@ -157,12 +159,12 @@ export const journalCopy = {
     detailSourceManual: 'von Hand erfasst',
     detailSourceSystem: 'von der App erfasst',
     detailSourceSystemHint: 'Systemzeilen sind nicht bearbeitbar',
-    detailAttachments: 'Beilagen',
-    detailAttachmentsN: '{n} Bilder',
-    detailAttachmentsOne: 'Ein Bild',
+    detailAttachments: 'Fotos',
+    detailAttachmentsN: '{n} Fotos',
+    detailAttachmentsOne: 'Ein Foto',
     detailCorrected: 'Korrigiert',
     // the FIRST wording, kept by the append-only patch chain (lib/journalStore · display)
-    detailCorrectedFirst: 'zuerst: {text}',
+    detailCorrectedFirst: 'ursprünglich: {text}',
     detailRepeated: 'Wiederholt',
     detailRepeatedN: 'Insgesamt {n}× bis {t}',
     detailNachtrag: 'Nachtrag',
@@ -292,8 +294,8 @@ export const journalCopy = {
     againChip: '{mins} min',
     againTitle: 'In {mins} Minuten wieder daran erinnern',
     againSet: '↻ in {mins} min gesetzt',
-    againToast: 'Wiedervorlage in {mins} min gesetzt',
-    againWithdrawn: 'Wiedervorlage zurückgenommen: {text}',
+    againToast: 'Erinnerung in {mins} min gesetzt',
+    againWithdrawn: 'Erinnerung zurückgenommen: {text}',
     // ── Legende ───────────────────────────────────────────────────────────────────────────
     // The Verlauf row's 26px disc carries the Bereich (it replaced a chip that printed the same
     // word the sentence already carried). A glyph has to be LEARNED, so the drawer's head keeps
@@ -312,7 +314,7 @@ export const journalCopy = {
     searchClose: 'Suche schliessen',
     // «2 von 42» – matching rows of all rows, live while typing
     searchCount: '{n} von {m}',
-    searchEmpty: 'Nichts zu «{q}»',
+    // after the shared «Keine Treffer für «{q}».» (copy.noHits): what the search looked in
     searchEmptyHint: 'Gesucht wird im Text sowie in Namen von Personen und Trupps. Ein Tippfehler ist erlaubt.',
     // ── Filter ────────────────────────────────────────────────────────────────────────────
     // The funnel beside the lens (feat 37 · B, 23.09.2026). Its categories are NOT words of its
@@ -325,7 +327,7 @@ export const journalCopy = {
     filterAll: 'Alle zeigen',
     // the one-line strip under the head while a filter is on: «Gefiltert: Auftrag · Pendenz»
     filterActive: 'Gefiltert:',
-    filterEmpty: 'Keine Einträge in dieser Auswahl',
+    // after the shared «Keine Einträge in dieser Auswahl.» (copy.filterNoHits): the way out
     filterEmptyHint: '«Alle zeigen» hebt den Filter auf.',
     // ── Pendenzen ─────────────────────────────────────────────────────────────────────────
     // The ○ switch beside the Art chips. THREE states on one control; the accessible name says
@@ -333,8 +335,6 @@ export const journalCopy = {
     // ⚠️ `openStates[0]` is what the resting ring announces — «offen halten», an instruction, not
     // a status. The other two are statuses, because by then it is one.
     openStates: ['Offen halten', 'Bleibt offen – steht in den Pendenzen', 'Dringend – steht zuoberst'] as string[],
-    pendenzSaved: 'Pendenz erfasst',
-    pendenzUrgentSaved: 'Pendenz erfasst – dringend',
     // an undatierte Pendenz never called itself an Erinnerung, so its done row must not either
     pendenzDoneLog: 'Pendenz erledigt: {text}',
     pendenzReopenLog: 'Pendenz wieder offen: {text}',
@@ -349,8 +349,7 @@ export const journalCopy = {
     linkPendenzTitle: 'Meldung zu',
     pendenzNew: 'Neue Pendenz',
     pendenzNewUrgent: 'Dringende Pendenz',
-    pendenzNotOpen: 'Nicht offen halten',
-    noteSaved: 'Meldung erfasst',
+    pendenzNotOpen: 'Keine Pendenz',
     noteChip: 'Pendenz',
     noteOpen: 'Meldung erfassen',
     // the list's time column: when it was raised. Tapping it swaps the whole column to the age —
@@ -359,15 +358,28 @@ export const journalCopy = {
     // wrapped to three lines there and turned every row into a paragraph. The column is a toggle
     // between two readings of one instant, so the words are not what tells them apart — «21:58»
     // against «32′» could not be confused for each other if they tried.
-    ageLabel: '{n}′',
-    ageLabelHours: '{n} h',
-    ageToggle: 'Zeit / Alter umschalten',
     openState: 'offen',
     // the Pendenzen block's line under an item: who it is for (its assignee), and the mark of an
     // item typed on the Tafel's «Aufträge / Pendenzen» page — a tap opens that page
     pinnedWer: 'Wer: {wer}',
     fromTafel: 'von der Tafel',
     fromTafelTitle: 'Auf der Tafel eingetragen – tippen öffnet die Seite',
+    // the empty Verlauf names the button that fills it, in its own word (WORD.10, duck sweep LISTS.5)
+    emptyHint: 'Mit «Eintrag» eine Meldung, einen Auftrag oder ein Foto festhalten.',
+    // closing the composer dropped several picked files at once: ONE toast names them all
+    // (toast diet, 17.11.2026 – it was one pill per file)
+    attachDroppedMany: '{n} Dateien verworfen: {names}. Bitte neu auswählen.',
+    sectionRemoved: 'Abschnitt gelöscht',
+    markOpenTitle: 'Wieder als offen markieren',
+    legendPendenzOverdue: 'Erinnerung überfällig',
+    // the composer's compact row folds Aufnehmen · Datei · Foto into one paper-clip (M9 · A, 17.11.2026) – its name (aria / title)
+    attachMenu: 'Anhang',
+    // the empty Verlauf says what it is for, to every role (F12, 17.11.2026); a writer gets emptyHint after it
+    emptyFor: 'Hier entsteht der Ablauf des Einsatzes, Zeile um Zeile.',
+    // the Verlauf door's title / name while Pendenzen are open: it names the button AND what the number
+    // counts (W6-01, 17.11.2026) – the box head beside the word «Pendenzen» keeps the short openCount
+    openCountDoor: 'Verlauf – {n} Pendenzen offen',
+    openCountDoorOne: 'Verlauf – 1 Pendenz offen',
   },
   // ── The Tafel's «Aufträge / Pendenzen» page (05.11.2026, lib/pendenzenPage) ────────────────
   // A view on the Verlauf's Pendenzen and Erinnerungen: every act on the page appends a Verlauf
@@ -381,17 +393,17 @@ export const journalCopy = {
     editWas: 'Was: {v}',
     editWer: 'Wer: {v}',
     editWerCleared: 'Wer entfernt',
-    editUrgent: 'Prio. 1 (dringend)',
-    editNotUrgent: 'ohne Prio.',
+    editUrgent: 'dringend',
+    editNotUrgent: 'nicht mehr dringend',
     doneLog: 'Erledigt auf der Tafel: {text}',
     reopenLog: 'Auf der Tafel wieder offen: {text}',
     erteilt: 'Erteilt',
     erledigt: 'Erledigt',
     erinnerung: 'Erinnerung',
     overdue: 'überfällig',
-    prio: 'Prio. 1 – dringend',
-    prioOff: 'Prio. 1 (dringend) setzen',
-    prioOn: 'Prio. 1 (dringend) – tippen zum Entfernen',
+    prio: 'Dringend',
+    prioOff: 'Als dringend markieren',
+    prioOn: 'Dringend – tippen zum Entfernen',
     toVerlauf: 'Im Verlauf zeigen',
     // shown once, under a row just typed on the page: `{by}` is « · Name» or nothing
     saved: 'Als Pendenz im Verlauf eingetragen · {t}{by}',

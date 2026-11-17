@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { useState } from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { LeitungField } from './TruppSheets'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { AuftragSheet, LeitungField } from './TruppSheets'
+import type { Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 
@@ -29,5 +30,51 @@ describe('LeitungField · «Nr. …»', () => {
     fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${fillTemplate(az.lineChip, { n: 2 })}`) }))
     expect(screen.queryByRole('group', { name: az.lineTyped })).toBeNull()
     expect(screen.getByRole('button', { name: az.lineTyped })).toBeTruthy()
+  })
+})
+
+// rare-user F13 (17.11.2026): a Leitung on a Plan says the word, not a bare « · P»
+describe('LeitungField · a Leitung on a Plan', () => {
+  it('reads «Ltg 2 · Plan»', () => {
+    render(<Field />)
+    expect(screen.getByRole('button', { name: `${fillTemplate(az.lineChip, { n: 2 })} · ${az.lineOnPlan}` })).toBeTruthy()
+  })
+})
+
+// owner, 17.11.2026 (duck sweep CONT.3): a close with typed changes SAVES them; only «Abbrechen» drops
+describe('AuftragSheet · closing keeps what was typed', () => {
+  const t: Trupp = {
+    id: 't1', no: 2, name: 'Hirter Stephan', members: [], auftrag: 'loeschen', ziel: 'Keller',
+    entryPressureBar: 280, entryTime: '2026-09-26T20:00:00Z', lastContactTime: '2026-09-26T20:05:00Z', status: 'aktiv',
+  }
+  const open = () => {
+    const onSave = vi.fn(async () => true)
+    const onClose = vi.fn()
+    render(<AuftragSheet t={t} leitungOptions={[]} onSave={onSave} onClose={onClose} />)
+    return { onSave, onClose }
+  }
+  const type = (v: string) => fireEvent.change(screen.getByPlaceholderText(az.zielPlaceholder), { target: { value: v } })
+
+  it('✕ with a typed Ziel saves it, then closes', async () => {
+    const { onSave, onClose } = open()
+    type('Dachstock')
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.closeDialog }))
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ ziel: 'Dachstock' }))
+  })
+
+  it('✕ with nothing changed only closes', () => {
+    const { onSave, onClose } = open()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.closeDialog }))
+    expect(onClose).toHaveBeenCalled()
+    expect(onSave).not.toHaveBeenCalled()
+  })
+
+  it('«Abbrechen» throws the change away', () => {
+    const { onSave, onClose } = open()
+    type('Dachstock')
+    fireEvent.click(screen.getByRole('button', { name: az.cancel }))
+    expect(onClose).toHaveBeenCalled()
+    expect(onSave).not.toHaveBeenCalled()
   })
 })

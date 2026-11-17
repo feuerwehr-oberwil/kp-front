@@ -198,6 +198,8 @@ const SHARED_PATH_PROPS = [
   'color', 'width', 'dashed', 'arrow', 'arrowStop', 'marker', 'fillOpacity', 'hatch', 'locked',
   'teilstueck', 'content', 'lineNo', 'floorTag', 'showDistance',
   'label', 'truppId',
+  // a plain person on the Leitung (types · Drawing.person) – named on both surfaces' end tag
+  'person',
   // a Linie switched to a Wand on either surface stays one on the other (lib/grundriss · wallRolePatch)
   'role',
   // the Leitung's hose and Wassertransport assumptions (lib/hydraulics): the sheet only carries them

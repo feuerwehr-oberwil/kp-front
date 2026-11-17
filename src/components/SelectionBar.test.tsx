@@ -110,6 +110,17 @@ describe('SelectionBar · the one bar every selection is transformed from', () =
     expect(dial()!.getAttribute('aria-pressed')).toBe('false')
   })
 
+  // ELEM.1 (owner 17.11.2026): the grips carry their word, and the SAME word armed or not – the
+  // bar never re-flows under the finger that just armed it
+  it('shows «Verschieben» and «Drehen» on the grips, resting and armed alike', () => {
+    const words = () => screen.getAllByRole('button').map((b) => b.textContent)
+    const { rerender } = render(<SelectionBar onMove={() => {}} onRotate={() => {}} onArm={() => {}} />)
+    const resting = words()
+    expect(resting).toEqual([C.move, appConfig.copy.shapes.rotate])
+    rerender(<SelectionBar onMove={() => {}} onRotate={() => {}} onArm={() => {}} armed="rotate" />)
+    expect(words()).toEqual(resting)
+  })
+
   it('is exempt from the armed mode, so its own grips keep working while one is on', () => {
     render(<SelectionBar onMove={() => {}} armed="move" onArm={() => {}} />)
     expect(screen.getByRole('toolbar', { name: C.selectionBar }).hasAttribute('data-arm-exempt')).toBe(true)
@@ -119,5 +130,22 @@ describe('SelectionBar · the one bar every selection is transformed from', () =
     render(<SelectionBar onMove={() => {}} onRotate={() => {}} />)
     expect(grip().hasAttribute('data-holdaction')).toBe(true)
     expect(dial()!.hasAttribute('data-holdaction')).toBe(true)
+  })
+})
+
+// rare-user F18 (17.11.2026): ⌘D had no touch door – «Duplizieren» is a worded TAP on the bar
+describe('SelectionBar · Duplizieren', () => {
+  it('copies on a tap, and is not drawn where the surface does not offer it', () => {
+    const onDuplicate = vi.fn()
+    const onMove = vi.fn()
+    render(<SelectionBar onMove={onMove} onDuplicate={onDuplicate} />)
+    const btn = screen.getByRole('button', { name: C.duplicate })
+    expect(btn.textContent).toBe(C.duplicate)
+    fireEvent.click(btn)
+    expect(onDuplicate).toHaveBeenCalledTimes(1)
+    expect(onMove).not.toHaveBeenCalled()
+    cleanup()
+    render(<SelectionBar onMove={() => {}} />)
+    expect(screen.queryByRole('button', { name: C.duplicate })).toBeNull()
   })
 })

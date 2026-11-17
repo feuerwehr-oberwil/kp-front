@@ -87,6 +87,24 @@ export async function login(page: Page) {
  *  surface, 19.10.2026). Wait on this to know an Einsatz is open. */
 export const EINSATZ_RAIL = 'nav.navrail:not([data-karte] nav)'
 
+/** Put away the Gebäude card a device opens by itself on its first view of an Einsatz with a
+ *  building. It is a layer (owner, 17.11.2026, duck sweep CONT.1 – lib/overlays/layer): the first
+ *  tap beside it only closes it, so a spec whose first tap must ACT calls this first. Esc closes it
+ *  alone. A no-op where the Einsatz has no building. */
+export async function dismissFirstViewGebaeude(page: Page) {
+  const card = page.getByRole('dialog', { name: 'Gebäude' })
+  // it opens with the building answer, which brings the «Gebäude» button (chip on a tablet, the
+  // (i) tile on a phone) – wait for that first, so an Einsatz without a building costs no wait
+  const opener = page.getByRole('button', { name: /^Gebäude/ }).first()
+  await opener.waitFor({ state: 'visible', timeout: 12_000 }).catch(() => {})
+  // a fresh device opens it once the device's «read» list is in
+  if (await opener.isVisible()) await card.waitFor({ state: 'visible', timeout: 12_000 }).catch(() => {})
+  if (await card.isVisible()) {
+    await page.keyboard.press('Escape')
+    await expect(card).toHaveCount(0)
+  }
+}
+
 export async function ensureIncidentOpen(page: Page) {
   const navrail = page.locator(EINSATZ_RAIL)
 

@@ -10,7 +10,6 @@ const pictureRows = {
   'log.objectDeleted': de.log.objectDeleted,
   'log.drawingDeleted': de.log.drawingDeleted,
   'log.selectionDeleted': de.log.selectionDeleted,
-  'whiteboard.groupDeleted': de.whiteboard.groupDeleted,
   'whiteboard.groupDeletedN': de.whiteboard.groupDeletedN,
   'whiteboard.trailCleared': de.whiteboard.trailCleared,
   'whiteboard.floorRemoved': de.whiteboard.floorRemoved,

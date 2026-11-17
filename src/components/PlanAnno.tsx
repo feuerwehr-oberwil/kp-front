@@ -12,6 +12,7 @@ import { shownTeamColor } from '../lib/teamColors'
 import { DEFAULT_INK } from '../lib/lineStyle'
 import { lineLabel } from '../lib/lineDecor'
 import { teamNoTaken } from '../lib/placedTrupps'
+import { truppMarkerTone } from '../lib/truppLines'
 import { fillTemplate } from '../lib/format'
 import { toast } from '../lib/ui'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom, floorBadge } from '../lib/symbolRender'
@@ -87,6 +88,8 @@ export interface PlanAnnoBoard {
   /** the sheet's drawn annos — a chip's rename checks the names beside it, its pill lists its Leitungen */
   annos: BoardAnno[]
   trupps: Trupp[]
+  /** per-Trupp alarm tier – a chip wears its Trupp's (lib/truppLines · truppMarkerTone) */
+  truppSeverities?: Record<string, 1 | 2>
   activeId: string
   /** which note is mid-edit on the canvas — one checkpoint per editing session, board-wide */
   textEditId: React.MutableRefObject<string | null>
@@ -128,12 +131,15 @@ interface Props {
   editing: boolean
   trailShown: boolean
   board: PlanAnnoBoard
+  /** a fanned pile's screen-px offset for this chip (useWbChipDrag · fan); a hairline goes back
+   *  to its true point */
+  spoke?: { dx: number; dy: number }
 }
 
 /** One non-ink anno on the Plan, positioned in board px; see the file header. */
-export function PlanAnno({ a, selected, grouped, networked, editing, trailShown, board }: Props) {
+export function PlanAnno({ a, selected, grouped, networked, editing, trailShown, board, spoke }: Props) {
   const {
-    sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, activeId, textEditId,
+    sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, truppSeverities, activeId, textEditId,
     chipRef, chipDown, setEditId, setSelId, setNotePanelId, pushPast, patch, patchCommit, emit, log,
     teamNameTaken, onTeamTrupp, onTeamNewTrupp, onShowTrupp, markPosition, clearTrail, removeWithConnections, removeWithTrail,
     toggleTrail, rotDown, rotMove, rotUp,
@@ -148,7 +154,7 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
   return (
     <div
       ref={a.kind === 'resource' ? chipRef : undefined} data-chip-id={a.kind === 'resource' ? a.id : undefined}
-      className={`wb-anno wb-${a.kind}${networked ? ' network' : ''} ${selected || grouped ? 'sel' : ''}`}
+      className={`wb-anno wb-${a.kind}${networked ? ' network' : ''}${spoke ? ' fanned' : ''} ${selected || grouped ? 'sel' : ''}`}
       // transform positions the anchor at the (scaled) plan point. SYMBOLS hold a
       // constant screen size (symBase, zoom-independent — 30.08.: they are pins like
       // the map's, and «zoomed in» made them comically dwarf the building); shapes
@@ -164,7 +170,7 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
       // stays centred on its glyph.
       // a LOCKED shape is click-through, like a locked drawn Fläche: no tap, no drag,
       // no double-tap — the LockChip (own layer below) is the only door back in
-      style={{ left: 0, top: 0, transform: `translate(${(a.x ?? 0) * sW + noteShiftPx}px, ${mapY(a.floor, a.y ?? 0) * sH}px) translate(${a.kind === 'resource' ? `${selected ? -TEAM_PILL_CAP_PX : -TEAM_DOT_PX / 2}px` : '-50%'}, -50%)`, ['--gpx' as string]: `${a.kind === 'shape' ? (a.sizeN ?? 0.1) * sW * Math.max(1, shapeAspect(a.shape ?? 'square', a.aspect)) : symBase}px`, ...(a.kind === 'shape' && a.locked ? { pointerEvents: 'none' as const } : null) }}
+      style={{ left: 0, top: 0, transform: `translate(${(a.x ?? 0) * sW + noteShiftPx}px, ${mapY(a.floor, a.y ?? 0) * sH}px) translate(${a.kind === 'resource' ? `${selected ? -TEAM_PILL_CAP_PX : -TEAM_DOT_PX / 2}px` : '-50%'}, -50%)${spoke ? ` translate(${spoke.dx}px, ${spoke.dy}px)` : ''}`, ['--gpx' as string]: `${a.kind === 'shape' ? (a.sizeN ?? 0.1) * sW * Math.max(1, shapeAspect(a.shape ?? 'square', a.aspect)) : symBase}px`, ...(a.kind === 'shape' && a.locked ? { pointerEvents: 'none' as const } : null) }}
       onPointerDown={(e) => chipDown(e, a.id, a.floor)}
       // double-tap still opens the on-surface textarea; the panel steps aside so the
       // two editors for one text never stream keystrokes side by side.
@@ -173,9 +179,19 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
       // the blur that clears `editId` — a viewer's double-tap latched it for the whole
       // mount. The guard is the fix; do NOT mount the editor here instead (its blur
       // would commit a patch from a read-only session).
-      onDoubleClick={(e) => { if ((a.kind === 'text' || a.kind === 'resource') && tool === 'pan' && !readOnly) { e.stopPropagation(); setEditId(a.id); setSelId(a.id); if (a.kind === 'text') setNotePanelId(null) } }}
+      // …and a Trupp the Atemschutz board names (`truppId`) is not renamed here – its pill has no pen
+      // either, and the Lage's double tap skips it the same way (MapMarkers · namedDoubleTap)
+      onDoubleClick={(e) => { if ((a.kind === 'text' || (a.kind === 'resource' && !a.truppId)) && tool === 'pan' && !readOnly) { e.stopPropagation(); setEditId(a.id); setSelId(a.id); if (a.kind === 'text') setNotePanelId(null) } }}
     >
       {networked && !selected && <span className="network-halo" />}
+      {/* a fanned pile's hairline back to the chip's true point – the Lage's spoke (03-map ·
+          .fan-spoke); a Trupp chip's point is its dot, at the strip's left end */}
+      {spoke && (
+        <svg className="fan-spoke" aria-hidden style={a.kind === 'resource' ? { left: TEAM_DOT_PX / 2 } : undefined}>
+          <line x1="0" y1="0" x2={-spoke.dx} y2={-spoke.dy} />
+          <circle cx={-spoke.dx} cy={-spoke.dy} r="2.5" />
+        </svg>
+      )}
       {/* selection halo — the same accent ring the Lage map draws, so a selected
           symbol/shape reads identically on the plan (teams keep their own team-colour ring) */}
       {/* ⚠️ Symbols only (02.09.): a Form is selected to be worked with its own ends
@@ -299,11 +315,14 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
         // dims + strikes through, so the plan reflects that the team is out.
         const isRaus = !!a.truppId && trupps.some((t) => t.id === a.truppId && t.status === 'raus')
         const teamCol = shownTeamColor(a.color)
+        // the Trupp's alarm tier on its own chip, as on the Karte's marker (ENT.1)
+        const tone = truppMarkerTone(a.truppId, trupps, truppSeverities)
+        const toneCls = tone === 'warn' || tone === 'crit' ? ` tone-${tone}` : ''
         // parity with the Lage map: a compact dot + name at rest, expanding to the full
         // pill (cap · rename · time badge) only when the team is selected.
         if (!selected) {
           return (
-            <span className={`team-dot ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
+            <span className={`team-dot ${isRaus ? 'raus' : ''}${toneCls}`} style={{ '--team': teamCol } as React.CSSProperties}>
               <i /><b><span>{a.text}</span></b>
               {/* the storey, at rest as well as selected (18.09.2026): on a stack the
                   tile says it only to whoever is already looking at that tile */}
@@ -324,7 +343,7 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
         return (
           <TwinTeamPill
             name={a.text ?? ''} time={a.t} color={teamCol}
-            raus={isRaus} truppId={a.truppId} floor={stack ? a.floor ?? 0 : undefined}
+            raus={isRaus} truppId={a.truppId} floor={stack ? a.floor ?? 0 : undefined} tone={tone}
             trailCount={a.trail?.length ?? 0}
             trailShown={trailShown} trupps={trupps}
             renameRef={focusOnce}
@@ -340,7 +359,7 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
                   ? teamNameTaken(a.id, name)
                   : teamNoTaken(name, annos.filter((x) => x.kind === 'resource' && x.id !== a.id).map((x) => x.text))
                 if (name && name !== a.text && taken) {
-                  toast(fillTemplate(appConfig.copy.whiteboard.teamNameTaken, { name }), { icon: 'warn', tone: 'warn' })
+                  toast(fillTemplate(appConfig.copy.whiteboard.teamNameTaken, { name }), { icon: 'warn', tone: 'warn', kind: 'team-name-taken' })
                   return
                 }
                 patchCommit(a.id, { text: name || a.text })

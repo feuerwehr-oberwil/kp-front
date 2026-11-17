@@ -3,6 +3,9 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { act, cleanup, render } from '@testing-library/react'
 import { useNodeHold, NODE_HOLD_ARM_MS, NODE_HOLD_FIRE_MS, NODE_HOLD_MOVE_PX } from './nodeHold'
 import { installHoldTooltip } from './holdTooltip'
+import { buzz } from './haptics'
+
+vi.mock('./haptics', () => ({ buzz: vi.fn() }))
 
 // The hold is the ONE gesture that removes geometry, so its three promises are worth pinning:
 // nothing shows before it arms, a drag never arms it, and letting go early does nothing.
@@ -47,6 +50,17 @@ describe('useNodeHold', () => {
     expect(fire).not.toHaveBeenCalled()
     act(() => { vi.advanceTimersByTime(150) })
     expect(fire).toHaveBeenCalledTimes(1)
+  })
+
+  // FEEDBACK.9 (17.11.2026): node delete, «Entsperren» and the Notfall tile give THE hold buzz
+  it('buzzes through the one helper as it fires, not while the ring is still filling', () => {
+    vi.mocked(buzz).mockClear()
+    const { getByTestId } = render(<Harness onFire={() => {}} />)
+    act(() => { down(getByTestId('node')) })
+    act(() => { vi.advanceTimersByTime(NODE_HOLD_FIRE_MS - 100) })
+    expect(buzz).not.toHaveBeenCalled()
+    act(() => { vi.advanceTimersByTime(150) })
+    expect(buzz).toHaveBeenCalledTimes(1)
   })
 
   it('a drag cancels it silently — past the tolerance it is a reshape, not a delete', () => {

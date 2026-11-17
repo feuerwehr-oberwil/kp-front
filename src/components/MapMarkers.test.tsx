@@ -7,7 +7,7 @@
  * marker's square long-side pad, and the box left for the pad is the shape's own, per axis.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import type { Entity, LngLat } from '../types'
@@ -164,13 +164,24 @@ describe('a Trupp marker that is joined, loose, or docked', () => {
   const trupps = [{ id: 'T1', name: 'Frei Nina', no: 4, status: 'aktiv' }] as never
   const badge = (over = {}) => new Map([['e1', { lineId: 'd1', lineNo: 2, color: '#1f6feb', tone: 'idle' as const, coupled: true, ...over }]])
 
-  const showTeam = (entities: Entity[], selectedId: string | null, teamLines?: Map<string, never>) => render(
+  const showTeam = (entities: Entity[], selectedId: string | null, teamLines?: Map<string, never>, truppSeverities?: Record<string, 1 | 2>) => render(
     <MapMarkers entities={entities} byName={{}} isVisible={() => true} selectedId={selectedId}
       zoom={18} draggable project={() => ({ x: 0, y: 0 })} unproject={() => at} setDragPan={() => {}}
       onSelect={() => {}} onMarkerDragStart={() => {}} onMarkerMove={() => {}} onMarkerDragEnd={() => {}}
       onDelete={() => {}} onShapeTransform={() => {}} trupps={trupps}
-      teamLines={teamLines as never} onTeamUnlink={() => {}} />,
+      teamLines={teamLines as never} onTeamUnlink={() => {}} truppSeverities={truppSeverities} />,
   )
+
+  // ENT.1 (17.11.2026): a Trupp in trouble says so on its own marker, even on no hose
+  it('wears its Trupp\'s alarm tier at rest and selected, with no Leitung needed', () => {
+    const rest = showTeam([team()], null, undefined, { T1: 2 })
+    expect(rest.container.querySelector('.team-dot')?.className).toContain('tone-crit')
+    rest.unmount()
+    const sel = showTeam([team()], 'e1', undefined, { T1: 1 })
+    expect(sel.container.querySelector('.wb-resource-pill')?.className).toContain('tone-warn')
+    sel.unmount()
+    expect(showTeam([team()], null).container.querySelector('.team-dot')?.className).not.toContain('tone-')
+  })
 
   // 11.10.2026: the Leitung number and the coupling stub left the resting marker
   it('a joined Trupp\'s resting marker is its name alone – no Leitung number', () => {
@@ -202,12 +213,17 @@ describe('a Trupp marker that is joined, loose, or docked', () => {
     expect(pill.querySelector(':scope > *')?.className).toBe('wb-resource-cap')
   })
 
-  it('offers one «Lösen» glyph on a joined pill – and nothing to break when loose', () => {
-    const { container } = showTeam([team()], 'e1', badge() as never)
-    const btn = container.querySelector('.wb-pa-unlink')
-    expect(btn?.getAttribute('aria-label')).toBe(appConfig.copy.contextPanel.dockedRelease)
-    expect(container.querySelector('.wb-pa-join-lbl')).toBeNull()
-    expect(showTeam([team()], 'e1').container.querySelector('.wb-pa-unlink')).toBeNull()
+  // «Lösen» is a row of the bar's «Mehr» since rare-user round 2 (M12, 17.11.2026)
+  it('offers one «Lösen» on a joined pill – and nothing to break when loose', () => {
+    const lösen = () => {
+      fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.barMore }))
+      return screen.queryAllByRole('menuitem', { name: appConfig.copy.contextPanel.dockedRelease })
+    }
+    const joined = showTeam([team()], 'e1', badge() as never)
+    expect(lösen()).toHaveLength(1)
+    joined.unmount()
+    showTeam([team()], 'e1')
+    expect(lösen()).toHaveLength(0)
   })
 })
 
@@ -273,5 +289,37 @@ describe('a symbol carrying docked Trupps, and the Trupps on its corner', () => 
     const team = markerOf(container, '.team-dot')
     expect(team.getAttribute('data-at')).toBe('7.9,47.9')
     expect(team.getAttribute('data-offset')).toBe(`${-TEAM_DOT_PX / 2},0`)
+  })
+})
+
+// GESTURES.10 (17.11.2026): a double tap on a named chip opens its name on the Lage as on the
+// Plan – counted from the marker's own taps, since iOS rarely sends `dblclick` to a DOM marker
+describe('a double tap on a Trupp marker', () => {
+  const loose = { id: 'e1', kind: 'team', layer: 'lage', coord: at, label: 'Trupp 3' } as Entity
+  const tap = (el: Element) => {
+    fireEvent.pointerDown(el, { clientX: 50, clientY: 50, pointerId: 1, isPrimary: true, pointerType: 'touch' })
+    fireEvent.pointerUp(window, { clientX: 50, clientY: 50, pointerId: 1, pointerType: 'touch' })
+  }
+  const showLoose = (e: Entity, onSelect = vi.fn()) => render(
+    <MapMarkers entities={[e]} byName={{}} isVisible={() => true} selectedId={e.id}
+      zoom={18} draggable project={() => ({ x: 0, y: 0 })} unproject={() => at} setDragPan={() => {}}
+      onSelect={onSelect} onMarkerDragStart={() => {}} onMarkerMove={() => {}} onMarkerDragEnd={() => {}}
+      onDelete={() => {}} onShapeTransform={() => {}} onTeamRename={() => {}} />,
+  )
+
+  it('opens the rename field of a Trupp the board does not name', () => {
+    const { container } = showLoose(loose)
+    const marker = container.querySelector('.marker')!
+    tap(marker)
+    expect(container.querySelector('.wb-resource-pill input')).toBeNull() // one tap only selects
+    tap(marker)
+    expect(container.querySelector('.wb-resource-pill input')).toBeTruthy()
+  })
+
+  it('…and leaves a Trupp the Atemschutz board names alone – it has no pen either', () => {
+    const { container } = showLoose({ ...loose, truppId: 'T1' })
+    const marker = container.querySelector('.marker')!
+    tap(marker); tap(marker)
+    expect(container.querySelector('.wb-resource-pill input')).toBeNull()
   })
 })

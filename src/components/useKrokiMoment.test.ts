@@ -2,7 +2,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
-import { toast } from '../lib/ui'
 import type { Entity, TimelineEvent } from '../types'
 import { initialKrokiAt, useKrokiMoment } from './useKrokiMoment'
 
@@ -12,7 +11,6 @@ vi.mock('../lib/replay', async (orig) => ({
   stateAt: vi.fn(),
   vehiclesAt: vi.fn(() => []),
 }))
-vi.mock('../lib/ui', () => ({ toast: vi.fn() }))
 
 const T0 = Date.parse('2026-10-24T20:00:00Z')
 const AT = T0 + 30 * 60_000
@@ -73,13 +71,16 @@ describe('useKrokiMoment', () => {
     expect(veh?.symbolSvg).toContain('>TLF</text>')
   })
 
+  // toast diet, 17.11.2026: said at the Stand row (`atFailed`, KrokiFramingPanel), not as a toast
   it('a reconstruction that fails says so and falls back to live — no caption', async () => {
     vi.mocked(stateAt).mockRejectedValue(new Error('no snapshot'))
     const { result } = hook({ initialAt: AT })
     await waitFor(() => expect(result.current.busy).toBe(false))
     expect(result.current.pastScene).toBeNull()
     expect(result.current.printedAt).toBeNull()
-    expect(toast).toHaveBeenCalledTimes(1)
+    expect(result.current.atFailed).toBe(true)
+    act(() => result.current.setAt(null))
+    expect(result.current.atFailed).toBe(false)
   })
 
   it('back to live drops the past Lage; the bundle is loaded once for every instant after', async () => {
@@ -104,9 +105,10 @@ describe('useKrokiMoment', () => {
   it('a bundle that failed to load is asked for again on the next instant', async () => {
     vi.mocked(loadReplay).mockRejectedValueOnce(new Error('offline'))
     const { result } = hook({ initialAt: AT })
-    await waitFor(() => expect(toast).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(result.current.atFailed).toBe(true))
     act(() => result.current.setAt(AT + 60_000))
     await waitFor(() => expect(result.current.pastScene).not.toBeNull())
+    expect(result.current.atFailed).toBe(false)
     expect(loadReplay).toHaveBeenCalledTimes(2)
   })
 

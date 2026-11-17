@@ -14,12 +14,11 @@ import { circlePolygon } from '../lib/geo'
 import { TacticalSymbol } from '../lib/symbolRender'
 import { SHAPE_DEFS, SHAPE_MAX_PX, ShapeGlyph, shapeAspect } from '../lib/shapes'
 import { EndTag, TeilstueckFork, hasLineDecor } from '../lib/lineDecor'
-import { truppForLine, truppTagText } from '../lib/truppLines'
 import { lerpPoint } from '../lib/lineStyle'
 import { OnOff, Segmented } from './Segmented'
 import { IconButton } from './Button'
 import { Slider } from './Slider'
-import { krokiEntity, krokiSymbolMul } from '../lib/krokiPayload'
+import { krokiEntity, krokiSymbolMul, paperTagWho } from '../lib/krokiPayload'
 import { drawnPumpEntities } from '../lib/linePumps'
 import { forkBearing, pxPerM, shapePx, symPx, worldPx } from '../lib/mapView'
 import { ensureHatchImage, ensureHatchImages, hatchImageColor } from '../lib/draw'
@@ -98,7 +97,7 @@ function tagNormal(coords: LngLat[]): [number, number] {
   return [nx, ny]
 }
 
-export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false, onAtChange, moments = [], startedAtMs = null, landscape = false, onLandscapeChange, trupps = [], captionMode = 'auto', onViewChange }: {
+export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false, atFailed = false, onAtChange, moments = [], startedAtMs = null, landscape = false, onLandscapeChange, trupps = [], captionMode = 'auto', onViewChange }: {
   scene: { entities: Entity[]; drawings: Drawing[]; layers: LayerDef[]; byName: Record<string, string>; center: LngLat }
   /** the crop this panel opens on — the last one chosen for this Einsatz, else auto-fit */
   initial: KrokiView | null
@@ -107,6 +106,8 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
    *  asks what the picture shows rather than behind a fold two levels away. */
   atMs?: number | null
   atBusy?: boolean
+  /** the Lage for `atMs` could not be rebuilt – the live picture prints; said under the Stand row */
+  atFailed?: boolean
   onAtChange?: (ms: number | null) => void
   /** epoch-ms of every moment something actually happened (lib/replay · activityMoments) —
    *  drawn as hairlines on the Stand track so dragging is aimed rather than blind */
@@ -242,12 +243,12 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
       // therefore showing a position that cannot come out. Same anchor as the paper here; making
       // the paper follow the hand instead is a payload + server change, not a preview one.
       const tagAt = lerpPoint(d.coords[n - 2], end, 0.72) as LngLat
-      const trupp = truppForLine(d, trupps)
+      const who = paperTagWho(d, trupps)
       return {
-        d, end, tagAt, trupp, tagN: tagNormal(d.coords as LngLat[]),
+        d, end, tagAt, who, tagN: tagNormal(d.coords as LngLat[]),
         color: d.color || appConfig.drawing.defaultColor,
         width: d.width || 4,
-        hasTag: hasLineDecor(d) || !!trupp,
+        hasTag: hasLineDecor(d) || !!who,
       }
     }), [scene.drawings, drawingsVisible, trupps])
 
@@ -526,7 +527,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
                         the scale, so it shrinks with everything else. */}
                     <div className="kf-print-scale" style={{ transform: `scale(${printScale}) translate(calc(${(ld.tagN[0] * 50).toFixed(2)}% + ${(ld.tagN[0] * (ld.width / 2 + 7)).toFixed(2)}px), calc(${(ld.tagN[1] * 50).toFixed(2)}% + ${(ld.tagN[1] * (ld.width / 2 + 7)).toFixed(2)}px))` }}>
                       <EndTag lineNo={ld.d.lineNo} content={ld.d.content} floorTag={ld.d.floorTag}
-                        trupp={ld.trupp ? truppTagText(ld.trupp) : undefined} tone="idle" color={ld.color} oneLine />
+                        who={ld.who} tone="idle" color={ld.color} oneLine />
                     </div>
                   </Marker>
                 )}
@@ -727,6 +728,11 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
             <span className="kf-at-wait" aria-hidden="true">{atBusy && <ShellLoader />}</span>
             <b className="kf-at-val">{label}</b>
           </div>
+        )}
+        {onAtChange && atFailed && (
+          <p className="form-warn form-warn-amber form-warn-compact" role="status">
+            <Icon id="warn" /><span className="form-warn-text">{P.krokiAtFailed}</span>
+          </p>
         )}
         {/* «Folgt der Karte» joins the ± pair: all three answer «show me more / less / all
             of it», and the old action row they were split across is gone with the confirm. */}

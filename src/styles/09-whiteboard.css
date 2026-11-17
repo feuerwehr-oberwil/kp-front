@@ -217,7 +217,6 @@
 .pp-list { flex: 1 1 60%; overflow-y: auto; scrollbar-width: thin; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .pp-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid transparent;
   border-radius: var(--r-ctl); background: var(--surface-2); cursor: pointer; font-family: var(--body); text-align: left; color: var(--ink); }
-.pp-row.hover { background: var(--blue-8); border-color: var(--blue-16); }
 @media (hover: hover) {
   .pp-row:hover { background: var(--blue-8); border-color: var(--blue-16); }
 }
@@ -225,18 +224,19 @@
 /* a picked row is --sel-wash and nothing else (29.09.2026) — the blue ring on top was a second
    channel for the one fact; the ✓ stays as the cue that is not a colour */
 .pp-row.on { background: var(--sel-wash); }
+/* «Anderes Objekt» rows are THE ListRow now (PlanPicker, LISTS.7/8). The object on the Plan now is
+   the pick-one list's current row: wash + the trailing ✓ (LISTS.9). What else this sheet adds is
+   the mini-map's hover: the pin under the pointer lights its row the way a hover does */
+.pp-list .list-row.pp-current { background-color: var(--sel-wash); }
+.pp-list .list-row.pp-hover:not(.pp-current) { background-color: var(--fill-soft); }
+.pp-row-tick { width: 18px; height: 18px; margin-left: var(--sp-2); vertical-align: middle; color: var(--sel); }
 /* ⚠️ The two columns share ONE line grid (owner-r2-4, 27.09.2026): 18px for the name line, 16px
    for the address line, a 2px gap in both. Each side used to take its own font's line box and
    the right one a 3px gap, so «0 m» stood ~2px above the name's line and «4 Pläne» drifted the
    other way against the address — three values on a row and no two on a line. */
 .pp-row-main { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .pp-row-main b { font-size: var(--fs-2); line-height: 18px; font-weight: var(--fw-bold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pp-row-addr { font-size: var(--fs-1); line-height: 16px; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pp-row-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none; }
-.pp-dist { font-family: var(--mono); font-size: var(--fs-micro); line-height: 18px; color: var(--ink-dim); }
-/* «3 Pläne» is a count, so ink-dim – never the blue of «chosen» (style sweep T2, 15.11.2026) */
-.pp-mods { font-size: var(--fs-micro); line-height: 16px; font-weight: var(--fw-bold); color: var(--ink-dim); }
-.pp-mods-none { color: var(--ink-faint); font-weight: var(--fw-medium); }
 .pp-map { flex: 1 1 46%; position: relative; min-height: 380px; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--glass-edge); }
 .pp-map .maplibregl-map { width: 100%; height: 100%; }
 /* the ⓘ in the corner, just above the note (owner, 22.10.2026: it stood halfway up the map; beside
@@ -323,6 +323,9 @@
    one is raised above it (z 6) and ate the placing tap. Every anno is pointer-transparent while
    a placement is armed, and live again the moment the tool changes. */
 .wb-canvas.placing .wb-anno, .wb-canvas.tool-resource .wb-anno { pointer-events: none; }
+/* a fanned pile (useWbChipDrag · fan, GESTURES.9): the chips stand on their spokes above the
+   rest, as the Lage's do (03-map · .marker.fanned, whose .fan-spoke hairline they share) */
+.wb-anno.fanned { z-index: 7; }
 /* Zoom is done by LAYOUT (the board's box is sized fit × scale in Whiteboard),
    so content re-rasterizes crisply at each zoom level. The transform here is
    translate-only — will-change is safe and keeps panning a cheap GPU shift of a
@@ -478,9 +481,16 @@
 /* Narrow strip (18.09.2026): chip + name and nothing else. «einblenden» was cut off to «einb…» at
    this size and the eye it pairs with is gone from the headers above, so the STRIP is the button —
    dashed and dimmed it still reads as a hidden storey, and its aria-label says «… einblenden». */
+/* With a Trupp on the storey (M7 = B, 17.11.2026) the narrow strip keeps the Trupp's chip AND the
+   eye – the one new fact and the sign that this is a way back – and sheds only the verb. */
 @container (max-width: 359px) {
-  .wb-floor-folded-state, .wb-floor-folded-cta { display: none; }
+  .wb-floor-folded-state, .wb-floor-folded-verb { display: none; }
+  .wb-floor-folded:not(:has(.wb-floor-folded-team)) .wb-floor-folded-cta { display: none; }
 }
+/* the Trupp's chip on the strip: the plan's `.team-dot`, its tone included; it never shrinks
+   below its name – the storey name gives way first (its ellipsis) */
+.wb-floor-folded-team { flex: 0 1 auto; min-width: 0; }
+.wb-floor-folded-team b { overflow: hidden; text-overflow: ellipsis; }
 .wb-floor-folded-cta .i { width: 13px; height: 13px; stroke-width: 2; }
 @media (hover: hover) {
   .wb-floor-folded:hover { background: color-mix(in srgb, var(--board-bg) 70%, var(--ink) 10%); }
@@ -518,13 +528,8 @@
 .wb-readings section { position: absolute; left: 0; right: 0; overflow-y: auto; padding: var(--sp-1) 0;
   border-radius: var(--r-sm); background: var(--glass); border: 1px solid var(--glass-line); box-shadow: var(--e3); pointer-events: auto; }
 .wb-readings h4 { margin: 0; padding: var(--sp-1) var(--sp-3); font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-/* --tap rows (style sweep T4, 15.11.2026 – they were 36px) */
-.wb-readings button { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: var(--tap); padding: 0 var(--sp-3);
-  border: 0; border-top: 1px solid var(--border-soft); background: none; color: var(--ink); font: var(--fw-medium) var(--fs-1) var(--body); text-align: left; cursor: pointer; }
-.wb-readings button > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (hover: hover) {
-  .wb-readings button:hover { background: var(--hover); }
-}
+/* the rows are THE ListRow, rail density (--tap), the Messungen chip's row (LISTS.8, 17.11.2026) */
+.wb-readings .list-card { padding: 0 var(--sp-1); }
 
 /* (.wb-north-dial / -btn / -ring / -needle / -n are gone, 30.08.: the north dial was drawn ON the
    topmost storey tile, so it panned and zoomed with the paper. It is a tile in the plan rail's
@@ -710,24 +715,24 @@ span.wb-ghost-label { cursor: default; }
   .wb-pa:hover:not(:disabled) { background: color-mix(in srgb, var(--on-accent-ink) 28%, transparent); }
 }
 .wb-pa .i { width: 16px; height: 16px; }
+/* ── worded (rare-user M10, owner 17.11.2026) ── with «Beschriftung» on (TwinTeamPill · `worded`)
+   every button is the worded dock tile's column: a glyph band over its word, in the rails' word
+   voice. `width: max-content` because the anchor is the tiny marker – a shrink-to-fit bar would
+   stack every button. Its three buttons (M12) fit one row at 390 px; the wrap is only the guard
+   against running off a narrower screen. */
+.wb-pill-acts.worded { width: max-content; max-width: calc(100vw - 16px); flex-wrap: wrap; justify-content: center; }
+.wb-pill-acts.worded .wb-pa { width: auto; min-width: 56px; height: 52px; padding: 0 var(--sp-2);
+  grid-template-rows: 18px auto; align-content: center; gap: 2px; }
+.wb-pa-word { font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 1.1; white-space: nowrap; }
 /* ⚠️ Every action on this bar wears the bar's ONE neutral wash (29.09.2026, sweep K3). «Position
    markieren» was a --blue fill and «Bei den Trupps zeigen» a --green one: blue means «chosen»
-   (--sel) and green the Eintritt tone, so three colours in five icon-only buttons said nothing
-   about which to press. The bin keeps THE delete outline (below); the rename pen, while its field
-   is open, is a pressed toggle and wears the docks' «on» (.wb-dock-tog.on). */
-/* ⚠️ the bin was a red FILL (28.09.2026: red never fills an action) — THE delete outline, lifted
-   for the dark bar: the red edge and a light red ink, on the bar's own wash (as the Suche card) */
-.wb-pa-del { color: color-mix(in srgb, var(--red) 60%, var(--on-accent-ink)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 55%, transparent); }
-@media (hover: hover) {
-  .wb-pa-del:hover:not(:disabled) { background: var(--red-22); }
-}
-.wb-pa-edit { background: var(--sel); color: var(--on-sel); }
-@media (hover: hover) {
-  .wb-pa-edit:hover:not(:disabled) { background: var(--sel); filter: brightness(1.08); }
-}
-/* the panel hangs under the bar, so it flips with it — one measurement, carried by the sibling */
-.wb-pill-acts[data-flip="up"] ~ .wb-resource-connections { top: auto; bottom: calc(100% + 62px); }
-.wb-resource-connections { position: absolute; top: calc(100% + 62px); left: 50%; z-index: 7;
+   (--sel) and green the Eintritt tone, so colours on the bar said nothing about which to press.
+   The delete and the rename live in «Mehr» since rare-user round 2 (M12), so no button here wears
+   the delete outline or a pressed fill. */
+/* the panel hangs under the bar, so it flips with it — one measurement, carried by the sibling;
+   `--acts-h` is the bar's measured height (TwinTeamPill · useBarPlacement), taller once worded */
+.wb-pill-acts[data-flip="up"] ~ .wb-resource-connections { top: auto; bottom: calc(100% + 6px + var(--acts-h, 56px)); }
+.wb-resource-connections { position: absolute; top: calc(100% + 6px + var(--acts-h, 56px)); left: 50%; z-index: 7;
   /* the bar's sideways nudge, written by components/TwinTeamPill · useBarPlacement */
   transform: translateX(calc(-50% + var(--acts-dx, 0px)));
   width: min(290px, 70vw); padding: var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-ctl);
@@ -750,7 +755,10 @@ span.wb-ghost-label { cursor: default; }
 .wb-trupp-pick { width: min(300px, calc(100vw - 32px)); max-height: 70dvh; overflow-y: auto;
   background: var(--glass); backdrop-filter: blur(16px);
   border-radius: var(--r-surface); box-shadow: var(--e4); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
-.wb-trupp-pick-head { font: var(--sheet-title); color: var(--ink); padding: var(--sp-1) var(--sp-3) var(--sp-2); }
+/* …with THE head ✕ «Schliessen» at its end (duck sweep CONT.10, 17.11.2026): on a tablet it is a
+   centred card, and its scrim had been the only way out */
+.wb-trupp-pick-head { font: var(--sheet-title); color: var(--ink); padding: var(--sp-1) 0 var(--sp-2) var(--sp-3);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .wb-trupp-opt { display: flex; align-items: center; gap: var(--sp-2); border: 1px solid var(--glass-edge); background: var(--surface-2, #fff);
   border-radius: var(--r-ctl); cursor: pointer; padding: var(--sp-3); font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); min-height: 48px; text-align: left; }
 @media (hover: hover) {
@@ -845,6 +853,22 @@ span.wb-ghost-label { cursor: default; }
 .team-dot.raus :is(b, .team-floor) > span { opacity: var(--done-opacity); }
 /* …and its track wears the same (.map-trail-dot.raus, with the Plan's breadcrumbs above): the whole
    out-Trupp group recedes together, not a dim marker beside a live-looking «15:15» */
+/* The Trupp's alarm tier ON its own marker (ENT.1, 17.11.2026 – lib/truppLines · truppMarkerTone):
+   `tone-warn` = Kontakt fällig / Alarmdruck (the board's amber), `tone-crit` = überfällig or Notfall
+   (its red) – so a Trupp in trouble reads as such on the Karte and the Plan even on no hose. The
+   same grammar as its Leitung's end tag (.line-end-tag.tone-*): the plate tinted, the box ringed,
+   NO animation (the board raises the alarm; the picture says WHERE). The dot keeps its surface halo
+   and gains a ring in the tier outside it; the name plate the tint and a tier edge. Box-shadow
+   only, so the 16px box the label pass books (TEAM_DOT_PX) does not grow. An out Trupp is never
+   toned (`muted`), so this never fights the `raus` dim. */
+.team-dot.tone-warn i { box-shadow: 0 0 0 2px var(--amber), var(--e0); }
+.team-dot.tone-crit i { box-shadow: 0 0 0 3px var(--red), var(--e0); }
+.team-dot.tone-warn b { background: color-mix(in srgb, var(--amber) 16%, var(--label-bg)); box-shadow: inset 0 0 0 1.5px var(--amber), var(--label-plate); }
+.team-dot.tone-crit b { background: color-mix(in srgb, var(--red) 18%, var(--label-bg)); box-shadow: inset 0 0 0 1.5px var(--red), var(--label-plate); }
+/* …and the selected pill (components/TwinTeamPill): the same tint and edge; the selection ring
+   in the team's colour stays outside it */
+.wb-resource-pill.tone-warn { background: color-mix(in srgb, var(--amber) 14%, var(--surface)); border-color: var(--amber); }
+.wb-resource-pill.tone-crit { background: color-mix(in srgb, var(--red) 16%, var(--surface)); border-color: var(--red); }
 .wb-resource-input { border: none; outline: none; background: var(--blue-8); border-radius: var(--r-xs); font-family: var(--body);
   font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--ink); width: 76px; padding: 2px var(--sp-1); }
 /* the ✕ that empties the name field — pill-sized (the form's 44px ClearableInput would be
@@ -906,7 +930,11 @@ span.wb-ghost-label { cursor: default; }
   flex-wrap: nowrap; max-height: calc(100dvh - 168px); overflow-y: auto; overflow-x: hidden;
   scrollbar-width: thin; scrollbar-color: var(--ink-22) transparent;
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink);
-  border-radius: var(--r-bar); padding: var(--bar-pad);
+  border-radius: var(--r-bar); padding: var(--bar-pad); }
+/* The neutral bar control's plate, for every bar that wears it: the docks AND the selection bar
+   (`.sel-bar`, 11-measure – a sibling of the dock, not inside it, so a token declared on
+   `.wb-dock` alone left its ✥ ⟳ transparent at rest; button sweep CHROME.5, 17.11.2026). */
+.wb-dock, .sel-bar {
   --dock-control-bg: color-mix(in srgb, var(--ink) 7%, var(--surface));
   --dock-control-hover: color-mix(in srgb, var(--ink) 13%, var(--surface)); }
 .wb-dock::-webkit-scrollbar { width: 6px; }
@@ -1036,6 +1064,13 @@ span.wb-ghost-label { cursor: default; }
 .armed-pill-x { pointer-events: auto; justify-content: center; width: var(--tap); padding: 0; color: var(--ink-dim); cursor: pointer; flex: none; }
 .armed-pill-x .i { width: 18px; height: 18px; }
 .armed-pill-x:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* …and where the bottom-left row reaches the middle – the Tafel's page strip – the pill stands one
+   row ABOVE it, never on it (rare-user r2 F5, 17.11.2026: it covered the pages). The dock's ⓘ card
+   follows the same rule (DockInfo.module.css). The phone places its rows by measuring
+   (lib/floatRow), so this is the bigger screens' rule. */
+@media (--not-phone) {
+  .whiteboard:has(.wb-botleft > .tps) .armed-pill-row { bottom: calc(16px + var(--float-h) + var(--float-gap)); }
+}
 @media (hover: hover) { .armed-pill-x:hover { color: var(--ink); } }
 .armed-pill-lock:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) { .armed-pill-lock:not(.on):hover { color: var(--ink); } }
@@ -1217,11 +1252,15 @@ span.wb-ghost-label { cursor: default; }
   .wb-scale-chip:hover:where(:not(:disabled)) svg:not(.wb-chip-chev) { color: var(--ink); }
   /* …and the chip itself: a wash OVER its glass (an image, so .arm's lit fill stays under it) –
      the glyph alone was the hover, and a chip with a lamp has none (20.10.2026) */
-  .wb-scale-chip:hover:where(:not(:disabled):not(.wb-scale-status)) { background-image: linear-gradient(var(--hover), var(--hover)); }
+  .wb-scale-chip:hover:where(:not(:disabled):not(.wb-scale-status):not(.wb-chip-ro)) { background-image: linear-gradient(var(--hover), var(--hover)); }
 }
-/* …and a pill with nowhere to go is a read-out (`disabled`): the `.wb-object:disabled` recipe —
-   full opacity, its own words and tone, no hover, no touch pad. */
+/* …and a pill with nowhere to go is a READ-OUT (duck sweep ELEM.3, 17.11.2026): a <span>, not a
+   disabled button – the floating material it stands on (it reads over the plan), but none of a
+   control's cues: regular weight, the secondary ink, no lamp or chevron, no hover. The Objekt chip
+   with no job, the Karte's «Auf dem Gerät» status beside «‹ Zurück». The Gebäude stack's locked
+   name keeps `disabled` (a read-out by the same rule, full opacity). */
 .wb-scale-chip:disabled { cursor: default; opacity: 1; }
+.wb-scale-chip:is(.wb-chip-ro, .wb-scale-status) { cursor: default; font-weight: var(--fw-regular); color: var(--ink-dim); }
 /* R1 (owner, 27.10.2026): chips that say one thing together share ONE glass – the Objekt with its
    Gebäude-Info (Whiteboard · .wb-join). The group wears the family's
    glass; its chips give theirs up and are split by a hairline, each still its own tap. Colour only
@@ -1252,7 +1291,7 @@ span.wb-ghost-label { cursor: default; }
   .wb-scale-persist { left: 10px; right: 10px; bottom: calc(var(--float-bottom) + var(--float-h) + var(--float-gap));
     max-width: none; flex-wrap: wrap; }
 }
-/* armed (calibrating, or its Passung open) = the chip is LIT, the way an armed tile of the tool
+/* armed (its Plan sheet or card open) = the chip is LIT, the way an armed tile of the tool
    bar is: a quiet blue wash mixed INTO the glass (never a see-through tint — see below) and a
    blue glyph. Not a ring (26.09.2026). */
 .wb-scale-chip.arm { background: color-mix(in srgb, var(--blue) 14%, var(--float-bg)); }

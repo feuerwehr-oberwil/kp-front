@@ -34,8 +34,8 @@ const STATES: State[] = [
   { name: 'trupps-tablet', device: TABLET, surface: 'atemschutz' },
   { name: 'trupps-phone', device: PHONE, surface: 'atemschutz' },
   { name: 'verlauf-phone', device: PHONE, surface: 'map', then: async (page) => {
-    // TopBar's Verlauf toggle — named «6 offen» while Pendenzen are open, so found by its role
-    await page.locator('button.tb-act[aria-pressed]').first().click()
+    // TopBar's Verlauf toggle — named «Verlauf – 6 Pendenzen offen» while Pendenzen are open, so found by its role
+    await page.locator('button.tb-act[aria-expanded]').first().click()
     await page.locator('.journal-drawer').waitFor()
   } },
   { name: 'rapport-tablet', device: TABLET, surface: 'rapport', then: rapportOpen },

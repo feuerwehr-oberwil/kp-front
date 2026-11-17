@@ -7,9 +7,9 @@ import type { PlanDocument } from '../types'
 import { RAIL_COMPACT, RAIL_LABELLED, RAIL_WIDE, foldPlanTiles, railMonoMax } from '../lib/navRail'
 import { RAPPORT_PAGES, type RapportPage } from '../lib/rapportPages'
 import { useRail } from '../lib/useRail'
-import { useLongPress } from '../lib/useLongPress'
+import { LONG_PRESS_MS, useLongPress } from '../lib/useLongPress'
+import { HoldChargeRing } from './HoldTargets'
 import { markChooserOffered, offerChooser } from '../lib/chooserOffer'
-import { buzz } from '../lib/haptics'
 import { PlanChooser } from './PlanChooser'
 import { PlanGlyph } from './PlanGlyph'
 import { GroupChooser, type GroupRow } from './GroupChooser'
@@ -148,12 +148,14 @@ export function NavRail(p: Props) {
    *  release. Cleared at the START of every press, so a hold whose click never lands (a finger
    *  that slid off) cannot swallow the next tap. */
   const held = useRef(false)
-  const holdProps = hold.press(() => { held.current = true; buzz(); setChooser(true) })
+  const holdProps = hold.press(() => { held.current = true; setChooser(true) }, 'plans')
   /** …and its twin for the «Rapport» tile. One `useLongPress` instance serves both handles (only
    *  one press is ever live), but the «already fired» flags are per tile: a hold on one must not
    *  swallow the next tap on the other. */
   const heldR = useRef(false)
-  const holdRapport = hold.press(() => { heldR.current = true; buzz(); setPageChooser(true) })
+  const holdRapport = hold.press(() => { heldR.current = true; setPageChooser(true) }, 'rapport')
+  /** the charge ring of whichever tile is being held (ui-conventions › One hold ring) */
+  const ringOn = (key: string) => hold.held?.key === key ? <HoldChargeRing since={hold.held.since} ms={LONG_PRESS_MS} /> : null
 
   const rail = useRail({
     varName: '--rail-w',
@@ -247,7 +249,7 @@ export function NavRail(p: Props) {
               if (folded.many) setChooser(true)
             }}
           >
-            <PlanGlyph doc={folded.target} />
+            <PlanGlyph doc={folded.target} ring={ringOn('plans')} />
             <span className="nav-label">{nav.plansGroup}</span>
           </button>
         )}
@@ -330,6 +332,7 @@ export function NavRail(p: Props) {
         >
           <span className="nav-glyph">
             <Icon id="doc" />
+            {ringOn('rapport')}
             {/* PHONE only, and only while something is open — see `openCount`. Same family as
                 the Trupps alarm dot (.nav-live), one size up because it carries a figure: same
                 corner, same white ring, so the bar has ONE badge idiom — in the chip's AMBER

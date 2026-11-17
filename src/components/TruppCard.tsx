@@ -7,7 +7,7 @@ import { Fragment, useEffect, useRef, useState, type KeyboardEvent as ReactKeybo
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { confirmDialog, toast } from '../lib/ui'
+import { confirmDialog } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { Button } from './Button'
 import { Menu } from '../lib/overlays'
@@ -17,25 +17,8 @@ import { readingBarShown, truppAuftragLabel, truppEquipmentLabels, truppStatusLa
 import type { Trupp, TruppReading } from '../types'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import s from './Atemschutz.module.css'
-import { collapsedClock, fmtTime, tierMark } from './truppCardText'
-
-/** Non-AS Trupp wording — APP ONLY (09.09., field ask). A work squad reports a task done, not a
- *  radio check, so the app says «Auftrag erledigt» / «Ohne Auftrag» / «Ohne Auftrag seit» for
- *  one, instead of borrowing Atemschutz vocabulary. The handed-over link board (`lite`) keeps
- *  today's words for EVERY Trupp on it, plain ones included — it is the one screen an outside
- *  operator was handed, and it must keep meaning what it always meant.
- *  `truppStatusLabel` (lib/report.ts) stays AS vocabulary — it also prints the Rapport — so this
- *  only swaps its plain «Draussen» result at the view layer, never «Nicht eingesetzt» / «Von
- *  Tafel entfernt», which read true for a work squad exactly as they are. */
-function plainWords(t: Trupp, lite: boolean) {
-  const az = appConfig.copy.atemschutz
-  const plain = !lite && !isAtemschutzTrupp(t)
-  return {
-    exit: plain ? az.actExitPlain : az.actExit,
-    outFor: plain ? az.outForPlain : az.outFor,
-    status: (label: string) => (plain && label === az.status.raus ? az.statusPlainOut : label),
-  }
-}
+import { collapsedClock, fmtTime, plainWords, tierMark } from './truppCardText'
+import { refuse } from '../lib/meldungenRefusal'
 
 // (`PressureInline`, the tablet card's ± Druck stepper with its own «Bestätigen», went on
 // 29.09.2026 with the tablet card: every board's Druck is the pressure tile → PressureSheet.)
@@ -566,10 +549,10 @@ export function TruppCard({
   // printed entries of 60 and 180 bar. The sheet saves on the tap of a number, and «Ohne Druck
   // raus» is its own button, so the exit still costs one more tap at most and never blocks.
   const askExit = () => (monitored && onAskExit ? onAskExit(t.id) : onStatus(t.id, 'raus'))
-  // delete-now, no blocking dialog and — since 09.09. — no Rückgängig toast either: the board
-  // raised a pill over itself for every action, and the steady popping read as noise. The two
-  // doors back are the global ↶ pair (deleteTrupp registers there) and the non-expiring
-  // «Entfernte Trupps» menu; both restore the full record, only the plan/map placement is gone.
+  // delete-now, no blocking dialog: the delete rule's «Trupp … entfernt · Rückgängig» toast
+  // (truppActions/lifecycle · deleteTrupp, back since 25.09. after the 09.09. quiet spell) is the
+  // fast door; the global ↶ pair and the non-expiring «Entfernte Trupps» menu are the others. All
+  // restore the full record, only the plan/map placement is gone.
   // ONE ask since 11.09. (field wish): an angemeldeter Atemschutz-Trupp that never went in is
   // offered «nicht eingesetzt» first — the honest close-out for a Sicherungstrupp that stood
   // ready (the same stand-down the card's «Nicht eingesetzt» action performs, same gate:
@@ -577,7 +560,7 @@ export function TruppCard({
   // the erroneous Anmeldung; dismissing does nothing.
   const doDelete = async () => {
     // a Trupp in a Notfall leaves the board only after «Notfall beendet» (useTruppActions · deleteTrupp)
-    if (truppInNotfall(t)) { toast(az.notfall.removeBlocked, { icon: 'warn', tone: 'warn' }); return }
+    if (truppInNotfall(t)) { refuse(az.notfall.removeBlocked); return }
     /* ⚠️ A crew that is INSIDE is asked about first (staging walk-through 25.09.2026, N4): one tap
        on «Entfernen» took a crew under PA off the board and out of every alarm, with no question.
        What the operator almost always means is «they are out» — so «Raus melden» is the filled,
@@ -601,8 +584,9 @@ export function TruppCard({
         title: az.removeUnusedTitle,
         message: fillTemplate(az.removeUnusedMsg, { name: t.name }),
         confirmLabel: az.actNotDeployed,
+        // not red: the removal is undoable (toast + ↶ + «Entfernte Trupps») – red on a choice card
+        // means «nothing brings it back» (undo.md › One delete rule; duck sweep FEEDBACK.2)
         altLabel: az.remove,
-        altDanger: true,
       })
       if (a === true) { onStandDown(t.id); return }
       if (a !== 'alt') return
@@ -657,9 +641,9 @@ export function TruppCard({
   ].filter((it, i, all) => !('kind' in it && it.kind === 'sep') || all.slice(0, i).some((p) => !('kind' in p)))
 
   const crewNames = t.members?.filter(Boolean) ?? []
-  /** the Ausrüstung as Kürzel (copy · equipmentShort), in the order it was recorded; an id
-   *  without a Kürzel prints the word the Rapport prints (lib/report · truppEquipmentLabels) */
-  const equipmentTags = (t.equipment ?? []).map((id) => ({ id, tag: az.equipmentShort[id] ?? truppEquipmentLabels([id])[0] ?? id }))
+  /** the Ausrüstung in the words the form and the Rapport use (lib/report · truppEquipmentLabels)
+   *  – «Retthaube · WBK · Multiwarn», never the Kürzel «RH» / «MW» (rare-user M11, owner pick B) */
+  const equipmentWords = truppEquipmentLabels(t.equipment)
 
   /* ── The one line the Sockel leaves standing (09.09.) ──────────────────────────────────────
    * See the markup at «6 + 7» below for what folded and why. This is the part that may not:
@@ -788,7 +772,9 @@ export function TruppCard({
   const chip = (key: string, node: ReactNode, onTap?: () => void, cls?: string) => onTap
     ? <button key={key} type="button" className={cx(s.fact, cls)} onClick={onTap}>{node}</button>
     : <span key={key} className={cx(s.fact, cls)}>{node}</span>
-  const gear = equipmentTags.map(({ id, tag }) => chip(`eq-${id}`, tag, onQuick && (() => onQuick('trupp'))))
+  // ONE chip for the whole Ausrüstung, the box glyph in front (M11 B, 17.11.2026)
+  const gear = equipmentWords.length > 0 && chip('eq',
+    <><Icon id="box" /><span className={s.factTxt}>{equipmentWords.join(' · ')}</span></>, onQuick && (() => onQuick('trupp')))
   const facts = (
     <div className={s.facts}>
       {auftrag

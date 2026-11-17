@@ -5,6 +5,7 @@ import { appConfig } from '../config/appConfig'
 import { Chip } from './Chip'
 import { Slider } from './Slider'
 import { SheetGrab, useSwipeDismiss } from '../lib/overlays'
+import { useLayer } from '../lib/overlays/layer'
 import type { TwinLayerRow } from '../lib/georefTwins'
 import type { LayerPreset } from '../lib/layerPreset'
 import { useLayerData, type LayerData } from '../lib/layerData'
@@ -189,6 +190,11 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
      other phone sheet. The gesture measures that the card sits on the bottom edge, so the tablet's
      side card never has it. */
   const swipe = useSwipeDismiss({ onClose: onClose ?? (() => {}), enabled: !!onClose })
+  // the way out is every layer's (lib/overlays/layer, owner call 2, 17.11.2026): a tap beside the
+  // panel only closes it, on every width – the phone's catch-all backdrop did that alone, the
+  // tablet's side card let the tap act on the map; Esc closes it alone and focus goes back to
+  // where it was (the Ebenen tile, or the [[B]] key's surface); the native back closes it
+  useLayer({ open: !!onClose, onClose: onClose ?? (() => {}), inside: [cardRef] })
 
   // `lc-panel` tells Ebenen apart from the other cards that wear `.layers-card` (the Karte's
   // Gefahrgut): it is opened from the view bar, so on a tablet it opens upward from there (05-navrail)

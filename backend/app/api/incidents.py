@@ -883,7 +883,7 @@ async def patch_incident(
 
 
 # --- «Alarm aktualisiert» (app/alarm_update) -----------------------------------------------
-# The crew's three answers to a pending Divera update. The record writers, like the Einsatzdaten
+# The crew's three answers to a pending Divera update, and «Zeigen» after a hide. The record writers, like the Einsatzdaten
 # panel the update belongs to (EL_META_FIELDS). Each writes its own Verlauf row server-side, so
 # every device and the Rapport show the one decision. Online only: the row's buttons say so.
 
@@ -921,6 +921,19 @@ async def dismiss_alarm_update(
     """✕ on the row: hidden for every device of this Einsatz, not just the one that tapped."""
     inc = await _alarm_update_target(db, incident_id)
     if not await alarm_update.dismiss(db, inc, user.id):
+        raise HTTPException(status_code=409, detail=NO_ALARM_UPDATE)
+    await db.flush()
+    await db.refresh(inc)
+    return inc
+
+
+@router.post("/{incident_id}/alarm-update/show", response_model=IncidentFull)
+async def show_alarm_update(
+    incident_id: uuid.UUID, user: CurrentRecordWriter, db: AsyncSession = Depends(get_db)
+) -> Incident:
+    """«Zeigen» on the strip a ✕ left: the update pending again, for every device."""
+    inc = await _alarm_update_target(db, incident_id)
+    if not await alarm_update.show(db, inc, user.id):
         raise HTTPException(status_code=409, detail=NO_ALARM_UPDATE)
     await db.flush()
     await db.refresh(inc)

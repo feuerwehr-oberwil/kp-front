@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { EINSATZ_RAIL, expect, login, openApp, test } from './helpers'
+import { EINSATZ_RAIL, dismissFirstViewGebaeude, expect, login, openApp, test } from './helpers'
 
 // A tap on a node pad on the Karte is the pad's, never the map's (round 15.11.2026). Until then
 // the pad's click bubbled from its Marker to maplibre's listener on the canvas container, the map
@@ -51,6 +51,8 @@ test.beforeEach(async ({ page, context, browserName }, testInfo) => {
   await openApp(page, '/')
   await expect(page.locator(EINSATZ_RAIL)).toBeVisible()
   await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible()
+  // the Einsatz stands on a building: its first-view card would take the first tap (a layer)
+  await dismissFirstViewGebaeude(page)
 })
 
 test.afterEach(async ({ page }) => {

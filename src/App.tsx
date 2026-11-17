@@ -9,7 +9,7 @@ import { isKartePath, KARTE_BASE, useKarteRoute } from './lib/karte/route'
 import { appScreen, bootPlan } from './lib/karte/home'
 import { startOutboxRunner } from './objectVisits/outbox'
 import { fillTemplate } from './lib/format'
-import { Overlays, toast, confirmDialog } from './lib/ui'
+import { Overlays, toast, undoToast, confirmDialog } from './lib/ui'
 import { confirmLogout } from './lib/logoutConfirm'
 import { persistedPendingRows } from './lib/journalStore'
 import { loadPrefs, savePrefs } from './lib/prefs'
@@ -36,18 +36,21 @@ import { IncidentWorkspace } from './IncidentWorkspace'
 import {
   WorkspaceSync, listIncidentsResilient, listIncidentsShared, getIncident, archiveIncident,
   migrateLegacyWorkspace, takeDiveraAlarm, attachDiveraAlarm, discardWorkspaceCache,
-  isIncidentRunning, type DiveraAlarm, type IncidentFull, type IncidentMeta, type Workspace,
+  isIncidentRunning, showAlarmUpdate, type DiveraAlarm, type IncidentFull, type IncidentMeta, type Workspace,
 } from './lib/incidents'
 import { unlockAlarm } from './lib/alarm'
 import { CRASH_HEALTHY_MS, clearCrash } from './lib/crashLoop'
 import { ApiError } from './lib/api'
 import { useDiveraWatch } from './lib/useDiveraWatch'
-import { dismissAlarm, loadDismissedAlarms, shownAlarms } from './lib/diveraDismiss'
+import { actFailedText } from './lib/actFailed'
+import { dismissAlarm, loadDismissedAlarms, shownAlarms, waitingAlarms } from './lib/diveraDismiss'
+import { alarmUpdateHidden } from './lib/alarmUpdate'
 import { useIncidentWatch } from './lib/useIncidentWatch'
 import { loadReviewedIncidents, needsIntakeReview, sameIncidentList, saveReviewedIncident, shouldReopenClosed, undoTakeReturn } from './lib/incidentAlerts'
-import { AlarmUpdateBanner, EinsatzWizard, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, HomeDeviceSheet } from './components/panels'
+import { AlarmUpdateBanner, EinsatzWizard, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, HomeDeviceSheet, type FoldedMenuRow } from './components/panels'
 import { Meldeleiste } from './components/Meldeleiste'
 import { linkShowsMeldung } from './lib/meldungen'
+import { RefusalMeldung } from './lib/meldungenRefusal'
 import { SessionExpiredMeldung } from './components/SessionExpiredMeldung'
 import { pickTrouble, readTrouble, recordTrouble, type TroubleEvent } from './lib/trouble'
 import { onStorageDegraded } from './lib/idb'
@@ -119,6 +122,10 @@ export default function App() {
   useEffect(() => installHoldTooltip(), [])
 
   const [incidents, setIncidents] = useState<IncidentMeta[] | null>(null)
+  // why `incidents` may not be the server's: the boot list failed, or it is the device's copy
+  // (offline). Said at the head of the list (HomeMenus), not as a boot toast (toast diet,
+  // 17.11.2026); the next list that arrives fresh clears it.
+  const [listNote, setListNote] = useState<string | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   // the incident a HUMAN is opening right now (launch card / switcher / banner / Verlauf) — the
   // card spins and locks meanwhile, the way `taking` does for a Divera take, so a slow open on
@@ -272,8 +279,9 @@ export default function App() {
   // always-on incident-list watch: with alarm auto-open an Einsatz can appear with no human
   // in the loop — keep the list fresh and announce mid-session arrivals (banner, never a
   // forced switch). Enabled for viewers too; announcing is read-only.
-  const onWatchList = useCallback((list: IncidentMeta[]) => {
+  const onWatchList = useCallback((list: IncidentMeta[], offline: boolean) => {
     setIncidents((prev) => (sameIncidentList(prev, list) ? prev : list))
+    setListNote(offline ? appConfig.copy.incidentSwitcher.bootOffline : null)
   }, [])
   // (off for a link session: the list endpoint isn't on its allowlist — it would leak every
   // other Einsatz — so the watch would just 403 every 30 s)
@@ -381,11 +389,10 @@ export default function App() {
       // one. Read as of THIS call: selectIncident is a stable ([] deps) callback, and the
       // link_kind cannot change without a fresh session anyway.
       ...(asLinkRef.current ? { slice: 'trupps' as const } : isElRef.current ? { slice: 'record' as const } : {}),
-      // Concurrent edits are auto-merged three-way (see mergeWorkspace), so no blocking
-      // dialog — just a quiet notice. The merged result is applied in place via onApplyMerged
-      // (registered by the live view); onServerWorkspace is the remount fallback.
-      // one pill, however many merges: three devices saving at once stacked it (UX.9, 09.11.2026)
-      onMerged: () => toast(appConfig.copy.toast.merged, { kind: 'ws-merged' }),
+      // Concurrent edits are auto-merged three-way (see mergeWorkspace) — silently: no dialog
+      // and no toast (toast diet 17.11.2026: «Änderungen zusammengeführt» asked nothing of the
+      // operator). The merged result is applied in place via onApplyMerged (registered by the
+      // live view); onServerWorkspace is the remount fallback.
       onServerWorkspace: (ws) => { setWorkspace(ws); setRemount((n) => n + 1) },
     })
     const meta = opts.meta ?? (await getIncident(id))
@@ -439,17 +446,17 @@ export default function App() {
   // caller used to swallow the rejection — offline with no cached workspace, a 404 for an Einsatz
   // archived since the list was written, the 20 s bound on a half-open link — so the card simply
   // did nothing, which at 3am reads as «the app is frozen» and invites more taps. The server's
-  // own {detail} wins where it exists (and its hint rides along); silence (status 0) means the
-  // workspace is not on this device, which is the one thing worth saying then.
+  // own {detail} wins where it exists; a proxy error leads with «Einsatz nicht geöffnet» and its
+  // reason in brackets (lib/actFailed); silence (status 0) means the workspace is not on this
+  // device, which is the one thing worth saying then.
   const openIncident = useCallback(async (id: string, opts?: Parameters<typeof selectIncident>[1]): Promise<void> => {
     setOpening(id)
     try {
       await selectIncident(id, opts)
     } catch (e) {
       const C = appConfig.copy.incidentSwitcher
-      const text = !(e instanceof ApiError) ? C.openFailed
-        : e.status === 0 ? C.openFailedNoCache
-        : e.hint ? `${e.detail} – ${e.hint}` : e.detail
+      // silence (status 0) is «not on this device»; else the act leads with the reason in it (lib/actFailed)
+      const text = e instanceof ApiError && e.status === 0 ? C.openFailedNoCache : actFailedText(e, C.openFailed)
       toast(text, { icon: 'warn', tone: 'warn' })
     } finally {
       setOpening((cur) => (cur === id ? null : cur)) // a newer open may already own the state
@@ -505,7 +512,7 @@ export default function App() {
         // the launcher would otherwise render «keine offenen Einsätze» over a list that simply
         // failed, with nothing on screen to say so.
         const C = appConfig.copy.incidentSwitcher
-        toast(e instanceof ApiError ? `${C.bootListFailed} – ${e.detail}` : C.bootListFailed, { icon: 'warn', tone: 'warn' })
+        setListNote(e instanceof ApiError ? `${C.bootListFailed} – ${e.detail}` : C.bootListFailed)
         return { list: [] as IncidentMeta[], offline: false }
       })
       // re-list only when the migration created an Einsatz: an empty list is the normal peacetime
@@ -514,7 +521,7 @@ export default function App() {
         const migrated = await migrateLegacyWorkspace([appConfig.storage.key, ...appConfig.storage.legacyKeys]).catch(() => null)
         if (migrated) list = (await listIncidentsResilient().catch(() => ({ list: [] as IncidentMeta[] }))).list
       }
-      if (offline) toast(appConfig.copy.incidentSwitcher.bootOffline, { icon: 'warn' })
+      if (offline) setListNote(appConfig.copy.incidentSwitcher.bootOffline)
       setIncidents(list)
       // The decision table lives in lib/karte/home · bootPlan (tested there), in this order:
       // · a launch INTO Objektbesuche (a deep link, a reload on /besuche) — or into «Karte &
@@ -590,7 +597,7 @@ export default function App() {
       await archiveIncident(id)
     } catch (e) {
       closingLocallyRef.current = null
-      toast(e instanceof ApiError ? e.detail : appConfig.copy.abschluss.failed, { icon: 'warn', tone: 'warn' })
+      toast(e instanceof ApiError ? e.detail : appConfig.copy.intake.undoTakeFailed, { icon: 'warn', tone: 'warn' })
       return
     }
     // ⚠️ the hard clear, deliberately — «Rückgängig» on a one-tap take means this incident should
@@ -620,13 +627,11 @@ export default function App() {
       // confirm-with-undo: a one-tap take is otherwise only reversible via a multi-tap
       // menu-archive. Undo archives the just-created incident and returns to the prior view.
       // Twelve seconds, not the six-second floor: the map is filling in underneath, and «did I
-      // mean that?» takes longer at 3am than a toast that is already fading.
-      toast(appConfig.copy.intake.taken, {
-        icon: 'check', tone: 'success', duration: 12_000,
-        action: { label: appConfig.copy.undo, onClick: () => void undoTake(inc.id, back) },
-      })
+      // mean that?» takes longer at 3am than a toast that is already fading. Its own kind: the
+      // pill is the ONLY way back (the take is no ↶ step), so a later undo pill must not replace it.
+      undoToast(appConfig.copy.intake.taken, () => void undoTake(inc.id, back), undefined, { glyph: 'check', kind: 'alarm-take', duration: 12_000 })
     } catch (e) {
-      toast(e instanceof ApiError ? e.detail : appConfig.copy.intake.errorTake, { icon: 'warn', tone: 'warn' })
+      toast(actFailedText(e, appConfig.copy.intake.errorTake), { icon: 'warn', tone: 'warn' })
     } finally {
       setTaking(null)
       void refreshPool()
@@ -649,10 +654,10 @@ export default function App() {
     })
     if (!ok) return
     try {
+      // no «hinzugefügt» toast: the banner goes and the Meldung lands in the Verlauf
       await attachDiveraAlarm(a.divera_id, activeMeta.id)
-      toast(ix.attachDone, { icon: 'check', tone: 'success' })
     } catch (e) {
-      toast(e instanceof ApiError ? e.detail : ix.attachError, { icon: 'warn', tone: 'warn' })
+      toast(actFailedText(e, ix.attachError), { icon: 'warn', tone: 'warn' })
     } finally {
       void refreshPool()
     }
@@ -755,13 +760,24 @@ export default function App() {
   // opens the app menu (components/HomeMenus · HomeMenu); only a LINK session whose Einsatz could not be fetched
   // still lands on it (lib/karte/home · appScreen), which is why its account-only rows stay.
   const openIncidents = allIncidents.filter((i) => !i.is_archived)
-  // ⚠️ The alarms that will ACTUALLY render, dismissals included. `hasLanding` (LauncherBody) counted the raw
-  // pool while the list below filtered out anything dismissed on this device — so once every
-  // pool alarm had been ×-ed away, the card took the launcher branch, rendered an EMPTY list
-  // (with its own margin) and skipped the sentence explaining what to do. A hole where the
-  // explanation should be, on the one screen whose whole job is «what now».
-  const landingAlarms = isEditor ? poolAlarms.filter((a) => !dismissedAlarms.has(a.divera_id)) : []
+  // The alarms waiting to be opened, as both «Einsätze» lists carry them: the banner's ✕ puts only
+  // the banner away (lib/diveraDismiss · waitingAlarms – owner, 17.11.2026, «no hidden state»).
+  const landingAlarms = isEditor ? waitingAlarms(poolAlarms) : []
   const hideAlarm = (a: DiveraAlarm) => setDismissedAlarms(dismissAlarm(a.divera_id))
+  // The Einsatz menu's quiet row for the open Einsatz's hidden «Alarm aktualisiert» (F7): served to
+  // every device while hidden, a row for 3 h after it came, for whoever keeps the Einsatzdaten –
+  // the same gate as the AlarmUpdateBanner below. «Zeigen» makes it pending again (the row).
+  const activeListed = activeMeta ? incidents?.find((i) => i.id === activeMeta.id) ?? activeMeta : null
+  const hiddenUpdate = activeListed && (isEditor || isEl) && isIncidentRunning(activeListed)
+    && alarmUpdateHidden(activeListed)
+  const einsatzFolded: FoldedMenuRow[] = hiddenUpdate ? [{
+    key: `alarm-update:${activeListed.id}`,
+    title: appConfig.copy.intake.alarmUpdate.title,
+    onShow: () => showAlarmUpdate(activeListed.id).then(
+      (inc) => reflectMeta(inc as IncidentMeta),
+      (e) => toast(e instanceof ApiError && e.status !== 0 ? e.detail : appConfig.copy.intake.alarmUpdate.failed, { icon: 'warn', tone: 'warn' }),
+    ),
+  }] : []
   // an alarm taken from the viewer undoes back to it (undoTake)
   const takeBack = screen === 'karte' ? 'karte' as const : undefined
 
@@ -784,9 +800,8 @@ export default function App() {
     trouble, onTrouble: (t) => { setFeedbackFor(t); setTrouble(null) }, onTroubleDismiss: () => setTrouble(null),
     linkScoped, isEditor,
     user: { display_name: user?.display_name ?? '', color: user?.color ?? null, role: user?.role ?? 'viewer' },
-    incidents: allIncidents, activeId, opening, alarms: landingAlarms, taking,
+    incidents: allIncidents, listNote, activeId, opening, alarms: landingAlarms, taking,
     onTake: (a) => void takeAndOpen(a, takeBack),
-    onDismissAlarm: hideAlarm,
     onOpenIncident: openOrUncover,
     onHistory: () => setOverlay('history'),
     onCreate: () => setOverlay('create'),
@@ -821,6 +836,8 @@ export default function App() {
           that surface, the way ShiftConflictNotice does — or it belongs in this strip. */}
       {/* …on the Atemschutz-Link only the rows that block work (meldungen · linkShowsMeldung) */}
       <Meldeleiste only={asLink ? linkShowsMeldung : undefined} />
+      {/* …where a refused act is said, since the link shows no toast (lib/meldungenRefusal) */}
+      {asLink && <RefusalMeldung />}
       {/* the session cookie died mid-Einsatz (lib/auth · sessionExpired): every request 401s,
           the badge cannot say why. Published HERE so it shows with or without an open Einsatz;
           it ends only by signing in again, which is what its one button does. */}
@@ -871,6 +888,8 @@ export default function App() {
           // (testing feedback 2026-07-18): incoming alarms are taken via home or
           // the mid-incident banner, never via a separate pool screen.
           onOpenDivera={() => setOverlay('create')}
+          menuAlarms={landingAlarms.length > 0 ? { list: landingAlarms, taking, onTake: (a) => void takeAndOpen(a) } : undefined}
+          menuFolded={einsatzFolded}
           // ⚠️ There is no separate «archive the active one» prop any more. The Einsatz-Menü row
           // used to hang off `archiveById`, which archived plainly — no report_done_at, nothing
           // checked — while the Rapport path stamped and counted. Both doors run the SAME confirm
