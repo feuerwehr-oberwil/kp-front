@@ -5,7 +5,8 @@
 //     open-list watch), told apart from this device's own close/reopen by its two markers.
 //   · useCloseReopen — THE close (completeRapport) and THE reopen (reopenNow) this device runs,
 //     plus the two list doors onto them (archiveById, reactivateById).
-// docs/undo.md has the close toast's «Wieder öffnen».
+// The close commits the Rapport stamp and Einsatzende together. A list close asks again when
+// the other roster is unreadable, with an explicit override. docs/undo.md has the close toast's «Wieder öffnen».
 
 import { useCallback, useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import type { ReactivateResult } from '../types'
@@ -18,11 +19,39 @@ import type { ClosedMediaPending } from '../components/MediaPendingMeldung'
 import { closedMetaFor, closedNoticeAt, onIncidentClosed, onIncidentReopened, reopenedMetaFor, reportIncidentClosed, reportIncidentReopened, type IncidentClosedSignal, type IncidentReopenedSignal } from './incidentClosed'
 import { serverNow, serverNowIso } from './serverClock'
 import { ApiError, isUnverifiable } from './api'
-import { archiveIncident, getIncident, isIncidentRunning, patchIncident, reactivateIncident, type IncidentMeta, type Workspace, type WorkspaceSync } from './incidents'
+import { getIncident, isIncidentRunning, patchIncident, reactivateIncident, type IncidentMeta, type Workspace, type WorkspaceSync } from './incidents'
 import { getWorkspace } from './api/workspace'
 import { sanitizeWorkspace } from './workspace'
 import { truppStillDeployed } from './atemschutz'
 import { insideAbschlussSpec } from './abschlussOpen'
+
+/** The close of another Einsatz cannot inspect a local Tafel. Retry reads the roster afresh;
+ *  an explicit override is the only route to closing while its status is unknown. */
+async function confirmListClose(id: string): Promise<boolean> {
+  const { abschluss, history, cancel } = appConfig.copy
+  for (;;) {
+    const inside = await getWorkspace(id).then(({ workspace }) => {
+      // Check only the part the question relies on: a malformed crew must not count as absent.
+      if (workspace === null) return []
+      if (!workspace || typeof workspace !== 'object' || Array.isArray(workspace)) return null
+      const { ws, dropped, newerSchema } = sanitizeWorkspace({ trupps: workspace.trupps, schemaVersion: workspace.schemaVersion })
+      return dropped || newerSchema ? null : (ws?.trupps ?? []).filter(truppStillDeployed)
+    }).catch(() => null)
+    if (inside !== null) return confirmDialog(inside.length ? {
+      title: abschluss.insideTitle, ...insideAbschlussSpec(inside),
+      confirmLabel: abschluss.insideClose, cancelLabel: cancel, danger: true,
+    } : {
+      title: history.archiveConfirmTitle, message: history.archiveConfirmMsg,
+      confirmLabel: history.archiveConfirmBtn, cancelLabel: cancel, danger: true,
+    })
+    const answer = await confirmDialog({
+      title: abschluss.crewStatusUnknown, message: abschluss.crewStatusUnknownBody,
+      confirmLabel: abschluss.insideClose, cancelLabel: cancel,
+      altLabel: abschluss.checkCrewsAgain, safeAnswer: 'alt',
+    })
+    if (answer !== 'alt') return answer
+  }
+}
 
 /** the Einsatz closed — or reopened — on ANOTHER device while it was open here, and when */
 export type LifecycleElsewhere = { id: string; event: 'closed' | 'reopened'; at: number }
@@ -232,14 +261,8 @@ export function useCloseReopen({
     if (isDemoMode()) { toast(appConfig.copy.demo.actionBlocked, { icon: 'info' }); return false }
     closingLocallyRef.current = id
     try {
-      if (id === activeId && syncRef.current) await syncRef.current.flush().catch(() => {})
-      // the deployment's clock, like every other stamp on the record (lib/serverClock)
-      await patchIncident(id, { report_done_at: serverNowIso() })
-      // ⚠️ NOT `.catch(() => {})`. A swallowed failure here sat one line above a green «Rapport
-      // abgeschlossen» toast — and then the Einsatz reopened by itself on the next list refresh,
-      // because it had never been closed at all. The catch below reports it and the Einsatz stays
-      // where it is, which is the truth.
-      await archiveIncident(id)
+      if (syncRef.current?.incidentId === id) await syncRef.current.flush().catch(() => {})
+      await patchIncident(id, { report_done_at: serverNowIso(), is_archived: true })
       // …and say so when something could not go up: the operator is about to leave this incident,
       // and «kommt beim nächsten Öffnen» is only reassuring if it was said out loud.
       // ⚠️ …and what is still queued stands as a Meldung while true, not in this toast (S3,
@@ -258,9 +281,11 @@ export function useCloseReopen({
         const title = (incidents ?? []).find((i) => i.id === id)?.title ?? activeMeta?.title ?? ''
         setClosedMedia((cur) => [...cur.filter((p) => p.id !== id), { id, title, n: stillQueued }])
       }
-      if (id === activeId) {
-        if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
-        await refreshList()
+      await refreshList()
+      // The operator can open the next Einsatz while the close or list refresh is in flight.
+      if (id === activeIdRef.current && syncRef.current?.incidentId === id) {
+        syncRef.current.dispose()
+        syncRef.current = null
         /* ⚠️ Land on the LAUNCHER, never inside another Einsatz. Until 25.09.2026 this opened the
            first OTHER open Einsatz in the list — silently, so the phone that had just closed an
            Übung stood inside somebody else's live Einsatz with its GPS banner, and the next tap
@@ -273,8 +298,6 @@ export function useCloseReopen({
         savePrefs({ ...loadPrefs(), incidentId: undefined, landedAt: Date.now() })
         archiveReturnRef.current = null
         setActiveId(null); setActiveMeta(null); setWorkspace(null); setForceReadOnly(false)
-      } else {
-        await refreshList()
       }
       return true
     } catch (e) {
@@ -287,7 +310,7 @@ export function useCloseReopen({
     } finally {
       if (closingLocallyRef.current === id) closingLocallyRef.current = null
     }
-  }, [closingLocallyRef, activeId, syncRef, refreshList, incidents, activeMeta, reopenNow, setClosedMedia, archiveReturnRef, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly])
+  }, [closingLocallyRef, syncRef, refreshList, incidents, activeMeta, reopenNow, setClosedMedia, archiveReturnRef, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly])
 
   // Close ANY incident from the «Alle Einsätze» list (per-incident, not just the active one).
   // ⚠️ It ends the same way the Rapport does — through `completeRapport` — so an Einsatz put away
@@ -301,9 +324,7 @@ export function useCloseReopen({
   // gone read-only by the time the 10 s «Wieder öffnen» was read.
   //   · The Einsatz open on this device goes through ITS counting confirm (`abschlussHereRef`,
   //     IncidentWorkspace · confirmAndComplete): Notfall, Trupps, Mindestangaben, «Zur Tafel».
-  //   · Any other one: its Trupps are read once from the server. Crews inside → the same question
-  //     that names them, «Trotzdem abschliessen» the quiet answer. No answer from the server (or
-  //     nobody inside) → the plain confirm, as before; nothing is ever written for them.
+  //   · Any other one: read its roster; losing that read leaves the crew status unknown.
   const archiveById = useCallback(async (id: string) => {
     if (!id) return
     // Demo: don't let a visitor close the one shared running incident (it would archive for
@@ -311,23 +332,7 @@ export function useCloseReopen({
     if (isDemoMode()) { toast(appConfig.copy.demo.actionBlocked, { icon: 'info' }); return }
     const here = id === activeId ? abschlussHereRef.current : null
     if (here) { showEinsatz(); await here(); return }
-    const inside = await getWorkspace(id)
-      .then((r) => (sanitizeWorkspace(r.workspace).ws?.trupps ?? []).filter(truppStillDeployed))
-      .catch(() => [])
-    const ok = await confirmDialog(inside.length > 0 ? {
-      title: appConfig.copy.abschluss.insideTitle,
-      ...insideAbschlussSpec(inside),
-      confirmLabel: appConfig.copy.abschluss.insideClose,
-      cancelLabel: appConfig.copy.cancel,
-      danger: true,
-    } : {
-      title: appConfig.copy.history.archiveConfirmTitle,
-      message: appConfig.copy.history.archiveConfirmMsg,
-      confirmLabel: appConfig.copy.history.archiveConfirmBtn,
-      cancelLabel: appConfig.copy.cancel,
-      danger: true,
-    })
-    if (!ok) return
+    if (!await confirmListClose(id)) return
     await completeRapport(id)
   }, [completeRapport, activeId, abschlussHereRef, showEinsatz])
 

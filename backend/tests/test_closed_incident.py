@@ -37,12 +37,26 @@ async def _incident(client) -> str:
     return r.json()["id"]
 
 
+async def test_retried_completion_keeps_the_original_stamp_and_single_journal_entry(client, editor):
+    await _login(client, editor)
+    inc = await _incident(client)
+    stamp = "2026-09-25T12:45:00Z"
+    url = f"/api/incidents/{inc}"
+    first = await client.patch(url, json={"is_archived": True, "report_done_at": stamp})
+    assert first.status_code == 200
+    retry = await client.patch(url, json={"is_archived": True, "report_done_at": "2026-09-25T12:46:00Z"})
+    assert retry.status_code == 200
+    assert retry.json()["report_done_at"] == first.json()["report_done_at"]
+    entries = (await client.get(f"{url}/journal")).json()["entries"]
+    assert [e["row"]["text"] for e in entries if e["row"]["text"].startswith("Rapport ")] == ["Rapport abgeschlossen"]
+
+
 async def _close(client, inc: str) -> None:
     """The Abschluss exactly as the app runs it (App · completeRapport)."""
-    assert (
-        await client.patch(f"/api/incidents/{inc}", json={"report_done_at": "2026-09-25T12:45:00Z"})
-    ).status_code == 200
-    assert (await client.patch(f"/api/incidents/{inc}", json={"is_archived": True})).status_code == 200
+    r = await client.patch(
+        f"/api/incidents/{inc}", json={"is_archived": True, "report_done_at": "2026-09-25T12:45:00Z"}
+    )
+    assert r.status_code == 200
 
 
 def _assert_closed_refusal(r) -> None:

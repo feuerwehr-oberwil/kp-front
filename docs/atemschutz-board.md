@@ -283,6 +283,9 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   Objekte» since 16.10.2026), never opens another: the closed Einsatz is forgotten on the device
   and `prefs.landedAt` keeps a cold start at home too, until one is opened by hand or a NEWER alarm arrives (pickBootIncident).
   A Sicherungstrupp wears «SiTr» on its row and card at every width, sent in or not.
+- Closing a different Einsatz from «Alle Einsätze» reads its crew roster first. If it cannot
+  be read, the dialog says «Truppstatus unbekannt» and focuses «Truppstatus erneut prüfen».
+  The operator can cancel or explicitly close despite the unknown status.
 - *The record is kept whole* (staging walk-through r2, 25.09.2026): the Gäste the form files at
   its save are filed QUIETLY and named once in the crew's «Unter AS: …» row — the crew filing
   knows them (`IncidentWorkspace · fileTruppGuest`) instead of reading a render-old Anwesenheit

@@ -25,7 +25,7 @@ from app import credentials as creds
 from app import incident_archive as archive
 from app import storage as storage_mod
 from app.models import DeploymentConfig, Incident, IncidentArchiveDelivery, IncidentArchiveReport
-from app.schemas import IncidentArchiveConfig
+from app.schemas import IncidentArchiveConfig, IncidentArchiveDestination
 from tests.ov_support import jpeg, login
 from tests.sharepoint_write_fake import CLIENT_ID, CLIENT_SECRET, SITE_URL, TENANT_ID, FakeDrive
 
@@ -308,6 +308,60 @@ async def test_two_einsaetze_never_share_a_folder(client, editor, drive, session
         assert await archive.run_once(session_factory, transport=drive.transport) == "delivered"
     assert f"{PHOTOS}/2026.07.15 Ölspur" in drive.folders()
     assert f"{PHOTOS}/2026.07.15 Ölspur (2)" in drive.folders()
+
+
+async def test_a_pending_close_waits_for_the_reopened_incident_to_close_again(client, editor, drive, session_factory):
+    inc = await _incident(client, editor)
+    await _close(client, inc)
+    assert (await client.patch(f"/api/incidents/{inc}", json={"is_archived": False})).status_code == 200
+    await _upload(client, inc)
+    await _report(client, inc)
+    await archive.run_once(session_factory, transport=drive.transport)
+    assert drive.files() == {}
+    await _close(client, inc)
+    assert await archive.run_once(session_factory, transport=drive.transport) == "delivered"
+    assert len(drive.files()) == 2
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+async def test_a_corrected_title_keeps_the_original_archive_folders(
+    client, editor, drive, session_factory, db_session, legacy
+):
+    inc = await _incident(client, editor)
+    await _upload(client, inc)
+    await _report(client, inc)
+    await _close(client, inc)
+    await archive.run_once(session_factory, transport=drive.transport)
+    if legacy:
+        row = await _row(db_session, inc)
+        # Before the template was kept, the key was the expanded path.
+        row.remote_items = {
+            **row.remote_items,
+            "folders": {
+                entry["path"]: {"id": entry["id"], "path": entry["path"]}
+                for entry in row.remote_items["folders"].values()
+            },
+        }
+        row.remote_items.pop("folderPatterns", None)
+        await db_session.commit()
+    assert (await client.patch(f"/api/incidents/{inc}", json={"title": "Kellerbrand"})).status_code == 200
+    await _upload(client, inc)
+    await _report(client, inc, summary="Nachtrag")
+    assert await archive.run_once(session_factory, transport=drive.transport) == "delivered"
+    assert len(drive.files(f"{PHOTOS}/2026.07.15 Ölspur")) == 2
+    assert len(drive.files(f"{REPORTS}/2026/2026.07.15 Ölspur")) == 2
+
+
+def test_an_ambiguous_legacy_archive_preserves_both_folders():
+    dest = IncidentArchiveDestination.model_validate(DEST)
+    first, second = f"{PHOTOS}/2026.07.15 A", f"{PHOTOS}/2026.07.15 B"
+    folders = {first: {"path": first, "id": "first"}, second: {"path": second, "id": "second"}}
+    items = {"folders": folders.copy()}
+    with pytest.raises(archive.AmbiguousArchiveFolderError) as error:
+        archive.bind_folder_patterns(items, dest, {"year": "2026", "date": "2026.07.15", "stichwort": "C"})
+    assert archive.is_actionable(error.value)
+    assert items["folders"] == folders
+    assert items["folderPatterns"] == {}
 
 
 async def test_a_moved_folder_still_receives(client, editor, drive, session_factory, db_session):

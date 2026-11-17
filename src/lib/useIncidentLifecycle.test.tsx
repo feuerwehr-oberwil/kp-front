@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { IncidentMeta } from './incidents'
+import type { IncidentMeta, WorkspaceSync } from './incidents'
 import { appConfig } from '../config/appConfig'
+import { patchIncident } from './incidents'
 import { reportIncidentClosed, reportIncidentReopened } from './incidentClosed'
 import { useCloseReopen, useIncidentLifecycle } from './useIncidentLifecycle'
 
@@ -15,10 +16,12 @@ vi.mock('./incidents', async (orig) => ({
   ...(await orig<typeof import('./incidents')>()),
   getIncident: vi.fn(async () => server.meta),
   reactivateIncident: vi.fn(async () => server.meta),
+  patchIncident: vi.fn(),
 }))
 
 const { confirmDialog, getWorkspace } = vi.hoisted(() => ({ confirmDialog: vi.fn(), getWorkspace: vi.fn() }))
 vi.mock('./ui', async (orig) => ({ ...(await orig<typeof import('./ui')>()), confirmDialog }))
+vi.mock('./mediaQueue', () => ({ clearUploadedMedia: vi.fn(async () => 0) }))
 vi.mock('./api/workspace', async (orig) => ({ ...(await orig<typeof import('./api/workspace')>()), getWorkspace }))
 
 const meta = (extra: Partial<IncidentMeta> = {}) => ({
@@ -117,15 +120,15 @@ describe('useCloseReopen · archiveById', () => {
   function list(activeId: string | null, abschlussHere: (() => Promise<boolean>) | null = null) {
     const deps = {
       closingLocallyRef: { current: null }, reopeningLocallyRef: { current: null }, activeId, activeMeta: null,
-      incidents: [], syncRef: { current: null }, archiveReturnRef: { current: null },
+      incidents: [], syncRef: { current: null as WorkspaceSync | null }, archiveReturnRef: { current: null },
       refreshList: vi.fn(async () => []), selectIncident: vi.fn(async () => {}), markOpened: vi.fn(),
       setIncidents: vi.fn(), setClosedMedia: vi.fn(), setActiveId: vi.fn(), setActiveMeta: vi.fn(),
       setWorkspace: vi.fn(), setForceReadOnly: vi.fn(),
       abschlussHereRef: { current: abschlussHere }, showEinsatz: vi.fn(),
     }
-    return { deps, ...renderHook(() => useCloseReopen(deps)) }
+    return { deps, ...renderHook((id: string | null) => useCloseReopen({ ...deps, activeId: id }), { initialProps: activeId }) }
   }
-  beforeEach(() => { confirmDialog.mockReset().mockResolvedValue(false); getWorkspace.mockReset() })
+  beforeEach(() => { confirmDialog.mockReset().mockResolvedValue(false); getWorkspace.mockReset(); vi.mocked(patchIncident).mockReset() })
 
   it('closes the Einsatz open on this device through its own counting confirm', async () => {
     const here = vi.fn(async () => false)
@@ -134,6 +137,28 @@ describe('useCloseReopen · archiveById', () => {
     expect(deps.showEinsatz).toHaveBeenCalled()
     expect(here).toHaveBeenCalledOnce()
     expect(confirmDialog).not.toHaveBeenCalled() // not the plain question on top
+  })
+
+  it('keeps the newly opened Einsatz when the previous close is acknowledged late', async () => {
+    let acknowledge!: () => void
+    const waiting = new Promise<void>((resolve) => { acknowledge = resolve })
+    vi.mocked(patchIncident).mockImplementationOnce(async () => {
+      await waiting
+      return { ...meta({ is_archived: true }), text: null, map_workspace_json: null, details_json: null }
+    })
+    const { result, deps, rerender } = list('inc-1')
+    const old = { incidentId: 'inc-1', dispose: vi.fn(), flush: vi.fn(async () => {}) }
+    const next = { incidentId: 'inc-2', dispose: vi.fn() }
+    deps.syncRef.current = old as unknown as WorkspaceSync
+    const close = result.current.completeRapport('inc-1')
+    await waitFor(() => expect(patchIncident).toHaveBeenCalledOnce())
+    deps.syncRef.current = next as unknown as WorkspaceSync
+    rerender('inc-2')
+    acknowledge()
+    await expect(close).resolves.toBe(true)
+    expect(next.dispose).not.toHaveBeenCalled()
+    expect(deps.setActiveId).not.toHaveBeenCalled()
+    expect(deps.refreshList).toHaveBeenCalledOnce()
   })
 
   it('names the Trupps still inside another Einsatz before closing it', async () => {
@@ -151,10 +176,44 @@ describe('useCloseReopen · archiveById', () => {
     }))
   })
 
-  it('asks the plain question when nobody is inside, or the server cannot be asked', async () => {
-    getWorkspace.mockRejectedValue(new Error('offline'))
+  it('asks the plain question after verifying that nobody is inside', async () => {
+    getWorkspace.mockResolvedValue({ workspace_rev: 0, workspace: null })
     const { result } = list(null)
     await result.current.archiveById('inc-2')
     expect(confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: appConfig.copy.history.archiveConfirmTitle }))
+  })
+
+  it.each([[], { trupps: 'unreadable' }])('treats a malformed roster as unknown', async (workspace) => {
+    getWorkspace.mockResolvedValue({ workspace })
+    const { result } = list(null)
+    await result.current.archiveById('inc-2')
+    expect(confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: appConfig.copy.abschluss.crewStatusUnknown }))
+    expect(patchIncident).not.toHaveBeenCalled()
+  })
+
+  it('offers retry as the safe answer when the roster is unknown, then checks it again', async () => {
+    getWorkspace.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({
+      workspace: { trupps: [{ id: 't1', no: 1, name: 'A', status: 'aktiv', entryTime: '2026-11-17T03:00:00Z' }] },
+    })
+    confirmDialog.mockResolvedValueOnce('alt')
+    const { result } = list(null)
+    await result.current.archiveById('inc-2')
+    const C = appConfig.copy.abschluss
+    expect(confirmDialog).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      title: C.crewStatusUnknown, altLabel: C.checkCrewsAgain, safeAnswer: 'alt', confirmLabel: C.insideClose,
+    }))
+    expect(confirmDialog).toHaveBeenNthCalledWith(2, expect.objectContaining({ title: C.insideTitle }))
+    expect(patchIncident).not.toHaveBeenCalled()
+  })
+
+  it('submits the explicit override and the completion stamp together', async () => {
+    getWorkspace.mockRejectedValueOnce(new Error('offline'))
+    confirmDialog.mockResolvedValueOnce(true)
+    vi.mocked(patchIncident).mockRejectedValueOnce(new Error('offline'))
+    const { result } = list(null)
+    await result.current.archiveById('inc-2')
+    expect(patchIncident).toHaveBeenCalledExactlyOnceWith('inc-2', {
+      is_archived: true, report_done_at: expect.any(String),
+    })
   })
 })
