@@ -551,7 +551,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Verwerfen · Weiterzeichnen» – never silently dropped). So one exit per state: a SELECTED
     object's is its editor card's ✕, and the `SelectionBar` carries no «Fertig» beside it; only a
     Mehrfach group, which has no card, gets a ✕ at the bar's end. The armed-tool pill at the bottom
-    centre stays glyph + name, no buttons. Text editors' in-place ✓ (a Notiz, a box label) commit
+    centre is glyph + name, a readout; beside it, only while a symbol is armed, stand «Mehrere» and
+    its ✕ (`ArmedToolPill`). Every armed state has a visible ✕ – the Karte's «Punkt setzen» too. Text editors' in-place ✓ (a Notiz, a box label) commit
     typed text and keep their ✓.
   - *Cancel (28.09.2026, owner pick A):* «Abbrechen» in a footer is a FRAMED `.ip-btn` 14/700 at
     its word's width, never a ghost word; the primary takes the rest of the row, same height (on a

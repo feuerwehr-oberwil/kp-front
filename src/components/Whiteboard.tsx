@@ -2946,7 +2946,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           // resolves that toggle, so a second tap on the armed Auswahl arrives here as 'lasso'
           // and a tap on the armed Mehrfach as 'pan' — both plain tool switches from here.
           onPick={(id) => {
-            if (id === 'symbol') { setTool('symbol'); setPaletteOpen(true); return }
+            // a tap on «Symbol», armed or not, puts the picked symbol down and opens the palette
+            // afresh – the Lage's pick (useMapActions · pick → clearMapUi), GESTURES.14
+            if (id === 'symbol') { setPending(null); setPendingShape(null); setTool('symbol'); setPaletteOpen(true); return }
             setTool(tool === id ? 'pan' : (id as BoardTool)); setPending(null)
           }}
           controls={

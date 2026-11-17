@@ -864,6 +864,15 @@ describe('KarteApp', () => {
       expect(pressed(appConfig.copy.karte.tools.erg)).toBe('true')
     })
 
+    // GESTURES.14: every armed state has a visible ✕ – «Punkt setzen» had only its hint
+    it('Punkt setzen wears the ✕ the other tools have, and it puts the tool away', async () => {
+      mount()
+      await act(async () => {})
+      key('p')
+      fireEvent.click(screen.getByRole('button', { name: appConfig.copy.cancel }))
+      expect(pressed(appConfig.copy.karte.tools.pin)).toBe('false')
+    })
+
     it('C opens the Checkliste and K goes back; / focuses the bar\'s search field', async () => {
       mount()
       await act(async () => {})

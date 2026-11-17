@@ -335,8 +335,9 @@ export function usePlanCreate({
       }
       add({ id, kind: 'shape', shape: k, color: def.defaultColor, label: name, ...geom })
       log('hex', fillTemplate(appConfig.copy.whiteboard.placeSymbol, { name }), { annoId: id, x: geom.x, y: geom.y, floor: geom.floor })
-      // unlocked: place once → pan with the shape selected (its two ends usable); locked: keep placing
-      if (placeLock && !SHAPE_TWO_POINT[k]) setSelId(null)
+      // unlocked: place once → pan with the shape selected (its two ends usable); locked: keep
+      // placing – a two-point Rotation too, as on the Lage (useMapActions · onMapClick, GESTURES.14)
+      if (placeLock) setSelId(null)
       else { setPendingShape(null); setTool('pan'); setSelId(id) }
       return
     }
