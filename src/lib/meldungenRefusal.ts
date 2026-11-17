@@ -6,8 +6,9 @@
 // one board handed to the person standing at the door. `refuse()` raises the toast AND notes the
 // sentence; the Link mounts `RefusalMeldung` (App), which shows the last one as a Meldeleiste row
 // (`meldungen · MELDUNG_RANK.refused`, let through by `linkShowsMeldung`) until its ✕. Where the
-// row is not mounted the note is simply never read. Use it for every act that is REFUSED – a
-// one-shot «done» confirmation stays a plain toast.
+// row is not mounted the note is simply never read. Use it for every refusal the Link can hit
+// (the toast rule, docs/ui-conventions.md › Messages, says so in the same words) – a one-shot
+// «done» confirmation stays a plain toast.
 
 import { useState, useSyncExternalStore } from 'react'
 import { appConfig } from '../config/appConfig'

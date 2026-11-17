@@ -407,9 +407,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     every width** — **except on the Atemschutz-Link, which shows none at all** (30.10.2026, owner:
     «they just hide things»; `<Overlays toasts={false} />`): undo is the header's ↶ ↷, the sync
     state its mark, and its Meldeleiste keeps only the rows that block work (`meldungen ·
-    linkShowsMeldung`) – and what would otherwise ride on a toast alone: a sentence that REFUSES
-    an act goes through `refuse()` and stands there as a row until its ✕ (lib/meldungenRefusal),
-    and «Kein Sicherungstrupp bereit» is a standing row on every surface (FEEDBACK.1, 17.11.2026) (20.10.2026, owner: «all notifications appear at the same place: at the top
+    linkShowsMeldung`), plus a refused act's row (`refuse()`, see the toast rule below) and
+    «Kein Sicherungstrupp bereit» (FEEDBACK.1, 17.11.2026). Where they stand (20.10.2026, owner:
+    «all notifications appear at the same place: at the top
     cleanly below the main navbar»): where the Meldeleiste starts (92px; on a phone `--msg-top`, 4px under the bar), one 8px
     channel under the strip while one stands (`--ml-reserve` from its measured `--ml-h`), at the
     bars' own width on a phone (8px in from each side). A mode's instruction and a tool's tip keep
@@ -445,7 +445,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     know NOW and cannot see where they are looking – or the one tap back.** Five things earn one:
     the confirm-with-undo of an act just done (`undoToast` / `removeWithUndo`); a failure after the
     operator's own act, saying the state it leaves; a refusal the tapped control cannot show
-    itself; a loss nobody else reports (a draft, a file, an open georef point dropped); a live job
+    itself – where the Atemschutz-Link can refuse the same act, through `refuse()`
+    (lib/meldungenRefusal): the warn toast, and on the Link, which has no toasts, a Meldeleiste row
+    until its ✕ (FEEDBACK.1); a loss nobody else reports (a draft, a file, an open georef point dropped); a live job
     the operator waits on (the print chain). **Never a toast:** a success the screen already shows
     (a row appeared, a lamp turned green, a sheet closed on its result, a stepper shows the number
     – the composer closing IS «Eintrag erfasst»); a standing state (offline, catalogue missing,
