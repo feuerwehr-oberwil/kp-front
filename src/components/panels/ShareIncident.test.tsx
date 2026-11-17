@@ -74,18 +74,6 @@ describe('«Einsatz · lesen»', () => {
     expect(after.textContent).toMatch(/Abschluss/)
   })
 
-  // C8 (17.11.2026): the sheet gives eyes; how a second device gets hands is one line under the tabs
-  it('says under the tabs that writing takes a sign-in on the other device, with a link and without', async () => {
-    render(<ShareIncident incidentId="i1" />)
-    await screen.findByText(C.shareLede)
-    expect(screen.getByText(C.shareSignIn)).toBeTruthy()
-    cleanup()
-    vi.mocked(fetchShareLink).mockResolvedValue(on)
-    render(<ShareIncident incidentId="i1" />)
-    await screen.findByText(C.shareLiveLede)
-    expect(screen.getByText(C.shareSignIn)).toBeTruthy()
-  })
-
   it('asks before revoking, and keeps the link when the answer is no', async () => {
     vi.mocked(fetchShareLink).mockResolvedValue(on)
     confirmDialog.mockResolvedValue(false)

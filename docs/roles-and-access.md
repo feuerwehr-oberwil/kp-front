@@ -154,8 +154,7 @@ their offline copy already lives in IndexedDB (`lib/api/stationReference`).
 - **Hard delete without the Verwaltung** needs an Übung **created as one and never marked real**
   (`incidents.exercise_since_creation`). «Übung» stays an Einsatzdaten field (editor and el), so
   a real Einsatz flipped to Übung is stats-excluded but takes the admin door (archived, admin
-  session, WARNING log) like any real one – its closed row in «Alle Einsätze» says «Löschen: nur
-  in der Verwaltung» where the button would be (17.11.2026). Rows from before the column count as created-Übung
+  session, WARNING log) like any real one. Rows from before the column count as created-Übung
   only if their hash chain holds no Übung toggle at all.
 - **`via` is the server's stamp.** An Atemschutz link's rows get `atemschutz-link` /
   `atemschutz-fix`, the Erfassungs-Poster's `capture`, everyone else's none – a client-sent `via`

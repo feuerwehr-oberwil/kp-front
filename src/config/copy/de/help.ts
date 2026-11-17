@@ -119,7 +119,7 @@ export const helpCopy = {
           { kind: 'list', items: [
             'Eine Übung ist ein Einsatz wie jeder andere – alles funktioniert gleich. Sie zählt nicht zur Einsatzstatistik und steht schraffiert und mit dem Wort «Übung» in der Leiste.',
             'Eröffnen: **Einsatz eröffnen** › **Übung** – der Knopf heisst dann **Übung eröffnen**. Ein laufender Einsatz wird über **Bearbeiten** zur Übung oder zurück.',
-            'Löschen lässt sich in **Alle Einsätze** nur eine abgeschlossene Übung, die von Anfang an eine war. Wo das nicht geht, steht «Löschen: nur in der Verwaltung».',
+            'Löschen lässt sich in **Alle Einsätze** nur eine abgeschlossene Übung, die von Anfang an eine war. Alle anderen löscht die Verwaltung.',
           ] },
         ],
       },
@@ -436,7 +436,6 @@ export const helpCopy = {
             'Ein Verlaufseintrag mit Ort springt beim Antippen zurück auf die Stelle in Karte oder Plan; Fotos und Sprachnotizen lassen sich direkt im Verlauf öffnen/abspielen.',
             'Ein **Vertipper** lässt sich korrigieren: der **Stift** in der Zeile steht auf allem, was jemand selber getippt hat – nicht auf dem, was die App über eine Aktion geschrieben hat («Trupp 2 eingerückt»). Die Zeile trägt danach **Korrigiert HH:MM**; der ursprüngliche Wortlaut bleibt im Protokoll und in der Prüfkette.',
             '**Wiedergabe** (▶ beim Verlauf, am Telefon an der Zeitleiste) spielt Karte und Plan zu einem früheren Zeitpunkt ab (Zeitschieber; Bearbeiten ist dabei gesperrt). Im laufenden Einsatz öffnet sie bei «Jetzt», und **Abspielen** beginnt von vorn; im abgeschlossenen öffnet sie am Anfang.',
-            'Im Filter-Menü des Verlaufs führt **Verlauf drucken / PDF** zum Rapport-PDF, mit dem Einsatzjournal angehakt.',
             'Halb getippter Text im **Eintrag** bleibt stehen, auch wenn die App neu lädt – Fotos und Sprachnotizen nicht.',
           ] },
           { kind: 'sub', text: 'Pendenzen' },
@@ -481,7 +480,7 @@ export const helpCopy = {
           ] },
           { kind: 'sub', text: 'Präsentieren' },
           { kind: 'list', items: [
-            '**Präsentieren** – im Menü beim offenen Einsatz oder in **Einsatz teilen** – › **Starten**: wer den Einsatz oder den Lese-Link offen hat, kann **Folgen** – sein Bildschirm zeigt, was deiner zeigt, auf jeder Fläche.',
+            '**Präsentieren** – im Menü auf der Karte des offenen Einsatzes, neben **Teilen**, oder in **Einsatz teilen** – › **Starten**: wer den Einsatz oder den Lese-Link offen hat, kann **Folgen** – sein Bildschirm zeigt, was deiner zeigt, auf jeder Fläche.',
             '**Zeigen** macht aus einem Tipp einen Punkt und aus einem Strich eine Linie, die wieder verblassen – für alle sichtbar, nichts wird gespeichert.',
             '**Beenden** hört auf; **Nicht mehr folgen** gibt den eigenen Bildschirm wieder frei. Läuft schon eine Präsentation, lässt sie sich **übernehmen**. Präsentieren braucht Netz.',
           ] },

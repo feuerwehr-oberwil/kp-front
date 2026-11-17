@@ -97,7 +97,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             'Un’esercitazione è un intervento come ogni altro – tutto funziona allo stesso modo. Non conta nella statistica degli interventi e compare tratteggiata e con la parola «Esercitazione» nella barra.',
             'Aprire: **Apri intervento** › **Esercitazione** – il pulsante diventa **Apri esercitazione**. Un intervento in corso diventa un’esercitazione, o torna indietro, tramite **Modifica**.',
-            'In **Tutti gli interventi** si può eliminare solo un’esercitazione chiusa che lo era fin dall’inizio. Dove non è possibile, compare «Eliminare: solo nell’amministrazione».',
+            'In **Tutti gli interventi** si può eliminare solo un’esercitazione chiusa che lo era fin dall’inizio. Le altre le elimina l’amministrazione.',
           ] },
         ],
       },
@@ -411,7 +411,6 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'Una voce del diario con un luogo, se toccata, riporta al punto sulla mappa o sul piano; foto e note vocali si aprono/riproducono direttamente nel diario.',
             'Un **errore di battitura** si può correggere: la **matita** nella riga sta su tutto ciò che qualcuno ha digitato di persona – non su ciò che l’app ha scritto su un’azione («Squadra 2 entrata»). La riga porta poi **Corretto HH:MM**; il testo originale resta nel verbale e nella catena di verifica.',
             '**Riproduzione** (▶ nel diario) riproduce mappa e piano a un momento precedente (cursore temporale; la modifica è bloccata). Nell’intervento in corso si apre su «Adesso», e **Riproduci** riparte dall’inizio; in quello chiuso si apre all’inizio. Sul telefono ▶ sta sul righello del tempo.',
-            'Nel menu filtro del diario, **Stampa cronologia / PDF** porta al PDF del rapporto, con il diario d’intervento spuntato.',
             'Il testo digitato a metà nella **Voce** resta, anche se l’app si ricarica – foto e note vocali no.',
           ] },
           { kind: 'sub', text: 'Pendenze' },
@@ -456,7 +455,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           ] },
           { kind: 'sub', text: 'Presentare' },
           { kind: 'list', items: [
-            '**Presentare** – nel menu, all’intervento aperto, o in **Condividi l’intervento** – › **Avvia**: chi ha aperto l’intervento o il link di lettura può **Seguire** – il suo schermo mostra ciò che mostra il tuo, su ogni superficie.',
+            '**Presentare** – nel menu, sulla scheda dell’intervento aperto, accanto a **Condividi**, o in **Condividi l’intervento** – › **Avvia**: chi ha aperto l’intervento o il link di lettura può **Seguire** – il suo schermo mostra ciò che mostra il tuo, su ogni superficie.',
             '**Indica** trasforma un tocco in un punto e un tratto in una linea, che poi svaniscono – visibili a tutti, nulla viene salvato.',
             '**Termina** smette; **Non seguire più** libera di nuovo il proprio schermo. Se una presentazione è già in corso, si può **subentrare**. Presentare richiede la rete.',
           ] },

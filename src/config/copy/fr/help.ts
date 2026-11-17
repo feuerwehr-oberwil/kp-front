@@ -97,7 +97,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             'Un exercice est une intervention comme une autre – tout fonctionne pareil. Il ne compte pas dans la statistique des interventions et figure hachuré avec le mot «Exercice» dans la barre.',
             'Ouvrir : **Ouvrir une intervention** › **Exercice** – le bouton s’appelle alors **Ouvrir l’exercice**. Une intervention en cours devient exercice, ou l’inverse, via **Modifier**.',
-            'Dans **Toutes les interventions**, on ne peut supprimer qu’un exercice clôturé qui en était un dès le départ. Là où ce n’est pas possible, il est écrit «Supprimer : seulement dans l’administration».',
+            'Dans **Toutes les interventions**, on ne peut supprimer qu’un exercice clôturé qui en était un dès le départ. Les autres, seule l’administration les supprime.',
           ] },
         ],
       },
@@ -411,7 +411,6 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'Une entrée de journal avec un lieu ramène à l’endroit dans la carte ou le plan quand on la touche ; photos et notes vocales s’ouvrent/se lisent directement dans le journal.',
             'Une **faute de frappe** se corrige : le **crayon** de la ligne figure sur tout ce que quelqu’un a tapé lui-même – pas sur ce que l’app a écrit au sujet d’une action («binôme 2 rentré»). La ligne porte ensuite **Corrigé HH:MM** ; le texte d’origine reste dans le journal et dans la chaîne de vérification.',
             '**Lecture** (▶ au journal) rejoue la carte et le plan à un instant antérieur (curseur temporel ; l’édition est bloquée pendant ce temps). Pendant l’intervention elle s’ouvre à «Maintenant», et **Lire** repart du début ; après la clôture elle s’ouvre au début. Sur un téléphone, ▶ se trouve à la règle temporelle.',
-            'Dans le menu de filtre du journal, **Imprimer le journal / PDF** mène au PDF du rapport, journal d’intervention coché.',
             'Le texte à moitié saisi dans l’**Entrée** reste, même si l’app se recharge – photos et notes vocales non.',
           ] },
           { kind: 'sub', text: 'En suspens' },
@@ -456,7 +455,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           ] },
           { kind: 'sub', text: 'Présenter' },
           { kind: 'list', items: [
-            '**Présenter** – dans le menu, à l’intervention ouverte, ou dans **Partager l’intervention** – › **Démarrer** : qui a l’intervention ou le lien de lecture ouvert peut **Suivre** – son écran montre ce que montre le tien, sur chaque surface.',
+            '**Présenter** – dans le menu, sur la carte de l’intervention ouverte, à côté de **Transmettre**, ou dans **Partager l’intervention** – › **Démarrer** : qui a l’intervention ou le lien de lecture ouvert peut **Suivre** – son écran montre ce que montre le tien, sur chaque surface.',
             '**Montrer** fait d’un toucher un point et d’un trait une ligne, qui s’estompent – visibles par tous, rien n’est enregistré.',
             '**Terminer** arrête ; **Ne plus suivre** libère son propre écran. Si une présentation est déjà en cours, on peut la **Reprendre**. Présenter nécessite du réseau.',
           ] },

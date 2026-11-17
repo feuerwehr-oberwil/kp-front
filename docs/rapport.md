@@ -88,9 +88,6 @@ scrolling body so it stays visible with the keyboard up):
   `reportMadeAt` (ReportPreflight · `persist`, the app's bookkeeping does not count): the row comes
   back and the head falls back to the band «… PDF erstellen» instead of the green close. Only the
   Rapport's own fields – a Verlauf row, the Anwesenheit or Mittel do not make the paper stale.
-- **The Verlauf on paper has a door on the Verlauf** (F16, 17.11.2026): «Verlauf drucken / PDF» in
-  the Verlauf's funnel menu opens the Rapport with this PDF ▾ open and «Einsatzjournal» ticked
-  (ReportPreflight · `requestJournalPrint`).
 - **Closed: one strip, the state** (owner, 12.11.2026: «either closed or the next step»). A closed
   Einsatz shows the amber «Einsatz abgeschlossen – zum Bearbeiten wieder öffnen» with «Wieder
   öffnen» beside it (the Einsatz card's action and confirm; «… – nur ansehen» without the button

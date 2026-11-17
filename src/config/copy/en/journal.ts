@@ -20,7 +20,6 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
       closedTitle: '{n} entries not accepted after the close',
       closedBody: 'The incident had already been closed when these entries arrived. They are not in the log, but stay on this device and can be downloaded. If the incident is reopened, they are synced.',
       closedShort: 'Entries not accepted after the close – download them',
-      exportDone: 'Saved to «Downloads» or «Files» – send the file to your fire brigade\'s admin, it holds these entries.',
     },
     open: 'Log',
     add: 'Entry',
@@ -222,7 +221,6 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     legendPendenzOverdue: 'Item overdue',
     attachMenu: 'Attach',
     emptyFor: 'The course of the incident builds up here, line by line.',
-    printVerlauf: 'Print log / PDF',
   },
   tafelPendenzen: {
     createdLog: 'Item from the board ({page}): {text}',

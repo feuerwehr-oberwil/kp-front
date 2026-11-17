@@ -5,7 +5,7 @@
 // used to be the old launcher card with big launch buttons, and the owner read it as a second app.
 //
 // What it renders, top to bottom: the «Einsätze» group (the running ones as rows, the alarms
-// waiting to be taken, «Einsatz verlassen», «Präsentieren», «Alle Einsätze», «Einsatz eröffnen»),
+// waiting to be taken, «Einsatz verlassen», «Alle Einsätze», «Einsatz eröffnen»),
 // the «App» group (Objektbesuche, «Dieses Gerät», Hilfe, Installieren), who is signed in with
 // «Abmelden» – or «Anmelden» for a view-link guest without a login –, the build label and a
 // waiting update. Every row is drawn only when its handler is
@@ -65,7 +65,7 @@ const ActLabel = ({ children }: { children: ReactNode }) => <span className="ip-
 
 export function AppMenuRows({
   activeId, incidents, isEditor, user, opening = null, alarms, listNote = null, onSwitch, onLeave, onHistory, onCreate,
-  onPresent, onObjectVisits, onDevice, onHelp, onInstall, onLogout, onLogin,
+  onObjectVisits, onDevice, onHelp, onInstall, onLogout, onLogin,
 }: {
   /** the Einsatz the menu's card names (IncidentSwitcher); null on home's sheet, which has no card
    *  — so the Einsatz a «Karte & Objekte» covers is listed there as a row, the way back into it */
@@ -85,9 +85,6 @@ export function AppMenuRows({
   /** «Einsatz verlassen» — to «Karte & Objekte», the Einsatz keeps running behind it. Only inside
    *  an Einsatz, never for a link session (App passes no `onOpenKarte` there). */
   onLeave?: () => void
-  /** «Präsentieren» (F15, 17.11.2026) – inside an Einsatz, editors only: the share sheet's card
-   *  was its one door, and «Teilen» is where you give a link, not where you start your screen */
-  onPresent?: () => void
   /** «Alle Einsätze» — absent for an Einsatz-Link session, which may only ever see its own */
   onHistory?: () => void
   /** «Einsatz eröffnen» — editors only */
@@ -135,7 +132,7 @@ export function AppMenuRows({
   // it shows, which is what an Einsatz-Link sees: it is bound to one Einsatz and switching is
   // neither offered nor permitted. Derived rather than passed, so the menu never has to know why
   // the rows are missing.
-  const showIncidents = running.length > 0 || alarmList.length > 0 || foldedList.length > 0 || !!onLeave || !!onPresent || !!onHistory || (isEditor && !!onCreate) || !hasCard
+  const showIncidents = running.length > 0 || alarmList.length > 0 || foldedList.length > 0 || !!onLeave || !!onHistory || (isEditor && !!onCreate) || !hasCard
   const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
   return (
     <>
@@ -207,13 +204,6 @@ export function AppMenuRows({
                 <span className="ip-menu-title">{appConfig.copy.karte.leave}</span>
                 <span className="ip-menu-rowsub">{karteBack ? fillTemplate(appConfig.copy.karte.leaveBack, { where: karteBack }) : appConfig.copy.karte.leaveSub}</span>
               </span>
-            </button>
-          )}
-          {/* «Präsentieren» – about THIS Einsatz like «verlassen», so beside it; the existing word
-              and glyph, the sheet it opens is the share sheet's own card */}
-          {onPresent && (
-            <button type="button" className="ip-menu-act" onClick={onPresent}>
-              <Icon id="present" /><ActLabel>{appConfig.copy.presentation.title}</ActLabel>
             </button>
           )}
           {/* History and creation are the two doors OUT of the running list. They are peers:

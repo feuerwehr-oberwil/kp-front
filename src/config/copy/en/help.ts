@@ -99,7 +99,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             'An exercise is an incident like any other – everything works the same. It does not count in the incident statistics and stands hatched, with the word «Exercise», in the bar.',
             'To open one: **Open incident** › **Exercise** – the button then reads **Open exercise**. A running incident becomes an exercise, or goes back, via **Edit**.',
-            'In **All incidents** only a closed exercise that was one from the start can be deleted. Where that is not possible it reads «Delete: only in the administration».',
+            'In **All incidents** only a closed exercise that was one from the start can be deleted. Any other is deleted by the Administration.',
           ] },
         ],
       },
@@ -413,7 +413,6 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'A log entry with a location jumps back to the spot in map or plan when tapped; photos and voice memos can be opened/played directly in the log.',
             'A **typo** can be corrected: the **pencil** in the row sits on everything somebody typed themselves – not on what the app wrote about an action («Team 2 back in»). The row then carries **Corrected HH:MM**; the original wording stays in the record and in the audit chain.',
             '**Playback** (▶ by the log, on a phone at the time ruler) plays map and plan back to an earlier point in time (time slider; editing is locked meanwhile). On a running incident it opens at «Now», and **Play** starts from the beginning; on a closed one it opens at the beginning.',
-            'In the log’s filter menu, **Print log / PDF** leads to the report PDF with the incident journal ticked.',
             'Half-typed text in the **Entry** stays, even if the app reloads – photos and voice memos do not.',
           ] },
           { kind: 'sub', text: 'Open items' },
@@ -458,7 +457,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           ] },
           { kind: 'sub', text: 'Present' },
           { kind: 'list', items: [
-            '**Present** – in the menu by the open incident, or in **Share incident** – › **Start**: whoever has the incident or the read link open can **Follow** – their screen shows what yours shows, on every surface.',
+            '**Present** – in the menu on the open incident’s card, beside **Share**, or in **Share incident** – › **Start**: whoever has the incident or the read link open can **Follow** – their screen shows what yours shows, on every surface.',
             '**Point** turns a tap into a dot and a stroke into a line, which fade again – visible to everyone, nothing is saved.',
             '**End** stops; **Stop following** frees your own screen again. If a presentation is already running, it can be **taken over**. Presenting needs a network.',
           ] },

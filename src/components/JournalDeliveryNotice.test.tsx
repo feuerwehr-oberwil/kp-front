@@ -16,14 +16,6 @@ it('does not claim local safety when persistence failed, and permits export with
   expect(screen.getByRole('alert')).toBeTruthy()
 })
 
-// F10 (17.11.2026): the download says where the file went and what to do with it – only once taken
-it('after the download, says where the file is and who gets it', () => {
-  render(<JournalDeliveryNotice status="storage" count={2} onRetry={vi.fn()} onExport={vi.fn()} />)
-  expect(screen.queryByText(/an den Admin der Feuerwehr senden/)).toBeNull()
-  fireEvent.click(screen.getByRole('button', { name: 'Einträge herunterladen' }))
-  expect(screen.getByText(/an den Admin der Feuerwehr senden/)).toBeTruthy()
-})
-
 it('a failed retry leaves the warning and recovery action available', async () => {
   const retry = vi.fn().mockRejectedValue(new Error('offline'))
   render(<JournalDeliveryNotice status="error" count={2} onRetry={retry} onExport={vi.fn()} />)

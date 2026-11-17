@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLayer } from '../../lib/overlays/layer'
 import { Icon } from '../../lib/icons'
-import { einsatzPillName, fillTemplate, fmtSpanShort, fmtWhen, formatTime, initials, roleLabel } from '../../lib/format'
+import { einsatzPillName, fillTemplate, fmtSpanShort, fmtWhen, formatTime } from '../../lib/format'
 import { appConfig } from '../../config/appConfig'
 import { toast } from '../../lib/ui'
 import { SyncGlyph } from '../SyncGlyph'
@@ -87,8 +87,8 @@ export function IncidentSwitcher({
   /** «Anmelden» for a view-link guest whose browser holds no login (C8, 17.11.2026) – to the bare
    *  site's sign-in. Never together with `onLogout`. */
   onLogin?: () => void
-  /** «Präsentieren» – the second door to the share sheet's «Präsentieren» card (F15, 17.11.2026);
-   *  editors only, like the card (`canShareLink`) */
+  /** «Präsentieren» – the card's fourth act, beside «Teilen» (F15, 17.11.2026): the second door
+   *  to the share sheet's «Präsentieren» card; editors only, like that card (`canShareLink`) */
   onPresent?: () => void
   /** changes whenever the app navigates to another surface — closes a menu that was left
    *  open under a sheet (e.g. Rapport → Anwesenheit must not land back in the menu) */
@@ -253,12 +253,7 @@ export function IncidentSwitcher({
   // carries the red mark (AppMenuRows · foreignMark); the CLOSED pill carries a red dot at its
   // chevron, a reason to open the list – no tone, no Meldeleiste row (lib/foreignAlarm's rule).
   // It goes with the mark: the server's list drops a Trupp once it is acknowledged or out.
-  const others = runningOthers(incidents, active?.id ?? null)
-  const foreignDot = others.some((i) => foreignMark(i) != null)
-  // ── other Einsätze open (C10, 17.11.2026, owner pick A) ── a neutral «+N» at the chevron, the
-  // same mark home's running chip has: a cold start lands in the newest open Einsatz, and nothing
-  // on the shut pill said there was a choice. The red dot keeps meaning alarm; both can show.
-  const moreText = others.length > 0 ? cp.othersRunning(others.length) : ''
+  const foreignDot = runningOthers(incidents, active?.id ?? null).some((i) => foreignMark(i) != null)
   /**
    * «Jetzt synchronisieren» — offered whenever the device has a link, not only on error: it forces a push AND an
    * immediate pull, the "make everything fresh right now" action when things feel stale. It has
@@ -290,8 +285,8 @@ export function IncidentSwitcher({
           draws no mark for it any more */}
       <button ref={triggerRef} className={`ip-switch-btn${twoLine ? ' ip-switch-two' : ''}`} data-sync={active ? syncStatus : undefined} onClick={() => { setClosedOpen(false); setOpen((v) => !v) }}
         aria-label={twoLine
-          ? [pill.street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', uhr ? `${U.label} ${uhr}` : '', moreText, foreignDot ? cp.foreignAlarmDot : ''].filter(Boolean).join(', ')
-          : active ? [active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', moreText, foreignDot ? cp.foreignAlarmDot : ''].filter(Boolean).join(', ') : cp.noIncident}
+          ? [pill.street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', uhr ? `${U.label} ${uhr}` : '', foreignDot ? cp.foreignAlarmDot : ''].filter(Boolean).join(', ')
+          : active ? [active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', foreignDot ? cp.foreignAlarmDot : ''].filter(Boolean).join(', ') : cp.noIncident}
         aria-expanded={open && !sheetOpen}>
         {twoLine ? (
           <span className="ip-switch-lines">
@@ -351,9 +346,7 @@ export function IncidentSwitcher({
           </span>
         )}
         {/* ▾ while the dropdown is shut, ▴ while it stands open (02-base.css · .chev); the red
-            dot of another Einsatz's alarm sits on it while the list is shut, the neutral «+N»
-            of the other open Einsätze before it (C10) */}
-        {moreText && <span className="ip-switch-more" title={moreText} aria-hidden>+{others.length}</span>}
+            dot of another Einsatz's alarm sits on it while the list is shut */}
         <span className="ip-switch-chev">
           <Icon id="chevron-down" className="chev" />
           {foreignDot && !open && <span className="ip-foreign-dot" aria-hidden />}
@@ -385,17 +378,6 @@ export function IncidentSwitcher({
                     neither the ÜBUNG marker nor the Sync button is ever what gets cut off */}
                 <span className="ip-card-name" title={active.title}>{active.title}</span>
                 {active.is_exercise && exerciseBadge}
-                {/* who is signed in (F14, 17.11.2026): a shared tablet keeps whoever used it last
-                    for 90 days, and the name stood only at the menu's foot – under the running
-                    list, below the fold once three run. The roster's coloured disc, no new text;
-                    only for a real login (a link guest's pill already says «Einsatz-Link») */}
-                {onLogout && (
-                  <span className="ip-menu-av ip-card-av" style={{ background: user.color ?? 'var(--ink-faint)' }}
-                    role="img" aria-label={fillTemplate(cp.signedInAs, { name: user.display_name, role: roleLabel(user.role) })}
-                    title={fillTemplate(cp.signedInAs, { name: user.display_name, role: roleLabel(user.role) })}>
-                    {initials(user.display_name)}
-                  </span>
-                )}
                 {syncButton}
               </div>
               {active.address && <span className="ip-card-sub">{active.address}</span>}
@@ -423,9 +405,6 @@ export function IncidentSwitcher({
                   return <span className="ip-card-pill" title={title}>{body}</span>
                 })()}
               </div>
-              {/* a link guest's one sentence (F19, 17.11.2026): what this page is; the pill above
-                  says it is read-only, the menu's foot how to sign in (C8) */}
-              {viewOnly === 'link' && !closed && <span className="ip-card-sub ip-card-lede">{cp.linkLede}</span>}
               {/* the closed pill's fold: the sentence, then the exits on one line — «Wieder öffnen»
                   first and wider, the tile family of the card's own acts (neutral since M2: a button
                   is not a state) */}
@@ -461,7 +440,9 @@ export function IncidentSwitcher({
                   ⚠️ ONE LINE, always (decision 01.09.): three verbs that wrap to a second row
                   stop reading as one set of choices. The label is its own <span> (the badge is
                   the tile's other child) — see .ip-card-acts, which carries the measured widths.
-                  Order is Bearbeiten · Teilen · Abschliessen. Abschliessen goes LAST because it
+                  Order is Bearbeiten · Teilen · Präsentieren · Abschliessen (F15, 17.11.2026:
+                  «Präsentieren» beside «Teilen», whose card it opens alone – four acts break
+                  2 × 2 on a phone, two pairs still read as one set). Abschliessen goes LAST because it
                   is the one that ends the Einsatz; a terminal action sitting between two
                   everyday ones is a mis-tap waiting for a gloved thumb.
                   Three tiles of the head's family since 27.09.2026 (slim sweep · mockup 10) —
@@ -471,7 +452,7 @@ export function IncidentSwitcher({
                   equal thirds ellipsised the verb on a 390px phone; .ip-card-acts).
                   A wrong ADDRESS is noticed while looking at the map, long before anybody opens
                   the Rapport — whose «Bearbeiten» link was once the only way into the mask. */}
-              {(onEditMeta || onArchive || onShare) && (
+              {(onEditMeta || onArchive || onShare || onPresent) && (
                 <div className="ip-card-acts">
                   {onEditMeta && (
                     <button className="ip-card-act head-tile sm" title={cp.editMeta} aria-label={cp.editMeta}
@@ -483,6 +464,11 @@ export function IncidentSwitcher({
                     <button className="ip-card-act head-tile sm" title={cp.share} aria-label={cp.share}
                       onClick={onShare}>
                       <Icon id="external" /><span>{cp.shareShort}</span>
+                    </button>
+                  )}
+                  {onPresent && (
+                    <button className="ip-card-act head-tile sm" onClick={onPresent}>
+                      <Icon id="present" /><span>{appConfig.copy.presentation.title}</span>
                     </button>
                   )}
                   {onArchive && (
@@ -517,7 +503,6 @@ export function IncidentSwitcher({
             user={user}
             onSwitch={(i) => { onSwitch(i); setOpen(false) }}
             onLeave={onKarte && (() => { setOpen(false); onKarte() })}
-            onPresent={onPresent}
             onHistory={onHistory}
             onCreate={onDivera}
             onObjectVisits={onObjectVisits && (() => { setOpen(false); onObjectVisits() })}
