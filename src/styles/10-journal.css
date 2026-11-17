@@ -1076,7 +1076,9 @@ a.jr-link-url { color: var(--ink); text-decoration: underline; text-underline-of
   .jr-file:hover { color: var(--ink); border-color: var(--ink-faint); }
 }
 .jr-file:active { background-image: linear-gradient(var(--press), var(--press)); }
-/* offline media-queue chip on a Verlauf row (photo/audio not yet on the server) */
+/* THE «not synced yet» chip (duck sweep FEEDBACK.7, 17.11.2026): a photo/audio/Beilage still on
+   this device – the upload arrow + «noch nicht synchronisiert», on a Verlauf row and a Rapport Beilage
+   alike (the Objektbesuch thumbnail wears the same arrow as its badge); failed = ⚠ «Nicht synchronisiert» */
 .jr-media-state { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-micro); font-weight: var(--fw-bold);
   padding: 1px var(--sp-2); border-radius: var(--r-xs); white-space: nowrap; /* a tag's corner, never a pill */
   color: var(--amber-strong); background: color-mix(in srgb, var(--amber-strong) 14%, transparent); }

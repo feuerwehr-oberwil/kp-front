@@ -194,8 +194,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
 
     stripLabel: 'Timeline — tap to jump to the matching place',
     photoOpen: 'View the photo large',
-    mediaPending: 'Loading',
-    mediaFailed: 'Not loaded',
+    mediaPending: 'not synced yet',
+    mediaFailed: 'Not synced',
     quickPhrasesAria: 'Phrase snippets',
     openRemindersHead: 'Open items',
     // the ○ switch beside the Art chips — three states on one control

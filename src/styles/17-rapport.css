@@ -558,7 +558,7 @@
 }
 .report-att-thumb:active { background-image: linear-gradient(var(--press), var(--press)); }
 .report-att-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.report-att-pending { font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--amber-strong); }
+.report-att-body > .jr-media-state { align-self: flex-start; }
 .report-att-x { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap); padding: 0; cursor: pointer;
   border: none; border-radius: var(--r-sm); background: transparent; color: var(--ink-faint); }
 @media (hover: hover) {

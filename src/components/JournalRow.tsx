@@ -269,7 +269,9 @@ export function JournalRow({
             {mediaState && (
               <span className={`jr-media-state ${mediaState === 'failed' ? 'failed' : 'pending'}`}
                 title={mediaState === 'failed' ? C.mediaFailed : C.mediaPending}>
-                <Icon id={mediaState === 'failed' ? 'warn' : 'rotate'} />
+                {/* the upload arrow, the one «noch nicht synchronisiert» mark (duck sweep FEEDBACK.7): the ⟳ it
+                    wore read «loading», as its old word «Wird geladen» did */}
+                <Icon id={mediaState === 'failed' ? 'warn' : 'upload'} />
                 <span>{mediaState === 'failed' ? C.mediaFailed : C.mediaPending}</span>
               </span>
             )}

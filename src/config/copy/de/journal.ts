@@ -122,9 +122,11 @@ export const journalCopy = {
     photoOpen: 'Foto gross ansehen',
     discardPhoto: 'Foto verwerfen',
     // offline media upload queue — status chip on a Verlauf row whose photo/audio is not yet
-    // on the server (captured offline; will upload automatically when reconnected)
-    mediaPending: 'Wird geladen',
-    mediaFailed: 'Nicht geladen',
+    // on the server (captured offline; will upload automatically when reconnected). The Rapport's
+    // Beilage and the Objektbesuch say the same words (duck sweep FEEDBACK.7: «Wird geladen» read
+    // as a download)
+    mediaPending: 'noch nicht synchronisiert',
+    mediaFailed: 'Nicht synchronisiert',
     // rows appended after the Einsatzende (archive → reopen, the correction path)
     nachtrag: 'Nachtrag',
     // a hand-written line corrected later (append-only patch — both wordings stay in the record).

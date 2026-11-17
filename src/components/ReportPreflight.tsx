@@ -2435,7 +2435,8 @@ export function ReportPreflight({
                               if (v !== e.target.value) onCaptionAttachment(a.id, v)
                             }}
                           />}
-                          {a.url.startsWith('blob:') && <span className="report-att-pending">{P.attachmentsPending}</span>}
+                          {/* the Verlauf's «noch nicht synchronisiert» chip, glyph and word (duck sweep FEEDBACK.7) */}
+                          {a.url.startsWith('blob:') && <span className="jr-media-state pending"><Icon id="upload" /><span>{P.attachmentsPending}</span></span>}
                         </div>
                         {onRemoveAttachment && (
                           <button type="button" className="report-att-x" aria-label={appConfig.copy.delete}

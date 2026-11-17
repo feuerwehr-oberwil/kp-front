@@ -171,8 +171,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
 
     stripLabel: 'Frise chronologique – toucher pour sauter à l\'endroit correspondant',
     photoOpen: 'Voir la photo en grand',
-    mediaPending: 'Chargement',
-    mediaFailed: 'Non chargé',
+    mediaPending: 'pas encore synchronisé',
+    mediaFailed: 'Non synchronisé',
     attendanceConflict: 'Présence {name} : {what} – merci de vérifier.',
     // ⚠️ Des fragments, pas des phrases : reliés par « · » et insérés dans {what} ci-dessus, qui a
     // déjà écrit « Présence {name} : ». Ce que cette ligne dit déjà ne se répète pas ici.
