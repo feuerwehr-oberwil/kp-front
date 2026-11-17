@@ -29,7 +29,7 @@ import { timeBlockLabels } from '../lib/timeBlockLabels'
 import { EmptyState } from './EmptyState'
 import { SyncGlyph } from './SyncGlyph'
 import { Button, IconButton } from './Button'
-import { ShellLoader } from './ShellLoader'
+import { LoadingStatus, ShellLoader } from './ShellLoader'
 import { ZeitplanView } from './ZeitplanView'
 import { BandGrid } from './BandGrid'
 import { AnrueckendBlock } from './AnrueckendBlock'
@@ -979,7 +979,11 @@ export function AnwesenheitView({
           its own state: neutral for «Alle», tinted and naming the rank while a filter is on, so a
           filtered list can never look like the whole Mannschaft. */}
 
-      {empty && !guestOffer ? (
+      {/* not «Noch kein Personal erfasst» while the roster is still on its way (LISTS.1): the
+          frames before the IndexedDB seed, and a cold cache's whole fetch */}
+      {empty && !guestOffer && loading && !error ? (
+        <div className="empty-state empty-fill"><LoadingStatus size="surface">{A.loading}</LoadingStatus></div>
+      ) : empty && !guestOffer ? (
         <EmptyState className="empty-fill" icon={error ? 'warn' : 'people'}
           title={error ? A.loadFailedTitle : A.emptyTitle}
           // «Synchronisiere das Personal aus …» is an instruction for whoever keeps the roster;
@@ -990,7 +994,17 @@ export function AnwesenheitView({
           // a retry only for a fetch that FAILED – an empty roster that loaded fine has nothing to retry
           action={error ? <Button icon={<Icon id="rotate" />} onClick={onReload} disabled={loading}>{A.retry}</Button> : undefined} />
       ) : !rows.length && !guestOffer ? (
-        <div className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</div>
+        // a query says what was searched; ONLY a filter (the quick ✓ while nobody is present yet)
+        // gets the shared filter line and the one-tap way out – never «Keine Treffer für «».»
+        // (duck sweep LISTS.4, 17.11.2026)
+        q.trim()
+          ? <div className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</div>
+          : (
+            <div className="no-hits no-hits-way">
+              {appConfig.copy.filterNoHits}
+              <Button onClick={() => { setPresentOnly(false); setRankSel(new Set()); setStateSel(new Set()); setNoteOnly(false) }}>{A.filterClear}</Button>
+            </div>
+          )
       ) : showBands ? (
         <BandGrid
           people={rows}

@@ -15,7 +15,6 @@ export const intakeCopy = {
     addressLabel: 'Adresse',
     addressPlaceholder: 'Strasse oder Objekt',
     addressSearching: 'Wird gesucht …',
-    addressNoHits: 'Keine Adresse gefunden',
     // «Auf Karte» · «Hier» – icon buttons on the address field (owner pick 1A, 15.11.2026), the
     // words are their aria-label and title. «Aus Plänen» went (15.11.): typing finds the station's
     // objects in the field's one list, so the placeholder names both.
@@ -57,7 +56,7 @@ export const intakeCopy = {
     created: 'Einsatz erstellt',
     taken: 'Alarm übernommen',
     updated: 'Einsatz aktualisiert',
-    alarmTime: 'Alarmzeit',
+    alarmTime: 'Zeit Alarmierung',
     alarmMessage: 'Alarmmeldung',
     // --- Divera pool + incoming banner + in-map review ---
     addressUnknown: 'Adresse unbekannt',
@@ -125,5 +124,8 @@ export const intakeCopy = {
     // the objects first, then the geocoder's addresses; «Weitere» = the rest A–Z under «In der Nähe».
     objectsGroup: 'Objekte',
     addressGroup: 'Adressen',
+    // the address search's own states (LISTS.1) – the Karte search's words
+    addressOffline: 'Adresssuche braucht Netz. Stationsobjekte werden trotzdem gefunden.',
+    addressFailed: 'Adresssuche gerade nicht erreichbar.',
   },
 } as const

@@ -207,7 +207,7 @@ export function ChecklistLibrary({ query }: { query: string }) {
   const home = (
     <>
       {devices.length > 0 && (
-        <ListGroup label={CL.groupManuals} end={String(manuals.length)} look={look} bare>
+        <ListGroup label={CL.groupManuals} count={manuals.length} look={look} bare>
           <DeviceList groups={devices} look={look} isOn={(g) => isOn('device', g.device)} onOpen={openDevice} />
         </ListGroup>
       )}

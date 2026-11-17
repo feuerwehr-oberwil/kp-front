@@ -11,12 +11,12 @@ L = {
     "eyebrow": "Einsatzrapport",
     "keyword": "Stichwort",
     "category": "Kategorie",
-    "exercise": "ÜBUNG — kein Ereignis",
+    "exercise": "ÜBUNG – kein Ereignis",
     "address": "Adresse / Objekt",
     "einsatzleiter": "Einsatzleiter",
     "kontaktperson": "Kontaktperson",
     "kontaktpersonTelefon": "Telefon",
-    "alarmierung": "Alarmierung",
+    "alarmierung": "Zeit Alarmierung",
     "ausgerueckt": "Ausgerückt",
     "incidentEnd": "Einsatzende",
     "incidentId": "Einsatz-ID",
@@ -71,8 +71,8 @@ L = {
     # paragraph explaining why both are nothing. The rounding rule is not printed at all: it is
     # the same rule on every rapport a station prints, and it belongs in the Weisung, not on
     # every sheet next to the two numbers anybody actually transfers.
-    "personalCount": "<b>{n} Anwesende</b>",
-    "personalTotals": "<b>{n} Anwesende</b> · Einsatzstunden <b>{h}</b> · gerundet <b>{r}</b>",
+    "personalCount": "<b>{n} anwesend</b>",
+    "personalTotals": "<b>{n} anwesend</b> · Einsatzstunden <b>{h}</b> · gerundet <b>{r}</b>",
     "journal": "Einsatzjournal",
     # «Messungen» (10.11.2026): one block per Messpunkt. The Stufe is a WORD on every row that
     # has one — the mark and the colour are extra, a monochrome print keeps the word. Over range
@@ -87,7 +87,7 @@ L = {
     "messungLast": "zuletzt {t}",
     "stageA1": "A1 Voralarm",
     "stageA2": "A2 Hauptalarm",
-    "stageOver": "über Messbereich (A2 Hauptalarm)",
+    "stageOver": "über Messbereich, A2 Hauptalarm",
     "stageUnreadable": "unlesbar",
     #: stands in for a figure sheet the renderer threw on (plan / Skizze pages)
     "pageFailed": "Seite «{t}» konnte nicht gedruckt werden.",

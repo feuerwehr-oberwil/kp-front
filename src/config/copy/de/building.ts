@@ -106,7 +106,9 @@ export const buildingCopy = {
     visitFindings: 'Letzter Objektbesuch {d} · {n} Mängel',
     visitFindingsOne: 'Letzter Objektbesuch {d} · 1 Mangel',
     // the chip on the Karte / in the plan's chip row that opens the card (BuildingFloat)
-    // not «Gebäude» alone: that word + the storey glyph is the rail's Gebäude tile, a surface
+    // not «Gebäude» alone on the tablet: that word + the storey glyph is the rail's Gebäude tile, a
+    // surface. The PHONE chip does say «Gebäude» (chipTitleShort, owner pick 12A, 14.11.2026) – with
+    // the (i) glyph, never the rail tile's storey glyph, which is what tells the two apart there.
     chipTitle: 'Gebäude-Info',
     chipLabel: 'Gebäude-Steckbrief öffnen',
     chipLabelHazards: 'Gebäude: {h} – Steckbrief öffnen',

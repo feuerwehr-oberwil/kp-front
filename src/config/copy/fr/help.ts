@@ -55,7 +55,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', only: 'keyboard', items: [
             'Au clavier : tous les raccourcis de cette vue sous **Raccourcis clavier** › «Carte & objets».',
           ] },
-          { kind: 'note', text: 'Quand une intervention est en cours, elle figure dans la barre en haut – en rouge, en orange pour un exercice – et un toucher l’ouvre. Une alarme est affichée, mais jamais ouverte d’elle-même.' },
+          { kind: 'note', text: 'Quand une intervention est en cours, elle figure dans la barre en haut – en rouge, ou hachurée avec le mot «Exercice» pour un exercice – et un toucher l’ouvre. Une alarme est affichée, mais jamais ouverte d’elle-même.' },
         ],
       },
       {

@@ -8,7 +8,7 @@ wording unchanged.
 
 - **Role gating** – product model is three incident roles: `editor` (FU / can mutate incident
   state), `el` (Einsatzleiter function, 07.09.2026 – reads everything, writes ONLY the record
-  domains: Anwesenheit/Zeitplan, Mittel, Checklisten, Rapport + Beilagen, via the
+  domains: Anwesenheit/Zeitplan, Material, Checklisten, Rapport + Beilagen, via the
   server-enforced `PUT …/workspace/record` slice (`RECORD_WORKSPACE_KEYS`, plus the crew
   filing's markers, unioned onto the stored Trupps — `RECORD_CREW_FILED_KEY`, 22.10.2026), audit-event
   appends limited to the record vocabulary (`EL_EVENT_PREFIXES`), Verlauf rows of any kind like an
@@ -205,7 +205,7 @@ The door rule above, applied to the Rapport, Anwesenheit and lifecycle (RBAC aud
   where the ✓ «Gespeichert» stands (`IncidentSwitcher`; on a phone on the clock line, the title
   row keeps the Einsatz name). It is true PER SURFACE (`workspace/access · viewOnlyReason`): a
   viewer and an Einsatz-Link everywhere; the `el` and a Führungsansicht only where they keep
-  nothing – the Karte, the Plan, the Trupps – never on the Rapport, Anwesenheit, Mittel,
+  nothing – the Karte, the Plan, the Trupps – never on the Rapport, Anwesenheit, Material,
   Checklisten or with the Verlauf open. The opened card names the reason («Nur ansehen ·
   Betrachter / Einsatzleitung / Einsatz-Link»). A sync warning outranks it in the slot, and a
   closed Einsatz shows only its lock (one mark at a time). A lost tab lock, a replay and an older

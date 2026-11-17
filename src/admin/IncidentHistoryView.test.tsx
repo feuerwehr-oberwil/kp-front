@@ -60,6 +60,20 @@ describe('IncidentHistoryView — what a row says', () => {
   })
 })
 
+// ENT.9 (17.11.2026): a reopen keeps `closed_at`, so «closed» is `is_archived` – a running reopened
+// Einsatz reads «offen» and offers no «Löschen» (the server would answer 409)
+describe('IncidentHistoryView — a reopened Einsatz', () => {
+  it('reads open and offers no delete while it runs again', async () => {
+    listIncidents.mockResolvedValue([{ ...closed, is_archived: false, status: 'open' }])
+    render(<IncidentHistoryView />)
+    await screen.findByText(closed.title)
+    expect(document.querySelector('.adm-badge-state')?.textContent).toBe(C.open)
+    expect(screen.queryByText(C.closed)).toBeNull()
+    expect(screen.queryByLabelText(fillTemplate(C.deleteAria, { title: closed.title }))).toBeNull()
+    expect(screen.getByText(C.deleteOpenHint)).toBeTruthy()
+  })
+})
+
 // The Einsatz-Ablage (docs/incident-archive.md): «abgelegt / ausstehend / Fehler: …» per Einsatz,
 // and the one way out of a Fehler
 describe('IncidentHistoryView – the Ablage column', () => {

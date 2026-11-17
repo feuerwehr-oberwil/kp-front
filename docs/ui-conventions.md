@@ -263,7 +263,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   (`ConfirmCard`, `Overlay` without `grab`): it is answered, not worked in. ⚠️ A red
   `danger` ConfirmCard stands ONLY in front of what nothing brings back (the delete rule,
   13.11.2026, [`undo.md`](undo.md) › One delete rule): a removal ↶ can take back acts at once
-  and shows «{Name} entfernt · Rückgängig» (`lib/removalToast`) instead of asking first. (3) A **short
+  and shows «{Name} entfernt · Rückgängig» (`lib/removalToast`) instead of asking first. A confirm
+  that acts on ONE thing picked from a list of look-alikes names it right above its buttons
+  (`ConfirmSpec.subject`; every close, reopen and Übung delete names its Einsatz by name and Zeit
+  Alarmierung – `lib/einsatzSubject`, duck sweep LISTS.11, 17.11.2026). (3) A **short
   pick-one menu that belongs to its tile or chip** — Ansichten at the compass, the Einsatz-Menü,
   the Meteo chip, every `Menu` — is a **popover anchored to that control**. Three exceptions,
   each a rule: a page you READ (Hilfe) is full-screen, and a search that opens with the keyboard
@@ -643,12 +646,22 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     TruppFinder), the field drops its inner ✕ — `noClear`, a prop, never CSS hiding; Escape still
     closes. The Palette keeps both: its ✕ closes the whole «+» chooser, clearing only the query.
     Never a bare native `type=search`, never a framed white box, never a ruled band.
+    What it FINDS is one rule too (duck sweep LISTS.3, 17.11.2026): every list search matches
+    through `lib/search` (`searchQuery` + `matchesQuery` / `matchesAnyQuery`) – umlauts fold both
+    ways («Mueller» ↔ Müller), one typo is forgiven from four letters up. Never a plain
+    `toLowerCase().includes`, never a fold of a surface's own; a list that ranks (the Karte search)
+    ranks on the same fold and puts a typo hit last.
     (6) **ⓘ toggle**: `components/InfoToggle` (`.ui-info`) — the grey 36px chip with a 44px pad;
     OPEN is `--sel-wash` + `--blue-strong` glyph (the «open/armed» look). Never the choice fill,
     never the ink pill, never `--accent`. The tool docks keep DockInfo's ⓘ in the dock's control fill.
     (7) **No hits**: one line, `.no-hits` (13/500 `--ink-faint`, centred, 20px pad, never italic),
-    worded `copy.noHits` «Keine Treffer für «{q}».»; a noun of its own only where it helps («Kein
-    Trupp gefunden»).
+    worded `copy.noHits` «Keine Treffer für «{q}».» while there IS a query – the Verlauf too, never
+    a big `EmptyState` for a search. While only a FILTER narrows the list (no query), the line is
+    `copy.filterNoHits` «Keine Einträge in dieser Auswahl.» plus the way out in its own words (the
+    Anwesenheit's «Alle zeigen», the Verlauf's «"Alle zeigen" hebt den Filter auf.») – never
+    «Keine Treffer für «».» (duck sweep LISTS.4, 17.11.2026). A noun of its own only where it helps
+    («Kein Trupp gefunden»); one catalogue, one noun («Kein Objekt gefunden.» on the Karte and in
+    the PlanPicker). An EMPTY list (nothing there yet, no query, no filter) is `EmptyState`.
     (8) **Fold**: every disclosure — a `<details>`, an accordion head, a notice that folds —
     carries the global `<Icon id="chevron-down" className="chev" />`, turned by `aria-expanded` /
     `details[open]` (02-base). Never an up/down icon swap, never a text ▸, never the UA marker
@@ -698,6 +711,18 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     than the line on its own. CSS cannot say this, so `lib/smartHyphens` (a ref on the text: the
     row title, the reader's chapter neighbours) lays it out both ways; never `hyphens: auto` in
     the CSS of a title.
+    One thing, one row (duck sweep LISTS.2/7/8, 17.11.2026): **an Einsatz** is `EinsatzRow` (name
+    with the hatched Übung tag and «Abgeschlossen» BESIDE it, `shortAddress` sub, the caller's time
+    line, the red Atemschutz word from `lib/foreignAlarm` under the place, ›) – «Alle Einsätze» and
+    the standing link's chooser; the Einsatz menu keeps its dense `.ip-menu-row` but the same parts
+    in the same order. **A Stationsobjekt** is footprint · name · address (`objectRowSub`; the
+    plan count in the sub only where picking depends on it: the Einsatz form, «Anderes Objekt») ·
+    distance, in ONE order – `lib/karte/places · sortObjects` (a name hit before an address-only
+    hit, then nearest, then A–Z; the Karte search keeps its finer rank). **A Messpunkt** row leads
+    with its pill. A row that only PICKS (the form, «Anderes Objekt») has no ›.
+    **A time in a row** is `fmtWhen(…, { todayShort: true })` – the clock today, «16.11. 23:50»
+    on another day – and a due time is `dueClock` («· morgen», or the day once it is past); never a
+    bare `hhmm` in a list that outlives midnight (the Tafel Pendenzen, LISTS.10).
     (13) **Tick row** (20.10.2026, UX sweep F7, owner: «shared primitive … the blue, not green»):
     every item that is TICKED OFF — a Checkliste item, a Rapport Partnerorganisation or «Formular
     & Link», a Tafel row's «erledigt» — is `components/TickRow`: box + label ONE button,
@@ -706,7 +731,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     tick, never a box of a surface's own size. What being done MEANS stays the surface's (the
     Checkliste fades the text, the Tafel strikes the row through). Choosing ITEMS as the answer
     to a question (the Trupp's Ausrüstung) is a `Chip`, not a tick.
-    `controlDebt.test.ts` is the ratchet for raw toggles, selects and search fields.
+    `controlDebt.test.ts` is the ratchet for raw toggles, selects and search fields – and since
+    17.11.2026 (LISTS.8, ELEM.15; `src/capture` included) for hand-built rows (a `…row…` class or
+    a › of its own on a `<button>`), written-out `.ip-btn` buttons, native-disabled primaries and
+    fields without the house class. Its counts only go down.
   - *Colour of a mention is not a state* (29.09.2026, owner pick A): every recognised word in the
     Verlauf – vehicle, partner, Trupp, person, material, group – is **medium (500) `--ink`**
     (`.jr-link`; bold until 05.11.2026, owner pick A5), prose regular, and in the composer one

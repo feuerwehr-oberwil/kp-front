@@ -543,9 +543,18 @@ describe('the empty board, the SiTr chip, the held pinned row', () => {
   it('an empty board offers «Trupp anmelden» itself', () => {
     mount({ trupps: [] })
     // the whole «Trupp anmelden» (newTrupp) — `start` is the form's one-verb footer since 27.09.2026
-    const door = screen.getAllByRole('button', { name: new RegExp(az.newTrupp) }).find((b) => b.className.includes(s.emptyAct))!
+    const door = screen.getAllByRole('button', { name: new RegExp(az.newTrupp) }).find((b) => b.closest('.empty-state'))!
     fireEvent.click(door)
     expect(screen.getByRole('dialog', { name: az.formCreateTitle })).toBeTruthy()
+  })
+
+  // duck sweep LISTS.5: the shared EmptyState with the board's own glyph – ⚠ is its alarm glyph
+  it('the empty board is the shared EmptyState, with no warning glyph', () => {
+    mount({ trupps: [] })
+    const empty = document.querySelector('.empty-state')!
+    expect(empty.textContent).toContain(az.empty)
+    expect(empty.textContent).toContain(az.emptyHint)
+    expect(empty.querySelector('use[href$="#warn"]')).toBeNull()
   })
 
   it('the phone head button carries a word, not a bare «+»', () => {

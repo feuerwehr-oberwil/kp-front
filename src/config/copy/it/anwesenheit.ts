@@ -106,6 +106,7 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     viewBands: 'Turni',
     viewLabel: 'Vista',
     reloadDone: 'Elenco aggiornato',
+    filterClear: 'Mostra tutto',
   },
   anrueckend: {
     title: 'In arrivo',

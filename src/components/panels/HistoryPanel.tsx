@@ -1,12 +1,17 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { toast, confirmDialog } from '../../lib/ui'
 import { ApiError, isUnverifiable } from '../../lib/api'
 import { useOnline } from '../../lib/useOnline'
 import { NO_HISTORY_FILTER, applyHistoryFilter, filterIncidents, historyGroupKey, historyTypes, historyWhen, monthLabel, type HistoryFilter } from '../../lib/historyGroups'
 import { appConfig } from '../../config/appConfig'
-import { shortAddress } from '../../lib/deploymentConfig'
 import { EmptyState } from '../EmptyState'
+import { EinsatzRow } from '../EinsatzRow'
+import { Button } from '../Button'
+import { ListGroup } from '../ListRow'
+import { LoadingStatus } from '../ShellLoader'
+import { foreignMark } from '../../lib/foreignAlarm'
+import { einsatzSubject } from '../../lib/einsatzSubject'
 import { Menu } from '../../lib/overlays'
 import { cx } from '../../lib/cx'
 import c from '../SurfaceControls.module.css'
@@ -16,6 +21,7 @@ import {
   deleteIncident,
   listIncidents,
   reactivateIncident,
+  readCachedIncidentList,
   type IncidentMeta,
 } from '../../lib/incidents'
 import { Modal } from './_shared'
@@ -42,30 +48,52 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
   windowDays?: number
 }) {
   const [items, setItems] = useState<IncidentMeta[]>([])
+  // Four states, never folded into «empty» (duck sweep LISTS.1, 17.11.2026): the FU in the cellar
+  // read «Noch keine Einsätze» while the list was still loading, offline or refused, and concluded
+  // yesterday's Einsatz was gone. «Empty» only after the server answered with nothing.
+  //   · loading – the first answer is out;
+  //   · offline – nobody could be asked (api · isUnverifiable): the list this device cached last
+  //     (the running ones, lib/api/incidents · cacheIncidentList – the menu reads the same one),
+  //     with what is missing said and a retry;
+  //   · failed – the server answered with a refusal: THE form warning and a retry;
+  //   · ok.
+  const [state, setState] = useState<'loading' | 'ok' | 'offline' | 'failed'>('loading')
   // a HINT, not a gate (lib/useOnline): the buttons stay, the line says what they need
   const online = useOnline()
-  const reload = () => { void listIncidents().then(setItems).catch(() => setItems([])) }
+  // the fetch alone – the first state is already «loading»; a retry says so first (`retry`)
+  const reload = () => {
+    listIncidents().then((list) => { setItems(list); setState('ok') }).catch(async (e: unknown) => {
+      if (!isUnverifiable(e)) { setState('failed'); return }
+      // ⚠️ a cached list's alarm tiers are as old as the cache – never shown as if they were now
+      const cached = (await readCachedIncidentList().catch(() => [])).map(({ atemschutz_due: _stale, ...i }) => i)
+      setItems((cur) => (cur.length ? cur : cached))
+      setState('offline')
+    })
+  }
   useEffect(reload, [])
+  const retry = () => { setState('loading'); reload() }
   // reactivate is as deliberate as archive (its mirror confirm): the dialog also teaches
-  // what it means — later edits land as Nachträge, a done Rapport flips to «geändert».
-  const reactivate = async (id: string) => {
+  // what it means — later edits land as Nachträge, a done Rapport flips to «geändert». Every
+  // lifecycle confirm here names its Einsatz above the buttons (lib/einsatzSubject, LISTS.11).
+  const reactivate = async (i: IncidentMeta) => {
     const h = appConfig.copy.history
     const ok = await confirmDialog({
       title: h.reactivateConfirmTitle,
       message: h.reactivateConfirmMsg,
+      subject: einsatzSubject(i),
       confirmLabel: h.reactivateConfirmBtn,
       cancelLabel: appConfig.copy.cancel,
     })
     if (!ok) return
     // ⚠️ caught: an offline reopen used to be an unhandled rejection and no word at all
     try {
-      await reactivateIncident(id)
+      await reactivateIncident(i.id)
     } catch (e) {
       toast(isUnverifiable(e) ? appConfig.copy.archived.reactivateNeedsServer
         : e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
       return
     }
-    onOpen(id, false)
+    onOpen(i.id, false)
   }
   const archive = async (id: string) => { await onArchive?.(id); reload() }
   // hard delete — Übungen only (server-enforced). Deliberately NOT undoable, so it gets the
@@ -75,6 +103,7 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
     const ok = await confirmDialog({
       title: h.deleteConfirmTitle,
       message: h.deleteConfirmMsg,
+      subject: einsatzSubject(i),
       confirmLabel: h.deleteConfirmBtn,
       cancelLabel: appConfig.copy.cancel,
       danger: true,
@@ -124,21 +153,37 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
     return [w.day, span, w.durationMs != null ? fmtSpanShort(w.durationMs) : null]
       .filter((x): x is string => !!x).map((x) => x.replace(/ /g, '\u00a0')).join(' · ')
   }
-  const rows = shown.map((i, idx) => {
+  // one ListGroup per time group – sorted active-first then newest, so a key never comes back
+  const groups: { key: string; rows: IncidentMeta[] }[] = []
+  for (const i of shown) {
     const key = historyGroupKey(i, now)
-    const prev = idx > 0 ? historyGroupKey(shown[idx - 1], now) : null
-    return { i, header: key !== prev ? groupTitle(key) : null }
-  })
+    const last = groups[groups.length - 1]
+    if (last?.key === key) last.rows.push(i)
+    else groups.push({ key, rows: [i] })
+  }
   const windowNote = windowDays == null ? null
     : windowDays === 0 ? h.windowNoteRunning
     : windowDays === 1 ? h.windowNoteOne
     : fillTemplate(h.windowNote, { n: windowDays })
   return (
     <Modal title={h.title} onClose={onClose} wide>
-      {sorted.length === 0 && (windowNote
+      {state === 'loading' && sorted.length === 0 && <div className="ip-hist-state"><LoadingStatus size="surface">{h.loading}</LoadingStatus></div>}
+      {state === 'failed' && (
+        <div className="form-warn" role="alert">
+          <Icon id="warn" /><span className="form-warn-text">{h.loadFailed}</span>
+          <button type="button" className="form-warn-act" onClick={retry}>{h.retry}</button>
+        </div>
+      )}
+      {state === 'offline' && (
+        <div className="form-warn form-warn-amber" role="status">
+          <Icon id="cloud-off" /><span className="form-warn-text">{sorted.length ? h.offlineCached : h.offlineNothing}</span>
+          <button type="button" className="form-warn-act" onClick={retry}>{h.retry}</button>
+        </div>
+      )}
+      {state === 'ok' && sorted.length === 0 && (windowNote
         ? <EmptyState icon="list" title={h.emptyWindow} sub={windowNote} />
         : <EmptyState icon="list" title={h.empty} sub={h.emptySub} />)}
-      {!online && onArchive && sorted.length > 0 && <p className="ip-hist-offline"><Icon id="cloud-off" /> {h.offlineNote}</p>}
+      {state === 'ok' && !online && onArchive && sorted.length > 0 && <p className="ip-hist-offline"><Icon id="cloud-off" /> {h.offlineNote}</p>}
       {/* the search line of a working list (owner, 27.10.2026 r2: «in-line with a filter button
           the same way we have it for … people in Anwesenheiten») – SurfaceControls' search and
           filter button, the filters behind it as ticks in a Menu. ONE channel for «filter is on»,
@@ -179,38 +224,44 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
           />
         </div>
       )}
-      {sorted.length > 0 && shown.length === 0 && <p className="no-hits">{query.trim() ? fillTemplate(appConfig.copy.noHits, { q: query.trim() }) : h.filterNoHits}</p>}
-      {rows.map(({ i, header }) => {
-        return (
-          <Fragment key={i.id}>
-            {header && <div className="ip-hist-group">{header}</div>}
-            <div className={`ip-hist${i.is_archived ? '' : ' ip-hist-live'}`}>
-              <button className="ip-hist-main" onClick={() => onOpen(i.id, i.is_archived)}>
-                <div className="ip-hist-title">
-                  <span className="ip-hist-name">{i.title}</span>
-                  {i.is_exercise && <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>}
-                  {i.is_archived && <span className="ip-badge ip-badge-arch">{h.statusArchived}</span>}
-                </div>
-                {whenOf(i) && <div className="ip-hist-when">{whenOf(i)}</div>}
-                <div className="ip-hist-sub">{shortAddress(i.address) ?? h.noLocation}</div>
-              </button>
+      {/* the one no-hit line (LISTS.4): a query says what was searched; only a filter gets the
+          shared filter line and its way out */}
+      {sorted.length > 0 && shown.length === 0 && (query.trim()
+        ? <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: query.trim() })}</p>
+        : (
+          <div className="no-hits no-hits-way">
+            {appConfig.copy.filterNoHits}
+            <Button onClick={() => setFilter(NO_HISTORY_FILTER)}>{h.filterClear}</Button>
+          </div>
+        ))}
+      {groups.map(({ key, rows }) => (
+        <ListGroup key={key} label={groupTitle(key)} className="ip-hist-group">
+          {rows.map((i) => (
+            // the row opens the Einsatz (›); its lifecycle buttons stay BESIDE it (owner,
+            // 17.11.2026 – kept), each confirm naming the Einsatz it acts on
+            <div key={i.id} className="ip-hist">
+              <EinsatzRow incident={i} when={whenOf(i)} alarm={foreignMark(i)} onClick={() => onOpen(i.id, i.is_archived)} />
               {/* «Wieder öffnen» is the lifecycle too (PATCH is_archived, editor-only on the
                   server) — gated with «Abschliessen», or an el/viewer got a confirm and a 403 */}
-              {i.is_archived
-                ? onArchive && <button className="ip-btn" onClick={() => reactivate(i.id)}>{h.reactivate}</button>
-                : onArchive && <button className="ip-btn ip-hist-close" onClick={() => void archive(i.id)}>{h.archiveConfirmBtn}</button>}
-              {/* delete only for ARCHIVED exercises (editor-gated via onArchive) — an open
-                  Übung is first abgeschlossen like any incident, then deletable. Only one
-                  CREATED as Übung: a real Einsatz marked Übung later needs the Verwaltung */}
-              {i.is_exercise && i.exercise_since_creation && i.is_archived && onArchive && (
-                <button className="ip-btn ip-btn-danger" onClick={() => void removeExercise(i)} aria-label={h.deleteConfirmTitle}>
-                  <Icon id="trash" /> {h.deleteExercise}
-                </button>
+              {onArchive && (
+                <div className="ip-hist-acts">
+                  {i.is_archived
+                    ? <Button onClick={() => void reactivate(i)}>{h.reactivate}</Button>
+                    : <Button onClick={() => void archive(i.id)}>{h.archiveConfirmBtn}</Button>}
+                  {/* delete only for ARCHIVED exercises (editor-gated via onArchive) — an open
+                      Übung is first abgeschlossen like any incident, then deletable. Only one
+                      CREATED as Übung: a real Einsatz marked Übung later needs the Verwaltung */}
+                  {i.is_exercise && i.exercise_since_creation && i.is_archived && (
+                    <Button variant="danger" icon={<Icon id="trash" />} onClick={() => void removeExercise(i)} aria-label={h.deleteConfirmTitle}>
+                      {h.deleteExercise}
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
-          </Fragment>
-        )
-      })}
+          ))}
+        </ListGroup>
+      ))}
       {windowNote && sorted.length > 0 && <p className="ip-hist-foot">{windowNote}</p>}
     </Modal>
   )

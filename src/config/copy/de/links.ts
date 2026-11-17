@@ -58,7 +58,6 @@ export const linksCopy = {
     checkedLabel: 'Zuletzt geprüft',
     chooseTitle: 'Mehrere Einsätze laufen',
     chooseHint: 'Wähle, welchen Einsatz diese Anzeige zeigen soll.',
-    exerciseTag: 'Übung',
     notEnrolledTitle: 'Dieses Gerät ist nicht als Stations-Terminal eingerichtet.',
     notEnrolledHint: 'In der Verwaltung unter «Links & Zugänge» den Einrichtungs-Link erzeugen und auf diesem Gerät öffnen.',
     asInvalidTitle: 'Dieser Atemschutz-Code gilt nicht mehr.',

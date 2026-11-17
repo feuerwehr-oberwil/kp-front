@@ -28,6 +28,11 @@ describe('filterIncidents', () => {
   it('returns empty on no match', () => {
     expect(filterIncidents(items, 'zzz')).toEqual([])
   })
+  it('folds umlauts both ways and forgives one typo (lib/search)', () => {
+    expect(filterIncidents(items, 'Oelspur')).toEqual([items[2]])
+    expect(filterIncidents(items, 'Loechli')).toEqual([items[0]])
+    expect(filterIncidents(items, 'Chmie')).toEqual([items[0]])
+  })
 })
 
 describe('historyGroupKey', () => {

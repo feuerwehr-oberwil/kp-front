@@ -10,7 +10,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     addressLabel: 'Adresse',
     addressPlaceholder: 'Rue ou objet',
     addressSearching: 'Recherche …',
-    addressNoHits: 'Aucune adresse trouvée',
     objectPlans: (n: number) => (n === 1 ? '1 plan' : `${n} plans`),
     objectNoPlans: 'aucun plan',
     mapPickButton: 'Sur la carte',
@@ -90,5 +89,8 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     coordMissing: 'Pas encore de lieu',
     objectsGroup: 'Objets',
     addressGroup: 'Adresses',
+    // the address search's own states (LISTS.1) – the Karte search's words
+    addressOffline: 'La recherche d’adresses exige le réseau. Les objets du corps restent trouvables.',
+    addressFailed: 'Recherche d’adresses momentanément indisponible.',
   },
 }

@@ -23,6 +23,7 @@ import { getWorkspace } from './api/workspace'
 import { sanitizeWorkspace } from './workspace'
 import { truppStillDeployed } from './atemschutz'
 import { insideAbschlussSpec } from './abschlussOpen'
+import { einsatzSubject } from './einsatzSubject'
 
 /** the Einsatz closed — or reopened — on ANOTHER device while it was open here, and when */
 export type LifecycleElsewhere = { id: string; event: 'closed' | 'reopened'; at: number }
@@ -314,22 +315,28 @@ export function useCloseReopen({
     const inside = await getWorkspace(id)
       .then((r) => (sanitizeWorkspace(r.workspace).ws?.trupps ?? []).filter(truppStillDeployed))
       .catch(() => [])
+    // the Einsatz by name above the button (lib/einsatzSubject, LISTS.11) – from a list of rows
+    // that look alike, the ask repeats which one it ends
+    const meta = incidents?.find((x) => x.id === id) ?? (activeMeta?.id === id ? activeMeta : null)
+    const subject = meta ? einsatzSubject(meta) : undefined
     const ok = await confirmDialog(inside.length > 0 ? {
       title: appConfig.copy.abschluss.insideTitle,
       ...insideAbschlussSpec(inside),
+      subject,
       confirmLabel: appConfig.copy.abschluss.insideClose,
       cancelLabel: appConfig.copy.cancel,
       danger: true,
     } : {
       title: appConfig.copy.history.archiveConfirmTitle,
       message: appConfig.copy.history.archiveConfirmMsg,
+      subject,
       confirmLabel: appConfig.copy.history.archiveConfirmBtn,
       cancelLabel: appConfig.copy.cancel,
       danger: true,
     })
     if (!ok) return
     await completeRapport(id)
-  }, [completeRapport, activeId, abschlussHereRef, showEinsatz])
+  }, [completeRapport, activeId, activeMeta, incidents, abschlussHereRef, showEinsatz])
 
   // «Wieder öffnen» — the mirror of abschliessen (the ArchivedBanner action), and as deliberate:
   // the confirm also teaches the consequences (Nachträge, «geändert nach Abschluss»). On confirm
@@ -342,15 +349,17 @@ export function useCloseReopen({
    */
   const reactivateById = useCallback(async (id: string): Promise<ReactivateResult> => {
     const h = appConfig.copy.history
+    const meta = activeMeta?.id === id ? activeMeta : incidents?.find((x) => x.id === id) ?? null
     const ok = await confirmDialog({
       title: h.reactivateConfirmTitle,
       message: h.reactivateConfirmMsg,
+      subject: meta ? einsatzSubject(meta) : undefined,
       confirmLabel: h.reactivateConfirmBtn,
       cancelLabel: appConfig.copy.cancel,
     })
     if (!ok) return 'cancelled'
     return reopenNow(id)
-  }, [reopenNow])
+  }, [reopenNow, activeMeta, incidents])
 
   return { reopenNow, completeRapport, archiveById, reactivateById }
 }

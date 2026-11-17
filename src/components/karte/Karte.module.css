@@ -78,6 +78,9 @@
 .runningLine { display: flex; align-items: baseline; gap: .3em; min-width: 0; }
 .runningLine b { min-width: 0; }
 .alarmCount { flex: none; white-space: nowrap; }
+/* the Übung tag beside the name (ENT.9): the shared tag, lifted onto the surface so its own hatching
+   reads on the hatched chip; it never ellipsises, the name gives way */
+.runningLine .runningTag { flex: none; align-self: center; background-color: var(--surface); }
 .runningWarn { width: 18px; height: 18px; flex: none; }
 /* the phone's Checkliste (its bar holds the library's field): the running Einsatz is a strip of its
    own under the bar. ⚠️ `min-width: 0`: a flex
@@ -193,9 +196,15 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .planTile { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; min-height: var(--tap); padding: 0 var(--sp-3);
   border: none; border-radius: var(--r-sm); background: var(--surface); box-shadow: 0 0 0 1px var(--border-soft); color: var(--ink); font: var(--fw-bold) var(--fs-2)/1.2 var(--body);
   text-align: left; cursor: pointer; }
-.planTile > svg:first-child { width: 18px; height: 18px; flex: none; color: var(--ink); }
-.planTile .chev { margin-left: auto; width: 14px; height: 14px; flex: none; }
+/* the lead is the rail's mark (PlanChip): the monogram chip a size down from the rail's 30px, or
+   the 18px glyph; the text shrinks for «PV»/«RWA», never the box */
+.planMark { flex: none; display: grid; place-items: center; min-width: 26px; color: var(--ink); }
+.planMark > svg { width: 18px; height: 18px; }
+.planMark :global(.nav-mono-chip) { min-width: 26px; min-height: 26px; font: var(--fw-heavy) var(--fs-1)/1 var(--body); }
+.planMark :global(.nav-mono-chip[data-mono-len="3"]), .planMark :global(.nav-mono-chip[data-mono-len="4"]) { font-size: var(--fs-micro); }
 .planTile .lamp { margin-left: auto; }
+.planTile .chev { width: 14px; height: 14px; flex: none; }
+.planTileText + .chev { margin-left: auto; }
 .planTileText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (hover: hover) { .planTile:hover { background-image: linear-gradient(var(--hover), var(--hover)); } }
 .planTile:active { background-image: linear-gradient(var(--press), var(--press)); }

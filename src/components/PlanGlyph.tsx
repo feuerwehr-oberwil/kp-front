@@ -37,3 +37,15 @@ export function PlanGlyph({ doc }: { doc: PlanDocument }) {
     </span>
   )
 }
+
+/** The plan's mark ALONE – its monogram chip («1», «W2», «PV»), or its icon for the Gebäude stack
+ *  and a sheet without a module – for a row or tile that sizes its own lead (the Karte's plan
+ *  tiles, the Ebenen rows, PlanChooser). The rail's mark without the rail's 46px glyph column
+ *  (duck sweep ENT.10, 17.11.2026: the Karte said `doc` for every Modul beside the monogram
+ *  rail). `data-mono-len` lets a surface shrink the text, never the box. */
+export function PlanChip({ doc }: { doc: PlanDocument }) {
+  const g = planGlyph(doc)
+  return 'mono' in g
+    ? <span className="nav-mono-chip" data-mono-len={g.mono.length} aria-hidden>{g.mono}</span>
+    : <Icon id={g.icon} />
+}

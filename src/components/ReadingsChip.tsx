@@ -5,6 +5,7 @@ import { useOnlyOpenCard } from '../lib/floatCards'
 import { useMinuteClock } from '../lib/minuteClock'
 import { worstFirst, type MeasuredPoint } from '../lib/readingsList'
 import { ReadingPill } from '../lib/symbolRender'
+import { ListCard, ListRow } from './ListRow'
 import s from './ReadingsChip.module.css'
 
 /**
@@ -47,13 +48,17 @@ export function ReadingsChip({ points, compact = false, onGo }: {
       </button>
       {open && (
         <div className={s.pop} role="dialog" aria-label={C.readingsChip}>
-          {sorted.map((p) => (
-            <button key={p.id} type="button" className={s.row} onClick={() => { setOpen(false); onGo(p) }}>
-              <ReadingPill props={p.props} inline />
-              <span className={s.room}>{p.props.fields?.Raum?.trim() || p.props.label || ''}</span>
-              <span className={s.where}>{p.where}</span>
-            </button>
-          ))}
+          {/* ONE Messpunkt row (ListRow, LISTS.8): the pill LEADS – the value is the mark – then
+              the Raum, where it is as a tag, and › because the tap goes to the point. The same
+              row as the Gebäude's storey list (ReadingParts · StackReadings). */}
+          <ListCard look="rail">
+            {sorted.map((p) => (
+              <ListRow key={p.id} onClick={() => { setOpen(false); onGo(p) }}
+                lead={<ReadingPill props={p.props} inline />}
+                title={p.props.fields?.Raum?.trim() || p.props.label || ''}
+                end={<span className={s.where}>{p.where}</span>} />
+            ))}
+          </ListCard>
         </div>
       )}
     </span>

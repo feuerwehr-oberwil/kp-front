@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { clearDraft, keepDraft, readDraft } from '../lib/draftKeep'
 import { scrollBehavior } from '../lib/reducedMotion'
+import { matchesQuery, searchQuery } from '../lib/search'
 import { pointAtField } from '../lib/pointAtField'
 import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
@@ -141,7 +142,8 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
 
   const current = useMemo(() => visibleMittel(entries), [entries])
   const lines = current.length
-  const needle = q.trim().toLowerCase()
+  // the one search fold (lib/search): umlauts both ways, one typo
+  const needle = useMemo(() => searchQuery(q), [q])
   const bySource = useMemo(() => groupBySource(current, M.noSource), [current, M.noSource])
   const allGroups = useMemo(
     () => mittelListGroups(entries, catalogue, sources, { other: M.categoryOther, custom: M.customGroup }),
@@ -154,12 +156,12 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   const categoryOn = categories.filter((c) => categorySel.has(c)).join(' · ')
   const groups = useMemo(() => allGroups
     .filter((g) => categorySel.size === 0 || categorySel.has(g.category))
-    .map((g) => ({ ...g, rows: needle ? g.rows.filter((r) => r.label.toLowerCase().includes(needle)) : g.rows }))
+    .map((g) => ({ ...g, rows: needle ? g.rows.filter((r) => matchesQuery(needle, r.label)) : g.rows }))
     .filter((g) => g.rows.length), [allGroups, categorySel, needle])
   // the source view is grouped by Fahrzeug, so the category filter does not apply there — but
   // the search does: it is the same question asked of a shorter list.
   const bySourceShown = useMemo(() => (needle
-    ? bySource.map((g) => ({ ...g, items: g.items.filter((c) => c.label.toLowerCase().includes(needle)) })).filter((g) => g.items.length)
+    ? bySource.map((g) => ({ ...g, items: g.items.filter((c) => matchesQuery(needle, c.label)) })).filter((g) => g.items.length)
     : bySource), [bySource, needle])
 
   // expanding a multi-source row opens its sub-rows BELOW it, which on a full catalogue is

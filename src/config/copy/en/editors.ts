@@ -212,7 +212,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     kindWandBlocked: 'A team is on this hose line – unlink the team first.',
     kindWandStoreys: 'This line runs over several storeys – a wall stays on one.',
     distance: 'Length',
-    measurement: 'Measurement',
+    measurement: 'Dimensions',
     hoseSplit: '{n} + {r} spare × {m} m',
     showOnMap: 'On map',
     inputMode: 'Input',

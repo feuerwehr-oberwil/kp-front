@@ -370,7 +370,7 @@ def compose_zeitplan_pdf(payload: ZeitplanPayload, logo: bytes | None = None) ->
         x
         for x in (
             payload.incidentAddress,
-            f"Einsatzbeginn {payload.startedAt.strftime('%d.%m.%Y %H:%M')}" if payload.startedAt else None,
+            f"Zeit Alarmierung {payload.startedAt.strftime('%d.%m.%Y %H:%M')}" if payload.startedAt else None,
             f"gedruckt {printed.strftime('%d.%m.%Y %H:%M')}",
             f"Zeitraum {span_label}",
         )

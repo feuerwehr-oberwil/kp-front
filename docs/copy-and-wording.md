@@ -72,8 +72,9 @@ a Checkliste, a Verlauf-Eintrag, a Mittel line).
   «Atemschutz-Journal». en/fr/it keep their own place word (Log / Journal / Diario) and the same
   entry word (Entry / Entrée / Voce). Code identifiers (`journal.*`, `Journal.tsx`, `jr-*`,
   `jc-*`) keep their names. **One count, one word: «{n} anwesend»** – the chooser, the
-  Anwesenheit head and the Rapport's «Personal & Mittel» row say the same word for the head
-  count (the Rapport said «erfasst»).
+  Anwesenheit head, the Rapport's «Personal & Material» row, the signature sheet and the PDF say
+  the same word for the head count (the Rapport said «erfasst», the sheet «Personen», the PDF
+  «Anwesende» until 17.11.2026).
 
 ## One word per fact (3am sweep, 13.11.2026)
 

@@ -47,10 +47,11 @@ describe('TruppFinder', () => {
     expect(onPick).toHaveBeenCalledWith(expect.objectContaining({ key: 'a1' }))
   })
 
-  it('says «kein Trupp gefunden» rather than showing an empty card', () => {
+  // the one no-hit line of every list (LISTS.4): «Keine Treffer für «zzzz».»
+  it('says it found nothing for the query rather than showing an empty card', () => {
     const { input } = open()
     fireEvent.change(input, { target: { value: 'zzzz' } })
-    expect(screen.getByText('Kein Trupp gefunden')).toBeTruthy()
+    expect(screen.getByText('Keine Treffer für «zzzz».')).toBeTruthy()
   })
 
   // an empty list would read as a broken search — it has to say that nothing is placed YET

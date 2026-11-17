@@ -209,7 +209,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     kindWandBlocked: 'Una squadra è su questa condotta – prima stacca la squadra.',
     kindWandStoreys: 'Questa linea attraversa più piani – un muro resta su uno solo.',
     distance: 'Lunghezza',
-    measurement: 'Misura',
+    measurement: 'Dimensioni',
     hoseSplit: '{n} + {r} di riserva × {m} m',
     showOnMap: 'Sulla mappa',
     inputMode: 'Immissione',

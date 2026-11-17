@@ -3,6 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { appConfig } from '../../config/appConfig'
 import { clearAllDrafts } from '../../lib/draftKeep'
+import { fillTemplate } from '../../lib/format'
 import type { GeoHit, IncidentMeta, ObjectWithPlans } from '../../lib/incidents'
 
 // The location on the Einsatz form (owner picks 1A + round 2, 15.11.2026): every method rides the
@@ -31,6 +32,7 @@ vi.mock('./_shared', async (orig) => ({
 }))
 
 const { EinsatzWizard } = await import('./EinsatzWizard')
+const { geocodeSearch } = await import('../../lib/incidents')
 
 const ix = appConfig.copy.intake
 // a typed address is kept as a draft (lib/draftKeep) – it must not open the next test's form
@@ -67,6 +69,23 @@ describe('the one list under the address field', () => {
     fireEvent.focus(field())
     await Promise.resolve()
     expect(screen.queryByRole('button', { name: /Tramdepot/ })).toBeNull()
+  })
+})
+
+// Duck sweep LISTS.1, 17.11.2026: a failed lookup said «Keine Adresse gefunden»
+describe('the address search tells «failed» from «nothing found»', () => {
+  it('a failed lookup says so, and is not a no-hit line', async () => {
+    vi.mocked(geocodeSearch).mockRejectedValueOnce(new Error('502'))
+    render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
+    fireEvent.change(field(), { target: { value: 'Hauptstrasse' } })
+    expect(await screen.findByText(ix.addressFailed)).toBeTruthy()
+    expect(screen.queryByText(/Keine Treffer/)).toBeNull()
+  })
+  it('an answer with nothing in it is the shared no-hit line', async () => {
+    vi.mocked(geocodeSearch).mockResolvedValueOnce([])
+    render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
+    fireEvent.change(field(), { target: { value: 'Hauptstrasse' } })
+    expect(await screen.findByText(fillTemplate(appConfig.copy.noHits, { q: 'Hauptstrasse' }))).toBeTruthy()
   })
 })
 

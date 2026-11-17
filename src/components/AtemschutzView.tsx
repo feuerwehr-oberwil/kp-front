@@ -8,6 +8,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactElement } from 'react'
 import { Icon } from '../lib/icons'
+import { EmptyState } from './EmptyState'
 import { appConfig } from '../config/appConfig'
 import { shownTeamColor } from '../lib/teamColors'
 import { fillTemplate, formatTime } from '../lib/format'
@@ -1615,22 +1616,21 @@ export function AtemschutzView({
         <DoubleAssignmentBanner trupps={trupps} personnel={personnel}
           onKeep={canEdit && frozenAt == null && keepInOneTrupp ? (keepId, personId) => { freezeOrder(); keepInOneTrupp(keepId, personId) } : undefined} />
         {trupps.length === 0 ? (
-          <div className={s.empty}>
-            <Icon id="warn" />
-            <p>{az.empty}</p>
-            {/* the hint teaches the writer's next step – a session that cannot add a Trupp keeps the plain line */}
-            {canEdit && <span>{az.emptyHint}</span>}
-            {/* The door the empty board is asking for (staging walk-through 25.09.2026): the big
-                round «+» at the bottom right is the app's Verlauf-Eintrag, and on an empty board it
-                is the one a first-timer taps. On the handed-over phone board «+ Trupp» is the
-                bottom rail's own cell, so it is not repeated here. */}
-            {canEdit && !focusMode && (
-              <Button variant="primary" size="lg" className={s.emptyAct} icon={<Icon id="plus-bold" />} onClick={() => openForm('create')}>
-                {/* the whole «Trupp anmelden» (newTrupp): `start` is the form's one-verb footer since 27.09.2026 */}
+          /* the shared EmptyState (duck sweep LISTS.5, 17.11.2026): the board's own glyph – the
+             stopwatch of its rail door, never ⚠, which is this board's ALARM glyph – a title, and
+             for a writer the hint that names the button plus the button itself. A session that
+             cannot add a Trupp keeps the plain line. */
+          <EmptyState className="empty-fill" icon="stopwatch" title={az.empty} sub={canEdit ? az.emptyHint : undefined}
+            action={canEdit && !focusMode && (
+              /* The door the empty board is asking for (staging walk-through 25.09.2026): the big
+                 round «+» at the bottom right is the app's Verlauf-Eintrag, and on an empty board it
+                 is the one a first-timer taps. On the handed-over phone board «+ Trupp» is the
+                 bottom rail's own cell, so it is not repeated here. The whole «Trupp anmelden»
+                 (newTrupp): `start` is the form's one-verb footer since 27.09.2026. */
+              <Button variant="primary" size="lg" icon={<Icon id="plus-bold" />} onClick={() => openForm('create')}>
                 {az.newTrupp}
               </Button>
-            )}
-          </div>
+            )} />
         ) : focusMode ? (
           /* the page fills the port at least, its reading on top and its tiles at the foot, right
              over the bottom rail (TruppCard · `page`, `.pageActs`; 31.10.2026: «read at the top,

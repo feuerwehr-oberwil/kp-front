@@ -12,7 +12,7 @@ export const captureCopy: Localizable<Pick<Copy, 'capture'>> = {
     searchName: 'Search name …',
     filterRecorded: 'Recorded {n}',
     back: 'Back',
-    alarmedAt: 'Alarm {t}',
+    alarmedAt: 'Alarm time {t}',
     saveFailed: 'Last change not saved – try again',
     saveFailedOffline: 'Server unreachable – the last change was not saved.',
     retry: 'Try again',

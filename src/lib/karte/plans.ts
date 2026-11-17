@@ -52,6 +52,13 @@ export function planTitle(p: Pick<StationPlan, 'module' | 'id' | 'title'>, catal
   return n ? `${word} ${n}` : word
 }
 
+/** A plan's NAME, the one word every surface that names it says – its tile, its rail tile, the
+ *  Karte's Ebenen row («Wasser 2», «Modul 1», «PV»; lib/navRail · planLabel over `planTitle`).
+ *  The Ebenen printed the raw «5-wasser2» beside a «Wasser 2» tile (duck sweep ENT.10). */
+export function planName(p: Pick<StationPlan, 'module' | 'id' | 'title'>, catalogue: readonly DeploymentModule[]): string {
+  return planLabel(planDocId(p), planTitle(p, catalogue))
+}
+
 /** `row`: the plan's name, the words its tile in the object's sheet and its rail tile say
  *  (lib/navRail · planLabel; «Gebäude» for the stack) */
 export interface ViewerPlanDoc { doc: PlanDocument; plan: StationPlan | null; row: string }
@@ -69,7 +76,7 @@ export function viewerPlanDocs(obj: Pick<StationObject, 'plans' | 'floors'>, geb
     for (let n = 2; seen.has(id); n += 1) id = `${planDocId(p)}${n}`
     seen.add(id)
     const title = planTitle(p, catalogue)
-    const row = planLabel(planDocId(p), title)
+    const row = planName(p, catalogue)
     out.push({
       plan: p,
       row,

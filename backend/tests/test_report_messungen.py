@@ -54,10 +54,10 @@ def test_the_stage_is_a_word_so_a_monochrome_print_still_says_it():
     text = _text(_payload(messungen=[KELLER, over, odd]))
     assert "A2 Hauptalarm" in text
     assert "A1 Voralarm" in text
-    assert "über Messbereich (A2 Hauptalarm)" in text
+    assert "über Messbereich, A2 Hauptalarm" in text
     assert "unlesbar" in text
     # the last reading's stage stands on the head row too
-    assert "zuletzt 18:10 · Ex >100 %UEG · über Messbereich (A2 Hauptalarm)" in text
+    assert "zuletzt 18:10 · Ex >100 %UEG · über Messbereich, A2 Hauptalarm" in text
     assert "Garage · 1 Messung" in text
 
 

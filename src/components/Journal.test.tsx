@@ -661,8 +661,11 @@ describe('Journal · the search in the head', () => {
     fireEvent.click(lens())
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Pumpe' } })
     expect(rows()).toEqual([])
-    expect(screen.getByText('Nichts zu «Pumpe»')).toBeTruthy()
-    expect(screen.getByText(/Tippfehler ist erlaubt/)).toBeTruthy()
+    // the one `.no-hits` line every list uses (duck sweep LISTS.4), never a big EmptyState
+    const line = document.querySelector('.history-list .no-hits')!
+    expect(line.textContent).toContain('Keine Treffer für «Pumpe».')
+    expect(line.textContent).toMatch(/Tippfehler ist erlaubt/)
+    expect(document.querySelector('.history-list .empty-state')).toBeNull()
   })
 
   it('hides the legend and the strip while searching – both speak for the full list', () => {
@@ -694,5 +697,16 @@ describe('Journal · Escape closes one thing, innermost first', () => {
     expect(screen.queryByRole('textbox', { name: 'Im Verlauf suchen' })).toBeNull()
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('Journal · the head count (duck sweep LISTS.12)', () => {
+  const sys = (id: string, at: number, text: string): TimelineEvent => ({ id, t: '', at: new Date(at).toISOString(), text, icon: 'warn', kind: 'symbol' })
+  // the app said the same line three times in a minute: the list folds it into one row «3×»
+  const folded = [sys('s3', 1_020_000, 'Kontaktuhr überfällig'), sys('s2', 1_010_000, 'Kontaktuhr überfällig'), sys('s1', 1_000_000, 'Kontaktuhr überfällig'), ...events]
+
+  it('counts the rows the list shows, not the repeats it folds away', () => {
+    setup({ events: folded })
+    expect(document.querySelector('.journal-count')!.textContent).toBe('· 4')
   })
 })

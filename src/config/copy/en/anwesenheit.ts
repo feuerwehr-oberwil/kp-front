@@ -109,6 +109,7 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     rankFilterWord: 'Rank',
     statusFilterWord: 'Status',
     reloadDone: 'List updated',
+    filterClear: 'Show all',
   },
   anrueckend: {
     title: 'On the way',

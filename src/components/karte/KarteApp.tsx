@@ -57,7 +57,7 @@ import { useSymbols } from '../../lib/useSymbols'
 import { useVehicleLayer } from '../../lib/useVehicleLayer'
 import { useWeather } from '../../lib/useWeather'
 import { useKarteWeather } from '../../workspace/useKarteWeather'
-import { objectVisitsConfig } from '../../lib/deploymentConfig'
+import { objectVisitsConfig, shortAddress } from '../../lib/deploymentConfig'
 import { fmtDistance, fmtLV95, fmtWGS, haversineM } from '../../lib/geo'
 import { dismissToast, toast } from '../../lib/ui'
 import { usePlacementLane } from '../../lib/toastLane'
@@ -413,9 +413,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // the running chip (owner's pick 6A, sweep F.2): it names the first REAL Einsatz — an Übung only
   // when nothing but Übungen runs — and ONE «+N» counts every other open one, Einsätze and Übungen
   // together. The name opens that Einsatz (the whole chip is its target, chevron included); «+N»
-  // opens the menu, which lists them all. Red for an Einsatz, hatched when the one it names is an
-  // Übung. In the bar on both devices; a phone's Checkliste, whose bar holds the library's search
-  // field, keeps it as a strip under the bar.
+  // opens the menu, which lists them all. Red for an Einsatz, hatched with the «Übung» tag beside the
+  // name when the one it names is an Übung; the address is the one short form (`shortAddress`). In
+  // the bar on both devices; a phone's Checkliste, whose bar holds the library's search field, keeps
+  // it as a strip under the bar.
   // A live Ernstfall's Atemschutz alarm is said by the SAME chip (round 2b, owner 13.11.2026: «Same
   // chip says it» – two chips competed for the bar): it then names that Einsatz, «⚠ Zimmerbrand ·
   // 2 Alarme», and a tap opens it on the most urgent Trupp. Shown only – no tone, no Meldeleiste row.
@@ -432,8 +433,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         {alarm ? <Icon id="warn" className={s.runningWarn} /> : <span className={s.pulse} aria-hidden />}
         <span className={s.runningText}>
           <span className={s.runningLine}><b>{live.title}</b>
+            {/* the Übung tag + word, as on every surface that names the Einsatz (ENT.9, 17.11.2026):
+                the hatching alone said «Übung» only to whoever knew the code */}
+            {live.is_exercise && <span className={cx('ip-badge ip-badge-exercise', s.runningTag)}>{appConfig.copy.exerciseBadge}</span>}
             {alarm && <span className={s.alarmCount}>· {appConfig.copy.atemschutz.overdueBadge(alarm.due.length)}</span>}</span>
-          {live.address && <small>{live.address.split(',')[0]}</small>}
+          {live.address && <small>{shortAddress(live.address)}</small>}
         </span>
       </button>
       {more > 0 && (

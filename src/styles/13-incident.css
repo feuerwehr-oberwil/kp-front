@@ -809,6 +809,9 @@
    gefunden»). It had six recipes, one of them the app's only italic line — read as a quote. */
 .no-hits { margin: 0; padding: 24px 12px; text-align: center; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-faint);
   font-style: normal; overflow-wrap: anywhere; list-style: none; }
+/* …with its way out as a button under the line (the Anwesenheit's «Alle zeigen» while only a
+   filter narrows the list – duck sweep LISTS.4, 17.11.2026) */
+.no-hits-way { display: grid; justify-items: center; gap: var(--sp-3); }
 
 /* The «Übung» row (EinsatzWizard) — an `OnOff` pair beside its name (28.09.2026; it was a
    tick-box chip). The `.set-row` recipe without the card: name + consequence left, the pair
@@ -968,11 +971,13 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
 .list-card-quiet > .list-row:not(.on) .list-row-title { font-weight: var(--fw-medium); color: var(--ink-dim); }
 .list-card-quiet > .list-row:not(.on) :is(.list-row-sub, .list-row-lead) { color: var(--ink-faint); }
 
-/* a labelled group: the eyebrow, a word or count at its right end, then the card */
+/* a labelled group: the eyebrow (a count right after its word, like the Trupps' «DRIN 3»), a word
+   at its right end, then the card */
 .list-group { display: flex; flex-direction: column; gap: var(--sp-2); }
 .list-group-label { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); padding: 0 var(--sp-2);
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .list-group-end { text-transform: none; letter-spacing: 0; font-weight: var(--fw-bold); }
+.list-group-count { font-variant-numeric: tabular-nums; }
 
 /* «‹ Label» – one level up, naming where it goes; quiet, no frame, at the top of its page */
 .back-row { display: flex; align-items: center; gap: var(--sp-1); flex: none; align-self: flex-start; min-height: var(--tap); margin: 0;
@@ -1046,14 +1051,12 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
    under the headline. Height is untouched — it still has to be hit with a glove. */
 .empty-state.empty-fill .empty-state-act { align-self: center; }
 .empty-state.empty-fill .empty-state-act .ip-btn { flex: 0 0 auto; }
-.ip-hist, .ip-ds {
+.ip-ds {
   display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--r-ctl);
   background: var(--surface-veil); box-shadow: var(--e3);
 }
-.ip-ds-main, .ip-hist-main { flex: 1; min-width: 0; text-align: left; border: none; background: none; cursor: pointer; }
-.ip-hist-title, .ip-ds-title { font: var(--fw-bold) var(--fs-3) var(--body); color: var(--ink); display: flex; align-items: center; gap: 8px; min-width: 0; }
-/* truncate a long incident title so the status badge keeps its place instead of overlapping */
-.ip-hist-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ip-ds-main { flex: 1; min-width: 0; text-align: left; border: none; background: none; cursor: pointer; }
+.ip-ds-title { font: var(--fw-bold) var(--fs-3) var(--body); color: var(--ink); display: flex; align-items: center; gap: 8px; min-width: 0; }
 /* incident status badge in the Einsätze list (own class — must NOT collide with the
    fixed-size sync .ip-status above, which would clamp it to 16px and clip the label) */
 /* …and the ONE tag recipe (28.09.2026): the poster's «ÜBUNG» (.cv-badge-exercise) wears it too —
@@ -1084,26 +1087,37 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
    ellipsises, and a drill must never lose the word that says so (the card's title line spaces
    its own badge via flex gap) */
 .ip-menu-row .ip-badge { flex: none; }
-/* the per-row «Abschliessen» / «Wieder öffnen» stays at its word's width (29.09.2026: five of them
-   down the list must not out-shout the row's real action, opening it) — but at THE button's
-   14/700 since r35 (06.11.2026): a 44px button with a 12.5px label was a third button size */
-.ip-hist-close { padding: 0 12px; flex: none; }
-.ip-hist-sub, .ip-ds-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); margin-top: 2px; }
-/* when it ran (05.10.2026): day · start–end · duration, a step stronger than the address under it —
-   it is what tells two «Brand» rows apart at 3am. Tabular figures so the spans line up. */
+/* THE Einsatz row (components/EinsatzRow, LISTS.2): the name, its tags beside it (wrapping under
+   it when the line is full – the tag is never what gets cut), the red Atemschutz word under the
+   place, the menu's `.ip-menu-az` */
+.einsatz-row-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); min-width: 0; }
+.einsatz-row-name { min-width: 0; overflow-wrap: anywhere; }
+.einsatz-row-when { font-variant-numeric: tabular-nums; }
+.einsatz-row-alarm { display: inline-flex; align-items: center; gap: var(--sp-1); align-self: flex-start;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--red-strong); }
+.einsatz-row-alarm svg { width: 12px; height: 12px; flex: none; }
+/* «Alle Einsätze»: the row and, beside it, its lifecycle buttons (owner 17.11.2026: kept) at
+   their word's width – five of them down the list must not out-shout the row's real action,
+   opening it. On a phone they wrap under the row, at its right end. */
+.ip-hist { display: flex; flex-wrap: wrap; align-items: center; }
+.ip-hist + .ip-hist { box-shadow: inset 0 1px 0 var(--border-soft); }
+.ip-hist > .list-row { flex: 1 1 260px; }
+.ip-hist-acts { display: flex; gap: var(--sp-2); margin-left: auto; padding: 0 var(--sp-4) var(--sp-2); }
+.ip-hist > .list-row + .ip-hist-acts { padding-top: 0; }
+@media (min-width: 700px) { .ip-hist-acts { padding-bottom: 0; } }
+.ip-hist-acts .ip-btn { padding: 0 12px; flex: none; }
+.ip-hist-group + .ip-hist-group { margin-top: var(--sp-3); }
+.ip-hist-state { display: grid; place-items: center; padding: var(--sp-6) 0; }
+/* the standing link's chooser (StandingApp · Chooser): the Einsatz rows on their card, read from
+   the left inside the centred link card */
+.sl-choose { align-self: stretch; text-align: left; margin-top: var(--sp-3); }
+.ip-ds-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); margin-top: 2px; }
 /* offline line over the list: viewing works, the lifecycle buttons need the server */
 .ip-hist-offline { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--amber-strong); }
 .ip-hist-offline svg { width: 15px; height: 15px; flex: none; }
 /* a viewer's window under the list (HistoryPanel · windowDays): a quiet foot line, not a warning */
 .ip-hist-foot { margin: 12px 0 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
-.ip-hist-when { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); margin-top: 4px; font-variant-numeric: tabular-nums; }
 /* rapport lifecycle badges (derived, lib/rapportStatus) */
-/* Alle Einsätze: search + time-group headers — the list grows by one row per Einsatz
-   forever, so an old incident must stay findable without endless scrolling */
-.ip-hist-group {
-  margin: 12px 2px 0;
-  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
-}
 /* the search and its filter button on one line (27.10.2026 r2, Anwesenheit's search line): the
    field, button and menu are SurfaceControls'; only the row is the sheet's own, without the
    surface row's gutters – the sheet body already has them */
@@ -1898,6 +1912,8 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    paints over whatever is beside it */
 .rp-head-titles h2 { margin: 0; font: var(--head-title); color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* an Übung's tag leads the title (ReportPreflight, ENT.9): first, so the title gives way, never it */
+.rp-head-exercise { display: inline-block; margin-right: var(--sp-2); vertical-align: .25em; }
 /* the verdict line — only «alle Angaben erfasst» since 23.09.2026; what is still open is the
    Kontrolle chip's business (ReportPreflight · openInControl) */
 .rp-head-sum { margin: var(--head-sub-gap) 0 0; display: flex; align-items: center; flex-wrap: nowrap; gap: 4px 12px;
@@ -2100,12 +2116,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 .rp-control .report-fold-body { padding: 2px 0 0; }   /* the 12px inset is the popover's (above), not twice */
 .rp-control .report-fold-body p:last-child { margin-bottom: 0; }
 .rp-control-open-head { padding: 8px 12px 4px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.rp-control-step { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: var(--tap);
-  padding: 0 12px; border: none; background: none; border-radius: var(--r-ctl); cursor: pointer; text-align: left;
-  font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); }
-.rp-control-step .i { width: 15px; height: 15px; flex: none; color: var(--ink-faint); }
-@media (hover: hover) { .rp-control-step:hover { background: var(--blue-8); } }
-.rp-control-step:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* (the open points are THE ListRow in its rail density, LISTS.8 – `.rp-control-step` is gone) */
 /* ⚠️ The rows ABOVE the scrolling body – the head, the strip, the band – keep the body's
    scrollbar lane (hill climb r21, 05.11.2026): the body reserves it on its right edge
    (`scrollbar-gutter: stable`, below), so these reserve the same lane, and the head's last tile

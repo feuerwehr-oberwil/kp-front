@@ -673,8 +673,10 @@ describe('KarteApp', () => {
     expect(screen.getByRole('dialog', { name: 'Menü' })).toBeTruthy()
     cleanup()
     mount({ running: [inc('u1', 'Übung Atemschutz', true)] })
-    expect(screen.getByRole('button', { name: 'Einsatz öffnen: Übung Atemschutz' })).toBeTruthy()
+    const only = screen.getByRole('button', { name: 'Einsatz öffnen: Übung Atemschutz' })
     expect(document.querySelector('[data-karte-running-more]')).toBeNull()
+    // ENT.9: an Übung says so in the word, not only in the hatching
+    expect(only.querySelector('.ip-badge-exercise')?.textContent).toBe(appConfig.copy.exerciseBadge)
   })
 
   // round 2b (owner's pick «Same chip says it», 13.11.2026): a live Einsatz's Atemschutz alarm is

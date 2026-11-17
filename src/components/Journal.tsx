@@ -30,7 +30,7 @@ function rowClock(iso: string): string {
  *  read as the newer one (staging review 06.11.2026, S5). */
 const rowDay = (iso: string, nowMs: number) => otherDay(new Date(iso), new Date(nowMs))
 
-/** «vor 54 min» / «vor 3 h» — the other half of the time column, one tap away. */
+/** «54′» / «3 h» (copy.journal.ageLabel) — the other half of the time column, one tap away. */
 function ageLabel(iso: string, nowMs: number, C: typeof appConfig.copy.journal): string {
   const t = Date.parse(iso)
   if (!Number.isFinite(t)) return '–'
@@ -303,6 +303,9 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
     return m
   }, [groups])
   const totalRows = rowIndex.size
+  // what the head counts: the rows the list can show – a run of repeats folds into one row, so it
+  // counts once (duck sweep LISTS.12; it counted `events.length`, and head and scroll disagreed)
+  const shownTotal = events.length - repeats.hidden.size
   const shown = useMemo(() => {
     let left = visibleCount
     const out: typeof groups = []
@@ -663,7 +666,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
         <div className="journal-head">
           {/* the title and its count as two pieces (hill climb r6): the count is a caption beside
               the name, not part of it — so «Verlauf» leads and «· 322» steps back (10-journal.css) */}
-          <span className="journal-title"><Icon id="verlauf" /><span className="journal-title-txt">{C.title}</span>{' '}<span className="journal-count">· {events.length}</span></span>
+          <span className="journal-title"><Icon id="verlauf" /><span className="journal-title-txt">{C.title}</span>{' '}<span className="journal-count">· {shownTotal}</span></span>
           {/* ⚠️ ON A TAP, never by itself. The disc carries the Bereich now, and a glyph has to be
               learned — but a panel that opens on its own, or one the app remembers having opened,
               is a thing to dismiss on the way to the record. This one is a question somebody asks
@@ -719,7 +722,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
               autoFocus inputMode="search" maxLength={80}
               placeholder={C.searchPlaceholder} aria-label={C.search}
               onKeyDown={(ev) => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); setSearch(null) } }}
-              count={query ? fillTemplate(C.searchCount, { n: totalRows, m: events.length }) : undefined}
+              count={query ? fillTemplate(C.searchCount, { n: totalRows, m: shownTotal }) : undefined}
             />
             <button type="button" className="journal-x" title={C.searchClose} aria-label={C.searchClose} onClick={() => setSearch(null)}><Icon id="close" /></button>
           </div>
@@ -733,7 +736,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
             <span className="jr-filter-strip-text">{C.filterActive} <b>{filterOn}</b></span>
             {!query && (
               <span className="journal-search-count" aria-live="polite">
-                {fillTemplate(C.searchCount, { n: totalRows, m: events.length })}
+                {fillTemplate(C.searchCount, { n: totalRows, m: shownTotal })}
               </span>
             )}
             <Button className="jr-filter-all" onClick={() => setFilterSel(new Set())}>{C.filterAll}</Button>
@@ -883,7 +886,9 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                       </span>
                     ))}
                   </div>
-                  {/* ⚠️ …and it says WHEN, not just that there is a when. The bare clock glyph
+                  {/* The due time wears the Fälligkeit's `bell`, as on the Tafel and in the composer –
+                      `clock` is the Anwesenheit's and «Im Verlauf zeigen» (ENT.15, 17.11.2026).
+                      ⚠️ …and it says WHEN, not just that there is a when. The bare glyph
                       answered «meldet sich selbst» and left the one thing to act on — «um wie
                       viel Uhr?» — inside a tooltip nobody on a tablet can open. The row's own
                       time column says when the item was RAISED, so the two are never the same
@@ -891,7 +896,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                       day, which is exactly the case a bare «06:30» reads as long overdue. */}
                   {dueLater && (
                     <span className="jr-pinned-alarm" title={C.dueAtLabel.replace('{t}', dueClock(r.dueAt!))}>
-                      <Icon id="clock" /><b>{dueClock(r.dueAt!)}</b>
+                      <Icon id="bell" /><b>{dueClock(r.dueAt!)}</b>
                     </span>
                   )}
                 </div>
@@ -906,14 +911,18 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
           </div>
         )}
         <div className="history-list" ref={listRef}>
-          {events.length === 0 && <EmptyState icon="verlauf" title={C.empty} />}
-          {/* a query that kept nothing says so – and what it looked in, because «Nichts» beside a
-              name that IS in the Verlauf otherwise reads as the search being broken */}
-          {/* …and with a filter on, the ticks are the likelier culprit, so they are what it names */}
+          {/* the empty Verlauf names the button that fills it (WORD.10) – for a session that writes
+              it (the same gate as a text correction: absent for a viewer and a replay) */}
+          {events.length === 0 && <EmptyState icon="verlauf" title={C.empty} sub={onEditText ? C.emptyHint : undefined} />}
+          {/* no hits = the one `.no-hits` line every list uses (duck sweep LISTS.4, 17.11.2026; it
+              was a big EmptyState): with a filter on the ticks are the likelier culprit, so the
+              line is the shared filter one plus the way out; a query alone says what was searched
+              and what it looked in, because «Keine Treffer» beside a name that IS in the Verlauf
+              otherwise reads as the search being broken */}
           {(query || filtering) && totalRows === 0 && events.length > 0 && (
             filtering
-              ? <EmptyState icon="filter" title={C.filterEmpty} sub={C.filterEmptyHint} />
-              : <EmptyState icon="search" title={fillTemplate(C.searchEmpty, { q: (search ?? '').trim() })} sub={C.searchEmptyHint} />
+              ? <p className="no-hits">{appConfig.copy.filterNoHits} {C.filterEmptyHint}</p>
+              : <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: (search ?? '').trim() })} {C.searchEmptyHint}</p>
           )}
           {shown.map((g, gi) => (
             <Fragment key={g.label ?? `today-${gi}`}>

@@ -27,8 +27,8 @@ const ALL = [SCHLOSS, DEPOT, SCHULE, PUMPWERK, MAGAZIN]
 const CENTER: LngLat = [7.5703, 47.5231]
 
 describe('search', () => {
-  it('folds case, diacritics and ß', () => {
-    expect(normText('  Schlüssel  Straße ')).toBe('schlussel strasse')
+  it('folds case, umlauts (lib/search) and ß', () => {
+    expect(normText('  Schlüssel  Straße ')).toBe('schluessel strasse')
   })
 
   it('ranks the name before the alias before the address, objects with plans first', () => {
@@ -41,6 +41,13 @@ describe('search', () => {
 
   it('finds an object by its word and an umlaut typed without one', () => {
     expect(searchObjects(ALL, 'Gartnerei').map((h) => h.obj.id)).toEqual(['depot'])
+  })
+
+  it('folds umlauts both ways and forgives one typo, like every list search', () => {
+    expect(searchObjects(ALL, 'Gaertnerei').map((h) => h.obj.id)).toEqual(['depot'])
+    expect(searchObjects(ALL, 'Pumpwrek').map((h) => h.obj.id)).toEqual(['pump'])
+    // an exact hit still ranks before a typo hit
+    expect(searchObjects([obj({ id: 'typo', name: 'Schlass' }), SCHLOSS], 'schlass').map((h) => h.obj.id)).toEqual(['typo', 'schloss'])
   })
 
   it('needs every word of a multi-word query', () => {
@@ -366,6 +373,13 @@ describe('plans as the rail documents', () => {
     // no catalogue at all (and an untitled sheet): the key in words, never an empty row
     expect(planTitle(p('modul2', 'Migros – modul2'), [])).toBe('Modul 2')
     expect(planTitle(p('modul4', ''), STATION)).toBe('Modul 4')
+  })
+
+  // duck sweep ENT.10: the Ebenen row names the plan as its tile does, never «5-wasser2»
+  it('planName is the tile\'s word for a plan', async () => {
+    const { planName } = await import('./plans')
+    expect(planName(p('modul5-wasser2', 'Im Wasen – modul5-wasser2'), STATION)).toBe('Wasser 2')
+    expect(planName(p('modul1', 'Gemeindehaus – Übersicht'), STATION)).toBe('Modul 1')
   })
 
   // owner, review round 4 («just "modul 1", "modul 2"») and 27.10.2026 («Wasser», «PV», never «Modul 5-…»)

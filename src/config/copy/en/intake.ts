@@ -10,7 +10,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     addressLabel: 'Address',
     addressPlaceholder: 'Street or object',
     addressSearching: 'Searching …',
-    addressNoHits: 'No address found',
     objectPlans: (n: number) => (n === 1 ? '1 plan' : `${n} plans`),
     objectNoPlans: 'no plans',
     mapPickButton: 'On map',
@@ -91,5 +90,8 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     coordMissing: 'No location yet',
     objectsGroup: 'Objects',
     addressGroup: 'Addresses',
+    // the address search's own states (LISTS.1) – the Karte search's words
+    addressOffline: 'Address search needs a network. Station objects are still found.',
+    addressFailed: 'Address search is not reachable right now.',
   },
 }
