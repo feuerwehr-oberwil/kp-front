@@ -170,7 +170,7 @@ their offline copy already lives in IndexedDB (`lib/api/stationReference`).
 - **The el reads «Anrückend»** (`GET /divera/responses`, `CurrentRecordWriter`): it marks
   attendance like an editor. The rest of `/api/divera` stays editor-only.
 - **Who a push wakes** (owner's pick): the Atemschutz alarms go to every subscribed browser;
-  «Neuer Einsatz» only to `editor` accounts, «Wiedervorlage fällig» to `editor` and `el`
+  «Neuer Einsatz» only to `editor` accounts, «Erinnerung fällig» to `editor` and `el`
   (`push.py · role_recipients`, read when the push leaves). A viewer tablet, and a kiosk
   subscription without an account, hear only the Atemschutz alarms. Links never subscribe.
 - **«Standort teilen» posts under one name per device, held until let go.** No account or link

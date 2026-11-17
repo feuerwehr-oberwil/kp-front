@@ -800,7 +800,7 @@ async def test_notify_new_alarm_broadcasts_stichwort_and_address(db_session, mon
 
 
 async def test_who_hears_which_push(db_session, monkeypatch):
-    """Owner's pick (22.10.2026): «Neuer Einsatz» wakes the editors, «Wiedervorlage fällig» the
+    """Owner's pick (22.10.2026): «Neuer Einsatz» wakes the editors, «Erinnerung fällig» the
     editors and the el; a viewer tablet and a kiosk row hear only the Atemschutz alarm."""
     import asyncio
 
@@ -850,7 +850,7 @@ async def test_who_hears_which_push(db_session, monkeypatch):
 
     assert {title: sorted(eps) for title, eps in heard.items()} == {
         "Neuer Einsatz": ["editor"],
-        "Wiedervorlage fällig": ["editor", "el"],
+        "Erinnerung fällig": ["editor", "el"],
         "Atemschutz überfällig": ["editor", "el", "kiosk", "viewer"],
     }
 

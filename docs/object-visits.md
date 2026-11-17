@@ -164,7 +164,7 @@ Objekte starts the latter (`/besuche/neu?lat=&lng=&label=[&address=][&from=karte
 - **`from=karte`.** A launch with `&from=karte` keeps it on the visit's address
   (`/besuche/<id>?from=karte`); «Zurück» then leaves the surface to `/karte` instead of the
   Übersicht, and a finished visit offers «Zurück zur Karte» (route · `KARTE_PATH`).
-- **Report.** The fact panel of a place visit reads «Objekt: – (Ort ohne Stationsobjekt)», «Ort:
+- **Report.** The fact panel of a place visit reads «Objekt: – (Ort ohne Objekt)», «Ort:
   label (Pin|Adresse)», «Adresse» (when known), «Koordinaten: LV95 … · WGS84 …» and «Ablage» (the
   folder of the first enabled destination). No map picture: the report renders on the server,
   offline-safe, and fetching tiles there is neither.
