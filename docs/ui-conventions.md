@@ -82,8 +82,12 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   property of a thing reads «Aus | An»; a row that asks a question about the record («Übung?»)
   is `OnOff question`, «Nein | Ja» – on every device, never one pair on a tablet and the other
   on a phone. A
-  **«none of these»** answer that stands in for a list (Material «Nichts verwendet») is a
-  CHOICE chip: one fixed text, picked = the choice fill, and no «✓» growing into the label. A
+  **«none»** answer to a question or a list – the Kontaktperson's «Entfällt», Gerettete's
+  «Keine», the Rückmeldung's, Material «Nichts verwendet» on the Rapport and the QR-Bogen – is
+  the **«Entfällt» model** (owner, duck sweep ELEM.9, 17.11.2026): a framed button that SETS
+  the answer; answered, the row shows the dashed read-out (`.rz-none-val`, never a tick – it was
+  answered, not filled in) and «Ändern» to take it back. A «none» that is one PICK AMONG OPTIONS
+  (the Trupp's Leitung «Keine» beside the numbers) stays a choice `Chip` in its row. A
   single option on a sheet is a yes/no too (PersonnelSync «… ausblenden» is an `OnOff` row, not
   a native checkbox). Only a control that picks ITEMS in a list is multi-select. The
   head-bar status buttons (bell, share QR, the menu's Standort row) name the state that is TRUE

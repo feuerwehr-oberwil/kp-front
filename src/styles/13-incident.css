@@ -1497,9 +1497,11 @@ button.rp-sign-row:disabled { cursor: default; }
 .cv-filter svg { width: 15px; height: 15px; }
 .cv-filter.on { color: var(--on-sel); border-color: var(--sel); background: var(--sel); }
 /* «Nichts verwendet» — the one answer that makes the Material Mindestangabe answerable from here
-   (see lib/abschluss · stepDone). The tablet Rapport's own control (`.ip-btn` + `.on`, the choice
-   fill; 15.11.2026 – it was dashed and turned green here); this only places it. */
+   (see lib/abschluss · stepDone). The tablet Rapport's own «Entfällt» model (duck sweep ELEM.9,
+   17.11.2026): the button at its width, the answered read-out (17-rapport · .rz-none) across the
+   row; this only places them. */
 .cv-none { align-self: flex-start; }
+.cv-none.rz-none { align-self: stretch; }
 /* Partnerorganisationen on the poster: organisation + one free line, same two fields the
    tablet asks for. Stacks on a phone, which is what the poster is scanned with. */
 .cv-partners { display: flex; flex-direction: column; gap: 8px; width: 100%; }

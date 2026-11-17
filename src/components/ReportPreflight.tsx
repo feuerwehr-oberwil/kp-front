@@ -2176,23 +2176,20 @@ export function ReportPreflight({
                   answer the el gives like any other, not part of the editor's Abschluss — gated on
                   the Abschluss, the el's Mittel step could never be answered. A session that cannot
                   edit reads the answer, dashed like «Entfällt», or nothing when none was given. */}
-              {mittelCount === 0 && !canEdit && meta.mittelConfirmedNone && (
-                <div className="rp-check-extra rz-none"><span className="rz-none-val">{A.mittelNone}</span></div>
-              )}
-              {mittelCount === 0 && canEdit && (
-                <div className="rp-check-extra">
-                  {/* the «none of these» CHOICE, same as the QR-Bogen's (28.09.2026): one text,
-                      picked = the choice fill. It was a primary button whose label grew a «✓». */}
-                  <button
-                    type="button"
-                    className={`ip-btn${meta.mittelConfirmedNone ? ' on' : ''}`}
-                    aria-pressed={!!meta.mittelConfirmedNone}
-                    onClick={() => persist({ mittelConfirmedNone: !meta.mittelConfirmedNone })}
-                  >
-                    {A.mittelNone}
-                  </button>
+              {/* the «Entfällt» model (owner, duck sweep ELEM.9, 17.11.2026): «Nichts verwendet» is
+                  a button that SETS the answer; answered, the row is the dashed read-out and
+                  «Ändern» – the Kontaktperson's, Gerettete's and Rückmeldung's «none» exactly, on
+                  the QR-Bogen too. It was a pressed toggle, the one «none» of four that was not. */}
+              {mittelCount === 0 && (meta.mittelConfirmedNone ? (
+                <div className="rp-check-extra rz-none">
+                  <span className="rz-none-val">{A.mittelNone}</span>
+                  {canEdit && <button type="button" className="ip-btn" onClick={() => persist({ mittelConfirmedNone: undefined })}>{P.entfaelltUndo}</button>}
                 </div>
-              )}
+              ) : canEdit && (
+                <div className="rp-check-extra">
+                  <button type="button" className="ip-btn" onClick={() => persist({ mittelConfirmedNone: true })}>{A.mittelNone}</button>
+                </div>
+              ))}
             </CheckRow>
             {/* ⚠️ ABWEICHUNGEN (04.09., Rapport-Review). Until now a divergence between the
                 QR-Bogen and a tablet was a «bitte prüfen» line in the Verlauf and nothing else —
