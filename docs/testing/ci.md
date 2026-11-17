@@ -268,12 +268,13 @@ browsers per Ubuntu release and the visual baselines are shot on this one. On 20
 start (`libicudata.so.74`), and every recovery run failed without a line of the diff being at
 fault. Move the pin in its own PR, in all four jobs at once, and expect one cold run per key.
 
-Before installing system packages, the action removes the Azure mirror from the runner's
-`/etc/apt/apt-mirrors.txt`, leaving the official Ubuntu archive and security mirrors. A slow
-Azure node can keep sending data without tripping apt's stall timeout
-([runner-images #14823](https://github.com/actions/runner-images/issues/14823)); recovery spent
-477 seconds downloading 119 MB on 2026-10-27, leaving too little time for its tests. The job
-timeout, browser inventory and test checks remain unchanged.
+Before installing system packages, the action selects the official Ubuntu archive and security
+mirrors when the runner lists the archive. It drops the higher-priority Azure and regional EC2
+entries in that case. Both have trickled packages without tripping apt's stall timeout. Recovery
+spent 477 seconds downloading 119 MB on 2026-10-27
+([runner-images #14823](https://github.com/actions/runner-images/issues/14823)), and a workspace
+job spent 474 seconds downloading 32 MB on 2026-11-17. With a custom mirror list that has no
+official archive, the runner keeps its configured sources.
 
 Every suite retains the client-error/render-storm guard, the field scenario's no-retry policy,
 and the browser's own observation windows. The other specs get one retry in CI; a test that

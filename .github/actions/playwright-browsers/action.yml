@@ -11,14 +11,13 @@ inputs:
 runs:
   using: composite
   steps:
-    # The Azure mirror can trickle packages without triggering apt's stall timeout:
-    # 119 MB took 477 s in recovery, exhausting the job before its tests could finish.
-    # https://github.com/actions/runner-images/issues/14823
+    # Regional mirrors can trickle packages without triggering apt's stall timeout.
+    # The EC2 mirror took 474 s for 32 MB on 2026-11-17, before any workspace test ran.
     - name: Prefer Ubuntu archive mirrors
       shell: bash
       run: |
-        if [ -f /etc/apt/apt-mirrors.txt ]; then
-          sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
+        if [ -f /etc/apt/apt-mirrors.txt ] && grep -Eq '^https?://archive\.ubuntu\.com/' /etc/apt/apt-mirrors.txt; then
+          sudo sed -Ei '/(azure|ec2)\.archive\.ubuntu\.com\//d' /etc/apt/apt-mirrors.txt
           cat /etc/apt/apt-mirrors.txt
         fi
 
