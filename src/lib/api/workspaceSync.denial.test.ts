@@ -68,6 +68,12 @@ function backingStore(seed: Record<string, unknown> = {}) {
   return store
 }
 
+function gate() {
+  let open!: () => void
+  const wait = new Promise<void>((resolve) => { open = resolve })
+  return { wait, open }
+}
+
 describe('late answers after a workspace handover', () => {
   it.each([
     ['ordinary PUT', 'success', true], ['merge PUT', 'success', true],
@@ -369,54 +375,100 @@ describe('WorkspaceSync · a different user cannot destroy or inherit another’
     expect(store.get('kp-front-ws-i1')).toEqual(orphan) // the only unsynced copy survives untouched
   })
 
-  // TOCTOU on the RE-HOME (loadReadableEntry): A's parked draft is written back into the main slot,
-  // then the parked copy is deleted. If the owner flips to B (who has their OWN parked draft) during
-  // the main-slot write, a delete keyed off the live `cacheOwner` would erase B's copy even though
-  // only A's was re-homed. The key is captured before the write, so exactly A's copy is cleared.
-  it('re-homes A’s parked draft without deleting B’s when the owner flips to B mid-write', async () => {
+  it('leaves each owner’s parked draft recoverable when a handover interrupts a re-home write', async () => {
+    const main = 'kp-front-ws-i1'
     const aParked = cachedEdit('u1')
     const bParked = { ...cachedEdit('u2'), workspace: { entities: [{ id: 'b-draft' }] } }
-    const store = backingStore({ 'kp-front-ws-i1::u1': aParked, 'kp-front-ws-i1::u2': bParked })
+    const store = backingStore({ [main + '::u1']: aParked, [main + '::u2']: bParked })
     signedInAs('u1')
-    getWorkspace.mockRejectedValue(new ApiError(0, 'Netzwerkfehler')) // offline: only the cache answers
-
-    // The main-slot re-home write is exactly where a login lands — flip the live owner to B there.
-    const realSet = idbSet.getMockImplementation()!
-    idbSet.mockImplementation((k: string, v: unknown) => {
-      if (k === 'kp-front-ws-i1') signedInAs('u2')
-      return realSet(k, v)
+    getWorkspace.mockRejectedValue(new ApiError(0, 'Netzwerkfehler'))
+    idbSet.mockImplementationOnce(async (key, entry) => {
+      store.set(key, entry)
+      signedInAs('u2')
+      return true
     })
-
-    const sync = new WorkspaceSync('i1', { debounceMs: 60_000 })
-    const r = await sync.init()
-    expect(r.workspace).toEqual({ entities: [{ id: 'mine' }] }) // A's draft was re-homed and served
-    sync.dispose()
-
-    expect(store.get('kp-front-ws-i1::u2')).toEqual(bParked)   // B's parked draft is UNTOUCHED
-    expect(store.get('kp-front-ws-i1::u1')).toBeUndefined()    // A's parked copy was the one cleared
-    expect(store.get('kp-front-ws-i1')).toMatchObject({ owner: 'u1', workspace: { entities: [{ id: 'mine' }] } })
+    const a = new WorkspaceSync('i1')
+    await expect(a.init()).rejects.toThrow('Incident selection cancelled')
+    a.dispose()
+    expect(store.get(main + '::u2')).toEqual(bParked)
+    const b = new WorkspaceSync('i1')
+    expect((await b.init()).workspace).toEqual(bParked.workspace)
+    b.dispose()
+    signedInAs('u1')
+    const returned = new WorkspaceSync('i1')
+    expect((await returned.init()).workspace).toEqual(aParked.workspace)
+    expect(store.get(main + '::u1')).toBeUndefined()
+    expect(store.get(main + '::u2')).toEqual(bParked)
+    returned.dispose()
   })
 
-  // TOCTOU: init() reads the owner, awaits the server, then writes. A login/logout landing during
-  // that await must not let the PREVIOUS session's unsynced work be served to — or stamped with —
-  // the new identity.
-  it('does not serve or mislabel the previous session’s dirty work when identity flips mid-fetch', async () => {
-    const store = backingStore({ 'kp-front-ws-i1': cachedEdit('u1') })
+  it.each(['success', 'offline', '401'] as const)('ignores a late init GET %s after another account opens and edits', async (reply) => {
+    const main = 'kp-front-ws-i1'
+    const mine = cachedEdit('u1')
+    const incoming = { entities: [{ id: 'incoming draft' }] }
+    const server = { entities: [{ id: 'server' }] }
+    const store = backingStore({ [main]: mine })
     signedInAs('u1')
-    getWorkspace.mockImplementation(async () => {
-      signedInAs('u2') // a different account signs in while the server fetch is in flight
-      return { workspace: { entities: [{ id: 'srv' }] }, workspace_rev: 9 }
-    })
+    const started = gate(), finish = gate()
+    getWorkspace.mockImplementationOnce(async () => {
+      started.open()
+      await finish.wait
+      if (reply !== 'success') throw new ApiError(reply === '401' ? 401 : 0, reply)
+      return { workspace: { entities: [{ id: 'first account server copy' }] }, workspace_rev: 8 }
+    }).mockResolvedValue({ workspace: server, workspace_rev: 9 })
+    const onRev = vi.fn()
+    const a = new WorkspaceSync('i1', { onRev })
+    const opening = a.init()
+    await started.wait
+    signedInAs('u2')
+    const b = new WorkspaceSync('i1')
+    expect((await b.init()).workspace).toEqual(server)
+    b.save(incoming)
+    b.flushKeepalive()
+    finish.open()
+    await expect(opening).rejects.toThrow('Incident selection cancelled')
+    a.dispose()
+    expect(onRev).not.toHaveBeenCalled()
+    expect(store.get(main + '::u1')).toEqual(mine)
+    expect(store.get(main)).toMatchObject({ owner: 'u2', dirty: true, workspace: incoming })
+    await b.flush()
+    expect(b.hasUnsynced).toBe(false)
+    b.dispose()
+  })
 
-    const sync = new WorkspaceSync('i1', { debounceMs: 60_000 })
-    const r = await sync.init()
-    expect(r.fromCache).toBe(false)                          // u2 (now live) gets the clean server copy…
-    expect(r.workspace).toEqual({ entities: [{ id: 'srv' }] })
-    expect(sync.hasUnsynced).toBe(false)                     // …never u1's dirty edits
-    sync.dispose()
-    // u1's work was parked for u1, stamped u1 — not merged/served under u2.
-    expect(store.get('kp-front-ws-i1::u1')).toMatchObject({ owner: 'u1', workspace: { entities: [{ id: 'mine' }] } })
-    expect(store.get('kp-front-ws-i1')).toMatchObject({ owner: 'u2', dirty: false })
+  it.each(['main read', 'parked read', 'role write'] as const)('cancels the old init after its %s while the next owner is editing', async (step) => {
+    const main = 'kp-front-ws-i1', parked = main + '::u1'
+    const mine = { ...cachedEdit('u1'), shape: 'all' }
+    const store = backingStore({ [step === 'parked read' ? parked : main]: mine })
+    signedInAs('u1')
+    const started = gate(), finish = gate()
+    const pause = async () => { started.open(); await finish.wait }
+    if (step === 'role write') {
+      idbSet.mockImplementationOnce(async (key, entry) => { store.set(key, entry); await pause(); return true })
+    } else {
+      let once = true
+      idbGet.mockImplementation(async (key) => {
+        const result = store.get(key) ?? null
+        if (once && key === (step === 'parked read' ? parked : main)) { once = false; await pause() }
+        return result as never
+      })
+    }
+    const a = new WorkspaceSync('i1', { slice: 'record' })
+    const opening = a.init()
+    await started.wait
+    signedInAs('u2')
+    const b = new WorkspaceSync('i1')
+    expect((await b.init()).workspace).toEqual({})
+    const incoming = { entities: [{ id: 'incoming draft' }] }
+    b.save(incoming)
+    b.flushKeepalive()
+    finish.open()
+    await expect(opening).rejects.toThrow('Incident selection cancelled')
+    a.dispose()
+    expect(store.get(main)).toMatchObject({ owner: 'u2', dirty: true, workspace: incoming })
+    expect(store.get(parked)).toEqual(mine)
+    expect(getWorkspace).toHaveBeenCalledTimes(1) // only the current selection got as far as its GET
+    b.dispose()
   })
 })
 

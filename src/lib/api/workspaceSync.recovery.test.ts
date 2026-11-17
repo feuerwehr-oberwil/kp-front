@@ -4,6 +4,7 @@ import type { Workspace } from './workspace'
 const state = vi.hoisted(() => ({ store: new Map<string, unknown>(), failMain: false, failClear: false, unread: '' }))
 const beforeRead = vi.hoisted(() => vi.fn<() => Promise<void>>())
 const cleanup = vi.hoisted(() => vi.fn<(key: string, operation: 'set' | 'delete') => Promise<void>>())
+const withTileEviction = vi.hoisted(() => vi.fn((write: () => Promise<boolean>) => write()))
 const get = vi.hoisted(() => vi.fn())
 const put = vi.hoisted(() => vi.fn())
 vi.mock('./workspace', () => ({
@@ -27,7 +28,7 @@ vi.mock('../idb', () => ({
   idbDel: async (key: string) => { state.store.delete(key); await cleanup(key, 'delete') },
   idbKeys: async (prefix: string) => ({ ok: true, value: [...state.store.keys()].filter((k) => k.startsWith(prefix)) }),
 }))
-vi.mock('../tileEvict', () => ({ withTileEviction: (fn: () => Promise<boolean>) => fn() }))
+vi.mock('../tileEvict', () => ({ withTileEviction }))
 import { ApiError } from '../api'
 import { CACHE_DEBOUNCE_MS, SLOT_PROBE_MS, denyWorkspaceCache, setWorkspaceCacheOwner, WorkspaceSync } from './workspaceSync'
 
@@ -201,6 +202,35 @@ const remote = { id: 'B', name: 'remote-only' }
 const local = { id: 'A', name: 'local' }
 const latest = { id: 'C', name: 'latest edit' }
 const successorEdit = { id: 'X', name: 'successor edit' }
+
+it('does not retry a disposed cache write after the same account reopens the incident', async () => {
+  get.mockResolvedValue({ workspace: { cameraViews: [] }, workspace_rev: 7 })
+  const old = new WorkspaceSync('i1')
+  await old.init()
+  old.save({ cameraViews: [local] })
+  const failed = gate(), spaceFreed = gate(), finished = gate()
+  withTileEviction.mockImplementationOnce(async (write) => {
+    expect(await write()).toBe(false)
+    failed.open()
+    await spaceFreed.wait
+    const stored = await write()
+    finished.open()
+    return stored
+  })
+  state.failMain = true
+  old.dispose()
+  await failed.wait
+  state.failMain = false
+  const reopened = new WorkspaceSync('i1')
+  try {
+    await reopened.init()
+    reopened.save({ cameraViews: [successorEdit] })
+    reopened.flushKeepalive()
+    spaceFreed.open()
+    await finished.wait
+    expect(state.store.get(main)).toMatchObject({ dirty: true, workspace: { cameraViews: [successorEdit] } })
+  } finally { reopened.dispose() }
+})
 
 it.each(['ack', 'offline'] as const)('reopens the complete conflict edit after owner handover with a late %s', async (reply) => {
   get.mockResolvedValue({ workspace: { cameraViews: [] }, workspace_rev: 7 })

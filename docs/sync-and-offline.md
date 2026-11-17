@@ -209,8 +209,10 @@ beendet». The rules: [`presentation.md`](presentation.md).
 - While a conflict PUT is pending, the operator still edits the view last shown. Each such edit
   is rebased onto the union in the dirty draft. A handover flushes pending cache writes before
   the new account opens a slot. Disposal also flushes the draft, even if the PUT never answers.
-  Late saves and unread-slot probes belong to the session that started them. A failed PUT hands
-  the union back to the active view so the operator's next edit includes remote additions.
+  A failed PUT hands the union back to the active view so the next edit includes remote additions.
+- An open interrupted during a cache read, parking write or server GET is cancelled. The incoming
+  account opens its own workspace and parks its predecessor's draft. Only the active selection
+  can deliver a GET result, act on its 401, retry a write after eviction or adopt an unread slot.
 - Re-sending parked workspace saves first commits their replacement cache entry with transfer
   markers for crash-safe retry. Each cleanup write checks the session again when it finishes.
   A handover during cleanup leaves those markers in the author's cache for the next session.
