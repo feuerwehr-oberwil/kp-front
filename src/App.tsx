@@ -3,7 +3,7 @@ import './app.css'
 import { IconSprite } from './lib/icons'
 import { demoSeedRebase } from './lib/workspace'
 import { appConfig } from './config/appConfig'
-import { isDemoMode, objectVisitsConfig, getDeploymentConfig } from './lib/deploymentConfig'
+import { isDemoMode, objectVisitsConfig, getDeploymentConfig, shortAddress } from './lib/deploymentConfig'
 import { isOvPath, leaveAppEntries, navigateTo, OV_BASE, ovHref, showsObjectVisits, useOvRoute } from './objectVisits/route'
 import { isKartePath, KARTE_BASE, useKarteRoute } from './lib/karte/route'
 import { appScreen, bootPlan } from './lib/karte/home'
@@ -47,7 +47,7 @@ import { dismissAlarm, hiddenAlarms, loadDismissedAlarms, shownAlarms, undismiss
 import { alarmUpdateHidden } from './lib/alarmUpdate'
 import { useIncidentWatch } from './lib/useIncidentWatch'
 import { loadReviewedIncidents, needsIntakeReview, sameIncidentList, saveReviewedIncident, shouldReopenClosed, undoTakeReturn } from './lib/incidentAlerts'
-import { AlarmUpdateBanner, EinsatzWizard, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, HomeDeviceSheet, foldedAlarmRows, type FoldedMenuRow } from './components/panels'
+import { AlarmUpdateBanner, EinsatzWizard, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, HomeDeviceSheet, type FoldedMenuRow } from './components/panels'
 import { Meldeleiste } from './components/Meldeleiste'
 import { linkShowsMeldung } from './lib/meldungen'
 import { RefusalMeldung } from './lib/meldungenRefusal'
@@ -738,7 +738,12 @@ export default function App() {
   // after ✕ an alarm stands as a quiet row in the «Einsätze» lists, «Zeigen» brings it back
   // (lib/diveraDismiss · hiddenAlarms; panels/AppMenuRows · FoldedRow)
   const showAlarm = (a: DiveraAlarm) => setDismissedAlarms(undismissAlarm(a.divera_id))
-  const foldedAlarms = foldedAlarmRows(isEditor ? hiddenAlarms(poolAlarms, dismissedAlarms) : [], showAlarm)
+  const foldedAlarms: FoldedMenuRow[] = (isEditor ? hiddenAlarms(poolAlarms, dismissedAlarms) : []).map((a) => ({
+    key: `alarm:${a.divera_id}`,
+    title: a.title,
+    sub: shortAddress(a.address) ?? appConfig.copy.intake.addressUnknown,
+    onShow: () => showAlarm(a),
+  }))
   // …and in the Einsatz menu also the open Einsatz's hidden «Alarm aktualisiert» (F7): served to
   // every device while hidden, a row for 3 h after it came, for whoever keeps the Einsatzdaten –
   // the same gate as the AlarmUpdateBanner below. «Zeigen» makes it pending again (the row).

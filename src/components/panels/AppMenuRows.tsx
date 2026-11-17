@@ -40,8 +40,8 @@ export interface AppMenuAlarms {
 }
 
 /** Something hidden with ✕ that can still come back: an alarm of the pool (this device) or the
- *  open Einsatz's «Alarm aktualisiert» (every device). App builds the rows (`foldedAlarmRows`, and
- *  the update's own); `onShow` may be async – the row's «Zeigen» waits for it. */
+ *  open Einsatz's «Alarm aktualisiert» (every device). App builds the rows; `onShow` may be
+ *  async – the row's «Zeigen» waits for it. */
 export interface FoldedMenuRow {
   key: string
   /** the alarm's Stichwort, or «Alarm aktualisiert» */
@@ -50,15 +50,6 @@ export interface FoldedMenuRow {
   sub?: string
   onShow: () => void | Promise<unknown>
 }
-
-/** The rows for the alarms hidden on this device (lib/diveraDismiss · hiddenAlarms). */
-export const foldedAlarmRows = (hidden: DiveraAlarm[], onShow: (a: DiveraAlarm) => void): FoldedMenuRow[] =>
-  hidden.map((a) => ({
-    key: `alarm:${a.divera_id}`,
-    title: a.title,
-    sub: shortAddress(a.address) ?? appConfig.copy.intake.addressUnknown,
-    onShow: () => onShow(a),
-  }))
 
 /** A hidden alarm (or «Alarm aktualisiert») as one quiet row, the only way back after ✕ (rare-user
  *  round M3 / F7, round 2, 17.11.2026): bell-off · the alarm in the two lines an alarm row has,

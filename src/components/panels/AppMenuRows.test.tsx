@@ -3,7 +3,7 @@
 // the in-Einsatz side is IncidentSwitcher.test.tsx.
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
-import { AppMenuRows, foldedAlarmRows, type AppMenuAlarms } from './AppMenuRows'
+import { AppMenuRows, type AppMenuAlarms } from './AppMenuRows'
 import { appConfig } from '../../config/appConfig'
 import type { DiveraAlarm, IncidentMeta } from '../../lib/incidents'
 
@@ -118,7 +118,7 @@ describe('AppMenuRows · alarms to take', () => {
   it('a hidden alarm stands as its Stichwort and address, and «Zeigen» brings it back', () => {
     const onShow = vi.fn()
     const hidden = alarm(43, 'B1 Rauch')
-    const { container } = renderHome({ folded: foldedAlarmRows([hidden], onShow) })
+    const { container } = renderHome({ folded: [{ key: 'alarm:43', title: hidden.title, sub: 'Testgasse 3', onShow: () => onShow(hidden) }] })
     const row = container.querySelector('.ip-alarm-folded') as HTMLElement
     expect(within(row).getByText('B1 Rauch')).toBeTruthy()
     expect(row.querySelector('.ip-alarm-folded-sub')?.textContent).toBeTruthy()
