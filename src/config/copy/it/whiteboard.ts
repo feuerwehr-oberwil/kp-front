@@ -302,6 +302,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     truppPlacedHere: 'già qui',
     drawnOnPlan: '{name} disegnato sul piano',
     shapeOnPlan: '{name} posizionato sul piano',
+    barMore: 'Altro',
   },
   tafel: {
     strip: 'Pagine della lavagna',

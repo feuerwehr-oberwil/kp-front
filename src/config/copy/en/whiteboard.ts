@@ -302,6 +302,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     groupDeletedN: '{n} objects removed from the plan',
     drawnOnPlan: '{name} drawn on plan',
     shapeOnPlan: '{name} placed on plan',
+    barMore: 'More',
   },
   tafel: {
     strip: 'Board pages',

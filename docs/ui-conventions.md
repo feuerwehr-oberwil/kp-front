@@ -590,7 +590,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     neutral wash (29.09.2026): no green «Bei den Trupps zeigen», no blue «Position markieren». A
     door to a page wears that page's nav glyph («Bei den Trupps zeigen» = the Trupps stopwatch,
     never ⚠). The bin keeps THE delete outline; the rename pen, while its field is open, is a
-    pressed toggle (`--sel`, like `.wb-dock-tog.on`).
+    pressed toggle (`--sel`, like `.wb-dock-tog.on`). It follows «Beschriftung» like the rails
+    (rare-user M10, 17.11.2026): on, every button wears its word under the glyph and the bar holds
+    at most four (Lösen or the pen · Zum Trupp · Atemschutz-Trupp · Entfernen, always last) plus a
+    worded «Mehr» whose rows carry glyph + word for the rare doors – Position markieren, Spuren
+    (✓ while shown), the original; off, it is the flat glyph row. Wider than the screen, it wraps.
   - *Delete (28.09.2026, owner pick A):* a destructive action is THE delete look — `--del-ink`
     (red-strong) text, a `--del-edge` (red 40%) border, the surface it stands on; the bin and the
     word (a rare delete may be a square bin, still outlined). A bin at the end of a ROW — a time
@@ -637,7 +641,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     / Esc leave the draft through `settleDraft` (a committable draft is asked about – «Speichern ·
     Verwerfen · Weiterzeichnen» – never silently dropped). So one exit per state: a SELECTED
     object's is its editor card's ✕, and the `SelectionBar` carries no «Fertig» beside it; only a
-    Mehrfach group, which has no card, gets a ✕ at the bar's end. The armed-tool pill at the bottom
+    Mehrfach group, which has no card, gets a ✕ at the bar's end. A single native object gets
+    «Duplizieren» there instead (a worded tap, ⌘D's touch twin – rare-user F18, 17.11.2026). The armed-tool pill at the bottom
     centre is glyph + name, a readout; beside it, only while a symbol is armed, stand «Mehrere» and
     its ✕ (`ArmedToolPill`). Every armed state has a visible ✕ – the Karte's «Punkt setzen» too. Text editors' in-place ✓ (a Notiz, a box label) commit
     typed text and keep their ✓.

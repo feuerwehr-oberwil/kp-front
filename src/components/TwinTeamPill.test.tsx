@@ -7,10 +7,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { appConfig } from '../config/appConfig'
+import { loadPrefs, savePrefs } from '../lib/prefs'
 import type { Trupp } from '../types'
 import { TwinTeamPill } from './TwinTeamPill'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  savePrefs({ ...loadPrefs(), railLabels: undefined, railLabelsChosen: undefined })
+})
 
 const A = appConfig.copy.atemschutz
 const TRUPPS: Trupp[] = [
@@ -130,8 +134,51 @@ describe('the view-only bar', () => {
     expect(screen.queryByRole('button', { name: A.markerLabel })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.showTrupp }))
     expect(showTrupp).toHaveBeenCalledWith('t1')
-    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.trails }))
+    // the Spuren toggle is a rare door: a row of «Mehr» on the worded bar
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.barMore }))
+    fireEvent.click(screen.getByRole('menuitem', { name: new RegExp(appConfig.copy.whiteboard.trails) }))
     expect(toggleTrail).toHaveBeenCalledTimes(1)
+  })
+})
+
+// rare-user round M10 (owner pick A + note, 17.11.2026): a word under every glyph, at most four
+// worded buttons, the rare doors behind a worded «Mehr» – and with «Beschriftung» off, today's bar
+describe('the worded bar', () => {
+  const W = appConfig.copy.whiteboard
+  const full = () => render(
+    <TwinTeamPill name="Meier Anna" color="#c00" raus={false} truppId="t1" trailCount={3} trailShown trupps={TRUPPS}
+      line={{ lineId: 'l1', color: '#00f', tone: 'idle', coupled: true }} originalLabel="Auf Plan zeigen"
+      acts={{ unlink: () => {}, showTrupp: () => {}, pick: () => {}, mark: () => {}, toggleTrail: () => {},
+        toOriginal: () => {}, remove: () => {}, clearTrail: () => {} }} />)
+  const barButtons = (c: HTMLElement) => Array.from(c.querySelectorAll('.wb-pill-acts > button'))
+
+  it('words four doors and folds Position markieren, Spuren and the original into «Mehr»', () => {
+    const { container } = full()
+    expect(barButtons(container).map((b) => b.textContent)).toEqual([
+      appConfig.copy.contextPanel.dockedRelease, W.showTrupp, A.markerLabel, W.barMore, appConfig.copy.remove,
+    ])
+    fireEvent.click(screen.getByRole('button', { name: W.barMore }))
+    const rows = screen.getAllByRole('menuitem')
+    expect(rows.map((r) => r.textContent?.startsWith(W.markPosition) || r.textContent?.startsWith(W.trails) || r.textContent === 'Auf Plan zeigen'))
+      .toEqual([true, true, true])
+    // the Spuren row says it is on, the menu's ✓
+    expect(rows[1].querySelector('.de-menu-tick.on')).not.toBeNull()
+  })
+
+  it('draws no «Mehr» where the state has no rare door', () => {
+    render(<TwinTeamPill name="Meier Anna" color="#c00" raus={false} truppId="t1" trailCount={0} trailShown={false} trupps={TRUPPS}
+      acts={{ showTrupp: () => {}, pick: () => {}, remove: () => {} }} />)
+    expect(screen.queryByRole('button', { name: W.barMore })).toBeNull()
+  })
+
+  it('is today\'s flat glyph bar with «Beschriftung» off', () => {
+    savePrefs({ ...loadPrefs(), railLabels: 'off', railLabelsChosen: true })
+    const { container } = full()
+    expect(container.querySelector('.wb-pa-word')).toBeNull()
+    expect(screen.queryByRole('button', { name: W.barMore })).toBeNull()
+    expect(barButtons(container).map((b) => b.getAttribute('aria-label'))).toEqual([
+      appConfig.copy.contextPanel.dockedRelease, W.showTrupp, A.markerLabel, W.markPosition, W.trails, 'Auf Plan zeigen', appConfig.copy.remove,
+    ])
   })
 })
 
