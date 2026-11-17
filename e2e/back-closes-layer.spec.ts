@@ -1,4 +1,4 @@
-import { test, expect, ensureIncidentOpen, login, EINSATZ_RAIL } from './helpers'
+import { test, expect, dismissFirstViewGebaeude, ensureIncidentOpen, login, EINSATZ_RAIL } from './helpers'
 
 // Android's back = Esc (owner, 17.11.2026, duck sweep CONT.4 – the Samsung tablet's back button
 // left the Einsatz instead of closing the sheet): the native back closes the TOP layer – a sheet,
@@ -8,18 +8,7 @@ import { test, expect, ensureIncidentOpen, login, EINSATZ_RAIL } from './helpers
 test.beforeEach(async ({ page }) => {
   await login(page)
   await ensureIncidentOpen(page)
-  // a Gebäude card that opened by itself (its first view on this device) is a layer too: the
-  // first tap beside it would only close it, so put it away first – Esc closes it alone
-  const card = page.getByRole('dialog', { name: 'Gebäude' })
-  // it opens with the building answer, which comes with the chip – wait for a station that has one
-  const chip = page.getByRole('button', { name: /^Gebäude/ }).and(page.locator('.wb-scale-chip'))
-  await chip.waitFor({ state: 'visible', timeout: 12_000 }).catch(() => {})
-  // a fresh device opens it by itself on its first view, once the device's «read» list is in
-  if (await chip.isVisible()) await card.waitFor({ state: 'visible', timeout: 12_000 }).catch(() => {})
-  if (await card.isVisible()) {
-    await page.keyboard.press('Escape')
-    await expect(card).toHaveCount(0)
-  }
+  await dismissFirstViewGebaeude(page)
 })
 
 test('the native back closes the top layer, one per press, and stays in the Einsatz', async ({ page }) => {
