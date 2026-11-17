@@ -1073,6 +1073,13 @@ span.wb-ghost-label { cursor: default; }
 .armed-pill-x { pointer-events: auto; justify-content: center; width: var(--tap); padding: 0; color: var(--ink-dim); cursor: pointer; flex: none; }
 .armed-pill-x .i { width: 18px; height: 18px; }
 .armed-pill-x:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* …and where the bottom-left row reaches the middle – the Tafel's page strip, the «Zwei Punkte des
+   Massstabs antippen» instrument while calibrating – the pill stands one row ABOVE it, never on it
+   (rare-user r2 F5, 17.11.2026: it covered the instruction and the pages). The phone places its
+   rows by measuring (lib/floatRow), so this is the bigger screens' rule. */
+@media (--not-phone) {
+  .whiteboard:has(.wb-botleft > :is(.tps, .wb-scale-chip.arm)) .armed-pill-row { bottom: calc(16px + var(--float-h) + var(--float-gap)); }
+}
 @media (hover: hover) { .armed-pill-x:hover { color: var(--ink); } }
 .armed-pill-lock:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) { .armed-pill-lock:not(.on):hover { color: var(--ink); } }
