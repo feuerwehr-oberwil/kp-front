@@ -6,6 +6,7 @@ import { appConfig } from '../config/appConfig'
 import { unitLabel } from '../lib/format'
 import { SearchField } from '../components/SearchField'
 import { Stepper } from '../components/Stepper'
+import { Button } from '../components/Button'
 import { currentLineFor, type CurrentMittel } from '../lib/mittel'
 import type { MittelEntry } from '../types'
 import type { ReportMeta } from '../lib/workspace'
@@ -62,16 +63,16 @@ export function MaterialSection({
       {lines.length === 0 && (rm?.mittelConfirmedNone ? (
         <div className="rz-none cv-none">
           <span className="rz-none-val">{AB.mittelNone}</span>
-          <button type="button" className="ip-btn" disabled={busy}
+          <Button disabled={busy}
             onClick={() => { void run({ kind: 'setMeta', patch: { mittelConfirmedNone: false } }) }}>
             {appConfig.copy.preflight.entfaelltUndo}
-          </button>
+          </Button>
         </div>
       ) : (
-        <button type="button" className="ip-btn cv-none" disabled={busy}
+        <Button className="cv-none" disabled={busy}
           onClick={() => { void run({ kind: 'setMeta', patch: { mittelConfirmedNone: true } }) }}>
           {AB.mittelNone}
-        </button>
+        </Button>
       ))}
       {shownGroups.map(([cat, items]) => (
         <div key={cat || '_'} className="cv-matgroup">

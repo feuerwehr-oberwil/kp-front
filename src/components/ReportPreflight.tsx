@@ -2197,11 +2197,11 @@ export function ReportPreflight({
               {mittelCount === 0 && (meta.mittelConfirmedNone ? (
                 <div className="rp-check-extra rz-none">
                   <span className="rz-none-val">{A.mittelNone}</span>
-                  {canEdit && <button type="button" className="ip-btn" onClick={() => persist({ mittelConfirmedNone: undefined })}>{P.entfaelltUndo}</button>}
+                  {canEdit && <Button onClick={() => persist({ mittelConfirmedNone: undefined })}>{P.entfaelltUndo}</Button>}
                 </div>
               ) : canEdit && (
                 <div className="rp-check-extra">
-                  <button type="button" className="ip-btn" onClick={() => persist({ mittelConfirmedNone: true })}>{A.mittelNone}</button>
+                  <Button onClick={() => persist({ mittelConfirmedNone: true })}>{A.mittelNone}</Button>
                 </div>
               ))}
             </CheckRow>
