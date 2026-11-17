@@ -77,6 +77,11 @@
 .ip-switch-chev { position: relative; display: inline-flex; flex: none; }
 .ip-foreign-dot { position: absolute; top: -3px; right: -4px; width: 9px; height: 9px; border-radius: 50%;
   background: var(--red-strong); box-shadow: 0 0 0 2px var(--surface); }
+/* «+N» – other Einsätze are open (C10, 17.11.2026): home's running chip's mark, neutral here (the
+   red belongs to the dot above). Never gives way – the Stichwort ellipsises first. */
+.ip-switch-more { flex: none; display: grid; place-items: center; min-width: 26px; height: 20px; padding: 0 var(--sp-1);
+  border-radius: var(--r-pill); background: var(--ink-12); color: var(--ink);
+  font: var(--fw-bold) var(--fs-1) var(--body); font-variant-numeric: tabular-nums; }
 /* ── Atemschutz board: its own sync/clock line (AtemschutzView header, under the subtitle) ──
    The safety review (01.09.) asked that the ONE surface a life depends on says ITSELF whether
    what it shows is saved and current — the top-bar pill is invisible to somebody watching
@@ -151,6 +156,10 @@
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 .ip-card-title > .ip-badge { flex: none; margin-top: 2px; }
 .ip-card-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); overflow-wrap: anywhere; }
+/* who is signed in (F14): the menu foot's disc, a size down, between the badge and Sync */
+.ip-card-title > .ip-card-av { width: 28px; height: 28px; }
+/* a link guest's one sentence (F19), under the pills */
+.ip-card-lede { display: block; margin-top: var(--sp-2); }
 /* the pills WRAP instead of clipping: on a 360px phone «Gespeichert um 20:14» and
    «Einsatzbeginn 20:14 · 1 h 32» never fit on one line, and both are read, not glanced at */
 .ip-card-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
@@ -542,6 +551,10 @@
 }
 .ip-menu-logout:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-menu-logout svg { width: 15px; height: 15px; }
+/* «Anmelden» (C8): the same slot, but a way in – no red on hover */
+@media (hover: hover) {
+  .ip-menu-login:hover { background: var(--ink-12); color: var(--ink); }
+}
 
 /* build stamp + manual update check, pinned to the menu foot */
 .ip-menu-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -815,13 +828,13 @@
    filter narrows the list – duck sweep LISTS.4, 17.11.2026) */
 .no-hits-way { display: grid; justify-items: center; gap: var(--sp-3); }
 
-/* The «Übung» row (EinsatzWizard) — an `OnOff` pair beside its name (28.09.2026; it was a
-   tick-box chip). The `.set-row` recipe without the card: name + consequence left, the pair
-   right. The label gives way (min-width 0), never the pair — at 360px «Zählt nicht zur
-   Einsatzstatistik» wraps to two lines and «Aus | An» keeps its full tap width. */
-.ip-onoff-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: var(--tap); }
-.ip-onoff-l { display: flex; flex-direction: column; gap: 2px; min-width: 0; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); }
-.ip-onoff-l small { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
+/* «Ernstfall | Übung» – the EinsatzWizard's first control (owner pick C7, 17.11.2026; it was an
+   «Übung? Nein | Ja» row under Kategorie). The pair spans the form, two equal halves; the
+   consequence («Zählt nicht zur Einsatzstatistik») sits under the «Übung» half it belongs to. */
+.ip-kind { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-1); }
+.ip-kind > .useg { grid-column: 1 / -1; display: flex; }
+.ip-kind > .useg > .useg-btn { flex: 1 1 0; }
+.ip-kind > small { grid-column: 2; text-align: center; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 
 .ip-actions, .ip-row-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
 /* The footer row of a SHEET pays for its own breathing room. It used to have none, so every new
@@ -1108,6 +1121,8 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
 .ip-hist > .list-row + .ip-hist-acts { padding-top: 0; }
 @media (min-width: 700px) { .ip-hist-acts { padding-bottom: 0; } }
 .ip-hist-acts .ip-btn { padding: 0 12px; flex: none; }
+/* the quiet reason where «Löschen» would be (C6): a closed Übung that only the Verwaltung deletes */
+.ip-hist-note { align-self: center; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 .ip-hist-group + .ip-hist-group { margin-top: var(--sp-3); }
 .ip-hist-state { display: grid; place-items: center; padding: var(--sp-6) 0; }
 /* the standing link's chooser (StandingApp · Chooser): the Einsatz rows on their card, read from

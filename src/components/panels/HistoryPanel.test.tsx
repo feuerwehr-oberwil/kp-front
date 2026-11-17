@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, within } from '@testing-library/react'
+import { appConfig } from '../../config/appConfig'
 import { HistoryPanel } from './HistoryPanel'
 import type { IncidentMeta } from '../../lib/incidents'
 
@@ -21,6 +22,8 @@ vi.mock('../../lib/incidents', async (orig) => ({
     meta('Brand A', { status: 'offen' }),
     meta('Brand B', { status: 'in_arbeit' }),
     meta('Brand C', { status: 'abgeschlossen', is_archived: true, started_at: '2026-09-01T08:00:00Z' }),
+    meta('Probe', { is_archived: true, is_exercise: true, exercise_since_creation: true, started_at: '2026-08-01T08:00:00Z' }),
+    meta('Markiert', { is_archived: true, is_exercise: true, exercise_since_creation: false, started_at: '2026-08-02T08:00:00Z' }),
   ]),
 }))
 
@@ -31,7 +34,24 @@ describe('HistoryPanel status tags', () => {
     render(<HistoryPanel onClose={() => {}} onOpen={() => {}} />)
     await screen.findByText('Brand C')
     const tags = [...document.querySelectorAll('.ip-hist .ip-badge')].map((b) => b.textContent)
-    expect(tags).toEqual(['Abgeschlossen'])
+    expect(tags.filter((t) => t !== appConfig.copy.exerciseBadge)).toEqual(['Abgeschlossen', 'Abgeschlossen', 'Abgeschlossen'])
     expect(screen.queryByText('In Arbeit')).toBeNull()
+  })
+})
+
+// C6 (17.11.2026): a closed Übung that was created real, or marked Übung later, has no «Löschen»
+// (RBAC audit S1 – the Verwaltung's door) – the row says so instead of looking broken
+describe('a closed Übung only the Verwaltung deletes', () => {
+  const h = appConfig.copy.history
+  const row = (title: string) => screen.getByText(title).closest('.ip-hist') as HTMLElement
+
+  it('says why where «Löschen» would be; a created Übung keeps its button', async () => {
+    render(<HistoryPanel onClose={() => {}} onOpen={() => {}} onArchive={async () => {}} />)
+    await screen.findByText('Markiert')
+    expect(within(row('Markiert')).queryByRole('button', { name: h.deleteConfirmTitle })).toBeNull()
+    expect(within(row('Markiert')).getByText(h.deleteAdminOnly)).toBeTruthy()
+    expect(within(row('Probe')).getByRole('button', { name: h.deleteConfirmTitle })).toBeTruthy()
+    expect(within(row('Probe')).queryByText(h.deleteAdminOnly)).toBeNull()
+    expect(within(row('Brand C')).queryByText(h.deleteAdminOnly)).toBeNull()
   })
 })

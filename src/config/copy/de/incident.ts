@@ -87,6 +87,15 @@ export const incidentCopy = {
     viewOnlyWhy: { viewer: 'Betrachter', el: 'Einsatzleitung', link: 'Einsatz-Link' },
     // the closed pill's red dot (M11 B): another Einsatz has a Trupp at the alarm tier
     foreignAlarmDot: 'Atemschutz-Alarm in einem anderen Einsatz',
+    // C8 (17.11.2026): a view-link guest whose browser holds no login – the identity row says
+    // «Einsatz-Link · Betrachter» and offers the way to the bare site’s sign-in
+    login: 'Anmelden',
+    // C10 (17.11.2026): the pill’s neutral «+N» – other Einsätze are open (aria / title)
+    othersRunning: (n: number) => (n === 1 ? '1 weiterer Einsatz offen' : `${n} weitere Einsätze offen`),
+    // F14 (17.11.2026): the signed-in account’s disc in the card’s title row (title / aria)
+    signedInAs: 'Angemeldet: {name} · {role}',
+    // F19 (17.11.2026): a link guest’s one sentence under the «Nur ansehen · Einsatz-Link» pill
+    linkLede: 'Live-Ansicht dieses Einsatzes – aktualisiert sich von selbst.',
   },
   // Persistentes Band, solange ein abgeschlossener Einsatz nur-lesend offen ist (ArchivedBanner).
   // ⚠️ EIN WORTPAAR für den ganzen Lebenslauf: abschliessen / wieder öffnen. «Archiviert» und
@@ -185,6 +194,9 @@ export const incidentCopy = {
     confirmSubject: 'Zeit Alarmierung {t}',
     confirmSubjectExercise: '{name} · Übung',
     filterClear: 'Alle zeigen',
+    // C6 (17.11.2026): a closed Übung that has no «Löschen» because it was created real (or marked
+    // Übung later) says why, where the button would be. The rule: docs/roles-and-access.md › RBAC.
+    deleteAdminOnly: 'Löschen: nur in der Verwaltung',
   },
   // Abschluss-Assistent — the guided closing ritual over the EXISTING views. Every small
   // incident is a training run on the big-incident tool (practice rationale, 2026-07-08).

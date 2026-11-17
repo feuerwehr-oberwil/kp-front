@@ -90,5 +90,7 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     addressOffline: 'La recherche d’adresses exige le réseau. Les objets du corps restent trouvables.',
     addressFailed: 'Recherche d’adresses momentanément indisponible.',
     undoTakeFailed: 'Prise de l’alarme non annulée – l’intervention reste ouverte',
+    kindLabel: 'Réel / exercice',
+    kindReal: 'Réel',
   },
 }

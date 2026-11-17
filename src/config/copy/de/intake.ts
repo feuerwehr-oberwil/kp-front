@@ -29,7 +29,7 @@ export const intakeCopy = {
     categoryLabel: 'Kategorie',
     // Übungen stay fully operable, but do not feed the statistics and are the only ones
     // that can be deleted (Alle Einsätze)
-    // an OnOff row since 28.09.2026: the name on the row, the consequence under it
+    // the right half of the form's first control since 17.11.2026, the consequence under it
     exerciseLabel: 'Übung',
     exerciseSub: 'Zählt nicht zur Einsatzstatistik',
     // «Hier» moves the Einsatzort to the device's location. On a running Einsatz it always asks
@@ -125,5 +125,9 @@ export const intakeCopy = {
     addressOffline: 'Adresssuche braucht Netz. Stationsobjekte werden trotzdem gefunden.',
     addressFailed: 'Adresssuche gerade nicht erreichbar.',
     undoTakeFailed: 'Alarm nicht zurückgenommen – der Einsatz bleibt offen',
+    // «Ernstfall | Übung» – the form's FIRST question (owner pick C7, 17.11.2026); «Übung» is
+    // `exerciseLabel`, its consequence `exerciseSub` under it. The list filter's words.
+    kindLabel: 'Ernstfall / Übung',
+    kindReal: 'Ernstfall',
   },
 } as const
