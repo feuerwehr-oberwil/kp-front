@@ -583,3 +583,15 @@ describe('setDrawingWallRole', () => {
     expect(locked.emit).not.toHaveBeenCalled()
   })
 })
+
+describe('a drawing made into a hidden «Skizzen & Notizen» (F3, 17.11.2026)', () => {
+  it('asks for the drawing layer back on every create – line, area, circle', () => {
+    const revealLayer = vi.fn()
+    const deps = { ...makeDeps({ drawings: [] }), revealLayer }
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.createLine([[7.7, 47.4], [7.8, 47.5]]) })
+    act(() => { result.current.createArea([[7.7, 47.4], [7.8, 47.5], [7.8, 47.4]]) })
+    act(() => { result.current.createCircle([7.7, 47.4], 30) })
+    expect(revealLayer.mock.calls).toEqual([['markup'], ['markup'], ['markup']])
+  })
+})

@@ -64,6 +64,8 @@ export interface MapToolDocksProps {
   pick: (id: string) => void
   panel: 'layers' | null
   layersPreset: LayerPreset
+  /** a content layer is off on this device (lib/layerPreset · contentLayerHidden) */
+  layersHidden: boolean
   togglePanel: (name: 'layers') => void
   viewsApi: ViewsApi
   view: { bearing: number; center: LngLat; zoom: number }
@@ -92,7 +94,7 @@ export function MapToolDocks({
   mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, lineMode, settleDraft,
   setLineMode, draftActive, draftOpen, commitDraft, areaMode, setAreaMode, setTeamPick, placed, setFindTruppOpen,
   measure, pendingShape, setPendingShape, setRotStart, rotStart, tacticalLocked, createLine,
-  createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, togglePanel, viewsApi,
+  createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, layersHidden, togglePanel, viewsApi,
   view, readOnly, isEl, viewsOpen, sharePick, shareParent, toggleViews, coord, mapRef, paletteOpen,
   sym, setPaletteOpen, pickShape, teamPick, trupps, truppColors, placeTruppOnMap, placeGenericTeam,
 }: MapToolDocksProps) {
@@ -264,8 +266,10 @@ export function MapToolDocks({
                     the standalone Koordinaten button are folded away — coords is a row in
                     the compass menu now, testing feedback 2026-07-14) */}
                 {/* which preset the Ebenen match is lit in the panel and said in the name — no mark
-                    on the glyph (05.10.2026, owner: «no need for this indicator») */}
-                <button className={`vrail-nbtn vrail-layers ${panel === 'layers' ? 'on' : ''}`} title={`${appConfig.copy.panels.layers} · ${layerPresetLabel(layersPreset)}`} aria-label={`${appConfig.copy.panels.layers} – ${layerPresetLabel(layersPreset)}`} aria-expanded={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{appConfig.copy.panels.layers}</span><RailKey k={PANEL_KEY.layers} /></button>
+                    on the glyph for it (05.10.2026, owner: «no need for this indicator»). The one
+                    mark is the amber dot while a CONTENT layer is off (rare-user round 17.11.2026,
+                    M6 = A): an empty Lage that nothing explains. */}
+                <button className={`vrail-nbtn vrail-layers ${panel === 'layers' ? 'on' : ''}`} title={`${appConfig.copy.panels.layers} · ${layerPresetLabel(layersPreset)}`} aria-label={`${appConfig.copy.panels.layers} – ${layerPresetLabel(layersPreset)}${layersHidden ? ` · ${appConfig.copy.whiteboard.floorHidden}` : ''}`} aria-expanded={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" />{layersHidden && <span className="layers-off-dot" aria-hidden />}</span><span className="vrail-label">{appConfig.copy.panels.layers}</span><RailKey k={PANEL_KEY.layers} /></button>
                 {/* multi-purpose compass: always shown, rotates to the live bearing, and opens the
                     saved-views menu (Nach Norden · Einpassen · Standort · Koordinaten · saved
                     framings · Ansicht speichern). `|| isEl` as on MapUtility's twin: saved views

@@ -11,7 +11,7 @@ OS notification to subscribed browsers. A NEW Divera alarm additionally pushes
 keys are configured.
 
 Who hears what (owner's pick, 22.10.2026): the Atemschutz alarms go to every subscribed
-browser; «Neuer Einsatz» only to editors (the accounts that take an alarm); «Wiedervorlage
+browser; «Neuer Einsatz» only to editors (the accounts that take an alarm); «Erinnerung
 fällig» to editors and the ``el`` (the record writers who can act on it). A viewer tablet is
 woken for a crew in danger and for nothing else (``role_recipients``).
 
@@ -369,7 +369,7 @@ def due_reminders(rows: list[dict], now_ms: float, closed_at: str | None) -> lis
         if closed_ms is not None and due_ms < closed_ms:
             continue  # expired by closure
         if due_ms <= now_ms:
-            out.append({"id": rid, "text": c.get("text") or "Wiedervorlage", "dueAt": due})
+            out.append({"id": rid, "text": c.get("text") or "Erinnerung", "dueAt": due})
     return out
 
 
@@ -592,7 +592,7 @@ async def broadcast(
 
     ``user_ids`` narrows the audience to those accounts' browsers (no kiosk rows): the
     «Neuer Objektbesuch» push goes to the accounts an admin picked, «Neuer Einsatz» and
-    «Wiedervorlage fällig» to their roles (``role_recipients``). ``None`` = everybody, which
+    «Erinnerung fällig» to their roles (``role_recipients``). ``None`` = everybody, which
     only the Atemschutz alarms use. An empty collection sends nothing.
 
     Returns the number of sends that actually COMPLETED. A deactivated login keeps no delivery:
@@ -709,7 +709,7 @@ async def broadcast(
 
 #: The roles a «Neuer Einsatz» push reaches: the accounts that take an alarm into an Einsatz.
 NEW_ALARM_ROLES = ("editor",)
-#: The roles a «Wiedervorlage fällig» push reaches: the record writers, who can tick it off.
+#: The roles an «Erinnerung fällig» push reaches: the record writers, who can tick it off.
 REMINDER_ROLES = ("editor", "el")
 
 
@@ -1001,7 +1001,7 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
                     reminder_audience = await role_recipients(db, REMINDER_ROLES)
                 sent += await broadcast(
                     db,
-                    title="Wiedervorlage fällig",
+                    title="Erinnerung fällig",
                     body=r["text"],
                     tag=f"reminder-{r['id']}",
                     target="journal",

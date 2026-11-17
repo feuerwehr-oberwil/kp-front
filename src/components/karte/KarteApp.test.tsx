@@ -198,7 +198,7 @@ describe('KarteApp', () => {
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })
     type Ov = { id: string; rings?: number[][][] }
     const overlays = () => (lastMap() as unknown as { preparedOverlays: Ov[] }).preparedOverlays
-    const level = () => screen.queryByRole('group', { name: 'Objekt oder Haus' })
+    const level = () => screen.queryByRole('group', { name: 'Objekt oder Gebäude' })
 
     act(() => lastMap().onMapClick([7.5703, 47.5237]))
     expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
@@ -514,7 +514,7 @@ describe('KarteApp', () => {
     const [box] = await screen.findAllByRole('option')
     // the name IS the address: printed once, the kind quietly under it — never in its place
     expect(within(box).getByText('Starenstrasse 7')).toBeTruthy()
-    expect(within(box).getByText('Stationsobjekt')).toBeTruthy()
+    expect(within(box).getByText('Objekt')).toBeTruthy()
     expect(box.textContent).not.toMatch(/keine Pläne/)
   })
 
@@ -522,7 +522,7 @@ describe('KarteApp', () => {
     mount()
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })
     fireEvent.click(screen.getByRole('button', { name: 'Ebenen' }))
-    const objects = () => screen.getByRole('button', { name: /^Stationsobjekte – / })
+    const objects = () => screen.getByRole('button', { name: /^Objekte – / })
     const chip = (name: string) => screen.getByRole('button', { name })
     expect(chip('Standard').getAttribute('aria-pressed')).toBe('true')
     expect(objects().getAttribute('aria-pressed')).toBe('true')
@@ -617,7 +617,7 @@ describe('KarteApp', () => {
     mount()
     expect(await screen.findByRole('heading', { name: 'Remise Schloss' })).toBeTruthy()
     // owner R3: no «Schlüsseldepot» kicker, note or glyph — the kind word and the register
-    expect(screen.getAllByText('Stationsobjekt').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Objekt').length).toBeGreaterThan(0)
     expect(document.body.textContent).not.toMatch(/Schlüsseldepot/)
     expect(document.querySelector('[data-section="register"]')).not.toBeNull()
   })
@@ -628,7 +628,7 @@ describe('KarteApp', () => {
     const { launcherRow } = mount({ einsaetze: { badge: 2, render: (close) => <button type="button" onClick={() => { close() }}>Manueller Einsatz</button> } })
     void launcherRow
     // the count is in the name; on the button it is a dot (owner, review round 5)
-    const button = screen.getByRole('button', { name: 'Menü – Feuerwehr Musterdorf, 2 offen' })
+    const button = screen.getByRole('button', { name: 'Menü – Feuerwehr Musterdorf, Offene Einsätze: 2' })
     expect(button.querySelector('[data-karte-menu-dot]')).not.toBeNull()
     expect(screen.queryByRole('dialog', { name: 'Menü' })).toBeNull()
     fireEvent.click(button)

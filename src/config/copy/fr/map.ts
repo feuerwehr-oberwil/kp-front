@@ -45,6 +45,29 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
   toast: {
     micDenied: 'Pas d’accès au micro – noté comme marqueur',
     micFailed: 'Enregistrement non démarré – réessayer',
+    micBlocked: 'Micro bloqué – l’autoriser sous {path}',
+    locateBlocked: 'Position bloquée – l’autoriser sous {path}',
+    locateNone: 'Aucune position trouvée – réessayer',
+    permissionPath: {
+      location: {
+        iosApp: 'Réglages iPhone › Confidentialité et sécurité › Service de localisation › Sites web Safari',
+        iosSafari: 'Réglages iPhone › Apps › Safari › Localisation',
+        android: 'Chrome ⋮ › Paramètres › Paramètres des sites › Position',
+        desktop: 'l’icône à gauche de l’adresse › Position',
+      },
+      microphone: {
+        iosApp: 'Réglages iPhone › Apps › Safari › Micro',
+        iosSafari: 'Réglages iPhone › Apps › Safari › Micro',
+        android: 'Chrome ⋮ › Paramètres › Paramètres des sites › Micro',
+        desktop: 'l’icône à gauche de l’adresse › Micro',
+      },
+      notifications: {
+        iosApp: 'Réglages iPhone › Notifications › {app}',
+        iosSafari: 'Réglages iPhone › Notifications › {app}',
+        android: 'Paramètres Android › Applications › {app} › Notifications',
+        desktop: 'l’icône à gauche de l’adresse › Notifications',
+      },
+    },
   },
   dockHints: {
     lasso: 'Tirez un cadre autour de plusieurs objets.',
@@ -69,7 +92,7 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     glLostAction: 'Reconstruire la carte',
     noTilesTitle: 'Aucun fond de carte enregistré pour cette zone',
     noTilesSub: 'Hors ligne – objets et lignes affichés sans carte',
-    noTilesAction: 'Cet appareil',
+    noTilesAction: 'Disponible hors ligne',
     noTilesDismiss: 'Masquer',
   },
   mapViews: {

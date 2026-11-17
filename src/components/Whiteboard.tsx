@@ -47,11 +47,12 @@ import { planEndTagSpots } from '../lib/endTagSpots'
 import { SelectionTurn } from './SelectionTurn'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { hasLineDecor, lineLabel } from '../lib/lineDecor'
-import { markerTakesLineEnd, truppForLine, truppIdForAttachment, truppIsOut, truppLineTone, type LinkableLine } from '../lib/truppLines'
+import { markerTakesLineEnd, truppForLine, truppIdForAttachment, truppIsOut, truppLineTone, truppMarkerTone, type LinkableLine } from '../lib/truppLines'
 import { DUP_PREFIX, duplicateAnno } from '../lib/duplicate'
 import { useHiddenTrails } from '../lib/useHiddenTrails'
 import { useNotePanelClosing } from '../lib/useNotePanelClosing'
 import { usePlacement } from '../lib/useTacticalSelection'
+import { useOnResume } from '../lib/useOnResume'
 import { endingWireFlags, personChange, wirePerson, type LineEnding } from '../lib/drawingEdit'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { connectedLineLabel } from '../lib/connectedLines'
@@ -81,7 +82,8 @@ import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
 import { carryDoors, copyGrundriss, grundrissOf, wallRolePatch, wallRoleWire, wandBlock, wandBlockHint, DOOR_SYMBOL, GEBAEUDE_CATEGORY, GRUNDRISS_STYLE } from '../lib/grundriss'
 import { StoreyCopySheet } from './StoreyCopySheet'
 import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, STACK_READINGS_LANE, STACK_LABEL_LANE, bottomInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards, annoMiddle } from '../lib/whiteboard'
-import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
+import { shownTeamColor } from '../lib/teamColors'
+import { foldedStoreyTeams, loadHiddenFloors, saveHiddenFloors, shownFloors, storeysToReveal, type StoreyTeam } from '../lib/floorPrefs'
 import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachAnnos, dwellFor, flipLine, forkPortPoint, wireFreed, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, withDetach, type AnnoDetachPatch, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, stackGroundFit } from '../lib/stackFit'
 import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
@@ -265,6 +267,9 @@ interface Props {
   /** the Präsentationsmodus on this sheet (workspace/usePresentation · BoardPresentation): the
    *  rings to draw, «Zeigen»'s tap catcher, and the follower's «panned by hand» signal */
   presentation?: BoardPresentation
+  /** the Wiedergabe is showing a recorded sheet: chips that come and go with the scrub never
+   *  unfold a storey (storeysToReveal) */
+  replay?: boolean
   /** currently monitored Atemschutz Trupps — offered when placing a team chip on the plan. */
   trupps?: Trupp[]
   /** trupp id → the colour it wears (useTruppActions · truppColors) – the «Welcher Trupp?» rows
@@ -412,7 +417,7 @@ export interface PlanLogExtra {
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
 
-export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation, replay = false }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
   // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
@@ -619,10 +624,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     () => (stack && !isPhone ? annos.filter((a) => a.kind === 'symbol' && isMeasuredSymbol(a)).flatMap((a) => stackInstances(a, floorsTTB)) : []),
     [stack, isPhone, annos, floorsTTB],
   )
-  const putHidden = (next: number[]) => {
+  const putHidden = useCallback((next: number[]) => {
     setHiddenFloors(next)
     if (incidentId) saveHiddenFloors(incidentId, next)
-  }
+  }, [incidentId])
   /** Fold a storey away, or bring it back. ⚠️ The LAST visible one cannot be folded: a stack with
    *  no tile has nothing left to tap, and the way back would be gone with it. */
   const toggleFloor = (f: number) => {
@@ -634,6 +639,26 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
    *  below, a Leitung climbing into it. Being sent to a storey that is not on the board would
    *  otherwise pan the view into empty space (or, for the climb, do nothing at all). */
   const revealFloor = (f: number) => { if (hiddenFloors.includes(f)) putHidden(hiddenFloors.filter((x) => x !== f)) }
+  /** Every Trupp chip on the stack that is still IN (an out one no longer stands anywhere), with
+   *  its alarm tier – what the folded strip names (M7) and what unfolds a storey (F4). */
+  const storeyTeams = useMemo<StoreyTeam[]>(() => (stack ? annos.flatMap((a) => {
+    if (a.kind !== 'resource' || (a.truppId && trupps.some((t) => t.id === a.truppId && t.status === 'raus'))) return []
+    const tone = truppMarkerTone(a.truppId, trupps, truppSeverities)
+    return [{ id: a.id, floor: a.floor ?? 0, name: a.text ?? '', color: a.color, tone: tone === 'warn' || tone === 'crit' ? tone : null }]
+  }) : []), [stack, annos, trupps, truppSeverities])
+  const teamsOnFolded = useMemo(() => foldedStoreyTeams(storeyTeams, hiddenFloors), [storeyTeams, hiddenFloors])
+  // F4 (rare-user round 17.11.2026): a Trupp SET onto a folded storey – here or on another device –
+  // or one there whose alarm goes critical brings the storey back; a fold over a Trupp that was
+  // already standing there stays. The last look is per incident and sheet, and the first look
+  // after a mount, a sheet switch or the Wiedergabe only seeds.
+  const lastTeams = useRef<{ key: string; teams: Map<string, Pick<StoreyTeam, 'floor' | 'tone'>> } | null>(null)
+  useEffect(() => {
+    const key = `${incidentId ?? ''}|${activeId}|${replay}`
+    const before = lastTeams.current?.key === key && !replay ? lastTeams.current.teams : null
+    const reveal = storeysToReveal(before, storeyTeams, hiddenFloors)
+    if (reveal.length) putHidden(hiddenFloors.filter((f) => !reveal.includes(f)))
+    lastTeams.current = { key, teams: new Map(storeyTeams.map((t) => [t.id, { floor: t.floor, tone: t.tone }])) }
+  }, [storeyTeams, hiddenFloors, incidentId, activeId, replay, putHidden])
   /** The folded-away storeys as strips: where each one belongs between the drawn tiles (`seam` =
    *  how many drawn tiles are above it) and how many folded storeys share that seam. */
   const folded = useMemo(() => {
@@ -859,7 +884,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     if (!georefForPlan(activeGeorefKey)?.pairs.length) return
     noteMeasuredAspect(activeGeorefKey, measureARForGeoref, planAspect(active, getStationPlanScales(), planScale[activeId]))
   }, [readOnlyProp, canGeoref, active, aspectMeasured, activeId, activeGeorefKey, measureARForGeoref, planScale])
-  const planMeasure = usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate, autoScale })
+  const planMeasure = usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate, canCalibrate: !readOnly, autoScale })
   const {
     calNodes, calPrompt, refMInput, setRefMInput, savePrompt, setSavePrompt,
     measMode, setMeasMode,
@@ -1198,6 +1223,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }, [selectOnly, setTool, setPending, setPendingShape, setDraft, setCircleDraft])
   /** Put a symbol / shape being placed down – the armed pill's ✕ and Escape (round 2, 27.10.2026) */
   const stopPlacing = () => { setPending(null); setPendingShape(null); setTool('pan') }
+  // Back from the background (C3, 17.11.2026 · lib/useOnResume): the armed tool, symbol or shape is
+  // put down – a line draft is released through the same `setTool('pan')` Escape uses, so a
+  // committable one asks – a half-laid Rotation goes, and «Mehrere platzieren» goes off.
+  useOnResume(() => {
+    if (rotStart) { setRotStart(null); clearRotMagnet() }
+    if (tool !== 'pan' || pending || pendingShape) stopPlacing()
+    setPlaceLock(false)
+  })
   // Escape peels ONE layer per press, in the Lage's order (lib/hotkeyRoute · routeEscape – one
   // ladder for the Lage, the Plan and the Karte viewer, 17.11.2026): the Passung dock, then what is
   // half-made, then the armed tool – with no draft too (GESTURES.3: an armed Notiz, Trupp, Mehrfach
@@ -1283,7 +1316,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   // --- create-tool interactions (on the ink overlay) — components/usePlanCreate ---
   const { inkDown, inkMove, inkUp, placeTeamChip, doorGhost, clearDoorGhost } = usePlanCreate({
-    tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, readOnly, stack,
+    tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, stack,
     toNorm, floorAt, localY, mapY, sW, sH, tileAR, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef: inkTap,
     planDraft, rotor, measure: planMeasure, rotPlacing, rotStart, setRotStart, rotN, noteDefaults, txtBase, setNotePanelId, setNotePlacedId,
     sym, onRecent, annos, trupps, placedTeamNames, onLinkTrupp, setTruppPick, add, log, setSelId,
@@ -2233,17 +2266,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     }],
   }
   const factsTitle = fillTemplate(C.facts.title, { name: active.code || active.title })
-  // while calibrating, the row is the instrument (one mode, one indicator – as for the pairing):
-  // what to tap, lit, and a tap stops it
-  const calibrateChip = tool === 'scale' && !readOnly ? (
-    // …and reads as a STOP (duck sweep ELEM.3): the trailing ✕ and its name say what the tap does
-    <button type="button" className="wb-scale-chip arm" aria-label={`${C.scale.calibrateHint} – ${C.scale.calibrateStop}`} title={C.scale.calibrateStop} onClick={() => setTool('pan')}>
-      <Icon id="measure" />
-      <span>{C.scale.calibrateHint}</span>
-      <Icon id="close" className="wb-chip-chev" />
-    </button>
-  ) : null
-
   // Viewer-only plan (e.g. PV / documentation PDF): bypass the annotation board entirely and
   // show a plain, natively-scrolling multi-page PDF viewer — no tools, no stitched pan/zoom board.
   // the Tafel's page strip, on the Skizze and on every page alike
@@ -2351,18 +2373,29 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                   : seam >= N ? sH + order * FOLDED_H                      // below it
                   : (seam / N) * sH - FOLDED_H / 2 + order * FOLDED_H      // straddling the seam
                 const name = storeyName(f)
+                const teams = teamsOnFolded.get(f) ?? []
+                const lead = teams[0]
+                const label = `${name}${teams.length ? ` · ${teams.map((t) => t.name).join(', ')}` : ''} ${appConfig.copy.whiteboard.floorShow}`
                 // ⚠️ the WHOLE strip is the button, and it says so by name: on a narrow tile the
                 // «einblenden» word and the eye on the headers above are both dropped (09-whiteboard.css),
                 // so this label is all that is left to announce what tapping the row does.
                 return (
                   <button key={`folded:${f}`} type="button" className="wb-floor-folded" style={{ top, width: sW, height: FOLDED_H }}
-                    title={`${name} ${appConfig.copy.whiteboard.floorShow}`} aria-label={`${name} ${appConfig.copy.whiteboard.floorShow}`}
+                    title={label} aria-label={label}
                     onPointerDown={(e) => e.stopPropagation()} onClick={() => toggleFloor(f)}>
                     {/* the same words as the drawn storey's label (K5): the chip only for a custom name */}
                     {customStorey(f) && <span className={`wb-floor-idx${f === 0 ? ' zero' : ''}`}>{signedFloor(f)}</span>}
                     <span className="wb-floor-name">{name}</span>
-                    <span className="wb-floor-folded-state">{appConfig.copy.whiteboard.floorHidden}</span>
-                    <span className="wb-floor-folded-cta"><Icon id="eyeoff" />{appConfig.copy.whiteboard.floorShow}</span>
+                    {/* who stands up there (M7 = B, 17.11.2026): the first Trupp's own chip – dot and
+                        name as on the plan, the alarm tint of its marker (.team-dot.tone-*) – the
+                        one in most trouble first, «+n» for the rest */}
+                    {lead && (
+                      <span className={`team-dot wb-floor-folded-team${lead.tone ? ` tone-${lead.tone}` : ''}`} style={{ '--team': shownTeamColor(lead.color) } as React.CSSProperties}>
+                        <i /><b><span>{lead.name}{teams.length > 1 ? ` +${teams.length - 1}` : ''}</span></b>
+                      </span>
+                    )}
+                    {!lead && <span className="wb-floor-folded-state">{appConfig.copy.whiteboard.floorHidden}</span>}
+                    <span className="wb-floor-folded-cta"><Icon id="eyeoff" /><span className="wb-floor-folded-verb">{appConfig.copy.whiteboard.floorShow}</span></span>
                   </button>
                 )
               })}
@@ -2918,6 +2951,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
               // the ✕ is a group's only — a single Linie/Fläche/Form has its editor card's ✕
               onClose={barIds.length > 1 ? barDone : undefined}
               armed={arm.armed} onArm={arm.toggle}
+              // ⌘D's writer, for ONE object of this sheet's own (not a group, not a mirror)
+              onDuplicate={!readOnly && barIds.length === 1 && annos.some((a) => a.id === selId) ? duplicateSelection : undefined}
             />
           )}
           {/* …and the turn is read where it happens, not in the bar's far corner */}
@@ -2941,9 +2976,13 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onFinish={finishShape}
           measMode={measMode}
           setMeasMode={setMeasMode}
-          measCount={measPath.length}
+          // calibrating, the scale bar's taps – they tick off the steps in the dock's card
+          measCount={tool === 'scale' ? calNodes.length : measPath.length}
           onMeasClear={() => setMeasPath(() => [])}
           onMeasClose={() => { measReset(); setTool('pan') }}
+          // the dock's «Massstab» mode – where Messen's panel offers «(Neu) kalibrieren» (same rule)
+          onCalibrate={readOnly || scaleAuto ? undefined : () => setTool('scale')}
+          measurable={calibrated}
           truppFinder={truppFinder}
         />}
       </div>
@@ -2975,7 +3014,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           labels={railLabels}
           primary={{ id: 'symbol', icon: appConfig.copy.primarySymbol.icon, label: appConfig.copy.whiteboard.symbol }}
           tools={(readOnly ? slimPlanTools : planTools).filter((t) => !(isPhone && active.id === 'tafel' && t.id === 'measure'))}
-          active={tool}
+          // calibrating lights «Messen», the tile it belongs to (F5) – a tap there switches to Messen
+          active={tool === 'scale' ? 'measure' : tool}
           open={noding && !!draft?.length}
           toolRefs={toolBtn}
           // ⚠️ Auswahl and Mehrfach share ONE rail slot (05.09., the same on the Karte): the rail
@@ -3022,8 +3062,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           bottom centre, nothing else. The symbol tool has no dock here either; «Mehrere
           platzieren» and a ✕ (27.10.2026) stand beside the pill. Rest tool is 'pan' here (the plan pans on empty
           canvas) vs the map's 'select'. Never while Messen is armed, on any size – its results
-          panel stands in that spot (sweep 30.10.2026 #3). */}
-      {tool !== 'pan' && tool !== 'measure' && (() => {
+          panel stands in that spot (sweep 30.10.2026 #3) – nor while calibrating, a mode of that
+          dock whose lit «Massstab» is its one indicator (M13 A, 17.11.2026). */}
+      {tool !== 'pan' && tool !== 'measure' && tool !== 'scale' && (() => {
         if (tool === 'symbol') {
           if (!pending) return null
           return <ArmedToolPill glyph={<ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />} name={formatSymbolName(pending) || pending}
@@ -3442,7 +3483,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           showProfile={false}
           metrics={{ lengthM: measLenM, areaM2: measAreaM2, perimeterM: measPerimM }}
           blocked={!calibrated}
-          hint={readOnly ? appConfig.copy.whiteboard.scale.needsCalibrationViewer : appConfig.copy.whiteboard.scale.needsCalibration}
+          // blocked = no scale, which an editor never sees here: Messen is at «Massstab» then (usePlanMeasure)
+          hint={appConfig.copy.whiteboard.scale.needsCalibrationViewer}
           // «Als Linie/Fläche übernehmen»: the measured nodes become a real Linie resp. Fläche on
           // this plan. Board coords are whole-board normalized, so each point is folded back into
           // its storey tile (the space every stored `pts` lives in) before addLine/addArea sees it.
@@ -3483,7 +3525,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
       {/* Maßstab — metre-entry popover after the two reference taps: a clean −/+ stepper */}
       {calPrompt && (
-        <PlanScalePrompt refMInput={refMInput} setRefMInput={setRefMInput}
+        <PlanScalePrompt refMInput={refMInput} setRefMInput={setRefMInput} why={calPrompt.why}
           onCommit={commitCalibration} onClose={closeCalPrompt} />
       )}
 
@@ -3502,14 +3544,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       {georefArmed && !isPhone ? <GeorefInstrument mode={georef} /> : <>
       {/* the Tafel's pages: «which sheet», in the row where a plan says «which place» (owner).
           R1 (owner, 27.10.2026): the Objekt shares ONE glass with its Gebäude-Info, each half its
-          own tap. Calibrating, the chip gives its place to the instrument (`calibrateChip`). */}
+          own tap. Calibrating changes nothing here: its indicator is the Messen dock's «Massstab». */}
       {/* on the stack the building chip stands where the Objekt chip does (that one is dropped
           there), sharing the glass with its Gebäude-Info */}
       {strip}
-      {calibrateChip ?? <>
       <span className="wb-join">{objectChip}{stack && buildingChip}{buildingFloat}</span>
       {!stack && buildingChip}
-      </>}
       {readingsChip}
       </>}
       </div>

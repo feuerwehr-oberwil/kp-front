@@ -758,3 +758,42 @@ describe('Journal · a Trupp named in a row', () => {
     expect(document.querySelector('[data-trupp="T1"]')?.textContent).toBe('Trupp 1')
   })
 })
+
+// owner pick M8 · C (17.11.2026): on a phone ▶ left the head – a stray tap beside ✕ put the running
+// Einsatz into the past – and stands at the left end of the time ruler. Tablet keeps it worded.
+describe('Journal · «Wiedergabe starten»', () => {
+  const asPhone = (on: boolean) => vi.stubGlobal('matchMedia', (q: string) => ({ matches: on, media: q, addEventListener() {}, removeEventListener() {} }))
+  afterEach(() => { vi.unstubAllGlobals() })
+  const replayBtn = () => screen.getByRole('button', { name: 'Wiedergabe starten' })
+
+  it('phone: at the ruler, not in the head beside ✕', () => {
+    asPhone(true)
+    const p = setup({ onReplay: vi.fn() })
+    expect(replayBtn().closest('.jr-strip-row')).toBeTruthy()
+    expect(replayBtn().closest('.journal-head')).toBeNull()
+    fireEvent.click(replayBtn())
+    expect(p.onReplay).toHaveBeenCalledTimes(1)
+  })
+
+  it('tablet: the worded button in the head', () => {
+    asPhone(false)
+    setup({ onReplay: vi.fn() })
+    expect(replayBtn().closest('.journal-head')).toBeTruthy()
+    expect(document.querySelector('.jr-strip-row')).toBeNull()
+  })
+})
+
+// F12 (17.11.2026): the empty Verlauf says what it is for to every role; the writer also learns
+// which button fills it
+describe('Journal · empty', () => {
+  it('tells a viewer what the Verlauf is, and a writer how to start it', () => {
+    setup({ events: [] })
+    const sub = () => document.querySelector('.empty-state')!.textContent ?? ''
+    expect(sub()).toContain('Ablauf des Einsatzes')
+    expect(sub()).not.toContain('«Eintrag»')
+    cleanup()
+    setup({ events: [], onEditText: vi.fn() })
+    expect(sub()).toContain('Ablauf des Einsatzes')
+    expect(sub()).toContain('«Eintrag»')
+  })
+})

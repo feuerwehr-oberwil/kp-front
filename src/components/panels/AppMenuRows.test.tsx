@@ -84,33 +84,34 @@ describe('AppMenuRows · home (no card)', () => {
 
 // ⚠️ Safety-relevant: the take and the × behave exactly as on the old launcher card — the × hides
 // the alarm on this device only and never takes it, and both lock while any take runs.
+// Owner, 17.11.2026 («Just list it, no hidden state»): an alarm nobody opened is a row like a
+// running Einsatz's – bell, Stichwort, address, «Öffnen» – and has no ✕
 describe('AppMenuRows · alarms to take', () => {
   const alarms = (extra: Partial<AppMenuAlarms> = {}): AppMenuAlarms => ({
-    list: [alarm(41, 'B2 Brand Wohnhaus')], taking: null, onTake: vi.fn(), onDismiss: vi.fn(), ...extra,
+    list: [alarm(41, 'B2 Brand Wohnhaus')], taking: null, onTake: vi.fn(), ...extra,
   })
 
-  it('takes on the row, hides on the ×, and the × never takes', () => {
+  it('lists the alarm under the running Einsätze, takes on the row, and offers no ✕', () => {
     const a = alarms()
     renderHome({ alarms: a, incidents: [incident('a', 'Brand Musterhaus')] })
     const row = screen.getByRole('button', { name: /B2 Brand Wohnhaus/ })
-    expect(row.textContent).toContain(ci.newDiveraAlarm)
-    expect(row.textContent).toContain(ci.alarmOpen)
+    expect(row.textContent).toContain('Testgasse 3')
+    // no «Öffnen» word on the row (owner, 17.11.2026) – it is the row's accessible name
+    expect(row.textContent).not.toContain(ci.alarmOpen)
+    expect(row.getAttribute('aria-label')).toBe(`${ci.alarmOpen}: B2 Brand Wohnhaus`)
     // the running Einsatz first, then the alarm
     expect(screen.getByRole('button', { name: /Brand Musterhaus/ }).compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: ci.dismiss }))
-    expect(a.onDismiss).toHaveBeenCalledWith(a.list[0])
-    expect(a.onTake).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: ci.hide })).toBeNull()
     fireEvent.click(row)
     expect(a.onTake).toHaveBeenCalledWith(a.list[0])
   })
 
-  it('locks take and × while a take runs, and says so on that row', () => {
+  it('locks every take while one runs, and says so on that row', () => {
     renderHome({ alarms: alarms({ list: [alarm(41, 'B2 Brand Wohnhaus'), alarm(42, 'Ölwehr')], taking: 41 }) })
     const taking = screen.getByRole('button', { name: /B2 Brand Wohnhaus/ }) as HTMLButtonElement
     expect(taking.disabled).toBe(true)
     expect(taking.textContent).toContain(ci.alarmOpening)
     expect((screen.getByRole('button', { name: /Ölwehr/ }) as HTMLButtonElement).disabled).toBe(true)
-    for (const x of screen.getAllByRole('button', { name: ci.dismiss })) expect((x as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('an alarm alone is not «nothing open»', () => {

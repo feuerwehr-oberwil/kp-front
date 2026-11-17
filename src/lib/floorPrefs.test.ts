@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { loadHiddenFloors, saveHiddenFloors, shownFloors } from './floorPrefs'
+import { foldedStoreyTeams, loadHiddenFloors, saveHiddenFloors, shownFloors, storeysToReveal, type StoreyTeam } from './floorPrefs'
 
 // The per-incident round trip is lib/incidentPrefStore's (incidentPrefStore.test); here: the
 // hidden set's own parsing and the «never empty» guard.
@@ -47,5 +47,29 @@ describe('shownFloors', () => {
 
   it('shows a storey the pack gained since this device last looked', () => {
     expect(shownFloors([3, 2, 1, 0], [2])).toEqual([3, 1, 0])
+  })
+})
+
+describe('the folded storey and the Trupps on it (M7, F4)', () => {
+  const T = (id: string, floor: number, tone: StoreyTeam['tone'] = null): StoreyTeam => ({ id, floor, name: id, tone })
+
+  it('lists the Trupps per folded storey, the one in most trouble first', () => {
+    const m = foldedStoreyTeams([T('a', 2), T('b', 2, 'crit'), T('c', 1), T('d', 2, 'warn')], [2])
+    expect([...m.keys()]).toEqual([2])
+    expect(m.get(2)!.map((t) => t.id)).toEqual(['b', 'd', 'a'])
+  })
+
+  it('unfolds for a Trupp set onto, or moved onto, a folded storey – and for one whose alarm goes critical there', () => {
+    const before = new Map([['a', { floor: 2, tone: null }], ['b', { floor: 1, tone: null }], ['c', { floor: 3, tone: 'warn' as const }]])
+    expect(storeysToReveal(before, [T('a', 2), T('b', 1), T('c', 3)], [2, 3])).toEqual([])
+    expect(storeysToReveal(before, [T('a', 2), T('b', 1), T('c', 3), T('new', 3)], [2, 3])).toEqual([3])
+    expect(storeysToReveal(before, [T('a', 2), T('b', 2), T('c', 3)], [2, 3])).toEqual([2])
+    expect(storeysToReveal(before, [T('a', 2), T('b', 1), T('c', 3, 'crit')], [2, 3])).toEqual([3])
+  })
+
+  it('keeps a fold made over a Trupp already there, even an overdue one, and only seeds on the first look', () => {
+    const before = new Map([['a', { floor: 2, tone: 'crit' as const }]])
+    expect(storeysToReveal(before, [T('a', 2, 'crit')], [2])).toEqual([])
+    expect(storeysToReveal(null, [T('a', 2, 'crit'), T('b', 2)], [2])).toEqual([])
   })
 })

@@ -196,6 +196,11 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
     azAlarm?.urgent && !azChipHidden ? `${azAlarm.peak}:${azAlarm.urgent.reason}` : '', recording ? 1 : 0, reminderCount > 0 ? 1 : 0,
   ].join('|'))
 
+  // the Verlauf button's name: the word, plus what its number counts while Pendenzen are open
+  const J = appConfig.copy.journal
+  const journalDoor = reminderCount === 1 ? J.openCountDoorOne
+    : reminderCount > 1 ? fillTemplate(J.openCountDoor, { n: reminderCount }) : J.open
+
   return (
     <div className="topbar" ref={barRef}>
       {titleSlot ?? (
@@ -246,8 +251,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             be noticed from across a Schadenplatz, so the control it belongs to carries the colour
             and the number rides along (see .tb-act.has-rem). */}
         <button className={`tb-act ${journalOpen ? 'on' : ''} ${reminderCount > 0 ? 'has-rem' : ''}`} aria-expanded={journalOpen} onClick={onToggleJournal}
-          aria-label={reminderCount > 0 ? appConfig.copy.journal.openCount.replace('{n}', String(reminderCount)) : appConfig.copy.journal.open}
-          title={keyTitle(reminderCount > 0 ? appConfig.copy.journal.openCount.replace('{n}', String(reminderCount)) : appConfig.copy.journal.open, PANEL_KEY.journal)}>
+          aria-label={journalDoor} title={keyTitle(journalDoor, PANEL_KEY.journal)}>
           <Icon id="verlauf" /><span>{appConfig.copy.journal.open}</span>{keyHint(PANEL_KEY.journal)}
           {reminderCount > 0 && <span className="tb-rem-count" aria-label={appConfig.copy.journal.openCount.replace('{n}', String(reminderCount))}>{reminderCount}</span>}
         </button>

@@ -50,6 +50,7 @@
     "cta": "Open the demo",
     "ctaSelf": "Run it yourself",
     "ctaNote": "No login – in the demo, Musterdorf is on fire right now (interface in German)",
+    "demoNote": "<strong>Public demo:</strong> don’t enter real incident, personal, location or organisation data. All visitors share the same demo. Whatever you enter stays saved until the next automatic reset.",
     "frameAddr": "KARTE · ZIMMERBRAND · 2611624 / 1263070",
     "frameAlt": "Map view: tactical symbols to Swiss FKS conventions, sectors and hose lines"
   },

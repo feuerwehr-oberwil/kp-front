@@ -172,8 +172,7 @@ unchanged.
   capped at 300px) and shows
   the device's position; while typing, the map yields its space to the results. The opened
   Trupp is parked again when «Im Einsatz» moves it to another section, by scrolling its own
-  port. The Einsatz form answers «Übung?» with «Nein | Ja» on every width (ui-conventions ·
-  one control per kind of question).
+  port. The Einsatz form opens with «Ernstfall | Übung» on every width (17.11.2026).
 
 - *A monogram chip keeps its HEIGHT; the text steps down and the box hugs what is left*
   (`data-mono-len` on the chip; the rail's tiles and the `GroupChooser` rows each restate the
@@ -188,7 +187,7 @@ unchanged.
   («Wasser 1»; `lib/navRail · planGlyph` / `planLabel`, owner 27.10.2026: «keep W1/W2»).
 
 - *A head's icon buttons carry their word wherever it fits* (22.09.2026): «Reihenfolge ·
-  Überwachung abgeben · Alarmton» on the Trupps head — MEASURED since 28.09.2026 (the page head's
+  Trupps teilen · Alarmton» on the Trupps head — MEASURED since 28.09.2026 (the page head's
   ladder, `lib/pageHeadFit`; the `.wordBtn`/`useIsPhone` switch there is gone), so a phone that has room shows
   them and a tablet that has none folds them. **A phone's folded tile keeps its word UNDER the glyph**
   at 11/700, never a bare glyph (owner pick, button sweep HEADS.9, 17.11.2026 – the QR and the bell

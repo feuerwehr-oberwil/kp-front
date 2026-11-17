@@ -15,8 +15,10 @@ import type { PlanScale } from '../lib/planScale'
  * in the same slots as before — the order matters, they are stacked overlays.
  */
 
-/** Metre entry after the two reference endpoints have been tapped. */
-export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose }: {
+/** Metre entry after the two reference endpoints have been tapped. `why`: reached from Messen on a
+ *  plan with no scale – the dialog first says so (C9, 17.11.2026), the field opens empty. */
+export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose, why = false }: {
+  why?: boolean
   refMInput: string
   setRefMInput: (v: string) => void
   onCommit: (refM: number) => void
@@ -36,6 +38,7 @@ export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose }: 
     // hand-rolled overlays covers the NON-modal tool docks, not this.)
     <Overlay open onClose={onClose} className="wb-cal-pop ui-dialog" ariaLabel={appConfig.copy.whiteboard.scale.promptTitle} initialFocus={inputRef}>
       <div className="wb-cal-title">{appConfig.copy.whiteboard.scale.promptTitle}</div>
+      {why && <div className="wb-cal-body wb-cal-why">{appConfig.copy.whiteboard.scale.promptWhy}</div>}
       <div className="wb-cal-body">{appConfig.copy.whiteboard.scale.promptBody}</div>
       <div className="wb-cal-chips">
         {appConfig.drawing.planScaleDefaultsM.map((m) => (

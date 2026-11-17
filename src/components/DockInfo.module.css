@@ -39,7 +39,15 @@
      with its own corner and its own type */
   display: flex; align-items: center; min-height: var(--float-h); padding: var(--msg-pad) var(--float-pad-x);
   background: var(--float-bg); backdrop-filter: var(--float-blur); color: var(--ink); border: none; border-radius: var(--r-sm);
-  box-shadow: var(--float-edge); font: var(--fw-medium) var(--fs-2)/1.35 var(--body); text-align: left; }
+  box-shadow: var(--float-edge); font: var(--fw-medium) var(--fs-2)/1.35 var(--body); text-align: left;
+  /* a standing card's steps are one per line (DockInfo · `open`) */
+  white-space: pre-line; }
+/* …and where the Tafel's page strip reaches the middle of the bottom row, the card stands one row
+   ABOVE it, like the armed pill (09-whiteboard · .armed-pill-row): it covered «Rapport · + Seite»
+   (rare-user r3, M13, 17.11.2026). The card is portalled to <body>, hence the body-level :has. */
+@media (--not-phone) {
+  :global(body:has(.wb-botleft > .tps)) .wb-dock-tip { bottom: calc(16px + var(--float-h) + var(--float-gap)); }
+}
 /* phones: above every bar and the armed tool's pill — in THE message lane, measured while a tool is
    out (15-mobile · --msg-lane-bottom, lib/floatRow · stackLane) */
 @media (--phone) {

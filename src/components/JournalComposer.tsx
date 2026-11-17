@@ -10,6 +10,7 @@ import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { fillTemplate, fmtFileSize, formatTime, hhmm, pad2, stripUnprintable, formatLocale } from '../lib/format'
 import { toast } from '../lib/ui'
+import { micFailedText } from '../lib/permissionPath'
 import { ApiError } from '../lib/api'
 import { forgetLocalThumb, mintLocalThumb, thumbUrl } from '../lib/mediaUrl'
 import { forgetPhotoGeo, photoGeoSettled, rememberPhotoGeo } from '../lib/photoGeo'
@@ -279,7 +280,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // ⚠️ …and «Auftrag» is the third: an Auftrag is something somebody has to do, so picking the kind
   // opens the ring the same way (13.11.2026, owner pick FLOW.7) – it used to file as a label only,
   // in no Pendenzen and with nobody reminded. The ring is still the operator's: the menu takes it
-  // off («Nicht offen halten»). `ringByKind` remembers that only the kind opened it, so switching the
+  // off («Keine Pendenz»). `ringByKind` remembers that only the kind opened it, so switching the
   // kind away closes it again – never a ring opened by hand (`setOpen` clears the mark), and never
   // one a reminder time needs. A Meldung on an open Pendenz (`noteOn`) has no ring to open.
   const [ringByKind, setRingByKind] = useState(false)
@@ -482,7 +483,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
         setRecording(false); setElapsed(0)
       }
       recRef.current = { rec, startedAt }; setRecording(true); rec.start()
-    } catch { toast(appConfig.copy.toast.micDenied, { icon: 'mic', tone: 'warn' }) }
+    } catch (e) { toast(micFailedText(e), { icon: 'mic', tone: 'warn' }) }
   }
 
   const discardClip = () => { clipAudio.current?.pause(); setClipPlaying(false); if (clip) URL.revokeObjectURL(clip.url); setClip(null) }
@@ -998,7 +999,10 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                     <span className="jc-chip-word">{C.entryTypesWrap[t] ?? C.entryTypes[t]}</span>
                     {/* …and the single letter that stands for the word once there is no room for it
                         (see 10-journal.css · .is-compact). Taken off the LOCALE's own label, so it is
-                        «I · A · S» in German and whatever the other three read in theirs. */}
+                        «I · A · S» in German and whatever the other three read in theirs. Back in
+                        the compact row since round 2 of the rare-user round (owner, 17.11.2026: a
+                        crew that uses it knows the letters; the two-line «Sofort-massnahme» was not
+                        better) */}
                     <span className="jc-chip-letter" aria-hidden>{C.entryTypes[t].charAt(0)}</span>
                   </button>
                 ))}
@@ -1185,6 +1189,33 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 <Icon id="upload" /><span className="jc-lbl">{C.attachUploadShort}</span>
               </button>
               <button className="jc-rec" onClick={() => fileRef.current?.click()} title={C.photo} aria-label={C.photo}><Icon id="cam" /><span className="jc-lbl">{C.photo}</span></button>
+              {/* ── rung 2 folds the three into ONE paper-clip (owner pick M9 · A, 17.11.2026) ──
+                  «I · A · S» beside three bare media glyphs was eight marks to decode; now it is
+                  the letters, the clock, the ring and the clip. The menu rows carry glyph + word.
+                  ⚠️ Not while recording: the lit mic (stop + seconds) stays in the row – the one
+                  way to end a recording cannot hide behind a menu. 10-journal.css · .is-compact */}
+              {compact && !recording && (
+                <Menu
+                  keepFocusRef={phone ? textRef : undefined}
+                  side="top"
+                  align="end"
+                  popupClassName="rp-print-menu jc-pendenz-menu"
+                  itemClassName={() => 'rp-print-menu-item'}
+                  items={[
+                    { label: dueRow(<Icon id="mic" />, C.record, false), onClick: toggleRecord },
+                    { label: dueRow(<Icon id="upload" />, C.attachUpload, false), onClick: () => attachRef.current?.click() },
+                    { label: dueRow(<Icon id="cam" />, C.photo, false), onClick: () => fileRef.current?.click() },
+                  ]}
+                  trigger={(
+                    <button
+                      type="button"
+                      // the caret and the keyboard stay, as on the clock and the ring beside it
+                      onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
+                      className="jc-rec jc-attach" title={C.attachMenu} aria-label={C.attachMenu}
+                    ><Icon id="attach" /></button>
+                  )}
+                />
+              )}
               {clip && (
                 <span className="jc-clip">
                   <button className={`tl-play ${clipPlaying ? 'playing' : ''}`} title={clipPlaying ? C.recordStop : appConfig.copy.play} aria-label={clipPlaying ? C.recordStop : appConfig.copy.play} onClick={toggleClip}><Icon id={clipPlaying ? 'pause' : 'play'} /></button>

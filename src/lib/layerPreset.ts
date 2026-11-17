@@ -42,3 +42,17 @@ export function layerPresetLabel(p: LayerPreset): string {
   const c = appConfig.copy.layerPanel
   return p === 'standard' ? c.reset : p === 'all' ? c.showAll : p === 'none' ? c.hideAll : c.custom
 }
+
+/** The CONTENT layers – what somebody placed or drew on this Einsatz, as opposed to the reference
+ *  data (Hydranten, Leitungen …): the tactical signs, the vehicles, the sketches and notes. */
+const contentLayerIds = (): readonly string[] =>
+  [appConfig.defaults.operationalLayerId, appConfig.gps.layerId, appConfig.defaults.drawingLayerId]
+
+/** Whether a content layer is switched off on this device – the amber dot on the «Ebenen» tile
+ *  (rare-user round 17.11.2026, M6 = A). Never the preset: a hand-picked set of reference layers
+ *  is a normal day (owner 05.10.2026, «no need for this indicator»), an empty Lage is not. A
+ *  layer missing from the list (the Karte has no Taktische Zeichen) does not count. */
+export const contentLayerHidden = (layers: readonly Pick<LayerDef, 'id' | 'visible'>[]): boolean => {
+  const ids = contentLayerIds()
+  return layers.some((l) => ids.includes(l.id) && !l.visible)
+}

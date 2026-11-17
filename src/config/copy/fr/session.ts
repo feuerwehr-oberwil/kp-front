@@ -154,7 +154,7 @@ export const sessionCopy: Localizable<Pick<Copy, Keys>> = {
     welcome: {
       title: 'Bienvenue sur PC Front',
       intro: 'Une intervention préparée avec des données fictives. Dessine, conduis les équipes et teste librement la conduite de l’intervention.',
-      reloadWarn: 'Tous les visiteurs travaillent ensemble. La démo est réinitialisée à minuit et à midi.',
+      reloadWarn: 'Ne saisis aucune donnée réelle d’intervention, de personnes, de lieux ou d’organisation. Tous les visiteurs travaillent ensemble. La démo est réinitialisée à minuit et à midi.',
       canTitle: 'Ce que tu peux essayer',
       can: ['Modifier la carte et le plan', 'Conduire les équipes ARI et le matériel', 'Ouvrir les plans d’objet et le rapport'],
       cta: 'C\'est parti',

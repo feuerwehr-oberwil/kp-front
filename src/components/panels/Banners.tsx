@@ -21,8 +21,10 @@ import { fmtWhen } from '../../lib/format'
 // the dispatch finds the EL. The primary action takes the alarm AS-IS (everything Divera carries
 // + backend type/priority/geocode) and drops straight onto the map — corrections happen there
 // via the review row, not in a gating wizard. Dismissed alarms are remembered PER DEVICE
-// (localStorage), so a given alarm only ever nags once on this device — across reloads, and
-// whether it's X'd or taken.
+// (localStorage), so a given alarm only ever nags once on this device — across reloads. The ✕
+// puts away this row only: the alarm stays listed in the «Einsätze» lists – home's and the
+// Einsatz menu – as an alarm nobody opened, until it is taken or 3 h old (owner, 17.11.2026;
+// lib/diveraDismiss · waitingAlarms). No toast.
 //
 // One exception to «take leads» (`attachFirst`): an Einsatz started by hand — the Übung above
 // all — has no alarm behind it, so its Zeiten stay empty until one is attached and taking this
@@ -30,8 +32,8 @@ import { fmtWhen } from '../../lib/format'
 // the filled action. Same two buttons, swapped emphasis; nothing is hidden either way.
 export function IncomingAlarmBanner({ alarms, dismissed, taking, attachFirst, onTake, onAttach, onDismiss }: {
   alarms: DiveraAlarm[]
-  /** the alarms hidden on this device (lib/diveraDismiss) – App's one set, shared with the
-   *  «Einsätze» list and the «Neuer Einsatz» gate */
+  /** the alarms whose row was ✕-ed on this device (lib/diveraDismiss) – App's one set, shared
+   *  with the «Neuer Einsatz» gate */
   dismissed: ReadonlySet<number>
   /** divera_id currently being taken (disables its button) */
   taking: number | null
@@ -80,8 +82,11 @@ export function IncomingAlarmBanner({ alarms, dismissed, taking, attachFirst, on
 // takes every changed field nobody edited by hand (the label names them when it is not all of
 // them), with «Rückgängig» on the toast; «Bearbeiten» opens the Einsatzdaten with the alarm's
 // value offered beside each field; ✕ hides it for EVERY device – one decision for the Einsatz.
-// All three are the server's (Verlauf row included) and need a connection: no outbox, because
-// the Einsatzdaten they change have none either; a failure says so and the row stays.
+// The way back is the Einsatz menu's quiet row «Alarm aktualisiert · Zeigen» while the hidden
+// update is younger than 3 h (rare-user round F7, 17.11.2026 – `showHiddenAlarmUpdate`, built by
+// App), which makes it pending again (backend alarm_update · show). All four are the server's
+// (Verlauf row included) and need a connection: no outbox, because the Einsatzdaten they change
+// have none either; a failure says so and the row stays.
 export function AlarmUpdateBanner({ meta, onChanged, onEdit }: {
   /** the open Einsatz as the list poll last served it – `alarm_update` set */
   meta: IncidentMeta
@@ -105,7 +110,8 @@ export function AlarmUpdateBanner({ meta, onChanged, onEdit }: {
       setBusy(false)
     }
   }
-  const row = update ? alarmUpdateRow(update, meta.title) : null
+  // a hidden update is served too (every device, for the menu's way back) – it is no row here
+  const row = update && update.state !== 'hidden' ? alarmUpdateRow(update, meta.title) : null
   useMeldung(row == null ? null : {
     // one row per pending update: a newer one replaces it in place
     id: `alarm-update:${meta.id}`,

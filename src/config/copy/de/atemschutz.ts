@@ -43,12 +43,12 @@ export const atemschutzCopy = {
     // «Überwachung abgeben» — der QR neben der Glocke: die Tafel dieses Einsatzes auf ein
     // fremdes Handy geben, damit jemand ohne Login nur den Atemschutz bedient. Nur für
     // Bearbeiter, und nicht auf der abgegebenen Tafel selbst.
-    shareLink: 'Überwachung abgeben',
+    shareLink: 'Trupps teilen',
     // …gefaltet im engen Kopf (Handy): das eine Wort unter dem QR-Zeichen
-    shareLinkShort: 'Abgeben',
+    shareLinkShort: 'Teilen',
     // …und wenn schon ein Link läuft. Der Knopf sagt nur, DASS es einen gibt – wer ihn drückt,
     // sieht im Blatt alles Weitere.
-    shareLinkOn: 'Überwachung abgeben – ein Link ist aktiv',
+    shareLinkOn: 'Trupps teilen – ein Link ist aktiv',
     // Shown ONCE per device on the handed-over «Tafel pur» (AtemschutzView, field feedback
     // 02.09.: ein versehentliches Schliessen im Browser brauchte danach wieder den Zugang).
     // Reassurance, not an instruction. ⚠️ Es geht um den LINK, nie um dieses Gerät: der Link
@@ -117,13 +117,6 @@ export const atemschutzCopy = {
     } as Record<string, string>,
     // Das Feld im Trupp-Formular (nur unter Atemschutz) – Mehrfach-Chips aus atemschutzEquipment()
     equipmentLabel: 'Ausrüstung',
-    // KURZ-Tags für die Kennzeile der Karte, pro geliefertem Id; eine Station-eigene Id ohne
-    // Eintrag hier zeigt ihr volles Label (components/TruppCard)
-    equipmentShort: {
-      retthaube: 'RH',
-      wbk: 'WBK',
-      multiwarn: 'MW',
-    } as Record<string, string>,
     // «Ziel» (27.09.2026, slim sweep 6): der Auftrag ist die Kachelzeile darüber, das Feld ist das
     // Ziel – wie auf der Karte und im Auftrag-Sheet (editFieldLabels.ziel)
     zielLabel: 'Ziel',
@@ -958,6 +951,9 @@ export const atemschutzCopy = {
     // Nach «Wieder öffnen»: die Kontaktuhr eines Trupps, der noch drin steht, läuft ab dem
     // Wiederöffnen neu – die geschlossene Zeit zählt nicht als Zeit ohne Kontakt (r3, F4).
     logClockRestart: 'Trupp {name}: Kontaktuhr neu gestartet – Einsatz wieder geöffnet',
+    // Leitung-Picker (TruppSheets): eine Leitung, die auf einem Plan liegt – «Ltg 3 · Plan · M. Stich»
+    // (rare-user F13, 17.11.2026; vorher ein fest codiertes « · P»)
+    lineOnPlan: 'Plan',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {

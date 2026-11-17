@@ -80,6 +80,14 @@ scrolling body so it stays visible with the keyboard up):
   replaced the «Rapport erstellt · Nächster Schritt» strip and the grey «Abschliessen» tile that led
   the row from the first second (active at «4 offen», the irreversible step first – sweep R9).
   Before that moment the close is the Einsatz ▾ menu's. The ZIP of the Beilagen is in the PDF ▾ menu.
+- **No paper, or old paper, is an open point of the close** (owner pick M5 · A, 17.11.2026): while
+  `reportMadeAt` is unset the sheet «Einsatz abschliessen» lists «Rapport noch nicht erstellt» on
+  top of its open points (lib/abschlussOpen · `report`), a tap opens the Rapport, and the sheet is
+  the «Noch offen» confirm with «Trotzdem abschliessen» – printing never blocks. A finished print
+  counts exactly like a PDF. An operator's edit of a Rapport field after the paper DROPS
+  `reportMadeAt` (ReportPreflight · `persist`, the app's bookkeeping does not count): the row comes
+  back and the head falls back to the band «… PDF erstellen» instead of the green close. Only the
+  Rapport's own fields – a Verlauf row, the Anwesenheit or Mittel do not make the paper stale.
 - **Closed: one strip, the state** (owner, 12.11.2026: «either closed or the next step»). A closed
   Einsatz shows the amber «Einsatz abgeschlossen – zum Bearbeiten wieder öffnen» with «Wieder
   öffnen» beside it (the Einsatz card's action and confirm; «… – nur ansehen» without the button

@@ -215,6 +215,9 @@ export interface MapTacticalProps {
   /** Move AND/OR turn a marquee group in one writer: the bar streams a lng/lat delta, a turn in
    *  degrees about the group's centre, or (in principle) both, folded into one undo step. */
   onGroupTransform?: (ids: string[], entIds: string[], t: { dLng: number; dLat: number; deg: number }, phase: 'start' | 'move' | 'end') => void
+  /** «Duplizieren» on the selection bar (rare-user F18): ⌘D's writer (useMapActions ·
+   *  duplicateSelection) for a single object. Absent on a locked surface – the button is not drawn. */
+  onDuplicate?: () => void
   /** «Fertig» on the selection bar: end the editing state — clear every selection and close the
    *  sheets that were open for it. Exactly what a tap on the empty map already does. */
   onSelectionDone?: () => void

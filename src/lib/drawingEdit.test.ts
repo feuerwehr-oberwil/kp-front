@@ -13,13 +13,13 @@ const line = (over: Partial<Drawing>): Drawing => ({
 // The same gap entityEditChanges closed for symbols: a Leitung's meaning-bearing attributes
 // used to change the Kroki without a Verlauf row.
 describe('drawingEditChanges (the Verlauf line for editing a drawing)', () => {
-  it('names the Typ letter as the word it means', () => {
-    expect(drawingEditChanges(line({}), line({ content: 'S' }))).toEqual(['Typ: Schaum'])
-    expect(drawingEditChanges(line({ content: 'S' }), line({ content: 'H' }))).toEqual(['Typ auf Hydroschild geändert'])
+  it('names the Inhalt letter as the word it means', () => {
+    expect(drawingEditChanges(line({}), line({ content: 'S' }))).toEqual(['Inhalt: Schaum'])
+    expect(drawingEditChanges(line({ content: 'S' }), line({ content: 'H' }))).toEqual(['Inhalt auf Hydroschild geändert'])
   })
 
-  it('unsetting the Typ is Wasser, not a cleared field', () => {
-    expect(drawingEditChanges(line({ content: 'S' }), line({}))).toEqual(['Typ auf Wasser geändert'])
+  it('unsetting the Inhalt is Wasser, not a cleared field', () => {
+    expect(drawingEditChanges(line({ content: 'S' }), line({}))).toEqual(['Inhalt auf Wasser geändert'])
   })
 
   it('carries the Leitungs-Nummer — the identity the Atemschutzüberwachung reads', () => {
@@ -114,8 +114,8 @@ describe('drawingLogName', () => {
 // kind of line, whether that is a Druckleitung's device or a Haltelinie's water state.
 describe('drawingEditChanges — the Vegetationsbrand letters', () => {
   it('names N / T / G the way it names S / H / P', () => {
-    expect(drawingEditChanges(line({}), line({ content: 'N' }))).toEqual(['Typ: Nasse Haltelinie'])
-    expect(drawingEditChanges(line({ content: 'N' }), line({ content: 'G' }))).toEqual(['Typ auf Gegenfeuer geändert'])
+    expect(drawingEditChanges(line({}), line({ content: 'N' }))).toEqual(['Inhalt: Nasse Haltelinie'])
+    expect(drawingEditChanges(line({ content: 'N' }), line({ content: 'G' }))).toEqual(['Inhalt auf Gegenfeuer geändert'])
   })
 })
 
