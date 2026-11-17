@@ -85,21 +85,21 @@ export const mapCopy = {
     permissionPath: {
       location: {
         iosApp: 'iPhone-Einstellungen › Datenschutz & Sicherheit › Ortungsdienste › Safari-Websites',
-        iosSafari: 'Safari «aA» › Website-Einstellungen › Standort',
+        iosSafari: 'iPhone-Einstellungen › Apps › Safari › Standort',
         android: 'Chrome ⋮ › Einstellungen › Website-Einstellungen › Standort',
-        desktop: 'Schloss-Symbol links der Adresse › Standort',
+        desktop: 'dem Symbol links der Adresse › Standort',
       },
       microphone: {
         iosApp: 'iPhone-Einstellungen › Apps › Safari › Mikrofon',
-        iosSafari: 'Safari «aA» › Website-Einstellungen › Mikrofon',
+        iosSafari: 'iPhone-Einstellungen › Apps › Safari › Mikrofon',
         android: 'Chrome ⋮ › Einstellungen › Website-Einstellungen › Mikrofon',
-        desktop: 'Schloss-Symbol links der Adresse › Mikrofon',
+        desktop: 'dem Symbol links der Adresse › Mikrofon',
       },
       notifications: {
         iosApp: 'iPhone-Einstellungen › Mitteilungen › {app}',
         iosSafari: 'iPhone-Einstellungen › Mitteilungen › {app}',
         android: 'Android-Einstellungen › Apps › {app} › Benachrichtigungen',
-        desktop: 'Schloss-Symbol links der Adresse › Benachrichtigungen',
+        desktop: 'dem Symbol links der Adresse › Benachrichtigungen',
       },
     },
   },

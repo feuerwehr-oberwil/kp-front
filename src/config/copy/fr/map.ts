@@ -51,21 +51,21 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     permissionPath: {
       location: {
         iosApp: 'Réglages iPhone › Confidentialité et sécurité › Service de localisation › Sites web Safari',
-        iosSafari: 'Safari «aA» › Réglages du site web › Position',
+        iosSafari: 'Réglages iPhone › Apps › Safari › Localisation',
         android: 'Chrome ⋮ › Paramètres › Paramètres des sites › Position',
-        desktop: 'cadenas à gauche de l’adresse › Position',
+        desktop: 'l’icône à gauche de l’adresse › Position',
       },
       microphone: {
         iosApp: 'Réglages iPhone › Apps › Safari › Micro',
-        iosSafari: 'Safari «aA» › Réglages du site web › Micro',
+        iosSafari: 'Réglages iPhone › Apps › Safari › Micro',
         android: 'Chrome ⋮ › Paramètres › Paramètres des sites › Micro',
-        desktop: 'cadenas à gauche de l’adresse › Micro',
+        desktop: 'l’icône à gauche de l’adresse › Micro',
       },
       notifications: {
         iosApp: 'Réglages iPhone › Notifications › {app}',
         iosSafari: 'Réglages iPhone › Notifications › {app}',
         android: 'Paramètres Android › Applications › {app} › Notifications',
-        desktop: 'cadenas à gauche de l’adresse › Notifications',
+        desktop: 'l’icône à gauche de l’adresse › Notifications',
       },
     },
   },
