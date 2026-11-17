@@ -65,7 +65,8 @@ a Checkliste, a Verlauf-Eintrag, a Mittel line).
   Verlauf rows keep their wording (append-only); code identifiers (`floor`, `floorTag`,
   `whiteboard.*`, `Whiteboard.tsx`) keep their names.
 - **The place is «Verlauf», the thing is «Eintrag» – on every screen** (29.09.2026). The composer
-  is «Neuer Eintrag», its toast «Eintrag erfasst», the checklist action chip «Verlauf», the
+  is «Neuer Eintrag», its save line «Eintrag erfasst» (a toast only for a placeable photo since
+  17.11.2026), the checklist action chip «Verlauf», the
   Führungsansicht «Verlauf & Symbol-Details», the detail sheet's meta line «… · von Hand erfasst». «Journal» appears
   on screen nowhere. **«Einsatzjournal» stays ONLY as the printed Rapport section's name**
   (`app/report · "journal"`, `copy.report.journal`, and the «Abschnitte» toggle that names that
@@ -73,8 +74,9 @@ a Checkliste, a Verlauf-Eintrag, a Mittel line).
   «Atemschutz-Journal». en/fr/it keep their own place word (Log / Journal / Diario) and the same
   entry word (Entry / Entrée / Voce). Code identifiers (`journal.*`, `Journal.tsx`, `jr-*`,
   `jc-*`) keep their names. **One count, one word: «{n} anwesend»** – the chooser, the
-  Anwesenheit head and the Rapport's «Personal & Mittel» row say the same word for the head
-  count (the Rapport said «erfasst»).
+  Anwesenheit head, the Rapport's «Personal & Material» row, the signature sheet and the PDF say
+  the same word for the head count (the Rapport said «erfasst», the sheet «Personen», the PDF
+  «Anwesende» until 17.11.2026).
 
 ## One word per fact (3am sweep, 13.11.2026)
 
@@ -90,7 +92,11 @@ réseau · rete).
   is gone again). The noun is «Synchronisierung»; «Sync» as a bare word, «lokal gespeichert»,
   «Upload», «Verbindung» (for the network) do not appear in operator copy. Personnel import from
   an external system is a «Abgleich» (WORD.2) – «Mit Divera abgleichen», «beim nächsten
-  Abgleich», «Personalabgleich», never «synchronisieren» for the roster.
+  Abgleich», «Personalabgleich», never «synchronisieren» for the roster. A photo, audio or Beilage
+  still only on this device is «noch nicht synchronisiert» behind the upload arrow on every
+  surface – the Verlauf row, the Rapport's Beilage, the Objektbesuch thumbnail, the closed
+  Einsatz's message – and «Nicht synchronisiert» once it failed; never «Wird geladen», which reads
+  as a download (duck sweep FEEDBACK.7, 17.11.2026).
 - **«Personal» is the roster, «Mannschaft» the crew of a Trupp** – Personalliste, the
   Arbeitsmappe's «Personal» sheet, «Name und Fahrer kommen aus dem Personal». KP Rück draws the
   same line (Mannschaft = the crew of an Einsatz/Auftrag) – consistency sweep 17.11.2026,
@@ -106,7 +112,13 @@ réseau · rete).
 - **A ✕ or a button that empties a pad or a field is «leeren»** (WORD.5, extends the line below).
 - **A failure after the operator's own act says the state it leaves** («Nicht gelöscht – bleibt
   in der Liste», «… – erneut versuchen»), never only «X fehlgeschlagen»; a hint says what to do,
-  not why the network did it, and is dropped when it would only repeat the title (WORD.6).
+  not why the network did it, and is dropped when it would only repeat the title (WORD.6). Where
+  the server could not be asked, the act still leads and the reason goes into it in brackets:
+  «Alarm nicht übernommen (Server nicht erreichbar) – erneut «Öffnen», es entsteht kein zweiter
+  Einsatz» (`lib/actFailed`, rare-user round F8, 17.11.2026).
+- **A permission denied long ago names where its switch is on THIS device** – iPhone app, Safari
+  tab, Android, desktop (`lib/permissionPath`) – never «in den Browser-Einstellungen» alone, and a
+  tap that needs it is never silent («Standort gesperrt – erlauben unter …»; F9, 17.11.2026).
 - **A confirm button never starts with «Ja,»** – it is the verb of the consequence, «Teilen» not
   «Weitergeben», «Drucken» not «Ausdrucken» (WORD.7).
 - **A confirm's button repeats the verb of its title** («… aufheben?» → «Link aufheben») or names
@@ -121,6 +133,36 @@ réseau · rete).
   are number, space, unit: «12 min», «2 h», «40 s». No «Update» on a screen – «Neue Version» (WORD.12).
 - **An abbreviation a volunteer may not hold gets its long form once**: «Notfall-Leitfaden
   (ERG)», «unter Atemschutz» (not «AS»); doctrine shorts (ELZ, EL, GF, KP) stay (WORD.13).
+
+## One word per idea (rare-user round, 17.11.2026)
+
+The owner's word list (`final.json`, groups W1–W6; picked one by one on 17.11.2026). en/fr/it
+follow with their own word for each idea.
+
+- **What stays open is a «Pendenz»; a Pendenz with a time is an «Erinnerung»; urgent is
+  «dringend».** One lifecycle (`reminder.op`): created without `dueAt` = Pendenz, with `dueAt` =
+  Erinnerung (it rings, snoozes, raises the Meldeleiste row). Only an Erinnerung can be
+  «überfällig». «Wiedervorlage» and «Prio. 1» appear on no screen («↻ 10 min» on a done row sets an
+  «Erinnerung»; the Tafel's «!» is «Dringend»); «Auftrag» stays the kind of entry. ⚠️ The Tafel
+  page «Aufträge / Pendenzen» and its «Prio.» column head are the FKS paper form's words and stay.
+  Code identifiers and comments may keep «Wiedervorlage».
+- **A station catalogue entry is an «Objekt», one with an Einsatzplan an «Einsatzobjekt», a single
+  house from the register a «Gebäude».** «Stationsobjekt» and «Haus» are gone from the screen: the
+  Karte panel's kicker reads Einsatzobjekt / Objekt / Gebäude / Gesetzter Punkt, the switch
+  «Objekt | Dieses Gebäude», the search group and the Ebenen row «Objekte». «Objekte» also means
+  the tactical things on the Einsatz map (`common.groupN`) – no clash, Karte & Objekte draws none.
+- **A time in the Zeitplan is «verfügbar» (offered) or «eingeteilt» (assigned)** – the one flag
+  `Shift.confirmed`, the same word in Zeitplan and Schichten. «geplant» / «eingeplant» name no
+  state: a fresh drag is «Verfügbarkeit für {name} erfasst».
+- **A row in an editor or in Einstellungen names what appears or happens, not the mechanism**:
+  a line end's routing is «Mitziehen» (Direkt | Spur – «Verlauf» is only the Verlauf), a hose's
+  preset is its «Inhalt», the captions switch reads «Aus | Kurz | Alle».
+- **A button is named after what happens on the tap**: the Trupps' QR is «Trupps teilen» (nothing
+  is handed over – this device keeps everything), the offline Meldung's door «Was offline da ist»;
+  «Melden» on Karte & Objekte reports a fault.
+- **A door that shows only a number says WHAT is counted in its title / screen-reader name** –
+  «Verlauf – 3 Pendenzen offen», «Rapport: 2 offen», «Offene Einsätze: 1». A head that stands next
+  to its noun («Pendenzen · 3 offen») keeps the short count.
 
 ## Failure, clear and search copy
 

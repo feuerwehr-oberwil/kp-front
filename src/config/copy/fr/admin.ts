@@ -556,7 +556,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
     },
     incidentHistory: {
       loading: 'Chargement des interventions…', error: 'Impossible de charger les interventions.', search: 'Rechercher titre, adresse ou source…',
-      none: 'Aucune intervention.', noMatches: 'Aucune intervention ne correspond.', started: 'Début', incident: 'Intervention', status: 'Statut',
+      none: 'Aucune intervention.', noMatches: 'Aucune intervention ne correspond.', started: 'Heure d’alarme', incident: 'Intervention', status: 'Statut',
       source: 'Source', report: 'Rapport', updated: 'Modifié', open: 'ouverte', closed: 'terminée', complete: 'complet', incomplete: 'en attente',
       sources: { manual: 'Saisi à la main', divera: 'Divera', firehub: 'FireHub', migrated: 'Repris' } as Record<string, string>,
 
@@ -1598,6 +1598,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
         noPairsYet: 'Pas encore de lien avec la carte – les étages sont enregistrés quand même.',
         joinWhat: 'Choisir un point, passer à un autre étage et y toucher le même point du bâtiment. Les deux dessins doivent avoir la même échelle et orientation.',
         moveHint: 'Déplacer un point ou une zone : saisir et glisser. Retracer : « Tracer la zone ».',
+        zoomReset: 'Réinitialiser le zoom',
       },
     },
     layers: {

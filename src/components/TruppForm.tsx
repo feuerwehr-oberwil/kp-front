@@ -298,14 +298,9 @@ export function TruppForm({
   // already folds the other sections away while it has the keyboard (Atemschutz.module.css).
   const teamSearchRef = useRef<HTMLInputElement | null>(null)
   const focusTeamFirst = !!stack && mode === 'create'
-  // Esc closes the form (keyboard parity with the scrim/close-button) — but not while one of its
-  // number sheets is open: that Escape is the sheet's (it closes itself first, and this closure
-  // still sees it open, because the close has not rendered yet)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !picker) onCancel() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel, picker])
+  // Esc closes the form through its Overlay, once (CONT.2, 17.11.2026 – a second window listener
+  // here called onCancel again, as HelpOverlay's once did). A number sheet open over it is nested in
+  // the same Base UI tree, so its Esc closes it alone.
   const auftragRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (focusSection !== 'auftrag') return

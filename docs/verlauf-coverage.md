@@ -152,9 +152,15 @@ the same rows:
 - **«↻ wieder in 30 / 60 min»** on a done row appends a fresh Wiedervorlage («Erinnerung gesetzt
   für …», `useJournalWriters · reRaisePendenz`) that names the item it re-raises
   (`reminder.again`); while it is open the done row shows ✓ «↻ in 30 min gesetzt» instead of the
-  chips (05.11.2026, a double tap raised two). Its toast «Wiedervorlage in 30 min gesetzt ·
-  Rückgängig» appends **«Wiedervorlage zurückgenommen: …»** (`reminder.op: 'done'`, icon ↶) –
-  append-only, the created row stays.
+  chips (05.11.2026, a double tap raised two). Its toast «Erinnerung in 30 min gesetzt ·
+  Rückgängig» appends **«Erinnerung zurückgenommen: …»** (`reminder.op: 'done'` with
+  `withdrawn: true`, icon ↶) – append-only, the created row stays, and the withdrawn item leaves
+  every reading: not open, not «Erledigt» on the Tafel or the paper, its source's chips are back
+  (ENT.4, 17.11.2026).
+- **The Einsatzende closes no Pendenz** (ENT.4, 17.11.2026, owner): an item still open when the
+  Einsatz is closed stays «offen» in the Verlauf, on the Tafel (its tick works) and on the paper;
+  only a timed Erinnerung due before the close never comes due – no banner, no tone after a
+  Nachtrag reopen (`reminders · isDue` · closedAt).
 - The **Atemschutz alarm row** reads the same fold that plays the sound and writes nothing
   new – the alarm's Verlauf row is created once per cycle as before (see above).
 - **Swiping away (✕), take-over navigation, «Zum Trupp»** write nothing – view, not
@@ -164,7 +170,8 @@ the same rows:
   row is the server's (`sys…` id, icon `bell`, «System» in the Rapport): the arrival («Alarm
   aktualisiert: Adresse A → B, Meldung ergänzt «…»»), and the decision – «Alarm-Aktualisierung
   übernommen: Meldung (Adresse bleibt)», «… übernommen: Adresse (über Einsatzdaten)» when the
-  crew took everything through «Bearbeiten», «Alarm-Aktualisierung ausgeblendet», «Übernahme der
+  crew took everything through «Bearbeiten», «Alarm-Aktualisierung ausgeblendet», «Alarm-
+  Aktualisierung wieder eingeblendet» («Zeigen» in the Einsatz menu, 17.11.2026), «Übernahme der
   Alarm-Aktualisierung rückgängig gemacht». The fields a take writes are a `meta.change` with
   source `alarm_update` – which is how a take is told apart from a hand edit (source
   `einsatzdaten`, which since this change also covers the Alarmmeldung `text`).
@@ -193,9 +200,11 @@ is split per surface into `src/config/copy/de/<surface>.ts` since 2026-10-09):
 
 - **Creating writes:** ONE row shape for every drawn shape, «{name} gezeichnet» (`shapeDrawn`,
   since 31.08.), named by `lib/drawingEdit` · `drawingLogName` – «Fläche gezeichnet»,
-  «Absperrkreis gezeichnet», a line preset's own name or «Linie gezeichnet». On the Plan: «Fläche
-  auf Plan gezeichnet» / «Linie auf Plan gezeichnet» / «Absperrkreis auf Plan gezeichnet»
-  (`whiteboard.placeArea` / `placeLine` / `placeCircle`, written by `Whiteboard.tsx`) – **since 23.08. with
+  «Absperrkreis gezeichnet», a line preset's own name or «Linie gezeichnet». On the Plan the SAME
+  name plus where (ENT.8, 17.11.2026 – a Verlauf filtered for «Rettungsachse» found only the Karte
+  half): «Rettungsachse auf Plan gezeichnet», «Fläche auf Plan gezeichnet» (`whiteboard.drawnOnPlan`,
+  named by `drawingEdit · annoLogName`, written by `usePlanDraft`; a Wand keeps `placeWand`), and a
+  Form «Pfeil auf Plan platziert» (`shapeOnPlan`, the Karte's «Pfeil platziert», not «Symbol …») – **since 23.08. with
   annotation, point and floor**, so that the jump from the row selects the object instead of
   merely opening the building. Older rows stay without coordinates (append-only) and keep
   opening only the Plan, as before.
@@ -339,8 +348,8 @@ Karte does). Review item 21b split the two acts (`src/lib/objectDone.ts`):
 - ⚠️ **The two acts never share a verb** (decided 2026-09-25). Every removal row – Karte and
   Plan, every object kind – says «entfernt», the word of its button «Entfernen»: `objectDeleted`
   «{name} entfernt», `drawingDeleted` «Zeichnung entfernt», `selectionDeleted` «{n} Objekte
-  entfernt», `groupDeleted` / `groupDeletedN` «Auswahl entfernt» / «{n} Objekte vom Plan
-  entfernt». «gelöscht» is left to the extinguished Feuer. Rows written before keep «… gelöscht»
+  entfernt», `groupDeletedN` «{n} Objekte vom Plan entfernt» (one object on the Plan writes the
+  Karte's `objectDeleted`). «gelöscht» is left to the extinguished Feuer. Rows written before keep «… gelöscht»
   – the journal is append-only, and the Rapport prints the row text as written.
 - **Audited app-wide after the second staging walk-through (2026-09-25).** Every other template
   that takes something off the picture says «entfernt» too: `atemschutz.logRemoved` «Trupp {name}
@@ -391,17 +400,15 @@ taken back. Two causes, both closed:
   «Symbol «Feuer» gesetzt» stood on paper next to a Kroki that showed no fire. The journal is
   append-only, so both rows print, in order.
 - **Every undo that RESTORES something writes its counter-row, whichever door it came through.**
-  A confirm-with-undo toast is the same act as the header's ↶ (`IncidentWorkspace ·
-  oneShotUndoToast`): it writes the same row the timeline would, then drops the timeline entry.
+  A one-shot's ↶ writes its own row (`IncidentWorkspace · rememberOneShot`'s `rows`); the
+  confirm-with-undo toasts that doubled it went with owner pick 28 (17.11.2026).
   - Gebäude storey removed: «Geschoss 3. OG entfernt» (with the markings it took, if any) →
-    «Geschoss 3. OG wiederhergestellt» from the toast or ↶ (`whiteboard.floorRestoredLog`), and
+    «Geschoss 3. OG wiederhergestellt» from ↶ (`whiteboard.floorRestoredLog`), and
     ↷ writes «entfernt» again.
-  - Storey added, Gebäude replaced: the toast writes the same «… rückgängig gemacht» the ↶
-    writes (it wrote nothing).
-  - A Trupp undocked from its host: the toast's re-dock writes «{name} bei «{host}»».
-  - An Anwesenheit row cleared: the toast writes «Anwesenheit wiederhergestellt: {name}».
-  Toasts that undo an act which wrote no row (a shift, a Rapport-Beilage, an attendance block)
-  still write none: there is nothing on the record for them to answer.
+  - Storey added, Gebäude replaced, a Trupp undocked, an Anwesenheit row cleared: the ↶ writes
+    its «… rückgängig gemacht» row.
+  An undo of an act which wrote no row (a shift, a Rapport-Beilage, an attendance block) still
+  writes none: there is nothing on the record for it to answer.
 - ⚠️ **The rule, stated once (final walk-through, 2026-09-26, D6): a counter-row exists only
   beside the row it counters.** Writing side: a one-shot whose act wrote no row takes its ↶ / ↷
   silently (`rememberOneShot(…, 'silent')`) – an Ansicht saved, renamed or deleted, the Gebäude

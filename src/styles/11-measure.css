@@ -233,18 +233,12 @@
 .draw-editor .de-conn-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* the ONE disabled (28.09.2026): the dim, not a colour swap */
 .draw-editor .de-conn-name:disabled { opacity: var(--disabled); cursor: default; }
-.draw-editor .de-conn-go { flex: none; color: var(--ink-faint); font-size: var(--fs-3); line-height: 1; }
 .draw-editor .de-conn-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 0 8px; font-size: var(--fs-1); color: var(--ink-dim); }
 .draw-editor .de-conn-note.warn { color: var(--red-strong); font-weight: var(--fw-bold); }
 /* (the note's «Ziel anzeigen» is THE button, <Button> — a framed button at the note's end since
    28.09.2026, owner pick A; it was an underlined blue word, 12px, a hyperlink in a command app) */
-/* also a row: the 28px height and the 2px/4px margins made the last line of the panel sit tighter
-   than everything above it, and its text started 4px in from the left edge the labels hold. */
-.draw-editor .de-conn-detach { display: inline-flex; align-items: center; margin: 0; min-height: 48px; padding: 2px 0;
-  border: 0; background: transparent; color: var(--red-strong); font-size: var(--fs-1); font-weight: var(--fw-bold); }
-@media (hover: hover) {
-  .draw-editor .de-conn-detach:hover { text-decoration: underline; }
-}
+/* (the detach, «Verbindung lösen», is a body act at the control edge – 08-toasts · `.de-act`; it
+   was a red 12.5 word with a hover underline until the button sweep SHEETS.3, 17.11.2026) */
 /* The GPS block at the head of the line editor while an end follows a vehicle (DrawEditor, D3):
    what it follows and how far off it is, the way back as the ONE filled button (green: it puts
    the line back where it was safe — the Meldung's «Am Einsatzort lassen» wears the same fill,
@@ -270,16 +264,20 @@
    three «Verbindungen» lists (style sweep T5, 15.11.2026): the symbol panel, the Plan marker's
    panel (PlanAnno · `.wb-resource-connections` places it) and the Linien-Editor's `.de-conn-name`
    above – a jump is medium 14px ink + ›, a --tap row (it was 12.5/700 in 40px rows). */
-.ctx-connections button { width: 100%; min-height: var(--tap); display: flex; align-items: center; justify-content: space-between; gap: 8px;
+.ctx-connections > :is(button:not(.ip-btn), .ctx-conn-row) { width: 100%; min-height: var(--tap); display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 8px 0; border: 0; border-top: 1px solid var(--border-soft); background: none; color: var(--ink);
   font-size: var(--fs-2); font-weight: var(--fw-medium); text-align: left; }
-.ctx-connections button:first-of-type { border-top: 0; }
-.ctx-connections button > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ctx-conn-go { flex: none; color: var(--ink-faint); font-size: var(--fs-3); line-height: 1; }
-/* …and the same slot carrying a WORD rather than a chevron: the «Lösen» on an angedockter Trupp
-   (15.09.). A row that separates something says so — an ✕ beside a row that also carries a trash
-   can elsewhere in the panel is a second destructive guess (same rule as .wb-pa-text). */
-.ctx-conn-release { flex: none; color: var(--red-strong); font-size: var(--fs-1); font-weight: var(--fw-bold); line-height: 1; }
+.ctx-connections > .ctx-section-label + * { border-top: 0; }
+.ctx-connections > :is(button, .ctx-conn-row) > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the jump's › is the app's chevron icon, 16px `--ink-dim`, like `.row-go` and `.factGo` (button
+   sweep SHEETS.12, 17.11.2026 – a typed › rode the text baseline and the font's weight) */
+:is(.ctx-conn-go, .draw-editor .de-conn-go) { flex: none; width: 16px; height: 16px; color: var(--ink-dim); }
+/* …and a row that SEPARATES something ends in «Lösen» – the neutral framed `unlink` + word (button
+   sweep SHEETS.3, 17.11.2026): an angedockter Trupp's row (`.ctx-conn-row`: the name, the button at
+   its end) and the «Angedockt an …» bond (`.ctx-conn-act`, under its label). It was a red word in
+   the go slot and a typed ×, and ✕ only closes. */
+.ctx-connections > .ip-btn.ctx-conn-act { margin: var(--sp-1) 0; }
+.ctx-conn-row > .ip-btn { flex: none; }
 /* Trupp picker + the jump to it, as ONE control group: the chevron sits against the picker the
    way a "go there" affordance does everywhere else in the panel, instead of repeating the name
    in a row of its own. The picker fills the column (27B), the jump stands at its end. */
@@ -311,10 +309,14 @@
 /* skin only — radius + hover/press ride on `.ui-menu-item` (13-incident.css · «ONE menu row») */
 .de-menu-item { display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap);
   padding: 0 12px; cursor: pointer; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); outline: none; }
-/* the tick marks the current pick; the empty slot keeps every label on the same left edge */
-.de-menu-tick { flex: none; width: 15px; height: 15px; visibility: hidden; color: var(--blue); }
+/* the tick marks the current pick at the row's END, as the Menu radio's (13-incident ·
+   .ui-menu-radio; duck sweep ELEM.7): the leading slot is the pick-several checkbox's */
+.de-menu-tick { flex: none; width: 16px; height: 16px; margin-left: auto; visibility: hidden; color: var(--sel); }
 .de-menu-tick.on { visibility: visible; }
 .de-menu-tick svg { width: 100%; height: 100%; }
+/* an action row's leading glyph in a pick menu («+ Neuer Trupp», TwinTeamPill) */
+.de-menu-lead { flex: none; display: grid; place-items: center; width: 16px; height: 16px; color: var(--ink-dim); }
+.de-menu-lead svg { width: 100%; height: 100%; }
 /* the FKS letter before a line «Typ» (DrawEditor · MenuPick badge), on the trigger and in the menu */
 .de-menu-badge { flex: none; display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 4px;
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); color: var(--ink-dim);
@@ -328,41 +330,57 @@
    (a move grip with a rotor tethered above it), the map's group grip, and the plan's group pill
    — all three grew at the selection's own centre, on top of the ink and of the vertex handles
    the finger was reaching for.
-   Same bottom inset as .coord-read (07-toolrail.css), and the phone rules for the two live in one
-   place (15-mobile.css) so they cannot drift apart or land on the bottom bars.
+   The phone rules for it and for .coord-read (07-toolrail.css) live in one place (15-mobile.css),
+   so they cannot drift apart or land on the bottom bars.
    Glass, not an ink-fill slab: it sits over the map, in the tool docks' own material. */
 /* FIXED, not absolute: the two surfaces hang it in containers that end in different places —
    the map's fills the screen, the plan's canvas already stops above the phone's two bottom bars —
    and «always the same spot» has to mean the same spot on the SCREEN. Nothing above it carries a
-   transform, so the viewport is the containing block on both. */
-.sel-bar { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome);
-  display: flex; align-items: center; gap: 8px; padding: var(--bar-pad);
-  border-radius: var(--r-cluster); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); box-shadow: var(--e4); animation: pop .16s var(--ease); }
-/* ✥ and ⟳ are DRAG targets, so they are grab-cursored and take no scroll/pan (touch-action) —
-   solid blue, the app's one colour for an action grip that transforms the whole object.
-   Square and icon-only: nothing appears or disappears inside them (the turn's degrees are read on
-   the surface now — .sel-turn), so the bar never re-flows under the finger that is using it. */
-.sel-bar-act { width: 52px; height: 44px; border: none; border-radius: var(--r-sm); padding: 0;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: var(--blue); color: var(--on-fill); cursor: grab; touch-action: none;
-  transition: background-color .14s var(--ease), box-shadow .14s var(--ease); }
+   transform, so the viewport is the containing block on both.
+   ⚠️ A BAR like every other (button sweep CHROME.2, owner 17.11.2026): it stands on the view
+   bar's baseline (16px up, the view bar's height `--view-bar-h` – 07-toolrail · .view-bar), so on
+   the Gebäude the ✥ ⟳ bar and Einpassen · Norden read as one bottom line; the phone sets it on
+   the dock row's place (15-mobile). */
+.sel-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: var(--z-chrome); animation: pop .16s var(--ease); }
+/* ── a ROW of bar tiles ── the ✥ ⟳ bar: the floating glass of every bar, the view
+   bar's tile (07-toolrail · .view-bar .vrail-nbtn) – a bare 46px square with its 22px glyph, and
+   with «Beschriftung» on (`.worded`, components read `useRailLabels`) the glyph over its word in
+   the dock's `.wb-dock-word` voice (11/700), `--vrail-tile` tall. The phone's row is the dock
+   row's twin (15-mobile). ⚠️ `.wb-dock-x` / `.wb-dock-tog` bring the dock's colours, and the
+   column's `sticky` on the ✕, which a row does not want – reset here. */
+.sel-bar { display: flex; align-items: center; gap: 4px; padding: var(--bar-pad);
+  border-radius: var(--r-bar); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); box-shadow: var(--e4); }
+.sel-bar > button { position: relative; order: 0; margin: 0; flex: none;
+  display: grid; place-items: center; width: 46px; height: 46px; padding: 0; border: none; border-radius: var(--r-sm); }
+.sel-bar > button .i { width: 22px; height: 22px; }
+.sel-bar.worded > button { grid-template-rows: 24px auto; align-content: center; gap: 2px;
+  width: auto; min-width: 76px; height: var(--vrail-tile); padding: 0 8px; }
+.sel-bar.worded .wb-dock-word { max-width: none; overflow: visible; }
+/* ✥ and ⟳ are DRAG targets, so they are grab-cursored and take no scroll/pan (touch-action).
+   At rest they are BARE like Ebenen and every rail tile (owner pick 22, 17.11.2026: the grey plate
+   `--dock-control-bg` is the way out's only – the ✕ «Schliessen» below); armed, the
+   ink pill (duck sweep ELEM.1, owner 17.11.2026 – «where you are», the same `--here-fill` the rail
+   marks its armed tool with). Blue stays «chosen» only: a resting solid-blue ✥ read as «move is
+   on» beside the dock's blue toggles. The word is the same armed or not, so the bar never re-flows
+   under the finger that is using it (the turn's degrees are read on the surface, .sel-turn). */
+.sel-bar-act { background: transparent; color: var(--ink); cursor: grab; touch-action: none;
+  transition: background-color .14s var(--ease), color .14s var(--ease); }
 .sel-bar-act:active { cursor: grabbing; }
+.sel-bar-act:active:not(.on) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) {
-  .sel-bar-act:not(.on):hover { background: var(--blue-strong); }
+  .sel-bar-act:not(.on):hover { background: var(--hover); }
 }
 /* TAPPED rather than dragged, ✥ / ⟳ arm the same writers for the whole surface (the bar is
-   pinned bottom-centre, so pulling the grip DOWN runs the finger off the screen).
-   ⚠️ An armed grip is an ARMED TOOL, and it is painted like one: `--ink-fill`, exactly what the
-   tool rail marks its active tool with (.vrail-tool.on) — a deeper shade of the resting blue was
-   read as a hover, not as a mode. The blue ring around it keeps it in the bar's own family. The
-   ring is drawn OUTSIDE the button and the fill arrives on a transition, so nothing moves and
-   nothing flickers when a mode goes on or off. */
-.sel-bar-act.on { background: var(--here-fill); color: var(--on-here);
-  box-shadow: 0 0 0 2px var(--glass), 0 0 0 4px var(--blue); }
+   pinned bottom-centre, so pulling the grip DOWN runs the finger off the screen). An armed grip
+   is an ARMED TOOL, and it is painted like one. The fill arrives on a transition, so nothing
+   moves and nothing flickers when a mode goes on or off. */
+.sel-bar-act.on { background: var(--here-fill); color: var(--on-here); }
 @media (hover: hover) { .sel-bar-act.on:hover { background: var(--here-fill-hover); } }
 @media (prefers-reduced-motion: reduce) { .sel-bar-act { transition: none; } }
-.sel-bar-act .i { width: 19px; height: 19px; }
+/* «Duplizieren» (rare-user F18) is a TAP, not a grip: the pointer, and the page's own touch handling */
+.sel-bar-dup { cursor: pointer; touch-action: manipulation; }
+.sel-bar-dup:active { cursor: pointer; }
 
 /* …and the whole surface says which mode is on, under the cursor that will act on it. Mouse-only
    by nature; a gloved tablet reads the lit button and the cleared grips instead.
@@ -377,12 +395,15 @@ body[data-sel-arm="rotate"] .maplibregl-map,
 body[data-sel-arm="rotate"] .wb-canvas {
   cursor: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23ffffff' stroke-width='5'%3E%3Cpath d='M20 11a8 8 0 1 1-2.4-5.7'/%3E%3Cpath d='M20 4v4.2h-4.2'/%3E%3C/g%3E%3Cg stroke='%231f2937' stroke-width='2.4'%3E%3Cpath d='M20 11a8 8 0 1 1-2.4-5.7'/%3E%3Cpath d='M20 4v4.2h-4.2'/%3E%3C/g%3E%3C/svg%3E") 12 12, grab;
 }
-/* A Mehrfach group's ✕ (SelectionBar · onClose): the global `.ip-x`, placed at the bar's end. A
-   single object has none here – its editor card's ✕ is the exit (M7 C, 13.11.2026: ✕ closes,
-   «Fertig» only commits a draft; the bar's «Fertig» beside the card's ✕ was two exits for one).
+/* A Mehrfach group's ✕ (SelectionBar · onClose): a tile of the bar at its end, the dock's ✕ look
+   (button sweep CHROME.4 – in a bar or a dock the ✕ is the bar's tile; `.ip-x` is for sheets and
+   cards). A single object has none here – its editor card's ✕ is the exit (M7 C, 13.11.2026: ✕
+   closes, «Fertig» only commits a draft; the bar's «Fertig» beside the card's ✕ was two exits).
    ⚠️ NOT «Löschen» (02.09.) – deleting belongs in the object's own editor sheet and on the Delete
    key, not on chrome sitting two taps from every grip. */
-.sel-bar-x { flex: none; }
+.sel-bar-x { background: var(--dock-control-bg); color: var(--ink-dim); cursor: pointer; }
+@media (hover: hover) { .sel-bar-x:hover { background: var(--dock-control-hover); color: var(--ink); } }
+.sel-bar-x:active { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* ── the grips step aside while the whole object is moving (lib/transformChrome) ──────────────
    A selected Linie wears a pad on every vertex, a «+» in every gap, Verlängern on both ends and

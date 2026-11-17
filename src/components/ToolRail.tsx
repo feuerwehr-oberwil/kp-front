@@ -47,7 +47,7 @@ interface Props {
   labels?: RailLabels
   /** the letter a tile wears – the key the surface's keyboard layer binds to that tool. Default
    *  lib/hotkeys · railToolKey (the Einsatz's Karte and Plan); the Karte & Objekte viewer passes
-   *  its own table (lib/karte/hotkeys · karteToolKey: P · D · G), so a badge never names a letter
+   *  its own table (lib/karte/hotkeys · karteToolKey: P · D · U), so a badge never names a letter
    *  that does nothing on the surface it is shown on. */
   toolKey?: (id: string) => string | undefined
   /** the surface's VIEW controls – the Karte's Ebenen · Ansichten · − +, the Plan's Einpassen ·

@@ -509,6 +509,8 @@ export interface PendenzPrintRow {
  *
  * Both times come out of the record for free: `erteilt` is the entry's own timestamp, `erledigt`
  * the timestamp of the row that closed it. Nobody fills a form in for this.
+ * ⚠️ The same states as the Tafel's ledger (lib/reminders · pendenzLedger, ENT.4): no closure
+ * expiry – an item open at the Einsatzende prints «offen» – and a withdrawn re-raise not at all.
  */
 export function pendenzRows(events: TimelineEvent[], fallbackDate?: string): PendenzPrintRow[] {
   const clock = (e: TimelineEvent) => {
@@ -522,6 +524,7 @@ export function pendenzRows(events: TimelineEvent[], fallbackDate?: string): Pen
   const notes = new Map<string, { timeLabel: string; text: string }[]>()
   /** the Tafel page's corrections of Was / Wer (types · reminder.edit), latest wins per field */
   const edits = new Map<string, { text?: string; assignee?: string }>()
+  const withdrawn = new Set<string>()
   // oldest → newest, so «the latest wins» falls out of the iteration order
   for (let i = events.length - 1; i >= 0; i--) {
     const e = events[i]
@@ -532,6 +535,8 @@ export function pendenzRows(events: TimelineEvent[], fallbackDate?: string): Pen
     // reschedules) — same rule as lib/reminders, so paper and pinned block agree
     if (r.dueAt) due.set(r.id, r.dueAt)
     if (r.op === 'created') created.set(r.id, e)
+    // a withdrawn re-raise is no item at all (lib/reminders · foldPendenzen, ENT.4)
+    else if (r.op === 'done' && r.withdrawn) withdrawn.add(r.id)
     else if (r.op === 'done') doneAt.set(r.id, clock(e))
     // an «Erledigt» taken back (lib/reminders · reopened): open again on paper too, until a later
     // done row closes it with ITS time
@@ -546,6 +551,7 @@ export function pendenzRows(events: TimelineEvent[], fallbackDate?: string): Pen
     } else if (r.op === 'note') notes.set(r.id, [...(notes.get(r.id) ?? []), { timeLabel: clock(e), text: e.text }])
   }
   return [...created.entries()]
+    .filter(([id]) => !withdrawn.has(id))
     .map(([id, e]) => ({
       // the BARE text — the row's own text carries the «Auftrag · » tag or the «Erinnerung gesetzt
       // für …» lead-in, and the section's own heading already says what these are

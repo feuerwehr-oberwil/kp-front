@@ -23,18 +23,21 @@
    a ~23px ✕ of its own, on the two busiest tablet lists. */
 .search { flex: 1 1 240px; }
 
-/* a filter button: one glyph, --tap square, opening a Menu */
+/* a filter button: one glyph, --tap square, opening a Menu. In `--ink` like the page head's
+   tiles above it (button sweep HEADS.8, 17.11.2026): it was `--ink-dim`, and the same framed tile
+   in two inks read «enabled vs muted» – the dimmer one being the filter that changes the list.
+   Dim is for `:disabled` only. */
 .iconBtn {
   position: relative; flex: none; display: inline-grid; place-items: center;
   min-width: var(--tap); min-height: var(--tap); padding: 0;
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
-  color: var(--ink-dim); cursor: pointer; -webkit-tap-highlight-color: transparent;
+  color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 /* :not(.iconBtnOn) — hover must NEVER override the ON state. `.iconBtn:hover` outweighs
    `.iconBtnOn` on specificity, and after a tap the pointer (or, on touch, the sticky hover a
    tap leaves behind) is still on the button: a filter you had just switched on rendered in
    plain ink and only turned blue after a reload. Same rule as the tool rail's .vrail-tool. */
-@media (hover: hover) { .iconBtn:hover:not(.iconBtnOn):not(:disabled) { color: var(--ink); border-color: var(--ink-faint); } }
+@media (hover: hover) { .iconBtn:hover:not(.iconBtnOn):not(:disabled) { border-color: var(--ink-faint); } }
 /* press wash — .iconBtnOn always rides on .iconBtn, so one rule covers both states */
 .iconBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .iconBtn:disabled { opacity: var(--disabled); cursor: default; }
@@ -48,33 +51,47 @@
     background: var(--blue-22);
   }
 }
-/* ONE channel for «filter is on» (29.09.2026, owner pick A): the choice fill above. A blue dot
-   rode on it until today — designed for the old tinted ON state, it had become blue-on-blue and
-   said the same bit twice. WHAT is filtered is in the tooltip and ticked in the menu itself. */
+/* ONE channel for «filter is on» ON THE BUTTON (29.09.2026, owner pick A): the choice fill above. A
+   blue dot rode on it until then — designed for the old tinted ON state, it had become blue-on-blue
+   and said the same bit twice. WHAT is filtered is never printed on the button (its width stays):
+   it is named in the strip under the row (components/FilterStrip, button sweep HEADS.3, 17.11.2026),
+   in the tooltip and ticked in the menu itself. */
+/* OPEN – while its menu (or the panel it opens) is up – a trigger wears THE open look
+   (docs/ui-conventions.md · Small roles (6), duck sweep ELEM.6; button sweep HEADS.5, 17.11.2026):
+   the blue wash and a `--blue-strong` glyph. Base UI sets `data-popup-open` on every Menu trigger;
+   a toggle that opens a row (the Verlauf's lens) says `aria-expanded`. It outranks the ON fill while
+   the menu is up – the ticks inside say what is on – and the fill comes back when it closes. */
+.iconBtn:is([data-popup-open], [aria-expanded='true']) { border-color: var(--glass-edge); background: var(--sel-wash); color: var(--blue-strong); }
 
 /* «Weitere Person» / «Anderes Mittel» — a square + at the end of the line. FRAMED like the
    filters beside it (27.09.2026, slim sweep · mockup 5): it was dashed «because it adds something
    the list does not have», but a dashed edge in this app means «missing / hidden / placeholder»
    (the empty Auftrag, a hidden storey, «Entfällt»), and read here as the one control that was not
    quite there. Adding is an ordinary action; it wears the row's ordinary tile. The words are in
-   the tooltip: they cost ~160px of a row that has a field and two filters to fit as well, and what
+   the tooltip: they cost ~160px of a row that has a field and its filters to fit as well, and what
    is added is named in the dialog it opens. */
 .addBtn {
   display: flex; align-items: center; justify-content: center; flex: none;
   width: var(--tap); min-width: var(--tap); min-height: var(--tap); padding: 0; cursor: pointer;
   border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
-  color: var(--ink-dim);
+  color: var(--ink);
 }
-@media (hover: hover) { .addBtn:hover { border-color: var(--ink-faint); color: var(--ink); } }
+@media (hover: hover) { .addBtn:hover { border-color: var(--ink-faint); } }
 .addBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .addBtn svg { width: 18px; height: 18px; }
-/* a control WITH its word, on a wide screen (22.09.2026): rides on .iconBtn / .addBtn, which
-   keep the bare square for the phone, where the row has a field and two filters to fit. The
-   word is a fixed string, so the width it takes is fixed too — the filter's DOT stays the way
-   an active filter is shown, for the reason above.
+/* ONE labelling rule for these head buttons, decided here, not per surface (duck sweep ELEM.13,
+   17.11.2026 – the Anwesenheit worded its filters on a phone only, the Mittel on a tablet only):
+   a control that has a word (`.word`) shows it on every device – BESIDE the glyph on a tablet,
+   UNDER it on a phone, like the nav bar's tiles (EL phone sweep D2). The word is a fixed string,
+   so the width it takes is fixed too – an active filter is still shown by the fill.
    ⚠️ AFTER .addBtn: same specificity, and .addBtn's fixed --tap width would otherwise win. */
-.wordBtn { width: auto; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px;
+:is(.iconBtn, .addBtn):has(> .word) { width: auto; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px;
   font: var(--fw-bold) var(--fs-2) var(--body); white-space: nowrap; }
+@media (--phone) {
+  :is(.iconBtn, .addBtn):has(> .word) { display: inline-grid; grid-auto-flow: row; row-gap: var(--sp-1); align-content: center;
+    justify-items: center; padding: 0 var(--sp-2); }
+  .word { font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
+}
 
 /* the dropdown each filter button opens */
 .menuPop {
@@ -102,5 +119,11 @@
    claiming rows of their own — vertical space is what the list underneath is short of */
 @media (--phone) {
   .controls { gap: 8px; padding: 8px var(--head-pad-x); }
-  .search { flex: 1 1 120px; }
+  /* 96, not 120 (button sweep HEADS.6, 17.11.2026): with «Kategorie» as the Mittel's word the three
+     worded tiles took 8px too many and «Anderes» fell onto a row of its own (measured 390px) */
+  .search { flex: 1 1 96px; }
 }
+
+/* the «Gefiltert: …» strip under the line (components/FilterStrip, button sweep HEADS.3) – placed in
+   the line's gutter; the line's own 8–12px above is its gap */
+.strip { padding: 0 var(--head-pad-x) var(--sp-2); }

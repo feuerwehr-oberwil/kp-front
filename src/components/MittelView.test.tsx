@@ -7,6 +7,7 @@ import { fillTemplate } from '../lib/format'
 import type { DeploymentConfig } from '../lib/deploymentConfig'
 import type { MittelEntry } from '../types'
 import type { MittelDraft } from './MittelView'
+import { clearAllDrafts } from '../lib/draftKeep'
 
 // MittelView reads the deployment catalogue through the getDeploymentConfig() singleton — mock
 // just that accessor so each test can put its own catalogue/sources under the component.
@@ -80,6 +81,25 @@ describe('«In Verwendung» — the tick filter stays put while active', () => {
     expect(screen.getByRole('button', { name: M.viewBySource })).toBe(btn)
     expect(btn.getAttribute('aria-pressed')).toBe('false')
     expect(onSave).not.toHaveBeenCalled()
+  })
+})
+
+// button sweep HEADS.3 (17.11.2026): a narrowed list says WHAT narrows it, under the line, with the
+// way back – the pressed tick alone did not say «only what was used»
+describe('the «Gefiltert:» strip', () => {
+  it('names «In Verwendung» while it is on and lifts it with «Alle zeigen»', () => {
+    cfg.current = { mittel: { catalogue: [tauchpumpe], sources } }
+    mount({
+      entries: [{ id: 'e1', materialId: 'tp', label: 'Tauchpumpe', unit: 'Stk.', sourceId: 'tlf', sourceLabel: 'TLF Oberwil', menge: 1, at: new Date().toISOString() }],
+    })
+    const F = appConfig.copy.filterStrip
+    expect(screen.queryByText(F.filtered)).toBeNull()
+    const btn = screen.getByRole('button', { name: M.viewBySource })
+    fireEvent.click(btn)
+    expect(screen.getByText(F.filtered).parentElement!.textContent).toContain(M.viewBySource)
+    fireEvent.click(screen.getByRole('button', { name: F.showAll }))
+    expect(btn.getAttribute('aria-pressed')).toBe('false')
+    expect(screen.queryByText(F.filtered)).toBeNull()
   })
 })
 
@@ -289,6 +309,43 @@ describe('the pencil of a hand-added line', () => {
     fireEvent.click(screen.getByRole('button', { name: M.save }))
     expect(onSave.mock.lastCall?.[0]).toMatchObject({ label: 'Kanister', stock: 1 })
   })
+
+  // owner, 17.11.2026 (duck sweep CONT.3): any close but «Abbrechen» saves a change
+  it('saves a change on ✕ and drops it on «Abbrechen»', () => {
+    const onSave = mount({ entries: [kanister] })
+    // the Material field holds the caret from the open: with it, the first ✕ only puts the keys
+    // down (overlays/fieldFirst) – leave it first, as a tap on the stepper does on a device
+    const stepUp = () => {
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      const plus = screen.getByRole('group', { name: M.stockLabel }).querySelectorAll('button')[2]
+      fireEvent.pointerDown(plus, { pointerId: 1 }); fireEvent.pointerUp(plus, { pointerId: 1 })
+    }
+    openPencil(); stepUp()
+    fireEvent.click(screen.getByRole('button', { name: M.cancel }))
+    expect(onSave).not.toHaveBeenCalled()
+    openPencil(); stepUp()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.closeDialog }))
+    expect(onSave.mock.lastCall?.[0]).toMatchObject({ label: 'Kanister', stock: 1 })
+  })
+})
+
+// «Abbrechen» is the deliberate discard everywhere (owner, 17.11.2026): the composer's kept draft goes with it
+describe('the composer\'s kept draft', () => {
+  const fromQuery = (name: string) => fillTemplate(M.composerFromQuery, { name })
+  const type = (q: string) => fireEvent.change(screen.getByPlaceholderText(M.searchPlaceholder), { target: { value: q } })
+  it('survives ✕ and is dropped by «Abbrechen»', () => {
+    clearAllDrafts()
+    cfg.current = { mittel: { catalogue: [tauchpumpe], sources } }
+    mount()
+    type('Kanister')
+    fireEvent.click(screen.getByRole('button', { name: fromQuery('Kanister') }))
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.closeDialog }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(M.add) }))
+    expect(screen.getByRole('button', { name: /Kanister/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: M.cancel }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(M.add) }))
+    expect(screen.queryByRole('button', { name: /Kanister/ })).toBeNull()
+  })
 })
 
 // UX sweep F2: «Speichern» was a native `disabled` — grey, mute, the tap swallowed. It now stays
@@ -304,5 +361,22 @@ describe('a blocked «Speichern» in the composer', () => {
     expect(onSave).not.toHaveBeenCalled()
     const ringed = document.querySelector('.field-flash')
     expect(ringed?.textContent).toContain(M.materialLabel)
+  })
+})
+
+// owner pick 28 (17.11.2026): the bin's save is the Mittel slice's ↶ step, so no toast doubles it
+describe('removing a hand-added line', () => {
+  const kanister: MittelEntry = { id: 'e1', label: 'Kanister', unit: 'Stk.', menge: 2, at: '2026-10-20T10:00:00.000Z' }
+
+  it('saves the tombstone once, and raises no toast', async () => {
+    const { Overlays } = await import('../lib/ui')
+    render(<Overlays />)
+    const onSave = vi.fn((_: MittelDraft) => {})
+    render(<MittelView entries={[kanister]} canEdit onSave={onSave} />)
+    fireEvent.click(screen.getByRole('button', { name: `Kanister – ${M.editLabel}` }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(M.deleteLine) }))
+    expect(onSave).toHaveBeenCalledTimes(1)
+    expect(onSave.mock.lastCall?.[0]).toMatchObject({ label: 'Kanister', deleted: true })
+    expect(document.querySelector('.toast')).toBeNull()
   })
 })

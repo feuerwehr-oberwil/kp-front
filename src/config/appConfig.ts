@@ -679,9 +679,6 @@ const base = {
     hoseLengthM: 20,
     /** reserve margin added to a measured run before dividing into hose lengths (10 %) */
     hoseReservePct: 0.1,
-    /** Plan-Maßstab calibration: the reference length (m) the −/+ stepper pre-fills. Most plans
-     *  carry similar scale bars, so the LAST-used length is remembered and pre-filled from here. */
-    planScaleDefaultM: 10,
     /** quick-pick reference lengths offered next to the stepper (the common scale-bar values) */
     planScaleDefaultsM: [50, 100],
     /** ± step (m) of the Massstab-festlegen stepper */

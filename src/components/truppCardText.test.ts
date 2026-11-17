@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { appConfig } from '../config/appConfig'
 import { deriveTruppLive } from '../lib/atemschutz'
 import type { Trupp } from '../types'
-import { tabState } from './truppCardText'
+import { tabState, truppStateWord } from './truppCardText'
 
 const az = appConfig.copy.atemschutz
 const NOW = Date.parse('2026-10-30T12:00:00Z')
@@ -23,5 +23,16 @@ describe('tabState — the link tab line', () => {
   it('a crew inside shows its contact clock alone, an overdue one too', () => {
     expect(state(trupp({}))).toEqual({ word: '', clock: '2:00', tone: 'clock' })
     expect(state(trupp({ lastContactTime: at(12) })).word).toBe('')
+  })
+})
+
+// ENT.7 (17.11.2026): the map pill and both Trupp docks say what the board says
+describe('truppStateWord — one word for a Trupp\'s state', () => {
+  it('says «Ohne Auftrag» for an out work squad and «Draussen» for an out PA crew', () => {
+    const out = { status: 'raus' as const, exitTime: at(1) }
+    expect(truppStateWord(trupp({ ...out, kind: 'einfach' }))).toBe(az.statusPlainOut)
+    expect(truppStateWord(trupp(out))).toBe(az.status.raus)
+    // the handed-over link board keeps the PA words for every Trupp
+    expect(truppStateWord(trupp({ ...out, kind: 'einfach' }), true)).toBe(az.status.raus)
   })
 })

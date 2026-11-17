@@ -33,7 +33,7 @@
 // stays here is the wiring between them: what a selection, a tool or a tap does to the others,
 // and the markup.
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Suspense, useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import { Marker } from 'react-map-gl/maplibre'
 import { appConfig } from '../../config/appConfig'
@@ -57,9 +57,9 @@ import { useSymbols } from '../../lib/useSymbols'
 import { useVehicleLayer } from '../../lib/useVehicleLayer'
 import { useWeather } from '../../lib/useWeather'
 import { useKarteWeather } from '../../workspace/useKarteWeather'
-import { objectVisitsConfig } from '../../lib/deploymentConfig'
+import { objectVisitsConfig, shortAddress } from '../../lib/deploymentConfig'
 import { fmtDistance, fmtLV95, fmtWGS, haversineM } from '../../lib/geo'
-import { dismissToast, toast } from '../../lib/ui'
+import { useOneShot } from '../../lib/useOneShot'
 import { usePlacementLane } from '../../lib/toastLane'
 import { geocodeSearch, type GeoHit, type IncidentMeta } from '../../lib/incidents'
 import { homeAlarm } from '../../lib/foreignAlarm'
@@ -99,8 +99,10 @@ import { useArrival } from './useKarteArrival'
 import { useGeorefPlan, useKarteEbenen, useObjectCategories, useViewerLayers } from './useKarteLayers'
 import { useObjectOutlines } from './useKarteOutlines'
 import { useKarteTools, type Tool } from './useKarteTools'
+import { useOnResume } from '../../lib/useOnResume'
 import { useKarteAddress, useKeepKarteView, useReturnToasts } from './useKarteSession'
 import { useKarteMenu } from './useKarteMenu'
+import { routeEscape } from '../../lib/hotkeyRoute'
 import { useKarteSearch } from './useKarteSearch'
 import { useKarteKeys } from './useKarteKeys'
 import { useCompassViews, useFrameOnReturn, useKarteCamera } from './useKarteCamera'
@@ -200,11 +202,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const { loadOutlines, ringsNear, outlines } = useObjectOutlines(mapRef, objects)
 
   // ── tools, the way back, the menu, the search ─────────────────────────────────────────────
-  const { tool, setToolState, toggleTool, measure, erg, setErg, viewsOpen, setViewsOpen, ergKeys, keysFor } = useKarteTools(start.view?.tool ?? null)
+  const { tool, setToolState, toggleTool, measure, erg, setErg, viewsOpen, setViewsOpen, ergKeys, keysFor } = useKarteTools(null)
   // the phone sheet pushed away / ✕ while its place stays selected (outline, tag, pin): a tap on
   // the place again brings it back (owner R2). Every new selection opens it.
   const [sheetShut, setSheetShut] = useState(false)
-  useKeepKarteView({ ready: catLoaded, view, selObj, openDoc, onLibrary, tool })
+  useKeepKarteView({ ready: catLoaded, view, selObj, openDoc, onLibrary })
   useReturnToasts(announceReturn, start.view?.label)
   const { sheetOpen, setSheetOpen, closeSheet, barRef, short: menuShort, mark, onMarkError, menuName } = useKarteMenu()
   // «Dieses Gerät» (M9): from the menu and ⌘ , at the top; from the Offline chip and the «Keine
@@ -318,6 +320,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // Messen / Punkt setzen / Gefahrgut's centre take every tap, on an object too (owner, review
   // round 4 — lib/karte/camera · toolTakesTaps): its dot and tag let the finger through to the map
   const takesTaps = toolTakesTaps(tool, erg.mode)
+  // back from the background (C3, 17.11.2026 · lib/useOnResume): a tool that takes the next tap –
+  // Messen, the pin, a Gefahrgut ring waiting for its spot – is put down; the Ebenen stay open
+  useOnResume(() => { if (toolTakesTaps(tool, erg.mode)) setToolState(null) })
   const entities = liveVehicles
   /** the building a click would open at `c`: one of a (shown) object's, else a plain one */
   const buildingAt = (c: LngLat): Hover | null => {
@@ -400,11 +405,18 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       checklist,
     }))
   }
+  // «Koordinaten kopieren» acknowledges in place (toast diet, 17.11.2026 – ui-conventions ›
+  // One-time actions): the button gives way to «✓ Kopiert» for the latch's hold, and only for the
+  // pin it copied – a new pin within the hold gets its button back.
+  const pinCoordsText = sel?.kind === 'pin' ? `LV95 ${fmtLV95(sel.at[0], sel.at[1])} · WGS84 ${fmtWGS(sel.at[0], sel.at[1])}` : null
+  const coordsCopy = useOneShot()
+  const [copiedText, setCopiedText] = useState<string | null>(null)
   const copyCoords = () => {
-    if (sel?.kind !== 'pin') return
-    const text = `LV95 ${fmtLV95(sel.at[0], sel.at[1])} · WGS84 ${fmtWGS(sel.at[0], sel.at[1])}`
-    void navigator.clipboard?.writeText(text).then(() => toast(C.copied, { icon: 'check' })).catch(() => {})
+    const text = pinCoordsText
+    if (!text) return
+    void navigator.clipboard?.writeText(text).then(() => { setCopiedText(text); coordsCopy.run(() => {}) }).catch(() => {})
   }
+  const coordsCopied = coordsCopy.done && copiedText === pinCoordsText
 
   const ebenen = useKarteEbenen({ viewer, categories, georef, selObj, weather })
   const viewsApi = useCompassViews(mapRef, objects, view, C.compassHoldHint)
@@ -413,9 +425,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // the running chip (owner's pick 6A, sweep F.2): it names the first REAL Einsatz — an Übung only
   // when nothing but Übungen runs — and ONE «+N» counts every other open one, Einsätze and Übungen
   // together. The name opens that Einsatz (the whole chip is its target, chevron included); «+N»
-  // opens the menu, which lists them all. Red for an Einsatz, hatched when the one it names is an
-  // Übung. In the bar on both devices; a phone's Checkliste, whose bar holds the library's search
-  // field, keeps it as a strip under the bar.
+  // opens the menu, which lists them all. Red for an Einsatz, hatched with the «Übung» tag beside the
+  // name when the one it names is an Übung; the address is the one short form (`shortAddress`). In
+  // the bar on both devices; a phone's Checkliste, whose bar holds the library's search field, keeps
+  // it as a strip under the bar.
   // A live Ernstfall's Atemschutz alarm is said by the SAME chip (round 2b, owner 13.11.2026: «Same
   // chip says it» – two chips competed for the bar): it then names that Einsatz, «⚠ Zimmerbrand ·
   // 2 Alarme», and a tap opens it on the most urgent Trupp. Shown only – no tone, no Meldeleiste row.
@@ -432,8 +445,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         {alarm ? <Icon id="warn" className={s.runningWarn} /> : <span className={s.pulse} aria-hidden />}
         <span className={s.runningText}>
           <span className={s.runningLine}><b>{live.title}</b>
+            {/* the Übung tag + word, as on every surface that names the Einsatz (ENT.9, 17.11.2026):
+                the hatching alone said «Übung» only to whoever knew the code */}
+            {live.is_exercise && <span className={cx('ip-badge ip-badge-exercise', s.runningTag)}>{appConfig.copy.exerciseBadge}</span>}
             {alarm && <span className={s.alarmCount}>· {appConfig.copy.atemschutz.overdueBadge(alarm.due.length)}</span>}</span>
-          {live.address && <small>{live.address.split(',')[0]}</small>}
+          {live.address && <small>{shortAddress(live.address)}</small>}
         </span>
       </button>
       {more > 0 && (
@@ -467,14 +483,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // Punkt setzen's instruction stands at the foot of the map, where Messen's does (MeasurePanel ·
   // MapHint; owner 20.10.2026: at the top of the screen it was «a bit unnatural») — and since
   // review round 7 in the very card the Messen dock's ⓘ opens, not a quieter look-alike beside it.
-  // The missing-catalogue notice is a MESSAGE: a sticky toast in the lane with the others.
   const pinHint = onMapSurface && tool === 'pin'
-  const catNote = cat?.failed && !cat.data && !onLibrary ? (online ? C.loadFailed : C.noCatalogue) : null
-  useEffect(() => {
-    if (!catNote) return
-    const id = toast(catNote, { sticky: true, icon: 'warn' })
-    return () => dismissToast(id)
-  }, [catNote])
+  // The missing catalogue is a STANDING state, not news (toast diet, 17.11.2026): it is said where
+  // the objects would be – the search's «Objekte» group – not as a sticky toast on the map.
+  const catNote = cat?.failed && !cat.data ? (online ? C.loadFailed : C.noCatalogue) : null
   /** the panel is on screen: on the map, not under Messen, and on a phone not under a tool's own
    *  card nor pushed away */
   const panelShown = onMapSurface && !!panelSel && tool !== 'measure' && !(phone && (tool === 'erg' || tool === 'layers' || sheetShut || searchOpen))
@@ -503,14 +515,16 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }
   useKarteKeys({
     off: keysOff || sheetOpen || deviceOpen,
-    // one layer per press, back towards the plain map: the search, the compass menu, the armed
-    // tool, the open plan, then the selection
+    // one layer per press, back towards the plain map – the Lage's and the Plan's ladder
+    // (lib/hotkeyRoute · routeEscape): the search or the compass menu, the armed tool, the open
+    // plan, then the selection
     escape: () => {
-      if (searchOpen) setSearchOpen(false)
-      else if (viewsOpen) setViewsOpen(false)
-      else if (tool) setTool(tool)
-      else if (openDoc) setSurface(null)
-      else if (sel && onMapSurface) closePanel()
+      switch (routeEscape({ layerOpen: searchOpen || viewsOpen, draft: false, toolArmed: !!tool, panelOpen: !!openDoc, selected: !!sel && onMapSurface })) {
+        case 'closeLayer': setSearchOpen(false); setViewsOpen(false); break
+        case 'disarmTool': if (tool) setTool(tool); break
+        case 'closePanel': setSurface(null); break
+        case 'clearSelection': closePanel(); break
+      }
     },
     on: {
       // the Karte tile's rule: on a phone it also puts the armed tool away
@@ -739,7 +753,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         {!live && !sheetOpen && !searchOpen && !onLibrary && <AlarmNudgeCard inIncident={running.length > 0} phone={phone} />}
 
         {searchOpen && !phone && !onLibrary && (
-          <KarteSearch query={query} hits={search.hits} nearest={search.nearest} addresses={search.addresses} addrState={search.addrState}
+          <KarteSearch query={query} hits={search.hits} nearest={search.nearest} addresses={search.addresses} addrState={search.addrState} objectsNote={catNote}
             onPickObject={(id) => { setQuery(byId.get(id)?.name ?? ''); selectObject(id, true, 'search') }} onPickAddress={pickAddress} />
         )}
         {searchOpen && phone && !onLibrary && (
@@ -760,7 +774,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
               />
             )}
           >
-            <KarteSearch inSheet query={query} hits={search.hits} nearest={search.nearest} addresses={search.addresses} addrState={search.addrState}
+            <KarteSearch inSheet query={query} hits={search.hits} nearest={search.nearest} addresses={search.addresses} addrState={search.addrState} objectsNote={catNote}
               onPickObject={(id) => { setQuery(byId.get(id)?.name ?? ''); selectObject(id, true, 'search') }} onPickAddress={pickAddress} />
           </KarteKeySheet>
         )}
@@ -797,6 +811,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             onOpenVisit={(id) => onOpenVisits(`${ovHref({ kind: 'visit', id })}?from=karte`)}
             onPinBuilding={() => { if (sel?.kind === 'pin') selectBuilding(sel.at, ringAt(ringsNear(sel.at), sel.at)) }}
             onCopyCoords={copyCoords}
+            coordsCopied={coordsCopied}
           />
         )}
 
@@ -812,8 +827,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             onPick={(id) => setTool(id as Tool)}
             controls={(
               <>
-                <button className={cx('vrail-nbtn vrail-layers', tool === 'layers' && 'on')} title={C.tools.layers} aria-label={C.tools.layers} aria-pressed={tool === 'layers'} onClick={() => setTool('layers')}>
-                  <span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{C.tools.layers}</span><RailKey k={PANEL_KEY.layers} />
+                <button className={cx('vrail-nbtn vrail-layers', tool === 'layers' && 'on')} title={C.tools.layers} aria-label={ebenen.layersHidden ? `${C.tools.layers} · ${appConfig.copy.whiteboard.floorHidden}` : C.tools.layers} aria-expanded={tool === 'layers'} onClick={() => setTool('layers')}>
+                  <span className="vrail-glyph"><Icon id="layers" />{ebenen.layersHidden && <span className="layers-off-dot" aria-hidden />}</span><span className="vrail-label">{C.tools.layers}</span><RailKey k={PANEL_KEY.layers} />
                 </button>
                 <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass"
                   label={appConfig.copy.mapViews.title} open={viewsOpen} onOpenChange={(o) => { setViewsOpen(o); if (o && tool === 'layers') setToolState(null) }} />
@@ -832,7 +847,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             <nav className={cx('navrail rail folded', railLabels === 'short' && 'labelled')} aria-label={C.title}>
               <div className="rail-scroll-wrap"><div className="nav-scroll rail-scroll">
                 {/* each tile names itself (aria-label): with «Beschriftung» off its word is not shown */}
-                <button type="button" className={cx('nav-item', onMapSurface && !tool && 'on')} aria-label={C.tools.map} onClick={() => { setSurface(null); setToolState(null) }}>
+                {/* still «here» while Ebenen stands open over it: Ebenen is an opener, not a place */}
+                <button type="button" className={cx('nav-item', onMapSurface && (!tool || tool === 'layers') && 'on')} aria-label={C.tools.map} onClick={() => { setSurface(null); setToolState(null) }}>
                   <span className="nav-glyph"><Icon id="map" /></span><span className="nav-label">{C.tools.map}</span>
                 </button>
                 <button type="button" className={cx('nav-item', onLibrary && 'on')} aria-pressed={onLibrary} aria-label={appConfig.copy.modes.checklists} onClick={openLibrary} data-karte-library="">
@@ -840,8 +856,14 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
                 </button>
                 {/* the surfaces │ the map's tools */}
                 <div className={cx('nav-sep', s.barSep)} aria-hidden />
+                {/* Messen and Gefahrgut are tools (pressed); Ebenen OPENS a panel, so open it wears the
+                    open look of every opener – the wash + blue, `aria-expanded` (ELEM.6, button round
+                    17.11.2026 CHROME.10) – not the ink pill that says «you are here» */}
                 {(['measure', 'erg', 'layers'] as const).map((t) => (
-                  <button key={t} type="button" className={cx('nav-item', tool === t && 'on')} aria-pressed={tool === t} aria-label={C.tools[t]} onClick={() => openPhoneTool(t)}>
+                  <button key={t} type="button" aria-label={C.tools[t]} onClick={() => openPhoneTool(t)}
+                    {...t === 'layers'
+                      ? { className: cx('nav-item', tool === t && s.navOpen), 'aria-expanded': tool === t }
+                      : { className: cx('nav-item', tool === t && 'on'), 'aria-pressed': tool === t }}>
                     <span className="nav-glyph"><Icon id={t === 'erg' ? 'warn' : t} /></span><span className="nav-label">{t === 'erg' ? C.tools.ergShort : C.tools[t]}</span>
                   </button>
                 ))}
@@ -849,9 +871,12 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             </nav>
             {onMapSurface && !tool && !panelShown && !searchOpen && (
               <div className={s.phoneUtil}>
-                <button type="button" className={cx(s.utilBtn)} aria-label={C.tools.pin} onClick={() => setTool('pin')}><Icon id="pin" /></button>
-                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly variant="util" btnClassName={s.utilBtn} glyphClassName={s.utilGlyph}
-                  open={viewsOpen} onOpenChange={setViewsOpen} />
+                {/* tiles of the floating row, worded like the Eintrag FAB (CHROME.10, button round
+                    17.11.2026): the glyph over its word */}
+                <button type="button" className={s.utilBtn} aria-label={C.tools.pin} onClick={() => setTool('pin')}><Icon id="pin" /><span>{C.tools.pinShort}</span></button>
+                {/* lit while its menu stands open, like the Einsatz phone's compass (ELEM.6) */}
+                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly variant="util" btnClassName={s.utilBtn} activeClassName={s.utilOpen} glyphClassName={s.utilGlyph}
+                  label={appConfig.copy.mapViews.title} open={viewsOpen} onOpenChange={setViewsOpen} />
               </div>
             )}
           </>
@@ -875,7 +900,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             <MeasurePanel mode={measure.mode} coords={measure.path} profile={measure.profile} profileLoading={measure.loading} relay={measure.relay} className={s.measurePanel} />
           </>
         )}
-        {pinHint && <MapHint>{C.pinHint}</MapHint>}
+        {/* «Punkt setzen» wears the ✕ every armed tool has (GESTURES.14): on a phone its button
+            leaves the bar while a tool is armed, so the hint alone left no visible way out */}
+        {pinHint && <><MapHint>{C.pinHint}</MapHint><ToolDock groups={[[{ type: 'close', onClick: () => setTool('pin') }]]} /></>}
 
         {tool === 'erg' && (
           <KarteGefahrgut

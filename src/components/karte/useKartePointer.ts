@@ -111,8 +111,8 @@ export function useMapHover(p: {
  * (`pressed`), with the mouse's own outline:
  *  · on a building or an object (`buildingAt`): it lights up while the finger is down, and the
  *    release opens it exactly as a tap always did. NOT a pin — a hold there is a question, not a place.
- *  · on free map: past the long press (lib/useLongPress · LONG_PRESS_MS, the one beat every still
- *    hold in the app answers on) a pin drops where the finger is (`dropPin`), as «Punkt setzen» + tap.
+ *  · on free map: past the long press (lib/useLongPress · LONG_PRESS_MS, the OFFER window of
+ *    lib/holdTimings) a pin drops where the finger is (`dropPin`), as «Punkt setzen» + tap.
  * The owner settled that split himself (grilling, 20.10.2026), so it is not widened here: no pin
  * over a building, no highlight while a tool takes the taps (`takesTaps` — round 3 killed the old
  * hold because it fired everywhere: «I can't delete nodes when measuring because it wants to

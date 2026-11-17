@@ -36,7 +36,6 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     checkedLabel: 'Ultimo controllo',
     chooseTitle: 'Più interventi in corso',
     chooseHint: 'Scegli quale intervento deve mostrare questo schermo.',
-    exerciseTag: 'Esercitazione',
     notEnrolledTitle: 'Questo dispositivo non è configurato come terminale di caserma.',
     notEnrolledHint: 'Nell\'amministrazione, sotto «Link e accessi», generare il link di configurazione e aprirlo su questo dispositivo.',
     asInvalidTitle: 'Questo codice per la protezione respiratoria non è più valido.',
@@ -68,7 +67,7 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     paused: 'Posizione in pausa',
     pausedHint: 'Il telefono non trasmette nulla finché l\'app è in secondo piano o lo schermo è bloccato. Riapri l\'app e riprende.',
     denied: 'Posizione bloccata',
-    deniedHint: 'L\'accesso alla posizione è bloccato per questo sito. Si può riautorizzare solo nelle impostazioni del browser.',
+    deniedHint: 'L\'accesso alla posizione è bloccato. Riautorizzarlo tramite {path}.',
     taken: 'Nome già in uso',
     takenHint: 'Un altro dispositivo sta condividendo con questo nome. Scegli di nuovo il tuo nome o chiedi al comando d\'intervento di rimuovere la vecchia posizione.',
     failing: 'La posizione non arriva',
@@ -82,6 +81,7 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     settingsAs: 'Come {name}',
     settingsName: 'Nome sulla mappa',
     settingsNameSub: 'Così ti vede il posto di comando – tocca per cambiare',
+    pillWord: 'Posizione',
   },
   livePosition: {
     chip: '{d} · {n} min fa',
@@ -118,5 +118,6 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     startFailed: 'Presentazione non avviata – riprovare',
     endFailed: 'Presentazione non terminata – riprova',
     full: 'Presentazione piena – troppi partecipanti tramite link. Riprova «Segui» più tardi.',
+    leaveWord: 'Esci',
   },
 }

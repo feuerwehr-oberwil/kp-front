@@ -1,13 +1,14 @@
 /* The Karte's weather layer (WeatherLayer.tsx): the floating family (01-tokens · --float-*,
    docs/ui-conventions.md · «ONE floating family, ONE floating row») – the bars' glass with its
-   inset edge, one row height --float-h, the one corner, 14px before the glyph, 16px glyphs.
+   inset edge, one row height --float-h (the bar's on its line, --line-h), the bars' corner --r-bar
+   (owner picks 20 + 21, 17.11.2026), 14px before the glyph, 16px glyphs.
    «veraltet» is GREY. */
 
 /* Where the pill stands is the Karte's ONE chip row (workspace/MapControls · `.wb-botleft wx-row`,
    09-whiteboard): the Gebäude chip, the radar pill – one row, never two in one slot. */
 
 .pill { display: inline-flex; align-items: center; gap: var(--sp-2); box-sizing: border-box; min-width: 0;
-  min-height: var(--float-h); padding: var(--msg-pad) var(--float-pad-x); border-radius: var(--r-sm); border: none;
+  min-height: var(--float-h); padding: var(--msg-pad) var(--float-pad-x); border-radius: var(--r-bar); border: none;
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
   color: var(--ink); font: var(--fw-bold) var(--fs-1) var(--body); }
 .pill svg { width: 16px; height: 16px; flex: none; }

@@ -72,7 +72,9 @@ export function WaterRelay({ ctrl, showHose = false, wide = false, onClose, onAd
         <div className={s.headActions}>
           {/* a line drawn from the fire back to the hydrant: turn the water round, not the drawing */}
           {!readOnly && (
-            <IconButton label={R.reverse} aria-pressed={ctrl.reversed} onClick={ctrl.toggleReverse}>
+            // a one-press ACTION («Richtung umkehren» turns it round, the drawing shows which way),
+            // not a pressed toggle beside the panel's OnOff (duck sweep ELEM.5)
+            <IconButton label={R.reverse} onClick={ctrl.toggleReverse}>
               <Icon id="swap" />
             </IconButton>
           )}

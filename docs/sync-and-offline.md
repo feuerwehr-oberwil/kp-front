@@ -23,6 +23,12 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   only tiny device flags (update banners, install prompts, once-per-device hints) and migration
   flags. UI copy/locale/defaults/storage keys live in `src/config/appConfig.ts`; the neutral
   fallback incident is `src/data/demoIncident.ts`.
+- **A half-typed form is a draft, not a record** (`src/lib/draftKeep.ts`): kept in memory across
+  a surface switch or an outside tap, dropped on send, on «Abbrechen» and on an Einsatz switch.
+  Two of them also survive a reload (owner call C2, 17.11.2026 – iOS drops a backgrounded PWA):
+  the Verlauf composer's TEXT and the «Neuer Einsatz» wizard, mirrored to `sessionStorage` as
+  plain JSON – never a photo or a clip – and kept only when the reload lands back in the same
+  Einsatz. Every other form stays memory-only.
 - **A Leitung's pumps keep their terrain offline** (05.11.2026). The pumps a Leitung draws
   («Pumpen auf Karte», `lib/linePumps`) are planned on the swisstopo height profile of its path.
   The page shares one in-memory copy per path (`lib/profile · loadProfile`); across a reload the

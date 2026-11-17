@@ -7,7 +7,9 @@ import { appConfig } from '../../config/appConfig'
 // `OnOff` pair, the false answer left and the true one right. The Einstellungen built their own
 // pairs with «on» on the LEFT («Ein | Aus», «Erlaubt | Aus», «Automatisch | Nur manuell»), and the
 // Übung was a tick-box chip. Same thumb position, opposite answer, depending on the sheet.
-// A setting reads «Aus | An»; a question («Übung?») reads «Nein | Ja» on every device (20.10.2026).
+// A setting reads «Aus | An»; a question reads «Nein | Ja» on every device (20.10.2026). The Übung
+// itself is no yes/no any more: «Ernstfall | Übung» names both kinds (C7, 17.11.2026 –
+// EinsatzWizard.blocked.test.tsx).
 
 vi.mock('../../lib/incidents', () => ({
   createIncident: vi.fn(), patchIncident: vi.fn(),
@@ -17,7 +19,6 @@ vi.mock('../../lib/incidents', () => ({
   geocodeSearch: vi.fn(() => Promise.resolve([])),
   geocodeReverse: vi.fn(() => Promise.resolve(null)),
 }))
-vi.mock('../MapPicker', () => ({ MapPicker: () => null }))
 // the Einstellungen carry the alarm readiness rows, which read the session – mounted bare here
 vi.mock('../../lib/auth', async (importOriginal) => {
   const mod = await importOriginal<typeof import('../../lib/auth')>()
@@ -29,7 +30,6 @@ vi.mock('./_shared', async (orig) => ({
   Modal: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
-const { EinsatzWizard } = await import('./EinsatzWizard')
 const { SettingsSheet } = await import('./SettingsSheet')
 
 const D = appConfig.copy.drawingEditor
@@ -41,32 +41,6 @@ const pair = (label: string) => {
   const btns = within(group).getAllByRole('button')
   return { words: btns.map((b) => b.textContent), pressed: btns.map((b) => b.getAttribute('aria-pressed')), btns }
 }
-
-describe('Übung on the Einsatz form', () => {
-  const ix = appConfig.copy.intake
-
-  const atWidth = (phone: boolean) =>
-    vi.stubGlobal('matchMedia', () => ({ matches: phone, addEventListener: () => {}, removeEventListener: () => {} }))
-  afterEach(() => vi.unstubAllGlobals())
-
-  for (const phone of [true, false]) {
-    it(`answers «Übung?» with Nein | Ja, off for a fresh Einsatz (${phone ? 'phone' : 'tablet'})`, () => {
-      atWidth(phone)
-      render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
-      const p = pair(ix.exerciseLabel)
-      expect(p.words).toEqual([D.no, D.yes])
-      expect(p.pressed).toEqual(['true', 'false'])
-    })
-  }
-
-  it('turns on with «Ja», and the words never change', () => {
-    render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
-    fireEvent.click(pair(ix.exerciseLabel).btns[1])
-    const p = pair(ix.exerciseLabel)
-    expect(p.words).toEqual([D.no, D.yes])
-    expect(p.pressed).toEqual(['false', 'true'])
-  })
-})
 
 describe('the Einstellungen yes/no rows', () => {
   const cp = appConfig.copy.settings

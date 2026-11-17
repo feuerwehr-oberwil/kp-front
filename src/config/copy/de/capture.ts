@@ -28,13 +28,10 @@ export const captureCopy = {
     // Schnellfilter neben der Suche: alle, die schon abgehakt sind – gekommen wie gegangen
     filterRecorded: 'Erfasste {n}',
     back: 'Zurück',
-    alarmedAt: 'Alarm {t}',
+    alarmedAt: 'Zeit Alarmierung {t}',
     saveFailed: 'Letzte Änderung nicht gespeichert – erneut versuchen',
     saveFailedOffline: 'Server nicht erreichbar – die letzte Änderung wurde nicht gespeichert.',
     retry: 'Erneut versuchen',
-    savedOk: 'Gespeichert',
-    undo: 'Rückgängig',
-    mittelSet: '{label}: neu {n} {unit}',
     mittelRemoved: '{label} entfernt',
     mittelExtra: 'Weitere erfasste Positionen',
     gerettete: 'Gerettete',
@@ -122,5 +119,6 @@ export const captureCopy = {
     // split, a three-week-old Einsatz sits directly below tonight's.
     groupCurrent: 'Aktuell',
     groupBacklog: 'Noch offen',
+    beilageRemoved: 'Beilage entfernt',
   },
 } as const

@@ -1,6 +1,6 @@
 // The Gebäude's own acts on the Plan: picking (or amending) the building under the floor-stack, a
-// storey added or removed, and the Drehung. Each is ONE step on the workspace's timeline with its
-// confirm-with-undo toast where work is at stake (docs/undo.md). Split out of PlansSurface and
+// storey added or removed, and the Drehung. Each is ONE step on the workspace's timeline, named on
+// the ↶ – no toast (owner pick 28, 17.11.2026: ↶ takes it back). Split out of PlansSurface and
 // IncidentWorkspace verbatim; built per render like the Trupp action families (lib/truppActions),
 // so every act reads the render's building, board and objects.
 
@@ -39,7 +39,6 @@ export interface GebaeudeActionDeps {
   activeObjectId: string | undefined
   setActivePlanId: Dispatch<SetStateAction<string>>
   rememberGebaeudeStep: (label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: OneShotRows | 'silent') => Dropper
-  oneShotUndoToast: (text: string, label: string, restore: () => void, drop: Dropper, rows?: OneShotRows | 'silent', opts?: { kind?: string }) => number
   logPlan: (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number; subjectId?: string }) => void
   /** the Drehung burst still folding into one step — reset by a remote hydrate (useWorkspaceBlob) */
   lastReorient: RefObject<{ at: number; from: BuildingDoc; drop: () => void } | null>
@@ -47,7 +46,7 @@ export interface GebaeudeActionDeps {
 
 export function useGebaeudeActions({
   tacticalLocked, building, setBuilding, board, setBoard, objects, objectsRef, boardRef, floorPack,
-  planBindings, activeObjectId, setActivePlanId, rememberGebaeudeStep, oneShotUndoToast, logPlan, lastReorient,
+  planBindings, activeObjectId, setActivePlanId, rememberGebaeudeStep, logPlan, lastReorient,
 }: GebaeudeActionDeps) {
   /** «Übernehmen» on the Umrisse: the picked footprint(s) become the building under the stack. */
   const selectBuilding = (src: [number, number][][], orientDeg: number, geo: SrcGeoref) => {
@@ -80,10 +79,9 @@ export function useGebaeudeActions({
     const prevBuilding = building
     const amend = amendBuilding(prevBuilding, { src, orientDeg, geo }, prevGebaeude)
     const owned = new Set([...ownIds, ...amend.annos.map((a) => a.id)])
-    const hasWork = !!building && (markCount > 0 || building.floors.length > 1)
     const wb = appConfig.copy.whiteboard
-    // no ask (the delete rule, lib/removalToast): where work was at stake the toast below
-    // repeats the counts and its «Rückgängig» brings back the old stack with every marking
+    // no ask (the delete rule, lib/removal): the ↶ step names the counts and brings back the old
+    // stack with every marking
     // auto-orient to longest-axis-horizontal by default; rings/ring/ringAspect
     // mirror the active (oriented) view for back-compat renderers + the north arrow
     const view = buildView(src, orientDeg)
@@ -99,9 +97,9 @@ export function useGebaeudeActions({
     setActivePlanId('gebaeude') // auto-jump to the floor-stack
     // ⚠️ EVERY pick is its own ↶ step — a first «Übernehmen» too (staging r3, 25.09.2026:
     // ↶ stayed lit on an older Karte step, so the tap meant for the building took back
-    // something else). The toast only where work was at stake: it repeats the counts —
-    // «Gebäude ersetzt» alone never said what happened (lib/buildingTransfer · buildingPickStep).
-    const pick = buildingPickStep(prevBuilding, amend, markCount, hasWork, wb, fillTemplate)
+    // something else). The ↶ caption counts what it carried over – «Gebäude ersetzt» alone never
+    // said what happened (lib/buildingTransfer · buildingPickStep).
+    const label = buildingPickStep(prevBuilding, amend, markCount, wb, fillTemplate)
     const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, prevGebaeude) }), { gesture: false }) }
     const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, amend.annos) }), { gesture: false }) }
     // the stack, and the stack's OWN annos before and after (never a lent one:
@@ -111,8 +109,7 @@ export function useGebaeudeActions({
       ...[...owned, ...prevGebaeude.map((a) => a.id), ...amend.annos.map((a) => a.id)].map((id) => recordKey('objects', id)),
       ...[...prevGebaeude, ...amend.annos].flatMap(annoRefs)]
     // the swap writes no Verlauf row, so neither does taking it back (D6, 26.09.2026)
-    const drop = rememberGebaeudeStep(pick.label, restore, reapply, wrote, 'silent')
-    if (pick.toast) oneShotUndoToast(pick.label, pick.label, restore, drop, 'silent')
+    rememberGebaeudeStep(label, restore, reapply, wrote, 'silent')
   }
 
   /** «+ OG» / «+ UG»: a storey on top or underneath. */
@@ -163,7 +160,7 @@ export function useGebaeudeActions({
     // exactly the stack this removal produced, not re-run a sweep against a document that
     // has moved on since.
     const sweep = removeStorey(board.gebaeude ?? [], sheetAnchoredIds(objects, 'gebaeude'), floor, nextBuilding?.floors ?? [])
-    // no ask (the delete rule, lib/removalToast): the toast below brings back what the sweep
+    // no ask, no toast (the delete rule, lib/removal): the ↶ brings back what the sweep
     // LOST — own annos deleted or cut short; a Karte object shown here is never lost
     // a machine write (`gesture: false`) — a sweep of what stood on the storey, no placement
     const writeOwn = (own: BoardAnno[]) => setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, sweep.owned, own) }), { gesture: false })
@@ -173,9 +170,9 @@ export function useGebaeudeActions({
     const restore = () => { setBuilding(prevBuilding); writeOwn(sweep.before) }
     const reapply = () => { setBuilding(nextBuilding); writeOwn(sweep.after) }
     // …and the act's OWN rows (staging 25.09.2026: the Verlauf held only «… rückgängig
-    // gemacht», never the removal it took back, and the toast's undo wrote nothing at all)
-    // — «Geschoss 3. OG entfernt», and «… wiederhergestellt» when it comes back, by the
-    // toast or by ↶ alike; ↷ says «entfernt» again
+    // gemacht», never the removal it took back)
+    // — «Geschoss 3. OG entfernt», and «… wiederhergestellt» when ↶ brings it back; ↷ says
+    // «entfernt» again
     // ⚠️ each row names its STOREY as its subject (D6, 26.09.2026): without one, the repeat
     // fold matched «entfernt» across the «wiederhergestellt» between them and printed
     // «Geschoss 3. OG entfernt 2×», and two different storeys could fold into one
@@ -188,9 +185,8 @@ export function useGebaeudeActions({
     const wrote = () => [recordKey('building'), recordKey('planview', 'gebaeude'),
       ...[...sweep.owned, ...sweep.before.map((a) => a.id), ...sweep.after.map((a) => a.id)].map((id) => recordKey('objects', id)),
       ...[...sweep.before, ...sweep.after].flatMap(annoRefs)]
-    // the toast and the ↶ name the storey and what went with it — the act's own row
-    const drop = rememberGebaeudeStep(removedRow, restore, reapply, wrote, rows)
-    oneShotUndoToast(removedRow, removedRow, restore, drop, rows)
+    // the ↶ names the storey and what went with it — the act's own row
+    rememberGebaeudeStep(removedRow, restore, reapply, wrote, rows)
     logPlan('close', removedRow, subject)
   }
 

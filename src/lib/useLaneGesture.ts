@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Shift } from '../types'
 import { type DragEdge, type Span, dragShift, timeAtFraction } from './shifts'
+import { buzz } from './haptics'
+import { HOLD_OFFER_MS } from './holdTimings'
 
 /** past this the press is a drag, not a tap — a finger never holds perfectly still */
 const DRAG_PX = 5
-/** hold this long without moving and the person's sheet opens instead */
-const HOLD_MS = 450
+/** hold this long without moving and the person's sheet opens instead – the OFFER window
+ *  (lib/holdTimings; 450 until 17.11.2026, a beat of its own) */
+const HOLD_MS = HOLD_OFFER_MS
 
 /** an in-progress sweep across empty lane: the stretch being drawn, not yet stored */
 export interface LaneDraw { from: number; to: number }
@@ -98,7 +101,8 @@ export function useLaneGesture(opts: {
     if (e.pointerType === 'touch') {
       holdTimer.current = window.setTimeout(() => {
         const d = drag.current
-        if (d && !d.moved) { d.held = true; setPreview(null); setDraw(null); opts.onHold() }
+        // the hold acts: THE hold buzz (lib/haptics, FEEDBACK.9) before the sheet opens
+        if (d && !d.moved) { d.held = true; setPreview(null); setDraw(null); buzz(); opts.onHold() }
       }, HOLD_MS)
     }
   }

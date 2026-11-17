@@ -39,9 +39,10 @@ auditConfig:
     # it: redocly 1.x calls `minimatch()` itself, which 11 no longer exports. Expires 31.12.2026,
     # or sooner when openapi-typescript moves to redocly 2 and Stryker to minimatch 11.
     - GHSA-g3hv-75wg-m249
-    # Picomatch 4.0.7 has no patched release as of 17.11.2026. Vite, Vitest and Knip read
-    # repository patterns during development/build only. scripts/audit-toolchain.sh rejects
-    # any production dependency path and expires this exception on 01.12.2026.
+    # Picomatch <= 4.0.7 has no patched release as of 17.11.2026. Vite, Vitest and Knip
+    # match repository patterns in build and development tooling. The owner approved this
+    # exception until 31.12.2026 or an earlier fix. scripts/audit-toolchain.sh enforces the
+    # expiry and rejects any production dependency path.
     - GHSA-fc5q-39xc-vjpf
 
 # openapi-typescript 7 declares typescript ^5. It only writes src/lib/api/schema.d.ts (`just

@@ -147,13 +147,10 @@ export const anwesenheitCopy = {
     statusFrei: 'nicht anwesend',
     statusPresent: 'anwesend',
     statusLeft: 'gegangen',
-    // Zwei Filter-Knöpfe: Grad (Mannschafts-Glyphe) und Zustand (Trichter). Die Legende IST
-    // das Zustand-Menü – jede Zeile trägt ihr Zeichen, also wird dort auch nachgeschaut.
+    // EIN Filter-Knopf (Trichter, «Filter»), im Menü zwei Gruppen: Grad und Status. Die Legende
+    // IST die Status-Gruppe – jede Zeile trägt ihr Zeichen, also wird dort auch nachgeschaut.
     filterLabel: 'Filtern',
     statusAll: 'Alle',
-    // ⚠️ «Nach Status filtern», nicht «Was bedeuten die Zeichen?». Das Menü filtert – dass man
-    // daneben auch nachschaut, was der Punkt bedeutet, ist ein Nebeneffekt und kein Titel.
-    statusFilterLabel: 'Nach Status filtern',
     noteOnly: 'Nur mit Bemerkung',
     loadFailedTitle: 'Personal konnte nicht geladen werden.',
     loadFailedHint: 'Liste nicht geladen. Die zuletzt geladene Liste bleibt.',
@@ -174,11 +171,10 @@ export const anwesenheitCopy = {
     // search row narrows the list to whoever is «Vor Ort» right now. The button is a state, not
     // an instruction, so it names the filter and lets `aria-pressed` say whether it is on.
     onlyPresent: 'Nur Anwesende',
-    // the phone's one word under each of the three head glyphs (AnwesenheitView)
+    // the word under the ✓ (AnwesenheitView); Grad and Status head the «Filter» menu's two groups
     onlyPresentWord: 'Vor Ort',
     rankFilterWord: 'Grad',
     statusFilterWord: 'Status',
-    rankFilterLabel: 'Nach Grad filtern',
     rankAll: 'Alle',
     // Return: the third tap deletes (clears), so returning gets a button of its own. It opens a
     // NEW Anwesenheit block; the first one keeps its von–bis.
@@ -189,7 +185,6 @@ export const anwesenheitCopy = {
     bis: 'bis',
     addBlock: 'Neue Zeit ab jetzt',
     blockSplit: '{name}: neue Zeit – die laufende wurde beendet',
-    blockRemoved: 'Zeit von {name} gelöscht',
     blockRemove: 'Zeit löschen',
     blocksTitle: 'Anwesenheit – {name}',
     blocksSection: 'Erfasste Zeiten',
@@ -215,6 +210,8 @@ export const anwesenheitCopy = {
     viewLabel: 'Ansicht',
     // the tick after «Neu laden» fetched the roster – its own word, not the Einsatz menu's «synchronisiert»
     reloadDone: 'Liste aktualisiert',
+    // the ONE filter tile's word (owner pick 19, 17.11.2026): «Vor Ort» beside it, Grad + Status its groups
+    filterWord: 'Filter',
   },
   // «Anrückend» — die Divera-Rückmeldungen über der Anwesenheit (AnrueckendBlock, X1 08.10.2026).
   // Nur ja / nein und Namen (Besitzer, 09.10.2026). ⚠️ Eine Divera-Antwort ist KEINE Anwesenheit:
@@ -245,11 +242,6 @@ export const anwesenheitCopy = {
     from: 'von',
     to: 'bis',
     remove: 'Schicht löschen',
-    removed: 'Schicht {name} gelöscht',
-    // A swipe and a drag fire as easily as a mis-tap – so they get the same undo as deleting.
-    // The planned⇄fixed toggle does not: a second tap takes that back.
-    added: 'Schicht für {name} geplant',
-    moved: 'Schicht von {name} verschoben',
     conflict: 'Doppelt eingeteilt – zwei Schichten zur selben Zeit',
     // The one mistake this form is meant to find – so it is spoken out loud instead of sitting as
     // a 12px glyph on a filled bar, where it has the lowest contrast of the whole surface (and
@@ -276,7 +268,7 @@ export const anwesenheitCopy = {
     coverageCollapse: 'Zahlen ausblenden',
     planned: 'verfügbar',
     actual: 'anwesend',
-    emptyTitle: 'Noch keine Schicht geplant.',
+    emptyTitle: 'Noch keine Verfügbarkeit erfasst.',
     emptyHint: 'Pro Person planen, wann sie verfügbar ist. Die Anwesenheit bleibt, wie sie ist.',
     print: 'Zeitplan drucken',
     // TWO sheets, picked separately – they answer different questions, so which one was meant is
@@ -337,11 +329,15 @@ export const anwesenheitCopy = {
     horizonUntil: 'bis {t}',
     horizon: 'Zeitraum',
     openFor: 'Schichten von {name} öffnen',
-    planAt: 'Schicht für {name} planen',
+    planAt: 'Verfügbarkeit für {name} einzeichnen',
     dragFrom: 'Beginn ziehen',
     // right-click menu on a bar: name the states instead of cycling through them
     editEntry: 'Bearbeiten …',
     dragTo: 'Ende ziehen',
+    // the paper menu's WORD on its page-head tile (button sweep HEADS.9, 17.11.2026 – it was a bare
+    // printer square); `paperMenu` stays its full name and the menu's head
+    paperMenuWord: 'Drucken',
+    emptyHelpWord: 'Hilfe',
   },
   // Schichtbänder (BandGrid) — the transpose of the Zeitplan. The Zeitplan is person-major over
   // continuous time («pick a person, draw when»); here the column is a named time window and per
@@ -375,7 +371,6 @@ export const anwesenheitCopy = {
     // What gets deleted is the BAND, not the planning: the Schichten remain as freehand ones.
     // This is the one path on which real planning would otherwise vanish silently.
     removeBandHint: 'Gelöscht wird nur die Spalte – die eingeteilten Zeiten bleiben als freihändige im Zeitplan stehen.',
-    removedBand: 'Schichtband «{label}» gelöscht',
     // When a band is moved: no silent coupling in either direction.
     moveTitle: 'Zeiten mitziehen?',
     moveMsg: '{n} Personen sind auf die alten Zeiten eingeteilt. Sollen ihre Zeiten mitziehen?',
@@ -385,11 +380,11 @@ export const anwesenheitCopy = {
     // – the legend in the WER column names them once for all columns, instead of labelling every
     // column twice. Counted proportionally: the number answers «wie viele habe ich in diesem
     // Fenster», not «wie viele Häkchen sehe ich».
-    countsAria: '{available} verfügbar, {planned} geplant',
+    countsAria: '{available} verfügbar, {planned} eingeteilt',
     // The same two words as the coverage curve in the Zeitplan – one surface, one vocabulary.
     // This used to say «frei» and «fix», which were two names for the same two states.
     available: 'verfügbar',
-    confirmed: 'geplant',
+    confirmed: 'eingeteilt',
     // Somebody with freehand times and no band would otherwise show up empty everywhere – like
     // somebody who offered nothing. The badge names the real time, so the grid doesn't claim that.
     ownTimes: 'eigene Zeiten ausserhalb jeder Schicht: {times}',
@@ -410,7 +405,7 @@ export const anwesenheitCopy = {
     partialHint: 'Nicht alle davon decken die ganze Schicht ab.',
     // A tap on a mixed cell has no unambiguous continuation – otherwise it would flip between two
     // states without either one ever holding for the whole window.
-    resolveTitle: 'Teils verfügbar, teils geplant',
+    resolveTitle: 'Teils verfügbar, teils eingeteilt',
     resolveMsg: '{name} ist in {band} teilweise eingeteilt und teilweise nur verfügbar. Was soll für dieses Fenster gelten?',
     // ⚠ A Schicht has ONE state: if it reaches beyond the Wache, the change carries along.
     resolveGap: 'Der Rest der Schicht ist von dieser Person nicht abgedeckt – das bleibt so.',
@@ -423,7 +418,7 @@ export const anwesenheitCopy = {
     crossTitle: 'Reicht über die Schicht hinaus',
     crossMsg: 'Diese Zeit von {name} läuft über {band} hinaus. Was soll für dieses Fenster gelten?',
     resolveAvailable: 'Alles auf verfügbar',
-    resolveConfirmed: 'Alles auf geplant',
+    resolveConfirmed: 'Alles auf eingeteilt',
     resolveCancel: 'Abbrechen',
     conflict: 'Doppelt eingeteilt – zwei Schichten zur selben Zeit',
     // right-click on a cell: name the states instead of cycling through them

@@ -1,7 +1,11 @@
 // The capture page's debounced text field (Angaben · Kontaktperson, Telefon, Kurzbericht).
+// A one-liner's return key is «Fertig» and acts – it leaves the field, which saves; Esc keeps the
+// text and leaves, in the Kurzbericht too (lib/fieldKeys, ELEM.8 17.11.2026: the key said «Fertig»
+// and did nothing).
 
 import { useEffect, useRef, useState } from 'react'
 import { stripUnprintable } from '../lib/format'
+import { leaveOnEnter, leaveOnEscape } from '../lib/fieldKeys'
 import { clearDraft, makeDebouncedFlush, restoreDraft, saveDraft } from '../lib/captureDraft'
 
 // Text fields save on blur AND ~1s after typing pauses, plus a sessionStorage draft per
@@ -50,12 +54,12 @@ export function DraftField({ incidentId, field, saved, commit, textarea, number,
   }
   if (textarea) {
     return <textarea {...shared} rows={3} autoCapitalize={autoCapitalize} enterKeyHint={enterKeyHint}
-      onChange={(e) => onChange(e.target.value)} />
+      onChange={(e) => onChange(e.target.value)} onKeyDown={leaveOnEscape} />
   }
   return (
     <input {...shared} type={number ? 'number' : tel ? 'tel' : 'text'} min={number ? 0 : undefined}
       inputMode={number ? 'numeric' : tel ? 'tel' : undefined}
       autoCapitalize={autoCapitalize} autoCorrect="off" autoComplete="off" spellCheck={false}
-      enterKeyHint={enterKeyHint} onChange={(e) => onChange(e.target.value)} />
+      enterKeyHint={enterKeyHint ?? 'done'} onChange={(e) => onChange(e.target.value)} onKeyDown={leaveOnEnter} />
   )
 }

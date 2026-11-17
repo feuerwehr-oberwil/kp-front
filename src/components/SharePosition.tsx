@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { fillTemplate, formatTime, compareText } from '../lib/format'
+import { permissionPath } from '../lib/permissionPath'
 import { rankAbbr, rankOrder } from '../lib/rank'
 import { matchesQuery, searchQuery } from '../lib/search'
-import { Button, IconButton } from './Button'
+import { Button } from './Button'
+import { cx } from '../lib/cx'
 import { Modal } from './panels/_shared'
 import { SearchField } from './SearchField'
 import type { Person } from '../types'
@@ -39,7 +41,9 @@ function labelFor(state: Exclude<ShareState, 'off'>): string {
 function hintFor(state: Exclude<ShareState, 'off'>, imprecise: boolean): string | null {
   const C = appConfig.copy.sharePosition
   if (state === 'starting') return imprecise ? C.impreciseHint : null
-  return { on: null, starting: null, paused: C.pausedHint, denied: C.deniedHint, taken: C.takenHint, failing: C.failingHint }[state]
+  // blocked: where the switch is on THIS platform (lib/permissionPath)
+  const denied = fillTemplate(C.deniedHint, { path: permissionPath('location') })
+  return { on: null, starting: null, paused: C.pausedHint, denied, taken: C.takenHint, failing: C.failingHint }[state]
 }
 
 /**
@@ -147,15 +151,17 @@ export function SharePositionPill({ share, onChangeName }: { share: ShareApi; on
 
   return (
     <>
-      {/* Icon only. The state names are long in German («Standort kommt nicht an») and inline
-          text either truncated to «Standort kommt nic…» — which says nothing — or pushed the
-          incident title off a narrow bar. The COLOUR carries the state at a glance (green
-          pulsing = reporting, amber = needs you), the tooltip and the sheet carry the words. */}
-      <IconButton variant="secondary" className={s[tone]} onClick={() => setOpen(true)} label={labelFor(state)}>
+      {/* One of the bar's actions, glyph + «Standort» (button sweep audit, owner pick 24a,
+          17.11.2026 – a bare glyph beside the worded «Verlauf»), folding with them (TopBar ·
+          the ladder). The STATE stays out of the word: the state names are long in German
+          («Standort kommt nicht an») and truncated to «Standort kommt nic…» they said nothing.
+          The COLOUR carries it at a glance (green pulsing = reporting, amber = needs you), the
+          tooltip and the sheet carry the words. */}
+      <button type="button" className={cx('tb-act', s[tone])} onClick={() => setOpen(true)} aria-label={labelFor(state)} title={labelFor(state)}>
         {/* same glyph as the row that switches it on (see MapViewsMenu) — the switch and its
             indicator have to be recognisably the same thing */}
-        <Icon id="people" />
-      </IconButton>
+        <Icon id="people" /><span>{C.pillWord}</span>
+      </button>
       {open && (
         <Modal title={labelFor(state)} onClose={() => setOpen(false)} fit>
           <div className={s.ask}>
@@ -167,7 +173,8 @@ export function SharePositionPill({ share, onChangeName }: { share: ShareApi; on
               <p className={s.note}>{fillTemplate(C.lastAt, { t: formatTime(new Date(share.lastAt), true) })}</p>
             )}
             <div className={s.actions}>
-              <Button variant="danger" onClick={() => { setOpen(false); share.stop() }}>
+              {/* a stop, not a delete – neutral (duck sweep ELEM.11) */}
+              <Button onClick={() => { setOpen(false); share.stop() }}>
                 {C.stop}
               </Button>
               <Button onClick={() => { setOpen(false); onChangeName(() => setOpen(true)) }}>

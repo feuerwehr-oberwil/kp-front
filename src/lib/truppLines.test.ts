@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Trupp } from '../types'
-import { leitungOptions, lineTakesTrupp, lineTruppId, markerTakesLineEnd, nextFreeLineNo, resolveLinkNumber, truppForLine, truppIdForAttachment, teamLineBadges, truppLineNo, truppLineTone, truppTagText, usedLineNos } from './truppLines'
+import { leitungOptions, lineTakesTrupp, lineTruppId, markerTakesLineEnd, nextFreeLineNo, resolveLinkNumber, truppForLine, truppIdForAttachment, teamLineBadges, truppLineNo, truppLineTone, truppMarkerTone, truppTagText, usedLineNos } from './truppLines'
 
 const trupp = (id: string, over: Partial<Trupp> = {}): Trupp => ({
   id, name: `Leader ${id}`, entryPressureBar: 300, entryTime: '2026-08-05T10:00:00Z',
@@ -68,6 +68,17 @@ describe('tone and tag', () => {
     // out = the record of who worked this Leitung, never an alarm colour
     expect(truppLineTone(trupp('a', { status: 'raus' }), 2)).toBe('muted')
     expect(truppLineTone(trupp('a', { exitTime: '2026-08-05T10:20:00Z' }), 0)).toBe('muted')
+  })
+
+  it('gives a Trupp\'s own marker its tier, on a hose or not, and never lets a Notfall go quiet', () => {
+    const ts = [trupp('a'), trupp('b'), trupp('c', { status: 'raus', notfallAt: '2026-08-05T10:10:00Z' })]
+    expect(truppMarkerTone('a', ts, { a: 1 })).toBe('warn')
+    expect(truppMarkerTone('b', ts, { a: 1 })).toBe('idle')
+    // a marker nobody stands on, or one for a Trupp this device does not know
+    expect(truppMarkerTone(undefined, ts, { a: 2 })).toBe('idle')
+    expect(truppMarkerTone('x', ts, { x: 2 })).toBe('idle')
+    // a crew reported out on an older build keeps its Notfall until «beendet»
+    expect(truppMarkerTone('c', ts, {})).toBe('crit')
   })
 
   it('abbreviates the leader on the tag — the Trupp symbol is where the full name goes', () => {

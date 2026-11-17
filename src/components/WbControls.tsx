@@ -12,6 +12,7 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { HatchDefs, LINE_DASH_SVG, hatchPatternId } from '../lib/draw'
 import { ToolDock } from './ToolDock'
+import type { ArmedReadout } from '../lib/armedTool'
 import { NODE_HOLD_ARM_MS, useNodeHold } from '../lib/nodeHold'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { vertexHandleIndices, endMarkIndices, EXTEND_STEP_PX } from '../lib/lineStyle'
@@ -618,21 +619,30 @@ interface DocksProps {
   /** Messen tool: line/area mode + clear/close, mirroring the Lage map's measure dock */
   measMode: 'line' | 'area'
   setMeasMode: (m: 'line' | 'area') => void
+  /** the measured path's points («Leeren» clears them) – calibrating, the scale bar's taps, which
+   *  tick off the steps */
   measCount: number
   onMeasClear: () => void
   onMeasClose: () => void
+  /** the dock's third mode «Massstab» (tool `scale`); absent where calibrating is not offered
+   *  (a locked session, a sheet whose scale is automatic) */
+  onCalibrate?: () => void
+  /** the plan has a scale – «Strecke» / «Fläche» have nothing to measure in before it does */
+  measurable: boolean
   /** absent where the board has no finder to open (Karte & Objekte's plan reader) */
   truppFinder?: TruppFinderDoor
+  /** the armed tool's readout – every dock but Messen's leads with it (ToolDock · armed) */
+  armed?: ArmedReadout | null
 }
 
 /**
- * Right-edge tool option docks (the armed tool's ✕, its input mode, ✓ and ⓘ), each top-aligned
- * to its rail button. Built from the SHARED `ToolDock`
+ * Right-edge tool option docks (the armed tool's readout tile, its input mode, ✓, ⓘ and ✕), each
+ * top-aligned to its rail button. Built from the SHARED `ToolDock`
  * renderer — same control vocabulary (and look) as the Lage map; the Linie tool carries the same
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickInput, draftActive, setTool, onFinish, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, truppFinder }: DocksProps) {
+export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickInput, draftActive, setTool, onFinish, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, onCalibrate, measurable, truppFinder, armed = null }: DocksProps) {
   // Read copy per render: the deployment locale is resolved after modules are imported.
   // ✕ is a way out of the tool like any other: the tool change asks about an open drawing
   // (usePlanDraft · releaseDraft), so it only has to put the tool down
@@ -649,7 +659,7 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
           DrawEditor, which is where the styling lives (and writes the next-ink defaults).
           On the Gebäude stack also the Wand, which stays armed (27.10.2026). */}
       {tool === 'line' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: closeDraft }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: lineMode === 'freehand' && !grundriss, onClick: () => pickInput('freehand') },
@@ -666,28 +676,41 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
           because it is the same question: tap the corners, or draw it. Styling: in the editor
           afterwards, like the Linie. */}
       {tool === 'area' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: closeDraft }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => pickInput('freehand') },
             { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: areaMode === 'nodes', onClick: () => pickInput('nodes') },
             ...(areaMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: onFinish }] : []),
           ],
-          [{ type: 'info', text: appConfig.copy.dockHints.area }],
+          [{ type: 'info', text: areaMode === 'nodes' ? appConfig.copy.dockHints.areaNodes : appConfig.copy.dockHints.areaFreehand }],
         ]} />
       )}
 
       {/* Messen — close + Strecke/Fläche toggle + clear + info (identical to the Lage map dock).
-          Removed 29.08., restored 02.09.: see usePlanMeasure's header. */}
-      {tool === 'measure' && (
+          Removed 29.08., restored 02.09.: see usePlanMeasure's header. On a plan its third mode is
+          «Massstab» (M13 A, 17.11.2026): calibrating against the printed scale bar is this dock
+          with «Massstab» lit, however it was entered (the Plan sheet, Messen's panel, this tile) –
+          a tap on «Strecke» / «Fläche» goes back to measuring (once the plan has a scale – before,
+          they wait), «Abbrechen» stops; no «Leeren» in this mode (see below). No pill, no line at the bottom. The Lage has no scale to
+          calibrate.
+          Calibrating is a fixed sequence, so its steps STAND in the dock's card while «Massstab» is
+          lit – no ⓘ to find (rare-user r4, owner: «already shown without the info button») – and
+          the first one reads ✓ once its point is down (`measCount` is then the scale's taps). */}
+      {(tool === 'measure' || tool === 'scale') && (
         <ToolDock groups={[
           [{ type: 'close', onClick: onMeasClose }],
           [
-            { type: 'toggle', icon: 'measure', label: appConfig.copy.measure.modeLine, on: measMode === 'line', onClick: () => setMeasMode('line') },
-            { type: 'toggle', icon: 'area', label: appConfig.copy.measure.modeArea, on: measMode === 'area', onClick: () => setMeasMode('area') },
+            { type: 'toggle', icon: 'measure', label: appConfig.copy.measure.modeLine, on: tool === 'measure' && measMode === 'line', disabled: !measurable, onClick: () => { setMeasMode('line'); setTool('measure') } },
+            { type: 'toggle', icon: 'area', label: appConfig.copy.measure.modeArea, on: tool === 'measure' && measMode === 'area', disabled: !measurable, onClick: () => { setMeasMode('area'); setTool('measure') } },
+            ...(onCalibrate ? [{ type: 'toggle' as const, icon: 'scalebar', label: appConfig.copy.whiteboard.scale.tool, on: tool === 'scale', onClick: onCalibrate }] : []),
           ],
-          [{ type: 'action', icon: 'trash', label: appConfig.copy.measure.clear, short: appConfig.copy.measure.clearShort, disabled: !measCount, onClick: onMeasClear }],
-          [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.measure }],
+          // no «Leeren» while calibrating: the phone's row must fit 360px without scrolling, and a
+          // wrong point is undone by the length dialog's «Abbrechen», which goes back to step 1
+          tool === 'scale' ? [] : [{ type: 'action', icon: 'trash', label: appConfig.copy.measure.clear, short: appConfig.copy.measure.clearShort, disabled: !measCount, onClick: onMeasClear }],
+          [tool === 'scale'
+            ? { type: 'info', open: true, text: [H.scaleStep1, H.scaleStep2, H.scaleStep3].map((t, i) => `${i < measCount ? '✓' : `${i + 1}.`} ${t}`).join('\n') }
+            : { type: 'info', text: H.measure }],
         ]} />
       )}
 
@@ -695,7 +718,7 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
           Karte's circle dock (IncidentWorkspace): a cordon is placed in the hazard colour and
           then adjusted — radius, colour and fill — in its own editor. */}
       {tool === 'circle' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => setTool('pan') }],
           [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.circle }],
         ]} />
@@ -705,7 +728,7 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
           caret already in the text, and Zettel/Klartext, S/M/L and the colour live THERE —
           where they also write the next note's defaults. */}
       {tool === 'text' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => setTool('pan') }],
           [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.text }],
         ]} />
@@ -714,19 +737,20 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
       {/* team armed-tool — ✕ · «Trupp finden» · ⓘ, the Karte's Trupp dock (MapToolDocks): placing
           one and finding one are the two things reaching for this tool can mean (UX sweep M9) */}
       {tool === 'resource' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => setTool('pan') }],
           ...(truppFinder ? [[{
             type: 'action' as const, icon: 'trupp-find', label: appConfig.copy.truppFinder.title, short: appConfig.copy.truppFinder.titleShort,
             disabled: truppFinder.disabled, onClick: truppFinder.open,
           }]] : []),
-          [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.resource }],
+          // the Karte's words: both surfaces open the same «Welcher Trupp?» picker (audit B8)
+          [{ type: 'info', text: appConfig.copy.dockHints.team }],
         ]} />
       )}
 
       {/* Mehrfach (lasso/marquee) armed-tool — cancel + info, mirroring the map's lasso dock */}
       {tool === 'lasso' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => setTool('pan') }],
           [{ type: 'info', text: appConfig.copy.dockHints.lasso }],
         ]} />

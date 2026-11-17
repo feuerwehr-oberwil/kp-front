@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
 import { clearDraft, keepDraft, readDraft } from '../lib/draftKeep'
+import { leaveOnEscape } from '../lib/fieldKeys'
 import { useMediaQuery } from '../lib/useIsPhone'
 import { appConfig } from '../config/appConfig'
 import { getLocaleId } from '../config/copy'
@@ -234,11 +235,11 @@ export function Cell({ k, kn, value, label, readOnly, time = false, placeholder,
       nav(e.shiftKey ? 'shift-tab' : 'tab')
       return
     }
+    // Esc KEEPS what was typed and leaves the cell, like tapping away (owner, 17.11.2026 –
+    // lib/fieldKeys): the blur commits it, one ↶ step; it used to put the stored value back
     if (e.key === 'Escape') {
-      e.preventDefault()
       e.stopPropagation()
-      if (draft !== value) { setDraft(value); dirty.current = false; if (draftKey) clearDraft(draftKey) }
-      else e.currentTarget.blur()
+      leaveOnEscape(e)
     }
   }
   /** what the wheels hand back is written at once — one ↶ step, like a cell left with Enter */

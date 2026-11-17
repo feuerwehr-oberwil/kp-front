@@ -2,6 +2,7 @@ import { LoadingStatus, ShellLoader } from './ShellLoader'
 import { useEffect, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import { toast } from '../lib/ui'
 import { Sheet } from '../lib/overlays'
 import { fillTemplate } from '../lib/format'
 import { OnOff } from './Segmented'
@@ -29,15 +30,16 @@ export function PersonnelSyncDialog({ provider, onClose, onSynced }: { provider:
     return () => { alive = false }
   }, [])
 
+  // the inline line is for the PREVIEW that did not load; a sync that fails is said by a toast and
+  // leaves the sheet as it stood, so «Synchronisieren» is right there again (duck sweep FEEDBACK.12)
   const run = async () => {
     setBusy(true)
-    setError(null)
     try {
       const res = await personnelSyncExecute(deactivateStale)
       setResult(res)
       onSynced()
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : ps.syncFailed)
+      toast(e instanceof Error ? e.message : ps.syncFailed, { icon: 'warn', tone: 'warn' })
     } finally {
       setBusy(false)
     }

@@ -22,12 +22,13 @@ type Props = Shell & {
   /** a batch upload is running (CaptureApp · addBeilagen) */
   uploading: boolean
   addBeilagen: (files: File[]) => Promise<void>
+  /** the bin: removes it and offers «Rückgängig» (CaptureApp · removeBeilage) */
+  removeBeilage: (a: { id: string; url: string; caption?: string }) => void
   run: (action: CaptureAction) => Promise<Workspace | null>
-  savedToast: () => void
 }
 
 /** The Beilagen section: the photos with their captions, and the picker. */
-export function BeilagenSection({ open, onToggle, sectionRef, busy, attachments, uploading, addBeilagen, run, savedToast }: Props) {
+export function BeilagenSection({ open, onToggle, sectionRef, busy, attachments, uploading, addBeilagen, removeBeilage, run }: Props) {
   const C = appConfig.copy.capture
   return (
     <AccSection open={open} label={C.beilagenHead}
@@ -46,11 +47,10 @@ export function BeilagenSection({ open, onToggle, sectionRef, busy, attachments,
                     const caption = stripUnprintable(e.target.value).trim()
                     if (caption === (a.caption ?? '')) return
                     void run({ kind: 'addAttachment', id: a.id, url: a.url, caption: caption || undefined })
-                      .then((ok) => { if (ok) savedToast() })
                   }}
                 />
                 <button type="button" className="cv-btn cv-btn-ghost" aria-label={C.beilagenRemove} title={C.beilagenRemove}
-                  disabled={busy} onClick={() => { void run({ kind: 'removeAttachment', id: a.id }).then((ok) => { if (ok) savedToast() }) }}>
+                  disabled={busy} onClick={() => removeBeilage(a)}>
                   <Icon id="trash" />
                 </button>
               </li>

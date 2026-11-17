@@ -65,9 +65,9 @@ describe('resolveRecordingStart', () => {
 
 describe('formatAudioDuration', () => {
   it('formats seconds, minutes and hours', () => {
-    expect(formatAudioDuration(47)).toBe('47s')
+    expect(formatAudioDuration(47)).toBe('47 s')
     expect(formatAudioDuration(754)).toBe('12:34')
     expect(formatAudioDuration(3675)).toBe('1:01:15')
-    expect(formatAudioDuration(0)).toBe('0s')
+    expect(formatAudioDuration(0)).toBe('0 s')
   })
 })

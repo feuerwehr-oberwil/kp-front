@@ -13,7 +13,8 @@ import { useResumingPoll, WATCH_POLL_MS, WATCH_RESUME_GAP_MS } from './useResumi
 export function useIncidentWatch(
   enabled: boolean,
   activeId: string | null,
-  onList: (list: IncidentMeta[]) => void,
+  /** every round's list; `offline` = the device's cached copy, not the server's */
+  onList: (list: IncidentMeta[], offline: boolean) => void,
 ): { fresh: IncidentMeta | null; dismiss: () => void } {
   const [fresh, setFresh] = useState<IncidentMeta | null>(null)
   // ids seen on the first poll of this session: pre-existing incidents never banner (the
@@ -28,8 +29,8 @@ export function useIncidentWatch(
   // The cadence, the foreground resume and the one-round-at-a-time guard are useResumingPoll's;
   // this is only what a round does. The first round shares the boot's request (listIncidentsShared).
   const refresh = useCallback(async () => {
-    const { list } = await listIncidentsShared()
-    onList(list)
+    const { list, offline } = await listIncidentsShared()
+    onList(list, offline)
     if (baseline.current === null) {
       baseline.current = new Set(list.map((i) => i.id))
       return

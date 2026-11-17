@@ -82,6 +82,7 @@ export async function askOpenDraft(name: string): Promise<OpenDraftAnswer> {
     confirmLabel: C.openSave,
     altLabel: C.openDiscard,
     altDanger: true,
+    bin: true,
     cancelLabel: C.openContinue,
   })
   return answer === true ? 'save' : answer === 'alt' ? 'discard' : 'continue'

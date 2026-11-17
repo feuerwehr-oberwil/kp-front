@@ -41,48 +41,58 @@ export const MELDUNG_RANK = {
    *  above everything about the Einsatz's content; below the Notfall and Atemschutz rows (a
    *  person) and a fresh dispatch (the strip's whole reason to exist). No ✕: it stays while true. */
   storage: 4,
+  /** an act the operator just tapped was REFUSED («Erst «Notfall beendet» halten …») – on a
+   *  surface with no toasts, the Atemschutz-Link (FEEDBACK.1, 17.11.2026, lib/meldungenRefusal):
+   *  a refusal is never a silent tap. Right under what blocks work; it answers the hand that is
+   *  still on the screen. */
+  refused: 5,
+  /** an Atemschutz-Trupp is inside and no Sicherungstrupp stands ready (FEEDBACK.1, 17.11.2026 –
+   *  components/SafetyMissingMeldung): a standing fact about the people inside, so above every
+   *  row about the Einsatz's content; below the alarms, a dispatch and what loses work. */
+  safety: 6,
   /** a Wiedervorlage that has come due — persists until erledigt, never expires silently */
-  reminder: 5,
+  reminder: 7,
   /** the wind has turned (≥ 45° at ≥ 10 km/h, held over two readings) — the server observed it
    *  and wrote the Verlauf row; this is that row, once per device (24.09.2026, D2). Above the
    *  GPS-follow row: a Lüfter blowing the wrong way is about the crew inside. */
-  wind: 6,
+  wind: 8,
   /** a vehicle a drawn Leitung is attached to has driven off; its anchor is off-screen */
-  gps: 7,
+  gps: 9,
   /** the alarm source's guesses have not been checked yet */
-  review: 8,
+  review: 10,
   /** the Einsatz's saved data came from a NEWER build, or had entries the load gate skipped
    *  (useWorkspaceBlob, S3 20.10.2026) — true for as long as this build reads that blob */
-  workspace: 9,
+  workspace: 11,
   /** a closed Einsatz's Fotos / Sprachnotizen are still only on this device (useIncidentLifecycle · completeRapport,
    *  S3 20.10.2026) — stands while the queue holds them */
-  media: 10,
+  media: 12,
   /** another tab of this browser holds the edit lock */
-  tabLock: 11,
+  tabLock: 13,
   /** the tactical symbol pack failed to load — Karte and Kroki run without glyphs */
-  symbols: 12,
+  symbols: 14,
   /** offline with no cached basemap for this view — the map is a flat colour */
-  basemap: 13,
+  basemap: 15,
   /** the session cookie expired — the sync is standing still until the operator signs in again.
    *  Also the row about ANOTHER account's unsent edits parked on this device
    *  (ForeignUnsentMeldung, sweep 09.11.2026 UX.2): the same subject — work that waits for a
    *  sign-in — and the same standing, below everything about the Einsatz itself. */
-  session: 14,
+  session: 16,
   /** a new build is waiting for the next app start */
-  update: 15,
+  update: 17,
   /** «KP Front als App installieren» */
-  install: 16,
+  install: 18,
 } as const
 
 export type MeldungKind = keyof typeof MELDUNG_RANK
 
 /** One button in the row. Two at most — and, together with the ✕ and the row's title where it has
  *  an `onOpen`, the ONLY things in a row that do anything: the rest of the body is inert (see
- *  `Meldeleiste`). */
+ *  `Meldeleiste`). WORD ONLY (button sweep SHEETS.4, 17.11.2026): the row's leading glyph already
+ *  carries its tone, and a row where two buttons had a glyph and the third none read the bare one
+ *  as lesser – so there is no `icon` to set. Only a busy loader takes the glyph slot. */
 export interface MeldungAction {
   label: string
-  icon?: string
-  /** spin the glyph — the action is running (taking an alarm reaches the server) */
+  /** a loader leads the word — the action is running (taking an alarm reaches the server) */
   busy?: boolean
   onClick: () => void
   /** the row's one filled action (docs/ui-conventions.md · Buttons) */
@@ -157,10 +167,13 @@ export const NEWER_BUILD_MELDUNG_ID = 'workspace:newer'
 
 /** The kinds that BLOCK work on the Atemschutz-Link: the Einsatz closed (or the link refused —
  *  both `lifecycle`), another tab holding the lock, a dead session — and the two Atemschutz alarm
- *  kinds, which step aside on the board anyway (`onBoard`) but must never be filtered by accident. */
-const LINK_KINDS: ReadonlySet<MeldungKind> = new Set(['notfall', 'atemschutz', 'lifecycle', 'tabLock', 'session'])
+ *  kinds, which step aside on the board anyway (`onBoard`) but must never be filtered by accident.
+ *  Plus what the board would otherwise only have said in a toast the link does not show
+ *  (FEEDBACK.1, 17.11.2026): a refused act, and «Kein Sicherungstrupp bereit» – a sentence that
+ *  refuses or warns about safety never rides on a toast alone. */
+const LINK_KINDS: ReadonlySet<MeldungKind> = new Set(['notfall', 'atemschutz', 'lifecycle', 'tabLock', 'session', 'refused', 'safety'])
 
 /** What the Atemschutz-Link's Meldeleiste shows (sweep 30.10.2026 #23 — owner: «drop the
  *  notifications entirely since they just hide things», picked «No toasts, keep blockers»): a row
- *  that stops the board from working, nothing else. Its toasts are off at the host (App · Overlays). */
+ *  that stops the board from working, a refusal, the missing Sicherungstrupp – nothing else. Its toasts are off at the host (App · Overlays). */
 export const linkShowsMeldung = (m: Meldung): boolean => LINK_KINDS.has(m.kind) || m.id === NEWER_BUILD_MELDUNG_ID

@@ -168,7 +168,7 @@ describe('KartePanel', () => {
   it('keeps a pin factual without the missing-data tail', () => {
     const at: [number, number] = [7.57175, 47.52015]
     const { container } = panel({ sel: { kind: 'pin', at, near: null, nearState: 'none', onBuilding: false } })
-    expect(screen.getByText('Hier ist nichts erfasst – keine Adresse, kein Stationsobjekt in der Nähe.')).toBeTruthy()
+    expect(screen.getByText('Hier ist nichts erfasst – keine Adresse, kein Objekt in der Nähe.')).toBeTruthy()
     expect(container.textContent).not.toMatch(/Fehlende Angaben/)
   })
 })
@@ -245,7 +245,7 @@ describe('KartePanel · order and actions (R2)', () => {
     // its register, never a key-box note — with the plans left out
     r = panel({ sel: { kind: 'object', obj: { ...SCHLOSS, kind: 'objekt', plans: [], measures: null, measuresSource: null } } })
     expect(order(r.container)).toEqual(['register', 'nearby', 'visits', 'actions'])
-    expect(screen.getByText('Stationsobjekt')).toBeTruthy()
+    expect(screen.getByText('Objekt')).toBeTruthy()
     expect(r.container.textContent).not.toMatch(/Schlüsseldepot/)
   })
 
@@ -355,14 +355,14 @@ describe('KartePanel · order and actions (R2)', () => {
   it('the switch «Objekt | <Haus>» stands under the head and opens the other level', () => {
     const onPick = vi.fn()
     const { container, rerender } = panel({ level: { on: 'object', house: null, onPick } })
-    const group = screen.getByRole('group', { name: 'Objekt oder Haus' })
+    const group = screen.getByRole('group', { name: 'Objekt oder Gebäude' })
     // right under the head: the body's first part
     expect(container.querySelector('[data-section]')?.getAttribute('data-section')).toBe('level')
-    // «Dieses Haus» until the register names the house
-    expect(group.textContent).toBe('ObjektDieses Haus')
+    // «Dieses Gebäude» until the register names the building
+    expect(group.textContent).toBe('ObjektDieses Gebäude')
     fireEvent.click(within(group).getByRole('button', { name: /^Objekt/ }))
     expect(onPick).not.toHaveBeenCalled()
-    fireEvent.click(within(group).getByRole('button', { name: /Dieses Haus/ }))
+    fireEvent.click(within(group).getByRole('button', { name: /Dieses Gebäude/ }))
     expect(onPick).toHaveBeenCalledWith('house')
     // the house level: its street, «Teil von …» under the head, the switch still there
     rerender(
@@ -372,9 +372,23 @@ describe('KartePanel · order and actions (R2)', () => {
         onOpenVisit={vi.fn()} onPinBuilding={vi.fn()} onCopyCoords={vi.fn()} />,
     )
     expect(screen.getByText('Teil von Storchenweg 1-16')).toBeTruthy()
-    const level = screen.getByRole('group', { name: 'Objekt oder Haus' })
+    const level = screen.getByRole('group', { name: 'Objekt oder Gebäude' })
     expect(within(level).getByRole('button', { name: /Schlossgasse 9/ }).getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(within(level).getByRole('button', { name: /^Objekt/ }))
     expect(onPick).toHaveBeenLastCalledWith('object')
+  })
+})
+
+// toast diet, 17.11.2026: «Koordinaten kopieren» acknowledges in place – no «kopiert» toast
+describe('KartePanel · a copied pin', () => {
+  const pin = { kind: 'pin' as const, at: [7.57175, 47.52015] as [number, number], near: null, nearState: 'none' as const, onBuilding: false }
+  it('stands as «✓ Kopiert» where the button was, and is not a control', () => {
+    panel({ sel: pin, coordsCopied: true })
+    expect(screen.queryByRole('button', { name: /Koordinaten kopieren/ })).toBeNull()
+    expect(screen.getByRole('status', { name: 'Koordinaten kopieren' }).textContent).toContain('Kopiert')
+  })
+  it('offers the button again otherwise', () => {
+    panel({ sel: pin })
+    expect(screen.getByRole('button', { name: /Koordinaten kopieren/ })).toBeTruthy()
   })
 })

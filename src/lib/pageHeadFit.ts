@@ -7,9 +7,11 @@
  * right, the title on the tiles' centre line (r23); `--tap` + `--head-pad-y` above and below (60px on a phone, 68
  * above; Surface.module.css · `.head`, tokens · `--head-*`). What does not fit gives up WORDS,
  * MEASURED, never per breakpoint (`lib/pageHeadFit` · `usePageHeadFit`, on the top bar's
- * `climbLadder`): (1) the quiet line's time («Gespeichert um 23:21» → «Gespeichert»), (2) each
- * tile's word, lowest priority first — the glyph stays, the word is already its aria-label/title
- * so the hold-tooltip says it, a count stays with its glyph («⚠ 4»), (3) the one primary tile
+ * `climbLadder`): (1) the quiet line's time («Gespeichert um 23:21» → «Gespeichert»), (2) the
+ * tiles fold TOGETHER, ONE rank for the row: each tile's word moves UNDER its glyph at 11/700 (its
+ * short word where it has one), a count stays beside its glyph («⚠ 4») – a folded tile is never a
+ * bare glyph, on any device (owner picks HEADS.9 and 24a, button sweep 17.11.2026; 13-incident ·
+ * «fold»; it was one tile at a time, to a bare glyph on a tablet), (3) the one primary tile
  * shortens («+ Trupp anmelden» → «+ Trupp»; it keeps its word and its fill), then a head's own
  * last words (the quiet «✓ Gespeichert» keeps its ✓ — a LOUD sync state never folds; the
  * Rapport's title says the nav's «Rapport»), and only as the LAST resort (≤ 359px, a locale that
@@ -38,9 +40,10 @@ import { climbLadder, useHeadFit } from './useHeadFit'
  * (lib/useHeadFit), on the same `climbLadder`:
  *
  *   1. the quiet line drops its time («Gespeichert um 23:21» → «Gespeichert»),
- *   2. the tiles drop their word one at a time, lowest priority first — the icon stays, the word
- *      is already the tile's aria-label/title, so the hold-tooltip still says it; a count stays
- *      with its icon («⚠ 4»),
+ *   2. the tiles fold TOGETHER — one rank for the whole row, never one tile at a time (owner pick
+ *      24a, 17.11.2026): each word stands under its glyph (its short word where it has one), a
+ *      count stays beside its icon («⚠ 4»). The ladder measures those narrower tiles like any
+ *      other fold,
  *   3. the one primary tile shortens («+ Trupp anmelden» → «+ Trupp»; it keeps its word and fill),
  *   4. the quiet line keeps its MARK («✓» — the sentence stays its `title`, and a LOUD state never
  *      folds: it is not a quiet line). That is the handed-over phone board's quiet state since
@@ -52,12 +55,14 @@ import { climbLadder, useHeadFit } from './useHeadFit'
  *
  * The contract is markup, so every head states its own ladder where its tiles are drawn:
  *   - `data-fold="<rank>"` on each part that can give (the quiet line, a tile). Lower ranks give
- *     first; parts sharing a rank give together. The ranks PRESENT are the steps — a tile that is
- *     not rendered (no alarm, nothing deleted) costs no step. A part that gives twice lists two
- *     ranks (`data-fold="1 8"`: the time first, the word much later).
+ *     first; parts sharing a rank give together — every secondary tile of a head shares ONE rank.
+ *     The ranks PRESENT are the steps — a tile that is not rendered (no alarm, nothing deleted)
+ *     costs no step. The quiet line gives twice and lists two ranks (`data-fold="1 4"`: the time
+ *     first, the word much later); a tile never does.
  *   - inside it, `.fold-long` is what shows until the part is folded and `.fold-short` what shows
- *     after; at its second rank the short goes too and the glyph stands alone (13-incident.css ·
- *     «fold»). A tile that goes icon-only has no `.fold-short`.
+ *     after; a folded tile shows its word (the short one, else the long one) UNDER its glyph
+ *     (13-incident.css · «fold»); a count chip that must stay beside its glyph says
+ *     `data-fold-beside`. The glyph is never `.fold-long`: it stays.
  *   - `data-fit-check` on text that must not be cut (a sync line, the Rapport's chip label); every
  *     <h2> in the head is checked anyway, except one marked `data-fit-free` (a title that is
  *     SUPPOSED to truncate, like the handed-over phone board's Einsatz name).

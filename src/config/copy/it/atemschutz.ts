@@ -21,9 +21,9 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     empty: 'Ancora nessuna squadra in sorveglianza.',
     emptyHint: '«Annuncia squadra» avvia la sorveglianza.',
     newTrupp: 'Annuncia squadra',
-    shareLink: 'Cedi la sorveglianza',
-    shareLinkShort: 'Cedi',
-    shareLinkOn: 'Cedi la sorveglianza – un link è attivo',
+    shareLink: 'Condividi squadre',
+    shareLinkShort: 'Condividi',
+    shareLinkOn: 'Condividi squadre – un link è attivo',
     linkReentryHint: 'Il link riporta qui – se la pagina viene chiusa per errore, basta aprire di nuovo il codice QR.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     /** the three-section stack on ANY phone (TruppForm · stack, 04.09.) – replaces the two-step
@@ -58,11 +58,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       multiwarn: 'Multiwarn',
     },
     equipmentLabel: 'Equipaggiamento',
-    equipmentShort: {
-      retthaube: 'RH',
-      wbk: 'WBK',
-      multiwarn: 'MW',
-    },
     zielLabel: 'Obiettivo',
     // UN solo segnaposto per entrambi i tipi di squadra e per ogni incarico (vedi de/atemschutz.ts).
     zielPlaceholder: 'Dove / cosa …',
@@ -261,8 +256,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logFirstPressureSame: 'Squadra {name}: contatto – prima pressione {bar} bar (come la pressione d’entrata)',
     pressureSheetFirst: 'Prima pressione – sostituisce la pressione d’entrata {bar} bar, conta come contatto',
     newTruppShort: 'Squadra',
-    removedToast: 'Squadra {name} rimossa',
-    notDeployedToast: 'Squadra {name}: non impiegata',
     // Atemschutznotfall (F1, 08.10.2026) — formulazione breve e neutra; vedi la base tedesca
     notfall: {
       act: 'Emergenza',
@@ -308,7 +301,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       logSafetyDesignated: 'Squadra {name}: designata squadra di sicurezza – emergenza squadra {target}',
       logSafetyWas: 'prima {auftrag}',
       logAtClose: 'Squadra {name}: emergenza non conclusa alla chiusura',
-      toast: 'Emergenza attivata per la squadra {name}',
       notifyTitle: 'Emergenza ARA – {name}',
       notifyBody: 'Emergenza da {time} – impiegare la squadra di sicurezza.',
       noSafetyHint: 'Nessuna squadra di sicurezza pronta',
@@ -317,6 +309,8 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       abschlussClose: 'Chiudere comunque',
       // «Entfernen» on a Trupp in a Notfall is refused until it is ended (review of #300)
       removeBlocked: 'Tenere prima «Emergenza conclusa» – una squadra in emergenza resta sorvegliata',
+      noSafetySub: 'Dentro: {names} – annunciare una squadra con compito «Mettere in sicurezza»',
+      noSafetyGo: 'Alle squadre',
     },
     removeInsideTitle: 'La squadra {name} è dentro – annunciarla fuori prima?',
     removeInsideMsg: 'Rimuovere toglie la squadra dalla sorveglianza e da ogni allarme. Di solito si intende: la squadra è uscita.',
@@ -443,6 +437,8 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logInsideAtClose: 'Squadra {name} ancora dentro alla chiusura',
     cycleEndAtClose: '{t} (ancora dentro alla chiusura)',
     logClockRestart: 'Squadra {name}: orologio di contatto riavviato – intervento riaperto',
+    cardMenuWord: 'Altro',
+    lineOnPlan: 'Piano',
   },
   lineDecor: {
     W: 'Acqua',

@@ -53,7 +53,6 @@ export function UpdateBanner() {
     ...(inPlace ? {
       actions: [{
         label: applying ? C.applying : C.apply,
-        icon: 'rotate',
         busy: applying,
         disabled: applying,
         primary: true,

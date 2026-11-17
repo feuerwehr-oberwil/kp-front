@@ -193,7 +193,7 @@
 .ip-card-closed-fold .ip-card-acts { margin-top: 8px; }
 /* «Wieder öffnen» is THE action of the fold: it takes the room, «Zurück» its word's width */
 .ip-card-closed-fold .ip-card-reopen { flex-grow: 2; }
-.ip-card-reopen .sync-glyph { display: inline-flex; width: 15px; height: 15px; }
+.ip-card-reopen .sync-glyph { display: inline-flex; width: 16px; height: 16px; }
 /* The Einsatz's own actions, INSIDE its card — Bearbeiten · Abschliessen · Teilen (Sync lives
    up in the title row).
    ⚠️ ONE LINE, never wrapped (decision 01.09., when Teilen made it three). Three verbs that
@@ -229,19 +229,29 @@
    lying. Measured 27.09.2026 (Sora, 12px, 8px padding): de 248px, fr «Modifier · Transmettre ·
    Clore» and it «Modifica · Condividi · Chiudi» shorter, en shortest — all inside 278px at 360. */
 .ip-card-acts { display: flex; gap: 8px; margin-top: 12px; }
+/* FOUR acts (an editor's «Präsentieren» beside «Teilen», F15 17.11.2026) never fit one line –
+   with glyphs ≈ 456px against the tablet's 396 – so they stand 2 × 2 on every width: two equal
+   columns, the pairs Ändern · Teilen over Präsentieren · Abschliessen. */
+.ip-card-acts:has(> .ip-card-act:nth-child(4)) { display: grid; grid-template-columns: 1fr 1fr; }
 .ip-card-act { position: relative; flex: 1 1 auto; min-width: max-content; }
 /* three classes, so it outranks `.head-tile.sm` (declared later, same two-class weight): the
    family's 8px is the floor a tile keeps inside the card — 6px read as a chip, not a tile */
 .ip-card .ip-card-acts .ip-card-act { padding: 0 8px; }
 .ip-card-act > span:not(.ip-badge) { white-space: nowrap; }
-/* …and no glyphs there: tried back in on a 390px phone (hill climb r36), the three tiles with
-   icon + word measured 340px in a 330px row – Abschliessen 10px past the card's padding, since a
-   tile never shrinks under its word. The words carry the row; the laptop keeps its icons. */
-@media (max-width: 479px) {
-  .ip-card .ip-card-acts .ip-card-act { font-size: var(--fs-1); }
-  .ip-card-act svg { display: none; }
+/* …and glyph + word on EVERY device, the glyph 16px in full ink (owner, button sweep SHEETS.11,
+   17.11.2026): the phone hid them since hill climb r36 (icon + word measured 340px in a 330px row),
+   so the same tile was worded with a glyph on the tablet and without one on the phone. What makes
+   them fit now is the shorter word – «Ändern» for «Bearbeiten» (`editMetaShort`; the full words
+   stay the name), on every device: measured 17.11.2026 in the phone menu's 334px row at 390,
+   «Ändern · Teilen · Abschliessen» with glyphs ≈ 320px. Under 375px (the row is 304 at 360) the
+   tiles draw 4px in and their glyph 4px from the word (≈ 284px) – the one place a tile goes under
+   the 8px floor above, because the alternative is a verb past the card's edge. An editor's FOUR
+   (with «Präsentieren», rare-user F15) stand 2 × 2 (above) and wear the same glyphs – the owner's
+   «same as on the iPad» (rare-user r4) is this rule. */
+@media (max-width: 374px) {
+  .ip-card .ip-card-acts .ip-card-act { padding: 0 var(--sp-1); gap: var(--sp-1); }
 }
-.ip-card-act svg { width: 15px; height: 15px; opacity: .65; flex: none; }
+.ip-card-act svg { width: 16px; height: 16px; flex: none; }
 /* the open count as a CORNER badge — the phone nav's amber count (05-navrail · .nav-count.nav-open),
    same fill, same digits (11/800 since 28.09.2026), same 16px — riding the tile's top-right corner instead of taking a
    word's width inside it */
@@ -344,28 +354,20 @@
 .ip-menu-act.danger { color: var(--red-strong); }
 /* every row locks while an Einsatz is being opened or an alarm taken (home's sheet: App · opening /
    taking) — the one it is happening on carries the Shell trail */
-.ip-menu-row:disabled, .ip-menu-alarm-x:disabled { opacity: var(--disabled); cursor: default; }
-/* A Divera alarm waiting to be taken — home's «Einsätze ▾» only (panels/AppMenuRows; inside an
-   Einsatz the banner carries it). A running row in the alarm's red: the bell stands in the
-   laufende-Zeit column, «Neuer Alarm» over the title, «Öffnen» at the end; the row's body takes,
-   the × beside it hides the alarm on this device. A red tint, not a border: a menu row has none. */
-.ip-menu-alarm { display: flex; align-items: stretch; min-width: 0; border-radius: var(--r-ctl); background: var(--red-8); }
-.ip-menu-alarm .ip-menu-row { flex: 1 1 auto; align-items: center; }
+.ip-menu-row:disabled { opacity: var(--disabled); cursor: default; }
+/* A Divera alarm nobody opened yet — home's «Einsätze ▾» and the Einsatz menu (panels/AppMenuRows;
+   owner, 17.11.2026: «Just list it»). A running row in its weights: the red bell stands in the
+   laufende-Zeit column, the Stichwort and the address as any row's, «Öffnen» at the end; the
+   whole row takes it. */
+.ip-menu-alarm { align-items: center; }
 .ip-menu-alarm-mark { display: flex; align-items: center; color: var(--red-strong); }
 .ip-menu-alarm-mark svg { width: 18px; height: 18px; }
 .ip-menu-kicker { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--red-strong); }
 /* another Einsatz's Atemschutz alarm on its row (AppMenuRows · foreignMark, FLOW.1): the kicker's red, led by ⚠ */
 .ip-menu-az { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .ip-menu-az svg { width: 12px; height: 12px; flex: none; }
+/* the alarm row's «Öffne …» while its take runs – the row itself is the button, no «Öffnen» word at rest */
 .ip-menu-alarm-go { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--red-strong); }
-.ip-menu-alarm-x { flex: none; display: grid; place-items: center; width: var(--tap); border: none; background: none;
-  border-radius: var(--r-ctl); cursor: pointer; color: var(--ink-faint); }
-@media (hover: hover) {
-  .ip-menu-alarm .ip-menu-row:hover:not(:disabled) { background: var(--red-8); }
-  .ip-menu-alarm-x:hover:not(:disabled) { color: var(--ink); background: var(--red-8); }
-}
-.ip-menu-alarm-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.ip-menu-alarm-x svg { width: 16px; height: 16px; }
 /* app utilities (Einstellungen · Bereitschaft · Hilfe · Installieren) as one compact row of
    labeled tiles — icon + word keeps recognition (3am tenet) while taking a third of the
    height the old one-per-row list did */
@@ -542,6 +544,10 @@
 }
 .ip-menu-logout:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-menu-logout svg { width: 15px; height: 15px; }
+/* «Anmelden» (C8): the same slot, but a way in – no red on hover */
+@media (hover: hover) {
+  .ip-menu-login:hover { background: var(--ink-12); color: var(--ink); }
+}
 
 /* build stamp + manual update check, pinned to the menu foot */
 .ip-menu-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -778,6 +784,8 @@
 .ui-info:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ui-info.on { background: var(--sel-wash); color: var(--blue-strong); }
 .ui-info .i { width: 18px; height: 18px; }
+/* …with its word beside the glyph among worded actions (InfoToggle · `worded`, 17.11.2026) */
+.ui-info.worded { display: inline-flex; gap: var(--sp-2); width: auto; padding: 0 var(--sp-3); font: var(--fw-bold) var(--fs-1) var(--body); white-space: nowrap; }
 
 /* ── THE warning inside a form (29.09.2026 · sweep C3) ────────────────────────────────────
    Lifted from the Trupp form (Atemschutz.module.css · .formWarn, 28.09.) so every other warning
@@ -787,9 +795,11 @@
    does not block. `.form-warn-act` is its one action: compact (12.5/700, 36px, 44 hit), FRAMED
    in the tone, never filled and never 800. `.form-warn-compact` is the one-line note under a
    field (no --tap floor). Sites: Trupp form, Rapport Kontrolle, Zeiten, QR-Bogen save, Georef
-   quality, Demo, Zeitplan double booking. */
+   quality, Demo, Zeitplan double booking. It never shrinks: in a sheet's flex column a long list
+   under it squeezed the «Alle Einsätze» offline line to 44px and its words spilled over the
+   search field (duck round, 17.11.2026). */
 .form-warn { --warn-tone: var(--red); --warn-glyph: var(--red-strong);
-  margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px; min-height: var(--tap);
+  flex-shrink: 0; margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px; min-height: var(--tap);
   border: 0; border-radius: var(--r-sm); background: color-mix(in srgb, var(--warn-tone) 10%, transparent);
   font: var(--fw-bold) var(--fs-2)/1.4 var(--body); color: var(--ink); text-align: left; }
 .form-warn-amber { --warn-tone: var(--amber); --warn-glyph: var(--amber-strong); }
@@ -809,14 +819,15 @@
    gefunden»). It had six recipes, one of them the app's only italic line — read as a quote. */
 .no-hits { margin: 0; padding: 24px 12px; text-align: center; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-faint);
   font-style: normal; overflow-wrap: anywhere; list-style: none; }
+/* (its way out while only a filter narrows the list is the «Gefiltert: … · Alle zeigen» strip right
+   above it – components/FilterStrip, button sweep HEADS.3, 17.11.2026; the line's own button,
+   `.no-hits-way`, from duck sweep LISTS.4 is gone with it) */
 
-/* The «Übung» row (EinsatzWizard) — an `OnOff` pair beside its name (28.09.2026; it was a
-   tick-box chip). The `.set-row` recipe without the card: name + consequence left, the pair
-   right. The label gives way (min-width 0), never the pair — at 360px «Zählt nicht zur
-   Einsatzstatistik» wraps to two lines and «Aus | An» keeps its full tap width. */
-.ip-onoff-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: var(--tap); }
-.ip-onoff-l { display: flex; flex-direction: column; gap: 2px; min-width: 0; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); }
-.ip-onoff-l small { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
+/* «Ernstfall | Übung» – the EinsatzWizard's first control (owner pick C7, 17.11.2026; it was an
+   «Übung? Nein | Ja» row under Kategorie). The pair spans the form, two equal halves, and nothing
+   stands under it (owner, 17.11.2026). */
+.ip-kind > .useg { display: flex; }
+.ip-kind > .useg > .useg-btn { flex: 1 1 0; }
 
 .ip-actions, .ip-row-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
 /* The footer row of a SHEET pays for its own breathing room. It used to have none, so every new
@@ -968,11 +979,13 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
 .list-card-quiet > .list-row:not(.on) .list-row-title { font-weight: var(--fw-medium); color: var(--ink-dim); }
 .list-card-quiet > .list-row:not(.on) :is(.list-row-sub, .list-row-lead) { color: var(--ink-faint); }
 
-/* a labelled group: the eyebrow, a word or count at its right end, then the card */
+/* a labelled group: the eyebrow (a count right after its word, like the Trupps' «DRIN 3»), a word
+   at its right end, then the card */
 .list-group { display: flex; flex-direction: column; gap: var(--sp-2); }
 .list-group-label { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); padding: 0 var(--sp-2);
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .list-group-end { text-transform: none; letter-spacing: 0; font-weight: var(--fw-bold); }
+.list-group-count { font-variant-numeric: tabular-nums; }
 
 /* «‹ Label» – one level up, naming where it goes; quiet, no frame, at the top of its page */
 .back-row { display: flex; align-items: center; gap: var(--sp-1); flex: none; align-self: flex-start; min-height: var(--tap); margin: 0;
@@ -1007,17 +1020,37 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
   .head-tile.amber:hover:not(:disabled) { background: color-mix(in srgb, var(--amber) 16%, var(--surface)); }
 }
 .head-tile:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* OPEN while its menu is up (Base UI sets `data-popup-open` on every Menu trigger): THE open look
+   (Small roles (6), duck sweep ELEM.6; button sweep HEADS.5, 17.11.2026) – the Zeitplan's
+   «Drucken», the Rapport's ▾, any <Button> that opens a Menu (the Tafel's «+ Seite»). The same
+   rule rides on SurfaceControls · `.iconBtn`, Atemschutz · `.headTile` and the admin's ⋯, each in
+   its own sheet. */
+:is(.head-tile, .ip-btn)[data-popup-open] { background: var(--sel-wash); color: var(--blue-strong); }
 .head-tile:disabled { opacity: var(--disabled); cursor: default; }
 /* an icon-only head tile is still a tap wide (the page head's ladder folds a tile to its glyph) */
 .head-tile:not(.sm) { min-width: var(--tap); }
 /* ── fold: what a page head gives up, measured (lib/pageHeadFit) ──────────────────────────────
    A part that can give wears `data-fold="<rank>"`; the ladder sets `data-folded` on it when its
    rank's turn comes. Inside it, `.fold-long` shows until then and `.fold-short` after — the word
-   a tile drops (no short: the glyph stays alone), the time the quiet line drops, «Trupp anmelden»
-   → «Trupp». The word is always the tile's aria-label / title too, so the hold-tooltip says it.
-   A part that folds twice (`data-fold="1 8"`) loses its short word too at its second rank and
-   keeps only its glyph — the quiet «✓ Gespeichert» becoming «✓». */
+   a tile moves under its glyph (below), the time the quiet line drops, «Trupp anmelden» → «Trupp».
+   The word is always the tile's aria-label / title too, so the hold-tooltip says it. A part that
+   folds twice (`data-fold="1 8"`) loses its short word too at its second rank and keeps only its
+   mark — the quiet «✓ Gespeichert» becoming «✓»; a TILE never folds twice (pick 24a). */
 [data-fold]:not([data-folded]) .fold-short, [data-folded] .fold-long, [data-folded="2"] .fold-short { display: none; }
+/* …and a folded TILE is glyph OVER word, never a bare glyph – on a phone since the owner's pick
+   HEADS.9 (button sweep, 17.11.2026: «word under there too»), on EVERY device since pick 24a (the
+   same evening: «a head / bar row folds together, and a folded tile is glyph over word»; it was a
+   bare glyph on a tablet). The list head's phone tile (SurfaceControls · `.word`), the nav bar's and
+   the top bar's (10-journal · «the fold») are the same tile, the word at 11/700. The word is the
+   tile's `.fold-short` where it has one («Abgeben», «Trupp», «PDF»), else its `.fold-long`
+   («Alarmton», «Drucken»). Only a tile that KEEPS a glyph stacks (a direct `svg` /
+   `.print-send-main` that is not `.fold-long`). A count chip («⚠ 4») keeps its number beside the
+   glyph: `data-fold-beside`. */
+button[data-folded]:not([data-fold-beside]):has(> :is(svg, .print-send-main):not(.fold-long)) {
+  flex-direction: column; justify-content: center; gap: var(--sp-1); }
+button[data-folded]:not([data-fold-beside]):has(> :is(svg, .print-send-main):not(.fold-long)):not(:has(> .fold-short)) > .fold-long,
+button[data-folded]:not([data-fold-beside]):has(> :is(svg, .print-send-main):not(.fold-long)) > .fold-short {
+  display: block; font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
 
 .ip-note { color: var(--ink-faint); font: var(--fw-medium) var(--fs-1) var(--body); }
 /* ⚠️ THIS RULE DID NOT EXIST. `.ip-hint` is rendered in the Gast dialog (and read as the
@@ -1046,14 +1079,12 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
    under the headline. Height is untouched — it still has to be hit with a glove. */
 .empty-state.empty-fill .empty-state-act { align-self: center; }
 .empty-state.empty-fill .empty-state-act .ip-btn { flex: 0 0 auto; }
-.ip-hist, .ip-ds {
+.ip-ds {
   display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--r-ctl);
   background: var(--surface-veil); box-shadow: var(--e3);
 }
-.ip-ds-main, .ip-hist-main { flex: 1; min-width: 0; text-align: left; border: none; background: none; cursor: pointer; }
-.ip-hist-title, .ip-ds-title { font: var(--fw-bold) var(--fs-3) var(--body); color: var(--ink); display: flex; align-items: center; gap: 8px; min-width: 0; }
-/* truncate a long incident title so the status badge keeps its place instead of overlapping */
-.ip-hist-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ip-ds-main { flex: 1; min-width: 0; text-align: left; border: none; background: none; cursor: pointer; }
+.ip-ds-title { font: var(--fw-bold) var(--fs-3) var(--body); color: var(--ink); display: flex; align-items: center; gap: 8px; min-width: 0; }
 /* incident status badge in the Einsätze list (own class — must NOT collide with the
    fixed-size sync .ip-status above, which would clamp it to 16px and clip the label) */
 /* …and the ONE tag recipe (28.09.2026): the poster's «ÜBUNG» (.cv-badge-exercise) wears it too —
@@ -1084,30 +1115,43 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
    ellipsises, and a drill must never lose the word that says so (the card's title line spaces
    its own badge via flex gap) */
 .ip-menu-row .ip-badge { flex: none; }
-/* the per-row «Abschliessen» / «Wieder öffnen» stays at its word's width (29.09.2026: five of them
-   down the list must not out-shout the row's real action, opening it) — but at THE button's
-   14/700 since r35 (06.11.2026): a 44px button with a 12.5px label was a third button size */
-.ip-hist-close { padding: 0 12px; flex: none; }
-.ip-hist-sub, .ip-ds-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); margin-top: 2px; }
-/* when it ran (05.10.2026): day · start–end · duration, a step stronger than the address under it —
-   it is what tells two «Brand» rows apart at 3am. Tabular figures so the spans line up. */
+/* THE Einsatz row (components/EinsatzRow, LISTS.2): the name, its tags beside it (wrapping under
+   it when the line is full – the tag is never what gets cut), the red Atemschutz word under the
+   place, the menu's `.ip-menu-az` */
+.einsatz-row-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); min-width: 0; }
+.einsatz-row-name { min-width: 0; overflow-wrap: anywhere; }
+.einsatz-row-when { font-variant-numeric: tabular-nums; }
+.einsatz-row-alarm { display: inline-flex; align-items: center; gap: var(--sp-1); align-self: flex-start;
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--red-strong); }
+.einsatz-row-alarm svg { width: 12px; height: 12px; flex: none; }
+/* «Alle Einsätze»: the row and, beside it, its lifecycle buttons (owner 17.11.2026: kept) at
+   their word's width – five of them down the list must not out-shout the row's real action,
+   opening it. On a phone they wrap under the row, at its right end. */
+.ip-hist { display: flex; flex-wrap: wrap; align-items: center; }
+.ip-hist + .ip-hist { box-shadow: inset 0 1px 0 var(--border-soft); }
+.ip-hist > .list-row { flex: 1 1 260px; }
+.ip-hist-acts { display: flex; gap: var(--sp-2); margin-left: auto; padding: 0 var(--sp-4) var(--sp-2); }
+.ip-hist > .list-row + .ip-hist-acts { padding-top: 0; }
+@media (min-width: 700px) { .ip-hist-acts { padding-bottom: 0; } }
+.ip-hist-acts .ip-btn { padding: 0 12px; flex: none; }
+.ip-hist-group + .ip-hist-group { margin-top: var(--sp-3); }
+.ip-hist-state { display: grid; place-items: center; padding: var(--sp-6) 0; }
+/* the standing link's chooser (StandingApp · Chooser): the Einsatz rows on their card, read from
+   the left inside the centred link card */
+.sl-choose { align-self: stretch; text-align: left; margin-top: var(--sp-3); }
+.ip-ds-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); margin-top: 2px; }
 /* offline line over the list: viewing works, the lifecycle buttons need the server */
 .ip-hist-offline { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--amber-strong); }
 .ip-hist-offline svg { width: 15px; height: 15px; flex: none; }
 /* a viewer's window under the list (HistoryPanel · windowDays): a quiet foot line, not a warning */
 .ip-hist-foot { margin: 12px 0 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
-.ip-hist-when { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); margin-top: 4px; font-variant-numeric: tabular-nums; }
 /* rapport lifecycle badges (derived, lib/rapportStatus) */
-/* Alle Einsätze: search + time-group headers — the list grows by one row per Einsatz
-   forever, so an old incident must stay findable without endless scrolling */
-.ip-hist-group {
-  margin: 12px 2px 0;
-  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
-}
 /* the search and its filter button on one line (27.10.2026 r2, Anwesenheit's search line): the
    field, button and menu are SurfaceControls'; only the row is the sheet's own, without the
    surface row's gutters – the sheet body already has them */
 .ip-hist-controls { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-1); }
+/* …and the «Gefiltert: …» strip under it (components/FilterStrip, button sweep HEADS.3) – placement */
+.ip-hist-strip { margin-bottom: var(--sp-1); }
 
 /* --- Rapport closing checklist (inside the Einsatzrapport sheet) --------------------- */
 /* Not a card any more — a plain stack of them. The four rows sit at COLUMN level, beside the
@@ -1299,7 +1343,7 @@ button.rp-sign-row:disabled { cursor: default; }
 .rp-return { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
   z-index: var(--z-topbar); display: inline-flex; align-items: center; gap: 8px; box-sizing: border-box;
   min-height: var(--float-h); padding: 0 calc(var(--float-pad-x) + 4px) 0 var(--float-pad-x);
-  border: none; border-radius: var(--r-sm); color: var(--on-btn-primary);
+  border: none; border-radius: var(--r-bar); /* the floating pieces' corner, owner pick 20 */ color: var(--on-btn-primary);
   background: var(--btn-primary);
   box-shadow: var(--e4);
   font: var(--fw-bold) var(--fs-2) var(--body); cursor: pointer; white-space: nowrap; }
@@ -1487,19 +1531,14 @@ button.rp-sign-row:disabled { cursor: default; }
   border-bottom: 1px solid var(--glass-line); }
 /* (the ⓘ beside the search is THE InfoToggle since 29.09.2026 — it wore a 44px frame that
    turned station red while its help was open) */
-/* «Erfasste N» — the check-back filter beside the search box. On it is THE filter-on look, the
-   choice fill (--sel, docs/ui-conventions.md · Small roles (9); 15.11.2026 – it was green, the
-   anwesend tint, so «filtered» read as «present»). Off it is a plain neutral control, so an
-   unfiltered roster can never be mistaken for a filtered one. */
-.cv-filter { display: inline-flex; align-items: center; gap: 8px; flex: none; height: 44px; padding: 0 12px;
-  cursor: pointer; border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink-dim);
-  border-radius: var(--r-sm); font: var(--fw-bold) var(--fs-2) var(--body); white-space: nowrap; }
-.cv-filter svg { width: 15px; height: 15px; }
-.cv-filter.on { color: var(--on-sel); border-color: var(--sel); background: var(--sel); }
+/* («Erfasste N», the check-back filter beside the search box, is THE list-head filter tile –
+   SurfaceControls · `.iconBtn`, button sweep HEADS.2, 17.11.2026; its own `.cv-filter` is gone) */
 /* «Nichts verwendet» — the one answer that makes the Material Mindestangabe answerable from here
-   (see lib/abschluss · stepDone). The tablet Rapport's own control (`.ip-btn` + `.on`, the choice
-   fill; 15.11.2026 – it was dashed and turned green here); this only places it. */
+   (see lib/abschluss · stepDone). The tablet Rapport's own «Entfällt» model (duck sweep ELEM.9,
+   17.11.2026): the button at its width, the answered read-out (17-rapport · .rz-none) across the
+   row; this only places them. */
 .cv-none { align-self: flex-start; }
+.cv-none.rz-none { align-self: stretch; }
 /* Partnerorganisationen on the poster: organisation + one free line, same two fields the
    tablet asks for. Stacks on a phone, which is what the poster is scanned with. */
 .cv-partners { display: flex; flex-direction: column; gap: 8px; width: 100%; }
@@ -1602,8 +1641,14 @@ button.rp-sign-row:disabled { cursor: default; }
 .cv-counts .cv-count-row { display: contents; }
 .cv-counts .cv-count-row > span { text-align: right; }
 /* the save failure is THE form warning (`.form-warn`, 29.09.2026 — it was red body text with a
-   red-tinted retry); its retry is the compact framed `.form-warn-act`. This only places it. */
-.cv-error { flex: none; }
+   red-tinted retry); its retry is the compact framed `.form-warn-act`.
+   ⚠️ STICKY under the page head (F11 · RECOVERY.8, 17.11.2026): the page is one long scroll and
+   the box rendered once at its top, so a tick deep in «Personen» that did not save showed
+   nothing where the thumb was. It now rides under the head (`--cv-head-h`, measured) over the
+   sections – their own sticky heads (4) included, under the page head (6) – until the retry
+   lands. Opaque, since it covers rows. */
+.cv-error { flex: none; position: sticky; top: calc(var(--cv-head-h, 64px) + var(--sp-2)); z-index: 5;
+  background: color-mix(in srgb, var(--warn-tone) 10%, var(--surface)); box-shadow: var(--e2); }
 .cv-row { display: grid; grid-template-columns: minmax(112px, 148px) 1fr; align-items: center;
   gap: 8px 12px; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); }
 .cv-row > span:first-child { min-width: 0; }
@@ -1890,14 +1935,12 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    buttons clearly visible»). In the one-row head it simply leads the tiles. */
 .rp-head[data-fit-wrap] .rp-head-actions > .rp-head-close { order: 0; flex: 0 1 auto; margin-top: 0; }
 @media (hover: hover) { .head-tile.go:hover:not(:disabled) { background: var(--green-solid-hover); } }
-/* …and on that row of their own the worded tiles have the room for their glyph again: «PDF» with its
-   document, «Abschliessen» with its archive box («Drucken» never loses its printer), 16px at the tiles' 8px gap like the tablet's (hill
-   climb r23, Opus 8: they were text-only on the phone only). Measured to fit at 360 and 390. */
-.rp-head[data-fit-wrap] .head-tile[data-folded]:has(.fold-short) > svg.fold-long { display: block; }
 /* it truncates, exactly as the line under it always did — an <h2> that does not is an <h2> that
    paints over whatever is beside it */
 .rp-head-titles h2 { margin: 0; font: var(--head-title); color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* an Übung's tag leads the title (ReportPreflight, ENT.9): first, so the title gives way, never it */
+.rp-head-exercise { display: inline-block; margin-right: var(--sp-2); vertical-align: .25em; }
 /* the verdict line — only «alle Angaben erfasst» since 23.09.2026; what is still open is the
    Kontrolle chip's business (ReportPreflight · openInControl) */
 .rp-head-sum { margin: var(--head-sub-gap) 0 0; display: flex; align-items: center; flex-wrap: nowrap; gap: 4px 12px;
@@ -1938,10 +1981,8 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 .rp-split .rp-split-more { flex: none; width: var(--tap); padding: 0; justify-content: center;
   border-top-left-radius: 0; border-bottom-left-radius: 0; }
 /* the short word for the main half — «PDF», where the full «Einsatzrapport (PDF)» does not fit
-   (`.fold-short`, lib/pageHeadFit); the doc glyph goes with the long label, so the folded tile is
-   the word and the ▾, as in mockup 2, and the busy spinner still takes its place */
-.rp-pdf-short { position: relative; }
-.rp-pdf-wait { position: absolute; inset: 0; display: grid; place-items: center; }
+   (`.fold-short`, lib/pageHeadFit); the doc glyph (or the busy spinner) stays and the folded tile
+   is the glyph over «PDF», then the ▾ (owner pick 24a, 17.11.2026 – it was the word alone) */
 .rp-print-menu { min-width: 240px; max-width: min(340px, 92vw); padding: var(--bar-pad); border-radius: var(--r-bar);
   background: var(--surface); box-shadow: var(--e4); border: 1px solid var(--glass-edge); z-index: var(--z-popover); }
 /* skin only — the radius, the hover/press wash and the red row live on `.ui-menu-item` /
@@ -1991,6 +2032,10 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   padding: 8px 12px 4px;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
+/* a line that only says something (lib/overlays · Menu `note`) – a key under the rows, in the dim
+   ink and with no row height of its own to tap: it explains, it does nothing */
+.ui-menu-note { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-1) 12px;
+  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
 /* The menu's checkbox – every pick-several row (Verlauf · Filter, the Rapport's Abschnitte). 20px,
    a 1.5px --ink-faint frame and the SHAPE of the app's checkbox (TickRow's 24px box, --r-xs = 8px)
    at this size: 6px. The token itself on 20px left 4px of straight edge and the box read as a
@@ -2000,16 +2045,16 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   border-radius: 6px; border: 1.5px solid var(--ink-faint); }
 .ui-menu-check svg { width: 12px; height: 12px; fill: none; stroke: var(--surface); stroke-width: 3;
   stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
-[data-checked] > .ui-menu-check { background: var(--blue); border-color: var(--blue); }
+[data-checked] > .ui-menu-check { background: var(--sel); border-color: var(--sel); }
 [data-checked] > .ui-menu-check svg { opacity: 1; }
 /* a ONE-of-N row (Menu · radio, the Trupps' «Reihenfolge») is not a checkbox: its mark is a bare
-   trailing ✓ on the chosen row (16px, --green). The box
+   trailing ✓ on the chosen row (16px, --sel – blue is «chosen», duck sweep ELEM.7; it was green). The box
    keeps its place on every row so the labels never shift. */
 .ui-menu-radio { flex: none; display: grid; place-items: center; width: 16px; height: 16px; margin-left: auto; visibility: hidden; }
 [data-checked] > .ui-menu-radio { visibility: visible; }
 /* row-qualified: a skin's own `… svg` glyph rule (`.rp-print-menu-item svg` dims its icons) must not
    reach the tick */
-.ui-menu-item > .ui-menu-radio svg { width: 16px; height: 16px; fill: none; stroke: var(--green); stroke-width: 2.4;
+.ui-menu-item > .ui-menu-radio svg { width: 16px; height: 16px; fill: none; stroke: var(--sel); stroke-width: 2.4;
   stroke-linecap: round; stroke-linejoin: round; opacity: 1; }
 
 /* ── ONE menu row, one wash (18.09.2026) ────────────────────────────────────────────────────
@@ -2100,12 +2145,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 .rp-control .report-fold-body { padding: 2px 0 0; }   /* the 12px inset is the popover's (above), not twice */
 .rp-control .report-fold-body p:last-child { margin-bottom: 0; }
 .rp-control-open-head { padding: 8px 12px 4px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.rp-control-step { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: var(--tap);
-  padding: 0 12px; border: none; background: none; border-radius: var(--r-ctl); cursor: pointer; text-align: left;
-  font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); }
-.rp-control-step .i { width: 15px; height: 15px; flex: none; color: var(--ink-faint); }
-@media (hover: hover) { .rp-control-step:hover { background: var(--blue-8); } }
-.rp-control-step:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* (the open points are THE ListRow in its rail density, LISTS.8 – `.rp-control-step` is gone) */
 /* ⚠️ The rows ABOVE the scrolling body – the head, the strip, the band – keep the body's
    scrollbar lane (hill climb r21, 05.11.2026): the body reserves it on its right edge
    (`scrollbar-gutter: stable`, below), so these reserve the same lane, and the head's last tile
@@ -2493,19 +2533,21 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
   background: var(--red-16); color: var(--red-strong); }
 .ip-launch-pulse svg { width: 16px; height: 16px; }
 .ip-launch-go { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--red-strong); padding-left: 8px; }
-/* the alarm card splits into take-button + pool-archive × (the intake sheet is gone),
-   so the row drops its own padding/cursor onto the inner hit areas */
+/* the alarm card's take is its inner button (the intake sheet is gone), so the row drops its own
+   padding/cursor onto that hit area */
 .ip-launch.alarm { padding: 0; cursor: default; display: flex; align-items: stretch; gap: 0; }
 .ip-launch-hit { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-align: left;
-  padding: 12px 4px 12px 12px; border: none; background: none; cursor: pointer; color: inherit;
+  padding: 12px; border: none; background: none; cursor: pointer; color: inherit;
   border-radius: inherit; font: inherit; }
 .ip-launch-hit:disabled { opacity: var(--disabled); cursor: default; }
-.ip-launch-x { flex: none; display: grid; place-items: center; width: 44px; border: none; background: none;
-  cursor: pointer; color: var(--ink-faint); border-radius: inherit; }
-@media (hover: hover) {
-  .ip-launch-x:hover { color: var(--ink); background: var(--hover-strong); }
-}
-.ip-launch-x svg { width: 16px; height: 16px; }
+/* a hidden «Alarm aktualisiert» in the Einsatz menu (panels/AppMenuRows · FoldedRow, rare-user
+   round F7): bell-off, the title dimmed, «Zeigen». */
+.ip-alarm-folded { display: flex; align-items: center; gap: 12px; min-height: 44px; min-width: 0; padding: var(--sp-1) 2px var(--sp-1) 12px;
+  border-radius: var(--r-ctl); color: var(--ink-dim); }
+.ip-alarm-folded > svg { width: 17px; height: 17px; flex: none; color: var(--ink-faint); }
+.ip-alarm-folded-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ip-alarm-folded-title { font: var(--fw-bold) var(--fs-2) var(--body); overflow-wrap: anywhere; }
+.ip-alarm-folded > .ip-btn { flex: none; }
 .ip-emptyapp-actions { display: flex; flex-direction: column; gap: 8px; }
 .ip-emptyapp-secondary { display: flex; gap: 8px; }
 .ip-emptyapp-secondary .ip-btn { flex: 1; }

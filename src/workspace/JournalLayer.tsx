@@ -13,8 +13,7 @@ import { combinedSyncStatus } from '../lib/combinedSyncStatus'
 import { type IncidentMeta, uploadMedia } from '../lib/incidents'
 import type { JournalLink } from '../lib/journalLinks'
 import type { PhotoPlacement } from '../lib/photoGeo'
-import { toast } from '../lib/ui'
-import { JOURNAL_SAVED_KIND } from './useJournalWriters'
+import { undoToast } from '../lib/ui'
 import type { useAuditEvents } from '../lib/useAuditEvents'
 import type { useJournal } from '../lib/useJournal'
 import type { useMediaQueue } from '../lib/useMediaQueue'
@@ -61,7 +60,7 @@ export interface JournalLayerProps {
   showPhotoOnMap: (entityId: string) => void
   player: { row: TimelineEvent; seekSec?: number } | null
   isEditor: boolean
-  addPlayerEntry: (text: string, atIso: string, quiet?: boolean) => string
+  addPlayerEntry: (text: string, atIso: string) => string
   composerOpen: boolean
   /** the session may write nothing (access · roleReadOnly): no composer mounts, whatever asked
    *  for one – the checklist's «Verlauf» link reached it past every other gate (RBAC audit V4) */
@@ -73,6 +72,8 @@ export interface JournalLayerProps {
   linkScoped: boolean
   /** the Verlauf's «von der Tafel»: open the «Aufträge / Pendenzen» page (workspace/useTafelPendenzen) */
   openTafelPendenzen?: () => void
+  /** «Trupp N» in a row: the Atemschutz board at that Trupp's card (IncidentWorkspace · showTrupp) */
+  showTrupp?: (truppId: string) => void
 }
 
 export function JournalLayer({
@@ -81,7 +82,7 @@ export function JournalLayer({
   setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
   enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
   tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen, roleReadOnly,
-  addJournal, noteOn, linkScoped, openTafelPendenzen,
+  addJournal, noteOn, linkScoped, openTafelPendenzen, showTrupp,
 }: JournalLayerProps) {
   return (
     <>
@@ -115,7 +116,9 @@ export function JournalLayer({
           onReplay={!replayActive ? () => { setJournalOpen(false); enterReplay() } : undefined}
           openReminders={reminders.open}
           onOpenTafel={openTafelPendenzen}
-          onReminderDone={!readOnly ? reminders.markDone : undefined}
+          // the drawer steps aside for the board it sends you to, landing consumed as on close
+          onShowTrupp={showTrupp && ((id) => { setJournalOpen(false); setJournalLandOn(null); showTrupp(id) })}
+          onReminderTick={!readOnly ? reminders.setDone : undefined}
           // tap a Pendenz → write a Meldung on it. The Verlauf steps aside so the composer is
           // not stacked on a drawer the operator can no longer see behind it.
           // ⚠️ The Verlauf STAYS OPEN behind it. Closing it meant that finishing a Meldung — or
@@ -150,20 +153,26 @@ export function JournalLayer({
           onAddEntry={!readOnly ? addPlayerEntry : undefined}
           // a voice memo's words land on the memo itself, as a transcript section at the
           // playhead — appended like every enrichment, never edited in place
+          // no «erfasst» toast: the section appears at the playhead (toast diet, 17.11.2026)
           onAddSection={!readOnly ? (atSec, text) => {
             journal.appendPatch(player.row.id, { transcriptSection: { at: atSec, text } })
-            toast(appConfig.copy.journal.saved, { icon: 'type', tone: 'success', kind: JOURNAL_SAVED_KIND })
           } : undefined}
           // fixing a section replaces its words in place ('' removes it) — the recording is
-          // the original, so no «korrigiert» mark and no new Verlauf line
-          onEditSection={!readOnly ? (sectionId, text) => journal.appendPatch(player.row.id, { transcriptSectionEdit: { id: sectionId, text } }) : undefined}
+          // the original, so no «korrigiert» mark and no new Verlauf line. Emptying one is a
+          // removal and says so, with the way back (duck sweep FEEDBACK.3): the section comes back
+          // as a fresh one at its old place. Verlauf patches are no ↶ step – the pill is the way back.
+          onEditSection={!readOnly ? (sectionId, text) => {
+            const rowId = player.row.id
+            const was = text.trim() === ''
+              ? journal.rows.find((r) => r.id === rowId)?.transcriptSections?.find((x) => x.id === sectionId)
+              : undefined
+            journal.appendPatch(rowId, { transcriptSectionEdit: { id: sectionId, text } })
+            if (was) undoToast(appConfig.copy.journal.sectionRemoved, () => journal.appendPatch(rowId, { transcriptSection: { at: was.at, text: was.text } }), undefined, { glyph: 'trash', kind: 'journal-patch' })
+          } : undefined}
           onPatchEntry={!readOnly ? (rowId, text) => journal.appendPatch(rowId, { textEdit: text }) : undefined}
           onRetractEntry={!readOnly ? (rowId) => {
             journal.appendPatch(rowId, { retracted: true })
-            toast(appConfig.copy.journal.entryRemoved, {
-              icon: 'trash', tone: 'default',
-              action: { label: appConfig.copy.undo, onClick: () => journal.appendPatch(rowId, { retracted: false }) },
-            })
+            undoToast(appConfig.copy.journal.entryRemoved, () => journal.appendPatch(rowId, { retracted: false }), undefined, { glyph: 'trash', kind: 'journal-patch' })
           } : undefined}
           onClose={() => setPlayer(null)}
         />

@@ -20,6 +20,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { DRAG_DEADZONE_PX } from './useHoldToDrag'
+import { useLayer } from './overlays/layer'
 import { beginTransformChrome, endTransformChrome } from './transformChrome'
 
 export type ArmMode = 'move' | 'rotate'
@@ -80,6 +81,10 @@ export function useArmedTransform({ enabled, surface, centreClient, onMove, onRo
   useEffect(() => {
     setArm((cur) => (cur && cur.key !== armKey ? null : cur))
   }, [armKey])
+  // Escape disarms the mode and nothing else (CONT.2, 17.11.2026): it joins the one Esc stack
+  // (lib/overlays/layer), so the key is taken before the surface's ladder can also drop the
+  // selection – the hose stays selected with its bar and its card
+  useLayer({ open: !!armed, onClose: () => setArm(null), inside: [], outside: false, back: false })
   /** the live turn, for the on-surface guide; null whenever no turn is in the hand */
   const [turn, setTurn] = useState<ArmedTurn | null>(null)
   const live = useRef<{
@@ -184,7 +189,6 @@ export function useArmedTransform({ enabled, surface, centreClient, onMove, onRo
     // pointerdown — stopping one says nothing about the other. Capturing them on the surface is
     // what actually keeps the map still under an armed drag; `onGrab` stays as the second lock.
     const native = (e: Event) => { if (!exempt(e.target)) e.stopPropagation() }
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setArm(null) }
     el.addEventListener('pointerdown', down, true)
     el.addEventListener('mousedown', native, true)
     el.addEventListener('touchstart', native, true)
@@ -192,7 +196,6 @@ export function useArmedTransform({ enabled, surface, centreClient, onMove, onRo
     window.addEventListener('pointermove', move, true)
     window.addEventListener('pointerup', up, true)
     window.addEventListener('pointercancel', up, true)
-    window.addEventListener('keydown', key)
     return () => {
       el.removeEventListener('pointerdown', down, true)
       el.removeEventListener('mousedown', native, true)
@@ -201,7 +204,6 @@ export function useArmedTransform({ enabled, surface, centreClient, onMove, onRo
       window.removeEventListener('pointermove', move, true)
       window.removeEventListener('pointerup', up, true)
       window.removeEventListener('pointercancel', up, true)
-      window.removeEventListener('keydown', key)
       close()
       setTurn(null) // the mode is over — `close` alone would re-seat the pivot for it
     }

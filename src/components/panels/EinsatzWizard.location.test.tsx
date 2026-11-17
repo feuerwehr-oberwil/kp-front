@@ -5,6 +5,7 @@ import { getIncident, geocodeSearch, patchIncident } from '../../lib/incidents'
 import { appConfig } from '../../config/appConfig'
 import { clearAllDrafts, keepDraft } from '../../lib/draftKeep'
 import type { GeoHit, IncidentMeta, IncidentFull, ObjectWithPlans } from '../../lib/incidents'
+import { fillTemplate } from '../../lib/format'
 
 // The location on the Einsatz form (owner picks 1A + round 2, 15.11.2026): every method rides the
 // address field, ONE list under it holds the typed objects and addresses, and the coordinate itself
@@ -68,6 +69,23 @@ describe('the one list under the address field', () => {
     fireEvent.focus(field())
     await Promise.resolve()
     expect(screen.queryByRole('button', { name: /Tramdepot/ })).toBeNull()
+  })
+})
+
+// Duck sweep LISTS.1, 17.11.2026: a failed lookup said «Keine Adresse gefunden»
+describe('the address search tells «failed» from «nothing found»', () => {
+  it('a failed lookup says so, and is not a no-hit line', async () => {
+    vi.mocked(geocodeSearch).mockRejectedValueOnce(new Error('502'))
+    render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
+    fireEvent.change(field(), { target: { value: 'Hauptstrasse' } })
+    expect(await screen.findByText(ix.addressFailed)).toBeTruthy()
+    expect(screen.queryByText(/Keine Treffer/)).toBeNull()
+  })
+  it('an answer with nothing in it is the shared no-hit line', async () => {
+    vi.mocked(geocodeSearch).mockResolvedValueOnce([])
+    render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
+    fireEvent.change(field(), { target: { value: 'Hauptstrasse' } })
+    expect(await screen.findByText(fillTemplate(appConfig.copy.noHits, { q: 'Hauptstrasse' }))).toBeTruthy()
   })
 })
 
@@ -137,6 +155,25 @@ describe('saving dispatch corrections', () => {
     fireEvent.click(screen.getByText(ix.save))
     expect(patchIncident).toHaveBeenCalledWith(edit.id, { address: DEPOT.address, lng: DEPOT.lng, lat: DEPOT.lat })
   })
+  it('restores a picked location beside the draft only while the page stays open', async () => {
+    const form = () => render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
+    const first = form()
+    fireEvent.change(field(), { target: { value: 'Tramdepot' } })
+    fireEvent.click(await screen.findByRole('button', { name: /Tramdepot/ }))
+    first.unmount()
+    const stored = sessionStorage.getItem('kp-draft:einsatz-wizard:new')
+    if (!stored) throw new Error('missing wizard text draft')
+    expect(JSON.parse(stored)).not.toHaveProperty('coord')
+    const reopened = form()
+    expect(warning()).toBeNull()
+    reopened.unmount()
+    // A reload restores the serialized text into a fresh page; the picked position has gone.
+    clearAllDrafts()
+    sessionStorage.setItem('kp-draft:einsatz-wizard:new', stored)
+    form()
+    expect((field() as HTMLInputElement).value).toBe(DEPOT.address)
+    expect(warning()).toBeTruthy()
+  })
   it('an older draft without coordinates does not clear a pin supplied by another device', async () => {
     keepDraft('einsatz-wizard:i1', { title: 'Draft title', address: BASE.address, kategorie: 'Brand', coord: null, isExercise: false })
     await open()
@@ -149,5 +186,33 @@ describe('saving dispatch corrections', () => {
     fireEvent.change(screen.getByDisplayValue('Initial alarm'), { target: { value: '' } })
     fireEvent.click(screen.getByText(ix.save))
     await waitFor(() => expect(patchIncident).toHaveBeenCalledWith(edit.id, { text: null }))
+  })
+})
+
+// toast diet, 17.11.2026: «Hier» without a position is said in the field's warning slot, not as a
+// toast over the open form – and it ends once anything else gives the form a coordinate
+describe('«Hier» finds no position', () => {
+  const failGeo = () => vi.stubGlobal('navigator', {
+    ...navigator,
+    geolocation: { getCurrentPosition: (_ok: unknown, fail: () => void) => fail() },
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('says «Standort nicht verfügbar» under the address field', () => {
+    failGeo()
+    render(<EinsatzWizard edit={meta({})} onClose={() => {}} onCreated={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: ix.hereButton }))
+    expect(screen.getByText(ix.hereFailed).closest('.form-warn')).toBeTruthy()
+    expect(document.querySelector('.toast')).toBeNull()
+  })
+
+  it('goes once an object gives the form a coordinate', async () => {
+    failGeo()
+    render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: ix.hereButton }))
+    expect(screen.getByText(ix.hereFailed)).toBeTruthy()
+    fireEvent.change(field(), { target: { value: 'Tramdepot' } })
+    fireEvent.click(await screen.findByRole('button', { name: /Tramdepot/ }))
+    expect(screen.queryByText(ix.hereFailed)).toBeNull()
   })
 })

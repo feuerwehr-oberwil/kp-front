@@ -8,7 +8,8 @@ type Keys =
   | 'sheetGrip' | 'edit' | 'primarySymbol' | 'done' | 'cancel' | 'exerciseBadge'
   | 'exerciseInitial' | 'keepPlacing' | 'delete' | 'remove' | 'undo' | 'redo' | 'undoNamed'
   | 'redoNamed' | 'undoLost' | 'removedToast' | 'undoDomains' | 'undoSurfaces' | 'undoTopDropped'
-  | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'noHits' | 'keepPlacingShort'
+  | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'noHits' | 'keepPlacingShort' | 'filterNoHits'
+  | 'filterStrip'
 
 export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   baseMap: 'Base map',
@@ -31,7 +32,8 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   undoNamed: 'Undo: {action}',
   redoNamed: 'Redo: {action}',
   undoLost: 'No longer undoable',
-  removedToast: { note: 'Note removed', freed: '{what}, {n} lines released', freedOne: '{what}, 1 line released', joinedTitle: '{what} has {n} lines', joinedTitleOne: '{what} has 1 line', joinedOnly: 'Symbol only', joinedOnlyGroup: 'Selection only', joinedWith: 'With lines', withLines: '{what} and {n} lines removed', withLine: '{what} and 1 line removed', group: 'Selection', groupN: '{n} objects', noteWhat: 'Note' },
+  removedToast: { note: 'Note removed', freed: '{what}, {n} lines released', freedOne: '{what}, 1 line released', joinedTitle: '{what} has {n} lines', joinedTitleOne: '{what} has 1 line', joinedOnly: 'Symbol only', joinedOnlyGroup: 'Selection only', joinedWith: 'With lines', withLines: '{what} and {n} lines removed', withLine: '{what} and 1 line removed', group: 'Selection', groupN: '{n} objects', noteWhat: 'Note',
+  },
   undoDomains: {
     reference: 'Link adjusted',
     blattform: 'Sheet shape measured',
@@ -59,4 +61,11 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   clearSearch: 'Clear search',
   noHits: 'No matches for «{q}».',
   keepPlacingShort: 'Several',
+  filterNoHits: 'No entries in this selection.',
+  filterStrip: {
+    filtered: 'Filtered:',
+    sorted: 'Sorted:',
+    count: '{n} of {m}',
+    showAll: 'Show all',
+  },
 }

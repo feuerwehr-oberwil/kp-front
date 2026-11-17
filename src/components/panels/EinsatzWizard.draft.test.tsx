@@ -42,6 +42,18 @@ describe('«Einsatz eröffnen» closed by an outside tap', () => {
     expect(adresse().value).toBe('Hauptstrasse 12')
   })
 
+  // owner call C2 (17.11.2026): a new Einsatz's draft survives a reload – as TEXT. The picked
+  // location never reaches the browser's storage (it may be the device's own position).
+  it('writes only what was typed to the browser storage – no location', () => {
+    const first = open()
+    fireEvent.change(stichwort(), { target: { value: 'Kellerbrand' } })
+    fireEvent.change(adresse(), { target: { value: 'Hauptstrasse 12' } })
+    first.unmount()
+    const stored = JSON.parse(sessionStorage.getItem('kp-draft:einsatz-wizard:new') ?? 'null') as Record<string, unknown>
+    expect(stored).toMatchObject({ title: 'Kellerbrand', address: 'Hauptstrasse 12' })
+    expect(Object.keys(stored)).not.toContain('coord')
+  })
+
   it('starts empty again after «Abbrechen»', () => {
     const first = open()
     fireEvent.change(stichwort(), { target: { value: 'Kellerbrand' } })

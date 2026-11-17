@@ -58,7 +58,6 @@ export const linksCopy = {
     checkedLabel: 'Zuletzt geprüft',
     chooseTitle: 'Mehrere Einsätze laufen',
     chooseHint: 'Wähle, welchen Einsatz diese Anzeige zeigen soll.',
-    exerciseTag: 'Übung',
     notEnrolledTitle: 'Dieses Gerät ist nicht als Stations-Terminal eingerichtet.',
     notEnrolledHint: 'In der Verwaltung unter «Links & Zugänge» den Einrichtungs-Link erzeugen und auf diesem Gerät öffnen.',
     asInvalidTitle: 'Dieser Atemschutz-Code gilt nicht mehr.',
@@ -103,7 +102,7 @@ export const linksCopy = {
     paused: 'Standort pausiert',
     pausedHint: 'Das Handy übermittelt nichts, solange die App im Hintergrund oder das Display gesperrt ist. App wieder öffnen, dann läuft es weiter.',
     denied: 'Standort gesperrt',
-    deniedHint: 'Die Standortfreigabe ist für diese Seite blockiert. Das lässt sich nur in den Browser-Einstellungen wieder erlauben.',
+    deniedHint: 'Die Standortfreigabe ist blockiert. Wieder erlauben unter {path}.',
     taken: 'Name bereits vergeben',
     takenHint: 'Ein anderes Gerät teilt unter diesem Namen. Wähle deinen Namen neu oder bitte die Einsatzleitung, den alten Standort zu entfernen.',
     failing: 'Standort kommt nicht an',
@@ -122,6 +121,7 @@ export const linksCopy = {
     // Einstellungen: the name row under «Standort verwenden» — the value is the button
     settingsName: 'Name auf der Karte',
     settingsNameSub: 'So sieht dich der Kommandoposten – tippen zum Ändern',
+    pillWord: 'Standort',
   },
   // Anwesenheit list: live position next to the name. Deliberately neutral – far away is the
   // normal case (Wassertransport), not a warning.
@@ -164,5 +164,6 @@ export const linksCopy = {
     startFailed: 'Präsentation nicht gestartet – erneut versuchen',
     endFailed: 'Präsentation nicht beendet – erneut versuchen',
     full: 'Präsentation voll – zu viele Teilnehmende über einen Link. Später nochmals «Folgen».',
+    leaveWord: 'Verlassen',
   },
 } as const

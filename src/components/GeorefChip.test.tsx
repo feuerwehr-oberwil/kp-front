@@ -29,6 +29,7 @@ import { Whiteboard } from './Whiteboard'
 import { PHONE_QUERY } from '../lib/useIsPhone'
 import { georefDispatch, georefSnapshot, registerGeorefPhoneTarget, resetGeorefMode } from '../lib/georefMode'
 import { GeorefModeBars } from './GeorefMode'
+import { appConfig } from '../config/appConfig'
 import { Overlays } from '../lib/ui'
 import { TILE_AR } from '../lib/whiteboard'
 
@@ -125,7 +126,7 @@ describe('the Plan sheet behind the Objekt chip', () => {
     expect(georefSnapshot().planId).toBe('modul2')
     // the row carries the instrument and nothing else — ONE indicator, where the finger already
     // was. The free-order sentence IS the instruction: no per-point prompt, no fixed order.
-    expect(screen.getByText(/Dieselbe Stelle auf Modul und Karte antippen/)).toBeTruthy()
+    expect(screen.getByText(/Dieselbe Stelle auf Plan und Karte antippen/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Objekt, Karte und Massstab/ })).toBeNull()
     // ⚠️ «Schliessen», NOT «Abbrechen». Points are saved as they are placed, so leaving the mode
     // discards nothing — the word that promised otherwise is the bug this pins (27.08.).
@@ -170,25 +171,73 @@ describe('the Plan sheet behind the Objekt chip', () => {
     expect(screen.queryByRole('button', { name: /kalibrieren/i })).toBeNull()
   })
 
-  // the hand calibration is a tap away in the sheet (and through Messen, as ever); calibrating,
-  // the row is the instrument and a tap on it stops
-  it('calibrates by hand from the sheet, the row carrying the instruction meanwhile', () => {
+  // the hand calibration is a tap away in the sheet (and through Messen, as ever). Calibrating is a
+  // mode of the Messen dock (M13 A, 17.11.2026): «Massstab» lit there, however it was entered, and
+  // nothing at the bottom – no armed pill, no instruction line; the row keeps its chips.
+  const dock = () => within(document.querySelector('.wb-dock') as HTMLElement)
+  const pressed = (name: string) => dock().getByRole('button', { name }).getAttribute('aria-pressed')
+  const calibrating = () => {
+    expect(pressed('Massstab')).toBe('true')
+    expect(pressed('Strecke')).toBe('false')
+    expect(pressed('Fläche')).toBe('false')
+    expect(document.querySelector('.armed-pill-row')).toBeNull()
+    expect(objectChip()).toBeTruthy()
+    // what to tap STANDS in the dock's card, step by step (rare-user r4) – so the dock draws no ⓘ,
+    // and no «Leeren» either: the phone's row fits 360px
+    expect(screen.getByRole('status').textContent).toBe(
+      '1. Ein Ende des Massstabs antippen\n2. Das andere Ende antippen\n3. Die reale Länge eingeben')
+    expect(dock().getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Strecke', 'Fläche', 'Massstab', 'Abbrechen'])
+  }
+
+  it('calibrates by hand from the sheet: the Messen dock with «Massstab» lit', () => {
     renderBoard()
     openSheet()
     expect(fact(/^Massstab: nicht kalibriert/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Massstab kalibrieren' }))
     expect(screen.queryByRole('group', { name: 'Plan · Modul 2' })).toBeNull()
-    const instrument = screen.getByRole('button', { name: 'Zwei Punkte des Massstabs antippen' })
-    fireEvent.click(instrument)
-    expect(screen.queryByRole('button', { name: 'Zwei Punkte des Massstabs antippen' })).toBeNull()
-    expect(objectChip()).toBeTruthy()
+    calibrating()
+    // «Abbrechen» stops it, and the dock and its card go with it
+    fireEvent.click(dock().getByRole('button', { name: 'Abbrechen' }))
+    expect(document.querySelector('.wb-dock')).toBeNull()
+    expect(screen.queryByRole('status')).toBeNull()
   })
 
-  it('keeps the hand calibration reachable through Messen too', () => {
+  it('offers no «Massstab» mode on a sheet whose scale comes from the link', () => {
+    store.pairs = TWO
     renderBoard()
     fireEvent.click(screen.getAllByRole('button', { name: 'Messen' })[0])
-    fireEvent.click(screen.getByRole('button', { name: 'Massstab kalibrieren' }))
-    expect(screen.getAllByText('Zwei Punkte des Massstabs antippen').length).toBeGreaterThan(0)
+    expect(dock().getByRole('button', { name: 'Strecke' })).toBeTruthy()
+    expect(dock().queryByRole('button', { name: 'Massstab' })).toBeNull()
+  })
+
+  // rare-user r4: Messen on a plan without a scale IS calibrating – «Strecke» and «Fläche» wait
+  it('lights «Massstab» by itself when Messen opens on a plan without a scale', () => {
+    renderBoard()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Messen' })[0])
+    calibrating()
+    expect(dock().getByRole('button', { name: 'Strecke' })).toHaveProperty('disabled', true)
+  })
+
+  it('opens Messen on «Strecke» with its ⓘ on a plan with a scale, and «Massstab» re-calibrates there', () => {
+    render(<>
+      <Whiteboard
+        plans={[modul]} activeId="modul2" annos={[]} onChange={() => {}} planScale={{ modul2: { mPerU: 2, refM: 20, ar: 1 / TILE_AR } }}
+        building={null} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
+        slimTools sym={sym} onRecent={() => {}} log={() => {}} hist={{}} setHist={() => {}} focus={null}
+      />
+      <Overlays />
+    </>)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Messen' })[0])
+    expect(pressed('Strecke')).toBe('true')
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(dock().getByRole('button', { name: appConfig.copy.whiteboard.dockHints.measure })).toBeTruthy()
+    fireEvent.click(dock().getByRole('button', { name: 'Massstab' }))
+    expect(pressed('Massstab')).toBe('true')
+    // …the card stands, the ⓘ is gone; «Strecke» goes back to measuring and takes the card along
+    expect(screen.getByRole('status')).toBeTruthy()
+    fireEvent.click(dock().getByRole('button', { name: 'Strecke' }))
+    expect(pressed('Strecke')).toBe('true')
+    expect(screen.queryByRole('status')).toBeNull()
   })
 
   // A locked session (el, Führungsansicht, viewer, replay) keeps the READING — tone and words —
@@ -244,13 +293,14 @@ describe('an idle georeference never intercepts the board', () => {
     expect(screen.getByText(/auseinander/)).toBeTruthy() // the baseline, not the two-pairs note
   })
 
-  it('returns to Passung when the transfer picker is cancelled', () => {
+  // a live sheet ends on its head ✕ (17.11.2026 – its «Abbrechen · Fertig» footer went)
+  it('returns to Passung when the transfer picker is closed', () => {
     store.pairs = TWO
     renderBoard()
     openSheet()
     fireEvent.click(screen.getByRole('button', { name: 'Kopieren' }))
-    expect(screen.getByRole('heading', { name: /Verknüpfung kopieren/ })).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }))
+    const picker = screen.getByRole('heading', { name: /Verknüpfung kopieren/ }).closest<HTMLElement>('[role="dialog"]')!
+    fireEvent.click(within(picker).getByRole('button', { name: 'Schliessen' }))
     expect(sheet()).toBeTruthy()
   })
 
@@ -373,6 +423,29 @@ describe('the phone can start a pair on either surface', () => {
       expect(screen.queryByRole('button', { name: 'Fertig' })).toBeNull()
       fireEvent.click(screen.getByRole('button', { name: 'Schliessen' }))
       expect(georefSnapshot().planId).toBeNull()
+    } finally {
+      window.matchMedia = previous
+    }
+  })
+
+  // toast diet, 17.11.2026: «+» with the cross off the surface says so on the dock, not as a toast
+  it('says «Fadenkreuz zuerst …» on the dock when «+» finds no target, and the next «+» clears it', () => {
+    const previous = window.matchMedia
+    window.matchMedia = ((q: string) => ({
+      matches: q === PHONE_QUERY, media: q, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+    const outside = appConfig.copy.whiteboard.georef.targetOutside
+    try {
+      act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: 1.5 }))
+      render(<GeorefModeBars planLabel="Modul 2" />)
+      fireEvent.click(screen.getByRole('button', { name: 'Punkt setzen' }))
+      expect(screen.getByText(outside).closest('[data-georef-controls]')).toBeTruthy()
+      expect(document.querySelector('.toast')).toBeNull()
+      const unregister = registerGeorefPhoneTarget('plan', () => ({ x: 0.45, y: 0.35 }))
+      fireEvent.click(screen.getByRole('button', { name: 'Punkt setzen' }))
+      expect(screen.queryByText(outside)).toBeNull()
+      unregister()
     } finally {
       window.matchMedia = previous
     }

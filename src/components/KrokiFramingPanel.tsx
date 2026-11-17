@@ -97,7 +97,7 @@ function tagNormal(coords: LngLat[]): [number, number] {
   return [nx, ny]
 }
 
-export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false, onAtChange, moments = [], startedAtMs = null, landscape = false, onLandscapeChange, trupps = [], captionMode = 'auto', onViewChange }: {
+export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false, atFailed = false, onAtChange, moments = [], startedAtMs = null, landscape = false, onLandscapeChange, trupps = [], captionMode = 'auto', onViewChange }: {
   scene: { entities: Entity[]; drawings: Drawing[]; layers: LayerDef[]; byName: Record<string, string>; center: LngLat }
   /** the crop this panel opens on — the last one chosen for this Einsatz, else auto-fit */
   initial: KrokiView | null
@@ -106,6 +106,8 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
    *  asks what the picture shows rather than behind a fold two levels away. */
   atMs?: number | null
   atBusy?: boolean
+  /** the Lage for `atMs` could not be rebuilt – the live picture prints; said under the Stand row */
+  atFailed?: boolean
   onAtChange?: (ms: number | null) => void
   /** epoch-ms of every moment something actually happened (lib/replay · activityMoments) —
    *  drawn as hairlines on the Stand track so dragging is aimed rather than blind */
@@ -726,6 +728,11 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
             <span className="kf-at-wait" aria-hidden="true">{atBusy && <ShellLoader />}</span>
             <b className="kf-at-val">{label}</b>
           </div>
+        )}
+        {onAtChange && atFailed && (
+          <p className="form-warn form-warn-amber form-warn-compact" role="status">
+            <Icon id="warn" /><span className="form-warn-text">{P.krokiAtFailed}</span>
+          </p>
         )}
         {/* «Folgt der Karte» joins the ± pair: all three answer «show me more / less / all
             of it», and the old action row they were split across is gone with the confirm. */}

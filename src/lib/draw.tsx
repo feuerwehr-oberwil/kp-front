@@ -1,4 +1,5 @@
 import { appConfig } from '../config/appConfig'
+import { lineStroke } from './drawNames'
 import { Segmented } from '../components/Segmented'
 
 // Single source of truth for line drawing style, shared by BOTH surfaces:
@@ -184,9 +185,8 @@ interface LineStylePickerProps {
  */
 export function LineStylePicker({ dashed, onChange, marker, onMarker }: LineStylePickerProps) {
   const c = appConfig.copy.drawingEditor
-  const CHAINS = ['▲', '▼', '◯'] as const
-  const chain = (CHAINS as readonly string[]).includes(marker ?? '') ? marker! : ''
-  const value = chain || (dashed ? 'dashed' : 'solid')
+  const value = lineStroke(dashed, marker)
+  const chain = value === 'solid' || value === 'dashed' ? '' : value
   const pick = (v: string) => {
     if (v === 'solid' || v === 'dashed') { onChange(v === 'dashed'); if (chain) onMarker?.('') }
     else { onMarker?.(v); if (dashed) onChange(false) }
@@ -195,7 +195,8 @@ export function LineStylePicker({ dashed, onChange, marker, onMarker }: LineStyl
   // picked stroke wears the same blue fill as the «Abschluss» right above it – it was a grey wash.
   // `scroll`: a track like the «Abschluss», not the ≥5 chip mode, which wrapped the fifth to a line of its own.
   // ⚠️ `explain`, like the Typ letters and the Abschluss glyphs: these five are pictures of a
-  // stroke, and «Haltelinie – Zähne oberhalb» is the only thing that says which one. Hold (touch)
+  // stroke, and «Haltelinie – Zähne zum Feuer, oben» is the only thing that says which one (the row
+  // label names the pick too since 17.11.2026, `lineStrokeName`). Hold (touch)
   // or hover (mouse) answers with it; no `title`, or the native tooltip repeats it a second later.
   // Both Haltelinien-Seiten are their own option rather than a flip on one: which side the teeth
   // face is an operational fact (they face the fire) and cannot be read off the geometry.

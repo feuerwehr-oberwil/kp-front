@@ -83,8 +83,11 @@ export function IconSprite() {
       <symbol id="sparkle" viewBox="0 0 24 24"><path d="M12 4l1.8 5.2L19 11l-5.2 1.8L12 18l-1.8-5.2L5 11l5.2-1.8z" /></symbol>
       <symbol id="skip-back-15" viewBox="0 0 24 24"><path d="M11 6 5 12l6 6M19 6l-6 6 6 6" /></symbol>
       <symbol id="skip-fwd-15" viewBox="0 0 24 24"><path d="M13 6l6 6-6 6M5 6l6 6-6 6" /></symbol>
-      {/* a funnel: the rank quick-filter, where a row of chips costs a phone a whole band */}
+      {/* a funnel: «show fewer» – a FILTER only, never an order (button sweep HEADS.1, 17.11.2026) */}
       <symbol id="filter" viewBox="0 0 24 24"><path d="M3.5 5h17l-6.5 7.5V20l-4-2.2v-5.3z" /></symbol>
+      {/* «Reihenfolge»: two opposed arrows ↑↓ – an ORDER (owner pick, button sweep HEADS.1,
+          17.11.2026). The Trupps sort wore the funnel, which read «Trupps are hidden». */}
+      <symbol id="sort" viewBox="0 0 24 24"><path d="M8 19.5V4.5M4 8.5l4-4 4 4M16 4.5v15M12 15.5l4 4 4-4" /></symbol>
       {/* «Trupp finden» (29.09.2026, sweep 3 T8): the Trupp tool's own flag inside a finder's
           reticle — «where is that Trupp». It wore the #search lens, which the Suche's tile wears
           60px below it on a phone: one glyph, two searches, and a gloved thumb picking the wrong
@@ -98,13 +101,18 @@ export function IconSprite() {
       {/* The drawer toggle (/admin on a phone, UI sweep 07.10.2026). It wore #layers, which is
           «Kartenebenen» one entry down the very drawer it opens. Three bars = «sections». */}
       <symbol id="menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /></symbol>
-      <symbol id="more-vert" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="19" r="1.7" fill="currentColor" stroke="none" /></symbol>
-      {/* …lying down: the last chip of the phone card's fact strip (26.09.2026, phone card
-          slim-down) — a horizontal ⋯ reads as «more of this row», the vertical one as a head's menu */}
+      {/* «more»: ONE glyph for every «more of this» menu – the phone card's fact strip, a surface
+          head, the admin's row menus (button sweep HEADS.12, 17.11.2026: the admin wore a vertical ⋮) */}
       <symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.7" fill="currentColor" stroke="none" /></symbol>
       <symbol id="compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 4.5 14.5 13 12 11 9.5 13z" fill="var(--red)" stroke="none" /><path d="M12 13v6" stroke-opacity=".4" /></symbol>
       <symbol id="undo" viewBox="0 0 24 24"><path d="M9 7 4 12l5 5" /><path d="M4 12h11a5 5 0 0 1 0 10h-2" /></symbol>
       <symbol id="redo" viewBox="0 0 24 24"><path d="M15 7l5 5-5 5" /><path d="M20 12H9a5 5 0 0 0 0 10h2" /></symbol>
+      {/* ↶ ↷ mean undo / redo ONLY (button sweep audit, owner pick 24b, 17.11.2026): the Trupp's
+          «Rückzug» and «Fortsetzen» wore them on the same screen as the head's history pair. Their
+          own pair is the way the Trupp MOVES – back out «‹‹», on again «››» – never the door of
+          «Raus» (#logout). */}
+      <symbol id="rueckzug" viewBox="0 0 24 24"><path d="M12 6.5 6.5 12l5.5 5.5" /><path d="M18.5 6.5 13 12l5.5 5.5" /></symbol>
+      <symbol id="fortsetzen" viewBox="0 0 24 24"><path d="M12 6.5l5.5 5.5-5.5 5.5" /><path d="M5.5 6.5 11 12l-5.5 5.5" /></symbol>
       <symbol id="plus-bold" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16" stroke-width="2.6" /></symbol>
       <symbol id="select" viewBox="0 0 24 24"><path d="M6 3.5 6 20 10.2 15.8 13 21 15.2 20 12.4 14.6 18.5 14.5z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" /></symbol>
       <symbol id="history" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></symbol>
@@ -209,6 +217,8 @@ export function IconSprite() {
       <symbol id="grenze-down" viewBox="0 0 24 24"><path d="M4.5 19.5h15" /></symbol>
       <symbol id="move" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" /></symbol>
       <symbol id="measure" viewBox="0 0 24 24"><path d="M3 14.5 14.5 3 21 9.5 9.5 21z" /><path d="M7 10.5l2 2M10.5 7l2.5 2.5M14 3.5l2 2" /></symbol>
+      {/* a printed scale bar, end ticks and two divisions – the Messen dock's «Massstab» (M13 A) */}
+      <symbol id="scalebar" viewBox="0 0 24 24"><path d="M3 8v8M21 8v8M3 12h18M9 10.5v3M15 10.5v3" /></symbol>
       <symbol id="polygon" viewBox="0 0 24 24"><path d="M12 3.5 20 9 17 19.5 7 19.5 4 9z" /><circle cx="12" cy="3.5" r="1.5" fill="currentColor" stroke="none" /><circle cx="20" cy="9" r="1.5" fill="currentColor" stroke="none" /><circle cx="17" cy="19.5" r="1.5" fill="currentColor" stroke="none" /><circle cx="7" cy="19.5" r="1.5" fill="currentColor" stroke="none" /><circle cx="4" cy="9" r="1.5" fill="currentColor" stroke="none" /></symbol>
       <symbol id="logout" viewBox="0 0 24 24"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" /><path d="M9 12h11M16 8l4 4-4 4" /></symbol>
       <symbol id="swap" viewBox="0 0 24 24"><path d="M4 9h13l-3-3M20 15H7l3 3" /></symbol>
@@ -251,7 +261,7 @@ export function IconSprite() {
       <symbol id="wx-storm" viewBox="-1 -2 26 26"><path d="M7 14a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 14z" /><path d="M12 14l-2.5 4h3l-2 3.5" /></symbol>
       {/* leaving the app: the station's own forms on the Rapport (Formulare & Links) */}
       <symbol id="external" viewBox="0 0 24 24"><path d="M18 13.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5.5" /><path d="M14.5 3H21v6.5M21 3l-9.5 9.5" /></symbol>
-      {/* «Überwachung abgeben» / «Weitergeben»: the QR itself is the handover gesture in an
+      {/* «Trupps teilen» / «Weitergeben»: the QR itself is the handover gesture in an
           Einsatz — a tablet held out, not an address dictated. Three finder squares and a
           fragment of data, which is what a QR reads as at 18px. */}
       {/* Präsentationsmodus (05.11.2026): «Präsentieren» is a screen on its stand (also the

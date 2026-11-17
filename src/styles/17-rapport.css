@@ -261,7 +261,7 @@
    26px off «+» and read as detached. Now the box starts at «+»'s edge (the stepper's 8px gap taken
    back) and the glyph leans on its left side, 8px in (4px padding + the icon's own 4px), on every
    width. The box stays the full 44px target (36 on the laptop, below). Frameless and dim as before, so it does not read as
-   a fourth key; a hover turns the glyph red without the tile plate, which would stand off-centre
+   a fourth key; a hover inks the glyph (grey, never red: ✕ clears) without the tile plate, which would stand off-centre
    round a glyph that no longer sits in its middle. */
 .rz-count .step-clear { margin-left: calc(-1 * var(--sp-2)); justify-items: start; padding-left: var(--sp-1); }
 @media (hover: hover) { .rz-count .step-clear:hover:not(:disabled) { background: transparent; } }
@@ -558,7 +558,7 @@
 }
 .report-att-thumb:active { background-image: linear-gradient(var(--press), var(--press)); }
 .report-att-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.report-att-pending { font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--amber-strong); }
+.report-att-body > .jr-media-state { align-self: flex-start; }
 .report-att-x { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap); padding: 0; cursor: pointer;
   border: none; border-radius: var(--r-sm); background: transparent; color: var(--ink-faint); }
 @media (hover: hover) {

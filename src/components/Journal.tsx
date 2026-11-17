@@ -2,8 +2,11 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type React
 import type { PlanDocument, TimelineEvent } from '../types'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { Icon } from '../lib/icons'
+import { useIsPhone } from '../lib/useIsPhone'
 import { SearchField } from './SearchField'
-import { InfoToggle } from './InfoToggle'
+import { FilterStrip } from './FilterStrip'
+import c from './SurfaceControls.module.css'
+import { cx } from '../lib/cx'
 import { EmptyState } from './EmptyState'
 import { Button } from './Button'
 import { Disc, JournalRow, type AudioWindow, type RingState } from './JournalRow'
@@ -17,6 +20,8 @@ import { journalDisc, withoutAreaPrefix } from '../lib/report'
 import { journalQuery, matchesJournalQuery } from '../lib/journalSearch'
 import { journalCategories, journalFacets, matchesJournalCategories, showsPinnedPendenzen, type JournalCategoryKind } from '../lib/journalFilter'
 import { openReRaises, type OpenReminder } from '../lib/reminders'
+import { pinnedWithTicked, type TickedHere } from '../lib/pinnedPendenzen'
+import { TickBox, TickRow } from './TickRow'
 import { cardinalIndex, fmtDistance, takenClock, type PhotoPlacement } from '../lib/photoGeo'
 
 /** HH:MM of an ISO instant — the Pendenzen block's time column and its Meldung lines. */
@@ -29,14 +34,6 @@ function rowClock(iso: string): string {
  *  crossed midnight raised half its Pendenzen «yesterday», and a bare «23:43» above «00:40»
  *  read as the newer one (staging review 06.11.2026, S5). */
 const rowDay = (iso: string, nowMs: number) => otherDay(new Date(iso), new Date(nowMs))
-
-/** «vor 54 min» / «vor 3 h» — the other half of the time column, one tap away. */
-function ageLabel(iso: string, nowMs: number, C: typeof appConfig.copy.journal): string {
-  const t = Date.parse(iso)
-  if (!Number.isFinite(t)) return '–'
-  const mins = Math.max(0, Math.round((nowMs - t) / 60_000))
-  return mins < 90 ? C.ageLabel.replace('{n}', String(mins)) : C.ageLabelHours.replace('{n}', String(Math.round(mins / 60)))
-}
 
 // One <audio> for the whole drawer: play toggles, a second tap pauses, and the row that
 // is sounding shows a pause icon + a "playing" pulse so it's obvious what's playing.
@@ -60,33 +57,23 @@ function useAudioPlayer() {
 /** Rows the log mounts at first, and how many more each scroll to the tail reveals. */
 const PAGE_ROWS = 150
 
-/** The Verlauf's icon legend, opened from the drawer head. Read at call time so the resolved
- *  locale applies. Deliberately NOT exhaustive: it names the Bereiche a reader meets, not every
- *  glyph the app can stamp on a row — a complete table would be a page, and the question it
- *  answers is «what is that circle beside the sentence». */
-function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'plan'; tone?: ArtTone; ring?: RingState }[] {
+/** The key at the end of the «Art» menu: what the Pendenz ring on a row says. The one thing the
+ *  menu's own rows cannot tell – each Art and Bereich already wears its disc beside its word – so
+ *  it is all that is left of the ⓘ «Legende» the head carried until the button round (owner pick
+ *  25 B, 17.11.2026). Read at call time so the resolved locale applies. */
+function ringKey(): { ring: RingState; label: string }[] {
   const C = appConfig.copy.journal
-  const R = appConfig.copy.report
   return [
-    { icon: 'circle', surface: 'map', label: C.surfaceMap },
-    { icon: 'flag', surface: 'plan', label: C.surfacePlan },
-    { icon: 'people', label: R.areaAnwesenheit },
-    { icon: 'gauge', label: R.areaAtemschutz },
-    { icon: 'box', label: R.areaMittel },
-    { icon: 'clipboard', label: R.areaRapport },
-    { icon: 'check', label: R.areaChecklist },
-    { icon: 'type', label: C.entryTypes.info },
-    { ...ART_DISC.auftrag, label: C.entryTypes.auftrag },
-    { ...ART_DISC.sofort, label: C.entryTypes.sofort },
     { ring: 'open', label: C.legendPendenzOpen },
     { ring: 'urgent', label: C.legendPendenzUrgent },
+    { ring: 'overdue', label: C.legendPendenzOverdue },
     { ring: 'done', label: C.legendPendenzDone },
   ]
 }
 
-/** The disc a filter row wears — the legend's disc for the same Bereich, so the menu reads as the
- *  legend with ticks. Auftrag and Sofortmassnahme wear their Art's disc, as their rows do
- *  (lib/verlauf · ART_DISC); «Info» keeps the composer's «T». */
+/** The disc a filter row wears — the disc its rows wear, so the menu is also the key to them.
+ *  Auftrag and Sofortmassnahme wear their Art's disc, as their rows do (lib/verlauf · ART_DISC);
+ *  «Info» keeps the composer's «T». */
 const FILTER_DISC: Record<JournalCategoryKind, { icon?: string; surface?: 'map' | 'plan'; tone?: ArtTone; ring?: RingState }> = {
   manual: { icon: 'type' }, auftrag: ART_DISC.auftrag, sofort: ART_DISC.sofort, pendenz: { ring: 'open' },
   map: { icon: 'circle', surface: 'map' }, plan: { icon: 'flag', surface: 'plan' },
@@ -115,8 +102,9 @@ export type JournalProps = {
   /** still-open reminders (by derived state) — lets a `created` row show its due time
    *  and a checklist-style done toggle. Absent ⇒ reminder rows render as plain log lines. */
   openReminders?: OpenReminder[]
-  /** mark a reminder done preemptively from its Verlauf row (appends a done event). */
-  onReminderDone?: (r: OpenReminder) => void
+  /** tick a Pendenz off (`done`) or take the tick back (`!done`) from the Verlauf – its row or
+   *  the pinned block; each appends a row (useReminders · setDone). Absent ⇒ read-out boxes. */
+  onReminderTick?: (r: Pick<OpenReminder, 'id' | 'text' | 'dueAt'>, done: boolean) => void
   /** write a Meldung on an open item — opens the ordinary composer pre-linked to it. */
   onReminderNote?: (r: OpenReminder) => void
   /** «wieder in …»: re-raise a CLOSED item as a fresh timed Wiedervorlage (new id, same
@@ -146,6 +134,8 @@ export type JournalProps = {
   /** «von der Tafel» on a Pendenz typed on the Tafel's «Aufträge / Pendenzen» page: open that
    *  page. Absent ⇒ the mark is a plain word (a link session has no Tafel pages) */
   onOpenTafel?: () => void
+  /** the bold «Trupp N» in a row: open that Trupp's card (ENT.2). Absent ⇒ the mark stays a word */
+  onShowTrupp?: (truppId: string) => void
   /**
    * The replay playhead. Set ⇒ this Verlauf is being read alongside a Wiedergabe: rows after
    * this instant are the FUTURE and render dimmed, and the row the playhead stands in is marked.
@@ -165,7 +155,7 @@ export type JournalProps = {
 // happens on either surface. Rendered as a slide-over so it can open over the
 // map or the plan; a row jumps back to wherever its event happened. Each row is
 // a <JournalRow>; the row's detail sheet is rendered here, at the bottom.
-export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderDone, onReminderNote, onReminderAgain, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice, photoPlacement, onPhotoPlace, onPhotoShow, onOpenTafel }: JournalProps) {
+export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice, photoPlacement, onPhotoPlace, onPhotoShow, onOpenTafel, onShowTrupp }: JournalProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.journal
   const audio = useAudioPlayer()
@@ -186,24 +176,23 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
     events.filter((e) => e.reminder?.op === 'created').map((e) => [e.reminder!.id, e.id] as const),
   ), [events])
   const [now] = useState(() => Date.now())
-  // Whether the Pendenzen box's time column shows the clock or the age. Per-opening (the drawer
-  // remounts on each open) — a reading preference for the minute you are in, not a setting.
+  // Pendenzen ticked off in the pinned block during THIS opening: they stay in it, ticked, until
+  // the drawer closes, so a mis-tap is taken back where it happened (lib/pinnedPendenzen).
   // ⚠️ EVERY open item is rendered, and nothing measures whether they fit any more. The box is a
   // scroll container of its own (see `.jr-pinned`), so the eleventh item is reached by the same
   // flick as the second. The cap-and-«Aufklappen» pair this replaces existed only because the
   // block used to be sticky INSIDE the log, where it could not scroll itself.
-  const [showAge, setShowAge] = useState(false)
-  // the icon legend. Per-opening like `showAge`, and closed to begin with — see the button.
-  const [showLegend, setShowLegend] = useState(false)
-  // ── the search (mock verlauf-02, 14.09.) ──
-  // `null` = closed; a string (even '') = the field has REPLACED the head row. Per-opening like
-  // the legend: the drawer remounts on each open, so closing it is what resets the search.
-  // Escape closes ONE thing, innermost first (Overlay · onEscape, 26.09.2026): an open search or
-  // inline editor, and only then the drawer. It used to be `dismissEscape={false}` — the drawer
+  const [tickedHere, setTickedHere] = useState<ReadonlyMap<string, TickedHere>>(() => new Map())
+  // ── the search ──
+  // ALWAYS in view, in the list row under the head (owner pick 25 B, 17.11.2026 – a lens in the
+  // head opened it until then). Per-opening: the drawer remounts on each open, so closing it is
+  // what resets the query. `searching` = a query is typed (lib/journalSearch: words, not blanks).
+  // Escape closes ONE thing, innermost first (Overlay · onEscape, 26.09.2026): a typed query or
+  // an inline editor, and only then the drawer. It used to be `dismissEscape={false}` — the drawer
   // owned the key and never closed on it, so on a tablet Esc did nothing at all.
-  const [search, setSearch] = useState<string | null>(null)
-  const query = useMemo(() => (search == null ? null : journalQuery(search)), [search])
-  const searching = search != null
+  const [search, setSearch] = useState('')
+  const query = useMemo(() => journalQuery(search), [search])
+  const searching = query != null
   // ── the filter (feat 37 · option B, 23.09.2026) ──
   // The ticked categories (lib/journalFilter): empty = «alle». Per-opening like the search it
   // combines with — the drawer remounts on each open, so closing it resets both. Never stored,
@@ -303,6 +292,9 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
     return m
   }, [groups])
   const totalRows = rowIndex.size
+  // what the head counts: the rows the list can show – a run of repeats folds into one row, so it
+  // counts once (duck sweep LISTS.12; it counted `events.length`, and head and scroll disagreed)
+  const shownTotal = events.length - repeats.hidden.size
   const shown = useMemo(() => {
     let left = visibleCount
     const out: typeof groups = []
@@ -409,6 +401,19 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
       return (
         <a key={pi} className="jr-link jr-link-url" href={p.href}
           target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>{p.text}</a>
+      )
+    }
+    // a Trupp's mark is the door to its card (ENT.2) – like the address, it must not ALSO do
+    // what the row under it does
+    const truppId = p.truppId
+    if (truppId && onShowTrupp) {
+      return (
+        <button type="button" key={pi} className={`jr-link jr-link-${p.kind} jr-link-go${p.role ? ' jr-link-unit' : ''}`}
+          title={p.hint} data-trupp={truppId}
+          onClick={(e) => { e.stopPropagation(); onShowTrupp(truppId) }}>
+          {p.text}
+          {p.role && <i className="jr-link-role"> ({p.role})</i>}
+        </button>
       )
     }
     // a name with its role is ONE unit on the line (`.jr-link-unit`, 10-journal.css): «(AS)»
@@ -543,7 +548,19 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
   // screen and the list on paper start disagreeing about what is most urgent.
   // …and HIDDEN while a filter is on that does not tick «Pendenz» (lib/journalFilter ·
   // showsPinnedPendenzen): the box is part of what the ticks narrow.
-  const pinnedReminders = showsPinnedPendenzen(filterSel) ? openReminders ?? [] : []
+  const pinnedOpen = showsPinnedPendenzen(filterSel) ? openReminders ?? [] : []
+  const pinnedReminders = pinnedOpen.length || tickedHere.size ? pinnedWithTicked(pinnedOpen, showsPinnedPendenzen(filterSel) ? tickedHere : new Map()) : pinnedOpen
+  /** the pinned box's tick: off (and the row stays, ticked) or back on */
+  const tickPinned = (r: OpenReminder, i: number, done: boolean) => {
+    if (!onReminderTick) return
+    onReminderTick(r, done)
+    setTickedHere((m) => {
+      const next = new Map(m)
+      if (done) next.set(r.id, { r, after: i > 0 ? pinnedReminders[i - 1].id : null })
+      else next.delete(r.id)
+      return next
+    })
+  }
   // How many Pendenzen lie wholly or partly below the box's fold — its foot cue «3 weitere ⌄»
   // (`.jr-pinned[data-more]`, lib/verlauf · pendenzenBelow; 0 = at the end, no strip). iOS hides
   // an idle scrollbar, so without it a box cut between two rows reads as complete. A callback ref, because the box mounts inside the Overlay's portal
@@ -594,10 +611,13 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
     return () => { el.removeEventListener('scroll', read); cancelAnimationFrame(frame); ro?.disconnect(); mo?.disconnect() }
   }, [])
 
-  /** The funnel's menu: «Art des Eintrags», then «Bereich», each row a checkbox with the row's
-   *  own disc and its count, and «Alle zeigen» last. Checkboxes keep the menu open (lib/overlays ·
-   *  Menu), because a selection is several ticks in a row; «Alle zeigen» is an action and closes
-   *  it — you asked to see everything, and the menu is in the way of seeing it. */
+  /** The funnel's menu: «Alle» first and TICKED while nothing is filtered (button sweep HEADS.7,
+   *  17.11.2026 – every filter menu reads «nothing filtered» the one way: the Anwesenheit's), with
+   *  the total beside it; then «Art des Eintrags» and «Bereich», each row a checkbox with the row's
+   *  own disc and its count. Checkboxes keep the menu open (lib/overlays · Menu), because a
+   *  selection is several ticks in a row. (Until then every box stood EMPTY while nothing was
+   *  filtered, and «Alle zeigen» was an action row at the bottom – the opposite reading.)
+   *  It ENDS on the ring key (`ringKey`, pick 25 B): lines that say, never rows that tick. */
   const filterItems = () => {
     const toggle = (key: string) => (on: boolean) => { holdHeight(); setFilterSel((sel) => {
       const next = new Set(sel)
@@ -625,19 +645,24 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
       ]
     }
     return [
-      ...group('art', C.filterArt),
-      ...group('bereich', C.filterArea),
-      { kind: 'sep' as const },
       {
+        kind: 'check' as const,
+        checked: !filtering,
+        onChange: () => setFilterSel(new Set()),
         label: (
-          <span className="jr-filter-row jr-filter-reset">
+          <span className="jr-filter-row">
             <span className="jr-filter-label">{C.filterAll}</span>
             <b className="jr-filter-count">{facetTotal}</b>
           </span>
         ),
-        disabled: !filtering,
-        onClick: () => setFilterSel(new Set()),
       },
+      ...group('art', C.filterArt),
+      ...group('bereich', C.filterArea),
+      { kind: 'head' as const, label: C.filterRingHead },
+      ...ringKey().map((k) => ({
+        kind: 'note' as const,
+        label: <><Disc ring={k.ring} /><span className="jr-filter-label">{k.label}</span></>,
+      })),
     ]
   }
 
@@ -646,160 +671,146 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
    *  its layer in this same keydown — this still reads the render's state, so it answers «consumed»
    *  and the drawer stays. */
   const escapeInner = (): boolean => {
-    if (editTx) { setEditTx(null); return true }
-    if (editRow) { setEditRow(null); return true }
-    if (search != null) { setSearch(null); return true }
+    // Esc never throws typed text away (owner, 17.11.2026 – duck sweep GESTURES.11 + call 7): the
+    // first Esc only leaves the correction's field (JournalRow), this one closes the correction –
+    // SAVING it when it was changed, as any close saves a Speichern sheet. «Abbrechen» is the one
+    // discard.
+    const was = (id: string) => events.find((x) => x.id === id)
+    if (editTx) { if (editTx.value !== (was(editTx.id)?.transcript ?? '')) saveTranscript(); else setEditTx(null); return true }
+    if (editRow) { if (editRow.value.trim() !== (was(editRow.id)?.text ?? '').trim()) saveRowText(); else setEditRow(null); return true }
+    if (search) { setSearch(''); return true }
     return false
   }
 
+  /* WHEN the Einsatz has substance, as one strip. A long Verlauf is a wall of rows in
+     which «was war um halb zehn» means scrolling and reading — the strip answers it by
+     position instead, and a tap on it lands on the nearest row. Ticks are not targets
+     (the strip takes the tap as a whole), so nothing here needs a gloved-finger hit box.
+     ⚠️ NOT while searching or filtering: its ticks and its jump are positioned over the FULL
+     list, and above a narrowed one they would point at rows that are not there. */
+  const phone = useIsPhone()
+  const strip = stripSpan && !searching && !filtering && (
+    <div
+      className="jr-strip" role="slider" tabIndex={0} ref={measureStrip}
+      aria-label={C.stripLabel}
+      aria-valuemin={0} aria-valuemax={100} aria-valuenow={0}
+      onPointerDown={(ev) => {
+        // …against the TRACK, not the strip: the ticks are inset by STRIP_INSET, so a tap
+        // on the strip's rounded end has to land on the first tick and not somewhere
+        // before it. Same inset on both, from the one constant.
+        const box = ev.currentTarget.getBoundingClientRect()
+        const span = Math.max(1, box.width - STRIP_INSET * 2)
+        const frac = Math.min(1, Math.max(0, (ev.clientX - box.left - STRIP_INSET) / span))
+        jumpTo(stripSpan.from + frac * (stripSpan.to - stripSpan.from))
+      }}
+      onKeyDown={(ev) => {
+        const step = (stripSpan.to - stripSpan.from) / 20
+        if (ev.key === 'ArrowRight') { ev.preventDefault(); jumpTo(stripSpan.from + step * ++strideRef.current) }
+        if (ev.key === 'ArrowLeft') { ev.preventDefault(); jumpTo(stripSpan.from + step * --strideRef.current) }
+      }}
+    >
+      {/* the ticks live on an INSET track (lib/verlauf · STRIP_INSET). Positioned against the
+          strip itself, the first and last moment sat on its rounded ends – half-swallowed by
+          the corner radius – and a clock on either could not centre on its mark. */}
+      {/* …and on it, as one ruler: the rows' events band (stripRuns) above a spine, the
+          divisions hanging under it, the round times as the tall marks standing on it, every
+          round time labelled and centred, and the
+          first and last moment's clocks at the ends where they keep clear of one of those
+          (stripScale – the stamp gives way, never an hour). Where the END stamp gave
+          way, a short ink tick caps the right end: the latest moment, the «now» of the strip. */}
+      <div className="jr-strip-track" style={{ insetInline: STRIP_INSET }} aria-hidden>
+        {band?.runs.map((r) => <i key={r.from} className="jr-strip-run" style={{ left: `${r.from * 100}%`, width: `${(r.to - r.from) * 100}%` }} />)}
+        {band?.busy.map((r) => <i key={r.from} className="jr-strip-run jr-strip-busy" style={{ left: `${r.from * 100}%`, width: `${(r.to - r.from) * 100}%` }} />)}
+        {scale?.minor.map((m) => <b key={m.frac} className={m.mid ? 'jr-strip-div jr-strip-mid' : 'jr-strip-div'} style={{ left: `${m.frac * 100}%` }} />)}
+        {scale?.marks.map((m) => (
+          <Fragment key={m.frac}>
+            <b className="jr-strip-major" style={{ left: `${m.frac * 100}%` }} />
+            {m.label && <span className="jr-strip-lbl" style={{ left: `${m.frac * 100}%` }}>{m.label}</span>}
+          </Fragment>
+        ))}
+        {scale?.start && <span className="jr-strip-lbl jr-strip-end" style={{ left: 0 }}>{scale.start}</span>}
+        {scale?.end
+          ? <span className="jr-strip-lbl jr-strip-end" style={{ left: '100%' }}>{scale.end}</span>
+          : scale && <b className="jr-strip-now" style={{ left: '100%' }} />}
+      </div>
+    </div>
+  )
+
   return (
     <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} onEscape={escapeInner} grab popupRef={setDrawerEl} style={heldStyle}>
-        {/* ── the head STAYS while searching (22.09.2026) ──
-            The field used to take the head's place – title · ⓘ · Replay · ✕ gone, a bare search
-            box at the top – and with it went the answer to «where am I»: the drawer no longer said
-            it was the Verlauf. The head is constant now; the field sits BELOW it, in the row the
-            timeline strip vacates (the strip is hidden while searching anyway), with its own ✕.
-            The lens in the head is lit while the field is open and closes it on a second tap. */}
+        {/* ── the head: the title with its count, ✕ – and nothing else, on every device (owner pick 25 B
+            and 30, 17.11.2026: ▶ «Wiedergabe» stands at the ruler's left end everywhere) ──
+            It carried ⓘ «Legende» · «Suchen» · «Art» · «Wiedergabe» + ✕ until then, and the title
+            paid: «V…» in the tablet drawer, «Verlauf ·…» on a phone. The search and the filter moved
+            to the list row below it, the legend into the filter menu. Never cut the title again. */}
         <div className="journal-head">
           {/* the title and its count as two pieces (hill climb r6): the count is a caption beside
               the name, not part of it — so «Verlauf» leads and «· 322» steps back (10-journal.css) */}
-          <span className="journal-title"><Icon id="verlauf" /><span className="journal-title-txt">{C.title}</span>{' '}<span className="journal-count">· {events.length}</span></span>
-          {/* ⚠️ ON A TAP, never by itself. The disc carries the Bereich now, and a glyph has to be
-              learned — but a panel that opens on its own, or one the app remembers having opened,
-              is a thing to dismiss on the way to the record. This one is a question somebody asks
-              once. No hover either: the primary device has none. */}
-          <InfoToggle open={showLegend} onToggle={() => setShowLegend((v) => !v)} label={C.legend} />
-          {/* the lens: same chip as the ⓘ, and it closes the legend on its way in – the legend
-              explains discs the search is about to hide most of */}
-          <button
-            type="button" className={`journal-legend-btn${searching ? ' on' : ''}`}
-            title={searching ? C.searchClose : C.search} aria-label={searching ? C.searchClose : C.search} aria-pressed={searching}
-            onClick={() => { if (searching) { setSearch(null); return } holdHeight(); setShowLegend(false); setSearch('') }}
-          ><Icon id="search" /></button>
-          {/* the funnel (feat 37 · B): an active filter is the blue CHOICE fill and nothing else
-              (29.09.2026 — it was the ink «where you are» pill plus a dot), like the Anwesenheit's
-              filter buttons — WHAT is ticked is in its name, in the menu and in the strip below,
-              never printed on the button, whose width then never changes under the finger. */}
-          {/* ⚠️ Standing whenever there is a row, even while every row is in one category: a head
-              whose buttons come and go with the content is a head that has to be re-read. */}
-          {events.length > 0 && (
+          <span className="journal-title"><Icon id="verlauf" /><span className="journal-title-txt">{C.title}</span>{' '}<span className="journal-count">· {shownTotal}</span></span>
+          <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
+        </div>
+        {deliveryNotice}
+        {/* ── the list row every list has (SurfaceControls: Anwesenheit, Mittel) ──
+            The search takes the slack and is ALWAYS there – no lens to open it first – then the «Art»
+            filter tile, worded beside its glyph on a tablet, under it on a phone (`.word`). Only
+            when there is a row to find: an empty Verlauf says how to fill it, not how to search it.
+            The live count rides in the field's count slot once there is a query; Esc in the field
+            empties it, and only an empty field lets Esc through to close the drawer. */}
+        {events.length > 0 && (
+          <div className="journal-search-row">
+            <SearchField
+              className="journal-search" value={search} onChange={(v) => { holdHeight(); setSearch(v) }}
+              inputMode="search" maxLength={80}
+              placeholder={C.searchPlaceholder} aria-label={C.search}
+              onKeyDown={(ev) => { if (ev.key === 'Escape' && search) { ev.preventDefault(); ev.stopPropagation(); setSearch('') } }}
+              count={query ? fillTemplate(C.searchCount, { n: totalRows, m: shownTotal }) : undefined}
+            />
+            {/* the funnel (feat 37 · B): an active filter is the blue CHOICE fill and nothing else
+                (29.09.2026), like the Anwesenheit's filter tile — WHAT is ticked is in the menu and
+                in the strip below, never printed on the tile, whose width then never changes under
+                the finger. Its word is the FACET, «Art» (HEADS.6); OPEN is THE open look
+                (`data-popup-open`, SurfaceControls). Standing whenever there is a row, even while
+                every row is in one category: a row whose buttons come and go has to be re-read. */}
             <Menu
               trigger={
                 <button
-                  type="button" className={`journal-legend-btn${filtering ? ' jr-filter-on' : ''}`}
+                  type="button" className={cx(c.iconBtn, filtering && c.iconBtnOn)}
                   title={filtering ? `${C.filter} – ${filterOn}` : C.filter}
                   aria-label={filtering ? `${C.filter} – ${filterOn}` : C.filter}
-                ><Icon id="filter" /></button>
+                ><Icon id="filter" /><span className={c.word} aria-hidden="true">{C.filterWord}</span></button>
               }
-              align="start"
+              align="end"
               popupClassName="jr-filter-menu"
               itemClassName={() => 'jr-filter-item'}
               items={filterItems()}
             />
-          )}
-          {/* ⚠️ `aria-label`, because the word inside it is hidden on a phone (10-journal.css) —
-              the head is one item wider since the legend button joined it, and this is the label
-              that can most afford to go. */}
-          {/* THE button's framed secondary (hill climb, 04.11.2026): it was the filled primary, and
-              playing back history out-shouted the title and the open Pendenzen below it. */}
-          {onReplay && (
-            <Button className="journal-replay" onClick={onReplay} title={C.replayHint} aria-label={C.replay} icon={<Icon id="play-circle" />}>
-              <span>{C.replay}</span>
-            </Button>
-          )}
-          <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
-        </div>
-        {deliveryNotice}
-        {searching && (
-          <div className="journal-search-row">
-            {/* the live count rides in the field's count slot, only once there is a query. ONE ✕
-                (`noClear`, 29.09.2026, owner): the row's close beside it ends the search, query and all */}
-            <SearchField
-              className="journal-search" value={search ?? ''} onChange={setSearch} noClear
-              autoFocus inputMode="search" maxLength={80}
-              placeholder={C.searchPlaceholder} aria-label={C.search}
-              onKeyDown={(ev) => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); setSearch(null) } }}
-              count={query ? fillTemplate(C.searchCount, { n: totalRows, m: events.length }) : undefined}
-            />
-            <button type="button" className="journal-x" title={C.searchClose} aria-label={C.searchClose} onClick={() => setSearch(null)}><Icon id="close" /></button>
           </div>
         )}
-        {/* what is filtered, on ONE line, with the way out beside it — the funnel's dot says THAT
+        {/* what is filtered, on ONE line, with the way out beside it — the funnel's fill says THAT
             something is, and a reader who did not tick it (or forgot) has to learn WHAT without
-            opening a menu. The count stands here only while there is no query: with one, the
-            field's own «n von m» already counts both. */}
+            opening a menu. THE strip of every narrowed list since 17.11.2026 (components/FilterStrip,
+            HEADS.3 – it began here). The count stands here only while there is no query: with one,
+            the field's own «n von m» already counts both. */}
         {filtering && (
-          <div className="jr-filter-strip">
-            <span className="jr-filter-strip-text">{C.filterActive} <b>{filterOn}</b></span>
-            {!query && (
-              <span className="journal-search-count" aria-live="polite">
-                {fillTemplate(C.searchCount, { n: totalRows, m: events.length })}
-              </span>
-            )}
-            <Button className="jr-filter-all" onClick={() => setFilterSel(new Set())}>{C.filterAll}</Button>
-          </div>
+          <FilterStrip className="jr-filter-strip" what={filterOn}
+            count={query ? undefined : { n: totalRows, m: shownTotal }}
+            onClear={() => setFilterSel(new Set())} />
         )}
-        {showLegend && !searching && (
-          <div className="jr-legend">
-            {legendEntries().map((l) => (
-              <span className="jr-legend-item" key={l.label}>
-                <Disc icon={l.icon} surface={l.surface} tone={l.tone} ring={l.ring} />{l.label}
-              </span>
-            ))}
+        {onReplay && strip ? (
+          // ▶ at the ruler's left end, on every device (owner picks M8 · C and 30, 17.11.2026): in
+          // the head one stray tap beside ✕ swapped the running Lage for the past; here it stands
+          // at the strip that already means «jump in time». The tablet's row has the room for the
+          // word, «▶ Wiedergabe»; the phone's keeps the bare 44px glyph (10-journal.css ·
+          // `.jr-strip-replay`). Its name is «Wiedergabe starten» either way. While searching or
+          // filtering there is no strip and no ▶: the replay plays the whole picture, so it waits
+          // for the whole list.
+          <div className="jr-strip-row">
+            <button type="button" className="jr-strip-replay" onClick={onReplay} title={C.replayHint} aria-label={C.replay}>
+              <Icon id="play-circle" />{!phone && <span>{C.replayWord}</span>}
+            </button>
+            {strip}
           </div>
-        )}
-        {/* WHEN the Einsatz has substance, as one strip. A long Verlauf is a wall of rows in
-            which «was war um halb zehn» means scrolling and reading — the strip answers it by
-            position instead, and a tap on it lands on the nearest row. Ticks are not targets
-            (the strip takes the tap as a whole), so nothing here needs a gloved-finger hit box.
-            ⚠️ NOT while searching or filtering: its ticks and its jump are positioned over the FULL
-            list, and above a narrowed one they would point at rows that are not there. */}
-        {stripSpan && !searching && !filtering && (
-          <div
-            className="jr-strip" role="slider" tabIndex={0} ref={measureStrip}
-            aria-label={C.stripLabel}
-            aria-valuemin={0} aria-valuemax={100} aria-valuenow={0}
-            onPointerDown={(ev) => {
-              // …against the TRACK, not the strip: the ticks are inset by STRIP_INSET, so a tap
-              // on the strip's rounded end has to land on the first tick and not somewhere
-              // before it. Same inset on both, from the one constant.
-              const box = ev.currentTarget.getBoundingClientRect()
-              const span = Math.max(1, box.width - STRIP_INSET * 2)
-              const frac = Math.min(1, Math.max(0, (ev.clientX - box.left - STRIP_INSET) / span))
-              jumpTo(stripSpan.from + frac * (stripSpan.to - stripSpan.from))
-            }}
-            onKeyDown={(ev) => {
-              const step = (stripSpan.to - stripSpan.from) / 20
-              if (ev.key === 'ArrowRight') { ev.preventDefault(); jumpTo(stripSpan.from + step * ++strideRef.current) }
-              if (ev.key === 'ArrowLeft') { ev.preventDefault(); jumpTo(stripSpan.from + step * --strideRef.current) }
-            }}
-          >
-            {/* the ticks live on an INSET track (lib/verlauf · STRIP_INSET). Positioned against the
-                strip itself, the first and last moment sat on its rounded ends – half-swallowed by
-                the corner radius – and a clock on either could not centre on its mark. */}
-            {/* …and on it, as one ruler: the rows' events band (stripRuns) above a spine, the
-                divisions hanging under it, the round times as the tall marks standing on it, every
-                round time labelled and centred, and the
-                first and last moment's clocks at the ends where they keep clear of one of those
-                (stripScale – the stamp gives way, never an hour). Where the END stamp gave
-                way, a short ink tick caps the right end: the latest moment, the «now» of the strip. */}
-            <div className="jr-strip-track" style={{ insetInline: STRIP_INSET }} aria-hidden>
-              {band?.runs.map((r) => <i key={r.from} className="jr-strip-run" style={{ left: `${r.from * 100}%`, width: `${(r.to - r.from) * 100}%` }} />)}
-              {band?.busy.map((r) => <i key={r.from} className="jr-strip-run jr-strip-busy" style={{ left: `${r.from * 100}%`, width: `${(r.to - r.from) * 100}%` }} />)}
-              {scale?.minor.map((m) => <b key={m.frac} className={m.mid ? 'jr-strip-div jr-strip-mid' : 'jr-strip-div'} style={{ left: `${m.frac * 100}%` }} />)}
-              {scale?.marks.map((m) => (
-                <Fragment key={m.frac}>
-                  <b className="jr-strip-major" style={{ left: `${m.frac * 100}%` }} />
-                  {m.label && <span className="jr-strip-lbl" style={{ left: `${m.frac * 100}%` }}>{m.label}</span>}
-                </Fragment>
-              ))}
-              {scale?.start && <span className="jr-strip-lbl jr-strip-end" style={{ left: 0 }}>{scale.start}</span>}
-              {scale?.end
-                ? <span className="jr-strip-lbl jr-strip-end" style={{ left: '100%' }}>{scale.end}</span>
-                : scale && <b className="jr-strip-now" style={{ left: '100%' }} />}
-            </div>
-          </div>
-        )}
+        ) : strip}
         {/* ── OFFENE ERINNERUNGEN · the upper of the drawer's TWO stacked scroll areas ──
             The one part of the drawer that is not the chronology. A Wiedervorlage is about what
             still has to be done, and on an Einsatz that writes a row a minute it was thirty rows
@@ -816,39 +827,37 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
           <div className="jr-pinned" ref={watchPinned} data-more={pinnedBelow > 0 || undefined}>
             <div className="jr-pinned-head">
               <Icon id="pendenzen" /><span>{C.openRemindersHead}</span>
-              <b>{C.openCount.replace('{n}', String(pinnedReminders.length))}</b>
+              <b>{C.openCount.replace('{n}', String(pinnedOpen.length))}</b>
             </div>
-            {pinnedReminders.map((r) => {
+            {pinnedReminders.map((r, i) => {
               // ⚠️ The time column says WHEN IT WAS RAISED, for every row, always. It used to
               // say «fällig 22:10 / überfällig», which only a timed Erinnerung can answer — an
               // Auftrag has no Fälligkeit, because nobody checks in on a Schadenplatz. What is
               // actually being asked here is «seit wann läuft das», and the sort order (oldest
-              // first) already answers it positionally; tapping swaps the column to the age for
-              // the times the clock stops answering it. Überfällig stays the banner's business.
-              const dueLater = r.dueAt && Date.parse(r.dueAt) > now
+              // first) already answers it positionally. A timed one past its Fälligkeit says so
+              // at the row's end, in the red its box wears (ENT.5).
+              // (A tap on the clock swapped it for the age until 17.11.2026 – a hidden toggle,
+              // duck sweep LISTS.6; the clock stays.)
+              const done = !openMap.has(r.id)
+              const overdue = !done && !!r.dueAt && Date.parse(r.dueAt) <= now
+              const dueLater = !done && r.dueAt && !overdue
               // …and on another day than today, the day under the clock (rowDay)
               const raisedDay = rowDay(r.createdAt, now)
               return (
-                <div key={r.id} className={`jr-pinned-row ${r.urgent ? 'urgent' : ''}`}>
-                  <button
-                    type="button" className="jr-when"
-                    title={C.ageToggle} aria-label={C.ageToggle}
-                    onClick={() => setShowAge((v) => !v)}
-                  >{showAge ? ageLabel(r.createdAt, now, C) : <>{rowClock(r.createdAt)}{raisedDay && <small>{raisedDay}</small>}</>}</button>
-                  {/* ⚠️ The ring sits in the VERLAUF'S ICON SLOT, before the text, not out at the
+                <div key={r.id} className={`jr-pinned-row${done ? ' done' : ''}`}>
+                  <span className="jr-when">{rowClock(r.createdAt)}{raisedDay && <small>{raisedDay}</small>}</span>
+                  {/* ⚠️ The box sits in the VERLAUF'S ICON SLOT, before the text, not out at the
                       right margin. Two things come of it: the item's text starts on exactly the
                       same axis as every line in the log below, so the block reads as the same
-                      list filtered rather than as a separate component — and the ring IS this
-                      row's icon, which is what a checklist circle has always been. */}
+                      list filtered rather than as a separate component — and the box IS this
+                      row's icon, the Pendenz tick box of every surface (TickRow · `pendenz`). */}
                   {/* …a control only where there is a hand to tick it off: a session without one (a
-                      viewer, a link) gets the same ring as a read-out, like the log row's (Disc) */}
-                  {onReminderDone ? (
-                    <button
-                      type="button" className="jr-rem"
-                      title={C.markDoneTitle} aria-label={C.markDoneTitle}
-                      onClick={() => onReminderDone(r)}
-                    ><span className="jr-rem-box"><Icon id="check" /></span></button>
-                  ) : <span className="jr-rem" aria-hidden><span className="jr-rem-box" /></span>}
+                      viewer, a link) gets the same box as a read-out, like the log row's (Disc) */}
+                  {onReminderTick ? (
+                    <TickRow className="jr-pin-tick" checked={done} pendenz={r.urgent ? 'urgent' : overdue ? 'overdue' : 'open'}
+                      title={done ? C.markOpenTitle : C.markDoneTitle} aria-label={done ? C.markOpenTitle : C.markDoneTitle}
+                      onToggle={() => tickPinned(r, i, !done)} />
+                  ) : <span className="jr-pin-tick"><TickBox checked={done} pendenz={r.urgent ? 'urgent' : overdue ? 'overdue' : 'open'} /></span>}
                   {/* ⚠️ The Meldungen are SIBLINGS of the button, not children of it. Inside it
                       they rendered outside its box: a <button> is a replaced-ish element whose
                       height does not follow block children the way a div's does, so a row with
@@ -856,12 +865,10 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                       over them. The button stays a button — one line, one action — and the
                       thread hangs under it in an ordinary div. */}
                   <div className="jr-pinned-body">
-                    {onReminderNote ? (
-                      <button
-                        type="button" className="jr-pinned-text"
-                        title={C.noteOpen} aria-label={C.noteOpen}
-                        onClick={() => onReminderNote(r)}
-                      >{r.text}</button>
+                    {/* the item's words open its row's detail sheet, as the row in the log does
+                        (duck sweep LISTS.6) – «Meldung erfassen» is one of the sheet's actions */}
+                    {events.some((x) => x.id === r.rowId) ? (
+                      <button type="button" className="jr-pinned-text" onClick={() => setDetailId(r.rowId)}>{r.text}</button>
                     ) : <span className="jr-pinned-text">{r.text}</span>}
                     {/* who it is for, and — typed on the Tafel's «Aufträge / Pendenzen» page — that
                         it came from there, a tap opening that page (mock 6A, Verlauf side) */}
@@ -883,15 +890,17 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                       </span>
                     ))}
                   </div>
-                  {/* ⚠️ …and it says WHEN, not just that there is a when. The bare clock glyph
+                  {/* The due time wears the Fälligkeit's `bell`, as on the Tafel and in the composer –
+                      `clock` is the Anwesenheit's and «Im Verlauf zeigen» (ENT.15, 17.11.2026).
+                      ⚠️ …and it says WHEN, not just that there is a when. The bare glyph
                       answered «meldet sich selbst» and left the one thing to act on — «um wie
                       viel Uhr?» — inside a tooltip nobody on a tablet can open. The row's own
                       time column says when the item was RAISED, so the two are never the same
                       number. `dueClock` adds «· morgen» where the Fälligkeit fell to the next
                       day, which is exactly the case a bare «06:30» reads as long overdue. */}
-                  {dueLater && (
-                    <span className="jr-pinned-alarm" title={C.dueAtLabel.replace('{t}', dueClock(r.dueAt!))}>
-                      <Icon id="clock" /><b>{dueClock(r.dueAt!)}</b>
+                  {(dueLater || overdue) && (
+                    <span className={`jr-pinned-alarm${overdue ? ' overdue' : ''}`} title={overdue ? C.overdueLabel : C.dueAtLabel.replace('{t}', dueClock(r.dueAt!))}>
+                      <Icon id="bell" /><b>{dueClock(r.dueAt!)}</b>
                     </span>
                   )}
                 </div>
@@ -906,14 +915,20 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
           </div>
         )}
         <div className="history-list" ref={listRef}>
-          {events.length === 0 && <EmptyState icon="verlauf" title={C.empty} />}
-          {/* a query that kept nothing says so – and what it looked in, because «Nichts» beside a
-              name that IS in the Verlauf otherwise reads as the search being broken */}
-          {/* …and with a filter on, the ticks are the likelier culprit, so they are what it names */}
+          {/* the empty Verlauf says what it is for (F12, 17.11.2026 – every role: a viewer could not
+              tell a new Verlauf from a broken one), and names the button that fills it (WORD.10) –
+              that half for a session that writes it (the same gate as a text correction: absent
+              for a viewer and a replay) */}
+          {events.length === 0 && <EmptyState icon="verlauf" title={C.empty} sub={onEditText ? `${C.emptyFor} ${C.emptyHint}` : C.emptyFor} />}
+          {/* no hits = the one `.no-hits` line every list uses (duck sweep LISTS.4, 17.11.2026; it
+              was a big EmptyState): with a filter on the ticks are the likelier culprit, so the
+              line is the shared filter one plus the way out; a query alone says what was searched
+              and what it looked in, because «Keine Treffer» beside a name that IS in the Verlauf
+              otherwise reads as the search being broken */}
           {(query || filtering) && totalRows === 0 && events.length > 0 && (
             filtering
-              ? <EmptyState icon="filter" title={C.filterEmpty} sub={C.filterEmptyHint} />
-              : <EmptyState icon="search" title={fillTemplate(C.searchEmpty, { q: (search ?? '').trim() })} sub={C.searchEmptyHint} />
+              ? <p className="no-hits">{appConfig.copy.filterNoHits} {C.filterEmptyHint}</p>
+              : <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: (search ?? '').trim() })} {C.searchEmptyHint}</p>
           )}
           {shown.map((g, gi) => (
             <Fragment key={g.label ?? `today-${gi}`}>
@@ -929,7 +944,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                   saveTranscript={saveTranscript} saveRowText={saveRowText}
                   marked={marked} jumpToRow={jumpToRow} onOpenDetail={setDetailId}
                   onSelect={onSelect} onSeekTo={onSeekTo} onTranscript={onTranscript} onEditText={onEditText}
-                  onOpenPlayer={onOpenPlayer} onReminderDone={onReminderDone} onReminderAgain={onReminderAgain}
+                  onOpenPlayer={onOpenPlayer} onReminderTick={onReminderTick} onReminderNote={onReminderNote} onReminderAgain={onReminderAgain}
                   mediaStatusOf={mediaStatusOf}
                 />
               ))}
@@ -948,6 +963,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
           const e = events.find((x) => x.id === detailId)
           if (!e) return null
           const hasTx = !!e.transcript || !!e.transcriptSections?.length
+          const openPendenz = e.reminder?.op === 'created' ? openMap.get(e.reminder.id) : undefined
           const target = rowTarget(e, live)
           const photos = rowPhotos(e)
           const G = appConfig.copy.photoGeo
@@ -1062,6 +1078,13 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                 </dl>
               )}
               <div className="jr-detail-acts">
+                {/* an open Pendenz: a Meldung on it, the act its pinned row's tap used to be */}
+                {openPendenz && onReminderNote && (
+                  <Button block icon={<Icon id="entry" />}
+                    onClick={() => { setDetailId(null); onReminderNote(openPendenz) }}>
+                    {C.noteOpen}
+                  </Button>
+                )}
                 {e.audioUrl && e.audioMeta && onOpenPlayer && (
                   <Button block icon={<Icon id="wave" />}
                     onClick={() => { setDetailId(null); onOpenPlayer(e) }}>

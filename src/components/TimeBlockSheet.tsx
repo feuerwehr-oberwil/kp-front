@@ -198,7 +198,8 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
         {addLabel && onAdd && (addedLabel && shot.done
           ? <DoneChip className={s.add}>{addedLabel}</DoneChip>
           : (
-            <Button variant="quiet" icon={<Icon id="plus" />} className={s.add} onClick={() => (addedLabel ? shot.run(onAdd) : onAdd())}>
+            // the ONE add look, framed «+ word» (button sweep SHEETS.10, 17.11.2026 – it was quiet)
+            <Button icon={<Icon id="plus" />} className={s.add} onClick={() => (addedLabel ? shot.run(onAdd) : onAdd())}>
               {addLabel}
             </Button>
           ))}

@@ -82,21 +82,25 @@ describe('routeHotkey', () => {
   })
 })
 
-// Escape peels ONE layer per press, in a fixed order — pressing it on a Karte with everything open
-// walks back to the plain map one step at a time, and a plain map ignores it.
+// Escape peels ONE layer per press, in a fixed order — pressing it on a surface with everything open
+// walks back to the plain map one step at a time, and a plain map ignores it. One order for the
+// Lage, the Plan and the Karte viewer.
 describe('routeEscape', () => {
   const closes: Record<Exclude<EscapeAction, 'none'>, keyof EscapeState> = {
-    cancelPlacement: 'placing', coordOff: 'coordOn', closeChrome: 'chromeOpen',
-    disarmTool: 'toolArmed', closeNotePanel: 'notePanelOpen', clearSelection: 'selected',
+    closeLayer: 'layerOpen', dropDraft: 'draft', disarmTool: 'toolArmed', closePanel: 'panelOpen', clearSelection: 'selected',
   }
 
-  it('walks back from everything open to the plain map, one layer per press', () => {
-    let s: EscapeState = { placing: true, coordOn: true, chromeOpen: true, toolArmed: true, notePanelOpen: true, selected: true }
+  it('walks back from everything open to the plain surface, one layer per press', () => {
+    let s: EscapeState = { layerOpen: true, draft: true, toolArmed: true, panelOpen: true, selected: true }
     const presses: EscapeAction[] = []
     for (let a = routeEscape(s); a !== 'none'; a = routeEscape(s)) {
       presses.push(a)
       s = { ...s, [closes[a]]: false }
     }
-    expect(presses).toEqual(['cancelPlacement', 'coordOff', 'closeChrome', 'disarmTool', 'closeNotePanel', 'clearSelection'])
+    expect(presses).toEqual(['closeLayer', 'dropDraft', 'disarmTool', 'closePanel', 'clearSelection'])
+  })
+
+  it('puts an armed tool down with no draft in hand – before the selection goes', () => {
+    expect(routeEscape({ layerOpen: false, draft: false, toolArmed: true, panelOpen: false, selected: true })).toBe('disarmTool')
   })
 })

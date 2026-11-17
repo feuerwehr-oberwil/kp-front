@@ -65,8 +65,6 @@ export function useTafelPages(src: TafelPagesSources): TafelPagesProps | undefin
   }), [templates, checklists])
   const history = useMemo<NonNullable<TafelPagesProps['history']>>(() => ({
     group: () => latest.current.history.group(),
-    top: () => latest.current.history.top(),
-    undo: () => latest.current.history.undo(),
   }), [])
   const scene = useMemo(() => ({ entities: mapEntities, drawings, layers, isVisible, byName, center, symMul, captionMode, trupps }),
     [mapEntities, drawings, layers, isVisible, byName, center, symMul, captionMode, trupps])

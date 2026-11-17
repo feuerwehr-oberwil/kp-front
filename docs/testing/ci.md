@@ -34,7 +34,7 @@ in parallel, and `just ci-no-backend` runs the first two:
   under `ci-no-backend`, where no pytest runs beside it.
 - `just ci-backend`: migration/model drift, PostgreSQL tests, Ruff, mypy and dependency audits.
 
-The full pnpm audit runs through `scripts/audit-toolchain.sh`. Until 1 December 2026,
+The full pnpm audit runs through `scripts/audit-toolchain.sh`. Until 31 December 2026,
 GHSA-fc5q-39xc-vjpf is excepted for Picomatch in development tooling. The gate fails if a
 production dependency brings in Picomatch or the review date passes.
 

@@ -849,6 +849,25 @@ def _symbol_badges(
         _badge(draw, (right - w / 2, y - size / 2), done, bh, "white", "#4a5568")
 
 
+#: a Messpunkt's Stufe on paper (ENT.13, 17.11.2026): the Rapport's «Messungen» colours
+#: (report/messungen · _URGENT / _AMBER), so the room that was A2 reads as A2 on the Kroki too
+_STAGE_CHIP = {"a1": ("A1", "#8a5a00"), "a2": ("A2", "#b21f14")}
+
+
+def _stage_badge(draw: ImageDraw.ImageDraw, xy: tuple[float, float], size: float, u: float, stage: str) -> None:
+    """A measured symbol's Stufe — «A1» amber / «A2» red, white text — in the glyph's free
+    bottom-LEFT corner (storey top-right, count bottom-right, «erledigt» top-left). The screen
+    says it with the pill's colour; paper says the stage's own name, which a monochrome print
+    keeps. The legend line carries the word («A2 Hauptalarm», client krokiPayload). A calm
+    reading (or an unknown stage) prints nothing, and an «erledigt» point recedes without it."""
+    chip = _STAGE_CHIP.get(stage)
+    if chip is None:
+        return
+    x, y = xy
+    bh = max(16.0 * u / 2, size * 0.46)
+    _badge(draw, (x - size / 2, y + size / 2), chip[0], bh, chip[1], "white")
+
+
 def _caption(draw: ImageDraw.ImageDraw, xy: tuple[float, float], lines: list[str], fs: int) -> None:
     """White caption chip under a glyph — the map's .sym-caption (bold, stacked lines)."""
     f = _font(fs)
@@ -1772,6 +1791,8 @@ def render_kroki(
         _symbol_badges(
             draw, (x, y), size, u * ss, e.get("floor"), e.get("floorFrom"), e.get("floorTo"), e.get("count"), done
         )
+        if e.get("stage") and not done:
+            _stage_badge(draw, (x, y), size, u * ss, str(e["stage"]))
         # metadata caption under the glyph (the map's .sym-caption) — DEFERRED into the same
         # collision pass the drawing labels go through: on the 08.08. Kroki two of these
         # («Kurmann Thomas» over «Lüfter Akku 3. OG») printed straight on top of one another,

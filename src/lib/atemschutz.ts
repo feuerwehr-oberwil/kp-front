@@ -535,6 +535,18 @@ export function safetyReady(trupps: readonly Trupp[]): Trupp[] {
     && t.status === 'angemeldet' && !t.entryTime && !truppInNotfall(t))
 }
 
+/**
+ * The Atemschutz-Trupps inside with NOBODY ready to go in after them – what the standing
+ * «Kein Sicherungstrupp bereit» row names (FEEDBACK.1, 17.11.2026, components/SafetyMissingMeldung).
+ * Empty as soon as one Sicherungstrupp is ready (`safetyReady`) or the last crew is out. A
+ * Sicherungstrupp that went in itself is not «uncovered», and while a Notfall runs its own banner
+ * is the one row about the Sicherungstrupp (one emergency, one row), so nothing is named then.
+ */
+export function safetyMissing(trupps: readonly Trupp[]): Trupp[] {
+  if (safetyReady(trupps).length > 0 || trupps.some(truppInNotfall)) return []
+  return trupps.filter((t) => !t.removedAt && isAtemschutzTrupp(t) && t.auftrag !== 'sichern' && truppInField(t))
+}
+
 /** …and the Sicherungstrupp already sent IN (Auftrag «Sichern», in the field) — what the banner
  *  names instead of offering a second one. */
 export function safetyInside(trupps: readonly Trupp[]): Trupp[] {

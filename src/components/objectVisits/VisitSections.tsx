@@ -2,6 +2,7 @@
 // Korrekturvorschläge — editable for a capture role on a draft (or a correction), read-only
 // everywhere else. Every edit goes through `onEdit`, which stores it on the device at once.
 
+import { leaveOnEscape, ONE_LINE } from '../../lib/fieldKeys'
 import { useState, type ReactNode } from 'react'
 import { Icon } from '../../lib/icons'
 import { Button } from '../Button'
@@ -63,6 +64,7 @@ function WithField({ value, label, placeholder, onCommit }: { value: string; lab
       <span>{label}</span>
       <input
         className={`ip-input ${s.input}`} value={text} placeholder={placeholder} autoComplete="off" autoCapitalize="words"
+        {...ONE_LINE}
         onChange={(e) => {
           setText(e.target.value)
           onCommit(splitPeople(e.target.value))
@@ -187,7 +189,7 @@ function ItemRow({ item, doc, readOnly, pending, onEdit, onTakePhoto, onOpenPhot
       )}
       {input === 'text' && (
         <textarea
-          className={`ip-textarea ${s.input}`} rows={2} value={typeof a?.v === 'string' ? a.v : ''} aria-label={item.text}
+          className={`ip-textarea ${s.input}`} rows={2} value={typeof a?.v === 'string' ? a.v : ''} aria-label={item.text} onKeyDown={leaveOnEscape}
           onChange={(e) => { const v = e.target.value; onEdit((d) => setAnswer(d, item.id, v ? { v } : undefined)) }}
         />
       )}
@@ -198,7 +200,7 @@ function ItemRow({ item, doc, readOnly, pending, onEdit, onTakePhoto, onOpenPhot
       {input === 'check' && a?.v === 'defect' && (
         <div className={`form-warn ${s.defect}`}>
           <textarea
-            className={`ip-textarea ${s.input}`} rows={2} value={a.note ?? ''} placeholder={C.defectNotePlaceholder} aria-label={C.defectNote}
+            className={`ip-textarea ${s.input}`} rows={2} value={a.note ?? ''} placeholder={C.defectNotePlaceholder} aria-label={C.defectNote} onKeyDown={leaveOnEscape}
             onChange={(e) => {
               const note = e.target.value
               onEdit((d) => setAnswer(d, item.id, note ? { v: 'defect', note } : { v: 'defect' }))
@@ -229,6 +231,7 @@ function NumberField({ value, unit, label, onChange }: { value: number | null; u
       <input
         className={`ip-input ${s.input}`} inputMode="decimal" value={text} aria-label={label}
         placeholder={appConfig.copy.objectVisits.valuePlaceholder}
+        {...ONE_LINE}
         onChange={(e) => {
           const raw = e.target.value
           setText(raw)
@@ -255,7 +258,7 @@ export function NotesSection({ doc, readOnly, onEdit }: { doc: VisitDoc; readOnl
           ? <p className={s.sumText} style={{ whiteSpace: 'pre-wrap', color: 'var(--ink)' }}>{doc.notes}</p>
           : (
             <textarea
-              className={`ip-textarea ${s.textarea}`} value={doc.notes} placeholder={C.notesPlaceholder} aria-label={C.notes}
+              className={`ip-textarea ${s.textarea}`} value={doc.notes} placeholder={C.notesPlaceholder} aria-label={C.notes} onKeyDown={leaveOnEscape}
               onChange={(e) => { const notes = e.target.value; onEdit((d) => ({ ...d, notes })) }}
             />
           )}
@@ -313,15 +316,17 @@ export function ProposalsSection({ doc, readOnly, onOpen, onAdd }: {
     : fillTemplate(C.proposalRowNew, { proposed: p.proposed })
   return (
     <Section title={C.proposals} count={doc.proposals.length}>
-      <ListCard>
-        {doc.proposals.map((p) => (
-          <ListRow key={p.id} lead={<Icon id="pen" />} title={p.label} sub={<>{sub(p)}{p.reason ? ` · ${p.reason}` : ''}</>}
-            onClick={readOnly ? undefined : () => onOpen(p)} />
-        ))}
-        {!readOnly && (
-          <button type="button" className={s.add} onClick={onAdd}><Icon id="plus" />{C.proposalAdd}</button>
-        )}
-      </ListCard>
+      {doc.proposals.length > 0 && (
+        <ListCard>
+          {doc.proposals.map((p) => (
+            <ListRow key={p.id} lead={<Icon id="pen" />} title={p.label} sub={<>{sub(p)}{p.reason ? ` · ${p.reason}` : ''}</>}
+              onClick={readOnly ? undefined : () => onOpen(p)} />
+          ))}
+        </ListCard>
+      )}
+      {/* the ONE add look, framed «+ word» (button sweep SHEETS.10, 17.11.2026) – it stood flat
+          in the card as one more row, where an unframed «+ word» reads as a heading */}
+      {!readOnly && <Button className={s.add} icon={<Icon id="plus" />} onClick={onAdd}>{C.proposalAdd}</Button>}
     </Section>
   )
 }

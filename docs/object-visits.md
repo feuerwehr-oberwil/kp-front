@@ -94,8 +94,8 @@ checklists filter it out), and visit surfaces only use `kind: "visit"`.
 (`GET /api/objects/{id}` through the offline cache, `src/objectVisits/plans.ts`), each by the
 plan's name alone, exactly as the object on the Karte names it («Modul 1», «Wasser», «PV» –
 `lib/navRail · planLabel`; owner, 27.10.2026: no «· Übersicht», no subtitle); a row opens
-`/api/reference/<plan id>?v=<version>` in the in-app reader (PdfScroller, one history entry so
-the back gesture closes it). Nothing about plans is stored in the visit.
+`/api/reference/<plan id>?v=<version>` in the in-app reader (PdfScroller, an `Overlay`, so the
+back gesture closes it like every layer – ui-conventions › Overlays). Nothing about plans is stored in the visit.
 
 **Changing the checklist.** A draft's ⋯ menu offers «Checkliste wechseln»
 (`doc.ts · switchChecklist`): the new snapshot replaces the old, answers of an item with the same
@@ -156,7 +156,7 @@ Objekte starts the latter (`/besuche/neu?lat=&lng=&label=[&address=][&from=karte
   line, a place visit shows the **«Ort» card** — a small aerial snippet (plain raster tiles of
   the station's «Satellit» base around the point, offline whatever the device has), the label
   with a «Pin»/«Adresse» badge (`placeKind`: «Adresse» when the label is the address's first
-  part), LV95, and «Kein Stationsobjekt. Ablage: Allgemeine Meldungen. …» — and once finished,
+  part), LV95, and «Kein Objekt. Ablage: Allgemeine Meldungen. …» — and once finished,
   one line «label · LV95 …». A checklist without OK/Mangel questions (a Fehlermeldung) shows what
   was reported on the visit card («Hydrant · Neuer Hydrant fehlt im Plan»), never «Keine Mängel».
   The Übersicht lists the finished place visits under «Meldungen an Orten» (drafts stay under
@@ -164,7 +164,7 @@ Objekte starts the latter (`/besuche/neu?lat=&lng=&label=[&address=][&from=karte
 - **`from=karte`.** A launch with `&from=karte` keeps it on the visit's address
   (`/besuche/<id>?from=karte`); «Zurück» then leaves the surface to `/karte` instead of the
   Übersicht, and a finished visit offers «Zurück zur Karte» (route · `KARTE_PATH`).
-- **Report.** The fact panel of a place visit reads «Objekt: – (Ort ohne Stationsobjekt)», «Ort:
+- **Report.** The fact panel of a place visit reads «Objekt: – (Ort ohne Objekt)», «Ort:
   label (Pin|Adresse)», «Adresse» (when known), «Koordinaten: LV95 … · WGS84 …» and «Ablage» (the
   folder of the first enabled destination). No map picture: the report renders on the server,
   offline-safe, and fetching tiles there is neither.

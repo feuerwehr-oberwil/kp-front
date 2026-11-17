@@ -816,6 +816,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/incidents/{incident_id}/alarm-update/show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Show Alarm Update
+         * @description «Zeigen» on the strip a ✕ left: the update pending again, for every device.
+         */
+        post: operations["show_alarm_update_api_incidents__incident_id__alarm_update_show_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/incidents/{incident_id}/alarm-update/undo": {
         parameters: {
             query?: never;
@@ -4605,9 +4625,15 @@ export interface components {
         };
         /**
          * AlarmUpdateOut
-         * @description «Alarm aktualisiert»: the pending Divera update of this Einsatz's own alarm.
+         * @description «Alarm aktualisiert»: the pending – or hidden – Divera update of this Einsatz's own alarm.
          */
         AlarmUpdateOut: {
+            /**
+             * State
+             * @default pending
+             * @enum {string}
+             */
+            state?: "pending" | "hidden";
             /**
              * At
              * Format: date-time
@@ -9532,6 +9558,39 @@ export interface operations {
         };
     };
     dismiss_alarm_update_api_incidents__incident_id__alarm_update_dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentFull"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    show_alarm_update_api_incidents__incident_id__alarm_update_show_post: {
         parameters: {
             query?: never;
             header?: never;

@@ -6,7 +6,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { toast } from '../lib/ui'
 import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { Drawing, Entity, TimelineEvent } from '../types'
@@ -41,7 +40,9 @@ function replayVehicles(bundle: ReplayBundle, at: number): Entity[] {
  * actually what prints. `pastScene` is null while the reconstruction is in flight and after one
  * fails, and the Kroki then falls back to the LIVE Lage — a caption saying «Stand 21:14» over a
  * picture of 23:00 is a false statement on a document that is a legal record. No caption is the
- * honest fallback.
+ * honest fallback. `atFailed`: the reconstruction for the chosen instant failed – said at the Stand
+ * row (KrokiFramingPanel, a form warning), not as a toast over the open Rapport (toast diet,
+ * 17.11.2026); the next instant answers for itself.
  */
 export function useKrokiMoment({ incidentId, startedAt, initialAt, shown, events }: {
   incidentId: string
@@ -53,6 +54,7 @@ export function useKrokiMoment({ incidentId, startedAt, initialAt, shown, events
   const [at, setAt] = useState<number | null>(initialAt)
   const [pastScene, setPastScene] = useState<PastScene | null>(null)
   const [busy, setBusy] = useState(false)
+  const [failedAt, setFailedAt] = useState<number | null>(null)
   // WHEN anything happened, for the Stand slider's tick marks. Derived from the SAME source the
   // replay bar uses, so the two surfaces cannot disagree about where the Einsatz has substance:
   // the recorded actions plus the Verlauf rows that carry an absolute time.
@@ -78,7 +80,7 @@ export function useKrokiMoment({ incidentId, startedAt, initialAt, shown, events
         if (!alive) return
         setPastScene({ entities: [...(ws?.entities ?? []), ...replayVehicles(bundle, at)], drawings: ws?.drawings ?? [] })
       } catch {
-        if (alive) { setPastScene(null); toast(appConfig.copy.preflight.krokiAtFailed, { icon: 'warn', tone: 'warn' }) }
+        if (alive) { setPastScene(null); setFailedAt(at) }
       } finally {
         if (alive) setBusy(false)
       }
@@ -112,5 +114,6 @@ export function useKrokiMoment({ incidentId, startedAt, initialAt, shown, events
   )
 
   const printedAt = at != null && pastScene ? new Date(at).toISOString() : null
-  return { at, setAt, busy, pastScene, moments, printedAt }
+  const atFailed = at != null && failedAt === at && !busy
+  return { at, setAt, busy, pastScene, moments, printedAt, atFailed }
 }

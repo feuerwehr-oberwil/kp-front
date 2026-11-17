@@ -371,22 +371,23 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // last successful save timestamp — surfaced as a positive "gespeichert HH:MM" trust
   // signal next to the sync badge. Read alongside the status (it lands together).
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(sync.lastSyncedAt)
-  // Sync-trouble surfacing: entering 'error' — or staying 'offline' beyond the grace window —
-  // fires ONE toast per episode; the «● Offline» / «Sync-Fehler» chip in the head stays the
-  // always-visible indicator, and there is no standing banner (the 07.09. one was removed
-  // 05.10.2026). ⚠️ «Jetzt synchronisieren» rides ONLY on the error toast, and only while the
-  // device has a link: offline there is nothing it could do (owner, 05.10.2026: «pointless when
-  // offline»), and the queue pushes by itself the moment the link is back. syncNow via ref so
-  // the subscription effect stays keyed on `sync`.
+  // Sync-trouble surfacing: entering 'error' fires ONE toast per episode; the «● Offline» /
+  // «Sync-Fehler» chip in the head stays the always-visible indicator, and there is no standing
+  // banner (the 07.09. one was removed 05.10.2026). Staying offline says nothing more (toast diet
+  // call 5, 17.11.2026): the chip already reads «Offline», a standing state is never a toast.
+  // ⚠️ «Jetzt synchronisieren» rides ONLY on the error toast, and only while the device has a
+  // link: offline there is nothing it could do (owner, 05.10.2026: «pointless when offline»), and
+  // the queue pushes by itself the moment the link is back. syncNow via ref so the subscription
+  // effect stays keyed on `sync`.
   const syncNowRef = useRef(syncNow)
   useEffect(() => { syncNowRef.current = syncNow }, [syncNow])
   useEffect(() => {
     const tracker = createSyncAlertTracker((kind) => {
+      if (kind !== 'error') return
       const cp = appConfig.copy.incidentSwitcher
-      const canSync = kind === 'error' && navigator.onLine !== false
-      toast(kind === 'error' ? cp.syncErrorToast : cp.syncOfflineToast, {
+      toast(cp.syncErrorToast, {
         icon: 'warn', tone: 'warn',
-        ...(canSync ? { action: { label: cp.syncNow, onClick: () => { void syncNowRef.current() } } } : {}),
+        ...(navigator.onLine !== false ? { action: { label: cp.syncNow, onClick: () => { void syncNowRef.current() } } } : {}),
       })
     })
     const onStatus = (s: SyncStatus) => { setSyncStatus(s); setLastSyncedAt(sync.lastSyncedAt); tracker.onStatus(s) }

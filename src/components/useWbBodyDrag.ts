@@ -1,15 +1,18 @@
 // The body drags of the Plan's ink, in pan mode: a single freehand stroke / Linie / Fläche
 // (tap its fat hit-line in WbInkLayer), a single Absperrkreis (its ring or fill in WbCircleLayer),
 // and a Linie's free-text label or end tag nudged to a per-line offset. One grammar for all three:
-// the press selects, a drag past the shared deadzone checkpoints ONCE, the release writes one
-// audit event with the position it ended on. Lifted out of the Whiteboard (sweep A.1, 25.10.2026),
+// a drag past the shared deadzone checkpoints ONCE, the release writes one audit event with the
+// position it ended on. ⚠️ The press is the Lage's (duck sweep GESTURES.1, owner 17.11.2026 – the
+// same rule as useWbChipDrag): on a body that is NOT selected a finger pans the board, a tap
+// selects on release, and only a still hold (HOLD_DRAG_MS) lifts it; a selected body, and any
+// mouse press, drags at once. A hose under the finger that pans the Gebäude no longer moves. Lifted out of the Whiteboard (sweep A.1, 25.10.2026),
 // beside its siblings useWbChipDrag / useWbVertexEdit / useWbRotor; the drag refs are handed back
 // for the stage dispatcher (Whiteboard · manipMove).
 
 import { useRef } from 'react'
 import type React from 'react'
 import type { BoardAnno, BoardPoint, BoardTool } from '../types'
-import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
+import { DRAG_DEADZONE_PX, useHoldToDrag } from '../lib/useHoldToDrag'
 import type { floorGeometry } from '../lib/whiteboard'
 import { doorsOn, shiftStoreys } from '../lib/grundriss'
 import type { useBoardDoc } from './useBoardDoc'
@@ -22,6 +25,8 @@ interface Args {
   /** a locked board selects (for the read-only panels) but never drags */
   readOnly: boolean
   annos: BoardAnno[]
+  /** the selected anno – a press on it drags at once (the Lage's rule) */
+  selId: string | null
   /** where the selected anno was tapped — the panel nudge anchors on it (Whiteboard · annoTap) */
   setAnnoTap: (tap: { id: string; x: number; y: number }) => void
   setSelId: (id: string | null) => void
@@ -45,10 +50,31 @@ interface Args {
   /** a moved Wand's snap (usePlanDraft · snapMoveOf): the extra shift that lands one of its corners
    *  on a target, ring shown; `null` points clear the ring */
   snapMove: (ids: readonly string[], floor: number, moved: readonly (readonly [number, number])[] | null) => [number, number] | null
+  /** useBoardGestures: pan the board from a press the body does not (yet) take, and stop it */
+  panFrom: (e: React.PointerEvent) => void
+  stopPan: () => void
 }
 
 /** The Plan's ink body drags; see the file header. */
-export function useWbBodyDrag({ tool, readOnly, annos, setAnnoTap, setSelId, setSelIds, boardRef, boardPts, moveRigid, localY, mapY, stack, floorAt, floorsTTB, setDropFloor, pushPast, patch, emit, activeId, snapMove }: Args) {
+export function useWbBodyDrag({ tool, readOnly, annos, selId, setAnnoTap, setSelId, setSelIds, boardRef, boardPts, moveRigid, localY, mapY, stack, floorAt, floorsTTB, setDropFloor, pushPast, patch, emit, activeId, snapMove, panFrom, stopPan }: Args) {
+  const hold = useHoldToDrag()
+  /** The one press rule for every body (see the file header): `select` runs on the tap (or at
+   *  once), `grab` sets up the drag from the press point. */
+  const press = (e: React.PointerEvent, id: string, select: () => void, grab: ((sx: number, sy: number) => void) | null) => {
+    const el = e.target as Element
+    if (grab && (selId === id || e.pointerType === 'mouse')) {
+      select(); grab(e.clientX, e.clientY)
+      el.setPointerCapture?.(e.pointerId)
+      return
+    }
+    const sx = e.clientX, sy = e.clientY
+    panFrom(e)
+    hold.begin(e, {
+      onTap: select,
+      onHoldStart: () => { stopPan(); select(); grab?.(sx, sy) },
+    }, { mode: 'touch', canDrag: !!grab })
+  }
+
   // drag a single selected freehand stroke (its original board-space vertices + the start point)
   // `bpts` keep each vertex's storey AS STORED (floorGeometry · boardPts); `last` is the stroke as
   // the latest sample wrote it, which is what the release reports. `orig` is the stroke as the
@@ -58,6 +84,8 @@ export function useWbBodyDrag({ tool, readOnly, annos, setAnnoTap, setSelId, set
   // --- single freehand-stroke select + drag (tap the fat hit-line in WbInkLayer, pan mode) ---
   const drawDown = (id: string, e: React.PointerEvent) => {
     if (tool !== 'pan') return
+    // only the main button selects or drags (GESTURES.13): a right press on an object does nothing
+    if (e.button > 0) { e.stopPropagation(); return }
     // locked (BoardAnno.locked): the ink is click-through, so a big Sektor-Fläche stops swallowing
     // the taps meant for the work on top of it. NOT stopPropagation'd — the tap goes on to the
     // stage and does what an empty-canvas tap does, which is the map's behaviour too. The lock
@@ -67,18 +95,19 @@ export function useWbBodyDrag({ tool, readOnly, annos, setAnnoTap, setSelId, set
     // remember WHERE it was tapped, paired with the id — the panel nudge anchors on it for a stroke
     // too big for its bounds to mean anything (lib/panelNudge · panelNudgeSelection). Client px,
     // the same space the nudge's box is built in.
-    setAnnoTap({ id, x: e.clientX, y: e.clientY })
-    setSelId(id); setSelIds([])
+    const tap = { id, x: e.clientX, y: e.clientY }
+    const select = () => { setAnnoTap(tap); setSelId(id); setSelIds([]) }
     // a locked board SELECTS (the read-only DrawEditor: Länge, Leitung-Nr., the Trupp on it) but
     // never drags — the Lage's parity (RBAC audit 22.10.2026)
-    if (readOnly) return
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    const a = annos.find((x) => x.id === id); if (!a || (a.kind !== 'draw' && a.kind !== 'area')) return
-    // snapshot the vertices in board-space (y mapped to the stacked board), so the delta is always
-    // applied to the original geometry — no drift across re-renders (mirrors the group-move math)
-    const rect = boardRef.current?.getBoundingClientRect()
-    const f0 = stack && rect?.height ? floorAt((e.clientY - rect.top) / rect.height) : a.floor ?? 0
-    drawDrag.current = { id, floor: a.floor ?? 0, sx: e.clientX, sy: e.clientY, bpts: boardPts(a.pts ?? [], a.floor ?? 0), moved: false, orig: a, f0 }
+    const a = annos.find((x) => x.id === id)
+    const canDrag = !readOnly && !!a && (a.kind === 'draw' || a.kind === 'area')
+    press(e, id, select, canDrag ? (sx, sy) => {
+      // snapshot the vertices in board-space (y mapped to the stacked board), so the delta is always
+      // applied to the original geometry — no drift across re-renders (mirrors the group-move math)
+      const rect = boardRef.current?.getBoundingClientRect()
+      const f0 = stack && rect?.height ? floorAt((sy - rect.top) / rect.height) : a.floor ?? 0
+      drawDrag.current = { id, floor: a.floor ?? 0, sx, sy, bpts: boardPts(a.pts ?? [], a.floor ?? 0), moved: false, orig: a, f0 }
+    } : null)
   }
   const drawMove = (e: React.PointerEvent) => {
     const st = drawDrag.current; if (!st) return
@@ -142,14 +171,17 @@ export function useWbBodyDrag({ tool, readOnly, annos, setAnnoTap, setSelId, set
   const circleDrag = useRef<{ id: string; sx: number; sy: number; x0: number; by0: number; floor: number; moved: boolean } | null>(null)
   const circleDown = (id: string, e: React.PointerEvent) => {
     if (tool !== 'pan') return
+    // only the main button selects or drags (GESTURES.13): a right press on an object does nothing
+    if (e.button > 0) { e.stopPropagation(); return }
     const a = annos.find((x) => x.id === id)
     if (!a || a.locked) return // locked ink is click-through; the LockChip is its only door
     e.stopPropagation()
-    setAnnoTap({ id, x: e.clientX, y: e.clientY })
-    setSelId(id); setSelIds([])
-    if (readOnly) return // selected for its read-only panel, never moved (see drawDown)
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    circleDrag.current = { id, sx: e.clientX, sy: e.clientY, x0: a.x ?? 0, by0: mapY(a.floor, a.y ?? 0), floor: a.floor ?? 0, moved: false }
+    const tap = { id, x: e.clientX, y: e.clientY }
+    const select = () => { setAnnoTap(tap); setSelId(id); setSelIds([]) }
+    // selected for its read-only panel, never moved (see drawDown)
+    press(e, id, select, readOnly ? null : (sx, sy) => {
+      circleDrag.current = { id, sx, sy, x0: a.x ?? 0, by0: mapY(a.floor, a.y ?? 0), floor: a.floor ?? 0, moved: false }
+    })
   }
   const circleMove = (e: React.PointerEvent) => {
     const st = circleDrag.current; if (!st) return
@@ -176,13 +208,26 @@ export function useWbBodyDrag({ tool, readOnly, annos, setAnnoTap, setSelId, set
   const labelDrag = useRef<{ id: string; sx: number; sy: number; dx0: number; dy0: number; moved: boolean } | null>(null)
   const labelDown = (e: React.PointerEvent, id: string, dx0: number, dy0: number) => {
     if (tool !== 'pan' || readOnly) return
+    // only the main button selects or drags (GESTURES.13): a right press on an object does nothing
+    if (e.button > 0) { e.stopPropagation(); return }
     e.stopPropagation()
     // capture on the STABLE handler element (the label span), NOT e.target (an inner text <div>
     // that re-renders as the label moves) — a lost capture sent the moves to the stage, which
     // panned the board and made the label jump unpredictably
-    ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
-    setSelId(id)
-    labelDrag.current = { id, sx: e.clientX, sy: e.clientY, dx0, dy0, moved: false }
+    const el = e.currentTarget as HTMLElement, pid = e.pointerId
+    const grab = (sx: number, sy: number) => {
+      el.setPointerCapture?.(pid)
+      labelDrag.current = { id, sx, sy, dx0, dy0, moved: false }
+    }
+    // the label belongs to its line: the press rule is the line's (see the file header)
+    if (selId === id || e.pointerType === 'mouse') { setSelId(id); grab(e.clientX, e.clientY); return }
+    const sx = e.clientX, sy = e.clientY
+    panFrom(e)
+    hold.begin(e, {
+      onTap: () => setSelId(id),
+      // the hold lifted it: the label's own element takes the pointer back from the board
+      onHoldStart: () => { stopPan(); setSelId(id); grab(sx, sy) },
+    }, { mode: 'touch' })
   }
   const labelMove = (e: React.PointerEvent) => {
     const st = labelDrag.current; if (!st) return

@@ -36,8 +36,8 @@ unchanged.
 
 - *The tool stack keeps ONE gap* (sweep 30.10.2026 #7, owner's iPhone with Linie armed: «the
   unequal spacing between the toolrail, tool specific rail, "linie" info, and info» – it was 6, 6,
-  8 and 16px): nav bar → tool bar → a tool's dock → the armed pill or Messen's readout → the
-  message lane, each `--float-gap` (8px) above the one below (15-mobile · `--tools-bottom`,
+  8 and 16px): nav bar → tool bar → a tool's dock (led by the armed tool's name) → Messen's
+  readout → the message lane, each `--float-gap` (8px) above the one below (15-mobile · `--tools-bottom`,
   `--dock-bottom`). The floating row keeps the same 8px from the bars, from each other and from the
   edge. The other bars over the nav bar (`.rp-tabs`, the page in `Surface.module.css`) still
   keep their 6px channel (`--rail-h + 14px`).
@@ -50,39 +50,65 @@ unchanged.
   sets one bar lower, so the cap follows the foot.
 - *While a tool is out the message lane is measured* (`lib/floatRow · stackLane` → `--stack-lane`):
   one gap above the highest piece of the stack, so a tip or the Gebäude card stands 8px over the
-  pill whether the chip sits beside the dock or had to rise onto the pill's line. And ONE thing in
+  dock whether the floating row sits beside it or had to rise above it. And ONE thing in
   the lane at a time: while a map tool explains itself (DockInfo · MapHelpCard) the open Gebäude
   card steps aside – hidden, not closed – and returns when the tip goes.
-- *The chip row stands on the lowest FREE line, measured* (27.10.2026, owner screenshot: the
+- *The floating row stands on the lowest FREE line, measured* (27.10.2026, owner screenshot: the
   Gebäude ⓘ a whole row above a short Mehrfach dock): `.wb-botleft` (the Karte's and the plan's)
-  stands on the bars (`--float-floor`) and `lib/floatRow` lifts it only past a tool dock or armed
-  pill that overlaps it sideways. `--float-base` keeps the worst case (a dock as wide as the
-  screen) for the FAB and the message lane.
+  and the Eintrag FAB stand on the bars (`--float-floor`), each placed on its own by
+  `lib/floatRow`, which lifts a piece only past a dock, the ✥ ⟳ bar or Messen's panel that overlaps
+  it sideways. `--float-base` keeps the worst case (a dock as wide as the screen) until measured.
+- *Every bottom row is ONE bar, and a short one shares its line* (B+, owner picks 13 + 14,
+  17.11.2026): the armed tool's name is the dock's first tile, not a pill of its own, and the dock
+  HUGS its tiles, centred, 4px apart. Where it leaves room – [Unfall · Mehrere · Abbrechen], Mehrfach's
+  [Mehrfach · Info · Abbrechen] at 390px – the row's tiles stand left of it and the FAB right of it
+  on its line: one line, one height, one baseline. A long dock (Linie, Fläche, Form) – or a narrower
+  phone – leaves them a line above. Measured, not a tile count (`floatRow · rowLift`).
+- *ONE height on the bottom line* (owner pick 21, 17.11.2026): every floating piece is the bars'
+  `--rail-h` tall, beside a bar or on a line of its own (01-tokens · `--line-h`, set to `--rail-h`
+  in 15-mobile) – the tiles, the FAB, «Zurück zum Rapport», the Karte's squares. B+ gave them the
+  bar's height only beside a bar (52 elsewhere), so a tile grew when a symbol was armed. The
+  Karte's squares stand one `--float-gap` over the bar like every piece (they stood 16px). The FAB no longer yields to a dock (it
+  did from 08.2026, when the full-width dock owned its corner); a georef dock and a detail sheet
+  still take its place.
 - *The Eintrag FAB is on every page, the Trupps board too* (27.10.2026, owner): the board
   runs to the phone edge like every page and its LIST ends above the FAB (28.10.2026, owner: the
   card may wrap around it) – the shared `--fab-safe` foot on `.body`, plus the opened card's
   `data-az-fab-foot` guard on its foot row (Atemschutz.module). The rows' name/clock line keeps no
   reserve (owner pick A4/C10, 05.11.2026): clock and chevron sit at the row's right edge and the
-  FAB floats over whichever row rests under it. A RUNNING recording never yields — not to a dock, the armed pill, a panel or a detail sheet
+  FAB floats over whichever row rests under it. A RUNNING recording never yields — not to a panel or a detail sheet
   (it rides on the sheet's top edge). Only «Karte verknüpfen» still hides it.
 - *While ✥ / ⟳ is armed the tool bar and the chip row step aside* (round 14.11.2026 #7, owner
   screenshot: the bar over a peeked Linie sheet lay on «Auswahl» and the Gebäude chip):
   `body.sel-transforming` (lib/transformChrome) hides `.tool-rail` / `.wb-tools` / `.wb-botleft`
   by `visibility` for the mode or the grip drag, and the selection bar stands one `--float-gap`
-  above the sheet – half, full or peeked (76px). The nav bar stays; the peeked sheet covers it.
+  above the sheet – half, full or peeked (76px). With no sheet it stands in the TOOL BAR's slot
+  (`--tools-bottom`, owner pick 21, 17.11.2026 – in the dock's slot it floated a bar's height over
+  the empty gap the tool bar left) and IS the dock row's twin (button sweep CHROME.2): `--rail-h` tall,
+  4px 8px inset, 46px tiles, the glyph 22 over its word under «Beschriftung» – one spot, one
+  anatomy. The nav bar stays; the peeked sheet covers it.
   The same bars step aside for the length of ANY drag on an object's geometry – a vertex, a «+»,
   Verlängern, a Form's grip, a symbol (round 15.11.2026 #4): `body.geom-dragging`, set with the
   sheet's peek (lib/sheetPeek · `beginSheetPeek('object')`; a map pan is `'view'` and keeps them).
   The grips stay for that one – the finger is on one.
-- *The Gebäude chip is the hazard alone on a phone* (owner pick 12A, 14.11.2026): «⚠ Heizöl» at
-  700, or (i) «Gebäude» without one; the count badge stays and the label stays the full sentence.
-  With no hazard, no Sofortmassnahme and no Bemerkung – register lines only – it is a worded
-  tile like the Eintrag FAB: the tiles' 22px (i) over «Gebäude» at 11/700, `--float-h` tall and
-  as wide as its word (69px; a 52px square truncated it) (round 16.11.2026 #9, owner pick of the
-  tile over the bare (i); `lib/buildingCard · summary.quiet`).
-  The tablet keeps «Gebäude-Info · Heizöl» (components/BuildingFloat).
+- *The phone's floating row is TILES* (button round 17.11.2026, owner pick 12C + follow-up: «the
+  whole phone floating row = tiles»): the Plan's building / Objekt chip (street or «Gebäude», the
+  facts lamp at the tile's top-right corner), the Gebäude-Info («Info», or ⚠ over the hazard words
+  in the hazard tone – the shape never flips with the content), «Messungen» (the worst reading's
+  pill over the word), the Eintrag FAB and the Karte's «Punkt setzen» / «Ansichten» squares are
+  each a 22px glyph over an 11/700 word, the bars' `--rail-h` tall (`--line-h`, pick 21) in the
+  bars' corner `--r-bar` (owner pick 20, 17.11.2026 – r12 read «too angular») (09-whiteboard · `.wb-tile`,
+  15-mobile · `.fab-entry`, Karte.module · `.utilBtn`). As wide as the word up to 136px; a longer
+  word ellipsises inside its tile and the button's name stays whole. Joined pieces keep their one
+  glass (`.wb-join`). The calibration instrument («Zwei Punkte … antippen») stays a chip – a
+  sentence is not a tile word. The tablet keeps its chips, word beside the glyph
+  (components/BuildingFloat). It replaces 12A (14.11.: the hazard words alone as a chip, a tile
+  only when quiet). EVERY plan carries the same row: the Gebäude-Info tile stands beside the Objekt
+  tile on a single plan too, not only on the Gebäude stack (owner pick 18, 17.11.2026 – the 09.10.
+  rule that kept it off a phone's plan protected the chip's name, which a capped tile keeps).
 - *Karte & Objekte has ONE bar* (Karte · Messen · Gefahrgut · Ebenen, no tool bar and no «Pläne»
-  tab — 17.10.2026): Messen keeps the same 8px steps, only from the nav bar (the dock where the
+  tab — 17.10.2026; open Ebenen wears the opener's wash + blue and `aria-expanded`, the Karte
+  tile stays «here» under it – CHROME.10, 17.11.2026): Messen keeps the same 8px steps, only from the nav bar (the dock where the
   tool bar would stand, `--tools-bottom`; the readout where the dock would, `--dock-bottom`), and a selected place is one slide-up sheet whose rows are the
   object's plans ([`karte-objekte.md`](karte-objekte.md) · «On a phone the panel is ONE slide-up
   sheet»).
@@ -100,6 +126,13 @@ unchanged.
   and ellipsises first, so the house number stays (and ↷ and the weather yield before either part
   is cut, `lib/useHeadFit`). An Übung adds
   the amber «Ü». Tablet: the title alone.
+- *The top bar's actions are tiles on a phone* (button sweep audit, owner pick 24a, 17.11.2026):
+  ↶ over «Rückgängig», the Verlauf glyph over «Verlauf», «Standort» under its glyph in the row under
+  the bar (TopBar · `data-tiles`, 10-journal · «the fold») – the tablet bar's fold, worn from the
+  start. «Verlauf» was a bare glyph on every phone and ↶ ↷ had no word on any device.
+- *The Verlauf's ▶ is the bare glyph at the ruler's left end* (owner pick M8 · C; the tablet
+  followed with its word, pick 30, 17.11.2026 – [`ui-conventions.md`](ui-conventions.md) · «The
+  Verlauf's head»): the phone head is the title with the count and ✕ alone, and fits 390 whole.
 
 ## Page heads and pages
 
@@ -163,8 +196,7 @@ unchanged.
   capped at 300px) and shows
   the device's position; while typing, the map yields its space to the results. The opened
   Trupp is parked again when «Im Einsatz» moves it to another section, by scrolling its own
-  port. The Einsatz form answers «Übung?» with «Nein | Ja» on every width (ui-conventions ·
-  one control per kind of question).
+  port. The Einsatz form opens with «Ernstfall | Übung» on every width (17.11.2026).
 
 - *A monogram chip keeps its HEIGHT; the text steps down and the box hugs what is left*
   (`data-mono-len` on the chip; the rail's tiles and the `GroupChooser` rows each restate the
@@ -178,10 +210,16 @@ unchanged.
   («W»), a numbered sibling with its number («W1», «W2»); only the label spells the word out
   («Wasser 1»; `lib/navRail · planGlyph` / `planLabel`, owner 27.10.2026: «keep W1/W2»).
 
-- *A head's icon buttons carry their word wherever it fits* (22.09.2026): «Reihenfolge ·
-  Überwachung abgeben · Alarmton» on the Trupps head — MEASURED since 28.09.2026 (the page head's
+- *A head's icon buttons carry their word wherever it fits* (22.09.2026): «Trupps teilen ·
+  Alarmton» on the Trupps head («Reihenfolge» stands in its list row since owner pick 26, 17.11.2026) — MEASURED since 28.09.2026 (the page head's
   ladder, `lib/pageHeadFit`; the `.wordBtn`/`useIsPhone` switch there is gone), so a phone that has room shows
-  them and a tablet that has none folds them. The search line's «In Verwendung · Filtern ·
+  them and a tablet that has none folds them. **A folded tile keeps its word UNDER the glyph**
+  at 11/700, never a bare glyph (owner pick, button sweep HEADS.9, 17.11.2026 – the QR and the bell
+  stood bare one row above the list head's worded tiles; on the tablet too since pick 24a the same
+  evening): its short word where it has one («Abgeben», «Trupp», «PDF»), else its long one
+  («Alarmton», the Zeitplan's «Drucken»). A count chip («⚠ 4») keeps its number beside the glyph
+  (`data-fold-beside`). **The tiles fold TOGETHER** – one rank for the head's tiles, never one at a
+  time (pick 24a; 13-incident · «fold»). The search line's «In Verwendung · Filtern ·
   Anderes Material» (`SurfaceControls.module.css · .wordBtn`) is not a page head and keeps its
   `useIsPhone` switch. A bare square's way of asking is the hold-tooltip. The bell's word is its
   honest STATE (Alarmton / Stumm / Ton freigeben).

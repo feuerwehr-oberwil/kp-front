@@ -107,6 +107,8 @@
    it sits in, and a track squeezed in beside «Auf Einsatz zoomen» and the ± pair is a track that
    cannot be aimed — which is the whole point of the activity ticks under it. */
 .kf-panel .kf-at { flex: 1 1 100%; }
+/* …and so does the Stand's failure line under it (useKrokiMoment · atFailed) */
+.kf-controls > .form-warn { flex: 1 1 100%; }
 .kf-panel .kf-at-track { max-width: none; }
 /* «Folgt der Karte» + ± are one cluster at the bar's right end; the Stand slider takes the
    slack. Levelled to --tap like every other control that a gloved hand aims at.

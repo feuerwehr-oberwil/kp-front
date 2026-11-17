@@ -11,10 +11,12 @@ import type { LineAttachment, LngLat } from '../types'
  * Leitung number) says what DOES tell it apart: its length and its far end — «Linie · 42 m →
  * Hydrant H-142». A named or numbered line keeps its name («Leitung 1»); the name already differs.
  * `selfId` is the object whose panel lists it (its own end is not news); `nameOf` names the far
- * end's object, undefined when it is not one we can name (a live layer feature).
+ * end's object, undefined when it is not one we can name (a live layer feature). The length comes
+ * from the Karte's `coords`, or ready-made as `lengthM` from a Plan (its scale – `planMetres`, null
+ * on an uncalibrated sheet), so both surfaces name a line the same way (ENT.6, 17.11.2026).
  */
 export function connectedLineLabel(
-  d: { label?: string; lineNo?: number; content?: string; coords: LngLat[]; startAttachment?: LineAttachment; endAttachment?: LineAttachment },
+  d: { label?: string; lineNo?: number; content?: string; coords?: LngLat[]; lengthM?: number | null; startAttachment?: LineAttachment; endAttachment?: LineAttachment },
   selfId: string,
   nameOf: (id: string) => string | undefined,
 ): string {
@@ -22,6 +24,6 @@ export function connectedLineLabel(
   if (d.label || d.lineNo != null) return base
   const far = [d.endAttachment, d.startAttachment].find((a) => a?.target.kind === 'object' && a.target.id !== selfId)
   const farName = far?.target.kind === 'object' ? nameOf(far.target.id) : undefined
-  const len = d.coords.length >= 2 ? fmtDistance(pathLengthM(d.coords)) : ''
+  const len = d.lengthM != null ? fmtDistance(d.lengthM) : d.coords && d.coords.length >= 2 ? fmtDistance(pathLengthM(d.coords)) : ''
   return [base, len].filter(Boolean).join(' · ') + (farName ? ` → ${farName}` : '')
 }

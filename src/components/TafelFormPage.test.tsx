@@ -65,7 +65,7 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     expect(active().getAttribute('aria-label')).toBe('Wann') // the row above, last column
   })
 
-  it('«1124» in a Wann is 11:24; Esc puts the stored value back', () => {
+  it('«1124» in a Wann is 11:24; Esc keeps what was typed and leaves the cell', () => {
     const commits: BoardFormData[] = []
     render(<Harness onCommit={(d) => commits.push(d)} />)
     const mittel = document.querySelector('[data-sec="mittel"]')!
@@ -76,7 +76,8 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     const auftrag = mittel.querySelectorAll<HTMLTextAreaElement>('[aria-label="Auftrag/Wo"]')[0]
     act(() => { auftrag.focus() })
     type('Riegel'); key('Escape')
-    expect(auftrag.value).toBe('')
+    expect(document.activeElement).not.toBe(auftrag)
+    expect(commits[commits.length - 1].values.mittel.rows![0].cells.auftrag).toBe('Riegel')
   })
 
   it('the Abspracherapport: six printed rows with their Signaturen (only «Ort» typed), and a row under them that types the rest', () => {

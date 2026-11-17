@@ -3,7 +3,7 @@
 // on the current state (the Einsatz's latest-ref pattern, IncidentWorkspace · hotkeyRef).
 
 import { useEffect, useRef } from 'react'
-import { isTypingTarget } from '../../lib/hotkeys'
+import { isTypingTarget, keyOwnedElsewhere } from '../../lib/hotkeys'
 import { resolveKarteHotkey, type KarteHotkey } from '../../lib/karte/hotkeys'
 
 /** One handler per command – exhaustive, so a command added to KarteHotkey fails to compile here
@@ -23,8 +23,8 @@ export function useKarteKeys(o: { off: boolean; escape: () => void; on: KarteKey
       // a field or a dialog owns its keys; read the TARGET for Escape (a field blurs itself on Esc
       // before this bubbles up), the focused element for the letters
       const t = e.target instanceof Element ? e.target : null
-      if (t?.closest('[role="dialog"], [role="alertdialog"], [role="menu"]')) return
-      if (e.key === 'Escape') { if (!isTypingTarget(t)) escape(); return }
+      if (e.key === 'Escape') { if (!keyOwnedElsewhere(t)) escape(); return }
+      if (keyOwnedElsewhere(t)) return
       if (isTypingTarget(document.activeElement)) return
       const cmd = resolveKarteHotkey(e)
       if (!cmd) return

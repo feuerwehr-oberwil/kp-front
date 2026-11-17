@@ -33,6 +33,7 @@ import { cx } from '../../lib/cx'
 import { useDragClosesKeyboard, useKeySheet } from '../../lib/iosKeyboard'
 import { SheetGrab, useSwipeDismiss } from '../../lib/overlays'
 import { useScrollOnlyIn } from '../../lib/overlays/useMobileScrollLock'
+import { useFieldFirst } from '../../lib/overlays/fieldFirst'
 import s from './Karte.module.css'
 
 export function KarteKeySheet({ label, field, onClose, children, className, fill = false }: {
@@ -51,8 +52,12 @@ export function KarteKeySheet({ label, field, onClose, children, className, fill
   useScrollOnlyIn(ref, '.lc-body')
   useDragClosesKeyboard(ref, '.lc-body')
   const swipe = useSwipeDismiss({ onClose, headOnly: true })
+  // the keyboard goes first, as on every sheet with a field (overlays/fieldFirst, CONT.5): with the
+  // caret in the field the first ✕ only puts the keys away, the second closes
+  const { onFocusCapture, onClickCapture } = useFieldFirst(true)
   return (
-    <section ref={ref} className={cx('layers-card', s.sheet, s.keySheet, fill && s.fill, className)} aria-label={label} data-karte-keysheet="" {...swipe}>
+    <section ref={ref} className={cx('layers-card', s.sheet, s.keySheet, fill && s.fill, className)} aria-label={label} data-karte-keysheet="" {...swipe}
+      onFocusCapture={onFocusCapture} onClickCapture={onClickCapture}>
       <SheetGrab />
       <div className={s.keyLine} data-sheet-head="">
         {field}

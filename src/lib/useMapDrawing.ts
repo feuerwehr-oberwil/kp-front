@@ -6,7 +6,7 @@ import { drawingEditChanges, drawingLogName, pumpWarningRows, wirePerson } from 
 import type { Doc } from './workspace'
 import type { Drawing, LineAttachment, LineEndpoint, LngLat, MapTool, TimelineEvent } from '../types'
 import { toast } from './ui'
-import { removedText, removeWithUndo } from './removalToast'
+import { removedText } from './removal'
 import { fillTemplate } from './format'
 import { newId } from './ids'
 import { canDropVertex, insertAt, minPoints, removeVertex } from './vertexOps'
@@ -51,6 +51,9 @@ interface MapDrawingDeps {
    *  drag-off. Handed up with the coupling it HAD, so the workspace can drop the Trupp link that
    *  coupling made (useTruppActions · unlinkLineFromDetachedTrupp). */
   onLineDetached?: (lineId: string, previous: LineAttachment) => void
+  /** switch a layer this device has off back on – a drawing lands on «Skizzen & Notizen»
+   *  (IncidentWorkspace · revealLayer, rare-user round 17.11.2026 F3) */
+  revealLayer?: (id: string) => void
   /** the next store step's ↶ caption (IncidentWorkspace · onCheckpoint): a removal names itself */
   stepLabelRef?: { current: string | null }
 }
@@ -70,7 +73,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   const {
     drawings, resolvedDrawings = drawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log,
-    setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds, onLineAttached, onLineDetached, stepLabelRef,
+    setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds, onLineAttached, onLineDetached, stepLabelRef, revealLayer,
   } = deps
 
   const [draft, setDraftRaw] = useState<LngLat[]>([])
@@ -110,6 +113,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     // (parity with the line tool + the Plan area tool); still fully editable in the DrawEditor.
     const drawing: Drawing = { id, kind: 'area', coords, color: drawColor, width: drawWidth, dashed: drawDashed }
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
+    revealLayer?.(appConfig.defaults.drawingLayerId)
     log('area', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol', undefined, undefined, { subjectId: id }); emit('draw.add', { id, kind: 'area', drawing })
     // drop into Select with the new area active so its reshape/move/rotate handles are
     // immediately usable (mirrors symbol/shape placement). Staying in 'area' would keep
@@ -132,6 +136,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
       ...(opts?.props?.hose ? { hose: opts.props.hose } : {}), ...(opts?.props?.relay ? { relay: opts.props.relay } : {}),
     }
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
+    revealLayer?.(appConfig.defaults.drawingLayerId)
     // named by drawingLogName, so «Rettungsachse gezeichnet» opens what «Rettungsachse gelöscht»
     // closes — before 31.08. every line, whatever it was drawn with, opened on «Zeichnung erstellt»
     log('pen', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol', undefined, undefined, { subjectId: id }); emit('draw.add', { id, kind: 'line', drawing })
@@ -168,6 +173,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     const id = newId('d')
     const drawing: Drawing = { id, kind: 'circle', coords: [center], radiusM, color: appConfig.drawing.circleColor, dashed: true, width: appConfig.drawing.circleLineWidth, fillOpacity: appConfig.drawing.circleFillOpacity }
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
+    revealLayer?.(appConfig.defaults.drawingLayerId)
     log('circle', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol', undefined, undefined, { subjectId: id }); emit('draw.add', { id, kind: 'circle', drawing })
     setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
     return id
@@ -409,9 +415,9 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     emit('draw.edit', { id, patch: wallRoleWire(patch) })
     commit((d) => ({ ...d, drawings: d.drawings.map((x) => (x.id === id ? { ...x, ...patch } : x)) }))
   }
-  /** «Entfernen» on a Linie / Fläche / Absperrkreis — at once, with the toast «… entfernt,
-   *  n Leitungen gelöst · Rückgängig» (the delete rule, lib/removalToast): the ONE store step
-   *  brings the drawing back with every Leitung end that hung on it. */
+  /** «Entfernen» on a Linie / Fläche / Absperrkreis — at once, no toast (the delete rule,
+   *  lib/removal): the ONE store step, named «… entfernt, n Leitungen gelöst» on the ↶, brings
+   *  the drawing back with every Leitung end that hung on it. */
   const deleteDrawing = (id: string) => {
     if (tacticalLocked) return
     const target = drawings.find((d) => d.id === id)
@@ -422,9 +428,8 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     // named like its creation row («Fläche gezeichnet» → «Fläche entfernt»), not the bare kind-blind
     // «Zeichnung entfernt» the record used to close on
     const row = target ? fillTemplate(appConfig.copy.log.objectDeleted, { name: drawingLogName(target) }) : appConfig.copy.log.drawingDeleted
-    const text = removedText(row, released.size)
-    if (stepLabelRef) stepLabelRef.current = text
-    removeWithUndo(text, () => commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== id).map((dr) => withDetach(dr, released)) })))
+    if (stepLabelRef) stepLabelRef.current = removedText(row, released.size)
+    commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== id).map((dr) => withDetach(dr, released)) }))
     emit('draw.delete', { id })
     released.forEach((patch, lineId) => emit('draw.edit', { id: lineId, patch: wireFreed(patch) }))
     if (selectedDrawingId === id) setSelectedDrawingId(null)

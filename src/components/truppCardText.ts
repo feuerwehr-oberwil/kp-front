@@ -1,10 +1,12 @@
 // What a Trupp's row and card SAY, as plain values: the clock (`collapsedClock`), the tier
-// word (`tierMark`) and the link board's tab line (`tabState`). Pure, and shared by TruppCard and
-// the board's focus strip (AtemschutzView).
+// word (`tierMark`), the link board's tab line (`tabState`), the work squad's words
+// (`plainWords`) and the state word (`truppStateWord`). Pure, and shared by TruppCard, the board's
+// focus strip (AtemschutzView) and every picture of a Trupp (TwinTeamPill, the Trupp docks).
 
 import { appConfig } from '../config/appConfig'
 import { formatTime } from '../lib/format'
 import { fmtClock, fmtElapsedFull, isAtemschutzTrupp, truppNeverDeployed, truppRegisteredAt, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
+import { truppStatusLabel } from '../lib/report'
 import type { Trupp } from '../types'
 
 /** What a Trupp's clock says — the phone row, every card's first line (RowLine) and the
@@ -61,4 +63,30 @@ export function tabState(t: Trupp, live: TruppLive): TabState {
   if (t.status === 'angemeldet') return { word: az.phoneSectionReady, clock: '', tone: 'ready' }
   const clock = collapsedClock(t, live).val
   return t.status === 'rueckzug' ? { word: az.status.rueckzug, clock, tone: 'rueckzug' } : { word: '', clock, tone: 'clock' }
+}
+
+/** Non-AS Trupp wording — APP ONLY (09.09., field ask). A work squad reports a task done, not a
+ *  radio check, so the app says «Auftrag erledigt» / «Ohne Auftrag» / «Ohne Auftrag seit» for
+ *  one, instead of borrowing Atemschutz vocabulary. The handed-over link board (`lite`) keeps
+ *  today's words for EVERY Trupp on it, plain ones included — it is the one screen an outside
+ *  operator was handed, and it must keep meaning what it always meant.
+ *  `truppStatusLabel` (lib/report.ts) stays AS vocabulary — it also prints the Rapport — so this
+ *  only swaps its plain «Draussen» result at the view layer, never «Nicht eingesetzt» / «Von
+ *  Tafel entfernt», which read true for a work squad exactly as they are. */
+export function plainWords(t: Trupp, lite: boolean) {
+  const az = appConfig.copy.atemschutz
+  const plain = !lite && !isAtemschutzTrupp(t)
+  return {
+    exit: plain ? az.actExitPlain : az.actExit,
+    outFor: plain ? az.outForPlain : az.outFor,
+    status: (label: string) => (plain && label === az.status.raus ? az.statusPlainOut : label),
+  }
+}
+
+/** A Trupp's state as ONE word, the board's (ENT.7, 17.11.2026): `truppStatusLabel` through
+ *  `plainWords`, so a work squad that is out reads «Ohne Auftrag», never the PA-out «Draussen».
+ *  The map's selected pill and both Trupp docks (Karte, Plan) read it here; the card itself
+ *  derives the live status first (überfällig) and then goes through the same `plainWords`. */
+export function truppStateWord(t: Trupp, lite = false): string {
+  return plainWords(t, lite).status(truppStatusLabel(t))
 }

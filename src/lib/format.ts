@@ -81,14 +81,15 @@ export function fmtMMSS(totalSec: number): string {
  * NOT padded — this is a duration read as a number, not a clock (see `fmtMMSS` for that one).
  *
  * `compact` is the LABEL form, used where the duration annotates something else (an imported
- * Sprachmemo in a list): under a minute it says «47s» rather than «0:47», and it rounds to the
+ * Sprachmemo in a list): under a minute it says «47 s» (number, space, unit – the toast's «42 s»,
+ * WORD.12) rather than «0:47», and it rounds to the
  * nearest second instead of truncating, because a label is written once from a finished file.
  * The player's live readout does neither — a counter that rounds up would show the end of a
  * clip a second before it arrives.
  */
 export function fmtDuration(sec: number, { compact = false } = {}): string {
   const s = Math.max(0, compact ? Math.round(sec) : Math.floor(sec))
-  if (compact && s < 60) return `${s}s`
+  if (compact && s < 60) return `${s} s`
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60
   return h > 0 ? `${h}:${pad2(m)}:${pad2(r)}` : `${m}:${pad2(r)}`
 }
@@ -111,10 +112,17 @@ export function isNextDay(iso: string): boolean {
 
 /** «06:30» or «06:30 · morgen» — a Wiedervorlage's due time, with the day when it is not today.
  *  The composer said «morgen» while the banner and the journal row showed the bare clock, so a
- *  reminder set for 06:30 tomorrow read as one that was already 14 hours overdue. */
-export function dueClock(iso: string): string {
-  const t = formatTime(new Date(iso))
-  return isNextDay(iso) ? `${t}${appConfig.copy.journal.reminderTomorrow}` : t
+ *  reminder set for 06:30 tomorrow read as one that was already 14 hours overdue. A due time on
+ *  any OTHER day (yesterday's, once an Einsatz has crossed midnight) is `fmtWhen`'s «16.11. 23:50»
+ *  – «morgen» was said of every day that was not today (duck sweep LISTS.10, 17.11.2026). */
+export function dueClock(iso: string, now = new Date()): string {
+  const d = new Date(iso)
+  if (d.toDateString() === now.toDateString()) return formatTime(d)
+  const tomorrow = new Date(now)
+  tomorrow.setDate(now.getDate() + 1)
+  return d.toDateString() === tomorrow.toDateString()
+    ? `${formatTime(d)}${appConfig.copy.journal.reminderTomorrow}`
+    : fmtWhen(iso, { todayShort: true, now })
 }
 
 /** Local wall-clock HH:MM (24h, always zero-padded) from a Date or an ISO string — the

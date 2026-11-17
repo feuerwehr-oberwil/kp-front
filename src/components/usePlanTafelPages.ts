@@ -11,8 +11,7 @@ import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import type { BoardAnno } from '../types'
 import { fillTemplate } from '../lib/format'
-import { toast, undoToast } from '../lib/ui'
-import { removeWithUndo } from '../lib/removalToast'
+import { toast } from '../lib/ui'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import { TAFEL_ID, formAnno, formDelta, newFormPage, type BoardFormData, type FormAnno } from '../lib/boardForm'
 import { labelText, type BoardTemplate, type TemplatePage } from '../lib/boardTemplate'
@@ -74,21 +73,23 @@ export function usePlanTafelPages({ onTafel, pages, titles, page, setPageSel, re
    * A page was written on. `next` is the page as DRAWN (`viewOf`): a problem page's edit is split
    * (lib/problemLink · splitProblemEdit) into this page, the other pages it changed and the ticks
    * it changed – all of it ONE ↶ step (the board's one write, the Checklisten's one, grouped).
-   * `act`: the edit was a deletion by the bin – the toast says what went, with «Rückgängig».
+   * `act`: the edit was a deletion by the bin – the ↶ caption says what went (no toast, owner
+   * pick 28, 17.11.2026: ↶ brings it back), and that a checklist tick went with it.
    */
   const editPage = (id: string, next: BoardFormData, act?: TafelAct) => {
     if (readOnly) return
     const a = pages.find((p) => p.id === id)
     const words = act && (act.removed.trim() ? fillTemplate(TP().rowDeleted, { text: shortWords(act.removed) }) : TP().rowDeletedEmpty)
-    onStepLabel?.(words ?? fillTemplate(TP().pageEdited, { page: titles.get(id) ?? labelText(next.page.title) }))
+    const label = words ?? fillTemplate(TP().pageEdited, { page: titles.get(id) ?? labelText(next.page.title) })
     // the audit row names the cells that changed, never the whole page again (review of #338)
     const audit = (prev: BoardFormData | undefined, f: BoardFormData) => ({ form: { page: f.page.id, delta: prev ? formDelta(prev, f) : [] } })
     if (!a || !hasProblems(a.form)) {
+      onStepLabel?.(label)
       patchCommit(id, { form: next }, audit(a?.form, next))
-      if (words) deletionToast(words)
       return
     }
     const split = splitProblemEdit(a, viewOf(a), next, pages, source, serverNow())
+    onStepLabel?.(words && split.unticked.length ? fillTemplate(TP().rowDeletedTick, { text: shortWords(split.unticked[0]) }) : label)
     const end = tafel?.history?.group() ?? (() => {})
     try {
       if (!split.others.size) patchCommit(id, { form: split.form }, audit(a.form, split.form))
@@ -99,14 +100,6 @@ export function usePlanTafelPages({ onTafel, pages, titles, page, setPageSel, re
       }
       if (split.ticks.length) tafel?.problems?.writeTicks(split.ticks)
     } finally { end() }
-    if (words) deletionToast(split.unticked.length ? fillTemplate(TP().rowDeletedTick, { text: shortWords(split.unticked[0]) }) : words)
-  }
-  /** «… gelöscht · Rückgängig» – the toast takes back the step ↶ would, while it is still on top */
-  const deletionToast = (text: string) => {
-    const h = tafel?.history
-    if (!h) { toast(text, { icon: 'trash' }); return }
-    const top = h.top()
-    undoToast(text, () => h.undo(), () => top != null && h.top() === top, { kind: 'tafel-row' })
   }
   /** «Drucken» on a page (owner): this page or all of them as a PDF — the server draws the
    *  paper (lib/tafelPrint, loaded on the tap); offline that is said calmly, never an error */
@@ -123,14 +116,14 @@ export function usePlanTafelPages({ onTafel, pages, titles, page, setPageSel, re
         throw e
       }
     } catch (e) {
-      if (e instanceof OfflineChunk) toast(TP().printOffline, { icon: 'info' })
+      if (e instanceof OfflineChunk) toast(TP().printOffline, { icon: 'warn' })
       else toast(TP().printFailed, { icon: 'warn', tone: 'warn' })
     } finally {
       setPrinting(false)
     }
   }
-  /** «Seite entfernen» — at once, written on or not: the toast «Seite «…» entfernt · Rückgängig»
-   *  takes back the one step that holds everything on it (the delete rule, lib/removalToast) */
+  /** «Seite entfernen» — at once, written on or not, no toast: the ↶ «Seite «…» entfernt» takes
+   *  back the one step that holds everything on it (the delete rule, lib/removal) */
   const removePage = (id: string) => {
     const a = pages.find((x) => x.id === id)
     if (!a || readOnly) return
@@ -140,7 +133,7 @@ export function usePlanTafelPages({ onTafel, pages, titles, page, setPageSel, re
     // a TOMBSTONE, not a deletion (re-review of #338): a device still writing on the page must be
     // able to tell whether its writing came after this (lib/mergeWorkspace · resolveTactical).
     // One ↶ step like any edit; findForms no longer shows, prints or offers it.
-    removeWithUndo(line, () => patchCommit(a.id, { form: { ...a.form, removedAt: serverNow() } }, { form: { page: a.form.page.id, removed: true } }))
+    patchCommit(a.id, { form: { ...a.form, removedAt: serverNow() } }, { form: { page: a.form.page.id, removed: true } })
     log('trash', line, { subjectId: a.id })
     removedPage.current = a.id
     setPageSel(SKIZZE)

@@ -5,9 +5,11 @@
 // lib/report. The close runs only through `onComplete` (the one shared Abschluss confirm).
 // Rules for this area: docs/rapport.md.
 
+import { ONE_LINE } from '../lib/fieldKeys'
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { Button, IconButton } from './Button'
+import { ListCard, ListRow } from './ListRow'
 import { TickRow } from './TickRow'
 import { ShellLoader } from './ShellLoader'
 import { cx } from '../lib/cx'
@@ -50,6 +52,7 @@ import { EF_PAGE_ID, RAPPORT_PAGE_ID, tafelKindPrints, tafelMenuKinds, tafelPrin
 import { isDrawnBoardKind } from '../lib/workspace'
 import { abschlussFacts, missingSteps, nextOpenStep, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { abschlussOpenItems, abschlussSheet, controlChipLabel } from '../lib/abschlussOpen'
+import { reportStep } from '../lib/reportUndo'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { openConflicts, sideLabel, sideValue, type OpenConflict } from '../lib/attendanceConflict'
 import { incidentDays, isOtherDay } from '../lib/zeitplanFormat'
@@ -75,13 +78,17 @@ import { PHONE_TABS, STEP_TAB, rapportKept, useReportPlace, type PhoneTab } from
 
 const NO_IDS = new Set<string>()
 const NO_SIGNATURES: ReportSignature[] = []
-/** The Rapport head's ladder (lib/pageHeadFit): «Ausdrucken» gives its word first, then
- *  «Einsatz abschliessen» shortens to the word «Abschliessen» (never a bare glyph, 04.11.2026), then
- *  the primary «Einsatzrapport (PDF)» shortens to «PDF ▾» (mockup 2), and last the title says what
- *  the nav calls this page, «Rapport». The Kontrolle chip never folds: a bare «⚠ 4» beside the
- *  close action had to be decoded (council round 3), so where «4 offen» does not fit the head takes
- *  its second row instead — title + chip above, «Abschliessen» + «PDF» under it (13-incident.css). */
-const RP_FOLD = { print: 1, pdf: 2, complete: 3, title: 4 } as const
+/** The `kind` (lib/ui · toast) of every answer to the print job's «Prüfen»: a second press replaces the first. */
+const PRINT_CHECK = 'print-check'
+/** The Rapport head's ladder (lib/pageHeadFit): the tiles fold TOGETHER (owner pick 24a,
+ *  17.11.2026 – it was one tile at a time), each to its glyph OVER its short word: «Ausdrucken» →
+ *  «Drucken», «Einsatz abschliessen» → «Abschliessen» (never a bare glyph, 04.11.2026),
+ *  «Einsatzrapport (PDF)» → «PDF ▾» (mockup 2) – the archive box and the doc glyph stay, they
+ *  went with the long word before; then the title says what the nav calls this page, «Rapport».
+ *  The Kontrolle chip never folds: a bare «⚠ 4» beside the close action had to be decoded (council
+ *  round 3), so where «4 offen» does not fit the head takes its second row instead — title + chip
+ *  above, «Abschliessen» + «PDF» under it (13-incident.css). */
+const RP_FOLD = { tiles: 1, title: 2 } as const
 
 // «Zeig mir diese offene Angabe» from outside the sheet — lives with the tabs (useReportPlace)
 export { requestReportStep } from './useReportPlace'
@@ -125,11 +132,12 @@ function ControlOpenList({ missing, onGo }: {
   onGo: (step: AbschlussStep) => void
 }) {
   const rows = abschlussOpenItems(missing.map((step) => ({ kind: 'step' as const, step })), { step: onGo })
-  return rows.map((it, i) => (
-    <button key={missing[i]} type="button" className="rp-control-step" onClick={it.onClick}>
-      <span>{it.label}</span><Icon id="chevron" />
-    </button>
-  ))
+  // THE list row in its rail density (ListRow, LISTS.8): the label and the › of a row that goes
+  return (
+    <ListCard look="rail">
+      {rows.map((it, i) => <ListRow key={missing[i]} title={it.label} onClick={it.onClick} />)}
+    </ListCard>
+  )
 }
 
 /**
@@ -187,7 +195,7 @@ function ClosedStrip({ onReopen }: { onReopen?: () => Promise<ReactivateResult> 
       <Icon id="lock" className="rp-band-wait" />
       <span className="rp-band-txt">{onReopen ? C.rapportClosedHint : C.rapportClosedViewOnly}</span>
       {onReopen && (
-        <Button disabled={busy} aria-busy={busy || undefined} onClick={reopen}>{busy ? C.reopening : C.reactivate}</Button>
+        <Button disabled={busy} aria-busy={busy || undefined} icon={busy ? <ShellLoader /> : undefined} onClick={reopen}>{busy ? C.reopening : C.reactivate}</Button>
       )}
     </div>
   )
@@ -561,11 +569,17 @@ export function ReportPreflight({
   // ⚠️ The base is `metaRef`, the freshest blob this surface has seen, not the `reportMeta` of
   // the render this closure was built in: `startOutput` persists the Kroki framing AFTER an
   // awaited confirm dialog, by which time a sync may have moved the blob on underneath it.
-  const persist = (over: Partial<ReportMeta>) => canEdit && onSaveMeta({
-    ...metaRef.current,
-    ...dirtyMeta(),
-    ...over,
-  })
+  // ⚠️ An operator's edit makes the paper STALE (M5 · A, 17.11.2026): it drops `reportMadeAt`, so
+  // the close sheet lists «Rapport noch nicht erstellt» again and the head offers the PDF, not
+  // the green close, as if the Rapport were current – after «Wieder öffnen» + a corrected time
+  // the green «Abschliessen» stood there at once over the old paper. Only the operator's fields
+  // count (lib/reportUndo · reportStep): the app's bookkeeping (the Kroki framing) does not.
+  const persist = (over: Partial<ReportMeta>) => {
+    if (!canEdit) return false
+    const next: ReportMeta = { ...metaRef.current, ...dirtyMeta(), ...over }
+    if (next.reportMadeAt && reportStep(metaRef.current, next)) delete next.reportMadeAt
+    return onSaveMeta(next)
+  }
 
   // Commit the Kroki-seeded Einsatzleiter to the blob once, so the Abschluss-Checkliste and a
   // rapport printed from another device see the same name this field shows — a value that only
@@ -927,12 +941,14 @@ export function ReportPreflight({
     setJobBusy(false)
     // «nicht mehr auffindbar» and «nicht erreichbar» are different answers: the first is about
     // the JOB (it stopped existing — clear it, outcome unknown), the second about the network.
-    if (s === 'gone') { settlePrintJob(job.id, 'gone'); toast(R.jobGone, { icon: 'warn', tone: 'warn' }); return }
-    if (!s) { toast(R.jobUnreachable, { icon: 'warn', tone: 'warn' }); return }
-    if (s.status === 'done') { settlePrintJob(job.id, 'done'); toast(R.printed, { icon: 'check', tone: 'success' }); return }
-    if (s.status === 'failed') { settlePrintJob(job.id, 'failed'); toast(R.printFailed, { icon: 'warn', tone: 'warn' }); return }
-    if (s.status === 'cancelled') { settlePrintJob(job.id, 'cancelled'); toast(R.cancelled); return }
-    toast(s.status === 'printing' ? R.printing : R.queued, { icon: 'printer', tone: 'warn' })
+    // every answer to «Prüfen» is ONE pill: pressing it again replaces the last answer
+    if (s === 'gone') { settlePrintJob(job.id, 'gone'); toast(R.jobGone, { icon: 'warn', tone: 'warn', kind: PRINT_CHECK }); return }
+    if (!s) { toast(R.jobUnreachable, { icon: 'warn', tone: 'warn', kind: PRINT_CHECK }); return }
+    if (s.status === 'done') { settlePrintJob(job.id, 'done'); toast(R.printed, { icon: 'check', tone: 'success', kind: PRINT_CHECK }); return }
+    if (s.status === 'failed') { settlePrintJob(job.id, 'failed'); toast(R.printFailed, { icon: 'warn', tone: 'warn', kind: PRINT_CHECK }); return }
+    if (s.status === 'cancelled') { settlePrintJob(job.id, 'cancelled'); toast(R.cancelled, { kind: PRINT_CHECK }); return }
+    // still under way: the neutral printer glyph, red is a failure's (FEEDBACK.11)
+    toast(s.status === 'printing' ? R.printing : R.queued, { icon: 'printer', kind: PRINT_CHECK })
   }
   /** Give up on a job that is still in the queue. Refused once the agent has claimed it — the
    *  paper may already be moving, and the button says so rather than pretending. */
@@ -942,7 +958,8 @@ export function ReportPreflight({
     setJobBusy(true)
     const res = await cancelPrint(editorPrintTransport(), job.id)
     setJobBusy(false)
-    if (res === 'cancelled') { settlePrintJob(job.id, 'cancelled'); toast(R.cancelled); return }
+    // cancelled: the job row leaves – only a refusal is said
+    if (res === 'cancelled') { settlePrintJob(job.id, 'cancelled'); return }
     // The three refusals mean three different things (see printRelay · CancelOutcome):
     // «zu spät» only when the relay actually SAID the job is past cancelling — a network
     // failure used to wear the same words, claiming knowledge nobody had.
@@ -1259,7 +1276,12 @@ export function ReportPreflight({
         <header ref={headRef} className="rp-head">
           <div className="rp-head-titles">
             {/* the nav's own word for this page once the row runs out of everything else */}
-            <h2 data-fold={RP_FOLD.title} title={P.title} aria-label={P.title}>
+            {/* An Übung says so here too (ENT.9, 17.11.2026): the EL signed an Übung's Rapport on the
+                phone with no sign of it while the PDF printed «ÜBUNG». The one Übung tag, FIRST in
+                the line, so the title is what ellipsises and the word never is. */}
+            <h2 data-fold={RP_FOLD.title} title={P.title}
+              aria-label={incident.is_exercise ? `${P.title} · ${appConfig.copy.exerciseBadge}` : P.title}>
+              {incident.is_exercise && <span className="ip-badge ip-badge-exercise rp-head-exercise" aria-hidden="true">{appConfig.copy.exerciseBadge}</span>}
               <span className="fold-long">{P.title}</span><span className="fold-short" aria-hidden="true">{appConfig.copy.modes.rapport}</span>
             </h2>
             {/* The verdict line under the title says only the GOOD news now: «alle Angaben
@@ -1378,15 +1400,15 @@ export function ReportPreflight({
             {/* in the chip's place, beside the title (13-incident · .rp-head-close); folded it keeps
                 a WORD («Abschliessen»), never a bare archive box (council 04.11.2026) */}
             {closeReady && (
-              <button className="ip-btn head-tile go rp-head-close" data-fold={RP_FOLD.complete} onClick={() => void complete()}
+              <button className="ip-btn head-tile go rp-head-close" data-fold={RP_FOLD.tiles} onClick={() => void complete()}
                 aria-label={A.complete} title={A.complete}>
-                <Icon id="archive" className="fold-long" /><span className="rp-btn-label fold-long">{A.complete}</span>
+                <Icon id="archive" /><span className="rp-btn-label fold-long">{A.complete}</span>
                 <span className="rp-btn-short fold-short" aria-hidden="true">{A.completeShort}</span>
               </button>
             )}
             {printStatus?.available && (
               <button className={`ip-btn head-tile print-send${printStatus.online ? '' : ' offline'}`} disabled={printBusy}
-                data-fold={RP_FOLD.print}
+                data-fold={RP_FOLD.tiles}
                 onClick={() => void startOutput('print')} aria-label={printBusy ? R.sending : printStatus.online ? R.send : `${R.send} · ${R.offline}`}
                 title={printStatus.online ? R.online : R.offline}>
                 <span className="print-send-main">
@@ -1411,14 +1433,12 @@ export function ReportPreflight({
                 phone it reads «PDF ▾» — the word, not a doc glyph whose meaning you had to know
                 (`.rp-btn-short`); the tablet keeps its full label. Same two doors as before. */}
             <span className="rp-split">
-              <button className="ip-btn head-tile rp-split-main" data-fold={RP_FOLD.pdf} disabled={pdfBusy} onClick={() => void startOutput('pdf')}
+              <button className="ip-btn head-tile rp-split-main" data-fold={RP_FOLD.tiles} disabled={pdfBusy} onClick={() => void startOutput('pdf')}
                 aria-busy={pdfBusy || undefined} aria-label={pdfBusy ? P.pdfBusy : P.pdfFull} title={pdfBusy ? P.pdfBusy : P.pdfFull}>
-                {pdfBusy ? <span className="fold-long"><ShellLoader /></span> : <Icon id="doc" className="rp-pdf-glyph fold-long" />}
+                {/* the glyph stays when the word shortens (pick 24a): folded, the doc OVER «PDF» */}
+                {pdfBusy ? <ShellLoader /> : <Icon id="doc" className="rp-pdf-glyph" />}
                 <span className="rp-btn-label fold-long">{P.pdfFull}</span>
-                <span className="rp-btn-short rp-pdf-short fold-short">
-                  <span style={{ visibility: pdfBusy ? 'hidden' : undefined }}>{P.pdfShort}</span>
-                  {pdfBusy && <span className="rp-pdf-wait"><ShellLoader /></span>}
-                </span>
+                <span className="rp-btn-short fold-short">{P.pdfShort}</span>
               </button>
               <Menu
                 trigger={
@@ -1510,7 +1530,8 @@ export function ReportPreflight({
             title={A.steps[guideNext]} onGo={() => guideTo(guideNext)} onHide={() => setGuideAt(null)} hideLabel={P.guideHide} />
         )}
         {showReadyBand && (
-          <RpStrip done lead={P.bandReady} title={P.bandPdf} busy={pdfBusy}
+          // busy = loader + word (duck sweep FEEDBACK.12), like every busy button in an open sheet
+          <RpStrip done lead={P.bandReady} title={pdfBusy ? P.pdfBusy : P.bandPdf} busy={pdfBusy}
             icon={pdfBusy ? <ShellLoader /> : <Icon id="doc" />} onGo={() => void startOutput()} />
         )}
         {/* …and its counterpart: a print that has been handed over and has not come back. It is
@@ -1532,7 +1553,8 @@ export function ReportPreflight({
                 abgebrochen, the band stayed, and the editor's print was gone. */}
             <fieldset className="report-fieldset" disabled={!canRecord}>
               <button type="button" className="ip-btn" disabled={jobBusy} onClick={() => void checkPrintJob()}>{R.jobCheck}</button>
-              <button type="button" className="ip-btn ip-btn-danger" disabled={jobBusy} onClick={() => void dropPrintJob()}>{R.jobCancel}</button>
+              {/* «Abbrechen» is the neutral framed button, as every other one (duck sweep ELEM.11) */}
+              <button type="button" className="ip-btn" disabled={jobBusy} onClick={() => void dropPrintJob()}>{R.jobCancel}</button>
             </fieldset>
           </div>
         )}
@@ -2174,23 +2196,20 @@ export function ReportPreflight({
                   answer the el gives like any other, not part of the editor's Abschluss — gated on
                   the Abschluss, the el's Mittel step could never be answered. A session that cannot
                   edit reads the answer, dashed like «Entfällt», or nothing when none was given. */}
-              {mittelCount === 0 && !canEdit && meta.mittelConfirmedNone && (
-                <div className="rp-check-extra rz-none"><span className="rz-none-val">{A.mittelNone}</span></div>
-              )}
-              {mittelCount === 0 && canEdit && (
-                <div className="rp-check-extra">
-                  {/* the «none of these» CHOICE, same as the QR-Bogen's (28.09.2026): one text,
-                      picked = the choice fill. It was a primary button whose label grew a «✓». */}
-                  <button
-                    type="button"
-                    className={`ip-btn${meta.mittelConfirmedNone ? ' on' : ''}`}
-                    aria-pressed={!!meta.mittelConfirmedNone}
-                    onClick={() => persist({ mittelConfirmedNone: !meta.mittelConfirmedNone })}
-                  >
-                    {A.mittelNone}
-                  </button>
+              {/* the «Entfällt» model (owner, duck sweep ELEM.9, 17.11.2026): «Nichts verwendet» is
+                  a button that SETS the answer; answered, the row is the dashed read-out and
+                  «Ändern» – the Kontaktperson's, Gerettete's and Rückmeldung's «none» exactly, on
+                  the QR-Bogen too. It was a pressed toggle, the one «none» of four that was not. */}
+              {mittelCount === 0 && (meta.mittelConfirmedNone ? (
+                <div className="rp-check-extra rz-none">
+                  <span className="rz-none-val">{A.mittelNone}</span>
+                  {canEdit && <Button onClick={() => persist({ mittelConfirmedNone: undefined })}>{P.entfaelltUndo}</Button>}
                 </div>
-              )}
+              ) : canEdit && (
+                <div className="rp-check-extra">
+                  <Button onClick={() => persist({ mittelConfirmedNone: true })}>{A.mittelNone}</Button>
+                </div>
+              ))}
             </CheckRow>
             {/* ⚠️ ABWEICHUNGEN (04.09., Rapport-Review). Until now a divergence between the
                 QR-Bogen and a tablet was a «bitte prüfen» line in the Verlauf and nothing else —
@@ -2342,6 +2361,7 @@ export function ReportPreflight({
                             <button
                               type="button" className="report-att-x" aria-label={appConfig.copy.delete}
                               title={appConfig.copy.delete}
+                              // the delete rule (lib/removal): the row is its own ↶ step, no toast
                               onClick={() => savePartners(partners.filter((_, j) => j !== r.i))}
                             ><Icon id="trash" /></button>
                           )}
@@ -2415,7 +2435,7 @@ export function ReportPreflight({
                         <button
                           type="button" className="report-att-thumb" title={P.attachmentsOpen}
                           aria-label={P.attachmentsOpen}
-                          onClick={() => openPhoto(a.url, { caption: a.caption, filename: `beilage-${a.id}.jpg` })}
+                          onClick={() => openPhoto(a.url, { caption: a.caption, filename: `foto-${a.id}.jpg` })}
                         >
                           {/* the small copy — a Rapport with twenty Beilagen used to decode
                               twenty full pictures (lib/mediaUrl · thumbUrl) */}
@@ -2426,7 +2446,7 @@ export function ReportPreflight({
                               «Beschriftung» box under every photo asked a viewer to write */}
                           {!onCaptionAttachment ? a.caption?.trim() && <span className="rp-readout">{a.caption.trim()}</span> : <input
                             className="ip-input" value={a.caption ?? ''} placeholder={P.attachmentsCaption}
-                            aria-label={P.attachmentsCaption}
+                            aria-label={P.attachmentsCaption} {...ONE_LINE}
                             // typed value goes in untouched (trimming on change eats the space
                             // you just pressed); the tidy-up happens once, on leaving the field
                             onChange={(e) => onCaptionAttachment(a.id, stripUnprintable(e.target.value))}
@@ -2435,7 +2455,8 @@ export function ReportPreflight({
                               if (v !== e.target.value) onCaptionAttachment(a.id, v)
                             }}
                           />}
-                          {a.url.startsWith('blob:') && <span className="report-att-pending">{P.attachmentsPending}</span>}
+                          {/* the Verlauf's «noch nicht synchronisiert» chip, glyph and word (duck sweep FEEDBACK.7) */}
+                          {a.url.startsWith('blob:') && <span className="jr-media-state pending"><Icon id="upload" /><span>{P.attachmentsPending}</span></span>}
                         </div>
                         {onRemoveAttachment && (
                           <button type="button" className="report-att-x" aria-label={appConfig.copy.delete}
@@ -2491,6 +2512,7 @@ export function ReportPreflight({
                   // under the crop as it is reconstructed.
                   atMs={kroki.at}
                   atBusy={kroki.busy}
+                  atFailed={kroki.atFailed}
                   onAtChange={kroki.setAt}
                   moments={kroki.moments}
                   startedAtMs={Date.parse(meta.startedAt ?? incident.started_at) || null}

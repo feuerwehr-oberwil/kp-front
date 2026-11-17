@@ -1,9 +1,8 @@
 import type { Trupp } from '../../types'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate, formatTime } from '../format'
-import { toast, undoToast } from '../ui'
 import { atemschutzDoctrine } from '../deploymentConfig'
-import { alarmBarFor, currentRunStart, earlyEntryCorrection, fmtDuration, isAtemschutzTrupp, notfallFacts, notfallOffered, safetyReady, truppInNotfall, truppLogName } from '../atemschutz'
+import { alarmBarFor, currentRunStart, earlyEntryCorrection, fmtDuration, isAtemschutzTrupp, notfallFacts, notfallOffered, truppInNotfall, truppLogName } from '../atemschutz'
 // ⚠️ Every Trupp timestamp below is stamped in the DEPLOYMENT's time, not the device's
 // (lib/serverClock). These are the safety clocks and the legal record: written device-local, a
 // tablet six seconds ahead put contact times into the Rapport that no other device agreed with,
@@ -12,8 +11,6 @@ import { alarmBarFor, currentRunStart, earlyEntryCorrection, fmtDuration, isAtem
 // unaffected.
 import { serverNowIso } from '../serverClock'
 import { noteOwnContact, recentOwnContact } from '../contactEcho'
-import { keepCrewFiled } from '../crewFiling'
-import { recordKey } from '../undoKeys'
 import { auftragText, withDetails, type TruppActionCore, type TruppActionDeps } from './core'
 
 // The Trupp CLOCK family — the safety-critical rules: Funkkontakt, Druckmeldung, the lifecycle
@@ -55,11 +52,11 @@ export const correctEntryPressure = (t: Trupp, bar: number): Partial<Trupp> => {
   return { entryPressureBar: bar, readings, lowestBar }
 }
 
-type ClockDeps = Pick<TruppActionDeps, 'trupps' | 'setTrupps' | 'log' | 'emit' | 'liveTrupps' | 'placeOf'>
-  & Pick<TruppActionCore, 'remember' | 'logStep' | 'recorded'>
+type ClockDeps = Pick<TruppActionDeps, 'trupps' | 'setTrupps' | 'log' | 'emit' | 'placeOf'>
+  & Pick<TruppActionCore, 'remember' | 'recorded'>
 
 export function truppClockActions(deps: ClockDeps) {
-  const { trupps, setTrupps, log, emit, liveTrupps, placeOf, remember, logStep, recorded } = deps
+  const { trupps, setTrupps, log, emit, placeOf, remember, recorded } = deps
 
   // record a Funkkontakt: resets the contact clock (the core FKS safety signal) and appends a
   // log row carrying the current pressure (so the Verlauf shows the trend even at radio checks)
@@ -176,7 +173,7 @@ export function truppClockActions(deps: ClockDeps) {
    * did (the last known value, carried). Given, the exit row carries a MEASURED bar
    * (types · TruppReading.measured) and the Trupp's pressure state takes it like a Druckmeldung —
    * without touching the contact clock, which stops at the Austritt anyway. */
-  const setTruppStatus = (id: string, status: Trupp['status'], exitBar?: number, opts?: { undoToast?: boolean }) => {
+  const setTruppStatus = (id: string, status: Trupp['status'], exitBar?: number) => {
     const tr = trupps.find((t) => t.id === id)
     const measuredExit = status === 'raus' && exitBar != null && exitBar > 0 && !!tr?.entryTime
     const az = appConfig.copy.atemschutz
@@ -301,30 +298,13 @@ export function truppClockActions(deps: ClockDeps) {
      * GLOBAL ↶ timeline (the door that does not expire, named per step, on the handed-over
      * Tafel too) — the confirm toast that used to double it went 09.09. with all the board's
      * popping confirmations. */
-    const drop = remember(id, line ?? (tr ? truppLogName(tr) : ''), tr, apply)
-    /* A calm word when an Atemschutz-Trupp goes in and nobody stands ready to go in after it (F1,
-     * 08.10.2026). A toast, never a question: the Eintritt is already written, and a crew is not
-     * held at the door by an app. «Ready» is what the board models (lib/atemschutz · safetyReady):
-     * Auftrag «Sichern», under PA, angemeldet. Not for a Sicherungstrupp going in itself, nor on a
-     * re-entry after a Rückzug (that crew was inside all along). */
-    if (status === 'aktiv' && tr && !tr.entryTime && isAtemschutzTrupp(tr) && !safetyEntry
-      && safetyReady(trupps.filter((x) => x.id !== id)).length === 0) {
-      toast(az.notfall.noSafetyHint, { icon: 'info' })
-    }
-    /* …with ONE exception, the card's own «Nicht eingesetzt» (owner review 26.09.2026): it is a
-     * visible button again, and a one-shot that closes a Trupp gets the confirm-with-undo toast
-     * (docs/undo.md). Its «Rückgängig» takes the step off the timeline and puts the Trupp back as it
-     * stood — the Verlauf keeps both lines. Not for the Abschluss's bulk stand-down (no opts). */
-    if (opts?.undoToast && neverDeployed && tr) {
-      const who = typeof tr.no === 'number' ? String(tr.no) : tr.name
-      undoToast(fillTemplate(az.notDeployedToast, { name: who }), () => {
-        drop()
-        if (!(liveTrupps?.() ?? trupps).some((x) => x.id === id)) return
-        recorded.delete(id)
-        setTrupps((ts) => ts.map((x) => (x.id === id ? keepCrewFiled(tr, x) : x)))
-        logStep('undo', line ?? truppLogName(tr), id)
-      })
-    }
+    remember(id, line ?? (tr ? truppLogName(tr) : ''), tr, apply)
+    /* «Kein Sicherungstrupp bereit» is no longer a toast at the Eintritt (FEEDBACK.1, 17.11.2026):
+     * it is a STANDING Meldeleiste row for as long as it is true (components/SafetyMissingMeldung,
+     * lib/atemschutz · safetyMissing) – the toast vanished, and on the Atemschutz-Link it never
+     * showed. Never a question either way: the Eintritt is written, a crew is not held at the door. */
+    /* …and the card's own «Nicht eingesetzt» says nothing either (owner pick 28, 17.11.2026):
+     * the ↶ step above puts the Trupp back as it stood, the Verlauf keeps both lines. */
   }
 
   /**
@@ -347,9 +327,10 @@ export function truppClockActions(deps: ClockDeps) {
    *     last reported Druck with its time, Funkkanal — so the record holds what the EL knew when
    *     the Sicherungstrupp was sent, not what the card says later,
    *   · an `atemschutz.notfall` audit event (the one prefix a Link-Tafel may send).
-   * ⚠️ Undoable like every Tafel act (↶, and the confirm-with-undo toast for the fast mistake):
-   * the Trupp goes back as it stood, the Verlauf keeps its row AND gets the counter-row — a
-   * mistaken trigger is cheap to take back and still on paper (docs/undo.md).
+   * ⚠️ Undoable like every Tafel act, on the header's ↶ (no toast since owner pick 28, 17.11.2026 –
+   * the Notfall's own banner is what the operator looks at): the Trupp goes back as it stood, the
+   * Verlauf keeps its row AND gets the counter-row — a mistaken trigger is cheap to take back and
+   * still on paper (docs/undo.md).
    */
   const triggerNotfall = (id: string) => {
     const tr = trupps.find((t) => t.id === id)
@@ -375,15 +356,7 @@ export function truppClockActions(deps: ClockDeps) {
     const line = withDetails(fillTemplate(nf.logTrigger, { name: truppLogName(tr) }), facts.join(', '))
     log('warn', line, 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.notfall', { id })
-    const drop = remember(id, line, tr, apply)
-    const who = typeof tr.no === 'number' ? String(tr.no) : tr.name
-    undoToast(fillTemplate(nf.toast, { name: who }), () => {
-      drop()
-      if (!(liveTrupps?.() ?? trupps).some((x) => x.id === id)) return
-      recorded.delete(id)
-      setTrupps((ts) => ts.map((x) => (x.id === id ? keepCrewFiled(tr, x) : x)))
-      logStep('undo', line, id)
-    }, [recordKey('trupps', id)])
+    remember(id, line, tr, apply)
   }
 
   /**

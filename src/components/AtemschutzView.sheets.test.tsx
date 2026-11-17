@@ -62,7 +62,7 @@ describe('the mini sheets', () => {
     expect(within(sheet).getByRole('button', { name: fillTemplate(az.lineChip, { n: 1 }) }).getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(within(sheet).getByRole('button', { name: 'Retten' }))
     fireEvent.change(within(sheet).getByLabelText(az.editFieldLabels.ziel), { target: { value: '2. OG' } })
-    fireEvent.click(within(sheet).getByRole('button', { name: `${fillTemplate(az.lineChip, { n: 2 })} · P` }))
+    fireEvent.click(within(sheet).getByRole('button', { name: `${fillTemplate(az.lineChip, { n: 2 })} · ${az.lineOnPlan}` }))
     fireEvent.click(within(sheet).getByRole('button', { name: az.save }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ auftrag: 'retten', ziel: '2. OG', lineNo: 2, funkkanal: 11, pressure: 300 }))
@@ -270,7 +270,7 @@ describe('the handed-over board (lite)', () => {
     }
   })
 
-  it('offers «Überwachung abgeben» only where a door was handed in', () => {
+  it('offers «Trupps teilen» only where a door was handed in', () => {
     mount()
     expect(screen.queryByRole('button', { name: az.shareLink })).toBeNull()
     cleanup()

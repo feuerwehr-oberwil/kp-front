@@ -126,14 +126,18 @@ export function IncidentHistoryView() {
               { key: 'actions', label: C.actions },
             ]} className="adm-history-table">
               {rows.map((incident) => {
-                const closed = incident.is_archived || !!incident.closed_at
+                // ⚠️ «abgeschlossen» = `is_archived`, as everywhere (ENT.9, 17.11.2026): a reopen keeps
+                // `closed_at`, so `|| closed_at` called a running reopened Einsatz closed and offered a
+                // «Löschen» the server answers with 409
+                const closed = incident.is_archived
                 return <tr key={incident.id}>
                   {/* `adm-time`, not `adm-mono`: a date is read as one token, so it stays on one
                       line, and tabular numerals line the columns up without the code face. */}
                   <td className="adm-time">{fmtDateTime(incident.started_at)}</td>
-                  {/* an Übung says so in its row – it is the one kind that deletes while still open */}
+                  {/* an Übung says so in its row – it is the one kind that deletes while still open; the
+                      app's one Übung tag (hatched + word, 13-incident `.ip-badge-exercise`), not an amber */}
                   <td className="adm-c-main"><span className="adm-ref-title">{incident.title}</span>
-                    {incident.is_exercise && <span className="adm-view-badge adm-view-badge-warn adm-history-exercise">{appConfig.copy.exerciseBadge}</span>}
+                    {incident.is_exercise && <span className="ip-badge ip-badge-exercise adm-history-exercise">{appConfig.copy.exerciseBadge}</span>}
                     {incident.address && <span className="adm-ref-note">{incident.address}</span>}</td>
                   {/* The badge carries no label of its own — the STATUS column already names it. */}
                   <td className="adm-c-side"><StatusBadge tone={closed ? 'off' : 'on'} label="" state={closed ? C.closed : C.open} /></td>

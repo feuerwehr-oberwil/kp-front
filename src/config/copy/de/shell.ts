@@ -26,7 +26,6 @@ export const shellCopy = {
     title: 'Trupp finden',
     // «oder Name»: the list searches the people in a Trupp too — the foot said so a second time until 29.09.2026
     placeholder: 'Trupp oder Name …',
-    noMatches: 'Kein Trupp gefunden',
     // shown INSTEAD of the list when nothing is placed anywhere — the honest answer, and it
     // says where a Trupp comes from rather than leaving an empty box
     empty: 'Noch kein Trupp auf Karte oder Plan.',

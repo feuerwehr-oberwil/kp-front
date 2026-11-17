@@ -280,7 +280,7 @@ describe('JournalComposer · «Auftrag» opens the ring', () => {
     fireEvent.click(chip('Sofortmassnahme'))
     expect(ring().dataset.state).toBe('0')
     fireEvent.click(chip('Auftrag'))
-    fireEvent.click(await menuRow(/Nicht offen halten/))
+    fireEvent.click(await menuRow(/Keine Pendenz/))
     expect(ring().dataset.state).toBe('0')
     type('Auftrag ohne Nachfassen')
     send()
@@ -342,7 +342,7 @@ describe('JournalComposer · the clock', () => {
     await waitFor(() => expect(ring().dataset.state).toBe('1'))
 
     fireEvent.click(ring())
-    fireEvent.click(await screen.findByRole('menuitem', { name: /Nicht offen halten/ }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Keine Pendenz/ }))
     send()
     const d = onSubmit.mock.calls[0][0]
     expect(d.dueAt).toBeUndefined()
@@ -445,7 +445,12 @@ describe('JournalComposer · an imported memo\'s start time', () => {
     const start = await screen.findByRole('button', { name: 'Aufnahme begann' })
     expect(document.querySelector('.jc-time')).toBeNull()
     const save = () => screen.getByRole('button', { name: /Erfassen|Eintragen/ }) as HTMLButtonElement
-    expect(save().disabled).toBe(true) // the gate: not until the start is confirmed
+    // the gate: not until the start is confirmed – and a tap on it then points at the start row
+    // instead of being swallowed (aria-disabled, duck sweep ELEM.4)
+    expect(save().getAttribute('aria-disabled')).toBe('true')
+    expect(save().disabled).toBe(false)
+    fireEvent.click(save())
+    expect(document.querySelector('.jc-import-start')!.classList.contains('field-flash')).toBe(true)
 
     fireEvent.click(start)
     // the popover (the composer itself is a dialog too, so it is found by its frame)
@@ -461,7 +466,7 @@ describe('JournalComposer · an imported memo\'s start time', () => {
     fireEvent.change(within(pop).getByRole('textbox'), { target: { value: hhmm } })
     fireEvent.click(within(pop).getByRole('button', { name: 'OK' }))
     expect(start.textContent).toBe(hhmm)
-    await waitFor(() => expect(save().disabled).toBe(false))
+    await waitFor(() => expect(save().getAttribute('aria-disabled')).toBe('false'))
     expect(onSubmit).not.toHaveBeenCalled()
   })
 })
@@ -848,24 +853,58 @@ describe('the mobile composer caret', () => {
 })
 
 // Sweep 09.11.2026, UX.12: offline, a picked Beilage held the typed Eintrag back with it, and the
-// toast only said the upload needs a connection.
-describe('JournalComposer · offline with a Beilage', () => {
-  it('offers «Ohne Beilage erfassen», which files what was written', async () => {
+// toast only said the upload needs a connection. Toast diet 17.11.2026 (call 3): the refusal is
+// ONE line at the attach row, not a toast over the open sheet.
+describe('JournalComposer · what did not attach is said at the attach row', () => {
+  const pick = (...files: File[]) => {
+    const input = document.querySelectorAll('input[type=file]')[1] as HTMLInputElement
+    fireEvent.change(input, { target: { files } })
+  }
+  const warn = () => document.querySelector('.jc-attach-warn')
+  // the toast store is module-wide: earlier tests' closes leave their own pills standing
+  const toastsSaying = (t: string) => [...document.querySelectorAll('.toast')].filter((el) => el.textContent?.includes(t))
+
+  it('offline: offers «Ohne Beilage erfassen» beside the line, which files what was written', async () => {
     vi.stubGlobal('navigator', { ...navigator, onLine: false })
     const { Overlays } = await import('../lib/ui')
     const uploadFile = vi.fn()
     const { onSubmit } = setup({ uploadFile })
     render(<Overlays />)
-    const input = document.querySelectorAll('input[type=file]')[1] as HTMLInputElement
-    fireEvent.change(input, { target: { files: [new File(['x'], 'Plan.pdf', { type: 'application/pdf' })] } })
+    pick(new File(['x'], 'Plan.pdf', { type: 'application/pdf' }))
     await screen.findByText(/Plan\.pdf/)
     type('Lüfter gestellt')
-    fireEvent.click(screen.getByRole('button', { name: /Erfassen|Eintragen/ }))
+    send()
     expect(onSubmit).not.toHaveBeenCalled()
+    expect(warn()?.textContent).toContain(appConfig.copy.journal.attachOffline)
+    expect(toastsSaying(appConfig.copy.journal.attachOffline)).toHaveLength(0)
 
-    fireEvent.click(await screen.findByRole('button', { name: appConfig.copy.journal.attachOfflineSkip }))
+    fireEvent.click(within(warn() as HTMLElement).getByRole('button', { name: appConfig.copy.journal.attachOfflineSkip }))
     expect(onSubmit).toHaveBeenCalledOnce()
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ text: 'Lüfter gestellt', files: undefined })
     expect(uploadFile).not.toHaveBeenCalled()
+  })
+
+  it('a refused pick is said inline, and the next pick clears it', async () => {
+    const { Overlays } = await import('../lib/ui')
+    setup({ uploadFile: vi.fn() })
+    render(<Overlays />)
+    pick(new File(['x'], 'virus.exe', { type: 'application/x-msdownload' }))
+    expect(warn()?.textContent).toContain(appConfig.copy.journal.attachUnsupported)
+    expect(toastsSaying(appConfig.copy.journal.attachUnsupported)).toHaveLength(0)
+    pick(new File(['x'], 'Plan.pdf', { type: 'application/pdf' }))
+    await screen.findByText(/Plan\.pdf/)
+    expect(warn()).toBeNull()
+  })
+
+  it('closing with several staged files says it ONCE, naming them all', async () => {
+    const { Overlays } = await import('../lib/ui')
+    render(<Overlays />)
+    const { unmount } = render(<JournalComposer onSubmit={vi.fn()} onClose={vi.fn()} uploadFile={vi.fn()} />)
+    pick(new File(['x'], 'A.pdf', { type: 'application/pdf' }), new File(['y'], 'B.pdf', { type: 'application/pdf' }))
+    await screen.findByText(/B\.pdf/)
+    unmount()
+    const pills = toastsSaying('A.pdf')
+    expect(pills).toHaveLength(1)
+    expect(pills[0].textContent).toContain('«A.pdf», «B.pdf»')
   })
 })

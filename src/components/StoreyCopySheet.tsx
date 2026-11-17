@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { pointAtField } from '../lib/pointAtField'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatSymbolName } from '../lib/format'
 import { grundrissKinds } from '../lib/grundriss'
@@ -34,6 +35,7 @@ export function StoreyCopySheet({ from, storeys, onCopy, onClose }: {
 }) {
   const C = appConfig.copy.whiteboard.storeyCopy
   const [picked, setPicked] = useState<number[]>([])
+  const rowsRef = useRef<HTMLDivElement>(null)
   const source = storeys.find((s) => s.floor === from)
   const name = source?.name ?? ''
   const has = !!source?.items.length
@@ -46,12 +48,14 @@ export function StoreyCopySheet({ from, storeys, onCopy, onClose }: {
   return (
     <Sheet open onClose={onClose} fit sheetClassName="wb-copy" title={fillTemplate(C.title, { name })}
       footer={has ? (
-        <Button variant="primary" block disabled={!picked.length} onClick={() => { onCopy(picked); onClose() }}>{label}</Button>
+        // nothing picked: the tap points at the storeys (ui-conventions · F2, duck sweep ELEM.4)
+        <Button variant="primary" block aria-disabled={!picked.length}
+          onClick={() => { if (!picked.length) { pointAtField(rowsRef.current); return } onCopy(picked); onClose() }}>{label}</Button>
       ) : undefined}
     >
       {!has ? <p className="wb-copy-what">{fillTemplate(C.nothing, { name })}</p> : (<>
         <p className="wb-copy-what">{kindLine(source.items)}</p>
-        <div className="wb-copy-rows" role="group" aria-label={C.targets}>
+        <div className="wb-copy-rows" role="group" aria-label={C.targets} ref={rowsRef}>
           {storeys.map((s) => s.floor === from ? (
             <div key={s.floor} className="wb-copy-row wb-copy-src">
               <span className="wb-copy-gap" aria-hidden />

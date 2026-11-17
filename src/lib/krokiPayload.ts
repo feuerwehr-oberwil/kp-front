@@ -15,7 +15,7 @@ import { operationalExtentPoints, type KrokiView } from './report'
 import { endOnTarget, resolveMapDrawings } from './lineAttachments'
 import { truppForLine, truppTagText } from './truppLines'
 import { endTagPerson } from './endTagSpots'
-import { symbolLegendText } from './symbols'
+import { symbolLegendText, symbolReading } from './symbols'
 import { doneBadge } from './objectDone'
 import { withCartoLabelsBaked, withoutCartoBasemapKey, withoutCartoRetina } from './carto'
 import { drawnPumpEntities } from './linePumps'
@@ -39,6 +39,10 @@ export interface KrokiEntityOut {
    *  glyph grey with this time in its top-left corner. ⚠️ Mirrored in backend/app/report ·
    *  KrokiEntityIn; the legend's word («gelöscht 20:40») already rides in `caption`. */
   done?: string
+  /** a Messpunkt's Stufe once it reached A1/A2 (lib/symbols · symbolReading), absent while calm or
+   *  «erledigt»: the sheet prints an «A1» / «A2» chip bottom-left of the glyph, and the legend line
+   *  ends on the stage's words (ENT.13). ⚠️ Mirrored in backend/app/report · KrokiEntityIn. */
+  stage?: 'a1' | 'a2'
   sizeM?: number
   /** generic shapes: which kind, so the server can apply the SAME size and aspect limits the
    *  client does (a Rotation spans the map and is far leaner than any box — lib/shapes ·
@@ -193,6 +197,14 @@ export function krokiEntity(e: Entity, byName: Record<string, string>, captionMo
     // object at all (18.09.2026) — see lib/symbols · symbolLegendText.
     caption: symbolLegendText(e, captionMode) ?? undefined,
     done: doneBadge(e) ?? undefined,
+  }
+  const level = base.done ? null : symbolReading(e)?.level
+  if (level === 'a1' || level === 'a2') {
+    base.stage = level
+    // the stage in words on the legend line too – «… · CO 180 ppm · A2 Hauptalarm»: the chip is the
+    // glance, the word is what a monochrome print and a reader of the legend keep
+    const word = appConfig.copy.readingLog.state[level]
+    base.caption = base.caption ? `${base.caption} · ${word}` : word
   }
   if (e.kind === 'team') return { ...base, caption: e.label || undefined, color: e.color || undefined }
   if (e.kind === 'note') {

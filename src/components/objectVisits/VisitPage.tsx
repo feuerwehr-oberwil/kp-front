@@ -23,7 +23,7 @@ import { knownVisits, lastSeen, listProgress, resolveObject, visitTemplates, vis
 import { answerStats, checklistItems, stripServer, switchChecklist, syncPhotoAnswers } from '../../objectVisits/doc'
 import { resolveConflict, type Resolution } from '../../objectVisits/merge'
 import {
-  adoptServerVisit, flushVisit, isFlushing, pendingUploads, requestSave, subscribeFlushing, type FlushOutcome,
+  adoptServerVisit, flushVisit, isFlushing, pendingUploads, requestSave, subscribeFlushing,
 } from '../../objectVisits/outbox'
 import { downloadReport, exportVisitFile, visitText } from '../../objectVisits/report'
 import { deriveStatus } from '../../objectVisits/status'
@@ -192,16 +192,9 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
     })
   }, [id, armQuietSave])
 
-  const sendNow = async () => {
-    const out = await requestSave(id, undefined, { actor: ov.userId, manual: true })
-    sayOutcome(out)
-  }
-  const sayOutcome = (out: FlushOutcome, lead?: string) => {
-    if (out === 'offline') toast(lead ? `${lead}. ${C.sendOffline}` : C.sendOffline, { icon: 'warn' })
-    else if (out === 'contended') toast(lead ? `${lead}. ${C.sendContended}` : C.sendContended, { icon: 'warn', tone: 'warn' })
-    else if (out === 'done' || out === 'nothing') toast(lead ?? C.sent, { icon: 'check', tone: 'success' })
-    else if (lead) toast(lead, { icon: 'check' })
-  }
+  // A save point's outcome is the head's status line (StatusLine: «offline», «Konflikt», ✓ and the
+  // time), not a toast after every send (toast diet, 17.11.2026).
+  const sendNow = async () => { await requestSave(id, undefined, { actor: ov.userId, manual: true }) }
 
   // Which download is under way – «Als Datei sichern» (`file`) or a Bericht (`report:<visit>[:<rev>]`)
   // – so its button shows the loader and takes no second tap (owner, 28.10.2026)
@@ -213,7 +206,8 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
     try {
       const words = { check: C.answer as Record<string, string>, open: C.notChecked, notes: C.notes, proposals: C.proposals }
       const { missingPhotos } = await exportVisitFile(cur, visitText(cur.doc, words))
-      toast(missingPhotos ? fillTemplate(C.fileSavedMissing, { n: missingPhotos }) : C.fileSaved, { icon: 'download' })
+      // the download is its own answer; only what it LEFT OUT is said
+      if (missingPhotos) toast(fillTemplate(C.fileSavedMissing, { n: missingPhotos }), { icon: 'download' })
     } catch {
       toast(C.fileFailed, { icon: 'warn', tone: 'warn' })
     } finally { setBusy(null) }
@@ -259,7 +253,6 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
         if (got) added.push(got.photo); else failed++
       }
       if (added.length) await edit((d) => ({ ...d, photos: [...d.photos, ...added] }))
-      if (added.length) toast(fillTemplate(C.photosAdded, { n: added.length }), { icon: 'check' })
       if (failed) toast(C.photoFailed, { icon: 'warn', tone: 'warn' })
     }
     // photos go up as soon as the visit exists on the server (not a revision)
@@ -275,7 +268,7 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
     void edit((d) => ({ ...d, photos: d.photos.filter((p) => p.id !== attId) }))
     undoToast(C.photoRemoved, () => {
       void edit((d) => (d.photos.some((p) => p.id === attId) ? d : { ...d, photos: [...d.photos.slice(0, at), gone, ...d.photos.slice(at)] }))
-    })
+    }, undefined, { glyph: 'trash' })
   }
 
   // ── proposals ──
@@ -290,7 +283,7 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
     void edit((d) => ({ ...d, proposals: d.proposals.filter((x) => x.id !== p.id) }))
     undoToast(C.proposalRemoved, () => {
       void edit((d) => (d.proposals.some((x) => x.id === p.id) ? d : { ...d, proposals: [...d.proposals.slice(0, at), p, ...d.proposals.slice(at)] }))
-    })
+    }, undefined, { glyph: 'trash' })
   }
 
   const resolve = (conflictId: string, how: Resolution) => { void edit((d) => resolveConflict(d, conflictId, how)) }
@@ -309,11 +302,11 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
       if (!ok) return
     }
     await edit((d) => ({ ...d, lifecycle: 'completed' }))
-    sayOutcome(await requestSave(id, undefined, { actor: ov.userId }), C.completed)
+    await requestSave(id, undefined, { actor: ov.userId })
   }
   const finishCorrection = async () => {
     setCorrecting(false)
-    sayOutcome(await requestSave(id, undefined, { actor: ov.userId }))
+    await requestSave(id, undefined, { actor: ov.userId })
   }
   /** «Checkliste wechseln» (a draft only — the server refuses a changed snapshot after that) */
   const changeChecklist = async (t: VisitTemplate | null) => {
@@ -331,7 +324,7 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
     await edit((d) => switchChecklist(d, t).doc)
   }
   const discard = async () => {
-    const ok = await confirmDialog({ title: C.discardTitle, message: C.discardMsg, confirmLabel: C.discardBtn, danger: true })
+    const ok = await confirmDialog({ title: C.discardTitle, message: C.discardMsg, confirmLabel: C.discardBtn, danger: true, bin: true })
     if (!ok) return
     // never on the server: confirmed, so nothing of it stays on the device either
     if (rec && !rec.base && !rec.op) {
@@ -546,8 +539,8 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
         <div className={s.foot}>
           <div className={s.footRow}>
             {lifecycle === 'draft'
-              ? <Button variant="primary" size="lg" icon={<Icon id="check" />} onClick={() => { void complete() }}>{C.complete}</Button>
-              : <Button variant="primary" size="lg" icon={<Icon id="check" />} onClick={() => { void finishCorrection() }}>{C.correctionDone}</Button>}
+              ? <Button variant="primary" size="lg" onClick={() => { void complete() }}>{C.complete}</Button>
+              : <Button variant="primary" size="lg" onClick={() => { void finishCorrection() }}>{C.correctionDone}</Button>}
           </div>
         </div>
       )}

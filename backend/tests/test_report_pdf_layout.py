@@ -390,7 +390,10 @@ def test_the_pressure_log_shares_the_trupps_left_edge():
     name_x = next(
         tp.get_rect(i)[0] for i in range(tp.count_rects()) if "Schmid" in tp.get_text_bounded(*tp.get_rect(i))
     )
-    zeit_x = next(tp.get_rect(i)[0] for i in range(tp.count_rects()) if "Zeit" in tp.get_text_bounded(*tp.get_rect(i)))
+    # the column head is the bare word – «Zeit Alarmierung» (the head's field) must not match
+    zeit_x = next(
+        tp.get_rect(i)[0] for i in range(tp.count_rects()) if tp.get_text_bounded(*tp.get_rect(i)).strip() == "Zeit"
+    )
     assert abs(zeit_x - name_x) < 6, f"table at x={zeit_x} is not aligned with the name at x={name_x}"
 
 
@@ -432,7 +435,9 @@ def test_every_trupp_block_shares_one_tab_stop():
 
     # the two value columns, and both pressure logs that hang off them
     assert abs(left_of("Frei Nina") - left_of("Meier Anna")) < 1.5
-    zeit = [tp.get_rect(i)[0] for i in range(tp.count_rects()) if "Zeit" in tp.get_text_bounded(*tp.get_rect(i))]
+    zeit = [
+        tp.get_rect(i)[0] for i in range(tp.count_rects()) if tp.get_text_bounded(*tp.get_rect(i)).strip() == "Zeit"
+    ]
     assert len(zeit) == 2, f"expected one pressure log per Trupp, got {len(zeit)}"
     assert abs(zeit[0] - zeit[1]) < 1.5
 

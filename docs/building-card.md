@@ -4,8 +4,10 @@ Status: 🟢 shipped (KP Front idea F5, 2026-10-09; opens by itself the first ti
 
 The **Gebäude** chip stands in the bottom-left chip row of the **Karte**, and in the **Plan**'s
 chip row beside the Objekt chip whenever an Objekt is bound, and on the Gebäude stack beside the
-building chip (`components/BuildingFloat`; not on a phone's plan, whose one-line row needs the
-room for the Objekt's name). On a phone it is part of the Karte's one floating row, left of the FAB.
+building chip (`components/BuildingFloat`) – on a phone's plan as well since 17.11.2026 (owner pick
+18: every plan shows the same floating row; it was kept off there from 09.10.2026, when the row was
+chips and the hazard took the room of the Objekt's name – the row is tiles now, each capped). On a
+phone it is part of the one floating row, left of the FAB.
 Closed, it names the hazards as glyph + word («⚠ Gebäude-Info · Gas · PV»), or just «Gebäude-Info»
 (owner pick C8, 05.11.2026). On a PHONE it is the hazard alone again – «⚠ Gas · PV» at 700, or
 (i) «Gebäude» without one, the count badge and the full aria-label/title kept (owner pick 12A,
@@ -14,7 +16,10 @@ Sofortmassnahme, no Bemerkung, register lines only – it is a tile like the Ein
 (i) with «Gebäude» under it, the row's height, as wide as the word (round 16.11.2026 #9, owner:
 «(i) chip … unless there is a custom entry … or hazard», then picked the worded tile over the
 bare (i); `lib/buildingCard · summary.quiet`). The auto-open on first view is unchanged. A tap opens the card docked one row above it.
-The card is non-modal, like the Passung: the map stays live, and ✕, the chip or Esc close it.
+The card is non-modal: no scrim, nothing trapped. ✕, the chip, Esc, the native back and a tap beside
+it close it – and that tap ONLY closes it, it never selects or places on the map under it; one Esc
+closes the card alone, the selection behind it stays (ui-conventions › Overlays · the way out of a
+layer, 17.11.2026).
 Open, it stands above the phone's wind chip (the row rises to `--z-map-card`, under the
 Meldeleiste and the bars) and never reaches past the top: its height is the room between its foot
 and where the Meldeleiste starts – one gap under the strip while one stands. A longer card scrolls
@@ -37,7 +42,7 @@ too, on every new Einsatz. A building with nothing at all has no chip and no car
   Einsatz has its own operator who has not read it. A building is the Einsatzort the answer was
   asked for plus its Objekt, so an address corrected in «Bearbeiten» or a manual Objekt pick that
   brings new content shows the card once again.
-- **Read means closed** – ✕, Esc or the chip. A card left open when the operator leaves the Karte
+- **Read means closed** – ✕, Esc, the back gesture, a tap beside it or the chip. A card left open when the operator leaves the Karte
   or the app is killed was not dismissed and comes back the next time the Karte is shown. The chip
   stays to reopen it.
 - **When.** Never under the opening cover (`lib/bootCover`): it opens after the snail has faded.

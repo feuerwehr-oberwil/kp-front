@@ -95,15 +95,24 @@
      --msg-pad all round — the height a toast with its ✕ already had), the one corner, 14px of air
      before the first glyph, 16px glyphs. A state is the colour of a GLYPH inside it (a lamp, the
      leading icon), never an outline: the Massstab chip wore a blue ring and the object chip an
-     amber one, and beside the toasts they read as four different things. The FAB wears the
-     one corner too since 16.11.2026 (it was the row's one round thing), the row's height, its word
-     under the glyph, on the row's baseline (15-mobile · --float-bottom). */
+     amber one, and beside the toasts they read as four different things. The FAB is a square
+     since 16.11.2026 (it was the row's one round thing), its word under the glyph, on the row's
+     baseline (15-mobile · --float-bottom). A PIECE of the row – tile, chip, FAB – wears the bars'
+     corner, --r-bar (owner pick 20, 17.11.2026: at 12px beside the bars they read «too angular»);
+     a message keeps the one corner. */
   --float-bg: var(--glass);
   --float-blur: blur(14px) saturate(1.4);
   --float-edge: inset 0 0 0 1px var(--glass-line), var(--shadow);
   --float-h: calc(var(--tap) + 2 * var(--msg-pad));
   --float-pad-x: 14px;
   --float-gap: 8px;
+  /* THE bottom line's one height (owner pick 21, button round 17.11.2026): every piece standing on
+     the bottom line – the floating row's tiles and chips, the Eintrag FAB, «Zurück zum Rapport», the
+     Karte's squares – is as tall as the BAR that line belongs to: the phone's bars (--rail-h,
+     15-mobile) and the tablet's view bar (--view-bar-h, 07-toolrail); where no bar stands, the
+     family's --float-h. A piece sets `--float-h: var(--line-h)` on itself, so its inside keeps
+     reading the one token, and the reserves that clear it (--fab-safe, --float-row) read this. */
+  --line-h: var(--float-h);
   --ease: cubic-bezier(.2, .7, .3, 1);
   /* THE app-wide :active wash — layered as a background-image overlay so it composes with
      any background underneath. Built on --ink, which flips for the night theme, so the wash
@@ -238,6 +247,7 @@
   --z-popover: 60;           /* menus and popovers belonging to one surface */
   --z-drawer: 61;            /* the Verlauf drawer */
   --z-drawer-menu: 62;       /* …and a menu opened inside it */
+  --z-present-over-sheet: 63; /* the phone's presentation pill while a sheet it explains is open (08-toasts) */
   --z-help-scrim: 70;
   --z-help: 71;
   --z-dialog-scrim: 80;      /* `.ui-backdrop` — the modal scrim */

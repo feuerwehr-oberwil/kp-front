@@ -59,7 +59,7 @@ describe('the page on paper', () => {
     expect(rows.map((r) => r.cells[0])).toEqual(['Wasserbezug melden', 'Rückmeldung 2. OG'])
     expect(rows[0].done).toBe(true)
     expect(rows[1].cells[1]).toBe('AS-Trupp 2')
-    expect(rows[1].cells[2]).toBe('1')
+    expect(rows[1].cells[2]).toBe('!')
     expect(rows[1].cells[4]).toMatch(/überfällig$/)
     expect(rows[1].cells[3].split('\n')).toEqual([expect.stringMatching(/^Erteilt \d\d:\d\d$/), 'Erledigt –'])
   })

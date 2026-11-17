@@ -18,6 +18,7 @@ import type { BoardAnno, BoardPoint, BoardTool, LineAttachment } from '../types'
 import { appConfig } from '../config/appConfig'
 import { newId } from '../lib/ids'
 import { fillTemplate } from '../lib/format'
+import { annoLogName } from '../lib/drawingEdit'
 import { toast } from '../lib/ui'
 import { askOpenDraft, draftActive as isDraftActive, finishKind, releaseDraft as releaseDraftOf } from '../lib/draftMachine'
 import { joinTargets, useDraftMagnet } from '../lib/useDraftMagnet'
@@ -186,7 +187,8 @@ export function usePlanDraft({
     // the jump-back aims at the line's FIRST node: a Leitung can run across two floors, and the
     // end it was started from is the end the operator was standing at when the row was written
     const W = appConfig.copy.whiteboard
-    log('pen', role === 'wand' ? W.placeWand : W.placeLine, { annoId: id, x: pts[0]?.[0], y: pts[0]?.[1], floor })
+    // the Karte's row for the same line («Rettungsachse gezeichnet»), on the Plan (ENT.8)
+    log('pen', role === 'wand' ? W.placeWand : fillTemplate(W.drawnOnPlan, { name: annoLogName(anno) ?? '' }), { annoId: id, x: pts[0]?.[0], y: pts[0]?.[1], floor })
     draftAttachments.current = {}
     return anno
   }
@@ -200,7 +202,7 @@ export function usePlanDraft({
     const floor = pts[0]?.[2] ?? draftFloor.current
     const anno: BoardAnno = { id, kind: 'area', pts, floor, color, width, dashed }
     addRef.current(anno)
-    log('area', appConfig.copy.whiteboard.placeArea, { annoId: id, x: pts[0]?.[0], y: pts[0]?.[1], floor })
+    log('area', fillTemplate(appConfig.copy.whiteboard.drawnOnPlan, { name: annoLogName(anno) ?? '' }), { annoId: id, x: pts[0]?.[0], y: pts[0]?.[1], floor })
     return anno
   }
   const addArea = (pts: BoardPoint[]) => { const { id } = commitArea(pts); setSelId(id); setTool('pan') }
@@ -210,9 +212,10 @@ export function usePlanDraft({
   // there, exactly as the map's does.
   const addCircle = (x: number, y: number, floor: number, radiusN: number) => {
     const id = newId('c')
-    add({ id, kind: 'circle', x, y, floor, radiusN, color: appConfig.drawing.circleColor,
-      dashed: true, width: appConfig.drawing.circleLineWidth, fillOpacity: appConfig.drawing.circleFillOpacity })
-    log('circle', appConfig.copy.whiteboard.placeCircle, { annoId: id, x, y, floor })
+    const circle: BoardAnno = { id, kind: 'circle', x, y, floor, radiusN, color: appConfig.drawing.circleColor,
+      dashed: true, width: appConfig.drawing.circleLineWidth, fillOpacity: appConfig.drawing.circleFillOpacity }
+    add(circle)
+    log('circle', fillTemplate(appConfig.copy.whiteboard.drawnOnPlan, { name: annoLogName(circle) ?? '' }), { annoId: id, x, y, floor })
     setSelId(id); setTool('pan')
   }
   /** One piece of a Wand, committed while the tool stays ARMED (no selection, no pan) – each its

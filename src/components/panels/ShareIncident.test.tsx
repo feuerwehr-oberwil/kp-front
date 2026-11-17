@@ -291,7 +291,7 @@ describe('«Link aufheben» – one confirmation from every door', () => {
   const doors = [
     // `opens` = the tab the door lands on; the other one is reached by switching
     { door: 'Einsatzkopf «Teilen»', opens: 'view', props: { initialKind: 'view' } },
-    { door: 'QR «Überwachung abgeben»', opens: 'atemschutz', props: { initialKind: 'atemschutz', autoCreate: true } },
+    { door: 'QR «Trupps teilen»', opens: 'atemschutz', props: { initialKind: 'atemschutz', autoCreate: true } },
     { door: 'Rapport «Weitergeben»', opens: 'view', props: {} },
   ] as const
   const kinds = [

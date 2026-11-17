@@ -220,18 +220,14 @@ export function hasBuildingContent(b: BuildingInfo | null): boolean {
 }
 
 /** What the closed chip on the Karte / the plan's chip row says: the hazards as WORDS («Gas · PV»),
- *  or nothing beyond «Gebäude» when there are none. `hazard` drives the warn glyph, `quiet` the
- *  phone's (i) «Gebäude» tile. */
+ *  or nothing beyond «Gebäude-Info» («Info» on a phone's tile) when there are none. `hazard` drives
+ *  the warn glyph. */
 export interface BuildingChipSummary {
   hazard: boolean
   /** the hazard words, deduplicated, in the chips' order («Gas», «Heizöl», «PV») */
   words: string[]
   /** how many Sofortmassnahmen the Objekt has to be read (0 = none) – the chip's count badge */
   measures: number
-  /** nothing a crew must not miss: no hazard, no Sofortmassnahme, no Bemerkung – only register
-   *  lines (or a past Objektbesuch). The phone draws the (i) «Gebäude» tile then (round 16.11.2026 #9,
-   *  owner: «(i) chip … unless there is a custom entry (i.e. sofortmassnahme / bemerkung) or hazard»). */
-  quiet: boolean
   /** the full sentence for aria-label / title */
   label: string
 }
@@ -250,6 +246,5 @@ export function buildingChipSummary(b: BuildingInfo | null): BuildingChipSummary
     ? fillTemplate(C.chipLabelHazards, { h: words.join(', ') })
     : C.chipLabel
   const label = measures ? `${open} · ${fillTemplate(measures === 1 ? C.chipMeasuresOne : C.chipMeasures, { n: measures })}` : open
-  const quiet = !words.length && !measures && !noteLines(b.object?.remarks).length
-  return { hazard: words.length > 0, words, measures, quiet, label }
+  return { hazard: words.length > 0, words, measures, label }
 }
