@@ -624,10 +624,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     () => (stack && !isPhone ? annos.filter((a) => a.kind === 'symbol' && isMeasuredSymbol(a)).flatMap((a) => stackInstances(a, floorsTTB)) : []),
     [stack, isPhone, annos, floorsTTB],
   )
-  const putHidden = (next: number[]) => {
+  const putHidden = useCallback((next: number[]) => {
     setHiddenFloors(next)
     if (incidentId) saveHiddenFloors(incidentId, next)
-  }
+  }, [incidentId])
   /** Fold a storey away, or bring it back. ⚠️ The LAST visible one cannot be folded: a stack with
    *  no tile has nothing left to tap, and the way back would be gone with it. */
   const toggleFloor = (f: number) => {
@@ -658,7 +658,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const reveal = storeysToReveal(before, storeyTeams, hiddenFloors)
     if (reveal.length) putHidden(hiddenFloors.filter((f) => !reveal.includes(f)))
     lastTeams.current = { key, teams: new Map(storeyTeams.map((t) => [t.id, { floor: t.floor, tone: t.tone }])) }
-  }, [storeyTeams, hiddenFloors, incidentId, activeId, replay]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [storeyTeams, hiddenFloors, incidentId, activeId, replay, putHidden])
   /** The folded-away storeys as strips: where each one belongs between the drawn tiles (`seam` =
    *  how many drawn tiles are above it) and how many folded storeys share that seam. */
   const folded = useMemo(() => {
