@@ -256,8 +256,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logFirstPressureSame: 'Squadra {name}: contatto – prima pressione {bar} bar (come la pressione d’entrata)',
     pressureSheetFirst: 'Prima pressione – sostituisce la pressione d’entrata {bar} bar, conta come contatto',
     newTruppShort: 'Squadra',
-    removedToast: 'Squadra {name} rimossa',
-    notDeployedToast: 'Squadra {name}: non impiegata',
     // Atemschutznotfall (F1, 08.10.2026) — formulazione breve e neutra; vedi la base tedesca
     notfall: {
       act: 'Emergenza',
@@ -303,7 +301,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       logSafetyDesignated: 'Squadra {name}: designata squadra di sicurezza – emergenza squadra {target}',
       logSafetyWas: 'prima {auftrag}',
       logAtClose: 'Squadra {name}: emergenza non conclusa alla chiusura',
-      toast: 'Emergenza attivata per la squadra {name}',
       notifyTitle: 'Emergenza ARA – {name}',
       notifyBody: 'Emergenza da {time} – impiegare la squadra di sicurezza.',
       noSafetyHint: 'Nessuna squadra di sicurezza pronta',

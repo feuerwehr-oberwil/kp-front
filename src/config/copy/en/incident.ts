@@ -170,8 +170,6 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     watchEnds: 'Closing ends the monitoring of these teams on every device.',
     confirmBack: 'Back',
     endeNow: 'now {t}',
-    done: 'Incident closed',
-    reopen: 'Reopen',
     mediaPendingTitle: '{n} photo/audio from “{title}” not synced yet',
     mediaPendingSub: 'Kept saved on this device and synced the next time it is opened.',
     mediaPendingDismiss: 'Hide',

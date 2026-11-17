@@ -332,7 +332,7 @@ export function BandGrid({
   onAddShift: (p: Person) => void
   onSetShiftTime: (id: string, patch: { from?: string; to?: string }) => void
   onReplaceShift: (sh: Shift) => void
-  onRemoveShift: (id: string, personName: string) => void
+  onRemoveShift: (id: string) => void
   onCreateBand: (label: string, from: string, to: string) => void
   /** rename + re-time in one commit; the re-time asks about dragging assigned people along */
   onSaveBand: (id: string, label: string, from: string, to: string) => void

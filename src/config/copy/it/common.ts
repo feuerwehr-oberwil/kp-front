@@ -30,8 +30,6 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   redoNamed: 'Ripristina: {action}',
   undoLost: 'Non più annullabile',
   removedToast: { note: 'Nota rimossa', freed: '{what}, {n} linee staccate', freedOne: '{what}, 1 linea staccata', joinedTitle: '{what} ha {n} linee', joinedTitleOne: '{what} ha 1 linea', joinedOnly: 'Solo simbolo', joinedOnlyGroup: 'Solo selezione', joinedWith: 'Con le linee', withLines: '{what} e {n} linee rimossi', withLine: '{what} e 1 linea rimossi', group: 'Selezione', groupN: '{n} oggetti', noteWhat: 'Nota',
-    connectionFreed: 'Collegamento staccato',
-    named: '{what} rimosso',
   },
   undoDomains: {
     reference: 'Collegamento adattato',

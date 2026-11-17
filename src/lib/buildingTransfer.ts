@@ -284,24 +284,23 @@ export interface BuildingStepCopy {
 }
 
 /**
- * What ONE building pick lays on the undo timeline: its label, and whether the confirm-with-undo
- * toast stands beside it.
+ * The label ONE building pick lays on the undo timeline – the ↶ caption, which counts what the
+ * pick carried over or lost (no toast since owner pick 28, 17.11.2026: ↶ takes the pick back).
  *
  * ⚠️ EVERY pick is a step (staging r3, 25.09.2026). The step used to be laid only when an existing
  * stack carried work, so the FIRST «Übernehmen» — and any re-pick of a bare stack — left ↶ lit
  * with an older, unrelated Karte step: the one tap meant to take the building back took back
- * something else. The toast stays reserved for a pick that put work at stake (`hasWork`).
+ * something else.
  */
 export function buildingPickStep(
-  prev: BuildingDoc | null, amend: Pick<BuildingAmend, 'legacy' | 'carried' | 'dropped'>, markCount: number, hasWork: boolean,
+  prev: BuildingDoc | null, amend: Pick<BuildingAmend, 'legacy' | 'carried' | 'dropped'>, markCount: number,
   copy: BuildingStepCopy, fill: (template: string, vars: Record<string, string | number>) => string,
-): { label: string; toast: boolean } {
-  const label = !prev ? copy.buildingTaken
+): string {
+  return !prev ? copy.buildingTaken
     : amend.legacy ? (markCount > 0 ? fill(copy.buildingReplacedMarks, { n: markCount }) : copy.buildingReplaced)
     : amend.dropped > 0 ? fill(copy.buildingReplacedCarriedDropped, { n: amend.carried, d: amend.dropped })
     : markCount > 0 ? fill(copy.buildingReplacedCarried, { n: amend.carried })
     : copy.buildingReplacedKept
-  return { label, toast: hasWork }
 }
 
 /**

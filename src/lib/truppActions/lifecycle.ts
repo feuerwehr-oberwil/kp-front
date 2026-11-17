@@ -1,7 +1,6 @@
 import type { Trupp, TruppFields } from '../../types'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../format'
-import { undoToast } from '../ui'
 import { truppEquipmentLabels } from '../report'
 import { isAtemschutzTrupp, truppCrewWithout, truppInNotfall, truppLogName, truppTransferState } from '../atemschutz'
 // stamped in the DEPLOYMENT's time, like every Trupp timestamp (why: truppActions/clock)
@@ -693,20 +692,14 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
     // card never left the record and putting it back is un-stamping it — a fresh Trupp would be a
     // second registration of a crew that only ever registered once. The placement refs stay gone
     // (see restoreTrupp): the chip on the plan cannot be resurrected faithfully.
-    // ⚠️ Three doors, one act: this ↶ timeline entry, the non-expiring «Entfernte Trupps» menu,
-    // and — back since 25.09.2026 (staging N4) — the confirm-with-undo toast docs/undo.md asks of a
-    // one-shot that DESTROYS something (the 09.09. sweep took it with the Kontakt/Druck toasts,
-    // but a removal is not a Kontakt). The toast's «Rückgängig» restores through `restoreTrupp`
-    // and drops this timeline entry, so the act is never undoable twice.
+    // ⚠️ Two doors, one act: this ↶ timeline entry and the non-expiring «Entfernte Trupps» menu.
+    // No toast (owner pick 28, 17.11.2026): the header's ↶ is the fast way back.
     // ⚠️ …and the placement refs are STRIPPED on the way back, exactly as `restoreTrupp` strips
     // them: `dropPlacements` above took the plan chip and the map marker with it, and they cannot
     // be resurrected faithfully. Restoring the card verbatim would point it at an annotation id
     // that no longer exists — the Trupp comes back and «auf Plan zeigen» leads nowhere. It is
-    // re-placed via «Platzieren», which is what the other two doors already leave the operator to.
+    // re-placed via «Platzieren», which is what the other door already leaves the operator to.
     const drop = remember(id, line, tr && { ...tr, annoId: undefined, planId: undefined, entityId: undefined }, apply)
-    // ⚠️ guarded by the Trupp's record (lib/undoKeys · watchRecords): once a merge changed it, the
-    // toast declines instead of restoring the card as it stood before the other device's write
-    if (tr) undoToast(fillTemplate(appConfig.copy.atemschutz.removedToast, { name: truppLogName(tr) }), () => { drop(); restoreTrupp(tr) }, [recordKey('trupps', id)], { glyph: 'trash' })
     return drop
   }
 

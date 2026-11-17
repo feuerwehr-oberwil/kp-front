@@ -157,8 +157,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       reset: 'Remove',
       resetTitle: 'Remove the link?',
       resetBody: 'The link between this plan and the map is removed. The points have to be set again afterwards.',
-      resetDone: 'Link removed',
-      pointsCleared: 'Points reset',
       clearPoints: 'Reset',
       clearTitle: 'Reset all points?',
       clearBody: 'The points set so far are removed, and with them the link between this plan and the map. Setting them starts over.',

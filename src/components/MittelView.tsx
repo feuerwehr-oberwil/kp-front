@@ -10,7 +10,6 @@ import { getDeploymentConfig, type DeploymentMittelItem, type DeploymentMittelSo
 import { fillTemplate, stripUnprintable, unitLabel } from '../lib/format'
 import { cx } from '../lib/cx'
 import { caretToEnd } from '../lib/ui'
-import { removeWithUndo } from '../lib/removalToast'
 import { Menu, Overlay, Sheet, SheetFoot } from '../lib/overlays'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
@@ -216,12 +215,10 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
     onSave({ materialId: c.materialId, label: c.label, unit: c.unit, sourceId: c.sourceId, sourceLabel: c.sourceLabel, menge })
   }
 
-  /** Remove a hand-added line for good, with the delete rule's toast (lib/removalToast). The
-   *  save lays its own ↶ step (the Mittel slice joins the Einsatz timeline, useRecordSlices), and
-   *  the toast's «Rückgängig» IS that ↶ – so the removal is never undoable twice (duck sweep
-   *  FEEDBACK.4: the toast used to save a restore of its own and leave the ↶ holding both). */
-  const deleteLine = (probe: MatProbe, menge: number, label: string) => {
-    removeWithUndo(fillTemplate(M.removedToast, { label }), () => onSave({ ...probe, menge, deleted: true }))
+  /** Remove a hand-added line at once, no toast (the delete rule, lib/removal): the save lays its
+   *  own ↶ step (the Mittel slice joins the Einsatz timeline, useRecordSlices), and ↶ brings it back. */
+  const deleteLine = (probe: MatProbe, menge: number) => {
+    onSave({ ...probe, menge, deleted: true })
   }
 
   /** Apply the pencil dialog. A hand-added line is KEYED by label + unit + source, so renaming it
@@ -642,7 +639,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
           M={M} target={noteFor} sources={sources} units={units}
           onClose={() => setNoteFor(null)}
           onSave={(next) => { applyEdit(noteFor, next); setNoteFor(null) }}
-          onDelete={() => { deleteLine(noteFor.probe, noteFor.menge, noteFor.label); setNoteFor(null) }}
+          onDelete={() => { deleteLine(noteFor.probe, noteFor.menge); setNoteFor(null) }}
         />
       )}
     </>

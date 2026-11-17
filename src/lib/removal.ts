@@ -1,67 +1,24 @@
 // The one delete rule (docs/undo.md · «One delete rule», 13.11.2026, owner: «one rule
-// everywhere»): a removal the ↶ timeline can bring back ACTS AT ONCE and says so – «{Name}
-// entfernt · Rückgängig». A red ConfirmCard stands only in front of what nothing brings back.
+// everywhere»): a removal the ↶ timeline can bring back ACTS AT ONCE – and says nothing (owner
+// pick 28, 17.11.2026: no toast where the top bar's ↶ «Rückgängig» brings it back). The object
+// leaving the screen is the confirmation; the ↶ names the step (`removedText` is its caption).
+// A red ConfirmCard stands only in front of what nothing brings back.
 //
-// The toast's «Rückgängig» IS the header's ↶ for that one step: the removal's own timeline entry
-// is read off the top right after the act, and the button steps it back only while it is still on
-// top. Once something else happened in between it declines («Nicht mehr rückgängig machbar») and
-// the header's ↶ still reaches the removal. That is the Tafel bin's binding (usePlanTafelPages ·
-// deletionToast), and it is exact: the snapshot stacks of the Karte and the Plans give back every
-// Leitung end, placard bond, sheet anchor and page the removal touched, and the counter-row is
-// the ↶'s own – nothing here re-implements an inverse.
+// The snapshot stacks of the Karte and the Plans give back every Leitung end, placard bond, sheet
+// anchor and page the removal touched in ONE ↶ step – nothing here re-implements an inverse.
 //
 // ONE exception asks first (owner, 14.11.2026): a symbol – or a Mehrfach group – that Leitungen
 // hang on. «TLF hat 2 Leitungen» · [Nur Symbol] [Mit Leitungen] [Abbrechen] (`askJoinedLines`):
 // «Nur Symbol» is the rule's act (the ends let go where they stood), «Mit Leitungen» takes every
-// line on it in the same write (`withLinesText`), and either is still ONE ↶ step with this toast.
+// line on it in the same write (`withLinesText`), and either is still ONE ↶ step.
 // Nothing joined → no card. Lage (workspace/useMapActions) and Plan (components/usePlanRemoval) alike.
-//
-// The timeline belongs to the open Einsatz, so IncidentWorkspace plugs it in
-// (`connectRemovalToasts`); every removal path calls `removeWithUndo` around its write.
 
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
-import { confirmDialog, toast, undoToast, type UndoGlyph } from './ui'
-import type { UndoEntry } from './undoTimeline'
+import { confirmDialog } from './ui'
 
-/** What the toast needs of the Einsatz's timeline: its top entry, and the header's ↶. */
-export interface RemovalPort {
-  peek: () => UndoEntry | null
-  undo: () => void
-}
-
-let port: RemovalPort | null = null
-
-/** Plug the open Einsatz's timeline in; returns the unplug (a later plug wins). */
-export function connectRemovalToasts(p: RemovalPort): () => void {
-  port = p
-  return () => { if (port === p) port = null }
-}
-
-
-/**
- * Run `act` – a removal that lays its own ↶ step – and show «`text` · Rückgängig».
- * An act that laid no step (read-only, nothing to remove) gets no toast: there is nothing to
- * take back, and «entfernt» would be a claim. Outside an Einsatz (no timeline plugged in) the
- * sentence stands alone, without the button. Returns what `act` returns.
- * `glyph`: a removal leads with the bin; the one other act on this door – a Grundriss copied onto
- * storeys that are off screen (Whiteboard · copyStorey) – with ↶.
- */
-export function removeWithUndo<T>(text: string, act: () => T, glyph: UndoGlyph = 'trash'): T {
-  const p = port
-  const before = p?.peek() ?? null
-  const out = act()
-  // no timeline: the bare sentence, no button – its own kind, so five bins are still one pill
-  if (!p) { toast(text, { icon: glyph, kind: 'removal' }); return out }
-  const step = p.peek()
-  if (!step || step === before) return out
-  // the default undo kind: five bins in a row are one pill, every act on ↶
-  undoToast(text, () => p.undo(), () => p.peek() === step, { glyph })
-  return out
-}
-
-/** The toast's sentence: `what` is the removal's own Verlauf words («TLF entfernt»), plus the
- *  Leitungen it set loose – «TLF entfernt, 2 Leitungen gelöst». */
+/** The ↶ caption of a removal: `what` is the removal's own Verlauf words («TLF entfernt»), plus
+ *  the Leitungen it set loose – «TLF entfernt, 2 Leitungen gelöst». */
 export function removedText(what: string, freed = 0): string {
   const C = appConfig.copy.removedToast
   return freed > 0 ? fillTemplate(freed === 1 ? C.freedOne : C.freed, { what, n: freed }) : what

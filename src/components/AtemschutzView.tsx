@@ -1054,7 +1054,7 @@ export function AtemschutzView({
       focusNonce={nonce} focusScroll={activeFocus?.id === t.id && !(compact && !focusMode)} flashSeen={seen} onFlashed={flashed}
       onContact={(id) => { void contactTap(id) }}
       onStatus={(id, s) => { freezeOrder(); setTruppStatus(id, s) }}
-      onStandDown={(id) => { freezeOrder(); setTruppStatus(id, 'raus', undefined, { undoToast: true }) }}
+      onStandDown={(id) => { freezeOrder(); setTruppStatus(id, 'raus') }}
       // the Restdruck question at «Raus melden» — every width (24.09.2026, see PressureSheet)
       onAskExit={(id) => setPressureAsk({ id, kind: 'exit' })}
       // …and the card's Druck is the same picker, on EVERY board since 29.09.2026 (the tablet's

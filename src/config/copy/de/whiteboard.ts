@@ -237,8 +237,6 @@ export const whiteboardCopy = {
       reset: 'Entfernen',
       resetTitle: 'Verknüpfung entfernen?',
       resetBody: 'Die Verknüpfung zwischen diesem Plan und der Karte wird entfernt. Die Punkte müssen danach neu gesetzt werden.',
-      resetDone: 'Verknüpfung entfernt',
-      pointsCleared: 'Punkte zurückgesetzt',
       // In der Leiste des laufenden Modus: alle Paare weg, der Modus bleibt an – man setzt ja
       // sofort neu. «Abbrechen» daneben behält, was steht.
       clearPoints: 'Zurücksetzen',

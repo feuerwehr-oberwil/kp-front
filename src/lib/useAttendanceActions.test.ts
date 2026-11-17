@@ -6,11 +6,12 @@ import type { AttendanceState } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 
-// the confirm-with-undo toasts, recorded so a test can press their «Rückgängig»
-const toasts = vi.hoisted(() => ({ undo: [] as (() => void)[] }))
+// every toast raised, so a test can say there was none (owner pick 28: the slice's ↶ is the way back)
+const toasts = vi.hoisted(() => ({ said: [] as string[] }))
 vi.mock('./ui', async (importOriginal) => ({
   ...await importOriginal<typeof import('./ui')>(),
-  undoToast: (_text: string, onUndo: () => void) => { toasts.undo.push(onUndo); return 1 },
+  toast: (text: string) => { toasts.said.push(text); return 1 },
+  undoToast: (text: string) => { toasts.said.push(text); return 1 },
 }))
 
 // useAttendanceActions has no React hooks inside — it's a closure factory over injected
@@ -160,34 +161,28 @@ describe('every write from this surface is stamped «am Kommandoposten»', () =>
   })
 })
 
-// staging walk-through 25.09.2026: an undo that RESTORES writes its counter-row — the removal row
-// stays (append-only), and without the second one the record says the person went
-describe('clearing a row and taking it back from the toast', () => {
-  it('writes the removal row, and «Anwesenheit wiederhergestellt» when the toast brings it back', () => {
+// owner pick 28 (17.11.2026): clearing a row and removing a block write the Anwesenheit slice –
+// ONE ↶ step each (IncidentWorkspace · attHist) – and raise no toast
+describe('clearing a row', () => {
+  it('writes the removal row and raises no toast', () => {
     const person = { id: 'p1', displayName: 'Meier Anna' } as Parameters<ReturnType<typeof harness>['actions']['clearAttendance']>[0]
     const { actions, state } = harness({ p1: { status: 'present', displayNameSnapshot: 'Meier Anna', intervals: [{ from: STARTED }] } })
-    toasts.undo.length = 0
+    toasts.said.length = 0
     actions.clearAttendance(person)
     expect(state.attendance.p1).toBeUndefined()
-    toasts.undo[0]()
-    expect(isPresent(state.attendance.p1)).toBe(true)
-    expect(state.log).toEqual([
-      fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: 'Meier Anna' }),
-      fillTemplate(appConfig.copy.anwesenheit.redone, { names: 'Meier Anna' }),
-    ])
+    expect(state.log).toEqual([fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: 'Meier Anna' })])
+    expect(toasts.said).toEqual([])
   })
 })
 
-// UX sweep F1 (20.10.2026): the sheet's delete became the bin — the undo behind it stays, so a
-// stretch removed by mistake comes back verbatim from the toast
+// UX sweep F1 (20.10.2026): the sheet's delete became the bin
 describe('removing one recorded block', () => {
-  it('drops that block only, and the toast puts it back', () => {
+  it('drops that block only, and raises no toast', () => {
     const blocks = [{ from: STARTED, to: '2026-06-23T21:40:00.000Z' }, { from: '2026-06-23T22:10:00.000Z' }]
     const { actions, state } = harness({ p1: { status: 'present', displayNameSnapshot: 'Meier Anna', intervals: blocks } })
-    toasts.undo.length = 0
+    toasts.said.length = 0
     actions.removeAttendanceBlock('p1', 0)
     expect(intervalsOf(state.attendance.p1)).toEqual([blocks[1]])
-    toasts.undo[0]()
-    expect(intervalsOf(state.attendance.p1)).toEqual(blocks)
+    expect(toasts.said).toEqual([])
   })
 })

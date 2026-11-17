@@ -58,7 +58,6 @@ import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { connectedLineLabel } from '../lib/connectedLines'
 import { OpenPill } from './OpenPill'
 import { toast } from '../lib/ui'
-import { removeWithUndo } from '../lib/removalToast'
 import { isIncidentGeorefKey } from '../lib/incidentPlanBindings'
 import { usePlacementLane } from '../lib/toastLane'
 import { Menu, Overlay } from '../lib/overlays'
@@ -388,8 +387,8 @@ export interface TafelPagesProps {
    *  their ticks (a Tendenz, a deletion = an un-tick) – absent: the pages show their own only */
   problems?: { source: ProblemSource; writeTicks: (writes: readonly TickWrite[]) => void }
   /** the ONE undo timeline, as far as a page needs it: an act over the Tafel and the Checklisten
-   *  is one step (`group`), and a deletion's «Rückgängig» takes the step on top while it is ours */
-  history?: { group: () => () => void; top: () => unknown; undo: () => void }
+   *  is one step (`group`) */
+  history?: { group: () => () => void }
   /** the «Aufträge / Pendenzen» page's view on the Verlauf (workspace/useTafelPendenzen) */
   pendenzen?: PendenzenPort
 }
@@ -1407,13 +1406,13 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // no toast (20.09.2026): the dot lands under the finger and the Verlauf has the row
   }
   // one mis-tap must not SILENTLY wipe the recorded Truppverfolgung (Lage parity): it goes at once
-  // and the toast takes it back (the delete rule, lib/removalToast) — one plan step
+  // and the ↶ takes it back (the delete rule, lib/removal) — one plan step, no toast
   const clearTrail = () => {
     const a = annos.find((x) => x.id === selId)
     if (!a || a.kind !== 'resource' || !a.trail?.length) return
     const line = fillTemplate(appConfig.copy.whiteboard.trailCleared, { name: a.text ?? '' })
     onStepLabel?.(line)
-    removeWithUndo(line, () => patchCommit(a.id, { trail: [] }))
+    patchCommit(a.id, { trail: [] })
     log('cross', line)
   }
   // ⚠️ No recolouring of a team chip any more (04.09.): a colour is changed on the Karte's
@@ -1766,13 +1765,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const released = fallback
       ? detachAnnos(annos.filter((a) => a.id !== selDraw.id), (a, endpoint) => (incoming.some((x) => x.id === a.id && x.endpoint === endpoint) ? fallback : null))
       : new Map<string, AnnoDetachPatch>()
-    const write = () => commit(annos.map((a) => (a.id === selDraw.id
+    // the lines on the «E» go loose at once, no toast (the delete rule, lib/removal – the Karte's
+    // changeMapEnding does the same): the one plan step brings every end back on ↶
+    commit(annos.map((a) => (a.id === selDraw.id
       ? { ...a, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
       : withDetach(a, released))))
-    // the lines on the «E» go loose at once and the toast counts them (the delete rule,
-    // lib/removalToast — the Karte's changeMapEnding says the same)
-    if (incoming.length) removeWithUndo(fillTemplate(appConfig.copy.drawingEditor.endingReleased, { n: incoming.length }), write)
-    else write()
     emit('board.edit', { id: selDraw.id, patch: endingWireFlags(ending), planId: activeId })
     released.forEach((patch, id) => emit('board.edit', { id, patch: wireFreed(patch), planId: activeId }))
   }
@@ -1818,12 +1815,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // everything the source holds is already on the picked storeys (a Treppe spanning them):
     // the sheet still closes, but never without a word
     if (!added.length) { toast(C.nothingNew, { icon: 'info' }); return }
-    // the copies land on storeys that are off screen, so the toast says where – and, being one
-    // ↶ step, carries «Rückgängig» like a removal does (toast diet call 8, lib/removalToast)
-    removeWithUndo(fillTemplate(C.done, { list: counts.map((c) => fillTemplate(C.doneItem, { n: c.n, floor: storeyName(c.floor) })).join(' · ') }), () => {
-      commit([...annos, ...added])
-      added.forEach((a) => emit('board.add', { id: a.id, anno: a, planId: activeId }))
-    }, 'undo')
+    // no toast (owner pick 28, 17.11.2026): the operator just picked the storeys in the sheet,
+    // and the ↶ – named by what landed where – takes the copies back in one step
+    onStepLabel?.(fillTemplate(C.done, { list: counts.map((c) => fillTemplate(C.doneItem, { n: c.n, floor: storeyName(c.floor) })).join(' · ') }))
+    commit([...annos, ...added])
+    added.forEach((a) => emit('board.add', { id: a.id, anno: a, planId: activeId }))
   }
 
   // footprint draw box per floor tile: fill most of the tile, preserving the
@@ -2227,14 +2223,13 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             // split is — so the check arms the mode and comes up with the outline already drawn.
             onCheck={() => beginGeoref({ check: true, returnToQuality: true })}
             onTransfer={georefTransferTargets.length ? () => setGeorefTransferOpen(true) : undefined}
-            // an Einsatz's own binding is a ↶ step: reset at once, the toast takes it back (the
-            // delete rule, lib/removalToast); a station sheet's reset asks in the panel first
+            // an Einsatz's own binding is a ↶ step: reset at once, no toast, ↶ takes it back (the
+            // delete rule, lib/removal); a station sheet's reset asks in the panel first
             undoable={isIncidentGeorefKey(activeGeorefKey)}
             onReset={() => {
               closeFacts()
-              if (isIncidentGeorefKey(activeGeorefKey)) removeWithUndo(C.georef.resetDone, () => resetGeorefPlan(activeGeorefKey))
               // a station sheet: the panel asked first, and its facts now offer «Karte verknüpfen»
-              else resetGeorefPlan(activeGeorefKey)
+              resetGeorefPlan(activeGeorefKey)
             }}
           />
         ),
@@ -2765,7 +2760,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                   title={appConfig.copy.drawingEditor.detachConnection} aria-label={appConfig.copy.drawingEditor.detachConnection}
                   style={{ left: p[0] * sW + 16, top: mapY(p[2] ?? editDraw.floor, p[1]) * sH - 16 }}
                   onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => { e.stopPropagation(); removeWithUndo(appConfig.copy.removedToast.connectionFreed, () => detachPlanEndpoint(ep)) }}><Icon id="close" /></span>
+                  onClick={(e) => { e.stopPropagation(); detachPlanEndpoint(ep) }}><Icon id="close" /></span>
               )
             })}
 

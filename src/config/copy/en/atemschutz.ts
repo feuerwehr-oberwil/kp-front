@@ -268,8 +268,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logFirstPressureSame: 'Team {name}: contact – first pressure report {bar} bar (as entry pressure)',
     pressureSheetFirst: 'First pressure report – replaces the entry pressure {bar} bar, counts as contact',
     newTruppShort: 'Team',
-    removedToast: 'Team {name} removed',
-    notDeployedToast: 'Team {name}: not deployed',
     // Atemschutznotfall (F1, 08.10.2026) — short, neutral wording; see the German base
     notfall: {
       act: 'Emergency',
@@ -315,7 +313,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       logSafetyDesignated: 'Team {name}: assigned as safety team – emergency team {target}',
       logSafetyWas: 'previously {auftrag}',
       logAtClose: 'Team {name}: emergency not ended at closing',
-      toast: 'Emergency raised for team {name}',
       notifyTitle: 'SCBA emergency – {name}',
       notifyBody: 'Emergency since {time} – deploy the safety team.',
       noSafetyHint: 'No safety team ready',

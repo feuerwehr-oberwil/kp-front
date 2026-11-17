@@ -1,8 +1,7 @@
 // «Geschoss entfernen»'s Verlauf words. The removal asks nothing (the delete rule, 13.11.2026,
-// lib/removalToast): the storey goes at once and its confirm-with-undo toast brings it back with
-// every own anno it deleted or cut short (workspace/useGebaeudeActions · removeFloor). Until then
-// it asked whenever the sweep LOST something (`stackFloors · removeStorey · lost`) – and showed
-// that toast afterwards anyway.
+// lib/removal): the storey goes at once and its ↶ step brings it back with every own anno it
+// deleted or cut short (workspace/useGebaeudeActions · removeFloor). Until then it asked whenever
+// the sweep LOST something (`stackFloors · removeStorey · lost`).
 
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'

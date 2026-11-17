@@ -64,8 +64,8 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
   onTransfer?: () => void
   /** «Referenz zurücksetzen» — confirmed here unless `undoable` */
   onReset: () => void
-  /** the reset is a ↶ step (an Einsatz's own binding), so it acts at once and its toast takes
-   *  it back (the delete rule, lib/removalToast); a station sheet's reset is not, and asks */
+  /** the reset is a ↶ step (an Einsatz's own binding), so it acts at once and ↶ takes it back
+   *  (the delete rule, lib/removal); a station sheet's reset is not, and asks */
   undoable?: boolean
   /** the dock's own ✕ — this panel is not dismissed by pressing outside it (that press belongs
    *  to the board underneath), so it needs a visible way out */

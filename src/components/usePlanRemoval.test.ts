@@ -17,11 +17,13 @@ function setup(annos: BoardAnno[], selIds: string[] = []) {
   let live = annos
   const commit = vi.fn((next: BoardAnno[]) => { live = next })
   const remove = vi.fn((id: string) => { live = live.filter((a) => a.id !== id) })
+  // the ↶ caption a removal lays – the delete rule names its step there, never in a toast
+  const onStepLabel = vi.fn()
   const { result } = renderHook(() => usePlanRemoval({
     readOnly: false, annos, renderAnnos: annos, selId: null, setSelId: vi.fn(), selIds, setSelIds: vi.fn(),
-    barIds: selIds, remove, commit, emit: vi.fn(), log: vi.fn(), activeId: 'p1',
+    barIds: selIds, remove, commit, emit: vi.fn(), log: vi.fn(), activeId: 'p1', onStepLabel,
   }))
-  return { result, commit, remove, live: () => live }
+  return { result, commit, remove, onStepLabel, live: () => live }
 }
 
 afterEach(() => { vi.clearAllMocks() })
@@ -50,13 +52,14 @@ describe('Plan delete — the joined-lines card', () => {
 
   it('«Mit Leitungen»: the symbol and every line on it go in one commit', async () => {
     vi.mocked(ui.confirmDialog).mockResolvedValueOnce('alt' as never)
-    const { result, commit, live } = setup(annos())
+    const { result, commit, onStepLabel, live } = setup(annos())
     let went: boolean | undefined
     await act(async () => { went = await result.current.removeWithConnections(tlf) })
     expect(went).toBe(true)
     expect(commit).toHaveBeenCalledTimes(1)
     expect(live().map((a) => a.id)).toEqual(['b', 'free'])
-    expect(ui.toast).toHaveBeenCalledWith('TLF und 2 Leitungen entfernt', expect.anything())
+    expect(onStepLabel).toHaveBeenLastCalledWith('TLF und 2 Leitungen entfernt')
+    expect(ui.toast).not.toHaveBeenCalled()
   })
 
   it('Abbrechen: nothing is written', async () => {
@@ -71,13 +74,14 @@ describe('Plan delete — the joined-lines card', () => {
 
   it('a group asks once (the Delete key), the lines counted over all of it', async () => {
     vi.mocked(ui.confirmDialog).mockResolvedValueOnce('alt' as never)
-    const { commit, live } = setup(annos(), ['a', 'b'])
+    const { commit, onStepLabel, live } = setup(annos(), ['a', 'b'])
     // the Delete key runs deleteSelection (the bar is on the group) → deleteGroup
     await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete' })) })
     expect(ui.confirmDialog).toHaveBeenCalledTimes(1)
     expect(vi.mocked(ui.confirmDialog).mock.calls[0][0]).toMatchObject({ title: 'Auswahl hat 2 Leitungen', confirmLabel: 'Nur Auswahl' })
     expect(commit).toHaveBeenCalledTimes(1)
     expect(live().map((a) => a.id)).toEqual(['free'])
-    expect(ui.toast).toHaveBeenCalledWith('2 Objekte und 2 Leitungen entfernt', expect.anything())
+    expect(onStepLabel).toHaveBeenLastCalledWith('2 Objekte und 2 Leitungen entfernt')
+    expect(ui.toast).not.toHaveBeenCalled()
   })
 })

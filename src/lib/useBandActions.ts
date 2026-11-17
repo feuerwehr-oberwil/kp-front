@@ -1,8 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
-import { confirmDialog, undoToast } from './ui'
-import { recordKey } from './undoKeys'
+import { confirmDialog } from './ui'
 import type { Person, Shift, ShiftBand } from '../types'
 import { bandAssignWindow, bandCell, mergePersonShifts, splitShiftAtBand } from './shifts'
 import { newId } from './ids'
@@ -76,23 +75,17 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
 
   /**
    * Drop a column. Its shifts STAY, as freihändige — the planning survives, only the column that
-   * grouped it goes. Undo restores the band and re-attaches exactly the shifts that hung on it.
+   * grouped it goes. The Zeitplan slice's ONE ↶ step restores the band and re-attaches exactly
+   * the shifts that hung on it (no toast, owner pick 28, 17.11.2026).
    */
   const removeBand = (id: string) => {
-    const prev = bands.find((b) => b.id === id)
-    if (!prev) return
-    const attached = shifts.filter((s) => s.bandId === id).map((s) => s.id)
+    if (!bands.some((b) => b.id === id)) return
     setBands((cur) => cur.filter((b) => b.id !== id))
     setShifts((cur) => cur.map((s) => {
       if (s.bandId !== id) return s
       const { bandId: _drop, ...rest } = s
       return rest
     }))
-    undoToast(fillTemplate(S().removedBand, { label: prev.label }), () => {
-      setBands((cur) => (cur.some((b) => b.id === id) ? cur : [...cur, prev]))
-      const back = new Set(attached)
-      setShifts((cur) => cur.map((s) => (back.has(s.id) ? { ...s, bandId: id } : s)))
-    }, [recordKey('bands', id), ...attached.map((sid) => recordKey('shifts', sid))], { glyph: 'trash' })
   }
 
   /**

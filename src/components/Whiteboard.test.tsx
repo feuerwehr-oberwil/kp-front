@@ -299,9 +299,9 @@ describe('the plan chip’s trash', () => {
     expect(onTrailDrop).not.toHaveBeenCalled() // …so the ghosting is left to do its work
   })
 
-  // the delete rule (13.11.2026, lib/removalToast): no ask — the chip's ONE removal step brings
-  // it back with its trail, and the line says both went
-  it('«Marker und Spur entfernen» arms the ghosting, removes the chip and says both went', () => {
+  // the delete rule (13.11.2026, lib/removal): no ask, no toast (owner pick 28) — the chip's ONE
+  // removal step brings it back with its trail
+  it('«Marker und Spur entfernen» arms the ghosting and removes the chip, without a toast', () => {
     const onTrailDrop = vi.fn()
     const { onChange } = renderPlan([walked], { onTrailDrop })
     openTrash()
@@ -309,7 +309,7 @@ describe('the plan chip’s trash', () => {
     expect(ui.confirms).toEqual([])
     expect(onTrailDrop).toHaveBeenCalledWith('c1', true)
     expect(onChange).toHaveBeenCalledWith([])
-    expect(ui.toasts.map((t) => t.text)).toContain(fillTemplate(W.markerTrailRemoved, { name: 'Trupp 1' }))
+    expect(ui.toasts).toEqual([])
   })
 
   it('«Spur entfernen» empties the trail at once and leaves the chip standing', () => {
@@ -1950,7 +1950,7 @@ describe('gesture contracts of the plan surface', () => {
       expect(find('d1').onWall).toBeUndefined()
     })
 
-    it('«Kopieren nach …» copies the storey\'s Grundriss in one step and says where it went', async () => {
+    it('«Kopieren nach …» copies the storey\'s Grundriss in one step, which ↶ takes back – no toast', async () => {
       const leitung: BoardAnno = { id: 'l9', kind: 'draw', floor: 0, pts: [[0.1, 0.1], [0.9, 0.9]] }
       const gb = { ...sym, symbols: [{ name: 'GB Ture Durchgang', cat: 'Gebäude', svg: '' }] }
       const { container, onCheckpoint } = mount([wand, tuer, leitung], { ...twoStoreys, sym: gb })
@@ -1963,7 +1963,9 @@ describe('gesture contracts of the plan surface', () => {
       const copies = latest.annos.filter((a) => a.floor === 1)
       expect(copies.map((a) => a.role ?? a.symbol).sort()).toEqual(['GB Ture Durchgang', 'wand'])
       expect(copies.find((a) => a.symbol)!.onWall).toBe(copies.find((a) => a.role)!.id)
-      expect(ui.toasts[ui.toasts.length - 1]?.text).toContain('1. OG')
+      expect(ui.toasts).toEqual([])
+      act(() => history.current!.undo())
+      expect(latest.annos.filter((a) => a.floor === 1)).toEqual([])
     })
 
     // round 3: «Art: Linie | Wand» in the line editor

@@ -320,7 +320,7 @@ describe('the lifecycle row: in the order the Einsatz runs', () => {
     expect(standDown.closest(`.${s.standDownRow}`)).not.toBeNull()
     expect(standDown.closest(`.${s.actions}`)).toBeNull()
     fireEvent.click(standDown)
-    expect(setTruppStatus).toHaveBeenCalledWith('tr1', 'raus', undefined, { undoToast: true })
+    expect(setTruppStatus).toHaveBeenCalledWith('tr1', 'raus')
     fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
     await screen.findAllByRole('menuitem')
     expect(screen.queryByRole('menuitem', { name: az.actNotDeployed })).toBeNull()

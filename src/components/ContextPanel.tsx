@@ -10,7 +10,6 @@ import { fillTemplate, formatSymbolName, stripUnprintable } from '../lib/format'
 import { takenClock } from '../lib/photoGeo'
 import { CtxShell, SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
-import { removeWithUndo } from '../lib/removalToast'
 import { allStoffNames, lookupUN, lookupUNByName } from '../lib/unHazard'
 import { useHazardData } from '../lib/useHazardData'
 import { DEFAULT_ERG_RING_MODE } from '../lib/ergRings'
@@ -604,10 +603,8 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   // the handover is offered on the Einsatzleiter glyph once there is something to swap
   const elPair = elSym && rows.some((r) => r.k.trim() === EL_NAME) && rows.some((r) => r.k.trim() === EL_STV)
     && rows.some((r) => (r.k.trim() === EL_NAME || r.k.trim() === EL_STV) && r.v.trim())
-  // a removal says so, with the way back (duck sweep FEEDBACK.3); an empty row lays no step, so it goes quietly
-  const removeRow = (i: number) => removeWithUndo(
-    fillTemplate(appConfig.copy.removedToast.named, { what: rows[i].k.trim() || C.fieldKeyPlaceholder }),
-    () => commitRows(rows.filter((_, j) => j !== i)))
+  // a removal goes at once, no toast (the delete rule, lib/removal): the ↶ brings the row back
+  const removeRow = (i: number) => commitRows(rows.filter((_, j) => j !== i))
 
   // Details are stored as a key→value MAP, so two rows sharing a Bezeichnung silently collapse
   // into one — the last row wins and the earlier value is gone at the next reload. We neither
