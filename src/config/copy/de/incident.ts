@@ -90,6 +90,8 @@ export const incidentCopy = {
     // C8 (17.11.2026): a view-link guest whose browser holds no login – the identity row says
     // «Einsatz-Link · Betrachter» and offers the way to the bare site’s sign-in
     login: 'Anmelden',
+    // …or (C10, 17.11.2026) simply another REAL Einsatz running – an Übung alone never lights it
+    otherEinsatzDot: 'Weiterer Einsatz läuft',
   },
   // Persistentes Band, solange ein abgeschlossener Einsatz nur-lesend offen ist (ArchivedBanner).
   // ⚠️ EIN WORTPAAR für den ganzen Lebenslauf: abschliessen / wieder öffnen. «Archiviert» und

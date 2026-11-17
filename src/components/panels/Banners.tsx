@@ -21,11 +21,10 @@ import { fmtWhen } from '../../lib/format'
 // the dispatch finds the EL. The primary action takes the alarm AS-IS (everything Divera carries
 // + backend type/priority/geocode) and drops straight onto the map — corrections happen there
 // via the review row, not in a gating wizard. Dismissed alarms are remembered PER DEVICE
-// (localStorage), so a given alarm only ever nags once on this device — across reloads. The way
-// back after ✕ is NOT here (owner, round 2 of the rare-user round, 17.11.2026: a strip in the
-// Meldeleiste distracted from what is running): the hidden alarm stands as a quiet row in the
-// «Einsätze» lists – home's and the Einsatz menu – with «Zeigen» (panels/AppMenuRows · FoldedRow;
-// lib/diveraDismiss · hiddenAlarms). No toast.
+// (localStorage), so a given alarm only ever nags once on this device — across reloads. The ✕
+// puts away this row only: the alarm stays listed in the «Einsätze» lists – home's and the
+// Einsatz menu – as an alarm nobody opened, until it is taken or 3 h old (owner, 17.11.2026;
+// lib/diveraDismiss · waitingAlarms). No toast.
 //
 // One exception to «take leads» (`attachFirst`): an Einsatz started by hand — the Übung above
 // all — has no alarm behind it, so its Zeiten stay empty until one is attached and taking this
@@ -33,8 +32,8 @@ import { fmtWhen } from '../../lib/format'
 // the filled action. Same two buttons, swapped emphasis; nothing is hidden either way.
 export function IncomingAlarmBanner({ alarms, dismissed, taking, attachFirst, onTake, onAttach, onDismiss }: {
   alarms: DiveraAlarm[]
-  /** the alarms hidden on this device (lib/diveraDismiss) – App's one set, shared with the
-   *  «Einsätze» list and the «Neuer Einsatz» gate */
+  /** the alarms whose row was ✕-ed on this device (lib/diveraDismiss) – App's one set, shared
+   *  with the «Neuer Einsatz» gate */
   dismissed: ReadonlySet<number>
   /** divera_id currently being taken (disables its button) */
   taking: number | null

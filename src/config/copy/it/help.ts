@@ -87,7 +87,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             'In cima l’intervento aperto: **Modifica** (i dati dell’intervento), **Chiudi** con il numero di ciò che è ancora aperto, e **Condividi**.',
             'Sotto, gli altri interventi in corso – toccarne uno per passarci. Se ne sono in corso diversi, l’intervento in alto mostra un **+N**.',
-            '**Nuovo allarme** – un allarme arrivato che non è ancora un intervento: **Apri** lo apre. La **✕** lo nasconde solo su questo dispositivo; sotto **Interventi** resta come riga sbiadita, e **Mostra** lo riporta. Un **Allarme aggiornato** nascosto torna con **Mostra** nel menu dell’intervento.',
+            '**Nuovo allarme** – un allarme arrivato che non è ancora un intervento: **Apri** lo apre. La **✕** nasconde solo il messaggio su questo dispositivo; sotto **Interventi** resta elencato con la campana finché qualcuno non lo apre. Un **Allarme aggiornato** nascosto torna con **Mostra** nel menu dell’intervento.',
             '**Apri intervento** – un intervento a mano, senza allarme. La prima domanda è **Reale | Esercitazione**, poi luogo (oggetto, indirizzo o sulla carta) e parola chiave. Ciò che è stato digitato a metà resta, anche se l’app si ricarica.',
             '**Tutti gli interventi** – anche quelli chiusi: toccarne uno lo apre in lettura, **Riapri** per completarlo.',
             '**Lascia l’intervento** – torna alla mappa; l’intervento continua.',

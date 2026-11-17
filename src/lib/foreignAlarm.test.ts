@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { foreignMark, homeAlarm, loudForeignAlarms, worksLiveErnstfall } from './foreignAlarm'
+import { foreignMark, homeAlarm, loudForeignAlarms, pillDot, worksLiveErnstfall } from './foreignAlarm'
 import type { IncidentMeta } from './incidents'
 import { appConfig } from '../config/appConfig'
 
@@ -8,6 +8,20 @@ const inc = (id: string, over: Partial<IncidentMeta> = {}): IncidentMeta => ({
   is_exercise: false, workspace_rev: 0, created_at: '', updated_at: '', ...over,
 } as IncidentMeta)
 const overdue = [{ id: 't1', name: 'Muster Leo', reason: 'contact' as const }]
+
+// C10 (owner, 17.11.2026): «another real Einsatz, or an alarm there» – a parallel Übung alone never
+describe('the shut pill\'s red dot', () => {
+  it('lights for another real Einsatz, and for an alarm there – which wins', () => {
+    expect(pillDot([inc('bma')])).toBe('einsatz')
+    expect(pillDot([inc('bma'), inc('brand', { atemschutz_due: overdue })])).toBe('alarm')
+    expect(pillDot([inc('uebung', { is_exercise: true, atemschutz_due: overdue })])).toBe('alarm')
+  })
+
+  it('stays dark for a parallel Übung alone, and for nothing else running', () => {
+    expect(pillDot([inc('uebung', { is_exercise: true })])).toBeNull()
+    expect(pillDot([])).toBeNull()
+  })
+})
 
 // FLOW.1 (owner, 13.11.2026): two real Einsätze in parallel must not distract each other
 describe('another Einsatz\'s Atemschutz alarm', () => {

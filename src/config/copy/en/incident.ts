@@ -57,6 +57,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     viewOnlyWhy: { viewer: 'Viewer', el: 'Incident command', link: 'Incident link' },
     foreignAlarmDot: 'Breathing-apparatus alarm in another incident',
     login: 'Sign in',
+    otherEinsatzDot: 'Another incident is running',
   },
   archived: {
     title: 'Incident closed',

@@ -348,13 +348,12 @@
 .ip-menu-act.danger { color: var(--red-strong); }
 /* every row locks while an Einsatz is being opened or an alarm taken (home's sheet: App · opening /
    taking) — the one it is happening on carries the Shell trail */
-.ip-menu-row:disabled, .ip-menu-alarm-x:disabled { opacity: var(--disabled); cursor: default; }
-/* A Divera alarm waiting to be taken — home's «Einsätze ▾» only (panels/AppMenuRows; inside an
-   Einsatz the banner carries it). A running row in the alarm's red: the bell stands in the
-   laufende-Zeit column, «Neuer Alarm» over the title, «Öffnen» at the end; the row's body takes,
-   the × beside it hides the alarm on this device. A red tint, not a border: a menu row has none. */
-.ip-menu-alarm { display: flex; align-items: stretch; min-width: 0; border-radius: var(--r-ctl); background: var(--red-8); }
-.ip-menu-alarm .ip-menu-row { flex: 1 1 auto; align-items: center; }
+.ip-menu-row:disabled { opacity: var(--disabled); cursor: default; }
+/* A Divera alarm nobody opened yet — home's «Einsätze ▾» and the Einsatz menu (panels/AppMenuRows;
+   owner, 17.11.2026: «Just list it»). A running row in its weights: the red bell stands in the
+   laufende-Zeit column, the Stichwort and the address as any row's, «Öffnen» at the end; the
+   whole row takes it. */
+.ip-menu-alarm { align-items: center; }
 .ip-menu-alarm-mark { display: flex; align-items: center; color: var(--red-strong); }
 .ip-menu-alarm-mark svg { width: 18px; height: 18px; }
 .ip-menu-kicker { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--red-strong); }
@@ -362,14 +361,6 @@
 .ip-menu-az { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .ip-menu-az svg { width: 12px; height: 12px; flex: none; }
 .ip-menu-alarm-go { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--red-strong); }
-.ip-menu-alarm-x { flex: none; display: grid; place-items: center; width: var(--tap); border: none; background: none;
-  border-radius: var(--r-ctl); cursor: pointer; color: var(--ink-faint); }
-@media (hover: hover) {
-  .ip-menu-alarm .ip-menu-row:hover:not(:disabled) { background: var(--red-8); }
-  .ip-menu-alarm-x:hover:not(:disabled) { color: var(--ink); background: var(--red-8); }
-}
-.ip-menu-alarm-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.ip-menu-alarm-x svg { width: 16px; height: 16px; }
 /* app utilities (Einstellungen · Bereitschaft · Hilfe · Installieren) as one compact row of
    labeled tiles — icon + word keeps recognition (3am tenet) while taking a third of the
    height the old one-per-row list did */
@@ -2520,31 +2511,21 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
   background: var(--red-16); color: var(--red-strong); }
 .ip-launch-pulse svg { width: 16px; height: 16px; }
 .ip-launch-go { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--red-strong); padding-left: 8px; }
-/* the alarm card splits into take-button + pool-archive × (the intake sheet is gone),
-   so the row drops its own padding/cursor onto the inner hit areas */
+/* the alarm card's take is its inner button (the intake sheet is gone), so the row drops its own
+   padding/cursor onto that hit area */
 .ip-launch.alarm { padding: 0; cursor: default; display: flex; align-items: stretch; gap: 0; }
 .ip-launch-hit { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-align: left;
-  padding: 12px 4px 12px 12px; border: none; background: none; cursor: pointer; color: inherit;
+  padding: 12px; border: none; background: none; cursor: pointer; color: inherit;
   border-radius: inherit; font: inherit; }
 .ip-launch-hit:disabled { opacity: var(--disabled); cursor: default; }
-.ip-launch-x { flex: none; display: grid; place-items: center; width: 44px; border: none; background: none;
-  cursor: pointer; color: var(--ink-faint); border-radius: inherit; }
-@media (hover: hover) {
-  .ip-launch-x:hover { color: var(--ink); background: var(--hover-strong); }
-}
-.ip-launch-x svg { width: 16px; height: 16px; }
-/* an alarm (or «Alarm aktualisiert») hidden with ✕ (panels/AppMenuRows · FoldedRow, rare-user
-   round M3 / F7, round 2): bell-off, the alarm's two lines dimmed, «Zeigen». The Stichwort WRAPS –
-   «B2 Brand Einfamilienhaus mit eingeschlossenen Personen» has to be readable at 390px. */
+/* a hidden «Alarm aktualisiert» in the Einsatz menu (panels/AppMenuRows · FoldedRow, rare-user
+   round F7): bell-off, the title dimmed, «Zeigen». */
 .ip-alarm-folded { display: flex; align-items: center; gap: 12px; min-height: 44px; min-width: 0; padding: var(--sp-1) 2px var(--sp-1) 12px;
   border-radius: var(--r-ctl); color: var(--ink-dim); }
 .ip-alarm-folded > svg { width: 17px; height: 17px; flex: none; color: var(--ink-faint); }
 .ip-alarm-folded-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ip-alarm-folded-title { font: var(--fw-bold) var(--fs-2) var(--body); overflow-wrap: anywhere; }
-.ip-alarm-folded-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ip-alarm-folded > .ip-btn { flex: none; }
-.ip-launch-list > .ip-alarm-folded { border: 1px solid var(--glass-edge); background: var(--surface); }
 .ip-emptyapp-actions { display: flex; flex-direction: column; gap: 8px; }
 .ip-emptyapp-secondary { display: flex; gap: 8px; }
 .ip-emptyapp-secondary .ip-btn { flex: 1; }

@@ -11,8 +11,8 @@ import type { ReactivateResult } from '../../types'
 import { useIsPhone } from '../../lib/useIsPhone'
 import { useEinsatzuhr } from '../../lib/einsatzuhr'
 import { useLate } from '../../lib/useLate'
-import { AppMenuRows, type FoldedMenuRow } from './AppMenuRows'
-import { foreignMark } from '../../lib/foreignAlarm'
+import { AppMenuRows, type AppMenuAlarms, type FoldedMenuRow } from './AppMenuRows'
+import { pillDot } from '../../lib/foreignAlarm'
 import { runningOthers } from '../../lib/switcherLists'
 import type { ViewOnlyReason } from '../../workspace/access'
 
@@ -33,7 +33,7 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onSyncNow, onLogout, onLogin, onPresent, folded, navKey, sheetOpen = false, syncDetail,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onSyncNow, onLogout, onLogin, onPresent, alarms, folded, navKey, sheetOpen = false, syncDetail,
   onBackFromArchive, onReactivate, viewOnly = null,
 }: {
   active: IncidentMeta | null
@@ -90,8 +90,10 @@ export function IncidentSwitcher({
   /** «Präsentieren» – the card's fourth act, beside «Teilen» (F15, 17.11.2026): the second door
    *  to the share sheet's «Präsentieren» card; editors only, like that card (`canShareLink`) */
   onPresent?: () => void
-  /** what was hidden with ✕ and can come back – a hidden alarm, this Einsatz's hidden «Alarm
-   *  aktualisiert» (M3 / F7, 17.11.2026): quiet rows in the menu's «Einsätze» group (AppMenuRows) */
+  /** the alarms waiting to be opened – listed here as on home, a row's tap takes it (AppMenuRows) */
+  alarms?: AppMenuAlarms
+  /** this Einsatz's hidden «Alarm aktualisiert» (F7, 17.11.2026): a quiet row in the menu's
+   *  «Einsätze» group (AppMenuRows · FoldedRow) */
   folded?: FoldedMenuRow[]
   /** changes whenever the app navigates to another surface — closes a menu that was left
    *  open under a sheet (e.g. Rapport → Anwesenheit must not land back in the menu) */
@@ -252,11 +254,13 @@ export function IncidentSwitcher({
       <Icon id="eye" /><span className="ip-chip-word">{cp.viewOnly}</span>
     </span>
   )
-  // ── another Einsatz's Atemschutz alarm (13.11.2026, owner pick M11 B) ── its row in the list
-  // carries the red mark (AppMenuRows · foreignMark); the CLOSED pill carries a red dot at its
-  // chevron, a reason to open the list – no tone, no Meldeleiste row (lib/foreignAlarm's rule).
-  // It goes with the mark: the server's list drops a Trupp once it is acknowledged or out.
-  const foreignDot = runningOthers(incidents, active?.id ?? null).some((i) => foreignMark(i) != null)
+  // ── the CLOSED pill's red dot at its chevron, a reason to open the list (M11 B, C10 17.11.2026):
+  // another Einsatz's Atemschutz alarm (its row carries the red mark, AppMenuRows · foreignMark),
+  // or another REAL Einsatz running – never a parallel Übung alone. No tone, no Meldeleiste row
+  // (lib/foreignAlarm · pillDot). The alarm goes with the mark: the server's list drops a Trupp
+  // once it is acknowledged or out.
+  const dot = pillDot(runningOthers(incidents, active?.id ?? null))
+  const dotWord = dot === 'alarm' ? cp.foreignAlarmDot : dot === 'einsatz' ? cp.otherEinsatzDot : ''
   /**
    * «Jetzt synchronisieren» — offered whenever the device has a link, not only on error: it forces a push AND an
    * immediate pull, the "make everything fresh right now" action when things feel stale. It has
@@ -288,8 +292,8 @@ export function IncidentSwitcher({
           draws no mark for it any more */}
       <button ref={triggerRef} className={`ip-switch-btn${twoLine ? ' ip-switch-two' : ''}`} data-sync={active ? syncStatus : undefined} onClick={() => { setClosedOpen(false); setOpen((v) => !v) }}
         aria-label={twoLine
-          ? [pill.street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', uhr ? `${U.label} ${uhr}` : '', foreignDot ? cp.foreignAlarmDot : ''].filter(Boolean).join(', ')
-          : active ? [active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', foreignDot ? cp.foreignAlarmDot : ''].filter(Boolean).join(', ') : cp.noIncident}
+          ? [pill.street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', uhr ? `${U.label} ${uhr}` : '', dotWord].filter(Boolean).join(', ')
+          : active ? [active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', dotWord].filter(Boolean).join(', ') : cp.noIncident}
         aria-expanded={open && !sheetOpen}>
         {twoLine ? (
           <span className="ip-switch-lines">
@@ -349,10 +353,10 @@ export function IncidentSwitcher({
           </span>
         )}
         {/* ▾ while the dropdown is shut, ▴ while it stands open (02-base.css · .chev); the red
-            dot of another Einsatz's alarm sits on it while the list is shut */}
+            dot (another real Einsatz, or an alarm there) sits on it while the list is shut */}
         <span className="ip-switch-chev">
           <Icon id="chevron-down" className="chev" />
-          {foreignDot && !open && <span className="ip-foreign-dot" aria-hidden />}
+          {dot && !open && <span className="ip-foreign-dot" title={dotWord} aria-hidden />}
         </span>
       </button>
       {open && !sheetOpen && (
@@ -514,6 +518,7 @@ export function IncidentSwitcher({
             onInstall={onInstall}
             onLogout={onLogout && (() => { onLogout(); setOpen(false) })}
             onLogin={onLogin}
+            alarms={alarms && { ...alarms, onTake: (a) => { setOpen(false); alarms.onTake(a) } }}
             folded={folded}
           />
         </div>
