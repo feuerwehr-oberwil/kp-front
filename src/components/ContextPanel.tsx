@@ -3,6 +3,7 @@ import { leaveOnEscape, ONE_LINE } from '../lib/fieldKeys'
 import type { CaptionMode, NoteSize, Spread, SymbolControl, SymbolProps } from '../types'
 import { thumbUrl } from '../lib/mediaUrl'
 import { Icon } from '../lib/icons'
+import { colorName } from '../lib/drawNames'
 import { boundedKey, normalizeSpread, tidySpread, type SpreadDir } from '../lib/spread'
 import { openPhoto } from '../lib/ui'
 import { fillTemplate, formatSymbolName, stripUnprintable } from '../lib/format'
@@ -308,10 +309,9 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
  *  is cut at its end, and the whole label is the title. */
 function LinkBtn({ onClick, text }: { onClick: () => void; text: string }) {
   return (
-    <button className="btn link" onClick={onClick} title={text} aria-label={text}>
-      <Icon id="external" />
+    <Button className="link" icon={<Icon id="external" />} onClick={onClick} title={text} aria-label={text}>
       <span className="btn-t" aria-hidden><span className="btn-t-cut">{text}</span></span>
-    </button>
+    </Button>
   )
 }
 
@@ -686,15 +686,20 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
      on it. WHEN it was set is the header's subtitle («Schadenlage · erledigt 20:40», doneAt), so a
      read-only panel, which has no tile, still states it. (Until 31.10.2026 the set state was a
      row at the top of the body with its own «Wieder aktiv» – two places for one switch.)
-     ⚠️ A raw `aria-pressed` button, not a Chip or Segmented (controlDebt +1): it is one of the
-     foot's ACTION tiles and has to stand in their row with their look; a Chip is a choice. */
+     The ✓ stands in BOTH states (button sweep SHEETS.8, 17.11.2026): a toggle keeps its anatomy and
+     only its fill says «set» – the word moved 24px and the tile changed shape when it came and went.
+     ⚠️ An `aria-pressed` <Button>, not a Chip or Segmented: it is one of the foot's ACTION tiles
+     and has to stand in their row with their look; a Chip is a choice. */
   const doneAt = !isNote ? doneStatusText(entity) : null
   const O = appConfig.copy.objectDone
   const doneTile = onDone && !readOnly && !isNote ? (
-    <button type="button" className="btn ctx-done" aria-pressed={!!doneAt} onClick={() => onDone(!doneAt)}
-      title={doneAt ? O.reopenHint : O.actionHint}>
-      {doneAt && <Icon id="check" />}{O.action}
-    </button>
+    // its meaning in the HOLD (`data-holdexplain`, the sentence word first, no `title` – a tablet
+    // never shows one; button sweep audit A1, 17.11.2026): «Erledigt» or «Entfernen» is the 3am
+    // choice when a Feuer is out, and only a mouse ever read why
+    <Button className="ctx-done" aria-pressed={!!doneAt} onClick={() => onDone(!doneAt)}
+      data-holdexplain aria-label={doneAt ? O.reopenHint : O.actionHint} icon={<Icon id="check" />}>
+      {O.action}
+    </Button>
   ) : null
   // rendered twice: pinned at the sheet bottom on desktop/tablet, and again inside the
   // scrolling body for phones (.ctx-footer-inline) — CSS shows exactly one copy
@@ -703,33 +708,34 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
       {/* first, and in the link tone: on a read-only panel it is the only thing that DOES anything,
           and what it does is leave for the real object. */}
       {onOriginal && <LinkBtn onClick={onOriginal} text={originalLabel ?? C.toOriginal} />}
-      {onCenter && <button className="btn" onClick={onCenter}><Icon id="cross" />{C.center}</button>}
+      {onCenter && <Button icon={<Icon id="cross" />} onClick={onCenter}>{C.center}</Button>}
       {/* «GPS» (reset a vehicle's manual override) and «Löschen» are alternatives, and a live
           entity gets neither — `readOnly` is already true for anything externally sourced.
           A self-reported crew position is the exception: it is somebody's own row, and the
           command post can clear it (see onStopSharing). */}
       {/* neutral, not the delete red: it stops a share, the person can share again (ELEM.11) */}
       {onStopSharing && (
-        <button className="btn" onClick={onStopSharing} title={C.stopSharingTitle}>
-          <Icon id="close" />{C.stopSharing}
-        </button>
+        <Button icon={<Icon id="close" />} onClick={onStopSharing} data-holdexplain aria-label={C.stopSharingTitle}>{C.stopSharing}</Button>
       )}
       {/* «Festhalten» and «GPS» are the two directions of one thing, so they sit together:
           hold this vehicle where it stands, or give it back to the feed. Only ONE is ever
-          live — a pinned vehicle has nothing to pin, a following one has nothing to reset. */}
-      {onPinGps && <button className="btn" onClick={onPinGps} title={C.pinGpsTitle}><Icon id="coords" />{C.pinGps}</button>}
+          live — a pinned vehicle has nothing to pin, a following one has nothing to reset.
+          Their sentences are the HOLD's (`data-holdexplain`, button sweep audit A5/A6/A11): a
+          `title` was the mouse's alone. */}
+      {onPinGps && <Button icon={<Icon id="coords" />} onClick={onPinGps} data-holdexplain aria-label={C.pinGpsTitle}>{C.pinGps}</Button>}
       {doneTile}
       {onResetGps
-        ? <button className="btn" disabled={!hasOverride} onClick={onResetGps} title={C.resetGpsTitle}><Icon id="compass" />{C.resetGps}</button>
+        ? <Button icon={<Icon id="compass" />} disabled={!hasOverride} onClick={onResetGps} data-holdexplain aria-label={C.resetGpsTitle}>{C.resetGps}</Button>
         // «Entfernen», the one word for taking a tactical object off the picture (25.09.2026) —
         // «gelöscht» is what a Feuer becomes (objectDone), so it can no longer name this press.
-        // A SQUARE with the bin (27.09.2026): removal is rare and should not be a wide target;
-        // the word is its label and title, beside «Erledigt» the title also says what it is for.
+        // Bin + word, like every other card's remove (owner, button sweep SHEETS.1, 17.11.2026 – the
+        // bin SQUARE of 27.09.2026 was the one remove you could not read without guessing); beside
+        // «Erledigt» its HOLD says what it is for (`data-holdexplain`, button sweep audit A1).
         : (!readOnly || allowDelete) && !onStopSharing && (
-          <button className="btn warn btn-sq" onClick={onDelete} aria-label={appConfig.copy.remove}
-            title={onDone ? `${appConfig.copy.remove} – ${O.removeHint}` : appConfig.copy.remove}>
-            <Icon id="trash" />
-          </button>
+          <Button variant="danger" icon={<Icon id="trash" />} onClick={onDelete}
+            {...(onDone ? { 'data-holdexplain': true, 'aria-label': `${appConfig.copy.remove} – ${O.removeHint}` } : {})}>
+            {appConfig.copy.remove}
+          </Button>
         )}
     </div>
   )
@@ -844,7 +850,9 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                 <span>{N.look}</span>
                 <Segmented
                   ariaLabel={N.look}
-                  options={[{ value: false, label: N.lookPill }, { value: true, label: N.lookPlain }]}
+                  // «Klartext» said nothing on its own: the hold says both (audit A10, 17.11.2026)
+                  explain
+                  options={[{ value: false, label: N.lookPill, title: N.lookPillWhat }, { value: true, label: N.lookPlain, title: N.lookPlainWhat }]}
                   value={!!entity.notePlain}
                   onChange={(v) => onNotePlain(v)}
                 />
@@ -860,7 +868,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                     aria-pressed={!entity.color} onClick={() => onColor('')} />
                   {NOTE_COLORS.map((c) => (
                     <button key={c} className={`dh-color${entity.color === c ? ' on' : ''}`} style={{ background: c }}
-                      aria-pressed={entity.color === c} aria-label={c} onClick={() => onColor(c)} />
+                      aria-pressed={entity.color === c} aria-label={colorName(c)} onClick={() => onColor(c)} />
                   ))}
                 </div>
               </div>
@@ -1004,8 +1012,10 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                       // the arrow tip (→|), so the button shows what it draws — and it is
                       // perpendicular to its own arrow, like the printed symbol
                       const grenze = (
+                        // ONE name, the hold's: «Grenze nach links – Ausbreitung hier gestoppt» (audit
+                        // B18, 17.11.2026) – the meaning sat in a `title` the hold never reads
                         <button className={`spread-btn grenze ${sp[boundedKey(d)] ? 'on' : ''}`}
-                          title={C.spreadBoundedTitle} aria-label={`${C.spreadBounded} ${C.spreadDirTitles[d]}`}
+                          aria-label={`${C.spreadBounded} ${C.spreadDirTitles[d]} – ${C.spreadBoundedWhat}`}
                           onClick={() => toggleBounded(d)}>
                           <Icon id={GRENZE_GLYPH[d]} />
                         </button>
@@ -1185,7 +1195,9 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
             the panel does not repeat the offer. */}
         {dockedToLabel && <div className="ctx-section ctx-connections">
           <span className="ctx-section-label">{C.dockedTo.replace('{name}', dockedToLabel)}</span>
-          {onUndock && <button onClick={onUndock}><span>{C.dockedRelease}</span><span className="ctx-conn-go" aria-hidden>×</span></button>}
+          {/* «Lösen» is the neutral framed unlink button (button sweep SHEETS.3, 17.11.2026): a detach
+              can be taken back, so no red, and never an ✕, which only closes */}
+          {onUndock && <Button className="ctx-conn-act" icon={<Icon id="unlink" />} onClick={onUndock}>{C.dockedRelease}</Button>}
         </div>}
         {/* Angedockte Trupps (lib/docking): one row per crew standing on this symbol. It mirrors
             the «Leitung 2 · Trupp 4 — Lösen» slot on the marker's own bar (components/TwinTeamPill)
@@ -1194,12 +1206,13 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
         {dockedTeams.length > 0 && <div className="ctx-section ctx-connections">
           <span className="ctx-section-label">{appConfig.copy.atemschutz.dockedTeams}</span>
           {dockedTeams.map((t) => (t.onRelease
-            ? <button key={t.id} onClick={t.onRelease}><span>{t.label}</span><span className="ctx-conn-release">{C.dockedRelease}</span></button>
+            ? <div key={t.id} className="ctx-conn-row"><span>{t.label}</span>
+              <Button icon={<Icon id="unlink" />} onClick={t.onRelease} aria-label={`${C.dockedRelease}: ${t.label}`}>{C.dockedRelease}</Button></div>
             : <button key={t.id} disabled><span>{t.label}</span></button>))}
         </div>}
         {connectedLines.length > 0 && <div className="ctx-section ctx-connections">
           <span className="ctx-section-label">{appConfig.copy.drawingEditor.connectedLines.replace('{n}', String(connectedLines.length))}</span>
-          {connectedLines.map((line) => <button key={line.id} onClick={() => onFocusLine?.(line.id)}><span>{line.label}</span><span className="ctx-conn-go" aria-hidden>›</span></button>)}
+          {connectedLines.map((line) => <button key={line.id} onClick={() => onFocusLine?.(line.id)}><span>{line.label}</span><Icon id="chevron" className="ctx-conn-go" /></button>)}
         </div>}
         <div className="ctx-footer-inline">{caprow}{actions}</div>
       </div>

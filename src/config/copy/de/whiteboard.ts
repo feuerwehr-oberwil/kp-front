@@ -28,6 +28,8 @@ export const whiteboardCopy = {
     lookPlain: 'Klartext',
     color: 'Farbe',
     done: 'Fertig',
+    lookPillWhat: 'Zettel – Text auf einem Kärtchen',
+    lookPlainWhat: 'Klartext – nur die Schrift, ohne Kärtchen',
   },
   whiteboard: {
     pan: 'Auswahl',
@@ -41,11 +43,9 @@ export const whiteboardCopy = {
     // pill's second word and «… offen»
     grundriss: { wand: 'Wand' },
     dockHints: {
-      wand: 'Punkte tippen – rastet rechtwinklig ein. ✓ oder erster Punkt – fertig.',
-      draw: 'Ziehen zeichnet frei.',
+      wand: 'Ecke für Ecke tippen, die Wand bleibt rechtwinklig – fertig mit ✓ oder dem ersten Punkt.',
       circle: 'Von der Mitte zum Rand ziehen.',
       text: 'Tippen, wo die Notiz hin soll – dann schreiben.',
-      resource: 'Tippen setzt einen Trupp. Ziehen verschiebt ihn.',
       measure: 'Punkte tippen. Punkt halten entfernt ihn.',
       // calibrating's steps, one per line in the Messen dock's standing card (WbControls ·
       // WbToolDocks, rare-user r4 17.11.2026); a done step reads ✓ instead of its number
@@ -265,7 +265,7 @@ export const whiteboardCopy = {
     finishShape: 'Fertig',
     cancelShape: 'Abbrechen',
     insertVertex: 'Punkt einfügen',
-    dragVertex: 'Eckpunkt ziehen, gedrückt halten zum Löschen',
+    dragVertex: 'Eckpunkt ziehen – gedrückt halten entfernt ihn',
     dragRadius: 'Radius ziehen',
     groupDeletedN: '{n} Objekte vom Plan entfernt',
     placeText: 'Notiz auf Plan gesetzt',
@@ -459,8 +459,7 @@ export const whiteboardCopy = {
     // the rotation popover the north dial opens (30.08. – replaces the hidden dial drag)
     orientMenuTitle: 'Gebäude drehen',
     orientSliderLabel: 'Drehung',
-    // the dial's word in the rail (shown with «Beschriftung · Wörter»): the door, or the read-out
-    orientRail: 'Drehen',
+    // the dial's word in the rail (shown with «Beschriftung · Wörter»), door and read-out alike
     northRail: 'Norden',
     // ENT.8 (17.11.2026): a Plan row is the Karte's row for the same act (drawing.ts · log), plus
     // where – so a Verlauf filtered for «Rettungsachse» or «Pfeil» finds both halves (a removal

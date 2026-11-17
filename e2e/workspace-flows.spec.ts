@@ -82,7 +82,7 @@ test('F2 · Tafel: a Fläche from three taps, saved when it is left open, is one
     await page.waitForTimeout(400) // apart in time, like a person's taps
   }
   // three vertex grips on the draft; leaving it asks, and «Speichern» commits it (27.10.2026)
-  await expect(page.getByRole('button', { name: 'Eckpunkt ziehen, gedrückt halten zum Löschen' })).toHaveCount(3)
+  await expect(page.getByRole('button', { name: 'Eckpunkt ziehen – gedrückt halten entfernt ihn' })).toHaveCount(3)
   await page.getByRole('button', { name: 'Auswahl', exact: true }).click()
   const ask = page.getByRole('alertdialog')
   await expect(ask.getByText('Fläche noch offen')).toBeVisible()

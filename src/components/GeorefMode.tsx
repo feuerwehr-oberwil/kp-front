@@ -761,7 +761,7 @@ export function GeorefInstrument({ mode, inline = false, onReset }: { mode: Geor
         </>}
       </span>
       {!mode.check && (
-        <InfoToggle className={s.infoBtn} open={detail} onToggle={() => setDetail((v) => !v)} label={C.detailsTitle} />
+        <InfoToggle className={s.infoBtn} worded open={detail} onToggle={() => setDetail((v) => !v)} label={C.detailsTitle} />
       )}
       <span className={s.acts}><GeorefActions mode={mode} onReset={onReset} /></span>
     </div>

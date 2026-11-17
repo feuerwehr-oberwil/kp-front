@@ -39,9 +39,9 @@ export function StorageFullMeldung({ onExport, onSyncNow }: {
     // the sentence is the instruction — cut at 390px it would lose «… gehen sie sonst verloren»
     wrap: true,
     actions: [
-      { label: appConfig.copy.journal.delivery.export, icon: 'download', primary: true, onClick: onExport },
+      { label: appConfig.copy.journal.delivery.export, primary: true, onClick: onExport },
       // offline the tap could only end in «Immer noch offline» (IncidentSwitcher · syncButton)
-      ...(online ? [{ label: C.syncNow, icon: 'rotate', busy: syncing, disabled: syncing, onClick: sync }] : []),
+      ...(online ? [{ label: C.syncNow, busy: syncing, disabled: syncing, onClick: sync }] : []),
     ],
   })
   return null

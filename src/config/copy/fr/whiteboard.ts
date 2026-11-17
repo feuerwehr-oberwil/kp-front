@@ -26,6 +26,8 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     lookPlain: 'Texte simple',
     color: 'Couleur',
     done: 'Terminé',
+    lookPillWhat: 'Étiquette – texte sur une petite fiche',
+    lookPlainWhat: 'Texte simple – seulement l’écriture, sans fiche',
   },
   whiteboard: {
     pan: 'Sélection',
@@ -37,11 +39,9 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     area: 'Surface',
     grundriss: { wand: 'Mur' },
     dockHints: {
-      wand: 'Touchez des points – s’aligne à angle droit. ✓ ou premier point – terminé.',
-      draw: 'Glisser dessine à main levée.',
+      wand: 'Touchez sommet par sommet, le mur reste à angle droit – terminé avec ✓ ou le premier point.',
       circle: 'Glissez du centre vers l’extérieur.',
       text: 'Touchez là où la note doit aller – puis écrivez.',
-      resource: 'Touchez pour placer une équipe. Tirer la déplace.',
       measure: 'Touchez des points. Maintenir un point le retire.',
       scaleStep1: 'Touchez une extrémité de l’échelle',
       scaleStep2: 'Touchez l’autre extrémité',
@@ -172,7 +172,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     finishShape: 'Terminé',
     cancelShape: 'Annuler',
     insertVertex: 'Insérer un point',
-    dragVertex: 'Tirer le sommet, maintenir pour supprimer',
+    dragVertex: 'Tirer le sommet – maintenir le retire',
     dragRadius: 'Faire glisser le rayon',
     placeText: 'Note posée sur le plan',
     placeSymbol: 'Symbole « {name} » posé sur le plan',
@@ -299,7 +299,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     orientLongAxis: 'Pivoter sur le grand axe',
     orientMenuTitle: 'Pivoter le bâtiment',
     orientSliderLabel: 'Rotation',
-    orientRail: 'Pivoter',
     northRail: 'Nord',
 
     groupDeletedN: '{n} objets retirés du plan',

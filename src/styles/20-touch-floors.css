@@ -28,7 +28,6 @@
    got 42×42. The condition was never about width; it was about a finger. */
 @media (pointer: coarse) {
   .tb-act { min-width: var(--tap); min-height: var(--tap); }
-  .tb-act.icon { min-width: var(--tap); }
   /* the Einsatz pill is as tall as the bar's buttons (13-incident) – their floor is its floor */
   .ip-switch > .ip-switch-btn { min-height: var(--tap); }
   /* The one alarm affordance in the app — what you tap when a Trupp is überfällig — and it was

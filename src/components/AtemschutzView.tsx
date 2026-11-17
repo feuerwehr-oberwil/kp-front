@@ -16,6 +16,7 @@ import { confirmDialog } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { newId } from '../lib/ids'
 import { Button } from './Button'
+import { FilterStrip } from './FilterStrip'
 import { Menu, Overlay, Popover } from '../lib/overlays'
 import { NotfallBanner, NotfallPageHead, NotfallPageSafety, NotfallStrip, type SafetyActProps } from './AtemschutzNotfall'
 import { DoubleAssignmentBanner } from './DoubleAssignmentBanner'
@@ -37,6 +38,7 @@ import type { SyncStatus } from '../lib/incidents'
 import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
 import { truppOrderKey } from '../lib/useTruppActions'
 import s from './Atemschutz.module.css'
+import c from './SurfaceControls.module.css'
 import { AuftragSheet, KanalSheet, PressureSheet, TruppSheet } from './TruppSheets'
 import { ClockVal, RowEnter, TruppCard, TruppRow } from './TruppCard'
 import { tabState, tierMark } from './truppCardText'
@@ -78,13 +80,13 @@ export type TruppOrder = 'dringlichkeit' | 'manuell' | 'auftrag' | 'name'
 const FROZEN_ALARM: TruppAlarm = { sev: 0, reason: null, line: null }
 
 /** The Trupps head's ladder (lib/pageHeadFit, 28.09.2026): what gives first when the one row runs
- *  out — the quiet line's time, then the tiles' words, lowest priority first (a way of LOOKING at
- *  the board before the handover, the handover before the way back to a deleted card, the alarm's
- *  word before the bell's honest state — the ⚠ and its count stay), then «Trupp anmelden» → «Trupp»,
- *  then «✓ Gespeichert» keeps its ✓ (the sentence stays its `title`; a LOUD state never folds), and
- *  last the handover's short «Teilen» goes — at its first rank it trades «Trupps teilen» for
- *  that word beside the glyph, the one word an icon tile keeps (hill climb r8 / r11, 04.11.2026). */
-const HEAD_FOLD = { saved: 1, order: 2, share: 3, restore: 4, overdue: 5, bell: 6, newTrupp: 7, savedMark: 8, shareWord: 9 } as const
+ *  out — the quiet line's time, then the tiles fold TOGETHER, each to its glyph OVER its word
+ *  (owner pick 24a, 17.11.2026 – they folded one at a time to bare glyphs on a tablet, the bell
+ *  last; the handover keeps its short «Teilen» (rare-user WORDS: «Trupps teilen»), the ⚠ its count
+ *  beside it; «Reihenfolge» is not on it since pick 26 – it stands in the list row under the head), then
+ *  «Trupp anmelden» → «Trupp» (the primary keeps its word beside its glyph and its fill), and last
+ *  «✓ Gespeichert» keeps its ✓ (the sentence stays its `title`; a LOUD state never folds). */
+const HEAD_FOLD = { saved: 1, tiles: 2, newTrupp: 3, savedMark: 4 } as const
 
 /** The room the sticky Notfall stack takes at the top of the board's port (+ the air under it). */
 const nfInset = (el: HTMLElement | null) => (el ? el.offsetHeight + 12 : 0)
@@ -1162,6 +1164,12 @@ export function AtemschutzView({
   // What the QR beside the bell says of itself — the same rule as the bell: the state that is
   // TRUE now, not what the press would do.
   const shareLabel = shareLinkActive ? az.shareLinkOn : az.shareLink
+  // the board's order menu – not on the phone board, whose arrangement is fixed (see `phoneMode`) –
+  // and its words, in the menu's order: the menu's rows and the «Sortiert:» strip read one list
+  const orderOffered = trupps.length > 1 && !!onOrder && !lite && !phoneMode
+  const orderWords: Record<TruppOrder, string> = {
+    manuell: az.orderManual, dringlichkeit: az.orderUrgency, auftrag: az.orderAuftrag, name: az.orderName,
+  }
 
   // ⚠️ ONE bell, THREE honest states — and every one of them says what is TRUE now, not what the
   // press would do (see `bellLabel` above). Rendered as ONE element so the header (every board)
@@ -1170,7 +1178,7 @@ export function AtemschutzView({
   const bellButton = (
     <button
       className={cx(s.muteBtn, muted && s.muteOn, audioBlocked && s.muteBlocked)}
-      data-fold={HEAD_FOLD.bell}
+      data-fold={HEAD_FOLD.tiles}
       onClick={audioBlocked ? onUnlockAudio : onToggleMuted}
       aria-pressed={muted}
       aria-label={bellLabel} title={bellLabel}
@@ -1309,7 +1317,7 @@ export function AtemschutzView({
   // «Trupp anmelden» → «Trupp» — until it fits, re-measured whenever what it carries changes
   const headRef = useRef<HTMLElement>(null)
   usePageHeadFit(headRef, [
-    focusMode, overdueCount > 0 && overdueCount, removedTrupps.length > 0, trupps.length > 1, muted, audioBlocked,
+    focusMode, overdueCount > 0 && overdueCount, removedTrupps.length > 0, muted, audioBlocked,
     shareLinkActive, syncStatus, lastSyncedAt, skewLoud, canEdit,
   ].join('|'))
 
@@ -1454,7 +1462,7 @@ export function AtemschutzView({
           )}
         </div>
         {/* ⚠️ ONE group, not four siblings. `.head` used to wrap, and as direct children the badge,
-            the sort menu, the mute toggle and «Trupp anlegen» wrapped INDIVIDUALLY — on a phone the
+            the sort menu (in the list row since pick 26), the mute toggle and «Trupp anlegen» wrapped INDIVIDUALLY — on a phone the
             filter stayed up beside the title while the other two dropped to a second row. Grouped,
             they stand as one block at the right end of the one row, and on the ladder's last step
             (lib/pageHeadFit) they move to the second row together. */}
@@ -1470,14 +1478,15 @@ export function AtemschutzView({
           <button
             /* muted (27.09.2026): the same tile in plain grey — the count still counts, the
                head just does not shout a tone it has promised not to play */
-            type="button" className={cx(s.overdueBadge, muted && s.overdueQuiet)} data-fold={HEAD_FOLD.overdue}
+            type="button" className={cx(s.overdueBadge, muted && s.overdueQuiet)} data-fold={HEAD_FOLD.tiles} data-fold-beside
             aria-live="assertive"
             title={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
             aria-label={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
             onClick={() => setSelfFocus({ id: mostOverdue.id, nonce: Date.now(), markAll: true })}
           >
             <Icon id="warn" /><span className="fold-long">{az.overdueBadge(overdueCount)}</span>
-            {/* a crowded head keeps the ⚠ and the number (the head's ladder, `HEAD_FOLD`) */}
+            {/* a crowded head keeps the ⚠ and the number (the head's ladder, `HEAD_FOLD`) – BESIDE
+                each other on a phone too, a count is not a word (`data-fold-beside`, 13-incident · «fold») */}
             <span className="fold-short" aria-hidden="true">{overdueCount}</span>
           </button>
         )}
@@ -1485,9 +1494,9 @@ export function AtemschutzView({
             seconds; miss it — gloves, 3am, a second Trupp overdue — and the card was unreachable,
             even though the record itself keeps it (types · Trupp.removedAt). Shown only while there
             IS something to bring back, so an ordinary board never carries it.
-            ⚠️ BEFORE the sort filter (05.09.): the two icons sat the other way round, and the one
-            that undoes something belongs nearer the badge than the one that only changes how the
-            board is looked at.
+            ⚠️ Beside the badge (05.09.): it sat after the sort until then, and the one that undoes
+            something belongs nearer the badge than the one that only changes how the board is
+            looked at – which has left the head for the list row since pick 26.
             ⚠️ #archive, not #undo (08.09.2026). This header carries a REAL ↶ ↷ pair now, and two
             undo arrows in one row meaning two different things is the kind of guess nobody should
             be making at 3am. Archive is also the truer word: these cards were taken off the board
@@ -1495,7 +1504,7 @@ export function AtemschutzView({
         {canEdit && removedTrupps.length > 0 && (
           <Menu
             trigger={
-              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.restore} aria-label={az.restoreMenu} title={az.restoreMenu}>
+              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.tiles} aria-label={az.restoreMenu} title={az.restoreMenu}>
                 <Icon id="archive" /><span className="fold-long">{az.restoreMenu}</span>
               </button>
             }
@@ -1520,47 +1529,16 @@ export function AtemschutzView({
             be taken back. */}
         {lite && canEdit && onUndo && onRedo && (
           <>
-            <button type="button" className={s.orderBtn} onClick={onUndo} disabled={!canUndo}
+            {/* …worded like the tiles beside it, folding with them (pick 24a, 17.11.2026) */}
+            <button type="button" className={s.orderBtn} onClick={onUndo} disabled={!canUndo} data-fold={HEAD_FOLD.tiles}
               aria-label={undoWord} title={undoWord}>
-              <Icon id="undo" />
+              <Icon id="undo" /><span className="fold-long">{appConfig.copy.undo}</span>
             </button>
-            <button type="button" className={s.orderBtn} onClick={onRedo} disabled={!canRedo}
+            <button type="button" className={s.orderBtn} onClick={onRedo} disabled={!canRedo} data-fold={HEAD_FOLD.tiles}
               aria-label={redoWord} title={redoWord}>
-              <Icon id="redo" />
+              <Icon id="redo" /><span className="fold-long">{appConfig.copy.redo}</span>
             </button>
           </>
-        )}
-        {/* ⚠️ A MENU, not a segmented control. Four options laid out in full needed ~380px in a
-            header that also carries a title, a subtitle, an überfällig badge, the alarm toggle and
-            «Neuer Trupp» — so it grew over the subtitle and covered the sentence explaining what
-            the board is. A way of LOOKING at the board is not worth a permanent strip of the one
-            screen that exists to show overdue Trupps; behind its own icon it costs 44px and the
-            current choice still shows as a tick when it is opened. */}
-        {/* not on the phone board: its arrangement is fixed (see `phoneMode`) */}
-        {trupps.length > 1 && onOrder && !lite && !phoneMode && (
-          <Menu
-            trigger={
-              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.order} aria-label={az.orderLabel} title={az.orderLabel}>
-                <Icon id="filter" /><span className="fold-long">{az.orderLabel}</span>
-              </button>
-            }
-            popupClassName="rp-print-menu"
-            itemClassName={() => 'rp-print-menu-item'}
-            items={[
-              { kind: 'head' as const, label: az.orderLabel },
-              {
-                kind: 'radio' as const,
-                value: order,
-                onChange: (v: string) => onOrder(v as TruppOrder),
-                options: [
-                  { value: 'manuell', label: az.orderManual },
-                  { value: 'dringlichkeit', label: az.orderUrgency },
-                  { value: 'auftrag', label: az.orderAuftrag },
-                  { value: 'name', label: az.orderName },
-                ],
-              },
-            ]}
-          />
         )}
         {/* «Trupps teilen»: the QR, beside the bell, because the realistic handover in an
             Einsatz is «Handy scannen lassen» and the FU is standing on THIS page when they
@@ -1571,7 +1549,7 @@ export function AtemschutzView({
         {onShareLink && (
           <button
             type="button"
-            className={cx(s.shareBtn, shareLinkActive && s.shareOn)} data-fold={`${HEAD_FOLD.share} ${HEAD_FOLD.shareWord}`}
+            className={cx(s.shareBtn, shareLinkActive && s.shareOn)} data-fold={HEAD_FOLD.tiles}
             onClick={onShareLink}
             aria-label={shareLabel} title={shareLabel}
           >
@@ -1593,6 +1571,46 @@ export function AtemschutzView({
         )}
         </div>
       </header>
+      {/* ── the board's list row: «Reihenfolge» (owner pick 26, 17.11.2026) ──
+          The order is a question about the LIST, not an act on the board, so it left the head – which
+          keeps what acts on the whole board (Alarme · Abgeben · Alarmton · + Trupp anmelden) – for
+          the row every list has under its head (SurfaceControls, like the Verlauf's «Art»): the
+          framed tile, ↑↓ `#sort` (HEADS.1: it wore the funnel, and a lit funnel on the board that
+          exists to show overdue Trupps reads «some are hidden»), worded beside the glyph.
+          ⚠️ A MENU, not a segmented control: four options laid out in full needed ~380px, and a way
+          of LOOKING at the board is not worth a permanent strip of the screen that shows overdue
+          Trupps; the current choice shows as the radio's tick when it is opened. Not on the phone
+          board: its arrangement is fixed (see `phoneMode`). */}
+      {orderOffered && (
+        <div className={cx(c.controls, s.listRow)}>
+          <Menu
+            trigger={
+              <button type="button" className={c.iconBtn} aria-label={az.orderLabel} title={az.orderLabel}>
+                <Icon id="sort" /><span className={c.word} aria-hidden="true">{az.orderLabel}</span>
+              </button>
+            }
+            align="start"
+            popupClassName="rp-print-menu"
+            itemClassName={() => 'rp-print-menu-item'}
+            items={[
+              { kind: 'head' as const, label: az.orderLabel },
+              {
+                kind: 'radio' as const,
+                value: order,
+                onChange: (v: string) => onOrder?.(v as TruppOrder),
+                options: (Object.keys(orderWords) as TruppOrder[]).map((value) => ({ value, label: orderWords[value] })),
+              },
+            ]}
+          />
+        </div>
+      )}
+      {/* a re-sorted board SAYS so, under its list row, with the way back to the hand-set order
+          (button sweep HEADS.3, 17.11.2026): «Reihenfolge» looked the same set to «Wie gesetzt» as
+          to «Name» – the strip every narrowed list wears (components/FilterStrip) */}
+      {orderOffered && order !== 'manuell' && (
+        <FilterStrip sort className={s.sortStrip} what={orderWords[order]}
+          clearLabel={az.orderManual} onClear={() => onOrder?.('manuell')} />
+      )}
 
       <div className={cx(s.body, focusMode && s.bodyFocus, focusInNotfall && s.bodyFocusNf)} ref={bodyRef}>
         {/* The Atemschutznotfall stands at the TOP of the board, on every board, however it is
@@ -1629,7 +1647,7 @@ export function AtemschutzView({
                  is the one a first-timer taps. On the handed-over phone board «+ Trupp» is the
                  bottom rail's own cell, so it is not repeated here. The whole «Trupp anmelden»
                  (newTrupp): `start` is the form's one-verb footer since 27.09.2026. */
-              <Button variant="primary" size="lg" icon={<Icon id="plus-bold" />} onClick={() => openForm('create')}>
+              <Button variant="primary" size="lg" icon={<Icon id="plus" />} onClick={() => openForm('create')}>
                 {az.newTrupp}
               </Button>
             )} />

@@ -43,11 +43,10 @@
 
 /* --- the pill --------------------------------------------------------------------------- */
 
-/* Icon only, at every width. The German state names run long and an inline label in the top
-   bar either truncates to something meaningless or crowds out the incident title — so the
-   tone below is what reads at a glance, and the words live in the tooltip and the sheet.
-   The button itself is <IconButton variant="secondary"> (07.10.2026); the tone is the state's
-   colour on it, doubled so it outranks the variant's hairline (`.icon.iconSecondary`). */
+/* One of the top bar's actions (`.tb-act`, glyph + «Standort», 17.11.2026). The German state
+   names run long and an inline state in the top bar either truncates to something meaningless or
+   crowds out the incident title — so the tone below is what reads at a glance, and the words
+   live in the tooltip and the sheet. Doubled so it outranks `.tb-act`'s ink. */
 /* Reporting. Tinted, not shouting: this is a normal running state, not an alert.
    The `-strong` tone is the one that carries text on the app background in both schemes. */
 .live.live { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 45%, var(--glass-edge)); }

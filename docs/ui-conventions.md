@@ -36,7 +36,9 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   a per-control `font-family: inherit`. The reset is the family only; sizes stay per rule.
 - **New CSS picks from the scales** (07.10.2026, UI sweep C1–C5; `01-tokens.css` · «THE SCALES»,
   «THE TINTS»): type `--fs-1…7` (12.5 · 14 · 16 · 19 · 24 · 32 · 40, each with its `--lh-*`) and
-  `--fs-micro` (11, read-only captions, never a tappable label); weight `--fw-regular/medium/
+  `--fs-micro` (11, read-only captions, never a tappable label – except the word UNDER a tile's
+  glyph on a phone: the nav bar's, the list heads', a folded page-head tile's; button sweep HEADS.9,
+  17.11.2026); weight `--fw-regular/medium/
   bold/heavy` (400/500/700/800 – 600 is not a step); space `--sp-1…8` (4/8/12/16/24/32/48/64;
   1–2px optical nudges stay literal); elevation `--e1…e5` (with night values; `--shadow` is
   `--e4`); tints `--{blue,red,amber,green,ink}-{5,8,12,16,22,28,45,62}`
@@ -96,8 +98,12 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   A number
   is the shared `Stepper`; where the two surfaces cannot agree on a unit (a Form's size is metres
   on the Karte and a share of the sheet on a Plan) it is `ScaleStepper`, the same chrome handing
-  the caller a ×-factor. A one-press action is a `.de-action` row, in the grammar «Verbindung
-  lösen» already had – it is not given toggle chrome, because it has no state to be in. Rows are
+  the caller a ×-factor. A one-press action in a card body («Richtung umkehren», «Verbindung lösen»,
+  the ERG «Absperrkreis übernehmen») is THE button, `<Button>` glyph + verb 14/700, at the control
+  edge (`.de-act` places it; owner, button sweep SHEETS.6, 17.11.2026 – it was an unframed 12.5 row
+  that read as a label) – never toggle chrome, because it has no state to be in. «Lösen» is the
+  neutral framed `unlink` + word wherever a bond is cut (SHEETS.3): a detach can be taken back, so
+  it is never a red word and never an ✕. Rows are
   grouped in `.de-group`, and since 18.09.2026 a group boundary is SPACING: a hairline is drawn
   ONLY above a group that opens a NAMED section («Messung», «Verbindungen» — matched on the
   `.de-group-toggle`/`.de-conn-title` it starts with), because four or five rules stacked down a
@@ -156,13 +162,23 @@ the body (13-incident · `.ui-sheet-foot > .danger:first-child` pushes the rest 
 framed «Abbrechen», then the primary. Trupp Auftrag, Trupp Mannschaft, the Kanal stepper, the
 Schichtband edit and the Mittel pencil wear it; a live sheet has no Abbrechen / primary, so its
 footer is the danger alone (TimeBlockSheet `danger` — the Anwesenheit's «Person entfernen»).
+A save / send / confirm primary is the WORD only (button sweep SHEETS.7, 17.11.2026: a ✓ there
+read as «already saved» – ✓ is «done», the DoneChip's and the Erledigt tile's); a glyph only names
+a verb that is not a commit (Drucken, Herunterladen, Orten).
+**A map card's foot is the same family** (button sweep SHEETS.2 + SHEETS.9, 17.11.2026): the
+symbol panel, the Linien-/Flächen-/Absperrkreis-Editor and the Form's sheet render `<Button>` in
+`.ctx-actions` (06-contextpanel only places them, sharing the row by their words), in ONE order on
+the Lage and the Plan: **[Zentrieren · its toggle · bin + «Entfernen»]** – the symbol's toggle is
+«Erledigt», a drawing's and a Form's «Sperren»; a toggle keeps its glyph in both states and only
+its fill says «set» (`--sel`). «Zentrieren» frames a drawing's whole extent on the Karte and
+centres the board on it on a Plan; a locked panel keeps it.
 
 **Every row of an editor sheet is a label column and a control edge** (owner pick 27B, sweep
 30.10.2026 #27, built 31.10.): the symbol panel (`.field`, `.kv-row`, Beschriftung, Entwicklung)
 and the Linien-/Flächen-/Form-Editor (`.de-row`) put the label in one fixed column
 (`--ctx-lbl`, 8.4 × 14px – «Abschnittschef», «Gehört zu Trupp» fit; a longer label wraps inside
 it), and every control starts at that edge and fills to the panel's – segments share the width,
-a `Stepper` spans it (+ and ✕ at the end), swatches spread over it, a `.de-action` starts there
+a `Stepper` spans it (+ and ✕ at the end), swatches spread over it, a body act (`.de-act`) starts there
 too. Every box control (field, menu, stepper, segments) is `--tap`, every row a 52px rhythm,
 every round pick button (Farbe, Füllung, Linie, Strichstärke) 36px – shrinking, still round,
 where a row of them does not fit the desktop panel. One recipe: `06-contextpanel` · «ONE label
@@ -193,6 +209,18 @@ while the head's subtitle says when («Schadenlage · erledigt 10:57»).
   «THE button»), 44px on every pointer and 52 for `lg`, so a hand-written `.ip-btn` and a
   `<Button>` cannot drift apart and 20-touch-floors needs no entry for either. The sheet ✕ stays
   `.ip-x` (36px, grey, 44 pad; owner spec below), not an `IconButton`.
+- **A row of worded controls has no wordless member, and it folds TOGETHER** (button sweep audit,
+  owner pick 24a, 17.11.2026). A control in a head, a bar or a mode row whose neighbours carry a
+  word carries one too (the top bar's ↶ «Rückgängig» ↷ «Wiederherstellen»
+  and «Standort», the Trupp card's ⋯ «Mehr», the Georef bar's ⓘ «Genauigkeit», the PDF reader's
+  «Öffnen»). Where the row runs out of room it folds as ONE: every control's word moves UNDER its
+  glyph at 11/700 at the same step (the page heads: one `data-fold` rank for the tiles,
+  `lib/pageHeadFit`; the top bar: `'action-words'`, `lib/useHeadFit`) – never one button at a
+  time, and a folded tile is never a bare glyph, on any device (13-incident · «fold», 10-journal ·
+  «the fold»). The primary may shorten its word a step later («+ Trupp»); where even the folded
+  row cannot fit, a tile takes a short word (a `…Short` key), then the head's second row. A phone
+  wears the folded tiles where its CSS says so (the top bar's `data-tiles`). Exempt: the sheet ✕,
+  a field's clear, a list row's chevron and a quiet row-end bin (below).
 - **A print or download that waits on something shows `ShellLoader` in its button** (28.10.2026,
   owner: «all printing and downloading things have a spinner»): the loader takes the glyph's place
   (or leads the label), the button is `disabled` + `aria-busy` until the file is out, and a sheet
@@ -377,8 +405,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *The ✕ that closes a sheet is 36px with an 18px glyph, everywhere* (`.ip-x`, `.journal-x`,
     `.ctx-x`, `.sym-close` — one rule in 13-incident.css; it was 28/30/32): the `--ink-8` plate,
     the ordinary grey, never a filled «on», over a 44px hit pad. No exceptions since hill climb r35
-    (06.11.2026): beside a 44px search field (Palette, Verlauf search, Trupp finden) and in the
-    Verlauf's head of 44px buttons it is the same 36px plate, centred on its row – the 44px and
+    (06.11.2026): beside a 44px search field (Palette, Trupp finden) and in the
+    Verlauf's head beside its 44px ▶ it is the same 36px plate, centred on its row – the 44px and
     ▶-framed copies there read as a different button. It stands as far from the sheet's right
     edge as the title from its left (24 on a sheet, 16 where a frame pads 16: composer, Palette,
     Verlauf, the `.ctx` editors, Trupp finden; 12 on the Gebäude card). Where the body under the
@@ -396,7 +424,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     glass clusters, menus, docks) keeps ONE even gap all round – `--bar-pad` plus its
     1px border – and its corner is the controls' corner plus that gap, `--r-bar` (19px), so the
     curves run parallel like nested squares (the top bar had 7px above the pill and 11px beside
-    it, and no radius could match both); a MESSAGE is not a bar – it wears the one corner itself
+    it, and no radius could match both). **Every floating PIECE wears that corner too** (owner pick 20,
+    17.11.2026: at 12px beside the 19px bars they read «too angular»): the floating row's tiles and
+    chips (Objekt · Gebäude · Gebäude-Info · Messungen, the radar pill), the Eintrag FAB, «Zurück zum
+    Rapport», the Folgen chip, the Tafel's page strip, the Karte's phone squares – phone and tablet;
+    a MESSAGE is not a bar – it wears the one corner itself
     and its buttons sit `--msg-pad` inside with `--r-msg-in`; (3) the **parts of one control** (segments in `.useg`,
     the zoom buttons in their group) are the control's corner less their inset. No literal px
     radius above `--r-xs` (hairline ticks and handles aside); the old 10 · 14 · 16 · 20 · 22 scale put three corners on three neighbouring
@@ -446,7 +478,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     move as the row's filled button (the Atemschutz «Zum Trupp» — `Meldung.onOpen.label` = the
     primary action's label) stays tappable but draws NO underline (`.ml-open.plain`, derived in
     `Meldeleiste · MeldungTitle`); the underline is only the signal where the title is the ONLY
-    door. A button never repeats the glyph its row already leads with.
+    door. A button never repeats the glyph its row already leads with: **a message's buttons are
+    THE button, word only** (button sweep SHEETS.4 + SHEETS.5, 17.11.2026) – the Meldeleiste's
+    (only a busy loader takes the glyph slot) and the toast's «Rückgängig» alike, 14/700 framed at
+    `--r-msg-in`; primary filled only in the Meldeleiste.
   - *The toast rule – only what is essential (17.11.2026, owner: «toasts are really only used for
     things that are essential – not spamming the UI»):* **a toast is for what the operator must
     know NOW and cannot see where they are looking – or the one tap back.** Five things earn one:
@@ -480,7 +515,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     bottom-left chip row after the Gebäude chip – on a phone it is the piece in that row that
     gives way) and the Eintrag FAB — wears `--float-*` (01-tokens): the bars' glass with
     their `--glass-line` edge as an INSET ring and `--shadow`; ONE row height `--float-h` (a --tap
-    button + `--msg-pad` all round = 52px); the one corner; 14px before the glyph; 16px glyphs. A
+    button + `--msg-pad` all round = 52px) – and on the BOTTOM LINE the bar's height, `--line-h`
+    (owner pick 21, 17.11.2026: every piece there – tiles, chips, the FAB, a dock, ✥ ⟳, the view
+    bar – ONE baseline and ONE height: the phone's bars' `--rail-h`, the tablet's view bar
+    `--view-bar-h`; the tablet's «Gebäude | Gebäude-Info» stood 52 beside the 70px bar); the bars'
+    corner `--r-bar` on a piece, the one corner on a message; 14px before the glyph; 16px glyphs. A
     STATE is a glyph colour inside it — the chip's lamp, a toast's leading icon, the object chip's
     amber ⚠ — never an outline (the Massstab chip wore a blue ring beside its green lamp); «open /
     armed» is a blue wash mixed into the glass. «Not yet» is GREY (29.09.2026): a plan with no
@@ -511,10 +550,14 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     restores what the plan had (C9). On a phone the pieces stand on ONE baseline,
     `--float-bottom` (15-mobile): `--float-gap` (8px) above the highest bar (nav bar · Rapport tab
     strip · tool bar · a tool's option dock), 8px from the screen's edge and from
-    each other. The FAB is a `--float-h` square in the one corner (round until 16.11.2026, owner:
-    «match the corner radius of the other things»), «Eintrag» always under its glyph like a
+    each other. The FAB is a `--line-h` square in the bars' corner (round until 16.11.2026, owner:
+    «match the corner radius of the other things»; r12 until pick 20, 17.11.2026), «Eintrag» always under its glyph like a
     worded tool-bar tile (the 22px glyph flush on the 11/700 word, centred) – not tied to «Beschriftung der Werkzeugleisten», which is the bars'
-    setting, not the floating row's – on that baseline; `--fab-safe` is its width + the gap. A new piece in that zone joins the family and
+    setting, not the floating row's – on that baseline; `--fab-safe` is its width + the gap. On a
+    phone EVERY piece of that row is such a tile (button round 17.11.2026, owner pick 12C): the
+    chips (`.wb-tile`) and the Karte's squares too, the lamp or › at the tile's corner, a long word
+    cut inside a tile capped at 136px ([`phone-layout.md`](phone-layout.md) › «The phone's floating
+    row is TILES»); the tablet keeps them chips. A new piece in that zone joins the family and
     the row (and the `--float-row` `:has` list) — never a height, material or offset of its own.
     The map's attribution ⓘ wears the family's MATERIAL only (03-map, 04.11.2026): a round 24px
     plate at the 16px inset (32px until 05.11.2026, owner: «small and quiet»), its outline glyph in
@@ -540,19 +583,30 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     have a dark sidebar in lightmode?» — the phone's bar since 01.10., every dock since): Messen
     and every tool-option dock on the Karte, the Einsatz map and the Plan/Skizze, phone and tablet,
     wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
-    The controls share one neutral fill (`--dock-control-bg`, opaque) and hover
-    (`--dock-control-hover`); a picked width/line style is the selected wash; a dock toggle that
-    is ON (`.wb-dock-tog.on`, «Mehrere», the Messen mode) is a choice and wears the `--sel` fill.
+    Their controls follow **the colour table** (below): bare at rest, a toggle that is ON
+    (`.wb-dock-tog.on`, «Mehrere», the Messen mode) the `--sel` fill, a picked width/line style the
+    selected wash, the grey plate on the ✕ alone (opaque, so the sticky ✕ hides what scrolls under it).
     **«Armed» is one look** (duck sweep ELEM.1, owner 17.11.2026): an armed tool or mode – the
     rail's tool, the selection bar's ✥ «Verschieben» / ⟳ «Drehen» – is the ink pill (`--here-fill`,
-    role 3 below); at rest the bar's two grips are the neutral dock control with their word. The ✓ is
+    role 3 below); at rest the bar's two grips are bare like Ebenen. **The ✥ ⟳ bar is a bar
+    of tiles like every other** (button sweep CHROME.2/.9, owner 17.11.2026): glyph 22 over the word
+    11/700, 46px on a phone and the view bar's 56 on a tablet, on the view bar's baseline
+    (`--view-bar-h`), worded by «Beschriftung» exactly like the dock – the word never changes with
+    the state; on a phone it is the dock row's twin and stands in the TOOL BAR's slot, which the
+    tool bar leaves while it shows (owner pick 21, 17.11.2026 – in the dock's slot it floated a bar
+    over an empty gap). The ✓ is
     `--btn-primary`. No dock carries a line of text, on any surface or width (20.10.2026, owner:
     «Remove the line. I don't think they add any value.»): a tool's instructions are its ⓘ.
     One exception: a tool whose use is a fixed sequence of steps opens its ⓘ card by itself and
     draws no ⓘ tile (`DockInfo · open`) – calibrating the plan's scale, rare-user r4 17.11.2026.
-    **The armed tool's name is the readout pill** (`.armed-pill`, 23.10.2026): glyph + word,
-    bottom centre, the same glass, `--tap` high, no pointer events – a readout, not a control
-    (tactical-objects.md · «The armed tool's readout»). The symbol tool has no dock since then.
+    **The armed tool's name is the dock's FIRST tile** (`ToolDock · armed`, `.wb-dock-name`; owner
+    picks 14 + 15, 17.11.2026 – it was a pill at the bottom centre from 23.10.2026): the tool's
+    glyph (a symbol: its own drawing, a Form: its preview) over its short name («Linie», not «Linie
+    · Freihand» – the lit toggle says the mode), the dock tile's anatomy with NO fill, no hover, no
+    press, no pointer events – a readout, not a control; its name is its accessible name. Every
+    dock but Messen's leads with it, on the phone's bar and the tablet's column alike, so a dock
+    reads [name · options · ⓘ · ✕] (tactical-objects.md · «The armed tool's readout»). A symbol has
+    a dock of its own for it: [Unfall · Mehrere · Abbrechen].
     The sticky close button has no masking shadow: a solid surface patch mismatches the glass.
     The blank Tafel offers no Messen on a phone; map and scaled plans keep it. The Ansichten
     popover closes on a tap beside it and that tap does nothing else, on every width (Overlays ·
@@ -560,6 +614,22 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *Height is a separate axis* – `--tap` (44px) by default, 48–50px for a card's main action.
     The 12 type combos happened because people enlarged the *label* when they wanted a bigger
     *target*; raise the height, not the font.
+  - **The colour table** (owner pick 22, 17.11.2026 – ONE grammar for every bar, dock, tile and
+    chip; the sentences below fill it in, they never contradict it):
+
+    | Look | Token | Means | Examples |
+    | --- | --- | --- | --- |
+    | bare | none – the bar's glass shows | a tile at rest | a rail tool, Ebenen, ✥ ⟳, a dock toggle that is off, the dock's ⓘ |
+    | ink fill | `--here-fill` / `--on-here` | where you are · what is armed | the nav item of the page, the armed tool, an armed ✥ / ⟳, a Trupp tab |
+    | blue fill | `--sel` / `--on-sel` | an option that is ON | «Mehrere», a filter that narrows, a segment, a choice chip |
+    | blue wash | `--sel-wash` + `--blue-strong` | its menu / panel is open | open Ebenen, the Ansichten compass, a Menu trigger while up, the ⓘ open |
+    | grey plate | `--dock-control-bg` | the way out – only | the dock's ✕ «Abbrechen», the ✥ ⟳ bar's ✕ «Schliessen» |
+    | red | `--red` / `--del-*` | delete · alarm | THE delete look, a Notfall |
+    | amber | `--amber` | warning · the second axis | a hazard, a geometry's second axis |
+    | green | `--green` | present · done | «anwesend», a lamp that is right, a done step |
+
+    A new control finds its row here; a plate on a resting tile, a blue that is not «on» or «open»,
+    or an ink fill that is not «here» is a bug.
   - *Colour:* the primary fill is `var(--btn-primary)` (+ `--btn-primary-hover` /
     `--on-btn-primary`), never `--ink-fill`/`--blue`/`--accent` directly. **Red never fills an
     action** – it means danger/delete only. Amber = warning but not critical; red = danger,
@@ -620,7 +690,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     button wears its word under the glyph (like the rails); off, the SAME buttons as bare glyphs.
   - *Delete (28.09.2026, owner pick A):* a destructive action is THE delete look — `--del-ink`
     (red-strong) text, a `--del-edge` (red 40%) border, the surface it stands on; the bin and the
-    word (a rare delete may be a square bin, still outlined). A bin at the end of a ROW — a time
+    word, always (owner, button sweep SHEETS.1, 17.11.2026 – the symbol panel's bin SQUARE went;
+    a confirm's answer that removes carries the bin too, `ConfirmSpec.bin`, while a danger answer
+    that removes nothing – «Abmelden», «Trotzdem abschliessen» – stays a word). A bin at the end of a ROW — a time
     block, a Rapport line, a saved Ansicht, an admin record — is the quiet grey glyph instead
     (21.10.2026, owner, UX sweep F4/A3): the row is the context, and the admin ones ask first, their
     armed «Ja» wearing the delete look. Red never fills it (`.btn.warn`,
@@ -654,7 +726,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     being drawn: there it is THE way to commit, the dock's one filled tile (`ToolDock` · `go`). The
     dock follows the rails (round 2b; the phone's row too since round 15.11.2026 #2): «Beschriftung
     der Werkzeugleisten» on, EVERY item wears its word under its glyph («Abbrechen», the modes,
-    «Fertig», «Info», the Form being placed by name); off, every item is a bare glyph – never a mix.
+    «Fertig», «Info»); off, every item is a bare glyph – never a mix. Its glyphs are the bars' 22px
+    on both devices (the phone's row wore 18 until CHROME.8, 17.11.2026).
     A dock item has a word by type (`ToolDock` · `DockItem`); there is no wordless item. A word that
     does not fit a tile (the tablet column's ≈74px, the phone's «+» tile) gets a short tile word of
     its own – a `…Short` copy key, the item's / tool's `short` – and the long form stays its title and
@@ -665,9 +738,14 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Verwerfen · Weiterzeichnen» – never silently dropped). So one exit per state: a SELECTED
     object's is its editor card's ✕, and the `SelectionBar` carries no «Fertig» beside it; only a
     Mehrfach group, which has no card, gets a ✕ at the bar's end. A single native object gets
-    «Duplizieren» there instead (a worded tap, ⌘D's touch twin – rare-user F18, 17.11.2026). The armed-tool pill at the bottom
-    centre is glyph + name, a readout; beside it, only while a symbol is armed, stand «Mehrere» and
-    its ✕ (`ArmedToolPill`). Every armed state has a visible ✕ – the Karte's «Punkt setzen» too. Text editors' in-place ✓ (a Notiz, a box label) commit
+    «Duplizieren» there instead (a worded tap, ⌘D's touch twin – rare-user F18, 17.11.2026).
+    **In a bar or a dock the ✕ is a
+    tile of that bar** (button sweep CHROME.4, 17.11.2026): the dock's ✕ look, «Abbrechen» – or
+    «Schliessen» on the selection bar – under it by the same setting; `.ip-x` is for sheets and
+    cards, a message keeps `.ml-x`. The ✕ ENDS every dock – the phone's bar and, since T2 (owner
+    pick 15, 17.11.2026), the tablet's column too, sticky at its foot (it stood at the column's head
+    until then): the armed tool's name leads, the way out closes. A symbol's dock is [Unfall ·
+    Mehrere · Abbrechen] – the same controls a Form's dock carries. Every armed state has a visible ✕ – the Karte's «Punkt setzen» too. Text editors' in-place ✓ (a Notiz, a box label) commit
     typed text and keep their ✓.
   - *Cancel (28.09.2026, owner pick A):* «Abbrechen» in a footer is a FRAMED `.ip-btn` 14/700 at
     its word's width, never a ghost word; the primary takes the rest of the row, same height (on a
@@ -681,7 +759,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *Text actions (28.09.2026, owner pick A):* no bare blue word as an action. A verb that ends a
     row makes the WHOLE row the button — `.row-go` (13-incident): ink text, the verb in
     `--ink-dim` 12.5/700 + a 16px `chevron`, one press wash, ≥44px, `aria-label` «Verb: row text».
-    A fact that jumps is ink + › (DrawEditor's `.de-conn-name` + `.de-conn-go`; the Atemschutz
+    A fact that jumps is ink + the 16px `chevron` icon in `--ink-dim`, never a typed › (DrawEditor's
+    `.de-conn-name` + `.de-conn-go`, the Verbindungen rows' `.ctx-conn-go`; the Atemschutz
     card's jump chips, `.factGo`, carry a `chevron` in `--ink-dim`); anything else is a framed
     compact button (`.wb-nearby-switch`).
   - *Fields, titles, eyebrows, warnings — one look each (28.09.2026, owner: «remove what
@@ -714,7 +793,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     tall, the one corner — the `.cv-btn-add` look (13-incident). Dashed means «missing», never
     «add»; the ONE dashed add is «Foto hinzufügen» (`.cv-beilagen-add`, `.report-att-add`,
     decision D6 — it is the placeholder for a file). Icon-only where a column has no room (the
-    Schichten ＋), still a framed --tap square. On the Plan's storey stack (`.wb-floor-add`) it
+    Schichten ＋), still a framed --tap square. The Tafel's «+ Seite» is this framed Add too (button
+    sweep HEADS.10, 17.11.2026 – it was a frameless quiet button, read as one more tab), its word
+    UNDER the ＋ on a phone. On the Plan's storey stack (`.wb-floor-add`) it
     stands flat at the storey plates' level – their `--surface` and 1px `--border`, no shadow
     (hill climb r20, 05.11.2026: the glass tile outweighed the plates). Never a grey disc, a pill or
     a sub-44 tile.
@@ -758,8 +839,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     zero specificity) and may add a STATE (the Trupp form's `.teamSearchWant`); it never re-skins
     it. The one modifier is `variant="head"` (`.ui-search-head`): a card whose whole head IS the
     search (TruppFinder) — no pill, 18/700 query. ONE ✕ (29.09.2026, owner): where the search's
-    own CLOSE ✕ stands beside the field and ends the search (the Verlauf's search row, the
-    TruppFinder), the field drops its inner ✕ — `noClear`, a prop, never CSS hiding; Escape still
+    own CLOSE ✕ stands beside the field and ends the search (the TruppFinder), the field drops
+    its inner ✕ — `noClear`, a prop, never CSS hiding; Escape still
     closes. The Palette keeps both: its ✕ closes the whole «+» chooser, clearing only the query.
     Never a bare native `type=search`, never a framed white box, never a ruled band.
     What it FINDS is one rule too (duck sweep LISTS.3, 17.11.2026): every list search matches
@@ -772,13 +853,18 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     never the ink pill, never `--accent`. **Every control that opens a panel or menu wears that
     same OPEN look and says `aria-expanded`** (duck sweep ELEM.6, 17.11.2026): Ebenen on the rail,
     the view bar and the phone's map cluster, the Ansichten compass (the Karte phone's too), the
-    top bar's Verlauf, the Verlauf lens. The ink pill (`--here-fill`) is «where you are» only. The tool docks keep DockInfo's ⓘ in the dock's control fill.
+    top bar's Verlauf. **Every Menu trigger wears it while its menu is up**, keyed
+    on the `data-popup-open` Base UI sets (button sweep HEADS.5, 17.11.2026): the list-head tiles
+    (SurfaceControls · `.iconBtn`), the page-head tiles (`.head-tile`, Atemschutz · `.headTile`), any
+    `<Button>` trigger (`.ip-btn`), the admin's ⋯ – it outranks a filter's ON fill until the menu
+    closes. A head menu trigger carries **no ▾** (owner pick, HEADS.11): the open look is how it
+    says it opened a menu; glyph + word say what it is. The ink pill (`--here-fill`) is «where you are» only. The tool docks' ⓘ (DockInfo) rests bare like the dock's other tiles (the colour table).
     (7) **No hits**: one line, `.no-hits` (13/500 `--ink-faint`, centred, 20px pad, never italic),
     worded `copy.noHits` «Keine Treffer für «{q}».» while there IS a query – the Verlauf too, never
     a big `EmptyState` for a search. While only a FILTER narrows the list (no query), the line is
-    `copy.filterNoHits` «Keine Einträge in dieser Auswahl.» plus the way out in its own words (the
-    Anwesenheit's «Alle zeigen», the Verlauf's «"Alle zeigen" hebt den Filter auf.») – never
-    «Keine Treffer für «».» (duck sweep LISTS.4, 17.11.2026). A noun of its own only where it helps
+    `copy.filterNoHits` «Keine Einträge in dieser Auswahl.» – never «Keine Treffer für «».» (duck
+    sweep LISTS.4, 17.11.2026); its way out is the «Gefiltert: …» strip right above it (9), the
+    Verlauf adds «"Alle zeigen" hebt den Filter auf.». A noun of its own only where it helps
     («Kein Trupp gefunden»); one catalogue, one noun («Kein Objekt gefunden.» on the Karte and in
     the PlanPicker). An EMPTY list (nothing there yet, no query, no filter) is `EmptyState`.
     (8) **Fold**: every disclosure — a `<details>`, an accordion head, a notice that folds —
@@ -786,18 +872,46 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     `details[open]` (02-base). Never an up/down icon swap, never a text ▸, never the UA marker
     alone.
     (9) **Filter on**: an active filter button is the choice fill (`--sel`) and nothing else — no
-    dot beside it (Anwesenheit/Mittel `.iconBtnOn`, the Verlauf funnel `.jr-filter-on`). Those
-    head buttons (`SurfaceControls`) wear their WORD on every device, one rule in the component:
-    beside the glyph on a tablet, under it on a phone like a nav tile (duck sweep ELEM.13,
-    17.11.2026 – the Anwesenheit was worded on the phone only, the Mittel on the tablet only).
-    (10) **One glyph, one meaning, within a thumb's reach** (29.09.2026). «Eintrag» is the journal
+    dot beside it (`SurfaceControls · .iconBtnOn`). Those head buttons (`SurfaceControls`) wear
+    their WORD on every device, one rule in the component: beside the glyph on a tablet, under it
+    on a phone like a nav tile (duck sweep ELEM.13, 17.11.2026 – the Anwesenheit was worded on the
+    phone only, the Mittel on the tablet only). **Every list filter is that tile** (button sweep
+    HEADS.2/.8, 17.11.2026): framed, `--ink` (dim is `:disabled` only), a 16px glyph – Anwesenheit,
+    Mittel, «Alle Einsätze», the QR-Bogen's «Erfasste N» and the Verlauf's «Art». **A list's search
+    and filters sit in its LIST ROW under the head, never in the head** (owner pick 25 B,
+    17.11.2026): the field always in view and taking the slack, the filter tiles after it – the
+    Anwesenheit's, the Mittel's and the Verlauf's row (a lens and an ⓘ «Legende» in the Verlauf's
+    head cut its title to «V…»). An ORDER is the list's question too: the Trupps «Reihenfolge» stands
+    in the board's list row, its «Sortiert:» strip under it, and the head keeps what acts on the whole
+    board – Alarme · Abgeben · Alarmton · + Trupp anmelden (owner pick 26, 17.11.2026). A key that explains a list's discs is not a head button either: it
+    ends the filter menu whose rows wear those discs (the Verlauf's ring key, a Menu `note`). The WORD is the FACET («Kategorie», «Art»,
+    «Reihenfolge»), never the act «Filtern»; a menu's head is the trigger's full name («Nach
+    Kategorie filtern»), a menu of groups heads each group instead (HEADS.6). The Anwesenheit's
+    two facets are ONE tile «Filter» (the funnel) whose menu heads its groups «Grad» · «Status»,
+    beside its «Vor Ort» ✓ (owner pick 19, 17.11.2026 – two tiles «Grad» + «Status» until then).
+    **«Nothing filtered» reads one way** (HEADS.7): «Alle» is the FIRST row, ticked – the Verlauf's
+    with its total. A group that holds ONE value is a radio (trailing ✓, closes on pick: «Alle
+    Einsätze»'s «Ernstfall / Übung», «Einsatzart», the Trupps «Reihenfolge»), never checkboxes that
+    untick each other (HEADS.4). **A narrowed or re-sorted list SAYS so** in ONE line under its
+    head row – `components/FilterStrip`, «Gefiltert: **Of · Wm** · 6 von 22 · [Alle zeigen]»
+    («Sortiert: **Name** · [Wie gesetzt]» for the Trupps order), the count only while nothing is
+    typed (owner pick, HEADS.3, 17.11.2026: a touch device shows no tooltip, so «Grad» filled blue
+    did not say «only Offiziere»). The trigger keeps its fixed width – what is picked is never
+    printed on it (29.09.2026).
+    (10) **One glyph, one meaning, within a thumb's reach** (29.09.2026). The funnel `#filter` is
+    «show fewer» only; an ORDER wears `#sort`, two opposed arrows ↑↓ (owner pick, button sweep
+    HEADS.1, 17.11.2026 – the Trupps «Reihenfolge» wore the funnel and read «Trupps are hidden»).
+    **↶ ↷ (`#undo` / `#redo`) mean undo / redo ONLY** (owner pick 24b, 17.11.2026): the Trupp's
+    «Rückzug» and «Fortsetzen» wore them on the screen whose head carries the history pair; they
+    wear `#rueckzug` ‹‹ and `#fortsetzen` ›› (the way the Trupp moves), «Raus» the door `#logout`.
+    «More» is `#more` ⋯ everywhere, the admin's row menus too (HEADS.12). «Eintrag» is the journal
     pen (`lib/icons` · `#entry`, drawn inline by `EntryGlyph` on the FAB and the top bar's
     Eintrag), never «+»: «+» means Hinzufügen only (the FAB stood 60px above the tool bar's «+
     Hinzufügen» with the same glyph, and the tablet's Eintrag sat beside the rail's «+ Symbol»).
     The top bar's Eintrag is the bar's flat `.tb-act`, like «Verlauf» beside it (owner pick C11,
     05.11.2026 – it wore the FAB's raised glass, the one raised button inside the bar), never a
-    blue slab, and keeps its word «Eintrag» until the LAST step of the top bar's ladder
-    (`HEAD_FIT_STEPS` · 'eintrag-word'). While the hold's chooser is up, the glyph gives way to
+    blue slab, and keeps its word «Eintrag» – folded with the bar's other actions, under its
+    glyph (`HEAD_FIT_STEPS` · 'action-words'). While the hold's chooser is up, the glyph gives way to
     its drawn ✕ (both paths always in the DOM). «Trupp finden» wears `#trupp-find` (people with a
     small lens — the owner's pick B, 29.09.2026; the flag in a reticle read as «ugly») on the Trupp tool's dock and in the finder's head — never the
     `#search` lens, which a search tile wears. The Tafel wears `#easel` (a board on two legs,

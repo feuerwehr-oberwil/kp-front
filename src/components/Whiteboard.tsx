@@ -72,7 +72,7 @@ import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { LockChip } from './LockChip'
 import { Chip } from './Chip'
-import { ShapeGlyph, SHAPE_DEFS, SHAPE_MAX_N, SHAPE_MIN_N, SHAPE_TWO_POINT, rotationBoundsN, rotationBox, rotationRun } from '../lib/shapes'
+import { SHAPE_DEFS, SHAPE_MAX_N, SHAPE_MIN_N, SHAPE_TWO_POINT, rotationBoundsN, rotationBox, rotationRun } from '../lib/shapes'
 import { SYM_MIN, TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { noteScale, autoNoteWN, noteWN, stackNoteBoxPx, stackNoteShiftPx } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
@@ -81,7 +81,7 @@ import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
 import { carryDoors, copyGrundriss, grundrissOf, wallRolePatch, wallRoleWire, wandBlock, wandBlockHint, DOOR_SYMBOL, GEBAEUDE_CATEGORY, GRUNDRISS_STYLE } from '../lib/grundriss'
 import { StoreyCopySheet } from './StoreyCopySheet'
-import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, STACK_READINGS_LANE, STACK_LABEL_LANE, bottomInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
+import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, STACK_READINGS_LANE, STACK_LABEL_LANE, bottomInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards, annoMiddle } from '../lib/whiteboard'
 import { shownTeamColor } from '../lib/teamColors'
 import { foldedStoreyTeams, loadHiddenFloors, saveHiddenFloors, shownFloors, storeysToReveal, type StoreyTeam } from '../lib/floorPrefs'
 import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachAnnos, dwellFor, flipLine, forkPortPoint, wireFreed, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, withDetach, type AnnoDetachPatch, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
@@ -125,8 +125,7 @@ import { useBoardGestures } from './useBoardGestures'
 import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles, WbDraftHandles, WbSnapRing, type TruppFinderDoor } from './WbControls'
 import { MeasurePanel } from './MeasurePanel'
 import { ToolDock } from './ToolDock'
-import { ArmedSymbolGlyph, ArmedToolPill } from './ArmedToolPill'
-import { armedToolIcon, armedToolName } from '../lib/armedTool'
+import { armedReadout } from '../lib/armedTool'
 import { PlanCompass } from './PlanCompass'
 import { OrientSlider } from './OrientSlider'
 import { RailKey, ToolRail } from './ToolRail'
@@ -1221,8 +1220,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     if (!selectOnly) return
     setTool('pan'); setPending(null); setPendingShape(null); setPaletteOpen(false); setDraft(null); setCircleDraft(null)
   }, [selectOnly, setTool, setPending, setPendingShape, setDraft, setCircleDraft])
-  /** Put a symbol / shape being placed down – the armed pill's ✕ and Escape (round 2, 27.10.2026) */
+  /** Put a symbol / shape being placed down – its dock's ✕ and Escape (round 2, 27.10.2026) */
   const stopPlacing = () => { setPending(null); setPendingShape(null); setTool('pan') }
+  // the armed tool's readout, the first tile of its dock (ToolDock · armed, lib/armedTool) – the
+  // Lage's own (MapToolDocks); every dock but Messen's, whose results panel names the tool
+  const armed = armedReadout(tool, appConfig.copy.planTools, { symbol: pending, svg: pending ? sym.byName[pending] : undefined, shape: pendingShape })
   // Back from the background (C3, 17.11.2026 · lib/useOnResume): the armed tool, symbol or shape is
   // put down – a line draft is released through the same `setTool('pan')` Escape uses, so a
   // committable one asks – a half-laid Rotation goes, and «Mehrere platzieren» goes off.
@@ -2055,14 +2057,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // one that goes somewhere (the object picker) wears the › – and one with no job at all is a
   // READ-OUT, a <span> with no button chrome (`.wb-chip-ro`), not a disabled chip drawn alive.
   const objectChip = objectChipHidden ? null : !factsShown && !onObjectSwitch ? (
-    <span className="wb-scale-chip wb-object wb-chip-ro" aria-label={[fillTemplate(appConfig.copy.whiteboard.objectIs, { name: objectChipName }), objectNearbyLabel].filter(Boolean).join(' – ')}>
+    <span className="wb-scale-chip wb-tile wb-object wb-chip-ro" title={objectChipName} aria-label={[fillTemplate(appConfig.copy.whiteboard.objectIs, { name: objectChipName }), objectNearbyLabel].filter(Boolean).join(' – ')}>
       <Icon id={nearbyDist ? 'warn' : 'footprint'} />
       <span>{objectChipText}</span>
     </span>
   ) : (
     <button
       type="button"
-      className={cx('wb-scale-chip wb-object', nearbyDist && 'wb-object-nearby', factsOpen && 'arm')}
+      className={cx('wb-scale-chip wb-tile wb-object', nearbyDist && 'wb-object-nearby', factsOpen && 'arm')}
       // «Objekt» named the field, which is the one thing the value already says — a plan set
       // belongs to an Einsatzobjekt and nothing else in this corner is a place name. No chevron:
       // the lamp says there is more behind it. The words a screen reader needs (the lamp is no
@@ -2085,20 +2087,17 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // The Gebäude-Steckbrief's chip, beside the Objekt chip and only where that one stands with an
   // Objekt bound: these plans are of THAT building, and the Karte's row carries the same chip.
   // The floor stack and the Tafel drop it with the Objekt chip (`objectChipHidden`).
-  // ⚠️ Not on a PHONE's plan (09.10.2026, measured at 390px): that row is one line beside the FAB
-  // (09-whiteboard · .wb-botleft), and a hazard is glyph + WORD, so «⚠ Gas · PV» took the room the
-  // Objekt chip's name needs — the name went down to its glyph, and «which object are these
-  // plans of» stopped being answered. On a phone the Karte's row carries the chip, one tap away.
+  // On a PHONE's plan too, since the button round (owner pick 18, 17.11.2026: «every plan shows the
+  // same floating row»). It was kept off there from 09.10.2026, when the row was chips and «⚠ Gas ·
+  // PV» took the room the Objekt chip's name needed; the phone's row is tiles now (09-whiteboard ·
+  // .wb-tile, pick 12), each as wide as its word and capped, so the Objekt tile keeps its name.
   // `compact`: it is the Objekt chip's second half (R1, 27.10.2026) – «⚠ Gebäude-Info · Gas», the
   // Sofortmassnahmen as their glyph alone.
   // …and on the Gebäude STACK too, the building chip's second half (owner pick C8, 05.11.2026): the
   // stack is the one plan that IS the building, and its row said «Gebäude •» while the Karte said
   // «⚠ Gebäude-Info · Gas» – the hazard was gone exactly where the crew looks at the storeys. Not
   // on the outline picker (no building chosen yet). BuildingFloat renders nothing without content.
-  // ⚠️ The stack keeps it on a PHONE as well (hill climb r13): the 09.10. rule above protects the
-  // Objekt chip's name, and the stack drops that chip – the building chip beside it is the read-out
-  // that truncates (09-whiteboard · .wb-building-named), so nothing there loses its answer.
-  const buildingFloat = (stack || (!isPhone && !objectChipHidden && (objectName || objectAddress)))
+  const buildingFloat = (stack || (!objectChipHidden && (objectName || objectAddress)))
     ? <BuildingFloat info={buildingInfo ?? null} />
     : null
 
@@ -2173,7 +2172,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const buildingChip = stackFacts ? (
     <button
       type="button"
-      className={cx('wb-scale-chip wb-building wb-building-named', factsOpen && 'arm')}
+      className={cx('wb-scale-chip wb-tile wb-building wb-building-named', factsOpen && 'arm')}
       aria-label={fillTemplate(appConfig.copy.whiteboard.facts.chipLabelBuilding, { name: buildingChipName ?? active.code })}
       aria-expanded={factsOpen}
       onClick={toggleFacts}
@@ -2185,7 +2184,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   ) : onBuildingFace && (stack || (osm && building)) && !(buildingChipLocked && !buildingChipName) ? (
     <button
       type="button"
-      className={`wb-scale-chip wb-building${buildingChipName ? ' wb-building-named' : ''}`}
+      className={`wb-scale-chip wb-tile wb-building${buildingChipName ? ' wb-building-named' : ''}`}
       aria-label={buildingChipLocked ? buildingChipName! : buildingChipLabel}
       title={buildingChipLocked ? undefined : buildingChipLabel}
       disabled={buildingChipLocked}
@@ -2291,7 +2290,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           scene={tafel?.scene} onOpenKarte={tafel?.onOpenKarte} pendenzen={tafel?.pendenzen}
           // the bottom: the strip's row and its air, so the last ruling scrolls above it — on a
           // phone above THE floating row (15-mobile · --float-bottom), on a tablet above the row
-          inset={{ top: topRes, left: isPhone ? 0 : side.l, right: isPhone ? 0 : side.l, bottom: isPhone ? 'calc(var(--float-bottom, 72px) + var(--float-h) + 16px)' : 'calc(16px + var(--float-h) + 24px)' }} />
+          inset={{ top: topRes, left: isPhone ? 0 : side.l, right: isPhone ? 0 : side.l, bottom: isPhone ? 'calc(var(--float-bottom, 72px) + var(--line-h) + 16px)' : 'calc(16px + var(--line-h) + 24px)' }} />
       </div>
     )
   }
@@ -2922,10 +2921,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             </div>
           )}
           {readOnly && (!slimRail || isPhone) && (
-            <div className="wb-zoom wb-zoom-float" onPointerDown={(e) => e.stopPropagation()}>
-              <button onClick={() => zoom(1 / 1.3)} disabled={scale <= MIN_SCALE} title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut}><Icon id="minus" /></button>
-              <button onClick={() => zoom(1.3)} disabled={scale >= maxScale} title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn}><Icon id="plus" /></button>
-              <button className="wb-fit" onClick={() => applyView(1, { x: 0, y: 0 })} disabled={scale === 1 && pos.x === 0 && pos.y === 0} title={appConfig.copy.nav.fit}>{appConfig.copy.nav.fit}</button>
+            // the view bar's tiles (button sweep CHROME.12, 17.11.2026): Einpassen ⌖ over its word by
+            // «Beschriftung», + − bare glyph squares – the act looks the same with and without a rail
+            <div className={`wb-zoom-float${railLabels === 'short' ? ' labelled' : ''}`} onPointerDown={(e) => e.stopPropagation()}>
+              <button className="vrail-nbtn wb-zoom-fit" onClick={() => applyView(1, { x: 0, y: 0 })} disabled={scale === 1 && pos.x === 0 && pos.y === 0} title={appConfig.copy.nav.fit} aria-label={appConfig.copy.nav.fit}><span className="vrail-glyph"><Icon id="cross" /></span><span className="vrail-label">{appConfig.copy.nav.fit}</span></button>
+              <button className="vrail-nbtn" onClick={() => zoom(1.3)} disabled={scale >= maxScale} title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn}><span className="vrail-glyph"><Icon id="plus" /></span></button>
+              <button className="vrail-nbtn" onClick={() => zoom(1 / 1.3)} disabled={scale <= MIN_SCALE} title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut}><span className="vrail-glyph"><Icon id="minus" /></span></button>
             </div>
           )}
 
@@ -2982,6 +2983,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onCalibrate={readOnly || scaleAuto ? undefined : () => setTool('scale')}
           measurable={calibrated}
           truppFinder={truppFinder}
+          armed={armed}
         />}
       </div>
 
@@ -3056,38 +3058,20 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         />
       )}
 
-      {/* the armed tool's readout — the SAME pill the Lage map shows (MapToolDocks): glyph + name,
-          bottom centre, nothing else. The symbol tool has no dock here either; «Mehrere
-          platzieren» and a ✕ (27.10.2026) stand beside the pill. Rest tool is 'pan' here (the plan pans on empty
-          canvas) vs the map's 'select'. Never while Messen is armed, on any size – its results
-          panel stands in that spot (sweep 30.10.2026 #3) – nor while calibrating, a mode of that
-          dock whose lit «Massstab» is its one indicator (M13 A, 17.11.2026). */}
-      {tool !== 'pan' && tool !== 'measure' && tool !== 'scale' && (() => {
-        if (tool === 'symbol') {
-          if (!pending) return null
-          return <ArmedToolPill glyph={<ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />} name={formatSymbolName(pending) || pending}
-            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }} onClose={stopPlacing} />
-        }
-        if (tool === 'shape') {
-          if (!pendingShape) return null
-          return <ArmedToolPill glyph={<ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />}
-            name={appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel} />
-        }
-        // the Grundriss preset names itself in the mode's place: «Linie · Wand»
-        const name = grundriss
-          ? `${armedToolName(tool, appConfig.copy.planTools)} · ${appConfig.copy.whiteboard.grundriss[grundriss]}`
-          : armedToolName(tool, appConfig.copy.planTools, { lineMode, areaMode })
-        const icon = armedToolIcon(tool, appConfig.copy.planTools)
-        if (!name || !icon) return null
-        return <ArmedToolPill glyph={<Icon id={icon} />} name={name} />
-      })()}
+      {/* the symbol's dock: [Unfall · Mehrere · Abbrechen] – the Lage map's twin (MapToolDocks). The
+          bottom-centre pill that stood here went with the button round (owner picks 14 + 15,
+          17.11.2026): the readout is the first tile of every dock now. */}
+      {tool === 'symbol' && armed && (
+        <ToolDock armed={armed} groups={[
+          [{ type: 'close', onClick: stopPlacing }],
+          [{ type: 'toggle', icon: 'place-repeat', label: appConfig.copy.keepPlacing, short: appConfig.copy.keepPlacingShort, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
+        ]} />
+      )}
 
       {pendingShape && tool === 'shape' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('pan') } }],
-          // currentColor, not #fff: the dock is light by day since 20.10.2026 (3am sweep, nit)
-          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />,
-            label: appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel }],
+          // the Form's name and preview lead the dock as its readout tile (`armed`, pick 14)
           // «mehrere nacheinander» has no meaning for a shape laid between two named places
           ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'place-repeat', label: appConfig.copy.keepPlacing, short: appConfig.copy.keepPlacingShort, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
           [{ type: 'info', text: !SHAPE_TWO_POINT[pendingShape] ? appConfig.copy.dockHints.shape
@@ -3375,6 +3359,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             patchCommit(selDraw.id, { locked: selDraw.locked ? undefined : true })
             if (!selDraw.locked) setSelId(null)
           }}
+          // «Zentrieren», as on the Karte (SHEETS.9): the board centred on the drawing, zoom kept
+          onCenter={() => { const c = annoMiddle(selDraw); centerOnPoint(c.x, c.y, c.floor, scale) }}
           onDelete={() => void removeWithConnections(selDraw)}
           onClose={() => setSelId(null)}
         />
@@ -3408,12 +3394,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           // LockChip becomes the only door back in
           onToggleLock={() => { patchCommit(selShape.id, { locked: !selShape.locked || undefined }); if (!selShape.locked) setSelId(null) }}
           locked={selShape.locked}
+          onCenter={() => centerOnPoint(selShape.x ?? 0.5, selShape.y ?? 0.5, selShape.floor ?? 0, scale)}
           onDelete={() => void removeWithConnections(selShape)}
           onClose={() => setSelId(null)}
         />
       )}
       {editorSlotFree && readOnly && selShape && (
-        <ShapeEditor key={selShape.id} readOnly entity={selShape} onClose={() => setSelId(null)} />
+        <ShapeEditor key={selShape.id} readOnly entity={selShape}
+          onCenter={() => centerOnPoint(selShape.x ?? 0.5, selShape.y ?? 0.5, selShape.floor ?? 0, scale)} onClose={() => setSelId(null)} />
       )}
 
       {copyFrom != null && stack && (

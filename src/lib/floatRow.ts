@@ -1,13 +1,23 @@
-// The phone's floating chip row (`.wb-botleft`: the Karte's Gebäude chip + radar pill, the plan's
-// Objekt / Massstab chips) stands on the LOWEST free line, measured — not one bar higher whenever
-// a tool's option dock is out.
+// The phone's floating row – its tiles (`.wb-botleft`: the Karte's Gebäude tiles + radar pill, the
+// plan's Objekt / Massstab tiles) and the Eintrag FAB (`.fab-entry`) – stands on the LOWEST free
+// line, measured — not one bar higher whenever a tool's option dock is out.
 //
 // Owner, sweep 27.10.2026 #9 (screenshot): the Gebäude ⓘ floated a whole row above the bars with
 // Mehrfach armed, though the dock under it ([ⓘ | ✕], centred, 120px wide) left the left end of
 // its line empty. The CSS reserve (15-mobile · --float-base) has to assume the worst: the dock is
 // as wide as the screen. Here the row's floor is the bars alone (`--float-floor`) and it rises
-// only past what actually stands in its way — the dock, the armed tool's pill — by the measured
-// overlap (`--row-lift`), so it sits beside a short dock and above a long one.
+// only past what actually stands in its way — the dock, the ✥ ⟳ bar, Messen's panel — by the
+// measured overlap (`--row-lift`), so it sits beside a short dock and above a long one.
+//
+// B+ (owner picks 13 + 14, button round 17.11.2026): a short bar – the symbol's [Unfall · Mehrere ·
+// Abbrechen] – shares its line with the row's tiles on the left and the Eintrag FAB on the right; a
+// long bar (Linie, Form) leaves them a line above, as before. Measured, not a tile count. Every
+// piece already wears the bar's height (01-tokens · --line-h, owner pick 21), so the line reads as
+// one height on one baseline and the question is asked at the size the piece has – it never grows
+// or shrinks with the answer.
+//
+// The FAB stays out while a tool is out since then (it yielded to the dock until 17.11.2026,
+// when the full-width dock stood in its corner); a dock that hugs its tiles leaves it room.
 //
 // Mounted ONCE per workspace (IncidentWorkspace, phone only) and it places every row on screen —
 // the Karte's and the plan's — so no surface wires a ref of its own. Until it has measured, a
@@ -26,15 +36,15 @@ export interface Box { left: number; right: number; top: number; bottom: number 
 
 /** The gap the floating family keeps from everything (01-tokens · --float-gap). */
 const GAP = 8
-const ROW_SEL = '.wb-botleft'
-/** what stands on the row's floor on a phone: the tool's option dock, the armed tool's readout,
- *  Messen's results panel (MeasurePanel · `data-float-stack`, a hashed module class), and the
- *  Präsentationsmodus pill (components/Presentation – it stands bottom centre, the chips rise
- *  past it; owner's iPhone 06.11.2026) */
-const OBSTACLE_SEL = '.phone-tools .wb-dock, .phone-tools .armed-pill-row, .phone-tools [data-float-stack], .phone-tools .present-pill, .phone-tools .present-again'
-/** …and what else stands in the stack the message lane has to clear: the Eintrag FAB (only a
- *  recording one stays while a tool is out) */
-const STACK_EXTRA_SEL = '.fab-entry'
+/** the pieces of the floating row this places, each on its own: the tiles, and the FAB */
+const ROW_SEL = '.wb-botleft, .fab-entry'
+/** what stands on the row's floor on a phone: the tool's option dock (led by the armed tool's
+ *  readout tile, ToolDock · armed), the ✥ ⟳ bar (in the tool bar's slot since owner pick 21, so
+ *  below the floor – it only counts for the message lane), Messen's results panel (MeasurePanel ·
+ *  `data-float-stack`, a hashed module class), and the Präsentationsmodus pill
+ *  (components/Presentation – it stands bottom centre, the chips rise past it; owner's iPhone
+ *  06.11.2026) */
+const OBSTACLE_SEL = `.phone-tools .wb-dock, .phone-tools .sel-bar, .phone-tools [data-float-stack], .phone-tools .present-pill, .phone-tools .present-again`
 
 /**
  * How far a row standing at `row` (its floor position) has to rise so that no obstacle comes
@@ -66,12 +76,13 @@ export function stackLane(boxes: readonly Box[], viewportH: number, gap = GAP): 
 
 const box = (r: DOMRect): Box => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom })
 
-/** The row's own content (its box spans to the FAB's edge; the chips hug its left end), at its
- *  floor: the lift it currently wears is taken back out. Null while it shows nothing. */
+/** A piece's own content (the tile row's box spans to the FAB's edge – its tiles hug its left
+ *  end; the FAB is its own box), at its floor: the lift it currently wears is taken back out.
+ *  Null while it shows nothing. */
 function contentAtFloor(row: HTMLElement): Box | null {
   const lift = parseFloat(row.style.getPropertyValue('--row-lift')) || 0
   let out: Box | null = null
-  for (const child of row.children) {
+  for (const child of row.classList.contains('fab-entry') ? [row] : row.children) {
     const r = child.getBoundingClientRect()
     if (!r.width || !r.height) continue
     out = out
@@ -91,7 +102,8 @@ export function useFloatRowPlacement(on: boolean) {
       const obstacles = measure(OBSTACLE_SEL)
       const placed: Box[] = []
       for (const row of document.querySelectorAll<HTMLElement>(ROW_SEL)) {
-        // the floor first (09-whiteboard · [data-float-placed]), then measure from it
+        // the floor first (09-whiteboard · .wb-botleft, 15-mobile · .fab-entry [data-float-placed]),
+        // then measure from it
         row.dataset.floatPlaced = ''
         const content = contentAtFloor(row)
         const lift = content ? rowLift(content, obstacles) : 0
@@ -99,13 +111,13 @@ export function useFloatRowPlacement(on: boolean) {
         if (content) placed.push({ ...content, top: content.top - lift, bottom: content.bottom - lift })
       }
       // the lane: only while a tool is out — at rest the CSS reserve already is the measurement
-      const lane = obstacles.length ? stackLane([...obstacles, ...placed, ...measure(STACK_EXTRA_SEL)], window.innerHeight) : null
+      const lane = obstacles.length ? stackLane([...obstacles, ...placed], window.innerHeight) : null
       const root = document.documentElement
       if (lane === null) { delete root.dataset.stackLane; root.style.removeProperty('--stack-lane') }
       else { root.dataset.stackLane = ''; root.style.setProperty('--stack-lane', `${lane}px`) }
     }
     place()
-    // A dock or pill comes and goes with a tool, and a dock changes width with its options: all
+    // A dock or a bar comes and goes with a tool, and a dock changes width with its options: all
     // of it is DOM coming and going, which a childList observer hears before the frame is
     // painted. Attributes are deliberately NOT observed — the map moves its markers by style on
     // every frame of a pan, and this writes a style itself.

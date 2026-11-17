@@ -161,11 +161,37 @@ describe('IncidentSwitcher · closed Einsatz', () => {
     expect(reopen).toHaveBeenCalledTimes(1)
   })
 
+  // button sweep SHEETS.11 (17.11.2026): the card's acts are glyph + word, the fold's exits too
+  it('gives «Wieder öffnen» and «Zurück» their glyphs', () => {
+    renderActive({ active: closed, onReactivate: vi.fn(async () => 'ok' as const), onBackFromArchive: vi.fn() })
+    fireEvent.click(pill())
+    const glyph = (name: string) => screen.getByRole('button', { name }).querySelector('use')?.getAttribute('href')
+    expect(glyph(C.reactivate)).toBe('#pen')
+    expect(glyph(C.back)).toBe('#chevron-left')
+  })
+
   it('is the sentence alone in a link session', () => {
     renderActive({ active: closed, user: { display_name: 'Link', color: null, role: 'viewer' } })
     fireEvent.click(pill())
     expect(screen.getByText(C.hintViewOnly)).toBeTruthy()
     expect(screen.queryByRole('button', { name: C.back })).toBeNull()
+  })
+})
+
+// button sweep SHEETS.11 (17.11.2026): every act of the Einsatz card leads with its glyph, and
+// «Teilen» wears the app's share glyph, not the «Zum Original» door's
+describe('IncidentSwitcher · card acts', () => {
+  const cp = appConfig.copy.incidentSwitcher
+  const active = {
+    id: 'inc-1', title: 'Zimmerbrand', address: 'Schlossgasse 10', started_at: new Date(Date.now() - 600_000).toISOString(),
+    status: 'offen', is_archived: false, is_exercise: false,
+  } as unknown as IncidentMeta
+  it('Ändern · Teilen · Abschliessen, each with its glyph', () => {
+    renderActive({ active, onEditMeta: vi.fn(), onShare: vi.fn(), onArchive: vi.fn() })
+    const glyph = (name: string) => screen.getByRole('button', { name }).querySelector('use')?.getAttribute('href')
+    expect(glyph(cp.editMeta)).toBe('#pen')
+    expect(glyph(cp.share)).toBe('#share-ios')
+    expect(glyph(cp.archive)).toBe('#archive')
   })
 })
 

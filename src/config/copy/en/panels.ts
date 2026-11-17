@@ -73,6 +73,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
       unsupported: 'This browser is too old to display PDFs.',
       unknown: 'Reason unknown.',
     },
+    openInWord: 'Open',
   },
   settings: {
     colorScheme: 'Color scheme',

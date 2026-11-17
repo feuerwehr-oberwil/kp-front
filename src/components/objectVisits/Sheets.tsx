@@ -152,7 +152,7 @@ export function ProposalSheet({ proposal, fields, asOf, onSave, onRemove, onClos
       footer={(
         <>
           {proposal && onRemove && (
-            <Button variant="danger" onClick={() => onRemove(proposal)} aria-label={C.proposalRemove}><Icon id="trash" /></Button>
+            <Button variant="danger" icon={<Icon id="trash" />} onClick={() => onRemove(proposal)}>{C.proposalRemove}</Button>
           )}
           <Button variant="primary" aria-disabled={!valid} onClick={valid ? save : pointAtMissing}>{C.proposalSave}</Button>
         </>

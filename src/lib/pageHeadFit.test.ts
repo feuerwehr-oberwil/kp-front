@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { fitPageHead, foldLevel, foldRanks, partRanks } from './pageHeadFit'
 import { climbLadder, fitHead, headCrowded, HEAD_FIT_STEPS, STREET_BEFORE_STEP } from './useHeadFit'
@@ -115,9 +116,13 @@ describe('the shared ladder (lib/useHeadFit · climbLadder)', () => {
     expect(fitHead(bar, () => true)).toBe(HEAD_FIT_STEPS.length)
   })
 
-  // sweep K2 (29.09.2026): the tablet's Eintrag keeps its word at 820px and gives it up LAST
-  it('«Eintrag» is the last word the top bar gives up', () => {
-    expect(HEAD_FIT_STEPS[HEAD_FIT_STEPS.length - 1]).toBe('eintrag-word')
+  // owner pick 24a (17.11.2026): the actions fold TOGETHER, and the CSS keys that fold on its step
+  it('folds every action to a tile at ONE step, the one 10-journal styles', () => {
+    const step = HEAD_FIT_STEPS.indexOf('action-words') + 1
+    const css = readFileSync('src/styles/10-journal.css', 'utf8')
+    expect(css).toMatch(new RegExp(`\\.topbar:is\\(\\.fit-${step}, \\[data-tiles\\]\\) \\.tb-act \\{[^}]*flex-direction: column`))
+    // no action keeps a ladder step of its own («Verlauf» bare first, «Eintrag» bare last)
+    expect(css).not.toMatch(/\.topbar\.fit-\d+ \.tb-act[^-]/)
   })
 })
 

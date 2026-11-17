@@ -1883,7 +1883,7 @@ p.adm-sys-path { margin: 3px 0 0; }
 
 
 /* ════════════════════════════════════════════════════════════════════════════
-   Kebab (⋮) action menu — ui.tsx ActionMenu, replaces wide inline action rows
+   «More» (⋯) action menu — ui.tsx ActionMenu, replaces wide inline action rows
    ════════════════════════════════════════════════════════════════════════════ */
 .adm-menu { position: relative; display: inline-flex; }
 .adm-menu-btn {
@@ -1900,9 +1900,10 @@ p.adm-sys-path { margin: 3px 0 0; }
   .adm-menu-btn:hover { background: var(--surface); color: var(--ink); border-color: color-mix(in srgb, var(--blue) 30%, var(--border)); }
 }
 .adm-menu-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* open trigger: Base UI sets [data-popup-open] on the trigger (the old .adm-menu.open class
-   is gone with the hand-rolled menu) */
-.adm-menu-btn[data-popup-open] { background: var(--surface); color: var(--ink); border-color: var(--blue); }
+/* open trigger: Base UI sets [data-popup-open] on the trigger – THE open look of every menu
+   trigger (docs/ui-conventions.md · Small roles (6), button sweep HEADS.5, 17.11.2026; it was a
+   blue edge of its own) */
+.adm-menu-btn[data-popup-open] { background: var(--sel-wash); color: var(--blue-strong); }
 .adm-menu-btn:disabled { opacity: var(--disabled); cursor: default; }
 .adm-menu-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .adm-menu-ic { width: 18px; height: 18px; }

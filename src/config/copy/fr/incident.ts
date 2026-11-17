@@ -128,7 +128,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     retry: 'Réessayer',
     confirmSubject: 'Heure d’alarme {t}',
     confirmSubjectExercise: '{name} · Exercice',
-    filterClear: 'Tout afficher',
+    filterWord: 'Type',
   },
   abschluss: {
     leftEarly: 'jusqu’à {t}',

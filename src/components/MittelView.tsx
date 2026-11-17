@@ -29,6 +29,7 @@ import s from './Mittel.module.css'
 import { useIsPhone } from '../lib/useIsPhone'
 import { usePageHeadFit } from '../lib/pageHeadFit'
 import c from './SurfaceControls.module.css'
+import { FilterStrip } from './FilterStrip'
 
 /** (the draft type lives with the Mittel rules, lib/mittel; re-exported for the view's callers) */
 export type { MittelDraft }
@@ -150,7 +151,8 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   // the menu lists every category the catalogue actually has — computed off the UNFILTERED
   // groups, or picking one would remove every other row from the menu along with the list
   const categories = useMemo(() => allGroups.map((g) => g.category), [allGroups])
-  /** what the filter has on, for the button's tooltip — never printed on the button itself */
+  /** what the filter has on, for the button's tooltip and the strip under the line — never
+   *  printed on the button itself */
   const categoryOn = categories.filter((c) => categorySel.has(c)).join(' · ')
   const groups = useMemo(() => allGroups
     .filter((g) => categorySel.size === 0 || categorySel.has(g.category))
@@ -391,6 +393,16 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
             </button>
           )}
         </div>
+      )}
+      {/* WHAT narrows the list, and the way back (button sweep HEADS.3, 17.11.2026): «In
+          Verwendung», or the categories – they do not combine, the source view has no categories.
+          The count only for the categories and while nothing is typed: the source view is grouped
+          by Fahrzeug, so its rows are not the catalogue's. */}
+      {!empty && (view === 'source' ? lines > 0 : categoryOn) && (
+        <FilterStrip className={c.strip} what={view === 'source' ? M.viewBySource : categoryOn}
+          count={view === 'source' || q.trim() ? undefined
+            : { n: groups.reduce((k, g) => k + g.rows.length, 0), m: allGroups.reduce((k, g) => k + g.rows.length, 0) }}
+          onClear={() => { setView('list'); setCategorySel(new Set()) }} />
       )}
 
       {showRecs && (

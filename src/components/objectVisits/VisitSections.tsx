@@ -316,15 +316,17 @@ export function ProposalsSection({ doc, readOnly, onOpen, onAdd }: {
     : fillTemplate(C.proposalRowNew, { proposed: p.proposed })
   return (
     <Section title={C.proposals} count={doc.proposals.length}>
-      <ListCard>
-        {doc.proposals.map((p) => (
-          <ListRow key={p.id} lead={<Icon id="pen" />} title={p.label} sub={<>{sub(p)}{p.reason ? ` · ${p.reason}` : ''}</>}
-            onClick={readOnly ? undefined : () => onOpen(p)} />
-        ))}
-        {!readOnly && (
-          <button type="button" className={s.add} onClick={onAdd}><Icon id="plus" />{C.proposalAdd}</button>
-        )}
-      </ListCard>
+      {doc.proposals.length > 0 && (
+        <ListCard>
+          {doc.proposals.map((p) => (
+            <ListRow key={p.id} lead={<Icon id="pen" />} title={p.label} sub={<>{sub(p)}{p.reason ? ` · ${p.reason}` : ''}</>}
+              onClick={readOnly ? undefined : () => onOpen(p)} />
+          ))}
+        </ListCard>
+      )}
+      {/* the ONE add look, framed «+ word» (button sweep SHEETS.10, 17.11.2026) – it stood flat
+          in the card as one more row, where an unframed «+ word» reads as a heading */}
+      {!readOnly && <Button className={s.add} icon={<Icon id="plus" />} onClick={onAdd}>{C.proposalAdd}</Button>}
     </Section>
   )
 }

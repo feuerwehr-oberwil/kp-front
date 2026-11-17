@@ -399,16 +399,12 @@
 .toast-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .toast-x .i { width: 18px; height: 18px; color: inherit; }
 /* inline action (confirm-with-undo): the toaster itself is pointer-events:none, so the
-   button re-enables hits. The house quiet button on the pill's surface. It carries `.btn` too,
-   whose hover paints --surface, so the pill-scoped rules below keep the fill. */
-.toast-action { pointer-events: auto; flex: none; align-self: center; margin-left: var(--sp-1); padding: var(--sp-2) var(--sp-4); min-height: var(--tap);
-  font: var(--fw-bold) var(--fs-1)/1.2 var(--body); color: var(--ink); border: none; border-radius: var(--r-msg-in);
-  background: var(--fill-soft); cursor: pointer;
+   button re-enables hits. It is THE button (`.ip-btn`, secondary: 14/700, framed – the
+   Meldeleiste's own; button sweep SHEETS.5, 17.11.2026 – it was a 12.5 borderless wash, the
+   quietest button of every message surface on the one way back), with the message's inner corner
+   (`--r-msg-in`, concentric in the pill like every button inside a message). This only places it. */
+.toast-action { pointer-events: auto; flex: none; align-self: center; margin-left: var(--sp-1); border-radius: var(--r-msg-in);
   max-width: min(240px, 60vw); white-space: normal; overflow-wrap: break-word; }
-@media (hover: hover) {
-  .toast .toast-action:hover { background: var(--border); color: var(--ink); }
-}
-.toast .toast-action:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* A tone is the colour of the glyph the sentence leads with (and of the running step's glyph) —
    never a fill and never an edge (25.09.2026). The text stays ink. */
 .toast-success { --toast-tone: var(--green); }
@@ -737,6 +733,9 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 /* The row itself – label column, control edge, 52px rhythm – is the symbol panel's (06-contextpanel ·
    «ONE label column, ONE control edge», owner pick 27B, 31.10.2026); this sheet adds its ink. */
 .draw-editor .de-row { color: var(--ink-dim); font-weight: var(--fw-medium); }
+/* the row label NAMES a picture-only pick under its word – «Linienende» / «Pfeil mit Stopp»,
+   «Linienart» / «Gestrichelt» (DrawEditor · `.de-pick`, button sweep audit A2/A3, 17.11.2026) */
+.draw-editor .de-row .de-pick { display: block; color: var(--ink); font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body); }
 /* a read-out (the Messung's numbers) starts at the edge too, but is data: it keeps its chip */
 .draw-editor .de-row > .de-measure-v { flex: none; }
 /* ── ONE control height (01.09., 27x 31.10.2026) ─────────────────────────────────────────────
@@ -788,26 +787,17 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 /* the app's one field focus (01-tokens · --focus-*, 28.09.2026) — it fell back to the browser's
    2px focus outline, offset from the field */
 .draw-editor .de-input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
-/* ── The panel's ACTION row (01.09.) ─────────────────────────────────────────────────────────
-   «Richtung umkehren» on a Linie and on a Rotation: one press that does one thing, with no
-   state to be in. It used to wear the `.de-toggle` chip — the same box a yes/no property wore —
-   so a row that can never light up looked like one that was merely off. Every yes/no answer in
-   this panel is a Segmented pair now, and an action reads as a row, in the grammar the
-   Verbindungen block's «Verbindung lösen» already set (11-measure · .de-conn-detach).
-   ⚠️ It starts at the CONTROLS' edge (27B, 31.10.2026; right-aligned from 05.09.): it sits
-   directly under «Abschluss», whose segments start at the label column's edge, and an action
-   is a control. It is a full-width row so the whole 52px band stays tappable; only its glyph +
-   word move to that edge. */
-.de-action { display: flex; width: 100%; justify-content: flex-start; align-items: center;
-  gap: var(--sp-2); min-height: 52px; padding: 4px 0 4px calc(var(--ctx-lbl) + var(--ctx-col-gap));
-  border: 0; background: transparent; color: var(--ink); font-size: var(--fs-1);
-  font-weight: var(--fw-bold); cursor: pointer; }
-.de-action .i { width: 16px; height: 16px; color: var(--ink-dim); }
-@media (hover: hover) {
-  .de-action:hover { color: var(--blue); }
-  .de-action:hover .i { color: var(--blue); }
-}
-.de-action:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* ── A one-shot ACT in an editor's body (01.09.; button sweep SHEETS.6 + SHEETS.3, 17.11.2026) ──
+   «Richtung umkehren» on a Linie and on a Rotation, «Verbindung lösen» under a connection: one
+   press that does one thing, with no state to be in – so never a Segmented pair or a chip that
+   could look «on». It is THE button (<Button>, glyph + verb, 14/700, framed; owner pick: it was an
+   unframed 12.5 row whose hover turned blue, and blue means «chosen»), and this only PLACES it:
+   on the row rhythm's 52px band, starting at the CONTROLS' edge (27B, 31.10.2026), where the
+   segments of «Abschluss» above it start – an act is a control. */
+.de-act { display: flex; align-items: center; min-height: 52px; padding: 4px 0 4px calc(var(--ctx-lbl) + var(--ctx-col-gap)); box-sizing: border-box; }
+/* one line, at its word's width: the tablet's control column is ~187px and «Richtung umkehren»
+   with THE button's 16px insets broke onto two lines there – 12px insets keep it on one */
+.de-act > .ip-btn { padding: 0 var(--sp-3); white-space: nowrap; }
 /* line-preset chips (Freihand · Messpfeil · Rettungsachse) — post-pick style switcher */
 .draw-editor .de-presets { display: inline-flex; gap: var(--sp-1); flex-wrap: wrap; }
 /* a pair of them answers one question (Direkt | GPS-Spur), so they share the column like segments */
@@ -916,7 +906,10 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .present-pill .present-zeigen[aria-pressed='true'] { background: color-mix(in srgb, var(--present) 12%, var(--surface)); color: var(--present);
   box-shadow: inset 0 0 0 1.5px var(--present); }
 .present-end, .present-follow, .present-x { flex: none; min-height: var(--tap); }
-.present-x, .present-sq { width: var(--tap); padding: 0; justify-content: center; }
+/* a phone's way out is a TILE, the glyph over «Beenden» / «Verlassen» at 11/700 (button sweep
+   audit, owner pick 24, 17.11.2026 – a bare ■ and a bare ✕ in a worded row) */
+.present-tile { flex-direction: column; justify-content: center; gap: var(--sp-1); padding: 0 var(--sp-2); }
+.present-tile > span { font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
 /* a link holder's name, once: the question over the field, «Folgen» beside the field */
 .present-ask { display: flex; align-items: flex-end; gap: var(--sp-2); min-width: 0; padding: var(--sp-1) 0; }
 .present-ask-field { flex: 1 1 auto; gap: var(--sp-1); }
@@ -924,9 +917,11 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   background: var(--surface); color: var(--ink); font: var(--fw-regular) var(--fs-3) var(--body); }
 /* the follow chip a panned follower's pill turns into: one tap jumps back. The floating glass of
    every map chip with the presenter's red as its edge and words (owner pick 09.11.2026, mock
-   nov09-folgen-button C): quiet over a full Lage, never a second alarm-red slab beside the fire */
-.present-again { pointer-events: auto; display: inline-flex; align-items: center; gap: var(--sp-2); height: var(--tap-lg);
-  padding: 0 var(--sp-4) 0 var(--sp-2); border: none; border-radius: var(--r-pill);
+   nov09-folgen-button C): quiet over a full Lage, never a second alarm-red slab beside the fire.
+   The floating family's height and the floating pieces' corner, --r-bar (button sweep CHROME.7 +
+   owner pick 20, 17.11.2026 – it was a capsule beside the chips and the FAB). */
+.present-again { pointer-events: auto; display: inline-flex; align-items: center; gap: var(--sp-2); height: var(--float-h);
+  padding: 0 var(--sp-4) 0 var(--sp-2); border: none; border-radius: var(--r-bar);
   background: var(--float-bg); backdrop-filter: var(--float-blur); color: var(--red-strong);
   font: var(--fw-bold) var(--fs-3) var(--body); box-shadow: inset 0 0 0 2.5px var(--present), var(--e4); cursor: pointer; }
 .present-again .present-av { box-shadow: none; background: var(--present); }
@@ -1003,13 +998,12 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .present-card .ip-btn { flex: none; }
 
 /* a phone, on every surface: on the floating baseline (the bars', --float-bottom) – never over
-   the nav bar of a module surface – and over the Eintrag-FAB's row or an armed tool's pill. The
+   the nav bar of a module surface – and over the Eintrag-FAB's row. The
    name card takes the row's width (`data-asking`), the field the part «Folgen» leaves – «Vorname
    Name» in Sora 16px must fit a 390px phone (owner's iPhone, 06.11.2026) */
 @media (--phone) {
   .present-row { bottom: var(--float-bottom); max-width: calc(100vw - 16px); }
-  .app:has(.fab-entry) .present-row { bottom: calc(var(--float-bottom) + var(--float-h) + var(--float-gap)); }
-  .app.phone-tools:has(.armed-pill-row) .present-row { bottom: calc(var(--float-bottom) + var(--tap) + var(--sp-2)); }
+  .app:has(.fab-entry) .present-row { bottom: calc(var(--float-bottom) + var(--line-h) + var(--float-gap)); }
   .present-row[data-asking] { left: var(--sp-2); right: var(--sp-2); transform: none; max-width: none; align-items: stretch; }
   .present-row[data-asking] .present-pill { padding-right: var(--sp-2); }
   .present-row[data-asking] .present-ask { width: 100%; }

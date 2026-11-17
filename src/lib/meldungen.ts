@@ -87,11 +87,12 @@ export type MeldungKind = keyof typeof MELDUNG_RANK
 
 /** One button in the row. Two at most — and, together with the ✕ and the row's title where it has
  *  an `onOpen`, the ONLY things in a row that do anything: the rest of the body is inert (see
- *  `Meldeleiste`). */
+ *  `Meldeleiste`). WORD ONLY (button sweep SHEETS.4, 17.11.2026): the row's leading glyph already
+ *  carries its tone, and a row where two buttons had a glyph and the third none read the bare one
+ *  as lesser – so there is no `icon` to set. Only a busy loader takes the glyph slot. */
 export interface MeldungAction {
   label: string
-  icon?: string
-  /** spin the glyph — the action is running (taking an alarm reaches the server) */
+  /** a loader leads the word — the action is running (taking an alarm reaches the server) */
   busy?: boolean
   onClick: () => void
   /** the row's one filled action (docs/ui-conventions.md · Buttons) */

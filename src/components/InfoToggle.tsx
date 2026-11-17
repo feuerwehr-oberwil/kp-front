@@ -9,9 +9,11 @@ import { cx } from '../lib/cx'
  * ⓘ turned `--accent` while its help was open, and Georef filled it the choice blue.
  *
  * Inline vs. floating text stays with the host, as before. The tool docks keep their own ⓘ
- * (DockInfo), sized and filled like the dock's other controls.
+ * (DockInfo), sized and filled like the dock's other controls. In a row of worded actions it
+ * wears its name beside the glyph (`worded`, the Georef bar's «ⓘ Genauigkeit» – button sweep
+ * audit, owner pick 24, 17.11.2026): a bare ⓘ was the one control there without a word.
  */
-export function InfoToggle({ open, onToggle, label, title, className }: {
+export function InfoToggle({ open, onToggle, label, title, className, worded = false }: {
   open: boolean
   onToggle: () => void
   /** the accessible name — what the help explains */
@@ -20,12 +22,14 @@ export function InfoToggle({ open, onToggle, label, title, className }: {
   title?: string
   /** placement only (margin, order) — never a skin */
   className?: string
+  /** `label` shown beside the glyph – where the ⓘ stands among worded actions */
+  worded?: boolean
 }) {
   return (
     <button
-      type="button" className={cx('ui-info', open && 'on', className)}
+      type="button" className={cx('ui-info', worded && 'worded', open && 'on', className)}
       aria-expanded={open} aria-label={label} title={title ?? label}
       onClick={onToggle}
-    ><Icon id="info" /></button>
+    ><Icon id="info" />{worded && <span>{label}</span>}</button>
   )
 }

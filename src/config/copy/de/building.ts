@@ -106,9 +106,8 @@ export const buildingCopy = {
     visitFindings: 'Letzter Objektbesuch {d} · {n} Mängel',
     visitFindingsOne: 'Letzter Objektbesuch {d} · 1 Mangel',
     // the chip on the Karte / in the plan's chip row that opens the card (BuildingFloat)
-    // not «Gebäude» alone on the tablet: that word + the storey glyph is the rail's Gebäude tile, a
-    // surface. The PHONE chip does say «Gebäude» (chipTitleShort, owner pick 12A, 14.11.2026) – with
-    // the (i) glyph, never the rail tile's storey glyph, which is what tells the two apart there.
+    // not «Gebäude» alone: that word + the storey glyph is the rail's Gebäude tile, a surface – and
+    // on the Plan the building tile beside it already says «Gebäude» (button round 17.11.2026)
     chipTitle: 'Gebäude-Info',
     chipLabel: 'Gebäude-Steckbrief öffnen',
     chipLabelHazards: 'Gebäude: {h} – Steckbrief öffnen',
@@ -120,8 +119,8 @@ export const buildingCopy = {
     readingsChip: 'Messungen',
     readingsChipLabel: 'Alle Messpunkte zeigen',
     readingsOnMap: 'Karte',
-    // the chip's word on a PHONE when no hazard is known (round 14.11.2026, owner pick 12A): the
-    // phone chip is glyph + hazard alone («⚠ Heizöl»), or (i) + this word; aria/title stay full
-    chipTitleShort: 'Gebäude',
+    // the phone TILE's word when no hazard is known (button round 17.11.2026, owner pick 12C): the
+    // tile is ⚠ over the hazard words («Heizöl»), or (i) over this word; aria/title stay full
+    chipTitleShort: 'Info',
   },
 } as const

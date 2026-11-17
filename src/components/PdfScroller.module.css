@@ -71,7 +71,7 @@
    `.withStrip`, the bar at the reader's own foot (a `bare` reader in its own overlay, or a reader
    without a board row). Centred and only as wide as it needs; a track longer than the screen
    scrolls sideways inside it. The floating family's glass (01-tokens · --float-*), THE
-   <Segmented> track as tabs, the quiet IconButton for «Öffnen in …». */
+   <Segmented> track as tabs, the quiet Button «Öffnen» (its name «Öffnen in …») at its end. */
 .strip {
   position: absolute; z-index: 1;
   left: var(--lane-l); right: var(--lane-r); bottom: var(--lane-bottom);
@@ -89,6 +89,8 @@
 .bar > :global(.useg) { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 .bar > :global(.useg)::-webkit-scrollbar { display: none; }
 .bar > :global(.useg) > :global(.useg-btn) { flex: none; }
+/* the glyph + «Öffnen» never gives width to the track: the track scrolls instead */
+.openIn { flex: none; }
 /* ⚠️ No `background` here, and deliberately not a themed one either. This element IS the sheet
    of paper: pdf.js fills the whole canvas #ffffff before it draws a single glyph
    (`beginDrawing` → `fillStyle = background || "#ffffff"`), and the canvas is only put into the

@@ -118,7 +118,6 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     retry: 'Try again',
     confirmSubject: 'Alarm time {t}',
     confirmSubjectExercise: '{name} · Exercise',
-    filterClear: 'Show all',
 
     emptySub: 'Opened and closed incidents appear here.',
     windowNote: 'Shows the running incidents and those of the last {n} days.',
@@ -128,6 +127,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     archiveConfirmTitle: 'Close the incident',
     archiveConfirmMsg: 'The incident is closed and the end time recorded. After that it can only be read and signed – reopen it for corrections.',
     archiveConfirmBtn: 'Close',
+    filterWord: 'Type',
   },
   abschluss: {
     leftEarly: 'until {t}',

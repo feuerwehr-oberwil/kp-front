@@ -12,6 +12,7 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { HatchDefs, LINE_DASH_SVG, hatchPatternId } from '../lib/draw'
 import { ToolDock } from './ToolDock'
+import type { ArmedReadout } from '../lib/armedTool'
 import { NODE_HOLD_ARM_MS, useNodeHold } from '../lib/nodeHold'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { vertexHandleIndices, endMarkIndices, EXTEND_STEP_PX } from '../lib/lineStyle'
@@ -630,16 +631,18 @@ interface DocksProps {
   measurable: boolean
   /** absent where the board has no finder to open (Karte & Objekte's plan reader) */
   truppFinder?: TruppFinderDoor
+  /** the armed tool's readout – every dock but Messen's leads with it (ToolDock · armed) */
+  armed?: ArmedReadout | null
 }
 
 /**
- * Right-edge tool option docks (the armed tool's ✕, its input mode, ✓ and ⓘ), each top-aligned
- * to its rail button. Built from the SHARED `ToolDock`
+ * Right-edge tool option docks (the armed tool's readout tile, its input mode, ✓, ⓘ and ✕), each
+ * top-aligned to its rail button. Built from the SHARED `ToolDock`
  * renderer — same control vocabulary (and look) as the Lage map; the Linie tool carries the same
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickInput, draftActive, setTool, onFinish, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, onCalibrate, measurable, truppFinder }: DocksProps) {
+export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickInput, draftActive, setTool, onFinish, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, onCalibrate, measurable, truppFinder, armed = null }: DocksProps) {
   // Read copy per render: the deployment locale is resolved after modules are imported.
   // ✕ is a way out of the tool like any other: the tool change asks about an open drawing
   // (usePlanDraft · releaseDraft), so it only has to put the tool down
@@ -656,7 +659,7 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
           DrawEditor, which is where the styling lives (and writes the next-ink defaults).
           On the Gebäude stack also the Wand, which stays armed (27.10.2026). */}
       {tool === 'line' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: closeDraft }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: lineMode === 'freehand' && !grundriss, onClick: () => pickInput('freehand') },
@@ -673,14 +676,14 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
           because it is the same question: tap the corners, or draw it. Styling: in the editor
           afterwards, like the Linie. */}
       {tool === 'area' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: closeDraft }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => pickInput('freehand') },
             { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: areaMode === 'nodes', onClick: () => pickInput('nodes') },
             ...(areaMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: onFinish }] : []),
           ],
-          [{ type: 'info', text: appConfig.copy.dockHints.area }],
+          [{ type: 'info', text: areaMode === 'nodes' ? appConfig.copy.dockHints.areaNodes : appConfig.copy.dockHints.areaFreehand }],
         ]} />
       )}
 
@@ -715,7 +718,7 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
           Karte's circle dock (IncidentWorkspace): a cordon is placed in the hazard colour and
           then adjusted — radius, colour and fill — in its own editor. */}
       {tool === 'circle' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => setTool('pan') }],
           [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.circle }],
         ]} />
@@ -725,7 +728,7 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
           caret already in the text, and Zettel/Klartext, S/M/L and the colour live THERE —
           where they also write the next note's defaults. */}
       {tool === 'text' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => setTool('pan') }],
           [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.text }],
         ]} />
@@ -734,19 +737,20 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
       {/* team armed-tool — ✕ · «Trupp finden» · ⓘ, the Karte's Trupp dock (MapToolDocks): placing
           one and finding one are the two things reaching for this tool can mean (UX sweep M9) */}
       {tool === 'resource' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => setTool('pan') }],
           ...(truppFinder ? [[{
             type: 'action' as const, icon: 'trupp-find', label: appConfig.copy.truppFinder.title, short: appConfig.copy.truppFinder.titleShort,
             disabled: truppFinder.disabled, onClick: truppFinder.open,
           }]] : []),
-          [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.resource }],
+          // the Karte's words: both surfaces open the same «Welcher Trupp?» picker (audit B8)
+          [{ type: 'info', text: appConfig.copy.dockHints.team }],
         ]} />
       )}
 
       {/* Mehrfach (lasso/marquee) armed-tool — cancel + info, mirroring the map's lasso dock */}
       {tool === 'lasso' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => setTool('pan') }],
           [{ type: 'info', text: appConfig.copy.dockHints.lasso }],
         ]} />

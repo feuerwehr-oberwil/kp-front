@@ -109,7 +109,7 @@ describe('Checklisten — deleting, because uploading alone leaves ghosts', () =
     render(<ChecklistsView />)
     await screen.findByText('EL-Checklisten')
 
-    // Löschen lives in the row's ⋮ now — and still opens the same confirm
+    // Löschen lives in the row's ⋯ now — and still opens the same confirm
     fireEvent.click(await screen.findByRole('button', { name: `EL-Checklisten – ${C.colActions}`, expanded: false }))
     fireEvent.click(await screen.findByRole('menuitem', { name: C.delete }))
 

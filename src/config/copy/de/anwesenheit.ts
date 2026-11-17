@@ -147,13 +147,10 @@ export const anwesenheitCopy = {
     statusFrei: 'nicht anwesend',
     statusPresent: 'anwesend',
     statusLeft: 'gegangen',
-    // Zwei Filter-Knöpfe: Grad (Mannschafts-Glyphe) und Zustand (Trichter). Die Legende IST
-    // das Zustand-Menü – jede Zeile trägt ihr Zeichen, also wird dort auch nachgeschaut.
+    // EIN Filter-Knopf (Trichter, «Filter»), im Menü zwei Gruppen: Grad und Status. Die Legende
+    // IST die Status-Gruppe – jede Zeile trägt ihr Zeichen, also wird dort auch nachgeschaut.
     filterLabel: 'Filtern',
     statusAll: 'Alle',
-    // ⚠️ «Nach Status filtern», nicht «Was bedeuten die Zeichen?». Das Menü filtert – dass man
-    // daneben auch nachschaut, was der Punkt bedeutet, ist ein Nebeneffekt und kein Titel.
-    statusFilterLabel: 'Nach Status filtern',
     noteOnly: 'Nur mit Bemerkung',
     loadFailedTitle: 'Personal konnte nicht geladen werden.',
     loadFailedHint: 'Liste nicht geladen. Die zuletzt geladene Liste bleibt.',
@@ -174,11 +171,10 @@ export const anwesenheitCopy = {
     // search row narrows the list to whoever is «Vor Ort» right now. The button is a state, not
     // an instruction, so it names the filter and lets `aria-pressed` say whether it is on.
     onlyPresent: 'Nur Anwesende',
-    // the phone's one word under each of the three head glyphs (AnwesenheitView)
+    // the word under the ✓ (AnwesenheitView); Grad and Status head the «Filter» menu's two groups
     onlyPresentWord: 'Vor Ort',
     rankFilterWord: 'Grad',
     statusFilterWord: 'Status',
-    rankFilterLabel: 'Nach Grad filtern',
     rankAll: 'Alle',
     // Return: the third tap deletes (clears), so returning gets a button of its own. It opens a
     // NEW Anwesenheit block; the first one keeps its von–bis.
@@ -215,9 +211,8 @@ export const anwesenheitCopy = {
     viewLabel: 'Ansicht',
     // the tick after «Neu laden» fetched the roster – its own word, not the Einsatz menu's «synchronisiert»
     reloadDone: 'Liste aktualisiert',
-    // the way out under «Keine Einträge in dieser Auswahl.» (copy.filterNoHits) while only a
-    // filter narrows the list: one tap lifts every filter, the search stays
-    filterClear: 'Alle zeigen',
+    // the ONE filter tile's word (owner pick 19, 17.11.2026): «Vor Ort» beside it, Grad + Status its groups
+    filterWord: 'Filter',
   },
   // «Anrückend» — die Divera-Rückmeldungen über der Anwesenheit (AnrueckendBlock, X1 08.10.2026).
   // Nur ja / nein und Namen (Besitzer, 09.10.2026). ⚠️ Eine Divera-Antwort ist KEINE Anwesenheit:
@@ -345,6 +340,10 @@ export const anwesenheitCopy = {
     // right-click menu on a bar: name the states instead of cycling through them
     editEntry: 'Bearbeiten …',
     dragTo: 'Ende ziehen',
+    // the paper menu's WORD on its page-head tile (button sweep HEADS.9, 17.11.2026 – it was a bare
+    // printer square); `paperMenu` stays its full name and the menu's head
+    paperMenuWord: 'Drucken',
+    emptyHelpWord: 'Hilfe',
   },
   // Schichtbänder (BandGrid) — the transpose of the Zeitplan. The Zeitplan is person-major over
   // continuous time («pick a person, draw when»); here the column is a named time window and per

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { bboxSizeM, distanceAlongPath, fmtArea, fmtDistance, fmtLV95, haversineM, hoseCount, hoseLengthHint, hoseSplit, lv95ToWgs84, pathLengthM, pointAlongPath, polygonAreaM2, wgs84ToLV95 } from './geo'
+import { bboxSizeM, distanceAlongPath, drawingExtent, fmtArea, fmtDistance, fmtLV95, haversineM, hoseCount, hoseLengthHint, hoseSplit, lv95ToWgs84, pathLengthM, pointAlongPath, polygonAreaM2, wgs84ToLV95 } from './geo'
 import type { LngLat } from '../types'
 import { applyLocale } from '../config/copy'
 
@@ -163,5 +163,18 @@ describe('numbers follow the deployment locale', () => {
     expect(fmtDistance(1250)).toBe('1,25 km')
     expect(fmtArea(25_000)).toBe('2,50 ha')
     expect(fmtLV95(7.4386, 46.9511)).toMatch(/^2'\d{3}'\d{3}/)
+  })
+})
+
+// a drawing's «Zentrieren» frames its extent (button sweep SHEETS.9)
+describe('drawingExtent', () => {
+  it('is a line\'s own vertices', () => {
+    const coords: LngLat[] = [[7.5, 47.5], [7.6, 47.6]]
+    expect(drawingExtent({ kind: 'line', coords })).toBe(coords)
+  })
+  it('is a circle\'s outline, its radius out from the centre', () => {
+    const ring = drawingExtent({ kind: 'circle', coords: [[7.5, 47.5]], radiusM: 100 })
+    expect(ring.length).toBeGreaterThan(4)
+    for (const p of ring) expect(haversineM([7.5, 47.5], p)).toBeCloseTo(100, -1)
   })
 })

@@ -123,8 +123,8 @@ export function AlarmUpdateBanner({ meta, onChanged, onEdit }: {
     sub2: row.sub2,
     subLines: 2,
     actions: [
-      { label: appConfig.copy.edit, icon: 'pen', disabled: busy, onClick: onEdit },
-      ...(row.takeLabel ? [{ label: row.takeLabel, icon: 'check', primary: true, busy, disabled: busy, onClick: () => void run(() => acceptAlarmUpdate(meta.id), C.taken) }] : []),
+      { label: appConfig.copy.edit, disabled: busy, onClick: onEdit },
+      ...(row.takeLabel ? [{ label: row.takeLabel, primary: true, busy, disabled: busy, onClick: () => void run(() => acceptAlarmUpdate(meta.id), C.taken) }] : []),
     ],
     dismiss: { label: appConfig.copy.intake.hide, onClick: () => void run(() => dismissAlarmUpdate(meta.id)) },
   })
@@ -151,7 +151,7 @@ export function NewIncidentBanner({ inc, active, onSwitch, onDismiss }: {
     icon: 'bell',
     title: `${c.kicker} — ${inc.title}`,
     sub: `${shortAddress(inc.address) ?? appConfig.copy.intake.addressUnknown} · ${fmtWhen(inc.started_at, { todayShort: true })}`,
-    actions: [{ label: active ? c.switch : c.open, icon: 'truck', primary: true, onClick: onSwitch }],
+    actions: [{ label: active ? c.switch : c.open, primary: true, onClick: onSwitch }],
     dismiss: { label: c.dismiss, onClick: onDismiss },
   })
   return null
@@ -188,8 +188,8 @@ export function ReviewBanner({ meta, onEdit, onDone }: {
     title: ix.reviewTitle,
     sub: hasLoc ? ix.fromDivera : ix.noLocationOnMap,
     actions: [
-      { label: appConfig.copy.edit, icon: 'pen', onClick: onEdit },
-      { label: ix.ok, icon: 'check', primary: true, onClick: onDone },
+      { label: appConfig.copy.edit, onClick: onEdit },
+      { label: ix.ok, primary: true, onClick: onDone },
     ],
   })
   return null

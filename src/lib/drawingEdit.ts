@@ -37,6 +37,16 @@ export const endingFlags = (e: LineEnding): Pick<Drawing, 'arrow' | 'arrowStop' 
 export const endingWireFlags = (e: LineEnding): Required<Pick<Drawing, 'arrow' | 'arrowStop' | 'teilstueck'>> =>
   ({ arrow: e === 'arrow' || e === 'arrowStop', arrowStop: e === 'arrowStop', teilstueck: e === 'teilstueck' })
 
+/** An Abschluss's NAME – the Verlauf's statement and the editor's row label («Linienende · Pfeil»,
+ *  button sweep audit A2, 17.11.2026: the four pictures said it only to an untaught hold). */
+export function endingName(e: LineEnding): string {
+  const E = appConfig.copy.drawingEditor
+  const names: Record<LineEnding, string> = {
+    none: E.endingNone, arrow: E.endingArrow, arrowStop: E.endingArrowStop, teilstueck: E.endingTeilstueck,
+  }
+  return names[e]
+}
+
 export function drawingEditChanges(prev: Drawing, next: Drawing): string[] {
   const L = appConfig.copy.log
   const E = appConfig.copy.drawingEditor
@@ -121,12 +131,9 @@ export function drawingEditChanges(prev: Drawing, next: Drawing): string[] {
   // bar is the row the record is read for — «bis hier, und dort gestoppt» — and it used to
   // appear and vanish silently.
   if (endingOf(prev) !== endingOf(next)) {
-    const labels: Record<LineEnding, string> = {
-      none: E.endingNone, arrow: E.endingArrow, arrowStop: E.endingArrowStop, teilstueck: E.endingTeilstueck,
-    }
     // …and the same «geändert» rule: a line that HAD an Abschluss and got another one is a
     // correction, not a second Abschluss standing beside the first.
-    out.push(statement(E.ending, labels[endingOf(next)], endingOf(prev) !== 'none'))
+    out.push(statement(E.ending, endingName(endingOf(next)), endingOf(prev) !== 'none'))
   }
 
   return out

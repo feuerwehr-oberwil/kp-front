@@ -192,8 +192,10 @@
 /* ── a phone: one column, the paper edge to edge ── */
 .phone .paper { padding: var(--sp-3); border-radius: 0; box-shadow: none; margin-bottom: 0; }
 .phone .title { font-size: var(--fs-5); line-height: var(--lh-5); overflow-wrap: anywhere; }
-/* on a phone the header's «Drucken» is its icon (the label says it): the title keeps the room */
-.phone .printWord { display: none; }
+/* on a phone the header's «Drucken» is a TILE, the printer (or the loader) over its word at 11/700
+   (button sweep audit, owner pick 24, 17.11.2026 – it was the bare printer, the tablet's twin worded) */
+.phone .print { flex-direction: column; justify-content: center; gap: var(--sp-1); padding: 0 var(--sp-2); }
+.phone .printWord { font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
 /* …and a table's columns keep the width their heads need; the box scrolls sideways */
 .phone { --tafel-col-min: calc(var(--tap) * 2 + var(--sp-4)); }
 .phone .th { font-size: var(--fs-micro); }

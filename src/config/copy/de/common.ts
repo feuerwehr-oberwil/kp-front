@@ -140,4 +140,12 @@ export const commonCopy = {
   // …and THE line while only a FILTER narrows a list and nothing is typed (duck sweep LISTS.4,
   // 17.11.2026 – «Keine Treffer für «».» read as a broken app). The list adds its way out.
   filterNoHits: 'Keine Einträge in dieser Auswahl.',
+  // THE strip under a narrowed or re-sorted list (components/FilterStrip, button sweep HEADS.3,
+  // 17.11.2026): «Gefiltert: Of · 6 von 22 · Alle zeigen» – the Verlauf's, on every list
+  filterStrip: {
+    filtered: 'Gefiltert:',
+    sorted: 'Sortiert:',
+    count: '{n} von {m}',
+    showAll: 'Alle zeigen',
+  },
 } as const

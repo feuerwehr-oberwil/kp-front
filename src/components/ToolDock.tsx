@@ -4,6 +4,7 @@ import { appConfig } from '../config/appConfig'
 import { DockInfo } from './DockInfo'
 import { useIsPhone } from '../lib/useIsPhone'
 import { useRailLabels } from '../lib/useDevicePrefs'
+import type { ArmedReadout } from '../lib/armedTool'
 
 /**
  * One declarative description of every control that can sit in a tool dock. The Lage map and the
@@ -22,18 +23,17 @@ import { useRailLabels } from '../lib/useDevicePrefs'
  */
 export type DockItem =
   /** Listed first by every caller, but the dock draws it at the END: «X on the right everywhere»
-   *  (owner, sweep 27.10.2026 #3) — the phone's bar reads [options · ⓘ | ✕]. It stays put:
-   *  `.wb-dock-x` is sticky at the trailing end of the scrolling bar, and the tablet's column
-   *  lifts it back to its head with `order` (09-whiteboard.css), so the way out of a tool never
-   *  scrolls away with a busy tool's options. */
+   *  (owner, sweep 27.10.2026 #3) — the phone's bar reads [name · options · ⓘ | ✕], and since the
+   *  button round's T2 (owner pick 15, 17.11.2026) the tablet's column does too, top to bottom
+   *  ([Unfall · Mehrere · Abbrechen]). It stays put: `.wb-dock-x` is sticky at the trailing end
+   *  of the scrolling bar / column, so the way out of a tool never scrolls away with a busy
+   *  tool's options. */
   | { type: 'close'; onClick: () => void; title?: string }
   | { type: 'toggle'; icon: string; label: string; short?: string; on: boolean; onClick: () => void; disabled?: boolean }
   /** «✓ Fertig» — commits the draft being drawn (a Punkte-Linie, -Fläche, a Wand). The one FILLED
    *  tile (M7 C, 13.11.2026): the control that commits, not a ✕ look-alike; the ✕ beside it closes,
    *  and a committable draft is asked about, never thrown away (useMapDrawing · settleDraft). */
   | { type: 'go'; onClick: () => void; disabled?: boolean; title?: string }
-  /** a preview, not a control (the Form being placed); `label` names it («Rechteck») */
-  | { type: 'glyph'; node: ReactNode; label: string }
   | { type: 'action'; icon: string; label: string; short?: string; onClick: () => void; disabled?: boolean; cls?: string }
   /** `open`: the card stands by itself and the dock draws no ⓘ tile for it (DockInfo · `open`) */
   | { type: 'info'; text: string; open?: boolean }
@@ -41,25 +41,37 @@ export type DockItem =
 /** a dock tile's word under its glyph, the rail tile's `.vrail-label` look (09-whiteboard) */
 const word = (w: string, on: boolean) => on ? <span className="wb-dock-word">{w}</span> : null
 
-function renderItem(item: DockItem, key: string, worded: boolean): ReactNode {
+/** One dock tile, rendered from its DockItem. */
+function DockTile({ item, worded }: { item: DockItem; worded: boolean }): ReactNode {
   switch (item.type) {
     case 'close':
-      return <button key={key} className="wb-dock-x" title={item.title ?? appConfig.copy.cancel} aria-label={item.title ?? appConfig.copy.cancel} onClick={item.onClick}><Icon id="close" />{word(appConfig.copy.cancel, worded)}</button>
+      return <button className="wb-dock-x" title={item.title ?? appConfig.copy.cancel} aria-label={item.title ?? appConfig.copy.cancel} onClick={item.onClick}><Icon id="close" />{word(appConfig.copy.cancel, worded)}</button>
     case 'toggle':
-      return <button key={key} className={`wb-dock-tog ${item.on ? 'on' : ''}`} title={item.label} aria-label={item.label} aria-pressed={item.on} disabled={item.disabled} onClick={item.onClick}><Icon id={item.icon} />{word(item.short ?? item.label, worded)}</button>
+      return <button className={`wb-dock-tog ${item.on ? 'on' : ''}`} title={item.label} aria-label={item.label} aria-pressed={item.on} disabled={item.disabled} onClick={item.onClick}><Icon id={item.icon} />{word(item.short ?? item.label, worded)}</button>
     case 'go':
-      return <button key={key} className="wb-dock-go" disabled={item.disabled} title={item.title ?? appConfig.copy.done} aria-label={item.title ?? appConfig.copy.done} onClick={item.onClick}><Icon id="check" />{word(item.title ?? appConfig.copy.done, worded)}</button>
-    case 'glyph':
-      return <span key={key} className="wb-dock-ic" role="img" aria-label={item.label}><span className="wb-dock-shape">{item.node}</span>{word(item.label, worded)}</span>
+      return <button className="wb-dock-go" disabled={item.disabled} title={item.title ?? appConfig.copy.done} aria-label={item.title ?? appConfig.copy.done} onClick={item.onClick}><Icon id="check" />{word(item.title ?? appConfig.copy.done, worded)}</button>
     case 'action':
-      return <button key={key} className={item.cls ?? 'wb-dock-tog'} disabled={item.disabled} title={item.label} aria-label={item.label} onClick={item.onClick}><Icon id={item.icon} />{word(item.short ?? item.label, worded)}</button>
+      return <button className={item.cls ?? 'wb-dock-tog'} disabled={item.disabled} title={item.label} aria-label={item.label} onClick={item.onClick}><Icon id={item.icon} />{word(item.short ?? item.label, worded)}</button>
     case 'info':
-      return <DockInfo key={key} text={item.text} open={item.open} word={worded ? appConfig.copy.toolDock.infoWord : undefined} />
+      return <DockInfo text={item.text} open={item.open} word={worded ? appConfig.copy.toolDock.infoWord : undefined} />
   }
 }
 
+/** The armed tool's readout as the dock's FIRST tile (owner picks 14 + 15, 17.11.2026): its glyph
+ *  (a symbol: its own drawing) over its short name – the dock tile's anatomy with no fill and no
+ *  press look, because it is a readout, not a control. Its name is its accessible name, so a bare
+ *  tile («Beschriftung» off) still says it; the lit mode toggle beside it says the input mode. */
+function ArmedTile({ armed, worded }: { armed: ArmedReadout; worded: boolean }) {
+  return (
+    <div className="wb-dock-name" role="img" aria-label={armed.name} title={armed.name}>
+      <span className="wb-dock-glyph" aria-hidden>{armed.glyph}</span>{word(armed.name, worded)}
+    </div>
+  )
+}
+
 /**
- * The right-edge tool option dock. `groups` are rendered in order with a wider gap between them
+ * The tool option dock: a column beside the tool rail on a tablet, a bar above the tool bar on a
+ * phone. `groups` are rendered in order with a wider gap between them
  * (`wb-dock-gap`) – no divider line (M8 rework, 21.10.2026, owner: the lines add nothing); empty
  * groups are dropped so an absent control (e.g. the ✓ that only shows in node mode) leaves no
  * stray gap.
@@ -73,10 +85,16 @@ function renderItem(item: DockItem, key: string, worded: boolean): ReactNode {
  * The dock follows the rails (round 2b, 13.11.2026; round 15.11.2026 #2, owner: «adding the
  * subtitles there too when enabled in settings»): with «Beschriftung der Werkzeugleisten» on,
  * EVERY item wears its word under its glyph like a rail tile («Abbrechen», the mode names,
- * «Fertig», «Info», the Form's name) – on the tablet's column and on the phone's row alike; off,
- * every item is a bare glyph. Never a mix, so the dock reads as one family.
+ * «Fertig», «Info») – on the tablet's column and on the phone's row alike; off, every item is a
+ * bare glyph. Never a mix, so the dock reads as one family.
+ *
+ * `armed` LEADS the dock (owner picks 14 + 15, 17.11.2026; the owner's phone WIP of 16.11.: «ideally
+ * we don't need a 4th line»): the armed tool's readout tile, then its options, the ✕ last – ONE bar
+ * on the phone, as wide as its tiles, and the first tile of the column beside the tablet's rail.
+ * The bottom-centre pill that named the tool until then is gone on every size. A symbol has a dock
+ * of its own for it ([Unfall · Mehrere · Abbrechen]); Messen passes none (its results panel names it).
  */
-export function ToolDock({ groups }: { groups: DockItem[][] }) {
+export function ToolDock({ groups, armed = null }: { groups: DockItem[][]; armed?: ArmedReadout | null }) {
   // the ✕ leaves its group for the dock's end (see DockItem · close); it carries its own group gap.
   // A standing ⓘ card draws no tile, so it leaves its group too (no stray gap where it would be).
   const isClose = (item: DockItem) => item.type === 'close'
@@ -90,14 +108,15 @@ export function ToolDock({ groups }: { groups: DockItem[][] }) {
   const worded = useRailLabels() === 'short'
   return (
     <div ref={ref} className={`wb-dock wb-dock-map${worded ? ' wb-dock-worded' : ''}`} style={level}>
+      {armed && <ArmedTile armed={armed} worded={worded} />}
       {visible.map((g, gi) => (
         <Fragment key={gi}>
           {gi > 0 && <span className="wb-dock-gap" aria-hidden />}
-          {g.map((item, ii) => renderItem(item, `${gi}-${ii}`, worded))}
+          {g.map((item, ii) => <DockTile key={`${gi}-${ii}`} item={item} worded={worded} />)}
         </Fragment>
       ))}
-      {close.map((item, i) => renderItem(item, `x-${i}`, worded))}
-      {standing.map((item, i) => renderItem(item, `i-${i}`, worded))}
+      {close.map((item, i) => <DockTile key={`x-${i}`} item={item} worded={worded} />)}
+      {standing.map((item, i) => <DockTile key={`i-${i}`} item={item} worded={worded} />)}
     </div>
   )
 }

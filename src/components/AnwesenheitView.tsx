@@ -36,13 +36,16 @@ import { BandGrid } from './BandGrid'
 import { AnrueckendBlock } from './AnrueckendBlock'
 import s from './Anwesenheit.module.css'
 import c from './SurfaceControls.module.css'
+import { FilterStrip } from './FilterStrip'
 
 /** Zeitraum stops for the Zeitplan axis, in hours — from one watch to a WEEK. The long tail
  *  (120 h, 168 h) is for the deployment that does not end on day four: an Elementarereignis
  *  with a Pikett rota runs into a second week, and a plan that cannot show it is planned
  *  somewhere else. */
-/** The head's ladder (lib/pageHeadFit): the poster read-out steps aside first, then the retry's word. */
-const HEAD_FOLD = { qr: 1, reload: 2 } as const
+/** The head's ladder (lib/pageHeadFit): the poster read-out steps aside first, then the tiles fold
+ *  TOGETHER, each to its glyph OVER its word (owner pick 24a, 17.11.2026 – «Drucken» went bare
+ *  beside a still-worded «Erneut laden»). */
+const HEAD_FOLD = { qr: 1, tiles: 2 } as const
 
 const HORIZONS = [3, 6, 9, 12, 18, 24, 36, 48, 72, 96, 120, 168]
 
@@ -535,17 +538,24 @@ export function AnwesenheitView({
     { key: 'scene', cls: [s.markOrt], mark: <Icon id="pin" />, label: A.ortScene },
     { key: 'station', cls: [s.markOrt, s.markOrtStation], mark: <Icon id="station" />, label: A.ortStation },
   ] satisfies { key: StateKey; cls: string[]; mark: React.ReactNode; label: string }[]
-  /** ⚠️ What is on is named in the button's TOOLTIP and marked with a fixed-size dot — it is
-   *  never printed on the button. A label that appears when a filter is set changes the button's
-   *  width, which moves every control after it on the line AND re-anchors the dropdown: the menu
-   *  jumped sideways the moment you picked something in it. The dot is absolutely positioned, so
-   *  the geometry is identical filtered or not — which matters more now that a facet can hold
-   *  several picks and the label would be arbitrarily long. */
+  /** ⚠️ What is on is named in the strip under the search line (components/FilterStrip, button
+   *  sweep HEADS.3, 17.11.2026) and in the button's tooltip — it is never printed on the button. A
+   *  label that appears when a filter is set changes the button's width, which moves every control
+   *  after it on the line AND re-anchors the dropdown: the menu jumped sideways the moment you
+   *  picked something in it. */
   const stateOn = [
     ...stateEntries.filter((e) => stateSel.has(e.key)).map((e) => e.label),
     ...(noteOnly ? [A.statusNote] : []),
   ].join(' · ')
   const rankOn = ranksPresent.filter((r) => rankSel.has(r)).map(rankDisplay).join(' · ')
+  /** everything narrowing the list, in the line's order (✓ · Grad · Status) – the strip's words,
+   *  the ✓ by its button's word («Vor Ort»), the two groups of «Filter» by their picks' */
+  const filterOn = [presentOnly ? A.onlyPresentWord : '', rankOn, stateOn].filter(Boolean).join(' · ')
+  /** what the «Filter» menu has on – its tooltip; the ✓ beside it names itself */
+  const facetsOn = [rankOn, stateOn].filter(Boolean).join(' · ')
+  /** the Grad group only where there is a choice to make */
+  const rankGroup = ranksPresent.length > 1
+  const clearFilters = () => { setPresentOnly(false); setRankSel(new Set()); setStateSel(new Set()); setNoteOnly(false) }
   /** Attendance entries with no roster row: guests, mutual aid, an AdF who never synced. They
    *  are shaped like a Person so every row action below works on them unchanged — and the
    *  Rapport already prints them as guest lines. */
@@ -741,15 +751,16 @@ export function AnwesenheitView({
               taken back, and this cluster has the room at phone width (the overflow it hit
               between 601 and ~850px is above this breakpoint). */}
           {isPhone && topBarUndoHidden && onUndo && (
-            <button className={c.iconBtn} onClick={onUndo} disabled={!canUndo}
+            // page-head tiles with their words, folding with the rest (pick 24a, 17.11.2026)
+            <button type="button" className="head-tile" onClick={onUndo} disabled={!canUndo} data-fold={HEAD_FOLD.tiles}
               aria-label={A.undoTap} title={A.undoTap}>
-              <Icon id="undo" />
+              <Icon id="undo" /><span className="fold-long">{appConfig.copy.undo}</span>
             </button>
           )}
           {isPhone && topBarUndoHidden && onRedo && (
-            <button className={c.iconBtn} onClick={onRedo} disabled={!canRedo}
+            <button type="button" className="head-tile" onClick={onRedo} disabled={!canRedo} data-fold={HEAD_FOLD.tiles}
               aria-label={A.redoTap} title={A.redoTap}>
-              <Icon id="redo" />
+              <Icon id="redo" /><span className="fold-long">{appConfig.copy.redo}</span>
             </button>
           )}
           {/* The Zeitplan's paper output. Kept MOUNTED in both views and merely hidden in the
@@ -769,24 +780,29 @@ export function AnwesenheitView({
               that names its own contents and offers PDF and printer — which keeps the
               confirmation before paper starts moving, without four menu entries.
               Offered on the Zeitplan AND the Schichten tab: one surface, one way to paper. */}
+          {/* A PAGE-HEAD TILE with its word, «Drucken» (button sweep HEADS.9, 17.11.2026): it was a bare
+              list-head square in the page head, the one tile there that never said what it did. Its
+              word folds with the head's ladder (`HEAD_FOLD.tiles`) – to glyph OVER word, with the other tiles. */}
           {(showPlan || showBands) && (onPrintZeitplan || onDownloadZeitplan) && (
             <Menu
               trigger={
-                <button className={c.iconBtn} aria-label={appConfig.copy.zeitplan.paperMenu}
-                  title={appConfig.copy.zeitplan.paperMenu}>
-                  {/* icon + relay dot side by side, like the Rapport's print button — .iconBtn is
-                      inline-grid, so as two loose children they stacked (printer OVER the dot) */}
+                <button type="button" className="head-tile" data-fold={HEAD_FOLD.tiles}
+                  aria-label={appConfig.copy.zeitplan.paperMenu} title={appConfig.copy.zeitplan.paperMenu}>
+                  {/* icon + relay dot side by side, like the Rapport's print button – ONE child, so
+                      a folded phone tile stacks the pair over the word */}
                   <span className="print-send-main">
                     <Icon id="printer" />
                     {onPrintZeitplan && (
                       <span className={`dot print-relay-dot${zeitplanPrintOnline ? ' online' : ''}`} aria-hidden />
                     )}
                   </span>
+                  <span className="fold-long">{appConfig.copy.zeitplan.paperMenuWord}</span>
                 </button>
               }
               popupClassName={c.menuPop}
               itemClassName={() => c.menuItem}
               items={[
+                { kind: 'head' as const, label: appConfig.copy.zeitplan.paperMenu },
                 ...(bands?.length ? [{
                   label: appConfig.copy.zeitplan.sheetSchichtplan,
                   onClick: () => setPaper('schichtplan'),
@@ -805,7 +821,7 @@ export function AnwesenheitView({
               that up in the background. What is left means what it says: that did not load, try
               again. */}
           {(error || reloadPhase === 'done') && (
-            <Button className={cx('head-tile', error && 'amber')} onClick={runReload} data-fold={HEAD_FOLD.reload}
+            <Button className={cx('head-tile', error && 'amber')} onClick={runReload} data-fold={HEAD_FOLD.tiles}
               disabled={loading || reloadPhase !== 'idle'}
               aria-label={A.reload} title={error ? A.loadFailedHint : undefined}>
               {loading || reloadPhase !== 'idle'
@@ -855,127 +871,110 @@ export function AnwesenheitView({
           type="button"
           className={cx(c.iconBtn, presentOnly && c.iconBtnOn)}
           aria-pressed={presentOnly}
-          // The button NAMES the filter and lets `aria-pressed` carry the state, the way the two
-          // facet buttons beside it do. A label that flips to «tippen für …» on every press is an
+          // The button NAMES the filter and lets `aria-pressed` carry the state, the way the
+          // «Filter» tile beside it does. A label that flips to «tippen für …» on every press is an
           // instruction, and it made the accessible name of a control change under the finger.
           title={A.onlyPresent}
           aria-label={A.onlyPresent}
           onClick={toggleOnlyPresent}
         >
           {/* a TICK, the same glyph Mittel's «In Verwendung» carries: both mean «show only
-              the ones that count right now». It used to be the people glyph, which the Grad
-              filter beside it has a better claim to. */}
+              the ones that count right now». It used to be the people glyph, which read as a
+              Grad filter. */}
           <Icon id="check" />
           {/* its WORD, on every device (SurfaceControls · `.word`, ELEM.13): under the glyph on a
               phone like the nav bar's tiles (EL phone sweep D2), beside it on a tablet */}
           <span className={c.word} aria-hidden="true">{A.onlyPresentWord}</span>
         </button>
-        {/* ⚠️ TWO buttons, one per QUESTION — «welcher Grad» and «wer ist wo». They were one
-            merged funnel for an afternoon and it was wrong: a menu you open to reach either
-            answer is slower than two you aim at, and the two facets have nothing to do with
-            each other. Different glyphs so they are told apart without reading: the crew
-            glyph for the Dienstgrad, the funnel for the state narrowing.
-            Both narrow independently and AND together — «Of» + «anwesend» is one question.
-            Neither button PRINTS what it has on (that changed its width and re-anchored the
-            dropdown); each carries a fixed-position dot and names it in its tooltip.
-            Both are modal like every menu (owner, 17.11.2026 – a tap beside a menu only closes
-            it): switching from one to the other costs two taps, and a tap beside one never
-            cycles the presence of the name row under the finger. */}
-        {ranksPresent.length > 1 && (
+        {/* ⚠️ ONE «Filter» tile, one menu with a group per QUESTION – «welcher Grad» and «wer ist
+            wo» (owner pick 19, button round 17.11.2026; two tiles «Grad» + «Status» until then,
+            which made the search line three tiles wide beside a phone's field). The groups narrow
+            independently and AND together – «Of» + «anwesend» is one question; inside a group the
+            picks OR. The tile never PRINTS what it has on (that changed its width and re-anchored
+            the dropdown): the «Gefiltert:» strip under the line names both groups, the tooltip too.
+            Modal like every menu (owner, 17.11.2026 – a tap beside a menu only closes it, it never
+            cycles the presence of the name row under the finger). Grad only where the Mannschaft
+            has more than one; Status only on the crew list – the two planning tabs are about time,
+            and «wer ist im Magazin» is not a question you ask of a Zeitplan. */}
+        {(rankGroup || view === 'list') && (
           <Menu
             trigger={
-              <button className={cx(c.iconBtn, rankSel.size > 0 && c.iconBtnOn)}
-                aria-label={rankOn ? `${A.rankFilterLabel} – ${rankOn}` : A.rankFilterLabel}
-                title={rankOn ? `${A.rankFilterLabel} – ${rankOn}` : A.rankFilterLabel}>
-                {/* the crew glyph — this is the facet that sorts PEOPLE. It cost the
-                    «nur Anwesende» toggle its own people icon (that one is a tick now,
-                    matching Mittel's «In Verwendung»), because two identical glyphs side
-                    by side on the planning tabs is worse than either choice of icon. */}
-                <Icon id="people" />
-                <span className={c.word} aria-hidden="true">{A.rankFilterWord}</span>
+              <button className={cx(c.iconBtn, (rankSel.size > 0 || stateSel.size > 0 || noteOnly) && c.iconBtnOn)}
+                aria-label={facetsOn ? `${A.filterLabel} – ${facetsOn}` : A.filterLabel}
+                title={facetsOn ? `${A.filterLabel} – ${facetsOn}` : A.filterLabel}>
+                <Icon id="filter" />
+                <span className={c.word} aria-hidden="true">{A.filterWord}</span>
               </button>
             }
             popupClassName={c.menuPop}
             itemClassName={() => c.menuItem}
             // CHECKBOXES, not a one-of-N: «Of + Wm» is the Kader, and that is a real question.
             // Base UI keeps the menu open on a checkbox, which is what composing a set needs.
-            // «Alle» stays as its own row — it is the readable «nothing is filtered» state, and
+            // «Alle» leads each group – the readable «nothing is filtered» state of THAT group;
             // un-ticking your way back out is a gesture nobody would find at 3am.
             items={[
-              { kind: 'head' as const, label: A.rankFilterLabel },
-              { kind: 'check' as const, label: A.rankAll, checked: rankSel.size === 0, onChange: () => setRankSel(new Set()) },
-              // rankDisplay, NOT rankLabel: a rank the station's list does not cover came out
-              // as a blank row (see lib/rank)
-              ...ranksPresent.map((r) => ({
-                kind: 'check' as const,
-                label: rankDisplay(r),
-                checked: rankSel.has(r),
-                onChange: () => setRankSel((sel) => toggled(sel, r)),
-              })),
-            ]}
-          />
-        )}
-        {/* Status/Ort/Bemerkung only mean something on the crew list — the two planning tabs
-            are about time, and «wer ist im Magazin» is not a question you ask of a Zeitplan. */}
-        {view === 'list' && (
-          <Menu
-            trigger={
-              /* «Nach Status filtern», not the bare «Filtern»: the rank filter beside it names
-                 its facet and this popup's own heading already does, so the hold tooltip was
-                 the one place answering «which filter is this?» with «Filtern». */
-              <button className={cx(c.iconBtn, (stateSel.size > 0 || noteOnly) && c.iconBtnOn)}
-                aria-label={stateOn ? `${A.statusFilterLabel} – ${stateOn}` : A.statusFilterLabel}
-                title={stateOn ? `${A.statusFilterLabel} – ${stateOn}` : A.statusFilterLabel}>
-                <Icon id="filter" />
-                <span className={c.word} aria-hidden="true">{A.statusFilterWord}</span>
-              </button>
-            }
-            popupClassName={c.menuPop}
-            itemClassName={() => c.menuItem}
-            items={[
-              { kind: 'head' as const, label: A.statusFilterLabel },
-              // «Alle» clears the states but LEAVES the Bemerkung flag: they are separate
-              // questions, and a row under «Status» that silently switched off a checkbox
-              // below the rule would be the same trap the split Ort group was.
-              { kind: 'check' as const, label: A.statusAll, checked: stateSel.size === 0, onChange: () => setStateSel(new Set()) },
-              ...stateEntries.map((e) => ({
-                kind: 'check' as const,
-                label: <span className={cx(s.markRow, ...e.cls)}>{e.mark}{e.label}</span>,
-                checked: stateSel.has(e.key),
-                onChange: () => setStateSel((sel) => toggled(sel, e.key)),
-              })),
-              // a CHECKBOX, not one more state: «hat eine Bemerkung» is the one flag that
-              // really is orthogonal — anybody in any state can carry one. Base UI keeps the
-              // menu open on a checkbox, which is right: it is rarely the only thing set.
-              { kind: 'sep' as const },
-              {
-                kind: 'check' as const,
-                // ⚠️ `.markNote`, not `.statusNote` — the latter is the COPY key beside it
-                // (`A.statusNote`), and there is no such CSS class. CSS Modules resolved it to
-                // undefined and cx dropped it, so this was the one row of the menu whose mark
-                // was an empty 9px hole while every other row carried its own.
-                label: <span className={cx(s.markRow, s.markNote)}><i />{A.noteOnly}</span>,
-                checked: noteOnly,
-                onChange: setNoteOnly,
-              },
+              ...(rankGroup ? [
+                { kind: 'head' as const, label: A.rankFilterWord },
+                { kind: 'check' as const, label: A.rankAll, checked: rankSel.size === 0, onChange: () => setRankSel(new Set()) },
+                // rankDisplay, NOT rankLabel: a rank the station's list does not cover came out
+                // as a blank row (see lib/rank)
+                ...ranksPresent.map((r) => ({
+                  kind: 'check' as const,
+                  label: rankDisplay(r),
+                  checked: rankSel.has(r),
+                  onChange: () => setRankSel((sel) => toggled(sel, r)),
+                })),
+              ] : []),
+              ...(view === 'list' ? [
+                { kind: 'head' as const, label: A.statusFilterWord },
+                // «Alle» clears the states but LEAVES the Bemerkung flag: they are separate
+                // questions, and a row under «Status» that silently switched off a checkbox
+                // below the rule would be the same trap the split Ort group was.
+                { kind: 'check' as const, label: A.statusAll, checked: stateSel.size === 0, onChange: () => setStateSel(new Set()) },
+                ...stateEntries.map((e) => ({
+                  kind: 'check' as const,
+                  label: <span className={cx(s.markRow, ...e.cls)}>{e.mark}{e.label}</span>,
+                  checked: stateSel.has(e.key),
+                  onChange: () => setStateSel((sel) => toggled(sel, e.key)),
+                })),
+                // a CHECKBOX, not one more state: «hat eine Bemerkung» is the one flag that
+                // really is orthogonal — anybody in any state can carry one. A rule divides it
+                // from the states inside the Status group (overlays/Menu: only a head ends one).
+                { kind: 'sep' as const },
+                {
+                  kind: 'check' as const,
+                  // ⚠️ `.markNote`, not `.statusNote` — the latter is the COPY key beside it
+                  // (`A.statusNote`), and there is no such CSS class. CSS Modules resolved it to
+                  // undefined and cx dropped it, so this was the one row of the menu whose mark
+                  // was an empty 9px hole while every other row carried its own.
+                  label: <span className={cx(s.markRow, s.markNote)}><i />{A.noteOnly}</span>,
+                  checked: noteOnly,
+                  onChange: setNoteOnly,
+                },
+              ] : []),
             ]}
           />
         )}
         {/* (no «+» beside the search any more: the search field itself takes a name that is not
             on the Mannschaftsliste — see `guestOffer` and the last row of the list.) */}
         {/* (the inline legend strip and its phone ⓘ popover are gone — both facets live in
-            the two filter buttons above, which is also where the marks are looked up now.) */}
+            the «Filter» menu above, which is also where the marks are looked up now.) */}
         {/* how far the axis reaches — it belongs on the search line beside the thing it filters,
             not on a row of its own pushing the grid down (a phone has no room left on that
             line: there it stands in the grid's own clock row, see `horizonCtl`) */}
         {!isPhone && horizonCtl}
       </div>
+      {/* WHAT narrows the list, on every tab (the three read the same filtered Mannschaft) – and
+          the way back (button sweep HEADS.3, 17.11.2026). The count only while nothing is typed. */}
+      {filterOn && (
+        <FilterStrip className={c.strip} what={filterOn}
+          count={q.trim() ? undefined : { n: rows.length, m: people.length + guests.length }}
+          onClear={clearFilters} />
+      )}
 
-      {/* The ranks used to have a row of their own here. They now sit inline with the search (see
-          .controls above) — on a desk screen seeing them all is faster than opening anything, but
-          not at the price of a second band of chrome. On a PHONE they stay one button that carries
-          its own state: neutral for «Alle», tinted and naming the rank while a filter is on, so a
-          filtered list can never look like the whole Mannschaft. */}
+      {/* The ranks used to have a row of their own here. They are a group of the «Filter» menu on
+          the search line now – on every width one tile, its ON fill and the strip above saying a
+          filter is on, so a filtered list can never look like the whole Mannschaft. */}
 
       {/* not «Noch kein Personal erfasst» while the roster is still on its way (LISTS.1): the
           frames before the IndexedDB seed, and a cold cache's whole fetch */}
@@ -993,16 +992,9 @@ export function AnwesenheitView({
           action={error ? <Button icon={<Icon id="rotate" />} onClick={onReload} disabled={loading}>{A.retry}</Button> : undefined} />
       ) : !rows.length && !guestOffer ? (
         // a query says what was searched; ONLY a filter (the quick ✓ while nobody is present yet)
-        // gets the shared filter line and the one-tap way out – never «Keine Treffer für «».»
-        // (duck sweep LISTS.4, 17.11.2026)
-        q.trim()
-          ? <div className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</div>
-          : (
-            <div className="no-hits no-hits-way">
-              {appConfig.copy.filterNoHits}
-              <Button onClick={() => { setPresentOnly(false); setRankSel(new Set()); setStateSel(new Set()); setNoteOnly(false) }}>{A.filterClear}</Button>
-            </div>
-          )
+        // gets the shared filter line – never «Keine Treffer für «».» (duck sweep LISTS.4,
+        // 17.11.2026). Its way out is the strip right above, «Alle zeigen» (HEADS.3).
+        <div className="no-hits">{q.trim() ? fillTemplate(appConfig.copy.noHits, { q: q.trim() }) : appConfig.copy.filterNoHits}</div>
       ) : showBands ? (
         <BandGrid
           people={rows}

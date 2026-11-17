@@ -676,7 +676,7 @@ export function ConfirmButton({ label, question, danger, primary, disabled, clas
 
 /** The armed half of ConfirmButton: the question and the Ja/Abbrechen pair, calling `onCancel`
  *  by itself after 8 s so a forgotten prompt does not sit there armed. Exported for the one
- *  caller whose trigger is not a button of its own – an action picked from a ⋮ menu, which has
+ *  caller whose trigger is not a button of its own – an action picked from a ⋯ menu, which has
  *  closed by the time the question is asked (LinksView). */
 export function ConfirmPrompt({ question, danger, onConfirm, onCancel }: {
   question: string
@@ -711,7 +711,7 @@ export interface MenuAction {
   danger?: boolean
 }
 
-// Kebab (⋮) action menu — one compact trigger that opens a themed dropdown of row actions,
+// «More» (⋯) action menu — one compact trigger that opens a themed dropdown of row actions,
 // replacing a wide row of inline buttons. Click-away and Esc close it. Keeps the actions
 // legible (full labels in the list) while decluttering dense tables.
 export function ActionMenu({ actions, ariaLabel, disabled }: {
@@ -728,7 +728,7 @@ export function ActionMenu({ actions, ariaLabel, disabled }: {
       <Menu
         trigger={
           <button type="button" className="adm-menu-btn" aria-label={ariaLabel} disabled={disabled}>
-            <Icon id="more-vert" className="adm-menu-ic" />
+            <Icon id="more" className="adm-menu-ic" />
           </button>
         }
         items={actions.map((a) => ({

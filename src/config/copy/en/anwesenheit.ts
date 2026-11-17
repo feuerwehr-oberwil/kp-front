@@ -57,7 +57,6 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     statusFrei: 'not present',
     filterLabel: 'Filter',
     statusAll: 'All',
-    statusFilterLabel: 'Filter by status',
     noteOnly: 'With a note only',
     statusPresent: 'present',
     statusLeft: 'left',
@@ -71,7 +70,6 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     notInDivera: 'No longer on the personnel list',
     notInSource: 'No longer in {provider}',
     weg: 'gone',
-    rankFilterLabel: 'Filter by rank',
     rankAll: 'All',
     viewList: 'Present',
     viewPlan: 'Schedule',
@@ -109,7 +107,7 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     rankFilterWord: 'Rank',
     statusFilterWord: 'Status',
     reloadDone: 'List updated',
-    filterClear: 'Show all',
+    filterWord: 'Filter',
   },
   anrueckend: {
     title: 'On the way',
@@ -251,5 +249,7 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     ended: 'ended',
     flip: 'switch',
     editEntry: 'Edit …',
+    paperMenuWord: 'Print',
+    emptyHelpWord: 'Help',
   },
 }

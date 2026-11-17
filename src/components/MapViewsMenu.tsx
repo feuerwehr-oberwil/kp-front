@@ -236,7 +236,8 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
   /** applied when open, so the compass lights up like any other active tool button */
   activeClassName?: string
   glyphClassName: string
-  /** shown next to the glyph in the rail variant (the HUD variant is icon-only) */
+  /** the word: under the glyph in the rail variant; in the HUD variant only when given (the Karte's
+   *  phone tile – the Einsatz's HUD compass is icon-only) */
   label?: string
   /** controlled by App so the popover is mutually exclusive with the drawing/measure tool docks */
   open: boolean
@@ -289,7 +290,7 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
       >
         {variant === 'rail'
           ? <><span className="vrail-glyph"><span className="tb-act-ic">{glyph}{ring}</span></span><span className="vrail-label">{label ?? cp.title}</span></>
-          : <span className="tb-act-ic">{glyph}{ring}</span>}
+          : <><span className="tb-act-ic">{glyph}{ring}</span>{label && <span>{label}</span>}</>}
       </button>
       {open && <ViewsPopover dockRef={dockRef} api={api} readOnly={readOnly} coordsOn={coordsOn} onToggleCoords={onToggleCoords} onClose={() => onOpenChange(false)} />}
     </>

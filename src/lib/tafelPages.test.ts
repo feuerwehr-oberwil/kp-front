@@ -55,9 +55,9 @@ describe('which Tafel page this device has open', () => {
  * which the board's fit already keeps free; it wears that row's floating look. */
 describe('the page strip stands in the row where a plan says «which place»', () => {
   const css = readFileSync(`${process.cwd()}/src/styles/09-whiteboard.css`, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
-  it('wears the floating family, not a bar of its own', () => {
+  it('wears the floating family (the bars’ corner, pick 20), not a bar of its own', () => {
     const tps = /\.tps \{([^}]*)\}/.exec(css)?.[1] ?? ''
-    for (const t of ['--float-h', '--float-bg', '--float-edge', '--r-sm']) expect(tps).toContain(t)
+    for (const t of ['--float-h', '--float-bg', '--float-edge', '--r-bar']) expect(tps).toContain(t)
     expect(tps).not.toMatch(/position:\s*absolute|top:/)
   })
   it('on a phone the row of a Tafel page stands on the nav bar — the page has no tool bar under it', () => {

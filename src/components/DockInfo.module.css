@@ -7,24 +7,26 @@
 /* the 8px inset is the host menu's text gutter (MapViewsMenu · .empty and the row labels) —
    this paragraph sits directly under one of them and has to start on the same x */
 .wb-dock-tip-inline { margin: 0; width: 100%; padding: 0 8px; text-align: left; font-size: var(--fs-1); line-height: 1.4; color: var(--ink-dim); }
-.wb-dock-ibtn { width: 34px; height: 34px; border-radius: var(--r-sm); border: none; background: var(--dock-control-bg, var(--fill-soft));
-  color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; padding: 0; }
-@media (hover: hover) { .wb-dock-ibtn:hover:not(.on) { background: var(--dock-control-hover, var(--ink-12)); color: var(--ink); } }
+/* BARE at rest like every tile of a dock (owner pick 22, 17.11.2026: the grey plate is the way
+   out's only); open = the opener's wash */
+.wb-dock-ibtn { width: 34px; height: 34px; border-radius: var(--r-sm); border: none; background: transparent;
+  color: var(--ink); display: grid; place-items: center; cursor: pointer; padding: 0; }
+@media (hover: hover) { .wb-dock-ibtn:hover:not(.on) { background: var(--hover); } }
 .wb-dock-ibtn.on { background: var(--sel-wash); color: var(--ink); }
 .wb-dock-ibtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* …and the inline variant lives in a LIGHT-by-day menu (the Ansichten popover, 29.09.2026 — the
    floating family's glass): the grey wash of the house ✕ (.ip-x) instead of the dock's on-ink one,
-   «open» the row's --sel-wash. (The ToolDock's ⓘ above wears the dock's own control fill.) */
+   «open» the row's --sel-wash. A menu is not a bar: this ⓘ is the house ⓘ chip (InfoToggle). */
 .wb-dock-info-inline .wb-dock-ibtn { background: var(--ink-8); color: var(--ink-dim); }
 @media (hover: hover) { .wb-dock-info-inline .wb-dock-ibtn:hover { background: var(--ink-12); color: var(--ink); } }
 .wb-dock-info-inline .wb-dock-ibtn.on { background: var(--sel-wash); color: var(--ink); }
 @media (pointer: coarse) { .wb-dock-ibtn { width: var(--tap); height: var(--tap); } }
 /* in the tool dock's column: the rail's 46px square, like the dock's other buttons (09-whiteboard) */
-:global(.wb-dock) .wb-dock-ibtn { width: 46px; height: 46px; background: transparent; color: var(--ink); }
+:global(.wb-dock) .wb-dock-ibtn { width: 46px; height: 46px; }
 :global(.wb-dock) .wb-dock-ibtn :global(.i) { width: 22px; height: 22px; }
-@media (hover: hover) { :global(.wb-dock) .wb-dock-ibtn:hover:not(.on) { background: var(--hover); } }
-/* …the phone's row dock keeps the 46px square (15-mobile · M8 rework), with its 18px glyphs */
-:global(.phone-tools .wb-dock) .wb-dock-ibtn :global(.i) { width: 18px; height: 18px; }
+/* …the phone's row dock keeps the 46px square (15-mobile · M8 rework), with the bars' 22px glyph
+   like the column (button sweep CHROME.8, 17.11.2026) */
+:global(.phone-tools .wb-dock) .wb-dock-ibtn :global(.i) { width: 22px; height: 22px; }
 .wb-dock-ibtn :global(.i) { width: 18px; height: 18px; }
 /* help text always appears at the BOTTOM-centre of the screen (not floating beside the
    button), so every in-function hint shows in the same place. Fixed to the viewport. */
@@ -42,12 +44,12 @@
   /* a standing card's steps are one per line (DockInfo · `open`) */
   white-space: pre-line; }
 /* …and where the Tafel's page strip reaches the middle of the bottom row, the card stands one row
-   ABOVE it, like the armed pill (09-whiteboard · .armed-pill-row): it covered «Rapport · + Seite»
-   (rare-user r3, M13, 17.11.2026). The card is portalled to <body>, hence the body-level :has. */
+   ABOVE it: it covered «Rapport · + Seite» (rare-user r3, M13, 17.11.2026; the armed pill had the
+   same rule until the button round's picks 14 + 15 made its name the dock's first tile). The card is portalled to <body>, hence the body-level :has. */
 @media (--not-phone) {
   :global(body:has(.wb-botleft > .tps)) .wb-dock-tip { bottom: calc(16px + var(--float-h) + var(--float-gap)); }
 }
-/* phones: above every bar and the armed tool's pill — in THE message lane, measured while a tool is
+/* phones: above every bar and the armed tool's dock — in THE message lane, measured while a tool is
    out (15-mobile · --msg-lane-bottom, lib/floatRow · stackLane) */
 @media (--phone) {
   /* in THE message lane, at the bars' width, like every other message (15-mobile · --msg-lane-bottom) */

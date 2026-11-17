@@ -23,7 +23,7 @@ export function SessionExpiredMeldung({ onRelogin, name }: { onRelogin: () => vo
     title: C.expiredTitle,
     sub: name ? fillTemplate(C.expiredHintNamed, { name }) : C.expiredHint,
     wrap: !!name,
-    actions: [{ label: C.relogin, icon: 'logout', primary: true, onClick: onRelogin }],
+    actions: [{ label: C.relogin, primary: true, onClick: onRelogin }],
   })
   return null
 }

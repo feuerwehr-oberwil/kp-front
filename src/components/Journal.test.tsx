@@ -6,8 +6,11 @@ import { Journal } from './Journal'
 import type { BoardAnno, TimelineEvent } from '../types'
 import { liveTargets } from '../lib/verlauf'
 import type { OpenReminder } from '../lib/reminders'
+import { resetPopoverGuard } from '../lib/overlays/popoverGuard'
 
-afterEach(cleanup)
+// the popover register is module state, warm for a moment after a menu closes: a test that opened
+// the «Art» menu must not leave the next one's Escape vetoed
+afterEach(() => { cleanup(); resetPopoverGuard() })
 
 const row = (id: string, at: number, text: string): TimelineEvent => ({
   id, t: '', at: new Date(at).toISOString(), text, icon: 'type', kind: 'journal',
@@ -293,20 +296,27 @@ describe('Journal · the Pendenzen block under the funnel', () => {
 
     await tick('Pendenz') // untick: «Auftrag» alone again
     await waitFor(() => expect(document.querySelector('.jr-pinned')).toBeNull())
-    fireEvent.click(document.querySelector('.jr-filter-all')!)
+    // the way out is the «Gefiltert:» strip's (components/FilterStrip)
+    fireEvent.click(screen.getByRole('button', { name: 'Alle zeigen' }))
     await waitFor(() => expect(document.querySelector('.jr-pinned')).not.toBeNull())
   })
 
-  // sweep E.9: an Auftrag raised with the ring counts under «Auftrag» AND «Pendenz» – «Alle zeigen»
-  // still counts it once
-  it('counts a typed Pendenz row under both, and «Alle zeigen» counts rows', async () => {
+  // sweep E.9: an Auftrag raised with the ring counts under «Auftrag» AND «Pendenz» – «Alle» still
+  // counts it once. «Alle» is the FIRST row and ticked while nothing is filtered (button sweep
+  // HEADS.7, 17.11.2026 – every box stood empty, «Alle zeigen» an action at the bottom)
+  it('counts a typed Pendenz row under both, and «Alle» – first, ticked – counts rows', async () => {
     const ringed = [...rows, { ...row('rauf', 1_010_000, 'Auftrag · Leiter stellen'), entryType: 'auftrag', reminder: { op: 'created', id: 'p2' } } as TimelineEvent]
     setup({ events: ringed })
     fireEvent.click(screen.getByRole('button', { name: 'Verlauf filtern' }))
     const count = async (word: RegExp) => (await screen.findByRole('menuitemcheckbox', { name: word })).querySelector('.jr-filter-count')?.textContent
     expect(await count(/Pendenz/)).toBe('2')
     expect(await count(/Auftrag/)).toBe('2')
-    expect(document.querySelector('.jr-filter-reset .jr-filter-count')?.textContent).toBe('3')
+    const all = await screen.findByRole('menuitemcheckbox', { name: /^Alle/ })
+    expect(all.querySelector('.jr-filter-count')?.textContent).toBe('3')
+    expect(all.getAttribute('aria-checked')).toBe('true')
+    expect(screen.getAllByRole('menuitemcheckbox')[0]).toBe(all)
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /Auftrag/ }))
+    await waitFor(() => expect(all.getAttribute('aria-checked')).toBe('false'))
   })
 })
 
@@ -481,14 +491,15 @@ describe('Journal · correcting a line (append-only)', () => {
     setup({ onEditText })
     fireEvent.click(screen.getByText('Feuer aus'))
     fireEvent.click(penInSheet()!)
-    const box = screen.getByRole('textbox')
-    fireEvent.change(box, { target: { value: '   ' } })
+    // the correction's textarea – the list row's search field is a textbox too, always in view
+    const box = () => document.querySelector('textarea')!
+    fireEvent.change(box(), { target: { value: '   ' } })
     fireEvent.click(screen.getByText('Speichern'))
     expect(onEditText).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByText('Feuer aus'))
     fireEvent.click(penInSheet()!)
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Feuer aus, Nachkontrolle läuft' } })
+    fireEvent.change(box(), { target: { value: 'Feuer aus, Nachkontrolle läuft' } })
     fireEvent.click(screen.getByText('Speichern'))
     expect(onEditText).toHaveBeenCalledWith('r3', 'Feuer aus, Nachkontrolle läuft')
   })
@@ -635,53 +646,50 @@ describe('Journal · Beilagen chips (files on a row)', () => {
   })
 })
 
-// ── the search (mock verlauf-02, 14.09.; head kept 22.09.) ──────────────────────────────────
-// The lens opens the field UNDER the head — title · ⓘ · Replay · ✕ stay, so the drawer still says
-// what it is — and lights up; the field filters the list live and its ✕ (or Escape in it, or the
-// lens again) closes it and shows the full list. The matching itself is lib/journalSearch's.
-describe('Journal · the search in the head', () => {
-  const lens = () => screen.getByRole('button', { name: 'Im Verlauf suchen' })
+// ── the list row (owner pick 25 B, 17.11.2026) ──────────────────────────────────────────────
+// The head is the title, «Wiedergabe» and ✕ – nothing else (on a phone the title and ✕, decision 27,
+// below). Under it the row every list has: the
+// search, always in view (no lens to open it first), and the «Art» tile; the legend is the ring key
+// at the end of the «Art» menu. The matching itself is lib/journalSearch's.
+describe('Journal · the list row', () => {
+  const field = () => screen.getByRole('textbox', { name: 'Im Verlauf suchen' })
   const rows = () => [...document.querySelectorAll<HTMLElement>('[data-ev]')].map((el) => el.dataset.ev)
 
-  it('the lens opens the field UNDER the head, focused — the head stays; ✕ closes it and shows the list', () => {
+  it('the head carries the title, «Wiedergabe» and ✕ only; the field and «Art» stand under it', () => {
+    setup({ onReplay: vi.fn() })
+    const head = document.querySelector('.journal-head')!
+    expect([...head.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Wiedergabe starten', 'Schliessen'])
+    const row = document.querySelector('.journal-search-row')!
+    expect(row.contains(field())).toBe(true)
+    expect(row.contains(screen.getByRole('button', { name: 'Verlauf filtern' }))).toBe(true)
+    // the ⓘ «Legende» is gone, and nothing opens the field: it is open
+    expect(screen.queryByRole('button', { name: 'Legende' })).toBeNull()
+    expect(document.activeElement).not.toBe(field())
+  })
+
+  it('typing narrows the list live and counts the hits; the strip steps aside while it does', () => {
     setup()
-    fireEvent.click(lens())
-    const field = screen.getByRole('textbox', { name: 'Im Verlauf suchen' })
-    expect(document.activeElement).toBe(field)
-    // the head is still there, and the lens in it is lit
-    expect(document.querySelector('.journal-title')?.textContent).toBe('Verlauf · 3')
-    expect(screen.getAllByRole('button', { name: 'Suche schliessen' })[0].classList.contains('on')).toBe(true)
-    fireEvent.change(field, { target: { value: 'feuer' } })
+    expect(document.querySelector('.jr-strip')).not.toBeNull()
+    fireEvent.change(field(), { target: { value: 'feuer' } })
     expect(rows()).toEqual(['r3'])
     expect(screen.getByText('1 von 3')).toBeTruthy()
-    // the field's own ✕ (the last of the two «Suche schliessen» — the lens is the first)
-    const closers = screen.getAllByRole('button', { name: 'Suche schliessen' })
-    fireEvent.click(closers[closers.length - 1])
-    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(document.querySelector('.jr-strip')).toBeNull()
+    // the head still says what the drawer is, and counts the whole list
     expect(document.querySelector('.journal-title')?.textContent).toBe('Verlauf · 3')
-    expect(rows()).toEqual(['r3', 'r2', 'r1'])
   })
 
-  it('the lit lens closes the search again', () => {
-    setup()
-    fireEvent.click(lens())
-    expect(screen.getByRole('textbox')).toBeTruthy()
-    fireEvent.click(screen.getAllByRole('button', { name: 'Suche schliessen' })[0])
-    expect(screen.queryByRole('textbox')).toBeNull()
-  })
-
-  it('Escape in the field closes the SEARCH, not the drawer', () => {
+  it('Escape in a typed field empties it; Escape in an empty one closes the drawer', () => {
     const { onClose } = setup()
-    fireEvent.click(lens())
-    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' })
-    expect(screen.queryByRole('textbox')).toBeNull()
+    fireEvent.change(field(), { target: { value: 'feuer' } })
+    fireEvent.keyDown(field(), { key: 'Escape' })
+    expect((field() as HTMLInputElement).value).toBe('')
+    expect(rows()).toEqual(['r3', 'r2', 'r1'])
     expect(onClose).not.toHaveBeenCalled()
   })
 
   it('a query that keeps nothing says so, and what it looked in', () => {
     setup()
-    fireEvent.click(lens())
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Pumpe' } })
+    fireEvent.change(field(), { target: { value: 'Pumpe' } })
     expect(rows()).toEqual([])
     // the one `.no-hits` line every list uses (duck sweep LISTS.4), never a big EmptyState
     const line = document.querySelector('.history-list .no-hits')!
@@ -690,14 +698,19 @@ describe('Journal · the search in the head', () => {
     expect(document.querySelector('.history-list .empty-state')).toBeNull()
   })
 
-  it('hides the legend and the strip while searching – both speak for the full list', () => {
+  it('an empty Verlauf has no row to search', () => {
+    setup({ events: [] })
+    expect(document.querySelector('.journal-search-row')).toBeNull()
+  })
+
+  it('the «Art» menu ends on the ring key – four lines that say, none that tick', async () => {
     setup()
-    fireEvent.click(screen.getByRole('button', { name: 'Legende' }))
-    expect(document.querySelector('.jr-legend')).not.toBeNull()
-    expect(document.querySelector('.jr-strip')).not.toBeNull()
-    fireEvent.click(lens())
-    expect(document.querySelector('.jr-legend')).toBeNull()
-    expect(document.querySelector('.jr-strip')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Verlauf filtern' }))
+    expect(await screen.findByText('Pendenzen – was der Ring sagt')).toBeTruthy()
+    const notes = [...document.querySelectorAll('.jr-filter-menu .ui-menu-note')]
+    expect(notes.map((n) => n.textContent)).toEqual(['Pendenz offen', 'Pendenz dringend', 'Erinnerung überfällig', 'Pendenz erledigt'])
+    // each wears its ring, and none is a menu row
+    expect(notes.every((n) => n.querySelector('.jr-ic-ring') && !n.closest('[role^="menuitem"]'))).toBe(true)
   })
 })
 
@@ -710,13 +723,13 @@ describe('Journal · Escape closes one thing, innermost first', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('with the search open, the first Esc closes the search and the second the drawer', () => {
+  it('with a query typed, the first Esc empties the search and the second closes the drawer', () => {
     const { onClose } = setup()
-    fireEvent.click(screen.getAllByRole('button', { name: 'Im Verlauf suchen' })[0])
-    expect(screen.getByRole('textbox', { name: 'Im Verlauf suchen' })).toBeTruthy()
+    const field = screen.getByRole('textbox', { name: 'Im Verlauf suchen' })
+    fireEvent.change(field, { target: { value: 'feuer' } })
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
     expect(onClose).not.toHaveBeenCalled()
-    expect(screen.queryByRole('textbox', { name: 'Im Verlauf suchen' })).toBeNull()
+    expect((field as HTMLInputElement).value).toBe('')
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)
   })
@@ -764,6 +777,10 @@ describe('Journal · «Wiedergabe starten»', () => {
     const p = setup({ onReplay: vi.fn() })
     expect(replayBtn().closest('.jr-strip-row')).toBeTruthy()
     expect(replayBtn().closest('.journal-head')).toBeNull()
+    // the phone head is the title and ✕ alone (decision 27); the search row stands under it
+    const head = document.querySelector('.journal-head')!
+    expect([...head.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Schliessen'])
+    expect(document.querySelector('.journal-search-row')).toBeTruthy()
     fireEvent.click(replayBtn())
     expect(p.onReplay).toHaveBeenCalledTimes(1)
   })

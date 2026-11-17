@@ -431,14 +431,16 @@ export function IncidentSwitcher({
                       {onReactivate && (
                         <button type="button" className="ip-card-act head-tile sm ip-card-reopen"
                           disabled={reopening} aria-busy={reopening} onClick={reopen}>
-                          {reopening && <span aria-hidden><SyncGlyph done={false} label={C.reopening} /></span>}
+                          {/* the reopened Einsatz's own glyph (IncidentClosedMeldung: closed 🔒, reopened ✎);
+                              while it runs, the loader takes its slot */}
+                          {reopening ? <span aria-hidden><SyncGlyph done={false} label={C.reopening} /></span> : <Icon id="pen" />}
                           <span>{reopening ? C.reopening : C.reactivate}</span>
                         </button>
                       )}
                       {onBackFromArchive && (
                         <button type="button" className="ip-card-act head-tile sm" disabled={reopening}
                           onClick={() => { setOpen(false); onBackFromArchive() }}>
-                          <span>{C.back}</span>
+                          <Icon id="chevron-left" /><span>{C.back}</span>
                         </button>
                       )}
                     </div>
@@ -447,11 +449,13 @@ export function IncidentSwitcher({
               )}
               {/* The Einsatz's own actions, inside its own card. Short labels: the card names the
                   Einsatz one line above, so «Einsatz abschliessen» would say it twice — the full
-                  wording rides along as the button's title/aria-label.
+                  wording rides along as the button's title/aria-label. Glyph + word on EVERY
+                  device, full ink (owner, button sweep SHEETS.11, 17.11.2026 – the phone hid them);
+                  «Teilen» wears the app's share glyph, not the «Zum Original» door.
                   ⚠️ ONE LINE, always (decision 01.09.): three verbs that wrap to a second row
                   stop reading as one set of choices. The label is its own <span> (the badge is
                   the tile's other child) — see .ip-card-acts, which carries the measured widths.
-                  Order is Bearbeiten · Teilen · Präsentieren · Abschliessen (F15, 17.11.2026:
+                  Order is Ändern (`editMetaShort`) · Teilen · Präsentieren · Abschliessen (F15, 17.11.2026:
                   «Präsentieren» beside «Teilen», whose card it opens alone – four acts break
                   2 × 2 on a phone, two pairs still read as one set). Abschliessen goes LAST because it
                   is the one that ends the Einsatz; a terminal action sitting between two
@@ -474,7 +478,7 @@ export function IncidentSwitcher({
                   {onShare && (
                     <button className="ip-card-act head-tile sm" title={cp.share} aria-label={cp.share}
                       onClick={onShare}>
-                      <Icon id="external" /><span>{cp.shareShort}</span>
+                      <Icon id="share-ios" /><span>{cp.shareShort}</span>
                     </button>
                   )}
                   {onPresent && (

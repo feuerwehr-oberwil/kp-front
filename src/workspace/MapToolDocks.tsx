@@ -1,28 +1,26 @@
-// The Karte's tool docks and rail: the bottom-centre dock of whichever tool is armed (symbol,
-// lasso, line, area, note, team, circle, measure, shape), the tool rail itself (the slim set on a
-// locked surface), the symbol palette and the «Welcher Trupp?» picker. Split out of
+// The Karte's tool docks and rail: the dock of whichever tool is armed (symbol, lasso, line, area,
+// note, team, circle, measure, shape) – each but Messen's led by the armed tool's readout tile
+// (ToolDock · armed) –, the tool rail itself (the slim set on a locked surface), the symbol palette and the «Welcher Trupp?» picker. Split out of
 // IncidentWorkspace (E1, 09.10.2026) verbatim; the tool state and every handler stay the
 // workspace's and come in as props (`mapUI` gates each piece exactly as before).
 
 import type { Dispatch, SetStateAction, RefObject } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
-import { ArmedSymbolGlyph, ArmedToolPill } from '../components/ArmedToolPill'
 import { type ViewsApi, MapViewsButton } from '../components/MapViewsMenu'
 import { MeasurePanel } from '../components/MeasurePanel'
 import { Palette } from '../components/Palette'
 import { ToolDock } from '../components/ToolDock'
 import { RailKey, ToolRail } from '../components/ToolRail'
 import { appConfig } from '../config/appConfig'
-import { armedToolIcon, armedToolName } from '../lib/armedTool'
+import { armedReadout } from '../lib/armedTool'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { truppStateWord } from '../components/truppCardText'
-import { formatSymbolName } from '../lib/format'
 import { PANEL_KEY } from '../lib/hotkeys'
 import { Icon } from '../lib/icons'
 import { layerPresetLabel, type LayerPreset } from '../lib/layerPreset'
 import { Overlay } from '../lib/overlays'
 import type { PlacedTrupp } from '../lib/placedTrupps'
-import { ShapeGlyph, SHAPE_DEFS, SHAPE_TWO_POINT } from '../lib/shapes'
+import { SHAPE_TWO_POINT } from '../lib/shapes'
 import type { useCoordPicker } from '../lib/useCoordPicker'
 import { adoptedRelay, type useMeasure } from '../lib/useMeasure'
 import type { useSymbols } from '../lib/useSymbols'
@@ -98,41 +96,30 @@ export function MapToolDocks({
   view, readOnly, isEl, viewsOpen, sharePick, shareParent, toggleViews, coord, mapRef, paletteOpen,
   sym, setPaletteOpen, pickShape, teamPick, trupps, truppColors, placeTruppOnMap, placeGenericTeam,
 }: MapToolDocksProps) {
+  // the armed tool's readout, the first tile of its dock (ToolDock · armed, lib/armedTool) – every
+  // dock below but Messen's, whose results panel names the tool
+  const armed = armedReadout(tool, appConfig.copy.mapTools, { symbol: pending, svg: pending ? sym.byName[pending] : undefined, shape: pendingShape })
   return (
     <>
-      {/* the armed tool's readout — ONE pill, bottom centre, glyph + name (3am sweep point 3,
-          23.10.2026). A symbol wears its own SVG and name, the others their rail glyph and word;
-          Linie/Fläche say their input mode. The symbol tool has no dock any more: the pill IS
-          its readout, «Mehrere platzieren» stands beside it, and the way out is the ✕ beside that
-          (27.10.2026), the rail tile or Escape. Never while Messen is armed, on any size – its results
-          panel stands in that spot and the pill covered its numbers (sweep 30.10.2026 #3). */}
-      {mapUI && tool !== 'select' && tool !== 'measure' && (() => {
-        if (tool === 'symbol') {
-          if (!pending) return null
-          // the ✕ puts it down exactly as Escape does (useMapActions · cancelPlacement) – the Plan's twin
-          return <ArmedToolPill glyph={<ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />} name={formatSymbolName(pending) || pending}
-            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }}
-            onClose={() => { setPending(null); setPendingShape(null); setRotStart(null); setTool('select') }} />
-        }
-        if (tool === 'shape') {
-          if (!pendingShape) return null
-          return <ArmedToolPill glyph={<ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />}
-            name={appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel} />
-        }
-        const name = armedToolName(tool, appConfig.copy.mapTools, { lineMode, areaMode })
-        const icon = armedToolIcon(tool, appConfig.copy.mapTools)
-        if (!name || !icon) return null
-        return <ArmedToolPill glyph={<Icon id={icon} />} name={name} />
-      })()}
+      {/* the symbol's dock (owner pick 15 + the phone WIP of 16.11., 17.11.2026): [Unfall · Mehrere ·
+          Abbrechen] – the readout tile, «Mehrere platzieren» and the ✕, which puts the symbol down
+          exactly as Escape does (useMapActions · cancelPlacement; the Plan's twin). The bottom-centre
+          pill that stood here (3am sweep point 3, 23.10.2026) is gone on every size. */}
+      {mapUI && tool === 'symbol' && armed && (
+        <ToolDock armed={armed} groups={[
+          [{ type: 'close', onClick: () => { setPending(null); setPendingShape(null); setRotStart(null); setTool('select') } }],
+          [{ type: 'toggle', icon: 'place-repeat', label: appConfig.copy.keepPlacing, short: appConfig.copy.keepPlacingShort, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
+        ]} />
+      )}
       {/* active-tool option docks — the right-edge column (a bottom bar on the phone) */}
       {mapUI && tool === 'lasso' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => setTool('select') }],
           [{ type: 'info', text: appConfig.copy.dockHints.lasso }],
         ]} />
       )}
       {mapUI && tool === 'line' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => { setTool('select'); settleDraft() } }],
           // input mode: Freihand (drag) ↔ Punkte (tap each vertex, ✓ to finish)
           [
@@ -147,7 +134,7 @@ export function MapToolDocks({
         ]} />
       )}
       {mapUI && tool === 'area' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => { setTool('select'); settleDraft() } }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); settleDraft() } },
@@ -155,14 +142,15 @@ export function MapToolDocks({
             ...(areaMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: commitDraft }] : []),
           ],
           // «D pur» like the line dock above: styling happens in the editor afterwards
-          [{ type: 'info', text: appConfig.copy.dockHints.area }],
+          // per input mode, as the Linie's (audit B4): in Freihand a tap does nothing
+          [{ type: 'info', text: areaMode === 'nodes' ? appConfig.copy.dockHints.areaNodes : appConfig.copy.dockHints.areaFreehand }],
         ]} />
       )}
       {/* Notiz armed — «D pur» (09.09.) here too: a fresh note opens its detail panel with the
           caret already in the text (notePlacedId), and Zettel/Klartext, S/M/L and the colour
           live THERE — where they also write the next note's defaults. */}
       {mapUI && tool === 'note' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => setTool('select') }],
           [{ type: 'info', text: appConfig.copy.dockHints.note }],
         ]} />
@@ -170,7 +158,7 @@ export function MapToolDocks({
       {/* Trupp — the one tool that had NO dock (testing feedback 2026-07-15): every active
           tool shows a ✕ + ⓘ so nobody is stranded wondering what the mode does */}
       {mapUI && tool === 'team' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => { setTeamPick(null); setTool('select') } }],
           // ⚠️ «Trupp finden» lives HERE, on the tool the question is about — not in the left
           // rail, which navigates between surfaces. Reaching for the Trupp tool is already the
@@ -186,7 +174,7 @@ export function MapToolDocks({
         ]} />
       )}
       {mapUI && tool === 'circle' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => setTool('select') }],
           [{ type: 'info', text: appConfig.copy.dockHints.circle }],
         ]} />
@@ -203,11 +191,9 @@ export function MapToolDocks({
         ]} />
       )}
       {mapUI && tool === 'shape' && pendingShape && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('select') } }],
-          // currentColor, not #fff: the dock is light by day since 20.10.2026 (3am sweep, nit)
-          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />,
-            label: appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel }],
+          // the Form's name and preview lead the dock as its readout tile (`armed`, pick 14)
           // a two-point shape is placed by naming two places, so «mehrere nacheinander» has no
           // meaning for it — the «Mehrere platzieren» toggle is simply not offered
           ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'place-repeat', label: appConfig.copy.keepPlacing, short: appConfig.copy.keepPlacingShort, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),

@@ -444,6 +444,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logInsideAtClose: 'Team {name} still inside at closing',
     cycleEndAtClose: '{t} (still inside at closing)',
     logClockRestart: 'Team {name}: contact clock restarted – incident reopened',
+    cardMenuWord: 'More',
     lineOnPlan: 'Plan',
   },
   lineDecor: {

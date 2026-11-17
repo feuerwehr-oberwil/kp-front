@@ -847,7 +847,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             <nav className={cx('navrail rail folded', railLabels === 'short' && 'labelled')} aria-label={C.title}>
               <div className="rail-scroll-wrap"><div className="nav-scroll rail-scroll">
                 {/* each tile names itself (aria-label): with «Beschriftung» off its word is not shown */}
-                <button type="button" className={cx('nav-item', onMapSurface && !tool && 'on')} aria-label={C.tools.map} onClick={() => { setSurface(null); setToolState(null) }}>
+                {/* still «here» while Ebenen stands open over it: Ebenen is an opener, not a place */}
+                <button type="button" className={cx('nav-item', onMapSurface && (!tool || tool === 'layers') && 'on')} aria-label={C.tools.map} onClick={() => { setSurface(null); setToolState(null) }}>
                   <span className="nav-glyph"><Icon id="map" /></span><span className="nav-label">{C.tools.map}</span>
                 </button>
                 <button type="button" className={cx('nav-item', onLibrary && 'on')} aria-pressed={onLibrary} aria-label={appConfig.copy.modes.checklists} onClick={openLibrary} data-karte-library="">
@@ -855,8 +856,14 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
                 </button>
                 {/* the surfaces │ the map's tools */}
                 <div className={cx('nav-sep', s.barSep)} aria-hidden />
+                {/* Messen and Gefahrgut are tools (pressed); Ebenen OPENS a panel, so open it wears the
+                    open look of every opener – the wash + blue, `aria-expanded` (ELEM.6, button round
+                    17.11.2026 CHROME.10) – not the ink pill that says «you are here» */}
                 {(['measure', 'erg', 'layers'] as const).map((t) => (
-                  <button key={t} type="button" className={cx('nav-item', tool === t && 'on')} aria-pressed={tool === t} aria-label={C.tools[t]} onClick={() => openPhoneTool(t)}>
+                  <button key={t} type="button" aria-label={C.tools[t]} onClick={() => openPhoneTool(t)}
+                    {...t === 'layers'
+                      ? { className: cx('nav-item', tool === t && s.navOpen), 'aria-expanded': tool === t }
+                      : { className: cx('nav-item', tool === t && 'on'), 'aria-pressed': tool === t }}>
                     <span className="nav-glyph"><Icon id={t === 'erg' ? 'warn' : t} /></span><span className="nav-label">{t === 'erg' ? C.tools.ergShort : C.tools[t]}</span>
                   </button>
                 ))}
@@ -864,10 +871,12 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             </nav>
             {onMapSurface && !tool && !panelShown && !searchOpen && (
               <div className={s.phoneUtil}>
-                <button type="button" className={cx(s.utilBtn)} aria-label={C.tools.pin} onClick={() => setTool('pin')}><Icon id="pin" /></button>
+                {/* tiles of the floating row, worded like the Eintrag FAB (CHROME.10, button round
+                    17.11.2026): the glyph over its word */}
+                <button type="button" className={s.utilBtn} aria-label={C.tools.pin} onClick={() => setTool('pin')}><Icon id="pin" /><span>{C.tools.pinShort}</span></button>
                 {/* lit while its menu stands open, like the Einsatz phone's compass (ELEM.6) */}
                 <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly variant="util" btnClassName={s.utilBtn} activeClassName={s.utilOpen} glyphClassName={s.utilGlyph}
-                  open={viewsOpen} onOpenChange={setViewsOpen} />
+                  label={appConfig.copy.mapViews.title} open={viewsOpen} onOpenChange={setViewsOpen} />
               </div>
             )}
           </>

@@ -9,6 +9,7 @@ type Keys =
   | 'exerciseInitial' | 'keepPlacing' | 'delete' | 'remove' | 'undo' | 'redo' | 'undoNamed'
   | 'redoNamed' | 'undoLost' | 'removedToast' | 'undoDomains' | 'undoSurfaces' | 'undoTopDropped'
   | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'noHits' | 'keepPlacingShort' | 'filterNoHits'
+  | 'filterStrip'
 
 export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   baseMap: 'Base map',
@@ -63,4 +64,10 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   noHits: 'No matches for «{q}».',
   keepPlacingShort: 'Several',
   filterNoHits: 'No entries in this selection.',
+  filterStrip: {
+    filtered: 'Filtered:',
+    sorted: 'Sorted:',
+    count: '{n} of {m}',
+    showAll: 'Show all',
+  },
 }

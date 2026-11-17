@@ -121,6 +121,7 @@ export const linksCopy = {
     // Einstellungen: the name row under «Standort verwenden» — the value is the button
     settingsName: 'Name auf der Karte',
     settingsNameSub: 'So sieht dich der Kommandoposten – tippen zum Ändern',
+    pillWord: 'Standort',
   },
   // Anwesenheit list: live position next to the name. Deliberately neutral – far away is the
   // normal case (Wassertransport), not a warning.
@@ -163,5 +164,6 @@ export const linksCopy = {
     startFailed: 'Präsentation nicht gestartet – erneut versuchen',
     endFailed: 'Präsentation nicht beendet – erneut versuchen',
     full: 'Präsentation voll – zu viele Teilnehmende über einen Link. Später nochmals «Folgen».',
+    leaveWord: 'Verlassen',
   },
 } as const

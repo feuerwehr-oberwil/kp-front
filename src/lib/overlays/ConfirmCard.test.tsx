@@ -21,6 +21,25 @@ describe('ConfirmCard · initial focus', () => {
   })
 })
 
+// button sweep SHEETS.1 (17.11.2026): a remove carries the bin – in a confirm too, but only where
+// the danger answer IS a removal («Abmelden» is a danger and no bin)
+describe('ConfirmCard · the bin', () => {
+  it('leads a removing danger answer with the bin, and leaves a plain danger answer bare', () => {
+    render(<ConfirmCard open title="Übung löschen?" message="" confirmLabel="Endgültig löschen" cancelLabel="Abbrechen" danger bin onResolve={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Endgültig löschen' }).querySelector('svg')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Abbrechen' }).querySelector('svg')).toBeNull()
+    cleanup()
+    render(<ConfirmCard open {...ask} danger onResolve={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Abmelden' }).querySelector('svg')).toBeNull()
+  })
+
+  it('puts it on a removing alternative («Verwerfen»), not on the confirm beside it', () => {
+    render(<ConfirmCard open message="" confirmLabel="Speichern" cancelLabel="Weiterzeichnen" altLabel="Verwerfen" altDanger bin onResolve={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Verwerfen' }).querySelector('svg')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Speichern' }).querySelector('svg')).toBeNull()
+  })
+})
+
 // the double-contact question: «OK» (writes nothing) is the one a reflex presses (25.09.2026)
 describe('ConfirmCard · safeAnswer', () => {
   const echo = { message: 'T1: Kontakt wurde vor 21 s schon bestätigt.', confirmLabel: 'Nochmals', cancelLabel: 'OK' }

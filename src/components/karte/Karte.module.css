@@ -411,7 +411,7 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
    the screen's foot — the chrome floats over the plan. A touch on that part of the page still
    reaches the stage (the board is its child). Pinned by site check «drag» (PR #384). */
 .root.phone .surface :global(.wb-canvas) { overflow: visible; }
-.chipRow { position: absolute; left: calc(var(--rail-w) + 28px); bottom: 16px; z-index: var(--z-chrome); display: flex; gap: var(--float-gap); flex-wrap: wrap; }
+.chipRow { position: absolute; left: calc(var(--rail-w) + 28px); bottom: 16px; z-index: var(--z-chrome); display: flex; gap: var(--float-gap); flex-wrap: wrap; --float-h: var(--line-h); }
 .phone .chipRow { left: max(8px, env(safe-area-inset-left)); bottom: calc(var(--rail-h, 60px) + 16px + env(safe-area-inset-bottom)); }
 /* «Schärfere Ansicht wird geladen …» (owner, review round 3: zoomed in fast, the plan was a blurry
    upscale with no word why): top centre of the plan, under the bar, the floating family's look and
@@ -436,16 +436,33 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 
 /* ── the surface root and the phone's map buttons ─────────────────────────────────────────── */
 .root { background: var(--map-bg); }
-.phoneUtil { position: absolute; right: max(8px, env(safe-area-inset-right)); bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); z-index: var(--z-chrome);
+/* on the bottom line: one --float-gap over the bar like the chip row beside it (owner pick 21,
+   17.11.2026 – it stood 16px over it, 8px higher than every other piece of the line) */
+.phoneUtil { position: absolute; right: max(8px, env(safe-area-inset-right)); bottom: calc(var(--rail-h) + 16px + env(safe-area-inset-bottom)); z-index: var(--z-chrome);
   display: flex; flex-direction: column; gap: var(--sp-2); }
 /* the floating family's piece (01-tokens · --float-*): its row height, its inset edge and shadow —
-   it wore a border and a lighter shadow of its own beside the hint and the chips (review round 4) */
-.utilBtn { width: var(--float-h); height: var(--float-h); display: grid; place-items: center; border: none; border-radius: var(--r-sm);
-  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); cursor: pointer; }
+   it wore a border and a lighter shadow of its own beside the hint and the chips (review round 4).
+   A TILE of the floating row (button round 17.11.2026, CHROME.10 + owner pick 12C): the Eintrag
+   FAB's anatomy (15-mobile · .fab-entry), the 22px glyph band flush on the 11/700 word, centred.
+   The column stretches both to the wider word, so «Punkt setzen» and «Ansichten» stand as one
+   stack; a word past the cap ellipsises inside its tile (the button's name stays whole). The bar's
+   height and the bars' corner like every piece of the bottom line (01-tokens · --line-h, owner
+   picks 20 + 21, 17.11.2026). */
+.phoneUtil { align-items: stretch; --float-h: var(--line-h); }
+.utilBtn { min-width: var(--float-h); max-width: 136px; height: var(--float-h); padding: 0 var(--sp-2); box-sizing: border-box;
+  display: grid; grid-template-rows: 22px auto; grid-template-columns: minmax(0, 1fr); align-content: center; justify-items: center;
+  border: none; border-radius: var(--r-bar);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); cursor: pointer;
+  font: var(--fw-bold) var(--fs-micro)/1.3 var(--body); }
+.utilBtn > span:last-child:not(:first-child) { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (hover: hover) { .utilBtn:hover { background-image: linear-gradient(var(--hover), var(--hover)); } }
 .utilBtn:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* its menu stands open: the «open» wash, as every opener (ELEM.6) */
 .utilOpen { background-color: var(--sel-wash); color: var(--blue-strong); }
+/* …and the bar's Ebenen while its panel stands open (CHROME.10): the same open look, not the ink
+   pill of «you are here» (05-navrail · .nav-item.on) */
+:global(.nav-item).navOpen { background: var(--sel-wash); color: var(--blue-strong); }
+@media (hover: hover) { :global(.nav-item).navOpen:hover { background: var(--sel-wash); } }
 .utilBtn svg { width: 22px; height: 22px; }
 .utilGlyph { display: grid; place-items: center; }
 .quick > * { flex: 1 1 0; min-width: max-content; white-space: nowrap; }

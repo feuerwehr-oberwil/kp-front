@@ -1,4 +1,4 @@
-import type { LngLat } from '../types'
+import type { Drawing, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
 import { formatLocale } from './format'
 
@@ -15,6 +15,15 @@ export function circlePolygon(center: LngLat, radiusM: number, n = 96): number[]
     ])
   }
   return [ring]
+}
+
+/** The points that bound a drawn Linie / Fläche / Absperrkreis: its vertices, or – a circle
+ *  stores only its centre – its outline. Frames the Lage on open and a drawing's «Zentrieren». */
+export function drawingExtent(d: Pick<Drawing, 'kind' | 'coords' | 'radiusM'>): LngLat[] {
+  if (d.kind === 'circle' && d.radiusM && d.coords[0]) {
+    return circlePolygon(d.coords[0], d.radiusM, 8)[0].map(([lng, lat]) => [lng, lat] as LngLat)
+  }
+  return d.coords
 }
 
 // WGS84 (lon,lat °) → Schweizer Landeskoordinaten LV95 (E,N in m). swisstopo-Näherungsformel.

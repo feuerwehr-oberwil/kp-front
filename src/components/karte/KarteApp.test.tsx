@@ -788,6 +788,23 @@ describe('KarteApp', () => {
     expect(screen.queryByTestId('pdf')).toBeNull()
   })
 
+  // button round 17.11.2026 (CHROME.10): Ebenen OPENS a panel – open it is expanded (the open wash),
+  // not pressed, and the Karte stays «here»; the two map squares say their word under the glyph
+  it('on a phone: open Ebenen is expanded, not pressed, and the map squares are worded', async () => {
+    rec.phone = true
+    mount()
+    const nav = await screen.findByRole('navigation', { name: 'Karte & Objekte' })
+    expect(screen.getByRole('button', { name: appConfig.copy.karte.tools.pin }).textContent).toBe(appConfig.copy.karte.tools.pinShort)
+    expect(screen.getByRole('button', { name: appConfig.copy.mapViews.title }).textContent).toBe(appConfig.copy.mapViews.title)
+    const ebenen = within(nav).getByRole('button', { name: 'Ebenen' })
+    expect(ebenen.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(ebenen)
+    expect(ebenen.getAttribute('aria-expanded')).toBe('true')
+    expect(ebenen.hasAttribute('aria-pressed')).toBe(false)
+    expect(ebenen.classList.contains('on')).toBe(false)
+    expect(within(nav).getByRole('button', { name: 'Karte' }).classList.contains('on')).toBe(true)
+  })
+
   // owner, 19.10.2026 (Checkliste on the Karte home, variant A): the bar never changes — the two
   // surfaces │ the map's tools; a tool tapped on the Checkliste goes back to the Karte with it armed
   it('on a phone: Karte · Checkliste │ tools, the bar field feeds the library, a tool goes back armed', async () => {
@@ -810,9 +827,9 @@ describe('KarteApp', () => {
     expect(screen.getByRole('button', { name: 'Suchen' })).toBeTruthy()
   })
 
-  // «Beschriftung» reaches every bar here as in an Einsatz (owner, 07.11.2026) – and the left
-  // rail keeps its chevron with the words on (the regression of 20.10.2026 was losing it)
-  it('with saved toolbar labels: words on every bar, and the left rail still expands and collapses', async () => {
+  // «Beschriftung» reaches every bar here as in an Einsatz (owner, 07.11.2026) – and, as there,
+  // the left rail drops its chevron with the words on (owner, 16.11.2026)
+  it('with saved toolbar labels: words on every bar, and the left rail no longer expands', async () => {
     const prefs = loadPrefs()
     savePrefs({ ...prefs, railLabels: 'short', railLabelsChosen: true })
     try {
@@ -822,12 +839,7 @@ describe('KarteApp', () => {
       expect(document.querySelector('aside.tool-rail.labelled')).toBeTruthy()
       expect(document.querySelector('.view-bar.labelled')).toBeTruthy()
       expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('92px')
-      fireEvent.click(within(rail).getByRole('button', { name: 'Ausklappen' }))
-      expect(rail.classList.contains('expanded')).toBe(true)
-      expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('216px')
-      fireEvent.click(within(rail).getByRole('button', { name: 'Einklappen' }))
-      expect(rail.classList.contains('expanded')).toBe(false)
-      expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('92px')
+      expect(within(rail).queryByRole('button', { name: 'Ausklappen' })).toBeNull()
       await act(async () => {})
     } finally {
       savePrefs(prefs)

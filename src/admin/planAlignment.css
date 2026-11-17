@@ -143,13 +143,14 @@
 .adm-floors-zoom { display: inline-flex; align-items: center; gap: 2px; flex: none;
   padding: 2px; border: 1px solid var(--border-soft); border-radius: var(--r-ctl); background: var(--fill-soft); }
 .adm-floors-zoom button { appearance: none; border: 0; background: transparent; border-radius: calc(var(--r-ctl) - 3px);
-  width: 40px; height: 40px; display: grid; place-items: center; color: var(--ink-dim); cursor: pointer; }
+  height: 40px; padding: 0 var(--sp-3); display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--ink-dim); cursor: pointer;
+  font: var(--fw-bold) var(--fs-1) var(--body); white-space: nowrap; }
 @media (hover: hover) {
   .adm-floors-zoom button:hover:not(:disabled) { background: var(--surface); color: var(--ink); }
 }
 .adm-floors-zoom button:disabled { opacity: var(--disabled); cursor: default; }
 .adm-floors-zoom .i { width: 16px; height: 16px; }
-.adm-floors-zoom .adm-floors-zoom-value { width: auto; min-width: 58px; font: 600 var(--fs-1) var(--mono); font-variant-numeric: tabular-nums; }
+.adm-floors-zoom .adm-floors-zoom-value { min-width: 58px; font: 600 var(--fs-1) var(--mono); font-variant-numeric: tabular-nums; }
 .adm-floors-paper { position: relative; flex: 1; min-height: 0; display: flex; }
 .adm-floors-viewport { flex: 1; min-width: 0; min-height: 0; overflow: auto; background: var(--canvas-bg); }
 /* the raster IS the paper: the drawing must sit on a sheet, not on the panel surface */

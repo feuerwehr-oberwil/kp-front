@@ -10,7 +10,7 @@ import { ShapeEditor } from '../components/ShapeEditor'
 import { appConfig } from '../config/appConfig'
 import { connectedLineLabel } from '../lib/connectedLines'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
-import { polygonAreaM2, bboxSizeM, pathLengthM, haversineM, fmtDistance } from '../lib/geo'
+import { polygonAreaM2, bboxSizeM, pathLengthM, haversineM, fmtDistance, drawingExtent } from '../lib/geo'
 import { undoToast } from '../lib/ui'
 import { recordKey } from '../lib/undoKeys'
 import { ergAdoptedRadii } from '../lib/ergAdopt'
@@ -40,6 +40,8 @@ export interface MapDetailPanelsProps {
   commit: (updater: (d: Doc) => Doc, opts?: { gesture?: boolean }) => void
   setSelectedId: Dispatch<SetStateAction<string | null>>
   flyToMapVisible: (center: LngLat, zoom: number) => void
+  /** frame a set of points in the visible part of the map (a drawing's «Zentrieren») */
+  fitMapVisible: (pts: LngLat[]) => void
   deleteEntity: (id: string) => Promise<boolean>
   timeline: TimelineEvent[]
   sym: ReturnType<typeof useSymbols>
@@ -112,7 +114,7 @@ export interface MapDetailPanelsProps {
 }
 
 export function MapDetailPanels({
-  detailSlotFree, tacticalLocked, tool, selected, commit, setSelectedId, flyToMapVisible, deleteEntity,
+  detailSlotFree, tacticalLocked, tool, selected, commit, setSelectedId, flyToMapVisible, fitMapVisible, deleteEntity,
   timeline, sym, entityTypedAt, titleLiveRef, beginDrag,
   setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
   symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
@@ -411,6 +413,7 @@ export function MapDetailPanels({
           // locked: the panel keeps the numbers (Länge, Höhenprofil, Fläche) and the
           // Verbindungen, and drops every control that would change the shape
           readOnly={tacticalLocked}
+          onCenter={() => fitMapVisible(drawingExtent(selectedDrawing))}
           areaM2={selectedDrawing.kind === 'circle' ? Math.PI * (selectedDrawing.radiusM ?? 0) ** 2
             : selectedDrawing.kind === 'area' && selectedDrawing.coords.length >= 3 ? polygonAreaM2(selectedDrawing.coords) : null}
           // a circle's box is its bounding square — the diameter each way

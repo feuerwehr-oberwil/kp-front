@@ -28,10 +28,12 @@ Rules that span modules live here; each module's header says what it owns.
   must never be a dead end.
 - **Presenter pill** (bottom centre): «Du präsentierst · N folgen · avatars · Zeigen · Beenden».
   On a phone (owner pick 5B, 14.11.2026 – «Du präsentier» was cut on a 390px iPhone) the own
-  avatar goes and «Beenden» is the neutral ■ square (a stop, not a delete – duck sweep ELEM.11) (its name in `aria-label`/`title`); «Zeigen»
-  keeps its word, the followers' avatars stay. Both text lines ellipsize as the last resort, on
-  every pill.
-- **Everyone else**: «<Name> präsentiert · Folgen». The pill becomes «Folgst <Name> · Zeigen · ✕».
+  avatar goes and «Beenden» is a neutral TILE, the ■ over its word (a stop, not a delete – duck
+  sweep ELEM.11; a tile, not a bare ■ square, since the button sweep audit, owner pick 24,
+  17.11.2026); «Zeigen» keeps its word, the followers' avatars stay. Both text lines ellipsize as
+  the last resort, on every pill.
+- **Everyone else**: «<Name> präsentiert · Folgen». The pill becomes «Folgst <Name> · Zeigen · ✕
+  Verlassen» (the ✕ with its word – a phone stacks it like «Beenden»).
   Following mirrors (owner picks 06.11.2026, «follow ALL of these»):
   - the **surface**: the Karte, the Plan (the open plan; on the Tafel the page), the Checklisten,
     Atemschutz, Anwesenheit, Mittel and the Rapport;
