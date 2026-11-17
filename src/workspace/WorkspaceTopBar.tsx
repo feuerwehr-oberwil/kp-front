@@ -4,12 +4,10 @@
 // The one sheet it owns itself is the menu's «Präsentieren» (F15, 17.11.2026): the share sheet's
 // «Präsentieren» card alone, so the menu suspends under it like under any sheet it opened.
 
-import { useState, type Dispatch, type SetStateAction, type MouseEvent as ReactMouseEvent, type RefObject } from 'react'
+import type { Dispatch, SetStateAction, MouseEvent as ReactMouseEvent, RefObject } from 'react'
 import { IncidentSwitcher, type AppMenuAlarms, type FoldedMenuRow } from '../components/panels'
-import { Modal } from '../components/panels/_shared'
-import { PresentCard } from '../components/Presentation'
 import { linkPageOwnsSession } from '../lib/linkMode'
-import { PresentationContext, type Presentation } from './usePresentation'
+import type { Presentation } from './usePresentation'
 import { SharePositionPill } from '../components/SharePosition'
 import { TopBar } from '../components/TopBar'
 import { appConfig } from '../config/appConfig'
@@ -119,7 +117,7 @@ export interface WorkspaceTopBarProps {
   menuCloseKey: number
   /** «Nur ansehen» in the pill's status slot, and why (workspace/access · viewOnlyReason) */
   viewOnly: ViewOnlyReason | null
-  /** the Präsentationsmodus, for the menu's own «Präsentieren» sheet (F15) */
+  /** the Präsentationsmodus, for the menu's own «Präsentieren», which starts it (F15, pick 29) */
   presentation: Presentation
 }
 
@@ -137,16 +135,8 @@ export function WorkspaceTopBar({
   helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
   menuCloseKey, viewOnly, presentation,
 }: WorkspaceTopBarProps) {
-  const [presentOpen, setPresentOpen] = useState(false)
   return (
     <>
-      {presentOpen && (
-        <PresentationContext.Provider value={presentation}>
-          <Modal title={appConfig.copy.presentation.title} onClose={() => setPresentOpen(false)} fit>
-            <PresentCard bare />
-          </Modal>
-        </PresentationContext.Provider>
-      )}
       <TopBar
         incident={incidentView}
         startedAt={incidentMeta.started_at}
@@ -274,8 +264,11 @@ export function WorkspaceTopBar({
             // handed to somebody. Same gate as every minting door (`canShareLink`): editors,
             // never a viewer, a read-only surface or a link session.
             onShare={canShareLink ? () => setShareLink('view') : undefined}
-            // «Präsentieren» (F15): the same gate as the share sheet's card, which it opens alone
-            onPresent={canShareLink ? () => setPresentOpen(true) : undefined}
+            // «Präsentieren» (F15) STARTS the presentation at once (owner pick 29, 17.11.2026) – the
+            // same call as the share sheet card's start button; the presentation's own stop is the
+            // way out. The card's gate (`canShareLink`), and only while this device can start one
+            // and is not already presenting.
+            onPresent={canShareLink && presentation.canStart && presentation.follow.kind !== 'presenting' ? () => void presentation.start() : undefined}
             onHelp={() => setHelpOpen(true)}
             onInstall={isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true)}
             onSyncNow={syncNow}
@@ -300,7 +293,7 @@ export function WorkspaceTopBar({
             onBackFromArchive={onBackFromArchive}
             onReactivate={onReactivateActive}
             navKey={`${mode}|${journalOpen ? 'journal' : ''}|${menuCloseKey}`}
-            sheetOpen={settingsOpen || helpOpen || installGuideOpen || offlineReadyOpen || !!shareLink || presentOpen}
+            sheetOpen={settingsOpen || helpOpen || installGuideOpen || offlineReadyOpen || !!shareLink}
             viewOnly={viewOnly}
           />
         }

@@ -20,8 +20,11 @@ Rules that span modules live here; each module's header says what it owns.
 ## What the operator sees
 
 - **Start**: «Einsatz teilen» → card «Präsentieren» under the read link → «Starten»; or the
-  Einsatz card's fourth act «Präsentieren», beside «Teilen» (F15, 17.11.2026), which opens the
-  same card alone in a sheet (`PresentCard bare`, `WorkspaceTopBar`). The card
+  Einsatz card's fourth act «Präsentieren», beside «Teilen» (F15, 17.11.2026), which STARTS it at
+  once – the card's own start, no sheet asking again (owner pick 29, `WorkspaceTopBar`); the
+  pill's «Beenden» is the way out. That act stands only while this device can start one and is
+  not already presenting (`canStart`); with another presenter running it takes over, as the
+  card's «Übernehmen» does. The card
   is one title row – glyph · «Präsentieren» · the button – with its text under it across the
   card (owner pick 6B, 14.11.2026; phone and tablet alike). Editors only (`canShareLink`). A presentation already running is shown on the card and can be taken
   over («Übernehmen») – the old presenter's tablet may be the one that is gone, and «Starten»
