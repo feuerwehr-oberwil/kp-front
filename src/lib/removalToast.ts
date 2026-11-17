@@ -21,7 +21,7 @@
 
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
-import { confirmDialog, toast, undoToast } from './ui'
+import { confirmDialog, toast, undoToast, type UndoGlyph } from './ui'
 import type { UndoEntry } from './undoTimeline'
 
 /** What the toast needs of the Einsatz's timeline: its top entry, and the header's ↶. */
@@ -38,23 +38,25 @@ export function connectRemovalToasts(p: RemovalPort): () => void {
   return () => { if (port === p) port = null }
 }
 
-/** Toasts of this kind replace each other: five bins in a row are one pill, every act on ↶. */
-const KIND = 'removal'
 
 /**
  * Run `act` – a removal that lays its own ↶ step – and show «`text` · Rückgängig».
  * An act that laid no step (read-only, nothing to remove) gets no toast: there is nothing to
  * take back, and «entfernt» would be a claim. Outside an Einsatz (no timeline plugged in) the
  * sentence stands alone, without the button. Returns what `act` returns.
+ * `glyph`: a removal leads with the bin; the one other act on this door – a Grundriss copied onto
+ * storeys that are off screen (Whiteboard · copyStorey) – with ↶.
  */
-export function removeWithUndo<T>(text: string, act: () => T): T {
+export function removeWithUndo<T>(text: string, act: () => T, glyph: UndoGlyph = 'trash'): T {
   const p = port
   const before = p?.peek() ?? null
   const out = act()
-  if (!p) { toast(text, { icon: 'trash', kind: KIND }); return out }
+  // no timeline: the bare sentence, no button – its own kind, so five bins are still one pill
+  if (!p) { toast(text, { icon: glyph, kind: 'removal' }); return out }
   const step = p.peek()
   if (!step || step === before) return out
-  undoToast(text, () => p.undo(), () => p.peek() === step, { kind: KIND })
+  // the default undo kind: five bins in a row are one pill, every act on ↶
+  undoToast(text, () => p.undo(), () => p.peek() === step, { glyph })
   return out
 }
 
