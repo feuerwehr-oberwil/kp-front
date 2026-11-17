@@ -307,6 +307,14 @@
      also the symbol's [Mehrere · ✕] beside the armed pill */
   :is(.sel-bar, .armed-pill-dock) { height: var(--rail-h); padding: 4px 8px; gap: var(--sp-2); }
   :is(.sel-bar, .armed-pill-dock).worded > button { min-width: 50px; height: 46px; }
+  /* ONE phone tile (button round 17.11.2026, integration): the worded dock row, the ✥ ⟳ bar and
+     [Mehrere · ✕] wear the tool bar's measured inside – the 22px glyph band flush on its 11/700
+     word (the tool bar's `.labelled .vrail-glyph`, the floating tiles' `.fab-entry` / `.wb-tile` /
+     Karte · `.utilBtn`), not the tablet column's 24px band + 2px gap (09-whiteboard). Only the
+     family height differs: 46 in a bar, `--float-h` in the floating row. */
+  :is(.phone-tools .wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded),
+    :is(.sel-bar, .armed-pill-dock).worded > button) { grid-template-rows: 22px auto; gap: 0; }
+  :is(.phone-tools .wb-dock.wb-dock-worded, .sel-bar.worded, .armed-pill-dock.worded) .wb-dock-word { line-height: 1.3; }
   /* (the Eintrag-FAB clears both bars on the drawing surfaces through --float-bottom, below) */
   /* the armed tool's readout stands on THE floating row's baseline (--float-bottom, below): one
      gap above the tool bar when the tool has no dock (Symbol), one gap above the dock while one is
