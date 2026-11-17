@@ -181,7 +181,12 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       text: textTouched.current ? text : undefined,
       alarmiertAt: alarmiertAt !== openedAlarm ? alarmiertAt : undefined,
     }, opened)
-    if (kept) keepDraft(draftKey, kept)
+    // the reload-proof copy is what was TYPED – the picked location stays in memory only and is
+    // picked again after a reload (the address text is back to pick it from)
+    if (kept) keepDraft<WizardFields>(draftKey, kept, {
+      title: kept.title, address: kept.address, kategorie: kept.kategorie, coord: null,
+      isExercise: kept.isExercise, text: kept.text, alarmiertAt: kept.alarmiertAt,
+    } satisfies WizardFields)
     else clearDraft(draftKey)
   }, [title, address, kategorie, coord, isExercise, text, alarmiertAt, opened, openedAlarm, draftKey])
   /** «Abbrechen»: the deliberate way out, so the draft goes too */
