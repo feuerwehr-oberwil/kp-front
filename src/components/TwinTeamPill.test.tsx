@@ -165,6 +165,23 @@ describe('the worded bar', () => {
     expect(rows[1].querySelector('.de-menu-tick.on')).not.toBeNull()
   })
 
+  // on a phone five worded buttons are wider than the screen: the delete rows join «Mehr», the
+  // bar stays one row (lead call at integration, 17.11.2026)
+  it('folds the delete rows into «Mehr» on a phone, last and in the danger tone', () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      matches: true, media: q, onchange: null, addEventListener: () => {}, removeEventListener: () => {},
+      addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+    }))
+    const { container } = full()
+    expect(barButtons(container).map((b) => b.textContent)).toEqual([
+      appConfig.copy.contextPanel.dockedRelease, W.showTrupp, A.markerLabel, W.barMore,
+    ])
+    fireEvent.click(screen.getByRole('button', { name: W.barMore }))
+    const rows = screen.getAllByRole('menuitem').map((r) => r.textContent)
+    expect(rows.slice(-2)).toEqual([W.removeMarker, W.clearTrail])
+    vi.unstubAllGlobals()
+  })
+
   it('draws no «Mehr» where the state has no rare door', () => {
     render(<TwinTeamPill name="Meier Anna" color="#c00" raus={false} truppId="t1" trailCount={0} trailShown={false} trupps={TRUPPS}
       acts={{ showTrupp: () => {}, pick: () => {}, remove: () => {} }} />)

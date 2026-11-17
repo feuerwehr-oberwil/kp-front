@@ -28,6 +28,7 @@ import { floorLabel } from '../lib/whiteboard'
 import type { LineTone, TeamLineBadge } from '../lib/truppLines'
 import { truppStateWord } from './truppCardText'
 import { useRailLabels } from '../lib/useDevicePrefs'
+import { useIsPhone } from '../lib/useIsPhone'
 import type { Trupp } from '../types'
 
 /**
@@ -280,8 +281,12 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
      dock tiles do, and the three rare doors – «Position markieren», «Spuren», the original – fold
      into a worded «Mehr» whose rows carry glyph + full word: the bar keeps at most four worded
      buttons (Lösen or the pen · Zum Trupp · Atemschutz-Trupp · Entfernen) plus «Mehr», on every
-     surface and device. Off, the bar is the flat glyph row it always was. The `aria-label`s stay. */
+     surface and device. Off, the bar is the flat glyph row it always was. The `aria-label`s stay.
+     On a PHONE the five worded buttons are wider than the screen and «Entfernen» wrapped onto a row
+     of its own, so there the delete rows join «Mehr» as its last rows and the bar stays one row. */
   const worded = useRailLabels() === 'short'
+  const isPhone = useIsPhone()
+  const removeInMore = worded && isPhone
   const barWord = (w: string) => worded ? <span className="wb-pa-word">{w}</span> : null
   const W = appConfig.copy.whiteboard
   const rare: { key: string; icon: string; label: string; onClick: () => void; cls?: string; pressed?: boolean }[] = [
@@ -292,6 +297,13 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
     ...(trailCount > 0 && toggleTrail ? [{ key: 'trails', icon: 'eye', label: W.trails, onClick: toggleTrail, pressed: trailShown }] : []),
     ...(toOriginal && originalLabel ? [{ key: 'orig', icon: 'external', label: originalLabel, onClick: toOriginal }] : []),
   ]
+  // the delete rows: the marker alone, and – where it carries a Spur – the trail alone or both
+  // (see «ONE trash» below). The bar's trash menu and the phone's «Mehr» show the same rows.
+  const removeRows = acts?.remove ? [
+    { label: trailCount > 0 ? W.removeMarker : appConfig.copy.remove, danger: trailCount === 0, onClick: () => acts.remove?.() },
+    ...(trailCount > 0 && acts.clearTrail ? [{ label: W.clearTrail, danger: true, onClick: () => acts.clearTrail?.() }] : []),
+    ...(trailCount > 0 && acts.removeWithTrail ? [{ label: W.removeMarkerTrail, danger: true, onClick: () => acts.removeWithTrail?.() }] : []),
+  ] : []
   const outTrupp = raus ? trupps.find((t) => t.id === truppId) : undefined
   // ⚠️ the pill span carries the native class untouched: putting it on the hit shell made
   // the button the flex container, and Safari's anonymous button box misplaced the cap.
@@ -381,7 +393,7 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
           {pick && <TruppJoinMenu truppId={truppId} trupps={trupps} pick={pick} create={newTrupp}
             onNone={line && unlink && truppId ? unlink : undefined} word={barWord(appConfig.copy.atemschutz.markerLabel)} />}
           {/* the rare doors: flat glyphs with «Beschriftung» off, rows of «Mehr» with it on */}
-          {worded ? (rare.length > 0 && (
+          {worded ? ((rare.length > 0 || (removeInMore && removeRows.length > 0)) && (
             <Menu
               popupClassName="de-menu-pop"
               itemClassName={() => 'de-menu-item'}
@@ -390,13 +402,19 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
                   <Icon id="more" />{barWord(W.barMore)}
                 </button>
               }
-              items={rare.map((a) => ({
-                label: <>
-                  <span className="de-menu-lead" aria-hidden><Icon id={a.icon} /></span>
-                  {a.pressed === undefined ? <span>{a.label}</span> : <MenuPick label={a.label} on={a.pressed} />}
-                </>,
-                onClick: a.onClick,
-              }))}
+              items={[
+                ...rare.map((a) => ({
+                  label: <>
+                    <span className="de-menu-lead" aria-hidden><Icon id={a.icon} /></span>
+                    {a.pressed === undefined ? <span>{a.label}</span> : <MenuPick label={a.label} on={a.pressed} />}
+                  </>,
+                  onClick: a.onClick,
+                })),
+                ...(removeInMore ? removeRows.map((r) => ({
+                  label: <><span className="de-menu-lead" aria-hidden><Icon id="trash" /></span><span>{r.label}</span></>,
+                  danger: r.danger, onClick: r.onClick,
+                })) : []),
+              ]}
             />
           )) : rare.map((a) => (
             <button key={a.key} className={`wb-pa${a.cls ?? ''}${a.pressed ? ' wb-pa-edit' : ''}`} title={a.label} aria-label={a.label}
@@ -410,7 +428,7 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
               owns, lib/truppTrails), the trail alone, or both. The two trail rows are danger rows
               and each confirms before anything is destroyed; a marker with no trail has nothing to
               ask about and the trash removes it straight away, exactly as before. Always last. */}
-          {acts.remove && (trailCount > 0 ? (
+          {acts.remove && !removeInMore && (trailCount > 0 ? (
             <Menu
               popupClassName="de-menu-pop"
               itemClassName={() => 'de-menu-item'}
@@ -419,14 +437,7 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
                   <Icon id="trash" />{barWord(appConfig.copy.remove)}
                 </button>
               }
-              items={[
-                { label: W.removeMarker, onClick: () => acts.remove?.() },
-                ...(acts.clearTrail ? [{ label: W.clearTrail, danger: true, onClick: () => acts.clearTrail?.() }] : []),
-                ...(acts.removeWithTrail ? [{
-                  label: W.removeMarkerTrail, danger: true,
-                  onClick: () => acts.removeWithTrail?.(),
-                }] : []),
-              ]}
+              items={removeRows}
             />
           ) : (
             <button className="wb-pa wb-pa-del" title={appConfig.copy.remove} aria-label={appConfig.copy.remove}

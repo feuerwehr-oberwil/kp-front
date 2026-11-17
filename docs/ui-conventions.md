@@ -599,7 +599,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     (rare-user M10, 17.11.2026): on, every button wears its word under the glyph and the bar holds
     at most four (Lösen or the pen · Zum Trupp · Atemschutz-Trupp · Entfernen, always last) plus a
     worded «Mehr» whose rows carry glyph + word for the rare doors – Position markieren, Spuren
-    (✓ while shown), the original; off, it is the flat glyph row. Wider than the screen, it wraps.
+    (✓ while shown), the original; off, it is the flat glyph row. On a phone the worded bar would
+    wrap «Entfernen» onto a row of its own, so there the delete rows are the LAST rows of «Mehr»
+    (danger tone) and the bar stays one row.
   - *Delete (28.09.2026, owner pick A):* a destructive action is THE delete look — `--del-ink`
     (red-strong) text, a `--del-edge` (red 40%) border, the surface it stands on; the bin and the
     word (a rare delete may be a square bin, still outlined). A bin at the end of a ROW — a time
