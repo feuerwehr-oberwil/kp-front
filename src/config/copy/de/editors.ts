@@ -194,7 +194,6 @@ export const editorsCopy = {
     // and the hold-tooltip — it says what appears, where «Übernehmen» only said that something did
     ergAdopt: 'Absperrkreis übernehmen',
     ergAdopted: 'Absperrkreis gesetzt',
-    ergAdoptedShort: 'gesetzt',
     ergAdoptedToast: 'Absperrkreis {r} gesetzt',
     ergRingsLabel: 'Radius auf der Karte',
     ergRingsOff: 'Aus',

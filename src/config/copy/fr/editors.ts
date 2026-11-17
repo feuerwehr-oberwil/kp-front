@@ -141,7 +141,6 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     dockedRelease: 'Détacher',
     ergAdopt: 'Reprendre comme périmètre',
     ergAdopted: 'Périmètre repris',
-    ergAdoptedShort: 'repris',
     ergAdoptedToast: 'Périmètre {r} repris',
     ergRingsLabel: 'Rayon sur la carte',
     ergRingsOff: 'Non',

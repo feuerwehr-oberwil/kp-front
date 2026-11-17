@@ -384,7 +384,7 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
         const connected = annos.filter((line) => [line.startAttachment, line.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === a.id))
         return connected.length > 0 ? <div className="wb-resource-connections ctx-connections" onPointerDown={(e) => e.stopPropagation()}>
           <span className="ctx-section-label">{appConfig.copy.drawingEditor.connectedLines.replace('{n}', String(connected.length))}</span>
-          {connected.map((line) => <button key={line.id} onClick={() => setSelId(line.id)}><span>{lineLabel(line)}</span><span className="ctx-conn-go" aria-hidden>›</span></button>)}
+          {connected.map((line) => <button key={line.id} onClick={() => setSelId(line.id)}><span>{lineLabel(line)}</span><Icon id="chevron" className="ctx-conn-go" /></button>)}
         </div> : null
       })()}
       {/* ⚠️ No floating ✕ on a selected symbol/shape and no grips row on a selected
