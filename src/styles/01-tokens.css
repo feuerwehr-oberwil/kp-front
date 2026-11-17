@@ -247,6 +247,7 @@
   --z-popover: 60;           /* menus and popovers belonging to one surface */
   --z-drawer: 61;            /* the Verlauf drawer */
   --z-drawer-menu: 62;       /* …and a menu opened inside it */
+  --z-present-over-sheet: 63; /* the phone's presentation pill while a sheet it explains is open (08-toasts) */
   --z-help-scrim: 70;
   --z-help: 71;
   --z-dialog-scrim: 80;      /* `.ui-backdrop` — the modal scrim */

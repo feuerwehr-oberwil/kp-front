@@ -26,13 +26,16 @@
      step line in the Deckung strip, its key swatch, its numbers — reads them from here, so the
      grey/ink/green mapping cannot drift between two surfaces that mean the same thing. They are
      the ONLY colours on this grid that carry meaning: everything else is surface, edge or ink.
-       verfügbar — grey: somebody offered this time, nothing is committed yet
-       geplant   — black/ink: we assigned it (deliberately not --accent; a station's accent is
-                   its brand colour, in Oberwil alarm red, and a plan must not read as an alarm.
-                   Not --blue either any more — shape already carries the state (dashed band vs
-                   solid inset bar), so plain ink loses no information and stays calmer.)
-       anwesend  — green: it actually happened, and it comes from the attendance record */
+     The SHAPE code is KP Rück's (consistency sweep 17.11.2026, XAPP-07 A): filled green = here
+     and usable, hollow = bound, so a mark reads the same in both apps.
+       verfügbar — a PALE FILL (--st-available-fill; its line in the Deckung is the grey
+                   --st-available): somebody offered this time, nothing is committed yet
+       geplant   — a HOLLOW ink outline: we assigned it, the person is bound (deliberately not
+                   --accent; a station's accent is its brand colour, in Oberwil alarm red, and a
+                   plan must not read as an alarm. Not --blue either — shape carries the state.)
+       anwesend  — FILLED green: it actually happened, and it comes from the attendance record */
   --st-available: var(--ink-45);
+  --st-available-fill: color-mix(in srgb, var(--ink) 16%, var(--surface));
   --st-planned: var(--ink);
   --st-actual: var(--green);
   /* one hairline for the whole grid — row edge, clock rule and Deckung rule were three different
@@ -216,18 +219,17 @@
    row height; only the drawing is inset. */
 .bar { position: absolute; top: 0; bottom: 0; border-radius: var(--r-xs); min-width: 10px; }
 .plannedBar { cursor: grab; touch-action: none; background: none; border: none; }
-/* verfügbar — a dashed BAND over the full lane: somebody offered this stretch, and an assignment
+/* verfügbar — a PALE BAND over the full lane: somebody offered this stretch, and an assignment
    is drawn INSIDE it rather than on top of it, so «how much of the offer is taken» is readable
    at a glance instead of hidden under a solid bar. */
 /* The 44px row, top to bottom: 4 margin · 4–31 the band · 33–41 the green strip · 3 margin.
-   The band stops ABOVE the strip on purpose — at inset:4px 0 its dashed bottom edge ran straight
-   through the green, and two lines of different meaning crossing each other is not a diagram. */
+   The band stops ABOVE the strip on purpose — at inset:4px 0 its bottom edge ran straight
+   through the green, and two marks of different meaning touching each other is not a diagram. */
 .plannedBar::before {
   content: ''; position: absolute; inset: 4px 0 13px; border-radius: var(--r-xs);
-  border: 1.5px dashed var(--st-available);
-  background: var(--ink-5);
+  background: var(--st-available-fill);
 }
-/* the stretch under the finger, before it becomes a shift (the dashes come from .plannedBar::before) */
+/* the stretch under the finger, before it becomes a shift (the fill comes from .plannedBar::before) */
 .drawing { opacity: .75; pointer-events: none; }
 /* the glow belongs on the PICTURE, not on the grab box — on the box it drew a halo the full
    height of the row, around a bar that is visibly shorter than that */
@@ -277,21 +279,24 @@
 }
 /* Three states, three LAYERS, in the order a shift lives through them — nested, not stacked, so
    the everyday pair «verfügbar 17:30–21:00, eingeteilt 18:30–20:00» reads as one sentence:
-     verfügbar — dashed GREY band over the whole lane: offered, nothing committed
-     eingeteilt — solid INK bar inset WITHIN that band: assigned (deliberately not var(--accent);
-                 a station's accent is its brand colour, in Oberwil alarm red, and a plan must not
-                 read as an alarm at 3am. Not --blue either any more — shape already says which
-                 state a bar is in. Red stays reserved for a genuine double booking.)
-     anwesend  — solid GREEN strip along the bottom, from the attendance record
+     verfügbar — PALE filled band over the whole lane: offered, nothing committed
+     eingeteilt — HOLLOW ink outline inset WITHIN that band: assigned, the person is bound
+                 (deliberately not var(--accent); a station's accent is its brand colour, in
+                 Oberwil alarm red, and a plan must not read as an alarm at 3am. Not --blue
+                 either — shape already says which state a bar is in. Red stays reserved for a
+                 genuine double booking.)
+     anwesend  — FILLED green strip along the bottom, from the attendance record
+   Filled green = here, hollow = bound: KP Rück's shape code, so both apps read alike (XAPP-07 A).
    They must stay in THIS order in the file: all single-class selectors, so the later rule wins. */
-/* eingeteilt — a SOLID bar, inset so it sits inside the availability band it was cut from and
-   still clears the green strip below. Same single-class specificity game as before: this rule
-   must stay BELOW .plannedBar::before or the dashed band wins and every assignment renders grey. */
+/* eingeteilt — a HOLLOW bar, inset so it sits inside the availability band it was cut from and
+   still clears the green strip below. Its inside is the surface, not the band, so it reads as an
+   outline even over the pale fill. Same single-class specificity game as before: this rule must
+   stay BELOW .plannedBar::before or the pale band wins and every assignment renders as verfügbar. */
 .confirmedBar::before {
   /* 5px in from the band on both sides, so an assignment reads as sitting INSIDE the availability
      it was cut from rather than lying across it */
-  inset: 9px 0 18px; border: none; border-radius: 5px;
-  background: var(--st-planned);
+  inset: 9px 0 18px; border: 2px solid var(--st-planned); border-radius: 5px;
+  background: var(--surface);
 }
 .actual {
   /* its own strip along the bottom: sharing the box with the planned bar meant a solid «geplant»
@@ -452,9 +457,12 @@
   display: inline-flex; align-items: center; gap: var(--sp-1);
   font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--ink-dim); white-space: nowrap;
 }
-.covDot { width: 8px; height: 3px; border-radius: 2px; flex: none; }
-.dotAvailable { background: var(--st-available); }
-.dotPlanned { background: var(--st-planned); }
+/* the swatch is the MARK, not the line: pale fill, hollow ring, green fill, the same three shapes
+   the lanes draw — so one key teaches both the bars above and the lines beside it (their colours
+   are the same). 8px wide like the line swatch it replaced, so the key does not grow. */
+.covDot { box-sizing: border-box; width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.dotAvailable { background: var(--st-available-fill); }
+.dotPlanned { border: 1.5px solid var(--st-planned); }
 .dotActual { background: var(--st-actual); }
 /* the count at «jetzt» rides in the key itself, in ink rather than in its state colour: it is the
    number you read first at 3am, and the swatch two characters to its left already says which

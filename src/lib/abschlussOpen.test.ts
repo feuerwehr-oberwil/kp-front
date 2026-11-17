@@ -22,6 +22,19 @@ describe('abschlussOpenPoints', () => {
   it('says nothing about a Trupp that came back or a queue that is empty', () => {
     expect(abschlussOpenPoints([], 0, 0)).toEqual([])
   })
+  // M5 · A (17.11.2026): no Rapport yet – neither a PDF nor a finished print – leads the list,
+  // counts as open (the confirm turns «Trotzdem abschliessen») and leads to the Rapport
+  it('puts a missing Rapport on top, as an open point that opens the Rapport', () => {
+    const points = abschlussOpenPoints(['zeiten'], 0, 0, true)
+    expect(points[0]).toEqual({ kind: 'report' })
+    expect(countsAsOpen(points[0])).toBe(true)
+    const go = { report: vi.fn(), step: vi.fn(), trupps: vi.fn(), media: vi.fn() }
+    const items = abschlussOpenItems(points, go)
+    expect(items[0].label).toBe('Rapport noch nicht erstellt')
+    items[0].onClick()
+    expect(go.report).toHaveBeenCalledTimes(1)
+    expect(abschlussSheet(abschlussOpenPoints([], 0, 0, true), go).anyOpen).toBe(true)
+  })
 })
 
 describe('what makes the Abschluss a «trotzdem»', () => {
@@ -35,7 +48,7 @@ describe('what makes the Abschluss a «trotzdem»', () => {
 
 describe('every open point is a link', () => {
   it('gives each of the eight Mindestangaben its own named row and target', () => {
-    const go = { step: vi.fn(), trupps: vi.fn(), media: vi.fn() }
+    const go = { report: vi.fn(), step: vi.fn(), trupps: vi.fn(), media: vi.fn() }
     const items = abschlussOpenItems(abschlussOpenPoints([...ABSCHLUSS_STEPS], 0, 0), go)
     expect(items).toHaveLength(ABSCHLUSS_STEPS.length)
     items.forEach((it, i) => {
@@ -49,7 +62,7 @@ describe('every open point is a link', () => {
   })
 
   it('sends a Trupp still out to the Tafel and a queued capture to the Bereitschaft', () => {
-    const go = { step: vi.fn(), trupps: vi.fn(), media: vi.fn() }
+    const go = { report: vi.fn(), step: vi.fn(), trupps: vi.fn(), media: vi.fn() }
     const items = abschlussOpenItems(abschlussOpenPoints([], 2, 3), go)
     expect(items.map((i) => i.label)).toEqual([
       abschlussOpenLabel({ kind: 'trupps', n: 2 }),
@@ -121,7 +134,7 @@ describe('abschlussEndeItem — the Einsatzende pre-filled with «jetzt»', () =
 /* ONE list for both confirms (31.10.2026); since 11.11.2026 a row only opens its field. */
 describe('abschlussSheet — the open points both confirms show', () => {
   it('a pre-filled row stands in its step\'s place and counts as answered; a Trupp out stays open', () => {
-    const go = { step: vi.fn(), trupps: vi.fn(), media: vi.fn() }
+    const go = { report: vi.fn(), step: vi.fn(), trupps: vi.fn(), media: vi.fn() }
     const ende = abschlussEndeItem('2026-10-31T21:41:00.000Z', vi.fn())
     const sheet = abschlussSheet(abschlussOpenPoints(['zeiten'], 0, 2), go, { zeiten: ende })
     expect(sheet.items.map((i) => i.label)).toEqual([appConfig.copy.abschluss.ende, abschlussOpenLabel({ kind: 'media', n: 2 })])

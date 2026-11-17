@@ -7,7 +7,7 @@ import {
 
 const DAY = 24 * 3600 * 1000
 const NOW = Date.UTC(2026, 9, 23, 3, 0)
-const green: ReadinessFacts = { now: NOW, standalone: true, platform: 'ios', permission: 'granted', subscribedAt: NOW - 10 * DAY, sessionUntil: NOW + 80 * DAY }
+const green: ReadinessFacts = { now: NOW, standalone: true, platform: 'ios', permission: 'granted', subscribedAt: NOW - 10 * DAY, sessionUntil: NOW + 80 * DAY, role: 'editor' }
 const byKey = (f: ReadinessFacts) => Object.fromEntries(readinessRows(f).map((r) => [r.key, r]))
 
 describe('the four rows', () => {
@@ -45,6 +45,20 @@ describe('the four rows', () => {
     expect(byKey({ ...green, sessionUntil: NOW - 1 }).session).toMatchObject({ state: 'red', fix: null, sub: 'gone' })
     expect(byKey({ ...green, sessionUntil: NOW + (SESSION_WARN_DAYS - 1) * DAY }).session).toMatchObject({ state: 'warn', sub: 'soon' })
     expect(byKey({ ...green, sessionUntil: null }).session).toMatchObject({ state: 'warn', sub: 'unknown' })
+  })
+})
+
+// rare-user round M2 = B (17.11.2026): «Neuer Einsatz» wakes editors only (push.py · NEW_ALARM_ROLES)
+describe('the account', () => {
+  it('an el or viewer login gets an amber «Konto» row, which makes the line «1 Hinweis»; an editor none', () => {
+    for (const role of ['el', 'viewer'] as const) {
+      const rows = readinessRows({ ...green, role })
+      expect(rows[rows.length - 1]).toEqual({ key: 'role', state: 'warn', fix: null, sub: 'alarmOnly', at: null })
+      expect(readinessSummary(rows)).toEqual({ state: 'warn', count: 1 })
+      expect(alarmReady(rows)).toBe(true) // the Atemschutz alarms still reach it
+    }
+    expect(readinessRows(green).map((r) => r.key)).not.toContain('role')
+    expect(readinessRows({ ...green, role: null }).map((r) => r.key)).not.toContain('role')
   })
 })
 

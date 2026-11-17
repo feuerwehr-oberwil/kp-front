@@ -72,7 +72,8 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     head's last row (inside the band); on the phone's opened card it stands under the collapse
     head, so opening a row moves nothing; the closed phone row never shows it. Still the Trupp
     sheet's door: a button drawn as text, 28px with an invisible 8px touch pad above and below.
-    The chips are Auftrag / Ziel, the jumps, Kanal and Ausrüstung only.
+    The chips are Auftrag / Ziel, the jumps, Kanal and Ausrüstung only. The Ausrüstung is ONE chip,
+    box glyph + the form's words «Retthaube · WBK · Multiwarn», never the Kürzel (rare-user M11).
   - *Crew names are never cut* (31.10.2026, owner): the crew line wraps BETWEEN people only – each
     name is a nowrap span, the « · » is the break – and grows by a line each time; no ellipsis
     (`.crewName`). The chips keep their ellipsis.
@@ -439,8 +440,10 @@ cached list offline). The owner's rule (`lib/foreignAlarm`): two real Einsätze 
 run by two teams and must not distract each other. So every other running Einsatz with such a
 Trupp gets a red «Atemschutz-Alarm» / «Atemschutz-Notfall» over its row in the Einsatz list
 (AppMenuRows), and while such a row exists the SHUT Einsatz pill carries a small red dot at its
-chevron – a reason to open the list (owner pick M11 B, 13.11.2026; `IncidentSwitcher`), gone with
-the row – and that is all while this device works a live Ernstfall. A device standing in an
+chevron – a reason to open the list (owner pick M11 B, 13.11.2026; `IncidentSwitcher`). The same
+dot also lights while another REAL Einsatz runs at all, never for a parallel Übung alone; its name
+says which, the alarm winning (C10, 17.11.2026; `foreignAlarm · pillDot`) – and that is all while
+this device works a live Ernstfall. A device standing in an
 Übung or a closed Einsatz gets the full alarm of a live Ernstfall: the known red row in the
 Meldeleiste with the Einsatz's name in front, and the tone (`ForeignAtemschutzMeldungen`), muted
 per Einsatz; its «Zum Trupp» mutes that Einsatz, switches to it and opens the board on the Trupp

@@ -46,9 +46,10 @@ test('touch time picker stays reachable, commits a wheel selection and can clear
 })
 
 // The composer's compact row (rung 2 of its ladder, 10-journal.css · .is-compact) on a short
-// phone screen: I · A · S, the clock, the ring and mic · upload · camera are ONE grid of eight
-// equal columns – every button the same width and height, on one line (owner, 15.11.2026).
-test('composer compact row: eight equal buttons on one line', async ({ page }, testInfo) => {
+// phone screen: I · A · S, the clock, the ring and ONE paper-clip that holds mic · upload · camera
+// (owner pick M9 · A + round 2, 17.11.2026) are one grid of six equal columns – every button the
+// same width and height, on one line (owner, 15.11.2026).
+test('composer compact row: six equal buttons on one line, the clip holds the media', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'touch-phone', 'the compact row is a phone layout')
   await login(page)
   await ensureIncidentOpen(page)
@@ -57,17 +58,21 @@ test('composer compact row: eight equal buttons on one line', async ({ page }, t
   const row = page.locator('.journal-composer.is-compact .jc-controls')
   await expect(row).toBeVisible()
   const boxes = await row.locator('.jc-chip, .jc-due-btn, .jc-open, .jc-rec')
-    .evaluateAll((els) => els.map((el) => {
-      const { width, height, top } = el.getBoundingClientRect()
-      return { width, height, top }
+    .evaluateAll((els) => els.filter((el) => (el as HTMLElement).offsetParent).map((el) => {
+      const { width, height, top, right } = el.getBoundingClientRect()
+      return { width, height, top, right }
     }))
-  expect(boxes).toHaveLength(8)
+  expect(boxes).toHaveLength(6)
   const [first] = boxes
   for (const b of boxes) {
     expect(b.width).toBeCloseTo(first.width, 0)
     expect(b.height).toBeCloseTo(first.height, 0)
     expect(b.top).toBeCloseTo(first.top, 0)
+    expect(b.right).toBeLessThanOrEqual(390)
   }
   expect(first.height).toBeGreaterThanOrEqual(44)
+  await expect(row.locator('.jc-chip-letter').first()).toHaveText('I')
+  await row.getByRole('button', { name: 'Anhang' }).tap()
+  for (const word of ['Aufnehmen', 'Datei anhängen', 'Foto']) await expect(page.getByRole('menuitem', { name: word })).toBeVisible()
   await expectNoCrash(page, 'composer compact row')
 })

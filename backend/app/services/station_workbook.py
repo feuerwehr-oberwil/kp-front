@@ -2,7 +2,7 @@
 LibreOffice and uploads back.
 
 Scope, stated once because the boundary is the feature: this carries the **list-shaped**
-station data — Mannschaft, Dienstgrade, Fahrzeuge, Mittel + Bestände + Quellen,
+station data — Personal, Dienstgrade, Fahrzeuge, Mittel + Bestände + Quellen,
 Partnerorganisationen, Symbolfeld-Optionen. It is **not a backup** (that is the Sicherung's
 JSON export plus ``admin_config history/restore``), and it deliberately carries no secrets, no
 logos, no Objektpläne, no Kartenebenen and no Alarm-Stichwörter. A station re-importing this
@@ -78,7 +78,7 @@ from ..schemas import load_stored_config
 # once here and reused by the export, the parser and the header check — a template that can
 # drift from its own importer is the kp-rueck failure mode in a different costume.
 
-SHEET_MANNSCHAFT = "Mannschaft"
+SHEET_PERSONAL = "Personal"
 SHEET_DIENSTGRADE = "Dienstgrade"
 SHEET_FAHRZEUGE = "Fahrzeuge"
 SHEET_MITTEL = "Mittel"
@@ -87,9 +87,14 @@ SHEET_QUELLEN = "Quellen"
 SHEET_PARTNER = "Partnerorganisationen"
 SHEET_SYMBOLFELDER = "Symbolfelder"
 
+#: Old tab name → the sheet it is read as. The roster tab was «Mannschaft» until 17.11.2026; in
+#: both KP apps that word is the crew of one Einsatz, the roster is «Personal». A file exported
+#: before the rename still imports, and the preview says the tab has a new name.
+SHEET_ALIASES: dict[str, str] = {"Mannschaft": SHEET_PERSONAL}
+
 #: Sheet → its header row, exactly, in order. Nothing else is accepted (rule 3).
 COLUMNS: dict[str, tuple[str, ...]] = {
-    SHEET_MANNSCHAFT: ("Name", "Grad", "Quelle", "Externe ID", "Aktiv"),
+    SHEET_PERSONAL: ("Name", "Grad", "Quelle", "Externe ID", "Aktiv"),
     SHEET_DIENSTGRADE: ("Schlüssel", "Bezeichnung", "Kürzel", "Stufe"),
     SHEET_FAHRZEUGE: ("Kennung", "Bezeichnung"),
     SHEET_MITTEL: ("Kennung", "Bezeichnung", "Einheit", "Kategorie", "Symbol", "Verbrauchbar"),
@@ -101,7 +106,7 @@ COLUMNS: dict[str, tuple[str, ...]] = {
 
 #: Export order. Also the order the preview lists its impact in.
 SHEET_ORDER: tuple[str, ...] = (
-    SHEET_MANNSCHAFT,
+    SHEET_PERSONAL,
     SHEET_DIENSTGRADE,
     SHEET_FAHRZEUGE,
     SHEET_MITTEL,
@@ -114,7 +119,7 @@ SHEET_ORDER: tuple[str, ...] = (
 #: Column widths, per sheet, in Excel character units — wide enough that a station's real
 #: labels are readable without the operator having to drag anything on first open.
 _WIDTHS: dict[str, tuple[int, ...]] = {
-    SHEET_MANNSCHAFT: (28, 22, 14, 16, 8),
+    SHEET_PERSONAL: (28, 22, 14, 16, 8),
     SHEET_DIENSTGRADE: (26, 26, 12, 16),
     SHEET_FAHRZEUGE: (18, 30),
     SHEET_MITTEL: (22, 32, 10, 20, 22, 14),
@@ -132,7 +137,7 @@ _KEY_CELLS: dict[str, tuple[int, ...]] = {  # sheet → 0-based column indices
     SHEET_MITTEL: (0,),
     SHEET_BESTAENDE: (0, 1),
     SHEET_QUELLEN: (0,),
-    SHEET_MANNSCHAFT: (3,),  # Externe ID — a payroll number with a leading zero is the case
+    SHEET_PERSONAL: (3,),  # Externe ID — a payroll number with a leading zero is the case
 }
 
 #: ``roster.ranks[].tier`` in the operator's words. The only enum with three options.
@@ -282,7 +287,7 @@ class ParsedSheet[T]:
 
     ⚠️ ``present`` is the whole point of this type and the reason it is not a bare list.
     "This file says nothing about Fahrzeuge" and "this station has no Fahrzeuge" are different
-    statements, and collapsing them is a silent wipe: an operator uploading a Mannschaft-only
+    statements, and collapsing them is a silent wipe: an operator uploading a Personal-only
     workbook would lose the fleet. Absent → the key path is not touched at all. Present with
     only a header row → the key path is cleared, deliberately, after a preview that names it.
 
@@ -297,7 +302,7 @@ class ParsedSheet[T]:
 
 @dataclass
 class ParsedWorkbook:
-    mannschaft: ParsedSheet[PersonRow]
+    personal: ParsedSheet[PersonRow]
     dienstgrade: ParsedSheet[RankRow]
     fahrzeuge: ParsedSheet[VehicleRow]
     mittel: ParsedSheet[MittelRow]
@@ -309,6 +314,8 @@ class ParsedWorkbook:
     errors: list[str] = field(default_factory=list)
     #: tabs the importer does not know — reported, never silently ignored (see parse_workbook)
     unknown_sheets: list[str] = field(default_factory=list)
+    #: (old tab, sheet it was read as) for every tab found under a name in ``SHEET_ALIASES``
+    renamed_sheets: list[tuple[str, str]] = field(default_factory=list)
 
 
 # ── cell readers ───────────────────────────────────────────────────────────────────────
@@ -352,7 +359,7 @@ def _defuse_formulas(cells: Iterable[Cell]) -> None:
     a «+41 79 …» phone number and any label starting with «-» both lead with a formula
     character. Row-level also means a column added later is covered without anyone remembering
     this, which matters because four columns already bypass `_text` on the way out (the
-    Mannschaft name and its two identity columns, the Partner name and the Symbolfeld option).
+    Personal name and its two identity columns, the Partner name and the Symbolfeld option).
     """
     for cell in cells:
         if cell.data_type == "f":
@@ -527,7 +534,7 @@ _MAX_MEMBERS = 512
 _MAX_UNCOMPRESSED_BYTES = 128 * 1024 * 1024
 _MAX_COMPRESSION_RATIO = 200
 
-#: Rows per sheet the parser will consider. The Mannschaft of the biggest Swiss Milizfeuerwehr
+#: Rows per sheet the parser will consider. The roster of the biggest Swiss Milizfeuerwehr
 #: is a few hundred; 50 000 is «somebody is not importing a roster».
 _MAX_ROWS_PER_SHEET = 50_000
 
@@ -624,8 +631,16 @@ def parse_workbook(data: bytes, known: set[str] | None = None) -> ParsedWorkbook
         ) from exc
     try:
         errors: list[str] = []
-        present = {name: wb[name] for name in wb.sheetnames if name in COLUMNS}
-        unknown = [n for n in wb.sheetnames if n not in COLUMNS]
+        # canonical sheet → the tab it is read from. A canonical tab wins over an alias of it;
+        # the alias is then just another tab nobody reads, and reported as such.
+        tabs = {name: name for name in wb.sheetnames if name in COLUMNS}
+        for name in wb.sheetnames:
+            canonical = SHEET_ALIASES.get(name)
+            if canonical and canonical not in tabs:
+                tabs[canonical] = name
+        present = {sheet: wb[tab] for sheet, tab in tabs.items()}
+        unknown = [n for n in wb.sheetnames if n not in tabs.values()]
+        renamed = [(tab, sheet) for sheet, tab in tabs.items() if tab != sheet]
 
         def read[T](sheet: str, build: Any) -> ParsedSheet[T]:
             ws = present.get(sheet)
@@ -644,7 +659,7 @@ def parse_workbook(data: bytes, known: set[str] | None = None) -> ParsedWorkbook
             return ParsedSheet[T](present=True, rows=out)
 
         parsed = ParsedWorkbook(
-            mannschaft=read(SHEET_MANNSCHAFT, _person_row),
+            personal=read(SHEET_PERSONAL, _person_row),
             dienstgrade=read(SHEET_DIENSTGRADE, _rank_row),
             fahrzeuge=read(SHEET_FAHRZEUGE, _vehicle_row),
             mittel=read(SHEET_MITTEL, _mittel_row),
@@ -654,6 +669,7 @@ def parse_workbook(data: bytes, known: set[str] | None = None) -> ParsedWorkbook
             symbolfelder=read(SHEET_SYMBOLFELDER, _symbol_row),
             errors=errors,
             unknown_sheets=unknown,
+            renamed_sheets=renamed,
         )
         return parsed
     finally:
@@ -797,7 +813,7 @@ def build_workbook(
     rank_label = {str(r.get("key")): _text(r.get("label") or r.get("key")) for r in ranks}
 
     rows_by_sheet: dict[str, list[list[Any]]] = {
-        SHEET_MANNSCHAFT: [
+        SHEET_PERSONAL: [
             [
                 person_display_name(p, order),
                 rank_label.get(p.rank or "", p.rank or ""),
@@ -898,7 +914,7 @@ class SheetImpact(BaseModel):
     """What one sheet would do — the numbers the confirmation screen is built on.
 
     ``removal_kind`` exists because "absent" means two different things in one workbook, and
-    the two need different German words. A person missing from ``Mannschaft`` is DEACTIVATED
+    the two need different German words. A person missing from ``Personal`` is DEACTIVATED
     (soft — closed incidents resolve names through the row, so it is never deleted); a vehicle
     id missing from ``Fahrzeuge`` is REMOVED from the list. An operator who reads one and gets
     the other has been misled by the screen that was supposed to protect them.
@@ -955,16 +971,16 @@ class ImportPlan:
     #: whether the config document changed at all (an unchanged one is not written)
     config_changed: bool
     roster: RosterPlan | None
-    #: the Mannschaft rows the plan was built from, index-aligned with ``roster.targets`` —
+    #: the Personal rows the plan was built from, index-aligned with ``roster.targets`` —
     #: the write needs the ``Aktiv`` flag, which a RosterCsvRow has no room for
-    mannschaft_rows: list[PersonRow] = field(default_factory=list)
+    personal_rows: list[PersonRow] = field(default_factory=list)
     #: the roster lookup the plan resolved against; the write keeps adding to it as it attaches
     #: identities, so one file naming the same person twice cannot attach two
     roster_index: RosterIndex | None = None
     name_order: NameOrder = DEFAULT_NAME_ORDER
     #: parsed row index → the rank key to write (None = the row named none, leave as is)
     ranks_for_row: dict[int, str | None] = field(default_factory=dict)
-    #: people to deactivate — absent from a present Mannschaft sheet, or marked «nein»
+    #: people to deactivate — absent from a present Personal sheet, or marked «nein»
     deactivate: list[uuid.UUID] = field(default_factory=list)
 
 
@@ -988,6 +1004,9 @@ def plan_import(
     """
     errors = list(parsed.errors)
     warnings = [f"Unbekanntes Blatt «{n}» – wird nicht eingelesen." for n in parsed.unknown_sheets]
+    warnings += [
+        f"Das Blatt «{old}» heisst neu «{new}» – wird als «{new}» eingelesen." for old, new in parsed.renamed_sheets
+    ]
     raw = dict(stored or {})
     # The stored document as the app actually reads it. Comparing a projection against the RAW
     # row would report a difference on every defaulted field the row happens not to carry.
@@ -1212,9 +1231,9 @@ def plan_import(
         impacts.append(SheetImpact(sheet=SHEET_SYMBOLFELDER, present=parsed.symbolfelder.present))
     projected["fleet"] = fleet
 
-    # ── Mannschaft ─────────────────────────────────────────────────────────────────────
+    # ── Personal ─────────────────────────────────────────────────────────────────────────
     roster_plan, rank_for_row, deactivate, person_impact = _plan_people(
-        parsed.mannschaft, people, index, identities, new_ranks, rank_keys, order, errors, warnings
+        parsed.personal, people, index, identities, new_ranks, rank_keys, order, errors, warnings
     )
     impacts.append(person_impact)
 
@@ -1250,7 +1269,7 @@ def plan_import(
         config=normalized,
         config_changed=normalized != base,
         roster=roster_plan,
-        mannschaft_rows=list(parsed.mannschaft.rows),
+        personal_rows=list(parsed.personal.rows),
         roster_index=index,
         name_order=order,
         ranks_for_row=rank_for_row,
@@ -1332,7 +1351,7 @@ def _plan_people(
     errors: list[str],
     warnings: list[str],
 ) -> tuple[RosterPlan | None, dict[int, str | None], list[uuid.UUID], SheetImpact]:
-    """Resolve the Mannschaft sheet onto the roster.
+    """Resolve the Personal sheet onto the roster.
 
     ⚠️ Row identity is NOT this module's invention: it is ``plan_roster_rows``
     (app/personnel), unchanged, the same planner the CSV import and its preview already run.
@@ -1342,7 +1361,7 @@ def _plan_people(
     collapse into one row) is inherited deliberately and named in the admin page's copy.
     """
     if not sheet.present or not sheet.usable:
-        return None, {}, [], SheetImpact(sheet=SHEET_MANNSCHAFT, present=sheet.present)
+        return None, {}, [], SheetImpact(sheet=SHEET_PERSONAL, present=sheet.present)
 
     # The rank column is resolved against the ranks this workbook PROJECTS, not the stored
     # ones: adding a Dienstgrad on one tab and using it on another is the obvious thing to do
@@ -1358,13 +1377,13 @@ def _plan_people(
                 located(
                     f"Grad {cell_text(row.rank_text)} steht nicht im Blatt «{SHEET_DIENSTGRADE}» "
                     f"und die Station kennt ihn nicht. Erlaubt: {_and_more([str(r.get('label')) for r in ranks])}.",
-                    sheet=SHEET_MANNSCHAFT,
+                    sheet=SHEET_PERSONAL,
                     row=row.line,
                 )
             )
         elif hit not in rank_keys:  # defensive: match_rank ran over the same list
             errors.append(
-                located(f"Grad {cell_text(row.rank_text)} ist unbekannt.", sheet=SHEET_MANNSCHAFT, row=row.line)
+                located(f"Grad {cell_text(row.rank_text)} ist unbekannt.", sheet=SHEET_PERSONAL, row=row.line)
             )
         rank_for_row[i] = hit
 
@@ -1374,7 +1393,7 @@ def _plan_people(
     ]
     plan = plan_roster_rows(csv_rows, index)
     for name in plan.duplicate_names:
-        warnings.append(f"«{name}» steht mehrfach im Blatt «{SHEET_MANNSCHAFT}» – wird als eine Person importiert.")
+        warnings.append(f"«{name}» steht mehrfach im Blatt «{SHEET_PERSONAL}» – wird als eine Person importiert.")
 
     by_id = {p.id: p for p in people}
     touched = {t.person_id for t in plan.targets if t.person_id is not None}
@@ -1427,7 +1446,7 @@ def _plan_people(
     deactivate = [p.id for p in people if p.is_active and (p.id not in touched or p.id in off_by_row)]
     names = sorted(person_display_name(by_id[pid], order) for pid in deactivate if pid in by_id)
     impact = SheetImpact(
-        sheet=SHEET_MANNSCHAFT,
+        sheet=SHEET_PERSONAL,
         present=True,
         rows=len(sheet.rows),
         created=created,
@@ -1475,7 +1494,7 @@ def _refuse_orphaned_ranks(
                 f"Der Grad «{key}» fehlt in der Datei, aber {len(names)} "
                 f"{'Person trägt' if len(names) == 1 else 'Personen tragen'} ihn noch: "
                 f"{_and_more(sorted(names))}. Grad behalten oder diese Leute im Blatt "
-                f"«{SHEET_MANNSCHAFT}» umgraden.",
+                f"«{SHEET_PERSONAL}» umgraden.",
                 sheet=SHEET_DIENSTGRADE,
             )
         )

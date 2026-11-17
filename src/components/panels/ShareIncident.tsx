@@ -232,7 +232,7 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, auto
   }
 
   /* ONE TAP (18.09.2026). The QR beside the Atemschutz bell is pressed by somebody already
-     holding the other phone out — «Überwachung abgeben» IS the decision, and a sheet that then
+     holding the other phone out — «Trupps teilen» IS the decision, and a sheet that then
      asks «Link erstellen?» is the same question a second time (the reasoning that removed the
      chooser step in front of this sheet on 03.09.). So that door mints as soon as the fetch says
      there is none, and what opens is the QR.

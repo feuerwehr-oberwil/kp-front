@@ -35,7 +35,8 @@ export type DockItem =
    *  and a committable draft is asked about, never thrown away (useMapDrawing · settleDraft). */
   | { type: 'go'; onClick: () => void; disabled?: boolean; title?: string }
   | { type: 'action'; icon: string; label: string; short?: string; onClick: () => void; disabled?: boolean; cls?: string }
-  | { type: 'info'; text: string }
+  /** `open`: the card stands by itself and the dock draws no ⓘ tile for it (DockInfo · `open`) */
+  | { type: 'info'; text: string; open?: boolean }
 
 /** a dock tile's word under its glyph, the rail tile's `.vrail-label` look (09-whiteboard) */
 const word = (w: string, on: boolean) => on ? <span className="wb-dock-word">{w}</span> : null
@@ -52,7 +53,7 @@ function DockTile({ item, worded }: { item: DockItem; worded: boolean }): ReactN
     case 'action':
       return <button className={item.cls ?? 'wb-dock-tog'} disabled={item.disabled} title={item.label} aria-label={item.label} onClick={item.onClick}><Icon id={item.icon} />{word(item.short ?? item.label, worded)}</button>
     case 'info':
-      return <DockInfo text={item.text} word={worded ? appConfig.copy.toolDock.infoWord : undefined} />
+      return <DockInfo text={item.text} open={item.open} word={worded ? appConfig.copy.toolDock.infoWord : undefined} />
   }
 }
 
@@ -77,7 +78,9 @@ function ArmedTile({ armed, worded }: { armed: ArmedReadout; worded: boolean }) 
  *
  * Controls only — no line of text (20.10.2026, owner: «Remove the line. I don't think they add
  * any value.»). The phone's one-line hint row (3am test r3, 25.09.2026) is gone on every surface;
- * what an armed tool expects is its ⓘ (`info` item).
+ * what an armed tool expects is its ⓘ (`info` item). One exception: a tool whose use is a fixed
+ * sequence of steps opens its ⓘ card by itself (`open`) – calibrating the plan's scale (rare-user
+ * r4, 17.11.2026) – and then draws no ⓘ tile.
  *
  * The dock follows the rails (round 2b, 13.11.2026; round 15.11.2026 #2, owner: «adding the
  * subtitles there too when enabled in settings»): with «Beschriftung der Werkzeugleisten» on,
@@ -92,10 +95,13 @@ function ArmedTile({ armed, worded }: { armed: ArmedReadout; worded: boolean }) 
  * of its own for it ([Unfall · Mehrere · Abbrechen]); Messen passes none (its results panel names it).
  */
 export function ToolDock({ groups, armed = null }: { groups: DockItem[][]; armed?: ArmedReadout | null }) {
-  // the ✕ leaves its group for the dock's end (see DockItem · close); it carries its own group gap
+  // the ✕ leaves its group for the dock's end (see DockItem · close); it carries its own group gap.
+  // A standing ⓘ card draws no tile, so it leaves its group too (no stray gap where it would be).
   const isClose = (item: DockItem) => item.type === 'close'
+  const isStanding = (item: DockItem) => item.type === 'info' && item.open !== undefined
   const close = groups.flat().filter(isClose)
-  const visible = groups.map((g) => g.filter((item) => !isClose(item))).filter((g) => g.length)
+  const standing = groups.flat().filter(isStanding)
+  const visible = groups.map((g) => g.filter((item) => !isClose(item) && !isStanding(item))).filter((g) => g.length)
   const ref = useRef<HTMLDivElement>(null)
   const phone = useIsPhone()
   const level = useRailLevel(ref, !phone)
@@ -110,6 +116,7 @@ export function ToolDock({ groups, armed = null }: { groups: DockItem[][]; armed
         </Fragment>
       ))}
       {close.map((item, i) => <DockTile key={`x-${i}`} item={item} worded={worded} />)}
+      {standing.map((item, i) => <DockTile key={`i-${i}`} item={item} worded={worded} />)}
     </div>
   )
 }

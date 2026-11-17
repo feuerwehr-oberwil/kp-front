@@ -17,14 +17,16 @@
      wide since 28.09.2026 (it was 38px around a 30px disc, under the glove floor) */
   --add-w: var(--tap);
   --board: var(--canvas-bg);
-  /* THE state colours, read from the same mapping the Zeitplan declares — grey «verfügbar», black
-     «eingeteilt». Green is deliberately absent: on the Zeitplan green means ANWESEND, which comes
+  /* THE state colours, read from the same mapping the Zeitplan declares — a pale fill for
+     «verfügbar», a hollow ink outline for «eingeteilt» (KP Rück's shape code: hollow = bound,
+     XAPP-07 A). Green is deliberately absent: on the Zeitplan green means ANWESEND, which comes
      from the attendance record, and this surface never shows the record. A hatched cell is drawn
      in its own state's colour for that reason — hatching says «not keeping to the band», it does
      not introduce a fourth meaning. Deliberately not --accent either: a station's accent is its
      brand colour (in Oberwil alarm red) and a plan must not read as an alarm — shape already
-     carries every state (dashed vs solid, hollow vs filled), so plain ink loses no information. */
+     carries every state (pale fill vs hollow outline), so plain ink loses no information. */
   --st-available: var(--ink-45);
+  --st-available-fill: color-mix(in srgb, var(--ink) 16%, var(--surface));
   --st-planned: var(--ink);
   --edge: var(--glass-edge);
   flex: 1 1 auto; min-height: 0; min-width: 0; max-width: 100%;
@@ -122,10 +124,11 @@
   display: inline-flex; align-items: center; gap: 4px;
   font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--ink-dim); white-space: nowrap;
 }
-/* the same swatch shape the Zeitplan's Deckung key uses, so the two surfaces teach one vocabulary */
-.keyDot { width: 8px; height: 3px; border-radius: 2px; flex: none; }
-.dotAvailable { background: var(--st-available); }
-.dotConfirmed { background: var(--st-planned); }
+/* the same swatch the Zeitplan's Deckung key uses — the mark itself, pale fill and hollow ring —
+   so the two surfaces teach one vocabulary */
+.keyDot { box-sizing: border-box; width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.dotAvailable { background: var(--st-available-fill); }
+.dotConfirmed { border: 1.5px solid var(--st-planned); }
 .whoHead::before { border: none; border-radius: 0; background: var(--board); }
 .headRow .who { z-index: 5; }
 
@@ -181,29 +184,30 @@
 }
 .cell:disabled { cursor: default; }
 /* Hover DARKENS whatever the cell already is; it never repaints it. A single flat hover colour sat
-   above every state rule here (`.cell:hover` outranks `.cellConfirmed`), so hovering a filled ink
-   cell turned it pale grey while its text stayed white — the one word on it became unreadable at
-   exactly the moment you were pointing at it. Each state now dims its own fill. */
+   above every state rule here (`.cell:hover` outranks `.cellConfirmed`), so hovering a then
+   ink-filled cell turned it pale grey while its text stayed white — the one word on it became
+   unreadable at exactly the moment you were pointing at it. Each state now dims its own fill. */
 @media (hover: hover) { .cell:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); } }
 /* the press wash rides every cell state (.cellAvailable/.cellConfirmed set background, not
    background-image); .cellDeviating re-states it below so the hatch survives the press */
 .cell:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
-/* verfügbar — dashed, like the availability band on the Zeitplan lane: offered, nothing committed */
+/* verfügbar — a pale fill, like the availability band on the Zeitplan lane: offered, nothing
+   committed. The border is transparent and there only so all states share one box. */
 .cellAvailable {
-  background: color-mix(in srgb, var(--ink) 6%, var(--surface));
-  border: 1.5px dashed var(--st-available); color: var(--ink-dim);
+  background: var(--st-available-fill);
+  border: 1.5px solid transparent; color: var(--ink-dim);
 }
-/* eingeteilt — solid ink/black, like the assigned bar. Deliberately not var(--accent): a
-   station's accent is its brand colour (in Oberwil alarm red) and a plan must not read as an
-   alarm. */
+/* eingeteilt — a hollow ink outline, like the assigned bar: the person is bound. Deliberately not
+   var(--accent): a station's accent is its brand colour (in Oberwil alarm red) and a plan must
+   not read as an alarm. */
 .cellConfirmed {
-  background: var(--st-planned); border: 1px solid var(--st-planned); color: var(--on-fill);
+  background: var(--surface); border: 2px solid var(--st-planned); color: var(--ink);
 }
 /* …and their own hover, stated AFTER the base hover so they win it back */
 @media (hover: hover) {
-  .cellAvailable:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 12%, var(--surface)); }
-  .cellConfirmed:not(:disabled):hover { background: color-mix(in srgb, #000 14%, var(--st-planned)); }
+  .cellAvailable:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 22%, var(--surface)); }
+  .cellConfirmed:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); }
 }
 /* abweichend — in the band, not keeping to it. Hatched in its OWN state's colour and carrying the
    real hours: the person said something specific about themselves and the grid repeats it rather
@@ -215,7 +219,6 @@
   /* a clock reading, so it keeps the mono face the rest of the surface uses for times */
   font: var(--fw-bold) var(--fs-micro) var(--mono);
 }
-.cellAvailable.cellDeviating { border-style: dashed; }
 /* pressed: the wash stacks OVER the hatch instead of replacing it (.cell:active above would) */
 .cellDeviating:active:not(:disabled) {
   background-image: linear-gradient(var(--press), var(--press)),
@@ -309,17 +312,17 @@
    true of a window holding ONE state end to end; this draws the rest — where nothing is offered,
    where somebody is merely available, and where they are actually assigned. Same two colours as
    the Zeitplan lane, so the two surfaces keep teaching one vocabulary. */
-/* Three levels have to be told apart in 4px, and the cell they sit on is sometimes filled ink and
-   sometimes grey — so they are steps of the cell's OWN ink rather than the two state colours,
-   which would make the segment vanish on an ink-filled cell. Far enough apart to read at arm's
-   length: the gap is the hole, the pale bar is offered, the solid bar is assigned. */
+/* Three levels have to be told apart in 4px, and the cell they sit on is sometimes pale grey and
+   sometimes surface — so they are steps of the cell's OWN ink rather than the two state colours.
+   The same shapes as the marks, as far as 4px allows: the gap is the hole, the pale bar is
+   offered, the outlined bar (a 1px ring round a surface core) is assigned. */
 .strip {
   position: absolute; left: 5px; right: 5px; bottom: 3.5px; height: 4px;
   border-radius: 2px; background: color-mix(in srgb, currentColor 14%, transparent);
 }
 .strip i { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
 .segAvailable { background: color-mix(in srgb, currentColor 45%, transparent); }
-.segConfirmed { background: currentColor; }
+.segConfirmed { background: var(--surface); box-shadow: inset 0 0 0 1px currentColor; }
 /* the cell has to be a positioning context for the strip, and leave it room under the text */
 .cell { position: relative; }
 .cellDeviating .cellLabel, .cellMixed .cellLabel { margin-bottom: var(--sp-1); }

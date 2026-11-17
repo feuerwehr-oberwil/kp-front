@@ -201,7 +201,7 @@ describe('places', () => {
 
 // review round 2
 describe('an object\'s address is the address, never «Schlüsseldepot» in its place', () => {
-  const KIND = 'Stationsobjekt'
+  const KIND = 'Objekt'
   it('knows a name that is an address', () => {
     for (const n of ['Mühlemattstrasse 24', 'Schulstrasse 4', 'Bienenstrasse 28 (EH)', 'Hauptstr. 10a', 'Im Gwidum 3']) expect(nameIsAddress(n), n).toBe(true)
     for (const n of ['Gemeindehaus Musterdorf', 'Schlüsseldepot Schloss', 'ARA Birsig', '', '24 Mühlemattstrasse']) expect(nameIsAddress(n), n).toBe(false)
@@ -226,7 +226,7 @@ describe('an object\'s address is the address, never «Schlüsseldepot» in its 
   it('prints a list row: the address, or once in the title with the place and the kind under it', () => {
     expect(objectRowSub(DEPOT, KIND)).toBe('Schlossgasse 9')
     expect(objectRowSub({ name: 'Mühlemattstrasse 24', address: null }, KIND)).toBe(KIND)
-    expect(objectRowSub({ name: 'Mühlemattstrasse 24', address: 'Mühlemattstrasse 24, 4104 Oberwil' }, KIND)).toBe('4104 Oberwil · Stationsobjekt')
+    expect(objectRowSub({ name: 'Mühlemattstrasse 24', address: 'Mühlemattstrasse 24, 4104 Oberwil' }, KIND)).toBe('4104 Oberwil · Objekt')
     expect(objectRowSub({ name: 'ARA Birsig', address: null }, 'Einsatzobjekt')).toBe('Einsatzobjekt')
   })
   it('prints the head (whose kicker says the kind): the address, the place alone, or nothing', () => {
@@ -264,32 +264,30 @@ Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value:
 describe('session — the temporary-measure guard', () => {
   beforeEach(() => { stores.local.clear(); stores.session.clear() })
 
-  it('persists the view and nothing temporary', () => {
+  it('persists the view and nothing temporary – the open tool included (C3, 17.11.2026)', () => {
     const state = {
       center: CENTER, zoom: 17, bearing: 0, objectId: 'schloss', surface: { plan: 'plan:x:modul1' },
-      tool: 'erg' as const, label: 'Schloss Musterdorf · Modul 1',
+      tool: 'measure', label: 'Schloss Musterdorf · Modul 1',
       // what the viewer holds besides the view — none of it may reach storage
       measure: { mode: 'line', path: [CENTER, [7.571, 47.524]] },
       erg: { un: '1203', ring: 'small', center: CENTER },
       pin: CENTER,
     }
-    expect(Object.keys(karteViewSnapshot(state))).toEqual(['center', 'zoom', 'bearing', 'objectId', 'surface', 'tool', 'label'])
+    expect(Object.keys(karteViewSnapshot(state))).toEqual(['center', 'zoom', 'bearing', 'objectId', 'surface', 'label'])
     saveKarteView(state)
     expect([...stores.session.keys()]).toEqual(['kp.karte.view'])
     expect([...stores.local.keys()]).toEqual([])
     const raw = stores.session.get('kp.karte.view')!
-    // the open tool is kept by name — never what is in it
-    expect(raw).not.toMatch(/measure|path|pin|1203|small/)
+    // not the tool, and nothing that was in it
+    expect(raw).not.toMatch(/measure|tool|path|pin|1203|small/)
     expect(loadKarteView()).toEqual({
-      center: CENTER, zoom: 17, bearing: 0, objectId: 'schloss', surface: { plan: 'plan:x:modul1' }, tool: 'erg', label: 'Schloss Musterdorf · Modul 1',
+      center: CENTER, zoom: 17, bearing: 0, objectId: 'schloss', surface: { plan: 'plan:x:modul1' }, label: 'Schloss Musterdorf · Modul 1',
     })
   })
 
-  it('restores only the tools worth reopening, and no label without a selection', () => {
-    saveKarteView({ center: CENTER, zoom: 15, bearing: 0, objectId: null, surface: 'karte', tool: 'pin' as never, label: '  ' })
-    expect(loadKarteView()).toMatchObject({ tool: null, label: null })
-    saveKarteView({ center: CENTER, zoom: 15, bearing: 0, objectId: null, surface: 'karte' })
-    expect(loadKarteView()).toMatchObject({ tool: null, label: null })
+  it('keeps no label without a selection', () => {
+    saveKarteView({ center: CENTER, zoom: 15, bearing: 0, objectId: null, surface: 'karte', label: '  ' })
+    expect(loadKarteView()).toMatchObject({ label: null })
   })
 
   it('keeps the Checkliste surface by name, and reads an unknown surface as the map', () => {

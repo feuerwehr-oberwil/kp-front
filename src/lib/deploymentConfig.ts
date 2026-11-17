@@ -359,7 +359,7 @@ export function alarmProviderName(): string | null {
   return !p?.provider && i?.diveraConfigured ? providerLabel('divera') : null
 }
 
-/** …the same for the roster's source — «Mannschaft aus X synchronisieren», «Nicht mehr in X». */
+/** …the same for the roster's source — «Mit X abgleichen», «Nicht mehr in X». */
 export function personnelProviderName(): string | null {
   const i = getDeploymentConfig().integrations
   const p = i?.personnel

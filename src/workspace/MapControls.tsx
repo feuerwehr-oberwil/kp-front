@@ -39,6 +39,8 @@ export interface MapControlsProps {
   coord: ReturnType<typeof useCoordPicker>
   panel: 'layers' | null
   layersPreset: LayerPreset
+  /** a content layer is off on this device – the Ebenen button's amber dot */
+  layersHidden: boolean
   /** the Einsatz's category: the Ebenen rows it switches on by default say so (LayerPanel · category) */
   incidentType?: string | null
   togglePanel: (name: 'layers') => void
@@ -71,7 +73,7 @@ export interface MapControlsProps {
 
 export function MapControls({
   mapUI, mapUtility, mapRef, view, viewsApi, readOnly, isEl, viewsOpen, toggleViews, coord, panel,
-  layersPreset, incidentType, togglePanel, isPhone, displayWeather, openWeatherDetails, replayActive,
+  layersPreset, layersHidden, incidentType, togglePanel, isPhone, displayWeather, openWeatherDetails, replayActive,
   georefMode, buildingInfo, buildingFirst, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
   toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
   weather, readings,
@@ -109,6 +111,7 @@ export function MapControls({
               onToggleCoords={coord.cycle}
               layersOn={panel === 'layers'}
               layersPreset={layersPreset}
+              layersHidden={layersHidden}
               onToggleLayers={() => togglePanel('layers')}
             />
           )}

@@ -136,6 +136,12 @@
       <a class="btn btn-ghost" href="https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md" target="_blank" rel="noopener">{{hero.ctaSelf}}</a>
       <span class="cta-note">{{hero.ctaNote}}</span>
     </div>
+    <!--@template
+      The shared-demo notice sits right under «Demo öffnen»: every visitor works in the same
+      demo. Small print on purpose (.fit-note), not a banner – and no rule of its own, so
+      landing.css stays identical to kp-rueck's.
+    -->
+    <p class="fit-note demo-note" role="note">{{hero.demoNote}}</p>
     <figure class="frame">
       <div class="frame-bar" aria-hidden="true">
         <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
