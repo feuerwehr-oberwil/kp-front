@@ -232,13 +232,14 @@ export const anwesenheitCopy = {
     checkIn: 'da',
     checkInLabel: '{name} ist da – als anwesend erfassen',
     allHere: 'Alle, die kommen wollten, sind erfasst.',
-    unmapped: (n: number) => (n === 1 ? '1 Rückmeldung ohne Eintrag in der Mannschaftsliste' : `${n} Rückmeldungen ohne Eintrag in der Mannschaftsliste`),
+    unmapped: (n: number) => (n === 1 ? '1 Rückmeldung ohne Eintrag in der Personalliste' : `${n} Rückmeldungen ohne Eintrag in der Personalliste`),
     hint: 'Eine Divera-Antwort ist keine Anwesenheit – erst «da» erfasst jemanden.',
     collapse: 'Anrückend einklappen',
     expand: 'Anrückend aufklappen',
   },
-  // Schicht planning – the command form «Zeitplan» (who × time), purely planning: planned bars
-  // are hollow, actual Anwesenheit is filled. The plan never writes.
+  // Schicht planning – the command form «Zeitplan» (who × time), purely planning: verfügbar is a
+  // pale band, eingeteilt a hollow outline, actual Anwesenheit filled green (KP Rück's shape code,
+  // XAPP-07 A). The plan never writes.
   zeitplan: {
     title: 'Zeitplan',
     summary: '{planned} eingeplant · {present} jetzt da',
@@ -271,7 +272,7 @@ export const anwesenheitCopy = {
     brokenShift: 'Diese Schicht endet vor ihrem Anfang – zum Korrigieren antippen',
     now: 'jetzt',
     coverage: 'Deckung',
-    coverageHint: 'Drei Linien: grau verfügbar, blau eingeteilt, grün tatsächlich anwesend – wo die grüne Linie einbricht, ist die Lücke.',
+    coverageHint: 'Blass gefüllt = verfügbar, Umriss = eingeteilt, grün gefüllt = tatsächlich anwesend. Die drei Linien zählen sie – wo die grüne einbricht, ist die Lücke.',
     // The coverage row expands: the curve says WHERE the gap is, the numbers say HOW MANY.
     // Collapsed by default – the shape reads at a glance, the digits cost three lines.
     coverageExpand: 'Zahlen zeigen – wie viele verfügbar, eingeteilt und anwesend sind',
@@ -280,7 +281,6 @@ export const anwesenheitCopy = {
     actual: 'anwesend',
     emptyTitle: 'Noch keine Verfügbarkeit erfasst.',
     emptyHint: 'Pro Person planen, wann sie verfügbar ist. Die Anwesenheit bleibt, wie sie ist.',
-    legendHint: 'Hohl = verfügbar · gefüllt = eingeteilt · grün = tatsächlich anwesend',
     print: 'Zeitplan drucken',
     // TWO sheets, picked separately – they answer different questions, so which one was meant is
     // asked rather than guessed. Pick the sheet first, then the route: the sheet names its

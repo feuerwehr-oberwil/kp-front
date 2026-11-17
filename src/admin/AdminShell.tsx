@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { useAuth } from '../lib/auth'
 import { adminLogout } from './adminAuth'
@@ -6,6 +6,7 @@ import { IconSprite, Icon } from '../lib/icons'
 import { InfoTip } from './InfoTip'
 import { ConfigProvider, ConfigGate, ConfigAutosaveStatus } from './ConfigContext'
 import { loadPrefs, savePrefs } from '../lib/prefs'
+import { ADMIN_ENTRIES, ADMIN_NAV, adminAreaOf, adminSectionFromPath, adminSectionHref, resolveAdminSection, type SectionId } from './adminNavigation'
 import { appConfig } from '../config/appConfig'
 import {
   IdentitySection,
@@ -30,96 +31,6 @@ import { CredentialsView } from './CredentialsView'
 import { ObjectVisitsView } from './ObjectVisitsView'
 import { BoardTemplatesView } from './BoardTemplatesView'
 
-// Every admin destination. The sidebar is the ONE navigation surface — no in-page
-// anchor sub-nav, no giant scrolling forms. The former 7-section Konfiguration page is
-// split into five focused "Station" pages that share a single config draft + Save bar
-// (see ConfigContext); everything else is one self-contained page per entry.
-type SectionId =
-  | 'identitaet' | 'doktrin' | 'rapport' | 'alarme' | 'fahrzeuge' | 'material' | 'ebenen' | 'objektplaene'
-  | 'checklisten' | 'tafel' | 'objektbesuche'
-  | 'mitglieder' | 'mannschaft'
-  | 'einsaetze' | 'divera' | 'traccar' | 'arbeitsmappe'
-  | 'zugaenge' | 'links'
-  | 'system' | 'sicherung'
-
-// Nav copy (label/title/lede/[tip]) lives in appConfig.copy.admin.nav.<id>; entries carry
-// only their stable id + icon + which copy group heading they sit under. Resolved to strings
-// inside the component (never at module top level), so locale switches apply.
-interface NavEntry {
-  id: SectionId
-  icon: string
-}
-type GroupKey = 'groupStation' | 'groupPersonen' | 'groupDaten' | 'groupSystem'
-interface NavGroup {
-  heading: GroupKey
-  entries: NavEntry[]
-}
-
-const NAV: NavGroup[] = [
-  {
-    // FIRST, above Station: «System & Wartung» is the landing page (see `initialSection`), and a
-    // sidebar that opens with the active entry two groups down reads as if it had opened
-    // somewhere else.
-    heading: 'groupSystem',
-    // «Anbindungen» sits under System rather than under Daten: it is not one integration's
-    // page, it is the one place every integration's key is entered — and the question that
-    // brings somebody here («warum kommt kein Alarm an?») is a system question.
-    entries: [
-      // FIRST of the first group: this is where /admin lands, so it is also the entry the eye
-      // starts on. Anything above it makes the landing page look like a detour.
-      { id: 'system', icon: 'gauge' },
-      // One glyph per entry (UI sweep 07.10.2026, E7): the lock is «Mitglieder & Zugriff» (who
-      // may log in, with which PIN); the keys every integration connects with wear the chain.
-      { id: 'zugaenge', icon: 'link' },
-      // Directly under Anbindungen, and for the same reason: «Links & Zugänge» is the one
-      // place every address this Wehr gives out is listed, so it belongs beside the one place
-      // every key it receives is entered — not on the integration page that happens to use it.
-      { id: 'links', icon: 'external' },
-      { id: 'sicherung', icon: 'swap' },
-    ],
-  },
-  {
-    heading: 'groupStation',
-    entries: [
-      { id: 'identitaet', icon: 'flag' },
-      { id: 'doktrin', icon: 'compass' },
-      // the printer, not #doc: Objektpläne below wear #doc, as the plan tiles do in the field app
-      { id: 'rapport', icon: 'printer' },
-      { id: 'alarme', icon: 'bell' },
-      { id: 'fahrzeuge', icon: 'truck' },
-      // Next to Fahrzeuge, not under Daten: the Mittel catalogue is the station's own inventory,
-      // and it is the one list that was reachable from nowhere in /admin (see MaterialView).
-      { id: 'material', icon: 'box' },
-      { id: 'ebenen', icon: 'layers' },
-      { id: 'objektplaene', icon: 'doc' },
-      { id: 'checklisten', icon: 'checklist' },
-      // the Tafel's pages travel like the checklists — so they sit beside them
-      { id: 'tafel', icon: 'easel' },
-      // right under Checklisten: its visit checklists are uploaded there
-      { id: 'objektbesuche', icon: 'clipboard' },
-    ],
-  },
-  {
-    heading: 'groupPersonen',
-    entries: [
-      { id: 'mitglieder', icon: 'lock' },
-      { id: 'mannschaft', icon: 'people' },
-    ],
-  },
-  {
-    heading: 'groupDaten',
-    entries: [
-      { id: 'einsaetze', icon: 'history' },
-      { id: 'divera', icon: 'radio' },
-      // a position, not a second #truck: Fahrzeuge & Symbole already wears it
-      { id: 'traccar', icon: 'pin' },
-      { id: 'arbeitsmappe', icon: 'download' },
-    ],
-  },
-]
-
-const ALL_ENTRIES = NAV.flatMap((g) => g.entries)
-
 /** A nav entry's resolved label/title/lede/tip from the active locale's copy catalogue.
  *  ⚠️ The lede is OPTIONAL: a page whose surfaces already say what they are (Objektpläne) drops
  *  it rather than repeating its own sidebar entry in a sentence — the ⓘ on the h1 keeps the
@@ -129,29 +40,12 @@ function navCopy(id: SectionId): { label: string; title: string; lede?: string; 
   return c
 }
 
-/** Last-visited section from the device cookie, validated against the current nav (a stale
- *  or renamed id falls back to the landing page, «System & Wartung»). */
+/** Explicit URLs win over the remembered page. Unknown explicit paths land on System,
+ *  never on an unrelated cookie choice; only bare /admin resumes the last visited page. */
 function initialSection(): SectionId {
-  const saved = loadPrefs().adminSection
-  if (saved === 'karte') return 'identitaet'
-  // «Journal» was one setting behind its own nav stop; it is a group on Rapport now
-  // (ConfigSections · JournalGroup), so a device that remembers it lands where it went.
-  if (saved === 'journal') return 'rapport'
-  // System & Wartung replaced the former Übersicht as the landing page (2026-07-18) —
-  // it answers "is everything healthy/connected?" at a glance, which IS the landing question.
-  if (saved === 'uebersicht') return 'system'
-  // «Statistik-Export» was a page of its own until 2026-09-10 and is a row of «Links & Zugänge»
-  // now (LinksView). «Erfassungsblatt» lost its admin page the same day: the blank sheet is
-  // printed where it is actually needed — in the app, out of the Einstellungen sheet
-  // (components/panels · SettingsSheet) — and what is left of that page in /admin is the
-  // poster's link, also a row there. A device that remembers either lands on that table rather
-  // than silently on the landing page.
-  if (saved === 'statistik' || saved === 'erfassung') return 'links'
-  // «Einsatz-Link» went further on 2026-09-11: it is a signing key, not an address — the
-  // alerting system signs a per-incident token with it — so it lives with the other integration
-  // keys under «Anbindungen» (CredentialsView · IncidentLinkKey), not on the page of addresses.
-  if (saved === 'einsatzlink') return 'zugaenge'
-  return ALL_ENTRIES.some((e) => e.id === saved) ? (saved as SectionId) : 'system'
+  return adminSectionFromPath(window.location.pathname)
+    ?? resolveAdminSection(loadPrefs().adminSection)
+    ?? 'system'
 }
 
 // Station pages that read the shared config document — they get the ConfigGate (draft-loading state).
@@ -171,7 +65,7 @@ const AUTOSAVE_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'rapport'
  *  and a typo there should do nothing rather than push an id the shell cannot render. */
 function navigator(navigate: (id: SectionId) => void) {
   return (id: string) => {
-    const hit = ALL_ENTRIES.find((e) => e.id === id)
+    const hit = ADMIN_ENTRIES.find((e) => e.id === id)
     if (hit) navigate(hit.id)
   }
 }
@@ -233,10 +127,34 @@ export function AdminShell() {
   }
   const C = appConfig.copy.admin
   const appName = getDeploymentConfig().identity?.appName ?? 'KP Front'
-  // Lightweight local section switch (no router); the last page is remembered per device.
+  // Local route state; stable paths and popstate give every page refresh/Back support. The
+  // sidebar shows seven areas; opening one exposes its page links. Navigation changes only the
+  // page: the one ConfigProvider stays mounted, preserving its draft and guards.
   const [section, setSection] = useState<SectionId>(initialSection)
+  const [expandedArea, setExpandedArea] = useState<string | null>(() => adminAreaOf(section).id)
+  const mainRef = useRef<HTMLElement>(null)
   // Mobile drawer open state — desktop ignores this (sidebar is always shown).
   const [navOpen, setNavOpen] = useState(false)
+
+  /** Shows a page without touching history – the one place section state and prefs change. */
+  const show = (id: SectionId) => {
+    setSection(id)
+    setExpandedArea(adminAreaOf(id).id)
+    setNavOpen(false)
+    savePrefs({ ...loadPrefs(), adminSection: id })
+  }
+
+  useEffect(() => {
+    const initial = initialSection()
+    savePrefs({ ...loadPrefs(), adminSection: initial })
+    // canonical URL for whatever was asked (bare /admin, a single segment, an old id)
+    window.history.replaceState(window.history.state, '', adminSectionHref(initial) + window.location.search + window.location.hash)
+    const onPop = () => show(initialSection())
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  useEffect(() => { if (mainRef.current) mainRef.current.scrollTop = 0 }, [section])
   // the phone's sections drawer closes on Escape as on its scrim (S8, 20.10.2026)
   useEffect(() => {
     if (!navOpen) return
@@ -245,14 +163,20 @@ export function AdminShell() {
     return () => document.removeEventListener('keydown', onKey)
   }, [navOpen])
 
-  const active = ALL_ENTRIES.find((e) => e.id === section) ?? ALL_ENTRIES[0]
-  const activeCopy = navCopy(active.id)
+  const activeCopy = navCopy(section)
   const isConfig = CONFIG_SECTIONS.has(section)
 
   const select = (id: SectionId) => {
-    setSection(id)
-    setNavOpen(false)
-    savePrefs({ ...loadPrefs(), adminSection: id })
+    if (window.location.pathname !== adminSectionHref(id)) {
+      window.history.pushState(null, '', adminSectionHref(id))
+    }
+    show(id)
+  }
+
+  const follow = (event: MouseEvent<HTMLAnchorElement>, id: SectionId) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+    event.preventDefault()
+    select(id)
   }
 
   return (
@@ -288,6 +212,10 @@ export function AdminShell() {
           </div>
         </header>
 
+        <div className="adm-save-alert" role="status">
+          <ConfigAutosaveStatus scope="attention" />
+        </div>
+
         <div className="adm-body">
           <nav
             className={`adm-side${navOpen ? ' open' : ''}`}
@@ -313,29 +241,48 @@ export function AdminShell() {
                 </li>
               </ul>
             </div>
-            {NAV.map((group) => (
-              <div className="adm-side-group" key={group.heading}>
-                <p className="adm-side-heading">{C.nav[group.heading]}</p>
-                <ul className="adm-side-list">
-                  {group.entries.map((entry) => {
-                    const on = entry.id === section
-                    return (
-                      <li key={entry.id}>
-                        <button
-                          type="button"
-                          className={`adm-side-item${on ? ' on' : ''}`}
-                          aria-current={on ? 'page' : undefined}
-                          onClick={() => select(entry.id)}
-                        >
-                          <Icon id={entry.icon} className="adm-side-ic" />
-                          <span className="adm-side-label">{navCopy(entry.id).label}</span>
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            ))}
+            {ADMIN_NAV.map((group) => {
+              const activeArea = group.entries.some((entry) => entry.id === section)
+              const first = group.entries[0]
+              const pageLink = (entry: typeof first, label: string) => (
+                <a
+                  className={`adm-side-item${entry.id === section ? ' on' : ''}`}
+                  href={adminSectionHref(entry.id)}
+                  aria-current={entry.id === section ? 'page' : undefined}
+                  onClick={(event) => follow(event, entry.id)}
+                >
+                  <Icon id={entry.icon} className="adm-side-ic" />
+                  <span className="adm-side-label">{label}</span>
+                </a>
+              )
+              if (group.entries.length === 1) {
+                return <div className="adm-side-group" key={group.id}>{pageLink(first, C.nav[group.heading])}</div>
+              }
+              return (
+                <details
+                  className="adm-side-group"
+                  key={group.id}
+                  open={expandedArea === group.id}
+                  onToggle={(event) => {
+                    if (event.currentTarget.open) setExpandedArea(group.id)
+                    else setExpandedArea((current) => current === group.id ? null : current)
+                  }}
+                >
+                  {/* Native disclosure, rather than ListRow: summary owns keyboard/expanded
+                      semantics and exposes the area without navigating to an arbitrary page. */}
+                  <summary className={`adm-side-item${activeArea ? ' on' : ''}`}>
+                    <Icon id={group.icon} className="adm-side-ic" />
+                    <span className="adm-side-label">{C.nav[group.heading]}</span>
+                    <Icon id="chevron-down" className="adm-side-ic" />
+                  </summary>
+                  <ul className="adm-side-list adm-side-pages">
+                    {group.entries.map((entry) => (
+                      <li key={entry.id}>{pageLink(entry, navCopy(entry.id).label)}</li>
+                    ))}
+                  </ul>
+                </details>
+              )
+            })}
           </nav>
 
           {/* scrim closes the mobile drawer on tap-away */}
@@ -348,7 +295,7 @@ export function AdminShell() {
             />
           )}
 
-          <main className="adm-main">
+          <main className="adm-main" ref={mainRef}>
             <div className="adm-col">
               <div className="adm-pagehead">
                 <div>
@@ -362,7 +309,7 @@ export function AdminShell() {
                   </h1>
                   {activeCopy.lede && <p className="adm-lede">{activeCopy.lede}</p>}
                 </div>
-                {AUTOSAVE_SECTIONS.has(section) && <ConfigAutosaveStatus />}
+                {AUTOSAVE_SECTIONS.has(section) && <ConfigAutosaveStatus scope="calm" />}
               </div>
 
               {isConfig ? (

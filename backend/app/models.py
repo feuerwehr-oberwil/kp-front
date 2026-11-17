@@ -791,7 +791,9 @@ class IncidentArchiveReport(Base):
     """The newest Rapport-PDF KP Front composed for an Einsatz – the copy the Einsatz-Ablage
     files (docs/incident-archive.md). Kept only while the Ablage is switched on; one row per
     Einsatz, replaced when a PDF of different content is composed. ``content_sha`` hashes the
-    payload without its print time, so printing the same Rapport twice is one version."""
+    payload without its print time, so printing the same Rapport twice is one version. An
+    explicitly recovered legacy print job instead hashes its source bytes in a separate domain
+    (admin_incident_archive); its storage prefix records the source job id."""
 
     __tablename__ = "incident_archive_reports"
 

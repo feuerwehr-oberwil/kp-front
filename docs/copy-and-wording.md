@@ -90,11 +90,17 @@ réseau · rete).
   the network** (owner, 13.11.2026: «we use "synchronisiert" everywhere» – round 2's «übertragen»
   is gone again). The noun is «Synchronisierung»; «Sync» as a bare word, «lokal gespeichert»,
   «Upload», «Verbindung» (for the network) do not appear in operator copy. Personnel import from
-  an external system is a «Abgleich» (WORD.2). A photo, audio or Beilage still only on this
-  device is «noch nicht synchronisiert» behind the upload arrow on every surface – the Verlauf row,
-  the Rapport's Beilage, the Objektbesuch thumbnail, the closed Einsatz's message – and «Nicht
-  synchronisiert» once it failed; never «Wird geladen», which reads as a download (duck sweep
-  FEEDBACK.7, 17.11.2026).
+  an external system is a «Abgleich» (WORD.2) – «Mit Divera abgleichen», «beim nächsten
+  Abgleich», «Personalabgleich», never «synchronisieren» for the roster. A photo, audio or Beilage
+  still only on this device is «noch nicht synchronisiert» behind the upload arrow on every
+  surface – the Verlauf row, the Rapport's Beilage, the Objektbesuch thumbnail, the closed
+  Einsatz's message – and «Nicht synchronisiert» once it failed; never «Wird geladen», which reads
+  as a download (duck sweep FEEDBACK.7, 17.11.2026).
+- **«Personal» is the roster, «Mannschaft» the crew of a Trupp** – Personalliste, the
+  Arbeitsmappe's «Personal» sheet, «Name und Fahrer kommen aus dem Personal». KP Rück draws the
+  same line (Mannschaft = the crew of an Einsatz/Auftrag) – consistency sweep 17.11.2026,
+  XAPP-04. The Dienstgrad tier «Mannschaft» (Offizier · Unteroffizier · Mannschaft) is the Swiss
+  rank class and stays.
 - **Never claim a state the code has not verified.** A lost response is «… nicht bestätigt», an
   unreachable request «Server nicht erreichbar», a timeout «Keine Antwort» – not «Kein Netz»
   (WORD.2/6). «Server» is allowed on an operator screen for this one meaning (owner, 13.11.2026:

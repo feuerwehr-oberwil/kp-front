@@ -19,9 +19,9 @@ from app.services.station_workbook import (
     SHEET_BESTAENDE,
     SHEET_DIENSTGRADE,
     SHEET_FAHRZEUGE,
-    SHEET_MANNSCHAFT,
     SHEET_MITTEL,
     SHEET_PARTNER,
+    SHEET_PERSONAL,
     SHEET_QUELLEN,
     SHEET_SYMBOLFELDER,
 )
@@ -187,7 +187,7 @@ async def test_export_carries_every_sheet_and_its_rows(client, station):
     # Both partner homes in one sheet, told apart by the Kategorie column
     assert sorted(data[SHEET_PARTNER]) == [["Feuerwehr", "FW Nachbardorf"], ["Rapport", "Polizei BL"]]
     # Ranks are written as their LABEL — the operator edits words, not slugs
-    assert sorted(r[1] for r in data[SHEET_MANNSCHAFT]) == ["Feuerwehrmann", "Hauptmann", "Wachtmeister"]
+    assert sorted(r[1] for r in data[SHEET_PERSONAL]) == ["Feuerwehrmann", "Hauptmann", "Wachtmeister"]
 
 
 async def test_edited_workbook_changes_exactly_what_was_edited(client, station):
@@ -301,6 +301,28 @@ async def test_unknown_sheet_is_reported_not_swallowed(client, station):
     assert any("Fahrzueg" in w for w in body["warnings"])
 
 
+def _xlsx_with_tab(tab: str, columns: tuple[str, ...], rows: list[list]) -> bytes:
+    wb = Workbook()
+    wb.remove(wb.active)
+    ws = wb.create_sheet(tab)
+    ws.append(list(columns))
+    for row in rows:
+        ws.append(row)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+async def test_a_file_from_before_the_rename_still_imports_its_mannschaft_tab(client, station):
+    """The roster tab was «Mannschaft» until 17.11.2026. A file downloaded before then is read the
+    same, and the preview names the new tab rather than calling the old one unknown."""
+    data = _xlsx_with_tab("Mannschaft", COLUMNS[SHEET_PERSONAL], [["Meier Anna", "Hauptmann", None, None, "ja"]])
+    body = await preview(client, data)
+    assert body["ok"] is True, body["errors"]
+    assert impact(body, SHEET_PERSONAL)["removed"] == ["Bläsi Vreni", "Studer Tim"]
+    assert body["warnings"] == ["Das Blatt «Mannschaft» heisst neu «Personal» – wird als «Personal» eingelesen."]
+
+
 # ── ids are join keys ──────────────────────────────────────────────────────────────────
 
 
@@ -350,7 +372,7 @@ async def test_a_planted_formula_exports_as_inert_text(client, db_session, stati
 
     wb = load_workbook(io.BytesIO(await export(client)))
     try:
-        cells = [c for row in wb[SHEET_MANNSCHAFT].iter_rows(min_row=2) for c in row]
+        cells = [c for row in wb[SHEET_PERSONAL].iter_rows(min_row=2) for c in row]
         planted = [c for c in cells if c.value == payload]
         assert planted, "the planted name should still be exported — defused, not dropped"
         assert all(c.data_type == "s" for c in planted), "exported as a live formula"
@@ -417,9 +439,9 @@ async def test_a_source_may_go_once_the_bestaende_sheet_rebooks_it(client, stati
 
 
 async def test_a_person_missing_from_the_sheet_is_deactivated_not_deleted(client, station):
-    data = make_xlsx({SHEET_MANNSCHAFT: [["Meier Anna", "Hauptmann", None, None, "ja"]]})
+    data = make_xlsx({SHEET_PERSONAL: [["Meier Anna", "Hauptmann", None, None, "ja"]]})
     body = await preview(client, data)
-    crew = impact(body, SHEET_MANNSCHAFT)
+    crew = impact(body, SHEET_PERSONAL)
     assert crew["removal_kind"] == "deactivated"
     assert sorted(crew["removed"]) == ["Bläsi Vreni", "Studer Tim"]
 
@@ -443,7 +465,7 @@ async def test_aktiv_nein_deactivates_and_ja_brings_somebody_back(client, statio
         ["Studer Tim", "Feuerwehrmann", None, None, "ja"],
     ]
     assert (
-        await client.post("/api/station-workbook/import", files=upload(make_xlsx({SHEET_MANNSCHAFT: rows})))
+        await client.post("/api/station-workbook/import", files=upload(make_xlsx({SHEET_PERSONAL: rows})))
     ).status_code == 200
     station.expire_all()
     people = {p.display_name: p.is_active for p in (await station.execute(select(Personnel))).scalars()}
@@ -451,7 +473,7 @@ async def test_aktiv_nein_deactivates_and_ja_brings_somebody_back(client, statio
 
     rows[0][4] = "ja"
     assert (
-        await client.post("/api/station-workbook/import", files=upload(make_xlsx({SHEET_MANNSCHAFT: rows})))
+        await client.post("/api/station-workbook/import", files=upload(make_xlsx({SHEET_PERSONAL: rows})))
     ).status_code == 200
     station.expire_all()
     people = {p.display_name: p.is_active for p in (await station.execute(select(Personnel))).scalars()}
@@ -475,16 +497,16 @@ async def test_renaming_a_split_name_says_what_the_rename_costs(client, db_sessi
     rows = [[name, None, None, None, "ja"] for name, _ in CREW]
     body = await preview(
         client,
-        make_xlsx({SHEET_MANNSCHAFT: [*rows, ["Roth-Meier Livia", "Wachtmeister", "divera", "4711", "ja"]]}),
+        make_xlsx({SHEET_PERSONAL: [*rows, ["Roth-Meier Livia", "Wachtmeister", "divera", "4711", "ja"]]}),
     )
     assert body["ok"] is True, body["errors"]
-    assert impact(body, SHEET_MANNSCHAFT)["created"] == 0, "matched on the identity, not renamed into a new person"
+    assert impact(body, SHEET_PERSONAL)["created"] == 0, "matched on the identity, not renamed into a new person"
     assert any("«Roth Livia»" in w and "«Roth-Meier Livia»" in w and "Namensreihenfolge" in w for w in body["warnings"])
 
     # …and the same file WITHOUT the rename says nothing, or the line becomes noise
     quiet = await preview(
         client,
-        make_xlsx({SHEET_MANNSCHAFT: [*rows, ["Roth Livia", "Wachtmeister", "divera", "4711", "ja"]]}),
+        make_xlsx({SHEET_PERSONAL: [*rows, ["Roth Livia", "Wachtmeister", "divera", "4711", "ja"]]}),
     )
     assert quiet["warnings"] == []
 
@@ -492,18 +514,18 @@ async def test_renaming_a_split_name_says_what_the_rename_costs(client, db_sessi
 async def test_a_hand_entered_rename_costs_nothing_and_is_not_flagged(client, station):
     """Nothing to lose for crew stored as one string — the warning would be noise."""
     rows = [["Meier Annina", "Hauptmann", None, None, "ja"]] + [[name, None, None, None, "ja"] for name, _ in CREW[1:]]
-    body = await preview(client, make_xlsx({SHEET_MANNSCHAFT: rows}))
+    body = await preview(client, make_xlsx({SHEET_PERSONAL: rows}))
     assert body["warnings"] == []
-    assert impact(body, SHEET_MANNSCHAFT)["created"] == 1  # a new name IS a new person here
+    assert impact(body, SHEET_PERSONAL)["created"] == 1  # a new name IS a new person here
 
 
 async def test_new_people_are_created_and_the_count_is_what_was_confirmed(client, station):
     rows = [[name, None, None, None, "ja"] for name, _ in CREW] + [["Roth Livia", "Wachtmeister", None, None, "ja"]]
-    body = await preview(client, make_xlsx({SHEET_MANNSCHAFT: rows}))
-    crew = impact(body, SHEET_MANNSCHAFT)
+    body = await preview(client, make_xlsx({SHEET_PERSONAL: rows}))
+    crew = impact(body, SHEET_PERSONAL)
     assert (crew["created"], crew["removed_total"]) == (1, 0)
 
-    r = await client.post("/api/station-workbook/import", files=upload(make_xlsx({SHEET_MANNSCHAFT: rows})))
+    r = await client.post("/api/station-workbook/import", files=upload(make_xlsx({SHEET_PERSONAL: rows})))
     assert r.status_code == 200, r.text
     station.expire_all()
     people = {p.display_name: p.rank for p in (await station.execute(select(Personnel))).scalars()}
@@ -540,7 +562,7 @@ async def test_a_rank_may_go_once_its_people_are_regraded_in_the_same_file(clien
                     ["hptm", "Hauptmann", "Hptm", "Offizier"],
                     ["fwm", "Feuerwehrmann", "Fwm", "Mannschaft"],
                 ],
-                SHEET_MANNSCHAFT: [
+                SHEET_PERSONAL: [
                     ["Meier Anna", "Hauptmann", None, None, "ja"],
                     ["Bläsi Vreni", "Feuerwehrmann", None, None, "ja"],
                     ["Studer Tim", "Feuerwehrmann", None, None, "ja"],
@@ -563,7 +585,7 @@ async def test_a_grad_added_on_one_tab_may_be_used_on_another(client, station):
                     ["fwm", "Feuerwehrmann", "Fwm", "Mannschaft"],
                     ["kdt", "Kommandant", "Kdt", "Offizier"],
                 ],
-                SHEET_MANNSCHAFT: [
+                SHEET_PERSONAL: [
                     ["Meier Anna", "Kommandant", None, None, "ja"],
                     ["Bläsi Vreni", "Wachtmeister", None, None, "ja"],
                     ["Studer Tim", "Feuerwehrmann", None, None, "ja"],
@@ -575,9 +597,9 @@ async def test_a_grad_added_on_one_tab_may_be_used_on_another(client, station):
 
 
 async def test_an_unknown_grad_is_refused_with_its_row(client, station):
-    body = await preview(client, make_xlsx({SHEET_MANNSCHAFT: [["Meier Anna", "Sdt", None, None, "ja"]]}))
+    body = await preview(client, make_xlsx({SHEET_PERSONAL: [["Meier Anna", "Sdt", None, None, "ja"]]}))
     assert body["ok"] is False
-    assert any(f"{SHEET_MANNSCHAFT} Zeile 2" in e and "«Sdt»" in e for e in body["errors"])
+    assert any(f"{SHEET_PERSONAL} Zeile 2" in e and "«Sdt»" in e for e in body["errors"])
 
 
 async def test_an_unknown_stufe_names_the_allowed_set(client, station):

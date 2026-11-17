@@ -6,12 +6,12 @@ front or hand to the relief. Different lifetime, different page, no shared state
 rapport's styles and its page-number canvas are borrowed so both look like the same house.
 
 The layout follows the KKO BS / KFS BL sheet: a ``Wer × Zeit`` grid, names down the left, a
-time axis across the top with a heavier rule every full hour. Planned availability is drawn
-hollow and assigned time filled — the same language the on-screen Zeitplan uses, so the paper
-reads like the tablet. Under each lane runs a thin ink rule for the attendance actually recorded:
+time axis across the top with a heavier rule every full hour. Planned availability is drawn as a
+pale fill and assigned time as a heavy hollow outline — the same language the on-screen Zeitplan
+uses (and KP Rück: filled = here, hollow = bound), so the paper reads like the tablet. Under each lane runs a thin ink rule for the attendance actually recorded:
 the sheet is read by somebody deciding who to send home and who to call in, and «what was planned»
 without «what happened» leaves out the half that says whether the plan held. It stays visually
-subordinate — the plan's own hollow/filled ink block above, a thin ink rule for the record below —
+subordinate — the plan's own pale/outlined block above, a thin ink rule for the record below —
 so the page is still a planning form first. (The Rapport remains the RECORD; this is the working
 copy of it.) Rows without a plan still
 print — a Führungsformular is meant to be written on, and an empty row is where the pen goes.
@@ -80,10 +80,12 @@ LABEL_MM = 13
 _INK = colors.HexColor("#1b2330")
 _DIM = colors.HexColor("#8a94a3")
 _RULE = colors.HexColor("#c9cfd8")
+#: verfügbar on paper: a pale fill that survives a greyscale laser and stays under the ink outline
+_PALE = colors.HexColor("#d9dde3")
 
 
 class ZeitplanBlock(BaseModel):
-    """One planned bar: availability offered (hollow) or, once ``confirmed``, assigned (solid)."""
+    """One planned bar: availability offered (pale fill) or, once ``confirmed``, assigned (outline)."""
 
     start: datetime = Field(alias="from")
     end: datetime | None = Field(default=None, alias="to")
@@ -288,7 +290,8 @@ class _Grid(Flowable):
             c.setFillColor(_INK)
             c.drawString(1.5 * mm, y + self.ROW_H / 2 - 2.6, label[:34])
 
-            for b in row.blocks:
+            # pale bands first: a fill drawn after an outline would paint over it
+            for b in sorted(row.blocks, key=lambda b: b.confirmed):
                 end = b.end or self.end
                 if end <= self.start or b.start >= self.end:
                     continue
@@ -296,16 +299,18 @@ class _Grid(Flowable):
                 if x1 - x0 < 0.6:
                     x1 = x0 + 0.6
                 if b.confirmed:
-                    c.setFillColor(_INK)
-                    c.rect(x0, y + 2.0 * mm, x1 - x0, self.ROW_H - 4.0 * mm, stroke=0, fill=1)
-                else:
-                    # hollow: offered, not yet assigned. 1.4pt, not a hairline — the grid rules
-                    # it sits over run 0.3–0.7pt, and a stroke in the same weight class as the
-                    # background it was meant to stand out against was the whole complaint.
+                    # hollow: assigned, the person is bound. 1.6pt, not a hairline — the grid
+                    # rules it sits over run 0.3–0.7pt, and a stroke in the same weight class as
+                    # the background it was meant to stand out against was the whole complaint.
+                    # White inside, so it reads as an outline over a pale band too.
                     c.setStrokeColor(_INK)
                     c.setFillColor(colors.white)
-                    c.setLineWidth(1.4)
-                    c.rect(x0, y + 1.6 * mm, x1 - x0, self.ROW_H - 3.2 * mm, stroke=1, fill=0)
+                    c.setLineWidth(1.6)
+                    c.rect(x0, y + 2.0 * mm, x1 - x0, self.ROW_H - 4.0 * mm, stroke=1, fill=1)
+                else:
+                    # pale fill: offered, not yet assigned
+                    c.setFillColor(_PALE)
+                    c.rect(x0, y + 1.6 * mm, x1 - x0, self.ROW_H - 3.2 * mm, stroke=0, fill=1)
 
             # ---- what actually happened, as a heavy rule along the foot of the lane.
             # Under the plan rather than mixed into it, and in ink rather than in the plan's
@@ -421,7 +426,7 @@ def compose_zeitplan_pdf(payload: ZeitplanPayload, logo: bytes | None = None) ->
     story.append(Spacer(1, 3 * mm))
     story.append(
         Paragraph(
-            "Ausgezogen = verfügbar · ausgefüllt = eingeteilt · schmaler Balken unten = "
+            "Grau gefüllt = verfügbar · Umriss = eingeteilt · schmaler Balken unten = "
             "tatsächlich anwesend. Planungshilfe – massgebend bleibt der Einsatzrapport.",
             st["muted"],
         )
