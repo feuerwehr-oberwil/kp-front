@@ -45,10 +45,12 @@ export function PlanCompass({ deg, controls, northUnknown = false, variant, onFi
   // a fired hold must not also open the popover with the click that follows its release; cleared
   // at the START of every press, so a hold whose click never lands cannot swallow the next tap
   const fired = useRef(false)
-  const holdProps = onFit ? hold.press(() => { fired.current = true; onFit() }) : null
-  const press = holdProps && {
+  const press = onFit && {
     'data-holdaction': true as const,
-    onPointerDown: (e: React.PointerEvent) => { e.stopPropagation(); fired.current = false; holdProps.onPointerDown(e) },
+    onPointerDown: (e: React.PointerEvent) => {
+      e.stopPropagation(); fired.current = false
+      hold.press(() => { fired.current = true; onFit() }).onPointerDown(e)
+    },
   }
   const ring = hold.held && <HoldChargeRing since={hold.held.since} ms={LONG_PRESS_MS} />
   const W = appConfig.copy.whiteboard

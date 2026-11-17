@@ -506,11 +506,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // a plan tool takes the taps: the toasts give way to the top lane meanwhile (lib/toastLane)
   usePlacementLane(tool !== 'pan' && !readOnlyProp)
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const [selId, setSelId] = useState<string | null>(null)
+  const [selId, setSelIdRaw] = useState<string | null>(null)
   // the live vehicle whose read-only sheet is open (ENT.6) – one sheet at a time: selecting
   // anything closes it, and so does the stationary tap on empty paper (useBoardGestures, below)
   const [liveOpen, setLiveOpen] = useState<string | null>(null)
-  useEffect(() => { if (selId) setLiveOpen(null) }, [selId])
+  const setSelId = (id: string | null) => { if (id) setLiveOpen(null); setSelIdRaw(id) }
   // marquee (Mehrfach/lasso) group selection — parity with the Lage map. A separate
   // set from the single selId (which still drives the symbol editor / team actions).
   const [selIds, setSelIds] = useState<string[]>([])
@@ -1622,6 +1622,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
    * something or it is not in the sidebar — so the button is gone, and the detail slot is the
    * plan's whole business. `tool === 'pan'` remains the long-standing selection-only gate.
    */
+  // the live vehicle whose sheet is open, and what the Karte holds about it (ENT.6)
+  const liveSheet = liveOpen ? live.find((x) => x.id === liveOpen) : undefined
+  const liveSheetFacts = (liveSheet && liveFacts?.(liveSheet.entity.id)) || {}
   const editorSlotFree = tool === 'pan'
   // a selected plan symbol gets the SAME editor as the map (label / fields / notes /
   // count / rotation) — floor is omitted because on the plan it's the tile, not a badge
@@ -3053,7 +3056,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onClose={() => setSelId(null)}
           // «Zentrieren», as on the Karte (ENT.6): the symbol to the middle of the free board, zoomed
           // in to at least twice the fit
-          onCenter={() => centerOnPoint(selSymbol.x ?? 0.5, selSymbol.y ?? 0.5, selSymbol.floor ?? 0, Math.max(scaleRef.current, 2))}
+          onCenter={() => centerOnPoint(selSymbol.x ?? 0.5, selSymbol.y ?? 0.5, selSymbol.floor ?? 0, Math.max(scale, 2))}
           // ⚠️ Live while typing, one step on blur — the same split the Lage's symbol panel has
           // (IncidentWorkspace · titleLiveRef) and the same one the plan's LINE label already had.
           // Committing only on blur meant the glyph on the board still read «Fahrzeug» while the
@@ -3129,26 +3132,20 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
       {/* a live vehicle's sheet (ENT.6): the Karte's read-only one – its name, its fields, who drives
           it and where it is from, «Zentrieren». Moving it is the drag; everything else is the Karte's. */}
-      {editorSlotFree && (() => {
-        const m = liveOpen ? live.find((x) => x.id === liveOpen) : undefined
-        if (!m) return null
-        const e = m.entity
-        const facts = liveFacts?.(e.id) ?? {}
-        return (
-          <ContextPanel
-            key={`live:${e.id}`}
-            entity={e}
-            readOnly
-            svg={e.symbol === appConfig.symbols.vehicleName ? vehicleSymbolSvg(e.label ?? '', e.rotation ?? 0) : e.symbol ? sym.byName[e.symbol] : undefined}
-            onClose={() => setLiveOpen(null)}
-            onCenter={() => centerOnPoint(m.pt.x, m.pt.y, 0, Math.max(scaleRef.current, 2))}
-            driver={{ value: facts.driver ?? '' }}
-            origin={{ value: facts.origin ?? '' }}
-            // read-only: the panel offers none of these, they only satisfy its props
-            onTitle={() => {}} onFields={() => {}} onDelete={() => {}}
-          />
-        )
-      })()}
+      {editorSlotFree && liveSheet && (
+        <ContextPanel
+          key={`live:${liveSheet.id}`}
+          entity={liveSheet.entity}
+          readOnly
+          svg={liveSheet.entity.symbol === appConfig.symbols.vehicleName ? vehicleSymbolSvg(liveSheet.entity.label ?? '', liveSheet.entity.rotation ?? 0) : liveSheet.entity.symbol ? sym.byName[liveSheet.entity.symbol] : undefined}
+          onClose={() => setLiveOpen(null)}
+          onCenter={() => centerOnPoint(liveSheet.pt.x, liveSheet.pt.y, 0, Math.max(scale, 2))}
+          driver={{ value: liveSheetFacts.driver ?? '' }}
+          origin={{ value: liveSheetFacts.origin ?? '' }}
+          // read-only: the panel offers none of these, they only satisfy its props
+          onTitle={() => {}} onFields={() => {}} onDelete={() => {}}
+        />
+      )}
       {/* note detail panel — the same ContextPanel, opened by the tap that selects the note (see
           notePanelId) and by placing one. The note's TEXT is its title, so the panel's title
           field edits the note itself. */}
