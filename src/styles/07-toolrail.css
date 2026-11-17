@@ -84,8 +84,8 @@
    warning, not the alarm. Hung off the icon's top-right corner, so it sits on the glyph whatever
    box the tile gives it (46px compact, 26px over a word). */
 .vrail-glyph { position: relative; }
-.layers-off-dot { position: absolute; top: calc(50% - 14px); left: calc(50% + 5px); width: 10px; height: 10px;
-  border-radius: 50%; background: var(--amber); border: 2px solid var(--surface); pointer-events: none; }
+.layers-off-dot { position: absolute; top: calc(50% - 15px); left: calc(50% + 6px); width: 10px; height: 10px;
+  border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
 .vrail-label { display: none; white-space: nowrap; font-size: var(--fs-2); font-weight: var(--fw-bold); }
 .vrail.expanded:not(.dragging) .vrail-label { display: block; }
 

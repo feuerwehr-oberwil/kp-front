@@ -1017,7 +1017,8 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   /* F6 (rare-user round 17.11.2026): following opens the Verlauf and a symbol's sheet on this phone
      by itself – exactly then the pill, the one thing that says why, lay under them. Over a detail
      sheet it rides on the sheet's top edge, as the recording FAB does (15-mobile · .fab-entry.rec);
-     over the Verlauf it stands where it stands, on top of the drawer and its scrim. */
+     over the Verlauf it stands where it stands, on top of the drawer and its scrim – rendered at the
+     body then (Presentation · overVerlauf): `.app` is position: fixed, its own stacking context. */
   :root:has(.journal-drawer, .ctx) .present-row { z-index: var(--z-present-over-sheet); }
   :root:has(.ctx) .app .present-row { bottom: calc(46dvh + var(--float-gap)); }
   :root:has(.ctx.sheet-full) .app .present-row { bottom: calc(88dvh + var(--float-gap)); }

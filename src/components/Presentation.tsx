@@ -84,11 +84,15 @@ function usePillLift(on: boolean) {
 }
 
 /** The pill (and the edge arrows). Renders nothing while no presentation is running or this
- *  device is offline. */
-export function PresentationPill({ p }: { p: Presentation }) {
+ *  device is offline. `overVerlauf` (a phone with the Verlauf open – following opens it by itself):
+ *  the pill is rendered at the body, beside the drawer's portal – inside `.app` (position: fixed,
+ *  its own stacking context) no z-index can lift it over the drawer and its scrim (F6, 17.11.2026).
+ *  Only then: on the floating row the pill is an obstacle the chip row steps past
+ *  (lib/floatRow · `.phone-tools .present-pill`), and under the drawer there is no row. */
+export function PresentationPill({ p, overVerlauf = false }: { p: Presentation; overVerlauf?: boolean }) {
   return (
     <>
-      <PillBody p={p} />
+      {overVerlauf ? createPortal(<PillBody p={p} />, document.body) : <PillBody p={p} />}
       <EdgeArrows on={p.marks > 0} />
     </>
   )

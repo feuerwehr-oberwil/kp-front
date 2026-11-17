@@ -95,7 +95,8 @@ Rules that span modules live here; each module's header says what it owns.
   ⚠️ A phone's sheets never cover it (F6, 17.11.2026): following opens the Verlauf and a detail
   sheet by itself, and that is exactly when the pill has to say why. Over a detail sheet it rides
   on the sheet's top edge (as the recording FAB), over the Verlauf drawer it stands on top
-  (`--z-present-over-sheet`, 08-toasts). Coming back from the background switches «Zeigen» off
+  (`--z-present-over-sheet`, 08-toasts) – rendered at the body then (`PresentationPill · overVerlauf`):
+  `.app` is position: fixed, its own stacking context, so no z-index inside it clears the drawer. Coming back from the background switches «Zeigen» off
   (`lib/useOnResume`, tactical-objects › «The armed tool's readout»).
 - **A link holder's name**: asked once per device when they first tap «Folgen» (empty = «Gast»),
   kept in `localStorage` (`kp-front-present-name`, a device flag). The server cleans it

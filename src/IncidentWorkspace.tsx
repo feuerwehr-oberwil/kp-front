@@ -3415,7 +3415,7 @@ export function IncidentWorkspace({
         feedbackParent, canWriteRecord, photoPosition, setPhotoPosition,
       }} />
       </PresentationContext.Provider>
-      <PresentationPill p={presentation} />
+      <PresentationPill p={presentation} overVerlauf={isPhone && journalOpen} />
       <MapRings mapRef={mapRef} rings={presentation.mapRings} strokes={presentation.mapStrokes} presenter={presentation.state?.presenter?.client ?? null} onUnmark={presentation.unmark} />
 
       {/* phone field-capture: a editor can't draw tactical symbols on a phone, but can
