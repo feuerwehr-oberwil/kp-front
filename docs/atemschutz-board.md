@@ -286,6 +286,9 @@ good but we don't need the triangle thing. red and notfall is already enough»):
 - Closing a different Einsatz from «Alle Einsätze» reads its crew roster first. If it cannot
   be read, the dialog says «Truppstatus unbekannt» and focuses «Truppstatus erneut prüfen».
   The operator can cancel or explicitly close despite the unknown status.
+
+  ![The «Truppstatus unbekannt» dialog with the retry action focused](screenshots/crew-status-unknown.png)
+
 - *The record is kept whole* (staging walk-through r2, 25.09.2026): the Gäste the form files at
   its save are filed QUIETLY and named once in the crew's «Unter AS: …» row — the crew filing
   knows them (`IncidentWorkspace · fileTruppGuest`) instead of reading a render-old Anwesenheit
