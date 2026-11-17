@@ -188,6 +188,31 @@ describe('saving dispatch corrections', () => {
     fireEvent.click(screen.getByText(ix.save))
     expect(patchIncident).toHaveBeenCalledWith(edit.id, { address: 'New street 8', lng: BASE.lng, lat: HIT.lat })
   })
+  it.each(['dispatch', 'geocoder', 'unlocated'] as const)('submits the accepted address and its unchanged %s pin together', async (source) => {
+    const coords = source === 'unlocated' ? { lng: null, lat: null } : { lng: HIT.lng, lat: HIT.lat }
+    const update = source === 'dispatch' ? { ...edit.alarm_update!, ...coords } : edit.alarm_update
+    vi.mocked(geocodeSearch).mockResolvedValue(source === 'geocoder' ? [HIT] : [])
+    await open({ ...edit, ...coords, alarm_update: update })
+    fireEvent.click(screen.getByText(ix.alarmUpdate.take))
+    await waitFor(() => expect((screen.getByText(ix.save) as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(screen.getByText(ix.save))
+    expect(patchIncident).toHaveBeenCalledWith(edit.id, { address: 'New street 8', ...coords })
+  })
+  it('restores the explicitly accepted pin if the server pin moved before reopening the draft', async () => {
+    const update = { ...edit.alarm_update!, lng: BASE.lng, lat: BASE.lat }
+    const first = await open({ ...edit, alarm_update: update })
+    fireEvent.click(screen.getByText(ix.alarmUpdate.take))
+    first.unmount()
+    await open({ ...edit, lng: HIT.lng, lat: HIT.lat })
+    fireEvent.click(screen.getByText(ix.save))
+    expect(patchIncident).toHaveBeenCalledWith(edit.id, { address: 'New street 8', lng: BASE.lng, lat: BASE.lat })
+  })
+  it('keeps the pin out of a typed address correction without a location pick', async () => {
+    await open()
+    fireEvent.change(field(), { target: { value: 'Typed street 3' } })
+    fireEvent.click(screen.getByText(ix.save))
+    expect(patchIncident).toHaveBeenCalledWith(edit.id, { address: 'Typed street 3' })
+  })
   it('a later explicit pick outranks a pending lookup', async () => {
     let resolve!: (value: GeoHit[]) => void
     vi.mocked(geocodeSearch).mockImplementationOnce(() => new Promise((yes) => { resolve = yes }))
