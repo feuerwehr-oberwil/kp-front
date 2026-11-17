@@ -107,8 +107,15 @@ destinations.
 - Outbox row per `(destination, incident)` – `incident_archive_deliveries`: `wanted` (bumped by
   each reason above), `state` (`pending|delivered|failed|paused`), `attempts`, `next_attempt_at`,
   `lease_owner`, `lease_until`, `last_error`, `failed_fingerprint`, `delivered_at`, `remote_items`
-  (`folders: {<rendered pattern>: {path, id}}`, `media: {<media id>: <drive item id>}`,
+  (`folderPatterns: {<pattern>: <original rendered key>}`, `folders: {<rendered key>: {path, id}}`, `media: {<media id>: <drive item id>}`,
   `counters: {photo, audio, beilage}`, `reports: [{sha, version, name, item, composedAt}]`).
+- A row from before 2026-11-17 keeps its original folder IDs. On its next delivery the worker
+  binds its rendered keys to the configured patterns. If several historical folders could
+  belong to the same pattern, the delivery shows an error for manual reconciliation, even
+  when the current title matches one of them exactly. Existing folder bindings stay intact.
+- The worker checks that the incident is still closed while reading the files due in a pass.
+  It releases the database lock before contacting SharePoint. A close that raced with an
+  earlier pass is processed using the outbox's existing `wanted` counter.
 - Worker: APScheduler job `incident_archive` every 30 s on the scheduler leader, registered
   unconditionally and idle while the module is off, no destination is enabled or the credentials
   are incomplete. Housekeeping, then claim one due row (`FOR UPDATE SKIP LOCKED`, 10-minute lease),

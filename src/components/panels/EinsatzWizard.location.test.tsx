@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, within, waitFor, act } from '@testing-library/react'
+import { getIncident, geocodeSearch, patchIncident } from '../../lib/incidents'
 import { appConfig } from '../../config/appConfig'
-import { clearAllDrafts } from '../../lib/draftKeep'
+import { clearAllDrafts, keepDraft } from '../../lib/draftKeep'
+import type { GeoHit, IncidentMeta, IncidentFull, ObjectWithPlans } from '../../lib/incidents'
 import { fillTemplate } from '../../lib/format'
-import type { GeoHit, IncidentMeta, ObjectWithPlans } from '../../lib/incidents'
 
 // The location on the Einsatz form (owner picks 1A + round 2, 15.11.2026): every method rides the
 // address field, ONE list under it holds the typed objects and addresses, and the coordinate itself
@@ -28,11 +29,10 @@ vi.mock('../MapPicker', () => ({ MapPicker: () => null }))
 // the Sheet portals and traps focus; the field is plain markup inside it
 vi.mock('./_shared', async (orig) => ({
   ...(await orig<typeof import('./_shared')>()),
-  Modal: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Modal: ({ children, footer }: { children: React.ReactNode; footer: React.ReactNode }) => <div>{children}{footer}</div>,
 }))
 
 const { EinsatzWizard } = await import('./EinsatzWizard')
-const { geocodeSearch } = await import('../../lib/incidents')
 
 const ix = appConfig.copy.intake
 // a typed address is kept as a draft (lib/draftKeep) – it must not open the next test's form
@@ -108,6 +108,128 @@ describe('«Noch kein Standort»', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Tramdepot/ }))
     expect(warning()).toBeNull()
     expect((field() as HTMLInputElement).value).toBe(DEPOT.address)
+  })
+})
+
+describe('saving dispatch corrections', () => {
+  afterEach(() => { vi.mocked(geocodeSearch).mockReset().mockResolvedValue([HIT]) })
+  const edit: IncidentMeta = { ...meta({}), type: 'Brand', alarm_update: {
+    state: 'pending', at: BASE.started_at, title: null, lat: null, lng: null,
+    fields: [{ field: 'address', alarm: 'New street 8', current: BASE.address, edited: false }],
+  } }
+  async function open(incident = edit) {
+    vi.mocked(patchIncident).mockClear().mockImplementation(() => new Promise(() => {}))
+    vi.mocked(getIncident).mockResolvedValueOnce({ text: 'Initial alarm' } as IncidentFull)
+    const form = render(<EinsatzWizard edit={incident} onClose={() => {}} onCreated={() => {}} />)
+    await screen.findByDisplayValue('Initial alarm')
+    return form
+  }
+  it.each(['hit', 'miss', 'offline'])('resolves the accepted address before saving (%s)', async (outcome) => {
+    let resolve!: (value: GeoHit[]) => void
+    let reject!: () => void
+    vi.mocked(geocodeSearch).mockImplementationOnce(() => new Promise((yes, no) => { resolve = yes; reject = no }))
+    await open()
+    fireEvent.click(screen.getByText(ix.alarmUpdate.take))
+    fireEvent.click(screen.getByText(ix.save))
+    expect(patchIncident).not.toHaveBeenCalled()
+    await act(async () => { if (outcome === 'offline') reject(); else resolve(outcome === 'hit' ? [HIT] : []) })
+    if (outcome !== 'hit') expect(warning()).toBeTruthy()
+    fireEvent.click(screen.getByText(ix.save))
+    expect(patchIncident).toHaveBeenCalledWith(edit.id, {
+      address: 'New street 8', lng: outcome === 'hit' ? HIT.lng : null, lat: outcome === 'hit' ? HIT.lat : null,
+    })
+  })
+  it('resumes a dismissed dispatch lookup and waits for the new answer before saving', async () => {
+    let finishFirst!: (value: GeoHit[]) => void
+    let finishSecond!: (value: GeoHit[]) => void
+    vi.mocked(geocodeSearch)
+      .mockImplementationOnce(() => new Promise((resolve) => { finishFirst = resolve }))
+      .mockImplementationOnce(() => new Promise((resolve) => { finishSecond = resolve }))
+    const first = await open()
+    fireEvent.click(screen.getByText(ix.alarmUpdate.take))
+    first.unmount()
+    await open()
+    expect(screen.getByText(ix.addressSearching)).toBeTruthy()
+    await act(async () => finishFirst([]))
+    fireEvent.click(screen.getByText(ix.save))
+    expect(patchIncident).not.toHaveBeenCalled()
+    await act(async () => finishSecond([HIT]))
+    fireEvent.click(screen.getByText(ix.save))
+    expect(patchIncident).toHaveBeenCalledWith(edit.id, { address: 'New street 8', lat: HIT.lat, lng: HIT.lng })
+  })
+  it('reopening a completed miss leaves the address unlocated without another lookup', async () => {
+    vi.mocked(geocodeSearch).mockResolvedValueOnce([])
+    const first = await open()
+    fireEvent.click(screen.getByText(ix.alarmUpdate.take))
+    await screen.findByText(ix.coordMissing)
+    first.unmount()
+    vi.mocked(geocodeSearch).mockClear()
+    await open()
+    expect(geocodeSearch).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText(ix.save))
+    expect(patchIncident).toHaveBeenCalledWith(edit.id, { address: 'New street 8', lat: null, lng: null })
+  })
+  it('clearing an accepted address cancels the lookup across dismissal', async () => {
+    vi.mocked(geocodeSearch).mockImplementationOnce(() => new Promise(() => {}))
+    const first = await open()
+    fireEvent.click(screen.getByText(ix.alarmUpdate.take))
+    fireEvent.change(field(), { target: { value: '' } })
+    first.unmount()
+    vi.mocked(geocodeSearch).mockClear()
+    await open()
+    expect(geocodeSearch).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText(ix.save))
+    expect(patchIncident).toHaveBeenCalledWith(edit.id, { address: null, lat: null, lng: null })
+  })
+  it('uses the alarm coordinates directly, including a coordinate unchanged on one axis', async () => {
+    const update = { ...edit.alarm_update!, lng: BASE.lng, lat: HIT.lat }
+    await open({ ...edit, alarm_update: update })
+    fireEvent.click(screen.getByText(ix.alarmUpdate.take))
+    fireEvent.click(screen.getByText(ix.save))
+    expect(patchIncident).toHaveBeenCalledWith(edit.id, { address: 'New street 8', lng: BASE.lng, lat: HIT.lat })
+  })
+  it('a later explicit pick outranks a pending lookup', async () => {
+    let resolve!: (value: GeoHit[]) => void
+    vi.mocked(geocodeSearch).mockImplementationOnce(() => new Promise((yes) => { resolve = yes }))
+    await open()
+    fireEvent.click(screen.getByText(ix.alarmUpdate.take))
+    fireEvent.change(field(), { target: { value: 'Tramdepot' } })
+    fireEvent.click(await screen.findByRole('button', { name: /Tramdepot/ }))
+    await act(async () => resolve([HIT]))
+    fireEvent.click(screen.getByText(ix.save))
+    expect(patchIncident).toHaveBeenCalledWith(edit.id, { address: DEPOT.address, lng: DEPOT.lng, lat: DEPOT.lat })
+  })
+  it('restores a picked location beside the draft only while the page stays open', async () => {
+    const form = () => render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
+    const first = form()
+    fireEvent.change(field(), { target: { value: 'Tramdepot' } })
+    fireEvent.click(await screen.findByRole('button', { name: /Tramdepot/ }))
+    first.unmount()
+    const stored = sessionStorage.getItem('kp-draft:einsatz-wizard:new')
+    if (!stored) throw new Error('missing wizard text draft')
+    expect(JSON.parse(stored)).not.toHaveProperty('coord')
+    const reopened = form()
+    expect(warning()).toBeNull()
+    reopened.unmount()
+    // A reload restores the serialized text into a fresh page; the picked position has gone.
+    clearAllDrafts()
+    sessionStorage.setItem('kp-draft:einsatz-wizard:new', stored)
+    form()
+    expect((field() as HTMLInputElement).value).toBe(DEPOT.address)
+    expect(warning()).toBeTruthy()
+  })
+  it('an older draft without coordinates does not clear a pin supplied by another device', async () => {
+    keepDraft('einsatz-wizard:i1', { title: 'Draft title', address: BASE.address, kategorie: 'Brand', coord: null, isExercise: false })
+    await open()
+    expect(warning()).toBeNull()
+    fireEvent.click(screen.getByText(ix.save))
+    expect(patchIncident).toHaveBeenCalledWith(edit.id, { title: 'Draft title' })
+  })
+  it('sends an intentionally cleared message', async () => {
+    await open()
+    fireEvent.change(screen.getByDisplayValue('Initial alarm'), { target: { value: '' } })
+    fireEvent.click(screen.getByText(ix.save))
+    await waitFor(() => expect(patchIncident).toHaveBeenCalledWith(edit.id, { text: null }))
   })
 })
 

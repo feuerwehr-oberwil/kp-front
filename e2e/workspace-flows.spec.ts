@@ -141,6 +141,36 @@ test('F5 · Abschluss from the Einsatz menu: the confirm names the open points, 
   await expect(page.getByText('Einsatz abgeschlossen')).toHaveCount(0)
 })
 
+test('closing another Einsatz from the list retries an unreadable crew roster before offering the ordinary close', async ({ page }, testInfo) => {
+  const title = `Abschlussübung ${new Date().toISOString().slice(11, 19)}`
+  const created = await page.request.post('/api/incidents', { data: { title, is_exercise: true } })
+  expect(created.status()).toBe(201)
+  const { id } = await created.json()
+  try {
+    await page.route(`**/api/incidents/${id}/workspace`, (route) => route.fulfill({ status: 503 }), { times: 1 })
+    await page.locator('.ip-switch-btn').click()
+    await page.getByRole('button', { name: 'Alle Einsätze', exact: true }).click()
+    const list = page.getByRole('dialog', { name: 'Einsätze' })
+    await list.getByRole('textbox', { name: 'Einsatz suchen …' }).fill(title)
+    await list.getByRole('button', { name: 'Abschliessen', exact: true }).click()
+    const ask = page.getByRole('alertdialog')
+    await expect(ask).toContainText('Truppstatus unbekannt')
+    await expect(ask).toContainText(title)
+    const retry = ask.getByRole('button', { name: 'Truppstatus erneut prüfen' })
+    await expect(retry).toBeFocused()
+    const screenshot = testInfo.outputPath('crew-status.png')
+    await ask.screenshot({ path: screenshot })
+    await testInfo.attach('Truppstatus unbekannt', { path: screenshot, contentType: 'image/png' })
+    await retry.press('Enter')
+    await expect(ask).toContainText('Einsatz abschliessen')
+    await expect(ask).toContainText(title)
+    await ask.getByRole('button', { name: 'Abbrechen', exact: true }).click()
+    expect((await (await page.request.get(`/api/incidents/${id}`)).json()).is_archived).toBe(false)
+  } finally {
+    await page.request.patch(`/api/incidents/${id}`, { data: { is_archived: true } })
+  }
+})
+
 test('F7 · replay locks the drawing tools and «Zurück zu Live» hands them back', async ({ page }) => {
   await drawMapLine(page) // something for the replay to show
   await page.getByRole('button', { name: 'Verlauf', exact: true }).click()

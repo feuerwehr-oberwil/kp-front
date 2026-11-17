@@ -29,28 +29,29 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
-Four weeks of work (2026-10-13 to 2026-11-10), most of it from the station's own use. KP Front now
+Since 0.12.0 (2026-10-13), drawing on the station's own use, KP Front now
 has a home outside an Einsatz – «Karte & Objekte» – and the Einsatz gains gas readings
 (Messpunkte), a Wassertransport calculation, a Präsentationsmodus, wall sketches on the Gebäude and
 a signature on the screen. Roles and the PIN login were audited and tightened, and the installed
-app starts faster on a phone. A station updates with `docker compose pull && docker compose up -d`
-and has nothing else to do – with one exception: «Mit Microsoft anmelden» with sign-in names in the
-allow-list (first Upgrade note).
+app starts faster on a phone.
 
 ### Upgrade notes
 
-**A MINOR by the table above:** no new mandatory setting, no Postgres change, every migration
-automatic and with a downgrade. Read on for what behaves differently afterwards.
+**Before updating, check your Microsoft login allow-list.** Stations that use sign-in names
+must replace them with object IDs to keep Microsoft login available. PIN login continues to
+work. The database changes run automatically during the usual Compose update.
 
 - **«Mit Microsoft anmelden»: the allow-list takes object ids only.** `ENTRA_LOGIN_ACCOUNTS` no
   longer accepts a sign-in name (`anna.muster@…=amuster`): a name can be renamed and handed to
   somebody else in the tenant. A list that still holds one is invalid as a whole and the button
   stays hidden; the PIN login is unaffected. *If you listed sign-in names, rewrite each line to
   the person's Entra Objekt-ID before updating (docs/microsoft-login.md).*
-- **Migrations run on boot** (six): an object's station-set position (`objects.locality`,
+- **Nine migrations run on boot.** They add an object's station-set position (`objects.locality`,
   `position_source`, `position_set_at`, `outline`, table `object_position_events`), where an
   Objektbesuch took place (`object_visits.target_kind` / `lat` / `lng`),
-  `incidents.exercise_since_creation`, `print_jobs` recreated, and three drops: the never-used
+  `incidents.exercise_since_creation`, the two incident archive tables (deliveries and kept
+  reports), the media upload ID used to deduplicate retries, and the pending Divera alarm update.
+  They also recreate `print_jobs` and remove the never-used
   `incident_notes` table and `reference_datasets.fetch_interval`, and the telemetry forwarder's
   `telemetry_outbox` table with `deployment_config.telemetry_consent` / `.telemetry_install_id`.
   The downgrades recreate what was dropped, empty.
@@ -62,7 +63,9 @@ automatic and with a downgrade. Read on for what behaves differently afterwards.
     and `el`; Atemschutz alarms still reach every registered device. *Whoever must be woken by a
     new Einsatz needs an editor account.*
   - A **viewer** account reads the running Einsätze and those closed in the last 7 days, no
-    longer the whole archive (`access.viewerHistoryDays`; `0` = running only).
+    longer the whole archive (`access.viewerHistoryDays`; `0` = running only). On an updated
+    device, viewer accounts need a connection to open incident attachments. Station reference
+    plans remain available offline.
   - An **Übung closes itself** 12 hours after the last change made by a person
     (`alarms.exerciseAutoCloseHours`; `0` = off). It can be reopened as usual; an Ernstfall is
     never closed this way.
@@ -110,6 +113,11 @@ automatic and with a downgrade. Read on for what behaves differently afterwards.
   public: `POST /api/diag/boot` (one launch-timing log line per app start, nothing stored).
 
 ### Added
+
+- **Einsatz-Ablage.** Stations can enable SharePoint filing for closed, real Einsätze. A late
+  photo or revised Rapport goes to the folder chosen at first filing. Material captured after
+  reopening waits for the next close. Setup and delivery status are in
+  [the filing guide](docs/incident-archive.md).
 
 - **«Alarm aktualisiert»: a follow-up from the Leitstelle reaches the open Einsatz.** When Divera
   sends the Einsatz's own alarm again with a new address, title or Meldung, a red row in the
@@ -286,6 +294,15 @@ automatic and with a downgrade. Read on for what behaves differently afterwards.
 
 ### Fixed
 
+- **Dispatch corrections.** Taking a new address in the editor also resolves its map pin.
+  Saving another field keeps a newer Alarmmeldung written on another tablet.
+- **Changing and closing an Einsatz.** A failed switch keeps the current workspace and
+  Atemschutz monitoring active. When the list cannot read another Einsatz's crews, it offers
+  a fresh check before an explicit close. Rapport completion and Einsatzende are saved together.
+- **Offline recovery and media.** A failed storage read preserves parked edits for a later
+  attempt by their author. Transcription status refreshes while the job runs, and a full
+  browser cache still allows online attachments to open.
+
 - **The radar layer works again.** MeteoSwiss renamed its radar files on 2026-10-13 and 0.12.0
   found none afterwards. The file names are now read from the provider's own index, and a daily
   check watches the outside services KP Front depends on.
@@ -319,6 +336,10 @@ automatic and with a downgrade. Read on for what behaves differently afterwards.
   half a second after it. *No action needed.*
 
 ### Security
+
+- **Support diagnostics** redact incident and capture QR credentials from crash reports and
+  the exported bundle. Opening previously viewed incident media as a viewer checks current
+  access on the server.
 
 - **PIN guessing from many addresses is capped per account.** A device that has signed in
   carries a signed `known_device` cookie (httpOnly, 400 days; it opens nothing by itself). Wrong

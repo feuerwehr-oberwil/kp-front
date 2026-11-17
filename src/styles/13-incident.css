@@ -2618,6 +2618,8 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .esh-url { flex: 1 1 240px; min-width: 0; display: flex; align-items: center; gap: 8px;
   min-height: var(--tap); padding: 0 12px; border: none; cursor: pointer; text-align: left;
   border-radius: var(--r-ctl); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); }
+.esh-manual-url { flex: 1 1 100%; min-width: 0; }
+.esh-manual-url input { user-select: text; -webkit-user-select: text; }
 .esh-url code { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; font: var(--fw-medium) var(--fs-1) var(--mono); color: var(--ink); }
 .esh-url:active { background-image: linear-gradient(var(--press), var(--press)); }

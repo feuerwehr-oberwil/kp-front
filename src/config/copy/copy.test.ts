@@ -1,4 +1,5 @@
-import { describe, it, expect, afterEach } from 'vitest'
+// @vitest-environment jsdom
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { applyLocale, getCopy, getLocaleId, AVAILABLE_LOCALES } from './index'
 
 // The i18n contract: every locale is a partial overlay deep-merged over German, so a missing
@@ -17,12 +18,30 @@ describe('locale resolution', () => {
   })
 
   it('an unknown locale falls back to the German base', async () => {
+    await applyLocale('it')
     await applyLocale('xx-YY')
+    expect(document.documentElement.lang).toBe('de-CH')
     expect(getCopy().modes.map).toBe('Karte')
+  })
+
+  it('announces German when the requested catalogue cannot be loaded', async () => {
+    vi.resetModules()
+    vi.doMock('./it', () => { throw new Error('offline') })
+    try {
+      const fresh = await import('./index')
+      await fresh.applyLocale('fr-CH')
+      await fresh.applyLocale('it')
+      expect(fresh.getCopy().modes.map).toBe('Karte')
+      expect(document.documentElement.lang).toBe('de-CH')
+    } finally {
+      vi.doUnmock('./it')
+      vi.resetModules()
+    }
   })
 
   it('normalizes a regional tag to its base language (fr-CH → fr)', async () => {
     await applyLocale('fr-CH')
+    expect(document.documentElement.lang).toBe('fr-CH')
     expect(getCopy().nav.dayMode).toBe('Jour')
   })
 })

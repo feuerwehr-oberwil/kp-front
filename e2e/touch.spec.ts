@@ -74,5 +74,11 @@ test('composer compact row: six equal buttons on one line, the clip holds the me
   await expect(row.locator('.jc-chip-letter').first()).toHaveText('I')
   await row.getByRole('button', { name: 'Anhang' }).tap()
   for (const word of ['Aufnehmen', 'Datei anhängen', 'Foto']) await expect(page.getByRole('menuitem', { name: word })).toBeVisible()
+  // The Lage underneath must keep its canvas in sync as the phone shrinks and expands, even
+  // when the first resize coincides with map load. The client-error guard covers both changes.
+  const canvas = page.locator('.maplibregl-canvas')
+  await expect(canvas).toHaveCSS('height', '400px')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(canvas).toHaveCSS('height', '844px')
   await expectNoCrash(page, 'composer compact row')
 })

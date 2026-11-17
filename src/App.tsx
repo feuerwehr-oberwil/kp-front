@@ -14,6 +14,7 @@ import { confirmLogout } from './lib/logoutConfirm'
 import { persistedPendingRows } from './lib/journalStore'
 import { loadPrefs, savePrefs } from './lib/prefs'
 import { useAutoTheme } from './lib/useAutoTheme'
+import { IncidentSelection, undoTakenIncident } from './lib/incidentSelection'
 import { useCloseReopen, useIncidentLifecycle } from './lib/useIncidentLifecycle'
 import { Splash } from './components/Splash'
 import { HomeMenu, LauncherBody, type HomeActions } from './components/HomeMenus'
@@ -27,14 +28,14 @@ import { installOffered } from './lib/installPolicy'
 import { claimBootNotifyTarget, handOverNotifyTarget } from './lib/notifyTarget'
 import { muteAtemschutzFor } from './lib/useAtemschutzMute'
 import { useIncidentTabLock } from './lib/tabLock'
-import { clearIncidentMedia, listMediaQueue } from './lib/mediaQueue'
+import { listMediaQueue } from './lib/mediaQueue'
 import { MediaPendingMeldung, type ClosedMediaPending } from './components/MediaPendingMeldung'
 import { clearAppBadge, ensurePushSubscription } from './lib/push'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
 import { IncidentWorkspace } from './IncidentWorkspace'
 import {
-  WorkspaceSync, listIncidentsResilient, listIncidentsShared, getIncident, archiveIncident,
+  listIncidentsResilient, listIncidentsShared, getIncident,
   migrateLegacyWorkspace, takeDiveraAlarm, attachDiveraAlarm, discardWorkspaceCache,
   isIncidentRunning, showAlarmUpdate, type DiveraAlarm, type IncidentFull, type IncidentMeta, type Workspace,
 } from './lib/incidents'
@@ -72,6 +73,13 @@ const KarteApp = lazy(() => import('./components/karte/KarteApp'))
 // ---------------------------------------------------------------------------------
 
 export default function App() {
+  const { user } = useAuth()
+  // The fast boot may first restore a cached account. A different live identity or push
+  // role must start with its own selection and queues, including on an Einsatz-Link.
+  return <IncidentApp key={JSON.stringify([user?.id, user?.role, user?.link_kind, user?.link_incident_id])} />
+}
+
+function IncidentApp() {
   const { user, logout, sessionExpired } = useAuth()
   const isEditor = user?.role === 'editor'
   /** may close and reopen Einsätze – an editor, but not in the Führungsansicht, the editor's
@@ -327,8 +335,14 @@ export default function App() {
     setReviewedStamp({ id, at: new Date().toISOString() })
     setReviewPendingId(null)
   }, [])
-  const syncRef = useRef<WorkspaceSync | null>(null)
-  const selectReq = useRef(0) // guards against interleaved incident switches (fast double-taps)
+  const [syncRef] = useState(() => new IncidentSelection())
+  // A toast and an awaited confirmation can outlive the signed-in operator that created them.
+  const sessionAlive = useRef(true)
+  const isSessionCurrent = useCallback(() => sessionAlive.current, [])
+  useLayoutEffect(() => {
+    sessionAlive.current = true
+    return () => { sessionAlive.current = false; syncRef.dispose() }
+  }, [syncRef])
   // where «Zurück» from an archived read-only view lands: the editable incident that was
   // active before the (first) read-only open — chained archived views keep the original.
   // Refs mirror the states because selectIncident is a stable ([] deps) callback.
@@ -348,10 +362,11 @@ export default function App() {
   useAutoTheme(activeMeta?.lng != null && activeMeta?.lat != null ? [activeMeta.lng, activeMeta.lat] : null)
 
   const refreshList = useCallback(async () => {
+    if (!isSessionCurrent()) return []
     const { list } = await listIncidentsResilient().catch(() => ({ list: [] as IncidentMeta[] }))
     setIncidents(list)
     return list
-  }, [])
+  }, [isSessionCurrent])
 
   const selectIncident = useCallback(async (id: string, opts: { readOnly?: boolean; meta?: IncidentMeta; boot?: boolean } = {}) => {
     // ⚠️ THE AUDIO UNLOCK LIVES HERE, before the first `await`, because this is the first touch of
@@ -361,16 +376,10 @@ export default function App() {
     // «Kontakt», had a bell showing «an» over an AudioContext that was still `suspended`. Called
     // on a boot auto-open too, where it is a harmless no-op that leaves the context suspended and
     // the bell honestly saying «Ton nicht freigegeben» (see useAtemschutzMute).
+    if (!isSessionCurrent()) return
     unlockAlarm()
-    const my = ++selectReq.current // any newer call supersedes this one
     const opening = activeIdRef.current !== id
-    if (opts.readOnly) {
-      if (!forceReadOnlyRef.current) archiveReturnRef.current = activeIdRef.current
-    } else {
-      archiveReturnRef.current = null
-    }
-    if (syncRef.current) { await syncRef.current.flush().catch(() => {}); syncRef.current.dispose(); syncRef.current = null }
-    const sync = new WorkspaceSync(id, {
+    const selected = await syncRef.open(id, opts.meta, {
       debounceMs: appConfig.sync.saveDebounceMs,
       // An Atemschutz-Link session may write the Überwachungstafel and nothing else — the full
       // workspace PUT 403s for it — so its pushes and its teardown beacon go down the trupp
@@ -385,11 +394,13 @@ export default function App() {
       // live view); onServerWorkspace is the remount fallback.
       onServerWorkspace: (ws) => { setWorkspace(ws); setRemount((n) => n + 1) },
     })
-    const meta = opts.meta ?? (await getIncident(id))
-    if (selectReq.current !== my) { sync.dispose(); return } // superseded mid-flight
-    const { workspace: ws, rev } = await sync.init()
-    if (selectReq.current !== my) { sync.dispose(); return } // superseded mid-flight
-    syncRef.current = sync
+    if (!selected) return
+    const { meta, workspace: ws, rev } = selected
+    if (opts.readOnly) {
+      if (!forceReadOnlyRef.current) archiveReturnRef.current = activeIdRef.current
+    } else {
+      archiveReturnRef.current = null
+    }
     markOpened()
     setActiveMeta(meta as IncidentMeta)
     // Make sure the open switcher list contains the one we just opened. Normally it already
@@ -430,7 +441,7 @@ export default function App() {
     savePrefs(opts.boot
       ? { ...prev, incidentId: id }
       : { ...prev, incidentId: id, incidentChosenAt: Date.now(), landedAt: undefined })
-  }, [markOpened])
+  }, [markOpened, syncRef, isSessionCurrent])
 
   // `selectIncident` for a HUMAN tap: the same open, but a failure is SAID. Every interactive
   // caller used to swallow the rejection — offline with no cached workspace, a 404 for an Einsatz
@@ -459,13 +470,15 @@ export default function App() {
   // The auto-open itself stays silent when it fails: it lands on home, whose «Einsätze» sheet
   // says what is wrong the moment it is tapped (openIncident).
   useEffect(() => {
+    let alive = true
     const bootOpen = async (inc: IncidentMeta, opts: { readOnly?: boolean } = {}) => {
+      if (!alive) return
       const my = ++bootOpenSeq.current
       setBootOpening(true)
       try {
         await selectIncident(inc.id, { meta: inc, boot: true, readOnly: opts.readOnly })
       } catch { /* home + openIncident's toast on the next tap */ } finally {
-        if (bootOpenSeq.current === my) setBootOpening(false)
+        if (alive && bootOpenSeq.current === my) setBootOpening(false)
       }
     }
     void (async () => { try {
@@ -474,6 +487,7 @@ export default function App() {
       // 403 and land a responder on an empty launcher instead of the Einsatz they were sent.)
       if (linkIncidentId) {
         const inc = await getIncident(linkIncidentId).catch(() => null)
+        if (!alive) return
         setIncidents(inc ? [inc as IncidentMeta] : [])
         if (inc) await bootOpen(inc as IncidentMeta)
         return
@@ -486,12 +500,14 @@ export default function App() {
         setListNote(e instanceof ApiError ? `${C.bootListFailed} – ${e.detail}` : C.bootListFailed)
         return { list: [] as IncidentMeta[], offline: false }
       })
+      if (!alive) return
       // re-list only when the migration created an Einsatz: an empty list is the normal peacetime
       // boot, and asking again cost every such launch a second round trip (01.11.2026)
       if (list.length === 0 && !offline) {
         const migrated = await migrateLegacyWorkspace([appConfig.storage.key, ...appConfig.storage.legacyKeys]).catch(() => null)
         if (migrated) list = (await listIncidentsResilient().catch(() => ({ list: [] as IncidentMeta[] }))).list
       }
+      if (!alive) return
       if (offline) setListNote(appConfig.copy.incidentSwitcher.bootOffline)
       setIncidents(list)
       // The decision table lives in lib/karte/home · bootPlan (tested there), in this order:
@@ -519,7 +535,8 @@ export default function App() {
       if (saved && shouldReopenClosed(saved, { now: Date.now(), reload: nav?.type === 'reload', chosenAt: bootPrefs.incidentChosenAt })) {
         await bootOpen(saved, { readOnly: saved.is_archived })
       }
-    } finally { setBootDecided(true) } })()
+    } finally { if (alive) setBootDecided(true) } })()
+    return () => { alive = false }
   }, [selectIncident, linkIncidentId])
 
   // Forget the crash streak once an incident has proven healthy: on a CLEAN leave (a switch, a
@@ -558,34 +575,33 @@ export default function App() {
   // ⚠️ Never into `list[0]` (sweep 09.11.2026, UX.7): with an Übung and a real Einsatz open that
   // was the other one. An Einsatz that is gone meanwhile, or does not open, is home too.
   const undoTake = useCallback(async (id: string, back: 'karte' | { incidentId: string | null }) => {
-    if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
+    if (!isSessionCurrent()) return
+    const selection = syncRef.generation
     // this device's own archive — not «auf einem anderen Gerät abgeschlossen» (lib/incidentClosed)
     closingLocallyRef.current = id
     // ⚠️ SAY SO when the undo does not go through. A swallowed failure here left the incident on
     // the server, refreshed the list, and dropped the operator back onto it with no explanation —
     // an Einsatz that reappears by itself is how a tool stops being believed.
+    let list: IncidentMeta[] | null
     try {
-      await archiveIncident(id)
+      list = await undoTakenIncident(syncRef, id, () => syncRef.generation === selection, refreshList)
     } catch (e) {
-      closingLocallyRef.current = null
-      toast(e instanceof ApiError ? e.detail : appConfig.copy.intake.undoTakeFailed, { icon: 'warn', tone: 'warn' })
+      if (isSessionCurrent()) toast(e instanceof ApiError ? e.detail : appConfig.copy.intake.undoTakeFailed, { icon: 'warn', tone: 'warn' })
       return
+    } finally {
+      if (closingLocallyRef.current === id) closingLocallyRef.current = null
     }
-    // ⚠️ the hard clear, deliberately — «Rückgängig» on a one-tap take means this incident should
-    // never have existed, so keeping its blobs would leave an orphan queue nothing ever drains.
-    // Every other archive path keeps what is still pending (clearUploadedMedia).
-    await clearIncidentMedia(id).catch(() => {})
-    if (closingLocallyRef.current === id) closingLocallyRef.current = null
-    setReviewPendingId(null)
-    const list = await refreshList() // returns non-archived only → the taken incident is gone
+    if (!isSessionCurrent()) return
+    setReviewPendingId((pending) => pending === id ? null : pending)
+    void refreshPool()
+    if (!list) return
     setActiveId(null); setActiveMeta(null)
     // home: where the take started, or all that is left; the undone Einsatz is not remembered either
     savePrefs({ ...loadPrefs(), incidentId: undefined })
     setWorkspace(null); setForceReadOnly(false)
     const previous = back === 'karte' ? null : undoTakeReturn(list, back.incidentId)
     if (previous) await openIncident(previous.id, { meta: previous }) // says so when it fails
-    void refreshPool()
-  }, [closingLocallyRef, refreshList, openIncident, refreshPool])
+  }, [closingLocallyRef, refreshList, openIncident, refreshPool, syncRef, isSessionCurrent])
 
   const takeAndOpen = useCallback(async (a: DiveraAlarm, from?: 'karte') => {
     if (taking != null) return
@@ -593,21 +609,23 @@ export default function App() {
     setTaking(a.divera_id)
     try {
       const inc = await takeDiveraAlarm(a.divera_id)
+      if (!isSessionCurrent()) return
       await openCreated(inc)
+      if (!isSessionCurrent()) return
       setReviewPendingId(inc.id)
       // confirm-with-undo: a one-tap take is otherwise only reversible via a multi-tap
       // menu-archive. Undo archives the just-created incident and returns to the prior view.
       // Twelve seconds, not the six-second floor: the map is filling in underneath, and «did I
       // mean that?» takes longer at 3am than a toast that is already fading. Its own kind: the
       // pill is the ONLY way back (the take is no ↶ step), so a later undo pill must not replace it.
-      undoToast(appConfig.copy.intake.taken, () => void undoTake(inc.id, back), undefined, { glyph: 'check', kind: 'alarm-take', duration: 12_000 })
+      undoToast(appConfig.copy.intake.taken, () => void undoTake(inc.id, back), isSessionCurrent, { glyph: 'check', kind: 'alarm-take', duration: 12_000 })
     } catch (e) {
-      toast(actFailedText(e, appConfig.copy.intake.errorTake), { icon: 'warn', tone: 'warn' })
+      if (isSessionCurrent()) toast(actFailedText(e, appConfig.copy.intake.errorTake), { icon: 'warn', tone: 'warn' })
     } finally {
       setTaking(null)
-      void refreshPool()
+      if (isSessionCurrent()) void refreshPool()
     }
-  }, [taking, activeId, openCreated, refreshPool, undoTake])
+  }, [taking, activeId, openCreated, refreshPool, undoTake, isSessionCurrent])
 
   // Split dispatch: the banner alarm may be the SAME Einsatz already open (reworded group
   // dispatch, Nachalarm) — attach it to the ACTIVE incident instead of opening a duplicate.
@@ -646,8 +664,8 @@ export default function App() {
   // ── close / reopen: lib/useIncidentLifecycle ──
   /** the open Einsatz's counting confirm, set by IncidentWorkspace (prop `abschlussRef`) */
   const abschlussHereRef = useRef<(() => Promise<boolean>) | null>(null)
-  const { completeRapport, archiveById, reactivateById } = useCloseReopen({
-    closingLocallyRef, reopeningLocallyRef, activeId, activeMeta, incidents, syncRef, archiveReturnRef, refreshList,
+  const { completeRapport, archiveFromList, reactivateById } = useCloseReopen({
+    closingLocallyRef, reopeningLocallyRef, activeId, activeMeta, incidents, syncRef, archiveReturnRef, refreshList, isSessionCurrent,
     selectIncident, markOpened, setIncidents, setClosedMedia, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly,
     abschlussHereRef,
     // the list steps aside and the Einsatz comes to the front: its confirm can answer «Zur Tafel»
@@ -666,7 +684,7 @@ export default function App() {
     savePrefs({ ...loadPrefs(), incidentId: undefined })
     setActiveId(null); setActiveMeta(null); setForceReadOnly(false)
     setOverlay('history')
-  }, [selectIncident])
+  }, [selectIncident, syncRef])
 
   // Which screen (lib/karte/home · appScreen — tested there): the Objektbesuche surface, «Karte &
   // Objekte», the boot's splash, an Einsatz, or — for a link session only — the launch card.
@@ -1031,7 +1049,7 @@ export default function App() {
       )}
       {overlay === 'history' && (
         <HistoryPanel onClose={() => setOverlay(null)} onOpen={(id, ro) => { setOverlay(null); void openIncident(id, { readOnly: ro }) }}
-          onArchive={canLifecycle ? archiveById : undefined}
+          onArchive={canLifecycle ? archiveFromList : undefined}
           // a viewer reads only the last few days (docs/roles-and-access.md · the viewer's window)
           windowDays={user?.role === 'viewer' ? getDeploymentConfig().access?.viewerHistoryDays ?? undefined : undefined} />
       )}

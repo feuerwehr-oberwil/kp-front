@@ -35,6 +35,13 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   service worker's `height-profiles` cache answers the same URL offline (`vite.config` ·
   runtimeCaching: network first, 4 s timeout, 300 paths / 30 days). A path never fetched online
   has no profile and plans on flat ground, as the editor says («Ohne Höhenprofil gerechnet»).
+- **A failed switch keeps the active incident live.** The workspace, alarm and sync engine stay
+  mounted until the requested incident is ready. Two taps on the same incident share its load.
+  A superseded request for a different incident disposes its candidate, as does a session change.
+  Recovery updates reach the view when that incident opens. A late save response from an ended
+  session leaves the next operator's pending edits intact.
+  Undoing an alarm take leaves its workspace only after the server accepted the archive and only
+  if the operator is still on that incident.
 - **Saved means every operational queue is acknowledged.** Workspace, journal and client audit
   outboxes and the media upload queue contribute to the shared sync status. Preserve rejected
   entries for retry/export; a failed IndexedDB write must never claim local durability. Hydrate
@@ -260,7 +267,12 @@ its Verlauf and audit outboxes before the archive `PATCH`. The outboxes keep DEL
 closed view (`outboxReadOnly`), and a refused write is parked — journal `refused`, audit
 `closed` (apart from the role bucket `refused`), the workspace's `::__refused__` slots, whose
 record part is re-saved at once through the record route and whose ancestor goes straight
-back on screen. Parked entries are exported by «Einträge sichern», keep the lamp amber until
+back on screen. Each new workspace refusal gets its own slot under its author’s key. Export and replay are limited to
+the author who is still signed in. A slice session keeps the author's wider or unstamped
+drafts in the role's export until a full editor session can replay them. Older aggregate and timestamp slots are read by owner stamp;
+unattributable entries stay on disk. A failed slot read leaves recovery pending, and cleanup
+removes only drafts durably transferred to their author's workspace.
+Parked entries are exported by «Einträge sichern», keep the lamp amber until
 then, and are SENT again once the Einsatz runs again. A plain 409 on the workspace is still
 the revision conflict: test the code first. «Wieder öffnen» elsewhere comes back the same way
 (`X-Incident-Open: 1`, the same wake, the list watch, `reopenedMetaFor`) on EVERY device that

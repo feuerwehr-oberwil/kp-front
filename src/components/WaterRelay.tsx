@@ -2,7 +2,7 @@ import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { appConfig } from '../config/appConfig'
 import { useChartReadout } from '../lib/chartCursor'
 import { cx } from '../lib/cx'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, fmtWhen } from '../lib/format'
 import { fmtDistance } from '../lib/geo'
 import { HOSES, RELAY, RELAY_HOSE_SIZES, type RelayPlan } from '../lib/hydraulics'
 import { pumpWarnings } from '../lib/linePumps'
@@ -82,6 +82,9 @@ export function WaterRelay({ ctrl, showHose = false, wide = false, onClose, onAd
           <Popover side="bottom" align="end" zIndex={60} popupClassName={s.sourcesPop} ariaLabel={R.sourcesLabel}
             trigger={<IconButton label={R.sourcesLabel}><Icon id="info" /></IconButton>}>
             <p className={s.sources}>{fillTemplate(R.sourcesNote, { bar: RELAY.minInletBar })}</p>
+            {ctrl.calculatedAt != null && <p className={s.sources}>
+              {fillTemplate(R.calculatedAt, { time: fmtWhen(new Date(ctrl.calculatedAt).toISOString()) })}
+            </p>}
           </Popover>
           {onClose && <IconButton label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></IconButton>}
         </div>

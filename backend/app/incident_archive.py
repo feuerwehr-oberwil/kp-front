@@ -19,7 +19,8 @@ A pass (``scheduler._incident_archive_tick`` every 30 s on the scheduler leader)
 1. **Housekeeping** – rows of a destination that is off or gone pause (kept) and resume when it is
    on again; a ``failed`` row whose destination or credentials changed goes back to ``pending``.
 2. **Claim** – one due ``pending`` row, ``FOR UPDATE SKIP LOCKED`` and a lease, committed at once.
-3. **Upload** what ``remote_items`` does not hold yet, one file in memory at a time: the newest
+3. **Plan** against a closed, real Einsatz. A reopen leaves new captures for its next close.
+   **Upload** what ``remote_items`` does not hold yet, one file in memory at a time: the newest
    Rapport-PDF as the next version, the Sprachnotizen and Beilagen into the report folder, the
    photos into the photo folder. Progress is recorded per file, so a failure half way keeps it.
 4. **Finish** – by compare-and-swap on the lease: ``delivered``, or ``pending`` again when the
@@ -41,6 +42,8 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from fnmatch import fnmatchcase
+from glob import escape
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -367,12 +370,13 @@ async def claim(db: AsyncSession, enabled: set[str], now: datetime) -> Claim | N
 
 async def plan(db: AsyncSession, c: Claim) -> Plan | None:
     """What this Einsatz holds – names and storage keys, never bytes. None when it is gone.
-    An Übung (marked one after it was enqueued) owes nothing."""
-    inc = await db.get(Incident, c.incident_id)
+    A reopen or Übung conversion after enqueue owes nothing. Hold a shared lock while taking
+    the local snapshot; deliver releases it before the first network request."""
+    inc = await db.get(Incident, c.incident_id, with_for_update={"read": True})
     if inc is None:
         return None
     values = placeholders(inc)
-    if inc.is_exercise:
+    if not is_filed(inc):
         return Plan(values=values, report=None, documents=[], photos=[])
     media = (
         (await db.execute(select(Media).where(Media.incident_id == inc.id).order_by(Media.created_at, Media.id)))
@@ -399,19 +403,54 @@ async def plan(db: AsyncSession, c: Claim) -> Plan | None:
     )
 
 
+class AmbiguousArchiveFolderError(Exception):
+    """An older delivery has multiple possible folder bindings. Do not guess where to file."""
+
+
+def _legacy_path_matches(pattern: str, path: str) -> bool:
+    """Only placeholders vary; retain literal path levels and SharePoint sanitisation."""
+    parts = path.split("/")
+    template = expand(pattern, {})
+    return len(parts) == len(template) and all(
+        fnmatchcase(part, re.sub(r"\{\w+\}", "*", escape(level))) for level, part in zip(template, parts, strict=True)
+    )
+
+
+def bind_folder_patterns(items: dict[str, Any], dest: IncidentArchiveDestination, values: dict[str, str]) -> None:
+    """Bind a legacy key only when it has one possible pattern and that pattern has one key."""
+    bindings = items.setdefault("folderPatterns", {})
+    folders = items.get("folders", {})
+    patterns = {dest.photoFolder, dest.reportFolder}
+    unbound = set(folders) - set(bindings.values())
+    matches = {}
+    for pattern in patterns - bindings.keys():
+        current = "/".join(expand(pattern, values))
+        matches[pattern] = {key for key in unbound if key == current or _legacy_path_matches(pattern, key)}
+    resolved = {}
+    for pattern, keys in matches.items():
+        if not keys:
+            continue  # a new pattern, or no filing to this folder yet
+        if len(keys) != 1 or any(keys & others for other, others in matches.items() if other != pattern):
+            raise AmbiguousArchiveFolderError(
+                f"Mehrere mögliche Zuordnungen für den bisherigen Ablageordner: {pattern}"
+            )
+        resolved[pattern] = next(iter(keys))
+    bindings.update(resolved)
+
+
 async def folder_id(
     writer: GraphWriter, drive: str, pattern: str, values: dict[str, str], items: dict[str, Any]
 ) -> str:
     """The id of this Einsatz's folder for ``pattern``, creating it on first use.
 
-    The folder is chosen ONCE and remembered in ``remote_items["folders"]`` by its rendered path:
+    The first rendering of the pattern is kept, and its Graph folder id lives in ``remote_items["folders"]``:
     a later Nachtrag files into the same folder, even after a person moved it (it is addressed by
     id). A name another Einsatz already uses gets « (2)», « (3)» – two Einsätze never share a
     folder. The chosen path is remembered before the folder is created, so a lost response finds
     it again instead of making « (2)». The levels before the first placeholder must exist."""
     folders: dict[str, Any] = items.setdefault("folders", {})
     segments = expand(pattern, values)
-    key = "/".join(segments)
+    key = items.setdefault("folderPatterns", {}).setdefault(pattern, "/".join(segments))
     entry = folders.get(key)
     if isinstance(entry, dict) and entry.get("id"):
         found = await writer.item_by_id(drive, str(entry["id"]))
@@ -451,6 +490,7 @@ async def write_remote(writer: GraphWriter, dest: IncidentArchiveDestination, c:
     }
     if not owed_report and not owed["documents"] and not owed["photos"]:
         return False
+    bind_folder_patterns(items, dest, p.values)
     drive = await writer.resolve_drive(site_url=dest.siteUrl, drive_id=None, library=dest.library)
     budget = PASS_FILES
     if p.report is not None and owed_report:
@@ -508,7 +548,7 @@ async def write_remote(writer: GraphWriter, dest: IncidentArchiveDestination, c:
 
 def is_actionable(error: Exception) -> bool:
     """401/403/404, a refused token and a file missing from storage need a person."""
-    if isinstance(error, (GraphAuthError, MissingFileError)):
+    if isinstance(error, (GraphAuthError, MissingFileError, AmbiguousArchiveFolderError)):
         return True
     return isinstance(error, GraphError) and error.status == 404
 
@@ -574,7 +614,7 @@ async def deliver(
         async with httpx.AsyncClient(transport=transport, timeout=120.0) as client:
             more = await write_remote(export_writer(client), dest, c, p)
     except Exception as e:
-        if not isinstance(e, (GraphError, MissingFileError)):
+        if not isinstance(e, (GraphError, MissingFileError, AmbiguousArchiveFolderError)):
             logger.exception("Einsatz %s → %s: Ablage crashed", c.incident_id, c.destination)
         else:
             logger.warning("Einsatz %s → %s: %s", c.incident_id, c.destination, short_error(e))

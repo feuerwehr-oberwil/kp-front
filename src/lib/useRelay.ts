@@ -1,5 +1,6 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import type { HoseSize, LngLat, RelaySettings, RelaySource } from '../types'
+import { serverNow } from './serverClock'
 import { pathLengthM } from './geo'
 import { fillTemplate, formatLocale } from './format'
 import { appConfig } from '../config/appConfig'
@@ -35,6 +36,8 @@ export interface RelayController {
   input: RelayInput
   /** null: no route yet, or the height profile is still on its way for the first time */
   plan: RelayPlan | null
+  /** Local calculation time. Kept with the computed result across UI-only changes. */
+  calculatedAt: number | null
   lengthM: number
   profileLoading: boolean
   readOnly: boolean
@@ -85,25 +88,25 @@ export function useRelay({ coords: drawn, profile: drawnProfile, profileLoading,
   const [pick, setPick] = useState<{ i: number; from: PumpOrigin } | null>(null)
   const setSelected = (i: number | null, from: PumpOrigin = 'chart') => setPick(i == null ? null : { i, from })
   const [preview, setPreview] = useState<{ i: number; atM: number } | null>(null)
-  const stored = resolveRelay(value.hose, value.relay, defaultHose)
-  const input: RelayInput = preview
+  const stored = useMemo(() => resolveRelay(value.hose, value.relay, defaultHose), [value.hose, value.relay, defaultHose])
+  const input = useMemo(() => preview
     ? { ...stored, pumps: withPumpOverride(stored.pumps, preview.i, { atM: preview.atM }) ?? [] }
-    : stored
-  // «Richtung umkehren»: the calculation runs along the path backwards; nothing drawn changes
+    : stored, [preview, stored])
   const reversed = !!value.relay?.reverse
   const coords = reversed ? [...drawn].reverse() : drawn
-  const profile = reversed && drawnProfile ? reverseProfile(drawnProfile) : drawnProfile
+  const profile = useMemo(() => reversed && drawnProfile ? reverseProfile(drawnProfile) : drawnProfile, [reversed, drawnProfile])
   const lengthM = pathLengthM(coords)
-  // a stale profile stays in use while the next one loads (useLineProfile keeps it), so moving a
-  // point does not blank the chart; only the very first fetch has nothing to show yet
+  // Keep the last profile while refreshing. The stamp belongs to this computation and stays
+  // with it when the operator opens its source note or selects a pump.
   const points = profile?.points ?? null
   const waiting = profileLoading && !points
-  // not memoized: ~200 profile samples, a few microseconds — cheaper than keying a memo on it
-  const plan = coords.length >= 2 && lengthM >= 1 && !waiting ? planFor(input, lengthM, points) : null
+  const { plan, calculatedAt } = useMemo(() => lengthM >= 1 && !waiting
+    ? { plan: planFor(input, lengthM, points), calculatedAt: serverNow() }
+    : { plan: null, calculatedAt: null }, [input, lengthM, points, waiting])
   const write = (relay: RelaySettings) => onChange?.({ relay: compact(relay) })
   const pins = input.pumps.map((o) => o?.atM)
   return {
-    coords, profile, reversed, input, plan, lengthM, profileLoading, readOnly: readOnly || !onChange,
+    coords, profile, reversed, input, plan, calculatedAt, lengthM, profileLoading, readOnly: readOnly || !onChange,
     selected: pick?.i ?? null, selectedFrom: pick?.from ?? null, select: setSelected,
     // the same pump tapped again where its bubble is open closes it; tapped in the OTHER place, the
     // bubble moves there

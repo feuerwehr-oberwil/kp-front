@@ -215,3 +215,21 @@ async def test_a_boot_report_is_one_bounded_line(client, caplog):
 async def test_a_boot_report_with_too_many_marks_is_refused(client):
     r = await client.post("/api/diag/boot", json={"marks": {f"m{i}": i for i in range(30)}})
     assert r.status_code == 422
+
+
+@pytest.mark.parametrize("route", ("e", "l"))
+async def test_qr_credentials_are_removed_before_logging_and_diagnostics_export(client, viewer, caplog, route):
+    from conftest import TEST_PIN
+
+    path = f"/{route}/opaque-test-value"
+    result = await client.post(
+        "/api/diag/client-error",
+        json={"message": f"Opening {path}", "stack": f"Error at {path}", "componentStack": path, "path": path},
+    )
+    assert result.status_code == 204
+    assert "opaque-test-value" not in caplog.text
+    assert (await client.post("/api/auth/login", json={"user_id": str(viewer.id), "pin": TEST_PIN})).is_success
+    exported = await client.get("/api/diag/export")
+    assert exported.status_code == 200
+    assert exported.json()["errors"][-1]["path"] == f"/{route}/<redacted>"
+    assert "opaque-test-value" not in exported.text

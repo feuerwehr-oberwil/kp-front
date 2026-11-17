@@ -608,8 +608,13 @@ EL_LIFECYCLE_FIELDS = frozenset({"is_archived", "report_done_at"})
 async def patch_incident(
     incident_id: uuid.UUID, body: IncidentPatch, user: CurrentRecordWriter, db: AsyncSession = Depends(get_db)
 ) -> Incident:
-    inc = await get_incident_or_404(db, incident_id)
     data = body.model_dump(exclude_unset=True)
+    # Serialize the before/after decision with another close, reopen or pending alarm correction.
+    inc = await get_incident_or_404(db, incident_id, lock=True)
+    if data.get("is_archived") is True and inc.is_archived and inc.report_done_at and data.get("report_done_at"):
+        # A repeated combined close (lost response or two tablets) acknowledges the first stamp.
+        # A deliberate standalone Rapport correction retains its normal journal semantics.
+        del data["report_done_at"]
     # An ``el`` session corrects the Einsatzdaten and closes or reopens the Einsatz, nothing else
     # (the two sets above); every other field answers with the plain editor refusal, so probing
     # this route tells an el session no more than it tells a viewer.

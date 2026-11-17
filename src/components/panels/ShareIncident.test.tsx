@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor, act } from '@testing-library/react'
 import { ShareIncident } from './ShareIncident'
 import { appConfig } from '../../config/appConfig'
 import { createShareLink, fetchShareLink, revokeShareLink, type ShareLink } from '../../lib/viewLink'
@@ -74,6 +74,17 @@ describe('«Einsatz · lesen»', () => {
     expect(after.textContent).toMatch(/Abschluss/)
   })
 
+  it('offers the full selected address when automatic copying fails', async () => {
+    vi.mocked(fetchShareLink).mockResolvedValue(on)
+    render(<ShareIncident incidentId="i1" />)
+    const url = (await screen.findByText(/\/l\/tok123$/)).textContent
+    fireEvent.click(screen.getByRole('button', { name: C.shareCopy }))
+    const input = await screen.findByRole<HTMLInputElement>('textbox', { name: C.shareManualCopy })
+    expect(input.value).toBe(url)
+    expect(document.activeElement).toBe(input)
+    expect(input.selectionEnd! - input.selectionStart!).toBe(input.value.length)
+  })
+
   it('asks before revoking, and keeps the link when the answer is no', async () => {
     vi.mocked(fetchShareLink).mockResolvedValue(on)
     confirmDialog.mockResolvedValue(false)
@@ -89,6 +100,83 @@ describe('«Einsatz · lesen»', () => {
     fireEvent.click(screen.getByText(C.shareRevoke))
     await waitFor(() => expect(screen.getByText(C.shareCreate)).toBeTruthy())
     expect(revokeShareLink).toHaveBeenCalledWith('i1', 'view')
+  })
+})
+
+describe('clipboard feedback belongs to the latest press on the displayed link', () => {
+  const writeText = vi.fn<(url: string) => Promise<void>>()
+  beforeEach(() => {
+    writeText.mockReset()
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    vi.mocked(fetchShareLink).mockImplementation(async (_id, kind) => ({ enabled: true, token: kind }))
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  async function open() {
+    render(<ShareIncident incidentId="i1" />)
+    await screen.findByText(/\/l\/view$/)
+  }
+  const button = () => screen.getByRole('button', { name: C.shareCopy })
+  function holdNextWrite() {
+    let succeed!: () => void
+    let fail!: () => void
+    writeText.mockImplementationOnce(() => new Promise<void>((resolve, reject) => {
+      succeed = resolve
+      fail = () => reject(new Error('copy failed'))
+    }))
+    fireEvent.click(button())
+    return { succeed: () => act(async () => succeed()), fail: () => act(async () => fail()) }
+  }
+
+  it('keeps the new link selected after a late failure for the previous link', async () => {
+    await open()
+    const previous = holdNextWrite()
+    fireEvent.click(screen.getByText(C.shareKindAtem))
+    const current = holdNextWrite()
+    await current.fail()
+    const field = screen.getByRole<HTMLInputElement>('textbox', { name: C.shareManualCopy })
+    await previous.fail()
+    expect(document.activeElement).toBe(field)
+    expect(field.value).toMatch(/\/l\/atemschutz$/)
+    expect(field.selectionStart).toBe(0)
+    expect(field.selectionEnd).toBe(field.value.length)
+  })
+
+  it('retiring a link clears its success, including a write still in flight', async () => {
+    await open()
+    await holdNextWrite().succeed()
+    expect(button().title).toBe(C.shareCopied)
+    fireEvent.click(screen.getByText(C.shareKindAtem))
+    expect(button().title).toBe(C.shareCopy)
+    const previous = holdNextWrite()
+    fireEvent.click(screen.getByText(C.shareKindFull))
+    fireEvent.click(screen.getByText(C.shareKindAtem))
+    await previous.succeed()
+    expect(button().title).toBe(C.shareCopy)
+  })
+
+  it('keeps a repeated success visible for the full two seconds', async () => {
+    await open()
+    vi.useFakeTimers()
+    try {
+      await holdNextWrite().succeed()
+      act(() => { vi.advanceTimersByTime(1500) })
+      await holdNextWrite().succeed()
+      act(() => { vi.advanceTimersByTime(500) })
+      expect(button().title).toBe(C.shareCopied)
+      act(() => { vi.advanceTimersByTime(1500) })
+      expect(button().title).toBe(C.shareCopy)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('ignores an earlier failure after the latest copy of the same link succeeded', async () => {
+    await open()
+    const first = holdNextWrite()
+    const second = holdNextWrite()
+    await second.succeed()
+    await first.fail()
+    expect(button().title).toBe(C.shareCopied)
+    expect(screen.queryByRole('textbox', { name: C.shareManualCopy })).toBeNull()
   })
 })
 

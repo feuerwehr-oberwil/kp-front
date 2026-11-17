@@ -271,7 +271,7 @@ interface WorkspaceProps {
    *  and the Einsatz-Menü row — go through the one confirm and end in this one callback. */
   onCompleteRapport: () => Promise<boolean>
   /** App's handle on that same confirm, for «Abschliessen» in «Alle Einsätze» (lib/
-   *  useIncidentLifecycle · archiveById): set while this Einsatz can be closed here, else null. */
+   *  useIncidentLifecycle · archiveFromList): set while this Einsatz can be closed here, else null. */
   abschlussRef?: MutableRefObject<(() => Promise<boolean>) | null>
   /** re-open the CLOSED active incident (confirm dialog included) — the banner action */
   onReactivateActive?: () => Promise<ReactivateResult>

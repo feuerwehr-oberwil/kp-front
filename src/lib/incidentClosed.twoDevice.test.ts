@@ -109,7 +109,7 @@ async function fakeFetch(input: string, init: RequestInit = {}): Promise<Respons
 
 const { serverRoundTrip } = await import('./jsonb.test-utils')
 const { __resetIdbForTests } = await import('./idb')
-const { WorkspaceSync } = await import('./api/workspaceSync')
+const { WorkspaceSync, setWorkspaceCacheOwner } = await import('./api/workspaceSync')
 const { pollWorkspaceSince } = await import('./api/workspace')
 const { archiveIncident, reactivateIncident } = await import('./api/incidents')
 const { JournalStore } = await import('./journalStore')
@@ -126,13 +126,14 @@ const EARLY = '2026-09-25T12:44:00Z'
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory()
   __resetIdbForTests()
+  setWorkspaceCacheOwner('user-b')
   Object.assign(server, {
     open: true, closedAt: null, rev: 1, rows: [], events: [], online: true, recordPuts: 0,
     ws: { trupps: [TRUPP], reportMeta: { kurzbericht: 'Brand gelöscht' }, entities: [] },
   })
   vi.stubGlobal('fetch', vi.fn(fakeFetch))
 })
-afterEach(() => { vi.unstubAllGlobals() })
+afterEach(() => { vi.unstubAllGlobals(); setWorkspaceCacheOwner(null) })
 
 describe('a close on phone A reaches phone B, and B’s late Tafel writes are refused and kept', () => {
   it('B hears it, nothing live lands in the record, the Meldung does, everything refused is kept', async () => {
@@ -280,7 +281,7 @@ describe('the refused slot is never overwritten blind', () => {
       expect(await idb.idbGet(KEY)).toEqual(earlier) // untouched
       const parkedTo = write.mock.calls.map((c) => c[0]).filter((k) => k.startsWith(KEY))
       expect(parkedTo).toHaveLength(1)
-      expect(parkedTo[0]).toMatch(new RegExp(`^${KEY}:\\d+$`))
+      expect(parkedTo[0]).toMatch(new RegExp(`^${KEY}:owner:user-b:refusal`))
       expect(sync.refusedCount).toBe(1)
       write.mockRestore()
       sync.dispose()

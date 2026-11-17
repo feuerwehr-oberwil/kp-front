@@ -259,7 +259,7 @@ ci-frontend:
     node scripts/check-bundle-size.mjs
     node site/build.mjs --check
     pnpm audit --prod --audit-level high
-    pnpm audit --audit-level moderate
+    bash scripts/audit-toolchain.sh
     python3 scripts/check_licenses.py frontend
 
 # Full frontend suite and unchanged coverage floor; 4 workers leave cores for tsc and pytest beside it.

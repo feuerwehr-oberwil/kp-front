@@ -12,7 +12,7 @@ import {
 // second React #185 of the same page load — the Karte crash that mattered — was discarded as a
 // duplicate of the first, and the server log said nothing for two hours.
 
-interface Sent { kind: string; message: string; stack?: string; componentStack?: string; surface?: string; repeat?: number; since?: string; last?: string }
+interface Sent { path: string; kind: string; message: string; stack?: string; componentStack?: string; surface?: string; repeat?: number; since?: string; last?: string }
 const sent = (): Sent[] => vi.mocked(apiBeacon).mock.calls.map((c) => c[1] as Sent)
 
 /** a stable Error: the same message AND the same stack, like a render loop throwing again */
@@ -36,6 +36,49 @@ afterEach(() => {
 })
 
 describe('reportClientError — first occurrence', () => {
+  it.each(['l', 'e'])('removes /%s/ credentials from the first and repeat reports', (route) => {
+    const path = `/${route}/opaque-test-value`
+    vi.stubGlobal('location', { pathname: path })
+    try {
+      const error = boom(`on ${path}`, `Error at https://example.invalid${path}`)
+      reportClientError(error, { componentStack: `at ${path}` })
+      reportClientError(error, { componentStack: `at ${path}` })
+      vi.advanceTimersByTime(REPEAT_EVERY_MS)
+      expect(sent()).toHaveLength(2)
+      expect(JSON.stringify(sent())).not.toContain('opaque-test-value')
+      expect(sent()[0]).toMatchObject({ path: `/${route}/<redacted>` })
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('bounds redacted fields on queued reports and repeats even when a short QR segment expands', () => {
+    const field = (limit: number) => '/l/Q ' + 'x'.repeat(limit - 5)
+    vi.stubGlobal('location', { pathname: field(400) })
+    try {
+      for (let i = 0; i < MAX_PER_SECOND; i++) reportClientError(boom(String(i)))
+      const error = boom(field(2000), field(8000))
+      const context = { componentStack: field(8000), surface: field(60) }
+      reportClientError(error, context)
+      reportClientError(error, context)
+      vi.advanceTimersByTime(REPEAT_EVERY_MS + 1000)
+      flushClientErrors()
+      const reports = sent().slice(MAX_PER_SECOND)
+      expect(reports).toHaveLength(2)
+      expect(reports[1].repeat).toBe(1)
+      for (const report of reports) {
+        expect(report.message).toHaveLength(2000)
+        expect(report.path).toHaveLength(400)
+        expect(report.surface).toHaveLength(60)
+        expect(JSON.stringify(report)).not.toContain('/l/Q')
+      }
+      expect(reports[0].stack).toHaveLength(8000)
+      expect(reports[0].componentStack).toHaveLength(8000)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('goes out at once and in full', () => {
     reportClientError(boom(), { kind: 'render', componentStack: '\n    at TwinTeamPill\n    at MapView', surface: 'map' })
     expect(apiBeacon).toHaveBeenCalledTimes(1)

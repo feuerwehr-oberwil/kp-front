@@ -42,9 +42,9 @@ const ALL = ''
 export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
   onClose: () => void
   onOpen: (id: string, readOnly: boolean) => void
-  /** confirm + archive an open incident (editors only; omit for viewers and the el role). Its
-   *  presence also offers «Wieder öffnen» on an archived one — the same lifecycle, the same gate. */
-  onArchive?: (id: string) => Promise<void>
+  /** Editors and EL can close or reopen. Pass the visible row so the confirmation names the
+   *  incident even when another device created it since the app last read its switcher list. */
+  onArchive?: (incident: IncidentMeta) => Promise<void>
   /** a `viewer` account's window in days (docs/roles-and-access.md · «The viewer's window», #449):
    *  the server lists only the running Einsätze and those closed within it, so the list says so
    *  in a foot line – older ones vanished silently, and «abgeschlossene erscheinen hier» was false
@@ -99,7 +99,7 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
     }
     onOpen(i.id, false)
   }
-  const archive = async (id: string) => { await onArchive?.(id); reload() }
+  const archive = async (incident: IncidentMeta) => { await onArchive?.(incident); reload() }
   // hard delete — Übungen only (server-enforced). Deliberately NOT undoable, so it gets the
   // danger confirm instead of confirm-with-undo; real Einsätze never show the button.
   const removeExercise = async (i: IncidentMeta) => {
@@ -256,13 +256,12 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
             // 17.11.2026 – kept), each confirm naming the Einsatz it acts on
             <div key={i.id} className="ip-hist">
               <EinsatzRow incident={i} when={whenOf(i)} alarm={foreignMark(i)} onClick={() => onOpen(i.id, i.is_archived)} />
-              {/* «Wieder öffnen» is the lifecycle too (PATCH is_archived, editor-only on the
-                  server) — gated with «Abschliessen», or an el/viewer got a confirm and a 403 */}
+              {/* Closing and reopening have the same permission, matched to the server. */}
               {onArchive && (
                 <div className="ip-hist-acts">
                   {i.is_archived
                     ? <Button onClick={() => void reactivate(i)}>{h.reactivate}</Button>
-                    : <Button onClick={() => void archive(i.id)}>{h.archiveConfirmBtn}</Button>}
+                    : <Button onClick={() => void archive(i)}>{h.archiveConfirmBtn}</Button>}
                   {/* delete only for ARCHIVED exercises (editor-gated via onArchive) — an open
                       Übung is first abgeschlossen like any incident, then deletable. Only one
                       CREATED as Übung: a real Einsatz marked Übung later needs the Verwaltung */}

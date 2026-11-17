@@ -9,6 +9,9 @@
  * has not seen that merge — the resolver re-bases it onto the merge before merging again
  * (`lastMerged`), or the next attempt reads the remote objects it lacks as local deletes
  * (the three-device load test lost 7–14 % of edits that way, `workspaceSync.load.test.ts`).
+ * A network response belongs to the engine that sent it. Once that engine or its session
+ * ends, its dirty cache is the handover copy; a late acknowledgement or denial must leave
+ * the new engine’s cache, view and retry state alone.
  */
 import { ApiError, isDenial, isUnverifiable } from '../api'
 import { idbDel, idbGet, idbKeys, idbRead, idbSet, type IdbRead } from '../idb'
@@ -47,7 +50,7 @@ type CacheEntry = {
   editedAt?: number
   /** Refused entries already transferred into this workspace. Stored with the replacement
    *  so a crash before clearing the refused slot cannot replay them over later edits. */
-  requeuedRefused?: number[]
+  requeuedRefused?: (number | string)[]
   /** Which push shape made its edits: the whole document (`'all'`) or a slice. A slice session
    *  that opens unsynced work of a WIDER shape parks a copy first (see `parkForRole`). Absent on
    *  entries written before 22.10.2026 — read as «unknown», never parked. */
@@ -70,6 +73,8 @@ const orphanCacheKey = (id: string) => `kp-front-ws-${id}::__preupgrade__`
 // offline. Not owed (no retry can deliver them while the Einsatz stays closed), never dropped:
 // kept here as a list, newest last, and carried by «Einträge sichern» (refusedRecoveryData).
 const refusedCacheKey = (id: string) => `kp-front-ws-${id}::__refused__`
+const refusedOwnerPrefix = (key: string, owner: string) => `${key}:owner:${encodeURIComponent(owner)}:`
+
 // The ROLE slot (RBAC audit S4, 22.10.2026): unsynced work a session of a wider role left on this
 // device — an editor demoted to `el` mid-Einsatz, signed out by the role change, signs in again
 // and its Lage edits are still in the cache. The `el`'s record slice cannot carry them, and the
@@ -111,6 +116,9 @@ export async function unsentWorkspaces(): Promise<UnsentWorkspace[]> {
 
 /** One save the server refused because the Einsatz was closed — the blob as this device had it. */
 export interface RefusedWorkspace {
+  /** Older entries carried only refusedAt; new entries have their own immutable storage key. */
+  id?: string
+  shape?: CacheEntry['shape']
   workspace: Workspace
   /** the ancestor it was built on — what a reopen merges it against (requeueRefused) */
   base?: Workspace
@@ -459,6 +467,19 @@ export class WorkspaceSync {
   /** Saves refused because the Einsatz is closed (see refusedCacheKey) — read at init(), kept in
    *  step with the slot. Parked, not pending: they are not part of the sync status. */
   private refused: RefusedWorkspace[] = []
+  // Shared pre-upgrade slots can contain several people's edits. Keep all of them on disk,
+  // but export and replay only edits made by the account that still owns this engine.
+  private readonly sessionOwner = cacheOwner
+  private get sessionActive(): boolean {
+    return !this.disposed && !cacheDenied && this.sessionOwner === cacheOwner
+  }
+  private ownRefused(disposition: 'replay' | 'role' = 'replay'): RefusedWorkspace[] {
+    if (!this.sessionActive || !this.sessionOwner) return []
+    return this.refused.filter((item) => {
+      const outsideSlice = !!this.opts.slice && item.shape !== this.opts.slice
+      return item.owner === this.sessionOwner && outsideSlice === (disposition === 'role')
+    })
+  }
   /** Who wants to hear that the refused count changed (a save was just parked, or the slot held
    *  some from an earlier session) — see `subscribeRefused`. */
   private refusedListeners = new Set<(count: number) => void>()
@@ -471,7 +492,7 @@ export class WorkspaceSync {
   private foreignParkedListeners = new Set<(owners: string[]) => void>()
 
   constructor(
-    private readonly incidentId: string,
+    readonly incidentId: string,
     private readonly opts: WorkspaceSyncOptions = {},
   ) {
     this.debounceMs = opts.debounceMs ?? 3000
@@ -838,6 +859,7 @@ export class WorkspaceSync {
     // correct even while the server fetch is in flight (and so a cold offline reopen restores
     // unsynced edits immediately). The server fetch below refines this.
     const read = await readCache(this.incidentId)
+    if (this.disposed) throw new Error('Incident selection cancelled')
     // ⚠️ A slot that could not be READ is not an empty one. Treated as «no cache», the server copy
     // below was adopted and written over whatever the slot held — on a device that had been
     // offline, the only copy of its unsynced edits (23.09.2026). Block the slot instead: the
@@ -867,6 +889,7 @@ export class WorkspaceSync {
     }
     try {
       const { workspace, workspace_rev } = await getWorkspace(this.incidentId)
+      if (this.disposed) throw new Error('Incident selection cancelled')
       const ws = workspace ?? {}
       // The main slot holds an unserved dirty entry loadReadableEntry could NOT park durably. It is
       // the only copy of that work, so we must not reuse the slot: serve the server snapshot from
@@ -915,6 +938,7 @@ export class WorkspaceSync {
       this.setStatus('synced')
       return { workspace, rev: workspace_rev, fromCache: false }
     } catch (e) {
+      if (this.disposed) throw e
       // ⚠️ The offline fallback answers SILENCE, never a refusal (SEC-10). A 401 says this
       // browser has no session left, so the device may not answer from its own copy either —
       // and a 401 is device-wide, so every other open incident is locked with it. A 403 is
@@ -978,28 +1002,29 @@ export class WorkspaceSync {
 
   private run(): Promise<void> {
     if (this.flushing) return this.flushing
-    if (!this.entry.dirty || this.disposed) return Promise.resolve()
+    if (!this.entry.dirty || !this.sessionActive) return Promise.resolve()
     this.flushing = (async () => {
       do {
         this.flushRequested = false
         this.unreached = false
         await this.drain()
-      } while (this.flushRequested && this.unreached && this.entry.dirty && !this.disposed)
+      } while (this.flushRequested && this.unreached && this.entry.dirty && this.sessionActive)
     })().finally(() => {
       this.flushing = null
       // A failed attempt keeps the existing automatic backoff; joining callers never spin.
-      if (this.entry.dirty && !this.timer) this.scheduleRetry()
+      if (this.entry.dirty && !this.timer && this.sessionActive) this.scheduleRetry()
     })
     return this.flushing
   }
 
   private async drain(): Promise<void> {
-    while (this.entry.dirty && !this.disposed) {
+    while (this.entry.dirty && this.sessionActive) {
       if (this.timer) { clearTimeout(this.timer); this.timer = null }
       try {
         this.flushCache() // the cache must carry what is about to become the ancestor
         await this.pushCurrent()
       } catch (e) {
+        if (!this.sessionActive) return
         // ⚠️ BEFORE the 409 branch: this 409 is not a revision conflict — merging and retrying
         // would only collect it again (N3). The save is parked and the view goes back to the record.
         if (isIncidentClosedRefusal(e)) {
@@ -1053,7 +1078,7 @@ export class WorkspaceSync {
    * for the next open (15.11.2026). */
   flushKeepalive(): void {
     this.flushCache() // the page is dying — the debounce would never fire
-    if (!this.entry.dirty || this.disposed) return
+    if (!this.entry.dirty || !this.sessionActive) return
     const v = versionOf(this.entry.workspace)
     if (this.opts.slice === 'record') putWorkspaceRecordBeacon(this.incidentId, recordSlice(this.entry.workspace), this.entry.baseRev, v)
     else if (this.opts.slice === 'trupps' || onlyTruppsChanged(this.entry.base, this.entry.workspace)) putWorkspaceTruppsBeacon(this.incidentId, truppSlice(this.entry.workspace), this.entry.baseRev, this.editedAtIso(), v)
@@ -1075,7 +1100,7 @@ export class WorkspaceSync {
         // ⚠️ The slice validates EVERY Trupp it is sent; the full save keeps an unchanged legacy
         // row it would refuse (backend alarm_validation · retained rows). A 422 here may be one
         // of those, so the whole document goes as it always did — and answers for itself.
-        if (!(e instanceof ApiError && e.status === 422)) throw e
+        if (!this.sessionActive || !(e instanceof ApiError && e.status === 422)) throw e
       }
     }
     return putWorkspace(this.incidentId, workspace, baseRev, this.editedAtIso(), this.writerId)
@@ -1095,6 +1120,7 @@ export class WorkspaceSync {
     const pushed = this.entry.workspace
     const serverHad = this.entry.base ?? {}
     const { workspace_rev } = await this.push(pushed, this.entry.baseRev)
+    if (!this.sessionActive) return
     this.retryCount = 0 // server accepted a push → backoff starts over on the next failure
     // a merge this device made earlier (a cold reopen, a found slot) may have renumbered what the
     // server held; now that it is ON the server, this device says so — see resolveConflict
@@ -1135,7 +1161,7 @@ export class WorkspaceSync {
     let lastMerged: Workspace | null = null
     let lastMergedSeq = 0
     const preservePendingMerge = () => {
-      if (!lastMerged || this.disposed) return
+      if (!lastMerged || !this.sessionActive) return
       if (this.saveSeq !== lastMergedSeq) {
         this.entry = { ...this.entry, workspace: this.merge(mine0, this.entry.workspace, lastMerged) }
       }
@@ -1151,10 +1177,11 @@ export class WorkspaceSync {
       const wait = conflictBackoffMs(attempt)
       if (wait) {
         await new Promise((resolve) => setTimeout(resolve, wait))
-        if (this.disposed) return false
+        if (!this.sessionActive) return false
       }
       try {
         const server = await getWorkspace(this.incidentId)
+        if (!this.sessionActive) return false
         // ⚠️ A local edit landed while the PREVIOUS merge's PUT was 409ing (or during the wait
         // or the GET) — 24.09.2026, found by the three-device load test. The live view never
         // saw `lastMerged` (it is applied only on success), so that save() replaced the entry
@@ -1172,8 +1199,10 @@ export class WorkspaceSync {
         lastMerged = merged
         lastMergedSeq = this.saveSeq
         this.writeCache()
+        this.flushCache() // persist this dirty ancestor before the PUT, as drain() does on the first attempt
         const seqAtStart = this.saveSeq
         const { workspace_rev } = await this.push(merged, server.workspace_rev)
+        if (!this.sessionActive) return false
         this.opts.onRev?.(workspace_rev)
         this.retryCount = 0 // merge landed → backoff starts over on the next failure
         // ⚠️ The RESOLVING device says what its merge renumbered of the server's copy, once that
@@ -1209,6 +1238,7 @@ export class WorkspaceSync {
         this.opts.onMerged?.()
         return true
       } catch (e) {
+        if (!this.sessionActive) return false
         // the merge landed on a closed Einsatz — the same answer as a plain push gets (see drain)
         if (isIncidentClosedRefusal(e)) return this.parkRefused(e)
         if (isOlderBuildRefusal(e)) return this.parkOlderBuild()
@@ -1247,24 +1277,23 @@ export class WorkspaceSync {
     const pushed = this.entry.workspace
     const base = this.entry.base
     const baseRev = this.entry.baseRev
-    const item: RefusedWorkspace = { workspace: pushed, base, baseRev, refusedAt: Date.now(), owner: this.entry.owner }
+    const id = newId('refusal')
+    const item: RefusedWorkspace = { id, shape: this.shape, workspace: pushed, base, baseRev, refusedAt: Date.now(), owner: this.entry.owner }
     const seqAtPark = this.saveSeq
-    const readable = await this.loadRefused()
-    const next = [...this.refused, item]
-    // ⚠️ A slot that could not be READ is not an empty one: writing `next` over it would destroy
-    // what an earlier session parked there (the idb rule — a failed read is not a miss). The save
-    // goes to a slot of its own instead (`loadRefused` reads those too); the main slot is left.
-    const durable = readable
-      ? await idbSet(refusedCacheKey(this.incidentId), next)
-      : await idbSet(`${refusedCacheKey(this.incidentId)}:${item.refusedAt}`, [item])
+    // An immutable slot per refusal: a late write from a previous account cannot replace
+    // another writer's drafts. Older aggregate and timestamp slots are still read below.
+    const prefix = refusedCacheKey(this.incidentId)
+    const key = item.owner ? `${refusedOwnerPrefix(prefix, item.owner)}${id}` : `${prefix}:unattributed:${id}`
+    const durable = await idbSet(key, [item])
+    if (!this.sessionActive) return false
     reportIncidentClosed({ incidentId: this.incidentId, closedAt: refusalClosedAt(e), source: 'refusal' })
-    if (this.disposed) return false
     if (!durable) {
       this.cacheDurable = false
       this.setStatus('error')
       return false
     }
-    this.refused = next
+    this.refusedKeys.add(key)
+    if (!this.refused.some((r) => r.id === id)) this.refused.push(item)
     this.emitRefused()
     if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null }
     this.retryCount = 0
@@ -1273,7 +1302,7 @@ export class WorkspaceSync {
 
     // (2) the record part, on its own route — only the full-document engine can have one to save
     let landed: { workspace: Workspace; rev: number } | null = null
-    if (!this.opts.slice && base) {
+    if (this.sessionActive && !this.opts.slice && base) {
       const record = recordSlice(pushed)
       const changed = RECORD_SLICE_KEYS.some((k) => !jsonEqual(record[k], base[k]))
       if (changed) {
@@ -1281,7 +1310,7 @@ export class WorkspaceSync {
           const { workspace_rev } = await putWorkspaceRecord(this.incidentId, record, baseRev, this.writerId, versionOf(pushed))
           landed = { workspace: { ...base, ...record }, rev: workspace_rev }
         } catch { /* parked whole — the export and a reopen still carry it */ }
-        if (this.disposed) return true
+        if (!this.sessionActive) return false
         if (this.saveSeq !== seqAtPark) { this.setStatus('pending'); this.armDebounce(); return true }
       }
     }
@@ -1315,12 +1344,13 @@ export class WorkspaceSync {
    * Resolves true once handled.
    */
   private async parkOlderBuild(): Promise<boolean> {
-    if (!(await this.parkForRole(this.entry))) {
+    const parked = await this.parkForRole(this.entry)
+    if (!this.sessionActive) return false
+    if (!parked) {
       this.cacheDurable = false
       this.setStatus('error')
       return false
     }
-    if (this.disposed) return false
     if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null }
     this.retryCount = 0
     let server = this.entry.base ? { workspace: this.entry.base, rev: this.entry.baseRev } : null
@@ -1329,13 +1359,14 @@ export class WorkspaceSync {
         const r = await getWorkspace(this.incidentId)
         server = { workspace: r.workspace ?? {}, rev: r.workspace_rev }
       } catch {
+        if (!this.sessionActive) return false
         // parked already: not owed again — the view keeps what it shows until the next change
         this.entry = { ...this.entry, dirty: false }
         this.writeCache()
         this.setStatus('error')
         return true
       }
-      if (this.disposed) return false
+      if (!this.sessionActive) return false
     }
     this.entry = { ...this.entry, workspace: server.workspace, base: server.workspace, baseRev: server.rev, dirty: false, lastSyncedAt: Date.now() }
     this.writeCache()
@@ -1358,7 +1389,7 @@ export class WorkspaceSync {
   private async refetchRecord(): Promise<void> {
     try {
       const server = await getWorkspace(this.incidentId)
-      if (this.disposed) return
+      if (!this.sessionActive) return
       this.refetchOwed = false
       this.refetchCount = 0
       if (this.entry.dirty) return // a new edit merges against the server on its own push
@@ -1366,7 +1397,7 @@ export class WorkspaceSync {
       this.adoptServer(ws, server.workspace_rev)
       this.applyInPlace(ws, server.workspace_rev)
     } catch {
-      if (this.disposed) return
+      if (!this.sessionActive) return
       this.refetchOwed = true
       this.setStatus('error')
       const delay = Math.min(60_000, 5_000 * 2 ** this.refetchCount++)
@@ -1386,12 +1417,13 @@ export class WorkspaceSync {
 
   private emitRefused() {
     if (this.disposed) return
-    for (const l of [...this.refusedListeners]) l(this.refused.length)
+    for (const l of [...this.refusedListeners]) l(this.refusedCount)
+    this.emitRoleParked()
   }
 
-  /** Read the refused slot — the main one AND every fallback slot a park after a failed read
-   *  wrote (`…::__refused__:<ts>`) — merging with anything parked in this session meanwhile.
-   *  Resolves true once the MAIN slot was read (a miss included), false when that read failed —
+  /** Load the legacy aggregate, timestamp fallback slots and current per-refusal slots,
+   *  merging with anything parked in this session meanwhile.
+   *  Resolves true once every slot was read (a miss included), false when any read failed —
    *  then nothing is cached, so the next call reads again. */
   private refusedLoad: Promise<boolean> | null = null
   loadRefused(): Promise<boolean> {
@@ -1402,24 +1434,30 @@ export class WorkspaceSync {
         const read = await idbRead<RefusedWorkspace[]>(key)
         const found: RefusedWorkspace[] = read.ok && Array.isArray(read.value) ? [...read.value] : []
         const extra = await idbKeys(`${key}:`)
-        const fallbackKeys = extra.ok ? (extra.value ?? []) : []
+        const ownPrefix = this.sessionOwner && refusedOwnerPrefix(key, this.sessionOwner)
+        const fallbackKeys = (extra.ok ? extra.value ?? [] : []).filter((k) =>
+          /^\d+$/.test(k.slice(key.length + 1)) || (ownPrefix && k.startsWith(ownPrefix)))
+        let complete = read.ok && extra.ok
         for (const k of fallbackKeys) {
           const r = await idbRead<RefusedWorkspace[]>(k)
-          if (r.ok && Array.isArray(r.value)) found.push(...r.value)
+          if (!r.ok) complete = false
+          else if (Array.isArray(r.value)) found.push(...r.value)
         }
-        this.refusedFallbackKeys = fallbackKeys
+        for (const k of [key, ...fallbackKeys]) this.refusedKeys.add(k)
         if (found.length) {
-          const seen = new Set(this.refused.map((r) => r.refusedAt))
-          this.refused = [...found.filter((r) => !seen.has(r.refusedAt)), ...this.refused]
+          for (const item of found) {
+            if (!this.refused.some((r) => (r.id ?? r.refusedAt) === (item.id ?? item.refusedAt) && r.owner === item.owner)) this.refused.push(item)
+          }
+          this.refused.sort((a, b) => a.refusedAt - b.refusedAt)
           this.emitRefused()
         }
-        if (!read.ok && this.refusedGen === gen) this.refusedLoad = null
-        return read.ok
+        if (!complete && this.refusedGen === gen) this.refusedLoad = null
+        return complete
       })()
     }
     return this.refusedLoad
   }
-  private refusedFallbackKeys: string[] = []
+  private refusedKeys = new Set<string>()
   private refusedGen = 0
 
   /**
@@ -1434,17 +1472,18 @@ export class WorkspaceSync {
   }
 
   private async transferRefused(): Promise<void> {
-    // ⚠️ Only once the MAIN slot was actually read: emptying a slot that could not be read would
+    // ⚠️ Only once every slot was actually read: emptying a slot that could not be read would
     // destroy what an earlier session parked there. Unread ⇒ nothing is re-sent now; the next
     // attempt (the next render that sees the Einsatz running) reads again.
     if (!(await this.loadRefused())) return
-    if (this.disposed || !this.refused.length) return
-    const parked = this.refused
+    const parked = this.ownRefused()
+    if (!parked.length) return
     const transferred = new Set(this.entry.requeuedRefused)
     let ws = this.entry.workspace
     for (const p of parked) {
-      if (!transferred.has(p.refusedAt)) ws = this.merge(p.base ?? {}, p.workspace, ws)
-      transferred.add(p.refusedAt)
+      const marker = p.id ?? p.refusedAt
+      if (!transferred.has(marker)) ws = this.merge(p.base ?? {}, p.workspace, ws)
+      transferred.add(marker)
     }
     this.entry = { ...this.entry, requeuedRefused: [...transferred] }
     this.save(ws)
@@ -1452,13 +1491,24 @@ export class WorkspaceSync {
     // Commit the replacement FIRST. Even a quota failure or a reload in this await leaves
     // one durable copy. The marker above makes retry after a failed clear idempotent.
     if (!(await this.flushCache()) || this.disposed) return
-    const remaining = this.refused.filter((p) => !parked.includes(p))
-    const emptied = await idbSet(refusedCacheKey(this.incidentId), remaining)
-    if (!emptied || this.disposed) return
-    for (const k of this.refusedFallbackKeys) await idbDel(k)
-    this.refusedFallbackKeys = []
-    this.refused = remaining
-    this.entry = { ...this.entry, requeuedRefused: this.entry.requeuedRefused?.filter((at) => !parked.some((p) => p.refusedAt === at)) }
+    const markers = new Set(parked.map((p) => p.id ?? p.refusedAt))
+    const main = refusedCacheKey(this.incidentId)
+    for (const key of this.refusedKeys) {
+      const read = await idbRead<RefusedWorkspace[]>(key)
+      if (!read.ok || !this.sessionActive) return
+      if (!read.value) continue
+      const keep = read.value.filter((p) => p.owner !== this.sessionOwner || !markers.has(p.id ?? p.refusedAt))
+      if (keep.length === read.value.length) continue
+      // A plain delete acknowledges no durability. First persist the filtered contents so
+      // even a failed cleanup cannot replay this copy over a later edit on the next launch.
+      if (!(await idbSet(key, keep))) return
+      if (!keep.length && key !== main) {
+        await idbDel(key)
+        this.refusedKeys.delete(key)
+      }
+    }
+    this.refused = this.refused.filter((p) => !parked.includes(p))
+    this.entry = { ...this.entry, requeuedRefused: this.entry.requeuedRefused?.filter((at) => !markers.has(at)) }
     this.writeCache()
     this.emitRefused()
     await this.flush()
@@ -1466,12 +1516,12 @@ export class WorkspaceSync {
 
   /** Saves refused because the Einsatz was closed — parked until it runs again (see parkRefused). */
   get refusedCount(): number {
-    return this.refused.length
+    return this.ownRefused().length
   }
 
   /** The refused saves for «Einträge sichern» — a copy; exporting acknowledges nothing. */
   refusedRecoveryData(): RefusedWorkspace[] {
-    return structuredClone(this.refused)
+    return structuredClone(this.ownRefused())
   }
 
   /**
@@ -1504,7 +1554,7 @@ export class WorkspaceSync {
    *  Returns the unsubscribe. */
   subscribeRoleParked(listener: (count: number) => void): () => void {
     this.roleParkedListeners.add(listener)
-    void idbRead<RefusedWorkspace[]>(roleCacheKey(this.incidentId, cacheOwner ?? '')).then((read) => {
+    void idbRead<RefusedWorkspace[]>(roleCacheKey(this.incidentId, this.sessionOwner ?? '')).then((read) => {
       if (!read.ok || !Array.isArray(read.value) || this.disposed) return
       const seen = new Set(this.roleParked.map((r) => r.refusedAt))
       this.roleParked = [...read.value.filter((r) => !seen.has(r.refusedAt)), ...this.roleParked]
@@ -1515,16 +1565,16 @@ export class WorkspaceSync {
 
   private emitRoleParked() {
     if (this.disposed) return
-    for (const l of [...this.roleParkedListeners]) l(this.roleParked.length)
+    for (const l of [...this.roleParkedListeners]) l(this.roleParkedCount)
   }
 
   get roleParkedCount(): number {
-    return this.roleParked.length
+    return this.sessionActive ? this.roleParked.length + this.ownRefused('role').length : 0
   }
 
   /** The parked saves of a wider role for «Einträge sichern» — a copy; exporting acknowledges nothing. */
   roleParkedRecoveryData(): RefusedWorkspace[] {
-    return structuredClone(this.roleParked)
+    return this.sessionActive ? structuredClone([...this.roleParked, ...this.ownRefused('role')]) : []
   }
 
   /**
@@ -1545,6 +1595,9 @@ export class WorkspaceSync {
     this.setStatus('synced')
   }
 
+  get workspace(): Workspace {
+    return this.entry.workspace
+  }
   get rev(): number {
     return this.entry.baseRev
   }

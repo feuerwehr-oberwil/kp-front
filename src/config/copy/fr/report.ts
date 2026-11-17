@@ -263,6 +263,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     shareRetry: 'Réessayer',
     shareCreateFailed: 'Lien non reçu – réessayer',
     shareCopy: 'Copier l’adresse',
+    shareManualCopy: 'La copie automatique a échoué. Copiez l’adresse manuellement.',
     shareCopied: 'Copié',
     shareScan: 'Scanner avec l’appareil photo',
     shareSend: 'Envoyer …',
