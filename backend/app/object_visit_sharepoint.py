@@ -63,11 +63,11 @@ def export_credentials() -> tuple[str, str, str] | None:
     return (tenant, client, secret) if tenant and client and secret else None
 
 
-def sanitize_segment(value: str) -> str:
+def sanitize_segment(value: str, *, truncate: bool = True) -> str:
     """One path segment SharePoint accepts: forbidden characters and leading/trailing dots and
     spaces removed, whitespace collapsed, bounded. Never empty."""
     cleaned = " ".join(_FORBIDDEN.sub("", value or "").split()).strip(" .")
-    if len(cleaned) > _SEGMENT_MAX:
+    if truncate and len(cleaned) > _SEGMENT_MAX:
         cleaned = cleaned[:_SEGMENT_MAX].rstrip(" .")
     return cleaned or "_"
 

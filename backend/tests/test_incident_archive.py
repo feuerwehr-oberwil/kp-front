@@ -370,6 +370,54 @@ def test_an_ambiguous_legacy_archive_preserves_both_folders(current_title):
     assert items["folderPatterns"] == {}
 
 
+def test_long_template_keeps_a_short_legacy_rendering_after_a_rename():
+    pattern = f"{PHOTOS}/{'x' * 110}{{stichwort}}"
+    dest = IncidentArchiveDestination.model_validate({**DEST, "photoFolder": pattern})
+    original = "/".join(archive.expand(pattern, {"stichwort": "A"}))
+    items = {"folders": {original: {"id": "original"}}}
+    archive.bind_folder_patterns(items, dest, {"stichwort": "B"})
+    assert items["folderPatterns"] == {pattern: original}
+
+
+@pytest.mark.parametrize("old_title", ["A" * 60, "A" * 50 + "." * 9 + "A"])
+def test_clipped_legacy_name_requires_reconciliation_before_creating_a_folder(old_title):
+    pattern = f"{PHOTOS}/{'x' * 65}{{stichwort}}-photos"
+    dest = IncidentArchiveDestination.model_validate({**DEST, "photoFolder": pattern})
+    original = "/".join(archive.expand(pattern, {"stichwort": old_title}))
+    items = {"folders": {original: {"id": "original"}}}
+    with pytest.raises(archive.AmbiguousArchiveFolderError):
+        archive.bind_folder_patterns(items, dest, {"stichwort": "B"})
+    assert items["folderPatterns"] == {}
+
+
+def test_short_date_template_does_not_claim_an_unrelated_legacy_key_in_the_same_tree():
+    pattern = f"{PHOTOS}/{{year}}-new"
+    dest = IncidentArchiveDestination.model_validate({**DEST, "photoFolder": pattern})
+    items = {"folders": {f"{PHOTOS}/2025-old": {"id": "old"}}}
+    archive.bind_folder_patterns(items, dest, {"year": "2026"})
+    assert items["folderPatterns"] == {}
+
+
+def test_a_truncated_key_cannot_be_bound_to_another_folder_pattern_that_matches_its_visible_text():
+    photo = f"{PHOTOS}/{'x' * 65}{{stichwort}}-photos"
+    report = f"{PHOTOS}/{{kategorie}}"
+    dest = IncidentArchiveDestination.model_validate({**DEST, "photoFolder": photo, "reportFolder": report})
+    original = "/".join(archive.expand(photo, {"stichwort": "A" * 60}))
+    items = {"folders": {original: {"id": "photo"}}}
+    with pytest.raises(archive.AmbiguousArchiveFolderError):
+        archive.bind_folder_patterns(items, dest, {"stichwort": "B", "kategorie": "Brand"})
+    assert items["folderPatterns"] == {}
+
+
+def test_unique_untruncated_sibling_patterns_with_different_suffixes_keep_their_bindings():
+    photo, report = f"{PHOTOS}/{{stichwort}}-photos", f"{PHOTOS}/{{stichwort}}-reports"
+    dest = IncidentArchiveDestination.model_validate({**DEST, "photoFolder": photo, "reportFolder": report})
+    a, b = f"{PHOTOS}/A-photos", f"{PHOTOS}/B-reports"
+    items = {"folders": {a: {"id": "photo"}, b: {"id": "report"}}}
+    archive.bind_folder_patterns(items, dest, {"stichwort": "C"})
+    assert items["folderPatterns"] == {photo: a, report: b}
+
+
 async def test_a_moved_folder_still_receives(client, editor, drive, session_factory, db_session):
     inc = await _incident(client, editor)
     await _upload(client, inc)

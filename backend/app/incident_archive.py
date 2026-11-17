@@ -66,7 +66,7 @@ from .object_visit_sharepoint import (
     sanitize_segment,
     short_error,
 )
-from .schemas import IncidentArchiveConfig, IncidentArchiveDestination, load_stored_config
+from .schemas import INCIDENT_TYPE_MAX, IncidentArchiveConfig, IncidentArchiveDestination, load_stored_config
 from .sharepoint_graph import GraphAuthError, GraphError
 
 if TYPE_CHECKING:
@@ -404,16 +404,41 @@ async def plan(db: AsyncSession, c: Claim) -> Plan | None:
 
 
 class AmbiguousArchiveFolderError(Exception):
-    """An older delivery has multiple possible folder bindings. Do not guess where to file."""
+    """The original folder of an older delivery cannot be identified safely."""
 
 
-def _legacy_path_matches(pattern: str, path: str) -> bool:
-    """Only placeholders vary; retain literal path levels and SharePoint sanitisation."""
-    parts = path.split("/")
-    template = expand(pattern, {})
-    return len(parts) == len(template) and all(
-        fnmatchcase(part, re.sub(r"\{\w+\}", "*", escape(level))) for level, part in zip(template, parts, strict=True)
-    )
+# Longest renderings of placeholders(). A missing Stichwort falls back to the incident type.
+_WIDEST_VALUE = {
+    "year": "2000",
+    "date": "2000.01.01",
+    "short": "ffff",
+    "stichwort": "x" * INCIDENT_TYPE_MAX,
+    "kategorie": "x" * INCIDENT_TYPE_MAX,
+}
+_FOLDER_TOKEN = re.compile(r"\{(\w+)\}")
+
+
+def _legacy_path_matches(pattern: str, path: str, *, allow_clipped: bool = False) -> bool:
+    """SharePoint caps rendered values. The placeholder names themselves never consume that budget."""
+    levels, parts = pattern.split("/"), path.split("/")
+    if len(levels) != len(parts):
+        return False
+    for raw, part in zip(levels, parts, strict=True):
+        token = _FOLDER_TOKEN.search(raw)
+        level = sanitize_segment(raw, truncate=token is None)
+        if fnmatchcase(part, _FOLDER_TOKEN.sub("*", escape(level))):
+            continue
+        if allow_clipped and token:
+            # The cap can hide a suffix after a variable value. Everything before the
+            # first placeholder still identifies the tree, including a cap in that prefix.
+            widest = _FOLDER_TOKEN.sub(lambda match: _WIDEST_VALUE[match[1]], level)
+            if sanitize_segment(widest) == widest:
+                return False
+            prefix = level.partition("{")[0]
+            if not prefix or part.startswith(sanitize_segment(prefix)):
+                continue
+        return False
+    return True
 
 
 def bind_folder_patterns(items: dict[str, Any], dest: IncidentArchiveDestination, values: dict[str, str]) -> None:
@@ -426,6 +451,13 @@ def bind_folder_patterns(items: dict[str, Any], dest: IncidentArchiveDestination
     for pattern in patterns - bindings.keys():
         current = "/".join(expand(pattern, values))
         matches[pattern] = {key for key in unbound if key == current or _legacy_path_matches(pattern, key)}
+    # A rendered segment may have lost its literal suffix at the SharePoint length cap.
+    # Its visible text can even match a sibling pattern. In either case the operator must
+    # identify the original folder before the worker binds or creates a replacement.
+    for pattern, definite in matches.items():
+        for key in unbound - definite:
+            if _legacy_path_matches(pattern, key, allow_clipped=True):
+                raise AmbiguousArchiveFolderError(f"Bisheriger Ablageordner nicht eindeutig zuzuordnen: {key}")
     resolved = {}
     for pattern, keys in matches.items():
         if not keys:
