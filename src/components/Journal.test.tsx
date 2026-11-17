@@ -647,18 +647,18 @@ describe('Journal · Beilagen chips (files on a row)', () => {
 })
 
 // ── the list row (owner pick 25 B, 17.11.2026) ──────────────────────────────────────────────
-// The head is the title, «Wiedergabe» and ✕ – nothing else (on a phone the title and ✕, decision 27,
-// below). Under it the row every list has: the
+// The head is the title and ✕ – nothing else (▶ stands at the ruler, pick 30, below). Under it the
+// row every list has: the
 // search, always in view (no lens to open it first), and the «Art» tile; the legend is the ring key
 // at the end of the «Art» menu. The matching itself is lib/journalSearch's.
 describe('Journal · the list row', () => {
   const field = () => screen.getByRole('textbox', { name: 'Im Verlauf suchen' })
   const rows = () => [...document.querySelectorAll<HTMLElement>('[data-ev]')].map((el) => el.dataset.ev)
 
-  it('the head carries the title, «Wiedergabe» and ✕ only; the field and «Art» stand under it', () => {
+  it('the head carries the title and ✕ only; the field and «Art» stand under it', () => {
     setup({ onReplay: vi.fn() })
     const head = document.querySelector('.journal-head')!
-    expect([...head.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Wiedergabe starten', 'Schliessen'])
+    expect([...head.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Schliessen'])
     const row = document.querySelector('.journal-search-row')!
     expect(row.contains(field())).toBe(true)
     expect(row.contains(screen.getByRole('button', { name: 'Verlauf filtern' }))).toBe(true)
@@ -765,8 +765,9 @@ describe('Journal · a Trupp named in a row', () => {
   })
 })
 
-// owner pick M8 · C (17.11.2026): on a phone ▶ left the head – a stray tap beside ✕ put the running
-// Einsatz into the past – and stands at the left end of the time ruler. Tablet keeps it worded.
+// owner picks M8 · C and 30 (17.11.2026): ▶ left the head – a stray tap beside ✕ put the running
+// Einsatz into the past – and stands at the left end of the time ruler on every device: worded on
+// a tablet, the bare glyph on a phone.
 describe('Journal · «Wiedergabe starten»', () => {
   const asPhone = (on: boolean) => vi.stubGlobal('matchMedia', (q: string) => ({ matches: on, media: q, addEventListener() {}, removeEventListener() {} }))
   afterEach(() => { vi.unstubAllGlobals() })
@@ -785,11 +786,20 @@ describe('Journal · «Wiedergabe starten»', () => {
     expect(p.onReplay).toHaveBeenCalledTimes(1)
   })
 
-  it('tablet: the worded button in the head', () => {
-    asPhone(false)
+  it('phone: the bare glyph – its word is the name alone', () => {
+    asPhone(true)
     setup({ onReplay: vi.fn() })
-    expect(replayBtn().closest('.journal-head')).toBeTruthy()
-    expect(document.querySelector('.jr-strip-row')).toBeNull()
+    expect(replayBtn().textContent).toBe('')
+  })
+
+  it('tablet: at the ruler too, with its word «Wiedergabe»', () => {
+    asPhone(false)
+    const p = setup({ onReplay: vi.fn() })
+    expect(replayBtn().closest('.jr-strip-row')).toBeTruthy()
+    expect(replayBtn().closest('.journal-head')).toBeNull()
+    expect(replayBtn().textContent).toBe('Wiedergabe')
+    fireEvent.click(replayBtn())
+    expect(p.onReplay).toHaveBeenCalledTimes(1)
   })
 })
 

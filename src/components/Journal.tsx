@@ -689,7 +689,6 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
      ⚠️ NOT while searching or filtering: its ticks and its jump are positioned over the FULL
      list, and above a narrowed one they would point at rows that are not there. */
   const phone = useIsPhone()
-  const phoneReplay = phone && onReplay
   const strip = stripSpan && !searching && !filtering && (
     <div
       className="jr-strip" role="slider" tabIndex={0} ref={measureStrip}
@@ -739,8 +738,8 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
 
   return (
     <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} onEscape={escapeInner} grab popupRef={setDrawerEl} style={heldStyle}>
-        {/* ── the head: the title, «Wiedergabe», ✕ – and nothing else (owner pick 25 B, 17.11.2026; on a phone
-            the title and ✕, ▶ stands at the ruler, decision 27) ──
+        {/* ── the head: the title with its count, ✕ – and nothing else, on every device (owner pick 25 B
+            and 30, 17.11.2026: ▶ «Wiedergabe» stands at the ruler's left end everywhere) ──
             It carried ⓘ «Legende» · «Suchen» · «Art» · «Wiedergabe» + ✕ until then, and the title
             paid: «V…» in the tablet drawer, «Verlauf ·…» on a phone. The search and the filter moved
             to the list row below it, the legend into the filter menu. Never cut the title again. */}
@@ -748,15 +747,6 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
           {/* the title and its count as two pieces (hill climb r6): the count is a caption beside
               the name, not part of it — so «Verlauf» leads and «· 322» steps back (10-journal.css) */}
           <span className="journal-title"><Icon id="verlauf" /><span className="journal-title-txt">{C.title}</span>{' '}<span className="journal-count">· {shownTotal}</span></span>
-          {/* `aria-label` «Wiedergabe starten», the word «Wiedergabe» beside the glyph. THE button's
-              framed secondary (hill climb, 04.11.2026): it was the filled primary, and playing back
-              history out-shouted the title and the open Pendenzen below it. Tablet and laptop only –
-              on a phone it stands at the ruler (`phoneReplay`, M8 · C, decision 27). */}
-          {onReplay && !phone && (
-            <Button className="journal-replay" onClick={onReplay} title={C.replayHint} aria-label={C.replay} icon={<Icon id="play-circle" />}>
-              <span>{C.replayWord}</span>
-            </Button>
-          )}
           <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
         </div>
         {deliveryNotice}
@@ -806,14 +796,18 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
             count={query ? undefined : { n: totalRows, m: shownTotal }}
             onClear={() => setFilterSel(new Set())} />
         )}
-        {phoneReplay && strip ? (
-          // phone (owner pick M8 · C, 17.11.2026): ▶ left the head – one stray tap beside ✕ swapped
-          // the running Lage for the past – and stands at the ruler's left end, the strip that
-          // already means «jump in time». A bare 44px glyph (10-journal.css · `.jr-strip-replay`);
-          // its word is the `aria-label`. While searching or filtering there is no strip and no ▶:
-          // the replay plays the whole picture, so it waits for the whole list.
+        {onReplay && strip ? (
+          // ▶ at the ruler's left end, on every device (owner picks M8 · C and 30, 17.11.2026): in
+          // the head one stray tap beside ✕ swapped the running Lage for the past; here it stands
+          // at the strip that already means «jump in time». The tablet's row has the room for the
+          // word, «▶ Wiedergabe»; the phone's keeps the bare 44px glyph (10-journal.css ·
+          // `.jr-strip-replay`). Its name is «Wiedergabe starten» either way. While searching or
+          // filtering there is no strip and no ▶: the replay plays the whole picture, so it waits
+          // for the whole list.
           <div className="jr-strip-row">
-            <button type="button" className="jr-strip-replay" onClick={onReplay} title={C.replayHint} aria-label={C.replay}><Icon id="play-circle" /></button>
+            <button type="button" className="jr-strip-replay" onClick={onReplay} title={C.replayHint} aria-label={C.replay}>
+              <Icon id="play-circle" />{!phone && <span>{C.replayWord}</span>}
+            </button>
             {strip}
           </div>
         ) : strip}

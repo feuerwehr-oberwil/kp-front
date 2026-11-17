@@ -400,14 +400,21 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     `.ctx-x`, `.sym-close` — one rule in 13-incident.css; it was 28/30/32): the `--ink-8` plate,
     the ordinary grey, never a filled «on», over a 44px hit pad. No exceptions since hill climb r35
     (06.11.2026): beside a 44px search field (Palette, Trupp finden) and in the
-    Verlauf's head beside its 44px ▶ it is the same 36px plate, centred on its row – the 44px and
-    ▶-framed copies there read as a different button. It stands as far from the sheet's right
+    Verlauf's head it is the same 36px plate, centred on its row – the 44px copies there read as
+    a different button. It stands as far from the sheet's right
     edge as the title from its left (24 on a sheet, 16 where a frame pads 16: composer, Palette,
     Verlauf, the `.ctx` editors, Trupp finden; 12 on the Gebäude card). Where the body under the
     head is a row of plates that stand outside the text edge (Ebenen: the quick row and the
     tiles), the ✕'s plate ends on THEIR right edge instead (12 on the card, 20 on the phone
     sheet) while the title keeps the text edge – a ✕ 4px inside the row below reads as shifted
     for no reason (owner, 13.11.2026).
+  - *The Verlauf's head is its title with the count, and ✕ – nothing else, on every device*
+    (owner picks 25 B and 30, 17.11.2026). ▶ «Wiedergabe starten» stands at the LEFT END OF THE
+    TIME RULER (`.jr-strip-row`, components/Journal): one button left of ✕ a stray tap put the
+    running Einsatz into the past, and the ruler already means «jump in time». Worded where the
+    row has the room – the tablet's «▶ Wiedergabe» – and the bare 44px glyph on a phone
+    ([`phone-layout.md`](phone-layout.md)). No ruler (one moment, a search, a filter) means no ▶:
+    the replay plays the whole picture.
   - *Radius – ONE corner (25.09.2026):* **every** rectangle is `var(--r-sm)` (12px) – button,
     field, status box, row, card, page card (tablet and desktop – a phone page has no card,
     [`phone-layout.md`](phone-layout.md) · «No page card on a phone»), sheet, dialog, message; `--r-ctl`/`--r-surface`/
