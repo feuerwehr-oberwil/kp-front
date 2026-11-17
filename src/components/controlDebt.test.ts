@@ -92,7 +92,6 @@ const BASELINE: Record<string, Counts> = {
   'src/capture/PartnerSection.tsx': { field: 3 },
   'src/capture/PersonenSection.tsx': { pressed: 1 },
   'src/components/AnwesenheitView.tsx': { pressed: 1 },
-  'src/components/ArmedToolPill.tsx': { pressed: 1 },
   'src/components/AtemschutzNotfall.tsx': { row: 4 },
   'src/components/AtemschutzView.tsx': { pressed: 1, row: 1 },
   'src/components/AudioPlayerSheet.tsx': { row: 2, field: 4 },

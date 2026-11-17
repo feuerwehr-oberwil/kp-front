@@ -2889,10 +2889,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             </div>
           )}
           {readOnly && (!slimRail || isPhone) && (
-            <div className="wb-zoom wb-zoom-float" onPointerDown={(e) => e.stopPropagation()}>
-              <button onClick={() => zoom(1 / 1.3)} disabled={scale <= MIN_SCALE} title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut}><Icon id="minus" /></button>
-              <button onClick={() => zoom(1.3)} disabled={scale >= maxScale} title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn}><Icon id="plus" /></button>
-              <button className="wb-fit" onClick={() => applyView(1, { x: 0, y: 0 })} disabled={scale === 1 && pos.x === 0 && pos.y === 0} title={appConfig.copy.nav.fit}>{appConfig.copy.nav.fit}</button>
+            // the view bar's tiles (button sweep CHROME.12, 17.11.2026): Einpassen ⌖ over its word by
+            // «Beschriftung», + − bare glyph squares – the act looks the same with and without a rail
+            <div className={`wb-zoom-float${railLabels === 'short' ? ' labelled' : ''}`} onPointerDown={(e) => e.stopPropagation()}>
+              <button className="vrail-nbtn wb-zoom-fit" onClick={() => applyView(1, { x: 0, y: 0 })} disabled={scale === 1 && pos.x === 0 && pos.y === 0} title={appConfig.copy.nav.fit} aria-label={appConfig.copy.nav.fit}><span className="vrail-glyph"><Icon id="cross" /></span><span className="vrail-label">{appConfig.copy.nav.fit}</span></button>
+              <button className="vrail-nbtn" onClick={() => zoom(1.3)} disabled={scale >= maxScale} title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn}><span className="vrail-glyph"><Icon id="plus" /></span></button>
+              <button className="vrail-nbtn" onClick={() => zoom(1 / 1.3)} disabled={scale <= MIN_SCALE} title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut}><span className="vrail-glyph"><Icon id="minus" /></span></button>
             </div>
           )}
 
@@ -3044,9 +3046,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       {pendingShape && tool === 'shape' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('pan') } }],
-          // currentColor, not #fff: the dock is light by day since 20.10.2026 (3am sweep, nit)
-          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />,
-            label: appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel }],
+          // the Form's name is the armed pill's, not a tile of the dock (button sweep CHROME.11)
           // «mehrere nacheinander» has no meaning for a shape laid between two named places
           ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'place-repeat', label: appConfig.copy.keepPlacing, short: appConfig.copy.keepPlacingShort, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
           [{ type: 'info', text: !SHAPE_TWO_POINT[pendingShape] ? appConfig.copy.dockHints.shape

@@ -32,28 +32,26 @@ export type DockItem =
    *  tile (M7 C, 13.11.2026): the control that commits, not a ✕ look-alike; the ✕ beside it closes,
    *  and a committable draft is asked about, never thrown away (useMapDrawing · settleDraft). */
   | { type: 'go'; onClick: () => void; disabled?: boolean; title?: string }
-  /** a preview, not a control (the Form being placed); `label` names it («Rechteck») */
-  | { type: 'glyph'; node: ReactNode; label: string }
   | { type: 'action'; icon: string; label: string; short?: string; onClick: () => void; disabled?: boolean; cls?: string }
   | { type: 'info'; text: string }
 
 /** a dock tile's word under its glyph, the rail tile's `.vrail-label` look (09-whiteboard) */
 const word = (w: string, on: boolean) => on ? <span className="wb-dock-word">{w}</span> : null
 
-function renderItem(item: DockItem, key: string, worded: boolean): ReactNode {
+/** One dock tile – the ToolDock's own, and the symbol's [Mehrere · ✕] beside the armed pill
+ *  (ArmedToolPill), so the two are the same control by construction, not by a copied look. */
+export function DockTile({ item, worded }: { item: DockItem; worded: boolean }): ReactNode {
   switch (item.type) {
     case 'close':
-      return <button key={key} className="wb-dock-x" title={item.title ?? appConfig.copy.cancel} aria-label={item.title ?? appConfig.copy.cancel} onClick={item.onClick}><Icon id="close" />{word(appConfig.copy.cancel, worded)}</button>
+      return <button className="wb-dock-x" title={item.title ?? appConfig.copy.cancel} aria-label={item.title ?? appConfig.copy.cancel} onClick={item.onClick}><Icon id="close" />{word(appConfig.copy.cancel, worded)}</button>
     case 'toggle':
-      return <button key={key} className={`wb-dock-tog ${item.on ? 'on' : ''}`} title={item.label} aria-label={item.label} aria-pressed={item.on} disabled={item.disabled} onClick={item.onClick}><Icon id={item.icon} />{word(item.short ?? item.label, worded)}</button>
+      return <button className={`wb-dock-tog ${item.on ? 'on' : ''}`} title={item.label} aria-label={item.label} aria-pressed={item.on} disabled={item.disabled} onClick={item.onClick}><Icon id={item.icon} />{word(item.short ?? item.label, worded)}</button>
     case 'go':
-      return <button key={key} className="wb-dock-go" disabled={item.disabled} title={item.title ?? appConfig.copy.done} aria-label={item.title ?? appConfig.copy.done} onClick={item.onClick}><Icon id="check" />{word(item.title ?? appConfig.copy.done, worded)}</button>
-    case 'glyph':
-      return <span key={key} className="wb-dock-ic" role="img" aria-label={item.label}><span className="wb-dock-shape">{item.node}</span>{word(item.label, worded)}</span>
+      return <button className="wb-dock-go" disabled={item.disabled} title={item.title ?? appConfig.copy.done} aria-label={item.title ?? appConfig.copy.done} onClick={item.onClick}><Icon id="check" />{word(item.title ?? appConfig.copy.done, worded)}</button>
     case 'action':
-      return <button key={key} className={item.cls ?? 'wb-dock-tog'} disabled={item.disabled} title={item.label} aria-label={item.label} onClick={item.onClick}><Icon id={item.icon} />{word(item.short ?? item.label, worded)}</button>
+      return <button className={item.cls ?? 'wb-dock-tog'} disabled={item.disabled} title={item.label} aria-label={item.label} onClick={item.onClick}><Icon id={item.icon} />{word(item.short ?? item.label, worded)}</button>
     case 'info':
-      return <DockInfo key={key} text={item.text} word={worded ? appConfig.copy.toolDock.infoWord : undefined} />
+      return <DockInfo text={item.text} word={worded ? appConfig.copy.toolDock.infoWord : undefined} />
   }
 }
 
@@ -70,8 +68,11 @@ function renderItem(item: DockItem, key: string, worded: boolean): ReactNode {
  * The dock follows the rails (round 2b, 13.11.2026; round 15.11.2026 #2, owner: «adding the
  * subtitles there too when enabled in settings»): with «Beschriftung der Werkzeugleisten» on,
  * EVERY item wears its word under its glyph like a rail tile («Abbrechen», the mode names,
- * «Fertig», «Info», the Form's name) – on the tablet's column and on the phone's row alike; off,
- * every item is a bare glyph. Never a mix, so the dock reads as one family.
+ * «Fertig», «Info») – on the tablet's column and on the phone's row alike; off, every item is a
+ * bare glyph. Never a mix, so the dock reads as one family.
+ *
+ * Controls only, and no tile that repeats the armed pill (button sweep CHROME.11, 17.11.2026): a
+ * Form's name is the pill's (ArmedToolPill), the dock carries its ✕, «Mehrere» and ⓘ.
  */
 export function ToolDock({ groups }: { groups: DockItem[][] }) {
   // the ✕ leaves its group for the dock's end (see DockItem · close); it carries its own group gap
@@ -87,10 +88,10 @@ export function ToolDock({ groups }: { groups: DockItem[][] }) {
       {visible.map((g, gi) => (
         <Fragment key={gi}>
           {gi > 0 && <span className="wb-dock-gap" aria-hidden />}
-          {g.map((item, ii) => renderItem(item, `${gi}-${ii}`, worded))}
+          {g.map((item, ii) => <DockTile key={`${gi}-${ii}`} item={item} worded={worded} />)}
         </Fragment>
       ))}
-      {close.map((item, i) => renderItem(item, `x-${i}`, worded))}
+      {close.map((item, i) => <DockTile key={`x-${i}`} item={item} worded={worded} />)}
     </div>
   )
 }

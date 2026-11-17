@@ -273,19 +273,20 @@
   .phone-tools .wb-dock > * { flex: none; }
   /* UNIFORM button + icon size across the whole bar: every control the bars' 46px tile (the bar
      is --rail-h 60 with 4px padding — 3am test r2, 25.09.2026: ✕ · Freihand · Punkte · ✓ · ⓘ
-     measured 40px high; 44 until the M8 rework), every icon 18px — was a jumble (34/38 buttons,
-     16/17/18 icons). ℹ matches (DockInfo). */
+     measured 40px high; 44 until the M8 rework), every icon the bars' 22px — was a jumble (34/38
+     buttons, 16/17/18 icons), then 18 under the bars' 22 (button sweep CHROME.8, 17.11.2026: the
+     pencil in «Freihand» stood visibly smaller than «Linie» right below it). ℹ matches (DockInfo). */
   .phone-tools .wb-dock :is(.wb-dock-tog, .wb-dock-go) { width: 46px; min-width: 46px; height: 46px; border-radius: var(--r-sm); }
   /* the ✕ at the bar's END (ToolDock · close, sweep 27.10.2026 #3): its DOM place, not the
      column's `order` lift, and the group gap on the side that faces the options */
   .phone-tools .wb-dock .wb-dock-x { width: 46px; height: 46px; order: 0; margin: 0 0 0 4px; }
-  .phone-tools .wb-dock .i { width: 18px; height: 18px; }
+  .phone-tools .wb-dock .i { width: 22px; height: 22px; }
   /* «Beschriftung» on (ToolDock · worded, round 15.11.2026 #2, owner pick 2A): every item is the
      labelled tool bar's tile under it – glyph over its word, at least 50px and as wide as its word
      (never an ellipsis: a busy dock scrolls, the ✕ sticky at its end), 46px high, so the row keeps
      the bars' height and reads as their twin. The column's labelled width does not apply here. */
   .phone-tools .wb-dock.wb-dock-worded { width: max-content; }
-  .phone-tools .wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded, .wb-dock-ic) {
+  .phone-tools .wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded) {
     width: auto; min-width: 50px; height: 46px; padding: 0 8px; }
   .phone-tools .wb-dock.wb-dock-worded .wb-dock-word { max-width: none; overflow: visible; }
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
@@ -296,7 +297,16 @@
      a sheet is open; the sheet then covers both Plan rails as its Lage twin already does, while
      the top bar (z 56) and modal overlays remain above it. */
   .phone-tools .whiteboard:has(.ctx) { z-index: var(--z-chrome-raised); }
-  .phone-tools :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
+  .phone-tools .coord-read { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
+  /* ✥ ⟳ stands where the dock row stands while a tool is out – and is that row's twin (button
+     sweep CHROME.2, owner 17.11.2026): its foot `--dock-bottom`, `--rail-h` tall, the row's 4px 8px
+     inset and 8px gap, the tiles 46px high and at least 50 wide with their word (below). One spot,
+     one anatomy, whichever of the two is up. */
+  .phone-tools .sel-bar { bottom: var(--dock-bottom); }
+  /* …the row of tiles itself (11-measure · .sel-bar, .armed-pill-dock), the dock row's measures:
+     also the symbol's [Mehrere · ✕] beside the armed pill */
+  :is(.sel-bar, .armed-pill-dock) { height: var(--rail-h); padding: 4px 8px; gap: var(--sp-2); }
+  :is(.sel-bar, .armed-pill-dock).worded > button { min-width: 50px; height: 46px; }
   /* (the Eintrag-FAB clears both bars on the drawing surfaces through --float-bottom, below) */
   /* the armed tool's readout stands on THE floating row's baseline (--float-bottom, below): one
      gap above the tool bar when the tool has no dock (Symbol), one gap above the dock while one is

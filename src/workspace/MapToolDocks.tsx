@@ -203,9 +203,7 @@ export function MapToolDocks({
       {mapUI && tool === 'shape' && pendingShape && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('select') } }],
-          // currentColor, not #fff: the dock is light by day since 20.10.2026 (3am sweep, nit)
-          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />,
-            label: appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel }],
+          // the Form's name is the armed pill's, not a tile of the dock (button sweep CHROME.11)
           // a two-point shape is placed by naming two places, so «mehrere nacheinander» has no
           // meaning for it — the «Mehrere platzieren» toggle is simply not offered
           ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'place-repeat', label: appConfig.copy.keepPlacing, short: appConfig.copy.keepPlacingShort, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
