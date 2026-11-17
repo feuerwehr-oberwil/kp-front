@@ -95,8 +95,12 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   A number
   is the shared `Stepper`; where the two surfaces cannot agree on a unit (a Form's size is metres
   on the Karte and a share of the sheet on a Plan) it is `ScaleStepper`, the same chrome handing
-  the caller a ×-factor. A one-press action is a `.de-action` row, in the grammar «Verbindung
-  lösen» already had – it is not given toggle chrome, because it has no state to be in. Rows are
+  the caller a ×-factor. A one-press action in a card body («Richtung umkehren», «Verbindung lösen»,
+  the ERG «Absperrkreis übernehmen») is THE button, `<Button>` glyph + verb 14/700, at the control
+  edge (`.de-act` places it; owner, button sweep SHEETS.6, 17.11.2026 – it was an unframed 12.5 row
+  that read as a label) – never toggle chrome, because it has no state to be in. «Lösen» is the
+  neutral framed `unlink` + word wherever a bond is cut (SHEETS.3): a detach can be taken back, so
+  it is never a red word and never an ✕. Rows are
   grouped in `.de-group`, and since 18.09.2026 a group boundary is SPACING: a hairline is drawn
   ONLY above a group that opens a NAMED section («Messung», «Verbindungen» — matched on the
   `.de-group-toggle`/`.de-conn-title` it starts with), because four or five rules stacked down a
@@ -155,13 +159,23 @@ the body (13-incident · `.ui-sheet-foot > .danger:first-child` pushes the rest 
 framed «Abbrechen», then the primary. Trupp Auftrag, Trupp Mannschaft, the Kanal stepper, the
 Schichtband edit and the Mittel pencil wear it; a live sheet has no Abbrechen / primary, so its
 footer is the danger alone (TimeBlockSheet `danger` — the Anwesenheit's «Person entfernen»).
+A save / send / confirm primary is the WORD only (button sweep SHEETS.7, 17.11.2026: a ✓ there
+read as «already saved» – ✓ is «done», the DoneChip's and the Erledigt tile's); a glyph only names
+a verb that is not a commit (Drucken, Herunterladen, Orten).
+**A map card's foot is the same family** (button sweep SHEETS.2 + SHEETS.9, 17.11.2026): the
+symbol panel, the Linien-/Flächen-/Absperrkreis-Editor and the Form's sheet render `<Button>` in
+`.ctx-actions` (06-contextpanel only places them, sharing the row by their words), in ONE order on
+the Lage and the Plan: **[Zentrieren · its toggle · bin + «Entfernen»]** – the symbol's toggle is
+«Erledigt», a drawing's and a Form's «Sperren»; a toggle keeps its glyph in both states and only
+its fill says «set» (`--sel`). «Zentrieren» frames a drawing's whole extent on the Karte and
+centres the board on it on a Plan; a locked panel keeps it.
 
 **Every row of an editor sheet is a label column and a control edge** (owner pick 27B, sweep
 30.10.2026 #27, built 31.10.): the symbol panel (`.field`, `.kv-row`, Beschriftung, Entwicklung)
 and the Linien-/Flächen-/Form-Editor (`.de-row`) put the label in one fixed column
 (`--ctx-lbl`, 8.4 × 14px – «Abschnittschef», «Gehört zu Trupp» fit; a longer label wraps inside
 it), and every control starts at that edge and fills to the panel's – segments share the width,
-a `Stepper` spans it (+ and ✕ at the end), swatches spread over it, a `.de-action` starts there
+a `Stepper` spans it (+ and ✕ at the end), swatches spread over it, a body act (`.de-act`) starts there
 too. Every box control (field, menu, stepper, segments) is `--tap`, every row a 52px rhythm,
 every round pick button (Farbe, Füllung, Linie, Strichstärke) 36px – shrinking, still round,
 where a row of them does not fit the desktop panel. One recipe: `06-contextpanel` · «ONE label
@@ -439,7 +453,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     move as the row's filled button (the Atemschutz «Zum Trupp» — `Meldung.onOpen.label` = the
     primary action's label) stays tappable but draws NO underline (`.ml-open.plain`, derived in
     `Meldeleiste · MeldungTitle`); the underline is only the signal where the title is the ONLY
-    door. A button never repeats the glyph its row already leads with.
+    door. A button never repeats the glyph its row already leads with: **a message's buttons are
+    THE button, word only** (button sweep SHEETS.4 + SHEETS.5, 17.11.2026) – the Meldeleiste's
+    (only a busy loader takes the glyph slot) and the toast's «Rückgängig» alike, 14/700 framed at
+    `--r-msg-in`; primary filled only in the Meldeleiste.
   - *The toast rule – only what is essential (17.11.2026, owner: «toasts are really only used for
     things that are essential – not spamming the UI»):* **a toast is for what the operator must
     know NOW and cannot see where they are looking – or the one tap back.** Five things earn one:
@@ -593,7 +610,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     pressed toggle (`--sel`, like `.wb-dock-tog.on`).
   - *Delete (28.09.2026, owner pick A):* a destructive action is THE delete look — `--del-ink`
     (red-strong) text, a `--del-edge` (red 40%) border, the surface it stands on; the bin and the
-    word (a rare delete may be a square bin, still outlined). A bin at the end of a ROW — a time
+    word, always (owner, button sweep SHEETS.1, 17.11.2026 – the symbol panel's bin SQUARE went;
+    a confirm's answer that removes carries the bin too, `ConfirmSpec.bin`, while a danger answer
+    that removes nothing – «Abmelden», «Trotzdem abschliessen» – stays a word). A bin at the end of a ROW — a time
     block, a Rapport line, a saved Ansicht, an admin record — is the quiet grey glyph instead
     (21.10.2026, owner, UX sweep F4/A3): the row is the context, and the admin ones ask first, their
     armed «Ja» wearing the delete look. Red never fills it (`.btn.warn`,
@@ -653,7 +672,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *Text actions (28.09.2026, owner pick A):* no bare blue word as an action. A verb that ends a
     row makes the WHOLE row the button — `.row-go` (13-incident): ink text, the verb in
     `--ink-dim` 12.5/700 + a 16px `chevron`, one press wash, ≥44px, `aria-label` «Verb: row text».
-    A fact that jumps is ink + › (DrawEditor's `.de-conn-name` + `.de-conn-go`; the Atemschutz
+    A fact that jumps is ink + the 16px `chevron` icon in `--ink-dim`, never a typed › (DrawEditor's
+    `.de-conn-name` + `.de-conn-go`, the Verbindungen rows' `.ctx-conn-go`; the Atemschutz
     card's jump chips, `.factGo`, carry a `chevron` in `--ink-dim`); anything else is a framed
     compact button (`.wb-nearby-switch`).
   - *Fields, titles, eyebrows, warnings — one look each (28.09.2026, owner: «remove what
