@@ -137,7 +137,8 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   owner 05.11.2026: «the Leitung draws its own pumps»; the row under the result reads «Auf Karte»,
   the Messung's own word, with the full name as its accessible name) makes the line draw its calculated pumps
   as the pack's Motorspritze (`RELAY_PUMP_SYMBOL`): ⚠️ DERIVED, never entities (`lib/linePumps`).
-  Every render plans again along the stored path on the shared height profile
+  The pressure result is labelled as an estimate. The source popover includes the calculation time.
+  The controller recalculates when its inputs change, using the stored path and shared height profile
   (`lib/profile · loadProfile`, the cache the editor's Messung reads too), so the pumps move with
   the line and every changed assumption, and there is nothing to duplicate – a second «on» is
   still the one set. On the map `RelayPumpMarkers · LinePumpMarkers` runs the editor's own

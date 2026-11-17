@@ -45,6 +45,8 @@ import { MeldungSpans } from '../Meldeleiste'
 // no third «take the alarm» mode any more: an alarm opens its Einsatz on arrival (2026-08-02),
 // so this panel is where the expert fixes what the dispatch got wrong — Stichwort, Kategorie,
 // Priorität, Ort — with the crew already on the map instead of waiting behind a wizard.
+// Taking a dispatch address replaces its pin as one edit. A manual location pick outranks any
+// pending lookup, and a miss leaves the record explicitly unlocated.
 
 // Single guided panel — see the note above. 3am tenet: nothing hidden, nothing to memorise,
 // everything correctable, before or after the incident is born.
@@ -72,6 +74,11 @@ export function changedOnly(next: Record<string, unknown>, seed: Record<string, 
     }
     if (v !== before) out[k] = v
   }
+  if (('lng' in out || 'lat' in out) && 'lng' in next && 'lat' in next) {
+    // The map pin is one location even when only one axis moved.
+    out.lng = next.lng
+    out.lat = next.lat
+  }
   return out
 }
 
@@ -89,6 +96,8 @@ type WizardFields = {
   address: string
   kategorie: string | null
   coord: [number, number] | null
+  /** An accepted dispatch address was explicitly left without a pin. */
+  clearPin?: boolean
   isExercise: boolean
   text?: string
   alarmiertAt?: string
@@ -99,7 +108,7 @@ function wizardDraft(now: WizardFields, opened: WizardFields): WizardFields | nu
   const same = now.title === opened.title && now.address === opened.address
     && now.kategorie === opened.kategorie && now.isExercise === opened.isExercise
     && now.coord?.[0] === opened.coord?.[0] && now.coord?.[1] === opened.coord?.[1]
-    && now.text === undefined && now.alarmiertAt === undefined
+    && !now.clearPin && now.text === undefined && now.alarmiertAt === undefined
   return same ? null : now
 }
 
@@ -142,6 +151,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // (IncidentMeta carries no text). `textReady` guards the PATCH so a save before the fetch
   // lands can't blank an existing Meldungstext.
   const [text, setText] = useState(draft?.text ?? '')
+  const fetchedText = useRef('')
   const textTouched = useRef(draft?.text !== undefined)
   const [textReady, setTextReady] = useState(!edit)
   // Alarmierungszeit (= incident.started_at): correctable in edit mode, and settable on
@@ -164,7 +174,10 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // below never reports a change), and a manual create sends none, which the backend derives.
   const priority = edit ? (edit.priority === 'HIGH' ? 'HIGH' : 'LOW') : null
   // [lng, lat] resolved location (object / address hit / map-pick / the alarm's own coord)
-  const [coord, setCoord] = useState<[number, number] | null>(draft ? draft.coord : realCoord(edit?.lng, edit?.lat))
+  const [clearPin, setClearPin] = useState(!!draft?.clearPin)
+  const [coord, setCoord] = useState<[number, number] | null>(
+    draft?.coord ?? (draft?.clearPin ? null : realCoord(edit?.lng, edit?.lat)),
+  )
   // Übung — stats-excluded + deletable. A Probealarm that opened itself gets retro-tagged here.
   const [isExercise, setIsExercise] = useState(draft?.isExercise ?? !!edit?.is_exercise)
   const [busy, setBusy] = useState(false)
@@ -175,13 +188,13 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   }))
   useEffect(() => {
     const kept = wizardDraft({
-      title, address, kategorie, coord, isExercise,
+      title, address, kategorie, coord, isExercise, clearPin: clearPin && !coord,
       text: textTouched.current ? text : undefined,
       alarmiertAt: alarmiertAt !== openedAlarm ? alarmiertAt : undefined,
     }, opened)
     if (kept) keepDraft(draftKey, kept)
     else clearDraft(draftKey)
-  }, [title, address, kategorie, coord, isExercise, text, alarmiertAt, opened, openedAlarm, draftKey])
+  }, [title, address, kategorie, coord, isExercise, clearPin, text, alarmiertAt, opened, openedAlarm, draftKey])
   /** «Abbrechen»: the deliberate way out, so the draft goes too */
   const cancel = () => { clearDraft(draftKey); onClose() }
   // the Alarmmeldung fetch FAILED — the textarea is disabled and says so, and `text` stays out of
@@ -244,6 +257,16 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
 
   // map picker (self-contained — works with no active incident yet)
   const [mapOpen, setMapOpen] = useState(false)
+  const [lookupAddress, setLookupAddress] = useState<string | null>(null)
+  useEffect(() => {
+    if (!lookupAddress) return
+    let current = true
+    void geocodeSearch(lookupAddress).then((hits) => {
+      if (current && hits[0]) setCoord([hits[0].lng, hits[0].lat])
+    }).catch(() => { /* no match or offline: the address stays explicitly unlocated */ })
+      .finally(() => { if (current) setLookupAddress(null) })
+    return () => { current = false }
+  }, [lookupAddress])
 
   // «Hier» — the PRIMARY location method: the EL usually stands at (or near) the Einsatzort,
   // so one tap takes a GPS fix; object library / map pick are the fallbacks for elsewhere
@@ -280,7 +303,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // a coordinate from the map picker → set it and reverse-geocode the address (so a
   // map-click fills the nearest registered address, not just bare coords)
   const applyPicked = (c: [number, number]) => {
-    setCoord(c); setMapOpen(false); closeMenu()
+    setLookupAddress(null); setCoord(c); setMapOpen(false); closeMenu()
     // ⚠️ Fills a BLANK address only — the same rule the Rapport uses for the Kroki-seeded
     // Einsatzleiter. A nudge of the map pin used to overwrite an address somebody had just
     // typed by hand, and a typed address is a statement; a reverse-geocode is a guess.
@@ -334,7 +357,12 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     if (!edit) return
     let alive = true
     getIncident(edit.id)
-      .then((full) => { if (alive) { setText((t) => (t.trim() ? t : full.text ?? '')); setTextReady(true) } })
+      .then((full) => {
+        if (!alive) return
+        fetchedText.current = full.text ?? ''
+        if (!textTouched.current) setText(fetchedText.current)
+        setTextReady(true)
+      })
       // ⚠️ NOT setTextReady(true). The guard exists so a save before the fetch lands cannot
       // blank an existing Meldungstext — and the failure path is exactly when that matters:
       // on a bad connection `text` is still '' and the PATCH would write null over the
@@ -346,9 +374,10 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   }, [edit?.id])
 
   const pickHit = (h: GeoHit) => {
-    setAddress(h.label); setCoord([h.lng, h.lat]); closeMenu(); setHits([])
+    setLookupAddress(null); setAddress(h.label); setCoord([h.lng, h.lat]); closeMenu(); setHits([])
   }
   const pickObject = (o: ObjectWithPlans) => {
+    setLookupAddress(null)
     if (!title.trim()) setTitle(o.name)
     if (o.address) setAddress(o.address)
     if (o.lng != null && o.lat != null) setCoord([o.lng, o.lat])
@@ -373,26 +402,25 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   const titleRef = useRef<HTMLLabelElement>(null)
   const demoRef = useRef<HTMLParagraphElement>(null)
   const submit = async () => {
-    if (busy) return
+    if (busy || lookupAddress) return
     // Blocked — the Stichwort (an edit with it emptied) or the demo: the button stays tappable
     // and points at what holds it back (lib/pointAtField); a grey «Speichern» with a «*» somewhere
     // above it said nothing. `busy` stays a native disabled: that press is in flight.
     if (!effectiveTitle) { pointAtField(titleRef.current, { focus: titleRef.current?.querySelector('input') }); return }
     if (demoBlocked) { pointAtField(demoRef.current); return }
     setBusy(true)
-    // Meldungstext/Alarmmeldung is sent on create, and on edit once the existing text has
-    // been fetched (textReady) so a quick save can't blank it.
+    // A correction writes the Alarmmeldung only when this operator actually changed it.
     const full = {
       title: effectiveTitle,
       type: kategorie,
       ...(priority ? { priority } : {}),
       address: address.trim() || null,
-      ...(textReady ? { text: text.trim() || null } : {}),
+      ...(textReady && (!edit || (textTouched.current && text.trim() !== fetchedText.current.trim()))
+        ? { text: text.trim() || null } : {}),
       ...(asIso(alarmiertAt) ? { started_at: asIso(alarmiertAt) } : {}),
       is_exercise: isExercise,
-      // the form can set or move the location, never clear it: the ✕ «Standort entfernen» went
-      // with the «Koordinaten» fold (owner pick 1A, 15.11.2026), so no coordinate = nothing to send
-      ...(coord ? { lng: coord[0], lat: coord[1] } : {}),
+      // An accepted dispatch address without a usable pin clears the old pair on edit.
+      ...(coord ? { lng: coord[0], lat: coord[1] } : edit && clearPin ? { lng: null, lat: null } : {}),
     } satisfies IncidentCreate
     // ⚠️ On EDIT, send only what actually changed. The full body re-wrote eight fields every
     // time, including three the operator may never have looked at — and `started_at` is the
@@ -456,7 +484,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       {/* «Abbrechen» in both modes (29.09.2026): the wizard is ONE step, and closing it goes back
           to the landing without opening anything — a cancel, not a «Zurück» to a previous step */}
       <button className="ip-btn" onClick={cancel}>{ix.cancel}</button>
-      <button className="ip-btn primary" disabled={busy} aria-disabled={!effectiveTitle || demoBlocked} onClick={submit}>
+      <button className="ip-btn primary" disabled={busy || !!lookupAddress} aria-disabled={busy || !!lookupAddress || !effectiveTitle || demoBlocked} onClick={submit}>
         {/* one verb, title and button alike: «eröffnen» – and «Übung» once the switch says so */}
         {busy ? <><ShellLoader /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : isExercise ? ix.openExercise : ix.open}
       </button>
@@ -464,14 +492,15 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       {/* ONE flat list of fields, no section eyebrows (owner review 10.11.2026: «only like 5
           things to put in») – each field's own label says what it is. --- Standort --- */}
       <div className="ip-field" ref={addrRef}>
-        <span>{ix.addressLabel}</span>
+        <span id="einsatz-address-label">{ix.addressLabel}</span>
         <AlarmNew field={alarmNew('address')} value={address} onTake={(v) => {
           setAddress(v); closeMenu()
           // the pin comes along: the alarm's own coordinate, else the first hit for the address
           const u = edit?.alarm_update
           const c = realCoord(u?.lng, u?.lat)
-          if (c) setCoord(c)
-          else geocodeSearch(v).then((h) => { if (h[0]) setCoord([h[0].lng, h[0].lat]) }).catch(() => {})
+          setCoord(c)
+          setClearPin(!c)
+          setLookupAddress(c ? null : v)
         }} />
         {/* The location methods ride the field's own right edge (owner pick 1A, 15.11.2026):
             «Auf Karte» | «Hier». They used to be a row of two buttons under the field plus «Hier»
@@ -482,9 +511,9 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
             in view. Icon-only, so each carries its word as `aria-label` and `title`. */}
         <div className="ip-ac-input-wrap">
           <input
-            value={address}
+            aria-labelledby="einsatz-address-label" value={address}
             placeholder={ix.addressPlaceholder}
-            onChange={(e) => { setAddress(e.target.value); setMenu((m) => (m === 'closed' ? 'typing' : m)) }}
+            onChange={(e) => { setLookupAddress(null); setAddress(e.target.value); setMenu((m) => (m === 'closed' ? 'typing' : m)) }}
             onFocus={() => setMenu((m) => (m === 'closed' ? 'typing' : m))}
           />
           <div className="ip-ac-tools">
@@ -505,7 +534,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
             five decimals nobody read. What stays is the one fact that matters: this Einsatz has NO
             location yet (no address hit, object, map pick or GPS fix), which an address typed by
             hand does not give it. A warning, so it is never behind anything; nothing when set. */}
-        {!coord && (
+        {lookupAddress ? <LoadingStatus>{ix.addressSearching}</LoadingStatus> : !coord && (
           <p className="form-warn form-warn-amber form-warn-compact" role="status">
             <Icon id="warn" /><span className="form-warn-text">{ix.coordMissing}</span>
           </p>

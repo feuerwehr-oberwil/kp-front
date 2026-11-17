@@ -16,6 +16,20 @@ const setup = (value: RelayValue = {}) => {
 // The edits a Leitung records: each one an ordinary prop edit — a whole `relay` object, so a
 // replayed `draw.edit` replaces the old one — and a dragged pump written ONCE, on release.
 describe('useRelay — what an edit writes', () => {
+  it('timestamps a changed calculation, retaining its time across a selection', () => {
+    vi.useFakeTimers()
+    try {
+      const { result, rerender } = setup()
+      const first = result.current.calculatedAt
+      expect(first).toBeTypeOf('number')
+      vi.advanceTimersByTime(2000)
+      act(() => result.current.tapPump(0, 'chart'))
+      expect(result.current.calculatedAt).toBe(first)
+      rerender({ v: { relay: { flow: 1000 } } })
+      expect(result.current.calculatedAt).toBeGreaterThan(first!)
+    } finally { vi.useRealTimers() }
+  })
+
   it('a drag previews without writing, commits the pin once on release — and opens no card', () => {
     const { result, onChange } = setup()
     const auto = result.current.plan!.pumps[0].dist

@@ -83,7 +83,8 @@ export const drawingCopy = {
     pumpsNone: 'keine Pumpe',
     pumpsOne: '1 Pumpe',
     pumpsMany: '{n} Pumpen',
-    endBar: 'Druck am Ende',
+    endBar: 'Druck am Ende (Schätzung)',
+    calculatedAt: 'Berechnet am {time}',
     // die Legende über dem Diagramm – immer sichtbar; «zu wenig» nur, wenn das rote Band da ist
     legendLine: 'Druck',
     legendGood: 'gut > {bar} bar',

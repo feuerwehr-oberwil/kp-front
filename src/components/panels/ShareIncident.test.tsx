@@ -74,6 +74,17 @@ describe('«Einsatz · lesen»', () => {
     expect(after.textContent).toMatch(/Abschluss/)
   })
 
+  it('offers the full selected address when automatic copying fails', async () => {
+    vi.mocked(fetchShareLink).mockResolvedValue(on)
+    render(<ShareIncident incidentId="i1" />)
+    const url = (await screen.findByText(/\/l\/tok123$/)).textContent
+    fireEvent.click(screen.getByRole('button', { name: C.shareCopy }))
+    const input = await screen.findByRole<HTMLInputElement>('textbox', { name: C.shareManualCopy })
+    expect(input.value).toBe(url)
+    expect(document.activeElement).toBe(input)
+    expect(input.selectionEnd! - input.selectionStart!).toBe(input.value.length)
+  })
+
   it('asks before revoking, and keeps the link when the answer is no', async () => {
     vi.mocked(fetchShareLink).mockResolvedValue(on)
     confirmDialog.mockResolvedValue(false)

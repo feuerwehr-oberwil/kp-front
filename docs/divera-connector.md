@@ -229,7 +229,10 @@ webhooks cannot call a `divera247.com/api/...` URL. There is no loopback.
   shows a row in the Meldeleiste: old → new per field, «Übernehmen» (every field nobody changed
   by hand in the Einsatzdaten; the pin follows the address, the Einsatzart does not follow the
   title), «Bearbeiten» (the Einsatzdaten with the alarm's value beside each field) and ✕ (hidden
-  for every device). The arrival and the decision are Verlauf rows, so they print in the Rapport.
+  for every device). In «Bearbeiten», saving a replacement address waits for its pin lookup.
+  A miss clears the old pin, and a later manual pick takes precedence. Saving another field
+  leaves the latest Alarmmeldung on the server unless the operator changed its text.
+  The arrival and the decision are Verlauf rows, so they print in the Rapport.
   A later update replaces a pending one; one that says nothing new makes no row. An alarm only
   *attached* to an Einsatz keeps the pool behaviour. The generic intake and FireHub have no such
   path: they drop a repeated delivery and carry no update stamp.

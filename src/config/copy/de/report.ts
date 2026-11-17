@@ -436,6 +436,7 @@ export const reportCopy = {
     shareRetry: 'Erneut versuchen',
     shareCreateFailed: 'Link nicht erhalten – erneut versuchen',
     shareCopy: 'Adresse kopieren',
+    shareManualCopy: 'Automatisches Kopieren fehlgeschlagen. Adresse manuell kopieren.',
     shareCopied: 'Kopiert',
     // Der QR ist die eigentliche Übergabe im Einsatz: Tablet hinhalten statt Adresse diktieren.
     shareScan: 'Mit der Kamera scannen',
