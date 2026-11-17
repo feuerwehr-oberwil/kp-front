@@ -25,7 +25,12 @@ test.describe('admin row action menu', () => {
     await page.locator('form.adm-denied-card button[type=submit]').click()
     await expect(page.locator('.adm')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Mitglieder & Zugriff' }).first().click()
+    await page.locator('summary').filter({ hasText: 'Personal & Zugriff' }).click()
+    await page.getByRole('link', { name: 'Mitglieder & Zugriff' }).click()
+    await expect(page).toHaveURL(/\/admin\/personal\/mitglieder$/)
+    // Deep links must boot the admin gate and page after a real network reload too.
+    await page.reload()
+    await expect(page.getByRole('heading', { name: 'Mitglieder & Zugriff' })).toBeVisible()
     const kebab = page.locator('.adm-menu-btn').first()
     await expect(kebab, 'seeded members should render at least one row').toBeVisible()
     await kebab.click()

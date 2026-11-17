@@ -552,11 +552,14 @@ export function ConfigGate({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
-/** Compact autosave indicator — replaces the manual save bar across the Station pages. */
-export function ConfigAutosaveStatus() {
+/** One indicator, shown once: attention stays at shell level across page changes; calm
+ *  states remain next to the editable page. Default scope keeps standalone callers unchanged. */
+export function ConfigAutosaveStatus({ scope = 'all' }: { scope?: 'all' | 'attention' | 'calm' }) {
   const { save, dirty, draft, retry } = useConfig()
   const C = appConfig.copy.admin.autosave
   if (!draft) return null
+  const attention = save.kind === 'conflict' || save.kind === 'empty-guard' || (save.kind === 'error' && dirty)
+  if (scope === 'attention' && !attention || scope === 'calm' && attention) return null
   // ⚠️ Its own state, ahead of `error`: nothing failed, and this page's edits are still here.
   // What it must do is STOP looking like a page that saves by itself, because the one thing
   // that must not happen next is this tab writing its hour-old document over the newer one.

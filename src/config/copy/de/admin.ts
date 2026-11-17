@@ -204,16 +204,20 @@ export const adminCopy = {
       disabledBody: 'Auf diesem Server ist kein Adminschlüssel (ADMIN_SECRET) konfiguriert. Die Verwaltung ist deshalb gesperrt. Bitte richte ADMIN_SECRET in der Deployment-Konfiguration ein.',
     },
     nav: {
+      groupConnections: 'Anbindungen',
+      groupMap: 'Karte & Vorlagen',
+      groupFleet: 'Fahrzeuge & Material',
+      groupOverview: 'Übersicht',
       objektbesuche: {
         label: 'Objektbesuche',
         title: 'Objektbesuche',
         lede: 'Kontrollen bei Objekten: wer erfasst, was vorgeschlagen werden kann und wohin die Besuche abgelegt werden.',
         tip: 'Mitglieder öffnen «Objektbesuche» im Launcher, wählen ein Objekt und erfassen Checkliste, Bemerkungen, Fotos und Korrekturvorschläge – zuerst auf dem Gerät, gesendet bei Verbindung. Ein Ablageziel bekommt nur Kopien; der Besuch selbst bleibt in KP Front.',
       },
-      groupStation: 'Station',
-      groupPersonen: 'Personen',
+      groupStation: 'Station & Einsatz',
+      groupPersonen: 'Personal & Zugriff',
       groupDaten: 'Daten',
-      groupSystem: 'System',
+      groupSystem: 'System & Sicherung',
       identitaet: { label: 'Station & Karte', title: 'Station & Karte', lede: 'Name, Sprache, Markenfarbe, Logos und Startansicht der Karte für diese Installation.' },
       // ⚠️ Kein eigener Menüpunkt mehr – aber `title` benennt weiterhin die Karten- bzw.
       // Journal-Gruppe auf «Station & Karte» und «Rapport» (ConfigSections, ConfigContext).
@@ -1164,6 +1168,8 @@ export const adminCopy = {
       freitextValue: 'frei eingeben',
     },
     members: {
+      search: 'Name oder Benutzername suchen …',
+      noMatches: 'Keine Anmeldekonten passen zur Suche.',
       add: 'Mitglied hinzufügen',
       addCaption: 'Benutzername zum Anmelden, Anzeigename auf den Login-Kacheln. PIN: {min}–{max} Ziffern.',
       username: 'Benutzername',
@@ -1233,6 +1239,9 @@ export const adminCopy = {
       pinSave: 'PIN speichern',
     },
     roster: {
+      search: 'Person suchen …',
+      noMatches: 'Keine Personen passen zur Suche.',
+      settingsAndImport: 'Einstellungen & Import',
       rankNoneOption: 'Kein Grad',
       providerRankHint: '{provider} kann den Grad bei der nächsten Synchronisation überschreiben',
       providerStatusHint: '{provider} aktiviert die Person bei der nächsten Synchronisation wieder',

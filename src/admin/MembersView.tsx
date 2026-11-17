@@ -4,6 +4,8 @@ import { cx } from '../lib/cx'
 import { caretToEnd } from '../lib/ui'
 import { apiGet, apiPost, apiPatch, ApiError } from '../lib/api'
 import { appConfig } from '../config/appConfig'
+import { SearchField } from '../components/SearchField'
+import { searchQuery, matchesAnyQuery } from '../lib/search'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { ActionMenu, Card, ConfirmPrompt, EmptyState, Field, StatusBadge, fmtDate } from './ui'
@@ -344,6 +346,7 @@ export function MembersView() {
   /** the member whose PIN is being set — the pinpad Sheet is open while this is non-null */
   const [pinFor, setPinFor] = useState<AdminUser | null>(null)
   const [addOpen, setAddOpen] = useState(false)
+  const [query, setQuery] = useState('')
 
   const load = useCallback(async () => {
     try {
@@ -389,6 +392,10 @@ export function MembersView() {
     }))
 
   const C = appConfig.copy.admin.members
+  const preparedQuery = searchQuery(query)
+  // A filter never unmounts a form/confirmation with an unfinished edit or decision.
+  const visible = state.kind === 'ok' ? state.data.filter((p) =>
+    editing === p.id || asking?.id === p.id || !preparedQuery || matchesAnyQuery(preparedQuery, p.display_name, p.username)) : []
 
   return (
     <div className="adm-editor">
@@ -417,6 +424,9 @@ export function MembersView() {
       >
         {/* Directly under the header whose button opened it — see AddMemberForm. */}
         <AddMemberForm open={addOpen} setOpen={setAddOpen} onCreated={() => void load()} />
+        <div className="adm-toolbar">
+          <SearchField className="adm-person-search" value={query} onChange={setQuery} placeholder={C.search} aria-label={C.search} />
+        </div>
         {state.kind === 'loading' && <EmptyState loading message={C.loading} />}
         {state.kind === 'error' && <EmptyState tone="err" message={state.detail} />}
         {/* No button of its own: «Mitglied hinzufügen» is in the card header two lines above,
@@ -424,7 +434,10 @@ export function MembersView() {
         {state.kind === 'ok' && state.data.length === 0 && (
           <EmptyState message={C.none} hint={C.noneHint} />
         )}
-        {state.kind === 'ok' && state.data.length > 0 && (
+        {state.kind === 'ok' && state.data.length > 0 && visible.length === 0 && (
+          <EmptyState message={C.noMatches} />
+        )}
+        {state.kind === 'ok' && visible.length > 0 && (
           <div className="adm-table-wrap">
             <table ref={tableRef} className="adm-table adm-members-table">
               <thead>
@@ -438,7 +451,7 @@ export function MembersView() {
                 </tr>
               </thead>
               <tbody>
-                {state.data.map((u) => {
+                {visible.map((u) => {
                   // Admin authority is the secret-backed session (userless), so no row is
                   // "you" — the only dead-end to prevent is removing the last active editor.
                   // «Editor» here means role `editor` and nothing else: an Einsatzleiter is not

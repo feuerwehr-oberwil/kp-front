@@ -20,6 +20,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
 - [0. The four layers (recap)](#0-the-four-layers-recap)
   - [0a. For developers – where a setting lives, station data, coordinates](#0a-for-developers--where-a-setting-lives-station-data-coordinates)
 - [1. Deployment config – the JSON document](#1-deployment-config-the-json-the-deployment-owner-edits)
+  - [Browser navigation](#browser-navigation)
   - [Where each section is edited](#where-each-section-is-edited)
   - [1a. `alarmKeywords` – the station's own alarm vocabulary](#1a-alarmkeywords--the-stations-own-alarm-vocabulary)
   - [1b. `report.hoursRounding` – Einsatzstunden on the printed rapport](#1b-reporthoursrounding--einsatzstunden-on-the-printed-rapport)
@@ -140,6 +141,30 @@ unchanged):
 
 One JSON document, stored as the single `deployment_config` row, returned by `GET /api/config`.
 **Every field is optional**; anything omitted falls back to the national default.
+
+### Browser navigation
+
+The admin panel groups its 21 pages into seven areas: Übersicht, Personal & Zugriff,
+Fahrzeuge & Material, Karte & Vorlagen, Station & Einsatz, Anbindungen, and System & Sicherung.
+Open an area with several pages to expose its links; a single-page area opens that page. Each
+page has a stable `/admin/<area>/<page>` URL, for example `/admin/personal/mannschaft`. Browser Back,
+Forward, refresh and opening a link in another tab keep the requested page. Old single-page
+paths and renamed page ids resolve to their current destination. Only bare `/admin` resumes
+the device's last page, falling back to System & Wartung; an unknown explicit path goes to
+System & Wartung rather than silently selecting a device preference.
+
+One config provider remains mounted across page changes. Pending and successful autosaves
+stay beside an editable page; failed saves, version conflicts and refused empty sections stay
+visible above every page until resolved. Personnel and login accounts remain separate lists,
+each searchable by name (accounts also by username). Search never changes records or hides an
+unfinished edit or confirmation. Personal opens with its list; name order, nightly sync policy
+and CSV import are under «Einstellungen & Import». The inactive filter and import confirmation
+behavior are unchanged.
+
+The current navigation is the first station-desk slice (2026-11-17). Settings search,
+a new attention-first homepage, unified integration workspaces,
+field-level workbook comparison and per-section import are later work, not capabilities of
+this navigation update.
 
 ### Where each section is edited
 

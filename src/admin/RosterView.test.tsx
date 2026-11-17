@@ -88,6 +88,7 @@ afterEach(cleanup)
 async function pickFile(preview: unknown = PREVIEW) {
   previewRosterCsv.mockResolvedValue(preview)
   const { container } = await act(async () => render(<ConfigProvider><RosterView /></ConfigProvider>))
+  fireEvent.click(screen.getByText(C.settingsAndImport))
   const input = await waitFor(() => {
     const el = container.querySelector('input[type="file"]')
     if (!el) throw new Error('no file input')
@@ -203,6 +204,7 @@ describe('Namensformat', () => {
   it('ist eine Zeile der Einstellungstabelle und schreibt in den Config-Entwurf', async () => {
     await act(async () => render(<ConfigProvider><RosterView /></ConfigProvider>))
 
+    fireEvent.click(screen.getByText(C.settingsAndImport))
     const trigger = screen.getByLabelText(C.nameOrderLabel)
     expect(trigger.closest('.adm-set-row')).toBeTruthy()
     // solange die ausgelieferte Reihenfolge gilt, schweigt die Standard-Spalte
@@ -243,7 +245,10 @@ describe('Grad und Status — erfassen und bearbeiten', () => {
     fireEvent.click(screen.getByRole('option', { name: option }))
   }
 
-  const mount = () => act(async () => { render(<ConfigProvider><RosterView /></ConfigProvider>) })
+  const mount = async () => {
+    await act(async () => { render(<ConfigProvider><RosterView /></ConfigProvider>) })
+    fireEvent.click(screen.getByText(C.settingsAndImport))
+  }
 
   it('öffnet das Formular im selben Card wie der Knopf, nicht oben auf der Seite', async () => {
     await mount()
@@ -342,7 +347,10 @@ describe('Grad und Status — erfassen und bearbeiten', () => {
 // Wie viel der nächtliche Abgleich von selbst darf. Bis es diese Einstellung gab, war die
 // Mannschaft so aktuell wie der letzte Knopfdruck von Hand.
 describe('«Automatischer Divera-Abgleich»', () => {
-  const mount = () => act(async () => { render(<ConfigProvider><RosterView /></ConfigProvider>) })
+  const mount = async () => {
+    await act(async () => { render(<ConfigProvider><RosterView /></ConfigProvider>) })
+    fireEvent.click(screen.getByText(C.settingsAndImport))
+  }
   const trigger = () => screen.getByRole('button', { name: C.autoSyncLabel })
 
   it('läuft auf «Zugänge & Grade», solange nichts gesetzt ist – Standard und leeres Feld sehen gleich aus', async () => {
@@ -375,5 +383,43 @@ describe('«Automatischer Divera-Abgleich»', () => {
     expect(screen.queryByRole('button', { name: C.autoSyncLabel })).toBeNull()
     // die Namensreihenfolge steht weiterhin da, die Seite ist also wirklich gerendert
     expect(screen.getByRole('button', { name: C.nameOrderLabel })).toBeTruthy()
+  })
+})
+
+
+describe('daily personnel list', () => {
+  const person = (id: string, name: string) => ({
+    id, display_name: name, first_name: null, last_name: null, rank: null,
+    is_active: true, external_identities: [], divera_id: null, updated_at: '',
+  })
+
+  it('puts the list before collapsed setup, searches umlauts, and clears without writing', async () => {
+    listRoster.mockResolvedValue([person('p1', 'Müller Anna'), person('p2', 'Keller Max')])
+    const { container } = await act(async () => render(<ConfigProvider><RosterView /></ConfigProvider>))
+    const settings = container.querySelector('details')!
+    expect(settings.open).toBe(false)
+    expect(container.querySelector('.adm-members-table')!.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    fireEvent.change(screen.getByRole('textbox', { name: C.search }), { target: { value: 'mueller' } })
+    expect(screen.getByText('Müller Anna')).toBeTruthy()
+    expect(screen.queryByText('Keller Max')).toBeNull()
+    fireEvent.change(screen.getByRole('textbox', { name: C.search }), { target: { value: 'zzzzzzzz' } })
+    expect(screen.getByText(C.noMatches)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.clearSearch }))
+    expect(screen.getByText('Keller Max')).toBeTruthy()
+    expect(createPerson).not.toHaveBeenCalled()
+    expect(updatePerson).not.toHaveBeenCalled()
+    expect(listRoster).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps an unfinished edit mounted when its name no longer matches the search', async () => {
+    listRoster.mockResolvedValue([person('p1', 'Müller Anna')])
+    const { container } = await act(async () => render(<ConfigProvider><RosterView /></ConfigProvider>))
+    fireEvent.click(screen.getByRole('button', { name: `${C.colActions} — Müller Anna` }))
+    fireEvent.click(screen.getByRole('menuitem', { name: appConfig.copy.admin.common2.edit }))
+    const input = container.querySelector<HTMLInputElement>('.adm-members-editbox input')!
+    fireEvent.change(input, { target: { value: 'Müller Lea' } })
+    fireEvent.change(screen.getByRole('textbox', { name: C.search }), { target: { value: 'zzzzzzzz' } })
+    expect(container.querySelector<HTMLInputElement>('.adm-members-editbox input')!.value).toBe('Müller Lea')
+    expect(updatePerson).not.toHaveBeenCalled()
   })
 })
