@@ -1,19 +1,24 @@
-// The armed tool's NAME – what the bottom-centre readout pill (components/ArmedToolPill) says
-// while a tool is armed on the Karte, a Plan or the Tafel. Pure: the tool id, its input mode and
-// the surface's tool list in, one short word out («Linie · Freihand», «Absperrkreis») – never a
-// sentence, never a button (owner 23.10.2026: «a small little info thing at the bottom that now
-// you're placing symbol XYZ and that's it»). A symbol's name is the symbol's own
-// (format · formatSymbolName); this only covers the rail's tools.
+// The armed tool's READOUT – the plain first tile of its dock (components/ToolDock · `armed`) while a
+// tool is armed on the Karte, a Plan or the Tafel: the tool's glyph over its short name, one word
+// («Linie», «Absperrkreis», «Unfall»), never a sentence, never a button (owner 23.10.2026: «a small
+// little info thing … that now you're placing symbol XYZ and that's it»). It was a pill of its own
+// at the bottom centre until the button round (owner picks 14 + 15, 17.11.2026): every bottom row
+// is one bar now, on the phone and in the tablet's column alike.
+//
+// ONE builder for both surfaces (MapToolDocks, Whiteboard), so the Lage and the Plan name an armed
+// tool the same way by construction. A symbol wears its own drawing and name (format ·
+// formatSymbolName), a Form its preview and name, every other tool its rail tile's glyph and word.
+// The input mode (Freihand / Punkte / Wand) is NOT in the name: the lit toggle beside it says it.
+import type { ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
-import type { BoardTool, MapTool } from '../types'
+import type { BoardTool, MapTool, ShapeKind } from '../types'
+import { formatSymbolName } from './format'
+import { Icon } from './icons'
+import { sanitizeSvg } from './sanitizeSvg'
+import { SHAPE_DEFS, ShapeGlyph } from './shapes'
 
-/** the input mode of the two tools that have one (Linie, Fläche): drag, or tap the corners */
-export type DrawMode = 'freehand' | 'nodes'
-
-export interface ArmedToolModes {
-  lineMode?: DrawMode
-  areaMode?: DrawMode
-}
+/** The armed tool as its dock's first tile names it: a glyph and one word. */
+export interface ArmedReadout { glyph: ReactNode; name: string }
 
 type ToolEntry = { id: string; icon: string; label: string; alt?: { id: string; icon: string; label: string } }
 
@@ -26,23 +31,35 @@ const entryFor = (tool: MapTool | BoardTool, tools: readonly ToolEntry[]) => {
   return null
 }
 
-const modeWord = (mode: DrawMode): string =>
-  mode === 'nodes' ? appConfig.copy.drawingEditor.modeNodes : appConfig.copy.drawingEditor.modeFreehand
-
 /**
- * The pill's word for `tool`, read from the surface's tool list (`mapTools` on the Karte,
- * `planTools` on a Plan) – so the pill always says what the rail tile says, in the deployment's
- * language. Auswahl (the rest state) and an unknown id answer null: nothing is armed, no pill.
+ * The readout's word for `tool`, read from the surface's tool list (`mapTools` on the Karte,
+ * `planTools` on a Plan) – so it always says what the rail tile says, in the deployment's
+ * language. An unknown id answers null.
  */
-export function armedToolName(tool: MapTool | BoardTool, tools: readonly ToolEntry[], modes: ArmedToolModes = {}): string | null {
-  const t = entryFor(tool, tools)
-  if (!t) return null
-  if (tool === 'line' && modes.lineMode) return `${t.label} · ${modeWord(modes.lineMode)}`
-  if (tool === 'area' && modes.areaMode) return `${t.label} · ${modeWord(modes.areaMode)}`
-  return t.label
+export function armedToolName(tool: MapTool | BoardTool, tools: readonly ToolEntry[]): string | null {
+  return entryFor(tool, tools)?.label ?? null
 }
 
-/** the pill's glyph for `tool`: the rail tile's icon id (lib/icons) */
+/** the readout's glyph for `tool`: the rail tile's icon id (lib/icons) */
 export function armedToolIcon(tool: MapTool | BoardTool, tools: readonly ToolEntry[]): string | null {
   return entryFor(tool, tools)?.icon ?? null
+}
+
+/**
+ * The readout for the armed `tool`, or null where there is nothing to name yet (the symbol tool
+ * before a symbol is picked, the Form tool before a Form is). `symbol` is the picked symbol's name
+ * and `svg` its drawing; `shape` the Form being placed. The caller decides where a readout belongs
+ * – Messen has none (its results panel names it).
+ */
+export function armedReadout(tool: MapTool | BoardTool, tools: readonly ToolEntry[], picked: { symbol?: string | null; svg?: string; shape?: ShapeKind | null }): ArmedReadout | null {
+  // a symbol's own SVG – ⚠️ SEC-01, sanitised at this sink: the markup can be an editor-supplied
+  // `symbolSvg` (components/Palette · Cell has the same note)
+  if (tool === 'symbol') return picked.symbol ? { glyph: <span className="wb-dock-sym" dangerouslySetInnerHTML={{ __html: sanitizeSvg(picked.svg ?? '') }} />, name: formatSymbolName(picked.symbol) || picked.symbol } : null
+  if (tool === 'shape') {
+    const kind = picked.shape
+    return kind ? { glyph: <ShapeGlyph kind={kind} color="currentColor" aspect={SHAPE_DEFS[kind].defaultAspect} fit />, name: appConfig.copy.shapes.names[kind] ?? appConfig.copy.shapes.kindLabel } : null
+  }
+  const name = armedToolName(tool, tools)
+  const icon = armedToolIcon(tool, tools)
+  return name && icon ? { glyph: <Icon id={icon} />, name } : null
 }

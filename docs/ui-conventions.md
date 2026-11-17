@@ -557,12 +557,14 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     the state; on a phone it stands where the dock row stands and is that row's twin. The ✓ is
     `--btn-primary`. No dock carries a line of text, on any surface or width (20.10.2026, owner:
     «Remove the line. I don't think they add any value.»): a tool's instructions are its ⓘ.
-    **The armed tool's name is the readout pill** (`.armed-pill`, 23.10.2026): glyph + word,
-    bottom centre, the same glass, a floating-family piece – `--float-h` high, the one corner, the
-    name 14/700 (button sweep CHROME.7; it was a capsule) – no pointer events, a readout, not a
-    control (tactical-objects.md · «The armed tool's readout»). The symbol tool has no dock since
-    then; its «Mehrere» and ✕ «Abbrechen» stand beside the pill as dock tiles (below). A dock never
-    repeats the pill: a Form's dock has no tile with its name (CHROME.11).
+    **The armed tool's name is the dock's FIRST tile** (`ToolDock · armed`, `.wb-dock-name`; owner
+    picks 14 + 15, 17.11.2026 – it was a pill at the bottom centre from 23.10.2026): the tool's
+    glyph (a symbol: its own drawing, a Form: its preview) over its short name («Linie», not «Linie
+    · Freihand» – the lit toggle says the mode), the dock tile's anatomy with NO fill, no hover, no
+    press, no pointer events – a readout, not a control; its name is its accessible name. Every
+    dock but Messen's leads with it, on the phone's bar and the tablet's column alike, so a dock
+    reads [name · options · ⓘ · ✕] (tactical-objects.md · «The armed tool's readout»). A symbol has
+    a dock of its own for it: [Unfall · Mehrere · Abbrechen].
     The sticky close button has no masking shadow: a solid surface patch mismatches the glass.
     The blank Tafel offers no Messen on a phone; map and scaled plans keep it. The Ansichten
     popover closes on a tap beside it and that tap does nothing else, on every width (Overlays ·
@@ -673,10 +675,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Mehrfach group, which has no card, gets a ✕ at the bar's end. **In a bar or a dock the ✕ is a
     tile of that bar** (button sweep CHROME.4, 17.11.2026): the dock's ✕ look, «Abbrechen» – or
     «Schliessen» on the selection bar – under it by the same setting; `.ip-x` is for sheets and
-    cards, a message keeps `.ml-x`. The armed-tool pill at the bottom
-    centre is glyph + name, a readout; beside it, only while a symbol is armed, stand «Mehrere» and
-    its ✕ «Abbrechen» as DOCK TILES (`ArmedToolPill` renders `ToolDock · DockTile` in a row of the
-    dock's material; owner pick 11, CHROME.3) – the same controls a Form's dock carries. Every armed state has a visible ✕ – the Karte's «Punkt setzen» too. Text editors' in-place ✓ (a Notiz, a box label) commit
+    cards, a message keeps `.ml-x`. The ✕ ENDS every dock – the phone's bar and, since T2 (owner
+    pick 15, 17.11.2026), the tablet's column too, sticky at its foot (it stood at the column's head
+    until then): the armed tool's name leads, the way out closes. A symbol's dock is [Unfall ·
+    Mehrere · Abbrechen] – the same controls a Form's dock carries. Every armed state has a visible ✕ – the Karte's «Punkt setzen» too. Text editors' in-place ✓ (a Notiz, a box label) commit
     typed text and keep their ✓.
   - *Cancel (28.09.2026, owner pick A):* «Abbrechen» in a footer is a FRAMED `.ip-btn` 14/700 at
     its word's width, never a ghost word; the primary takes the rest of the row, same height (on a

@@ -4,8 +4,10 @@ Status: 🟢 shipped (KP Front idea F5, 2026-10-09; opens by itself the first ti
 
 The **Gebäude** chip stands in the bottom-left chip row of the **Karte**, and in the **Plan**'s
 chip row beside the Objekt chip whenever an Objekt is bound, and on the Gebäude stack beside the
-building chip (`components/BuildingFloat`; not on a phone's plan, whose one-line row needs the
-room for the Objekt's name). On a phone it is part of the Karte's one floating row, left of the FAB.
+building chip (`components/BuildingFloat`) – on a phone's plan as well since 17.11.2026 (owner pick
+18: every plan shows the same floating row; it was kept off there from 09.10.2026, when the row was
+chips and the hazard took the room of the Objekt's name – the row is tiles now, each capped). On a
+phone it is part of the one floating row, left of the FAB.
 Closed, it names the hazards as glyph + word («⚠ Gebäude-Info · Gas · PV»), or just «Gebäude-Info»
 (owner pick C8, 05.11.2026). On a PHONE it is the hazard alone again – «⚠ Gas · PV» at 700, or
 (i) «Gebäude» without one, the count badge and the full aria-label/title kept (owner pick 12A,

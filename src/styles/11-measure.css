@@ -342,22 +342,21 @@
    the Gebäude the ✥ ⟳ bar and Einpassen · Norden read as one bottom line; the phone sets it on
    the dock row's place (15-mobile). */
 .sel-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: var(--z-chrome); animation: pop .16s var(--ease); }
-/* ── a ROW of bar tiles ── the ✥ ⟳ bar and the symbol's [Mehrere · ✕] beside the armed pill
-   (ArmedToolPill · .armed-pill-dock, 09-whiteboard): the floating glass of every bar, the view
+/* ── a ROW of bar tiles ── the ✥ ⟳ bar: the floating glass of every bar, the view
    bar's tile (07-toolrail · .view-bar .vrail-nbtn) – a bare 46px square with its 22px glyph, and
    with «Beschriftung» on (`.worded`, components read `useRailLabels`) the glyph over its word in
    the dock's `.wb-dock-word` voice (11/700), `--vrail-tile` tall. The phone's row is the dock
    row's twin (15-mobile). ⚠️ `.wb-dock-x` / `.wb-dock-tog` bring the dock's colours, and the
-   column's `sticky` / `order` lift on the ✕, which a row does not want – reset here. */
-:is(.sel-bar, .armed-pill-dock) { display: flex; align-items: center; gap: 4px; padding: var(--bar-pad);
+   column's `sticky` on the ✕, which a row does not want – reset here. */
+.sel-bar { display: flex; align-items: center; gap: 4px; padding: var(--bar-pad);
   border-radius: var(--r-bar); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); box-shadow: var(--e4); }
-:is(.sel-bar, .armed-pill-dock) > button { position: relative; order: 0; margin: 0; flex: none;
+.sel-bar > button { position: relative; order: 0; margin: 0; flex: none;
   display: grid; place-items: center; width: 46px; height: 46px; padding: 0; border: none; border-radius: var(--r-sm); }
-:is(.sel-bar, .armed-pill-dock) > button .i { width: 22px; height: 22px; }
-:is(.sel-bar, .armed-pill-dock).worded > button { grid-template-rows: 24px auto; align-content: center; gap: 2px;
+.sel-bar > button .i { width: 22px; height: 22px; }
+.sel-bar.worded > button { grid-template-rows: 24px auto; align-content: center; gap: 2px;
   width: auto; min-width: 76px; height: var(--vrail-tile); padding: 0 8px; }
-:is(.sel-bar, .armed-pill-dock).worded .wb-dock-word { max-width: none; overflow: visible; }
+.sel-bar.worded .wb-dock-word { max-width: none; overflow: visible; }
 /* ✥ and ⟳ are DRAG targets, so they are grab-cursored and take no scroll/pan (touch-action).
    At rest they are the neutral bar control every dock wears (`--dock-control-bg`, ink); armed, the
    ink pill (duck sweep ELEM.1, owner 17.11.2026 – «where you are», the same `--here-fill` the rail

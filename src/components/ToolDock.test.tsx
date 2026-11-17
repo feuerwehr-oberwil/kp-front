@@ -59,4 +59,20 @@ describe('ToolDock', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     expect(words(render(<ToolDock groups={lineDock()} />).container)).toEqual([])
   })
+
+  // owner picks 14 + 15 (17.11.2026, from the owner's phone WIP of 16.11.): the dock LEADS with the
+  // armed tool on the phone's bar and the tablet's column alike – a plain readout, the ✕ still last
+  it('leads with the armed tool as a plain tile, on a phone and a tablet', () => {
+    const armed = { glyph: <svg />, name: 'Linie' }
+    for (const phone of [false, true]) {
+      vi.mocked(useIsPhone).mockReturnValue(phone)
+      const { container } = render(<ToolDock armed={armed} groups={lineDock()} />)
+      expect(words(container)).toEqual(['Linie', ...lineWords])
+      const tile = screen.getByRole('img', { name: 'Linie' })
+      expect(tile.tagName).toBe('DIV') // a readout, not a control
+      expect(container.querySelector('.wb-dock')!.firstElementChild).toBe(tile)
+      expect(container.querySelector('.wb-dock')!.lastElementChild!.classList.contains('wb-dock-x')).toBe(true)
+      cleanup()
+    }
+  })
 })

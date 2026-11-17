@@ -71,7 +71,7 @@ import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { LockChip } from './LockChip'
 import { Chip } from './Chip'
-import { ShapeGlyph, SHAPE_DEFS, SHAPE_MAX_N, SHAPE_MIN_N, SHAPE_TWO_POINT, rotationBoundsN, rotationBox, rotationRun } from '../lib/shapes'
+import { SHAPE_DEFS, SHAPE_MAX_N, SHAPE_MIN_N, SHAPE_TWO_POINT, rotationBoundsN, rotationBox, rotationRun } from '../lib/shapes'
 import { SYM_MIN, TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { noteScale, autoNoteWN, noteWN, stackNoteBoxPx, stackNoteShiftPx } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
@@ -123,8 +123,7 @@ import { useBoardGestures } from './useBoardGestures'
 import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles, WbDraftHandles, WbSnapRing, type TruppFinderDoor } from './WbControls'
 import { MeasurePanel } from './MeasurePanel'
 import { ToolDock } from './ToolDock'
-import { ArmedSymbolGlyph, ArmedToolPill } from './ArmedToolPill'
-import { armedToolIcon, armedToolName } from '../lib/armedTool'
+import { armedReadout } from '../lib/armedTool'
 import { PlanCompass } from './PlanCompass'
 import { OrientSlider } from './OrientSlider'
 import { RailKey, ToolRail } from './ToolRail'
@@ -1196,8 +1195,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     if (!selectOnly) return
     setTool('pan'); setPending(null); setPendingShape(null); setPaletteOpen(false); setDraft(null); setCircleDraft(null)
   }, [selectOnly, setTool, setPending, setPendingShape, setDraft, setCircleDraft])
-  /** Put a symbol / shape being placed down – the armed pill's ✕ and Escape (round 2, 27.10.2026) */
+  /** Put a symbol / shape being placed down – its dock's ✕ and Escape (round 2, 27.10.2026) */
   const stopPlacing = () => { setPending(null); setPendingShape(null); setTool('pan') }
+  // the armed tool's readout, the first tile of its dock (ToolDock · armed, lib/armedTool) – the
+  // Lage's own (MapToolDocks); every dock but Messen's, whose results panel names the tool
+  const armed = armedReadout(tool, appConfig.copy.planTools, { symbol: pending, svg: pending ? sym.byName[pending] : undefined, shape: pendingShape })
   // Escape peels ONE layer per press, in the Lage's order (lib/hotkeyRoute · routeEscape – one
   // ladder for the Lage, the Plan and the Karte viewer, 17.11.2026): the Passung dock, then what is
   // half-made, then the armed tool – with no draft too (GESTURES.3: an armed Notiz, Trupp, Mehrfach
@@ -2052,20 +2054,17 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // The Gebäude-Steckbrief's chip, beside the Objekt chip and only where that one stands with an
   // Objekt bound: these plans are of THAT building, and the Karte's row carries the same chip.
   // The floor stack and the Tafel drop it with the Objekt chip (`objectChipHidden`).
-  // ⚠️ Not on a PHONE's plan (09.10.2026, measured at 390px): that row is one line beside the FAB
-  // (09-whiteboard · .wb-botleft), and a hazard is glyph + WORD, so «⚠ Gas · PV» took the room the
-  // Objekt chip's name needs — the name went down to its glyph, and «which object are these
-  // plans of» stopped being answered. On a phone the Karte's row carries the chip, one tap away.
+  // On a PHONE's plan too, since the button round (owner pick 18, 17.11.2026: «every plan shows the
+  // same floating row»). It was kept off there from 09.10.2026, when the row was chips and «⚠ Gas ·
+  // PV» took the room the Objekt chip's name needed; the phone's row is tiles now (09-whiteboard ·
+  // .wb-tile, pick 12), each as wide as its word and capped, so the Objekt tile keeps its name.
   // `compact`: it is the Objekt chip's second half (R1, 27.10.2026) – «⚠ Gebäude-Info · Gas», the
   // Sofortmassnahmen as their glyph alone.
   // …and on the Gebäude STACK too, the building chip's second half (owner pick C8, 05.11.2026): the
   // stack is the one plan that IS the building, and its row said «Gebäude •» while the Karte said
   // «⚠ Gebäude-Info · Gas» – the hazard was gone exactly where the crew looks at the storeys. Not
   // on the outline picker (no building chosen yet). BuildingFloat renders nothing without content.
-  // ⚠️ The stack keeps it on a PHONE as well (hill climb r13): the 09.10. rule above protects the
-  // Objekt chip's name, and the stack drops that chip – the building chip beside it is the read-out
-  // that truncates (09-whiteboard · .wb-building-named), so nothing there loses its answer.
-  const buildingFloat = (stack || (!isPhone && !objectChipHidden && (objectName || objectAddress)))
+  const buildingFloat = (stack || (!objectChipHidden && (objectName || objectAddress)))
     ? <BuildingFloat info={buildingInfo ?? null} />
     : null
 
@@ -2945,6 +2944,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onMeasClear={() => setMeasPath(() => [])}
           onMeasClose={() => { measReset(); setTool('pan') }}
           truppFinder={truppFinder}
+          armed={armed}
         />}
       </div>
 
@@ -3018,35 +3018,20 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         />
       )}
 
-      {/* the armed tool's readout — the SAME pill the Lage map shows (MapToolDocks): glyph + name,
-          bottom centre, nothing else. The symbol tool has no dock here either; «Mehrere
-          platzieren» and a ✕ (27.10.2026) stand beside the pill. Rest tool is 'pan' here (the plan pans on empty
-          canvas) vs the map's 'select'. Never while Messen is armed, on any size – its results
-          panel stands in that spot (sweep 30.10.2026 #3). */}
-      {tool !== 'pan' && tool !== 'measure' && (() => {
-        if (tool === 'symbol') {
-          if (!pending) return null
-          return <ArmedToolPill glyph={<ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />} name={formatSymbolName(pending) || pending}
-            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }} onClose={stopPlacing} />
-        }
-        if (tool === 'shape') {
-          if (!pendingShape) return null
-          return <ArmedToolPill glyph={<ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />}
-            name={appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel} />
-        }
-        // the Grundriss preset names itself in the mode's place: «Linie · Wand»
-        const name = grundriss
-          ? `${armedToolName(tool, appConfig.copy.planTools)} · ${appConfig.copy.whiteboard.grundriss[grundriss]}`
-          : armedToolName(tool, appConfig.copy.planTools, { lineMode, areaMode })
-        const icon = armedToolIcon(tool, appConfig.copy.planTools)
-        if (!name || !icon) return null
-        return <ArmedToolPill glyph={<Icon id={icon} />} name={name} />
-      })()}
+      {/* the symbol's dock: [Unfall · Mehrere · Abbrechen] – the Lage map's twin (MapToolDocks). The
+          bottom-centre pill that stood here went with the button round (owner picks 14 + 15,
+          17.11.2026): the readout is the first tile of every dock now. */}
+      {tool === 'symbol' && armed && (
+        <ToolDock armed={armed} groups={[
+          [{ type: 'close', onClick: stopPlacing }],
+          [{ type: 'toggle', icon: 'place-repeat', label: appConfig.copy.keepPlacing, short: appConfig.copy.keepPlacingShort, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
+        ]} />
+      )}
 
       {pendingShape && tool === 'shape' && (
-        <ToolDock groups={[
+        <ToolDock armed={armed} groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('pan') } }],
-          // the Form's name is the armed pill's, not a tile of the dock (button sweep CHROME.11)
+          // the Form's name and preview lead the dock as its readout tile (`armed`, pick 14)
           // «mehrere nacheinander» has no meaning for a shape laid between two named places
           ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'place-repeat', label: appConfig.copy.keepPlacing, short: appConfig.copy.keepPlacingShort, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
           [{ type: 'info', text: !SHAPE_TWO_POINT[pendingShape] ? appConfig.copy.dockHints.shape

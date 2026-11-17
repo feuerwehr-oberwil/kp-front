@@ -47,7 +47,7 @@ function Avatar({ name, tone, link = false }: { name: string; tone: number; link
  *  .wb-botleft: «Messungen», the Gebäude chip, the Tafel's page strip), and the bottom-right
  *  corner a narrow window brings under it: the tool rail's view bar (ToolRail · ViewBar) and the
  *  map's ⓘ, which stands just left of that bar (03-map). */
-const PILL_OBSTACLES = '.wb-botleft > *, .armed-pill-row, .sel-bar, .coord-read, .view-bar, .app > .maplibregl-map .maplibregl-ctrl-attrib'
+const PILL_OBSTACLES = '.wb-botleft > *, .sel-bar, .coord-read, .view-bar, .app > .maplibregl-map .maplibregl-ctrl-attrib'
 
 /**
  * Keeps the pill clear of the chips and pills of its row on a tablet or laptop (owner's laptop

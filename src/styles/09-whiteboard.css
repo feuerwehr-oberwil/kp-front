@@ -197,7 +197,7 @@
   .wb-botleft { position: fixed; left: max(8px, env(safe-area-inset-left)); right: calc(max(8px, env(safe-area-inset-right)) + var(--fab-safe, 0px)); max-width: none;
     bottom: var(--float-bottom); }
   /* ⚠️ …MEASURED once the workspace has placed it (lib/floatRow, sweep 27.10.2026 #9): on the
-     bars (--float-floor), risen only past a dock or an armed pill that overlaps it sideways —
+     bars (--float-floor), risen only past a dock or a bar that overlaps it sideways —
      beside a short dock, not a whole row above it. --float-bottom above is the unmeasured case. */
   .wb-botleft[data-float-placed] { bottom: calc(var(--float-floor) + var(--row-lift, 0px)); }
   /* ⚠️ ONE line, always (owner, 18.09.2026): a wrapped row put a whole extra band of chrome across
@@ -926,9 +926,8 @@ span.wb-ghost-label { cursor: default; }
   border-radius: var(--r-bar); padding: var(--bar-pad); }
 /* The neutral bar control's plate, for every bar that wears it: the docks AND the selection bar
    (`.sel-bar`, 11-measure – a sibling of the dock, not inside it, so a token declared on
-   `.wb-dock` alone left its ✥ ⟳ transparent at rest; button sweep CHROME.5, 17.11.2026), and the
-   symbol's [Mehrere · ✕] beside the armed pill (`.armed-pill-dock`, below). */
-.wb-dock, .sel-bar, .armed-pill-dock {
+   `.wb-dock` alone left its ✥ ⟳ transparent at rest; button sweep CHROME.5, 17.11.2026). */
+.wb-dock, .sel-bar {
   --dock-control-bg: color-mix(in srgb, var(--ink) 7%, var(--surface));
   --dock-control-hover: color-mix(in srgb, var(--ink) 13%, var(--surface)); }
 .wb-dock::-webkit-scrollbar { width: 6px; }
@@ -938,13 +937,23 @@ span.wb-ghost-label { cursor: default; }
    coarse-pointer sizes below are for docks outside this column); a mode toggle is bare like a
    rail tool until it is armed (the accent fill). The ✕ keeps its opaque fill: it is the way out,
    and it stays readable while the column scrolls under it. The phone's row dock sets its own. */
-.wb-dock :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go) { width: 46px; height: 46px; }
+.wb-dock :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-name) { width: 46px; height: 46px; }
 .wb-dock :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go) .i { width: 22px; height: 22px; }
+/* ── the armed tool's readout tile (ToolDock · `armed`, owner picks 14 + 15, 17.11.2026) ── the
+   dock's FIRST tile, the tool's glyph (a symbol: its own drawing, a Form: its preview) over its
+   short name: a tile's anatomy and nothing else – no fill, no hover, no press, because it is a
+   readout, not a control (pointer events pass through to the bar). Worded or bare with the rest of
+   the dock (below). It replaced the bottom-centre armed pill on every size. */
+.wb-dock-name { display: grid; place-items: center; flex: none; border-radius: var(--r-sm); color: var(--ink);
+  pointer-events: none; }
+.wb-dock-glyph { display: grid; place-items: center; width: 22px; height: 22px; }
+.wb-dock-glyph .i { width: 22px; height: 22px; }
+.wb-dock-sym, .wb-dock-sym svg, .wb-dock-glyph > svg { display: block; width: 100%; height: 100%; }
 .wb-dock .wb-dock-tog:not(.on) { background: transparent; color: var(--ink); }
 @media (hover: hover) { .wb-dock .wb-dock-tog:not(.on):hover:not(:disabled) { background: var(--hover); } }
 @media (max-height: 640px) {
   .wb-dock { gap: 2px; }
-  .wb-dock :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go) { height: 34px; }
+  .wb-dock :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-name) { height: 34px; }
 }
 /* between groups: 4px more air, no line (ToolDock · M8 rework) — it grows along the dock's axis */
 .wb-dock-gap { flex: none; width: 4px; height: 4px; }
@@ -955,14 +964,15 @@ span.wb-ghost-label { cursor: default; }
    `right` in the phone's row, and each is a no-op in the other orientation because that axis
    does not scroll there (its overflow is hidden).
    ⚠️ «X on the right everywhere» (owner, sweep 27.10.2026 #3): ToolDock renders it LAST, so the
-   phone's bar reads [options · ⓘ | ✕] (15-mobile). The column keeps it at its head, the
-   column's top-right corner, through `order` — the gap a group boundary gets is its own margin,
-   on whichever side faces the options.
+   phone's bar reads [name · options · ⓘ | ✕] (15-mobile) – and since T2 (owner pick 15,
+   17.11.2026) the column reads the same, top to bottom: the armed tool's name first, the ✕ at
+   its foot (it stood at the column's head through `order` until then, above the name it now
+   follows). The gap a group boundary gets is its own margin, on the side that faces the options.
    Its fill has to be OPAQUE — a translucent wash let the options pass THROUGH the ✕ — so it is
    --dock-control-bg (mixed into --surface). No masking ring of the dock's surface around it: the
    dock is glass, and a ring of any solid colour painted a mismatched block over it (it was first
    dropped on the phone's bar, 15-mobile). */
-.wb-dock-x { position: sticky; top: 0; right: 0; z-index: 2; order: -1; margin-bottom: 4px; flex: none;
+.wb-dock-x { position: sticky; bottom: 0; right: 0; z-index: 2; margin-top: 4px; flex: none;
   width: 34px; height: 34px; border-radius: var(--r-sm); border: none;
   background: var(--dock-control-bg);
   color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; }
@@ -995,7 +1005,7 @@ span.wb-ghost-label { cursor: default; }
    so the words stand on ONE line across the dock (owner, 15.11.2026: «labels at the bottom, the
    same way the toolbars are … not further up or down depending on the labels»). A centred flex
    column let a taller glyph (the Form preview the dock carried until CHROME.11) push its word below the rest. */
-.wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded) {
+.wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded, .wb-dock-name) {
   display: grid; grid-template-rows: 24px auto; align-content: center; justify-items: center; align-items: center; gap: 2px;
   width: 100%; height: var(--vrail-tile); padding: 0 2px; }
 .wb-dock-word { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center;
@@ -1019,39 +1029,6 @@ span.wb-ghost-label { cursor: default; }
    the dock left instead of letting the rail overlap it. --vrail-w is published by ToolRail;
    16px rail inset + width + 26px gap. */
 .wb-dock-map { right: calc(var(--vrail-w, 60px) + 26px); top: 50%; transform: translateY(-50%); }
-
-/* ── the armed tool's readout (components/ArmedToolPill, 3am sweep point 3, 23.10.2026) ──
-   ONE pill, bottom centre, while a tool is armed: glyph + name, nothing else. A piece of the
-   floating family (button sweep CHROME.7, 17.11.2026 – the FAB's 16.11. pick): its glass, its
-   height `--float-h`, the one corner `--r-sm` (it was a 22px capsule), the name 14/700. Pointer
-   events PASS THROUGH it – it is a readout, the surface under it stays tappable. The phone moves
-   the row onto the floating baseline (15-mobile). */
-.armed-pill-row { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome-raised);
-  display: flex; align-items: center; gap: var(--sp-2); max-width: calc(100% - 32px); pointer-events: none; }
-.armed-pill { display: inline-flex; align-items: center; gap: var(--sp-3); height: var(--float-h); min-width: 0;
-  padding: 0 var(--sp-4) 0 var(--sp-2); border-radius: var(--r-sm); white-space: nowrap;
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--e4);
-  color: var(--ink); font-size: var(--fs-2); font-weight: var(--fw-bold); }
-.armed-pill-glyph { display: grid; place-items: center; width: 30px; height: 30px; flex: none; }
-.armed-pill-glyph .i { width: 22px; height: 22px; }
-.armed-pill-sym, .armed-pill-sym svg { display: block; width: 100%; height: 100%; }
-/* clipped, never an ellipsis: a cut word is what the fold ladder measures (ArmedToolPill ·
-   fitArmedPill, sweep 30.10.2026 #8), and it folds before anybody sees it */
-.armed-pill-name { overflow: hidden; min-width: 0; }
-/* …and beside it, only while a SYMBOL is armed, its two controls as DOCK TILES (owner pick 11,
-   CHROME.3 + .4, 17.11.2026): «Mehrere» and ✕ «Abbrechen» in the dock's material and anatomy, the
-   same tiles a Form's dock carries – glyph over word by «Beschriftung», the toggle `--sel` when on,
-   the ✕ the opaque plate. The row of tiles itself is the selection bar's (11-measure ·
-   .armed-pill-dock); the phone's is the dock row's twin (15-mobile). No full dock comes back. */
-.armed-pill-dock { pointer-events: auto; flex: none; }
-.armed-pill-dock .wb-dock-tog:not(.on) { background: transparent; color: var(--ink); }
-@media (hover: hover) { .armed-pill-dock .wb-dock-tog:not(.on):hover:not(:disabled) { background: var(--hover); } }
-/* the fold ladder (lib/armedPillFit): step 1 the name folds and the glyph stands alone in a
-   --float-h square; step 2 the dock's words fold too – its tiles bare, as with «Beschriftung» off */
-.armed-pill-row[data-fit] .armed-pill-name { display: none; }
-.armed-pill-row[data-fit] .armed-pill { justify-content: center; width: var(--float-h); padding: 0; flex: none; }
-.armed-pill-row[data-fit='2'] .armed-pill-dock .wb-dock-word { display: none; }
-.armed-pill-row[data-fit='2'] .armed-pill-dock > button { grid-template-rows: none; width: 46px; min-width: 46px; height: 46px; padding: 0; }
 
 /* touch devices: the dock's option buttons are finger-operated (on phones the dock floats
    above the bottom bars) — enlarge them directly per the house rule for dense clusters.

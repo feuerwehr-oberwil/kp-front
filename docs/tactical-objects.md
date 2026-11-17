@@ -63,15 +63,16 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   element (`MapView · keepClickOnPad`; check: `e2e/node-pad-tap.spec.ts`). The Plan's `.wb-vertex`
   never had it: its pads take the pointer themselves (`useWbVertexEdit · vertDown`) and only the
   «+» inserts.
-- **The armed tool's readout is one pill** (`components/ArmedToolPill`, `lib/armedTool`,
-  23.10.2026, 3am sweep point 3 – owner: «a small little info thing at the bottom that now you're
-  placing symbol XYZ and that's it»). Bottom centre of the Karte, the Einsatz map, a Plan and the
-  Tafel, tablet and phone: the tool's glyph (a symbol's own SVG) and its name («F Feuer»,
-  «Linie · Freihand», «Fläche · Punkte», «Absperrkreis»), no sentence, no button, pointer events
-  pass through. The symbol tool has no option dock any more – the pill is its readout, and beside
-  it stand two DOCK TILES (button sweep CHROME.3/.4, owner pick 11, 17.11.2026): «Mehrere»
-  («Mehrere platzieren») and ✕ «Abbrechen», the very tiles a Form's dock carries, worded by
-  «Beschriftung»; the way out is that ✕ or Escape on the Karte and the Plan alike (27.10.2026: with «Mehrere platzieren» on, the
+- **The armed tool's readout is the first tile of its dock** (`ToolDock · armed`, `lib/armedTool ·
+  armedReadout`; 3am sweep point 3, 23.10.2026 – owner: «a small little info thing … that now you're
+  placing symbol XYZ and that's it» – a pill at the bottom centre until the button round's picks
+  14 + 15, 17.11.2026, and on the phone the owner's WIP of 16.11.: «ideally we don't need a 4th
+  line»). On the Karte, the Einsatz map, a Plan and the Tafel, tablet and phone: the tool's glyph
+  (a symbol's own SVG, a Form's preview) over its name («Feuer», «Linie», «Absperrkreis»), a plain
+  tile – no fill, no sentence, no button, pointer events pass through; the input mode is the lit
+  toggle beside it. ONE builder for both surfaces (`armedReadout`), so Lage and Plan name a tool
+  alike. The symbol tool has a dock for it: [Unfall · «Mehrere» («Mehrere platzieren») · ✕
+  «Abbrechen»], worded by «Beschriftung»; the way out is that ✕ or Escape on the Karte and the Plan alike (27.10.2026: with «Mehrere platzieren» on, the
   Plan's Escape did nothing and there was no ✕ – no way to stop placing Durchgänge). **Escape is one
   ladder on the Karte, the Plan and the station viewer** (`lib/hotkeyRoute · routeEscape`, duck sweep
   17.11.2026): the top layer (Ebenen, Ansichten, the Passung dock, the viewer's search) → what is
@@ -80,13 +81,10 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   → the note panel → the selection; one layer per press. A sheet, menu or card over the surface, and
   the ✥ ⟳ mode, take their Esc first and alone (ui-conventions › Overlays). Delete/Backspace has the
   same guard: never from a field, a dialog or a menu (`lib/hotkeys · keyOwnedElsewhere`). The other tools keep their option docks (Freihand ↔ Punkte, «✓ Fertig» – the one commit, ui-conventions › Close and commit –,
-  Strecke ↔ Fläche, Trupp finden). On a phone the pill stands on the floating row (above the dock
-  while one is out). While Messen is armed there is no pill, on any size – its results panel
-  stands in that spot (sweep 30.10.2026 #3: the pill covered the Distanz on a tablet).
-  The row never ellipsises (sweep 30.10.2026 #8, «Fahrze…»): when it does not fit, the name folds
-  first and the glyph stands alone (the name stays its aria-label), then the tiles' words fold
-  (a hold says each word) – measured on the top bar's ladder
-  (`ArmedToolPill · fitArmedPill`), so a wider screen gives the words back.
+  Strecke ↔ Fläche, Trupp finden) – each led by the readout. Messen's dock has no readout tile, on
+  any size: its results panel names the tool (sweep 30.10.2026 #3). On a phone a busy dock scrolls
+  with its ✕ sticky at the end, like every dock; a short one shares its line with the floating row
+  (phone-layout.md · «The floating row»).
 - **One detail card, one set of controls** (`components/ContextPanel`, owner decisions
   31.10.2026). The Karte and every plan open the SAME card for a symbol, so a control added or
   removed there is added or removed on both surfaces. «Erledigt» is ONE toggle in the foot, in

@@ -6,6 +6,7 @@ import type { BoardAnno, BuildingDoc, PlanDocument, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import type { SymbolsApi } from '../lib/useSymbols'
+import type { BuildingInfo } from '../lib/api/building'
 import { NODE_HOLD_ARM_MS, NODE_HOLD_FIRE_MS, NODE_HOLD_MOVE_PX } from '../lib/nodeHold'
 import { HOLD_DRAG_MS } from '../lib/holdTimings'
 
@@ -1928,7 +1929,7 @@ describe('gesture contracts of the plan surface', () => {
     })
 
     // round 2 (27.10.2026): «Mehrere platzieren» is the Durchgang's default here, so it stays armed
-    // after every tap – Escape and the pill's ✕ must put it down (the Plan's Escape never did)
+    // after every tap – Escape and its dock's ✕ must put it down (the Plan's Escape never did)
     it.each(['Escape', '✕'])('%s stops placing Durchgänge', (how) => {
       const gb = { ...sym, ready: true, order: ['Gebäude'], byName: { 'GB Ture Durchgang': '<svg/>' }, symbols: [{ name: 'GB Ture Durchgang', cat: 'Gebäude', svg: '<svg/>' }] }
       const { container } = mount([], { ...twoStoreys, sym: gb })
@@ -1936,8 +1937,8 @@ describe('gesture contracts of the plan surface', () => {
       fireEvent.click(screen.getAllByRole('button', { name: /Durchgang/ })[0])
       expect(screen.getByRole('button', { name: appConfig.copy.keepPlacing }).getAttribute('aria-pressed')).toBe('true')
       if (how === 'Escape') fireEvent.keyDown(window, { key: 'Escape' })
-      else fireEvent.click(within(container.querySelector('.armed-pill-row')!).getByRole('button', { name: appConfig.copy.cancel }))
-      expect(container.querySelector('.armed-pill-row')).toBeNull()
+      else fireEvent.click(within(container.querySelector('.wb-dock')!).getByRole('button', { name: appConfig.copy.cancel }))
+      expect(container.querySelector('.wb-dock')).toBeNull()
       expect(container.querySelector('.wb-ink')).toBeNull()
     })
 
@@ -2427,5 +2428,26 @@ describe('the Plan\'s Abschluss in replay', () => {
     await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: appConfig.copy.drawingEditor.endingNoneWhat })[0]) })
     const { board } = await replayEmits({ board: { tafel: [arrowLine] } }, emit.mock.calls)
     expect(endingOf(board.tafel[0])).toBe('none')
+  })
+})
+
+// owner pick 18 (button round, 17.11.2026): every phone plan shows the same floating row – the
+// Gebäude-Info tile beside the Objekt tile, not only on the Gebäude stack (the 09.10. rule fell)
+describe('a single Objekt plan on a phone', () => {
+  const eg: PlanDocument = { id: 'eg', code: 'EG', title: 'Erdgeschoss', subtitle: '', imageUrl: '/eg.png', orientation: 'landscape' }
+  const info: BuildingInfo = {
+    registers: 'on', egid: '1', address: 'Schlossgasse 9, 4104 Oberwil', gwr: null, gwr_status: 'ok', plants: [], pv_status: 'ok',
+    registers_fetched_at: null, visit: null,
+    object: { id: 'o', name: 'Gewerbehaus', address_match: true, distance_m: 0, measures: 'Gashaupthahn schliessen', remarks: null, measures_source: null, updated_at: null },
+  }
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('shows the Gebäude-Info tile beside the Objekt tile', () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: true, media: q, onchange: null, addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false }))
+    const { container } = render(<Whiteboard plans={[eg]} activeId="eg" annos={[]} onChange={() => {}} building={null}
+      onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}} sym={sym} onRecent={() => {}} log={() => {}}
+      hist={{}} setHist={() => {}} focus={null} objectAddress="Schlossgasse 9" buildingInfo={info} />)
+    const row = container.querySelector('.wb-botleft')!
+    expect(within(row as HTMLElement).getByRole('button', { name: /^Gebäude/ })).toBeTruthy()
   })
 })

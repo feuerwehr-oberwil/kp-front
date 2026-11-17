@@ -141,8 +141,9 @@
      card's edge, the one 8px gap between the titles and the tiles (tokens · --head-*, Surface.module.css) */
   :root { --head-pad-y: 8px; --head-pad-x: 14px; --head-gap: 8px; }
 
-  /* ── THE bottom stack (sweep 30.10.2026 #7) ── nav bar → tool bar → a tool's option dock → the
-     armed tool's pill (or Messen's readout) → the message lane, with ONE gap between every two:
+  /* ── THE bottom stack (sweep 30.10.2026 #7) ── nav bar → tool bar → a tool's option dock (led by
+     the armed tool's name since 17.11.2026, ToolDock · armed) → Messen's readout → the message
+     lane, with ONE gap between every two:
      --float-gap, the 8px the floating row keeps from the bars. They were 6, 6, 8 and 16px (owner's
      iPhone, Linie armed: «the unequal spacing between the toolrail, tool specific rail, "linie"
      info, and info»). The feet of the two bars above the nav bar, for whoever stands on them: */
@@ -251,7 +252,9 @@
   .phone-tools .wb-dock { position: fixed; left: 50%; right: auto; top: auto; transform: translateX(-50%);
     /* one --float-gap above the tool bar — the SAME gap the tool bar has above the nav bar (the stack, above) */
     bottom: var(--dock-bottom);
-    flex-direction: row; align-items: center; justify-content: safe center; gap: var(--sp-2);
+    /* the tiles 4px apart (B+, owner pick 14, 17.11.2026 – it was 8): the bar hugs its tiles, and
+       a short one leaves Info and Eintrag room on its line (lib/floatRow · placePiece) */
+    flex-direction: row; align-items: center; justify-content: safe center; gap: 4px;
     /* width HUGS the content (centred) so a 2-item dock isn't stretched across the screen;
        caps at the viewport and scrolls when a busy tool (line/area) overflows */
     width: max-content; max-width: calc(100vw - 16px); height: var(--rail-h); max-height: var(--rail-h);
@@ -276,7 +279,7 @@
      measured 40px high; 44 until the M8 rework), every icon the bars' 22px — was a jumble (34/38
      buttons, 16/17/18 icons), then 18 under the bars' 22 (button sweep CHROME.8, 17.11.2026: the
      pencil in «Freihand» stood visibly smaller than «Linie» right below it). ℹ matches (DockInfo). */
-  .phone-tools .wb-dock :is(.wb-dock-tog, .wb-dock-go) { width: 46px; min-width: 46px; height: 46px; border-radius: var(--r-sm); }
+  .phone-tools .wb-dock :is(.wb-dock-tog, .wb-dock-go, .wb-dock-name) { width: 46px; min-width: 46px; height: 46px; border-radius: var(--r-sm); }
   /* the ✕ at the bar's END (ToolDock · close, sweep 27.10.2026 #3): its DOM place, not the
      column's `order` lift, and the group gap on the side that faces the options */
   .phone-tools .wb-dock .wb-dock-x { width: 46px; height: 46px; order: 0; margin: 0 0 0 4px; }
@@ -286,7 +289,7 @@
      (never an ellipsis: a busy dock scrolls, the ✕ sticky at its end), 46px high, so the row keeps
      the bars' height and reads as their twin. The column's labelled width does not apply here. */
   .phone-tools .wb-dock.wb-dock-worded { width: max-content; }
-  .phone-tools .wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded) {
+  .phone-tools .wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded, .wb-dock-name) {
     width: auto; min-width: 50px; height: 46px; padding: 0 8px; }
   .phone-tools .wb-dock.wb-dock-worded .wb-dock-word { max-width: none; overflow: visible; }
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
@@ -300,26 +303,23 @@
   .phone-tools .coord-read { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
   /* ✥ ⟳ stands where the dock row stands while a tool is out – and is that row's twin (button
      sweep CHROME.2, owner 17.11.2026): its foot `--dock-bottom`, `--rail-h` tall, the row's 4px 8px
-     inset and 8px gap, the tiles 46px high and at least 50 wide with their word (below). One spot,
+     inset and 4px gap, the tiles 46px high and at least 50 wide with their word (below). One spot,
      one anatomy, whichever of the two is up. */
   .phone-tools .sel-bar { bottom: var(--dock-bottom); }
-  /* …the row of tiles itself (11-measure · .sel-bar, .armed-pill-dock), the dock row's measures:
-     also the symbol's [Mehrere · ✕] beside the armed pill */
-  :is(.sel-bar, .armed-pill-dock) { height: var(--rail-h); padding: 4px 8px; gap: var(--sp-2); }
-  :is(.sel-bar, .armed-pill-dock).worded > button { min-width: 50px; height: 46px; }
-  /* ONE phone tile (button round 17.11.2026, integration): the worded dock row, the ✥ ⟳ bar and
-     [Mehrere · ✕] wear the tool bar's measured inside – the 22px glyph band flush on its 11/700
+  /* …the row of tiles itself (11-measure · .sel-bar), the dock row's measures */
+  .sel-bar { height: var(--rail-h); padding: 4px 8px; gap: 4px; }
+  .sel-bar.worded > button { min-width: 50px; height: 46px; }
+  /* ONE phone tile (button round 17.11.2026, integration): the worded dock row (its armed name tile
+     too) and the ✥ ⟳ bar wear the tool bar's measured inside – the 22px glyph band flush on its 11/700
      word (the tool bar's `.labelled .vrail-glyph`, the floating tiles' `.fab-entry` / `.wb-tile` /
      Karte · `.utilBtn`), not the tablet column's 24px band + 2px gap (09-whiteboard). Only the
      family height differs: 46 in a bar, `--float-h` in the floating row. */
-  :is(.phone-tools .wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded),
-    :is(.sel-bar, .armed-pill-dock).worded > button) { grid-template-rows: 22px auto; gap: 0; }
-  :is(.phone-tools .wb-dock.wb-dock-worded, .sel-bar.worded, .armed-pill-dock.worded) .wb-dock-word { line-height: 1.3; }
+  :is(.phone-tools .wb-dock.wb-dock-worded :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-ibtn-worded, .wb-dock-name),
+    .sel-bar.worded > button) { grid-template-rows: 22px auto; gap: 0; }
+  :is(.phone-tools .wb-dock.wb-dock-worded, .sel-bar.worded) .wb-dock-word { line-height: 1.3; }
   /* (the Eintrag-FAB clears both bars on the drawing surfaces through --float-bottom, below) */
-  /* the armed tool's readout stands on THE floating row's baseline (--float-bottom, below): one
-     gap above the tool bar when the tool has no dock (Symbol), one gap above the dock while one is
-     out (Linie, Fläche …). It fixes for the same nesting reason as the dock. */
-  .phone-tools .armed-pill-row { position: fixed; bottom: var(--float-bottom); max-width: calc(100vw - 16px); }
+  /* (no armed tool's pill since 17.11.2026: the dock leads with the tool – ToolDock · armed – and a
+     symbol has a dock of its own, owner picks 14 + 15 and the phone WIP of 16.11.) */
 
   /* ── details as a bottom sheet ── the shared .ctx editors (ContextPanel / DrawEditor /
      ShapeEditor) become a drag-expandable bottom sheet: half-height default so the map and
@@ -1101,6 +1101,14 @@
   .fab-entry { bottom: var(--float-bottom);
     /* on the bars' own edge (8px), not 16: the circle ended 8px short of the nav bar under it */
     right: max(8px, env(safe-area-inset-right)); }
+  /* ⚠️ …MEASURED once the workspace has placed it (lib/floatRow), like the row's tiles (09-whiteboard
+     · .wb-botleft): on the bars, beside a bar that leaves it room, risen past one that does not.
+     The recording FAB on a detail sheet keeps its own place (below). */
+  .fab-entry[data-float-placed] { bottom: calc(var(--float-floor) + var(--row-lift, 0px)); }
+  /* ONE height on a shared line (owner picks 13 + 14, B+, 17.11.2026): a floating piece that stands
+     beside a bar – the symbol's dock, the ✥ ⟳ bar – takes the bar's height, so Info, the bar and
+     Eintrag read as one line, not a 60px bar between two 52px squares (lib/floatRow · beside). */
+  :is(.wb-botleft, .fab-entry)[data-float-beside] { --float-h: var(--rail-h); }
   /* ⚠️ …and it steps aside while a keyboard is up (`data-kb`, lib/useViewportPan · 30.09.2026).
      Its baseline is the bars', which go behind the keys, so it stood wherever iOS's pan happened
      to leave it — on the Rapport, over the Einsatzleiter field just under the Kurzbericht being
@@ -1142,7 +1150,7 @@
      from each other and from the screen's edge, like the bars.
      --float-base is where the bars end: the nav bar (8px + rail-h) and the Rapport's docked tab
      strip on that one page; the tool bar on a drawing surface (its own 6px channel + rail-h); a
-     tool's option dock while one is out (it hides the FAB and the strip). */
+     tool's option dock while one is out (the host drops the strip there). */
   /* --float-bars is where the full-width BARS end (the nav bar, the tool bar under a drawing
      surface, the Rapport's strip); --float-base adds a tool's option dock, which is centred and
      may be short — the measured chip row (lib/floatRow · `--float-floor`) stands on the bars and
@@ -1174,9 +1182,6 @@
      there left the page or opened «Neuer Eintrag» (occlusion sweep O1, owner pick A, 11.11.2026).
      Not for the FAB alone: every page has one, and the last row already clears it (--fab-safe). */
   :root:has(.rp-return) { --float-clear: var(--float-row); }
-  /* …but a tool's option dock hides the FAB (below) and the host drops the strip, so there only
-     the chips — and a RECORDING FAB, which never yields (sweep 27.10.2026 #10) — stand in it */
-  :root:has(.phone-tools :is(.wb-dock, .armed-pill-row)):not(:has(:is(.wb-botleft, .fab-entry.rec))) { --float-row: 0px; }
   /* ── THE message lane (25.09.2026) ── one baseline for every message that floats over the
      foot of the screen: the toasts AND the instruction of a pick mode (OsmOutline ·
      .wb-osm-barwrap) and a tool's tip (DockInfo · .wb-dock-tip), which used to sit at three
@@ -1297,17 +1302,13 @@
   .fab-entry.rec { min-height: var(--float-h); padding-top: 0; padding-bottom: 0; }
   /* .cl-main FAB clearance migrated → Checklists.module.css */
 
-  /* while a tool-option dock is open it owns the bottom-right corner — the FAB sat ON TOP
-     of it (z55 over z31) and blocked the ✕/options. The Eintrag FAB yields for the duration
-     of the tool interaction and returns the moment the dock closes. The armed tool's readout
-     (.armed-pill-row) stands on the same row and the FAB yields to it the same way – with the
-     symbol tool's dock gone (23.10.2026) the FAB sat on its «Mehrere platzieren» toggle. */
+  /* a tool's option dock no longer hides the FAB (B+, owner pick 14, 17.11.2026): the dock HUGS its
+     tiles, centred, so the FAB stands beside a short one and a line above a long one (lib/floatRow).
+     It yielded from 08.2026 until then, when the full-width dock owned the bottom-right corner and
+     the FAB sat ON its ✕. A georef dock and a detail sheet still take its place. */
   /* ⚠️ …except a RUNNING RECORDING (sweep 27.10.2026 #10, lead call): the red FAB is the only
      sign a voice memo is being taken and the only way to stop it, so it never yields (FabEntry
-     stays mounted too, IncidentWorkspace). Over a dock or the armed pill it already stands one
-     row up, on --float-bottom; a detail sheet it rides on top of, below. */
-  .app:has(.wb-dock) .fab-entry:not(.rec),
-  .app:has(.armed-pill-row) .fab-entry:not(.rec),
+     stays mounted too, IncidentWorkspace). A detail sheet it rides on top of, below. */
   .app:has(.wb-georef-dock) .fab-entry:not(.rec),
   .app:has(.ctx) .fab-entry:not(.rec) { display: none; }
   .phone-georef .fab-entry { display: none; }

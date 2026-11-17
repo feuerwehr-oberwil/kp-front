@@ -36,8 +36,8 @@ unchanged.
 
 - *The tool stack keeps ONE gap* (sweep 30.10.2026 #7, owner's iPhone with Linie armed: «the
   unequal spacing between the toolrail, tool specific rail, "linie" info, and info» – it was 6, 6,
-  8 and 16px): nav bar → tool bar → a tool's dock → the armed pill or Messen's readout → the
-  message lane, each `--float-gap` (8px) above the one below (15-mobile · `--tools-bottom`,
+  8 and 16px): nav bar → tool bar → a tool's dock (led by the armed tool's name) → Messen's
+  readout → the message lane, each `--float-gap` (8px) above the one below (15-mobile · `--tools-bottom`,
   `--dock-bottom`). The floating row keeps the same 8px from the bars, from each other and from the
   edge. The other bars over the nav bar (`.rp-tabs`, the page in `Surface.module.css`) still
   keep their 6px channel (`--rail-h + 14px`).
@@ -50,20 +50,30 @@ unchanged.
   sets one bar lower, so the cap follows the foot.
 - *While a tool is out the message lane is measured* (`lib/floatRow · stackLane` → `--stack-lane`):
   one gap above the highest piece of the stack, so a tip or the Gebäude card stands 8px over the
-  pill whether the chip sits beside the dock or had to rise onto the pill's line. And ONE thing in
+  dock whether the floating row sits beside it or had to rise above it. And ONE thing in
   the lane at a time: while a map tool explains itself (DockInfo · MapHelpCard) the open Gebäude
   card steps aside – hidden, not closed – and returns when the tip goes.
-- *The chip row stands on the lowest FREE line, measured* (27.10.2026, owner screenshot: the
+- *The floating row stands on the lowest FREE line, measured* (27.10.2026, owner screenshot: the
   Gebäude ⓘ a whole row above a short Mehrfach dock): `.wb-botleft` (the Karte's and the plan's)
-  stands on the bars (`--float-floor`) and `lib/floatRow` lifts it only past a tool dock or armed
-  pill that overlaps it sideways. `--float-base` keeps the worst case (a dock as wide as the
-  screen) for the FAB and the message lane.
+  and the Eintrag FAB stand on the bars (`--float-floor`), each placed on its own by
+  `lib/floatRow`, which lifts a piece only past a dock, the ✥ ⟳ bar or Messen's panel that overlaps
+  it sideways. `--float-base` keeps the worst case (a dock as wide as the screen) until measured.
+- *Every bottom row is ONE bar, and a short one shares its line* (B+, owner picks 13 + 14,
+  17.11.2026): the armed tool's name is the dock's first tile, not a pill of its own, and the dock
+  HUGS its tiles, centred, 4px apart. Where it leaves room – [Unfall · Mehrere · Abbrechen], Mehrfach's
+  [Mehrfach · Info · Abbrechen] at 390px – the row's tiles stand left of it and the FAB right of it
+  on its line, at the BAR's height (`data-float-beside` makes `--float-h` the bar's `--rail-h`): one
+  line, one height, one baseline. A long dock (Linie, Fläche, Form) – or a narrower phone – leaves
+  them a line above. Measured, not a tile count: the fit is asked at the bar's height (`floatRow ·
+  placePiece`), so a piece never flips between the lines. The FAB no longer yields to a dock (it
+  did from 08.2026, when the full-width dock owned its corner); a georef dock and a detail sheet
+  still take its place.
 - *The Eintrag FAB is on every page, the Trupps board too* (27.10.2026, owner): the board
   runs to the phone edge like every page and its LIST ends above the FAB (28.10.2026, owner: the
   card may wrap around it) – the shared `--fab-safe` foot on `.body`, plus the opened card's
   `data-az-fab-foot` guard on its foot row (Atemschutz.module). The rows' name/clock line keeps no
   reserve (owner pick A4/C10, 05.11.2026): clock and chevron sit at the row's right edge and the
-  FAB floats over whichever row rests under it. A RUNNING recording never yields — not to a dock, the armed pill, a panel or a detail sheet
+  FAB floats over whichever row rests under it. A RUNNING recording never yields — not to a panel or a detail sheet
   (it rides on the sheet's top edge). Only «Karte verknüpfen» still hides it.
 - *While ✥ / ⟳ is armed the tool bar and the chip row step aside* (round 14.11.2026 #7, owner
   screenshot: the bar over a peeked Linie sheet lay on «Auswahl» and the Gebäude chip):
@@ -72,7 +82,7 @@ unchanged.
   above the sheet – half, full or peeked (76px). With no sheet it stands where the dock row stands
   (`--dock-bottom`) and IS that row's twin (button sweep CHROME.2, 17.11.2026): `--rail-h` tall,
   4px 8px inset, 46px tiles, the glyph 22 over its word under «Beschriftung» – one spot, one
-  anatomy. The symbol's «Mehrere» · ✕ beside the armed pill are the same row of tiles. The nav bar stays; the peeked sheet covers it.
+  anatomy. The nav bar stays; the peeked sheet covers it.
   The same bars step aside for the length of ANY drag on an object's geometry – a vertex, a «+»,
   Verlängern, a Form's grip, a symbol (round 15.11.2026 #4): `body.geom-dragging`, set with the
   sheet's peek (lib/sheetPeek · `beginSheetPeek('object')`; a map pan is `'view'` and keeps them).
@@ -88,7 +98,9 @@ unchanged.
   glass (`.wb-join`). The calibration instrument («Zwei Punkte … antippen») stays a chip – a
   sentence is not a tile word. The tablet keeps its chips, word beside the glyph
   (components/BuildingFloat). It replaces 12A (14.11.: the hazard words alone as a chip, a tile
-  only when quiet).
+  only when quiet). EVERY plan carries the same row: the Gebäude-Info tile stands beside the Objekt
+  tile on a single plan too, not only on the Gebäude stack (owner pick 18, 17.11.2026 – the 09.10.
+  rule that kept it off a phone's plan protected the chip's name, which a capped tile keeps).
 - *Karte & Objekte has ONE bar* (Karte · Messen · Gefahrgut · Ebenen, no tool bar and no «Pläne»
   tab — 17.10.2026; open Ebenen wears the opener's wash + blue and `aria-expanded`, the Karte
   tile stays «here» under it – CHROME.10, 17.11.2026): Messen keeps the same 8px steps, only from the nav bar (the dock where the
