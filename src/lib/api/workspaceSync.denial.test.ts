@@ -68,6 +68,67 @@ function backingStore(seed: Record<string, unknown> = {}) {
   return store
 }
 
+describe('late answers after a workspace handover', () => {
+  it.each([
+    ['ordinary PUT', 'success', true], ['merge PUT', 'success', true],
+    ['ordinary PUT', 'success', false], ['merge PUT', 'success', false],
+    ['ordinary PUT', '401', true], ['merge PUT', '401', false],
+  ] as const)('%s %s cannot touch the next account (dispose: %s)', async (route, outcome, dispose) => {
+    vi.useFakeTimers()
+    const store = backingStore()
+    signedInAs('anna')
+    const onRev = vi.fn(), onMerged = vi.fn()
+    const anna = new WorkspaceSync('i1', { onRev, onMerged, debounceMs: 60_000 })
+    let ben: typeof anna | undefined
+    try {
+      await anna.init()
+      anna.save({ note: 'Anna' })
+      let sent!: () => void
+      const inFlight = new Promise<void>((resolve) => { sent = resolve })
+      let settle!: () => void
+      if (route === 'merge PUT') putWorkspace.mockRejectedValueOnce(new ApiError(409, 'revision'))
+      putWorkspace.mockImplementationOnce(() => new Promise((resolve, reject) => {
+        settle = () => outcome === '401'
+          ? reject(new ApiError(401, 'expired'))
+          : resolve({ workspace_rev: 9 })
+        sent()
+      }))
+      const saving = anna.flush()
+      await inFlight
+      if (dispose) {
+        anna.save({ note: 'Anna’s final edit' })
+        anna.dispose() // synchronous final cache write before Ben opens the Einsatz
+      }
+      signedInAs('ben')
+      ben = new WorkspaceSync('i1', { debounceMs: 60_000 })
+      await ben.init()
+      ben.save({ note: 'Ben' })
+      ben.flushKeepalive() // persist Ben's dirty state without a full-document upload
+      const main = 'kp-front-ws-i1'
+      const parked = main + '::anna'
+      const benEntry = store.get(main)
+      const annaEntry = store.get(parked)
+      expect(benEntry).toMatchObject({ owner: 'ben', dirty: true, workspace: { note: 'Ben' } })
+      expect(annaEntry).toMatchObject({ owner: 'anna', dirty: true, workspace: { note: dispose ? 'Anna’s final edit' : 'Anna' } })
+      onRev.mockClear(); onMerged.mockClear()
+      settle()
+      await saving
+      await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS + 1)
+      expect(store.get(main)).toEqual(benEntry)
+      expect(store.get(parked)).toEqual(annaEntry)
+      expect(onRev).not.toHaveBeenCalled()
+      expect(onMerged).not.toHaveBeenCalled()
+      // A late denial must not lock the new authenticated engine.
+      await ben.flush()
+      expect(ben.hasUnsynced).toBe(false)
+    } finally {
+      anna.dispose()
+      ben?.dispose()
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe('WorkspaceSync.init · a refusal is not a lost connection', () => {
   it.each([401, 403])('does not answer an explicit %i from the offline cache', async (status) => {
     signedInAs('u1')

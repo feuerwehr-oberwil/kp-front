@@ -9,6 +9,9 @@
  * has not seen that merge — the resolver re-bases it onto the merge before merging again
  * (`lastMerged`), or the next attempt reads the remote objects it lacks as local deletes
  * (the three-device load test lost 7–14 % of edits that way, `workspaceSync.load.test.ts`).
+ * A network response belongs to the engine that sent it. Once that engine or its session
+ * ends, its dirty cache is the handover copy; a late acknowledgement or denial must leave
+ * the new engine’s cache, view and retry state alone.
  */
 import { ApiError, isDenial, isUnverifiable } from '../api'
 import { idbDel, idbGet, idbKeys, idbRead, idbSet, type IdbRead } from '../idb'
@@ -1005,7 +1008,7 @@ export class WorkspaceSync {
         this.flushRequested = false
         this.unreached = false
         await this.drain()
-      } while (this.flushRequested && this.unreached && this.entry.dirty && !this.disposed)
+      } while (this.flushRequested && this.unreached && this.entry.dirty && this.sessionActive)
     })().finally(() => {
       this.flushing = null
       // A failed attempt keeps the existing automatic backoff; joining callers never spin.
@@ -1021,6 +1024,7 @@ export class WorkspaceSync {
         this.flushCache() // the cache must carry what is about to become the ancestor
         await this.pushCurrent()
       } catch (e) {
+        if (!this.sessionActive) return
         // ⚠️ BEFORE the 409 branch: this 409 is not a revision conflict — merging and retrying
         // would only collect it again (N3). The save is parked and the view goes back to the record.
         if (isIncidentClosedRefusal(e)) {
@@ -1116,6 +1120,7 @@ export class WorkspaceSync {
     const pushed = this.entry.workspace
     const serverHad = this.entry.base ?? {}
     const { workspace_rev } = await this.push(pushed, this.entry.baseRev)
+    if (!this.sessionActive) return
     this.retryCount = 0 // server accepted a push → backoff starts over on the next failure
     // a merge this device made earlier (a cold reopen, a found slot) may have renumbered what the
     // server held; now that it is ON the server, this device says so — see resolveConflict
@@ -1156,7 +1161,7 @@ export class WorkspaceSync {
     let lastMerged: Workspace | null = null
     let lastMergedSeq = 0
     const preservePendingMerge = () => {
-      if (!lastMerged || this.disposed) return
+      if (!lastMerged || !this.sessionActive) return
       if (this.saveSeq !== lastMergedSeq) {
         this.entry = { ...this.entry, workspace: this.merge(mine0, this.entry.workspace, lastMerged) }
       }
@@ -1172,7 +1177,7 @@ export class WorkspaceSync {
       const wait = conflictBackoffMs(attempt)
       if (wait) {
         await new Promise((resolve) => setTimeout(resolve, wait))
-        if (this.disposed) return false
+        if (!this.sessionActive) return false
       }
       try {
         const server = await getWorkspace(this.incidentId)
@@ -1194,8 +1199,10 @@ export class WorkspaceSync {
         lastMerged = merged
         lastMergedSeq = this.saveSeq
         this.writeCache()
+        this.flushCache() // persist this dirty ancestor before the PUT, as drain() does on the first attempt
         const seqAtStart = this.saveSeq
         const { workspace_rev } = await this.push(merged, server.workspace_rev)
+        if (!this.sessionActive) return false
         this.opts.onRev?.(workspace_rev)
         this.retryCount = 0 // merge landed → backoff starts over on the next failure
         // ⚠️ The RESOLVING device says what its merge renumbered of the server's copy, once that
@@ -1231,6 +1238,7 @@ export class WorkspaceSync {
         this.opts.onMerged?.()
         return true
       } catch (e) {
+        if (!this.sessionActive) return false
         // the merge landed on a closed Einsatz — the same answer as a plain push gets (see drain)
         if (isIncidentClosedRefusal(e)) return this.parkRefused(e)
         if (isOlderBuildRefusal(e)) return this.parkOlderBuild()
@@ -1277,8 +1285,8 @@ export class WorkspaceSync {
     const prefix = refusedCacheKey(this.incidentId)
     const key = item.owner ? `${refusedOwnerPrefix(prefix, item.owner)}${id}` : `${prefix}:unattributed:${id}`
     const durable = await idbSet(key, [item])
+    if (!this.sessionActive) return false
     reportIncidentClosed({ incidentId: this.incidentId, closedAt: refusalClosedAt(e), source: 'refusal' })
-    if (this.disposed) return false
     if (!durable) {
       this.cacheDurable = false
       this.setStatus('error')
@@ -1302,7 +1310,7 @@ export class WorkspaceSync {
           const { workspace_rev } = await putWorkspaceRecord(this.incidentId, record, baseRev, this.writerId, versionOf(pushed))
           landed = { workspace: { ...base, ...record }, rev: workspace_rev }
         } catch { /* parked whole — the export and a reopen still carry it */ }
-        if (this.disposed) return true
+        if (!this.sessionActive) return false
         if (this.saveSeq !== seqAtPark) { this.setStatus('pending'); this.armDebounce(); return true }
       }
     }
@@ -1336,12 +1344,13 @@ export class WorkspaceSync {
    * Resolves true once handled.
    */
   private async parkOlderBuild(): Promise<boolean> {
-    if (!(await this.parkForRole(this.entry))) {
+    const parked = await this.parkForRole(this.entry)
+    if (!this.sessionActive) return false
+    if (!parked) {
       this.cacheDurable = false
       this.setStatus('error')
       return false
     }
-    if (this.disposed) return false
     if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null }
     this.retryCount = 0
     let server = this.entry.base ? { workspace: this.entry.base, rev: this.entry.baseRev } : null
@@ -1350,13 +1359,14 @@ export class WorkspaceSync {
         const r = await getWorkspace(this.incidentId)
         server = { workspace: r.workspace ?? {}, rev: r.workspace_rev }
       } catch {
+        if (!this.sessionActive) return false
         // parked already: not owed again — the view keeps what it shows until the next change
         this.entry = { ...this.entry, dirty: false }
         this.writeCache()
         this.setStatus('error')
         return true
       }
-      if (this.disposed) return false
+      if (!this.sessionActive) return false
     }
     this.entry = { ...this.entry, workspace: server.workspace, base: server.workspace, baseRev: server.rev, dirty: false, lastSyncedAt: Date.now() }
     this.writeCache()
@@ -1379,7 +1389,7 @@ export class WorkspaceSync {
   private async refetchRecord(): Promise<void> {
     try {
       const server = await getWorkspace(this.incidentId)
-      if (this.disposed) return
+      if (!this.sessionActive) return
       this.refetchOwed = false
       this.refetchCount = 0
       if (this.entry.dirty) return // a new edit merges against the server on its own push
@@ -1387,7 +1397,7 @@ export class WorkspaceSync {
       this.adoptServer(ws, server.workspace_rev)
       this.applyInPlace(ws, server.workspace_rev)
     } catch {
-      if (this.disposed) return
+      if (!this.sessionActive) return
       this.refetchOwed = true
       this.setStatus('error')
       const delay = Math.min(60_000, 5_000 * 2 ** this.refetchCount++)
