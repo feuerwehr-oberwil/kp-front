@@ -268,6 +268,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     endingReleased: 'Section removed, {n} lines released',
     hoseNone: 'None',
     menuPicked: 'selected',
+    duplicate: 'Duplicate',
   },
   topBar: {
     offline: 'Offline',

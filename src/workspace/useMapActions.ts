@@ -420,8 +420,8 @@ export function useMapActions({
   }
 
   // --- keyboard shortcuts ---------------------------------------------------------------------
-  // Duplicate the current selection (Cmd/Ctrl+D) — a small nudge so the copy is visibly offset and
-  // separately selectable (lib/duplicate). Single symbol/shape/note OR single drawing; live GPS
+  // Duplicate the current selection (Cmd/Ctrl+D, and the selection bar's «Duplizieren») – a small
+  // nudge so the copy is visibly offset and separately selectable (lib/duplicate). Single symbol/shape/note OR single drawing; live GPS
   // markers can't be copied. Multi-select duplicate isn't wired (rare; would need per-item id remap).
   const duplicateSelection = () => {
     // tacticalLocked, not readOnly: the drawing branch below used to duplicate for real in the
@@ -1018,5 +1018,5 @@ export function useMapActions({
     patchEntity(ent.id, { ...(again ? {} : { fields }), ...(act && { readings: act.readings }) })
     if (act) log(READING_ICON, act.text, 'symbol', undefined, ent.id)
   }
-  return { deleteGroup, deleteEntity, placed, goToModule, finishSelection, onMapClick, startEntityMove, streamEntityMove, finishEntityMove, onMarquee, transformGroup, goToTrupp, viewsApi, toggleViews, selected, undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, moveLiveOnSheet }
+  return { deleteGroup, deleteEntity, duplicateSelection, placed, goToModule, finishSelection, onMapClick, startEntityMove, streamEntityMove, finishEntityMove, onMarquee, transformGroup, goToTrupp, viewsApi, toggleViews, selected, undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, moveLiveOnSheet }
 }
