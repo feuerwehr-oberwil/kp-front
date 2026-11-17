@@ -154,7 +154,7 @@ export const sessionCopy: Localizable<Pick<Copy, Keys>> = {
     welcome: {
       title: 'Welcome to KP Front',
       intro: 'A prepared incident with invented data. Draw, run teams and try the situation management freely.',
-      reloadWarn: 'All visitors work together. The demo resets at midnight and at noon.',
+      reloadWarn: 'Do not enter real incident, personal, location or organisation data. All visitors work together. The demo resets at midnight and at noon.',
       canTitle: 'What you can try',
       can: ['Edit the map and plan', 'Run SCBA and material', 'Open object plans and the report'],
       cta: 'Let\'s go',
