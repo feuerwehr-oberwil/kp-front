@@ -146,8 +146,10 @@ function PillBody({ p }: { p: Presentation }) {
       )}
       {zeigen}
       {phone
-        ? <button type="button" className="ip-btn danger present-end present-sq" onClick={() => void p.end()} aria-label={C.end} title={C.end}><Icon id="stop" /></button>
-        : <button type="button" className="ip-btn danger present-end" onClick={() => void p.end()}><Icon id="stop" />{C.end}</button>}
+        // «Beenden» is a STOP, not a delete: the neutral button, its ■ carries the act (duck sweep
+        // ELEM.11 – red is for what nothing brings back)
+        ? <button type="button" className="ip-btn present-end present-sq" onClick={() => void p.end()} aria-label={C.end} title={C.end}><Icon id="stop" /></button>
+        : <button type="button" className="ip-btn present-end" onClick={() => void p.end()}><Icon id="stop" />{C.end}</button>}
     </>
   } else if (p.follow.kind === 'following') {
     body = <>
@@ -454,7 +456,7 @@ export function PresentCard() {
         <span className="present-card-glyph" aria-hidden><Icon id="present" /></span>
         <b className="present-card-title">{C.title}</b>
         {mine
-          ? <button type="button" className="ip-btn danger" onClick={() => void p.end()}><Icon id="stop" />{C.end}</button>
+          ? <button type="button" className="ip-btn" onClick={() => void p.end()}><Icon id="stop" />{C.end}</button>
           : p.canStart && (
             <button type="button" className="ip-btn primary" onClick={() => void p.start()}>
               <Icon id="present" />{s ? C.takeOver : C.start}

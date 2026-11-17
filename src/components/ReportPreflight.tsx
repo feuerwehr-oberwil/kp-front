@@ -1533,7 +1533,8 @@ export function ReportPreflight({
                 abgebrochen, the band stayed, and the editor's print was gone. */}
             <fieldset className="report-fieldset" disabled={!canRecord}>
               <button type="button" className="ip-btn" disabled={jobBusy} onClick={() => void checkPrintJob()}>{R.jobCheck}</button>
-              <button type="button" className="ip-btn ip-btn-danger" disabled={jobBusy} onClick={() => void dropPrintJob()}>{R.jobCancel}</button>
+              {/* «Abbrechen» is the neutral framed button, as every other one (duck sweep ELEM.11) */}
+              <button type="button" className="ip-btn" disabled={jobBusy} onClick={() => void dropPrintJob()}>{R.jobCancel}</button>
             </fieldset>
           </div>
         )}

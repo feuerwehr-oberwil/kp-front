@@ -519,7 +519,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     armed «Ja» wearing the delete look. Red never fills it (`.btn.warn`,
     `.ip-btn-danger`/`.ip-btn.danger`, `.adm-danger-btn`, `.wb-pa-del`,
     the audio player's marker row `.ap-row-del` all wear it; `.btn.warn-solid` is gone). ✕ only
-    ever closes or clears — a ✕ that deletes is a bug. The audio player's in-place editors are the
+    ever closes or clears — a ✕ that deletes is a bug. **Red is for what nothing brings back**
+    (duck sweep ELEM.11 + FEEDBACK.2, 17.11.2026): a STOP or a cancel – «■ Beenden» a
+    Präsentation, «Standort nicht mehr teilen», a print job's «Abbrechen» – is the neutral
+    `Button`, its ■ or ✕ carrying the act; an undoable removal on a choice card (an unused
+    Trupp's «Entfernen», a Geister-Spur's «Spur entfernen») is a plain answer, never `altDanger`. The audio player's in-place editors are the
     ✕ `.ip-x` + ✓ primary icon pair (36/44).
   - *Close:* every sheet/dialog ✕ IS the global `.ip-x` in the TSX (36px, 18px glyph, grey fill);
     a module class may position it, never restyle it. 44px only beside a 44px search field
