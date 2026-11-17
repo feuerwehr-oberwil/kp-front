@@ -308,7 +308,7 @@ export const helpCopy = {
             'Dieselben Werkzeuge wie auf der Karte: **Auswahl**, **Symbol**, **Linie**, **Fläche**, **Absperrkreis**, **Notiz**, **Trupp** und **Messen**.',
             '**Geschosse** als Stapel: mit den **OG/UG**-Knöpfen am Plan ein Geschoss darüber/darunter hinzufügen.',
             '**Einpassen** und der Nordpfeil in der Ansichtsleiste, wie auf der Karte.',
-            '**Trupps** als farbige Marker; die **Spuren** eines Trupps (an seinem Marker, unter **Mehr**) zeigen seinen Weg. Trupp-Chips, deren Trupp «raus» ist, werden ausgegraut/durchgestrichen.',
+            '**Trupps** als farbige Marker; die **Spuren** eines Trupps zeigen seinen Weg: **Markieren** an seinem Marker setzt den nächsten Punkt, **Mehr** blendet sie ein und aus. Trupp-Chips, deren Trupp «raus» ist, werden ausgegraut/durchgestrichen.',
             '**Massstab** – die zwei Endpunkte des gedruckten Massstabsbalken antippen und die reale Länge eingeben. Danach zeigen Linien, Flächen und **Messen** echte Meter. Ohne Massstab fragt **Messen** zuerst danach – das Feld ist leer, bis eine Länge eingetippt ist, und **Rückgängig** nimmt eine falsche Kalibrierung zurück.',
             'Ein Blatt, das mit der Karte **verknüpft** ist, misst schon von selbst – ebenso der Geschoss-Stapel des Gebäudes, der seine Grösse aus dem Grundriss kennt. Dort sagt die Zeile **Massstab** hinter dem Objekt-Chip, woher er kommt. Von Hand kalibriert wird nur, was nicht verknüpft ist.',
             '**Schnelle Handnotiz?** Der Plan ist die Skizzenfläche: frei zeichnen, durchstreichen, kritzeln. Die Karte bleibt strukturiert (Symbole, Linien, Notizen), damit Rapport und Verlauf sauber bleiben.',

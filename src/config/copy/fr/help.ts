@@ -286,7 +286,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'Les mêmes outils que sur la carte : **Sélection**, **Symbole**, **Ligne**, **Surface**, **Périmètre de sécurité**, **Note**, **Équipe** et **Mesurer**.',
             '**Étages** en pile : avec les boutons **étage sup./sous-sol** sur le plan, ajouter un étage au-dessus/en dessous.',
             '**Ajuster** et la flèche du nord dans la barre d’affichage, comme sur la carte.',
-            '**Binômes** sous forme de marqueurs colorés ; les **Traces** d’un binôme (à son marqueur, sous **Plus**) montrent son trajet. Les pastilles de binôme «sorti» sont grisées/barrées.',
+            '**Binômes** sous forme de marqueurs colorés ; les **Traces** d’un binôme montrent son trajet : **Marquer** à son marqueur pose le point suivant, **Plus** les affiche ou les masque. Les pastilles de binôme «sorti» sont grisées/barrées.',
             '**Échelle** – toucher les deux extrémités de l’échelle imprimée et saisir la longueur réelle. Ensuite lignes, surfaces et **Mesurer** affichent de vrais mètres. Sans échelle, **Mesurer** la demande d’abord – le champ reste vide jusqu’à ce qu’une longueur soit saisie, et **Annuler** reprend une calibration fausse.',
             'Une feuille **liée** à la carte mesure déjà d’elle-même – de même que la pile d’étages du bâtiment, qui connaît sa taille d’après l’emprise. La ligne **Échelle** derrière la puce de l’objet dit alors d’où elle vient. On ne calibre à la main que ce qui n’est pas lié.',
             '**Une note rapide à la main ?** Le plan est la surface de croquis : dessiner librement, barrer, griffonner. La carte reste structurée (symboles, lignes, notes) pour que le rapport et le journal restent propres.',

@@ -17,6 +17,8 @@ afterEach(() => {
 })
 
 const A = appConfig.copy.atemschutz
+/** a picked row's text: its word, then the screen reader's «gewählt» (MenuPick) */
+const picked = (w: string) => w + appConfig.copy.drawingEditor.menuPicked
 const TRUPPS: Trupp[] = [
   { id: 't1', no: 2, name: 'Meier Anna', status: 'aktiv', members: [], readings: [] } as unknown as Trupp,
 ]
@@ -56,10 +58,12 @@ describe('the selected pill of a bound Trupp', () => {
 // 18.09.2026
 describe('the action bar and the trail', () => {
   const W = appConfig.copy.whiteboard
-  const openTrash = () => fireEvent.click(screen.getByRole('button', { name: appConfig.copy.remove }))
+  // the delete rows are the last rows of «Mehr» (rare-user round 2, M12, 17.11.2026)
+  const openTrash = () => fireEvent.click(screen.getByRole('button', { name: W.barMore }))
+  const rowNames = () => screen.getAllByRole('menuitem').map((el) => el.textContent)
 
   // ONE trash. The bar carried a second, footprint-glyphed «Spur löschen» button for a day, and
-  // the building outline did not read as a delete — so the trash asks WHICH of the two goes.
+  // the building outline did not read as a delete — so the delete asks WHICH of the two goes.
   it('asks which of the two goes, and each row does exactly that', () => {
     const remove = vi.fn()
     const clearTrail = vi.fn()
@@ -67,8 +71,7 @@ describe('the action bar and the trail', () => {
     render(<TwinTeamPill name="Müller" color="#c00" raus={false} trailCount={4} trailShown trupps={TRUPPS}
       acts={{ clearTrail, remove, removeWithTrail }} />)
     openTrash()
-    expect(screen.getAllByRole('menuitem').map((el) => el.textContent))
-      .toEqual([W.removeMarker, W.clearTrail, W.removeMarkerTrail])
+    expect(rowNames()).toEqual([W.removeMarker, W.clearTrail, W.removeMarkerTrail])
     // …and the two that destroy the record are danger rows
     expect(screen.getByRole('menuitem', { name: W.removeMarker }).className).not.toContain('ui-menu-danger')
     for (const name of [W.clearTrail, W.removeMarkerTrail]) {
@@ -92,14 +95,15 @@ describe('the action bar and the trail', () => {
     expect(clearTrail).toHaveBeenCalledTimes(1)
   })
 
-  // nothing to ask about: the trash is the trash
-  it('removes straight away where the marker carries no trail', () => {
+  // nothing to ask about: one plain «Entfernen» row
+  it('offers the one «Entfernen» where the marker carries no trail', () => {
     const remove = vi.fn()
     const clearTrail = vi.fn()
     render(<TwinTeamPill name="Müller" color="#c00" raus={false} trailCount={0} trailShown={false} trupps={TRUPPS}
       acts={{ clearTrail, remove, removeWithTrail: () => {} }} />)
     openTrash()
-    expect(screen.queryAllByRole('menuitem')).toEqual([])
+    expect(rowNames()).toEqual([appConfig.copy.remove])
+    fireEvent.click(screen.getByRole('menuitem', { name: appConfig.copy.remove }))
     expect(remove).toHaveBeenCalledTimes(1)
     expect(clearTrail).not.toHaveBeenCalled()
   })
@@ -118,7 +122,7 @@ describe('the action bar and the trail', () => {
     render(<TwinTeamPill name="Müller" color="#c00" raus={false} trailCount={4} trailShown trupps={TRUPPS}
       acts={{ clearTrail: () => {}, remove: () => {} }} />)
     openTrash()
-    expect(screen.getAllByRole('menuitem').map((el) => el.textContent)).toEqual([W.removeMarker, W.clearTrail])
+    expect(rowNames()).toEqual([W.removeMarker, W.clearTrail])
   })
 })
 
@@ -134,68 +138,78 @@ describe('the view-only bar', () => {
     expect(screen.queryByRole('button', { name: A.markerLabel })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.showTrupp }))
     expect(showTrupp).toHaveBeenCalledWith('t1')
-    // the Spuren toggle is a rare door: a row of «Mehr» on the worded bar
+    // nothing to write, so «Mehr» holds only the Spuren toggle
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.barMore }))
+    expect(screen.getAllByRole('menuitem').map((r) => r.textContent)).toEqual([picked(appConfig.copy.whiteboard.trails)])
     fireEvent.click(screen.getByRole('menuitem', { name: new RegExp(appConfig.copy.whiteboard.trails) }))
     expect(toggleTrail).toHaveBeenCalledTimes(1)
   })
 })
 
-// rare-user round M10 (owner pick A + note, 17.11.2026): a word under every glyph, at most four
-// worded buttons, the rare doors behind a worded «Mehr» – and with «Beschriftung» off, today's bar
-describe('the worded bar', () => {
+// rare-user round 2, owner pick M12 A (17.11.2026): one Trupp button that changes, «Markieren»,
+// «Mehr» – the same buttons with and without «Beschriftung», on phone and tablet alike
+describe('the bar', () => {
   const W = appConfig.copy.whiteboard
-  const full = () => render(
+  const R = appConfig.copy.contextPanel.dockedRelease
+  const line = { lineId: 'l1', color: '#00f', tone: 'idle' as const, coupled: true }
+  const linked = (pick = vi.fn()) => render(
     <TwinTeamPill name="Meier Anna" color="#c00" raus={false} truppId="t1" trailCount={3} trailShown trupps={TRUPPS}
-      line={{ lineId: 'l1', color: '#00f', tone: 'idle', coupled: true }} originalLabel="Auf Plan zeigen"
-      acts={{ unlink: () => {}, showTrupp: () => {}, pick: () => {}, mark: () => {}, toggleTrail: () => {},
+      line={line} originalLabel="Auf Plan zeigen"
+      acts={{ unlink: () => {}, showTrupp: () => {}, pick, mark: () => {}, toggleTrail: () => {},
         toOriginal: () => {}, remove: () => {}, clearTrail: () => {} }} />)
-  const barButtons = (c: HTMLElement) => Array.from(c.querySelectorAll('.wb-pill-acts > button'))
+  const loose = () => render(
+    <TwinTeamPill name="Trupp 3" color="#c00" raus={false} trailCount={0} trailShown={false} trupps={TRUPPS}
+      acts={{ rename: () => {}, pick: () => {}, mark: () => {}, remove: () => {} }} />)
+  const bar = (c: HTMLElement) => Array.from(c.querySelectorAll('.wb-pill-acts > button'))
+  const openMore = () => fireEvent.click(screen.getByRole('button', { name: W.barMore }))
+  const rows = () => screen.getAllByRole('menuitem').map((r) => r.textContent)
 
-  it('words four doors and folds Position markieren, Spuren and the original into «Mehr»', () => {
-    const { container } = full()
-    expect(barButtons(container).map((b) => b.textContent)).toEqual([
-      appConfig.copy.contextPanel.dockedRelease, W.showTrupp, A.markerLabel, W.barMore, appConfig.copy.remove,
-    ])
-    fireEvent.click(screen.getByRole('button', { name: W.barMore }))
-    const rows = screen.getAllByRole('menuitem')
-    expect(rows.map((r) => r.textContent?.startsWith(W.markPosition) || r.textContent?.startsWith(W.trails) || r.textContent === 'Auf Plan zeigen'))
-      .toEqual([true, true, true])
+  it('stands «Zum Trupp · Markieren · Mehr» on a linked marker, the rest in «Mehr», deletes last', () => {
+    const { container } = linked()
+    expect(bar(container).map((b) => b.textContent)).toEqual([W.showTrupp, W.markShort, W.barMore])
+    // the short word on the bar, the full words for the title and the screen reader
+    expect(screen.getByRole('button', { name: W.markPosition }).textContent).toBe(W.markShort)
+    openMore()
+    expect(rows()).toEqual([R, A.markerLabel, picked(W.trails), 'Auf Plan zeigen', W.removeMarker, W.clearTrail])
     // the Spuren row says it is on, the menu's ✓
-    expect(rows[1].querySelector('.de-menu-tick.on')).not.toBeNull()
+    expect(screen.getByRole('menuitem', { name: new RegExp(W.trails) }).querySelector('.de-menu-tick.on')).not.toBeNull()
   })
 
-  // on a phone five worded buttons are wider than the screen: the delete rows join «Mehr», the
-  // bar stays one row (lead call at integration, 17.11.2026)
-  it('folds the delete rows into «Mehr» on a phone, last and in the danger tone', () => {
-    vi.stubGlobal('matchMedia', (q: string) => ({
-      matches: true, media: q, onchange: null, addEventListener: () => {}, removeEventListener: () => {},
-      addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
-    }))
-    const { container } = full()
-    expect(barButtons(container).map((b) => b.textContent)).toEqual([
-      appConfig.copy.contextPanel.dockedRelease, W.showTrupp, A.markerLabel, W.barMore,
-    ])
-    fireEvent.click(screen.getByRole('button', { name: W.barMore }))
-    const rows = screen.getAllByRole('menuitem').map((r) => r.textContent)
-    expect(rows.slice(-2)).toEqual([W.removeMarker, W.clearTrail])
-    vi.unstubAllGlobals()
+  it('swaps a linked marker\'s «Mehr» to the join list on «Atemschutz-Trupp», and back on reopening', () => {
+    const pick = vi.fn()
+    linked(pick)
+    openMore()
+    fireEvent.click(screen.getByRole('menuitem', { name: A.markerLabel }))
+    // the same list the loose marker's button opens – «Kein Trupp» first, since it hangs on a hose
+    expect(rows()).toEqual([A.markerNone, picked('Meier Anna')])
+    fireEvent.click(screen.getByRole('menuitem', { name: /^Meier Anna/ }))
+    expect(pick).toHaveBeenCalledWith('t1')
+    openMore()
+    expect(rows()[0]).toBe(R)
   })
 
-  it('draws no «Mehr» where the state has no rare door', () => {
+  it('stands «Atemschutz-Trupp · Markieren · Mehr» on a loose marker, never a second Trupp button', () => {
+    const { container } = loose()
+    expect(bar(container).map((b) => b.textContent)).toEqual([A.markerLabel, W.markShort, W.barMore])
+    expect(screen.queryByRole('button', { name: W.showTrupp })).toBeNull()
+    openMore()
+    expect(rows()).toEqual([appConfig.copy.edit, appConfig.copy.remove])
+    // «Bearbeiten» opens the pill's name field
+    fireEvent.click(screen.getByRole('menuitem', { name: appConfig.copy.edit }))
+    expect(screen.getByRole('textbox')).toHaveProperty('value', 'Trupp 3')
+  })
+
+  it('draws no «Mehr» where it would have no row', () => {
     render(<TwinTeamPill name="Meier Anna" color="#c00" raus={false} truppId="t1" trailCount={0} trailShown={false} trupps={TRUPPS}
-      acts={{ showTrupp: () => {}, pick: () => {}, remove: () => {} }} />)
+      acts={{ showTrupp: () => {}, mark: () => {} }} />)
     expect(screen.queryByRole('button', { name: W.barMore })).toBeNull()
   })
 
-  it('is today\'s flat glyph bar with «Beschriftung» off', () => {
+  it('is the same buttons as bare glyphs with «Beschriftung» off', () => {
     savePrefs({ ...loadPrefs(), railLabels: 'off', railLabelsChosen: true })
-    const { container } = full()
+    const { container } = linked()
     expect(container.querySelector('.wb-pa-word')).toBeNull()
-    expect(screen.queryByRole('button', { name: W.barMore })).toBeNull()
-    expect(barButtons(container).map((b) => b.getAttribute('aria-label'))).toEqual([
-      appConfig.copy.contextPanel.dockedRelease, W.showTrupp, A.markerLabel, W.markPosition, W.trails, 'Auf Plan zeigen', appConfig.copy.remove,
-    ])
+    expect(bar(container).map((b) => b.getAttribute('aria-label'))).toEqual([W.showTrupp, W.markPosition, W.barMore])
   })
 })
 

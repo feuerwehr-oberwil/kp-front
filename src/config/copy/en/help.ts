@@ -288,7 +288,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'The same tools as on the map: **Select**, **Symbol**, **Line**, **Area**, **Cordon**, **Note**, **Team** and **Measure**.',
             '**Storeys** as a stack: use the **OG/UG** buttons on the plan to add a floor above/below.',
             '**Fit** and the north arrow in the view bar, just like on the map.',
-            '**Teams** as coloured markers; a team’s **Trails** (at its marker, under **More**) show its path. Team chips whose team is «out» are greyed out/struck through.',
+            '**Teams** as coloured markers; a team’s **Trails** show its path: **Mark** on its marker sets the next point, **More** shows or hides them. Team chips whose team is «out» are greyed out/struck through.',
             '**Scale** – tap the two ends of the printed scale bar and enter the real length. After that lines, areas and **Measure** read in real metres. Without a scale, **Measure** asks for one first – the field stays empty until a length is typed, and **Undo** takes back a wrong calibration.',
             'A sheet **linked** to the map already measures by itself – as does the building’s floor stack, which knows its size from the footprint. There the **Scale** row behind the object chip says where it comes from. Only what is not linked is calibrated by hand.',
             '**Quick hand note?** The plan is the sketch surface: draw freely, strike through, scribble. The map stays structured (symbols, lines, notes) so the report and the log stay clean.',
