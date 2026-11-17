@@ -353,11 +353,14 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
             <button className="wb-pa wb-pa-mark" title={appConfig.copy.whiteboard.markPosition} aria-label={appConfig.copy.whiteboard.markPosition}
               onClick={() => mark()}><Icon id="flag" /></button>
           )}
-          {/* per-team visibility toggle, NOT deletion — the ✕ here silently wiped the record */}
+          {/* per-team visibility toggle, NOT deletion — the ✕ here silently wiped the record.
+              Pressed = the rename pen's `--sel` fill, its name the CONTROL («Spuren»), never the
+              next action (duck sweep ELEM.5: it flipped its title to «Spuren ausblenden» and
+              swapped eye / eye-off with no fill, a fourth pressed look) */}
           {trailCount > 0 && toggleTrail && (
-            <button className="wb-pa" title={trailShown ? appConfig.copy.whiteboard.trailsOff : appConfig.copy.whiteboard.trailsOn}
+            <button className={`wb-pa${trailShown ? ' wb-pa-edit' : ''}`} title={appConfig.copy.whiteboard.trails}
               aria-label={appConfig.copy.whiteboard.trails} aria-pressed={trailShown} onClick={() => toggleTrail()}>
-              <Icon id={trailShown ? 'eye' : 'eyeoff'} />
+              <Icon id="eye" />
             </button>
           )}
           {toOriginal && originalLabel && (

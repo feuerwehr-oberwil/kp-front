@@ -1379,7 +1379,8 @@ describe('the nearby-object warning', () => {
     const { unmount } = renderNearby()
     fireEvent.click(within(screen.getByRole('status')).getByRole('button', { name: 'Schliessen' }))
     expect(screen.queryByRole('status')).toBeNull()
-    expect(screen.getByRole('button', { name: /Nächstes Objekt in 80 m/ })).toBeTruthy()
+    // with no sheet and no picker behind it the chip is a read-out (ELEM.3), and it stays
+    expect(screen.getByLabelText(/Nächstes Objekt in 80 m/).tagName).toBe('SPAN')
     unmount()
     renderNearby()
     expect(screen.queryByRole('status')).toBeNull()

@@ -382,7 +382,9 @@ export function LeitungField({ label, value, options, onChange, children }: {
             ariaLabel={az.lineTyped}
           />
         ) : (
-          <Chip onClick={() => setTyping(true)}>{az.lineTyped}</Chip>
+          // an ACTION beside the answers – it opens a number field – so a quiet Button, not one
+          // more unlit choice Chip that reads as a number you cannot pick (duck sweep ELEM.10)
+          <Button variant="quiet" onClick={() => setTyping(true)}>{az.lineTyped}</Button>
         )}
       </LeitungChips>
       {children}

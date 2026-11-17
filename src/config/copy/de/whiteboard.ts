@@ -82,6 +82,7 @@ export const whiteboardCopy = {
       saveFailed: 'Massstab nicht als Vorgabe gespeichert – erneut versuchen',
       needsCalibration: 'Massstab festlegen: die zwei Enden des Massstabs antippen',
       needsCalibrationViewer: 'Messen erst möglich, wenn der Massstab kalibriert ist',
+      calibrateStop: 'Kalibrieren beenden',
     },
     // «Karte verknüpfen» – die Paarung markanter Punkte, die den Plan auf die Karte legt
     // (lib/georef · fitSimilarity, lib/georefMode). Zwei Punkte genügen; erst der dritte misst.
@@ -289,8 +290,6 @@ export const whiteboardCopy = {
     trailCleared: '{name}: Spur entfernt',
     markerTrailRemoved: '{name} und Spur entfernt',
     trails: 'Spuren',
-    trailsOn: 'Spuren einblenden',
-    trailsOff: 'Spuren ausblenden',
     ghostTrailHint: 'Spur von {name} – der Truppmarker wurde entfernt',
     ghostTrailTitle: 'Spur von {name}',
     ghostTrailAsk: 'Der Truppmarker wurde entfernt, seine Spur ist geblieben. Den Trupp am Ende der Spur wieder platzieren – oder die Spur entfernen?',

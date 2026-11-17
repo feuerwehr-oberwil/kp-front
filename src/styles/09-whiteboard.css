@@ -1218,11 +1218,15 @@ span.wb-ghost-label { cursor: default; }
   .wb-scale-chip:hover:where(:not(:disabled)) svg:not(.wb-chip-chev) { color: var(--ink); }
   /* …and the chip itself: a wash OVER its glass (an image, so .arm's lit fill stays under it) –
      the glyph alone was the hover, and a chip with a lamp has none (20.10.2026) */
-  .wb-scale-chip:hover:where(:not(:disabled):not(.wb-scale-status)) { background-image: linear-gradient(var(--hover), var(--hover)); }
+  .wb-scale-chip:hover:where(:not(:disabled):not(.wb-scale-status):not(.wb-chip-ro)) { background-image: linear-gradient(var(--hover), var(--hover)); }
 }
-/* …and a pill with nowhere to go is a read-out (`disabled`): the `.wb-object:disabled` recipe —
-   full opacity, its own words and tone, no hover, no touch pad. */
+/* …and a pill with nowhere to go is a READ-OUT (duck sweep ELEM.3, 17.11.2026): a <span>, not a
+   disabled button – the floating material it stands on (it reads over the plan), but none of a
+   control's cues: regular weight, the secondary ink, no lamp or chevron, no hover. The Objekt chip
+   with no job, the Karte's «Auf dem Gerät» status beside «‹ Zurück». The Gebäude stack's locked
+   name keeps `disabled` (a read-out by the same rule, full opacity). */
 .wb-scale-chip:disabled { cursor: default; opacity: 1; }
+.wb-scale-chip:is(.wb-chip-ro, .wb-scale-status) { cursor: default; font-weight: var(--fw-regular); color: var(--ink-dim); }
 /* R1 (owner, 27.10.2026): chips that say one thing together share ONE glass – the Objekt with its
    Gebäude-Info (Whiteboard · .wb-join). The group wears the family's
    glass; its chips give theirs up and are split by a hairline, each still its own tap. Colour only

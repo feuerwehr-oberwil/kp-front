@@ -71,6 +71,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       savedAll: 'Saved as the default scale',
       savedThis: 'Scale saved for this plan',
       saveFailed: 'Scale not saved as default – try again',
+      calibrateStop: 'Stop calibrating',
     },
     georef: {
       chipLinked: 'linked',
@@ -192,8 +193,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     trailCleared: '{name}: trail removed',
     markerTrailRemoved: '{name} and trail removed',
     trails: 'Trails',
-    trailsOn: 'Show trails',
-    trailsOff: 'Hide trails',
     ghostTrailHint: 'Trail of {name} – the team marker was removed',
     ghostTrailTitle: 'Trail of {name}',
     ghostTrailAsk: 'The team marker was removed and its trail stayed. Place the team back at the end of the trail – or remove the trail?',

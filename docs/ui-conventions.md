@@ -414,7 +414,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     amber ⚠ — never an outline (the Massstab chip wore a blue ring beside its green lamp); «open /
     armed» is a blue wash mixed into the glass. «Not yet» is GREY (29.09.2026): a plan with no
     scale and no link shows a grey lamp, never red (red = danger, act now; an unlinked plan read
-    as a picture is not an emergency). And ONE chip says it (sweep 28.10.2026 #8, owner pick «B's
+    as a picture is not an emergency). **A chip's trailing cue says its job** (duck sweep ELEM.3,
+    17.11.2026): a lamp = opens the Plan sheet, a › = goes somewhere (the object picker, a
+    building face), a ✕ = stops a mode (calibrating); a piece with no job is a READ-OUT – a
+    `<span>`, `.wb-chip-ro`: the material, regular weight, the secondary ink, no cue, no hover
+    (the Karte's «Auf dem Gerät» status beside «‹ Zurück» is one). And ONE chip says it (sweep 28.10.2026 #8, owner pick «B's
     bar + A's sheet»): the Plan's row has no Massstab or Karte pill — the Objekt chip (on the
     Gebäude: the building chip; street and number only on a phone) carries ONE lamp, the worse of
     link and scale (`planScale · planFactsTone`; an unlinked plan's grey does not drag a hand

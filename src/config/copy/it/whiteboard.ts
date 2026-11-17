@@ -71,6 +71,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       savedAll: 'Salvata come scala predefinita',
       savedThis: 'Scala salvata per questo piano',
       saveFailed: 'Scala non salvata come predefinita – riprovare',
+      calibrateStop: 'Termina la calibrazione',
     },
     georef: {
       chipLinked: 'collegato',
@@ -191,8 +192,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     trailCleared: '{name}: traccia rimossa',
     markerTrailRemoved: '{name} e traccia rimossi',
     trails: 'Tracce',
-    trailsOn: 'Mostra tracce',
-    trailsOff: 'Nascondi tracce',
     ghostTrailHint: 'Traccia di {name} – il marcatore è stato rimosso',
     ghostTrailTitle: 'Traccia di {name}',
     ghostTrailAsk: 'Il marcatore è stato rimosso, la sua traccia è rimasta. Riposizionare la squadra alla fine della traccia – o rimuovere la traccia?',

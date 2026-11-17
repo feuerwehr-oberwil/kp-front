@@ -1978,7 +1978,15 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const factsOpen = factsShown && georefQuality && !georefArmed
   const toggleFacts = () => setQualityFor(georefQuality ? null : activeId)
   const factsLamp = factsShown ? <span className="wb-lamp" data-tone={factsTone} aria-hidden="true" /> : null
-  const objectChip = objectChipHidden ? null : (
+  // ⚠️ ONE cue per job (duck sweep ELEM.3, 17.11.2026): a chip with a lamp opens the Plan sheet,
+  // one that goes somewhere (the object picker) wears the › – and one with no job at all is a
+  // READ-OUT, a <span> with no button chrome (`.wb-chip-ro`), not a disabled chip drawn alive.
+  const objectChip = objectChipHidden ? null : !factsShown && !onObjectSwitch ? (
+    <span className="wb-scale-chip wb-object wb-chip-ro" aria-label={[fillTemplate(appConfig.copy.whiteboard.objectIs, { name: objectChipName }), objectNearbyLabel].filter(Boolean).join(' – ')}>
+      <Icon id={nearbyDist ? 'warn' : 'footprint'} />
+      <span>{objectChipText}</span>
+    </span>
+  ) : (
     <button
       type="button"
       className={cx('wb-scale-chip wb-object', nearbyDist && 'wb-object-nearby', factsOpen && 'arm')}
@@ -1994,12 +2002,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       aria-expanded={factsShown ? factsOpen : undefined}
       title={objectNearbyLabel ?? (!factsShown && onObjectSwitch ? appConfig.copy.whiteboard.objectSwitchShort : undefined)}
       // with nothing behind it but the object, the chip is the picker's door as before
-      disabled={!factsShown && !onObjectSwitch}
       onClick={factsShown ? toggleFacts : onObjectSwitch}
     >
       <Icon id={nearbyDist ? 'warn' : 'footprint'} />
       <span>{objectChipText}</span>
-      {factsLamp}
+      {factsLamp ?? <Icon id="chevron" className="wb-chip-chev" />}
     </button>
   )
   // The Gebäude-Steckbrief's chip, beside the Objekt chip and only where that one stands with an
@@ -2188,9 +2195,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // while calibrating, the row is the instrument (one mode, one indicator – as for the pairing):
   // what to tap, lit, and a tap stops it
   const calibrateChip = tool === 'scale' && !readOnly ? (
-    <button type="button" className="wb-scale-chip arm" aria-label={C.scale.calibrateHint} title={C.scale.recalibrate} onClick={() => setTool('pan')}>
+    // …and reads as a STOP (duck sweep ELEM.3): the trailing ✕ and its name say what the tap does
+    <button type="button" className="wb-scale-chip arm" aria-label={`${C.scale.calibrateHint} – ${C.scale.calibrateStop}`} title={C.scale.calibrateStop} onClick={() => setTool('pan')}>
       <Icon id="measure" />
       <span>{C.scale.calibrateHint}</span>
+      <Icon id="close" className="wb-chip-chev" />
     </button>
   ) : null
 
