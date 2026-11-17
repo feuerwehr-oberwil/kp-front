@@ -75,13 +75,14 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
 - **The editor sheets have one control per kind of question** (decided 01.09., same sweep). A
   yes/no property is the `OnOff` Segmented pair (`components/Segmented`) – never a single chip
   whose text or glyph flips, which said «An» on one row and showed a state on the next.
-  That holds app-wide, not only in the editor sheets (28.09.2026): the Einstellungen, the Übung
-  on the Einsatz form and the Kroki's «Folgt der Karte» are `OnOff` rows too, the false answer
-  always on the left (a row's own «Ein | Aus» with «on» on the left reversed the thumb position).
-  The WORDS follow what the row is (20.10.2026, owner: «ja/nein everywhere»): a setting or a
-  property of a thing reads «Aus | An»; a row that asks a question about the record («Übung?»)
-  is `OnOff question`, «Nein | Ja» – on every device, never one pair on a tablet and the other
-  on a phone. A
+  That holds app-wide, not only in the editor sheets (28.09.2026): the Einstellungen and the
+  Kroki's «Folgt der Karte» are `OnOff` rows too, the false answer always on the left (a row's
+  own «Ein | Aus» with «on» on the left reversed the thumb position). The WORDS follow what the
+  row is (20.10.2026, owner: «ja/nein everywhere»): a setting or a property of a thing reads
+  «Aus | An»; a row that asks a question about the record is `OnOff question`, «Nein | Ja» – on
+  every device, never one pair on a tablet and the other on a phone. Where both answers have a
+  name, the pair says the names: the Einsatz form's first control is «Ernstfall | Übung» (owner
+  pick C7, 17.11.2026 – the «Übung? Nein | Ja» row under Kategorie was missed). A
   **«none»** answer to a question or a list – the Kontaktperson's «Entfällt», Gerettete's
   «Keine», the Rückmeldung's, Material «Nichts verwendet» on the Rapport and the QR-Bogen – is
   the **«Entfällt» model** (owner, duck sweep ELEM.9, 17.11.2026): a framed button that SETS

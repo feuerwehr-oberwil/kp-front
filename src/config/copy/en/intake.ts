@@ -91,5 +91,7 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     addressOffline: 'Address search needs a network. Station objects are still found.',
     addressFailed: 'Address search is not reachable right now.',
     undoTakeFailed: 'Alarm take not undone – the incident stays open',
+    kindLabel: 'Real / exercise',
+    kindReal: 'Real',
   },
 }

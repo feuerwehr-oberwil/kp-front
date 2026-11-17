@@ -3176,7 +3176,7 @@ export function IncidentWorkspace({
         onOpenDivera, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
         setHelpOpen, setInstallGuideOpen, syncNow, media, logout, settingsOpen,
         helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
-        menuCloseKey, viewOnly,
+        menuCloseKey, viewOnly, presentation,
       }} />
 
       {/* unsent edits of ANOTHER account for this Einsatz are parked on this device (sweep

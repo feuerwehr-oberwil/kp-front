@@ -556,6 +556,9 @@ export const reportCopy = {
     // letzte Moment, in dem gefragt wird. Ohne Zahlwort-Plural: «Noch im Einsatz: 1» liest sich
     // genauso wie «Noch im Einsatz: 3».
     truppsDeployedConfirm: 'Noch im Einsatz: {n} – nie rausgemeldet',
+    // C8 (17.11.2026): «Teilen» gives eyes, not hands – one quiet line under the tabs says how a
+    // second device gets to write (its own sign-in; the running Einsatz is then on its home bar)
+    shareSignIn: 'Mitarbeiten? Auf dem anderen Gerät anmelden.',
   },
   // Station print relay — «Drucken» (preflight + capture)
   printRelay: {

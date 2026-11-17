@@ -56,6 +56,10 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     viewOnly: 'Consultation',
     viewOnlyWhy: { viewer: 'Observateur', el: 'Direction d\'intervention', link: 'Lien d\'intervention' },
     foreignAlarmDot: 'Alarme ARI dans une autre intervention',
+    login: 'Se connecter',
+    othersRunning: (n: number) => (n === 1 ? '1 autre intervention ouverte' : `${n} autres interventions ouvertes`),
+    signedInAs: 'Connecté : {name} · {role}',
+    linkLede: 'Vue en direct de cette intervention – se met à jour toute seule.',
   },
   archived: {
     title: 'Intervention close',
@@ -127,6 +131,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     confirmSubject: 'Heure d’alarme {t}',
     confirmSubjectExercise: '{name} · Exercice',
     filterClear: 'Tout afficher',
+    deleteAdminOnly: 'Supprimer : seulement dans l’Administration',
   },
   abschluss: {
     leftEarly: 'jusqu’à {t}',

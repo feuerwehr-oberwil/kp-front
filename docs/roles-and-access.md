@@ -92,7 +92,10 @@ wording unchanged.
   (`src/lib/linkMode.ts` ↔ `LINK_MODE_HEADER`). Consequences to keep true: the bare site after a
   link visit is whoever it was before, an Atemschutz link no longer signs the phone out to win
   precedence, `logout` is off the allowlist, and **no link surface offers «Abmelden»** — leaving
-  a link is closing the page, and coming back is the link URL. Two rules that fall out of the
+  a link is closing the page, and coming back is the link URL. What a view or alarm link page
+  DOES offer, when the browser holds no login (a link-scoped session there means none – those
+  links never outrank one), is «Anmelden» in the identity row: it opens the bare site, whose
+  sign-in it is (C8, 17.11.2026). Two rules that fall out of the
   same model and are easy to break: a page sending `use` with no live link session is **401, never
   the device's login** (falling through would turn a lapsed board into the phone owner's account),
   and the device's own «Abmelden» **does** clear the link cookie — headerless requests (typed
@@ -151,7 +154,8 @@ their offline copy already lives in IndexedDB (`lib/api/stationReference`).
 - **Hard delete without the Verwaltung** needs an Übung **created as one and never marked real**
   (`incidents.exercise_since_creation`). «Übung» stays an Einsatzdaten field (editor and el), so
   a real Einsatz flipped to Übung is stats-excluded but takes the admin door (archived, admin
-  session, WARNING log) like any real one. Rows from before the column count as created-Übung
+  session, WARNING log) like any real one – its closed row in «Alle Einsätze» says «Löschen: nur
+  in der Verwaltung» where the button would be (17.11.2026). Rows from before the column count as created-Übung
   only if their hash chain holds no Übung toggle at all.
 - **`via` is the server's stamp.** An Atemschutz link's rows get `atemschutz-link` /
   `atemschutz-fix`, the Erfassungs-Poster's `capture`, everyone else's none – a client-sent `via`

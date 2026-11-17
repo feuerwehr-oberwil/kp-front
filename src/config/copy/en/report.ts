@@ -352,6 +352,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'print
     pendingMedia: '{n} photo/audio not synced yet – added once there is network; may not be visible on other devices yet.',
     pendingMediaConfirm: '{n} photo/audio not synced yet – kept saved on this device',
     truppsDeployedConfirm: 'Still deployed: {n} – never reported out',
+    shareSignIn: 'Want to work on it? Sign in on the other device.',
   },
   printRelay: {
     send: 'Print',

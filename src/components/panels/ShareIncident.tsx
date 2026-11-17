@@ -264,15 +264,23 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, auto
      is used as it is (`.esh-kind` only stretches it to the sheet's width, 13-incident.css).
      Absent with one door left (an abgeschlossener Einsatz): a chooser offering one choice is a
      question with one answer, and it would read as if something were missing. */
-  const picker = doors.length > 1 && (
-    <div className="esh-kind">
-      <Segmented<ShareLinkKind>
-        ariaLabel={C.shareKindLabel}
-        value={kind}
-        onChange={setPicked}
-        options={doors.map((d) => ({ value: d.kind, label: d.label }))}
-      />
-    </div>
+  // …and under the tabs, in every state of the sheet, the one quiet line about HANDS (C8,
+  // 17.11.2026): both links give a second device eyes (or the Tafel) only, and the sheet was read
+  // as «a second device cannot write». Writing takes the device's own sign-in.
+  const picker = (
+    <>
+      {doors.length > 1 && (
+        <div className="esh-kind">
+          <Segmented<ShareLinkKind>
+            ariaLabel={C.shareKindLabel}
+            value={kind}
+            onChange={setPicked}
+            options={doors.map((d) => ({ value: d.kind, label: d.label }))}
+          />
+        </div>
+      )}
+      <p className="esh-lede">{C.shareSignIn}</p>
+    </>
   )
 
   /* ⚠️ Nothing to press until the answer is in. Drawing the «Link erstellen» layout for a link

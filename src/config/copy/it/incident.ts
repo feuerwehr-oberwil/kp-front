@@ -56,6 +56,10 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     viewOnly: 'Solo visualizzazione',
     viewOnlyWhy: { viewer: 'Osservatore', el: 'Direzione d\'intervento', link: 'Link d\'intervento' },
     foreignAlarmDot: 'Allarme protezione respiratoria in un altro intervento',
+    login: 'Accedi',
+    othersRunning: (n: number) => (n === 1 ? '1 altro intervento aperto' : `${n} altri interventi aperti`),
+    signedInAs: 'Connesso: {name} · {role}',
+    linkLede: 'Vista in diretta di questo intervento – si aggiorna da sola.',
   },
   archived: {
     title: 'Intervento chiuso',
@@ -127,6 +131,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     confirmSubject: 'Ora dell’allarme {t}',
     confirmSubjectExercise: '{name} · Esercizio',
     filterClear: 'Mostra tutto',
+    deleteAdminOnly: 'Eliminare: solo nell’Amministrazione',
   },
   abschluss: {
     leftEarly: 'fino alle {t}',
