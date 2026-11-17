@@ -349,7 +349,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
               not shift the line under the thumb. */}
           <button
             type="button"
-            className={cx(c.iconBtn, !phone && c.wordBtn, view === 'source' && c.iconBtnOn)}
+            className={cx(c.iconBtn, view === 'source' && c.iconBtnOn)}
             aria-pressed={view === 'source'} disabled={lines === 0}
             title={M.viewBySource} aria-label={M.viewBySource}
             onClick={() => setView((v) => (v === 'source' ? 'list' : 'source'))}
@@ -357,7 +357,9 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
             {/* a TICK, not a truck: what the filter does is «show only the Positionen that have
                 a number on them». Grouping those by Fahrzeug is a consequence of that, not the
                 point, and a truck in a row of filters reads as a vehicle list. */}
-            <Icon id="check" />{!phone && <span>{M.viewBySource}</span>}
+            {/* worded on every device (SurfaceControls · `.word`, ELEM.13): the long word beside
+                the glyph on a tablet, the short one under it on a phone */}
+            <Icon id="check" /><span className={c.word} aria-hidden="true">{phone ? M.viewBySourceWord : M.viewBySource}</span>
           </button>
           {/* ONE filter button, not a row of chips — the same control the Anwesenheit uses. A
               category row is only worth its space if it is used often, and in the field it is
@@ -367,10 +369,10 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
           {view === 'list' && categories.length > 1 && (
             <Menu
               trigger={
-                <button className={cx(c.iconBtn, !phone && c.wordBtn, categorySel.size > 0 && c.iconBtnOn)}
+                <button className={cx(c.iconBtn, categorySel.size > 0 && c.iconBtnOn)}
                   aria-label={categoryOn ? `${M.categoryFilterLabel} – ${categoryOn}` : M.categoryFilterLabel}
                   title={categoryOn ? `${M.categoryFilterLabel} – ${categoryOn}` : M.categoryFilterLabel}>
-                  <Icon id="filter" />{!phone && <span>{M.categoryFilterWord}</span>}
+                  <Icon id="filter" /><span className={c.word} aria-hidden="true">{M.categoryFilterWord}</span>
                 </button>
               }
               popupClassName={c.menuPop}
@@ -394,9 +396,9 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
             // a bare +, like the Anwesenheit's «Weitere Person» — the words cost a search row
             // that has a field and a filter to fit as well. It stays the EMPTY-query door:
             // with something typed, the row under the list is the one that carries the name.
-            <button type="button" className={cx(c.addBtn, !phone && c.wordBtn)} onClick={() => setComposer({})}
+            <button type="button" className={c.addBtn} onClick={() => setComposer({})}
               title={M.customMaterial} aria-label={M.customMaterial}>
-              <Icon id="plus" />{!phone && <span>{M.customMaterial}</span>}
+              <Icon id="plus" /><span className={c.word} aria-hidden="true">{phone ? M.customMaterialWord : M.customMaterial}</span>
             </button>
           )}
         </div>

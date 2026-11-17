@@ -113,6 +113,8 @@ export const materialCopy = {
     lagePickConfirm: '{n} Positionen erfassen',
     lagePickConfirmOne: '1 Position erfassen',
     // Retablierung per equipment row (consumable Mittel end up in the resupply list)
+    viewBySourceWord: 'Verwendet',
+    customMaterialWord: 'Anderes',
   },
   // Checkliste surface (ChecklistsView · ChecklistRunner · ChecklistReference)
   checklists: {

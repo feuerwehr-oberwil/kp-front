@@ -669,7 +669,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     `details[open]` (02-base). Never an up/down icon swap, never a text ▸, never the UA marker
     alone.
     (9) **Filter on**: an active filter button is the choice fill (`--sel`) and nothing else — no
-    dot beside it (Anwesenheit/Mittel `.iconBtnOn`, the Verlauf funnel `.jr-filter-on`).
+    dot beside it (Anwesenheit/Mittel `.iconBtnOn`, the Verlauf funnel `.jr-filter-on`). Those
+    head buttons (`SurfaceControls`) wear their WORD on every device, one rule in the component:
+    beside the glyph on a tablet, under it on a phone like a nav tile (duck sweep ELEM.13,
+    17.11.2026 – the Anwesenheit was worded on the phone only, the Mittel on the tablet only).
     (10) **One glyph, one meaning, within a thumb's reach** (29.09.2026). «Eintrag» is the journal
     pen (`lib/icons` · `#entry`, drawn inline by `EntryGlyph` on the FAB and the top bar's
     Eintrag), never «+»: «+» means Hinzufügen only (the FAB stood 60px above the tool bar's «+

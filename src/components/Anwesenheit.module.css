@@ -189,12 +189,8 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
 
 
 
-/* the head buttons' word (phone only, below) */
-.iconWord { display: none; }
+/* (the head buttons' word is SurfaceControls' `.word` since 17.11.2026, ELEM.13) */
 @media (--phone) {
-  /* …under its glyph, like a nav tile: the button grows to its word, the search gives the room */
-  .iconWord { display: block; font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
-  button:has(> .iconWord) { grid-auto-flow: row; row-gap: var(--sp-1); align-content: center; padding: 0 var(--sp-2); }
 
   /* (the full-width inset is the shared shell's — Surface.module.css) */
   /* The counts are never cut: «13 anwesend · 2 gegange…» answers nothing. They are
