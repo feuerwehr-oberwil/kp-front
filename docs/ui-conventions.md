@@ -660,7 +660,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Never a bare native `type=search`, never a framed white box, never a ruled band.
     (6) **ⓘ toggle**: `components/InfoToggle` (`.ui-info`) — the grey 36px chip with a 44px pad;
     OPEN is `--sel-wash` + `--blue-strong` glyph (the «open/armed» look). Never the choice fill,
-    never the ink pill, never `--accent`. The tool docks keep DockInfo's ⓘ in the dock's control fill.
+    never the ink pill, never `--accent`. **Every control that opens a panel or menu wears that
+    same OPEN look and says `aria-expanded`** (duck sweep ELEM.6, 17.11.2026): Ebenen on the rail,
+    the view bar and the phone's map cluster, the Ansichten compass (the Karte phone's too), the
+    top bar's Verlauf, the Verlauf lens. The ink pill (`--here-fill`) is «where you are» only. The tool docks keep DockInfo's ⓘ in the dock's control fill.
     (7) **No hits**: one line, `.no-hits` (13/500 `--ink-faint`, centred, 20px pad, never italic),
     worded `copy.noHits` «Keine Treffer für «{q}».»; a noun of its own only where it helps («Kein
     Trupp gefunden»).

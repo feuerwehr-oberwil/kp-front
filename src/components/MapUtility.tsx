@@ -44,7 +44,7 @@ export function MapUtility({
       {onToggleLayers && (
         <>
           <span className={s['tu-divider']} aria-hidden />
-          <button className={cx(s['tu-btn'], layersOn && s.on)} title={`${appConfig.copy.panels.layers} · ${layerPresetLabel(layersPreset)}`} aria-label={`${appConfig.copy.panels.layers} – ${layerPresetLabel(layersPreset)}`} aria-pressed={layersOn} onClick={onToggleLayers}><Icon id="layers" /></button>
+          <button className={cx(s['tu-btn'], layersOn && s.on)} title={`${appConfig.copy.panels.layers} · ${layerPresetLabel(layersPreset)}`} aria-label={`${appConfig.copy.panels.layers} – ${layerPresetLabel(layersPreset)}`} aria-expanded={layersOn} onClick={onToggleLayers}><Icon id="layers" /></button>
         </>
       )}
     </div>

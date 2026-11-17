@@ -681,7 +681,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
               explains discs the search is about to hide most of */}
           <button
             type="button" className={`journal-legend-btn${searching ? ' on' : ''}`}
-            title={searching ? C.searchClose : C.search} aria-label={searching ? C.searchClose : C.search} aria-pressed={searching}
+            title={searching ? C.searchClose : C.search} aria-label={searching ? C.searchClose : C.search} aria-expanded={searching}
             onClick={() => { if (searching) { setSearch(null); return } holdHeight(); setShowLegend(false); setSearch('') }}
           ><Icon id="search" /></button>
           {/* the funnel (feat 37 · B): an active filter is the blue CHOICE fill and nothing else

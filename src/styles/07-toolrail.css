@@ -40,8 +40,11 @@
   .vrail-nbtn:not(.on):hover:not(:disabled) { background: var(--hover); color: var(--ink); }
 }
 .vrail-nbtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.vrail-nbtn.on { background: var(--here-fill); color: var(--on-here); }
-@media (hover: hover) { .vrail-nbtn.on:hover:not(:disabled) { background: var(--here-fill-hover); } }
+/* OPEN (a panel or menu it opens stands open) is the «open/armed» wash – `--sel-wash` + the
+   `--blue-strong` glyph, as the ⓘ and the Verlauf lens – never the ink pill, which is «where you
+   are» on the nav rail beside it (duck sweep ELEM.6, 17.11.2026: open Ebenen read as a place) */
+.vrail-nbtn.on { background: var(--sel-wash); color: var(--blue-strong); }
+@media (hover: hover) { .vrail-nbtn.on:hover:not(:disabled) { background: var(--sel-wash); } }
 .vrail-nbtn:disabled { opacity: var(--disabled); cursor: default; }
 /* zoom ± is a MOUSE affordance: every touch form factor pinches, so the two buttons only cost
    room. The phone's bar drops them (15-mobile.css); this covers the tablet band in between.

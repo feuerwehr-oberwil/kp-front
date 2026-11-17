@@ -6,9 +6,10 @@
   color: var(--ink); cursor: pointer; transition: background .14s var(--ease), transform .12s var(--ease); }
 @media (hover: hover) { .tu-btn:hover { background: var(--hover-strong); } }
 .tu-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* «where you are» (Ebenen open) is the rails' pill, `--here-fill` (05.11.2026) – `--ink-fill` was a
-   dark patch on the dark glass at night, the ON button nearly invisible (style sweep T5, 15.11.2026) */
-.tu-btn.on { background: var(--here-fill); color: var(--on-here); }
+/* OPEN (a panel or menu it opens stands open) is the «open/armed» wash – `--sel-wash` + the
+   `--blue-strong` glyph, as the ⓘ and the Verlauf lens – never the ink pill, which is «where you
+   are» on the nav rail beside it (duck sweep ELEM.6, 17.11.2026: open Ebenen read as a place) */
+.tu-btn.on { background: var(--sel-wash); color: var(--blue-strong); }
 .tu-btn :global(.i) { width: 19px; height: 19px; }
 .tu-divider { width: 6px; flex: none; }   /* spacing between the zoom pair and Ebenen, not a line (22.09.2026) */
 

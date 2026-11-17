@@ -286,7 +286,6 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
         className={cx(btnClassName, open && activeClassName)}
         title={cp.title}
         aria-label={cp.title}
-        aria-pressed={open}
         aria-expanded={open}
         aria-haspopup="dialog"
         // `data-holdaction` (from the hold's props): the HUD compass is icon-only, so the
