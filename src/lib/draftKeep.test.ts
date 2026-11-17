@@ -60,6 +60,18 @@ describe('a draft across a reload', () => {
     expect(after.readDraft('mittel:inc-1', '')).toBe('')
   })
 
+  // the reload-proof copy is text only: a form passes what it typed, the rest stays in memory
+  it('writes only the text copy to the browser storage, and hands the full draft back until a reload', async () => {
+    const before = await reload()
+    before.clearAllDrafts('inc-1')
+    before.keepDraft('einsatz-wizard:new', { title: 'Brand', coord: [7.55, 47.51] }, { title: 'Brand', coord: null })
+    expect(before.readDraft('einsatz-wizard:new', null)).toEqual({ title: 'Brand', coord: [7.55, 47.51] })
+    expect(JSON.stringify(Object.entries(sessionStorage))).not.toContain('7.55')
+    const after = await reload()
+    after.clearAllDrafts('inc-1')
+    expect(after.readDraft('einsatz-wizard:new', null)).toEqual({ title: 'Brand', coord: null })
+  })
+
   it('drops them where the memory copy goes: sent, another Einsatz, a switch in the same page', async () => {
     const m = await reload()
     m.clearAllDrafts('inc-1')
