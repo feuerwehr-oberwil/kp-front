@@ -618,9 +618,13 @@ interface DocksProps {
   /** Messen tool: line/area mode + clear/close, mirroring the Lage map's measure dock */
   measMode: 'line' | 'area'
   setMeasMode: (m: 'line' | 'area') => void
+  /** the points «Leeren» would clear – the measured path, or the scale bar's first tap */
   measCount: number
   onMeasClear: () => void
   onMeasClose: () => void
+  /** the dock's third mode «Massstab» (tool `scale`); absent where calibrating is not offered
+   *  (a locked session, a sheet whose scale is automatic) */
+  onCalibrate?: () => void
   /** absent where the board has no finder to open (Karte & Objekte's plan reader) */
   truppFinder?: TruppFinderDoor
 }
@@ -632,7 +636,7 @@ interface DocksProps {
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickInput, draftActive, setTool, onFinish, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, truppFinder }: DocksProps) {
+export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickInput, draftActive, setTool, onFinish, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, onCalibrate, truppFinder }: DocksProps) {
   // Read copy per render: the deployment locale is resolved after modules are imported.
   // ✕ is a way out of the tool like any other: the tool change asks about an open drawing
   // (usePlanDraft · releaseDraft), so it only has to put the tool down
@@ -678,16 +682,21 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
       )}
 
       {/* Messen — close + Strecke/Fläche toggle + clear + info (identical to the Lage map dock).
-          Removed 29.08., restored 02.09.: see usePlanMeasure's header. */}
-      {tool === 'measure' && (
+          Removed 29.08., restored 02.09.: see usePlanMeasure's header. On a plan its third mode is
+          «Massstab» (M13 A, 17.11.2026): calibrating against the printed scale bar is this dock
+          with «Massstab» lit, however it was entered (the Plan sheet, Messen's panel, this tile) –
+          a tap on «Strecke» / «Fläche» goes back to measuring, «Abbrechen» stops, and its ⓘ says
+          what to tap. No pill, no line at the bottom. The Lage has no scale to calibrate. */}
+      {(tool === 'measure' || tool === 'scale') && (
         <ToolDock groups={[
           [{ type: 'close', onClick: onMeasClose }],
           [
-            { type: 'toggle', icon: 'measure', label: appConfig.copy.measure.modeLine, on: measMode === 'line', onClick: () => setMeasMode('line') },
-            { type: 'toggle', icon: 'area', label: appConfig.copy.measure.modeArea, on: measMode === 'area', onClick: () => setMeasMode('area') },
+            { type: 'toggle', icon: 'measure', label: appConfig.copy.measure.modeLine, on: tool === 'measure' && measMode === 'line', onClick: () => { setMeasMode('line'); setTool('measure') } },
+            { type: 'toggle', icon: 'area', label: appConfig.copy.measure.modeArea, on: tool === 'measure' && measMode === 'area', onClick: () => { setMeasMode('area'); setTool('measure') } },
+            ...(onCalibrate ? [{ type: 'toggle' as const, icon: 'scalebar', label: appConfig.copy.whiteboard.scale.tool, on: tool === 'scale', onClick: onCalibrate }] : []),
           ],
           [{ type: 'action', icon: 'trash', label: appConfig.copy.measure.clear, short: appConfig.copy.measure.clearShort, disabled: !measCount, onClick: onMeasClear }],
-          [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.measure }],
+          [{ type: 'info', text: tool === 'scale' ? H.scale : H.measure }],
         ]} />
       )}
 

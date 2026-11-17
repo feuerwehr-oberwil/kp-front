@@ -481,7 +481,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     scale and no link shows a grey lamp, never red (red = danger, act now; an unlinked plan read
     as a picture is not an emergency). **A chip's trailing cue says its job** (duck sweep ELEM.3,
     17.11.2026): a lamp = opens the Plan sheet, a › = goes somewhere (the object picker, a
-    building face), a ✕ = stops a mode (calibrating); a piece with no job is a READ-OUT – a
+    building face), a ✕ = stops a mode; a piece with no job is a READ-OUT – a
     `<span>`, `.wb-chip-ro`: the material, regular weight, the secondary ink, no cue, no hover
     (the Karte's «Auf dem Gerät» status beside «‹ Zurück» is one). And ONE chip says it (sweep 28.10.2026 #8, owner pick «B's
     bar + A's sheet»): the Plan's row has no Massstab or Karte pill — the Objekt chip (on the
@@ -490,9 +490,12 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     calibration's green down), and a tap opens the Plan sheet (`components/PlanFactsSheet`):
     the Objekt row with its switch, «Karte» with the Passung's actions inline or «Karte
     verknüpfen» (the link glyph, never the locate crosshair), «Massstab» with its state and
-    «(Neu) kalibrieren». While calibrating, the row is the instrument («Zwei Punkte des Massstabs
-    antippen», a tap stops it), and the tool is armed like any other: the armed-tool pill
-    «Massstab kalibrieren» with its ✕, «Messen» lit on the rail (F5, 17.11.2026). The length
+    «(Neu) kalibrieren». Calibrating is a MODE OF THE MESSEN DOCK (M13 A, 17.11.2026, owner: «do
+    everything in the sidebar»): «Massstab» (the `scalebar` glyph) lit beside «Strecke» / «Fläche»,
+    «Messen» lit on the rail, however it was entered (the Plan sheet's row, Messen's panel, the
+    tile); «Strecke» / «Fläche» go back to measuring, «Abbrechen» stops, «Leeren» takes back the
+    first point, and what to tap is the dock's ⓘ. No pill, no line at the bottom – the row keeps
+    its chips. The length
     dialog opens EMPTY – only a length typed earlier in the session is offered – and, reached
     from Messen on a plan with no scale, first says why («Dieser Plan hat noch keinen Massstab …»);
     «Massstab kalibriert» carries «Rückgängig», which restores what the plan had (C9). On a phone the pieces stand on ONE baseline,
