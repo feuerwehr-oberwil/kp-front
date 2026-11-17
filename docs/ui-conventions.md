@@ -875,7 +875,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     and filters sit in its LIST ROW under the head, never in the head** (owner pick 25 B,
     17.11.2026): the field always in view and taking the slack, the filter tiles after it – the
     Anwesenheit's, the Mittel's and the Verlauf's row (a lens and an ⓘ «Legende» in the Verlauf's
-    head cut its title to «V…»). A key that explains a list's discs is not a head button either: it
+    head cut its title to «V…»). An ORDER is the list's question too: the Trupps «Reihenfolge» stands
+    in the board's list row, its «Sortiert:» strip under it, and the head keeps what acts on the whole
+    board – Alarme · Abgeben · Alarmton · + Trupp anmelden (owner pick 26, 17.11.2026). A key that explains a list's discs is not a head button either: it
     ends the filter menu whose rows wear those discs (the Verlauf's ring key, a Menu `note`). The WORD is the FACET («Kategorie», «Art»,
     «Reihenfolge»), never the act «Filtern»; a menu's head is the trigger's full name («Nach
     Kategorie filtern»), a menu of groups heads each group instead (HEADS.6). The Anwesenheit's

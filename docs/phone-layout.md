@@ -207,8 +207,8 @@ unchanged.
   («W»), a numbered sibling with its number («W1», «W2»); only the label spells the word out
   («Wasser 1»; `lib/navRail · planGlyph` / `planLabel`, owner 27.10.2026: «keep W1/W2»).
 
-- *A head's icon buttons carry their word wherever it fits* (22.09.2026): «Reihenfolge ·
-  Trupps teilen · Alarmton» on the Trupps head — MEASURED since 28.09.2026 (the page head's
+- *A head's icon buttons carry their word wherever it fits* (22.09.2026): «Trupps teilen ·
+  Alarmton» on the Trupps head («Reihenfolge» stands in its list row since owner pick 26, 17.11.2026) — MEASURED since 28.09.2026 (the page head's
   ladder, `lib/pageHeadFit`; the `.wordBtn`/`useIsPhone` switch there is gone), so a phone that has room shows
   them and a tablet that has none folds them. **A folded tile keeps its word UNDER the glyph**
   at 11/700, never a bare glyph (owner pick, button sweep HEADS.9, 17.11.2026 – the QR and the bell

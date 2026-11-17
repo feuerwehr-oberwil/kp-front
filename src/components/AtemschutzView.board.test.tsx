@@ -658,6 +658,21 @@ describe('the Reihenfolge menu', () => {
     mount({ order: 'manuell', onOrder, trupps: [plain('t1', 'Berta'), plain('t2', 'Anna')] })
     expect(screen.queryByText(F.sorted)).toBeNull()
   })
+
+  // owner pick 26 (17.11.2026): the order is the LIST's question – it stands in the row under the
+  // head, worded, and the head keeps what acts on the whole board
+  it('stands in the list row under the head, not in the head, and the strip follows that row', () => {
+    vi.mocked(useIsPhone).mockReturnValue(false)
+    mount({ order: 'name', onOrder: vi.fn(), trupps: [plain('t1', 'Berta'), plain('t2', 'Anna')] })
+    const trigger = screen.getByRole('button', { name: az.orderLabel })
+    const head = document.querySelector('header')!
+    expect(head.contains(trigger)).toBe(false)
+    const row = trigger.closest(`.${s.listRow}`)!
+    expect(row.previousElementSibling).toBe(head)
+    expect(trigger.textContent).toBe(az.orderLabel)
+    expect(row.nextElementSibling?.textContent).toContain(appConfig.copy.filterStrip.sorted)
+    expect(head.querySelector('button[aria-label="' + az.newTrupp + '"]')).toBeTruthy()
+  })
 })
 
 /* ⚠️ Reversed on 03.09., and it still holds: the Art must never restructure the FORM, only which

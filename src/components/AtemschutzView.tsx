@@ -38,6 +38,7 @@ import type { SyncStatus } from '../lib/incidents'
 import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
 import { truppOrderKey } from '../lib/useTruppActions'
 import s from './Atemschutz.module.css'
+import c from './SurfaceControls.module.css'
 import { AuftragSheet, KanalSheet, PressureSheet, TruppSheet } from './TruppSheets'
 import { ClockVal, RowEnter, TruppCard, TruppRow } from './TruppCard'
 import { tabState, tierMark } from './truppCardText'
@@ -79,8 +80,9 @@ const FROZEN_ALARM: TruppAlarm = { sev: 0, reason: null, line: null }
 
 /** The Trupps head's ladder (lib/pageHeadFit, 28.09.2026): what gives first when the one row runs
  *  out — the quiet line's time, then the tiles fold TOGETHER, each to its glyph OVER its word
- *  (owner pick 24a, 17.11.2026 – they folded one at a time to bare glyphs on a tablet: «Reihenfolge»
- *  first, the bell last; the handover keeps its short «Teilen» (rare-user WORDS: «Trupps teilen»), the ⚠ its count beside it), then
+ *  (owner pick 24a, 17.11.2026 – they folded one at a time to bare glyphs on a tablet, the bell
+ *  last; the handover keeps its short «Teilen» (rare-user WORDS: «Trupps teilen»), the ⚠ its count
+ *  beside it; «Reihenfolge» is not on it since pick 26 – it stands in the list row under the head), then
  *  «Trupp anmelden» → «Trupp» (the primary keeps its word beside its glyph and its fill), and last
  *  «✓ Gespeichert» keeps its ✓ (the sentence stays its `title`; a LOUD state never folds). */
 const HEAD_FOLD = { saved: 1, tiles: 2, newTrupp: 3, savedMark: 4 } as const
@@ -1314,7 +1316,7 @@ export function AtemschutzView({
   // «Trupp anmelden» → «Trupp» — until it fits, re-measured whenever what it carries changes
   const headRef = useRef<HTMLElement>(null)
   usePageHeadFit(headRef, [
-    focusMode, overdueCount > 0 && overdueCount, removedTrupps.length > 0, trupps.length > 1, muted, audioBlocked,
+    focusMode, overdueCount > 0 && overdueCount, removedTrupps.length > 0, muted, audioBlocked,
     shareLinkActive, syncStatus, lastSyncedAt, skewLoud, canEdit,
   ].join('|'))
 
@@ -1459,7 +1461,7 @@ export function AtemschutzView({
           )}
         </div>
         {/* ⚠️ ONE group, not four siblings. `.head` used to wrap, and as direct children the badge,
-            the sort menu, the mute toggle and «Trupp anlegen» wrapped INDIVIDUALLY — on a phone the
+            the sort menu (in the list row since pick 26), the mute toggle and «Trupp anlegen» wrapped INDIVIDUALLY — on a phone the
             filter stayed up beside the title while the other two dropped to a second row. Grouped,
             they stand as one block at the right end of the one row, and on the ladder's last step
             (lib/pageHeadFit) they move to the second row together. */}
@@ -1491,9 +1493,9 @@ export function AtemschutzView({
             seconds; miss it — gloves, 3am, a second Trupp overdue — and the card was unreachable,
             even though the record itself keeps it (types · Trupp.removedAt). Shown only while there
             IS something to bring back, so an ordinary board never carries it.
-            ⚠️ BEFORE the sort filter (05.09.): the two icons sat the other way round, and the one
-            that undoes something belongs nearer the badge than the one that only changes how the
-            board is looked at.
+            ⚠️ Beside the badge (05.09.): it sat after the sort until then, and the one that undoes
+            something belongs nearer the badge than the one that only changes how the board is
+            looked at – which has left the head for the list row since pick 26.
             ⚠️ #archive, not #undo (08.09.2026). This header carries a REAL ↶ ↷ pair now, and two
             undo arrows in one row meaning two different things is the kind of guess nobody should
             be making at 3am. Archive is also the truer word: these cards were taken off the board
@@ -1537,36 +1539,6 @@ export function AtemschutzView({
             </button>
           </>
         )}
-        {/* ⚠️ A MENU, not a segmented control. Four options laid out in full needed ~380px in a
-            header that also carries a title, a subtitle, an überfällig badge, the alarm toggle and
-            «Neuer Trupp» — so it grew over the subtitle and covered the sentence explaining what
-            the board is. A way of LOOKING at the board is not worth a permanent strip of the one
-            screen that exists to show overdue Trupps; behind its own icon it costs 44px and the
-            current choice still shows as a tick when it is opened. */}
-        {/* not on the phone board: its arrangement is fixed (see `phoneMode`) */}
-        {/* ↑↓, the ORDER glyph (owner pick, button sweep HEADS.1, 17.11.2026) – it wore the filter
-            funnel, and a lit funnel on the board that exists to show overdue Trupps reads «some are
-            hidden». The order it is set to stands in the strip under the head (`sortStrip`). */}
-        {orderOffered && (
-          <Menu
-            trigger={
-              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.tiles} aria-label={az.orderLabel} title={az.orderLabel}>
-                <Icon id="sort" /><span className="fold-long">{az.orderLabel}</span>
-              </button>
-            }
-            popupClassName="rp-print-menu"
-            itemClassName={() => 'rp-print-menu-item'}
-            items={[
-              { kind: 'head' as const, label: az.orderLabel },
-              {
-                kind: 'radio' as const,
-                value: order,
-                onChange: (v: string) => onOrder?.(v as TruppOrder),
-                options: (Object.keys(orderWords) as TruppOrder[]).map((value) => ({ value, label: orderWords[value] })),
-              },
-            ]}
-          />
-        )}
         {/* «Trupps teilen»: the QR, beside the bell, because the realistic handover in an
             Einsatz is «Handy scannen lassen» and the FU is standing on THIS page when they
             decide to. Green while a link is live. Folded it keeps a WORD («Teilen», hill climb
@@ -1598,7 +1570,40 @@ export function AtemschutzView({
         )}
         </div>
       </header>
-      {/* a re-sorted board SAYS so, under the head, with the way back to the hand-set order
+      {/* ── the board's list row: «Reihenfolge» (owner pick 26, 17.11.2026) ──
+          The order is a question about the LIST, not an act on the board, so it left the head – which
+          keeps what acts on the whole board (Alarme · Abgeben · Alarmton · + Trupp anmelden) – for
+          the row every list has under its head (SurfaceControls, like the Verlauf's «Art»): the
+          framed tile, ↑↓ `#sort` (HEADS.1: it wore the funnel, and a lit funnel on the board that
+          exists to show overdue Trupps reads «some are hidden»), worded beside the glyph.
+          ⚠️ A MENU, not a segmented control: four options laid out in full needed ~380px, and a way
+          of LOOKING at the board is not worth a permanent strip of the screen that shows overdue
+          Trupps; the current choice shows as the radio's tick when it is opened. Not on the phone
+          board: its arrangement is fixed (see `phoneMode`). */}
+      {orderOffered && (
+        <div className={cx(c.controls, s.listRow)}>
+          <Menu
+            trigger={
+              <button type="button" className={c.iconBtn} aria-label={az.orderLabel} title={az.orderLabel}>
+                <Icon id="sort" /><span className={c.word} aria-hidden="true">{az.orderLabel}</span>
+              </button>
+            }
+            align="start"
+            popupClassName="rp-print-menu"
+            itemClassName={() => 'rp-print-menu-item'}
+            items={[
+              { kind: 'head' as const, label: az.orderLabel },
+              {
+                kind: 'radio' as const,
+                value: order,
+                onChange: (v: string) => onOrder?.(v as TruppOrder),
+                options: (Object.keys(orderWords) as TruppOrder[]).map((value) => ({ value, label: orderWords[value] })),
+              },
+            ]}
+          />
+        </div>
+      )}
+      {/* a re-sorted board SAYS so, under its list row, with the way back to the hand-set order
           (button sweep HEADS.3, 17.11.2026): «Reihenfolge» looked the same set to «Wie gesetzt» as
           to «Name» – the strip every narrowed list wears (components/FilterStrip) */}
       {orderOffered && order !== 'manuell' && (
