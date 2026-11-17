@@ -19,3 +19,6 @@ export const ReportPreflight = lazy(() => loadReportPreflight().then((m) => ({ d
 export const requestReportStep = (step: Parameters<typeof import('../components/ReportPreflight').requestReportStep>[0]) => {
   void loadReportPreflight().then((m) => m.requestReportStep(step))
 }
+/** «Verlauf drucken / PDF» (useReportPlace · requestJournalPrint): queued there until the sheet
+ *  mounts. The small module, not the sheet's – a component file exports components only. */
+export const requestJournalPrint = () => { void import('../components/useReportPlace').then((m) => m.requestJournalPrint()) }

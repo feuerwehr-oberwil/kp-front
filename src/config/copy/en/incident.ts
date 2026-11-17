@@ -181,6 +181,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     failed: 'Close not confirmed – check the status',
     corrected: 'Hours corrected: {name}',
     attendanceRemoved: '{name} attendance removed',
+    reportMissing: 'Report not created yet',
   },
   personnelSync: {
     title: 'Match personnel with {provider}',

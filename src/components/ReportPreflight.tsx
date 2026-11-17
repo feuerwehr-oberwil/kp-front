@@ -53,6 +53,7 @@ import { EF_PAGE_ID, RAPPORT_PAGE_ID, tafelKindPrints, tafelMenuKinds, tafelPrin
 import { isDrawnBoardKind } from '../lib/workspace'
 import { abschlussFacts, missingSteps, nextOpenStep, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { abschlussOpenItems, abschlussSheet, controlChipLabel } from '../lib/abschlussOpen'
+import { reportStep } from '../lib/reportUndo'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { openConflicts, sideLabel, sideValue, type OpenConflict } from '../lib/attendanceConflict'
 import { incidentDays, isOtherDay } from '../lib/zeitplanFormat'
@@ -74,7 +75,7 @@ import { ReportSignatures } from './ReportSignatures'
 import { signaturesToPrint, useSignatureLock } from './useReportSignatures'
 import { useAuditProof } from './useAuditProof'
 import { initialKrokiAt, useKrokiMoment } from './useKrokiMoment'
-import { PHONE_TABS, STEP_TAB, rapportKept, useReportPlace, type PhoneTab } from './useReportPlace'
+import { PHONE_TABS, STEP_TAB, rapportKept, useJournalPrintAsk, useReportPlace, type PhoneTab } from './useReportPlace'
 
 const NO_IDS = new Set<string>()
 const NO_SIGNATURES: ReportSignature[] = []
@@ -90,6 +91,7 @@ const RP_FOLD = { print: 1, pdf: 2, complete: 3, title: 4 } as const
 
 // «Zeig mir diese offene Angabe» from outside the sheet — lives with the tabs (useReportPlace)
 export { requestReportStep } from './useReportPlace'
+
 
 /** HH:MM of a server read-out beside a vehicle (vor Ort / zurück) — not a field: every field of the
  *  Rapport reads its date too (DateTimeField). */
@@ -567,11 +569,17 @@ export function ReportPreflight({
   // ⚠️ The base is `metaRef`, the freshest blob this surface has seen, not the `reportMeta` of
   // the render this closure was built in: `startOutput` persists the Kroki framing AFTER an
   // awaited confirm dialog, by which time a sync may have moved the blob on underneath it.
-  const persist = (over: Partial<ReportMeta>) => canEdit && onSaveMeta({
-    ...metaRef.current,
-    ...dirtyMeta(),
-    ...over,
-  })
+  // ⚠️ An operator's edit makes the paper STALE (M5 · A, 17.11.2026): it drops `reportMadeAt`, so
+  // the close sheet lists «Rapport noch nicht erstellt» again and the head offers the PDF, not
+  // the green close, as if the Rapport were current – after «Wieder öffnen» + a corrected time
+  // the green «Abschliessen» stood there at once over the old paper. Only the operator's fields
+  // count (lib/reportUndo · reportStep): the app's bookkeeping (the Kroki framing) does not.
+  const persist = (over: Partial<ReportMeta>) => {
+    if (!canEdit) return false
+    const next: ReportMeta = { ...metaRef.current, ...dirtyMeta(), ...over }
+    if (next.reportMadeAt && reportStep(metaRef.current, next)) delete next.reportMadeAt
+    return onSaveMeta(next)
+  }
 
   // Commit the Kroki-seeded Einsatzleiter to the blob once, so the Abschluss-Checkliste and a
   // rapport printed from another device see the same name this field shows — a value that only
@@ -967,6 +975,13 @@ export function ReportPreflight({
     optionOverrides.current = { ...optionOverrides.current, ...patch }
     setOptions((o) => ({ ...o, ...patch }))
   }
+  // the outside ask (useReportPlace · requestJournalPrint): tick «Einsatzjournal» and open the ▾
+  // it lives in, two frames on so the trigger is laid out
+  const pdfMoreRef = useRef<HTMLButtonElement>(null)
+  useJournalPrintAsk(() => {
+    if (!options.journal) patchOpt({ journal: true })
+    requestAnimationFrame(() => requestAnimationFrame(() => pdfMoreRef.current?.click()))
+  })
   // is there anything on the SERVER to archive? Journal photos/recordings and Rapport-Beilagen
   // are all Media rows; blob: URLs are uploads still in flight and not fetchable as a ZIP yet
   const hasStoredMedia = useMemo(() => (
@@ -1436,7 +1451,7 @@ export function ReportPreflight({
               </button>
               <Menu
                 trigger={
-                  <button type="button" className="ip-btn head-tile rp-split-more" aria-label={P.printMenu} title={P.printMenu}>
+                  <button type="button" ref={pdfMoreRef} className="ip-btn head-tile rp-split-more" aria-label={P.printMenu} title={P.printMenu}>
                     <Icon id="chevron-down" className="chev" />
                   </button>
                 }

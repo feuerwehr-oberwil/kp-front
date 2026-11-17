@@ -27,6 +27,8 @@ export const journalCopy = {
       closedBody: 'Der Einsatz war bereits abgeschlossen, als diese Einträge ankamen. Sie stehen nicht im Verlauf, bleiben aber auf diesem Gerät und lassen sich herunterladen. Wird der Einsatz wieder geöffnet, werden sie synchronisiert.',
       // die Statusleuchte, solange solche Einträge nur auf dem Gerät liegen
       closedShort: 'Einträge nach dem Abschluss nicht übernommen – herunterladen',
+      // after «Einträge herunterladen»: where the file went and what to do with it (F10, 17.11.2026)
+      exportDone: 'In «Downloads» bzw. «Dateien» gesichert – die Datei an den Admin der Feuerwehr senden, sie enthält diese Einträge.',
     },
     open: 'Verlauf',
     add: 'Eintrag',
@@ -372,6 +374,12 @@ export const journalCopy = {
     sectionRemoved: 'Abschnitt gelöscht',
     markOpenTitle: 'Wieder als offen markieren',
     legendPendenzOverdue: 'Pendenz überfällig',
+    // the composer's compact row folds Aufnehmen · Datei · Foto into one button (M9 · A, 17.11.2026)
+    attachMenu: 'Anhang',
+    // the empty Verlauf says what it is for, to every role (F12, 17.11.2026); a writer gets emptyHint after it
+    emptyFor: 'Hier entsteht der Ablauf des Einsatzes, Zeile um Zeile.',
+    // the funnel menu's door to the Rapport's PDF ▾ with «Einsatzjournal» ticked (F16, 17.11.2026)
+    printVerlauf: 'Verlauf drucken / PDF',
   },
   // ── The Tafel's «Aufträge / Pendenzen» page (05.11.2026, lib/pendenzenPage) ────────────────
   // A view on the Verlauf's Pendenzen and Erinnerungen: every act on the page appends a Verlauf

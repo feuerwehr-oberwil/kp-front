@@ -2,7 +2,7 @@
 // Mindestangabe, and the place (scroll, tab, print choices, Kroki-Stand) kept across the hop to
 // Anwesenheit / Mittel / Verlauf. Used by ReportPreflight only; rules in docs/rapport.md.
 
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { incidentSlot } from '../lib/draftKeep'
 import { scrollBehavior } from '../lib/reducedMotion'
 import type { AbschlussStep } from '../lib/abschluss'
@@ -76,6 +76,28 @@ const queuedStep: { current: AbschlussStep | null } = { current: null }
 export function requestReportStep(step: AbschlussStep) {
   if (stepListener) stepListener(step)
   else queuedStep.current = step
+}
+
+/** «Verlauf drucken / PDF» from the Verlauf's funnel menu (F16 · TASK.7, 17.11.2026): the Verlauf
+ *  leaves the app as the Rapport's «Einsatzjournal» section, and that menu was three surfaces
+ *  away. The sheet answers by opening its PDF ▾ with «Einsatzjournal» ticked
+ *  (ReportPreflight). Asked before `setMode('rapport')` mounts it, so it queues like
+ *  `requestReportStep`. */
+let journalPrintListener: (() => void) | null = null
+let journalPrintQueued = false
+export function requestJournalPrint() {
+  if (journalPrintListener) journalPrintListener()
+  else journalPrintQueued = true
+}
+/** The mounted sheet's side of `requestJournalPrint`: a mount-only subscription that always
+ *  answers with the latest render's `answer`. */
+export function useJournalPrintAsk(answer: () => void) {
+  const onAsk = useEffectEvent(answer)
+  useEffect(() => {
+    journalPrintListener = () => onAsk()
+    if (journalPrintQueued) { journalPrintQueued = false; onAsk() }
+    return () => { journalPrintListener = null }
+  }, [])
 }
 
 /**
