@@ -316,7 +316,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'lead', text: 'The second and third view of the attendance: not «who is here» but **who is available when** — for an incident that outlasts one shift.' },
           { kind: 'list', items: [
             'In the **schedule** every person has a row; dragging (or the pen) plans an availability window. It is a **plan**, not a record: it writes no attendance — that only happens when somebody actually taps.',
-            '**Confirmed** (solid) or **proposed** (hollow) — the difference between «is coming» and «could come».',
+            '**Available** (pale fill) or **assigned** (outline) — the difference between «could come» and «is booked». Who was actually there sits underneath in **filled green**, from the attendance.',
             'The **range** on top decides how many hours are visible at once.',
             'In **shifts** the same windows are grouped into named bands («night 22–06»): creating a band writes no shift, and deleting a band deletes no availability.',
             'Both views print: via the **printer menu** in the header — **shift plan** or **availabilities**, as a PDF or straight to the station printer.',

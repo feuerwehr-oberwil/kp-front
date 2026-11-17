@@ -343,7 +343,7 @@ export const helpCopy = {
           { kind: 'lead', text: 'Die zweite und dritte Ansicht der Anwesenheit: nicht «wer ist da», sondern **wer ist wann verfügbar** – für einen Einsatz, der länger dauert als eine Schicht.' },
           { kind: 'list', items: [
             'Im **Zeitplan** liegt jede Person auf einer Zeile; ziehen (oder der Stift) plant ein Verfügbarkeitsfenster. Das ist ein **Plan**, kein Protokoll: er schreibt keine Anwesenheit – die entsteht erst, wenn jemand wirklich antippt.',
-            '**Zugesagt** (voll) oder **Vorschlag** (hohl) – der Unterschied zwischen «kommt» und «könnte».',
+            '**Verfügbar** (blass gefüllt) oder **eingeteilt** (Umriss) – der Unterschied zwischen «könnte» und «ist fest eingeplant». Wer tatsächlich da war, steht **grün gefüllt** darunter; das kommt aus der Anwesenheit.',
             'Der **Zeitraum** oben bestimmt, wie viele Stunden auf einmal zu sehen sind.',
             'In **Schichten** werden dieselben Fenster zu benannten Bändern gruppiert («Nacht 22–06»): ein Band anzulegen schreibt keine Schicht, und eine gelöschte Zeile löscht keine Verfügbarkeit.',
             'Beide Ansichten drucken: über das **Drucker-Menü** in der Kopfzeile – **Schichtplan** oder **Verfügbarkeiten**, als PDF oder direkt auf den Stationsdrucker.',

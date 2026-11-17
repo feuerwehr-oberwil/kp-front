@@ -314,7 +314,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'lead', text: 'La seconda e la terza vista della presenza: non «chi c’è» ma **chi è disponibile quando** — per un intervento che dura più di un turno.' },
           { kind: 'list', items: [
             'Nel **programma** ogni persona ha la sua riga; trascinando (o con la matita) si pianifica una finestra di disponibilità. È un **piano**, non un verbale: non scrive alcuna presenza — quella nasce solo quando qualcuno tocca davvero.',
-            '**Confermato** (pieno) o **proposto** (vuoto) — la differenza tra «viene» e «potrebbe venire».',
+            '**Disponibile** (pieno chiaro) o **assegnato** (contorno) — la differenza tra «potrebbe venire» e «è previsto». Chi c’era davvero sta sotto in **verde pieno**, dalla presenza.',
             'L’**intervallo** in alto decide quante ore si vedono insieme.',
             'In **Turni** le stesse finestre sono raggruppate in bande con un nome («notte 22–06»): creare una banda non scrive alcun turno, e cancellarne una non cancella alcuna disponibilità.',
             'Entrambe le viste si stampano: dal **menu stampante** nell’intestazione — **piano turni** o **disponibilità**, come PDF o direttamente sulla stampante del magazzino.',

@@ -314,7 +314,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'lead', text: 'Les deuxième et troisième vues de la présence : non pas «qui est là» mais **qui est disponible quand** — pour une intervention qui dure plus d’un tour.' },
           { kind: 'list', items: [
             'Dans l’**horaire** chaque personne a sa ligne ; tirer (ou le crayon) planifie une fenêtre de disponibilité. C’est un **plan**, pas un procès-verbal : il n’écrit aucune présence — celle-ci naît quand quelqu’un touche vraiment.',
-            '**Confirmé** (plein) ou **proposé** (creux) — la différence entre «vient» et «pourrait venir».',
+            '**Disponible** (rempli pâle) ou **affecté** (contour) — la différence entre «pourrait venir» et «est prévu». Qui était vraiment là figure dessous en **vert plein**, d’après la présence.',
             'La **plage** en haut décide du nombre d’heures visibles à la fois.',
             'Dans **Tours**, les mêmes fenêtres sont groupées en bandes nommées («nuit 22–06») : créer une bande n’écrit aucun tour, et supprimer une bande ne supprime aucune disponibilité.',
             'Les deux vues s’impriment : via le **menu imprimante** de l’en-tête — **plan des tours** ou **disponibilités**, en PDF ou directement sur l’imprimante du local.',
