@@ -12,7 +12,7 @@ import type { Entity } from '../types'
 const seen = vi.hoisted(() => ({ props: null as Record<string, unknown> | null }))
 vi.mock('../components/MapView', () => ({ MapView: (p: Record<string, unknown>) => { seen.props = p; return null } }))
 vi.mock('../lib/ui', () => ({ toast: vi.fn(), confirmDialog: vi.fn(async () => true), undoToast: vi.fn() }))
-import { undoToast } from '../lib/ui'
+import { toast, undoToast } from '../lib/ui'
 
 /** Any input not named stands in as an inert, endlessly nestable stub. */
 const inert = (): unknown => new Proxy(() => undefined, {
@@ -27,11 +27,12 @@ const host: Entity = { id: 'v1', kind: 'vehicle', layer: 'l', coord: [7.5, 47.5]
 const marker: Entity = { id: 'm1', kind: 'team', layer: 'l', coord: [7.5, 47.5], label: 'Trupp 1', dockedTo: 'v1' }
 
 // The pill's «Lösen» on a docked Trupp marker lets go the way the Trupp panel's «Lösen» does
-// (useMapActions · undockTeam): one row, and a «Gelöst · Rückgängig» toast whose undo docks it back.
+// (useMapActions · undockTeam): one row, one Karte write (its ↶ step docks it back) – no toast,
+// owner pick 28 (17.11.2026).
 describe('MapStage — the marker pill\'s «Lösen»', () => {
   afterEach(() => { vi.clearAllMocks(); seen.props = null })
 
-  it('raises the undo toast, and its undo restores the dock', () => {
+  it('lets go with one write and one row, and raises no toast', () => {
     const patchEntity = vi.fn()
     const log = vi.fn()
     const doc = { entities: [host, marker], drawings: [] }
@@ -50,12 +51,10 @@ describe('MapStage — the marker pill\'s «Lösen»', () => {
     render(<Stage />)
     const onTeamUndock = (seen.props as ComponentProps<typeof MapView> | null)?.onTeamUndock
     act(() => { onTeamUndock?.('m1') })
+    expect(patchEntity).toHaveBeenCalledTimes(1)
     expect(patchEntity).toHaveBeenCalledWith('m1', { dockedTo: undefined })
-    expect(undoToast).toHaveBeenCalledTimes(1)
-    // the marker is loose now; the toast's undo docks it back onto the host
-    objectsRef.current = [{ entity: host }, { entity: { ...marker, dockedTo: undefined } }] as unknown as TacticalObject[]
-    const undo = vi.mocked(undoToast).mock.calls[0][1]
-    act(() => { undo() })
-    expect(patchEntity).toHaveBeenLastCalledWith('m1', { dockedTo: 'v1' })
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(undoToast).not.toHaveBeenCalled()
+    expect(toast).not.toHaveBeenCalled()
   })
 })

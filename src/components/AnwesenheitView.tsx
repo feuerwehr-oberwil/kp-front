@@ -395,9 +395,9 @@ export function AnwesenheitView({
   /** plan exactly the stretch swept out on the grid */
   onAddShiftSpan?: (p: Person, from: number, to: number) => void
   /** a whole shift replaced after a drag */
-  onReplaceShift?: (sh: Shift, undoName?: string) => void
+  onReplaceShift?: (sh: Shift) => void
   onSetShiftTime?: (id: string, patch: { from?: string; to?: string }) => void
-  onRemoveShift?: (id: string, personName: string) => void
+  onRemoveShift?: (id: string) => void
   /** print / download one of the two Schichtenplanung sheets (rendered server-side) */
   /** resolves once the job is queued (or its failure was told) – the sheet waits for it */
   onPrintZeitplan?: (people: Person[], sheet: ZeitplanSheet) => Promise<void>

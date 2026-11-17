@@ -67,8 +67,7 @@ export const materialCopy = {
     save: 'Speichern',
     cancel: 'Abbrechen',
     removeRow: 'Auf 0 setzen',
-    // deleting happens immediately with an undo toast; the Verlauf is kept
-    removedToast: '«{label}» gelöscht',
+    // deleting happens immediately – the ↶ brings it back; the Verlauf is kept
     // Verlauf rows
     logSet: '{label}: {menge} {unit}',
     logRemoved: '{label} auf 0 gesetzt',

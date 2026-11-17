@@ -157,8 +157,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       reset: 'Retirer',
       resetTitle: 'Retirer le lien ?',
       resetBody: 'Le lien entre ce plan et la carte est retiré. Les points devront être posés à nouveau.',
-      resetDone: 'Lien retiré',
-      pointsCleared: 'Points réinitialisés',
       clearPoints: 'Réinitialiser',
       clearTitle: 'Réinitialiser tous les points ?',
       clearBody: 'Les points posés sont retirés, et avec eux le lien entre ce plan et la carte. Tout est à reposer.',

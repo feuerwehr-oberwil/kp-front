@@ -185,7 +185,6 @@ export const anwesenheitCopy = {
     bis: 'bis',
     addBlock: 'Neue Zeit ab jetzt',
     blockSplit: '{name}: neue Zeit – die laufende wurde beendet',
-    blockRemoved: 'Zeit von {name} gelöscht',
     blockRemove: 'Zeit löschen',
     blocksTitle: 'Anwesenheit – {name}',
     blocksSection: 'Erfasste Zeiten',
@@ -243,11 +242,6 @@ export const anwesenheitCopy = {
     from: 'von',
     to: 'bis',
     remove: 'Schicht löschen',
-    removed: 'Schicht {name} gelöscht',
-    // A swipe and a drag fire as easily as a mis-tap – so they get the same undo as deleting.
-    // The planned⇄fixed toggle does not: a second tap takes that back.
-    added: 'Verfügbarkeit für {name} erfasst',
-    moved: 'Schicht von {name} verschoben',
     conflict: 'Doppelt eingeteilt – zwei Schichten zur selben Zeit',
     // The one mistake this form is meant to find – so it is spoken out loud instead of sitting as
     // a 12px glyph on a filled bar, where it has the lowest contrast of the whole surface (and
@@ -377,7 +371,6 @@ export const anwesenheitCopy = {
     // What gets deleted is the BAND, not the planning: the Schichten remain as freehand ones.
     // This is the one path on which real planning would otherwise vanish silently.
     removeBandHint: 'Gelöscht wird nur die Spalte – die eingeteilten Zeiten bleiben als freihändige im Zeitplan stehen.',
-    removedBand: 'Schichtband «{label}» gelöscht',
     // When a band is moved: no silent coupling in either direction.
     moveTitle: 'Zeiten mitziehen?',
     moveMsg: '{n} Personen sind auf die alten Zeiten eingeteilt. Sollen ihre Zeiten mitziehen?',

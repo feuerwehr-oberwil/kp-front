@@ -324,8 +324,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   that blocks** — a confirm, «Welcher Trupp?», a one-field ask — is a **centred dialog**
   (`ConfirmCard`, `Overlay` without `grab`): it is answered, not worked in. ⚠️ A red
   `danger` ConfirmCard stands ONLY in front of what nothing brings back (the delete rule,
-  13.11.2026, [`undo.md`](undo.md) › One delete rule): a removal ↶ can take back acts at once
-  and shows «{Name} entfernt · Rückgängig» (`lib/removalToast`) instead of asking first. A confirm
+  13.11.2026, [`undo.md`](undo.md) › One delete rule): a removal ↶ can take back acts at once,
+  without asking first and without a toast (owner pick 28, 17.11.2026 – ↶ is the way back). A confirm
   that acts on ONE thing picked from a list of look-alikes names it right above its buttons
   (`ConfirmSpec.subject`; every close, reopen and Übung delete names its Einsatz by name and Zeit
   Alarmierung – `lib/einsatzSubject`, duck sweep LISTS.11, 17.11.2026). (3) A **short
@@ -406,14 +406,21 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     `.ctx-x`, `.sym-close` — one rule in 13-incident.css; it was 28/30/32): the `--ink-8` plate,
     the ordinary grey, never a filled «on», over a 44px hit pad. No exceptions since hill climb r35
     (06.11.2026): beside a 44px search field (Palette, Trupp finden) and in the
-    Verlauf's head beside its 44px ▶ it is the same 36px plate, centred on its row – the 44px and
-    ▶-framed copies there read as a different button. It stands as far from the sheet's right
+    Verlauf's head it is the same 36px plate, centred on its row – the 44px copies there read as
+    a different button. It stands as far from the sheet's right
     edge as the title from its left (24 on a sheet, 16 where a frame pads 16: composer, Palette,
     Verlauf, the `.ctx` editors, Trupp finden; 12 on the Gebäude card). Where the body under the
     head is a row of plates that stand outside the text edge (Ebenen: the quick row and the
     tiles), the ✕'s plate ends on THEIR right edge instead (12 on the card, 20 on the phone
     sheet) while the title keeps the text edge – a ✕ 4px inside the row below reads as shifted
     for no reason (owner, 13.11.2026).
+  - *The Verlauf's head is its title with the count, and ✕ – nothing else, on every device*
+    (owner picks 25 B and 30, 17.11.2026). ▶ «Wiedergabe starten» stands at the LEFT END OF THE
+    TIME RULER (`.jr-strip-row`, components/Journal): one button left of ✕ a stray tap put the
+    running Einsatz into the past, and the ruler already means «jump in time». Worded where the
+    row has the room – the tablet's «▶ Wiedergabe» – and the bare 44px glyph on a phone
+    ([`phone-layout.md`](phone-layout.md)). No ruler (one moment, a search, a filter) means no ▶:
+    the replay plays the whole picture.
   - *Radius – ONE corner (25.09.2026):* **every** rectangle is `var(--r-sm)` (12px) – button,
     field, status box, row, card, page card (tablet and desktop – a phone page has no card,
     [`phone-layout.md`](phone-layout.md) · «No page card on a phone»), sheet, dialog, message; `--r-ctl`/`--r-surface`/
@@ -483,31 +490,43 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     (only a busy loader takes the glyph slot) and the toast's «Rückgängig» alike, 14/700 framed at
     `--r-msg-in`; primary filled only in the Meldeleiste.
   - *The toast rule – only what is essential (17.11.2026, owner: «toasts are really only used for
-    things that are essential – not spamming the UI»):* **a toast is for what the operator must
-    know NOW and cannot see where they are looking – or the one tap back.** Five things earn one:
-    the confirm-with-undo of an act just done (`undoToast` / `removeWithUndo`); a failure after the
-    operator's own act, saying the state it leaves; a refusal the tapped control cannot show
-    itself – where the Atemschutz-Link can refuse the same act, through `refuse()`
+    things that are essential – not spamming the UI»; narrowed by owner pick 28 the same day):*
+    **a toast is for what the operator must know NOW and cannot see where they are looking – or
+    the one tap back when nothing else on screen can undo it.** Five things earn one:
+    the confirm-with-undo of an act just done **that the top bar's ↶ cannot reach**
+    (`undoToast`: the Alarm take, an «Alarm aktualisiert», a record outside the
+    workspace undo – a Verlauf patch, a Wiedervorlage, a Trupp's Leitung unlinked, the plan's
+    Massstab, the Rapport poster's rows, an Objektbesuch, a device reset, the alarm opt-out); a
+    failure after the operator's own act, saying the state it leaves; a refusal the tapped control
+    cannot show itself – where the Atemschutz-Link can refuse the same act, through `refuse()`
     (lib/meldungenRefusal): the warn toast, and on the Link, which has no toasts, a Meldeleiste row
-    until its ✕ (FEEDBACK.1); a loss nobody else reports (a draft, a file, an open georef point dropped); a live job
-    the operator waits on (the print chain). **Never a toast:** a success the screen already shows
-    (a row appeared, a lamp turned green, a sheet closed on its result, a stepper shows the number
-    – the composer closing IS «Eintrag erfasst»); a standing state (offline, catalogue missing,
-    read-only tab) – that is the head chip, the Meldeleiste or the empty state; a safety warning –
-    the Meldeleiste, it stays until it is resolved («Kein Sicherungstrupp bereit»); a refusal
-    inside an open form – inline at the field, `form-warn` (the composer's attach row, the
-    wizard's «Hier»); background news (a merge) – two stay by owner pick: «Aktualisiert – v…» once
-    per version, and «Wieder bei …» on a return (mock j8-5). A loop never toasts per item; what can
-    fire again carries a `kind`.
+    until its ✕ (FEEDBACK.1); a loss nobody else reports (a draft, a file, an open georef point
+    dropped) and what happens out of sight (a Passung copied onto another sheet); a live job the
+    operator waits on (the print chain). **Never a toast:** an act the top bar's ↶ «Rückgängig»
+    takes back just as easily (pick 28) – deleting, moving or editing a Linie, Fläche, Symbol,
+    Form, Notiz, a Tafel page or row, a Geschoss, a Gebäude, a Trupp («Entfernen», «Nicht
+    eingesetzt», the Notfall), a Zeitplan shift or band, an Anwesenheit row or block, a Mittel line,
+    a Beilage, a Pendenz «Erledigt», a Leitung end let go, a bond undocked: the object leaving the
+    screen is the confirmation, and the ↶ names the step (`lib/removal · removedText`); an act the
+    operator just CONFIRMED in a dialog or sheet (Einsatz abschliessen, endgültig löschen,
+    abmelden, «Kopieren nach …») – the screen moving on is the confirmation; a success the screen
+    already shows (a row appeared, a lamp turned green, a sheet closed on its result, a stepper
+    shows the number – the composer closing IS «Eintrag erfasst»); a standing state (offline,
+    catalogue missing, read-only tab) – that is the head chip, the Meldeleiste or the empty state;
+    a safety warning – the Meldeleiste, it stays until it is resolved («Kein Sicherungstrupp
+    bereit»); a refusal inside an open form – inline at the field, `form-warn` (the composer's
+    attach row, the wizard's «Hier»); background news (a merge) – two stay by owner pick:
+    «Aktualisiert – v…» once per version, and «Wieder bei …» on a return (mock j8-5). A loop never
+    toasts per item; what can fire again carries a `kind`.
     Busy inside an open sheet = loader + word; an act's failure there = a toast, the sheet stays
     as it stood (inline only for a LOAD that failed). Test: would the operator be worse off if it
-    never appeared? If not, it goes. **Every «Rückgängig» comes through `undoToast`** (lib/ui):
-    one neutral tone (never green), one button, one guard, and a glyph that names the act – 🗑
-    removed, ✓ taken or ticked, ↶ anything else; an undo that doubles a ↶ step drops it (or steps
-    the ↶ itself, `removeWithUndo`), so nothing is undoable twice. Undo pills replace each other –
-    the older acts stay on ↶ – unless the pill is the act's ONLY way back (the Alarm take, a
-    Notfall, a device reset, a Verlauf patch), which brings its own `kind`. A merge that took ↶'s
-    own step is said at the NEXT ↶ press, at the button (`IncidentWorkspace · pressHistory`).
+    never appeared – with ↶ one tap away? If not, it goes. **Every «Rückgängig» comes through
+    `undoToast`** (lib/ui): one neutral tone (never green), one button, one guard, and a glyph that
+    names the act – 🗑 removed, ✓ taken or ticked, ↶ anything else. Since an undo toast stands only
+    where ↶ cannot reach, nothing is undoable twice. Undo pills replace each other unless the pill
+    is the act's ONLY way back and must not be pushed out (the Alarm take, a device reset, a
+    Verlauf patch), which brings its own `kind`. A merge that took ↶'s own step is said at the
+    NEXT ↶ press, at the button (`IncidentWorkspace · pressHistory`).
   - *ONE floating family, ONE floating row (26.09.2026, owner: «everything has the same shape,
     colour, padding»):* every small thing that floats over the Karte or a Plan — the messages
     above, the plan's chips (Objekt · Gebäude),

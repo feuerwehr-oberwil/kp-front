@@ -294,7 +294,9 @@ describe('IncidentSwitcher · who is here', () => {
     const acts = [...document.querySelectorAll('.ip-card-acts > .ip-card-act')].map((b) => b.textContent)
     expect(acts).toEqual([cp.editMetaShort, cp.shareShort, appConfig.copy.presentation.title, cp.archiveShort])
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.presentation.title }))
-    expect(onPresent).toHaveBeenCalled()
+    expect(onPresent).toHaveBeenCalledTimes(1)
+    // it STARTS the presentation (owner pick 29), so the menu steps out of its way
+    expect(document.querySelector('.ip-card-acts')).toBeNull()
     cleanup()
     renderActive({ active })
     expect(screen.queryByRole('button', { name: appConfig.copy.presentation.title })).toBeNull()

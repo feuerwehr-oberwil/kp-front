@@ -2504,49 +2504,31 @@ describe('useTruppActions — an Eingangsdruck set on purpose is logged as measu
   })
 })
 
-// staging N4
-describe('useTruppActions — a removal says so and can be taken back from the toast', () => {
-  it('shows ONE confirm-with-undo toast; its «Rückgängig» restores the card and drops the ↶ entry', () => {
+// staging N4 · owner pick 28 (17.11.2026): a removal and the card's «Nicht eingesetzt» are ↶ steps, no toast
+describe('useTruppActions — a removal and «Nicht eingesetzt» come back on ↶, without a toast', () => {
+  it('a removal stamps the card; ↶ un-stamps it', () => {
     ui.toasts.length = 0
     const { actions, state, timeline } = timed(baseTrupp({ no: 3, members: ['Graf Eva'] }))
     actions.deleteTrupp('T1')
     expect(state.trupps[0].removedAt).toBeTruthy()
-    expect(ui.toasts).toHaveLength(1)
-    expect(ui.toasts[0].text).toBe(fillTemplate(appConfig.copy.atemschutz.removedToast, { name: '3 (Keller Anna / Graf Eva)' }))
-    ui.toasts[0].undo!()
+    expect(ui.toasts).toEqual([])
+    timeline.undo()
     expect(state.trupps[0].removedAt).toBeUndefined()
-    // the delete is no longer on the timeline — it cannot be taken back a second time
-    expect(timeline.canUndo()).toBe(false)
   })
-})
 
-/* owner review 26.09.2026: «Nicht eingesetzt» is a visible button on the card again, so its tap
- * answers with the confirm-with-undo toast — and the Abschluss's bulk stand-down does not */
-describe('useTruppActions — «Nicht eingesetzt» from the card says so and can be taken back', () => {
-  const waiting = () => baseTrupp({ no: 2, status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [{ t: '2026-07-06T09:50:00Z', bar: 300, kind: 'registered' }] })
-
-  it('«Trupp 2: nicht eingesetzt · Rückgängig» — the undo puts the Trupp back and drops the ↶ entry', () => {
+  it('«Nicht eingesetzt» writes its own row; ↶ puts the Trupp back as it stood', () => {
     ui.toasts.length = 0
     const lines: string[] = []
-    const { actions, state, timeline } = timed(waiting(), (_i, t) => lines.push(t))
-    actions.setTruppStatus('T1', 'raus', undefined, { undoToast: true })
+    const waiting = baseTrupp({ no: 2, status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [{ t: '2026-07-06T09:50:00Z', bar: 300, kind: 'registered' }] })
+    const { actions, state, timeline } = timed(waiting, (_i, t) => lines.push(t))
+    actions.setTruppStatus('T1', 'raus')
     expect(state.trupps[0].status).toBe('raus')
-    expect(ui.toasts.map((t) => t.text)).toEqual([fillTemplate(appConfig.copy.atemschutz.notDeployedToast, { name: '2' })])
     // the row is still «nicht eingesetzt», never «Austritt»
     expect(lines[0]).toBe(fillTemplate(appConfig.copy.atemschutz.logNotDeployed, { name: '2 (Keller Anna)', bar: '' }))
-    ui.toasts[0].undo!()
+    expect(ui.toasts).toEqual([])
+    timeline.undo()
     expect(state.trupps[0].status).toBe('angemeldet')
     expect(state.trupps[0].readings?.some((r) => r.kind === 'exit')).toBe(false)
-    expect(timeline.canUndo()).toBe(false)
-  })
-
-  it('writes no toast without the flag (the Abschluss closes several at once) or for a real Austritt', () => {
-    ui.toasts.length = 0
-    const a = timed(waiting())
-    a.actions.setTruppStatus('T1', 'raus')
-    const b = timed(baseTrupp({}))
-    b.actions.setTruppStatus('T1', 'raus', undefined, { undoToast: true })
-    expect(ui.toasts).toEqual([])
   })
 })
 
@@ -2601,8 +2583,8 @@ describe('useTruppActions — the Atemschutznotfall', () => {
     expect(b.rows[0].text).toBe(`Trupp 2 (Keller Anna / Frei Nina): Notfall ausgelöst – Ort Löschen – 2. OG links · Gebäude · 2. OG, `
       + `letzter Kontakt ${time('2026-07-06T10:14:00Z')}, 180 bar (${time('2026-07-06T10:12:00Z')}), Kanal 11`)
     expect(b.events).toEqual([{ op: 'atemschutz.notfall', payload: { id: 'T1' } }])
-    // the confirm-with-undo toast is the fast door for the mistake noticed at once
-    expect(ui.toasts.map((x) => x.text)).toEqual(['Notfall Trupp 2 ausgelöst'])
+    // no toast (owner pick 28): the ↶ is the way back, the banner what the operator looks at
+    expect(ui.toasts).toEqual([])
   })
 
   it('names the Eingangsdruck when no Druck was ever reported, and leaves out what is not known', () => {
@@ -2626,27 +2608,18 @@ describe('useTruppActions — the Atemschutznotfall', () => {
     expect(b.rows).toHaveLength(1)
   })
 
-  it('a mistaken trigger is cheap to undo and still recorded — the ↶ and the toast write the same counter-row', () => {
-    for (const door of ['timeline', 'toast'] as const) {
-      ui.toasts.length = 0
-      const b = board([inside()])
-      b.act().triggerNotfall('T1')
-      if (door === 'timeline') {
-        expect(b.timeline.peekUndo()?.label).toMatch(/^Trupp 2 \(Keller Anna \/ Frei Nina\): Notfall ausgelöst/)
-        b.timeline.undo()
-      } else {
-        ui.toasts[0].undo!()
-        // the toast took its timeline entry with it: the act is never undoable twice
-        expect(b.timeline.peekUndo()).toBeNull()
-      }
-      const t = b.state.trupps[0]
-      expect(t.notfallAt).toBeUndefined()
-      expect(t.readings ?? []).toEqual([])
-      expect(b.rows.map((r) => r.text)).toEqual([
-        expect.stringMatching(/Notfall ausgelöst/),
-        expect.stringMatching(/^Trupp 2 .*Notfall ausgelöst.* rückgängig gemacht$/),
-      ])
-    }
+  it('a mistaken trigger is cheap to undo on ↶ and still recorded — with its counter-row', () => {
+    const b = board([inside()])
+    b.act().triggerNotfall('T1')
+    expect(b.timeline.peekUndo()?.label).toMatch(/^Trupp 2 \(Keller Anna \/ Frei Nina\): Notfall ausgelöst/)
+    b.timeline.undo()
+    const t = b.state.trupps[0]
+    expect(t.notfallAt).toBeUndefined()
+    expect(t.readings ?? []).toEqual([])
+    expect(b.rows.map((r) => r.text)).toEqual([
+      expect.stringMatching(/Notfall ausgelöst/),
+      expect.stringMatching(/^Trupp 2 .*Notfall ausgelöst.* rückgängig gemacht$/),
+    ])
   })
 
   it('ends it with its own row and reading; the crew stays where it is, and ↶ brings the ORIGINAL clock back', () => {

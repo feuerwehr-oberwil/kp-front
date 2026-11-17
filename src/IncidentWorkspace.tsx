@@ -57,8 +57,7 @@ import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
 import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
-import { toast, confirmDialog, undoToast, type UndoGlyph } from './lib/ui'
-import { connectRemovalToasts, removeWithUndo } from './lib/removalToast'
+import { toast, confirmDialog } from './lib/ui'
 import { usePlacementLane } from './lib/toastLane'
 import { initialMode, loadPrefs, savePrefs, twinLayersIn } from './lib/prefs'
 import { makePhotoPositionSource } from './lib/devicePosition'
@@ -758,9 +757,6 @@ export function IncidentWorkspace({
   /** …from a button, which anchors the caption at itself. Every ↶ ↷ button in the app goes through this. */
   const onHistoryPress = (dir: 'undo' | 'redo') => (e: ReactMouseEvent<HTMLButtonElement>) => pressHistory(dir, e.currentTarget)
   useEffect(() => clearUndoCaption, [])
-  // the delete rule's toasts take back THEIR step through this same ↶ (lib/removalToast)
-  // (re-plugged every render, so the toast's ↶ is always this render's `stepHistory`)
-  useEffect(() => connectRemovalToasts({ peek: () => undoHist.peekUndo(), undo: () => stepHistory('undo') }))
   // ⚠️ The live values the timeline's plan entries read (workspace/usePlanStacks · planStepAt).
   // A step is pressed long after the render that recorded it, so nothing there may close over
   // this render's `board`, `activePlanId` or plan titles (filled in below, with the plan catalog).
@@ -1834,7 +1830,7 @@ export function IncidentWorkspace({
     openKarte: () => setMode('map'),
     // the checklist problems on the Tafel (lib/problemLink); the tick writer is set below
     checklists, writeTicks: (w) => tafelTickWrites.current(w),
-    history: { group: () => undoHist.group('plan'), top: () => undoHist.peekUndo(), undo: () => stepHistory('undo') },
+    history: { group: () => undoHist.group('plan') },
   })
 
   // --- Georeferenz: which plans are tied to the ground, and how — lib/useGeorefFits -------------
@@ -1935,13 +1931,11 @@ export function IncidentWorkspace({
     // the ends that hung on the «E» let go where it stood — one patch per line, both ends in it,
     // applied here and sent as ONE draw.edit (lib/lineAttachments · detachDrawings)
     const released = detachDrawings(drawings.filter((d) => d.id !== drawing.id), (d, endpoint) => (incoming.some((x) => x.id === d.id && x.endpoint === endpoint) ? fallback : null))
-    const write = () => commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => (d.id === drawing.id
+    // the lines that hung on the «E» go loose at once, no toast (the delete rule, lib/removal) —
+    // the same store step brings every end back on ↶
+    commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => (d.id === drawing.id
       ? { ...d, ...endingFlags(ending) }
       : withDetach(d, released))) }))
-    // the lines that hung on the «E» go loose at once, and the toast says how many (the delete
-    // rule, lib/removalToast) — the same store step brings every end back
-    if (incoming.length) removeWithUndo(fillTemplate(appConfig.copy.drawingEditor.endingReleased, { n: incoming.length }), write)
-    else write()
     emit('draw.edit', { id: drawing.id, patch: endingWireFlags(ending) })
     released.forEach((patch, id) => emit('draw.edit', { id, patch: wireFreed(patch) }))
   }
@@ -2609,21 +2603,10 @@ export function IncidentWorkspace({
     rows[dir]()
     histSide.current.emit(`${op}${dir}`)
   }
-  /**
-   * ⚠️ A one-shot's confirm-with-undo toast. Its «Rückgängig» is the SAME act as the header's ↶ —
-   * so it writes the SAME counter-row (staging walk-through, 25.09.2026: a storey restored from
-   * the toast left «Geschoss 3. OG entfernt» standing alone on the printed Einsatzjournal, about a
-   * storey that still existed) — and drops the timeline entry, so the act is never taken back twice.
-   * Guarded by the entry (`drop.standing`): once a merge dropped it, or a ↶ already took it, the
-   * toast declines instead of writing over another device's change. Its own kind (`oneshot`, toast
-   * diet call 2): a closure one-shot is not pushed out by an ordinary undo pill.
-   */
-  const oneShotUndoToast = (text: string, label: string, restore: () => void, drop: Dropper, rows?: OneShotRows | 'silent', opts?: { glyph?: UndoGlyph }) =>
-    undoToast(text, () => { restore(); drop(); oneShotRow('undo', label, rows) }, drop.standing, { kind: 'oneshot', glyph: opts?.glyph })
   // the Gebäude's own acts on the Plan — pick, storeys, Drehung (workspace/useGebaeudeActions)
   const gebaeude = useGebaeudeActions({
     tacticalLocked, building, setBuilding, board, setBoard, objects, objectsRef, boardRef, floorPack: georefFits.floorPack,
-    planBindings, activeObjectId, setActivePlanId, rememberGebaeudeStep, oneShotUndoToast, logPlan, lastReorient,
+    planBindings, activeObjectId, setActivePlanId, rememberGebaeudeStep, logPlan, lastReorient,
   })
 
   /* ── «Spur»: der abgesuchte Bereich überlebt seinen Marker (18.09.2026) ─────────────────────
@@ -2669,8 +2652,8 @@ export function IncidentWorkspace({
     if (tacticalLocked) return
     const e = entities.find((x) => x.id === id)
     if (!e || e.kind !== 'team' || !e.trail?.length) return
-    // no ask (the delete rule, lib/removalToast): the ONE store step brings the marker back with
-    // its trail, and the toast says both went
+    // no ask (the delete rule, lib/removal): the ONE store step brings the marker back with
+    // its trail, and its ↶ caption says both went
     armTrailDrop(id, true)
     // a refused removal (the Karte locked meanwhile) keeps the marker — then the arming has to
     // go, or its next removal would eat the trail
@@ -2684,7 +2667,7 @@ export function IncidentWorkspace({
    * one step – and, where the Trupp behind it still exists, the way BACK first (20.09.2026): the
    * marker returns where the trail ends, under the id it was recorded on, and the reconciliation
    * takes the ghost home with it (lib/truppTrails · ghostRevival). One ask, three answers; the
-   * delete keeps its own wording, and is not red: it is undoable (removeWithUndo), and red on a
+   * delete keeps its own wording, and is not red: it is undoable on ↶, and red on a
    * choice card means «nothing brings it back» (undo.md › One delete rule; duck sweep FEEDBACK.2).
    */
   const deleteGhostTrail = async (id: string) => {
@@ -2728,19 +2711,17 @@ export function IncidentWorkspace({
       }
       if (answer !== 'alt') return
     }
-    // a ghost with nowhere to return to simply goes — the delete rule (lib/removalToast): its
-    // timeline entry brings it back, so the toast says so instead of a confirm asking first
+    // a ghost with nowhere to return to simply goes — the delete rule (lib/removal): its
+    // timeline entry brings it back, so no confirm asks first and no toast says it
     const at = serverNowIso()
     const line = fillTemplate(appConfig.copy.whiteboard.trailCleared, { name })
-    removeWithUndo(line, () => {
-      setTrails((ts) => removeGhostTrail(ts, id, at))
-      // the domain is where the trail was WALKED — a ghost on a sheet is the Plan's act, so the
-      // header's «Rückgängig: …» names the surface the operator is standing on
-      rememberOneShot(g.planId ? 'plan' : 'karte', line,
-        () => setTrails((ts) => restoreGhostTrail(ts, id)),
-        () => setTrails((ts) => removeGhostTrail(ts, id, at)),
-        () => [recordKey('trails', id)])
-    })
+    setTrails((ts) => removeGhostTrail(ts, id, at))
+    // the domain is where the trail was WALKED — a ghost on a sheet is the Plan's act, so the
+    // header's «Rückgängig: …» names the surface the operator is standing on
+    rememberOneShot(g.planId ? 'plan' : 'karte', line,
+      () => setTrails((ts) => restoreGhostTrail(ts, id)),
+      () => setTrails((ts) => removeGhostTrail(ts, id, at)),
+      () => [recordKey('trails', id)])
     log('cross', line)
   }
   // …and what each person's Bemerkung said, for as long as this incident is open here. The record

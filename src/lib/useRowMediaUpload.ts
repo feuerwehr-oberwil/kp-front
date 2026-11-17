@@ -10,7 +10,6 @@ import { prepareUploadImage } from './imagePrep'
 import { forgetLocalThumb, mintLocalThumb } from './mediaUrl'
 import { newId } from './ids'
 import { REPORT_COALESCE_MS } from './reportUndo'
-import { undoToast } from './ui'
 
 interface Args {
   incidentMeta: Pick<IncidentMeta, 'id'>
@@ -173,9 +172,8 @@ export function useRowMediaUpload({
   }, [canWriteRecord, setAttachments, rememberOneShotRef, lastCaptionStepRef])
   const removeAttachment = useCallback((id: string) => {
     if (!canWriteRecord) return
-    // confirm-with-undo, the standing rule for a one-shot that destroys something: the picture
-    // and its Bildlegende come back at the index they stood at, and the toast's «Rückgängig»
-    // drops the timeline entry so the act can never be taken back twice (see the Gebäude pair).
+    // a one-shot on the ↶ timeline: the picture and its Bildlegende come back at the index they
+    // stood at
     const index = attachmentsRef.current.findIndex((a) => a.id === id)
     const row = attachmentsRef.current[index]
     if (!row) return
@@ -185,15 +183,13 @@ export function useRowMediaUpload({
     kept.row = row
     keptAttachments.current.set(id, kept)
     const restore = () => setAttachments((list) => (list.some((a) => a.id === id) ? list : [...list.slice(0, index), kept.row, ...list.slice(index)]))
-    const drop = rememberOneShotRef.current(
+    // the header's ↶ brings it back (no toast, owner pick 28, 17.11.2026)
+    rememberOneShotRef.current(
       'rapport', appConfig.copy.preflight.attachmentRemoved,
       restore, () => setAttachments((list) => list.filter((a) => a.id !== id)),
       () => [recordKey('attachments', id)],
       'silent',
     )
-    // …and the toast's «Rückgängig» owes the audit chain the same `report.undo` the header's ↶
-    // sends (IncidentWorkspace · rememberOneShot) — `report.`, so an `el`'s reaches it too
-    undoToast(appConfig.copy.preflight.attachmentRemoved, () => { restore(); drop(); emit('report.undo') }, drop.standing, { glyph: 'trash' })
   }, [canWriteRecord, setAttachments, emit, rememberOneShotRef])
 
   return { uploadPhotoForRow, uploadMediaForRow, addAttachments, captionAttachment, removeAttachment, swapAttachmentMedia }

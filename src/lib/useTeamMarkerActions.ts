@@ -2,7 +2,6 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
 import { serverNow } from './serverClock'
 import { toast } from './ui'
-import { removeWithUndo } from './removalToast'
 import { pickTeamColor } from './teamColors'
 import { newId } from './ids'
 import { nextTeamName } from './placedTrupps'
@@ -86,12 +85,12 @@ export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedI
   }
   // the recorded positions ARE the Truppverfolgung — one mis-tap must not silently wipe them
   // (field feedback: the ✕ read as "some centre icon that deletes all lines"). Not silently: the
-  // toast says it and takes it back (the delete rule, lib/removalToast) — one store step.
+  // Verlauf row says it and the ↶ takes it back (the delete rule, lib/removal) — one store step.
   const clearTeamTrail = (id: string) => {
     const e = entities.find((x) => x.id === id)
     if (!e || e.kind !== 'team' || !e.trail?.length) return
     const line = fillTemplate(appConfig.copy.whiteboard.trailCleared, { name: e.label ?? '' })
-    removeWithUndo(line, () => commit((d) => ({ ...d, entities: d.entities.map((x) => (x.id === id ? { ...x, trail: [] } : x)) })))
+    commit((d) => ({ ...d, entities: d.entities.map((x) => (x.id === id ? { ...x, trail: [] } : x)) }))
     log('cross', line)
     emit('entity.edit', { id, patch: { trail: 'clear' } })
   }

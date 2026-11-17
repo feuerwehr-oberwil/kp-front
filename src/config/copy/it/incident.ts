@@ -172,8 +172,6 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     watchEnds: 'La chiusura termina la sorveglianza di queste squadre su tutti i dispositivi.',
     confirmBack: 'Indietro',
     endeNow: 'ora {t}',
-    done: 'Intervento chiuso',
-    reopen: 'Riapri',
     mediaPendingTitle: '{n} foto/audio di «{title}» non ancora sincronizzati',
     mediaPendingSub: 'Restano salvati su questo dispositivo e vengono sincronizzati alla prossima apertura.',
     mediaPendingDismiss: 'Nascondi',

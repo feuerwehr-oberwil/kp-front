@@ -773,11 +773,6 @@ export const atemschutzCopy = {
     pressureSheetFirst: 'Erste Druckmeldung – ersetzt den Eingangsdruck {bar} bar, zählt als Kontakt',
     // der Knopf im Kopf der Tafel trägt auch am Handy sein Wort
     newTruppShort: 'Trupp',
-    /* ── Staging-Durchgang 2, 25.09.2026 ── */
-    // jede Entfernung sagt es – mit Rückgängig (bestätigen-mit-Rückgängig, docs/undo.md)
-    removedToast: 'Trupp {name} entfernt',
-    // «Nicht eingesetzt» vom sichtbaren Knopf der Karte – mit Rückgängig (Review 26.09.2026)
-    notDeployedToast: 'Trupp {name}: nicht eingesetzt',
     /* ── Atemschutznotfall (F1, 08.10.2026) ──────────────────────────────────────────────────
      * EIN Trupp in Not, von einer Person gesagt (gehaltenes «Notfall»), nicht aus einer Uhr
      * abgeleitet. Wortlaut bewusst kurz und neutral («Notfall», «Sicherungstrupp einsetzen») –
@@ -840,8 +835,6 @@ export const atemschutzCopy = {
       logSafetyDesignated: 'Trupp {name}: als Sicherungstrupp bestimmt – Notfall Trupp {target}',
       logSafetyWas: 'bisher {auftrag}',
       logAtClose: 'Trupp {name}: Notfall beim Abschluss nicht beendet',
-      // bestätigen-mit-Rückgängig: ein Fehlgriff ist billig zurückzunehmen und bleibt im Verlauf
-      toast: 'Notfall Trupp {name} ausgelöst',
       // Benachrichtigung (Ton, OS, Web-Push)
       notifyTitle: 'Atemschutz-Notfall – {name}',
       notifyBody: 'Notfall seit {time} – Sicherungstrupp einsetzen.',

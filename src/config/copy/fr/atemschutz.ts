@@ -256,8 +256,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logFirstPressureSame: 'Binôme {name} : contact – première pression {bar} bar (comme la pression d’entrée)',
     pressureSheetFirst: 'Première pression – remplace la pression d’entrée {bar} bar, compte comme contact',
     newTruppShort: 'Binôme',
-    removedToast: 'Binôme {name} retiré',
-    notDeployedToast: 'Binôme {name} : pas engagé',
     // Atemschutznotfall (F1, 08.10.2026) — formulation courte et neutre ; voir la base allemande
     notfall: {
       act: 'Urgence',
@@ -303,7 +301,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       logSafetyDesignated: 'Binôme {name} : désigné équipe de sécurité – urgence binôme {target}',
       logSafetyWas: 'auparavant {auftrag}',
       logAtClose: 'Binôme {name} : urgence non terminée à la clôture',
-      toast: 'Urgence déclenchée pour le binôme {name}',
       notifyTitle: 'Urgence ARI – {name}',
       notifyBody: 'Urgence depuis {time} – engager l’équipe de sécurité.',
       noSafetyHint: 'Aucune équipe de sécurité prête',

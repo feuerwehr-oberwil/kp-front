@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TimelineEvent } from '../types'
 import { deriveReminders, isDue, type OpenReminder } from './reminders'
 import { chime, notify } from './alarm'
-import { undoToast } from './ui'
 import type { UndoTimeline } from './undoTimeline'
 
 /** payload App turns into an appended timeline row (keeps all timeline writes in one place) */
@@ -30,13 +29,13 @@ interface Copy {
 export type DoneWords = Pick<Copy, 'doneLog' | 'pendenzDoneLog' | 'reopenLog' | 'pendenzReopenLog'>
 
 /**
- * «Erledigt» with the house confirm-with-undo (decided 23.09.2026, option A of the UX review).
+ * «Erledigt», undoable (decided 23.09.2026, option A of the UX review).
  *
  * Ticking a Pendenz off was the one irreversible tap on the Verlauf: a 26px ring, no ask, and the
  * item left the pinned block for good. Now it is the same act as every other one-shot that makes
- * something disappear — it happens at once, a toast says «Pendenz erledigt: {text} · Rückgängig»,
- * and the act sits on the Einsatz's ONE undo timeline for ↶ as well. Both doors (the ring in the
- * Verlauf, «Erledigt» on the Meldeleiste) come through here.
+ * something disappear — it happens at once and sits on the Einsatz's ONE undo timeline, named
+ * «Pendenz erledigt: {text}» on the ↶ (no toast since owner pick 28, 17.11.2026). Both doors (the
+ * ring in the Verlauf, «Erledigt» on the Meldeleiste) come through here.
  *
  * ⚠️ APPEND-ONLY both ways. The Verlauf never loses a row, so «Rückgängig» is not a removal of the
  * done row but a NEW `reopened` row beside it («Pendenz wieder offen: …»), and ↷ appends a fresh
@@ -45,8 +44,6 @@ export type DoneWords = Pick<Copy, 'doneLog' | 'pendenzDoneLog' | 'reopenLog' | 
  * `false`, the timeline's soft failure — when it already stands where the step would put it: a
  * colleague may have reopened or closed it meanwhile, and a second «wieder offen» row for an item
  * that is open is a record of something that did not happen.
- * ⚠️ The toast's «Rückgängig» does the inverse itself and DROPS the timeline entry, so the act
- * is never undoable twice (docs/undo.md · confirm-with-undo).
  */
 export function completeReminder(r: Pick<OpenReminder, 'id' | 'text' | 'dueAt'>, deps: {
   append: (ev: ReminderEvent) => void
@@ -54,16 +51,13 @@ export function completeReminder(r: Pick<OpenReminder, 'id' | 'text' | 'dueAt'>,
   isOpen: (id: string) => boolean
   copy: Pick<Copy, 'doneLog' | 'pendenzDoneLog' | 'reopenLog' | 'pendenzReopenLog'>
   timeline?: Pick<UndoTimeline, 'push'>
-  /** the toast; `onUndo` is its «Rückgängig» */
-  announce?: (text: string, onUndo: () => void) => void
 }): void {
   flipReminder(r, true, deps)
 }
 
 /**
  * The same act the other way: an «Erledigt» taken back by un-ticking it (the Tafel's «Aufträge /
- * Pendenzen» page, 05.11.2026). A `reopened` row with confirm-with-undo; ↶ / «Rückgängig» append
- * a fresh `done` row. Does nothing when the item is already open.
+ * Pendenzen» page, 05.11.2026). A `reopened` row; ↶ appends a fresh `done` row. Does nothing when the item is already open.
  */
 export function reopenReminder(r: Pick<OpenReminder, 'id' | 'text' | 'dueAt'>, deps: Parameters<typeof completeReminder>[1]): void {
   flipReminder(r, false, deps)
@@ -71,7 +65,7 @@ export function reopenReminder(r: Pick<OpenReminder, 'id' | 'text' | 'dueAt'>, d
 
 /** `close`: tick off (done row) or take back (reopened row) — each the other's inverse. */
 function flipReminder(r: Pick<OpenReminder, 'id' | 'text' | 'dueAt'>, close: boolean, deps: Parameters<typeof completeReminder>[1]): void {
-  const { append, isOpen, copy, timeline, announce } = deps
+  const { append, isOpen, copy, timeline } = deps
   // ⚠️ Two wordings, picked off the item itself: an undatierte Pendenz never called itself an
   // Erinnerung, so «Erinnerung erledigt: Absperrmaterial» would name a thing that never existed.
   const doneText = (r.dueAt ? copy.doneLog : copy.pendenzDoneLog).replace('{text}', r.text)
@@ -94,8 +88,7 @@ function flipReminder(r: Pick<OpenReminder, 'id' | 'text' | 'dueAt'>, close: boo
   if (!act()) return
   // ⚠️ `touches: []` — both directions APPEND a Verlauf row and write nothing of the workspace, so
   // no workspace merge can invalidate them; each checks the item's live state itself (isOpen)
-  const drop = timeline?.push({ domain: 'pendenz', label, touches: () => [], undo: back, redo: act }) ?? (() => {})
-  announce?.(label, () => { if (back()) drop() })
+  timeline?.push({ domain: 'pendenz', label, touches: () => [], undo: back, redo: act })
 }
 
 /** Same ids in the same order — the due set is derived from an ordered `open`, so order is stable. */
@@ -136,7 +129,7 @@ export function useReminders(
   const onDue = useCallback((ids: readonly string[]) => setDueIds((prev) => (sameIds(prev, ids) ? prev : ids)), [])
   const due = useMemo(() => open.filter((r) => dueIds.includes(r.id)), [open, dueIds])
 
-  // confirm-with-undo — see completeReminder above
+  // undoable on ↶ — see completeReminder above
   const { doneLog, pendenzDoneLog, reopenLog, pendenzReopenLog } = copy
   /** tick off (`done`) or take back an item, in the given words (the Tafel page says where it
    *  happened — «Erledigt auf der Tafel: …») or the Verlauf's own */
@@ -146,8 +139,6 @@ export function useReminders(
       isOpen: (id) => openRef.current.some((o) => o.id === id),
       copy: words ?? { doneLog, pendenzDoneLog, reopenLog, pendenzReopenLog },
       timeline: undo,
-      // on ↶ too, so the default undo kind: ticking five Pendenzen is one pill, not five
-      announce: (text, onUndo) => undoToast(text, onUndo, undefined, { glyph: done ? 'check' : 'undo' }),
     })
   }, [doneLog, pendenzDoneLog, reopenLog, pendenzReopenLog, undo])
   const markDone = useCallback((r: OpenReminder) => setDone(r, true), [setDone])

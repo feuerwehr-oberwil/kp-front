@@ -444,11 +444,10 @@ export function PageMarks({ p, top }: { p: BoardPresentation; top: number }) {
   )
 }
 
-/** «Präsentieren» under the read link in «Einsatz teilen», and alone in the Einsatz menu's own
- *  «Präsentieren» sheet (F15, 17.11.2026 – `bare`: the sheet's title already says the word, so the
- *  card drops its glyph and title). Absent outside an Einsatz (the Rapport's inline
- *  «Weitergeben») and for a session that may not present. */
-export function PresentCard({ bare = false }: { bare?: boolean }) {
+/** «Präsentieren» under the read link in «Einsatz teilen» (the Einsatz menu's own «Präsentieren»
+ *  runs this card's start directly, owner pick 29, 17.11.2026). Absent outside an Einsatz (the
+ *  Rapport's inline «Weitergeben») and for a session that may not present. */
+export function PresentCard() {
   const p = useContext(PresentationContext)
   const C = appConfig.copy.presentation
   if (!p) return null
@@ -460,8 +459,8 @@ export function PresentCard({ bare = false }: { bare?: boolean }) {
   return (
     <div className="present-card">
       <div className="present-card-head">
-        {!bare && <span className="present-card-glyph" aria-hidden><Icon id="present" /></span>}
-        {!bare && <b className="present-card-title">{C.title}</b>}
+        <span className="present-card-glyph" aria-hidden><Icon id="present" /></span>
+        <b className="present-card-title">{C.title}</b>
         {mine
           ? <button type="button" className="ip-btn" onClick={() => void p.end()}><Icon id="stop" />{C.end}</button>
           : p.canStart && (

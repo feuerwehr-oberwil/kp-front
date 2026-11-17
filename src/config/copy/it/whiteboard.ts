@@ -157,8 +157,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       reset: 'Rimuovi',
       resetTitle: 'Rimuovere il collegamento?',
       resetBody: 'Il collegamento tra questo piano e la mappa viene rimosso. I punti dovranno essere impostati di nuovo.',
-      resetDone: 'Collegamento rimosso',
-      pointsCleared: 'Punti reimpostati',
       clearPoints: 'Reimposta',
       clearTitle: 'Reimpostare tutti i punti?',
       clearBody: 'I punti impostati vengono rimossi e con essi il collegamento tra questo piano e la mappa. Si ricomincia da capo.',

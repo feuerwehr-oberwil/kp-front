@@ -75,7 +75,6 @@ import { dismissRelayBubble } from '../lib/useRelay'
 import { LABEL_ABOVE, measureLabelPlacement } from '../lib/measureLabelPlace'
 import { ARROW_BOX, ARROW_STOP_BAR, arrowHeadPoints } from '../lib/mapImages'
 import { attachInsetPx, lineJoints, boundaryPoint, DETACH_SHOW_PROGRESS, dwellFor, forkPortPoint, gpsGuard, moveLineBody, relationshipNetwork, resolveLinePoints, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
-import { removeWithUndo } from '../lib/removalToast'
 import { toast } from '../lib/ui'
 import { locateFailedText } from '../lib/permissionPath'
 
@@ -2090,7 +2089,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
           <Marker key={`detach-${ep}`} longitude={pt[0]} latitude={pt[1]} anchor="center" offset={[18, -18]} style={handleZ}>
             <span className="line-detach-chip" role="button" title={appConfig.copy.drawingEditor.detachConnection} aria-label={appConfig.copy.drawingEditor.detachConnection}
               onPointerDown={(ev) => ev.stopPropagation()}
-              onClick={(ev) => { ev.stopPropagation(); removeWithUndo(appConfig.copy.removedToast.connectionFreed, () => onDrawingAttachment(editDraw.id, ep, undefined, detachAt())) }}><Icon id="close" /></span>
+              onClick={(ev) => { ev.stopPropagation(); onDrawingAttachment(editDraw.id, ep, undefined, detachAt()) }}><Icon id="close" /></span>
           </Marker>
         )
       })}

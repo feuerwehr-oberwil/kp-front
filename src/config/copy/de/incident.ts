@@ -249,10 +249,6 @@ export const incidentCopy = {
     confirmBack: 'Zurück',
     // the pre-filled Einsatzende row: «Einsatzende · jetzt 23:41», written with the close
     endeNow: 'jetzt {t}',
-    done: 'Einsatz abgeschlossen',
-    // «Wieder öffnen» on the success toast, 10 s (3am sweep, 23.10.2026): the same reopen as
-    // «Alle Einsätze», without its confirm – the toast IS the confirm-with-undo
-    reopen: 'Wieder öffnen',
     // what an Abschluss left in the media queue stands in the Meldeleiste while it is there — it
     // was the closing toast's second half (S3, 20.10.2026; components/MediaPendingMeldung)
     mediaPendingTitle: '{n} Foto/Audio von «{title}» noch nicht synchronisiert',

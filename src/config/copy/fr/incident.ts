@@ -172,8 +172,6 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     watchEnds: 'La clôture met fin à la surveillance de ces binômes sur tous les appareils.',
     confirmBack: 'Retour',
     endeNow: 'maintenant {t}',
-    done: 'Intervention clôturée',
-    reopen: 'Rouvrir',
     mediaPendingTitle: '{n} photo/audio de « {title} » pas encore synchronisés',
     mediaPendingSub: 'Restent enregistrés sur cet appareil et seront synchronisés à la prochaine ouverture.',
     mediaPendingDismiss: 'Masquer',

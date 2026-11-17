@@ -7,7 +7,6 @@ vi.mock('./ui', () => ({ toast: vi.fn(), undoToast: vi.fn() }))
 vi.mock('./mediaUrl', () => ({ forgetLocalThumb: vi.fn(), mintLocalThumb: async () => {} }))
 vi.mock('./imagePrep', () => ({ prepareUploadImage: async (blob: Blob) => blob }))
 import { undoToast } from './ui'
-import { eventScopeFor } from './eventScope'
 import { useRowMediaUpload } from './useRowMediaUpload'
 import type { ReportAttachment } from '../types'
 
@@ -77,11 +76,11 @@ describe('useRowMediaUpload · Beilagen', () => {
   })
 
   it('removing a pending attachment still undoes to its uploaded URL', () => {
-    const { hook } = setup([{ ...row, url: 'blob:pending', caption: 'Kitchen' }])
+    const { hook, pushed } = setup([{ ...row, url: 'blob:pending', caption: 'Kitchen' }])
     act(() => hook.result.current.removeAttachment('a1'))
     act(() => hook.result.current.swapAttachmentMedia('a1', '/api/media/uploaded'))
     expect(hook.result.current.attachments).toEqual([])
-    act(() => vi.mocked(undoToast).mock.calls[0][1]())
+    act(() => pushed[0].restore())
     expect(hook.result.current.attachments[0]).toMatchObject({ url: '/api/media/uploaded', caption: 'Kitchen' })
   })
 
@@ -97,24 +96,14 @@ describe('useRowMediaUpload · Beilagen', () => {
     expect(hook.result.current.attachments[0].caption).toBe('Alt')
   })
 
-  it('remove is confirm-with-undo: the toast restores at the same index and drops the timeline entry', () => {
+  // owner pick 28 (17.11.2026): the removal is one ↶ step, and no toast doubles it
+  it('remove is one ↶ step that restores at the same index, with no toast', () => {
     const { hook, pushed } = setup([row, { ...row, id: 'a2' }, { ...row, id: 'a3' }])
     act(() => hook.result.current.removeAttachment('a2'))
     expect(hook.result.current.attachments.map((a) => a.id)).toEqual(['a1', 'a3'])
     expect(pushed).toHaveLength(1)
-    const undo = vi.mocked(undoToast).mock.calls[0][1]
-    act(() => undo())
+    expect(undoToast).not.toHaveBeenCalled()
+    act(() => pushed[0].restore())
     expect(hook.result.current.attachments.map((a) => a.id)).toEqual(['a1', 'a2', 'a3'])
-    expect(pushed[0].drop).toHaveBeenCalledTimes(1)
-  })
-
-  // the toast's «Rückgängig» reaches the audit chain in the record vocabulary — a bare `undo`
-  // was dropped by the `el`'s event scope, so an Einsatzleiter's taking-back left no trace
-  it('the toast\'s «Rückgängig» audits as report.undo, which an el may append', () => {
-    const { hook, emit } = setup([row])
-    act(() => hook.result.current.removeAttachment('a1'))
-    act(() => vi.mocked(undoToast).mock.calls[0][1]())
-    expect(emit).toHaveBeenLastCalledWith('report.undo')
-    expect(eventScopeFor({ role: 'el' })('report.undo')).toBe(true)
   })
 })

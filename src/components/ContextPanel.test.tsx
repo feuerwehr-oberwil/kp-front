@@ -1018,24 +1018,15 @@ describe('ContextPanel — «Gelöscht / erledigt»', () => {
   })
 })
 
-// duck sweep FEEDBACK.3 (17.11.2026): the free field's ✕ removed a row with no word
+// owner pick 28 (17.11.2026): the free field's ✕ is one ↶ step (the fields write), so no toast doubles it
 describe('ContextPanel – removing a free field', () => {
-  it('says «… entfernt · Rückgängig» and its button steps the ↶ back', async () => {
-    const { connectRemovalToasts } = await import('../lib/removalToast')
+  it('writes the fields without the row, and raises no toast', async () => {
     const { Overlays } = await import('../lib/ui')
-    const step = { label: 'Feld' } as unknown as import('../lib/undoTimeline').UndoEntry
-    let top: typeof step | null = null
-    const undo = vi.fn(() => { top = null })
-    const unplug = connectRemovalToasts({ peek: () => top, undo })
     render(<Overlays />)
-    const onFields = vi.fn(() => { top = step })
+    const onFields = vi.fn()
     setup({ entity: { id: 's1', symbol: 'VKF Feuer', label: 'Brand', fields: { Funk: 'K2' } }, onFields })
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.contextPanel.removeField }))
     expect(onFields).toHaveBeenCalledTimes(1)
-    const text = fillTemplate(appConfig.copy.removedToast.named, { what: 'Funk' })
-    expect(screen.getByText(text)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.undo }))
-    expect(undo).toHaveBeenCalledTimes(1)
-    unplug()
+    expect(document.querySelector('.toast')).toBeNull()
   })
 })

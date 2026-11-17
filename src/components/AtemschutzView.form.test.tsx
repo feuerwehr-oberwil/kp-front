@@ -177,7 +177,7 @@ describe('«Entfernen» on a never-deployed Trupp offers «nicht eingesetzt» fi
     openRemove()
     const dialog = await screen.findByRole('alertdialog')
     fireEvent.click(within(dialog).getByRole('button', { name: az.actNotDeployed }))
-    await waitFor(() => expect(setTruppStatus).toHaveBeenCalledWith('tr1', 'raus', undefined, { undoToast: true }))
+    await waitFor(() => expect(setTruppStatus).toHaveBeenCalledWith('tr1', 'raus'))
     expect(deleteTrupp).not.toHaveBeenCalled()
   })
 

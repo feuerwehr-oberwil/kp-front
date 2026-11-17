@@ -424,13 +424,8 @@
 /* ⚠️ ONE size for every button of this head, and it is the app's --tap (30.10.2026, owner: «increase
    the size of the touch targets/buttons to match the size we have otherwise»). It was 36 to the eye
    over a 44 pad – the ✕'s house size (13-incident.css · «ONE size for the ✕») – so the Verlauf read
-   smaller than every surface of 44px buttons around it. ▶, ✕ and the list row's «Art» are all 44 now.
-   ▶ is THE button's framed secondary (<Button>, `.ip-btn`, 44px) — placement only here. It was the
-   filled primary until the hill climb (r2, 04.11.2026): playing back the past became the
-   strongest thing in a view whose job is what is still open. */
-.journal-replay { margin-left: auto; flex: none; }
-/* with the replay button taking the auto margin, the × just trails it */
-.journal-replay + .journal-x { margin-left: 0; }
+   smaller than every surface of 44px buttons around it. ✕, the list row's «Art» and ▶ at the ruler
+   are all 44 now. The head holds the title with its count and ✕ – nothing else (picks 25 B, 30). */
 /* `flex: none` at every width: the ✕ is the house 36px everywhere, and a squeezed target is the one
    thing a head cannot lose (measured 24.09.2026; the tablet drawer squeezed it to 24px while four
    worded tiles stood beside the title, 17.11.2026) */
@@ -497,22 +492,25 @@
    timeline strip stands otherwise (it is hidden while a filter is on, as during a search) –
    placement only */
 .jr-filter-strip { padding: 0 4px 8px; }
-/* ⚠️ On a phone ▶ is not in the head (owner pick M8 · C, 17.11.2026, kept by decision 27): a bare
-   glyph one button left of ✕ put the running Einsatz into the past on a stray tap. It stands at the
-   ruler's left end (Journal.tsx · `phoneReplay`), a bare 44px glyph, and the strip keeps the rest of
-   the row. Tablet and laptop keep «▶ Wiedergabe» framed in the head (its name stays «Wiedergabe
-   starten»). The phone head is title + ✕ (pick 25 B with 27): it fits 390 whole, so the squeeze it
-   needed while ⓘ «Legende», «Suchen» and «Art» stood in it is gone, and the title keeps its glyph. */
+/* ⚠️ ▶ is not in the head, on any device (owner pick M8 · C on the phone, 30 everywhere, 17.11.2026):
+   one button left of ✕ it put the running Einsatz into the past on a stray tap. It stands at the
+   ruler's left end (Journal.tsx · `.jr-strip-row`), and the strip keeps the rest of the row. Its
+   name stays «Wiedergabe starten». Bare like every tile at rest (colour grammar, pick 22): no
+   frame, no fill, the press tint. The tablet's row has the room for its word – «▶ Wiedergabe» in
+   the worded tile's ink and type (SurfaceControls · `.word`); the phone keeps the bare 44px glyph. */
+.jr-strip-row { display: flex; align-items: center; gap: var(--sp-2); flex: none; margin: 0 var(--sp-1) var(--sp-2); }
+.jr-strip-row > .jr-strip { flex: 1; min-width: 0; margin: 0; }
+.jr-strip-replay { flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); height: var(--tap); padding: 0 var(--sp-3);
+  border: none; border-radius: var(--r-sm); cursor: pointer; background: none;
+  color: var(--ink); font: var(--fw-bold) var(--fs-2) var(--body); white-space: nowrap; }
+.jr-strip-replay:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.jr-strip-replay:focus-visible { background: var(--ink-8); }
+.jr-strip-replay .i { width: 18px; height: 18px; flex: none; }
 @media (--phone) {
-  .jr-strip-row { display: flex; align-items: center; gap: var(--sp-1); flex: none;
-    margin: 0 calc(-1 * var(--sp-1)) var(--sp-2); }
-  .jr-strip-row > .jr-strip { flex: 1; min-width: 0; margin: 0; }
-  /* bare like every tile at rest (colour grammar, pick 22): the ✕'s ink, no fill, the press tint */
-  .jr-strip-replay { flex: none; width: var(--tap); height: var(--tap); border: none; border-radius: var(--r-sm);
-    display: grid; place-items: center; cursor: pointer; background: none; color: var(--ink-dim); }
-  .jr-strip-replay:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-  .jr-strip-replay:focus-visible { background: var(--ink-8); }
-  .jr-strip-replay .i { width: 18px; height: 18px; }
+  /* the phone: the bare glyph, the ✕'s ink, and the row reaches the drawer's edge like the strip
+     did (15-mobile · `.journal-drawer > .jr-strip`) */
+  .jr-strip-row { gap: var(--sp-1); margin: 0 calc(-1 * var(--sp-1)) var(--sp-2); }
+  .jr-strip-replay { width: var(--tap); padding: 0; justify-content: center; color: var(--ink-dim); }
   /* …and the trailing group closes up, so the sentence keeps its share on the rows that carry
      more than one control (a photo row's thumbnails, an audio row's jump and play). */
   .jr-trail { gap: var(--sp-2); }

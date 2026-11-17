@@ -358,11 +358,10 @@ describe('the Abschluss options explain themselves', () => {
     expect(teil.getAttribute('data-holdexplain')).not.toBeNull()
     // ⚠️ no `title`, or the native tooltip arrives a second later and says it twice
     expect(teil.getAttribute('title')).toBeNull()
-    // …and it says what the thing MEANS, its name first (audit B2); the consequence lives in
-    // `endingReleased`, the toast at the moment a Teilstück actually lets its lines go
+    // …and it says what the thing MEANS, its name first (audit B2); the lines a Teilstück lets go
+    // show it on the picture (no toast since owner pick 28, 17.11.2026 – ↶ takes it back)
     expect(C.endingTeilstueckWhat).toMatch(/^Teilstück – .*teilt sich/)
     expect(C.endingArrowStopWhat).toMatch(/Entwicklungsgrenze/)
-    expect(C.endingReleased).toMatch(/gelöst/)
 
     // the Strichart pictures answer the same way — «welche Seite zeigen die Zähne»
     const teeth = screen.getByRole('button', { name: C.lineHalteliniUp })

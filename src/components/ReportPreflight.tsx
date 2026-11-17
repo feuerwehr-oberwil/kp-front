@@ -33,7 +33,6 @@ import { ShareIncident } from './panels/ShareIncident'
 import { cancelPrint, editorPrintTransport, enqueuePrint, fetchJobStatus, fetchPrintStatus, prewarmPrint, type PrintJobStatus, type PrintRelayStatus } from '../lib/printRelay'
 import { trackPrintJob } from '../lib/printJobToast'
 import { appConfig } from '../config/appConfig'
-import { removeWithUndo } from '../lib/removalToast'
 import { fieldWhen, fillTemplate, fmtSpanShort, hhmm, stripUnprintable, telHref, unitLabel } from '../lib/format'
 import { closeTimeOf, getIncident, type IncidentMeta } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
@@ -2362,8 +2361,8 @@ export function ReportPreflight({
                             <button
                               type="button" className="report-att-x" aria-label={appConfig.copy.delete}
                               title={appConfig.copy.delete}
-                              // the delete rule (lib/removalToast): the row is its own ↶ step, the toast takes it back
-                              onClick={() => removeWithUndo(fillTemplate(appConfig.copy.removedToast.named, { what: r.org || P.partnerOrgShort }), () => savePartners(partners.filter((_, j) => j !== r.i)))}
+                              // the delete rule (lib/removal): the row is its own ↶ step, no toast
+                              onClick={() => savePartners(partners.filter((_, j) => j !== r.i))}
                             ><Icon id="trash" /></button>
                           )}
                         </div>

@@ -6,7 +6,7 @@ import { drawingEditChanges, drawingLogName, pumpWarningRows, wirePerson } from 
 import type { Doc } from './workspace'
 import type { Drawing, LineAttachment, LineEndpoint, LngLat, MapTool, TimelineEvent } from '../types'
 import { toast } from './ui'
-import { removedText, removeWithUndo } from './removalToast'
+import { removedText } from './removal'
 import { fillTemplate } from './format'
 import { newId } from './ids'
 import { canDropVertex, insertAt, minPoints, removeVertex } from './vertexOps'
@@ -415,9 +415,9 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     emit('draw.edit', { id, patch: wallRoleWire(patch) })
     commit((d) => ({ ...d, drawings: d.drawings.map((x) => (x.id === id ? { ...x, ...patch } : x)) }))
   }
-  /** «Entfernen» on a Linie / Fläche / Absperrkreis — at once, with the toast «… entfernt,
-   *  n Leitungen gelöst · Rückgängig» (the delete rule, lib/removalToast): the ONE store step
-   *  brings the drawing back with every Leitung end that hung on it. */
+  /** «Entfernen» on a Linie / Fläche / Absperrkreis — at once, no toast (the delete rule,
+   *  lib/removal): the ONE store step, named «… entfernt, n Leitungen gelöst» on the ↶, brings
+   *  the drawing back with every Leitung end that hung on it. */
   const deleteDrawing = (id: string) => {
     if (tacticalLocked) return
     const target = drawings.find((d) => d.id === id)
@@ -428,9 +428,8 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     // named like its creation row («Fläche gezeichnet» → «Fläche entfernt»), not the bare kind-blind
     // «Zeichnung entfernt» the record used to close on
     const row = target ? fillTemplate(appConfig.copy.log.objectDeleted, { name: drawingLogName(target) }) : appConfig.copy.log.drawingDeleted
-    const text = removedText(row, released.size)
-    if (stepLabelRef) stepLabelRef.current = text
-    removeWithUndo(text, () => commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== id).map((dr) => withDetach(dr, released)) })))
+    if (stepLabelRef) stepLabelRef.current = removedText(row, released.size)
+    commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== id).map((dr) => withDetach(dr, released)) }))
     emit('draw.delete', { id })
     released.forEach((patch, lineId) => emit('draw.edit', { id: lineId, patch: wireFreed(patch) }))
     if (selectedDrawingId === id) setSelectedDrawingId(null)

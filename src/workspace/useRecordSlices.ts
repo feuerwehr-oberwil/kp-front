@@ -197,7 +197,7 @@ export function useRecordSlices({
   const setBandsUndoable: Dispatch<SetStateAction<ShiftBand[]>> = (u) =>
     zeitplanWrite((cur) => ({ ...cur, bands: typeof u === 'function' ? u(cur.bands) : u }))
   // Schichtenplanung — a PLAN over the same Mannschaft; it never writes the attendance record
-  const { addShift, addShiftSpan, replaceShift, setShiftTime, removeShift } = useShiftActions({ shifts, setShifts: setShiftsUndoable, startedAt: incidentMeta.started_at })
+  const { addShift, addShiftSpan, replaceShift, setShiftTime, removeShift } = useShiftActions({ setShifts: setShiftsUndoable, startedAt: incidentMeta.started_at })
   // …and the Schichten reading of it: the same shifts, grouped into named windows. Creating a band
   // writes no shift, deleting one deletes no shift — see useBandActions.
   const bandActions = useBandActions({ bands, setBands: setBandsUndoable, shifts, setShifts: setShiftsUndoable })

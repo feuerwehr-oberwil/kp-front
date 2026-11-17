@@ -400,17 +400,15 @@ taken back. Two causes, both closed:
   «Symbol «Feuer» gesetzt» stood on paper next to a Kroki that showed no fire. The journal is
   append-only, so both rows print, in order.
 - **Every undo that RESTORES something writes its counter-row, whichever door it came through.**
-  A confirm-with-undo toast is the same act as the header's ↶ (`IncidentWorkspace ·
-  oneShotUndoToast`): it writes the same row the timeline would, then drops the timeline entry.
+  A one-shot's ↶ writes its own row (`IncidentWorkspace · rememberOneShot`'s `rows`); the
+  confirm-with-undo toasts that doubled it went with owner pick 28 (17.11.2026).
   - Gebäude storey removed: «Geschoss 3. OG entfernt» (with the markings it took, if any) →
-    «Geschoss 3. OG wiederhergestellt» from the toast or ↶ (`whiteboard.floorRestoredLog`), and
+    «Geschoss 3. OG wiederhergestellt» from ↶ (`whiteboard.floorRestoredLog`), and
     ↷ writes «entfernt» again.
-  - Storey added, Gebäude replaced: the toast writes the same «… rückgängig gemacht» the ↶
-    writes (it wrote nothing).
-  - A Trupp undocked from its host: the toast's re-dock writes «{name} bei «{host}»».
-  - An Anwesenheit row cleared: the toast writes «Anwesenheit wiederhergestellt: {name}».
-  Toasts that undo an act which wrote no row (a shift, a Rapport-Beilage, an attendance block)
-  still write none: there is nothing on the record for them to answer.
+  - Storey added, Gebäude replaced, a Trupp undocked, an Anwesenheit row cleared: the ↶ writes
+    its «… rückgängig gemacht» row.
+  An undo of an act which wrote no row (a shift, a Rapport-Beilage, an attendance block) still
+  writes none: there is nothing on the record for it to answer.
 - ⚠️ **The rule, stated once (final walk-through, 2026-09-26, D6): a counter-row exists only
   beside the row it counters.** Writing side: a one-shot whose act wrote no row takes its ↶ / ↷
   silently (`rememberOneShot(…, 'silent')`) – an Ansicht saved, renamed or deleted, the Gebäude

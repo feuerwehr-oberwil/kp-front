@@ -91,8 +91,9 @@ export function IncidentSwitcher({
   /** «Anmelden» for a view-link guest whose browser holds no login (C8, 17.11.2026) – to the bare
    *  site's sign-in. Never together with `onLogout`. */
   onLogin?: () => void
-  /** «Präsentieren» – the card's fourth act, beside «Teilen» (F15, 17.11.2026): the second door
-   *  to the share sheet's «Präsentieren» card; editors only, like that card (`canShareLink`) */
+  /** «Präsentieren» – the card's fourth act, beside «Teilen» (F15, 17.11.2026): starts the
+   *  presentation at once (owner pick 29) and closes the menu; editors only, like the share
+   *  sheet's «Präsentieren» card (`canShareLink`) */
   onPresent?: () => void
   /** the alarms waiting to be opened – listed here as on home, a row's tap takes it (AppMenuRows) */
   alarms?: AppMenuAlarms
@@ -456,7 +457,7 @@ export function IncidentSwitcher({
                   stop reading as one set of choices. The label is its own <span> (the badge is
                   the tile's other child) — see .ip-card-acts, which carries the measured widths.
                   Order is Ändern (`editMetaShort`) · Teilen · Präsentieren · Abschliessen (F15, 17.11.2026:
-                  «Präsentieren» beside «Teilen», whose card it opens alone – four acts break
+                  «Präsentieren» beside «Teilen», whose card's start it runs at once – four acts break
                   2 × 2 on a phone, two pairs still read as one set). Abschliessen goes LAST because it
                   is the one that ends the Einsatz; a terminal action sitting between two
                   everyday ones is a mis-tap waiting for a gloved thumb.
@@ -482,7 +483,7 @@ export function IncidentSwitcher({
                     </button>
                   )}
                   {onPresent && (
-                    <button className="ip-card-act head-tile sm" onClick={onPresent}>
+                    <button className="ip-card-act head-tile sm" onClick={() => { setOpen(false); onPresent() }}>
                       <Icon id="present" /><span>{appConfig.copy.presentation.title}</span>
                     </button>
                   )}

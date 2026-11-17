@@ -22,6 +22,8 @@ function makeDeps(entities: Entity[], drawings: Drawing[]) {
     commit: vi.fn((u: (d: Doc) => Doc) => { doc = u(doc) }),
     emit: vi.fn(),
     log: vi.fn(),
+    // the ↶ caption a removal lays (the delete rule names its step there, never in a toast)
+    stepLabelRef: { current: null as string | null },
   } satisfies Partial<UseMapActionsInputs>
   const deps = new Proxy(given, {
     get: (t, k) => (k in t ? t[k as keyof typeof t] : (k === 'then' ? undefined : vi.fn())),
@@ -77,7 +79,8 @@ describe('delete — replay clears the freed ends\' attachments', () => {
 
 // Owner 14.11.2026: a symbol that Leitungen hang on asks first – «TLF hat 2 Leitungen» ·
 // [Nur Symbol] [Mit Leitungen] [Abbrechen]; either answer is ONE commit (one ↶ step that gives
-// back everything), and a symbol with nothing joined goes without a card.
+// back everything, named on the ↶ – no toast, owner pick 28), and a symbol with nothing joined
+// goes without a card.
 describe('delete — the joined-lines card', () => {
   const tlf = (): Entity => ({ ...ent('a', [1, 1]), label: 'TLF' })
   const hoses = () => [
@@ -111,10 +114,11 @@ describe('delete — the joined-lines card', () => {
     expect(given.commit).toHaveBeenCalledTimes(1)
     expect(live().drawings.map((d) => d.id)).toEqual(['h1', 'h2', 'free'])
     expect(live().drawings[0].startAttachment).toBeUndefined()
-    expect(ui.toast).toHaveBeenCalledWith('TLF entfernt, 2 Leitungen gelöst', expect.anything())
+    expect(given.stepLabelRef.current).toBe('TLF entfernt, 2 Leitungen gelöst')
+    expect(ui.toast).not.toHaveBeenCalled()
   })
 
-  it('«Mit Leitungen»: the symbol and every line on it go in one commit, and the toast says so', async () => {
+  it('«Mit Leitungen»: the symbol and every line on it go in one commit, and the ↶ says so', async () => {
     const ui = await answer('alt')
     const { deps, given, live } = makeDeps([tlf(), ent('b', [3, 3])], hoses())
     const { result } = renderHook(() => useMapActions(deps))
@@ -124,7 +128,8 @@ describe('delete — the joined-lines card', () => {
     expect(given.commit).toHaveBeenCalledTimes(1)
     expect(live().entities.map((e) => e.id)).toEqual(['b'])
     expect(live().drawings.map((d) => d.id)).toEqual(['free'])
-    expect(ui.toast).toHaveBeenCalledWith('TLF und 2 Leitungen entfernt', expect.anything())
+    expect(given.stepLabelRef.current).toBe('TLF und 2 Leitungen entfernt')
+    expect(ui.toast).not.toHaveBeenCalled()
     expect(given.emit.mock.calls.filter(([op]) => op === 'draw.delete').map(([, p]) => p.id)).toEqual(['h1', 'h2'])
   })
 
@@ -148,6 +153,7 @@ describe('delete — the joined-lines card', () => {
     expect(vi.mocked(ui.confirmDialog).mock.calls[0][0]).toMatchObject({ title: 'Auswahl hat 2 Leitungen', confirmLabel: 'Nur Auswahl' })
     expect(given.commit).toHaveBeenCalledTimes(1)
     expect(live()).toMatchObject({ entities: [], drawings: [] })
-    expect(ui.toast).toHaveBeenCalledWith('3 Objekte und 2 Leitungen entfernt', expect.anything())
+    expect(given.stepLabelRef.current).toBe('3 Objekte und 2 Leitungen entfernt')
+    expect(ui.toast).not.toHaveBeenCalled()
   })
 })

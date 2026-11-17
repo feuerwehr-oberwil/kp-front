@@ -23,7 +23,7 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   which replaced the A6 tap-away auto-commit), «mit verbundenen Leitungen entfernen» (`lineAttachments · detachEnds`; the Lage sends
   it as ONE `draw.edit` per line, both ends in it – `detachDrawings` – so replay keeps both ends moved;
   since 14.11.2026 the «TLF hat 2 Leitungen» card asks «Nur Symbol» or «Mit Leitungen» first,
-  `removalToast · askJoinedLines`, docs/undo.md › One delete rule),
+  `removal · askJoinedLines`, docs/undo.md › One delete rule),
   ⌘D (`lib/duplicate`), and the armed tool + per-team trails + note-panel closing rules
   (`useTacticalSelection · usePlacement`, `lib/useHiddenTrails`, `lib/useNotePanelClosing`).
 - **A line's end mark stays on top while it is edited** (round 14.11.2026 #8, owner: «the -> isn't

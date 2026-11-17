@@ -130,6 +130,9 @@ unchanged.
   ↶ over «Rückgängig», the Verlauf glyph over «Verlauf», «Standort» under its glyph in the row under
   the bar (TopBar · `data-tiles`, 10-journal · «the fold») – the tablet bar's fold, worn from the
   start. «Verlauf» was a bare glyph on every phone and ↶ ↷ had no word on any device.
+- *The Verlauf's ▶ is the bare glyph at the ruler's left end* (owner pick M8 · C; the tablet
+  followed with its word, pick 30, 17.11.2026 – [`ui-conventions.md`](ui-conventions.md) · «The
+  Verlauf's head»): the phone head is the title with the count and ✕ alone, and fits 390 whole.
 
 ## Page heads and pages
 

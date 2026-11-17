@@ -144,11 +144,12 @@ export const UNDO_KIND = 'undo'
  * This is the pattern the app uses INSTEAD of asking «wirklich?» before a reversible edit — the
  * operator is at an Einsatz and a modal in the way of a tick costs more than the mistake does.
  * That trade only holds while every one of them looks and behaves the same, so the label, the
- * guard and the glyph set are decided here, once. ⚠️ An undo that doubles a ↶ timeline entry must
- * drop that entry (or step the ↶ itself, `removeWithUndo`), so an act is never undoable twice.
+ * guard and the glyph set are decided here, once. ⚠️ Only for an act the top bar's ↶ cannot reach
+ * (owner pick 28, 17.11.2026): an act on the ↶ timeline raises no toast at all, so nothing is
+ * undoable twice.
  *
- * `kind` defaults to `UNDO_KIND`: a newer undo pill replaces an older one. An act whose ONLY way
- * back is this pill (no ↶ step: the Notfall, a device reset, the Alarm take) passes its own kind.
+ * `kind` defaults to `UNDO_KIND`: a newer undo pill replaces an older one. An act whose pill must
+ * not be pushed out (a device reset, the Alarm take) passes its own kind.
  */
 export function undoToast(text: string, onUndo: () => void, guard?: readonly RecordKey[] | (() => boolean), opts?: { kind?: string; glyph?: UndoGlyph; duration?: number }): number {
   // ⚠️ `guard` — the toast outlives remote merges like any undo step does (25.09.2026). Given the
