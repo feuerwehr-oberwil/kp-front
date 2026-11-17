@@ -84,6 +84,10 @@ export function countControls(src: string): Counts {
 // 20.10.2026: what stood when the ratchet went in; the row / ipBtn / disabledPrimary / field counts
 // and src/capture since 17.11.2026 (duck round, after the seven rows moved onto ListRow). Lower it as
 // surfaces move onto the shared pieces.
+// 17.11.2026 (button sweep SHEETS.12): the «Verbindungen» jump rows of ContextPanel (1), DrawEditor
+// (its jumps to a target and to the Trupp, 2) and PlanAnno (1) are COUNTED now, not new – their typed ›
+// became the `chevron` icon the ratchet reads; they wait for ListRow with the rest. The foot
+// toggles (Erledigt, Sperren) went onto <Button>.
 const BASELINE: Record<string, Counts> = {
   'src/capture/BeilagenSection.tsx': { field: 1 },
   'src/capture/CaptureApp.tsx': { row: 2 },
@@ -100,8 +104,8 @@ const BASELINE: Record<string, Counts> = {
   'src/components/ClearableInput.tsx': { field: 1 },
   'src/components/ComboMenu.tsx': { pressed: 1 },
   // +1 pressed (31.10.2026): the foot's «Erledigt» toggle – an action tile pressed in place, not a choice
-  'src/components/ContextPanel.tsx': { pressed: 3, field: 4 },
-  'src/components/DrawEditor.tsx': { pressed: 1, field: 3 },
+  'src/components/ContextPanel.tsx': { pressed: 2, row: 1, field: 4 },
+  'src/components/DrawEditor.tsx': { row: 2, field: 3 },
   'src/components/EntityMarker.tsx': { field: 1 },
   'src/components/ErrorBoundary.tsx': { ipBtn: 4 },
   'src/components/GeorefMode.tsx': { pressed: 1 },
@@ -121,7 +125,7 @@ const BASELINE: Record<string, Counts> = {
   'src/components/MeasurePanel.tsx': { row: 1 },
   'src/components/MittelView.tsx': { pressed: 1, row: 3, ipBtn: 8, disabledPrimary: 1 },
   'src/components/PersonnelSyncDialog.tsx': { ipBtn: 2, disabledPrimary: 1 },
-  'src/components/PlanAnno.tsx': { field: 1 },
+  'src/components/PlanAnno.tsx': { row: 1, field: 1 },
   'src/components/PlanScalePrompts.tsx': { field: 1 },
   'src/components/Presentation.tsx': { ipBtn: 7, field: 1 },
   'src/components/ReadingParts.tsx': { field: 1 },
@@ -129,7 +133,6 @@ const BASELINE: Record<string, Counts> = {
   'src/components/ReportPreflight.tsx': { pressed: 1, row: 1, ipBtn: 17 },
   'src/components/ReportSignatures.tsx': { row: 1 },
   'src/components/SelectionBar.tsx': { pressed: 2 },
-  'src/components/ShapeEditor.tsx': { pressed: 1 },
   'src/components/Splash.tsx': { ipBtn: 1 },
   'src/components/Stepper.tsx': { field: 1 },
   'src/components/SurfaceBoundary.tsx': { ipBtn: 2 },
