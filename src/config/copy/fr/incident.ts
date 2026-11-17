@@ -178,6 +178,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     failed: 'Clôture non confirmée – vérifier le statut',
     corrected: 'Heures corrigées : {name}',
     attendanceRemoved: 'Présence de {name} retirée',
+    reportMissing: 'Rapport pas encore établi',
   },
   personnelSync: {
     title: 'Rapprocher l’effectif avec {provider}',

@@ -94,3 +94,27 @@ describe('the Abschluss band, one step earlier (#15)', () => {
     expect(close()).toBeNull()
   })
 })
+
+// M5 · A (17.11.2026): an edit after the paper makes it stale – the write drops `reportMadeAt`, so
+// the head stops offering the close as if the PDF were current and the close sheet lists the
+// Rapport again. The app's own bookkeeping never does.
+describe('an edit after the PDF', () => {
+  const done: ReportMeta = {
+    alarmiertAt: START.toISOString(), endedAt: new Date(2026, 9, 28, 3, 48).toISOString(), einsatzleiter: 'Widmer Céline',
+    kontaktpersonNone: true, summary: 'Zimmerbrand gelöscht', rueckmeldungNone: true, mittelConfirmedNone: true,
+    reportMadeAt: new Date(2026, 9, 28, 3, 50).toISOString(),
+  }
+  it('clears «Rapport erstellt» with the edit', () => {
+    const onSaveMeta = vi.fn()
+    render(
+      <ReportPreflight incident={INCIDENT} reportMeta={done} events={[]}
+        annotatedPlanCount={0} truppCount={0} mapContentCount={0} attendanceCount={1} mittelCount={0}
+        onSaveMeta={onSaveMeta} onComplete={vi.fn(async () => true)} />,
+    )
+    const field = document.querySelector<HTMLTextAreaElement>('[data-step="kurzbericht"] textarea')!
+    fireEvent.change(field, { target: { value: 'Zimmerbrand gelöscht, Wohnung gelüftet' } })
+    const saved = onSaveMeta.mock.lastCall![0] as ReportMeta
+    expect(saved.summary).toBe('Zimmerbrand gelöscht, Wohnung gelüftet')
+    expect(saved.reportMadeAt).toBeUndefined()
+  })
+})

@@ -53,6 +53,7 @@ import { EF_PAGE_ID, RAPPORT_PAGE_ID, tafelKindPrints, tafelMenuKinds, tafelPrin
 import { isDrawnBoardKind } from '../lib/workspace'
 import { abschlussFacts, missingSteps, nextOpenStep, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { abschlussOpenItems, abschlussSheet, controlChipLabel } from '../lib/abschlussOpen'
+import { reportStep } from '../lib/reportUndo'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { openConflicts, sideLabel, sideValue, type OpenConflict } from '../lib/attendanceConflict'
 import { incidentDays, isOtherDay } from '../lib/zeitplanFormat'
@@ -90,6 +91,17 @@ const RP_FOLD = { print: 1, pdf: 2, complete: 3, title: 4 } as const
 
 // «Zeig mir diese offene Angabe» from outside the sheet — lives with the tabs (useReportPlace)
 export { requestReportStep } from './useReportPlace'
+
+/** «Verlauf drucken / PDF» from the Verlauf's funnel menu (F16 · TASK.7, 17.11.2026): the Verlauf
+ *  leaves the app as the Rapport's «Einsatzjournal» section, and that menu was three surfaces
+ *  away. This opens the PDF ▾ with «Einsatzjournal» ticked. Asked before `setMode('rapport')`
+ *  mounts the sheet, so the ask is queued like `requestReportStep`. */
+let journalPrintListener: (() => void) | null = null
+let journalPrintQueued = false
+export function requestJournalPrint() {
+  if (journalPrintListener) journalPrintListener()
+  else journalPrintQueued = true
+}
 
 /** HH:MM of a server read-out beside a vehicle (vor Ort / zurück) — not a field: every field of the
  *  Rapport reads its date too (DateTimeField). */
@@ -567,11 +579,17 @@ export function ReportPreflight({
   // ⚠️ The base is `metaRef`, the freshest blob this surface has seen, not the `reportMeta` of
   // the render this closure was built in: `startOutput` persists the Kroki framing AFTER an
   // awaited confirm dialog, by which time a sync may have moved the blob on underneath it.
-  const persist = (over: Partial<ReportMeta>) => canEdit && onSaveMeta({
-    ...metaRef.current,
-    ...dirtyMeta(),
-    ...over,
-  })
+  // ⚠️ An operator's edit makes the paper STALE (M5 · A, 17.11.2026): it drops `reportMadeAt`, so
+  // the close sheet lists «Rapport noch nicht erstellt» again and the head offers the PDF, not
+  // the green close, as if the Rapport were current – after «Wieder öffnen» + a corrected time
+  // the green «Abschliessen» stood there at once over the old paper. Only the operator's fields
+  // count (lib/reportUndo · reportStep): the app's bookkeeping (the Kroki framing) does not.
+  const persist = (over: Partial<ReportMeta>) => {
+    if (!canEdit) return false
+    const next: ReportMeta = { ...metaRef.current, ...dirtyMeta(), ...over }
+    if (next.reportMadeAt && reportStep(metaRef.current, next)) delete next.reportMadeAt
+    return onSaveMeta(next)
+  }
 
   // Commit the Kroki-seeded Einsatzleiter to the blob once, so the Abschluss-Checkliste and a
   // rapport printed from another device see the same name this field shows — a value that only
@@ -967,6 +985,19 @@ export function ReportPreflight({
     optionOverrides.current = { ...optionOverrides.current, ...patch }
     setOptions((o) => ({ ...o, ...patch }))
   }
+  // the outside ask (requestJournalPrint): tick «Einsatzjournal» and open the ▾ it lives in, two
+  // frames on so the trigger is laid out. Mount-only subscription through a ref, as useReportPlace.
+  const pdfMoreRef = useRef<HTMLButtonElement>(null)
+  const openJournalPrint = useRef(() => {})
+  openJournalPrint.current = () => {
+    if (!options.journal) patchOpt({ journal: true })
+    requestAnimationFrame(() => requestAnimationFrame(() => pdfMoreRef.current?.click()))
+  }
+  useEffect(() => {
+    journalPrintListener = () => openJournalPrint.current()
+    if (journalPrintQueued) { journalPrintQueued = false; openJournalPrint.current() }
+    return () => { journalPrintListener = null }
+  }, [])
   // is there anything on the SERVER to archive? Journal photos/recordings and Rapport-Beilagen
   // are all Media rows; blob: URLs are uploads still in flight and not fetchable as a ZIP yet
   const hasStoredMedia = useMemo(() => (
@@ -1436,7 +1467,7 @@ export function ReportPreflight({
               </button>
               <Menu
                 trigger={
-                  <button type="button" className="ip-btn head-tile rp-split-more" aria-label={P.printMenu} title={P.printMenu}>
+                  <button type="button" ref={pdfMoreRef} className="ip-btn head-tile rp-split-more" aria-label={P.printMenu} title={P.printMenu}>
                     <Icon id="chevron-down" className="chev" />
                   </button>
                 }

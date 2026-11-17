@@ -254,6 +254,9 @@ export const incidentCopy = {
     failed: 'Abschluss nicht bestätigt – Status prüfen',
     corrected: 'Stunden korrigiert: {name}',
     attendanceRemoved: '{name} Anwesenheit entfernt',
+    // the close sheet's first open point while neither a PDF nor a finished print exists (M5 · A,
+    // 17.11.2026); an edit after the paper makes it «noch nicht erstellt» again
+    reportMissing: 'Rapport noch nicht erstellt',
   },
   // sync the roster with the configured personnel source
   personnelSync: {
