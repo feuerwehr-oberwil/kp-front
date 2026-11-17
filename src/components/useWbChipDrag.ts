@@ -8,6 +8,7 @@ import { applyRouting, nearestFreeEndpoint, objectAttachment, type AttachableLin
 import { normalizeStackEdit } from '../lib/stackFloors'
 import { DOOR_SNAP_PX, isDoor, nearestWall, seatDoor } from '../lib/grundriss'
 import { fanOffsets, type PilePoint } from '../lib/labelPass'
+import { useLayer } from '../lib/overlays/layer'
 
 interface Args {
   /** the ARMED tool as the board reads it (a select-only surface reads 'pan') */
@@ -92,6 +93,9 @@ export function useWbChipDrag({
     document.addEventListener('pointerdown', away, true)
     return () => document.removeEventListener('pointerdown', away, true)
   }, [fan])
+  // Escape folds the fan and nothing else – the Lage's (MapMarkers), the one Esc stack
+  // (lib/overlays/layer, CONT.2): the selection and the tool under it stay
+  useLayer({ open: !!fan, onClose: () => setFan(null), inside: [], outside: false, back: false })
 
   // --- chip dragging (resource / symbol / text in pan mode) ---
   const chipDown = (e: React.PointerEvent, id: string, shownFloor?: number) => {

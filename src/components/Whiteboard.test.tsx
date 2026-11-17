@@ -2114,6 +2114,19 @@ describe('gesture contracts of the plan surface', () => {
       expect(container.querySelector('[data-chip-id="c1"]')!.className).toContain('sel')
     })
 
+    it('folds a fanned pile on Escape, and the one press does nothing else', () => {
+      const two: BoardAnno = { ...chip, id: 'c2', x: 0.52, text: 'Trupp 2' }
+      const onKey = vi.fn()
+      window.addEventListener('keydown', onKey)
+      const { container } = mount([chip, two])
+      finger(screen.getByText('Trupp 2'), [[208, 200], [208, 200]])
+      expect(container.querySelectorAll('.wb-anno.fanned')).toHaveLength(2)
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(container.querySelectorAll('.wb-anno.fanned')).toHaveLength(0)
+      expect(onKey).not.toHaveBeenCalled() // taken alone: no ladder under it peels too
+      window.removeEventListener('keydown', onKey)
+    })
+
     it('pans from an unselected Linie too – its body moves only once it is selected', () => {
       vi.useFakeTimers()
       const { container, emit } = mount([line])
