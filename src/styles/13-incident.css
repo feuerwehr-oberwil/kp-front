@@ -238,12 +238,13 @@
    family's 8px is the floor a tile keeps inside the card — 6px read as a chip, not a tile */
 .ip-card .ip-card-acts .ip-card-act { padding: 0 8px; }
 .ip-card-act > span:not(.ip-badge) { white-space: nowrap; }
-/* …and no glyphs there: tried back in on a 390px phone (hill climb r36), the three tiles with
-   icon + word measured 340px in a 330px row – Abschliessen 10px past the card's padding, since a
-   tile never shrinks under its word. The words carry the row; the laptop keeps its icons. */
+/* …the four in their 2 × 2 wear their glyphs on a phone too, one look on every device (rare-user
+   r4, owner: «same as on the iPad, just because it's two columns now»). Only a row of three on one
+   line stays bare there: with icon + word it measured 340px in a 330px row on a 390px phone (hill
+   climb r36), since a tile never shrinks under its word. */
 @media (max-width: 479px) {
   .ip-card .ip-card-acts .ip-card-act { font-size: var(--fs-1); }
-  .ip-card-act svg { display: none; }
+  .ip-card-acts:not(:has(> .ip-card-act:nth-child(4))) .ip-card-act svg { display: none; }
 }
 .ip-card-act svg { width: 15px; height: 15px; opacity: .65; flex: none; }
 /* the open count as a CORNER badge — the phone nav's amber count (05-navrail · .nav-count.nav-open),

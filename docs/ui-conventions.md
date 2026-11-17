@@ -493,12 +493,16 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     «(Neu) kalibrieren». Calibrating is a MODE OF THE MESSEN DOCK (M13 A, 17.11.2026, owner: «do
     everything in the sidebar»): «Massstab» (the `scalebar` glyph) lit beside «Strecke» / «Fläche»,
     «Messen» lit on the rail, however it was entered (the Plan sheet's row, Messen's panel, the
-    tile); «Strecke» / «Fläche» go back to measuring, «Abbrechen» stops, «Leeren» takes back the
-    first point, and what to tap is the dock's ⓘ. No pill, no line at the bottom – the row keeps
-    its chips. The length
-    dialog opens EMPTY – only a length typed earlier in the session is offered – and, reached
-    from Messen on a plan with no scale, first says why («Dieser Plan hat noch keinen Massstab …»);
-    «Massstab kalibriert» carries «Rückgängig», which restores what the plan had (C9). On a phone the pieces stand on ONE baseline,
+    tile, and Messen itself on a plan with no scale, rare-user r4: «Strecke» / «Fläche» wait
+    until there is one); «Strecke» / «Fläche» go back to measuring, «Abbrechen» stops. No «Leeren»
+    in this mode (the phone's row fits 360px): the length dialog's «Abbrechen» goes back to step 1,
+    which is how a wrong point is taken back. What to tap STANDS in the dock's ⓘ card while «Massstab» is lit
+    (`DockInfo · open`): the three steps, one per line, a done one reading ✓; the dock then draws
+    no ⓘ tile. No pill, no line at the bottom – the row keeps its chips. The length
+    dialog opens EMPTY – only a length typed earlier in the session is offered – and, when
+    «Massstab» was lit by Messen itself, first says why («Dieser Plan hat noch keinen Massstab …»);
+    a calibration goes on to «Strecke», and «Massstab kalibriert» carries «Rückgängig», which
+    restores what the plan had (C9). On a phone the pieces stand on ONE baseline,
     `--float-bottom` (15-mobile): `--float-gap` (8px) above the highest bar (nav bar · Rapport tab
     strip · tool bar · a tool's option dock), 8px from the screen's edge and from
     each other. The FAB is a `--float-h` square in the one corner (round until 16.11.2026, owner:
@@ -538,6 +542,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     role 3 below); at rest the bar's two grips are the neutral dock control with their word. The ✓ is
     `--btn-primary`. No dock carries a line of text, on any surface or width (20.10.2026, owner:
     «Remove the line. I don't think they add any value.»): a tool's instructions are its ⓘ.
+    One exception: a tool whose use is a fixed sequence of steps opens its ⓘ card by itself and
+    draws no ⓘ tile (`DockInfo · open`) – calibrating the plan's scale, rare-user r4 17.11.2026.
     **The armed tool's name is the readout pill** (`.armed-pill`, 23.10.2026): glyph + word,
     bottom centre, the same glass, `--tap` high, no pointer events – a readout, not a control
     (tactical-objects.md · «The armed tool's readout»). The symbol tool has no dock since then.

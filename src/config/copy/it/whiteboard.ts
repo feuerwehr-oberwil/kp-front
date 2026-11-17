@@ -42,8 +42,10 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       circle: 'Trascina dal centro verso il bordo.',
       text: 'Tocca dove va la nota – poi scrivi.',
       resource: 'Tocca per posizionare una squadra. Trascinando la sposti.',
-      scale: 'Tocca i due estremi della scala stampata, poi inserisci la lunghezza reale.',
       measure: 'Tocca i punti. Tieni premuto un punto per rimuoverlo.',
+      scaleStep1: 'Tocca un estremo della scala',
+      scaleStep2: 'Tocca l’altro estremo',
+      scaleStep3: 'Inserisci la lunghezza reale',
     },
     scale: {
       tool: 'Scala',

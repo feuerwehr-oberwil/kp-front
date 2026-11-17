@@ -46,8 +46,12 @@ export const whiteboardCopy = {
       circle: 'Von der Mitte zum Rand ziehen.',
       text: 'Tippen, wo die Notiz hin soll – dann schreiben.',
       resource: 'Tippen setzt einen Trupp. Ziehen verschiebt ihn.',
-      scale: 'Beide Enden des gedruckten Massstabs antippen, dann die reale Länge eingeben.',
       measure: 'Punkte tippen. Punkt halten entfernt ihn.',
+      // calibrating's steps, one per line in the Messen dock's standing card (WbControls ·
+      // WbToolDocks, rare-user r4 17.11.2026); a done step reads ✓ instead of its number
+      scaleStep1: 'Ein Ende des Massstabs antippen',
+      scaleStep2: 'Das andere Ende antippen',
+      scaleStep3: 'Die reale Länge eingeben',
     },
     // Plan-Massstab (calibrate against a printed scale bar so plan lines read in metres)
     scale: {

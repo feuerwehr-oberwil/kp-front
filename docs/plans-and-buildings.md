@@ -183,6 +183,10 @@ Sketching a building on the floor stack during an Einsatz (27.10.2026, the owner
   tile) – and nothing at the bottom. It is offered where the Plan sheet offers it: not on a sheet
   whose scale is automatic (linked, or the Gebäude's Grundriss) and not in a locked session. The
   Lage has no scale to calibrate, so its Messen dock has no such mode.
+  Where it is offered, Messen on a plan without a scale starts there (rare-user r4,
+  `usePlanMeasure`): «Massstab» lit, the steps standing in the dock's card, the length dialog
+  saying why. After a calibration the dock goes on to «Strecke». A locked session keeps Messen's
+  «Messen erst möglich, wenn der Massstab kalibriert ist».
 
 ## Plan PDFs and the tile pyramid
 

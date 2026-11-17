@@ -884,9 +884,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     if (!georefForPlan(activeGeorefKey)?.pairs.length) return
     noteMeasuredAspect(activeGeorefKey, measureARForGeoref, planAspect(active, getStationPlanScales(), planScale[activeId]))
   }, [readOnlyProp, canGeoref, active, aspectMeasured, activeId, activeGeorefKey, measureARForGeoref, planScale])
-  const planMeasure = usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate, autoScale })
+  const planMeasure = usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate, canCalibrate: !readOnly, autoScale })
   const {
-    calNodes, setCalNodes, calPrompt, refMInput, setRefMInput, savePrompt, setSavePrompt,
+    calNodes, calPrompt, refMInput, setRefMInput, savePrompt, setSavePrompt,
     measMode, setMeasMode,
     measureAR, activeScale, scaleAuto, scaleStale, calibrated, planMetres,
     measPath, setMeasPath, measFresh, measMpts, measLenM, measAreaM2, measPerimM, measReset, resetEphemeral,
@@ -1316,7 +1316,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   // --- create-tool interactions (on the ink overlay) — components/usePlanCreate ---
   const { inkDown, inkMove, inkUp, placeTeamChip, doorGhost, clearDoorGhost } = usePlanCreate({
-    tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, readOnly, stack,
+    tool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPaletteOpen, stack,
     toNorm, floorAt, localY, mapY, sW, sH, tileAR, scale, posRef, scaleRef, applyView, zoomTo, canvasRef, boardRef, inkTapRef: inkTap,
     planDraft, rotor, measure: planMeasure, rotPlacing, rotStart, setRotStart, rotN, noteDefaults, txtBase, setNotePanelId, setNotePlacedId,
     sym, onRecent, annos, trupps, placedTeamNames, onLinkTrupp, setTruppPick, add, log, setSelId,
@@ -2974,12 +2974,13 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onFinish={finishShape}
           measMode={measMode}
           setMeasMode={setMeasMode}
-          // calibrating, «Leeren» takes back the first point of the scale bar
+          // calibrating, the scale bar's taps – they tick off the steps in the dock's card
           measCount={tool === 'scale' ? calNodes.length : measPath.length}
-          onMeasClear={() => (tool === 'scale' ? setCalNodes([]) : setMeasPath(() => []))}
+          onMeasClear={() => setMeasPath(() => [])}
           onMeasClose={() => { measReset(); setTool('pan') }}
           // the dock's «Massstab» mode – where Messen's panel offers «(Neu) kalibrieren» (same rule)
           onCalibrate={readOnly || scaleAuto ? undefined : () => setTool('scale')}
+          measurable={calibrated}
           truppFinder={truppFinder}
         />}
       </div>
@@ -3478,7 +3479,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           showProfile={false}
           metrics={{ lengthM: measLenM, areaM2: measAreaM2, perimeterM: measPerimM }}
           blocked={!calibrated}
-          hint={readOnly ? appConfig.copy.whiteboard.scale.needsCalibrationViewer : appConfig.copy.whiteboard.scale.needsCalibration}
+          // blocked = no scale, which an editor never sees here: Messen is at «Massstab» then (usePlanMeasure)
+          hint={appConfig.copy.whiteboard.scale.needsCalibrationViewer}
           // «Als Linie/Fläche übernehmen»: the measured nodes become a real Linie resp. Fläche on
           // this plan. Board coords are whole-board normalized, so each point is folded back into
           // its storey tile (the space every stored `pts` lives in) before addLine/addArea sees it.
