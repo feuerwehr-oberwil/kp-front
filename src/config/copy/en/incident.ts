@@ -114,7 +114,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     offlineCached: 'Offline – these are the running incidents on this device. Closed ones need the server.',
     offlineNothing: 'Offline – the list needs the server. None is stored on this device.',
     retry: 'Try again',
-    confirmSubject: 'Time alerted {t}',
+    confirmSubject: 'Alarm time {t}',
     confirmSubjectExercise: '{name} · Exercise',
     filterClear: 'Show all',
 
