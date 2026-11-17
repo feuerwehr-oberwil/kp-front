@@ -76,7 +76,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     hereButton: 'Ici',
     hereFailed: 'Position indisponible',
     exerciseLabel: 'Exercice',
-    exerciseSub: 'Ne compte pas dans la statistique d\'intervention',
     moveConfirmTitle: 'Déplacer le lieu d\'intervention ?',
     moveConfirmMsg: 'Le lieu d\'intervention sera placé sur ta position actuelle – à {d} de l\'ancienne. La carte, le cadrage du croquis et les plans d\'objet à proximité s\'y adaptent.',
     moveConfirmBtn: 'Déplacer',

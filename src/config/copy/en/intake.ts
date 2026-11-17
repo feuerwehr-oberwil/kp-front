@@ -19,7 +19,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     titlePlaceholder: 'e.g. Building fire, school',
     categoryLabel: 'Category',
     exerciseLabel: 'Exercise',
-    exerciseSub: 'Not counted in incident statistics',
     detailsPlaceholder: 'Additional details for the report',
     open: 'Open incident',
     openExercise: 'Open exercise',

@@ -308,6 +308,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     shapeOnPlan: '{name} posizionato sul piano',
     barMore: 'Altro',
     markShort: 'Segna',
+    joinShort: 'Squadra',
   },
   tafel: {
     strip: 'Pagine della lavagna',

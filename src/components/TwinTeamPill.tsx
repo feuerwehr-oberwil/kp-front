@@ -389,7 +389,7 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
             // the Trupps nav glyph (NavRail · stopwatch): a door to that page, never a warning ⚠
             <button className="wb-pa wb-pa-show" title={W.showTrupp} aria-label={W.showTrupp}
               onClick={() => showTrupp?.(zumTrupp)}><Icon id="stopwatch" />{barWord(W.showTrupp)}</button>
-          ) : join && <TruppJoinMenu {...join} word={barWord(appConfig.copy.atemschutz.markerLabel)} />}
+          ) : join && <TruppJoinMenu {...join} word={barWord(W.joinShort)} />}
           {/* the bar's short word for «Position markieren», whose full words stay title + label */}
           {mark && (
             <button className="wb-pa" title={W.markPosition} aria-label={W.markPosition}

@@ -190,7 +190,7 @@ describe('the bar', () => {
 
   it('stands «Atemschutz-Trupp · Markieren · Mehr» on a loose marker, never a second Trupp button', () => {
     const { container } = loose()
-    expect(bar(container).map((b) => b.textContent)).toEqual([A.markerLabel, W.markShort, W.barMore])
+    expect(bar(container).map((b) => b.textContent)).toEqual([W.joinShort, W.markShort, W.barMore])
     expect(screen.queryByRole('button', { name: W.showTrupp })).toBeNull()
     openMore()
     expect(rows()).toEqual([appConfig.copy.edit, appConfig.copy.remove])

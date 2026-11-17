@@ -469,6 +469,9 @@ export const whiteboardCopy = {
     barMore: 'Mehr',
     /** the Trupp marker bar's short word for «Position markieren» (rare-user round 2, M12) */
     markShort: 'Markieren',
+    /** the Trupp marker bar's short word for «Atemschutz-Trupp» on a loose marker (owner, 17.11.2026: «just
+     *  Trupp, to save some space»); the full word stays as title, aria-label and «Mehr» row */
+    joinShort: 'Trupp',
   },
   // the Tafel's pages (10.10.2026, docs/board-templates.md): the free «Skizze» plus the pages a
   // board template offers (FKS «Erste Führung», FKS 8.1 …) — the page strip, the «+ Seite» list,

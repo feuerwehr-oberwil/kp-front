@@ -31,7 +31,6 @@ export const intakeCopy = {
     // that can be deleted (Alle Einsätze)
     // the right half of the form's first control since 17.11.2026, the consequence under it
     exerciseLabel: 'Übung',
-    exerciseSub: 'Zählt nicht zur Einsatzstatistik',
     // «Hier» moves the Einsatzort to the device's location. On a running Einsatz it always asks
     // first – the form is usually opened in the Magazin to correct an address, and a mis-tap
     // takes the map, the Kroki, the tile stock and the Objektpläne along with it.
@@ -125,7 +124,7 @@ export const intakeCopy = {
     addressFailed: 'Adresssuche gerade nicht erreichbar.',
     undoTakeFailed: 'Alarm nicht zurückgenommen – der Einsatz bleibt offen',
     // «Ernstfall | Übung» – the form's FIRST question (owner pick C7, 17.11.2026); «Übung» is
-    // `exerciseLabel`, its consequence `exerciseSub` under it. The list filter's words.
+    // `exerciseLabel`. The list filter's words.
     kindLabel: 'Ernstfall / Übung',
     kindReal: 'Ernstfall',
     // «Zeigen» on a hidden alarm's (or «Alarm aktualisiert»'s) row in the «Einsätze» lists – the way

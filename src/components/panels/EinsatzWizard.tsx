@@ -479,12 +479,12 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       {/* «Ernstfall | Übung» is the FIRST question (owner pick C7 = B, 17.11.2026): the kind used
           to be an «Übung? Nein | Ja» switch under Kategorie, missed on a drill evening – a real
           Einsatz then stays undeletable from the list for good. Both kinds are named, «Ernstfall»
-          preselected; the consequence stays with «Übung», under its half. Same control when
-          editing. Stored field and API unchanged (`is_exercise`). */}
+          preselected. No line under it (owner, 17.11.2026: the two words say it; the Hilfe says
+          what an Übung does not count towards). Same control when editing. Stored field and API
+          unchanged (`is_exercise`). */}
       <div className="ip-kind">
         <Segmented ariaLabel={ix.kindLabel} value={isExercise} onChange={setIsExercise}
           options={[{ value: false, label: ix.kindReal }, { value: true, label: ix.exerciseLabel }]} />
-        <small>{ix.exerciseSub}</small>
       </div>
       {/* ONE flat list of fields, no section eyebrows (owner review 10.11.2026: «only like 5
           things to put in») – each field's own label says what it is. --- Standort --- */}

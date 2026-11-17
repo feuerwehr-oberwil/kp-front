@@ -595,9 +595,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     neutral wash (29.09.2026): no green «Zum Trupp», no blue «Position markieren». A door to a page
     wears that page's nav glyph («Zum Trupp» = the Trupps stopwatch, never ⚠); the join
     («Atemschutz-Trupp») wears `link`. Three buttons (rare-user round 2, owner pick M12 A,
-    17.11.2026): ONE Trupp button that changes – «Zum Trupp» on a linked marker, «Atemschutz-Trupp»
-    (join) on a loose one, never both – then «Markieren» (the bar's short word for «Position
-    markieren», full words as title / label), then «Mehr». «Mehr» rows carry glyph + full word:
+    17.11.2026): ONE Trupp button that changes – «Zum Trupp» on a linked marker, «Trupp» (the join;
+    the bar's short word for «Atemschutz-Trupp») on a loose one, never both – then «Markieren» (the
+    bar's short word for «Position markieren»; full words as title / label), then «Mehr». «Mehr» rows carry glyph + full word:
     Lösen · Atemschutz-Trupp (re-point, linked only; the row swaps the menu to the join list) ·
     Bearbeiten (rename, loose only) · Spuren (✓ while shown) · the original (mirrors) · the delete
     rows, last (the marker alone plain, the Spur rows danger). «Mehr» is drawn only with a row.

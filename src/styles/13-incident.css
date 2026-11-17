@@ -824,18 +824,10 @@
 .no-hits-way { display: grid; justify-items: center; gap: var(--sp-3); }
 
 /* «Ernstfall | Übung» – the EinsatzWizard's first control (owner pick C7, 17.11.2026; it was an
-   «Übung? Nein | Ja» row under Kategorie). The pair spans the form, two equal halves; the
-   consequence («Zählt nicht zur Einsatzstatistik») sits under the «Übung» half it belongs to,
-   hugging the control (4px), then the form's own 12px to «Adresse».
-   ⚠️ ONE line (round 2, 17.11.2026): held to the half, it wrapped to two on a 390px phone and left
-   a 48px hole under «Ernstfall» before «Adresse», where every other field stands 12px apart. The
-   box is the half where the words fit (centred under «Übung») and grows LEFT from the control's
-   right edge where they do not – on a phone that is 9px off the half's centre, not a second line. */
-.ip-kind { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-1); }
-.ip-kind > .useg { grid-column: 1 / -1; display: flex; }
+   «Übung? Nein | Ja» row under Kategorie). The pair spans the form, two equal halves, and nothing
+   stands under it (owner, 17.11.2026). */
+.ip-kind > .useg { display: flex; }
 .ip-kind > .useg > .useg-btn { flex: 1 1 0; }
-.ip-kind > small { grid-column: 1 / -1; justify-self: end; min-width: calc(50% - var(--sp-1) / 2); box-sizing: border-box;
-  text-align: center; white-space: nowrap; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 
 .ip-actions, .ip-row-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
 /* The footer row of a SHEET pays for its own breathing room. It used to have none, so every new
