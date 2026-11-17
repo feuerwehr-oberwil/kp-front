@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { DrawEditor } from './DrawEditor'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
 import { HOSE_SIZES } from '../lib/hydraulics'
 import { askLineMeasure } from '../lib/useRelay'
 
