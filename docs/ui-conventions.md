@@ -126,7 +126,7 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   The Trupps section heads draw no rule either (29.09.2026 — see the Atemschutz board).
 
 A hairline also survives where it carries a label (`.jr-day-sep`) or guards a destructive row
-in a `Menu`, or splits a pick list into its two kinds (the line «Typ»: Leitungen W WW S H P │
+in a `Menu`, or splits a pick list into its two kinds (the line «Inhalt»: Leitungen W WW S H P │
 Haltelinien N T G, 28.10.2026).
 And **no native form
 control** on these surfaces: the app's own `Menu` instead of a `<select>`, the `Stepper`
@@ -212,7 +212,7 @@ while the head's subtitle says when («Schadenlage · erledigt 10:57»).
     `ONE_SHOT_HOLD_MS` (`lib/useOneShot`, `TimeBlockSheet · addedLabel`);
   - **the way back is the action's `undoToast` «Rückgängig»**, never a second press of the same
     button – where the act is undoable (records are append-only: a re-raised Pendenz is taken back
-    with a counter-row, «Wiedervorlage zurückgenommen»).
+    with a counter-row, «Erinnerung zurückgenommen»).
   A STATE is a switch, not a button (the Leitung's «Pumpen auf Karte»): a second tap of «An»
   changes nothing by construction. Tools meant for repeated placement (the palette, «Mehrere
   platzieren») are not one-time actions.
@@ -831,7 +831,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     with the hatched Übung tag and «Abgeschlossen» BESIDE it, `shortAddress` sub, the caller's time
     line, the red Atemschutz word from `lib/foreignAlarm` under the place, ›) – «Alle Einsätze» and
     the standing link's chooser; the Einsatz menu keeps its dense `.ip-menu-row` but the same parts
-    in the same order. **A Stationsobjekt** is footprint · name · address (`objectRowSub`; the
+    in the same order. **An Objekt** is footprint · name · address (`objectRowSub`; the
     plan count in the sub only where picking depends on it: the Einsatz form, «Anderes Objekt») ·
     distance, in ONE order – `lib/karte/places · sortObjects` (a name hit before an address-only
     hit, then nearest, then A–Z; the Karte search keeps its finer rank). **A Messpunkt** row leads

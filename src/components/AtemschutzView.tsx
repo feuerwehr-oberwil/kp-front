@@ -81,7 +81,7 @@ const FROZEN_ALARM: TruppAlarm = { sev: 0, reason: null, line: null }
  *  the board before the handover, the handover before the way back to a deleted card, the alarm's
  *  word before the bell's honest state — the ⚠ and its count stay), then «Trupp anmelden» → «Trupp»,
  *  then «✓ Gespeichert» keeps its ✓ (the sentence stays its `title`; a LOUD state never folds), and
- *  last the handover's short «Abgeben» goes — at its first rank it trades «Überwachung abgeben» for
+ *  last the handover's short «Teilen» goes — at its first rank it trades «Trupps teilen» for
  *  that word beside the glyph, the one word an icon tile keeps (hill climb r8 / r11, 04.11.2026). */
 const HEAD_FOLD = { saved: 1, order: 2, share: 3, restore: 4, overdue: 5, bell: 6, newTrupp: 7, savedMark: 8, shareWord: 9 } as const
 
@@ -193,7 +193,7 @@ export function AtemschutzView({
    *  open the create form; on save the new Trupp adopts `adoptMarkerId` (through `adoptMarker`).
    *  Cancel leaves the marker as it is. Nonce grammar as `focus`. */
   createRequest?: { nonce: number; adoptMarkerId: string } | null
-  /** «Überwachung abgeben» — open the Weitergeben sheet on its «Nur Atemschutz» half, so the
+  /** «Trupps teilen» — open the Weitergeben sheet on its «Nur Atemschutz» half, so the
    *  Tafel of this Einsatz can be handed to somebody's phone (components/panels · ShareIncident).
    *  Editors only, and never on the handed-over board itself: a link may not mint links. */
   onShareLink?: () => void
@@ -258,7 +258,7 @@ export function AtemschutzView({
    * promises, what the link's backend allowlist permits and the whole reason a stranger's phone
    * is looking at this Einsatz at all (see `lite` below). A Verkehrstrupp on it would be a row
    * that carries no clock, cannot be reached from any other surface of that session, and quietly
-   * widens what «Überwachung abgeben» hands over. So a link session's board is filtered here,
+   * widens what «Trupps teilen» hands over. So a link session's board is filtered here,
    * at the source: no section, no rows, and no way to create one (the form's Art chooser is
    * `!lite` too). The Trupps still exist — they are simply not this session's business. */
   const trupps = useMemo(() => (lite ? allTrupps.filter(isAtemschutzTrupp) : allTrupps), [allTrupps, lite])
@@ -1561,9 +1561,9 @@ export function AtemschutzView({
             ]}
           />
         )}
-        {/* «Überwachung abgeben»: the QR, beside the bell, because the realistic handover in an
+        {/* «Trupps teilen»: the QR, beside the bell, because the realistic handover in an
             Einsatz is «Handy scannen lassen» and the FU is standing on THIS page when they
-            decide to. Green while a link is live. Folded it keeps a WORD («Abgeben», hill climb
+            decide to. Green while a link is live. Folded it keeps a WORD («Teilen», hill climb
             r8, 04.11.2026: the bare QR glyph did not say «hand over» on the phone head) – glyph + word
             in the tiles' type since r26 (Atemschutz.module · .shareBtn); only the second rank, the
             ladder's last word, leaves the glyph alone. */}

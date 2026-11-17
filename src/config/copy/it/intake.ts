@@ -85,7 +85,7 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     objectsGroup: 'Oggetti',
     addressGroup: 'Indirizzi',
     // the address search's own states (LISTS.1) – the Karte search's words
-    addressOffline: 'La ricerca di indirizzi richiede la rete. Gli oggetti del corpo si trovano comunque.',
+    addressOffline: 'La ricerca di indirizzi richiede la rete. Gli oggetti si trovano comunque.',
     addressFailed: 'Ricerca indirizzi momentaneamente non raggiungibile.',
     undoTakeFailed: 'Presa dell’allarme non annullata – l’intervento resta aperto',
     kindLabel: 'Reale / esercitazione',

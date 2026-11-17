@@ -20,36 +20,36 @@ export const karteCopy = {
     // name or mark, `identity.shortName` / the uploaded logo; neither → the menu symbol)
     menu: 'Menü',
     menuLabel: 'Menü – {name}',
-    einsaetzeBadge: '{n} offen',
+    einsaetzeBadge: 'Offene Einsätze: {n}',
     runningOpen: 'Einsatz öffnen: {t}',
     // the chip's «+N» (owner's pick 6A, sweep F.2): every OTHER open Einsatz and Übung; it opens the menu
     runningMore: 'Weitere offen: {n} – Menü öffnen',
     // search
     searchPlaceholder: 'Adresse oder Objekt suchen …',
     searchOpen: 'Suchen',
-    searchObjects: 'Stationsobjekte',
+    searchObjects: 'Objekte',
     searchAddresses: 'Adressen',
     // the PlanPicker's noun for the same catalogue (incident · noObject) – one catalogue, one noun
     searchNoObject: 'Kein Objekt gefunden.',
     searchNoAddress: 'Keine Adresse gefunden.',
     searchMinChars: 'Adressen ab 3 Zeichen.',
-    searchOffline: 'Adresssuche braucht Netz. Stationsobjekte werden trotzdem gefunden.',
+    searchOffline: 'Adresssuche braucht Netz. Objekte werden trotzdem gefunden.',
     searchFailed: 'Adresssuche gerade nicht erreichbar.',
     searchHint: 'Name, Adresse oder Stichwort – z. B. «Schulhaus».',
     searchFoot: 'Koordinaten teils ungenau – Liste ist massgebend.',
     addressKind: 'Adresse',
     noCoords: 'ohne Koordinaten',
-    kind: { einsatzobjekt: 'Einsatzobjekt', objekt: 'Stationsobjekt' },
+    kind: { einsatzobjekt: 'Einsatzobjekt', objekt: 'Objekt' },
     // the panel's heads
     building: 'Gebäude',
     buildingNoAddress: 'Gebäude ohne Adresse',
-    buildingNoObject: 'Kein Stationsobjekt',
+    buildingNoObject: 'Kein Objekt erfasst',
     // the switch under the head after a tap on an object's building (Karte Haus round 1 · variant A):
-    // the whole object, or only the house that was tapped («Dieses Haus» until the register names it)
+    // the whole object, or only the building that was tapped («Dieses Gebäude» until the register names it)
     compassHoldHint: 'Kompass lange drücken: zum eigenen Standort (ohne Standort: ganzes Gebiet einpassen).',
-    level: 'Objekt oder Haus',
+    level: 'Objekt oder Gebäude',
     levelObject: 'Objekt',
-    levelHouse: 'Dieses Haus',
+    levelHouse: 'Dieses Gebäude',
     partOf: 'Teil von {name}',
     pin: 'Gesetzter Punkt',
     pinNear: 'bei {a} (ca. {m} m)',
@@ -65,8 +65,8 @@ export const karteCopy = {
     approxHead: 'Keine Koordinaten im Katalog.',
     approxBody: 'Lage aus der Adresse – ungefähr. Vor Ort prüfen.',
     approxTag: 'ungefähr',
-    pinNote: 'Kein Stationsobjekt an diesem Punkt.',
-    pinEmpty: 'Hier ist nichts erfasst – keine Adresse, kein Stationsobjekt in der Nähe.',
+    pinNote: 'Kein Objekt an diesem Punkt.',
+    pinEmpty: 'Hier ist nichts erfasst – keine Adresse, kein Objekt in der Nähe.',
     pinBuilding: 'Gebäude an diesem Punkt',
     pinBuildingSub: 'Registerangaben ansehen',
     copyCoords: 'Koordinaten kopieren',
@@ -113,7 +113,7 @@ export const karteCopy = {
     // the mouse over a hydrant on the map: «39 m südlich von Storchenweg 4»
     hydrantFrom: '{m} {dir} von {place}',
     nearNote: 'Nach Luftlinie. Ein Objekt in der Nähe gehört nicht unbedingt zu diesem Gebäude.',
-    nearNone: 'Keine Stationsobjekte in der Nähe.',
+    nearNone: 'Keine Objekte in der Nähe.',
     // Objektbesuche
     visitsTitle: 'Objektbesuche',
     visitsNever: 'Noch nie besucht.',
@@ -140,7 +140,7 @@ export const karteCopy = {
     // Ebenen
     layersOwn: 'Was hier ein- und ausgeschaltet wird, gilt nur für Karte & Objekte – nicht für einen Einsatz.',
     layerGroupStation: 'Station',
-    layerObjects: 'Stationsobjekte',
+    layerObjects: 'Objekte',
     layerObjectsSub: 'Gebäude und Gebäudegruppen der Station',
     // «Unterirdische Bauten» (backend app/underground): on by default, part of «Standard» — also the
     // Einsatz's Ebenen row (lib/underground · undergroundLayerDef: label + group «Station»)
@@ -153,15 +153,15 @@ export const karteCopy = {
     layerPlan: 'Plan ({plan}) · {name}',
     layerPlanSub: 'Von der Station freigegeben',
     // the catalogue itself
-    loading: 'Stationsobjekte werden geladen …',
-    loadFailed: 'Stationsobjekte liessen sich nicht laden.',
-    fromDevice: 'Stationsobjekte vom Gerät · Stand {d}',
-    noCatalogue: 'Noch keine Stationsobjekte auf diesem Gerät.',
+    loading: 'Objekte werden geladen …',
+    loadFailed: 'Objekte liessen sich nicht laden.',
+    fromDevice: 'Objekte vom Gerät · Stand {d}',
+    noCatalogue: 'Noch keine Objekte auf diesem Gerät.',
     // the bar's offline chip and the Offline part of «Dieses Gerät» (mockup s-j7-3; M9)
     offlineChip: 'Offline',
     offlineChipTitle: 'Offline – was auf diesem Gerät liegt',
     basemapSub: 'Offline – Objekte werden ohne Karte gezeigt',
-    basemapAction: 'Dieses Gerät',
+    basemapAction: 'Was offline da ist',
     device: {
       // «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026): the four readiness rows, their
       // one-tap fixes, the Testalarm, the opt-out, and the Karte home's nudge card

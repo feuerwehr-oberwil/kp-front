@@ -26,7 +26,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     editMetaShort: 'Modifica',
     archiveShort: 'Chiudi',
     archive: 'Chiudi intervento',
-    archiveOpen: '{n} in sospeso',
+    archiveOpen: 'Rapporto: {n} in sospeso',
     share: 'Condividi l’intervento',
     shareShort: 'Condividi',
     report: 'Rapporto d’intervento',

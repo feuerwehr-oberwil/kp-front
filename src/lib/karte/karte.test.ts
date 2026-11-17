@@ -201,7 +201,7 @@ describe('places', () => {
 
 // review round 2
 describe('an object\'s address is the address, never «Schlüsseldepot» in its place', () => {
-  const KIND = 'Stationsobjekt'
+  const KIND = 'Objekt'
   it('knows a name that is an address', () => {
     for (const n of ['Mühlemattstrasse 24', 'Schulstrasse 4', 'Bienenstrasse 28 (EH)', 'Hauptstr. 10a', 'Im Gwidum 3']) expect(nameIsAddress(n), n).toBe(true)
     for (const n of ['Gemeindehaus Musterdorf', 'Schlüsseldepot Schloss', 'ARA Birsig', '', '24 Mühlemattstrasse']) expect(nameIsAddress(n), n).toBe(false)
@@ -226,7 +226,7 @@ describe('an object\'s address is the address, never «Schlüsseldepot» in its 
   it('prints a list row: the address, or once in the title with the place and the kind under it', () => {
     expect(objectRowSub(DEPOT, KIND)).toBe('Schlossgasse 9')
     expect(objectRowSub({ name: 'Mühlemattstrasse 24', address: null }, KIND)).toBe(KIND)
-    expect(objectRowSub({ name: 'Mühlemattstrasse 24', address: 'Mühlemattstrasse 24, 4104 Oberwil' }, KIND)).toBe('4104 Oberwil · Stationsobjekt')
+    expect(objectRowSub({ name: 'Mühlemattstrasse 24', address: 'Mühlemattstrasse 24, 4104 Oberwil' }, KIND)).toBe('4104 Oberwil · Objekt')
     expect(objectRowSub({ name: 'ARA Birsig', address: null }, 'Einsatzobjekt')).toBe('Einsatzobjekt')
   })
   it('prints the head (whose kicker says the kind): the address, the place alone, or nothing', () => {

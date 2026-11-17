@@ -270,7 +270,7 @@ describe('the handed-over board (lite)', () => {
     }
   })
 
-  it('offers «Überwachung abgeben» only where a door was handed in', () => {
+  it('offers «Trupps teilen» only where a door was handed in', () => {
     mount()
     expect(screen.queryByRole('button', { name: az.shareLink })).toBeNull()
     cleanup()

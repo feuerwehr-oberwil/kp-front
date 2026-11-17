@@ -86,7 +86,7 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     objectsGroup: 'Objects',
     addressGroup: 'Addresses',
     // the address search's own states (LISTS.1) – the Karte search's words
-    addressOffline: 'Address search needs a network. Station objects are still found.',
+    addressOffline: 'Address search needs a network. Objects are still found.',
     addressFailed: 'Address search is not reachable right now.',
     undoTakeFailed: 'Alarm take not undone – the incident stays open',
     kindLabel: 'Real / exercise',

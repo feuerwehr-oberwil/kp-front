@@ -331,7 +331,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'The **⋯** at the foot of the card: **Edit** adjusts task / target or team mid-incident, **Place** puts the team on the map or plan (then **Show on plan**), plus line, order and **Remove**.',
             'Somebody in a team cannot be signed out in **Attendance** – a tap on the row jumps to that team’s card instead and highlights it briefly.',
             'Overdue teams move to the top and a counter appears. The **bell** mutes the alarm per device – sound **and** notification, and only until this incident ends. If it shows red the browser has not released audio: tap it. The monitoring itself is never muted. Everything lands in the log.',
-            '**Hand over monitoring** (the QR next to the bell) hands the teams to another device – see «Share & present».',
+            '**Share teams** (the QR next to the bell) brings the teams onto a second device as well – see «Share & present».',
           ] },
           { kind: 'sub', text: 'SCBA emergency' },
           { kind: 'list', items: [
@@ -452,7 +452,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'lead', text: '**Share incident** (in the menu by the open incident, and in the report) gives a link as a QR code and as an address. **Revoke link** makes it invalid at once.' },
           { kind: 'list', items: [
             '**Incident · read** – map, plans, log, photos, times. No login, nothing can be changed. For dispatch, the IC and a neighbouring brigade during the incident, for the municipality and neighbouring brigades afterwards: it holds beyond the close.',
-            '**Teams · operate** – only this incident’s teams, to carry along on a device of their own (in the teams: **Hand over monitoring**). What is entered there stands in the report. Holds until the close.',
+            '**Teams · operate** – only this incident’s teams, to carry along on a device of their own (in the teams: **Share teams**). What is entered there stands in the report. Holds until the close.',
             'Want to work along instead of only watching? **Sign in** on the other device – a link makes nobody an editor. The menu of a link device carries **Sign in** for that.',
           ] },
           { kind: 'sub', text: 'Present' },

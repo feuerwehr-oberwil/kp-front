@@ -329,7 +329,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'Il **⋯** in fondo alla scheda: **Modifica** adatta compito / obiettivo o squadra durante l’intervento, **Posiziona** mette la squadra sulla mappa o sul piano (poi **Mostra sul piano**), inoltre linea, ordinamento e **Rimuovi**.',
             'Chi è in una squadra non si può congedare nella **Presenza** – toccando la riga si salta invece alla scheda di quella squadra, evidenziata per un momento.',
             'Le squadre in ritardo salgono in alto e in cima appare un contatore. La **campanella** silenzia l’allarme per dispositivo – suono **e** notifica, e solo fino alla fine di questo intervento. Se è rossa, il browser non ha sbloccato l’audio: toccarla. La sorveglianza stessa non è mai muta. Tutto finisce nel diario.',
-            '**Cedi la sorveglianza** (il QR accanto alla campanella) passa le squadre a un altro dispositivo – vedi «Condividere e presentare».',
+            '**Condividi squadre** (il QR accanto alla campanella) porta le squadre anche su un altro dispositivo – vedi «Condividere e presentare».',
           ] },
           { kind: 'sub', text: 'Emergenza autoprotezione' },
           { kind: 'list', items: [
@@ -450,7 +450,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'lead', text: '**Condividi l’intervento** (nel menu dell’intervento aperto, e nel rapporto) dà un link come codice QR e come indirizzo. **Revoca link** lo rende subito non valido.' },
           { kind: 'list', items: [
             '**Intervento · leggere** – mappa, piani, diario, foto, orari. Nessun login, nulla è modificabile. Per la centrale, il CI e i corpi vicini durante l’intervento, per il comune e i corpi vicini dopo: resta valido oltre la chiusura.',
-            '**Squadre · operare** – solo le squadre di questo intervento, da portare su un proprio dispositivo (nelle squadre: **Cedi la sorveglianza**). Ciò che vi si registra finisce nel rapporto. Vale fino alla chiusura.',
+            '**Squadre · operare** – solo le squadre di questo intervento, da portare su un proprio dispositivo (nelle squadre: **Condividi squadre**). Ciò che vi si registra finisce nel rapporto. Vale fino alla chiusura.',
             'Collaborare invece di guardare soltanto? **Accedere** sull’altro dispositivo – un link non rende nessuno editore. Nel menu di un dispositivo con link c’è per questo **Accedi**.',
           ] },
           { kind: 'sub', text: 'Presentare' },

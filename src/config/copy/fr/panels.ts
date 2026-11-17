@@ -97,11 +97,11 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     funkkanal: 'Canal radio',
 
     symbolCaptions: 'Étiquettes',
-    symbolCaptionsSub: 'La valeur clé sous le symbole',
+    symbolCaptionsSub: 'Détails sous le symbole – Courtes : le principal, Toutes : chacun',
     railLabels: 'Étiquettes des barres',
     railLabelsSub: 'Un mot sous chaque symbole de toutes les barres',
     captionsOff: 'Aucune',
-    captionsAuto: 'Auto',
+    captionsAuto: 'Courtes',
     captionsAll: 'Toutes',
     keepScreenOn: 'Garder l\'écran allumé',
     keepScreenOnSub: 'Ne pas assombrir l\'écran pendant l\'intervention',

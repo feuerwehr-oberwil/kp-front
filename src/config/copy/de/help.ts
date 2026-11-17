@@ -351,7 +351,7 @@ export const helpCopy = {
             'Das **⋯** am Fuss der Karte: **Bearbeiten** passt Auftrag / Ziel oder Trupp mitten im Einsatz an, **Platzieren** setzt den Trupp auf Karte oder Plan (danach **Auf Plan zeigen**), dazu Leitung, Sortierung und **Entfernen**.',
             'Wer in einem Trupp ist, lässt sich in der **Anwesenheit** nicht abmelden – ein Tipp auf die Zeile springt stattdessen auf die Karte dieses Trupps und hebt sie kurz hervor.',
             'Überfällige Trupps rücken nach oben, oben erscheint ein Zähler. Die **Glocke** schaltet den Alarm pro Gerät stumm – Ton **und** Benachrichtigung, und nur bis zum Ende dieses Einsatzes. Zeigt sie rot, hat der Browser den Ton nicht freigegeben: antippen. Die Überwachung selbst wird nie stumm. Alles landet im Verlauf.',
-            '**Überwachung abgeben** (der QR neben der Glocke) gibt die Trupps auf ein anderes Gerät – siehe «Teilen & Präsentieren».',
+            '**Trupps teilen** (der QR neben der Glocke) bringt die Trupps auch auf ein weiteres Gerät – siehe «Teilen & Präsentieren».',
           ] },
           { kind: 'sub', text: 'Atemschutz-Notfall' },
           { kind: 'list', items: [
@@ -475,7 +475,7 @@ export const helpCopy = {
           { kind: 'lead', text: '**Einsatz teilen** (im Menü beim offenen Einsatz, und im Rapport) gibt einen Link als QR-Code und als Adresse. **Link aufheben** macht ihn sofort ungültig.' },
           { kind: 'list', items: [
             '**Einsatz · lesen** – Karte, Pläne, Verlauf, Fotos, Zeiten. Kein Login, nichts lässt sich ändern. Für Zentrale, EL und Nachbarwehr mitten im Einsatz, für Gemeinde und Nachbarwehr danach: er gilt über den Abschluss hinaus.',
-            '**Trupps · bedienen** – nur die Trupps dieses Einsatzes, zum Mitführen auf einem eigenen Gerät (bei den Trupps: **Überwachung abgeben**). Was dort eingetragen wird, steht im Rapport. Gilt bis zum Abschluss.',
+            '**Trupps · bedienen** – nur die Trupps dieses Einsatzes, zum Mitführen auf einem eigenen Gerät (bei den Trupps: **Trupps teilen**). Was dort eingetragen wird, steht im Rapport. Gilt bis zum Abschluss.',
             'Mitarbeiten statt nur ansehen? Auf dem anderen Gerät **anmelden** – ein Link macht niemanden zum Bearbeiter. Im Menü eines Link-Geräts steht dafür **Anmelden**.',
           ] },
           { kind: 'sub', text: 'Präsentieren' },

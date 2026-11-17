@@ -78,7 +78,7 @@ describe('ZeitplanView', () => {
   it('plans exactly the stretch swept out, with no «+» in the row', () => {
     const onAddSpan = vi.fn()
     render(<ZeitplanView {...base} attendance={{}} shifts={[]} onAddSpan={onAddSpan} />)
-    expect(screen.queryByRole('button', { name: /Schicht für .* planen/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Verfügbarkeit für .* einzeichnen/ })).toBeNull()
     const lane = screen.getByLabelText(fillTemplate(Z.planAt, { name: 'Meier Anna' }))
     sizeLane(lane, 1200) // a 12 h window over 1200px → 100px per hour
     ptr(lane, 'pointerdown', 200)

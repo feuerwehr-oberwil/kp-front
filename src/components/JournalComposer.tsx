@@ -280,7 +280,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // ⚠️ …and «Auftrag» is the third: an Auftrag is something somebody has to do, so picking the kind
   // opens the ring the same way (13.11.2026, owner pick FLOW.7) – it used to file as a label only,
   // in no Pendenzen and with nobody reminded. The ring is still the operator's: the menu takes it
-  // off («Nicht offen halten»). `ringByKind` remembers that only the kind opened it, so switching the
+  // off («Keine Pendenz»). `ringByKind` remembers that only the kind opened it, so switching the
   // kind away closes it again – never a ring opened by hand (`setOpen` clears the mark), and never
   // one a reminder time needs. A Meldung on an open Pendenz (`noteOn`) has no ring to open.
   const [ringByKind, setRingByKind] = useState(false)

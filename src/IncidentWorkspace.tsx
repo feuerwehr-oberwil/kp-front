@@ -2947,7 +2947,7 @@ export function IncidentWorkspace({
       defaultFunkkanal={azFunkkanal}
       focus={truppFocus}
       createRequest={truppCreate}
-      // «Überwachung abgeben» — the QR beside the bell, on the page the FU is standing on when
+      // «Trupps teilen» — the QR beside the bell, on the page the FU is standing on when
       // they decide to hand the Tafel over. Same sheet as the Einsatz-Karte's «Teilen», opened
       // on its «Nur Atemschutz» half.
       onShareLink={canShareLive ? () => setShareLink('atemschutz') : undefined}

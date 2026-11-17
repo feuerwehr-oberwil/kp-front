@@ -152,8 +152,8 @@ the same rows:
 - **«↻ wieder in 30 / 60 min»** on a done row appends a fresh Wiedervorlage («Erinnerung gesetzt
   für …», `useJournalWriters · reRaisePendenz`) that names the item it re-raises
   (`reminder.again`); while it is open the done row shows ✓ «↻ in 30 min gesetzt» instead of the
-  chips (05.11.2026, a double tap raised two). Its toast «Wiedervorlage in 30 min gesetzt ·
-  Rückgängig» appends **«Wiedervorlage zurückgenommen: …»** (`reminder.op: 'done'` with
+  chips (05.11.2026, a double tap raised two). Its toast «Erinnerung in 30 min gesetzt ·
+  Rückgängig» appends **«Erinnerung zurückgenommen: …»** (`reminder.op: 'done'` with
   `withdrawn: true`, icon ↶) – append-only, the created row stays, and the withdrawn item leaves
   every reading: not open, not «Erledigt» on the Tafel or the paper, its source's chips are back
   (ENT.4, 17.11.2026).

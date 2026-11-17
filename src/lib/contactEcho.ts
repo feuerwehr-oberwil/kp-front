@@ -10,7 +10,7 @@
  * board, tablet grid and handed-over Tafel included: it guards the act, not a layout. A
  * confirmation this JS realm did not write is «anderes Gerät» — no device names; a stamp more
  * than 5 s in the future (a skewed device) is not an echo. «OK» is the filled, focused default;
- * it and every dismissal write nothing. «Überwachung abgeben makes the giver read-only» (⑧b)
+ * it and every dismissal write nothing. «Trupps teilen makes the giver read-only» (⑧b)
  * was DECIDED AGAINST (25.09.2026) — do not build it.
  */
 

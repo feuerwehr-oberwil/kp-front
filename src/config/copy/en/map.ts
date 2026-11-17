@@ -91,7 +91,7 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     glLostAction: 'Rebuild map',
     noTilesTitle: 'No base map saved for this area',
     noTilesSub: 'Offline – objects and lines are shown without a map',
-    noTilesAction: 'This device',
+    noTilesAction: 'Available offline',
     noTilesDismiss: 'Hide',
   },
   mapViews: {

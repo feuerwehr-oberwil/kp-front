@@ -8,7 +8,7 @@
 // lists the plans). The address line is lib/karte/places · objectRowSub: never the kind word
 // standing in for an address, and a name that IS the address is not printed twice.
 //
-// No catalogue on the device (it failed to load, or never came): the «Stationsobjekte» group says
+// No catalogue on the device (it failed to load, or never came): the «Objekte» group says
 // so in its own place (`objectsNote`) – a standing state, never a toast (toast diet, 17.11.2026).
 //
 // On a phone the list is the body of the search's slide-up (`inSheet`, KarteApp · KarteKeySheet,

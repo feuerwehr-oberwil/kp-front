@@ -147,7 +147,7 @@ export const journalCopy = {
     // die Zeile kam über den Atemschutz-Link herein — von einem Handy, das nur die Tafel
     // bedient und darum bewusst nach keinem Namen gefragt wurde (types · TimelineEvent.via)
     viaAtemschutzLink: 'Atemschutz-Link',
-    viaAtemschutzLinkTitle: 'Eingetragen über den abgegebenen Trupps-Link.',
+    viaAtemschutzLinkTitle: 'Eingetragen über den Trupps-Link.',
     // ── the row's detail sheet (owner's pick 8, sweep E.4): the message is the title, a meta line
     // under it «16:30:56 · Sofortmassnahme · von Hand erfasst» (time · Art/Bereich · Quelle), then a
     // fact table for what the meta line does not say ──
@@ -294,8 +294,8 @@ export const journalCopy = {
     againChip: '{mins} min',
     againTitle: 'In {mins} Minuten wieder daran erinnern',
     againSet: '↻ in {mins} min gesetzt',
-    againToast: 'Wiedervorlage in {mins} min gesetzt',
-    againWithdrawn: 'Wiedervorlage zurückgenommen: {text}',
+    againToast: 'Erinnerung in {mins} min gesetzt',
+    againWithdrawn: 'Erinnerung zurückgenommen: {text}',
     // ── Legende ───────────────────────────────────────────────────────────────────────────
     // The Verlauf row's 26px disc carries the Bereich (it replaced a chip that printed the same
     // word the sentence already carried). A glyph has to be LEARNED, so the drawer's head keeps
@@ -349,7 +349,7 @@ export const journalCopy = {
     linkPendenzTitle: 'Meldung zu',
     pendenzNew: 'Neue Pendenz',
     pendenzNewUrgent: 'Dringende Pendenz',
-    pendenzNotOpen: 'Nicht offen halten',
+    pendenzNotOpen: 'Keine Pendenz',
     noteChip: 'Pendenz',
     noteOpen: 'Meldung erfassen',
     // the list's time column: when it was raised. Tapping it swaps the whole column to the age —
@@ -371,11 +371,15 @@ export const journalCopy = {
     attachDroppedMany: '{n} Dateien verworfen: {names}. Bitte neu auswählen.',
     sectionRemoved: 'Abschnitt gelöscht',
     markOpenTitle: 'Wieder als offen markieren',
-    legendPendenzOverdue: 'Pendenz überfällig',
+    legendPendenzOverdue: 'Erinnerung überfällig',
     // the composer's compact row folds Aufnehmen · Datei · Foto into one paper-clip (M9 · A, 17.11.2026) – its name (aria / title)
     attachMenu: 'Anhang',
     // the empty Verlauf says what it is for, to every role (F12, 17.11.2026); a writer gets emptyHint after it
     emptyFor: 'Hier entsteht der Ablauf des Einsatzes, Zeile um Zeile.',
+    // the Verlauf door's title / name while Pendenzen are open: it names the button AND what the number
+    // counts (W6-01, 17.11.2026) – the box head beside the word «Pendenzen» keeps the short openCount
+    openCountDoor: 'Verlauf – {n} Pendenzen offen',
+    openCountDoorOne: 'Verlauf – 1 Pendenz offen',
   },
   // ── The Tafel's «Aufträge / Pendenzen» page (05.11.2026, lib/pendenzenPage) ────────────────
   // A view on the Verlauf's Pendenzen and Erinnerungen: every act on the page appends a Verlauf
@@ -389,17 +393,17 @@ export const journalCopy = {
     editWas: 'Was: {v}',
     editWer: 'Wer: {v}',
     editWerCleared: 'Wer entfernt',
-    editUrgent: 'Prio. 1 (dringend)',
-    editNotUrgent: 'ohne Prio.',
+    editUrgent: 'dringend',
+    editNotUrgent: 'nicht mehr dringend',
     doneLog: 'Erledigt auf der Tafel: {text}',
     reopenLog: 'Auf der Tafel wieder offen: {text}',
     erteilt: 'Erteilt',
     erledigt: 'Erledigt',
     erinnerung: 'Erinnerung',
     overdue: 'überfällig',
-    prio: 'Prio. 1 – dringend',
-    prioOff: 'Prio. 1 (dringend) setzen',
-    prioOn: 'Prio. 1 (dringend) – tippen zum Entfernen',
+    prio: 'Dringend',
+    prioOff: 'Als dringend markieren',
+    prioOn: 'Dringend – tippen zum Entfernen',
     toVerlauf: 'Im Verlauf zeigen',
     // shown once, under a row just typed on the page: `{by}` is « · Name» or nothing
     saved: 'Als Pendenz im Verlauf eingetragen · {t}{by}',

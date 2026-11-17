@@ -219,7 +219,7 @@ export function KartePanel(p: {
       </>
     )
     // no «Kein Stationsobjekt …» box (owner-4): the kicker says «Gebäude» and the line under the
-    // head says «Kein Stationsobjekt» once it is known — nothing else is added about what is missing
+    // head says «Kein Objekt erfasst» once it is known — nothing else is added about what is missing
     body = (
       <>
         <Register key={sel.at.join(',')} reg={p.register} address={null} onRetry={p.onRetryRegister} />
