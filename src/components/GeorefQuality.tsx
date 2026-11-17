@@ -93,6 +93,7 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
       confirmLabel: C.reset,
       cancelLabel: C.cancel,
       danger: true,
+      bin: true,
     })
     if (ok) onReset()
   }

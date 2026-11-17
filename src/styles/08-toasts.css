@@ -399,16 +399,12 @@
 .toast-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .toast-x .i { width: 18px; height: 18px; color: inherit; }
 /* inline action (confirm-with-undo): the toaster itself is pointer-events:none, so the
-   button re-enables hits. The house quiet button on the pill's surface. It carries `.btn` too,
-   whose hover paints --surface, so the pill-scoped rules below keep the fill. */
-.toast-action { pointer-events: auto; flex: none; align-self: center; margin-left: var(--sp-1); padding: var(--sp-2) var(--sp-4); min-height: var(--tap);
-  font: var(--fw-bold) var(--fs-1)/1.2 var(--body); color: var(--ink); border: none; border-radius: var(--r-msg-in);
-  background: var(--fill-soft); cursor: pointer;
+   button re-enables hits. It is THE button (`.ip-btn`, secondary: 14/700, framed – the
+   Meldeleiste's own; button sweep SHEETS.5, 17.11.2026 – it was a 12.5 borderless wash, the
+   quietest button of every message surface on the one way back), with the message's inner corner
+   (`--r-msg-in`, concentric in the pill like every button inside a message). This only places it. */
+.toast-action { pointer-events: auto; flex: none; align-self: center; margin-left: var(--sp-1); border-radius: var(--r-msg-in);
   max-width: min(240px, 60vw); white-space: normal; overflow-wrap: break-word; }
-@media (hover: hover) {
-  .toast .toast-action:hover { background: var(--border); color: var(--ink); }
-}
-.toast .toast-action:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* A tone is the colour of the glyph the sentence leads with (and of the running step's glyph) —
    never a fill and never an edge (25.09.2026). The text stays ink. */
 .toast-success { --toast-tone: var(--green); }
@@ -788,26 +784,17 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 /* the app's one field focus (01-tokens · --focus-*, 28.09.2026) — it fell back to the browser's
    2px focus outline, offset from the field */
 .draw-editor .de-input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
-/* ── The panel's ACTION row (01.09.) ─────────────────────────────────────────────────────────
-   «Richtung umkehren» on a Linie and on a Rotation: one press that does one thing, with no
-   state to be in. It used to wear the `.de-toggle` chip — the same box a yes/no property wore —
-   so a row that can never light up looked like one that was merely off. Every yes/no answer in
-   this panel is a Segmented pair now, and an action reads as a row, in the grammar the
-   Verbindungen block's «Verbindung lösen» already set (11-measure · .de-conn-detach).
-   ⚠️ It starts at the CONTROLS' edge (27B, 31.10.2026; right-aligned from 05.09.): it sits
-   directly under «Abschluss», whose segments start at the label column's edge, and an action
-   is a control. It is a full-width row so the whole 52px band stays tappable; only its glyph +
-   word move to that edge. */
-.de-action { display: flex; width: 100%; justify-content: flex-start; align-items: center;
-  gap: var(--sp-2); min-height: 52px; padding: 4px 0 4px calc(var(--ctx-lbl) + var(--ctx-col-gap));
-  border: 0; background: transparent; color: var(--ink); font-size: var(--fs-1);
-  font-weight: var(--fw-bold); cursor: pointer; }
-.de-action .i { width: 16px; height: 16px; color: var(--ink-dim); }
-@media (hover: hover) {
-  .de-action:hover { color: var(--blue); }
-  .de-action:hover .i { color: var(--blue); }
-}
-.de-action:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* ── A one-shot ACT in an editor's body (01.09.; button sweep SHEETS.6 + SHEETS.3, 17.11.2026) ──
+   «Richtung umkehren» on a Linie and on a Rotation, «Verbindung lösen» under a connection: one
+   press that does one thing, with no state to be in – so never a Segmented pair or a chip that
+   could look «on». It is THE button (<Button>, glyph + verb, 14/700, framed; owner pick: it was an
+   unframed 12.5 row whose hover turned blue, and blue means «chosen»), and this only PLACES it:
+   on the row rhythm's 52px band, starting at the CONTROLS' edge (27B, 31.10.2026), where the
+   segments of «Abschluss» above it start – an act is a control. */
+.de-act { display: flex; align-items: center; min-height: 52px; padding: 4px 0 4px calc(var(--ctx-lbl) + var(--ctx-col-gap)); box-sizing: border-box; }
+/* one line, at its word's width: the tablet's control column is ~187px and «Richtung umkehren»
+   with THE button's 16px insets broke onto two lines there – 12px insets keep it on one */
+.de-act > .ip-btn { padding: 0 var(--sp-3); white-space: nowrap; }
 /* line-preset chips (Freihand · Messpfeil · Rettungsachse) — post-pick style switcher */
 .draw-editor .de-presets { display: inline-flex; gap: var(--sp-1); flex-wrap: wrap; }
 /* a pair of them answers one question (Direkt | GPS-Spur), so they share the column like segments */

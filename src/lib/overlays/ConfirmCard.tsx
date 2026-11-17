@@ -63,6 +63,10 @@ export interface ConfirmSpec {
    *  still resolves `false`: an alternative is chosen, never defaulted into. */
   altLabel?: string
   altDanger?: boolean
+  /** The destructive answer (the `danger` confirm or the `altDanger` alt) REMOVES something – it
+   *  carries the bin, as every remove does (owner, button sweep SHEETS.1, 17.11.2026). Not every
+   *  danger is a removal: «Abmelden», «Trotzdem abschliessen», «Link aufheben» keep the word alone. */
+  bin?: boolean
   /** Which answer is the SAFE one to press (25.09.2026) — `'cancel'` or `'alt'`. That button
    *  becomes the filled primary on the right and takes the initial focus; the confirm steps back
    *  to a quiet button. For an ask whose «yes» WRITES something a reflex tap or an Enter must not:
@@ -91,7 +95,7 @@ export interface ConfirmSpec {
  * Escape / outside-press, and one Esc answers the confirm alone (CONT.2, 17.11.2026). The native
  * back answers it «Abbrechen» like every other layer (overlays/layer).
  */
-export function ConfirmCard({ open, title, message, items, note, noteLead, subject, confirmLabel, cancelLabel, danger, altLabel, altDanger, safeAnswer, onResolve }: ConfirmSpec & {
+export function ConfirmCard({ open, title, message, items, note, noteLead, subject, confirmLabel, cancelLabel, danger, altLabel, altDanger, bin, safeAnswer, onResolve }: ConfirmSpec & {
   open: boolean
   onResolve: (confirmed: boolean | 'alt') => void
 }) {
@@ -104,14 +108,14 @@ export function ConfirmCard({ open, title, message, items, note, noteLead, subje
     <button key="cancel" ref={cancelRef} className={safeAnswer === 'cancel' ? 'ip-btn primary' : 'ip-btn'} onClick={() => onResolve(false)}>{cancelLabel}</button>
   )
   const altBtn = altLabel ? (
-    <button key="alt" ref={altRef} className={`ip-btn${altDanger ? ' ip-btn-danger' : ''}${safeAnswer === 'alt' ? ' primary' : ''}`} onClick={() => onResolve('alt')}>{altLabel}</button>
+    <button key="alt" ref={altRef} className={`ip-btn${altDanger ? ' ip-btn-danger' : ''}${safeAnswer === 'alt' ? ' primary' : ''}`} onClick={() => onResolve('alt')}>{bin && altDanger && <Icon id="trash" />}{altLabel}</button>
   ) : null
   /* the OUTLINE danger, not a solid red fill: the same treatment every other destructive action in
      the app wears (Anwesenheit, Verlauf, BandGrid), and this confirm is also what «Einsatz
      abschliessen» goes through — which is not destructive at all. With a `safeAnswer` it is the
      quiet one. */
   const confirmBtn = (
-    <button key="confirm" ref={confirmRef} className={safeAnswer ? 'ip-btn' : `ip-btn ${danger ? 'ip-btn-danger' : 'primary'}`} onClick={() => onResolve(true)}>{confirmLabel}</button>
+    <button key="confirm" ref={confirmRef} className={safeAnswer ? 'ip-btn' : `ip-btn ${danger ? 'ip-btn-danger' : 'primary'}`} onClick={() => onResolve(true)}>{bin && danger && !safeAnswer && <Icon id="trash" />}{confirmLabel}</button>
   )
   // the filled answer always stands LAST: on the right, where the thumb expects the primary – and
   // with three answers and the safe one the alt («Zur Tafel», «Raus melden»), on a row of its own
