@@ -87,10 +87,12 @@ let secondStart = 0
 let sentThisSecond = 0
 let timer: ReturnType<typeof setTimeout> | null = null
 
-const build = (): string => `v${APP_VERSION}+${GIT_SHA}`
-// The QR credential is part of the pathname and can also occur in an error or stack frame.
-const redactQrLinks = (value: string): string => value.replace(/(\/(?:e|l)\/)[^/?#\s'"]+/g, '$1<redacted>')
-const currentPath = (): string => (typeof location === 'undefined' ? '' : redactQrLinks(location.pathname.slice(0, 400)))
+// Bound work on a runaway stack, then bound the stored result: replacing a short QR segment
+// with <redacted> can increase its length beyond the client-error API's field limit.
+const diagnosticField = (value: string, limit: number): string =>
+  value.slice(0, limit).replace(/(\/(?:e|l)\/)[^/?#\s'"]+/g, '$1<redacted>').slice(0, limit)
+const build = (): string => diagnosticField(`v${APP_VERSION}+${GIT_SHA}`, 120)
+const currentPath = (): string => (typeof location === 'undefined' ? '' : diagnosticField(location.pathname, 400))
 
 function refill(now: number): void {
   if (refilledAt < 0) { refilledAt = now; return }
@@ -188,11 +190,12 @@ export function isOfflineNetworkNoise(kind: ErrorKind, message: string, onLine: 
 export function reportClientError(err: unknown, ctx: Ctx = {}): void {
   try {
     const kind = ctx.kind ?? 'error'
-    const message = redactQrLinks((err instanceof Error ? err.message : String(err ?? 'unknown')).slice(0, MAX_MESSAGE))
+    const message = diagnosticField(err instanceof Error ? err.message : String(err ?? 'unknown'), MAX_MESSAGE)
     if (isOfflineNetworkNoise(kind, message, typeof navigator === 'undefined' || navigator.onLine !== false)) return
-    const stack = err instanceof Error && err.stack ? redactQrLinks(err.stack.slice(0, MAX_STACK)) : undefined
-    const componentStack = ctx.componentStack && redactQrLinks(ctx.componentStack.slice(0, MAX_COMPONENT_STACK))
-    const key = [kind, ctx.surface ?? '', message, stack?.slice(0, 200) ?? '', componentStack?.trim().slice(0, 200) ?? ''].join('|')
+    const stack = err instanceof Error && err.stack ? diagnosticField(err.stack, MAX_STACK) : undefined
+    const componentStack = ctx.componentStack && diagnosticField(ctx.componentStack, MAX_COMPONENT_STACK)
+    const surface = ctx.surface && diagnosticField(ctx.surface, 60)
+    const key = [kind, surface ?? '', message, stack?.slice(0, 200) ?? '', componentStack?.trim().slice(0, 200) ?? ''].join('|')
     const now = Date.now()
     const known = sigs.get(key) ?? (sigs.size >= MAX_SIGNATURES ? sigs.get(OVERFLOW_KEY) : undefined)
     if (known) {
@@ -209,9 +212,9 @@ export function reportClientError(err: unknown, ctx: Ctx = {}): void {
       sigs.set(key, {
         first: {
           kind, message, stack, componentStack, path: currentPath(), build: build(),
-          ...(ctx.surface ? { surface: ctx.surface } : {}),
+          ...(surface ? { surface } : {}),
         },
-        kind, message, surface: ctx.surface,
+        kind, message, surface,
         pending: 0, pendingSince: 0, pendingLast: 0, lastSentAt: 0,
       })
     }
