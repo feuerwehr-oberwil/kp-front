@@ -970,11 +970,24 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
               {([[C.spreadH, ['left', 'right']], [C.spreadV, ['up', 'down']]] as const).map(([label, dirs]) => (
                 <div className="spread-row" key={label}>
                   <span className="spread-lbl">{label}</span>
+                  {/* a locked session READS the spread: the lit arrows (and their Grenze) as plain
+                      glyphs, «–» for none – never faded buttons (duck sweep FEEDBACK.5) */}
+                  {readOnly ? (
+                    <span className="kv-val-ro spread-ro">
+                      {dirs.some((d) => sp[d]) ? dirs.filter((d) => sp[d]).map((d) => (
+                        <span className="spread-unit" key={d} role="img" aria-label={sp[boundedKey(d)] ? `${C.spreadDirTitles[d]} · ${C.spreadBounded}` : C.spreadDirTitles[d]}>
+                          {d === 'left' && sp[boundedKey(d)] && <Icon id={GRENZE_GLYPH[d]} />}
+                          <Icon id={SPREAD_GLYPH[d]} />
+                          {d !== 'left' && sp[boundedKey(d)] && <Icon id={GRENZE_GLYPH[d]} />}
+                        </span>
+                      )) : '–'}
+                    </span>
+                  ) : (
                   <div className="spread-btns">
                     {dirs.map((d) => {
                       const dir = (
                         <button className={`spread-btn dir ${sp[d] ? 'on' : ''}`} title={C.spreadDirTitles[d]}
-                          aria-label={C.spreadDirTitles[d]} disabled={readOnly} onClick={() => toggleDir(d)}>
+                          aria-label={C.spreadDirTitles[d]} onClick={() => toggleDir(d)}>
                           <Icon id={SPREAD_GLYPH[d]} />
                         </button>
                       )
@@ -984,7 +997,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                       const grenze = (
                         <button className={`spread-btn grenze ${sp[boundedKey(d)] ? 'on' : ''}`}
                           title={C.spreadBoundedTitle} aria-label={`${C.spreadBounded} ${C.spreadDirTitles[d]}`}
-                          disabled={readOnly} onClick={() => toggleBounded(d)}>
+                          onClick={() => toggleBounded(d)}>
                           <Icon id={GRENZE_GLYPH[d]} />
                         </button>
                       )
@@ -992,6 +1005,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                       return <span className="spread-unit" key={d}>{d === 'left' ? <>{grenze}{dir}</> : <>{dir}{grenze}</>}</span>
                     })}
                   </div>
+                  )}
                 </div>
               ))}
             </div>

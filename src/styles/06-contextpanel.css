@@ -491,7 +491,10 @@
 }
 .spread-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .spread-btn.on { background: var(--sel); color: var(--on-sel); }
-.spread-btn:disabled { opacity: var(--disabled); cursor: default; }
+/* …read-only, the lit arrows as glyphs at the control edge (ContextPanel · FEEDBACK.5) */
+.spread-ro { display: inline-flex; align-items: center; gap: var(--sp-3); min-height: var(--tap); }
+.spread-ro .spread-unit { display: inline-flex; align-items: center; gap: 2px; }
+.spread-ro .i { width: 18px; height: 18px; }
 
 /* general free-text notes */
 .ctx-notes { display: flex; flex-direction: column; }

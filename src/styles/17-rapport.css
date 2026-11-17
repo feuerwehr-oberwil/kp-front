@@ -261,7 +261,7 @@
    26px off «+» and read as detached. Now the box starts at «+»'s edge (the stepper's 8px gap taken
    back) and the glyph leans on its left side, 8px in (4px padding + the icon's own 4px), on every
    width. The box stays the full 44px target (36 on the laptop, below). Frameless and dim as before, so it does not read as
-   a fourth key; a hover turns the glyph red without the tile plate, which would stand off-centre
+   a fourth key; a hover inks the glyph (grey, never red: ✕ clears) without the tile plate, which would stand off-centre
    round a glyph that no longer sits in its middle. */
 .rz-count .step-clear { margin-left: calc(-1 * var(--sp-2)); justify-items: start; padding-left: var(--sp-1); }
 @media (hover: hover) { .rz-count .step-clear:hover:not(:disabled) { background: transparent; } }

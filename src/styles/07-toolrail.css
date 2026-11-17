@@ -256,7 +256,8 @@
 @media (hover: hover) {
   .step-btn:hover:not(:disabled) { background: var(--surface); border-color: var(--border); }
 }
-.step-btn:active:not(:disabled) { background: var(--blue-12); border-color: var(--blue); }
+/* the press is THE press wash and nothing moves – never blue, which means «chosen» (duck sweep ELEM.14) */
+.step-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .step-btn:disabled { opacity: var(--disabled); cursor: default; }
 .step-val { font-family: var(--mono); font-size: var(--fs-2); font-weight: var(--fw-medium); min-width: 30px; text-align: center; color: var(--ink);
   /* digits must not change width as they change value, or the ± buttons twitch under the finger */
@@ -287,11 +288,16 @@
 .step-clear { width: var(--tap); height: var(--tap); flex: none; margin-left: 4px; border-radius: var(--r-sm); border: none; padding: 0;
   background: transparent; color: var(--ink-dim); cursor: pointer; display: grid; place-items: center; }
 @media (hover: hover) {
-  .step-clear:hover:not(:disabled) { background: var(--red-12); color: var(--red-strong); }
+  /* ✕ CLEARS, it does not delete: a grey hover, never the delete red (duck sweep ELEM.14) */
+  .step-clear:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
 }
 .step-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .step-clear:disabled { opacity: var(--disabled); cursor: default; }
 .step-clear .i { width: 16px; height: 16px; }
+/* a READ-OUT (Stepper · readOnly, FEEDBACK.5): the value alone at the control edge, full ink, the
+   row's --tap height so a locked panel keeps its rhythm */
+.step-ro { min-height: var(--tap); }
+.step-ro .step-val { min-width: 0; text-align: left; }
 
 /* ── The app's own slider (components/Slider) ────────────────────────────────────────────────
    Shared chrome, like `.step` above it: a 44px hit band with a thin painted track inside, so a
