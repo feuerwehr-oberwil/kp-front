@@ -33,7 +33,7 @@
 // stays here is the wiring between them: what a selection, a tool or a tap does to the others,
 // and the markup.
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Suspense, useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import { Marker } from 'react-map-gl/maplibre'
 import { appConfig } from '../../config/appConfig'

@@ -57,8 +57,8 @@ export interface UseWorkspaceBlobInputs {
   setPickedObjectId: Dispatch<SetStateAction<string | undefined>>
   setIntakeReviewedAt: Dispatch<SetStateAction<string | undefined>>
   undoHist: UndoTimeline
-  /** where a merge leaves word that ↶'s step is gone, for the next ↶ press to say (IncidentWorkspace · pressHistory) */
-  undoTopLostRef: { current: UndoTopLost | null }
+  /** a merge leaves word that ↶'s step is gone, for the next ↶ press to say (IncidentWorkspace · pressHistory) */
+  setUndoTopLost: (lost: UndoTopLost) => void
   liveWs: RefObject<Partial<Record<keyof Saved, unknown>>>
   liveObjects: () => TacticalObject[]
   boardRef: RefObject<BoardDoc>
@@ -103,7 +103,7 @@ export function useWorkspaceBlob({
   bootGate, olderBuild, setOlderBuild, incidentMeta, setLayers, journal, setRecent, setBuilding, setVehicleOverrides,
   setChecklists, setTrupps, setAttendance, setMittel, setShifts, setBands, setCameraViews, setTrails,
   setPlanScale, setReportMeta, setAttachments, setReportSignatures, setIncidentSettings, setPlanBindings, setPickedObjectId,
-  setIntakeReviewedAt, undoHist, undoTopLostRef, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
+  setIntakeReviewedAt, undoHist, setUndoTopLost, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
   setPlanHistory, lastReportStepRef, lastCaptionStepRef, lastReorientRef, setSelectedId, setSelectedDrawingId,
   setSelectedDrawIds, objects, recent, activePlanId, pickedObjectId, building, vehicleOverrides,
   checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta,
@@ -209,7 +209,7 @@ export function useWorkspaceBlob({
       // came per merge, while the operator was looking at something else). `top` is what ↶
       // points at now: once a newer act lies on it, the word is stale and the press just steps.
       onTopDropped: (e) => {
-        undoTopLostRef.current = { text: fillTemplate(appConfig.copy.undoTopDropped, { what: appConfig.copy.undoDroppedWhat[e.domain] }), top: undoHist.peekUndo() }
+        setUndoTopLost({ text: fillTemplate(appConfig.copy.undoTopDropped, { what: appConfig.copy.undoDroppedWhat[e.domain] }), top: undoHist.peekUndo() })
       },
     })
     // …and the ghost-trail reconciliation re-seeds instead of running: the store was REPLACED, so

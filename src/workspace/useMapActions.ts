@@ -32,7 +32,7 @@ import { ROTATION_DEFAULT_RUN_M, ROTATION_W_M, SHAPE_DEFS, SHAPE_MIN_M, SHAPE_TW
 import { seedSymbolProps, VEHICLE_SYMBOLS } from '../lib/symbols'
 import type { TacticalObject } from '../lib/tacticalObjects'
 import { lineTakesTrupp } from '../lib/truppLines'
-import { toast, undoToast } from '../lib/ui'
+import { undoToast } from '../lib/ui'
 import { askJoinedLines, removedText, removeWithUndo, withLinesText } from '../lib/removalToast'
 import { recordKey, type RecordKey } from '../lib/undoKeys'
 import type { Dropper, UndoDomain } from '../lib/undoTimeline'

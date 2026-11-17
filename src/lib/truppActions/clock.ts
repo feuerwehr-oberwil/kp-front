@@ -1,9 +1,9 @@
 import type { Trupp } from '../../types'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate, formatTime } from '../format'
-import { toast, undoToast } from '../ui'
+import { undoToast } from '../ui'
 import { atemschutzDoctrine } from '../deploymentConfig'
-import { alarmBarFor, currentRunStart, earlyEntryCorrection, fmtDuration, isAtemschutzTrupp, notfallFacts, notfallOffered, safetyReady, truppInNotfall, truppLogName } from '../atemschutz'
+import { alarmBarFor, currentRunStart, earlyEntryCorrection, fmtDuration, isAtemschutzTrupp, notfallFacts, notfallOffered, truppInNotfall, truppLogName } from '../atemschutz'
 // ⚠️ Every Trupp timestamp below is stamped in the DEPLOYMENT's time, not the device's
 // (lib/serverClock). These are the safety clocks and the legal record: written device-local, a
 // tablet six seconds ahead put contact times into the Rapport that no other device agreed with,

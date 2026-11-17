@@ -735,10 +735,10 @@ export function IncidentWorkspace({
   /** A merge dropped ↶'s own step (useWorkspaceBlob · onTopDropped): the operator's next ↶ — a
    *  button or the key, never a toast's — says so at the button and does not step, so ↶ never
    *  quietly turns into an older act. The press after it steps as usual. */
-  const undoTopLost = useRef<UndoTopLost | null>(null)
+  const [undoTopLost, setUndoTopLost] = useState<UndoTopLost | null>(null)
   const pressHistory = (dir: 'undo' | 'redo', anchor?: HTMLElement | null): void => {
-    const lost = undoTopLost.current
-    undoTopLost.current = null
+    const lost = undoTopLost
+    if (lost) setUndoTopLost(null)
     if (dir === 'undo' && lost && undoHist.peekUndo() === lost.top) {
       if (anchor) flashUndoCaption(anchor, lost.text)
       else toast(lost.text, { icon: 'warn' })
@@ -1371,7 +1371,7 @@ export function IncidentWorkspace({
     bootGate, olderBuild, setOlderBuild, incidentMeta, setLayers, journal, setRecent, setBuilding, setVehicleOverrides, setChecklists,
     setTrupps, setAttendance, setMittel, setShifts, setBands, setCameraViews, setTrails, setPlanScale,
     setReportMeta, setAttachments, setReportSignatures, setIncidentSettings, setPlanBindings, setPickedObjectId,
-    setIntakeReviewedAt, undoHist, undoTopLostRef: undoTopLost, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
+    setIntakeReviewedAt, undoHist, setUndoTopLost, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
     setPlanHistory, lastReportStepRef: lastReportStep, lastCaptionStepRef: lastCaptionStep,
     lastReorientRef: lastReorient, setSelectedId, setSelectedDrawingId, setSelectedDrawIds, objects, recent,
     activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel,
