@@ -12,8 +12,9 @@ export const materialCopy = {
     // «In Verwendung» ist ein Filter-Knopf auf der Suchzeile, kein Tab mehr – die Bezeichnung
     // bleibt, sie ist jetzt Tooltip und aria-label. (viewLabel/viewList sind mit dem Tab weg.)
     viewBySource: 'In Verwendung',
-    // the category filter's WORD on a wide head (22.09.2026)
-    categoryFilterWord: 'Filtern',
+    // the category filter's WORD, on every device (22.09.2026) – the FACET, never the act «Filtern»
+    // (button sweep HEADS.6, 17.11.2026: «Filtern» beside «Verwendet» did not say WHAT it filters)
+    categoryFilterWord: 'Kategorie',
     // Suche + Kategorie-Filter, gebaut wie in der Anwesenheit: eine Zeile über der Liste
     noSource: 'Ohne Zuordnung',
     searchPlaceholder: 'Suchen …',
@@ -66,8 +67,7 @@ export const materialCopy = {
     save: 'Speichern',
     cancel: 'Abbrechen',
     removeRow: 'Auf 0 setzen',
-    // deleting happens immediately with an undo toast; the Verlauf is kept
-    removedToast: '«{label}» gelöscht',
+    // deleting happens immediately – the ↶ brings it back; the Verlauf is kept
     // Verlauf rows
     logSet: '{label}: {menge} {unit}',
     logRemoved: '{label} auf 0 gesetzt',
@@ -113,6 +113,8 @@ export const materialCopy = {
     lagePickConfirm: '{n} Positionen erfassen',
     lagePickConfirmOne: '1 Position erfassen',
     // Retablierung per equipment row (consumable Mittel end up in the resupply list)
+    viewBySourceWord: 'Verwendet',
+    customMaterialWord: 'Anderes',
   },
   // Checkliste surface (ChecklistsView · ChecklistRunner · ChecklistReference)
   checklists: {

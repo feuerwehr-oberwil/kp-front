@@ -4,10 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Mock the alarm layer so the host's tone/notification side effects don't touch Web Audio /
 // Notification in the test env — we're testing the due-derivation timing, not the alert delivery.
-vi.mock('./alarm', () => ({ notify: vi.fn(), startAlarm: vi.fn(), stopAlarm: vi.fn() }))
+vi.mock('./alarm', () => ({ notify: vi.fn(), chime: vi.fn() }))
 
 import { RemindersHost, useReminders } from './useReminders'
-import { notify, startAlarm } from './alarm'
+import { chime, notify } from './alarm'
 import type { TimelineEvent } from '../types'
 
 const copy = { dueTitle: 'fällig', doneLog: '{text}', pendenzDoneLog: 'p {text}', snoozeLog: '{mins} {text}', reopenLog: 'o {text}', pendenzReopenLog: 'po {text}' }
@@ -41,6 +41,8 @@ describe('useReminders — overdue recompute on resume', () => {
     expect(notify).toHaveBeenCalledWith('fällig', {
       body: 'Keller prüfen', tag: 'reminder-r1', target: 'journal',
     })
+    // FEEDBACK.10 (17.11.2026): the calm chime, once – never a voice louder than the Atemschutz warn
+    expect(chime).toHaveBeenCalledTimes(1)
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })
   })
 
@@ -53,7 +55,7 @@ describe('useReminders — overdue recompute on resume', () => {
 
     expect(latest.dueCount).toBe(1)
     expect(notify).not.toHaveBeenCalled()
-    expect(startAlarm).not.toHaveBeenCalled()
+    expect(chime).not.toHaveBeenCalled()
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })
   })
 

@@ -15,6 +15,7 @@ import { Icon } from '../lib/icons'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { LockChip } from './LockChip'
 import { TwinTeamPill } from './TwinTeamPill'
+import { truppMarkerTone } from '../lib/truppLines'
 import { SHAPE_AXIS_GRIPS, SHAPE_MAX_PX, SHAPE_TWO_POINT, ShapeGlyph, rotationGripOffPx, shapeAspect } from '../lib/shapes'
 import { DEFAULT_INK } from '../lib/lineStyle'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
@@ -36,7 +37,7 @@ type EntityMarkerProps = Pick<MapMarkersProps,
   'entities' | 'byName' | 'selectedId' | 'zoom' | 'suppressedLabels' | 'draggable' | 'project' | 'unproject'
   | 'onSelect' | 'onDelete' | 'onRotate' | 'onShapeTransform' | 'onUnlockShape' | 'onNoteEdit' | 'trupps' | 'onShowTrupp'
   | 'onTeamTrupp' | 'onTeamNewTrupp' | 'onTeamMark' | 'onTeamRename' | 'onTeamClearTrail' | 'onTeamRemoveWithTrail'
-  | 'hiddenTrails' | 'onToggleTrail' | 'teamLines' | 'onTeamUnlink' | 'onTeamUndock'>
+  | 'hiddenTrails' | 'onToggleTrail' | 'teamLines' | 'onTeamUnlink' | 'onTeamUndock' | 'truppSeverities'>
   & Required<Pick<MapMarkersProps, 'groupSelectedIds' | 'networkEntityIds' | 'bearing' | 'symMul' | 'captionMode' | 'readOnly' | 'editNoteId'>> & {
   e: Entity
   /** this marker's offset while its pile is fanned open — and the hairline back to where it
@@ -64,6 +65,9 @@ type EntityMarkerProps = Pick<MapMarkersProps,
   noteBlur: (ev: React.FocusEvent<HTMLTextAreaElement>, id: string) => void
   noteKeyDown: (ev: React.KeyboardEvent<HTMLTextAreaElement>) => void
   noteDone: (id: string, text: string) => void
+  /** a Trupp marker's rename, opened by its pen OR a double tap (MapMarkers · namedDoubleTap) */
+  renaming: boolean
+  onRenaming: (on: boolean) => void
 }
 
 // A transform handle (rotate / resize) whose drag is bound with NATIVE pointer listeners that
@@ -127,7 +131,7 @@ export function EntityMarker({
   rotDown, rotMove, rotUp, shapeDown, shapeMove, shapeUp, focusNote, focusTeam, noteChange, noteBlur, noteKeyDown, noteDone,
   onSelect, onDelete, onRotate, onShapeTransform, onUnlockShape, onNoteEdit, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp,
   onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink,
-  onTeamUndock,
+  onTeamUndock, truppSeverities, renaming, onRenaming,
 }: EntityMarkerProps) {
   // the glyph's on-screen pixel size — drives the selection halo + handle ring so
   // they sit a fixed distance OUTSIDE the glyph at any zoom (small glyphs push the
@@ -232,6 +236,10 @@ export function EntityMarker({
         // owner — the Gebäude chip's look): the hose's end tag says which Leitung. Absent
         // badge = the marker it always was.
         const badge = teamLines?.get(e.id)
+        // …and the Trupp's own alarm tier, on the marker itself (lib/truppLines · truppMarkerTone):
+        // a Trupp in Notfall or überfällig reads as alarm here even when it is on no hose.
+        const tone = truppMarkerTone(e.truppId, trupps, truppSeverities)
+        const toneCls = tone === 'warn' || tone === 'crit' ? ` tone-${tone}` : ''
         if (selectedId !== e.id) {
           // the pass could not fit the name without covering something that outranks it:
           // the coloured dot stays (a Trupp is always visible AS a Trupp), and the ink dot
@@ -242,7 +250,7 @@ export function EntityMarker({
           // opaque (09-whiteboard · .team-dot.raus)
           return (
             <>
-              <span className={`team-dot ${isRaus ? 'raus' : ''}${badge ? ' joined' : ''}`}
+              <span className={`team-dot ${isRaus ? 'raus' : ''}${badge ? ' joined' : ''}${toneCls}`}
                 style={{ '--team': teamCol, ...(badge ? { '--line': badge.color } : null) } as React.CSSProperties}>
                 <i />
                 {!nameHidden && <b><span>{e.label}</span></b>}
@@ -266,11 +274,11 @@ export function EntityMarker({
         return (
           <TwinTeamPill
             name={e.label ?? ''} time={e.t} color={teamCol}
-            raus={isRaus} truppId={e.truppId} floor={e.floor}
+            raus={isRaus} truppId={e.truppId} floor={e.floor} tone={tone}
             trailCount={e.trail?.length ?? 0}
             trailShown={!hiddenTrails?.has(e.id)} trupps={trupps ?? []}
             line={badge}
-            renameRef={focusTeam}
+            renameRef={focusTeam} renaming={renaming} onRenaming={onRenaming}
             acts={draggable ? {
               rename: onTeamRename && ((name) => onTeamRename(e.id, name)),
               pick: onTeamTrupp && ((truppId) => onTeamTrupp(e.id, truppId)),

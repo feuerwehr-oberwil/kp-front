@@ -56,8 +56,8 @@ function DueReminder({ r, onDone, onSnooze, onOpen }: {
     // the task is what the operator must do — two lines before the ellipsis (lib/meldungen · subLines)
     subLines: 2,
     actions: [
-      ...(onDone ? [{ label: C.dueDone, icon: 'check', primary: true, onClick: () => onDone(r) }] : []),
-      ...(onSnooze ? [{ label: C.dueSnooze, icon: 'clock', onClick: () => onSnooze(r) }] : []),
+      ...(onDone ? [{ label: C.dueDone, primary: true, onClick: () => onDone(r) }] : []),
+      ...(onSnooze ? [{ label: C.dueSnooze, onClick: () => onSnooze(r) }] : []),
     ],
     // …and the way in, on the title. It can only exist since each due item became its own row:
     // «öffnen» on a row that stood for two Wiedervorlagen could not say WHICH one it would land

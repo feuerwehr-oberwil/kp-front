@@ -146,6 +146,43 @@ describe('(f) a merge reaches the screen', () => {
   })
 })
 
+// toast diet call 6 (17.11.2026): a merge that takes ↶'s own step used to raise a toast per merge.
+// Now the NEXT ↶ press says it at the button and does not step; the press after it steps.
+describe('(f) ↶ after a merge took its step', () => {
+  const lastMittel = () => rec.mittel[rec.mittel.length - 1] as { entries: MittelEntry[]; onSave: (d: MittelDraft) => void }
+  const undoButton = () => screen.getAllByRole('button').find((b) => (b.getAttribute('aria-label') ?? '').startsWith('Rückgängig'))!
+
+  it('says it on the next press, without a toast, and steps on the press after', async () => {
+    const m = meta()
+    savePrefs({ ...loadPrefs(), mode: 'mittel', modeIncidentId: m.id })
+    const sync = new WorkspaceSync(m.id)
+    const { tree } = workspaceTree(m, { sync, workspace: { entities: [truck], mittel: [] } as unknown as Saved })
+    render(tree)
+    await settle(60); await settle(60)
+    act(() => lastMittel().onSave({ label: 'Schlauch 55', unit: 'Stk', menge: 1 }))
+    await settle(60)
+    act(() => lastMittel().onSave({ label: 'Ölbinder', unit: 'Sack', menge: 2 }))
+    await settle(60)
+    const [first, second] = lastMittel().entries
+    // another device changed the Ölbinder line: ↶'s own step (that line) is gone, «Schlauch 55» stays on it
+    const merged = { entities: [truck], mittel: [first, { ...second, menge: 5 }] } as unknown as Parameters<NonNullable<typeof sync.onApplyMerged>>[0]
+    act(() => sync.onApplyMerged!(merged, 1))
+    await settle(60)
+    const lost = fillTemplate(appConfig.copy.undoTopDropped, { what: appConfig.copy.undoDroppedWhat.mittel })
+    expect(document.querySelector('.toaster')?.textContent ?? '').not.toContain(lost)
+
+    fireEvent.click(undoButton())
+    await settle(60)
+    expect(document.body.textContent).toContain(lost)
+    expect(lastMittel().entries.map((e) => e.label)).toEqual(['Schlauch 55', 'Ölbinder'])
+
+    // the press after it steps: «Schlauch 55» goes, the other device's Ölbinder stays
+    fireEvent.click(undoButton())
+    await settle(60)
+    expect(lastMittel().entries.map((e) => e.label)).toEqual(['Ölbinder'])
+  })
+})
+
 // 3am test r3, 25.09.2026: acts the Verlauf used to miss
 describe('(e) acts on the picture say what they did — on the ↶ and in the Verlauf', () => {
   const rows = async () => { key('r'); await settle(60); return (rec.report?.events ?? []).map((e) => e.text) }

@@ -165,3 +165,14 @@ describe('Stepper – decimals', () => {
     expect(input.value).toBe('52')
   })
 })
+
+// duck sweep FEEDBACK.5 (docs/roles-and-access.md): a locked session reads the VALUE – no faded
+// −/+/✕ that say «not available» about a number that is simply known
+describe('Stepper – read-only', () => {
+  it('draws the value alone, with no buttons', () => {
+    render(<Stepper value={2} min={-3} max={9} format={(v) => `${v}. OG`} readOnly onChange={() => {}} onClear={() => {}} canClear ariaLabel="Geschoss" />)
+    const group = screen.getByRole('group', { name: 'Geschoss' })
+    expect(group.textContent).toBe('2. OG')
+    expect(group.querySelector('button')).toBeNull()
+  })
+})

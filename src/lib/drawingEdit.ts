@@ -37,6 +37,16 @@ export const endingFlags = (e: LineEnding): Pick<Drawing, 'arrow' | 'arrowStop' 
 export const endingWireFlags = (e: LineEnding): Required<Pick<Drawing, 'arrow' | 'arrowStop' | 'teilstueck'>> =>
   ({ arrow: e === 'arrow' || e === 'arrowStop', arrowStop: e === 'arrowStop', teilstueck: e === 'teilstueck' })
 
+/** An Abschluss's NAME – the Verlauf's statement and the editor's row label («Linienende · Pfeil»,
+ *  button sweep audit A2, 17.11.2026: the four pictures said it only to an untaught hold). */
+export function endingName(e: LineEnding): string {
+  const E = appConfig.copy.drawingEditor
+  const names: Record<LineEnding, string> = {
+    none: E.endingNone, arrow: E.endingArrow, arrowStop: E.endingArrowStop, teilstueck: E.endingTeilstueck,
+  }
+  return names[e]
+}
+
 export function drawingEditChanges(prev: Drawing, next: Drawing): string[] {
   const L = appConfig.copy.log
   const E = appConfig.copy.drawingEditor
@@ -58,7 +68,7 @@ export function drawingEditChanges(prev: Drawing, next: Drawing): string[] {
   // ── Inhalt: the FKS device letter (S/W/H/P). Unset is not «cleared» — it is Wasser, a value
   // of its own, and the row says so the way the editor does.
   //
-  // ⚠️ A REPLACEMENT says so («Typ auf Gegenfeuer geändert»), the same rule every symbol field
+  // ⚠️ A REPLACEMENT says so («Inhalt auf Gegenfeuer geändert»), the same rule every symbol field
   // already follows (lib/entityEdit). Written as a bare «Typ: X» each time, somebody dialling
   // through the presets left three consecutive rows — «Typ: Nasse Haltelinie», «Typ: Gegenfeuer»,
   // «Typ: Wasser» (03.09., 07:52) — that read on paper as three properties holding at once
@@ -121,12 +131,9 @@ export function drawingEditChanges(prev: Drawing, next: Drawing): string[] {
   // bar is the row the record is read for — «bis hier, und dort gestoppt» — and it used to
   // appear and vanish silently.
   if (endingOf(prev) !== endingOf(next)) {
-    const labels: Record<LineEnding, string> = {
-      none: E.endingNone, arrow: E.endingArrow, arrowStop: E.endingArrowStop, teilstueck: E.endingTeilstueck,
-    }
     // …and the same «geändert» rule: a line that HAD an Abschluss and got another one is a
     // correction, not a second Abschluss standing beside the first.
-    out.push(statement(E.ending, labels[endingOf(next)], endingOf(prev) !== 'none'))
+    out.push(statement(E.ending, endingName(endingOf(next)), endingOf(prev) !== 'none'))
   }
 
   return out

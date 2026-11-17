@@ -1,4 +1,5 @@
 import { LoadingStatus } from './ShellLoader'
+import { ONE_LINE } from '../lib/fieldKeys'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { prefersReducedMotion } from '../lib/reducedMotion'
 import { Icon } from '../lib/icons'
@@ -7,6 +8,8 @@ import { CtxShell, SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { HATCH_CHIP_VB, HatchDefs, LineStylePicker, hatchPatternId } from '../lib/draw'
+import { colorName, fillName, lineStrokeName } from '../lib/drawNames'
+import { endingName, endingOf } from '../lib/drawingEdit'
 import { DEFAULT_INK, markerGlyph } from '../lib/lineStyle'
 import { fmtDistance, fmtArea, hoseSplit } from '../lib/geo'
 import { CONTENT_LABELS } from '../lib/lineDecor'
@@ -191,6 +194,9 @@ interface Props {
    *  lock chip). Absent → the lock control is hidden (e.g. surfaces without locking). */
   onToggleLock?: () => void
   locked?: boolean
+  /** «Zentrieren»: the map frames the drawing's whole extent, the Plan centres its board on it
+   *  (button sweep SHEETS.9, 17.11.2026). Offered on a locked panel too. */
+  onCenter?: () => void
   onDelete: () => void
   onClose: () => void
   attachmentLabels?: Partial<Record<LineEndpoint, string>>
@@ -219,7 +225,7 @@ function hosesText(lengthM: number, lines: number): string {
   return reserve ? fillTemplate(appConfig.copy.drawingEditor.hoseSplit, { n: need, r: reserve, m }) : `${need} × ${m} m`
 }
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onHose, waterRelay, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, onPerson, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, onWand, wandBlocked, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onHose, waterRelay, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, onPerson, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, onWand, wandBlocked, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onCenter, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
   // The Auftrag input is uncontrolled (see its comment), so the unmount commit reads the DOM
   // node — kept, never nulled, because React detaches element refs before passive cleanups run.
   // Same idempotence guard as ContextPanel's Notizen: blur first, unmount second, one write.
@@ -290,14 +296,19 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
   }, [measureOpen, profileReady])
   // rendered twice: pinned at the sheet bottom on desktop/tablet, and again inside the
   // scrolling body for phones (.ctx-footer-inline) — CSS shows exactly one copy
-  const actions = readOnly ? null : (
+  // ONE map-card foot, [Zentrieren · its toggle · delete] (owner, button sweep SHEETS.9, 17.11.2026):
+  // «where is this Linie» had no button while every symbol and Form had one. A locked panel keeps
+  // «Zentrieren» – the one act that changes nothing – as the symbol's and the Form's do.
+  const actions = readOnly && !onCenter ? null : (
     <div className="ctx-actions">
-      {onToggleLock && (
-        <button className="btn de-lock" onClick={onToggleLock} title={appConfig.copy.drawingEditor.lockHint} aria-pressed={!!locked}>
-          <Icon id="lock" />{appConfig.copy.drawingEditor.lock}
-        </button>
+      {onCenter && <Button icon={<Icon id="cross" />} onClick={onCenter}>{appConfig.copy.contextPanel.center}</Button>}
+      {!readOnly && onToggleLock && (
+        // what a lock is for is the HOLD's (audit A4, 17.11.2026): it was a `title`, and said «die Form» on a Linie
+        <Button className="de-lock" icon={<Icon id="lock" />} onClick={onToggleLock} data-holdexplain aria-label={appConfig.copy.drawingEditor.lockHint} aria-pressed={!!locked}>
+          {appConfig.copy.drawingEditor.lock}
+        </Button>
       )}
-      <button className="btn warn" onClick={onDelete}><Icon id="trash" />{appConfig.copy.remove}</button>
+      {!readOnly && <Button variant="danger" icon={<Icon id="trash" />} onClick={onDelete}>{appConfig.copy.remove}</Button>}
     </div>
   )
   // the header shares the grip's drag (tap stays a tap there — see useSheetDrag)
@@ -359,9 +370,9 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                     : <Button onClick={() => onRouting(endpoint, 'trace')}>{C.gpsContinue}</Button>)}
                   {/* «Am Einsatzort» only where that point is known — a trace without a kept
                       on-site line would let go at the vehicle, and the word would lie */}
-                  {onDetach && info.onSite && <Button onClick={() => onDetach(endpoint)}>{C.gpsDetachOnSite}</Button>}
+                  {onDetach && info.onSite && <Button icon={<Icon id="unlink" />} onClick={() => onDetach(endpoint)}>{C.gpsDetachOnSite}</Button>}
                   {/* a traced hose may be KEPT (24.09.2026): let go where it stands, drive and all */}
-                  {(onDetachHere ?? onDetach) && <Button onClick={() => (onDetachHere ?? onDetach)!(endpoint)}>{C.gpsDetachHere}</Button>}
+                  {(onDetachHere ?? onDetach) && <Button icon={<Icon id="unlink" />} onClick={() => (onDetachHere ?? onDetach)!(endpoint)}>{C.gpsDetachHere}</Button>}
                 </div>
               )}
             </div>
@@ -387,10 +398,13 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
         {!readOnly && isLine && (
           <div className="de-group">
             {onEnding ? (
-              <div className="de-row"><span>{appConfig.copy.drawingEditor.ending}</span>
+              // the label NAMES the pick under the row's word (button sweep audit A2, 17.11.2026):
+              // four pictures, and the hold that names them is taught nowhere – a tap to find out is
+              // safe, a pick undoes
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.ending}<b className="de-pick">{endingName(endingOf(drawing))}</b></span>
                 <Segmented
                   ariaLabel={appConfig.copy.drawingEditor.ending}
-                  value={drawing.teilstueck ? 'teilstueck' : drawing.arrow ? (drawing.arrowStop ? 'arrowStop' : 'arrow') : 'none'}
+                  value={endingOf(drawing)}
                   onChange={onEnding}
                   // ⚠️ `explain` (lib/holdTooltip · data-holdexplain): four pictures whose
                   // NAMES were all a hold ever gave, and the names are the least of it — «Pfeil mit
@@ -416,13 +430,13 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 stays where it is, only its direction of travel turns around (lib/lineAttachments ·
                 flipLine), and everything hooked to either end stays hooked where it physically is. */}
             {/* ⚠️ An ACTION, not a state — so it is not one of this panel's Segmented pairs and
-                no longer wears their chrome (01.09.). It used to sit as a label plus a lone icon
-                chip in the `.de-toggle` box, which reads as «umkehren: on/off» while nothing here
-                is ever on: the row is one press that does one thing. */}
+                no longer wears their chrome (01.09.): one press that does one thing. THE button,
+                glyph + verb, at the control edge (owner, button sweep SHEETS.6, 17.11.2026 – it
+                was an unframed 12.5px row that read as a label). */}
             {onReverse && (
-              <button type="button" className="de-action" onClick={onReverse}>
-                <Icon id="swap" />{appConfig.copy.drawingEditor.reverse}
-              </button>
+              <div className="de-act">
+                <Button icon={<Icon id="swap" />} onClick={onReverse}>{appConfig.copy.drawingEditor.reverse}</Button>
+              </div>
             )}
           </div>
         )}
@@ -433,7 +447,8 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             starts from DRAW_DEFAULTS; only the control is gone. */}
         {!readOnly && <div className="de-group">
           {isLine && (
-            <div className="de-row"><span>{appConfig.copy.drawingEditor.lineStyle}</span>
+            // «Linienart», naming the picked stroke under it (audit A3 / B1)
+            <div className="de-row"><span>{appConfig.copy.drawingEditor.lineStyle}<b className="de-pick">{lineStrokeName(dashed, drawing.marker)}</b></span>
               {/* the chains belong to the STROKE, so they sit here with solid and dashed — the
                   letter field below stays the letter field (lib/draw · LineStylePicker) */}
               <LineStylePicker dashed={dashed} onChange={onDashed} marker={drawing.marker} onMarker={onMarker} />
@@ -443,8 +458,10 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             <div className="de-row"><span>{appConfig.copy.drawingEditor.fill}</span>
               <span className="dh-swatches">
                 {FILL_OPACITIES.map((o) => (
+                  // named «Füllung 35 %» / «Ohne Füllung» (audit A9): the ∅ shows text, so it asks
+                  // for its hold explicitly (`data-holdexplain`)
                   <button key={o} className={`dh-color de-fill ${!drawing.hatch && Math.abs(fillOpacity - o) < 0.001 ? 'on' : ''}`}
-                    title={`${Math.round(o * 100)} %`} aria-label={`${Math.round(o * 100)} %`}
+                    aria-label={fillName(o)} data-holdexplain={o === 0 || undefined}
                     style={{ background: o === 0 ? 'transparent' : color, opacity: o === 0 ? 1 : Math.max(0.25, o + 0.2) }}
                     onClick={() => onHatch?.(false, o)}>{o === 0 ? '∅' : ''}</button>
                 ))}
@@ -475,8 +492,9 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             <span className="dh-swatches">
               {/* named like the Form editor's identical rows (ShapeEditor · the Farbe/Strichstärke
                   swatches): a chip whose whole content is a colour or a bar has no text to read
-                  out, so without this the row announces «Farbe» and then four blank buttons. */}
-              {COLORS.map((c) => <button key={c} className={`dh-color ${color === c ? 'on' : ''}`} style={{ background: c }} aria-label={c} onClick={() => onColor(c)} />)}
+                  out, so without this the row announces «Farbe» and then four blank buttons. By
+                  its NAME, «Rot» – the hold read a hex code (audit B15, lib/draw · colorName). */}
+              {COLORS.map((c) => <button key={c} className={`dh-color ${color === c ? 'on' : ''}`} style={{ background: c }} aria-label={colorName(c)} onClick={() => onColor(c)} />)}
             </span>
           </div>
         </div>}
@@ -536,8 +554,8 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                   {truppOnLineOut && <em className="de-trupp-outnote">{appConfig.copy.drawingEditor.truppOut}</em>}
                   {onShowTrupp && (
                     <IconButton onClick={onShowTrupp}
-                      label={fillTemplate(appConfig.copy.drawingEditor.truppShow, { name: truppOnLine })}>
-                      <span className="ctx-conn-go" aria-hidden>›</span>
+                      label={appConfig.copy.drawingEditor.truppShow}>
+                      <Icon id="chevron" className="ctx-conn-go" />
                     </IconButton>
                   )}
                 </span>
@@ -561,13 +579,13 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 // ⚠️ the Verlauf row is written HERE, not on every keystroke: naming a Fläche
                 // «Sicherung» used to leave eleven rows, one per letter (see useMapDrawing).
                 onBlur={(e) => onLabelCommit?.(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
+                {...ONE_LINE} />
             </div>
             {isLine && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.marker}</span>
                 {/* a chain style lives in the same field, so it would otherwise show up here as a
                     stray «▲» in a box the operator is meant to type a letter into */}
-                <input className="de-input" value={markerGlyph(drawing.marker) ? '' : (drawing.marker ?? '')} placeholder={appConfig.copy.drawingEditor.markerPlaceholder} maxLength={3} onChange={(e) => onMarker(e.target.value)} />
+                <input className="de-input" value={markerGlyph(drawing.marker) ? '' : (drawing.marker ?? '')} placeholder={appConfig.copy.drawingEditor.markerPlaceholder} maxLength={3} onChange={(e) => onMarker(e.target.value)} {...ONE_LINE} />
               </div>
             )}
           </div>
@@ -602,7 +620,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                   ref={(el) => { if (el) auftragEl.current = el }}
                   placeholder={appConfig.copy.drawingEditor.abschnittAuftragPlaceholder}
                   onBlur={(e) => commitAuftrag(e.target.value.trim())}
-                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
+                  {...ONE_LINE} />
               </div>
             )}
             {/* the FKS Richtwert, as a hint and never a gate — counted over Flächen that carry
@@ -728,8 +746,8 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                   />
                   {onShowTrupp && truppOnLine && (
                     <IconButton onClick={onShowTrupp}
-                      label={fillTemplate(appConfig.copy.drawingEditor.truppShow, { name: truppOnLine })}>
-                      <span className="ctx-conn-go" aria-hidden>›</span>
+                      label={appConfig.copy.drawingEditor.truppShow}>
+                      <Icon id="chevron" className="ctx-conn-go" />
                     </IconButton>
                   )}
                 </span>
@@ -760,8 +778,10 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                     onChange={(wand) => { if (wand !== (drawing.role === 'wand')) onWand(wand) }}
                     options={[
                       { value: false, label: appConfig.copy.drawingEditor.kindLine },
-                      { value: true, label: appConfig.copy.drawingEditor.kindWand, disabled: !!wandBlocked && drawing.role !== 'wand', title: wandBlocked },
-                    ]} />
+                      { value: true, label: appConfig.copy.drawingEditor.kindWand, disabled: !!wandBlocked && drawing.role !== 'wand', title: appConfig.copy.drawingEditor.kindWandWhat },
+                    ]}
+                    // what a Wand CHANGES is the hold's (audit A8, 17.11.2026)
+                    explain />
                 </div>
                 {wandBlocked && drawing.role !== 'wand' && <p className="de-hint">{wandBlocked}</p>}
               </>
@@ -819,8 +839,10 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 moment the panel closed. An Absperrkreis or Sektor whose area is the whole point
                 gets the same switch a hose line has. */}
             {measureOpen && (isLine ? supportsDistance : areaM2 != null) && !readOnly && (
-              <div className="de-row"><span>{appConfig.copy.drawingEditor.showOnMap}</span>
-                <OnOff ariaLabel={appConfig.copy.drawingEditor.showOnMap} value={!!drawing.showDistance} onChange={onShowDistance} />
+              // the switch puts the NUMBER on the map – «Länge / Fläche auf Karte» (audit B17): under
+              // «Vermessung», «Auf Karte» read as «show the line on the map»
+              <div className="de-row"><span>{isLine ? appConfig.copy.drawingEditor.showLengthOnMap : appConfig.copy.drawingEditor.showAreaOnMap}</span>
+                <OnOff ariaLabel={isLine ? appConfig.copy.drawingEditor.showLengthOnMap : appConfig.copy.drawingEditor.showAreaOnMap} value={!!drawing.showDistance} onChange={onShowDistance} />
               </div>
             )}
             {/* a Leitung's Wassertransport chart carries the terrain itself – it stands in for the
@@ -870,7 +892,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 {/* endpoint → target: same de-row as the FKS rows above; the value taps to fly there */}
                 <div className="de-row"><span>{endpoint === 'start' ? appConfig.copy.drawingEditor.connectedStart : appConfig.copy.drawingEditor.connectedEnd}</span>
                   <button type="button" className="de-conn-name" onClick={onFocusAttachment ? () => onFocusAttachment(endpoint) : undefined} disabled={!onFocusAttachment}>
-                    <span>{name}</span>{onFocusAttachment && <span className="de-conn-go" aria-hidden>›</span>}
+                    <span>{name}</span>{onFocusAttachment && <Icon id="chevron" className="de-conn-go" />}
                   </button>
                 </div>
                 {note && <div className={`de-conn-note${gps === 'paused' ? ' warn' : ''}`}>
@@ -894,7 +916,13 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                     </span>
                   </div>
                 )}
-                {!readOnly && onDetach && !inGpsBlock && <button type="button" className="de-conn-detach" onClick={() => onDetach(endpoint)}>{a.gps ? (onSiteKnown(a.gps) ? appConfig.copy.drawingEditor.gpsDetachOnSite : appConfig.copy.drawingEditor.gpsDetachHere) : appConfig.copy.drawingEditor.detachConnection}</button>}
+                {/* «Lösen» is the neutral framed unlink button at the control edge (button sweep
+                    SHEETS.3, 17.11.2026): a detach can be taken back, so it is no red word */}
+                {!readOnly && onDetach && !inGpsBlock && (
+                  <div className="de-act">
+                    <Button icon={<Icon id="unlink" />} onClick={() => onDetach(endpoint)}>{a.gps ? (onSiteKnown(a.gps) ? appConfig.copy.drawingEditor.gpsDetachOnSite : appConfig.copy.drawingEditor.gpsDetachHere) : appConfig.copy.drawingEditor.detachConnection}</Button>
+                  </div>
+                )}
               </Fragment>
             })}
           </div>

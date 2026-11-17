@@ -105,7 +105,9 @@ async function captureVisit(page: Page, objectName: string, jpeg: Buffer): Promi
   await page.getByTestId('ov-photo-input').setInputFiles({ name: 'foto.jpg', mimeType: 'image/jpeg', buffer: jpeg })
   await expect(page.getByText('Auf diesem Gerät gespeichert – wird mit Netz synchronisiert')).toBeVisible()
   await page.getByLabel('Beschriftung').fill('Zugang Nord')
-  await page.getByRole('button', { name: 'Fertig' }).click()
+  // a live sheet ends on its ✕ (17.11.2026 – its «Fertig» went); Return first puts the keys down
+  await page.getByLabel('Beschriftung').press('Enter')
+  await page.getByRole('dialog').getByRole('button', { name: 'Schliessen' }).click()
   await expect(page.getByRole('button', { name: /^Foto öffnen: Zugang Nord/ })).toBeVisible()
   await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf · auf Gerät/ })).toBeVisible()
   return visitId
@@ -212,7 +214,7 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
         { name: 'a.jpg', mimeType: 'image/jpeg', buffer: jpeg },
         { name: 'b.jpg', mimeType: 'image/jpeg', buffer: jpeg },
       ])
-      await expect(page.getByText('2 Fotos hinzugefügt')).toBeVisible()
+      // no «2 Fotos hinzugefügt» toast (toast diet, 17.11.2026): the photos appearing are the answer
       await expect(page.getByRole('button', { name: /^Foto öffnen/ })).toHaveCount(3)
       await page.getByRole('button', { name: 'Zurück' }).click() // leaving: the save point, offline
       const row = page.getByRole('button', { name: new RegExp(objectName) })

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { primeAudio, startAlarm, stopAlarm } from './alarm'
+import { primeAudio } from './alarm'
 
 const { ensurePushSubscription } = vi.hoisted(() => ({ ensurePushSubscription: vi.fn() }))
 vi.mock('./push', () => ({ ensurePushSubscription }))
@@ -50,7 +50,6 @@ describe('alarm utility', () => {
     ;(globalThis as { AudioContext?: unknown }).AudioContext = FakeCtx as unknown as typeof AudioContext
   })
   afterEach(() => {
-    stopAlarm()
     vi.useRealTimers()
     delete (globalThis as { AudioContext?: unknown }).AudioContext
   })
@@ -69,34 +68,6 @@ describe('alarm utility', () => {
     expect(fresh.audioUnlocked()).toBe(false) // still nothing built by asking
     fresh.primeAudio()
     expect(fresh.audioUnlocked()).toBe(true)
-  })
-
-  it('startAlarm builds + starts an oscillator and loops beats', () => {
-    startAlarm('warn')
-    expect(lastOsc.start).toHaveBeenCalledTimes(1)
-    expect(lastOsc.frequency.setValueAtTime).toHaveBeenCalledWith(660, 0)
-    const beatsBefore = lastOsc.frequency.value // not used, just ensure no throw
-    void beatsBefore
-    // advance time → the interval fires more beep envelopes
-    const rampCalls = fakeGain.gain.exponentialRampToValueAtTime.mock.calls.length
-    vi.advanceTimersByTime(2000)
-    expect(fakeGain.gain.exponentialRampToValueAtTime.mock.calls.length).toBeGreaterThan(rampCalls)
-  })
-
-  it('escalating to critical re-tunes without creating a second oscillator', () => {
-    startAlarm('warn')
-    const osc1 = lastOsc
-    startAlarm('critical')
-    expect(lastOsc).toBe(osc1) // same oscillator reused
-    expect(osc1.frequency.setValueAtTime).toHaveBeenCalledWith(920, 0)
-  })
-
-  it('stopAlarm stops the oscillator and is safe to double-call', () => {
-    startAlarm()
-    const osc1 = lastOsc
-    stopAlarm()
-    expect(osc1.stop).toHaveBeenCalled()
-    expect(() => stopAlarm()).not.toThrow()
   })
 })
 
@@ -159,7 +130,6 @@ describe('alarm delivery and lifecycle', () => {
   })
   afterEach(() => {
     alarms.splice(0).forEach((a) => a.stop())
-    api.stopAlarm()
     vi.clearAllTimers()
     vi.useRealTimers()
     vi.restoreAllMocks()
@@ -216,24 +186,6 @@ describe('alarm delivery and lifecycle', () => {
       expect(decay[1]).toBeLessThan(stop)
     }
     expect(oscillators[1].start.mock.calls[0][0]).toBeGreaterThan(oscillators[0].stop.mock.calls[0][0])
-  })
-
-  it('replaces the looping timer on escalation and disconnects the oscillator when stopped', () => {
-    api.startAlarm('warn')
-    const oscillator = lastOsc
-    expect(oscillator.type).toBe('square')
-    expect(oscillator.connect).toHaveBeenCalledWith(fakeGain)
-    expect(fakeGain.connect).toHaveBeenCalledWith(lastCtx.destination)
-    expect(vi.getTimerCount()).toBe(1)
-    api.startAlarm('critical')
-    expect(vi.getTimerCount()).toBe(1)
-    const cancellations = fakeGain.gain.cancelScheduledValues.mock.calls.length
-    lastCtx.currentTime = 1
-    api.stopAlarm()
-    expect(vi.getTimerCount()).toBe(0)
-    expect(oscillator.disconnect).toHaveBeenCalledTimes(1)
-    expect(fakeGain.gain.cancelScheduledValues).toHaveBeenCalledTimes(cancellations + 1)
-    expect(fakeGain.gain.setValueAtTime).toHaveBeenLastCalledWith(0.0001, lastCtx.currentTime)
   })
 
   it('unlocks through the shared call-site alias without creating audio on a read-out', () => {
@@ -326,7 +278,7 @@ describe('alarm delivery and lifecycle', () => {
     vi.stubGlobal('AudioContext', undefined)
     vi.stubGlobal('webkitAudioContext', undefined)
     expect(api.primeAudio()).toBe(false)
-    expect(() => api.startAlarm()).not.toThrow()
+    expect(() => api.chime()).not.toThrow()
     expect(() => makeAlarm().set(2)).not.toThrow()
     vi.stubGlobal('webkitAudioContext', function () { return (lastCtx = new FakeCtx()) })
     expect(api.primeAudio()).toBe(true)
@@ -336,25 +288,26 @@ describe('alarm delivery and lifecycle', () => {
     await Promise.resolve()
   })
 
-  it('plays the optional chime only while audio is running, without changing the looping alarm', () => {
+  it('plays the chime only while audio is running, without touching a sounding Alarm', () => {
     api.chime()
     const c = lastCtx
     c.state = 'suspended'
     expect(c.createOscillator).not.toHaveBeenCalled()
     api.primeAudio()
+    const a = makeAlarm()
+    a.set(1)
+    const loops = c.createOscillator.mock.calls.length
     c.currentTime = 10
-    api.startAlarm('warn')
-    const loop = lastOsc
     api.chime()
     expect(lastOsc.type).toBe('sine')
     expect(lastOsc.frequency.value).toBe(660)
     expect(lastOsc.start).toHaveBeenCalledExactlyOnceWith(10)
     expect(lastOsc.stop).toHaveBeenCalledExactlyOnceWith(10.22)
-    expect(loop.stop).not.toHaveBeenCalled()
-    api.stopAlarm()
-    const calls = c.createOscillator.mock.calls.length
+    // one-shot: nothing loops after it, the Alarm keeps its own cadence
+    expect(c.createOscillator).toHaveBeenCalledTimes(loops + 1)
+    a.stop()
     vi.advanceTimersByTime(5000)
-    expect(c.createOscillator).toHaveBeenCalledTimes(calls)
+    expect(c.createOscillator).toHaveBeenCalledTimes(loops + 1)
   })
 
   it.each(['default', 'denied'] as const)('delivers nothing when notification permission is %s', async (permission) => {

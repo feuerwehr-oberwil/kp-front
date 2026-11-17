@@ -15,7 +15,7 @@ export function SymbolsFailedMeldung({ onReload, onDismiss }: { onReload: () => 
     icon: 'warn',
     title: C.loadFailedTitle,
     sub: C.loadFailedSub,
-    actions: [{ label: C.retry, icon: 'rotate', primary: true, onClick: onReload }],
+    actions: [{ label: C.retry, primary: true, onClick: onReload }],
     dismiss: { label: C.dismiss, onClick: onDismiss },
   })
   return null

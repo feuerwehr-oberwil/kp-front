@@ -876,6 +876,16 @@ describe('report Pendenzen rows', () => {
     expect(pendenzRows(closedAgain)[0].erledigt).toMatch(/:05$/)
   })
 
+  // ENT.4 (17.11.2026): a withdrawn «wieder in …» was never raised – no «Erledigt» on paper
+  it('prints no row for a withdrawn re-raise', () => {
+    const again = [
+      entry('w1', '2026-08-16T21:01:00.000Z', 'Wiedervorlage zurückgenommen', { op: 'done', id: 'p3', withdrawn: true }),
+      entry('a1', '2026-08-16T21:00:30.000Z', 'Erinnerung gesetzt', { op: 'created', id: 'p3', text: 'Testpendenz 1', again: 'p1', dueAt: '2026-08-16T21:30:00.000Z' }),
+      ...events,
+    ]
+    expect(pendenzRows(again).map((r) => r.text)).toEqual(['Testpendenz 1', 'Patient an Sanität übergeben'])
+  })
+
   it('carries urgency, the assignee and every Meldung', () => {
     const [first, second] = pendenzRows(events)
     expect(first.urgent).toBe(true)

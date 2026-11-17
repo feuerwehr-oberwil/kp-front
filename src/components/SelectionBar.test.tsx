@@ -5,13 +5,17 @@ import { SelectionBar } from './SelectionBar'
 import { appConfig } from '../config/appConfig'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { transformingChrome } from '../lib/transformChrome'
+import { loadPrefs, savePrefs } from '../lib/prefs'
 
 beforeAll(() => {
   const el = Element.prototype as unknown as Record<string, unknown>
   el.setPointerCapture ??= () => {}
   el.releasePointerCapture ??= () => {}
 })
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  savePrefs({ ...loadPrefs(), railLabels: undefined, railLabelsChosen: undefined })
+})
 
 const C = appConfig.copy.drawingEditor
 const grip = () => screen.getByRole('button', { name: C.move })
@@ -110,6 +114,17 @@ describe('SelectionBar · the one bar every selection is transformed from', () =
     expect(dial()!.getAttribute('aria-pressed')).toBe('false')
   })
 
+  // ELEM.1 (owner 17.11.2026): the grips carry their word, and the SAME word armed or not – the
+  // bar never re-flows under the finger that just armed it
+  it('shows «Verschieben» and «Drehen» on the grips, resting and armed alike', () => {
+    const words = () => screen.getAllByRole('button').map((b) => b.textContent)
+    const { rerender } = render(<SelectionBar onMove={() => {}} onRotate={() => {}} onArm={() => {}} />)
+    const resting = words()
+    expect(resting).toEqual([C.move, appConfig.copy.shapes.rotate])
+    rerender(<SelectionBar onMove={() => {}} onRotate={() => {}} onArm={() => {}} armed="rotate" />)
+    expect(words()).toEqual(resting)
+  })
+
   it('is exempt from the armed mode, so its own grips keep working while one is on', () => {
     render(<SelectionBar onMove={() => {}} armed="move" onArm={() => {}} />)
     expect(screen.getByRole('toolbar', { name: C.selectionBar }).hasAttribute('data-arm-exempt')).toBe(true)
@@ -119,5 +134,39 @@ describe('SelectionBar · the one bar every selection is transformed from', () =
     render(<SelectionBar onMove={() => {}} onRotate={() => {}} />)
     expect(grip().hasAttribute('data-holdaction')).toBe(true)
     expect(dial()!.hasAttribute('data-holdaction')).toBe(true)
+  })
+
+  // CHROME.2/.4/.9 (owner 17.11.2026): a bar of tiles like every bar – worded by «Beschriftung»
+  // exactly like the dock, the Mehrfach ✕ one of its tiles, never a mix of worded and bare
+  it('words every tile by «Beschriftung», the ✕ «Schliessen» too, and goes bare with it off', () => {
+    const words = (c: HTMLElement) => [...c.querySelectorAll('.wb-dock-word')].map((w) => w.textContent)
+    const bar = () => <SelectionBar onMove={() => {}} onRotate={() => {}} onClose={() => {}} />
+    const on = render(bar())
+    expect(words(on.container)).toEqual([C.move, appConfig.copy.shapes.rotate, appConfig.copy.closeDialog])
+    expect(on.container.querySelector('.sel-bar')!.classList.contains('worded')).toBe(true)
+    cleanup()
+    savePrefs({ ...loadPrefs(), railLabels: 'off', railLabelsChosen: true })
+    const off = render(bar())
+    expect(words(off.container)).toEqual([])
+    expect(off.container.querySelector('.sel-bar')!.classList.contains('worded')).toBe(false)
+    // …the tiles keep their names, so a bare tile still says what it does
+    expect(screen.getByRole('button', { name: appConfig.copy.closeDialog })).toBeTruthy()
+  })
+})
+
+// rare-user F18 (17.11.2026): ⌘D had no touch door – «Duplizieren» is a worded TAP on the bar
+describe('SelectionBar · Duplizieren', () => {
+  it('copies on a tap, and is not drawn where the surface does not offer it', () => {
+    const onDuplicate = vi.fn()
+    const onMove = vi.fn()
+    render(<SelectionBar onMove={onMove} onDuplicate={onDuplicate} />)
+    const btn = screen.getByRole('button', { name: C.duplicate })
+    expect(btn.textContent).toBe(C.duplicate)
+    fireEvent.click(btn)
+    expect(onDuplicate).toHaveBeenCalledTimes(1)
+    expect(onMove).not.toHaveBeenCalled()
+    cleanup()
+    render(<SelectionBar onMove={() => {}} />)
+    expect(screen.queryByRole('button', { name: C.duplicate })).toBeNull()
   })
 })

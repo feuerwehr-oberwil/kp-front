@@ -4,12 +4,13 @@ The Leitstelle may send a second SMS for the same incident; upstream merges it i
 Divera alarm, which then arrives again with a later ``ts_update`` and a changed title, text or
 address. Nothing here overwrites the Einsatz on its own (owner, 15.11.2026): the update is kept
 as ONE pending record on the incident (``Incident.alarm_update_json``), every device shows it as
-a Meldeleiste row, and the crew decides – take it, edit it, or hide it.
+a Meldeleiste row, and the crew decides – take it, edit it, or hide it (and show it again).
 
 The stored record, one JSON object::
 
-    state      "pending" | "taken" | "hidden" | "same" (said nothing new) – only "pending" is
-               served (models · Incident.alarm_update)
+    state      "pending" | "taken" | "hidden" | "same" (said nothing new) – "pending" and
+               "hidden" are served (models · Incident.alarm_update): a hidden one stands on every
+               device as a grey strip with «Zeigen» (`show`, rare-user round F7, 17.11.2026)
     at         ISO time the update arrived
     ts_update  the alarm's ts_update – a poll that sees the same one again does nothing
     alarm      the alarm's values: title, text, address, lat, lng
@@ -21,8 +22,8 @@ The stored record, one JSON object::
 A later update replaces the record whatever its state (the row shows the latest alarm against
 the Einsatz as it stands); one identical to what the Einsatz already has stores nothing.
 `refresh` recomputes `fields` after every change of the Einsatzdaten, so the row and the
-«Übernehmen» label never go stale. Accept, hide and undo write the Verlauf row server-side, so
-every device and the Rapport see the same decision.
+«Übernehmen» label never go stale. Accept, hide, show and undo write the Verlauf row server-side,
+so every device and the Rapport see the same decision.
 
 Only Divera has this path: the generic intake (api/alarms) and FireHub drop a repeated
 delivery of a known alarm, and carry no update stamp to tell a follow-up from a retry.
@@ -262,6 +263,27 @@ async def dismiss(db: AsyncSession, inc: Incident, user_id: Any) -> bool:
         source=SOURCE,
         user_id=user_id,
         payload={"alarm_update": "hidden"},
+    )
+    return True
+
+
+async def show(db: AsyncSession, inc: Incident, user_id: Any) -> bool:
+    """«Zeigen» on the strip a hide left: the update pending again for every device, re-diffed
+    against the Einsatz as it stands now (a hand edit made meanwhile counts). False when none is
+    hidden."""
+    rec = inc.alarm_update_json
+    if not isinstance(rec, dict) or rec.get("state") != "hidden":
+        return False
+    inc.alarm_update_json = {**rec, "state": "pending"}
+    await refresh(db, inc)
+    await _verlauf(db, inc, "Alarm-Aktualisierung wieder eingeblendet")
+    await audit.append_event(
+        db,
+        incident_id=inc.id,
+        op_type="divera.update",
+        source=SOURCE,
+        user_id=user_id,
+        payload={"alarm_update": "pending"},
     )
     return True
 

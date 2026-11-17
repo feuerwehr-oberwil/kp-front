@@ -196,8 +196,16 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
     azAlarm?.urgent && !azChipHidden ? `${azAlarm.peak}:${azAlarm.urgent.reason}` : '', recording ? 1 : 0, reminderCount > 0 ? 1 : 0,
   ].join('|'))
 
+  // the Verlauf button's name: the word, plus what its number counts while Pendenzen are open
+  const J = appConfig.copy.journal
+  const journalDoor = reminderCount === 1 ? J.openCountDoorOne
+    : reminderCount > 1 ? fillTemplate(J.openCountDoor, { n: reminderCount }) : J.open
+
   return (
-    <div className="topbar" ref={barRef}>
+    // `data-tiles`: a phone's actions are always tiles, glyph OVER word – the tablet's fold
+    // (`fit-6`, lib/useHeadFit · 'action-words') worn from the start (10-journal · «the fold»).
+    // An attribute, not a class: the ladder owns the bar's `fit-N` classes on the DOM.
+    <div className="topbar" data-tiles={isPhone || undefined} ref={barRef}>
       {titleSlot ?? (
         <>
           <div className="ename">{incident.title}</div>
@@ -225,7 +233,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
           every word in it as an unused variable. */}
       <div className="tb-actions">
         {mapNav && (
-          <button className="tb-act icon" title={mapNav.action.label} aria-label={mapNav.action.label} onClick={mapNav.action.onClick}><Icon id={mapNav.action.icon} /></button>
+          <button className="tb-act quiet" title={mapNav.action.label} aria-label={mapNav.action.label} onClick={mapNav.action.onClick}><Icon id={mapNav.action.icon} /><span>{mapNav.action.label}</span></button>
         )}
         {showHistory && (
           // ONE pair (hill climb r20, Opus 8): ↶ ↷ stand 4px apart inside the bar's 8px, so the bar
@@ -235,9 +243,11 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             {/* tb-act-history: a name the stylesheet can aim at. On a phone with an
                 überfällig chip in the bar these two are what steps aside — see app.css. Positional
                 selectors would have picked the wrong buttons, because the mapNav action ahead of
-                them is a .tb-act.icon too and comes and goes with the surface. */}
-            <button className="tb-act icon tb-act-history" title={undoWord} aria-label={undoWord} disabled={!canUndo} onClick={onUndo}><Icon id="undo" /></button>
-            <button className="tb-act icon tb-act-history tb-act-redo" title={redoWord} aria-label={redoWord} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /></button>
+                them is a quiet .tb-act too and comes and goes with the surface.
+                …each with its word (button sweep audit, owner pick 24a, 17.11.2026): a bare ↶ ↷
+                beside «Verlauf» and «Eintrag» was the one wordless pair in a worded row. */}
+            <button className="tb-act quiet tb-act-history" title={undoWord} aria-label={undoWord} disabled={!canUndo} onClick={onUndo}><Icon id="undo" /><span>{appConfig.copy.undo}</span></button>
+            <button className="tb-act quiet tb-act-history tb-act-redo" title={redoWord} aria-label={redoWord} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /><span>{appConfig.copy.redo}</span></button>
           </span>
         )}
         {/* ⚠️ `has-rem` tints the BUTTON, not just its corner. The count badge alone is 17px of amber
@@ -245,9 +255,8 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             chip, which is painted after it and simply covered it up. What «12 offen» has to do is
             be noticed from across a Schadenplatz, so the control it belongs to carries the colour
             and the number rides along (see .tb-act.has-rem). */}
-        <button className={`tb-act ${journalOpen ? 'on' : ''} ${reminderCount > 0 ? 'has-rem' : ''}`} aria-pressed={journalOpen} onClick={onToggleJournal}
-          aria-label={reminderCount > 0 ? appConfig.copy.journal.openCount.replace('{n}', String(reminderCount)) : appConfig.copy.journal.open}
-          title={keyTitle(reminderCount > 0 ? appConfig.copy.journal.openCount.replace('{n}', String(reminderCount)) : appConfig.copy.journal.open, PANEL_KEY.journal)}>
+        <button className={`tb-act ${journalOpen ? 'on' : ''} ${reminderCount > 0 ? 'has-rem' : ''}`} aria-expanded={journalOpen} onClick={onToggleJournal}
+          aria-label={journalDoor} title={keyTitle(journalDoor, PANEL_KEY.journal)}>
           <Icon id="verlauf" /><span>{appConfig.copy.journal.open}</span>{keyHint(PANEL_KEY.journal)}
           {reminderCount > 0 && <span className="tb-rem-count" aria-label={appConfig.copy.journal.openCount.replace('{n}', String(reminderCount))}>{reminderCount}</span>}
         </button>

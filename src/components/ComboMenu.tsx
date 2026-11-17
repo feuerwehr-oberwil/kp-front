@@ -7,6 +7,7 @@ import { fillTemplate } from '../lib/format'
 import { RankBadge } from './RankBadge'
 import { matchesQuery, searchQuery } from '../lib/search'
 import { usePopoverGuard } from '../lib/overlays/popoverGuard'
+import { useLayer } from '../lib/overlays/layer'
 import { visibleViewportBottom } from '../lib/useKeyboardInset'
 import { fullViewHeight } from '../lib/iosKeyboard'
 import { MIN_MENU_H, placeComboMenu, type MenuPos } from '../lib/comboPlacement'
@@ -171,18 +172,12 @@ export function useComboMenu(openTick?: number): [ComboMenuState, ComboMenuRefs]
     }
   }, [open])
 
-  // close on an outside tap — counting BOTH the trigger and the portalled menu as "inside".
-  // 'pointerdown', not 'mousedown': touch synthesizes mousedown late or not at all, so tapping
-  // outside would not reliably close the menu.
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: PointerEvent) => {
-      const t = e.target as Node
-      if (!root.current?.contains(t) && !menu.current?.contains(t)) { setOpen(false); setSearch('') }
-    }
-    document.addEventListener('pointerdown', onDown)
-    return () => document.removeEventListener('pointerdown', onDown)
-  }, [open])
+  // a tap beside the list only CLOSES it – counting BOTH the trigger and the portalled menu as
+  // «inside» (lib/overlays/layer, owner call 2, 17.11.2026): in a sheet the next field does not
+  // also take the tap, over the map nothing is placed or selected. The native back closes it too.
+  // Escape stays this hook's own (below): Esc in the search row closes the list, not just the field.
+  const closeList = useCallback(() => { setOpen(false); setSearch('') }, [])
+  useLayer({ open, onClose: closeList, inside: [root, menu], escape: false })
 
   // ⚠️ ESCAPE IS OURS WHILE WE ARE OPEN. This menu is portalled to <body>, so a sheet's Escape
   // handler (Base UI's, on the document) saw the key too and closed the whole «Material erfassen»
@@ -205,7 +200,7 @@ export function useComboMenu(openTick?: number): [ComboMenuState, ComboMenuRefs]
   // the sheet this picker sits in stands down while the menu is open — one gesture, one close
   usePopoverGuard(open)
 
-  const close = () => { setOpen(false); setSearch('') }
+  const close = closeList
   return [{
     open, search, setSearch, officersOnly, setOfficersOnly, pos,
     toggle: () => { if (open) close(); else { setSearch(''); setOpen(true) } },

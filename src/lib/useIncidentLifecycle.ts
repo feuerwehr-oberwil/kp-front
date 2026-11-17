@@ -5,7 +5,6 @@
 //     open-list watch), told apart from this device's own close/reopen by its two markers.
 //   · useCloseReopen — THE close (completeRapport) and THE reopen (reopenNow) this device runs,
 //     plus the two list doors onto them (archiveById, reactivateById).
-// docs/undo.md has the close toast's «Wieder öffnen».
 
 import { useCallback, useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import type { ReactivateResult } from '../types'
@@ -23,6 +22,7 @@ import { getWorkspace } from './api/workspace'
 import { sanitizeWorkspace } from './workspace'
 import { truppStillDeployed } from './atemschutz'
 import { insideAbschlussSpec } from './abschlussOpen'
+import { einsatzSubject } from './einsatzSubject'
 
 /** the Einsatz closed — or reopened — on ANOTHER device while it was open here, and when */
 export type LifecycleElsewhere = { id: string; event: 'closed' | 'reopened'; at: number }
@@ -160,18 +160,17 @@ export function useCloseReopen({
   setWorkspace: (ws: Workspace | null) => void
   setForceReadOnly: (on: boolean) => void
 }) {
-  /** THE reopen, after its question was answered — by the confirm of `reactivateById` below, or
-   *  by the close toast's «Wieder öffnen» (completeRapport), which IS the question.
+  /** THE reopen, after its question was answered — by the confirm of `reactivateById` below.
    *  ⚠️ The Einsatz ON SCREEN (read-only) goes live IN PLACE (sweep #6, 27.10.2026, owner: «the
    *  card loaded very slowly»). It used to be PATCH → list → `selectIncident` (flush, the full
    *  Einsatz again, the workspace a third time) → remount, all serial: measured 3.2 s at 300 ms
    *  latency and a 4× slower CPU, of which the PATCH was 0.5 s. The workspace on screen is the
    *  live-followed one, so nothing needs fetching: the PATCH answers with the meta, and the flip
    *  is the one a reopen ELSEWHERE already makes (`useIncidentLifecycle` · onIncidentReopened).
-   *  Another Einsatz (the close toast's, after the screen moved on) still opens — with the
-   *  PATCH's meta, the list refreshed beside it rather than before it. */
-  // ⚠️ a ref, not the render's `activeId`: the close toast holds the reopenNow of the render that
-  // closed — where this id WAS on screen — and is pressed seconds after the screen moved on
+   *  Another Einsatz (from «Alle Einsätze») still opens — with the PATCH's meta, the list
+   *  refreshed beside it rather than before it. */
+  // ⚠️ a ref, not the render's `activeId`: the reopen runs after its confirm was answered, and
+  // the screen may have moved on meanwhile
   const activeIdRef = useRef(activeId)
   useEffect(() => { activeIdRef.current = activeId }, [activeId])
   const reopenNow = useCallback(async (id: string): Promise<ReactivateResult> => {
@@ -245,15 +244,10 @@ export function useCloseReopen({
       // ⚠️ …and what is still queued stands as a Meldung while true, not in this toast (S3,
       // 20.10.2026): five seconds while the screen moves to the launcher is not «said out loud»
       const stillQueued = await clearUploadedMedia(id)
-      /* «Wieder öffnen» on the toast, 10 s (3am sweep, 23.10.2026, owner's point 4): the way back
-         used to be Alle Einsätze → open read-only → «Wieder öffnen» → confirm. The toast is the
-         confirm-with-undo of the close (docs/undo.md) — the same reopen «Alle Einsätze» runs,
-         minus its question, and it refuses like the other undo toasts when the server has moved
-         on (reopenNow: a failed PATCH is said, nothing is reopened). */
-      toast(appConfig.copy.abschluss.done, {
-        icon: 'check', tone: 'success', duration: 10_000,
-        action: { label: appConfig.copy.abschluss.reopen, onClick: () => { void reopenNow(id) } },
-      })
+      /* No «Rapport abgeschlossen» toast (owner pick 28, 17.11.2026): the operator just CONFIRMED
+         the close in its dialog, and the screen moving to the launcher says it happened. The way
+         back is «Alle Einsätze» → «Wieder öffnen» (reactivateById). Until then a 10 s toast
+         carried «Wieder öffnen» (3am sweep, 23.10.2026). */
       if (stillQueued) {
         const title = (incidents ?? []).find((i) => i.id === id)?.title ?? activeMeta?.title ?? ''
         setClosedMedia((cur) => [...cur.filter((p) => p.id !== id), { id, title, n: stillQueued }])
@@ -287,7 +281,7 @@ export function useCloseReopen({
     } finally {
       if (closingLocallyRef.current === id) closingLocallyRef.current = null
     }
-  }, [closingLocallyRef, activeId, syncRef, refreshList, incidents, activeMeta, reopenNow, setClosedMedia, archiveReturnRef, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly])
+  }, [closingLocallyRef, activeId, syncRef, refreshList, incidents, activeMeta, setClosedMedia, archiveReturnRef, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly])
 
   // Close ANY incident from the «Alle Einsätze» list (per-incident, not just the active one).
   // ⚠️ It ends the same way the Rapport does — through `completeRapport` — so an Einsatz put away
@@ -314,22 +308,28 @@ export function useCloseReopen({
     const inside = await getWorkspace(id)
       .then((r) => (sanitizeWorkspace(r.workspace).ws?.trupps ?? []).filter(truppStillDeployed))
       .catch(() => [])
+    // the Einsatz by name above the button (lib/einsatzSubject, LISTS.11) – from a list of rows
+    // that look alike, the ask repeats which one it ends
+    const meta = incidents?.find((x) => x.id === id) ?? (activeMeta?.id === id ? activeMeta : null)
+    const subject = meta ? einsatzSubject(meta) : undefined
     const ok = await confirmDialog(inside.length > 0 ? {
       title: appConfig.copy.abschluss.insideTitle,
       ...insideAbschlussSpec(inside),
+      subject,
       confirmLabel: appConfig.copy.abschluss.insideClose,
       cancelLabel: appConfig.copy.cancel,
       danger: true,
     } : {
       title: appConfig.copy.history.archiveConfirmTitle,
       message: appConfig.copy.history.archiveConfirmMsg,
+      subject,
       confirmLabel: appConfig.copy.history.archiveConfirmBtn,
       cancelLabel: appConfig.copy.cancel,
       danger: true,
     })
     if (!ok) return
     await completeRapport(id)
-  }, [completeRapport, activeId, abschlussHereRef, showEinsatz])
+  }, [completeRapport, activeId, activeMeta, incidents, abschlussHereRef, showEinsatz])
 
   // «Wieder öffnen» — the mirror of abschliessen (the ArchivedBanner action), and as deliberate:
   // the confirm also teaches the consequences (Nachträge, «geändert nach Abschluss»). On confirm
@@ -342,15 +342,17 @@ export function useCloseReopen({
    */
   const reactivateById = useCallback(async (id: string): Promise<ReactivateResult> => {
     const h = appConfig.copy.history
+    const meta = activeMeta?.id === id ? activeMeta : incidents?.find((x) => x.id === id) ?? null
     const ok = await confirmDialog({
       title: h.reactivateConfirmTitle,
       message: h.reactivateConfirmMsg,
+      subject: meta ? einsatzSubject(meta) : undefined,
       confirmLabel: h.reactivateConfirmBtn,
       cancelLabel: appConfig.copy.cancel,
     })
     if (!ok) return 'cancelled'
     return reopenNow(id)
-  }, [reopenNow])
+  }, [reopenNow, activeMeta, incidents])
 
   return { reopenNow, completeRapport, archiveById, reactivateById }
 }

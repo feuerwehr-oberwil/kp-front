@@ -5,7 +5,7 @@ import {
   groupBySource, groupByMaterial, mittelReportRows, mittelLineCount,
   availableFor, mittelListGroups, groupCatalogue,
   materialForSymbol, materialsForSymbol, currentLineFor, defaultSourceFor, stockedSourcesFor,
-  symbolCaptureConfigured, mittelRecommendations, tombstoneStands, type TruppForMittel,
+  symbolCaptureConfigured, mittelRecommendations, type TruppForMittel,
 } from './mittel'
 import type { DeploymentMittelItem, DeploymentMittelSource } from './deploymentConfig'
 
@@ -499,21 +499,5 @@ describe('materialForSymbol — one symbol, several materials', () => {
   it('is silent on a station that mapped nothing — no offers nobody asked for', () => {
     expect(symbolCaptureConfigured([{ id: 'x', label: 'Lüfter', unit: 'Stk.' }])).toBe(false)
     expect(symbolCaptureConfigured(cat)).toBe(true)
-  })
-})
-
-// 25.09.2026
-describe('tombstoneStands — the removal toast undoes only its own removal', () => {
-  const probe = { label: 'Lüfter', unit: 'Stk' }
-  const since = '2026-06-30T10:02:00.000Z'
-  it('holds while the removal is the only word on the line since it was written', () => {
-    expect(tombstoneStands([ev(1, {}), ev(3, { deleted: true })], probe, since)).toBe(true)
-  })
-  it('declines once another device wrote to the line after it — a count, or its own removal', () => {
-    expect(tombstoneStands([ev(1, {}), ev(3, { deleted: true }), ev(4, { menge: 5 })], probe, since)).toBe(false)
-    expect(tombstoneStands([ev(1, {}), ev(3, { deleted: true }), ev(4, { deleted: true })], probe, since)).toBe(false)
-  })
-  it('declines when the newest event is not a tombstone at all', () => {
-    expect(tombstoneStands([ev(3, {})], probe, since)).toBe(false)
   })
 })

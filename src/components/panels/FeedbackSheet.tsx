@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { pointAtField } from '../../lib/pointAtField'
 import { appConfig } from '../../config/appConfig'
 import { buildLabel } from '../../lib/buildInfo'
 import { deploymentName } from '../../lib/deploymentConfig'
@@ -118,6 +119,7 @@ export function FeedbackSheet({ trouble, onClose }: {
   // An empty report with no trouble behind it is a blank row in someone's issue tracker. With
   // a trouble it still says «ja, das ist mir passiert», which is worth having.
   const canSend = message.trim().length > 0 || !!trouble
+  const messageRef = useRef<HTMLTextAreaElement>(null)
 
   const routeOption = (id: Route, icon: string, title: string, badge: string, note: string) => (
     <button
@@ -143,7 +145,9 @@ export function FeedbackSheet({ trouble, onClose }: {
     <Modal title={cp.title} onClose={() => finish('cancel')} fit footer={(
       <>
         <button type="button" className="ip-btn" onClick={() => finish('cancel')}>{cp.cancel}</button>
-        <button type="button" className="ip-btn primary" onClick={go} disabled={!canSend}>
+        {/* nothing to send yet: the tap points at the field (ui-conventions · F2, duck sweep ELEM.4) */}
+        <button type="button" className="ip-btn primary" aria-disabled={!canSend}
+          onClick={canSend ? go : () => pointAtField(messageRef.current, { focus: messageRef.current })}>
           {cp.next}
         </button>
       </>
@@ -156,6 +160,7 @@ export function FeedbackSheet({ trouble, onClose }: {
             are asking the operator to read before deciding. They tap the field when they are
             ready to write. */}
         <textarea
+          ref={messageRef}
           className="fb-input"
           rows={5}
           value={message}

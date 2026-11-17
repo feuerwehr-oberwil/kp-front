@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { buzz } from './haptics'
+import { HOLD_GUARD_ARM_MS, HOLD_GUARD_FIRE_MS } from './holdTimings'
 
 /**
  * Hold-to-act for the node handles of a line, an area, a measurement or a draft — and for the
@@ -33,12 +35,12 @@ import { useEffect, useRef, useState } from 'react'
  * 48px full-width tile a 24px ring read as «loading». Same numbers, same promise.
  */
 
-export const NODE_HOLD_ARM_MS = 250
+export const NODE_HOLD_ARM_MS = HOLD_GUARD_ARM_MS
 /** 900 → 825 (26.08. field test): the ring read as slow with a glove on, and the whole gesture is
  *  performed a dozen times while a hose is being reshaped. The ring is painted from the SAME two
  *  numbers (`progress` below), so shortening the hold shortens the fill — the promise the ring
  *  makes and the moment the node goes cannot drift apart. */
-export const NODE_HOLD_FIRE_MS = 825
+export const NODE_HOLD_FIRE_MS = HOLD_GUARD_FIRE_MS
 export const NODE_HOLD_MOVE_PX = 10
 /** ~30 Hz — enough for a ring that fills over half a second, cheap enough for a marker layer */
 const TICK_MS = 33
@@ -108,10 +110,11 @@ export function useNodeHold() {
         if (held >= NODE_HOLD_FIRE_MS) {
           const cb = s.cb
           cancel()
-          // the same 12 ms tick «verbinden» and «lösen» give at the moment they take effect
-          // (lib/lineAttachments call sites) — a hold that completes under a glove is felt, not
-          // read. Absent on desktop and on iOS, where the API simply is not there.
-          navigator.vibrate?.(12)
+          // THE hold buzz (lib/haptics, FEEDBACK.9) at the moment the hold takes effect – a node
+          // delete, «Entsperren», the Notfall tile: a hold that completes under a glove is felt,
+          // not read. Once, at the act: the ring that fills is what the arming says. Absent on
+          // desktop and on iOS, where the API simply is not there.
+          buzz()
           cb()
           return
         }

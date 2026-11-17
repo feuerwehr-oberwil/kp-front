@@ -28,6 +28,8 @@ export const whiteboardCopy = {
     lookPlain: 'Klartext',
     color: 'Farbe',
     done: 'Fertig',
+    lookPillWhat: 'Zettel – Text auf einem Kärtchen',
+    lookPlainWhat: 'Klartext – nur die Schrift, ohne Kärtchen',
   },
   whiteboard: {
     pan: 'Auswahl',
@@ -41,13 +43,15 @@ export const whiteboardCopy = {
     // pill's second word and «… offen»
     grundriss: { wand: 'Wand' },
     dockHints: {
-      wand: 'Punkte tippen – rastet rechtwinklig ein. ✓ oder erster Punkt – fertig.',
-      draw: 'Ziehen zeichnet frei.',
+      wand: 'Ecke für Ecke tippen, die Wand bleibt rechtwinklig – fertig mit ✓ oder dem ersten Punkt.',
       circle: 'Von der Mitte zum Rand ziehen.',
       text: 'Tippen, wo die Notiz hin soll – dann schreiben.',
-      resource: 'Tippen setzt einen Trupp. Ziehen verschiebt ihn.',
-      scale: 'Beide Enden des gedruckten Massstabs tippen, dann die Länge eingeben.',
       measure: 'Punkte tippen. Punkt halten entfernt ihn.',
+      // calibrating's steps, one per line in the Messen dock's standing card (WbControls ·
+      // WbToolDocks, rare-user r4 17.11.2026); a done step reads ✓ instead of its number
+      scaleStep1: 'Ein Ende des Massstabs antippen',
+      scaleStep2: 'Das andere Ende antippen',
+      scaleStep3: 'Die reale Länge eingeben',
     },
     // Plan-Massstab (calibrate against a printed scale bar so plan lines read in metres)
     scale: {
@@ -67,21 +71,22 @@ export const whiteboardCopy = {
       chipUncalibrated: 'nicht kalibriert',
       recalibrate: 'Neu kalibrieren',
       calibrate: 'Massstab kalibrieren',
-      calibrateHint: 'Zwei Punkte des Massstabs antippen',
       stale: 'Massstab neu prüfen',
       saved: 'Massstab kalibriert ({m} m Strecke)',
       // #3: persist a calibration station-wide (across incidents) so plans measure out of the box
       persistTitle: 'Massstab merken?',
       saveAll: 'Für alle Pläne',
       saveThis: 'Nur dieser Plan',
-      savedAll: 'Als Standard-Massstab gespeichert',
-      savedThis: 'Massstab für diesen Plan gespeichert',
       /** ⚠️ Der Massstab landet im STATIONS-Dokument, nicht im Einsatz — das kann scheitern
        *  (kein Empfang, oder jemand anders hat das Dokument inzwischen geändert). Die beiden
        *  Zeilen darüber wurden früher gemeldet, bevor überhaupt jemand geantwortet hatte. */
       saveFailed: 'Massstab nicht als Vorgabe gespeichert – erneut versuchen',
       needsCalibration: 'Massstab festlegen: die zwei Enden des Massstabs antippen',
       needsCalibrationViewer: 'Messen erst möglich, wenn der Massstab kalibriert ist',
+      /** Messen on a plan without a scale opens the scale dialog – this says why (C9, 17.11.2026) */
+      promptWhy: 'Dieser Plan hat noch keinen Massstab – zuerst eine bekannte Strecke angeben',
+      /** the Verlauf row when «Rückgängig» on «Massstab kalibriert» takes it back */
+      undone: 'Massstab zurückgenommen',
     },
     // «Karte verknüpfen» – die Paarung markanter Punkte, die den Plan auf die Karte legt
     // (lib/georef · fitSimilarity, lib/georefMode). Zwei Punkte genügen; erst der dritte misst.
@@ -104,7 +109,7 @@ export const whiteboardCopy = {
       // ⚠️ Beispiele und «Reihenfolge egal» standen bis 15.09. hier mit auf der Zeile: drei
       // Aussagen in einer Anweisung, die man mitten im Tippen liest. Sie stehen jetzt im (i)
       // darunter (`freeOrderTip`), wo man sie beim ersten Mal sucht und danach nie wieder.
-      freeOrderTap: 'Dieselbe Stelle auf Modul und Karte antippen',
+      freeOrderTap: 'Dieselbe Stelle auf Plan und Karte antippen',
       // hinter dem (i), auf beiden Formfaktoren: woran man eine gute Stelle erkennt
       freeOrderTip: 'Gut sind eindeutige Punkte – Hausecke, Hydrant, Wegkreuzung. Die Reihenfolge ist egal, gesetzte Hälften suchen sich ihr Gegenstück selber.',
       // ── die schmale Telefon-Leiste (Sweep 27.10.2026 #13, Mock A) ──────────────────────────
@@ -120,18 +125,19 @@ export const whiteboardCopy = {
       movePhone: 'Punkt {n} verschieben – die neue Stelle unter das Fadenkreuz schieben, dann «+».',
       // WO auf dem Plan: mit seinem Namen (PLANS' Beschriftung, «Wasser», «Modul 1»), sonst das Wort
       onPlanNamed: 'auf «{name}»',
-      onPlanUnnamed: 'auf dem Modul',
+      onPlanUnnamed: 'auf dem Plan',
       // «Verschieben» ist bewaffnet: der nächste Tipp auf dieser Fläche setzt genau diese Hälfte
       moveMap: 'Punkt {n} verschieben – neue Stelle auf der Karte antippen, der alte verschwindet.',
-      movePlan: 'Punkt {n} verschieben – neue Stelle auf dem Modul antippen, der alte verschwindet.',
+      movePlan: 'Punkt {n} verschieben – neue Stelle auf dem Plan antippen, der alte verschwindet.',
       title: 'Karte verknüpfen',
       // offene Hälften: gesetzt, aber noch ohne Gegenstück auf der anderen Fläche
       barOpen: '{n} offen',
-      // Zähler je Fläche – die Statuszeile «Karte 3 · Modul 2».
-      // ⚠️ Steht NUR, wenn die beiden Zahlen auseinanderlaufen (15.09.): «Karte 3 · Modul 3» war
+      // Zähler je Fläche – die Statuszeile «Karte 3 · Plan 2». EIN Wort für die Fläche: «Plan»
+      // («Modul» nur im Namen eines Plans, «Modul 1»; Duck-Sweep ENT.10, 17.11.2026).
+      // ⚠️ Steht NUR, wenn die beiden Zahlen auseinanderlaufen (15.09.): «Karte 3 · Plan 3» war
       // eine Zeile, die nie etwas meldete. Ungleich heisst «eine Hälfte hängt» – und genau dann
       // ist der Zähler die Warnung, als die er gedacht war (GeorefMode · georefStatus).
-      sideProgress: 'Karte {map} · Modul {plan}',
+      sideProgress: 'Karte {map} · Plan {plan}',
       // Statuszeile, zweite Hälfte: WO die offene Hälfte fehlt. Das bernsteinfarbene Kreuz, das
       // dasselbe sagt, steht unter Umständen auf der Fläche, die das Telefon gerade nicht zeigt.
       statusOpenMap: 'Punkt {n} fehlt noch auf der Karte.',
@@ -148,7 +154,6 @@ export const whiteboardCopy = {
       // Knopf drückte, um eine schiefe Ausrichtung loszuwerden, fand den Plan danach trotzdem
       // verknüpft. Zum Wegwerfen gibt es «Alle Punkte zurücksetzen», mit Rückfrage.
       closeMode: 'Schliessen',
-      done: 'Fertig',
       // ⚠️ OHNE Nummer. Die Taste wirkt auf der sichtbaren Fläche, und welche Nummer der Tipp
       // bekommt, entscheidet die Zuordnung – die Zahl stünde also gelegentlich falsch da.
       placePoint: 'Punkt setzen',
@@ -156,9 +161,9 @@ export const whiteboardCopy = {
       // Sichtprüfung nach dem Ausrichten: der Blattumriss liegt auf der Karte, man sieht sofort,
       // ob die Ecken zusammenfallen. Einmalig – kein Dauer-Layer.
       checkFit: 'Überlagerung prüfen',
-      checkOpacity: 'Deckkraft des Moduls',
+      checkOpacity: 'Deckkraft des Plans',
       checkMap: 'Karte',
-      checkPlan: 'Modul',
+      checkPlan: 'Plan',
       crossTitle: 'Punkt {n} – ziehen verschiebt, antippen zeigt Optionen',
       pendingCrossTitle: 'Punkt {n} offen – ziehen verschiebt, antippen zeigt Optionen',
       // das kleine Popover eines angetippten Kreuzes – ersetzt den unsichtbaren Aufnehm-Zustand,
@@ -223,7 +228,7 @@ export const whiteboardCopy = {
       addMore: 'Punkte hinzufügen',
       transfer: 'Kopieren',
       transferTitle: 'Verknüpfung kopieren',
-      transferBody: 'Die Punkte von {source} werden kopiert. Danach kann jedes Modul separat angepasst werden.',
+      transferBody: 'Die Punkte von {source} werden kopiert. Danach kann jeder Plan separat angepasst werden.',
       transferLinked: 'bereits verknüpft',
       transferCompleted: 'kopiert',
       transferReplaceTitle: 'Verknüpfung von {target} ersetzen?',
@@ -232,8 +237,6 @@ export const whiteboardCopy = {
       reset: 'Entfernen',
       resetTitle: 'Verknüpfung entfernen?',
       resetBody: 'Die Verknüpfung zwischen diesem Plan und der Karte wird entfernt. Die Punkte müssen danach neu gesetzt werden.',
-      resetDone: 'Verknüpfung entfernt',
-      pointsCleared: 'Punkte zurückgesetzt',
       // In der Leiste des laufenden Modus: alle Paare weg, der Modus bleibt an – man setzt ja
       // sofort neu. «Abbrechen» daneben behält, was steht.
       clearPoints: 'Zurücksetzen',
@@ -260,23 +263,20 @@ export const whiteboardCopy = {
     finishShape: 'Fertig',
     cancelShape: 'Abbrechen',
     insertVertex: 'Punkt einfügen',
-    dragVertex: 'Eckpunkt ziehen, gedrückt halten zum Löschen',
+    dragVertex: 'Eckpunkt ziehen – gedrückt halten entfernt ihn',
     dragRadius: 'Radius ziehen',
-    groupDeleted: 'Auswahl entfernt',
     groupDeletedN: '{n} Objekte vom Plan entfernt',
     placeText: 'Notiz auf Plan gesetzt',
     placeSymbol: 'Symbol «{name}» auf Plan gesetzt',
-    placeLine: 'Linie auf Plan gezeichnet',
-    placeArea: 'Fläche auf Plan gezeichnet',
     placeWand: 'Wand auf Plan gezeichnet',
-    placeCircle: 'Absperrkreis auf Plan gezeichnet',
     placeTeam: '{name} auf Plan gesetzt',
     selectTrupp: 'Welcher Trupp?',
     newTeam: 'Neuer Trupp',
     // A Trupp stands in exactly ONE place. Tapping it again in this list MOVES it — what was
     // meant was almost always a second Trupp. Hence greyed out instead of selectable.
     truppPlacedHere: 'schon hier',
-    showTrupp: 'Bei den Trupps zeigen',
+    // = atemschutz.alarmRowGo / drawingEditor.truppShow – one word for the door (ENT.2)
+    showTrupp: 'Zum Trupp',
     markPosition: 'Position markieren',
     positionMarked: '{name}: Position markiert',
     // The trash on a Trupp marker that carries a Spur asks WHICH of the two goes (18.09.2026,
@@ -289,8 +289,6 @@ export const whiteboardCopy = {
     trailCleared: '{name}: Spur entfernt',
     markerTrailRemoved: '{name} und Spur entfernt',
     trails: 'Spuren',
-    trailsOn: 'Spuren einblenden',
-    trailsOff: 'Spuren ausblenden',
     ghostTrailHint: 'Spur von {name} – der Truppmarker wurde entfernt',
     ghostTrailTitle: 'Spur von {name}',
     ghostTrailAsk: 'Der Truppmarker wurde entfernt, seine Spur ist geblieben. Den Trupp am Ende der Spur wieder platzieren – oder die Spur entfernen?',
@@ -442,7 +440,6 @@ export const whiteboardCopy = {
     nearbyBannerTitle: 'Nächstes Objekt, nicht die Einsatzadresse.',
     nearbyBannerBody: 'Einsatz: {incident} · Plan: {object} ({distance}).',
     nearbyBannerNoAddress: 'ohne Adresse',
-    objectActive: 'Pläne von «{name}»',
     objectReset: 'Auf nächstes Objekt zurücksetzen',
     // tapping an object in the picker swaps the plans of EVERY module at once, so it
     // is gated behind a confirmation to avoid an accidental tap blowing away context.
@@ -460,9 +457,20 @@ export const whiteboardCopy = {
     // the rotation popover the north dial opens (30.08. – replaces the hidden dial drag)
     orientMenuTitle: 'Gebäude drehen',
     orientSliderLabel: 'Drehung',
-    // the dial's word in the rail (shown with «Beschriftung · Wörter»): the door, or the read-out
-    orientRail: 'Drehen',
+    // the dial's word in the rail (shown with «Beschriftung · Wörter»), door and read-out alike
     northRail: 'Norden',
+    // ENT.8 (17.11.2026): a Plan row is the Karte's row for the same act (drawing.ts · log), plus
+    // where – so a Verlauf filtered for «Rettungsachse» or «Pfeil» finds both halves (a removal
+    // already wrote the Karte's «TLF entfernt»)
+    drawnOnPlan: '{name} auf Plan gezeichnet',
+    shapeOnPlan: '{name} auf Plan platziert',
+    // the Trupp marker bar's worded door to its rare acts (TwinTeamPill, rare-user M10)
+    barMore: 'Mehr',
+    /** the Trupp marker bar's short word for «Position markieren» (rare-user round 2, M12) */
+    markShort: 'Markieren',
+    /** the Trupp marker bar's short word for «Atemschutz-Trupp» on a loose marker (owner, 17.11.2026: «just
+     *  Trupp, to save some space»); the full word stays as title, aria-label and «Mehr» row */
+    joinShort: 'Trupp',
   },
   // the Tafel's pages (10.10.2026, docs/board-templates.md): the free «Skizze» plus the pages a
   // board template offers (FKS «Erste Führung», FKS 8.1 …) — the page strip, the «+ Seite» list,
@@ -489,7 +497,7 @@ export const whiteboardCopy = {
     mapLabel: 'Lagekarte – tippen öffnet die Karte',
     mapOpen: 'Zur Karte',
     mapPrint: 'Im Rapport: die Karte zum Zeitpunkt des Drucks',
-    head: { title: 'Einsatz', address: 'Adresse', alarm: 'Alarm', el: 'Einsatzleiter' },
+    head: { title: 'Einsatz', address: 'Adresse', alarm: 'Zeit Alarmierung', el: 'Einsatzleiter' },
     tag: 'Stichwort',
     done: 'Erledigt',
     trendNone: 'Tendenz offen',

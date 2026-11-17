@@ -15,8 +15,9 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useArmedTransform, type ArmMode } from './useArmedTransform'
 import { DRAG_DEADZONE_PX } from './useHoldToDrag'
 import { transformingChrome } from './transformChrome'
+import { resetLayers } from './overlays/layer'
 
-afterEach(cleanup)
+afterEach(() => { cleanup(); resetLayers() })
 
 const CENTRE = { x: 200, y: 200 }
 
@@ -88,6 +89,21 @@ describe('the armed mode’s lifecycle', () => {
     armWith('✥')
     rerender(<Harness enabled={false} />)   // read-only, no selection, or a tool armed
     expect(state()).toBe('off:—')
+  })
+
+  // one Esc, one thing (CONT.2, 17.11.2026): the surface's own ladder (Lage, Plan) never hears the
+  // press that disarmed ✥ – it used to drop the selection, its bar and its card with it
+  it('takes the Esc it disarms on – the surface behind never hears it', () => {
+    const ladder = vi.fn()
+    window.addEventListener('keydown', ladder)
+    render(<Harness />)
+    armWith('✥')
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(state()).toBe('off:—')
+    expect(ladder).not.toHaveBeenCalled()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(ladder).toHaveBeenCalledTimes(1)
+    window.removeEventListener('keydown', ladder)
   })
 
   // Regression (Feldtest 07.09.): the disarm only MASKED the record, so re-selecting the very

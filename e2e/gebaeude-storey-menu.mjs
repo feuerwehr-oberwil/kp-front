@@ -98,7 +98,8 @@ if (menuOpen) {
   // a storey row is a TickRow (role checkbox); the button names the result («Auf 1. OG kopieren»)
   await sheet.getByRole('checkbox', { name: /^1\. OG/ }).click()
   await sheet.getByRole('button', { name: /^Auf .+ kopieren$/ }).click()
-  check(await shown(page.getByText(/Grundriss kopiert: 1 nach 1\. OG/)), '«Kopieren» copies the wall to the 1. OG')
+  // no toast since owner pick 28 (17.11.2026): the header's ↶ names the step
+  check(await shown(page.getByRole('button', { name: /^Rückgängig: Grundriss kopiert: 1 nach 1\. OG/ })), '«Kopieren» copies the wall to the 1. OG')
 }
 
 await browser.close()

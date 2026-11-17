@@ -277,6 +277,55 @@ describe('«Nur Anwesende» — the one-tap quick filter', () => {
     expect(screen.getByText(fillTemplate(appConfig.copy.noHits, { q: 'Muster' }))).toBeTruthy()
   })
 
+  // duck sweep LISTS.4: the quick ✓ while nobody is present yet printed «Keine Treffer für «».»
+  // – the way out is the «Gefiltert:» strip above the line (button sweep HEADS.3, 17.11.2026)
+  it('with only the filter on and no hit, says so and offers the way out', () => {
+    mount({ people: crew, attendance: {} as AttendanceState })
+    fireEvent.click(toggle())
+    expect(screen.queryByText(fillTemplate(appConfig.copy.noHits, { q: '' }))).toBeNull()
+    expect(screen.getByText(appConfig.copy.filterNoHits)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.filterStrip.showAll }))
+    expect(toggle().getAttribute('aria-pressed')).toBe('false')
+    expect(names()).toHaveLength(4)
+  })
+
+  // button sweep HEADS.3 (17.11.2026): a touch device shows no tooltip, so a narrowed Mannschaft
+  // read as the whole one – the strip names the pick and counts what is left
+  it('names what narrows the list and how much is left, and only while something does', () => {
+    mount({ people: crew, attendance })
+    expect(screen.queryByText(appConfig.copy.filterStrip.filtered)).toBeNull()
+    fireEvent.click(toggle())
+    const strip = screen.getByText(appConfig.copy.filterStrip.filtered).parentElement!
+    expect(strip.textContent).toContain(A.onlyPresentWord)
+    expect(strip.textContent).toContain(fillTemplate(appConfig.copy.filterStrip.count, { n: 1, m: 4 }))
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.filterStrip.showAll }))
+    expect(screen.queryByText(appConfig.copy.filterStrip.filtered)).toBeNull()
+    expect(names()).toHaveLength(4)
+  })
+
+  // owner pick 19 (button round 17.11.2026): Grad and Status are ONE «Filter» tile, one menu with
+  // a group per question – «Alle» first in each – and the groups still AND with each other
+  it('folds Grad and Status into one «Filter» menu whose groups AND, the strip naming both', () => {
+    const ranked = crew.map((p, i) => ({ ...p, rank: i < 2 ? 'Of' : 'Wm' }))
+    mount({ people: ranked, attendance })
+    expect(screen.getAllByRole('button', { name: A.filterLabel })).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: A.filterLabel }))
+    const groups = screen.getAllByRole('group').map((g) => [...g.querySelectorAll('[role=menuitemcheckbox]')].map((r) => r.textContent))
+    expect(screen.getAllByRole('group').map((g) => g.getAttribute('aria-labelledby') && document.getElementById(g.getAttribute('aria-labelledby')!)?.textContent))
+      .toEqual([A.rankFilterWord, A.statusFilterWord])
+    expect(groups.map((g) => g[0])).toEqual([A.rankAll, A.statusAll])
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Of' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: A.statusPresent }))
+    // Of = Anna + Felix, both anwesend (Felix at the Magazin); Beat and Rita are Wm
+    expect(names()).toEqual(['Meier Anna', 'Muster Felix'])
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: A.statusPresent }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: A.ortStation }))
+    expect(names()).toEqual(['Muster Felix'])
+    const strip = screen.getByText(appConfig.copy.filterStrip.filtered).parentElement!
+    expect(strip.textContent).toContain('Of')
+    expect(strip.textContent).toContain(A.ortStation)
+  })
+
   it('is offered on the crew list, not only while planning', () => {
     mount({ people: crew, attendance })
     expect(toggle()).toBeTruthy()
@@ -386,5 +435,19 @@ describe('a viewer reads the Zeitplan and the Zeiten', () => {
     fireEvent.click(screen.getByRole('button', { name: fillTemplate(A.openBlocksNote, { name: 'Meier Anna' }) }))
     expect(screen.getByText('Fahrer TLF')).toBeTruthy()
     expect(screen.queryByRole('textbox')).toBeNull()
+  })
+})
+
+// Duck sweep LISTS.1, 17.11.2026: «Noch kein Personal erfasst» flashed while the roster was
+// still on its way – empty only after the answer
+describe('an empty roster that is still loading', () => {
+  it('says it is loading, not that nobody is recorded', () => {
+    mount({ people: [], loading: true })
+    expect(screen.getAllByText(appConfig.copy.anwesenheit.loading).length).toBeGreaterThan(0)
+    expect(screen.queryByText(appConfig.copy.anwesenheit.emptyTitle)).toBeNull()
+  })
+  it('says empty once the answer came back empty', () => {
+    mount({ people: [], loading: false })
+    expect(screen.getByText(appConfig.copy.anwesenheit.emptyTitle)).toBeTruthy()
   })
 })

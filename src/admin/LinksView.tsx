@@ -21,12 +21,12 @@
 // für Werte. Each entry is a RECORD CARD: a head that names it (name + its one ⓘ · state chip ·
 // the line saying what it is for · its actions, right-aligned), and under it one labelled row
 // per value. The four-column table it replaces mixed three kinds of button (a blue «Aktivieren»,
-// open secondary buttons, a ⋮ menu), carried an ⓘ in three different columns and wrapped
+// open secondary buttons, a ⋯ menu), carried an ⓘ in three different columns and wrapped
 // «Schlüssel fehlt» over two lines in a 16 %-wide cell.
 //
 // ⚠️ ONE action grammar, and it is worth keeping: everything a card offers is a secondary
 // `btn` — activate, print, «Anbindungen» — and the rare, destructive rest (rotieren,
-// deaktivieren, Doku) stays behind the ⋮ menu. No blue primary on a list: on a page of six
+// deaktivieren, Doku) stays behind the ⋯ menu. No blue primary on a list: on a page of six
 // entries a filled button does not mean «do this», it means «this one is broken».
 //
 // ⚠️ THE RULE, and the only one that matters here: a card shows the ONE thing you can actually
@@ -89,7 +89,7 @@ interface RowCopy {
 }
 
 /** An armed action, waiting for its second click. Same two-step contract as ui/ConfirmButton
- *  (it renders the same ConfirmPrompt, 8 s auto-revert included) — the ⋮ menu closes on
+ *  (it renders the same ConfirmPrompt, 8 s auto-revert included) — the ⋯ menu closes on
  *  selection, so the question is asked on the card. */
 interface Pending { question: string; danger?: boolean; run: () => void }
 

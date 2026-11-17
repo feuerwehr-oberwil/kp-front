@@ -556,7 +556,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
     },
     incidentHistory: {
       loading: 'Caricamento interventi…', error: 'Impossibile caricare gli interventi.', search: 'Cerca titolo, indirizzo o origine…',
-      none: 'Nessun intervento.', noMatches: 'Nessun intervento corrisponde.', started: 'Inizio', incident: 'Intervento', status: 'Stato',
+      none: 'Nessun intervento.', noMatches: 'Nessun intervento corrisponde.', started: 'Ora dell’allarme', incident: 'Intervento', status: 'Stato',
       source: 'Origine', report: 'Rapporto', updated: 'Modificato', open: 'aperto', closed: 'concluso', complete: 'completo', incomplete: 'in sospeso',
       sources: { manual: 'Inserito a mano', divera: 'Divera', firehub: 'FireHub', migrated: 'Ripreso' } as Record<string, string>,
 
@@ -1599,6 +1599,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
         noPairsYet: 'Nessun collegamento alla mappa – i piani vengono salvati comunque.',
         joinWhat: 'Scegliere un punto, passare a un altro piano e toccare lo stesso punto dell’edificio. Entrambi i disegni devono avere la stessa scala e orientamento.',
         moveHint: 'Spostare un punto o un’area: afferrare e trascinare. Ridisegnare: «Traccia l’area».',
+        zoomReset: 'Reimposta zoom',
       },
     },
     layers: {

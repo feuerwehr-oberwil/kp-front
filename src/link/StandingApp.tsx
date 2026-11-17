@@ -16,7 +16,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { deploymentName } from '../lib/deploymentConfig'
-import { formatTime, formatLocale } from '../lib/format'
+import { fmtWhen, formatTime, formatLocale } from '../lib/format'
+import { EinsatzRow } from '../components/EinsatzRow'
+import { ListCard } from '../components/ListRow'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { AuthProvider, useAuth } from '../lib/auth'
@@ -131,22 +133,20 @@ function IdleScreen({ terminal, checkedAt }: { terminal: boolean; checkedAt: num
   )
 }
 
+// Several Einsätze run: THE Einsatz row (components/EinsatzRow, LISTS.2) – the hatched Übung tag,
+// the short address, the Zeit Alarmierung as every row reads a time (lib/format · fmtWhen
+// todayShort: the clock today, the day before it otherwise).
 function Chooser({ candidates, onPick }: { candidates: StandingCandidate[]; onPick: (id: string) => void }) {
   const C = appConfig.copy.standingLink
-  const time = (iso: string | null) =>
-    iso ? formatTime(new Date(iso)) : ''
   return (
     <Shell>
       <p>{C.chooseTitle}</p>
       <p className="cv-hint">{C.chooseHint}</p>
-      {candidates.map((c) => (
-        <button key={c.id} type="button" className="cv-btn" onClick={() => onPick(c.id)}>
-          {c.title}
-          {c.is_exercise ? ` (${C.exerciseTag})` : ''}
-          {c.address ? ` – ${c.address}` : ''}
-          {c.started_at ? ` – ${time(c.started_at)}` : ''}
-        </button>
-      ))}
+      <ListCard className="sl-choose">
+        {candidates.map((c) => (
+          <EinsatzRow key={c.id} incident={c} when={fmtWhen(c.started_at, { todayShort: true })} onClick={() => onPick(c.id)} />
+        ))}
+      </ListCard>
     </Shell>
   )
 }

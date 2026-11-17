@@ -449,6 +449,10 @@ both now have browser pages – §9e and §9f.
         "equipment": "wbk" }                        // ← one per live Trupp (any kind) carrying that Ausrüstung id
                                                     //   (doctrine.equipment / the shipped retthaube·wbk·multiwarn)
     ],
+    // ⚠️ ONE vehicle, ONE name (ENT.14, 17.11.2026): a vehicle is named from four lists – `fleet.vehicles`
+    // (Zeiten grid), these `sources`, the placed symbol's label and the Traccar device name. Until they
+    // are one list in code, keep a vehicle's source `id` = its `fleet.vehicles[].id` = the Traccar
+    // device name, and the same `label` («TLF» everywhere, never «TLF» here and «TLF 1» there).
     "sources": [                                  // where a Mittel was drawn from – optional per entry,
       { "id": "tlf",     "label": "TLF" },        // typically the vehicles + the depot. The picker
       { "id": "pio",     "label": "Pio" },        // offers exactly this list (no free-typed sources).

@@ -1,5 +1,6 @@
 import type { Entity } from '../types'
 import { Icon } from '../lib/icons'
+import { Button } from './Button'
 import { CtxShell, SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { fmtArea, fmtDistance } from '../lib/geo'
@@ -7,6 +8,7 @@ import { OnOff, Segmented } from './Segmented'
 import { ScaleStepper } from './Stepper'
 import { SHAPE_STROKE_DEFAULT, SQUARE_FILL_DEFAULT, ShapeGlyph } from '../lib/shapes'
 import { HATCH_CHIP_VB, HatchDefs, hatchPatternId } from '../lib/draw'
+import { colorName, fillName } from '../lib/drawNames'
 import { DEFAULT_INK } from '../lib/lineStyle'
 
 const COLORS = appConfig.drawing.colors
@@ -57,7 +59,8 @@ interface Props {
    *  closes, and the centre LockChip (short hold) is the only way back in */
   onToggleLock?: () => void
   locked?: boolean
-  /** fly the map to the shape — map-only; a plan shape is already on screen */
+  /** «Zentrieren»: the map flies to the shape, the Plan centres its board on it (Lage ↔ Plan
+   *  parity, button sweep SHEETS.9, 17.11.2026) */
   onCenter?: () => void
   onDelete?: () => void
   onClose: () => void
@@ -73,22 +76,24 @@ export function ShapeEditor({ entity, readOnly = false, onColor, onScale, onScal
 
   // rendered twice: pinned at the sheet bottom on desktop/tablet, and again inside the
   // scrolling body for phones (.ctx-footer-inline) — CSS shows exactly one copy. A read-only
-  // panel with nothing to centre on (the Plan) has no foot at all.
+  // panel keeps only «Zentrieren»; with nothing to centre on it has no foot at all.
   const actions = readOnly && !onCenter ? null : (
     <div className="ctx-actions">
-      {onCenter && <button className="btn" onClick={onCenter}><Icon id="cross" />{appConfig.copy.contextPanel.center}</button>}
+      {onCenter && <Button icon={<Icon id="cross" />} onClick={onCenter}>{appConfig.copy.contextPanel.center}</Button>}
       {/* the same lock a drawn Fläche has (DrawEditor · onToggleLock): a Rechteck is often the
           Absperrung everything else is drawn on top of, and the thing you must not nudge. */}
       {!readOnly && onToggleLock && (
-        <button className="btn de-lock" onClick={onToggleLock} title={appConfig.copy.drawingEditor.lockHint} aria-pressed={!!locked}>
-          <Icon id="lock" />{appConfig.copy.drawingEditor.lock}
-        </button>
+        <Button className="de-lock" icon={<Icon id="lock" />} onClick={onToggleLock} data-holdexplain aria-label={appConfig.copy.drawingEditor.lockHint} aria-pressed={!!locked}>
+          {appConfig.copy.drawingEditor.lock}
+        </Button>
       )}
-      {!readOnly && onDelete && <button className="btn warn" onClick={onDelete}><Icon id="trash" />{appConfig.copy.remove}</button>}
+      {!readOnly && onDelete && <Button variant="danger" icon={<Icon id="trash" />} onClick={onDelete}>{appConfig.copy.remove}</Button>}
     </div>
   )
   // the header shares the grip's drag (tap stays a tap there — see useSheetDrag)
   const sheetDrag = useSheetDrag({ onClose, tapToggles: false })
+  // the three stroke steps by name, in WIDTHS' order
+  const strokeWidthNames = [appConfig.copy.shapes.strokeThin, appConfig.copy.shapes.strokeMedium, appConfig.copy.shapes.strokeThick]
   return (
     <CtxShell className="draw-editor" onClose={onClose}>
       <SheetGrip onClose={onClose} />
@@ -122,7 +127,7 @@ export function ShapeEditor({ entity, readOnly = false, onColor, onScale, onScal
               <span className="dh-swatches">
                 {FILL_OPACITIES.map((o) => (
                   <button key={o} className={`dh-color de-fill ${!entity.hatch && Math.abs(fillOpacity - o) < 0.001 ? 'on' : ''}`}
-                    title={`${Math.round(o * 100)} %`} aria-label={`${Math.round(o * 100)} %`}
+                    aria-label={fillName(o)} data-holdexplain={o === 0 || undefined}
                     style={{ background: o === 0 ? 'transparent' : color, opacity: o === 0 ? 1 : Math.max(0.25, o + 0.2) }}
                     onClick={() => onFill(o, false)}>{o === 0 ? '∅' : ''}</button>
                 ))}
@@ -145,18 +150,19 @@ export function ShapeEditor({ entity, readOnly = false, onColor, onScale, onScal
           <div className="de-row">
             <span>{appConfig.copy.shapes.color}</span>
             <span className="dh-swatches">
-              {COLORS.map((c) => <button key={c} className={`dh-color ${color === c ? 'on' : ''}`} style={{ background: c }} aria-label={c} onClick={() => onColor(c)} />)}
+              {COLORS.map((c) => <button key={c} className={`dh-color ${color === c ? 'on' : ''}`} style={{ background: c }} aria-label={colorName(c)} onClick={() => onColor(c)} />)}
             </span>
           </div>
         )}
         {/* ⚠️ The app's three stroke steps (appConfig.drawing.widths), in the panel's one choice
-            control: the operator who has learnt one picker should not meet a second grammar. */}
+            control: the operator who has learnt one picker should not meet a second grammar.
+            Named «Dünn · Mittel · Dick» (audit B16, 17.11.2026 – «Strichstärke 2» was a pixel). */}
         {onStrokeW && (
           <div className="de-row">
             <span>{appConfig.copy.shapes.strokeLabel}</span>
             {/* a `Segmented` (M5, 13.11.2026): one blue fill for every picked choice in a panel */}
             <Segmented ariaLabel={appConfig.copy.shapes.strokeLabel} value={entity.strokeW ?? SHAPE_STROKE_DEFAULT} onChange={onStrokeW}
-              options={WIDTHS.map((w) => ({ value: w, label: <span className="dh-width-bar" style={{ height: w }} />, title: `${appConfig.copy.shapes.strokeLabel} ${w}` }))} />
+              options={WIDTHS.map((w, i) => ({ value: w, label: <span className="dh-width-bar" style={{ height: w }} />, title: strokeWidthNames[i] ?? String(w) }))} />
           </div>
         )}
         {/* A Rotation has ONE size and it is the run: how far the shuttle goes. Its width follows
@@ -252,10 +258,10 @@ export function ShapeEditor({ entity, readOnly = false, onColor, onScale, onScal
           // Which way round the shuttle circulates. The same control a Linie offers (DrawEditor ·
           // onReverse), for the same reason: it turns only the direction of travel around — the
           // loop, its two ends and everything beside it stay exactly where they are. An action,
-          // so it wears the panel's action row rather than a chip that could look «on».
-          <button type="button" className="de-action" onClick={onReverse}>
-            <Icon id="swap" />{appConfig.copy.drawingEditor.reverse}
-          </button>
+          // so it is THE button at the control edge rather than a chip that could look «on».
+          <div className="de-act">
+            <Button icon={<Icon id="swap" />} onClick={onReverse}>{appConfig.copy.drawingEditor.reverse}</Button>
+          </div>
         )}
         </div>}
         <div className="ctx-footer-inline">{actions}</div>

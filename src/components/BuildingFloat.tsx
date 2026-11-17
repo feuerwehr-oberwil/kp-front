@@ -5,6 +5,7 @@ import { cx } from '../lib/cx'
 import type { BuildingInfo } from '../lib/api/building'
 import { buildingChipSummary } from '../lib/buildingCard'
 import { useOnlyOpenCard } from '../lib/floatCards'
+import { useLayer } from '../lib/overlays/layer'
 import { useIsPhone } from '../lib/useIsPhone'
 import { BuildingCard } from './BuildingCard'
 import s from './BuildingFloat.module.css'
@@ -18,26 +19,22 @@ import s from './BuildingFloat.module.css'
  * Lage is drawn (Brandherd, Fahrzeuge, the first Trupp all stand at the Einsatzort), moves with every
  * pan, and has no plan-side twin. The row never covers a symbol, it is the same place on both
  * surfaces (Lage ↔ Plan), and the floating row already budgets for it (15-mobile · --float-row,
- * the message lane stands above it). The card is non-modal like the Passung beside it: the map
- * stays pannable, ✕ or the chip closes it.
+ * the message lane stands above it). The card is non-modal: no scrim, nothing trapped. ✕, the
+ * chip, Esc, the native back and a tap beside it close it – that tap ONLY closes it, it never pans,
+ * selects or places on the map under it (lib/overlays/layer, owner call 2, 17.11.2026).
  *
  * Closed, the chip says what it is and what a crew must not miss: «Gebäude-Info», then the hazards
- * as glyph + WORD («⚠ Gebäude-Info · Gas · PV») – ONE wording on the Karte and every plan, phone
- * included (owner pick C8, 05.11.2026: «always Gebäude-Info when it's about the info»; a phone and
- * the plan's row said «⚠ Gas» alone, or the bare glyph). Not «Gebäude» + the storey glyph: that is
- * the rail's Gebäude tile, a surface of its own. Nothing to say → no chip (lib/buildingCard ·
- * hasBuildingContent).
+ * as glyph + WORD («⚠ Gebäude-Info · Gas · PV») on a tablet (owner pick C8, 05.11.2026: «always
+ * Gebäude-Info when it's about the info»). Not «Gebäude» + the storey glyph: that is the rail's
+ * Gebäude tile, a surface of its own. Nothing to say → no chip (lib/buildingCard · hasBuildingContent).
  *
- * ⚠️ Smaller on a PHONE (round 14.11.2026, owner pick 12A, chip-shot: «Gebäude-Info · Heizöl» in
- * 800 amber outweighed everything in the row): there the chip is the glyph + the hazard word(s)
- * alone («⚠ Heizöl», 700), or (i) + «Gebäude» with none – same height as the floating family, the
- * count badge stays, and `aria-label` / `title` keep the full sentence. The tablet is unchanged.
- * …and with nothing entered by hand either – no hazard, no Sofortmassnahme, no Bemerkung, only
- * register lines (`summary.quiet`) – it is a TILE like the Eintrag FAB at the row's other end: the
- * 22px (i) with «Gebäude» under it, the family's height, as wide as its word (round 16.11.2026 #9,
- * owner: «(i) chip or a smaller label unless there is a custom entry … or hazard»; the bare (i)
- * of round 1 → the worded tile, owner pick of mock 07). The tablet's row has the room and keeps
- * its «Gebäude-Info».
+ * ⚠️ On a PHONE it is a TILE, always (button round 17.11.2026, owner pick 12C + follow-up «the whole
+ * phone floating row = tiles»; 09-whiteboard · .wb-tile): the 22px glyph over its 11/700 word, the
+ * family's height, like the Eintrag FAB and the building / Objekt tile it shares a glass with. The
+ * word is «Info» – the building tile beside it already says «Gebäude» or the street – or, with a
+ * hazard, the hazard words in the hazard tone under the ⚠ («⚠ Heizöl»). The SHAPE never flips with
+ * the content any more (12A / 16.11. switched chip ↔ tile on a hazard); a long hazard list
+ * ellipsises inside the capped tile, and `aria-label` / `title` keep the full sentence.
  *
  * ⚠️ ONE action, so one glyph and one label (owner, 09.11.2026 – mock nov09-gebaeude-sofort, «do not
  * split»): the Objekt's Sofortmassnahmen are a count badge on the chip («Gebäude-Info ②»), the way
@@ -67,23 +64,23 @@ export function BuildingFloat({ info, autoOpen = false, onRead }: {
   const close = useCallback(() => { setOpen(false); read.current?.() }, [])
   // one card of the chip row at a time: another opening closes this one (lib/floatCards)
   useOnlyOpenCard(open, close)
-  // Esc closes it, like every other floating card
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, close])
+  // the way out is every layer's (lib/overlays/layer, 17.11.2026): a tap beside the card only
+  // closes it (it did nothing), Esc closes it ALONE – it used to also drop the Lage's selection or
+  // put the Plan's placement down with the same press – the native back closes it, and focus goes
+  // back to the chip
+  const anchor = useRef<HTMLSpanElement>(null)
+  const chip = useRef<HTMLButtonElement>(null)
+  useLayer({ open, onClose: close, inside: [anchor], returnFocus: chip })
   if (!summary) return null
   const C = appConfig.copy.building
-  const tile = phone && summary.quiet
   return (
-    <span className={s.anchor}>
+    <span className={s.anchor} ref={anchor}>
       <button
+        ref={chip}
         type="button"
-        // the floating family's own chip (`.wb-scale-chip`) — the module only adds the hazard tone;
-        // it never had a `.chip` of its own, and reading one printed «undefined» into the class
-        className={cx('wb-scale-chip', open && 'arm', summary.hazard && s.hazard, tile && s.tile)}
+        // the floating family's own chip (`.wb-scale-chip`), a tile on a phone (`.wb-tile`) — the
+        // module only adds the hazard tone and the count badge
+        className={cx('wb-scale-chip wb-tile', open && 'arm', summary.hazard && s.hazard)}
         aria-label={summary.label}
         title={summary.label}
         aria-expanded={open}
@@ -93,9 +90,9 @@ export function BuildingFloat({ info, autoOpen = false, onRead }: {
         {/* a KNOWN hazard is the words after the dot, in the hazard tone (hill climb r15, Opus 5):
             in ink the chip read as one more neutral control. The plate stays neutral – no fill,
             this is a fact to read, not an alarm. */}
-        {tile ? <span className={s.word}>{C.chipTitleShort}</span> : <span>{phone
+        <span>{phone
           ? summary.hazard ? <b className={s.words}>{summary.words.join(' · ')}</b> : C.chipTitleShort
-          : <>{C.chipTitle}{summary.hazard && <> · <b className={s.words}>{summary.words.join(' · ')}</b></>}</>}</span>}
+          : <>{C.chipTitle}{summary.hazard && <> · <b className={s.words}>{summary.words.join(' · ')}</b></>}</>}</span>
         {/* the Objekt's Sofortmassnahmen are inside: their count, in the one count-badge idiom */}
         {summary.measures > 0 && <span className={s.count} aria-hidden>{summary.measures}</span>}
       </button>

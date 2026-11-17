@@ -7,7 +7,7 @@
 //     (`viewerLayers(defaultLayers(), undefined)`), the Basiskarte included;
 //   · «Alle ein» / «Alle aus» = every overlay on / off, the Basiskarte untouched.
 //
-// The viewer's own rows outside `layers` count as layers too — «Stationsobjekte» and whatever
+// The viewer's own rows outside `layers` count as layers too — «Objekte» and whatever
 // else the panel lists for the station (category rows): on in «Standard», switched by «Alle» and
 // «Keine» like any overlay. They are passed in as rows, never as a list kept here, so a row the
 // panel gains is covered without touching this file. Deliberately NOT a row here: the aligned

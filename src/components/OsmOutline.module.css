@@ -14,14 +14,14 @@
 
 /* floating transfer bar for multi-building select — bottom-centre of the plan
    viewport (portaled to <body>, so the panned/zoomed board never drags it) */
-/* ⚠️ Clears the Objekt chip row (`.wb-botleft`: 16px up, --float-h tall, since 26.09.2026 — it
+/* ⚠️ Clears the Objekt chip row (`.wb-botleft`: 16px up, --line-h tall – --float-h since 26.09.2026 — it
    was 12px + ~32px, and this bar sat at 58px): one --float-gap above it. At 26px this bar sat
    in the same band, and since it is centred while the chip is left-aligned they collided as
    soon as the chip carried a full address — «Gebäude antippen, dann übernehmen» printed over
    the name of the object being picked FOR. */
 /* The wrapper owns the placement so ONE line of context (the existing building is highlighted /
    part of it is missing here) can sit directly above the buttons it qualifies. */
-.wb-osm-barwrap { position: fixed; left: 50%; bottom: calc(16px + var(--float-h) + var(--float-gap)); transform: translateX(-50%); z-index: var(--z-help-scrim);
+.wb-osm-barwrap { position: fixed; left: 50%; bottom: calc(16px + var(--line-h) + var(--float-gap)); transform: translateX(-50%); z-index: var(--z-help-scrim);
   display: flex; flex-direction: column; align-items: center; gap: 8px; }
 /* ⚠️ The house shapes, not pills (20.09.2026): this bar was the one place in the app with
    fully round buttons in a fully round tray, at 13px/600 – and on a phone both labels wrapped

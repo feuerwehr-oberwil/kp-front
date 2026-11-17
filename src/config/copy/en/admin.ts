@@ -555,7 +555,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
     },
     incidentHistory: {
       loading: 'Loading incidents…', error: 'Could not load incidents.', search: 'Search title, address or source…',
-      none: 'No incidents available.', noMatches: 'No incidents match the search.', started: 'Started', incident: 'Incident', status: 'Status',
+      none: 'No incidents available.', noMatches: 'No incidents match the search.', started: 'Alarm time', incident: 'Incident', status: 'Status',
       source: 'Source', report: 'Report', updated: 'Updated', open: 'open', closed: 'closed', complete: 'complete', incomplete: 'pending',
       sources: { manual: 'Entered by hand', divera: 'Divera', firehub: 'FireHub', migrated: 'Migrated' } as Record<string, string>,
 
@@ -1594,6 +1594,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
         noPairsYet: 'No map link yet – the floors are saved anyway.',
         joinWhat: 'Choose a point, switch to another floor and tap the same building point there. Both drawings must use the same scale and orientation.',
         moveHint: 'Move a point or a region: grab it and drag. Redraw: «Draw region».',
+        zoomReset: 'Reset zoom',
       },
     },
     layers: {

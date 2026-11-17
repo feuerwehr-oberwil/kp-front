@@ -16,7 +16,7 @@ import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { bearingDeg, circlePolygon, haversineM, midCoord } from '../lib/geo'
 import { georefDispatch, useGeorefMode } from '../lib/georefMode'
 import { routeEscape, routeHotkey } from '../lib/hotkeyRoute'
-import { resolveHotkey, isTypingTarget, type ToolCmd } from '../lib/hotkeys'
+import { resolveHotkey, isTypingTarget, keyOwnedElsewhere, type ToolCmd } from '../lib/hotkeys'
 import { newId } from '../lib/ids'
 import { applyRouting, detachDrawings, linesOnObjects, moveLineBody, objectAttachment, wireFreed, withDetach, type DetachPatch } from '../lib/lineAttachments'
 import { moduleNumbers } from '../lib/navRail'
@@ -32,8 +32,7 @@ import { ROTATION_DEFAULT_RUN_M, ROTATION_W_M, SHAPE_DEFS, SHAPE_MIN_M, SHAPE_TW
 import { seedSymbolProps, VEHICLE_SYMBOLS } from '../lib/symbols'
 import type { TacticalObject } from '../lib/tacticalObjects'
 import { lineTakesTrupp } from '../lib/truppLines'
-import { toast, undoToast } from '../lib/ui'
-import { askJoinedLines, removedText, removeWithUndo, withLinesText } from '../lib/removalToast'
+import { askJoinedLines, removedText, withLinesText } from '../lib/removal'
 import { recordKey, type RecordKey } from '../lib/undoKeys'
 import type { Dropper, UndoDomain } from '../lib/undoTimeline'
 import { useCoordPicker } from '../lib/useCoordPicker'
@@ -44,7 +43,7 @@ import { useSymbols } from '../lib/useSymbols'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
 import type { ShareLinkKind } from '../lib/viewLink'
 import type { Doc } from '../lib/workspace'
-import type { CameraView, Drawing, Entity, Incident, LineAttachment, LineEndpoint, LngLat, ShapeKind, TimelineEvent, Trupp, PlanDocument, NoteSize, MapTool } from '../types'
+import type { CameraView, Drawing, Entity, LayerId, Incident, LineAttachment, LineEndpoint, LngLat, ShapeKind, TimelineEvent, Trupp, PlanDocument, NoteSize, MapTool } from '../types'
 import type { OneShotRows, WorkspaceMode } from './types'
 import { useEffect, useMemo, useRef, type Dispatch, type RefObject, type SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
@@ -75,6 +74,8 @@ export interface UseMapActionsInputs {
   log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   emit: (op_type: string, payload?: Record<string, unknown>, opts?: { observed?: string }) => void
   pending: string | null
+  /** switch a layer this device has off back on – a placement into it (IncidentWorkspace · revealLayer) */
+  revealLayer: (id: LayerId) => void
   sym: ReturnType<typeof useSymbols>
   addRecent: (name: string) => void
   noteDefaults: { size: NoteSize; plain: boolean; color: string }
@@ -162,7 +163,7 @@ export function useMapActions({
   clearMapUi, setPaletteOpen, tool, setTool, setPending, setPendingShape, setSelectedId,
   setSelectedDrawingId, setSelectedDrawIds, setSelectedEntityIds, setNotePanelId, setEditNoteId, panel,
   setPanel, tacticalLocked, pendingShape, rotStart, setRotStart, commit, placeLock, log, emit, pending,
-  sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, settleDraft, lineMode, measure, mapRef,
+  revealLayer, sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, settleDraft, lineMode, measure, mapRef,
   incidentView, entities, liveIds, resolvedMapDrawings, cameraViews, view, setLocateReq, incidentOpen,
   share, setShareParent, setSharePick, setCameraViews, rememberOneShotRef, C_HIST, setViewsOpen,
   viewsOpen, selectedId, selectedDrawIds, selectedEntityIds, doc, truppCounterNames, selectedDrawingId,
@@ -219,6 +220,7 @@ export function useMapActions({
   const addSymbol = (s: string, c: LngLat): Entity => {
     const entity = symbolEntity(s, c)
     commit((d) => ({ ...d, entities: [...d.entities, entity] }))
+    revealLayer(entity.layer)
     log('hex', fillTemplate(appConfig.copy.log.symbolPlaced, { name: entity.label || formatSymbolName(s) }), 'symbol', undefined, entity.id)
     emit('entity.add', { id: entity.id, symbol: s, entity })
     return entity
@@ -257,6 +259,7 @@ export function useMapActions({
         setRotStart(null)
       }
       commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'shape', layer: appConfig.defaults.drawingLayerId, shape: pendingShape, color: def.defaultColor, label: name, ...geom }] }))
+      revealLayer(appConfig.defaults.drawingLayerId)
       // unlocked: place once, then drop back to select with the new shape active so
       // its edit handles are immediately usable. locked: stay in place-mode (no
       // selection so the editor doesn't interrupt) to drop several in a row.
@@ -276,6 +279,7 @@ export function useMapActions({
     } else if (tool === 'note') {
       const id = newId('n')
       commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: autoNoteWPx('', noteDefaults.size === 'm' ? undefined : noteDefaults.size), noteAutoW: true, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined }] }))
+      revealLayer(appConfig.defaults.drawingLayerId)
       // Straight into typing — in the detail sheet, with the caret already in its text field
       // (05.09.). It used to open the on-canvas inline editor instead, which is a text cursor
       // sitting on the map with no visible field, no room for a second line and, on a phone, the
@@ -385,7 +389,7 @@ export function useMapActions({
         () => setCameraViews((vs) => vs.filter((x) => x.id !== v.id)),
         () => setCameraViews((vs) => (vs.some((x) => x.id === v.id) ? vs : [...vs, v])),
         () => [recordKey('cameraViews', v.id)], 'silent')
-      toast(appConfig.copy.mapViews.saved, { icon: 'compass', tone: 'success' })
+      // no «gespeichert» toast: the new Ansicht stands in the list
     },
     onRename: (id, name) => {
       const prev = cameraViews.find((v) => v.id === id)
@@ -396,19 +400,16 @@ export function useMapActions({
         () => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name } : v))),
         () => [recordKey('cameraViews', id)], 'silent')
     },
-    // the delete rule (lib/removalToast): the Ansicht goes at once, «… gelöscht · Rückgängig» —
-    // the timeline entry brings it back at the position it stood in (the list is in save order)
+    // the delete rule (lib/removal): the Ansicht goes at once, no toast – the ↶ step («… gelöscht»)
+    // brings it back at the position it stood in (the list is in save order)
     onDelete: (id) => {
       const index = cameraViews.findIndex((x) => x.id === id)
       const v = cameraViews[index]; if (!v) return
-      const text = fillTemplate(appConfig.copy.mapViews.deleted, { name: v.name })
-      removeWithUndo(text, () => {
-        setCameraViews((vs) => vs.filter((x) => x.id !== id))
-        rememberOneShotRef.current('ansicht', text,
-          () => setCameraViews((vs) => (vs.some((x) => x.id === id) ? vs : [...vs.slice(0, index), v, ...vs.slice(index)])),
-          () => setCameraViews((vs) => vs.filter((x) => x.id !== id)),
-          () => [recordKey('cameraViews', id)], 'silent')
-      })
+      setCameraViews((vs) => vs.filter((x) => x.id !== id))
+      rememberOneShotRef.current('ansicht', fillTemplate(appConfig.copy.mapViews.deleted, { name: v.name }),
+        () => setCameraViews((vs) => (vs.some((x) => x.id === id) ? vs : [...vs.slice(0, index), v, ...vs.slice(index)])),
+        () => setCameraViews((vs) => vs.filter((x) => x.id !== id)),
+        () => [recordKey('cameraViews', id)], 'silent')
     },
   }
   // Open/close the views popover. Opening it first drops any active tool and the Ebenen
@@ -420,8 +421,8 @@ export function useMapActions({
   }
 
   // --- keyboard shortcuts ---------------------------------------------------------------------
-  // Duplicate the current selection (Cmd/Ctrl+D) — a small nudge so the copy is visibly offset and
-  // separately selectable (lib/duplicate). Single symbol/shape/note OR single drawing; live GPS
+  // Duplicate the current selection (Cmd/Ctrl+D, and the selection bar's «Duplizieren») – a small
+  // nudge so the copy is visibly offset and separately selectable (lib/duplicate). Single symbol/shape/note OR single drawing; live GPS
   // markers can't be copied. Multi-select duplicate isn't wired (rare; would need per-item id remap).
   const duplicateSelection = () => {
     // tacticalLocked, not readOnly: the drawing branch below used to duplicate for real in the
@@ -461,37 +462,33 @@ export function useMapActions({
     return true
   }
 
-  /** Escape: one layer of transient Karte state per press — lib/hotkeyRoute · routeEscape is the
-   *  order. (Modal sheets handle their own Esc via the overlay wrapper; this is only the non-modal
-   *  map chrome.) */
+  /** Escape: one layer of transient Lage state per press — lib/hotkeyRoute · routeEscape is the
+   *  order, the Plan's and the Karte viewer's too. (Sheets, menus, cards and the ✥ ⟳ mode take
+   *  their own Esc first and alone — lib/overlays/layer; this is only the surface's own state.) */
   const escape = (e: KeyboardEvent) => {
-    // typing in a field? Escape leaves the FIELD and nothing more — one key press must never
-    // both finish the text and drop the selection. Read the event TARGET, not activeElement:
-    // the field's own handler has already blurred by the time this bubbles up.
-    const el = e.target as HTMLElement | null
-    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
-    // …and a MODAL on top of the map owns Escape outright — it closes, and the map does NOT also
-    // peel a layer behind it (Esc in the «Welcher Trupp?» picker used to close the picker AND
-    // disarm the Team tool). Focus is trapped inside the dialog, so the event target is enough.
-    // ⚠️ `alertdialog` as well as `dialog`: ConfirmCard (lib/overlays/ConfirmCard) renders the
-    // alert role, and a delete confirm on the Lage must not peel a map layer behind it either.
-    if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
+    // a field keeps its Esc (it leaves the field and nothing more — one key press must never both
+    // finish the text and drop the selection), and a dialog or menu with the focus owns it: Esc in
+    // the «Welcher Trupp?» picker used to close the picker AND disarm the Team tool, a delete
+    // confirm (`alertdialog`) must not peel a map layer behind it either (lib/hotkeys)
+    if (keyOwnedElsewhere(e.target instanceof Element ? e.target : null)) return
     switch (routeEscape({
-      placing: !!(pending || pendingShape),
-      coordOn: coord.mode !== 'off',
-      chromeOpen: !!(panel || viewsOpen),
+      layerOpen: !!(panel || viewsOpen),
+      draft: !!(pending || pendingShape) || coord.mode !== 'off',
       toolArmed: tool !== 'select',
-      notePanelOpen: !!notePanelId,
+      panelOpen: !!notePanelId,
       selected: !!(selectedId || selectedDrawingId || selectedDrawIds.length || selectedEntityIds.length),
     })) {
-      case 'cancelPlacement': setPending(null); setPendingShape(null); setRotStart(null); setTool('select'); break
-      case 'coordOff': coord.setMode('off'); break
-      case 'closeChrome': setPanel(null); setViewsOpen(false); break
+      case 'closeLayer': setPanel(null); setViewsOpen(false); break
+      // a symbol or shape being placed goes first, then the Koordinaten crosshair
+      case 'dropDraft':
+        if (pending || pendingShape) { setPending(null); setPendingShape(null); setRotStart(null); setTool('select') }
+        else coord.setMode('off')
+        break
       // Escape leaves the tool like any other way out: a committable draft asks «Speichern ·
       // Verwerfen · Weiterzeichnen» (useMapDrawing · settleDraft, 27.10.2026 – until then Escape
       // was the one silent discard)
       case 'disarmTool': setTool('select'); settleDraft(); break
-      case 'closeNotePanel': setNotePanelId(null); break
+      case 'closePanel': setNotePanelId(null); break
       case 'clearSelection': setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); break
     }
   }
@@ -687,7 +684,7 @@ export function useMapActions({
   // a ghost trail the incident owns (lib/truppTrails · reconcileGhostTrails, the effect below).
   //
   // Leitungen hanging on a member that is not itself selected ask first (owner 14.11.2026,
-  // lib/removalToast · askJoinedLines): one card for the group, the lines counted over all of it.
+  // lib/removal · askJoinedLines): one card for the group, the lines counted over all of it.
   const deleteGroup = async (ids: string[], entIds: string[]) => {
     if (tacticalLocked) return
     const ents = entIds.filter((id) => !liveIds.has(id))
@@ -710,9 +707,9 @@ export function useMapActions({
   /**
    * The ONE write of a removal of several things – the lines `ids` and the objects `ents`: every
    * Leitung end outside them that hung on one lets go where its target stood, a docked placard
-   * lets go of a removed host. One ↶ step, one toast, one Verlauf row (`row`, counted or named –
+   * lets go of a removed host. One ↶ step, one Verlauf row (`row`, counted or named –
    * lib/drawingEdit · removalRowText – or «TLF und 2 Leitungen entfernt»), the Leitungen it set
-   * loose counted in the toast and the ↶ (the delete rule).
+   * loose counted in the ↶ caption (the delete rule; no toast – the ↶ brings it back).
    */
   const removeObjects = (ids: string[], ents: string[], row: string) => {
     // one patch per line, both ends in it — applied here and sent as ONE draw.edit (detachDrawings)
@@ -721,13 +718,12 @@ export function useMapActions({
       const targetLine = a.target.kind === 'line' && ids.includes(a.target.id) ? drawings.find((x) => x.id === a.target.id) : null
       return object?.coord ?? (targetLine && a.target.kind === 'line' ? targetLine.coords[a.target.endpoint === 'start' ? 0 : targetLine.coords.length - 1] : null)
     })
-    const toastText = removedText(row, released.size)
-    stepLabelRef.current = toastText
-    removeWithUndo(toastText, () => commit((d) => ({
+    stepLabelRef.current = removedText(row, released.size)
+    commit((d) => ({
       ...d,
       drawings: d.drawings.filter((dr) => !ids.includes(dr.id)).map((dr) => withDetach(dr, released)),
       entities: d.entities.filter((e) => !ents.includes(e.id)).map((e) => (e.dockedTo && ents.includes(e.dockedTo) ? { ...e, dockedTo: undefined } : e)),
-    })))
+    }))
     ids.forEach((id) => emit('draw.delete', { id }))
     ents.forEach((id) => emit('entity.delete', { id }))
     released.forEach((patch, id) => emit('draw.edit', { id, patch: wireFreed(patch) }))
@@ -852,9 +848,8 @@ export function useMapActions({
    * «Lösen» on an angedockter Trupp, from the HOST symbol's panel (15.09.2026).
    *
    * The exact inverse of the drop that made the bond, and it reports itself the same way that
-   * drop does — the `teamUndocked` Verlauf row — plus the confirm-with-undo toast the marker's
-   * own «Lösen» wears: the bond is a document write, but a bond broken by a tap on a list of
-   * rows deserves the same one-shot way back as one broken by a drag.
+   * drop does — the `teamUndocked` Verlauf row. No toast (owner pick 28, 17.11.2026): the bond is
+   * a document write, so the header's ↶ puts it back like one broken by a drag.
    * The marker keeps its coordinate and simply stands on it again (lib/docking · dockSlotOffset:
    * only the RENDERED position was ever snapped to the host's corner).
    */
@@ -873,23 +868,6 @@ export function useMapActions({
     })
     patchEntity(entityId, { dockedTo: undefined })
     log('select', line, placard ? 'symbol' : 'team', undefined, entityId)
-    // …and the toast's way back says so too: the bond is restored, and the record has to hear it.
-    // It re-docks only onto a host that still stands, and only a marker that is still loose — by
-    // the time it is tapped the host may have been deleted, or the marker docked elsewhere
-    // (CodeRabbit on #232); `objectsRef` is the store as it is NOW, not at the release. The guard
-    // names the HOST too: it docks at wherever the host stands, and a host another device has
-    // moved since is not where this bond was broken
-    undoToast(line, () => {
-      const now = objectsRef.current
-      const hostStands = now.some((o) => o.entity?.id === hostId)
-      const stillLoose = now.find((o) => o.entity?.id === entityId)?.entity?.dockedTo == null
-      if (!hostStands || !stillLoose) return
-      patchEntity(entityId, { dockedTo: hostId })
-      log('select', fillTemplate(placard ? L.placardDocked : L.teamDocked, {
-        name: ent.label || appConfig.copy.entities.fallbackObjectName,
-        host: doc.entities.find((e) => e.id === hostId)?.label || appConfig.copy.entities.fallbackObjectName,
-      }), placard ? 'symbol' : 'team', undefined, entityId)
-    }, [recordKey('objects', entityId), recordKey('objects', hostId)])
   }
   /**
    * A live Fahrzeug was dragged on a Modul — «hier ist es wirklich».
@@ -931,12 +909,12 @@ export function useMapActions({
   }
   /**
    * «Entfernen» on a Karte object – a symbol, a Form, a Notiz, a Truppmarker. The delete rule
-   * (lib/removalToast): it goes at once and the toast names it – «TLF entfernt · Rückgängig».
+   * (lib/removal): it goes at once, no toast, and the ↶ names it – «TLF entfernt».
    * ONE store step brings back the object, every Leitung end on it and a docked placard's bond.
    * ⚠️ Leitungen hanging on it ask first (owner 14.11.2026, `askJoinedLines`): «Nur Symbol» lets
    * their ends go where they stood («TLF entfernt, 2 Leitungen gelöst»), «Mit Leitungen» removes
    * them in the same step («TLF und 2 Leitungen entfernt»), Abbrechen keeps everything. `text`
-   * overrides the «Nur Symbol» toast's sentence («Marker und Spur entfernen» says what else went).
+   * overrides the «Nur Symbol» ↶ caption («Marker und Spur entfernen» says what else went).
    * Answers whether it went («Marker und Spur» takes its arming back when it did not).
    */
   const deleteEntity = async (id: string, text?: string) => {
@@ -959,16 +937,15 @@ export function useMapActions({
     // every Leitung end on the symbol lets go where it stood, so the line does not jump — one patch
     // per line, applied here and sent as ONE draw.edit below (lib/lineAttachments · detachDrawings)
     const released = ent ? detachDrawings(connected, (_, __, a) => (a.target.kind === 'object' && a.target.id === ent.id ? ent.coord : null)) : new Map<string, DetachPatch>()
-    const toastText = text ?? removedText(what, released.size)
-    // the ↶ names the act too (FLOW.3), not «Änderung auf der Karte»
-    stepLabelRef.current = toastText
-    removeWithUndo(toastText, () => commit((d) => ({
+    // the ↶ names the act (FLOW.3), not «Änderung auf der Karte»
+    stepLabelRef.current = text ?? removedText(what, released.size)
+    commit((d) => ({
       ...d,
       // …and a deleted host releases its angedockte Gefahrentafel (the placard stays — it is
       // still a record of the substance — it just stops following a ghost)
       entities: d.entities.filter((e) => e.id !== id).map((e) => (e.dockedTo === id ? { ...e, dockedTo: undefined } : e)),
       drawings: d.drawings.map((dr) => withDetach(dr, released)),
-    })))
+    }))
     if (selectedId === id) setSelectedId(null)
     if (editNoteId === id) setEditNoteId(null)
     // ⚠️ An EMPTY Notiz writes no row. Its label is `''`, not undefined, so `??` never reached the
@@ -1022,5 +999,5 @@ export function useMapActions({
     patchEntity(ent.id, { ...(again ? {} : { fields }), ...(act && { readings: act.readings }) })
     if (act) log(READING_ICON, act.text, 'symbol', undefined, ent.id)
   }
-  return { deleteGroup, deleteEntity, placed, goToModule, finishSelection, onMapClick, startEntityMove, streamEntityMove, finishEntityMove, onMarquee, transformGroup, goToTrupp, viewsApi, toggleViews, selected, undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, moveLiveOnSheet }
+  return { deleteGroup, deleteEntity, duplicateSelection, placed, goToModule, finishSelection, onMapClick, startEntityMove, streamEntityMove, finishEntityMove, onMarquee, transformGroup, goToTrupp, viewsApi, toggleViews, selected, undockTeam, setEntityDone, commitEntityFields, focusDrawing, noteEntity, pick, pickShape, moveLiveOnSheet }
 }

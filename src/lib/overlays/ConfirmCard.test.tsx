@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import { ConfirmCard } from './ConfirmCard'
+import { Sheet } from './Sheet'
 
 afterEach(cleanup)
 
@@ -17,6 +18,25 @@ describe('ConfirmCard · initial focus', () => {
   it('focuses the confirm on an ordinary ask — the operator came here to do it', async () => {
     render(<ConfirmCard open {...ask} onResolve={vi.fn()} />)
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Abmelden' })))
+  })
+})
+
+// button sweep SHEETS.1 (17.11.2026): a remove carries the bin – in a confirm too, but only where
+// the danger answer IS a removal («Abmelden» is a danger and no bin)
+describe('ConfirmCard · the bin', () => {
+  it('leads a removing danger answer with the bin, and leaves a plain danger answer bare', () => {
+    render(<ConfirmCard open title="Übung löschen?" message="" confirmLabel="Endgültig löschen" cancelLabel="Abbrechen" danger bin onResolve={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Endgültig löschen' }).querySelector('svg')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Abbrechen' }).querySelector('svg')).toBeNull()
+    cleanup()
+    render(<ConfirmCard open {...ask} danger onResolve={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Abmelden' }).querySelector('svg')).toBeNull()
+  })
+
+  it('puts it on a removing alternative («Verwerfen»), not on the confirm beside it', () => {
+    render(<ConfirmCard open message="" confirmLabel="Speichern" cancelLabel="Weiterzeichnen" altLabel="Verwerfen" altDanger bin onResolve={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Verwerfen' }).querySelector('svg')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Speichern' }).querySelector('svg')).toBeNull()
   })
 })
 
@@ -76,5 +96,22 @@ describe('ConfirmCard · open-point rows', () => {
     expect(screen.getByText('jetzt 23:41')).toBeTruthy()
     expect(document.querySelector('.confirm-list-done')).toBeTruthy()
     expect(document.querySelector('.confirm-list-chev')).toBeNull()
+  })
+})
+
+// a confirm asked FROM a sheet («Eingangsdruck tief – bestätigen?» on the Trupp form) is mounted
+// outside that sheet's tree: one Esc answers the confirm alone, the sheet stands (CONT.2)
+describe('ConfirmCard · over a sheet', () => {
+  it('takes its own Escape – the sheet under it stays open', async () => {
+    const closeSheet = vi.fn()
+    const onResolve = vi.fn()
+    render(<>
+      <Sheet open onClose={closeSheet} title="Trupp"><input aria-label="Druck" /></Sheet>
+      <ConfirmCard open {...ask} onResolve={onResolve} />
+    </>)
+    await waitFor(() => expect(document.activeElement?.closest('.confirm-card')).toBeTruthy())
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    await waitFor(() => expect(onResolve).toHaveBeenCalledWith(false))
+    expect(closeSheet).not.toHaveBeenCalled()
   })
 })

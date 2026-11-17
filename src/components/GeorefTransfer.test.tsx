@@ -16,7 +16,7 @@ const plan = (id: string, code: string): PlanDocument => ({
 })
 
 describe('Passung auf mehrere Module übertragen', () => {
-  it('keeps the picker open, marks completed targets, and closes only through Fertig', async () => {
+  it('keeps the picker open, marks completed targets, and its ✕ then finishes', async () => {
     const source = plan('m1', 'Modul 1')
     const target2 = { plan: plan('m2', 'Modul 2'), linked: false }
     const target3 = { plan: plan('m3', 'Modul 3'), linked: true }
@@ -36,17 +36,19 @@ describe('Passung auf mehrere Module übertragen', () => {
     expect(onClose).not.toHaveBeenCalled()
     expect(onDone).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Fertig' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Schliessen' }))
     expect(onDone).toHaveBeenCalledTimes(1)
+    expect(onClose).not.toHaveBeenCalled()
   })
 
-  it('returns to Passung when cancelled before a transfer', () => {
+  it('returns to Passung when closed before a transfer – no footer, the ✕ is the way out', () => {
     const onClose = vi.fn()
     render(<GeorefTransfer source={plan('m1', 'Modul 1')}
       targets={[{ plan: plan('m2', 'Modul 2'), linked: false }]}
       onTransfer={async () => true} onClose={onClose} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }))
+    expect(screen.queryByRole('button', { name: 'Abbrechen' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Schliessen' }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

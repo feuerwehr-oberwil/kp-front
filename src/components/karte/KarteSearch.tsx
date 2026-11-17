@@ -8,6 +8,9 @@
 // lists the plans). The address line is lib/karte/places · objectRowSub: never the kind word
 // standing in for an address, and a name that IS the address is not printed twice.
 //
+// No catalogue on the device (it failed to load, or never came): the «Objekte» group says
+// so in its own place (`objectsNote`) – a standing state, never a toast (toast diet, 17.11.2026).
+//
 // On a phone the list is the body of the search's slide-up (`inSheet`, KarteApp · KarteKeySheet,
 // review round 3) rather than a card hung from the bar: the sheet is its frame and its scroller.
 
@@ -22,13 +25,15 @@ import s from './Karte.module.css'
 
 export type AddrState = 'idle' | 'short' | 'loading' | 'ok' | 'offline' | 'error'
 
-export function KarteSearch({ query, hits, nearest, addresses, addrState, onPickObject, onPickAddress, inSheet = false }: {
+export function KarteSearch({ query, hits, nearest, addresses, addrState, objectsNote, onPickObject, onPickAddress, inSheet = false }: {
   query: string
   hits: ObjectHit[]
   /** shown while nothing is typed: the objects nearest the map centre */
   nearest: ObjectHit[]
   addresses: GeoHit[]
   addrState: AddrState
+  /** why there are no station objects to search at all (catalogue failed / never loaded) */
+  objectsNote?: string | null
   onPickObject: (id: string) => void
   onPickAddress: (hit: GeoHit) => void
   /** inside the phone's search sheet: no frame of its own */
@@ -49,7 +54,9 @@ export function KarteSearch({ query, hits, nearest, addresses, addrState, onPick
   return (
     <div className={inSheet ? s.resultsIn : s.results} role="listbox" aria-label={C.searchObjects}>
       <div className={s.grp}>{C.searchObjects}</div>
-      {!q ? (
+      {objectsNote ? (
+        <div className="form-warn form-warn-amber form-warn-compact" role="status"><Icon id="warn" /><span className="form-warn-text">{objectsNote}</span></div>
+      ) : !q ? (
         <>
           {nearest.length > 0 && objectRows(nearest)}
           <div className={s.quiet}>{C.searchHint}</div>

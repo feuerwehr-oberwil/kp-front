@@ -1,8 +1,8 @@
 /*
- * *The Verlauf's head stays while searching* (22.09.2026): the field sits UNDER title · ⓘ ·
- * lens · Replay · ✕, in the row the timeline strip vacates, with its own ✕; the lens is lit and
- * closes it. The field used to REPLACE the head, and the drawer then no longer said what it was.
- * The funnel beside the lens (23.09.2026, `lib/journalFilter`) filters by the row's ONE Bereich —
+ * *The Verlauf's list row* (owner pick 25 B, 17.11.2026): under the head (title · Wiedergabe · ✕)
+ * the search field, always in view, and the «Art» tile – the row every list has. A lens in the
+ * head opened the field until then, and an ⓘ «Legende» beside it; the legend is the ring key at
+ * the end of the «Art» menu now. The «Art» tile (23.09.2026, `lib/journalFilter`) filters by the row's ONE Bereich —
  * `journalArea`/`journalDisc`'s own words, no taxonomy of its own — as a checkbox `Menu`
  * («Art des Eintrags» · «Bereich», with counts); ticks OR, and AND with the search. Lit (the
  * choice fill, no dot — «Filter on», docs/ui-conventions.md) while on, one «Gefiltert: … · Alle zeigen» line under the head, the timeline strip hidden as
@@ -55,8 +55,8 @@ export interface JournalFacet extends JournalCategory {
   count: number
 }
 
-/** The menu's order. «Art» first, in the composer's own order, then the Bereiche in the
- *  legend's order (Journal · legendEntries) — the reader who learned one reads the other. */
+/** The menu's order. «Art» first, in the composer's own order, then the Bereiche: Lage and Plan,
+ *  then the areas in the Rapport's order — the reader who learned one reads the other. */
 const ORDER: JournalCategoryKind[] = [
   'manual', 'auftrag', 'sofort', 'pendenz',
   'map', 'plan', 'anwesenheit', 'atemschutz', 'mittel', 'rapport', 'checklist', 'system',

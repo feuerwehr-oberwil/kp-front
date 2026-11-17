@@ -9,6 +9,7 @@
 // The field is one iOS must not take for a contact form (lib/typingField) and is focused without
 // letting Safari move the page (lib/iosKeyboard · noPanTouchEnd).
 
+import { leaveOnEnter } from '../../lib/fieldKeys'
 import { useLayoutEffect, useRef } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
@@ -87,6 +88,8 @@ export function KarteGefahrgut({ un, onUn, mode, onMode, center, onClose, phone 
           {...typingFieldProps('number', 'karte-un')}
           id="karte-un" className={cx('ip-input', s.unField)} maxLength={4}
           placeholder={C.ergPlaceholder} value={un} onChange={(e) => digits(e.target.value)}
+          // the readout follows every digit, so Return only puts the keys down (lib/fieldKeys)
+          enterKeyHint="done" onKeyDown={leaveOnEnter}
         />
       </div>
       <div className="lc-body">{body}</div>

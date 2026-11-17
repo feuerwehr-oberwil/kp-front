@@ -10,6 +10,7 @@ import s from './Atemschutz.module.css'
 import { Overlays } from '../lib/ui'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import { fillTemplate } from '../lib/format'
+import { appConfig } from '../config/appConfig'
 import type { Trupp, TruppFields, TruppReading } from '../types'
 import { registerAtemschutzViewHooks, az, firstBtn, lastBtn, iso, aktivTrupp, mount, typeGuest, pressureRow, kanalRow, pickAuftrag } from './AtemschutzView.setup'
 
@@ -640,6 +641,37 @@ describe('the Reihenfolge menu', () => {
       plain('t3', 'Sanität', { auftrag: 'sanitaet' }),
     ] })
     expect(names()).toEqual(['Sanität', 'Verkehr', 'Ohne'])
+  })
+
+  // button sweep HEADS.1 + HEADS.3 (17.11.2026): the order wears ↑↓ – a lit funnel on this board
+  // read «Trupps are hidden» – and a re-sorted board says so under the head, with the way back
+  it('wears the sort glyph and says «Sortiert: Name» with «Wie gesetzt» as the way back', () => {
+    const onOrder = vi.fn()
+    mount({ order: 'name', onOrder, trupps: [plain('t1', 'Berta'), plain('t2', 'Anna')] })
+    const trigger = screen.getByRole('button', { name: az.orderLabel })
+    expect(trigger.querySelector('use')?.getAttribute('href')).toBe('#sort')
+    const F = appConfig.copy.filterStrip
+    expect(screen.getByText(F.sorted).parentElement!.textContent).toContain(az.orderName)
+    fireEvent.click(screen.getByRole('button', { name: az.orderManual }))
+    expect(onOrder).toHaveBeenCalledWith('manuell')
+    cleanup()
+    mount({ order: 'manuell', onOrder, trupps: [plain('t1', 'Berta'), plain('t2', 'Anna')] })
+    expect(screen.queryByText(F.sorted)).toBeNull()
+  })
+
+  // owner pick 26 (17.11.2026): the order is the LIST's question – it stands in the row under the
+  // head, worded, and the head keeps what acts on the whole board
+  it('stands in the list row under the head, not in the head, and the strip follows that row', () => {
+    vi.mocked(useIsPhone).mockReturnValue(false)
+    mount({ order: 'name', onOrder: vi.fn(), trupps: [plain('t1', 'Berta'), plain('t2', 'Anna')] })
+    const trigger = screen.getByRole('button', { name: az.orderLabel })
+    const head = document.querySelector('header')!
+    expect(head.contains(trigger)).toBe(false)
+    const row = trigger.closest(`.${s.listRow}`)!
+    expect(row.previousElementSibling).toBe(head)
+    expect(trigger.textContent).toBe(az.orderLabel)
+    expect(row.nextElementSibling?.textContent).toContain(appConfig.copy.filterStrip.sorted)
+    expect(head.querySelector('button[aria-label="' + az.newTrupp + '"]')).toBeTruthy()
   })
 })
 

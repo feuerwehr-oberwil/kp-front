@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { pointAtField } from '../lib/pointAtField'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Sheet, SheetClose } from '../lib/overlays'
@@ -57,6 +58,13 @@ export function SignatureSheet({
   const [busy, setBusy] = useState(false)
   const slot = names[role]
   const ready = !isBlank(strokes) && !!slot.name.trim() && !busy
+  // a blocked «Bestätigen» points at what is missing – the name, else the pad (ui-conventions ·
+  // F2, duck sweep ELEM.4); only a signature in flight (`busy`) is natively disabled
+  const nameRef = useRef<HTMLDivElement>(null)
+  const padRef = useRef<HTMLDivElement>(null)
+  const pointAtMissing = () => (!slot.name.trim()
+    ? pointAtField(nameRef.current, { focus: nameRef.current?.querySelector<HTMLElement>('input') })
+    : pointAtField(padRef.current?.querySelector<HTMLElement>('[role="img"]')))
 
   const submit = async () => {
     if (!ready || !strokes) return
@@ -76,7 +84,7 @@ export function SignatureSheet({
     <Sheet open={open} onClose={onClose} fit sheetClassName={s.sheet} title={S.sheetTitle} swipeToClose={false}
       footer={<>
         <SheetClose>{S.cancel}</SheetClose>
-        <Button variant="primary" disabled={!ready} onClick={() => void submit()}>{S.confirm}</Button>
+        <Button variant="primary" disabled={busy} aria-disabled={!ready} onClick={ready ? () => void submit() : pointAtMissing}>{S.confirm}</Button>
       </>}
     >
       {/* What is signed, in two lines beside the PDF it prints as — the same on every device
@@ -109,7 +117,7 @@ export function SignatureSheet({
           }))}
         />
       </div>
-      <div className={s.field}>
+      <div className={s.field} ref={nameRef}>
         <PersonField
           label={S.name} placeholder={S.namePlaceholder}
           value={slot}
@@ -122,11 +130,13 @@ export function SignatureSheet({
         />
         {!phone && <span className={s.hint}>{role === 'el' ? S.elNameHint : S.kdtNameHint}</span>}
       </div>
-      <SignaturePad
-        value={strokes} onChange={setStrokes}
-        placeDate={placeDate}
-        clearLabel={S.clear} hint={S.padHint} ariaLabel={S.padAria} compact={phone}
-      />
+      <div ref={padRef}>
+        <SignaturePad
+          value={strokes} onChange={setStrokes}
+          placeDate={placeDate}
+          clearLabel={S.clear} hint={S.padHint} ariaLabel={S.padAria} compact={phone}
+        />
+      </div>
     </Sheet>
   )
 }

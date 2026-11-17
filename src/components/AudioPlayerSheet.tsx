@@ -6,6 +6,7 @@
 // What reaches the Verlauf: docs/verlauf-coverage.md.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { pointAtField } from '../lib/pointAtField'
 import { caretToEnd } from '../lib/ui'
 import type { TimelineEvent } from '../types'
 import { Icon } from '../lib/icons'
@@ -143,7 +144,7 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
    *  journalVocabulary), so «Eintrag an dieser Stelle» completes and marks names identically */
   vocab?: JournalLink[]
   /** append a journal row at the given absolute time; returns the created row id */
-  onAddEntry?: (text: string, atIso: string, quiet?: boolean) => string
+  onAddEntry?: (text: string, atIso: string) => string
   /** append one transcript section (offset into the recording, in s) onto THIS row */
   onAddSection?: (atSec: number, text: string) => void
   /** replace one section's words ('' removes it). The recording stays the original, so this
@@ -200,7 +201,7 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
     if (!body) return
     // on a memo a confirmed segment IS a transcript section — same home as typed ones
     if (isMemo) { onAddSection!(seg.start, body); void patchSegment(index, 'confirmed', undefined, body); return }
-    const rowId = onAddEntry!(body, new Date(win.startMs + seg.start * 1000).toISOString(), true)
+    const rowId = onAddEntry!(body, new Date(win.startMs + seg.start * 1000).toISOString())
     void patchSegment(index, 'confirmed', rowId, body)
   }
   const confirmAll = () => { for (const s of openDrafts) confirmDraft(s.index, s) }
@@ -263,6 +264,16 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
   )
   const ticks = useMemo(() => (win ? clockTicks(win) : []), [win])
   const curIdx = currentMarkerIndex(markers, cur)
+  // A correction is never thrown away by a way out (owner, 17.11.2026 – duck sweep FEEDBACK.8):
+  // its ✕, Esc in it, and closing the whole sheet SAVE the words as ✓ does. Only a change is
+  // written – the Verlauf pencil's patch is append-only, so an untouched row writes nothing.
+  const keepEdits = () => {
+    if (editSec && editSec.value.trim() !== sections.find((x) => x.id === editSec.id)?.text) saveSecEdit()
+    else setEditSec(null)
+    if (editMarker && editMarker.value.trim() !== markers.find((m) => m.row.id === editMarker.id)?.row.text) saveMarkerEdit()
+    else setEditMarker(null)
+  }
+  const close = () => { keepEdits(); onClose() }
 
   const toggle = () => {
     const a = audioRef.current; if (!a || errored) return
@@ -300,7 +311,7 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
       else if (e.key === 'ArrowLeft') { e.preventDefault(); seek(cur - SKIP_SEC) }
       else if (e.key === 'ArrowRight') { e.preventDefault(); seek(cur + SKIP_SEC) }
       else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); cycleSpeed() }
-      else if (e.key === 'Escape') onClose()
+      else if (e.key === 'Escape') close()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -426,7 +437,7 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
   return (
     // dismissEscape=false: this sheet owns Escape (Esc-in-a-field blurs it; Esc elsewhere closes;
     // plus Space/←/→/↑/↓ transport) via the keydown effect above — Base UI must not also close on Esc.
-    <Overlay open onClose={onClose} className="ip-sheet ap-sheet ui-dialog" ariaLabel={row.text} dismissEscape={false} grab>
+    <Overlay open onClose={close} className="ip-sheet ap-sheet ui-dialog" ariaLabel={row.text} dismissEscape={false} grab>
         <div className="ip-head ap-head">
           <span className="ap-title">
             <h2>{row.text}</h2>
@@ -436,7 +447,7 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
             // after all suggestions are handled (or none were found), a fresh run stays possible
             <Button icon={<Icon id="sparkle" />} onClick={() => void startStt()}>{C.sttTranscribe}</Button>
           )}
-          <button className="ip-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
+          <button className="ip-x" onClick={close} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
         </div>
         <div className="ip-body ap-body">
           <div className="ap-wave-wrap">
@@ -505,6 +516,10 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
                     value={text}
                     placeholder={isMemo ? C.transcriptPlaceholder : C.playerEntryPlaceholder}
                     onChange={(e) => setText(e.target.value)}
+                    // its one job is to write the entry at this second, so Return SENDS – and its
+                    // key says so (ELEM.8: a one-field ask keeps its submit; every other one-liner
+                    // commits and puts the keys down)
+                    enterKeyHint="send"
                     onScroll={(e) => { if (marksRef.current) marksRef.current.scrollLeft = e.currentTarget.scrollLeft }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') sendEntry()
@@ -518,7 +533,9 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
                     }}
                   />
                 </div>
-                <Button variant="primary" disabled={!text.trim()} icon={<Icon id="check" />} onClick={sendEntry}>{C.send}</Button>
+                {/* a tap with nothing typed points at the line (ui-conventions · F2, duck sweep ELEM.4) */}
+                <Button variant="primary" aria-disabled={!text.trim()}
+                  onClick={text.trim() ? sendEntry : () => pointAtField(inputRef.current, { focus: inputRef.current })}>{C.send}</Button>
               </div>
               {(nameHits.length > 0 || suggestions.length > 0) && (
                 <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria}>
@@ -596,11 +613,10 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
                       onFocus={caretToEnd}
                       onChange={(e) => setEditSec({ id: s.id, value: e.target.value })}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') saveSecEdit()
-                        else if (e.key === 'Escape') { e.stopPropagation(); setEditSec(null) }
+                        if (e.key === 'Enter' || e.key === 'Escape') { e.stopPropagation(); keepEdits() }
                       }}
                     />
-                    <button className="ip-x ap-d-no" title={appConfig.copy.cancel} aria-label={appConfig.copy.cancel} onClick={() => setEditSec(null)}><Icon id="close" /></button>
+                    <button className="ip-x ap-d-no" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={keepEdits}><Icon id="close" /></button>
                     <button className="ap-d-ok" title={C.transcriptSave} aria-label={C.transcriptSave} onClick={saveSecEdit}><Icon id="check" /></button>
                   </div>
                 ) : (
@@ -642,11 +658,10 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
                     onFocus={caretToEnd}
                     onChange={(e) => setEditMarker({ id: m.row.id, value: e.target.value })}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') saveMarkerEdit()
-                      else if (e.key === 'Escape') { e.stopPropagation(); setEditMarker(null) }
+                      if (e.key === 'Enter' || e.key === 'Escape') { e.stopPropagation(); keepEdits() }
                     }}
                   />
-                  <button className="ip-x ap-d-no" title={appConfig.copy.cancel} aria-label={appConfig.copy.cancel} onClick={() => setEditMarker(null)}><Icon id="close" /></button>
+                  <button className="ip-x ap-d-no" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={keepEdits}><Icon id="close" /></button>
                   <button className="ap-d-ok" title={C.transcriptSave} aria-label={C.transcriptSave} onClick={saveMarkerEdit}><Icon id="check" /></button>
                 </div>
               ) : (

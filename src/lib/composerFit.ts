@@ -1,7 +1,7 @@
 /** ── the journal composer's degradation ladder ────────────────────────────────────────────
  *  1. today's layout — and the predictive row is never what gives way, at any size;
- *  2. Art + media collapsed into ONE row of symbols («I · A · S», the clock, the ring, mic ·
- *     upload · camera) when the height gets tight;
+ *  2. Art + media collapsed into ONE row (the three Art words, the clock, the ring, one
+ *     «Anhang» for mic · upload · camera – M9 · A, 17.11.2026) when the height gets tight;
  *  3. and only then the card scrolls (`overflow-y: auto`, 10-journal.css · .jc-controls).
  *
  *  ⚠️ MEASURED, not a `@media (max-height: …)`. On iOS the layout viewport does not shrink for

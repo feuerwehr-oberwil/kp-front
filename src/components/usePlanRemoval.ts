@@ -1,8 +1,8 @@
 // Removing objects from the Plan: «Entfernen» with the Leitungen coupled to the object let go where
 // they stand (lib/lineAttachments · detachEnds — the Karte's useMapActions · deleteEntity runs the
 // same fold), «Marker und Spur löschen», the Mehrfach group delete, and the Delete key. Each act
-// is ONE ↶ step and ONE Verlauf row: the delete rule (lib/removalToast) – it goes at once and the
-// toast says what went, with «Rückgängig». It asks only when Leitungen hang on the object (or the
+// is ONE ↶ step and ONE Verlauf row: the delete rule (lib/removal) – it goes at once, no toast, and
+// the ↶ names what went. It asks only when Leitungen hang on the object (or the
 // group) – «TLF hat 2 Leitungen» · [Nur Symbol] [Mit Leitungen] [Abbrechen], owner 14.11.2026,
 // the Karte's card (`askJoinedLines`). Lifted out of the Whiteboard (sweep A.1, 25.10.2026).
 
@@ -11,11 +11,12 @@ import type React from 'react'
 import type { BoardAnno } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { askJoinedLines, removedText, removeWithUndo, withLinesText } from '../lib/removalToast'
+import { askJoinedLines, removedText, withLinesText } from '../lib/removal'
 import { detachEnds, linesOnObjects, wireFreed } from '../lib/lineAttachments'
 import { annoLogName } from '../lib/drawingEdit'
 import type { useBoardDoc } from './useBoardDoc'
 import type { PlanLogExtra } from './Whiteboard'
+import { keyOwnedElsewhere } from '../lib/hotkeys'
 
 interface Args {
   readOnly: boolean
@@ -62,7 +63,7 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
     log('close', fillTemplate(appConfig.copy.log.objectDeleted, { name }), { subjectId: a.id })
   }
 
-  /** the toast's sentence — the Karte's words for the same object (useMapActions · deleteEntity):
+  /** the ↶ caption — the Karte's words for the same object (useMapActions · deleteEntity):
    *  its removal row, «Notiz entfernt» for a note, and the Leitungen it set loose */
   const removedLine = (a: BoardAnno, freed: number) => removedText(a.kind === 'text'
     ? appConfig.copy.removedToast.note
@@ -73,7 +74,7 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
     : annoLogName(a) ?? appConfig.copy.entities.fallbackObjectName)
 
   // returns whether the object actually went — «Marker und Spur löschen» has to take its arming
-  // back when it did not. `text` overrides the toast's sentence (that door says the Spur went too).
+  // back when it did not. `text` overrides the ↶ caption (that door says the Spur went too).
   const removeWithConnections = async (target: BoardAnno, text?: string): Promise<boolean> => {
     if (readOnly) return false
     // Leitungen on it ask first; «Mit Leitungen» is the group write over it and them
@@ -96,7 +97,7 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
     const line = text ?? removedLine(target, changed.size)
     onStepLabel?.(line)
     if (!affected.length) {
-      removeWithUndo(line, () => remove(target.id))
+      remove(target.id)
       logRemoved(target)
       return true
     }
@@ -107,10 +108,10 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
       const resolvedSource = renderAnnos.find((x) => x.id === a.id)?.pts
       return resolvedSource?.[endpoint === 'start' ? 0 : resolvedSource.length - 1] ?? pts[endpoint === 'start' ? 0 : pts.length - 1]
     })
-    removeWithUndo(line, () => commit(annos.filter((a) => a.id !== target.id).map((a) => {
+    commit(annos.filter((a) => a.id !== target.id).map((a) => {
       const out = a.pts?.length ? detached(a) : null
       return out ? { ...a, pts: out.points, ...out.freed } : a
-    })))
+    }))
     emit('board.delete', { id: target.id, planId: activeId })
     logRemoved(target)
     changed.forEach((id) => {
@@ -134,7 +135,7 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
   const removeWithTrail = async (a: BoardAnno) => {
     if (a.kind !== 'resource' || !a.trail?.length) return
     // no ask, wherever the door is (Karte parity): the chip's ONE removal step brings it back
-    // with its trail, and the toast says both went
+    // with its trail, and its ↶ caption says both went
     onTrailDrop?.(a.id, true)
     if (!await removeWithConnections(a, fillTemplate(appConfig.copy.whiteboard.markerTrailRemoved, { name: a.text ?? '' }))) { onTrailDrop?.(a.id, false); return }
     log('cross', fillTemplate(appConfig.copy.whiteboard.trailCleared, { name: a.text ?? '' }))
@@ -148,9 +149,9 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
     let removable = selIds.filter((id) => annos.some((x) => x.id === id))
     if (!removable.length) return
     const lone = removable.length === 1 ? annos.find((a) => a.id === removable[0]) : undefined
-    const row = removable.length > 1
-      ? fillTemplate(appConfig.copy.whiteboard.groupDeletedN, { n: removable.length })
-      : appConfig.copy.whiteboard.groupDeleted
+    // a lone survivor is named by its own row (logRemoved – the Karte's «TLF entfernt»); the
+    // group's row counts (the bare «Auswahl entfernt» went with ENT.8, 17.11.2026)
+    const row = fillTemplate(appConfig.copy.whiteboard.groupDeletedN, { n: removable.length })
     const joined = linesOnObjects(annos, removable, removable)
     if (joined.length) {
       const C = appConfig.copy.removedToast
@@ -166,14 +167,13 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
     removeMany(removable, (freed) => (lone ? removedLine(lone, freed) : removedText(row, freed)), () => (lone ? logRemoved(lone) : log('close', row)))
   }
   /** The ONE write of a removal of several annos: every line end outside `removable` that hung on
-   *  one lets go where it stands on screen now. One ↶ step; `sentence` is the toast and the ↶
-   *  caption, given the count of lines set loose; `logIt` writes the one Verlauf row. */
+   *  one lets go where it stands on screen now. One ↶ step; `sentence` is the ↶ caption, given
+   *  the count of lines set loose; `logIt` writes the one Verlauf row. */
   const removeMany = (removable: string[], sentence: (freed: number) => string, logIt: () => void) => {
-    // the lines OUTSIDE the removal that hung on it, and now stand loose — the toast counts them
+    // the lines OUTSIDE the removal that hung on it, and now stand loose — the ↶ caption counts them
     const freed = annos.filter((a) => !removable.includes(a.id) && [a.startAttachment, a.endAttachment].some((rel) => rel && removable.includes(rel.target.id))).length
-    const line = sentence(freed)
-    onStepLabel?.(line)
-    removeWithUndo(line, () => commit(annos.filter((a) => !removable.includes(a.id)).map((a) => {
+    onStepLabel?.(sentence(freed))
+    commit(annos.filter((a) => !removable.includes(a.id)).map((a) => {
       if (!a.pts?.length) return a
       const out = detachEnds({ ...a, points: a.pts }, (endpoint, rel, pts) => {
         if (!removable.includes(rel.target.id)) return null
@@ -181,7 +181,7 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
         return resolvedSource?.[endpoint === 'start' ? 0 : resolvedSource.length - 1] ?? pts[endpoint === 'start' ? 0 : pts.length - 1]
       })
       return out ? { ...a, pts: out.points, ...out.freed } : a
-    })))
+    }))
     removable.forEach((id) => emit('board.delete', { id, planId: activeId }))
     setSelIds((ids) => ids.filter((id) => !removable.includes(id)))
     setSelId(null)
@@ -208,7 +208,7 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
    * so it goes the way its own panel deletes it — `removeWithConnections`, which is also what
    * keeps a trail-carrying Trupp protected and asks before an attached line is cut loose.
    *
-   * ⚠️ Never while a field owns the press. On a sheet full of Notiz textareas and Trupp names
+   * ⚠️ Never while a field, a dialog or a menu owns the press. On a sheet full of Notiz textareas and Trupp names
    * Backspace is a character far more often than it is a delete, and the target — not
    * activeElement — is what still names the field once its own handler has blurred (same reason
    * as the Escape listener above).
@@ -216,8 +216,8 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Delete' && e.key !== 'Backspace') return
-      const el = e.target instanceof HTMLElement ? e.target : null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      // a field, a dialog or a menu owns the key – the Escape guard (lib/hotkeys, GESTURES.12)
+      if (keyOwnedElsewhere(e.target instanceof Element ? e.target : null)) return
       if (readOnly) return
       if (barIds.length) { e.preventDefault(); deleteSelection(); return }
       const a = annos.find((x) => x.id === selId)

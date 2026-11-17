@@ -168,9 +168,8 @@ export function useOfflinePrefetch({ incidentId, center, mapRef, layers, backend
         // capped AND partial: keep saying «Ausschnitt begrenzt», or «Weiterladen» promises
         // tiles the cap will exclude again
         toast(fillTemplate(res.capped ? co.dlPartialCapped : co.dlPartial, { n: got, total: got + res.failed }), { icon: 'map', tone: 'warn', action: { ...retry, label: co.dlContinue } })
-      } else {
-        toast(fillTemplate(res.capped ? co.dlDoneCapped : co.dlDone, { n: res.fetched }), { icon: 'map', tone: 'success' })
       }
+      // a full load says nothing here: the sheet's own ✓ «bereit» shows it (panels/OfflineReadiness)
     } catch {
       // a cancel is not a failure: the operator (or the unmount) asked for it, nothing to report
       if (!quiet && !ctrl.signal.aborted) toast(appConfig.copy.offline.dlFailed, { icon: 'map', tone: 'warn' })

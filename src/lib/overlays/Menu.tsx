@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject, type ReactElement, type ReactNode } from 'react'
 import { Menu as BaseMenu } from '@base-ui/react/menu'
 import { usePopoverGuard } from './popoverGuard'
+import { useBackLayer } from './layer'
 import { OVERLAY_EDGE, OVERLAY_GAP } from './Popover'
 import { attachMenuSlide } from './menuSlide'
 
@@ -55,6 +56,10 @@ export interface MenuSeparator { kind: 'sep' }
  *  to experiment with. */
 export interface MenuHeading { kind: 'head'; label: ReactNode }
 
+/** A line that only SAYS something – a key under the rows it explains (the Verlauf's «Art» menu
+ *  ends on what the Pendenz ring says). No row: it takes no focus, no highlight and no tap. */
+export interface MenuNote { kind: 'note'; label: ReactNode }
+
 export interface MenuActionItem {
   label: ReactNode
   onClick: () => void
@@ -68,6 +73,13 @@ export interface MenuActionItem {
   sticky?: boolean
   /** shown as a small reason line under a disabled item (native title never shows when disabled) */
   reason?: ReactNode
+  /** The menu stays open on this row's click – for a row that swaps what the menu lists (the
+   *  Trupp marker's «Mehr › Atemschutz-Trupp», TwinTeamPill) rather than acting. */
+  keepOpen?: boolean
+  /** The row hands the focus to what it opens (an inline name field – the Trupp marker's «Mehr ›
+   *  Bearbeiten»): on close the menu does not take it back to its trigger, whose focus would blur
+   *  – and so commit and close – the field the row just opened. */
+  keepsFocus?: boolean
 }
 
 /**
@@ -87,9 +99,9 @@ function rowClass(skin: string | undefined, danger?: boolean, sticky?: boolean) 
     .filter(Boolean).join(' ')
 }
 
-export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = OVERLAY_GAP, alignOffset = 0, collisionPadding = OVERLAY_EDGE, scrollToEnd = false, modal = true, keepFocusRef }: {
+export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = OVERLAY_GAP, alignOffset = 0, collisionPadding = OVERLAY_EDGE, scrollToEnd = false, keepFocusRef, onOpenChange }: {
   trigger: ReactElement
-  items: (MenuActionItem | MenuCheckItem | MenuSeparator | MenuHeading | MenuRadioGroup)[]
+  items: (MenuActionItem | MenuCheckItem | MenuSeparator | MenuHeading | MenuNote | MenuRadioGroup)[]
   popupClassName?: string
   /** class for each item; receives whether the item is `danger`. */
   itemClassName?: (danger: boolean) => string
@@ -112,26 +124,22 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
    *  the Rapport's print menu did on a tablet. Applies to every Menu in the app on purpose: this
    *  is a property of the surface being finite, not of any one call site. */
   collisionPadding?: number
-  /** ⚠️ OPT-IN non-modal — leave it at the default unless you know what lies UNDER the menu.
-   *  Modal (the default) makes Base UI render an invisible full-screen backdrop the instant the
-   *  menu opens, and that backdrop — not the popup — is what an «outside» tap hits: it dismisses
-   *  the menu AND swallows the tap. The swallowing is a FEATURE nearly everywhere: these menus
-   *  float over the live map (the Trupp menus on MapMarkers / DrawEditor / Whiteboard), where a
-   *  pass-through tap reaches onMapClick and can deselect a Trupp, drop a vertex into a selected
-   *  line or place a symbol with a tool armed — and over lists, where it presses whichever row
-   *  button the finger landed on.
-   *  Pass `false` only where switching between two adjacent triggers in ONE tap is worth more
-   *  than that protection and nothing underneath acts on a stray tap — today: the two Anwesenheit
-   *  filter-bar menus. The dismiss itself (Base UI's useDismiss) and Esc work either way. */
-  modal?: boolean
-  /** Pointer picks can keep a mobile composer's caret and keyboard in place. */
+  /** Pointer picks can keep a mobile composer's caret and keyboard in place. Such a menu is the
+   *  one NON-modal kind: a modal backdrop and its focus management would take the caret, and the
+   *  keyboard with it. It only ever opens over its own sheet's field, never over the map. */
   keepFocusRef?: RefObject<HTMLElement | null>
+  /** told when the menu opens or closes – for a caller whose rows depend on how it was reached */
+  onOpenChange?: (open: boolean) => void
 }) {
   // A menu opened from inside a Sheet/Overlay must be the ONLY thing the dismissing tap or the
   // first Esc closes — the sheet stands down while this is open (see popoverGuard).
   const [open, setOpen] = useState(false)
   usePopoverGuard(open)
+  // …and the native back closes it, like every layer (overlays/layer · useBackLayer)
+  useBackLayer(open, () => setOpen(false))
   const keepFocus = useRef(false)
+  /** the last row picked opened a field of its own (MenuActionItem · keepsFocus) */
+  const rowKeepsFocus = useRef(false)
   useEffect(() => {
     if (!open || !keepFocusRef) return
     // A pointer-opened menu may next be reached with Tab/arrow keys from the retained field
@@ -203,7 +211,8 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
         key={key}
         className={rowClass(itemClassName?.(!!it.danger), it.danger, it.sticky)}
         disabled={it.disabled}
-        onClick={it.onClick}
+        closeOnClick={!it.keepOpen}
+        onClick={() => { rowKeepsFocus.current = !!it.keepsFocus; it.onClick() }}
       >
         {it.label}
         {it.disabled && it.reason != null && <span className={reasonClassName}>{it.reason}</span>}
@@ -221,25 +230,39 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
   // three runs, and a group that ended at the first rule would leave six of them unnamed again,
   // which is the thing the heading was added to fix. Only the next heading closes a group; rows
   // before the first heading stay ungrouped, which is what an unlabelled block is.
-  type Row = { it: MenuActionItem | MenuCheckItem | MenuRadioGroup; key: number } | { sep: true; key: number }
+  type Row = { it: MenuActionItem | MenuCheckItem | MenuRadioGroup; key: number } | { sep: true; key: number } | { note: ReactNode; key: number }
   const blocks: { label?: ReactNode; rows: Row[] }[] = []
   items.forEach((it, i) => {
     if ('kind' in it && it.kind === 'head') { blocks.push({ label: it.label, rows: [] }); return }
     if (!blocks.length) blocks.push({ rows: [] })
-    blocks[blocks.length - 1].rows.push('kind' in it && it.kind === 'sep' ? { sep: true, key: i } : { it, key: i })
+    const row: Row = !('kind' in it) ? { it, key: i }
+      : it.kind === 'sep' ? { sep: true, key: i }
+      : it.kind === 'note' ? { note: it.label, key: i }
+      : { it, key: i }
+    blocks[blocks.length - 1].rows.push(row)
   })
   const renderRow = (r: Row) =>
-    'sep' in r ? <BaseMenu.Separator key={r.key} className="ui-menu-sep" /> : renderItem(r.it, r.key)
+    'sep' in r ? <BaseMenu.Separator key={r.key} className="ui-menu-sep" />
+      : 'note' in r ? <div key={r.key} className="ui-menu-note">{r.note}</div>
+      : renderItem(r.it, r.key)
 
   return (
-    // MODAL by default — the backdrop that swallows the dismissing tap is what keeps that tap off
-    // the map / the list underneath. Only the callers that ask for it go non-modal (see `modal`).
-    <BaseMenu.Root modal={modal} onOpenChange={(next) => { if (next) keepFocus.current = !!keepFocusRef?.current && document.activeElement === keepFocusRef.current; setOpen(next) }}>
+    // MODAL: Base UI's invisible backdrop takes the dismissing tap and swallows it, so a tap beside
+    // a menu only closes it – it never reaches the map (deselect a Trupp, drop a vertex, place a
+    // symbol with a tool armed) or a list (press the row the finger landed on). The one rule for
+    // every layer (overlays/layer, owner call 2, 17.11.2026): the two Anwesenheit filter menus and
+    // the «Alle Einsätze» filter, which used to opt out for a one-tap switch between adjacent
+    // triggers, follow it too – under them lies a list whose rows act on a tap. The one exception
+    // is a menu that keeps a field's caret (`keepFocusRef`, see there).
+    <BaseMenu.Root open={open} modal={!keepFocusRef} onOpenChange={(next) => {
+      if (next) { rowKeepsFocus.current = false; keepFocus.current = !!keepFocusRef?.current && document.activeElement === keepFocusRef.current }
+      setOpen(next); onOpenChange?.(next)
+    }}>
       <BaseMenu.Trigger render={trigger} />
       <BaseMenu.Portal>
         <BaseMenu.Positioner className="ui-menu-pos" side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={collisionPadding}>
           <BaseMenu.Popup
-            finalFocus={() => keepFocus.current ? keepFocusRef?.current : true}
+            finalFocus={() => keepFocus.current ? keepFocusRef?.current : !rowKeepsFocus.current}
             onFocusCapture={() => { if (keepFocus.current) keepFocusRef?.current?.focus({ preventScroll: true }) }}
             onMouseDownCapture={(e) => { if (keepFocus.current) e.preventDefault() }}
             onKeyDownCapture={() => { keepFocus.current = false }}

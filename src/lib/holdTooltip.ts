@@ -37,10 +37,10 @@
 // the next real tap always acts (28.10.2026).
 
 import { buzz } from './haptics'
+import { HOLD_OFFER_MS } from './holdTimings'
 
-// 350, not 500 (28.08. field feedback: «takes too long») — the same window the Eintrag hold
-// (useHoldEntry · HOLD_MS) uses, so every still hold in the app answers on one beat.
-const HOLD_MS = 350
+// the OFFER window (lib/holdTimings) – 350, not 500 (28.08. field feedback: «takes too long»)
+const HOLD_MS = HOLD_OFFER_MS
 const MOVE_TOL_PX = 8
 const LINGER_MS = 1100
 /** Mouse dwell before the same bubble appears on a coded chip. Shorter than the touch hold —

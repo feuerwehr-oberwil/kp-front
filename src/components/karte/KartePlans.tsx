@@ -61,9 +61,9 @@ import s from './Karte.module.css'
  *  (lib/useRail – it publishes `--rail-w`, which the object panel, the plan reader,
  *  the floor list and the Checkliste surface sit beside). Open per mount, as there.
  *  «Beschriftung» (`labels`) puts the word under each glyph, as on every other bar (owner,
- *  07.11.2026) – and ⚠️ unlike the Einsatz's NavRail the chevron and the grip STAY: dropping them
- *  with the words on was the regression of 20.10.2026 («restore collapsible peacetime
- *  navigation»), so `labels` is not handed to useRail, whose rule is to collapse a labelled rail.
+ *  07.11.2026) – and with the words on, the chevron and the grip GO, as on the Einsatz's NavRail
+ *  (owner, 16.11.2026: «drop the collapsible left sidebar … when the subtitle things are on»; this
+ *  reverses the 20.10.2026 call that kept them). useRail collapses a labelled rail.
  *  Karte and Checkliste wear their letters (K, C — lib/karte/hotkeys); a plan tile's number IS
  *  its key, as on the Einsatz's rail. */
 export function KarteNavRail({ obj, docs, active, onMap, onLibrary, onDoc, notHeld, labels = 'off' }: {
@@ -92,6 +92,7 @@ export function KarteNavRail({ obj, docs, active, onMap, onLibrary, onDoc, notHe
     wideW: RAIL_WIDE,
     side: 'left',
     expanded, setExpanded,
+    labels,
     itemCount: plans ? docs.length + 2 : 2,
     activeSelector: '.nav-item.on',
     revealKey: `${openDoc ?? active}·${plans ? docs.length : 0}`,
@@ -99,11 +100,13 @@ export function KarteNavRail({ obj, docs, active, onMap, onLibrary, onDoc, notHe
   })
   const shown = plans ? docs.map((d) => d.doc) : []
   return (
-    <nav className={cx('navrail rail', expanded && 'expanded', dragging && 'dragging', labels === 'short' && 'labelled rail-keeps-exp')}
+    <nav className={cx('navrail rail', expanded && 'expanded', dragging && 'dragging', labels === 'short' && 'labelled')}
       aria-label={obj?.name ?? C.title} data-mono-max={railMonoMax(shown)}>
-      <button type="button" className="nav-exp rail-exp" onClick={() => apply(!expanded)} aria-expanded={expanded} aria-label={expanded ? nav.collapse : nav.expand}>
-        <span className="nav-exp-ic rail-exp-ic"><Icon id="chevron" className="chev" /></span><span className="rail-exp-t">{expanded ? nav.collapse : nav.expand}</span>
-      </button>
+      {labels !== 'short' && (
+        <button type="button" className="nav-exp rail-exp" onClick={() => apply(!expanded)} aria-expanded={expanded} aria-label={expanded ? nav.collapse : nav.expand}>
+          <span className="nav-exp-ic rail-exp-ic"><Icon id="chevron" className="chev" /></span><span className="rail-exp-t">{expanded ? nav.collapse : nav.expand}</span>
+        </button>
+      )}
       <div className="rail-scroll-wrap">
         {edge.top && <button type="button" className="nav-more rail-more rail-more-up" aria-label={nav.scrollMore} onClick={() => nudge(-1)}><Icon id="chevron-down" /></button>}
         {edge.bottom && <button type="button" className="nav-more rail-more rail-more-down" aria-label={nav.scrollMore} onClick={() => nudge(1)}><Icon id="chevron-down" /></button>}

@@ -5,14 +5,17 @@
 // used to be the old launcher card with big launch buttons, and the owner read it as a second app.
 //
 // What it renders, top to bottom: the «Einsätze» group (the running ones as rows, the alarms
-// waiting to be taken, «Einsatz verlassen», «Alle Einsätze», «Einsatz eröffnen»), the «App» group
-// (Objektbesuche, «Dieses Gerät», Hilfe, Installieren), who is signed in with
-// «Abmelden», the build label and a waiting update. Every row is drawn only when its handler is
+// waiting to be opened, a hidden «Alarm aktualisiert» – `FoldedRow` –,
+// «Einsatz verlassen», «Alle Einsätze», «Einsatz eröffnen»),
+// the «App» group (Objektbesuche, «Dieses Gerät», Hilfe, Installieren), who is signed in with
+// «Abmelden» – or «Anmelden» for a view-link guest without a login –, the build label and a
+// waiting update. Every row is drawn only when its handler is
 // handed in — a door the session cannot go through is not drawn (docs/roles-and-access.md) — and
 // the callers decide whether a row closes the menu, so this file never needs to know.
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { ShellLoader } from '../ShellLoader'
+import { Button } from '../Button'
 import { Icon } from '../../lib/icons'
 import { initials, roleLabel, fillTemplate, fmtSpanShort } from '../../lib/format'
 import { buildLabel } from '../../lib/buildInfo'
@@ -27,13 +30,40 @@ import { loadKarteView } from '../../lib/karte/session'
 import type { DiveraAlarm, IncidentMeta } from '../../lib/incidents'
 
 export interface AppMenuAlarms {
-  /** the alarms this device still shows (dismissals already filtered out) */
+  /** the alarms waiting to be opened (lib/diveraDismiss · waitingAlarms – the banner's ✕ hides none) */
   list: DiveraAlarm[]
-  /** divera_id mid-take: that row says «Öffne …», every take and × is locked meanwhile */
+  /** divera_id mid-take: that row says «Öffne …», every take is locked meanwhile */
   taking: number | null
   onTake: (a: DiveraAlarm) => void
-  /** hide it on THIS device only — never an archive of a live dispatch (lib/diveraDismiss) */
-  onDismiss: (a: DiveraAlarm) => void
+}
+
+/** The open Einsatz's «Alarm aktualisiert», hidden with ✕ for every device, as it can still come
+ *  back. App builds the row; `onShow` may be async – the row's «Zeigen» waits for it. */
+export interface FoldedMenuRow {
+  key: string
+  /** «Alarm aktualisiert» */
+  title: string
+  onShow: () => void | Promise<unknown>
+}
+
+/** A hidden «Alarm aktualisiert» as one quiet row, the way back after ✕ (rare-user round F7,
+ *  17.11.2026): bell-off · the title, dimmed · «Zeigen». */
+export function FoldedRow({ row }: { row: FoldedMenuRow }) {
+  const ci = appConfig.copy.intake
+  const [busy, setBusy] = useState(false)
+  const show = async () => {
+    setBusy(true)
+    try { await row.onShow() } finally { setBusy(false) }
+  }
+  return (
+    <div className="ip-alarm-folded" data-folded={row.key}>
+      <Icon id="bell-off" />
+      <span className="ip-alarm-folded-t">
+        <span className="ip-alarm-folded-title">{row.title}</span>
+      </span>
+      <Button disabled={busy} onClick={() => void show()} aria-label={`${ci.showAlarm}: ${row.title}`}>{ci.showAlarm}</Button>
+    </div>
+  )
 }
 
 /** A menu row's word. It needs an element of its own for ONE reason: a row centres its children,
@@ -44,8 +74,8 @@ export interface AppMenuAlarms {
 const ActLabel = ({ children }: { children: ReactNode }) => <span className="ip-menu-actlabel">{children}</span>
 
 export function AppMenuRows({
-  activeId, incidents, isEditor, user, opening = null, alarms, onSwitch, onLeave, onHistory, onCreate,
-  onObjectVisits, onDevice, onHelp, onInstall, onLogout,
+  activeId, incidents, isEditor, user, opening = null, alarms, listNote = null, onSwitch, onLeave, onHistory, onCreate,
+  onObjectVisits, onDevice, onHelp, onInstall, onLogout, onLogin, folded = [],
 }: {
   /** the Einsatz the menu's card names (IncidentSwitcher); null on home's sheet, which has no card
    *  — so the Einsatz a «Karte & Objekte» covers is listed there as a row, the way back into it */
@@ -55,8 +85,12 @@ export function AppMenuRows({
   user: { display_name: string; color: string | null; role: string }
   /** the Einsatz a human is opening right now: its row spins and every row locks (App · opening) */
   opening?: string | null
-  /** home only — inside an Einsatz a fresh alarm reaches the operator through the banner */
+  /** the alarms waiting to be opened – home's sheet and the Einsatz menu alike */
   alarms?: AppMenuAlarms
+  /** home only: why the list may not be the server's (it failed to load / it is the device's
+   *  copy, offline) – said at the head of the group, never «Keine offenen Einsätze» over a list
+   *  that failed (App · listNote; toast diet, 17.11.2026) */
+  listNote?: string | null
   onSwitch: (i: IncidentMeta) => void
   /** «Einsatz verlassen» — to «Karte & Objekte», the Einsatz keeps running behind it. Only inside
    *  an Einsatz, never for a link session (App passes no `onOpenKarte` there). */
@@ -73,6 +107,11 @@ export function AppMenuRows({
   onHelp: () => void
   onInstall?: () => void
   onLogout?: () => void
+  /** «Anmelden» in the identity row's button slot – a view-link guest whose browser holds no
+   *  login (C8, 17.11.2026); never together with `onLogout` */
+  onLogin?: () => void
+  /** a hidden «Alarm aktualisiert», under the alarm rows (`FoldedRow`) */
+  folded?: FoldedMenuRow[]
 }) {
   const cp = appConfig.copy.incidentSwitcher
   const cu = appConfig.copy.update
@@ -104,7 +143,7 @@ export function AppMenuRows({
   // it shows, which is what an Einsatz-Link sees: it is bound to one Einsatz and switching is
   // neither offered nor permitted. Derived rather than passed, so the menu never has to know why
   // the rows are missing.
-  const showIncidents = running.length > 0 || alarmList.length > 0 || !!onLeave || !!onHistory || (isEditor && !!onCreate) || !hasCard
+  const showIncidents = running.length > 0 || alarmList.length > 0 || folded.length > 0 || !!onLeave || !!onHistory || (isEditor && !!onCreate) || !hasCard
   const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
   return (
     <>
@@ -115,7 +154,9 @@ export function AppMenuRows({
               group says what it is — and, with nothing running and nothing to take, says that in
               one quiet line (no intro paragraph: the rows below are what to do). */}
           {!hasCard && <div className="ip-menu-label">{cp.incidents}</div>}
-          {!hasCard && running.length === 0 && alarmList.length === 0 && <div className="ip-menu-empty">{cp.noOpenIncidents}</div>}
+          {!hasCard && listNote ? (
+            <p className="form-warn form-warn-amber form-warn-compact" role="status"><Icon id="warn" /><span className="form-warn-text">{listNote}</span></p>
+          ) : !hasCard && running.length === 0 && alarmList.length === 0 && folded.length === 0 && <div className="ip-menu-empty">{cp.noOpenIncidents}</div>}
           {running.map((i) => {
             // a Trupp of THAT Einsatz at the alarm tier: a red word under its name, and nothing more
             // here (FLOW.1, 13.11.2026 — what else it may do is lib/foreignAlarm's rule)
@@ -141,26 +182,27 @@ export function AppMenuRows({
             </button>
             )
           })}
-          {alarmList.map((a) => (
-            // ⚠️ Take, or × to hide it on THIS device only (per-device, kp.divera.dismissed) — the
-            // × NEVER archives a live dispatch for the crew (that would be a server delete). The
-            // row's body is the take; both lock while any take runs.
-            <div key={a.id} className="ip-menu-alarm">
-              <button type="button" className="ip-menu-row" disabled={alarms!.taking != null} onClick={() => alarms!.onTake(a)}>
-                <span className="ip-menu-when ip-menu-alarm-mark">{alarms!.taking === a.divera_id ? <ShellLoader /> : <Icon id="bell" />}</span>
+          {alarms && alarmList.map((a) => {
+            // An alarm nobody opened (owner, 17.11.2026: «Just list it, no hidden state»): a running
+            // row's shape and weights, the bell where the age stands – a tap on the row opens it,
+            // like every row of this list (owner, 17.11.2026: no «Öffnen» word, «it's pretty obvious
+            // that you should open it»; the word stays as the row's accessible name). No ✕: the
+            // banner's ✕ puts only the banner away.
+            const opening = alarms.taking === a.divera_id
+            return (
+              <button key={a.id} type="button" className="ip-menu-row ip-menu-alarm" disabled={alarms.taking != null}
+                aria-label={`${opening ? ci.alarmOpening : ci.alarmOpen}: ${a.title}`} onClick={() => alarms.onTake(a)}>
+                <span className="ip-menu-when ip-menu-alarm-mark">{opening ? <ShellLoader /> : <Icon id="bell" />}</span>
                 <span className="ip-menu-rowmain">
-                  <span className="ip-menu-kicker">{ci.newDiveraAlarm}</span>
                   <span className="ip-menu-titleline"><span className="ip-menu-title">{a.title}</span></span>
                   <span className="ip-menu-rowsub">{shortAddress(a.address) ?? ci.addressUnknown}</span>
                 </span>
-                <span className="ip-menu-alarm-go">{alarms!.taking === a.divera_id ? ci.alarmOpening : ci.alarmOpen}</span>
+                {/* only while the take runs: the tap's answer («Öffne …»), beside the loader */}
+                {opening && <span className="ip-menu-alarm-go">{ci.alarmOpening}</span>}
               </button>
-              <button type="button" className="ip-menu-alarm-x" aria-label={ci.dismiss} title={ci.dismiss}
-                disabled={alarms!.taking != null} onClick={() => alarms!.onDismiss(a)}>
-                <Icon id="close" />
-              </button>
-            </div>
-          ))}
+            )
+          })}
+          {folded.map((r) => <FoldedRow key={r.key} row={r} />)}
           {/* «Einsatz verlassen» (owner, 17.10.2026 — it was «Karte & Objekte» in the App group):
               it is about THIS Einsatz, so it heads the doors out of it. «verlassen» must never read
               as closing or archiving, so the sub line says the Einsatz runs on, and where the
@@ -208,6 +250,7 @@ export function AppMenuRows({
           <span className="ip-menu-userrole">{roleLabel(user.role)}</span>
         </span>
         {onLogout && <button type="button" className="ip-menu-logout" onClick={onLogout}><Icon id="logout" /> {cp.logout}</button>}
+        {onLogin && <button type="button" className="ip-menu-logout ip-menu-login" onClick={onLogin}>{cp.login}</button>}
       </div>
       <div className="ip-menu-foot">
         {/* No manual "check for updates" — a fresh deploy surfaces itself (the 5-min poll and

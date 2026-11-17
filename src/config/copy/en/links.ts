@@ -37,7 +37,6 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     checkedLabel: 'Last checked',
     chooseTitle: 'Several incidents are running',
     chooseHint: 'Pick which incident this display should show.',
-    exerciseTag: 'Exercise',
     notEnrolledTitle: 'This device is not set up as a station terminal.',
     notEnrolledHint: 'In Administration under «Links & access», generate the setup link and open it on this device.',
     asInvalidTitle: 'This SCBA code is no longer valid.',
@@ -69,7 +68,7 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     paused: 'Location paused',
     pausedHint: 'The phone transmits nothing while the app is in the background or the screen is locked. Open the app again and it continues.',
     denied: 'Location blocked',
-    deniedHint: 'Location access is blocked for this site. It can only be allowed again in the browser settings.',
+    deniedHint: 'Location access is blocked. Allow it again via {path}.',
     taken: 'Name already in use',
     takenHint: 'Another device is sharing under this name. Pick your name again or ask the incident commander to remove the old position.',
     failing: 'Location is not getting through',
@@ -83,6 +82,7 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     settingsAs: 'As {name}',
     settingsName: 'Name on the map',
     settingsNameSub: 'How the command post sees you – tap to change',
+    pillWord: 'Location',
   },
   livePosition: {
     chip: '{d} · {n} min ago',
@@ -119,5 +119,6 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     startFailed: 'Presentation not started – try again',
     endFailed: 'Presentation not ended – try again',
     full: 'Presentation full – too many people joined through a link. Try «Follow» again later.',
+    leaveWord: 'Leave',
   },
 }

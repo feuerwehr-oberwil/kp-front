@@ -94,3 +94,17 @@ describe('«überfällig» on the Pendenzen page', () => {
     expect(screen.getByText('überfällig')).toBeTruthy()
   })
 })
+
+// Duck sweep LISTS.10, 17.11.2026: after midnight the Tafel showed yesterday's 23:50 beside
+// today's with nothing to tell them apart – the Verlauf already said «16.11. 23:50»
+describe('times on the Pendenzen page', () => {
+  afterEach(() => vi.useRealTimers())
+  it('a time from another day carries its day, today’s is the clock alone', () => {
+    vi.useFakeTimers({ now: new Date('2026-11-06T00:20:00'), toFake: ['Date'] })
+    const late: TimelineEvent = { ...created, id: 'j5', at: '2026-11-05T23:50:00', reminder: { op: 'created', id: 'd', text: 'Strom abschalten' } }
+    const fresh: TimelineEvent = { ...created, id: 'j6', at: '2026-11-06T00:10:00', reminder: { op: 'created', id: 'e', text: 'Gas prüfen' } }
+    render(<TafelPendenzen Cell={Cell} sec={SEC} port={port({ timeline: [fresh, late] })} isPhone={false} pageTitle="P" />)
+    expect(screen.getByText('05.11. 23:50')).toBeTruthy()
+    expect(screen.getByText('00:10')).toBeTruthy()
+  })
+})

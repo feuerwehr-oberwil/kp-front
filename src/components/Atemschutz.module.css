@@ -39,7 +39,10 @@
 .headTile :global(.i) { flex: none; width: 16px; height: 16px; }
 .headTile:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) { .headTile:hover:not(:disabled) { color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink-faint); } }
-.headTile[data-popup-open] { color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink-faint); }
+/* OPEN while its menu is up (Base UI's `data-popup-open`): THE open look of every menu trigger –
+   the blue wash and a `--blue-strong` glyph (docs/ui-conventions.md · Small roles (6), button
+   sweep HEADS.5, 17.11.2026; it was an `--ink-faint` edge of its own) */
+.headTile[data-popup-open] { color: var(--blue-strong); background: var(--sel-wash); }
 /* «+ Trupp» — THE filled tile, in the app's one primary fill (01-tokens · --btn-primary). It was
    --ink until 23.10.2026: the glaring near-white at night that --btn-primary exists to avoid, so
    a routine «+ Trupp» outshone the overdue Trupps on the board. */
@@ -47,29 +50,27 @@
 @media (hover: hover) { .newBtn:hover:not(:disabled) { color: var(--on-btn-primary); box-shadow: none; background: var(--btn-primary-hover); } }
 /* per-device alarm-sound toggle (visual alarm + wake-lock stay on either way) */
 .muteBtn { composes: headTile; }
-/* …folded to the bare bell (the phone head, lib/pageHeadFit · `data-folded`): a 20px glyph box
-   (hill climb r24, Sol 1, 05.11.2026). This 24-grid bell draws only 16.5 units, so in the tiles'
-   16px box it stood ~11px tall beside «+ Trupp» and the cards' 18–20px glyphs – a notification
-   mark rather than a control. At 20px it draws ~15px at the cards' ~1.5px stroke (the base 1.8
-   units), centred in the same 44px square. With its word beside it, it keeps the row's 16px. */
-.muteBtn[data-folded] :global(.i) { width: 20px; height: 20px; }
+/* (folded it is the bell OVER its word on every device – 13-incident · «fold», owner pick 24a,
+   17.11.2026; the 20px bare bell a tablet's fold drew is gone with the bare glyph) */
 .muteOn { color: var(--amber-strong); box-shadow: inset 0 0 0 1px var(--amber-45); }
 /* the browser has not released audio: the bell is on, and it cannot make a sound. Red, because
    this is the one bell state that needs a tap — see AtemschutzView · bellLabel. */
 .muteBlocked { color: var(--red-strong); box-shadow: inset 0 0 0 1px var(--red-45);
   background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
-/* the board's arrangement, behind its own icon; the archive menu and the lite ↶ ↷ wear it too (the QR: `.shareBtn`) */
+/* the head's plain tile: the archive menu and the lite ↶ ↷ (the QR: `.shareBtn`; the board's
+   arrangement left the head for the list row, `.listRow`, pick 26) */
 .orderBtn { composes: headTile; }
-/* «Überwachung abgeben»: a head tile that, folded (lib/pageHeadFit · its first rank), keeps a word
-   — «Abgeben» (hill climb r8, 04.11.2026: the bare QR glyph on the phone head did not say «hand
+/* «Trupps teilen»: a head tile that, folded (lib/pageHeadFit · its first rank), keeps a word
+   — «Teilen» (hill climb r8, 04.11.2026: the bare QR glyph on the phone head did not say «hand
    over»), in the tiles' own 700/14 (hill climb r21, 05.11.2026: r11 had shrunk it to 12.5 to fit
    the 390px head, a step under «+ Trupp»). Since r26 (Sol 3 / Opus 4) it keeps the full title's
    16px QR in front of it too, the tiles' one 8px glyph gap – the phone head read three patterns
    (a bare word, a bare bell, «+ Trupp»); the room comes from the folded tiles' 8px inside
-   (`.head .headTile[data-folded]`, below), not from the type. At its second rank (the ladder's
-   last word) the word goes and it is the plain 44px QR square again. */
+   (`.head .headTile[data-folded]`, below), not from the type. Folded it is the QR OVER «Abgeben» on
+   every device (13-incident · «fold»; button sweep HEADS.9 and pick 24a, 17.11.2026) – it has no
+   second rank any more, a tile never ends as a bare glyph. */
 .shareBtn { composes: headTile; }
-/* «Überwachung abgeben», while a link IS live. Green = a running, healthy state, the same
+/* «Trupps teilen», while a link IS live. Green = a running, healthy state, the same
    reading the contact clock gives — not an alarm and not the primary action of the header.
    Tokens only, so it survives the day/night flip and a station's own accent. */
 .shareOn { color: var(--green); box-shadow: inset 0 0 0 1px var(--green-45);
@@ -105,12 +106,6 @@
    scrollbar (the iPad, a phone, macOS) never reserved anything. */
 /* (`contain` on every scroll body of a sheet or page – docs/ui-conventions.md, scroll sweep 15.11.2026 #8) */
 .body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp-4) var(--page-x) var(--sp-3); }
-
-.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-  height: 100%; color: var(--ink-faint); text-align: center; }
-.empty :global(.i) { width: 30px; height: 30px; opacity: .5; }
-.empty p { margin: 0; font-size: var(--fs-3); font-weight: var(--fw-bold); color: var(--ink-dim); }
-.empty span { font-size: var(--fs-2); }
 
 /* ⚠️ `start`, not `stretch` — decided 29.08. (Höhen-Mockups): every card takes its natural
    height, so an opened fold (Zeiten, Verlauf) grows only ITS card. With `stretch`, expanding one
@@ -361,6 +356,11 @@
   -webkit-tap-highlight-color: transparent; }
 .footMore:active { background-image: linear-gradient(var(--press), var(--press)); }
 .footMore :global(.i) { width: 18px; height: 18px; }
+/* …a tile: ⋯ over «Mehr» at 11/700 (pick 24, 17.11.2026), in the foot's 36px – the dots draw in
+   the glyph box's middle 4px, so the box gives its air to the word */
+.footMore { grid-auto-flow: row; align-content: center; row-gap: 0; }
+.footMore :global(.i) { margin-block: -4px 0; }
+.footMore > span { font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
 /* the expanded per-Trupp contact/pressure log, inside the footer */
 /* ⚠️ The seam under the look-up panel is this border (09.09., ex-`.readHead`): without it the
    first reading butts straight against «Schätzung …» and the two read as one list. `:first-child`
@@ -1418,9 +1418,15 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .headActs { composes: headActions from './Surface.module.css'; }
 /* the ladder's «close up» step (lib/pageHeadFit): a worded tile 8px inside — still ≥ a tap wide.
    A FOLDED tile is 8px inside already (hill climb r26, Sol 3 / Opus 4): the short word is the
-   crowded head's form, and on the 390px phone the 16px the two worded tiles give back keep «Abgeben» its
+   crowded head's form, and on the 390px phone the 16px the two worded tiles give back keep «Teilen» its
    QR glyph without folding «✓ Gespeichert» to its mark (an icon-only tile stays the 44px square). */
 .head[data-fit-tight] .headTile, .head .headTile[data-folded] { padding: 0 var(--sp-2); }
+/* the board's list row under the head: «Reihenfolge» (owner pick 26, 17.11.2026) – SurfaceControls'
+   `.controls` row and tile, like the Verlauf's «Art»; placement only here */
+.listRow { flex: none; padding-bottom: 0; }
+/* the «Sortiert: Name · Wie gesetzt» strip under that row (components/FilterStrip, button sweep
+   HEADS.3, 17.11.2026) – in the head's gutter, the body's own top padding under it */
+.sortStrip { flex: none; padding: var(--sp-2) var(--head-pad-x) 0; }
 /* the sync line under the title is ONE line: the quiet state gives its time to the ladder first,
    and the LOUD one (the switcher's `.ip-offline-chip`, `flex: none` elsewhere) may shrink rather
    than run under the tiles — its text ellipsizes, which the ladder reads as «does not fit»
@@ -2275,12 +2281,8 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
   .modalFoot > .footCancel { flex: 0 0 auto; padding-inline: var(--sp-3); }
 }
 
-/* ── Staging walk-through 25.09.2026 ─────────────────────────────────────────────────────────── */
-/* the empty board's own door (AtemschutzView · empty state): THE primary at its big size
-   (<Button size="lg">, 52px — the one action of an empty screen; it was a 48px .ip-btn) */
-.emptyAct { margin-top: var(--sp-4); }
-/* its «+» is a button glyph, not the empty state's big grey warning mark above it (the size is the button's) */
-.empty .emptyAct :global(.i) { width: 20px; height: 20px; margin: 0; color: currentColor; opacity: 1; }
+/* (the empty board is the shared EmptyState since 17.11.2026 – duck sweep LISTS.5; its door is
+   THE primary at its big size, <Button size="lg">, 52px – the one action of an empty screen) */
 /* (the head's «+ Trupp» keeps its word on every width — the ladder only ever SHORTENS it to
    «+ Trupp», lib/pageHeadFit; it is the head's one filled tile, `.headTile` at the top of the file) */
 

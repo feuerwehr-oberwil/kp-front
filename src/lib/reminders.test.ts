@@ -102,15 +102,38 @@ describe('deriveReminders — Pendenzen (no due time)', () => {
     expect(isDue(deriveReminders(tl)[0], Date.now() + 10 ** 9)).toBe(false)
   })
 
-  // The closure rule exists to stop stale ALARMS on a reopened incident. An undatierte Pendenz
-  // cannot alarm and is genuinely unfinished — dropping it would hide the one thing somebody has
-  // to take away from the Einsatz.
-  it('survives the Einsatzende, unlike a stale timed Erinnerung', () => {
+  // ENT.4 (17.11.2026, owner: «stays offen everywhere»): an item open at the Einsatzende is open on
+  // every surface; the closure only keeps a stale Erinnerung from ringing after a Nachtrag reopen
+  it('keeps a timed Erinnerung open past the Einsatzende, but never lets it come due', () => {
+    const closedAt = '2026-06-24T02:00:00.000Z'
     const tl = [
+      row('r3', 'später', { op: 'created', id: 'later', dueAt: '2026-06-24T05:00:00.000Z' }),
       row('r2', 'stale', { op: 'created', id: 'timed', dueAt: '2026-06-24T01:00:00.000Z' }),
       row('r1', 'offen', { op: 'created', id: 'pend', text: 'offen' }),
     ]
-    expect(deriveReminders(tl, '2026-06-24T02:00:00.000Z').map((r) => r.id)).toEqual(['pend'])
+    const open = deriveReminders(tl)
+    expect(open.map((r) => r.id).sort()).toEqual(['later', 'pend', 'timed'])
+    const at = (id: string) => open.find((r) => r.id === id)!
+    const now = Date.parse('2026-06-24T06:00:00.000Z')
+    expect(isDue(at('timed'), now, closedAt)).toBe(false)
+    expect(isDue(at('timed'), now)).toBe(true)
+    // due AFTER the Einsatzende (during the Nachtrag): rings as ever
+    expect(isDue(at('later'), now, closedAt)).toBe(true)
+    // …and the Tafel's ledger says the same «offen»
+    expect(pendenzLedger(tl).find((p) => p.id === 'timed')?.doneAt).toBeUndefined()
+  })
+
+  // ENT.4: «Rückgängig» on a «wieder in …» re-raise puts things back as before it – no item
+  it('drops a withdrawn re-raise from every reading, and gives its source back its chips', () => {
+    const tl = [
+      row('r4', 'Wiedervorlage zurückgenommen', { op: 'done', id: 'again', withdrawn: true }, '2026-06-24T03:06:00.000Z'),
+      row('r3', 'Erinnerung gesetzt', { op: 'created', id: 'again', dueAt: '2026-06-24T03:35:00.000Z', text: 'Lagerapport', again: 'src' }, '2026-06-24T03:05:00.000Z'),
+      row('r2', 'erledigt', { op: 'done', id: 'src' }, '2026-06-24T03:05:00.000Z'),
+      row('r1', 'Lagerapport', { op: 'created', id: 'src', text: 'Lagerapport' }),
+    ]
+    expect(deriveReminders(tl)).toEqual([])
+    expect(pendenzLedger(tl).map((p) => p.id)).toEqual(['src'])
+    expect(openReRaises(tl, deriveReminders(tl)).size).toBe(0)
   })
 
   it('sorts dringend first, then oldest first', () => {
@@ -199,24 +222,14 @@ describe('isDue', () => {
   })
 })
 
-describe('deriveReminders — expired by closure (Einsatzende)', () => {
-  const created = (id: string, dueAt: string): TimelineEvent => ({
-    id: `row-${id}`, t: '10:00', at: '2026-07-02T10:00:00Z', icon: 'clock', text: id,
-    kind: 'reminder', reminder: { op: 'created', id, dueAt },
-  })
-
-  it('drops reminders due before closed_at, keeps ones due after', () => {
-    const closed = '2026-07-02T18:00:00Z'
-    const open = deriveReminders(
-      [created('stale', '2026-07-02T12:00:00Z'), created('future', '2026-07-30T09:00:00Z')],
-      closed,
-    )
-    expect(open.map((r) => r.id)).toEqual(['future'])
-  })
-
-  it('without a closed_at everything stays open (live incident unchanged)', () => {
-    const open = deriveReminders([created('a', '2026-07-02T12:00:00Z')])
-    expect(open.map((r) => r.id)).toEqual(['a'])
+// ENT.4: the Einsatzende silences, it never closes – pinned above («keeps a timed Erinnerung open …»)
+describe('isDue — silenced by the Einsatzende', () => {
+  const r = { id: 'a', rowId: 'r1', text: 'x', dueAt: '2026-07-02T12:00:00Z', createdAt: '', notes: [] }
+  it('rings for nothing due before closed_at, and as ever without one', () => {
+    const now = Date.parse('2026-07-30T10:00:00Z')
+    expect(isDue(r, now, '2026-07-02T18:00:00Z')).toBe(false)
+    expect(isDue({ ...r, dueAt: '2026-07-30T09:00:00Z' }, now, '2026-07-02T18:00:00Z')).toBe(true)
+    expect(isDue(r, now, null)).toBe(true)
   })
 })
 

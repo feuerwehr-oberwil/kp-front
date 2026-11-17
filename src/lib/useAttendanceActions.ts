@@ -2,8 +2,6 @@ import type { Dispatch, SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import { newId } from './ids'
-import { undoToast } from './ui'
-import { recordKey } from './undoKeys'
 import type { AttendanceState, Person, TimelineEvent } from '../types'
 import { closePresence, currentIntervalIndex, intervalsOf, isPresent, openPresence, setIntervalTime, withIntervals } from './attendanceIntervals'
 import { ortOf, otherOrt } from './attendanceOrt'
@@ -74,10 +72,9 @@ export function useAttendanceActions({ attendance, setAttendance: setAttendanceR
       if (open?.from && Date.now() - Date.parse(open.from) < MIN_BLOCK_MS) return
       const now = new Date().toISOString()
       setAttendance((cur) => (cur[p.id] ? { ...cur, [p.id]: openPresence(closePresence(cur[p.id], now, p.displayName), now, p.displayName) } : cur))
+      // splitting a running block gives the earlier block an end it never had – the Anwesenheit
+      // slice's ↶ step takes it back (no toast, owner pick 28, 17.11.2026)
       log('people', fillTemplate(appConfig.copy.anwesenheit.blockSplit, { name: p.displayName }), 'team')
-      // splitting a running block is destructive in the sense that matters here — the earlier
-      // block gets an end it never had — so it takes the house confirm-with-undo toast
-      undoToast(fillTemplate(appConfig.copy.anwesenheit.blockSplit, { name: p.displayName }), () => setAttendance((cur) => ({ ...cur, [p.id]: prev })), [recordKey('attendance', p.id)])
       return
     }
     // First tick: «von» defaults to the alarm time (Vorschlag ab Alarmzeit) — ticking often
@@ -105,16 +102,10 @@ export function useAttendanceActions({ attendance, setAttendance: setAttendanceR
     if (!prev) return
     if (prev.note?.trim()) noteMemory.current[p.id] = prev.note.trim()
     setAttendance((cur) => { const next = { ...cur }; delete next[p.id]; return next })
-    // presence is a record — removing an entry is itself an event worth the Verlauf
+    // presence is a record — removing an entry is itself an event worth the Verlauf. A mis-cycle
+    // to «frei» is taken back by the slice's ↶ step, which restores the exact prior entry
+    // (status + times) and writes its own counter-row (no toast, owner pick 28, 17.11.2026)
     log('people', fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), 'team')
-    // confirm-with-undo: a mis-cycle to «frei» silently drops a corrected von/checkedInAt with
-    // no way back — restore the exact prior entry (status + times) on undo.
-    // …and the toast's way back writes its counter-row: the removal row above stays (append-only),
-    // and without this one the record said the person had gone while the list said present
-    undoToast(fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), () => {
-      setAttendance((cur) => ({ ...cur, [p.id]: prev }))
-      log('people', fillTemplate(appConfig.copy.anwesenheit.redone, { names: p.displayName }), 'team')
-    }, [recordKey('attendance', p.id)])
   }
   // Stunden editor (Abschluss-Assistent): correct ONE block's von–bis (`index` defaults to the
   // block the surface is showing). After the Rapport was declared complete, a correction
@@ -129,8 +120,8 @@ export function useAttendanceActions({ attendance, setAttendance: setAttendanceR
     }
   }
   /** Remove ONE recorded block. Removing the last one leaves the person with nothing recorded,
-   *  which is «frei» — so the whole entry goes, exactly as the row's third tap would do it. Undo
-   *  restores the entry verbatim either way. */
+   *  which is «frei» — so the whole entry goes, exactly as the row's third tap would do it. The
+   *  ↶ restores the entry verbatim either way; no toast. */
   const removeAttendanceBlock = (personId: string, index: number) => {
     const prev = attendance[personId]
     const list = intervalsOf(prev)
@@ -144,7 +135,6 @@ export function useAttendanceActions({ attendance, setAttendance: setAttendanceR
       if (!rest.length) { const next = { ...cur }; delete next[personId]; return next }
       return { ...cur, [personId]: withIntervals(cur[personId], rest) }
     })
-    undoToast(fillTemplate(appConfig.copy.anwesenheit.blockRemoved, { name: prev.displayNameSnapshot }), () => setAttendance((cur) => ({ ...cur, [personId]: prev })), [recordKey('attendance', personId)])
   }
   /** Write (or clear) the free remark on a person's attendance row. Not a presence change, so
    *  it touches no interval and writes no «anwesend/gegangen» Verlauf line — but it IS part of

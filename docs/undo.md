@@ -9,9 +9,9 @@ it (`lib/undoTimeline`, `lib/undoKeys`). Moved here from AGENTS.md on 2026-10-08
 - **Undo/redo – every mutating op should be undoable, scoped to the workspace.** ONE
   chronological timeline for the whole Einsatz (`lib/undoTimeline`), driven by the TopBar's ↶ ↷
   and by Cmd/Ctrl+Z on every surface – so «take back the last thing that happened» never asks
-  which surface you are standing on. Three ways to join it – delegating, closure and the
-  confirm-with-undo toast – and the choice is decided by what the domain already owns (below,
-  with what a remote merge does to the timeline).
+  which surface you are standing on. Three ways to join it – delegating, closure and grouped –
+  and the choice is decided by what the domain already owns (below, with what a remote merge
+  does to the timeline). An act the timeline holds raises no toast (owner pick 28, 17.11.2026).
   Deliberately NOT undoable: append-only records (Verlauf rows, audit events – corrections are
   new appended rows), device preferences (Ebenen, Einstellungen sheet) and server-side incident
   metadata (`PATCH /incidents`). Add undo for new mutations; don't skip it.
@@ -22,28 +22,32 @@ it (`lib/undoTimeline`, `lib/undoKeys`). Moved here from AGENTS.md on 2026-10-08
 ## One delete rule
 
 Owner, 13.11.2026 (sweep CTL.1 / CTL.2 / FLOW.2, «one rule everywhere»): **a removal the ↶
-timeline or an inverse can bring back acts at once and says so — «{Name} entfernt · Rückgängig»;
-a red ConfirmCard stands only where nothing brings it back.** What happens after a delete
-depends on whether it can come back, never on what was deleted.
+timeline or an inverse can bring back acts at once; a red ConfirmCard stands only where nothing
+brings it back.** What happens after a delete depends on whether it can come back, never on what
+was deleted. Since owner pick 28 (17.11.2026) a removal ON the ↶ timeline **says nothing**: the
+object leaving the screen is the confirmation, the top bar's ↶ «Rückgängig» is the way back, and
+a toast beside it only doubled the ↶ (docs/ui-conventions.md › «The toast rule»).
 
-- One helper: `lib/removalToast · removeWithUndo(text, act)`. The act lays its own step (any of
-  the three ways below); the toast's «Rückgängig» is the header's ↶ for THAT step, read off the
-  top right after the act, and it declines («Nicht mehr rückgängig machbar») once another step
-  stands on top — ↶ still reaches the removal then. That binding is exact on the snapshot stacks
-  (the Karte store, a Plan): one step gives back the object, every Leitung end on it, a docked
-  placard's bond, a sheet anchor, a page's writing — nothing re-implements an inverse. A
-  one-shot that already has its own closure toast (`oneShotUndoToast`: a Geschoss, a Gebäude
-  swap, a Beilage) keeps it; that one undoes its act even after others.
-- The sentence is the removal's own Verlauf words, the object's name in it, and the Leitungen it
+- The act lays its own step (any of the three ways below) and nothing else – `lib/removal` holds
+  only the words and the joined-lines card. One step gives back the object, every Leitung end on
+  it, a docked placard's bond, a sheet anchor, a page's writing — nothing re-implements an
+  inverse. Until 17.11.2026 a helper (`removeWithUndo`) and the one-shots' closure toast
+  (`oneShotUndoToast`: a Geschoss, a Gebäude swap, a Beilage) raised «… entfernt · Rückgängig».
+- The ↶ caption is the removal's own Verlauf words, the object's name in it, and the Leitungen it
   set loose are counted («TLF entfernt, 2 Leitungen gelöst», `removedText`); a Notiz is «Notiz
-  entfernt». The ↶ caption says the same (`stepLabelRef` / `onStepLabel`). Toasts of the rule
-  replace each other (`kind: 'removal'`).
+  entfernt» (`stepLabelRef` / `onStepLabel`).
 - Under the rule (no ConfirmCard since 13.11.): a symbol, Form, Notiz (written or not), line,
   Fläche, Absperrkreis, a Mehrfach group — Lage and Plan alike (Leitungen attached: the one
   exception below);
   «Marker und Spur entfernen», «Spur entfernen» (marker, chip, Geister-Spur); a Teilstück's «E»
-  letting its lines go; a saved Ansicht; a Tafel page; a Geschoss; a Gebäude replaced; the
-  Passung's points and «Referenz zurücksetzen» on an Einsatz's own binding.
+  letting its lines go; a saved Ansicht; a Tafel page or row; a Geschoss; a Gebäude replaced; the
+  Passung's points and «Referenz zurücksetzen» on an Einsatz's own binding; a Leitung end's ✕
+  «Verbindung lösen» (Lage and Plan), a symbol's free field ✕, a Rapport Partnerorganisation's
+  bin, a Beilage, a Mittel line, a Trupp, a Zeitplan shift or band, an Anwesenheits-Block. Outside
+  the timeline a removal keeps its confirm-with-undo toast with its own inverse, because it is the
+  only way back: a cleared transcript section and a retracted Verlauf row (append-only patches),
+  the Rapport poster's Beilage, Partnerorganisation and a count taken to 0 (the poster has no ↶),
+  an Objektbesuch's photo and proposal.
 - The ConfirmCard stays where nothing brings it back: Einsatz löschen, Link widerrufen, Besuch
   verwerfen, the Atemschutz Notfall, the Abschluss checks, admin (peacetime) — and the Passung
   of a STATION sheet, which saves to the station (`GeorefQuality · undoable`). The Atemschutz
@@ -57,16 +61,15 @@ depends on whether it can come back, never on what was deleted.
   is a CHOICE of what goes, not a doubt about the delete: «Nur Symbol» is the rule's act (the ends
   let go where they stood, «TLF entfernt, 2 Leitungen gelöst»), «Mit Leitungen» removes every line
   on it as well, one at its other end on another symbol included («TLF und 2 Leitungen
-  entfernt»). Either answer is ONE ↶ step with the rule's toast, so it is still no red card.
-  Nothing joined → no card, exactly as above. `lib/removalToast · askJoinedLines`,
+  entfernt»). Either answer is ONE ↶ step, so it is still no red card.
+  Nothing joined → no card, exactly as above. `lib/removal · askJoinedLines`,
   `lib/lineAttachments · linesOnObjects`; Lage `workspace/useMapActions · deleteEntity /
   deleteGroup`, Plan `components/usePlanRemoval` – the Delete key and every 🗑 go through them.
-- Records that are not on the picture keep «gelöscht» in their toast (Schicht, Schichtband,
-  Anwesenheits-Block — `copy/removalWords.test.ts`); their shape is already «… · Rückgängig».
+- Records that are not on the picture keep «gelöscht» in their words (`copy/removalWords.test.ts`).
 
 ## How an act joins the timeline
 
-One act spanning several domains uses `UndoTimeline.group`. A toast's dropper removes the
+One act spanning several domains uses `UndoTimeline.group`. A dropper (`push`'s return) removes the
 recorded group from either stack, including a group reduced to one part before it closed.
 
 - *Delegating* – the domain keeps its own history and the entry calls it: the Karte's document
@@ -80,18 +83,14 @@ recorded group from either stack, including a group reduced to one part before i
 - *Grouped* – one act over the Tafel and the Checklisten (05.11.2026, `lib/problemLink`): a
   problem's Tendenz set on a page writes the checklist's, a checklist problem deleted on a page un-ticks
   it – the board write and the slice write are ONE step (`UndoTimeline.group('plan')`,
-  `usePlanTafelPages · editPage`). The bin's toast «… gelöscht · Rückgängig» takes back the step
-  on top of ↶ (the same `stepHistory`), and declines once that is no longer its step.
-- *Confirm-with-undo toast* – the fast door beside the header pair, for a one-shot that
-  destroys something (a Geschoss, a Beilage, an Anwesenheits-Block, a Pendenz's «Erledigt» —
-  whose inverse is an APPENDED `reopened` row, since 23.09.2026; and the **Abschluss** itself,
-  since 23.10.2026: «Rapport abgeschlossen» carries «Wieder öffnen» for 10 s, `lib/useIncidentLifecycle ·
-  completeRapport` → `reopenNow` — the same reopen «Alle Einsätze» runs without its confirm, and
-  a reopen the server refuses is said, not retried). It does the inverse
-  itself and **drops its timeline entry** (`push` returns the dropper), so an act is never
-  undoable twice. ⚠️ …and it writes the SAME counter-row the ↶ would (25.09.2026,
-  `IncidentWorkspace · oneShotUndoToast`): a storey restored from the toast used to leave
-  «Geschoss 3. OG entfernt» alone on the printed Einsatzjournal. The Rapport prints the ↶ / ↷
+  `usePlanTafelPages · editPage`); its ↶ caption says when a tick went with a deleted row.
+- *No confirm-with-undo toast beside the timeline* (owner pick 28, 17.11.2026). Until then a
+  one-shot that destroyed something (a Geschoss, a Beilage, an Anwesenheits-Block, a Pendenz's
+  «Erledigt», the Abschluss with «Wieder öffnen») also raised a toast that did the inverse and
+  dropped its entry. Now the ↶ is the one door; the Abschluss's way back is «Alle Einsätze» →
+  «Wieder öffnen». A one-shot's ↶ writes its OWN counter-row (25.09.2026, `rememberOneShot`'s
+  `rows`): a restored storey says «Geschoss 3. OG wiederhergestellt» beside «… entfernt» on the
+  printed Einsatzjournal. The Rapport prints the ↶ / ↷
   rows as well (`report · journalRows`) — a taken-back act is two rows, on paper too. ⚠️ And a
   counter-row exists only beside the row it counters (26.09.2026): a one-shot whose act wrote
   no row undoes silently (`rememberOneShot(…, 'silent')`), and a ↶ of an act the paper does not
@@ -132,12 +131,13 @@ gesture's next sample.
   (`keepPlanSteps`). The confirm-with-undo toasts are guarded too: `undoToast(…, guard)`
   declines with «Nicht mehr rückgängig machbar» once a merge changed a record it would write or
   link to (or its entry is no longer `standing`); a toast whose target lives outside the
-  workspace checks the target itself (`georefStillIs`, `mittel · tombstoneStands`). The whole
+  workspace checks the target itself (`georefStillIs`). The whole
   bookkeeping runs through `carryUndoThroughMerge`: if any of it throws, the old rule applies
   (timeline cleared, every history dropped, the merged state still lands). ⚠️ ↶ never turns
   into an older act SILENTLY (staging r3, F8): when a merge drops the step ↶ would have taken
-  back, one line says so («Letzter Schritt nicht mehr rückgängig machbar – ein anderes Gerät
-  hat … geändert», `onTopDropped`), and the header's label and flash caption name the SURFACE
+  back, the NEXT ↶ press says so at the button instead of stepping («Letzter Schritt nicht mehr
+  rückgängig machbar – ein anderes Gerät hat … geändert», `onTopDropped` → `IncidentWorkspace ·
+  pressHistory`; a toast per merge until 17.11.2026), the press after it steps; and the header's label and flash caption name the SURFACE
   in front of an action that does not already say it («Trupps · Trupp 1 (…): Ausrüstung: WBK»,
   `undoTimeline · undoCaption`, `copy.undoSurfaces`) — the Verlauf row keeps the bare action. Add an entry ⇒ give
   it a `touches` that covers EVERYTHING its undo and redo write, and every record those values

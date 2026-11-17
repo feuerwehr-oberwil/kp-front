@@ -139,10 +139,12 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
         {view === 'edit' && <div className="adm-floors-bar-tools">
           {mode && <button type="button" className="btn" onClick={() => setMode(null)}>{appConfig.copy.cancel}</button>}
           {pageCount > 1 && <span className="adm-hint" role="status">{fillTemplate(C.pageOf, { n: sheetPage + 1, total: pageCount })}</span>}
+          {/* glyph + word like the tabs and «Abbrechen» in the same bar (button sweep audit, owner
+              pick 24, 17.11.2026): the zoom pair was bare and the reset a bare percentage */}
           <div className="adm-floors-zoom">
-            <button type="button" aria-label={appConfig.copy.nav.zoomOut} disabled={zoom <= 1} onClick={() => setZoom((z) => Math.max(1, z / 1.5))}><Icon id="minus" /></button>
-            <button type="button" className="adm-floors-zoom-value" onClick={() => setZoom(1)}>{Math.round(zoom * 100)} %</button>
-            <button type="button" aria-label={appConfig.copy.nav.zoomIn} disabled={zoom >= 4} onClick={() => setZoom((z) => Math.min(4, z * 1.5))}><Icon id="plus" /></button>
+            <button type="button" disabled={zoom <= 1} onClick={() => setZoom((z) => Math.max(1, z / 1.5))}><Icon id="minus" />{appConfig.copy.nav.zoomOut}</button>
+            <button type="button" className="adm-floors-zoom-value" aria-label={`${C.zoomReset} – ${Math.round(zoom * 100)} %`} title={C.zoomReset} onClick={() => setZoom(1)}><Icon id="resize" />{Math.round(zoom * 100)} %</button>
+            <button type="button" disabled={zoom >= 4} onClick={() => setZoom((z) => Math.min(4, z * 1.5))}><Icon id="plus" />{appConfig.copy.nav.zoomIn}</button>
           </div>
         </div>}
       </div>
@@ -265,7 +267,7 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
                     onClick={(e) => { e.stopPropagation(); setSelected(drawing.key); setMode((m) => m?.key === drawing.key && m.kind === 'region' ? null : { key: drawing.key, kind: 'region' }) }}><Icon id="marquee" />{C.region}</button>
                   <button type="button" className="btn adm-floor-mode" aria-pressed={mode?.key === drawing.key && mode.kind === 'join'} disabled={stack.order.length < 2} title={C.joinWhat}
                     onClick={(e) => { e.stopPropagation(); setSelected(drawing.key); setMode((m) => m?.key === drawing.key && m.kind === 'join' ? null : { key: drawing.key, kind: 'join' }) }}><Icon id="cross" />{C.join}</button>
-                  {drawing.clip && group.length === 1 && <button type="button" className="btn" onClick={(e) => { e.stopPropagation(); setStack((s) => ({ ...s, order: s.order.map((o) => o.key === drawing.key ? { ...o, clip: undefined, join: undefined } : o.join?.toKey === drawing.key ? { ...o, join: undefined } : o) })); setMode(null) }}>{C.wholePage}</button>}
+                  {drawing.clip && group.length === 1 && <button type="button" className="btn" onClick={(e) => { e.stopPropagation(); setStack((s) => ({ ...s, order: s.order.map((o) => o.key === drawing.key ? { ...o, clip: undefined, join: undefined } : o.join?.toKey === drawing.key ? { ...o, join: undefined } : o) })); setMode(null) }}><Icon id="doc" />{C.wholePage}</button>}
                   {/* a second drawing of THIS storey – no new mode, it opens the same rectangle */}
                   <button type="button" className="btn adm-floor-addpart" onClick={(e) => {
                     e.stopPropagation()

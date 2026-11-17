@@ -216,7 +216,7 @@ function EditRow({ user, canDemote, onSaved, onCancel }: {
   const [elViewDefault, setElViewDefault] = useState(user.el_view_default ?? false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  /** «Speichern» with another role waits for its second step, like the ⋮ menu's switch (UX.14):
+  /** «Speichern» with another role waits for its second step, like the ⋯ menu's switch (UX.14):
    *  the new role signs that person out on their devices, whichever door it came through */
   const [askingRole, setAskingRole] = useState(false)
   const C = appConfig.copy.admin.members
@@ -340,7 +340,7 @@ export function MembersView() {
   const [rowErr, setRowErr] = useState<{ id: string; detail: string } | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   /** «Deaktivieren» / a role change waiting for its second step (ui · ConfirmPrompt): either one
-   *  signs that person out on their devices mid-Einsatz, and both fired on one tap from the ⋮
+   *  signs that person out on their devices mid-Einsatz, and both fired on one tap from the ⋯
    *  menu, between «Bearbeiten» and «PIN zurücksetzen» (sweep 09.11.2026, UX.14) */
   const [asking, setAsking] = useState<{ id: string; act: 'role' | 'deactivate' } | null>(null)
   /** the member whose PIN is being set — the pinpad Sheet is open while this is non-null */

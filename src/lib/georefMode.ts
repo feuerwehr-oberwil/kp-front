@@ -563,7 +563,7 @@ export function georefPairIndex(s: GeorefModeState, idx: number): number | null 
   return s.slots.slice(0, idx).filter((x) => x.plan && x.map).length
 }
 
-/** «auf «Wasser»» / «auf dem Modul» — where on the plan, by the plan's own name when the caller
+/** «auf «Wasser»» / «auf dem Plan» — where on the plan, by the plan's own name when the caller
  *  has it (sweep 27.10.2026 #13: the plan's label, never a bare «Modul» for a «Wasser» sheet). */
 export function georefOnPlan(planLabel?: string): string {
   const C = appConfig.copy.whiteboard.georef

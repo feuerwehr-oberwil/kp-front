@@ -281,14 +281,14 @@ describe('buildingPickStep — every pick is its own ↶ step', () => {
   const clean = { legacy: false, carried: 0, dropped: 0 }
   const had = { floors: [0] } as unknown as BuildingDoc
 
-  it('names a FIRST pick, with no toast (nothing was at stake)', () => {
-    expect(buildingPickStep(null, clean, 0, false, copy, fill)).toEqual({ label: 'Gebäude übernommen', toast: false })
+  it('names a FIRST pick', () => {
+    expect(buildingPickStep(null, clean, 0, copy, fill)).toBe('Gebäude übernommen')
   })
-  it('names a re-pick of a bare stack, still without a toast', () => {
-    expect(buildingPickStep(had, clean, 0, false, copy, fill)).toEqual({ label: 'Gebäude gewechselt – Geschosse behalten', toast: false })
+  it('names a re-pick of a bare stack', () => {
+    expect(buildingPickStep(had, clean, 0, copy, fill)).toBe('Gebäude gewechselt – Geschosse behalten')
   })
-  it('keeps the counting labels and the toast where work was at stake', () => {
-    expect(buildingPickStep(had, { legacy: false, carried: 3, dropped: 1 }, 4, true, copy, fill)).toEqual({ label: '3/1', toast: true })
-    expect(buildingPickStep(had, { legacy: true, carried: 0, dropped: 0 }, 2, true, copy, fill)).toEqual({ label: 'Gebäude ersetzt – 2', toast: true })
+  it('counts what a pick with work at stake carried over or lost', () => {
+    expect(buildingPickStep(had, { legacy: false, carried: 3, dropped: 1 }, 4, copy, fill)).toBe('3/1')
+    expect(buildingPickStep(had, { legacy: true, carried: 0, dropped: 0 }, 2, copy, fill)).toBe('Gebäude ersetzt – 2')
   })
 })

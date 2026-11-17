@@ -10,9 +10,7 @@ import { ShapeEditor } from '../components/ShapeEditor'
 import { appConfig } from '../config/appConfig'
 import { connectedLineLabel } from '../lib/connectedLines'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
-import { polygonAreaM2, bboxSizeM, pathLengthM, haversineM, fmtDistance } from '../lib/geo'
-import { undoToast } from '../lib/ui'
-import { recordKey } from '../lib/undoKeys'
+import { polygonAreaM2, bboxSizeM, pathLengthM, haversineM, drawingExtent } from '../lib/geo'
 import { ergAdoptedRadii } from '../lib/ergAdopt'
 import { type GpsEnd, hasTraced, freshBefore, gpsLineName, fmtAway, onSiteAnchor, onSiteKnown } from '../lib/gpsReturn'
 import { wandBlock, wandBlockHint } from '../lib/grundriss'
@@ -40,6 +38,8 @@ export interface MapDetailPanelsProps {
   commit: (updater: (d: Doc) => Doc, opts?: { gesture?: boolean }) => void
   setSelectedId: Dispatch<SetStateAction<string | null>>
   flyToMapVisible: (center: LngLat, zoom: number) => void
+  /** frame a set of points in the visible part of the map (a drawing's «Zentrieren») */
+  fitMapVisible: (pts: LngLat[]) => void
   deleteEntity: (id: string) => Promise<boolean>
   timeline: TimelineEvent[]
   sym: ReturnType<typeof useSymbols>
@@ -97,6 +97,8 @@ export interface MapDetailPanelsProps {
   setSelectedDrawingId: Dispatch<SetStateAction<string | null>>
   setMode: Dispatch<SetStateAction<WorkspaceMode>>
   setPanel: Dispatch<SetStateAction<'layers' | null>>
+  /** «Zum Trupp»: the Atemschutz board, scrolled to that Trupp's card (IncidentWorkspace · showTrupp) */
+  showTrupp: (truppId: string) => void
   setGpsRouting: (drawing: Drawing, endpoint: 'start' | 'end', routing: 'direct' | 'trace') => void
   revertAll: (ends: readonly GpsEnd[]) => void
   gpsEndOf: (drawing: Drawing, endpoint: 'start' | 'end') => GpsEnd
@@ -110,7 +112,7 @@ export interface MapDetailPanelsProps {
 }
 
 export function MapDetailPanels({
-  detailSlotFree, tacticalLocked, tool, selected, commit, setSelectedId, flyToMapVisible, deleteEntity,
+  detailSlotFree, tacticalLocked, tool, selected, commit, setSelectedId, flyToMapVisible, fitMapVisible, deleteEntity,
   timeline, sym, entityTypedAt, titleLiveRef, beginDrag,
   setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
   symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
@@ -119,7 +121,7 @@ export function MapDetailPanels({
   noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
   selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
   changeMapEnding, reverseDrawing, setDrawingWallRole, objects, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
-  unlinkLine, setSelectedDrawingId, setMode, setPanel, setGpsRouting, revertAll, gpsEndOf, releaseHere,
+  unlinkLine, setSelectedDrawingId, setMode, setPanel, showTrupp, setGpsRouting, revertAll, gpsEndOf, releaseHere,
   releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing,
 }: MapDetailPanelsProps) {
   // a Rechteck's figures, for its panel — editable or read-only alike
@@ -243,15 +245,10 @@ export function MapDetailPanels({
           // The derived preview rings go quiet for this placard: the real circle replaces them,
           // and two red rings at the same radius would read as a rendering bug.
           // A one-time action (docs/ui-conventions.md · One-time actions): the row's done state is
-          // read off the Karte (lib/ergAdopt), and the toast takes the circle back with the rings.
+          // read off the Karte (lib/ergAdopt), and ↶ takes the circle back with the rings – no toast.
           onAdoptRadius={selected.kind === 'symbol' && !selected.live && !tacticalLocked ? (radiusM) => {
-            const placard = selected, rings = selected.ergRings
-            const id = createCircle(placard.coord, radiusM)
-            patchEntity(placard.id, { ergRings: 'off' })
-            undoToast(fillTemplate(appConfig.copy.contextPanel.ergAdoptedToast, { r: fmtDistance(radiusM) }), () => {
-              deleteDrawing(id)
-              patchEntity(placard.id, { ergRings: rings })
-            }, [recordKey('objects', id), recordKey('objects', placard.id)])
+            createCircle(selected.coord, radiusM)
+            patchEntity(selected.id, { ergRings: 'off' })
           } : undefined}
           ergAdopted={selected.kind === 'symbol' ? ergAdoptedRadii(doc.drawings, selected.coord) : undefined}
           // Angedockte Gefahrentafel (lib/docking): name the host, offer the release — the drop
@@ -409,6 +406,7 @@ export function MapDetailPanels({
           // locked: the panel keeps the numbers (Länge, Höhenprofil, Fläche) and the
           // Verbindungen, and drops every control that would change the shape
           readOnly={tacticalLocked}
+          onCenter={() => fitMapVisible(drawingExtent(selectedDrawing))}
           areaM2={selectedDrawing.kind === 'circle' ? Math.PI * (selectedDrawing.radiusM ?? 0) ** 2
             : selectedDrawing.kind === 'area' && selectedDrawing.coords.length >= 3 ? polygonAreaM2(selectedDrawing.coords) : null}
           // a circle's box is its bounding square — the diameter each way
@@ -469,7 +467,13 @@ export function MapDetailPanels({
           usedLineNos={drawings.filter((d) => d.kind === 'line' && d.id !== selectedDrawing.id && d.lineNo != null).map((d) => d.lineNo!)}
           truppOnLine={truppForLine(selectedDrawing, effTrupps)?.name}
           truppOnLineOut={truppIsOut(truppForLine(selectedDrawing, effTrupps))}
-          onShowTrupp={() => { setSelectedDrawingId(null); setMode('atemschutz'); setPanel(null) }}
+          // the card is FOCUSED, as from the Plan's twin (Whiteboard · DrawEditor) – a bare mode
+          // switch left a long board unscrolled (ENT.2)
+          onShowTrupp={() => {
+            const t = truppForLine(selectedDrawing, effTrupps)
+            setSelectedDrawingId(null)
+            if (t) showTrupp(t.id); else { setMode('atemschutz'); setPanel(null) }
+          }}
           // «Art: Linie | Wand» – the Plan's row, same patch, same blocks (sweep 28.10.2026,
           // Lage ↔ Plan parity). The Wand TOOL and its snapping stay the Gebäude stack's.
           onWand={selectedDrawing.kind === 'line' ? (wand) => {

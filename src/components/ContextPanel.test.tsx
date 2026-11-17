@@ -515,8 +515,8 @@ describe('ContextPanel — ADR meanings and ERG «Absperrkreis übernehmen»', (
     setup({ ...tafel({ 'UN-Nr.': '1005', Stoff: '' }), onAdoptRadius })
     const buttons = screen.getAllByRole('button', { name: appConfig.copy.contextPanel.ergAdopt })
     expect(buttons.length).toBe(3)
-    // icon-only (23.09.2026): the row keeps its width, the name is the hold-tooltip
-    expect(buttons[0].textContent).toBe('')
+    // worded (button sweep SHEETS.6, 17.11.2026): it was an icon-only square
+    expect(buttons[0].textContent).toBe(appConfig.copy.contextPanel.ergAdopt)
     fireEvent.click(buttons[0])
     expect(onAdoptRadius).toHaveBeenCalledWith(30)
     fireEvent.click(buttons[2])
@@ -689,6 +689,14 @@ describe('ContextPanel — the Einsatzleiter pair', () => {
     fireEvent.click(screen.getByRole('button', { name: SWAP }))
     expect(onFields).toHaveBeenCalledTimes(1)
     expect(onFields).toHaveBeenCalledWith({ Name: 'Müller Hans', 'Stv.': 'Widmer Céline' })
+  })
+
+  // rare-user r2 F17 (17.11.2026): the handover is its own worded line, not a tile beside the EL name
+  it('puts «Führung übergeben» under the names, not inside the EL row', () => {
+    setup(el({ Name: 'Widmer Céline', 'Stv.': 'Müller Hans' }))
+    const swap = screen.getByRole('button', { name: SWAP })
+    expect(swap.textContent).toBe(SWAP)
+    expect(swap.closest('.field')).toBeNull()
   })
 
   it('works with only one of the two filled — that is a handover to nobody yet', () => {
@@ -925,7 +933,13 @@ describe('ContextPanel — the Trupps docked onto this symbol', () => {
     expect(screen.getByText(row('Trupp 4'))).toBeTruthy()
     expect(screen.getByText(row('Trupp 2'))).toBeTruthy()
     expect(screen.getAllByText(appConfig.copy.contextPanel.dockedRelease)).toHaveLength(2)
+    // the name only states the bond; «Lösen» at the row's end is the framed button that cuts it
+    // (button sweep SHEETS.3) – a tap on the name to read it no longer lets go
     fireEvent.click(screen.getByText(row('Trupp 4')))
+    expect(release).not.toHaveBeenCalled()
+    const cut = screen.getByRole('button', { name: `${appConfig.copy.contextPanel.dockedRelease}: ${row('Trupp 4')}` })
+    expect(cut.classList.contains('danger')).toBe(false)
+    fireEvent.click(cut)
     expect(release).toHaveBeenCalledTimes(1)
   })
 
@@ -954,31 +968,37 @@ describe('ContextPanel — «Gelöscht / erledigt»', () => {
   // (a damage or hazard symbol, #226) — it was a full-width row in the body. The 3am
   // walk-through of 25.09.2026 (a reflex tap on the first row greyed a fresh KP Front) holds: the
   // foot is never the first thing under the finger.
-  it('offers «Erledigt» as a tile in the foot — between «Zentrieren» and the bin — and the delete is the «Entfernen» square', () => {
+  it('offers «Erledigt» as a tile in the foot — between «Zentrieren» and the delete, which is bin + «Entfernen» (SHEETS.1)', () => {
     const p = setup({ onDone: vi.fn(), onCenter: vi.fn() })
-    const tile = screen.getAllByRole('button', { name: O.action })[0]
+    const tile = screen.getAllByRole('button', { name: O.actionHint })[0]
     expect(tile.closest('.ctx-actions')).toBeTruthy()
     expect(tile.getAttribute('aria-pressed')).toBe('false')
-    expect(tile.title).toBe(O.actionHint)
+    // the meaning is the HOLD's, word first, never a `title` a tablet cannot show (audit A1)
+    expect(tile.hasAttribute('data-holdexplain')).toBe(true)
+    expect(tile.title).toBe('')
+    expect(tile.textContent).toBe(O.action)
     expect(tile.closest('.ctx-body')?.firstElementChild?.contains(tile)).toBe(false)
     const foot = tile.closest('.ctx-actions')!
     expect([...foot.querySelectorAll('button')].map((b) => b.textContent || b.getAttribute('aria-label')))
       .toEqual([appConfig.copy.contextPanel.center, O.action, appConfig.copy.remove])
     fireEvent.click(tile)
     expect(p.onDone).toHaveBeenCalledWith(true)
-    const bin = screen.getAllByRole('button', { name: appConfig.copy.remove })[0]
-    expect(bin.classList.contains('btn-sq')).toBe(true)
-    expect(bin.title).toContain(O.removeHint)
+    const bin = screen.getAllByRole('button', { name: `${appConfig.copy.remove} – ${O.removeHint}` })[0]
+    expect(bin.textContent).toBe(appConfig.copy.remove)
+    expect(bin.classList.contains('danger')).toBe(true)
+    expect(bin.hasAttribute('data-holdexplain')).toBe(true)
+    // the ✓ stands at rest too (SHEETS.8): only the fill says set
+    expect(tile.querySelector('svg')).toBeTruthy()
     expect(screen.queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
   })
 
   // ONE toggle (31.10.2026): set, the SAME tile stays in the same spot, pressed, and a tap
   // reopens – the time it was set moved into the header, beside the type.
-  it('set, the same foot tile (same name) stands pressed, its title says it reopens, and a tap takes it back; the header says when', () => {
+  it('set, the same foot tile (same word) stands pressed, its name says it reopens, and a tap takes it back; the header says when', () => {
     const p = setup({ onDone: vi.fn(), onCenter: vi.fn(), entity: { id: 's1', symbol: 'VKF Feuer', label: 'Brand', subtitle: 'Schadenlage', done: { at: AT } } })
-    const tile = screen.getAllByRole('button', { name: O.action, pressed: true })[0]
+    const tile = screen.getAllByRole('button', { name: O.reopenHint, pressed: true })[0]
     expect(tile.getAttribute('aria-pressed')).toBe('true')
-    expect(tile.title).toBe(O.reopenHint)
+    expect(tile.textContent).toBe(O.action)
     const foot = tile.closest('.ctx-actions')!
     expect([...foot.querySelectorAll('button')].map((b) => b.textContent || b.getAttribute('aria-label')))
       .toEqual([appConfig.copy.contextPanel.center, O.action, appConfig.copy.remove])
@@ -995,5 +1015,18 @@ describe('ContextPanel — «Gelöscht / erledigt»', () => {
     setup()
     expect(screen.queryByRole('button', { name: new RegExp(O.action) })).toBeNull()
     expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
+  })
+})
+
+// owner pick 28 (17.11.2026): the free field's ✕ is one ↶ step (the fields write), so no toast doubles it
+describe('ContextPanel – removing a free field', () => {
+  it('writes the fields without the row, and raises no toast', async () => {
+    const { Overlays } = await import('../lib/ui')
+    render(<Overlays />)
+    const onFields = vi.fn()
+    setup({ entity: { id: 's1', symbol: 'VKF Feuer', label: 'Brand', fields: { Funk: 'K2' } }, onFields })
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.contextPanel.removeField }))
+    expect(onFields).toHaveBeenCalledTimes(1)
+    expect(document.querySelector('.toast')).toBeNull()
   })
 })

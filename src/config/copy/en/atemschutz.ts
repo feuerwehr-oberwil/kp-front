@@ -21,9 +21,9 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     empty: 'No team under monitoring yet.',
     emptyHint: '«Register team» starts the monitoring.',
     newTrupp: 'Register team',
-    shareLink: 'Hand over monitoring',
-    shareLinkShort: 'Hand over',
-    shareLinkOn: 'Hand over monitoring – a link is active',
+    shareLink: 'Share teams',
+    shareLinkShort: 'Share',
+    shareLinkOn: 'Share teams – a link is active',
     linkReentryHint: 'The link leads back here – if the page is closed by accident, simply open the QR code again.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     /** the three-section stack on ANY phone (TruppForm · stack, 04.09.) – replaces the two-step
@@ -59,11 +59,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       multiwarn: 'Multiwarn',
     },
     equipmentLabel: 'Equipment',
-    equipmentShort: {
-      retthaube: 'RH',
-      wbk: 'WBK',
-      multiwarn: 'MW',
-    },
     zielLabel: 'Target',
     // ONE placeholder for every kind of team and every Auftrag (see de/atemschutz.ts): a storey reference
     // was SCBA vocabulary and read as nonsense under «Traffic».
@@ -273,8 +268,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logFirstPressureSame: 'Team {name}: contact – first pressure report {bar} bar (as entry pressure)',
     pressureSheetFirst: 'First pressure report – replaces the entry pressure {bar} bar, counts as contact',
     newTruppShort: 'Team',
-    removedToast: 'Team {name} removed',
-    notDeployedToast: 'Team {name}: not deployed',
     // Atemschutznotfall (F1, 08.10.2026) — short, neutral wording; see the German base
     notfall: {
       act: 'Emergency',
@@ -320,7 +313,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       logSafetyDesignated: 'Team {name}: assigned as safety team – emergency team {target}',
       logSafetyWas: 'previously {auftrag}',
       logAtClose: 'Team {name}: emergency not ended at closing',
-      toast: 'Emergency raised for team {name}',
       notifyTitle: 'SCBA emergency – {name}',
       notifyBody: 'Emergency since {time} – deploy the safety team.',
       noSafetyHint: 'No safety team ready',
@@ -329,6 +321,8 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       abschlussClose: 'Close anyway',
       // «Entfernen» on a Trupp in a Notfall is refused until it is ended (review of #300)
       removeBlocked: 'Hold «Emergency ended» first – a team in an emergency stays monitored',
+      noSafetySub: 'Inside: {names} – register a team with task «Secure»',
+      noSafetyGo: 'To the teams',
     },
     removeInsideTitle: 'Team {name} is inside – report it out first?',
     removeInsideMsg: 'Removing takes the team out of monitoring and out of every alarm. What is usually meant: the team is out.',
@@ -447,6 +441,8 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logInsideAtClose: 'Team {name} still inside at closing',
     cycleEndAtClose: '{t} (still inside at closing)',
     logClockRestart: 'Team {name}: contact clock restarted – incident reopened',
+    cardMenuWord: 'More',
+    lineOnPlan: 'Plan',
   },
   lineDecor: {
     W: 'Water',

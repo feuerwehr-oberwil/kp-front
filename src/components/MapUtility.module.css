@@ -2,15 +2,22 @@
 .toputil { position: absolute; top: 16px; right: 16px; z-index: var(--z-map-util); display: flex; align-items: center; gap: 4px;
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
   border-radius: var(--r-cluster); padding: var(--bar-pad); box-shadow: var(--e4); white-space: nowrap; }
-.tu-btn { width: 42px; height: 42px; border: none; background: transparent; border-radius: var(--r-sm); display: grid; place-items: center;
+.tu-btn { position: relative; width: 42px; height: 42px; border: none; background: transparent; border-radius: var(--r-sm); display: grid; place-items: center;
   color: var(--ink); cursor: pointer; transition: background .14s var(--ease), transform .12s var(--ease); }
 @media (hover: hover) { .tu-btn:hover { background: var(--hover-strong); } }
 .tu-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* «where you are» (Ebenen open) is the rails' pill, `--here-fill` (05.11.2026) – `--ink-fill` was a
-   dark patch on the dark glass at night, the ON button nearly invisible (style sweep T5, 15.11.2026) */
-.tu-btn.on { background: var(--here-fill); color: var(--on-here); }
+/* OPEN (a panel or menu it opens stands open) is the «open/armed» wash – `--sel-wash` + the
+   `--blue-strong` glyph, as the ⓘ and the Verlauf lens – never the ink pill, which is «where you
+   are» on the nav rail beside it (duck sweep ELEM.6, 17.11.2026: open Ebenen read as a place) */
+.tu-btn.on { background: var(--sel-wash); color: var(--blue-strong); }
 .tu-btn :global(.i) { width: 19px; height: 19px; }
-.tu-divider { width: 6px; flex: none; }   /* spacing between the zoom pair and Ebenen, not a line (22.09.2026) */
+.tu-divider { width: 6px; flex: none; }
+/* «Beschriftung» on (MapUtility · `worded`, 17.11.2026): each control a tile, the glyph OVER its
+   word at 11/700 – the view bar's tile (09-whiteboard · `.vrail-label`), so the read-only and the
+   replay map say «Ansichten · Verkleinern · Vergrössern · Ebenen» where the editable Lage does */
+.worded .tu-btn { width: auto; min-width: 52px; height: auto; min-height: 52px; padding: var(--sp-1); row-gap: var(--sp-1);
+  align-content: center; font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
+.worded .compass { width: auto; height: auto; }   /* spacing between the zoom pair and Ebenen, not a line (22.09.2026) */
 
 /* compass glyph rotates to the live bearing (inline transform), set on every rotate frame —
    no transition (MapViewsMenu · CompassGlyph) */

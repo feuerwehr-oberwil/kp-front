@@ -251,7 +251,7 @@ export function SettingsSheet({
         <div className="set-card">
           <div className="set-row">
             <span className="set-row-l">{cp.resetDevice}<small>{cp.resetDeviceSub}</small></span>
-            <Button icon={<Icon id="undo" />} onClick={() => undoToast(cp.resetDeviceDone, resetDevicePrefs())}>
+            <Button icon={<Icon id="undo" />} onClick={() => undoToast(cp.resetDeviceDone, resetDevicePrefs(), undefined, { kind: 'device-reset' })}>
               {cp.resetDeviceBtn}
             </Button>
           </div>

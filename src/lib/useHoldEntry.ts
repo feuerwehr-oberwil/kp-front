@@ -17,8 +17,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { buzz } from './haptics'
+import { HOLD_OFFER_MS } from './holdTimings'
 
-export const HOLD_MS = 350 // hold longer than this offers the choice instead of opening the composer — the charge ring (HoldChargeRing) fills over exactly this window
+export const HOLD_MS = HOLD_OFFER_MS // the OFFER window (lib/holdTimings): hold longer than this offers the choice instead of opening the composer — the charge ring (HoldChargeRing) fills over exactly this window
 const CUE_MS = 130 // delay the charging cue so a quick tap doesn't flash it
 
 /** What the chooser offers. Closing it is the BUTTON itself, which wears an ✕ while it is up —

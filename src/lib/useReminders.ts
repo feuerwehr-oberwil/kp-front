@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TimelineEvent } from '../types'
-import { appConfig } from '../config/appConfig'
 import { deriveReminders, isDue, type OpenReminder } from './reminders'
-import { notify, startAlarm, stopAlarm } from './alarm'
-import { toast } from './ui'
+import { chime, notify } from './alarm'
 import type { UndoTimeline } from './undoTimeline'
 
 /** payload App turns into an appended timeline row (keeps all timeline writes in one place) */
@@ -31,13 +29,13 @@ interface Copy {
 export type DoneWords = Pick<Copy, 'doneLog' | 'pendenzDoneLog' | 'reopenLog' | 'pendenzReopenLog'>
 
 /**
- * «Erledigt» with the house confirm-with-undo (decided 23.09.2026, option A of the UX review).
+ * «Erledigt», undoable (decided 23.09.2026, option A of the UX review).
  *
  * Ticking a Pendenz off was the one irreversible tap on the Verlauf: a 26px ring, no ask, and the
  * item left the pinned block for good. Now it is the same act as every other one-shot that makes
- * something disappear — it happens at once, a toast says «Pendenz erledigt: {text} · Rückgängig»,
- * and the act sits on the Einsatz's ONE undo timeline for ↶ as well. Both doors (the ring in the
- * Verlauf, «Erledigt» on the Meldeleiste) come through here.
+ * something disappear — it happens at once and sits on the Einsatz's ONE undo timeline, named
+ * «Pendenz erledigt: {text}» on the ↶ (no toast since owner pick 28, 17.11.2026). Both doors (the
+ * ring in the Verlauf, «Erledigt» on the Meldeleiste) come through here.
  *
  * ⚠️ APPEND-ONLY both ways. The Verlauf never loses a row, so «Rückgängig» is not a removal of the
  * done row but a NEW `reopened` row beside it («Pendenz wieder offen: …»), and ↷ appends a fresh
@@ -46,8 +44,6 @@ export type DoneWords = Pick<Copy, 'doneLog' | 'pendenzDoneLog' | 'reopenLog' | 
  * `false`, the timeline's soft failure — when it already stands where the step would put it: a
  * colleague may have reopened or closed it meanwhile, and a second «wieder offen» row for an item
  * that is open is a record of something that did not happen.
- * ⚠️ The toast's «Rückgängig» does the inverse itself and DROPS the timeline entry, so the act
- * is never undoable twice (docs/undo.md · confirm-with-undo).
  */
 export function completeReminder(r: Pick<OpenReminder, 'id' | 'text' | 'dueAt'>, deps: {
   append: (ev: ReminderEvent) => void
@@ -55,16 +51,13 @@ export function completeReminder(r: Pick<OpenReminder, 'id' | 'text' | 'dueAt'>,
   isOpen: (id: string) => boolean
   copy: Pick<Copy, 'doneLog' | 'pendenzDoneLog' | 'reopenLog' | 'pendenzReopenLog'>
   timeline?: Pick<UndoTimeline, 'push'>
-  /** the toast; `onUndo` is its «Rückgängig» */
-  announce?: (text: string, onUndo: () => void) => void
 }): void {
   flipReminder(r, true, deps)
 }
 
 /**
  * The same act the other way: an «Erledigt» taken back by un-ticking it (the Tafel's «Aufträge /
- * Pendenzen» page, 05.11.2026). A `reopened` row with confirm-with-undo; ↶ / «Rückgängig» append
- * a fresh `done` row. Does nothing when the item is already open.
+ * Pendenzen» page, 05.11.2026). A `reopened` row; ↶ appends a fresh `done` row. Does nothing when the item is already open.
  */
 export function reopenReminder(r: Pick<OpenReminder, 'id' | 'text' | 'dueAt'>, deps: Parameters<typeof completeReminder>[1]): void {
   flipReminder(r, false, deps)
@@ -72,7 +65,7 @@ export function reopenReminder(r: Pick<OpenReminder, 'id' | 'text' | 'dueAt'>, d
 
 /** `close`: tick off (done row) or take back (reopened row) — each the other's inverse. */
 function flipReminder(r: Pick<OpenReminder, 'id' | 'text' | 'dueAt'>, close: boolean, deps: Parameters<typeof completeReminder>[1]): void {
-  const { append, isOpen, copy, timeline, announce } = deps
+  const { append, isOpen, copy, timeline } = deps
   // ⚠️ Two wordings, picked off the item itself: an undatierte Pendenz never called itself an
   // Erinnerung, so «Erinnerung erledigt: Absperrmaterial» would name a thing that never existed.
   const doneText = (r.dueAt ? copy.doneLog : copy.pendenzDoneLog).replace('{text}', r.text)
@@ -95,8 +88,7 @@ function flipReminder(r: Pick<OpenReminder, 'id' | 'text' | 'dueAt'>, close: boo
   if (!act()) return
   // ⚠️ `touches: []` — both directions APPEND a Verlauf row and write nothing of the workspace, so
   // no workspace merge can invalidate them; each checks the item's live state itself (isOpen)
-  const drop = timeline?.push({ domain: 'pendenz', label, touches: () => [], undo: back, redo: act }) ?? (() => {})
-  announce?.(label, () => { if (back()) drop() })
+  timeline?.push({ domain: 'pendenz', label, touches: () => [], undo: back, redo: act })
 }
 
 /** Same ids in the same order — the due set is derived from an ordered `open`, so order is stable. */
@@ -118,12 +110,13 @@ export function useReminders(
   onEvent: (ev: ReminderEvent) => void,
   copy: Copy,
   enabled = true,
-  /** the Einsatzende — reminders due before it are expired by closure (no stale alarms on reopen) */
+  /** the Einsatzende — reminders due before it never come due (no stale alarms on reopen); the
+   *  items stay open (lib/reminders · isDue, ENT.4) */
   closedAt?: string | null,
   /** the Einsatz's undo timeline — an «Erledigt» joins it (completeReminder) */
   undo?: Pick<UndoTimeline, 'push'>,
 ) {
-  const open = useMemo(() => deriveReminders(timeline, closedAt), [timeline, closedAt])
+  const open = useMemo(() => deriveReminders(timeline), [timeline])
   // ⚠️ Both read through refs: an undo entry and a toast outlive the render that made them, and
   // must see the item's state — and the writer — as they are when the step is TAKEN.
   const openRef = useRef(open)
@@ -136,7 +129,7 @@ export function useReminders(
   const onDue = useCallback((ids: readonly string[]) => setDueIds((prev) => (sameIds(prev, ids) ? prev : ids)), [])
   const due = useMemo(() => open.filter((r) => dueIds.includes(r.id)), [open, dueIds])
 
-  // confirm-with-undo — see completeReminder above
+  // undoable on ↶ — see completeReminder above
   const { doneLog, pendenzDoneLog, reopenLog, pendenzReopenLog } = copy
   /** tick off (`done`) or take back an item, in the given words (the Tafel page says where it
    *  happened — «Erledigt auf der Tafel: …») or the Verlauf's own */
@@ -146,7 +139,6 @@ export function useReminders(
       isOpen: (id) => openRef.current.some((o) => o.id === id),
       copy: words ?? { doneLog, pendenzDoneLog, reopenLog, pendenzReopenLog },
       timeline: undo,
-      announce: (text, onUndo) => toast(text, { icon: done ? 'check' : 'undo', action: { label: appConfig.copy.undo, onClick: onUndo } }),
     })
   }, [doneLog, pendenzDoneLog, reopenLog, pendenzReopenLog, undo])
   const markDone = useCallback((r: OpenReminder) => setDone(r, true), [setDone])
@@ -167,8 +159,8 @@ export function useReminders(
   }, [onEvent, copy.snoozeLog])
 
   const host = useMemo(
-    () => ({ open, enabled, dueTitle: copy.dueTitle, onDue }),
-    [open, enabled, copy.dueTitle, onDue],
+    () => ({ open, enabled, dueTitle: copy.dueTitle, onDue, closedAt }),
+    [open, enabled, copy.dueTitle, onDue, closedAt],
   )
 
   return { open, due, openCount: open.length, dueCount: due.length, markDone, setDone, snooze, host }
@@ -182,15 +174,18 @@ export function useReminders(
  * or not. Here the tick re-renders only this empty component, and `onDue` reaches the parent
  * only when the SET of due ids changes (a crossing, a done, a snooze), never on a plain tick.
  *
- * Also owns the alert itself: a short tone (no loop — reminders aren't life-safety like the
- * SCBA clock) plus an OS notification when the app isn't in the foreground, once per crossing.
+ * Also owns the alert itself: the calm `chime()` once (lib/alarm – never a voice louder than the
+ * Atemschutz warn; it used the retired faster beeper until 17.11.2026, FEEDBACK.10) plus an OS
+ * notification when the app isn't in the foreground, once per crossing.
  * ⚠️ Only where `alert` says so — the WRITERS of the Verlauf, editor and el (owner, 22.10.2026):
  * a Wiedervorlage is a to-do for whoever can tick it off, so a viewer's tablet or a link's phone
  * shows the due row (the banner, from `onDue`) without ringing. Their one alarm is Atemschutz's.
  */
-export function RemindersHost({ open, enabled, alert, dueTitle, onDue }: {
+export function RemindersHost({ open, enabled, alert, dueTitle, onDue, closedAt }: {
   open: readonly OpenReminder[]
   enabled: boolean
+  /** the Einsatzende: what was due before it rings nothing and raises no banner (isDue) */
+  closedAt?: string | null
   /** tone + OS notification on a crossing (the session writes the Verlauf); the due set is kept either way */
   alert: boolean
   dueTitle: string
@@ -214,11 +209,10 @@ export function RemindersHost({ open, enabled, alert, dueTitle, onDue }: {
     }
   }, [])
 
-  const due = useMemo(() => (enabled ? open.filter((r) => isDue(r, now)) : []), [open, now, enabled])
+  const due = useMemo(() => (enabled ? open.filter((r) => isDue(r, now, closedAt)) : []), [open, now, enabled, closedAt])
 
   // alert once per reminder as it crosses into due
   const fired = useRef<Set<string>>(new Set())
-  const toneTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     if (!enabled || !alert) return
     const fresh = due.filter((r) => !fired.current.has(r.id))
@@ -227,9 +221,7 @@ export function RemindersHost({ open, enabled, alert, dueTitle, onDue }: {
       fired.current.add(r.id)
       if (typeof document !== 'undefined' && document.hidden) void notify(dueTitle, { body: r.text, tag: `reminder-${r.id}`, target: 'journal' })
     }
-    startAlarm('warn')
-    if (toneTimer.current) clearTimeout(toneTimer.current)
-    toneTimer.current = setTimeout(() => stopAlarm(), 4000)
+    chime()
   }, [due, enabled, alert, dueTitle])
 
   // a reminder that's resolved/snoozed before re-firing should be able to alert again later
@@ -238,8 +230,6 @@ export function RemindersHost({ open, enabled, alert, dueTitle, onDue }: {
     const dueIds = new Set(due.map((r) => r.id))
     for (const id of fired.current) if (!openIds.has(id) || !dueIds.has(id)) fired.current.delete(id)
   }, [open, due])
-
-  useEffect(() => () => { if (toneTimer.current) clearTimeout(toneTimer.current); stopAlarm() }, [])
 
   // the parent hears about the SET, and only when it changes — `due` is a fresh array every
   // tick, so a reference check here would push a state update up on every beat

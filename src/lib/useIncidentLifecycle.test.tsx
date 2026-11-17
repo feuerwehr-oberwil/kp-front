@@ -114,10 +114,10 @@ describe('useCloseReopen · reopenNow', () => {
 // Sweep 09.11.2026, UX.10: «Abschliessen» in «Alle Einsätze» asked the plain question for every
 // Einsatz — also for one with crews still inside.
 describe('useCloseReopen · archiveById', () => {
-  function list(activeId: string | null, abschlussHere: (() => Promise<boolean>) | null = null) {
+  function list(activeId: string | null, abschlussHere: (() => Promise<boolean>) | null = null, incidents: IncidentMeta[] = []) {
     const deps = {
       closingLocallyRef: { current: null }, reopeningLocallyRef: { current: null }, activeId, activeMeta: null,
-      incidents: [], syncRef: { current: null }, archiveReturnRef: { current: null },
+      incidents, syncRef: { current: null }, archiveReturnRef: { current: null },
       refreshList: vi.fn(async () => []), selectIncident: vi.fn(async () => {}), markOpened: vi.fn(),
       setIncidents: vi.fn(), setClosedMedia: vi.fn(), setActiveId: vi.fn(), setActiveMeta: vi.fn(),
       setWorkspace: vi.fn(), setForceReadOnly: vi.fn(),
@@ -156,5 +156,13 @@ describe('useCloseReopen · archiveById', () => {
     const { result } = list(null)
     await result.current.archiveById('inc-2')
     expect(confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ title: appConfig.copy.history.archiveConfirmTitle }))
+  })
+
+  it('names the Einsatz it closes above the button (LISTS.11)', async () => {
+    getWorkspace.mockRejectedValue(new Error('offline'))
+    const other = { id: 'inc-2', title: 'Ölspur', started_at: '2026-11-17T08:42:00', is_exercise: false } as IncidentMeta
+    const { result } = list(null, null, [other])
+    await result.current.archiveById('inc-2')
+    expect(confirmDialog).toHaveBeenCalledWith(expect.objectContaining({ subject: expect.objectContaining({ head: 'Ölspur' }) }))
   })
 })

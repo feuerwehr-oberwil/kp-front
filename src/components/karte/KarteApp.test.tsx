@@ -198,7 +198,7 @@ describe('KarteApp', () => {
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })
     type Ov = { id: string; rings?: number[][][] }
     const overlays = () => (lastMap() as unknown as { preparedOverlays: Ov[] }).preparedOverlays
-    const level = () => screen.queryByRole('group', { name: 'Objekt oder Haus' })
+    const level = () => screen.queryByRole('group', { name: 'Objekt oder Gebäude' })
 
     act(() => lastMap().onMapClick([7.5703, 47.5237]))
     expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
@@ -514,7 +514,7 @@ describe('KarteApp', () => {
     const [box] = await screen.findAllByRole('option')
     // the name IS the address: printed once, the kind quietly under it — never in its place
     expect(within(box).getByText('Starenstrasse 7')).toBeTruthy()
-    expect(within(box).getByText('Stationsobjekt')).toBeTruthy()
+    expect(within(box).getByText('Objekt')).toBeTruthy()
     expect(box.textContent).not.toMatch(/keine Pläne/)
   })
 
@@ -522,7 +522,7 @@ describe('KarteApp', () => {
     mount()
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })
     fireEvent.click(screen.getByRole('button', { name: 'Ebenen' }))
-    const objects = () => screen.getByRole('button', { name: /^Stationsobjekte – / })
+    const objects = () => screen.getByRole('button', { name: /^Objekte – / })
     const chip = (name: string) => screen.getByRole('button', { name })
     expect(chip('Standard').getAttribute('aria-pressed')).toBe('true')
     expect(objects().getAttribute('aria-pressed')).toBe('true')
@@ -617,7 +617,7 @@ describe('KarteApp', () => {
     mount()
     expect(await screen.findByRole('heading', { name: 'Remise Schloss' })).toBeTruthy()
     // owner R3: no «Schlüsseldepot» kicker, note or glyph — the kind word and the register
-    expect(screen.getAllByText('Stationsobjekt').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Objekt').length).toBeGreaterThan(0)
     expect(document.body.textContent).not.toMatch(/Schlüsseldepot/)
     expect(document.querySelector('[data-section="register"]')).not.toBeNull()
   })
@@ -628,7 +628,7 @@ describe('KarteApp', () => {
     const { launcherRow } = mount({ einsaetze: { badge: 2, render: (close) => <button type="button" onClick={() => { close() }}>Manueller Einsatz</button> } })
     void launcherRow
     // the count is in the name; on the button it is a dot (owner, review round 5)
-    const button = screen.getByRole('button', { name: 'Menü – Feuerwehr Musterdorf, 2 offen' })
+    const button = screen.getByRole('button', { name: 'Menü – Feuerwehr Musterdorf, Offene Einsätze: 2' })
     expect(button.querySelector('[data-karte-menu-dot]')).not.toBeNull()
     expect(screen.queryByRole('dialog', { name: 'Menü' })).toBeNull()
     fireEvent.click(button)
@@ -673,8 +673,10 @@ describe('KarteApp', () => {
     expect(screen.getByRole('dialog', { name: 'Menü' })).toBeTruthy()
     cleanup()
     mount({ running: [inc('u1', 'Übung Atemschutz', true)] })
-    expect(screen.getByRole('button', { name: 'Einsatz öffnen: Übung Atemschutz' })).toBeTruthy()
+    const only = screen.getByRole('button', { name: 'Einsatz öffnen: Übung Atemschutz' })
     expect(document.querySelector('[data-karte-running-more]')).toBeNull()
+    // ENT.9: an Übung says so in the word, not only in the hatching
+    expect(only.querySelector('.ip-badge-exercise')?.textContent).toBe(appConfig.copy.exerciseBadge)
   })
 
   // round 2b (owner's pick «Same chip says it», 13.11.2026): a live Einsatz's Atemschutz alarm is
@@ -786,6 +788,23 @@ describe('KarteApp', () => {
     expect(screen.queryByTestId('pdf')).toBeNull()
   })
 
+  // button round 17.11.2026 (CHROME.10): Ebenen OPENS a panel – open it is expanded (the open wash),
+  // not pressed, and the Karte stays «here»; the two map squares say their word under the glyph
+  it('on a phone: open Ebenen is expanded, not pressed, and the map squares are worded', async () => {
+    rec.phone = true
+    mount()
+    const nav = await screen.findByRole('navigation', { name: 'Karte & Objekte' })
+    expect(screen.getByRole('button', { name: appConfig.copy.karte.tools.pin }).textContent).toBe(appConfig.copy.karte.tools.pinShort)
+    expect(screen.getByRole('button', { name: appConfig.copy.mapViews.title }).textContent).toBe(appConfig.copy.mapViews.title)
+    const ebenen = within(nav).getByRole('button', { name: 'Ebenen' })
+    expect(ebenen.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(ebenen)
+    expect(ebenen.getAttribute('aria-expanded')).toBe('true')
+    expect(ebenen.hasAttribute('aria-pressed')).toBe(false)
+    expect(ebenen.classList.contains('on')).toBe(false)
+    expect(within(nav).getByRole('button', { name: 'Karte' }).classList.contains('on')).toBe(true)
+  })
+
   // owner, 19.10.2026 (Checkliste on the Karte home, variant A): the bar never changes — the two
   // surfaces │ the map's tools; a tool tapped on the Checkliste goes back to the Karte with it armed
   it('on a phone: Karte · Checkliste │ tools, the bar field feeds the library, a tool goes back armed', async () => {
@@ -808,9 +827,9 @@ describe('KarteApp', () => {
     expect(screen.getByRole('button', { name: 'Suchen' })).toBeTruthy()
   })
 
-  // «Beschriftung» reaches every bar here as in an Einsatz (owner, 07.11.2026) – and the left
-  // rail keeps its chevron with the words on (the regression of 20.10.2026 was losing it)
-  it('with saved toolbar labels: words on every bar, and the left rail still expands and collapses', async () => {
+  // «Beschriftung» reaches every bar here as in an Einsatz (owner, 07.11.2026) – and, as there,
+  // the left rail drops its chevron with the words on (owner, 16.11.2026)
+  it('with saved toolbar labels: words on every bar, and the left rail no longer expands', async () => {
     const prefs = loadPrefs()
     savePrefs({ ...prefs, railLabels: 'short', railLabelsChosen: true })
     try {
@@ -820,12 +839,7 @@ describe('KarteApp', () => {
       expect(document.querySelector('aside.tool-rail.labelled')).toBeTruthy()
       expect(document.querySelector('.view-bar.labelled')).toBeTruthy()
       expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('92px')
-      fireEvent.click(within(rail).getByRole('button', { name: 'Ausklappen' }))
-      expect(rail.classList.contains('expanded')).toBe(true)
-      expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('216px')
-      fireEvent.click(within(rail).getByRole('button', { name: 'Einklappen' }))
-      expect(rail.classList.contains('expanded')).toBe(false)
-      expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('92px')
+      expect(within(rail).queryByRole('button', { name: 'Ausklappen' })).toBeNull()
       await act(async () => {})
     } finally {
       savePrefs(prefs)
@@ -862,6 +876,15 @@ describe('KarteApp', () => {
       expect(pressed(appConfig.copy.karte.tools.pin)).toBe('true')
       key('u')
       expect(pressed(appConfig.copy.karte.tools.erg)).toBe('true')
+    })
+
+    // GESTURES.14: every armed state has a visible ✕ – «Punkt setzen» had only its hint
+    it('Punkt setzen wears the ✕ the other tools have, and it puts the tool away', async () => {
+      mount()
+      await act(async () => {})
+      key('p')
+      fireEvent.click(screen.getByRole('button', { name: appConfig.copy.cancel }))
+      expect(pressed(appConfig.copy.karte.tools.pin)).toBe('false')
     })
 
     it('C opens the Checkliste and K goes back; / focuses the bar\'s search field', async () => {

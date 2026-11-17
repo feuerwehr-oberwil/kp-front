@@ -55,7 +55,7 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     add: 'Matériel',
     viewBySource: 'En service',
     // the category filter's WORD on a wide head (22.09.2026)
-    categoryFilterWord: 'Filtrer',
+    categoryFilterWord: 'Catégorie',
     noSource: 'Sans affectation',
     searchPlaceholder: 'Rechercher …',
     addOne: 'Saisir {label}',
@@ -85,7 +85,6 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     save: 'Enregistrer',
     cancel: 'Annuler',
     removeRow: 'Mettre à 0',
-    removedToast: '«{label}» supprimé',
     logSet: '{label} : {menge} {unit}',
     logRemoved: '{label} mis à 0',
     logDeleted: '{label} supprimé',
@@ -113,5 +112,7 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     lagePickOpenOne: 'Encore 1 question ouverte',
     lagePickConfirm: 'Saisir {n} positions',
     lagePickConfirmOne: 'Saisir 1 position',
+    viewBySourceWord: 'Utilisé',
+    customMaterialWord: 'Autre',
   },
 }

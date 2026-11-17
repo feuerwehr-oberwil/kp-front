@@ -7,6 +7,8 @@ import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { SearchField } from '../components/SearchField'
 import { InfoToggle } from '../components/InfoToggle'
+import c from '../components/SurfaceControls.module.css'
+import { cx } from '../lib/cx'
 import { DateTimeField } from '../components/TimeField'
 import { keepEndAfterStart, keepStartBeforeEnd } from '../lib/abschluss'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
@@ -51,14 +53,13 @@ type Props = Shell & {
   tapPerson: (p: CapturePerson) => Promise<void>
   addGuest: (name: string) => Promise<void>
   run: (action: CaptureAction) => Promise<Workspace | null>
-  savedToast: () => void
 }
 
 /** The Personen section: search · «Erfasste» filter · tap help, then one row per person. */
 export function PersonenSection({
   open, onToggle, sectionRef, zeitDays, busy, attendance, rosterIds, filteredRoster, presentCount,
   recordedCount, search, setSearch, onlyRecorded, setOnlyRecorded, showTapHelp, setShowTapHelp, guestOffer,
-  tapPerson, addGuest, run, savedToast,
+  tapPerson, addGuest, run,
 }: Props) {
   const C = appConfig.copy.capture
   const A = appConfig.copy.anwesenheit
@@ -75,12 +76,15 @@ export function PersonenSection({
             row DELETES that person's entry, so filtering down to the last recorded
             person and tapping them once more took the count to 0 — and a toggle that
             unmounts while still filtering leaves an empty roster with nothing on screen
-            to switch it off again. */}
+            to switch it off again.
+            THE list-head filter tile (SurfaceControls · `.iconBtn` + `.word`, button sweep HEADS.2,
+            17.11.2026): the Anwesenheit's «Vor Ort» – word under the glyph on a phone, ON the choice
+            fill. It was a hand-rolled copy with the word beside at 14/700 and a 15px glyph. */}
         {(recordedCount > 0 || onlyRecorded) && (
-          <button type="button" className={`cv-filter${onlyRecorded ? ' on' : ''}`}
+          <button type="button" className={cx(c.iconBtn, onlyRecorded && c.iconBtnOn)}
             aria-pressed={onlyRecorded} onClick={() => setOnlyRecorded((v) => !v)}>
             <Icon id="check" />
-            <span>{fillTemplate(C.filterRecorded, { n: recordedCount })}</span>
+            <span className={c.word}>{fillTemplate(C.filterRecorded, { n: recordedCount })}</span>
           </button>
         )}
         <InfoToggle open={showTapHelp} onToggle={() => setShowTapHelp((v) => !v)} label={C.tapHelp} />
@@ -139,7 +143,7 @@ export function PersonenSection({
                     if (!picked) return
                     const iso = personTimeIso(picked, here ? 'from' : 'to', { from: cur?.from, to: cur?.to })
                     const patch = here ? { from: iso } : { to: iso }
-                    void run({ kind: 'setTimes', personId: p.id, index: bi, ...patch }).then((ok) => { if (ok) savedToast() })
+                    void run({ kind: 'setTimes', personId: p.id, index: bi, ...patch })
                   }}
                 />
               )}
@@ -153,7 +157,7 @@ export function PersonenSection({
         {guestOffer && (
           <button type="button" className="cv-btn cv-btn-add" disabled={busy}
             onClick={() => { void addGuest(guestOffer) }}>
-            <Icon id="type" />
+            <Icon id="plus" />
             <span>{fillTemplate(A.addGuest, { name: guestOffer })}</span>
           </button>
         )}

@@ -68,41 +68,65 @@ export const mapCopy = {
     fit: 'Einpassen',
     locate: 'Mein Standort',
     save: 'Ansicht speichern',
-    hint: 'Eine Ansicht speichert Position, Zoom und Drehung der Karte. Tippe eine gespeicherte Ansicht an, um dorthin zu wechseln, z. B. zwischen der Nordübersicht und einer in deine Blickrichtung gedrehten Ansicht. Kompass lange drücken: Karte direkt einpassen.',
+    hint: 'Eine Ansicht merkt sich Ausschnitt, Zoom und Drehung – antippen springt dorthin.',
     rename: 'Umbenennen',
     delete: 'Löschen',
-    saved: 'Ansicht gespeichert',
     deleted: 'Ansicht «{name}» gelöscht',
   },
   toast: {
-    audioSaved: 'Sprachnotiz gespeichert ({secs} s)',
     micDenied: 'Kein Mikrofonzugriff – als Platzhalter vermerkt',
     // the mic WAS granted; the recorder itself would not start (unsupported format/hardware)
     micFailed: 'Aufnahme nicht gestartet – erneut versuchen',
-    merged: 'Änderungen zusammengeführt',
+    // a permission denied long ago (rare-user round F9, 17.11.2026; lib/permissionPath): what is
+    // blocked, then where its switch is on THIS platform – «Mein Standort» never does nothing
+    micBlocked: 'Mikrofon gesperrt – erlauben unter {path}',
+    locateBlocked: 'Standort gesperrt – erlauben unter {path}',
+    locateNone: 'Kein Standort gefunden – erneut versuchen',
+    permissionPath: {
+      location: {
+        iosApp: 'iPhone-Einstellungen › Datenschutz & Sicherheit › Ortungsdienste › Safari-Websites',
+        iosSafari: 'iPhone-Einstellungen › Apps › Safari › Standort',
+        android: 'Chrome ⋮ › Einstellungen › Website-Einstellungen › Standort',
+        desktop: 'dem Symbol links der Adresse › Standort',
+      },
+      microphone: {
+        iosApp: 'iPhone-Einstellungen › Apps › Safari › Mikrofon',
+        iosSafari: 'iPhone-Einstellungen › Apps › Safari › Mikrofon',
+        android: 'Chrome ⋮ › Einstellungen › Website-Einstellungen › Mikrofon',
+        desktop: 'dem Symbol links der Adresse › Mikrofon',
+      },
+      notifications: {
+        iosApp: 'iPhone-Einstellungen › Mitteilungen › {app}',
+        iosSafari: 'iPhone-Einstellungen › Mitteilungen › {app}',
+        android: 'Android-Einstellungen › Apps › {app} › Benachrichtigungen',
+        desktop: 'dem Symbol links der Adresse › Benachrichtigungen',
+      },
+    },
   },
   // help shown by the info (ℹ) button on each tool dock — the instructions
   // that used to sit in the bottom hint bar
   dockHints: {
-    lasso: 'Rahmen um mehrere Objekte ziehen.',
-    line: 'Ziehen oder Punkte tippen.',
+    lasso: 'Rahmen um mehrere Objekte ziehen – dann gemeinsam verschieben oder entfernen.',
     /** …per input mode, because the two take different gestures: «Freihand» draws only with a
-     *  drag (a tap does nothing), «Punkte» only with taps and ✓. These and `area` are the Karte's
-     *  AND the Plan's (WbControls), so they name no surface (UX sweep M4, 20.10.2026): a node
-     *  draft finishes on ✓ on both, never on a double tap — that zooms, as everywhere. */
-    lineFreehand: 'Ziehen zeichnet die Linie. Einzelne Punkte: «Punkte».',
-    lineNodes: 'Punkte tippen, ✓ – fertig.',
-    area: 'Umriss frei ziehen – oder Eckpunkte tippen, ✓ – fertig.',
+     *  drag (a tap does nothing), «Punkte» only with taps and ✓ – the Fläche's too (`areaFreehand`
+     *  / `areaNodes`, button sweep audit B4, 17.11.2026: ONE text said «Eckpunkte tippen» in
+     *  Freihand). They are the Karte's AND the Plan's (WbControls), so they name no surface (UX
+     *  sweep M4, 20.10.2026): a node draft finishes on ✓ on both, never on a double tap — that
+     *  zooms, as everywhere. The Trupp's `team` is both surfaces' too (audit B8). */
+    lineFreehand: 'Mit dem Finger ziehen – die Linie folgt. Gerade Stücke: «Punkte».',
+    lineNodes: 'Punkt für Punkt tippen, dann ✓ Fertig.',
     circle: 'Von der Mitte zum Rand ziehen.',
     note: 'Tippen, wo die Notiz hin soll – dann schreiben.',
-    team: 'Tippen und den Trupp wählen. Ziehen verschiebt ihn.',
+    team: 'Tippen, dann den Trupp wählen – einen gesetzten Trupp ziehen, um ihn zu verschieben.',
     shape: 'Tippen setzt die Form. Für mehrere: «Mehrere platzieren».',
     // Eine Rotation ist eine Strecke zwischen zwei Orten, also wird sie auch so gelegt:
     // erst der Wasserbezug, dann die Brandstelle. Auf einem Symbol halten, bis der Ring
     // zu ist, setzt den Punkt genau darauf.
-    rotationStart: 'Ersten Punkt tippen – wo das Wasser bezogen wird. Auf einem Zeichen halten rastet ein.',
-    rotationEnd: 'Zweiten Punkt tippen – die Brandstelle. Denselben Punkt nochmals: Standardlänge.',
+    rotationStart: 'Ersten Punkt tippen – wo das Wasser bezogen wird. Auf einem Symbol halten setzt ihn genau darauf.',
+    rotationEnd: 'Zweiten Punkt tippen – die Brandstelle. Nochmals auf den ersten Punkt: übliche Länge.',
     measure: 'Punkte tippen. Punkt halten entfernt ihn.',
+    areaFreehand: 'Rundum ziehen – die Fläche schliesst sich beim Loslassen.',
+    areaNodes: 'Ecke für Ecke tippen, dann ✓ Fertig.',
   },
   map: {
     incidentHere: 'Einsatzort',
@@ -118,7 +142,7 @@ export const mapCopy = {
     // and nothing said why. One Meldeleiste row per Einsatz, gone the moment the link is back.
     noTilesTitle: 'Keine Basiskarte für diesen Ausschnitt gespeichert',
     noTilesSub: 'Offline – Objekte und Linien werden ohne Karte gezeigt',
-    noTilesAction: 'Dieses Gerät',
+    noTilesAction: 'Was offline da ist',
     noTilesDismiss: 'Ausblenden',
   },
 } as const

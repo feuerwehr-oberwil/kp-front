@@ -2,7 +2,10 @@
 // §1, 23.10.2026.) Four preconditions lapse silently for exactly the operator the tenet
 // describes: the app is a browser tab (iOS pushes only to the installed app), notification
 // permission was never asked for at a calm moment, the push registration ran past its 180-day
-// TTL, the login's refresh token expired. This module turns the facts into rows with one fix
+// TTL, the login's refresh token expired. A fifth fact is no lapse but the account itself: an
+// `el` or viewer login never gets «Neuer Einsatz» (backend push.py · NEW_ALARM_ROLES), only the
+// Atemschutz alarms, so for it the card says so in an amber «Konto» row (rare-user round M2 = B,
+// 17.11.2026) instead of a green «Alarm bereit». This module turns the facts into rows with one fix
 // each, decides when the Karte home's nudge card may show, and keeps the device's own small
 // record (last registration, last Testalarm, last green check, «Später», opt-out). Pure — the
 // facts are gathered by the component (components/karte/AlarmReadiness); the store is the one
@@ -10,11 +13,15 @@
 
 import type { InstallPlatform } from './installPolicy'
 
-export type ReadinessKey = 'installed' | 'permission' | 'subscription' | 'session'
+export type ReadinessKey = 'installed' | 'permission' | 'subscription' | 'session' | 'role'
+export type AccountRole = 'editor' | 'el' | 'viewer'
+/** Who «Neuer Einsatz» wakes – the client's copy of backend push.py · NEW_ALARM_ROLES (owner,
+ *  22.10.2026: the accounts that take an alarm into an Einsatz). Change both together. */
+export const NEW_ALARM_ROLES: readonly AccountRole[] = ['editor']
 /** ok = green · warn = a hint, still alarm-capable · red = no alarm reaches this device */
 export type ReadinessState = 'ok' | 'warn' | 'red'
 /** the one-tap fix a row offers: install → the InstallGuide · allow → the permission ask +
- *  subscribe · renew → re-register · system → none (the OS has the switch; the sub-line says so) */
+ *  subscribe · renew → re-register · system → none (the OS has the switch; the sub-line names where – lib/permissionPath) */
 export type ReadinessFix = 'install' | 'allow' | 'renew' | 'system' | null
 
 export interface ReadinessFacts {
@@ -27,6 +34,8 @@ export interface ReadinessFacts {
   subscribedAt: number | null
   /** when the login's refresh token runs out — `session_until` from /api/auth/me */
   sessionUntil: number | null
+  /** the login's role; null where there is no account (a kiosk) – then no «Konto» row */
+  role: AccountRole | null
 }
 
 export interface ReadinessRow {
@@ -34,7 +43,7 @@ export interface ReadinessRow {
   state: ReadinessState
   fix: ReadinessFix
   /** which wording the sub-line takes (copy · karte.device.alarm) */
-  sub: 'installed' | 'browser' | 'browserIos' | 'granted' | 'ask' | 'denied' | 'afterInstall' | 'subscribed' | 'stale' | 'none' | 'valid' | 'soon' | 'gone' | 'unknown'
+  sub: 'installed' | 'browser' | 'browserIos' | 'granted' | 'ask' | 'denied' | 'afterInstall' | 'subscribed' | 'stale' | 'none' | 'valid' | 'soon' | 'gone' | 'unknown' | 'alarmOnly'
   /** the date the sub-line names, where it names one */
   at: number | null
 }
@@ -49,7 +58,9 @@ export const LATER_DAYS = 30
 /** the nudge comes back when nothing was checked (a Testalarm, the rows opened green) for this long */
 export const CHECK_DAYS = 90
 
-/** The four rows, in the order they are read: the first red one is the nudge card's one fix. */
+/** The four rows, in the order they are read: the first red one is the nudge card's one fix. A
+ *  fifth, «Konto», only for an account «Neuer Einsatz» does not wake: amber (it still gets the
+ *  Atemschutz alarms), no fix – the audience is the station's choice, not the device's. */
 export function readinessRows(f: ReadinessFacts): ReadinessRow[] {
   const ios = f.platform === 'ios'
   const installed: ReadinessRow = f.standalone
@@ -80,7 +91,9 @@ export function readinessRows(f: ReadinessFacts): ReadinessRow[] {
       : f.sessionUntil - f.now < SESSION_WARN_DAYS * DAY
         ? { key: 'session', state: 'warn', fix: null, sub: 'soon', at: f.sessionUntil }
         : { key: 'session', state: 'ok', fix: null, sub: 'valid', at: f.sessionUntil }
-  return [installed, permission, subscription, session]
+  const rows = [installed, permission, subscription, session]
+  if (f.role != null && !NEW_ALARM_ROLES.includes(f.role)) rows.push({ key: 'role', state: 'warn', fix: null, sub: 'alarmOnly', at: null })
+  return rows
 }
 
 /** The one line the rows fold into (sweep 28.10.2026, 17A): red when any row is red, amber when

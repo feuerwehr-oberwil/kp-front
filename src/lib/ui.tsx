@@ -16,20 +16,14 @@ import { useToastLane } from './toastLane'
 // module store; mount <Overlays/> once at the app root.
 
 type Tone = 'default' | 'warn' | 'success'
-/** How a tone is shown. `edge` keeps the neutral ink pill every other status shares and puts the
- * colour on the leading edge and the icons; `fill` paints the whole pill. A failure (`warn`) is an
- * EDGE by default since 23.09.2026: a saturated red pill for «Synchronisierung fehlgeschlagen» —
- * changes that are safe on the device — read as an alarm, and the app has real alarms (the
- * Atemschutz clock, the Meldeleiste) that must keep that register to themselves. The live print
- * job wore the edge first, for the same reason. `success` stays a fill: it is short and calm.
- * (The Meldeleiste's rows wore the same edge until 29.09.2026; there the glyph alone carries the tone now.) */
-type ToneStyle = 'fill' | 'edge'
-const defaultToneStyle = (tone: Tone): ToneStyle => (tone === 'warn' ? 'edge' : 'fill')
-/** Is this toast a FAILURE, as opposed to a live status that wears the warn edge? A step chain is
- *  a job still under way (the print pill while queued/printing — lib/printJobToast); its own
- *  failure drops the chain. Only a failure gets the red trace in the pill (08-toasts.css ·
- *  `.toast-fail`): a job queued for 90 s is not a failure and must not look like one. */
-const isFailure = (t: { tone: Tone; steps?: ToastStep[] }) => t.tone === 'warn' && !t.steps?.length
+/** Is this toast a FAILURE? A `warn` toast is one, and only a failure gets the red trace in the
+ *  pill (08-toasts.css · `.toast-fail`) and the red leading glyph. A job still under way (the
+ *  print pill while queued/printing — lib/printJobToast) is a `default` tone with a neutral glyph,
+ *  red only on its failure step (duck sweep FEEDBACK.11, 17.11.2026: a red printer glyph for the
+ *  90 s an Epson warms up read as «Druck fehlgeschlagen»). The `toneStyle` edge/fill switch that
+ *  stood here went the same day: no CSS had styled its `toast-edge` class since the Meldeleiste
+ *  dropped its edge (29.09.2026). */
+const isFailure = (t: { tone: Tone }) => t.tone === 'warn'
 export interface ToastAction { label: string; onClick: () => void }
 /** One stage of a multi-step toast (the live print job). `icon` omitted = an unreached step,
  * drawn as a dim pip; `printer` is the animated «paper coming out» glyph. */
@@ -41,7 +35,7 @@ export interface ToastStep {
 /** How long a toast that goes away by itself has, for the line that runs out along its foot
  *  (08-toasts.css · .toast-life). `key` restarts that line when updateToast resets the clock. */
 interface ToastLife { ms: number; key: number }
-interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle: ToneStyle; action?: ToastAction; steps?: ToastStep[]; onDismiss?: () => void; leaving?: boolean; life?: ToastLife; kind?: string }
+interface Toast { id: number; text: string; icon?: string; tone: Tone; action?: ToastAction; steps?: ToastStep[]; onDismiss?: () => void; leaving?: boolean; life?: ToastLife; kind?: string }
 /** A confirm that is on screen and waiting for its answer — the shared `ConfirmSpec` plus what
  *  only the pending state needs: which request it is, and the promise to settle. */
 interface ConfirmReq extends ConfirmSpec {
@@ -82,9 +76,8 @@ export function dismissToast(id: number) {
   if (!t || t.leaving) return
   const prev = timers.get(id)
   if (prev) { clearTimeout(prev); timers.delete(id) }
-  // every exit path runs through here (✕, swipe, timer, programmatic), so a toast that stands
-  // for a MODE (the Leitung-pick hint) can end the mode with itself. Must be idempotent —
-  // the mode's own teardown also dismisses the toast.
+  // every exit path runs through here (✕, swipe, timer, cap, replace), so `onDismiss` sees
+  // them all – `undoToast` releases its merge guard on it. Must be idempotent.
   t.onDismiss?.()
   // leave the way it came in: `.toast.out` plays (.14s, shorter than the entrance), then the
   // node goes. The removal timer stays out of `timers` — nothing may cancel the second half.
@@ -104,45 +97,71 @@ function muteToasts(on: boolean) {
   for (const t of toasts) dismissToast(t.id)
 }
 
-export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[]; onDismiss?: () => void; kind?: string }): number {
+/** At most this many pills stand at once (toast diet, 17.11.2026, owner: «not spamming the UI»).
+ *  A new one sends the OLDEST timed pill out; a sticky one (a live print job) is never pushed out.
+ *  An undo pill that leaves this way loses nothing: its act stays on the header's ↶. */
+export const MAX_TOASTS = 3
+
+/** Raise a toast. Before you add a call, read the toast rule (docs/ui-conventions.md › Messages):
+ *  a toast is for what the operator must know NOW and cannot see where they are looking – or the
+ *  one tap back. A success the screen already shows, a standing state, a refusal inside an open
+ *  form and background news are never a toast. What can fire again (per tap, per sync event)
+ *  carries a `kind`. */
+export function toast(text: string, opts?: { icon?: string; tone?: Tone; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[]; onDismiss?: () => void; kind?: string }): number {
   if (toastsMuted) return seq++
   // `kind`: a toast of the same kind still on screen is REPLACED, not stacked under the new one
-  // (3am test r4, 26.09.2026: three «+ OG» taps stacked three identical «Geschoss hinzugefügt ·
-  // Rückgängig» pills over the stack's own «+ UG»). The replaced toast's act stays on ↶.
+  // (3am test r4, 26.09.2026: three «+ OG» taps stacked three identical pills over the stack's
+  // own «+ UG»). The replaced toast's act stays on ↶.
   if (opts?.kind) for (const t of toasts) if (t.kind === opts.kind && !t.leaving) dismissToast(t.id)
+  // the cap: what still stands after the replace, oldest first, minus room for the new one
+  const standing = toasts.filter((t) => !t.leaving && t.life)
+  const over = toasts.filter((t) => !t.leaving).length + 1 - MAX_TOASTS
+  for (const t of standing.slice(0, Math.max(0, over))) dismissToast(t.id)
   const id = seq++
   // sticky toasts stay until updateToast/dismissToast decides (live status, a mode's instruction).
   // Otherwise an action (e.g. confirm-with-undo) needs time to be seen and tapped.
   const ms = opts?.sticky ? undefined : opts?.duration ?? defaultToastDuration(text, !!opts?.action)
-  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action, steps: opts?.steps, onDismiss: opts?.onDismiss, life: ms ? { ms, key: seq++ } : undefined, kind: opts?.kind }]
+  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', action: opts?.action, steps: opts?.steps, onDismiss: opts?.onDismiss, life: ms ? { ms, key: seq++ } : undefined, kind: opts?.kind }]
   emit()
   if (ms) scheduleDismiss(id, ms)
   return id
 }
 
+/** What an undo pill leads with: the glyph NAMES the act (owner, 17.11.2026 – duck sweep call 6).
+ *  `trash` = something was removed, `check` = something was taken / ticked, `undo` = anything else. */
+export type UndoGlyph = 'undo' | 'trash' | 'check'
+
+/** Undo pills replace each other unless they bring their own `kind`: one at a time, every older
+ *  act stays on the header's ↶ (toast diet call 2, 17.11.2026). */
+export const UNDO_KIND = 'undo'
+
 /**
- * The house confirm-with-undo toast: what just happened, and one tap to take it back.
+ * The house confirm-with-undo toast: what just happened, and one tap to take it back. EVERY toast
+ * whose button is «Rückgängig» comes through here (duck sweep FEEDBACK.4, 17.11.2026) – one tone
+ * (never green: a green ✓ with «Rückgängig» read as a plain «done» and got swiped away), one
+ * button, one guard, and one leading glyph that names the act (`UndoGlyph`).
  *
  * This is the pattern the app uses INSTEAD of asking «wirklich?» before a reversible edit — the
  * operator is at an Einsatz and a modal in the way of a tick costs more than the mistake does.
- * That trade only holds while every one of them looks and behaves the same, and they were seven
- * hand-written copies of the same three lines (Zeitplan, Schichtbänder, Anwesenheit), so the
- * undo icon and the «Rückgängig» label are decided here, once — for the toasts whose only
- * subject IS the undo. The domain toasts keep writing the action out, because each carries its
- * own icon (radio, drop, trash, pen, move, check) and that glyph is what names the edit; they
- * are not an unfinished sweep.
+ * That trade only holds while every one of them looks and behaves the same, so the label, the
+ * guard and the glyph set are decided here, once. ⚠️ Only for an act the top bar's ↶ cannot reach
+ * (owner pick 28, 17.11.2026): an act on the ↶ timeline raises no toast at all, so nothing is
+ * undoable twice.
+ *
+ * `kind` defaults to `UNDO_KIND`: a newer undo pill replaces an older one. An act whose pill must
+ * not be pushed out (a device reset, the Alarm take) passes its own kind.
  */
-export function undoToast(text: string, onUndo: () => void, guard?: readonly RecordKey[] | (() => boolean), opts?: { kind?: string }): number {
+export function undoToast(text: string, onUndo: () => void, guard?: readonly RecordKey[] | (() => boolean), opts?: { kind?: string; glyph?: UndoGlyph; duration?: number }): number {
   // ⚠️ `guard` — the toast outlives remote merges like any undo step does (25.09.2026). Given the
   // records `onUndo` writes, a merge that changes one of them (lib/undoKeys · noteRemoteChanges)
   // makes the button decline with «Nicht mehr rückgängig machbar» instead of writing a pre-merge
   // value over another device's change; given a predicate (a timeline entry's `standing`), the
   // entry's own fate decides. Without one the toast acts unguarded, as it always did.
-  // `opts.kind` (#232): a second toast of the same kind replaces the first instead of stacking.
   const watch = Array.isArray(guard) ? watchRecords(guard) : null
   const ok = typeof guard === 'function' ? guard : watch ? watch.ok : () => true
   return toast(text, {
-    icon: 'undo',
+    icon: opts?.glyph ?? 'undo',
+    duration: opts?.duration,
     action: {
       label: appConfig.copy.undo,
       onClick: () => {
@@ -152,17 +171,17 @@ export function undoToast(text: string, onUndo: () => void, guard?: readonly Rec
       },
     },
     onDismiss: () => watch?.release(),
-    kind: opts?.kind,
+    kind: opts?.kind ?? UNDO_KIND,
   })
 }
 
 /** Patch a live toast in place (text/icon/tone/action). Pass `duration` to auto-dismiss it
  * (e.g. once the job reaches done/failed); omit to keep it sticky. Unknown id = no-op. */
-export function updateToast(id: number, text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction | null; steps?: ToastStep[] | null }) {
+export function updateToast(id: number, text: string, opts?: { icon?: string; tone?: Tone; duration?: number; action?: ToastAction | null; steps?: ToastStep[] | null }) {
   const cur = toasts.find((t) => t.id === id)
   if (!cur || cur.leaving) return
   toasts = toasts.map((t) => t.id === id
-    ? { ...t, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action ?? undefined, steps: opts?.steps ?? undefined,
+    ? { ...t, text, icon: opts?.icon, tone: opts?.tone ?? 'default', action: opts?.action ?? undefined, steps: opts?.steps ?? undefined,
         // a new clock is a new line; no clock keeps whatever the toast already had
         life: opts?.duration ? { ms: opts.duration, key: seq++ } : t.life }
     : t)
@@ -189,11 +208,13 @@ export function confirmDialog(opts: ConfirmOpts): Promise<boolean | 'alt'> {
       items: opts.items,
       note: opts.note,
       noteLead: opts.noteLead,
+      subject: opts.subject,
       confirmLabel: opts.confirmLabel ?? appConfig.copy.confirm.ok,
       cancelLabel: opts.cancelLabel ?? appConfig.copy.confirm.cancel,
       danger: opts.danger,
       altLabel: opts.altLabel,
       altDanger: opts.altDanger,
+      bin: opts.bin,
       safeAnswer: opts.safeAnswer,
       resolve,
     }
@@ -318,7 +339,9 @@ function ToastAction({ toast: t }: { toast: Toast }) {
     <span className="toast-actions" onPointerDown={(e) => e.stopPropagation()}
       style={dx ? { transform: `translateX(${dx}px)`, opacity: Math.max(.25, 1 - Math.abs(dx) / (FLICK * 2)) } : undefined}>
       <button
-        className="btn toast-action"
+        // THE button (`.ip-btn`), like the Meldeleiste's – the one way back after a removal was the
+        // smallest, quietest button of all the message surfaces (button sweep SHEETS.5, 17.11.2026)
+        className="ip-btn toast-action"
         // ⚠️ optional call: pointer capture keeps the flick tracking once the finger leaves the
         // button, but it is not available everywhere (jsdom has no implementation, and neither did
         // older WebViews) — and an undo button that THROWS on touch is worse than one that only
@@ -392,7 +415,7 @@ function ToastRow({ t }: { t: Toast }) {
 
   return (
     <div
-      className={`toast toast-${t.tone}${t.toneStyle === 'edge' ? ' toast-edge' : ''}${isFailure(t) ? ' toast-fail' : ''}${t.leaving ? ' out' : ''}`}
+      className={`toast toast-${t.tone}${isFailure(t) ? ' toast-fail' : ''}${t.leaving ? ' out' : ''}`}
       style={dx ? {
         transform: `translateX(${dx}px)`,
         opacity: flung ? 0 : Math.max(.25, 1 - Math.abs(dx) / (FLICK * 2)),
@@ -477,11 +500,13 @@ export function Overlays({ toasts: showToasts = true }: { toasts?: boolean } = {
         items={req?.items}
         note={req?.note}
         noteLead={req?.noteLead}
+        subject={req?.subject}
         confirmLabel={req?.confirmLabel ?? ''}
         cancelLabel={req?.cancelLabel ?? ''}
         danger={req?.danger}
         altLabel={req?.altLabel}
         altDanger={req?.altDanger}
+        bin={req?.bin}
         safeAnswer={req?.safeAnswer}
         onResolve={close}
       />
