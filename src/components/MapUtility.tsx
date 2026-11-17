@@ -22,6 +22,8 @@ interface Props {
   /** which quick-tap the layer set matches — named in the button's tooltip / accessible name
    *  (lib/layerPreset, 05.10.2026) */
   layersPreset?: LayerPreset
+  /** a content layer is off – the amber dot (lib/layerPreset · contentLayerHidden) */
+  layersHidden?: boolean
 }
 
 // Top-right map controls — [compass] | zoom · coordinates. The compass is the always-present,
@@ -31,7 +33,7 @@ interface Props {
 // into the top bar.
 export function MapUtility({
   onZoomIn, onZoomOut, bearing, views, readOnly, viewsOpen, onViewsOpenChange, coordsOn, onToggleCoords,
-  layersOn, onToggleLayers, layersPreset = 'standard',
+  layersOn, onToggleLayers, layersPreset = 'standard', layersHidden = false,
 }: Props) {
   const c = appConfig.copy.nav
   // (Day/night toggle moved to the incident dropdown menu — see IncidentSwitcher. The
@@ -44,7 +46,7 @@ export function MapUtility({
       {onToggleLayers && (
         <>
           <span className={s['tu-divider']} aria-hidden />
-          <button className={cx(s['tu-btn'], layersOn && s.on)} title={`${appConfig.copy.panels.layers} · ${layerPresetLabel(layersPreset)}`} aria-label={`${appConfig.copy.panels.layers} – ${layerPresetLabel(layersPreset)}`} aria-expanded={layersOn} onClick={onToggleLayers}><Icon id="layers" /></button>
+          <button className={cx(s['tu-btn'], layersOn && s.on)} title={`${appConfig.copy.panels.layers} · ${layerPresetLabel(layersPreset)}`} aria-label={`${appConfig.copy.panels.layers} – ${layerPresetLabel(layersPreset)}${layersHidden ? ` · ${appConfig.copy.whiteboard.floorHidden}` : ''}`} aria-expanded={layersOn} onClick={onToggleLayers}><Icon id="layers" />{layersHidden && <span className="layers-off-dot" aria-hidden />}</button>
         </>
       )}
     </div>

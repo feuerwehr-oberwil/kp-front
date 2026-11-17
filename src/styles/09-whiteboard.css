@@ -481,9 +481,16 @@
 /* Narrow strip (18.09.2026): chip + name and nothing else. «einblenden» was cut off to «einb…» at
    this size and the eye it pairs with is gone from the headers above, so the STRIP is the button —
    dashed and dimmed it still reads as a hidden storey, and its aria-label says «… einblenden». */
+/* With a Trupp on the storey (M7 = B, 17.11.2026) the narrow strip keeps the Trupp's chip AND the
+   eye – the one new fact and the sign that this is a way back – and sheds only the verb. */
 @container (max-width: 359px) {
-  .wb-floor-folded-state, .wb-floor-folded-cta { display: none; }
+  .wb-floor-folded-state, .wb-floor-folded-verb { display: none; }
+  .wb-floor-folded:not(:has(.wb-floor-folded-team)) .wb-floor-folded-cta { display: none; }
 }
+/* the Trupp's chip on the strip: the plan's `.team-dot`, its tone included; it never shrinks
+   below its name – the storey name gives way first (its ellipsis) */
+.wb-floor-folded-team { flex: 0 1 auto; min-width: 0; }
+.wb-floor-folded-team b { overflow: hidden; text-overflow: ellipsis; }
 .wb-floor-folded-cta .i { width: 13px; height: 13px; stroke-width: 2; }
 @media (hover: hover) {
   .wb-floor-folded:hover { background: color-mix(in srgb, var(--board-bg) 70%, var(--ink) 10%); }

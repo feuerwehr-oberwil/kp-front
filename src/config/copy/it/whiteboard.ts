@@ -70,6 +70,10 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       saveThis: 'Solo questo piano',
       saveFailed: 'Scala non salvata come predefinita – riprovare',
       calibrateStop: 'Termina la calibrazione',
+      /** Messen on a plan without a scale opens the scale dialog – this says why (C9, 17.11.2026) */
+      promptWhy: 'Questo piano non ha ancora una scala – indicare prima una distanza nota',
+      /** the Verlauf row when «Rückgängig» on «Massstab kalibriert» takes it back */
+      undone: 'Scala annullata',
     },
     georef: {
       chipLinked: 'collegato',

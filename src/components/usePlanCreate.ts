@@ -233,7 +233,7 @@ export function usePlanCreate({
       // Maßstab: tap the TWO endpoints of the printed scale bar; the second tap opens the
       // metre-entry popover. Coords stay board-normalized (converted to measure space on confirm).
       const next: [number, number][] = [...calNodes, n]
-      if (next.length >= 2) { setCalNodes([]); setCalPrompt({ a: next[0], b: next[1] }); setRefMInput(String(lastRefM)) }
+      if (next.length >= 2) { setCalNodes([]); setCalPrompt({ a: next[0], b: next[1] }); setRefMInput(lastRefM == null ? '' : String(lastRefM)) }
       else setCalNodes(next)
       return
     }
@@ -247,7 +247,7 @@ export function usePlanCreate({
       if (!calibrated) {
         if (readOnly) return
         const next: [number, number][] = [...measPath, n]
-        if (next.length >= 2) { setCalPrompt({ a: next[0], b: next[1] }); setRefMInput(String(lastRefM)); setMeasLine([]); setMeasArea([]) }
+        if (next.length >= 2) { setCalPrompt({ a: next[0], b: next[1], why: true }); setRefMInput(lastRefM == null ? '' : String(lastRefM)); setMeasLine([]); setMeasArea([]) }
         else setMeasPath(() => next)
         return
       }

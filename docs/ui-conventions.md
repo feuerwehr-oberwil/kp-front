@@ -491,7 +491,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     the Objekt row with its switch, «Karte» with the Passung's actions inline or «Karte
     verknüpfen» (the link glyph, never the locate crosshair), «Massstab» with its state and
     «(Neu) kalibrieren». While calibrating, the row is the instrument («Zwei Punkte des Massstabs
-    antippen», a tap stops it). On a phone the pieces stand on ONE baseline,
+    antippen», a tap stops it), and the tool is armed like any other: the armed-tool pill
+    «Massstab kalibrieren» with its ✕, «Messen» lit on the rail (F5, 17.11.2026). The length
+    dialog opens EMPTY – only a length typed earlier in the session is offered – and, reached
+    from Messen on a plan with no scale, first says why («Dieser Plan hat noch keinen Massstab …»);
+    «Massstab kalibriert» carries «Rückgängig», which restores what the plan had (C9). On a phone the pieces stand on ONE baseline,
     `--float-bottom` (15-mobile): `--float-gap` (8px) above the highest bar (nav bar · Rapport tab
     strip · tool bar · a tool's option dock), 8px from the screen's edge and from
     each other. The FAB is a `--float-h` square in the one corner (round until 16.11.2026, owner:
