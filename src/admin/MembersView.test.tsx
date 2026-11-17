@@ -161,7 +161,7 @@ describe('Mitglied bearbeiten — dort EXISTIERT der Wert', () => {
     expect(viewerCard.getAttribute('aria-checked')).toBe('true')
 
     // switching to Bearbeiter and saving asks first — a new role signs the person out, through
-    // this door as through the ⋮ menu's (sweep 09.11.2026) — and patches the role after «Ja»
+    // this door as through the ⋯ menu's (sweep 09.11.2026) — and patches the role after «Ja»
     fireEvent.click(screen.getByRole('radio', { name: new RegExp(C.roleEditor) }))
     apiPatch.mockResolvedValue({})
     fireEvent.click(screen.getByRole('button', { name: Cc.save }))
@@ -201,8 +201,8 @@ describe('Mitglied bearbeiten — dort EXISTIERT der Wert', () => {
 })
 
 // Sweep 09.11.2026, UX.14: both sign the person out on their devices, and both fired on one tap
-// from the ⋮ menu. They ask first now, with the Verwaltung's two-step confirm.
-describe('«Deaktivieren» und der Rollenwechsel im ⋮-Menü', () => {
+// from the ⋯ menu. They ask first now, with the Verwaltung's two-step confirm.
+describe('«Deaktivieren» und der Rollenwechsel im ⋯-Menü', () => {
   const twoMembers = [EXISTING, { ...EXISTING, id: 'u2', username: 'kunz', display_name: 'Kunz Bea' }]
   const pick = async (label: string) => {
     apiGet.mockResolvedValue(twoMembers)

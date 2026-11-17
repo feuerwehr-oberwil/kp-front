@@ -65,7 +65,7 @@
   background: var(--surface-2); border: 1px solid var(--border-soft);
 }
 
-/* the row's ⋮ (Diagramme · Löschen) sits at the right edge of its column, like Mitglieder's */
+/* the row's ⋯ (Diagramme · Löschen) sits at the right edge of its column, like Mitglieder's */
 .adm-ck-actions { width: 1%; text-align: right; }
 .adm-ck-actions .adm-menu { display: flex; justify-content: flex-end; }
 /* «Beispiel-Vorlage ▾» — the chevron says it opens a list */
