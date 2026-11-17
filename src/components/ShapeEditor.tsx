@@ -7,7 +7,8 @@ import { fmtArea, fmtDistance } from '../lib/geo'
 import { OnOff, Segmented } from './Segmented'
 import { ScaleStepper } from './Stepper'
 import { SHAPE_STROKE_DEFAULT, SQUARE_FILL_DEFAULT, ShapeGlyph } from '../lib/shapes'
-import { HATCH_CHIP_VB, HatchDefs, colorName, fillName, hatchPatternId } from '../lib/draw'
+import { HATCH_CHIP_VB, HatchDefs, hatchPatternId } from '../lib/draw'
+import { colorName, fillName } from '../lib/drawNames'
 import { DEFAULT_INK } from '../lib/lineStyle'
 
 const COLORS = appConfig.drawing.colors
