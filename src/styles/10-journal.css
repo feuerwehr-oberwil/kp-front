@@ -515,16 +515,20 @@
    beside each other (its name stays «Wiedergabe starten»). */
 @media (--phone) {
   .journal-head .journal-replay { flex-direction: column; justify-content: center; gap: var(--sp-1); padding: 0 var(--sp-2); }
+  /* …and with every tile worded (ⓘ «Legende», ▶ «Wiedergabe», pick 24) the 390px head is ~40px
+     short: the tiles close up to 4px inside and 2px apart, and the count «· 14» yields before the
+     title's word (measured 17.11.2026: «V.» otherwise) */
+  .journal-head > :is(button, .ip-btn):not(.journal-x) { padding-inline: var(--sp-1); }
+  .journal-head { gap: 2px; }
+  .journal-head .journal-title { margin-right: 0; }
+  .journal-title-txt { flex: none; }
+  .journal-count { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .journal-replay span { font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
   /* (the title is the tablet's 16/800 with its 18px glyph since r35 – the step down it took here
      at 19px is gone with the 19px; the glyph stays 8px off the word, hill climb r28, Opus 6) */
-  /* the head's 4px gap plus this = the 8px that keeps the title group off the ⓘ (r6) */
-  .journal-head .journal-title { margin-right: var(--sp-1); }
-  /* …and since the funnel joined it the head is SIX items: at 360px a real Einsatz's
-     «Verlauf · 312» ran 1px past the edge and the ✕ was squeezed to 34px (measured 24.09.2026).
-     The gaps close up to 6px — the room a four-digit count needs — and no chip may shrink: the
-     ✕ is the house 36px everywhere, and a squeezed target is the one thing a head cannot lose. */
-  .journal-head { gap: var(--sp-1); }
+  /* (the head's gaps: 2px since every tile is worded, above – it was 4, plus 4 off the title, r6;
+     no chip may shrink: the ✕ is the house 36px everywhere, and a squeezed target is the one
+     thing a head cannot lose, measured 24.09.2026) */
   .journal-replay, .journal-x { flex: none; }
   /* …and the title's glyph (r28) gives way to the worded tiles (button sweep HEADS.2, 17.11.2026):
      with «Suchen» and «Art» under their glyphs the 390px head had no room left for «⟲ Verlauf · 322»

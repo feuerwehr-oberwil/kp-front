@@ -238,9 +238,9 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             {/* tb-act-history: a name the stylesheet can aim at. On a phone with an
                 überfällig chip in the bar these two are what steps aside — see app.css. Positional
                 selectors would have picked the wrong buttons, because the mapNav action ahead of
-                them is a .tb-act.icon too and comes and goes with the surface. */}
-            // …each with its word (button sweep audit, owner pick 24a, 17.11.2026): a bare ↶ ↷
-            // beside «Verlauf» and «Eintrag» was the one wordless pair in a worded row
+                them is a quiet .tb-act too and comes and goes with the surface.
+                …each with its word (button sweep audit, owner pick 24a, 17.11.2026): a bare ↶ ↷
+                beside «Verlauf» and «Eintrag» was the one wordless pair in a worded row. */}
             <button className="tb-act quiet tb-act-history" title={undoWord} aria-label={undoWord} disabled={!canUndo} onClick={onUndo}><Icon id="undo" /><span>{appConfig.copy.undo}</span></button>
             <button className="tb-act quiet tb-act-history tb-act-redo" title={redoWord} aria-label={redoWord} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /><span>{appConfig.copy.redo}</span></button>
           </span>
