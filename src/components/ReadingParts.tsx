@@ -9,6 +9,7 @@ import type { SymbolProps } from '../types'
 import { Button } from './Button'
 import { InfoToggle } from './InfoToggle'
 import { TickRow } from './TickRow'
+import { ListCard, ListRow } from './ListRow'
 
 // The Messpunkt's additions to the symbol panel (owner picks 27.10.2026): the input box itself is
 // the visualisation – a colour bar under each measured field – and the history sits under all
@@ -193,12 +194,12 @@ export function StackReadings({ points, floorsTTB, storeyName, boardH, onPick }:
         return (
           <section key={f} style={{ top: (idx / N) * boardH, maxHeight: boardH / N }}>
             <h4>{storeyName(f)}</h4>
-            {alarmFirst.map((p) => (
-              <button key={p.id} type="button" onClick={() => onPick(p.id)}>
-                <span>{room(p)}</span>
-                <ReadingPill props={p} inline />
-              </button>
-            ))}
+            {/* the Messungen chip's row (ReadingsChip, LISTS.8): the pill leads, then the Raum, › */}
+            <ListCard look="rail">
+              {alarmFirst.map((p) => (
+                <ListRow key={p.id} onClick={() => onPick(p.id)} lead={<ReadingPill props={p} inline />} title={room(p)} />
+              ))}
+            </ListCard>
           </section>
         )
       })}

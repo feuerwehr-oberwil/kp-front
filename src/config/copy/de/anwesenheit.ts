@@ -215,6 +215,9 @@ export const anwesenheitCopy = {
     viewLabel: 'Ansicht',
     // the tick after «Neu laden» fetched the roster – its own word, not the Einsatz menu's «synchronisiert»
     reloadDone: 'Liste aktualisiert',
+    // the way out under «Keine Einträge in dieser Auswahl.» (copy.filterNoHits) while only a
+    // filter narrows the list: one tap lifts every filter, the search stays
+    filterClear: 'Alle zeigen',
   },
   // «Anrückend» — die Divera-Rückmeldungen über der Anwesenheit (AnrueckendBlock, X1 08.10.2026).
   // Nur ja / nein und Namen (Besitzer, 09.10.2026). ⚠️ Eine Divera-Antwort ist KEINE Anwesenheit:

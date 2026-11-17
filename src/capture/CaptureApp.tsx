@@ -19,6 +19,7 @@ import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { scrollBehavior } from '../lib/reducedMotion'
 import { fillTemplate, stripUnprintable, unitLabel, compareText, fmtWhen } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
+import { matchesQuery, searchQuery } from '../lib/search'
 import { Splash } from '../components/Splash'
 import { ShellLoader } from '../components/ShellLoader'
 import { currentLineFor, mittelLineCount, visibleMittel } from '../lib/mittel'
@@ -490,10 +491,10 @@ export default function CaptureApp() {
   }, [catalogue])
   // catalogue search mirrors the Personen filter — filters across groups by label
   const shownGroups = useMemo(() => {
-    const q = matSearch.trim().toLowerCase()
+    const q = searchQuery(matSearch)
     if (!q) return catalogueGroups
     return catalogueGroups
-      .map(([cat, items]) => [cat, items.filter((i) => i.label.toLowerCase().includes(q))] as const)
+      .map(([cat, items]) => [cat, items.filter((i) => matchesQuery(q, i.label))] as const)
       .filter(([, items]) => items.length > 0)
   }, [catalogueGroups, matSearch])
   /** The Mannschaft PLUS whoever is on this Einsatz without a roster row — a Gast typed into the
@@ -512,8 +513,11 @@ export default function CaptureApp() {
    *  «wen habe ich schon abgehakt», and somebody who has left is abgehakt. */
   const recordedCount = people.filter((p) => attendance[p.id]).length
   const filteredRoster = useMemo(
-    () => people.filter((p) => p.display_name.toLowerCase().includes(search.toLowerCase()))
-      .filter((p) => !onlyRecorded || !!attendance[p.id]),
+    () => {
+      // the one search fold (lib/search): «Mueller» finds Müller here as on the tablet
+      const q = searchQuery(search)
+      return people.filter((p) => (!q || matchesQuery(q, p.display_name)) && (!onlyRecorded || !!attendance[p.id]))
+    },
     [people, search, onlyRecorded, attendance],
   )
 

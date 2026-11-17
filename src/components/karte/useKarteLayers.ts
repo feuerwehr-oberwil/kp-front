@@ -19,6 +19,8 @@ import { categorize, categoryRules } from '../../lib/karte/categories'
 import { applyLayerPreset, karteLayerPreset, presetFlips, type QuickTap } from '../../lib/karte/layerPresets'
 import { ALWAYS_LAYER, OBJECTS_LAYER, UNCACHED_LAYER, UNDERGROUND_LAYER } from '../../lib/karte/overlays'
 import { coordOf } from '../../lib/karte/search'
+import { planName } from '../../lib/karte/plans'
+import { moduleCatalogue } from '../../lib/planOrder'
 import { loadViewerLayerPrefs, saveViewerLayerPrefs, viewerLayers } from '../../lib/karte/session'
 import type { LayerDef, LayerId } from '../../types'
 import type { useKarteWeather } from '../../workspace/useKarteWeather'
@@ -157,8 +159,11 @@ export function useKarteEbenen(p: {
             : fillTemplate(C.layerUndergroundCount, { n: under.rings.length.toLocaleString(getLocaleId()) }),
     },
     ...(georefPlan && selObj ? [{
-      id: GEOREF_ROW, group: C.layerGroupPlans, label: fillTemplate(C.layerPlan, { code: georefPlan.code, name: selObj.name }),
-      sub: C.layerPlanSub, icon: 'doc', visible: georef.georefOn, opacity: georef.georefOpacity,
+      // the plan by the name its tile and its rail tile say («Plan (Wasser 2)», lib/karte/plans ·
+      // planName) and the Einsatz Ebenen's glyph – never the raw `5-wasser2` code (ENT.10)
+      id: GEOREF_ROW, group: C.layerGroupPlans,
+      label: fillTemplate(C.layerPlan, { plan: planName(georefPlan, moduleCatalogue()), name: selObj.name }),
+      sub: C.layerPlanSub, icon: 'map', visible: georef.georefOn, opacity: georef.georefOpacity,
     }] : []),
   ]
 

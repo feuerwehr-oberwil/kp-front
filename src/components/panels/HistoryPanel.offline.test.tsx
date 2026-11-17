@@ -50,6 +50,6 @@ describe('«Alle Einsätze» · «Wieder öffnen» without a server', () => {
   it('shows the start and end of each Einsatz in its row', async () => {
     render(<HistoryPanel onClose={() => {}} onOpen={() => {}} />)
     await screen.findByText('Brand Scheune')
-    expect(document.querySelector('.ip-hist-when')?.textContent).toMatch(/\d\d:\d\d–\d\d:\d\d · 1\u00a0h\u00a030/)
+    expect(document.querySelector('.einsatz-row-when')?.textContent).toMatch(/\d\d:\d\d–\d\d:\d\d · 1\u00a0h\u00a030/)
   })
 })

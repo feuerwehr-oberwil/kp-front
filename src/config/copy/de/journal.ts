@@ -55,22 +55,22 @@ export const journalCopy = {
     attachUpload: 'Datei anhängen',
     // short form for the phone row, where the three media buttons get a third of the width each
     attachUploadShort: 'Datei',
-    attachLabel: 'Beilage',
-    attachDiscard: 'Beilage entfernen',
-    attachOpen: 'Beilage herunterladen',
+    attachLabel: 'Datei',
+    attachDiscard: 'Datei entfernen',
+    attachOpen: 'Datei herunterladen',
     attachOffline: 'Datei anhängen braucht Netz. Datei später erneut auswählen.',
-    attachOfflineSkip: 'Ohne Beilage erfassen',
+    attachOfflineSkip: 'Ohne Datei erfassen',
     attachTooLarge: 'Datei ist zu gross. Maximum: {max} MB.',
     attachUnsupported: 'Dieser Dateityp wird nicht unterstützt.',
     attachUploadFailed: 'Datei nicht angehängt – Netz prüfen und erneut versuchen.',
     // ⚠️ Same reason as audioImportDropped below: a picked file cannot be handed back on the
     // next open, so a composer that closes with one on it says so.
-    attachDropped: 'Beilage «{name}» verworfen – bitte neu auswählen.',
-    // ⚠️ A Beilage has no plate in the Rapport the way a photo does (the file itself travels in
+    attachDropped: 'Datei «{name}» verworfen – bitte neu auswählen.',
+    // ⚠️ A Datei has no plate in the Rapport the way a photo does (the file itself travels in
     // the Beilagen-ZIP), so the printed line NAMES it – otherwise a row that is only a document
     // prints as an empty timestamped line (lib/report · journalRows).
-    attachPrint: 'Beilage: {names}',
-    attachPrintMany: 'Beilagen: {names}',
+    attachPrint: 'Datei: {names}',
+    attachPrintMany: 'Dateien: {names}',
     // one recording per Eintrag – a pick with several audio files keeps the first and says
     // out loud which ones it did not take (no silent loss)
     attachAudioExtra: 'Nur eine Aufnahme pro Eintrag – «{names}» nicht übernommen.',
@@ -157,12 +157,12 @@ export const journalCopy = {
     detailSourceManual: 'von Hand erfasst',
     detailSourceSystem: 'von der App erfasst',
     detailSourceSystemHint: 'Systemzeilen sind nicht bearbeitbar',
-    detailAttachments: 'Beilagen',
-    detailAttachmentsN: '{n} Bilder',
-    detailAttachmentsOne: 'Ein Bild',
+    detailAttachments: 'Fotos',
+    detailAttachmentsN: '{n} Fotos',
+    detailAttachmentsOne: 'Ein Foto',
     detailCorrected: 'Korrigiert',
     // the FIRST wording, kept by the append-only patch chain (lib/journalStore · display)
-    detailCorrectedFirst: 'zuerst: {text}',
+    detailCorrectedFirst: 'ursprünglich: {text}',
     detailRepeated: 'Wiederholt',
     detailRepeatedN: 'Insgesamt {n}× bis {t}',
     detailNachtrag: 'Nachtrag',
@@ -312,7 +312,7 @@ export const journalCopy = {
     searchClose: 'Suche schliessen',
     // «2 von 42» – matching rows of all rows, live while typing
     searchCount: '{n} von {m}',
-    searchEmpty: 'Nichts zu «{q}»',
+    // after the shared «Keine Treffer für «{q}».» (copy.noHits): what the search looked in
     searchEmptyHint: 'Gesucht wird im Text sowie in Namen von Personen und Trupps. Ein Tippfehler ist erlaubt.',
     // ── Filter ────────────────────────────────────────────────────────────────────────────
     // The funnel beside the lens (feat 37 · B, 23.09.2026). Its categories are NOT words of its
@@ -325,7 +325,7 @@ export const journalCopy = {
     filterAll: 'Alle zeigen',
     // the one-line strip under the head while a filter is on: «Gefiltert: Auftrag · Pendenz»
     filterActive: 'Gefiltert:',
-    filterEmpty: 'Keine Einträge in dieser Auswahl',
+    // after the shared «Keine Einträge in dieser Auswahl.» (copy.filterNoHits): the way out
     filterEmptyHint: '«Alle zeigen» hebt den Filter auf.',
     // ── Pendenzen ─────────────────────────────────────────────────────────────────────────
     // The ○ switch beside the Art chips. THREE states on one control; the accessible name says
@@ -368,6 +368,8 @@ export const journalCopy = {
     pinnedWer: 'Wer: {wer}',
     fromTafel: 'von der Tafel',
     fromTafelTitle: 'Auf der Tafel eingetragen – tippen öffnet die Seite',
+    // the empty Verlauf names the button that fills it, in its own word (WORD.10, duck sweep LISTS.5)
+    emptyHint: 'Mit «Eintrag» eine Meldung, einen Auftrag oder ein Foto festhalten.',
   },
   // ── The Tafel's «Aufträge / Pendenzen» page (05.11.2026, lib/pendenzenPage) ────────────────
   // A view on the Verlauf's Pendenzen and Erinnerungen: every act on the page appends a Verlauf

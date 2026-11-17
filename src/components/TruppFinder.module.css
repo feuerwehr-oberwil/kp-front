@@ -25,34 +25,13 @@
    exception is gone, docs/ui-conventions · «The ✕ that closes a sheet») */
 .x { flex: none; }
 
-.list { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0; padding: 8px; list-style: none; }
-.row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
-  min-height: var(--tap); padding: var(--sp-2) var(--sp-3); border: none; border-radius: var(--r-ctl);
-  background: none; cursor: pointer; color: var(--ink); }
-.row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* ONE highlight, driven by the keyboard cursor — and the pointer moves that same cursor
-   (onMouseEnter) instead of painting a second, competing hover state. */
-.rowOn { background: var(--surface); box-shadow: var(--e3); }
-.rowRaus .name, .rowRaus .where { color: var(--ink-faint); }
-.cap { flex: none; width: 6px; align-self: stretch; border-radius: 3px; }
-.main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.name { font: var(--fw-heavy) var(--fs-3) var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.name :global(.trupp-no) { margin-left: var(--sp-2); }
-.where { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* the crew is context, not the answer — it may be long and it yields first */
-.members { color: var(--ink-faint); }
-/* («AS» and «raus» – facts about the crew, not alarms – are THE neutral tag, `.ip-badge
-   .ip-badge-arch`: ink on grey, 29.09.2026; «AS» was a blue pill, «raus» an 800 pill. Amber and
-   red are reserved for a clock running out and must not appear on a picker.) */
-.go { flex: none; display: grid; place-items: center; color: var(--ink-faint); }
-.go svg { width: 16px; height: 16px; }
-.rowOn .go { color: var(--blue); }
-
-.none { padding: var(--sp-4); text-align: center; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-faint); }
-.empty { padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-2); }
-.empty p { margin: 0; font: var(--fw-bold) var(--fs-3) var(--body); color: var(--ink); }
-.empty span { font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink-dim); }
+.list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 8px; }
+/* the rows are THE ListRow (LISTS.8, 17.11.2026); what this card adds is the keyboard cursor – the
+   row's own hover wash, so the pointer and the arrow keys show one state – and «raus» receding */
+.rowOn:not(:disabled) { background-color: var(--fill-soft); }
+.rowRaus { opacity: var(--done-opacity); }
+.cap { display: block; width: 6px; height: 28px; border-radius: 3px; }
+.tags { display: flex; gap: var(--sp-1); }
 
 /* the match count («3/5») — read, never tapped (--fs-micro) */
 .foot { flex: none; padding: var(--sp-2) var(--sp-4); border-top: 1px solid var(--border-soft);

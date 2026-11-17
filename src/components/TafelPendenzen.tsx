@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
-import { fillTemplate, hhmm } from '../lib/format'
+import { dueClock, fillTemplate, fmtWhen, hhmm } from '../lib/format'
 import { newId } from '../lib/ids'
 import { serverNow } from '../lib/serverClock'
 import { clearDraft, keepDraft, readDraft } from '../lib/draftKeep'
@@ -199,11 +199,11 @@ export function TafelPendenzen({ Cell, sec, port, isPhone, pageTitle }: Props) {
           <span key={col} className={cx(s.td, p.status)}>
             {/* «Erteilt»: the creation time, ticked by itself — a read-out, never a door */}
             <TickRow checked={!!item} disabled onToggle={() => {}} className={p.tickRo}>
-              <span className={p.tickWord}>{w.erteilt}</span><span className={p.tickTime}>{item ? hhmm(item.createdAt) || '–' : '–'}</span>
+              <span className={p.tickWord}>{w.erteilt}</span><span className={p.tickTime}>{item ? fmtWhen(item.createdAt, { todayShort: true, now: new Date(now) }) || '–' : '–'}</span>
             </TickRow>
             <TickRow checked={done} disabled={!item || !canWrite} className={cx((!item || !canWrite) && p.tickRo)}
               onToggle={() => { if (item) port?.setDone(item, !done) }}>
-              <span className={p.tickWord}>{w.erledigt}</span><span className={p.tickTime}>{done ? hhmm(item?.doneAt) || '–' : '–'}</span>
+              <span className={p.tickWord}>{w.erledigt}</span><span className={p.tickTime}>{done ? fmtWhen(item?.doneAt, { todayShort: true, now: new Date(now) }) || '–' : '–'}</span>
             </TickRow>
           </span>
         )
@@ -212,7 +212,7 @@ export function TafelPendenzen({ Cell, sec, port, isPhone, pageTitle }: Props) {
         const late = isOverdue(item, now)
         return (
           <span key={col} className={cx(s.td, p.zeit, late && p.late)}>
-            <span className={p.due}><Icon id="bell" />{hhmm(item.dueAt)}</span>
+            <span className={p.due}><Icon id="bell" />{dueClock(item.dueAt, new Date(now))}</span>
             <span className={p.dueWord}>{late ? w.overdue : w.erinnerung}</span>
           </span>
         )

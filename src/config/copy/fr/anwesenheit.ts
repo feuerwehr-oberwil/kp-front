@@ -106,6 +106,7 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     viewBands: 'Tours',
     viewLabel: 'Vue',
     reloadDone: 'Liste actualisée',
+    filterClear: 'Tout afficher',
   },
   anrueckend: {
     title: 'En route',

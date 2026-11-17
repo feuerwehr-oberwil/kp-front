@@ -10,6 +10,8 @@
 //   3. an alias or the address starts with it, or one of their words does
 //   4. it is somewhere in the name
 //   5. it is somewhere in an alias or the address
+// A query that matches none of these within one typo (lib/search: «Schlussel» → Schlüssel,
+// «Schlosss» → Schloss) still finds the object, at rank 4 (name) or 5 (alias / address).
 // Every word of a multi-word query has to match somewhere («schloss 9»). Within a rank an object
 // with plans comes before a plan-less one (objects first – «sie haben Pläne»),
 // then the nearer one (when the map centre is known), then the name.
@@ -22,16 +24,11 @@
 import type { LngLat } from '../../types'
 import { haversineM } from '../geo'
 import type { StationObject } from '../api/stationReference'
+import { fold, matchesQuery, searchQuery } from '../search'
 
-/** lower case, diacritics folded (ü → u, so «Schlussel» finds «Schlüssel»), spaces collapsed */
+/** the one search fold (lib/search: «Mueller» ↔ Müller), spaces collapsed */
 export function normText(s: string | null | undefined): string {
-  return (s ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/ß/g, 'ss')
-    .replace(/\s+/g, ' ')
-    .trim()
+  return fold(s ?? '').replace(/\s+/g, ' ').trim()
 }
 
 const words = (s: string): string[] => s.split(/[\s,./()-]+/).filter(Boolean)
@@ -54,6 +51,10 @@ function rankToken(tok: string, name: string, others: string[]): number | null {
   if (others.some((o) => o.startsWith(tok) || words(o).some((w) => w.startsWith(tok)))) return 3
   if (name.includes(tok)) return 4
   if (others.some((o) => o.includes(tok))) return 5
+  // one typo, or ü typed as u (lib/search) – the same forgiveness as every other list search
+  const typo = searchQuery(tok)
+  if (typo?.fuzzy && matchesQuery(typo, name)) return 4
+  if (typo?.fuzzy && others.some((o) => matchesQuery(typo, o))) return 5
   return null
 }
 

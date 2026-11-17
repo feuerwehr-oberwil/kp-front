@@ -80,7 +80,7 @@ export const helpCopy = {
           { kind: 'list', only: 'keyboard', items: [
             'Mit Tastatur: alle Kürzel dieser Ansicht unter **Tastaturkürzel** › «Karte & Objekte».',
           ] },
-          { kind: 'note', text: 'Läuft ein Einsatz, steht er oben in der Leiste – rot, bei einer Übung orange –, und ein Tipp öffnet ihn. Ein Alarm wird angezeigt, aber nie von selbst geöffnet.' },
+          { kind: 'note', text: 'Läuft ein Einsatz, steht er oben in der Leiste – rot, bei einer Übung schraffiert und mit dem Wort «Übung» –, und ein Tipp öffnet ihn. Ein Alarm wird angezeigt, aber nie von selbst geöffnet.' },
         ],
       },
       {
@@ -310,7 +310,7 @@ export const helpCopy = {
           { kind: 'lead', text: 'Wer im Einsatz ist, von wann bis wann – die Grundlage für Personalblatt und Stunden. Die Mannschaft kommt aus der Verwaltung; hier wird nur festgehalten, wer heute da ist.' },
           { kind: 'sub', text: 'Erfassen' },
           { kind: 'list', items: [
-            'Eine Zeile **antippen** schaltet weiter: **frei → anwesend → gegangen → frei**. «Anwesend» beginnt beim ersten Mal ab der **Alarmzeit** (getippt wird meist später als angekommen), bei einer Rückkehr ab jetzt.',
+            'Eine Zeile **antippen** schaltet weiter: **frei → anwesend → gegangen → frei**. «Anwesend» beginnt beim ersten Mal ab der **Zeit Alarmierung** (getippt wird meist später als angekommen), bei einer Rückkehr ab jetzt.',
             'Jede Zeile hat eine **Bemerkung** («Fahrer TLF», «verletzt, abgelöst 21:40»). Sie beschreibt, was diese Person hier getan hat, und steht auf dem Personalblatt. Wird eine Zeile versehentlich auf «frei» gestellt, ist die Bemerkung beim nächsten «anwesend» wieder da.',
             'Wer **vor Ort** oder im **Magazin** ist, steht als Paar in der Zeile – die Antwort auf «wen könnte ich noch nachziehen». In der Kopfzeile steht die Aufteilung, sobald jemand im Magazin ist.',
             '**Weitere Person** erfasst jemanden, der nicht auf der Personalliste steht (Nachbarwehr, Gast). Das ist eine Aussage über diesen Einsatz, nicht über die Mitgliedschaft der Wehr.',

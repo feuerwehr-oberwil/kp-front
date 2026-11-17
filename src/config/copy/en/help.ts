@@ -57,7 +57,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', only: 'keyboard', items: [
             'With a keyboard: every shortcut of this view is under **Keyboard shortcuts** › «Map & objects».',
           ] },
-          { kind: 'note', text: 'When an incident is running it stands in the bar at the top – red, amber for an exercise – and a tap opens it. A dispatch is shown but never opened by itself.' },
+          { kind: 'note', text: 'When an incident is running it stands in the bar at the top – red, or hatched with the word «Exercise» for an exercise – and a tap opens it. A dispatch is shown but never opened by itself.' },
         ],
       },
       {

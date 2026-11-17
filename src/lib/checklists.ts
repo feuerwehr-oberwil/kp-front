@@ -35,6 +35,7 @@ import { apiGet } from './api'
 import { readThrough } from './idb'
 import genericAction from '../data/checklists/generic-action.json'
 import type { FormTrend } from './boardForm'
+import { matchesAnyQuery, matchesQuery, searchQuery, type SearchQuery } from './search'
 
 // --- template schema (matches the bundled JSON) ----------------------------------
 
@@ -394,17 +395,16 @@ export function templateProgress(template: ChecklistTemplate, state: TemplateSta
   return { done, total, pct: total ? Math.round((done / total) * 100) : 0 }
 }
 
+/** lower case, trimmed – a length-keeping form, for the snippet's match position and the
+ *  Divera keyword lengths. A SEARCH goes through lib/search, never through this. */
 const norm = (s: string) => s.toLowerCase().trim()
 
-/** Filter reference entries by a free-text query over title + keywords. Empty
- *  query returns all entries unchanged. */
+/** Filter reference entries by a free-text query over title + keywords, through the one search
+ *  fold (lib/search: umlauts both ways, one typo). Empty query returns all entries unchanged. */
 export function searchEntries(entries: RefEntry[], query: string): RefEntry[] {
-  const q = norm(query)
+  const q = searchQuery(query)
   if (!q) return entries
-  return entries.filter((e) => {
-    if (norm(e.title).includes(q)) return true
-    return (e.keywords ?? []).some((k) => norm(k).includes(q))
-  })
+  return entries.filter((e) => matchesAnyQuery(q, e.title, ...(e.keywords ?? [])))
 }
 
 /** All reference entries across every reference template, flattened. */
@@ -480,12 +480,12 @@ export interface DeviceGroup { device: string; manuals: ChecklistTemplate[] }
  *  – it was by name), so the station decides both which device leads and that «Aufbau» comes
  *  before «Abbau». A device's chapters are numbered in this order (DevicePage). */
 export function manualGroups(templates: ChecklistTemplate[], query: string): DeviceGroup[] {
-  const q = norm(query)
+  const q = searchQuery(query)
   const groups = new Map<string, ChecklistTemplate[]>()
   for (const t of templates) {
     if (t.kind !== 'manual') continue
     const device = deviceOf(t)
-    if (q && ![t.title, device, t.subtitle ?? '', ...(t.keywords ?? [])].some((w) => norm(w).includes(q))) continue
+    if (q && !matchesAnyQuery(q, t.title, device, t.subtitle, ...(t.keywords ?? []))) continue
     groups.set(device, [...(groups.get(device) ?? []), t])
   }
   return [...groups.entries()].map(([device, manuals]) => ({ device, manuals }))
@@ -544,18 +544,18 @@ export interface LibraryHits {
   references: { template: ChecklistTemplate; entries: LibraryHit<RefEntry>[] }[]
 }
 
-/** first of `texts` containing q, as a reason */
-const firstText = (texts: (string | undefined)[], q: string): HitReason => {
-  const hit = texts.find((t) => t && norm(t).includes(q))
+/** first of `texts` matching q, as a reason */
+const firstText = (texts: (string | undefined)[], q: SearchQuery): HitReason => {
+  const hit = texts.find((t) => t && matchesQuery(q, t))
   return hit ? { text: hit } : null
 }
 const blockText = (b: ContentBlock): string[] =>
   b.type === 'table' ? [...(b.head ?? []), ...b.rows.flat(), b.caption ?? ''] : b.type === 'image' ? [b.caption ?? ''] : [b.text]
 
 /** whether `t` matches q, and why: the names first, then keywords, then the body */
-function reason(names: string[], keywords: string[], body: () => (string | undefined)[], q: string): HitReason | false {
-  if (names.some((n) => norm(n).includes(q))) return null
-  const kw = keywords.find((k) => norm(k).includes(q))
+function reason(names: string[], keywords: string[], body: () => (string | undefined)[], q: SearchQuery): HitReason | false {
+  if (matchesAnyQuery(q, ...names)) return null
+  const kw = keywords.find((k) => matchesQuery(q, k))
   if (kw) return { keyword: kw }
   return firstText(body(), q) ?? false
 }
@@ -568,7 +568,8 @@ function reason(names: string[], keywords: string[], body: () => (string | undef
  * surface shows its home instead). The Einsatz rail keeps its narrower title/keyword search.
  */
 export function searchLibrary(templates: ChecklistTemplate[], query: string): LibraryHits {
-  const q = norm(query)
+  // the one search fold (lib/search): umlauts both ways, one typo
+  const q = searchQuery(query)
   const out: LibraryHits = { manuals: [], checklists: [], references: [] }
   if (!q) return out
   for (const t of templates) {

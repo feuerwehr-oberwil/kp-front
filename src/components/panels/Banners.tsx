@@ -67,7 +67,7 @@ export function IncomingAlarmBanner({ alarms, dismissed, taking, attachFirst, on
     tone: 'alarm',
     icon: 'bell',
     title: `${ix.newDiveraAlarm} — ${top.title}`,
-    sub: `${shortAddress(top.address) ?? ix.addressUnknown} · ${fmtWhen(top.received_at)}`,
+    sub: `${shortAddress(top.address) ?? ix.addressUnknown} · ${fmtWhen(top.received_at, { todayShort: true })}`,
     actions: actionsFor(top),
     dismiss: { label: ix.hide, onClick: () => onDismiss(top) },
   })
@@ -143,7 +143,7 @@ export function NewIncidentBanner({ inc, active, onSwitch, onDismiss }: {
     tone: 'alarm',
     icon: 'bell',
     title: `${c.kicker} — ${inc.title}`,
-    sub: `${shortAddress(inc.address) ?? appConfig.copy.intake.addressUnknown} · ${fmtWhen(inc.started_at)}`,
+    sub: `${shortAddress(inc.address) ?? appConfig.copy.intake.addressUnknown} · ${fmtWhen(inc.started_at, { todayShort: true })}`,
     actions: [{ label: active ? c.switch : c.open, icon: 'truck', primary: true, onClick: onSwitch }],
     dismiss: { label: c.dismiss, onClick: onDismiss },
   })

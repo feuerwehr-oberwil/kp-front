@@ -277,6 +277,17 @@ describe('«Nur Anwesende» — the one-tap quick filter', () => {
     expect(screen.getByText(fillTemplate(appConfig.copy.noHits, { q: 'Muster' }))).toBeTruthy()
   })
 
+  // duck sweep LISTS.4: the quick ✓ while nobody is present yet printed «Keine Treffer für «».»
+  it('with only the filter on and no hit, says so and offers the way out', () => {
+    mount({ people: crew, attendance: {} as AttendanceState })
+    fireEvent.click(toggle())
+    expect(screen.queryByText(fillTemplate(appConfig.copy.noHits, { q: '' }))).toBeNull()
+    expect(screen.getByText(appConfig.copy.filterNoHits)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: A.filterClear }))
+    expect(toggle().getAttribute('aria-pressed')).toBe('false')
+    expect(names()).toHaveLength(4)
+  })
+
   it('is offered on the crew list, not only while planning', () => {
     mount({ people: crew, attendance })
     expect(toggle()).toBeTruthy()
@@ -386,5 +397,19 @@ describe('a viewer reads the Zeitplan and the Zeiten', () => {
     fireEvent.click(screen.getByRole('button', { name: fillTemplate(A.openBlocksNote, { name: 'Meier Anna' }) }))
     expect(screen.getByText('Fahrer TLF')).toBeTruthy()
     expect(screen.queryByRole('textbox')).toBeNull()
+  })
+})
+
+// Duck sweep LISTS.1, 17.11.2026: «Noch kein Personal erfasst» flashed while the roster was
+// still on its way – empty only after the answer
+describe('an empty roster that is still loading', () => {
+  it('says it is loading, not that nobody is recorded', () => {
+    mount({ people: [], loading: true })
+    expect(screen.getAllByText(appConfig.copy.anwesenheit.loading).length).toBeGreaterThan(0)
+    expect(screen.queryByText(appConfig.copy.anwesenheit.emptyTitle)).toBeNull()
+  })
+  it('says empty once the answer came back empty', () => {
+    mount({ people: [], loading: false })
+    expect(screen.getByText(appConfig.copy.anwesenheit.emptyTitle)).toBeTruthy()
   })
 })

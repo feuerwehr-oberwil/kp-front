@@ -55,7 +55,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', only: 'keyboard', items: [
             'Con la tastiera: tutte le scorciatoie di questa vista in **Scorciatoie da tastiera** › «Mappa & oggetti».',
           ] },
-          { kind: 'note', text: 'Quando un intervento è in corso, compare nella barra in alto – rosso, arancione per un esercizio – e un tocco lo apre. Un allarme viene mostrato, ma mai aperto da sé.' },
+          { kind: 'note', text: 'Quando un intervento è in corso, compare nella barra in alto – rosso, oppure tratteggiato con la parola «Esercitazione» per un esercizio – e un tocco lo apre. Un allarme viene mostrato, ma mai aperto da sé.' },
         ],
       },
       {

@@ -28,7 +28,7 @@ export const captureCopy = {
     // Schnellfilter neben der Suche: alle, die schon abgehakt sind – gekommen wie gegangen
     filterRecorded: 'Erfasste {n}',
     back: 'Zurück',
-    alarmedAt: 'Alarm {t}',
+    alarmedAt: 'Zeit Alarmierung {t}',
     saveFailed: 'Letzte Änderung nicht gespeichert – erneut versuchen',
     saveFailedOffline: 'Server nicht erreichbar – die letzte Änderung wurde nicht gespeichert.',
     retry: 'Erneut versuchen',

@@ -11,6 +11,7 @@ import { truppInNotfall, truppLogName, truppStillDeployed, truppStillRegistered 
 import { fillTemplate } from './format'
 import { mittelLineCount } from './mittel'
 import { confirmDialog } from './ui'
+import { einsatzSubject } from './einsatzSubject'
 import type { ConfirmSpec } from './overlays/ConfirmCard'
 
 interface Args {
@@ -22,7 +23,9 @@ interface Args {
   openConflictCount: number
   /** the board's Trupps (removed ones already filtered out) */
   trupps: Trupp[]
-  incidentMeta: Pick<IncidentMeta, 'is_archived' | 'status' | 'closed_at' | 'last_closed_at'>
+  /** …and `title` / `started_at` / `is_exercise` for the line that names the Einsatz above every
+   *  close button (lib/einsatzSubject, LISTS.11) */
+  incidentMeta: Pick<IncidentMeta, 'is_archived' | 'status' | 'closed_at' | 'last_closed_at'> & Partial<Pick<IncidentMeta, 'title' | 'started_at' | 'is_exercise'>>
   replayActive: boolean
   media: MediaQueueApi
   /** App's handover: stamp report_done_at + close. TRUE only when the close really happened. */
@@ -200,6 +203,8 @@ export function useAbschluss({
     // message and the button both have to say that something is being closed over
     const { items, anyOpen } = abschlussSheet(abschlussOpenPoints(abschlussMissing, inside.length > 0 ? 0 : truppsStillOut, media.pendingCount), go,
       pendingEnde ? { zeiten: abschlussEndeItem(pendingEnde, () => { patchReportMeta!({ endedAt: pendingEnde }); go.step('zeiten') }) } : undefined)
+    const { title, started_at: startedAt } = incidentMeta
+    const subject = title && startedAt ? einsatzSubject({ title, started_at: startedAt, is_exercise: !!incidentMeta.is_exercise }) : undefined
     const askCrew = (which: NonNullable<typeof lastAsked>, spec: Pick<ConfirmSpec, 'title' | 'message' | 'items' | 'confirmLabel'>) => {
       const isConfirm = crewConfirms && which === lastAsked
       const note = [standDownTrupps ? '' : A.boardNotYours, isConfirm ? A.confirmMsg : ''].filter(Boolean).join(' ')
@@ -212,6 +217,7 @@ export function useAbschluss({
         // the one sentence that says what the close does to the crews stands alone, in ink
         noteLead: which !== 'registered' ? A.watchEnds : undefined,
         note: note || undefined,
+        subject,
         cancelLabel: appConfig.copy.cancel,
       }
       return standDownTrupps
@@ -256,6 +262,7 @@ export function useAbschluss({
       message: anyOpen ? P.exportIncompleteLead : A.confirmMsg,
       items,
       note: anyOpen ? A.confirmMsg : undefined,
+      subject,
       // the button names what is actually about to happen — closing an Einsatz with open points
       // is allowed, and the label is where that is said out loud
       confirmLabel: anyOpen ? A.confirmAnyway : A.confirmBtn,
@@ -309,7 +316,7 @@ export function useAbschluss({
     // (offline, server error) instead of being forgotten for an Einsatz that is still open.
     return onCompleteRapport().finally(() => markClosing?.(false))
   // requestReportStep is a module-level loader of the caller's — stable, so naming it changes nothing
-  }, [abschlussMissing, reportMeta.endedAt, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing, patchReportMeta])
+  }, [abschlussMissing, incidentMeta, reportMeta.endedAt, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing, patchReportMeta])
 
   return { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete }
 }

@@ -14,6 +14,7 @@ import { haversineM } from '../geo'
 import { ringContains } from '../footprintPick'
 import type { StationObject } from '../api/stationReference'
 import { coordOf } from './search'
+import { matchesQuery, type SearchQuery } from '../search'
 
 /** An address label as its two lines: «Hauptstrasse 10, 4104 Oberwil», the geocoder's
  *  «Hauptstrasse 10 4104 Oberwil» and «Schloss # 6246 Altishofen» all → [street, place]. */
@@ -100,6 +101,17 @@ export function objectHeadSub(o: { name: string; address: string | null; localit
  *  alone – and when the name already is the address, only what the name leaves out (the place). */
 export function objectPicklistSub(o: { name: string; address: string | null; locality?: string | null }, plansText: string): string {
   return [objectHeadSub(o), plansText].filter(Boolean).join(' · ')
+}
+
+/** THE order of a Stationsobjekt pick list (duck sweep LISTS.7, 17.11.2026) – the Einsatz form and
+ *  «Anderes Objekt» read the same catalogue the Karte search ranks, and each had its own order
+ *  (≤ 1 km then A–Z; the server's). While a query narrows the list, a NAME hit before an
+ *  address-only hit (the Karte's own rank says the same, lib/karte/search); then nearest first;
+ *  then A–Z. An object without a distance goes after every one with one. */
+export function sortObjects<T extends { name: string; distance_m?: number | null }>(list: readonly T[], q: SearchQuery | null): T[] {
+  const rank = (o: T) => (q && !matchesQuery(q, o.name) ? 1 : 0)
+  const dist = (o: T) => o.distance_m ?? Number.POSITIVE_INFINITY
+  return [...list].sort((a, b) => rank(a) - rank(b) || (dist(a) === dist(b) ? 0 : dist(a) - dist(b)) || a.name.localeCompare(b.name, 'de'))
 }
 
 /** The label as «street, place» — the shape the server's own addresses have. */

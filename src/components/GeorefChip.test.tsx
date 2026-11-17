@@ -125,7 +125,7 @@ describe('the Plan sheet behind the Objekt chip', () => {
     expect(georefSnapshot().planId).toBe('modul2')
     // the row carries the instrument and nothing else — ONE indicator, where the finger already
     // was. The free-order sentence IS the instruction: no per-point prompt, no fixed order.
-    expect(screen.getByText(/Dieselbe Stelle auf Modul und Karte antippen/)).toBeTruthy()
+    expect(screen.getByText(/Dieselbe Stelle auf Plan und Karte antippen/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Objekt, Karte und Massstab/ })).toBeNull()
     // ⚠️ «Schliessen», NOT «Abbrechen». Points are saved as they are placed, so leaving the mode
     // discards nothing — the word that promised otherwise is the bug this pins (27.08.).

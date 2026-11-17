@@ -104,7 +104,7 @@ export const whiteboardCopy = {
       // ⚠️ Beispiele und «Reihenfolge egal» standen bis 15.09. hier mit auf der Zeile: drei
       // Aussagen in einer Anweisung, die man mitten im Tippen liest. Sie stehen jetzt im (i)
       // darunter (`freeOrderTip`), wo man sie beim ersten Mal sucht und danach nie wieder.
-      freeOrderTap: 'Dieselbe Stelle auf Modul und Karte antippen',
+      freeOrderTap: 'Dieselbe Stelle auf Plan und Karte antippen',
       // hinter dem (i), auf beiden Formfaktoren: woran man eine gute Stelle erkennt
       freeOrderTip: 'Gut sind eindeutige Punkte – Hausecke, Hydrant, Wegkreuzung. Die Reihenfolge ist egal, gesetzte Hälften suchen sich ihr Gegenstück selber.',
       // ── die schmale Telefon-Leiste (Sweep 27.10.2026 #13, Mock A) ──────────────────────────
@@ -120,18 +120,19 @@ export const whiteboardCopy = {
       movePhone: 'Punkt {n} verschieben – die neue Stelle unter das Fadenkreuz schieben, dann «+».',
       // WO auf dem Plan: mit seinem Namen (PLANS' Beschriftung, «Wasser», «Modul 1»), sonst das Wort
       onPlanNamed: 'auf «{name}»',
-      onPlanUnnamed: 'auf dem Modul',
+      onPlanUnnamed: 'auf dem Plan',
       // «Verschieben» ist bewaffnet: der nächste Tipp auf dieser Fläche setzt genau diese Hälfte
       moveMap: 'Punkt {n} verschieben – neue Stelle auf der Karte antippen, der alte verschwindet.',
-      movePlan: 'Punkt {n} verschieben – neue Stelle auf dem Modul antippen, der alte verschwindet.',
+      movePlan: 'Punkt {n} verschieben – neue Stelle auf dem Plan antippen, der alte verschwindet.',
       title: 'Karte verknüpfen',
       // offene Hälften: gesetzt, aber noch ohne Gegenstück auf der anderen Fläche
       barOpen: '{n} offen',
-      // Zähler je Fläche – die Statuszeile «Karte 3 · Modul 2».
-      // ⚠️ Steht NUR, wenn die beiden Zahlen auseinanderlaufen (15.09.): «Karte 3 · Modul 3» war
+      // Zähler je Fläche – die Statuszeile «Karte 3 · Plan 2». EIN Wort für die Fläche: «Plan»
+      // («Modul» nur im Namen eines Plans, «Modul 1»; Duck-Sweep ENT.10, 17.11.2026).
+      // ⚠️ Steht NUR, wenn die beiden Zahlen auseinanderlaufen (15.09.): «Karte 3 · Plan 3» war
       // eine Zeile, die nie etwas meldete. Ungleich heisst «eine Hälfte hängt» – und genau dann
       // ist der Zähler die Warnung, als die er gedacht war (GeorefMode · georefStatus).
-      sideProgress: 'Karte {map} · Modul {plan}',
+      sideProgress: 'Karte {map} · Plan {plan}',
       // Statuszeile, zweite Hälfte: WO die offene Hälfte fehlt. Das bernsteinfarbene Kreuz, das
       // dasselbe sagt, steht unter Umständen auf der Fläche, die das Telefon gerade nicht zeigt.
       statusOpenMap: 'Punkt {n} fehlt noch auf der Karte.',
@@ -156,9 +157,9 @@ export const whiteboardCopy = {
       // Sichtprüfung nach dem Ausrichten: der Blattumriss liegt auf der Karte, man sieht sofort,
       // ob die Ecken zusammenfallen. Einmalig – kein Dauer-Layer.
       checkFit: 'Überlagerung prüfen',
-      checkOpacity: 'Deckkraft des Moduls',
+      checkOpacity: 'Deckkraft des Plans',
       checkMap: 'Karte',
-      checkPlan: 'Modul',
+      checkPlan: 'Plan',
       crossTitle: 'Punkt {n} – ziehen verschiebt, antippen zeigt Optionen',
       pendingCrossTitle: 'Punkt {n} offen – ziehen verschiebt, antippen zeigt Optionen',
       // das kleine Popover eines angetippten Kreuzes – ersetzt den unsichtbaren Aufnehm-Zustand,
@@ -223,7 +224,7 @@ export const whiteboardCopy = {
       addMore: 'Punkte hinzufügen',
       transfer: 'Kopieren',
       transferTitle: 'Verknüpfung kopieren',
-      transferBody: 'Die Punkte von {source} werden kopiert. Danach kann jedes Modul separat angepasst werden.',
+      transferBody: 'Die Punkte von {source} werden kopiert. Danach kann jeder Plan separat angepasst werden.',
       transferLinked: 'bereits verknüpft',
       transferCompleted: 'kopiert',
       transferReplaceTitle: 'Verknüpfung von {target} ersetzen?',
@@ -489,7 +490,7 @@ export const whiteboardCopy = {
     mapLabel: 'Lagekarte – tippen öffnet die Karte',
     mapOpen: 'Zur Karte',
     mapPrint: 'Im Rapport: die Karte zum Zeitpunkt des Drucks',
-    head: { title: 'Einsatz', address: 'Adresse', alarm: 'Alarm', el: 'Einsatzleiter' },
+    head: { title: 'Einsatz', address: 'Adresse', alarm: 'Zeit Alarmierung', el: 'Einsatzleiter' },
     tag: 'Stichwort',
     done: 'Erledigt',
     trendNone: 'Tendenz offen',

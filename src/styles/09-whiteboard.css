@@ -217,7 +217,6 @@
 .pp-list { flex: 1 1 60%; overflow-y: auto; scrollbar-width: thin; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .pp-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid transparent;
   border-radius: var(--r-ctl); background: var(--surface-2); cursor: pointer; font-family: var(--body); text-align: left; color: var(--ink); }
-.pp-row.hover { background: var(--blue-8); border-color: var(--blue-16); }
 @media (hover: hover) {
   .pp-row:hover { background: var(--blue-8); border-color: var(--blue-16); }
 }
@@ -225,18 +224,16 @@
 /* a picked row is --sel-wash and nothing else (29.09.2026) — the blue ring on top was a second
    channel for the one fact; the ✓ stays as the cue that is not a colour */
 .pp-row.on { background: var(--sel-wash); }
+/* «Anderes Objekt» rows are THE ListRow now (PlanPicker, LISTS.7/8); the one thing this sheet adds
+   is the mini-map's hover: the pin under the pointer lights its row the way a hover does */
+.pp-list .list-row.pp-hover:not(.on) { background-color: var(--fill-soft); }
 /* ⚠️ The two columns share ONE line grid (owner-r2-4, 27.09.2026): 18px for the name line, 16px
    for the address line, a 2px gap in both. Each side used to take its own font's line box and
    the right one a 3px gap, so «0 m» stood ~2px above the name's line and «4 Pläne» drifted the
    other way against the address — three values on a row and no two on a line. */
 .pp-row-main { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .pp-row-main b { font-size: var(--fs-2); line-height: 18px; font-weight: var(--fw-bold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pp-row-addr { font-size: var(--fs-1); line-height: 16px; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pp-row-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none; }
-.pp-dist { font-family: var(--mono); font-size: var(--fs-micro); line-height: 18px; color: var(--ink-dim); }
-/* «3 Pläne» is a count, so ink-dim – never the blue of «chosen» (style sweep T2, 15.11.2026) */
-.pp-mods { font-size: var(--fs-micro); line-height: 16px; font-weight: var(--fw-bold); color: var(--ink-dim); }
-.pp-mods-none { color: var(--ink-faint); font-weight: var(--fw-medium); }
 .pp-map { flex: 1 1 46%; position: relative; min-height: 380px; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--glass-edge); }
 .pp-map .maplibregl-map { width: 100%; height: 100%; }
 /* the ⓘ in the corner, just above the note (owner, 22.10.2026: it stood halfway up the map; beside
@@ -518,13 +515,8 @@
 .wb-readings section { position: absolute; left: 0; right: 0; overflow-y: auto; padding: var(--sp-1) 0;
   border-radius: var(--r-sm); background: var(--glass); border: 1px solid var(--glass-line); box-shadow: var(--e3); pointer-events: auto; }
 .wb-readings h4 { margin: 0; padding: var(--sp-1) var(--sp-3); font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-/* --tap rows (style sweep T4, 15.11.2026 – they were 36px) */
-.wb-readings button { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: var(--tap); padding: 0 var(--sp-3);
-  border: 0; border-top: 1px solid var(--border-soft); background: none; color: var(--ink); font: var(--fw-medium) var(--fs-1) var(--body); text-align: left; cursor: pointer; }
-.wb-readings button > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (hover: hover) {
-  .wb-readings button:hover { background: var(--hover); }
-}
+/* the rows are THE ListRow, rail density (--tap), the Messungen chip's row (LISTS.8, 17.11.2026) */
+.wb-readings .list-card { padding: 0 var(--sp-1); }
 
 /* (.wb-north-dial / -btn / -ring / -needle / -n are gone, 30.08.: the north dial was drawn ON the
    topmost storey tile, so it panned and zoomed with the paper. It is a tile in the plan rail's

@@ -51,7 +51,7 @@ describe('the guide strip (#14)', () => {
     const list = await screen.findByText(P.controlOpenHead)
     // page order: Kurzbericht first, «Zeiten» now called by its field, «Einsatzende»
     // the doors only – each row also carries its answer button since 10.11.2026 (EL phone sweep C6)
-    const rows = [...(list.closest('.rp-control-open') as HTMLElement).querySelectorAll('.rp-control-step')].map((b) => b.textContent)
+    const rows = [...(list.closest('.rp-control-open') as HTMLElement).querySelectorAll('.list-row')].map((b) => b.textContent)
     expect(rows.slice(0, 5)).toEqual([A.steps.kurzbericht, A.steps.einsatzleiter, A.steps.kontaktperson, A.steps.zeiten, A.steps.rueckmeldung])
     expect(A.steps.zeiten).toBe(A.ende)
     fireEvent.click(within(list.closest('.rp-control-open') as HTMLElement).getByRole('button', { name: A.steps.kurzbericht }))

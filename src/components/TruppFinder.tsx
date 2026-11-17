@@ -5,6 +5,9 @@ import { shownTeamColor } from '../lib/teamColors'
 import { cx } from '../lib/cx'
 import { TruppNo } from './TruppNo'
 import { SearchField } from './SearchField'
+import { ListCard, ListRow } from './ListRow'
+import { EmptyState } from './EmptyState'
+import { fillTemplate } from '../lib/format'
 import { Overlay } from '../lib/overlays'
 import { searchQuery } from '../lib/search'
 import { truppMatches, type PlacedTrupp } from '../lib/placedTrupps'
@@ -68,51 +71,44 @@ export function TruppFinder({ trupps, onPick, onClose }: {
       {trupps.length === 0 ? (
         // nothing placed anywhere: say so, and say where a Trupp comes from — an empty list
         // reads as a broken search
-        <div className={s.empty}>
-          <p>{C.empty}</p>
-          <span>{C.emptyHint}</span>
-        </div>
+        <EmptyState icon="trupp-find" title={C.empty} sub={C.emptyHint} />
       ) : (
-        <ul className={s.list} role="listbox" aria-label={C.title}>
+        // THE list row (ListRow, LISTS.8): the cap · name + number · where · crew · tags · ›. The
+        // keyboard cursor wears the row's hover wash – the pointer moves that same cursor
+        // (onMouseEnter) instead of painting a second state; a Trupp «raus» recedes like every
+        // done thing (`--done-opacity`), it is not recoloured
+        <ListCard look="rail" className={s.list} role="listbox" aria-label={C.title}>
           {hits.map((t, i) => (
-            <li key={t.key}>
-              <button
-                type="button" role="option" aria-selected={i === cursor}
-                className={cx(s.row, i === cursor && s.rowOn, t.status === 'raus' && s.rowRaus)}
-                onMouseEnter={() => setCursor(i)}
-                onClick={() => pick(t)}
-              >
-                {/* the colour this Trupp wears out there — the same cap the plan chip and the
-                    map dot carry, so the row and the marker read as one thing */}
-                <span className={s.cap} style={{ background: shownTeamColor(t.color) }} />
-                <span className={s.main}>
-                  <span className={s.name}>{t.name}<TruppNo no={t.no} /></span>
-                  {/* WHERE first, then who ELSE is in it: the question this list answers is where.
-                      ⚠️ `members` leads with the leader (the search needs him), and the row's name
-                      already is him — printed again he took half the line and cut off the crew
-                      member you were actually looking for (29.09.2026, sweep 3 T7). */}
-                  <span className={s.where}>
-                    {t.where}
-                    {t.members.length > 1 && <span className={s.members}> · {t.members.slice(1).join(' / ')}</span>}
-                  </span>
+            <ListRow
+              key={t.key} role="option" aria-selected={i === cursor}
+              className={cx(i === cursor && s.rowOn, t.status === 'raus' && s.rowRaus)}
+              onMouseEnter={() => setCursor(i)}
+              onClick={() => pick(t)}
+              // the colour this Trupp wears out there — the same cap the plan chip and the map
+              // dot carry, so the row and the marker read as one thing
+              lead={<span className={s.cap} style={{ background: shownTeamColor(t.color) }} />}
+              title={<>{t.name}<TruppNo no={t.no} /></>}
+              // WHERE first, then who ELSE is in it: the question this list answers is where.
+              // ⚠️ `members` leads with the leader (the search needs him), and the row's name
+              // already is him — printed again he took half the line and cut off the crew
+              // member you were actually looking for (29.09.2026, sweep 3 T7).
+              sub={<>{t.where}{t.members.length > 1 && ` · ${t.members.slice(1).join(' / ')}`}</>}
+              // «AS» — this crew is under Presslufatmer: a fact, not an alarm, THE neutral tag like
+              // «raus» beside it. ⚠️ Only for a chip that HAS a Trupp: `isAtemschutzTrupp` reads an
+              // absent `kind` as «unter Atemschutz», which on a loose «Team 2» marker is a claim
+              // nobody made.
+              end={(!!t.truppId && isAtemschutzTrupp(t)) || t.status === 'raus' ? (
+                <span className={s.tags}>
+                  {!!t.truppId && isAtemschutzTrupp(t) && (
+                    <span className="ip-badge ip-badge-arch" title={appConfig.copy.atemschutz.kindAtemschutz}>{appConfig.copy.atemschutz.asMark}</span>
+                  )}
+                  {t.status === 'raus' && <span className="ip-badge ip-badge-arch">{C.raus}</span>}
                 </span>
-                {/* «AS» — this crew is under Presslufatmer. The list mixes Atemschutz-Trupps and
-                    work squads, and which one you are about to jump to is worth knowing before
-                    the tap. A fact, not an alarm: the ONE tag recipe (`.ip-badge`) in ink/grey,
-                    like «raus» beside it (29.09.2026 — it was a blue pill, and blue is «chosen»).
-                    ⚠️ Only for a chip that HAS a Trupp: `isAtemschutzTrupp` reads an absent
-                    `kind` as «unter Atemschutz» (that is what it meant before 03.09.), which on a
-                    loose «Team 2» marker would be a claim nobody made. */}
-                {!!t.truppId && isAtemschutzTrupp(t) && (
-                  <span className={'ip-badge ip-badge-arch'} title={appConfig.copy.atemschutz.kindAtemschutz}>{appConfig.copy.atemschutz.asMark}</span>
-                )}
-                {t.status === 'raus' && <span className={'ip-badge ip-badge-arch'}>{C.raus}</span>}
-                <span className={s.go} aria-hidden><Icon id="chevron" /></span>
-              </button>
-            </li>
+              ) : undefined}
+            />
           ))}
-          {hits.length === 0 && <li className={s.none}>{C.noMatches}</li>}
-        </ul>
+          {hits.length === 0 && <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</p>}
+        </ListCard>
       )}
 
       {/* only the count, and only while filtering (29.09.2026, T7): the «Sucht auch nach Namen»

@@ -14,6 +14,7 @@ import { DevicePage } from './DeviceManuals'
 import { BackRow, ListGroup } from './ListRow'
 import { DeviceList, EntryRow, TemplateRow } from './ChecklistRail'
 import { cx } from '../lib/cx'
+import { matchesQuery, searchQuery } from '../lib/search'
 import { EmptyState } from './EmptyState'
 import { SearchField } from './SearchField'
 import { appConfig } from '../config/appConfig'
@@ -157,8 +158,8 @@ export function ChecklistsView({
   const matchResults = useMemo(() => searchEntries(autoMatches, query), [autoMatches, query])
   // the search at the top of the rail filters every group uniformly — action lists by title,
   // reference entries by title/keyword — so Aufgaben, Taktik and Grundlagen are peer groups.
-  const q = query.trim().toLowerCase()
-  const actionResults = q ? actionTemplates.filter((t) => t.title.toLowerCase().includes(q)) : actionTemplates
+  const q = searchQuery(query)
+  const actionResults = q ? actionTemplates.filter((t) => matchesQuery(q, t.title)) : actionTemplates
   // Anleitungen (kind: manual): the same search, over title, device and keywords
   const manualResults = useMemo(() => manualGroups(templates, query), [templates, query])
   const noMatches = ready && !actionResults.length && !results.length && !manualResults.length

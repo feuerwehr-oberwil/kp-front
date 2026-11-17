@@ -13,15 +13,7 @@
   .pop { position: fixed; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
     bottom: calc(var(--float-bottom) + var(--float-h) + var(--float-gap)); width: auto; }
 }
-/* one point: worst reading · Raum · where – the whole row is the tap */
-.row { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 44px; padding: 0 var(--sp-3);
-  border: 0; background: none; color: var(--ink); text-align: left; cursor: pointer;
-  font: var(--fw-medium) var(--fs-1) var(--body); }
-.row + .row { border-top: 1px solid var(--border-soft); }
-@media (hover: hover) {
-  .row:hover { background: var(--hover); }
-}
-.room { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the rows are THE ListRow in its rail density (LISTS.8); «where» is the row's end, a tag */
 .where { flex: none; padding: 0 var(--sp-2); border-radius: var(--r-xs); /* a tag corner, never a pill (T5) */ background: var(--hover);
   color: var(--ink-dim); font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 20px; white-space: nowrap; }
 /* on a phone the chip is the row's square: the bare alarm-coloured pill centred in it (pick 9A) */

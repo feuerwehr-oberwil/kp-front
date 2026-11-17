@@ -36,7 +36,6 @@ export const shellCopy: Localizable<Pick<Copy, Keys>> = {
   truppFinder: {
     title: 'Find a team',
     placeholder: 'Team or name …',
-    noMatches: 'No team found',
     empty: 'No team on the map or a plan yet.',
     emptyHint: 'Place a team on the map or a plan under «Teams» or with the team tool.',
     raus: 'out',

@@ -106,12 +106,6 @@
 /* (`contain` on every scroll body of a sheet or page – docs/ui-conventions.md, scroll sweep 15.11.2026 #8) */
 .body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp-4) var(--page-x) var(--sp-3); }
 
-.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-  height: 100%; color: var(--ink-faint); text-align: center; }
-.empty :global(.i) { width: 30px; height: 30px; opacity: .5; }
-.empty p { margin: 0; font-size: var(--fs-3); font-weight: var(--fw-bold); color: var(--ink-dim); }
-.empty span { font-size: var(--fs-2); }
-
 /* ⚠️ `start`, not `stretch` — decided 29.08. (Höhen-Mockups): every card takes its natural
    height, so an opened fold (Zeiten, Verlauf) grows only ITS card. With `stretch`, expanding one
    Trupp's Verlauf pumped empty space into every neighbour's belly — worse than the ragged
@@ -2275,12 +2269,8 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
   .modalFoot > .footCancel { flex: 0 0 auto; padding-inline: var(--sp-3); }
 }
 
-/* ── Staging walk-through 25.09.2026 ─────────────────────────────────────────────────────────── */
-/* the empty board's own door (AtemschutzView · empty state): THE primary at its big size
-   (<Button size="lg">, 52px — the one action of an empty screen; it was a 48px .ip-btn) */
-.emptyAct { margin-top: var(--sp-4); }
-/* its «+» is a button glyph, not the empty state's big grey warning mark above it (the size is the button's) */
-.empty .emptyAct :global(.i) { width: 20px; height: 20px; margin: 0; color: currentColor; opacity: 1; }
+/* (the empty board is the shared EmptyState since 17.11.2026 – duck sweep LISTS.5; its door is
+   THE primary at its big size, <Button size="lg">, 52px – the one action of an empty screen) */
 /* (the head's «+ Trupp» keeps its word on every width — the ladder only ever SHORTENS it to
    «+ Trupp», lib/pageHeadFit; it is the head's one filled tile, `.headTile` at the top of the file) */
 

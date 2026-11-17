@@ -8,6 +8,7 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { Button, IconButton } from './Button'
+import { ListCard, ListRow } from './ListRow'
 import { TickRow } from './TickRow'
 import { ShellLoader } from './ShellLoader'
 import { cx } from '../lib/cx'
@@ -125,11 +126,12 @@ function ControlOpenList({ missing, onGo }: {
   onGo: (step: AbschlussStep) => void
 }) {
   const rows = abschlussOpenItems(missing.map((step) => ({ kind: 'step' as const, step })), { step: onGo })
-  return rows.map((it, i) => (
-    <button key={missing[i]} type="button" className="rp-control-step" onClick={it.onClick}>
-      <span>{it.label}</span><Icon id="chevron" />
-    </button>
-  ))
+  // THE list row in its rail density (ListRow, LISTS.8): the label and the › of a row that goes
+  return (
+    <ListCard look="rail">
+      {rows.map((it, i) => <ListRow key={missing[i]} title={it.label} onClick={it.onClick} />)}
+    </ListCard>
+  )
 }
 
 /**
@@ -1259,7 +1261,12 @@ export function ReportPreflight({
         <header ref={headRef} className="rp-head">
           <div className="rp-head-titles">
             {/* the nav's own word for this page once the row runs out of everything else */}
-            <h2 data-fold={RP_FOLD.title} title={P.title} aria-label={P.title}>
+            {/* An Übung says so here too (ENT.9, 17.11.2026): the EL signed an Übung's Rapport on the
+                phone with no sign of it while the PDF printed «ÜBUNG». The one Übung tag, FIRST in
+                the line, so the title is what ellipsises and the word never is. */}
+            <h2 data-fold={RP_FOLD.title} title={P.title}
+              aria-label={incident.is_exercise ? `${P.title} · ${appConfig.copy.exerciseBadge}` : P.title}>
+              {incident.is_exercise && <span className="ip-badge ip-badge-exercise rp-head-exercise" aria-hidden="true">{appConfig.copy.exerciseBadge}</span>}
               <span className="fold-long">{P.title}</span><span className="fold-short" aria-hidden="true">{appConfig.copy.modes.rapport}</span>
             </h2>
             {/* The verdict line under the title says only the GOOD news now: «alle Angaben
@@ -2415,7 +2422,7 @@ export function ReportPreflight({
                         <button
                           type="button" className="report-att-thumb" title={P.attachmentsOpen}
                           aria-label={P.attachmentsOpen}
-                          onClick={() => openPhoto(a.url, { caption: a.caption, filename: `beilage-${a.id}.jpg` })}
+                          onClick={() => openPhoto(a.url, { caption: a.caption, filename: `foto-${a.id}.jpg` })}
                         >
                           {/* the small copy — a Rapport with twenty Beilagen used to decode
                               twenty full pictures (lib/mediaUrl · thumbUrl) */}

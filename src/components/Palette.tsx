@@ -6,6 +6,7 @@ import { SearchField } from './SearchField'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatSymbolName } from '../lib/format'
 import { symbolMatchesQuery } from '../lib/symbolSearch'
+import { matchesRaw } from '../lib/search'
 import { softHyphenate } from '../lib/symbolWrap'
 import { FORMEN_ORDER, SHAPE_DEFS, ShapeGlyph } from '../lib/shapes'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
@@ -97,7 +98,7 @@ export function Palette({ sym, onPick, onClose, onPickShape, tools, onPickTool }
   )
   // …and a tool is found by its word too: somebody who types «Linie» must not be told there is
   // no such symbol
-  const toolMatches = query ? sheetTools.filter((t) => t.label.toLowerCase().includes(query)) : []
+  const toolMatches = query ? sheetTools.filter((t) => matchesRaw(query, t.label)) : []
   // an `Overlay` since 15.11.2026 (scroll sweep #5): it was the one hand-rolled sheet, and the
   // one that ignored the keyboard – the keys covered the lower half of the grid. The primitive
   // brings what every other sheet has: focus trap, Esc, backdrop, scroll lock, the grab bar and

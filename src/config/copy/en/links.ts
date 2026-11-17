@@ -37,7 +37,6 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     checkedLabel: 'Last checked',
     chooseTitle: 'Several incidents are running',
     chooseHint: 'Pick which incident this display should show.',
-    exerciseTag: 'Exercise',
     notEnrolledTitle: 'This device is not set up as a station terminal.',
     notEnrolledHint: 'In Administration under «Links & access», generate the setup link and open it on this device.',
     asInvalidTitle: 'This SCBA code is no longer valid.',

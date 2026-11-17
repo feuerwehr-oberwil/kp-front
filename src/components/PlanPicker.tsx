@@ -9,6 +9,8 @@ import { Icon } from '../lib/icons'
 import { Button } from './Button'
 import { SearchField } from './SearchField'
 import { LoadingStatus } from './ShellLoader'
+import { ListCard, ListRow } from './ListRow'
+import { objectPicklistSub, sortObjects } from '../lib/karte/places'
 import { matchesAnyQuery, searchQuery } from '../lib/search'
 import { appConfig } from '../config/appConfig'
 import { confirmDialog } from '../lib/ui'
@@ -103,9 +105,9 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
   const filtered = useMemo(() => {
     // the same tolerance as the roster pickers (lib/search): «Schlossgasse» still finds
     // Schlossgasse with a letter out of place, and umlauts match either spelling
+    // …in THE object order (lib/karte/places · sortObjects, LISTS.7): a name hit first, then nearest
     const needle = searchQuery(q)
-    if (!needle) return objects
-    return objects.filter((o) => matchesAnyQuery(needle, o.name, o.address))
+    return sortObjects(needle ? objects.filter((o) => matchesAnyQuery(needle, o.name, o.address)) : objects, needle)
   }, [objects, q])
 
   const withCoords = useMemo(() => filtered.filter((o) => o.lat != null && o.lng != null), [filtered])
@@ -142,36 +144,35 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
           <div className="pp-list" role="listbox" onScroll={(e) => { if (e.currentTarget.scrollTop > 0 && !listFirst) setListFirst(true) }}>
             {/* revert to the auto-surfaced object — only when an object was manually picked */}
             {onReset && activeObjectId && (
-              <button className="pp-row pp-row-reset" onClick={() => { onReset(); onClose() }}>
-                <span className="pp-row-main"><b>{appConfig.copy.whiteboard.objectReset}</b><span className="pp-row-addr">{pp.autoNextObject}</span></span>
-                <span className="pp-row-meta"><Icon id="undo" /></span>
-              </button>
+              <ListRow className="pp-reset" chevron={false} lead={<Icon id="undo" />} title={appConfig.copy.whiteboard.objectReset}
+                sub={pp.autoNextObject} onClick={() => { onReset(); onClose() }} />
             )}
             {loading && <div className="pp-empty"><LoadingStatus size="surface">{pp.loading}</LoadingStatus></div>}
-            {!loading && error && <div className="pp-empty">{pp.loadFailed}</div>}
-            {!loading && !error && filtered.length === 0 && <div className="pp-empty">{pp.noObject}</div>}
-            {!loading && !error && filtered.map((o) => {
+            {!loading && error && <div className="form-warn form-warn-compact"><Icon id="warn" /><span className="form-warn-text">{pp.loadFailed}</span></div>}
+            {!loading && !error && filtered.length === 0 && (
+              <p className="no-hits">{q.trim() ? fillTemplate(appConfig.copy.noHits, { q: q.trim() }) : pp.noObject}</p>
+            )}
+            {/* THE object row (LISTS.7/8, the Karte search's): footprint · name · address with the
+                plan count (picking here depends on it) · distance. No › – a pick swaps the plans,
+                it opens nothing. The object on the Plan now is `on`, where you are. */}
+            {!loading && !error && filtered.length > 0 && <ListCard>{filtered.map((o) => {
               const n = pdfCount(o)
               return (
-                <button
+                <ListRow
                   key={o.id}
-                  className={`pp-row ${o.id === activeObjectId ? 'on' : ''} ${o.id === hoverId ? 'hover' : ''}`}
-                  aria-current={o.id === activeObjectId || undefined}
+                  className={o.id === hoverId ? 'pp-hover' : undefined}
+                  on={o.id === activeObjectId}
+                  chevron={false}
+                  lead={<Icon id="footprint" />}
+                  title={o.name}
+                  sub={objectPicklistSub(o, `${n} ${n === 1 ? pp.planOne : pp.planMany}`)}
+                  end={o.distance_m != null ? fmtDistance(o.distance_m) : undefined}
                   onClick={() => void choose(o)}
                   onMouseEnter={() => setHoverId(o.id)}
                   onMouseLeave={() => setHoverId((h) => (h === o.id ? null : h))}
-                >
-                  <span className="pp-row-main">
-                    <b>{o.name}</b>
-                    {o.address && <span className="pp-row-addr">{o.address}</span>}
-                  </span>
-                  <span className="pp-row-meta">
-                    {o.distance_m != null && <span className="pp-dist">{fmtDistance(o.distance_m)}</span>}
-                    <span className={`pp-mods ${n ? '' : 'pp-mods-none'}`}>{n} {n === 1 ? pp.planOne : pp.planMany}</span>
-                  </span>
-                </button>
+                />
               )
-            })}
+            })}</ListCard>}
           </div>
 
           {/* supporting aid: a mini-map with a pin per object that has coords */}

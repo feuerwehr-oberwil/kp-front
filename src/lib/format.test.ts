@@ -83,11 +83,11 @@ describe('fmtDuration', () => {
     expect(fmtDuration(47.9)).toBe('0:47')
   })
   it('says «47s» and rounds in the compact label form', () => {
-    expect(fmtDuration(47, { compact: true })).toBe('47s')
-    expect(fmtDuration(0, { compact: true })).toBe('0s')
+    expect(fmtDuration(47, { compact: true })).toBe('47 s')
+    expect(fmtDuration(0, { compact: true })).toBe('0 s')
     expect(fmtDuration(754, { compact: true })).toBe('12:34')
     expect(fmtDuration(3675, { compact: true })).toBe('1:01:15')
-    expect(fmtDuration(47.6, { compact: true })).toBe('48s')
+    expect(fmtDuration(47.6, { compact: true })).toBe('48 s')
   })
   it('never goes negative', () => {
     expect(fmtDuration(-5)).toBe('0:00')
@@ -279,6 +279,13 @@ describe('dueClock (a Wiedervorlage that fell to tomorrow)', () => {
     const tomorrow = new Date(Date.now() + 26 * 3_600_000)
     expect(dueClock(tomorrow.toISOString())).toContain('morgen')
     expect(isNextDay(tomorrow.toISOString())).toBe(true)
+  })
+
+  it('names the day of a due time from yesterday – never «morgen» (LISTS.10)', () => {
+    const now = new Date('2026-11-17T00:20:00')
+    expect(dueClock('2026-11-16T23:50:00', now)).toBe('16.11. 23:50')
+    expect(dueClock('2026-11-18T06:30:00', now)).toContain('morgen')
+    expect(dueClock('2026-11-17T06:30:00', now)).toBe('06:30')
   })
 })
 

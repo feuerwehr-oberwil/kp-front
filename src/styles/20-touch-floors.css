@@ -13,7 +13,7 @@
      product) are GONE (23.09.2026). Raising them to var(--tap) had been tried and reverted: four
      44px pills wrap onto two rows, and once the strip wraps the ::after pads of two rows overlap.
      The fix was the markup's, as this note said it would be: what is still open is listed in the
-     ONE Kontrolle chip («⚠ 4 noch offen»), whose popover rows are 44px (`.rp-control-step`). */
+     ONE Kontrolle chip («⚠ 4 noch offen»), whose popover rows are 44px (ListRow, rail density). */
 }
 
 /* ---- App chrome: the floor every surface inherits ------------------------------------------

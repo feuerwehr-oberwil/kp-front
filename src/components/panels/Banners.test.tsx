@@ -61,3 +61,13 @@ describe('IncomingAlarmBanner', () => {
     expect(primary).toBe(ix.alarmOpen)
   })
 })
+
+describe('IncomingAlarmBanner · time', () => {
+  it('reads today’s alarm as the clock alone, like every row (LISTS.10)', () => {
+    labels(false)
+    const sub = document.querySelector('.ml')?.textContent ?? ''
+    expect(sub).toContain('Bachweg 1')
+    expect(sub).not.toMatch(/\d\d\.\d\d\.,? \d\d:\d\d/)
+    expect(sub).toMatch(/\d\d:\d\d/)
+  })
+})

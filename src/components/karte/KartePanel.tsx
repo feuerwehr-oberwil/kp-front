@@ -65,6 +65,7 @@ import type { LngLat } from '../../types'
 import { Button } from '../Button'
 import { RegisterHintBody, RegisterHintButton, RegisterLines, StationNotes } from '../BuildingFacts'
 import { ListCard, ListRow } from '../ListRow'
+import { PlanChip } from '../PlanGlyph'
 import { LampDot } from './KarteDevice'
 import s from './Karte.module.css'
 
@@ -337,8 +338,9 @@ function StationWord({ obj }: { obj: StationObject }) {
 
 /** Pläne & Module as tiles, two to a line (owner, 27.10.2026 · mock 2C): each says the plan's
  *  name and nothing else — «Modul 1», «Wasser», «PV» (lib/navRail · planLabel), «Gebäude» for the
- *  stack — behind a document glyph (the floors glyph the Gebäude). Offline, the ●/○ «auf diesem
- *  Gerät» mark trails the name (a tile the device does not hold is dimmed) and the head's legend
+ *  stack — behind the rail's own mark (PlanGlyph · PlanChip: «1», «W2», the floors glyph the
+ *  Gebäude). Offline, the ●/○ «auf diesem Gerät» mark trails the name, before the › (a tile the
+ *  device does not hold is dimmed) and the head's legend
  *  says what it means. A tile opens the plan in the Einsatz's reader, read-only (KartePlans).
  *  Not a ListRow: a row spans the card, and two tiles a line is what keeps four plans in the
  *  first screen. */
@@ -367,9 +369,13 @@ function PlanTiles({ docs, onOpenDoc, avail }: {
           return (
             <button key={doc.id} type="button" className={cx(s.planTile, off && s.off)} onClick={() => onOpenDoc(doc.id)}
               aria-label={lamp ? `${row} · ${off ? C.planNotStored : C.device.lampWord[lamp]}` : undefined}>
-              <Icon id={plan ? 'doc' : 'floors'} />
+              {/* the rail's own mark (PlanChip, ENT.10) – «1», «W2», the Gebäude's floors – and
+                  the › on every tile, offline too: the lamp says what the device holds, the ›
+                  that the tile still opens (LISTS.8 – the lamp used to stand in its place) */}
+              <span className={s.planMark}><PlanChip doc={doc} /></span>
               <span className={s.planTileText}>{row}</span>
-              {lamp ? <LampDot lamp={lamp} /> : <Icon id="chevron" className={s.chev} />}
+              {lamp && <LampDot lamp={lamp} />}
+              <Icon id="chevron" className={s.chev} />
             </button>
           )
         })}

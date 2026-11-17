@@ -29,7 +29,8 @@ import {
 import { Modal, realCoord } from './_shared'
 import { ListGroup, ListRow } from '../ListRow'
 import { pointAtField } from '../../lib/pointAtField'
-import { objectPicklistSub, splitAddress } from '../../lib/karte/places'
+import { objectPicklistSub, sortObjects, splitAddress } from '../../lib/karte/places'
+import { useOnline } from '../../lib/useOnline'
 import { clearDraft, keepDraft, readDraft } from '../../lib/draftKeep'
 import { markNew } from '../../lib/alarmUpdate'
 import { Button } from '../Button'
@@ -211,6 +212,9 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   const [menu, setMenu] = useState<'closed' | 'typing'>('closed')
   const [hits, setHits] = useState<GeoHit[]>([])
   const [addrLoading, setAddrLoading] = useState(false)
+  // the lookup FAILED (an answer that was not a list) – said apart from «no address» (LISTS.1)
+  const [addrFailed, setAddrFailed] = useState(false)
+  const online = useOnline()
   const addrOpen = menu !== 'closed'
   const closeMenu = () => setMenu('closed')
   const addrSeq = useRef(0)
@@ -292,12 +296,12 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // debounced swisstopo autocomplete on the address field (skip while a hit is locked in)
   useEffect(() => {
     const q = address.trim()
-    if (!addrOpen || q.length < 3) { setHits([]); setAddrLoading(false); return }
+    if (!addrOpen || q.length < 3) { setHits([]); setAddrLoading(false); setAddrFailed(false); return }
     const seq = ++addrSeq.current
     setAddrLoading(true)
     const t = setTimeout(() => {
-      geocodeSearch(q).then((r) => { if (addrSeq.current === seq) { setHits(r); setAddrLoading(false) } })
-        .catch(() => { if (addrSeq.current === seq) { setHits([]); setAddrLoading(false) } })
+      geocodeSearch(q).then((r) => { if (addrSeq.current === seq) { setHits(r); setAddrFailed(false); setAddrLoading(false) } })
+        .catch(() => { if (addrSeq.current === seq) { setHits([]); setAddrFailed(true); setAddrLoading(false) } })
     }, 300)
     return () => clearTimeout(t)
   }, [address, addrOpen])
@@ -416,11 +420,8 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     }
   }
 
-  // near objects float to the top of the list when we have a coordinate, the rest A–Z
-  const near = shownObjects.filter((o) => o.distance_m != null && o.distance_m <= 1000)
-                       .sort((a, b) => (a.distance_m ?? 0) - (b.distance_m ?? 0))
-  const nearIds = new Set(near.map((o) => o.id))
-  const rest = shownObjects.filter((o) => !nearIds.has(o.id)).sort((a, b) => a.name.localeCompare(b.name))
+  // THE object order (lib/karte/places · sortObjects, LISTS.7): a name hit first, then nearest
+  const orderedObjects = sortObjects(shownObjects, searchQuery(typed))
   // the Karte search's rows (karte/KarteSearch): glyph · name · address · distance. No chevron –
   // a pick fills the form, it opens nothing
   const objRow = (o: ObjectWithPlans) => (
@@ -430,11 +431,16 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   )
   const menuBody = !!typed && (typed.length >= 3 || shownObjects.length > 0) && (
     <>
-      {shownObjects.length > 0 && <ListGroup label={ix.objectsGroup}>{[...near, ...rest].map(objRow)}</ListGroup>}
+      {shownObjects.length > 0 && <ListGroup label={ix.objectsGroup}>{orderedObjects.map(objRow)}</ListGroup>}
+      {/* the address search's four states (LISTS.1, the Karte search's): offline is not «no
+          address», a failed lookup is not either – the objects above still work without both */}
       {typed.length >= 3 && (
-        addrLoading || !hits.length ? (
+        !online || addrFailed || addrLoading || !hits.length ? (
           <ListGroup label={ix.addressGroup} bare>
-            <div className="ip-ac-note">{addrLoading ? <LoadingStatus>{ix.addressSearching}</LoadingStatus> : ix.addressNoHits}</div>
+            {!online ? <div className="ip-ac-note"><Icon id="cloud-off" /> {ix.addressOffline}</div>
+              : addrFailed ? <div className="form-warn form-warn-amber form-warn-compact"><Icon id="warn" /><span className="form-warn-text">{ix.addressFailed}</span></div>
+              : addrLoading ? <div className="ip-ac-note"><LoadingStatus>{ix.addressSearching}</LoadingStatus></div>
+              : <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: typed })}</p>}
           </ListGroup>
         ) : (
           <ListGroup label={ix.addressGroup}>

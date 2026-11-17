@@ -29,7 +29,8 @@ export const karteCopy = {
     searchOpen: 'Suchen',
     searchObjects: 'Stationsobjekte',
     searchAddresses: 'Adressen',
-    searchNoObject: 'Kein Stationsobjekt gefunden.',
+    // the PlanPicker's noun for the same catalogue (incident · noObject) – one catalogue, one noun
+    searchNoObject: 'Kein Objekt gefunden.',
     searchNoAddress: 'Keine Adresse gefunden.',
     searchMinChars: 'Adressen ab 3 Zeichen.',
     searchOffline: 'Adresssuche braucht Netz. Stationsobjekte werden trotzdem gefunden.',
@@ -149,7 +150,7 @@ export const karteCopy = {
     layerUndergroundLoading: 'Wird geladen …',
     layerUndergroundNone: 'Nicht verfügbar – noch nicht geladen oder nicht eingerichtet',
     layerGroupPlans: 'Pläne',
-    layerPlan: 'Plan {code} · {name}',
+    layerPlan: 'Plan ({plan}) · {name}',
     layerPlanSub: 'Von der Station freigegeben',
     // the catalogue itself
     loading: 'Stationsobjekte werden geladen …',

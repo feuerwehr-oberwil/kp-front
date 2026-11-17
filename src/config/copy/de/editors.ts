@@ -314,8 +314,9 @@ export const editorsCopy = {
     kindWandBlocked: 'Ein Trupp ist auf dieser Leitung – zuerst den Trupp lösen.',
     kindWandStoreys: 'Diese Linie geht über mehrere Geschosse – eine Wand liegt auf einem.',
     distance: 'Länge',
-    // Messung group: the numbers of an already drawn line (length, Schläuche, elevation profile)
-    measurement: 'Messung',
+    // Vermessung group: the numbers of an already drawn line or shape (length, Schläuche, elevation
+    // profile, area). Not «Messung» – that is ONE gas reading of a Messpunkt (docs/glossary.md, ENT.13)
+    measurement: 'Vermessung',
     // die Schläuche einer Leitung: was die Strecke braucht, und die Reserve darauf (lib/geo · hoseSplit)
     hoseSplit: '{n} + {r} Reserve × {m} m',
     showOnMap: 'Auf Karte',

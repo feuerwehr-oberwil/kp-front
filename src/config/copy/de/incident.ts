@@ -10,7 +10,7 @@ export const incidentCopy = {
     // the card's clock pill (27.09.2026, slim sweep · mockup 10): the glyph is the label, the
     // full sentence is its title (startedFull)
     startedRow: '{t} · {d}',
-    startedFull: 'Einsatzbeginn {t} · {d}',
+    startedFull: 'Zeit Alarmierung {t} · {d}',
     saved: 'Synchronisiert',
     badgePending: 'Wird gespeichert und synchronisiert',
     badgeOffline: 'Offline – auf diesem Gerät gespeichert',
@@ -176,8 +176,17 @@ export const incidentCopy = {
     filterExercise: 'Übung',
     filterType: 'Einsatzart',
     filterRapportOpen: 'Rapport offen',
-    filterNoHits: 'Kein Einsatz passt zu diesen Filtern.',
     deleteFailed: 'Nicht gelöscht – bleibt in der Liste',
+    // the list's own states, never folded into «Noch keine Einsätze» (LISTS.1, 17.11.2026)
+    loading: 'Einsätze werden geladen …',
+    loadFailed: 'Die Einsätze konnten nicht geladen werden.',
+    offlineCached: 'Ohne Netz – hier stehen die laufenden Einsätze dieses Geräts. Abgeschlossene braucht den Server.',
+    offlineNothing: 'Ohne Netz – die Liste braucht den Server. Auf diesem Gerät ist keine gespeichert.',
+    retry: 'Erneut versuchen',
+    // the line that names the Einsatz above a lifecycle confirm's buttons (lib/einsatzSubject)
+    confirmSubject: 'Zeit Alarmierung {t}',
+    confirmSubjectExercise: '{name} · Übung',
+    filterClear: 'Alle zeigen',
   },
   // Abschluss-Assistent — the guided closing ritual over the EXISTING views. Every small
   // incident is a training run on the big-incident tool (practice rationale, 2026-07-08).

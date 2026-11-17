@@ -117,7 +117,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     layerUndergroundLoading: 'Chargement …',
     layerUndergroundNone: 'Indisponible – pas encore chargé ou pas configuré',
     layerGroupPlans: 'Plans',
-    layerPlan: 'Plan {code} · {name}',
+    layerPlan: 'Plan ({plan}) · {name}',
     layerPlanSub: 'Validé par le corps',
     loading: 'Chargement des objets du corps …',
     loadFailed: 'Les objets du corps n’ont pas pu être chargés.',
