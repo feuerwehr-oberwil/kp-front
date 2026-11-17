@@ -106,7 +106,7 @@ type WizardFields = {
 }
 /** the part of a draft that is TEXT – what lib/draftKeep holds, and for a new Einsatz mirrors to
  *  the browser's storage so it survives a reload (owner call C2, 17.11.2026) */
-type WizardText = Omit<WizardFields, 'coord'>
+type WizardText = Omit<WizardFields, 'coord'> & { awaitingAddressPin?: true }
 
 /** Only an explicitly changed pin accompanies this exact text draft in memory. A reload,
  * cancel or incident switch drops the association; a title-only correction uses the latest server pin. */
@@ -183,6 +183,8 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // below never reports a change), and a manual create sends none, which the backend derives.
   const priority = edit ? (edit.priority === 'HIGH' ? 'HIGH' : 'LOW') : null
   // [lng, lat] resolved location (object / address hit / map-pick / the alarm's own coord)
+  // A dismissed lookup restarts from its address text. A settled miss keeps only clearPin.
+  const [lookupAddress, setLookupAddress] = useState<string | null>(draft?.awaitingAddressPin ? draft.address : null)
   const [clearPin, setClearPin] = useState(!!draft?.clearPin)
   const [coord, setCoord] = useState<[number, number] | null>(() =>
     (draft && keptCoord.get(draft)) ?? (draft?.clearPin ? null : realCoord(edit?.lng, edit?.lat)),
@@ -198,6 +200,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   useEffect(() => {
     const fields: WizardText = {
       title, address, kategorie, isExercise, clearPin: clearPin && !coord,
+      awaitingAddressPin: lookupAddress ? true : undefined,
       text: textTouched.current ? text : undefined,
       alarmiertAt: alarmiertAt !== openedAlarm ? alarmiertAt : undefined,
     }
@@ -205,7 +208,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       keepDraft(draftKey, fields)
       if (coord && (coord[0] !== opened.coord?.[0] || coord[1] !== opened.coord?.[1])) keptCoord.set(fields, coord)
     } else clearDraft(draftKey)
-  }, [title, address, kategorie, coord, isExercise, clearPin, text, alarmiertAt, opened, openedAlarm, draftKey])
+  }, [title, address, kategorie, coord, isExercise, clearPin, lookupAddress, text, alarmiertAt, opened, openedAlarm, draftKey])
   /** «Abbrechen»: the deliberate way out, so the draft goes too */
   const cancel = () => { clearDraft(draftKey); onClose() }
   // the Alarmmeldung fetch FAILED — the textarea is disabled and says so, and `text` stays out of
@@ -271,7 +274,6 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
 
   // map picker (self-contained — works with no active incident yet)
   const [mapOpen, setMapOpen] = useState(false)
-  const [lookupAddress, setLookupAddress] = useState<string | null>(null)
   useEffect(() => {
     if (!lookupAddress) return
     let current = true

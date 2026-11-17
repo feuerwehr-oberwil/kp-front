@@ -112,6 +112,7 @@ describe('«Noch kein Standort»', () => {
 })
 
 describe('saving dispatch corrections', () => {
+  afterEach(() => { vi.mocked(geocodeSearch).mockReset().mockResolvedValue([HIT]) })
   const edit: IncidentMeta = { ...meta({}), type: 'Brand', alarm_update: {
     state: 'pending', at: BASE.started_at, title: null, lat: null, lng: null,
     fields: [{ field: 'address', alarm: 'New street 8', current: BASE.address, edited: false }],
@@ -119,8 +120,9 @@ describe('saving dispatch corrections', () => {
   async function open(incident = edit) {
     vi.mocked(patchIncident).mockClear().mockImplementation(() => new Promise(() => {}))
     vi.mocked(getIncident).mockResolvedValueOnce({ text: 'Initial alarm' } as IncidentFull)
-    render(<EinsatzWizard edit={incident} onClose={() => {}} onCreated={() => {}} />)
+    const form = render(<EinsatzWizard edit={incident} onClose={() => {}} onCreated={() => {}} />)
     await screen.findByDisplayValue('Initial alarm')
+    return form
   }
   it.each(['hit', 'miss', 'offline'])('resolves the accepted address before saving (%s)', async (outcome) => {
     let resolve!: (value: GeoHit[]) => void
@@ -136,6 +138,48 @@ describe('saving dispatch corrections', () => {
     expect(patchIncident).toHaveBeenCalledWith(edit.id, {
       address: 'New street 8', lng: outcome === 'hit' ? HIT.lng : null, lat: outcome === 'hit' ? HIT.lat : null,
     })
+  })
+  it('resumes a dismissed dispatch lookup and waits for the new answer before saving', async () => {
+    let finishFirst!: (value: GeoHit[]) => void
+    let finishSecond!: (value: GeoHit[]) => void
+    vi.mocked(geocodeSearch)
+      .mockImplementationOnce(() => new Promise((resolve) => { finishFirst = resolve }))
+      .mockImplementationOnce(() => new Promise((resolve) => { finishSecond = resolve }))
+    const first = await open()
+    fireEvent.click(screen.getByText(ix.alarmUpdate.take))
+    first.unmount()
+    await open()
+    expect(screen.getByText(ix.addressSearching)).toBeTruthy()
+    await act(async () => finishFirst([]))
+    fireEvent.click(screen.getByText(ix.save))
+    expect(patchIncident).not.toHaveBeenCalled()
+    await act(async () => finishSecond([HIT]))
+    fireEvent.click(screen.getByText(ix.save))
+    expect(patchIncident).toHaveBeenCalledWith(edit.id, { address: 'New street 8', lat: HIT.lat, lng: HIT.lng })
+  })
+  it('reopening a completed miss leaves the address unlocated without another lookup', async () => {
+    vi.mocked(geocodeSearch).mockResolvedValueOnce([])
+    const first = await open()
+    fireEvent.click(screen.getByText(ix.alarmUpdate.take))
+    await screen.findByText(ix.coordMissing)
+    first.unmount()
+    vi.mocked(geocodeSearch).mockClear()
+    await open()
+    expect(geocodeSearch).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText(ix.save))
+    expect(patchIncident).toHaveBeenCalledWith(edit.id, { address: 'New street 8', lat: null, lng: null })
+  })
+  it('clearing an accepted address cancels the lookup across dismissal', async () => {
+    vi.mocked(geocodeSearch).mockImplementationOnce(() => new Promise(() => {}))
+    const first = await open()
+    fireEvent.click(screen.getByText(ix.alarmUpdate.take))
+    fireEvent.change(field(), { target: { value: '' } })
+    first.unmount()
+    vi.mocked(geocodeSearch).mockClear()
+    await open()
+    expect(geocodeSearch).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText(ix.save))
+    expect(patchIncident).toHaveBeenCalledWith(edit.id, { address: null, lat: null, lng: null })
   })
   it('uses the alarm coordinates directly, including a coordinate unchanged on one axis', async () => {
     const update = { ...edit.alarm_update!, lng: BASE.lng, lat: HIT.lat }
