@@ -95,14 +95,30 @@ type WizardFields = {
   text?: string
   alarmiertAt?: string
 }
+/** the part of a draft that is TEXT – what lib/draftKeep holds, and for a new Einsatz mirrors to
+ *  the browser's storage so it survives a reload (owner call C2, 17.11.2026) */
+type WizardText = Omit<WizardFields, 'coord'>
 
-/** The draft to keep for `now`, or null when nothing differs from what the sheet opened with. */
-function wizardDraft(now: WizardFields, opened: WizardFields): WizardFields | null {
+/** The picked location of a kept draft, per draft key. ⚠️ Memory only, and NOT in lib/draftKeep:
+ *  it may be the device's own position, and a reload-proof draft is written to the browser's
+ *  storage (CodeQL js/clear-text-storage-of-sensitive-data, 17.11.2026). Read only beside a text
+ *  draft, so a stale entry is never used; after a reload it is gone and the location is picked
+ *  again from the address text that came back. */
+const keptCoord = new Map<string, [number, number] | null>()
+
+/** Forget a kept draft – its text and its location. */
+function dropDraft(key: string): void {
+  clearDraft(key)
+  keptCoord.delete(key)
+}
+
+/** Whether `now` differs from what the sheet opened with – then there is a draft to keep. */
+function wizardChanged(now: WizardFields, opened: WizardFields): boolean {
   const same = now.title === opened.title && now.address === opened.address
     && now.kategorie === opened.kategorie && now.isExercise === opened.isExercise
     && now.coord?.[0] === opened.coord?.[0] && now.coord?.[1] === opened.coord?.[1]
     && now.text === undefined && now.alarmiertAt === undefined
-  return same ? null : now
+  return !same
 }
 
 /** «Alarm neu: …» beside a field a pending «Alarm aktualisiert» changes (Banners ·
@@ -137,7 +153,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // What differs from what the sheet opened with is kept like the composer's draft and seeds the
   // next open – per Einsatz when correcting. «Abbrechen» and a save are what drop it.
   const draftKey = `einsatz-wizard:${edit?.id ?? 'new'}`
-  const [draft] = useState(() => readDraft<WizardFields | null>(draftKey, null))
+  const [draft] = useState(() => readDraft<WizardText | null>(draftKey, null))
   const [title, setTitle] = useState(draft?.title ?? edit?.title ?? '')
   const [address, setAddress] = useState(draft?.address ?? edit?.address ?? '')
   // Alarmmeldung (= incident.text). On edit it's fetched from the incident below
@@ -166,7 +182,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // below never reports a change), and a manual create sends none, which the backend derives.
   const priority = edit ? (edit.priority === 'HIGH' ? 'HIGH' : 'LOW') : null
   // [lng, lat] resolved location (object / address hit / map-pick / the alarm's own coord)
-  const [coord, setCoord] = useState<[number, number] | null>(draft ? draft.coord : realCoord(edit?.lng, edit?.lat))
+  const [coord, setCoord] = useState<[number, number] | null>(draft ? keptCoord.get(draftKey) ?? null : realCoord(edit?.lng, edit?.lat))
   // Übung — stats-excluded + deletable. A Probealarm that opened itself gets retro-tagged here.
   const [isExercise, setIsExercise] = useState(draft?.isExercise ?? !!edit?.is_exercise)
   const [busy, setBusy] = useState(false)
@@ -176,21 +192,16 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     coord: realCoord(edit?.lng, edit?.lat), isExercise: !!edit?.is_exercise,
   }))
   useEffect(() => {
-    const kept = wizardDraft({
-      title, address, kategorie, coord, isExercise,
-      text: textTouched.current ? text : undefined,
-      alarmiertAt: alarmiertAt !== openedAlarm ? alarmiertAt : undefined,
-    }, opened)
-    // the reload-proof copy is what was TYPED – the picked location stays in memory only and is
-    // picked again after a reload (the address text is back to pick it from)
-    if (kept) keepDraft<WizardFields>(draftKey, kept, {
-      title: kept.title, address: kept.address, kategorie: kept.kategorie, coord: null,
-      isExercise: kept.isExercise, text: kept.text, alarmiertAt: kept.alarmiertAt,
-    } satisfies WizardFields)
-    else clearDraft(draftKey)
+    const keptText = textTouched.current ? text : undefined
+    const keptAlarm = alarmiertAt !== openedAlarm ? alarmiertAt : undefined
+    if (wizardChanged({ title, address, kategorie, coord, isExercise, text: keptText, alarmiertAt: keptAlarm }, opened)) {
+      // the text goes to lib/draftKeep (reload-proof for a new Einsatz), the location stays here
+      keepDraft<WizardText>(draftKey, { title, address, kategorie, isExercise, text: keptText, alarmiertAt: keptAlarm })
+      keptCoord.set(draftKey, coord)
+    } else dropDraft(draftKey)
   }, [title, address, kategorie, coord, isExercise, text, alarmiertAt, opened, openedAlarm, draftKey])
   /** «Abbrechen»: the deliberate way out, so the draft goes too */
-  const cancel = () => { clearDraft(draftKey); onClose() }
+  const cancel = () => { dropDraft(draftKey); onClose() }
   // the Alarmmeldung fetch FAILED — the textarea is disabled and says so, and `text` stays out of
   // the PATCH body, so a save cannot blank what could not be read (see the fetch below)
   const [textFailed, setTextFailed] = useState(false)
@@ -426,7 +437,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     try {
       const inc = edit && patch ? await patchIncident(edit.id, patch) : await createIncident(full)
       // no «Einsatz erstellt» toast (toast diet, 17.11.2026): the Einsatz opening IS the answer
-      clearDraft(draftKey) // saved – the next open starts from the record
+      dropDraft(draftKey) // saved – the next open starts from the record
       onCreated(inc)
     } catch (e) {
       toast(e instanceof ApiError ? e.detail : edit ? ix.errorUpdate : ix.errorCreate, { icon: 'warn', tone: 'warn' })
