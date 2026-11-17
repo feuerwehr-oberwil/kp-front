@@ -44,7 +44,7 @@ import { useSymbols } from '../lib/useSymbols'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
 import type { ShareLinkKind } from '../lib/viewLink'
 import type { Doc } from '../lib/workspace'
-import type { CameraView, Drawing, Entity, Incident, LineAttachment, LineEndpoint, LngLat, ShapeKind, TimelineEvent, Trupp, PlanDocument, NoteSize, MapTool } from '../types'
+import type { CameraView, Drawing, Entity, LayerId, Incident, LineAttachment, LineEndpoint, LngLat, ShapeKind, TimelineEvent, Trupp, PlanDocument, NoteSize, MapTool } from '../types'
 import type { OneShotRows, WorkspaceMode } from './types'
 import { useEffect, useMemo, useRef, type Dispatch, type RefObject, type SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
@@ -75,6 +75,8 @@ export interface UseMapActionsInputs {
   log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   emit: (op_type: string, payload?: Record<string, unknown>, opts?: { observed?: string }) => void
   pending: string | null
+  /** switch a layer this device has off back on – a placement into it (IncidentWorkspace · revealLayer) */
+  revealLayer: (id: LayerId) => void
   sym: ReturnType<typeof useSymbols>
   addRecent: (name: string) => void
   noteDefaults: { size: NoteSize; plain: boolean; color: string }
@@ -162,7 +164,7 @@ export function useMapActions({
   clearMapUi, setPaletteOpen, tool, setTool, setPending, setPendingShape, setSelectedId,
   setSelectedDrawingId, setSelectedDrawIds, setSelectedEntityIds, setNotePanelId, setEditNoteId, panel,
   setPanel, tacticalLocked, pendingShape, rotStart, setRotStart, commit, placeLock, log, emit, pending,
-  sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, settleDraft, lineMode, measure, mapRef,
+  revealLayer, sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, settleDraft, lineMode, measure, mapRef,
   incidentView, entities, liveIds, resolvedMapDrawings, cameraViews, view, setLocateReq, incidentOpen,
   share, setShareParent, setSharePick, setCameraViews, rememberOneShotRef, C_HIST, setViewsOpen,
   viewsOpen, selectedId, selectedDrawIds, selectedEntityIds, doc, truppCounterNames, selectedDrawingId,
@@ -219,6 +221,7 @@ export function useMapActions({
   const addSymbol = (s: string, c: LngLat): Entity => {
     const entity = symbolEntity(s, c)
     commit((d) => ({ ...d, entities: [...d.entities, entity] }))
+    revealLayer(entity.layer)
     log('hex', fillTemplate(appConfig.copy.log.symbolPlaced, { name: entity.label || formatSymbolName(s) }), 'symbol', undefined, entity.id)
     emit('entity.add', { id: entity.id, symbol: s, entity })
     return entity
@@ -257,6 +260,7 @@ export function useMapActions({
         setRotStart(null)
       }
       commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'shape', layer: appConfig.defaults.drawingLayerId, shape: pendingShape, color: def.defaultColor, label: name, ...geom }] }))
+      revealLayer(appConfig.defaults.drawingLayerId)
       // unlocked: place once, then drop back to select with the new shape active so
       // its edit handles are immediately usable. locked: stay in place-mode (no
       // selection so the editor doesn't interrupt) to drop several in a row.
@@ -276,6 +280,7 @@ export function useMapActions({
     } else if (tool === 'note') {
       const id = newId('n')
       commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: autoNoteWPx('', noteDefaults.size === 'm' ? undefined : noteDefaults.size), noteAutoW: true, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined }] }))
+      revealLayer(appConfig.defaults.drawingLayerId)
       // Straight into typing — in the detail sheet, with the caret already in its text field
       // (05.09.). It used to open the on-canvas inline editor instead, which is a text cursor
       // sitting on the map with no visible field, no room for a second line and, on a phone, the

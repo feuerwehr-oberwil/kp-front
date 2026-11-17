@@ -10,7 +10,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite } from './lib/icons'
-import { layerPreset } from './lib/layerPreset'
+import { contentLayerHidden, layerPreset } from './lib/layerPreset'
+import { useOnResume } from './lib/useOnResume'
 import { prefersReducedMotion } from './lib/reducedMotion'
 import { useSymbols } from './lib/useSymbols'
 import { useVehicleLayer } from './lib/useVehicleLayer'
@@ -1897,6 +1898,8 @@ export function IncidentWorkspace({
   const mapDrawing = useMapDrawing({
     drawings, resolvedDrawings: resolvedMapDrawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log, stepLabelRef: stepLabel,
+    // a lambda: revealLayer is declared further down, and only called on a tap
+    revealLayer: (id) => revealLayer(id),
     setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds,
     // a Leitung end snapped onto a Trupp's marker IS the Leitung pick (15.09.) — the same call
     // the Plan makes from its own magnet (Whiteboard · onLineAttached)
@@ -2047,6 +2050,15 @@ export function IncidentWorkspace({
       return ls.map((l) => (l.id === id ? { ...l, visible: !l.visible } : l))
     })
   }
+  /** Something placed or drawn on THIS device into a layer it has switched off: the layer comes
+   *  back on, so the new thing shows where it was made (rare-user round 17.11.2026, F3 · the
+   *  editor's coupling reveal is the same move). Idempotent – sets, never flips – so two placements
+   *  in one render cannot switch it off again. The same `layer.toggle` as a tap on the row. */
+  const revealLayer = (id: LayerId) => {
+    if (!layers.some((l) => l.id === id && !l.base && !l.visible)) return
+    if (!isEl) emit('layer.toggle', { id, base: false, visible: true })
+    setLayers((ls) => ls.map((l) => (l.id === id ? { ...l, visible: true } : l)))
+  }
   /** Ebenen quick-taps (field ask 07.09.): flip every overlay at once, or return to the layer
    *  set this Einsatz category opens with. Bases stay out of the bulk flip (a map with no base
    *  is a flat colour, and the base row is a radio, not an eye); the plan raster rows keep their
@@ -2080,6 +2092,8 @@ export function IncidentWorkspace({
   // tooltip / accessible name (lib/layerPreset, 05.10.2026)
   const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type), weather.on && weather.radarOn, twinsAtDefault(twinLayers)),
     [layers, incidentMeta.type, weather.on, weather.radarOn, twinLayers])
+  // a CONTENT layer off on this device – the amber dot on the Ebenen tile (lib/layerPreset)
+  const layersHidden = useMemo(() => contentLayerHidden(layers), [layers])
   const setOpacity = (id: LayerId, v: number) => {
     if (weather.handlesLayer(id)) { weather.setRadarOpacity(v); return }
     if (isTwinLayerId(id)) {
@@ -2132,6 +2146,15 @@ export function IncidentWorkspace({
     setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
     setNotePanelId(null); setEditNoteId(null)
   }
+
+  // Back from the background (C3, rare-user round 17.11.2026 · lib/useOnResume): the armed tool or
+  // symbol is put down – a committable draft asks, exactly as leaving it any other way –
+  // «Mehrere platzieren» goes off and so does «Zeigen». The Wiedergabe stays where it was.
+  useOnResume(() => {
+    if (tool !== 'select' || pending || pendingShape || teamPick) disarmMapTool()
+    setPlaceLock(false)
+    if (presentation.zeigen) presentation.toggleZeigen()
+  })
 
   // Locking the surface mid-draw (Führungsansicht toggled on, tab lock lost, replay entered)
   // must not leave a create tool armed behind a dock that is no longer rendered — disarm down to
@@ -2299,6 +2322,8 @@ export function IncidentWorkspace({
     },
     focusMapEntity: (entityId, coord, fly = true) => {
       setMode('map')
+      // a Trupp marker just placed, or jumped to, stands on «Taktische Zeichen»: shown (F3)
+      revealLayer(appConfig.defaults.operationalLayerId)
       if (!fly) { setSelectedId(entityId); setSelectedDrawingId(null); return }
       if (coord) { setSelectedId(entityId); setSelectedDrawingId(null); flyToMapVisible(coord, 18.4) }
       else focusEntity(entityId)
@@ -2319,7 +2344,7 @@ export function IncidentWorkspace({
     clearMapUi, setPaletteOpen, tool, setTool, setPending, setPendingShape, setSelectedId,
     setSelectedDrawingId, setSelectedDrawIds, setSelectedEntityIds, setNotePanelId, setEditNoteId, panel,
     setPanel, tacticalLocked, pendingShape, rotStart, setRotStart, commit, placeLock, log, emit, pending,
-    sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, settleDraft, lineMode, measure, mapRef,
+    revealLayer, sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, settleDraft, lineMode, measure, mapRef,
     incidentView, entities, liveIds, resolvedMapDrawings, cameraViews, view, setLocateReq, incidentOpen,
     share, setShareParent, setSharePick, setCameraViews, rememberOneShotRef, C_HIST, setViewsOpen,
     viewsOpen, selectedId, selectedDrawIds, selectedEntityIds, doc, truppCounterNames, selectedDrawingId,
@@ -2337,7 +2362,7 @@ export function IncidentWorkspace({
   } = mapActions
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const teamMarkers = useTeamMarkerActions({
-    entities, commit, log, emit, setSelectedId, setSelectedDrawingId,
+    entities, commit, log, emit, setSelectedId, setSelectedDrawingId, revealLayer,
     // every chip, every ghost trail and every registered Trupp count into the numbering: ONE
     // counter per Einsatz (docs/trupp-naming.md §1)
     placedTeamNames: () => truppCounterNames(),
@@ -3231,7 +3256,7 @@ export function IncidentWorkspace({
 
       <MapControls {...{
         mapUI, mapUtility, mapRef, view, viewsApi, readOnly, isEl, viewsOpen, toggleViews, coord, panel,
-        layersPreset, togglePanel, isPhone, displayWeather, openWeatherDetails, replayActive,
+        layersPreset, layersHidden, togglePanel, isPhone, displayWeather, openWeatherDetails, replayActive,
         georefMode, buildingInfo, buildingFirst, setPanel, composerOpen, journalOpen, offlineReadyOpen,
         // an incident link may not read the station: no «Unterirdische Bauten» row it could never fill
         layers: linkScoped ? layers.filter((l) => l.id !== UNDERGROUND_LAYER_ID) : layers,
@@ -3258,7 +3283,7 @@ export function IncidentWorkspace({
         mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, lineMode, settleDraft,
         setLineMode, draftActive, draftOpen, commitDraft, areaMode, setAreaMode, setTeamPick, placed, setFindTruppOpen,
         measure, pendingShape, setPendingShape, setRotStart, rotStart, tacticalLocked, createLine,
-        createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, togglePanel, viewsApi,
+        createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, layersHidden, togglePanel, viewsApi,
         view, readOnly, isEl, viewsOpen, sharePick, shareParent, toggleViews, coord, mapRef, paletteOpen,
         sym, setPaletteOpen, pickShape, teamPick, trupps, placeTruppOnMap, placeGenericTeam,
         truppColors: truppColors(),
