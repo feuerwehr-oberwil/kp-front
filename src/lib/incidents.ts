@@ -19,7 +19,7 @@
 
 export {
   listIncidents, cacheIncidentList, readCachedIncidentList, listIncidentsResilient, listIncidentsShared,
-  getIncident, createIncident, patchIncident, archiveIncident, reactivateIncident,
+  getIncident, createIncident, patchIncident, reactivateIncident,
   deleteIncident, migrateLegacyWorkspace, acceptAlarmUpdate, dismissAlarmUpdate, undoAlarmUpdate,
 } from './api/incidents'
 export type { IncidentCreate, IncidentMeta, IncidentFull, AlarmUpdate, AlarmUpdateField } from './api/incidents'

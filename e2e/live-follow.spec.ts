@@ -12,7 +12,8 @@ import { buildingAlreadyRead, remember, retire, seedIncident, signIn, type Seede
 // The same loop carries every OTHER device's change — a Funkkontakt, an Atemschutznotfall — so
 // this spec holds both halves on the real stack: the saving device downloads nothing of its own,
 // and a second device on the SAME login (the field's shape: one account on three tablets) still
-// gets every change of the other one, also when the two save at the same moment.
+// gets every change of the other one, also when the two save at the same moment. A failed
+// switch must leave the on-screen Trupps able to send their next Kontakt.
 //
 // ⚠️ OPT-IN (E2E_WORKFLOWS=1), chromium only: it seeds and writes an Einsatz of its own (archived
 // again afterwards). Never against a shared demo or a station in use.
@@ -78,6 +79,29 @@ async function serverTrupps(): Promise<{ id: string; name: string; lastContactTi
   const res = await station.get(`/api/incidents/${seeded.id}/workspace`)
   return (await res.json()).workspace.trupps
 }
+
+test('after an uncached Einsatz fails to open, the on-screen Trupp can still send a Kontakt', async ({ page, baseURL }) => {
+  const title = `Wechselübung ${Date.now().toString(36)}`
+  const created = await station.post('/api/incidents', { data: { title, is_exercise: true } })
+  expect(created.status()).toBe(201)
+  const { id } = await created.json()
+  try {
+    await openOnTrupps(page, baseURL!)
+    const detail = 'Einsatz derzeit nicht erreichbar'
+    await page.route(`**/api/incidents/${id}/workspace`, (route) => route.fulfill({ status: 503, json: { detail } }))
+    await page.locator('.ip-switch-btn').click()
+    await page.locator('.ip-menu').getByRole('button').filter({ hasText: title }).click()
+    await expect(page.getByText(detail, { exact: true })).toBeVisible()
+    await expect(page.locator('.ip-switch-btn')).toContainText(seeded.title)
+    const name = seeded.trupps[0]
+    const previous = Date.parse((await serverTrupps()).find((t) => t.name === name)?.lastContactTime ?? '')
+    await card(page, name).getByRole('button', { name: 'Kontakt', exact: true }).click()
+    await expect.poll(async () => Date.parse((await serverTrupps()).find((t) => t.name === name)?.lastContactTime ?? ''))
+      .toBeGreaterThan(previous)
+  } finally {
+    await retire(station, id)
+  }
+})
 
 test('a device downloads nothing of its own saves on the live follow', async ({ page, baseURL }) => {
   await openOnTrupps(page, baseURL!)
