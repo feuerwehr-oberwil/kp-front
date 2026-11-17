@@ -15,7 +15,7 @@
 /* «Beschriftung» on (MapUtility · `worded`, 17.11.2026): each control a tile, the glyph OVER its
    word at 11/700 – the view bar's tile (09-whiteboard · `.vrail-label`), so the read-only and the
    replay map say «Ansichten · Verkleinern · Vergrössern · Ebenen» where the editable Lage does */
-.worded .tu-btn { width: auto; min-width: 52px; height: auto; min-height: 52px; padding: var(--sp-1) 6px; row-gap: 3px;
+.worded .tu-btn { width: auto; min-width: 52px; height: auto; min-height: 52px; padding: var(--sp-1); row-gap: var(--sp-1);
   align-content: center; font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
 .worded .compass { width: auto; height: auto; }   /* spacing between the zoom pair and Ebenen, not a line (22.09.2026) */
 

@@ -100,7 +100,7 @@
    It used to be «Verlauf» bare at this step and «Eintrag» bare at the last, one glyph at a time,
    beside an ↶ ↷ that never had a word. A phone wears the tiles from the start (TopBar ·
    `data-tiles`). The reminder count stays the corner badge, a number is not a word. */
-.topbar:is(.fit-6, [data-tiles]) .tb-act { flex-direction: column; gap: 3px; padding: var(--sp-1) 6px; min-width: var(--tap);
+.topbar:is(.fit-6, [data-tiles]) .tb-act { flex-direction: column; gap: var(--sp-1); padding: var(--sp-1); min-width: var(--tap);
   font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
 .topbar:is(.fit-6, [data-tiles]) .tb-act .i { width: 18px; height: 18px; }
 .topbar:is(.fit-6, [data-tiles]) .tb-act-history .i { transform: none; }

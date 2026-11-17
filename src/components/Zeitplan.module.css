@@ -598,7 +598,7 @@
 @media (--phone) {
   /* The empty-grid help shares the clock header; it takes no row from the Mannschaft. */
   .emptyNote { position: absolute; top: 2px; right: 12px; z-index: 5; margin: 0; }
-  .emptyInfoBtn { width: var(--tap); flex-direction: column; justify-content: center; gap: 3px; background: var(--surface); border: 1px solid var(--edge); color: var(--ink-dim); }
+  .emptyInfoBtn { width: var(--tap); flex-direction: column; justify-content: center; gap: var(--sp-1); background: var(--surface); border: 1px solid var(--edge); color: var(--ink-dim); }
   .emptyInfoBtn span:not(.emptyHelpWord), .emptyInfoBtn svg:first-child { display: none; }
   /* the ⓘ OVER «Hilfe» (pick 24, 17.11.2026) */
   .emptyHelpWord { font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
