@@ -34,7 +34,12 @@ AGENTS.md on 2026-10-08, wording unchanged.
   - *A storey's acts live in its LABEL* (29.09.2026). The label shows the word only («4. OG»,
     «EG», a custom name); the signed chip comes back only when a custom name hides the order. A
     tap opens a Menu «Ausblenden · Geschoss entfernen» — Ausblenden is a way of looking
-    (device-local, on read-only surfaces too, the folded strip is the way back), «Geschoss
+    (device-local, on read-only surfaces too, the folded strip is the way back – and it names who
+    is up there: the chip of each Trupp on that storey, dot and name as on the plan, the one in most
+    trouble first with its alarm tint, «Müller H. +1» for more; a narrow strip keeps the chip and the
+    eye and drops only the words – rare-user round 17.11.2026, M7. A Trupp SET onto a folded storey,
+    on any device, or one there going überfällig / Notfall unfolds it; a fold made over a Trupp
+    already there stays – `lib/floorPrefs · foldedStoreyTeams`, `storeysToReveal`, F4), «Geschoss
     entfernen» is the danger row and stays the owner's confirm-with-undo (workspace/useGebaeudeActions ·
     removeFloor). No eye and no bin on the canvas: delete is the rarest act on this surface.
     «Kopieren nach …» (27.10.2026) sits in the same menu (not on a read-only surface). The label
@@ -171,6 +176,17 @@ Sketching a building on the floor stack during an Einsatz (27.10.2026, the owner
   Geschossplan» on every storey (prod, 20.09.2026). Floors that exist are never replaced. Bound sheets carry `incident:` georef keys, routed by
   `stationPlanScale · georefForPlan`; legacy fits under existing ink are preserved, never
   silently replaced.
+- **A hand calibration is the Messen dock's third mode, «Massstab»** (M13 A, 17.11.2026): two
+  taps on the printed scale bar, then the real length (`usePlanMeasure · commitCalibration`, the
+  `PlanScalePrompt`). Tool `scale` renders the Messen dock (`WbControls · WbToolDocks`) with
+  «Massstab» lit – one state for every door (the Plan sheet's «Massstab» row, Messen's panel, the
+  tile) – and nothing at the bottom. It is offered where the Plan sheet offers it: not on a sheet
+  whose scale is automatic (linked, or the Gebäude's Grundriss) and not in a locked session. The
+  Lage has no scale to calibrate, so its Messen dock has no such mode.
+  Where it is offered, Messen on a plan without a scale starts there (rare-user r4,
+  `usePlanMeasure`): «Massstab» lit, the steps standing in the dock's card, the length dialog
+  saying why. After a calibration the dock goes on to «Strecke». A locked session keeps Messen's
+  «Messen erst möglich, wenn der Massstab kalibriert ist».
 
 ## Plan PDFs and the tile pyramid
 

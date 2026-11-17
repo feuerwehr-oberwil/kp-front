@@ -42,8 +42,10 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       circle: 'Trascina dal centro verso il bordo.',
       text: 'Tocca dove va la nota – poi scrivi.',
       resource: 'Tocca per posizionare una squadra. Trascinando la sposti.',
-      scale: 'Tocca i due estremi della scala stampata, poi inserisci la lunghezza.',
       measure: 'Tocca i punti. Tieni premuto un punto per rimuoverlo.',
+      scaleStep1: 'Tocca un estremo della scala',
+      scaleStep2: 'Tocca l’altro estremo',
+      scaleStep3: 'Inserisci la lunghezza reale',
     },
     scale: {
       tool: 'Scala',
@@ -59,7 +61,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       chipUncalibrated: 'non calibrata',
       recalibrate: 'Ricalibra',
       calibrate: 'Calibra la scala',
-      calibrateHint: 'Tocca due punti della barra di scala',
       stale: 'ricontrolla la scala',
       saved: 'Scala calibrata ({m} m di distanza)',
       needsCalibration: 'Imposta la scala: tocca i due estremi della barra di scala',
@@ -69,7 +70,10 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       saveAll: 'Per tutti i piani',
       saveThis: 'Solo questo piano',
       saveFailed: 'Scala non salvata come predefinita – riprovare',
-      calibrateStop: 'Termina la calibrazione',
+      /** Messen on a plan without a scale opens the scale dialog – this says why (C9, 17.11.2026) */
+      promptWhy: 'Questo piano non ha ancora una scala – indicare prima una distanza nota',
+      /** the Verlauf row when «Rückgängig» on «Massstab kalibriert» takes it back */
+      undone: 'Scala annullata',
     },
     georef: {
       chipLinked: 'collegato',
@@ -302,6 +306,9 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     truppPlacedHere: 'già qui',
     drawnOnPlan: '{name} disegnato sul piano',
     shapeOnPlan: '{name} posizionato sul piano',
+    barMore: 'Altro',
+    markShort: 'Segna',
+    joinShort: 'Squadra',
   },
   tafel: {
     strip: 'Pagine della lavagna',

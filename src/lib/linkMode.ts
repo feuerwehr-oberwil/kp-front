@@ -50,7 +50,7 @@ const currentPath = (): string => (typeof location === 'undefined' ? '/' : locat
 /**
  * Does this page's own link session outrank whatever login the device holds?
  *
- * True for the ATEMSCHUTZ links (per-incident and standing): «Überwachung abgeben» means this
+ * True for the ATEMSCHUTZ links (per-incident and standing): «Trupps teilen» means this
  * phone becomes the Überwachung, and the colleague at the Eingang may well be a member with a
  * login of their own — the board is still what that page must show. True for the TERMINAL for
  * the same reason turned around: the enrolled PC IS the terminal, whoever last logged in on

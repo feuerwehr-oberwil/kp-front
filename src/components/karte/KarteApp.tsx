@@ -99,6 +99,7 @@ import { useArrival } from './useKarteArrival'
 import { useGeorefPlan, useKarteEbenen, useObjectCategories, useViewerLayers } from './useKarteLayers'
 import { useObjectOutlines } from './useKarteOutlines'
 import { useKarteTools, type Tool } from './useKarteTools'
+import { useOnResume } from '../../lib/useOnResume'
 import { useKarteAddress, useKeepKarteView, useReturnToasts } from './useKarteSession'
 import { useKarteMenu } from './useKarteMenu'
 import { routeEscape } from '../../lib/hotkeyRoute'
@@ -201,11 +202,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const { loadOutlines, ringsNear, outlines } = useObjectOutlines(mapRef, objects)
 
   // ── tools, the way back, the menu, the search ─────────────────────────────────────────────
-  const { tool, setToolState, toggleTool, measure, erg, setErg, viewsOpen, setViewsOpen, ergKeys, keysFor } = useKarteTools(start.view?.tool ?? null)
+  const { tool, setToolState, toggleTool, measure, erg, setErg, viewsOpen, setViewsOpen, ergKeys, keysFor } = useKarteTools(null)
   // the phone sheet pushed away / ✕ while its place stays selected (outline, tag, pin): a tap on
   // the place again brings it back (owner R2). Every new selection opens it.
   const [sheetShut, setSheetShut] = useState(false)
-  useKeepKarteView({ ready: catLoaded, view, selObj, openDoc, onLibrary, tool })
+  useKeepKarteView({ ready: catLoaded, view, selObj, openDoc, onLibrary })
   useReturnToasts(announceReturn, start.view?.label)
   const { sheetOpen, setSheetOpen, closeSheet, barRef, short: menuShort, mark, onMarkError, menuName } = useKarteMenu()
   // «Dieses Gerät» (M9): from the menu and ⌘ , at the top; from the Offline chip and the «Keine
@@ -319,6 +320,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // Messen / Punkt setzen / Gefahrgut's centre take every tap, on an object too (owner, review
   // round 4 — lib/karte/camera · toolTakesTaps): its dot and tag let the finger through to the map
   const takesTaps = toolTakesTaps(tool, erg.mode)
+  // back from the background (C3, 17.11.2026 · lib/useOnResume): a tool that takes the next tap –
+  // Messen, the pin, a Gefahrgut ring waiting for its spot – is put down; the Ebenen stay open
+  useOnResume(() => { if (toolTakesTaps(tool, erg.mode)) setToolState(null) })
   const entities = liveVehicles
   /** the building a click would open at `c`: one of a (shown) object's, else a plain one */
   const buildingAt = (c: LngLat): Hover | null => {
@@ -481,7 +485,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // review round 7 in the very card the Messen dock's ⓘ opens, not a quieter look-alike beside it.
   const pinHint = onMapSurface && tool === 'pin'
   // The missing catalogue is a STANDING state, not news (toast diet, 17.11.2026): it is said where
-  // the objects would be – the search's «Stationsobjekte» group – not as a sticky toast on the map.
+  // the objects would be – the search's «Objekte» group – not as a sticky toast on the map.
   const catNote = cat?.failed && !cat.data ? (online ? C.loadFailed : C.noCatalogue) : null
   /** the panel is on screen: on the map, not under Messen, and on a phone not under a tool's own
    *  card nor pushed away */
@@ -823,8 +827,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             onPick={(id) => setTool(id as Tool)}
             controls={(
               <>
-                <button className={cx('vrail-nbtn vrail-layers', tool === 'layers' && 'on')} title={C.tools.layers} aria-label={C.tools.layers} aria-expanded={tool === 'layers'} onClick={() => setTool('layers')}>
-                  <span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{C.tools.layers}</span><RailKey k={PANEL_KEY.layers} />
+                <button className={cx('vrail-nbtn vrail-layers', tool === 'layers' && 'on')} title={C.tools.layers} aria-label={ebenen.layersHidden ? `${C.tools.layers} · ${appConfig.copy.whiteboard.floorHidden}` : C.tools.layers} aria-expanded={tool === 'layers'} onClick={() => setTool('layers')}>
+                  <span className="vrail-glyph"><Icon id="layers" />{ebenen.layersHidden && <span className="layers-off-dot" aria-hidden />}</span><span className="vrail-label">{C.tools.layers}</span><RailKey k={PANEL_KEY.layers} />
                 </button>
                 <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass"
                   label={appConfig.copy.mapViews.title} open={viewsOpen} onOpenChange={(o) => { setViewsOpen(o); if (o && tool === 'layers') setToolState(null) }} />

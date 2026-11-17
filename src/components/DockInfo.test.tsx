@@ -25,3 +25,17 @@ describe('DockInfo — the floating tip', () => {
     expect(screen.queryByRole('tooltip')).toBeNull()
   })
 })
+
+// rare-user r4 (17.11.2026): a tool whose use is a fixed sequence – calibrating – shows its steps
+// without a tap, and the parent, not a press elsewhere, takes them away
+describe('DockInfo — open, the standing card', () => {
+  it('stands without an ⓘ to tap, survives a press elsewhere, and goes when the parent says', () => {
+    const { rerender } = render(<><DockInfo text={'1 · Eins\n2 · Zwei'} open /><div data-testid="map" /></>)
+    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.getByRole('status').textContent).toBe('1 · Eins\n2 · Zwei')
+    fireEvent.pointerDown(screen.getByTestId('map'))
+    expect(screen.getByRole('status')).toBeTruthy()
+    rerender(<><DockInfo text={'1 · Eins\n2 · Zwei'} open={false} /><div data-testid="map" /></>)
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+})

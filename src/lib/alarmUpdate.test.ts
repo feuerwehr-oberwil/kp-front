@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { alarmUpdateRow, inlineDiff, markNew } from './alarmUpdate'
+import { alarmUpdateHidden, alarmUpdateRow, inlineDiff, markNew } from './alarmUpdate'
 import type { AlarmUpdate } from './incidents'
 
 // Invented example data: Musterweg in Beispielstadt.
 const update = (edited: boolean): AlarmUpdate => ({
+  state: 'pending',
   at: '2026-11-15T13:52:00Z',
   title: 'Brand, Musterweg 21',
   lat: 47.2,
@@ -40,5 +41,18 @@ describe('diff spans', () => {
     expect(markNew('Rauch', 'Rauch')).toEqual(['Rauch'])
     expect(inlineDiff('Musterweg 12, 9999 Beispielstadt', 'Musterweg 21, 9999 Beispielstadt'))
       .toEqual(['Musterweg ', { del: '12' }, ' ', { ins: '21' }, ', 9999 Beispielstadt'])
+  })
+})
+
+// F7 (17.11.2026): the Einsatz menu's «Alarm aktualisiert · Zeigen» – only for a hidden update,
+// and only inside the 3 h after it came
+describe('alarmUpdateHidden', () => {
+  const at = Date.parse('2026-11-15T13:52:00Z')
+  it('is true for a hidden update inside 3 h, false when pending, older or absent', () => {
+    const hidden = { ...update(false), state: 'hidden' as const }
+    expect(alarmUpdateHidden({ alarm_update: hidden }, at + 2 * 3600_000)).toBe(true)
+    expect(alarmUpdateHidden({ alarm_update: hidden }, at + 4 * 3600_000)).toBe(false)
+    expect(alarmUpdateHidden({ alarm_update: update(false) }, at + 60_000)).toBe(false)
+    expect(alarmUpdateHidden({ alarm_update: null }, at)).toBe(false)
   })
 })

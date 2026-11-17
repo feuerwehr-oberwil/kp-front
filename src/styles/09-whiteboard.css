@@ -481,9 +481,16 @@
 /* Narrow strip (18.09.2026): chip + name and nothing else. «einblenden» was cut off to «einb…» at
    this size and the eye it pairs with is gone from the headers above, so the STRIP is the button —
    dashed and dimmed it still reads as a hidden storey, and its aria-label says «… einblenden». */
+/* With a Trupp on the storey (M7 = B, 17.11.2026) the narrow strip keeps the Trupp's chip AND the
+   eye – the one new fact and the sign that this is a way back – and sheds only the verb. */
 @container (max-width: 359px) {
-  .wb-floor-folded-state, .wb-floor-folded-cta { display: none; }
+  .wb-floor-folded-state, .wb-floor-folded-verb { display: none; }
+  .wb-floor-folded:not(:has(.wb-floor-folded-team)) .wb-floor-folded-cta { display: none; }
 }
+/* the Trupp's chip on the strip: the plan's `.team-dot`, its tone included; it never shrinks
+   below its name – the storey name gives way first (its ellipsis) */
+.wb-floor-folded-team { flex: 0 1 auto; min-width: 0; }
+.wb-floor-folded-team b { overflow: hidden; text-overflow: ellipsis; }
 .wb-floor-folded-cta .i { width: 13px; height: 13px; stroke-width: 2; }
 @media (hover: hover) {
   .wb-floor-folded:hover { background: color-mix(in srgb, var(--board-bg) 70%, var(--ink) 10%); }
@@ -708,24 +715,24 @@ span.wb-ghost-label { cursor: default; }
   .wb-pa:hover:not(:disabled) { background: color-mix(in srgb, var(--on-accent-ink) 28%, transparent); }
 }
 .wb-pa .i { width: 16px; height: 16px; }
+/* ── worded (rare-user M10, owner 17.11.2026) ── with «Beschriftung» on (TwinTeamPill · `worded`)
+   every button is the worded dock tile's column: a glyph band over its word, in the rails' word
+   voice. `width: max-content` because the anchor is the tiny marker – a shrink-to-fit bar would
+   stack every button. Its three buttons (M12) fit one row at 390 px; the wrap is only the guard
+   against running off a narrower screen. */
+.wb-pill-acts.worded { width: max-content; max-width: calc(100vw - 16px); flex-wrap: wrap; justify-content: center; }
+.wb-pill-acts.worded .wb-pa { width: auto; min-width: 56px; height: 52px; padding: 0 var(--sp-2);
+  grid-template-rows: 18px auto; align-content: center; gap: 2px; }
+.wb-pa-word { font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 1.1; white-space: nowrap; }
 /* ⚠️ Every action on this bar wears the bar's ONE neutral wash (29.09.2026, sweep K3). «Position
    markieren» was a --blue fill and «Bei den Trupps zeigen» a --green one: blue means «chosen»
-   (--sel) and green the Eintritt tone, so three colours in five icon-only buttons said nothing
-   about which to press. The bin keeps THE delete outline (below); the rename pen, while its field
-   is open, is a pressed toggle and wears the docks' «on» (.wb-dock-tog.on). */
-/* ⚠️ the bin was a red FILL (28.09.2026: red never fills an action) — THE delete outline, lifted
-   for the dark bar: the red edge and a light red ink, on the bar's own wash (as the Suche card) */
-.wb-pa-del { color: color-mix(in srgb, var(--red) 60%, var(--on-accent-ink)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 55%, transparent); }
-@media (hover: hover) {
-  .wb-pa-del:hover:not(:disabled) { background: var(--red-22); }
-}
-.wb-pa-edit { background: var(--sel); color: var(--on-sel); }
-@media (hover: hover) {
-  .wb-pa-edit:hover:not(:disabled) { background: var(--sel); filter: brightness(1.08); }
-}
-/* the panel hangs under the bar, so it flips with it — one measurement, carried by the sibling */
-.wb-pill-acts[data-flip="up"] ~ .wb-resource-connections { top: auto; bottom: calc(100% + 62px); }
-.wb-resource-connections { position: absolute; top: calc(100% + 62px); left: 50%; z-index: 7;
+   (--sel) and green the Eintritt tone, so colours on the bar said nothing about which to press.
+   The delete and the rename live in «Mehr» since rare-user round 2 (M12), so no button here wears
+   the delete outline or a pressed fill. */
+/* the panel hangs under the bar, so it flips with it — one measurement, carried by the sibling;
+   `--acts-h` is the bar's measured height (TwinTeamPill · useBarPlacement), taller once worded */
+.wb-pill-acts[data-flip="up"] ~ .wb-resource-connections { top: auto; bottom: calc(100% + 6px + var(--acts-h, 56px)); }
+.wb-resource-connections { position: absolute; top: calc(100% + 6px + var(--acts-h, 56px)); left: 50%; z-index: 7;
   /* the bar's sideways nudge, written by components/TwinTeamPill · useBarPlacement */
   transform: translateX(calc(-50% + var(--acts-dx, 0px)));
   width: min(290px, 70vw); padding: var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-ctl);
@@ -1057,6 +1064,13 @@ span.wb-ghost-label { cursor: default; }
 .armed-pill-x { pointer-events: auto; justify-content: center; width: var(--tap); padding: 0; color: var(--ink-dim); cursor: pointer; flex: none; }
 .armed-pill-x .i { width: 18px; height: 18px; }
 .armed-pill-x:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* …and where the bottom-left row reaches the middle – the Tafel's page strip – the pill stands one
+   row ABOVE it, never on it (rare-user r2 F5, 17.11.2026: it covered the pages). The dock's ⓘ card
+   follows the same rule (DockInfo.module.css). The phone places its rows by measuring
+   (lib/floatRow), so this is the bigger screens' rule. */
+@media (--not-phone) {
+  .whiteboard:has(.wb-botleft > .tps) .armed-pill-row { bottom: calc(16px + var(--float-h) + var(--float-gap)); }
+}
 @media (hover: hover) { .armed-pill-x:hover { color: var(--ink); } }
 .armed-pill-lock:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) { .armed-pill-lock:not(.on):hover { color: var(--ink); } }
@@ -1277,7 +1291,7 @@ span.wb-ghost-label { cursor: default; }
   .wb-scale-persist { left: 10px; right: 10px; bottom: calc(var(--float-bottom) + var(--float-h) + var(--float-gap));
     max-width: none; flex-wrap: wrap; }
 }
-/* armed (calibrating, or its Passung open) = the chip is LIT, the way an armed tile of the tool
+/* armed (its Plan sheet or card open) = the chip is LIT, the way an armed tile of the tool
    bar is: a quiet blue wash mixed INTO the glass (never a see-through tint — see below) and a
    blue glyph. Not a ring (26.09.2026). */
 .wb-scale-chip.arm { background: color-mix(in srgb, var(--blue) 14%, var(--float-bg)); }

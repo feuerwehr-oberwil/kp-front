@@ -10,7 +10,8 @@
  * the finger off the screen within ~28px. Only one of the two is ever armed; tapping it again,
  * Esc, a selection change and a tool change all disarm, and while armed the surface answers no
  * taps at all – a press that never travels is nothing, so nothing can be placed, selected or
- * deselected under the finger. **The bar has ✥ · ⟳ and, for a Mehrfach group only, a ✕.** The
+ * deselected under the finger. **The bar has ✥ · ⟳, «Duplizieren» for one native object (a tap, ⌘D's
+ * twin – rare-user F18), and, for a Mehrfach group only, a ✕.** The
  * turn's degrees are read *on the surface*, beside the pivot and the radius the finger is
  * swinging (`components/SelectionTurn`), never off a button at the far edge of a tablet – so the
  * two grips wear a word that never changes («Verschieben» / «Drehen», duck sweep ELEM.1, owner
@@ -75,6 +76,10 @@ interface Props {
   armed?: 'move' | 'rotate' | null
   /** a TAP on ✥ / ⟳ (a press that never became a drag): arm that mode, or disarm it again */
   onArm?: (kind: 'move' | 'rotate') => void
+  /** «Duplizieren» – ⌘D for a touch tablet (rare-user F18, 17.11.2026): ONE object is copied a
+   *  nudge away and the selection moves to the copy (lib/duplicate). Given only where that
+   *  works – a single native object, never a Mehrfach group or a mirror – absent otherwise. */
+  onDuplicate?: () => void
 }
 
 /**
@@ -105,7 +110,7 @@ interface Props {
  * undo or the journal. Each surface maps the delta onto its own writers, which is also what lets
  * a further selection source (a Georeferenz-Zwilling) be added later without touching this file.
  */
-export function SelectionBar({ onMove, onRotate, onClose, onGrab, armed = null, onArm }: Props) {
+export function SelectionBar({ onMove, onRotate, onClose, onGrab, armed = null, onArm, onDuplicate }: Props) {
   const drag = useRef<{ kind: 'move' | 'rotate'; x0: number; y0: number; live: boolean } | null>(null)
   // «the drag is on the bar itself» — the ONE thing the stylesheet cannot work out on its own.
   // On a phone the bar follows the peeking detail sheet down for the length of a transform
@@ -181,6 +186,13 @@ export function SelectionBar({ onMove, onRotate, onClose, onGrab, armed = null, 
           </button>
         )
       })()}
+      {/* a TAP, not a grip: no drag, no arming – the copy lands at once, worded like its neighbours */}
+      {onDuplicate && (
+        <button type="button" className="sel-bar-act sel-bar-dup" title={C.duplicate} aria-label={C.duplicate}
+          onClick={(e) => { e.stopPropagation(); onDuplicate() }}>
+          <Icon id="copy" /><span aria-hidden>{C.duplicate}</span>
+        </button>
+      )}
       {/* a group's way out of the editing state, at the bar's END («X on the right everywhere»).
           NOT «Löschen»: deleting belongs in the object's own editor sheet (and on the Delete
           key) — a destructive button on a chrome bar two taps from every grip is the near-miss

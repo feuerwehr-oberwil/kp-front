@@ -97,7 +97,7 @@ export const createIncident = (body: IncidentCreate) => apiPost<IncidentFull>('/
 // accepts it (and started_at) — the Einsatzdaten panel corrects both in place.
 export const patchIncident = (id: string, body: Partial<IncidentMeta> & { text?: string | null }) =>
   apiPatch<IncidentFull>(`/api/incidents/${id}`, body)
-/** «Alarm aktualisiert»: the pending Divera update of an open Einsatz (backend app/alarm_update).
+/** «Alarm aktualisiert»: the pending (or hidden – `state`) Divera update of an open Einsatz (backend app/alarm_update).
  *  Online only, like the Einsatzdaten panel they belong to – each answers with the incident as it
  *  now stands, and the server writes the Verlauf row. */
 export type AlarmUpdate = NonNullable<Out<'IncidentMeta'>['alarm_update']>
@@ -107,6 +107,8 @@ export const acceptAlarmUpdate = (id: string, fields?: AlarmUpdateField['field']
   apiPost<IncidentFull>(`/api/incidents/${id}/alarm-update/accept`, fields ? { fields } : {})
 /** hide it for every device of the Einsatz */
 export const dismissAlarmUpdate = (id: string) => apiPost<IncidentFull>(`/api/incidents/${id}/alarm-update/dismiss`, {})
+/** «Zeigen» on the strip a hide left: pending again, for every device */
+export const showAlarmUpdate = (id: string) => apiPost<IncidentFull>(`/api/incidents/${id}/alarm-update/show`, {})
 /** «Rückgängig» after a take: the old values back, the update pending again */
 export const undoAlarmUpdate = (id: string) => apiPost<IncidentFull>(`/api/incidents/${id}/alarm-update/undo`, {})
 export const archiveIncident = (id: string) => patchIncident(id, { is_archived: true })

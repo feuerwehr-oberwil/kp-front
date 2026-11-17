@@ -20,7 +20,7 @@
 export {
   listIncidents, cacheIncidentList, readCachedIncidentList, listIncidentsResilient, listIncidentsShared,
   getIncident, createIncident, patchIncident, archiveIncident, reactivateIncident,
-  deleteIncident, migrateLegacyWorkspace, acceptAlarmUpdate, dismissAlarmUpdate, undoAlarmUpdate,
+  deleteIncident, migrateLegacyWorkspace, acceptAlarmUpdate, dismissAlarmUpdate, showAlarmUpdate, undoAlarmUpdate,
 } from './api/incidents'
 export type { IncidentCreate, IncidentMeta, IncidentFull, AlarmUpdate, AlarmUpdateField } from './api/incidents'
 export { isIncidentRunning, closeTimeOf } from './api/incidents'

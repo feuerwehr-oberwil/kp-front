@@ -800,7 +800,7 @@ async def test_notify_new_alarm_broadcasts_stichwort_and_address(db_session, mon
 
 
 async def test_who_hears_which_push(db_session, monkeypatch):
-    """Owner's pick (22.10.2026): «Neuer Einsatz» wakes the editors, «Wiedervorlage fällig» the
+    """Owner's pick (22.10.2026): «Neuer Einsatz» wakes the editors, «Erinnerung fällig» the
     editors and the el; a viewer tablet and a kiosk row hear only the Atemschutz alarm."""
     import asyncio
 
@@ -850,7 +850,7 @@ async def test_who_hears_which_push(db_session, monkeypatch):
 
     assert {title: sorted(eps) for title, eps in heard.items()} == {
         "Neuer Einsatz": ["editor"],
-        "Wiedervorlage fällig": ["editor", "el"],
+        "Erinnerung fällig": ["editor", "el"],
         "Atemschutz überfällig": ["editor", "el", "kiosk", "viewer"],
     }
 
@@ -1202,13 +1202,16 @@ async def test_testalarm_goes_to_the_callers_own_registration_only(client, edito
 
     def fake_send(row, payload, **kw):
         sent.append((row, kw))
+        bodies.append(json.loads(payload)["body"])
         return "accepted"
 
+    bodies: list[str] = []
     monkeypatch.setattr(api_push, "_send_one", fake_send)
     api_push._last_test.clear()
     r = await client.post("/api/push/test", json={"endpoint": sub["endpoint"]})
     assert r.status_code == 200 and r.json() == {"ok": True, "outcome": "accepted"}
     assert sent[0][0]["endpoint"] == sub["endpoint"] and sent[0][1] == {"urgency": "high"}
+    assert bodies == ["Dieses Gerät bekommt Alarme von KP Front."]
     # a second tap inside the minute is refused, not sent
     assert (await client.post("/api/push/test", json={"endpoint": sub["endpoint"]})).status_code == 429
     assert len(sent) == 1
@@ -1219,6 +1222,12 @@ async def test_testalarm_goes_to_the_callers_own_registration_only(client, edito
     assert login.status_code == 200
     assert (await client.post("/api/push/test", json={"endpoint": sub["endpoint"]})).status_code == 404
     assert len(sent) == 1
+
+    # …and a login «Neuer Einsatz» does not wake is not promised it (rare-user round M2)
+    sub2 = {"endpoint": "https://fcm.googleapis.com/fcm/send/test2", "keys": {"p256dh": "k2", "auth": "a2"}}
+    assert (await client.post("/api/push/subscriptions", json=sub2)).status_code == 201
+    assert (await client.post("/api/push/test", json={"endpoint": sub2["endpoint"]})).status_code == 200
+    assert bodies[-1] == "Dieses Gerät bekommt Atemschutz-Alarme von KP Front – keinen «Neuer Einsatz»."
 
 
 # ---------------------------------------------------------------------------------------

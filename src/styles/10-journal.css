@@ -539,22 +539,15 @@
 /* «Alle zeigen» is THE neutral <Button> (--tap, framed): an action, not a blue word on a blue wash
    (style sweep T2, owner pick A, 15.11.2026); this only places it */
 .jr-filter-all { flex: none; }
-/* ⚠️ On a phone the head is 22px too wide for four items, and «Wiedergabe starten» is the one
-   that can most afford to lose its word — the same trade the TopBar already makes for «Verlauf»
-   above. The button keeps its `aria-label` (Journal.tsx), so nothing is lost but the letters. */
+/* ⚠️ On a phone ▶ is not in the head (owner pick M8 · C, 17.11.2026): a bare glyph one button left
+   of ✕ put the running Einsatz into the past on a stray tap. It stands at the ruler's left end
+   (Journal.tsx · `phoneReplay`), a bare 44px glyph like ⓘ · lens · funnel; the strip keeps the
+   rest of the row. Tablet and laptop keep «▶ Wiedergabe starten» framed in the head. */
 @media (--phone) {
-  .journal-replay span { display: none; }
-  /* …and word-less it is an icon action like ⓘ · lens · funnel beside it, so it rests BARE as they
-     do (hill climb r18, Opus 7: a framed ▶ among bare glyphs was two chromes for one kind of
-     button). The 44px box and the transparent edge keep its hit area and geometry; the ✕ keeps
-     its frame (settled r13). Tablet and laptop keep «▶ Wiedergabe starten» framed. Its glyph is the
-     outlined circle-play (icons · #play-circle, r23 Sol 1), the ⓘ's ring at the ⓘ's 18px and ink –
-     the bare filled ▶ was the smallest mark in the row. */
-  .journal-head .journal-replay { width: var(--tap); padding: 0;
-    background: none; border-color: transparent; color: var(--ink-dim); }
-  .journal-head .journal-replay svg { width: 18px; height: 18px; }
-  @media (hover: hover) { .journal-head .journal-replay:hover { background: var(--ink-8); color: var(--ink); } }
-  .journal-head .journal-replay:focus-visible { background: var(--ink-8); }
+  .jr-strip-row { display: flex; align-items: center; gap: var(--sp-1); flex: none;
+    margin: 0 calc(-1 * var(--sp-1)) var(--sp-2); }
+  .jr-strip-row > .jr-strip { flex: 1; min-width: 0; margin: 0; }
+  .jr-strip-replay { flex: none; }
   /* (the title is the tablet's 16/800 with its 18px glyph since r35 – the step down it took here
      at 19px is gone with the 19px; the glyph stays 8px off the word, hill climb r28, Opus 6) */
   /* the head's 4px gap plus this = the 8px that keeps the title group off the ⓘ (r6) */
@@ -564,10 +557,10 @@
      The gaps close up to 6px — the room a four-digit count needs — and no chip may shrink: the
      ✕ is the house 36px everywhere, and a squeezed target is the one thing a head cannot lose. */
   .journal-head { gap: var(--sp-1); }
-  .journal-replay, .journal-x { flex: none; }
-  /* …and the title's glyph (r28) costs 28px the head did not have at 390px: the four BARE glyph
-     buttons (ⓘ · lens · funnel · ▶) close up to touching 44px pads – their glyphs keep 26px of air
-     between them – and the head drops its right padding, the ✕ still inside the strip's edge. So
+  .journal-x { flex: none; }
+  /* …and the title's glyph (r28) costs 28px the head did not have at 390px: the BARE glyph
+     buttons (ⓘ · lens · funnel; ▶ stands at the ruler since M8 · C) close up to touching 44px
+     pads – their glyphs keep 26px of air between them – and the head drops its right padding, the ✕ still inside the strip's edge. So
      «Verlauf · 322» stands whole at 390px with room for a fourth digit. Narrower phones (375, 360)
      have no such room: there the glyph gives way, never the word.
      The ✕ is 36 to the eye since r35 (8px less than r13's framed 44), so the head keeps its 4px
@@ -773,8 +766,9 @@
    So the sheet gives things up in a decided order instead:
      1. by default nothing changes, and the predictive row is never what gives way;
      2. `.is-compact` — the Art strip and the media strip become ONE row of symbols
-        («I · A · S», the clock, the ring, mic · upload · camera). Worth 44px of row plus the
-        8px gap that went with it = 52px, which is `COMPACT_SAVES` in lib/composerFit.ts;
+        («I · A · S», the clock, the ring, one paper-clip for mic · upload · camera – M9 · A,
+        17.11.2026). Worth 44px of row plus the 8px gap that went with it = 52px, which is
+        `COMPACT_SAVES` in lib/composerFit.ts;
      3. only then the sheet scrolls – `.jc-body` above, under a head that stays.
    ⚠️ Rung 2 is switched by MEASURING, not by a height media query: on iOS the layout viewport
    does not shrink for the keyboard (which is why the caps have to subtract `--jc-kb` at all), so
@@ -799,19 +793,19 @@
    straight to rung 3: a row of eight controls at the edge of what a glove can hit is a worse
    answer than one that scrolls. */
 @media (min-width: 360px) {
-  /* ONE grid of eight equal columns (owner, 15.11.2026: «the buttons all the same in the I/A/S
-     line»): the three letters, the clock, the ring and the three media buttons are all one width
-     and one height, glyphs centred. Each strip spans its share of the columns and lays its own
-     buttons out on equal tracks with the SAME 4px gap – n tracks across n columns' width minus
-     the same gaps come out exactly one column each, so the eight line up without a subgrid.
-     (It was a flex row that let the letters shrink to 32 while the round controls kept 44 and the
-     media buttons 36: three widths in one row.) `start`, so a recorded clip or a photo row under
-     the media buttons does not drag the letters down to its middle. */
-  .journal-composer.is-compact .jc-controls { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr));
+  /* ONE grid of six equal columns (owner, 15.11.2026: «the buttons all the same in the I/A/S
+     line»): the three letters, the clock, the ring and the paper-clip that folds the three media
+     buttons (owner pick M9 · A, 17.11.2026 – JournalComposer · `.jc-attach`, its menu Aufnehmen ·
+     Datei · Foto) are one width and one height, glyphs centred. The Art strip spans five columns
+     and lays its buttons out on equal tracks with the SAME 4px gap, so the six line up without a
+     subgrid. `.jc-audio` dissolves into the grid (`display: contents`): the clip is its sixth
+     column, and a recorded clip's readout drops to a full-width line under the row. `start`, so
+     that clip or a photo row does not drag the letters down to its middle. */
+  .journal-composer.is-compact .jc-controls { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
     align-items: start; gap: var(--sp-1); }
   .journal-composer.is-compact .jc-meta { grid-column: span 5; min-width: 0; }
-  .journal-composer.is-compact .jc-audio { grid-column: span 3; min-width: 0;
-    grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: var(--sp-1); }
+  .journal-composer.is-compact .jc-audio { display: contents; }
+  .journal-composer.is-compact .jc-audio > .jc-clip { grid-column: 1 / -1; }
   /* ⚠️ Overrides the `:has(.jc-due-btn)` template in 18-audio.css, which is imported AFTER this
      file — hence the extra class on every selector below. A tie would go to the later file. */
   .journal-composer.is-compact .jc-meta-row { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--sp-1); }
@@ -824,8 +818,9 @@
   .journal-composer.is-compact .jc-meta-row .jc-chip { padding: var(--sp-1) 2px; font-size: var(--fs-3); }
   .journal-composer.is-compact .jc-meta-row .jc-chip-word { display: none; }
   .journal-composer.is-compact .jc-meta-row .jc-chip-letter { display: block; }
-  /* …and the media buttons drop their labels, exactly as the phone already does with the keyboard
-     up (15-mobile.css · .is-kb). The word stays as `title`/`aria-label` on the button. */
+  /* the three media buttons give way to the clip – all but a running recording, whose stop
+     square and seconds stay in the row (see JournalComposer · `compact && !recording`) */
+  .journal-composer.is-compact .jc-rec:not(.on, .jc-attach) { display: none; }
   .journal-composer.is-compact .jc-rec { padding: 8px 4px; }
   .journal-composer.is-compact .jc-rec .jc-lbl { display: none; }
   .journal-composer.is-compact .jc-rec .i { width: 19px; height: 19px; }

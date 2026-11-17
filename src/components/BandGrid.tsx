@@ -71,7 +71,7 @@ function ResolveSheet({ person, bandTitle: title, cell, split, onPick, onClose }
   const S = appConfig.copy.schichten
   // TWO reasons to be here, and they are not the same question. Either the window genuinely holds
   // both states, or it holds one — but the stretch carrying it runs past the watch, so changing it
-  // from this column would reach outside. Saying «teils verfügbar, teils geplant» over a cell that
+  // from this column would reach outside. Saying «teils verfügbar, teils eingeteilt» over a cell that
   // is wholly geplant is the sheet describing a different problem than the one you tapped.
   const mixed = cell.state === 'mixed'
   return (

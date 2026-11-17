@@ -202,8 +202,10 @@ class AlarmUpdateField(BaseModel):
 
 
 class AlarmUpdateOut(BaseModel):
-    """«Alarm aktualisiert»: the pending Divera update of this Einsatz's own alarm."""
+    """«Alarm aktualisiert»: the pending – or hidden – Divera update of this Einsatz's own alarm."""
 
+    #: hidden = ✕ was tapped: every device shows a grey strip with «Zeigen» (alarm-update/show)
+    state: Literal["pending", "hidden"] = "pending"
     at: datetime
     #: the alarm's (new) title – the row names the Einsatzart from it
     title: str | None = None

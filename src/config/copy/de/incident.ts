@@ -38,7 +38,7 @@ export const incidentCopy = {
     bootListFailed: 'Einsatzliste nicht geladen',
     // A human's open (launch card / switcher / banner / Verlauf) failed and the server gave no
     // usable reason of its own (App · openIncident)
-    openFailed: 'Einsatz nicht geöffnet – erneut versuchen',
+    openFailed: 'Einsatz nicht geöffnet – nichts verloren, erneut antippen',
     // …because the server could not be asked and no workspace is cached on this device
     openFailedNoCache: 'Dieser Einsatz ist auf diesem Gerät nicht gespeichert – braucht Netz',
     syncNow: 'Jetzt synchronisieren',
@@ -63,7 +63,7 @@ export const incidentCopy = {
     editMetaShort: 'Bearbeiten',
     archiveShort: 'Abschliessen',
     // der Zähler schon im Menü, damit die Prüfung sichtbar ist, bevor jemand drückt
-    archiveOpen: '{n} offen',
+    archiveOpen: 'Rapport: {n} offen',
     // «Teilen» in der Karte des aktiven Einsatzes — die zweite Tür zum Einsatz-Link, der bis
     // 01.09. nur im Rapport stand. Mitten im Einsatz will ihn jemand einer Nachbarwehr
     // hinhalten und nicht dafür die Abschluss-Fläche öffnen. Gleiche Fläche wie dort.
@@ -87,6 +87,11 @@ export const incidentCopy = {
     viewOnlyWhy: { viewer: 'Betrachter', el: 'Einsatzleitung', link: 'Einsatz-Link' },
     // the closed pill's red dot (M11 B): another Einsatz has a Trupp at the alarm tier
     foreignAlarmDot: 'Atemschutz-Alarm in einem anderen Einsatz',
+    // C8 (17.11.2026): a view-link guest whose browser holds no login – the identity row says
+    // «Einsatz-Link · Betrachter» and offers the way to the bare site’s sign-in
+    login: 'Anmelden',
+    // …or (C10, 17.11.2026) simply another REAL Einsatz running – an Übung alone never lights it
+    otherEinsatzDot: 'Weiterer Einsatz läuft',
   },
   // Persistentes Band, solange ein abgeschlossener Einsatz nur-lesend offen ist (ArchivedBanner).
   // ⚠️ EIN WORTPAAR für den ganzen Lebenslauf: abschliessen / wieder öffnen. «Archiviert» und
@@ -254,6 +259,9 @@ export const incidentCopy = {
     failed: 'Abschluss nicht bestätigt – Status prüfen',
     corrected: 'Stunden korrigiert: {name}',
     attendanceRemoved: '{name} Anwesenheit entfernt',
+    // the close sheet's first open point while neither a PDF nor a finished print exists (M5 · A,
+    // 17.11.2026); an edit after the paper makes it «noch nicht erstellt» again
+    reportMissing: 'Rapport noch nicht erstellt',
   },
   // sync the roster with the configured personnel source
   personnelSync: {

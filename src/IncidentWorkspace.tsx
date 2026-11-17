@@ -6,11 +6,13 @@
 // Rules: every mutation joins the one timeline (docs/undo.md); synced state and the record:
 // docs/sync-and-offline.md.
 
+import type { AppMenuAlarms, FoldedMenuRow } from './components/panels/AppMenuRows'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type MutableRefObject, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite } from './lib/icons'
-import { layerPreset } from './lib/layerPreset'
+import { contentLayerHidden, layerPreset } from './lib/layerPreset'
+import { useOnResume } from './lib/useOnResume'
 import { prefersReducedMotion } from './lib/reducedMotion'
 import { useSymbols } from './lib/useSymbols'
 import { useVehicleLayer } from './lib/useVehicleLayer'
@@ -250,6 +252,11 @@ interface WorkspaceProps {
   /** bring this Einsatz back in front (App · uncoverEinsatz) — an alarm row's «Zum Trupp» */
   onUncover?: () => void
   onOpenDivera: () => void
+  /** the alarms waiting to be opened, listed in the Einsatz menu as on home (App · landingAlarms) */
+  menuAlarms?: AppMenuAlarms
+  /** the Einsatz menu's quiet row for this Einsatz's hidden «Alarm aktualisiert» (App builds it;
+   *  panels/AppMenuRows · FoldedRow) */
+  menuFolded?: FoldedMenuRow[]
   /** freshly one-tap-taken Divera incident: show the correct-in-place review banner */
   needsReview: boolean
   onReviewDone: () => void
@@ -286,7 +293,7 @@ interface WorkspaceProps {
 
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport, abschlussRef,
-  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, onReactivateActive, onBackFromArchive,
+  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, menuAlarms, menuFolded, onReactivateActive, onBackFromArchive,
   covered = false, onUncover, needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
   const { user, logout, asLink, isEl, linkRefused, roleReadOnly, isEditor, linkScoped } = useSessionRole(incidentMeta)
@@ -1125,7 +1132,7 @@ export function IncidentWorkspace({
   // ⚠️ A half-typed Mittel (or guest) belongs to the Einsatz it was started on. Switching
   // incidents drops every kept draft, so the next one can never be handed the previous one's
   // entry — see lib/draftKeep.
-  useEffect(() => { clearAllDrafts() }, [incidentMeta.id])
+  useEffect(() => { clearAllDrafts(incidentMeta.id) }, [incidentMeta.id])
   // The Checkliste templates load the moment an Einsatz opens, not when the tab is first tapped
   // (lib/checklists · warmTemplates): the surface opens on a list that is already there, and the
   // offline cache is filled while there is still a network to fill it from.
@@ -1897,6 +1904,8 @@ export function IncidentWorkspace({
   const mapDrawing = useMapDrawing({
     drawings, resolvedDrawings: resolvedMapDrawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log, stepLabelRef: stepLabel,
+    // a lambda: revealLayer is declared further down, and only called on a tap
+    revealLayer: (id) => revealLayer(id),
     setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds,
     // a Leitung end snapped onto a Trupp's marker IS the Leitung pick (15.09.) — the same call
     // the Plan makes from its own magnet (Whiteboard · onLineAttached)
@@ -2047,6 +2056,15 @@ export function IncidentWorkspace({
       return ls.map((l) => (l.id === id ? { ...l, visible: !l.visible } : l))
     })
   }
+  /** Something placed or drawn on THIS device into a layer it has switched off: the layer comes
+   *  back on, so the new thing shows where it was made (rare-user round 17.11.2026, F3 · the
+   *  editor's coupling reveal is the same move). Idempotent – sets, never flips – so two placements
+   *  in one render cannot switch it off again. The same `layer.toggle` as a tap on the row. */
+  const revealLayer = (id: LayerId) => {
+    if (!layers.some((l) => l.id === id && !l.base && !l.visible)) return
+    if (!isEl) emit('layer.toggle', { id, base: false, visible: true })
+    setLayers((ls) => ls.map((l) => (l.id === id ? { ...l, visible: true } : l)))
+  }
   /** Ebenen quick-taps (field ask 07.09.): flip every overlay at once, or return to the layer
    *  set this Einsatz category opens with. Bases stay out of the bulk flip (a map with no base
    *  is a flat colour, and the base row is a radio, not an eye); the plan raster rows keep their
@@ -2080,6 +2098,8 @@ export function IncidentWorkspace({
   // tooltip / accessible name (lib/layerPreset, 05.10.2026)
   const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type), weather.on && weather.radarOn, twinsAtDefault(twinLayers)),
     [layers, incidentMeta.type, weather.on, weather.radarOn, twinLayers])
+  // a CONTENT layer off on this device – the amber dot on the Ebenen tile (lib/layerPreset)
+  const layersHidden = useMemo(() => contentLayerHidden(layers), [layers])
   const setOpacity = (id: LayerId, v: number) => {
     if (weather.handlesLayer(id)) { weather.setRadarOpacity(v); return }
     if (isTwinLayerId(id)) {
@@ -2132,6 +2152,15 @@ export function IncidentWorkspace({
     setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
     setNotePanelId(null); setEditNoteId(null)
   }
+
+  // Back from the background (C3, rare-user round 17.11.2026 · lib/useOnResume): the armed tool or
+  // symbol is put down – a committable draft asks, exactly as leaving it any other way –
+  // «Mehrere platzieren» goes off and so does «Zeigen». The Wiedergabe stays where it was.
+  useOnResume(() => {
+    if (tool !== 'select' || pending || pendingShape || teamPick) disarmMapTool()
+    setPlaceLock(false)
+    if (presentation.zeigen) presentation.toggleZeigen()
+  })
 
   // Locking the surface mid-draw (Führungsansicht toggled on, tab lock lost, replay entered)
   // must not leave a create tool armed behind a dock that is no longer rendered — disarm down to
@@ -2299,6 +2328,8 @@ export function IncidentWorkspace({
     },
     focusMapEntity: (entityId, coord, fly = true) => {
       setMode('map')
+      // a Trupp marker just placed, or jumped to, stands on «Taktische Zeichen»: shown (F3)
+      revealLayer(appConfig.defaults.operationalLayerId)
       if (!fly) { setSelectedId(entityId); setSelectedDrawingId(null); return }
       if (coord) { setSelectedId(entityId); setSelectedDrawingId(null); flyToMapVisible(coord, 18.4) }
       else focusEntity(entityId)
@@ -2319,7 +2350,7 @@ export function IncidentWorkspace({
     clearMapUi, setPaletteOpen, tool, setTool, setPending, setPendingShape, setSelectedId,
     setSelectedDrawingId, setSelectedDrawIds, setSelectedEntityIds, setNotePanelId, setEditNoteId, panel,
     setPanel, tacticalLocked, pendingShape, rotStart, setRotStart, commit, placeLock, log, emit, pending,
-    sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, settleDraft, lineMode, measure, mapRef,
+    revealLayer, sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, settleDraft, lineMode, measure, mapRef,
     incidentView, entities, liveIds, resolvedMapDrawings, cameraViews, view, setLocateReq, incidentOpen,
     share, setShareParent, setSharePick, setCameraViews, rememberOneShotRef, C_HIST, setViewsOpen,
     viewsOpen, selectedId, selectedDrawIds, selectedEntityIds, doc, truppCounterNames, selectedDrawingId,
@@ -2337,7 +2368,7 @@ export function IncidentWorkspace({
   } = mapActions
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const teamMarkers = useTeamMarkerActions({
-    entities, commit, log, emit, setSelectedId, setSelectedDrawingId,
+    entities, commit, log, emit, setSelectedId, setSelectedDrawingId, revealLayer,
     // every chip, every ghost trail and every registered Trupp count into the numbering: ONE
     // counter per Einsatz (docs/trupp-naming.md §1)
     placedTeamNames: () => truppCounterNames(),
@@ -2916,7 +2947,7 @@ export function IncidentWorkspace({
       defaultFunkkanal={azFunkkanal}
       focus={truppFocus}
       createRequest={truppCreate}
-      // «Überwachung abgeben» — the QR beside the bell, on the page the FU is standing on when
+      // «Trupps teilen» — the QR beside the bell, on the page the FU is standing on when
       // they decide to hand the Tafel over. Same sheet as the Einsatz-Karte's «Teilen», opened
       // on its «Nur Atemschutz» half.
       onShareLink={canShareLive ? () => setShareLink('atemschutz') : undefined}
@@ -3173,10 +3204,10 @@ export function IncidentWorkspace({
         onBackFromArchive, onReactivateActive, isPhone, phoneTools, planFit, incidents, syncStatus, journal,
         auditDelivery, closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
         onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, activeObjectId, canEditMeta, onEditMeta,
-        onOpenDivera, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
+        onOpenDivera, menuAlarms, menuFolded, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
         setHelpOpen, setInstallGuideOpen, syncNow, media, logout, settingsOpen,
         helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
-        menuCloseKey, viewOnly,
+        menuCloseKey, viewOnly, presentation,
       }} />
 
       {/* unsent edits of ANOTHER account for this Einsatz are parked on this device (sweep
@@ -3231,7 +3262,7 @@ export function IncidentWorkspace({
 
       <MapControls {...{
         mapUI, mapUtility, mapRef, view, viewsApi, readOnly, isEl, viewsOpen, toggleViews, coord, panel,
-        layersPreset, togglePanel, isPhone, displayWeather, openWeatherDetails, replayActive,
+        layersPreset, layersHidden, togglePanel, isPhone, displayWeather, openWeatherDetails, replayActive,
         georefMode, buildingInfo, buildingFirst, setPanel, composerOpen, journalOpen, offlineReadyOpen,
         // an incident link may not read the station: no «Unterirdische Bauten» row it could never fill
         layers: linkScoped ? layers.filter((l) => l.id !== UNDERGROUND_LAYER_ID) : layers,
@@ -3258,7 +3289,7 @@ export function IncidentWorkspace({
         mapUI, tool, pending, setPending, setTool, placeLock, setPlaceLock, lineMode, settleDraft,
         setLineMode, draftActive, draftOpen, commitDraft, areaMode, setAreaMode, setTeamPick, placed, setFindTruppOpen,
         measure, pendingShape, setPendingShape, setRotStart, rotStart, tacticalLocked, createLine,
-        createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, togglePanel, viewsApi,
+        createArea, replayActive, railLabels, slimMapTools, pick, panel, layersPreset, layersHidden, togglePanel, viewsApi,
         view, readOnly, isEl, viewsOpen, sharePick, shareParent, toggleViews, coord, mapRef, paletteOpen,
         sym, setPaletteOpen, pickShape, teamPick, trupps, placeTruppOnMap, placeGenericTeam,
         truppColors: truppColors(),
@@ -3316,6 +3347,7 @@ export function IncidentWorkspace({
           onState={onReplayState}
           onVehicles={onReplayVehicles}
           onExit={exitReplay}
+          running={running}
           journal={timeline}
           onPlayhead={onReplayPlayhead}
           seekRef={replaySeek}
@@ -3390,7 +3422,7 @@ export function IncidentWorkspace({
         feedbackParent, canWriteRecord, photoPosition, setPhotoPosition,
       }} />
       </PresentationContext.Provider>
-      <PresentationPill p={presentation} />
+      <PresentationPill p={presentation} overVerlauf={isPhone && journalOpen} />
       <MapRings mapRef={mapRef} rings={presentation.mapRings} strokes={presentation.mapStrokes} presenter={presentation.state?.presenter?.client ?? null} onUnmark={presentation.unmark} />
 
       {/* phone field-capture: a editor can't draw tactical symbols on a phone, but can

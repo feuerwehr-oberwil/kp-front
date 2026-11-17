@@ -231,7 +231,12 @@ The rules that are easy to break:
 - **Own state, never an Einsatz's.** No workspace, no saved drawing, no plan binding, no journal
   row. Measurements, the Gefahrgut rings and a dropped pin are component state; only the Ebenen and
   the view (`KarteView`: frame, selected object, open plan or the Checkliste, in sessionStorage) are kept —
-  `karteViewSnapshot` is the one door into storage (`lib/karte/karte.test.ts` pins it).
+  `karteViewSnapshot` is the one door into storage (`lib/karte/karte.test.ts` pins it). **Not the
+  open tool** (rare-user round 17.11.2026, C3): back from an Einsatz the first tap on an object
+  measured instead of selecting it, so the place comes back and the tool starts put down; a tool
+  that takes the next tap is also put down when the app returns from the background
+  (`lib/useOnResume`, the Einsatz's rule). The Ebenen tile wears the Einsatz's amber dot while
+  «Fahrzeuge» – the one content layer here – is off (`lib/layerPreset · contentLayerHidden`).
 - **A building is an object only by official data, containment or an exact address.** An object
   is drawn as its `footprint` (the buildings its name, use area or parcel give, above), else as
   the OSM outline that CONTAINS its own coordinate (`lib/karte/places · objectBuildings`); a tap
@@ -252,7 +257,7 @@ The rules that are easy to break:
   and isn't using the normal style»; its picked half a neutral surface pill since review round 4,
   not the blue choice fill — the panel's one rhythm, below): **Objekt** (no plan count since
   27.10.2026 – the tiles right under it show the plans) |
-  **<the house's street>** («Dieses Haus» until the register, asked at the tapped point as a
+  **<the house's street>** («Dieses Gebäude» until the register, asked at the tapped point as a
   building tap asks, names it), one line per half — a long street ends in «…», so the switch has
   the same height on both levels and for every name. One tap switches, both ways, on the tablet
   and the phone sheet. The map reveals the house that was TAPPED (moving only when it is under the
@@ -498,8 +503,8 @@ The rules that are easy to break:
   words and the view label read `planLabel` (above) – the title overflows a 216px rail.
 - **A head that is still being looked up is a skeleton**, never «Gebäude» or «…» in place of a
   name: a tapped building until the register answers (a searched address is named at once), a
-  dropped pin until its address is known. A plain building carries no «Kein Stationsobjekt …»
-  box — the kicker says «Gebäude» and the line under the name says «Kein Stationsobjekt» once
+  dropped pin until its address is known. A plain building carries no «Kein Objekt …»
+  box — the kicker says «Gebäude» and the line under the name says «Kein Objekt erfasst» once
   known. Nothing more is added about what the station did not record.
 - **«Register-Hinweis» is tap to open** (owner, review round 4: «should be tap to open and this
   blabla (gwr, stand, etc.) should all be hidden by default»). Under «Gebäude laut Register» the
@@ -521,7 +526,7 @@ The rules that are easy to break:
   Station erfasst …» line went with review round 7, for objects and for plain buildings alike
   (owner, 20.10.2026: «knowing that there could be something but it isn't filled doesn't help
   anyone in case of an emergency»). The panel simply ends with its actions. A dropped pin keeps
-  its factual first sentence («Kein Stationsobjekt an diesem Punkt.») without the «Fehlende
+  its factual first sentence («Kein Objekt an diesem Punkt.») without the «Fehlende
   Angaben heissen nicht …» tail.
 - **The panel remembers where it was scrolled to** (owner, 20.10.2026): leaving an Einsatzobjekt
   for a plan, an Objektbesuch or the other level and coming back puts «Objektbesuch» back under
@@ -548,14 +553,14 @@ The rules that are easy to break:
 - **Ebenen: «Alle ein» / «Alle aus» / «Standard»** (review round 2), the Einsatz's three chips
   over the viewer's own layers (`lib/karte/layerPresets`). «Standard» is the deployment's default
   set as the viewer opens with no device choice, the Basiskarte included; «Alle» / «Keine» switch
-  every overlay, never the Basiskarte. The viewer's station rows (Stationsobjekte, category rows)
+  every overlay, never the Basiskarte. The viewer's station rows (Objekte, category rows)
   are layers here: on in «Standard», switched by both chips — whatever rows the panel lists, none
   is named in the code. The aligned plan on the map is not (a plan backdrop is switched on on
   purpose, and the Einsatz's chips leave plan rasters alone too). The radar: off with «Standard»
   and «Alle aus», left by «Alle ein», no chip lit while it is on. Transparencies stay.
 - **Ebenen: Grundkarte, then «Station»** (owner, review round 4: «it's the most relevant one in
   this case»; round 5: «move grundkarte above station»): under the three chips come the base-map
-  tiles, then the station group — Stationsobjekte and the colour categories — above Inhalte, Wasser
+  tiles, then the station group — Objekte and the colour categories — above Inhalte, Wasser
   and Wetter (`LayerPanel · leadTwinGroups`). The Einsatz's Ebenen keep their order.
 - **Typing on a phone** (review round 3, 17.10.2026 — round 2's keyboard handling did nothing on
   the owner's real iPhone). The bar is the menu button + a **search button** (its twin since round 4); the tablet keeps
@@ -565,8 +570,7 @@ The rules that are easy to break:
   stays (at its Ebenen height) when the keyboard goes, until a pick or ✕ — a tap on the map then
   only lets the keyboard go. Gefahrgut likewise stays with its result after ✓; a tap on its tab
   with no UN number opens it with the caret in the field and the number pad up, with a number set
-  it opens on the result without the keyboard (a Gefahrgut restored with the session never takes
-  the caret — only a tap may raise iOS's keyboard). The map is not moved for the rings.
+  it opens on the result without the keyboard (only a tap may raise iOS's keyboard). The map is not moved for the rings.
   - With the keyboard up the sheet keeps its height but stands **on the keyboard's top edge**,
     never taller than the room under the top bar less a 24 px strip of map
     (`lib/iosKeyboard · useKeySheet`, pure `keyboardTop` / `keySheetBox`).
@@ -1045,7 +1049,10 @@ What the surface shows offline:
   round 2b a FOLDED section after the prefs: one summary row «Alarm ✓ · Offline ✓ · App
   installiert», opening by itself for an offline door or a part that needs the operator): the
   four readiness rows (installed · Benachrichtigung · Alarm-Abo · Anmeldung) with their one-tap
-  fixes, the Testalarm and the opt-out – the same sheet inside an Einsatz. Since 28.10.2026 (owner's
+  fixes – plus an amber fifth, «Konto · Einsatzleiter · nur Atemschutz-Alarme, kein «Neuer
+  Einsatz»», for an account «Neuer Einsatz» does not wake (`NEW_ALARM_ROLES`, editor only; M2,
+  17.11.2026), and a denied «Benachrichtigung» names where its switch is on this device
+  (`lib/permissionPath`) – the Testalarm and the opt-out – the same sheet inside an Einsatz. Since 28.10.2026 (owner's
   pick 17A) they fold into ONE line with no heading: «✓ Alarm bereit · Getestet am …» with the
   Testalarm on it and a ⌄ that opens the green rows and the opt-out; a row that is amber
   («Alarm bereit · 1 Hinweis …») or red («Kein Alarm auf diesem Gerät») always stands open under it
@@ -1195,7 +1202,11 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   left only for a link session whose Einsatz could not be fetched.
 - **Alarms** show in the Meldeleiste and the banner (no «Anhängen»: no Einsatz is being worked on
   screen); nothing switches by itself. Taking one keeps the 12 s «Alarm übernommen · Rückgängig»,
-  and the undo returns to the viewer, not into another open Einsatz.
+  and the undo returns to the viewer, not into another open Einsatz. The banner's ✕ puts only the
+  banner away on this device: the alarm stays listed in «Einsätze ▾» and in the Einsatz menu – a
+  bell where a running row shows its age, the Stichwort and the address, «Öffnen», no ✕ – until it
+  is opened or 3 h old, and it keeps the red dot lit (owner, 17.11.2026: «Just list it, no hidden
+  state»; `lib/diveraDismiss · waitingAlarms`).
 - **From an Einsatz:** **«Einsatz verlassen»** (owner, 17.10.2026; it was «Karte & Objekte» in the
   «App» group) — about this Einsatz, so in the Einsätze group as the first action under the
   running rows, above «Alle Einsätze», with the map glyph (never the Abmelden one). «verlassen» must

@@ -347,7 +347,7 @@ export function LeitungChips({ value, options, onChange, ariaLabel, children }: 
           className={cx(!!o.takenBy && value !== o.no && s.miniChipTaken)}
           title={o.takenBy ? fillTemplate(az.lineOptTaken, { name: o.takenBy }) : undefined}
           onClick={() => onChange(o.no)}>
-          {fillTemplate(az.lineChip, { n: o.no })}{o.onPlan ? ' · P' : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
+          {fillTemplate(az.lineChip, { n: o.no })}{o.onPlan ? ` · ${az.lineOnPlan}` : ''}{o.takenBy ? ` · ${abbreviateName(o.takenBy)}` : ''}
         </Chip>
       ))}
       {children}

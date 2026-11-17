@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type React
 import type { PlanDocument, TimelineEvent } from '../types'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { Icon } from '../lib/icons'
+import { useIsPhone } from '../lib/useIsPhone'
 import { SearchField } from './SearchField'
 import { InfoToggle } from './InfoToggle'
 import { EmptyState } from './EmptyState'
@@ -683,6 +684,61 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
     return false
   }
 
+  /* WHEN the Einsatz has substance, as one strip. A long Verlauf is a wall of rows in
+     which «was war um halb zehn» means scrolling and reading — the strip answers it by
+     position instead, and a tap on it lands on the nearest row. Ticks are not targets
+     (the strip takes the tap as a whole), so nothing here needs a gloved-finger hit box.
+     ⚠️ NOT while searching or filtering: its ticks and its jump are positioned over the FULL
+     list, and above a narrowed one they would point at rows that are not there. */
+  const phone = useIsPhone()
+  const phoneReplay = phone && onReplay
+  const strip = stripSpan && !searching && !filtering && (
+    <div
+      className="jr-strip" role="slider" tabIndex={0} ref={measureStrip}
+      aria-label={C.stripLabel}
+      aria-valuemin={0} aria-valuemax={100} aria-valuenow={0}
+      onPointerDown={(ev) => {
+        // …against the TRACK, not the strip: the ticks are inset by STRIP_INSET, so a tap
+        // on the strip's rounded end has to land on the first tick and not somewhere
+        // before it. Same inset on both, from the one constant.
+        const box = ev.currentTarget.getBoundingClientRect()
+        const span = Math.max(1, box.width - STRIP_INSET * 2)
+        const frac = Math.min(1, Math.max(0, (ev.clientX - box.left - STRIP_INSET) / span))
+        jumpTo(stripSpan.from + frac * (stripSpan.to - stripSpan.from))
+      }}
+      onKeyDown={(ev) => {
+        const step = (stripSpan.to - stripSpan.from) / 20
+        if (ev.key === 'ArrowRight') { ev.preventDefault(); jumpTo(stripSpan.from + step * ++strideRef.current) }
+        if (ev.key === 'ArrowLeft') { ev.preventDefault(); jumpTo(stripSpan.from + step * --strideRef.current) }
+      }}
+    >
+      {/* the ticks live on an INSET track (lib/verlauf · STRIP_INSET). Positioned against the
+          strip itself, the first and last moment sat on its rounded ends – half-swallowed by
+          the corner radius – and a clock on either could not centre on its mark. */}
+      {/* …and on it, as one ruler: the rows' events band (stripRuns) above a spine, the
+          divisions hanging under it, the round times as the tall marks standing on it, every
+          round time labelled and centred, and the
+          first and last moment's clocks at the ends where they keep clear of one of those
+          (stripScale – the stamp gives way, never an hour). Where the END stamp gave
+          way, a short ink tick caps the right end: the latest moment, the «now» of the strip. */}
+      <div className="jr-strip-track" style={{ insetInline: STRIP_INSET }} aria-hidden>
+        {band?.runs.map((r) => <i key={r.from} className="jr-strip-run" style={{ left: `${r.from * 100}%`, width: `${(r.to - r.from) * 100}%` }} />)}
+        {band?.busy.map((r) => <i key={r.from} className="jr-strip-run jr-strip-busy" style={{ left: `${r.from * 100}%`, width: `${(r.to - r.from) * 100}%` }} />)}
+        {scale?.minor.map((m) => <b key={m.frac} className={m.mid ? 'jr-strip-div jr-strip-mid' : 'jr-strip-div'} style={{ left: `${m.frac * 100}%` }} />)}
+        {scale?.marks.map((m) => (
+          <Fragment key={m.frac}>
+            <b className="jr-strip-major" style={{ left: `${m.frac * 100}%` }} />
+            {m.label && <span className="jr-strip-lbl" style={{ left: `${m.frac * 100}%` }}>{m.label}</span>}
+          </Fragment>
+        ))}
+        {scale?.start && <span className="jr-strip-lbl jr-strip-end" style={{ left: 0 }}>{scale.start}</span>}
+        {scale?.end
+          ? <span className="jr-strip-lbl jr-strip-end" style={{ left: '100%' }}>{scale.end}</span>
+          : scale && <b className="jr-strip-now" style={{ left: '100%' }} />}
+      </div>
+    </div>
+  )
+
   return (
     <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} onEscape={escapeInner} grab popupRef={setDrawerEl} style={heldStyle}>
         {/* ── the head STAYS while searching (22.09.2026) ──
@@ -728,12 +784,10 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
               items={filterItems()}
             />
           )}
-          {/* ⚠️ `aria-label`, because the word inside it is hidden on a phone (10-journal.css) —
-              the head is one item wider since the legend button joined it, and this is the label
-              that can most afford to go. */}
           {/* THE button's framed secondary (hill climb, 04.11.2026): it was the filled primary, and
-              playing back history out-shouted the title and the open Pendenzen below it. */}
-          {onReplay && (
+              playing back history out-shouted the title and the open Pendenzen below it. Tablet
+              and laptop only – on a phone it stands at the ruler (`phoneReplay`, M8 · C). */}
+          {onReplay && !phone && (
             <Button className="journal-replay" onClick={onReplay} title={C.replayHint} aria-label={C.replay} icon={<Icon id="play-circle" />}>
               <span>{C.replay}</span>
             </Button>
@@ -779,58 +833,17 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
             ))}
           </div>
         )}
-        {/* WHEN the Einsatz has substance, as one strip. A long Verlauf is a wall of rows in
-            which «was war um halb zehn» means scrolling and reading — the strip answers it by
-            position instead, and a tap on it lands on the nearest row. Ticks are not targets
-            (the strip takes the tap as a whole), so nothing here needs a gloved-finger hit box.
-            ⚠️ NOT while searching or filtering: its ticks and its jump are positioned over the FULL
-            list, and above a narrowed one they would point at rows that are not there. */}
-        {stripSpan && !searching && !filtering && (
-          <div
-            className="jr-strip" role="slider" tabIndex={0} ref={measureStrip}
-            aria-label={C.stripLabel}
-            aria-valuemin={0} aria-valuemax={100} aria-valuenow={0}
-            onPointerDown={(ev) => {
-              // …against the TRACK, not the strip: the ticks are inset by STRIP_INSET, so a tap
-              // on the strip's rounded end has to land on the first tick and not somewhere
-              // before it. Same inset on both, from the one constant.
-              const box = ev.currentTarget.getBoundingClientRect()
-              const span = Math.max(1, box.width - STRIP_INSET * 2)
-              const frac = Math.min(1, Math.max(0, (ev.clientX - box.left - STRIP_INSET) / span))
-              jumpTo(stripSpan.from + frac * (stripSpan.to - stripSpan.from))
-            }}
-            onKeyDown={(ev) => {
-              const step = (stripSpan.to - stripSpan.from) / 20
-              if (ev.key === 'ArrowRight') { ev.preventDefault(); jumpTo(stripSpan.from + step * ++strideRef.current) }
-              if (ev.key === 'ArrowLeft') { ev.preventDefault(); jumpTo(stripSpan.from + step * --strideRef.current) }
-            }}
-          >
-            {/* the ticks live on an INSET track (lib/verlauf · STRIP_INSET). Positioned against the
-                strip itself, the first and last moment sat on its rounded ends – half-swallowed by
-                the corner radius – and a clock on either could not centre on its mark. */}
-            {/* …and on it, as one ruler: the rows' events band (stripRuns) above a spine, the
-                divisions hanging under it, the round times as the tall marks standing on it, every
-                round time labelled and centred, and the
-                first and last moment's clocks at the ends where they keep clear of one of those
-                (stripScale – the stamp gives way, never an hour). Where the END stamp gave
-                way, a short ink tick caps the right end: the latest moment, the «now» of the strip. */}
-            <div className="jr-strip-track" style={{ insetInline: STRIP_INSET }} aria-hidden>
-              {band?.runs.map((r) => <i key={r.from} className="jr-strip-run" style={{ left: `${r.from * 100}%`, width: `${(r.to - r.from) * 100}%` }} />)}
-              {band?.busy.map((r) => <i key={r.from} className="jr-strip-run jr-strip-busy" style={{ left: `${r.from * 100}%`, width: `${(r.to - r.from) * 100}%` }} />)}
-              {scale?.minor.map((m) => <b key={m.frac} className={m.mid ? 'jr-strip-div jr-strip-mid' : 'jr-strip-div'} style={{ left: `${m.frac * 100}%` }} />)}
-              {scale?.marks.map((m) => (
-                <Fragment key={m.frac}>
-                  <b className="jr-strip-major" style={{ left: `${m.frac * 100}%` }} />
-                  {m.label && <span className="jr-strip-lbl" style={{ left: `${m.frac * 100}%` }}>{m.label}</span>}
-                </Fragment>
-              ))}
-              {scale?.start && <span className="jr-strip-lbl jr-strip-end" style={{ left: 0 }}>{scale.start}</span>}
-              {scale?.end
-                ? <span className="jr-strip-lbl jr-strip-end" style={{ left: '100%' }}>{scale.end}</span>
-                : scale && <b className="jr-strip-now" style={{ left: '100%' }} />}
-            </div>
+        {phoneReplay && strip ? (
+          // phone (owner pick M8 · C, 17.11.2026): ▶ left the head – one stray tap beside ✕ swapped
+          // the running Lage for the past – and stands at the ruler's left end, the strip that
+          // already means «jump in time». A bare glyph like ⓘ · lens · funnel; its word is the
+          // `aria-label`. While searching or filtering there is no strip and no ▶: the replay
+          // plays the whole picture, so it waits for the whole list.
+          <div className="jr-strip-row">
+            <button type="button" className="journal-legend-btn jr-strip-replay" onClick={onReplay} title={C.replayHint} aria-label={C.replay}><Icon id="play-circle" /></button>
+            {strip}
           </div>
-        )}
+        ) : strip}
         {/* ── OFFENE ERINNERUNGEN · the upper of the drawer's TWO stacked scroll areas ──
             The one part of the drawer that is not the chronology. A Wiedervorlage is about what
             still has to be done, and on an Einsatz that writes a row a minute it was thirty rows
@@ -935,9 +948,11 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
           </div>
         )}
         <div className="history-list" ref={listRef}>
-          {/* the empty Verlauf names the button that fills it (WORD.10) – for a session that writes
-              it (the same gate as a text correction: absent for a viewer and a replay) */}
-          {events.length === 0 && <EmptyState icon="verlauf" title={C.empty} sub={onEditText ? C.emptyHint : undefined} />}
+          {/* the empty Verlauf says what it is for (F12, 17.11.2026 – every role: a viewer could not
+              tell a new Verlauf from a broken one), and names the button that fills it (WORD.10) –
+              that half for a session that writes it (the same gate as a text correction: absent
+              for a viewer and a replay) */}
+          {events.length === 0 && <EmptyState icon="verlauf" title={C.empty} sub={onEditText ? `${C.emptyFor} ${C.emptyHint}` : C.emptyFor} />}
           {/* no hits = the one `.no-hits` line every list uses (duck sweep LISTS.4, 17.11.2026; it
               was a big EmptyState): with a filter on the ticks are the likelier culprit, so the
               line is the shared filter one plus the way out; a query alone says what was searched

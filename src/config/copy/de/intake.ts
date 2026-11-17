@@ -29,9 +29,8 @@ export const intakeCopy = {
     categoryLabel: 'Kategorie',
     // Übungen stay fully operable, but do not feed the statistics and are the only ones
     // that can be deleted (Alle Einsätze)
-    // an OnOff row since 28.09.2026: the name on the row, the consequence under it
+    // the right half of the form's first control since 17.11.2026, the consequence under it
     exerciseLabel: 'Übung',
-    exerciseSub: 'Zählt nicht zur Einsatzstatistik',
     // «Hier» moves the Einsatzort to the device's location. On a running Einsatz it always asks
     // first – the form is usually opened in the Magazin to correct an address, and a mis-tap
     // takes the map, the Kroki, the tile stock and the Objektpläne along with it.
@@ -47,7 +46,7 @@ export const intakeCopy = {
     demoBlocked: 'In der Demo deaktiviert – hier lässt sich kein neuer Einsatz eröffnen.',
     cancel: 'Abbrechen',
     errorCreate: 'Einsatz nicht eröffnet – erneut versuchen',
-    errorTake: 'Alarm nicht übernommen – erneut versuchen',
+    errorTake: 'Alarm nicht übernommen – erneut «Öffnen», es entsteht kein zweiter Einsatz',
     errorUpdate: 'Einsatzdaten nicht geändert – erneut versuchen',
     // --- edit mode + result toasts ---
     editTitle: 'Einsatzdaten bearbeiten',
@@ -60,7 +59,6 @@ export const intakeCopy = {
     addressUnknown: 'Adresse unbekannt',
     alarmOpen: 'Öffnen',
     alarmOpening: 'Öffne …',
-    dismiss: 'Verwerfen',
     manualIncident: 'Manueller Einsatz',
     // --- attach: split/Nachalarm dispatch joins an existing incident instead of a duplicate ---
     attach: 'Zu bestehendem Einsatz hinzufügen',
@@ -68,7 +66,7 @@ export const intakeCopy = {
     attachConfirmTitle: '«{alarm}» zu diesem Einsatz hinzufügen?',
     attachHint: 'Die Meldung landet im Verlauf, GPS-Zeiten folgen automatisch. Stichwort und Standort des Einsatzes bleiben unverändert.',
     attachConfirm: 'Hinzufügen',
-    attachError: 'Alarm nicht angehängt – erneut versuchen',
+    attachError: 'Alarm nicht angehängt – er bleibt in der Liste, erneut «Zu Einsatz»',
     newDiveraAlarm: 'Neuer Alarm',
     hide: 'Ausblenden',
     fromDivera: 'Aus der Alarmquelle übernommen',
@@ -122,8 +120,15 @@ export const intakeCopy = {
     objectsGroup: 'Objekte',
     addressGroup: 'Adressen',
     // the address search's own states (LISTS.1) – the Karte search's words
-    addressOffline: 'Adresssuche braucht Netz. Stationsobjekte werden trotzdem gefunden.',
+    addressOffline: 'Adresssuche braucht Netz. Objekte werden trotzdem gefunden.',
     addressFailed: 'Adresssuche gerade nicht erreichbar.',
     undoTakeFailed: 'Alarm nicht zurückgenommen – der Einsatz bleibt offen',
+    // «Ernstfall | Übung» – the form's FIRST question (owner pick C7, 17.11.2026); «Übung» is
+    // `exerciseLabel`. The list filter's words.
+    kindLabel: 'Ernstfall / Übung',
+    kindReal: 'Ernstfall',
+    // «Zeigen» on a hidden alarm's (or «Alarm aktualisiert»'s) row in the «Einsätze» lists – the way
+    // back after ✕ (rare-user round M3 / F7, 17.11.2026; panels/AppMenuRows · FoldedRow)
+    showAlarm: 'Zeigen',
   },
 } as const

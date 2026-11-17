@@ -15,7 +15,7 @@ const TRUPPS = `
   <div>
     <button data-fold="5">⚠<span class="fold-long">4 Alarme</span><span class="fold-short">4</span></button>
     <button data-fold="2">▽<span class="fold-long">Reihenfolge</span></button>
-    <button data-fold="3">▦<span class="fold-long">Überwachung abgeben</span></button>
+    <button data-fold="3">▦<span class="fold-long">Trupps teilen</span></button>
     <button data-fold="6">🔔<span class="fold-long">Alarmton</span></button>
     <button data-fold="7">+<span class="fold-long">Trupp anmelden</span><span class="fold-short">Trupp</span></button>
   </div>`

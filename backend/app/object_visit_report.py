@@ -351,7 +351,7 @@ def _render(
     if target.get("kind") == "location":
         # a visit at a place: no station object, and the place itself travels with the report
         facts: list[tuple[str, str, str]] = [
-            ("Objekt", "– (Ort ohne Stationsobjekt)", "body"),
+            ("Objekt", "– (Ort ohne Objekt)", "body"),
             ("Ort", f"{target.get('label') or '–'} ({place_kind(target)})", "body"),
         ]
         if target.get("address"):
