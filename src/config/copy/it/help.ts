@@ -104,10 +104,10 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
       {
         id: 'alarme', title: 'Allarmi su questo dispositivo', icon: 'bell',
         blocks: [
-          { kind: 'lead', text: 'Un nuovo allarme sveglia ogni dispositivo connesso con un account **Editore** che consente gli allarmi – come «Nuovo intervento», anche ad app chiusa.' },
+          { kind: 'lead', text: 'Un nuovo allarme sveglia ogni dispositivo connesso con un account **Editore** che consente gli allarmi – come «Neuer Einsatz», anche ad app chiusa.' },
           { kind: 'list', items: [
             'Se questo dispositivo è pronto lo dice **Impostazioni › Questo dispositivo** con **Allarme pronto**: installata come app, notifiche consentite, abbonamento allarme, accesso. Ciò che manca è indicato apertamente, con il relativo pulsante; **Allarme di prova** verifica l’intero percorso.',
-            'Gli account **Capo intervento** e **Osservatore** non vengono svegliati da «Nuovo intervento» – sotto «Allarme pronto» lo dice la riga **Account**.',
+            'Gli account **Capo intervento** e **Osservatore** non vengono svegliati da «Neuer Einsatz» – sotto «Allarme pronto» lo dice la riga **Account**.',
             'Gli allarmi di **autoprotezione** (in ritardo, pressione d’allarme, emergenza) suonano su ogni dispositivo che ha l’intervento aperto, con qualsiasi account.',
             '**Nessun allarme su questo dispositivo** li disattiva qui; **Attiva** li riaccende.',
           ] },
