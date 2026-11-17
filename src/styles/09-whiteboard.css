@@ -923,7 +923,11 @@ span.wb-ghost-label { cursor: default; }
   flex-wrap: nowrap; max-height: calc(100dvh - 168px); overflow-y: auto; overflow-x: hidden;
   scrollbar-width: thin; scrollbar-color: var(--ink-22) transparent;
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink);
-  border-radius: var(--r-bar); padding: var(--bar-pad);
+  border-radius: var(--r-bar); padding: var(--bar-pad); }
+/* The neutral bar control's plate, for every bar that wears it: the docks AND the selection bar
+   (`.sel-bar`, 11-measure – a sibling of the dock, not inside it, so a token declared on
+   `.wb-dock` alone left its ✥ ⟳ transparent at rest; button sweep CHROME.5, 17.11.2026). */
+.wb-dock, .sel-bar {
   --dock-control-bg: color-mix(in srgb, var(--ink) 7%, var(--surface));
   --dock-control-hover: color-mix(in srgb, var(--ink) 13%, var(--surface)); }
 .wb-dock::-webkit-scrollbar { width: 6px; }
