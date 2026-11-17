@@ -335,7 +335,8 @@ async def notify_notfall_changes(db: AsyncSession, inc: Incident, previous: obje
 
 def due_reminders(rows: list[dict], now_ms: float, closed_at: str | None) -> list[dict[str, Any]]:
     """Open, due Wiedervorlagen folded from journal rows (created/snoozed/done lifecycle);
-    reminders due before the Einsatzende are expired by closure (mirrors deriveReminders)."""
+    one due before the Einsatzende never comes due (mirrors src/lib/reminders · isDue; the item
+    itself stays open on every surface, ENT.4 17.11.2026)."""
     created: dict[str, dict] = {}
     latest: dict[str, dict] = {}
     for e in rows:  # oldest→newest (seq order)

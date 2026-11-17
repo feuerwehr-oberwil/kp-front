@@ -13,6 +13,12 @@
 //   - `reopened` → a later row that takes a `done` back («Rückgängig» on the erledigt toast, or ↶,
 //                  23.09.2026). The done row STAYS — the record says it was ticked off and then
 //                  reopened, in that order — and the item is open again with the due it had.
+//   - `done` + `withdrawn` → the «Rückgängig» of a «wieder in …» re-raise (ENT.4, 17.11.2026): the
+//                  item is taken back as if never raised – it leaves every reading below, so the
+//                  Tafel and the paper do not print it as «Erledigt».
+// ⚠️ ONE state per item on every surface (ENT.4): an item still open when the Einsatz closed stays
+// OPEN – in the Verlauf, on the Tafel, on paper. Only its ALARM stops: a timed Erinnerung due before
+// the Einsatzende never comes due (`isDue` · closedAt), so a Nachtrag reopen rings nothing stale.
 // The open set (`deriveReminders`), every item open or done (`pendenzLedger`), each item's *effective*
 // due time and its Meldungen are derived here (`foldPendenzen`) — never
 // stored as mutable fields. This keeps everything correct under offline merge + replay for free.
@@ -100,6 +106,8 @@ interface Folded {
   /** the latest correction of the item's own words (a `note` carrying `edit`), per field */
   text?: string
   assignee?: string
+  /** a withdrawn re-raise (`done` + `withdrawn`) – dropped from the fold's result */
+  withdrawn?: boolean
 }
 
 /**
@@ -141,6 +149,7 @@ function foldPendenzen(timeline: readonly TimelineEvent[]): Map<string, Folded> 
     f.op = r.op
     if (r.dueAt) f.dueAt = r.dueAt
     f.doneAt = r.op === 'done' ? e.at ?? '' : undefined
+    if (r.op === 'done' && r.withdrawn) f.withdrawn = true
   }
   for (let i = timeline.length - 1; i >= 0; i--) {
     const e = timeline[i]
@@ -157,6 +166,8 @@ function foldPendenzen(timeline: readonly TimelineEvent[]): Map<string, Folded> 
     if (f) apply(e, r, f)
     else early.set(r.id, [...(early.get(r.id) ?? []), [e, r]])
   }
+  // a withdrawn re-raise is no item at all – not open, not done (see the header)
+  for (const [id, f] of items) if (f.withdrawn) items.delete(id)
   return items
 }
 
@@ -197,20 +208,15 @@ export function pendenzLedger(timeline: readonly TimelineEvent[]): PendenzItem[]
  * Order-independent: events are folded oldest→newest so the latest op wins regardless of how the
  * (newest-first) timeline is stored or merged.
  *
- * `closedAt` (the Einsatzende): timed Erinnerungen due BEFORE the incident was closed are expired
- * by closure — reopening a weeks-old incident for a Nachtrag must not fire stale überfällig alarms
- * the moment it opens.
- * ⚠️ That rule is about ALARMS, so it applies only to items that have a due time. An undatierte
- * Pendenz that was never ticked off is genuinely unfinished; dropping it on reopen would hide the
- * one thing somebody has to take away from the Einsatz.
+ * ⚠️ No closure expiry here (ENT.4, 17.11.2026, owner: «stays offen everywhere»). It used to drop
+ * timed Erinnerungen due before the Einsatzende, so after a Nachtrag reopen the Verlauf drew them
+ * done while the Tafel listed them open and red and the paper said «offen». The no-stale-alarms
+ * rule it served lives where the alarm is decided: `isDue` · closedAt.
  */
-export function deriveReminders(timeline: readonly TimelineEvent[], closedAt?: string | null): OpenReminder[] {
-  const closedMs = closedAt ? Date.parse(closedAt) : NaN
+export function deriveReminders(timeline: readonly TimelineEvent[]): OpenReminder[] {
   const open: OpenReminder[] = []
   for (const [id, f] of foldPendenzen(timeline)) {
     if (f.op === 'done') continue
-    // expired by closure — timed Erinnerungen only (see the doc comment)
-    if (f.dueAt && Number.isFinite(closedMs) && Date.parse(f.dueAt) < closedMs) continue
     open.push(itemOf(id, f))
   }
   // dringend first, then the OLDEST first: the position carries the age, so the time column can
@@ -244,9 +250,15 @@ export function bareText(e: TimelineEvent): string {
   return m ? e.text.slice(m[0].length).trim() || e.text : e.text
 }
 
-/** Only a TIMED Erinnerung can come due. A Pendenz has no due time and never alarms. */
-export function isDue(r: OpenReminder, nowMs: number): boolean {
-  return r.dueAt != null && Date.parse(r.dueAt) <= nowMs
+/** Only a TIMED Erinnerung can come due. A Pendenz has no due time and never alarms.
+ *  `closedAt` (the Einsatzende): one due BEFORE the Einsatz was closed never comes due – reopening
+ *  a weeks-old Einsatz for a Nachtrag must not ring stale alarms. The item itself stays open
+ *  (ENT.4); only its reminder is silent. */
+export function isDue(r: OpenReminder, nowMs: number, closedAt?: string | null): boolean {
+  if (r.dueAt == null) return false
+  const due = Date.parse(r.dueAt)
+  const closedMs = closedAt ? Date.parse(closedAt) : NaN
+  return due <= nowMs && !(Number.isFinite(closedMs) && due < closedMs)
 }
 
 /**

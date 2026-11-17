@@ -160,7 +160,8 @@ export function JournalRow({
   // «Rückgängig» appends a `reopened`, and the old done row then describes nothing
   // current — no closed ring, and no «wieder in», which would raise a duplicate of an
   // item that is open right now.
-  const closedRow = e.reminder?.op === 'done' && !openMap.has(e.reminder.id)
+  // …and a WITHDRAWN re-raise (ENT.4) closed nothing: its row is a log line, no ring, no «wieder in»
+  const closedRow = e.reminder?.op === 'done' && !e.reminder.withdrawn && !openMap.has(e.reminder.id)
   // ── the disc ──
   // ONE classification column, and the row's only one. A Pendenz shows the ring (the
   // composer's own, which is what it has always promised); every other row shows its

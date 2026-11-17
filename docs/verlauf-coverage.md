@@ -153,8 +153,14 @@ the same rows:
   für …», `useJournalWriters · reRaisePendenz`) that names the item it re-raises
   (`reminder.again`); while it is open the done row shows ✓ «↻ in 30 min gesetzt» instead of the
   chips (05.11.2026, a double tap raised two). Its toast «Wiedervorlage in 30 min gesetzt ·
-  Rückgängig» appends **«Wiedervorlage zurückgenommen: …»** (`reminder.op: 'done'`, icon ↶) –
-  append-only, the created row stays.
+  Rückgängig» appends **«Wiedervorlage zurückgenommen: …»** (`reminder.op: 'done'` with
+  `withdrawn: true`, icon ↶) – append-only, the created row stays, and the withdrawn item leaves
+  every reading: not open, not «Erledigt» on the Tafel or the paper, its source's chips are back
+  (ENT.4, 17.11.2026).
+- **The Einsatzende closes no Pendenz** (ENT.4, 17.11.2026, owner): an item still open when the
+  Einsatz is closed stays «offen» in the Verlauf, on the Tafel (its tick works) and on the paper;
+  only a timed Erinnerung due before the close never comes due – no banner, no tone after a
+  Nachtrag reopen (`reminders · isDue` · closedAt).
 - The **Atemschutz alarm row** reads the same fold that plays the sound and writes nothing
   new – the alarm's Verlauf row is created once per cycle as before (see above).
 - **Swiping away (✕), take-over navigation, «Zum Trupp»** write nothing – view, not
