@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { leaveOnEscape, ONE_LINE } from '../lib/fieldKeys'
 import type { CaptionMode, NoteSize, Spread, SymbolControl, SymbolProps } from '../types'
 import { thumbUrl } from '../lib/mediaUrl'
 import { Icon } from '../lib/icons'
@@ -75,7 +76,7 @@ function FieldControl({ fieldKey, value, kind, options, placeholder, officerFilt
       <input className="kv-val" value={value} placeholder={placeholder}
         onChange={(e) => onInput(e.target.value)}
         onBlur={() => onCommit(value)}
-        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
+        {...ONE_LINE} />
     )
   }
   // any list, short or long, roster or station list → the dropdown with free typing: the search
@@ -1093,7 +1094,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                       <input className="kv-key" value={r.k} placeholder={C.fieldKeyPlaceholder}
                         aria-invalid={dupRow[i] || undefined}
                         onChange={(e) => setRow(i, { k: e.target.value })} onBlur={() => commitRows(rows)}
-                        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
+                        {...ONE_LINE} />
                       {field}
                       <IconButton label={C.removeField} onClick={() => removeRow(i)}><Icon id="close" /></IconButton>
                     </div>
@@ -1151,6 +1152,8 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                 placeholder={C.notesPlaceholder}
                 onChange={(e) => setNotes(stripUnprintable(e.target.value))}
                 onBlur={blurNotes}
+                // Esc keeps the text and leaves the field (lib/fieldKeys); Return is a new line
+                onKeyDown={leaveOnEscape}
               />
             </div>
           )}

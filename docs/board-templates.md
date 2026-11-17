@@ -121,7 +121,7 @@ The Erste Führung's Problemerfassung box, the page «Problemerfassung» and a `
 | Tab / Shift+Tab | Moves **across**: the next column, or the next box to the right (Front → Ordnung → Sanität → Spezialprobleme, staying on the same line). It wraps to the next row and then to the next section. Shift+Tab is the exact way back. |
 | Shift+Enter, Alt+Enter | A line break inside the cell — a Problemerfassung entry too, which prints with its breaks. On a touch screen a «Zeilenumbruch» key (↵, 44 px) sits in the focused cell. |
 | Alt+↑ / Alt+↓ (⌥ on a Mac) | Moves the entry the cell belongs to up / down — a problem line, a Massnahme, a Mittel or Verbindungen row, a row written under the Abspracherapport's fixed ones (those stay fixed). One ↶ step, with what was typed in the cell. |
-| Esc | Restores the stored value. A second Esc lets go of the field. |
+| Esc | Keeps what was typed and leaves the cell, like tapping away – the blur commits it, one ↶ step (owner, 17.11.2026: Esc never reverts; it used to restore the stored value). |
 
 - In a «Wann» (`time`) cell, `1124` is stored as `11:24`. Under a finger (`pointer: coarse`) a tap
   on a time cell opens THE time picker (`WheelPopover`: wheels, «Jetzt», «Leeren») instead of the

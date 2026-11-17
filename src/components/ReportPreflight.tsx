@@ -5,6 +5,7 @@
 // lib/report. The close runs only through `onComplete` (the one shared Abschluss confirm).
 // Rules for this area: docs/rapport.md.
 
+import { ONE_LINE } from '../lib/fieldKeys'
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { Button, IconButton } from './Button'
@@ -2426,7 +2427,7 @@ export function ReportPreflight({
                               «Beschriftung» box under every photo asked a viewer to write */}
                           {!onCaptionAttachment ? a.caption?.trim() && <span className="rp-readout">{a.caption.trim()}</span> : <input
                             className="ip-input" value={a.caption ?? ''} placeholder={P.attachmentsCaption}
-                            aria-label={P.attachmentsCaption}
+                            aria-label={P.attachmentsCaption} {...ONE_LINE}
                             // typed value goes in untouched (trimming on change eats the space
                             // you just pressed); the tidy-up happens once, on leaving the field
                             onChange={(e) => onCaptionAttachment(a.id, stripUnprintable(e.target.value))}

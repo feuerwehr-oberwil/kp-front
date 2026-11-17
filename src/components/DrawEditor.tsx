@@ -1,4 +1,5 @@
 import { LoadingStatus } from './ShellLoader'
+import { ONE_LINE } from '../lib/fieldKeys'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { prefersReducedMotion } from '../lib/reducedMotion'
 import { Icon } from '../lib/icons'
@@ -551,13 +552,13 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 // ⚠️ the Verlauf row is written HERE, not on every keystroke: naming a Fläche
                 // «Sicherung» used to leave eleven rows, one per letter (see useMapDrawing).
                 onBlur={(e) => onLabelCommit?.(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
+                {...ONE_LINE} />
             </div>
             {isLine && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.marker}</span>
                 {/* a chain style lives in the same field, so it would otherwise show up here as a
                     stray «▲» in a box the operator is meant to type a letter into */}
-                <input className="de-input" value={markerGlyph(drawing.marker) ? '' : (drawing.marker ?? '')} placeholder={appConfig.copy.drawingEditor.markerPlaceholder} maxLength={3} onChange={(e) => onMarker(e.target.value)} />
+                <input className="de-input" value={markerGlyph(drawing.marker) ? '' : (drawing.marker ?? '')} placeholder={appConfig.copy.drawingEditor.markerPlaceholder} maxLength={3} onChange={(e) => onMarker(e.target.value)} {...ONE_LINE} />
               </div>
             )}
           </div>
@@ -592,7 +593,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                   ref={(el) => { if (el) auftragEl.current = el }}
                   placeholder={appConfig.copy.drawingEditor.abschnittAuftragPlaceholder}
                   onBlur={(e) => commitAuftrag(e.target.value.trim())}
-                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
+                  {...ONE_LINE} />
               </div>
             )}
             {/* the FKS Richtwert, as a hint and never a gate — counted over Flächen that carry

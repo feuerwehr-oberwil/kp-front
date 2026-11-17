@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { ONE_LINE } from '../lib/fieldKeys'
 import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
 import type { AttendanceState, LngLat, Person, PresenceInterval, Shift, ShiftBand } from '../types'
@@ -141,7 +142,7 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
             // here used to make the whole Rapport fail to compose (app/report · _clip_note)
             maxLength={240}
             onBlur={(e) => onSetNote(person.id, stripUnprintable(e.target.value))}
-            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+            {...ONE_LINE}
           />
         </label>
       ) : note ? (
