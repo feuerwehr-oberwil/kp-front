@@ -838,9 +838,10 @@ device Anleitungen to read in peace time — the Einsatz tab's word and glyph
   on top and the grip widen it to 216px with the words beside the glyphs, open per mount like the
   Einsatz's. «Beschriftung» (Einstellungen) puts the word under each glyph, as on every other bar
   of the viewer and the Einsatz (owner, 07.11.2026 – the view bar's words beside unlabelled
-  rails read as a fault) – and ⚠️ unlike the Einsatz's NavRail the chevron and grip STAY with the
-  words on (`.rail-keeps-exp`; losing them was the regression fixed on 20.10.2026), so `labels` is
-  not handed to `useRail`, which collapses a labelled rail. The right `ToolRail`, its view bar,
+  rails read as a fault) – and with the words on the chevron and grip GO, as on the Einsatz's
+  NavRail (owner, 16.11.2026: «drop the collapsible left sidebar … when the subtitle things are
+  on»; this reverses the 20.10.2026 call that kept them): `labels` goes to `useRail`, which
+  collapses a labelled rail. The right `ToolRail`, its view bar,
   the plan reader's rail and the phone bar read the same preference. It publishes `--rail-w` through
   `lib/useRail`, which the object panel, the plan reader, the floor list and this surface sit beside. On the Checkliste the right `ToolRail` is gone (as on a plan) and the bar's
   field searches the library; the map's own search words are kept for the way back.
