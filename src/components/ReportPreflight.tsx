@@ -932,7 +932,8 @@ export function ReportPreflight({
     if (s.status === 'done') { settlePrintJob(job.id, 'done'); toast(R.printed, { icon: 'check', tone: 'success' }); return }
     if (s.status === 'failed') { settlePrintJob(job.id, 'failed'); toast(R.printFailed, { icon: 'warn', tone: 'warn' }); return }
     if (s.status === 'cancelled') { settlePrintJob(job.id, 'cancelled'); toast(R.cancelled); return }
-    toast(s.status === 'printing' ? R.printing : R.queued, { icon: 'printer', tone: 'warn' })
+    // still under way: the neutral printer glyph, red is a failure's (FEEDBACK.11)
+    toast(s.status === 'printing' ? R.printing : R.queued, { icon: 'printer' })
   }
   /** Give up on a job that is still in the queue. Refused once the agent has claimed it — the
    *  paper may already be moving, and the button says so rather than pretending. */

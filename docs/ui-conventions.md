@@ -355,7 +355,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     wählen), a tool's tip and the hold-tip wear the same look (08-toasts.css · «ONE message
     surface»): the floating family's material (below — light by day, dark by night, never a dark
     pill on a light UI), ink 14/700 like a Meldeleiste row's `.ml-title` (13/600 until 08.10.2026, 14/500 until the S3 rework of 21.10.2026), the one corner, no outline of its own. A tone is the colour of
-    the glyph the sentence leads with – never an edge, never a fill. What goes away **by itself**
+    the glyph the sentence leads with – never an edge, never a fill; red is a failure's only, so
+    an act still under way (the print job queued or printing) leads with a neutral glyph
+    (FEEDBACK.11, 17.11.2026). What goes away **by itself**
     shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
     mode is on shows neither. A tap on the pill itself does nothing (05.10.2026): the ✕ closes,
     the action button acts, a sideways swipe throws it away. **The toasts stand under the head, on
