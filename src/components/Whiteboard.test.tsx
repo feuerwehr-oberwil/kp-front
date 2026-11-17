@@ -2126,6 +2126,33 @@ describe('gesture contracts of the plan surface', () => {
     })
   })
 
+  // ENT.6 (17.11.2026): the Plan's symbol sheet has the Karte's rows – «Zentrieren», the
+  // connected lines named by what tells them apart, and a live vehicle answers a tap
+  describe('the Plan’s symbol sheet, the Karte’s rows', () => {
+    const P = appConfig.copy.contextPanel
+    const tlf: BoardAnno = { id: 's1', kind: 'symbol', symbol: 'VKF Fahrzeug', label: 'TLF', x: 0.3, y: 0.3, floor: 0 }
+    const hyd: BoardAnno = { id: 's2', kind: 'symbol', symbol: 'FW Hydrant', label: 'H-142', x: 0.7, y: 0.7, floor: 0 }
+    const hose: BoardAnno = { id: 'l9', kind: 'draw', pts: [[0.3, 0.3, 0], [0.7, 0.7, 0]], floor: 0,
+      startAttachment: { target: { kind: 'object', id: 's1' } }, endAttachment: { target: { kind: 'object', id: 's2' } } } as BoardAnno
+
+    it('offers «Zentrieren» and names a hose by its far end, not a bare «Linie»', () => {
+      const { container } = mount([tlf, hyd, hose])
+      mouseDown(container.querySelectorAll('.wb-symbol')[0])
+      expect(screen.getAllByRole('button', { name: new RegExp(P.center) }).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/→ H-142/).length).toBeGreaterThan(0)
+    })
+
+    it('opens a live vehicle’s read-only sheet on a tap', () => {
+      vi.useFakeTimers()
+      const car = { id: 'v-1', kind: 'symbol', layer: 'lage', coord: [7.6, 47.5], label: 'TLF 21', symbol: appConfig.symbols.vehicleName, live: true }
+      mount([], { live: [{ id: 'v-1', pt: { x: 0.5, y: 0.5 }, entity: car as never, rotationDeg: 0 }], liveFacts: () => ({ driver: 'Muster Anna' }) })
+      const mark = screen.getByLabelText(new RegExp('TLF 21'))
+      fireEvent.pointerDown(mark, { pointerType: 'touch', isPrimary: true, pointerId: 1, clientX: 200, clientY: 200 })
+      fireEvent.pointerUp(document.querySelector('.wb-canvas')!, { pointerType: 'touch', pointerId: 1, clientX: 200, clientY: 200 })
+      expect(screen.getAllByText('Muster Anna').length).toBeGreaterThan(0)
+    })
+  })
+
   describe('rotor · cage · Rotation end — golden numbers for a fixed pointer path', () => {
     // every glyph rect is the mocked 400×400 board, so each gesture pivots on (200, 200)
     it('a directional symbol turns to the pointer bearing + 90°, one step, one board.edit', () => {

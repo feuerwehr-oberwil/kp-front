@@ -9,6 +9,7 @@ import { type ReactNode, type Dispatch, type SetStateAction, Suspense } from 're
 import type { JSX } from 'react/jsx-runtime'
 import { LoadingStatus } from '../components/ShellLoader'
 import type { TafelPagesProps } from '../components/Whiteboard'
+import type { VehicleOverrides } from '../lib/useVehicleLayer'
 import type { TruppFinderDoor } from '../components/WbControls'
 import { appConfig } from '../config/appConfig'
 import { gebaeudeDoc } from '../data/demoIncident'
@@ -36,6 +37,8 @@ import type { useRosterRoles } from './useRosterRoles'
 
 export interface PlansSurfaceProps {
   mode: WorkspaceMode
+  /** the Karte's held vehicle facts (Fahrer, Herkunft) – the Plan's live-vehicle sheet reads them */
+  vehicleOverrides: VehicleOverrides
   sym: ReturnType<typeof useSymbols>
   guarded: (surface: string, node: ReactNode, toMap?: boolean) => JSX.Element
   railLabels: RailLabels
@@ -105,6 +108,7 @@ export function PlansSurface({
   replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,
   roster, addRecent, user, emit, planStacks, planFocus, effTrupps, truppCounterNames, teamNameTaken,
   azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, setPlanScale, tafel, truppFinder, presentation,
+  vehicleOverrides,
 }: PlansSurfaceProps) {
   const { activeObjectName, activeObjectAddress, activeObjectNearby } = objectPlans
   const { activeLinkedPlan, floorPack, planLive, planPhotos } = georefFits
@@ -161,6 +165,7 @@ export function PlansSurface({
           // and editable only in the one way it is on the Karte — a dropped Fahrzeug is «hier
           // ist es wirklich». Everything else the Karte holds arrives in `annos` as an object.
           live={planLive}
+          liveFacts={(id) => ({ driver: vehicleOverrides[id]?.fahrer, origin: vehicleOverrides[id]?.herkunft })}
           photos={planPhotos}
           onPlanLiveMove={tacticalLocked ? undefined : moveLiveOnSheet}
           /* ⚠️ REPLAY shows the recorded sheet and nothing else. `replayBoard` is the anno list as

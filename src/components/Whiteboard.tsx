@@ -40,6 +40,7 @@ import { CIRCLE_MAX_N, useWbRotor } from './useWbRotor'
 import { SelectionBar } from './SelectionBar'
 import { PlanAnno, type PlanAnnoBoard } from './PlanAnno'
 import { TacticalSymbol } from '../lib/symbolRender'
+import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { pileAt } from '../lib/labelPass'
 import { PlanLineDecor } from './PlanLineDecor'
 import { planEndTagSpots } from '../lib/endTagSpots'
@@ -53,6 +54,7 @@ import { useNotePanelClosing } from '../lib/useNotePanelClosing'
 import { usePlacement } from '../lib/useTacticalSelection'
 import { endingWireFlags, personChange, wirePerson, type LineEnding } from '../lib/drawingEdit'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
+import { connectedLineLabel } from '../lib/connectedLines'
 import { OpenPill } from './OpenPill'
 import { toast } from '../lib/ui'
 import { removeWithUndo } from '../lib/removalToast'
@@ -352,6 +354,9 @@ interface Props {
   live?: LiveMark[]
   /** The Karte's photo markers on this sheet, read-only (lib/planProjection · photoOverlay) */
   photos?: PhotoMark[]
+  /** a live vehicle's Fahrer / Herkunft as the Karte holds them (its held overrides) – the read-only
+   *  sheet a tap on the vehicle opens here reads them (ENT.6) */
+  liveFacts?: (entityId: string) => { driver?: string; origin?: string }
   /** Drag a live VEHICLE on this sheet: the same held-in-place override the Karte writes. */
   onPlanLiveMove?: (entityId: string, coord: LngLat, phase: 'start' | 'move' | 'end') => void
   /** ⚠️ This gesture is OVER — called from every `phase === 'end'` path below. A gesture that
@@ -405,7 +410,7 @@ export interface PlanLogExtra {
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
 
-export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], truppColors, placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, readingsChip, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], liveFacts, onPlanLiveMove, onStepEnd, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel, presentation }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
   // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
@@ -502,6 +507,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   usePlacementLane(tool !== 'pan' && !readOnlyProp)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [selId, setSelId] = useState<string | null>(null)
+  // the live vehicle whose read-only sheet is open (ENT.6) – one sheet at a time: selecting
+  // anything closes it, and so does the stationary tap on empty paper (useBoardGestures, below)
+  const [liveOpen, setLiveOpen] = useState<string | null>(null)
+  useEffect(() => { if (selId) setLiveOpen(null) }, [selId])
   // marquee (Mehrfach/lasso) group selection — parity with the Lage map. A separate
   // set from the single selId (which still drives the symbol editor / team actions).
   const [selIds, setSelIds] = useState<string[]>([])
@@ -1339,7 +1348,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // pan / pinch-zoom / marquee multi-select + the shared stage pointer dispatcher live in
   // useBoardGestures; object manipulation is reached through manipMove/manipUp above.
   const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp, tapZoomPress, tapZoomOwns, panFrom, stopPan } = useBoardGestures({
-    tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
+    tool, annos, setSelId: (id) => { if (id == null) setLiveOpen(null); setSelId(id) }, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
   })
 
 
@@ -2823,6 +2832,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 // undefined (not a no-op) on a locked surface, so the mark shows no grab cursor
                 // and no drag affordance it would refuse to honour
                 onMove={readOnly || tool !== 'pan' ? undefined : moveLiveMark}
+                onOpen={tool === 'pan' ? (id) => { setSelId(null); setSelIds([]); setLiveOpen(id) } : undefined}
+                panFrom={(e) => panFrom(e)} stopPan={() => stopPan()}
               />
             )}
             {stackReadings.length > 0 && (
@@ -3040,6 +3051,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           readOnly={readOnly}
           svg={selSymbol.symbol ? sym.byName[selSymbol.symbol] ?? '' : ''}
           onClose={() => setSelId(null)}
+          // «Zentrieren», as on the Karte (ENT.6): the symbol to the middle of the free board, zoomed
+          // in to at least twice the fit
+          onCenter={() => centerOnPoint(selSymbol.x ?? 0.5, selSymbol.y ?? 0.5, selSymbol.floor ?? 0, Math.max(scaleRef.current, 2))}
           // ⚠️ Live while typing, one step on blur — the same split the Lage's symbol panel has
           // (IncidentWorkspace · titleLiveRef) and the same one the plan's LINE label already had.
           // Committing only on blur meant the glyph on the board still read «Fahrzeug» while the
@@ -3096,7 +3110,15 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           // here too. Only where the station mapped material to symbols (the prop is absent
           // otherwise), and never read-only.
           protectedKeys={new Set(symbolPresetFieldKeys(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat))}
-          connectedLines={annos.filter((a) => [a.startAttachment, a.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === selSymbol.id)).map((a) => ({ id: a.id, label: lineLabel(a) }))}
+          // each row says what tells the lines apart – «Linie · 42 m → Hydrant» – the Karte's own
+          // words (lib/connectedLines, ENT.6); the length through the sheet's scale, none uncalibrated
+          connectedLines={annos.filter((a) => [a.startAttachment, a.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === selSymbol.id)).map((a) => ({
+            id: a.id,
+            label: connectedLineLabel({ ...a, lengthM: a.pts && a.pts.length >= 2 ? planMetres(a.pts.map(([x, y]) => [x, y])) : null }, selSymbol.id, (id) => {
+              const o = annos.find((x) => x.id === id)
+              return o ? o.label || o.text || (o.symbol ? formatSymbolName(o.symbol) : undefined) : undefined
+            }),
+          }))}
           onFocusLine={(id) => setSelId(id)}
           onDelete={() => void removeWithConnections(selSymbol)}
           // only where being over means something (lib/objectDone · offersDone) — the Karte's rule
@@ -3105,6 +3127,28 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         />
       )}
 
+      {/* a live vehicle's sheet (ENT.6): the Karte's read-only one – its name, its fields, who drives
+          it and where it is from, «Zentrieren». Moving it is the drag; everything else is the Karte's. */}
+      {editorSlotFree && (() => {
+        const m = liveOpen ? live.find((x) => x.id === liveOpen) : undefined
+        if (!m) return null
+        const e = m.entity
+        const facts = liveFacts?.(e.id) ?? {}
+        return (
+          <ContextPanel
+            key={`live:${e.id}`}
+            entity={e}
+            readOnly
+            svg={e.symbol === appConfig.symbols.vehicleName ? vehicleSymbolSvg(e.label ?? '', e.rotation ?? 0) : e.symbol ? sym.byName[e.symbol] : undefined}
+            onClose={() => setLiveOpen(null)}
+            onCenter={() => centerOnPoint(m.pt.x, m.pt.y, 0, Math.max(scaleRef.current, 2))}
+            driver={{ value: facts.driver ?? '' }}
+            origin={{ value: facts.origin ?? '' }}
+            // read-only: the panel offers none of these, they only satisfy its props
+            onTitle={() => {}} onFields={() => {}} onDelete={() => {}}
+          />
+        )
+      })()}
       {/* note detail panel — the same ContextPanel, opened by the tap that selects the note (see
           notePanelId) and by placing one. The note's TEXT is its title, so the panel's title
           field edits the note itself. */}
