@@ -63,9 +63,11 @@ export function PlanCompass({ deg, controls, northUnknown = false, variant, onFi
     // the Karte's compass glyph (MapViewsMenu · CompassGlyph), turned to where north is on the paper
     ? <span className={s.glyph} style={turn}><Icon id={northUnknown ? 'rotate' : 'compass'} /></span>
     : <FloatDial deg={deg} northUnknown={northUnknown} />
-  // the hold ring haloes the glyph (`.tb-act-ic` anchors it), outside the turning needle
+  // the hold ring haloes the glyph (`.tb-act-ic` anchors it), outside the turning needle. The word
+  // is «Norden», door or read-out alike: «Drehen» is the ✥ ⟳ bar's turn, and the two stood on one
+  // bottom line (button sweep CHROME.1, 17.11.2026); the aria-label still says «Gebäude drehen»
   const face = variant === 'rail'
-    ? <><span className="vrail-glyph"><span className="tb-act-ic">{glyph}{ring}</span></span><span className="vrail-label">{controls ? W.orientRail : W.northRail}</span></>
+    ? <><span className="vrail-glyph"><span className="tb-act-ic">{glyph}{ring}</span></span><span className="vrail-label">{W.northRail}</span></>
     : <span className="tb-act-ic">{glyph}{ring}</span>
   const look = variant === 'rail' ? 'vrail-nbtn vrail-views' : s.chip
 

@@ -44,4 +44,12 @@ describe('the Plan’s north dial', () => {
     act(() => { vi.advanceTimersByTime(LONG_PRESS_MS + 20) })
     expect(onFit).toHaveBeenCalledTimes(1)
   })
+
+  // CHROME.1 (17.11.2026): «Drehen» is the ✥ ⟳ bar's turn; the dial's word is «Norden», as a door
+  // too – only its name says what a tap does
+  it('wears «Norden» as the door to turning the building, and keeps its specific name', () => {
+    render(<PlanCompass variant="rail" deg={0} controls={<p>turn</p>} />)
+    const dial = screen.getByRole('button', { name: W.orientMenuTitle })
+    expect(dial.textContent).toBe(W.northRail)
+  })
 })

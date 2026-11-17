@@ -453,8 +453,7 @@ export const whiteboardCopy = {
     // the rotation popover the north dial opens (30.08. – replaces the hidden dial drag)
     orientMenuTitle: 'Gebäude drehen',
     orientSliderLabel: 'Drehung',
-    // the dial's word in the rail (shown with «Beschriftung · Wörter»): the door, or the read-out
-    orientRail: 'Drehen',
+    // the dial's word in the rail (shown with «Beschriftung · Wörter»), door and read-out alike
     northRail: 'Norden',
     // ENT.8 (17.11.2026): a Plan row is the Karte's row for the same act (drawing.ts · log), plus
     // where – so a Verlauf filtered for «Rettungsachse» or «Pfeil» finds both halves (a removal
