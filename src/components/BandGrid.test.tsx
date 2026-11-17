@@ -336,3 +336,26 @@ describe('a change that would reach past the watch', () => {
     expect(screen.queryByText(appConfig.copy.schichten.crossTitle)).toBeNull()
   })
 })
+
+// owner, 17.11.2026 (duck sweep CONT.3): closing an edit with a change saves it; «Abbrechen» drops it
+describe('the band sheet · closing keeps what was typed', () => {
+  const S = appConfig.copy.schichten
+  const openFrüh = () => {
+    const props = mount()
+    fireEvent.click(screen.getAllByRole('button', { name: /^Früh ·/ })[0])
+    fireEvent.change(screen.getByLabelText(S.labelField), { target: { value: 'Morgen' } })
+    return props
+  }
+
+  it('✕ with a renamed band saves the name', () => {
+    const props = openFrüh()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.closeDialog }))
+    expect(props.onSaveBand).toHaveBeenCalledWith('bd1', 'Morgen', früh.from, früh.to)
+  })
+
+  it('«Abbrechen» throws the change away', () => {
+    const props = openFrüh()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.cancel }))
+    expect(props.onSaveBand).not.toHaveBeenCalled()
+  })
+})

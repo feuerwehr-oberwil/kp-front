@@ -194,7 +194,6 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
         <div className="ip-hist-controls">
           <SearchField className={c.search} value={query} onChange={setQuery} placeholder={h.searchPlaceholder} aria-label={h.searchPlaceholder} />
           <Menu
-            modal={false}
             trigger={
               <button type="button" className={cx(c.iconBtn, filterOn && c.iconBtnOn)}
                 aria-label={filterOn ? `${h.filterAria} – ${filterOn}` : h.filterAria}

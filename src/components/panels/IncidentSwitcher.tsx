@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useLayer } from '../../lib/overlays/layer'
 import { Icon } from '../../lib/icons'
 import { einsatzPillName, fillTemplate, fmtSpanShort, fmtWhen, formatTime } from '../../lib/format'
 import { appConfig } from '../../config/appConfig'
@@ -161,43 +162,17 @@ export function IncidentSwitcher({
     return () => clearInterval(t)
   }, [open])
   const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    // clicks inside an overlay sheet/dialog don't count as "outside": a sheet opened FROM this
-    // menu suspends it via `sheetOpen` rather than closing it, so cancelling that sheet has to
-    // reveal the menu exactly as it was — a press inside it must not have closed it meanwhile.
-    // 'pointerdown', not 'mousedown': on touch the compat mousedown fires late or not at all,
-    // so tapping outside would not reliably dismiss (same pattern as Combo/PersonField).
-    const onDoc = (e: PointerEvent) => {
-      const t = e.target as Element
-      if (ref.current && !ref.current.contains(t) && !t.closest?.('.ip-sheet, .ui-backdrop, .help-scrim, .confirm-backdrop, .confirm-card, .toaster')) setOpen(false)
-    }
-    document.addEventListener('pointerdown', onDoc)
-    return () => document.removeEventListener('pointerdown', onDoc)
-  }, [])
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  // The way out is every layer's (lib/overlays/layer · useLayer, 17.11.2026): a tap beside the
+  // menu ONLY closes it – on the Lage that tap used to go on to the map and place the armed
+  // tool's symbol or select one; Escape closes it alone (capture + stop, the workspace's own
+  // Escape never peels the map's next layer with the same press) and focus goes back to the pill;
+  // the native back closes it. A sheet opened FROM this menu suspends it (`sheetOpen`) rather than
+  // closing it, so cancelling that sheet reveals the menu exactly as it was.
+  useLayer({ open, onClose: () => setOpen(false), inside: [ref], returnFocus: triggerRef, suspended: sheetOpen })
   // A sheet action that NAVIGATES (Rapport → Anwesenheit/Mittel/Verlauf) must not
   // leave the menu sitting on the new surface — any surface change closes it
   useEffect(() => { setOpen(false) }, [navKey])
-  // Escape closes the menu (S8, 20.10.2026, owner: «all dropdowns, popovers … closable by
-  // Escape») — and ONLY the menu. It stays non-modal (docs/ui-conventions · Overlays), so the key
-  // is taken in the CAPTURE phase and stopped here: the workspace's own Escape (IncidentWorkspace
-  // · «the universal bail-out») listens on window and would otherwise also peel the map's next
-  // layer — disarm a tool, drop a selection — with the same press. While a sheet opened from
-  // this menu is up the menu is suspended and the key is the sheet's. Focus goes back to the pill.
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  useEffect(() => {
-    if (!open || sheetOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      // a confirm asked FROM this menu («Wieder öffnen») takes its own Escape
-      if (document.querySelector('.confirm-card')) return
-      e.preventDefault()
-      e.stopPropagation()
-      setOpen(false)
-      triggerRef.current?.focus()
-    }
-    document.addEventListener('keydown', onKey, true)
-    return () => document.removeEventListener('keydown', onKey, true)
-  }, [open, sheetOpen])
 
   // Sync state surfaced two ways: a FIXED-WIDTH coloured mark in the header (so the constant
   // saving↔saved flip never shifts the title/chevron — no inline time/label), and the full

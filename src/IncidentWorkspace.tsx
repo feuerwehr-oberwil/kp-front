@@ -24,7 +24,7 @@ import { themeToken } from './lib/themeToken'
 import { UNDERGROUND_LAYER_ID, undergroundOverlay, useUnderground } from './lib/underground'
 import { type PlanFit } from './lib/tacticalObjects'
 import { useReplay } from './lib/useReplay'
-import { isTypingTarget } from './lib/hotkeys'
+import { isTypingTarget, keyOwnedElsewhere } from './lib/hotkeys'
 import { navStops } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
 import { ergRingOverlays } from './lib/ergRings'
@@ -1680,15 +1680,17 @@ export function IncidentWorkspace({
   }, [settingsOpen, paletteOpen, pickerOpen, helpOpen, installGuideOpen, offlineReadyOpen, shareLink, composerOpen, journalOpen, teamPick])
 
   // Delete / Backspace removes the current selection (drawing first, then entity) — but
-  // never while typing in a field. `doc` is a dep so the delete closes over fresh state.
+  // never while typing in a field or behind a dialog. `doc` is a dep so the delete closes over fresh state.
   // ⚠️ Map surface only: the Plan carries the same key on its own selection (Whiteboard, A21),
   // and this listener lives on the window whether the Karte is on screen or not.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Delete' && e.key !== 'Backspace') return
       if (mode !== 'map') return
-      const el = document.activeElement as HTMLElement | null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      // a field, a dialog or a menu with the focus owns the key – the same guard as Escape
+      // (lib/hotkeys · keyOwnedElsewhere, GESTURES.12): ⌫ to «go back» in Einstellungen, a confirm
+      // or the Trupp picker used to delete the selection behind it
+      if (keyOwnedElsewhere(e.target instanceof Element ? e.target : null) || keyOwnedElsewhere(document.activeElement)) return
       // ⚠️ The bar's «Löschen» left with the bar, so this key is where a boxed GROUP is deleted
       // from — plan-drawn members included: they are ordinary map objects now, and a group had
       // no other affordance at all.

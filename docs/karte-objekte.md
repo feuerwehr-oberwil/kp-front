@@ -222,7 +222,8 @@ The rules that are easy to break:
   in both. Only what the Einsatz has no surface for is the viewer's own: **P** Punkt setzen, **U**
   Gefahrgut (UN number), **/** and **⌘ K** the search; every other Einsatz key decodes to nothing
   here and is never claimed. Escape peels one layer back towards the plain map: search → compass
-  menu → armed tool → open plan → selection. The letters stand on the tiles from the same tables
+  menu → armed tool → open plan → selection – the Einsatz's one ladder (`lib/hotkeyRoute ·
+  routeEscape`, tactical-objects.md). The letters stand on the tiles from the same tables
   (`KARTE_TOOL_KEY` through ToolRail's `toolKey`, `SURFACE_KEY` on Karte · Checkliste,
   `PANEL_KEY` on Ebenen). ⚠️ Nothing reaches the viewer while one of App's sheets is over it
   (`keysOff`: Hilfe, Rückmeldung, the demo welcome …), nor with its own menu or the «Einstellungen»

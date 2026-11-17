@@ -115,7 +115,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'sub', text: 'Editing' },
           { kind: 'list', items: [
             '[[⌘]] [[Z]] Undo · [[⌘]] [[⇧]] [[Z]] Redo · [[⌘]] [[D]] Duplicate · [[⌫]] deletes the selection.',
-            '[[Esc]] takes back one layer per press until the map is clear: a symbol being placed → capturing coordinates → Layers / Views → the tool → the note panel → the selection. In a field [[Esc]] only leaves the field; it closes the **Entry** and keeps its text for the next time.',
+            '[[Esc]] takes back one layer per press until the map is clear: Layers / Views → a symbol being placed, or capturing coordinates → the tool → the note panel → the selection – in the same order on the plans. A menu, card or window on top is closed first and alone. In a field [[Esc]] only leaves the field and keeps what was typed; it closes the **Entry** and keeps its text for the next time.',
           ] },
           { kind: 'sub', text: 'View & panels' },
           { kind: 'list', items: [

@@ -7,6 +7,7 @@
 import type { ReactNode } from 'react'
 import type { PlanDocument, TimelineEvent } from '../types'
 import { Icon } from '../lib/icons'
+import { leaveOnEscape } from '../lib/fieldKeys'
 import { Button } from './Button'
 import { caretToEnd, openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
@@ -427,7 +428,9 @@ export function JournalRow({
             onFocus={caretToEnd}
             placeholder={C.transcriptPlaceholder}
             onChange={(ev) => setEditTx({ id: e.id, value: ev.target.value })}
-            onKeyDown={(ev) => { if (ev.key === 'Escape') setEditTx(null) }}
+            // Esc KEEPS the draft and leaves the field (owner, 17.11.2026 – lib/fieldKeys); «Abbrechen» is
+            // the one discard
+            onKeyDown={(ev) => { if (leaveOnEscape(ev)) ev.stopPropagation() }}
           />
           <div className="jr-transcript-actions">
             {/* re-editing an existing transcript is a correction like any other —
@@ -447,7 +450,9 @@ export function JournalRow({
             autoFocus
             onFocus={caretToEnd}
             onChange={(ev) => setEditRow({ id: e.id, value: ev.target.value })}
-            onKeyDown={(ev) => { if (ev.key === 'Escape') setEditRow(null) }}
+            // Esc KEEPS the draft and leaves the field (owner, 17.11.2026 – lib/fieldKeys); «Abbrechen» is
+            // the one discard
+            onKeyDown={(ev) => { if (leaveOnEscape(ev)) ev.stopPropagation() }}
           />
           <div className="jr-transcript-actions">
             <span className="jr-korr-hint">{C.correctHint}</span>

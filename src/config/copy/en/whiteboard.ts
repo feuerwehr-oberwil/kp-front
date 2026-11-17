@@ -101,7 +101,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       statusSelected: 'Point {n} selected – tap elsewhere to deselect.',
       cancel: 'Cancel',
       closeMode: 'Close',
-      done: 'Done',
       placePoint: 'Set point',
       targetOutside: 'Move the crosshair onto the visible surface first',
       checkFit: 'Check the overlay',

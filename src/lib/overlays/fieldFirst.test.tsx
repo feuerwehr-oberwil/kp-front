@@ -55,13 +55,14 @@ describe('the keyboard goes first (fieldFirst)', () => {
     expect(onClose).toHaveBeenCalledTimes(2)
   })
 
-  // the Trupp form's case: a bespoke frame whose head ✕ calls onClose itself
+  // the Trupp form's and the composer's case: a bespoke frame whose head ✕ calls onClose itself –
+  // found by its name «Schliessen», whatever its class (`.journal-x`, CONT.5)
   it('catches a bespoke frame’s own head ✕, and leaves its other ✕ buttons alone', () => {
     const onClose = vi.fn()
     const onRowCancel = vi.fn()
     render(
       <Overlay open onClose={onClose} className="ip-sheet ui-dialog" ariaLabel="Trupp anmelden">
-        <div className="ip-head"><button className="ip-x" aria-label="Abbrechen" onClick={onClose}>✕</button></div>
+        <div className="ip-head"><button className="journal-x" aria-label="Schliessen" onClick={onClose}>✕</button></div>
         <input aria-label="Person" />
         <button className="ip-x" aria-label="Zeile verwerfen" onClick={onRowCancel}>✕</button>
       </Overlay>,
@@ -71,9 +72,9 @@ describe('the keyboard goes first (fieldFirst)', () => {
     tap(screen.getByRole('button', { name: 'Zeile verwerfen' }))
     expect(onRowCancel).toHaveBeenCalledTimes(1)
     input.focus()
-    tap(screen.getByRole('button', { name: 'Abbrechen' }))
+    tap(screen.getByRole('button', { name: 'Schliessen' }))
     expect(onClose).not.toHaveBeenCalled()
-    tap(screen.getByRole('button', { name: 'Abbrechen' }))
+    tap(screen.getByRole('button', { name: 'Schliessen' }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 

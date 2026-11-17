@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { leaveOnEnter } from '../lib/fieldKeys'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
@@ -106,7 +107,9 @@ export function Stepper({ value, min, max, step = 1, seed, seedOnDec, snap, deci
           className="step-val step-input" autoFocus value={draft} inputMode={decimals ? 'decimal' : 'numeric'} type="text" aria-label={ariaLabel}
           onFocus={(e) => e.currentTarget.select()}
           onChange={(e) => setDraft(numericDraft(e.target.value, decimals))} onBlur={commit}
-          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); else if (e.key === 'Escape') setEditing(false) }}
+          // Return and Esc both leave the field and the blur commits – Esc keeps what was typed
+          // like every text field (lib/fieldKeys, owner 17.11.2026; it used to cancel)
+          enterKeyHint="done" onKeyDown={(e) => { leaveOnEnter(e) }}
         />
       ) : (
         <button className={`step-val step-val-btn${over ? ' step-over' : ''}${has ? '' : ' step-empty'}`} onClick={startEdit} disabled={readOnly} title={st.typeToEnter}>{display}</button>

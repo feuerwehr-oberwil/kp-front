@@ -19,6 +19,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
+import { leaveOnEnter } from '../lib/fieldKeys'
 import { Menu } from '../lib/overlays'
 import { MenuPick } from './MenuPick'
 import { appConfig } from '../config/appConfig'
@@ -278,11 +279,10 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
                   onPointerDown={(ev) => ev.stopPropagation()}
                   onChange={(ev) => setDraft(ev.target.value)}
                   onBlur={(ev) => { rename(ev.target.value); setRenaming(false) }}
-                  onKeyDown={(ev) => {
-                    if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur()
-                    // Esc abandons: blur would commit, so drop the edit first
-                    if (ev.key === 'Escape') { ev.stopPropagation(); setDraft(name); setRenaming(false) }
-                  }} />
+                  enterKeyHint="done"
+                  // Return commits, Esc KEEPS what was typed – both leave the field, whose blur
+                  // renames (owner, 17.11.2026 – lib/fieldKeys; Esc used to abandon the edit)
+                  onKeyDown={(ev) => { if (leaveOnEnter(ev)) ev.stopPropagation() }} />
                 {/* ✕ empties the field WITHOUT committing or closing — `preventDefault` on the
                     press keeps the focus (and the phone keyboard) on the field the operator is
                     about to type the new name into, exactly as ClearableInput does it. */}

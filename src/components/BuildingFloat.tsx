@@ -5,6 +5,7 @@ import { cx } from '../lib/cx'
 import type { BuildingInfo } from '../lib/api/building'
 import { buildingChipSummary } from '../lib/buildingCard'
 import { useOnlyOpenCard } from '../lib/floatCards'
+import { useLayer } from '../lib/overlays/layer'
 import { useIsPhone } from '../lib/useIsPhone'
 import { BuildingCard } from './BuildingCard'
 import s from './BuildingFloat.module.css'
@@ -18,8 +19,9 @@ import s from './BuildingFloat.module.css'
  * Lage is drawn (Brandherd, Fahrzeuge, the first Trupp all stand at the Einsatzort), moves with every
  * pan, and has no plan-side twin. The row never covers a symbol, it is the same place on both
  * surfaces (Lage ↔ Plan), and the floating row already budgets for it (15-mobile · --float-row,
- * the message lane stands above it). The card is non-modal like the Passung beside it: the map
- * stays pannable, ✕ or the chip closes it.
+ * the message lane stands above it). The card is non-modal: no scrim, nothing trapped. ✕, the
+ * chip, Esc, the native back and a tap beside it close it – that tap ONLY closes it, it never pans,
+ * selects or places on the map under it (lib/overlays/layer, owner call 2, 17.11.2026).
  *
  * Closed, the chip says what it is and what a crew must not miss: «Gebäude-Info», then the hazards
  * as glyph + WORD («⚠ Gebäude-Info · Gas · PV») – ONE wording on the Karte and every plan, phone
@@ -67,19 +69,20 @@ export function BuildingFloat({ info, autoOpen = false, onRead }: {
   const close = useCallback(() => { setOpen(false); read.current?.() }, [])
   // one card of the chip row at a time: another opening closes this one (lib/floatCards)
   useOnlyOpenCard(open, close)
-  // Esc closes it, like every other floating card
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, close])
+  // the way out is every layer's (lib/overlays/layer, 17.11.2026): a tap beside the card only
+  // closes it (it did nothing), Esc closes it ALONE – it used to also drop the Lage's selection or
+  // put the Plan's placement down with the same press – the native back closes it, and focus goes
+  // back to the chip
+  const anchor = useRef<HTMLSpanElement>(null)
+  const chip = useRef<HTMLButtonElement>(null)
+  useLayer({ open, onClose: close, inside: [anchor], returnFocus: chip })
   if (!summary) return null
   const C = appConfig.copy.building
   const tile = phone && summary.quiet
   return (
-    <span className={s.anchor}>
+    <span className={s.anchor} ref={anchor}>
       <button
+        ref={chip}
         type="button"
         // the floating family's own chip (`.wb-scale-chip`) — the module only adds the hazard tone;
         // it never had a `.chip` of its own, and reading one printed «undefined» into the class

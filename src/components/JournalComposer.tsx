@@ -1024,7 +1024,6 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 <span className="jc-openwrap" ref={dueWrapRef}>
                 <Menu
                   keepFocusRef={phone ? textRef : undefined}
-                  modal={!phone}
                   side="top"
                   align="end"
                   popupClassName="rp-print-menu jc-pendenz-menu"
@@ -1069,7 +1068,6 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 <span className="jc-openwrap">
                 <Menu
                   keepFocusRef={phone ? textRef : undefined}
-                  modal={!phone}
                   side="top"
                   align="end"
                   popupClassName="rp-print-menu jc-pendenz-menu"

@@ -784,17 +784,23 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
     const field = !label.trim() ? labelRef.current : unitRef.current
     pointAtField(field, { focus: field?.querySelector<HTMLElement>('input, button') })
   }
+  // Any close but «Abbrechen» – ✕, the swipe, a tap beside it, Esc, the back – SAVES a change
+  // (owner, 17.11.2026 – duck sweep CONT.3); one that cannot be saved (an emptied Material or
+  // Einheit) leaves the line as it was rather than holding the dialog shut
+  const changed = label !== target.probe.label || unit !== target.probe.unit
+    || sourceLabel !== (target.probe.sourceLabel ?? '') || stock !== (target.stock ?? null) || note !== target.note
+  const dismiss = () => { if (changed && valid) onSave({ label, unit, sourceLabel, stock, note }); else onClose() }
 
   return (
     // the standard sheet chrome (.ip-head/.ip-body/.ip-actions each bring their own gutter) —
     // a hand-rolled padding on the popup stacked on top of theirs and the title sat further
     // in than the field under it. `mp-backdrop` because this opens OVER the Mittel sheet.
     <Overlay
-      open onClose={onClose} backdropClassName="mp-backdrop"
+      open onClose={dismiss} backdropClassName="mp-backdrop"
       className="ip-sheet ip-fit ui-dialog mv-note-dialog" ariaLabel={target.custom ? M.editLabel : M.noteLabel} grab
     >
       <div className="ip-head"><h2>{target.label}</h2>
-        <button className="ip-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
+        <button className="ip-x" onClick={dismiss} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
       <div className="ip-body">
         {target.custom && (
@@ -860,8 +866,10 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
 
 // The composer: free-typed entries (or a catalogue material with special unit/source) — the
 // catalogue itself edits inline via the list steppers, so this is the «Anderes Mittel» path.
-/** The composer's kept draft. Not cleared on «Abbrechen»: «weg» and «ich mache gleich weiter»
- *  look identical from here, and losing what was typed is the more expensive mistake. */
+/** The composer's kept draft. ✕, the swipe, a tap beside it, Esc and the back keep it – the
+ *  next «erfassen» gives it back; «Abbrechen» is the deliberate discard and drops it (owner,
+ *  17.11.2026 – «Abbrechen» means discard everywhere, as in the Einsatz wizard and the Trupp form;
+ *  it used to keep the draft here too). */
 const DRAFT_KEY = 'mittel:composer'
 const EMPTY_DRAFT = {
   label: '', materialId: undefined as string | undefined, unit: '',
@@ -950,7 +958,7 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, se
        survives leaving the surface, so the one thing the band was protecting is kept. */
     <Sheet open fit title={M.composerTitle} onClose={onCancel} ariaLabel={M.composerTitle}
       footer={<>
-        <button type="button" className="ip-btn" onClick={onCancel}>{M.cancel}</button>
+        <button type="button" className="ip-btn" onClick={() => { clearDraft(DRAFT_KEY); onCancel() }}>{M.cancel}</button>
         <button type="button" className="ip-btn primary" aria-disabled={!valid} onClick={submit}>{M.save}</button>
       </>}
     >

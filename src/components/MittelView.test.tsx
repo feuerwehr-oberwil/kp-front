@@ -7,6 +7,7 @@ import { fillTemplate } from '../lib/format'
 import type { DeploymentConfig } from '../lib/deploymentConfig'
 import type { MittelEntry } from '../types'
 import type { MittelDraft } from './MittelView'
+import { clearAllDrafts } from '../lib/draftKeep'
 
 // MittelView reads the deployment catalogue through the getDeploymentConfig() singleton — mock
 // just that accessor so each test can put its own catalogue/sources under the component.
@@ -288,6 +289,43 @@ describe('the pencil of a hand-added line', () => {
     fireEvent.pointerUp(stock.querySelectorAll('button')[2], { pointerId: 1 })
     fireEvent.click(screen.getByRole('button', { name: M.save }))
     expect(onSave.mock.lastCall?.[0]).toMatchObject({ label: 'Kanister', stock: 1 })
+  })
+
+  // owner, 17.11.2026 (duck sweep CONT.3): any close but «Abbrechen» saves a change
+  it('saves a change on ✕ and drops it on «Abbrechen»', () => {
+    const onSave = mount({ entries: [kanister] })
+    // the Material field holds the caret from the open: with it, the first ✕ only puts the keys
+    // down (overlays/fieldFirst) – leave it first, as a tap on the stepper does on a device
+    const stepUp = () => {
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      const plus = screen.getByRole('group', { name: M.stockLabel }).querySelectorAll('button')[2]
+      fireEvent.pointerDown(plus, { pointerId: 1 }); fireEvent.pointerUp(plus, { pointerId: 1 })
+    }
+    openPencil(); stepUp()
+    fireEvent.click(screen.getByRole('button', { name: M.cancel }))
+    expect(onSave).not.toHaveBeenCalled()
+    openPencil(); stepUp()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.closeDialog }))
+    expect(onSave.mock.lastCall?.[0]).toMatchObject({ label: 'Kanister', stock: 1 })
+  })
+})
+
+// «Abbrechen» is the deliberate discard everywhere (owner, 17.11.2026): the composer's kept draft goes with it
+describe('the composer\'s kept draft', () => {
+  const fromQuery = (name: string) => fillTemplate(M.composerFromQuery, { name })
+  const type = (q: string) => fireEvent.change(screen.getByPlaceholderText(M.searchPlaceholder), { target: { value: q } })
+  it('survives ✕ and is dropped by «Abbrechen»', () => {
+    clearAllDrafts()
+    cfg.current = { mittel: { catalogue: [tauchpumpe], sources } }
+    mount()
+    type('Kanister')
+    fireEvent.click(screen.getByRole('button', { name: fromQuery('Kanister') }))
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.closeDialog }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(M.add) }))
+    expect(screen.getByRole('button', { name: /Kanister/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: M.cancel }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(M.add) }))
+    expect(screen.queryByRole('button', { name: /Kanister/ })).toBeNull()
   })
 })
 

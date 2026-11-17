@@ -649,8 +649,13 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
    *  its layer in this same keydown — this still reads the render's state, so it answers «consumed»
    *  and the drawer stays. */
   const escapeInner = (): boolean => {
-    if (editTx) { setEditTx(null); return true }
-    if (editRow) { setEditRow(null); return true }
+    // Esc never throws typed text away (owner, 17.11.2026 – duck sweep GESTURES.11 + call 7): the
+    // first Esc only leaves the correction's field (JournalRow), this one closes the correction –
+    // SAVING it when it was changed, as any close saves a Speichern sheet. «Abbrechen» is the one
+    // discard.
+    const was = (id: string) => events.find((x) => x.id === id)
+    if (editTx) { if (editTx.value !== (was(editTx.id)?.transcript ?? '')) saveTranscript(); else setEditTx(null); return true }
+    if (editRow) { if (editRow.value.trim() !== (was(editRow.id)?.text ?? '').trim()) saveRowText(); else setEditRow(null); return true }
     if (search != null) { setSearch(null); return true }
     return false
   }

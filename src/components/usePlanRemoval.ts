@@ -16,6 +16,7 @@ import { detachEnds, linesOnObjects, wireFreed } from '../lib/lineAttachments'
 import { annoLogName } from '../lib/drawingEdit'
 import type { useBoardDoc } from './useBoardDoc'
 import type { PlanLogExtra } from './Whiteboard'
+import { keyOwnedElsewhere } from '../lib/hotkeys'
 
 interface Args {
   readOnly: boolean
@@ -208,7 +209,7 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
    * so it goes the way its own panel deletes it — `removeWithConnections`, which is also what
    * keeps a trail-carrying Trupp protected and asks before an attached line is cut loose.
    *
-   * ⚠️ Never while a field owns the press. On a sheet full of Notiz textareas and Trupp names
+   * ⚠️ Never while a field, a dialog or a menu owns the press. On a sheet full of Notiz textareas and Trupp names
    * Backspace is a character far more often than it is a delete, and the target — not
    * activeElement — is what still names the field once its own handler has blurred (same reason
    * as the Escape listener above).
@@ -216,8 +217,8 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Delete' && e.key !== 'Backspace') return
-      const el = e.target instanceof HTMLElement ? e.target : null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      // a field, a dialog or a menu owns the key – the Escape guard (lib/hotkeys, GESTURES.12)
+      if (keyOwnedElsewhere(e.target instanceof Element ? e.target : null)) return
       if (readOnly) return
       if (barIds.length) { e.preventDefault(); deleteSelection(); return }
       const a = annos.find((x) => x.id === selId)

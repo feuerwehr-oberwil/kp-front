@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { ONE_LINE } from '../lib/fieldKeys'
 import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
 import type { AttendanceState, LngLat, Person, PresenceInterval, Shift, ShiftBand } from '../types'
@@ -141,7 +142,7 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
             // here used to make the whole Rapport fail to compose (app/report · _clip_note)
             maxLength={240}
             onBlur={(e) => onSetNote(person.id, stripUnprintable(e.target.value))}
-            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+            {...ONE_LINE}
           />
         </label>
       ) : note ? (
@@ -877,13 +878,11 @@ export function AnwesenheitView({
             Both narrow independently and AND together — «Of» + «anwesend» is one question.
             Neither button PRINTS what it has on (that changed its width and re-anchored the
             dropdown); each carries a fixed-position dot and names it in its tooltip.
-            Both are `modal={false}` (the app-wide default is modal): with the backdrop in place
-            a tap on the OTHER filter button first hits that backdrop, so switching between the
-            two — which is the whole point of splitting them — costs two taps. Safe exactly here,
-            because what lies under this bar is the filter row and the list, not the map. */}
+            Both are modal like every menu (owner, 17.11.2026 – a tap beside a menu only closes
+            it): switching from one to the other costs two taps, and a tap beside one never
+            cycles the presence of the name row under the finger. */}
         {ranksPresent.length > 1 && (
           <Menu
-            modal={false}
             trigger={
               <button className={cx(c.iconBtn, rankSel.size > 0 && c.iconBtnOn)}
                 aria-label={rankOn ? `${A.rankFilterLabel} – ${rankOn}` : A.rankFilterLabel}
@@ -920,7 +919,6 @@ export function AnwesenheitView({
             are about time, and «wer ist im Magazin» is not a question you ask of a Zeitplan. */}
         {view === 'list' && (
           <Menu
-            modal={false} // one-tap switch with the rank filter beside it — see the note above
             trigger={
               /* «Nach Status filtern», not the bare «Filtern»: the rank filter beside it names
                  its facet and this popup's own heading already does, so the hold tooltip was

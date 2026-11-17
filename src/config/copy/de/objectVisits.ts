@@ -153,7 +153,6 @@ export const objectVisitsCopy = {
     photoStored: 'Auf diesem Gerät gespeichert – wird mit Netz synchronisiert',
     photoNotStored: 'Nicht auf dem Gerät gespeichert – nur in diesem Fenster',
     photoAnother: 'Noch eins',
-    photoDone: 'Fertig',
     photoRemove: 'Foto entfernen',
     photoRemoved: 'Foto entfernt',
     photoPreparing: 'Foto wird vorbereitet …',

@@ -51,38 +51,39 @@ const claim = (action: HotkeyAction): HotkeyRoute => ({ action, prevent: true })
 /** claimed and acted on only where `when` holds — passed through untouched otherwise */
 const where = (when: boolean, action: HotkeyAction): HotkeyRoute => (when ? claim(action) : NONE)
 
-/** What is open on the Karte right now, in the order Escape peels it (see `routeEscape`). */
+/** What is open on a drawing surface right now – the Lage, the Plan, the Karte viewer – in the
+ *  order Escape peels it (see `routeEscape`). Each surface says what its own words mean. */
 export interface EscapeState {
-  /** a symbol or a shape is armed for placement */
-  placing: boolean
-  /** the Koordinaten crosshair is aiming or showing a pick */
-  coordOn: boolean
-  /** the Ebenen panel or the Ansichten popover */
-  chromeOpen: boolean
-  /** any tool but Auswahl */
+  /** a panel over the surface that is no sheet: Ebenen, Ansichten, the Passung dock, the Karte's search */
+  layerOpen: boolean
+  /** something half-made: a symbol / shape being placed, a rotation or a line / circle being laid,
+   *  the Koordinaten crosshair aiming */
+  draft: boolean
+  /** any tool but the plain one (Auswahl on the Lage, «pan» on the Plan, none on the Karte) */
   toolArmed: boolean
-  notePanelOpen: boolean
-  /** anything selected — one object, one drawing or a lasso group */
+  /** the note panel – on the Karte viewer, the plan opened over it */
+  panelOpen: boolean
+  /** anything selected — one object, one drawing or a group */
   selected: boolean
 }
 
-export type EscapeAction = 'cancelPlacement' | 'coordOff' | 'closeChrome' | 'disarmTool' | 'closeNotePanel' | 'clearSelection' | 'none'
+export type EscapeAction = 'closeLayer' | 'dropDraft' | 'disarmTool' | 'closePanel' | 'clearSelection' | 'none'
 
 /**
- * Escape is the universal bail-out: it peels back ONE layer of transient Karte state per press, so
- * there is always a quick way back to the plain map. The order is the table — an armed placement,
- * then the Koordinaten crosshair (it swallows every map tap and hides the selection bar), then the
- * chrome in the dock slot, then the armed tool with its dock, then the note panel, then the
- * selection. The caller handles the field and modal guards (a field or a dialog owns Escape) and
- * carries the action out (workspace/useMapActions).
+ * Escape is the universal bail-out: it peels back ONE layer of transient state per press, so
+ * there is always a quick way back to the plain surface – and it is ONE ladder on the Lage, the
+ * Plan and the Karte viewer (duck sweep 17.11.2026, CONT.2 / GESTURES.3–4: the three had three
+ * orders, and the Plan had no tool step at all). Top layer → draft → armed tool → panel →
+ * selection. Sheets, menus, cards and the ✥ ⟳ mode take their own Esc first and alone
+ * (lib/overlays/layer), so they never reach this table; the caller handles the field and dialog
+ * guards (lib/hotkeys · keyOwnedElsewhere) and carries the action out.
  */
 export function routeEscape(s: EscapeState): EscapeAction {
-  if (s.placing) return 'cancelPlacement'
-  if (s.coordOn) return 'coordOff'
-  if (s.chromeOpen) return 'closeChrome'
+  if (s.layerOpen) return 'closeLayer'
+  if (s.draft) return 'dropDraft'
   if (s.toolArmed) return 'disarmTool'
   // the note panel closes BEFORE the selection does
-  if (s.notePanelOpen) return 'closeNotePanel'
+  if (s.panelOpen) return 'closePanel'
   if (s.selected) return 'clearSelection'
   return 'none'
 }
