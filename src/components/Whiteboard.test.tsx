@@ -2089,6 +2089,18 @@ describe('gesture contracts of the plan surface', () => {
       expect(moves(emit)).toHaveLength(1)
     })
 
+    // GESTURES.9: a pile under the finger fans out like the Lage's, and the next tap is the answer
+    it('fans out a pile of Trupp chips, and the tap on one selects exactly that one', () => {
+      const two: BoardAnno = { ...chip, id: 'c2', x: 0.52, text: 'Trupp 2' }
+      const { container } = mount([chip, two])
+      finger(screen.getByText('Trupp 2'), [[208, 200], [208, 200]])
+      expect(container.querySelectorAll('.wb-anno.fanned')).toHaveLength(2)
+      expect(container.querySelector('.wb-anno.sel')).toBeNull() // asked, not guessed
+      finger(screen.getByText('Trupp 1'), [[180, 170], [180, 170]])
+      expect(container.querySelectorAll('.wb-anno.fanned')).toHaveLength(0)
+      expect(container.querySelector('[data-chip-id="c1"]')!.className).toContain('sel')
+    })
+
     it('pans from an unselected Linie too – its body moves only once it is selected', () => {
       vi.useFakeTimers()
       const { container, emit } = mount([line])

@@ -40,6 +40,7 @@ import { CIRCLE_MAX_N, useWbRotor } from './useWbRotor'
 import { SelectionBar } from './SelectionBar'
 import { PlanAnno, type PlanAnnoBoard } from './PlanAnno'
 import { TacticalSymbol } from '../lib/symbolRender'
+import { pileAt } from '../lib/labelPass'
 import { PlanLineDecor } from './PlanLineDecor'
 import { planEndTagSpots } from '../lib/endTagSpots'
 import { SelectionTurn } from './SelectionTurn'
@@ -1299,10 +1300,24 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   })
 
   // --- chip dragging (resource / symbol / text in pan mode) — components/useWbChipDrag ---
-  const { chipDrag, chipDown, chipMove, chipUp } = useWbChipDrag({
+  // The pile under a press (GESTURES.9, the Lage's MapMarkers · pileUnder): the compact chips –
+  // symbols and Trupps, never a wide note or a sheet-sized Form – whose finger pad it landed in,
+  // as `id:floor` instances in client px, nearest centre first. The pad is the Lage's: the glyph
+  // plus 20px, never under 44.
+  const pileUnder = (clientX: number, clientY: number, self: BoardAnno) => {
+    const piles = (a: BoardAnno) => (a.kind === 'symbol' || a.kind === 'resource') && !a.locked
+    const rect = boardRef.current?.getBoundingClientRect()
+    if (!piles(self) || !rect?.width) return []
+    return pileAt({ x: clientX, y: clientY }, shownAnnos.filter(piles).flatMap((a) => stack ? stackInstances(a, floorsTTB) : [a]).map((a) => ({
+      id: `${a.id}:${a.floor ?? 0}`,
+      x: rect.left + (a.x ?? 0) * rect.width, y: rect.top + mapY(a.floor, a.y ?? 0) * rect.height,
+      pad: a.kind === 'symbol' ? Math.max(symBase + 20, 44) : 44,
+    })))
+  }
+  const { chipDrag, chipDown, chipMove, chipUp, fan } = useWbChipDrag({
     tool, readOnly, annos, selId, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH, tileAR,
     attachmentLines, pushPast, set, patch, emit, activeId, onLinkLineTrupp,
-    panFrom: (e) => panFrom(e), stopPan: () => stopPan(),
+    panFrom: (e) => panFrom(e), stopPan: () => stopPan(), scale, pileUnder,
   })
 
   // object-manipulation hand-off for the stage dispatcher in useBoardGestures: when no
@@ -2688,7 +2703,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
             {/* Every covered floor exposes the same object through the full native renderer. */}
             {shownAnnos.filter((a) => a.kind !== 'draw').flatMap((a) => stack ? stackInstances(a, floorsTTB) : [a]).map((a) => (
-              <PlanAnno key={`${a.id}:${a.floor ?? 0}`} a={a} board={annoBoard}
+              <PlanAnno key={`${a.id}:${a.floor ?? 0}`} a={a} board={annoBoard} spoke={fan?.[`${a.id}:${a.floor ?? 0}`]}
                 selected={selId === a.id} grouped={selIds.includes(a.id)} networked={relationship.objectIds.has(a.id)}
                 editing={editId === a.id} trailShown={!hiddenTrails.has(a.id)} />
             ))}

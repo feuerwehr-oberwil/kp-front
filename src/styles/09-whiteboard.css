@@ -323,6 +323,9 @@
    one is raised above it (z 6) and ate the placing tap. Every anno is pointer-transparent while
    a placement is armed, and live again the moment the tool changes. */
 .wb-canvas.placing .wb-anno, .wb-canvas.tool-resource .wb-anno { pointer-events: none; }
+/* a fanned pile (useWbChipDrag · fan, GESTURES.9): the chips stand on their spokes above the
+   rest, as the Lage's do (03-map · .marker.fanned, whose .fan-spoke hairline they share) */
+.wb-anno.fanned { z-index: 7; }
 /* Zoom is done by LAYOUT (the board's box is sized fit × scale in Whiteboard),
    so content re-rasterizes crisply at each zoom level. The transform here is
    translate-only — will-change is safe and keeps panning a cheap GPU shift of a

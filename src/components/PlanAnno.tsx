@@ -128,10 +128,13 @@ interface Props {
   editing: boolean
   trailShown: boolean
   board: PlanAnnoBoard
+  /** a fanned pile's screen-px offset for this chip (useWbChipDrag · fan); a hairline goes back
+   *  to its true point */
+  spoke?: { dx: number; dy: number }
 }
 
 /** One non-ink anno on the Plan, positioned in board px; see the file header. */
-export function PlanAnno({ a, selected, grouped, networked, editing, trailShown, board }: Props) {
+export function PlanAnno({ a, selected, grouped, networked, editing, trailShown, board, spoke }: Props) {
   const {
     sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, activeId, textEditId,
     chipRef, chipDown, setEditId, setSelId, setNotePanelId, pushPast, patch, patchCommit, emit, log,
@@ -148,7 +151,7 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
   return (
     <div
       ref={a.kind === 'resource' ? chipRef : undefined} data-chip-id={a.kind === 'resource' ? a.id : undefined}
-      className={`wb-anno wb-${a.kind}${networked ? ' network' : ''} ${selected || grouped ? 'sel' : ''}`}
+      className={`wb-anno wb-${a.kind}${networked ? ' network' : ''}${spoke ? ' fanned' : ''} ${selected || grouped ? 'sel' : ''}`}
       // transform positions the anchor at the (scaled) plan point. SYMBOLS hold a
       // constant screen size (symBase, zoom-independent — 30.08.: they are pins like
       // the map's, and «zoomed in» made them comically dwarf the building); shapes
@@ -164,7 +167,7 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
       // stays centred on its glyph.
       // a LOCKED shape is click-through, like a locked drawn Fläche: no tap, no drag,
       // no double-tap — the LockChip (own layer below) is the only door back in
-      style={{ left: 0, top: 0, transform: `translate(${(a.x ?? 0) * sW + noteShiftPx}px, ${mapY(a.floor, a.y ?? 0) * sH}px) translate(${a.kind === 'resource' ? `${selected ? -TEAM_PILL_CAP_PX : -TEAM_DOT_PX / 2}px` : '-50%'}, -50%)`, ['--gpx' as string]: `${a.kind === 'shape' ? (a.sizeN ?? 0.1) * sW * Math.max(1, shapeAspect(a.shape ?? 'square', a.aspect)) : symBase}px`, ...(a.kind === 'shape' && a.locked ? { pointerEvents: 'none' as const } : null) }}
+      style={{ left: 0, top: 0, transform: `translate(${(a.x ?? 0) * sW + noteShiftPx}px, ${mapY(a.floor, a.y ?? 0) * sH}px) translate(${a.kind === 'resource' ? `${selected ? -TEAM_PILL_CAP_PX : -TEAM_DOT_PX / 2}px` : '-50%'}, -50%)${spoke ? ` translate(${spoke.dx}px, ${spoke.dy}px)` : ''}`, ['--gpx' as string]: `${a.kind === 'shape' ? (a.sizeN ?? 0.1) * sW * Math.max(1, shapeAspect(a.shape ?? 'square', a.aspect)) : symBase}px`, ...(a.kind === 'shape' && a.locked ? { pointerEvents: 'none' as const } : null) }}
       onPointerDown={(e) => chipDown(e, a.id, a.floor)}
       // double-tap still opens the on-surface textarea; the panel steps aside so the
       // two editors for one text never stream keystrokes side by side.
@@ -176,6 +179,14 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
       onDoubleClick={(e) => { if ((a.kind === 'text' || a.kind === 'resource') && tool === 'pan' && !readOnly) { e.stopPropagation(); setEditId(a.id); setSelId(a.id); if (a.kind === 'text') setNotePanelId(null) } }}
     >
       {networked && !selected && <span className="network-halo" />}
+      {/* a fanned pile's hairline back to the chip's true point – the Lage's spoke (03-map ·
+          .fan-spoke); a Trupp chip's point is its dot, at the strip's left end */}
+      {spoke && (
+        <svg className="fan-spoke" aria-hidden style={a.kind === 'resource' ? { left: TEAM_DOT_PX / 2 } : undefined}>
+          <line x1="0" y1="0" x2={-spoke.dx} y2={-spoke.dy} />
+          <circle cx={-spoke.dx} cy={-spoke.dy} r="2.5" />
+        </svg>
+      )}
       {/* selection halo — the same accent ring the Lage map draws, so a selected
           symbol/shape reads identically on the plan (teams keep their own team-colour ring) */}
       {/* ⚠️ Symbols only (02.09.): a Form is selected to be worked with its own ends

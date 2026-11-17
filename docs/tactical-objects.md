@@ -43,7 +43,10 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   never moves it and never stamps it a new time. A pan never deselects either: only a stationary
   tap on empty map / board does (`useMapActions` after `MapView`'s pan-click drop;
   `useBoardGestures · panUp`). The lasso is one-shot on both: after any box you are back in
-  Auswahl (`useMapActions · onMarquee`, `useBoardGestures · marqueeUp`).
+  Auswahl (`useMapActions · onMarquee`, `useBoardGestures · marqueeUp`). A tap on a pile of compact
+  glyphs (symbols, Trupps) fans it out on short spokes and the next tap picks one – nearest
+  centre, never the top DOM node (`lib/labelPass · pileAt / fanOffsets`; Lage `MapMarkers`, Plan
+  `useWbChipDrag · fan`, GESTURES.9). Nothing drags while a pile is fanned.
 - **A tap on a node is the node's, never the map's** (round 15.11.2026): a node is dragged or
   held, a tap on it does nothing. On the Karte its click would bubble from the Marker to
   maplibre's container and insert a node under the finger (a selected Linie grew a stacked

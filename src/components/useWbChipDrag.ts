@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import type { BoardAnno, BoardPoint, BoardTool } from '../types'
 import { DRAG_DEADZONE_PX, useHoldToDrag } from '../lib/useHoldToDrag'
@@ -7,6 +7,7 @@ import { serverNow } from '../lib/serverClock'
 import { applyRouting, nearestFreeEndpoint, objectAttachment, type AttachableLine } from '../lib/lineAttachments'
 import { normalizeStackEdit } from '../lib/stackFloors'
 import { DOOR_SNAP_PX, isDoor, nearestWall, seatDoor } from '../lib/grundriss'
+import { fanOffsets, type PilePoint } from '../lib/labelPass'
 
 interface Args {
   /** the ARMED tool as the board reads it (a select-only surface reads 'pan') */
@@ -41,6 +42,11 @@ interface Args {
   /** useBoardGestures: pan the board from a press the chip does not (yet) take, and stop it */
   panFrom: (e: React.PointerEvent) => void
   stopPan: () => void
+  /** the board's zoom – a fanned pile expires with it (its spokes are screen px) */
+  scale: number
+  /** every compact chip whose finger pad a press at (x, y) lands in, nearest centre first, as
+   *  `id:floor` instance keys (Whiteboard · pileUnder, lib/labelPass · pileAt) */
+  pileUnder: (clientX: number, clientY: number, self: BoardAnno) => PilePoint[]
 }
 
 /**
@@ -56,13 +62,36 @@ interface Args {
  * still hold (lib/useHoldToDrag, HOLD_DRAG_MS) lifts the chip. A selected chip, and any mouse
  * press, drags at once. Before, every press dragged: panning a Gebäude plan with the finger on a
  * Trupp moved the Trupp and stamped it a new time.
+ *
+ * …and a tap on a PILE is resolved the Lage's way (GESTURES.9, MapMarkers · the pile): several
+ * compact chips (symbols, Trupps) under the finger's pad fan out on short spokes, the next tap on
+ * one of them is the answer, and a single one is the nearest centre – never whichever DOM node
+ * happens to be on top. Three Trupps at the stair door no longer hand out the wrong card.
  */
 export function useWbChipDrag({
   tool, readOnly, annos, selId, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH, tileAR,
-  attachmentLines, pushPast, set, patch, emit, activeId, onLinkLineTrupp, panFrom, stopPan,
+  attachmentLines, pushPast, set, patch, emit, activeId, onLinkLineTrupp, panFrom, stopPan, scale, pileUnder,
 }: Args) {
   const chipDrag = useRef<{ id: string; moved: boolean; sx: number; sy: number; floorOffset: number } | null>(null)
   const hold = useHoldToDrag()
+
+  // ── the fanned pile: screen-px offsets per instance key (`id:floor`), computed ONCE at the tap.
+  // They ride along with a pan (the pile moves as one) and expire by DERIVATION on a zoom or when
+  // a member moves (another device, a GPS fix) – the Lage's rule, MapMarkers · fanKey.
+  type FanOffsets = Record<string, { dx: number; dy: number }>
+  const fanKey = (offsets: FanOffsets) => `${scale}|` + Object.keys(offsets).sort().map((k) => {
+    const a = annos.find((x) => x.id === k.slice(0, k.lastIndexOf(':')))
+    return a ? `${k}@${a.x},${a.y},${a.floor ?? 0}` : k
+  }).join('|')
+  const [fanState, setFan] = useState<{ key: string; offsets: FanOffsets } | null>(null)
+  const fan = fanState && fanState.key === fanKey(fanState.offsets) ? fanState.offsets : null
+  // a press anywhere that is not a fanned chip closes the fan (capture: the board's own presses too)
+  useEffect(() => {
+    if (!fan) return
+    const away = (ev: PointerEvent) => { if (!(ev.target as Element | null)?.closest?.('.wb-anno.fanned')) setFan(null) }
+    document.addEventListener('pointerdown', away, true)
+    return () => document.removeEventListener('pointerdown', away, true)
+  }, [fan])
 
   // --- chip dragging (resource / symbol / text in pan mode) ---
   const chipDown = (e: React.PointerEvent, id: string, shownFloor?: number) => {
@@ -73,12 +102,22 @@ export function useWbChipDrag({
     // its detail panel, exactly as tapping a symbol opens its ContextPanel — the ⚙ grip that used
     // to be the panel's only door is gone. Not while the note is mid-edit (its textarea owns the
     // taps then), and never on placement: placeNode arms editId, not this.
-    const kind = annos.find((x) => x.id === id)?.kind
-    const isNote = kind === 'text'
+    const self = annos.find((x) => x.id === id)
+    const kind = self?.kind
     e.stopPropagation()
-    const select = () => {
-      setSelId(id); setSelIds([])
-      if (isNote && (readOnly || editId !== id)) setNotePanelId(id)
+    const selectId = (pick: string) => {
+      setSelId(pick); setSelIds([])
+      const note = annos.find((x) => x.id === pick)?.kind === 'text'
+      if (note && (readOnly || editId !== pick)) setNotePanelId(pick)
+    }
+    const select = () => selectId(id)
+    // which chip did the finger MEAN? The nearest centre of the pile under its pad; a tap on
+    // several fans them out, a tap on a fanned one is the answer
+    const pile = self && !fan ? pileUnder(e.clientX, e.clientY, self) : []
+    const tap = () => {
+      if (fan) { setFan(null); select(); return }
+      if (pile.length > 1) { setFan({ key: fanKey(fanOffsets(pile)), offsets: fanOffsets(pile) }); return }
+      selectId(pile[0] ? pile[0].id.slice(0, pile[0].id.lastIndexOf(':')) : id)
     }
     const grab = (sx: number, sy: number) => {
       chipDrag.current = { id, moved: false, sx, sy, floorOffset: (shownFloor ?? 0) - (annos.find((a) => a.id === id)?.floor ?? 0) }
@@ -88,8 +127,10 @@ export function useWbChipDrag({
     // ⚠️ A FORM has no body drag (02.09., Karte parity): it is moved from the bar's ✥, and its
     // body only selects — so a press on a Rotation's loop cannot nudge it away from the end grip
     // somebody was aiming for.
-    const canDrag = !readOnly && kind !== 'shape'
-    if (canDrag && (selId === id || e.pointerType === 'mouse')) {
+    // While a pile is fanned nothing drags: the chips stand off their real positions.
+    const canDrag = !readOnly && kind !== 'shape' && !fan
+    const resolves = !!fan || pile.length > 1 // the tap decides – a pile is never grabbed on the press
+    if (canDrag && !resolves && (selId === id || e.pointerType === 'mouse')) {
       grab(e.clientX, e.clientY)
       ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
       select()
@@ -98,10 +139,10 @@ export function useWbChipDrag({
     const sx = e.clientX, sy = e.clientY
     panFrom(e)
     hold.begin(e, {
-      onTap: select,
+      onTap: tap,
       // the still hold lifted it: the board stops where it is and the chip follows the finger
       onHoldStart: () => { stopPan(); grab(sx, sy); select() },
-    }, { mode: 'touch', canDrag })
+    }, { mode: e.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag })
   }
   const chipMove = (e: React.PointerEvent) => {
     if (!chipDrag.current) return
@@ -171,5 +212,5 @@ export function useWbChipDrag({
     if (annos.find((x) => x.id === join.lineId)?.truppId !== a.truppId) onLinkLineTrupp?.(join.lineId, a.truppId)
   }
 
-  return { chipDrag, chipDown, chipMove, chipUp }
+  return { chipDrag, chipDown, chipMove, chipUp, fan }
 }
