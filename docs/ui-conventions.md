@@ -496,7 +496,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     each other. The FAB is a `--float-h` square in the one corner (round until 16.11.2026, owner:
     «match the corner radius of the other things»), «Eintrag» always under its glyph like a
     worded tool-bar tile (the 22px glyph flush on the 11/700 word, centred) – not tied to «Beschriftung der Werkzeugleisten», which is the bars'
-    setting, not the floating row's – on that baseline; `--fab-safe` is its width + the gap. A new piece in that zone joins the family and
+    setting, not the floating row's – on that baseline; `--fab-safe` is its width + the gap. On a
+    phone EVERY piece of that row is such a tile (button round 17.11.2026, owner pick 12C): the
+    chips (`.wb-tile`) and the Karte's squares too, the lamp or › at the tile's corner, a long word
+    cut inside a tile capped at 136px ([`phone-layout.md`](phone-layout.md) › «The phone's floating
+    row is TILES»); the tablet keeps them chips. A new piece in that zone joins the family and
     the row (and the `--float-row` `:has` list) — never a height, material or offset of its own.
     The map's attribution ⓘ wears the family's MATERIAL only (03-map, 04.11.2026): a round 24px
     plate at the 16px inset (32px until 05.11.2026, owner: «small and quiet»), its outline glyph in

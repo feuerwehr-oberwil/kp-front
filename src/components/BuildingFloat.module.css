@@ -1,5 +1,6 @@
 /* The Gebäude chip + its card (BuildingFloat, KP Front F5). The chip is the floating family's
-   (09-whiteboard · .wb-scale-chip); this file only adds the hazard tone and the docked card. */
+   (09-whiteboard · .wb-scale-chip, a tile on a phone · .wb-tile); this file only adds the hazard
+   tone, the count badge and the docked card. */
 /* never the one that gives way: a hazard is glyph + WORD, so on a phone's one-line plan row the
    Objekt chip beside it truncates its name instead (09-whiteboard · .wb-botleft) */
 .anchor { position: relative; display: inline-flex; flex: none; max-width: 100%; }
@@ -8,21 +9,16 @@
    (no fill: a known hazard is a fact, not an alarm). */
 .hazard svg:first-child { color: var(--amber-strong); }
 .words { color: var(--amber-strong); font-weight: var(--fw-heavy); }
-/* …at 700 on a phone, where the words are the chip's whole label (BuildingFloat · 12A) */
+/* …at 700 on a phone, where the words are the tile's whole word (BuildingFloat) */
 @media (--phone) { .words { font-weight: var(--fw-bold); } }
-/* the phone's quiet chip (BuildingFloat · `summary.quiet`): a worded tile like the Eintrag FAB at
-   the row's other end (15-mobile · .fab-entry) – a 22px glyph band over the 11/700 word, flush, the
-   pair centred in the family's one height. As wide as «Gebäude» needs (69px at --sp-2 a side): in a
-   52px square it truncated to «Gebäu…». The glyph stays the chip's --ink-dim, the word is ink. */
-:global(.wb-scale-chip).tile { display: inline-grid; grid-template-rows: 22px auto; align-content: center;
-  justify-items: center; gap: 0; min-width: var(--float-h); height: var(--float-h); padding: 0 var(--sp-2); }
-:global(.wb-scale-chip).tile svg { width: 22px; height: 22px; }
-.word { max-width: 100%; font-size: var(--fs-micro); line-height: 1.3; }
 /* the Sofortmassnahmen's count: the ONE count badge (05-navrail · .nav-count – 16px, 11/800,
    --r-xs, a plain count is INK), inline after the label, so the chip stays one action */
 .count { flex: none; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: var(--r-xs);
   background: var(--ink-fill); color: var(--on-accent-ink); font: var(--fw-heavy) var(--fs-micro) var(--body);
   line-height: 16px; text-align: center; }
+/* …on a phone's tile it sits at the corner, where the building tile's lamp does (09-whiteboard ·
+   .wb-tile): the word under the glyph keeps the tile's whole width */
+@media (--phone) { .count { position: absolute; top: 4px; right: 4px; } }
 /* docked one --float-gap above the row, like the Passung over its chip; the map stays live. One
    card of the row at a time (lib/floatCards).
    ⚠️ ABOVE the wind chip, and never past the top (owner, 14.11.2026: «opens above the weather

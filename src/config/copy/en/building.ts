@@ -107,6 +107,6 @@ export const buildingCopy: Localizable<Pick<Copy, 'building'>> = {
     readingsChip: 'Readings',
     readingsChipLabel: 'Show all measuring points',
     readingsOnMap: 'Map',
-    chipTitleShort: 'Building',
+    chipTitleShort: 'Info',
   },
 }

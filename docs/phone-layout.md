@@ -74,15 +74,21 @@ unchanged.
   Verlängern, a Form's grip, a symbol (round 15.11.2026 #4): `body.geom-dragging`, set with the
   sheet's peek (lib/sheetPeek · `beginSheetPeek('object')`; a map pan is `'view'` and keeps them).
   The grips stay for that one – the finger is on one.
-- *The Gebäude chip is the hazard alone on a phone* (owner pick 12A, 14.11.2026): «⚠ Heizöl» at
-  700, or (i) «Gebäude» without one; the count badge stays and the label stays the full sentence.
-  With no hazard, no Sofortmassnahme and no Bemerkung – register lines only – it is a worded
-  tile like the Eintrag FAB: the tiles' 22px (i) over «Gebäude» at 11/700, `--float-h` tall and
-  as wide as its word (69px; a 52px square truncated it) (round 16.11.2026 #9, owner pick of the
-  tile over the bare (i); `lib/buildingCard · summary.quiet`).
-  The tablet keeps «Gebäude-Info · Heizöl» (components/BuildingFloat).
+- *The phone's floating row is TILES* (button round 17.11.2026, owner pick 12C + follow-up: «the
+  whole phone floating row = tiles»): the Plan's building / Objekt chip (street or «Gebäude», the
+  facts lamp at the tile's top-right corner), the Gebäude-Info («Info», or ⚠ over the hazard words
+  in the hazard tone – the shape never flips with the content), «Messungen» (the worst reading's
+  pill over the word), the Eintrag FAB and the Karte's «Punkt setzen» / «Ansichten» squares are
+  each a 22px glyph over an 11/700 word, `--float-h` tall, r12 (09-whiteboard · `.wb-tile`,
+  15-mobile · `.fab-entry`, Karte.module · `.utilBtn`). As wide as the word up to 136px; a longer
+  word ellipsises inside its tile and the button's name stays whole. Joined pieces keep their one
+  glass (`.wb-join`). The calibration instrument («Zwei Punkte … antippen») stays a chip – a
+  sentence is not a tile word. The tablet keeps its chips, word beside the glyph
+  (components/BuildingFloat). It replaces 12A (14.11.: the hazard words alone as a chip, a tile
+  only when quiet).
 - *Karte & Objekte has ONE bar* (Karte · Messen · Gefahrgut · Ebenen, no tool bar and no «Pläne»
-  tab — 17.10.2026): Messen keeps the same 8px steps, only from the nav bar (the dock where the
+  tab — 17.10.2026; open Ebenen wears the opener's wash + blue and `aria-expanded`, the Karte
+  tile stays «here» under it – CHROME.10, 17.11.2026): Messen keeps the same 8px steps, only from the nav bar (the dock where the
   tool bar would stand, `--tools-bottom`; the readout where the dock would, `--dock-bottom`), and a selected place is one slide-up sheet whose rows are the
   object's plans ([`karte-objekte.md`](karte-objekte.md) · «On a phone the panel is ONE slide-up
   sheet»).
