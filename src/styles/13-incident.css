@@ -2026,6 +2026,10 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   padding: 8px 12px 4px;
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
 }
+/* a line that only says something (lib/overlays · Menu `note`) – a key under the rows, in the dim
+   ink and with no row height of its own to tap: it explains, it does nothing */
+.ui-menu-note { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-1) 12px;
+  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
 /* The menu's checkbox – every pick-several row (Verlauf · Filter, the Rapport's Abschnitte). 20px,
    a 1.5px --ink-faint frame and the SHAPE of the app's checkbox (TickRow's 24px box, --r-xs = 8px)
    at this size: 6px. The token itself on 20px left 4px of straight edge and the box read as a

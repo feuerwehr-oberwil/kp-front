@@ -56,6 +56,10 @@ export interface MenuSeparator { kind: 'sep' }
  *  to experiment with. */
 export interface MenuHeading { kind: 'head'; label: ReactNode }
 
+/** A line that only SAYS something – a key under the rows it explains (the Verlauf's «Art» menu
+ *  ends on what the Pendenz ring says). No row: it takes no focus, no highlight and no tap. */
+export interface MenuNote { kind: 'note'; label: ReactNode }
+
 export interface MenuActionItem {
   label: ReactNode
   onClick: () => void
@@ -90,7 +94,7 @@ function rowClass(skin: string | undefined, danger?: boolean, sticky?: boolean) 
 
 export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = OVERLAY_GAP, alignOffset = 0, collisionPadding = OVERLAY_EDGE, scrollToEnd = false, keepFocusRef }: {
   trigger: ReactElement
-  items: (MenuActionItem | MenuCheckItem | MenuSeparator | MenuHeading | MenuRadioGroup)[]
+  items: (MenuActionItem | MenuCheckItem | MenuSeparator | MenuHeading | MenuNote | MenuRadioGroup)[]
   popupClassName?: string
   /** class for each item; receives whether the item is `danger`. */
   itemClassName?: (danger: boolean) => string
@@ -214,15 +218,21 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
   // three runs, and a group that ended at the first rule would leave six of them unnamed again,
   // which is the thing the heading was added to fix. Only the next heading closes a group; rows
   // before the first heading stay ungrouped, which is what an unlabelled block is.
-  type Row = { it: MenuActionItem | MenuCheckItem | MenuRadioGroup; key: number } | { sep: true; key: number }
+  type Row = { it: MenuActionItem | MenuCheckItem | MenuRadioGroup; key: number } | { sep: true; key: number } | { note: ReactNode; key: number }
   const blocks: { label?: ReactNode; rows: Row[] }[] = []
   items.forEach((it, i) => {
     if ('kind' in it && it.kind === 'head') { blocks.push({ label: it.label, rows: [] }); return }
     if (!blocks.length) blocks.push({ rows: [] })
-    blocks[blocks.length - 1].rows.push('kind' in it && it.kind === 'sep' ? { sep: true, key: i } : { it, key: i })
+    const row: Row = !('kind' in it) ? { it, key: i }
+      : it.kind === 'sep' ? { sep: true, key: i }
+      : it.kind === 'note' ? { note: it.label, key: i }
+      : { it, key: i }
+    blocks[blocks.length - 1].rows.push(row)
   })
   const renderRow = (r: Row) =>
-    'sep' in r ? <BaseMenu.Separator key={r.key} className="ui-menu-sep" /> : renderItem(r.it, r.key)
+    'sep' in r ? <BaseMenu.Separator key={r.key} className="ui-menu-sep" />
+      : 'note' in r ? <div key={r.key} className="ui-menu-note">{r.note}</div>
+      : renderItem(r.it, r.key)
 
   return (
     // MODAL: Base UI's invisible backdrop takes the dismissing tap and swallows it, so a tap beside
