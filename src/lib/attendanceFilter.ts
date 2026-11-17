@@ -1,4 +1,5 @@
-// How the crew list narrows — the predicates behind the Anwesenheit's two filter buttons.
+// How the crew list narrows — the predicates behind the Anwesenheit's «Filter» menu
+// (its two groups, Grad and Status) and its «Vor Ort» ✓.
 // Here rather than inside the view so they can be tested without mounting a surface, and
 // beside the other attendance readers (attendanceIntervals · attendanceOrt) that they use.
 

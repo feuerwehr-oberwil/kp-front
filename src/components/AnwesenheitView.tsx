@@ -547,8 +547,12 @@ export function AnwesenheitView({
   ].join(' · ')
   const rankOn = ranksPresent.filter((r) => rankSel.has(r)).map(rankDisplay).join(' · ')
   /** everything narrowing the list, in the line's order (✓ · Grad · Status) – the strip's words,
-   *  the ✓ by its button's word («Vor Ort»), the facets by their menus' */
+   *  the ✓ by its button's word («Vor Ort»), the two groups of «Filter» by their picks' */
   const filterOn = [presentOnly ? A.onlyPresentWord : '', rankOn, stateOn].filter(Boolean).join(' · ')
+  /** what the «Filter» menu has on – its tooltip; the ✓ beside it names itself */
+  const facetsOn = [rankOn, stateOn].filter(Boolean).join(' · ')
+  /** the Grad group only where there is a choice to make */
+  const rankGroup = ranksPresent.length > 1
   const clearFilters = () => { setPresentOnly(false); setRankSel(new Set()); setStateSel(new Set()); setNoteOnly(false) }
   /** Attendance entries with no roster row: guests, mutual aid, an AdF who never synced. They
    *  are shaped like a Person so every row action below works on them unchanged — and the
@@ -864,116 +868,94 @@ export function AnwesenheitView({
           type="button"
           className={cx(c.iconBtn, presentOnly && c.iconBtnOn)}
           aria-pressed={presentOnly}
-          // The button NAMES the filter and lets `aria-pressed` carry the state, the way the two
-          // facet buttons beside it do. A label that flips to «tippen für …» on every press is an
+          // The button NAMES the filter and lets `aria-pressed` carry the state, the way the
+          // «Filter» tile beside it does. A label that flips to «tippen für …» on every press is an
           // instruction, and it made the accessible name of a control change under the finger.
           title={A.onlyPresent}
           aria-label={A.onlyPresent}
           onClick={toggleOnlyPresent}
         >
           {/* a TICK, the same glyph Mittel's «In Verwendung» carries: both mean «show only
-              the ones that count right now». It used to be the people glyph, which the Grad
-              filter beside it has a better claim to. */}
+              the ones that count right now». It used to be the people glyph, which read as a
+              Grad filter. */}
           <Icon id="check" />
           {/* its WORD, on every device (SurfaceControls · `.word`, ELEM.13): under the glyph on a
               phone like the nav bar's tiles (EL phone sweep D2), beside it on a tablet */}
           <span className={c.word} aria-hidden="true">{A.onlyPresentWord}</span>
         </button>
-        {/* ⚠️ TWO buttons, one per QUESTION — «welcher Grad» and «wer ist wo». They were one
-            merged funnel for an afternoon and it was wrong: a menu you open to reach either
-            answer is slower than two you aim at, and the two facets have nothing to do with
-            each other. Different glyphs so they are told apart without reading: the crew
-            glyph for the Dienstgrad, the funnel for the state narrowing.
-            Both narrow independently and AND together — «Of» + «anwesend» is one question.
-            Neither button PRINTS what it has on (that changed its width and re-anchored the
-            dropdown); each carries a fixed-position dot and names it in its tooltip.
-            Both are modal like every menu (owner, 17.11.2026 – a tap beside a menu only closes
-            it): switching from one to the other costs two taps, and a tap beside one never
-            cycles the presence of the name row under the finger. */}
-        {ranksPresent.length > 1 && (
+        {/* ⚠️ ONE «Filter» tile, one menu with a group per QUESTION – «welcher Grad» and «wer ist
+            wo» (owner pick 19, button round 17.11.2026; two tiles «Grad» + «Status» until then,
+            which made the search line three tiles wide beside a phone's field). The groups narrow
+            independently and AND together – «Of» + «anwesend» is one question; inside a group the
+            picks OR. The tile never PRINTS what it has on (that changed its width and re-anchored
+            the dropdown): the «Gefiltert:» strip under the line names both groups, the tooltip too.
+            Modal like every menu (owner, 17.11.2026 – a tap beside a menu only closes it, it never
+            cycles the presence of the name row under the finger). Grad only where the Mannschaft
+            has more than one; Status only on the crew list – the two planning tabs are about time,
+            and «wer ist im Magazin» is not a question you ask of a Zeitplan. */}
+        {(rankGroup || view === 'list') && (
           <Menu
             trigger={
-              <button className={cx(c.iconBtn, rankSel.size > 0 && c.iconBtnOn)}
-                aria-label={rankOn ? `${A.rankFilterLabel} – ${rankOn}` : A.rankFilterLabel}
-                title={rankOn ? `${A.rankFilterLabel} – ${rankOn}` : A.rankFilterLabel}>
-                {/* the crew glyph — this is the facet that sorts PEOPLE. It cost the
-                    «nur Anwesende» toggle its own people icon (that one is a tick now,
-                    matching Mittel's «In Verwendung»), because two identical glyphs side
-                    by side on the planning tabs is worse than either choice of icon. */}
-                <Icon id="people" />
-                <span className={c.word} aria-hidden="true">{A.rankFilterWord}</span>
+              <button className={cx(c.iconBtn, (rankSel.size > 0 || stateSel.size > 0 || noteOnly) && c.iconBtnOn)}
+                aria-label={facetsOn ? `${A.filterLabel} – ${facetsOn}` : A.filterLabel}
+                title={facetsOn ? `${A.filterLabel} – ${facetsOn}` : A.filterLabel}>
+                <Icon id="filter" />
+                <span className={c.word} aria-hidden="true">{A.filterWord}</span>
               </button>
             }
             popupClassName={c.menuPop}
             itemClassName={() => c.menuItem}
             // CHECKBOXES, not a one-of-N: «Of + Wm» is the Kader, and that is a real question.
             // Base UI keeps the menu open on a checkbox, which is what composing a set needs.
-            // «Alle» stays as its own row — it is the readable «nothing is filtered» state, and
+            // «Alle» leads each group – the readable «nothing is filtered» state of THAT group;
             // un-ticking your way back out is a gesture nobody would find at 3am.
             items={[
-              { kind: 'head' as const, label: A.rankFilterLabel },
-              { kind: 'check' as const, label: A.rankAll, checked: rankSel.size === 0, onChange: () => setRankSel(new Set()) },
-              // rankDisplay, NOT rankLabel: a rank the station's list does not cover came out
-              // as a blank row (see lib/rank)
-              ...ranksPresent.map((r) => ({
-                kind: 'check' as const,
-                label: rankDisplay(r),
-                checked: rankSel.has(r),
-                onChange: () => setRankSel((sel) => toggled(sel, r)),
-              })),
-            ]}
-          />
-        )}
-        {/* Status/Ort/Bemerkung only mean something on the crew list — the two planning tabs
-            are about time, and «wer ist im Magazin» is not a question you ask of a Zeitplan. */}
-        {view === 'list' && (
-          <Menu
-            trigger={
-              /* «Nach Status filtern», not the bare «Filtern»: the rank filter beside it names
-                 its facet and this popup's own heading already does, so the hold tooltip was
-                 the one place answering «which filter is this?» with «Filtern». */
-              <button className={cx(c.iconBtn, (stateSel.size > 0 || noteOnly) && c.iconBtnOn)}
-                aria-label={stateOn ? `${A.statusFilterLabel} – ${stateOn}` : A.statusFilterLabel}
-                title={stateOn ? `${A.statusFilterLabel} – ${stateOn}` : A.statusFilterLabel}>
-                <Icon id="filter" />
-                <span className={c.word} aria-hidden="true">{A.statusFilterWord}</span>
-              </button>
-            }
-            popupClassName={c.menuPop}
-            itemClassName={() => c.menuItem}
-            items={[
-              { kind: 'head' as const, label: A.statusFilterLabel },
-              // «Alle» clears the states but LEAVES the Bemerkung flag: they are separate
-              // questions, and a row under «Status» that silently switched off a checkbox
-              // below the rule would be the same trap the split Ort group was.
-              { kind: 'check' as const, label: A.statusAll, checked: stateSel.size === 0, onChange: () => setStateSel(new Set()) },
-              ...stateEntries.map((e) => ({
-                kind: 'check' as const,
-                label: <span className={cx(s.markRow, ...e.cls)}>{e.mark}{e.label}</span>,
-                checked: stateSel.has(e.key),
-                onChange: () => setStateSel((sel) => toggled(sel, e.key)),
-              })),
-              // a CHECKBOX, not one more state: «hat eine Bemerkung» is the one flag that
-              // really is orthogonal — anybody in any state can carry one. Base UI keeps the
-              // menu open on a checkbox, which is right: it is rarely the only thing set.
-              { kind: 'sep' as const },
-              {
-                kind: 'check' as const,
-                // ⚠️ `.markNote`, not `.statusNote` — the latter is the COPY key beside it
-                // (`A.statusNote`), and there is no such CSS class. CSS Modules resolved it to
-                // undefined and cx dropped it, so this was the one row of the menu whose mark
-                // was an empty 9px hole while every other row carried its own.
-                label: <span className={cx(s.markRow, s.markNote)}><i />{A.noteOnly}</span>,
-                checked: noteOnly,
-                onChange: setNoteOnly,
-              },
+              ...(rankGroup ? [
+                { kind: 'head' as const, label: A.rankFilterWord },
+                { kind: 'check' as const, label: A.rankAll, checked: rankSel.size === 0, onChange: () => setRankSel(new Set()) },
+                // rankDisplay, NOT rankLabel: a rank the station's list does not cover came out
+                // as a blank row (see lib/rank)
+                ...ranksPresent.map((r) => ({
+                  kind: 'check' as const,
+                  label: rankDisplay(r),
+                  checked: rankSel.has(r),
+                  onChange: () => setRankSel((sel) => toggled(sel, r)),
+                })),
+              ] : []),
+              ...(view === 'list' ? [
+                { kind: 'head' as const, label: A.statusFilterWord },
+                // «Alle» clears the states but LEAVES the Bemerkung flag: they are separate
+                // questions, and a row under «Status» that silently switched off a checkbox
+                // below the rule would be the same trap the split Ort group was.
+                { kind: 'check' as const, label: A.statusAll, checked: stateSel.size === 0, onChange: () => setStateSel(new Set()) },
+                ...stateEntries.map((e) => ({
+                  kind: 'check' as const,
+                  label: <span className={cx(s.markRow, ...e.cls)}>{e.mark}{e.label}</span>,
+                  checked: stateSel.has(e.key),
+                  onChange: () => setStateSel((sel) => toggled(sel, e.key)),
+                })),
+                // a CHECKBOX, not one more state: «hat eine Bemerkung» is the one flag that
+                // really is orthogonal — anybody in any state can carry one. A rule divides it
+                // from the states inside the Status group (overlays/Menu: only a head ends one).
+                { kind: 'sep' as const },
+                {
+                  kind: 'check' as const,
+                  // ⚠️ `.markNote`, not `.statusNote` — the latter is the COPY key beside it
+                  // (`A.statusNote`), and there is no such CSS class. CSS Modules resolved it to
+                  // undefined and cx dropped it, so this was the one row of the menu whose mark
+                  // was an empty 9px hole while every other row carried its own.
+                  label: <span className={cx(s.markRow, s.markNote)}><i />{A.noteOnly}</span>,
+                  checked: noteOnly,
+                  onChange: setNoteOnly,
+                },
+              ] : []),
             ]}
           />
         )}
         {/* (no «+» beside the search any more: the search field itself takes a name that is not
             on the Mannschaftsliste — see `guestOffer` and the last row of the list.) */}
         {/* (the inline legend strip and its phone ⓘ popover are gone — both facets live in
-            the two filter buttons above, which is also where the marks are looked up now.) */}
+            the «Filter» menu above, which is also where the marks are looked up now.) */}
         {/* how far the axis reaches — it belongs on the search line beside the thing it filters,
             not on a row of its own pushing the grid down (a phone has no room left on that
             line: there it stands in the grid's own clock row, see `horizonCtl`) */}
@@ -987,11 +969,9 @@ export function AnwesenheitView({
           onClear={clearFilters} />
       )}
 
-      {/* The ranks used to have a row of their own here. They now sit inline with the search (see
-          .controls above) — on a desk screen seeing them all is faster than opening anything, but
-          not at the price of a second band of chrome. On a PHONE they stay one button that carries
-          its own state: neutral for «Alle», tinted and naming the rank while a filter is on, so a
-          filtered list can never look like the whole Mannschaft. */}
+      {/* The ranks used to have a row of their own here. They are a group of the «Filter» menu on
+          the search line now – on every width one tile, its ON fill and the strip above saying a
+          filter is on, so a filtered list can never look like the whole Mannschaft. */}
 
       {/* not «Noch kein Personal erfasst» while the roster is still on its way (LISTS.1): the
           frames before the IndexedDB seed, and a cold cache's whole fetch */}

@@ -303,6 +303,29 @@ describe('«Nur Anwesende» — the one-tap quick filter', () => {
     expect(names()).toHaveLength(4)
   })
 
+  // owner pick 19 (button round 17.11.2026): Grad and Status are ONE «Filter» tile, one menu with
+  // a group per question – «Alle» first in each – and the groups still AND with each other
+  it('folds Grad and Status into one «Filter» menu whose groups AND, the strip naming both', () => {
+    const ranked = crew.map((p, i) => ({ ...p, rank: i < 2 ? 'Of' : 'Wm' }))
+    mount({ people: ranked, attendance })
+    expect(screen.getAllByRole('button', { name: A.filterLabel })).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: A.filterLabel }))
+    const groups = screen.getAllByRole('group').map((g) => [...g.querySelectorAll('[role=menuitemcheckbox]')].map((r) => r.textContent))
+    expect(screen.getAllByRole('group').map((g) => g.getAttribute('aria-labelledby') && document.getElementById(g.getAttribute('aria-labelledby')!)?.textContent))
+      .toEqual([A.rankFilterWord, A.statusFilterWord])
+    expect(groups.map((g) => g[0])).toEqual([A.rankAll, A.statusAll])
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Of' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: A.statusPresent }))
+    // Of = Anna + Felix, both anwesend (Felix at the Magazin); Beat and Rita are Wm
+    expect(names()).toEqual(['Meier Anna', 'Muster Felix'])
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: A.statusPresent }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: A.ortStation }))
+    expect(names()).toEqual(['Muster Felix'])
+    const strip = screen.getByText(appConfig.copy.filterStrip.filtered).parentElement!
+    expect(strip.textContent).toContain('Of')
+    expect(strip.textContent).toContain(A.ortStation)
+  })
+
   it('is offered on the crew list, not only while planning', () => {
     mount({ people: crew, attendance })
     expect(toggle()).toBeTruthy()

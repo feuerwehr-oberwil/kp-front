@@ -24,7 +24,6 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     statusFrei: 'non présent',
     filterLabel: 'Filtrer',
     statusAll: 'Tous',
-    statusFilterLabel: 'Filtrer par statut',
     noteOnly: 'Avec remarque seulement',
     statusPresent: 'présent',
     statusLeft: 'parti',
@@ -82,7 +81,6 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     onlyPresentWord: 'Sur place',
     rankFilterWord: 'Grade',
     statusFilterWord: 'Statut',
-    rankFilterLabel: 'Filtrer par grade',
     rankAll: 'Tous',
     backAgain: 'De retour',
     von: 'de',
@@ -106,6 +104,7 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     viewBands: 'Tours',
     viewLabel: 'Vue',
     reloadDone: 'Liste actualisée',
+    filterWord: 'Filtre',
   },
   anrueckend: {
     title: 'En route',

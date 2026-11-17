@@ -811,9 +811,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     phone only, the Mittel on the tablet only). **Every list filter is that tile** (button sweep
     HEADS.2/.8, 17.11.2026): framed, `--ink` (dim is `:disabled` only), a 16px glyph – Anwesenheit,
     Mittel, «Alle Einsätze», the QR-Bogen's «Erfasste N» and the Verlauf, whose ⓘ · lens · funnel
-    are the same tiles («Suchen», «Art»; the ⓘ a framed square without a word, as the ⓘ is everywhere). The WORD is the FACET («Grad», «Status»,
-    «Kategorie», «Art», «Reihenfolge»), never the act «Filtern»; a menu's head is the trigger's
-    full name («Nach Kategorie filtern»), a menu of groups heads each group instead (HEADS.6).
+    are the same tiles («Suchen», «Art»; the ⓘ a framed square without a word, as the ⓘ is everywhere). The WORD is the FACET («Kategorie», «Art»,
+    «Reihenfolge»), never the act «Filtern»; a menu's head is the trigger's full name («Nach
+    Kategorie filtern»), a menu of groups heads each group instead (HEADS.6). The Anwesenheit's
+    two facets are ONE tile «Filter» (the funnel) whose menu heads its groups «Grad» · «Status»,
+    beside its «Vor Ort» ✓ (owner pick 19, 17.11.2026 – two tiles «Grad» + «Status» until then).
     **«Nothing filtered» reads one way** (HEADS.7): «Alle» is the FIRST row, ticked – the Verlauf's
     with its total. A group that holds ONE value is a radio (trailing ✓, closes on pick: «Alle
     Einsätze»'s «Ernstfall / Übung», «Einsatzart», the Trupps «Reihenfolge»), never checkboxes that
