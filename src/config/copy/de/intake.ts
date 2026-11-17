@@ -128,8 +128,8 @@ export const intakeCopy = {
     // `exerciseLabel`, its consequence `exerciseSub` under it. The list filter's words.
     kindLabel: 'Ernstfall / Übung',
     kindReal: 'Ernstfall',
-    // ✕ on an alarm row folds it to a strip in its own place (rare-user round M3, 17.11.2026)
-    hiddenAlarm: 'Ausgeblendet',
+    // «Zeigen» on a hidden alarm's (or «Alarm aktualisiert»'s) row in the «Einsätze» lists – the way
+    // back after ✕ (rare-user round M3 / F7, 17.11.2026; panels/AppMenuRows · FoldedRow)
     showAlarm: 'Zeigen',
   },
 } as const

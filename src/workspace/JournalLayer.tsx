@@ -8,7 +8,6 @@ import { AudioPlayerSheet } from '../components/AudioPlayerSheet'
 import { Journal } from '../components/Journal'
 import { type JournalDraft, JournalComposer } from '../components/JournalComposer'
 import { JournalDeliveryNotice } from '../components/JournalDeliveryNotice'
-import { requestJournalPrint } from './lazySurfaces'
 import { appConfig } from '../config/appConfig'
 import { combinedSyncStatus } from '../lib/combinedSyncStatus'
 import { type IncidentMeta, uploadMedia } from '../lib/incidents'
@@ -115,7 +114,6 @@ export function JournalLayer({
           onClose={() => { setJournalOpen(false); setJournalLandOn(null); if (journalFromRapport) { setJournalFromRapport(false); openRapport() } }}
           onTranscript={!readOnly ? (id, transcript) => journal.appendPatch(id, { transcript: transcript.trim() }) : undefined}
           onReplay={!replayActive ? () => { setJournalOpen(false); enterReplay() } : undefined}
-          onPrint={!replayActive ? () => { setJournalOpen(false); setJournalLandOn(null); setJournalFromRapport(false); requestJournalPrint(); openRapport() } : undefined}
           openReminders={reminders.open}
           onOpenTafel={openTafelPendenzen}
           // the drawer steps aside for the board it sends you to, landing consumed as on close

@@ -249,16 +249,12 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
                     : <Button onClick={() => void archive(i.id)}>{h.archiveConfirmBtn}</Button>}
                   {/* delete only for ARCHIVED exercises (editor-gated via onArchive) — an open
                       Übung is first abgeschlossen like any incident, then deletable. Only one
-                      CREATED as Übung: a real Einsatz marked Übung later needs the Verwaltung,
-                      and its row says so where the button would be (C6, 17.11.2026) – a closed
-                      Übung without «Löschen» read as a bug. The rule itself is the server's. */}
-                  {i.is_exercise && i.is_archived && (i.exercise_since_creation
-                    ? (
-                      <Button variant="danger" icon={<Icon id="trash" />} onClick={() => void removeExercise(i)} aria-label={h.deleteConfirmTitle}>
-                        {h.deleteExercise}
-                      </Button>
-                    )
-                    : <span className="ip-hist-note">{h.deleteAdminOnly}</span>)}
+                      CREATED as Übung: a real Einsatz marked Übung later needs the Verwaltung */}
+                  {i.is_exercise && i.exercise_since_creation && i.is_archived && (
+                    <Button variant="danger" icon={<Icon id="trash" />} onClick={() => void removeExercise(i)} aria-label={h.deleteConfirmTitle}>
+                      {h.deleteExercise}
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

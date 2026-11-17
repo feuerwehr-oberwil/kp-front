@@ -87,7 +87,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             'Tout en haut, l’intervention ouverte : **Modifier** (les données d’intervention), **Clore** avec le nombre de points encore ouverts, et **Transmettre**.',
             'En dessous, les autres interventions en cours – un toucher change d’intervention. S’il y en a plusieurs, l’intervention en haut affiche un **+N**.',
-            '**Nouvelle alarme** – une alarme reçue qui n’est pas encore une intervention : **Ouvrir** l’ouvre. Le **✕** la masque seulement sur cet appareil ; elle reste comme ligne grise «Masqué», et **Montrer** la fait revenir.',
+            '**Nouvelle alarme** – une alarme reçue qui n’est pas encore une intervention : **Ouvrir** l’ouvre. Le **✕** la masque seulement sur cet appareil ; sous **Interventions** elle reste comme ligne pâle, et **Afficher** la fait revenir. Une **Alarme mise à jour** masquée revient avec **Afficher** dans le menu de l’intervention.',
             '**Ouvrir une intervention** – une intervention à la main, sans alarme. La première question est **Réel | Exercice**, ensuite le lieu (objet, adresse ou sur la carte) et le mot-clé. Ce qui est à moitié saisi reste, même si l’app se recharge.',
             '**Toutes les interventions** – aussi les clôturées : un toucher ouvre en lecture, **Rouvrir** pour compléter.',
             '**Quitter l’intervention** – retour à la carte ; l’intervention continue.',
@@ -97,7 +97,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             'Un exercice est une intervention comme une autre – tout fonctionne pareil. Il ne compte pas dans la statistique des interventions et figure hachuré avec le mot «Exercice» dans la barre.',
             'Ouvrir : **Ouvrir une intervention** › **Exercice** – le bouton s’appelle alors **Ouvrir l’exercice**. Une intervention en cours devient exercice, ou l’inverse, via **Modifier**.',
-            'Dans **Toutes les interventions**, on ne peut supprimer qu’un exercice clôturé qui en était un dès le départ. Là où ce n’est pas possible, il est écrit «Supprimer : seulement dans l’administration».',
+            'Dans **Toutes les interventions**, on ne peut supprimer qu’un exercice clôturé qui en était un dès le départ. Les autres, seule l’administration les supprime.',
           ] },
         ],
       },
@@ -402,7 +402,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         blocks: [
           { kind: 'lead', text: 'Un journal partagé et continu à travers la carte et le plan – la chronique de l’intervention.' },
           { kind: 'list', items: [
-            '**Entrée** : un toucher bref ouvre la saisie de texte. **Maintenir appuyé** ouvre deux champs – **Note vocale** et **Photo** – qui restent jusqu’à ce qu’on en touche un ; le bouton lui-même devient un **✕** et annule. Dans l’entrée même, enregistrement, fichier et photo joignent quelque chose ; quand la place manque (surtout clavier ouvert), ils sont réunis sous **Pièce jointe**.',
+            '**Entrée** : un toucher bref ouvre la saisie de texte. **Maintenir appuyé** ouvre deux champs – **Note vocale** et **Photo** – qui restent jusqu’à ce qu’on en touche un ; le bouton lui-même devient un **✕** et annule. Dans l’entrée même, enregistrement, fichier et photo joignent quelque chose ; quand la place manque (surtout clavier ouvert), ils sont réunis sous le **trombone**.',
             'Dès **deux lettres**, des noms sont proposés – effectif, matériel, organisations partenaires, véhicules et groupes d’alarme, plus les postes **CI** et **Rempl. CI**. Un toucher insère le nom entier ; il est mis en évidence dans le journal et sur le rapport imprimé. Écrire le poste donne le nom («CI (Widmer Céline)»), écrire le nom donne le poste. Il n’y a pas de champ «De» séparé : la phrase dit déjà qui a annoncé.',
             'Dès que la phrase se termine par un nom, **→** et **←** sont proposés à côté : un toucher écrit la flèche, et «CI → sanitaire : patient stable» se lit comme le protocole radio qu’est le journal. Sur le papier cela devient «->».',
             'Tant que le champ est **vide**, des puces de départ attendent : d’abord **CI →**, puis les formulations déjà écrites sur cette intervention (sinon la liste du corps). Elles restent jusqu’à ce que l’on tape vraiment – une deuxième puce s’ajoute à la première.',
@@ -411,7 +411,6 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'Une entrée de journal avec un lieu ramène à l’endroit dans la carte ou le plan quand on la touche ; photos et notes vocales s’ouvrent/se lisent directement dans le journal.',
             'Une **faute de frappe** se corrige : le **crayon** de la ligne figure sur tout ce que quelqu’un a tapé lui-même – pas sur ce que l’app a écrit au sujet d’une action («binôme 2 rentré»). La ligne porte ensuite **Corrigé HH:MM** ; le texte d’origine reste dans le journal et dans la chaîne de vérification.',
             '**Lecture** (▶ au journal) rejoue la carte et le plan à un instant antérieur (curseur temporel ; l’édition est bloquée pendant ce temps). Pendant l’intervention elle s’ouvre à «Maintenant», et **Lire** repart du début ; après la clôture elle s’ouvre au début. Sur un téléphone, ▶ se trouve à la règle temporelle.',
-            'Dans le menu de filtre du journal, **Imprimer le journal / PDF** mène au PDF du rapport, journal d’intervention coché.',
             'Le texte à moitié saisi dans l’**Entrée** reste, même si l’app se recharge – photos et notes vocales non.',
           ] },
           { kind: 'sub', text: 'En suspens' },
@@ -456,7 +455,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           ] },
           { kind: 'sub', text: 'Présenter' },
           { kind: 'list', items: [
-            '**Présenter** – dans le menu, à l’intervention ouverte, ou dans **Partager l’intervention** – › **Démarrer** : qui a l’intervention ou le lien de lecture ouvert peut **Suivre** – son écran montre ce que montre le tien, sur chaque surface.',
+            '**Présenter** – dans le menu, sur la carte de l’intervention ouverte, à côté de **Transmettre**, ou dans **Partager l’intervention** – › **Démarrer** : qui a l’intervention ou le lien de lecture ouvert peut **Suivre** – son écran montre ce que montre le tien, sur chaque surface.',
             '**Montrer** fait d’un toucher un point et d’un trait une ligne, qui s’estompent – visibles par tous, rien n’est enregistré.',
             '**Terminer** arrête ; **Ne plus suivre** libère son propre écran. Si une présentation est déjà en cours, on peut la **Reprendre**. Présenter nécessite du réseau.',
           ] },

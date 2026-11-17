@@ -3,7 +3,7 @@ import './app.css'
 import { IconSprite } from './lib/icons'
 import { demoSeedRebase } from './lib/workspace'
 import { appConfig } from './config/appConfig'
-import { isDemoMode, objectVisitsConfig, getDeploymentConfig } from './lib/deploymentConfig'
+import { isDemoMode, objectVisitsConfig, getDeploymentConfig, shortAddress } from './lib/deploymentConfig'
 import { isOvPath, leaveAppEntries, navigateTo, OV_BASE, ovHref, showsObjectVisits, useOvRoute } from './objectVisits/route'
 import { isKartePath, KARTE_BASE, useKarteRoute } from './lib/karte/route'
 import { appScreen, bootPlan } from './lib/karte/home'
@@ -36,7 +36,7 @@ import { IncidentWorkspace } from './IncidentWorkspace'
 import {
   WorkspaceSync, listIncidentsResilient, listIncidentsShared, getIncident, archiveIncident,
   migrateLegacyWorkspace, takeDiveraAlarm, attachDiveraAlarm, discardWorkspaceCache,
-  isIncidentRunning, type DiveraAlarm, type IncidentFull, type IncidentMeta, type Workspace,
+  isIncidentRunning, showAlarmUpdate, type DiveraAlarm, type IncidentFull, type IncidentMeta, type Workspace,
 } from './lib/incidents'
 import { unlockAlarm } from './lib/alarm'
 import { CRASH_HEALTHY_MS, clearCrash } from './lib/crashLoop'
@@ -44,9 +44,10 @@ import { ApiError } from './lib/api'
 import { useDiveraWatch } from './lib/useDiveraWatch'
 import { actFailedText } from './lib/actFailed'
 import { dismissAlarm, hiddenAlarms, loadDismissedAlarms, shownAlarms, undismissAlarm } from './lib/diveraDismiss'
+import { alarmUpdateHidden } from './lib/alarmUpdate'
 import { useIncidentWatch } from './lib/useIncidentWatch'
 import { loadReviewedIncidents, needsIntakeReview, sameIncidentList, saveReviewedIncident, shouldReopenClosed, undoTakeReturn } from './lib/incidentAlerts'
-import { AlarmUpdateBanner, EinsatzWizard, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, HomeDeviceSheet } from './components/panels'
+import { AlarmUpdateBanner, EinsatzWizard, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, HomeDeviceSheet, type FoldedMenuRow } from './components/panels'
 import { Meldeleiste } from './components/Meldeleiste'
 import { linkShowsMeldung } from './lib/meldungen'
 import { RefusalMeldung } from './lib/meldungenRefusal'
@@ -734,9 +735,29 @@ export default function App() {
   // explanation should be, on the one screen whose whole job is «what now».
   const landingAlarms = isEditor ? poolAlarms.filter((a) => !dismissedAlarms.has(a.divera_id)) : []
   const hideAlarm = (a: DiveraAlarm) => setDismissedAlarms(dismissAlarm(a.divera_id))
-  // ✕ folds an alarm to a strip in its own place, «Zeigen» brings it back (lib/diveraDismiss)
+  // after ✕ an alarm stands as a quiet row in the «Einsätze» lists, «Zeigen» brings it back
+  // (lib/diveraDismiss · hiddenAlarms; panels/AppMenuRows · FoldedRow)
   const showAlarm = (a: DiveraAlarm) => setDismissedAlarms(undismissAlarm(a.divera_id))
-  const foldedAlarms = isEditor ? hiddenAlarms(poolAlarms, dismissedAlarms) : []
+  const foldedAlarms: FoldedMenuRow[] = (isEditor ? hiddenAlarms(poolAlarms, dismissedAlarms) : []).map((a) => ({
+    key: `alarm:${a.divera_id}`,
+    title: a.title,
+    sub: shortAddress(a.address) ?? appConfig.copy.intake.addressUnknown,
+    onShow: () => showAlarm(a),
+  }))
+  // …and in the Einsatz menu also the open Einsatz's hidden «Alarm aktualisiert» (F7): served to
+  // every device while hidden, a row for 3 h after it came, for whoever keeps the Einsatzdaten –
+  // the same gate as the AlarmUpdateBanner below. «Zeigen» makes it pending again (the row).
+  const activeListed = activeMeta ? incidents?.find((i) => i.id === activeMeta.id) ?? activeMeta : null
+  const hiddenUpdate = activeListed && (isEditor || isEl) && isIncidentRunning(activeListed)
+    && alarmUpdateHidden(activeListed)
+  const einsatzFolded: FoldedMenuRow[] = hiddenUpdate ? [...foldedAlarms, {
+    key: `alarm-update:${activeListed.id}`,
+    title: appConfig.copy.intake.alarmUpdate.title,
+    onShow: () => showAlarmUpdate(activeListed.id).then(
+      (inc) => reflectMeta(inc as IncidentMeta),
+      (e) => toast(e instanceof ApiError && e.status !== 0 ? e.detail : appConfig.copy.intake.alarmUpdate.failed, { icon: 'warn', tone: 'warn' }),
+    ),
+  }] : foldedAlarms
   // an alarm taken from the viewer undoes back to it (undoTake)
   const takeBack = screen === 'karte' ? 'karte' as const : undefined
 
@@ -762,8 +783,7 @@ export default function App() {
     incidents: allIncidents, listNote, activeId, opening, alarms: landingAlarms, taking,
     onTake: (a) => void takeAndOpen(a, takeBack),
     onDismissAlarm: hideAlarm,
-    hiddenAlarms: foldedAlarms,
-    onShowAlarm: showAlarm,
+    folded: foldedAlarms,
     onOpenIncident: openOrUncover,
     onHistory: () => setOverlay('history'),
     onCreate: () => setOverlay('create'),
@@ -848,6 +868,7 @@ export default function App() {
           // (testing feedback 2026-07-18): incoming alarms are taken via home or
           // the mid-incident banner, never via a separate pool screen.
           onOpenDivera={() => setOverlay('create')}
+          menuFolded={einsatzFolded}
           // ⚠️ There is no separate «archive the active one» prop any more. The Einsatz-Menü row
           // used to hang off `archiveById`, which archived plainly — no report_done_at, nothing
           // checked — while the Rapport path stamped and counted. Both doors run the SAME confirm
@@ -950,7 +971,6 @@ export default function App() {
           alarms={poolAlarms}
           dismissed={dismissedAlarms}
           onDismiss={hideAlarm}
-          onShow={showAlarm}
           taking={taking}
           attachFirst={false}
           onTake={(a) => {
@@ -963,7 +983,6 @@ export default function App() {
           alarms={poolAlarms}
           dismissed={dismissedAlarms}
           onDismiss={hideAlarm}
-          onShow={showAlarm}
           taking={taking}
           // ⚠️ «Anhängen» only onto an Einsatz that is RUNNING (review of #235): attached to a closed
           // one, the dispatch's Zeiten and Meldung would land in a closed record

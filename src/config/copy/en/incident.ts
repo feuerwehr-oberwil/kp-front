@@ -57,9 +57,6 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     viewOnlyWhy: { viewer: 'Viewer', el: 'Incident command', link: 'Incident link' },
     foreignAlarmDot: 'Breathing-apparatus alarm in another incident',
     login: 'Sign in',
-    othersRunning: (n: number) => (n === 1 ? '1 more incident open' : `${n} more incidents open`),
-    signedInAs: 'Signed in: {name} · {role}',
-    linkLede: 'Live view of this incident – updates by itself.',
   },
   archived: {
     title: 'Incident closed',
@@ -130,7 +127,6 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     archiveConfirmTitle: 'Close the incident',
     archiveConfirmMsg: 'The incident is closed and the end time recorded. After that it can only be read and signed – reopen it for corrections.',
     archiveConfirmBtn: 'Close',
-    deleteAdminOnly: 'Delete: only in Administration',
   },
   abschluss: {
     leftEarly: 'until {t}',

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, cleanup, fireEvent, screen } from '@testing-library/react'
+import { render, cleanup } from '@testing-library/react'
 import { IncomingAlarmBanner } from './Banners'
 import { Meldeleiste } from '../Meldeleiste'
 import { appConfig } from '../../config/appConfig'
@@ -24,7 +24,7 @@ const labels = (attachFirst: boolean, canAttach = true) => {
   render(
     <>
       <IncomingAlarmBanner
-        alarms={[alarm]} dismissed={new Set()} onDismiss={() => {}} onShow={() => {}} taking={null} attachFirst={attachFirst}
+        alarms={[alarm]} dismissed={new Set()} onDismiss={() => {}} taking={null} attachFirst={attachFirst}
         onTake={() => {}} onAttach={canAttach ? () => {} : undefined}
       />
       <Meldeleiste />
@@ -72,56 +72,31 @@ describe('IncomingAlarmBanner · time', () => {
   })
 })
 
-// Rare-user round M3 = C (17.11.2026): ✕ folds the row to a grey strip in its own place, and
-// «Zeigen» on it is the way back – no toast, nothing gone for good.
-describe('IncomingAlarmBanner · hidden', () => {
-  it('a hidden alarm is one strip «Ausgeblendet · <Stichwort>» whose «Zeigen» brings the row back', () => {
-    const shown: DiveraAlarm[] = []
+// Rare-user round M3 / F7, round 2 (17.11.2026): what ✕ hid has no strip in the Meldeleiste – its
+// way back is a row in the «Einsätze» lists (AppMenuRows · FoldedRow)
+describe('hidden alarms and updates', () => {
+  it('a hidden alarm leaves no row in the Meldeleiste', () => {
     render(
       <>
         <IncomingAlarmBanner alarms={[alarm]} dismissed={new Set([alarm.divera_id])} onDismiss={() => {}}
-          onShow={(a) => shown.push(a)} taking={null} attachFirst={false} onTake={() => {}} />
-        <Meldeleiste />
-      </>,
-    )
-    const rows = document.querySelectorAll('.ml-row')
-    expect(rows).toHaveLength(1)
-    expect(rows[0].classList.contains('fold')).toBe(true)
-    expect(rows[0].textContent).toContain(`${ix.hiddenAlarm} · Brandmeldeanlage`)
-    expect(rows[0].querySelector('.ml-x')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: ix.showAlarm }))
-    expect(shown).toEqual([alarm])
-  })
-
-  it('leaves no strip once the alarm is older than 3 h', () => {
-    const old = { ...alarm, received_at: new Date(Date.now() - 4 * 3600_000).toISOString() }
-    render(
-      <>
-        <IncomingAlarmBanner alarms={[old]} dismissed={new Set([alarm.divera_id])} onDismiss={() => {}}
-          onShow={() => {}} taking={null} attachFirst={false} onTake={() => {}} />
+          taking={null} attachFirst={false} onTake={() => {}} />
         <Meldeleiste />
       </>,
     )
     expect(document.querySelectorAll('.ml-row')).toHaveLength(0)
   })
-})
 
-// Rare-user round F7 (17.11.2026): a hidden «Alarm aktualisiert» is served to every device and
-// folds to the same strip; «Zeigen» asks the server to make it pending again.
-describe('AlarmUpdateBanner · hidden', () => {
-  it('folds to «Ausgeblendet · Alarm aktualisiert» with «Zeigen», and none past 3 h', async () => {
+  it('a hidden «Alarm aktualisiert» leaves no row either; a pending one has its row', async () => {
     const { AlarmUpdateBanner } = await import('./Banners')
-    const meta = (at: string) => ({
+    const meta = (state: 'hidden' | 'pending') => ({
       id: 'inc-1', title: 'Brand',
-      alarm_update: { state: 'hidden', at, title: 'Brand, Musterweg 21', lat: null, lng: null,
+      alarm_update: { state, at: new Date().toISOString(), title: 'Brand, Musterweg 21', lat: null, lng: null,
         fields: [{ field: 'text', current: 'Rauch', alarm: 'Rauch, Person vermisst', edited: false }] },
     }) as unknown as IncidentMeta
-    const { unmount } = render(<><AlarmUpdateBanner meta={meta(new Date().toISOString())} onChanged={() => {}} onEdit={() => {}} /><Meldeleiste /></>)
-    const row = document.querySelector('.ml-row.fold')
-    expect(row?.textContent).toContain(`${ix.hiddenAlarm} · ${ix.alarmUpdate.title}`)
-    expect(screen.getByRole('button', { name: ix.showAlarm })).toBeTruthy()
-    unmount()
-    render(<><AlarmUpdateBanner meta={meta(new Date(Date.now() - 4 * 3600_000).toISOString())} onChanged={() => {}} onEdit={() => {}} /><Meldeleiste /></>)
+    const { unmount } = render(<><AlarmUpdateBanner meta={meta('hidden')} onChanged={() => {}} onEdit={() => {}} /><Meldeleiste /></>)
     expect(document.querySelectorAll('.ml-row')).toHaveLength(0)
+    unmount()
+    render(<><AlarmUpdateBanner meta={meta('pending')} onChanged={() => {}} onEdit={() => {}} /><Meldeleiste /></>)
+    expect(document.querySelector('.ml-row')?.textContent).toContain(ix.alarmUpdate.title)
   })
 })

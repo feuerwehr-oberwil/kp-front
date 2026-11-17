@@ -5,7 +5,9 @@
 // (lib/installPolicy · InstallPlatform, lib/installPrompt · isStandalone). Four places: the
 // installed iPhone app, a Safari tab, Android (Chrome, tab or app), and a desktop browser.
 // The OS menu names are copy (copy.toast.permissionPath) – checked against the docs, not on
-// every device; a renamed menu is a copy fix.
+// every device; a renamed menu is a copy fix. Settings paths, not buttons: Safari's «aA» is a
+// glyph on current iOS, and a desktop browser's «lock» is not a lock any more (round 2,
+// 17.11.2026). On iOS before 18 the Safari path has no «Apps», which users find.
 // Callers: «Mein Standort» (MapView, karte/useKarteCamera), the wizard's «Hier», «Standort
 // teilen», the voice memo, and the readiness card's «Benachrichtigung» row.
 import { appConfig } from '../config/appConfig'
@@ -22,7 +24,7 @@ export function permissionPlace(platform: InstallPlatform, standalone: boolean):
   return platform === 'android' ? 'android' : 'desktop'
 }
 
-/** The path to `kind`'s switch on this device («Safari «aA» › Website-Einstellungen › Standort»). */
+/** The path to `kind`'s switch on this device («iPhone-Einstellungen › Apps › Safari › Standort»). */
 export function permissionPath(kind: PermissionKind, place = permissionPlace(getInstallPlatform(), isStandalone())): string {
   return fillTemplate(appConfig.copy.toast.permissionPath[kind][place], { app: deploymentName() })
 }

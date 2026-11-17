@@ -89,7 +89,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             'At the very top, the open incident: **Edit** (the incident data), **Complete** with the count of what is still open, and **Share**.',
             'Below it the other running incidents – tap one to switch. When several are running, the incident at the top shows a **+N**.',
-            '**New alarm** – an incoming alarm that is not an incident yet: **Open** opens it. The **✕** only hides it on this device; it stays as a grey row «Hidden», and **Show** brings it back.',
+            '**New alarm** – an incoming alarm that is not an incident yet: **Open** opens it. The **✕** only hides it on this device; under **Incidents** it stays as a faded row, and **Show** brings it back. A hidden **Alarm updated** comes back with **Show** in the incident menu.',
             '**Open incident** – an incident by hand, without an alarm. The first question is **Real | Exercise**, then the location (object, address or on the map) and the keyword. What is half typed stays, even if the app reloads.',
             '**All incidents** – the closed ones too: tap one to read it, **Reopen** to add to it.',
             '**Leave incident** – back to the map; the incident keeps running.',
@@ -99,7 +99,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             'An exercise is an incident like any other – everything works the same. It does not count in the incident statistics and stands hatched, with the word «Exercise», in the bar.',
             'To open one: **Open incident** › **Exercise** – the button then reads **Open exercise**. A running incident becomes an exercise, or goes back, via **Edit**.',
-            'In **All incidents** only a closed exercise that was one from the start can be deleted. Where that is not possible it reads «Delete: only in the administration».',
+            'In **All incidents** only a closed exercise that was one from the start can be deleted. Any other is deleted by the Administration.',
           ] },
         ],
       },
@@ -404,7 +404,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         blocks: [
           { kind: 'lead', text: 'A shared, running log across map and plan – the incident chronicle.' },
           { kind: 'list', items: [
-            '**Entry**: a short tap opens text input. **Press and hold** opens two fields – **Voice memo** and **Photo** – that stay until one is tapped; the button itself becomes an **✕** meanwhile and cancels. In the entry itself, record, file and photo attach something; when space runs short (mostly with the keyboard up) they are gathered under **Attach**.',
+            '**Entry**: a short tap opens text input. **Press and hold** opens two fields – **Voice memo** and **Photo** – that stay until one is tapped; the button itself becomes an **✕** meanwhile and cancels. In the entry itself, record, file and photo attach something; when space runs short (mostly with the keyboard up) they are gathered under the **paper clip**.',
             'From **two letters** on, names are suggested – personnel, material, partner organisations, vehicles and alarm groups, plus the posts **EL** and **Stv. EL**. Tapping one inserts the whole name; it is highlighted in the log and on the printed report. Write the post and you get the name too («EL (Widmer Céline)»), write the name and you get the post. There is no separate «from» field: the sentence already says who reported it.',
             'As soon as the sentence ends on a name, **→** and **←** are offered beside it: one tap writes the arrow, and «EL → ambulance: patient stable» reads like the radio log the log is. On paper it becomes «->».',
             'While the field is **empty**, starter chips stand ready: **EL →** first, then the phrases already written on this incident (otherwise the brigade’s list). They stay until something is actually typed – a second chip appends to the first.',
@@ -413,7 +413,6 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'A log entry with a location jumps back to the spot in map or plan when tapped; photos and voice memos can be opened/played directly in the log.',
             'A **typo** can be corrected: the **pencil** in the row sits on everything somebody typed themselves – not on what the app wrote about an action («Team 2 back in»). The row then carries **Corrected HH:MM**; the original wording stays in the record and in the audit chain.',
             '**Playback** (▶ by the log, on a phone at the time ruler) plays map and plan back to an earlier point in time (time slider; editing is locked meanwhile). On a running incident it opens at «Now», and **Play** starts from the beginning; on a closed one it opens at the beginning.',
-            'In the log’s filter menu, **Print log / PDF** leads to the report PDF with the incident journal ticked.',
             'Half-typed text in the **Entry** stays, even if the app reloads – photos and voice memos do not.',
           ] },
           { kind: 'sub', text: 'Open items' },
@@ -458,7 +457,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           ] },
           { kind: 'sub', text: 'Present' },
           { kind: 'list', items: [
-            '**Present** – in the menu by the open incident, or in **Share incident** – › **Start**: whoever has the incident or the read link open can **Follow** – their screen shows what yours shows, on every surface.',
+            '**Present** – in the menu on the open incident’s card, beside **Share**, or in **Share incident** – › **Start**: whoever has the incident or the read link open can **Follow** – their screen shows what yours shows, on every surface.',
             '**Point** turns a tap into a dot and a stroke into a line, which fade again – visible to everyone, nothing is saved.',
             '**End** stops; **Stop following** frees your own screen again. If a presentation is already running, it can be **taken over**. Presenting needs a network.',
           ] },

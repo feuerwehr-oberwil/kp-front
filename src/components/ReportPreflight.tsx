@@ -75,7 +75,7 @@ import { ReportSignatures } from './ReportSignatures'
 import { signaturesToPrint, useSignatureLock } from './useReportSignatures'
 import { useAuditProof } from './useAuditProof'
 import { initialKrokiAt, useKrokiMoment } from './useKrokiMoment'
-import { PHONE_TABS, STEP_TAB, rapportKept, useJournalPrintAsk, useReportPlace, type PhoneTab } from './useReportPlace'
+import { PHONE_TABS, STEP_TAB, rapportKept, useReportPlace, type PhoneTab } from './useReportPlace'
 
 const NO_IDS = new Set<string>()
 const NO_SIGNATURES: ReportSignature[] = []
@@ -91,7 +91,6 @@ const RP_FOLD = { print: 1, pdf: 2, complete: 3, title: 4 } as const
 
 // «Zeig mir diese offene Angabe» from outside the sheet — lives with the tabs (useReportPlace)
 export { requestReportStep } from './useReportPlace'
-
 
 /** HH:MM of a server read-out beside a vehicle (vor Ort / zurück) — not a field: every field of the
  *  Rapport reads its date too (DateTimeField). */
@@ -975,13 +974,6 @@ export function ReportPreflight({
     optionOverrides.current = { ...optionOverrides.current, ...patch }
     setOptions((o) => ({ ...o, ...patch }))
   }
-  // the outside ask (useReportPlace · requestJournalPrint): tick «Einsatzjournal» and open the ▾
-  // it lives in, two frames on so the trigger is laid out
-  const pdfMoreRef = useRef<HTMLButtonElement>(null)
-  useJournalPrintAsk(() => {
-    if (!options.journal) patchOpt({ journal: true })
-    requestAnimationFrame(() => requestAnimationFrame(() => pdfMoreRef.current?.click()))
-  })
   // is there anything on the SERVER to archive? Journal photos/recordings and Rapport-Beilagen
   // are all Media rows; blob: URLs are uploads still in flight and not fetchable as a ZIP yet
   const hasStoredMedia = useMemo(() => (
@@ -1451,7 +1443,7 @@ export function ReportPreflight({
               </button>
               <Menu
                 trigger={
-                  <button type="button" ref={pdfMoreRef} className="ip-btn head-tile rp-split-more" aria-label={P.printMenu} title={P.printMenu}>
+                  <button type="button" className="ip-btn head-tile rp-split-more" aria-label={P.printMenu} title={P.printMenu}>
                     <Icon id="chevron-down" className="chev" />
                   </button>
                 }

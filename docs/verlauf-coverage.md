@@ -171,7 +171,7 @@ the same rows:
   aktualisiert: Adresse A → B, Meldung ergänzt «…»»), and the decision – «Alarm-Aktualisierung
   übernommen: Meldung (Adresse bleibt)», «… übernommen: Adresse (über Einsatzdaten)» when the
   crew took everything through «Bearbeiten», «Alarm-Aktualisierung ausgeblendet», «Alarm-
-  Aktualisierung wieder eingeblendet» («Zeigen» on the strip, 17.11.2026), «Übernahme der
+  Aktualisierung wieder eingeblendet» («Zeigen» in the Einsatz menu, 17.11.2026), «Übernahme der
   Alarm-Aktualisierung rückgängig gemacht». The fields a take writes are a `meta.change` with
   source `alarm_update` – which is how a take is told apart from a hand edit (source
   `einsatzdaten`, which since this change also covers the Alarmmeldung `text`).

@@ -135,7 +135,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
         installedSub: { installed: 'dalla schermata Home', browser: 'aperta nel browser – più affidabile come app', browserIos: 'aperta nel browser – allarmi solo nell’app installata' },
         install: 'Installa',
         permission: 'Notifiche',
-        permissionSub: { granted: 'consentite', ask: 'non ancora consentite dal dispositivo', denied: 'rifiutate – consentirle in {path}', afterInstall: 'solo nell’app installata' },
+        permissionSub: { granted: 'consentite', ask: 'non ancora consentite dal dispositivo', denied: 'rifiutate – consentirle tramite {path}', afterInstall: 'solo nell’app installata' },
         allow: 'Consenti',
         subscription: 'Abbonamento allarme',
         subscriptionSub: { subscribed: 'rinnovato il {d}', stale: 'non rinnovato dal {d} – in scadenza', none: 'non registrato' },

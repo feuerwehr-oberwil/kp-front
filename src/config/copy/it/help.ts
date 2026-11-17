@@ -87,7 +87,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             'In cima l’intervento aperto: **Modifica** (i dati dell’intervento), **Chiudi** con il numero di ciò che è ancora aperto, e **Condividi**.',
             'Sotto, gli altri interventi in corso – toccarne uno per passarci. Se ne sono in corso diversi, l’intervento in alto mostra un **+N**.',
-            '**Nuovo allarme** – un allarme arrivato che non è ancora un intervento: **Apri** lo apre. La **✕** lo nasconde solo su questo dispositivo; resta come riga grigia «Nascosto», e **Mostra** lo riporta.',
+            '**Nuovo allarme** – un allarme arrivato che non è ancora un intervento: **Apri** lo apre. La **✕** lo nasconde solo su questo dispositivo; sotto **Interventi** resta come riga sbiadita, e **Mostra** lo riporta. Un **Allarme aggiornato** nascosto torna con **Mostra** nel menu dell’intervento.',
             '**Apri intervento** – un intervento a mano, senza allarme. La prima domanda è **Reale | Esercitazione**, poi luogo (oggetto, indirizzo o sulla carta) e parola chiave. Ciò che è stato digitato a metà resta, anche se l’app si ricarica.',
             '**Tutti gli interventi** – anche quelli chiusi: toccarne uno lo apre in lettura, **Riapri** per completarlo.',
             '**Lascia l’intervento** – torna alla mappa; l’intervento continua.',
@@ -97,7 +97,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             'Un’esercitazione è un intervento come ogni altro – tutto funziona allo stesso modo. Non conta nella statistica degli interventi e compare tratteggiata e con la parola «Esercitazione» nella barra.',
             'Aprire: **Apri intervento** › **Esercitazione** – il pulsante diventa **Apri esercitazione**. Un intervento in corso diventa un’esercitazione, o torna indietro, tramite **Modifica**.',
-            'In **Tutti gli interventi** si può eliminare solo un’esercitazione chiusa che lo era fin dall’inizio. Dove non è possibile, compare «Eliminare: solo nell’amministrazione».',
+            'In **Tutti gli interventi** si può eliminare solo un’esercitazione chiusa che lo era fin dall’inizio. Le altre le elimina l’amministrazione.',
           ] },
         ],
       },
@@ -402,7 +402,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         blocks: [
           { kind: 'lead', text: 'Un diario condiviso e continuo su mappa e piano – il decorso dell’intervento.' },
           { kind: 'list', items: [
-            '**Voce**: un tocco breve apre l’immissione testo. **Tenere premuto** apre due campi – **Nota vocale** e **Foto** – che restano finché non se ne tocca uno; il pulsante stesso diventa una **✕** e annulla. Nella voce stessa registrazione, file e foto allegano qualcosa; quando lo spazio è poco (di solito con la tastiera aperta) stanno insieme sotto **Allegato**.',
+            '**Voce**: un tocco breve apre l’immissione testo. **Tenere premuto** apre due campi – **Nota vocale** e **Foto** – che restano finché non se ne tocca uno; il pulsante stesso diventa una **✕** e annulla. Nella voce stessa registrazione, file e foto allegano qualcosa; quando lo spazio è poco (di solito con la tastiera aperta) stanno insieme sotto la **graffetta**.',
             'Da **due lettere** in poi vengono proposti nomi – personale, materiale, organizzazioni partner, veicoli e gruppi d’allarme, più i posti **CI** e **Sost. CI**. Toccandone uno si inserisce il nome intero; nel diario e sul rapporto stampato è evidenziato. Chi scrive il posto ottiene anche il nome («CI (Widmer Céline)»), chi scrive il nome ottiene il posto. Non c’è un campo «da» separato: la frase dice già chi ha segnalato.',
             'Appena la frase termina con un nome, accanto compaiono **→** e **←** come proposta: un tocco scrive la freccia, e «CI → sanità: paziente stabile» si legge come il protocollo radio che il diario è. Sulla carta diventa «->».',
             'Finché il campo è **vuoto**, sono pronti i chip iniziali: prima **CI →**, poi le formulazioni già scritte in questo intervento (altrimenti la lista del corpo). Restano finché non si digita davvero – un secondo chip si aggiunge al primo.',
@@ -411,7 +411,6 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'Una voce del diario con un luogo, se toccata, riporta al punto sulla mappa o sul piano; foto e note vocali si aprono/riproducono direttamente nel diario.',
             'Un **errore di battitura** si può correggere: la **matita** nella riga sta su tutto ciò che qualcuno ha digitato di persona – non su ciò che l’app ha scritto su un’azione («Squadra 2 entrata»). La riga porta poi **Corretto HH:MM**; il testo originale resta nel verbale e nella catena di verifica.',
             '**Riproduzione** (▶ nel diario) riproduce mappa e piano a un momento precedente (cursore temporale; la modifica è bloccata). Nell’intervento in corso si apre su «Adesso», e **Riproduci** riparte dall’inizio; in quello chiuso si apre all’inizio. Sul telefono ▶ sta sul righello del tempo.',
-            'Nel menu filtro del diario, **Stampa cronologia / PDF** porta al PDF del rapporto, con il diario d’intervento spuntato.',
             'Il testo digitato a metà nella **Voce** resta, anche se l’app si ricarica – foto e note vocali no.',
           ] },
           { kind: 'sub', text: 'Pendenze' },
@@ -456,7 +455,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           ] },
           { kind: 'sub', text: 'Presentare' },
           { kind: 'list', items: [
-            '**Presentare** – nel menu, all’intervento aperto, o in **Condividi l’intervento** – › **Avvia**: chi ha aperto l’intervento o il link di lettura può **Seguire** – il suo schermo mostra ciò che mostra il tuo, su ogni superficie.',
+            '**Presentare** – nel menu, sulla scheda dell’intervento aperto, accanto a **Condividi**, o in **Condividi l’intervento** – › **Avvia**: chi ha aperto l’intervento o il link di lettura può **Seguire** – il suo schermo mostra ciò che mostra il tuo, su ogni superficie.',
             '**Indica** trasforma un tocco in un punto e un tratto in una linea, che poi svaniscono – visibili a tutti, nulla viene salvato.',
             '**Termina** smette; **Non seguire più** libera di nuovo il proprio schermo. Se una presentazione è già in corso, si può **subentrare**. Presentare richiede la rete.',
           ] },

@@ -135,7 +135,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
         installedSub: { installed: 'from the home screen', browser: 'open in the browser – more reliable as an app', browserIos: 'open in the browser – alarms only in the installed app' },
         install: 'Install',
         permission: 'Notifications',
-        permissionSub: { granted: 'allowed', ask: 'not yet allowed by the device', denied: 'denied – allow it in {path}', afterInstall: 'only in the installed app' },
+        permissionSub: { granted: 'allowed', ask: 'not yet allowed by the device', denied: 'denied – allow it via {path}', afterInstall: 'only in the installed app' },
         allow: 'Allow',
         subscription: 'Alarm subscription',
         subscriptionSub: { subscribed: 'renewed {d}', stale: 'not renewed since {d} – expiring', none: 'not registered' },

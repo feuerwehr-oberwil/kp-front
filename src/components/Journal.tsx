@@ -108,9 +108,6 @@ export type JournalProps = {
   /** start time-travel replay from the Verlauf (closes the drawer). Absent while
    *  replay is already running. */
   onReplay?: () => void
-  /** «Verlauf drucken / PDF» in the funnel menu (F16): to the Rapport's PDF ▾, «Einsatzjournal»
-   *  ticked. Absent during a replay. */
-  onPrint?: () => void
   /** still-open reminders (by derived state) — lets a `created` row show its due time
    *  and a checklist-style done toggle. Absent ⇒ reminder rows render as plain log lines. */
   openReminders?: OpenReminder[]
@@ -167,7 +164,7 @@ export type JournalProps = {
 // happens on either surface. Rendered as a slide-over so it can open over the
 // map or the plan; a row jumps back to wherever its event happened. Each row is
 // a <JournalRow>; the row's detail sheet is rendered here, at the bottom.
-export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, onPrint, openReminders, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice, photoPlacement, onPhotoPlace, onPhotoShow, onOpenTafel, onShowTrupp }: JournalProps) {
+export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice, photoPlacement, onPhotoPlace, onPhotoShow, onOpenTafel, onShowTrupp }: JournalProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.journal
   const audio = useAudioPlayer()
@@ -668,12 +665,6 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
         disabled: !filtering,
         onClick: () => setFilterSel(new Set()),
       },
-      // the Verlauf on paper (F16 · TASK.7): its export is the Rapport's «Einsatzjournal» – a
-      // worded door here, not one more glyph in a phone head that has no room for it
-      ...(onPrint ? [
-        { kind: 'sep' as const },
-        { label: <span className="jr-filter-row"><Icon id="printer" /><span className="jr-filter-label">{C.printVerlauf}</span></span>, onClick: onPrint },
-      ] : []),
     ]
   }
 
