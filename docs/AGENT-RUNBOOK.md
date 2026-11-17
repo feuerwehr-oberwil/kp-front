@@ -254,6 +254,14 @@ uv run python -m app.admin_objects_repair geocode-missing         # place plan-c
   place looks exactly like a correct one in a summary line. The report names the field it
   queried (`(its address)` / `(its name)`) for exactly this check.
 
+### Recovering a Rapport missing from the Einsatz-Ablage
+
+An old closed Einsatz may predate PDF retention. The dry-run/apply/verification command for
+one explicitly selected completed print job is in
+[incident-archive.md › Recovering an older printed Rapport](incident-archive.md#recovering-an-older-printed-rapport).
+«Ablegen» alone cannot recover it. Check promptly: the print queue is transient. Recovery does
+not replace a kept or filed PDF and does not recompose the incident's current data.
+
 ### Where health is visible
 
 ```bash

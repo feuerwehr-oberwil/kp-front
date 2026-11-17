@@ -569,6 +569,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
         exercise: 'Exercise – not filed',
         onClose: 'when closed',
         none: 'not filed',
+        empty: 'no files to file',
         noReport: 'no report PDF',
         file: 'File now',
         retry: 'Retry',

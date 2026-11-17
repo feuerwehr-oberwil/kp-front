@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import json
 import uuid
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
@@ -419,3 +421,168 @@ async def test_a_lost_rapport_upload_never_hands_its_name_to_a_newer_rapport(
         "Einsatzrapport v2.pdf",
         "Einsatzrapport.pdf",
     ]
+
+
+# --- a Rapport printed before the Ablage existed --------------------------------------------
+
+
+def _printed_pdf(order=(3, 2, 1), *, total=3) -> bytes:
+    import io
+
+    from reportlab.pdfgen.canvas import Canvas
+
+    buf = io.BytesIO()
+    c = Canvas(buf)
+    for n in order:
+        c.drawString(50, 700, f"Original page {n}")
+        c.drawRightString(550, 22, f"{n} / {total}")
+        c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+@pytest.mark.parametrize("order", [(1, 2, 3), (3, 2, 1), (1,)])
+def test_recovered_printer_pdf_uses_its_own_footer_for_reading_order(order):
+    from app.admin_incident_archive import reading_order_pdf
+
+    source = _printed_pdf(order, total=len(order))
+    pdf, pages, reversed_pages = reading_order_pdf(source)
+    assert pages == len(order)
+    assert reversed_pages is (order[0] != 1)
+    if not reversed_pages:
+        assert pdf == source
+    import pypdfium2 as pdfium
+
+    from app.pdfium_lock import pdfium_lock
+
+    with pdfium_lock, pdfium.PdfDocument(pdf) as doc:
+        for n, page in enumerate(doc, 1):
+            with closing(page), closing(page.get_textpage()) as text:
+                assert f"Original page {n}" in text.get_text_range()
+
+
+@pytest.mark.parametrize("order,total", [((2, 1, 3), 3), ((3, 2, 2), 3), ((3, 2, 1), 4)])
+def test_recovery_refuses_ambiguous_or_incomplete_printed_pages(order, total):
+    from app.admin_incident_archive import reading_order_pdf
+
+    with pytest.raises(ValueError, match="page"):
+        reading_order_pdf(_printed_pdf(order, total=total))
+
+
+async def _old_print_job(db, inc, **over):
+    from app.models import PrintJob
+
+    job = PrintJob(
+        incident_id=uuid.UUID(inc),
+        kind="report",
+        filename="Einsatzrapport.pdf",
+        pdf=_printed_pdf(),
+        status="done",
+        created_at=datetime(2026, 7, 15, tzinfo=UTC),
+    )
+    for k, v in over.items():
+        setattr(job, k, v)
+    db.add(job)
+    await db.commit()
+    return job
+
+
+async def test_recover_print_job_dry_run_apply_delivery_and_second_dry_run(
+    client, editor, drive, session_factory, db_session, monkeypatch, capsys
+):
+    from app import admin_incident_archive as cli
+
+    inc = await _incident(client, editor)
+    await _close(client, inc)
+    # Exact production symptom: an empty pass claims delivered, no PDF or folders exist.
+    assert await archive.run_once(session_factory, transport=drive.transport) == "delivered"
+    job = await _old_print_job(db_session, inc)
+    source, job_id = job.pdf, job.id
+    monkeypatch.setattr(cli, "async_session_maker", session_factory)
+    args = ["recover-report", inc, "--print-job", str(job_id)]
+    assert await cli._amain(args) == 0
+    assert json.loads(capsys.readouterr().out)["state"] == "ready"
+    assert await db_session.get(IncidentArchiveReport, uuid.UUID(inc)) is None
+    assert not list(Path(storage_mod._ROOT).rglob("*.pdf"))
+    assert await cli._amain([*args, "--apply"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["state"] == "recovered"
+    assert result["reversedPages"] is True
+    db_session.expire_all()
+    kept = await db_session.get(IncidentArchiveReport, uuid.UUID(inc))
+    assert kept.composed_at == datetime(2026, 7, 15, tzinfo=UTC)
+    key = kept.storage_key
+    assert str(job_id) in key
+    assert (await _row(db_session, inc)).state == "pending"
+    assert await archive.run_once(session_factory, transport=drive.transport) == "delivered"
+    files = drive.files(f"{REPORTS}/2026/2026.07.15 Ölspur")
+    assert len(files) == 1
+    assert files[next(iter(files))] == await storage_mod.aget_bytes(key)
+    assert await cli._amain(args) == 0
+    assert json.loads(capsys.readouterr().out)["state"] == "unchanged"
+    assert await archive.run_once(session_factory, transport=drive.transport) is None
+    db_session.expire_all()
+    assert (await db_session.get(type(job), job_id)).pdf == source
+    # A freshly composed Rapport still supersedes the legacy bytes and is filed as v2.
+    await _report(client, inc, summary="Nachtrag zum wiederhergestellten Rapport.")
+    assert await archive.run_once(session_factory, transport=drive.transport) == "delivered"
+    assert len(drive.files(f"{REPORTS}/2026/2026.07.15 Ölspur")) == 2
+    assert drive.files()[next(iter(files))] == files[next(iter(files))]
+
+
+@pytest.mark.parametrize(
+    "reason", ["running", "exercise", "off", "wrong-incident", "wrong-kind", "not-done", "newer-report"]
+)
+async def test_recovery_refuses_unsafe_sources_without_writing(client, editor, drive, db_session, reason):
+    from app.admin_incident_archive import recover_report
+
+    inc = await _incident(client, editor, is_exercise=reason == "exercise")
+    if reason != "running":
+        await _close(client, inc)
+    source_inc = await _incident(client, editor) if reason == "wrong-incident" else inc
+    job = await _old_print_job(
+        db_session,
+        source_inc,
+        kind="capture_report" if reason == "wrong-kind" else "report",
+        status="failed" if reason == "not-done" else "done",
+    )
+    if reason == "off":
+        await _config(db_session, {"enabled": False, "destinations": [DEST]})
+    if reason == "newer-report":
+        await _report(client, inc)
+    with pytest.raises(ValueError):
+        await recover_report(db_session, uuid.UUID(inc), job.id, apply=True)
+    db_session.expire_all()
+    kept = await db_session.get(IncidentArchiveReport, uuid.UUID(inc))
+    assert (kept is not None) == (reason == "newer-report")
+
+
+@pytest.mark.parametrize("remote", [{"reports": [{"sha": "old"}]}, {"reportTry": {"sha": "unconfirmed"}}])
+async def test_recovery_protects_previously_filed_and_unconfirmed_reports(client, editor, drive, db_session, remote):
+    from app.admin_incident_archive import recover_report
+
+    inc = await _incident(client, editor)
+    await _close(client, inc)
+    row = await _row(db_session, inc)
+    row.remote_items = remote
+    job = await _old_print_job(db_session, inc)
+    with pytest.raises(ValueError, match=r"already filed|unconfirmed"):
+        await recover_report(db_session, uuid.UUID(inc), job.id, apply=True)
+    assert await db_session.get(IncidentArchiveReport, uuid.UUID(inc)) is None
+    assert not list(Path(storage_mod._ROOT).rglob("*.pdf"))
+
+
+async def test_recovery_rollback_leaves_no_kept_pdf_or_storage_blob(client, editor, drive, session_factory, db_session):
+    from app.admin_incident_archive import recover_report
+
+    inc = await _incident(client, editor)
+    await _close(client, inc)
+    job = await _old_print_job(db_session, inc)
+    async with session_factory() as db:
+        result = await recover_report(db, uuid.UUID(inc), job.id, apply=True)
+        assert result["state"] == "recovered"
+        await db.rollback()
+    db_session.expire_all()
+    assert await db_session.get(IncidentArchiveReport, uuid.UUID(inc)) is None
+    assert not list(Path(storage_mod._ROOT).rglob("*.pdf"))
+    assert (await _row(db_session, inc)).wanted == 1

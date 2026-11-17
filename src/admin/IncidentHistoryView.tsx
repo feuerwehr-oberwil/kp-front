@@ -21,7 +21,8 @@ const archiveTone = (state: ArchiveRow['state']) =>
 
 /** «Ablage» (docs/incident-archive.md): where the Einsatz-Ablage stands for one Einsatz – per
  *  destination the state, the folder (copyable), the error while it fails and «Erneut
- *  versuchen»; «Ablegen» for a closed Einsatz the Ablage has not seen (closed before it was on). */
+ *  versuchen»; «Ablegen» for a closed Einsatz the Ablage has not seen (closed before it was on).
+ *  A completed pass with zero filed files is neutral, never «abgelegt». */
 function ArchiveCell({ incident, rows, onRetry }: { incident: IncidentMeta; rows: ArchiveRow[]; onRetry: () => void }) {
   const A = appConfig.copy.admin.incidentHistory.archive
   if (incident.is_exercise) return <span className="adm-ref-note">{A.exercise}</span>
@@ -36,15 +37,18 @@ function ArchiveCell({ incident, rows, onRetry }: { incident: IncidentMeta; rows
   }
   return (
     <span className="adm-archive">
-      {rows.map((r) => (
-        <span key={r.destination} className="adm-archive-row">
-          <StatusBadge label="" state={A.states[r.state]} tone={archiveTone(r.state)} />
-          {r.folders.map((f) => <CopyChip key={f} value={f} display={f.split('/').pop() ?? f} />)}
-          {r.state === 'delivered' && r.reportVersions === 0 && <span className="adm-ref-note">{A.noReport}</span>}
-          {r.state !== 'delivered' && r.lastError && <span className="adm-archive-err">{r.lastError}</span>}
-          {r.state === 'failed' && <button type="button" className="btn adm-int-btn" onClick={onRetry}>{A.retry}</button>}
-        </span>
-      ))}
+      {rows.map((r) => {
+        const empty = r.state === 'delivered' && r.reportVersions === 0 && r.filedMedia === 0
+        return (
+          <span key={r.destination} className="adm-archive-row">
+            <StatusBadge label="" state={empty ? A.empty : A.states[r.state]} tone={empty ? 'off' : archiveTone(r.state)} />
+            {r.folders.map((f) => <CopyChip key={f} value={f} display={f.split('/').pop() ?? f} />)}
+            {r.state === 'delivered' && !empty && r.reportVersions === 0 && <span className="adm-ref-note">{A.noReport}</span>}
+            {r.state !== 'delivered' && r.lastError && <span className="adm-archive-err">{r.lastError}</span>}
+            {r.state === 'failed' && <button type="button" className="btn adm-int-btn" onClick={onRetry}>{A.retry}</button>}
+          </span>
+        )
+      })}
     </span>
   )
 }

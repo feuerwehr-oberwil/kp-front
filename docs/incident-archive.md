@@ -137,8 +137,42 @@ real Einsatz with no row yet (closed before the Ablage was on) it enqueues it. 4
 
 UI: `/admin` › Einsätze shows an **«Ablage»** column while the Ablage is on: per destination
 «abgelegt» / «ausstehend» / «pausiert» / «Fehler» with the error, the folders (copyable), «ohne
-Rapport-PDF», and «Erneut versuchen» on a Fehler; «beim Abschluss» for a running Einsatz, «Übung –
-wird nicht abgelegt», and «nicht abgelegt» + «Ablegen» for a closed one the Ablage has not seen.
+Rapport-PDF» when media were filed without a PDF, and «Erneut versuchen» on a Fehler. A completed
+pass with **zero filed reports and zero filed media** says «keine Dateien zum Ablegen» in a
+neutral tone, never «abgelegt» (even if a folder exists). `delivered` in the outbox means the
+pass owes no more files, not proof that a file was copied. With no delivery row, the column says
+«beim Abschluss» for a running Einsatz, «Übung – wird nicht abgelegt», or «nicht abgelegt» +
+«Ablegen» for a closed one the Ablage has not seen.
+
+## Recovering an older printed Rapport
+
+PDFs composed before the Ablage was enabled were not kept by it. «Ablegen» retries delivery;
+it does not recompose a Rapport or recover one from the print queue. If the original completed
+print job still exists (the queue is transient), an administrator can recover **one explicitly
+selected full Rapport**. Review its incident, print timestamp and contents first; a printed
+version is not necessarily the final Rapport.
+
+Run from `backend/`, against the target's `DATABASE_URL`:
+
+```bash
+uv run python -m app.admin_incident_archive recover-report <incident-id> --print-job <job-id>
+# Inspect the dry-run JSON: source job, original compose time, pages, reversal and SHA.
+uv run python -m app.admin_incident_archive recover-report <incident-id> --print-job <job-id> --apply
+# Verify with the first command again («unchanged»), then the normal delivery status.
+```
+
+The dry run writes nothing. Apply keeps the original printed page content, restoring reading
+order only when the PDF's own «n / total» footers prove a complete reversed sequence. It never
+uses today's printer setting or recomposes current incident data. Missing, mixed or duplicate
+page numbers are refused. The source print job remains untouched; the storage prefix records
+its id and `composed_at` keeps its original creation time. As the old payload was not retained,
+`content_sha` is a domain-separated hash of the source PDF bytes rather than a payload hash.
+
+Recovery requires an active destination and a closed, real Einsatz. It accepts only a completed
+`report` job of that Einsatz, never a capture report. An existing kept PDF, a previously filed
+PDF or an upload whose response is unconfirmed is protected; a concurrent compose also wins.
+Repeating the same recovery is a no-op. Apply only enqueues the normal retrying archive worker;
+it makes no SharePoint request itself and never overwrites an existing remote file.
 
 ## Setting it up
 

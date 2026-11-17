@@ -77,6 +77,28 @@ describe('IncidentHistoryView – the Ablage column', () => {
     expect(screen.queryByText(A.column)).toBeNull()
   })
 
+  it('does not claim an empty delivery was filed, even if folders were created', async () => {
+    listIncidents.mockResolvedValue([closed])
+    apiGet.mockResolvedValueOnce({ enabled: true, deliveries: [{
+      ...row, state: 'delivered', folders: ['Einsätze/2026/empty'],
+    }] })
+    render(<IncidentHistoryView />)
+    expect(await screen.findByText('keine Dateien zum Ablegen')).toBeTruthy()
+    expect(screen.queryByText(A.states.delivered)).toBeNull()
+    expect(screen.queryByText(A.noReport)).toBeNull()
+  })
+
+  it.each([{ reportVersions: 1, filedMedia: 0 }, { reportVersions: 0, filedMedia: 2 }])(
+    'confirms a nonempty delivery and only flags a missing PDF when appropriate: %j',
+    async (files) => {
+      listIncidents.mockResolvedValue([closed])
+      apiGet.mockResolvedValueOnce({ enabled: true, deliveries: [{ ...row, state: 'delivered', ...files }] })
+      render(<IncidentHistoryView />)
+      expect(await screen.findByText(A.states.delivered)).toBeTruthy()
+      expect(!!screen.queryByText(A.noReport)).toBe(files.reportVersions === 0)
+    },
+  )
+
   it('says Fehler with the reason and retries that Einsatz', async () => {
     listIncidents.mockResolvedValue([closed, { ...closed, id: 'inc-2', title: 'Übung Steiger', is_exercise: true }])
     apiGet.mockResolvedValue({ enabled: true, deliveries: [row] })
