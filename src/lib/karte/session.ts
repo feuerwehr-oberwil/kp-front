@@ -7,8 +7,10 @@
 //   · its Ebenen, as a device preference under its own key (lib/layerPrefs · `kp.layers.karte`),
 //     so switching a layer off here changes no Einsatz and an Einsatz changes nothing here;
 //   · where it was looking (`KarteView`: the map's frame, the selected object, the open plan or
-//     the Checkliste surface, the open tool — never its content), in sessionStorage, so coming back from an Objektbesuch or
-//     from an Einsatz lands on the same object, the same plan and the same frame. Its `label`
+//     the Checkliste surface), in sessionStorage, so coming back from an Objektbesuch or
+//     from an Einsatz lands on the same object, the same plan and the same frame. NOT the open
+//     tool (rare-user round 17.11.2026, C3): back from an Einsatz, the first tap on an object
+//     measured instead of selecting it – the place comes back, the tool starts put down. Its `label`
 //     («Schloss Musterdorf · Modul 2/3») is what the Einsatz menu's «Karte & Objekte» row says
 //     it returns to, read without loading the catalogue (panels/IncidentSwitcher).
 //
@@ -34,17 +36,11 @@ export interface KarteView {
   /** what was open: the map, one plan (its dataset id), the Gebäude stack or the Checkliste
    *  surface (ChecklistLibrary — its own selection is the library's, not kept here) */
   surface: 'karte' | 'gebaeude' | 'checkliste' | { plan: string }
-  /** the open tool — only WHICH one: a measurement, a UN number or a pin never ride along */
-  tool?: KarteTool | null
   /** «<Objekt> · <Plan>» for «Zurück zu …», null with nothing selected */
   label?: string | null
 }
 
-/** The tools whose being open is worth restoring (the pin tool is a one-tap mode, not a place). */
-export type KarteTool = 'measure' | 'erg' | 'layers'
-const TOOLS: readonly string[] = ['measure', 'erg', 'layers']
-
-/** Only the view: whatever else the caller hands in (measure points, rings, a pin) is dropped. */
+/** Only the view: whatever else the caller hands in (the tool, measure points, rings, a pin) is dropped. */
 export function karteViewSnapshot(s: KarteView & Record<string, unknown>): KarteView {
   const surface = s.surface === 'gebaeude' || s.surface === 'checkliste' ? s.surface
     : typeof s.surface === 'object' && s.surface && typeof (s.surface as { plan?: unknown }).plan === 'string'
@@ -56,7 +52,6 @@ export function karteViewSnapshot(s: KarteView & Record<string, unknown>): Karte
     bearing: Number(s.bearing) || 0,
     objectId: typeof s.objectId === 'string' ? s.objectId : null,
     surface,
-    tool: typeof s.tool === 'string' && TOOLS.includes(s.tool) ? s.tool as KarteTool : null,
     label: typeof s.label === 'string' && s.label.trim() ? s.label.trim().slice(0, 120) : null,
   }
 }

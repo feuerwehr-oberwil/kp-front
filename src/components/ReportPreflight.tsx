@@ -53,6 +53,7 @@ import { EF_PAGE_ID, RAPPORT_PAGE_ID, tafelKindPrints, tafelMenuKinds, tafelPrin
 import { isDrawnBoardKind } from '../lib/workspace'
 import { abschlussFacts, missingSteps, nextOpenStep, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { abschlussOpenItems, abschlussSheet, controlChipLabel } from '../lib/abschlussOpen'
+import { reportStep } from '../lib/reportUndo'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { openConflicts, sideLabel, sideValue, type OpenConflict } from '../lib/attendanceConflict'
 import { incidentDays, isOtherDay } from '../lib/zeitplanFormat'
@@ -569,11 +570,17 @@ export function ReportPreflight({
   // ⚠️ The base is `metaRef`, the freshest blob this surface has seen, not the `reportMeta` of
   // the render this closure was built in: `startOutput` persists the Kroki framing AFTER an
   // awaited confirm dialog, by which time a sync may have moved the blob on underneath it.
-  const persist = (over: Partial<ReportMeta>) => canEdit && onSaveMeta({
-    ...metaRef.current,
-    ...dirtyMeta(),
-    ...over,
-  })
+  // ⚠️ An operator's edit makes the paper STALE (M5 · A, 17.11.2026): it drops `reportMadeAt`, so
+  // the close sheet lists «Rapport noch nicht erstellt» again and the head offers the PDF, not
+  // the green close, as if the Rapport were current – after «Wieder öffnen» + a corrected time
+  // the green «Abschliessen» stood there at once over the old paper. Only the operator's fields
+  // count (lib/reportUndo · reportStep): the app's bookkeeping (the Kroki framing) does not.
+  const persist = (over: Partial<ReportMeta>) => {
+    if (!canEdit) return false
+    const next: ReportMeta = { ...metaRef.current, ...dirtyMeta(), ...over }
+    if (next.reportMadeAt && reportStep(metaRef.current, next)) delete next.reportMadeAt
+    return onSaveMeta(next)
+  }
 
   // Commit the Kroki-seeded Einsatzleiter to the blob once, so the Abschluss-Checkliste and a
   // rapport printed from another device see the same name this field shows — a value that only

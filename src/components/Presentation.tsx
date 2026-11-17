@@ -85,11 +85,15 @@ function usePillLift(on: boolean) {
 }
 
 /** The pill (and the edge arrows). Renders nothing while no presentation is running or this
- *  device is offline. */
-export function PresentationPill({ p }: { p: Presentation }) {
+ *  device is offline. `overVerlauf` (a phone with the Verlauf open – following opens it by itself):
+ *  the pill is rendered at the body, beside the drawer's portal – inside `.app` (position: fixed,
+ *  its own stacking context) no z-index can lift it over the drawer and its scrim (F6, 17.11.2026).
+ *  Only then: on the floating row the pill is an obstacle the chip row steps past
+ *  (lib/floatRow · `.phone-tools .present-pill`), and under the drawer there is no row. */
+export function PresentationPill({ p, overVerlauf = false }: { p: Presentation; overVerlauf?: boolean }) {
   return (
     <>
-      <PillBody p={p} />
+      {overVerlauf ? createPortal(<PillBody p={p} />, document.body) : <PillBody p={p} />}
       <EdgeArrows on={p.marks > 0} />
     </>
   )
@@ -440,9 +444,11 @@ export function PageMarks({ p, top }: { p: BoardPresentation; top: number }) {
   )
 }
 
-/** «Präsentieren» under the read link in «Einsatz teilen». Absent outside an Einsatz (the
- *  Rapport's inline «Weitergeben») and for a session that may not present. */
-export function PresentCard() {
+/** «Präsentieren» under the read link in «Einsatz teilen», and alone in the Einsatz menu's own
+ *  «Präsentieren» sheet (F15, 17.11.2026 – `bare`: the sheet's title already says the word, so the
+ *  card drops its glyph and title). Absent outside an Einsatz (the Rapport's inline
+ *  «Weitergeben») and for a session that may not present. */
+export function PresentCard({ bare = false }: { bare?: boolean }) {
   const p = useContext(PresentationContext)
   const C = appConfig.copy.presentation
   if (!p) return null
@@ -454,8 +460,8 @@ export function PresentCard() {
   return (
     <div className="present-card">
       <div className="present-card-head">
-        <span className="present-card-glyph" aria-hidden><Icon id="present" /></span>
-        <b className="present-card-title">{C.title}</b>
+        {!bare && <span className="present-card-glyph" aria-hidden><Icon id="present" /></span>}
+        {!bare && <b className="present-card-title">{C.title}</b>}
         {mine
           ? <button type="button" className="ip-btn" onClick={() => void p.end()}><Icon id="stop" />{C.end}</button>
           : p.canStart && (

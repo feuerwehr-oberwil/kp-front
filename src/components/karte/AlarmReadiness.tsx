@@ -3,7 +3,7 @@
 // Karte home's nudge card. The rules —
 // which row is red, which fix it offers, when the card may show — are lib/alarmReadiness; this
 // file gathers the facts (display mode, Notification.permission, the device record, the login's
-// expiry) and wires the fixes: «Erlauben» = the permission ask + the push registration,
+// expiry and role) and wires the fixes: «Erlauben» = the permission ask + the push registration,
 // «Erneuern» = re-register, «Installieren» = the InstallGuide, «Testalarm senden» = one push to
 // this browser, «Keine Alarme auf diesem Gerät» = push off (undo toast; reversible in the rows).
 // The 3am rule: nothing modal by itself, no OS dialog without a tap.
@@ -13,6 +13,8 @@ import { appConfig } from '../../config/appConfig'
 import { cx } from '../../lib/cx'
 import { fillTemplate } from '../../lib/format'
 import { fmtDay } from '../../lib/buildingCard'
+import { roleLabel } from '../../lib/format'
+import { permissionPath } from '../../lib/permissionPath'
 import { Icon } from '../../lib/icons'
 import { toast, undoToast } from '../../lib/ui'
 import { ensureNotifyPermission } from '../../lib/alarm'
@@ -72,14 +74,17 @@ function useFixes(refresh: () => void) {
 const fixLabel = (fix: ReadinessFix, A: typeof appConfig.copy.karte.device.alarm) =>
   fix === 'install' ? A.install : fix === 'allow' ? A.allow : fix === 'renew' ? A.renew : null
 
-/** One readiness row: dot · name · what is the matter · its fix (where it has a button). */
-function Row({ row, onFix }: { row: ReadinessRow; onFix: (fix: ReadinessFix) => void }) {
+/** One readiness row: dot · name · what is the matter · its fix (where it has a button). `role`
+ *  names the account on the «Konto» row. */
+function Row({ row, role, onFix }: { row: ReadinessRow; role: string | null; onFix: (fix: ReadinessFix) => void }) {
   const A = appConfig.copy.karte.device.alarm
   const d = row.at != null ? fmtDay(new Date(row.at).toISOString()) : ''
   const sub = row.key === 'installed' ? A.installedSub[row.sub as keyof typeof A.installedSub]
-    : row.key === 'permission' ? A.permissionSub[row.sub as keyof typeof A.permissionSub]
+    // denied: where the switch is on this platform (lib/permissionPath)
+    : row.key === 'permission' ? fillTemplate(A.permissionSub[row.sub as keyof typeof A.permissionSub], { path: permissionPath('notifications') })
       : row.key === 'subscription' ? fillTemplate(A.subscriptionSub[row.sub as keyof typeof A.subscriptionSub], { d })
-        : fillTemplate(A.sessionSub[row.sub as keyof typeof A.sessionSub], { d })
+        : row.key === 'role' ? fillTemplate(A.roleSub, { r: roleLabel(role ?? '') })
+          : fillTemplate(A.sessionSub[row.sub as keyof typeof A.sessionSub], { d })
   const label = fixLabel(row.fix, A)
   return (
     <ListRow data-alarm-row={row.key} data-state={row.state}
@@ -98,7 +103,7 @@ function Row({ row, onFix }: { row: ReadinessRow; onFix: (fix: ReadinessFix) => 
  *  green counts as a check (the nudge card's 90-day clock). */
 export function AlarmReadinessRows({ className }: { className?: string }) {
   const A = appConfig.copy.karte.device.alarm
-  const { rows, store, available, refresh, linkSession } = useAlarmReadiness()
+  const { rows, store, available, refresh, linkSession, role } = useAlarmReadiness()
   const { run, test, optOut, optIn, guideEl } = useFixes(refresh)
   const [open, setOpen] = useState(false)
   const ready = alarmReady(rows)
@@ -133,7 +138,7 @@ export function AlarmReadinessRows({ className }: { className?: string }) {
     <div className={cx(s.alarmRows, className)} data-alarm-rows="">
       <ListCard>
         {head}
-        {shown.map((r) => <Row key={r.key} row={r} onFix={(f) => void run(f)} />)}
+        {shown.map((r) => <Row key={r.key} row={r} role={role} onFix={(f) => void run(f)} />)}
         {open && !store.optedOut && (
           <ListRow lead={<Icon id="bell-off" />} title={A.optOut} sub={A.optOutSub} chevron={false} onClick={optOut} data-alarm-optout="" />
         )}
@@ -170,7 +175,7 @@ const nudgeHeight = publishHeight('--nudge-h')
  *  Collapses to nothing when there is nothing to say — not to a line. */
 export function AlarmNudgeCard({ inIncident, phone }: { inIncident: boolean; phone: boolean }) {
   const A = appConfig.copy.karte.device.alarm
-  const { now, rows, store, available, refresh, linkSession } = useAlarmReadiness()
+  const { now, rows, store, available, refresh, linkSession, role } = useAlarmReadiness()
   const { run, test, optOut, guideEl } = useFixes(refresh)
   if (available == null || !nudgeDue(rows, { now, standalone: isStandalone(), inIncident, linkSession, pushUnavailable: !available, store })) return guideEl
   const red = rows.find((r) => r.state === 'red') ?? null
@@ -181,7 +186,7 @@ export function AlarmNudgeCard({ inIncident, phone }: { inIncident: boolean; pho
         <div className={s.alarmEyebrow}>{A.title}</div>
         <h2 className={cx(s.alarmHead, red && s.alarmHeadRed)}>{head}</h2>
         {red ? (
-          <ListCard><Row row={red} onFix={(f) => void run(f)} /></ListCard>
+          <ListCard><Row row={red} role={role} onFix={(f) => void run(f)} /></ListCard>
         ) : (
           <Button icon={<Icon id="bell" />} onClick={() => void test()} data-alarm-test="">{A.test}</Button>
         )}

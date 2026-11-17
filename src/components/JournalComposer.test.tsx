@@ -280,7 +280,7 @@ describe('JournalComposer · «Auftrag» opens the ring', () => {
     fireEvent.click(chip('Sofortmassnahme'))
     expect(ring().dataset.state).toBe('0')
     fireEvent.click(chip('Auftrag'))
-    fireEvent.click(await menuRow(/Nicht offen halten/))
+    fireEvent.click(await menuRow(/Keine Pendenz/))
     expect(ring().dataset.state).toBe('0')
     type('Auftrag ohne Nachfassen')
     send()
@@ -342,7 +342,7 @@ describe('JournalComposer · the clock', () => {
     await waitFor(() => expect(ring().dataset.state).toBe('1'))
 
     fireEvent.click(ring())
-    fireEvent.click(await screen.findByRole('menuitem', { name: /Nicht offen halten/ }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Keine Pendenz/ }))
     send()
     const d = onSubmit.mock.calls[0][0]
     expect(d.dueAt).toBeUndefined()

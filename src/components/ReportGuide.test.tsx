@@ -94,3 +94,45 @@ describe('the Abschluss band, one step earlier (#15)', () => {
     expect(close()).toBeNull()
   })
 })
+
+// M5, round 2 (owner, 17.11.2026): «if it's already closed, it's closed» – a CLOSED Einsatz's Rapport
+// gives its room to the content: no «Nächster Schritt» band and no «noch nicht erstellt», even with
+// no PDF ever made (the open Einsatz above has the band for the same record)
+it('a closed Einsatz without a PDF shows no next-step band and no «Rapport noch nicht erstellt»', () => {
+  render(
+    <ReportPreflight incident={{ ...INCIDENT, closed_at: new Date(2026, 9, 28, 4, 0).toISOString(), is_archived: true }}
+      reportMeta={{
+        alarmiertAt: START.toISOString(), endedAt: new Date(2026, 9, 28, 3, 48).toISOString(), einsatzleiter: 'Widmer Céline',
+        kontaktpersonNone: true, summary: 'Zimmerbrand gelöscht', rueckmeldungNone: true, mittelConfirmedNone: true,
+      }}
+      events={[]} annotatedPlanCount={0} truppCount={0} mapContentCount={0} attendanceCount={1} mittelCount={0}
+      canEdit closed onSaveMeta={vi.fn()} onComplete={vi.fn(async () => true)} onReopen={vi.fn(async () => 'ok' as const)} />,
+  )
+  expect(document.body.textContent).not.toContain(P.bandReady)
+  expect(document.body.textContent).not.toContain(A.reportMissing)
+  expect(screen.getByText(appConfig.copy.archived.rapportClosedHint)).toBeTruthy()
+})
+
+// M5 · A (17.11.2026): an edit after the paper makes it stale – the write drops `reportMadeAt`, so
+// the head stops offering the close as if the PDF were current and the close sheet lists the
+// Rapport again. The app's own bookkeeping never does.
+describe('an edit after the PDF', () => {
+  const done: ReportMeta = {
+    alarmiertAt: START.toISOString(), endedAt: new Date(2026, 9, 28, 3, 48).toISOString(), einsatzleiter: 'Widmer Céline',
+    kontaktpersonNone: true, summary: 'Zimmerbrand gelöscht', rueckmeldungNone: true, mittelConfirmedNone: true,
+    reportMadeAt: new Date(2026, 9, 28, 3, 50).toISOString(),
+  }
+  it('clears «Rapport erstellt» with the edit', () => {
+    const onSaveMeta = vi.fn()
+    render(
+      <ReportPreflight incident={INCIDENT} reportMeta={done} events={[]}
+        annotatedPlanCount={0} truppCount={0} mapContentCount={0} attendanceCount={1} mittelCount={0}
+        onSaveMeta={onSaveMeta} onComplete={vi.fn(async () => true)} />,
+    )
+    const field = document.querySelector<HTMLTextAreaElement>('[data-step="kurzbericht"] textarea')!
+    fireEvent.change(field, { target: { value: 'Zimmerbrand gelöscht, Wohnung gelüftet' } })
+    const saved = onSaveMeta.mock.lastCall![0] as ReportMeta
+    expect(saved.summary).toBe('Zimmerbrand gelöscht, Wohnung gelüftet')
+    expect(saved.reportMadeAt).toBeUndefined()
+  })
+})

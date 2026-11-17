@@ -227,13 +227,14 @@ export const anwesenheitCopy = {
     checkIn: 'da',
     checkInLabel: '{name} ist da – als anwesend erfassen',
     allHere: 'Alle, die kommen wollten, sind erfasst.',
-    unmapped: (n: number) => (n === 1 ? '1 Rückmeldung ohne Eintrag in der Mannschaftsliste' : `${n} Rückmeldungen ohne Eintrag in der Mannschaftsliste`),
+    unmapped: (n: number) => (n === 1 ? '1 Rückmeldung ohne Eintrag in der Personalliste' : `${n} Rückmeldungen ohne Eintrag in der Personalliste`),
     hint: 'Eine Divera-Antwort ist keine Anwesenheit – erst «da» erfasst jemanden.',
     collapse: 'Anrückend einklappen',
     expand: 'Anrückend aufklappen',
   },
-  // Schicht planning – the command form «Zeitplan» (who × time), purely planning: planned bars
-  // are hollow, actual Anwesenheit is filled. The plan never writes.
+  // Schicht planning – the command form «Zeitplan» (who × time), purely planning: verfügbar is a
+  // pale band, eingeteilt a hollow outline, actual Anwesenheit filled green (KP Rück's shape code,
+  // XAPP-07 A). The plan never writes.
   zeitplan: {
     title: 'Zeitplan',
     summary: '{planned} eingeplant · {present} jetzt da',
@@ -245,7 +246,7 @@ export const anwesenheitCopy = {
     removed: 'Schicht {name} gelöscht',
     // A swipe and a drag fire as easily as a mis-tap – so they get the same undo as deleting.
     // The planned⇄fixed toggle does not: a second tap takes that back.
-    added: 'Schicht für {name} geplant',
+    added: 'Verfügbarkeit für {name} erfasst',
     moved: 'Schicht von {name} verschoben',
     conflict: 'Doppelt eingeteilt – zwei Schichten zur selben Zeit',
     // The one mistake this form is meant to find – so it is spoken out loud instead of sitting as
@@ -266,16 +267,15 @@ export const anwesenheitCopy = {
     brokenShift: 'Diese Schicht endet vor ihrem Anfang – zum Korrigieren antippen',
     now: 'jetzt',
     coverage: 'Deckung',
-    coverageHint: 'Drei Linien: grau verfügbar, blau eingeteilt, grün tatsächlich anwesend – wo die grüne Linie einbricht, ist die Lücke.',
+    coverageHint: 'Blass gefüllt = verfügbar, Umriss = eingeteilt, grün gefüllt = tatsächlich anwesend. Die drei Linien zählen sie – wo die grüne einbricht, ist die Lücke.',
     // The coverage row expands: the curve says WHERE the gap is, the numbers say HOW MANY.
     // Collapsed by default – the shape reads at a glance, the digits cost three lines.
     coverageExpand: 'Zahlen zeigen – wie viele verfügbar, eingeteilt und anwesend sind',
     coverageCollapse: 'Zahlen ausblenden',
     planned: 'verfügbar',
     actual: 'anwesend',
-    emptyTitle: 'Noch keine Schicht geplant.',
+    emptyTitle: 'Noch keine Verfügbarkeit erfasst.',
     emptyHint: 'Pro Person planen, wann sie verfügbar ist. Die Anwesenheit bleibt, wie sie ist.',
-    legendHint: 'Hohl = verfügbar · gefüllt = eingeteilt · grün = tatsächlich anwesend',
     print: 'Zeitplan drucken',
     // TWO sheets, picked separately – they answer different questions, so which one was meant is
     // asked rather than guessed. Pick the sheet first, then the route: the sheet names its
@@ -335,7 +335,7 @@ export const anwesenheitCopy = {
     horizonUntil: 'bis {t}',
     horizon: 'Zeitraum',
     openFor: 'Schichten von {name} öffnen',
-    planAt: 'Schicht für {name} planen',
+    planAt: 'Verfügbarkeit für {name} einzeichnen',
     dragFrom: 'Beginn ziehen',
     // right-click menu on a bar: name the states instead of cycling through them
     editEntry: 'Bearbeiten …',
@@ -387,11 +387,11 @@ export const anwesenheitCopy = {
     // – the legend in the WER column names them once for all columns, instead of labelling every
     // column twice. Counted proportionally: the number answers «wie viele habe ich in diesem
     // Fenster», not «wie viele Häkchen sehe ich».
-    countsAria: '{available} verfügbar, {planned} geplant',
+    countsAria: '{available} verfügbar, {planned} eingeteilt',
     // The same two words as the coverage curve in the Zeitplan – one surface, one vocabulary.
     // This used to say «frei» and «fix», which were two names for the same two states.
     available: 'verfügbar',
-    confirmed: 'geplant',
+    confirmed: 'eingeteilt',
     // Somebody with freehand times and no band would otherwise show up empty everywhere – like
     // somebody who offered nothing. The badge names the real time, so the grid doesn't claim that.
     ownTimes: 'eigene Zeiten ausserhalb jeder Schicht: {times}',
@@ -412,7 +412,7 @@ export const anwesenheitCopy = {
     partialHint: 'Nicht alle davon decken die ganze Schicht ab.',
     // A tap on a mixed cell has no unambiguous continuation – otherwise it would flip between two
     // states without either one ever holding for the whole window.
-    resolveTitle: 'Teils verfügbar, teils geplant',
+    resolveTitle: 'Teils verfügbar, teils eingeteilt',
     resolveMsg: '{name} ist in {band} teilweise eingeteilt und teilweise nur verfügbar. Was soll für dieses Fenster gelten?',
     // ⚠ A Schicht has ONE state: if it reaches beyond the Wache, the change carries along.
     resolveGap: 'Der Rest der Schicht ist von dieser Person nicht abgedeckt – das bleibt so.',
@@ -425,7 +425,7 @@ export const anwesenheitCopy = {
     crossTitle: 'Reicht über die Schicht hinaus',
     crossMsg: 'Diese Zeit von {name} läuft über {band} hinaus. Was soll für dieses Fenster gelten?',
     resolveAvailable: 'Alles auf verfügbar',
-    resolveConfirmed: 'Alles auf geplant',
+    resolveConfirmed: 'Alles auf eingeteilt',
     resolveCancel: 'Abbrechen',
     conflict: 'Doppelt eingeteilt – zwei Schichten zur selben Zeit',
     // right-click on a cell: name the states instead of cycling through them

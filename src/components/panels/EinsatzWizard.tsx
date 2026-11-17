@@ -2,11 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { LoadingStatus, ShellLoader } from '../ShellLoader'
 import { confirmDialog, toast } from '../../lib/ui'
+import { locateBlockedText } from '../../lib/permissionPath'
 import { ApiError } from '../../lib/api'
 import { MapPicker } from '../MapPicker'
 import { DateTimeField } from '../TimeField'
 import { Combo } from '../Combo'
-import { OnOff } from '../Segmented'
+import { Segmented } from '../Segmented'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../../lib/format'
 import { fmtDistance, haversineM } from '../../lib/geo'
@@ -256,7 +257,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // 17.11.2026 – a refusal inside an open form is said at the field), for as long as the
   // coordinate it failed to replace still stands. Any new coordinate (address hit, map, object)
   // or the next «Hier» press ends it.
-  const [hereFailed, setHereFailed] = useState<{ at: [number, number] | null } | null>(null)
+  const [hereFailed, setHereFailed] = useState<{ at: [number, number] | null; blocked?: boolean } | null>(null)
   // ⚠️ On an EXISTING Einsatz «Hier» always asks first. It is the largest button in the panel
   // and it moves the Einsatzort to wherever the device is standing — and the panel is most often
   // opened from the Magazin, hours later, to fix an address. One mis-tap moved the incident to
@@ -273,7 +274,8 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   }
   const useHere = () => {
     if (locating) return
-    const failed = () => setHereFailed({ at: coord })
+    // blocked says where to allow it (lib/permissionPath, rare-user round F9)
+    const failed = (err?: GeolocationPositionError) => setHereFailed({ at: coord, blocked: err?.code === 1 })
     if (!navigator.geolocation) { failed(); return }
     setHereFailed(null)
     setLocating(true)
@@ -283,7 +285,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
         const c: [number, number] = [p.coords.longitude, p.coords.latitude]
         void confirmMove(c).then((ok) => { if (ok) applyPicked(c) })
       },
-      () => { setLocating(false); failed() },
+      (err) => { setLocating(false); failed(err) },
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
     )
   }
@@ -470,10 +472,20 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           to the landing without opening anything — a cancel, not a «Zurück» to a previous step */}
       <button className="ip-btn" onClick={cancel}>{ix.cancel}</button>
       <button className="ip-btn primary" disabled={busy} aria-disabled={!effectiveTitle || demoBlocked} onClick={submit}>
-        {/* one verb, title and button alike: «eröffnen» – and «Übung» once the switch says so */}
+        {/* one verb, title and button alike: «eröffnen» – and «Übung» once the kind says so */}
         {busy ? <><ShellLoader /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : isExercise ? ix.openExercise : ix.open}
       </button>
     </>}>
+      {/* «Ernstfall | Übung» is the FIRST question (owner pick C7 = B, 17.11.2026): the kind used
+          to be an «Übung? Nein | Ja» switch under Kategorie, missed on a drill evening – a real
+          Einsatz then stays undeletable from the list for good. Both kinds are named, «Ernstfall»
+          preselected. No line under it (owner, 17.11.2026: the two words say it; the Hilfe says
+          what an Übung does not count towards). Same control when editing. Stored field and API
+          unchanged (`is_exercise`). */}
+      <div className="ip-kind">
+        <Segmented ariaLabel={ix.kindLabel} value={isExercise} onChange={setIsExercise}
+          options={[{ value: false, label: ix.kindReal }, { value: true, label: ix.exerciseLabel }]} />
+      </div>
       {/* ONE flat list of fields, no section eyebrows (owner review 10.11.2026: «only like 5
           things to put in») – each field's own label says what it is. --- Standort --- */}
       <div className="ip-field" ref={addrRef}>
@@ -520,7 +532,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
             hand does not give it. A warning, so it is never behind anything; nothing when set. */}
         {hereFailed?.at === coord ? (
           <p className="form-warn form-warn-amber form-warn-compact" role="status">
-            <Icon id="warn" /><span className="form-warn-text">{ix.hereFailed}</span>
+            <Icon id="warn" /><span className="form-warn-text">{hereFailed.blocked ? locateBlockedText() : ix.hereFailed}</span>
           </p>
         ) : !coord && (
           <p className="form-warn form-warn-amber form-warn-compact" role="status">
@@ -549,12 +561,6 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
             setKategorie(key)
           }}
         />
-      </div>
-      {/* «Übung?» is a question, so «Nein | Ja» on every device (20.10.2026) – a rotated tablet
-          once said «Aus | An» here and the phone «Nein | Ja» */}
-      <div className="ip-onoff-row">
-        <span className="ip-onoff-l">{ix.exerciseLabel}<small>{ix.exerciseSub}</small></span>
-        <OnOff question ariaLabel={ix.exerciseLabel} value={isExercise} onChange={setIsExercise} />
       </div>
       {/* --- Alarmierung — the dispatch facts, everything before we arrived: when we were alarmed
           + the alarm message. The Rapportangaben hold the rest. ONE section in both modes

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// The search's «Stationsobjekte» group says why it has nothing at all – a missing catalogue is a
+// The search's «Objekte» group says why it has nothing at all – a missing catalogue is a
 // standing state, said in place, not a sticky toast on the map (toast diet, 17.11.2026).
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'

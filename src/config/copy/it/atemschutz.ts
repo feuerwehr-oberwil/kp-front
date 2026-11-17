@@ -21,9 +21,9 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     empty: 'Ancora nessuna squadra in sorveglianza.',
     emptyHint: '«Annuncia squadra» avvia la sorveglianza.',
     newTrupp: 'Annuncia squadra',
-    shareLink: 'Cedi la sorveglianza',
-    shareLinkShort: 'Cedi',
-    shareLinkOn: 'Cedi la sorveglianza – un link è attivo',
+    shareLink: 'Condividi squadre',
+    shareLinkShort: 'Condividi',
+    shareLinkOn: 'Condividi squadre – un link è attivo',
     linkReentryHint: 'Il link riporta qui – se la pagina viene chiusa per errore, basta aprire di nuovo il codice QR.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
     /** the three-section stack on ANY phone (TruppForm · stack, 04.09.) – replaces the two-step
@@ -58,11 +58,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       multiwarn: 'Multiwarn',
     },
     equipmentLabel: 'Equipaggiamento',
-    equipmentShort: {
-      retthaube: 'RH',
-      wbk: 'WBK',
-      multiwarn: 'MW',
-    },
     zielLabel: 'Obiettivo',
     // UN solo segnaposto per entrambi i tipi di squadra e per ogni incarico (vedi de/atemschutz.ts).
     zielPlaceholder: 'Dove / cosa …',
@@ -446,6 +441,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     cycleEndAtClose: '{t} (ancora dentro alla chiusura)',
     logClockRestart: 'Squadra {name}: orologio di contatto riavviato – intervento riaperto',
     cardMenuWord: 'Altro',
+    lineOnPlan: 'Piano',
   },
   lineDecor: {
     W: 'Acqua',

@@ -290,7 +290,7 @@ export const editorsCopy = {
     // Dreht die Punktreihenfolge um – der Abschluss (Pfeil bzw. Teilstück-«E») sitzt danach am
     // anderen Ende. Die Linie selbst bleibt, wo sie ist.
     reverse: 'Richtung umkehren',
-    content: 'Typ',
+    content: 'Inhalt',
     contentPlain: 'Wasser',
     // Ø der Leitung (40 / 55 / 75 / 2× 75 / 110) – trägt die Wassertransport-Rechnung der Messung
     hose: 'Schlauch',
@@ -341,7 +341,7 @@ export const editorsCopy = {
     connectedLines: 'Verbundene Linien ({n})',
     line: 'Linie',
     lineLabelNo: 'Leitung {n}',
-    route: 'Verlauf',
+    route: 'Mitziehen',
     routeDirect: 'Direkt',
     routeTrace: 'Spur',
     detachConnection: 'Verbindung lösen',
@@ -398,6 +398,8 @@ export const editorsCopy = {
     fillNone: 'Ohne Füllung',
     fillPct: 'Füllung {n} %',
     colorNames: { '#1f6feb': 'Blau', '#e8392b': 'Rot', '#1f9d57': 'Grün', '#e2920a': 'Orange', '#1b2330': 'Schwarz', '#ffffff': 'Weiss' },
+    // the selection bar's copy of ONE object, ⌘D's twin for a touch tablet (rare-user F18)
+    duplicate: 'Duplizieren',
   },
   topBar: {
     offline: 'Offline',

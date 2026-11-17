@@ -11,7 +11,7 @@ reviewable source of truth for configuration and licensed or operational data.
 > **You do not have to work this way.** Every kind of data below can also be entered in the
 > browser at `/admin`, one item at a time – a map layer on **Kartenebenen**, an Einsatzobjekt and
 > its Modul-PDFs on **Objektpläne**, a checklist template and its diagram pages on
-> **Checklisten**, the config on the Station pages, and the list-shaped data (Mannschaft,
+> **Checklisten**, the config on the Station pages, and the list-shaped data (Personal,
 > Dienstgrade, Fahrzeuge, Mittel, Quellen, Partnerorganisationen, Symbolfelder) through the
 > **Arbeitsmappe** `.xlsx`. Most stations run entirely that way and never create the repository
 > this page describes.
@@ -86,7 +86,7 @@ The complete field contract, including accepted properties and formats, is in
 | Checklists, playbooks and Anleitungen | Station doctrine, device manuals | Template JSON, optional images, and `checklists.manifest.json` (format: [`CONFIGURATION.md` §9f](CONFIGURATION.md#9f-admin_checklists--checklist-templates)) | Station › **Checklisten**, incl. image assets and deletion |
 | The Tafel's pages (FKS «Erste Führung» …) | The station's copy of the bundled FKS set | `board-template/1` JSON + `tafel.manifest.json` (format: [`board-templates.md`](board-templates.md)) – a station set REPLACES the bundled one | Station › **Tafel-Vorlagen** |
 | Mittel, Quellen, Partnerorganisationen, Symbolfeld-Optionen | Station decisions | `config.json` | the **Arbeitsmappe** `.xlsx` – there is no form for these ([`CONFIGURATION.md` §9h](CONFIGURATION.md#9h-the-station-workbook--one-xlsx-for-the-list-shaped-data)) |
-| Mannschaft | Divera sync, or the station's own list | – **personal data: keep it out of the repo unless the repo is as protected as the roster is** | Divera sync, a CSV import, or the **Arbeitsmappe** ([`CONFIGURATION.md`](CONFIGURATION.md) §4a/§4b) |
+| Personal | Divera sync, or the station's own list | – **personal data: keep it out of the repo unless the repo is as protected as the roster is** | Divera sync, a CSV import, or the **Arbeitsmappe** ([`CONFIGURATION.md`](CONFIGURATION.md) §4a/§4b) |
 | Source adapters | GIS, DMS, or roster-specific APIs | Optional scripts maintained by the station | – |
 
 Do not copy restricted data into KP Front itself. Record the source, licence, refresh owner,

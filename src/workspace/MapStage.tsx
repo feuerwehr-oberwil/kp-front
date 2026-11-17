@@ -104,7 +104,7 @@ export function MapStage({
   } = mapDrawing
   const {
     finishSelection, onMapClick, onMarquee, transformGroup, startEntityMove, streamEntityMove,
-    finishEntityMove, deleteEntity, undockTeam,
+    finishEntityMove, deleteEntity, undockTeam, duplicateSelection,
   } = mapActions
   const { adoptTruppMarker, releaseTruppMarker, linkTruppLine, unlinkTruppLine } = truppActions
   const { markTeamPosition, renameTeam, clearTeamTrail } = teamMarkers
@@ -272,6 +272,7 @@ export function MapStage({
           selectedEntityIds={selectedEntityIds}
           onMarquee={onMarquee}
           onGroupTransform={transformGroup}
+          onDuplicate={tacticalLocked ? undefined : duplicateSelection}
         />
       // the Karte's own card offers no «Zur Karte»: that button would lead to the view it is on
       ), false) : (

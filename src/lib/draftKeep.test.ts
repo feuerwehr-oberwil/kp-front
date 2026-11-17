@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useKeptState, clearDraft, clearAllDrafts, incidentSlot, keepDraft, readDraft, useIncidentSlot } from './draftKeep'
 
@@ -35,6 +35,48 @@ describe('a draft that survives its own component', () => {
 
   it('is empty for a key nobody has written', () => {
     expect(readDraft('mittel:never', 'fallback')).toBe('fallback')
+  })
+})
+
+// owner call C2 (17.11.2026): the composer's text and the «Neuer Einsatz» wizard outlive a reload
+// (iOS drops a backgrounded app); everything else stays memory-only. A «reload» here is a fresh
+// module over the same sessionStorage.
+describe('a draft across a reload', () => {
+  afterEach(() => { sessionStorage.clear(); vi.resetModules() })
+  const reload = () => { vi.resetModules(); return import('./draftKeep') }
+
+  it('brings the composer text and the new-Einsatz wizard back – into the same Einsatz', async () => {
+    const before = await reload()
+    before.clearAllDrafts('inc-1')
+    before.keepDraft('journal-entry', 'Treppenhaus geräumt')
+    before.keepDraft('einsatz-wizard:new', { title: 'Brand' })
+    before.keepDraft('journal-entry:rest', { photos: ['x'] })  // photos and clips: never
+    before.keepDraft('mittel:inc-1', 'Schaum')                // the other forms: memory only
+    const after = await reload()
+    after.clearAllDrafts('inc-1')                             // IncidentWorkspace mounts again
+    expect(after.readDraft('journal-entry', '')).toBe('Treppenhaus geräumt')
+    expect(after.readDraft('einsatz-wizard:new', null)).toEqual({ title: 'Brand' })
+    expect(after.readDraft('journal-entry:rest', null)).toBeNull()
+    expect(after.readDraft('mittel:inc-1', '')).toBe('')
+  })
+
+  it('drops them where the memory copy goes: sent, another Einsatz, a switch in the same page', async () => {
+    const m = await reload()
+    m.clearAllDrafts('inc-1')
+    m.keepDraft('journal-entry', 'gesendet')
+    m.clearDraft('journal-entry')
+    expect((await reload()).readDraft('journal-entry', '')).toBe('')
+
+    const a = await reload()
+    a.clearAllDrafts('inc-1')
+    a.keepDraft('journal-entry', 'für Einsatz 1')
+    const b = await reload()
+    b.clearAllDrafts('inc-2')                                 // the reload landed elsewhere
+    expect(b.readDraft('journal-entry', '')).toBe('')
+
+    b.keepDraft('journal-entry', 'für Einsatz 2')
+    b.clearAllDrafts('inc-2')                                 // a remount, no reload: as today
+    expect(b.readDraft('journal-entry', '')).toBe('')
   })
 })
 

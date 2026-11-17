@@ -285,7 +285,8 @@ describe('the plan chip’s trash', () => {
   }
   const openTrash = () => {
     mouseDown(screen.getByText('Trupp 1'))
-    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.remove }))
+    // the delete rows are the last rows of the bar's «Mehr» (rare-user round 2, M12)
+    fireEvent.click(screen.getByRole('button', { name: W.barMore }))
   }
 
   it('takes the chip off the sheet without asking — its Spur stays behind as a ghost', () => {

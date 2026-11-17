@@ -33,6 +33,14 @@ describe('LeitungField · «Nr. …»', () => {
   })
 })
 
+// rare-user F13 (17.11.2026): a Leitung on a Plan says the word, not a bare « · P»
+describe('LeitungField · a Leitung on a Plan', () => {
+  it('reads «Ltg 2 · Plan»', () => {
+    render(<Field />)
+    expect(screen.getByRole('button', { name: `${fillTemplate(az.lineChip, { n: 2 })} · ${az.lineOnPlan}` })).toBeTruthy()
+  })
+})
+
 // owner, 17.11.2026 (duck sweep CONT.3): a close with typed changes SAVES them; only «Abbrechen» drops
 describe('AuftragSheet · closing keeps what was typed', () => {
   const t: Trupp = {

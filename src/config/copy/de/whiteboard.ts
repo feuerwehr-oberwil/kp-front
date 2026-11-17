@@ -46,8 +46,12 @@ export const whiteboardCopy = {
       wand: 'Ecke für Ecke tippen, die Wand bleibt rechtwinklig – fertig mit ✓ oder dem ersten Punkt.',
       circle: 'Von der Mitte zum Rand ziehen.',
       text: 'Tippen, wo die Notiz hin soll – dann schreiben.',
-      scale: 'Beide Enden des gedruckten Massstabs tippen, dann die Länge eingeben.',
       measure: 'Punkte tippen. Punkt halten entfernt ihn.',
+      // calibrating's steps, one per line in the Messen dock's standing card (WbControls ·
+      // WbToolDocks, rare-user r4 17.11.2026); a done step reads ✓ instead of its number
+      scaleStep1: 'Ein Ende des Massstabs antippen',
+      scaleStep2: 'Das andere Ende antippen',
+      scaleStep3: 'Die reale Länge eingeben',
     },
     // Plan-Massstab (calibrate against a printed scale bar so plan lines read in metres)
     scale: {
@@ -67,7 +71,6 @@ export const whiteboardCopy = {
       chipUncalibrated: 'nicht kalibriert',
       recalibrate: 'Neu kalibrieren',
       calibrate: 'Massstab kalibrieren',
-      calibrateHint: 'Zwei Punkte des Massstabs antippen',
       stale: 'Massstab neu prüfen',
       saved: 'Massstab kalibriert ({m} m Strecke)',
       // #3: persist a calibration station-wide (across incidents) so plans measure out of the box
@@ -80,7 +83,10 @@ export const whiteboardCopy = {
       saveFailed: 'Massstab nicht als Vorgabe gespeichert – erneut versuchen',
       needsCalibration: 'Massstab festlegen: die zwei Enden des Massstabs antippen',
       needsCalibrationViewer: 'Messen erst möglich, wenn der Massstab kalibriert ist',
-      calibrateStop: 'Kalibrieren beenden',
+      /** Messen on a plan without a scale opens the scale dialog – this says why (C9, 17.11.2026) */
+      promptWhy: 'Dieser Plan hat noch keinen Massstab – zuerst eine bekannte Strecke angeben',
+      /** the Verlauf row when «Rückgängig» on «Massstab kalibriert» takes it back */
+      undone: 'Massstab zurückgenommen',
     },
     // «Karte verknüpfen» – die Paarung markanter Punkte, die den Plan auf die Karte legt
     // (lib/georef · fitSimilarity, lib/georefMode). Zwei Punkte genügen; erst der dritte misst.
@@ -460,6 +466,13 @@ export const whiteboardCopy = {
     // already wrote the Karte's «TLF entfernt»)
     drawnOnPlan: '{name} auf Plan gezeichnet',
     shapeOnPlan: '{name} auf Plan platziert',
+    // the Trupp marker bar's worded door to its rare acts (TwinTeamPill, rare-user M10)
+    barMore: 'Mehr',
+    /** the Trupp marker bar's short word for «Position markieren» (rare-user round 2, M12) */
+    markShort: 'Markieren',
+    /** the Trupp marker bar's short word for «Atemschutz-Trupp» on a loose marker (owner, 17.11.2026: «just
+     *  Trupp, to save some space»); the full word stays as title, aria-label and «Mehr» row */
+    joinShort: 'Trupp',
   },
   // the Tafel's pages (10.10.2026, docs/board-templates.md): the free «Skizze» plus the pages a
   // board template offers (FKS «Erste Führung», FKS 8.1 …) — the page strip, the «+ Seite» list,

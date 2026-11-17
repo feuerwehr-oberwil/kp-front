@@ -641,9 +641,9 @@ export function TruppCard({
   ].filter((it, i, all) => !('kind' in it && it.kind === 'sep') || all.slice(0, i).some((p) => !('kind' in p)))
 
   const crewNames = t.members?.filter(Boolean) ?? []
-  /** the Ausrüstung as Kürzel (copy · equipmentShort), in the order it was recorded; an id
-   *  without a Kürzel prints the word the Rapport prints (lib/report · truppEquipmentLabels) */
-  const equipmentTags = (t.equipment ?? []).map((id) => ({ id, tag: az.equipmentShort[id] ?? truppEquipmentLabels([id])[0] ?? id }))
+  /** the Ausrüstung in the words the form and the Rapport use (lib/report · truppEquipmentLabels)
+   *  – «Retthaube · WBK · Multiwarn», never the Kürzel «RH» / «MW» (rare-user M11, owner pick B) */
+  const equipmentWords = truppEquipmentLabels(t.equipment)
 
   /* ── The one line the Sockel leaves standing (09.09.) ──────────────────────────────────────
    * See the markup at «6 + 7» below for what folded and why. This is the part that may not:
@@ -774,7 +774,9 @@ export function TruppCard({
   const chip = (key: string, node: ReactNode, onTap?: () => void, cls?: string) => onTap
     ? <button key={key} type="button" className={cx(s.fact, cls)} onClick={onTap}>{node}</button>
     : <span key={key} className={cx(s.fact, cls)}>{node}</span>
-  const gear = equipmentTags.map(({ id, tag }) => chip(`eq-${id}`, tag, onQuick && (() => onQuick('trupp'))))
+  // ONE chip for the whole Ausrüstung, the box glyph in front (M11 B, 17.11.2026)
+  const gear = equipmentWords.length > 0 && chip('eq',
+    <><Icon id="box" /><span className={s.factTxt}>{equipmentWords.join(' · ')}</span></>, onQuick && (() => onQuick('trupp')))
   const facts = (
     <div className={s.facts}>
       {auftrag

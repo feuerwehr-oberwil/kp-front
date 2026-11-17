@@ -407,7 +407,7 @@ async def import_csv(
 
 async def _require_divera(db: AsyncSession) -> None:
     """503 unless a Divera access key is configured — read live, so a key pasted into
-    /admin makes «Mannschaft synchronisieren» work on the next tap, not the next restart."""
+    /admin makes «Mit Divera abgleichen» work on the next tap, not the next restart."""
     await load_credentials(db)
     if not credential("divera_access_key"):
         raise HTTPException(status_code=503, detail="Divera nicht konfiguriert (kein Access Key)")

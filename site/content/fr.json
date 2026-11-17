@@ -51,6 +51,7 @@
     "cta": "Ouvrir la démo",
     "ctaSelf": "L’exploiter soi-même",
     "ctaNote": "Sans inscription – dans la démo, il y a le feu à Musterdorf (interface en allemand)",
+    "demoNote": "<strong>Démo publique :</strong> ne saisissez aucune donnée réelle d’intervention, de personnes, de lieux ou d’organisation. Tous les visiteurs partagent la même démo. Les données saisies restent enregistrées jusqu’à la prochaine réinitialisation automatique.",
     "frameAddr": "KARTE · ZIMMERBRAND · 2611624 / 1263070",
     "frameAlt": "Vue Carte : signes conventionnels CSSP, secteurs et conduites sur la carte tactique"
   },

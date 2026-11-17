@@ -1,8 +1,8 @@
 /** The selected Truppmarker's pill + context bar — the ONE copy, for all four places it shows.
  *
  *  Twin doctrine: a projection carries the same capabilities through the same functions its
- *  original has — rename, Trupp-Join, Farbe, «Position markieren», the Spuren-Auge, the locked
- *  trash — plus the one door a projection alone needs, «zum Original». That bar used to be
+ *  original has — rename, Trupp-Join, Farbe, «Position markieren», the Spuren-Auge, the
+ *  delete rows — plus the one door a projection alone needs, «zum Original». That bar used to be
  *  written out four times: twice for the mirrors and once inside each NATIVE surface
  *  (MapMarkers' Trupp marker, Whiteboard's resource chip). The mirrors had already drifted once
  *  — the Plan carried the whole bar, the Karte a bare dot and a read-only plaque — so the same
@@ -20,13 +20,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { leaveOnEnter } from '../lib/fieldKeys'
-import { Menu } from '../lib/overlays'
+import { Menu, type MenuActionItem } from '../lib/overlays'
 import { MenuPick } from './MenuPick'
 import { appConfig } from '../config/appConfig'
 import { floorBadge } from '../lib/symbolRender'
 import { floorLabel } from '../lib/whiteboard'
 import type { LineTone, TeamLineBadge } from '../lib/truppLines'
 import { truppStateWord } from './truppCardText'
+import { useRailLabels } from '../lib/useDevicePrefs'
 import type { Trupp } from '../types'
 
 /**
@@ -49,39 +50,50 @@ import type { Trupp } from '../types'
  * Cancel leaves the loose chip as it was. Both surfaces render this one function, so the row
  * exists here and nowhere else.
  */
-export function TruppJoinMenu({ truppId, trupps, pick, create, onNone }: {
-  truppId?: string; trupps: Trupp[]; pick: (truppId?: string) => void; create?: () => void
-  /** «Kein Trupp» exists only on a marker that hangs on a hose (15.09., Bastian): it takes the
-   *  marker off the Leitung – hose unlinked and uncoupled, marker a step away, still this Trupp's.
-   *  A marker on nothing has no such entry; leaving the picture is the trash can. */
-  onNone?: () => void
+export function TruppJoinMenu({ truppId, trupps, pick, create, onNone, word }: TruppJoinProps & {
+  /** the bar's word under the glyph (TwinTeamPill · `barWord`) – absent with «Beschriftung» off */
+  word?: ReactNode
 }) {
   return (
     <Menu
       popupClassName="de-menu-pop"
       itemClassName={() => 'de-menu-item'}
       trigger={
-        // the Trupps page's own glyph, the stopwatch: 👥 is the Anwesenheit's door one rail away
-        // (duck sweep ELEM.12 – one glyph, one meaning, within a thumb's reach)
+        // the join's own glyph, the link (rare-user round 2, M12): the stopwatch is «Zum Trupp»'s,
+        // the Trupps page's door, and the two used to stand side by side wearing the same one
         <button className="wb-pa" title={appConfig.copy.atemschutz.markerLabel} aria-label={appConfig.copy.atemschutz.markerLabel}>
-          <Icon id="stopwatch" />
+          <Icon id="link" />{word}
         </button>
       }
-      items={[
-        ...(onNone ? [{ label: <MenuPick label={appConfig.copy.atemschutz.markerNone} on={false} />, onClick: onNone }] : []),
-        ...trupps.filter((t) => !t.removedAt && (t.status !== 'raus' || t.id === truppId)).map((t) => ({
-          label: <MenuPick label={t.name} on={t.id === truppId} />,
-          onClick: () => pick(t.id),
-        })),
-        // an ACTION row: its «+» leads, where an action's glyph stands – the picks' ✓ is trailing
-        // (MenuPick, duck sweep ELEM.7), so a lit glyph in a tick's slot no longer reads «picked»
-        ...(create ? [{
-          label: <><span className="de-menu-lead" aria-hidden><Icon id="plus" /></span><span>{appConfig.copy.whiteboard.newTeam}</span></>,
-          onClick: create,
-        }] : []),
-      ]}
+      items={truppJoinItems({ truppId, trupps, pick, create, onNone })}
     />
   )
+}
+
+interface TruppJoinProps {
+  truppId?: string; trupps: Trupp[]; pick: (truppId?: string) => void; create?: () => void
+  /** «Kein Trupp» exists only on a marker that hangs on a hose (15.09., Bastian): it takes the
+   *  marker off the Leitung – hose unlinked and uncoupled, marker a step away, still this Trupp's.
+   *  A marker on nothing has no such entry; leaving the picture is the trash can. */
+  onNone?: () => void
+}
+
+/** The join sheet's rows – ONE list, drawn by the bar's «Atemschutz-Trupp» button and, on a linked
+ *  marker, by the same row inside «Mehr» (TwinTeamPill). */
+function truppJoinItems({ truppId, trupps, pick, create, onNone }: TruppJoinProps): MenuActionItem[] {
+  return [
+    ...(onNone ? [{ label: <MenuPick label={appConfig.copy.atemschutz.markerNone} on={false} />, onClick: onNone }] : []),
+    ...trupps.filter((t) => !t.removedAt && (t.status !== 'raus' || t.id === truppId)).map((t) => ({
+      label: <MenuPick label={t.name} on={t.id === truppId} />,
+      onClick: () => pick(t.id),
+    })),
+    // an ACTION row: its «+» leads, where an action's glyph stands – the picks' ✓ is trailing
+    // (MenuPick, duck sweep ELEM.7), so a lit glyph in a tick's slot no longer reads «picked»
+    ...(create ? [{
+      label: <><span className="de-menu-lead" aria-hidden><Icon id="plus" /></span><span>{appConfig.copy.whiteboard.newTeam}</span></>,
+      onClick: create,
+    }] : []),
+  ]
 }
 
 /** Every write the bar makes, each landing on the ONE source object the twin mirrors.
@@ -96,7 +108,7 @@ export interface TwinTeamActions {
   clearTrail?: () => void
   /** «Marker entfernen» — the trail it walked stays behind as a ghost (lib/truppTrails). Absent
    *  on a locked surface's bar, which keeps only «Im Atemschutz zeigen» and «Spur ein/aus»:
-   *  then there is no trash at all. */
+   *  then «Mehr» has no delete rows at all. */
   remove?: () => void
   /** «Marker und Spur löschen» — both at once, and NO ghost is left standing: the surface arms
    *  the reconciliation's `dropped` set before it removes, so the ghost is born already stamped
@@ -180,6 +192,9 @@ function useBarPlacement(on: boolean) {
     if (home + dx < minX) dx = minX - home
     dx = Math.round(dx)
     anchor.style.setProperty('--acts-dx', `${dx}px`)
+    // the bar's own height, for the connections panel that hangs under it (09-whiteboard): a
+    // worded bar is taller, and on a narrow phone it may wrap to two rows
+    if (bar.height > 0) anchor.style.setProperty('--acts-h', `${Math.round(bar.height)}px`)
     if (placed.current.up === up && placed.current.dx === dx) return
     placed.current = { up, dx }
     setPlace(placed.current)
@@ -242,11 +257,11 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
   renameRef?: (el: HTMLInputElement | null) => void
   /** a surface that can open the rename from OUTSIDE this bar drives the flag itself — the plan
    *  board's double-click on a chip is the one such door. Leave both out (the Karte, both
-   *  mirrors: pen only) and the pill keeps the flag, since leaving the pill IS the commit. */
+   *  mirrors: «Mehr › Bearbeiten» only) and the pill keeps the flag, since leaving the pill IS the commit. */
   renaming?: boolean
   onRenaming?: (on: boolean) => void
 }) {
-  // inline rename on the pill's pen — the same grammar every surface uses
+  // inline rename («Mehr › Bearbeiten») — the same grammar every surface uses
   const [selfRenaming, setSelfRenaming] = useState(false)
   const [barRef, barPlace] = useBarPlacement(!!acts)
   const renaming = renamingProp ?? selfRenaming
@@ -269,6 +284,52 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
   const toggleTrail = acts?.toggleTrail
   const unlink = acts?.unlink
   const undock = acts?.undock
+  /* ── The bar (rare-user round 2, owner pick M12 A, 17.11.2026) ── the daily doors stand, the rest
+     is behind «Mehr»: ONE Trupp button that changes – «Zum Trupp» on a linked marker, «Atemschutz-
+     Trupp» (join) on a loose one, never both side by side – then «Markieren», then «Mehr». «Mehr»
+     holds, as glyph + full word: Lösen · Atemschutz-Trupp (change the link, linked only) ·
+     Bearbeiten (rename, loose only) · Spuren ✓ · the original (mirrors) · the delete rows, last.
+     Same on phone and tablet; one row at 390 px in every state. «Beschriftung» (the rails' setting)
+     only decides the LOOK: on, every button wears its word under the glyph; off, the same buttons
+     are bare glyphs. The `aria-label`s carry the full words either way. */
+  const worded = useRailLabels() === 'short'
+  const barWord = (w: string) => worded ? <span className="wb-pa-word">{w}</span> : null
+  const W = appConfig.copy.whiteboard
+  const zumTrupp = truppId && showTrupp ? truppId : undefined
+  const onNone = line && unlink && truppId ? unlink : undefined
+  const join = pick ? { truppId, trupps, pick, create: newTrupp, onNone } : undefined
+  /** «Mehr» shows its rows, or – after its «Atemschutz-Trupp» row – the join list in their place
+   *  (the app's Menu has no submenus; the row keeps the menu open and swaps what it lists) */
+  const [morePage, setMorePage] = useState<'rows' | 'join'>('rows')
+  const lead = (icon: string) => <span className="de-menu-lead" aria-hidden><Icon id={icon} /></span>
+  const moreRows: MenuActionItem[] = [
+    // «Lösen» (15.09.): the one explicit way to part the marker from what it hangs on – its
+    // Leitung, the symbol it is docked to, or both at once
+    ...((line && unlink && truppId) || undock ? [{
+      label: <>{lead('unlink')}<span>{appConfig.copy.contextPanel.dockedRelease}</span></>,
+      onClick: () => { if (line && truppId) unlink?.(); undock?.() },
+    }] : []),
+    // re-point a linked marker to another Trupp – on a loose marker the bar's own button does it
+    ...(zumTrupp && join ? [{
+      label: <>{lead('link')}<span>{appConfig.copy.atemschutz.markerLabel}</span></>,
+      onClick: () => setMorePage('join'), keepOpen: true,
+    }] : []),
+    // rename – a Trupp-bound marker is named by the Atemschutz board, so it has none: renaming it
+    // here would fork the two names apart
+    ...(!truppId && rename ? [{ label: <>{lead('pen')}<span>{appConfig.copy.edit}</span></>, onClick: () => setRenaming(true), keepsFocus: true }] : []),
+    // per-team visibility toggle, NOT deletion. Its name is the CONTROL («Spuren») with the menu's
+    // ✓ while shown, never the next action (duck sweep ELEM.5)
+    ...(trailCount > 0 && toggleTrail ? [{ label: <>{lead('eye')}<MenuPick label={W.trails} on={trailShown} /></>, onClick: toggleTrail }] : []),
+    ...(toOriginal && originalLabel ? [{ label: <>{lead('external')}<span>{originalLabel}</span></>, onClick: toOriginal }] : []),
+    /* ONE trash (18.09.2026), always last: the marker alone (its trail stays behind as a ghost the
+       incident owns, lib/truppTrails), and where it carries a Spur also the trail alone or both –
+       two danger rows that each confirm on the surface before anything is destroyed. */
+    ...(acts?.remove ? [
+      { label: trailCount > 0 ? W.removeMarker : appConfig.copy.remove, danger: trailCount === 0, onClick: () => acts.remove?.() },
+      ...(trailCount > 0 && acts.clearTrail ? [{ label: W.clearTrail, danger: true, onClick: () => acts.clearTrail?.() }] : []),
+      ...(trailCount > 0 && acts.removeWithTrail ? [{ label: W.removeMarkerTrail, danger: true, onClick: () => acts.removeWithTrail?.() }] : []),
+    ].map((r) => ({ ...r, label: <>{lead('trash')}<span>{r.label}</span></> })) : []),
+  ]
   const outTrupp = raus ? trupps.find((t) => t.id === truppId) : undefined
   // ⚠️ the pill span carries the native class untouched: putting it on the hit shell made
   // the button the flex container, and Safari's anonymous button box misplaced the cap.
@@ -321,89 +382,32 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
     <>
       {hit ? hit(pill) : pill}
       {acts && (
-        <div ref={barRef} className="wb-pill-acts" data-flip={barPlace.up ? 'up' : undefined}
+        <div ref={barRef} className={`wb-pill-acts${worded ? ' worded' : ''}`} data-flip={barPlace.up ? 'up' : undefined}
           style={{ transform: `translateX(calc(-50% + ${barPlace.dx}px))` }}
           onPointerDown={(ev) => ev.stopPropagation()}>
-          {/* «Lösen» (15.09.): the one explicit way to part the marker from what it hangs on – its
-              Leitung, the symbol it is docked to, or both at once. A glyph, first in the bar: the
-              hose's own end tag says which Leitung, and the words «Leitung 1 · Trupp 3» said
-              nothing the picture did not. */}
-          {((line && unlink && truppId) || undock) && (
-            <button className="wb-pa wb-pa-unlink" title={appConfig.copy.contextPanel.dockedRelease} aria-label={appConfig.copy.contextPanel.dockedRelease}
-              onClick={() => { if (line && truppId) unlink?.(); undock?.() }}><Icon id="unlink" /></button>
-          )}
-          {/* rename — the touch path (double-tap→dblclick is unreliable on iOS). A Trupp-bound
-              marker is named by the Atemschutz board, so it gets no pen: renaming it here would
-              fork the two names apart. */}
-          {!truppId && rename && (
-            // lit while the field is open — the docks' pressed toggle (`--sel`), so the pen says
-            // which mode the pill is in; every other action on the bar is neutral (K3, 29.09.2026)
-            // ⚠️ `preventDefault` on the press, like the ✕ beside the field: without it the pen
-            // could never CLOSE the edit — pressing it blurred the input first (commit +
-            // `setRenaming(false)`), so the click that followed found `renaming` already false
-            // and opened the field straight back up.
-            <button className={`wb-pa${renaming ? ' wb-pa-edit' : ''}`} aria-pressed={renaming}
-              title={appConfig.copy.edit} aria-label={appConfig.copy.edit}
-              onPointerDown={(ev) => { ev.preventDefault(); ev.stopPropagation() }}
-              onClick={() => setRenaming(!renaming)}><Icon id="pen" /></button>
-          )}
-          {truppId && showTrupp && (
-            // the Trupps nav glyph (NavRail · stopwatch): this is a door to that page, not a
-            // warning — the ⚠ said «warning» on a Trupp that had none (K3, 29.09.2026)
-            <button className="wb-pa wb-pa-show" title={appConfig.copy.whiteboard.showTrupp} aria-label={appConfig.copy.whiteboard.showTrupp}
-              onClick={() => showTrupp(truppId)}><Icon id="stopwatch" /></button>
-          )}
-          {/* «Atemschutz-Trupp» — the join sheet (TruppJoinMenu above), whenever this surface
-              offers the door at all */}
-          {pick && <TruppJoinMenu truppId={truppId} trupps={trupps} pick={pick} create={newTrupp} onNone={line && unlink && truppId ? unlink : undefined} />}
+          {zumTrupp ? (
+            // the Trupps nav glyph (NavRail · stopwatch): a door to that page, never a warning ⚠
+            <button className="wb-pa wb-pa-show" title={W.showTrupp} aria-label={W.showTrupp}
+              onClick={() => showTrupp?.(zumTrupp)}><Icon id="stopwatch" />{barWord(W.showTrupp)}</button>
+          ) : join && <TruppJoinMenu {...join} word={barWord(W.joinShort)} />}
+          {/* the bar's short word for «Position markieren», whose full words stay title + label */}
           {mark && (
-            <button className="wb-pa wb-pa-mark" title={appConfig.copy.whiteboard.markPosition} aria-label={appConfig.copy.whiteboard.markPosition}
-              onClick={() => mark()}><Icon id="flag" /></button>
+            <button className="wb-pa" title={W.markPosition} aria-label={W.markPosition}
+              onClick={mark}><Icon id="flag" />{barWord(W.markShort)}</button>
           )}
-          {/* per-team visibility toggle, NOT deletion — the ✕ here silently wiped the record.
-              Pressed = the rename pen's `--sel` fill, its name the CONTROL («Spuren»), never the
-              next action (duck sweep ELEM.5: it flipped its title to «Spuren ausblenden» and
-              swapped eye / eye-off with no fill, a fourth pressed look) */}
-          {trailCount > 0 && toggleTrail && (
-            <button className={`wb-pa${trailShown ? ' wb-pa-edit' : ''}`} title={appConfig.copy.whiteboard.trails}
-              aria-label={appConfig.copy.whiteboard.trails} aria-pressed={trailShown} onClick={() => toggleTrail()}>
-              <Icon id="eye" />
-            </button>
-          )}
-          {toOriginal && originalLabel && (
-            <button className="wb-pa" title={originalLabel} aria-label={originalLabel}
-              onClick={() => toOriginal()}><Icon id="external" /></button>
-          )}
-          {/* ONE trash (18.09.2026). The bar carried two red-ish doors for a while — the trash and
-              a separate «Spur löschen» wearing the building-outline glyph — and the footprint did
-              not read as a delete at all. So the trash is the one delete on this bar, and where
-              the marker carries a Spur it ASKS which of the two goes (the app's own Menu, never a
-              native select): the marker alone (its trail stays behind as a ghost the incident
-              owns, lib/truppTrails), the trail alone, or both. The two trail rows are danger rows
-              and each confirms before anything is destroyed; a marker with no trail has nothing to
-              ask about and the trash removes it straight away, exactly as before. */}
-          {acts.remove && (trailCount > 0 ? (
+          {moreRows.length > 0 && (
             <Menu
               popupClassName="de-menu-pop"
               itemClassName={() => 'de-menu-item'}
+              onOpenChange={(open) => { if (open) setMorePage('rows') }}
               trigger={
-                <button className="wb-pa wb-pa-del" title={appConfig.copy.remove} aria-label={appConfig.copy.remove}>
-                  <Icon id="trash" />
+                <button className="wb-pa wb-pa-more" title={W.barMore} aria-label={W.barMore}>
+                  <Icon id="more" />{barWord(W.barMore)}
                 </button>
               }
-              items={[
-                { label: appConfig.copy.whiteboard.removeMarker, onClick: () => acts.remove?.() },
-                ...(acts.clearTrail ? [{ label: appConfig.copy.whiteboard.clearTrail, danger: true, onClick: () => acts.clearTrail?.() }] : []),
-                ...(acts.removeWithTrail ? [{
-                  label: appConfig.copy.whiteboard.removeMarkerTrail, danger: true,
-                  onClick: () => acts.removeWithTrail?.(),
-                }] : []),
-              ]}
+              items={morePage === 'join' && join ? truppJoinItems(join) : moreRows}
             />
-          ) : (
-            <button className="wb-pa wb-pa-del" title={appConfig.copy.remove} aria-label={appConfig.copy.remove}
-              onClick={() => acts.remove?.()}><Icon id="trash" /></button>
-          ))}
+          )}
         </div>
       )}
     </>

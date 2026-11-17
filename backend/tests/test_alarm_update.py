@@ -1,7 +1,7 @@
 """«Alarm aktualisiert» (app/alarm_update): a Divera follow-up of an open Einsatz's own alarm.
 
 Never applied by itself: it waits on the Einsatz until the crew takes it (only what they did not
-edit by hand), edits it, or hides it for every device. Example data is invented.
+edit by hand), edits it, or hides it for every device – and shows it again. Example data is invented.
 """
 
 from datetime import UTC, datetime
@@ -138,8 +138,26 @@ async def test_dismiss_hides_it_for_every_device(client, db_session, opened, vie
     # another session (here a viewer) polls the list: the decision is the Einsatz's, not a device's
     await client.post("/api/auth/logout")
     assert (await client.post("/api/auth/login", json={"user_id": str(viewer.id), "pin": "135790"})).status_code == 200
-    assert await _served(client, opened) is None
+    served = await _served(client, opened)
+    assert served is not None and served["state"] == "hidden"
     assert (await _verlauf(db_session, opened))[-1] == "Alarm-Aktualisierung ausgeblendet"
+
+
+async def test_show_brings_a_hidden_update_back_for_every_device(client, db_session, opened):
+    # rare-user round F7 (17.11.2026): a hide is no longer the end – «Zeigen» on the strip
+    await _send(client, _update(1, **NEW_TEXT))
+    await client.post(f"/api/incidents/{opened.id}/alarm-update/dismiss")
+    r = await client.post(f"/api/incidents/{opened.id}/alarm-update/show")
+    assert r.status_code == 200
+    assert r.json()["alarm_update"]["state"] == "pending"
+    assert [f["field"] for f in (await _served(client, opened))["fields"]] == ["text"]
+    assert (await _verlauf(db_session, opened))[-2:] == [
+        "Alarm-Aktualisierung ausgeblendet",
+        "Alarm-Aktualisierung wieder eingeblendet",
+    ]
+    # nothing hidden any more: a second «Zeigen» is refused, and «Übernehmen» works again
+    assert (await client.post(f"/api/incidents/{opened.id}/alarm-update/show")).status_code == 409
+    assert (await client.post(f"/api/incidents/{opened.id}/alarm-update/accept")).status_code == 200
 
 
 async def test_a_later_update_replaces_the_pending_one(client, opened):

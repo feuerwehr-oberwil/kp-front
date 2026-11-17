@@ -63,6 +63,17 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   element (`MapView · keepClickOnPad`; check: `e2e/node-pad-tap.spec.ts`). The Plan's `.wb-vertex`
   never had it: its pads take the pointer themselves (`useWbVertexEdit · vertDown`) and only the
   «+» inserts.
+- **Nothing stays armed across a pause** (rare-user round 17.11.2026, C3 – `lib/useOnResume`, one
+  hook for the Lage, the Plan and the Karte): when the app comes back from the background (the
+  page visible again after it was hidden), the armed tool, symbol or shape is put down, «Mehrere
+  platzieren» and «Zeigen» go off; a committable draft asks «Speichern · Verwerfen ·
+  Weiterzeichnen» exactly as leaving it any other way. No idle timer; the Wiedergabe is untouched.
+- **What this device makes, it sees** (F3, 17.11.2026): a symbol, shape, note, drawing or Trupp
+  marker placed into a layer this device has switched off switches that layer back on
+  (`IncidentWorkspace · revealLayer`, the ordinary `layer.toggle`). While a CONTENT layer –
+  Taktische Zeichen, Fahrzeuge, Skizzen & Notizen – is off, the «Ebenen» tile carries an amber
+  dot (M6, `lib/layerPreset · contentLayerHidden`); a reference layer off, or the preset, never
+  marks it (owner 05.10.2026).
 - **The armed tool's readout is the first tile of its dock** (`ToolDock · armed`, `lib/armedTool ·
   armedReadout`; 3am sweep point 3, 23.10.2026 – owner: «a small little info thing … that now you're
   placing symbol XYZ and that's it» – a pill at the bottom centre until the button round's picks

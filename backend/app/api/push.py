@@ -28,7 +28,7 @@ from ..credentials import load as load_credentials
 from ..database import get_db
 from ..egress import EgressRefusedError, require_public_https
 from ..models import PushSubscription, User
-from ..push import SUBSCRIPTION_TTL_DAYS, _send_one, is_known_push_host, push_enabled
+from ..push import NEW_ALARM_ROLES, SUBSCRIPTION_TTL_DAYS, _send_one, is_known_push_host, push_enabled
 
 router = APIRouter(prefix="/push", tags=["push"])
 
@@ -209,9 +209,14 @@ async def test_push(body: TestPushIn, user: CurrentUser, db: AsyncSession = Depe
     if last is not None and now - last < TEST_PUSH_INTERVAL_SECONDS:
         raise HTTPException(status_code=429, detail="Testalarm: bitte eine Minute warten.")
     _last_test[endpoint] = now
-    payload = json.dumps(
-        {"title": "Testalarm", "body": "Dieses Gerät bekommt Alarme von KP Front.", "tag": "kp-test", "target": None}
+    # promise only what this login gets: «Neuer Einsatz» wakes NEW_ALARM_ROLES alone, every other
+    # account only the Atemschutz alarms (the readiness card's «Konto» row says the same)
+    body_text = (
+        "Dieses Gerät bekommt Alarme von KP Front."
+        if user.role in NEW_ALARM_ROLES
+        else "Dieses Gerät bekommt Atemschutz-Alarme von KP Front – keinen «Neuer Einsatz»."
     )
+    payload = json.dumps({"title": "Testalarm", "body": body_text, "tag": "kp-test", "target": None})
     outcome = await asyncio.to_thread(
         _send_one, {"endpoint": row.endpoint, "p256dh": row.p256dh, "auth": row.auth}, payload, urgency="high"
     )
