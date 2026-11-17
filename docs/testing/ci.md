@@ -260,7 +260,8 @@ browsers through `.github/actions/playwright-browsers`: `~/.cache/ms-playwright`
 Actions cache, keyed on the runner image, the Playwright version and the browser list, and a hit
 installs only the apt dependencies. The CDN download was what stalled jobs into their 10-minute
 timeout (seven of sixteen runs re-run by hand in October 2026); a Playwright bump starts one cold
-run per key.
+run per key. The action reads the release from the runner’s `/etc/os-release`. The Actions
+expression for `env.ImageOS` yielded an empty key component on 2026-11-17.
 
 These jobs run on a **pinned** image (`ubuntu-24.04`), not `ubuntu-latest`: Playwright builds its
 browsers per Ubuntu release and the visual baselines are shot on this one. On 2026-11-12
