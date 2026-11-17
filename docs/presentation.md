@@ -92,6 +92,11 @@ Rules that span modules live here; each module's header says what it owns.
   tool's pill, the selection bar, the coordinate read-out – by a measured lift (`usePillLift`, the
   phone row's `rowLift`). On a phone the chip row rises past the pill instead (it is an obstacle
   in `lib/floatRow · OBSTACLE_SEL`), and a link holder's name card takes the row's width.
+  ⚠️ A phone's sheets never cover it (F6, 17.11.2026): following opens the Verlauf and a detail
+  sheet by itself, and that is exactly when the pill has to say why. Over a detail sheet it rides
+  on the sheet's top edge (as the recording FAB), over the Verlauf drawer it stands on top
+  (`--z-present-over-sheet`, 08-toasts). Coming back from the background switches «Zeigen» off
+  (`lib/useOnResume`, tactical-objects › «The armed tool's readout»).
 - **A link holder's name**: asked once per device when they first tap «Folgen» (empty = «Gast»),
   kept in `localStorage` (`kp-front-present-name`, a device flag). The server cleans it
   (`api/presentation · clean_link_name`: NFC; every Unicode control/format/private character –

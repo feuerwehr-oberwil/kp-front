@@ -231,7 +231,12 @@ The rules that are easy to break:
 - **Own state, never an Einsatz's.** No workspace, no saved drawing, no plan binding, no journal
   row. Measurements, the Gefahrgut rings and a dropped pin are component state; only the Ebenen and
   the view (`KarteView`: frame, selected object, open plan or the Checkliste, in sessionStorage) are kept —
-  `karteViewSnapshot` is the one door into storage (`lib/karte/karte.test.ts` pins it).
+  `karteViewSnapshot` is the one door into storage (`lib/karte/karte.test.ts` pins it). **Not the
+  open tool** (rare-user round 17.11.2026, C3): back from an Einsatz the first tap on an object
+  measured instead of selecting it, so the place comes back and the tool starts put down; a tool
+  that takes the next tap is also put down when the app returns from the background
+  (`lib/useOnResume`, the Einsatz's rule). The Ebenen tile wears the Einsatz's amber dot while
+  «Fahrzeuge» – the one content layer here – is off (`lib/layerPreset · contentLayerHidden`).
 - **A building is an object only by official data, containment or an exact address.** An object
   is drawn as its `footprint` (the buildings its name, use area or parcel give, above), else as
   the OSM outline that CONTAINS its own coordinate (`lib/karte/places · objectBuildings`); a tap
@@ -565,8 +570,7 @@ The rules that are easy to break:
   stays (at its Ebenen height) when the keyboard goes, until a pick or ✕ — a tap on the map then
   only lets the keyboard go. Gefahrgut likewise stays with its result after ✓; a tap on its tab
   with no UN number opens it with the caret in the field and the number pad up, with a number set
-  it opens on the result without the keyboard (a Gefahrgut restored with the session never takes
-  the caret — only a tap may raise iOS's keyboard). The map is not moved for the rings.
+  it opens on the result without the keyboard (only a tap may raise iOS's keyboard). The map is not moved for the rings.
   - With the keyboard up the sheet keeps its height but stands **on the keyboard's top edge**,
     never taller than the room under the top bar less a 24 px strip of map
     (`lib/iosKeyboard · useKeySheet`, pure `keyboardTop` / `keySheetBox`).

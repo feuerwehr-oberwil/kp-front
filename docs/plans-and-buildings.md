@@ -34,7 +34,12 @@ AGENTS.md on 2026-10-08, wording unchanged.
   - *A storey's acts live in its LABEL* (29.09.2026). The label shows the word only («4. OG»,
     «EG», a custom name); the signed chip comes back only when a custom name hides the order. A
     tap opens a Menu «Ausblenden · Geschoss entfernen» — Ausblenden is a way of looking
-    (device-local, on read-only surfaces too, the folded strip is the way back), «Geschoss
+    (device-local, on read-only surfaces too, the folded strip is the way back – and it names who
+    is up there: the chip of each Trupp on that storey, dot and name as on the plan, the one in most
+    trouble first with its alarm tint, «Müller H. +1» for more; a narrow strip keeps the chip and the
+    eye and drops only the words – rare-user round 17.11.2026, M7. A Trupp SET onto a folded storey,
+    on any device, or one there going überfällig / Notfall unfolds it; a fold made over a Trupp
+    already there stays – `lib/floorPrefs · foldedStoreyTeams`, `storeysToReveal`, F4), «Geschoss
     entfernen» is the danger row and stays the owner's confirm-with-undo (workspace/useGebaeudeActions ·
     removeFloor). No eye and no bin on the canvas: delete is the rarest act on this surface.
     «Kopieren nach …» (27.10.2026) sits in the same menu (not on a read-only surface). The label
