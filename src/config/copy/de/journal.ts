@@ -372,7 +372,7 @@ export const journalCopy = {
     sectionRemoved: 'Abschnitt gelöscht',
     markOpenTitle: 'Wieder als offen markieren',
     legendPendenzOverdue: 'Pendenz überfällig',
-    // the composer's compact row folds Aufnehmen · Datei · Foto into one button (M9 · A, 17.11.2026)
+    // the composer's compact row folds Aufnehmen · Datei · Foto into one paper-clip (M9 · A, 17.11.2026) – its name (aria / title)
     attachMenu: 'Anhang',
     // the empty Verlauf says what it is for, to every role (F12, 17.11.2026); a writer gets emptyHint after it
     emptyFor: 'Hier entsteht der Ablauf des Einsatzes, Zeile um Zeile.',

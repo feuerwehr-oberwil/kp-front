@@ -984,8 +984,10 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                     onMouseDown={(e) => { if (phone && document.activeElement === textRef.current) e.preventDefault() }}
                     className={`jc-chip jc-type-${t}${entryType === t ? ' on' : ''}`}
                     aria-pressed={entryType === t}
-                    // The plain label as the accessible name, never the hyphenated one: a soft hyphen
-                    // has no business in what a screen reader reads out or a tooltip shows.
+                    // ⚠️ The WORD is the accessible name on both rungs of the ladder — the compact
+                    // row shows the initial alone, and «I» is not something anybody can be asked to
+                    // tap. The plain label, never the hyphenated one: a soft hyphen has no business
+                    // in what a screen reader reads out or a tooltip shows.
                     title={C.entryTypes[t]}
                     aria-label={C.entryTypes[t]}
                     onClick={() => pickEntryType(t)}
@@ -995,6 +997,13 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                         has to wrap in it is a doctrine word, and where it breaks is not the browser's
                         guess to make. What gets WRITTEN is still `entryTypes` (lib/journalEntry). */}
                     <span className="jc-chip-word">{C.entryTypesWrap[t] ?? C.entryTypes[t]}</span>
+                    {/* …and the single letter that stands for the word once there is no room for it
+                        (see 10-journal.css · .is-compact). Taken off the LOCALE's own label, so it is
+                        «I · A · S» in German and whatever the other three read in theirs. Back in
+                        the compact row since round 2 of the rare-user round (owner, 17.11.2026: a
+                        crew that uses it knows the letters; the two-line «Sofort-massnahme» was not
+                        better) */}
+                    <span className="jc-chip-letter" aria-hidden>{C.entryTypes[t].charAt(0)}</span>
                   </button>
                 ))}
                 {/* ── … and whether anything has to come back to it ──
@@ -1180,9 +1189,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 <Icon id="upload" /><span className="jc-lbl">{C.attachUploadShort}</span>
               </button>
               <button className="jc-rec" onClick={() => fileRef.current?.click()} title={C.photo} aria-label={C.photo}><Icon id="cam" /><span className="jc-lbl">{C.photo}</span></button>
-              {/* ── rung 2 folds the three into ONE «Anhang» (owner pick M9 · A, 17.11.2026) ──
-                  so the Art chips keep their words in the compact row: «I · A · S» beside three
-                  bare media glyphs was eight marks to decode. The menu rows carry glyph + word.
+              {/* ── rung 2 folds the three into ONE paper-clip (owner pick M9 · A, 17.11.2026) ──
+                  «I · A · S» beside three bare media glyphs was eight marks to decode; now it is
+                  the letters, the clock, the ring and the clip. The menu rows carry glyph + word.
                   ⚠️ Not while recording: the lit mic (stop + seconds) stays in the row – the one
                   way to end a recording cannot hide behind a menu. 10-journal.css · .is-compact */}
               {compact && !recording && (

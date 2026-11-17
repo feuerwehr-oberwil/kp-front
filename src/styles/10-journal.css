@@ -765,10 +765,10 @@
    Textbausteine were «cut off» either way.
    So the sheet gives things up in a decided order instead:
      1. by default nothing changes, and the predictive row is never what gives way;
-     2. `.is-compact` — the Art strip and the media strip become ONE row (Info · Auftrag ·
-        Sofortmassnahme in words, the clock, the ring, one «Anhang» for mic · upload · camera –
-        M9 · A, 17.11.2026). Worth 44px of row plus the 8px gap that went with it = 52px, which
-        is `COMPACT_SAVES` in lib/composerFit.ts;
+     2. `.is-compact` — the Art strip and the media strip become ONE row of symbols
+        («I · A · S», the clock, the ring, one paper-clip for mic · upload · camera – M9 · A,
+        17.11.2026). Worth 44px of row plus the 8px gap that went with it = 52px, which is
+        `COMPACT_SAVES` in lib/composerFit.ts;
      3. only then the sheet scrolls – `.jc-body` above, under a head that stays.
    ⚠️ Rung 2 is switched by MEASURING, not by a height media query: on iOS the layout viewport
    does not shrink for the keyboard (which is why the caps have to subtract `--jc-kb` at all), so
@@ -793,39 +793,41 @@
    straight to rung 3: a row of eight controls at the edge of what a glove can hit is a worse
    answer than one that scrolls. */
 @media (min-width: 360px) {
-  /* ONE row (owner pick M9 · A, 17.11.2026): the three Art chips keep their WORDS, then the clock,
-     the ring, and the three media buttons folded into one «Anhang» (JournalComposer · `.jc-attach`,
-     its menu Aufnehmen · Datei · Foto). It was eight equal columns of «I · A · S» and bare glyphs
-     (15.11.2026) – a row nobody could read at 3am. `.jc-audio` dissolves into the row
-     (`display: contents`), so the attach button is the row's last item and a recorded clip's
-     readout still drops to a full-width line of its own under it. `start`, so that clip or a photo
-     row does not drag the chips down to its middle. */
-  .journal-composer.is-compact .jc-controls { flex-direction: row; flex-wrap: wrap;
-    align-items: flex-start; gap: var(--sp-1); }
-  .journal-composer.is-compact .jc-meta { flex: 1 1 0; min-width: 0; }
+  /* ONE grid of six equal columns (owner, 15.11.2026: «the buttons all the same in the I/A/S
+     line»): the three letters, the clock, the ring and the paper-clip that folds the three media
+     buttons (owner pick M9 · A, 17.11.2026 – JournalComposer · `.jc-attach`, its menu Aufnehmen ·
+     Datei · Foto) are one width and one height, glyphs centred. The Art strip spans five columns
+     and lays its buttons out on equal tracks with the SAME 4px gap, so the six line up without a
+     subgrid. `.jc-audio` dissolves into the grid (`display: contents`): the clip is its sixth
+     column, and a recorded clip's readout drops to a full-width line under the row. `start`, so
+     that clip or a photo row does not drag the letters down to its middle. */
+  .journal-composer.is-compact .jc-controls { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
+    align-items: start; gap: var(--sp-1); }
+  .journal-composer.is-compact .jc-meta { grid-column: span 5; min-width: 0; }
   .journal-composer.is-compact .jc-audio { display: contents; }
-  .journal-composer.is-compact .jc-audio > .jc-clip { flex-basis: 100%; }
+  .journal-composer.is-compact .jc-audio > .jc-clip { grid-column: 1 / -1; }
   /* ⚠️ Overrides the `:has(.jc-due-btn)` template in 18-audio.css, which is imported AFTER this
-     file — hence the extra class on every selector below. A tie would go to the later file.
-     The slack track goes: the long chip takes what is left and wraps at its written break
-     («Sofort-massnahme», copy · entryTypesWrap – ONE spelling, never «Sofort»). */
-  .journal-composer.is-compact .jc-meta-row {
-    grid-template-columns: max-content max-content minmax(0, 1fr) var(--tap) var(--tap); gap: var(--sp-1); }
+     file — hence the extra class on every selector below. A tie would go to the later file. */
+  .journal-composer.is-compact .jc-meta-row { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--sp-1); }
   /* the clock and the ring move with the template (five tracks now, not six) */
   .journal-composer.is-compact .jc-meta-row > :nth-last-child(2) { grid-column: 4; }
   .journal-composer.is-compact .jc-meta-row > :last-child { grid-column: 5; }
-  /* the words at the chip's own size with a little less air. The SELECTED treatment is untouched —
-     same fill, same border, same ink as the full chip (see .jc-chip.on in 18-audio.css). */
-  .journal-composer.is-compact .jc-meta-row .jc-chip { padding: var(--sp-1) var(--sp-2); line-height: 1.15; }
-  /* the three media buttons give way to «Anhang» – all but a running recording, whose stop
+  /* the letter is the whole chip: no side padding to squeeze, and big enough to read at arm's
+     length with a glove on. The SELECTED treatment is untouched — same fill, same border, same
+     ink as the full chip (see .jc-chip.on in 18-audio.css), just narrower. */
+  .journal-composer.is-compact .jc-meta-row .jc-chip { padding: var(--sp-1) 2px; font-size: var(--fs-3); }
+  .journal-composer.is-compact .jc-meta-row .jc-chip-word { display: none; }
+  .journal-composer.is-compact .jc-meta-row .jc-chip-letter { display: block; }
+  /* the three media buttons give way to the clip – all but a running recording, whose stop
      square and seconds stay in the row (see JournalComposer · `compact && !recording`) */
   .journal-composer.is-compact .jc-rec:not(.on, .jc-attach) { display: none; }
-  .journal-composer.is-compact .jc-rec { flex: none; min-width: var(--tap); padding: 8px 4px; }
+  .journal-composer.is-compact .jc-rec { padding: 8px 4px; }
   .journal-composer.is-compact .jc-rec .jc-lbl { display: none; }
   .journal-composer.is-compact .jc-rec .i { width: 19px; height: 19px; }
 }
-/* the Art chip's word – on both rungs since M9 · A (17.11.2026; the compact row showed its letter) */
+/* the two halves of the Art chip: the word by default, the letter only in the compact row */
 .jc-chip-word { min-width: 0; }
+.jc-chip-letter { display: none; font-weight: var(--fw-bold); }
 /* Touch, tablet and up: the composer opens with the text field already focused, so the OS
    keyboard is up before the card has finished animating in — and an iPad keyboard is close to
    half the screen. Anchored at 11vh the media row and «Speichern» sat behind it. Ride up to the
