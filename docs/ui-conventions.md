@@ -141,7 +141,10 @@ auto-saved without manual confirmations»): ✕ and swipe close it. No line says
 «Speichern» stays only where something is CREATED (Trupp anmelden, Einsatz eröffnen, Eintrag /
 Mittel erfassen) or where a typed value would otherwise write a record per keystroke — the Trupp's
 Auftrag sheet, the Schichtband edit and the Mittel pencil KEEP their Speichern / Abbrechen (owner,
-29.09.2026: save-on-close was built and taken back; do not re-introduce it without asking).
+29.09.2026), and **any close – ✕, swipe, a tap beside it, Esc, the native back – with typed
+changes SAVES them** (owner, 17.11.2026, duck sweep call 7: the radio cut in while an Auftrag was
+half-typed, a swipe down and the Ziel was gone); only «Abbrechen» discards. «Abbrechen» means
+discard wherever it stands (the Mittel composer, the wizard, the Trupp form).
 **ONE footer, in this order** (UX sweep F5, 20.10.2026): **[danger, far left] · Abbrechen ·
 primary**. The sheet's one destructive action leads the row and stands in the FOOTER, never in
 the body (13-incident · `.ui-sheet-foot > .danger:first-child` pushes the rest right); then the
@@ -216,13 +219,28 @@ reopens, while the head's subtitle says when («Schadenlage · erledigt 10:57»)
   painted with the existing `.ip-*`/token CSS. That package is imported **only** inside
   `src/lib/overlays/` – every surface uses the wrappers, so behaviour/theming/a11y live in one
   place. Base UI portals Backdrop+Popup as siblings, so scrim = `.ui-backdrop` and centering =
-  `.ip-sheet.ui-dialog` (13-incident.css). **Modal surfaces only** – the non-modal map tool-docks
-  (`MapViewsMenu` views popover, the `.ctx` tool editors, the incident `ip-menu`) stay
-  hand-rolled: a focus-trapping/scroll-locking primitive would break map interaction. The
-  tap-open picker (`ComboMenu`, worn by `Combo` and the Atemschutz `PersonField`) and the
-  tap-toggle `DockInfo`/`InfoTip` also stay bespoke (free-type + in-menu toggle / a tablet tap
-  model don't map cleanly to Base UI Select/Tooltip); the admin `Select` stays hand-rolled too,
-  keyboard-driven and unportalled.
+  `.ip-sheet.ui-dialog` (13-incident.css). Every `Menu` and `Popover` is modal (an invisible
+  backdrop, no scrim); a `Menu` that keeps a composer field's caret (`keepFocusRef`) is the one
+  non-modal kind.
+- **The way out of a layer is ONE rule** (duck sweep 17.11.2026, owner calls 2 + 3;
+  `lib/overlays/layer`): **a tap beside a menu, popover or card only closes it** – the whole
+  gesture is swallowed, it never places, selects, deselects or pans what lies under it, on every
+  width; **one Esc closes one layer** (taken in the capture phase and stopped, so the surface's
+  ladder never peels a second); **the native back closes the top layer**, one per press (Android's
+  back, the iOS edge swipe – the 05.10. rule «no entry behind the operational screens» stands when
+  nothing is open: then back does what it did before); and focus goes back to the opener. The
+  primitives carry it (`Sheet`, `Overlay`, `ConfirmCard`, `Menu`, `Popover`), and so does every
+  **hand-rolled** container through `useLayer`: the Einsatz-Menü (`IncidentSwitcher`), the Karte
+  menu (`useKarteMenu`), Ansichten (`MapViewsMenu`), `ComboMenu` (`Combo`, `PersonField`), the
+  Gebäude card (`BuildingFloat`), the Messungen list (`ReadingsChip`), Ebenen (`LayerPanel`); the ✥ ⟳
+  mode and a fanned pile join its Esc only. They stay hand-rolled because a focus trap would break
+  the map under them, not because their way out may differ. Bespoke beside them, each saying why in
+  its header: the time wheel (`WheelPicker`, its own swallowing scrim), `DockInfo`/`InfoTip` (a
+  tablet tap model), the admin `Select` (keyboard-driven, unportalled), the admin drawer. The
+  **work sheets** that stand beside a live map – the `.ctx` editors, the Karte object sheet and its
+  search / Gefahrgut sheets, the Passung dock – are not layers in this sense: a tap on the map is
+  the next thing being worked on (it selects or deselects), so it acts. A new hand-rolled popover
+  takes `useLayer`; copying the Gebäude card's old listeners is how the 16.11. outliers came about.
 - **One look per overlay kind** (hill climb r35, 06.11.2026 – converged on what most of them
   already did). A **modal** dims the room with ONE scrim, `.ui-backdrop`'s rgba(20,28,40,.32) + 2px
   blur (13-incident · «ONE modal scrim» paints `.modal-backdrop`, `.mp-backdrop` and `.help-scrim`
@@ -267,7 +285,13 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   pick-one menu that belongs to its tile or chip** — Ansichten at the compass, the Einsatz-Menü,
   the Meteo chip, every `Menu` — is a **popover anchored to that control**. Three exceptions,
   each a rule: a page you READ (Hilfe) is full-screen, and a search that opens with the keyboard
-  (TruppFinder) hangs from the TOP edge so the keys never cover its results. And a place you AIM
+  never lets the keys cover its results: TruppFinder hangs from the TOP edge, the Karte's search
+  and Gefahrgut stand ON the keys (docs/karte-objekte.md · the phone's keyboard). **One caret
+  rule** (duck sweep CONT.6, 17.11.2026): a sheet whose job IS the search opens with the caret in
+  it (TruppFinder, the Karte search, PlanPicker «anderes Objekt»); a picker that shows its answers
+  before anything is typed (the symbol Palette, `ComboMenu`) opens with the keys DOWN – a keyboard
+  that opens by itself covers the very list it filters. ONE shape for the two kinds of search
+  sheet is still open (top-hung vs. on the keys, it needs a mock). And a place you AIM
   on a map – «Standort auf Karte setzen» (MapPicker, owner 30.10.2026, mock 5A) – is full-screen
   on every width: the pin fixed in the middle, the map moved under it, the map's centre the pick,
   one ‹ back and one action, the attribution a closed ⓘ; a sheet over the wizard's sheet left a
@@ -288,9 +312,17 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
 - **The keyboard goes first** (sweep 30.10.2026, owner: «the (x) of the card is an enticing
   place to close the keyboard»): while a text field inside a `Sheet`/`Overlay` has focus, the
   first ✕ or outside tap only blurs it (keys down); the next one closes. One gesture, one thing —
-  the same rule `popoverGuard` applies to a dropdown over a sheet. The ✕ is the frame's FIRST
-  `.ip-x`, so a bespoke frame whose ✕ calls `onClose` itself is covered; other controls, swipe-down,
-  Escape and a mouse press act at once (`lib/overlays/fieldFirst`).
+  the same rule `popoverGuard` applies to a dropdown over a sheet. The ✕ is found by its NAME –
+  the frame's first button called «Schliessen» (`copy.closeDialog`), never by its class – so the
+  composer's and the Verlauf's `.journal-x`, the Palette's `.sym-close` and a bespoke frame whose ✕
+  calls `onClose` itself are covered (CONT.5, 17.11.2026); the non-modal `.ctx` editors and the
+  Karte's search sheets spread the same handlers. Other controls, swipe-down, Escape and a mouse
+  press act at once (`lib/overlays/fieldFirst`).
+- **The keys of a text field** (duck sweep 17.11.2026, ELEM.8 + GESTURES.11; `lib/fieldKeys`):
+  Return in a one-line field commits and puts the keyboard down (its key says «Fertig» –
+  `enterKeyHint="done"` – and acts; a field whose Return sends or searches names that instead);
+  **Esc keeps what was typed and leaves the field**, one-liner and textarea alike – like tapping
+  away, nothing reverts (a typo is fixed with ↶). In a textarea Return stays a new line.
 - **A finger slides through a menu** (sweep 30.10.2026): on touch, a `Menu` highlights the row
   under a SLIDING finger and lifting on a row presses it (a checkbox row toggles, the menu stays
   open); lifting elsewhere does nothing, a plain tap is the browser's. A menu whose content scrolls
@@ -452,8 +484,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     bottom centre, the same glass, `--tap` high, no pointer events – a readout, not a control
     (tactical-objects.md · «The armed tool's readout»). The symbol tool has no dock since then.
     The sticky close button has no masking shadow: a solid surface patch mismatches the glass.
-    The blank Tafel offers no Messen on a phone; map and scaled plans keep it. The mobile
-    Ansichten popover dismisses on an outside pointer press, allowing the pressed control to act.
+    The blank Tafel offers no Messen on a phone; map and scaled plans keep it. The Ansichten
+    popover closes on a tap beside it and that tap does nothing else, on every width (Overlays ·
+    the way out of a layer, 17.11.2026 – it used to let the pressed control act).
   - *Height is a separate axis* – `--tap` (44px) by default, 48–50px for a card's main action.
     The 12 type combos happened because people enlarged the *label* when they wanted a bigger
     *target*; raise the height, not the font.
@@ -518,7 +551,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     the audio player's marker row `.ap-row-del` all wear it; `.btn.warn-solid` is gone). ✕ only
     ever closes or clears — a ✕ that deletes is a bug. The audio player's in-place editors are the
     ✕ `.ip-x` + ✓ primary icon pair (36/44).
-  - *Close:* every sheet/dialog ✕ IS the global `.ip-x` in the TSX (36px, 18px glyph, grey fill);
+  - *Close:* every sheet/dialog ✕ IS the global `.ip-x` look (36px, 18px glyph, grey fill) and is
+    named «Schliessen» (`copy.closeDialog` – the name, not the class, is what «the keyboard goes
+    first» finds); a centred dialog without a footer «Abbrechen» («Welcher Trupp?») has one too;
     a module class may position it, never restyle it. 44px only beside a 44px search field
     (Palette, Verlauf search, TruppFinder — `.x:global(.ip-x)`). The armed material keeps its
     on-ink ✕ (`.wb-dock-x`), and it stands at the dock's END (27.10.2026, owner: «X on the right
@@ -530,7 +565,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     row (Ansichten).
   - *Close and commit (13.11.2026, owner, M7 C: «keep the X as generic closing and finishing if
     something is actually done, and otherwise, "would be destroyed" is fertig»):* ✕ means «zu»
-    everywhere, and closing with ✕ never loses anything – a card, a sheet, a tool dock, a mode bar,
+    everywhere, and closing with ✕ never loses anything (a «Speichern» sheet saves what was typed on
+    any close, Editor sheets above) – a card, a sheet, a tool dock, a mode bar,
     the Passung (its points save as they are placed, so its exit stays ✕ «Schliessen» also once a
     fit stands; «Deckung prüfen» closes with ✕ «Schliessen» too). **«✓ Fertig» exists ONLY while
     something is being made that a close would throw away** – a Punkte-Linie, -Fläche or Wand

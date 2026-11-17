@@ -138,7 +138,7 @@ export const helpCopy = {
           { kind: 'sub', text: 'Bearbeiten' },
           { kind: 'list', items: [
             '[[⌘]] [[Z]] Rückgängig · [[⌘]] [[⇧]] [[Z]] Wiederherstellen · [[⌘]] [[D]] Duplizieren · [[⌫]] löscht die Auswahl.',
-            '[[Esc]] nimmt pro Druck eine Schicht zurück, bis die Karte wieder frei ist: ein Symbol, das gerade gesetzt wird → Koordinaten abgreifen → Ebenen / Ansichten → das Werkzeug → das Notiz-Panel → die Auswahl. In einem Feld verlässt [[Esc]] nur das Feld; den **Eintrag** schliesst es, der Text bleibt für das nächste Öffnen.',
+            '[[Esc]] nimmt pro Druck eine Schicht zurück, bis die Karte wieder frei ist: Ebenen / Ansichten → ein Symbol, das gerade gesetzt wird, oder Koordinaten abgreifen → das Werkzeug → das Notiz-Panel → die Auswahl – auf den Plänen in derselben Reihenfolge. Ein Menü, eine Karte oder ein Fenster darüber schliesst [[Esc]] zuerst und allein. In einem Feld verlässt [[Esc]] nur das Feld, das Getippte bleibt; den **Eintrag** schliesst es, der Text bleibt für das nächste Öffnen.',
           ] },
           { kind: 'sub', text: 'Ansicht & Panels' },
           { kind: 'list', items: [

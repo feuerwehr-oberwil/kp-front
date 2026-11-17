@@ -94,8 +94,8 @@ checklists filter it out), and visit surfaces only use `kind: "visit"`.
 (`GET /api/objects/{id}` through the offline cache, `src/objectVisits/plans.ts`), each by the
 plan's name alone, exactly as the object on the Karte names it («Modul 1», «Wasser», «PV» –
 `lib/navRail · planLabel`; owner, 27.10.2026: no «· Übersicht», no subtitle); a row opens
-`/api/reference/<plan id>?v=<version>` in the in-app reader (PdfScroller, one history entry so
-the back gesture closes it). Nothing about plans is stored in the visit.
+`/api/reference/<plan id>?v=<version>` in the in-app reader (PdfScroller, an `Overlay`, so the
+back gesture closes it like every layer – ui-conventions › Overlays). Nothing about plans is stored in the visit.
 
 **Changing the checklist.** A draft's ⋯ menu offers «Checkliste wechseln»
 (`doc.ts · switchChecklist`): the new snapshot replaces the old, answers of an item with the same

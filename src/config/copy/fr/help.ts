@@ -113,7 +113,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'sub', text: 'Édition' },
           { kind: 'list', items: [
             '[[⌘]] [[Z]] Annuler · [[⌘]] [[⇧]] [[Z]] Rétablir · [[⌘]] [[D]] Dupliquer · [[⌫]] supprime la sélection.',
-            '[[Esc]] revient d’un niveau par pression jusqu’à ce que la carte soit libre : un symbole en cours de pose → relevé de coordonnées → Couches / Vues → l’outil → le panneau de note → la sélection. Dans un champ, [[Esc]] ne fait que quitter le champ ; il ferme l’**Entrée** et garde son texte pour la prochaine fois.',
+            '[[Esc]] revient d’un niveau par pression jusqu’à ce que la carte soit libre : Couches / Vues → un symbole en cours de pose, ou le relevé de coordonnées → l’outil → le panneau de note → la sélection – dans le même ordre sur les plans. Un menu, une carte ou une fenêtre par-dessus se ferme d’abord, seul. Dans un champ, [[Esc]] ne fait que quitter le champ et garde le texte saisi ; il ferme l’**Entrée** et garde son texte pour la prochaine fois.',
           ] },
           { kind: 'sub', text: 'Affichage et panneaux' },
           { kind: 'list', items: [

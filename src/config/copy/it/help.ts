@@ -113,7 +113,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'sub', text: 'Modifica' },
           { kind: 'list', items: [
             '[[⌘]] [[Z]] Annulla · [[⌘]] [[⇧]] [[Z]] Ripristina · [[⌘]] [[D]] Duplica · [[⌫]] elimina la selezione.',
-            '[[Esc]] torna indietro di un livello a ogni pressione finché la carta è libera: un simbolo in posa → rilevamento coordinate → Livelli / Viste → lo strumento → il pannello della nota → la selezione. In un campo [[Esc]] lascia solo il campo; chiude la **Voce** e ne tiene il testo per la prossima volta.',
+            '[[Esc]] torna indietro di un livello a ogni pressione finché la carta è libera: Livelli / Viste → un simbolo in posa, o il rilevamento coordinate → lo strumento → il pannello della nota → la selezione – nello stesso ordine sui piani. Un menu, una scheda o una finestra sopra si chiude per primo, da solo. In un campo [[Esc]] lascia solo il campo e tiene il testo digitato; chiude la **Voce** e ne tiene il testo per la prossima volta.',
           ] },
           { kind: 'sub', text: 'Vista e pannelli' },
           { kind: 'list', items: [
