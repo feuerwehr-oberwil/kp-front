@@ -84,6 +84,25 @@ describe('«In Verwendung» — the tick filter stays put while active', () => {
   })
 })
 
+// button sweep HEADS.3 (17.11.2026): a narrowed list says WHAT narrows it, under the line, with the
+// way back – the pressed tick alone did not say «only what was used»
+describe('the «Gefiltert:» strip', () => {
+  it('names «In Verwendung» while it is on and lifts it with «Alle zeigen»', () => {
+    cfg.current = { mittel: { catalogue: [tauchpumpe], sources } }
+    mount({
+      entries: [{ id: 'e1', materialId: 'tp', label: 'Tauchpumpe', unit: 'Stk.', sourceId: 'tlf', sourceLabel: 'TLF Oberwil', menge: 1, at: new Date().toISOString() }],
+    })
+    const F = appConfig.copy.filterStrip
+    expect(screen.queryByText(F.filtered)).toBeNull()
+    const btn = screen.getByRole('button', { name: M.viewBySource })
+    fireEvent.click(btn)
+    expect(screen.getByText(F.filtered).parentElement!.textContent).toContain(M.viewBySource)
+    fireEvent.click(screen.getByRole('button', { name: F.showAll }))
+    expect(btn.getAttribute('aria-pressed')).toBe('false')
+    expect(screen.queryByText(F.filtered)).toBeNull()
+  })
+})
+
 describe('suchen heisst erfassen — die Suche trägt den Namen in den Composer', () => {
   const fromQuery = (name: string) => fillTemplate(M.composerFromQuery, { name })
   const type = (q: string) => fireEvent.change(

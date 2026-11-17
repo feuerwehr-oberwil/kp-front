@@ -36,13 +36,14 @@ import { BandGrid } from './BandGrid'
 import { AnrueckendBlock } from './AnrueckendBlock'
 import s from './Anwesenheit.module.css'
 import c from './SurfaceControls.module.css'
+import { FilterStrip } from './FilterStrip'
 
 /** Zeitraum stops for the Zeitplan axis, in hours — from one watch to a WEEK. The long tail
  *  (120 h, 168 h) is for the deployment that does not end on day four: an Elementarereignis
  *  with a Pikett rota runs into a second week, and a plan that cannot show it is planned
  *  somewhere else. */
 /** The head's ladder (lib/pageHeadFit): the poster read-out steps aside first, then the retry's word. */
-const HEAD_FOLD = { qr: 1, reload: 2 } as const
+const HEAD_FOLD = { qr: 1, print: 2, reload: 3 } as const
 
 const HORIZONS = [3, 6, 9, 12, 18, 24, 36, 48, 72, 96, 120, 168]
 
@@ -535,17 +536,20 @@ export function AnwesenheitView({
     { key: 'scene', cls: [s.markOrt], mark: <Icon id="pin" />, label: A.ortScene },
     { key: 'station', cls: [s.markOrt, s.markOrtStation], mark: <Icon id="station" />, label: A.ortStation },
   ] satisfies { key: StateKey; cls: string[]; mark: React.ReactNode; label: string }[]
-  /** ⚠️ What is on is named in the button's TOOLTIP and marked with a fixed-size dot — it is
-   *  never printed on the button. A label that appears when a filter is set changes the button's
-   *  width, which moves every control after it on the line AND re-anchors the dropdown: the menu
-   *  jumped sideways the moment you picked something in it. The dot is absolutely positioned, so
-   *  the geometry is identical filtered or not — which matters more now that a facet can hold
-   *  several picks and the label would be arbitrarily long. */
+  /** ⚠️ What is on is named in the strip under the search line (components/FilterStrip, button
+   *  sweep HEADS.3, 17.11.2026) and in the button's tooltip — it is never printed on the button. A
+   *  label that appears when a filter is set changes the button's width, which moves every control
+   *  after it on the line AND re-anchors the dropdown: the menu jumped sideways the moment you
+   *  picked something in it. */
   const stateOn = [
     ...stateEntries.filter((e) => stateSel.has(e.key)).map((e) => e.label),
     ...(noteOnly ? [A.statusNote] : []),
   ].join(' · ')
   const rankOn = ranksPresent.filter((r) => rankSel.has(r)).map(rankDisplay).join(' · ')
+  /** everything narrowing the list, in the line's order (✓ · Grad · Status) – the strip's words,
+   *  the ✓ by its button's word («Vor Ort»), the facets by their menus' */
+  const filterOn = [presentOnly ? A.onlyPresentWord : '', rankOn, stateOn].filter(Boolean).join(' · ')
+  const clearFilters = () => { setPresentOnly(false); setRankSel(new Set()); setStateSel(new Set()); setNoteOnly(false) }
   /** Attendance entries with no roster row: guests, mutual aid, an AdF who never synced. They
    *  are shaped like a Person so every row action below works on them unchanged — and the
    *  Rapport already prints them as guest lines. */
@@ -769,24 +773,29 @@ export function AnwesenheitView({
               that names its own contents and offers PDF and printer — which keeps the
               confirmation before paper starts moving, without four menu entries.
               Offered on the Zeitplan AND the Schichten tab: one surface, one way to paper. */}
+          {/* A PAGE-HEAD TILE with its word, «Drucken» (button sweep HEADS.9, 17.11.2026): it was a bare
+              list-head square in the page head, the one tile there that never said what it did. Its
+              word folds with the head's ladder (`HEAD_FOLD.print`) – on a phone to glyph OVER word. */}
           {(showPlan || showBands) && (onPrintZeitplan || onDownloadZeitplan) && (
             <Menu
               trigger={
-                <button className={c.iconBtn} aria-label={appConfig.copy.zeitplan.paperMenu}
-                  title={appConfig.copy.zeitplan.paperMenu}>
-                  {/* icon + relay dot side by side, like the Rapport's print button — .iconBtn is
-                      inline-grid, so as two loose children they stacked (printer OVER the dot) */}
+                <button type="button" className="head-tile" data-fold={HEAD_FOLD.print}
+                  aria-label={appConfig.copy.zeitplan.paperMenu} title={appConfig.copy.zeitplan.paperMenu}>
+                  {/* icon + relay dot side by side, like the Rapport's print button – ONE child, so
+                      a folded phone tile stacks the pair over the word */}
                   <span className="print-send-main">
                     <Icon id="printer" />
                     {onPrintZeitplan && (
                       <span className={`dot print-relay-dot${zeitplanPrintOnline ? ' online' : ''}`} aria-hidden />
                     )}
                   </span>
+                  <span className="fold-long">{appConfig.copy.zeitplan.paperMenuWord}</span>
                 </button>
               }
               popupClassName={c.menuPop}
               itemClassName={() => c.menuItem}
               items={[
+                { kind: 'head' as const, label: appConfig.copy.zeitplan.paperMenu },
                 ...(bands?.length ? [{
                   label: appConfig.copy.zeitplan.sheetSchichtplan,
                   onClick: () => setPaper('schichtplan'),
@@ -970,6 +979,13 @@ export function AnwesenheitView({
             line: there it stands in the grid's own clock row, see `horizonCtl`) */}
         {!isPhone && horizonCtl}
       </div>
+      {/* WHAT narrows the list, on every tab (the three read the same filtered Mannschaft) – and
+          the way back (button sweep HEADS.3, 17.11.2026). The count only while nothing is typed. */}
+      {filterOn && (
+        <FilterStrip className={c.strip} what={filterOn}
+          count={q.trim() ? undefined : { n: rows.length, m: people.length + guests.length }}
+          onClear={clearFilters} />
+      )}
 
       {/* The ranks used to have a row of their own here. They now sit inline with the search (see
           .controls above) — on a desk screen seeing them all is faster than opening anything, but
@@ -993,16 +1009,9 @@ export function AnwesenheitView({
           action={error ? <Button icon={<Icon id="rotate" />} onClick={onReload} disabled={loading}>{A.retry}</Button> : undefined} />
       ) : !rows.length && !guestOffer ? (
         // a query says what was searched; ONLY a filter (the quick ✓ while nobody is present yet)
-        // gets the shared filter line and the one-tap way out – never «Keine Treffer für «».»
-        // (duck sweep LISTS.4, 17.11.2026)
-        q.trim()
-          ? <div className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: q.trim() })}</div>
-          : (
-            <div className="no-hits no-hits-way">
-              {appConfig.copy.filterNoHits}
-              <Button onClick={() => { setPresentOnly(false); setRankSel(new Set()); setStateSel(new Set()); setNoteOnly(false) }}>{A.filterClear}</Button>
-            </div>
-          )
+        // gets the shared filter line – never «Keine Treffer für «».» (duck sweep LISTS.4,
+        // 17.11.2026). Its way out is the strip right above, «Alle zeigen» (HEADS.3).
+        <div className="no-hits">{q.trim() ? fillTemplate(appConfig.copy.noHits, { q: q.trim() }) : appConfig.copy.filterNoHits}</div>
       ) : showBands ? (
         <BandGrid
           people={rows}

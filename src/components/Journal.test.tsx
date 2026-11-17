@@ -293,20 +293,27 @@ describe('Journal · the Pendenzen block under the funnel', () => {
 
     await tick('Pendenz') // untick: «Auftrag» alone again
     await waitFor(() => expect(document.querySelector('.jr-pinned')).toBeNull())
-    fireEvent.click(document.querySelector('.jr-filter-all')!)
+    // the way out is the «Gefiltert:» strip's (components/FilterStrip)
+    fireEvent.click(screen.getByRole('button', { name: 'Alle zeigen' }))
     await waitFor(() => expect(document.querySelector('.jr-pinned')).not.toBeNull())
   })
 
-  // sweep E.9: an Auftrag raised with the ring counts under «Auftrag» AND «Pendenz» – «Alle zeigen»
-  // still counts it once
-  it('counts a typed Pendenz row under both, and «Alle zeigen» counts rows', async () => {
+  // sweep E.9: an Auftrag raised with the ring counts under «Auftrag» AND «Pendenz» – «Alle» still
+  // counts it once. «Alle» is the FIRST row and ticked while nothing is filtered (button sweep
+  // HEADS.7, 17.11.2026 – every box stood empty, «Alle zeigen» an action at the bottom)
+  it('counts a typed Pendenz row under both, and «Alle» – first, ticked – counts rows', async () => {
     const ringed = [...rows, { ...row('rauf', 1_010_000, 'Auftrag · Leiter stellen'), entryType: 'auftrag', reminder: { op: 'created', id: 'p2' } } as TimelineEvent]
     setup({ events: ringed })
     fireEvent.click(screen.getByRole('button', { name: 'Verlauf filtern' }))
     const count = async (word: RegExp) => (await screen.findByRole('menuitemcheckbox', { name: word })).querySelector('.jr-filter-count')?.textContent
     expect(await count(/Pendenz/)).toBe('2')
     expect(await count(/Auftrag/)).toBe('2')
-    expect(document.querySelector('.jr-filter-reset .jr-filter-count')?.textContent).toBe('3')
+    const all = await screen.findByRole('menuitemcheckbox', { name: /^Alle/ })
+    expect(all.querySelector('.jr-filter-count')?.textContent).toBe('3')
+    expect(all.getAttribute('aria-checked')).toBe('true')
+    expect(screen.getAllByRole('menuitemcheckbox')[0]).toBe(all)
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /Auftrag/ }))
+    await waitFor(() => expect(all.getAttribute('aria-checked')).toBe('false'))
   })
 })
 
@@ -648,9 +655,9 @@ describe('Journal · the search in the head', () => {
     fireEvent.click(lens())
     const field = screen.getByRole('textbox', { name: 'Im Verlauf suchen' })
     expect(document.activeElement).toBe(field)
-    // the head is still there, and the lens in it is lit
+    // the head is still there, and the lens in it wears the open look (`aria-expanded`)
     expect(document.querySelector('.journal-title')?.textContent).toBe('Verlauf · 3')
-    expect(screen.getAllByRole('button', { name: 'Suche schliessen' })[0].classList.contains('on')).toBe(true)
+    expect(screen.getAllByRole('button', { name: 'Suche schliessen' })[0].getAttribute('aria-expanded')).toBe('true')
     fireEvent.change(field, { target: { value: 'feuer' } })
     expect(rows()).toEqual(['r3'])
     expect(screen.getByText('1 von 3')).toBeTruthy()

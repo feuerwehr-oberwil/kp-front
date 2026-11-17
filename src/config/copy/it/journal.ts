@@ -163,8 +163,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     filter: 'Filtra il diario',
     filterArt: 'Tipo di voce',
     filterArea: 'Ambito',
-    filterAll: 'Mostra tutto',
-    filterActive: 'Filtrato:',
+    filterAll: 'Tutti',
     filterEmptyHint: '«Mostra tutto» rimuove il filtro.',
 
     stripLabel: 'Linea del tempo – tocca per saltare al punto corrispondente',
@@ -218,6 +217,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     sectionRemoved: 'Sezione eliminata',
     markOpenTitle: 'Segna di nuovo come aperto',
     legendPendenzOverdue: 'Pendenza scaduta',
+    searchWord: 'Cerca',
+    filterWord: 'Tipo',
   },
   tafelPendenzen: {
     createdLog: 'Pendenza dalla lavagna ({page}): {text}',

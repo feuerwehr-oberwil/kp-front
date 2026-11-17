@@ -184,7 +184,9 @@ export const incidentCopy = {
     // the line that names the Einsatz above a lifecycle confirm's buttons (lib/einsatzSubject)
     confirmSubject: 'Zeit Alarmierung {t}',
     confirmSubjectExercise: '{name} · Übung',
-    filterClear: 'Alle zeigen',
+    // the filter tile's WORD, its facet (button sweep HEADS.2/.6, 17.11.2026 – it was a bare funnel):
+    // «Ernstfall / Übung» and «Einsatzart» are both what KIND of Einsatz
+    filterWord: 'Art',
   },
   // Abschluss-Assistent — the guided closing ritual over the EXISTING views. Every small
   // incident is a training run on the big-incident tool (practice rationale, 2026-07-08).

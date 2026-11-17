@@ -811,9 +811,9 @@
    gefunden»). It had six recipes, one of them the app's only italic line — read as a quote. */
 .no-hits { margin: 0; padding: 24px 12px; text-align: center; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-faint);
   font-style: normal; overflow-wrap: anywhere; list-style: none; }
-/* …with its way out as a button under the line (the Anwesenheit's «Alle zeigen» while only a
-   filter narrows the list – duck sweep LISTS.4, 17.11.2026) */
-.no-hits-way { display: grid; justify-items: center; gap: var(--sp-3); }
+/* (its way out while only a filter narrows the list is the «Gefiltert: … · Alle zeigen» strip right
+   above it – components/FilterStrip, button sweep HEADS.3, 17.11.2026; the line's own button,
+   `.no-hits-way`, from duck sweep LISTS.4 is gone with it) */
 
 /* The «Übung» row (EinsatzWizard) — an `OnOff` pair beside its name (28.09.2026; it was a
    tick-box chip). The `.set-row` recipe without the card: name + consequence left, the pair
@@ -1014,6 +1014,12 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
   .head-tile.amber:hover:not(:disabled) { background: color-mix(in srgb, var(--amber) 16%, var(--surface)); }
 }
 .head-tile:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* OPEN while its menu is up (Base UI sets `data-popup-open` on every Menu trigger): THE open look
+   (Small roles (6), duck sweep ELEM.6; button sweep HEADS.5, 17.11.2026) – the Zeitplan's
+   «Drucken», the Rapport's ▾, any <Button> that opens a Menu (the Tafel's «+ Seite»). The same
+   rule rides on SurfaceControls · `.iconBtn`, Atemschutz · `.headTile` and the admin's ⋯, each in
+   its own sheet. */
+:is(.head-tile, .ip-btn)[data-popup-open] { background: var(--sel-wash); color: var(--blue-strong); }
 .head-tile:disabled { opacity: var(--disabled); cursor: default; }
 /* an icon-only head tile is still a tap wide (the page head's ladder folds a tile to its glyph) */
 .head-tile:not(.sm) { min-width: var(--tap); }
@@ -1025,6 +1031,21 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
    A part that folds twice (`data-fold="1 8"`) loses its short word too at its second rank and
    keeps only its glyph — the quiet «✓ Gespeichert» becoming «✓». */
 [data-fold]:not([data-folded]) .fold-short, [data-folded] .fold-long, [data-folded="2"] .fold-short { display: none; }
+/* …and on a PHONE a folded TILE is glyph OVER word, never a bare glyph (owner pick, button sweep
+   HEADS.9, 17.11.2026: «word under there too»): the list head's phone tile (SurfaceControls ·
+   `.word`) and the nav bar's, the word at 11/700. The word is the tile's `.fold-short` where it has
+   one («Abgeben», «Trupp» – at its second rank too), else its `.fold-long` («Alarmton», «Drucken»).
+   Only a tile that KEEPS a glyph stacks (a direct `svg` / `.print-send-main` that is not
+   `.fold-long`): the Rapport's «PDF» and «Abschliessen» fold to their word alone and stay as they
+   are. A count chip («⚠ 4») keeps its number beside the glyph: `data-fold-beside`. A tablet's fold
+   is unchanged – the word goes, the hold-tooltip says it. */
+@media (--phone) {
+  button[data-folded]:not([data-fold-beside]):has(> :is(svg, .print-send-main):not(.fold-long)) {
+    flex-direction: column; justify-content: center; gap: var(--sp-1); }
+  button[data-folded]:not([data-fold-beside]):has(> :is(svg, .print-send-main):not(.fold-long)):not(:has(> .fold-short)) > .fold-long,
+  button[data-folded]:not([data-fold-beside]):has(> :is(svg, .print-send-main):not(.fold-long)) > .fold-short {
+    display: block; font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
+}
 
 .ip-note { color: var(--ink-faint); font: var(--fw-medium) var(--fs-1) var(--body); }
 /* ⚠️ THIS RULE DID NOT EXIST. `.ip-hint` is rendered in the Gast dialog (and read as the
@@ -1124,6 +1145,8 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
    field, button and menu are SurfaceControls'; only the row is the sheet's own, without the
    surface row's gutters – the sheet body already has them */
 .ip-hist-controls { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-1); }
+/* …and the «Gefiltert: …» strip under it (components/FilterStrip, button sweep HEADS.3) – placement */
+.ip-hist-strip { margin-bottom: var(--sp-1); }
 
 /* --- Rapport closing checklist (inside the Einsatzrapport sheet) --------------------- */
 /* Not a card any more — a plain stack of them. The four rows sit at COLUMN level, beside the
@@ -1503,15 +1526,8 @@ button.rp-sign-row:disabled { cursor: default; }
   border-bottom: 1px solid var(--glass-line); }
 /* (the ⓘ beside the search is THE InfoToggle since 29.09.2026 — it wore a 44px frame that
    turned station red while its help was open) */
-/* «Erfasste N» — the check-back filter beside the search box. On it is THE filter-on look, the
-   choice fill (--sel, docs/ui-conventions.md · Small roles (9); 15.11.2026 – it was green, the
-   anwesend tint, so «filtered» read as «present»). Off it is a plain neutral control, so an
-   unfiltered roster can never be mistaken for a filtered one. */
-.cv-filter { display: inline-flex; align-items: center; gap: 8px; flex: none; height: 44px; padding: 0 12px;
-  cursor: pointer; border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink-dim);
-  border-radius: var(--r-sm); font: var(--fw-bold) var(--fs-2) var(--body); white-space: nowrap; }
-.cv-filter svg { width: 15px; height: 15px; }
-.cv-filter.on { color: var(--on-sel); border-color: var(--sel); background: var(--sel); }
+/* («Erfasste N», the check-back filter beside the search box, is THE list-head filter tile –
+   SurfaceControls · `.iconBtn`, button sweep HEADS.2, 17.11.2026; its own `.cv-filter` is gone) */
 /* «Nichts verwendet» — the one answer that makes the Material Mindestangabe answerable from here
    (see lib/abschluss · stepDone). The tablet Rapport's own «Entfällt» model (duck sweep ELEM.9,
    17.11.2026): the button at its width, the answered read-out (17-rapport · .rz-none) across the

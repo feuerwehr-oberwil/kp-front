@@ -39,7 +39,10 @@
 .headTile :global(.i) { flex: none; width: 16px; height: 16px; }
 .headTile:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) { .headTile:hover:not(:disabled) { color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink-faint); } }
-.headTile[data-popup-open] { color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink-faint); }
+/* OPEN while its menu is up (Base UI's `data-popup-open`): THE open look of every menu trigger –
+   the blue wash and a `--blue-strong` glyph (docs/ui-conventions.md · Small roles (6), button
+   sweep HEADS.5, 17.11.2026; it was an `--ink-faint` edge of its own) */
+.headTile[data-popup-open] { color: var(--blue-strong); background: var(--sel-wash); }
 /* «+ Trupp» — THE filled tile, in the app's one primary fill (01-tokens · --btn-primary). It was
    --ink until 23.10.2026: the glaring near-white at night that --btn-primary exists to avoid, so
    a routine «+ Trupp» outshone the overdue Trupps on the board. */
@@ -47,12 +50,14 @@
 @media (hover: hover) { .newBtn:hover:not(:disabled) { color: var(--on-btn-primary); box-shadow: none; background: var(--btn-primary-hover); } }
 /* per-device alarm-sound toggle (visual alarm + wake-lock stay on either way) */
 .muteBtn { composes: headTile; }
-/* …folded to the bare bell (the phone head, lib/pageHeadFit · `data-folded`): a 20px glyph box
+/* …folded to the bare bell (a tablet head, lib/pageHeadFit · `data-folded`): a 20px glyph box
    (hill climb r24, Sol 1, 05.11.2026). This 24-grid bell draws only 16.5 units, so in the tiles'
    16px box it stood ~11px tall beside «+ Trupp» and the cards' 18–20px glyphs – a notification
    mark rather than a control. At 20px it draws ~15px at the cards' ~1.5px stroke (the base 1.8
    units), centred in the same 44px square. With its word beside it, it keeps the row's 16px. */
-.muteBtn[data-folded] :global(.i) { width: 20px; height: 20px; }
+/* (a tablet's fold only: a phone's folded tile keeps its word UNDER the glyph and the row's 16px –
+   13-incident · «fold», button sweep HEADS.9, 17.11.2026) */
+@media (--not-phone) { .muteBtn[data-folded] :global(.i) { width: 20px; height: 20px; } }
 .muteOn { color: var(--amber-strong); box-shadow: inset 0 0 0 1px var(--amber-45); }
 /* the browser has not released audio: the bell is on, and it cannot make a sound. Red, because
    this is the one bell state that needs a tap — see AtemschutzView · bellLabel. */
@@ -67,7 +72,8 @@
    16px QR in front of it too, the tiles' one 8px glyph gap – the phone head read three patterns
    (a bare word, a bare bell, «+ Trupp»); the room comes from the folded tiles' 8px inside
    (`.head .headTile[data-folded]`, below), not from the type. At its second rank (the ladder's
-   last word) the word goes and it is the plain 44px QR square again. */
+   last word) the word goes and it is the plain 44px QR square again – on a tablet; a phone keeps
+   «Abgeben» UNDER the QR instead (13-incident · «fold», button sweep HEADS.9, 17.11.2026). */
 .shareBtn { composes: headTile; }
 /* «Überwachung abgeben», while a link IS live. Green = a running, healthy state, the same
    reading the contact clock gives — not an alarm and not the primary action of the header.
@@ -1415,6 +1421,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    crowded head's form, and on the 390px phone the 16px the two worded tiles give back keep «Abgeben» its
    QR glyph without folding «✓ Gespeichert» to its mark (an icon-only tile stays the 44px square). */
 .head[data-fit-tight] .headTile, .head .headTile[data-folded] { padding: 0 var(--sp-2); }
+/* the «Sortiert: Name · Wie gesetzt» strip under the head (components/FilterStrip, button sweep
+   HEADS.3, 17.11.2026) – in the head's gutter, the body's own top padding under it */
+.sortStrip { flex: none; padding: 0 var(--head-pad-x); }
 /* the sync line under the title is ONE line: the quiet state gives its time to the ladder first,
    and the LOUD one (the switcher's `.ip-offline-chip`, `flex: none` elsewhere) may shrink rather
    than run under the tiles — its text ellipsizes, which the ladder reads as «does not fit»

@@ -83,8 +83,11 @@ export function IconSprite() {
       <symbol id="sparkle" viewBox="0 0 24 24"><path d="M12 4l1.8 5.2L19 11l-5.2 1.8L12 18l-1.8-5.2L5 11l5.2-1.8z" /></symbol>
       <symbol id="skip-back-15" viewBox="0 0 24 24"><path d="M11 6 5 12l6 6M19 6l-6 6 6 6" /></symbol>
       <symbol id="skip-fwd-15" viewBox="0 0 24 24"><path d="M13 6l6 6-6 6M5 6l6 6-6 6" /></symbol>
-      {/* a funnel: the rank quick-filter, where a row of chips costs a phone a whole band */}
+      {/* a funnel: «show fewer» – a FILTER only, never an order (button sweep HEADS.1, 17.11.2026) */}
       <symbol id="filter" viewBox="0 0 24 24"><path d="M3.5 5h17l-6.5 7.5V20l-4-2.2v-5.3z" /></symbol>
+      {/* «Reihenfolge»: two opposed arrows ↑↓ – an ORDER (owner pick, button sweep HEADS.1,
+          17.11.2026). The Trupps sort wore the funnel, which read «Trupps are hidden». */}
+      <symbol id="sort" viewBox="0 0 24 24"><path d="M8 19.5V4.5M4 8.5l4-4 4 4M16 4.5v15M12 15.5l4 4 4-4" /></symbol>
       {/* «Trupp finden» (29.09.2026, sweep 3 T8): the Trupp tool's own flag inside a finder's
           reticle — «where is that Trupp». It wore the #search lens, which the Suche's tile wears
           60px below it on a phone: one glyph, two searches, and a gloved thumb picking the wrong
@@ -98,9 +101,8 @@ export function IconSprite() {
       {/* The drawer toggle (/admin on a phone, UI sweep 07.10.2026). It wore #layers, which is
           «Kartenebenen» one entry down the very drawer it opens. Three bars = «sections». */}
       <symbol id="menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /></symbol>
-      <symbol id="more-vert" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="19" r="1.7" fill="currentColor" stroke="none" /></symbol>
-      {/* …lying down: the last chip of the phone card's fact strip (26.09.2026, phone card
-          slim-down) — a horizontal ⋯ reads as «more of this row», the vertical one as a head's menu */}
+      {/* «more»: ONE glyph for every «more of this» menu – the phone card's fact strip, a surface
+          head, the admin's row menus (button sweep HEADS.12, 17.11.2026: the admin wore a vertical ⋮) */}
       <symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.7" fill="currentColor" stroke="none" /></symbol>
       <symbol id="compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 4.5 14.5 13 12 11 9.5 13z" fill="var(--red)" stroke="none" /><path d="M12 13v6" stroke-opacity=".4" /></symbol>
       <symbol id="undo" viewBox="0 0 24 24"><path d="M9 7 4 12l5 5" /><path d="M4 12h11a5 5 0 0 1 0 10h-2" /></symbol>

@@ -324,9 +324,7 @@ export const journalCopy = {
     filter: 'Verlauf filtern',
     filterArt: 'Art des Eintrags',
     filterArea: 'Bereich',
-    filterAll: 'Alle zeigen',
-    // the one-line strip under the head while a filter is on: «Gefiltert: Auftrag · Pendenz»
-    filterActive: 'Gefiltert:',
+    filterAll: 'Alle',
     // after the shared «Keine Einträge in dieser Auswahl.» (copy.filterNoHits): the way out
     filterEmptyHint: '«Alle zeigen» hebt den Filter auf.',
     // ── Pendenzen ─────────────────────────────────────────────────────────────────────────
@@ -372,6 +370,11 @@ export const journalCopy = {
     sectionRemoved: 'Abschnitt gelöscht',
     markOpenTitle: 'Wieder als offen markieren',
     legendPendenzOverdue: 'Pendenz überfällig',
+    // the head's tiles are WORDED like every list head (button sweep HEADS.2, 17.11.2026): the lens
+    // and the funnel's words, beside the glyph on a tablet, under it on a phone
+    searchWord: 'Suchen',
+    // the funnel's word is its FACET (HEADS.6) – «Art des Eintrags» is the menu's first group
+    filterWord: 'Art',
   },
   // ── The Tafel's «Aufträge / Pendenzen» page (05.11.2026, lib/pendenzenPage) ────────────────
   // A view on the Verlauf's Pendenzen and Erinnerungen: every act on the page appends a Verlauf
