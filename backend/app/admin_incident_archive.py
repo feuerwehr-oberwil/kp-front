@@ -3,7 +3,9 @@
 Report only by default; ``--apply`` keeps the PDF and enqueues the normal delivery. No Graph
 calls, no recomposition, no replacement of an existing kept/filed Rapport. The original print
 job stays untouched. Page order is verified from the PDF's OWN numbered footer, never today's
-printer setting. The storage prefix records the source job; composed_at stays the print time.
+printer setting. Run inside the deployed backend with its storage volume mounted; DATABASE_URL
+alone is insufficient (PDF bytes use MEDIA_STORAGE_DIR). The storage prefix records the source
+job; composed_at stays the print time.
 Contract and command: docs/incident-archive.md › Recovering an older printed Rapport.
 """
 
@@ -22,6 +24,8 @@ from typing import TYPE_CHECKING, Any
 
 import anyio
 import pypdfium2 as pdfium
+from reportlab.lib.units import mm
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
@@ -44,9 +48,13 @@ def reading_order_pdf(pdf: bytes) -> tuple[bytes, int, bool]:
     with pdfium_lock, pdfium.PdfDocument(pdf) as doc:
         count = len(doc)
         numbers = []
+        # report.styles._NumberedCanvas reserves this right-aligned, 8pt column. The left
+        # footer may carry a long incident title/stamp all the way into the page's right half.
+        number_width = stringWidth(f"{count} / {count}", "Helvetica", 8)
         for page in doc:
             with closing(page), closing(page.get_textpage()) as text:
-                footer = text.get_text_bounded(left=page.get_width() / 2, bottom=0, right=page.get_width(), top=35)
+                right = page.get_width() - 14 * mm
+                footer = text.get_text_bounded(left=right - number_width - 0.5, bottom=0, right=right + 0.5, top=35)
                 match = re.fullmatch(r"\s*(\d+)\s*/\s*(\d+)\s*", footer)
                 if match is None or int(match[2]) != count:
                     raise ValueError("Rapport page numbering is missing or incomplete; nothing recovered")
@@ -90,6 +98,12 @@ async def recover_report(db: AsyncSession, incident_id: uuid.UUID, job_id: uuid.
     if kept is not None:
         if kept.content_sha != sha:
             raise ValueError("Einsatz already has a kept Rapport; nothing replaced")
+        try:
+            await storage.aget_bytes(kept.storage_key)
+        except OSError as e:
+            raise ValueError(
+                "Kept PDF is not readable in MEDIA_STORAGE_DIR; check the deployment's mounted storage"
+            ) from e
         return {**result, "state": "unchanged"}
     rows = (
         (await db.execute(select(IncidentArchiveDelivery).where(IncidentArchiveDelivery.incident_id == incident_id)))

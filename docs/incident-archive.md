@@ -152,7 +152,12 @@ print job still exists (the queue is transient), an administrator can recover **
 selected full Rapport**. Review its incident, print timestamp and contents first; a printed
 version is not necessarily the final Rapport.
 
-Run from `backend/`, against the target's `DATABASE_URL`:
+Run **inside the deployed backend environment, with that deployment's storage volume mounted**
+(from `backend/`). Both `DATABASE_URL` and `MEDIA_STORAGE_DIR` must be the running backend's
+values. **The target database connection alone is insufficient**: a local run would otherwise
+commit a key whose PDF exists only in local storage, unreadable by the deployed worker. Use a
+shell in the app container (for example `docker compose exec app sh`, or `railway ssh
+--environment <target> --service <app-service>`), then run:
 
 ```bash
 uv run python -m app.admin_incident_archive recover-report <incident-id> --print-job <job-id>
@@ -171,8 +176,10 @@ its id and `composed_at` keeps its original creation time. As the old payload wa
 Recovery requires an active destination and a closed, real Einsatz. It accepts only a completed
 `report` job of that Einsatz, never a capture report. An existing kept PDF, a previously filed
 PDF or an upload whose response is unconfirmed is protected; a concurrent compose also wins.
-Repeating the same recovery is a no-op. Apply only enqueues the normal retrying archive worker;
-it makes no SharePoint request itself and never overwrites an existing remote file.
+Repeating the same recovery is a no-op only when the kept PDF is still readable in the mounted
+storage; otherwise the command reports the storage problem instead of claiming «unchanged».
+Apply only enqueues the normal retrying archive worker; it makes no SharePoint request itself
+and never overwrites an existing remote file.
 
 ## Setting it up
 

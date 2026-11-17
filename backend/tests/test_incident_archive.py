@@ -429,13 +429,15 @@ async def test_a_lost_rapport_upload_never_hands_its_name_to_a_newer_rapport(
 def _printed_pdf(order=(3, 2, 1), *, total=3) -> bytes:
     import io
 
+    from reportlab.lib.units import mm
     from reportlab.pdfgen.canvas import Canvas
 
     buf = io.BytesIO()
     c = Canvas(buf)
     for n in order:
         c.drawString(50, 700, f"Original page {n}")
-        c.drawRightString(550, 22, f"{n} / {total}")
+        c.setFont("Helvetica", 8)
+        c.drawRightString(c._pagesize[0] - 14 * mm, 8 * mm, f"{n} / {total}")
         c.showPage()
     c.save()
     return buf.getvalue()
@@ -586,3 +588,54 @@ async def test_recovery_rollback_leaves_no_kept_pdf_or_storage_blob(client, edit
     assert await db_session.get(IncidentArchiveReport, uuid.UUID(inc)) is None
     assert not list(Path(storage_mod._ROOT).rglob("*.pdf"))
     assert (await _row(db_session, inc)).wanted == 1
+
+
+@pytest.mark.parametrize("reversed_pages", [False, True])
+def test_recovery_reads_production_footer_with_a_long_title(reversed_pages):
+    import io
+
+    from app.admin_incident_archive import reading_order_pdf
+    from app.api.print_relay import reverse_pdf_pages
+    from app.report.styles import _NumberedCanvas
+
+    buf = io.BytesIO()
+    c = _NumberedCanvas(buf)
+    c.footer_label = (
+        "Brand in einem sehr langen Gebaeudenamen mit ausfuehrlicher Ortsangabe " * 3 + " · 17.11.2026 09:00"
+    )
+    for n in range(1, 4):
+        c.drawString(50, 700, f"Original page {n}")
+        c.showPage()
+    c.save()
+    source = reverse_pdf_pages(buf.getvalue()) if reversed_pages else buf.getvalue()
+    pdf, pages, was_reversed = reading_order_pdf(source)
+    assert pages == 3
+    assert was_reversed is reversed_pages
+    import pypdfium2 as pdfium
+
+    from app.pdfium_lock import pdfium_lock
+
+    with pdfium_lock, pdfium.PdfDocument(pdf) as doc:
+        for n, page in enumerate(doc, 1):
+            with closing(page), closing(page.get_textpage()) as text:
+                assert f"Original page {n}" in text.get_text_range()
+
+
+async def test_recovery_does_not_confirm_a_kept_pdf_missing_from_the_mounted_storage(
+    client, editor, drive, session_factory, db_session, monkeypatch, capsys
+):
+    from app import admin_incident_archive as cli
+
+    inc = await _incident(client, editor)
+    await _close(client, inc)
+    job = await _old_print_job(db_session, inc)
+    monkeypatch.setattr(cli, "async_session_maker", session_factory)
+    args = ["recover-report", inc, "--print-job", str(job.id)]
+    assert await cli._amain([*args, "--apply"]) == 0
+    capsys.readouterr()
+    kept = await db_session.get(IncidentArchiveReport, uuid.UUID(inc))
+    storage_mod.delete(kept.storage_key)
+    assert await cli._amain(args) == 1
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert "MEDIA_STORAGE_DIR" in captured.err
