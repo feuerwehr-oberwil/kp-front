@@ -106,7 +106,6 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     viewBands: 'Tours',
     viewLabel: 'Vue',
     reloadDone: 'Liste actualisée',
-    filterClear: 'Tout afficher',
   },
   anrueckend: {
     title: 'En route',
@@ -197,6 +196,7 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     dragFrom: 'Tirer le début',
     editEntry: 'Modifier …',
     dragTo: 'Tirer la fin',
+    paperMenuWord: 'Imprimer',
   },
   schichten: {
     title: 'Tours',

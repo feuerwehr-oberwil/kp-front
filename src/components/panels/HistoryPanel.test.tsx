@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { appConfig } from '../../config/appConfig'
 import { HistoryPanel } from './HistoryPanel'
 import type { IncidentMeta } from '../../lib/incidents'
 
@@ -33,5 +34,26 @@ describe('HistoryPanel status tags', () => {
     const tags = [...document.querySelectorAll('.ip-hist .ip-badge')].map((b) => b.textContent)
     expect(tags).toEqual(['Abgeschlossen'])
     expect(screen.queryByText('In Arbeit')).toBeNull()
+  })
+})
+
+// button sweep HEADS.4 + HEADS.3 (17.11.2026): «Ernstfall / Übung» and «Einsatzart» are ONE value
+// each – a one-of-N with «Alle» first and ticked, never a checkbox that unticks its neighbour
+// behind your back – and the narrowed list says what narrows it, with the way back.
+describe('HistoryPanel filter', () => {
+  it('picks one Art per group and names it in the strip', async () => {
+    const h = appConfig.copy.history
+    const F = appConfig.copy.filterStrip
+    render(<HistoryPanel onClose={() => {}} onOpen={() => {}} />)
+    await screen.findByText('Brand C')
+    fireEvent.click(screen.getByRole('button', { name: h.filterAria }))
+    const all = await screen.findAllByRole('menuitemradio', { name: h.filterAll })
+    expect(all[0].getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(screen.getByRole('menuitemradio', { name: h.filterExercise }))
+    await waitFor(() => expect(screen.getByText(F.filtered).parentElement!.textContent).toContain(h.filterExercise))
+    expect(screen.queryByText('Brand A')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: F.showAll }))
+    await screen.findByText('Brand A')
+    expect(screen.queryByText(F.filtered)).toBeNull()
   })
 })

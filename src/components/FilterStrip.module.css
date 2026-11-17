@@ -1,0 +1,15 @@
+/* THE «Gefiltert: … · n von N · Alle zeigen» line (components/FilterStrip, button sweep HEADS.3,
+   17.11.2026) – lifted from the Verlauf (10-journal · .jr-filter-strip, 23.09.2026). The caption's
+   voice: 12.5/500 `--ink-dim`, the pick in bold ink. The text WRAPS rather than cut the pick (a
+   phone's «Vor Ort · Of · Wm» ran under an ellipsis – the one word the strip exists to say); the
+   count and the way back never wrap. No band, no tint: the trigger's choice fill above already says
+   THAT a filter is on, this says WHAT. The surface sets the gutter (`className`). */
+.strip { display: flex; align-items: center; gap: var(--sp-2); min-width: 0;
+  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
+.text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.text b { color: var(--ink); font-weight: var(--fw-bold); }
+/* read at a glance, never wrapped */
+.count { flex: none; font-weight: var(--fw-bold); color: var(--ink-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* «Alle zeigen» is THE neutral <Button> (--tap, framed): an action, not a blue word (style sweep
+   T2, owner pick A, 15.11.2026); this only keeps it whole */
+.clear { flex: none; }

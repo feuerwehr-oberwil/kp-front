@@ -163,8 +163,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     filter: 'Filtrer le journal',
     filterArt: 'Type d’entrée',
     filterArea: 'Domaine',
-    filterAll: 'Tout afficher',
-    filterActive: 'Filtré :',
+    filterAll: 'Tout',
     filterEmptyHint: '«Tout afficher» lève le filtre.',
 
     stripLabel: 'Frise chronologique – toucher pour sauter à l\'endroit correspondant',
@@ -218,6 +217,9 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     sectionRemoved: 'Section supprimée',
     markOpenTitle: 'Marquer à nouveau comme ouvert',
     legendPendenzOverdue: 'Point en retard',
+    searchWord: 'Chercher',
+    filterWord: 'Type',
+    replayWord: 'Relecture',
   },
   tafelPendenzen: {
     createdLog: 'Point en suspens du tableau ({page}) : {text}',

@@ -7,6 +7,8 @@ import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { SearchField } from '../components/SearchField'
 import { InfoToggle } from '../components/InfoToggle'
+import c from '../components/SurfaceControls.module.css'
+import { cx } from '../lib/cx'
 import { DateTimeField } from '../components/TimeField'
 import { keepEndAfterStart, keepStartBeforeEnd } from '../lib/abschluss'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
@@ -74,12 +76,15 @@ export function PersonenSection({
             row DELETES that person's entry, so filtering down to the last recorded
             person and tapping them once more took the count to 0 — and a toggle that
             unmounts while still filtering leaves an empty roster with nothing on screen
-            to switch it off again. */}
+            to switch it off again.
+            THE list-head filter tile (SurfaceControls · `.iconBtn` + `.word`, button sweep HEADS.2,
+            17.11.2026): the Anwesenheit's «Vor Ort» – word under the glyph on a phone, ON the choice
+            fill. It was a hand-rolled copy with the word beside at 14/700 and a 15px glyph. */}
         {(recordedCount > 0 || onlyRecorded) && (
-          <button type="button" className={`cv-filter${onlyRecorded ? ' on' : ''}`}
+          <button type="button" className={cx(c.iconBtn, onlyRecorded && c.iconBtnOn)}
             aria-pressed={onlyRecorded} onClick={() => setOnlyRecorded((v) => !v)}>
             <Icon id="check" />
-            <span>{fillTemplate(C.filterRecorded, { n: recordedCount })}</span>
+            <span className={c.word}>{fillTemplate(C.filterRecorded, { n: recordedCount })}</span>
           </button>
         )}
         <InfoToggle open={showTapHelp} onToggle={() => setShowTapHelp((v) => !v)} label={C.tapHelp} />

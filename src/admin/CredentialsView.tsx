@@ -220,7 +220,7 @@ function CredentialRow({ cred, onChanged }: { cred: CredentialState; onChanged: 
  * key, exactly as the app itself does from a running Einsatz. So there is no station-level URL
  * to show, only the key, and the key is what gets copied out of here.
  *
- * The actions are the page's own two-step `ConfirmButton`s rather than the ⋮ menu the links
+ * The actions are the page's own two-step `ConfirmButton`s rather than the ⋯ menu the links
  * table uses: a settings row puts its buttons out in the open (Speichern · Löschen), and there
  * are three of them, not a list worth folding away.
  *

@@ -435,42 +435,24 @@
 }
 .journal-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .journal-x .i { width: 14px; height: 14px; }
-/* …and the head's ⓘ is --tap like the rest of the head (see .journal-replay). The ✕ is THE sheet ✕
-   (hill climb r35, 06.11.2026): the 36px --ink-8 plate with its 44px pad, as on every other sheet –
-   it was a 44px copy of ▶'s frame since r13, the one ✕ in the app that looked like an action.
-   Centred on the head row; 16px from the edge, the title's own inset. */
-.journal-head .ui-info { width: var(--tap); height: var(--tap); }
-/* ⓘ · lens · funnel are UTILITIES, and rest as the quiet icon button does (components/Button ·
-   IconButton `quiet`: no fill, `--ink-8` under a hover or a keyboard focus) — hill climb r9: three
-   filled squares in a row out-weighed the title and ▶ beside them, worst across the phone's full
-   head. Their ON looks stay as they were (legend/search open = the blue wash, a filter set = the
-   `--sel` fill, below), so «on» now reads against nothing instead of against a grey chip. ▶ and
-   the ✕ share one frame (above). */
-.journal-head .ui-info:not(.on) { background: none; }   /* the lens and funnel rest bare in their own rule */
-.journal-head .ui-info:not(.on):focus-visible, .journal-legend-btn:not(.on, .jr-filter-on):focus-visible { background: var(--ink-8); }
-@media (hover: hover) {
-  .journal-head .ui-info:not(.on):hover, .journal-legend-btn:not(.on, .jr-filter-on):hover { background: var(--ink-8); color: var(--ink); }
-}
+/* The ✕ is THE sheet ✕ (hill climb r35, 06.11.2026): the 36px --ink-8 plate with its 44px pad, as
+   on every other sheet – it was a 44px copy of ▶'s frame since r13, the one ✕ in the app that
+   looked like an action. Centred on the head row; 16px from the edge, the title's own inset.
+   ⓘ · lens · funnel are the list head's framed tile (components/SurfaceControls · `.iconBtn`, the
+   lens and the funnel with their `.word`; owner pick, button sweep HEADS.2, 17.11.2026) – no rule of
+   their own here. They rested bare since hill climb r9 (three filled grey chips out-weighed the
+   title); framed in the page's ink with their words they read as the Anwesenheit's and the
+   Mittel's filters do. */
 
 /* ── the icon legend ──
    The disc carries the Bereich, and a glyph has to be learned. This is the answer to that, and
    deliberately a small one: a tap opens it, a tap closes it, nothing remembers it and nothing
    opens it by itself. There is no hover on the primary device, so a tooltip alone would not do.
-   The button sits beside the title rather than out at the margin — it belongs to what is being
-   read, not to the drawer's controls. */
-.journal-legend-btn { flex: none; position: relative; width: var(--tap); height: var(--tap); border-radius: var(--r-sm);
-  border: none; cursor: pointer; display: grid; place-items: center;
-  /* the ✕'s ink (see .journal-x); at rest no fill since hill climb r9 (the head's utilities,
-     above) — it wore the ✕'s `--ink-8` chip from 22.09.2026 */
-  background: none; color: var(--ink-dim); }
-.journal-legend-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* OPEN (the lens's search) is the one «open» look, the InfoToggle's blue wash (29.09.2026 — it
-   was the ink «where you are» pill); the ⓘ beside it IS the InfoToggle (`.ui-info`) */
-.journal-legend-btn.on { background: var(--sel-wash); color: var(--blue-strong); }
-.journal-legend-btn .i { width: 18px; height: 18px; }
+   The button («Legende») sits beside the title rather than out at the margin — it belongs to what
+   is being read, not to the drawer's controls. */
 
 /* ── the search ──
-   The lens is a second .journal-legend-btn beside the ⓘ (same 44px button). Tapped, the
+   The lens («Suchen») is the head tile beside the ⓘ. Tapped, the
    field REPLACES the head row (mock verlauf-02, 14.09.): the title, ⓘ and Replay go, the field
    takes their width, and the ✕ that closes the search stands where the drawer's ✕ stood — one
    place for «back out of this», whichever «this» is. No space is lost while nothing is searched. */
@@ -479,8 +461,6 @@
 /* the field is THE search (components/SearchField · `.ui-search`, 29.09.2026) — placement only;
    the live count rides in its count slot */
 .journal-search { flex: 1; }
-/* the live «2 von 42» — read at a glance, never wrapped */
-.journal-search-count { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* …and beside the field it is THE sheet ✕, 36px over its 44px pad, centred on the field (r35,
    06.11.2026 – it was 44 «beside a 44px field» since 20.09.2026; at its old 28px it hung like a stray
    badge, at the house 36 it is the same ✕ as the head's and the Palette's). */
@@ -503,11 +483,10 @@
 :is(.jr-legend, .jr-filter-menu) .ic.jr-ic-ring { background: none; border-color: transparent; }
 
 /* ── the filter (feat 37 · option B, 23.09.2026) ──
-   A third .journal-legend-btn beside the lens (same 44px button). While any category is
-   ticked it wears the CHOICE fill (`--sel`, 29.09.2026 — the Anwesenheit's filter buttons do
-   the same): it was the ink «where you are» pill plus a blue dot, two channels for one bit and
-   the wrong role. Nothing is printed on it, so it measures the same filtered or not. */
-.journal-legend-btn.jr-filter-on { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
+   The third head tile, «Art», beside the lens. While any category is ticked it wears the CHOICE
+   fill (`--sel`, SurfaceControls · `.iconBtnOn`): it was the ink «where you are» pill plus a blue
+   dot until 29.09.2026, then the fill plus a `--sel-shadow` no other filter had. Nothing of the
+   pick is printed on it, so it measures the same filtered or not. */
 /* the menu: the legend's discs with ticks and counts. The height cap is the one every
    SurfaceControls menu has — a station with many plans makes this taller than a phone, and a
    too-tall popup is repositioned, never trimmed. */
@@ -522,39 +501,19 @@
 .jr-filter-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-3); }
 .jr-filter-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jr-filter-count { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
-/* «Alle zeigen» is the way OUT, not one more category — the word in bold ink (it was the action
-   blue until 15.11.2026: blue means «chosen», style sweep T2). While nothing is filtered there is
-   no way out to take (the row is disabled, Journal · filterItems): then it is the quiet ink-faint
-   instead of a dimmed word (r35, 06.11.2026 – a pale word read as a broken link, not as «nothing
-   to undo»), and its count stays as it was. */
-.jr-filter-reset .jr-filter-label { color: var(--ink); font-weight: var(--fw-bold); }
-.jr-filter-item[data-disabled]:has(> .jr-filter-reset) { opacity: 1; }
-.jr-filter-item[data-disabled] > .jr-filter-reset .jr-filter-label { color: var(--ink-faint); }
-/* the one-line «Gefiltert: … · Alle zeigen» under the head, where the timeline strip stands
-   otherwise (it is hidden while a filter is on, as during a search) */
-.jr-filter-strip { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; padding: 0 4px 8px;
-  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
-.jr-filter-strip-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jr-filter-strip-text b { color: var(--ink); font-weight: var(--fw-bold); }
-/* «Alle zeigen» is THE neutral <Button> (--tap, framed): an action, not a blue word on a blue wash
-   (style sweep T2, owner pick A, 15.11.2026); this only places it */
-.jr-filter-all { flex: none; }
+/* the one-line «Gefiltert: … · Alle zeigen» (components/FilterStrip) under the head, where the
+   timeline strip stands otherwise (it is hidden while a filter is on, as during a search) –
+   placement only */
+.jr-filter-strip { padding: 0 4px 8px; }
 /* ⚠️ On a phone the head is 22px too wide for four items, and «Wiedergabe starten» is the one
    that can most afford to lose its word — the same trade the TopBar already makes for «Verlauf»
    above. The button keeps its `aria-label` (Journal.tsx), so nothing is lost but the letters. */
 @media (--phone) {
   .journal-replay span { display: none; }
-  /* …and word-less it is an icon action like ⓘ · lens · funnel beside it, so it rests BARE as they
-     do (hill climb r18, Opus 7: a framed ▶ among bare glyphs was two chromes for one kind of
-     button). The 44px box and the transparent edge keep its hit area and geometry; the ✕ keeps
-     its frame (settled r13). Tablet and laptop keep «▶ Wiedergabe starten» framed. Its glyph is the
-     outlined circle-play (icons · #play-circle, r23 Sol 1), the ⓘ's ring at the ⓘ's 18px and ink –
-     the bare filled ▶ was the smallest mark in the row. */
-  .journal-head .journal-replay { width: var(--tap); padding: 0;
-    background: none; border-color: transparent; color: var(--ink-dim); }
-  .journal-head .journal-replay svg { width: 18px; height: 18px; }
-  @media (hover: hover) { .journal-head .journal-replay:hover { background: var(--ink-8); color: var(--ink); } }
-  .journal-head .journal-replay:focus-visible { background: var(--ink-8); }
+  /* …and word-less it is a FRAMED --tap square, like the framed ⓘ · lens · funnel tiles beside it
+     (button sweep HEADS.2, 17.11.2026 – it rested bare from hill climb r18 to match their bare
+     glyphs). Tablet and laptop keep «▶ Wiedergabe» (its name stays «Wiedergabe starten»). */
+  .journal-head .journal-replay { width: var(--tap); padding: 0; }
   /* (the title is the tablet's 16/800 with its 18px glyph since r35 – the step down it took here
      at 19px is gone with the 19px; the glyph stays 8px off the word, hill climb r28, Opus 6) */
   /* the head's 4px gap plus this = the 8px that keeps the title group off the ⓘ (r6) */
@@ -565,15 +524,10 @@
      ✕ is the house 36px everywhere, and a squeezed target is the one thing a head cannot lose. */
   .journal-head { gap: var(--sp-1); }
   .journal-replay, .journal-x { flex: none; }
-  /* …and the title's glyph (r28) costs 28px the head did not have at 390px: the four BARE glyph
-     buttons (ⓘ · lens · funnel · ▶) close up to touching 44px pads – their glyphs keep 26px of air
-     between them – and the head drops its right padding, the ✕ still inside the strip's edge. So
-     «Verlauf · 322» stands whole at 390px with room for a fourth digit. Narrower phones (375, 360)
-     have no such room: there the glyph gives way, never the word.
-     The ✕ is 36 to the eye since r35 (8px less than r13's framed 44), so the head keeps its 4px
-     right padding again: the ✕ stands 16 from the sheet's edge, the title's inset on the left. */
-  .journal-head > :is(.ui-info, .journal-legend-btn) { margin-right: calc(-1 * var(--sp-1)); }
-  @media (max-width: 389px) { .journal-title .i { display: none; } }
+  /* …and the title's glyph (r28) gives way to the worded tiles (button sweep HEADS.2, 17.11.2026):
+     with «Suchen» and «Art» under their glyphs the 390px head had no room left for «⟲ Verlauf · 322»
+     and cut the title to «V…». Never the title's word, never a tile's word. */
+  .journal-title .i { display: none; }
   /* …and the trailing group closes up, so the sentence keeps its share on the rows that carry
      more than one control (a photo row's thumbnails, an audio row's jump and play). */
   .jr-trail { gap: var(--sp-2); }

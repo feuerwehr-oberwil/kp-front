@@ -75,8 +75,10 @@ export function TafelPageStrip({ pages, titles, current, templates, readOnly, on
           align="start"
           popupClassName="de-menu-pop tps-menu"
           itemClassName={() => 'de-menu-item'}
-          // on a phone just «+» (owner): the word is hidden there, the label still says it
-          trigger={<Button variant="quiet" className="tps-add" icon={<Icon id="plus" />} aria-label={T.addPageTitle} title={T.addPageTitle}><span className="tps-add-word">{T.addPage}</span></Button>}
+          // THE Add: framed «+ Seite» (Small roles (1), button sweep HEADS.10, 17.11.2026 – it was a
+          // frameless quiet button and read as one more tab); on a phone the word goes UNDER the ＋
+          // (09-whiteboard · .tps-add), never away
+          trigger={<Button className="tps-add" icon={<Icon id="plus" />} aria-label={T.addPageTitle} title={T.addPageTitle}><span className="tps-add-word">{T.addPage}</span></Button>}
           items={items}
         />
       )}

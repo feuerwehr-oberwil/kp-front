@@ -215,9 +215,6 @@ export const anwesenheitCopy = {
     viewLabel: 'Ansicht',
     // the tick after «Neu laden» fetched the roster – its own word, not the Einsatz menu's «synchronisiert»
     reloadDone: 'Liste aktualisiert',
-    // the way out under «Keine Einträge in dieser Auswahl.» (copy.filterNoHits) while only a
-    // filter narrows the list: one tap lifts every filter, the search stays
-    filterClear: 'Alle zeigen',
   },
   // «Anrückend» — die Divera-Rückmeldungen über der Anwesenheit (AnrueckendBlock, X1 08.10.2026).
   // Nur ja / nein und Namen (Besitzer, 09.10.2026). ⚠️ Eine Divera-Antwort ist KEINE Anwesenheit:
@@ -345,6 +342,9 @@ export const anwesenheitCopy = {
     // right-click menu on a bar: name the states instead of cycling through them
     editEntry: 'Bearbeiten …',
     dragTo: 'Ende ziehen',
+    // the paper menu's WORD on its page-head tile (button sweep HEADS.9, 17.11.2026 – it was a bare
+    // printer square); `paperMenu` stays its full name and the menu's head
+    paperMenuWord: 'Drucken',
   },
   // Schichtbänder (BandGrid) — the transpose of the Zeitplan. The Zeitplan is person-major over
   // continuous time («pick a person, draw when»); here the column is a named time window and per

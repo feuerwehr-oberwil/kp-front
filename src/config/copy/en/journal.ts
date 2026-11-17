@@ -186,8 +186,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     filter: 'Filter the log',
     filterArt: 'Kind of entry',
     filterArea: 'Area',
-    filterAll: 'Show all',
-    filterActive: 'Filtered:',
+    filterAll: 'All',
     filterEmptyHint: '«Show all» clears the filter.',
 
     stripLabel: 'Timeline — tap to jump to the matching place',
@@ -219,6 +218,9 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     sectionRemoved: 'Section deleted',
     markOpenTitle: 'Mark as open again',
     legendPendenzOverdue: 'Item overdue',
+    searchWord: 'Search',
+    filterWord: 'Type',
+    replayWord: 'Replay',
   },
   tafelPendenzen: {
     createdLog: 'Item from the board ({page}): {text}',

@@ -3,7 +3,9 @@ import type { PlanDocument, TimelineEvent } from '../types'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
-import { InfoToggle } from './InfoToggle'
+import { FilterStrip } from './FilterStrip'
+import c from './SurfaceControls.module.css'
+import { cx } from '../lib/cx'
 import { EmptyState } from './EmptyState'
 import { Button } from './Button'
 import { Disc, JournalRow, type AudioWindow, type RingState } from './JournalRow'
@@ -620,10 +622,12 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
     return () => { el.removeEventListener('scroll', read); cancelAnimationFrame(frame); ro?.disconnect(); mo?.disconnect() }
   }, [])
 
-  /** The funnel's menu: «Art des Eintrags», then «Bereich», each row a checkbox with the row's
-   *  own disc and its count, and «Alle zeigen» last. Checkboxes keep the menu open (lib/overlays ·
-   *  Menu), because a selection is several ticks in a row; «Alle zeigen» is an action and closes
-   *  it — you asked to see everything, and the menu is in the way of seeing it. */
+  /** The funnel's menu: «Alle» first and TICKED while nothing is filtered (button sweep HEADS.7,
+   *  17.11.2026 – every filter menu reads «nothing filtered» the one way: the Anwesenheit's), with
+   *  the total beside it; then «Art des Eintrags» and «Bereich», each row a checkbox with the row's
+   *  own disc and its count. Checkboxes keep the menu open (lib/overlays · Menu), because a
+   *  selection is several ticks in a row. (Until then every box stood EMPTY while nothing was
+   *  filtered, and «Alle zeigen» was an action row at the bottom – the opposite reading.) */
   const filterItems = () => {
     const toggle = (key: string) => (on: boolean) => { holdHeight(); setFilterSel((sel) => {
       const next = new Set(sel)
@@ -651,19 +655,19 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
       ]
     }
     return [
-      ...group('art', C.filterArt),
-      ...group('bereich', C.filterArea),
-      { kind: 'sep' as const },
       {
+        kind: 'check' as const,
+        checked: !filtering,
+        onChange: () => setFilterSel(new Set()),
         label: (
-          <span className="jr-filter-row jr-filter-reset">
+          <span className="jr-filter-row">
             <span className="jr-filter-label">{C.filterAll}</span>
             <b className="jr-filter-count">{facetTotal}</b>
           </span>
         ),
-        disabled: !filtering,
-        onClick: () => setFilterSel(new Set()),
       },
+      ...group('art', C.filterArt),
+      ...group('bereich', C.filterArea),
     ]
   }
 
@@ -699,28 +703,41 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
               learned — but a panel that opens on its own, or one the app remembers having opened,
               is a thing to dismiss on the way to the record. This one is a question somebody asks
               once. No hover either: the primary device has none. */}
-          <InfoToggle open={showLegend} onToggle={() => setShowLegend((v) => !v)} label={C.legend} />
-          {/* the lens: same chip as the ⓘ, and it closes the legend on its way in – the legend
-              explains discs the search is about to hide most of */}
+          {/* ⓘ · lens · funnel are the list head's ONE tile (owner pick, button sweep HEADS.2,
+              17.11.2026): framed, `--ink`, the lens and the funnel WORDED – beside the glyph on a
+              tablet, under it on a phone (SurfaceControls · `.word`), like the Anwesenheit's and the
+              Mittel's. They rested as bare glyphs since hill climb r9, the one list head where a
+              filter did not look like one. OPEN (legend shown, search open, the menu up) is THE open
+              look (`aria-expanded` / `data-popup-open`), a filter set the choice fill. The ⓘ is this
+              tile rather than the InfoToggle chip so the three read as one family – a framed square
+              without a word, as the ⓘ is everywhere: with «Legende» under it the 390px phone head
+              cut its own title to «V…» (measured 17.11.2026). */}
           <button
-            type="button" className={`journal-legend-btn${searching ? ' on' : ''}`}
+            type="button" className={c.iconBtn} aria-expanded={showLegend}
+            aria-label={C.legend} title={C.legend} onClick={() => setShowLegend((v) => !v)}
+          ><Icon id="info" /></button>
+          {/* the lens closes the legend on its way in – the legend explains discs the search is
+              about to hide most of */}
+          <button
+            type="button" className={c.iconBtn}
             title={searching ? C.searchClose : C.search} aria-label={searching ? C.searchClose : C.search} aria-expanded={searching}
             onClick={() => { if (searching) { setSearch(null); return } holdHeight(); setShowLegend(false); setSearch('') }}
-          ><Icon id="search" /></button>
+          ><Icon id="search" /><span className={c.word} aria-hidden="true">{C.searchWord}</span></button>
           {/* the funnel (feat 37 · B): an active filter is the blue CHOICE fill and nothing else
               (29.09.2026 — it was the ink «where you are» pill plus a dot), like the Anwesenheit's
               filter buttons — WHAT is ticked is in its name, in the menu and in the strip below,
-              never printed on the button, whose width then never changes under the finger. */}
+              never printed on the button, whose width then never changes under the finger. Its
+              word is the FACET, «Art» (HEADS.6). */}
           {/* ⚠️ Standing whenever there is a row, even while every row is in one category: a head
               whose buttons come and go with the content is a head that has to be re-read. */}
           {events.length > 0 && (
             <Menu
               trigger={
                 <button
-                  type="button" className={`journal-legend-btn${filtering ? ' jr-filter-on' : ''}`}
+                  type="button" className={cx(c.iconBtn, filtering && c.iconBtnOn)}
                   title={filtering ? `${C.filter} – ${filterOn}` : C.filter}
                   aria-label={filtering ? `${C.filter} – ${filterOn}` : C.filter}
-                ><Icon id="filter" /></button>
+                ><Icon id="filter" /><span className={c.word} aria-hidden="true">{C.filterWord}</span></button>
               }
               align="start"
               popupClassName="jr-filter-menu"
@@ -735,7 +752,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
               playing back history out-shouted the title and the open Pendenzen below it. */}
           {onReplay && (
             <Button className="journal-replay" onClick={onReplay} title={C.replayHint} aria-label={C.replay} icon={<Icon id="play-circle" />}>
-              <span>{C.replay}</span>
+              <span>{C.replayWord}</span>
             </Button>
           )}
           <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
@@ -755,20 +772,15 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
             <button type="button" className="journal-x" title={C.searchClose} aria-label={C.searchClose} onClick={() => setSearch(null)}><Icon id="close" /></button>
           </div>
         )}
-        {/* what is filtered, on ONE line, with the way out beside it — the funnel's dot says THAT
+        {/* what is filtered, on ONE line, with the way out beside it — the funnel's fill says THAT
             something is, and a reader who did not tick it (or forgot) has to learn WHAT without
-            opening a menu. The count stands here only while there is no query: with one, the
-            field's own «n von m» already counts both. */}
+            opening a menu. THE strip of every narrowed list since 17.11.2026 (components/FilterStrip,
+            HEADS.3 – it began here). The count stands here only while there is no query: with one,
+            the field's own «n von m» already counts both. */}
         {filtering && (
-          <div className="jr-filter-strip">
-            <span className="jr-filter-strip-text">{C.filterActive} <b>{filterOn}</b></span>
-            {!query && (
-              <span className="journal-search-count" aria-live="polite">
-                {fillTemplate(C.searchCount, { n: totalRows, m: shownTotal })}
-              </span>
-            )}
-            <Button className="jr-filter-all" onClick={() => setFilterSel(new Set())}>{C.filterAll}</Button>
-          </div>
+          <FilterStrip className="jr-filter-strip" what={filterOn}
+            count={query ? undefined : { n: totalRows, m: shownTotal }}
+            onClear={() => setFilterSel(new Set())} />
         )}
         {showLegend && !searching && (
           <div className="jr-legend">

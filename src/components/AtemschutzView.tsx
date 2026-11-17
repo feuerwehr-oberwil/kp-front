@@ -16,6 +16,7 @@ import { confirmDialog } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { newId } from '../lib/ids'
 import { Button } from './Button'
+import { FilterStrip } from './FilterStrip'
 import { Menu, Overlay, Popover } from '../lib/overlays'
 import { NotfallBanner, NotfallPageHead, NotfallPageSafety, NotfallStrip, type SafetyActProps } from './AtemschutzNotfall'
 import { DoubleAssignmentBanner } from './DoubleAssignmentBanner'
@@ -1161,6 +1162,12 @@ export function AtemschutzView({
   // What the QR beside the bell says of itself — the same rule as the bell: the state that is
   // TRUE now, not what the press would do.
   const shareLabel = shareLinkActive ? az.shareLinkOn : az.shareLink
+  // the board's order menu – not on the phone board, whose arrangement is fixed (see `phoneMode`) –
+  // and its words, in the menu's order: the menu's rows and the «Sortiert:» strip read one list
+  const orderOffered = trupps.length > 1 && !!onOrder && !lite && !phoneMode
+  const orderWords: Record<TruppOrder, string> = {
+    manuell: az.orderManual, dringlichkeit: az.orderUrgency, auftrag: az.orderAuftrag, name: az.orderName,
+  }
 
   // ⚠️ ONE bell, THREE honest states — and every one of them says what is TRUE now, not what the
   // press would do (see `bellLabel` above). Rendered as ONE element so the header (every board)
@@ -1469,14 +1476,15 @@ export function AtemschutzView({
           <button
             /* muted (27.09.2026): the same tile in plain grey — the count still counts, the
                head just does not shout a tone it has promised not to play */
-            type="button" className={cx(s.overdueBadge, muted && s.overdueQuiet)} data-fold={HEAD_FOLD.overdue}
+            type="button" className={cx(s.overdueBadge, muted && s.overdueQuiet)} data-fold={HEAD_FOLD.overdue} data-fold-beside
             aria-live="assertive"
             title={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
             aria-label={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
             onClick={() => setSelfFocus({ id: mostOverdue.id, nonce: Date.now(), markAll: true })}
           >
             <Icon id="warn" /><span className="fold-long">{az.overdueBadge(overdueCount)}</span>
-            {/* a crowded head keeps the ⚠ and the number (the head's ladder, `HEAD_FOLD`) */}
+            {/* a crowded head keeps the ⚠ and the number (the head's ladder, `HEAD_FOLD`) – BESIDE
+                each other on a phone too, a count is not a word (`data-fold-beside`, 13-incident · «fold») */}
             <span className="fold-short" aria-hidden="true">{overdueCount}</span>
           </button>
         )}
@@ -1536,11 +1544,14 @@ export function AtemschutzView({
             screen that exists to show overdue Trupps; behind its own icon it costs 44px and the
             current choice still shows as a tick when it is opened. */}
         {/* not on the phone board: its arrangement is fixed (see `phoneMode`) */}
-        {trupps.length > 1 && onOrder && !lite && !phoneMode && (
+        {/* ↑↓, the ORDER glyph (owner pick, button sweep HEADS.1, 17.11.2026) – it wore the filter
+            funnel, and a lit funnel on the board that exists to show overdue Trupps reads «some are
+            hidden». The order it is set to stands in the strip under the head (`sortStrip`). */}
+        {orderOffered && (
           <Menu
             trigger={
               <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.order} aria-label={az.orderLabel} title={az.orderLabel}>
-                <Icon id="filter" /><span className="fold-long">{az.orderLabel}</span>
+                <Icon id="sort" /><span className="fold-long">{az.orderLabel}</span>
               </button>
             }
             popupClassName="rp-print-menu"
@@ -1550,13 +1561,8 @@ export function AtemschutzView({
               {
                 kind: 'radio' as const,
                 value: order,
-                onChange: (v: string) => onOrder(v as TruppOrder),
-                options: [
-                  { value: 'manuell', label: az.orderManual },
-                  { value: 'dringlichkeit', label: az.orderUrgency },
-                  { value: 'auftrag', label: az.orderAuftrag },
-                  { value: 'name', label: az.orderName },
-                ],
+                onChange: (v: string) => onOrder?.(v as TruppOrder),
+                options: (Object.keys(orderWords) as TruppOrder[]).map((value) => ({ value, label: orderWords[value] })),
               },
             ]}
           />
@@ -1592,6 +1598,13 @@ export function AtemschutzView({
         )}
         </div>
       </header>
+      {/* a re-sorted board SAYS so, under the head, with the way back to the hand-set order
+          (button sweep HEADS.3, 17.11.2026): «Reihenfolge» looked the same set to «Wie gesetzt» as
+          to «Name» – the strip every narrowed list wears (components/FilterStrip) */}
+      {orderOffered && order !== 'manuell' && (
+        <FilterStrip sort className={s.sortStrip} what={orderWords[order]}
+          clearLabel={az.orderManual} onClear={() => onOrder?.('manuell')} />
+      )}
 
       <div className={cx(s.body, focusMode && s.bodyFocus, focusInNotfall && s.bodyFocusNf)} ref={bodyRef}>
         {/* The Atemschutznotfall stands at the TOP of the board, on every board, however it is

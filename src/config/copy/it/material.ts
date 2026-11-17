@@ -55,7 +55,7 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     add: 'Materiale',
     viewBySource: 'In uso',
     // the category filter's WORD on a wide head (22.09.2026)
-    categoryFilterWord: 'Filtra',
+    categoryFilterWord: 'Categoria',
     noSource: 'Senza assegnazione',
     searchPlaceholder: 'Cerca …',
     addOne: 'Registra {label}',

@@ -36,7 +36,9 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   a per-control `font-family: inherit`. The reset is the family only; sizes stay per rule.
 - **New CSS picks from the scales** (07.10.2026, UI sweep C1–C5; `01-tokens.css` · «THE SCALES»,
   «THE TINTS»): type `--fs-1…7` (12.5 · 14 · 16 · 19 · 24 · 32 · 40, each with its `--lh-*`) and
-  `--fs-micro` (11, read-only captions, never a tappable label); weight `--fw-regular/medium/
+  `--fs-micro` (11, read-only captions, never a tappable label – except the word UNDER a tile's
+  glyph on a phone: the nav bar's, the list heads', a folded page-head tile's; button sweep HEADS.9,
+  17.11.2026); weight `--fw-regular/medium/
   bold/heavy` (400/500/700/800 – 600 is not a step); space `--sp-1…8` (4/8/12/16/24/32/48/64;
   1–2px optical nudges stay literal); elevation `--e1…e5` (with night values; `--shadow` is
   `--e4`); tints `--{blue,red,amber,green,ink}-{5,8,12,16,22,28,45,62}`
@@ -702,7 +704,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     tall, the one corner — the `.cv-btn-add` look (13-incident). Dashed means «missing», never
     «add»; the ONE dashed add is «Foto hinzufügen» (`.cv-beilagen-add`, `.report-att-add`,
     decision D6 — it is the placeholder for a file). Icon-only where a column has no room (the
-    Schichten ＋), still a framed --tap square. On the Plan's storey stack (`.wb-floor-add`) it
+    Schichten ＋), still a framed --tap square. The Tafel's «+ Seite» is this framed Add too (button
+    sweep HEADS.10, 17.11.2026 – it was a frameless quiet button, read as one more tab), its word
+    UNDER the ＋ on a phone. On the Plan's storey stack (`.wb-floor-add`) it
     stands flat at the storey plates' level – their `--surface` and 1px `--border`, no shadow
     (hill climb r20, 05.11.2026: the glass tile outweighed the plates). Never a grey disc, a pill or
     a sub-44 tile.
@@ -760,13 +764,18 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     never the ink pill, never `--accent`. **Every control that opens a panel or menu wears that
     same OPEN look and says `aria-expanded`** (duck sweep ELEM.6, 17.11.2026): Ebenen on the rail,
     the view bar and the phone's map cluster, the Ansichten compass (the Karte phone's too), the
-    top bar's Verlauf, the Verlauf lens. The ink pill (`--here-fill`) is «where you are» only. The tool docks keep DockInfo's ⓘ in the dock's control fill.
+    top bar's Verlauf, the Verlauf lens. **Every Menu trigger wears it while its menu is up**, keyed
+    on the `data-popup-open` Base UI sets (button sweep HEADS.5, 17.11.2026): the list-head tiles
+    (SurfaceControls · `.iconBtn`), the page-head tiles (`.head-tile`, Atemschutz · `.headTile`), any
+    `<Button>` trigger (`.ip-btn`), the admin's ⋯ – it outranks a filter's ON fill until the menu
+    closes. A head menu trigger carries **no ▾** (owner pick, HEADS.11): the open look is how it
+    says it opened a menu; glyph + word say what it is. The ink pill (`--here-fill`) is «where you are» only. The tool docks keep DockInfo's ⓘ in the dock's control fill.
     (7) **No hits**: one line, `.no-hits` (13/500 `--ink-faint`, centred, 20px pad, never italic),
     worded `copy.noHits` «Keine Treffer für «{q}».» while there IS a query – the Verlauf too, never
     a big `EmptyState` for a search. While only a FILTER narrows the list (no query), the line is
-    `copy.filterNoHits` «Keine Einträge in dieser Auswahl.» plus the way out in its own words (the
-    Anwesenheit's «Alle zeigen», the Verlauf's «"Alle zeigen" hebt den Filter auf.») – never
-    «Keine Treffer für «».» (duck sweep LISTS.4, 17.11.2026). A noun of its own only where it helps
+    `copy.filterNoHits` «Keine Einträge in dieser Auswahl.» – never «Keine Treffer für «».» (duck
+    sweep LISTS.4, 17.11.2026); its way out is the «Gefiltert: …» strip right above it (9), the
+    Verlauf adds «"Alle zeigen" hebt den Filter auf.». A noun of its own only where it helps
     («Kein Trupp gefunden»); one catalogue, one noun («Kein Objekt gefunden.» on the Karte and in
     the PlanPicker). An EMPTY list (nothing there yet, no query, no filter) is `EmptyState`.
     (8) **Fold**: every disclosure — a `<details>`, an accordion head, a notice that folds —
@@ -774,11 +783,28 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     `details[open]` (02-base). Never an up/down icon swap, never a text ▸, never the UA marker
     alone.
     (9) **Filter on**: an active filter button is the choice fill (`--sel`) and nothing else — no
-    dot beside it (Anwesenheit/Mittel `.iconBtnOn`, the Verlauf funnel `.jr-filter-on`). Those
-    head buttons (`SurfaceControls`) wear their WORD on every device, one rule in the component:
-    beside the glyph on a tablet, under it on a phone like a nav tile (duck sweep ELEM.13,
-    17.11.2026 – the Anwesenheit was worded on the phone only, the Mittel on the tablet only).
-    (10) **One glyph, one meaning, within a thumb's reach** (29.09.2026). «Eintrag» is the journal
+    dot beside it (`SurfaceControls · .iconBtnOn`). Those head buttons (`SurfaceControls`) wear
+    their WORD on every device, one rule in the component: beside the glyph on a tablet, under it
+    on a phone like a nav tile (duck sweep ELEM.13, 17.11.2026 – the Anwesenheit was worded on the
+    phone only, the Mittel on the tablet only). **Every list filter is that tile** (button sweep
+    HEADS.2/.8, 17.11.2026): framed, `--ink` (dim is `:disabled` only), a 16px glyph – Anwesenheit,
+    Mittel, «Alle Einsätze», the QR-Bogen's «Erfasste N» and the Verlauf, whose ⓘ · lens · funnel
+    are the same tiles («Suchen», «Art»; the ⓘ a framed square without a word, as the ⓘ is everywhere). The WORD is the FACET («Grad», «Status»,
+    «Kategorie», «Art», «Reihenfolge»), never the act «Filtern»; a menu's head is the trigger's
+    full name («Nach Kategorie filtern»), a menu of groups heads each group instead (HEADS.6).
+    **«Nothing filtered» reads one way** (HEADS.7): «Alle» is the FIRST row, ticked – the Verlauf's
+    with its total. A group that holds ONE value is a radio (trailing ✓, closes on pick: «Alle
+    Einsätze»'s «Ernstfall / Übung», «Einsatzart», the Trupps «Reihenfolge»), never checkboxes that
+    untick each other (HEADS.4). **A narrowed or re-sorted list SAYS so** in ONE line under its
+    head row – `components/FilterStrip`, «Gefiltert: **Of · Wm** · 6 von 22 · [Alle zeigen]»
+    («Sortiert: **Name** · [Wie gesetzt]» for the Trupps order), the count only while nothing is
+    typed (owner pick, HEADS.3, 17.11.2026: a touch device shows no tooltip, so «Grad» filled blue
+    did not say «only Offiziere»). The trigger keeps its fixed width – what is picked is never
+    printed on it (29.09.2026).
+    (10) **One glyph, one meaning, within a thumb's reach** (29.09.2026). The funnel `#filter` is
+    «show fewer» only; an ORDER wears `#sort`, two opposed arrows ↑↓ (owner pick, button sweep
+    HEADS.1, 17.11.2026 – the Trupps «Reihenfolge» wore the funnel and read «Trupps are hidden»).
+    «More» is `#more` ⋯ everywhere, the admin's row menus too (HEADS.12). «Eintrag» is the journal
     pen (`lib/icons` · `#entry`, drawn inline by `EntryGlyph` on the FAB and the top bar's
     Eintrag), never «+»: «+» means Hinzufügen only (the FAB stood 60px above the tool bar's «+
     Hinzufügen» with the same glyph, and the tablet's Eintrag sat beside the rail's «+ Symbol»).

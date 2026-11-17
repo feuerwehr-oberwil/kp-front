@@ -199,7 +199,7 @@ export function ChecklistsView() {
                   <PlanSourceBadge sourceType={row.dataset.source_type} />
                   {row.dataset.source_note && <span className="adm-ref-note">{row.dataset.source_note}</span>}
                 </td>
-                {/* The row's ⋮ (UI sweep 07.10.2026, E6): a red «Löschen» on every row was the
+                {/* The row's ⋯ (UI sweep 07.10.2026, E6): a red «Löschen» on every row was the
                     loudest thing in the table. Löschen still opens the same confirm sheet, which
                     names every dataset that goes. */}
                 <td className="adm-ck-actions adm-c-act">
