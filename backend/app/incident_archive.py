@@ -42,8 +42,6 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from fnmatch import fnmatchcase
-from glob import escape
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -56,6 +54,7 @@ from .database import async_session_maker
 from .models import DeploymentConfig, Incident, IncidentArchiveDelivery, IncidentArchiveReport, Media
 from .object_visit_report import local_time
 from .object_visit_sharepoint import (
+    SEGMENT_MAX,
     GraphWriter,
     backoff,
     expand,
@@ -407,38 +406,51 @@ class AmbiguousArchiveFolderError(Exception):
     """The original folder of an older delivery cannot be identified safely."""
 
 
-# Longest renderings of placeholders(). A missing Stichwort falls back to the incident type.
-_WIDEST_VALUE = {
-    "year": "2000",
-    "date": "2000.01.01",
-    "short": "ffff",
-    "stichwort": "x" * INCIDENT_TYPE_MAX,
-    "kategorie": "x" * INCIDENT_TYPE_MAX,
+# A corrected alarm can change a folder's date or title. Recover the historical shape
+# from the visible characters, keeping the date, year and hexadecimal suffix widths.
+_DIGITS = "0123456789"
+_FIXED_FOLDER_TOKENS = {
+    "{year}": [_DIGITS] * 4,
+    "{date}": [_DIGITS] * 4 + ["."] + [_DIGITS] * 2 + ["."] + [_DIGITS] * 2,
+    "{short}": [_DIGITS + "abcdef"] * 4,
 }
-_FOLDER_TOKEN = re.compile(r"\{(\w+)\}")
+_FOLDER_TOKEN = re.compile(r"(\{\w+\})")
+
+
+def _legacy_level_matches(raw: str, part: str, *, allow_clipped: bool) -> bool:
+    if not _FOLDER_TOKEN.search(raw):
+        return sanitize_segment(raw) == part
+    if len(part) > SEGMENT_MAX:
+        return False
+
+    # After cutting at the cap, sanitize_segment removes trailing dots and spaces.
+    # Only those characters could have occupied the remaining places in a short key.
+    visible = list(part)
+    if allow_clipped:
+        visible += [" ."] * (SEGMENT_MAX - len(part))
+    # Each offset is one place where the template read so far could end in the stored name.
+    ends = {0}
+    for piece in _FOLDER_TOKEN.split(sanitize_segment(raw, truncate=False)):
+        if piece in ("{stichwort}", "{kategorie}"):
+            # Both may hold the incident type (a missing Stichwort falls back to it).
+            if allow_clipped and max(ends) + INCIDENT_TYPE_MAX > SEGMENT_MAX:
+                return True
+            ends = {end for start in ends for end in range(start, min(start + INCIDENT_TYPE_MAX, len(visible)) + 1)}
+            continue
+        for allowed in _FIXED_FOLDER_TOKENS.get(piece, piece):
+            if allow_clipped and SEGMENT_MAX in ends:
+                return True  # a real rendering extends past the last visible character
+            ends = {i + 1 for i in ends if i < len(visible) and any(c in allowed for c in visible[i])}
+            if not ends:
+                return False
+    return len(part) in ends
 
 
 def _legacy_path_matches(pattern: str, path: str, *, allow_clipped: bool = False) -> bool:
-    """SharePoint caps rendered values. The placeholder names themselves never consume that budget."""
     levels, parts = pattern.split("/"), path.split("/")
-    if len(levels) != len(parts):
-        return False
-    for raw, part in zip(levels, parts, strict=True):
-        token = _FOLDER_TOKEN.search(raw)
-        level = sanitize_segment(raw, truncate=token is None)
-        if fnmatchcase(part, _FOLDER_TOKEN.sub("*", escape(level))):
-            continue
-        if allow_clipped and token:
-            # The cap can hide a suffix after a variable value. Everything before the
-            # first placeholder still identifies the tree, including a cap in that prefix.
-            widest = _FOLDER_TOKEN.sub(lambda match: _WIDEST_VALUE[match[1]], level)
-            if sanitize_segment(widest) == widest:
-                return False
-            prefix = level.partition("{")[0]
-            if not prefix or part.startswith(sanitize_segment(prefix)):
-                continue
-        return False
-    return True
+    return len(levels) == len(parts) and all(
+        _legacy_level_matches(raw, part, allow_clipped=allow_clipped) for raw, part in zip(levels, parts, strict=True)
+    )
 
 
 def bind_folder_patterns(items: dict[str, Any], dest: IncidentArchiveDestination, values: dict[str, str]) -> None:

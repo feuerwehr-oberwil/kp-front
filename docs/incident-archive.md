@@ -113,7 +113,8 @@ destinations.
   binds its rendered keys to the configured patterns. If several historical folders could
   belong to the same pattern, the delivery shows an error for manual reconciliation, even
   when the current title matches one of them exactly. The length cap applies to the rendered
-  folder name. If an unbound key in the same tree has lost its identifying suffix, the worker
+  folder name. Its visible year, date, four hex characters and literal text still have to fit
+  the pattern. If an unbound key in the same tree has lost its identifying suffix, the worker
   asks for reconciliation before creating a replacement. Existing folder bindings stay intact.
 - The worker checks that the incident is still closed while reading the files due in a pass.
   It releases the database lock before contacting SharePoint. A close that raced with an

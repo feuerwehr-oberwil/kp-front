@@ -398,6 +398,35 @@ def test_short_date_template_does_not_claim_an_unrelated_legacy_key_in_the_same_
     assert items["folderPatterns"] == {}
 
 
+@pytest.mark.parametrize(
+    ("photo_level", "report_level", "values"),
+    [
+        ("{year}" + "x" * 117, "{date}", {"year": "2026", "date": "2026.07.15"}),
+        ("{date}" + "x" * 111, "{stichwort}", {"date": "2026.07.15", "stichwort": "2026xx0715"}),
+        ("{short}" + "x" * 117, "{stichwort}", {"short": "12ab", "stichwort": "zzzz"}),
+        ("{stichwort}-photos-" + "x" * 115, "R" * 110 + "{short}", {"short": "abcd", "stichwort": "Brand"}),
+    ],
+    ids=["year-then-literal", "date-separators", "hex-suffix", "literal-after-bounded-title"],
+)
+def test_a_clipped_pattern_cannot_block_an_identifiable_report_folder(photo_level, report_level, values):
+    photo, report = f"{PHOTOS}/{photo_level}", f"{PHOTOS}/{report_level}"
+    dest = IncidentArchiveDestination.model_validate({**DEST, "photoFolder": photo, "reportFolder": report})
+    key = "/".join(archive.expand(report, values))
+    items = {"folders": {key: {"id": "existing-report"}}}
+    archive.bind_folder_patterns(items, dest, values)
+    assert items["folderPatterns"] == {report: key}
+
+
+def test_a_fixed_format_key_that_really_was_clipped_still_requires_reconciliation():
+    photo = f"{PHOTOS}/{{year}}{'x' * 117}"
+    dest = IncidentArchiveDestination.model_validate({**DEST, "photoFolder": photo})
+    original = "/".join(archive.expand(photo, {"year": "2025"}))
+    items = {"folders": {original: {"id": "original"}}}
+    with pytest.raises(archive.AmbiguousArchiveFolderError):
+        archive.bind_folder_patterns(items, dest, {"year": "2026"})
+    assert items["folderPatterns"] == {}
+
+
 def test_a_truncated_key_cannot_be_bound_to_another_folder_pattern_that_matches_its_visible_text():
     photo = f"{PHOTOS}/{'x' * 65}{{stichwort}}-photos"
     report = f"{PHOTOS}/{{kategorie}}"
