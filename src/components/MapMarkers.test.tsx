@@ -275,3 +275,35 @@ describe('a symbol carrying docked Trupps, and the Trupps on its corner', () => 
     expect(team.getAttribute('data-offset')).toBe(`${-TEAM_DOT_PX / 2},0`)
   })
 })
+
+// GESTURES.10 (17.11.2026): a double tap on a named chip opens its name on the Lage as on the
+// Plan – counted from the marker's own taps, since iOS rarely sends `dblclick` to a DOM marker
+describe('a double tap on a Trupp marker', () => {
+  const loose = { id: 'e1', kind: 'team', layer: 'lage', coord: at, label: 'Trupp 3' } as Entity
+  const tap = (el: Element) => {
+    fireEvent.pointerDown(el, { clientX: 50, clientY: 50, pointerId: 1, isPrimary: true, pointerType: 'touch' })
+    fireEvent.pointerUp(window, { clientX: 50, clientY: 50, pointerId: 1, pointerType: 'touch' })
+  }
+  const showLoose = (e: Entity, onSelect = vi.fn()) => render(
+    <MapMarkers entities={[e]} byName={{}} isVisible={() => true} selectedId={e.id}
+      zoom={18} draggable project={() => ({ x: 0, y: 0 })} unproject={() => at} setDragPan={() => {}}
+      onSelect={onSelect} onMarkerDragStart={() => {}} onMarkerMove={() => {}} onMarkerDragEnd={() => {}}
+      onDelete={() => {}} onShapeTransform={() => {}} onTeamRename={() => {}} />,
+  )
+
+  it('opens the rename field of a Trupp the board does not name', () => {
+    const { container } = showLoose(loose)
+    const marker = container.querySelector('.marker')!
+    tap(marker)
+    expect(container.querySelector('.wb-resource-pill input')).toBeNull() // one tap only selects
+    tap(marker)
+    expect(container.querySelector('.wb-resource-pill input')).toBeTruthy()
+  })
+
+  it('…and leaves a Trupp the Atemschutz board names alone – it has no pen either', () => {
+    const { container } = showLoose({ ...loose, truppId: 'T1' })
+    const marker = container.querySelector('.marker')!
+    tap(marker); tap(marker)
+    expect(container.querySelector('.wb-resource-pill input')).toBeNull()
+  })
+})

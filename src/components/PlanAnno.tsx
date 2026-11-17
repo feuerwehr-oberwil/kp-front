@@ -176,7 +176,9 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
       // the blur that clears `editId` — a viewer's double-tap latched it for the whole
       // mount. The guard is the fix; do NOT mount the editor here instead (its blur
       // would commit a patch from a read-only session).
-      onDoubleClick={(e) => { if ((a.kind === 'text' || a.kind === 'resource') && tool === 'pan' && !readOnly) { e.stopPropagation(); setEditId(a.id); setSelId(a.id); if (a.kind === 'text') setNotePanelId(null) } }}
+      // …and a Trupp the Atemschutz board names (`truppId`) is not renamed here – its pill has no pen
+      // either, and the Lage's double tap skips it the same way (MapMarkers · namedDoubleTap)
+      onDoubleClick={(e) => { if ((a.kind === 'text' || (a.kind === 'resource' && !a.truppId)) && tool === 'pan' && !readOnly) { e.stopPropagation(); setEditId(a.id); setSelId(a.id); if (a.kind === 'text') setNotePanelId(null) } }}
     >
       {networked && !selected && <span className="network-halo" />}
       {/* a fanned pile's hairline back to the chip's true point – the Lage's spoke (03-map ·

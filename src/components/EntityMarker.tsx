@@ -64,6 +64,9 @@ type EntityMarkerProps = Pick<MapMarkersProps,
   noteBlur: (ev: React.FocusEvent<HTMLTextAreaElement>, id: string) => void
   noteKeyDown: (ev: React.KeyboardEvent<HTMLTextAreaElement>) => void
   noteDone: (id: string, text: string) => void
+  /** a Trupp marker's rename, opened by its pen OR a double tap (MapMarkers · namedDoubleTap) */
+  renaming: boolean
+  onRenaming: (on: boolean) => void
 }
 
 // A transform handle (rotate / resize) whose drag is bound with NATIVE pointer listeners that
@@ -127,7 +130,7 @@ export function EntityMarker({
   rotDown, rotMove, rotUp, shapeDown, shapeMove, shapeUp, focusNote, focusTeam, noteChange, noteBlur, noteKeyDown, noteDone,
   onSelect, onDelete, onRotate, onShapeTransform, onUnlockShape, onNoteEdit, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp,
   onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink,
-  onTeamUndock,
+  onTeamUndock, renaming, onRenaming,
 }: EntityMarkerProps) {
   // the glyph's on-screen pixel size — drives the selection halo + handle ring so
   // they sit a fixed distance OUTSIDE the glyph at any zoom (small glyphs push the
@@ -270,7 +273,7 @@ export function EntityMarker({
             trailCount={e.trail?.length ?? 0}
             trailShown={!hiddenTrails?.has(e.id)} trupps={trupps ?? []}
             line={badge}
-            renameRef={focusTeam}
+            renameRef={focusTeam} renaming={renaming} onRenaming={onRenaming}
             acts={draggable ? {
               rename: onTeamRename && ((name) => onTeamRename(e.id, name)),
               pick: onTeamTrupp && ((truppId) => onTeamTrupp(e.id, truppId)),

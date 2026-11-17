@@ -5,6 +5,7 @@ import { buzz } from '../lib/haptics'
 import { appConfig } from '../config/appConfig'
 import { shownTeamColor } from '../lib/teamColors'
 import { DRAG_DEADZONE_PX, useHoldToDrag } from '../lib/useHoldToDrag'
+import { TAP_GAP_MS, TAP_MAX_DIST_PX, TAP_MAX_MS } from '../lib/tapDragZoom'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { Icon } from '../lib/icons'
 import { ROTATION_MAX_M, ROTATION_W_M, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_M, SHAPE_MIN_M, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
@@ -509,6 +510,24 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     onSelect(ent)
     if (ent.kind === 'note') onNotePanel?.(ent.id)
   }
+  // ── a double tap on a named chip opens its name (GESTURES.10, the Plan's PlanAnno ·
+  // onDoubleClick): a Notiz its inline text, a Trupp marker its rename – unless the Atemschutz
+  // board names that Trupp (no pen either). Counted HERE, off the hold hook's own taps, with the
+  // map's double-tap numbers (lib/tapDragZoom): the browser's `dblclick` on a DOM marker is rarely
+  // sent on iOS, which left the double tap working on the desk only.
+  const lastTap = useRef<{ id: string; t: number; x: number; y: number } | null>(null)
+  const [renameTeamId, setRenameTeamId] = useState<string | null>(null)
+  /** this tap completes a double tap on a named chip, and its name opened */
+  const namedDoubleTap = (ent: Entity, x: number, y: number) => {
+    const now = performance.now(), prev = lastTap.current
+    lastTap.current = { id: ent.id, t: now, x, y }
+    if (!prev || prev.id !== ent.id || now - prev.t > TAP_GAP_MS + TAP_MAX_MS || Math.hypot(x - prev.x, y - prev.y) > TAP_MAX_DIST_PX) return false
+    lastTap.current = null
+    if (!draggable) return false
+    if (ent.kind === 'note' && onNoteEdit) { onNoteEdit(ent.id); return true }
+    if (ent.kind === 'team' && !ent.truppId && onTeamRename) { onSelect(ent); setRenameTeamId(ent.id); return true }
+    return false
+  }
 
   // ── the inline note editor (see focusNote above) ──
   const noteChange = (ev: React.ChangeEvent<HTMLTextAreaElement>, id: string) => { onNoteText?.(id, ev.target.value); autoGrow(ev.currentTarget) }
@@ -564,6 +583,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       onTap: () => {
         // already fanned: the spokes ARE the choice, so this tap is the answer
         if (fanned) { setFan(null); selectEntity(e); return }
+        if (namedDoubleTap(near, cx, cy)) return
         // more than one candidate under the finger → fan them out instead of
         // guessing. One candidate → select it straight away, exactly as before.
         if (pile.length > 1) { openFan(fanOffsets(pile)); return }
@@ -654,6 +674,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
           zoom={zoom} bearing={bearing} symMul={symMul} captionMode={captionMode} suppressedLabels={suppressedLabels}
           readOnly={readOnly} draggable={draggable} editNoteId={editNoteId} project={project} unproject={unproject}
           spoke={fan?.[e.id]} draggingId={draggingId} grabbedId={grabbedId.current}
+          renaming={renameTeamId === e.id} onRenaming={(on) => setRenameTeamId(on ? e.id : null)}
           dockedSlots={dockedSlots} dockedHosts={dockedHosts} onPress={pressMarker}
           rotDown={rotDown} rotMove={rotMove} rotUp={rotUp} shapeDown={shapeDown} shapeMove={shapeMove} shapeUp={shapeUp}
           focusNote={focusNote} focusTeam={focusTeam} noteChange={noteChange} noteBlur={noteBlur} noteKeyDown={noteKeyDown} noteDone={noteDone}

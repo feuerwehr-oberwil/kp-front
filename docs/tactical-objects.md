@@ -46,7 +46,11 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   Auswahl (`useMapActions · onMarquee`, `useBoardGestures · marqueeUp`). A tap on a pile of compact
   glyphs (symbols, Trupps) fans it out on short spokes and the next tap picks one – nearest
   centre, never the top DOM node (`lib/labelPass · pileAt / fanOffsets`; Lage `MapMarkers`, Plan
-  `useWbChipDrag · fan`, GESTURES.9). Nothing drags while a pile is fanned.
+  `useWbChipDrag · fan`, GESTURES.9). Nothing drags while a pile is fanned. A double tap on a
+  named chip opens its name on both surfaces (GESTURES.10): a Notiz its inline text, a Trupp its
+  rename – unless the Atemschutz board names that Trupp (`truppId`, no pen either). The Lage
+  counts the two taps itself (`MapMarkers · namedDoubleTap`, the map's numbers from
+  `lib/tapDragZoom`); the Plan keeps those chips out of its one-finger zoom (`useBoardGestures`).
 - **A tap on a node is the node's, never the map's** (round 15.11.2026): a node is dragged or
   held, a tap on it does nothing. On the Karte its click would bubble from the Marker to
   maplibre's container and insert a node under the finger (a selected Linie grew a stacked
