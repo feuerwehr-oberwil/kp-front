@@ -212,7 +212,13 @@ beendet». The rules: [`presentation.md`](presentation.md).
   A failed PUT hands the union back to the active view so the next edit includes remote additions.
 - An open interrupted during a cache read, parking write or server GET is cancelled. The incoming
   account opens its own workspace and parks its predecessor's draft. Only the active selection
-  can deliver a GET result, act on its 401, retry a write after eviction or adopt an unread slot.
+  can deliver a GET result, act on its 401 or adopt an unread slot.
+- If a dirty cache write runs out of space and map-tile eviction finishes after the editor
+  retires, the retry writes to one recovery slot per Einsatz and author. Another tab can keep
+  editing the main slot while eviction runs. The author's next open merges both drafts, parks
+  a wider role's edits where required, then clears the recovery slot once the main copy and its
+  receipt are durable. An unreadable recovery slot or a refused import lock leaves the source
+  on disk and reports storage trouble until a later open. A denied session cannot read it.
 - Re-sending parked workspace saves first commits their replacement cache entry with transfer
   markers for crash-safe retry. Each cleanup write checks the session again when it finishes.
   A handover during cleanup leaves those markers in the author's cache for the next session.

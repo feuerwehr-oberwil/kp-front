@@ -7,14 +7,14 @@
  * the first merge, then 125–375 · 250–750 · 500–1500 ms) so three devices do not retry in
  * lock-step. ⚠️ An edit saved while a re-merge is in flight is built on the live view, which
  * has not seen that merge — the resolver re-bases it onto the merge before merging again
- * (`lastMerged`), or the next attempt reads the remote objects it lacks as local deletes
+ * before putting the edit in its dirty cache, or the next attempt reads missing remote objects as local deletes
  * (the three-device load test lost 7–14 % of edits that way, `workspaceSync.load.test.ts`).
  * A network response belongs to the engine that sent it. Once that engine or its session
  * ends, its dirty cache is the handover copy; a late acknowledgement or denial must leave
  * the new engine’s cache, view and retry state alone.
  */
 import { ApiError, isDenial, isUnverifiable } from '../api'
-import { idbDel, idbGet, idbKeys, idbRead, idbSet, type IdbRead } from '../idb'
+import { idbDel, idbGet, idbKeys, idbRead, idbSet, idbUpdate, type IdbRead } from '../idb'
 import { serverNow } from '../serverClock'
 import { withTileEviction } from '../tileEvict'
 import { jsonEqual } from '../jsonEqual'
@@ -51,6 +51,10 @@ type CacheEntry = {
   /** Refused entries already transferred into this workspace. Stored with the replacement
    *  so a crash before clearing the refused slot cannot replay them over later edits. */
   requeuedRefused?: (number | string)[]
+  /** Which engine authored this snapshot; its own retirement copy supersedes its earlier writes. */
+  cacheWriter?: string
+  /** Last quota recovery committed with this snapshot, in case clearing its source failed. */
+  quotaReceipt?: string
   /** Which push shape made its edits: the whole document (`'all'`) or a slice. A slice session
    *  that opens unsynced work of a WIDER shape parks a copy first (see `parkForRole`). Absent on
    *  entries written before 22.10.2026 — read as «unknown», never parked. */
@@ -61,6 +65,16 @@ const cacheKey = (id: string) => `kp-front-ws-${id}`
 // main slot can be reused without destroying it, and so its owner recovers it on their next
 // sign-in (see loadReadableEntry). NEVER read across owners — the key IS the ownership proof.
 const ownerCacheKey = (id: string, owner: string) => `kp-front-ws-${id}::${owner}`
+// One exceptional final draft per incident and author, distinct from the shared main slot and
+// routine owner parking. Another tab may already be editing either while map tiles are evicted.
+const quotaPrefix = '__quota__:'
+const quotaKey = (id: string, owner: string | undefined) => ownerCacheKey(id, quotaPrefix + (owner ?? ''))
+type QuotaDraft = CacheEntry & {
+  quotaId: string
+  /** A dirty snapshot this editor opened and has not yet replaced with a durable write of
+   *  its own. Its final save supersedes that snapshot, including deletion of local-only rows. */
+  inherited?: Workspace
+}
 // The orphan slot: unsynced work that carries NO owner — every entry written before ownership
 // existed (this batch), when an online upgrade would otherwise let a clean server fetch overwrite
 // the only unsynced copy. It is unattributable, so it is NEVER served (we can't prove who wrote
@@ -93,7 +107,7 @@ export interface UnsentWorkspace {
 
 /**
  * Every owner-stamped, unsynced workspace entry this device holds: the main slots (a session that
- * was refused or signed out leaves its work there) and the per-owner parking slots. For the login
+ * was refused or signed out leaves its work there), owner parking and terminal quota recoveries. For the login
  * screen, which has no engine to ask and must say WHOSE work is waiting (sweep 09.11.2026, UX.2).
  * It reports who and when, never what: the blobs stay under their keys, untouched. The orphan,
  * refused and role slots are not listed (no sign-in sends them). An unreadable store or slot
@@ -105,7 +119,7 @@ export async function unsentWorkspaces(): Promise<UnsentWorkspace[]> {
   if (!keys.ok) return []
   const found = await Promise.all((keys.value ?? []).map(async (key): Promise<UnsentWorkspace | null> => {
     const [incidentId, slot] = key.slice(prefix.length).split('::')
-    if (!incidentId || slot?.startsWith('__')) return null
+    if (!incidentId || (slot?.startsWith('__') && !slot.startsWith(quotaPrefix))) return null
     const read = await idbRead<CacheEntry>(key)
     const entry = read.ok ? read.value : null
     if (!entry?.dirty || !entry.owner) return null
@@ -211,10 +225,47 @@ export function conflictBackoffMs(attempt: number, random: () => number = Math.r
   return Math.round(CONFLICT_BACKOFF_MS * 2 ** (attempt - 1) * (0.5 + random()))
 }
 
-/** `ok: false` = the slot could not be READ — which is not «empty»: see init / slotUnread. */
-function readCache(id: string): Promise<IdbRead<CacheEntry>> {
+// Same-document opens wait for their predecessor's actual disk attempt (including eviction).
+// A different tab may already be open and writing: retired retries use the author's quotaKey.
+const writingCache = new Map<string, Set<Promise<boolean>>>()
+
+async function readCache(id: string): Promise<IdbRead<CacheEntry>> {
+  const writes = writingCache.get(id)
+  if (writes) await Promise.all(writes)
   return idbRead<CacheEntry>(cacheKey(id))
 }
+
+/** Serialize imports by active tabs. Retired writers use a single native readwrite transaction.
+ *  Never hold this lock during
+ *  network I/O or tile eviction. As with the incident edit lock, older browsers act locally. */
+async function withQuotaSlot<T>(key: string, action: () => Promise<T>, unavailable: () => T): Promise<T> {
+  if (typeof navigator === 'undefined' || !navigator.locks) return action()
+  let granted = false
+  try {
+    return await navigator.locks.request('kp-front-recovery-' + key, () => {
+      granted = true
+      return action()
+    })
+  } catch (error) {
+    if (granted) throw error
+    return unavailable() // an inactive document can be refused before grant
+  }
+}
+
+/** Reconcile independently authored dirty records; the newer editor wins a same-field conflict.
+ *  Use the older server ancestor so later server additions survive. Keep a wider role's shape
+ *  intact until open() can park it before a restricted session writes. */
+function combineDrafts(first: CacheEntry, second: CacheEntry): CacheEntry {
+  const ancestor = first.baseRev <= second.baseRev ? first : second
+  const server = first.baseRev > second.baseRev ? first : second
+  const shape = first.dirty && second.dirty && first.shape !== second.shape ? 'all' : (second.shape ?? first.shape)
+  const workspace = mergeWorkspace(ancestor.base ?? {}, second.workspace, first.workspace,
+    undefined, undefined, { numbers: shape === 'record' ? 'off' : shape === 'trupps' ? 'trupps' : 'all' })
+  return { ...second, workspace, base: server.base, baseRev: server.baseRev, dirty: true, shape,
+    editedAt: Math.max(first.editedAt ?? 0, second.editedAt ?? 0) || undefined,
+    requeuedRefused: [...new Set([...(first.requeuedRefused ?? []), ...(second.requeuedRefused ?? [])])] }
+}
+
 // NOTE: the per-instance writer is `this.writeCache` below — it keeps the durability of each
 // write, which a bare fire-and-forget threw away. "Non-fatal because the server is authoritative"
 // holds only while we ARE reaching the server; offline it is the difference between an edit that
@@ -462,6 +513,9 @@ export class WorkspaceSync {
    *  isStorageDegraded() flag also moves for unrelated keys (config, roster), which would make
    *  this incident's badge flap. */
   private cacheDurable = true
+  private inheritedDirty?: Workspace
+  /** A quota recovery could not be checked during open; the next open checks it again. */
+  private quotaDeferred = false
   /** The main cache slot holds ANOTHER session's unsynced dirty work that init() could NOT copy
    *  to a durable parking slot (a full store). That copy is the only one, so this session must
    *  never overwrite the slot — writeCache/flushCache no-op here and report the cache as
@@ -536,7 +590,7 @@ export class WorkspaceSync {
   private publish() {
     // ⚠️ An unread slot may hold this device's only copy of unsynced offline edits, which nothing
     // in this session has merged or pushed: «synced» would be a promise nobody can keep yet.
-    const eff = this.slotUnread ? 'storage' : effectiveSyncStatus(this.base, this.entry.dirty, this.cacheDurable)
+    const eff = this.slotUnread || this.quotaDeferred ? 'storage' : effectiveSyncStatus(this.base, this.entry.dirty, this.cacheDurable)
     if (this.status === eff) return
     this.status = eff
     this.onStatus?.(eff)
@@ -561,6 +615,7 @@ export class WorkspaceSync {
 
   /** Write the current entry to the offline cache NOW (a no-op when nothing is waiting). */
   private cacheWrite: Promise<boolean> = Promise.resolve(true)
+  private retiredWrite: Promise<boolean> | null = null
   private flushCache = (): Promise<boolean> => {
     if (!this.cacheTimer) return this.cacheWrite
     clearTimeout(this.cacheTimer)
@@ -574,14 +629,35 @@ export class WorkspaceSync {
       if (this.slotUnread) void this.probeUnreadSlot()
       return Promise.resolve(false)
     }
-    // The entry already carries the owner captured when it was BUILT or last edited (construction
-    // / init / save / adopt). We write it VERBATIM — re-stamping the live `cacheOwner` here would
-    // relabel a debounced or teardown write that lands after the identity changed, handing one
-    // user's unsynced edit another user's name (SEC-10 owner races).
-    // Tile eviction may finish after this account reopens the incident or another account
-    // takes the tablet. Only the engine that still owns this slot may retry the write.
-    this.cacheWrite = withTileEviction(() => this.ownsCache
-      ? idbSet(cacheKey(this.incidentId), this.entry) : Promise.resolve(false)).then((ok) => {
+    if (!this.ownsCache) return Promise.resolve(false)
+    const key = cacheKey(this.incidentId)
+    const writes = writingCache.get(this.incidentId) ?? new Set<Promise<boolean>>()
+    writingCache.set(this.incidentId, writes)
+    const write = withTileEviction(async () => {
+      const entry = { ...this.entry, cacheWriter: this.writerId }
+      if (this.ownsCache) return idbSet(key, entry)
+      if (!entry.dirty) return false
+      // Another engine, even another tab, may now own the main slot. Keep the last authored
+      // dirty snapshot separately until its author opens this incident again.
+      if (this.retiredWrite) return this.retiredWrite
+      const rescue = quotaKey(this.incidentId, entry.owner)
+      this.retiredWrite = idbUpdate<QuotaDraft>(rescue, (previous) => {
+        const independent = previous?.quotaId && previous.cacheWriter !== entry.cacheWriter &&
+          !jsonEqual(previous.workspace, this.inheritedDirty)
+        const draft = independent ? combineDrafts(previous, entry) : entry
+        return { ...draft, quotaId: this.writerId, inherited: this.inheritedDirty }
+      }).then((stored) => {
+        if (!stored) this.retiredWrite = null
+        return stored
+      })
+      return this.retiredWrite
+    })
+    writes.add(write)
+    this.cacheWrite = write.finally(() => {
+      writes.delete(write)
+      if (!writes.size) writingCache.delete(this.incidentId)
+    }).then((ok) => {
+      if (ok && this.ownsCache) this.inheritedDirty = undefined
       if (this.ownsCache && this.cacheDurable !== ok) {
         this.cacheDurable = ok
         this.publish()
@@ -606,25 +682,31 @@ export class WorkspaceSync {
       if (!this.sessionActive || !this.slotUnread) return
       if (!read.ok) { this.scheduleProbe(); return }
       const stored = read.value
-      if (stored?.dirty) {
-        // a wider shape's work is parked first, as init() does — a failed park leaves the slot be
-        if (mayRead(stored) && this.mustParkForRole(stored) && !(await this.parkForRole(stored))) { this.scheduleProbe(); return }
+      const readable = stored && mayRead(stored) ? stored : null
+      if (stored?.dirty && !readable) {
+        const durable = stored.owner
+          ? await idbSet(ownerCacheKey(this.incidentId, stored.owner), stored)
+          : await this.parkOrphan(stored)
         if (!this.sessionActive || !this.slotUnread) return
-        if (mayRead(stored)) this.mergeFoundSlot(stored)
-        else {
-          const durable = stored.owner
-            ? await idbSet(ownerCacheKey(this.incidentId, stored.owner), stored)
-            : await this.parkOrphan(stored)
-          if (!this.sessionActive || !this.slotUnread) return
-          void this.announceForeignParked()
-          // the only copy stays where it is; this session carries on in memory, as after init()
-          if (!durable) { this.slotUnread = false; this.publish(); return }
-        }
+        void this.announceForeignParked()
+        // the only copy stays where it is; this session carries on in memory, as after init()
+        if (!durable) { this.slotUnread = false; this.publish(); return }
+      }
+      // The main slot is now safe. Finish the same quota and wider-role recovery as open().
+      const recovered = await this.restoreQuotaDraft(readable)
+      if (!this.sessionActive || !this.slotUnread) return
+      if (recovered?.dirty) {
+        if (this.mustParkForRole(recovered) && !(await this.parkForRole(recovered))) { this.scheduleProbe(); return }
+        if (!this.sessionActive || !this.slotUnread) return
+        if (recovered.quotaReceipt) this.entry = { ...this.entry, quotaReceipt: recovered.quotaReceipt }
+        this.mergeFoundSlot(recovered)
       }
       this.slotUnread = false
       this.mainSlotBlocked = false
       this.writeCache()
       this.publish()
+    } catch {
+      this.scheduleProbe() // cancellation on handover stops here; a live failed read can retry
     } finally {
       this.probing = false
     }
@@ -809,6 +891,43 @@ export class WorkspaceSync {
     return { entry: null, parkBlocked: false }
   }
 
+  /** Claim a quota retry only for the readable author and only after the main slot is safe
+   *  to reuse. Commit the replacement and its receipt before clearing the bounded rescue slot. */
+  private async restoreQuotaDraft(cached: CacheEntry | null): Promise<CacheEntry | null> {
+    if (!this.sessionActive) return cached
+    const owner = this.sessionOwner ?? cached?.owner
+    const key = quotaKey(this.incidentId, owner)
+    const defer = () => { this.quotaDeferred = true; return cached }
+    // A miss needs no lock. A real rescue is re-read under the same lock as its writer.
+    const initial = await idbRead<QuotaDraft>(key)
+    this.requireOpeningOwner()
+    if (!initial.ok) return defer()
+    if (!initial.value?.quotaId) return cached
+    return withQuotaSlot(key, async () => {
+      this.requireOpeningOwner()
+      const found = await idbRead<QuotaDraft>(key)
+      this.requireOpeningOwner()
+      if (!found.ok) return defer()
+      if (!found.value?.quotaId) return cached
+      const { quotaId, inherited, ...draft } = found.value
+      if (draft.owner !== owner || !mayRead(draft)) return cached
+      // The same writer's last snapshot includes its later deletions. Another editor's
+      // dirty main slot takes precedence when both changed the same record.
+      let entry = draft
+      if (cached?.quotaReceipt === quotaId) entry = cached
+      else if (cached && cached.cacheWriter !== draft.cacheWriter && !jsonEqual(cached.workspace, inherited)) {
+        entry = cached.dirty ? combineDrafts(draft, cached) : combineDrafts(cached, draft)
+      }
+      const replacement = { ...entry, quotaReceipt: quotaId }
+      if (await idbSet(cacheKey(this.incidentId), replacement)) {
+        this.requireOpeningOwner()
+        // A retired writer can deposit a newer rescue at any time, even without Web Locks.
+        await idbUpdate<QuotaDraft>(key, (current) => current?.quotaId === quotaId ? null : undefined)
+      }
+      return replacement
+    }, defer)
+  }
+
   /** What this session pushes: the whole document, or its slice. */
   private get shape(): 'all' | Slice {
     return this.opts.slice ?? 'all'
@@ -895,6 +1014,8 @@ export class WorkspaceSync {
       ? await this.loadReadableEntry(read.value)
       : { entry: null, parkBlocked: true }
     this.requireOpeningOwner()
+    if (!parkBlocked) cached = await this.restoreQuotaDraft(cached)
+    this.requireOpeningOwner()
     // Unsynced work of a WIDER shape than this session can push (RBAC audit S4): park a copy before
     // anything below reuses the slot — durable-or-abort, like a foreign owner's work. The record
     // part still merges and goes up as before; the copy keeps the rest for «Einträge sichern».
@@ -910,6 +1031,7 @@ export class WorkspaceSync {
       }
     }
     if (cached) {
+      this.inheritedDirty = cached.dirty ? cached.workspace : undefined
       this.entry = cached
       this.setStatus(cached.dirty ? 'pending' : 'synced')
     }
@@ -937,13 +1059,13 @@ export class WorkspaceSync {
         const merged = this.mergeReporting(cached.base ?? {}, cached.workspace, server)
         // the offline work was written (and its Verlauf rows with it) under the cached numbers
         this.reportRenumbered(cached.workspace, merged)
-        this.entry = { workspace: merged, base: server, baseRev: workspace_rev, dirty: true, lastSyncedAt: cached.lastSyncedAt, owner: this.sessionOwner ?? cached.owner, requeuedRefused: cached.requeuedRefused, shape: this.shape }
+        this.entry = { workspace: merged, base: server, baseRev: workspace_rev, dirty: true, lastSyncedAt: cached.lastSyncedAt, owner: this.sessionOwner ?? cached.owner, requeuedRefused: cached.requeuedRefused, quotaReceipt: cached.quotaReceipt, shape: this.shape }
         this.writeCache()
         this.opts.onRev?.(workspace_rev)
         this.setStatus('pending')
         return { workspace: merged, rev: workspace_rev, fromCache: true }
       }
-      this.entry = { workspace: ws, base: ws, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? undefined, requeuedRefused: cached?.requeuedRefused }
+      this.entry = { workspace: ws, base: ws, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? undefined, requeuedRefused: cached?.requeuedRefused, quotaReceipt: cached?.quotaReceipt }
       this.writeCache()
       this.opts.onRev?.(workspace_rev)
       this.setStatus('synced')
@@ -1532,9 +1654,10 @@ export class WorkspaceSync {
     const keys = await idbKeys(prefix)
     if (!keys.ok || this.disposed) return
     const owners = (keys.value ?? []).map((k) => k.slice(prefix.length))
+      .map((slot) => slot.startsWith(quotaPrefix) ? slot.slice(quotaPrefix.length) : slot)
       // the orphan, refused and role slots share the prefix; my own parked copy is mine to re-home
       .filter((owner) => owner && !owner.startsWith('__') && owner !== cacheOwner)
-    for (const l of [...this.foreignParkedListeners]) l(owners)
+    for (const l of [...this.foreignParkedListeners]) l([...new Set(owners)])
   }
 
   /** How many saves of a wider role are parked for this owner (roleCacheKey), as it changes.
@@ -1578,7 +1701,7 @@ export class WorkspaceSync {
     this.pendingViewMerge = null
     this.reportRenumbered(this.viewState, workspace, 'adopt')
     this.viewState = workspace
-    this.entry = { workspace, base: workspace, baseRev: rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? this.entry.owner, requeuedRefused: this.entry.requeuedRefused }
+    this.entry = { workspace, base: workspace, baseRev: rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? this.entry.owner, requeuedRefused: this.entry.requeuedRefused, quotaReceipt: this.entry.quotaReceipt }
     this.writeCache()
     this.opts.onRev?.(rev)
     this.setStatus('synced')

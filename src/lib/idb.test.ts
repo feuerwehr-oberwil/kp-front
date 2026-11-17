@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { idbGet, idbRead, idbSet, idbDel, readThrough, __resetIdbForTests } from './idb'
+import { idbGet, idbRead, idbSet, idbDel, idbUpdate, readThrough, __resetIdbForTests } from './idb'
 import { ApiError } from './api'
 
 beforeEach(() => {
@@ -25,6 +25,15 @@ describe('idb key-value store (IndexedDB backend)', () => {
     await idbSet('k', 1)
     await idbSet('k', 2)
     expect(await idbGet('k')).toBe(2)
+  })
+
+  it('serializes concurrent recovery updates and only removes the acknowledged value', async () => {
+    const add = (id: string) => idbUpdate<string[]>('rescued', (rows) => [...(rows ?? []), id])
+    expect(await Promise.all([add('one'), add('two')])).toEqual([true, true])
+    await idbUpdate<string[]>('rescued', (rows) => rows?.length === 1 ? null : undefined)
+    expect(await idbGet('rescued')).toEqual(['one', 'two'])
+    await idbUpdate<string[]>('rescued', (rows) => rows?.length === 2 ? null : undefined)
+    expect(await idbGet('rescued')).toBeNull()
   })
 
   it('deletes a key', async () => {
@@ -65,6 +74,9 @@ describe('idbRead · a miss is not a failure', () => {
     try {
       expect(await idbRead('k')).toMatchObject({ ok: false })
       expect(await idbGet('k')).toBeNull()
+      const transform = vi.fn(() => 'replacement')
+      expect(await idbUpdate('k', transform)).toBe(false)
+      expect(transform).not.toHaveBeenCalled()
     } finally { spy.mockRestore() }
     expect(await idbRead('k')).toEqual({ ok: true, value: { x: 1 } })
   })
@@ -191,6 +203,16 @@ describe('idb localStorage fallback when IndexedDB is unavailable', () => {
     globalThis.indexedDB = new IDBFactory()
     __resetIdbForTests()
     expect(await idbGet('k')).toEqual({ x: 1 })
+  })
+
+  it('updates the canonical JSON fallback and keeps its deletion on a later native open', async () => {
+    await idbSet('recovery', ['one'])
+    expect(await idbUpdate<string[]>('recovery', (rows) => [...(rows ?? []), 'two'])).toBe(true)
+    expect(await idbGet('recovery')).toEqual(['one', 'two'])
+    expect(await idbUpdate<string[]>('recovery', () => null)).toBe(true)
+    globalThis.indexedDB = new IDBFactory()
+    __resetIdbForTests()
+    expect(await idbGet('recovery')).toBeNull()
   })
 
   it('round-trips delete via the fallback', async () => {

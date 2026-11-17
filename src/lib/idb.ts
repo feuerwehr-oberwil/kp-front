@@ -381,6 +381,46 @@ export async function idbSet(key: string, value: unknown): Promise<boolean> {
   return true
 }
 
+/** Change a single key against the value actually in storage. The read and mutation share
+ *  one native readwrite transaction, including across tabs. Return undefined to keep the
+ *  current value or null to delete it. A failed read is never treated as an empty record.
+ *  As with idbSet, a failed commit can fall back to JSON; a fallback deletion leaves a null
+ *  tombstone so a surviving older IndexedDB value cannot reappear on the next read. */
+export async function idbUpdate<T>(key: string, update: (current: T | null) => T | null | undefined): Promise<boolean> {
+  let readSucceeded = false
+  let next: T | null | undefined
+  if (!idbUnavailable) {
+    try {
+      await tx('readwrite', (store) => {
+        const read = store.get(key)
+        read.addEventListener('success', () => {
+          try {
+            const fallback = lsRead<T | null>(FB_PREFIX + key)
+            next = update(fallback.found ? fallback.value : (read.result ?? null))
+            readSucceeded = true
+            if (next === null) store.delete(key)
+            else if (next !== undefined) store.put(next, key)
+          } catch {
+            store.transaction.abort()
+          }
+        })
+        return read
+      })
+      if (next === undefined) return true
+      const cleared = lsDel(FB_PREFIX + key) && lsDel(key)
+      setDegraded(!cleared)
+      return cleared
+    } catch { /* an answered read still permits the same JSON fallback as idbSet */ }
+  }
+  const fallback = lsRead<T | null>(FB_PREFIX + key)
+  if (fallback.found || idbUnavailable) next = update(fallback.found ? fallback.value : lsGet<T>(key))
+  else if (!readSucceeded) { setDegraded(true); return false }
+  if (next === undefined) return true
+  const stored = lsSet(FB_PREFIX + key, next)
+  setDegraded(!stored)
+  return stored
+}
+
 /**
  * Write a value to IndexedDB ONLY — never to the localStorage fallback. Resolves true only once the
  * transaction committed. For values the fallback cannot hold: a Blob serialises to `{}`, so the
