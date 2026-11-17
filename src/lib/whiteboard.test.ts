@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clamp01, floorGeometry, floorLabel, OFF_BOARD_Y, planUrl, storeyTowards, TILE_AR, tileAspectOf, TOP_INSET, pdfPageOf, signedFloor, withPdfPage, floorSections, floorCrossings, containFit, bottomInset, sideInsets } from './whiteboard'
+import { clamp01, floorGeometry, floorLabel, OFF_BOARD_Y, planUrl, storeyTowards, TILE_AR, tileAspectOf, TOP_INSET, pdfPageOf, signedFloor, withPdfPage, floorSections, floorCrossings, containFit, bottomInset, sideInsets, annoMiddle } from './whiteboard'
 
 describe('planUrl', () => {
   it('leaves absolute http(s) URLs untouched', () => {
@@ -205,5 +205,15 @@ describe('containFit — a plan opens WHOLE between the bars (sweep B8)', () => 
     expect(containFit({ w: 0, h: 900 }, A4P, insets(0, true))).toEqual({ w: 0, h: 0 })
     expect(containFit({ w: 1440, h: 100 }, A4P, insets(1440, false))).toEqual({ w: 0, h: 0 })
     expect(containFit({ w: 1440, h: 900 }, NaN, insets(1440, false))).toEqual({ w: 0, h: 0 })
+  })
+})
+
+// a Plan drawing's «Zentrieren» aims at its middle (button sweep SHEETS.9)
+describe('annoMiddle', () => {
+  it('is the middle of a line\'s box, on its first point\'s storey', () => {
+    expect(annoMiddle({ pts: [[0.2, 0.4, 1], [0.6, 0.8, 2]], floor: 0 })).toEqual({ x: 0.4, y: 0.6000000000000001, floor: 1 })
+  })
+  it('is a circle\'s anchor', () => {
+    expect(annoMiddle({ x: 0.3, y: 0.7, floor: 2 })).toEqual({ x: 0.3, y: 0.7, floor: 2 })
   })
 })

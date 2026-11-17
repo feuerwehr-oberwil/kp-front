@@ -408,15 +408,10 @@
   /* the pinned copy is the live one on phones too — the inline duplicate would be a second
      «Löschen» in the same sheet, one of which scrolls away */
   .ctx-footer-inline .ctx-actions { display: none; }
-  /* 140px is a desktop basis. In a 360px sheet it fits exactly two buttons per row and turns a
-     five-action footer into three rows; `auto` + the buttons' own `white-space: nowrap` keeps
-     the common case on one line and only wraps when it genuinely must. */
   /* no safe-area inset here — `.ctx` itself already carries `padding-bottom:
      env(safe-area-inset-bottom)` (see the sheet rule above), so adding it again would
      double-count the home indicator and float the row off the edge. */
   .ctx > .ctx-actions { border-top: 1px solid var(--border-soft); padding: 8px 12px; }
-  .ctx > .ctx-actions > .btn { flex: 1 1 auto; }
-  .ctx > .ctx-actions > .btn.btn-sq { flex: 0 0 var(--tap); }
   /* compact sheet header: ONE handle, then the title row.
      ⚠️ The bar hangs at the BOTTOM of its band, not in the middle of it. Centred in a 20px band it
      landed inside the sheet's own 22px top radius (--r-hero) — pinched between the two corner

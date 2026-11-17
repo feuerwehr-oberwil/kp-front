@@ -143,6 +143,15 @@ export const floorCrossings = (pts: BoardPoint[], floor: number | undefined): nu
   pts.slice(0, -1).flatMap((p, i) => ((p[2] ?? floor ?? 0) !== (pts[i + 1][2] ?? floor ?? 0) ? [i] : []))
 
 /** a floor index signed the way every Stockwerk badge is signed: «+2», «0», «−1» */
+/** Where a Plan drawing's «Zentrieren» aims (button sweep SHEETS.9, 17.11.2026, the Karte's
+ *  frame-the-drawing twin): the middle of its vertices' box, on the storey of its first point –
+ *  or a circle's centre, which is its anchor (a circle has no `pts`). */
+export function annoMiddle(a: { pts?: BoardPoint[]; x?: number; y?: number; floor?: number }): { x: number; y: number; floor: number } {
+  const pts = a.pts ?? []
+  if (!pts.length) return { x: a.x ?? 0.5, y: a.y ?? 0.5, floor: a.floor ?? 0 }
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1])
+  return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2, floor: pts[0][2] ?? a.floor ?? 0 }
+}
 export const signedFloor = (index: number): string => index > 0 ? `+${index}` : index < 0 ? `−${-index}` : '0'
 
 /** the `#page=N` (1-based) a floor-pack sheet's URL names → 0-based page index; null = the whole

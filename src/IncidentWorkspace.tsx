@@ -37,7 +37,7 @@ import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDem
 import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, formatTime } from './lib/format'
 import { addSignature, shortChecksum, type ReportSignature } from './lib/reportSignature'
-import { circlePolygon } from './lib/geo'
+import { drawingExtent } from './lib/geo'
 import { isPresent } from './lib/attendanceIntervals'
 import { registerMeldeleisteHost } from './lib/meldeleisteHost'
 import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
@@ -370,15 +370,8 @@ export function IncidentWorkspace({
   const initialFitPoints = useMemo<LngLat[] | undefined>(() => {
     const pts: LngLat[] = []
     for (const e of init.doc.entities) if (e.coord) pts.push(e.coord)
-    for (const d of init.doc.drawings) {
-      // A circle (Absperrkreis / Gefahrenradius) stores only its centre in `coords`, so include
-      // its rendered outline so the whole area is framed, not just the point.
-      if (d.kind === 'circle' && d.radiusM && d.coords[0]) {
-        for (const [lng, lat] of circlePolygon(d.coords[0], d.radiusM, 8)[0]) pts.push([lng, lat])
-      } else {
-        for (const c of d.coords) pts.push(c)
-      }
-    }
+    // a circle (Absperrkreis / Gefahrenradius) brings its outline, so the whole area is framed
+    for (const d of init.doc.drawings) pts.push(...drawingExtent(d))
     return pts.length >= 2 ? pts : undefined  // <2 → MapView keeps the incident-centred default
   }, [])  // eslint-disable-line react-hooks/exhaustive-deps
   const incidentView: Incident = useMemo(() => ({
@@ -2200,6 +2193,26 @@ export function IncidentWorkspace({
       m.flyTo({ center, zoom, offset: [target.x - cont.width / 2, target.y - cont.height / 2], ...(prefersReducedMotion() ? { duration: 0 } : {}) })
     })
   }
+  /** …and a drawing's «Zentrieren» (button sweep SHEETS.9, 17.11.2026): its whole extent framed
+   *  in that same visible part, never closer than a symbol's jump */
+  const fitMapVisible = (pts: LngLat[]) => {
+    if (!pts.length) return
+    requestAnimationFrame(() => {
+      const m = mapRef.current?.getMap()
+      if (!m) return
+      const cont = m.getContainer().getBoundingClientRect()
+      const panelEl = document.querySelector('.ctx')
+      const surface = { minX: 0, maxX: cont.width, minY: 0, maxY: cont.height }
+      const work = (panelEl ? mapWorkRect(cont, panelEl) : null) ?? visibleWorkRect(surface, null, false)
+      const lngs = pts.map((p) => p[0]), lats = pts.map((p) => p[1])
+      const padding = { left: work.minX, top: work.minY, right: cont.width - work.maxX, bottom: cont.height - work.maxY }
+      // a work rect squeezed to a line leaves no room to fit into – MapLibre throws then
+      try {
+        m.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+          { padding, maxZoom: 18.4, ...(prefersReducedMotion() ? { duration: 0 } : {}) })
+      } catch { m.flyTo({ center: [(Math.min(...lngs) + Math.max(...lngs)) / 2, (Math.min(...lats) + Math.max(...lats)) / 2] }) }
+    })
+  }
   // select + fly to an object — used by clickable Verlauf rows
   const focusEntity = (id: string) => {
     const e = entities.find((x) => x.id === id); if (!e) return
@@ -3241,7 +3254,7 @@ export function IncidentWorkspace({
       }} />
 
       <MapDetailPanels {...{
-        detailSlotFree, tacticalLocked, tool, selected, commit, setSelectedId, flyToMapVisible, deleteEntity,
+        detailSlotFree, tacticalLocked, tool, selected, commit, setSelectedId, flyToMapVisible, fitMapVisible, deleteEntity,
         timeline, sym, entityTypedAt, titleLiveRef, beginDrag,
         setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
         symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone, commitEntityFields,
