@@ -144,7 +144,7 @@ const BASELINE: Record<string, Counts> = {
   'src/components/TwinTeamPill.tsx': { pressed: 2, field: 1 },
   'src/components/WbControls.tsx': { row: 2 },
   'src/components/WheelPicker.tsx': { pressed: 2, select: 1, field: 1 },
-  'src/components/Whiteboard.tsx': { row: 1 },
+  'src/components/Whiteboard.tsx': { row: 2 }, // the Objekt chip's › (picker = ›, duck sweep ELEM.3): a chip, not a row
   'src/components/karte/KarteApp.tsx': { pressed: 3 },
   'src/components/karte/KartePanel.tsx': { row: 1 },
   'src/components/karte/KartePlans.tsx': { pressed: 3, row: 1 },
