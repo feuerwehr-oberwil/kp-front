@@ -594,6 +594,14 @@
   border-color: var(--blue-22); color: var(--blue-strong); }
 .hist-ev .ic.jr-ic-plan { background: var(--green-16);
   border-color: var(--green-28); color: var(--green-strong); }
+/* ── …and a hand-written row's ART (owner pick B, UI sweep 07.10.2026) ──
+   Auftrag = the arrow on blue, Sofortmassnahme = the warning on amber; Info keeps the plain «T»
+   (lib/verlauf · rowGlyph, derived at render). The same discs in the legend and the filter menu,
+   so the three places cannot disagree. */
+:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-auftrag { background: var(--blue-12);
+  border-color: var(--blue-22); color: var(--blue); }
+:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-sofort { background: var(--amber-16);
+  border-color: var(--amber-28); color: var(--amber-strong); }
 /* ── …and on a Pendenz the disc is the Pendenz's tick box ──
    The box every surface ticks a Pendenz with (TickRow · `pendenz`, duck sweep ELEM.2/ENT.5,
    17.11.2026): its frame says the state – amber offen, red überfällig, red with «!» dringend –
