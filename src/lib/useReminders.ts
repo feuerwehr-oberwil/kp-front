@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TimelineEvent } from '../types'
 import { appConfig } from '../config/appConfig'
 import { deriveReminders, isDue, type OpenReminder } from './reminders'
-import { notify, startAlarm, stopAlarm } from './alarm'
+import { chime, notify } from './alarm'
 import { toast } from './ui'
 import type { UndoTimeline } from './undoTimeline'
 
@@ -183,8 +183,9 @@ export function useReminders(
  * or not. Here the tick re-renders only this empty component, and `onDue` reaches the parent
  * only when the SET of due ids changes (a crossing, a done, a snooze), never on a plain tick.
  *
- * Also owns the alert itself: a short tone (no loop — reminders aren't life-safety like the
- * SCBA clock) plus an OS notification when the app isn't in the foreground, once per crossing.
+ * Also owns the alert itself: the calm `chime()` once (lib/alarm – never a voice louder than the
+ * Atemschutz warn; it used the retired faster beeper until 17.11.2026, FEEDBACK.10) plus an OS
+ * notification when the app isn't in the foreground, once per crossing.
  * ⚠️ Only where `alert` says so — the WRITERS of the Verlauf, editor and el (owner, 22.10.2026):
  * a Wiedervorlage is a to-do for whoever can tick it off, so a viewer's tablet or a link's phone
  * shows the due row (the banner, from `onDue`) without ringing. Their one alarm is Atemschutz's.
@@ -221,7 +222,6 @@ export function RemindersHost({ open, enabled, alert, dueTitle, onDue, closedAt 
 
   // alert once per reminder as it crosses into due
   const fired = useRef<Set<string>>(new Set())
-  const toneTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     if (!enabled || !alert) return
     const fresh = due.filter((r) => !fired.current.has(r.id))
@@ -230,9 +230,7 @@ export function RemindersHost({ open, enabled, alert, dueTitle, onDue, closedAt 
       fired.current.add(r.id)
       if (typeof document !== 'undefined' && document.hidden) void notify(dueTitle, { body: r.text, tag: `reminder-${r.id}`, target: 'journal' })
     }
-    startAlarm('warn')
-    if (toneTimer.current) clearTimeout(toneTimer.current)
-    toneTimer.current = setTimeout(() => stopAlarm(), 4000)
+    chime()
   }, [due, enabled, alert, dueTitle])
 
   // a reminder that's resolved/snoozed before re-firing should be able to alert again later
@@ -241,8 +239,6 @@ export function RemindersHost({ open, enabled, alert, dueTitle, onDue, closedAt 
     const dueIds = new Set(due.map((r) => r.id))
     for (const id of fired.current) if (!openIds.has(id) || !dueIds.has(id)) fired.current.delete(id)
   }, [open, due])
-
-  useEffect(() => () => { if (toneTimer.current) clearTimeout(toneTimer.current); stopAlarm() }, [])
 
   // the parent hears about the SET, and only when it changes — `due` is a fresh array every
   // tick, so a reference check here would push a state update up on every beat
