@@ -352,13 +352,19 @@ async def test_a_corrected_title_keeps_the_original_archive_folders(
     assert len(drive.files(f"{REPORTS}/2026/2026.07.15 Ölspur")) == 2
 
 
-def test_an_ambiguous_legacy_archive_preserves_both_folders():
+@pytest.mark.parametrize("current_title", ["A", "B", "C"])
+def test_an_ambiguous_legacy_archive_preserves_both_folders(current_title):
     dest = IncidentArchiveDestination.model_validate(DEST)
     first, second = f"{PHOTOS}/2026.07.15 A", f"{PHOTOS}/2026.07.15 B"
-    folders = {first: {"path": first, "id": "first"}, second: {"path": second, "id": "second"}}
+    report = f"{REPORTS}/2026/2026.07.15 {current_title}"
+    folders = {
+        first: {"path": first, "id": "first"},
+        second: {"path": second, "id": "second"},
+        report: {"id": "report"},
+    }
     items = {"folders": folders.copy()}
     with pytest.raises(archive.AmbiguousArchiveFolderError) as error:
-        archive.bind_folder_patterns(items, dest, {"year": "2026", "date": "2026.07.15", "stichwort": "C"})
+        archive.bind_folder_patterns(items, dest, {"year": "2026", "date": "2026.07.15", "stichwort": current_title})
     assert archive.is_actionable(error.value)
     assert items["folders"] == folders
     assert items["folderPatterns"] == {}

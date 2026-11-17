@@ -417,18 +417,16 @@ def _legacy_path_matches(pattern: str, path: str) -> bool:
 
 
 def bind_folder_patterns(items: dict[str, Any], dest: IncidentArchiveDestination, values: dict[str, str]) -> None:
-    """Remember the original rendered key per configured pattern. Older rows hold only that key:
-    use an exact path first, then an unambiguous legacy match after a metadata correction."""
+    """Bind a legacy key only when it has one possible pattern and that pattern has one key."""
     bindings = items.setdefault("folderPatterns", {})
     folders = items.get("folders", {})
     patterns = {dest.photoFolder, dest.reportFolder}
-    rendered = {pattern: "/".join(expand(pattern, values)) for pattern in patterns}
-    for pattern in patterns - bindings.keys():
-        if rendered[pattern] in folders:
-            bindings[pattern] = rendered[pattern]
     unbound = set(folders) - set(bindings.values())
-    missing = patterns - bindings.keys()
-    matches = {pattern: {key for key in unbound if _legacy_path_matches(pattern, key)} for pattern in missing}
+    matches = {}
+    for pattern in patterns - bindings.keys():
+        current = "/".join(expand(pattern, values))
+        matches[pattern] = {key for key in unbound if key == current or _legacy_path_matches(pattern, key)}
+    resolved = {}
     for pattern, keys in matches.items():
         if not keys:
             continue  # a new pattern, or no filing to this folder yet
@@ -436,7 +434,8 @@ def bind_folder_patterns(items: dict[str, Any], dest: IncidentArchiveDestination
             raise AmbiguousArchiveFolderError(
                 f"Mehrere mögliche Zuordnungen für den bisherigen Ablageordner: {pattern}"
             )
-        bindings[pattern] = next(iter(keys))
+        resolved[pattern] = next(iter(keys))
+    bindings.update(resolved)
 
 
 async def folder_id(
