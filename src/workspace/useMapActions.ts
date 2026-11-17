@@ -16,7 +16,7 @@ import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { bearingDeg, circlePolygon, haversineM, midCoord } from '../lib/geo'
 import { georefDispatch, useGeorefMode } from '../lib/georefMode'
 import { routeEscape, routeHotkey } from '../lib/hotkeyRoute'
-import { resolveHotkey, isTypingTarget, type ToolCmd } from '../lib/hotkeys'
+import { resolveHotkey, isTypingTarget, keyOwnedElsewhere, type ToolCmd } from '../lib/hotkeys'
 import { newId } from '../lib/ids'
 import { applyRouting, detachDrawings, linesOnObjects, moveLineBody, objectAttachment, wireFreed, withDetach, type DetachPatch } from '../lib/lineAttachments'
 import { moduleNumbers } from '../lib/navRail'
@@ -461,37 +461,33 @@ export function useMapActions({
     return true
   }
 
-  /** Escape: one layer of transient Karte state per press — lib/hotkeyRoute · routeEscape is the
-   *  order. (Modal sheets handle their own Esc via the overlay wrapper; this is only the non-modal
-   *  map chrome.) */
+  /** Escape: one layer of transient Lage state per press — lib/hotkeyRoute · routeEscape is the
+   *  order, the Plan's and the Karte viewer's too. (Sheets, menus, cards and the ✥ ⟳ mode take
+   *  their own Esc first and alone — lib/overlays/layer; this is only the surface's own state.) */
   const escape = (e: KeyboardEvent) => {
-    // typing in a field? Escape leaves the FIELD and nothing more — one key press must never
-    // both finish the text and drop the selection. Read the event TARGET, not activeElement:
-    // the field's own handler has already blurred by the time this bubbles up.
-    const el = e.target as HTMLElement | null
-    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
-    // …and a MODAL on top of the map owns Escape outright — it closes, and the map does NOT also
-    // peel a layer behind it (Esc in the «Welcher Trupp?» picker used to close the picker AND
-    // disarm the Team tool). Focus is trapped inside the dialog, so the event target is enough.
-    // ⚠️ `alertdialog` as well as `dialog`: ConfirmCard (lib/overlays/ConfirmCard) renders the
-    // alert role, and a delete confirm on the Lage must not peel a map layer behind it either.
-    if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
+    // a field keeps its Esc (it leaves the field and nothing more — one key press must never both
+    // finish the text and drop the selection), and a dialog or menu with the focus owns it: Esc in
+    // the «Welcher Trupp?» picker used to close the picker AND disarm the Team tool, a delete
+    // confirm (`alertdialog`) must not peel a map layer behind it either (lib/hotkeys)
+    if (keyOwnedElsewhere(e.target instanceof Element ? e.target : null)) return
     switch (routeEscape({
-      placing: !!(pending || pendingShape),
-      coordOn: coord.mode !== 'off',
-      chromeOpen: !!(panel || viewsOpen),
+      layerOpen: !!(panel || viewsOpen),
+      draft: !!(pending || pendingShape) || coord.mode !== 'off',
       toolArmed: tool !== 'select',
-      notePanelOpen: !!notePanelId,
+      panelOpen: !!notePanelId,
       selected: !!(selectedId || selectedDrawingId || selectedDrawIds.length || selectedEntityIds.length),
     })) {
-      case 'cancelPlacement': setPending(null); setPendingShape(null); setRotStart(null); setTool('select'); break
-      case 'coordOff': coord.setMode('off'); break
-      case 'closeChrome': setPanel(null); setViewsOpen(false); break
+      case 'closeLayer': setPanel(null); setViewsOpen(false); break
+      // a symbol or shape being placed goes first, then the Koordinaten crosshair
+      case 'dropDraft':
+        if (pending || pendingShape) { setPending(null); setPendingShape(null); setRotStart(null); setTool('select') }
+        else coord.setMode('off')
+        break
       // Escape leaves the tool like any other way out: a committable draft asks «Speichern ·
       // Verwerfen · Weiterzeichnen» (useMapDrawing · settleDraft, 27.10.2026 – until then Escape
       // was the one silent discard)
       case 'disarmTool': setTool('select'); settleDraft(); break
-      case 'closeNotePanel': setNotePanelId(null); break
+      case 'closePanel': setNotePanelId(null); break
       case 'clearSelection': setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); break
     }
   }

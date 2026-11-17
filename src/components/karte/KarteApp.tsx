@@ -101,6 +101,7 @@ import { useObjectOutlines } from './useKarteOutlines'
 import { useKarteTools, type Tool } from './useKarteTools'
 import { useKarteAddress, useKeepKarteView, useReturnToasts } from './useKarteSession'
 import { useKarteMenu } from './useKarteMenu'
+import { routeEscape } from '../../lib/hotkeyRoute'
 import { useKarteSearch } from './useKarteSearch'
 import { useKarteKeys } from './useKarteKeys'
 import { useCompassViews, useFrameOnReturn, useKarteCamera } from './useKarteCamera'
@@ -503,14 +504,16 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }
   useKarteKeys({
     off: keysOff || sheetOpen || deviceOpen,
-    // one layer per press, back towards the plain map: the search, the compass menu, the armed
-    // tool, the open plan, then the selection
+    // one layer per press, back towards the plain map – the Lage's and the Plan's ladder
+    // (lib/hotkeyRoute · routeEscape): the search or the compass menu, the armed tool, the open
+    // plan, then the selection
     escape: () => {
-      if (searchOpen) setSearchOpen(false)
-      else if (viewsOpen) setViewsOpen(false)
-      else if (tool) setTool(tool)
-      else if (openDoc) setSurface(null)
-      else if (sel && onMapSurface) closePanel()
+      switch (routeEscape({ layerOpen: searchOpen || viewsOpen, draft: false, toolArmed: !!tool, panelOpen: !!openDoc, selected: !!sel && onMapSurface })) {
+        case 'closeLayer': setSearchOpen(false); setViewsOpen(false); break
+        case 'disarmTool': if (tool) setTool(tool); break
+        case 'closePanel': setSurface(null); break
+        case 'clearSelection': closePanel(); break
+      }
     },
     on: {
       // the Karte tile's rule: on a phone it also puts the armed tool away

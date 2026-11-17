@@ -124,7 +124,8 @@ import { armedToolIcon, armedToolName } from '../lib/armedTool'
 import { PlanCompass } from './PlanCompass'
 import { OrientSlider } from './OrientSlider'
 import { RailKey, ToolRail } from './ToolRail'
-import { FIT_KEY, type ToolCmd } from '../lib/hotkeys'
+import { FIT_KEY, keyOwnedElsewhere, type ToolCmd } from '../lib/hotkeys'
+import { routeEscape } from '../lib/hotkeyRoute'
 import { TafelPageStrip } from './TafelPageStrip'
 import { TafelFormPage } from './TafelFormPage'
 import type { PendenzenPort } from '../lib/pendenzenPage'
@@ -1186,35 +1187,40 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }, [selectOnly, setTool, setPending, setPendingShape, setDraft, setCircleDraft])
   /** Put a symbol / shape being placed down – the armed pill's ✕ and Escape (round 2, 27.10.2026) */
   const stopPlacing = () => { setPending(null); setPendingShape(null); setTool('pan') }
-  // Esc cancels an in-progress node shape, else clears the selection
+  // Escape peels ONE layer per press, in the Lage's order (lib/hotkeyRoute · routeEscape – one
+  // ladder for the Lage, the Plan and the Karte viewer, 17.11.2026): the Passung dock, then what is
+  // half-made, then the armed tool – with no draft too (GESTURES.3: an armed Notiz, Trupp, Mehrfach
+  // or Messen stayed armed whatever Esc did), then the note panel, then the selection.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      // typing in a field? Escape leaves the FIELD and nothing more, so one key press never
-      // both finishes the text and drops the selection (which would take the handles with it).
-      // Read the event TARGET, not activeElement: the field's own handler has already blurred
-      // by the time this bubbles up, so activeElement is <body> and the guard would miss.
-      const el = e.target instanceof HTMLElement ? e.target : null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
-      // …and a MODAL on top of the board owns Escape outright: it closes, the board does not
-      // also drop the draft/selection behind it. Focus is trapped inside the dialog, so the
-      // target is enough to tell (covers the Trupp picker, the Maßstab entry, every overlay).
-      if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
-      // Escape leaves the tool like ✕ does: putting the tool down releases the draft, and a
-      // committable one asks «Speichern · Verwerfen · Weiterzeichnen» (27.10.2026 – until then
-      // Escape was the one silent discard; «Verwerfen» is now the explicit way to throw it away).
-      // A symbol or shape being placed is put down first – the Karte's order (lib/hotkeyRoute ·
-      // routeEscape); with «Mehrere platzieren» on, the Plan had no way out (round 2, 27.10.2026)
-      if (rotStart) { setRotStart(null); clearRotMagnet() }
-      else if (pending || pendingShape) stopPlacing()
-      else if (draft) setTool('pan')
-      else if (circleDraft) setCircleDraft(null)
-      // …then the Passung dock. It is deliberately not an Overlay (it must not trap the board
-      // behind a scrim while a fit is being judged), so it has no Escape of its own and would
-      // otherwise be the ONE panel on this surface that the key cannot dismiss.
-      else if (qualityFor) setQualityFor(null)
-      else if (notePanelId) setNotePanelId(null)
-      else if (selId) setSelId(null)
+      // a field keeps its Esc (it leaves the field and nothing more), and a dialog or menu with the
+      // focus owns it – the Trupp picker, the Massstab entry, every overlay (lib/hotkeys)
+      if (keyOwnedElsewhere(e.target instanceof Element ? e.target : null)) return
+      switch (routeEscape({
+        // the Passung dock is deliberately not an Overlay (it must not trap the board behind a
+        // scrim while a fit is being judged), so it has no Escape of its own
+        layerOpen: !!qualityFor,
+        draft: !!(rotStart || pending || pendingShape || draft || circleDraft),
+        toolArmed: tool !== 'pan',
+        panelOpen: !!notePanelId,
+        selected: !!selId || selIds.length > 0,
+      })) {
+        case 'closeLayer': setQualityFor(null); break
+        // a rotation being laid, then a symbol or shape being placed (with «Mehrere platzieren» on,
+        // the Plan had no way out, round 2, 27.10.2026), then a line or circle being drawn.
+        // Putting the tool down releases a line draft, and a committable one asks «Speichern ·
+        // Verwerfen · Weiterzeichnen» (27.10.2026 – until then Escape was the one silent discard)
+        case 'dropDraft':
+          if (rotStart) { setRotStart(null); clearRotMagnet() }
+          else if (pending || pendingShape) stopPlacing()
+          else if (draft) setTool('pan')
+          else setCircleDraft(null)
+          break
+        case 'disarmTool': setTool('pan'); break
+        case 'closePanel': setNotePanelId(null); break
+        case 'clearSelection': setSelId(null); setSelIds([]); break
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -1223,7 +1229,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // left out on purpose: it is declared further down (useWbRotor), and every render's copy
     // touches the same refs and setter, so an older one does the same – `stopPlacing` likewise
     // (setters only); `pending` / `pendingShape` are what it is gated on, so they are in.
-  }, [rotStart, draft, circleDraft, qualityFor, selId, notePanelId, pending, pendingShape])
+  }, [rotStart, draft, circleDraft, qualityFor, selId, selIds, notePanelId, pending, pendingShape, tool, setTool])
 
   // reset transient state when switching document. Sits BELOW usePlanMeasure and usePlanDraft
   // because it clears the state they own — above them, resetEphemeral and setDraft are not yet

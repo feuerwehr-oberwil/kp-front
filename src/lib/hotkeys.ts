@@ -77,6 +77,14 @@ export function isTypingTarget(el: Element | null): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || (el as HTMLElement).isContentEditable === true
 }
 
+/** The ONE guard of every surface-level key listener – Escape, Delete/Backspace and the letters on
+ *  the Lage, the Plan and the Karte (GESTURES.12, 17.11.2026): the key belongs to a text field, or
+ *  to a dialog or menu that holds the focus, never to the surface behind it. Read the event TARGET
+ *  for Escape: a field's own handler has already blurred by the time the key bubbles up. */
+export function keyOwnedElsewhere(el: Element | null): boolean {
+  return isTypingTarget(el) || !!el?.closest('[role="dialog"], [role="alertdialog"], [role="menu"]')
+}
+
 // derive the lowercase-key → surface map from SURFACE_KEY so there's one source of truth
 const SURFACE_KEYS: Record<string, SurfaceCmd> = Object.fromEntries(
   (Object.entries(SURFACE_KEY) as [SurfaceCmd, string][]).map(([s, k]) => [k.toLowerCase(), s]),

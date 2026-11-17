@@ -105,20 +105,27 @@ export function useBackLayer(open: boolean, close: () => void): void {
 const TAIL_EVENTS = ['pointerup', 'pointermove', 'pointercancel', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu', 'touchstart', 'touchmove', 'touchend', 'touchcancel'] as const
 /** No click follows a drag; the gesture counts as over this long after the finger lifted. */
 const TAIL_MS = 400
+/** the swallow under way, so the next gesture can end it */
+let endSwallow: (() => void) | null = null
 
 /**
  * Swallow the rest of the gesture whose `pointerdown` is `down`: the finger that closed a layer
  * neither pans, nor taps, nor holds whatever lay under it. `touchstart` is cancelled too – that is
- * what keeps a touch from synthesising the mouse events and the click a map listens to.
+ * what keeps a touch from synthesising the mouse events and the click a map listens to. A click is
+ * the gesture's only once its finger has lifted, and the next `pointerdown` is a new gesture.
  */
 export function swallowGesture(down: PointerEvent): void {
+  endSwallow?.()
   down.preventDefault()
   down.stopPropagation()
+  let lifted = false
   let timer = 0
   const stop = (e: Event) => {
+    if ((e.type === 'click' || e.type === 'dblclick') && !lifted) return
     e.stopPropagation()
     if (e.cancelable) e.preventDefault()
-    if (e.type === 'pointerup' || e.type === 'pointercancel' || e.type === 'touchend') {
+    if (e.type === 'pointerup' || e.type === 'pointercancel' || e.type === 'touchend' || e.type === 'touchcancel') {
+      lifted = true
       clearTimeout(timer)
       timer = window.setTimeout(end, TAIL_MS)
     }
@@ -127,8 +134,12 @@ export function swallowGesture(down: PointerEvent): void {
   const end = () => {
     clearTimeout(timer)
     for (const t of TAIL_EVENTS) window.removeEventListener(t, stop, true)
+    window.removeEventListener('pointerdown', end, true)
+    if (endSwallow === end) endSwallow = null
   }
   for (const t of TAIL_EVENTS) window.addEventListener(t, stop, { capture: true, passive: false })
+  window.addEventListener('pointerdown', end, true)
+  endSwallow = end
   // a gesture whose end never arrives (the element under it went away) still lets go
   timer = window.setTimeout(end, 3000)
 }
@@ -160,6 +171,10 @@ export interface LayerOptions {
   /** `false`: the container answers Escape itself (ComboMenu: Esc in its search row closes the
    *  list, it does not merely leave the field). It still counts as the top layer for the others. */
   escape?: boolean
+  /** `false`: no outside-tap rule (a mode, not a container – the armed ✥ ⟳, a fanned pile). */
+  outside?: boolean
+  /** `false`: the native back leaves it alone (a mode is not a layer the back gesture closes). */
+  back?: boolean
 }
 
 /**
@@ -169,11 +184,15 @@ export interface LayerOptions {
  *
  *   const card = useRef<HTMLDivElement>(null), chip = useRef<HTMLButtonElement>(null)
  *   useLayer({ open, onClose: close, inside: [card, chip], returnFocus: chip })
+ *
+ * A transient MODE on a surface (the armed ✥ ⟳, a fanned pile) joins the same Esc stack with
+ * `{ inside: [], outside: false, back: false }`: its Esc is taken first and alone, the selection
+ * under it stays.
  */
-export function useLayer({ open, onClose, inside, returnFocus, suspended = false, escape = true }: LayerOptions): void {
+export function useLayer({ open, onClose, inside, returnFocus, suspended = false, escape = true, outside = true, back = true }: LayerOptions): void {
   const latest = useRef({ onClose, inside, returnFocus })
   useEffect(() => { latest.current = { onClose, inside, returnFocus } })
-  useBackLayer(open, onClose)
+  useBackLayer(open && back, onClose)
   useEffect(() => {
     if (!open || suspended) return
     const layer: HandLayer = { inside: (t) => latest.current.inside.some((r) => !!r.current?.contains(t)) }
@@ -181,7 +200,7 @@ export function useLayer({ open, onClose, inside, returnFocus, suspended = false
     const top = () => handStack[handStack.length - 1] === layer
     const onDown = (e: PointerEvent) => {
       const t = e.target instanceof Element ? e.target : null
-      if (!t || !top() || layer.inside(t)) return
+      if (!outside || !t || !top() || layer.inside(t)) return
       // a surface above us owns its press – unless it is the sheet this layer itself sits IN (a
       // ComboMenu's own sheet: a tap on the next field there is «beside» the list)
       const host = t.closest(ABOVE)
@@ -209,7 +228,7 @@ export function useLayer({ open, onClose, inside, returnFocus, suspended = false
       const i = handStack.indexOf(layer)
       if (i >= 0) handStack.splice(i, 1)
     }
-  }, [open, suspended, escape])
+  }, [open, suspended, escape, outside])
   // closing – or unmounting – with the focus inside (or already dropped to <body>): back to the
   // opener. A LAYOUT effect, so the opener is read before a layer's own effect moves the focus in
   // (Ebenen focuses its first row).
@@ -227,6 +246,7 @@ export function useLayer({ open, onClose, inside, returnFocus, suspended = false
 
 /** Test seam – the stacks are module state. */
 export function resetLayers(): void {
+  endSwallow?.()
   handStack.length = 0
   resetBackLayers()
 }

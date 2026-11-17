@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Marker } from 'react-map-gl/maplibre'
 import type { CaptionMode, Entity, LngLat, Trupp } from '../types'
+import { useLayer } from '../lib/overlays/layer'
 import { buzz } from '../lib/haptics'
 import { appConfig } from '../config/appConfig'
 import { shownTeamColor } from '../lib/teamColors'
@@ -265,11 +266,12 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       if ((ev.target as Element | null)?.closest?.('.marker.fanned')) return
       setFan(null)
     }
-    const esc = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setFan(null) }
     document.addEventListener('pointerdown', away, true)
-    document.addEventListener('keydown', esc)
-    return () => { document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', esc) }
+    return () => document.removeEventListener('pointerdown', away, true)
   }, [fan])
+  // Escape folds the fan and nothing else – the one Esc stack (lib/overlays/layer, CONT.2): it used
+  // to also peel the map's next layer (a tool, the selection) with the same press
+  useLayer({ open: !!fan, onClose: () => setFan(null), inside: [], outside: false, back: false })
 
   /**
    * Every marker whose fat-finger pad this tap landed in, nearest centre first.
