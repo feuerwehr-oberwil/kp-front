@@ -42,7 +42,7 @@ const mount = (drawing: Drawing, over: Partial<MapDetailPanelsProps> = {}) => {
 describe('«Art: Linie | Wand» on the Karte', () => {
   it('switches a Linie to a Wand, and a Wand back', () => {
     const { setDrawingWallRole, art } = mount(hose)
-    fireEvent.click(art().getByRole('button', { name: D.kindWand }))
+    fireEvent.click(art().getByRole('button', { name: new RegExp(`^${D.kindWand}`) }))
     expect(setDrawingWallRole).toHaveBeenCalledWith('d1', true)
     cleanup()
     const again = mount({ ...hose, role: 'wand' })
@@ -64,7 +64,7 @@ describe('«Art: Linie | Wand» on the Karte', () => {
 
   it('«Wand» is disabled, with the reason, while a Trupp is on the line', () => {
     const { setDrawingWallRole, art } = mount(hose, { effTrupps: [{ id: 't1', name: 'Trupp 1', status: 'aktiv', entryPressureBar: 300, entryTime: '', lastContactTime: '', lineId: 'd1' } satisfies Trupp] })
-    const wand = art().getByRole('button', { name: D.kindWand }) as HTMLButtonElement
+    const wand = art().getByRole('button', { name: new RegExp(`^${D.kindWand}`) }) as HTMLButtonElement
     expect(wand.disabled).toBe(true)
     fireEvent.click(wand)
     expect(setDrawingWallRole).not.toHaveBeenCalled()
@@ -74,7 +74,7 @@ describe('«Art: Linie | Wand» on the Karte', () => {
   it('…and for a Gebäude line that climbs storeys, asked through its sheet body', () => {
     const climbs: TacticalObject = { id: 'd1', drawing: hose, sheet: { planId: 'gebaeude', anno: { id: 'd1', kind: 'draw', floor: 0, pts: [[0, 0, 0], [1, 0, 1]] } } }
     const { art } = mount(hose, { objects: [climbs] })
-    expect((art().getByRole('button', { name: D.kindWand }) as HTMLButtonElement).disabled).toBe(true)
+    expect((art().getByRole('button', { name: new RegExp(`^${D.kindWand}`) }) as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getAllByText(D.kindWandStoreys).length).toBeGreaterThan(0)
   })
 

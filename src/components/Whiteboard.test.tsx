@@ -447,7 +447,7 @@ describe('«Art: Linie | Wand» on a flat plan', () => {
   it('switches a drawn line to a Wand and back – one save each, the Wand look on it', () => {
     const { container, onChange, remoteWrite } = renderPlan([line])
     mouseDown(hitShape(container))
-    fireEvent.click(art().getByRole('button', { name: D.kindWand }))
+    fireEvent.click(art().getByRole('button', { name: new RegExp(`^${D.kindWand}`) }))
     expect(onChange).toHaveBeenCalledTimes(1)
     const wand = onChange.mock.calls[0][0][0] as BoardAnno
     expect(wand).toMatchObject({ role: 'wand', color: appConfig.drawing.colors[4], width: 2, pts: line.pts })
@@ -460,7 +460,7 @@ describe('«Art: Linie | Wand» on a flat plan', () => {
     const trupp = { id: 't1', name: 'Trupp 1', status: 'aktiv', entryPressureBar: 300, entryTime: '', lastContactTime: '', lineId: 'l1' } satisfies Trupp
     const { container } = renderPlan([line], { trupps: [trupp] })
     mouseDown(hitShape(container))
-    expect((art().getByRole('button', { name: D.kindWand }) as HTMLButtonElement).disabled).toBe(true)
+    expect((art().getByRole('button', { name: new RegExp(`^${D.kindWand}`) }) as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getAllByText(D.kindWandBlocked).length).toBeGreaterThan(0)
   })
 })
@@ -1985,7 +1985,7 @@ describe('gesture contracts of the plan surface', () => {
     it('«Wand» is off for a Linie a Trupp is on', () => {
       const leitung: BoardAnno = { id: 'l9', kind: 'draw', floor: 0, pts: [[0.1, 0.2], [0.9, 0.2]], truppId: 't1' }
       const { onChange } = mount([leitung], { ...twoStoreys, focus: focused('l9'), trupps: TRUPPS })
-      const toWand = art().getByRole('button', { name: appConfig.copy.drawingEditor.kindWand }) as HTMLButtonElement
+      const toWand = art().getByRole('button', { name: new RegExp(`^${appConfig.copy.drawingEditor.kindWand}`) }) as HTMLButtonElement
       expect(toWand.disabled).toBe(true)
       expect(screen.getByText(appConfig.copy.drawingEditor.kindWandBlocked)).toBeTruthy()
       fireEvent.click(toWand)
@@ -2250,7 +2250,7 @@ describe('«Gelöscht / erledigt» on the plan', () => {
     // greyed on the board, the time in its corner
     expect(container.querySelector('.ts.ts-done .sym-done')?.textContent).toMatch(/^\d\d:\d\d$/)
     expect(screen.getAllByText(new RegExp(`^${O.word.fire.inline} \\d\\d:\\d\\d$`)).length).toBeGreaterThan(0)
-    fireEvent.click(screen.getAllByRole('button', { name: O.action, pressed: true })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: O.reopenHint, pressed: true })[0])
     expect(lastSaved(onChange)[0].done).toBeUndefined()
     expect(log.mock.calls[0][1]).toBe('Feuer EG wieder aktiv')
     expect(emit).toHaveBeenCalledWith('board.edit', expect.objectContaining({ id: 'f1', patch: { done: null } }))
@@ -2259,7 +2259,8 @@ describe('«Gelöscht / erledigt» on the plan', () => {
 
   it('«Entfernen» writes the same removal row the Karte writes — once, about the object', async () => {
     const { onChange, log } = open([feuer])
-    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: appConfig.copy.remove })[0]) })
+    // beside «Erledigt» its name carries its hold sentence (audit A1): «Entfernen – nur bei …»
+    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: new RegExp(`^${appConfig.copy.remove}`) })[0]) })
     expect(lastSaved(onChange)).toEqual([])
     expect(log).toHaveBeenCalledTimes(1)
     expect(log.mock.calls[0][1]).toBe(fillTemplate(appConfig.copy.log.objectDeleted, { name: 'Feuer' }))
@@ -2287,7 +2288,7 @@ describe('«Gelöscht / erledigt» on the plan', () => {
   it('…but a Fahrzeug that already carries `done` (an older record) can still be reopened', () => {
     const car: BoardAnno = { id: 'v1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'VKF Fahrzeug', label: 'TLF', done: { at: '2026-09-23T18:40:00.000Z' } }
     const { onChange } = open([car])
-    fireEvent.click(screen.getAllByRole('button', { name: O.action, pressed: true })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: O.reopenHint, pressed: true })[0])
     expect(lastSaved(onChange)[0].done).toBeUndefined()
   })
 

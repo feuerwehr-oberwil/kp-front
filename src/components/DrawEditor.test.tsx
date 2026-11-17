@@ -180,13 +180,14 @@ describe('no preset row', () => {
  * Farbe, Text/Marker, then the rest — and no shape has a «Stärke» any more. */
 describe('line editor order', () => {
   const D = appConfig.copy.drawingEditor
-  const labels = (c: HTMLElement) => [...c.querySelectorAll('.de-row > span:first-child')].map((e) => e.textContent)
+  // the row's own word – a picture-only row names its pick under it (`.de-pick`, audit A2/A3)
+  const labels = (c: HTMLElement) => [...c.querySelectorAll('.de-row > span:first-child')].map((e) => e.firstChild?.textContent)
 
   it('reads Abschluss → Linie → Farbe → Text → Marker → Inhalt, without Stärke', () => {
     const { container } = render(<DrawEditor {...base} drawing={{ kind: 'line' }} onEnding={noop} onReverse={noop} onContent={noop} />)
     expect(labels(container).slice(0, 6)).toEqual([D.ending, D.lineStyle, D.color, D.label, D.marker, D.content])
     // the reverse action sits directly under the Abschluss, in its group
-    expect(screen.getByRole('button', { name: D.reverse }).closest('.de-group')!.querySelector('.de-row > span')!.textContent).toBe(D.ending)
+    expect(screen.getByRole('button', { name: D.reverse }).closest('.de-group')!.querySelector('.de-row > span')!.firstChild!.textContent).toBe(D.ending)
     expect(labels(container)).not.toContain(D.width)
   })
 
@@ -286,7 +287,7 @@ describe('read-only (viewer / Führungsansicht)', () => {
     expect(screen.queryByText(D.color)).toBeNull()
     expect(screen.queryByText(D.width)).toBeNull()
     expect(screen.queryByText(D.ending)).toBeNull()
-    expect(screen.queryByText(D.showOnMap)).toBeNull() // «Auf Karte» writes to the drawing
+    expect(screen.queryByText(D.showLengthOnMap)).toBeNull() // «Länge auf Karte» writes to the drawing
     expect(screen.queryByRole('button', { name: new RegExp(appConfig.copy.delete) })).toBeNull()
     expect(screen.queryByRole('button', { name: new RegExp(D.lock) })).toBeNull()
     expect(document.querySelector('input')).toBeNull() // Text/Marker are read, not typed
@@ -357,9 +358,9 @@ describe('the Abschluss options explain themselves', () => {
     expect(teil.getAttribute('data-holdexplain')).not.toBeNull()
     // ⚠️ no `title`, or the native tooltip arrives a second later and says it twice
     expect(teil.getAttribute('title')).toBeNull()
-    // …and it says WHAT the thing is; the consequence lives in `endingReleased`, the toast at
-    // the moment a Teilstück actually lets its lines go
-    expect(C.endingTeilstueckWhat).toMatch(/Anschlüssen/)
+    // …and it says what the thing MEANS, its name first (audit B2); the consequence lives in
+    // `endingReleased`, the toast at the moment a Teilstück actually lets its lines go
+    expect(C.endingTeilstueckWhat).toMatch(/^Teilstück – .*teilt sich/)
     expect(C.endingArrowStopWhat).toMatch(/Entwicklungsgrenze/)
     expect(C.endingReleased).toMatch(/gelöst/)
 
@@ -448,6 +449,19 @@ describe('Linie row', () => {
     fireEvent.click(screen.getByRole('button', { name: C.lineHalteliniUp }))
     expect(onMarker).toHaveBeenCalledWith('▲')
     expect(onDashed).toHaveBeenCalledWith(false)
+  })
+
+  // button sweep audit A2/A3 (17.11.2026): pictures alone, and the hold that names them is
+  // taught nowhere – the row label says what is picked
+  it('names the picked Linienende and Linienart under the row word', () => {
+    const pick = (word: string) => [...document.querySelectorAll('.de-row > span:first-child')]
+      .find((e) => e.firstChild?.textContent === word)?.querySelector('.de-pick')?.textContent
+    const { rerender } = render(<DrawEditor {...base} drawing={{ kind: 'line', arrow: true, arrowStop: true, marker: '▼' }} onEnding={noop} onMarker={noop} />)
+    expect(pick(C.ending)).toBe(C.endingArrowStop)
+    expect(pick(C.lineStyle)).toBe(C.lineHalteliniDownShort)
+    rerender(<DrawEditor {...base} drawing={{ kind: 'line', dashed: true }} onEnding={noop} onMarker={noop} />)
+    expect(pick(C.ending)).toBe(C.endingNone)
+    expect(pick(C.lineStyle)).toBe(C.lineDashed)
   })
 })
 

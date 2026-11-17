@@ -676,7 +676,7 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
             { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: areaMode === 'nodes', onClick: () => pickInput('nodes') },
             ...(areaMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: onFinish }] : []),
           ],
-          [{ type: 'info', text: appConfig.copy.dockHints.area }],
+          [{ type: 'info', text: areaMode === 'nodes' ? appConfig.copy.dockHints.areaNodes : appConfig.copy.dockHints.areaFreehand }],
         ]} />
       )}
 
@@ -723,7 +723,8 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
             type: 'action' as const, icon: 'trupp-find', label: appConfig.copy.truppFinder.title, short: appConfig.copy.truppFinder.titleShort,
             disabled: truppFinder.disabled, onClick: truppFinder.open,
           }]] : []),
-          [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.resource }],
+          // the Karte's words: both surfaces open the same «Welcher Trupp?» picker (audit B8)
+          [{ type: 'info', text: appConfig.copy.dockHints.team }],
         ]} />
       )}
 

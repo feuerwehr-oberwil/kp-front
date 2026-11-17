@@ -12,7 +12,7 @@ export const drawingCopy = {
     insertPoint: 'Punkt einfügen',
     // the arrow grip past an open line end — dragging it appends one point
     extendLine: 'Linie verlängern',
-    deleteNode: 'Gedrückt halten zum Löschen, am Computer Rechtsklick',
+    deleteNode: 'Gedrückt halten entfernt den Punkt',
     // Der blaue Ring am Ziel: er läuft, solange das Ende darüber steht, und erst wenn er voll
     // ist, klinkt die Linie ein. Wer früher loslässt, setzt den Punkt einfach dorthin.
     snapConnect: 'Halten zum Verbinden',
@@ -144,7 +144,7 @@ export const drawingCopy = {
     cornersRound: 'Rund',
     cornersSharp: 'Eckig',
     // Pfeil-Ende «->|»: der Stopp-Balken quer zur Spitze (Entwicklungsgrenze)
-    stopLabel: 'Stopp-Balken',
+    stopLabel: 'Grenze (Stopp-Balken)',
     // FKS Vegetationsbrand S. 52: die Schlaufe wird MIT ihrem Träger gezeichnet
     // («Rotation-Helikopter», «Rotation TLF»). Ohne Träger bleibt sie eine reine Pendelbahn.
     carrierLabel: 'Träger',
@@ -153,6 +153,9 @@ export const drawingCopy = {
     carrierTlf: 'TLF',
     moveHint: 'Korb ziehen – Richtung und Reichweite',
     names: { arrow: 'Pfeil', cloud: 'Rauch', square: 'Rechteck', rotation: 'Rotation' } as Record<string, string>,
+    strokeThin: 'Dünn',
+    strokeMedium: 'Mittel',
+    strokeThick: 'Dick',
   },
   log: {
     audioNote: 'Sprachnotiz',
@@ -291,17 +294,17 @@ export const drawingCopy = {
     },
     /** die Kachel im Fuss des Symbol-Editors – EIN Wort für jede Familie (D8, 27.09.2026: das
      *  Feuer ist gelöscht, das Symbol erledigt; der Doppelname «Gelöscht / erledigt» war die
-     *  Brücke vom alten «Löschen» und ist gefallen). `actionHint` ist ihr title. Seit 31.10.2026
+     *  Brücke vom alten «Löschen» und ist gefallen). `actionHint` ist ihr Halte-Satz (data-holdexplain, 17.11.2026). Seit 31.10.2026
      *  ein Schalter: gesetzt bleibt dieselbe Kachel stehen, gedrückt, und `reopenHint` ist ihr
      *  Name – ein Tippen setzt das Symbol wieder aktiv. */
     action: 'Erledigt',
-    actionHint: 'bleibt grau sichtbar',
+    actionHint: 'Erledigt – bleibt grau auf Karte und Rapport',
     reopenHint: 'Erledigt – wieder aktiv setzen',
     /** der gesetzte Zustand im Kopf des Editors und auf dem Rapport: «erledigt 20:40» */
     state: '{word} {time}',
     /** Der Knopf selbst heisst überall «Entfernen» (copy · remove); auf einem Symbol mit «Gelöscht /
      *  erledigt» sagt dieser Hinweis, wofür er noch da ist: für die Fehleingabe. */
-    removeHint: 'nur bei Fehleingabe',
+    removeHint: 'nur bei Fehleingabe, auch aus dem Kroki',
     /** Verlauf: «Feuer EG gelöscht» – was und wo. Das Wann ist der Zeitstempel der Zeile selbst,
      *  derselbe Moment, den `done.at` hält; eine Uhrzeit in Klammern sagte es zweimal. */
     logDone: '{name} {word}',

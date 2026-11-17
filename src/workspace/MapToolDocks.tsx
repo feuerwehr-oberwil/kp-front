@@ -140,7 +140,8 @@ export function MapToolDocks({
             ...(areaMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: commitDraft }] : []),
           ],
           // «D pur» like the line dock above: styling happens in the editor afterwards
-          [{ type: 'info', text: appConfig.copy.dockHints.area }],
+          // per input mode, as the Linie's (audit B4): in Freihand a tap does nothing
+          [{ type: 'info', text: areaMode === 'nodes' ? appConfig.copy.dockHints.areaNodes : appConfig.copy.dockHints.areaFreehand }],
         ]} />
       )}
       {/* Notiz armed — «D pur» (09.09.) here too: a fresh note opens its detail panel with the

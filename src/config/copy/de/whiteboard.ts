@@ -28,6 +28,8 @@ export const whiteboardCopy = {
     lookPlain: 'Klartext',
     color: 'Farbe',
     done: 'Fertig',
+    lookPillWhat: 'Zettel – Text auf einem Kärtchen',
+    lookPlainWhat: 'Klartext – nur die Schrift, ohne Kärtchen',
   },
   whiteboard: {
     pan: 'Auswahl',
@@ -41,11 +43,9 @@ export const whiteboardCopy = {
     // pill's second word and «… offen»
     grundriss: { wand: 'Wand' },
     dockHints: {
-      wand: 'Punkte tippen – rastet rechtwinklig ein. ✓ oder erster Punkt – fertig.',
-      draw: 'Ziehen zeichnet frei.',
+      wand: 'Ecke für Ecke tippen, die Wand bleibt rechtwinklig – fertig mit ✓ oder dem ersten Punkt.',
       circle: 'Von der Mitte zum Rand ziehen.',
       text: 'Tippen, wo die Notiz hin soll – dann schreiben.',
-      resource: 'Tippen setzt einen Trupp. Ziehen verschiebt ihn.',
       scale: 'Beide Enden des gedruckten Massstabs tippen, dann die Länge eingeben.',
       measure: 'Punkte tippen. Punkt halten entfernt ihn.',
     },
@@ -259,7 +259,7 @@ export const whiteboardCopy = {
     finishShape: 'Fertig',
     cancelShape: 'Abbrechen',
     insertVertex: 'Punkt einfügen',
-    dragVertex: 'Eckpunkt ziehen, gedrückt halten zum Löschen',
+    dragVertex: 'Eckpunkt ziehen – gedrückt halten entfernt ihn',
     dragRadius: 'Radius ziehen',
     groupDeletedN: '{n} Objekte vom Plan entfernt',
     placeText: 'Notiz auf Plan gesetzt',

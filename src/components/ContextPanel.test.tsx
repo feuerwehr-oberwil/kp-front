@@ -962,20 +962,23 @@ describe('ContextPanel — «Gelöscht / erledigt»', () => {
   // foot is never the first thing under the finger.
   it('offers «Erledigt» as a tile in the foot — between «Zentrieren» and the delete, which is bin + «Entfernen» (SHEETS.1)', () => {
     const p = setup({ onDone: vi.fn(), onCenter: vi.fn() })
-    const tile = screen.getAllByRole('button', { name: O.action })[0]
+    const tile = screen.getAllByRole('button', { name: O.actionHint })[0]
     expect(tile.closest('.ctx-actions')).toBeTruthy()
     expect(tile.getAttribute('aria-pressed')).toBe('false')
-    expect(tile.title).toBe(O.actionHint)
+    // the meaning is the HOLD's, word first, never a `title` a tablet cannot show (audit A1)
+    expect(tile.hasAttribute('data-holdexplain')).toBe(true)
+    expect(tile.title).toBe('')
+    expect(tile.textContent).toBe(O.action)
     expect(tile.closest('.ctx-body')?.firstElementChild?.contains(tile)).toBe(false)
     const foot = tile.closest('.ctx-actions')!
     expect([...foot.querySelectorAll('button')].map((b) => b.textContent || b.getAttribute('aria-label')))
       .toEqual([appConfig.copy.contextPanel.center, O.action, appConfig.copy.remove])
     fireEvent.click(tile)
     expect(p.onDone).toHaveBeenCalledWith(true)
-    const bin = screen.getAllByRole('button', { name: appConfig.copy.remove })[0]
+    const bin = screen.getAllByRole('button', { name: `${appConfig.copy.remove} – ${O.removeHint}` })[0]
     expect(bin.textContent).toBe(appConfig.copy.remove)
     expect(bin.classList.contains('danger')).toBe(true)
-    expect(bin.title).toContain(O.removeHint)
+    expect(bin.hasAttribute('data-holdexplain')).toBe(true)
     // the ✓ stands at rest too (SHEETS.8): only the fill says set
     expect(tile.querySelector('svg')).toBeTruthy()
     expect(screen.queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
@@ -983,11 +986,11 @@ describe('ContextPanel — «Gelöscht / erledigt»', () => {
 
   // ONE toggle (31.10.2026): set, the SAME tile stays in the same spot, pressed, and a tap
   // reopens – the time it was set moved into the header, beside the type.
-  it('set, the same foot tile (same name) stands pressed, its title says it reopens, and a tap takes it back; the header says when', () => {
+  it('set, the same foot tile (same word) stands pressed, its name says it reopens, and a tap takes it back; the header says when', () => {
     const p = setup({ onDone: vi.fn(), onCenter: vi.fn(), entity: { id: 's1', symbol: 'VKF Feuer', label: 'Brand', subtitle: 'Schadenlage', done: { at: AT } } })
-    const tile = screen.getAllByRole('button', { name: O.action, pressed: true })[0]
+    const tile = screen.getAllByRole('button', { name: O.reopenHint, pressed: true })[0]
     expect(tile.getAttribute('aria-pressed')).toBe('true')
-    expect(tile.title).toBe(O.reopenHint)
+    expect(tile.textContent).toBe(O.action)
     const foot = tile.closest('.ctx-actions')!
     expect([...foot.querySelectorAll('button')].map((b) => b.textContent || b.getAttribute('aria-label')))
       .toEqual([appConfig.copy.contextPanel.center, O.action, appConfig.copy.remove])

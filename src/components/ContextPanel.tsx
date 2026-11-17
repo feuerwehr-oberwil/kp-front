@@ -3,6 +3,7 @@ import { leaveOnEscape, ONE_LINE } from '../lib/fieldKeys'
 import type { CaptionMode, NoteSize, Spread, SymbolControl, SymbolProps } from '../types'
 import { thumbUrl } from '../lib/mediaUrl'
 import { Icon } from '../lib/icons'
+import { colorName } from '../lib/draw'
 import { boundedKey, normalizeSpread, tidySpread, type SpreadDir } from '../lib/spread'
 import { openPhoto } from '../lib/ui'
 import { fillTemplate, formatSymbolName, stripUnprintable } from '../lib/format'
@@ -689,8 +690,11 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   const doneAt = !isNote ? doneStatusText(entity) : null
   const O = appConfig.copy.objectDone
   const doneTile = onDone && !readOnly && !isNote ? (
+    // its meaning in the HOLD (`data-holdexplain`, the sentence word first, no `title` – a tablet
+    // never shows one; button sweep audit A1, 17.11.2026): «Erledigt» or «Entfernen» is the 3am
+    // choice when a Feuer is out, and only a mouse ever read why
     <Button className="ctx-done" aria-pressed={!!doneAt} onClick={() => onDone(!doneAt)}
-      title={doneAt ? O.reopenHint : O.actionHint} icon={<Icon id="check" />}>
+      data-holdexplain aria-label={doneAt ? O.reopenHint : O.actionHint} icon={<Icon id="check" />}>
       {O.action}
     </Button>
   ) : null
@@ -708,23 +712,25 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
           command post can clear it (see onStopSharing). */}
       {/* neutral, not the delete red: it stops a share, the person can share again (ELEM.11) */}
       {onStopSharing && (
-        <Button icon={<Icon id="close" />} onClick={onStopSharing} title={C.stopSharingTitle}>{C.stopSharing}</Button>
+        <Button icon={<Icon id="close" />} onClick={onStopSharing} data-holdexplain aria-label={C.stopSharingTitle}>{C.stopSharing}</Button>
       )}
       {/* «Festhalten» and «GPS» are the two directions of one thing, so they sit together:
           hold this vehicle where it stands, or give it back to the feed. Only ONE is ever
-          live — a pinned vehicle has nothing to pin, a following one has nothing to reset. */}
-      {onPinGps && <Button icon={<Icon id="coords" />} onClick={onPinGps} title={C.pinGpsTitle}>{C.pinGps}</Button>}
+          live — a pinned vehicle has nothing to pin, a following one has nothing to reset.
+          Their sentences are the HOLD's (`data-holdexplain`, button sweep audit A5/A6/A11): a
+          `title` was the mouse's alone. */}
+      {onPinGps && <Button icon={<Icon id="coords" />} onClick={onPinGps} data-holdexplain aria-label={C.pinGpsTitle}>{C.pinGps}</Button>}
       {doneTile}
       {onResetGps
-        ? <Button icon={<Icon id="compass" />} disabled={!hasOverride} onClick={onResetGps} title={C.resetGpsTitle}>{C.resetGps}</Button>
+        ? <Button icon={<Icon id="compass" />} disabled={!hasOverride} onClick={onResetGps} data-holdexplain aria-label={C.resetGpsTitle}>{C.resetGps}</Button>
         // «Entfernen», the one word for taking a tactical object off the picture (25.09.2026) —
         // «gelöscht» is what a Feuer becomes (objectDone), so it can no longer name this press.
         // Bin + word, like every other card's remove (owner, button sweep SHEETS.1, 17.11.2026 – the
         // bin SQUARE of 27.09.2026 was the one remove you could not read without guessing); beside
-        // «Erledigt» the title also says what it is for.
+        // «Erledigt» its HOLD says what it is for (`data-holdexplain`, button sweep audit A1).
         : (!readOnly || allowDelete) && !onStopSharing && (
           <Button variant="danger" icon={<Icon id="trash" />} onClick={onDelete}
-            title={onDone ? `${appConfig.copy.remove} – ${O.removeHint}` : appConfig.copy.remove}>
+            {...(onDone ? { 'data-holdexplain': true, 'aria-label': `${appConfig.copy.remove} – ${O.removeHint}` } : {})}>
             {appConfig.copy.remove}
           </Button>
         )}
@@ -841,7 +847,9 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                 <span>{N.look}</span>
                 <Segmented
                   ariaLabel={N.look}
-                  options={[{ value: false, label: N.lookPill }, { value: true, label: N.lookPlain }]}
+                  // «Klartext» said nothing on its own: the hold says both (audit A10, 17.11.2026)
+                  explain
+                  options={[{ value: false, label: N.lookPill, title: N.lookPillWhat }, { value: true, label: N.lookPlain, title: N.lookPlainWhat }]}
                   value={!!entity.notePlain}
                   onChange={(v) => onNotePlain(v)}
                 />
@@ -857,7 +865,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                     aria-pressed={!entity.color} onClick={() => onColor('')} />
                   {NOTE_COLORS.map((c) => (
                     <button key={c} className={`dh-color${entity.color === c ? ' on' : ''}`} style={{ background: c }}
-                      aria-pressed={entity.color === c} aria-label={c} onClick={() => onColor(c)} />
+                      aria-pressed={entity.color === c} aria-label={colorName(c)} onClick={() => onColor(c)} />
                   ))}
                 </div>
               </div>
@@ -1001,8 +1009,10 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                       // the arrow tip (→|), so the button shows what it draws — and it is
                       // perpendicular to its own arrow, like the printed symbol
                       const grenze = (
+                        // ONE name, the hold's: «Grenze nach links – Ausbreitung hier gestoppt» (audit
+                        // B18, 17.11.2026) – the meaning sat in a `title` the hold never reads
                         <button className={`spread-btn grenze ${sp[boundedKey(d)] ? 'on' : ''}`}
-                          title={C.spreadBoundedTitle} aria-label={`${C.spreadBounded} ${C.spreadDirTitles[d]}`}
+                          aria-label={`${C.spreadBounded} ${C.spreadDirTitles[d]} – ${C.spreadBoundedWhat}`}
                           onClick={() => toggleBounded(d)}>
                           <Icon id={GRENZE_GLYPH[d]} />
                         </button>

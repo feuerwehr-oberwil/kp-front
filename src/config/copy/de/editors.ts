@@ -22,7 +22,7 @@ export const editorsCopy = {
     // ⚠️ Der Balken gehört zu SEINEM Pfeil, nicht zur Achse: eine Front, die beidseits läuft
     // und nur an einer Brandmauer steht, ist ein Symbol. Auf einem ausgeschalteten Pfeil
     // schaltet «Grenze» die Richtung gleich mit ein — sonst kostet der Normalfall zwei Tipps.
-    spreadBoundedTitle: 'Entwicklungsgrenze – Ausbreitung hier gestoppt',
+    // Was sie bedeutet, steht hinter dem Namen im Halte-Satz: `spreadBoundedWhat` (unten).
     spreadDirTitles: { left: 'nach links', right: 'nach rechts', up: 'Obergeschoss (↑)', down: 'Untergeschoss (↓)' } as Record<string, string>,
     count: 'Anzahl',
     rotation: 'Drehung',
@@ -50,14 +50,14 @@ export const editorsCopy = {
     // Georeferenz-Zwilling: das Fenster spiegelt ein Objekt der anderen Fläche und ist deshalb
     // ganz gesperrt. Diese eine Zeile führt dorthin, wo es wirklich liegt – und bearbeitbar ist.
     toOriginal: 'Zum Original',
-    resetGps: 'GPS',
-    resetGpsTitle: 'Auf GPS-Position und -Kurs zurücksetzen',
+    resetGps: 'Zurück auf GPS',
+    resetGpsTitle: 'Zurück auf GPS – das Fahrzeug folgt wieder seiner Live-Position',
     // The Kroki is printed hours later. A Fahrzeug that has since driven home takes its symbol
     // with it — the picture then shows no TLF at an Einsatz that had one. «Festhalten» writes
     // the CURRENT position as an override; «GPS» next to it is the way back, so there is no
     // second Fahrzeug behaviour anybody has to remember.
     pinGps: 'Festhalten',
-    pinGpsTitle: 'Fahrzeug hier festhalten – es bleibt stehen, auch wenn es wegfährt',
+    pinGpsTitle: 'Festhalten – bleibt hier stehen, auch wenn das Fahrzeug wegfährt',
     logPinned: '{name} festgehalten',
     // (The «vor Ort» / «hat den Einsatzort verlassen» rows are written by the SERVER since
     // 25.09.2026, in German like every server-written row — backend · app/vehicle_presence.)
@@ -67,7 +67,7 @@ export const editorsCopy = {
     // short enough to fit next to «Zentrieren» in the action row – the long explanation sits in
     // the tooltip below it, not on the button
     stopSharing: 'Standort entfernen',
-    stopSharingTitle: 'Selbstgemeldete Position dieser Person entfernen. Sie kann danach jederzeit wieder teilen.',
+    stopSharingTitle: 'Standort entfernen – die Person kann danach wieder teilen',
     stopSharingFailed: 'Entfernen des Standorts nicht bestätigt – Karte prüfen',
     // Driver of a LIVE Fahrzeug: the GPS feed knows where it is, never who is at the wheel. The
     // placeholder is one word (24.09.2026) – the long one ran past the phone sheet's field.
@@ -224,6 +224,7 @@ export const editorsCopy = {
       '9': 'Gefahr einer spontanen heftigen Reaktion',
     } as Record<string, string>,
     kemlerDoubled: 'Verstärkte Gefahr (verdoppelte Ziffer)',
+    spreadBoundedWhat: 'Ausbreitung hier gestoppt',
   },
   drawingEditor: {
     area: 'Fläche',
@@ -246,14 +247,15 @@ export const editorsCopy = {
     points: 'Punkte',
     color: 'Farbe',
     width: 'Stärke',
-    lineStyle: 'Linie',
+    // «Linienart», nicht «Linie» (Audit B1): das Blatt heisst «Linie», «Art» bietet «Linie | Wand»
+    lineStyle: 'Linienart',
     lineSolid: 'Durchgezogen',
     lineDashed: 'Gestrichelt',
     // FKS Vegetationsbrand S. 52 — Linienarten, nicht eigene Objekte: die Dreieckskette ist eine
     // Haltelinie (N nass · T trocken · G Gegenfeuer, als Beschriftung der Linie), die Ringkette
     // die Wasserabwurfzone.
-    lineHalteliniUp: 'Haltelinie – Zähne oberhalb',
-    lineHalteliniDown: 'Haltelinie – Zähne unterhalb',
+    lineHalteliniUp: 'Haltelinie – Zähne zum Feuer, oben',
+    lineHalteliniDown: 'Haltelinie – Zähne zum Feuer, unten',
     lineAbwurfzone: 'Wasserabwurfzone',
     label: 'Text',
     labelPlaceholder: 'Beschriftung …',
@@ -272,18 +274,19 @@ export const editorsCopy = {
     markerPlaceholder: 'z. B. R',
     arrow: 'Pfeilspitze',
     ending: 'Linienende',
-    endingNone: 'Keiner',
+    endingNone: 'Ohne',
     endingArrow: 'Pfeil',
     endingArrowStop: 'Pfeil mit Stopp',
     endingTeilstueck: 'Teilstück',
-    // ⚠️ Was der Halte-/Hover-Tooltip auf den vier Bildern sagt (Segmented · explain): WAS es ist,
-    // in einer Zeile — «Pfeil mit Stopp» heisst Entwicklungsgrenze, das Teilstück ist eine Gabel
-    // mit drei Anschlüssen. Keine Folgen: dass ein gelöschtes Teilstück seine Linien freigibt,
-    // sagt `endingReleased` in dem Moment, in dem es tatsächlich passiert.
-    endingNoneWhat: 'Ohne Linienende',
-    endingArrowWhat: 'Pfeilspitze',
-    endingArrowStopWhat: 'Pfeil mit Stopp-Balken – Entwicklungsgrenze',
-    endingTeilstueckWhat: 'Teilstück – Gabel mit drei Anschlüssen',
+    // ⚠️ Was der Halte-/Hover-Tooltip auf den vier Bildern sagt (Segmented · explain): was es
+    // BEDEUTET, in einer Zeile, der Name zuerst (Button-Sweep-Audit B2, 17.11.2026 – drei der vier
+    // nannten die FORM, die das Bild schon zeigt: «Pfeilspitze», «Gabel mit drei Anschlüssen»).
+    // Dass ein gelöschtes Teilstück seine Linien freigibt, sagt `endingReleased` in dem Moment, in
+    // dem es tatsächlich passiert. Der gewählte Name steht zudem unter «Linienende» (DrawEditor).
+    endingNoneWhat: 'Ohne – die Linie endet ohne Zeichen',
+    endingArrowWhat: 'Pfeil – zeigt die Richtung',
+    endingArrowStopWhat: 'Pfeil mit Querbalken – Entwicklungsgrenze: bis hier, nicht weiter',
+    endingTeilstueckWhat: 'Teilstück – die Leitung teilt sich hier in bis zu drei',
     // Dreht die Punktreihenfolge um – der Abschluss (Pfeil bzw. Teilstück-«E») sitzt danach am
     // anderen Ende. Die Linie selbst bleibt, wo sie ist.
     reverse: 'Richtung umkehren',
@@ -329,7 +332,7 @@ export const editorsCopy = {
     no: 'Nein',
     yes: 'Ja',
     lock: 'Sperren',
-    lockHint: 'Sperrt die Form gegen versehentliches Verschieben; halte das Schloss in der Mitte gedrückt zum Entsperren.',
+    lockHint: 'Sperren – nichts verschiebt sich mehr aus Versehen. Lösen: Schloss gedrückt halten.',
     // map LockChip on a locked drawing (short-hold to unlock)
     unlockHold: 'Zum Entsperren gedrückt halten',
     connections: 'Verbindungen',
@@ -387,6 +390,14 @@ export const editorsCopy = {
     // Leitung ohne gewählten Ø (14.11.2026: leer statt 40 mm) – der Menüeintrag, der ihn wieder leert
     hoseNone: 'Kein',
     menuPicked: 'gewählt',
+    lineHalteliniUpShort: 'Haltelinie, Zähne oben',
+    lineHalteliniDownShort: 'Haltelinie, Zähne unten',
+    kindWandWhat: 'Wand – Teil des Grundrisses, auf einem Geschoss, ohne Schlauch-Angaben',
+    showLengthOnMap: 'Länge auf Karte',
+    showAreaOnMap: 'Fläche auf Karte',
+    fillNone: 'Ohne Füllung',
+    fillPct: 'Füllung {n} %',
+    colorNames: { '#1f6feb': 'Blau', '#e8392b': 'Rot', '#1f9d57': 'Grün', '#e2920a': 'Orange', '#1b2330': 'Schwarz', '#ffffff': 'Weiss' },
   },
   topBar: {
     offline: 'Offline',

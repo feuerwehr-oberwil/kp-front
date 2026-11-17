@@ -58,7 +58,7 @@ describe('drawingEditChanges (the Verlauf line for editing a drawing)', () => {
     expect(drawingEditChanges(line({ arrow: true }), line({ teilstueck: true })))
       .toEqual(['Linienende auf Teilstück geändert'])
     expect(drawingEditChanges(line({ arrow: true, arrowStop: true }), line({})))
-      .toEqual(['Linienende auf Keiner geändert'])
+      .toEqual(['Linienende auf Ohne geändert'])
   })
 
   it('stays silent on styling and geometry — arranging the picture is not an event', () => {

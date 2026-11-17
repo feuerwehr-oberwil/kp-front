@@ -7,7 +7,8 @@ import { Combo } from './Combo'
 import { CtxShell, SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { HATCH_CHIP_VB, HatchDefs, LineStylePicker, hatchPatternId } from '../lib/draw'
+import { HATCH_CHIP_VB, HatchDefs, LineStylePicker, colorName, fillName, hatchPatternId, lineStrokeName } from '../lib/draw'
+import { endingName, endingOf } from '../lib/drawingEdit'
 import { DEFAULT_INK, markerGlyph } from '../lib/lineStyle'
 import { fmtDistance, fmtArea, hoseSplit } from '../lib/geo'
 import { CONTENT_LABELS } from '../lib/lineDecor'
@@ -301,7 +302,8 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
     <div className="ctx-actions">
       {onCenter && <Button icon={<Icon id="cross" />} onClick={onCenter}>{appConfig.copy.contextPanel.center}</Button>}
       {!readOnly && onToggleLock && (
-        <Button className="de-lock" icon={<Icon id="lock" />} onClick={onToggleLock} title={appConfig.copy.drawingEditor.lockHint} aria-pressed={!!locked}>
+        // what a lock is for is the HOLD's (audit A4, 17.11.2026): it was a `title`, and said «die Form» on a Linie
+        <Button className="de-lock" icon={<Icon id="lock" />} onClick={onToggleLock} data-holdexplain aria-label={appConfig.copy.drawingEditor.lockHint} aria-pressed={!!locked}>
           {appConfig.copy.drawingEditor.lock}
         </Button>
       )}
@@ -395,10 +397,13 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
         {!readOnly && isLine && (
           <div className="de-group">
             {onEnding ? (
-              <div className="de-row"><span>{appConfig.copy.drawingEditor.ending}</span>
+              // the label NAMES the pick under the row's word (button sweep audit A2, 17.11.2026):
+              // four pictures, and the hold that names them is taught nowhere – a tap to find out is
+              // safe, a pick undoes
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.ending}<b className="de-pick">{endingName(endingOf(drawing))}</b></span>
                 <Segmented
                   ariaLabel={appConfig.copy.drawingEditor.ending}
-                  value={drawing.teilstueck ? 'teilstueck' : drawing.arrow ? (drawing.arrowStop ? 'arrowStop' : 'arrow') : 'none'}
+                  value={endingOf(drawing)}
                   onChange={onEnding}
                   // ⚠️ `explain` (lib/holdTooltip · data-holdexplain): four pictures whose
                   // NAMES were all a hold ever gave, and the names are the least of it — «Pfeil mit
@@ -441,7 +446,8 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             starts from DRAW_DEFAULTS; only the control is gone. */}
         {!readOnly && <div className="de-group">
           {isLine && (
-            <div className="de-row"><span>{appConfig.copy.drawingEditor.lineStyle}</span>
+            // «Linienart», naming the picked stroke under it (audit A3 / B1)
+            <div className="de-row"><span>{appConfig.copy.drawingEditor.lineStyle}<b className="de-pick">{lineStrokeName(dashed, drawing.marker)}</b></span>
               {/* the chains belong to the STROKE, so they sit here with solid and dashed — the
                   letter field below stays the letter field (lib/draw · LineStylePicker) */}
               <LineStylePicker dashed={dashed} onChange={onDashed} marker={drawing.marker} onMarker={onMarker} />
@@ -451,8 +457,10 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             <div className="de-row"><span>{appConfig.copy.drawingEditor.fill}</span>
               <span className="dh-swatches">
                 {FILL_OPACITIES.map((o) => (
+                  // named «Füllung 35 %» / «Ohne Füllung» (audit A9): the ∅ shows text, so it asks
+                  // for its hold explicitly (`data-holdexplain`)
                   <button key={o} className={`dh-color de-fill ${!drawing.hatch && Math.abs(fillOpacity - o) < 0.001 ? 'on' : ''}`}
-                    title={`${Math.round(o * 100)} %`} aria-label={`${Math.round(o * 100)} %`}
+                    aria-label={fillName(o)} data-holdexplain={o === 0 || undefined}
                     style={{ background: o === 0 ? 'transparent' : color, opacity: o === 0 ? 1 : Math.max(0.25, o + 0.2) }}
                     onClick={() => onHatch?.(false, o)}>{o === 0 ? '∅' : ''}</button>
                 ))}
@@ -483,8 +491,9 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             <span className="dh-swatches">
               {/* named like the Form editor's identical rows (ShapeEditor · the Farbe/Strichstärke
                   swatches): a chip whose whole content is a colour or a bar has no text to read
-                  out, so without this the row announces «Farbe» and then four blank buttons. */}
-              {COLORS.map((c) => <button key={c} className={`dh-color ${color === c ? 'on' : ''}`} style={{ background: c }} aria-label={c} onClick={() => onColor(c)} />)}
+                  out, so without this the row announces «Farbe» and then four blank buttons. By
+                  its NAME, «Rot» – the hold read a hex code (audit B15, lib/draw · colorName). */}
+              {COLORS.map((c) => <button key={c} className={`dh-color ${color === c ? 'on' : ''}`} style={{ background: c }} aria-label={colorName(c)} onClick={() => onColor(c)} />)}
             </span>
           </div>
         </div>}
@@ -768,8 +777,10 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                     onChange={(wand) => { if (wand !== (drawing.role === 'wand')) onWand(wand) }}
                     options={[
                       { value: false, label: appConfig.copy.drawingEditor.kindLine },
-                      { value: true, label: appConfig.copy.drawingEditor.kindWand, disabled: !!wandBlocked && drawing.role !== 'wand', title: wandBlocked },
-                    ]} />
+                      { value: true, label: appConfig.copy.drawingEditor.kindWand, disabled: !!wandBlocked && drawing.role !== 'wand', title: appConfig.copy.drawingEditor.kindWandWhat },
+                    ]}
+                    // what a Wand CHANGES is the hold's (audit A8, 17.11.2026)
+                    explain />
                 </div>
                 {wandBlocked && drawing.role !== 'wand' && <p className="de-hint">{wandBlocked}</p>}
               </>
@@ -827,8 +838,10 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 moment the panel closed. An Absperrkreis or Sektor whose area is the whole point
                 gets the same switch a hose line has. */}
             {measureOpen && (isLine ? supportsDistance : areaM2 != null) && !readOnly && (
-              <div className="de-row"><span>{appConfig.copy.drawingEditor.showOnMap}</span>
-                <OnOff ariaLabel={appConfig.copy.drawingEditor.showOnMap} value={!!drawing.showDistance} onChange={onShowDistance} />
+              // the switch puts the NUMBER on the map – «Länge / Fläche auf Karte» (audit B17): under
+              // «Vermessung», «Auf Karte» read as «show the line on the map»
+              <div className="de-row"><span>{isLine ? appConfig.copy.drawingEditor.showLengthOnMap : appConfig.copy.drawingEditor.showAreaOnMap}</span>
+                <OnOff ariaLabel={isLine ? appConfig.copy.drawingEditor.showLengthOnMap : appConfig.copy.drawingEditor.showAreaOnMap} value={!!drawing.showDistance} onChange={onShowDistance} />
               </div>
             )}
             {/* a Leitung's Wassertransport chart carries the terrain itself – it stands in for the
