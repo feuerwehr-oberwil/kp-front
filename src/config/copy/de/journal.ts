@@ -122,9 +122,11 @@ export const journalCopy = {
     photoOpen: 'Foto gross ansehen',
     discardPhoto: 'Foto verwerfen',
     // offline media upload queue — status chip on a Verlauf row whose photo/audio is not yet
-    // on the server (captured offline; will upload automatically when reconnected)
-    mediaPending: 'Wird geladen',
-    mediaFailed: 'Nicht geladen',
+    // on the server (captured offline; will upload automatically when reconnected). The Rapport's
+    // Beilage and the Objektbesuch say the same words (duck sweep FEEDBACK.7: «Wird geladen» read
+    // as a download)
+    mediaPending: 'noch nicht synchronisiert',
+    mediaFailed: 'Nicht synchronisiert',
     // rows appended after the Einsatzende (archive → reopen, the correction path)
     nachtrag: 'Nachtrag',
     // a hand-written line corrected later (append-only patch — both wordings stay in the record).
@@ -356,9 +358,6 @@ export const journalCopy = {
     // wrapped to three lines there and turned every row into a paragraph. The column is a toggle
     // between two readings of one instant, so the words are not what tells them apart — «21:58»
     // against «32′» could not be confused for each other if they tried.
-    ageLabel: '{n}′',
-    ageLabelHours: '{n} h',
-    ageToggle: 'Zeit / Alter umschalten',
     openState: 'offen',
     // the Pendenzen block's line under an item: who it is for (its assignee), and the mark of an
     // item typed on the Tafel's «Aufträge / Pendenzen» page — a tap opens that page
@@ -371,6 +370,8 @@ export const journalCopy = {
     // (toast diet, 17.11.2026 – it was one pill per file)
     attachDroppedMany: '{n} Dateien verworfen: {names}. Bitte neu auswählen.',
     sectionRemoved: 'Abschnitt gelöscht',
+    markOpenTitle: 'Wieder als offen markieren',
+    legendPendenzOverdue: 'Pendenz überfällig',
   },
   // ── The Tafel's «Aufträge / Pendenzen» page (05.11.2026, lib/pendenzenPage) ────────────────
   // A view on the Verlauf's Pendenzen and Erinnerungen: every act on the page appends a Verlauf

@@ -1511,9 +1511,11 @@ button.rp-sign-row:disabled { cursor: default; }
 .cv-filter svg { width: 15px; height: 15px; }
 .cv-filter.on { color: var(--on-sel); border-color: var(--sel); background: var(--sel); }
 /* «Nichts verwendet» — the one answer that makes the Material Mindestangabe answerable from here
-   (see lib/abschluss · stepDone). The tablet Rapport's own control (`.ip-btn` + `.on`, the choice
-   fill; 15.11.2026 – it was dashed and turned green here); this only places it. */
+   (see lib/abschluss · stepDone). The tablet Rapport's own «Entfällt» model (duck sweep ELEM.9,
+   17.11.2026): the button at its width, the answered read-out (17-rapport · .rz-none) across the
+   row; this only places them. */
 .cv-none { align-self: flex-start; }
+.cv-none.rz-none { align-self: stretch; }
 /* Partnerorganisationen on the poster: organisation + one free line, same two fields the
    tablet asks for. Stacks on a phone, which is what the poster is scanned with. */
 .cv-partners { display: flex; flex-direction: column; gap: 8px; width: 100%; }
@@ -2016,16 +2018,16 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   border-radius: 6px; border: 1.5px solid var(--ink-faint); }
 .ui-menu-check svg { width: 12px; height: 12px; fill: none; stroke: var(--surface); stroke-width: 3;
   stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
-[data-checked] > .ui-menu-check { background: var(--blue); border-color: var(--blue); }
+[data-checked] > .ui-menu-check { background: var(--sel); border-color: var(--sel); }
 [data-checked] > .ui-menu-check svg { opacity: 1; }
 /* a ONE-of-N row (Menu · radio, the Trupps' «Reihenfolge») is not a checkbox: its mark is a bare
-   trailing ✓ on the chosen row (16px, --green). The box
+   trailing ✓ on the chosen row (16px, --sel – blue is «chosen», duck sweep ELEM.7; it was green). The box
    keeps its place on every row so the labels never shift. */
 .ui-menu-radio { flex: none; display: grid; place-items: center; width: 16px; height: 16px; margin-left: auto; visibility: hidden; }
 [data-checked] > .ui-menu-radio { visibility: visible; }
 /* row-qualified: a skin's own `… svg` glyph rule (`.rp-print-menu-item svg` dims its icons) must not
    reach the tick */
-.ui-menu-item > .ui-menu-radio svg { width: 16px; height: 16px; fill: none; stroke: var(--green); stroke-width: 2.4;
+.ui-menu-item > .ui-menu-radio svg { width: 16px; height: 16px; fill: none; stroke: var(--sel); stroke-width: 2.4;
   stroke-linecap: round; stroke-linejoin: round; opacity: 1; }
 
 /* ── ONE menu row, one wash (18.09.2026) ────────────────────────────────────────────────────

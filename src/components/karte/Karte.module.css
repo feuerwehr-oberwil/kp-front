@@ -444,6 +444,8 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); cursor: pointer; }
 @media (hover: hover) { .utilBtn:hover { background-image: linear-gradient(var(--hover), var(--hover)); } }
 .utilBtn:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* its menu stands open: the «open» wash, as every opener (ELEM.6) */
+.utilOpen { background-color: var(--sel-wash); color: var(--blue-strong); }
 .utilBtn svg { width: 22px; height: 22px; }
 .utilGlyph { display: grid; place-items: center; }
 .quick > * { flex: 1 1 0; min-width: max-content; white-space: nowrap; }

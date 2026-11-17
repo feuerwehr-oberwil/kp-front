@@ -823,7 +823,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             onPick={(id) => setTool(id as Tool)}
             controls={(
               <>
-                <button className={cx('vrail-nbtn vrail-layers', tool === 'layers' && 'on')} title={C.tools.layers} aria-label={C.tools.layers} aria-pressed={tool === 'layers'} onClick={() => setTool('layers')}>
+                <button className={cx('vrail-nbtn vrail-layers', tool === 'layers' && 'on')} title={C.tools.layers} aria-label={C.tools.layers} aria-expanded={tool === 'layers'} onClick={() => setTool('layers')}>
                   <span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{C.tools.layers}</span><RailKey k={PANEL_KEY.layers} />
                 </button>
                 <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass"
@@ -861,7 +861,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             {onMapSurface && !tool && !panelShown && !searchOpen && (
               <div className={s.phoneUtil}>
                 <button type="button" className={cx(s.utilBtn)} aria-label={C.tools.pin} onClick={() => setTool('pin')}><Icon id="pin" /></button>
-                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly variant="util" btnClassName={s.utilBtn} glyphClassName={s.utilGlyph}
+                {/* lit while its menu stands open, like the Einsatz phone's compass (ELEM.6) */}
+                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly variant="util" btnClassName={s.utilBtn} activeClassName={s.utilOpen} glyphClassName={s.utilGlyph}
                   open={viewsOpen} onOpenChange={setViewsOpen} />
               </div>
             )}

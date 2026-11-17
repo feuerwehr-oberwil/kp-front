@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { pointAtField } from '../lib/pointAtField'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { Button, IconButton } from './Button'
@@ -53,7 +54,9 @@ export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose }: 
       </div>
       <div className="wb-cal-actions">
         <Button onClick={onClose}>{appConfig.copy.whiteboard.scale.cancel}</Button>
-        <Button variant="primary" disabled={!(val > 0)} onClick={() => onCommit(val)}>{appConfig.copy.whiteboard.scale.confirm}</Button>
+        {/* no length yet: the tap points at the metre field (ui-conventions · F2, duck sweep ELEM.4) */}
+        <Button variant="primary" aria-disabled={!(val > 0)}
+          onClick={() => (val > 0 ? onCommit(val) : pointAtField(inputRef.current?.parentElement, { focus: inputRef.current }))}>{appConfig.copy.whiteboard.scale.confirm}</Button>
       </div>
     </Overlay>
   )

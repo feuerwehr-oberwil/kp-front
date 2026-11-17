@@ -491,7 +491,10 @@
 }
 .spread-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .spread-btn.on { background: var(--sel); color: var(--on-sel); }
-.spread-btn:disabled { opacity: var(--disabled); cursor: default; }
+/* …read-only, the lit arrows as glyphs at the control edge (ContextPanel · FEEDBACK.5) */
+.spread-ro { display: inline-flex; align-items: center; gap: var(--sp-3); min-height: var(--tap); }
+.spread-ro .spread-unit { display: inline-flex; align-items: center; gap: 2px; }
+.spread-ro .i { width: 18px; height: 18px; }
 
 /* general free-text notes */
 .ctx-notes { display: flex; flex-direction: column; }
@@ -531,21 +534,19 @@
    twin's five doors) keeps its content-sized wrap.
    ⚠️ It wears the same ink as «Zentrieren» (29.09.2026, sweep K12): it was --ink-dim, which is
    the look of «not available» – the one thing an action must not say.
-   SET, it is the same tile pressed (31.10.2026, ONE toggle in one spot): the check and a green
-   tint – the green the header's «erledigt 20:40» wears – and a tap takes it back. */
+   SET, it is the same tile pressed (31.10.2026, ONE toggle in one spot), and a tap takes it back. */
 .ctx-actions:has(> .ctx-done) > .btn:not(.btn-sq) { flex: 1 1 0; }
-.btn.ctx-done[aria-pressed='true'] { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 45%, var(--border));
-  background: color-mix(in srgb, var(--green) 12%, var(--surface-2)); }
+/* ONE pressed look for a foot toggle (duck sweep ELEM.5 + ELEM.2, 17.11.2026): «Erledigt» SET and
+   «Sperren» SET (DrawEditor, ShapeEditor – reached by a tap on a locked drawing's 🔒 chip) are the
+   choice fill, `--sel` – a pressed toggle, like `.wb-dock-tog.on`. «Erledigt» wore a green outline
+   and «Sperren» a blue one: an outline-only «selected» the buttons spec bans, and green for «done»
+   beside the Pendenz tick's blue (TickRow). Done is blue, everywhere. */
+.btn:is(.ctx-done, .de-lock)[aria-pressed='true'] { color: var(--on-sel); border-color: var(--sel);
+  background: var(--sel); box-shadow: var(--sel-shadow); }
 @media (hover: hover) {
-  .btn.ctx-done[aria-pressed='true']:hover { background: color-mix(in srgb, var(--green) 18%, var(--surface)); }
+  .btn:is(.ctx-done, .de-lock)[aria-pressed='true']:hover { background: var(--sel); border-color: var(--sel); }
 }
-.btn.ctx-done[aria-pressed='true'] .i { stroke-width: 2.6; }
-/* «Sperren» in the line / Fläche / Form editor (DrawEditor, ShapeEditor), SET: the same pressed
-   tile in the constructive blue (the unlock ring's tone, LockChip). Reached since 13.11.2026 by a
-   tap on a locked drawing's 🔒 chip – the editor opens with this pressed, and a tap unlocks. */
-.btn.de-lock[aria-pressed='true'] { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 45%, var(--border));
-  background: color-mix(in srgb, var(--blue) 12%, var(--surface-2)); }
-.btn.de-lock[aria-pressed='true'] .i { stroke-width: 2.6; }
+.btn:is(.ctx-done, .de-lock)[aria-pressed='true'] .i { stroke-width: 2.6; }
 /* A DOOR to the object's original («Zum Original») takes a row of its own, above the foot's acts
    (30.09.2026, owner: «fix this» – in the equal split above, a door's label ran out of its third
    of the row and over «Zentrieren»). Its label is cut, never spilled (ContextPanel · LinkBtn). */
@@ -719,60 +720,18 @@
 .hist-ev + .hist-ev .ic::before { display: block; }
 .hist-ev:has(+ .hist-ev) .ic::after { display: block; }
 
-/* reminder (Erinnerung) row: due label + checklist-style done toggle */
+/* reminder (Erinnerung) row: a done item's sentence struck through */
 .jr-text.jr-rem-struck { text-decoration: line-through; color: var(--ink-faint); }
-.jr-rem { display: inline-flex; align-items: center; gap: 8px; flex: none; border: 1px solid var(--glass-edge); background: var(--surface-2);
-  color: var(--ink-dim); border-radius: var(--r-sm); padding: 4px 12px 4px 8px; font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer;
-  min-height: var(--tap); }   /* a button: one corner, --tap (29.09.2026; was a 34px pill) */
-/* In the pinned block the ring stands alone in the Verlauf's ICON SLOT — 28px wide, the width of
-   the log's disc column (`--jr-band`), so the text beside it lands on the log's own axis. No
-   pill, no word: the block's heading already says these are Pendenzen, and the ring is this row's icon as much as its
-   control. It is the ONLY place an item is ticked off — the Verlauf row carried a second,
-   identical control that scrolled away while this one cannot.
-   ⚠️ 28px wide is under the gloved floor on its own, so the TARGET grows past the ring on a
-   pseudo-element (below): 9px out to each side, 46 wide, and the row's full height plus half the
-   gap on either side (23.09.2026 — it was 26 × 34, and «Erledigt» is the one tap here that closes
-   something). The ring and the text's axis do not move. The gutters are 8px since hill climb r7,
-   so the pad takes the last pixel of the clock's column, whose own pad stops short of it
-   (.jr-when::before), and 1px of the text's first glyph — which is the row-wide text target
-   anyway. A miss still lands on the text, which opens the Meldung sheet — recoverable, and its
-   draft survives a close. */
-/* ⚠️ 28px — the same number as the log's disc column (`.hist-ev` · `--jr-band`; 26 until r11; the
-   disc inside it is 24 since 05.11.2026), and the app is `box-sizing: border-box` throughout. Measured
-   2px too wide once, against a test page that lacked the reset, and the text came out 2px right of
-   the log's. If this is ever re-checked, check it with the reset in place.
-   1px top padding: the 22px ring is centred on the item's first line (2px body padding + half its
-   21px line, less half the ring = 1.5, held at 1; r19) — the first-line rule of the log's disc (r11).
-   ⚠️ No height of its own (C17, 05.11.2026): it used to be `min-height: 34px` stretched over the
-   row so its pad could reach the row's edges, and that 34 + the padding is what held a one-line
-   item 46 tall. The pad is the ROW's now (below), so the ring is as tall as the ring. */
-.jr-pinned-row .jr-rem { flex: none; width: 28px; min-height: 0;   /* not the log button's --tap (.jr-rem) */
-  padding: 1px 0 0; border: 0; background: none; border-radius: var(--r-sm);
-  display: grid; place-items: start center; color: var(--amber-strong); }
-/* ⚠️ Positioned against the ROW, not the ring (`.jr-pinned-row .jr-rem` is static, below): the
-   row's full height and 2px — half the block's 4px flex gap — past it on either side, so two
-   rows' pads meet in the gap and the target is the row's pitch whatever the row's height. x 50…96
-   of the row: 9px either side of the ring (7 + 44 + 8 = 59 … 87). The phone's narrower columns
-   move both pads (15-mobile · r14). */
-.jr-pinned-row button.jr-rem::before { content: ""; position: absolute; z-index: 1; top: -2px; bottom: -2px;
-  left: 50px; width: 46px; border-radius: var(--r-sm); }
-/* ⚠️ No fill on hover. `--hover` is a neutral wash meant for white rows; over the block's amber
-   (and over a dringend row's red) it came out as a pale grey tile floating behind the ring. The
-   ring itself answers instead — it greens and ghosts its check in, the same thing the Verlauf's
-   own ring does, which is also what a tap here is about to do. Hover is the POINTER's preview;
-   on a finger, :active below gives the same answer for as long as the press. */
-@media (hover: hover) {
-  .jr-pinned-row .jr-rem:hover:enabled { color: var(--green); }
-  .jr-pinned-row .jr-rem:hover:enabled .jr-rem-box .i { opacity: var(--disabled); }
-}
-.jr-pinned-row .jr-rem:active:enabled { color: var(--green); }
-.jr-pinned-row .jr-rem:active:enabled .jr-rem-box .i { opacity: 1; }
-/* ⚠️ A CHECKBOX, not a disc (hill climb r16, 05.11.2026): 22px, a 2px stroke in the box's own
-   amber, the centre empty — it sat in the same column as the log's 24px filled event discs and
-   at 21px / 1.5px in the row's grey ink read as one more of them. Dringend turns it red (below),
-   hover and press green with the check coming in, as before. */
-.jr-pinned-row .jr-rem-box { width: 22px; height: 22px; border-width: 2px; }
-.jr-pinned-row .jr-rem-box .i { width: 14px; }
+/* In the pinned block the Pendenz's tick box (TickRow · `pendenz`, duck sweep ELEM.2) stands in
+   the Verlauf's ICON SLOT — 28px wide, the width of the log's disc column (`--jr-band`), so the
+   text beside it lands on the log's own axis. No pill, no word: the block's heading already says
+   these are Pendenzen, and the box is this row's icon as much as its control.
+   The button is TickRow's 44px square: -8px into the 8px gutters on either side, so the slot
+   stays 28 and the box sits on the item's first line (-10px above, the row's 2px body padding
+   + half its 21px line, less half the 24px box). A session without a hand gets the box as a
+   read-out in a plain 28px slot. */
+.jr-pinned-row .jr-pin-tick { flex: none; width: 28px; display: grid; place-items: start center; padding-top: 0; }
+.jr-pinned-row button.jr-pin-tick { position: relative; z-index: 1; width: var(--tap); margin: -10px -8px 0; place-items: center; }
 /* …and the Verlauf row keeps only the FACT, unstyled as a control: a timed Erinnerung's
    Fälligkeit. An undatierte Pendenz has none — its ring already says what the row is. */
 .jr-remstate { flex: none; font: var(--fw-bold) var(--fs-micro) var(--body); color: var(--ink-faint); white-space: nowrap; }
@@ -780,23 +739,6 @@
    surface means «steht noch offen», and überfällig is a step past that, not another word for it.
    Two states painted the same colour is a colour that says nothing. */
 .jr-remstate.overdue { color: var(--red-strong); }
-@media (hover: hover) {
-  .jr-rem:hover:enabled { color: var(--ink); border-color: color-mix(in srgb, var(--green) 55%, var(--glass-edge)); }
-  .jr-rem:hover:enabled .jr-rem-box .i { opacity: var(--disabled); }
-}
-/* press = the hover preview said fully: the ring greens and its check comes in for the press */
-.jr-rem:active:enabled { color: var(--green); border-color: var(--green); }
-.jr-rem:active:enabled .jr-rem-box .i { opacity: 1; }
-/* `:enabled`, not `:not(:disabled)`, above: a session that cannot tick the ring gets it as a
-   <span> read-out (Journal · pinned block), which must not answer the finger */
-span.jr-rem { cursor: default; }
-.jr-rem-box { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; display: grid; place-items: center; flex: none; }
-.jr-rem-box .i { width: 13px; height: 13px; opacity: 0; }
-.jr-rem.overdue { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 55%, var(--glass-edge)); }
-.jr-rem.done { color: var(--ink-faint); border-color: var(--border-soft); }
-.jr-rem.done .jr-rem-box { background: var(--green-fill); border-color: var(--green-fill); color: var(--on-fill); }
-.jr-rem.done .jr-rem-box .i { opacity: 1; }
-
 /* OFFENE ERINNERUNGEN — the UPPER of the drawer's two scroll areas, a sibling of `.history-list`
    and entirely above it (see Journal.tsx). A Wiedervorlage is the one entry in an append-only
    record that is about the future, and on a busy Einsatz it was thirty rows up within ten
@@ -939,16 +881,11 @@ span.jr-rem { cursor: default; }
    curled up at both ends and every row read as its own outlined card (hill climb, 04.11.2026). */
 .jr-pinned-row + .jr-pinned-row::before { content: ""; position: absolute; left: 7px; right: 7px; top: 0;
   height: 1px; background: var(--amber-22); pointer-events: none; }
-/* dringend is RED, not a red hairline. A 3px edge on an amber block is a detail you find after
-   you have already read the row — the point of the flag is that you read this row FIRST. So the
-   whole row carries the tint and the time turns red with it. */
-/* dringend colours the ITEM: its ring, its time and a quiet wash behind the row. The wash alone
-   was a salmon slab that shouted louder than the words on it — what has to read as urgent is the
-   thing to do, not the rectangle around it. */
-.jr-pinned-row.urgent { background: var(--red-5); }
-.jr-pinned-row.urgent .jr-when { color: var(--red-strong); }
-.jr-pinned-row.urgent .jr-rem { color: var(--red-strong); }
-.jr-pinned-row.urgent .jr-pinned-text { color: var(--red-strong); font-weight: var(--fw-bold); }
+/* dringend, überfällig: the BOX says it (TickRow · `pendenz`), as on every other surface that
+   lists the item (duck sweep ENT.5, 17.11.2026) – the red wash and red bold words it wore here
+   were a fourth look for «dringend». A row ticked off in this opening stays, struck through, until
+   the drawer closes (lib/pinnedPendenzen) – the box beside it reopens it. */
+.jr-pinned-row.done .jr-pinned-text { text-decoration: line-through; color: var(--ink-faint); }
 /* The column holding the item and its thread — an ordinary div, so its height follows its
    children. They used to live INSIDE the button, where they rendered outside its box and the next
    row was drawn over them (see the note in Journal.tsx). */
@@ -978,7 +915,8 @@ span.jr-rem { cursor: default; }
   border: none; background: none; padding: 0; cursor: pointer; text-align: left;
   font: var(--fw-medium) var(--fs-2) var(--body); line-height: 1.5; color: var(--ink); }
 .jr-pinned-text::after { content: ""; position: absolute; inset: -2px 0; border-radius: inherit; }   /* the row + half the gap either side, like the ring's and the clock's pads */
-/* a session without a Meldung to write gets the text as a <span> – no row-wide target */
+/* the text opens the item's detail sheet (Journal · LISTS.6); a row whose sheet is not in the
+   loaded log gets the text as a <span> – no row-wide target */
 span.jr-pinned-text { cursor: default; }
 span.jr-pinned-text::after { display: none; }
 /* ⚠️ z-index 1 on their PADS, and the two sticky bars sit at 3. The pads are raised so the stretched
@@ -988,7 +926,7 @@ span.jr-pinned-text::after { display: none; }
    anything inside a row.
    ⚠️ The clock and the ring themselves stay STATIC (C17, 05.11.2026), so their `::before` pads are
    placed against the row (`position: relative`) and span its full height however tall it is. */
-.jr-pinned-row .jr-when, .jr-pinned-row .jr-rem { position: static; }
+.jr-pinned-row .jr-when { position: static; }
 /* Every Meldung, oldest first — the thread on this item. Hung off a rule so several read as a
    list belonging to the line above rather than as more rows in the block. */
 .jr-pinned-note { overflow-wrap: break-word;
@@ -1008,32 +946,17 @@ button.jr-pinned-from { cursor: pointer; }
 span.jr-pinned-from { color: var(--ink-dim); }
 .jr-pinned-from .i { width: 16px; height: 16px; }
 /* ⚠️ WHEN IT WAS RAISED, for every row. The column used to print the Fälligkeit, which only a
-   timed Erinnerung has; an Auftrag has none, because nobody checks in on a Schadenplatz. Tapping
-   swaps the whole column to the age — never one row at a time, a half-clock/half-age column is
-   unreadable. */
+   timed Erinnerung has; an Auftrag has none, because nobody checks in on a Schadenplatz. (A tap
+   swapped it for the age until 17.11.2026 – a hidden toggle, duck sweep LISTS.6; it is a read-out.) */
 /* 44px wide: the Verlauf's own time column, to the pixel (.hist-ev .t), and the same type —
    12.5px mono, tabular, and the log's FIRST-stamp weight and ink (`:is(.hist-ev .t, .jr-when)`
-   above, r30). This one is a `<button>`, so 12.5 is its floor anyway (the 3am
-   tenet); the log's span joined it in hill climb r9. «HH:MM» is 37.5px (five mono glyphs at
-   0.6em), so the 44 leaves the clock 6px of air before the gutter.
+   above, r30). «HH:MM» is 37.5px (five mono glyphs at 0.6em), so the 44 leaves the clock 6px of
+   air before the gutter.
    ⚠️ On the ITEM's line (r11): the item text's 1.5 line (r19) and the body's 2px padding, so the
-   clock sits on its first line — on a 1.25 line under 6px of padding it stood 2px below it.
-   ⚠️ `nowrap`. Both readings have to fit this width on ONE line — the age used to read «vor 32
-   min» and wrapped to three, which made the row three times as tall for a number. The label is
-   bare now (copy · ageLabel), and this is the guard that says so. */
-.jr-when { flex: none; width: 44px; padding: 2px 0 0; border: 0; background: none; cursor: pointer;
+   clock sits on its first line — on a 1.25 line under 6px of padding it stood 2px below it. */
+.jr-when { flex: none; width: 44px; padding: 2px 0 0;
   text-align: left; white-space: nowrap; font-family: var(--mono); font-size: var(--fs-1); line-height: calc(var(--fs-2) * 1.5);
   font-variant-numeric: tabular-nums; }
-@media (hover: hover) {
-  .jr-when:hover { color: var(--ink); }
-}
-/* 44×21 drawn; the pad is the row's corner column (50 wide) at the row's full height plus half the
-   gap either side — left over its 7px side, and on the right it stops 1px SHORT of the column:
-   the 8px gap and that last pixel are the ring's own pad (.jr-rem::before above), so the two
-   targets meet and never overlap (hill climb r7). Placed against the ROW (C17, 05.11.2026 — it hung
-   18px under the clock to reach a 44px row floor that is gone). On every pointer: a mouse needs
-   24px, and 21 drawn was under it (04.11.2026). */
-.jr-pinned-row .jr-when::before { content: ''; position: absolute; z-index: 1; top: -2px; bottom: -2px; left: 0; width: 50px; }
 /* the day under the clock, for an item raised on another day than today (Journal · rowDay, S5
    06.11.2026). A second line rather than a wider column: the clock stays on the log's 38px axis,
    and «20.09.» at the micro size (≈40px) reaches only 2px into the 10px gap before the ring. */
@@ -1047,6 +970,8 @@ span.jr-pinned-from { color: var(--ink-dim); }
   display: inline-flex; align-items: center; gap: 4px; color: var(--amber-strong);
   font: var(--fw-bold) var(--fs-micro) var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .jr-pinned-alarm .i { width: 13px; height: 13px; }
+/* …past it: überfällig, in the red its box wears (ENT.5) – it used to vanish once the time passed */
+.jr-pinned-alarm.overdue { color: var(--red-strong); }
 /* ⚠️ There is no «Aufklappen» / «Zuklappen» here any more, and no `.is-open` state. They were
    the way past a cap on a block that could not scroll itself; the box scrolls now, so a second
    way to see the same rows would be exactly that — a second way to see the same rows. */

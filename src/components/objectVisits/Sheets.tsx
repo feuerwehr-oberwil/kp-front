@@ -1,7 +1,8 @@
 // The two sheets of a visit: Foto (caption + what it belongs to, right after the camera) and
 // Korrekturvorschlag. Phone bottom sheets through lib/overlays (Sheet, SheetFoot by `footer`).
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { pointAtField } from '../../lib/pointAtField'
 import { Icon } from '../../lib/icons'
 import { Button } from '../Button'
 import { appConfig } from '../../config/appConfig'
@@ -122,6 +123,13 @@ export function ProposalSheet({ proposal, fields, asOf, onSave, onRemove, onClos
   const options = [...fields.map((f) => ({ value: f.id, label: f.label })), { value: OTHER, label: C.proposalOther }]
   const label = field === OTHER ? otherLabel.trim() : fields.find((f) => f.id === field)?.label ?? ''
   const valid = !!label && !!proposed.trim()
+  // a blocked «Speichern» points at what is missing (ui-conventions · F2, duck sweep ELEM.4)
+  const otherRef = useRef<HTMLInputElement>(null)
+  const proposedRef = useRef<HTMLInputElement>(null)
+  const pointAtMissing = () => {
+    const el = !label ? otherRef.current : proposedRef.current
+    pointAtField(el?.closest<HTMLElement>('.ip-field') ?? el, { focus: el })
+  }
 
   const save = () => {
     if (!valid) return
@@ -146,7 +154,7 @@ export function ProposalSheet({ proposal, fields, asOf, onSave, onRemove, onClos
           {proposal && onRemove && (
             <Button variant="danger" onClick={() => onRemove(proposal)} aria-label={C.proposalRemove}><Icon id="trash" /></Button>
           )}
-          <Button variant="primary" disabled={!valid} onClick={save}>{C.proposalSave}</Button>
+          <Button variant="primary" aria-disabled={!valid} onClick={valid ? save : pointAtMissing}>{C.proposalSave}</Button>
         </>
       )}
     >
@@ -157,7 +165,7 @@ export function ProposalSheet({ proposal, fields, asOf, onSave, onRemove, onClos
       {field === OTHER && (
         <label className="ip-field">
           <span>{C.proposalOtherLabel}</span>
-          <input className={s.input} value={otherLabel} {...ONE_LINE} onChange={(e) => setOtherLabel(e.target.value)} />
+          <input ref={otherRef} className={s.input} value={otherLabel} {...ONE_LINE} onChange={(e) => setOtherLabel(e.target.value)} />
         </label>
       )}
       <label className="ip-field">
@@ -166,7 +174,7 @@ export function ProposalSheet({ proposal, fields, asOf, onSave, onRemove, onClos
       </label>
       <label className="ip-field">
         <span>{C.proposalNew}</span>
-        <input className={s.input} value={proposed} {...ONE_LINE} onChange={(e) => setProposed(e.target.value)} />
+        <input ref={proposedRef} className={s.input} value={proposed} {...ONE_LINE} onChange={(e) => setProposed(e.target.value)} />
       </label>
       <label className="ip-field">
         <span>{C.proposalReason}</span>
@@ -188,10 +196,11 @@ export function ChecklistSheet({ templates, current, onPick, onClose }: {
   const isCurrent = (t: VisitTemplate | null) =>
     (t?.id ?? null) === (current?.id ?? null) && (t == null || (t.version ?? 0) === (current?.version ?? 0))
   const row = (t: VisitTemplate | null) => (
-    // the current one says so in its tag, not with the ink pill (`on` is «where you are» beside a list)
+    // a PICK-ONE list (duck sweep LISTS.9): no row wears a ›, since a tap only chooses; the current
+    // one is the trailing ✓ in the choice blue, its word for a screen reader – not a green tag
     <ListRow key={t?.id ?? '__none__'} lead={t ? <Icon id="checklist" /> : <span aria-hidden />} title={t ? t.title : C.noChecklist} sub={t?.subtitle}
-      onClick={() => onPick(t)} aria-current={isCurrent(t) || undefined} chevron={!isCurrent(t)}
-      end={isCurrent(t) && <span className="ip-badge ip-badge-ok">{C.checklistCurrent}</span>} />
+      onClick={() => onPick(t)} aria-current={isCurrent(t) || undefined} chevron={false}
+      end={isCurrent(t) && <span className={s.pickTick}><Icon id="check" /><span className="sr-only">{C.checklistCurrent}</span></span>} />
   )
   return (
     <Sheet open onClose={onClose} title={C.changeChecklist}>

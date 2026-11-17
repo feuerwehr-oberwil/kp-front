@@ -425,8 +425,9 @@
 @media (prefers-reduced-motion: reduce) {
   .toast-check path { animation: none; stroke-dashoffset: 0; }
 }
-/* a FAILURE keeps a trace of red in the pill itself, so it tells apart from a live status that
-   merely wears the warn edge (the print job while queued/printing — lib/ui · isFailure). */
+/* a FAILURE keeps a trace of red in the pill itself (lib/ui · isFailure). A job still under way
+   (the print pill while queued/printing) is the default tone – its glyph in ink, never red
+   (duck sweep FEEDBACK.11, 17.11.2026). */
 .toast-warn.toast-fail { background: color-mix(in srgb, var(--red) 6%, var(--surface)); }
 @keyframes toastIn { from { opacity: 0; transform: translateY(10px) scale(.96); } }
 

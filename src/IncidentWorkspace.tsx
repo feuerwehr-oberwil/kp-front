@@ -2631,7 +2631,8 @@ export function IncidentWorkspace({
    * one step – and, where the Trupp behind it still exists, the way BACK first (20.09.2026): the
    * marker returns where the trail ends, under the id it was recorded on, and the reconciliation
    * takes the ghost home with it (lib/truppTrails · ghostRevival). One ask, three answers; the
-   * delete stays the red one and keeps its own wording.
+   * delete keeps its own wording, and is not red: it is undoable (removeWithUndo), and red on a
+   * choice card means «nothing brings it back» (undo.md › One delete rule; duck sweep FEEDBACK.2).
    */
   const deleteGhostTrail = async (id: string) => {
     if (tacticalLocked) return
@@ -2650,7 +2651,7 @@ export function IncidentWorkspace({
         title: fillTemplate(appConfig.copy.whiteboard.ghostTrailTitle, { name }),
         message: appConfig.copy.whiteboard.ghostTrailAsk,
         confirmLabel: appConfig.copy.whiteboard.ghostTrailRestore, cancelLabel: appConfig.copy.cancel,
-        altLabel: appConfig.copy.whiteboard.clearTrail, altDanger: true,
+        altLabel: appConfig.copy.whiteboard.clearTrail,
       })
       if (answer === true) {
         const revive = { id: back.markerId, trail: back.trail }

@@ -245,7 +245,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             chip, which is painted after it and simply covered it up. What «12 offen» has to do is
             be noticed from across a Schadenplatz, so the control it belongs to carries the colour
             and the number rides along (see .tb-act.has-rem). */}
-        <button className={`tb-act ${journalOpen ? 'on' : ''} ${reminderCount > 0 ? 'has-rem' : ''}`} aria-pressed={journalOpen} onClick={onToggleJournal}
+        <button className={`tb-act ${journalOpen ? 'on' : ''} ${reminderCount > 0 ? 'has-rem' : ''}`} aria-expanded={journalOpen} onClick={onToggleJournal}
           aria-label={reminderCount > 0 ? appConfig.copy.journal.openCount.replace('{n}', String(reminderCount)) : appConfig.copy.journal.open}
           title={keyTitle(reminderCount > 0 ? appConfig.copy.journal.openCount.replace('{n}', String(reminderCount)) : appConfig.copy.journal.open, PANEL_KEY.journal)}>
           <Icon id="verlauf" /><span>{appConfig.copy.journal.open}</span>{keyHint(PANEL_KEY.journal)}

@@ -939,7 +939,8 @@ export function ReportPreflight({
     if (s.status === 'done') { settlePrintJob(job.id, 'done'); toast(R.printed, { icon: 'check', tone: 'success', kind: PRINT_CHECK }); return }
     if (s.status === 'failed') { settlePrintJob(job.id, 'failed'); toast(R.printFailed, { icon: 'warn', tone: 'warn', kind: PRINT_CHECK }); return }
     if (s.status === 'cancelled') { settlePrintJob(job.id, 'cancelled'); toast(R.cancelled, { kind: PRINT_CHECK }); return }
-    toast(s.status === 'printing' ? R.printing : R.queued, { icon: 'printer', tone: 'warn', kind: PRINT_CHECK })
+    // still under way: the neutral printer glyph, red is a failure's (FEEDBACK.11)
+    toast(s.status === 'printing' ? R.printing : R.queued, { icon: 'printer', kind: PRINT_CHECK })
   }
   /** Give up on a job that is still in the queue. Refused once the agent has claimed it — the
    *  paper may already be moving, and the button says so rather than pretending. */
@@ -1546,7 +1547,8 @@ export function ReportPreflight({
                 abgebrochen, the band stayed, and the editor's print was gone. */}
             <fieldset className="report-fieldset" disabled={!canRecord}>
               <button type="button" className="ip-btn" disabled={jobBusy} onClick={() => void checkPrintJob()}>{R.jobCheck}</button>
-              <button type="button" className="ip-btn ip-btn-danger" disabled={jobBusy} onClick={() => void dropPrintJob()}>{R.jobCancel}</button>
+              {/* «Abbrechen» is the neutral framed button, as every other one (duck sweep ELEM.11) */}
+              <button type="button" className="ip-btn" disabled={jobBusy} onClick={() => void dropPrintJob()}>{R.jobCancel}</button>
             </fieldset>
           </div>
         )}
@@ -2188,23 +2190,20 @@ export function ReportPreflight({
                   answer the el gives like any other, not part of the editor's Abschluss — gated on
                   the Abschluss, the el's Mittel step could never be answered. A session that cannot
                   edit reads the answer, dashed like «Entfällt», or nothing when none was given. */}
-              {mittelCount === 0 && !canEdit && meta.mittelConfirmedNone && (
-                <div className="rp-check-extra rz-none"><span className="rz-none-val">{A.mittelNone}</span></div>
-              )}
-              {mittelCount === 0 && canEdit && (
-                <div className="rp-check-extra">
-                  {/* the «none of these» CHOICE, same as the QR-Bogen's (28.09.2026): one text,
-                      picked = the choice fill. It was a primary button whose label grew a «✓». */}
-                  <button
-                    type="button"
-                    className={`ip-btn${meta.mittelConfirmedNone ? ' on' : ''}`}
-                    aria-pressed={!!meta.mittelConfirmedNone}
-                    onClick={() => persist({ mittelConfirmedNone: !meta.mittelConfirmedNone })}
-                  >
-                    {A.mittelNone}
-                  </button>
+              {/* the «Entfällt» model (owner, duck sweep ELEM.9, 17.11.2026): «Nichts verwendet» is
+                  a button that SETS the answer; answered, the row is the dashed read-out and
+                  «Ändern» – the Kontaktperson's, Gerettete's and Rückmeldung's «none» exactly, on
+                  the QR-Bogen too. It was a pressed toggle, the one «none» of four that was not. */}
+              {mittelCount === 0 && (meta.mittelConfirmedNone ? (
+                <div className="rp-check-extra rz-none">
+                  <span className="rz-none-val">{A.mittelNone}</span>
+                  {canEdit && <button type="button" className="ip-btn" onClick={() => persist({ mittelConfirmedNone: undefined })}>{P.entfaelltUndo}</button>}
                 </div>
-              )}
+              ) : canEdit && (
+                <div className="rp-check-extra">
+                  <button type="button" className="ip-btn" onClick={() => persist({ mittelConfirmedNone: true })}>{A.mittelNone}</button>
+                </div>
+              ))}
             </CheckRow>
             {/* ⚠️ ABWEICHUNGEN (04.09., Rapport-Review). Until now a divergence between the
                 QR-Bogen and a tablet was a «bitte prüfen» line in the Verlauf and nothing else —
@@ -2450,7 +2449,8 @@ export function ReportPreflight({
                               if (v !== e.target.value) onCaptionAttachment(a.id, v)
                             }}
                           />}
-                          {a.url.startsWith('blob:') && <span className="report-att-pending">{P.attachmentsPending}</span>}
+                          {/* the Verlauf's «noch nicht synchronisiert» chip, glyph and word (duck sweep FEEDBACK.7) */}
+                          {a.url.startsWith('blob:') && <span className="jr-media-state pending"><Icon id="upload" /><span>{P.attachmentsPending}</span></span>}
                         </div>
                         {onRemoveAttachment && (
                           <button type="button" className="report-att-x" aria-label={appConfig.copy.delete}

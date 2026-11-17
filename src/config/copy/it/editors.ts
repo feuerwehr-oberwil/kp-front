@@ -264,6 +264,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     revealTarget: 'Mostra il livello',
     endingReleased: 'Tratto rimosso, {n} linee staccate',
     hoseNone: 'Nessuno',
+    menuPicked: 'selezionato',
   },
   topBar: {
     offline: 'Offline',

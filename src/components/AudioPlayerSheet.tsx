@@ -6,6 +6,7 @@
 // What reaches the Verlauf: docs/verlauf-coverage.md.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { pointAtField } from '../lib/pointAtField'
 import { caretToEnd } from '../lib/ui'
 import type { TimelineEvent } from '../types'
 import { Icon } from '../lib/icons'
@@ -532,7 +533,9 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
                     }}
                   />
                 </div>
-                <Button variant="primary" disabled={!text.trim()} icon={<Icon id="check" />} onClick={sendEntry}>{C.send}</Button>
+                {/* a tap with nothing typed points at the line (ui-conventions · F2, duck sweep ELEM.4) */}
+                <Button variant="primary" aria-disabled={!text.trim()} icon={<Icon id="check" />}
+                  onClick={text.trim() ? sendEntry : () => pointAtField(inputRef.current, { focus: inputRef.current })}>{C.send}</Button>
               </div>
               {(nameHits.length > 0 || suggestions.length > 0) && (
                 <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria}>

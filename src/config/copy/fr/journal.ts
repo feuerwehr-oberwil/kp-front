@@ -169,8 +169,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
 
     stripLabel: 'Frise chronologique – toucher pour sauter à l\'endroit correspondant',
     photoOpen: 'Voir la photo en grand',
-    mediaPending: 'Chargement',
-    mediaFailed: 'Non chargé',
+    mediaPending: 'pas encore synchronisé',
+    mediaFailed: 'Non synchronisé',
     attendanceConflict: 'Présence {name} : {what} – merci de vérifier.',
     // ⚠️ Des fragments, pas des phrases : reliés par « · » et insérés dans {what} ci-dessus, qui a
     // déjà écrit « Présence {name} : ». Ce que cette ligne dit déjà ne se répète pas ici.
@@ -208,9 +208,6 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     pendenzNotOpen: 'Ne pas garder ouvert',
     noteChip: 'En suspens',
     noteOpen: 'Saisir un message',
-    ageLabel: '{n}′',
-    ageLabelHours: '{n} h',
-    ageToggle: 'Basculer heure / ancienneté',
     openState: 'ouvert',
     openReminderGo: 'Aller à l\'entrée',
     pinnedWer: 'Qui : {wer}',
@@ -219,6 +216,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     emptyHint: 'Avec «Entrée», noter un message, un ordre ou une photo.',
     attachDroppedMany: '{n} fichiers abandonnés : {names}. À sélectionner de nouveau.',
     sectionRemoved: 'Section supprimée',
+    markOpenTitle: 'Marquer à nouveau comme ouvert',
+    legendPendenzOverdue: 'Point en retard',
   },
   tafelPendenzen: {
     createdLog: 'Point en suspens du tableau ({page}) : {text}',

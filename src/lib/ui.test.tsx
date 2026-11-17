@@ -240,17 +240,17 @@ describe('sticky/updatable toast (live print status)', () => {
     act(() => dismissToast(id))
   })
 
-  // ⚠️ The red trace in the pill is for FAILURES (review 24.09.2026): the print pill wears the warn
-  // edge while queued/printing, and a busy printer must not read as a broken one.
+  // ⚠️ The red trace in the pill is for FAILURES (review 24.09.2026): the print pill is neutral
+  // while queued/printing (FEEDBACK.11), and a busy printer must not read as a broken one.
   it('tints only a failure: the running print job keeps the neutral pill, its failure does not', () => {
     render(<Overlays />)
     let id!: number
     const chain = [{ label: 'Gesendet', state: 'now' as const, icon: 'check' as const }, { label: 'Gedruckt', state: 'future' as const }]
-    act(() => { id = toast('An Stationsdrucker gesendet', { sticky: true, tone: 'warn', toneStyle: 'edge', steps: chain }) })
+    act(() => { id = toast('An Stationsdrucker gesendet', { sticky: true, steps: chain }) })
     const pill = () => screen.getByText(/Stationsdrucker|Druck fehlgeschlagen/).closest('.toast')!
-    expect(pill().className).toContain('toast-edge')
+    expect(pill().className).not.toContain('toast-warn')
     expect(pill().className).not.toContain('toast-fail')
-    act(() => updateToast(id, 'Druck fehlgeschlagen', { icon: 'warn', tone: 'warn', toneStyle: 'edge' }))
+    act(() => updateToast(id, 'Druck fehlgeschlagen', { icon: 'warn', tone: 'warn' }))
     expect(pill().className).toContain('toast-fail')
     // …and an ordinary failure toast is one too
     act(() => { toast('Synchronisierung fehlgeschlagen', { tone: 'warn' }) })

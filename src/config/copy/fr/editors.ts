@@ -264,6 +264,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     revealTarget: 'Afficher la couche',
     endingReleased: 'Tronçon retiré, {n} lignes détachées',
     hoseNone: 'Aucun',
+    menuPicked: 'sélectionné',
   },
   topBar: {
     offline: 'Hors ligne',

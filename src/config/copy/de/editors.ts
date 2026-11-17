@@ -386,6 +386,7 @@ export const editorsCopy = {
     endingReleased: 'Teilstück aufgehoben, {n} Leitungen gelöst',
     // Leitung ohne gewählten Ø (14.11.2026: leer statt 40 mm) – der Menüeintrag, der ihn wieder leert
     hoseNone: 'Kein',
+    menuPicked: 'gewählt',
   },
   topBar: {
     offline: 'Offline',

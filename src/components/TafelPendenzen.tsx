@@ -185,12 +185,13 @@ export function TafelPendenzen({ Cell, sec, port, isPhone, pageTitle }: Props) {
         return (
           <span key={col} className={cx(s.td, p.center)}>
             {canWrite
+              // «!», the mark dringend wears on every surface – the Verlauf's box, the Rapport (ENT.5);
               // the Tendenz button's recipe (TafelFormPage · TrendButton): the name says what stands
               // and what a tap does. The press keeps the focus where it is, so Enter still files
               // the empty row after its Prio. was set (iOS never focuses a button)
               ? <IconButton label={on ? w.prioOn : w.prioOff} className={cx(p.prio, on && p.prioOn)} tabIndex={-1}
-                  onPointerDown={(e) => e.preventDefault()} onClick={toggle}>{on ? '1' : <span className={p.prioDot} aria-hidden="true">·</span>}</IconButton>
-              : on ? <span className={cx(p.prio, p.prioOn)} role="img" aria-label={w.prio}>1</span> : null}
+                  onPointerDown={(e) => e.preventDefault()} onClick={toggle}>{on ? '!' : <span className={p.prioDot} aria-hidden="true">·</span>}</IconButton>
+              : on ? <span className={cx(p.prio, p.prioOn)} role="img" aria-label={w.prio}>!</span> : null}
           </span>
         )
       }
@@ -201,7 +202,9 @@ export function TafelPendenzen({ Cell, sec, port, isPhone, pageTitle }: Props) {
             <TickRow checked={!!item} disabled onToggle={() => {}} className={p.tickRo}>
               <span className={p.tickWord}>{w.erteilt}</span><span className={p.tickTime}>{item ? fmtWhen(item.createdAt, { todayShort: true, now: new Date(now) }) || '–' : '–'}</span>
             </TickRow>
+            {/* the Pendenz's own box: its frame the state, as in the Verlauf (TickRow · `pendenz`) */}
             <TickRow checked={done} disabled={!item || !canWrite} className={cx((!item || !canWrite) && p.tickRo)}
+              pendenz={item ? (item.urgent ? 'urgent' : isOverdue(item, now) ? 'overdue' : 'open') : undefined}
               onToggle={() => { if (item) port?.setDone(item, !done) }}>
               <span className={p.tickWord}>{w.erledigt}</span><span className={p.tickTime}>{done ? fmtWhen(item?.doneAt, { todayShort: true, now: new Date(now) }) || '–' : '–'}</span>
             </TickRow>

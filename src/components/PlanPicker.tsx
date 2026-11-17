@@ -10,6 +10,7 @@ import { Button } from './Button'
 import { SearchField } from './SearchField'
 import { LoadingStatus } from './ShellLoader'
 import { ListCard, ListRow } from './ListRow'
+import { cx } from '../lib/cx'
 import { objectPicklistSub, sortObjects } from '../lib/karte/places'
 import { matchesAnyQuery, searchQuery } from '../lib/search'
 import { appConfig } from '../config/appConfig'
@@ -154,19 +155,23 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
             )}
             {/* THE object row (LISTS.7/8, the Karte search's): footprint · name · address with the
                 plan count (picking here depends on it) · distance. No › – a pick swaps the plans,
-                it opens nothing. The object on the Plan now is `on`, where you are. */}
+                it opens nothing. The object on the Plan now is the pick's current row: wash + the
+                trailing ✓, the cue that is not a colour (LISTS.9). */}
             {!loading && !error && filtered.length > 0 && <ListCard>{filtered.map((o) => {
               const n = pdfCount(o)
+              const current = o.id === activeObjectId
               return (
                 <ListRow
                   key={o.id}
-                  className={o.id === hoverId ? 'pp-hover' : undefined}
-                  on={o.id === activeObjectId}
+                  className={cx(o.id === hoverId && 'pp-hover', current && 'pp-current')}
+                  aria-current={current || undefined}
                   chevron={false}
                   lead={<Icon id="footprint" />}
                   title={o.name}
                   sub={objectPicklistSub(o, `${n} ${n === 1 ? pp.planOne : pp.planMany}`)}
-                  end={o.distance_m != null ? fmtDistance(o.distance_m) : undefined}
+                  end={current || o.distance_m != null
+                    ? <>{o.distance_m != null && fmtDistance(o.distance_m)}{current && <Icon id="check" className="pp-row-tick" />}</>
+                    : undefined}
                   onClick={() => void choose(o)}
                   onMouseEnter={() => setHoverId(o.id)}
                   onMouseLeave={() => setHoverId((h) => (h === o.id ? null : h))}

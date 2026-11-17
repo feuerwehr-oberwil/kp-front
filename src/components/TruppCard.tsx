@@ -601,8 +601,9 @@ export function TruppCard({
         title: az.removeUnusedTitle,
         message: fillTemplate(az.removeUnusedMsg, { name: t.name }),
         confirmLabel: az.actNotDeployed,
+        // not red: the removal is undoable (toast + ↶ + «Entfernte Trupps») – red on a choice card
+        // means «nothing brings it back» (undo.md › One delete rule; duck sweep FEEDBACK.2)
         altLabel: az.remove,
-        altDanger: true,
       })
       if (a === true) { onStandDown(t.id); return }
       if (a !== 'alt') return

@@ -60,8 +60,10 @@ export function TruppJoinMenu({ truppId, trupps, pick, create, onNone }: {
       popupClassName="de-menu-pop"
       itemClassName={() => 'de-menu-item'}
       trigger={
+        // the Trupps page's own glyph, the stopwatch: 👥 is the Anwesenheit's door one rail away
+        // (duck sweep ELEM.12 – one glyph, one meaning, within a thumb's reach)
         <button className="wb-pa" title={appConfig.copy.atemschutz.markerLabel} aria-label={appConfig.copy.atemschutz.markerLabel}>
-          <Icon id="people" />
+          <Icon id="stopwatch" />
         </button>
       }
       items={[
@@ -70,9 +72,10 @@ export function TruppJoinMenu({ truppId, trupps, pick, create, onNone }: {
           label: <MenuPick label={t.name} on={t.id === truppId} />,
           onClick: () => pick(t.id),
         })),
-        // the plus sits in the tick's slot, so the row lines up with the picks above it
+        // an ACTION row: its «+» leads, where an action's glyph stands – the picks' ✓ is trailing
+        // (MenuPick, duck sweep ELEM.7), so a lit glyph in a tick's slot no longer reads «picked»
         ...(create ? [{
-          label: <><span className="de-menu-tick on" aria-hidden><Icon id="plus" /></span><span>{appConfig.copy.whiteboard.newTeam}</span></>,
+          label: <><span className="de-menu-lead" aria-hidden><Icon id="plus" /></span><span>{appConfig.copy.whiteboard.newTeam}</span></>,
           onClick: create,
         }] : []),
       ]}
@@ -350,11 +353,14 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
             <button className="wb-pa wb-pa-mark" title={appConfig.copy.whiteboard.markPosition} aria-label={appConfig.copy.whiteboard.markPosition}
               onClick={() => mark()}><Icon id="flag" /></button>
           )}
-          {/* per-team visibility toggle, NOT deletion — the ✕ here silently wiped the record */}
+          {/* per-team visibility toggle, NOT deletion — the ✕ here silently wiped the record.
+              Pressed = the rename pen's `--sel` fill, its name the CONTROL («Spuren»), never the
+              next action (duck sweep ELEM.5: it flipped its title to «Spuren ausblenden» and
+              swapped eye / eye-off with no fill, a fourth pressed look) */}
           {trailCount > 0 && toggleTrail && (
-            <button className="wb-pa" title={trailShown ? appConfig.copy.whiteboard.trailsOff : appConfig.copy.whiteboard.trailsOn}
+            <button className={`wb-pa${trailShown ? ' wb-pa-edit' : ''}`} title={appConfig.copy.whiteboard.trails}
               aria-label={appConfig.copy.whiteboard.trails} aria-pressed={trailShown} onClick={() => toggleTrail()}>
-              <Icon id={trailShown ? 'eye' : 'eyeoff'} />
+              <Icon id="eye" />
             </button>
           )}
           {toOriginal && originalLabel && (

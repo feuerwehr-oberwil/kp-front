@@ -82,8 +82,12 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   property of a thing reads «Aus | An»; a row that asks a question about the record («Übung?»)
   is `OnOff question`, «Nein | Ja» – on every device, never one pair on a tablet and the other
   on a phone. A
-  **«none of these»** answer that stands in for a list (Material «Nichts verwendet») is a
-  CHOICE chip: one fixed text, picked = the choice fill, and no «✓» growing into the label. A
+  **«none»** answer to a question or a list – the Kontaktperson's «Entfällt», Gerettete's
+  «Keine», the Rückmeldung's, Material «Nichts verwendet» on the Rapport and the QR-Bogen – is
+  the **«Entfällt» model** (owner, duck sweep ELEM.9, 17.11.2026): a framed button that SETS
+  the answer; answered, the row shows the dashed read-out (`.rz-none-val`, never a tick – it was
+  answered, not filled in) and «Ändern» to take it back. A «none» that is one PICK AMONG OPTIONS
+  (the Trupp's Leitung «Keine» beside the numbers) stays a choice `Chip` in its row. A
   single option on a sheet is a yes/no too (PersonnelSync «… ausblenden» is an `OnOff` row, not
   a native checkbox). Only a control that picks ITEMS in a list is multi-select. The
   head-bar status buttons (bell, share QR, the menu's Standort row) name the state that is TRUE
@@ -169,8 +173,9 @@ and wears no outline (10.11.2026: its blue frame read as «selected» or «tap m
 Linie / Fläche / Form frames it, in the drawing's own colour. A user-given name lives in its field
 («Bezeichnung») only — never twice, never an underlined head that jumps to a field. The foot's
 «Erledigt» wears the same ink as «Zentrieren» (a dimmed action reads «not available»); it is ONE
-toggle in one spot (31.10.2026): set, the same tile stands pressed (check, green tint) and a tap
-reopens, while the head's subtitle says when («Schadenlage · erledigt 10:57»).
+toggle in one spot (31.10.2026): set, the same tile stands pressed (check, the `--sel` choice fill
+– «done» is blue, see (13) Tick row; it was a green outline until 17.11.2026) and a tap reopens,
+while the head's subtitle says when («Schadenlage · erledigt 10:57»).
 
 ## Button components
 
@@ -255,7 +260,11 @@ reopens, while the head's subtitle says when («Schadenlage · erledigt 10:57»)
   **menu or popover** is the menu shell: `--r-bar` over `--bar-pad`, opaque `--surface` + its 1px
   `--glass-edge` (out of the top bar: the bar's glass + `--glass-line` instead), `--e4`; facts in it
   that are read, not tapped, stand at a menu row's 12px text inset. A one-of-N row in a menu is a
-  trailing ✓ (`Menu` · radio), a pick-several row the checkbox. Every anchored menu and popover
+  trailing ✓ (`Menu` · radio) in the choice blue, announced – `MenuPick` (a pick row in an action
+menu) draws the same trailing ✓ and says «gewählt» to a screen reader, never a leading tick
+(duck sweep ELEM.7, 17.11.2026) –, a pick-several row the checkbox. A pick-one LIST (PlanPicker,
+«Checkliste wechseln») marks its current row with the wash and that trailing ✓, and no row wears
+a › (a tap there only chooses); a keyboard / pointer highlight is the menu row's wash (LISTS.9). Every anchored menu and popover
   hangs ONE 8px off its trigger and keeps 8px from the screen edge, the bars' own distances
   (`lib/overlays` · `OVERLAY_GAP` / `OVERLAY_EDGE`, owner 13.11.2026 – menus hung 4px off, both
   kept 10 from the edge); one whose trigger sits inside a floating bar hangs 8px off the BAR
@@ -389,7 +398,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     wählen), a tool's tip and the hold-tip wear the same look (08-toasts.css · «ONE message
     surface»): the floating family's material (below — light by day, dark by night, never a dark
     pill on a light UI), ink 14/700 like a Meldeleiste row's `.ml-title` (13/600 until 08.10.2026, 14/500 until the S3 rework of 21.10.2026), the one corner, no outline of its own. A tone is the colour of
-    the glyph the sentence leads with – never an edge, never a fill. What goes away **by itself**
+    the glyph the sentence leads with – never an edge, never a fill; red is a failure's only, so
+    an act still under way (the print job queued or printing) leads with a neutral glyph
+    (FEEDBACK.11, 17.11.2026). What goes away **by itself**
     shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
     mode is on shows neither. A tap on the pill itself does nothing (05.10.2026): the ✕ closes,
     the action button acts, a sideways swipe throws it away. **The toasts stand under the head, on
@@ -463,7 +474,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     amber ⚠ — never an outline (the Massstab chip wore a blue ring beside its green lamp); «open /
     armed» is a blue wash mixed into the glass. «Not yet» is GREY (29.09.2026): a plan with no
     scale and no link shows a grey lamp, never red (red = danger, act now; an unlinked plan read
-    as a picture is not an emergency). And ONE chip says it (sweep 28.10.2026 #8, owner pick «B's
+    as a picture is not an emergency). **A chip's trailing cue says its job** (duck sweep ELEM.3,
+    17.11.2026): a lamp = opens the Plan sheet, a › = goes somewhere (the object picker, a
+    building face), a ✕ = stops a mode (calibrating); a piece with no job is a READ-OUT – a
+    `<span>`, `.wb-chip-ro`: the material, regular weight, the secondary ink, no cue, no hover
+    (the Karte's «Auf dem Gerät» status beside «‹ Zurück» is one). And ONE chip says it (sweep 28.10.2026 #8, owner pick «B's
     bar + A's sheet»): the Plan's row has no Massstab or Karte pill — the Objekt chip (on the
     Gebäude: the building chip; street and number only on a phone) carries ONE lamp, the worse of
     link and scale (`planScale · planFactsTone`; an unlinked plan's grey does not drag a hand
@@ -577,7 +592,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     armed «Ja» wearing the delete look. Red never fills it (`.btn.warn`,
     `.ip-btn-danger`/`.ip-btn.danger`, `.adm-danger-btn`, `.wb-pa-del`,
     the audio player's marker row `.ap-row-del` all wear it; `.btn.warn-solid` is gone). ✕ only
-    ever closes or clears — a ✕ that deletes is a bug. The audio player's in-place editors are the
+    ever closes or clears — a ✕ that deletes is a bug. **Red is for what nothing brings back**
+    (duck sweep ELEM.11 + FEEDBACK.2, 17.11.2026): a STOP or a cancel – «■ Beenden» a
+    Präsentation, «Standort nicht mehr teilen», a print job's «Abbrechen» – is the neutral
+    `Button`, its ■ or ✕ carrying the act; an undoable removal on a choice card (an unused
+    Trupp's «Entfernen», a Geister-Spur's «Spur entfernen») is a plain answer, never `altDanger`. The audio player's in-place editors are the
     ✕ `.ip-x` + ✓ primary icon pair (36/44).
   - *Close:* every sheet/dialog ✕ IS the global `.ip-x` look (36px, 18px glyph, grey fill) and is
     named «Schliessen» (`copy.closeDialog` – the name, not the class, is what «the keyboard goes
@@ -714,7 +733,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     ranks on the same fold and puts a typo hit last.
     (6) **ⓘ toggle**: `components/InfoToggle` (`.ui-info`) — the grey 36px chip with a 44px pad;
     OPEN is `--sel-wash` + `--blue-strong` glyph (the «open/armed» look). Never the choice fill,
-    never the ink pill, never `--accent`. The tool docks keep DockInfo's ⓘ in the dock's control fill.
+    never the ink pill, never `--accent`. **Every control that opens a panel or menu wears that
+    same OPEN look and says `aria-expanded`** (duck sweep ELEM.6, 17.11.2026): Ebenen on the rail,
+    the view bar and the phone's map cluster, the Ansichten compass (the Karte phone's too), the
+    top bar's Verlauf, the Verlauf lens. The ink pill (`--here-fill`) is «where you are» only. The tool docks keep DockInfo's ⓘ in the dock's control fill.
     (7) **No hits**: one line, `.no-hits` (13/500 `--ink-faint`, centred, 20px pad, never italic),
     worded `copy.noHits` «Keine Treffer für «{q}».» while there IS a query – the Verlauf too, never
     a big `EmptyState` for a search. While only a FILTER narrows the list (no query), the line is
@@ -728,7 +750,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     `details[open]` (02-base). Never an up/down icon swap, never a text ▸, never the UA marker
     alone.
     (9) **Filter on**: an active filter button is the choice fill (`--sel`) and nothing else — no
-    dot beside it (Anwesenheit/Mittel `.iconBtnOn`, the Verlauf funnel `.jr-filter-on`).
+    dot beside it (Anwesenheit/Mittel `.iconBtnOn`, the Verlauf funnel `.jr-filter-on`). Those
+    head buttons (`SurfaceControls`) wear their WORD on every device, one rule in the component:
+    beside the glyph on a tablet, under it on a phone like a nav tile (duck sweep ELEM.13,
+    17.11.2026 – the Anwesenheit was worded on the phone only, the Mittel on the tablet only).
     (10) **One glyph, one meaning, within a thumb's reach** (29.09.2026). «Eintrag» is the journal
     pen (`lib/icons` · `#entry`, drawn inline by `EntryGlyph` on the FAB and the top bar's
     Eintrag), never «+»: «+» means Hinzufügen only (the FAB stood 60px above the tool bar's «+
@@ -792,6 +817,20 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     tick, never a box of a surface's own size. What being done MEANS stays the surface's (the
     Checkliste fades the text, the Tafel strikes the row through). Choosing ITEMS as the answer
     to a question (the Trupp's Ausrüstung) is a `Chip`, not a tick.
+    **«Done» is blue, once, everywhere** (duck sweep ELEM.2, 17.11.2026): a ticked box, the symbol
+    foot's pressed «Erledigt», a Pendenz ticked off – the choice fill, never green.
+    **A Pendenz is ticked with it on every surface** (owner, 17.11.2026, ELEM.2/ENT.5): the
+    Verlauf row that raised it, the pinned «Offene Pendenzen» block, the Tafel's «erledigt», all
+    TWO-WAY – a tap ticks (a `done` row), a tap on the ticked box reopens (a `reopened` row), both
+    on the undo timeline (`useReminders · setDone`); a row ticked in the pinned block stays there,
+    ticked, until the drawer closes, so a mis-tap is taken back where it happened. `pendenz` names
+    the open item's state and the unticked FRAME says it, the one look per state on screen and on
+    paper: amber «offen», red «überfällig», red with a drawn «!» «dringend» (the Tafel's Prio and
+    both PDFs print «!»); the legend, the filter menu and the composer's state switch draw the
+    same box (`TickBox` is its read-out). The Meldeleiste keeps its «✓ Erledigt» button – a
+    message's action. A tap on a Pendenz's WORDS opens its row's detail sheet, in the log and in
+    the block alike, and «Meldung erfassen» is one of its actions (LISTS.6); the Tafel's text is a
+    form cell, as every Tafel cell.
     `controlDebt.test.ts` is the ratchet for raw toggles, selects and search fields – and since
     17.11.2026 (LISTS.8, ELEM.15; `src/capture` included) for hand-built rows (a `…row…` class or
     a › of its own on a `<button>`), written-out `.ip-btn` buttons, native-disabled primaries and

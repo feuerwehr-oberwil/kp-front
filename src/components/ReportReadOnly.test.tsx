@@ -86,6 +86,16 @@ describe('Rapport · «Nichts verwendet» is the el’s answer too', () => {
     expect((onSaveMeta.mock.lastCall?.[0] as ReportMeta).mittelConfirmedNone).toBe(true)
   })
 
+  // the «Entfällt» model (duck sweep ELEM.9): answered, the dashed read-out and «Ändern» – no
+  // pressed toggle; «Ändern» takes the answer back
+  it('answered, reads as the dashed answer with «Ändern», which takes it back', () => {
+    const { onSaveMeta } = setup({ canEdit: true }, { mittelConfirmedNone: true })
+    expect(screen.queryByRole('button', { name: appConfig.copy.abschluss.mittelNone })).toBeNull()
+    expect(screen.getByText(appConfig.copy.abschluss.mittelNone).className).toContain('rz-none-val')
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.preflight.entfaelltUndo }))
+    expect((onSaveMeta.mock.lastCall?.[0] as ReportMeta).mittelConfirmedNone).toBeUndefined()
+  })
+
   it('reads as the answer, not a button, where the Rapport cannot be edited', () => {
     setup({ canEdit: false }, { mittelConfirmedNone: true })
     expect(screen.queryByRole('button', { name: appConfig.copy.abschluss.mittelNone })).toBeNull()

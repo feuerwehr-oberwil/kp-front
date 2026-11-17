@@ -132,11 +132,14 @@ describe('FeedbackSheet', () => {
 
   it('will not send an empty report that carries no trouble either', () => {
     render(<FeedbackSheet onClose={() => {}} />)
-    expect(next().disabled).toBe(true)
+    expect(next().getAttribute('aria-disabled')).toBe('true')
+    // …and the tap points at the field instead of being swallowed (duck sweep ELEM.4)
+    fireEvent.click(next())
+    expect(document.activeElement).toBe(document.querySelector('.fb-input'))
     // ...but a trouble makes even a wordless "yes, this happened to me" worth a report.
     cleanup()
     render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
-    expect(next().disabled).toBe(false)
+    expect(next().getAttribute('aria-disabled')).toBe('false')
   })
 
   it('starts the cooldown when closed without reporting', () => {

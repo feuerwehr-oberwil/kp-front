@@ -37,7 +37,11 @@ describe('StoreyCopySheet', () => {
   it('names the result in the button: none, one storey, several', () => {
     const onCopy = open()
     expect(button().textContent).toBe('Geschoss wählen')
-    expect((button() as HTMLButtonElement).disabled).toBe(true)
+    // nothing picked: the tap points at the storeys and copies nothing (duck sweep ELEM.4)
+    expect(button().getAttribute('aria-disabled')).toBe('true')
+    fireEvent.click(button())
+    expect(onCopy).not.toHaveBeenCalled()
+    expect(document.querySelector('.wb-copy-rows')!.classList.contains('field-flash')).toBe(true)
     fireEvent.click(screen.getByRole('checkbox', { name: /1\. OG/ }))
     expect(button().textContent).toBe('Auf 1. OG kopieren')
     fireEvent.click(screen.getByRole('checkbox', { name: /EG/ }))

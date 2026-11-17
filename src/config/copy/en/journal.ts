@@ -192,8 +192,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
 
     stripLabel: 'Timeline — tap to jump to the matching place',
     photoOpen: 'View the photo large',
-    mediaPending: 'Loading',
-    mediaFailed: 'Not loaded',
+    mediaPending: 'not synced yet',
+    mediaFailed: 'Not synced',
     quickPhrasesAria: 'Phrase snippets',
     openRemindersHead: 'Open items',
     // the ○ switch beside the Art chips — three states on one control
@@ -209,9 +209,6 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     pendenzNotOpen: 'Do not keep open',
     noteChip: 'Item',
     noteOpen: 'Add an update',
-    ageLabel: '{n}′',
-    ageLabelHours: '{n} h',
-    ageToggle: 'Switch time / age',
     openState: 'open',
     openReminderGo: 'Jump to the entry',
     pinnedWer: 'Who: {wer}',
@@ -220,6 +217,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     emptyHint: 'Note down a report, an order or a photo with «Entry».',
     attachDroppedMany: '{n} files discarded: {names}. Please pick them again.',
     sectionRemoved: 'Section deleted',
+    markOpenTitle: 'Mark as open again',
+    legendPendenzOverdue: 'Item overdue',
   },
   tafelPendenzen: {
     createdLog: 'Item from the board ({page}): {text}',

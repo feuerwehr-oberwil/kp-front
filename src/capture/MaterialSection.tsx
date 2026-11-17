@@ -55,17 +55,24 @@ export function MaterialSection({
           stepDone). Without it the Material chip in the «noch offen» list could not be
           cleared from this page at all: an Einsatz where nothing was used is a legitimate
           rapport, but only once somebody has SAID so.
-          A CHOICE, not a yes/no switch (28.09.2026): it is the «none of these» answer to
-          the list under it and goes away with the first line, so it keeps ONE text and
-          shows «picked» by its fill – it used to grow a «✓» into its label, a chip whose
-          words flipped (docs/ui-conventions.md · Editor sheets: one control per kind of question). */}
-      {lines.length === 0 && (
-        <button type="button" className={`ip-btn cv-none${rm?.mittelConfirmedNone ? ' on' : ''}`} disabled={busy}
-          aria-pressed={!!rm?.mittelConfirmedNone}
-          onClick={() => { void run({ kind: 'setMeta', patch: { mittelConfirmedNone: !rm?.mittelConfirmedNone } }) }}>
+          The «Entfällt» model, as on the tablet's Rapport (owner, duck sweep ELEM.9,
+          17.11.2026): a button that SETS the answer; answered, the dashed read-out and
+          «Ändern» (docs/ui-conventions.md · Editor sheets: «none»). It goes away with the
+          first line, which answers the step instead. */}
+      {lines.length === 0 && (rm?.mittelConfirmedNone ? (
+        <div className="rz-none cv-none">
+          <span className="rz-none-val">{AB.mittelNone}</span>
+          <button type="button" className="ip-btn" disabled={busy}
+            onClick={() => { void run({ kind: 'setMeta', patch: { mittelConfirmedNone: false } }) }}>
+            {appConfig.copy.preflight.entfaelltUndo}
+          </button>
+        </div>
+      ) : (
+        <button type="button" className="ip-btn cv-none" disabled={busy}
+          onClick={() => { void run({ kind: 'setMeta', patch: { mittelConfirmedNone: true } }) }}>
           {AB.mittelNone}
         </button>
-      )}
+      ))}
       {shownGroups.map(([cat, items]) => (
         <div key={cat || '_'} className="cv-matgroup">
           {cat && <div className="cv-matgroup-head">{cat}</div>}

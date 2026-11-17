@@ -16,20 +16,14 @@ import { useToastLane } from './toastLane'
 // module store; mount <Overlays/> once at the app root.
 
 type Tone = 'default' | 'warn' | 'success'
-/** How a tone is shown. `edge` keeps the neutral ink pill every other status shares and puts the
- * colour on the leading edge and the icons; `fill` paints the whole pill. A failure (`warn`) is an
- * EDGE by default since 23.09.2026: a saturated red pill for «Synchronisierung fehlgeschlagen» —
- * changes that are safe on the device — read as an alarm, and the app has real alarms (the
- * Atemschutz clock, the Meldeleiste) that must keep that register to themselves. The live print
- * job wore the edge first, for the same reason. `success` stays a fill: it is short and calm.
- * (The Meldeleiste's rows wore the same edge until 29.09.2026; there the glyph alone carries the tone now.) */
-type ToneStyle = 'fill' | 'edge'
-const defaultToneStyle = (tone: Tone): ToneStyle => (tone === 'warn' ? 'edge' : 'fill')
-/** Is this toast a FAILURE, as opposed to a live status that wears the warn edge? A step chain is
- *  a job still under way (the print pill while queued/printing — lib/printJobToast); its own
- *  failure drops the chain. Only a failure gets the red trace in the pill (08-toasts.css ·
- *  `.toast-fail`): a job queued for 90 s is not a failure and must not look like one. */
-const isFailure = (t: { tone: Tone; steps?: ToastStep[] }) => t.tone === 'warn' && !t.steps?.length
+/** Is this toast a FAILURE? A `warn` toast is one, and only a failure gets the red trace in the
+ *  pill (08-toasts.css · `.toast-fail`) and the red leading glyph. A job still under way (the
+ *  print pill while queued/printing — lib/printJobToast) is a `default` tone with a neutral glyph,
+ *  red only on its failure step (duck sweep FEEDBACK.11, 17.11.2026: a red printer glyph for the
+ *  90 s an Epson warms up read as «Druck fehlgeschlagen»). The `toneStyle` edge/fill switch that
+ *  stood here went the same day: no CSS had styled its `toast-edge` class since the Meldeleiste
+ *  dropped its edge (29.09.2026). */
+const isFailure = (t: { tone: Tone }) => t.tone === 'warn'
 export interface ToastAction { label: string; onClick: () => void }
 /** One stage of a multi-step toast (the live print job). `icon` omitted = an unreached step,
  * drawn as a dim pip; `printer` is the animated «paper coming out» glyph. */
@@ -41,7 +35,7 @@ export interface ToastStep {
 /** How long a toast that goes away by itself has, for the line that runs out along its foot
  *  (08-toasts.css · .toast-life). `key` restarts that line when updateToast resets the clock. */
 interface ToastLife { ms: number; key: number }
-interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle: ToneStyle; action?: ToastAction; steps?: ToastStep[]; onDismiss?: () => void; leaving?: boolean; life?: ToastLife; kind?: string }
+interface Toast { id: number; text: string; icon?: string; tone: Tone; action?: ToastAction; steps?: ToastStep[]; onDismiss?: () => void; leaving?: boolean; life?: ToastLife; kind?: string }
 /** A confirm that is on screen and waiting for its answer — the shared `ConfirmSpec` plus what
  *  only the pending state needs: which request it is, and the promise to settle. */
 interface ConfirmReq extends ConfirmSpec {
@@ -113,7 +107,7 @@ export const MAX_TOASTS = 3
  *  one tap back. A success the screen already shows, a standing state, a refusal inside an open
  *  form and background news are never a toast. What can fire again (per tap, per sync event)
  *  carries a `kind`. */
-export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[]; onDismiss?: () => void; kind?: string }): number {
+export function toast(text: string, opts?: { icon?: string; tone?: Tone; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[]; onDismiss?: () => void; kind?: string }): number {
   if (toastsMuted) return seq++
   // `kind`: a toast of the same kind still on screen is REPLACED, not stacked under the new one
   // (3am test r4, 26.09.2026: three «+ OG» taps stacked three identical pills over the stack's
@@ -127,7 +121,7 @@ export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneSty
   // sticky toasts stay until updateToast/dismissToast decides (live status, a mode's instruction).
   // Otherwise an action (e.g. confirm-with-undo) needs time to be seen and tapped.
   const ms = opts?.sticky ? undefined : opts?.duration ?? defaultToastDuration(text, !!opts?.action)
-  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action, steps: opts?.steps, onDismiss: opts?.onDismiss, life: ms ? { ms, key: seq++ } : undefined, kind: opts?.kind }]
+  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', action: opts?.action, steps: opts?.steps, onDismiss: opts?.onDismiss, life: ms ? { ms, key: seq++ } : undefined, kind: opts?.kind }]
   emit()
   if (ms) scheduleDismiss(id, ms)
   return id
@@ -182,11 +176,11 @@ export function undoToast(text: string, onUndo: () => void, guard?: readonly Rec
 
 /** Patch a live toast in place (text/icon/tone/action). Pass `duration` to auto-dismiss it
  * (e.g. once the job reaches done/failed); omit to keep it sticky. Unknown id = no-op. */
-export function updateToast(id: number, text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction | null; steps?: ToastStep[] | null }) {
+export function updateToast(id: number, text: string, opts?: { icon?: string; tone?: Tone; duration?: number; action?: ToastAction | null; steps?: ToastStep[] | null }) {
   const cur = toasts.find((t) => t.id === id)
   if (!cur || cur.leaving) return
   toasts = toasts.map((t) => t.id === id
-    ? { ...t, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action ?? undefined, steps: opts?.steps ?? undefined,
+    ? { ...t, text, icon: opts?.icon, tone: opts?.tone ?? 'default', action: opts?.action ?? undefined, steps: opts?.steps ?? undefined,
         // a new clock is a new line; no clock keeps whatever the toast already had
         life: opts?.duration ? { ms: opts.duration, key: seq++ } : t.life }
     : t)
@@ -417,7 +411,7 @@ function ToastRow({ t }: { t: Toast }) {
 
   return (
     <div
-      className={`toast toast-${t.tone}${t.toneStyle === 'edge' ? ' toast-edge' : ''}${isFailure(t) ? ' toast-fail' : ''}${t.leaving ? ' out' : ''}`}
+      className={`toast toast-${t.tone}${isFailure(t) ? ' toast-fail' : ''}${t.leaving ? ' out' : ''}`}
       style={dx ? {
         transform: `translateX(${dx}px)`,
         opacity: flung ? 0 : Math.max(.25, 1 - Math.abs(dx) / (FLICK * 2)),

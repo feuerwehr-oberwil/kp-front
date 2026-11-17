@@ -307,3 +307,6 @@ button.sumToggle:active { background-image: linear-gradient(var(--press), var(--
    needs an eye — Mängel, photos on the way, a draft) */
 .numDone { background: var(--green-16); color: var(--green-strong); }
 .numDone :global(.i), .numDone svg { width: 14px; height: 14px; }
+/* the current pick in a pick-one sheet (Checkliste wechseln): the trailing ✓ in the choice blue (duck sweep LISTS.9) */
+.pickTick { display: grid; place-items: center; width: 20px; height: 20px; color: var(--sel); }
+.pickTick :global(.i) { width: 18px; height: 18px; }

@@ -26,7 +26,7 @@ Rules that span modules live here; each module's header says what it owns.
   must never be a dead end.
 - **Presenter pill** (bottom centre): «Du präsentierst · N folgen · avatars · Zeigen · Beenden».
   On a phone (owner pick 5B, 14.11.2026 – «Du präsentier» was cut on a 390px iPhone) the own
-  avatar goes and «Beenden» is the red ■ square (its name in `aria-label`/`title`); «Zeigen»
+  avatar goes and «Beenden» is the neutral ■ square (a stop, not a delete – duck sweep ELEM.11) (its name in `aria-label`/`title`); «Zeigen»
   keeps its word, the followers' avatars stay. Both text lines ellipsize as the last resort, on
   every pill.
 - **Everyone else**: «<Name> präsentiert · Folgen». The pill becomes «Folgst <Name> · Zeigen · ✕».

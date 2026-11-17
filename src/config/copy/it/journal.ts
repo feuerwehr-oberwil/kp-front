@@ -169,8 +169,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
 
     stripLabel: 'Linea del tempo – tocca per saltare al punto corrispondente',
     photoOpen: 'Vedi la foto in grande',
-    mediaPending: 'Caricamento',
-    mediaFailed: 'Non caricato',
+    mediaPending: 'non ancora sincronizzato',
+    mediaFailed: 'Non sincronizzato',
     attendanceConflict: 'Presenza {name}: {what} – controlla.',
     // ⚠️ Frammenti, non frasi: uniti con « · » e inseriti in {what} qui sopra, che ha già scritto
     // «Presenza {name}: ». Ciò che quella riga dice già non si ripete qui.
@@ -208,9 +208,6 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     pendenzNotOpen: 'Non tenere aperta',
     noteChip: 'Pendenza',
     noteOpen: 'Registrare una segnalazione',
-    ageLabel: '{n}′',
-    ageLabelHours: '{n} h',
-    ageToggle: 'Alterna ora / età',
     openState: 'aperto',
     openReminderGo: 'Vai alla voce',
     pinnedWer: 'Chi: {wer}',
@@ -219,6 +216,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     emptyHint: 'Con «Voce» annotare un messaggio, un ordine o una foto.',
     attachDroppedMany: '{n} file scartati: {names}. Selezionarli di nuovo.',
     sectionRemoved: 'Sezione eliminata',
+    markOpenTitle: 'Segna di nuovo come aperto',
+    legendPendenzOverdue: 'Pendenza scaduta',
   },
   tafelPendenzen: {
     createdLog: 'Pendenza dalla lavagna ({page}): {text}',

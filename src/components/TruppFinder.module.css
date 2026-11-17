@@ -27,8 +27,10 @@
 
 .list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 8px; }
 /* the rows are THE ListRow (LISTS.8, 17.11.2026); what this card adds is the keyboard cursor – the
-   row's own hover wash, so the pointer and the arrow keys show one state – and «raus» receding */
-.rowOn:not(:disabled) { background-color: var(--fill-soft); }
+   menu row's highlight wash (13-incident · «ONE menu row»: --blue at 8 %), never a lifted card: a
+   list you pick from highlights like a menu (LISTS.9); the pointer moves that same cursor
+   (onMouseEnter), so the pointer and the arrow keys show one state – and «raus» receding */
+.rowOn:not(:disabled) { background-color: var(--blue-8); }
 .rowRaus { opacity: var(--done-opacity); }
 .cap { display: block; width: 6px; height: 28px; border-radius: 3px; }
 .tags { display: flex; gap: var(--sp-1); }

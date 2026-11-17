@@ -311,10 +311,14 @@
 /* skin only — radius + hover/press ride on `.ui-menu-item` (13-incident.css · «ONE menu row») */
 .de-menu-item { display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap);
   padding: 0 12px; cursor: pointer; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); outline: none; }
-/* the tick marks the current pick; the empty slot keeps every label on the same left edge */
-.de-menu-tick { flex: none; width: 15px; height: 15px; visibility: hidden; color: var(--blue); }
+/* the tick marks the current pick at the row's END, as the Menu radio's (13-incident ·
+   .ui-menu-radio; duck sweep ELEM.7): the leading slot is the pick-several checkbox's */
+.de-menu-tick { flex: none; width: 16px; height: 16px; margin-left: auto; visibility: hidden; color: var(--sel); }
 .de-menu-tick.on { visibility: visible; }
 .de-menu-tick svg { width: 100%; height: 100%; }
+/* an action row's leading glyph in a pick menu («+ Neuer Trupp», TwinTeamPill) */
+.de-menu-lead { flex: none; display: grid; place-items: center; width: 16px; height: 16px; color: var(--ink-dim); }
+.de-menu-lead svg { width: 100%; height: 100%; }
 /* the FKS letter before a line «Typ» (DrawEditor · MenuPick badge), on the trigger and in the menu */
 .de-menu-badge { flex: none; display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 4px;
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); color: var(--ink-dim);

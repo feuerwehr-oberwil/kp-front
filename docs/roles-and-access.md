@@ -35,7 +35,9 @@ wording unchanged.
   the Lage and the Plan alike a locked session SELECTS every object (a Linie, Fläche or
   Absperrkreis on the Plan too – never dragged) and reads its panel: a Form its figures, a
   Leitung its Inhalt, Stockwerk, Leitung-Nr. and Trupp, a live vehicle its Fahrer, a
-  Gefahrentafel its Schutzabstand, a symbol its Beschriftung – read-outs, not faded controls. It
+  Gefahrentafel its Schutzabstand, a symbol its Beschriftung, Geschoss von/bis, Anzahl, Drehung
+  (the shared `Stepper`'s `readOnly` draws the value alone) and its Ausbreitung (the lit arrows as
+  glyphs, duck sweep FEEDBACK.5) – read-outs, not faded controls. It
   gets no rotate/resize handle, no ghost-trail «Spur löschen» (the label is a read-out), no vehicle
   «GPS» / «Hier festhalten» / Fahrer edit (the Führungsansicht included); a Trupp marker keeps
   «Im Atemschutz zeigen» and «Spur ein/aus», which change nothing shared. A Tafel page's Tendenz

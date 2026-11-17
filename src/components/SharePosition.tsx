@@ -167,7 +167,8 @@ export function SharePositionPill({ share, onChangeName }: { share: ShareApi; on
               <p className={s.note}>{fillTemplate(C.lastAt, { t: formatTime(new Date(share.lastAt), true) })}</p>
             )}
             <div className={s.actions}>
-              <Button variant="danger" onClick={() => { setOpen(false); share.stop() }}>
+              {/* a stop, not a delete – neutral (duck sweep ELEM.11) */}
+              <Button onClick={() => { setOpen(false); share.stop() }}>
                 {C.stop}
               </Button>
               <Button onClick={() => { setOpen(false); onChangeName(() => setOpen(true)) }}>

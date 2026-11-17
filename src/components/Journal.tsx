@@ -17,6 +17,8 @@ import { journalDisc, withoutAreaPrefix } from '../lib/report'
 import { journalQuery, matchesJournalQuery } from '../lib/journalSearch'
 import { journalCategories, journalFacets, matchesJournalCategories, showsPinnedPendenzen, type JournalCategoryKind } from '../lib/journalFilter'
 import { openReRaises, type OpenReminder } from '../lib/reminders'
+import { pinnedWithTicked, type TickedHere } from '../lib/pinnedPendenzen'
+import { TickBox, TickRow } from './TickRow'
 import { cardinalIndex, fmtDistance, takenClock, type PhotoPlacement } from '../lib/photoGeo'
 
 /** HH:MM of an ISO instant — the Pendenzen block's time column and its Meldung lines. */
@@ -29,14 +31,6 @@ function rowClock(iso: string): string {
  *  crossed midnight raised half its Pendenzen «yesterday», and a bare «23:43» above «00:40»
  *  read as the newer one (staging review 06.11.2026, S5). */
 const rowDay = (iso: string, nowMs: number) => otherDay(new Date(iso), new Date(nowMs))
-
-/** «54′» / «3 h» (copy.journal.ageLabel) — the other half of the time column, one tap away. */
-function ageLabel(iso: string, nowMs: number, C: typeof appConfig.copy.journal): string {
-  const t = Date.parse(iso)
-  if (!Number.isFinite(t)) return '–'
-  const mins = Math.max(0, Math.round((nowMs - t) / 60_000))
-  return mins < 90 ? C.ageLabel.replace('{n}', String(mins)) : C.ageLabelHours.replace('{n}', String(Math.round(mins / 60)))
-}
 
 // One <audio> for the whole drawer: play toggles, a second tap pauses, and the row that
 // is sounding shows a pause icon + a "playing" pulse so it's obvious what's playing.
@@ -80,6 +74,7 @@ function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'pla
     { ...ART_DISC.sofort, label: C.entryTypes.sofort },
     { ring: 'open', label: C.legendPendenzOpen },
     { ring: 'urgent', label: C.legendPendenzUrgent },
+    { ring: 'overdue', label: C.legendPendenzOverdue },
     { ring: 'done', label: C.legendPendenzDone },
   ]
 }
@@ -115,8 +110,9 @@ export type JournalProps = {
   /** still-open reminders (by derived state) — lets a `created` row show its due time
    *  and a checklist-style done toggle. Absent ⇒ reminder rows render as plain log lines. */
   openReminders?: OpenReminder[]
-  /** mark a reminder done preemptively from its Verlauf row (appends a done event). */
-  onReminderDone?: (r: OpenReminder) => void
+  /** tick a Pendenz off (`done`) or take the tick back (`!done`) from the Verlauf – its row or
+   *  the pinned block; each appends a row (useReminders · setDone). Absent ⇒ read-out boxes. */
+  onReminderTick?: (r: Pick<OpenReminder, 'id' | 'text' | 'dueAt'>, done: boolean) => void
   /** write a Meldung on an open item — opens the ordinary composer pre-linked to it. */
   onReminderNote?: (r: OpenReminder) => void
   /** «wieder in …»: re-raise a CLOSED item as a fresh timed Wiedervorlage (new id, same
@@ -165,7 +161,7 @@ export type JournalProps = {
 // happens on either surface. Rendered as a slide-over so it can open over the
 // map or the plan; a row jumps back to wherever its event happened. Each row is
 // a <JournalRow>; the row's detail sheet is rendered here, at the bottom.
-export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderDone, onReminderNote, onReminderAgain, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice, photoPlacement, onPhotoPlace, onPhotoShow, onOpenTafel }: JournalProps) {
+export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice, photoPlacement, onPhotoPlace, onPhotoShow, onOpenTafel }: JournalProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.journal
   const audio = useAudioPlayer()
@@ -186,14 +182,14 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
     events.filter((e) => e.reminder?.op === 'created').map((e) => [e.reminder!.id, e.id] as const),
   ), [events])
   const [now] = useState(() => Date.now())
-  // Whether the Pendenzen box's time column shows the clock or the age. Per-opening (the drawer
-  // remounts on each open) — a reading preference for the minute you are in, not a setting.
+  // Pendenzen ticked off in the pinned block during THIS opening: they stay in it, ticked, until
+  // the drawer closes, so a mis-tap is taken back where it happened (lib/pinnedPendenzen).
   // ⚠️ EVERY open item is rendered, and nothing measures whether they fit any more. The box is a
   // scroll container of its own (see `.jr-pinned`), so the eleventh item is reached by the same
   // flick as the second. The cap-and-«Aufklappen» pair this replaces existed only because the
   // block used to be sticky INSIDE the log, where it could not scroll itself.
-  const [showAge, setShowAge] = useState(false)
-  // the icon legend. Per-opening like `showAge`, and closed to begin with — see the button.
+  const [tickedHere, setTickedHere] = useState<ReadonlyMap<string, TickedHere>>(() => new Map())
+  // the icon legend. Per-opening, and closed to begin with — see the button.
   const [showLegend, setShowLegend] = useState(false)
   // ── the search (mock verlauf-02, 14.09.) ──
   // `null` = closed; a string (even '') = the field has REPLACED the head row. Per-opening like
@@ -546,7 +542,19 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
   // screen and the list on paper start disagreeing about what is most urgent.
   // …and HIDDEN while a filter is on that does not tick «Pendenz» (lib/journalFilter ·
   // showsPinnedPendenzen): the box is part of what the ticks narrow.
-  const pinnedReminders = showsPinnedPendenzen(filterSel) ? openReminders ?? [] : []
+  const pinnedOpen = showsPinnedPendenzen(filterSel) ? openReminders ?? [] : []
+  const pinnedReminders = pinnedOpen.length || tickedHere.size ? pinnedWithTicked(pinnedOpen, showsPinnedPendenzen(filterSel) ? tickedHere : new Map()) : pinnedOpen
+  /** the pinned box's tick: off (and the row stays, ticked) or back on */
+  const tickPinned = (r: OpenReminder, i: number, done: boolean) => {
+    if (!onReminderTick) return
+    onReminderTick(r, done)
+    setTickedHere((m) => {
+      const next = new Map(m)
+      if (done) next.set(r.id, { r, after: i > 0 ? pinnedReminders[i - 1].id : null })
+      else next.delete(r.id)
+      return next
+    })
+  }
   // How many Pendenzen lie wholly or partly below the box's fold — its foot cue «3 weitere ⌄»
   // (`.jr-pinned[data-more]`, lib/verlauf · pendenzenBelow; 0 = at the end, no strip). iOS hides
   // an idle scrollbar, so without it a box cut between two rows reads as complete. A callback ref, because the box mounts inside the Overlay's portal
@@ -681,7 +689,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
               explains discs the search is about to hide most of */}
           <button
             type="button" className={`journal-legend-btn${searching ? ' on' : ''}`}
-            title={searching ? C.searchClose : C.search} aria-label={searching ? C.searchClose : C.search} aria-pressed={searching}
+            title={searching ? C.searchClose : C.search} aria-label={searching ? C.searchClose : C.search} aria-expanded={searching}
             onClick={() => { if (searching) { setSearch(null); return } holdHeight(); setShowLegend(false); setSearch('') }}
           ><Icon id="search" /></button>
           {/* the funnel (feat 37 · B): an active filter is the blue CHOICE fill and nothing else
@@ -824,39 +832,37 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
           <div className="jr-pinned" ref={watchPinned} data-more={pinnedBelow > 0 || undefined}>
             <div className="jr-pinned-head">
               <Icon id="pendenzen" /><span>{C.openRemindersHead}</span>
-              <b>{C.openCount.replace('{n}', String(pinnedReminders.length))}</b>
+              <b>{C.openCount.replace('{n}', String(pinnedOpen.length))}</b>
             </div>
-            {pinnedReminders.map((r) => {
+            {pinnedReminders.map((r, i) => {
               // ⚠️ The time column says WHEN IT WAS RAISED, for every row, always. It used to
               // say «fällig 22:10 / überfällig», which only a timed Erinnerung can answer — an
               // Auftrag has no Fälligkeit, because nobody checks in on a Schadenplatz. What is
               // actually being asked here is «seit wann läuft das», and the sort order (oldest
-              // first) already answers it positionally; tapping swaps the column to the age for
-              // the times the clock stops answering it. Überfällig stays the banner's business.
-              const dueLater = r.dueAt && Date.parse(r.dueAt) > now
+              // first) already answers it positionally. A timed one past its Fälligkeit says so
+              // at the row's end, in the red its box wears (ENT.5).
+              // (A tap on the clock swapped it for the age until 17.11.2026 – a hidden toggle,
+              // duck sweep LISTS.6; the clock stays.)
+              const done = !openMap.has(r.id)
+              const overdue = !done && !!r.dueAt && Date.parse(r.dueAt) <= now
+              const dueLater = !done && r.dueAt && !overdue
               // …and on another day than today, the day under the clock (rowDay)
               const raisedDay = rowDay(r.createdAt, now)
               return (
-                <div key={r.id} className={`jr-pinned-row ${r.urgent ? 'urgent' : ''}`}>
-                  <button
-                    type="button" className="jr-when"
-                    title={C.ageToggle} aria-label={C.ageToggle}
-                    onClick={() => setShowAge((v) => !v)}
-                  >{showAge ? ageLabel(r.createdAt, now, C) : <>{rowClock(r.createdAt)}{raisedDay && <small>{raisedDay}</small>}</>}</button>
-                  {/* ⚠️ The ring sits in the VERLAUF'S ICON SLOT, before the text, not out at the
+                <div key={r.id} className={`jr-pinned-row${done ? ' done' : ''}`}>
+                  <span className="jr-when">{rowClock(r.createdAt)}{raisedDay && <small>{raisedDay}</small>}</span>
+                  {/* ⚠️ The box sits in the VERLAUF'S ICON SLOT, before the text, not out at the
                       right margin. Two things come of it: the item's text starts on exactly the
                       same axis as every line in the log below, so the block reads as the same
-                      list filtered rather than as a separate component — and the ring IS this
-                      row's icon, which is what a checklist circle has always been. */}
+                      list filtered rather than as a separate component — and the box IS this
+                      row's icon, the Pendenz tick box of every surface (TickRow · `pendenz`). */}
                   {/* …a control only where there is a hand to tick it off: a session without one (a
-                      viewer, a link) gets the same ring as a read-out, like the log row's (Disc) */}
-                  {onReminderDone ? (
-                    <button
-                      type="button" className="jr-rem"
-                      title={C.markDoneTitle} aria-label={C.markDoneTitle}
-                      onClick={() => onReminderDone(r)}
-                    ><span className="jr-rem-box"><Icon id="check" /></span></button>
-                  ) : <span className="jr-rem" aria-hidden><span className="jr-rem-box" /></span>}
+                      viewer, a link) gets the same box as a read-out, like the log row's (Disc) */}
+                  {onReminderTick ? (
+                    <TickRow className="jr-pin-tick" checked={done} pendenz={r.urgent ? 'urgent' : overdue ? 'overdue' : 'open'}
+                      title={done ? C.markOpenTitle : C.markDoneTitle} aria-label={done ? C.markOpenTitle : C.markDoneTitle}
+                      onToggle={() => tickPinned(r, i, !done)} />
+                  ) : <span className="jr-pin-tick"><TickBox checked={done} pendenz={r.urgent ? 'urgent' : overdue ? 'overdue' : 'open'} /></span>}
                   {/* ⚠️ The Meldungen are SIBLINGS of the button, not children of it. Inside it
                       they rendered outside its box: a <button> is a replaced-ish element whose
                       height does not follow block children the way a div's does, so a row with
@@ -864,12 +870,10 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                       over them. The button stays a button — one line, one action — and the
                       thread hangs under it in an ordinary div. */}
                   <div className="jr-pinned-body">
-                    {onReminderNote ? (
-                      <button
-                        type="button" className="jr-pinned-text"
-                        title={C.noteOpen} aria-label={C.noteOpen}
-                        onClick={() => onReminderNote(r)}
-                      >{r.text}</button>
+                    {/* the item's words open its row's detail sheet, as the row in the log does
+                        (duck sweep LISTS.6) – «Meldung erfassen» is one of the sheet's actions */}
+                    {events.some((x) => x.id === r.rowId) ? (
+                      <button type="button" className="jr-pinned-text" onClick={() => setDetailId(r.rowId)}>{r.text}</button>
                     ) : <span className="jr-pinned-text">{r.text}</span>}
                     {/* who it is for, and — typed on the Tafel's «Aufträge / Pendenzen» page — that
                         it came from there, a tap opening that page (mock 6A, Verlauf side) */}
@@ -899,8 +903,8 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                       time column says when the item was RAISED, so the two are never the same
                       number. `dueClock` adds «· morgen» where the Fälligkeit fell to the next
                       day, which is exactly the case a bare «06:30» reads as long overdue. */}
-                  {dueLater && (
-                    <span className="jr-pinned-alarm" title={C.dueAtLabel.replace('{t}', dueClock(r.dueAt!))}>
+                  {(dueLater || overdue) && (
+                    <span className={`jr-pinned-alarm${overdue ? ' overdue' : ''}`} title={overdue ? C.overdueLabel : C.dueAtLabel.replace('{t}', dueClock(r.dueAt!))}>
                       <Icon id="bell" /><b>{dueClock(r.dueAt!)}</b>
                     </span>
                   )}
@@ -943,7 +947,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                   saveTranscript={saveTranscript} saveRowText={saveRowText}
                   marked={marked} jumpToRow={jumpToRow} onOpenDetail={setDetailId}
                   onSelect={onSelect} onSeekTo={onSeekTo} onTranscript={onTranscript} onEditText={onEditText}
-                  onOpenPlayer={onOpenPlayer} onReminderDone={onReminderDone} onReminderAgain={onReminderAgain}
+                  onOpenPlayer={onOpenPlayer} onReminderTick={onReminderTick} onReminderNote={onReminderNote} onReminderAgain={onReminderAgain}
                   mediaStatusOf={mediaStatusOf}
                 />
               ))}
@@ -962,6 +966,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
           const e = events.find((x) => x.id === detailId)
           if (!e) return null
           const hasTx = !!e.transcript || !!e.transcriptSections?.length
+          const openPendenz = e.reminder?.op === 'created' ? openMap.get(e.reminder.id) : undefined
           const target = rowTarget(e, live)
           const photos = rowPhotos(e)
           const G = appConfig.copy.photoGeo
@@ -1076,6 +1081,13 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                 </dl>
               )}
               <div className="jr-detail-acts">
+                {/* an open Pendenz: a Meldung on it, the act its pinned row's tap used to be */}
+                {openPendenz && onReminderNote && (
+                  <Button block icon={<Icon id="entry" />}
+                    onClick={() => { setDetailId(null); onReminderNote(openPendenz) }}>
+                    {C.noteOpen}
+                  </Button>
+                )}
                 {e.audioUrl && e.audioMeta && onOpenPlayer && (
                   <Button block icon={<Icon id="wave" />}
                     onClick={() => { setDetailId(null); onOpenPlayer(e) }}>

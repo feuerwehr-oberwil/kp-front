@@ -69,6 +69,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       saveAll: 'Pour tous les plans',
       saveThis: 'Ce plan seulement',
       saveFailed: 'Échelle non enregistrée par défaut – réessayer',
+      calibrateStop: 'Terminer l’étalonnage',
     },
     georef: {
       chipLinked: 'lié',
@@ -188,8 +189,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     trailCleared: '{name} : trace retirée',
     markerTrailRemoved: '{name} et trace retirés',
     trails: 'Traces',
-    trailsOn: 'Afficher les traces',
-    trailsOff: 'Masquer les traces',
     ghostTrailHint: 'Trace de {name} – le marqueur a été supprimé',
     ghostTrailTitle: "Trace de {name}",
     ghostTrailAsk: "Le marqueur a été supprimé, sa trace est restée. Replacer l’équipe à la fin de la trace – ou retirer la trace ?",

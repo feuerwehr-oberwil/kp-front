@@ -2,6 +2,7 @@ import { ShellLoader } from './ShellLoader'
 import { Button } from './Button'
 import { Chip } from './Chip'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { pointAtField } from '../lib/pointAtField'
 import { useIsPhone } from '../lib/useIsPhone'
 import { Icon } from '../lib/icons'
 import { Menu, Overlay } from '../lib/overlays'
@@ -254,6 +255,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // opens on; null = closed. Anchored to the clock button, which `dueWrapRef` holds.
   const [exact, setExact] = useState<{ day: string; hhmm: string; anchor: DOMRect } | null>(null)
   const dueWrapRef = useRef<HTMLSpanElement>(null)
+  /** the imported memo's «Startzeit» row – what a blocked «Erfassen» points at */
+  const importStartRef = useRef<HTMLDivElement>(null)
   // ── the ○ switch: aus → offen → dringend → aus ────────────────────────────────────────────
   // ⚠️ THREE states on ONE control, not a second chip appearing beside it. A chip that shows up
   // on tap pushes the row onto a second line — the sheet grows under the thumb on the one surface
@@ -1222,7 +1225,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 </span>
                 <button className="jc-clip-x" title={C.audioDiscardImport} aria-label={C.audioDiscardImport} onClick={discardImport}><Icon id="close" /></button>
               </div>
-              <div className="jc-import-start">
+              <div className="jc-import-start" ref={importStartRef}>
                 <span className="jc-due-label">{C.audioStartLabel}</span>
                 {/* THE time field (TimeField · WheelPopover), not a stepper of its own: the same wheels
                     and typed field as every other clock in the app. Committing it counts as the
@@ -1272,7 +1275,13 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             that must never share a row with anything else. It stands BELOW the scroller, pinned
             like every sheet's footer: on a short screen the rows scroll, the send never does. */}
         <div className="jc-foot">
-          <Button variant="primary" block disabled={!canSend || uploading || locating} onClick={submit}
+          {/* `aria-disabled` while it waits on input (ui-conventions · F2, duck sweep ELEM.4): the tap
+              points at what is missing – an imported memo's start time, else the text – instead of
+              being swallowed. Only a save in flight (upload, position) is natively disabled. */}
+          <Button variant="primary" block aria-disabled={!canSend} disabled={uploading || locating}
+            onClick={canSend ? submit : () => (imported
+              ? pointAtField(importStartRef.current)
+              : pointAtField(textRef.current, { focus: textRef.current }))}
             icon={uploading || locating ? <ShellLoader /> : <Icon id="check" />}>
             {uploading ? C.audioUploading : locating ? C.photoLocating : C.send}
           </Button>

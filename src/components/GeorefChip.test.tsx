@@ -179,9 +179,10 @@ describe('the Plan sheet behind the Objekt chip', () => {
     expect(fact(/^Massstab: nicht kalibriert/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Massstab kalibrieren' }))
     expect(screen.queryByRole('group', { name: 'Plan · Modul 2' })).toBeNull()
-    const instrument = screen.getByRole('button', { name: 'Zwei Punkte des Massstabs antippen' })
+    // the instrument says what to do AND that a tap stops it (ELEM.3)
+    const instrument = screen.getByRole('button', { name: 'Zwei Punkte des Massstabs antippen – Kalibrieren beenden' })
     fireEvent.click(instrument)
-    expect(screen.queryByRole('button', { name: 'Zwei Punkte des Massstabs antippen' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Zwei Punkte des Massstabs antippen/ })).toBeNull()
     expect(objectChip()).toBeTruthy()
   })
 
