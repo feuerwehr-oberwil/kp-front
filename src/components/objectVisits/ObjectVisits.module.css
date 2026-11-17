@@ -168,15 +168,9 @@
 .linked .thumb { width: 56px; }
 .hiddenInput { display: none; }
 
-/* ── the add button (the ONE «add» look: framed, --tap, ink 14/700) ── */
-.add {
-  display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap); padding: 0 var(--sp-4);
-  border: none; background: none; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); cursor: pointer; text-align: left;
-}
-.add :global(.i), .add svg { width: 16px; height: 16px; }
-.add:active { background-image: linear-gradient(var(--press), var(--press)); }
-/* under the rows of a ListCard (Korrekturvorschläge): the rows' hairline above it */
-:global(.list-row) + .add { box-shadow: inset 0 1px 0 var(--border-soft); }
+/* ── the add button: THE button (<Button>, the ONE «add» look: framed «+ word», --tap, ink 14/700 –
+   button sweep SHEETS.10, 17.11.2026); this only places it under its card ── */
+.add { margin-top: var(--sp-2); }
 
 /* ── a sheet's body bits ── */
 .preview { width: 100%; aspect-ratio: 4 / 3; border-radius: var(--r-sm); overflow: hidden; background: var(--fill-soft); }

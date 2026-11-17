@@ -1628,7 +1628,7 @@ export function AtemschutzView({
                  is the one a first-timer taps. On the handed-over phone board «+ Trupp» is the
                  bottom rail's own cell, so it is not repeated here. The whole «Trupp anmelden»
                  (newTrupp): `start` is the form's one-verb footer since 27.09.2026. */
-              <Button variant="primary" size="lg" icon={<Icon id="plus-bold" />} onClick={() => openForm('create')}>
+              <Button variant="primary" size="lg" icon={<Icon id="plus" />} onClick={() => openForm('create')}>
                 {az.newTrupp}
               </Button>
             )} />

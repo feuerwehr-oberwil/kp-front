@@ -60,7 +60,7 @@ export const incidentCopy = {
     // Kurzformen für die Aktionen IN der Karte des aktiven Einsatzes: die Karte nennt den
     // Einsatz schon in der Titelzeile, das Wort davor wäre dreimal dasselbe. Die vollen
     // Beschriftungen bleiben als title/aria-label an den Knöpfen.
-    editMetaShort: 'Bearbeiten',
+    editMetaShort: 'Ändern',
     archiveShort: 'Abschliessen',
     // der Zähler schon im Menü, damit die Prüfung sichtbar ist, bevor jemand drückt
     archiveOpen: '{n} offen',

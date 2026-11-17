@@ -534,7 +534,7 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
                   />
                 </div>
                 {/* a tap with nothing typed points at the line (ui-conventions · F2, duck sweep ELEM.4) */}
-                <Button variant="primary" aria-disabled={!text.trim()} icon={<Icon id="check" />}
+                <Button variant="primary" aria-disabled={!text.trim()}
                   onClick={text.trim() ? sendEntry : () => pointAtField(inputRef.current, { focus: inputRef.current })}>{C.send}</Button>
               </div>
               {(nameHits.length > 0 || suggestions.length > 0) && (

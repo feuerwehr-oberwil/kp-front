@@ -324,7 +324,7 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
     await edit((d) => switchChecklist(d, t).doc)
   }
   const discard = async () => {
-    const ok = await confirmDialog({ title: C.discardTitle, message: C.discardMsg, confirmLabel: C.discardBtn, danger: true })
+    const ok = await confirmDialog({ title: C.discardTitle, message: C.discardMsg, confirmLabel: C.discardBtn, danger: true, bin: true })
     if (!ok) return
     // never on the server: confirmed, so nothing of it stays on the device either
     if (rec && !rec.base && !rec.op) {
@@ -539,8 +539,8 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
         <div className={s.foot}>
           <div className={s.footRow}>
             {lifecycle === 'draft'
-              ? <Button variant="primary" size="lg" icon={<Icon id="check" />} onClick={() => { void complete() }}>{C.complete}</Button>
-              : <Button variant="primary" size="lg" icon={<Icon id="check" />} onClick={() => { void finishCorrection() }}>{C.correctionDone}</Button>}
+              ? <Button variant="primary" size="lg" onClick={() => { void complete() }}>{C.complete}</Button>
+              : <Button variant="primary" size="lg" onClick={() => { void finishCorrection() }}>{C.correctionDone}</Button>}
           </div>
         </div>
       )}
