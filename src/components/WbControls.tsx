@@ -706,7 +706,7 @@ export function WbToolDocks({ tool, lineMode, areaMode, stack, grundriss, pickIn
           // wrong point is undone by the length dialog's «Abbrechen», which goes back to step 1
           tool === 'scale' ? [] : [{ type: 'action', icon: 'trash', label: appConfig.copy.measure.clear, short: appConfig.copy.measure.clearShort, disabled: !measCount, onClick: onMeasClear }],
           [tool === 'scale'
-            ? { type: 'info', open: true, text: [H.scaleStep1, H.scaleStep2, H.scaleStep3].map((t, i) => `${i < measCount ? '✓' : `${i + 1} ·`} ${t}`).join('\n') }
+            ? { type: 'info', open: true, text: [H.scaleStep1, H.scaleStep2, H.scaleStep3].map((t, i) => `${i < measCount ? '✓' : `${i + 1}.`} ${t}`).join('\n') }
             : { type: 'info', text: H.measure }],
         ]} />
       )}

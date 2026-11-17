@@ -185,7 +185,7 @@ describe('the Plan sheet behind the Objekt chip', () => {
     // what to tap STANDS in the dock's card, step by step (rare-user r4) – so the dock draws no ⓘ,
     // and no «Leeren» either: the phone's row fits 360px
     expect(screen.getByRole('status').textContent).toBe(
-      '1 · Ein Ende des Massstabs antippen\n2 · Das andere Ende antippen\n3 · Die reale Länge eingeben')
+      '1. Ein Ende des Massstabs antippen\n2. Das andere Ende antippen\n3. Die reale Länge eingeben')
     expect(dock().getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Strecke', 'Fläche', 'Massstab', 'Abbrechen'])
   }
 

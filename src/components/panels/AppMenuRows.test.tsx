@@ -96,7 +96,9 @@ describe('AppMenuRows · alarms to take', () => {
     renderHome({ alarms: a, incidents: [incident('a', 'Brand Musterhaus')] })
     const row = screen.getByRole('button', { name: /B2 Brand Wohnhaus/ })
     expect(row.textContent).toContain('Testgasse 3')
-    expect(row.textContent).toContain(ci.alarmOpen)
+    // no «Öffnen» word on the row (owner, 17.11.2026) – it is the row's accessible name
+    expect(row.textContent).not.toContain(ci.alarmOpen)
+    expect(row.getAttribute('aria-label')).toBe(`${ci.alarmOpen}: B2 Brand Wohnhaus`)
     // the running Einsatz first, then the alarm
     expect(screen.getByRole('button', { name: /Brand Musterhaus/ }).compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.queryByRole('button', { name: ci.hide })).toBeNull()

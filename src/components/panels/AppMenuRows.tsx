@@ -184,15 +184,19 @@ export function AppMenuRows({
           })}
           {alarmList.map((a) => (
             // An alarm nobody opened (owner, 17.11.2026: «Just list it, no hidden state»): a running
-            // row's shape and weights, the bell where the age stands, «Öffnen» at the end – the
-            // row's body takes it. No ✕: the banner's ✕ puts only the banner away.
-            <button key={a.id} type="button" className="ip-menu-row ip-menu-alarm" disabled={alarms!.taking != null} onClick={() => alarms!.onTake(a)}>
+            // row's shape and weights, the bell where the age stands – a tap on the row opens it,
+            // like every row of this list (owner, 17.11.2026: no «Öffnen» word, «it's pretty obvious
+            // that you should open it»; the word stays as the row's accessible name). No ✕: the
+            // banner's ✕ puts only the banner away.
+            <button key={a.id} type="button" className="ip-menu-row ip-menu-alarm" disabled={alarms!.taking != null}
+              aria-label={`${alarms!.taking === a.divera_id ? ci.alarmOpening : ci.alarmOpen}: ${a.title}`} onClick={() => alarms!.onTake(a)}>
               <span className="ip-menu-when ip-menu-alarm-mark">{alarms!.taking === a.divera_id ? <ShellLoader /> : <Icon id="bell" />}</span>
               <span className="ip-menu-rowmain">
                 <span className="ip-menu-titleline"><span className="ip-menu-title">{a.title}</span></span>
                 <span className="ip-menu-rowsub">{shortAddress(a.address) ?? ci.addressUnknown}</span>
               </span>
-              <span className="ip-menu-alarm-go">{alarms!.taking === a.divera_id ? ci.alarmOpening : ci.alarmOpen}</span>
+              {/* only while the take runs: the tap's answer («Öffne …»), beside the loader */}
+              {alarms!.taking === a.divera_id && <span className="ip-menu-alarm-go">{ci.alarmOpening}</span>}
             </button>
           ))}
           {folded.map((r) => <FoldedRow key={r.key} row={r} />)}

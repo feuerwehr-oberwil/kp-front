@@ -361,6 +361,7 @@
 /* another Einsatz's Atemschutz alarm on its row (AppMenuRows · foreignMark, FLOW.1): the kicker's red, led by ⚠ */
 .ip-menu-az { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .ip-menu-az svg { width: 12px; height: 12px; flex: none; }
+/* the alarm row's «Öffne …» while its take runs – the row itself is the button, no «Öffnen» word at rest */
 .ip-menu-alarm-go { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--red-strong); }
 /* app utilities (Einstellungen · Bereitschaft · Hilfe · Installieren) as one compact row of
    labeled tiles — icon + word keeps recognition (3am tenet) while taking a third of the
