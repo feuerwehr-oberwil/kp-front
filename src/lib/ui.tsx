@@ -82,9 +82,8 @@ export function dismissToast(id: number) {
   if (!t || t.leaving) return
   const prev = timers.get(id)
   if (prev) { clearTimeout(prev); timers.delete(id) }
-  // every exit path runs through here (✕, swipe, timer, programmatic), so a toast that stands
-  // for a MODE (the Leitung-pick hint) can end the mode with itself. Must be idempotent —
-  // the mode's own teardown also dismisses the toast.
+  // every exit path runs through here (✕, swipe, timer, cap, replace), so `onDismiss` sees
+  // them all – `undoToast` releases its merge guard on it. Must be idempotent.
   t.onDismiss?.()
   // leave the way it came in: `.toast.out` plays (.14s, shorter than the entrance), then the
   // node goes. The removal timer stays out of `timers` — nothing may cancel the second half.
@@ -104,12 +103,26 @@ function muteToasts(on: boolean) {
   for (const t of toasts) dismissToast(t.id)
 }
 
+/** At most this many pills stand at once (toast diet, 17.11.2026, owner: «not spamming the UI»).
+ *  A new one sends the OLDEST timed pill out; a sticky one (a live print job) is never pushed out.
+ *  An undo pill that leaves this way loses nothing: its act stays on the header's ↶. */
+export const MAX_TOASTS = 3
+
+/** Raise a toast. Before you add a call, read the toast rule (docs/ui-conventions.md › Messages):
+ *  a toast is for what the operator must know NOW and cannot see where they are looking – or the
+ *  one tap back. A success the screen already shows, a standing state, a refusal inside an open
+ *  form and background news are never a toast. What can fire again (per tap, per sync event)
+ *  carries a `kind`. */
 export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[]; onDismiss?: () => void; kind?: string }): number {
   if (toastsMuted) return seq++
   // `kind`: a toast of the same kind still on screen is REPLACED, not stacked under the new one
-  // (3am test r4, 26.09.2026: three «+ OG» taps stacked three identical «Geschoss hinzugefügt ·
-  // Rückgängig» pills over the stack's own «+ UG»). The replaced toast's act stays on ↶.
+  // (3am test r4, 26.09.2026: three «+ OG» taps stacked three identical pills over the stack's
+  // own «+ UG»). The replaced toast's act stays on ↶.
   if (opts?.kind) for (const t of toasts) if (t.kind === opts.kind && !t.leaving) dismissToast(t.id)
+  // the cap: what still stands after the replace, oldest first, minus room for the new one
+  const standing = toasts.filter((t) => !t.leaving && t.life)
+  const over = toasts.filter((t) => !t.leaving).length + 1 - MAX_TOASTS
+  for (const t of standing.slice(0, Math.max(0, over))) dismissToast(t.id)
   const id = seq++
   // sticky toasts stay until updateToast/dismissToast decides (live status, a mode's instruction).
   // Otherwise an action (e.g. confirm-with-undo) needs time to be seen and tapped.
@@ -120,29 +133,40 @@ export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneSty
   return id
 }
 
+/** What an undo pill leads with: the glyph NAMES the act (owner, 17.11.2026 – duck sweep call 6).
+ *  `trash` = something was removed, `check` = something was taken / ticked, `undo` = anything else. */
+export type UndoGlyph = 'undo' | 'trash' | 'check'
+
+/** Undo pills replace each other unless they bring their own `kind`: one at a time, every older
+ *  act stays on the header's ↶ (toast diet call 2, 17.11.2026). */
+export const UNDO_KIND = 'undo'
+
 /**
- * The house confirm-with-undo toast: what just happened, and one tap to take it back.
+ * The house confirm-with-undo toast: what just happened, and one tap to take it back. EVERY toast
+ * whose button is «Rückgängig» comes through here (duck sweep FEEDBACK.4, 17.11.2026) – one tone
+ * (never green: a green ✓ with «Rückgängig» read as a plain «done» and got swiped away), one
+ * button, one guard, and one leading glyph that names the act (`UndoGlyph`).
  *
  * This is the pattern the app uses INSTEAD of asking «wirklich?» before a reversible edit — the
  * operator is at an Einsatz and a modal in the way of a tick costs more than the mistake does.
- * That trade only holds while every one of them looks and behaves the same, and they were seven
- * hand-written copies of the same three lines (Zeitplan, Schichtbänder, Anwesenheit), so the
- * undo icon and the «Rückgängig» label are decided here, once — for the toasts whose only
- * subject IS the undo. The domain toasts keep writing the action out, because each carries its
- * own icon (radio, drop, trash, pen, move, check) and that glyph is what names the edit; they
- * are not an unfinished sweep.
+ * That trade only holds while every one of them looks and behaves the same, so the label, the
+ * guard and the glyph set are decided here, once. ⚠️ An undo that doubles a ↶ timeline entry must
+ * drop that entry (or step the ↶ itself, `removeWithUndo`), so an act is never undoable twice.
+ *
+ * `kind` defaults to `UNDO_KIND`: a newer undo pill replaces an older one. An act whose ONLY way
+ * back is this pill (no ↶ step: the Notfall, a device reset, the Alarm take) passes its own kind.
  */
-export function undoToast(text: string, onUndo: () => void, guard?: readonly RecordKey[] | (() => boolean), opts?: { kind?: string }): number {
+export function undoToast(text: string, onUndo: () => void, guard?: readonly RecordKey[] | (() => boolean), opts?: { kind?: string; glyph?: UndoGlyph; duration?: number }): number {
   // ⚠️ `guard` — the toast outlives remote merges like any undo step does (25.09.2026). Given the
   // records `onUndo` writes, a merge that changes one of them (lib/undoKeys · noteRemoteChanges)
   // makes the button decline with «Nicht mehr rückgängig machbar» instead of writing a pre-merge
   // value over another device's change; given a predicate (a timeline entry's `standing`), the
   // entry's own fate decides. Without one the toast acts unguarded, as it always did.
-  // `opts.kind` (#232): a second toast of the same kind replaces the first instead of stacking.
   const watch = Array.isArray(guard) ? watchRecords(guard) : null
   const ok = typeof guard === 'function' ? guard : watch ? watch.ok : () => true
   return toast(text, {
-    icon: 'undo',
+    icon: opts?.glyph ?? 'undo',
+    duration: opts?.duration,
     action: {
       label: appConfig.copy.undo,
       onClick: () => {
@@ -152,7 +176,7 @@ export function undoToast(text: string, onUndo: () => void, guard?: readonly Rec
       },
     },
     onDismiss: () => watch?.release(),
-    kind: opts?.kind,
+    kind: opts?.kind ?? UNDO_KIND,
   })
 }
 

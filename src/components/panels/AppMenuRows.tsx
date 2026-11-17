@@ -44,7 +44,7 @@ export interface AppMenuAlarms {
 const ActLabel = ({ children }: { children: ReactNode }) => <span className="ip-menu-actlabel">{children}</span>
 
 export function AppMenuRows({
-  activeId, incidents, isEditor, user, opening = null, alarms, onSwitch, onLeave, onHistory, onCreate,
+  activeId, incidents, isEditor, user, opening = null, alarms, listNote = null, onSwitch, onLeave, onHistory, onCreate,
   onObjectVisits, onDevice, onHelp, onInstall, onLogout,
 }: {
   /** the Einsatz the menu's card names (IncidentSwitcher); null on home's sheet, which has no card
@@ -57,6 +57,10 @@ export function AppMenuRows({
   opening?: string | null
   /** home only — inside an Einsatz a fresh alarm reaches the operator through the banner */
   alarms?: AppMenuAlarms
+  /** home only: why the list may not be the server's (it failed to load / it is the device's
+   *  copy, offline) – said at the head of the group, never «Keine offenen Einsätze» over a list
+   *  that failed (App · listNote; toast diet, 17.11.2026) */
+  listNote?: string | null
   onSwitch: (i: IncidentMeta) => void
   /** «Einsatz verlassen» — to «Karte & Objekte», the Einsatz keeps running behind it. Only inside
    *  an Einsatz, never for a link session (App passes no `onOpenKarte` there). */
@@ -115,7 +119,9 @@ export function AppMenuRows({
               group says what it is — and, with nothing running and nothing to take, says that in
               one quiet line (no intro paragraph: the rows below are what to do). */}
           {!hasCard && <div className="ip-menu-label">{cp.incidents}</div>}
-          {!hasCard && running.length === 0 && alarmList.length === 0 && <div className="ip-menu-empty">{cp.noOpenIncidents}</div>}
+          {!hasCard && listNote ? (
+            <p className="form-warn form-warn-amber form-warn-compact" role="status"><Icon id="warn" /><span className="form-warn-text">{listNote}</span></p>
+          ) : !hasCard && running.length === 0 && alarmList.length === 0 && <div className="ip-menu-empty">{cp.noOpenIncidents}</div>}
           {running.map((i) => {
             // a Trupp of THAT Einsatz at the alarm tier: a red word under its name, and nothing more
             // here (FLOW.1, 13.11.2026 — what else it may do is lib/foreignAlarm's rule)

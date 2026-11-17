@@ -110,3 +110,31 @@ describe('«Noch kein Standort»', () => {
     expect((field() as HTMLInputElement).value).toBe(DEPOT.address)
   })
 })
+
+// toast diet, 17.11.2026: «Hier» without a position is said in the field's warning slot, not as a
+// toast over the open form – and it ends once anything else gives the form a coordinate
+describe('«Hier» finds no position', () => {
+  const failGeo = () => vi.stubGlobal('navigator', {
+    ...navigator,
+    geolocation: { getCurrentPosition: (_ok: unknown, fail: () => void) => fail() },
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('says «Standort nicht verfügbar» under the address field', () => {
+    failGeo()
+    render(<EinsatzWizard edit={meta({})} onClose={() => {}} onCreated={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: ix.hereButton }))
+    expect(screen.getByText(ix.hereFailed).closest('.form-warn')).toBeTruthy()
+    expect(document.querySelector('.toast')).toBeNull()
+  })
+
+  it('goes once an object gives the form a coordinate', async () => {
+    failGeo()
+    render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: ix.hereButton }))
+    expect(screen.getByText(ix.hereFailed)).toBeTruthy()
+    fireEvent.change(field(), { target: { value: 'Tramdepot' } })
+    fireEvent.click(await screen.findByRole('button', { name: /Tramdepot/ }))
+    expect(screen.queryByText(ix.hereFailed)).toBeNull()
+  })
+})

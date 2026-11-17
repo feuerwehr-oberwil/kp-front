@@ -110,8 +110,8 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
     })
     if (!ok) return
     try {
+      // no toast: the row leaves after the red confirm
       await deleteIncident(i.id)
-      toast(h.deleted, { icon: 'check', tone: 'success' })
       reload()
     } catch (e) {
       toast(e instanceof ApiError ? e.detail : h.deleteFailed, { icon: 'warn', tone: 'warn' })

@@ -340,7 +340,7 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
                   ? teamNameTaken(a.id, name)
                   : teamNoTaken(name, annos.filter((x) => x.kind === 'resource' && x.id !== a.id).map((x) => x.text))
                 if (name && name !== a.text && taken) {
-                  toast(fillTemplate(appConfig.copy.whiteboard.teamNameTaken, { name }), { icon: 'warn', tone: 'warn' })
+                  toast(fillTemplate(appConfig.copy.whiteboard.teamNameTaken, { name }), { icon: 'warn', tone: 'warn', kind: 'team-name-taken' })
                   return
                 }
                 patchCommit(a.id, { text: name || a.text })

@@ -228,7 +228,7 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, auto
 
   const run = async (fn: () => Promise<ShareLink>, failure: string) => {
     setBusy(true)
-    try { setLink(kind, await fn()) } catch { toast(failure) } finally { setBusy(false) }
+    try { setLink(kind, await fn()) } catch { toast(failure, { icon: 'warn', tone: 'warn' }) } finally { setBusy(false) }
   }
 
   /* ONE TAP (18.09.2026). The QR beside the Atemschutz bell is pressed by somebody already

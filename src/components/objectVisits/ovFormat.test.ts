@@ -15,6 +15,11 @@ describe('syncShort', () => {
     expect(syncShort({ kind: 'conflict' } as never)).toBe(appConfig.copy.objectVisits.sync.conflict)
     expect(syncShort({ kind: 'local' } as never)).toBe(appConfig.copy.objectVisits.sync.local)
   })
+  // toast diet, 17.11.2026: a send that found no network is said here, not as a toast
+  it('says «offline» when the last send found no network', () => {
+    expect(syncShort({ kind: 'changes', at, offline: true } as never)).toMatch(new RegExp(` · ${appConfig.copy.objectVisits.sync.offline}$`))
+    expect(syncShort({ kind: 'changes', at } as never)).not.toContain(appConfig.copy.objectVisits.sync.offline)
+  })
 })
 
 describe('a visit at a place, named and summed up', () => {

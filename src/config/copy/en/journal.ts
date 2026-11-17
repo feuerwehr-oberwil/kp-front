@@ -198,8 +198,6 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     openRemindersHead: 'Open items',
     // the ○ switch beside the Art chips — three states on one control
     openStates: ['Keep open', 'Stays open – listed under open items', 'Urgent – sorted to the top'] as string[],
-    pendenzSaved: 'Open item recorded',
-    pendenzUrgentSaved: 'Open item recorded – urgent',
     pendenzDoneLog: 'Item done: {text}',
     pendenzReopenLog: 'Item open again: {text}',
     noteOnTitle: 'Update',
@@ -209,7 +207,6 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     pendenzNew: 'New open item',
     pendenzNewUrgent: 'Urgent open item',
     pendenzNotOpen: 'Do not keep open',
-    noteSaved: 'Update recorded',
     noteChip: 'Item',
     noteOpen: 'Add an update',
     ageLabel: '{n}′',
@@ -221,6 +218,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     fromTafel: 'from the board',
     fromTafelTitle: 'Entered on the board – tap to open the page',
     emptyHint: 'Note down a report, an order or a photo with «Entry».',
+    attachDroppedMany: '{n} files discarded: {names}. Please pick them again.',
+    sectionRemoved: 'Section deleted',
   },
   tafelPendenzen: {
     createdLog: 'Item from the board ({page}): {text}',

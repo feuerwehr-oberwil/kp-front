@@ -43,10 +43,8 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     nightMode: 'Night',
   },
   toast: {
-    audioSaved: 'Voice note saved ({secs} s)',
     micDenied: 'No microphone access – noted as placeholder',
     micFailed: 'Recording not started – try again',
-    merged: 'Changes merged',
   },
   dockHints: {
     lasso: 'Drag a frame around several objects.',
@@ -82,7 +80,6 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     hint: 'A view stores the map exactly as it is — position, zoom and rotation. Tap a saved view to jump there (e.g. between a north overview and the map turned the way you are standing). Long-press the compass to fit straight away.',
     rename: 'Rename',
     delete: 'Delete',
-    saved: 'View saved',
     deleted: 'View «{name}» deleted',
   },
 }

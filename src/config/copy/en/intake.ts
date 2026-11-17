@@ -31,9 +31,7 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     editTitle: 'Edit incident data',
     save: 'Save',
     saving: 'Saving …',
-    created: 'Incident created',
     taken: 'Alarm taken over',
-    updated: 'Incident updated',
     alarmTime: 'Alarm time',
     alarmMessage: 'Alarm message',
     addressUnknown: 'Address unknown',
@@ -46,7 +44,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     attachConfirmTitle: 'Add “{alarm}” to this incident?',
     attachHint: 'The dispatch message lands in the log, GPS times follow automatically. The incident\u2019s keyword and location stay unchanged.',
     attachConfirm: 'Add',
-    attachDone: 'Alarm added to the incident',
     attachError: 'Alarm not attached – try again',
     newDiveraAlarm: 'New alarm',
     hide: 'Hide',
@@ -93,5 +90,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     // the address search's own states (LISTS.1) – the Karte search's words
     addressOffline: 'Address search needs a network. Station objects are still found.',
     addressFailed: 'Address search is not reachable right now.',
+    undoTakeFailed: 'Alarm take not undone – the incident stays open',
   },
 }

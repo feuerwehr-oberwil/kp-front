@@ -197,8 +197,6 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     openRemindersHead: 'En suspens',
     // le commutateur ○ à côté des chips Art — trois états sur une seule commande
     openStates: ['Garder ouvert', 'Reste ouvert – figure dans les en-suspens', 'Urgent – placé en tête'] as string[],
-    pendenzSaved: 'En-suspens enregistré',
-    pendenzUrgentSaved: 'En-suspens enregistré – urgent',
     pendenzDoneLog: 'En-suspens terminé : {text}',
     pendenzReopenLog: 'En-suspens rouvert : {text}',
     noteOnTitle: 'Message',
@@ -208,7 +206,6 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     pendenzNew: 'Nouvel en-suspens',
     pendenzNewUrgent: 'En-suspens urgent',
     pendenzNotOpen: 'Ne pas garder ouvert',
-    noteSaved: 'Message enregistré',
     noteChip: 'En suspens',
     noteOpen: 'Saisir un message',
     ageLabel: '{n}′',
@@ -220,6 +217,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     fromTafel: 'depuis le tableau',
     fromTafelTitle: 'Saisi au tableau – toucher ouvre la page',
     emptyHint: 'Avec «Entrée», noter un message, un ordre ou une photo.',
+    attachDroppedMany: '{n} fichiers abandonnés : {names}. À sélectionner de nouveau.',
+    sectionRemoved: 'Section supprimée',
   },
   tafelPendenzen: {
     createdLog: 'Point en suspens du tableau ({page}) : {text}',

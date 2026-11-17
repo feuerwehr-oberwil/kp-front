@@ -32,9 +32,6 @@ export const captureCopy = {
     saveFailed: 'Letzte Änderung nicht gespeichert – erneut versuchen',
     saveFailedOffline: 'Server nicht erreichbar – die letzte Änderung wurde nicht gespeichert.',
     retry: 'Erneut versuchen',
-    savedOk: 'Gespeichert',
-    undo: 'Rückgängig',
-    mittelSet: '{label}: neu {n} {unit}',
     mittelRemoved: '{label} entfernt',
     mittelExtra: 'Weitere erfasste Positionen',
     gerettete: 'Gerettete',
@@ -122,5 +119,6 @@ export const captureCopy = {
     // split, a three-week-old Einsatz sits directly below tonight's.
     groupCurrent: 'Aktuell',
     groupBacklog: 'Noch offen',
+    beilageRemoved: 'Beilage entfernt',
   },
 } as const

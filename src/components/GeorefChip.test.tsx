@@ -29,6 +29,7 @@ import { Whiteboard } from './Whiteboard'
 import { PHONE_QUERY } from '../lib/useIsPhone'
 import { georefDispatch, georefSnapshot, registerGeorefPhoneTarget, resetGeorefMode } from '../lib/georefMode'
 import { GeorefModeBars } from './GeorefMode'
+import { appConfig } from '../config/appConfig'
 import { Overlays } from '../lib/ui'
 import { TILE_AR } from '../lib/whiteboard'
 
@@ -374,6 +375,29 @@ describe('the phone can start a pair on either surface', () => {
       expect(screen.queryByRole('button', { name: 'Fertig' })).toBeNull()
       fireEvent.click(screen.getByRole('button', { name: 'Schliessen' }))
       expect(georefSnapshot().planId).toBeNull()
+    } finally {
+      window.matchMedia = previous
+    }
+  })
+
+  // toast diet, 17.11.2026: «+» with the cross off the surface says so on the dock, not as a toast
+  it('says «Fadenkreuz zuerst …» on the dock when «+» finds no target, and the next «+» clears it', () => {
+    const previous = window.matchMedia
+    window.matchMedia = ((q: string) => ({
+      matches: q === PHONE_QUERY, media: q, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+    const outside = appConfig.copy.whiteboard.georef.targetOutside
+    try {
+      act(() => georefDispatch({ type: 'start', planId: 'modul2', pairs: [], aspect: 1.5 }))
+      render(<GeorefModeBars planLabel="Modul 2" />)
+      fireEvent.click(screen.getByRole('button', { name: 'Punkt setzen' }))
+      expect(screen.getByText(outside).closest('[data-georef-controls]')).toBeTruthy()
+      expect(document.querySelector('.toast')).toBeNull()
+      const unregister = registerGeorefPhoneTarget('plan', () => ({ x: 0.45, y: 0.35 }))
+      fireEvent.click(screen.getByRole('button', { name: 'Punkt setzen' }))
+      expect(screen.queryByText(outside)).toBeNull()
+      unregister()
     } finally {
       window.matchMedia = previous
     }

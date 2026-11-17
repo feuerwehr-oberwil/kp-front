@@ -9,7 +9,7 @@ import { isKartePath, KARTE_BASE, useKarteRoute } from './lib/karte/route'
 import { appScreen, bootPlan } from './lib/karte/home'
 import { startOutboxRunner } from './objectVisits/outbox'
 import { fillTemplate } from './lib/format'
-import { Overlays, toast, confirmDialog } from './lib/ui'
+import { Overlays, toast, undoToast, confirmDialog } from './lib/ui'
 import { confirmLogout } from './lib/logoutConfirm'
 import { persistedPendingRows } from './lib/journalStore'
 import { loadPrefs, savePrefs } from './lib/prefs'
@@ -116,6 +116,10 @@ export default function App() {
   useEffect(() => installHoldTooltip(), [])
 
   const [incidents, setIncidents] = useState<IncidentMeta[] | null>(null)
+  // why `incidents` may not be the server's: the boot list failed, or it is the device's copy
+  // (offline). Said at the head of the list (HomeMenus), not as a boot toast (toast diet,
+  // 17.11.2026); the next list that arrives fresh clears it.
+  const [listNote, setListNote] = useState<string | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   // the incident a HUMAN is opening right now (launch card / switcher / banner / Verlauf) — the
   // card spins and locks meanwhile, the way `taking` does for a Divera take, so a slow open on
@@ -262,8 +266,9 @@ export default function App() {
   // always-on incident-list watch: with alarm auto-open an Einsatz can appear with no human
   // in the loop — keep the list fresh and announce mid-session arrivals (banner, never a
   // forced switch). Enabled for viewers too; announcing is read-only.
-  const onWatchList = useCallback((list: IncidentMeta[]) => {
+  const onWatchList = useCallback((list: IncidentMeta[], offline: boolean) => {
     setIncidents((prev) => (sameIncidentList(prev, list) ? prev : list))
+    setListNote(offline ? appConfig.copy.incidentSwitcher.bootOffline : null)
   }, [])
   // (off for a link session: the list endpoint isn't on its allowlist — it would leak every
   // other Einsatz — so the watch would just 403 every 30 s)
@@ -371,11 +376,10 @@ export default function App() {
       // one. Read as of THIS call: selectIncident is a stable ([] deps) callback, and the
       // link_kind cannot change without a fresh session anyway.
       ...(asLinkRef.current ? { slice: 'trupps' as const } : isElRef.current ? { slice: 'record' as const } : {}),
-      // Concurrent edits are auto-merged three-way (see mergeWorkspace), so no blocking
-      // dialog — just a quiet notice. The merged result is applied in place via onApplyMerged
-      // (registered by the live view); onServerWorkspace is the remount fallback.
-      // one pill, however many merges: three devices saving at once stacked it (UX.9, 09.11.2026)
-      onMerged: () => toast(appConfig.copy.toast.merged, { kind: 'ws-merged' }),
+      // Concurrent edits are auto-merged three-way (see mergeWorkspace) — silently: no dialog
+      // and no toast (toast diet 17.11.2026: «Änderungen zusammengeführt» asked nothing of the
+      // operator). The merged result is applied in place via onApplyMerged (registered by the
+      // live view); onServerWorkspace is the remount fallback.
       onServerWorkspace: (ws) => { setWorkspace(ws); setRemount((n) => n + 1) },
     })
     const meta = opts.meta ?? (await getIncident(id))
@@ -476,7 +480,7 @@ export default function App() {
         // the launcher would otherwise render «keine offenen Einsätze» over a list that simply
         // failed, with nothing on screen to say so.
         const C = appConfig.copy.incidentSwitcher
-        toast(e instanceof ApiError ? `${C.bootListFailed} – ${e.detail}` : C.bootListFailed, { icon: 'warn', tone: 'warn' })
+        setListNote(e instanceof ApiError ? `${C.bootListFailed} – ${e.detail}` : C.bootListFailed)
         return { list: [] as IncidentMeta[], offline: false }
       })
       // re-list only when the migration created an Einsatz: an empty list is the normal peacetime
@@ -485,7 +489,7 @@ export default function App() {
         const migrated = await migrateLegacyWorkspace([appConfig.storage.key, ...appConfig.storage.legacyKeys]).catch(() => null)
         if (migrated) list = (await listIncidentsResilient().catch(() => ({ list: [] as IncidentMeta[] }))).list
       }
-      if (offline) toast(appConfig.copy.incidentSwitcher.bootOffline, { icon: 'warn' })
+      if (offline) setListNote(appConfig.copy.incidentSwitcher.bootOffline)
       setIncidents(list)
       // The decision table lives in lib/karte/home · bootPlan (tested there), in this order:
       // · a launch INTO Objektbesuche (a deep link, a reload on /besuche) — or into «Karte &
@@ -561,7 +565,7 @@ export default function App() {
       await archiveIncident(id)
     } catch (e) {
       closingLocallyRef.current = null
-      toast(e instanceof ApiError ? e.detail : appConfig.copy.abschluss.failed, { icon: 'warn', tone: 'warn' })
+      toast(e instanceof ApiError ? e.detail : appConfig.copy.intake.undoTakeFailed, { icon: 'warn', tone: 'warn' })
       return
     }
     // ⚠️ the hard clear, deliberately — «Rückgängig» on a one-tap take means this incident should
@@ -591,11 +595,9 @@ export default function App() {
       // confirm-with-undo: a one-tap take is otherwise only reversible via a multi-tap
       // menu-archive. Undo archives the just-created incident and returns to the prior view.
       // Twelve seconds, not the six-second floor: the map is filling in underneath, and «did I
-      // mean that?» takes longer at 3am than a toast that is already fading.
-      toast(appConfig.copy.intake.taken, {
-        icon: 'check', tone: 'success', duration: 12_000,
-        action: { label: appConfig.copy.undo, onClick: () => void undoTake(inc.id, back) },
-      })
+      // mean that?» takes longer at 3am than a toast that is already fading. Its own kind: the
+      // pill is the ONLY way back (the take is no ↶ step), so a later undo pill must not replace it.
+      undoToast(appConfig.copy.intake.taken, () => void undoTake(inc.id, back), undefined, { glyph: 'check', kind: 'alarm-take', duration: 12_000 })
     } catch (e) {
       toast(e instanceof ApiError ? e.detail : appConfig.copy.intake.errorTake, { icon: 'warn', tone: 'warn' })
     } finally {
@@ -620,8 +622,8 @@ export default function App() {
     })
     if (!ok) return
     try {
+      // no «hinzugefügt» toast: the banner goes and the Meldung lands in the Verlauf
       await attachDiveraAlarm(a.divera_id, activeMeta.id)
-      toast(ix.attachDone, { icon: 'check', tone: 'success' })
     } catch (e) {
       toast(e instanceof ApiError ? e.detail : ix.attachError, { icon: 'warn', tone: 'warn' })
     } finally {
@@ -752,7 +754,7 @@ export default function App() {
     trouble, onTrouble: (t) => { setFeedbackFor(t); setTrouble(null) }, onTroubleDismiss: () => setTrouble(null),
     linkScoped, isEditor,
     user: { display_name: user?.display_name ?? '', color: user?.color ?? null, role: user?.role ?? 'viewer' },
-    incidents: allIncidents, activeId, opening, alarms: landingAlarms, taking,
+    incidents: allIncidents, listNote, activeId, opening, alarms: landingAlarms, taking,
     onTake: (a) => void takeAndOpen(a, takeBack),
     onDismissAlarm: hideAlarm,
     onOpenIncident: openOrUncover,

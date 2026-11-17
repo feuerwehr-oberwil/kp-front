@@ -28,12 +28,11 @@ import type { Doc } from '../lib/workspace'
 import type { BuildingDoc, LngLat, Incident, TimelineEvent } from '../types'
 import type { WorkspaceMode, PhotoRow } from './types'
 
-/** The `kind` (lib/ui · toast) of the Verlauf's «Eintrag erfasst» family: the next one REPLACES
- *  the last instead of stacking on it. Five Meldungen in a row stacked five pills, the column grew
- *  upwards from the foot of the screen and, on a tablet, reached the composer's «Erfassen» — the
- *  tap meant for the next entry hit the toast (perf journeys, 05.10.2026; 3am: a confirmation
- *  never covers the primary action). A toast carrying an action (a photo's «Auf Karte setzen»)
- *  keeps its own pill: replacing it would take the action away. */
+/** The `kind` (lib/ui · toast) of the Verlauf's save pill – only an Erinnerung or a placeable
+ *  photo still raises one (toast diet, 17.11.2026). The next one REPLACES the last: five in a row
+ *  once stacked up into the composer's «Erfassen» (perf journeys, 05.10.2026; 3am: a
+ *  confirmation never covers the primary action), and a photo's late position fix replaces the
+ *  save's pill instead of adding a second «Auf Karte setzen». */
 export const JOURNAL_SAVED_KIND = 'journal-saved'
 
 export interface UseJournalWritersInputs {
@@ -224,9 +223,10 @@ export function useJournalWriters({
         if (!next || JSON.stringify(next) === JSON.stringify(photoGeo ?? null)) return
         journal.appendPatch(rowId, { photoGeo: next })
         const row = { id: rowId, photoUrls, photoGeo: next }
+        // the same kind as the save's own pill: a late fix REPLACES it, one pill per photo Meldung
         if (placeablePhotos(row).length) {
           toast(appConfig.copy.photoGeo.locatedLate, {
-            icon: 'pin', tone: 'success',
+            icon: 'pin', tone: 'success', kind: JOURNAL_SAVED_KIND,
             action: { label: appConfig.copy.photoGeo.place, onClick: () => placePhotos(row) },
           })
         }
@@ -247,43 +247,34 @@ export function useJournalWriters({
     // Leave the Verlauf as it was. Forcing it open is right for exactly one entry point — the
     // Verlauf's own «Eintrag» button — and there it is already open behind the composer, so it
     // is a no-op. From the phone's FAB or a checklist deep link it yanked the operator off the
-    // map they were working on, for a save the toast has already confirmed.
+    // map they were working on, for a save the composer closing has already confirmed.
     setComposerOpen(false)
     setNoteOn(null)
     const C = appConfig.copy.journal
-    // ⚠️ The due time wins the confirmation. «Pendenz gesetzt» on a row that will ring in ten
-    // minutes tells the smaller half of what was just decided — and the clock is the half that
-    // acts on its own, so it is the one worth reading back.
-    toast(
-      d.dueAt ? C.reminderSaved
-        : d.noteFor ? C.noteSaved
-          : d.pendenz ? (d.pendenz.urgent ? C.pendenzUrgentSaved : C.pendenzSaved)
-            : C.saved,
-      // 'bell' for the timed one, the glyph the Erinnerung wears everywhere else it is met (the
-      // banner, and the snooze row in the Verlauf). It was 'clock' until 23.08.; on the Verlauf
-      // that glyph now means an Anwesenheits-Zeitenzeile and nothing else (lib/report · journalArea).
-      {
-        icon: d.dueAt ? 'bell' : d.pendenz || d.noteFor ? 'circle' : icon, tone: 'success',
-        // a picture that knows where it was taken offers its place right here, at the moment it
-        // was taken — the toast is the one thing on screen (lib/photoGeo). Nothing without one.
-        ...(placeablePhotos({ id: rowId, photoUrls, photoGeo }).length
-          ? { action: { label: appConfig.copy.photoGeo.place, onClick: () => placePhotos({ id: rowId, photoUrls, photoGeo }) } }
-          : { kind: JOURNAL_SAVED_KIND }),
-      },
-    )
+    // ⚠️ The composer closing IS the confirmation (toast diet call 1, 17.11.2026: «Eintrag
+    // erfasst» after every Meldung was an echo; an offline Eintrag is queued and the head chip
+    // says so). Two still speak: a timed Pendenz – its clock acts on its own, so the due time is
+    // read back – and a picture that knows where it was taken, which offers its place right here
+    // (lib/photoGeo). 'bell' is the glyph the Erinnerung wears everywhere it is met.
+    const placeable = placeablePhotos({ id: rowId, photoUrls, photoGeo }).length > 0
+    if (d.dueAt || placeable) {
+      toast(d.dueAt ? C.reminderSaved : C.saved, {
+        icon: d.dueAt ? 'bell' : icon, tone: 'success', kind: JOURNAL_SAVED_KIND,
+        ...(placeable ? { action: { label: appConfig.copy.photoGeo.place, onClick: () => placePhotos({ id: rowId, photoUrls, photoGeo }) } } : {}),
+      })
+    }
   }
 
   const playerRow = player?.row ?? null
-  // returns the created row id (the STT confirm flow stamps it onto the draft segment);
-  // `quiet` skips the toast for bulk confirms — the row appearing as a marker IS the feedback
-  const addPlayerEntry = (text: string, atIso: string, quiet = false): string => {
+  // returns the created row id (the STT confirm flow stamps it onto the draft segment); no
+  // toast — the row appearing as a marker IS the feedback
+  const addPlayerEntry = (text: string, atIso: string): string => {
     const rowId = newRowId('p')
     pushEvent({
       icon: 'type', text, kind: 'journal', at: atIso,
       surface: playerRow?.surface ?? 'map', planId: playerRow?.planId,
     }, rowId)
     emit('journal.add', { id: rowId, kind: 'journal' })
-    if (!quiet) toast(appConfig.copy.journal.saved, { icon: 'type', tone: 'success', kind: JOURNAL_SAVED_KIND })
     return rowId
   }
 
@@ -367,7 +358,6 @@ export function useJournalWriters({
     }, rowId)
     void uploadMediaForRow(rowId, url, 'audio')
     emit('journal.add', { id: rowId, kind: 'audio' })
-    toast(fillTemplate(appConfig.copy.toast.audioSaved, { secs }), { icon: 'mic', tone: 'success' })
   })
   const startVoiceMemo = () => { voiceStartCtx.current = { onPlan: mode === 'plans', planId: activePlanId }; void voice.start() }
 

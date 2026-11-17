@@ -68,8 +68,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       persistTitle: 'Mémoriser l\'échelle ?',
       saveAll: 'Pour tous les plans',
       saveThis: 'Ce plan seulement',
-      savedAll: 'Enregistrée comme échelle par défaut',
-      savedThis: 'Échelle enregistrée pour ce plan',
       saveFailed: 'Échelle non enregistrée par défaut – réessayer',
     },
     georef: {
@@ -290,7 +288,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     nearbyBannerTitle: 'Objet le plus proche, pas l’adresse de l’intervention.',
     nearbyBannerBody: 'Intervention : {incident} · plan : {object} ({distance}).',
     nearbyBannerNoAddress: 'sans adresse',
-    objectActive: 'Plans de « {name} »',
     objectReset: 'Réinitialiser sur l’objet suivant',
     objectSwitchConfirmTitle: 'Charger un autre objet',
     objectSwitchConfirm: 'Les plans de tous les modules basculent sur « {name} ». Changer l’objet actuel ?',

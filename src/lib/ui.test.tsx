@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { Overlays, toast, undoToast, updateToast, dismissToast, confirmDialog, openPhoto } from './ui'
+import { MAX_TOASTS, Overlays, toast, undoToast, updateToast, dismissToast, confirmDialog, openPhoto } from './ui'
 import { noteRemoteChanges } from './undoKeys'
 import { appConfig } from '../config/appConfig'
 
@@ -423,6 +423,45 @@ describe('toast · a `kind` replaces its predecessor instead of stacking', () =>
     act(() => { toast('eins'); toast('zwei') })
     expect(screen.getByText('eins')).toBeTruthy()
     expect(screen.getByText('zwei')).toBeTruthy()
+  })
+})
+
+// toast diet, 17.11.2026: one undo pill at a time, and never more than MAX_TOASTS pills at all
+describe('the stack stays short', () => {
+  const exit = () => act(() => { vi.advanceTimersByTime(200) })
+
+  it('a newer undo pill replaces the older one; an undo with its own kind stands beside it', () => {
+    vi.useFakeTimers()
+    render(<Overlays />)
+    act(() => { undoToast('Schicht A geplant', () => {}) })
+    act(() => { undoToast('Notfall Trupp 1 ausgelöst', () => {}, undefined, { kind: 'notfall' }) })
+    act(() => { undoToast('Schicht B geplant', () => {}) })
+    exit()
+    expect(screen.queryByText('Schicht A geplant')).toBeNull()
+    expect(screen.getByText('Schicht B geplant')).toBeTruthy()
+    expect(screen.getByText('Notfall Trupp 1 ausgelöst')).toBeTruthy()
+  })
+
+  it(`caps the stack at ${MAX_TOASTS}: the oldest timed pill leaves, a sticky live job stays`, () => {
+    vi.useFakeTimers()
+    render(<Overlays />)
+    let job = 0
+    act(() => { job = toast('In der Warteschlange', { sticky: true }) })
+    act(() => { for (const n of ['eins', 'zwei', 'drei']) toast(n) })
+    exit()
+    expect(document.querySelectorAll('.toast')).toHaveLength(MAX_TOASTS)
+    expect(screen.getByText('In der Warteschlange')).toBeTruthy()
+    expect(screen.queryByText('eins')).toBeNull()
+    expect(screen.getByText('drei')).toBeTruthy()
+    act(() => { dismissToast(job) })
+  })
+
+  it('leads with the glyph that names the act, in the one neutral tone', () => {
+    render(<Overlays />)
+    act(() => { undoToast('Foto entfernt', () => {}, undefined, { glyph: 'trash' }) })
+    const pill = screen.getByText('Foto entfernt').closest('.toast') as HTMLElement
+    expect(pill.className).toContain('toast-default')
+    expect(pill.querySelector('use')?.getAttribute('href')).toContain('trash')
   })
 })
 

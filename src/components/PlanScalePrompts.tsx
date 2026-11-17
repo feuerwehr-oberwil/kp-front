@@ -68,11 +68,12 @@ export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose }: 
  * gespeichert» while nothing of the sort had happened, and offline the claim was simply false. So
  * the save is awaited and its outcome reported, exactly as the Georeferenz's own writer does
  * (Whiteboard · setGeorefSaveErrorHandler). The prompt still closes at once — the operator has
- * answered its question, and a dialog that waits for the network is a dialog in the way.
+ * answered its question, and a dialog that waits for the network is a dialog in the way. Only
+ * the failure is said (toast diet, 17.11.2026): a prompt that closed on its answer needs no echo.
  */
-function persisting(save: Promise<void>, ok: string, onDone: () => void): void {
+function persisting(save: Promise<void>, onDone: () => void): void {
   const C = appConfig.copy.whiteboard.scale
-  void save.then(() => toast(ok)).catch(() => toast(C.saveFailed, { icon: 'warn', tone: 'warn' }))
+  void save.catch(() => toast(C.saveFailed, { icon: 'warn', tone: 'warn' }))
   onDone()
 }
 
@@ -84,10 +85,10 @@ export function PlanScalePersist({ scale, activeId, onDone }: {
   return (
     <div className="wb-scale-persist" role="group" aria-label={appConfig.copy.whiteboard.scale.persistTitle}>
       <span className="wb-scale-persist-t">{appConfig.copy.whiteboard.scale.persistTitle}</span>
-      <button className="btn" onClick={() => persisting(saveStationDefault(scale), appConfig.copy.whiteboard.scale.savedAll, onDone)}>
+      <button className="btn" onClick={() => persisting(saveStationDefault(scale), onDone)}>
         {appConfig.copy.whiteboard.scale.saveAll}
       </button>
-      <button className="btn" onClick={() => persisting(saveStationPlanOverride(activeId, scale), appConfig.copy.whiteboard.scale.savedThis, onDone)}>
+      <button className="btn" onClick={() => persisting(saveStationPlanOverride(activeId, scale), onDone)}>
         {appConfig.copy.whiteboard.scale.saveThis}
       </button>
       <IconButton className="wb-scale-persist-x" label={appConfig.copy.closeDialog} onClick={onDone}><Icon id="close" /></IconButton>

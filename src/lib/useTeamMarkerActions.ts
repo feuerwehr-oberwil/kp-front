@@ -60,7 +60,9 @@ export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedI
     const label = name.trim()
     if (!label || label === e.label) return
     if (teamNameTaken?.(id, label)) {
-      toast(fillTemplate(appConfig.copy.whiteboard.teamNameTaken, { name: label }), { icon: 'warn', tone: 'warn' })
+      // a toast, not an inline line: the pill's field commits on blur and is gone by then. Its
+      // `kind` is the Plan chip's too (PlanAnno), so a retry replaces the pill instead of stacking.
+      toast(fillTemplate(appConfig.copy.whiteboard.teamNameTaken, { name: label }), { icon: 'warn', tone: 'warn', kind: 'team-name-taken' })
       return
     }
     commit((d) => ({ ...d, entities: d.entities.map((x) => (x.id === id ? { ...x, label } : x)) }))

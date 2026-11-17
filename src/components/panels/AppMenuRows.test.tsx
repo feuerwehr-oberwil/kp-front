@@ -118,3 +118,18 @@ describe('AppMenuRows · alarms to take', () => {
     expect(within(container).queryByText(cs.noOpenIncidents)).toBeNull()
   })
 })
+
+// toast diet, 17.11.2026: a list that failed to load is not «nothing open» – the group says why,
+// where the list stands, instead of a toast at boot
+describe('AppMenuRows · a list that is not the server\'s', () => {
+  it('says the list failed instead of «Keine offenen Einsätze»', () => {
+    renderHome({ listNote: cs.bootListFailed })
+    expect(screen.getByRole('status').textContent).toBe(cs.bootListFailed)
+    expect(screen.queryByText(cs.noOpenIncidents)).toBeNull()
+  })
+  it('heads the device\'s own copy with «Offline», the rows still under it', () => {
+    renderHome({ listNote: cs.bootOffline, incidents: [incident('i1', 'Brand Werkhof')] })
+    expect(screen.getByRole('status').textContent).toBe(cs.bootOffline)
+    expect(screen.getByRole('button', { name: /Brand Werkhof/ })).toBeTruthy()
+  })
+})

@@ -566,10 +566,10 @@ export function TruppCard({
   // printed entries of 60 and 180 bar. The sheet saves on the tap of a number, and «Ohne Druck
   // raus» is its own button, so the exit still costs one more tap at most and never blocks.
   const askExit = () => (monitored && onAskExit ? onAskExit(t.id) : onStatus(t.id, 'raus'))
-  // delete-now, no blocking dialog and — since 09.09. — no Rückgängig toast either: the board
-  // raised a pill over itself for every action, and the steady popping read as noise. The two
-  // doors back are the global ↶ pair (deleteTrupp registers there) and the non-expiring
-  // «Entfernte Trupps» menu; both restore the full record, only the plan/map placement is gone.
+  // delete-now, no blocking dialog: the delete rule's «Trupp … entfernt · Rückgängig» toast
+  // (truppActions/lifecycle · deleteTrupp, back since 25.09. after the 09.09. quiet spell) is the
+  // fast door; the global ↶ pair and the non-expiring «Entfernte Trupps» menu are the others. All
+  // restore the full record, only the plan/map placement is gone.
   // ONE ask since 11.09. (field wish): an angemeldeter Atemschutz-Trupp that never went in is
   // offered «nicht eingesetzt» first — the honest close-out for a Sicherungstrupp that stood
   // ready (the same stand-down the card's «Nicht eingesetzt» action performs, same gate:

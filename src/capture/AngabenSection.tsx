@@ -30,13 +30,12 @@ type Props = Shell & {
   /** the debounced text fields' meta save — bypasses run()'s busy gate (CaptureApp · flushMeta) */
   flushMeta: (patch: Partial<ReportMeta>) => Promise<boolean>
   markPickedPresent: (name: string, saved: Workspace, note?: string) => Promise<void>
-  savedToast: () => void
 }
 
 /** The Angaben section. */
 export function AngabenSection({
   open, onToggle, sectionRef, incident, rm, roster, rankOf, kontaktperson, kontaktTel, savedPersonen, savedTiere,
-  setGerettete, run, flushMeta, markPickedPresent, savedToast,
+  setGerettete, run, flushMeta, markPickedPresent,
 }: Props) {
   const C = appConfig.copy.capture
   return (
@@ -54,7 +53,6 @@ export function AngabenSection({
             onChange={(v) => {
               void run({ kind: 'setMeta', patch: { einsatzleiter: v || undefined } }).then(async (saved) => {
                 if (!saved) return
-                savedToast()
                 // the Einsatzleiter was there, and the Personalblatt should say WHY the
                 // name is on it — the Bemerkung only fills an empty one
                 await markPickedPresent(v, saved, appConfig.copy.anwesenheit.roleEinsatzleiter)
@@ -72,9 +70,7 @@ export function AngabenSection({
             commit={async (raw) => {
               const v = raw.trim()
               if (v === (kontaktperson ?? '')) return true
-              const ok = await flushMeta({ kontaktperson: v })
-              if (ok) savedToast()
-              return ok
+              return flushMeta({ kontaktperson: v })
             }} />
           <DraftField key={`${incident.id}:kontaktpersonTelefon`} incidentId={incident.id} field="kontaktpersonTelefon"
             saved={kontaktTel ?? ''} className="cv-input cv-kontakt-tel" placeholder={C.kontaktpersonTelefonPlaceholder}
@@ -82,9 +78,7 @@ export function AngabenSection({
             commit={async (raw) => {
               const v = raw.trim()
               if (v === (kontaktTel ?? '')) return true
-              const ok = await flushMeta({ kontaktpersonTelefon: v })
-              if (ok) savedToast()
-              return ok
+              return flushMeta({ kontaktpersonTelefon: v })
             }} />
           {/* dials the SAVED number — this surface lives on the phone in someone's hand */}
           {telHref(kontaktTel) && (
@@ -122,9 +116,7 @@ export function AngabenSection({
           commit={async (raw) => {
             const v = raw.trim()
             if (v === (rm?.summary ?? '')) return true
-            const ok = await flushMeta({ summary: v || undefined })
-            if (ok) savedToast()
-            return ok
+            return flushMeta({ summary: v || undefined })
           }} />
       </div>
     </AccSection>

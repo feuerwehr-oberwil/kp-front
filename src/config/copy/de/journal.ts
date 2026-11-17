@@ -333,8 +333,6 @@ export const journalCopy = {
     // ⚠️ `openStates[0]` is what the resting ring announces — «offen halten», an instruction, not
     // a status. The other two are statuses, because by then it is one.
     openStates: ['Offen halten', 'Bleibt offen – steht in den Pendenzen', 'Dringend – steht zuoberst'] as string[],
-    pendenzSaved: 'Pendenz erfasst',
-    pendenzUrgentSaved: 'Pendenz erfasst – dringend',
     // an undatierte Pendenz never called itself an Erinnerung, so its done row must not either
     pendenzDoneLog: 'Pendenz erledigt: {text}',
     pendenzReopenLog: 'Pendenz wieder offen: {text}',
@@ -350,7 +348,6 @@ export const journalCopy = {
     pendenzNew: 'Neue Pendenz',
     pendenzNewUrgent: 'Dringende Pendenz',
     pendenzNotOpen: 'Nicht offen halten',
-    noteSaved: 'Meldung erfasst',
     noteChip: 'Pendenz',
     noteOpen: 'Meldung erfassen',
     // the list's time column: when it was raised. Tapping it swaps the whole column to the age —
@@ -370,6 +367,10 @@ export const journalCopy = {
     fromTafelTitle: 'Auf der Tafel eingetragen – tippen öffnet die Seite',
     // the empty Verlauf names the button that fills it, in its own word (WORD.10, duck sweep LISTS.5)
     emptyHint: 'Mit «Eintrag» eine Meldung, einen Auftrag oder ein Foto festhalten.',
+    // closing the composer dropped several picked files at once: ONE toast names them all
+    // (toast diet, 17.11.2026 – it was one pill per file)
+    attachDroppedMany: '{n} Dateien verworfen: {names}. Bitte neu auswählen.',
+    sectionRemoved: 'Abschnitt gelöscht',
   },
   // ── The Tafel's «Aufträge / Pendenzen» page (05.11.2026, lib/pendenzenPage) ────────────────
   // A view on the Verlauf's Pendenzen and Erinnerungen: every act on the page appends a Verlauf

@@ -63,6 +63,7 @@ import { planKey, type ObjectAvailability } from '../../lib/karte/availability'
 import type { VisitSummary } from '../../objectVisits/types'
 import type { LngLat } from '../../types'
 import { Button } from '../Button'
+import { DoneChip } from '../DoneChip'
 import { RegisterHintBody, RegisterHintButton, RegisterLines, StationNotes } from '../BuildingFacts'
 import { ListCard, ListRow } from '../ListRow'
 import { PlanChip } from '../PlanGlyph'
@@ -143,6 +144,8 @@ export function KartePanel(p: {
   onOpenVisit: (visitId: string) => void
   onPinBuilding: () => void
   onCopyCoords: () => void
+  /** the pin's coordinates were just copied: the button stands as «✓ Kopiert» (KarteApp latch) */
+  coordsCopied?: boolean
 }) {
   const C = appConfig.copy.karte
   const { sel } = p
@@ -249,7 +252,9 @@ export function KartePanel(p: {
         )}
         <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
         <Actions canCapture={p.canCapture} onReport={p.onReport}
-          extra={<Button key="copy" variant="secondary" icon={<Icon id="copy" />} onClick={p.onCopyCoords}>{C.copyCoords}</Button>} />
+          extra={p.coordsCopied
+            ? <DoneChip key="copy" title={C.copyCoords}>{C.copied}</DoneChip>
+            : <Button key="copy" variant="secondary" icon={<Icon id="copy" />} onClick={p.onCopyCoords}>{C.copyCoords}</Button>} />
       </>
     )
   }

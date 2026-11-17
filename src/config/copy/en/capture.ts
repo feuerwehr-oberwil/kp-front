@@ -16,9 +16,6 @@ export const captureCopy: Localizable<Pick<Copy, 'capture'>> = {
     saveFailed: 'Last change not saved – try again',
     saveFailedOffline: 'Server unreachable – the last change was not saved.',
     retry: 'Try again',
-    savedOk: 'Saved',
-    undo: 'Undo',
-    mittelSet: '{label}: now {n} {unit}',
     mittelRemoved: '{label} removed',
     mittelExtra: 'Other recorded items',
     gerettete: 'Rescued',
@@ -101,5 +98,6 @@ export const captureCopy: Localizable<Pick<Copy, 'capture'>> = {
     beilagenFailed: 'The photo could not be synced.',
     beilagenCount: '{n} photo(s)',
     beilagenNone: 'none',
+    beilageRemoved: 'Attachment removed',
   },
 }

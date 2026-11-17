@@ -151,14 +151,15 @@ test('F7 · replay locks the drawing tools and «Zurück zu Live» hands them ba
   await expect(page.getByRole('button', { name: 'Linie', exact: true })).toBeVisible()
 })
 
-test('F8 · Meldungen back to back: one «Eintrag erfasst», never over the next «Erfassen»', async ({ page }) => {
+test('F8 · Meldungen back to back: no pill, never anything over the next «Erfassen»', async ({ page }) => {
   // the perf journeys' finding (05.10.2026): each Meldung stacked another pill, the column grew
   // up from the foot of the screen and on a landscape iPad reached the composer's «Erfassen» —
-  // the next tap dismissed a toast instead of filing the entry (useJournalWriters · JOURNAL_SAVED_KIND)
+  // the next tap dismissed a toast instead of filing the entry. Since the toast diet (17.11.2026)
+  // a plain Meldung raises no toast at all: the composer closing is the confirmation
+  // (useJournalWriters · addJournal).
   await page.setViewportSize({ width: 1024, height: 768 })
   const field = page.getByPlaceholder('Was ist passiert? Meldung, Beobachtung, Entscheid …')
   const erfassen = page.getByRole('button', { name: 'Erfassen', exact: true })
-  const saved = page.locator('.toaster').getByText('Eintrag erfasst', { exact: true })
   for (let i = 1; i <= 5; i++) {
     await page.getByRole('button', { name: 'Eintrag', exact: true }).click()
     await field.fill(`E2E Meldung ${i}`)
@@ -171,10 +172,6 @@ test('F8 · Meldungen back to back: one «Eintrag erfasst», never over the next
     expect(hitsButton, `Meldung ${i}: something lies over «Erfassen»`).toBe(true)
     await erfassen.click()
     await expect(field).toBeHidden()
-    await expect(saved.first()).toBeVisible()
-    // counted once the replaced pill has played its exit (.16 s), not retried: on a build that
-    // stacks, the older pills would run out on their own while an assertion waited for it
-    await page.waitForTimeout(300)
-    expect(await saved.count(), `Meldung ${i}: «Eintrag erfasst» pills on screen`).toBe(1)
+    expect(await page.locator('.toaster .toast').count(), `Meldung ${i}: pills on screen`).toBe(0)
   }
 })

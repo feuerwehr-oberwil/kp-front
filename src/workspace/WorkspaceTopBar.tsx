@@ -151,7 +151,7 @@ export function WorkspaceTopBar({
         onAddEntry={linkScoped ? undefined
           : !readOnly ? () => setComposerOpen(true)
           : tabLockLost && (isEditor || user?.role === 'el') ? () => toast(appConfig.copy.tabLock.hint, {
-              icon: 'info',
+              icon: 'info', kind: 'tab-lock', // each «Eintrag» tap used to add one
               action: { label: appConfig.copy.tabLock.takeOver, onClick: onTakeOverTab },
             })
           : undefined}

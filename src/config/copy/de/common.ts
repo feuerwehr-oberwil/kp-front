@@ -65,6 +65,8 @@ export const commonCopy = {
     group: 'Auswahl',
     groupN: '{n} Objekte',
     noteWhat: 'Notiz',
+    connectionFreed: 'Verbindung gelöst',
+    named: '{what} entfernt',
   },
   /** Womit «Rückgängig: …» weitergeht, wenn die Fläche selbst die Aktion nicht benennt. Die
    *  Atemschutz-Tafel, Mittel und die Checklisten benennen sie (dieselbe Zeile, die der Verlauf

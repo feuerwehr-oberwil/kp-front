@@ -120,7 +120,7 @@ export function truppLineActions(deps: LineDeps) {
     // confirmed takeover still lands here with the line free.
     const holder = truppForLine(line, trupps)
     if (holder && holder.id !== truppId && !isOutTrupp(holder)) {
-      toast(fillTemplate(az.lineHeldToast, { name: holder.name }), { tone: 'warn' })
+      toast(fillTemplate(az.lineHeldToast, { name: holder.name }), { icon: 'warn' })
       return false
     }
     const no = resolveLinkNumber(tr, line, lines, trupps)

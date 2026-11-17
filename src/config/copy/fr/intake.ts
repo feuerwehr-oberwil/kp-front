@@ -27,9 +27,7 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     editTitle: 'Modifier les données d’intervention',
     save: 'Enregistrer',
     saving: 'Enregistrement …',
-    created: 'Intervention créée',
     taken: 'Alarme reprise',
-    updated: 'Intervention mise à jour',
     alarmTime: 'Heure d’alarme',
     alarmMessage: 'Message d’alarme',
     addressUnknown: 'Adresse inconnue',
@@ -42,7 +40,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     attachConfirmTitle: 'Ajouter « {alarm} » à cette intervention ?',
     attachHint: 'Le message d\u2019alarme est consign\u00e9 dans le journal, les temps GPS suivent automatiquement. Le mot-cl\u00e9 et le lieu de l\u2019intervention restent inchang\u00e9s.',
     attachConfirm: 'Ajouter',
-    attachDone: 'Alarme ajout\u00e9e \u00e0 l\u2019intervention',
     attachError: 'Alarme non jointe – réessayer',
     newDiveraAlarm: 'Nouvelle alarme',
     hide: 'Masquer',
@@ -92,5 +89,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     // the address search's own states (LISTS.1) – the Karte search's words
     addressOffline: 'La recherche d’adresses exige le réseau. Les objets du corps restent trouvables.',
     addressFailed: 'Recherche d’adresses momentanément indisponible.',
+    undoTakeFailed: 'Prise de l’alarme non annulée – l’intervention reste ouverte',
   },
 }

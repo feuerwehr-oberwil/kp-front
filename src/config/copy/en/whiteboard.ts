@@ -68,8 +68,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       persistTitle: 'Remember the scale?',
       saveAll: 'For all plans',
       saveThis: 'This plan only',
-      savedAll: 'Saved as the default scale',
-      savedThis: 'Scale saved for this plan',
       saveFailed: 'Scale not saved as default – try again',
     },
     georef: {
@@ -291,7 +289,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     nearbyBannerTitle: 'Nearest object, not the incident address.',
     nearbyBannerBody: 'Incident: {incident} · plan: {object} ({distance}).',
     nearbyBannerNoAddress: 'no address',
-    objectActive: 'Plans of "{name}"',
     objectReset: 'Reset to the next object',
     objectSwitchConfirmTitle: 'Load another object',
     objectSwitchConfirm: 'The plans of every module switch to "{name}". Change the current object?',

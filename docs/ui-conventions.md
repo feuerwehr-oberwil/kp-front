@@ -402,11 +402,12 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     bars' own width on a phone (8px in from each side). A mode's instruction and a tool's tip keep
     the phone's foot lane (`--msg-lane-bottom`, 15-mobile), one `--float-gap` above THE floating
     row (below) – while a tool is out, above the highest piece of the tool stack, measured
-    (lib/floatRow · stackLane, 30.10.2026) – never beside a piece of it. A repeat REPLACES (18.10.2026): a confirmation that comes again — «Eintrag erfasst» after
-    every Meldung, «Geschoss hinzugefügt» — carries a `kind` (lib/ui · toast) and takes its
-    predecessor's place instead of stacking on it; five Meldungen in a row grew a column of pills
-    up the screen into the composer's «Erfassen», and a confirmation never covers the next action
-    (`useJournalWriters · JOURNAL_SAVED_KIND`, e2e `workspace-flows` F8). A pill is ONE ROW (30.09.2026): the sentence wraps first, inside
+    (lib/floatRow · stackLane, 30.10.2026) – never beside a piece of it. A repeat REPLACES (18.10.2026): a toast that can come again — per tap, per sync
+    event, per timer — carries a `kind` (lib/ui · toast) and takes its predecessor's place instead
+    of stacking on it; five Meldungen in a row once grew a column of pills up the screen into the
+    composer's «Erfassen», and a confirmation never covers the next action. Every undo pill shares
+    ONE kind by default (`UNDO_KIND`), and the stack never stands higher than `MAX_TOASTS` (3) –
+    a new pill sends the oldest timed one out (see the toast rule below). A pill is ONE ROW (30.09.2026): the sentence wraps first, inside
     its column, and «Rückgängig» + ✕ stay beside it. The column has a floor of 10em (05.10.2026):
     only an action too wide to leave the sentence that much wraps under it, right-aligned. On
     the launcher the lane is the card's own column. There is no standing «Offline» row
@@ -418,14 +419,38 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Karte's Punkt setzen / Gefahrgut) calls `usePlacementLane(active)` (lib/toastLane → `<html
     data-placing>`), which bounds the strip so the lane under it stays near the head; a new mode
     calls the hook, it never adds a selector to a list. On the Karte the lane also clears the
-    running-Einsatz strip. The Karte's «Auf die Karte tippen …» is a sticky toast in that lane, not a
-    pill of its own. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
+    running-Einsatz strip. The Karte's «Auf die Karte tippen …» is a `MapHint` in the foot lane
+    (components/karte/KarteApp), not a toast. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
     bar first, then amber / blue / grey): a row's tone is its leading glyph's colour, so every
     `Meldung` carries an `icon`. A row TITLE whose way in is the same
     move as the row's filled button (the Atemschutz «Zum Trupp» — `Meldung.onOpen.label` = the
     primary action's label) stays tappable but draws NO underline (`.ml-open.plain`, derived in
     `Meldeleiste · MeldungTitle`); the underline is only the signal where the title is the ONLY
     door. A button never repeats the glyph its row already leads with.
+  - *The toast rule – only what is essential (17.11.2026, owner: «toasts are really only used for
+    things that are essential – not spamming the UI»):* **a toast is for what the operator must
+    know NOW and cannot see where they are looking – or the one tap back.** Five things earn one:
+    the confirm-with-undo of an act just done (`undoToast` / `removeWithUndo`); a failure after the
+    operator's own act, saying the state it leaves; a refusal the tapped control cannot show
+    itself; a loss nobody else reports (a draft, a file, an open georef point dropped); a live job
+    the operator waits on (the print chain). **Never a toast:** a success the screen already shows
+    (a row appeared, a lamp turned green, a sheet closed on its result, a stepper shows the number
+    – the composer closing IS «Eintrag erfasst»); a standing state (offline, catalogue missing,
+    read-only tab) – that is the head chip, the Meldeleiste or the empty state; a safety warning –
+    the Meldeleiste, it stays until it is resolved («Kein Sicherungstrupp bereit»); a refusal
+    inside an open form – inline at the field, `form-warn` (the composer's attach row, the
+    wizard's «Hier»); background news (a merge) – two stay by owner pick: «Aktualisiert – v…» once
+    per version, and «Wieder bei …» on a return (mock j8-5). A loop never toasts per item; what can
+    fire again carries a `kind`.
+    Busy inside an open sheet = loader + word; an act's failure there = a toast, the sheet stays
+    as it stood (inline only for a LOAD that failed). Test: would the operator be worse off if it
+    never appeared? If not, it goes. **Every «Rückgängig» comes through `undoToast`** (lib/ui):
+    one neutral tone (never green), one button, one guard, and a glyph that names the act – 🗑
+    removed, ✓ taken or ticked, ↶ anything else; an undo that doubles a ↶ step drops it (or steps
+    the ↶ itself, `removeWithUndo`), so nothing is undoable twice. Undo pills replace each other –
+    the older acts stay on ↶ – unless the pill is the act's ONLY way back (the Alarm take, a
+    Notfall, a device reset, a Verlauf patch), which brings its own `kind`. A merge that took ↶'s
+    own step is said at the NEXT ↶ press, at the button (`IncidentWorkspace · pressHistory`).
   - *ONE floating family, ONE floating row (26.09.2026, owner: «everything has the same shape,
     colour, padding»):* every small thing that floats over the Karte or a Plan — the messages
     above, the plan's chips (Objekt · Gebäude),

@@ -4,8 +4,6 @@ import { objectsNearIncidentResilient, getObjectResilient, referenceUrl, type Ob
 import { getApprovedPlanAlignments } from './api/reference'
 import { addPlanBindings, fillBindingFloors, incidentGeorefKey, inheritPlanBinding, type IncidentPlanBinding } from './incidentPlanBindings'
 import { georefForPlan } from './stationPlanScale'
-import { toast } from './ui'
-import { fillTemplate } from './format'
 import { appConfig } from '../config/appConfig'
 import { modulesFromConfig, moduleViewer, moduleHiddenWithGebaeude, nearbyObjectWarnM } from './deploymentConfig'
 import { comparePlanModules, moduleCatalogue, sortPlanModuleIds } from './planOrder'
@@ -441,13 +439,12 @@ export function useObjectPlans(
     // jump to the object's FIRST module in the rail's own order — Modul 1 where it has one
     const firstModule = sortPlanModuleIds(moduleCatalogue(), Object.keys(info.plans))[0]
     if (firstModule) onActivePlan(firstModule)
-    toast(fillTemplate(appConfig.copy.whiteboard.objectActive, { name: obj.name }), { icon: 'doc', tone: 'success' })
+    // no toast: the Objekt chip and the rail show the pick
   }, [onActivePlan, onPick])
   // back to the auto-surfaced nearest object (and forget the synced pick for this incident)
   const resetObject = useCallback(() => {
     setManualObject(null)
     onPick(undefined)
-    toast(appConfig.copy.whiteboard.objectReset, { icon: 'doc' })
   }, [onPick])
 
   // the name shown in the incident dropdown's «Objekt: …» row — manual pick wins, else the

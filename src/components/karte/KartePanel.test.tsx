@@ -378,3 +378,17 @@ describe('KartePanel · order and actions (R2)', () => {
     expect(onPick).toHaveBeenLastCalledWith('object')
   })
 })
+
+// toast diet, 17.11.2026: «Koordinaten kopieren» acknowledges in place – no «kopiert» toast
+describe('KartePanel · a copied pin', () => {
+  const pin = { kind: 'pin' as const, at: [7.57175, 47.52015] as [number, number], near: null, nearState: 'none' as const, onBuilding: false }
+  it('stands as «✓ Kopiert» where the button was, and is not a control', () => {
+    panel({ sel: pin, coordsCopied: true })
+    expect(screen.queryByRole('button', { name: /Koordinaten kopieren/ })).toBeNull()
+    expect(screen.getByRole('status', { name: 'Koordinaten kopieren' }).textContent).toContain('Kopiert')
+  })
+  it('offers the button again otherwise', () => {
+    panel({ sel: pin })
+    expect(screen.getByRole('button', { name: /Koordinaten kopieren/ })).toBeTruthy()
+  })
+})

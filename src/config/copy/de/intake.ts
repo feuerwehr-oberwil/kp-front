@@ -53,9 +53,7 @@ export const intakeCopy = {
     editTitle: 'Einsatzdaten bearbeiten',
     save: 'Speichern',
     saving: 'Speichert …',
-    created: 'Einsatz erstellt',
     taken: 'Alarm übernommen',
-    updated: 'Einsatz aktualisiert',
     alarmTime: 'Zeit Alarmierung',
     alarmMessage: 'Alarmmeldung',
     // --- Divera pool + incoming banner + in-map review ---
@@ -70,7 +68,6 @@ export const intakeCopy = {
     attachConfirmTitle: '«{alarm}» zu diesem Einsatz hinzufügen?',
     attachHint: 'Die Meldung landet im Verlauf, GPS-Zeiten folgen automatisch. Stichwort und Standort des Einsatzes bleiben unverändert.',
     attachConfirm: 'Hinzufügen',
-    attachDone: 'Alarm zum Einsatz hinzugefügt',
     attachError: 'Alarm nicht angehängt – erneut versuchen',
     newDiveraAlarm: 'Neuer Alarm',
     hide: 'Ausblenden',
@@ -127,5 +124,6 @@ export const intakeCopy = {
     // the address search's own states (LISTS.1) – the Karte search's words
     addressOffline: 'Adresssuche braucht Netz. Stationsobjekte werden trotzdem gefunden.',
     addressFailed: 'Adresssuche gerade nicht erreichbar.',
+    undoTakeFailed: 'Alarm nicht zurückgenommen – der Einsatz bleibt offen',
   },
 } as const

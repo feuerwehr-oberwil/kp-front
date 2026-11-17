@@ -5,7 +5,6 @@ import { resolvePlanScale } from '../lib/stationPlanScale'
 
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { toast } from '../lib/ui'
 import { useNodeHold } from '../lib/nodeHold'
 import { useFreshPoint } from '../lib/useFreshPoint'
 import type { BoardTool } from '../types'
@@ -166,8 +165,8 @@ export function usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, loc
     if (!sc) return
     setLastRefM(refM)
     onCalibrate?.(activeId, sc)
+    // no toast: the lamp turns green, the Verlauf has the row, and the save prompt follows
     log('measure', fillTemplate(appConfig.copy.whiteboard.scale.saved, { m: String(refM) }))
-    toast(fillTemplate(appConfig.copy.whiteboard.scale.saved, { m: String(refM) }))
     if (onCalibrate) setSavePrompt(sc) // editor: offer to remember it across incidents
   }
 

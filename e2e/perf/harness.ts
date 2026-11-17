@@ -266,9 +266,9 @@ export async function timeTo(page: Page, input: () => Promise<unknown>, ready: (
 }
 
 /** Centre of a locator — computed BEFORE the clock starts, once nothing lies on top of it. A
- *  raw tap hits whatever is there: the «Eintrag erfasst» toast of the previous Meldung sat over
- *  the composer's «Erfassen» (05.10.2026), and the tap dismissed the toast instead. A crew waits
- *  for the toast too, so the journey does, untimed. */
+ *  raw tap hits whatever is there: a toast of the previous act sat over the composer's
+ *  «Erfassen» once (05.10.2026), and the tap dismissed the toast instead. A crew waits for a
+ *  toast too, so the journey does, untimed. */
 export async function centre(page: Page, selector: string | ReturnType<Page['locator']>) {
   const loc = typeof selector === 'string' ? page.locator(selector).first() : selector
   await loc.waitFor({ state: 'visible', timeout: 30_000 })

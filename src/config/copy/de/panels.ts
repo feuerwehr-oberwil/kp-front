@@ -326,8 +326,6 @@ export const panelsCopy = {
     // Drei Ergebnisse, drei Nachrichten – nicht eine Nachricht mit unterschiedlichen Zahlen.
     // «Karte offline verfügbar (0 Kacheln)» war grün, mit Haken, für einen Download, der nichts
     // geladen hatte; die Zahl in der Klammer, die alles widerlegte, liest um 03:10 niemand.
-    dlDone: 'Karte offline bereit – {n} Kacheln',
-    dlDoneCapped: 'Karte offline bereit – Ausschnitt begrenzt, {n} Kacheln',
     dlPartial: 'Teilweise geladen – {n} von {total}. Am Rand des Ausschnitts fehlt die Karte.',
     // begrenzt UND unvollständig: ohne den Zusatz versprach «Weiterladen» Kacheln, die der
     // Speicher-Deckel gleich wieder ausschliesst

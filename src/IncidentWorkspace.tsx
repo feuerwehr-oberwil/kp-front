@@ -55,7 +55,7 @@ import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
 import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
-import { toast, confirmDialog, undoToast } from './lib/ui'
+import { toast, confirmDialog, undoToast, type UndoGlyph } from './lib/ui'
 import { connectRemovalToasts, removeWithUndo } from './lib/removalToast'
 import { usePlacementLane } from './lib/toastLane'
 import { initialMode, loadPrefs, savePrefs, twinLayersIn } from './lib/prefs'
@@ -176,7 +176,7 @@ import { MapStage } from './workspace/MapStage'
 import { usePlanStacks } from './workspace/usePlanStacks'
 import { useGebaeudeActions } from './workspace/useGebaeudeActions'
 import { useJournalWriters } from './workspace/useJournalWriters'
-import { useWorkspaceBlob } from './workspace/useWorkspaceBlob'
+import { type UndoTopLost, useWorkspaceBlob } from './workspace/useWorkspaceBlob'
 import { prefs } from './workspace/bootPrefs'
 import { ATTENDANCE_RECORDS } from './workspace/recordShapes'
 import { useMapActions } from './workspace/useMapActions'
@@ -732,8 +732,22 @@ export function IncidentWorkspace({
     if (r.status === 'lost') { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
     if (anchor) flashUndoCaption(anchor, fillTemplate(dir === 'undo' ? C_HIST.undoNamed : C_HIST.redoNamed, { action: undoCaption(r.entry) }))
   }
-  /** …from a button, which anchors the caption at itself. Every ↶ ↷ in the app goes through this. */
-  const onHistoryPress = (dir: 'undo' | 'redo') => (e: ReactMouseEvent<HTMLButtonElement>) => stepHistory(dir, e.currentTarget)
+  /** A merge dropped ↶'s own step (useWorkspaceBlob · onTopDropped): the operator's next ↶ — a
+   *  button or the key, never a toast's — says so at the button and does not step, so ↶ never
+   *  quietly turns into an older act. The press after it steps as usual. */
+  const [undoTopLost, setUndoTopLost] = useState<UndoTopLost | null>(null)
+  const pressHistory = (dir: 'undo' | 'redo', anchor?: HTMLElement | null): void => {
+    const lost = undoTopLost
+    if (lost) setUndoTopLost(null)
+    if (dir === 'undo' && lost && undoHist.peekUndo() === lost.top) {
+      if (anchor) flashUndoCaption(anchor, lost.text)
+      else toast(lost.text, { icon: 'warn' })
+      return
+    }
+    stepHistory(dir, anchor)
+  }
+  /** …from a button, which anchors the caption at itself. Every ↶ ↷ button in the app goes through this. */
+  const onHistoryPress = (dir: 'undo' | 'redo') => (e: ReactMouseEvent<HTMLButtonElement>) => pressHistory(dir, e.currentTarget)
   useEffect(() => clearUndoCaption, [])
   // the delete rule's toasts take back THEIR step through this same ↶ (lib/removalToast)
   // (re-plugged every render, so the toast's ↶ is always this render's `stepHistory`)
@@ -1357,7 +1371,7 @@ export function IncidentWorkspace({
     bootGate, olderBuild, setOlderBuild, incidentMeta, setLayers, journal, setRecent, setBuilding, setVehicleOverrides, setChecklists,
     setTrupps, setAttendance, setMittel, setShifts, setBands, setCameraViews, setTrails, setPlanScale,
     setReportMeta, setAttachments, setReportSignatures, setIncidentSettings, setPlanBindings, setPickedObjectId,
-    setIntakeReviewedAt, undoHist, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
+    setIntakeReviewedAt, undoHist, setUndoTopLost, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
     setPlanHistory, lastReportStepRef: lastReportStep, lastCaptionStepRef: lastCaptionStep,
     lastReorientRef: lastReorient, setSelectedId, setSelectedDrawingId, setSelectedDrawIds, objects, recent,
     activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel,
@@ -2311,7 +2325,7 @@ export function IncidentWorkspace({
     planDocs, mode, setMode, setActivePlanId,
     hotkeyRef, settingsOpen, paletteOpen, pickerOpen, helpOpen, installGuideOpen, offlineReadyOpen,
     shareLink, composerOpen, georefActive, georefMode, replayActive, readOnly, linkScoped, goToNav,
-    planFit, stepHistory, planKeys, setJournalOpen, setComposerOpen, togglePanel, setSettingsOpen,
+    planFit, stepHistory: pressHistory, planKeys, setJournalOpen, setComposerOpen, togglePanel, setSettingsOpen,
     setHelpOpen, coord, notePanelId, notePlacedId, mapWorkRect, drawings, drawTap, beginDrag, setDocRaw,
     endDrag, flyToMapVisible, setVehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef, objects,
     setPlanFocus, focusEntity, editNoteId, user, stepLabelRef: stepLabel,
@@ -2548,11 +2562,11 @@ export function IncidentWorkspace({
    * the toast left «Geschoss 3. OG entfernt» standing alone on the printed Einsatzjournal, about a
    * storey that still existed) — and drops the timeline entry, so the act is never taken back twice.
    * Guarded by the entry (`drop.standing`): once a merge dropped it, or a ↶ already took it, the
-   * toast declines instead of writing over another device's change. `opts.kind` (#232): a toast of
-   * the same kind still on screen gives way to this one.
+   * toast declines instead of writing over another device's change. Its own kind (`oneshot`, toast
+   * diet call 2): a closure one-shot is not pushed out by an ordinary undo pill.
    */
-  const oneShotUndoToast = (text: string, label: string, restore: () => void, drop: Dropper, rows?: OneShotRows | 'silent', opts?: { kind?: string }) =>
-    undoToast(text, () => { restore(); drop(); oneShotRow('undo', label, rows) }, drop.standing, opts)
+  const oneShotUndoToast = (text: string, label: string, restore: () => void, drop: Dropper, rows?: OneShotRows | 'silent', opts?: { glyph?: UndoGlyph }) =>
+    undoToast(text, () => { restore(); drop(); oneShotRow('undo', label, rows) }, drop.standing, { kind: 'oneshot', glyph: opts?.glyph })
   // the Gebäude's own acts on the Plan — pick, storeys, Drehung (workspace/useGebaeudeActions)
   const gebaeude = useGebaeudeActions({
     tacticalLocked, building, setBuilding, board, setBoard, objects, objectsRef, boardRef, floorPack: georefFits.floorPack,

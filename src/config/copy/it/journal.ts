@@ -197,8 +197,6 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     openRemindersHead: 'Pendenze',
     // l'interruttore ○ accanto ai chip Art — tre stati su un unico comando
     openStates: ['Tenere aperto', 'Resta aperto – compare tra le pendenze', 'Urgente – va in cima'] as string[],
-    pendenzSaved: 'Pendenza registrata',
-    pendenzUrgentSaved: 'Pendenza registrata – urgente',
     pendenzDoneLog: 'Pendenza conclusa: {text}',
     pendenzReopenLog: 'Pendenza riaperta: {text}',
     noteOnTitle: 'Segnalazione',
@@ -208,7 +206,6 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     pendenzNew: 'Nuova pendenza',
     pendenzNewUrgent: 'Pendenza urgente',
     pendenzNotOpen: 'Non tenere aperta',
-    noteSaved: 'Segnalazione registrata',
     noteChip: 'Pendenza',
     noteOpen: 'Registrare una segnalazione',
     ageLabel: '{n}′',
@@ -220,6 +217,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     fromTafel: 'dalla lavagna',
     fromTafelTitle: 'Inserito sulla lavagna – toccare apre la pagina',
     emptyHint: 'Con «Voce» annotare un messaggio, un ordine o una foto.',
+    attachDroppedMany: '{n} file scartati: {names}. Selezionarli di nuovo.',
+    sectionRemoved: 'Sezione eliminata',
   },
   tafelPendenzen: {
     createdLog: 'Pendenza dalla lavagna ({page}): {text}',

@@ -9,6 +9,7 @@ import { fillTemplate, formatSymbolName, stripUnprintable } from '../lib/format'
 import { takenClock } from '../lib/photoGeo'
 import { CtxShell, SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
+import { removeWithUndo } from '../lib/removalToast'
 import { allStoffNames, lookupUN, lookupUNByName } from '../lib/unHazard'
 import { useHazardData } from '../lib/useHazardData'
 import { DEFAULT_ERG_RING_MODE } from '../lib/ergRings'
@@ -600,7 +601,10 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
     if (k === EL_STV) return { ...r, v: rows.find((x) => x.k.trim() === EL_NAME)?.v ?? '' }
     return r
   }))
-  const removeRow = (i: number) => commitRows(rows.filter((_, j) => j !== i))
+  // a removal says so, with the way back (duck sweep FEEDBACK.3); an empty row lays no step, so it goes quietly
+  const removeRow = (i: number) => removeWithUndo(
+    fillTemplate(appConfig.copy.removedToast.named, { what: rows[i].k.trim() || C.fieldKeyPlaceholder }),
+    () => commitRows(rows.filter((_, j) => j !== i)))
 
   // Details are stored as a key→value MAP, so two rows sharing a Bezeichnung silently collapse
   // into one — the last row wins and the earlier value is gone at the next reload. We neither

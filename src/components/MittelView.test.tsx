@@ -344,3 +344,28 @@ describe('a blocked «Speichern» in the composer', () => {
     expect(ringed?.textContent).toContain(M.materialLabel)
   })
 })
+
+// duck sweep FEEDBACK.4 (17.11.2026): the bin's «Rückgängig» used to save a restore of its own and
+// leave the header's ↶ holding the removal too – one act, two ways back. Now it IS the ↶ step.
+describe('removing a hand-added line', () => {
+  const kanister: MittelEntry = { id: 'e1', label: 'Kanister', unit: 'Stk.', menge: 2, at: '2026-10-20T10:00:00.000Z' }
+
+  it('saves the tombstone once, and its «Rückgängig» steps the ↶ instead of saving a restore', async () => {
+    const { connectRemovalToasts } = await import('../lib/removalToast')
+    const { Overlays } = await import('../lib/ui')
+    const step = { label: 'Mittel' } as unknown as import('../lib/undoTimeline').UndoEntry
+    let top: typeof step | null = null
+    const undo = vi.fn(() => { top = null })
+    const unplug = connectRemovalToasts({ peek: () => top, undo })
+    render(<Overlays />)
+    const onSave = vi.fn((d: MittelDraft) => { if (d.deleted) top = step })
+    render(<MittelView entries={[kanister]} canEdit onSave={onSave} />)
+    fireEvent.click(screen.getByRole('button', { name: `Kanister – ${M.editLabel}` }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(M.deleteLine) }))
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.undo }))
+    expect(onSave).toHaveBeenCalledTimes(1)
+    expect(onSave.mock.lastCall?.[0]).toMatchObject({ label: 'Kanister', deleted: true })
+    expect(undo).toHaveBeenCalledTimes(1)
+    unplug()
+  })
+})
