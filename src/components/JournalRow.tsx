@@ -149,6 +149,8 @@ export function JournalRow({
   // open item — «Auftrag · Trupp 2 entraucht Treppenhaus» is the record and the Pendenz
   // in one line. Only the timed Erinnerung still writes a row of its own.
   const isReminder = e.reminder?.op === 'created'
+  /** the item this row RAISED – what its tick box ticks off and takes back */
+  const raised = isReminder ? e.reminder : undefined
   const openRem = isReminder && e.reminder ? openMap.get(e.reminder.id) : undefined
   const remDone = isReminder && !openRem
   const remOverdue = !!openRem?.dueAt && Date.parse(openRem.dueAt) <= now
@@ -198,8 +200,8 @@ export function JournalRow({
           useReminders · setDone) – a mis-tap is taken back where it happened. */}
       <Disc
         icon={glyph.icon} surface={disc.surface} tone={glyph.tone} ring={ring} title={disc.label}
-        onTick={onReminderTick && isReminder && e.reminder
-          ? () => onReminderTick(openRem ?? { id: e.reminder!.id, text: pendenzTitles.get(e.reminder!.id) ?? rowText(e), dueAt: e.reminder!.dueAt }, !!openRem)
+        onTick={onReminderTick && raised
+          ? () => onReminderTick(openRem ?? { id: raised.id, text: pendenzTitles.get(raised.id) ?? rowText(e), dueAt: raised.dueAt }, !!openRem)
           : undefined}
         tickTitle={openRem ? C.markDoneTitle : C.markOpenTitle}
       />
