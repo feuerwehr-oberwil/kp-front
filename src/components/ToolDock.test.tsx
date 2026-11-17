@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // M7 C (13.11.2026): «✓ Fertig» commits a draft; the ✕ closes, at the dock's end. Round 2b + round
 // 15.11.2026 #2: the dock follows the rails – every item worded with «Beschriftung» on (the phone's
-// row too, and the Form's preview with its name), every item bare off, never a mix.
+// row too), every item bare off, never a mix.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { ToolDock, type DockItem } from './ToolDock'
@@ -54,13 +54,9 @@ describe('ToolDock', () => {
     expect(screen.getByRole('button', { name: 'Mehrere platzieren' }).title).toBe('Mehrere platzieren')
   })
 
-  it('words the Form preview with its name, and draws every item bare with the words off', () => {
-    const shapeDock: DockItem[][] = [[{ type: 'close', onClick: () => {} }], [{ type: 'glyph', node: <svg />, label: 'Rechteck' }]]
-    const { container } = render(<ToolDock groups={shapeDock} />)
-    expect(words(container)).toEqual(['Rechteck', appConfig.copy.cancel])
-    cleanup()
+  it('draws every item bare with the words off', () => {
     savePrefs({ ...loadPrefs(), railLabels: 'off', railLabelsChosen: true })
     vi.mocked(useIsPhone).mockReturnValue(true)
-    expect(words(render(<ToolDock groups={[...lineDock(), ...shapeDock]} />).container)).toEqual([])
+    expect(words(render(<ToolDock groups={lineDock()} />).container)).toEqual([])
   })
 })

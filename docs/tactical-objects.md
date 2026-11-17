@@ -68,9 +68,10 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   placing symbol XYZ and that's it»). Bottom centre of the Karte, the Einsatz map, a Plan and the
   Tafel, tablet and phone: the tool's glyph (a symbol's own SVG) and its name («F Feuer»,
   «Linie · Freihand», «Fläche · Punkte», «Absperrkreis»), no sentence, no button, pointer events
-  pass through. The symbol tool has no option dock any more – the pill is its readout, «Mehrere
-  platzieren» is a 44 px toggle with its word beside the pill, and the way out is the ✕ beside that
-  toggle or Escape on the Karte and the Plan alike (27.10.2026: with «Mehrere platzieren» on, the
+  pass through. The symbol tool has no option dock any more – the pill is its readout, and beside
+  it stand two DOCK TILES (button sweep CHROME.3/.4, owner pick 11, 17.11.2026): «Mehrere»
+  («Mehrere platzieren») and ✕ «Abbrechen», the very tiles a Form's dock carries, worded by
+  «Beschriftung»; the way out is that ✕ or Escape on the Karte and the Plan alike (27.10.2026: with «Mehrere platzieren» on, the
   Plan's Escape did nothing and there was no ✕ – no way to stop placing Durchgänge). **Escape is one
   ladder on the Karte, the Plan and the station viewer** (`lib/hotkeyRoute · routeEscape`, duck sweep
   17.11.2026): the top layer (Ebenen, Ansichten, the Passung dock, the viewer's search) → what is
@@ -83,8 +84,8 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   while one is out). While Messen is armed there is no pill, on any size – its results panel
   stands in that spot (sweep 30.10.2026 #3: the pill covered the Distanz on a tablet).
   The row never ellipsises (sweep 30.10.2026 #8, «Fahrze…»): when it does not fit, the name folds
-  first and the glyph stands alone (the name stays its aria-label), then «Mehrere platzieren»
-  folds to its ⟳ (a hold says the word) – measured on the top bar's ladder
+  first and the glyph stands alone (the name stays its aria-label), then the tiles' words fold
+  (a hold says each word) – measured on the top bar's ladder
   (`ArmedToolPill · fitArmedPill`), so a wider screen gives the words back.
 - **One detail card, one set of controls** (`components/ContextPanel`, owner decisions
   31.10.2026). The Karte and every plan open the SAME card for a symbol, so a control added or

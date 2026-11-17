@@ -69,7 +69,10 @@ unchanged.
   screenshot: the bar over a peeked Linie sheet lay on «Auswahl» and the Gebäude chip):
   `body.sel-transforming` (lib/transformChrome) hides `.tool-rail` / `.wb-tools` / `.wb-botleft`
   by `visibility` for the mode or the grip drag, and the selection bar stands one `--float-gap`
-  above the sheet – half, full or peeked (76px). The nav bar stays; the peeked sheet covers it.
+  above the sheet – half, full or peeked (76px). With no sheet it stands where the dock row stands
+  (`--dock-bottom`) and IS that row's twin (button sweep CHROME.2, 17.11.2026): `--rail-h` tall,
+  4px 8px inset, 46px tiles, the glyph 22 over its word under «Beschriftung» – one spot, one
+  anatomy. The symbol's «Mehrere» · ✕ beside the armed pill are the same row of tiles. The nav bar stays; the peeked sheet covers it.
   The same bars step aside for the length of ANY drag on an object's geometry – a vertex, a «+»,
   Verlängern, a Form's grip, a symbol (round 15.11.2026 #4): `body.geom-dragging`, set with the
   sheet's peek (lib/sheetPeek · `beginSheetPeek('object')`; a map pan is `'view'` and keeps them).

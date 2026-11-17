@@ -12,11 +12,16 @@
  * taps at all – a press that never travels is nothing, so nothing can be placed, selected or
  * deselected under the finger. **The bar has ✥ · ⟳ and, for a Mehrfach group only, a ✕.** The
  * turn's degrees are read *on the surface*, beside the pivot and the radius the finger is
- * swinging (`components/SelectionTurn`), never off a button at the far edge of a tablet – so the
- * two grips wear a word that never changes («Verschieben» / «Drehen», duck sweep ELEM.1, owner
- * 17.11.2026) and never re-flow mid-gesture. The way out is the ✕ of the object's
+ * swinging (`components/SelectionTurn`), never off a button at the far edge of a tablet.
+ * **It is a bar of tiles like every other bar** (button sweep CHROME.2/.9, owner 17.11.2026):
+ * the glyph 22 over its word 11/700, 46px on a phone and the view bar's 56 on a tablet, on the
+ * view bar's baseline – and worded by «Beschriftung» (`useRailLabels`) exactly like the dock, a
+ * bare glyph tile with the setting off. The word never changes with the state («Verschieben» /
+ * «Drehen», duck sweep ELEM.1), so nothing re-flows mid-gesture. On a phone it stands where the
+ * dock row stands, and looks like that row. The way out is the ✕ of the object's
  * editor card; a Mehrfach group has no card, so the bar carries its ✕ (disarm + clear the
- * selection) – ✕ closes, «Fertig» only commits a draft (owner, 13.11.2026, M7 C · ui-conventions
+ * selection) as a tile of the bar, «Schliessen» under the same setting (CHROME.4) – ✕ closes,
+ * «Fertig» only commits a draft (owner, 13.11.2026, M7 C · ui-conventions
  * › Close and commit; until then the bar said «Fertig» beside the card's ✕, two exits for one
  * thing). **«Entfernen» is not on the bar** (it was
  * called «Löschen» until 25.09.2026) – an object is removed from its own editor sheet and with the
@@ -40,6 +45,7 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { beginTransformChrome, endTransformChrome } from '../lib/transformChrome'
+import { useRailLabels } from '../lib/useDevicePrefs'
 
 /** Streamed like every other direct-manipulation gesture in the app: 'start' snapshots for undo,
  *  'move' writes live, 'end' commits — so the whole drag folds into ONE undo step. */
@@ -89,7 +95,8 @@ interface Props {
  * aside for the length of a transform (lib/transformChrome), so the object reads as one thing
  * while it moves. Body-drag on the object stays as the tolerant shortcut.
  *
- * ✥ · ⟳, and a ✕ only for a group (see `onClose`). The turn's degrees are read ON THE SURFACE, beside
+ * ✥ · ⟳, and a ✕ only for a group (see `onClose`) – tiles of one bar, worded by «Beschriftung»
+ * like the tool dock (module header). The turn's degrees are read ON THE SURFACE, beside
  * the pivot (components/SelectionTurn), not off a button at the far edge of the screen; and
  * «Löschen» is not here at all — an object is deleted from its own editor sheet and with the
  * Delete key, where every other change to it is made.
@@ -114,6 +121,9 @@ export function SelectionBar({ onMove, onRotate, onClose, onGrab, armed = null, 
   // control that travels 300px away from the hand holding it is not a control.
   const [grabbing, setGrabbing] = useState(false)
   const C = appConfig.copy.drawingEditor
+  // the dock's rule: every tile worded with «Beschriftung» on, every tile bare off – never a mix
+  const worded = useRailLabels() === 'short'
+  const word = (w: string) => worded ? <span className="wb-dock-word" aria-hidden>{w}</span> : null
 
   const down = (kind: 'move' | 'rotate') => (e: React.PointerEvent) => {
     e.stopPropagation()
@@ -164,12 +174,12 @@ export function SelectionBar({ onMove, onRotate, onClose, onGrab, armed = null, 
     // deselects the very thing the bar is about to move
     // `data-arm-exempt`: the armed mode owns every press on the surface EXCEPT the ones on this
     // bar, which is how ✥ keeps its own drag and how the mode can be tapped off again
-    <div className={`sel-bar${grabbing ? ' grabbing' : ''}`} role="toolbar" aria-label={C.selectionBar} data-arm-exempt
+    <div className={`sel-bar${worded ? ' worded' : ''}${grabbing ? ' grabbing' : ''}`} role="toolbar" aria-label={C.selectionBar} data-arm-exempt
       onPointerDown={(e) => e.stopPropagation()}>
       <button className={`sel-bar-act${armed === 'move' ? ' on' : ''}`} aria-pressed={armed === 'move'}
         title={armed === 'move' ? C.moveArmed : C.move} aria-label={armed === 'move' ? C.moveArmed : C.move} data-holdaction
         onPointerDown={down('move')} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
-        onClick={(e) => e.stopPropagation()}><Icon id="move" /><span aria-hidden>{C.move}</span></button>
+        onClick={(e) => e.stopPropagation()}><Icon id="move" />{word(C.move)}</button>
       {onRotate && (() => {
         const label = armed === 'rotate' ? C.rotateArmed : appConfig.copy.shapes.rotate
         return (
@@ -177,18 +187,18 @@ export function SelectionBar({ onMove, onRotate, onClose, onGrab, armed = null, 
             title={label} aria-label={label} data-holdaction
             onPointerDown={down('rotate')} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
             onClick={(e) => e.stopPropagation()}>
-            <Icon id="rotate" /><span aria-hidden>{appConfig.copy.shapes.rotate}</span>
+            <Icon id="rotate" />{word(appConfig.copy.shapes.rotate)}
           </button>
         )
       })()}
-      {/* a group's way out of the editing state, at the bar's END («X on the right everywhere»).
-          NOT «Löschen»: deleting belongs in the object's own editor sheet (and on the Delete
-          key) — a destructive button on a chrome bar two taps from every grip is the near-miss
-          the map's old hub ✕ was removed for. */}
+      {/* a group's way out of the editing state, a tile at the bar's END («X on the right
+          everywhere»), the dock's ✕ look. NOT «Löschen»: deleting belongs in the object's own
+          editor sheet (and on the Delete key) — a destructive button on a chrome bar two taps
+          from every grip is the near-miss the map's old hub ✕ was removed for. */}
       {onClose && (
-        <button type="button" className="ip-x sel-bar-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}
+        <button type="button" className="sel-bar-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}
           onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onClose() }}>
-          <Icon id="close" />
+          <Icon id="close" />{word(appConfig.copy.closeDialog)}
         </button>
       )}
     </div>
