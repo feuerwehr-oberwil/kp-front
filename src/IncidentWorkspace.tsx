@@ -168,6 +168,7 @@ import { WorkspaceSheets } from './workspace/WorkspaceSheets'
 import { JournalLayer } from './workspace/JournalLayer'
 import { MapToolDocks } from './workspace/MapToolDocks'
 import { MapDetailPanels } from './workspace/MapDetailPanels'
+import { SafetyMissingMeldung } from './components/SafetyMissingMeldung'
 import { RapportSurface } from './workspace/RapportSurface'
 import { PlansSurface } from './workspace/PlansSurface'
 import { MapControls } from './workspace/MapControls'
@@ -3022,6 +3023,8 @@ export function IncidentWorkspace({
         {/* …and the Notfall's row obeys the same contract: withheld on the board, whose banner
             stands in its place (AtemschutzNotfall) */}
         <AtemschutzNotfallMeldungen trupps={trupps} onBoard onGoToTrupp={(id) => setTruppFocus({ id, nonce: Date.now() })} />
+        {/* «Kein Sicherungstrupp bereit» – the person at the door is who most needs it (FEEDBACK.1) */}
+        {azAlarmActive && <SafetyMissingMeldung trupps={trupps} />}
       </div>
     )
   }

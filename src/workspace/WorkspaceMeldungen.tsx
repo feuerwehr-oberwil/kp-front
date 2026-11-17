@@ -161,8 +161,8 @@ export function WorkspaceMeldungen({
       {/* «Kein Sicherungstrupp bereit» – standing while a PA crew is inside uncovered, on every
           surface, the board and the Link included (components/SafetyMissingMeldung, FEEDBACK.1) */}
       {azAlarmActive && (
-        <SafetyMissingMeldung trupps={trupps} onBoard={mode === 'atemschutz'}
-          onGoToBoard={() => { setMode('atemschutz'); setPanel(null) }} />
+        <SafetyMissingMeldung trupps={trupps}
+          onGoToBoard={mode === 'atemschutz' ? undefined : () => { setMode('atemschutz'); setPanel(null) }} />
       )}
 
       {/* one row per GPS end with something to say — they queue behind each other instead of

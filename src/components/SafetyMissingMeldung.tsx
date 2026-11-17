@@ -11,11 +11,11 @@ import type { Trupp } from '../types'
 // and the Link included (`meldungen · MELDUNG_RANK.safety`, in `linkShowsMeldung`): the board
 // names no missing Sicherungstrupp anywhere else. No ✕ – it clears itself the moment one is ready
 // or the crew is out. Calm (`warn`): it is a fact about the cover, not a clock running out.
-export function SafetyMissingMeldung({ trupps, onBoard, onGoToBoard }: {
+export function SafetyMissingMeldung({ trupps, onGoToBoard }: {
   trupps: readonly Trupp[]
-  /** the Atemschutz board is in front – the row stays, but needs no way there */
-  onBoard: boolean
-  onGoToBoard: () => void
+  /** «Zu den Trupps» – absent where the board is already in front (it, or the Link, IS the board):
+   *  the row stays, it just needs no way there */
+  onGoToBoard?: () => void
 }) {
   const az = appConfig.copy.atemschutz
   const inside = safetyMissing(trupps)
@@ -28,7 +28,7 @@ export function SafetyMissingMeldung({ trupps, onBoard, onGoToBoard }: {
     title: az.notfall.noSafetyHint,
     sub: fillTemplate(az.notfall.noSafetySub, { names }),
     subLines: 2,
-    actions: onBoard ? undefined : [{ label: az.notfall.noSafetyGo, onClick: onGoToBoard }],
+    actions: onGoToBoard ? [{ label: az.notfall.noSafetyGo, onClick: onGoToBoard }] : undefined,
   } : null)
   return null
 }

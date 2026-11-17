@@ -17,7 +17,7 @@ const nf = appConfig.copy.atemschutz.notfall
 describe('SafetyMissingMeldung', () => {
   it('stands while a PA crew is inside uncovered, names it, and cannot be waved away', () => {
     const go = vi.fn()
-    render(<><SafetyMissingMeldung trupps={[inside]} onBoard={false} onGoToBoard={go} /><Meldeleiste /></>)
+    render(<><SafetyMissingMeldung trupps={[inside]} onGoToBoard={go} /><Meldeleiste /></>)
     const row = document.querySelector('.ml .ml-row')!
     expect(row.textContent).toContain(nf.noSafetyHint)
     expect(row.textContent).toContain('Trupp 1')
@@ -27,10 +27,10 @@ describe('SafetyMissingMeldung', () => {
   })
 
   it('clears itself the moment a Sicherungstrupp is ready, and offers no way to the board it is on', () => {
-    const { rerender } = render(<><SafetyMissingMeldung trupps={[inside]} onBoard onGoToBoard={() => {}} /><Meldeleiste /></>)
+    const { rerender } = render(<><SafetyMissingMeldung trupps={[inside]} /><Meldeleiste /></>)
     expect(screen.queryByRole('button', { name: nf.noSafetyGo })).toBeNull()
     expect(document.querySelector('.ml .ml-row')).not.toBeNull()
-    rerender(<><SafetyMissingMeldung trupps={[inside, ready]} onBoard onGoToBoard={() => {}} /><Meldeleiste /></>)
+    rerender(<><SafetyMissingMeldung trupps={[inside, ready]} /><Meldeleiste /></>)
     expect(document.querySelector('.ml .ml-row')).toBeNull()
   })
 })
