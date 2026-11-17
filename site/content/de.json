@@ -50,6 +50,7 @@
     "cta": "Demo öffnen",
     "ctaSelf": "Selbst betreiben",
     "ctaNote": "Ohne Login – in der Demo brennt es gerade in Musterdorf",
+    "demoNote": "<strong>Öffentliche Demo:</strong> Keine echten Einsatz-, Personen-, Standort- oder Organisationsdaten eingeben. Alle Besucher teilen dieselbe Demo. Die eingegebenen Daten bleiben bis zum nächsten automatischen Reset gespeichert.",
     "frameAddr": "KARTE · ZIMMERBRAND · 2611624 / 1263070",
     "frameAlt": "Karten-Ansicht: taktische Zeichen nach FKS, Sektoren und Schlauchleitungen",
     "frameFile": "lage.webp",
