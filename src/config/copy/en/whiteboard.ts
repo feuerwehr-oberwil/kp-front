@@ -42,8 +42,10 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       circle: 'Drag from the centre outward.',
       text: 'Tap where the note should go – then write.',
       resource: 'Tap to place a team. Drag to move it.',
-      scale: 'Tap both ends of the printed scale bar, then enter the real length.',
       measure: 'Tap points. Hold a point to remove it.',
+      scaleStep1: 'Tap one end of the scale bar',
+      scaleStep2: 'Tap the other end',
+      scaleStep3: 'Enter the real length',
     },
     scale: {
       tool: 'Scale',

@@ -182,8 +182,11 @@ describe('the Plan sheet behind the Objekt chip', () => {
     expect(pressed('Fläche')).toBe('false')
     expect(document.querySelector('.armed-pill-row')).toBeNull()
     expect(objectChip()).toBeTruthy()
-    // what to tap is the dock's ⓘ, worded for calibrating
-    expect(dock().getByRole('button', { name: appConfig.copy.whiteboard.dockHints.scale })).toBeTruthy()
+    // what to tap STANDS in the dock's card, step by step (rare-user r4) – so the dock draws no ⓘ,
+    // and no «Leeren» either: the phone's row fits 360px
+    expect(screen.getByRole('status').textContent).toBe(
+      '1 · Ein Ende des Massstabs antippen\n2 · Das andere Ende antippen\n3 · Die reale Länge eingeben')
+    expect(dock().getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Strecke', 'Fläche', 'Massstab', 'Abbrechen'])
   }
 
   it('calibrates by hand from the sheet: the Messen dock with «Massstab» lit', () => {
@@ -193,9 +196,10 @@ describe('the Plan sheet behind the Objekt chip', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Massstab kalibrieren' }))
     expect(screen.queryByRole('group', { name: 'Plan · Modul 2' })).toBeNull()
     calibrating()
-    // «Abbrechen» stops it, and the dock goes with it
+    // «Abbrechen» stops it, and the dock and its card go with it
     fireEvent.click(dock().getByRole('button', { name: 'Abbrechen' }))
     expect(document.querySelector('.wb-dock')).toBeNull()
+    expect(screen.queryByRole('status')).toBeNull()
   })
 
   it('offers no «Massstab» mode on a sheet whose scale comes from the link', () => {
@@ -206,15 +210,34 @@ describe('the Plan sheet behind the Objekt chip', () => {
     expect(dock().queryByRole('button', { name: 'Massstab' })).toBeNull()
   })
 
-  it('arms the same mode from Messen, and «Strecke» goes back to measuring', () => {
+  // rare-user r4: Messen on a plan without a scale IS calibrating – «Strecke» and «Fläche» wait
+  it('lights «Massstab» by itself when Messen opens on a plan without a scale', () => {
     renderBoard()
     fireEvent.click(screen.getAllByRole('button', { name: 'Messen' })[0])
-    fireEvent.click(screen.getByRole('button', { name: 'Massstab kalibrieren' }))
     calibrating()
+    expect(dock().getByRole('button', { name: 'Strecke' })).toHaveProperty('disabled', true)
+  })
+
+  it('opens Messen on «Strecke» with its ⓘ on a plan with a scale, and «Massstab» re-calibrates there', () => {
+    render(<>
+      <Whiteboard
+        plans={[modul]} activeId="modul2" annos={[]} onChange={() => {}} planScale={{ modul2: { mPerU: 2, refM: 20, ar: 1 / TILE_AR } }}
+        building={null} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
+        slimTools sym={sym} onRecent={() => {}} log={() => {}} hist={{}} setHist={() => {}} focus={null}
+      />
+      <Overlays />
+    </>)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Messen' })[0])
+    expect(pressed('Strecke')).toBe('true')
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(dock().getByRole('button', { name: appConfig.copy.whiteboard.dockHints.measure })).toBeTruthy()
+    fireEvent.click(dock().getByRole('button', { name: 'Massstab' }))
+    expect(pressed('Massstab')).toBe('true')
+    // …the card stands, the ⓘ is gone; «Strecke» goes back to measuring and takes the card along
+    expect(screen.getByRole('status')).toBeTruthy()
     fireEvent.click(dock().getByRole('button', { name: 'Strecke' }))
     expect(pressed('Strecke')).toBe('true')
-    expect(pressed('Massstab')).toBe('false')
-    expect(dock().getByRole('button', { name: appConfig.copy.whiteboard.dockHints.measure })).toBeTruthy()
+    expect(screen.queryByRole('status')).toBeNull()
   })
 
   // A locked session (el, Führungsansicht, viewer, replay) keeps the READING — tone and words —

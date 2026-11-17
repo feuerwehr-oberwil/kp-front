@@ -35,7 +35,8 @@ export type DockItem =
   /** a preview, not a control (the Form being placed); `label` names it («Rechteck») */
   | { type: 'glyph'; node: ReactNode; label: string }
   | { type: 'action'; icon: string; label: string; short?: string; onClick: () => void; disabled?: boolean; cls?: string }
-  | { type: 'info'; text: string }
+  /** `open`: the card stands by itself and the dock draws no ⓘ tile for it (DockInfo · `open`) */
+  | { type: 'info'; text: string; open?: boolean }
 
 /** a dock tile's word under its glyph, the rail tile's `.vrail-label` look (09-whiteboard) */
 const word = (w: string, on: boolean) => on ? <span className="wb-dock-word">{w}</span> : null
@@ -53,7 +54,7 @@ function renderItem(item: DockItem, key: string, worded: boolean): ReactNode {
     case 'action':
       return <button key={key} className={item.cls ?? 'wb-dock-tog'} disabled={item.disabled} title={item.label} aria-label={item.label} onClick={item.onClick}><Icon id={item.icon} />{word(item.short ?? item.label, worded)}</button>
     case 'info':
-      return <DockInfo key={key} text={item.text} word={worded ? appConfig.copy.toolDock.infoWord : undefined} />
+      return <DockInfo key={key} text={item.text} open={item.open} word={worded ? appConfig.copy.toolDock.infoWord : undefined} />
   }
 }
 
@@ -65,7 +66,9 @@ function renderItem(item: DockItem, key: string, worded: boolean): ReactNode {
  *
  * Controls only — no line of text (20.10.2026, owner: «Remove the line. I don't think they add
  * any value.»). The phone's one-line hint row (3am test r3, 25.09.2026) is gone on every surface;
- * what an armed tool expects is its ⓘ (`info` item).
+ * what an armed tool expects is its ⓘ (`info` item). One exception: a tool whose use is a fixed
+ * sequence of steps opens its ⓘ card by itself (`open`) – calibrating the plan's scale (rare-user
+ * r4, 17.11.2026) – and then draws no ⓘ tile.
  *
  * The dock follows the rails (round 2b, 13.11.2026; round 15.11.2026 #2, owner: «adding the
  * subtitles there too when enabled in settings»): with «Beschriftung der Werkzeugleisten» on,
@@ -74,10 +77,13 @@ function renderItem(item: DockItem, key: string, worded: boolean): ReactNode {
  * every item is a bare glyph. Never a mix, so the dock reads as one family.
  */
 export function ToolDock({ groups }: { groups: DockItem[][] }) {
-  // the ✕ leaves its group for the dock's end (see DockItem · close); it carries its own group gap
+  // the ✕ leaves its group for the dock's end (see DockItem · close); it carries its own group gap.
+  // A standing ⓘ card draws no tile, so it leaves its group too (no stray gap where it would be).
   const isClose = (item: DockItem) => item.type === 'close'
+  const isStanding = (item: DockItem) => item.type === 'info' && item.open !== undefined
   const close = groups.flat().filter(isClose)
-  const visible = groups.map((g) => g.filter((item) => !isClose(item))).filter((g) => g.length)
+  const standing = groups.flat().filter(isStanding)
+  const visible = groups.map((g) => g.filter((item) => !isClose(item) && !isStanding(item))).filter((g) => g.length)
   const ref = useRef<HTMLDivElement>(null)
   const phone = useIsPhone()
   const level = useRailLevel(ref, !phone)
@@ -91,6 +97,7 @@ export function ToolDock({ groups }: { groups: DockItem[][] }) {
         </Fragment>
       ))}
       {close.map((item, i) => renderItem(item, `x-${i}`, worded))}
+      {standing.map((item, i) => renderItem(item, `i-${i}`, worded))}
     </div>
   )
 }

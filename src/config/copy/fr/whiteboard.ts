@@ -42,8 +42,10 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       circle: 'Glissez du centre vers l’extérieur.',
       text: 'Touchez là où la note doit aller – puis écrivez.',
       resource: 'Touchez pour placer une équipe. Tirer la déplace.',
-      scale: 'Touchez les deux extrémités de l’échelle imprimée, puis saisissez la longueur réelle.',
       measure: 'Touchez des points. Maintenir un point le retire.',
+      scaleStep1: 'Touchez une extrémité de l’échelle',
+      scaleStep2: 'Touchez l’autre extrémité',
+      scaleStep3: 'Saisissez la longueur réelle',
     },
     scale: {
       tool: 'Échelle',
