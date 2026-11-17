@@ -455,7 +455,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           ] },
           { kind: 'sub', text: 'Presentare' },
           { kind: 'list', items: [
-            '**Condividi l’intervento** › **Presentare** › **Avvia**: chi ha aperto l’intervento o il link di lettura può **Seguire** – il suo schermo mostra ciò che mostra il tuo, su ogni superficie.',
+            '**Presentare** – nel menu, all’intervento aperto, o in **Condividi l’intervento** – › **Avvia**: chi ha aperto l’intervento o il link di lettura può **Seguire** – il suo schermo mostra ciò che mostra il tuo, su ogni superficie.',
             '**Indica** trasforma un tocco in un punto e un tratto in una linea, che poi svaniscono – visibili a tutti, nulla viene salvato.',
             '**Termina** smette; **Non seguire più** libera di nuovo il proprio schermo. Se una presentazione è già in corso, si può **subentrare**. Presentare richiede la rete.',
           ] },

@@ -457,7 +457,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           ] },
           { kind: 'sub', text: 'Present' },
           { kind: 'list', items: [
-            '**Share incident** › **Present** › **Start**: whoever has the incident or the read link open can **Follow** – their screen shows what yours shows, on every surface.',
+            '**Present** – in the menu by the open incident, or in **Share incident** – › **Start**: whoever has the incident or the read link open can **Follow** – their screen shows what yours shows, on every surface.',
             '**Point** turns a tap into a dot and a stroke into a line, which fade again – visible to everyone, nothing is saved.',
             '**End** stops; **Stop following** frees your own screen again. If a presentation is already running, it can be **taken over**. Presenting needs a network.',
           ] },
