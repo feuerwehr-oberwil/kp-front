@@ -39,7 +39,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     archiveShort: 'Complete',
     report: 'Incident report',
     archive: 'Close incident',
-    archiveOpen: '{n} open',
+    archiveOpen: 'Report: {n} open',
     share: 'Share incident',
     shareShort: 'Share',
     noOpenIncidents: 'No open incidents',

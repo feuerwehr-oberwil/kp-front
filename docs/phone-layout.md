@@ -178,7 +178,7 @@ unchanged.
   («Wasser 1»; `lib/navRail · planGlyph` / `planLabel`, owner 27.10.2026: «keep W1/W2»).
 
 - *A head's icon buttons carry their word wherever it fits* (22.09.2026): «Reihenfolge ·
-  Überwachung abgeben · Alarmton» on the Trupps head — MEASURED since 28.09.2026 (the page head's
+  Trupps teilen · Alarmton» on the Trupps head — MEASURED since 28.09.2026 (the page head's
   ladder, `lib/pageHeadFit`; the `.wordBtn`/`useIsPhone` switch there is gone), so a phone that has room shows
   them and a tablet that has none folds them. The search line's «In Verwendung · Filtern ·
   Anderes Material» (`SurfaceControls.module.css · .wordBtn`) is not a page head and keeps its

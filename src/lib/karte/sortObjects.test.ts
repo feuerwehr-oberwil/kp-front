@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { sortObjects } from './places'
 import { searchQuery } from '../search'
 
-// THE order of a Stationsobjekt pick list (duck sweep LISTS.7, 17.11.2026): the Einsatz form put
+// THE order of an Objekt pick list (duck sweep LISTS.7, 17.11.2026): the Einsatz form put
 // everything past one kilometre A–Z, «Anderes Objekt» kept the server's order
 const o = (name: string, distance_m: number | null, address = '') => ({ name, distance_m, address })
 

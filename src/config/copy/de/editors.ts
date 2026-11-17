@@ -270,7 +270,7 @@ export const editorsCopy = {
     abschnittAuftragPlaceholder: 'z. B. Brandbekämpfung',
     abschnittMaxHint: 'FKS-Richtwert: höchstens 3–4 Abschnitte.',
     marker: 'Marker',
-    markerPlaceholder: 'z. B. R',
+    markerPlaceholder: 'z. B. R für Rettungsachse',
     arrow: 'Pfeilspitze',
     ending: 'Linienende',
     endingNone: 'Keiner',
@@ -288,7 +288,7 @@ export const editorsCopy = {
     // Dreht die Punktreihenfolge um – der Abschluss (Pfeil bzw. Teilstück-«E») sitzt danach am
     // anderen Ende. Die Linie selbst bleibt, wo sie ist.
     reverse: 'Richtung umkehren',
-    content: 'Typ',
+    content: 'Inhalt',
     contentPlain: 'Wasser',
     // Ø der Leitung (40 / 55 / 75 / 2× 75 / 110) – trägt die Wassertransport-Rechnung der Messung
     hose: 'Schlauch',
@@ -339,7 +339,7 @@ export const editorsCopy = {
     connectedLines: 'Verbundene Linien ({n})',
     line: 'Linie',
     lineLabelNo: 'Leitung {n}',
-    route: 'Verlauf',
+    route: 'Mitziehen',
     routeDirect: 'Direkt',
     routeTrace: 'Spur',
     detachConnection: 'Verbindung lösen',

@@ -485,7 +485,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // review round 7 in the very card the Messen dock's ⓘ opens, not a quieter look-alike beside it.
   const pinHint = onMapSurface && tool === 'pin'
   // The missing catalogue is a STANDING state, not news (toast diet, 17.11.2026): it is said where
-  // the objects would be – the search's «Stationsobjekte» group – not as a sticky toast on the map.
+  // the objects would be – the search's «Objekte» group – not as a sticky toast on the map.
   const catNote = cat?.failed && !cat.data ? (online ? C.loadFailed : C.noCatalogue) : null
   /** the panel is on screen: on the map, not under Messen, and on a phone not under a tool's own
    *  card nor pushed away */

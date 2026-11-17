@@ -140,7 +140,7 @@ export const mapCopy = {
     // and nothing said why. One Meldeleiste row per Einsatz, gone the moment the link is back.
     noTilesTitle: 'Keine Basiskarte für diesen Ausschnitt gespeichert',
     noTilesSub: 'Offline – Objekte und Linien werden ohne Karte gezeigt',
-    noTilesAction: 'Dieses Gerät',
+    noTilesAction: 'Was offline da ist',
     noTilesDismiss: 'Ausblenden',
   },
 } as const

@@ -329,7 +329,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'Le **⋯** au pied de la carte : **Modifier** ajuste la mission / l’objectif ou le binôme en cours d’intervention, **Placer** pose le binôme sur la carte ou le plan (ensuite **Montrer sur le plan**), plus conduite, tri et **Retirer**.',
             'Une personne dans un binôme ne peut pas être désinscrite dans la **Présence** – toucher sa ligne saute à la carte de ce binôme et la met brièvement en évidence.',
             'Les binômes en retard remontent en haut et un compteur apparaît. La **cloche** coupe l’alarme par appareil – son **et** notification, et seulement jusqu’à la fin de cette intervention. Si elle est rouge, le navigateur n’a pas autorisé le son : la toucher. La surveillance elle-même n’est jamais muette. Tout est consigné au journal.',
-            '**Transmettre la surveillance** (le QR à côté de la cloche) passe les binômes sur un autre appareil – voir «Partager et présenter».',
+            '**Partager les binômes** (le QR à côté de la cloche) met les binômes aussi sur un autre appareil – voir «Partager et présenter».',
           ] },
           { kind: 'sub', text: 'Urgence ARI' },
           { kind: 'list', items: [
@@ -450,7 +450,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'lead', text: '**Partager l’intervention** (dans le menu à l’intervention ouverte, et dans le rapport) donne un lien en QR code et en adresse. **Révoquer le lien** le rend immédiatement invalide.' },
           { kind: 'list', items: [
             '**Intervention · lire** – carte, plans, journal, photos, heures. Sans connexion, rien ne peut être modifié. Pour la centrale, le CI et un corps voisin pendant l’intervention, pour la commune et le corps voisin après : il reste valable au-delà de la clôture.',
-            '**Binômes · utiliser** – seulement les binômes de cette intervention, à tenir sur un appareil à part (aux binômes : **Transmettre la surveillance**). Ce qui y est saisi figure au rapport. Valable jusqu’à la clôture.',
+            '**Binômes · utiliser** – seulement les binômes de cette intervention, à tenir sur un appareil à part (aux binômes : **Partager les binômes**). Ce qui y est saisi figure au rapport. Valable jusqu’à la clôture.',
             'Collaborer plutôt que regarder ? **Se connecter** sur l’autre appareil – un lien ne fait de personne un éditeur. Le menu d’un appareil à lien propose pour cela **Se connecter**.',
           ] },
           { kind: 'sub', text: 'Présenter' },

@@ -407,7 +407,7 @@
    paints 4px beyond its own box, and the last one covers the popup's bottom padding too. */
 /* ⚠️ Each pinned row rests on the one below it, so the offsets STACK. Measured in the app at
    44px + 4px; expressed once as `--jc-menu-step` so the three rules cannot drift apart. Counted
-   from the end, because how many there are depends on whether «Nicht offen halten» is showing. */
+   from the end, because how many there are depends on whether «Keine Pendenz» is showing. */
 .jc-pendenz-menu .ui-menu-sticky:nth-last-child(3) { bottom: calc(2 * var(--jc-menu-step)); }
 .jc-pendenz-menu .ui-menu-sticky:nth-last-child(2) { bottom: var(--jc-menu-step); }
 .jc-pendenz-menu .ui-menu-sticky:last-child { bottom: 0; }

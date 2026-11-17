@@ -257,7 +257,7 @@ The rules that are easy to break:
   and isn't using the normal style»; its picked half a neutral surface pill since review round 4,
   not the blue choice fill — the panel's one rhythm, below): **Objekt** (no plan count since
   27.10.2026 – the tiles right under it show the plans) |
-  **<the house's street>** («Dieses Haus» until the register, asked at the tapped point as a
+  **<the house's street>** («Dieses Gebäude» until the register, asked at the tapped point as a
   building tap asks, names it), one line per half — a long street ends in «…», so the switch has
   the same height on both levels and for every name. One tap switches, both ways, on the tablet
   and the phone sheet. The map reveals the house that was TAPPED (moving only when it is under the
@@ -503,8 +503,8 @@ The rules that are easy to break:
   words and the view label read `planLabel` (above) – the title overflows a 216px rail.
 - **A head that is still being looked up is a skeleton**, never «Gebäude» or «…» in place of a
   name: a tapped building until the register answers (a searched address is named at once), a
-  dropped pin until its address is known. A plain building carries no «Kein Stationsobjekt …»
-  box — the kicker says «Gebäude» and the line under the name says «Kein Stationsobjekt» once
+  dropped pin until its address is known. A plain building carries no «Kein Objekt …»
+  box — the kicker says «Gebäude» and the line under the name says «Kein Objekt erfasst» once
   known. Nothing more is added about what the station did not record.
 - **«Register-Hinweis» is tap to open** (owner, review round 4: «should be tap to open and this
   blabla (gwr, stand, etc.) should all be hidden by default»). Under «Gebäude laut Register» the
@@ -526,7 +526,7 @@ The rules that are easy to break:
   Station erfasst …» line went with review round 7, for objects and for plain buildings alike
   (owner, 20.10.2026: «knowing that there could be something but it isn't filled doesn't help
   anyone in case of an emergency»). The panel simply ends with its actions. A dropped pin keeps
-  its factual first sentence («Kein Stationsobjekt an diesem Punkt.») without the «Fehlende
+  its factual first sentence («Kein Objekt an diesem Punkt.») without the «Fehlende
   Angaben heissen nicht …» tail.
 - **The panel remembers where it was scrolled to** (owner, 20.10.2026): leaving an Einsatzobjekt
   for a plan, an Objektbesuch or the other level and coming back puts «Objektbesuch» back under
@@ -553,14 +553,14 @@ The rules that are easy to break:
 - **Ebenen: «Alle ein» / «Alle aus» / «Standard»** (review round 2), the Einsatz's three chips
   over the viewer's own layers (`lib/karte/layerPresets`). «Standard» is the deployment's default
   set as the viewer opens with no device choice, the Basiskarte included; «Alle» / «Keine» switch
-  every overlay, never the Basiskarte. The viewer's station rows (Stationsobjekte, category rows)
+  every overlay, never the Basiskarte. The viewer's station rows (Objekte, category rows)
   are layers here: on in «Standard», switched by both chips — whatever rows the panel lists, none
   is named in the code. The aligned plan on the map is not (a plan backdrop is switched on on
   purpose, and the Einsatz's chips leave plan rasters alone too). The radar: off with «Standard»
   and «Alle aus», left by «Alle ein», no chip lit while it is on. Transparencies stay.
 - **Ebenen: Grundkarte, then «Station»** (owner, review round 4: «it's the most relevant one in
   this case»; round 5: «move grundkarte above station»): under the three chips come the base-map
-  tiles, then the station group — Stationsobjekte and the colour categories — above Inhalte, Wasser
+  tiles, then the station group — Objekte and the colour categories — above Inhalte, Wasser
   and Wetter (`LayerPanel · leadTwinGroups`). The Einsatz's Ebenen keep their order.
 - **Typing on a phone** (review round 3, 17.10.2026 — round 2's keyboard handling did nothing on
   the owner's real iPhone). The bar is the menu button + a **search button** (its twin since round 4); the tablet keeps

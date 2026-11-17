@@ -63,7 +63,7 @@ export const incidentCopy = {
     editMetaShort: 'Bearbeiten',
     archiveShort: 'Abschliessen',
     // der Zähler schon im Menü, damit die Prüfung sichtbar ist, bevor jemand drückt
-    archiveOpen: '{n} offen',
+    archiveOpen: 'Rapport: {n} offen',
     // «Teilen» in der Karte des aktiven Einsatzes — die zweite Tür zum Einsatz-Link, der bis
     // 01.09. nur im Rapport stand. Mitten im Einsatz will ihn jemand einer Nachbarwehr
     // hinhalten und nicht dafür die Abschluss-Fläche öffnen. Gleiche Fläche wie dort.

@@ -43,12 +43,12 @@ export const atemschutzCopy = {
     // «Überwachung abgeben» — der QR neben der Glocke: die Tafel dieses Einsatzes auf ein
     // fremdes Handy geben, damit jemand ohne Login nur den Atemschutz bedient. Nur für
     // Bearbeiter, und nicht auf der abgegebenen Tafel selbst.
-    shareLink: 'Überwachung abgeben',
+    shareLink: 'Trupps teilen',
     // …gefaltet im engen Kopf (Handy): das eine Wort unter dem QR-Zeichen
-    shareLinkShort: 'Abgeben',
+    shareLinkShort: 'Teilen',
     // …und wenn schon ein Link läuft. Der Knopf sagt nur, DASS es einen gibt – wer ihn drückt,
     // sieht im Blatt alles Weitere.
-    shareLinkOn: 'Überwachung abgeben – ein Link ist aktiv',
+    shareLinkOn: 'Trupps teilen – ein Link ist aktiv',
     // Shown ONCE per device on the handed-over «Tafel pur» (AtemschutzView, field feedback
     // 02.09.: ein versehentliches Schliessen im Browser brauchte danach wieder den Zugang).
     // Reassurance, not an instruction. ⚠️ Es geht um den LINK, nie um dieses Gerät: der Link

@@ -120,7 +120,7 @@ export const intakeCopy = {
     objectsGroup: 'Objekte',
     addressGroup: 'Adressen',
     // the address search's own states (LISTS.1) – the Karte search's words
-    addressOffline: 'Adresssuche braucht Netz. Stationsobjekte werden trotzdem gefunden.',
+    addressOffline: 'Adresssuche braucht Netz. Objekte werden trotzdem gefunden.',
     addressFailed: 'Adresssuche gerade nicht erreichbar.',
     undoTakeFailed: 'Alarm nicht zurückgenommen – der Einsatz bleibt offen',
     // «Ernstfall | Übung» – the form's FIRST question (owner pick C7, 17.11.2026); «Übung» is

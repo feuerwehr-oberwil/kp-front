@@ -253,7 +253,7 @@ export function IconSprite() {
       <symbol id="wx-storm" viewBox="-1 -2 26 26"><path d="M7 14a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 14z" /><path d="M12 14l-2.5 4h3l-2 3.5" /></symbol>
       {/* leaving the app: the station's own forms on the Rapport (Formulare & Links) */}
       <symbol id="external" viewBox="0 0 24 24"><path d="M18 13.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5.5" /><path d="M14.5 3H21v6.5M21 3l-9.5 9.5" /></symbol>
-      {/* «Überwachung abgeben» / «Weitergeben»: the QR itself is the handover gesture in an
+      {/* «Trupps teilen» / «Weitergeben»: the QR itself is the handover gesture in an
           Einsatz — a tablet held out, not an address dictated. Three finder squares and a
           fragment of data, which is what a QR reads as at 18px. */}
       {/* Präsentationsmodus (05.11.2026): «Präsentieren» is a screen on its stand (also the

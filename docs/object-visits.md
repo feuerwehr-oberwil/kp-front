@@ -156,7 +156,7 @@ Objekte starts the latter (`/besuche/neu?lat=&lng=&label=[&address=][&from=karte
   line, a place visit shows the **«Ort» card** — a small aerial snippet (plain raster tiles of
   the station's «Satellit» base around the point, offline whatever the device has), the label
   with a «Pin»/«Adresse» badge (`placeKind`: «Adresse» when the label is the address's first
-  part), LV95, and «Kein Stationsobjekt. Ablage: Allgemeine Meldungen. …» — and once finished,
+  part), LV95, and «Kein Objekt. Ablage: Allgemeine Meldungen. …» — and once finished,
   one line «label · LV95 …». A checklist without OK/Mangel questions (a Fehlermeldung) shows what
   was reported on the visit card («Hydrant · Neuer Hydrant fehlt im Plan»), never «Keine Mängel».
   The Übersicht lists the finished place visits under «Meldungen an Orten» (drafts stay under
