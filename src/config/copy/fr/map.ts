@@ -45,6 +45,29 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
   toast: {
     micDenied: 'Pas d’accès au micro – noté comme marqueur',
     micFailed: 'Enregistrement non démarré – réessayer',
+    micBlocked: 'Micro bloqué – l’autoriser sous {path}',
+    locateBlocked: 'Position bloquée – l’autoriser sous {path}',
+    locateNone: 'Aucune position trouvée – réessayer',
+    permissionPath: {
+      location: {
+        iosApp: 'Réglages iPhone › Confidentialité et sécurité › Service de localisation › Sites web Safari',
+        iosSafari: 'Safari «aA» › Réglages du site web › Position',
+        android: 'Chrome ⋮ › Paramètres › Paramètres des sites › Position',
+        desktop: 'cadenas à gauche de l’adresse › Position',
+      },
+      microphone: {
+        iosApp: 'Réglages iPhone › Apps › Safari › Micro',
+        iosSafari: 'Safari «aA» › Réglages du site web › Micro',
+        android: 'Chrome ⋮ › Paramètres › Paramètres des sites › Micro',
+        desktop: 'cadenas à gauche de l’adresse › Micro',
+      },
+      notifications: {
+        iosApp: 'Réglages iPhone › Notifications › {app}',
+        iosSafari: 'Réglages iPhone › Notifications › {app}',
+        android: 'Paramètres Android › Applications › {app} › Notifications',
+        desktop: 'cadenas à gauche de l’adresse › Notifications',
+      },
+    },
   },
   dockHints: {
     lasso: 'Tirez un cadre autour de plusieurs objets.',

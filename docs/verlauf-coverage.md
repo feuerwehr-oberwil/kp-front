@@ -170,7 +170,8 @@ the same rows:
   row is the server's (`sys…` id, icon `bell`, «System» in the Rapport): the arrival («Alarm
   aktualisiert: Adresse A → B, Meldung ergänzt «…»»), and the decision – «Alarm-Aktualisierung
   übernommen: Meldung (Adresse bleibt)», «… übernommen: Adresse (über Einsatzdaten)» when the
-  crew took everything through «Bearbeiten», «Alarm-Aktualisierung ausgeblendet», «Übernahme der
+  crew took everything through «Bearbeiten», «Alarm-Aktualisierung ausgeblendet», «Alarm-
+  Aktualisierung wieder eingeblendet» («Zeigen» on the strip, 17.11.2026), «Übernahme der
   Alarm-Aktualisierung rückgängig gemacht». The fields a take writes are a `meta.change` with
   source `alarm_update` – which is how a take is told apart from a hand edit (source
   `einsatzdaten`, which since this change also covers the Alarmmeldung `text`).

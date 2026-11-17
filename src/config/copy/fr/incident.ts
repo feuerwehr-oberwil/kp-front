@@ -49,7 +49,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     clockSkewToast: 'L\'horloge de cet appareil dévie de {n} minutes – vérifie les heures saisies.',
     bootOffline: 'Hors ligne – les données enregistrées sont affichées.',
     bootListFailed: 'Liste des interventions non chargée',
-    openFailed: 'Intervention non ouverte – réessayer',
+    openFailed: 'Intervention non ouverte – rien de perdu, toucher à nouveau',
     openFailedNoCache: 'Cette intervention n’est pas enregistrée sur cet appareil – nécessite du réseau',
     syncDone: 'Tout est synchronisé',
     editMeta: 'Modifier les données de l\'intervention',

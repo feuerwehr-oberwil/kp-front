@@ -1045,7 +1045,10 @@ What the surface shows offline:
   round 2b a FOLDED section after the prefs: one summary row «Alarm ✓ · Offline ✓ · App
   installiert», opening by itself for an offline door or a part that needs the operator): the
   four readiness rows (installed · Benachrichtigung · Alarm-Abo · Anmeldung) with their one-tap
-  fixes, the Testalarm and the opt-out – the same sheet inside an Einsatz. Since 28.10.2026 (owner's
+  fixes – plus an amber fifth, «Konto · Einsatzleiter · nur Atemschutz-Alarme, kein «Neuer
+  Einsatz»», for an account «Neuer Einsatz» does not wake (`NEW_ALARM_ROLES`, editor only; M2,
+  17.11.2026), and a denied «Benachrichtigung» names where its switch is on this device
+  (`lib/permissionPath`) – the Testalarm and the opt-out – the same sheet inside an Einsatz. Since 28.10.2026 (owner's
   pick 17A) they fold into ONE line with no heading: «✓ Alarm bereit · Getestet am …» with the
   Testalarm on it and a ⌄ that opens the green rows and the opt-out; a row that is amber
   («Alarm bereit · 1 Hinweis …») or red («Kein Alarm auf diesem Gerät») always stands open under it

@@ -10,7 +10,7 @@ import { Icon } from '../lib/icons'
 import type { DiveraAlarm, IncidentMeta } from '../lib/incidents'
 import type { TroubleEvent } from '../lib/trouble'
 import { ShellLoader } from './ShellLoader'
-import { AppMenuRows, FeedbackPrompt } from './panels'
+import { AppMenuRows, FeedbackPrompt, FoldedAlarm } from './panels'
 
 /** What both home menus show and do. The optional doors are absent where they do not exist
  *  (Objektbesuche off, already installed). */
@@ -34,6 +34,9 @@ export type HomeActions = {
   taking: number | null
   onTake: (a: DiveraAlarm) => void
   onDismissAlarm: (a: DiveraAlarm) => void
+  /** the alarms hidden here that still stand as a grey strip, and «Zeigen» on one (lib/diveraDismiss) */
+  hiddenAlarms: DiveraAlarm[]
+  onShowAlarm: (a: DiveraAlarm) => void
   /** open an Einsatz — or step aside to the one already open behind the viewer */
   onOpenIncident: (i: IncidentMeta) => void
   onHistory: () => void
@@ -49,13 +52,13 @@ export type HomeActions = {
  *  (no «Kein offener Einsatz» dead-end), with manual create always on. */
 export function LauncherBody({
   trouble, onTrouble, onTroubleDismiss, linkScoped, isEditor, user, incidents, listNote, opening, alarms, taking, onTake,
-  onDismissAlarm, onOpenIncident, onHistory, onCreate, onObjectVisits, onSettings, onHelp, onInstall, onLogout,
+  onDismissAlarm, hiddenAlarms, onShowAlarm, onOpenIncident, onHistory, onCreate, onObjectVisits, onSettings, onHelp, onInstall, onLogout,
 }: HomeActions) {
   const openIncidents = incidents.filter((i) => !i.is_archived)
   // the Alarmquelle's own name, or null where this station has none (deploymentConfig)
   const alarmProvider = alarmProviderName()
   // ⚠️ counted over the alarms that will ACTUALLY render (App · landingAlarms), dismissals included
-  const hasLanding = openIncidents.length > 0 || alarms.length > 0
+  const hasLanding = openIncidents.length > 0 || alarms.length > 0 || hiddenAlarms.length > 0
   return (
     <>
       {trouble && !linkScoped && (
@@ -92,13 +95,15 @@ export function LauncherBody({
                 <span className="ip-launch-go">{taking === a.divera_id ? appConfig.copy.intake.alarmOpening : appConfig.copy.intake.alarmOpen}</span>
               </button>
               <button
-                type="button" className="ip-launch-x" aria-label={appConfig.copy.intake.dismiss} disabled={taking != null}
+                type="button" className="ip-launch-x" aria-label={appConfig.copy.intake.hide} disabled={taking != null}
                 onClick={() => onDismissAlarm(a)}
               >
                 <Icon id="close" />
               </button>
             </div>
           ))}
+          {/* ✕ folds the row to a strip in its own place, «Zeigen» brings it back */}
+          {hiddenAlarms.map((a) => <FoldedAlarm key={a.id} alarm={a} onShow={onShowAlarm} />)}
         </div>
       ) : (
         // archived Einsätze deliberately do NOT surface here (they live in the
@@ -183,7 +188,7 @@ export function LauncherBody({
  *  session (appScreen gives it no viewer), so every account door is drawn here. */
 export function HomeMenu({
   close, onDevice, trouble, onTrouble, onTroubleDismiss, linkScoped, isEditor, user, incidents, listNote, activeId, opening,
-  alarms, taking, onTake, onDismissAlarm, onOpenIncident, onHistory, onCreate, onObjectVisits, onHelp,
+  alarms, taking, onTake, onDismissAlarm, hiddenAlarms, onShowAlarm, onOpenIncident, onHistory, onCreate, onObjectVisits, onHelp,
   onInstall, onLogout,
 }: HomeActions & { close: () => void; onDevice: () => void }) {
   return (
@@ -198,7 +203,8 @@ export function HomeMenu({
         isEditor={isEditor}
         user={user}
         opening={opening}
-        alarms={alarms.length > 0 ? { list: alarms, taking, onTake, onDismiss: onDismissAlarm } : undefined}
+        alarms={alarms.length + hiddenAlarms.length > 0
+          ? { list: alarms, taking, onTake, onDismiss: onDismissAlarm, hidden: hiddenAlarms, onShow: onShowAlarm } : undefined}
         // the open Einsatz behind the viewer steps aside rather than reopening (App · openOrUncover)
         onSwitch={(i) => { if (i.id === activeId) close(); onOpenIncident(i) }}
         onHistory={() => { close(); onHistory() }}

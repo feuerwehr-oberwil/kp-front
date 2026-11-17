@@ -45,6 +45,29 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
   toast: {
     micDenied: 'No microphone access – noted as placeholder',
     micFailed: 'Recording not started – try again',
+    micBlocked: 'Microphone blocked – allow it in {path}',
+    locateBlocked: 'Location blocked – allow it in {path}',
+    locateNone: 'No location found – try again',
+    permissionPath: {
+      location: {
+        iosApp: 'iPhone Settings › Privacy & Security › Location Services › Safari Websites',
+        iosSafari: 'Safari «aA» › Website Settings › Location',
+        android: 'Chrome ⋮ › Settings › Site settings › Location',
+        desktop: 'lock icon left of the address › Location',
+      },
+      microphone: {
+        iosApp: 'iPhone Settings › Apps › Safari › Microphone',
+        iosSafari: 'Safari «aA» › Website Settings › Microphone',
+        android: 'Chrome ⋮ › Settings › Site settings › Microphone',
+        desktop: 'lock icon left of the address › Microphone',
+      },
+      notifications: {
+        iosApp: 'iPhone Settings › Notifications › {app}',
+        iosSafari: 'iPhone Settings › Notifications › {app}',
+        android: 'Android Settings › Apps › {app} › Notifications',
+        desktop: 'lock icon left of the address › Notifications',
+      },
+    },
   },
   dockHints: {
     lasso: 'Drag a frame around several objects.',

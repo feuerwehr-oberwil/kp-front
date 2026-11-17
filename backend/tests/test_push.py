@@ -1202,13 +1202,16 @@ async def test_testalarm_goes_to_the_callers_own_registration_only(client, edito
 
     def fake_send(row, payload, **kw):
         sent.append((row, kw))
+        bodies.append(json.loads(payload)["body"])
         return "accepted"
 
+    bodies: list[str] = []
     monkeypatch.setattr(api_push, "_send_one", fake_send)
     api_push._last_test.clear()
     r = await client.post("/api/push/test", json={"endpoint": sub["endpoint"]})
     assert r.status_code == 200 and r.json() == {"ok": True, "outcome": "accepted"}
     assert sent[0][0]["endpoint"] == sub["endpoint"] and sent[0][1] == {"urgency": "high"}
+    assert bodies == ["Dieses Gerät bekommt Alarme von KP Front."]
     # a second tap inside the minute is refused, not sent
     assert (await client.post("/api/push/test", json={"endpoint": sub["endpoint"]})).status_code == 429
     assert len(sent) == 1
@@ -1219,6 +1222,12 @@ async def test_testalarm_goes_to_the_callers_own_registration_only(client, edito
     assert login.status_code == 200
     assert (await client.post("/api/push/test", json={"endpoint": sub["endpoint"]})).status_code == 404
     assert len(sent) == 1
+
+    # …and a login «Neuer Einsatz» does not wake is not promised it (rare-user round M2)
+    sub2 = {"endpoint": "https://fcm.googleapis.com/fcm/send/test2", "keys": {"p256dh": "k2", "auth": "a2"}}
+    assert (await client.post("/api/push/subscriptions", json=sub2)).status_code == 201
+    assert (await client.post("/api/push/test", json={"endpoint": sub2["endpoint"]})).status_code == 200
+    assert bodies[-1] == "Dieses Gerät bekommt Atemschutz-Alarme von KP Front – keinen «Neuer Einsatz»."
 
 
 # ---------------------------------------------------------------------------------------

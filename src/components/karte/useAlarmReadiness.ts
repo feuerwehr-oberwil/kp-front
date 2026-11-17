@@ -37,7 +37,8 @@ export function useAlarmReadiness() {
   const rows = readinessRows({
     now, standalone: isStandalone(), platform: getInstallPlatform(), permission: permissionNow(),
     subscribedAt: store.subscribedAt, sessionUntil: Number.isFinite(sessionUntil) ? sessionUntil : null,
+    role: user?.role ?? null,
   })
-  return { now, rows, store, available, refresh, linkSession: !!user?.link_scoped }
+  return { now, rows, store, available, refresh, linkSession: !!user?.link_scoped, role: user?.role ?? null }
 }
 

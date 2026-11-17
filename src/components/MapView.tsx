@@ -76,6 +76,8 @@ import { LABEL_ABOVE, measureLabelPlacement } from '../lib/measureLabelPlace'
 import { ARROW_BOX, ARROW_STOP_BAR, arrowHeadPoints } from '../lib/mapImages'
 import { attachInsetPx, lineJoints, boundaryPoint, DETACH_SHOW_PROGRESS, dwellFor, forkPortPoint, gpsGuard, moveLineBody, relationshipNetwork, resolveLinePoints, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { removeWithUndo } from '../lib/removalToast'
+import { toast } from '../lib/ui'
+import { locateFailedText } from '../lib/permissionPath'
 
 /** The ink a ghost «Spur» is drawn in — neutral grey, not the Trupp's colour: colour means
  *  IDENTITY on this map (lib/teamColors), and a trail whose marker is gone must not claim that a
@@ -560,12 +562,13 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // Einsatzort. ON DEMAND, not a continuous watch: a permanent high-accuracy watchPosition keeps
   // the GPS chip powered for the whole shift, one of the biggest battery drains — and once you know
   // where you are it rarely needs re-checking. So we take a single fix each time the operator taps
-  // "Mein Standort" (locateNonce bumps), then fly to it. Best-effort: silently absent if
-  // denied/unavailable. `maximumAge` lets a very recent fix answer instantly without waking the chip.
+  // "Mein Standort" (locateNonce bumps), then fly to it. A failure is SAID (rare-user round F9,
+  // 17.11.2026 – the row closed and nothing happened): blocked names where to allow it, anything
+  // else says try again (lib/permissionPath). `maximumAge` lets a very recent fix answer instantly.
   const [userPos, setUserPos] = useState<LngLat | null>(null)
   useEffect(() => {
     if (staticView || !locateNonce) return
-    if (!('geolocation' in navigator)) return
+    if (!('geolocation' in navigator)) { toast(locateFailedText(null), { icon: 'locate', tone: 'warn' }); return }
     navigator.geolocation.getCurrentPosition(
       (p) => {
         const c: LngLat = [p.coords.longitude, p.coords.latitude]
@@ -573,7 +576,8 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
         const m = mapInst.current
         if (m) m.flyTo({ center: c, zoom: Math.max(m.getZoom(), 16), duration: motionDuration(600) })
       },
-      () => { /* denied / unavailable — leave the last known dot (if any) as is */ },
+      // the last known dot (if any) stays as is
+      (err) => toast(locateFailedText(err), { icon: 'locate', tone: 'warn' }),
       { enableHighAccuracy: true, maximumAge: 30_000, timeout: 15_000 },
     )
   }, [locateNonce, staticView])

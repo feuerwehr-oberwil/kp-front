@@ -42,7 +42,8 @@ import { unlockAlarm } from './lib/alarm'
 import { CRASH_HEALTHY_MS, clearCrash } from './lib/crashLoop'
 import { ApiError } from './lib/api'
 import { useDiveraWatch } from './lib/useDiveraWatch'
-import { dismissAlarm, loadDismissedAlarms, shownAlarms } from './lib/diveraDismiss'
+import { actFailedText } from './lib/actFailed'
+import { dismissAlarm, hiddenAlarms, loadDismissedAlarms, shownAlarms, undismissAlarm } from './lib/diveraDismiss'
 import { useIncidentWatch } from './lib/useIncidentWatch'
 import { loadReviewedIncidents, needsIntakeReview, sameIncidentList, saveReviewedIncident, shouldReopenClosed, undoTakeReturn } from './lib/incidentAlerts'
 import { AlarmUpdateBanner, EinsatzWizard, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, HomeDeviceSheet } from './components/panels'
@@ -434,17 +435,17 @@ export default function App() {
   // caller used to swallow the rejection — offline with no cached workspace, a 404 for an Einsatz
   // archived since the list was written, the 20 s bound on a half-open link — so the card simply
   // did nothing, which at 3am reads as «the app is frozen» and invites more taps. The server's
-  // own {detail} wins where it exists (and its hint rides along); silence (status 0) means the
-  // workspace is not on this device, which is the one thing worth saying then.
+  // own {detail} wins where it exists; a proxy error leads with «Einsatz nicht geöffnet» and its
+  // reason in brackets (lib/actFailed); silence (status 0) means the workspace is not on this
+  // device, which is the one thing worth saying then.
   const openIncident = useCallback(async (id: string, opts?: Parameters<typeof selectIncident>[1]): Promise<void> => {
     setOpening(id)
     try {
       await selectIncident(id, opts)
     } catch (e) {
       const C = appConfig.copy.incidentSwitcher
-      const text = !(e instanceof ApiError) ? C.openFailed
-        : e.status === 0 ? C.openFailedNoCache
-        : e.hint ? `${e.detail} – ${e.hint}` : e.detail
+      // silence (status 0) is «not on this device»; else the act leads with the reason in it (lib/actFailed)
+      const text = e instanceof ApiError && e.status === 0 ? C.openFailedNoCache : actFailedText(e, C.openFailed)
       toast(text, { icon: 'warn', tone: 'warn' })
     } finally {
       setOpening((cur) => (cur === id ? null : cur)) // a newer open may already own the state
@@ -600,7 +601,7 @@ export default function App() {
       // pill is the ONLY way back (the take is no ↶ step), so a later undo pill must not replace it.
       undoToast(appConfig.copy.intake.taken, () => void undoTake(inc.id, back), undefined, { glyph: 'check', kind: 'alarm-take', duration: 12_000 })
     } catch (e) {
-      toast(e instanceof ApiError ? e.detail : appConfig.copy.intake.errorTake, { icon: 'warn', tone: 'warn' })
+      toast(actFailedText(e, appConfig.copy.intake.errorTake), { icon: 'warn', tone: 'warn' })
     } finally {
       setTaking(null)
       void refreshPool()
@@ -626,7 +627,7 @@ export default function App() {
       // no «hinzugefügt» toast: the banner goes and the Meldung lands in the Verlauf
       await attachDiveraAlarm(a.divera_id, activeMeta.id)
     } catch (e) {
-      toast(e instanceof ApiError ? e.detail : ix.attachError, { icon: 'warn', tone: 'warn' })
+      toast(actFailedText(e, ix.attachError), { icon: 'warn', tone: 'warn' })
     } finally {
       void refreshPool()
     }
@@ -733,6 +734,9 @@ export default function App() {
   // explanation should be, on the one screen whose whole job is «what now».
   const landingAlarms = isEditor ? poolAlarms.filter((a) => !dismissedAlarms.has(a.divera_id)) : []
   const hideAlarm = (a: DiveraAlarm) => setDismissedAlarms(dismissAlarm(a.divera_id))
+  // ✕ folds an alarm to a strip in its own place, «Zeigen» brings it back (lib/diveraDismiss)
+  const showAlarm = (a: DiveraAlarm) => setDismissedAlarms(undismissAlarm(a.divera_id))
+  const foldedAlarms = isEditor ? hiddenAlarms(poolAlarms, dismissedAlarms) : []
   // an alarm taken from the viewer undoes back to it (undoTake)
   const takeBack = screen === 'karte' ? 'karte' as const : undefined
 
@@ -758,6 +762,8 @@ export default function App() {
     incidents: allIncidents, listNote, activeId, opening, alarms: landingAlarms, taking,
     onTake: (a) => void takeAndOpen(a, takeBack),
     onDismissAlarm: hideAlarm,
+    hiddenAlarms: foldedAlarms,
+    onShowAlarm: showAlarm,
     onOpenIncident: openOrUncover,
     onHistory: () => setOverlay('history'),
     onCreate: () => setOverlay('create'),
@@ -944,6 +950,7 @@ export default function App() {
           alarms={poolAlarms}
           dismissed={dismissedAlarms}
           onDismiss={hideAlarm}
+          onShow={showAlarm}
           taking={taking}
           attachFirst={false}
           onTake={(a) => {
@@ -956,6 +963,7 @@ export default function App() {
           alarms={poolAlarms}
           dismissed={dismissedAlarms}
           onDismiss={hideAlarm}
+          onShow={showAlarm}
           taking={taking}
           // ⚠️ «Anhängen» only onto an Einsatz that is RUNNING (review of #235): attached to a closed
           // one, the dispatch's Zeiten and Meldung would land in a closed record
