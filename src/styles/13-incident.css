@@ -2535,13 +2535,17 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
   .ip-launch-x:hover { color: var(--ink); background: var(--hover-strong); }
 }
 .ip-launch-x svg { width: 16px; height: 16px; }
-/* an alarm hidden with ✕ (panels/AppMenuRows · FoldedAlarm, rare-user round M3): one grey strip in
-   the row's own place – bell-off, «Ausgeblendet · <Stichwort>» dim on one line, «Zeigen» */
-.ip-alarm-folded { display: flex; align-items: center; gap: 12px; min-height: 44px; min-width: 0; padding: 2px 2px 2px 12px;
+/* an alarm (or «Alarm aktualisiert») hidden with ✕ (panels/AppMenuRows · FoldedRow, rare-user
+   round M3 / F7, round 2): bell-off, the alarm's two lines dimmed, «Zeigen». The Stichwort WRAPS –
+   «B2 Brand Einfamilienhaus mit eingeschlossenen Personen» has to be readable at 390px. */
+.ip-alarm-folded { display: flex; align-items: center; gap: 12px; min-height: 44px; min-width: 0; padding: var(--sp-1) 2px var(--sp-1) 12px;
   border-radius: var(--r-ctl); color: var(--ink-dim); }
 .ip-alarm-folded > svg { width: 17px; height: 17px; flex: none; color: var(--ink-faint); }
-.ip-alarm-folded-t { flex: 1; min-width: 0; font: var(--fw-medium) var(--fs-2) var(--body);
+.ip-alarm-folded-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ip-alarm-folded-title { font: var(--fw-bold) var(--fs-2) var(--body); overflow-wrap: anywhere; }
+.ip-alarm-folded-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ip-alarm-folded > .ip-btn { flex: none; }
 .ip-launch-list > .ip-alarm-folded { border: 1px solid var(--glass-edge); background: var(--surface); }
 .ip-emptyapp-actions { display: flex; flex-direction: column; gap: 8px; }
 .ip-emptyapp-secondary { display: flex; gap: 8px; }

@@ -11,7 +11,7 @@ import type { ReactivateResult } from '../../types'
 import { useIsPhone } from '../../lib/useIsPhone'
 import { useEinsatzuhr } from '../../lib/einsatzuhr'
 import { useLate } from '../../lib/useLate'
-import { AppMenuRows } from './AppMenuRows'
+import { AppMenuRows, type FoldedMenuRow } from './AppMenuRows'
 import { foreignMark } from '../../lib/foreignAlarm'
 import { runningOthers } from '../../lib/switcherLists'
 import type { ViewOnlyReason } from '../../workspace/access'
@@ -33,7 +33,7 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onSyncNow, onLogout, onLogin, onPresent, navKey, sheetOpen = false, syncDetail,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onSyncNow, onLogout, onLogin, onPresent, folded, navKey, sheetOpen = false, syncDetail,
   onBackFromArchive, onReactivate, viewOnly = null,
 }: {
   active: IncidentMeta | null
@@ -90,6 +90,9 @@ export function IncidentSwitcher({
   /** «Präsentieren» – the card's fourth act, beside «Teilen» (F15, 17.11.2026): the second door
    *  to the share sheet's «Präsentieren» card; editors only, like that card (`canShareLink`) */
   onPresent?: () => void
+  /** what was hidden with ✕ and can come back – a hidden alarm, this Einsatz's hidden «Alarm
+   *  aktualisiert» (M3 / F7, 17.11.2026): quiet rows in the menu's «Einsätze» group (AppMenuRows) */
+  folded?: FoldedMenuRow[]
   /** changes whenever the app navigates to another surface — closes a menu that was left
    *  open under a sheet (e.g. Rapport → Anwesenheit must not land back in the menu) */
   navKey?: string
@@ -511,6 +514,7 @@ export function IncidentSwitcher({
             onInstall={onInstall}
             onLogout={onLogout && (() => { onLogout(); setOpen(false) })}
             onLogin={onLogin}
+            folded={folded}
           />
         </div>
       )}

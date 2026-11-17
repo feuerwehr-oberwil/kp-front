@@ -91,7 +91,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     undoTakeFailed: 'Prise de l’alarme non annulée – l’intervention reste ouverte',
     kindLabel: 'Réel / exercice',
     kindReal: 'Réel',
-    hiddenAlarm: 'Masqué',
     showAlarm: 'Afficher',
   },
 }

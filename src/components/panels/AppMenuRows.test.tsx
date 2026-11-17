@@ -3,7 +3,7 @@
 // the in-Einsatz side is IncidentSwitcher.test.tsx.
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
-import { AppMenuRows, type AppMenuAlarms } from './AppMenuRows'
+import { AppMenuRows, foldedAlarmRows, type AppMenuAlarms } from './AppMenuRows'
 import { appConfig } from '../../config/appConfig'
 import type { DiveraAlarm, IncidentMeta } from '../../lib/incidents'
 
@@ -86,7 +86,7 @@ describe('AppMenuRows · home (no card)', () => {
 // the alarm on this device only and never takes it, and both lock while any take runs.
 describe('AppMenuRows · alarms to take', () => {
   const alarms = (extra: Partial<AppMenuAlarms> = {}): AppMenuAlarms => ({
-    list: [alarm(41, 'B2 Brand Wohnhaus')], taking: null, onTake: vi.fn(), onDismiss: vi.fn(), hidden: [], onShow: vi.fn(), ...extra,
+    list: [alarm(41, 'B2 Brand Wohnhaus')], taking: null, onTake: vi.fn(), onDismiss: vi.fn(), ...extra,
   })
 
   it('takes on the row, hides on the ×, and the × never takes', () => {
@@ -113,15 +113,19 @@ describe('AppMenuRows · alarms to take', () => {
     for (const x of screen.getAllByRole('button', { name: ci.hide })) expect((x as HTMLButtonElement).disabled).toBe(true)
   })
 
-  // rare-user round M3 = C (17.11.2026): a hidden alarm folds to a strip in its own place
-  it('a hidden alarm stands as «Ausgeblendet · <Stichwort>» and «Zeigen» brings it back', () => {
-    const a = alarms({ list: [], hidden: [alarm(43, 'B1 Rauch')] })
-    const { container } = renderHome({ alarms: a })
-    expect(within(container).getByText(`${ci.hiddenAlarm} · B1 Rauch`)).toBeTruthy()
+  // rare-user round M3, round 2 (17.11.2026): a hidden alarm is a quiet row – the alarm's own two
+  // lines, no word «Ausgeblendet» – and «Zeigen» brings it back
+  it('a hidden alarm stands as its Stichwort and address, and «Zeigen» brings it back', () => {
+    const onShow = vi.fn()
+    const hidden = alarm(43, 'B1 Rauch')
+    const { container } = renderHome({ folded: foldedAlarmRows([hidden], onShow) })
+    const row = container.querySelector('.ip-alarm-folded') as HTMLElement
+    expect(within(row).getByText('B1 Rauch')).toBeTruthy()
+    expect(row.querySelector('.ip-alarm-folded-sub')?.textContent).toBeTruthy()
+    expect(row.textContent).not.toMatch(/Ausgeblendet/)
     expect(within(container).queryByText(cs.noOpenIncidents)).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: ci.showAlarm }))
-    expect(a.onShow).toHaveBeenCalledWith(a.hidden[0])
-    expect(a.onTake).not.toHaveBeenCalled()
+    fireEvent.click(within(row).getByRole('button', { name: new RegExp(ci.showAlarm) }))
+    expect(onShow).toHaveBeenCalledWith(hidden)
   })
 
   it('an alarm alone is not «nothing open»', () => {

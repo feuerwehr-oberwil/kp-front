@@ -92,7 +92,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     undoTakeFailed: 'Alarm take not undone – the incident stays open',
     kindLabel: 'Real / exercise',
     kindReal: 'Real',
-    hiddenAlarm: 'Hidden',
     showAlarm: 'Show',
   },
 }

@@ -89,7 +89,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             'At the very top, the open incident: **Edit** (the incident data), **Complete** with the count of what is still open, and **Share**.',
             'Below it the other running incidents – tap one to switch. When several are running, the incident at the top shows a **+N**.',
-            '**New alarm** – an incoming alarm that is not an incident yet: **Open** opens it. The **✕** only hides it on this device; it stays as a grey row «Hidden», and **Show** brings it back.',
+            '**New alarm** – an incoming alarm that is not an incident yet: **Open** opens it. The **✕** only hides it on this device; under **Incidents** it stays as a faded row, and **Show** brings it back. A hidden **Alarm updated** comes back with **Show** in the incident menu.',
             '**Open incident** – an incident by hand, without an alarm. The first question is **Real | Exercise**, then the location (object, address or on the map) and the keyword. What is half typed stays, even if the app reloads.',
             '**All incidents** – the closed ones too: tap one to read it, **Reopen** to add to it.',
             '**Leave incident** – back to the map; the incident keeps running.',

@@ -114,9 +114,6 @@
      line read «Atemschutz überfällig – 3 Trupps: Tst Chri», cutting exactly the names the row is
      about (and «Tst Domini…» on the 820px tablet). Past the clamp the ellipsis again. */
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
-/* a folded row (Meldung.fold – a hidden alarm): one dim line at the 44 px floor, its «Zeigen» beside it */
-.ml-row.fold { min-height: 44px; }
-.ml-row.fold .ml-title { display: block; font-weight: var(--fw-medium); color: var(--ink-dim); white-space: nowrap; text-overflow: ellipsis; }
 .ml-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* a row whose sentence IS the message (Meldung.wrap) — «Einsatz wurde auf einem anderen Gerät
    abgeschlossen (14:45)» must not lose its end to the ellipsis on a phone */
@@ -233,9 +230,6 @@
      «Weiter folgen») wraps onto two full-width buttons rather than running off the card */
   .ml-act { order: 1; flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-end; }
   .ml-act .ml-btn { flex: 1 1 auto; min-width: 0; }
-  /* …except a folded row (a hidden alarm): one line, «Zeigen» beside its words */
-  .ml-row.fold { flex-wrap: nowrap; padding-bottom: var(--sp-1); }
-  .ml-row.fold .ml-act { order: 0; flex: none; }
 }
 
 /* pinned to both edges (NOT left:50% + translate: an auto-width fixed box only gets the

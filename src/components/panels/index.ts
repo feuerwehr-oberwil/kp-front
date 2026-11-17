@@ -2,7 +2,7 @@
 export { SettingsSheet, HomeDeviceSheet } from './SettingsSheet'
 export { OfflineReadiness } from './OfflineReadiness'
 export { IncidentSwitcher } from './IncidentSwitcher'
-export { AppMenuRows, FoldedAlarm } from './AppMenuRows'
+export { AppMenuRows, FoldedRow, foldedAlarmRows, type FoldedMenuRow } from './AppMenuRows'
 export { ShareIncidentSheet } from './ShareIncident'
 export { EinsatzWizard } from './EinsatzWizard'
 export { AlarmUpdateBanner, IncomingAlarmBanner, NewIncidentBanner, ReviewBanner } from './Banners'

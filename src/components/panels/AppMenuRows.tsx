@@ -5,7 +5,8 @@
 // used to be the old launcher card with big launch buttons, and the owner read it as a second app.
 //
 // What it renders, top to bottom: the «Einsätze» group (the running ones as rows, the alarms
-// waiting to be taken, «Einsatz verlassen», «Alle Einsätze», «Einsatz eröffnen»),
+// waiting to be taken, the ones hidden with ✕ and a hidden «Alarm aktualisiert» – `FoldedRow` –,
+// «Einsatz verlassen», «Alle Einsätze», «Einsatz eröffnen»),
 // the «App» group (Objektbesuche, «Dieses Gerät», Hilfe, Installieren), who is signed in with
 // «Abmelden» – or «Anmelden» for a view-link guest without a login –, the build label and a
 // waiting update. Every row is drawn only when its handler is
@@ -36,22 +37,49 @@ export interface AppMenuAlarms {
   onTake: (a: DiveraAlarm) => void
   /** hide it on THIS device only — never an archive of a live dispatch (lib/diveraDismiss) */
   onDismiss: (a: DiveraAlarm) => void
-  /** the alarms hidden here that still stand as a strip (lib/diveraDismiss · hiddenAlarms) */
-  hidden: DiveraAlarm[]
-  /** «Zeigen» on a strip: the alarm back as a row */
-  onShow: (a: DiveraAlarm) => void
 }
 
-/** An alarm hidden with ✕, folded to one grey strip in its own place (rare-user round M3 = C,
- *  17.11.2026): «Ausgeblendet · <Stichwort>» and «Zeigen». The home list and this menu draw it
- *  alike; the Meldeleiste's own strip is panels/Banners · IncomingAlarmBanner. */
-export function FoldedAlarm({ alarm, onShow }: { alarm: DiveraAlarm; onShow: (a: DiveraAlarm) => void }) {
+/** Something hidden with ✕ that can still come back: an alarm of the pool (this device) or the
+ *  open Einsatz's «Alarm aktualisiert» (every device). App builds the rows (`foldedAlarmRows`, and
+ *  the update's own); `onShow` may be async – the row's «Zeigen» waits for it. */
+export interface FoldedMenuRow {
+  key: string
+  /** the alarm's Stichwort, or «Alarm aktualisiert» */
+  title: string
+  /** the second line an alarm row has – its address; none for the update */
+  sub?: string
+  onShow: () => void | Promise<unknown>
+}
+
+/** The rows for the alarms hidden on this device (lib/diveraDismiss · hiddenAlarms). */
+export const foldedAlarmRows = (hidden: DiveraAlarm[], onShow: (a: DiveraAlarm) => void): FoldedMenuRow[] =>
+  hidden.map((a) => ({
+    key: `alarm:${a.divera_id}`,
+    title: a.title,
+    sub: shortAddress(a.address) ?? appConfig.copy.intake.addressUnknown,
+    onShow: () => onShow(a),
+  }))
+
+/** A hidden alarm (or «Alarm aktualisiert») as one quiet row, the only way back after ✕ (rare-user
+ *  round M3 / F7, round 2, 17.11.2026): bell-off · the alarm in the two lines an alarm row has,
+ *  dimmed · «Zeigen». No word «Ausgeblendet» – the glyph and the dim say it (owner: the word took
+ *  the room the Stichwort needs), and the Stichwort wraps rather than ellipsising. The home list
+ *  and the menus draw it alike. */
+export function FoldedRow({ row }: { row: FoldedMenuRow }) {
   const ci = appConfig.copy.intake
+  const [busy, setBusy] = useState(false)
+  const show = async () => {
+    setBusy(true)
+    try { await row.onShow() } finally { setBusy(false) }
+  }
   return (
-    <div className="ip-alarm-folded" data-alarm-folded={alarm.divera_id}>
+    <div className="ip-alarm-folded" data-folded={row.key}>
       <Icon id="bell-off" />
-      <span className="ip-alarm-folded-t">{ci.hiddenAlarm} · {alarm.title}</span>
-      <Button onClick={() => onShow(alarm)}>{ci.showAlarm}</Button>
+      <span className="ip-alarm-folded-t">
+        <span className="ip-alarm-folded-title">{row.title}</span>
+        {row.sub && <span className="ip-alarm-folded-sub">{row.sub}</span>}
+      </span>
+      <Button disabled={busy} onClick={() => void show()} aria-label={`${ci.showAlarm}: ${row.title}`}>{ci.showAlarm}</Button>
     </div>
   )
 }
@@ -65,7 +93,7 @@ const ActLabel = ({ children }: { children: ReactNode }) => <span className="ip-
 
 export function AppMenuRows({
   activeId, incidents, isEditor, user, opening = null, alarms, listNote = null, onSwitch, onLeave, onHistory, onCreate,
-  onObjectVisits, onDevice, onHelp, onInstall, onLogout, onLogin,
+  onObjectVisits, onDevice, onHelp, onInstall, onLogout, onLogin, folded = [],
 }: {
   /** the Einsatz the menu's card names (IncidentSwitcher); null on home's sheet, which has no card
    *  — so the Einsatz a «Karte & Objekte» covers is listed there as a row, the way back into it */
@@ -100,6 +128,8 @@ export function AppMenuRows({
   /** «Anmelden» in the identity row's button slot – a view-link guest whose browser holds no
    *  login (C8, 17.11.2026); never together with `onLogout` */
   onLogin?: () => void
+  /** what was hidden with ✕ and can come back, under the alarm rows (`FoldedRow`) */
+  folded?: FoldedMenuRow[]
 }) {
   const cp = appConfig.copy.incidentSwitcher
   const cu = appConfig.copy.update
@@ -124,7 +154,6 @@ export function AppMenuRows({
   // looking for a specific old Einsatz, and the second one is not a four-row list.
   const running = runningOthers(incidents, activeId)
   const alarmList = alarms?.list ?? []
-  const foldedList = alarms?.hidden ?? []
   // where «Karte & Objekte» was left — the sub line of «Einsatz verlassen» (a sessionStorage read)
   const karteBack = onLeave ? loadKarteView()?.label ?? null : null
   // The Einsätze group is about moving BETWEEN Einsätze. When nothing in it can render — no other
@@ -132,7 +161,7 @@ export function AppMenuRows({
   // it shows, which is what an Einsatz-Link sees: it is bound to one Einsatz and switching is
   // neither offered nor permitted. Derived rather than passed, so the menu never has to know why
   // the rows are missing.
-  const showIncidents = running.length > 0 || alarmList.length > 0 || foldedList.length > 0 || !!onLeave || !!onHistory || (isEditor && !!onCreate) || !hasCard
+  const showIncidents = running.length > 0 || alarmList.length > 0 || folded.length > 0 || !!onLeave || !!onHistory || (isEditor && !!onCreate) || !hasCard
   const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
   return (
     <>
@@ -145,7 +174,7 @@ export function AppMenuRows({
           {!hasCard && <div className="ip-menu-label">{cp.incidents}</div>}
           {!hasCard && listNote ? (
             <p className="form-warn form-warn-amber form-warn-compact" role="status"><Icon id="warn" /><span className="form-warn-text">{listNote}</span></p>
-          ) : !hasCard && running.length === 0 && alarmList.length === 0 && foldedList.length === 0 && <div className="ip-menu-empty">{cp.noOpenIncidents}</div>}
+          ) : !hasCard && running.length === 0 && alarmList.length === 0 && folded.length === 0 && <div className="ip-menu-empty">{cp.noOpenIncidents}</div>}
           {running.map((i) => {
             // a Trupp of THAT Einsatz at the alarm tier: a red word under its name, and nothing more
             // here (FLOW.1, 13.11.2026 — what else it may do is lib/foreignAlarm's rule)
@@ -191,7 +220,7 @@ export function AppMenuRows({
               </button>
             </div>
           ))}
-          {alarms && foldedList.map((a) => <FoldedAlarm key={a.id} alarm={a} onShow={alarms.onShow} />)}
+          {folded.map((r) => <FoldedRow key={r.key} row={r} />)}
           {/* «Einsatz verlassen» (owner, 17.10.2026 — it was «Karte & Objekte» in the App group):
               it is about THIS Einsatz, so it heads the doors out of it. «verlassen» must never read
               as closing or archiving, so the sub line says the Einsatz runs on, and where the

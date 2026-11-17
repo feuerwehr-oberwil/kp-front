@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act, within } from '@testing-library/react'
 import { IncidentSwitcher } from './IncidentSwitcher'
 import { appConfig } from '../../config/appConfig'
 import type { IncidentMeta } from '../../lib/incidents'
@@ -258,6 +258,16 @@ describe('IncidentSwitcher · who is here', () => {
     cleanup()
     renderActive({ active })
     expect(screen.queryByRole('button', { name: appConfig.copy.presentation.title })).toBeNull()
+  })
+
+  // M3 / F7 (17.11.2026): what ✕ hid comes back from the Einsatz menu, not from a strip
+  it('lists a hidden «Alarm aktualisiert» as a quiet row whose «Zeigen» brings it back', () => {
+    const onShow = vi.fn()
+    renderActive({ active, folded: [{ key: 'alarm-update:inc-1', title: appConfig.copy.intake.alarmUpdate.title, onShow }] })
+    const row = document.querySelector('.ip-alarm-folded') as HTMLElement
+    expect(row.textContent).toContain(appConfig.copy.intake.alarmUpdate.title)
+    fireEvent.click(within(row).getByRole('button'))
+    expect(onShow).toHaveBeenCalled()
   })
 })
 

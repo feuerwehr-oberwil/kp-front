@@ -6,7 +6,7 @@ import { linkShowsMeldung, NEWER_BUILD_MELDUNG_ID, rankMeldungen, type Meldung, 
 // anything that would go away by itself.
 
 const TONE: Record<MeldungKind, MeldungTone> = {
-  notfall: 'alarm', atemschutz: 'alarm', alarm: 'alarm', alarmHidden: 'calm', lifecycle: 'info', storage: 'alarm', refused: 'warn', safety: 'warn', reminder: 'warn', wind: 'warn', gps: 'warn', review: 'info', workspace: 'warn', media: 'warn', tabLock: 'info', symbols: 'warn', basemap: 'warn', session: 'warn', update: 'calm', install: 'calm',
+  notfall: 'alarm', atemschutz: 'alarm', alarm: 'alarm', lifecycle: 'info', storage: 'alarm', refused: 'warn', safety: 'warn', reminder: 'warn', wind: 'warn', gps: 'warn', review: 'info', workspace: 'warn', media: 'warn', tabLock: 'info', symbols: 'warn', basemap: 'warn', session: 'warn', update: 'calm', install: 'calm',
 }
 const m = (kind: MeldungKind, id: string = kind): Meldung => ({ id, kind, tone: TONE[kind], icon: 'bell', title: kind })
 

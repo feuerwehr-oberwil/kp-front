@@ -6,6 +6,7 @@
 // Rules: every mutation joins the one timeline (docs/undo.md); synced state and the record:
 // docs/sync-and-offline.md.
 
+import type { FoldedMenuRow } from './components/panels/AppMenuRows'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type MutableRefObject, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
@@ -251,6 +252,9 @@ interface WorkspaceProps {
   /** bring this Einsatz back in front (App · uncoverEinsatz) — an alarm row's «Zum Trupp» */
   onUncover?: () => void
   onOpenDivera: () => void
+  /** the Einsatz menu's quiet rows for what was hidden with ✕ – alarms of the pool and this
+   *  Einsatz's «Alarm aktualisiert» (App builds them; panels/AppMenuRows · FoldedRow) */
+  menuFolded?: FoldedMenuRow[]
   /** freshly one-tap-taken Divera incident: show the correct-in-place review banner */
   needsReview: boolean
   onReviewDone: () => void
@@ -287,7 +291,7 @@ interface WorkspaceProps {
 
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport, abschlussRef,
-  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, onReactivateActive, onBackFromArchive,
+  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, menuFolded, onReactivateActive, onBackFromArchive,
   covered = false, onUncover, needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
   const { user, logout, asLink, isEl, linkRefused, roleReadOnly, isEditor, linkScoped } = useSessionRole(incidentMeta)
@@ -3198,7 +3202,7 @@ export function IncidentWorkspace({
         onBackFromArchive, onReactivateActive, isPhone, phoneTools, planFit, incidents, syncStatus, journal,
         auditDelivery, closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
         onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, activeObjectId, canEditMeta, onEditMeta,
-        onOpenDivera, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
+        onOpenDivera, menuFolded, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
         setHelpOpen, setInstallGuideOpen, syncNow, media, logout, settingsOpen,
         helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
         menuCloseKey, viewOnly, presentation,

@@ -5,7 +5,7 @@
 // «Präsentieren» card alone, so the menu suspends under it like under any sheet it opened.
 
 import { useState, type Dispatch, type SetStateAction, type MouseEvent as ReactMouseEvent, type RefObject } from 'react'
-import { IncidentSwitcher } from '../components/panels'
+import { IncidentSwitcher, type FoldedMenuRow } from '../components/panels'
 import { Modal } from '../components/panels/_shared'
 import { PresentCard } from '../components/Presentation'
 import { linkPageOwnsSession } from '../lib/linkMode'
@@ -96,6 +96,8 @@ export interface WorkspaceTopBarProps {
   canEditMeta: boolean
   onEditMeta: () => void
   onOpenDivera: () => void
+  /** what was hidden with ✕ and can come back, as the menu's quiet rows (App builds them) */
+  menuFolded?: FoldedMenuRow[]
   confirmAndComplete: () => Promise<boolean>
   abschlussMissing: AbschlussStep[]
   canShareLink: boolean
@@ -128,7 +130,7 @@ export function WorkspaceTopBar({
   onBackFromArchive, onReactivateActive, isPhone, phoneTools, planFit, incidents, syncStatus, journal,
   auditDelivery, closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
   onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, activeObjectId, canEditMeta, onEditMeta,
-  onOpenDivera, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
+  onOpenDivera, menuFolded, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
   setHelpOpen, setInstallGuideOpen, syncNow, media, logout, settingsOpen,
   helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
   menuCloseKey, viewOnly, presentation,
@@ -252,6 +254,7 @@ export function WorkspaceTopBar({
             onKarte={linkScoped ? undefined : onOpenKarte}
             onEditMeta={canEditMeta ? onEditMeta : undefined}
             onDivera={onOpenDivera}
+            folded={menuFolded}
             // Einsatzrapport (PDF + Drucken) and «Alle Einsätze» are both refused for a link
             // session — one generates a document with everyone's names, the other lists the
             // Einsätze this link has nothing to do with.

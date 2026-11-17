@@ -87,7 +87,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             'Tout en haut, l’intervention ouverte : **Modifier** (les données d’intervention), **Clore** avec le nombre de points encore ouverts, et **Transmettre**.',
             'En dessous, les autres interventions en cours – un toucher change d’intervention. S’il y en a plusieurs, l’intervention en haut affiche un **+N**.',
-            '**Nouvelle alarme** – une alarme reçue qui n’est pas encore une intervention : **Ouvrir** l’ouvre. Le **✕** la masque seulement sur cet appareil ; elle reste comme ligne grise «Masqué», et **Montrer** la fait revenir.',
+            '**Nouvelle alarme** – une alarme reçue qui n’est pas encore une intervention : **Ouvrir** l’ouvre. Le **✕** la masque seulement sur cet appareil ; sous **Interventions** elle reste comme ligne pâle, et **Afficher** la fait revenir. Une **Alarme mise à jour** masquée revient avec **Afficher** dans le menu de l’intervention.',
             '**Ouvrir une intervention** – une intervention à la main, sans alarme. La première question est **Réel | Exercice**, ensuite le lieu (objet, adresse ou sur la carte) et le mot-clé. Ce qui est à moitié saisi reste, même si l’app se recharge.',
             '**Toutes les interventions** – aussi les clôturées : un toucher ouvre en lecture, **Rouvrir** pour compléter.',
             '**Quitter l’intervention** – retour à la carte ; l’intervention continue.',
