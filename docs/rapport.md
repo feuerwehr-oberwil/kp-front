@@ -119,7 +119,7 @@ Owner pick A «Ein Feld» (`components/TimeField · DateTimeField`, header there
 
 The two Visum lines (Einsatzleiter, Kommandant) can be signed with a finger instead of a pen.
 **Optional**, never asked for: the «Unterschriften» card in the right-hand column, after the
-Partnerorganisationen (the paper's order; on a phone in «Personal & Mittel»). Owner decisions and
+Partnerorganisationen (the paper's order; on a phone in «Personal & Material»). Owner decisions and
 the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignored).
 
 - **What is signed** is the signed part of the paper form – Haupt-Rapport + Personal + Material –
@@ -187,7 +187,7 @@ Einsatzjournal and the Pendenzen (`lib/readingLog · readingsForReport` → `Rep
   then the history, oldest first, the newest row bold. One row per radio report (the panel's
   `readingRows` fold); it leads with the gas the map's pill wore for those values (`worstGas`), the
   other gases beside the Stufe. Points worst first by their last reading (`compareReadings`).
-- **The Stufe is a word** – «A1 Voralarm», «A2 Hauptalarm», «über Messbereich (A2 Hauptalarm)»,
+- **The Stufe is a word** – «A1 Voralarm», «A2 Hauptalarm», «über Messbereich, A2 Hauptalarm»,
   «unlesbar». The square before it and the colour only repeat it: a monochrome print says the
   same. Worded by the composer (`labels.py`), the client sends the state.
 - **The limits print once above the table** («Grenzwerte dieses Einsatzes: …», `readingLimitsText`):

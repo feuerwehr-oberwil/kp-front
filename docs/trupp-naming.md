@@ -67,8 +67,12 @@ Atemschutz card. The Verlauf rows and the Rapport spell the number out as «Trup
 - **Edit rows** (bearbeitet: Auftrag, Ausrüstung, Kanal …) spell out the whole crew since
   25.09.2026 (staging walk-through r2): they are read to answer «what did THIS crew do», and the
   leader alone named a different set of people than the safety rows around them.
-- The crew separator is **« / » everywhere** – journal, card crew line, alarm row, finder.
-  Comma stays reserved for role lists («Unter AS: …»). `truppLogName` is the one formatter.
+- The crew separator is **« / » inside a line of text** – journal, alarm row, the finder's crew
+  after «·» (`truppLogName` is the one formatter). The ONE exception is the **card's crew line**
+  (`TruppCard · crewLine`, owner pick A3, 05.11.2026): a line of names only, each a nowrap span,
+  so « · » is both the separator and the place it wraps («Widmer Lukas · Wyss Urs»,
+  [`atemschutz-board.md`](atemschutz-board.md)). The code is the source (ENT.15, 17.11.2026).
+  Comma stays reserved for role lists («Unter AS: …»).
 - The journal vocabulary term is **`Trupp 1`** (deviation from the first draft's
   `Trupp 1 (Meier Anna)`: terms match whole substrings, and that form would never match a
   safety row's `Trupp 1 (Meier Anna / Dürring Jan)`). The crew behind it is marked as the people

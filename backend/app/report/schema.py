@@ -196,6 +196,9 @@ class KrokiEntityIn(BaseModel):
     #: glyph prints GREY with this time in its top-left corner (kroki · _place_symbol /
     #: _symbol_badges); the legend's word («gelöscht 20:40») already rides in `caption`.
     done: str | None = None
+    #: a Messpunkt's Stufe, 'a1' | 'a2' (client lib/krokiPayload · krokiEntity): the glyph prints
+    #: an «A1» / «A2» chip bottom-left (kroki · _stage_badge); absent for a calm or done point
+    stage: str | None = None
     sizeM: float | None = None  # generic shapes: ground size in metres (client shapePx)
     # which generic shape — the size and aspect limits are per kind (app/kroki.py), because a
     # Rotation is a run across the map and far leaner than any box

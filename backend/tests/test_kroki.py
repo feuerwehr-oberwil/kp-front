@@ -1011,3 +1011,30 @@ def test_the_schemas_let_done_through():
 
     assert PlanAnnoIn.model_validate({"kind": "symbol", "done": "20:40"}).model_dump()["done"] == "20:40"
     assert KrokiEntityIn.model_validate({"coord": [7.5, 47.5], "done": "20:40"}).model_dump()["done"] == "20:40"
+
+
+# --- a Messpunkt's Stufe on paper (ENT.13, 17.11.2026) ----------------------------------------
+# The screen's pill says A1/A2 by colour; the printed Kroki drew the bare glyph, so the one thing
+# the point is for — which room was A2 — was gone on paper.
+
+
+def test_a_measured_symbol_prints_its_stage_bottom_left():
+    from PIL import ImageDraw
+
+    def chip(stage: str) -> Image.Image:
+        img = Image.new("RGB", (120, 120), "white")
+        kk._stage_badge(ImageDraw.Draw(img), (60, 60), 40, 1.0, stage)
+        return img
+
+    bottom_left = (20, 60, 60, 100)
+    assert _reds(chip("a2"), bottom_left) > 0
+    a1 = chip("a1").crop(bottom_left)
+    assert any(px[0] > px[2] + 60 for _, px in a1.getcolors(maxcolors=100_000))  # amber, not red-free white
+    assert _reds(a1) == 0
+    assert chip("ok").getcolors() == [(120 * 120, (255, 255, 255))]
+
+
+def test_the_schema_lets_the_stage_through():
+    from app.report import KrokiEntityIn
+
+    assert KrokiEntityIn.model_validate({"coord": [7.5, 47.5], "stage": "a2"}).model_dump()["stage"] == "a2"
