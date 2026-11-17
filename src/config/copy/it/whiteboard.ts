@@ -42,7 +42,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       circle: 'Trascina dal centro verso il bordo.',
       text: 'Tocca dove va la nota – poi scrivi.',
       resource: 'Tocca per posizionare una squadra. Trascinando la sposti.',
-      scale: 'Tocca i due estremi della scala stampata, poi inserisci la lunghezza.',
+      scale: 'Tocca i due estremi della scala stampata, poi inserisci la lunghezza reale.',
       measure: 'Tocca i punti. Tieni premuto un punto per rimuoverlo.',
     },
     scale: {
@@ -59,7 +59,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       chipUncalibrated: 'non calibrata',
       recalibrate: 'Ricalibra',
       calibrate: 'Calibra la scala',
-      calibrateHint: 'Tocca due punti della barra di scala',
       stale: 'ricontrolla la scala',
       saved: 'Scala calibrata ({m} m di distanza)',
       needsCalibration: 'Imposta la scala: tocca i due estremi della barra di scala',
@@ -69,7 +68,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       saveAll: 'Per tutti i piani',
       saveThis: 'Solo questo piano',
       saveFailed: 'Scala non salvata come predefinita – riprovare',
-      calibrateStop: 'Termina la calibrazione',
       /** Messen on a plan without a scale opens the scale dialog – this says why (C9, 17.11.2026) */
       promptWhy: 'Questo piano non ha ancora una scala – indicare prima una distanza nota',
       /** the Verlauf row when «Rückgängig» on «Massstab kalibriert» takes it back */

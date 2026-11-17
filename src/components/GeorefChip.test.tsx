@@ -171,26 +171,50 @@ describe('the Plan sheet behind the Objekt chip', () => {
     expect(screen.queryByRole('button', { name: /kalibrieren/i })).toBeNull()
   })
 
-  // the hand calibration is a tap away in the sheet (and through Messen, as ever); calibrating,
-  // the row is the instrument and a tap on it stops
-  it('calibrates by hand from the sheet, the row carrying the instruction meanwhile', () => {
+  // the hand calibration is a tap away in the sheet (and through Messen, as ever). Calibrating is a
+  // mode of the Messen dock (M13 A, 17.11.2026): «Massstab» lit there, however it was entered, and
+  // nothing at the bottom – no armed pill, no instruction line; the row keeps its chips.
+  const dock = () => within(document.querySelector('.wb-dock') as HTMLElement)
+  const pressed = (name: string) => dock().getByRole('button', { name }).getAttribute('aria-pressed')
+  const calibrating = () => {
+    expect(pressed('Massstab')).toBe('true')
+    expect(pressed('Strecke')).toBe('false')
+    expect(pressed('Fläche')).toBe('false')
+    expect(document.querySelector('.armed-pill-row')).toBeNull()
+    expect(objectChip()).toBeTruthy()
+    // what to tap is the dock's ⓘ, worded for calibrating
+    expect(dock().getByRole('button', { name: appConfig.copy.whiteboard.dockHints.scale })).toBeTruthy()
+  }
+
+  it('calibrates by hand from the sheet: the Messen dock with «Massstab» lit', () => {
     renderBoard()
     openSheet()
     expect(fact(/^Massstab: nicht kalibriert/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Massstab kalibrieren' }))
     expect(screen.queryByRole('group', { name: 'Plan · Modul 2' })).toBeNull()
-    // the instrument says what to do AND that a tap stops it (ELEM.3)
-    const instrument = screen.getByRole('button', { name: 'Zwei Punkte des Massstabs antippen – Kalibrieren beenden' })
-    fireEvent.click(instrument)
-    expect(screen.queryByRole('button', { name: /Zwei Punkte des Massstabs antippen/ })).toBeNull()
-    expect(objectChip()).toBeTruthy()
+    calibrating()
+    // «Abbrechen» stops it, and the dock goes with it
+    fireEvent.click(dock().getByRole('button', { name: 'Abbrechen' }))
+    expect(document.querySelector('.wb-dock')).toBeNull()
   })
 
-  it('keeps the hand calibration reachable through Messen too', () => {
+  it('offers no «Massstab» mode on a sheet whose scale comes from the link', () => {
+    store.pairs = TWO
+    renderBoard()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Messen' })[0])
+    expect(dock().getByRole('button', { name: 'Strecke' })).toBeTruthy()
+    expect(dock().queryByRole('button', { name: 'Massstab' })).toBeNull()
+  })
+
+  it('arms the same mode from Messen, and «Strecke» goes back to measuring', () => {
     renderBoard()
     fireEvent.click(screen.getAllByRole('button', { name: 'Messen' })[0])
     fireEvent.click(screen.getByRole('button', { name: 'Massstab kalibrieren' }))
-    expect(screen.getAllByText('Zwei Punkte des Massstabs antippen').length).toBeGreaterThan(0)
+    calibrating()
+    fireEvent.click(dock().getByRole('button', { name: 'Strecke' }))
+    expect(pressed('Strecke')).toBe('true')
+    expect(pressed('Massstab')).toBe('false')
+    expect(dock().getByRole('button', { name: appConfig.copy.whiteboard.dockHints.measure })).toBeTruthy()
   })
 
   // A locked session (el, Führungsansicht, viewer, replay) keeps the READING — tone and words —

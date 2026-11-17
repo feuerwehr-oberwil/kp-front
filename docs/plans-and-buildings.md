@@ -176,6 +176,13 @@ Sketching a building on the floor stack during an Einsatz (27.10.2026, the owner
   Geschossplan» on every storey (prod, 20.09.2026). Floors that exist are never replaced. Bound sheets carry `incident:` georef keys, routed by
   `stationPlanScale · georefForPlan`; legacy fits under existing ink are preserved, never
   silently replaced.
+- **A hand calibration is the Messen dock's third mode, «Massstab»** (M13 A, 17.11.2026): two
+  taps on the printed scale bar, then the real length (`usePlanMeasure · commitCalibration`, the
+  `PlanScalePrompt`). Tool `scale` renders the Messen dock (`WbControls · WbToolDocks`) with
+  «Massstab» lit – one state for every door (the Plan sheet's «Massstab» row, Messen's panel, the
+  tile) – and nothing at the bottom. It is offered where the Plan sheet offers it: not on a sheet
+  whose scale is automatic (linked, or the Gebäude's Grundriss) and not in a locked session. The
+  Lage has no scale to calibrate, so its Messen dock has no such mode.
 
 ## Plan PDFs and the tile pyramid
 

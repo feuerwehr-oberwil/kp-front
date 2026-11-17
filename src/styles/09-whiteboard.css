@@ -1064,12 +1064,12 @@ span.wb-ghost-label { cursor: default; }
 .armed-pill-x { pointer-events: auto; justify-content: center; width: var(--tap); padding: 0; color: var(--ink-dim); cursor: pointer; flex: none; }
 .armed-pill-x .i { width: 18px; height: 18px; }
 .armed-pill-x:active { background-image: linear-gradient(var(--press), var(--press)); }
-/* …and where the bottom-left row reaches the middle – the Tafel's page strip, the «Zwei Punkte des
-   Massstabs antippen» instrument while calibrating – the pill stands one row ABOVE it, never on it
-   (rare-user r2 F5, 17.11.2026: it covered the instruction and the pages). The phone places its
-   rows by measuring (lib/floatRow), so this is the bigger screens' rule. */
+/* …and where the bottom-left row reaches the middle – the Tafel's page strip – the pill stands one
+   row ABOVE it, never on it (rare-user r2 F5, 17.11.2026: it covered the pages). The dock's ⓘ card
+   follows the same rule (DockInfo.module.css). The phone places its rows by measuring
+   (lib/floatRow), so this is the bigger screens' rule. */
 @media (--not-phone) {
-  .whiteboard:has(.wb-botleft > :is(.tps, .wb-scale-chip.arm)) .armed-pill-row { bottom: calc(16px + var(--float-h) + var(--float-gap)); }
+  .whiteboard:has(.wb-botleft > .tps) .armed-pill-row { bottom: calc(16px + var(--float-h) + var(--float-gap)); }
 }
 @media (hover: hover) { .armed-pill-x:hover { color: var(--ink); } }
 .armed-pill-lock:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
@@ -1291,7 +1291,7 @@ span.wb-ghost-label { cursor: default; }
   .wb-scale-persist { left: 10px; right: 10px; bottom: calc(var(--float-bottom) + var(--float-h) + var(--float-gap));
     max-width: none; flex-wrap: wrap; }
 }
-/* armed (calibrating, or its Passung open) = the chip is LIT, the way an armed tile of the tool
+/* armed (its Plan sheet or card open) = the chip is LIT, the way an armed tile of the tool
    bar is: a quiet blue wash mixed INTO the glass (never a see-through tint — see below) and a
    blue glyph. Not a ring (26.09.2026). */
 .wb-scale-chip.arm { background: color-mix(in srgb, var(--blue) 14%, var(--float-bg)); }

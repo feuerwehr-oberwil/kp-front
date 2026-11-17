@@ -886,7 +886,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }, [readOnlyProp, canGeoref, active, aspectMeasured, activeId, activeGeorefKey, measureARForGeoref, planScale])
   const planMeasure = usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate, autoScale })
   const {
-    calNodes, calPrompt, refMInput, setRefMInput, savePrompt, setSavePrompt,
+    calNodes, setCalNodes, calPrompt, refMInput, setRefMInput, savePrompt, setSavePrompt,
     measMode, setMeasMode,
     measureAR, activeScale, scaleAuto, scaleStale, calibrated, planMetres,
     measPath, setMeasPath, measFresh, measMpts, measLenM, measAreaM2, measPerimM, measReset, resetEphemeral,
@@ -2266,17 +2266,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     }],
   }
   const factsTitle = fillTemplate(C.facts.title, { name: active.code || active.title })
-  // while calibrating, the row is the instrument (one mode, one indicator – as for the pairing):
-  // what to tap, lit, and a tap stops it
-  const calibrateChip = tool === 'scale' && !readOnly ? (
-    // …and reads as a STOP (duck sweep ELEM.3): the trailing ✕ and its name say what the tap does
-    <button type="button" className="wb-scale-chip arm" aria-label={`${C.scale.calibrateHint} – ${C.scale.calibrateStop}`} title={C.scale.calibrateStop} onClick={() => setTool('pan')}>
-      <Icon id="measure" />
-      <span>{C.scale.calibrateHint}</span>
-      <Icon id="close" className="wb-chip-chev" />
-    </button>
-  ) : null
-
   // Viewer-only plan (e.g. PV / documentation PDF): bypass the annotation board entirely and
   // show a plain, natively-scrolling multi-page PDF viewer — no tools, no stitched pan/zoom board.
   // the Tafel's page strip, on the Skizze and on every page alike
@@ -2985,9 +2974,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onFinish={finishShape}
           measMode={measMode}
           setMeasMode={setMeasMode}
-          measCount={measPath.length}
-          onMeasClear={() => setMeasPath(() => [])}
+          // calibrating, «Leeren» takes back the first point of the scale bar
+          measCount={tool === 'scale' ? calNodes.length : measPath.length}
+          onMeasClear={() => (tool === 'scale' ? setCalNodes([]) : setMeasPath(() => []))}
           onMeasClose={() => { measReset(); setTool('pan') }}
+          // the dock's «Massstab» mode – where Messen's panel offers «(Neu) kalibrieren» (same rule)
+          onCalibrate={readOnly || scaleAuto ? undefined : () => setTool('scale')}
           truppFinder={truppFinder}
         />}
       </div>
@@ -3067,8 +3059,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           bottom centre, nothing else. The symbol tool has no dock here either; «Mehrere
           platzieren» and a ✕ (27.10.2026) stand beside the pill. Rest tool is 'pan' here (the plan pans on empty
           canvas) vs the map's 'select'. Never while Messen is armed, on any size – its results
-          panel stands in that spot (sweep 30.10.2026 #3). */}
-      {tool !== 'pan' && tool !== 'measure' && (() => {
+          panel stands in that spot (sweep 30.10.2026 #3) – nor while calibrating, a mode of that
+          dock whose lit «Massstab» is its one indicator (M13 A, 17.11.2026). */}
+      {tool !== 'pan' && tool !== 'measure' && tool !== 'scale' && (() => {
         if (tool === 'symbol') {
           if (!pending) return null
           return <ArmedToolPill glyph={<ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />} name={formatSymbolName(pending) || pending}
@@ -3079,9 +3072,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           return <ArmedToolPill glyph={<ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />}
             name={appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel} />
         }
-        // «Massstab kalibrieren» is armed like any tool (F5, 17.11.2026): its pill, with the ✕ that
-        // puts it down – it is no rail tool, so the list has no word for it
-        if (tool === 'scale') return <ArmedToolPill glyph={<Icon id="measure" />} name={appConfig.copy.whiteboard.scale.calibrate} onClose={() => setTool('pan')} />
         // the Grundriss preset names itself in the mode's place: «Linie · Wand»
         const name = grundriss
           ? `${armedToolName(tool, appConfig.copy.planTools)} · ${appConfig.copy.whiteboard.grundriss[grundriss]}`
@@ -3548,14 +3538,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       {georefArmed && !isPhone ? <GeorefInstrument mode={georef} /> : <>
       {/* the Tafel's pages: «which sheet», in the row where a plan says «which place» (owner).
           R1 (owner, 27.10.2026): the Objekt shares ONE glass with its Gebäude-Info, each half its
-          own tap. Calibrating, the chip gives its place to the instrument (`calibrateChip`). */}
+          own tap. Calibrating changes nothing here: its indicator is the Messen dock's «Massstab». */}
       {/* on the stack the building chip stands where the Objekt chip does (that one is dropped
           there), sharing the glass with its Gebäude-Info */}
       {strip}
-      {calibrateChip ?? <>
       <span className="wb-join">{objectChip}{stack && buildingChip}{buildingFloat}</span>
       {!stack && buildingChip}
-      </>}
       {readingsChip}
       </>}
       </div>

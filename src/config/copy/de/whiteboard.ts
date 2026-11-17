@@ -46,7 +46,7 @@ export const whiteboardCopy = {
       circle: 'Von der Mitte zum Rand ziehen.',
       text: 'Tippen, wo die Notiz hin soll – dann schreiben.',
       resource: 'Tippen setzt einen Trupp. Ziehen verschiebt ihn.',
-      scale: 'Beide Enden des gedruckten Massstabs tippen, dann die Länge eingeben.',
+      scale: 'Beide Enden des gedruckten Massstabs antippen, dann die reale Länge eingeben.',
       measure: 'Punkte tippen. Punkt halten entfernt ihn.',
     },
     // Plan-Massstab (calibrate against a printed scale bar so plan lines read in metres)
@@ -67,7 +67,6 @@ export const whiteboardCopy = {
       chipUncalibrated: 'nicht kalibriert',
       recalibrate: 'Neu kalibrieren',
       calibrate: 'Massstab kalibrieren',
-      calibrateHint: 'Zwei Punkte des Massstabs antippen',
       stale: 'Massstab neu prüfen',
       saved: 'Massstab kalibriert ({m} m Strecke)',
       // #3: persist a calibration station-wide (across incidents) so plans measure out of the box
@@ -80,7 +79,6 @@ export const whiteboardCopy = {
       saveFailed: 'Massstab nicht als Vorgabe gespeichert – erneut versuchen',
       needsCalibration: 'Massstab festlegen: die zwei Enden des Massstabs antippen',
       needsCalibrationViewer: 'Messen erst möglich, wenn der Massstab kalibriert ist',
-      calibrateStop: 'Kalibrieren beenden',
       /** Messen on a plan without a scale opens the scale dialog – this says why (C9, 17.11.2026) */
       promptWhy: 'Dieser Plan hat noch keinen Massstab – zuerst eine bekannte Strecke angeben',
       /** the Verlauf row when «Rückgängig» on «Massstab kalibriert» takes it back */
