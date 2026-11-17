@@ -438,7 +438,7 @@
   content: ""; position: absolute; left: -4px; right: -4px; top: -1px; height: 1px;
   background: var(--border); box-shadow: 0 -7px 9px -5px rgba(20, 30, 50, .16); }
 .jc-pendenz-menu .ui-menu-sticky + .ui-menu-sticky::before { display: none; }
-.jc-pendenz-menu .i { flex: none; width: 15px; height: 15px; color: var(--green); }
+.jc-pendenz-menu .i { flex: none; width: 15px; height: 15px; color: var(--sel); }   /* the pick, blue (ELEM.7) */
 /* the Pendenz box, in the state the row stands for — the same frames the switch itself shows */
 .jc-menu-ring { flex: none; width: 19px; height: 19px; border-radius: var(--r-xs); box-sizing: border-box;
   border: 2px solid var(--ink-faint); display: grid; place-items: center; }

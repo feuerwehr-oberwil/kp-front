@@ -196,10 +196,11 @@ export function ChecklistSheet({ templates, current, onPick, onClose }: {
   const isCurrent = (t: VisitTemplate | null) =>
     (t?.id ?? null) === (current?.id ?? null) && (t == null || (t.version ?? 0) === (current?.version ?? 0))
   const row = (t: VisitTemplate | null) => (
-    // the current one says so in its tag, not with the ink pill (`on` is «where you are» beside a list)
+    // a PICK-ONE list (duck sweep LISTS.9): no row wears a ›, since a tap only chooses; the current
+    // one is the trailing ✓ in the choice blue, its word for a screen reader – not a green tag
     <ListRow key={t?.id ?? '__none__'} lead={t ? <Icon id="checklist" /> : <span aria-hidden />} title={t ? t.title : C.noChecklist} sub={t?.subtitle}
-      onClick={() => onPick(t)} aria-current={isCurrent(t) || undefined} chevron={!isCurrent(t)}
-      end={isCurrent(t) && <span className="ip-badge ip-badge-ok">{C.checklistCurrent}</span>} />
+      onClick={() => onPick(t)} aria-current={isCurrent(t) || undefined} chevron={false}
+      end={isCurrent(t) && <span className={s.pickTick}><Icon id="check" /><span className="sr-only">{C.checklistCurrent}</span></span>} />
   )
   return (
     <Sheet open onClose={onClose} title={C.changeChecklist}>

@@ -32,7 +32,9 @@
 .row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* ONE highlight, driven by the keyboard cursor — and the pointer moves that same cursor
    (onMouseEnter) instead of painting a second, competing hover state. */
-.rowOn { background: var(--surface); box-shadow: var(--e3); }
+/* …the menu row's highlight wash (13-incident · «ONE menu row»: --blue at 8 %), never a lifted
+   card – a list you pick from highlights like a menu (duck sweep LISTS.9) */
+.rowOn { background: var(--blue-8); }
 .rowRaus .name, .rowRaus .where { color: var(--ink-faint); }
 .cap { flex: none; width: 6px; align-self: stretch; border-radius: 3px; }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -47,7 +49,7 @@
    red are reserved for a clock running out and must not appear on a picker.) */
 .go { flex: none; display: grid; place-items: center; color: var(--ink-faint); }
 .go svg { width: 16px; height: 16px; }
-.rowOn .go { color: var(--blue); }
+.rowOn .go { color: var(--ink-dim); }   /* blue is «chosen», not «under the cursor» */
 
 .none { padding: var(--sp-4); text-align: center; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-faint); }
 .empty { padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-2); }

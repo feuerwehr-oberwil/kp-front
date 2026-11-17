@@ -225,6 +225,7 @@
 /* a picked row is --sel-wash and nothing else (29.09.2026) — the blue ring on top was a second
    channel for the one fact; the ✓ stays as the cue that is not a colour */
 .pp-row.on { background: var(--sel-wash); }
+.pp-row-tick { flex: none; width: 18px; height: 18px; color: var(--sel); }
 /* ⚠️ The two columns share ONE line grid (owner-r2-4, 27.09.2026): 18px for the name line, 16px
    for the address line, a 2px gap in both. Each side used to take its own font's line box and
    the right one a 3px gap, so «0 m» stood ~2px above the name's line and «4 Pläne» drifted the

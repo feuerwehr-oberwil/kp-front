@@ -169,6 +169,8 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
                     {o.distance_m != null && <span className="pp-dist">{fmtDistance(o.distance_m)}</span>}
                     <span className={`pp-mods ${n ? '' : 'pp-mods-none'}`}>{n} {n === 1 ? pp.planOne : pp.planMany}</span>
                   </span>
+                  {/* the current object: wash + the trailing ✓, the cue that is not a colour (LISTS.9) */}
+                  {o.id === activeObjectId && <Icon id="check" className="pp-row-tick" />}
                 </button>
               )
             })}

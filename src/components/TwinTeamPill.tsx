@@ -59,8 +59,10 @@ export function TruppJoinMenu({ truppId, trupps, pick, create, onNone }: {
       popupClassName="de-menu-pop"
       itemClassName={() => 'de-menu-item'}
       trigger={
+        // the Trupps page's own glyph, the stopwatch: 👥 is the Anwesenheit's door one rail away
+        // (duck sweep ELEM.12 – one glyph, one meaning, within a thumb's reach)
         <button className="wb-pa" title={appConfig.copy.atemschutz.markerLabel} aria-label={appConfig.copy.atemschutz.markerLabel}>
-          <Icon id="people" />
+          <Icon id="stopwatch" />
         </button>
       }
       items={[
@@ -69,9 +71,10 @@ export function TruppJoinMenu({ truppId, trupps, pick, create, onNone }: {
           label: <MenuPick label={t.name} on={t.id === truppId} />,
           onClick: () => pick(t.id),
         })),
-        // the plus sits in the tick's slot, so the row lines up with the picks above it
+        // an ACTION row: its «+» leads, where an action's glyph stands – the picks' ✓ is trailing
+        // (MenuPick, duck sweep ELEM.7), so a lit glyph in a tick's slot no longer reads «picked»
         ...(create ? [{
-          label: <><span className="de-menu-tick on" aria-hidden><Icon id="plus" /></span><span>{appConfig.copy.whiteboard.newTeam}</span></>,
+          label: <><span className="de-menu-lead" aria-hidden><Icon id="plus" /></span><span>{appConfig.copy.whiteboard.newTeam}</span></>,
           onClick: create,
         }] : []),
       ]}
