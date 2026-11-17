@@ -43,7 +43,7 @@ describe('«Alle Einsätze» list states', () => {
 
   it('offline shows the cached running list, says what is missing, and offers a retry', async () => {
     listIncidents.mockRejectedValue(new ApiError(0, 'Netzwerkfehler'))
-    readCachedIncidentList.mockResolvedValue([meta({ atemschutz_due: [{ name: 'Trupp 1', reason: 'ueberfaellig' }] } as Partial<IncidentMeta>)])
+    readCachedIncidentList.mockResolvedValue([meta({ atemschutz_due: [{ id: 't1', name: 'Trupp 1', reason: 'contact' }] })])
     render(<HistoryPanel onClose={() => {}} onOpen={() => {}} />)
     expect(await screen.findByText(h.offlineCached)).toBeTruthy()
     expect(screen.getByText('Zimmerbrand')).toBeTruthy()
@@ -74,7 +74,7 @@ describe('«Alle Einsätze» list states', () => {
 
 describe('«Alle Einsätze» rows', () => {
   it('a running Einsatz with a Trupp at the alarm tier carries the red word, as in the menu', async () => {
-    listIncidents.mockResolvedValue([meta({ atemschutz_due: [{ name: 'Trupp 1', reason: 'ueberfaellig' }] } as Partial<IncidentMeta>)])
+    listIncidents.mockResolvedValue([meta({ atemschutz_due: [{ id: 't1', name: 'Trupp 1', reason: 'contact' }] })])
     render(<HistoryPanel onClose={() => {}} onOpen={() => {}} />)
     expect(await screen.findByText(appConfig.copy.atemschutz.foreign.mark)).toBeTruthy()
   })

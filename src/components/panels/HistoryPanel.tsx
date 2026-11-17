@@ -60,8 +60,8 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
   const [state, setState] = useState<'loading' | 'ok' | 'offline' | 'failed'>('loading')
   // a HINT, not a gate (lib/useOnline): the buttons stay, the line says what they need
   const online = useOnline()
+  // the fetch alone – the first state is already «loading»; a retry says so first (`retry`)
   const reload = () => {
-    setState((s) => (s === 'ok' ? s : 'loading'))
     listIncidents().then((list) => { setItems(list); setState('ok') }).catch(async (e: unknown) => {
       if (!isUnverifiable(e)) { setState('failed'); return }
       // ⚠️ a cached list's alarm tiers are as old as the cache – never shown as if they were now
@@ -71,6 +71,7 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
     })
   }
   useEffect(reload, [])
+  const retry = () => { setState('loading'); reload() }
   // reactivate is as deliberate as archive (its mirror confirm): the dialog also teaches
   // what it means — later edits land as Nachträge, a done Rapport flips to «geändert». Every
   // lifecycle confirm here names its Einsatz above the buttons (lib/einsatzSubject, LISTS.11).
@@ -170,13 +171,13 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
       {state === 'failed' && (
         <div className="form-warn" role="alert">
           <Icon id="warn" /><span className="form-warn-text">{h.loadFailed}</span>
-          <button type="button" className="form-warn-act" onClick={reload}>{h.retry}</button>
+          <button type="button" className="form-warn-act" onClick={retry}>{h.retry}</button>
         </div>
       )}
       {state === 'offline' && (
         <div className="form-warn form-warn-amber" role="status">
           <Icon id="cloud-off" /><span className="form-warn-text">{sorted.length ? h.offlineCached : h.offlineNothing}</span>
-          <button type="button" className="form-warn-act" onClick={reload}>{h.retry}</button>
+          <button type="button" className="form-warn-act" onClick={retry}>{h.retry}</button>
         </div>
       )}
       {state === 'ok' && sorted.length === 0 && (windowNote
