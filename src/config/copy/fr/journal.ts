@@ -20,6 +20,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
       closedTitle: '{n} entrées non reprises après la clôture',
       closedBody: 'L’intervention était déjà close lorsque ces entrées sont arrivées. Elles ne figurent pas dans le journal, mais restent sur cet appareil et peuvent être téléchargées. Si l’intervention est rouverte, elles sont synchronisées.',
       closedShort: 'Entrées non reprises après la clôture – les télécharger',
+      exportDone: 'Enregistré dans «Téléchargements» ou «Fichiers» – envoyer le fichier à l’admin des sapeurs-pompiers, il contient ces entrées.',
     },
     open: 'Journal',
     add: 'Entrée',
@@ -218,6 +219,9 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     sectionRemoved: 'Section supprimée',
     markOpenTitle: 'Marquer à nouveau comme ouvert',
     legendPendenzOverdue: 'Point en retard',
+    attachMenu: 'Pièce jointe',
+    emptyFor: 'Le déroulement de l’intervention se construit ici, ligne par ligne.',
+    printVerlauf: 'Imprimer le journal / PDF',
   },
   tafelPendenzen: {
     createdLog: 'Point en suspens du tableau ({page}) : {text}',

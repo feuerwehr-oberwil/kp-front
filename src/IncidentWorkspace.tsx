@@ -1125,7 +1125,7 @@ export function IncidentWorkspace({
   // ⚠️ A half-typed Mittel (or guest) belongs to the Einsatz it was started on. Switching
   // incidents drops every kept draft, so the next one can never be handed the previous one's
   // entry — see lib/draftKeep.
-  useEffect(() => { clearAllDrafts() }, [incidentMeta.id])
+  useEffect(() => { clearAllDrafts(incidentMeta.id) }, [incidentMeta.id])
   // The Checkliste templates load the moment an Einsatz opens, not when the tab is first tapped
   // (lib/checklists · warmTemplates): the surface opens on a list that is already there, and the
   // offline cache is filled while there is still a network to fill it from.
@@ -3316,6 +3316,7 @@ export function IncidentWorkspace({
           onState={onReplayState}
           onVehicles={onReplayVehicles}
           onExit={exitReplay}
+          running={running}
           journal={timeline}
           onPlayhead={onReplayPlayhead}
           seekRef={replaySeek}

@@ -29,6 +29,11 @@ export function JournalDeliveryNotice({ status, count, refused = 0, closedRefuse
 }) {
   const [busy, setBusy] = useState(false)
   const C = appConfig.copy.journal.delivery
+  // after the download, where the file went and what to do with it (F10 · RECOVERY.6, 17.11.2026):
+  // a JSON in «Dateien» that nobody is told about is a dead end for the one recovery offered
+  const [exported, setExported] = useState(false)
+  const doExport = () => { onExport(); setExported(true) }
+  const exportedLine = exported && <p className="jr-delivery-done">{C.exportDone}</p>
   const outstanding = count > 0 && status !== 'synced' && status !== 'pending'
   // a parked event on an undurable cache is still «not safely kept» — that warning stays loud
   if (!outstanding && !(status === 'storage' && refused + closedRefused > 0)) {
@@ -38,8 +43,9 @@ export function JournalDeliveryNotice({ status, count, refused = 0, closedRefuse
           <strong>{closedRefused === 1 ? C.closedTitleOne : fillTemplate(C.closedTitle, { n: closedRefused })}</strong>
           <p>{C.closedBody}</p>
           <div className="jr-delivery-actions">
-            <Button onClick={onExport}>{C.export}</Button>
+            <Button onClick={doExport}>{C.export}</Button>
           </div>
+          {exportedLine}
         </div>
       )
     }
@@ -49,8 +55,9 @@ export function JournalDeliveryNotice({ status, count, refused = 0, closedRefuse
         <strong>{refused === 1 ? C.refusedTitleOne : fillTemplate(C.refusedTitle, { n: refused })}</strong>
         <p>{C.refusedBody}</p>
         <div className="jr-delivery-actions">
-          <Button onClick={onExport}>{C.export}</Button>
+          <Button onClick={doExport}>{C.export}</Button>
         </div>
+        {exportedLine}
       </div>
     )
   }
@@ -66,8 +73,9 @@ export function JournalDeliveryNotice({ status, count, refused = 0, closedRefuse
       <p>{unsafe ? C.storageBody : status === 'offline' ? C.offlineBody : C.savedBody}</p>
       <div className="jr-delivery-actions">
         <Button variant="primary" disabled={busy} icon={busy ? <ShellLoader /> : undefined} onClick={() => void run()}>{busy ? C.retrying : C.retry}</Button>
-        <Button onClick={onExport}>{C.export}</Button>
+        <Button onClick={doExport}>{C.export}</Button>
       </div>
+      {exportedLine}
     </div>
   )
 }

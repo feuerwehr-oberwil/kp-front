@@ -19,3 +19,6 @@ export const ReportPreflight = lazy(() => loadReportPreflight().then((m) => ({ d
 export const requestReportStep = (step: Parameters<typeof import('../components/ReportPreflight').requestReportStep>[0]) => {
   void loadReportPreflight().then((m) => m.requestReportStep(step))
 }
+/** «Verlauf drucken / PDF» (ReportPreflight · requestJournalPrint), through the lazy module like
+ *  `requestReportStep`: queued there until the sheet mounts. */
+export const requestJournalPrint = () => { void loadReportPreflight().then((m) => m.requestJournalPrint()) }

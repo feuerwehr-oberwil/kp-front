@@ -20,6 +20,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
       closedTitle: '{n} voci non riprese dopo la chiusura',
       closedBody: 'L’intervento era già chiuso quando queste voci sono arrivate. Non sono nel diario, ma restano su questo dispositivo e si possono scaricare. Se l’intervento viene riaperto, vengono sincronizzate.',
       closedShort: 'Voci non riprese dopo la chiusura – scaricarle',
+      exportDone: 'Salvato in «Download» o «File» – inviare il file all’admin dei pompieri, contiene queste voci.',
     },
     open: 'Diario',
     add: 'Voce',
@@ -218,6 +219,9 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     sectionRemoved: 'Sezione eliminata',
     markOpenTitle: 'Segna di nuovo come aperto',
     legendPendenzOverdue: 'Pendenza scaduta',
+    attachMenu: 'Allegato',
+    emptyFor: 'Qui si costruisce lo svolgimento dell’intervento, riga per riga.',
+    printVerlauf: 'Stampa cronologia / PDF',
   },
   tafelPendenzen: {
     createdLog: 'Pendenza dalla lavagna ({page}): {text}',
