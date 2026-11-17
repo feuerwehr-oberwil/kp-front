@@ -232,6 +232,73 @@ describe('IncidentSwitcher · Nur ansehen and the foreign-alarm dot', () => {
   })
 })
 
+// C10 (17.11.2026): the shut pill said nothing about a second open Einsatz – a neutral «+N»
+describe('IncidentSwitcher · other Einsätze open', () => {
+  const cp = appConfig.copy.incidentSwitcher
+  const active = {
+    id: 'inc-1', title: 'Zimmerbrand', address: null, started_at: new Date(Date.now() - 600_000).toISOString(),
+    status: 'offen', is_archived: false, is_exercise: false,
+  } as unknown as IncidentMeta
+  const pill = () => screen.getByRole('button', { name: (n) => n.startsWith(active.title) })
+  const renderShut = (incidents: IncidentMeta[]) => render(
+    <IncidentSwitcher active={active} incidents={incidents} isEditor syncStatus="synced" lastSyncedAt={null}
+      user={{ display_name: 'Muster Anna', color: null, role: 'editor' }} onSwitch={() => {}} onDivera={() => {}}
+      onHelp={() => {}} onSyncNow={() => {}} />,
+  )
+
+  it('counts the other open ones beside the chevron, and none for itself alone or a closed one', () => {
+    const b = { ...active, id: 'inc-2', title: 'Ölspur' } as IncidentMeta
+    const c = { ...active, id: 'inc-3', title: 'BMA' } as IncidentMeta
+    renderShut([active, b, c, { ...active, id: 'inc-4', title: 'Alt', is_archived: true } as IncidentMeta])
+    expect(pill().querySelector('.ip-switch-more')?.textContent).toBe('+2')
+    expect(pill().getAttribute('aria-label')).toContain(cp.othersRunning(2))
+    // neutral: no red dot without an alarm
+    expect(pill().querySelector('.ip-foreign-dot')).toBeNull()
+    cleanup()
+    renderShut([active])
+    expect(pill().querySelector('.ip-switch-more')).toBeNull()
+  })
+})
+
+// F14 / F19 / C8 / F15 (17.11.2026): who is signed in, what a link page is, and its two doors
+describe('IncidentSwitcher · who is here', () => {
+  const cp = appConfig.copy.incidentSwitcher
+  const active = {
+    id: 'inc-1', title: 'Zimmerbrand', address: null, started_at: new Date(Date.now() - 600_000).toISOString(),
+    status: 'offen', is_archived: false, is_exercise: false,
+  } as unknown as IncidentMeta
+
+  it('names the signed-in account on the card, for a real login only', () => {
+    renderActive({ active, onLogout: () => {} })
+    expect(screen.getByRole('img', { name: /Muster Anna/ }).textContent).toBe('MA')
+    cleanup()
+    renderActive({ active, viewOnly: 'link', user: { display_name: 'Einsatz-Link', color: null, role: 'viewer' } })
+    expect(document.querySelector('.ip-card-av')).toBeNull()
+  })
+
+  it('tells a link guest what the page is, and offers «Anmelden» in place of «Abmelden»', () => {
+    const onLogin = vi.fn()
+    renderActive({ active, viewOnly: 'link', onLogin, user: { display_name: 'Einsatz-Link', color: null, role: 'viewer' } })
+    expect(screen.getByText(cp.linkLede)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: new RegExp(cp.logout) })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: cp.login }))
+    expect(onLogin).toHaveBeenCalled()
+    cleanup()
+    renderActive({ active, viewOnly: 'viewer', user: { display_name: 'Betrachter', color: null, role: 'viewer' } })
+    expect(screen.queryByText(cp.linkLede)).toBeNull()
+  })
+
+  it('opens «Präsentieren» from the menu when the door is handed in', () => {
+    const onPresent = vi.fn()
+    renderActive({ active, onPresent })
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.presentation.title }))
+    expect(onPresent).toHaveBeenCalled()
+    cleanup()
+    renderActive({ active })
+    expect(screen.queryByRole('button', { name: appConfig.copy.presentation.title })).toBeNull()
+  })
+})
+
 // An Übung wears the hatched tag in the head, on the card and in the other running rows (M2,
 // back on 14.11.2026 after the «Übung ·» prefix read as «almost invisible»), and the head's
 // accessible name says «Übung» – the aria-label replaces the tag's own text.
@@ -248,7 +315,7 @@ describe('IncidentSwitcher · Übung', () => {
         user={{ display_name: 'Muster Anna', color: null, role: 'editor' }}
         onSwitch={() => {}} onDivera={() => {}} onHelp={() => {}} onSyncNow={() => {}} />,
     )
-    const head = screen.getByRole('button', { name: `Brand Musterhaus, ${appConfig.copy.exerciseBadge}` })
+    const head = screen.getByRole('button', { name: `Brand Musterhaus, ${appConfig.copy.exerciseBadge}, ${appConfig.copy.incidentSwitcher.othersRunning(1)}` })
     expect(head.querySelector('.ip-badge-exercise')?.textContent).toBe(appConfig.copy.exerciseBadge)
     fireEvent.click(head)
     expect(document.querySelector('.ip-card-title > .ip-badge-exercise')).not.toBeNull()
