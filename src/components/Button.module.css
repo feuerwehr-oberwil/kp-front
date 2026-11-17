@@ -23,3 +23,7 @@
 /* secondary: a free-standing control on a bar or the map — the surface and its hairline */
 .icon.iconSecondary { background: var(--surface); border-color: var(--glass-edge); }
 @media (hover: hover) { .icon.iconSecondary:hover { background: var(--hover-strong); } }
+/* worded (IconButton · `word`): the glyph over its word, the worded dock tile's column – a rare act
+   that must not be a bare glyph. One 64px column; a longer word wraps to two short lines. */
+.icon.iconWorded { width: 64px; height: auto; min-height: 52px; grid-template-rows: 20px auto; align-content: center; gap: 2px; padding: var(--sp-1); }
+.word { font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 1.1; text-align: center; }

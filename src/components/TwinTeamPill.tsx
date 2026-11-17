@@ -27,6 +27,7 @@ import { floorBadge } from '../lib/symbolRender'
 import { floorLabel } from '../lib/whiteboard'
 import type { LineTone, TeamLineBadge } from '../lib/truppLines'
 import { truppStateWord } from './truppCardText'
+import { useRailLabels } from '../lib/useDevicePrefs'
 import type { Trupp } from '../types'
 
 /**
@@ -49,8 +50,10 @@ import type { Trupp } from '../types'
  * Cancel leaves the loose chip as it was. Both surfaces render this one function, so the row
  * exists here and nowhere else.
  */
-export function TruppJoinMenu({ truppId, trupps, pick, create, onNone }: {
+export function TruppJoinMenu({ truppId, trupps, pick, create, onNone, word }: {
   truppId?: string; trupps: Trupp[]; pick: (truppId?: string) => void; create?: () => void
+  /** the bar's word under the glyph (TwinTeamPill · `barWord`) – absent with «Beschriftung» off */
+  word?: ReactNode
   /** «Kein Trupp» exists only on a marker that hangs on a hose (15.09., Bastian): it takes the
    *  marker off the Leitung – hose unlinked and uncoupled, marker a step away, still this Trupp's.
    *  A marker on nothing has no such entry; leaving the picture is the trash can. */
@@ -64,7 +67,7 @@ export function TruppJoinMenu({ truppId, trupps, pick, create, onNone }: {
         // the Trupps page's own glyph, the stopwatch: 👥 is the Anwesenheit's door one rail away
         // (duck sweep ELEM.12 – one glyph, one meaning, within a thumb's reach)
         <button className="wb-pa" title={appConfig.copy.atemschutz.markerLabel} aria-label={appConfig.copy.atemschutz.markerLabel}>
-          <Icon id="stopwatch" />
+          <Icon id="stopwatch" />{word}
         </button>
       }
       items={[
@@ -180,6 +183,9 @@ function useBarPlacement(on: boolean) {
     if (home + dx < minX) dx = minX - home
     dx = Math.round(dx)
     anchor.style.setProperty('--acts-dx', `${dx}px`)
+    // the bar's own height, for the connections panel that hangs under it (09-whiteboard): a
+    // worded bar is taller, and on a narrow phone it may wrap to two rows
+    if (bar.height > 0) anchor.style.setProperty('--acts-h', `${Math.round(bar.height)}px`)
     if (placed.current.up === up && placed.current.dx === dx) return
     placed.current = { up, dx }
     setPlace(placed.current)
@@ -269,6 +275,23 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
   const toggleTrail = acts?.toggleTrail
   const unlink = acts?.unlink
   const undock = acts?.undock
+  /* ── Words on the bar (rare-user round M10, owner pick A + note, 17.11.2026) ── with «Beschriftung»
+     on (the rails' setting, the default) every button wears its word under the glyph, as the worded
+     dock tiles do, and the three rare doors – «Position markieren», «Spuren», the original – fold
+     into a worded «Mehr» whose rows carry glyph + full word: the bar keeps at most four worded
+     buttons (Lösen or the pen · Zum Trupp · Atemschutz-Trupp · Entfernen) plus «Mehr», on every
+     surface and device. Off, the bar is the flat glyph row it always was. The `aria-label`s stay. */
+  const worded = useRailLabels() === 'short'
+  const barWord = (w: string) => worded ? <span className="wb-pa-word">{w}</span> : null
+  const W = appConfig.copy.whiteboard
+  const rare: { key: string; icon: string; label: string; onClick: () => void; cls?: string; pressed?: boolean }[] = [
+    ...(mark ? [{ key: 'mark', icon: 'flag', label: W.markPosition, onClick: mark, cls: ' wb-pa-mark' }] : []),
+    // per-team visibility toggle, NOT deletion — the ✕ here silently wiped the record. Pressed =
+    // the rename pen's `--sel` fill (or the menu's ✓), its name the CONTROL («Spuren»), never the
+    // next action (duck sweep ELEM.5: it flipped its title and swapped eye / eye-off, no fill)
+    ...(trailCount > 0 && toggleTrail ? [{ key: 'trails', icon: 'eye', label: W.trails, onClick: toggleTrail, pressed: trailShown }] : []),
+    ...(toOriginal && originalLabel ? [{ key: 'orig', icon: 'external', label: originalLabel, onClick: toOriginal }] : []),
+  ]
   const outTrupp = raus ? trupps.find((t) => t.id === truppId) : undefined
   // ⚠️ the pill span carries the native class untouched: putting it on the hit shell made
   // the button the flex container, and Safari's anonymous button box misplaced the cap.
@@ -321,16 +344,16 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
     <>
       {hit ? hit(pill) : pill}
       {acts && (
-        <div ref={barRef} className="wb-pill-acts" data-flip={barPlace.up ? 'up' : undefined}
+        <div ref={barRef} className={`wb-pill-acts${worded ? ' worded' : ''}`} data-flip={barPlace.up ? 'up' : undefined}
           style={{ transform: `translateX(calc(-50% + ${barPlace.dx}px))` }}
           onPointerDown={(ev) => ev.stopPropagation()}>
           {/* «Lösen» (15.09.): the one explicit way to part the marker from what it hangs on – its
-              Leitung, the symbol it is docked to, or both at once. A glyph, first in the bar: the
-              hose's own end tag says which Leitung, and the words «Leitung 1 · Trupp 3» said
-              nothing the picture did not. */}
+              Leitung, the symbol it is docked to, or both at once. First in the bar: the hose's own
+              end tag says which Leitung, and the words «Leitung 1 · Trupp 3» said nothing the
+              picture did not. */}
           {((line && unlink && truppId) || undock) && (
             <button className="wb-pa wb-pa-unlink" title={appConfig.copy.contextPanel.dockedRelease} aria-label={appConfig.copy.contextPanel.dockedRelease}
-              onClick={() => { if (line && truppId) unlink?.(); undock?.() }}><Icon id="unlink" /></button>
+              onClick={() => { if (line && truppId) unlink?.(); undock?.() }}><Icon id="unlink" />{barWord(appConfig.copy.contextPanel.dockedRelease)}</button>
           )}
           {/* rename — the touch path (double-tap→dblclick is unreliable on iOS). A Trupp-bound
               marker is named by the Atemschutz board, so it gets no pen: renaming it here would
@@ -345,35 +368,40 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
             <button className={`wb-pa${renaming ? ' wb-pa-edit' : ''}`} aria-pressed={renaming}
               title={appConfig.copy.edit} aria-label={appConfig.copy.edit}
               onPointerDown={(ev) => { ev.preventDefault(); ev.stopPropagation() }}
-              onClick={() => setRenaming(!renaming)}><Icon id="pen" /></button>
+              onClick={() => setRenaming(!renaming)}><Icon id="pen" />{barWord(appConfig.copy.edit)}</button>
           )}
           {truppId && showTrupp && (
             // the Trupps nav glyph (NavRail · stopwatch): this is a door to that page, not a
             // warning — the ⚠ said «warning» on a Trupp that had none (K3, 29.09.2026)
-            <button className="wb-pa wb-pa-show" title={appConfig.copy.whiteboard.showTrupp} aria-label={appConfig.copy.whiteboard.showTrupp}
-              onClick={() => showTrupp(truppId)}><Icon id="stopwatch" /></button>
+            <button className="wb-pa wb-pa-show" title={W.showTrupp} aria-label={W.showTrupp}
+              onClick={() => showTrupp(truppId)}><Icon id="stopwatch" />{barWord(W.showTrupp)}</button>
           )}
           {/* «Atemschutz-Trupp» — the join sheet (TruppJoinMenu above), whenever this surface
               offers the door at all */}
-          {pick && <TruppJoinMenu truppId={truppId} trupps={trupps} pick={pick} create={newTrupp} onNone={line && unlink && truppId ? unlink : undefined} />}
-          {mark && (
-            <button className="wb-pa wb-pa-mark" title={appConfig.copy.whiteboard.markPosition} aria-label={appConfig.copy.whiteboard.markPosition}
-              onClick={() => mark()}><Icon id="flag" /></button>
-          )}
-          {/* per-team visibility toggle, NOT deletion — the ✕ here silently wiped the record.
-              Pressed = the rename pen's `--sel` fill, its name the CONTROL («Spuren»), never the
-              next action (duck sweep ELEM.5: it flipped its title to «Spuren ausblenden» and
-              swapped eye / eye-off with no fill, a fourth pressed look) */}
-          {trailCount > 0 && toggleTrail && (
-            <button className={`wb-pa${trailShown ? ' wb-pa-edit' : ''}`} title={appConfig.copy.whiteboard.trails}
-              aria-label={appConfig.copy.whiteboard.trails} aria-pressed={trailShown} onClick={() => toggleTrail()}>
-              <Icon id="eye" />
-            </button>
-          )}
-          {toOriginal && originalLabel && (
-            <button className="wb-pa" title={originalLabel} aria-label={originalLabel}
-              onClick={() => toOriginal()}><Icon id="external" /></button>
-          )}
+          {pick && <TruppJoinMenu truppId={truppId} trupps={trupps} pick={pick} create={newTrupp}
+            onNone={line && unlink && truppId ? unlink : undefined} word={barWord(appConfig.copy.atemschutz.markerLabel)} />}
+          {/* the rare doors: flat glyphs with «Beschriftung» off, rows of «Mehr» with it on */}
+          {worded ? (rare.length > 0 && (
+            <Menu
+              popupClassName="de-menu-pop"
+              itemClassName={() => 'de-menu-item'}
+              trigger={
+                <button className="wb-pa wb-pa-more" title={W.barMore} aria-label={W.barMore}>
+                  <Icon id="more" />{barWord(W.barMore)}
+                </button>
+              }
+              items={rare.map((a) => ({
+                label: <>
+                  <span className="de-menu-lead" aria-hidden><Icon id={a.icon} /></span>
+                  {a.pressed === undefined ? <span>{a.label}</span> : <MenuPick label={a.label} on={a.pressed} />}
+                </>,
+                onClick: a.onClick,
+              }))}
+            />
+          )) : rare.map((a) => (
+            <button key={a.key} className={`wb-pa${a.cls ?? ''}${a.pressed ? ' wb-pa-edit' : ''}`} title={a.label} aria-label={a.label}
+              aria-pressed={a.pressed} onClick={() => a.onClick()}><Icon id={a.icon} /></button>
+          ))}
           {/* ONE trash (18.09.2026). The bar carried two red-ish doors for a while — the trash and
               a separate «Spur löschen» wearing the building-outline glyph — and the footprint did
               not read as a delete at all. So the trash is the one delete on this bar, and where
@@ -381,28 +409,28 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
               native select): the marker alone (its trail stays behind as a ghost the incident
               owns, lib/truppTrails), the trail alone, or both. The two trail rows are danger rows
               and each confirms before anything is destroyed; a marker with no trail has nothing to
-              ask about and the trash removes it straight away, exactly as before. */}
+              ask about and the trash removes it straight away, exactly as before. Always last. */}
           {acts.remove && (trailCount > 0 ? (
             <Menu
               popupClassName="de-menu-pop"
               itemClassName={() => 'de-menu-item'}
               trigger={
                 <button className="wb-pa wb-pa-del" title={appConfig.copy.remove} aria-label={appConfig.copy.remove}>
-                  <Icon id="trash" />
+                  <Icon id="trash" />{barWord(appConfig.copy.remove)}
                 </button>
               }
               items={[
-                { label: appConfig.copy.whiteboard.removeMarker, onClick: () => acts.remove?.() },
-                ...(acts.clearTrail ? [{ label: appConfig.copy.whiteboard.clearTrail, danger: true, onClick: () => acts.clearTrail?.() }] : []),
+                { label: W.removeMarker, onClick: () => acts.remove?.() },
+                ...(acts.clearTrail ? [{ label: W.clearTrail, danger: true, onClick: () => acts.clearTrail?.() }] : []),
                 ...(acts.removeWithTrail ? [{
-                  label: appConfig.copy.whiteboard.removeMarkerTrail, danger: true,
+                  label: W.removeMarkerTrail, danger: true,
                   onClick: () => acts.removeWithTrail?.(),
                 }] : []),
               ]}
             />
           ) : (
             <button className="wb-pa wb-pa-del" title={appConfig.copy.remove} aria-label={appConfig.copy.remove}
-              onClick={() => acts.remove?.()}><Icon id="trash" /></button>
+              onClick={() => acts.remove?.()}><Icon id="trash" />{barWord(appConfig.copy.remove)}</button>
           ))}
         </div>
       )}

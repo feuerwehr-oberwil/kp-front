@@ -368,6 +368,9 @@
 @media (hover: hover) { .sel-bar-act.on:hover { background: var(--here-fill-hover); } }
 @media (prefers-reduced-motion: reduce) { .sel-bar-act { transition: none; } }
 .sel-bar-act .i { flex: none; width: 19px; height: 19px; }
+/* «Duplizieren» (rare-user F18) is a TAP, not a grip: the pointer, and the page's own touch handling */
+.sel-bar-dup { cursor: pointer; touch-action: manipulation; }
+.sel-bar-dup:active { cursor: pointer; }
 
 /* …and the whole surface says which mode is on, under the cursor that will act on it. Mouse-only
    by nature; a gloved tablet reads the lit button and the cleared grips instead.

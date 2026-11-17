@@ -388,6 +388,8 @@ export const editorsCopy = {
     // Leitung ohne gewählten Ø (14.11.2026: leer statt 40 mm) – der Menüeintrag, der ihn wieder leert
     hoseNone: 'Kein',
     menuPicked: 'gewählt',
+    // the selection bar's copy of ONE object, ⌘D's twin for a touch tablet (rare-user F18)
+    duplicate: 'Duplizieren',
   },
   topBar: {
     offline: 'Offline',

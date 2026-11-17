@@ -1083,8 +1083,9 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                 // «Luftrichtung». A free row from an older record keeps its editable key + delete
                 // (nothing new is added since 31.10.2026, but what was written stays editable).
                 // …and the Einsatzleiter pair gets the ⇄: the handover is a swap, and a swap is one
-                // gesture. A 44px square at the right end of the EL row (27.09.2026 — it was a
-                // sentence between the rows), and the Stv. row leaves the same space empty so the
+                // gesture. A worded tile at the right end of the EL row (27.09.2026 — it was a
+                // sentence between the rows; its word «Führung übergeben» under the glyph since
+                // rare-user F17, 17.11.2026), and the Stv. row leaves the same space empty so the
                 // two fields align. Offered only once there is something to swap.
                 const k = r.k.trim()
                 const pair = elSym && rows.some((x) => x.k.trim() === EL_NAME) && rows.some((x) => x.k.trim() === EL_STV)
@@ -1100,7 +1101,7 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                       <span className="kv-key-ro">{rowLabel(r.k)}</span>
                       {readOnly ? <b className="kv-val-ro">{r.v || '–'}</b> : field}
                       {swap && (
-                        <IconButton variant="secondary" onClick={swapEl} label={C.swapEl}>
+                        <IconButton variant="secondary" onClick={swapEl} label={C.swapEl} word={C.swapEl}>
                           <Icon id="swap" />
                         </IconButton>
                       )}

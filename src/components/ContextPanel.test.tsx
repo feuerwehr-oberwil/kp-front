@@ -691,6 +691,12 @@ describe('ContextPanel — the Einsatzleiter pair', () => {
     expect(onFields).toHaveBeenCalledWith({ Name: 'Müller Hans', 'Stv.': 'Widmer Céline' })
   })
 
+  // rare-user F17 (17.11.2026): the handover says its word, not a bare ⇄
+  it('writes «Führung übergeben» under the glyph', () => {
+    setup(el({ Name: 'Widmer Céline', 'Stv.': 'Müller Hans' }))
+    expect(screen.getByRole('button', { name: SWAP }).textContent).toBe(SWAP)
+  })
+
   it('works with only one of the two filled — that is a handover to nobody yet', () => {
     const onFields = vi.fn()
     setup({ ...el({ Name: 'Widmer Céline', 'Stv.': '' }), onFields })

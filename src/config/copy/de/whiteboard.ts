@@ -465,6 +465,8 @@ export const whiteboardCopy = {
     // already wrote the Karte's «TLF entfernt»)
     drawnOnPlan: '{name} auf Plan gezeichnet',
     shapeOnPlan: '{name} auf Plan platziert',
+    // the Trupp marker bar's worded door to its rare acts (TwinTeamPill, rare-user M10)
+    barMore: 'Mehr',
   },
   // the Tafel's pages (10.10.2026, docs/board-templates.md): the free «Skizze» plus the pages a
   // board template offers (FKS «Erste Führung», FKS 8.1 …) — the page strip, the «+ Seite» list,

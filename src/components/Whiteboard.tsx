@@ -2960,6 +2960,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
               // the ✕ is a group's only — a single Linie/Fläche/Form has its editor card's ✕
               onClose={barIds.length > 1 ? barDone : undefined}
               armed={arm.armed} onArm={arm.toggle}
+              // ⌘D's writer, for ONE object of this sheet's own (not a group, not a mirror)
+              onDuplicate={!readOnly && barIds.length === 1 && annos.some((a) => a.id === selId) ? duplicateSelection : undefined}
             />
           )}
           {/* …and the turn is read where it happens, not in the bar's far corner */}

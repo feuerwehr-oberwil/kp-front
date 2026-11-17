@@ -58,11 +58,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       multiwarn: 'Multiwarn',
     },
     equipmentLabel: 'Equipaggiamento',
-    equipmentShort: {
-      retthaube: 'RH',
-      wbk: 'WBK',
-      multiwarn: 'MW',
-    },
     zielLabel: 'Obiettivo',
     // UN solo segnaposto per entrambi i tipi di squadra e per ogni incarico (vedi de/atemschutz.ts).
     zielPlaceholder: 'Dove / cosa …',
@@ -445,6 +440,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logInsideAtClose: 'Squadra {name} ancora dentro alla chiusura',
     cycleEndAtClose: '{t} (ancora dentro alla chiusura)',
     logClockRestart: 'Squadra {name}: orologio di contatto riavviato – intervento riaperto',
+    lineOnPlan: 'Piano',
   },
   lineDecor: {
     W: 'Acqua',
