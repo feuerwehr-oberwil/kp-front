@@ -2340,6 +2340,15 @@ describe('a double tap on a Punkte draft finishes nothing', () => {
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.done }))
     expect(onChange.mock.calls[0][0][0].kind).toBe('area')
   })
+
+  // ENT.8: the Plan's row is the Karte's row for the same act, plus where it happened
+  it('writes the Karte’s «Fläche gezeichnet», on the Plan', () => {
+    const log = vi.fn()
+    const { container } = renderPlan([], { log })
+    corners(container)
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.done }))
+    expect(log.mock.calls.map((c) => c[1])).toContain(fillTemplate(W.drawnOnPlan, { name: appConfig.copy.log.drawKinds.area }))
+  })
 })
 
 // Taking the «E» off a Teilstück lets go of every line end hanging on it, where the E stood. A line

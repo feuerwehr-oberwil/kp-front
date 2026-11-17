@@ -172,13 +172,9 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     insertVertex: 'Insert point',
     dragVertex: 'Drag corner, press and hold to delete',
     dragRadius: 'Drag radius',
-    groupDeleted: 'Selection removed',
     placeText: 'Note placed on plan',
     placeSymbol: 'Symbol "{name}" placed on plan',
-    placeLine: 'Line drawn on plan',
-    placeArea: 'Area drawn on plan',
     placeWand: 'Wall drawn on plan',
-    placeCircle: 'Cordon drawn on plan',
     placeTeam: '{name} placed on plan',
     selectTrupp: 'Which team?',
     newTeam: 'New team',
@@ -309,6 +305,8 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     northRail: 'North',
 
     groupDeletedN: '{n} objects removed from the plan',
+    drawnOnPlan: '{name} drawn on plan',
+    shapeOnPlan: '{name} placed on plan',
   },
   tafel: {
     strip: 'Board pages',

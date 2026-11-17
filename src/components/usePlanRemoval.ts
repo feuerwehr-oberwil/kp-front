@@ -148,9 +148,9 @@ export function usePlanRemoval({ readOnly, annos, renderAnnos, selId, setSelId, 
     let removable = selIds.filter((id) => annos.some((x) => x.id === id))
     if (!removable.length) return
     const lone = removable.length === 1 ? annos.find((a) => a.id === removable[0]) : undefined
-    const row = removable.length > 1
-      ? fillTemplate(appConfig.copy.whiteboard.groupDeletedN, { n: removable.length })
-      : appConfig.copy.whiteboard.groupDeleted
+    // a lone survivor is named by its own row (logRemoved – the Karte's «TLF entfernt»); the
+    // group's row counts (the bare «Auswahl entfernt» went with ENT.8, 17.11.2026)
+    const row = fillTemplate(appConfig.copy.whiteboard.groupDeletedN, { n: removable.length })
     const joined = linesOnObjects(annos, removable, removable)
     if (joined.length) {
       const C = appConfig.copy.removedToast

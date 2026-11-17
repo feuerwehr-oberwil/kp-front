@@ -334,7 +334,8 @@ export function usePlanCreate({
         setRotStart(null)
       }
       add({ id, kind: 'shape', shape: k, color: def.defaultColor, label: name, ...geom })
-      log('hex', fillTemplate(appConfig.copy.whiteboard.placeSymbol, { name }), { annoId: id, x: geom.x, y: geom.y, floor: geom.floor })
+      // a Form's row is the Karte's («Pfeil platziert»), on the Plan (ENT.8) – not «Symbol …»
+      log('hex', fillTemplate(appConfig.copy.whiteboard.shapeOnPlan, { name }), { annoId: id, x: geom.x, y: geom.y, floor: geom.floor })
       // unlocked: place once → pan with the shape selected (its two ends usable); locked: keep
       // placing – a two-point Rotation too, as on the Lage (useMapActions · onMapClick, GESTURES.14)
       if (placeLock) setSelId(null)

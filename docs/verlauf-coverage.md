@@ -193,9 +193,11 @@ is split per surface into `src/config/copy/de/<surface>.ts` since 2026-10-09):
 
 - **Creating writes:** ONE row shape for every drawn shape, «{name} gezeichnet» (`shapeDrawn`,
   since 31.08.), named by `lib/drawingEdit` · `drawingLogName` – «Fläche gezeichnet»,
-  «Absperrkreis gezeichnet», a line preset's own name or «Linie gezeichnet». On the Plan: «Fläche
-  auf Plan gezeichnet» / «Linie auf Plan gezeichnet» / «Absperrkreis auf Plan gezeichnet»
-  (`whiteboard.placeArea` / `placeLine` / `placeCircle`, written by `Whiteboard.tsx`) – **since 23.08. with
+  «Absperrkreis gezeichnet», a line preset's own name or «Linie gezeichnet». On the Plan the SAME
+  name plus where (ENT.8, 17.11.2026 – a Verlauf filtered for «Rettungsachse» found only the Karte
+  half): «Rettungsachse auf Plan gezeichnet», «Fläche auf Plan gezeichnet» (`whiteboard.drawnOnPlan`,
+  named by `drawingEdit · annoLogName`, written by `usePlanDraft`; a Wand keeps `placeWand`), and a
+  Form «Pfeil auf Plan platziert» (`shapeOnPlan`, the Karte's «Pfeil platziert», not «Symbol …») – **since 23.08. with
   annotation, point and floor**, so that the jump from the row selects the object instead of
   merely opening the building. Older rows stay without coordinates (append-only) and keep
   opening only the Plan, as before.
@@ -339,8 +341,8 @@ Karte does). Review item 21b split the two acts (`src/lib/objectDone.ts`):
 - ⚠️ **The two acts never share a verb** (decided 2026-09-25). Every removal row – Karte and
   Plan, every object kind – says «entfernt», the word of its button «Entfernen»: `objectDeleted`
   «{name} entfernt», `drawingDeleted` «Zeichnung entfernt», `selectionDeleted` «{n} Objekte
-  entfernt», `groupDeleted` / `groupDeletedN` «Auswahl entfernt» / «{n} Objekte vom Plan
-  entfernt». «gelöscht» is left to the extinguished Feuer. Rows written before keep «… gelöscht»
+  entfernt», `groupDeletedN` «{n} Objekte vom Plan entfernt» (one object on the Plan writes the
+  Karte's `objectDeleted`). «gelöscht» is left to the extinguished Feuer. Rows written before keep «… gelöscht»
   – the journal is append-only, and the Rapport prints the row text as written.
 - **Audited app-wide after the second staging walk-through (2026-09-25).** Every other template
   that takes something off the picture says «entfernt» too: `atemschutz.logRemoved` «Trupp {name}
