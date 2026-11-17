@@ -129,7 +129,8 @@ export function AlarmUpdateBanner({ meta, onChanged, onEdit }: {
     kind: 'alarmHidden',
     tone: 'calm',
     icon: 'bell-off',
-    title: `${appConfig.copy.intake.hiddenAlarm} · ${row.title}`,
+    // «Alarm aktualisiert» alone: the strip is about this Einsatz, and «Zeigen» needs the room
+    title: `${appConfig.copy.intake.hiddenAlarm} · ${C.title}`,
     fold: true,
     actions: [{ label: appConfig.copy.intake.showAlarm, busy, disabled: busy, onClick: () => void run(() => showAlarmUpdate(meta.id)) }],
   } : {

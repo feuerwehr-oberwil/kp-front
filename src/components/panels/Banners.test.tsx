@@ -109,7 +109,7 @@ describe('IncomingAlarmBanner · hidden', () => {
 // Rare-user round F7 (17.11.2026): a hidden «Alarm aktualisiert» is served to every device and
 // folds to the same strip; «Zeigen» asks the server to make it pending again.
 describe('AlarmUpdateBanner · hidden', () => {
-  it('folds to «Ausgeblendet · Alarm aktualisiert – …» with «Zeigen», and none past 3 h', async () => {
+  it('folds to «Ausgeblendet · Alarm aktualisiert» with «Zeigen», and none past 3 h', async () => {
     const { AlarmUpdateBanner } = await import('./Banners')
     const meta = (at: string) => ({
       id: 'inc-1', title: 'Brand',
@@ -118,7 +118,7 @@ describe('AlarmUpdateBanner · hidden', () => {
     }) as unknown as IncidentMeta
     const { unmount } = render(<><AlarmUpdateBanner meta={meta(new Date().toISOString())} onChanged={() => {}} onEdit={() => {}} /><Meldeleiste /></>)
     const row = document.querySelector('.ml-row.fold')
-    expect(row?.textContent).toContain(`${ix.hiddenAlarm} · ${ix.alarmUpdate.title} – Brand`)
+    expect(row?.textContent).toContain(`${ix.hiddenAlarm} · ${ix.alarmUpdate.title}`)
     expect(screen.getByRole('button', { name: ix.showAlarm })).toBeTruthy()
     unmount()
     render(<><AlarmUpdateBanner meta={meta(new Date(Date.now() - 4 * 3600_000).toISOString())} onChanged={() => {}} onEdit={() => {}} /><Meldeleiste /></>)

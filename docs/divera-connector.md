@@ -229,7 +229,7 @@ webhooks cannot call a `divera247.com/api/...` URL. There is no loopback.
   shows a row in the Meldeleiste: old → new per field, «Übernehmen» (every field nobody changed
   by hand in the Einsatzdaten; the pin follows the address, the Einsatzart does not follow the
   title), «Bearbeiten» (the Einsatzdaten with the alarm's value beside each field) and ✕ (hidden
-  for every device – each folds it to a grey strip «Ausgeblendet · Alarm aktualisiert – … ·
+  for every device – each folds it to a grey strip «Ausgeblendet · Alarm aktualisiert ·
   Zeigen» for 3 h, and «Zeigen» makes it pending again, `POST …/alarm-update/show`, rare-user
   round F7, 17.11.2026). The arrival and the decision are Verlauf rows, so they print in the Rapport.
   A later update replaces a pending one; one that says nothing new makes no row. An alarm only
