@@ -2607,7 +2607,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 {/* draggable nodes (hold to delete) + cumulative-distance labels */}
                 {measPath.map((p, i) => {
                   const cum = calibrated && i > 0 ? pathMetres(measMpts.slice(0, i + 1), activeScale!.mPerU, measureAR) : null
-                  const hold = measPress.press(`m${i}`, () => measDelete(i))
+                  // the Lage's floor for a Messen node (MapView · the measure pads, GESTURES.13): a
+                  // Strecke keeps two points, a Fläche three – for the hold and its right-click alike
+                  const canDelete = measPath.length > (measMode === 'area' ? 3 : 2)
+                  const hold = measPress.press(`m${i}`, () => measDelete(i), canDelete)
                   return (
                     <Fragment key={`mn-${i}`}>
                       {/* positioning wrapper so the handle's :active scale never clobbers the
@@ -2619,6 +2622,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                           title={appConfig.copy.measure.deleteNode} aria-label={appConfig.copy.measure.deleteNode}
                           {...hold}
                           onPointerDown={(e) => { hold.onPointerDown(e); measNodeDown(i, e); setMeasDragNode(i) }}
+                          onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); if (canDelete) measDelete(i) }}
                         >{measPress.armed?.key === `m${i}` && <NodeDeleteChip progress={measPress.armed.progress} />}</button>
                       </div>
                       {measMode === 'line' && cum != null && measDragNode !== i && (

@@ -558,6 +558,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
    *  press-and-hold (touch) / press-and-drag (mouse) moves. `dockDragStart` = where a docked
    *  Trupp marker is drawn, so its drag starts from the slot. See useHoldToDrag. */
   const pressMarker = (ev: React.PointerEvent<HTMLDivElement>, e: Entity, dockDragStart: () => LngLat | null) => {
+    // only the main button selects or drags (GESTURES.13): a right press is never a left one –
+    // on a body it does nothing, and a right DRAG goes on turning the map as it always did
+    if (ev.button > 0) return
     const cx = ev.clientX, cy = ev.clientY
     // Which marker did the finger MEAN? Not "whichever DOM node happened to be on
     // top" — that is placement order, and it is how a tap on the Wasserbezugsort

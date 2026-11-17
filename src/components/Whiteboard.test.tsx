@@ -2089,6 +2089,18 @@ describe('gesture contracts of the plan surface', () => {
       expect(moves(emit)).toHaveLength(1)
     })
 
+    // GESTURES.13: a right press on an object is never a left one – no select, no drag
+    it('ignores a right press on a chip', () => {
+      const { container, emit } = mount([chip])
+      const el = screen.getByText('Trupp 1')
+      mouseDown(el, { button: 2, clientX: 200, clientY: 200, pointerId: 1 })
+      fireEvent.pointerMove(document.querySelector('.wb-canvas')!, { pointerType: 'mouse', clientX: 260, clientY: 260, pointerId: 1 })
+      fireEvent.pointerUp(document.querySelector('.wb-canvas')!, { pointerType: 'mouse', clientX: 260, clientY: 260, pointerId: 1 })
+      expect(find('c1')).toMatchObject({ x: 0.5, y: 0.5 })
+      expect(moves(emit)).toEqual([])
+      expect(container.querySelector('[data-chip-id="c1"]')!.className).not.toContain('sel')
+    })
+
     // GESTURES.9: a pile under the finger fans out like the Lage's, and the next tap is the answer
     it('fans out a pile of Trupp chips, and the tap on one selects exactly that one', () => {
       const two: BoardAnno = { ...chip, id: 'c2', x: 0.52, text: 'Trupp 2' }

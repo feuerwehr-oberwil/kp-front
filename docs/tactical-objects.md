@@ -51,6 +51,11 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   rename – unless the Atemschutz board names that Trupp (`truppId`, no pen either). The Lage
   counts the two taps itself (`MapMarkers · namedDoubleTap`, the map's numbers from
   `lib/tapDragZoom`); the Plan keeps those chips out of its one-finger zoom (`useBoardGestures`).
+- **Right-click means one thing** (GESTURES.13, 17.11.2026): on a node pad it is the hold's desktop
+  twin – delete that point, with the hold's own floor (a finished Linie / Messen-Strecke keeps 2
+  points, a Fläche 3; a draft may shrink to nothing), on the Lage, the Karte and the Plan, Messen
+  included. On an object body it does nothing (no select, no drag); a right drag still turns the
+  map. The Schichten / Zeitplan context menus are their own surfaces and keep theirs.
 - **A tap on a node is the node's, never the map's** (round 15.11.2026): a node is dragged or
   held, a tap on it does nothing. On the Karte its click would bubble from the Marker to
   maplibre's container and insert a node under the finger (a selected Linie grew a stacked

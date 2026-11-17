@@ -96,6 +96,8 @@ export function useWbChipDrag({
   // --- chip dragging (resource / symbol / text in pan mode) ---
   const chipDown = (e: React.PointerEvent, id: string, shownFloor?: number) => {
     if (tool !== 'pan') return
+    // only the main button selects or drags (GESTURES.13): a right press on an object does nothing
+    if (e.button > 0) { e.stopPropagation(); return }
     // (a locked shape never reaches this handler: its anno div is pointer-events:none —
     // click-through ink, the LockChip is the only door, same as a locked drawn Fläche)
     // Notiz-Grammatik (29.08., unified with symbols across Karte AND Plan): tapping a note opens

@@ -84,6 +84,8 @@ export function useWbBodyDrag({ tool, readOnly, annos, selId, setAnnoTap, setSel
   // --- single freehand-stroke select + drag (tap the fat hit-line in WbInkLayer, pan mode) ---
   const drawDown = (id: string, e: React.PointerEvent) => {
     if (tool !== 'pan') return
+    // only the main button selects or drags (GESTURES.13): a right press on an object does nothing
+    if (e.button > 0) { e.stopPropagation(); return }
     // locked (BoardAnno.locked): the ink is click-through, so a big Sektor-Fläche stops swallowing
     // the taps meant for the work on top of it. NOT stopPropagation'd — the tap goes on to the
     // stage and does what an empty-canvas tap does, which is the map's behaviour too. The lock
@@ -169,6 +171,8 @@ export function useWbBodyDrag({ tool, readOnly, annos, selId, setAnnoTap, setSel
   const circleDrag = useRef<{ id: string; sx: number; sy: number; x0: number; by0: number; floor: number; moved: boolean } | null>(null)
   const circleDown = (id: string, e: React.PointerEvent) => {
     if (tool !== 'pan') return
+    // only the main button selects or drags (GESTURES.13): a right press on an object does nothing
+    if (e.button > 0) { e.stopPropagation(); return }
     const a = annos.find((x) => x.id === id)
     if (!a || a.locked) return // locked ink is click-through; the LockChip is its only door
     e.stopPropagation()
@@ -204,6 +208,8 @@ export function useWbBodyDrag({ tool, readOnly, annos, selId, setAnnoTap, setSel
   const labelDrag = useRef<{ id: string; sx: number; sy: number; dx0: number; dy0: number; moved: boolean } | null>(null)
   const labelDown = (e: React.PointerEvent, id: string, dx0: number, dy0: number) => {
     if (tool !== 'pan' || readOnly) return
+    // only the main button selects or drags (GESTURES.13): a right press on an object does nothing
+    if (e.button > 0) { e.stopPropagation(); return }
     e.stopPropagation()
     // capture on the STABLE handler element (the label span), NOT e.target (an inner text <div>
     // that re-renders as the label moves) — a lost capture sent the moves to the stage, which

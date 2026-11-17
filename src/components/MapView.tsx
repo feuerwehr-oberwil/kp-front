@@ -1664,7 +1664,9 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
             className={`measure-handle ${vertexPress.armed?.key === `measure:${i}` ? 'doomed' : ''}`}
             title={appConfig.copy.measure.deleteNode}
             {...vertexPress.press(`measure:${i}`, () => deletePointKeepTool(onMeasureDelete)(i), measurePoints.length > (measureKind === 'area' ? 3 : 2))}
-            onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); onMeasureDelete?.(i) }}
+            // the right-click is the hold's desktop twin, with the hold's floor (GESTURES.13: it
+            // used to take a Messen Strecke down to one point)
+            onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); if (measurePoints.length > (measureKind === 'area' ? 3 : 2)) onMeasureDelete?.(i) }}
           >{vertexPress.armed?.key === `measure:${i}` && <NodeDeleteChip progress={vertexPress.armed.progress} />}</div>
         </Marker>
       ))}
@@ -1980,7 +1982,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
             className={`draw-handle ${editRingIdx.includes(i) ? 'draw-handle--ring' : ''} ${vertexPress.armed?.key === `draw:${i}` ? 'doomed' : ''}`}
             title={appConfig.copy.measure.deleteNode}
             {...vertexPress.press(`draw:${i}`, () => deleteVertexKeepSelection(editDraw.id, i), editDraw.coords.length > (editArea ? 3 : 2))}
-            onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); deleteVertexKeepSelection(editDraw.id, i) }}
+            onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); if (editDraw.coords.length > (editArea ? 3 : 2)) deleteVertexKeepSelection(editDraw.id, i) }}
           >{vertexPress.armed?.key === `draw:${i}` && <NodeDeleteChip progress={vertexPress.armed.progress} />}</div>
         </Marker>
         )
