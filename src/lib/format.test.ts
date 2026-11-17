@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { applyLocale } from '../config/copy'
 import { compareText, fieldWhen, formatLocale, localeDate, localeDateTime, dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, fmtWhen, hhmm, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel, streetPart, einsatzPillName } from './format'
 
@@ -269,6 +269,8 @@ describe('fillTemplate', () => {
 })
 
 describe('dueClock (a Wiedervorlage that fell to tomorrow)', () => {
+  beforeEach(() => { vi.useFakeTimers({ now: new Date('2026-11-17T23:45:00') }) })
+  afterEach(() => { vi.useRealTimers() })
   it('prints the bare clock for a due time today', () => {
     const today = new Date()
     today.setHours(23, 30, 0, 0)
@@ -276,7 +278,7 @@ describe('dueClock (a Wiedervorlage that fell to tomorrow)', () => {
   })
 
   it('says «morgen» once the due time is not today — the banner used to hide that', () => {
-    const tomorrow = new Date(Date.now() + 26 * 3_600_000)
+    const tomorrow = new Date('2026-11-18T06:30:00')
     expect(dueClock(tomorrow.toISOString())).toContain('morgen')
     expect(isNextDay(tomorrow.toISOString())).toBe(true)
   })
