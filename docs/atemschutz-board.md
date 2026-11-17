@@ -72,7 +72,8 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     head's last row (inside the band); on the phone's opened card it stands under the collapse
     head, so opening a row moves nothing; the closed phone row never shows it. Still the Trupp
     sheet's door: a button drawn as text, 28px with an invisible 8px touch pad above and below.
-    The chips are Auftrag / Ziel, the jumps, Kanal and Ausrüstung only.
+    The chips are Auftrag / Ziel, the jumps, Kanal and Ausrüstung only. The Ausrüstung is ONE chip,
+    box glyph + the form's words «Retthaube · WBK · Multiwarn», never the Kürzel (rare-user M11).
   - *Crew names are never cut* (31.10.2026, owner): the crew line wraps BETWEEN people only – each
     name is a nowrap span, the « · » is the break – and grows by a line each time; no ellipsis
     (`.crewName`). The chips keep their ellipsis.

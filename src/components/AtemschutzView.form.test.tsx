@@ -253,15 +253,16 @@ describe('the Ausrüstung of an Atemschutz-Trupp', () => {
     expect((editTrupp.mock.calls[0][1] as TruppFields).equipment).toEqual(['retthaube'])
   })
 
-  // the facts' last chips before the ⋯ (the Kennzeile's tags until 29.09.2026 — TruppCard · facts)
-  it('prints the Kürzel as the last fact chips — and nothing when nothing was ticked', () => {
-    const tagsOf = () => [...document.querySelectorAll(`.${s.facts} .${s.fact}`)].map((el) => el.textContent)
-      .filter((t) => (Object.values(az.equipmentShort) as string[]).includes(t ?? ''))
-    mount({ trupps: [{ ...aktivTrupp(), equipment: ['retthaube', 'wbk'] }] })
-    expect(tagsOf()).toEqual([az.equipmentShort.retthaube, az.equipmentShort.wbk])
+  // the facts' last chip (TruppCard · facts): ONE chip, the words the form used – never «RH» / «MW»
+  // (rare-user M11, owner pick B, 17.11.2026) – and nothing when nothing was ticked
+  it('prints the Ausrüstung as one worded chip – and nothing when nothing was ticked', () => {
+    const gearOf = () => [...document.querySelectorAll(`.${s.facts} .${s.fact}`)].map((el) => el.textContent)
+      .filter((t) => t?.includes(az.equipmentLabels.wbk))
+    mount({ trupps: [{ ...aktivTrupp(), equipment: ['multiwarn', 'retthaube', 'wbk'] }] })
+    expect(gearOf()).toEqual([`${az.equipmentLabels.retthaube} · ${az.equipmentLabels.wbk} · ${az.equipmentLabels.multiwarn}`])
     cleanup()
     mount()
-    expect(tagsOf()).toEqual([])
+    expect(gearOf()).toEqual([])
   })
 
   it('asks a work squad nothing — the field only exists under Atemschutz', async () => {

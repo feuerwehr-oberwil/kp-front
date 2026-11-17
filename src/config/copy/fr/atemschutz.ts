@@ -58,11 +58,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       multiwarn: 'Multiwarn',
     },
     equipmentLabel: 'Équipement',
-    equipmentShort: {
-      retthaube: 'RH',
-      wbk: 'WBK',
-      multiwarn: 'MW',
-    },
     zielLabel: 'Objectif',
     // UN seul placeholder pour les deux types de binôme et chaque mission (voir de/atemschutz.ts).
     zielPlaceholder: 'Où / quoi …',
@@ -445,6 +440,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logInsideAtClose: 'Binôme {name} encore engagé à la clôture',
     cycleEndAtClose: '{t} (encore engagé à la clôture)',
     logClockRestart: 'Binôme {name} : horloge de contact redémarrée – intervention rouverte',
+    lineOnPlan: 'Plan',
   },
   lineDecor: {
     W: 'Eau',

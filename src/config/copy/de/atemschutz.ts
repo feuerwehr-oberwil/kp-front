@@ -117,13 +117,6 @@ export const atemschutzCopy = {
     } as Record<string, string>,
     // Das Feld im Trupp-Formular (nur unter Atemschutz) – Mehrfach-Chips aus atemschutzEquipment()
     equipmentLabel: 'Ausrüstung',
-    // KURZ-Tags für die Kennzeile der Karte, pro geliefertem Id; eine Station-eigene Id ohne
-    // Eintrag hier zeigt ihr volles Label (components/TruppCard)
-    equipmentShort: {
-      retthaube: 'RH',
-      wbk: 'WBK',
-      multiwarn: 'MW',
-    } as Record<string, string>,
     // «Ziel» (27.09.2026, slim sweep 6): der Auftrag ist die Kachelzeile darüber, das Feld ist das
     // Ziel – wie auf der Karte und im Auftrag-Sheet (editFieldLabels.ziel)
     zielLabel: 'Ziel',
@@ -958,6 +951,9 @@ export const atemschutzCopy = {
     // Nach «Wieder öffnen»: die Kontaktuhr eines Trupps, der noch drin steht, läuft ab dem
     // Wiederöffnen neu – die geschlossene Zeit zählt nicht als Zeit ohne Kontakt (r3, F4).
     logClockRestart: 'Trupp {name}: Kontaktuhr neu gestartet – Einsatz wieder geöffnet',
+    // Leitung-Picker (TruppSheets): eine Leitung, die auf einem Plan liegt – «Ltg 3 · Plan · M. Stich»
+    // (rare-user F13, 17.11.2026; vorher ein fest codiertes « · P»)
+    lineOnPlan: 'Plan',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {
