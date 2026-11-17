@@ -647,6 +647,7 @@ export const adminCopy = {
         exercise: 'Übung – wird nicht abgelegt',
         onClose: 'beim Abschluss',
         none: 'nicht abgelegt',
+        empty: 'keine Dateien zum Ablegen',
         noReport: 'ohne Rapport-PDF',
         file: 'Ablegen',
         retry: 'Erneut versuchen',

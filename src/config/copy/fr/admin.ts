@@ -570,6 +570,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
         exercise: 'Exercice – non classé',
         onClose: 'à la clôture',
         none: 'non classée',
+        empty: 'aucun fichier à archiver',
         noReport: 'sans PDF du rapport',
         file: 'Classer',
         retry: 'Réessayer',
