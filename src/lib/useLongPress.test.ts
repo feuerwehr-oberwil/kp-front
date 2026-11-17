@@ -2,6 +2,9 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLongPress } from './useLongPress'
+import { buzz } from './haptics'
+
+vi.mock('./haptics', () => ({ buzz: vi.fn() }))
 
 // The hook fires onLongPress only after a still hold past DELAY_MS (500). Any movement past
 // MOVE_TOL_PX (8), a release, a pointercancel, or an explicit cancel() (the path the map's
@@ -28,6 +31,21 @@ describe('useLongPress', () => {
     act(() => result.current.press(fn).onPointerDown(down()))
     act(() => void vi.advanceTimersByTime(520))
     expect(fn).toHaveBeenCalledTimes(1)
+  })
+
+  // FEEDBACK.9 (17.11.2026): the hook owns THE hold buzz – compass, crown and rail never forget it
+  it('buzzes once as the hold fires, and not on a released press', () => {
+    vi.mocked(buzz).mockClear()
+    const { result } = renderHook(() => useLongPress())
+    act(() => result.current.press(() => {}).onPointerDown(down()))
+    act(() => void vi.advanceTimersByTime(200))
+    expect(buzz).not.toHaveBeenCalled()
+    act(() => void vi.advanceTimersByTime(320))
+    expect(buzz).toHaveBeenCalledTimes(1)
+    act(() => result.current.press(() => {}).onPointerDown(down()))
+    winEvent('pointerup', 100, 100)
+    act(() => void vi.advanceTimersByTime(520))
+    expect(buzz).toHaveBeenCalledTimes(1)
   })
 
   it('does NOT fire if released before the delay', () => {

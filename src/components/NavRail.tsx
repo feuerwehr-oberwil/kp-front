@@ -9,7 +9,6 @@ import { RAPPORT_PAGES, type RapportPage } from '../lib/rapportPages'
 import { useRail } from '../lib/useRail'
 import { useLongPress } from '../lib/useLongPress'
 import { markChooserOffered, offerChooser } from '../lib/chooserOffer'
-import { buzz } from '../lib/haptics'
 import { PlanChooser } from './PlanChooser'
 import { PlanGlyph } from './PlanGlyph'
 import { GroupChooser, type GroupRow } from './GroupChooser'
@@ -147,12 +146,12 @@ export function NavRail(p: Props) {
    *  release. Cleared at the START of every press, so a hold whose click never lands (a finger
    *  that slid off) cannot swallow the next tap. */
   const held = useRef(false)
-  const holdProps = hold.press(() => { held.current = true; buzz(); setChooser(true) })
+  const holdProps = hold.press(() => { held.current = true; setChooser(true) })
   /** …and its twin for the «Rapport» tile. One `useLongPress` instance serves both handles (only
    *  one press is ever live), but the «already fired» flags are per tile: a hold on one must not
    *  swallow the next tap on the other. */
   const heldR = useRef(false)
-  const holdRapport = hold.press(() => { heldR.current = true; buzz(); setPageChooser(true) })
+  const holdRapport = hold.press(() => { heldR.current = true; setPageChooser(true) })
 
   const rail = useRail({
     varName: '--rail-w',

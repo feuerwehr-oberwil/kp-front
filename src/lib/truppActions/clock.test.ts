@@ -155,3 +155,14 @@ describe('truppClockActions — the Notfall', () => {
     expect(b.t().exitTime).toBeUndefined()
   })
 })
+
+// FEEDBACK.1 (17.11.2026): the missing Sicherungstrupp is a standing Meldeleiste row now
+// (components/SafetyMissingMeldung · lib/atemschutz · safetyMissing), not a toast at the Eintritt
+describe('truppClockActions — the Sicherungstrupp hint', () => {
+  it('writes the Eintritt without a toast – the standing row says it while it is true', () => {
+    const b = clockBoard([trupp()])
+    b.act().setTruppStatus('T1', 'aktiv')
+    expect(ui.toasts).toEqual([])
+    expect(b.t().status).toBe('aktiv')
+  })
+})

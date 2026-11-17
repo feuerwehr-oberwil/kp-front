@@ -15,6 +15,7 @@ import { RailKey, ToolRail } from '../components/ToolRail'
 import { appConfig } from '../config/appConfig'
 import { armedToolIcon, armedToolName } from '../lib/armedTool'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
+import { truppStateWord } from '../components/truppCardText'
 import { formatSymbolName } from '../lib/format'
 import { PANEL_KEY } from '../lib/hotkeys'
 import { Icon } from '../lib/icons'
@@ -336,7 +337,7 @@ export function MapToolDocks({
                 {isAtemschutzTrupp(t) && <span className="wb-trupp-as" title={appConfig.copy.atemschutz.kindAtemschutz}>{appConfig.copy.atemschutz.asMark}</span>}
                 {here
                   ? <i>{appConfig.copy.whiteboard.truppPlacedHere}</i>
-                  : t.status === 'raus' ? <i>{appConfig.copy.atemschutz.status.raus}</i>
+                  : t.status === 'raus' ? <i>{truppStateWord(t)}</i>
                   : t.lineNumber ? <i>Ltg {t.lineNumber}</i> : null}
               </button>
             )

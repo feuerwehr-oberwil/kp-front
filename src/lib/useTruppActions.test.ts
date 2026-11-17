@@ -2708,6 +2708,9 @@ describe('useTruppActions — the Atemschutznotfall', () => {
     b.timeline.undo()
     expect(b.state.trupps[1]).toMatchObject({ status: 'angemeldet', entryTime: '' })
   })
+
+  // «Kein Sicherungstrupp bereit» is a standing Meldeleiste row since 17.11.2026 (FEEDBACK.1):
+  // pinned in atemschutz.test · safetyMissing and SafetyMissingMeldung.test, not here
 })
 
 // review of #300

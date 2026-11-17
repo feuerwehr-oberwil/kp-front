@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { buzz } from './haptics'
 
 /** Hold this long (without moving) to fire — long enough not to clash with a drag, and the
  *  platform-usual long press on both Android and iOS. Exported because a hold on the map canvas
@@ -17,7 +18,8 @@ export const LONG_PRESS_MOVE_TOL_PX = 8
  *
  * `press(fn)` returns the onPointerDown (+ `data-holdaction`) to spread on a handle; one hook
  * instance serves a whole list of handles (only one press is ever live at a time). `cancel()`
- * lets the Marker's onDrag abort the press the instant a real drag begins.
+ * lets the Marker's onDrag abort the press the instant a real drag begins. A press that fires
+ * buzzes (lib/haptics) – the caller never adds its own.
  */
 export function useLongPress(opts?: { delayMs?: number; moveTolerancePx?: number }) {
   const delayMs = opts?.delayMs ?? LONG_PRESS_MS
@@ -51,6 +53,9 @@ export function useLongPress(opts?: { delayMs?: number; moveTolerancePx?: number
     const timer = window.setTimeout(() => {
       const s = st.current
       cancel()
+      // THE hold buzz, here once for every caller (FEEDBACK.9, 17.11.2026): the compass, the crown,
+      // the rail's choosers – a hold that acts is felt, never left to each call site to remember
+      if (s) buzz()
       s?.cb()
     }, delayMs)
     st.current = { timer, sx: e.clientX, sy: e.clientY, cb: fn, onMove, onUp }

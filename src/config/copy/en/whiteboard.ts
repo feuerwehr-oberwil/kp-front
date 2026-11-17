@@ -181,7 +181,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     selectTrupp: 'Which team?',
     newTeam: 'New team',
     truppPlacedHere: 'already here',
-    showTrupp: 'Show in Teams',
+    showTrupp: 'To the team',
     markPosition: 'Mark position',
     positionMarked: '{name}: position marked',
     removeMarker: 'Remove marker',

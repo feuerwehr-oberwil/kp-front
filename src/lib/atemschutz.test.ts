@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { notfallFacts, notfallOffered, safetyCandidates, safetyInside, safetyReady, truppInNotfall, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, EARLY_PRESSURE_CORRECTION_MS, earlyEntryCorrection, entryPressureAsks, entryPressureConfirmed, estimatePressure, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, isStandDownExit, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppEditPatch, truppFieldGroupsChanged, truppFieldsOf, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
+import { notfallFacts, notfallOffered, safetyCandidates, safetyInside, safetyMissing, safetyReady, truppInNotfall, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, EARLY_PRESSURE_CORRECTION_MS, earlyEntryCorrection, entryPressureAsks, entryPressureConfirmed, estimatePressure, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, isStandDownExit, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppEditPatch, truppFieldGroupsChanged, truppFieldsOf, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
 import type { Trupp } from '../types'
 import { alarmRowKey, azChipRedundant, truppAwaitsEntry, truppHeadName, truppRegisteredAt } from './atemschutz'
 
@@ -913,6 +913,20 @@ describe('the Atemschutznotfall', () => {
     const sentIn: Trupp = { ...ready, id: 's6', status: 'aktiv', entryTime: N, lastContactTime: N }
     expect(safetyReady([ready, ...others, sentIn]).map((t) => t.id)).toEqual(['s1'])
     expect(safetyInside([ready, ...others, sentIn]).map((t) => t.id)).toEqual(['s6'])
+  })
+
+  // FEEDBACK.1 (17.11.2026): the standing «Kein Sicherungstrupp bereit» row names these
+  it('names the PA crews inside while nobody stands ready – and nobody once one does, or in a Notfall', () => {
+    const ready: Trupp = { ...base, id: 's1', auftrag: 'sichern', status: 'angemeldet', entryTime: '', lastContactTime: '' }
+    const inside: Trupp = { ...base, id: 'a', auftrag: 'loeschen' }
+    const plain: Trupp = { ...base, id: 'w', kind: 'einfach' }
+    const out: Trupp = { ...base, id: 'o', status: 'raus', exitTime: N }
+    expect(safetyMissing([inside, plain, out]).map((t) => t.id)).toEqual(['a'])
+    expect(safetyMissing([inside, ready])).toEqual([])
+    expect(safetyMissing([out, plain])).toEqual([])
+    // a Sicherungstrupp sent in is not «uncovered»; a running Notfall has its own banner
+    expect(safetyMissing([{ ...ready, status: 'aktiv', entryTime: N, lastContactTime: N }])).toEqual([])
+    expect(safetyMissing([inside, { ...base, id: 'nf', notfallAt: N }])).toEqual([])
   })
 
   // owner, 30.10.2026 («Becomes Sicherung»): any other crew can be named, a busy one included

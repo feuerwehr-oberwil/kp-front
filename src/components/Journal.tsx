@@ -142,6 +142,8 @@ export type JournalProps = {
   /** «von der Tafel» on a Pendenz typed on the Tafel's «Aufträge / Pendenzen» page: open that
    *  page. Absent ⇒ the mark is a plain word (a link session has no Tafel pages) */
   onOpenTafel?: () => void
+  /** the bold «Trupp N» in a row: open that Trupp's card (ENT.2). Absent ⇒ the mark stays a word */
+  onShowTrupp?: (truppId: string) => void
   /**
    * The replay playhead. Set ⇒ this Verlauf is being read alongside a Wiedergabe: rows after
    * this instant are the FUTURE and render dimmed, and the row the playhead stands in is marked.
@@ -161,7 +163,7 @@ export type JournalProps = {
 // happens on either surface. Rendered as a slide-over so it can open over the
 // map or the plan; a row jumps back to wherever its event happened. Each row is
 // a <JournalRow>; the row's detail sheet is rendered here, at the bottom.
-export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice, photoPlacement, onPhotoPlace, onPhotoShow, onOpenTafel }: JournalProps) {
+export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderTick, onReminderNote, onReminderAgain, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice, photoPlacement, onPhotoPlace, onPhotoShow, onOpenTafel, onShowTrupp }: JournalProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.journal
   const audio = useAudioPlayer()
@@ -408,6 +410,19 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
       return (
         <a key={pi} className="jr-link jr-link-url" href={p.href}
           target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>{p.text}</a>
+      )
+    }
+    // a Trupp's mark is the door to its card (ENT.2) – like the address, it must not ALSO do
+    // what the row under it does
+    const truppId = p.truppId
+    if (truppId && onShowTrupp) {
+      return (
+        <button type="button" key={pi} className={`jr-link jr-link-${p.kind} jr-link-go${p.role ? ' jr-link-unit' : ''}`}
+          title={p.hint} data-trupp={truppId}
+          onClick={(e) => { e.stopPropagation(); onShowTrupp(truppId) }}>
+          {p.text}
+          {p.role && <i className="jr-link-role"> ({p.role})</i>}
+        </button>
       )
     }
     // a name with its role is ONE unit on the line (`.jr-link-unit`, 10-journal.css): «(AS)»

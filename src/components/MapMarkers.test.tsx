@@ -164,13 +164,24 @@ describe('a Trupp marker that is joined, loose, or docked', () => {
   const trupps = [{ id: 'T1', name: 'Frei Nina', no: 4, status: 'aktiv' }] as never
   const badge = (over = {}) => new Map([['e1', { lineId: 'd1', lineNo: 2, color: '#1f6feb', tone: 'idle' as const, coupled: true, ...over }]])
 
-  const showTeam = (entities: Entity[], selectedId: string | null, teamLines?: Map<string, never>) => render(
+  const showTeam = (entities: Entity[], selectedId: string | null, teamLines?: Map<string, never>, truppSeverities?: Record<string, 1 | 2>) => render(
     <MapMarkers entities={entities} byName={{}} isVisible={() => true} selectedId={selectedId}
       zoom={18} draggable project={() => ({ x: 0, y: 0 })} unproject={() => at} setDragPan={() => {}}
       onSelect={() => {}} onMarkerDragStart={() => {}} onMarkerMove={() => {}} onMarkerDragEnd={() => {}}
       onDelete={() => {}} onShapeTransform={() => {}} trupps={trupps}
-      teamLines={teamLines as never} onTeamUnlink={() => {}} />,
+      teamLines={teamLines as never} onTeamUnlink={() => {}} truppSeverities={truppSeverities} />,
   )
+
+  // ENT.1 (17.11.2026): a Trupp in trouble says so on its own marker, even on no hose
+  it('wears its Trupp\'s alarm tier at rest and selected, with no Leitung needed', () => {
+    const rest = showTeam([team()], null, undefined, { T1: 2 })
+    expect(rest.container.querySelector('.team-dot')?.className).toContain('tone-crit')
+    rest.unmount()
+    const sel = showTeam([team()], 'e1', undefined, { T1: 1 })
+    expect(sel.container.querySelector('.wb-resource-pill')?.className).toContain('tone-warn')
+    sel.unmount()
+    expect(showTeam([team()], null).container.querySelector('.team-dot')?.className).not.toContain('tone-')
+  })
 
   // 11.10.2026: the Leitung number and the coupling stub left the resting marker
   it('a joined Trupp\'s resting marker is its name alone – no Leitung number', () => {

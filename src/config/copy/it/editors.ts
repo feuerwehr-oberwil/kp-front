@@ -197,7 +197,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     lineNo: 'Linea n.',
     lineNoDuplicate: 'La linea {n} esiste già qui',
     trupp: 'Appartiene alla squadra',
-    truppShow: 'Mostra la squadra {name}',
+    truppShow: 'Alla squadra',
     truppNone: 'Nessuna squadra',
     truppOut: 'fuori',
     person: 'Persona',

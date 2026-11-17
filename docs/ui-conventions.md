@@ -407,7 +407,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     every width** — **except on the Atemschutz-Link, which shows none at all** (30.10.2026, owner:
     «they just hide things»; `<Overlays toasts={false} />`): undo is the header's ↶ ↷, the sync
     state its mark, and its Meldeleiste keeps only the rows that block work (`meldungen ·
-    linkShowsMeldung`) (20.10.2026, owner: «all notifications appear at the same place: at the top
+    linkShowsMeldung`) – and what would otherwise ride on a toast alone: a sentence that REFUSES
+    an act goes through `refuse()` and stands there as a row until its ✕ (lib/meldungenRefusal),
+    and «Kein Sicherungstrupp bereit» is a standing row on every surface (FEEDBACK.1, 17.11.2026) (20.10.2026, owner: «all notifications appear at the same place: at the top
     cleanly below the main navbar»): where the Meldeleiste starts (92px; on a phone `--msg-top`, 4px under the bar), one 8px
     channel under the strip while one stands (`--ml-reserve` from its measured `--ml-h`), at the
     bars' own width on a phone (8px in from each side). A mode's instruction and a tool's tip keep
@@ -879,9 +881,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     moment a held gesture becomes something (tooltip appears, drag latches, chooser opens, magnet
     dwell engages). Never on taps, successes or errors; never a pattern or a second duration
     (`navigator.vibrate` is Android-only, so anything expressive is inaudible to half the fleet).
-    The one inline `navigator.vibrate?.(12)` left is `src/lib/nodeHold.ts`, the same 12 ms – new
-    call sites go through `buzz()`. (`src/lib/alarm.ts`'s vibration pattern is the Atemschutz
-    alarm, not a gesture.)
+    Every hold that ACTS buzzes (FEEDBACK.9, 17.11.2026), and the hooks own it so no call site can
+    forget: `useLongPress` at fire (compass, crown, rail choosers), `useNodeHold` at fire (node
+    delete, «Entsperren», the Notfall tile – a held ring arms silently, the act is felt), the
+    Zeitplan lane's hold. No inline `navigator.vibrate` anywhere else. (`src/lib/alarm.ts`'s
+    vibration pattern is the Atemschutz alarm, not a gesture.)
   - *One hold ring, around the icon* – `HoldChargeRing` (`src/components/HoldTargets.tsx`, also
     `NodeDeleteChip`), fed by `useTimedProgress` off the **same clock as the timer**. Never a CSS
     keyframe: it drifts against the latch and, under `prefers-reduced-motion`, paints full on the

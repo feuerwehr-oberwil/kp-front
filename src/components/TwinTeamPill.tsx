@@ -25,7 +25,8 @@ import { MenuPick } from './MenuPick'
 import { appConfig } from '../config/appConfig'
 import { floorBadge } from '../lib/symbolRender'
 import { floorLabel } from '../lib/whiteboard'
-import type { TeamLineBadge } from '../lib/truppLines'
+import type { LineTone, TeamLineBadge } from '../lib/truppLines'
+import { truppStateWord } from './truppCardText'
 import type { Trupp } from '../types'
 
 /**
@@ -199,7 +200,7 @@ function useBarPlacement(on: boolean) {
   return [ref, place] as const
 }
 
-export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, floor, trailCount, trailShown, trupps, line, acts, hit, renameRef, renaming: renamingProp, onRenaming }: {
+export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, floor, tone = 'idle', trailCount, trailShown, trupps, line, acts, hit, renameRef, renaming: renamingProp, onRenaming }: {
   name: string
   time?: string
   /** the colour actually painted (the source's own, or the palette's first) */
@@ -216,6 +217,9 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
    *  tile. ABSENT on a Trupp placed straight onto the Karte — it is on no storey, and a «0»
    *  there would assert an EG nobody stated. */
   floor?: number
+  /** the Trupp's alarm tier (lib/truppLines · truppMarkerTone): `warn` / `crit` tint the pill the
+   *  board's amber / red, the same tier its resting dot and its Leitung's tag wear (ENT.1) */
+  tone?: LineTone
   trailCount: number
   trailShown: boolean
   trupps: Trupp[]
@@ -265,10 +269,11 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
   const toggleTrail = acts?.toggleTrail
   const unlink = acts?.unlink
   const undock = acts?.undock
+  const outTrupp = raus ? trupps.find((t) => t.id === truppId) : undefined
   // ⚠️ the pill span carries the native class untouched: putting it on the hit shell made
   // the button the flex container, and Safari's anonymous button box misplaced the cap.
   const pill = (
-    <span className={`wb-resource-pill ${raus ? 'raus' : ''}${line ? ' joined' : ''}`}
+    <span className={`wb-resource-pill ${raus ? 'raus' : ''}${line ? ' joined' : ''}${tone === 'warn' || tone === 'crit' ? ` tone-${tone}` : ''}`}
       style={{ '--team': color, ...(line ? { '--line': line.color } : null) } as CSSProperties}>
       {/* The coupling, in the hose's ink, at the pill's LEFT edge — the same edge the marker is
           anchored by, so the stub sits exactly where the line ends. Absolutely positioned: it
@@ -300,7 +305,9 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
             : <b>{name}</b>}
           {/* no «#N» badge here either (14.09.) — on the picture the name alone is the label, the
               number lives on the Atemschutz card (docs/trupp-naming.md §2) */}
-          {raus && <span className="wb-resource-raus">{appConfig.copy.atemschutz.status.raus}</span>}
+          {/* the board's word for it (truppCardText · truppStateWord): a work squad is «Ohne
+              Auftrag», not the PA-out «Draussen» (ENT.7); a marker on no Trupp keeps the plain word */}
+          {raus && <span className="wb-resource-raus">{outTrupp ? truppStateWord(outTrupp) : appConfig.copy.atemschutz.status.raus}</span>}
           {/* the storey, LAST: the cap is the coordinate this marker states, and everything in
               front of it moves the point (see the cap comment above). Same chip chrome as the
               Leitung's number beside it, in the Trupp's own ink. */}

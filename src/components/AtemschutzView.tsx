@@ -12,7 +12,7 @@ import { EmptyState } from './EmptyState'
 import { appConfig } from '../config/appConfig'
 import { shownTeamColor } from '../lib/teamColors'
 import { fillTemplate, formatTime } from '../lib/format'
-import { confirmDialog, toast } from '../lib/ui'
+import { confirmDialog } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { newId } from '../lib/ids'
 import { Button } from './Button'
@@ -42,6 +42,7 @@ import { ClockVal, RowEnter, TruppCard, TruppRow } from './TruppCard'
 import { tabState, tierMark } from './truppCardText'
 import { notfallStrips } from '../lib/notfall'
 import { TruppForm, type FormMode, type TruppSubmitExtra } from './TruppForm'
+import { refuse } from '../lib/meldungenRefusal'
 
 /**
  * The last incoming `focus` nonce this view has already rung the bell for — MODULE scope, not
@@ -346,7 +347,7 @@ export function AtemschutzView({
     const markers = markerOptions(id)
     // nothing to place on and nothing standing — the EL must first create a Gebäude (from the
     // Umrisse) or there is no Modul 6 for this object. Tell them rather than doing nothing.
-    if (placeTargets.length === 0 && markers.length === 0) { toast(az.placeNoTarget, { icon: 'warn', tone: 'warn' }); return }
+    if (placeTargets.length === 0 && markers.length === 0) { refuse(az.placeNoTarget); return }
     if (placeTargets.length + markers.length > 1) setPlacePick(id)
     else if (placeTargets.length) placeTrupp(id, placeTargets[0].id)
     else adoptMarker(id, markers[0].key)

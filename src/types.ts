@@ -580,6 +580,11 @@ export interface TimelineEvent {
      *  op would have been taken for «not done» and reopened a closed item there. The reducer
      *  (lib/reminders · foldPendenzen) applies it and keeps it out of the item's thread. */
     edit?: { text?: string; assignee?: string }
+    /** `done` only: the «Rückgängig» of a «wieder in …» re-raise (ENT.4, 17.11.2026) – the item is
+     *  taken back as if it had never been raised: no open item, and no «Erledigt» on the Tafel or
+     *  the paper (lib/reminders · foldPendenzen drops it). Rides on `done` for the older client,
+     *  which reads it as closed – what it showed before – never as open. */
+    withdrawn?: true
   }
   /**
    * A record divergence and its answer — the same append-only lifecycle the `reminder` above

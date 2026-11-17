@@ -148,6 +148,9 @@ export interface MapMarkersProps {
    *  the Leitung's number is the hose's own end tag, as on the Gebäude storeys; a marker with no
    *  entry looks exactly as it always did. */
   teamLines?: ReadonlyMap<string, TeamLineBadge>
+  /** per-Trupp alarm tier (MapView · truppSeverities): the Trupp's own marker wears it
+   *  (lib/truppLines · truppMarkerTone), on a hose or not */
+  truppSeverities?: Record<string, 1 | 2>
   /** «Lösen» on the selected joined pill: let go of the Leitung (useTruppActions ·
    *  unlinkTruppLine, with a confirm-with-undo toast at the call site). */
   onTeamUnlink?: (entityId: string, lineId: string) => void
@@ -160,7 +163,7 @@ export interface MapMarkersProps {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, readOnly = false, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink, onTeamUndock, ghostTrails, onGhostTrail }: MapMarkersProps) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, readOnly = false, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink, onTeamUndock, ghostTrails, onGhostTrail, truppSeverities }: MapMarkersProps) {
   const ghostLabel = (g: TruppTrail) => ghostTrailLabel(g, appConfig.copy.whiteboard.team, trupps ?? [])
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
@@ -663,6 +666,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
           trupps={trupps} onShowTrupp={onShowTrupp} onTeamTrupp={onTeamTrupp} onTeamNewTrupp={onTeamNewTrupp} onTeamMark={onTeamMark}
           onTeamRename={onTeamRename} onTeamClearTrail={onTeamClearTrail} onTeamRemoveWithTrail={onTeamRemoveWithTrail}
           hiddenTrails={hiddenTrails} onToggleTrail={onToggleTrail} teamLines={teamLines} onTeamUnlink={onTeamUnlink} onTeamUndock={onTeamUndock}
+          truppSeverities={truppSeverities}
         />
       ))}
       {/* the attachment ring at a Rotation end's claimed symbol — the same chip the Leitungen

@@ -6,37 +6,27 @@
 // sound until it is resumed inside a real user gesture (tap/click/keydown). So the
 // caller must invoke `primeAudio()` from such a gesture once — which is why App does
 // it on "Einsatz starten / öffnen" (the first touch of every Einsatz), not only when
-// somebody happens to open a Trupp-Formular. After that `startAlarm()` can fire later
+// somebody happens to open a Trupp-Formular. After that the `Alarm` can sound later
 // without interaction. Whether it worked is readable via `audioUnlocked()`, so the
 // bell can say "Ton nicht freigegeben" instead of claiming to be armed.
 //
 // THE ONE ALARM LAYER: time-based alerts (Atemschutz
-// clock, reminders) go through this shared layer, not ad-hoc timers. Delivery: foreground
+// clock, reminders) go through this shared layer, not ad-hoc timers. Two voices, one per level
+// (FEEDBACK.10, 17.11.2026 – the faster square beeper `startAlarm` that a due Wiedervorlage still
+// used is gone):
+//   - `Alarm` – the Atemschutz alarm, the LOUDEST thing the app says: square pip 820 Hz every
+//     2.4 s at Kontakt fällig / Alarmdruck, a 1100 Hz double pip every 1.5 s at überfällig /
+//     Notfall, with vibration and the wake-lock;
+//   - `chime()` – one soft 660 Hz sine pip: «something is due», calm. A due Wiedervorlage rings it
+//     once (useReminders · RemindersHost), and so does a station's opt-in «Kontakt fällig».
+// Nothing louder than the Atemschutz warn may ever be added for a non-safety reminder. Delivery: foreground
 // tone/wake-lock + service-worker notification, plus – once the deployment sets VAPID keys
 // (`app.gen_vapid`) – server-side Web Push for killed apps: `backend/app/push.py` re-derives
 // due-ness from the synced data (no mirror API) and also pushes «Neuer Einsatz» when a new
 // Divera alarm lands in the pool. Fail-closed: no keys → `/api/push/vapid-key` serves `null`
 // and no sweep runs. Every stamp counts in `serverNow()` (`lib/serverClock`).
 
-type AlarmLevel = 'warn' | 'critical'
-
-interface ToneSpec {
-  freq: number // oscillator pitch (Hz)
-  beepMs: number // length of each beep
-  gapMs: number // silence between beeps
-  gain: number // peak volume 0..1
-}
-
-// critical = higher, faster, louder than warn
-const TONES: Record<AlarmLevel, ToneSpec> = {
-  warn: { freq: 660, beepMs: 220, gapMs: 380, gain: 0.18 },
-  critical: { freq: 920, beepMs: 150, gapMs: 130, gain: 0.32 },
-}
-
 let ctx: AudioContext | null = null
-let osc: OscillatorNode | null = null
-let gainNode: GainNode | null = null
-let timer: ReturnType<typeof setInterval> | null = null
 
 // Fan-out for the context's `statechange` — subscribed BEFORE the context exists (the bell
 // mounts long before the first Einsatz tap primes audio), so the listeners live here and the
@@ -67,7 +57,7 @@ function resumeIfNeeded(c: AudioContext): void {
 
 /**
  * Unlock audio from within a user gesture. Resumes a suspended AudioContext so a
- * later `startAlarm()` (which may fire with no interaction) is allowed to play.
+ * later alarm or chime (which may fire with no interaction) is allowed to play.
  * Safe to call repeatedly; returns true once an AudioContext is running.
  */
 export function primeAudio(): boolean {
@@ -99,44 +89,10 @@ export function audioUnlocked(): boolean {
   return ctx?.state === 'running'
 }
 
-/**
- * Start (or switch) a looping beep at the given level. Re-calling with a new level
- * escalates without a gap. No-op if Web Audio is unavailable.
- */
-export function startAlarm(level: AlarmLevel = 'warn') {
-  const c = getCtx()
-  if (!c) return
-  resumeIfNeeded(c)
-
-  const spec = TONES[level]
-
-  if (!osc) {
-    osc = c.createOscillator()
-    gainNode = c.createGain()
-    gainNode.gain.value = 0 // start silent; the beat envelope ramps it
-    osc.connect(gainNode).connect(c.destination)
-    osc.type = 'square'
-    osc.start()
-  }
-  osc.frequency.setValueAtTime(spec.freq, c.currentTime)
-
-  if (timer) clearInterval(timer)
-  const beat = () => {
-    if (!gainNode || !ctx) return
-    const t = ctx.currentTime
-    // quick attack/decay click-free envelope for one beep
-    gainNode.gain.cancelScheduledValues(t)
-    gainNode.gain.setValueAtTime(0.0001, t)
-    gainNode.gain.exponentialRampToValueAtTime(spec.gain, t + 0.01)
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, t + spec.beepMs / 1000)
-  }
-  beat()
-  timer = setInterval(beat, spec.beepMs + spec.gapMs)
-}
-
-/** A single soft pip (one-shot sine) — the amber «Kontakt fällig» cue when a station opts in
- *  (atemschutz.contactDueChime). Distinct from the looping überfällig alarm; uses its own
- *  short-lived nodes so it never touches the alarm oscillator. No-op if audio isn't unlocked. */
+/** A single soft pip (one-shot sine) — the calm «something is due» voice: a due Wiedervorlage
+ *  (useReminders · RemindersHost) and the amber «Kontakt fällig» cue when a station opts in
+ *  (atemschutz.contactDueChime). Distinct from the looping Atemschutz `Alarm`; its own
+ *  short-lived nodes. No-op if audio isn't unlocked. */
 export function chime() {
   const c = getCtx()
   if (!c || c.state !== 'running') return
@@ -151,33 +107,6 @@ export function chime() {
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2)
   o.start(t)
   o.stop(t + 0.22)
-}
-
-/** Stop the alarm and silence the oscillator. Safe to call when nothing is playing. */
-export function stopAlarm() {
-  if (timer) {
-    clearInterval(timer)
-    timer = null
-  }
-  if (gainNode && ctx) {
-    const t = ctx.currentTime
-    gainNode.gain.cancelScheduledValues(t)
-    gainNode.gain.setValueAtTime(0.0001, t)
-  }
-  if (osc) {
-    try {
-      osc.stop()
-    } catch {
-      /* already stopped */
-    }
-    try {
-      osc.disconnect()
-    } catch {
-      /* ignore */
-    }
-    osc = null
-  }
-  gainNode = null
 }
 
 /** Prime audio from a user gesture so a later alarm tone may play (alias of primeAudio,

@@ -180,7 +180,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     placeTeam: '{name} placé sur le plan',
     selectTrupp: 'Quel binôme ?',
     newTeam: 'Nouvelle équipe',
-    showTrupp: 'Montrer dans Binômes',
+    showTrupp: 'Vers le binôme',
     markPosition: 'Marquer la position',
     positionMarked: '{name} : position marquée',
     removeMarker: 'Retirer le marqueur',

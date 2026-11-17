@@ -302,8 +302,10 @@ export function truppClockActions(deps: ClockDeps) {
      * Tafel too) — the confirm toast that used to double it went 09.09. with all the board's
      * popping confirmations. */
     const drop = remember(id, line ?? (tr ? truppLogName(tr) : ''), tr, apply)
-    /* «Kein Sicherungstrupp bereit» is no toast any more (toast diet call 4, 17.11.2026): it is a
-     * standing Meldeleiste row while a PA Trupp is inside and nobody stands ready (lib/meldungen). */
+    /* «Kein Sicherungstrupp bereit» is no longer a toast at the Eintritt (FEEDBACK.1, 17.11.2026):
+     * it is a STANDING Meldeleiste row for as long as it is true (components/SafetyMissingMeldung,
+     * lib/atemschutz · safetyMissing) – the toast vanished, and on the Atemschutz-Link it never
+     * showed. Never a question either way: the Eintritt is written, a crew is not held at the door. */
     /* …with ONE exception, the card's own «Nicht eingesetzt» (owner review 26.09.2026): it is a
      * visible button again, and a one-shot that closes a Trupp gets the confirm-with-undo toast
      * (docs/undo.md). Its «Rückgängig» takes the step off the timeline and puts the Trupp back as it

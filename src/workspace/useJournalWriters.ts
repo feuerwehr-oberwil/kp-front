@@ -309,8 +309,10 @@ export function useJournalWriters({
   // ⚠️ A one-time action (docs/ui-conventions.md · One-time actions, 05.11.2026: a double tap
   // raised two): the row names the item it re-raises (`again`), so while the new one is open its
   // done row shows ✓ instead of the chips (lib/reminders · openReRaises); a deliberate repeat is
-  // the NEW item's own done row. The toast's «Rückgängig» closes it again with a counter-row
-  // («Wiedervorlage zurückgenommen») – append-only, like every Pendenz step.
+  // the NEW item's own done row. The toast's «Rückgängig» takes it back with a counter-row
+  // («Wiedervorlage zurückgenommen») – append-only, like every Pendenz step – that is a `done`
+  // marked `withdrawn` (ENT.4): the Pendenz is back where it was before the re-raise, the new item
+  // in no list and never printed «Erledigt» (lib/reminders · foldPendenzen).
   const openRef = useRef(reminders.open)
   useEffect(() => { openRef.current = reminders.open })
   const reRaisePendenz = (reminderId: string, mins: number) => {
@@ -337,7 +339,7 @@ export function useJournalWriters({
       pushEvent({
         icon: 'undo', kind: 'reminder', text: fillTemplate(appConfig.copy.journal.againWithdrawn, { text }),
         surface: mode === 'plans' ? 'plan' : 'map', planId: mode === 'plans' ? activePlanId : undefined,
-        reminder: { op: 'done', id },
+        reminder: { op: 'done', id, withdrawn: true },
       })
       emit('reminder.done', { id })
     })

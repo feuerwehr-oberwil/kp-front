@@ -12,6 +12,7 @@ import { shownTeamColor } from '../lib/teamColors'
 import { DEFAULT_INK } from '../lib/lineStyle'
 import { lineLabel } from '../lib/lineDecor'
 import { teamNoTaken } from '../lib/placedTrupps'
+import { truppMarkerTone } from '../lib/truppLines'
 import { fillTemplate } from '../lib/format'
 import { toast } from '../lib/ui'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom, floorBadge } from '../lib/symbolRender'
@@ -87,6 +88,8 @@ export interface PlanAnnoBoard {
   /** the sheet's drawn annos — a chip's rename checks the names beside it, its pill lists its Leitungen */
   annos: BoardAnno[]
   trupps: Trupp[]
+  /** per-Trupp alarm tier – a chip wears its Trupp's (lib/truppLines · truppMarkerTone) */
+  truppSeverities?: Record<string, 1 | 2>
   activeId: string
   /** which note is mid-edit on the canvas — one checkpoint per editing session, board-wide */
   textEditId: React.MutableRefObject<string | null>
@@ -133,7 +136,7 @@ interface Props {
 /** One non-ink anno on the Plan, positioned in board px; see the file header. */
 export function PlanAnno({ a, selected, grouped, networked, editing, trailShown, board }: Props) {
   const {
-    sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, activeId, textEditId,
+    sW, sH, scale, mapY, stack, symBase, txtBase, tool, readOnly, captionMode, sym, annos, trupps, truppSeverities, activeId, textEditId,
     chipRef, chipDown, setEditId, setSelId, setNotePanelId, pushPast, patch, patchCommit, emit, log,
     teamNameTaken, onTeamTrupp, onTeamNewTrupp, onShowTrupp, markPosition, clearTrail, removeWithConnections, removeWithTrail,
     toggleTrail, rotDown, rotMove, rotUp,
@@ -299,11 +302,14 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
         // dims + strikes through, so the plan reflects that the team is out.
         const isRaus = !!a.truppId && trupps.some((t) => t.id === a.truppId && t.status === 'raus')
         const teamCol = shownTeamColor(a.color)
+        // the Trupp's alarm tier on its own chip, as on the Karte's marker (ENT.1)
+        const tone = truppMarkerTone(a.truppId, trupps, truppSeverities)
+        const toneCls = tone === 'warn' || tone === 'crit' ? ` tone-${tone}` : ''
         // parity with the Lage map: a compact dot + name at rest, expanding to the full
         // pill (cap · rename · time badge) only when the team is selected.
         if (!selected) {
           return (
-            <span className={`team-dot ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
+            <span className={`team-dot ${isRaus ? 'raus' : ''}${toneCls}`} style={{ '--team': teamCol } as React.CSSProperties}>
               <i /><b><span>{a.text}</span></b>
               {/* the storey, at rest as well as selected (18.09.2026): on a stack the
                   tile says it only to whoever is already looking at that tile */}
@@ -324,7 +330,7 @@ export function PlanAnno({ a, selected, grouped, networked, editing, trailShown,
         return (
           <TwinTeamPill
             name={a.text ?? ''} time={a.t} color={teamCol}
-            raus={isRaus} truppId={a.truppId} floor={stack ? a.floor ?? 0 : undefined}
+            raus={isRaus} truppId={a.truppId} floor={stack ? a.floor ?? 0 : undefined} tone={tone}
             trailCount={a.trail?.length ?? 0}
             trailShown={trailShown} trupps={trupps}
             renameRef={focusOnce}
