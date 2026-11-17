@@ -253,7 +253,6 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
   // accident (the OFFER hold, lib/holdTimings, with its ring; cancels on any movement, so a pan or
   // a scroll of the rail never trips it) and never the ONLY way there: «Einpassen» stays a plain
   // row one tap in. In an Einsatz the hold fits; peacetime's Karte finds Mein Standort (`api.hold`).
-  const phone = useIsPhone()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const dockRef = useRef<HTMLDivElement>(null)
   // the way out is every layer's (lib/overlays/layer): a tap beside the dock only closes it, on
