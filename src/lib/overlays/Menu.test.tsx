@@ -99,6 +99,16 @@ describe('Menu', () => {
     expect(screen.getByRole('menuitemcheckbox', { name: 'Kroki' }).getAttribute('aria-checked')).toBe('true')
   })
 
+  // a row that swaps what the menu lists (TwinTeamPill «Mehr › Atemschutz-Trupp»)
+  it('stays open on a keepOpen row', () => {
+    const onClick = vi.fn()
+    render(<Menu trigger={<button>Mehr</button>} items={[{ label: 'Atemschutz-Trupp', onClick, keepOpen: true }]} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Mehr' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Atemschutz-Trupp' }))
+    expect(onClick).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('menuitem', { name: 'Atemschutz-Trupp' })).toBeTruthy()
+  })
+
   it('keeps the menu open when a checkbox row is flipped', () => {
     const onChange = vi.fn()
     render(

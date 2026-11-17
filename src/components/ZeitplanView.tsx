@@ -234,10 +234,11 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
  * which bar belonged to whom — which is the entire job of the «Wer» column.) The name column is
  * sticky, so it stays put while the axis scrolls off into the night.
  *
- * Two bars share every lane. The HOLLOW one is what was planned; the FILLED one is the presence
- * actually recorded (lib/attendanceIntervals). Nothing here writes attendance — the plan is a
- * plan — so the two drift apart on purpose, and seeing that drift is the point: planned until
- * 22:00, actually gone at 20:00. Under the lanes, the coverage strip answers the question a wall
+ * Two marks share every lane. The plan is a PALE band (verfügbar) or a HOLLOW ink outline
+ * (eingeteilt); the FILLED green strip is the presence actually recorded
+ * (lib/attendanceIntervals) – KP Rück's shape code, filled green = here, hollow = bound. Nothing
+ * here writes attendance — the plan is a plan — so the two drift apart on purpose, and seeing
+ * that drift is the point: planned until 22:00, actually gone at 20:00. Under the lanes, the coverage strip answers the question a wall
  * of bars cannot: where is the hole at 02:00.
  */
 export function ZeitplanView({

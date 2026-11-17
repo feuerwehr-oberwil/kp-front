@@ -236,3 +236,30 @@ describe('«Deaktivieren» und der Rollenwechsel im ⋯-Menü', () => {
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Geschützte Aktionen für Kunz Bea' }).disabled).toBe(false)
   })
 })
+
+
+describe('account list search', () => {
+  it('finds display names and usernames without weakening the last-editor guard', async () => {
+    apiGet.mockResolvedValue([
+      EXISTING,
+      { ...EXISTING, id: 'u2', username: 'meier', display_name: 'Meier Lea', role: 'viewer' },
+    ])
+    await renderMembers()
+    const search = screen.getByRole('textbox', { name: C.search })
+    fireEvent.change(search, { target: { value: 'fu' } })
+    expect(screen.getByText(EXISTING.display_name)).toBeTruthy()
+    expect(screen.queryByText('Meier Lea')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: C.guardLabel.replace('{name}', EXISTING.display_name) }))
+    expect(screen.getByRole('menuitem', { name: /Deaktivieren/ }).getAttribute('aria-disabled')).toBe('true')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    fireEvent.change(search, { target: { value: 'meier' } })
+    expect(screen.getByText('Meier Lea')).toBeTruthy()
+    expect(screen.queryByText(EXISTING.display_name)).toBeNull()
+    fireEvent.change(search, { target: { value: 'zzzzzzzz' } })
+    expect(screen.getByText(C.noMatches)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.clearSearch }))
+    expect(screen.getByText(EXISTING.display_name)).toBeTruthy()
+    expect(apiPost).not.toHaveBeenCalled()
+    expect(apiPatch).not.toHaveBeenCalled()
+  })
+})

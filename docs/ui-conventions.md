@@ -77,13 +77,14 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
 - **The editor sheets have one control per kind of question** (decided 01.09., same sweep). A
   yes/no property is the `OnOff` Segmented pair (`components/Segmented`) – never a single chip
   whose text or glyph flips, which said «An» on one row and showed a state on the next.
-  That holds app-wide, not only in the editor sheets (28.09.2026): the Einstellungen, the Übung
-  on the Einsatz form and the Kroki's «Folgt der Karte» are `OnOff` rows too, the false answer
-  always on the left (a row's own «Ein | Aus» with «on» on the left reversed the thumb position).
-  The WORDS follow what the row is (20.10.2026, owner: «ja/nein everywhere»): a setting or a
-  property of a thing reads «Aus | An»; a row that asks a question about the record («Übung?»)
-  is `OnOff question`, «Nein | Ja» – on every device, never one pair on a tablet and the other
-  on a phone. A
+  That holds app-wide, not only in the editor sheets (28.09.2026): the Einstellungen and the
+  Kroki's «Folgt der Karte» are `OnOff` rows too, the false answer always on the left (a row's
+  own «Ein | Aus» with «on» on the left reversed the thumb position). The WORDS follow what the
+  row is (20.10.2026, owner: «ja/nein everywhere»): a setting or a property of a thing reads
+  «Aus | An»; a row that asks a question about the record is `OnOff question`, «Nein | Ja» – on
+  every device, never one pair on a tablet and the other on a phone. Where both answers have a
+  name, the pair says the names: the Einsatz form's first control is «Ernstfall | Übung» (owner
+  pick C7, 17.11.2026 – the «Übung? Nein | Ja» row under Kategorie was missed). A
   **«none»** answer to a question or a list – the Kontaktperson's «Entfällt», Gerettete's
   «Keine», the Rückmeldung's, Material «Nichts verwendet» on the Rapport and the QR-Bogen – is
   the **«Entfällt» model** (owner, duck sweep ELEM.9, 17.11.2026): a framed button that SETS
@@ -131,7 +132,7 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   The Trupps section heads draw no rule either (29.09.2026 — see the Atemschutz board).
 
 A hairline also survives where it carries a label (`.jr-day-sep`) or guards a destructive row
-in a `Menu`, or splits a pick list into its two kinds (the line «Typ»: Leitungen W WW S H P │
+in a `Menu`, or splits a pick list into its two kinds (the line «Inhalt»: Leitungen W WW S H P │
 Haltelinien N T G, 28.10.2026).
 And **no native form
 control** on these surfaces: the app's own `Menu` instead of a `<select>`, the `Stepper`
@@ -239,7 +240,7 @@ while the head's subtitle says when («Schadenlage · erledigt 10:57»).
     `ONE_SHOT_HOLD_MS` (`lib/useOneShot`, `TimeBlockSheet · addedLabel`);
   - **the way back is the action's `undoToast` «Rückgängig»**, never a second press of the same
     button – where the act is undoable (records are append-only: a re-raised Pendenz is taken back
-    with a counter-row, «Wiedervorlage zurückgenommen»).
+    with a counter-row, «Erinnerung zurückgenommen»).
   A STATE is a switch, not a button (the Leitung's «Pumpen auf Karte»): a second tap of «An»
   changes nothing by construction. Tools meant for repeated placement (the palette, «Mehrere
   platzieren») are not one-time actions.
@@ -519,7 +520,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     scale and no link shows a grey lamp, never red (red = danger, act now; an unlinked plan read
     as a picture is not an emergency). **A chip's trailing cue says its job** (duck sweep ELEM.3,
     17.11.2026): a lamp = opens the Plan sheet, a › = goes somewhere (the object picker, a
-    building face), a ✕ = stops a mode (calibrating); a piece with no job is a READ-OUT – a
+    building face), a ✕ = stops a mode; a piece with no job is a READ-OUT – a
     `<span>`, `.wb-chip-ro`: the material, regular weight, the secondary ink, no cue, no hover
     (the Karte's «Auf dem Gerät» status beside «‹ Zurück» is one). And ONE chip says it (sweep 28.10.2026 #8, owner pick «B's
     bar + A's sheet»): the Plan's row has no Massstab or Karte pill — the Objekt chip (on the
@@ -528,8 +529,19 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     calibration's green down), and a tap opens the Plan sheet (`components/PlanFactsSheet`):
     the Objekt row with its switch, «Karte» with the Passung's actions inline or «Karte
     verknüpfen» (the link glyph, never the locate crosshair), «Massstab» with its state and
-    «(Neu) kalibrieren». While calibrating, the row is the instrument («Zwei Punkte des Massstabs
-    antippen», a tap stops it). On a phone the pieces stand on ONE baseline,
+    «(Neu) kalibrieren». Calibrating is a MODE OF THE MESSEN DOCK (M13 A, 17.11.2026, owner: «do
+    everything in the sidebar»): «Massstab» (the `scalebar` glyph) lit beside «Strecke» / «Fläche»,
+    «Messen» lit on the rail, however it was entered (the Plan sheet's row, Messen's panel, the
+    tile, and Messen itself on a plan with no scale, rare-user r4: «Strecke» / «Fläche» wait
+    until there is one); «Strecke» / «Fläche» go back to measuring, «Abbrechen» stops. No «Leeren»
+    in this mode (the phone's row fits 360px): the length dialog's «Abbrechen» goes back to step 1,
+    which is how a wrong point is taken back. What to tap STANDS in the dock's ⓘ card while «Massstab» is lit
+    (`DockInfo · open`): the three steps, one per line, a done one reading ✓; the dock then draws
+    no ⓘ tile. No pill, no line at the bottom – the row keeps its chips. The length
+    dialog opens EMPTY – only a length typed earlier in the session is offered – and, when
+    «Massstab» was lit by Messen itself, first says why («Dieser Plan hat noch keinen Massstab …»);
+    a calibration goes on to «Strecke», and «Massstab kalibriert» carries «Rückgängig», which
+    restores what the plan had (C9). On a phone the pieces stand on ONE baseline,
     `--float-bottom` (15-mobile): `--float-gap` (8px) above the highest bar (nav bar · Rapport tab
     strip · tool bar · a tool's option dock), 8px from the screen's edge and from
     each other. The FAB is a `--line-h` square in the bars' corner (round until 16.11.2026, owner:
@@ -579,6 +591,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     over an empty gap). The ✓ is
     `--btn-primary`. No dock carries a line of text, on any surface or width (20.10.2026, owner:
     «Remove the line. I don't think they add any value.»): a tool's instructions are its ⓘ.
+    One exception: a tool whose use is a fixed sequence of steps opens its ⓘ card by itself and
+    draws no ⓘ tile (`DockInfo · open`) – calibrating the plan's scale, rare-user r4 17.11.2026.
     **The armed tool's name is the dock's FIRST tile** (`ToolDock · armed`, `.wb-dock-name`; owner
     picks 14 + 15, 17.11.2026 – it was a pill at the bottom centre from 23.10.2026): the tool's
     glyph (a symbol: its own drawing, a Form: its preview) over its short name («Linie», not «Linie
@@ -657,10 +671,17 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     is a 1.14:1 patch on the sheet), never green. The tool dock's ✓ (`.wb-dock-go`) is THE
     primary too, since the dock is light by day (20.10.2026). The documented green «go» (`<Button variant="go">`, Atemschutz «Eintritt») is a
     tone, not the primary, and stays. The Trupp marker's action bar (`.wb-pill-acts`) is all
-    neutral wash (29.09.2026): no green «Bei den Trupps zeigen», no blue «Position markieren». A
-    door to a page wears that page's nav glyph («Bei den Trupps zeigen» = the Trupps stopwatch,
-    never ⚠). The bin keeps THE delete outline; the rename pen, while its field is open, is a
-    pressed toggle (`--sel`, like `.wb-dock-tog.on`).
+    neutral wash (29.09.2026): no green «Zum Trupp», no blue «Position markieren». A door to a page
+    wears that page's nav glyph («Zum Trupp» = the Trupps stopwatch, never ⚠); the join
+    («Atemschutz-Trupp») wears `link`. Three buttons (rare-user round 2, owner pick M12 A,
+    17.11.2026): ONE Trupp button that changes – «Zum Trupp» on a linked marker, «Trupp» (the join;
+    the bar's short word for «Atemschutz-Trupp») on a loose one, never both – then «Markieren» (the
+    bar's short word for «Position markieren»; full words as title / label), then «Mehr». «Mehr» rows carry glyph + full word:
+    Lösen · Atemschutz-Trupp (re-point, linked only; the row swaps the menu to the join list) ·
+    Bearbeiten (rename, loose only) · Spuren (✓ while shown) · the original (mirrors) · the delete
+    rows, last (the marker alone plain, the Spur rows danger). «Mehr» is drawn only with a row.
+    Same on phone and tablet, one row at 390 px. «Beschriftung» only changes the look: on, every
+    button wears its word under the glyph (like the rails); off, the SAME buttons as bare glyphs.
   - *Delete (28.09.2026, owner pick A):* a destructive action is THE delete look — `--del-ink`
     (red-strong) text, a `--del-edge` (red 40%) border, the surface it stands on; the bin and the
     word, always (owner, button sweep SHEETS.1, 17.11.2026 – the symbol panel's bin SQUARE went;
@@ -669,7 +690,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     block, a Rapport line, a saved Ansicht, an admin record — is the quiet grey glyph instead
     (21.10.2026, owner, UX sweep F4/A3): the row is the context, and the admin ones ask first, their
     armed «Ja» wearing the delete look. Red never fills it (`.btn.warn`,
-    `.ip-btn-danger`/`.ip-btn.danger`, `.adm-danger-btn`, `.wb-pa-del`,
+    `.ip-btn-danger`/`.ip-btn.danger`, `.adm-danger-btn`,
     the audio player's marker row `.ap-row-del` all wear it; `.btn.warn-solid` is gone). ✕ only
     ever closes or clears — a ✕ that deletes is a bug. **Red is for what nothing brings back**
     (duck sweep ELEM.11 + FEEDBACK.2, 17.11.2026): a STOP or a cancel – «■ Beenden» a
@@ -710,7 +731,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     / Esc leave the draft through `settleDraft` (a committable draft is asked about – «Speichern ·
     Verwerfen · Weiterzeichnen» – never silently dropped). So one exit per state: a SELECTED
     object's is its editor card's ✕, and the `SelectionBar` carries no «Fertig» beside it; only a
-    Mehrfach group, which has no card, gets a ✕ at the bar's end. **In a bar or a dock the ✕ is a
+    Mehrfach group, which has no card, gets a ✕ at the bar's end. A single native object gets
+    «Duplizieren» there instead (a worded tap, ⌘D's touch twin – rare-user F18, 17.11.2026).
+    **In a bar or a dock the ✕ is a
     tile of that bar** (button sweep CHROME.4, 17.11.2026): the dock's ✕ look, «Abbrechen» – or
     «Schliessen» on the selection bar – under it by the same setting; `.ip-x` is for sheets and
     cards, a message keeps `.ml-x`. The ✕ ENDS every dock – the phone's bar and, since T2 (owner
@@ -920,7 +943,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     with the hatched Übung tag and «Abgeschlossen» BESIDE it, `shortAddress` sub, the caller's time
     line, the red Atemschutz word from `lib/foreignAlarm` under the place, ›) – «Alle Einsätze» and
     the standing link's chooser; the Einsatz menu keeps its dense `.ip-menu-row` but the same parts
-    in the same order. **A Stationsobjekt** is footprint · name · address (`objectRowSub`; the
+    in the same order. **An Objekt** is footprint · name · address (`objectRowSub`; the
     plan count in the sub only where picking depends on it: the Einsatz form, «Anderes Objekt») ·
     distance, in ONE order – `lib/karte/places · sortObjects` (a name hit before an address-only
     hit, then nearest, then A–Z; the Karte search keeps its finer rank). **A Messpunkt** row leads

@@ -6,13 +6,17 @@
 // push computation, refreshed by the 30 s watch). What that may do here is the owner's rule:
 //
 //  · every other running Einsatz with such a Trupp gets a red mark on its row in the Einsatz list
-//    (AppMenuRows), and the shut Einsatz pill a red dot at its chevron (IncidentSwitcher, M11 B)
-//    — and that is ALL, while this device works a live Ernstfall of its own: two
+//    (AppMenuRows), and the shut Einsatz pill a red dot at its chevron (IncidentSwitcher, M11 B;
+//    `pillDot`) — and that is ALL, while this device works a live Ernstfall of its own: two
 //    real Einsätze in parallel are run by two teams, and one must not be distracted by the other.
 //  · a device NOT working a live Ernstfall (it stands in an Übung, or in a closed Einsatz) gets
 //    the full alarm for a live Ernstfall's Trupps: the red row with the Einsatz's name in front,
 //    and the tone (AtemschutzAlarmMeldung · ForeignAtemschutzMeldungen).
-//  · an Übung's Trupps never do more than the mark, on any device.
+//  · an Übung's Trupps never do more than the mark (and the dot), on any device.
+//
+// The pill's red dot says one more thing (owner, C10, 17.11.2026: «another real Einsatz, or an alarm
+// there»): it also lights while another REAL Einsatz runs at all. A parallel Übung alone never
+// lights it. Its title names which; the alarm wins when both hold (`pillDot`).
 //
 // ⚠️ Not on the Atemschutz-Link: it is bound to one Einsatz and its list is not polled.
 
@@ -32,6 +36,14 @@ export function foreignMark(i: IncidentMeta): { word: string; names: string } | 
     word: due.some((t) => t.reason === 'notfall') ? c.markNotfall : c.mark,
     names: fillTemplate(c.markTitle, { names: due.map((t) => t.name).join(' · ') }),
   }
+}
+
+/** Why the shut Einsatz pill wears its red dot, given the OTHER running Einsätze
+ *  (lib/switcherLists · runningOthers): a Trupp there at the alarm tier (`'alarm'`, also an
+ *  Übung's), else another real Einsatz running (`'einsatz'`); null when only Übungen run. */
+export function pillDot(others: readonly IncidentMeta[]): 'alarm' | 'einsatz' | null {
+  if (others.some((i) => foreignMark(i) != null)) return 'alarm'
+  return others.some((i) => !i.is_exercise && isIncidentRunning(i)) ? 'einsatz' : null
 }
 
 /** Is this device working a live Ernstfall — the Einsatz on screen is real and still running? */

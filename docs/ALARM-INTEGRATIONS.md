@@ -321,7 +321,7 @@ system can do this; Divera is only the common case.
 Two more links land on the same `/l/<token>` door and are minted **in the app**, not by the
 alerting system: the Rapport's view link (`/l/v…`, survives the Einsatz closing, revoked per
 incident) and the **Atemschutz-Link** (`/l/a…`, minted from a running Einsatz by an editor via
-«Überwachung abgeben» or «Weitergeben › Nur Atemschutz»). The Atemschutz-Link is the one link that
+«Trupps teilen» or «Weitergeben › Nur Atemschutz»). The Atemschutz-Link is the one link that
 writes: it lets a non-FU operate the Atemschutzüberwachung of that Einsatz from their own phone,
 and its writes are exactly three routes – the `trupps` slice of the workspace, `kind: team` Verlauf
 rows and `atemschutz.*` audit events, all stamped `atemschutz-link`. It dies when the Einsatz is

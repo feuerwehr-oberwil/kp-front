@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act, within } from '@testing-library/react'
 import { IncidentSwitcher } from './IncidentSwitcher'
 import { appConfig } from '../../config/appConfig'
-import type { IncidentMeta } from '../../lib/incidents'
+import type { DiveraAlarm, IncidentMeta } from '../../lib/incidents'
 
 afterEach(cleanup)
 
@@ -252,9 +252,71 @@ describe('IncidentSwitcher · Nur ansehen and the foreign-alarm dot', () => {
     expect(pill().querySelector('.ip-foreign-dot')).not.toBeNull()
     expect(pill().getAttribute('aria-label')).toContain(cp.foreignAlarmDot)
     cleanup()
-    // its own Trupps are the workspace's alarm, not a dot; and the dot goes once the list is quiet
+    // its own Trupps are the workspace's alarm, not that dot; once the list is quiet the other
+    // real Einsatz still lights it, as a running Einsatz (C10)
     renderShut({ incidents: [{ ...active, atemschutz_due: [{ id: 't1', name: 'Trupp 1', reason: 'contact' }] } as unknown as IncidentMeta, { ...other, atemschutz_due: [] }] })
+    expect(pill().querySelector('.ip-foreign-dot')).not.toBeNull()
+    expect(pill().getAttribute('aria-label')).toContain(cp.otherEinsatzDot)
+  })
+
+  // C10 (17.11.2026): another REAL Einsatz lights the dot too, a parallel Übung alone never
+  it('dots the shut pill for another real Einsatz, not for an Übung', () => {
+    const other = { ...active, id: 'inc-2', title: 'BMA Gewerbestrasse' } as IncidentMeta
+    renderShut({ incidents: [active, { ...other, is_exercise: true }] })
     expect(pill().querySelector('.ip-foreign-dot')).toBeNull()
+    expect(pill().getAttribute('aria-label')).not.toContain(cp.otherEinsatzDot)
+    cleanup()
+    renderShut({ incidents: [active, other] })
+    expect(pill().querySelector('.ip-foreign-dot')).not.toBeNull()
+    expect(pill().getAttribute('aria-label')).toContain(cp.otherEinsatzDot)
+  })
+})
+
+// C8 / F15 (17.11.2026): a link guest's way in, and «Präsentieren» as the card's fourth act
+describe('IncidentSwitcher · who is here', () => {
+  const cp = appConfig.copy.incidentSwitcher
+  const active = {
+    id: 'inc-1', title: 'Zimmerbrand', address: null, started_at: new Date(Date.now() - 600_000).toISOString(),
+    status: 'offen', is_archived: false, is_exercise: false,
+  } as unknown as IncidentMeta
+
+  it('offers a link guest «Anmelden» in place of «Abmelden»', () => {
+    const onLogin = vi.fn()
+    renderActive({ active, viewOnly: 'link', onLogin, user: { display_name: 'Einsatz-Link', color: null, role: 'viewer' } })
+    expect(screen.queryByRole('button', { name: new RegExp(cp.logout) })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: cp.login }))
+    expect(onLogin).toHaveBeenCalled()
+  })
+
+  it('puts «Präsentieren» between «Teilen» and «Abschliessen» when the door is handed in', () => {
+    const onPresent = vi.fn()
+    renderActive({ active, onPresent, onEditMeta: () => {}, onShare: () => {}, onArchive: () => {} })
+    const acts = [...document.querySelectorAll('.ip-card-acts > .ip-card-act')].map((b) => b.textContent)
+    expect(acts).toEqual([cp.editMetaShort, cp.shareShort, appConfig.copy.presentation.title, cp.archiveShort])
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.presentation.title }))
+    expect(onPresent).toHaveBeenCalled()
+    cleanup()
+    renderActive({ active })
+    expect(screen.queryByRole('button', { name: appConfig.copy.presentation.title })).toBeNull()
+  })
+
+  // 17.11.2026 («Just list it»): an alarm nobody opened is listed in the Einsatz menu as on home
+  it('lists an alarm waiting to be opened, and its row takes it', () => {
+    const onTake = vi.fn()
+    const alarm = { id: 'al-7', divera_id: 7, title: 'B2 Brand Wohnhaus', address: 'Testgasse 3', received_at: new Date().toISOString() } as DiveraAlarm
+    renderActive({ active, alarms: { list: [alarm], taking: null, onTake } })
+    fireEvent.click(screen.getByRole('button', { name: /B2 Brand Wohnhaus/ }))
+    expect(onTake).toHaveBeenCalledWith(alarm)
+  })
+
+  // F7 (17.11.2026): a hidden «Alarm aktualisiert» comes back from the Einsatz menu, not from a strip
+  it('lists a hidden «Alarm aktualisiert» as a quiet row whose «Zeigen» brings it back', () => {
+    const onShow = vi.fn()
+    renderActive({ active, folded: [{ key: 'alarm-update:inc-1', title: appConfig.copy.intake.alarmUpdate.title, onShow }] })
+    const row = document.querySelector('.ip-alarm-folded') as HTMLElement
+    expect(row.textContent).toContain(appConfig.copy.intake.alarmUpdate.title)
+    fireEvent.click(within(row).getByRole('button'))
+    expect(onShow).toHaveBeenCalled()
   })
 })
 

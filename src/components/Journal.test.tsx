@@ -647,7 +647,8 @@ describe('Journal · Beilagen chips (files on a row)', () => {
 })
 
 // ── the list row (owner pick 25 B, 17.11.2026) ──────────────────────────────────────────────
-// The head is the title, «Wiedergabe» and ✕ – nothing else. Under it the row every list has: the
+// The head is the title, «Wiedergabe» and ✕ – nothing else (on a phone the title and ✕, decision 27,
+// below). Under it the row every list has: the
 // search, always in view (no lens to open it first), and the «Art» tile; the legend is the ring key
 // at the end of the «Art» menu. The matching itself is lib/journalSearch's.
 describe('Journal · the list row', () => {
@@ -707,7 +708,7 @@ describe('Journal · the list row', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Verlauf filtern' }))
     expect(await screen.findByText('Pendenzen – was der Ring sagt')).toBeTruthy()
     const notes = [...document.querySelectorAll('.jr-filter-menu .ui-menu-note')]
-    expect(notes.map((n) => n.textContent)).toEqual(['Pendenz offen', 'Pendenz dringend', 'Pendenz überfällig', 'Pendenz erledigt'])
+    expect(notes.map((n) => n.textContent)).toEqual(['Pendenz offen', 'Pendenz dringend', 'Erinnerung überfällig', 'Pendenz erledigt'])
     // each wears its ring, and none is a menu row
     expect(notes.every((n) => n.querySelector('.jr-ic-ring') && !n.closest('[role^="menuitem"]'))).toBe(true)
   })
@@ -761,5 +762,48 @@ describe('Journal · a Trupp named in a row', () => {
     setup({ vocab })
     expect(screen.queryByRole('button', { name: 'Trupp 1' })).toBeNull()
     expect(document.querySelector('[data-trupp="T1"]')?.textContent).toBe('Trupp 1')
+  })
+})
+
+// owner pick M8 · C (17.11.2026): on a phone ▶ left the head – a stray tap beside ✕ put the running
+// Einsatz into the past – and stands at the left end of the time ruler. Tablet keeps it worded.
+describe('Journal · «Wiedergabe starten»', () => {
+  const asPhone = (on: boolean) => vi.stubGlobal('matchMedia', (q: string) => ({ matches: on, media: q, addEventListener() {}, removeEventListener() {} }))
+  afterEach(() => { vi.unstubAllGlobals() })
+  const replayBtn = () => screen.getByRole('button', { name: 'Wiedergabe starten' })
+
+  it('phone: at the ruler, not in the head beside ✕', () => {
+    asPhone(true)
+    const p = setup({ onReplay: vi.fn() })
+    expect(replayBtn().closest('.jr-strip-row')).toBeTruthy()
+    expect(replayBtn().closest('.journal-head')).toBeNull()
+    // the phone head is the title and ✕ alone (decision 27); the search row stands under it
+    const head = document.querySelector('.journal-head')!
+    expect([...head.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Schliessen'])
+    expect(document.querySelector('.journal-search-row')).toBeTruthy()
+    fireEvent.click(replayBtn())
+    expect(p.onReplay).toHaveBeenCalledTimes(1)
+  })
+
+  it('tablet: the worded button in the head', () => {
+    asPhone(false)
+    setup({ onReplay: vi.fn() })
+    expect(replayBtn().closest('.journal-head')).toBeTruthy()
+    expect(document.querySelector('.jr-strip-row')).toBeNull()
+  })
+})
+
+// F12 (17.11.2026): the empty Verlauf says what it is for to every role; the writer also learns
+// which button fills it
+describe('Journal · empty', () => {
+  it('tells a viewer what the Verlauf is, and a writer how to start it', () => {
+    setup({ events: [] })
+    const sub = () => document.querySelector('.empty-state')!.textContent ?? ''
+    expect(sub()).toContain('Ablauf des Einsatzes')
+    expect(sub()).not.toContain('«Eintrag»')
+    cleanup()
+    setup({ events: [], onEditText: vi.fn() })
+    expect(sub()).toContain('Ablauf des Einsatzes')
+    expect(sub()).toContain('«Eintrag»')
   })
 })

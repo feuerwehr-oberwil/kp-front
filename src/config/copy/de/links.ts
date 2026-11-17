@@ -102,7 +102,7 @@ export const linksCopy = {
     paused: 'Standort pausiert',
     pausedHint: 'Das Handy übermittelt nichts, solange die App im Hintergrund oder das Display gesperrt ist. App wieder öffnen, dann läuft es weiter.',
     denied: 'Standort gesperrt',
-    deniedHint: 'Die Standortfreigabe ist für diese Seite blockiert. Das lässt sich nur in den Browser-Einstellungen wieder erlauben.',
+    deniedHint: 'Die Standortfreigabe ist blockiert. Wieder erlauben unter {path}.',
     taken: 'Name bereits vergeben',
     takenHint: 'Ein anderes Gerät teilt unter diesem Namen. Wähle deinen Namen neu oder bitte die Einsatzleitung, den alten Standort zu entfernen.',
     failing: 'Standort kommt nicht an',

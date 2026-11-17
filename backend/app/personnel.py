@@ -897,7 +897,7 @@ async def auto_sync(db: AsyncSession) -> dict | None:
     failures: the job is registered unconditionally (see ``scheduler``) precisely so that a key
     pasted into Verwaltung this afternoon is synced tonight, without a restart.
 
-    Deliberately the SAME apply path as «Mannschaft synchronisieren» — a second implementation
+    Deliberately the SAME apply path as «Mit {provider} abgleichen» — a second implementation
     of «which members does this station now have» is how the two would eventually disagree.
     """
     level = await load_roster_auto_sync(db)

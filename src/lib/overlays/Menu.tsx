@@ -73,6 +73,13 @@ export interface MenuActionItem {
   sticky?: boolean
   /** shown as a small reason line under a disabled item (native title never shows when disabled) */
   reason?: ReactNode
+  /** The menu stays open on this row's click – for a row that swaps what the menu lists (the
+   *  Trupp marker's «Mehr › Atemschutz-Trupp», TwinTeamPill) rather than acting. */
+  keepOpen?: boolean
+  /** The row hands the focus to what it opens (an inline name field – the Trupp marker's «Mehr ›
+   *  Bearbeiten»): on close the menu does not take it back to its trigger, whose focus would blur
+   *  – and so commit and close – the field the row just opened. */
+  keepsFocus?: boolean
 }
 
 /**
@@ -92,7 +99,7 @@ function rowClass(skin: string | undefined, danger?: boolean, sticky?: boolean) 
     .filter(Boolean).join(' ')
 }
 
-export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = OVERLAY_GAP, alignOffset = 0, collisionPadding = OVERLAY_EDGE, scrollToEnd = false, keepFocusRef }: {
+export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = OVERLAY_GAP, alignOffset = 0, collisionPadding = OVERLAY_EDGE, scrollToEnd = false, keepFocusRef, onOpenChange }: {
   trigger: ReactElement
   items: (MenuActionItem | MenuCheckItem | MenuSeparator | MenuHeading | MenuNote | MenuRadioGroup)[]
   popupClassName?: string
@@ -121,6 +128,8 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
    *  one NON-modal kind: a modal backdrop and its focus management would take the caret, and the
    *  keyboard with it. It only ever opens over its own sheet's field, never over the map. */
   keepFocusRef?: RefObject<HTMLElement | null>
+  /** told when the menu opens or closes – for a caller whose rows depend on how it was reached */
+  onOpenChange?: (open: boolean) => void
 }) {
   // A menu opened from inside a Sheet/Overlay must be the ONLY thing the dismissing tap or the
   // first Esc closes — the sheet stands down while this is open (see popoverGuard).
@@ -129,6 +138,8 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
   // …and the native back closes it, like every layer (overlays/layer · useBackLayer)
   useBackLayer(open, () => setOpen(false))
   const keepFocus = useRef(false)
+  /** the last row picked opened a field of its own (MenuActionItem · keepsFocus) */
+  const rowKeepsFocus = useRef(false)
   useEffect(() => {
     if (!open || !keepFocusRef) return
     // A pointer-opened menu may next be reached with Tab/arrow keys from the retained field
@@ -200,7 +211,8 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
         key={key}
         className={rowClass(itemClassName?.(!!it.danger), it.danger, it.sticky)}
         disabled={it.disabled}
-        onClick={it.onClick}
+        closeOnClick={!it.keepOpen}
+        onClick={() => { rowKeepsFocus.current = !!it.keepsFocus; it.onClick() }}
       >
         {it.label}
         {it.disabled && it.reason != null && <span className={reasonClassName}>{it.reason}</span>}
@@ -242,12 +254,15 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
     // the «Alle Einsätze» filter, which used to opt out for a one-tap switch between adjacent
     // triggers, follow it too – under them lies a list whose rows act on a tap. The one exception
     // is a menu that keeps a field's caret (`keepFocusRef`, see there).
-    <BaseMenu.Root open={open} modal={!keepFocusRef} onOpenChange={(next) => { if (next) keepFocus.current = !!keepFocusRef?.current && document.activeElement === keepFocusRef.current; setOpen(next) }}>
+    <BaseMenu.Root open={open} modal={!keepFocusRef} onOpenChange={(next) => {
+      if (next) { rowKeepsFocus.current = false; keepFocus.current = !!keepFocusRef?.current && document.activeElement === keepFocusRef.current }
+      setOpen(next); onOpenChange?.(next)
+    }}>
       <BaseMenu.Trigger render={trigger} />
       <BaseMenu.Portal>
         <BaseMenu.Positioner className="ui-menu-pos" side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={collisionPadding}>
           <BaseMenu.Popup
-            finalFocus={() => keepFocus.current ? keepFocusRef?.current : true}
+            finalFocus={() => keepFocus.current ? keepFocusRef?.current : !rowKeepsFocus.current}
             onFocusCapture={() => { if (keepFocus.current) keepFocusRef?.current?.focus({ preventScroll: true }) }}
             onMouseDownCapture={(e) => { if (keepFocus.current) e.preventDefault() }}
             onKeyDownCapture={() => { keepFocus.current = false }}

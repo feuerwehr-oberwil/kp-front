@@ -217,6 +217,8 @@ export function IconSprite() {
       <symbol id="grenze-down" viewBox="0 0 24 24"><path d="M4.5 19.5h15" /></symbol>
       <symbol id="move" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" /></symbol>
       <symbol id="measure" viewBox="0 0 24 24"><path d="M3 14.5 14.5 3 21 9.5 9.5 21z" /><path d="M7 10.5l2 2M10.5 7l2.5 2.5M14 3.5l2 2" /></symbol>
+      {/* a printed scale bar, end ticks and two divisions – the Messen dock's «Massstab» (M13 A) */}
+      <symbol id="scalebar" viewBox="0 0 24 24"><path d="M3 8v8M21 8v8M3 12h18M9 10.5v3M15 10.5v3" /></symbol>
       <symbol id="polygon" viewBox="0 0 24 24"><path d="M12 3.5 20 9 17 19.5 7 19.5 4 9z" /><circle cx="12" cy="3.5" r="1.5" fill="currentColor" stroke="none" /><circle cx="20" cy="9" r="1.5" fill="currentColor" stroke="none" /><circle cx="17" cy="19.5" r="1.5" fill="currentColor" stroke="none" /><circle cx="7" cy="19.5" r="1.5" fill="currentColor" stroke="none" /><circle cx="4" cy="9" r="1.5" fill="currentColor" stroke="none" /></symbol>
       <symbol id="logout" viewBox="0 0 24 24"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" /><path d="M9 12h11M16 8l4 4-4 4" /></symbol>
       <symbol id="swap" viewBox="0 0 24 24"><path d="M4 9h13l-3-3M20 15H7l3 3" /></symbol>
@@ -259,7 +261,7 @@ export function IconSprite() {
       <symbol id="wx-storm" viewBox="-1 -2 26 26"><path d="M7 14a4 4 0 0 1-.5-7.97 5.5 5.5 0 0 1 10.6-1.06A3.75 3.75 0 0 1 17 14z" /><path d="M12 14l-2.5 4h3l-2 3.5" /></symbol>
       {/* leaving the app: the station's own forms on the Rapport (Formulare & Links) */}
       <symbol id="external" viewBox="0 0 24 24"><path d="M18 13.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5.5" /><path d="M14.5 3H21v6.5M21 3l-9.5 9.5" /></symbol>
-      {/* «Überwachung abgeben» / «Weitergeben»: the QR itself is the handover gesture in an
+      {/* «Trupps teilen» / «Weitergeben»: the QR itself is the handover gesture in an
           Einsatz — a tablet held out, not an address dictated. Three finder squares and a
           fragment of data, which is what a QR reads as at 18px. */}
       {/* Präsentationsmodus (05.11.2026): «Präsentieren» is a screen on its stand (also the

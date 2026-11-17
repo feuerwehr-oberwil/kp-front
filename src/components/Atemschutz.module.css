@@ -59,8 +59,8 @@
   background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
 /* the board's arrangement, behind its own icon; the archive menu and the lite ↶ ↷ wear it too (the QR: `.shareBtn`) */
 .orderBtn { composes: headTile; }
-/* «Überwachung abgeben»: a head tile that, folded (lib/pageHeadFit · its first rank), keeps a word
-   — «Abgeben» (hill climb r8, 04.11.2026: the bare QR glyph on the phone head did not say «hand
+/* «Trupps teilen»: a head tile that, folded (lib/pageHeadFit · its first rank), keeps a word
+   — «Teilen» (hill climb r8, 04.11.2026: the bare QR glyph on the phone head did not say «hand
    over»), in the tiles' own 700/14 (hill climb r21, 05.11.2026: r11 had shrunk it to 12.5 to fit
    the 390px head, a step under «+ Trupp»). Since r26 (Sol 3 / Opus 4) it keeps the full title's
    16px QR in front of it too, the tiles' one 8px glyph gap – the phone head read three patterns
@@ -69,7 +69,7 @@
    every device (13-incident · «fold»; button sweep HEADS.9 and pick 24a, 17.11.2026) – it has no
    second rank any more, a tile never ends as a bare glyph. */
 .shareBtn { composes: headTile; }
-/* «Überwachung abgeben», while a link IS live. Green = a running, healthy state, the same
+/* «Trupps teilen», while a link IS live. Green = a running, healthy state, the same
    reading the contact clock gives — not an alarm and not the primary action of the header.
    Tokens only, so it survives the day/night flip and a station's own accent. */
 .shareOn { color: var(--green); box-shadow: inset 0 0 0 1px var(--green-45);
@@ -1417,7 +1417,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .headActs { composes: headActions from './Surface.module.css'; }
 /* the ladder's «close up» step (lib/pageHeadFit): a worded tile 8px inside — still ≥ a tap wide.
    A FOLDED tile is 8px inside already (hill climb r26, Sol 3 / Opus 4): the short word is the
-   crowded head's form, and on the 390px phone the 16px the two worded tiles give back keep «Abgeben» its
+   crowded head's form, and on the 390px phone the 16px the two worded tiles give back keep «Teilen» its
    QR glyph without folding «✓ Gespeichert» to its mark (an icon-only tile stays the 44px square). */
 .head[data-fit-tight] .headTile, .head .headTile[data-folded] { padding: 0 var(--sp-2); }
 /* the «Sortiert: Name · Wie gesetzt» strip under the head (components/FilterStrip, button sweep

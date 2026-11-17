@@ -19,7 +19,9 @@ Rules that span modules live here; each module's header says what it owns.
 
 ## What the operator sees
 
-- **Start**: «Einsatz teilen» → card «Präsentieren» under the read link → «Starten». The card
+- **Start**: «Einsatz teilen» → card «Präsentieren» under the read link → «Starten»; or the
+  Einsatz card's fourth act «Präsentieren», beside «Teilen» (F15, 17.11.2026), which opens the
+  same card alone in a sheet (`PresentCard bare`, `WorkspaceTopBar`). The card
   is one title row – glyph · «Präsentieren» · the button – with its text under it across the
   card (owner pick 6B, 14.11.2026; phone and tablet alike). Editors only (`canShareLink`). A presentation already running is shown on the card and can be taken
   over («Übernehmen») – the old presenter's tablet may be the one that is gone, and «Starten»
@@ -94,6 +96,12 @@ Rules that span modules live here; each module's header says what it owns.
   tool's pill, the selection bar, the coordinate read-out – by a measured lift (`usePillLift`, the
   phone row's `rowLift`). On a phone the chip row rises past the pill instead (it is an obstacle
   in `lib/floatRow · OBSTACLE_SEL`), and a link holder's name card takes the row's width.
+  ⚠️ A phone's sheets never cover it (F6, 17.11.2026): following opens the Verlauf and a detail
+  sheet by itself, and that is exactly when the pill has to say why. Over a detail sheet it rides
+  on the sheet's top edge (as the recording FAB), over the Verlauf drawer it stands on top
+  (`--z-present-over-sheet`, 08-toasts) – rendered at the body then (`PresentationPill · overVerlauf`):
+  `.app` is position: fixed, its own stacking context, so no z-index inside it clears the drawer. Coming back from the background switches «Zeigen» off
+  (`lib/useOnResume`, tactical-objects › «The armed tool's readout»).
 - **A link holder's name**: asked once per device when they first tap «Folgen» (empty = «Gast»),
   kept in `localStorage` (`kp-front-present-name`, a device flag). The server cleans it
   (`api/presentation · clean_link_name`: NFC; every Unicode control/format/private character –

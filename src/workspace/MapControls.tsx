@@ -42,6 +42,8 @@ export interface MapControlsProps {
   layersPreset: LayerPreset
   /** «Beschriftung der Werkzeugleisten» (lib/prefs · railLabelsFor): the read-only cluster's words */
   railLabels: RailLabels
+  /** a content layer is off on this device – the Ebenen button's amber dot */
+  layersHidden: boolean
   /** the Einsatz's category: the Ebenen rows it switches on by default say so (LayerPanel · category) */
   incidentType?: string | null
   togglePanel: (name: 'layers') => void
@@ -74,7 +76,7 @@ export interface MapControlsProps {
 
 export function MapControls({
   mapUI, mapUtility, mapRef, view, viewsApi, readOnly, isEl, viewsOpen, toggleViews, coord, panel,
-  layersPreset, incidentType, togglePanel, isPhone, displayWeather, openWeatherDetails, replayActive,
+  layersPreset, layersHidden, incidentType, togglePanel, isPhone, displayWeather, openWeatherDetails, replayActive,
   georefMode, buildingInfo, buildingFirst, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
   toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
   weather, readings, railLabels,
@@ -112,6 +114,7 @@ export function MapControls({
               onToggleCoords={coord.cycle}
               layersOn={panel === 'layers'}
               layersPreset={layersPreset}
+              layersHidden={layersHidden}
               onToggleLayers={() => togglePanel('layers')}
               worded={railLabels === 'short'}
             />

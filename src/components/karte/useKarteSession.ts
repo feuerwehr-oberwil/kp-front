@@ -10,11 +10,10 @@ import { consumeJustUpdated } from '../../lib/swUpdate'
 import { buildLabel } from '../../lib/buildInfo'
 import type { viewerPlanDocs } from '../../lib/karte/plans'
 import { karteHref } from '../../lib/karte/route'
-import { saveKarteView, type KarteTool } from '../../lib/karte/session'
+import { saveKarteView } from '../../lib/karte/session'
 import type { StationObject } from '../../lib/api/stationReference'
 import { navigateTo } from '../../objectVisits/route'
 import type { LngLat } from '../../types'
-import type { Tool } from './useKarteTools'
 
 /** /karte?objekt=<id> follows the selection (deep-linkable, no history entry) — once the
  *  catalogue has answered (`ready`): until then the deep link is still being resolved. */
@@ -36,12 +35,9 @@ export function useKeepKarteView(p: {
   selObj: StationObject | null
   openDoc: ReturnType<typeof viewerPlanDocs>[number] | null
   onLibrary: boolean
-  tool: Tool
 }) {
-  const { ready, view, selObj, openDoc, onLibrary, tool } = p
+  const { ready, view, selObj, openDoc, onLibrary } = p
   const objectId = selObj?.id ?? null
-  // the open tool comes back too (only WHICH one); never the pin mode
-  const keptTool: KarteTool | null = tool === 'measure' || tool === 'erg' || tool === 'layers' ? tool : null
   const viewLabel = onLibrary ? appConfig.copy.modes.checklists
     : selObj
     ? [selObj.name, openDoc?.doc.code].filter(Boolean).join(' · ')
@@ -49,8 +45,8 @@ export function useKeepKarteView(p: {
   useEffect(() => {
     if (!ready) return
     const surf = onLibrary ? 'checkliste' as const : !openDoc ? 'karte' as const : openDoc.plan ? { plan: openDoc.plan.id } : 'gebaeude' as const
-    saveKarteView({ ...view, objectId, surface: surf, tool: keptTool, label: viewLabel })
-  }, [ready, view, objectId, openDoc, onLibrary, keptTool, viewLabel])
+    saveKarteView({ ...view, objectId, surface: surf, label: viewLabel })
+  }, [ready, view, objectId, openDoc, onLibrary, viewLabel])
 }
 
 /** Back from an Einsatz (`announce`): one line that says where it picked up (mockup j8-5, the

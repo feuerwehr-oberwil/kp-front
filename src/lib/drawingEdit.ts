@@ -68,7 +68,7 @@ export function drawingEditChanges(prev: Drawing, next: Drawing): string[] {
   // ── Inhalt: the FKS device letter (S/W/H/P). Unset is not «cleared» — it is Wasser, a value
   // of its own, and the row says so the way the editor does.
   //
-  // ⚠️ A REPLACEMENT says so («Typ auf Gegenfeuer geändert»), the same rule every symbol field
+  // ⚠️ A REPLACEMENT says so («Inhalt auf Gegenfeuer geändert»), the same rule every symbol field
   // already follows (lib/entityEdit). Written as a bare «Typ: X» each time, somebody dialling
   // through the presets left three consecutive rows — «Typ: Nasse Haltelinie», «Typ: Gegenfeuer»,
   // «Typ: Wasser» (03.09., 07:52) — that read on paper as three properties holding at once

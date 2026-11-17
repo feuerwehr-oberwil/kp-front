@@ -103,7 +103,7 @@ export function objectPicklistSub(o: { name: string; address: string | null; loc
   return [objectHeadSub(o), plansText].filter(Boolean).join(' · ')
 }
 
-/** THE order of a Stationsobjekt pick list (duck sweep LISTS.7, 17.11.2026) – the Einsatz form and
+/** THE order of an Objekt pick list (duck sweep LISTS.7, 17.11.2026) – the Einsatz form and
  *  «Anderes Objekt» read the same catalogue the Karte search ranks, and each had its own order
  *  (≤ 1 km then A–Z; the server's). While a query narrows the list, a NAME hit before an
  *  address-only hit (the Karte's own rank says the same, lib/karte/search); then nearest first;
