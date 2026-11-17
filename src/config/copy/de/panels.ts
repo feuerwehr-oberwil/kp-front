@@ -130,6 +130,7 @@ export const panelsCopy = {
       unsupported: 'Dieser Browser ist zu alt für die PDF-Anzeige.',
       unknown: 'Grund unbekannt.',
     },
+    openInWord: 'Öffnen',
   },
   // «Einstellungen» sheet (SettingsSheet: the device prefs, «Dieses Gerät» folded, the utilities)
   settings: {

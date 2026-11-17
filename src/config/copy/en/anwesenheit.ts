@@ -251,5 +251,6 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     flip: 'switch',
     editEntry: 'Edit …',
     paperMenuWord: 'Print',
+    emptyHelpWord: 'Help',
   },
 }

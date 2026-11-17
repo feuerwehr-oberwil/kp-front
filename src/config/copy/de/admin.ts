@@ -1925,6 +1925,7 @@ export const adminCopy = {
         joinWhat: 'Einen Punkt wählen, zum anderen Geschoss wechseln und dort denselben Gebäudepunkt antippen. Beide Zeichnungen müssen denselben Massstab und dieselbe Orientierung haben.',
         // Ein Druck auf einen Verbindungspunkt zieht DIESEN Punkt, sonst das ganze Rechteck.
         moveHint: 'Punkt oder Bereich verschieben: anfassen und ziehen. Neu zeichnen: «Bereich zeichnen».',
+        zoomReset: 'Zoom zurücksetzen',
       },
     },
     layers: {

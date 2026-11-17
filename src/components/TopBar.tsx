@@ -197,7 +197,10 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   ].join('|'))
 
   return (
-    <div className="topbar" ref={barRef}>
+    // `data-tiles`: a phone's actions are always tiles, glyph OVER word – the tablet's fold
+    // (`fit-6`, lib/useHeadFit · 'action-words') worn from the start (10-journal · «the fold»).
+    // An attribute, not a class: the ladder owns the bar's `fit-N` classes on the DOM.
+    <div className="topbar" data-tiles={isPhone || undefined} ref={barRef}>
       {titleSlot ?? (
         <>
           <div className="ename">{incident.title}</div>
@@ -225,7 +228,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
           every word in it as an unused variable. */}
       <div className="tb-actions">
         {mapNav && (
-          <button className="tb-act icon" title={mapNav.action.label} aria-label={mapNav.action.label} onClick={mapNav.action.onClick}><Icon id={mapNav.action.icon} /></button>
+          <button className="tb-act quiet" title={mapNav.action.label} aria-label={mapNav.action.label} onClick={mapNav.action.onClick}><Icon id={mapNav.action.icon} /><span>{mapNav.action.label}</span></button>
         )}
         {showHistory && (
           // ONE pair (hill climb r20, Opus 8): ↶ ↷ stand 4px apart inside the bar's 8px, so the bar
@@ -236,8 +239,10 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
                 überfällig chip in the bar these two are what steps aside — see app.css. Positional
                 selectors would have picked the wrong buttons, because the mapNav action ahead of
                 them is a .tb-act.icon too and comes and goes with the surface. */}
-            <button className="tb-act icon tb-act-history" title={undoWord} aria-label={undoWord} disabled={!canUndo} onClick={onUndo}><Icon id="undo" /></button>
-            <button className="tb-act icon tb-act-history tb-act-redo" title={redoWord} aria-label={redoWord} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /></button>
+            // …each with its word (button sweep audit, owner pick 24a, 17.11.2026): a bare ↶ ↷
+            // beside «Verlauf» and «Eintrag» was the one wordless pair in a worded row
+            <button className="tb-act quiet tb-act-history" title={undoWord} aria-label={undoWord} disabled={!canUndo} onClick={onUndo}><Icon id="undo" /><span>{appConfig.copy.undo}</span></button>
+            <button className="tb-act quiet tb-act-history tb-act-redo" title={redoWord} aria-label={redoWord} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /><span>{appConfig.copy.redo}</span></button>
           </span>
         )}
         {/* ⚠️ `has-rem` tints the BUTTON, not just its corner. The count badge alone is 17px of amber

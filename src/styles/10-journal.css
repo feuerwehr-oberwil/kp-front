@@ -30,7 +30,8 @@
    side of the pair. Two 44px hit areas at the bar's 8px read as two loose slots between the
    Einsatzuhr and «Verlauf». The phone's bar keeps its own spacing (15-mobile · display: contents). */
 .tb-history { display: flex; align-items: center; gap: var(--sp-1); flex: none; }
-.tb-act.icon { padding: var(--sp-2); min-width: 42px; background: transparent; }
+/* ↶ ↷ (and a phone sheet's «Einpassen») rest bare beside the filled «Verlauf» / «Eintrag» */
+.tb-act.quiet { background: transparent; }
 @media (hover: hover) {
   /* --hover-strong, not --fill-soft: a filled act already wears --fill-soft, so the old hover
      changed its ink alone (20.10.2026) */
@@ -78,12 +79,10 @@
    know which incident you are standing in; you do not know how long the Trupp has been inside. */
 /* ── The bar's priority ladder (lib/useHeadFit · HEAD_FIT_STEPS) ──
    Measured from nothing collapsed, one step at a time, until the bar fits; a step keeps every
-   step below it. Lowest priority first: the weather, the Einsatzdauer, ↷, the gaps, the Verlauf
-   word, the Suche's words, the alarm's name, the Einsatz title (the pill stays — glyph and ÜBUNG
-   marker), the «1?» count (the «?» stays), and last the word «Eintrag» (29.09.2026). The pill
-   itself never gives: squeezed below a readable width counts as «does not fit». «Eintrag» keeps
-   its word the longest — writing the entry is what an officer does WHILE the alarm runs. :not(.tb-rem-count) keeps the reminder count, a
-   number the bar exists to show.
+   step below it. Lowest priority first: the weather, the Einsatzdauer, ↷, the gaps, the actions'
+   words (all at once – «the fold» below), the Suche's words, the alarm's name, the Einsatz title
+   (the pill stays — glyph and ÜBUNG marker), and last the «1?» count (the «?» stays). The pill
+   itself never gives: squeezed below a readable width counts as «does not fit».
    ⚠️ No step takes a chip's ICON (final walk-through, R1): a bare red «5» said nothing.
    PHONE (08.10.2026): the pill's street counts as «does not fit» whenever it ellipsises, up to and
    including the ↷ step — the weather and ↷ only come back with the room left once it is whole
@@ -95,21 +94,26 @@
 .topbar.fit-5 { gap: var(--sp-1); padding-inline: var(--bar-pad); }
 .topbar.fit-5 :is(.tb-actions, .tb-history) { gap: 0; }
 .topbar.fit-5 :is(.tb-az, .ip-switch-btn) { padding-inline: var(--sp-2); }
-.topbar.fit-6 .tb-act:not(.tb-act-add) span:not(.tb-rem-count) { display: none; }
-.topbar.fit-6 .tb-act:not(.tb-act-add) { padding: 8px; }
+/* ── the fold (button sweep audit, owner pick 24a, 17.11.2026) ── the bar's actions fold
+   TOGETHER and keep their words: ↶ «Rückgängig», ↷, «Verlauf», «Eintrag», «Standort» turn into
+   tiles, glyph OVER word at 11/700 – the phone's page-head and nav-bar tile (13-incident · «fold»).
+   It used to be «Verlauf» bare at this step and «Eintrag» bare at the last, one glyph at a time,
+   beside an ↶ ↷ that never had a word. A phone wears the tiles from the start (TopBar ·
+   `data-tiles`). The reminder count stays the corner badge, a number is not a word. */
+.topbar:is(.fit-6, [data-tiles]) .tb-act { flex-direction: column; gap: 3px; padding: var(--sp-1) 6px; min-width: var(--tap);
+  font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
+.topbar:is(.fit-6, [data-tiles]) .tb-act .i { width: 18px; height: 18px; }
+.topbar:is(.fit-6, [data-tiles]) .tb-act-history .i { transform: none; }
+.topbar:is(.fit-6, [data-tiles]) .tb-key { display: none; }
 .topbar.fit-8 .tb-az-name { display: none; }
 .topbar.fit-9 .ip-switch-title { display: none; }
 .topbar.fit-9 .ip-switch-glyph { display: grid; }
 .topbar.fit-9:has(.ip-switch-btn > .ip-badge-exercise) .ip-switch-glyph { display: none; }
-/* «Eintrag» gives its word LAST (29.09.2026, sweep K2): its glyph is the journal pen now, not a
-   «+» that the rail's «+ Symbol» beside it also wears, so a bare glyph still says what it is */
-.topbar.fit-11 .tb-act-add :is(.tb-act-label, .tb-key) { display: none; }
-.topbar.fit-11 .tb-act-add { min-width: var(--tap); padding-inline: 8px; }
 /* ── Verlauf (J) and Eintrag (E) wear their shortcut letter (TopBar · keyHint, S6 06.11.2026):
    the rails' `.rail-key` – same face, size and colour (04b-rail.css), the same pref and the same
    hover + fine-pointer gate – but IN THE ROW after the word, where a menu prints its shortcut: a
-   corner of a 42px-tall button is its glyph's. It leaves with the word – Verlauf's at fit-6
-   (`span` above), Eintrag's at fit-11 – and while the Eintrag is an ✕ or recording. */
+   corner of a 42px-tall button is its glyph's. It leaves when the actions fold to tiles (fit-6,
+   above) and while the Eintrag is an ✕ or recording. */
 .tb-act .tb-key { position: relative; top: auto; left: auto; z-index: 1; }
 .tb-act-add.cancelling .tb-key { display: none; }
 .tb-act.on .tb-key { color: var(--blue-strong); }
@@ -505,15 +509,13 @@
    timeline strip stands otherwise (it is hidden while a filter is on, as during a search) –
    placement only */
 .jr-filter-strip { padding: 0 4px 8px; }
-/* ⚠️ On a phone the head is 22px too wide for four items, and «Wiedergabe starten» is the one
-   that can most afford to lose its word — the same trade the TopBar already makes for «Verlauf»
-   above. The button keeps its `aria-label` (Journal.tsx), so nothing is lost but the letters. */
+/* On a phone ▶ is a TILE like the ⓘ · lens · funnel beside it: the glyph OVER «Wiedergabe» at
+   11/700 (button sweep audit, owner pick 24, 17.11.2026 – it lost its word here, the trade the
+   top bar made for «Verlauf»; neither makes it any more). Tablet and laptop keep «▶ Wiedergabe»
+   beside each other (its name stays «Wiedergabe starten»). */
 @media (--phone) {
-  .journal-replay span { display: none; }
-  /* …and word-less it is a FRAMED --tap square, like the framed ⓘ · lens · funnel tiles beside it
-     (button sweep HEADS.2, 17.11.2026 – it rested bare from hill climb r18 to match their bare
-     glyphs). Tablet and laptop keep «▶ Wiedergabe» (its name stays «Wiedergabe starten»). */
-  .journal-head .journal-replay { width: var(--tap); padding: 0; }
+  .journal-head .journal-replay { flex-direction: column; justify-content: center; gap: var(--sp-1); padding: 0 var(--sp-2); }
+  .journal-replay span { font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
   /* (the title is the tablet's 16/800 with its 18px glyph since r35 – the step down it took here
      at 19px is gone with the 19px; the glyph stays 8px off the word, hill climb r28, Opus 6) */
   /* the head's 4px gap plus this = the 8px that keeps the title group off the ⓘ (r6) */

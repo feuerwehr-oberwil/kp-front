@@ -42,8 +42,10 @@ import { FilterStrip } from './FilterStrip'
  *  (120 h, 168 h) is for the deployment that does not end on day four: an Elementarereignis
  *  with a Pikett rota runs into a second week, and a plan that cannot show it is planned
  *  somewhere else. */
-/** The head's ladder (lib/pageHeadFit): the poster read-out steps aside first, then the retry's word. */
-const HEAD_FOLD = { qr: 1, print: 2, reload: 3 } as const
+/** The head's ladder (lib/pageHeadFit): the poster read-out steps aside first, then the tiles fold
+ *  TOGETHER, each to its glyph OVER its word (owner pick 24a, 17.11.2026 – «Drucken» went bare
+ *  beside a still-worded «Erneut laden»). */
+const HEAD_FOLD = { qr: 1, tiles: 2 } as const
 
 const HORIZONS = [3, 6, 9, 12, 18, 24, 36, 48, 72, 96, 120, 168]
 
@@ -749,15 +751,16 @@ export function AnwesenheitView({
               taken back, and this cluster has the room at phone width (the overflow it hit
               between 601 and ~850px is above this breakpoint). */}
           {isPhone && topBarUndoHidden && onUndo && (
-            <button className={c.iconBtn} onClick={onUndo} disabled={!canUndo}
+            // page-head tiles with their words, folding with the rest (pick 24a, 17.11.2026)
+            <button type="button" className="head-tile" onClick={onUndo} disabled={!canUndo} data-fold={HEAD_FOLD.tiles}
               aria-label={A.undoTap} title={A.undoTap}>
-              <Icon id="undo" />
+              <Icon id="undo" /><span className="fold-long">{appConfig.copy.undo}</span>
             </button>
           )}
           {isPhone && topBarUndoHidden && onRedo && (
-            <button className={c.iconBtn} onClick={onRedo} disabled={!canRedo}
+            <button type="button" className="head-tile" onClick={onRedo} disabled={!canRedo} data-fold={HEAD_FOLD.tiles}
               aria-label={A.redoTap} title={A.redoTap}>
-              <Icon id="redo" />
+              <Icon id="redo" /><span className="fold-long">{appConfig.copy.redo}</span>
             </button>
           )}
           {/* The Zeitplan's paper output. Kept MOUNTED in both views and merely hidden in the
@@ -779,11 +782,11 @@ export function AnwesenheitView({
               Offered on the Zeitplan AND the Schichten tab: one surface, one way to paper. */}
           {/* A PAGE-HEAD TILE with its word, «Drucken» (button sweep HEADS.9, 17.11.2026): it was a bare
               list-head square in the page head, the one tile there that never said what it did. Its
-              word folds with the head's ladder (`HEAD_FOLD.print`) – on a phone to glyph OVER word. */}
+              word folds with the head's ladder (`HEAD_FOLD.tiles`) – to glyph OVER word, with the other tiles. */}
           {(showPlan || showBands) && (onPrintZeitplan || onDownloadZeitplan) && (
             <Menu
               trigger={
-                <button type="button" className="head-tile" data-fold={HEAD_FOLD.print}
+                <button type="button" className="head-tile" data-fold={HEAD_FOLD.tiles}
                   aria-label={appConfig.copy.zeitplan.paperMenu} title={appConfig.copy.zeitplan.paperMenu}>
                   {/* icon + relay dot side by side, like the Rapport's print button – ONE child, so
                       a folded phone tile stacks the pair over the word */}
@@ -818,7 +821,7 @@ export function AnwesenheitView({
               that up in the background. What is left means what it says: that did not load, try
               again. */}
           {(error || reloadPhase === 'done') && (
-            <Button className={cx('head-tile', error && 'amber')} onClick={runReload} data-fold={HEAD_FOLD.reload}
+            <Button className={cx('head-tile', error && 'amber')} onClick={runReload} data-fold={HEAD_FOLD.tiles}
               disabled={loading || reloadPhase !== 'idle'}
               aria-label={A.reload} title={error ? A.loadFailedHint : undefined}>
               {loading || reloadPhase !== 'idle'

@@ -60,12 +60,14 @@ describe('the presentation pill', () => {
     expect(marked).toEqual([true, false])
   })
 
-  it('on a phone the presenter sees no avatar of itself and «Beenden» as a named ■ square', () => {
+  // button sweep audit, owner pick 24 (17.11.2026): a tile, the ■ over its word – never a bare ■
+  it('on a phone the presenter sees no avatar of itself and «Beenden» as a worded tile', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const p = pill('presenting')
     expect(document.querySelector('.present-pill > .present-av')).toBeNull()
     const end = screen.getByRole('button', { name: C().end })
-    expect(end.textContent).toBe('')
+    expect(end.textContent).toBe(C().end)
+    expect(end.classList.contains('present-tile')).toBe(true)
     expect(screen.getByRole('button', { name: new RegExp(C().zeigen) }).textContent).toContain(C().zeigen)
     fireEvent.click(end)
     expect(p.end).toHaveBeenCalled()

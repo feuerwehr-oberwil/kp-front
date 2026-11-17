@@ -78,13 +78,12 @@ export type TruppOrder = 'dringlichkeit' | 'manuell' | 'auftrag' | 'name'
 const FROZEN_ALARM: TruppAlarm = { sev: 0, reason: null, line: null }
 
 /** The Trupps head's ladder (lib/pageHeadFit, 28.09.2026): what gives first when the one row runs
- *  out — the quiet line's time, then the tiles' words, lowest priority first (a way of LOOKING at
- *  the board before the handover, the handover before the way back to a deleted card, the alarm's
- *  word before the bell's honest state — the ⚠ and its count stay), then «Trupp anmelden» → «Trupp»,
- *  then «✓ Gespeichert» keeps its ✓ (the sentence stays its `title`; a LOUD state never folds), and
- *  last the handover's short «Abgeben» goes — at its first rank it trades «Überwachung abgeben» for
- *  that word beside the glyph, the one word an icon tile keeps (hill climb r8 / r11, 04.11.2026). */
-const HEAD_FOLD = { saved: 1, order: 2, share: 3, restore: 4, overdue: 5, bell: 6, newTrupp: 7, savedMark: 8, shareWord: 9 } as const
+ *  out — the quiet line's time, then the tiles fold TOGETHER, each to its glyph OVER its word
+ *  (owner pick 24a, 17.11.2026 – they folded one at a time to bare glyphs on a tablet: «Reihenfolge»
+ *  first, the bell last; the handover keeps its short «Abgeben», the ⚠ its count beside it), then
+ *  «Trupp anmelden» → «Trupp» (the primary keeps its word beside its glyph and its fill), and last
+ *  «✓ Gespeichert» keeps its ✓ (the sentence stays its `title`; a LOUD state never folds). */
+const HEAD_FOLD = { saved: 1, tiles: 2, newTrupp: 3, savedMark: 4 } as const
 
 /** The room the sticky Notfall stack takes at the top of the board's port (+ the air under it). */
 const nfInset = (el: HTMLElement | null) => (el ? el.offsetHeight + 12 : 0)
@@ -1176,7 +1175,7 @@ export function AtemschutzView({
   const bellButton = (
     <button
       className={cx(s.muteBtn, muted && s.muteOn, audioBlocked && s.muteBlocked)}
-      data-fold={HEAD_FOLD.bell}
+      data-fold={HEAD_FOLD.tiles}
       onClick={audioBlocked ? onUnlockAudio : onToggleMuted}
       aria-pressed={muted}
       aria-label={bellLabel} title={bellLabel}
@@ -1476,7 +1475,7 @@ export function AtemschutzView({
           <button
             /* muted (27.09.2026): the same tile in plain grey — the count still counts, the
                head just does not shout a tone it has promised not to play */
-            type="button" className={cx(s.overdueBadge, muted && s.overdueQuiet)} data-fold={HEAD_FOLD.overdue} data-fold-beside
+            type="button" className={cx(s.overdueBadge, muted && s.overdueQuiet)} data-fold={HEAD_FOLD.tiles} data-fold-beside
             aria-live="assertive"
             title={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
             aria-label={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
@@ -1502,7 +1501,7 @@ export function AtemschutzView({
         {canEdit && removedTrupps.length > 0 && (
           <Menu
             trigger={
-              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.restore} aria-label={az.restoreMenu} title={az.restoreMenu}>
+              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.tiles} aria-label={az.restoreMenu} title={az.restoreMenu}>
                 <Icon id="archive" /><span className="fold-long">{az.restoreMenu}</span>
               </button>
             }
@@ -1527,13 +1526,14 @@ export function AtemschutzView({
             be taken back. */}
         {lite && canEdit && onUndo && onRedo && (
           <>
-            <button type="button" className={s.orderBtn} onClick={onUndo} disabled={!canUndo}
+            {/* …worded like the tiles beside it, folding with them (pick 24a, 17.11.2026) */}
+            <button type="button" className={s.orderBtn} onClick={onUndo} disabled={!canUndo} data-fold={HEAD_FOLD.tiles}
               aria-label={undoWord} title={undoWord}>
-              <Icon id="undo" />
+              <Icon id="undo" /><span className="fold-long">{appConfig.copy.undo}</span>
             </button>
-            <button type="button" className={s.orderBtn} onClick={onRedo} disabled={!canRedo}
+            <button type="button" className={s.orderBtn} onClick={onRedo} disabled={!canRedo} data-fold={HEAD_FOLD.tiles}
               aria-label={redoWord} title={redoWord}>
-              <Icon id="redo" />
+              <Icon id="redo" /><span className="fold-long">{appConfig.copy.redo}</span>
             </button>
           </>
         )}
@@ -1550,7 +1550,7 @@ export function AtemschutzView({
         {orderOffered && (
           <Menu
             trigger={
-              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.order} aria-label={az.orderLabel} title={az.orderLabel}>
+              <button type="button" className={s.orderBtn} data-fold={HEAD_FOLD.tiles} aria-label={az.orderLabel} title={az.orderLabel}>
                 <Icon id="sort" /><span className="fold-long">{az.orderLabel}</span>
               </button>
             }
@@ -1576,7 +1576,7 @@ export function AtemschutzView({
         {onShareLink && (
           <button
             type="button"
-            className={cx(s.shareBtn, shareLinkActive && s.shareOn)} data-fold={`${HEAD_FOLD.share} ${HEAD_FOLD.shareWord}`}
+            className={cx(s.shareBtn, shareLinkActive && s.shareOn)} data-fold={HEAD_FOLD.tiles}
             onClick={onShareLink}
             aria-label={shareLabel} title={shareLabel}
           >

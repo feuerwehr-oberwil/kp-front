@@ -1589,6 +1589,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
         noPairsYet: 'Pas encore de lien avec la carte – les étages sont enregistrés quand même.',
         joinWhat: 'Choisir un point, passer à un autre étage et y toucher le même point du bâtiment. Les deux dessins doivent avoir la même échelle et orientation.',
         moveHint: 'Déplacer un point ou une zone : saisir et glisser. Retracer : « Tracer la zone ».',
+        zoomReset: 'Réinitialiser le zoom',
       },
     },
     layers: {

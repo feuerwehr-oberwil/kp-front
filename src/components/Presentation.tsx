@@ -1,9 +1,10 @@
 // The Präsentationsmodus on screen (mock 8B, owner pick 05.11.2026; docs/presentation.md):
 //   · PresentationPill – bottom centre, the floating family of the armed-tool pill:
 //       presenting «BA Du präsentierst · 4 folgen · ◎◎◎ · Zeigen · Beenden»
-//                  (phone: «Du präsentierst · 4 folgen · ◎◎◎ · Zeigen · ■», owner pick 5B 14.11.2026)
+//                  (phone: «Du präsentierst · 4 folgen · ◎◎◎ · Zeigen · ■/Beenden» – the ■ over its
+//                  word, owner pick 5B 14.11.2026, worded since pick 24 17.11.2026)
 //       invited    «BA Bastian präsentiert · Folgen» (a link holder gives a name first, once)
-//       following  «BA Folgst Bastian · Zeigen · ✕»
+//       following  «BA Folgst Bastian · Zeigen · ✕ Verlassen»
 //       detached   the pill itself becomes the chip «BA Wieder folgen»
 //   · MapRings / BoardRings / PageMarks – the named rings and lines, on the Karte (inside
 //     MapLibre's container, so they pan with it), on a plan (inside the board, in plan space) and
@@ -133,7 +134,8 @@ function PillBody({ p }: { p: Presentation }) {
     const n = s.participants.length
     const shown = s.participants.slice(0, 3)
     // phone (owner pick 5B, 14.11.2026 – «Du präsentier» was cut on a 390px iPhone): no avatar of
-    // yourself (it tells you nothing), «Beenden» the red ■ square; «Zeigen» keeps its word
+    // yourself (it tells you nothing), «Beenden» a TILE, the ■ over its word (button sweep audit,
+    // owner pick 24, 17.11.2026 – it was a bare ■ square); «Zeigen» keeps its word
     body = <>
       {!phone && <Avatar name={presenter} tone={1} />}
       <span className="present-who"><b>{C.youPresent}</b>
@@ -145,18 +147,17 @@ function PillBody({ p }: { p: Presentation }) {
         </span>
       )}
       {zeigen}
-      {phone
-        // «Beenden» is a STOP, not a delete: the neutral button, its ■ carries the act (duck sweep
-        // ELEM.11 – red is for what nothing brings back)
-        ? <button type="button" className="ip-btn present-end present-sq" onClick={() => void p.end()} aria-label={C.end} title={C.end}><Icon id="stop" /></button>
-        : <button type="button" className="ip-btn present-end" onClick={() => void p.end()}><Icon id="stop" />{C.end}</button>}
+      {/* «Beenden» is a STOP, not a delete: the neutral button, its ■ carries the act (duck sweep
+          ELEM.11 – red is for what nothing brings back) */}
+      <button type="button" className={`ip-btn present-end${phone ? ' present-tile' : ''}`} onClick={() => void p.end()}><Icon id="stop" /><span>{C.end}</span></button>
     </>
   } else if (p.follow.kind === 'following') {
     body = <>
       <Avatar name={presenter} tone={1} />
       <span className="present-who"><b>{C.following}</b><span>{presenter}</span></span>
       {zeigen}
-      <button type="button" className="ip-btn quiet present-x" onClick={p.leave} aria-label={C.leave} title={C.leave}><Icon id="close" /></button>
+      {/* ✕ with its word, «Verlassen» (pick 24, 17.11.2026): a mode row's way out, not a sheet's ✕ */}
+      <button type="button" className={`ip-btn quiet present-x${phone ? ' present-tile' : ''}`} onClick={p.leave} aria-label={C.leave} title={C.leave}><Icon id="close" /><span>{C.leaveWord}</span></button>
     </>
   } else if (asking) {
     // a link holder's name, once per device: it stands beside their pointer on every screen

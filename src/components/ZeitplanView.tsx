@@ -535,6 +535,9 @@ export function ZeitplanView({
             <Icon id="clock" />
             <span>{Z.emptyTitle}</span>
             <Icon id="info" />
+            {/* a phone shows the ⓘ alone in the clock row's corner: a TILE with its word, «Hilfe»
+                (button sweep audit, owner pick 24, 17.11.2026 – a bare ⓘ where the tablet says it) */}
+            {isPhone && <span className={s.emptyHelpWord}>{Z.emptyHelpWord}</span>}
           </button>
           {helpOpen && <p className={s.legendHint}>{Z.laneHint}</p>}
         </div>

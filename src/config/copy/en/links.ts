@@ -82,6 +82,7 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     settingsAs: 'As {name}',
     settingsName: 'Name on the map',
     settingsNameSub: 'How the command post sees you – tap to change',
+    pillWord: 'Location',
   },
   livePosition: {
     chip: '{d} · {n} min ago',
@@ -118,5 +119,6 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     startFailed: 'Presentation not started – try again',
     endFailed: 'Presentation not ended – try again',
     full: 'Presentation full – too many people joined through a link. Try «Follow» again later.',
+    leaveWord: 'Leave',
   },
 }

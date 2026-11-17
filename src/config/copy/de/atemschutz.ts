@@ -958,6 +958,7 @@ export const atemschutzCopy = {
     // Nach «Wieder öffnen»: die Kontaktuhr eines Trupps, der noch drin steht, läuft ab dem
     // Wiederöffnen neu – die geschlossene Zeit zählt nicht als Zeit ohne Kontakt (r3, F4).
     logClockRestart: 'Trupp {name}: Kontaktuhr neu gestartet – Einsatz wieder geöffnet',
+    cardMenuWord: 'Mehr',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {

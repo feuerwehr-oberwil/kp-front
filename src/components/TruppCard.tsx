@@ -214,7 +214,7 @@ function RowLine({ t, live, color, lite, act, headed = false }: { t: Trupp; live
               circle after the name — the Rückzug tile's own glyph — so it reads on the row, the
               card and the page alike. It is not a tier: the side line stays reserved for «Fällig».
               `flex: none` (.rueckzugBadge) — a long name ellipsises before the badge is squeezed. */}
-          {rueckzug && <span className={s.rueckzugBadge} role="img" aria-label={rueckzugLabel} title={rueckzugLabel}><Icon id="undo" /></span>}
+          {rueckzug && <span className={s.rueckzugBadge} role="img" aria-label={rueckzugLabel} title={rueckzugLabel}><Icon id="rueckzug" /></span>}
           {/* ⚠️ Name only — no «#N», no «SiTr», on the row AND the opened card (owner, staging
               26.09. and 30.09.2026: «the group leader name needs more space … drop the number #»).
               The number stays in the TruppFinder and in the Verlauf's «Trupp N» rows. */}
@@ -740,8 +740,10 @@ export function TruppCard({
   const menu = menuItems.length > 0 && (
     <Menu
       trigger={
+        // ⋯ OVER «Mehr» (button sweep audit, owner pick 24, 17.11.2026): the one wordless control
+        // on a foot whose other half always says something («Verlauf», the times)
         <button type="button" className={s.footMore} aria-label={az.cardMenu} title={az.cardMenu}>
-          <Icon id="more" />
+          <Icon id="more" /><span aria-hidden="true">{az.cardMenuWord}</span>
         </button>
       }
       popupClassName="rp-print-menu"
@@ -889,11 +891,11 @@ export function TruppCard({
             {monitored && (t.status === 'aktiv' ? (
               <button className={cx(s.actBtn, s.actRueckzug, pressureLow && s.actAlarm)} aria-label={az.actRueckzug}
                 onClick={() => onStatus(t.id, 'rueckzug')}>
-                <Icon id="undo" /><span>{az.tileRueckzug}</span>
+                <Icon id="rueckzug" /><span>{az.tileRueckzug}</span>
               </button>
             ) : (
               <button className={cx(s.actBtn, s.actContinue)} onClick={() => onStatus(t.id, 'aktiv')}>
-                <Icon id="redo" /><span>{az.actContinue}</span>
+                <Icon id="fortsetzen" /><span>{az.actContinue}</span>
               </button>
             ))}
             <button className={cx(s.actBtn, s.actExit)} aria-label={monitored ? words.exit : undefined} onClick={askExit}>

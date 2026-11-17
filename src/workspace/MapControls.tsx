@@ -24,6 +24,7 @@ import type { MeasuredPoint } from '../lib/readingsList'
 import { ReadingsChip } from '../components/ReadingsChip'
 import { undergroundLayerDef } from '../lib/underground'
 import type { LayerPreset } from '../lib/layerPreset'
+import type { RailLabels } from '../lib/prefs'
 import type { KarteWeather } from './useKarteWeather'
 
 export interface MapControlsProps {
@@ -39,6 +40,8 @@ export interface MapControlsProps {
   coord: ReturnType<typeof useCoordPicker>
   panel: 'layers' | null
   layersPreset: LayerPreset
+  /** «Beschriftung der Werkzeugleisten» (lib/prefs · railLabelsFor): the read-only cluster's words */
+  railLabels: RailLabels
   /** the Einsatz's category: the Ebenen rows it switches on by default say so (LayerPanel · category) */
   incidentType?: string | null
   togglePanel: (name: 'layers') => void
@@ -74,7 +77,7 @@ export function MapControls({
   layersPreset, incidentType, togglePanel, isPhone, displayWeather, openWeatherDetails, replayActive,
   georefMode, buildingInfo, buildingFirst, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
   toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
-  weather, readings,
+  weather, readings, railLabels,
 }: MapControlsProps) {
   // The Karte's ONE bottom-left chip row (below): the Gebäude chip and the radar pill, in that
   // order. Each piece is decided HERE, so the row exists only when one of them has something to
@@ -110,6 +113,7 @@ export function MapControls({
               layersOn={panel === 'layers'}
               layersPreset={layersPreset}
               onToggleLayers={() => togglePanel('layers')}
+              worded={railLabels === 'short'}
             />
           )}
 

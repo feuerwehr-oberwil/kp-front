@@ -709,13 +709,13 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
               Mittel's. They rested as bare glyphs since hill climb r9, the one list head where a
               filter did not look like one. OPEN (legend shown, search open, the menu up) is THE open
               look (`aria-expanded` / `data-popup-open`), a filter set the choice fill. The ⓘ is this
-              tile rather than the InfoToggle chip so the three read as one family – a framed square
-              without a word, as the ⓘ is everywhere: with «Legende» under it the 390px phone head
-              cut its own title to «V…» (measured 17.11.2026). */}
+              tile rather than the InfoToggle chip so the three read as one family – and WORDED,
+              «Legende», like its neighbours (button sweep audit, owner pick 24, 17.11.2026: the one
+              wordless tile in a worded row). */}
           <button
             type="button" className={c.iconBtn} aria-expanded={showLegend}
             aria-label={C.legend} title={C.legend} onClick={() => setShowLegend((v) => !v)}
-          ><Icon id="info" /></button>
+          ><Icon id="info" /><span className={c.word} aria-hidden="true">{C.legend}</span></button>
           {/* the lens closes the legend on its way in – the legend explains discs the search is
               about to hide most of */}
           <button
@@ -745,9 +745,8 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
               items={filterItems()}
             />
           )}
-          {/* ⚠️ `aria-label`, because the word inside it is hidden on a phone (10-journal.css) —
-              the head is one item wider since the legend button joined it, and this is the label
-              that can most afford to go. */}
+          {/* `aria-label` «Wiedergabe starten», the word «Wiedergabe» – under the glyph on a phone,
+              like the tiles beside it (10-journal.css, pick 24, 17.11.2026) */}
           {/* THE button's framed secondary (hill climb, 04.11.2026): it was the filled primary, and
               playing back history out-shouted the title and the open Pendenzen below it. */}
           {onReplay && (

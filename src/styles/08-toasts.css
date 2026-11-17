@@ -903,7 +903,10 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .present-pill .present-zeigen[aria-pressed='true'] { background: color-mix(in srgb, var(--present) 12%, var(--surface)); color: var(--present);
   box-shadow: inset 0 0 0 1.5px var(--present); }
 .present-end, .present-follow, .present-x { flex: none; min-height: var(--tap); }
-.present-x, .present-sq { width: var(--tap); padding: 0; justify-content: center; }
+/* a phone's way out is a TILE, the glyph over «Beenden» / «Verlassen» at 11/700 (button sweep
+   audit, owner pick 24, 17.11.2026 – a bare ■ and a bare ✕ in a worded row) */
+.present-tile { flex-direction: column; justify-content: center; gap: var(--sp-1); padding: 0 var(--sp-2); }
+.present-tile > span { font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
 /* a link holder's name, once: the question over the field, «Folgen» beside the field */
 .present-ask { display: flex; align-items: flex-end; gap: var(--sp-2); min-width: 0; padding: var(--sp-1) 0; }
 .present-ask-field { flex: 1 1 auto; gap: var(--sp-1); }

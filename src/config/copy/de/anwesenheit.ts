@@ -343,6 +343,7 @@ export const anwesenheitCopy = {
     // the paper menu's WORD on its page-head tile (button sweep HEADS.9, 17.11.2026 – it was a bare
     // printer square); `paperMenu` stays its full name and the menu's head
     paperMenuWord: 'Drucken',
+    emptyHelpWord: 'Hilfe',
   },
   // Schichtbänder (BandGrid) — the transpose of the Zeitplan. The Zeitplan is person-major over
   // continuous time («pick a person, draw when»); here the column is a named time window and per

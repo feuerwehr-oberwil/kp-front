@@ -196,6 +196,7 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     editEntry: 'Modifica …',
     dragTo: 'Trascina la fine',
     paperMenuWord: 'Stampa',
+    emptyHelpWord: 'Aiuto',
   },
   schichten: {
     title: 'Turni',

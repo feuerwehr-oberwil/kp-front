@@ -107,6 +107,12 @@ export function IconSprite() {
       <symbol id="compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 4.5 14.5 13 12 11 9.5 13z" fill="var(--red)" stroke="none" /><path d="M12 13v6" stroke-opacity=".4" /></symbol>
       <symbol id="undo" viewBox="0 0 24 24"><path d="M9 7 4 12l5 5" /><path d="M4 12h11a5 5 0 0 1 0 10h-2" /></symbol>
       <symbol id="redo" viewBox="0 0 24 24"><path d="M15 7l5 5-5 5" /><path d="M20 12H9a5 5 0 0 0 0 10h2" /></symbol>
+      {/* ↶ ↷ mean undo / redo ONLY (button sweep audit, owner pick 24b, 17.11.2026): the Trupp's
+          «Rückzug» and «Fortsetzen» wore them on the same screen as the head's history pair. Their
+          own pair is the way the Trupp MOVES – back out «‹‹», on again «››» – never the door of
+          «Raus» (#logout). */}
+      <symbol id="rueckzug" viewBox="0 0 24 24"><path d="M12 6.5 6.5 12l5.5 5.5" /><path d="M18.5 6.5 13 12l5.5 5.5" /></symbol>
+      <symbol id="fortsetzen" viewBox="0 0 24 24"><path d="M12 6.5l5.5 5.5-5.5 5.5" /><path d="M5.5 6.5 11 12l-5.5 5.5" /></symbol>
       <symbol id="plus-bold" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16" stroke-width="2.6" /></symbol>
       <symbol id="select" viewBox="0 0 24 24"><path d="M6 3.5 6 20 10.2 15.8 13 21 15.2 20 12.4 14.6 18.5 14.5z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" /></symbol>
       <symbol id="history" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></symbol>

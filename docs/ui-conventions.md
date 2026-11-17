@@ -208,6 +208,18 @@ while the head's subtitle says when («Schadenlage · erledigt 10:57»).
   «THE button»), 44px on every pointer and 52 for `lg`, so a hand-written `.ip-btn` and a
   `<Button>` cannot drift apart and 20-touch-floors needs no entry for either. The sheet ✕ stays
   `.ip-x` (36px, grey, 44 pad; owner spec below), not an `IconButton`.
+- **A row of worded controls has no wordless member, and it folds TOGETHER** (button sweep audit,
+  owner pick 24a, 17.11.2026). A control in a head, a bar or a mode row whose neighbours carry a
+  word carries one too (the Verlauf's ⓘ «Legende», the top bar's ↶ «Rückgängig» ↷ «Wiederherstellen»
+  and «Standort», the Trupp card's ⋯ «Mehr», the Georef bar's ⓘ «Genauigkeit», the PDF reader's
+  «Öffnen»). Where the row runs out of room it folds as ONE: every control's word moves UNDER its
+  glyph at 11/700 at the same step (the page heads: one `data-fold` rank for the tiles,
+  `lib/pageHeadFit`; the top bar: `'action-words'`, `lib/useHeadFit`) – never one button at a
+  time, and a folded tile is never a bare glyph, on any device (13-incident · «fold», 10-journal ·
+  «the fold»). The primary may shorten its word a step later («+ Trupp»); where even the folded
+  row cannot fit, a tile takes a short word (a `…Short` key), then the head's second row. A phone
+  wears the folded tiles where its CSS says so (the top bar's `data-tiles`). Exempt: the sheet ✕,
+  a field's clear, a list row's chevron and a quiet row-end bin (below).
 - **A print or download that waits on something shows `ShellLoader` in its button** (28.10.2026,
   owner: «all printing and downloading things have a spinner»): the loader takes the glyph's place
   (or leads the label), the button is `disabled` + `aria-busy` until the file is out, and a sheet
@@ -854,14 +866,17 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     (10) **One glyph, one meaning, within a thumb's reach** (29.09.2026). The funnel `#filter` is
     «show fewer» only; an ORDER wears `#sort`, two opposed arrows ↑↓ (owner pick, button sweep
     HEADS.1, 17.11.2026 – the Trupps «Reihenfolge» wore the funnel and read «Trupps are hidden»).
+    **↶ ↷ (`#undo` / `#redo`) mean undo / redo ONLY** (owner pick 24b, 17.11.2026): the Trupp's
+    «Rückzug» and «Fortsetzen» wore them on the screen whose head carries the history pair; they
+    wear `#rueckzug` ‹‹ and `#fortsetzen` ›› (the way the Trupp moves), «Raus» the door `#logout`.
     «More» is `#more` ⋯ everywhere, the admin's row menus too (HEADS.12). «Eintrag» is the journal
     pen (`lib/icons` · `#entry`, drawn inline by `EntryGlyph` on the FAB and the top bar's
     Eintrag), never «+»: «+» means Hinzufügen only (the FAB stood 60px above the tool bar's «+
     Hinzufügen» with the same glyph, and the tablet's Eintrag sat beside the rail's «+ Symbol»).
     The top bar's Eintrag is the bar's flat `.tb-act`, like «Verlauf» beside it (owner pick C11,
     05.11.2026 – it wore the FAB's raised glass, the one raised button inside the bar), never a
-    blue slab, and keeps its word «Eintrag» until the LAST step of the top bar's ladder
-    (`HEAD_FIT_STEPS` · 'eintrag-word'). While the hold's chooser is up, the glyph gives way to
+    blue slab, and keeps its word «Eintrag» – folded with the bar's other actions, under its
+    glyph (`HEAD_FIT_STEPS` · 'action-words'). While the hold's chooser is up, the glyph gives way to
     its drawn ✕ (both paths always in the DOM). «Trupp finden» wears `#trupp-find` (people with a
     small lens — the owner's pick B, 29.09.2026; the flag in a reticle read as «ugly») on the Trupp tool's dock and in the finder's head — never the
     `#search` lens, which a search tile wears. The Tafel wears `#easel` (a board on two legs,

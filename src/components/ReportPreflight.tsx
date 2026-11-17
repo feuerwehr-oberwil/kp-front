@@ -80,13 +80,15 @@ const NO_IDS = new Set<string>()
 const NO_SIGNATURES: ReportSignature[] = []
 /** The `kind` (lib/ui · toast) of every answer to the print job's «Prüfen»: a second press replaces the first. */
 const PRINT_CHECK = 'print-check'
-/** The Rapport head's ladder (lib/pageHeadFit): «Ausdrucken» gives its word first, then
- *  «Einsatz abschliessen» shortens to the word «Abschliessen» (never a bare glyph, 04.11.2026), then
- *  the primary «Einsatzrapport (PDF)» shortens to «PDF ▾» (mockup 2), and last the title says what
- *  the nav calls this page, «Rapport». The Kontrolle chip never folds: a bare «⚠ 4» beside the
- *  close action had to be decoded (council round 3), so where «4 offen» does not fit the head takes
- *  its second row instead — title + chip above, «Abschliessen» + «PDF» under it (13-incident.css). */
-const RP_FOLD = { print: 1, pdf: 2, complete: 3, title: 4 } as const
+/** The Rapport head's ladder (lib/pageHeadFit): the tiles fold TOGETHER (owner pick 24a,
+ *  17.11.2026 – it was one tile at a time), each to its glyph OVER its short word: «Ausdrucken» →
+ *  «Drucken», «Einsatz abschliessen» → «Abschliessen» (never a bare glyph, 04.11.2026),
+ *  «Einsatzrapport (PDF)» → «PDF ▾» (mockup 2) – the archive box and the doc glyph stay, they
+ *  went with the long word before; then the title says what the nav calls this page, «Rapport».
+ *  The Kontrolle chip never folds: a bare «⚠ 4» beside the close action had to be decoded (council
+ *  round 3), so where «4 offen» does not fit the head takes its second row instead — title + chip
+ *  above, «Abschliessen» + «PDF» under it (13-incident.css). */
+const RP_FOLD = { tiles: 1, title: 2 } as const
 
 // «Zeig mir diese offene Angabe» from outside the sheet — lives with the tabs (useReportPlace)
 export { requestReportStep } from './useReportPlace'
@@ -1392,15 +1394,15 @@ export function ReportPreflight({
             {/* in the chip's place, beside the title (13-incident · .rp-head-close); folded it keeps
                 a WORD («Abschliessen»), never a bare archive box (council 04.11.2026) */}
             {closeReady && (
-              <button className="ip-btn head-tile go rp-head-close" data-fold={RP_FOLD.complete} onClick={() => void complete()}
+              <button className="ip-btn head-tile go rp-head-close" data-fold={RP_FOLD.tiles} onClick={() => void complete()}
                 aria-label={A.complete} title={A.complete}>
-                <Icon id="archive" className="fold-long" /><span className="rp-btn-label fold-long">{A.complete}</span>
+                <Icon id="archive" /><span className="rp-btn-label fold-long">{A.complete}</span>
                 <span className="rp-btn-short fold-short" aria-hidden="true">{A.completeShort}</span>
               </button>
             )}
             {printStatus?.available && (
               <button className={`ip-btn head-tile print-send${printStatus.online ? '' : ' offline'}`} disabled={printBusy}
-                data-fold={RP_FOLD.print}
+                data-fold={RP_FOLD.tiles}
                 onClick={() => void startOutput('print')} aria-label={printBusy ? R.sending : printStatus.online ? R.send : `${R.send} · ${R.offline}`}
                 title={printStatus.online ? R.online : R.offline}>
                 <span className="print-send-main">
@@ -1425,14 +1427,12 @@ export function ReportPreflight({
                 phone it reads «PDF ▾» — the word, not a doc glyph whose meaning you had to know
                 (`.rp-btn-short`); the tablet keeps its full label. Same two doors as before. */}
             <span className="rp-split">
-              <button className="ip-btn head-tile rp-split-main" data-fold={RP_FOLD.pdf} disabled={pdfBusy} onClick={() => void startOutput('pdf')}
+              <button className="ip-btn head-tile rp-split-main" data-fold={RP_FOLD.tiles} disabled={pdfBusy} onClick={() => void startOutput('pdf')}
                 aria-busy={pdfBusy || undefined} aria-label={pdfBusy ? P.pdfBusy : P.pdfFull} title={pdfBusy ? P.pdfBusy : P.pdfFull}>
-                {pdfBusy ? <span className="fold-long"><ShellLoader /></span> : <Icon id="doc" className="rp-pdf-glyph fold-long" />}
+                {/* the glyph stays when the word shortens (pick 24a): folded, the doc OVER «PDF» */}
+                {pdfBusy ? <ShellLoader /> : <Icon id="doc" className="rp-pdf-glyph" />}
                 <span className="rp-btn-label fold-long">{P.pdfFull}</span>
-                <span className="rp-btn-short rp-pdf-short fold-short">
-                  <span style={{ visibility: pdfBusy ? 'hidden' : undefined }}>{P.pdfShort}</span>
-                  {pdfBusy && <span className="rp-pdf-wait"><ShellLoader /></span>}
-                </span>
+                <span className="rp-btn-short fold-short">{P.pdfShort}</span>
               </button>
               <Menu
                 trigger={

@@ -92,20 +92,10 @@
    utilities exist) the bar reserves space on the right for them. */
 @media (max-width: 860px) {
   /* .toputil reposition migrated → MapUtility.module.css */
-  /* journal actions go icon-only so the title + clock fit (undo/redo stay icons).
-     ⚠️ `span:not(.tb-act-ic)…` — Eintrag's glyph sits in a SPAN (`.tb-act-ic`, the hold ring's
-     anchor), and the bare `span` took it with the word: on every tablet in portrait (601–860px)
-     «Eintrag» was an empty blue square (22.09.2026). The recording square and the reminder count
-     are spans too, and neither is a label.
-     ⚠️ …except «Eintrag» (29.09.2026, sweep K2): it keeps its word at 820px and gives it up only
-     as the top bar's LAST ladder step (lib/useHeadFit · 'eintrag-word'), measured, not here. */
-  .tb-actions .tb-act:not(.icon):not(.tb-act-add) span:not(.tb-act-ic):not(.tb-stop):not(.tb-rem-count) { display: none; }
-  /* ⚠️ …and once a button is ONLY an icon it has to be a full tap target. It was `padding: 8px`,
-     which lands around 31px — under the gloved floor — and the --tap sizing only arrived at
-     ≤600px. So every width between 601 and 860 offered the smallest buttons in the app on the
-     row that logs a Verlauf entry. Icon-only and full size go together at every width. */
-  .tb-actions .tb-act { padding: 8px; min-width: var(--tap); min-height: var(--tap); justify-content: center; }
-  .tb-actions .tb-act-add { min-width: var(--tap); padding-inline: var(--sp-3); }
+  /* (the journal actions' words are not ruled away here any more: the bar's ladder folds them
+     TOGETHER to tiles, glyph over word, where the bar is measured to need it – 10-journal ·
+     «the fold», owner pick 24a 17.11.2026) */
+  .tb-actions .tb-act { min-width: var(--tap); min-height: var(--tap); }
   /* The weather goes to a SHORTER form here, not only on a phone: the condition glyph is the
      one part that is pure context, so it goes first. The TEMPERATURE stays — an iPad in
      portrait is 820px wide, and hiding it here is why «the temperature indicator is missing on
@@ -574,16 +564,10 @@
   .ip-switch-btn > .ip-badge-initial { flex: none; display: grid; place-items: center; width: 22px; height: 22px;
     padding: 0; font-size: var(--fs-1); line-height: 1; letter-spacing: 0; overflow: visible; }
   .tb-act-add { display: none; }                    /* Eintrag handled by the FAB on phones */
-  /* Verlauf goes icon-only. :not(.tb-rem-count) — the bare `span` selector also caught the
-     reminder-count badge, so the number of due reminders vanished on exactly the device most
-     likely to be carrying them. */
-  .tb-act:not(.tb-act-add) span:not(.tb-rem-count) { display: none; }
-  /* icon-only bar actions need a gloved 44px hit area without inflating the button */
-  .tb-act:not(.tb-act-add) { padding: 8px; min-width: var(--tap); min-height: var(--tap); justify-content: center; }
-  /* …and their glyph 18px, not the labelled bar's 15 (hill climb r28, Sol 1): with no word beside
-     it the Verlauf history glyph (its arrow, the hands) was too small to read, and the «6» badge
-     outweighed the glyph it counts for. The 44px button is unchanged. */
-  .tb-act:not(.tb-act-add) .i { width: 18px; height: 18px; }
+  /* ↶ and «Verlauf» are TILES here, glyph over word (TopBar · `data-tiles`, 10-journal · «the
+     fold»; owner pick 24a, 17.11.2026 – «Verlauf» was a bare glyph on every phone), a gloved 44px
+     hit area each */
+  .tb-act { min-height: var(--tap); }
   /* the Atemschutz chip is the last thing in the bar, so its own trailing margin is what tips it
      over the edge on a 390px phone — and the name floor that keeps it readable on a tablet is
      wider than a phone can spare. Both give here; the countdown still never truncates. */
@@ -1382,6 +1366,9 @@
   .tb-gps .i { color: var(--amber-strong); width: 16px; height: 16px; }
   /* the Standort stop: a --float-h square in the same row (the FAB's and the ReadingsChip's size) */
   .tb-share > * { width: var(--float-h); height: var(--float-h); }
+  /* …a floating TILE, glyph over «Standort» (the bar's `.tb-act` in the floating family's
+     material, 17.11.2026) */
+  .tb-share > .tb-act { background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); border-radius: var(--r-bar); }
   /* --tap, not 40 (UX sweep S9, 20.10.2026): at (0,2,0) this beat 20-touch-floors' coarse
      `.tb-weather` floor, so the Karte's one wind target on a phone stayed 4px short */
   /* …the family's row: --float-h tall with its 14px a side (owner pick 13.11.2026, sweep R2-C –

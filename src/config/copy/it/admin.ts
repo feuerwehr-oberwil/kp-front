@@ -1590,6 +1590,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
         noPairsYet: 'Nessun collegamento alla mappa – i piani vengono salvati comunque.',
         joinWhat: 'Scegliere un punto, passare a un altro piano e toccare lo stesso punto dell’edificio. Entrambi i disegni devono avere la stessa scala e orientamento.',
         moveHint: 'Spostare un punto o un’area: afferrare e trascinare. Ridisegnare: «Traccia l’area».',
+        zoomReset: 'Reimposta zoom',
       },
     },
     layers: {

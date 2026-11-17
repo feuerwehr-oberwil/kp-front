@@ -445,6 +445,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logInsideAtClose: 'Binôme {name} encore engagé à la clôture',
     cycleEndAtClose: '{t} (encore engagé à la clôture)',
     logClockRestart: 'Binôme {name} : horloge de contact redémarrée – intervention rouverte',
+    cardMenuWord: 'Plus',
   },
   lineDecor: {
     W: 'Eau',

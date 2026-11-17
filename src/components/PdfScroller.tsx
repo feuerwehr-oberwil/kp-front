@@ -7,7 +7,7 @@ import { activeJump, pdfJumps, type PdfJump } from '../lib/pdfJumps'
 import { sharePdf } from '../lib/pdfShare'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
-import { IconButton } from './Button'
+import { Button } from './Button'
 import { Segmented } from './Segmented'
 import { PhoneTabBar } from './PhoneTabBar'
 import { useIsPhone } from '../lib/useIsPhone'
@@ -430,12 +430,15 @@ export function PdfScroller({ url, bare = false, fileName, row }: {
   }) : null
   const pick = (v: string) => { const j = jumps?.[Number(v)]; if (j) jumpTo(j.page) }
   const track = sections && <Segmented<string> tabs scroll ariaLabel={P.jumps} value={String(active)} onChange={pick} options={sections} />
-  // the bytes are fetched before the share sheet opens: the loader stands in for the glyph meanwhile
+  // the bytes are fetched before the share sheet opens: the loader stands in for the glyph meanwhile.
+  // Worded, «Öffnen» (its name stays «Öffnen in …»; button sweep audit, owner pick 24, 17.11.2026):
+  // a bare glyph at the end of a strip of worded section tabs
   const openIn = (
-    <IconButton label={P.openIn} disabled={sharing} aria-busy={sharing || undefined}
+    <Button variant="quiet" className={s.openIn} disabled={sharing} aria-busy={sharing || undefined} aria-label={P.openIn} title={P.openIn}
+      icon={sharing ? <ShellLoader /> : <Icon id="external" />}
       onClick={() => { setSharing(true); void sharePdf(url, fileName).catch(() => {}).finally(() => setSharing(false)) }}>
-      {sharing ? <ShellLoader /> : <Icon id="external" />}
-    </IconButton>
+      {P.openInWord}
+    </Button>
   )
   return (
     <div ref={rootRef} className={`${s.reader}${bare ? ` ${s.bare}` : ''}${strip && place === 'foot' ? ` ${s.withStrip}` : ''}`}>

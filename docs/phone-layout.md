@@ -126,6 +126,10 @@ unchanged.
   and ellipsises first, so the house number stays (and ↷ and the weather yield before either part
   is cut, `lib/useHeadFit`). An Übung adds
   the amber «Ü». Tablet: the title alone.
+- *The top bar's actions are tiles on a phone* (button sweep audit, owner pick 24a, 17.11.2026):
+  ↶ over «Rückgängig», the Verlauf glyph over «Verlauf», «Standort» under its glyph in the row under
+  the bar (TopBar · `data-tiles`, 10-journal · «the fold») – the tablet bar's fold, worn from the
+  start. «Verlauf» was a bare glyph on every phone and ↶ ↷ had no word on any device.
 
 ## Page heads and pages
 
@@ -207,12 +211,13 @@ unchanged.
 - *A head's icon buttons carry their word wherever it fits* (22.09.2026): «Reihenfolge ·
   Überwachung abgeben · Alarmton» on the Trupps head — MEASURED since 28.09.2026 (the page head's
   ladder, `lib/pageHeadFit`; the `.wordBtn`/`useIsPhone` switch there is gone), so a phone that has room shows
-  them and a tablet that has none folds them. **A phone's folded tile keeps its word UNDER the glyph**
+  them and a tablet that has none folds them. **A folded tile keeps its word UNDER the glyph**
   at 11/700, never a bare glyph (owner pick, button sweep HEADS.9, 17.11.2026 – the QR and the bell
-  stood bare one row above the list head's worded tiles): its short word where it has one
-  («Abgeben», «Trupp»), else its long one («Alarmton», the Zeitplan's «Drucken»). A count chip
-  («⚠ 4») keeps its number beside the glyph (`data-fold-beside`); a tablet's fold still drops the
-  word (13-incident · «fold»). The search line's «In Verwendung · Filtern ·
+  stood bare one row above the list head's worded tiles; on the tablet too since pick 24a the same
+  evening): its short word where it has one («Abgeben», «Trupp», «PDF»), else its long one
+  («Alarmton», the Zeitplan's «Drucken»). A count chip («⚠ 4») keeps its number beside the glyph
+  (`data-fold-beside`). **The tiles fold TOGETHER** – one rank for the head's tiles, never one at a
+  time (pick 24a; 13-incident · «fold»). The search line's «In Verwendung · Filtern ·
   Anderes Material» (`SurfaceControls.module.css · .wordBtn`) is not a page head and keeps its
   `useIsPhone` switch. A bare square's way of asking is the hold-tooltip. The bell's word is its
   honest STATE (Alarmton / Stumm / Ton freigeben).

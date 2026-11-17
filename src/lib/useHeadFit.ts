@@ -1,9 +1,9 @@
 /*
  * What leaves the TOP BAR when it runs out of room is MEASURED, not ruled per breakpoint
  * (`lib/useHeadFit`, 25.09.2026): one `fit-N` step at a time until it fits, lowest priority
- * first — weather, Einsatzdauer, ↷, the gaps, the Verlauf word, the alarm's
- * name, the Einsatz title (the pill stays: glyph + ÜBUNG), the «1?» count, and last the
- * Eintrag's word (`'eintrag-word'`, 29.09.2026). The Einsatz pill never
+ * first — weather, Einsatzdauer, ↷, the gaps, the actions' words (ALL of them at once, to glyph
+ * OVER word – `'action-words'`, pick 24a 17.11.2026), the alarm's name, the Einsatz title (the
+ * pill stays: glyph + ÜBUNG), and last the «1?» count. The Einsatz pill never
  * gives: squeezed below a readable width counts as «does not fit». A chip NEVER loses its icon —
  * a bare number says nothing — and is at least a tap wide. A new chip in the bar takes its place
  * in that ladder, never a `:has(...)` rule that hides a neighbour. The PAGE HEADS climb the same
@@ -25,20 +25,23 @@ import { useEffect, useLayoutEffect, type RefObject } from 'react'
  *
  * So the bar is MEASURED: from nothing collapsed, one step at a time, until it fits. The order is
  * the priority, lowest first — the weather, the Einsatzdauer, ↷ (grey and rarely wanted), the
- * gaps, the Verlauf word, the «vermisst» words, the alarm's name, the Einsatz title (the pill
- * stays, as its glyph and marker, a closed Einsatz's lock among them), the «1?» count (the «?» stays), and last the word «Eintrag»
- * (29.09.2026, sweep K2 — it keeps it at 820 px; the glyph alone is the journal pen, never a «+»
- * that the rail's «+ Symbol» also wears). The pill is never the
- * thing that gives: a pill squeezed below a readable width counts as «does not fit»
- * (`headCrowded`).
+ * gaps, the actions' words, the «vermisst» words, the alarm's name, the Einsatz title (the pill
+ * stays, as its glyph and marker, a closed Einsatz's lock among them), and last the «1?» count
+ * (the «?» stays). The pill is never the thing that gives: a pill squeezed below a readable width
+ * counts as «does not fit» (`headCrowded`).
+ * ⚠️ The actions' words fold TOGETHER and never leave (button sweep audit, owner pick 24a,
+ * 17.11.2026): ↶ «Rückgängig», ↷, «Verlauf», «Eintrag» and «Standort» turn into tiles, glyph
+ * OVER word, at ONE step (`'action-words'`, 10-journal · «the fold») – it used to be «Verlauf»
+ * first and «Eintrag» last, one bare glyph at a time, beside an ↶ ↷ that never had a word. A phone
+ * wears the tiles from the start (TopBar · `data-tiles`).
  * ⚠️ A chip NEVER loses its icon (final walk-through, R1): at 360 px a bare red «5» said nothing
  * about five of what, while ↷ still held its 44 px. Every chip keeps its glyph and its number,
  * and is at least a tap wide (10-journal.css).
  * Each step is a class `fit-N` on the bar (10-journal.css); a higher step keeps the lower ones.
  */
 export const HEAD_FIT_STEPS = [
-  'weather-compact', 'weather', 'einsatzdauer', 'redo', 'gaps', 'verlauf-word',
-  'vermisst-words', 'alarm-name', 'title', 'ask-count', 'eintrag-word',
+  'weather-compact', 'weather', 'einsatzdauer', 'redo', 'gaps', 'action-words',
+  'vermisst-words', 'alarm-name', 'title', 'ask-count',
 ] as const
 
 /** The title's floor: roughly eight characters, or the whole title if it is shorter. */
@@ -52,7 +55,7 @@ const TITLE_FLOOR = 112
  * either part of it — counts as «does not fit», so the weather, the
  * Einsatzdauer and ↷ only come back with what is LEFT once the street is whole (up to the pill's
  * own max). Past that step the 112px floor rules again: a very long street does not take the
- * Verlauf word, the alarm's name or ↶ with it. ↶ and Verlauf are not on this part of the ladder.
+ * actions' words, the alarm's name or ↶ with it. ↶ and Verlauf are not on this part of the ladder.
  */
 export const STREET_BEFORE_STEP = HEAD_FIT_STEPS.indexOf('redo') + 1
 

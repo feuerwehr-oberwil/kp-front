@@ -1585,6 +1585,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
         noPairsYet: 'No map link yet – the floors are saved anyway.',
         joinWhat: 'Choose a point, switch to another floor and tap the same building point there. Both drawings must use the same scale and orientation.',
         moveHint: 'Move a point or a region: grab it and drag. Redraw: «Draw region».',
+        zoomReset: 'Reset zoom',
       },
     },
     layers: {
