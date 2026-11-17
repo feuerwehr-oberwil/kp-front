@@ -170,7 +170,6 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       },
       groupStation: 'Station & incidents',
       groupPersonen: 'Personnel & access',
-      groupDaten: 'Data',
       groupSystem: 'System & backup',
       identitaet: { label: 'Station & map', title: 'Station & map', lede: 'Name, language, brand colour, logos and the situation map’s default view for this installation.' },
       karte: { label: 'Map', title: 'Map', lede: 'Initial situation-map view (centre + zoom) before an incident is selected.' },
@@ -876,7 +875,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       originsLabel: 'Choices',
       originsPlaceholder: 'e.g. Support base',
       attributesTitle: 'Symbol pick lists',
-      cliHint: 'Read-only – the lists are edited under «Daten» → «Arbeitsmappe».',
+      cliHint: 'Read-only – the lists are edited under «Vehicles & material» → «Workbook».',
       cliTip: 'On the «Symbolfelder» sheet, one row per option (symbol, field, option). Without a '
         + 'spreadsheet: «Sicherung» → export the configuration, add to fleet.attributeLists in the '
         + 'file, import it back.',
@@ -1033,7 +1032,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       showInactive: 'Show inactive',
       loading: 'Loading roster…',
       none: 'No persons recorded.',
-      noneHint: 'Without persons, attendance and the report stay empty lists. Add them one by one or import a CSV – for a whole brigade «Daten › Arbeitsmappe» is the fast path: download every list as one Excel file, fill it in, upload it again.',
+      noneHint: 'Without persons, attendance and the report stay empty lists. Add them one by one or import a CSV – for a whole brigade «Vehicles & material › Workbook» is the fast path: download every list as one Excel file, fill it in, upload it again.',
       colName: 'Name',
       colSource: 'Source',
       colStatus: 'Status',

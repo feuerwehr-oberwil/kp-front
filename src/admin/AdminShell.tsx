@@ -6,7 +6,7 @@ import { IconSprite, Icon } from '../lib/icons'
 import { InfoTip } from './InfoTip'
 import { ConfigProvider, ConfigGate, ConfigAutosaveStatus } from './ConfigContext'
 import { loadPrefs, savePrefs } from '../lib/prefs'
-import { ADMIN_NAV, adminSectionFromPath, adminSectionHref, resolveAdminSection, type SectionId } from './adminNavigation'
+import { ADMIN_ENTRIES, ADMIN_NAV, adminAreaOf, adminSectionFromPath, adminSectionHref, resolveAdminSection, type SectionId } from './adminNavigation'
 import { appConfig } from '../config/appConfig'
 import {
   IdentitySection,
@@ -30,11 +30,6 @@ import { ChecklistsView } from './ChecklistsView'
 import { CredentialsView } from './CredentialsView'
 import { ObjectVisitsView } from './ObjectVisitsView'
 import { BoardTemplatesView } from './BoardTemplatesView'
-
-// The sidebar shows seven areas; opening one exposes its explicit page links. Navigation
-// changes only the page: the one ConfigProvider stays mounted, preserving its draft/guards.
-const ALL_ENTRIES = ADMIN_NAV.flatMap((g) => g.entries)
-const areaFor = (id: SectionId) => ADMIN_NAV.find((g) => g.entries.some((e) => e.id === id)) ?? ADMIN_NAV[0]
 
 /** A nav entry's resolved label/title/lede/tip from the active locale's copy catalogue.
  *  ⚠️ The lede is OPTIONAL: a page whose surfaces already say what they are (Objektpläne) drops
@@ -70,7 +65,7 @@ const AUTOSAVE_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'rapport'
  *  and a typo there should do nothing rather than push an id the shell cannot render. */
 function navigator(navigate: (id: SectionId) => void) {
   return (id: string) => {
-    const hit = ALL_ENTRIES.find((e) => e.id === id)
+    const hit = ADMIN_ENTRIES.find((e) => e.id === id)
     if (hit) navigate(hit.id)
   }
 }
@@ -132,25 +127,29 @@ export function AdminShell() {
   }
   const C = appConfig.copy.admin
   const appName = getDeploymentConfig().identity?.appName ?? 'KP Front'
-  // Local route state; stable paths and popstate give every page refresh/Back support.
+  // Local route state; stable paths and popstate give every page refresh/Back support. The
+  // sidebar shows seven areas; opening one exposes its page links. Navigation changes only the
+  // page: the one ConfigProvider stays mounted, preserving its draft and guards.
   const [section, setSection] = useState<SectionId>(initialSection)
-  const [expandedArea, setExpandedArea] = useState<string | null>(() => areaFor(section).id)
+  const [expandedArea, setExpandedArea] = useState<string | null>(() => adminAreaOf(section).id)
   const mainRef = useRef<HTMLElement>(null)
   // Mobile drawer open state — desktop ignores this (sidebar is always shown).
   const [navOpen, setNavOpen] = useState(false)
 
+  /** Shows a page without touching history – the one place section state and prefs change. */
+  const show = (id: SectionId) => {
+    setSection(id)
+    setExpandedArea(adminAreaOf(id).id)
+    setNavOpen(false)
+    savePrefs({ ...loadPrefs(), adminSection: id })
+  }
+
   useEffect(() => {
     const initial = initialSection()
-    const canonical = adminSectionHref(initial)
     savePrefs({ ...loadPrefs(), adminSection: initial })
-    window.history.replaceState(window.history.state, '', canonical + window.location.search + window.location.hash)
-    const onPop = () => {
-      const next = initialSection()
-      setSection(next)
-      setExpandedArea(areaFor(next).id)
-      setNavOpen(false)
-      savePrefs({ ...loadPrefs(), adminSection: next })
-    }
+    // canonical URL for whatever was asked (bare /admin, a single segment, an old id)
+    window.history.replaceState(window.history.state, '', adminSectionHref(initial) + window.location.search + window.location.hash)
+    const onPop = () => show(initialSection())
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
@@ -164,18 +163,14 @@ export function AdminShell() {
     return () => document.removeEventListener('keydown', onKey)
   }, [navOpen])
 
-  const active = ALL_ENTRIES.find((e) => e.id === section) ?? ALL_ENTRIES[0]
-  const activeCopy = navCopy(active.id)
+  const activeCopy = navCopy(section)
   const isConfig = CONFIG_SECTIONS.has(section)
 
   const select = (id: SectionId) => {
     if (window.location.pathname !== adminSectionHref(id)) {
       window.history.pushState(null, '', adminSectionHref(id))
     }
-    setSection(id)
-    setExpandedArea(areaFor(id).id)
-    setNavOpen(false)
-    savePrefs({ ...loadPrefs(), adminSection: id })
+    show(id)
   }
 
   const follow = (event: MouseEvent<HTMLAnchorElement>, id: SectionId) => {

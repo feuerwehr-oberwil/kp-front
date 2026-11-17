@@ -19,9 +19,14 @@ describe('admin destinations and bookmarks', () => {
   it.each([
     ['karte', 'identitaet'], ['journal', 'rapport'], ['uebersicht', 'system'],
     ['statistik', 'links'], ['erfassung', 'links'], ['einsatzlink', 'zugaenge'],
-  ])('keeps the old %s page and device preference working', (old, current) => {
+  ])('keeps a device that remembers the old %s page working', (old, current) => {
     expect(resolveAdminSection(old)).toBe(current)
-    expect(adminSectionFromPath(`/admin/${old}`)).toBe(current)
+  })
+
+  it('opens an area URL on its first page, ahead of an old id with the same name', () => {
+    for (const area of ADMIN_NAV) expect(adminSectionFromPath(`/admin/${area.id}`)).toBe(area.entries[0].id)
+    expect(adminSectionFromPath('/admin/karte')).toBe('ebenen')
+    expect(adminSectionFromPath('/admin/journal')).toBe('rapport')
   })
 
   it('distinguishes a bare entry from an unknown path and rejects wrong areas/prototype keys', () => {

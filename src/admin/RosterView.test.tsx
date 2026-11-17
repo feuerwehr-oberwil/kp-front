@@ -422,4 +422,17 @@ describe('daily personnel list', () => {
     expect(container.querySelector<HTMLInputElement>('.adm-members-editbox input')!.value).toBe('Müller Lea')
     expect(updatePerson).not.toHaveBeenCalled()
   })
+
+  it('keeps a failed row action and its error visible when the name no longer matches', async () => {
+    listRoster.mockResolvedValue([person('p1', 'Müller Anna')])
+    let fail!: (e: Error) => void
+    updatePerson.mockReturnValue(new Promise((_, reject) => { fail = reject }))
+    await act(async () => render(<ConfigProvider><RosterView /></ConfigProvider>))
+    fireEvent.click(screen.getByRole('button', { name: `${C.colActions} — Müller Anna` }))
+    fireEvent.click(screen.getByRole('menuitem', { name: C.deactivate }))
+    fireEvent.change(screen.getByRole('textbox', { name: C.search }), { target: { value: 'zzzzzzzz' } })
+    await act(async () => fail(new Error('network down')))
+    expect(screen.getByText('Müller Anna')).toBeTruthy()
+    expect(screen.getByText(appConfig.copy.admin.common2.unknownError)).toBeTruthy()
+  })
 })

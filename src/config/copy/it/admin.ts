@@ -170,7 +170,6 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       },
       groupStation: 'Sede e interventi',
       groupPersonen: 'Personale e accessi',
-      groupDaten: 'Dati',
       groupSystem: 'Sistema e backup',
       identitaet: { label: 'Stazione e mappa', title: 'Stazione e mappa', lede: 'Nome, lingua, colore del marchio, loghi e vista iniziale della mappa per questa installazione.' },
       karte: { label: 'Carta', title: 'Carta', lede: 'Vista iniziale della carta della situazione (centro + zoom), prima che sia scelto un intervento.' },
@@ -877,7 +876,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       originsLabel: 'Scelte',
       originsPlaceholder: 'ad es. Centro di supporto',
       attributesTitle: 'Elenchi di scelta dei simboli',
-      cliHint: 'In sola lettura – gli elenchi si modificano in «Daten» → «Arbeitsmappe».',
+      cliHint: 'In sola lettura – gli elenchi si modificano in «Veicoli e materiale» → «Cartella di lavoro».',
       cliTip: 'Sul foglio «Symbolfelder», una riga per opzione (simbolo, campo, opzione). Senza '
         + 'foglio di calcolo: «Sicherung» → esportare la configurazione, completare '
         + 'fleet.attributeLists nel file e reimportarlo.',
@@ -1035,7 +1034,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       showInactive: 'Mostra inattivi',
       loading: 'Caricamento effettivo…',
       none: 'Nessuna persona registrata.',
-      noneHint: 'Senza persone, presenza e rapporto restano liste vuote. Registrarle una per una o importare un CSV – per un intero corpo «Daten › Arbeitsmappe» è la via rapida: scaricare tutte le liste come un unico file Excel, compilarle, ricaricarle.',
+      noneHint: 'Senza persone, presenza e rapporto restano liste vuote. Registrarle una per una o importare un CSV – per un intero corpo «Veicoli e materiale › Cartella di lavoro» è la via rapida: scaricare tutte le liste come un unico file Excel, compilarle, ricaricarle.',
       colName: 'Nome',
       colSource: 'Fonte',
       colStatus: 'Stato',

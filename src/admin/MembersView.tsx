@@ -393,9 +393,11 @@ export function MembersView() {
 
   const C = appConfig.copy.admin.members
   const preparedQuery = searchQuery(query)
-  // A filter never unmounts a form/confirmation with an unfinished edit or decision.
+  // A filter never hides a row with something unfinished: an edit, a pending decision, a
+  // write in flight or the error it left.
   const visible = state.kind === 'ok' ? state.data.filter((p) =>
-    editing === p.id || asking?.id === p.id || !preparedQuery || matchesAnyQuery(preparedQuery, p.display_name, p.username)) : []
+    editing === p.id || asking?.id === p.id || busyId === p.id || rowErr?.id === p.id
+    || !preparedQuery || matchesAnyQuery(preparedQuery, p.display_name, p.username)) : []
 
   return (
     <div className="adm-editor">

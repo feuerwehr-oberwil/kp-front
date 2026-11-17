@@ -216,7 +216,6 @@ export const adminCopy = {
       },
       groupStation: 'Station & Einsatz',
       groupPersonen: 'Personal & Zugriff',
-      groupDaten: 'Daten',
       groupSystem: 'System & Sicherung',
       identitaet: { label: 'Station & Karte', title: 'Station & Karte', lede: 'Name, Sprache, Markenfarbe, Logos und Startansicht der Karte für diese Installation.' },
       // ⚠️ Kein eigener Menüpunkt mehr – aber `title` benennt weiterhin die Karten- bzw.
@@ -312,7 +311,7 @@ export const adminCopy = {
       system: { label: 'System & Wartung', title: 'System & Wartung', lede: 'Status & Wartung: Version, Datenbank, Bestand, Speicher und der Offline-Cache dieses Geräts.' },
       sicherung: { label: 'Sicherung', title: 'Sicherung', lede: 'Konfiguration als Datei sichern oder eine gesicherte Datei einspielen.' },
     },
-    // Verwaltung › Daten › Arbeitsmappe (admin/StationWorkbookView). Die Vorschau IST das
+    // Verwaltung › Fahrzeuge & Material › Arbeitsmappe (admin/StationWorkbookView). Die Vorschau IST das
     // Feature: was neu ist, was sich ändert, was wegfällt – benannt, vor dem Schreiben.
     workbook: {
       covers: 'Enthalten sind acht Blätter: Mannschaft, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen und Symbolfelder – so, wie sie in der Datei heissen.',
@@ -1119,7 +1118,7 @@ export const adminCopy = {
       originsPlaceholder: 'z. B. Stützpunkt',
       // ── Symbol-Auswahllisten: hier nur Ansicht, geschrieben wird auf dem Blatt «Symbolfelder» ──
       attributesTitle: 'Auswahllisten der Symbole',
-      cliHint: 'Schreibgeschützt – bearbeitet werden die Listen unter «Daten» → «Arbeitsmappe».',
+      cliHint: 'Schreibgeschützt – bearbeitet werden die Listen unter «Fahrzeuge & Material» → «Arbeitsmappe».',
       cliTip: 'Auf dem Blatt «Symbolfelder», eine Zeile je Option (Symbol, Feld, Option). Ohne '
         + 'Tabellenprogramm: «Sicherung» → Konfiguration exportieren, in der Datei '
         + 'fleet.attributeLists ergänzen und wieder importieren.',
@@ -1287,9 +1286,9 @@ export const adminCopy = {
       showInactive: 'Inaktive anzeigen',
       loading: 'Personal wird geladen …',
       none: 'Noch keine Personen erfasst.',
-      // Der schnelle Weg für eine ganze Wehr steht sonst nur unter «Daten › Arbeitsmappe» –
+      // Der schnelle Weg für eine ganze Wehr steht sonst nur unter «Fahrzeuge & Material › Arbeitsmappe» –
       // also genau dort nicht, wo jemand mit vierzig Namen vor sich sitzt.
-      noneHint: 'Ohne Personen bleiben Anwesenheit und Rapport leere Listen. Einzeln erfassen oder als CSV importieren – für eine ganze Wehr ist «Daten › Arbeitsmappe» der schnelle Weg: alle Listen als eine Excel-Datei herunterladen, ausfüllen, wieder einspielen.',
+      noneHint: 'Ohne Personen bleiben Anwesenheit und Rapport leere Listen. Einzeln erfassen oder als CSV importieren – für eine ganze Wehr ist «Fahrzeuge & Material › Arbeitsmappe» der schnelle Weg: alle Listen als eine Excel-Datei herunterladen, ausfüllen, wieder einspielen.',
       colName: 'Name',
       colRank: 'Grad',
       colSource: 'Quelle',

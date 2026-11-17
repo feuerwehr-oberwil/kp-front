@@ -170,7 +170,6 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       },
       groupStation: 'Caserne et interventions',
       groupPersonen: 'Personnel et accès',
-      groupDaten: 'Données',
       groupSystem: 'Système et sauvegarde',
       identitaet: { label: 'Caserne et carte', title: 'Caserne et carte', lede: 'Nom, langue, couleur de marque, logos et vue initiale de la carte pour cette installation.' },
       karte: { label: 'Carte', title: 'Carte', lede: 'Vue initiale de la carte de situation (centre + zoom), avant qu’une intervention soit choisie.' },
@@ -877,7 +876,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       originsLabel: 'Choix',
       originsPlaceholder: 'p. ex. Centre de renfort',
       attributesTitle: 'Listes de choix des symboles',
-      cliHint: 'En lecture seule – les listes se modifient sous « Daten » → « Arbeitsmappe ».',
+      cliHint: 'En lecture seule – les listes se modifient sous « Véhicules et matériel » → « Classeur ».',
       cliTip: 'Sur la feuille « Symbolfelder », une ligne par option (symbole, champ, option). Sans '
         + 'tableur : « Sicherung » → exporter la configuration, compléter fleet.attributeLists dans '
         + 'le fichier, puis réimporter.',
@@ -1035,7 +1034,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       showInactive: 'Afficher les inactifs',
       loading: 'Chargement de l’effectif…',
       none: 'Aucune personne saisie.',
-      noneHint: 'Sans personnes, la présence et le rapport restent des listes vides. Saisir une à une ou importer un CSV – pour toute une compagnie, «Daten › Arbeitsmappe» est la voie rapide : télécharger toutes les listes en un fichier Excel, les remplir, les réimporter.',
+      noneHint: 'Sans personnes, la présence et le rapport restent des listes vides. Saisir une à une ou importer un CSV – pour toute une compagnie, «Véhicules et matériel › Classeur» est la voie rapide : télécharger toutes les listes en un fichier Excel, les remplir, les réimporter.',
       colName: 'Nom',
       colSource: 'Source',
       colStatus: 'Statut',

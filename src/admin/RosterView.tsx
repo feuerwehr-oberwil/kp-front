@@ -702,9 +702,11 @@ export function RosterView() {
 
   const C = appConfig.copy.admin.roster
   const preparedQuery = searchQuery(query)
-  // A filter never unmounts a form/confirmation with an unfinished edit or decision.
+  // A filter never hides a row with something unfinished: an edit, a write in flight or the
+  // error it left.
   const visible = state.kind === 'ok' ? state.data.filter((p) =>
-    editing === p.id || !preparedQuery || matchesAnyQuery(preparedQuery, p.display_name, p.first_name, p.last_name)) : []
+    editing === p.id || busyId === p.id || rowErr?.id === p.id
+    || !preparedQuery || matchesAnyQuery(preparedQuery, p.display_name, p.first_name, p.last_name)) : []
 
   return (
     <div className="adm-editor">

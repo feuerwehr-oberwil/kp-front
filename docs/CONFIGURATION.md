@@ -146,25 +146,17 @@ One JSON document, stored as the single `deployment_config` row, returned by `GE
 
 The admin panel groups its 21 pages into seven areas: Übersicht, Personal & Zugriff,
 Fahrzeuge & Material, Karte & Vorlagen, Station & Einsatz, Anbindungen, and System & Sicherung.
-Open an area with several pages to expose its links; a single-page area opens that page. Each
-page has a stable `/admin/<area>/<page>` URL, for example `/admin/personal/mannschaft`. Browser Back,
-Forward, refresh and opening a link in another tab keep the requested page. Old single-page
-paths and renamed page ids resolve to their current destination. Only bare `/admin` resumes
-the device's last page, falling back to System & Wartung; an unknown explicit path goes to
-System & Wartung rather than silently selecting a device preference.
+Each page has a stable `/admin/<area>/<page>` URL (e.g. `/admin/personal/mannschaft`), so
+Back, Forward, refresh and new tabs keep the page. `/admin/<area>` opens the area's first page,
+`/admin/<page>` that page. Bare `/admin` resumes the device's last page (old page ids
+included), falling back to System & Wartung; an unknown path opens System & Wartung.
 
-One config provider remains mounted across page changes. Pending and successful autosaves
-stay beside an editable page; failed saves, version conflicts and refused empty sections stay
-visible above every page until resolved. Personnel and login accounts remain separate lists,
-each searchable by name (accounts also by username). Search never changes records or hides an
-unfinished edit or confirmation. Personal opens with its list; name order, nightly sync policy
-and CSV import are under «Einstellungen & Import». The inactive filter and import confirmation
-behavior are unchanged.
-
-The current navigation is the first station-desk slice (2026-11-17). Settings search,
-a new attention-first homepage, unified integration workspaces,
-field-level workbook comparison and per-section import are later work, not capabilities of
-this navigation update.
+One config provider stays mounted across page changes, so a draft survives navigation.
+Pending and successful autosaves show beside an editable page; failed saves, version
+conflicts and refused empty sections stay above every page until resolved. Personal and
+Mitglieder & Zugriff are searchable by name (accounts also by username); a search never hides
+a row with an open edit, a pending confirmation or a failed write. Personal opens with its
+list; name order, nightly sync and CSV import sit under «Einstellungen & Import».
 
 ### Where each section is edited
 
