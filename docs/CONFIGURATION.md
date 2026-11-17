@@ -20,6 +20,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
 - [0. The four layers (recap)](#0-the-four-layers-recap)
   - [0a. For developers – where a setting lives, station data, coordinates](#0a-for-developers--where-a-setting-lives-station-data-coordinates)
 - [1. Deployment config – the JSON document](#1-deployment-config-the-json-the-deployment-owner-edits)
+  - [Browser navigation](#browser-navigation)
   - [Where each section is edited](#where-each-section-is-edited)
   - [1a. `alarmKeywords` – the station's own alarm vocabulary](#1a-alarmkeywords--the-stations-own-alarm-vocabulary)
   - [1b. `report.hoursRounding` – Einsatzstunden on the printed rapport](#1b-reporthoursrounding--einsatzstunden-on-the-printed-rapport)
@@ -140,6 +141,22 @@ unchanged):
 
 One JSON document, stored as the single `deployment_config` row, returned by `GET /api/config`.
 **Every field is optional**; anything omitted falls back to the national default.
+
+### Browser navigation
+
+The admin panel groups its 21 pages into seven areas: Übersicht, Personal & Zugriff,
+Fahrzeuge & Material, Karte & Vorlagen, Station & Einsatz, Anbindungen, and System & Sicherung.
+Each page has a stable `/admin/<area>/<page>` URL (e.g. `/admin/personal/mannschaft`), so
+Back, Forward, refresh and new tabs keep the page. `/admin/<area>` opens the area's first page,
+`/admin/<page>` that page. Bare `/admin` resumes the device's last page (old page ids
+included), falling back to System & Wartung; an unknown path opens System & Wartung.
+
+One config provider stays mounted across page changes, so a draft survives navigation.
+Pending and successful autosaves show beside an editable page; failed saves, version
+conflicts and refused empty sections stay above every page until resolved. Personal and
+Mitglieder & Zugriff are searchable by name (accounts also by username); a search never hides
+a row with an open edit, a pending confirmation or a failed write. Personal opens with its
+list; name order, nightly sync and CSV import sit under «Einstellungen & Import».
 
 ### Where each section is edited
 

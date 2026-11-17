@@ -92,6 +92,24 @@
 }
 .adm-side-group { margin-bottom: 10px; }
 .adm-side-group:last-child { margin-bottom: 0; }
+/* A navigation disclosure is a native summary, not a ListRow: it opens links without
+   pretending to select a page. Its visual family stays the existing sidebar's. */
+summary.adm-side-item { list-style: none; }
+summary.adm-side-item::-webkit-details-marker { display: none; }
+summary.adm-side-item .adm-side-ic:last-child { margin-left: auto; }
+details[open] > summary.adm-side-item .adm-side-ic:last-child { transform: rotate(180deg); }
+.adm-side-list.adm-side-pages { padding-left: var(--sp-4); }
+.adm-save-alert:empty { display: none; }
+.adm-save-alert { flex: 0 0 auto; padding: 0 var(--sp-4) var(--sp-3); background: var(--surface); }
+.adm-save-alert .adm-autosave { font-size: var(--fs-1); font-weight: var(--fw-medium); white-space: normal; flex-wrap: wrap; max-width: 100%; }
+.adm-save-alert .adm-autosave-retry { min-height: var(--tap); font-size: var(--fs-1); }
+/* Placement for the shared SearchField; its skin remains .ui-search. */
+.adm-person-search { flex: 1; min-width: 0; }
+.adm-roster-settings > summary {
+  min-height: var(--tap); padding: var(--sp-4); cursor: pointer;
+  font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink);
+}
+.adm-roster-settings > summary:active { background: var(--press); }
 .adm-side-heading {
   margin: 0 0 2px; padding: 0 10px;
   font-size: 10.5px; font-weight: var(--fw-bold); letter-spacing: .08em; text-transform: uppercase;
@@ -117,7 +135,7 @@
 }
 .adm-side-ic { flex: 0 0 auto; width: 18px; height: 18px; color: var(--ink-faint); }
 .adm-side-item.on .adm-side-ic { color: var(--blue); }
-.adm-side-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.adm-side-label { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .adm-side-scrim { display: none; }
 /* the header links' phone home (see the 720px block) — hidden while the header has room */
 .adm-side-out { display: none; }
