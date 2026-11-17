@@ -80,13 +80,13 @@ async function serverTrupps(): Promise<{ id: string; name: string; lastContactTi
   return (await res.json()).workspace.trupps
 }
 
-test('after an uncached Einsatz fails to open, the on-screen Trupp can still send a Kontakt', async ({ page, baseURL }) => {
+test('after an uncached Einsatz fails to open, the on-screen Trupp can still send a Kontakt', async ({ page }) => {
   const title = `Wechselübung ${Date.now().toString(36)}`
   const created = await station.post('/api/incidents', { data: { title, is_exercise: true } })
   expect(created.status()).toBe(201)
   const { id } = await created.json()
   try {
-    await openOnTrupps(page, baseURL!)
+    await openOnTrupps(page, new URL(created.url()).origin)
     const detail = 'Einsatz derzeit nicht erreichbar'
     await page.route(`**/api/incidents/${id}/workspace`, (route) => route.fulfill({ status: 503, json: { detail } }))
     await page.locator('.ip-switch-btn').click()
