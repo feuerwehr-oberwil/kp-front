@@ -405,7 +405,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     glass clusters, menus, docks) keeps ONE even gap all round – `--bar-pad` plus its
     1px border – and its corner is the controls' corner plus that gap, `--r-bar` (19px), so the
     curves run parallel like nested squares (the top bar had 7px above the pill and 11px beside
-    it, and no radius could match both); a MESSAGE is not a bar – it wears the one corner itself
+    it, and no radius could match both). **Every floating PIECE wears that corner too** (owner pick 20,
+    17.11.2026: at 12px beside the 19px bars they read «too angular»): the floating row's tiles and
+    chips (Objekt · Gebäude · Gebäude-Info · Messungen, the radar pill), the Eintrag FAB, «Zurück zum
+    Rapport», the Folgen chip, the Tafel's page strip, the Karte's phone squares – phone and tablet;
+    a MESSAGE is not a bar – it wears the one corner itself
     and its buttons sit `--msg-pad` inside with `--r-msg-in`; (3) the **parts of one control** (segments in `.useg`,
     the zoom buttons in their group) are the control's corner less their inset. No literal px
     radius above `--r-xs` (hairline ticks and handles aside); the old 10 · 14 · 16 · 20 · 22 scale put three corners on three neighbouring
@@ -492,7 +496,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     bottom-left chip row after the Gebäude chip – on a phone it is the piece in that row that
     gives way) and the Eintrag FAB — wears `--float-*` (01-tokens): the bars' glass with
     their `--glass-line` edge as an INSET ring and `--shadow`; ONE row height `--float-h` (a --tap
-    button + `--msg-pad` all round = 52px); the one corner; 14px before the glyph; 16px glyphs. A
+    button + `--msg-pad` all round = 52px) – and on the BOTTOM LINE the bar's height, `--line-h`
+    (owner pick 21, 17.11.2026: every piece there – tiles, chips, the FAB, a dock, ✥ ⟳, the view
+    bar – ONE baseline and ONE height: the phone's bars' `--rail-h`, the tablet's view bar
+    `--view-bar-h`; the tablet's «Gebäude | Gebäude-Info» stood 52 beside the 70px bar); the bars'
+    corner `--r-bar` on a piece, the one corner on a message; 14px before the glyph; 16px glyphs. A
     STATE is a glyph colour inside it — the chip's lamp, a toast's leading icon, the object chip's
     amber ⚠ — never an outline (the Massstab chip wore a blue ring beside its green lamp); «open /
     armed» is a blue wash mixed into the glass. «Not yet» is GREY (29.09.2026): a plan with no
@@ -512,8 +520,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     antippen», a tap stops it). On a phone the pieces stand on ONE baseline,
     `--float-bottom` (15-mobile): `--float-gap` (8px) above the highest bar (nav bar · Rapport tab
     strip · tool bar · a tool's option dock), 8px from the screen's edge and from
-    each other. The FAB is a `--float-h` square in the one corner (round until 16.11.2026, owner:
-    «match the corner radius of the other things»), «Eintrag» always under its glyph like a
+    each other. The FAB is a `--line-h` square in the bars' corner (round until 16.11.2026, owner:
+    «match the corner radius of the other things»; r12 until pick 20, 17.11.2026), «Eintrag» always under its glyph like a
     worded tool-bar tile (the 22px glyph flush on the 11/700 word, centred) – not tied to «Beschriftung der Werkzeugleisten», which is the bars'
     setting, not the floating row's – on that baseline; `--fab-safe` is its width + the gap. On a
     phone EVERY piece of that row is such a tile (button round 17.11.2026, owner pick 12C): the
@@ -545,16 +553,18 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     have a dark sidebar in lightmode?» — the phone's bar since 01.10., every dock since): Messen
     and every tool-option dock on the Karte, the Einsatz map and the Plan/Skizze, phone and tablet,
     wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
-    The controls share one neutral fill (`--dock-control-bg`, opaque) and hover
-    (`--dock-control-hover`); a picked width/line style is the selected wash; a dock toggle that
-    is ON (`.wb-dock-tog.on`, «Mehrere», the Messen mode) is a choice and wears the `--sel` fill.
+    Their controls follow **the colour table** (below): bare at rest, a toggle that is ON
+    (`.wb-dock-tog.on`, «Mehrere», the Messen mode) the `--sel` fill, a picked width/line style the
+    selected wash, the grey plate on the ✕ alone (opaque, so the sticky ✕ hides what scrolls under it).
     **«Armed» is one look** (duck sweep ELEM.1, owner 17.11.2026): an armed tool or mode – the
     rail's tool, the selection bar's ✥ «Verschieben» / ⟳ «Drehen» – is the ink pill (`--here-fill`,
-    role 3 below); at rest the bar's two grips are the neutral dock control. **The ✥ ⟳ bar is a bar
+    role 3 below); at rest the bar's two grips are bare like Ebenen. **The ✥ ⟳ bar is a bar
     of tiles like every other** (button sweep CHROME.2/.9, owner 17.11.2026): glyph 22 over the word
     11/700, 46px on a phone and the view bar's 56 on a tablet, on the view bar's baseline
     (`--view-bar-h`), worded by «Beschriftung» exactly like the dock – the word never changes with
-    the state; on a phone it stands where the dock row stands and is that row's twin. The ✓ is
+    the state; on a phone it is the dock row's twin and stands in the TOOL BAR's slot, which the
+    tool bar leaves while it shows (owner pick 21, 17.11.2026 – in the dock's slot it floated a bar
+    over an empty gap). The ✓ is
     `--btn-primary`. No dock carries a line of text, on any surface or width (20.10.2026, owner:
     «Remove the line. I don't think they add any value.»): a tool's instructions are its ⓘ.
     **The armed tool's name is the dock's FIRST tile** (`ToolDock · armed`, `.wb-dock-name`; owner
@@ -572,6 +582,22 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *Height is a separate axis* – `--tap` (44px) by default, 48–50px for a card's main action.
     The 12 type combos happened because people enlarged the *label* when they wanted a bigger
     *target*; raise the height, not the font.
+  - **The colour table** (owner pick 22, 17.11.2026 – ONE grammar for every bar, dock, tile and
+    chip; the sentences below fill it in, they never contradict it):
+
+    | Look | Token | Means | Examples |
+    | --- | --- | --- | --- |
+    | bare | none – the bar's glass shows | a tile at rest | a rail tool, Ebenen, ✥ ⟳, a dock toggle that is off, the dock's ⓘ |
+    | ink fill | `--here-fill` / `--on-here` | where you are · what is armed | the nav item of the page, the armed tool, an armed ✥ / ⟳, a Trupp tab |
+    | blue fill | `--sel` / `--on-sel` | an option that is ON | «Mehrere», a filter that narrows, a segment, a choice chip |
+    | blue wash | `--sel-wash` + `--blue-strong` | its menu / panel is open | open Ebenen, the Ansichten compass, a Menu trigger while up, the ⓘ open |
+    | grey plate | `--dock-control-bg` | the way out – only | the dock's ✕ «Abbrechen», the ✥ ⟳ bar's ✕ «Schliessen» |
+    | red | `--red` / `--del-*` | delete · alarm | THE delete look, a Notfall |
+    | amber | `--amber` | warning · the second axis | a hazard, a geometry's second axis |
+    | green | `--green` | present · done | «anwesend», a lamp that is right, a done step |
+
+    A new control finds its row here; a plate on a resting tile, a blue that is not «on» or «open»,
+    or an ink fill that is not «here» is a bug.
   - *Colour:* the primary fill is `var(--btn-primary)` (+ `--btn-primary-hover` /
     `--on-btn-primary`), never `--ink-fill`/`--blue`/`--accent` directly. **Red never fills an
     action** – it means danger/delete only. Amber = warning but not critical; red = danger,
@@ -791,7 +817,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     (SurfaceControls · `.iconBtn`), the page-head tiles (`.head-tile`, Atemschutz · `.headTile`), any
     `<Button>` trigger (`.ip-btn`), the admin's ⋯ – it outranks a filter's ON fill until the menu
     closes. A head menu trigger carries **no ▾** (owner pick, HEADS.11): the open look is how it
-    says it opened a menu; glyph + word say what it is. The ink pill (`--here-fill`) is «where you are» only. The tool docks keep DockInfo's ⓘ in the dock's control fill.
+    says it opened a menu; glyph + word say what it is. The ink pill (`--here-fill`) is «where you are» only. The tool docks' ⓘ (DockInfo) rests bare like the dock's other tiles (the colour table).
     (7) **No hits**: one line, `.no-hits` (13/500 `--ink-faint`, centred, 20px pad, never italic),
     worded `copy.noHits` «Keine Treffer für «{q}».» while there IS a query – the Verlauf too, never
     a big `EmptyState` for a search. While only a FILTER narrows the list (no query), the line is

@@ -1342,7 +1342,7 @@ button.rp-sign-row:disabled { cursor: default; }
 .rp-return { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
   z-index: var(--z-topbar); display: inline-flex; align-items: center; gap: 8px; box-sizing: border-box;
   min-height: var(--float-h); padding: 0 calc(var(--float-pad-x) + 4px) 0 var(--float-pad-x);
-  border: none; border-radius: var(--r-sm); color: var(--on-btn-primary);
+  border: none; border-radius: var(--r-bar); /* the floating pieces' corner, owner pick 20 */ color: var(--on-btn-primary);
   background: var(--btn-primary);
   box-shadow: var(--e4);
   font: var(--fw-bold) var(--fs-2) var(--body); cursor: pointer; white-space: nowrap; }

@@ -8,11 +8,11 @@
    instead of inventing its own number — the old scattered 64/72/80/86px guesses each covered the
    place somebody remembered and missed the rest, and a hit-test found the circle sitting on the
    Atemschutz «Austritt» button, on Anwesenheit person rows, on a Mittel row and on the Checkliste
-   rail. 60px = the tile (--float-h, the floating family's one row height, 26.09.2026 — it was
-   58) plus the family's 8px gap.
+   rail. The tile (--line-h, the bottom line's one height: the bars' 60px on a phone since owner
+   pick 21, 17.11.2026 – the family's 52 from 26.09.2026, 58 before) plus the family's 8px gap.
    0 unless the FAB is actually on screen (viewer, composer, open panel, tool dock → no reserve). */
 .app { --fab-safe: 0px; }
-.app:has(.fab-entry) { --fab-safe: calc(var(--float-h) + var(--float-gap)); }
+.app:has(.fab-entry) { --fab-safe: calc(var(--line-h) + var(--float-gap)); }
 /* ⚠️ …and the same pair on :root, because the reserve has one consumer that is NOT inside .app:
    the toast host. `<Overlays />` is mounted at the ROOT on purpose (App.tsx — .app is a stacking
    context, so a confirm opened from a root-level sheet painted under it), so `.toaster` never
@@ -21,10 +21,11 @@
    `elementFromPoint` at the FAB's own visual centre returned the undo button. Tapping «+ Eintrag»
    undid the entry you had just made. Same values, so nothing inside .app changes. */
 :root { --fab-safe: 0px; }
-:root:has(.fab-entry) { --fab-safe: calc(var(--float-h) + var(--float-gap)); }
+:root:has(.fab-entry) { --fab-safe: calc(var(--line-h) + var(--float-gap)); }
 .fab-entry { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: var(--z-fab);
   display: inline-flex; align-items: center; gap: 8px; padding: var(--sp-3) var(--sp-5) var(--sp-3) var(--sp-4);
-  border: none; border-radius: var(--r-sm); color: var(--ink);
+  /* the bottom line's height and the bars' corner (01-tokens · --line-h, owner picks 20 + 21) */
+  --float-h: var(--line-h); border: none; border-radius: var(--r-bar); color: var(--ink);
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
   font: var(--fw-bold) var(--fs-3) var(--body); cursor: pointer; touch-action: none; user-select: none;
   animation: pop .2s var(--ease); transition: transform .12s var(--ease), filter .14s var(--ease); }
@@ -36,8 +37,9 @@
    --float-*): the bars' glass by day and by night. Its own raised --ink-fill at night and a
    heavier drop shadow made it the one piece of the bottom row in a colour of its own (owner,
    staging 26.09.2026). ⚠️ …and since 16.11.2026 its corner too (owner: «match the corner radius
-   of the other things and also add a label below»): the one corner, `--r-sm`, with «Eintrag»
-   under the glyph (phone block below). It was the row's one round thing. */
+   of the other things and also add a label below»), with «Eintrag» under the glyph (phone block
+   below) – the bars' corner, `--r-bar`, since owner pick 20 (17.11.2026; `--r-sm` until then). It
+   was the row's one round thing. */
 @media (hover: hover) {
   .fab-entry:hover { filter: brightness(1.05); }
 }
@@ -149,6 +151,10 @@
      info, and info»). The feet of the two bars above the nav bar, for whoever stands on them: */
   :root { --tools-bottom: calc(8px + var(--rail-h) + var(--float-gap) + env(safe-area-inset-bottom));
     --dock-bottom: calc(var(--tools-bottom) + var(--rail-h) + var(--float-gap)); }
+  /* …and every floating piece is a bar's height (01-tokens · --line-h, owner pick 21, 17.11.2026):
+     a tile, the FAB, a dock and the ✥ ⟳ bar are ONE height wherever they stand – beside a short
+     bar on its line, or on a line of their own (B+ made them 60 only beside a bar, 52 elsewhere). */
+  :root { --line-h: var(--rail-h); }
 
   /* ── Phone editing ── the tool rail is ALWAYS there on the drawing surfaces (no edit
      mode): a horizontal bar stacked above the surface bar, so tools and view switching are
@@ -301,11 +307,12 @@
      the top bar (z 56) and modal overlays remain above it. */
   .phone-tools .whiteboard:has(.ctx) { z-index: var(--z-chrome-raised); }
   .phone-tools .coord-read { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
-  /* ✥ ⟳ stands where the dock row stands while a tool is out – and is that row's twin (button
-     sweep CHROME.2, owner 17.11.2026): its foot `--dock-bottom`, `--rail-h` tall, the row's 4px 8px
-     inset and 4px gap, the tiles 46px high and at least 50 wide with their word (below). One spot,
-     one anatomy, whichever of the two is up. */
-  .phone-tools .sel-bar { bottom: var(--dock-bottom); }
+  /* ✥ ⟳ is the dock row's twin (button sweep CHROME.2, owner 17.11.2026): `--rail-h` tall, the
+     row's 4px 8px inset and 4px gap, the tiles 46px high and at least 50 wide with their word
+     (below). It stands in the TOOL BAR's slot (`--tools-bottom`, owner pick 21, 17.11.2026): the
+     tool bar steps aside whenever it shows (below, #638), and in the dock's slot it floated a bar's
+     height over that empty gap. */
+  .phone-tools .sel-bar { bottom: var(--tools-bottom); }
   /* …the row of tiles itself (11-measure · .sel-bar), the dock row's measures */
   .sel-bar { height: var(--rail-h); padding: 4px 8px; gap: 4px; }
   .sel-bar.worded > button { min-width: 50px; height: 46px; }
@@ -1105,10 +1112,6 @@
      · .wb-botleft): on the bars, beside a bar that leaves it room, risen past one that does not.
      The recording FAB on a detail sheet keeps its own place (below). */
   .fab-entry[data-float-placed] { bottom: calc(var(--float-floor) + var(--row-lift, 0px)); }
-  /* ONE height on a shared line (owner picks 13 + 14, B+, 17.11.2026): a floating piece that stands
-     beside a bar – the symbol's dock, the ✥ ⟳ bar – takes the bar's height, so Info, the bar and
-     Eintrag read as one line, not a 60px bar between two 52px squares (lib/floatRow · beside). */
-  :is(.wb-botleft, .fab-entry)[data-float-beside] { --float-h: var(--rail-h); }
   /* ⚠️ …and it steps aside while a keyboard is up (`data-kb`, lib/useViewportPan · 30.09.2026).
      Its baseline is the bars', which go behind the keys, so it stood wherever iOS's pan happened
      to leave it — on the Rapport, over the Einsatzleiter field just under the Kurzbericht being
@@ -1121,7 +1124,7 @@
      ⚠️ …onto THE floating row, at its left end where the row starts (26.09.2026): it stood
      centred, a 48px filled capsule beside the 58px circle — now the row's height and material
      (13-incident · .rp-return). */
-  .rp-return { bottom: var(--float-bottom); left: max(8px, env(safe-area-inset-left)); transform: none;
+  .rp-return { bottom: var(--float-bottom); left: max(8px, env(safe-area-inset-left)); transform: none; --float-h: var(--line-h);
     max-width: calc(100vw - 16px - var(--fab-safe)); }
   .maplibregl-ctrl-bottom-right { margin-bottom: calc(var(--rail-h) + 88px + env(safe-area-inset-bottom)); }
   /* ⚠️ …but not on the Karte (owner, 24.09.2026). There the ⓘ stood beside the FAB – with the
@@ -1174,8 +1177,8 @@
   :root { --float-bottom: calc(var(--float-base) + var(--float-gap) + env(safe-area-inset-bottom));
     --float-floor: calc(var(--float-bars) + var(--float-gap) + env(safe-area-inset-bottom)); }
   /* the row is OCCUPIED while any of its pieces is on screen: a FAB, the plan's chip row, the
-     strip, the way back to the Rapport. It publishes no height because it has only one: --float-h. */
-  :root:has(:is(.fab-entry, .wb-botleft, .rp-return)) { --float-row: calc(var(--float-h) + var(--float-gap)); }
+     strip, the way back to the Rapport. It publishes no height because it has only one: --line-h. */
+  :root:has(:is(.fab-entry, .wb-botleft, .rp-return)) { --float-row: calc(var(--line-h) + var(--float-gap)); }
   /* …and while «Zurück zum Rapport» stands (Anwesenheit / Material opened from the Rapport), the
      page's scroller ENDS above that row (Surface.module.css · .shell): the pill and the FAB lay on
      the row resting at the list foot – its name under the pill, its 🕐 under the FAB, and a tap
@@ -1276,9 +1279,9 @@
   /* the nav rail stays compact on a phone; drag-to-resize is a desktop affordance and
      would fight map gestures along the rail edge, so hide the grip (chevron still expands) */
   .nav-grip { display: none; }
-  /* + Eintrag FAB → a square tile of the row's one height (--float-h, 52px — 58 until 26.09.2026,
-     when the circle stood 6px taller than every chip and toast beside it; still inside the 48–56px
-     of a primary action), its word UNDER the glyph like a worded tool-bar tile (round 16.11.2026 #4,
+  /* + Eintrag FAB → a square tile of the bottom line's one height (--line-h = the bars' 60px since
+     owner pick 21, 17.11.2026; 52 from 26.09.2026, when the circle stood 6px taller than every chip
+     and toast beside it), its word UNDER the glyph like a worded tool-bar tile (round 16.11.2026 #4,
      owner: «add a label below»; it was a bare circle from 08.2026, when a word BESIDE the glyph
      crowded the weather pill on the same baseline). The tool docks' shape (09-whiteboard ·
      .wb-dock-worded, #633): a glyph BAND of one fixed height over the word, so the word stands on

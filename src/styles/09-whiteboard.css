@@ -62,7 +62,8 @@
    thing that changes once an Einsatz and is already right 99 times out of 100. It shouted, it
    invented a recipe nobody else used, and it sat on the corner of the plan that is looked at.
    Both are the Maßstab pill now — one recipe, one corner, and the top-left is plan again. */
-.wb-botleft { position: absolute; z-index: 8; left: calc(var(--rail-w) + 28px); bottom: 16px;
+/* its pieces are as tall as the bar on their line (01-tokens · --line-h, owner pick 21, 17.11.2026) */
+.wb-botleft { position: absolute; z-index: 8; left: calc(var(--rail-w) + 28px); bottom: 16px; --float-h: var(--line-h);
   max-width: calc(100% - var(--rail-w) - 44px);
   display: flex; align-items: center; gap: var(--float-gap); flex-wrap: wrap; }
 /* ⚠️ While «Karte verknüpfen» is armed this row IS the mode's instrument (GeorefMode ·
@@ -538,12 +539,12 @@
    already clears the nav rail, the phone's bars, the FAB and the safe areas (THE floating row,
    15-mobile · --float-bottom) and is already reserved by the board's fit (lib/whiteboard ·
    bottomInset). It wears that row's FLOATING family (01-tokens · --float-*: the glass, one row
-   height --float-h, --r-sm), holding the 44px segmented track and «+ Seite». Many pages scroll
+   height --float-h, the bars' corner --r-bar since pick 20), holding the 44px segmented track and «+ Seite». Many pages scroll
    sideways inside it (the open one scrolled into view); «+ Seite» always stays in view. A Tafel
    PAGE pads its foot by the row (Whiteboard · inset.bottom), so its last ruling scrolls above. */
 .tps {
   display: flex; align-items: center; gap: var(--sp-1); box-sizing: border-box; min-width: 0; max-width: 100%;
-  min-height: var(--float-h); padding: var(--msg-pad); overflow: hidden; border-radius: var(--r-sm);
+  min-height: var(--float-h); padding: var(--msg-pad); overflow: hidden; border-radius: var(--r-bar);
   background: var(--float-bg); -webkit-backdrop-filter: var(--float-blur); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
 }
 .wb-botleft > .tps { flex: 0 1 auto; }
@@ -924,9 +925,10 @@ span.wb-ghost-label { cursor: default; }
   scrollbar-width: thin; scrollbar-color: var(--ink-22) transparent;
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink);
   border-radius: var(--r-bar); padding: var(--bar-pad); }
-/* The neutral bar control's plate, for every bar that wears it: the docks AND the selection bar
-   (`.sel-bar`, 11-measure – a sibling of the dock, not inside it, so a token declared on
-   `.wb-dock` alone left its ✥ ⟳ transparent at rest; button sweep CHROME.5, 17.11.2026). */
+/* THE way out's plate – the dock's ✕ «Abbrechen» and the selection bar's ✕ «Schliessen», and
+   nothing else in a bar or a dock (owner pick 22, 17.11.2026, docs/ui-conventions.md · «The colour
+   table»): every other tile rests bare. Declared on both bars because `.sel-bar` (11-measure) is a
+   sibling of the dock, not inside it (button sweep CHROME.5). */
 .wb-dock, .sel-bar {
   --dock-control-bg: color-mix(in srgb, var(--ink) 7%, var(--surface));
   --dock-control-hover: color-mix(in srgb, var(--ink) 13%, var(--surface)); }
@@ -949,8 +951,6 @@ span.wb-ghost-label { cursor: default; }
 .wb-dock-glyph { display: grid; place-items: center; width: 22px; height: 22px; }
 .wb-dock-glyph .i { width: 22px; height: 22px; }
 .wb-dock-sym, .wb-dock-sym svg, .wb-dock-glyph > svg { display: block; width: 100%; height: 100%; }
-.wb-dock .wb-dock-tog:not(.on) { background: transparent; color: var(--ink); }
-@media (hover: hover) { .wb-dock .wb-dock-tog:not(.on):hover:not(:disabled) { background: var(--hover); } }
 @media (max-height: 640px) {
   .wb-dock { gap: 2px; }
   .wb-dock :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go, .wb-dock-name) { height: 34px; }
@@ -1011,14 +1011,15 @@ span.wb-ghost-label { cursor: default; }
 .wb-dock-word { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center;
   font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 1.1; }
 /* (.wb-dock-info / .wb-dock-ibtn / .wb-dock-tip migrated → DockInfo.module.css) */
-/* toggle inside the dock (e.g. the armed Messen mode, the "keep placing" lock) — the accent fill
-   when engaged: that fill is what says «armed», on day and night glass alike */
-.wb-dock-tog { width: 38px; height: 34px; display: grid; place-items: center; background: var(--dock-control-bg);
-  border: none; border-radius: var(--r-sm); cursor: pointer; color: var(--ink-dim); padding: 0; }
+/* toggle inside the dock (e.g. the armed Messen mode, the "keep placing" lock) — BARE at rest like
+   a rail tool (owner pick 22: the grey plate is the way out's only), the `--sel` fill when ON:
+   an option that is on, on day and night glass alike */
+.wb-dock-tog { width: 38px; height: 34px; display: grid; place-items: center; background: transparent;
+  border: none; border-radius: var(--r-sm); cursor: pointer; color: var(--ink); padding: 0; }
 .wb-dock-tog .i { width: 17px; height: 17px; }
 .wb-dock-tog.on { background: var(--sel); color: var(--on-sel); } /* active mode: blue accent */
 @media (hover: hover) {
-  .wb-dock-tog:hover:not(:disabled):not(.on) { background: var(--dock-control-hover); color: var(--ink); }
+  .wb-dock-tog:hover:not(:disabled):not(.on) { background: var(--hover); }
   .wb-dock-tog.on:hover:not(:disabled) { filter: brightness(1.08); }
 }
 .wb-dock-tog:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
@@ -1190,14 +1191,16 @@ span.wb-ghost-label { cursor: default; }
    28.10.2026 (#8) worn by the Objekt / Gebäude chip, the calibration instrument, the Messungen
    and the Karte's rows. Position comes from `.wb-botleft`; clearing the rail is that row's job,
    stated once.
-   ⚠️ --r-sm, not a pill (24.09.2026): these are buttons, and on a touch screen they stand --tap
-   tall (20-touch-floors) – a row of 44px capsules along the plan's foot.
+   ⚠️ not a pill (24.09.2026): these are buttons, and on a touch screen they stand --tap tall
+   (20-touch-floors) – a row of 44px capsules along the plan's foot. The BARS' corner, --r-bar
+   (owner pick 20, 17.11.2026: at the one corner, 12px, beside the 19px bars and docks they read
+   «too angular»), and the bar's height on the bar's line (.wb-botleft · --line-h).
    ⚠️ …and since 26.09.2026 they are the FLOATING FAMILY (01-tokens · --float-*), at every width:
    the bars' glass, one row height (--float-h), 14px before the glyph, 16px glyphs, ink words at
    the compact button type. On a --surface card with a --glass-edge ring, 12px/600 dim, 44px tall,
    beside a toast in glass at 52px and the Grundgerüst strip at 54, they read as a third thing. */
 .wb-scale-chip { display: inline-flex; align-items: center; gap: 8px; box-sizing: border-box;
-  max-width: 100%; min-height: var(--float-h); padding: 0 var(--float-pad-x); border-radius: var(--r-sm); border: none;
+  max-width: 100%; min-height: var(--float-h); padding: 0 var(--float-pad-x); border-radius: var(--r-bar); border: none;
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
   color: var(--ink); font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; }
 .wb-scale-chip svg { width: 16px; height: 16px; flex: none; color: var(--ink-dim); }
@@ -1220,17 +1223,17 @@ span.wb-ghost-label { cursor: default; }
    Gebäude-Info (Whiteboard · .wb-join). The group wears the family's
    glass; its chips give theirs up and are split by a hairline, each still its own tap. Colour only
    (not the `background` shorthand), so the hover wash and the armed fill below still paint. */
-.wb-join { display: inline-flex; align-items: stretch; flex: 0 1 auto; min-width: 0; max-width: 100%; border-radius: var(--r-sm);
+.wb-join { display: inline-flex; align-items: stretch; flex: 0 1 auto; min-width: 0; max-width: 100%; border-radius: var(--r-bar);
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); }
 .wb-join:empty { display: none; }
 .wb-join .wb-scale-chip { background-color: transparent; backdrop-filter: none; box-shadow: none; border-radius: 0; }
 .wb-join > * + * { border-left: 1px solid var(--border); }
-.wb-join > :first-child, .wb-join > :first-child > .wb-scale-chip { border-top-left-radius: var(--r-sm); border-bottom-left-radius: var(--r-sm); }
-.wb-join > :last-child, .wb-join > :last-child > .wb-scale-chip { border-top-right-radius: var(--r-sm); border-bottom-right-radius: var(--r-sm); }
+.wb-join > :first-child, .wb-join > :first-child > .wb-scale-chip { border-top-left-radius: var(--r-bar); border-bottom-left-radius: var(--r-bar); }
+.wb-join > :last-child, .wb-join > :last-child > .wb-scale-chip { border-top-right-radius: var(--r-bar); border-bottom-right-radius: var(--r-bar); }
 /* ⚠️ On a PHONE the floating row is TILES (button round 17.11.2026, owner pick 12C + follow-up: «the
    whole phone floating row = tiles»): the building / Objekt chip, the Gebäude-Info, «Messungen» –
    whatever they say, joined or alone – are the Eintrag FAB's anatomy (15-mobile · .fab-entry): a
-   22px glyph band flush on the 11/700 word, centred in the family's one height, r12. As wide as the
+   22px glyph band flush on the 11/700 word, centred in the bar's height, --r-bar. As wide as the
    word, never past `--float-tile-max`: a long street ellipsises INSIDE its tile («A label never
    leaves its button»), the whole name stays the button's `aria-label` / `title`. The trailing cue
    (the lamp, the ›) stands at the tile's top-right corner. The tablet keeps its chips (word beside).
@@ -1250,7 +1253,7 @@ span.wb-ghost-label { cursor: default; }
 .wb-scale-status { cursor: default; }
 /* #3: persist-a-calibration bar, sits just above the chip row after a fresh calibration — one
    --float-gap over the chip row (26.09.2026: the row is --float-h tall, 16px up on a tablet) */
-.wb-scale-persist { position: absolute; left: calc(var(--rail-w) + 28px); bottom: calc(16px + var(--float-h) + var(--float-gap)); z-index: 9;
+.wb-scale-persist { position: absolute; left: calc(var(--rail-w) + 28px); bottom: calc(16px + var(--line-h) + var(--float-gap)); z-index: 9;
   display: inline-flex; align-items: center; gap: 8px; max-width: min(94%, 520px); padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
   border-radius: var(--r-ctl); border: 1px solid var(--glass-line); background: var(--surface);
   box-shadow: var(--e4); animation: panelIn .16s var(--ease); }
@@ -1259,7 +1262,7 @@ span.wb-ghost-label { cursor: default; }
 /* its ✕ is THE icon button (<IconButton>, 08.10.2026 — it was a 34px dim ✕ of its own) */
 @media (--phone) {
   /* clear the two bottom bars on phones, and hug the left edge (no side rail) */
-  .wb-scale-persist { left: 10px; right: 10px; bottom: calc(var(--float-bottom) + var(--float-h) + var(--float-gap));
+  .wb-scale-persist { left: 10px; right: 10px; bottom: calc(var(--float-bottom) + var(--line-h) + var(--float-gap));
     max-width: none; flex-wrap: wrap; }
 }
 /* armed (calibrating, or its Passung open) = the chip is LIT, the way an armed tile of the tool
@@ -1277,7 +1280,7 @@ span.wb-ghost-label { cursor: default; }
    and this is its sibling.
    ⚠️ A DOCK, not a popover. The board underneath stays live and un-dismissing, so a tap on a
    symbol is a tap on that symbol — not a press that the overlay swallows to close itself. */
-.wb-georef-dock { position: absolute; left: calc(var(--rail-w) + 28px); bottom: calc(16px + var(--float-h) + var(--float-gap)); z-index: 9;
+.wb-georef-dock { position: absolute; left: calc(var(--rail-w) + 28px); bottom: calc(16px + var(--line-h) + var(--float-gap)); z-index: 9;
   /* THE sheet tone laid opaque, no edge, --e4 – the Gebäude card's recipe beside it (BuildingFloat ·
      .pop, owner 27.10.2026: a card of text over a drawn plan lets nothing through). r35, 06.11.2026:
      it was --surface with a --glass-line ring, at night a #232c3a slab beside #141a24 sheets. */

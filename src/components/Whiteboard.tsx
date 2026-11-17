@@ -2268,7 +2268,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           scene={tafel?.scene} onOpenKarte={tafel?.onOpenKarte} pendenzen={tafel?.pendenzen}
           // the bottom: the strip's row and its air, so the last ruling scrolls above it — on a
           // phone above THE floating row (15-mobile · --float-bottom), on a tablet above the row
-          inset={{ top: topRes, left: isPhone ? 0 : side.l, right: isPhone ? 0 : side.l, bottom: isPhone ? 'calc(var(--float-bottom, 72px) + var(--float-h) + 16px)' : 'calc(16px + var(--float-h) + 24px)' }} />
+          inset={{ top: topRes, left: isPhone ? 0 : side.l, right: isPhone ? 0 : side.l, bottom: isPhone ? 'calc(var(--float-bottom, 72px) + var(--line-h) + 16px)' : 'calc(16px + var(--line-h) + 24px)' }} />
       </div>
     )
   }

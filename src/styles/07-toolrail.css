@@ -160,6 +160,9 @@
   --view-bar-h: calc(var(--vrail-tile) + 2 * var(--bar-pad) + 2px);
   --view-bar-reserve: calc(16px + var(--view-bar-h) + var(--float-gap)); }
 @media (max-height: 699px) { :root { --vrail-tile: 50px; } }
+/* …and the bottom line wears the bar's height wherever the bar stands (01-tokens · --line-h, owner
+   pick 21): the plan's «Gebäude | Gebäude-Info» chips were 52px beside this 70px bar */
+:root:has(.view-bar) { --line-h: var(--view-bar-h); }
 .view-bar { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: 16px; z-index: var(--z-dock);
   display: flex; align-items: center; gap: 4px; padding: var(--bar-pad);
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);

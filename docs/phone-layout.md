@@ -62,10 +62,13 @@ unchanged.
   17.11.2026): the armed tool's name is the dock's first tile, not a pill of its own, and the dock
   HUGS its tiles, centred, 4px apart. Where it leaves room – [Unfall · Mehrere · Abbrechen], Mehrfach's
   [Mehrfach · Info · Abbrechen] at 390px – the row's tiles stand left of it and the FAB right of it
-  on its line, at the BAR's height (`data-float-beside` makes `--float-h` the bar's `--rail-h`): one
-  line, one height, one baseline. A long dock (Linie, Fläche, Form) – or a narrower phone – leaves
-  them a line above. Measured, not a tile count: the fit is asked at the bar's height (`floatRow ·
-  placePiece`), so a piece never flips between the lines. The FAB no longer yields to a dock (it
+  on its line: one line, one height, one baseline. A long dock (Linie, Fläche, Form) – or a narrower
+  phone – leaves them a line above. Measured, not a tile count (`floatRow · rowLift`).
+- *ONE height on the bottom line* (owner pick 21, 17.11.2026): every floating piece is the bars'
+  `--rail-h` tall, beside a bar or on a line of its own (01-tokens · `--line-h`, set to `--rail-h`
+  in 15-mobile) – the tiles, the FAB, «Zurück zum Rapport», the Karte's squares. B+ gave them the
+  bar's height only beside a bar (52 elsewhere), so a tile grew when a symbol was armed. The
+  Karte's squares stand one `--float-gap` over the bar like every piece (they stood 16px). The FAB no longer yields to a dock (it
   did from 08.2026, when the full-width dock owned its corner); a georef dock and a detail sheet
   still take its place.
 - *The Eintrag FAB is on every page, the Trupps board too* (27.10.2026, owner): the board
@@ -79,8 +82,9 @@ unchanged.
   screenshot: the bar over a peeked Linie sheet lay on «Auswahl» and the Gebäude chip):
   `body.sel-transforming` (lib/transformChrome) hides `.tool-rail` / `.wb-tools` / `.wb-botleft`
   by `visibility` for the mode or the grip drag, and the selection bar stands one `--float-gap`
-  above the sheet – half, full or peeked (76px). With no sheet it stands where the dock row stands
-  (`--dock-bottom`) and IS that row's twin (button sweep CHROME.2, 17.11.2026): `--rail-h` tall,
+  above the sheet – half, full or peeked (76px). With no sheet it stands in the TOOL BAR's slot
+  (`--tools-bottom`, owner pick 21, 17.11.2026 – in the dock's slot it floated a bar's height over
+  the empty gap the tool bar left) and IS the dock row's twin (button sweep CHROME.2): `--rail-h` tall,
   4px 8px inset, 46px tiles, the glyph 22 over its word under «Beschriftung» – one spot, one
   anatomy. The nav bar stays; the peeked sheet covers it.
   The same bars step aside for the length of ANY drag on an object's geometry – a vertex, a «+»,
@@ -92,7 +96,8 @@ unchanged.
   facts lamp at the tile's top-right corner), the Gebäude-Info («Info», or ⚠ over the hazard words
   in the hazard tone – the shape never flips with the content), «Messungen» (the worst reading's
   pill over the word), the Eintrag FAB and the Karte's «Punkt setzen» / «Ansichten» squares are
-  each a 22px glyph over an 11/700 word, `--float-h` tall, r12 (09-whiteboard · `.wb-tile`,
+  each a 22px glyph over an 11/700 word, the bars' `--rail-h` tall (`--line-h`, pick 21) in the
+  bars' corner `--r-bar` (owner pick 20, 17.11.2026 – r12 read «too angular») (09-whiteboard · `.wb-tile`,
   15-mobile · `.fab-entry`, Karte.module · `.utilBtn`). As wide as the word up to 136px; a longer
   word ellipsises inside its tile and the button's name stays whole. Joined pieces keep their one
   glass (`.wb-join`). The calibration instrument («Zwei Punkte … antippen») stays a chip – a

@@ -33,8 +33,9 @@
  * (`lib/transformChrome`, a body class), because they answer «where exactly» and a whole-object
  * drag is asking «where to».
  * Colour is one family: a geometry point is white-filled with a `--blue` ring, the bar's ✥ / ⟳
- * rest as the neutral dock control and wear the ink pill while armed (an armed tool, like the
- * rail's), `--amber` means the SECOND axis and nothing else,
+ * rest BARE like Ebenen and wear the ink pill while armed (an armed tool, like the rail's; the
+ * grey plate is the ✕'s only – docs/ui-conventions.md · «The colour table»), `--amber` means the
+ * SECOND axis and nothing else,
  * `--red` means delete, and `--accent` stays alarm/relationship – never «selected». Node dots are
  * 24px on both surfaces. Every grip whose press-and-hold is its own gesture carries
  * `data-holdaction`, or the app-wide hold-tooltip eats its release.

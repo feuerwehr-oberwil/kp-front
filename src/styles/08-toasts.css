@@ -912,10 +912,10 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 /* the follow chip a panned follower's pill turns into: one tap jumps back. The floating glass of
    every map chip with the presenter's red as its edge and words (owner pick 09.11.2026, mock
    nov09-folgen-button C): quiet over a full Lage, never a second alarm-red slab beside the fire.
-   The floating family's height and its one corner (button sweep CHROME.7, 17.11.2026 – it was a
-   capsule beside the r12 chips and the FAB). */
+   The floating family's height and the floating pieces' corner, --r-bar (button sweep CHROME.7 +
+   owner pick 20, 17.11.2026 – it was a capsule beside the chips and the FAB). */
 .present-again { pointer-events: auto; display: inline-flex; align-items: center; gap: var(--sp-2); height: var(--float-h);
-  padding: 0 var(--sp-4) 0 var(--sp-2); border: none; border-radius: var(--r-sm);
+  padding: 0 var(--sp-4) 0 var(--sp-2); border: none; border-radius: var(--r-bar);
   background: var(--float-bg); backdrop-filter: var(--float-blur); color: var(--red-strong);
   font: var(--fw-bold) var(--fs-3) var(--body); box-shadow: inset 0 0 0 2.5px var(--present), var(--e4); cursor: pointer; }
 .present-again .present-av { box-shadow: none; background: var(--present); }
@@ -997,7 +997,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    Name» in Sora 16px must fit a 390px phone (owner's iPhone, 06.11.2026) */
 @media (--phone) {
   .present-row { bottom: var(--float-bottom); max-width: calc(100vw - 16px); }
-  .app:has(.fab-entry) .present-row { bottom: calc(var(--float-bottom) + var(--float-h) + var(--float-gap)); }
+  .app:has(.fab-entry) .present-row { bottom: calc(var(--float-bottom) + var(--line-h) + var(--float-gap)); }
   .present-row[data-asking] { left: var(--sp-2); right: var(--sp-2); transform: none; max-width: none; align-items: stretch; }
   .present-row[data-asking] .present-pill { padding-right: var(--sp-2); }
   .present-row[data-asking] .present-ask { width: 100%; }

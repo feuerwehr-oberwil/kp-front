@@ -34,7 +34,7 @@
   position: absolute; left: 0; bottom: calc(100% + var(--float-gap)); z-index: 1;
   box-sizing: border-box; width: min(380px, calc(100vw - var(--rail-w, 0px) - 44px));
   /* the row's foot (16px) + the chip + the gap, counted from the bottom */
-  max-height: min(64vh, 560px, calc(100dvh - var(--pop-top) - 16px - var(--float-h) - var(--float-gap)));
+  max-height: min(64vh, 560px, calc(100dvh - var(--pop-top) - 16px - var(--line-h) - var(--float-gap)));
   overflow: auto; overscroll-behavior: contain;
   padding: var(--sp-3); border-radius: var(--r-sm);
   /* ⚠️ OPAQUE: the glass tone laid over the solid surface (owner, staging iPad 27.10.2026: «check

@@ -11,7 +11,7 @@
 @media (--phone) {
   /* the bars' width, one gap above THE floating row – the toast lane's place */
   .pop { position: fixed; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
-    bottom: calc(var(--float-bottom) + var(--float-h) + var(--float-gap)); width: auto; }
+    bottom: calc(var(--float-bottom) + var(--line-h) + var(--float-gap)); width: auto; }
 }
 /* the rows are THE ListRow in its rail density (LISTS.8); «where» is the row's end, a tag */
 .where { flex: none; padding: 0 var(--sp-2); border-radius: var(--r-xs); /* a tag corner, never a pill (T5) */ background: var(--hover);

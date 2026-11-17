@@ -10,12 +10,11 @@
 // measured overlap (`--row-lift`), so it sits beside a short dock and above a long one.
 //
 // B+ (owner picks 13 + 14, button round 17.11.2026): a short bar – the symbol's [Unfall · Mehrere ·
-// Abbrechen], the ✥ ⟳ bar – shares its line with the row's tiles on the left and the Eintrag FAB on
-// the right, and a piece standing on a bar's line takes the BAR's height (`data-float-beside`,
-// 15-mobile: `--float-h` becomes `--rail-h`), so the line reads as one height on one baseline. A
-// long bar (Linie, Form) leaves them a line above, as before. Measured, not a tile count: whether
-// it fits is asked at the bar's height – the tiles grow with it – so a piece never flips between
-// the two lines.
+// Abbrechen] – shares its line with the row's tiles on the left and the Eintrag FAB on the right; a
+// long bar (Linie, Form) leaves them a line above, as before. Measured, not a tile count. Every
+// piece already wears the bar's height (01-tokens · --line-h, owner pick 21), so the line reads as
+// one height on one baseline and the question is asked at the size the piece has – it never grows
+// or shrinks with the answer.
 //
 // The FAB stays out while a tool is out since then (it yielded to the dock until 17.11.2026,
 // when the full-width dock stood in its corner); a dock that hugs its tiles leaves it room.
@@ -39,14 +38,13 @@ export interface Box { left: number; right: number; top: number; bottom: number 
 const GAP = 8
 /** the pieces of the floating row this places, each on its own: the tiles, and the FAB */
 const ROW_SEL = '.wb-botleft, .fab-entry'
-/** the BARS a piece can share its line with: the tool's option dock (led by the armed tool's
- *  readout tile, ToolDock · armed) and the ✥ ⟳ bar */
-const BAR_SEL = '.phone-tools .wb-dock, .phone-tools .sel-bar'
-/** what stands on the row's floor on a phone: the bars, Messen's results panel (MeasurePanel ·
+/** what stands on the row's floor on a phone: the tool's option dock (led by the armed tool's
+ *  readout tile, ToolDock · armed), the ✥ ⟳ bar (in the tool bar's slot since owner pick 21, so
+ *  below the floor – it only counts for the message lane), Messen's results panel (MeasurePanel ·
  *  `data-float-stack`, a hashed module class), and the Präsentationsmodus pill
  *  (components/Presentation – it stands bottom centre, the chips rise past it; owner's iPhone
  *  06.11.2026) */
-const OBSTACLE_SEL = `${BAR_SEL}, .phone-tools [data-float-stack], .phone-tools .present-pill, .phone-tools .present-again`
+const OBSTACLE_SEL = `.phone-tools .wb-dock, .phone-tools .sel-bar, .phone-tools [data-float-stack], .phone-tools .present-pill, .phone-tools .present-again`
 
 /**
  * How far a row standing at `row` (its floor position) has to rise so that no obstacle comes
@@ -65,20 +63,6 @@ export function rowLift(row: Box, obstacles: readonly Box[], gap = GAP): number 
     }
   }
   return lift
-}
-
-/**
- * Where one piece of the row stands. `bar` is the bar on the piece's floor line (null when none
- * stands there): the piece shares that line only AT the bar's height (`beside`) – asked grown by
- * `grow`, what taking the bar's height adds (`w` on each side, `h` on top; 0 while it already
- * wears it) – and a piece that fits only at its own height rises past the bar instead of standing
- * beside it a size smaller. Without a bar, the lowest line `rowLift` finds.
- */
-export function placePiece(content: Box, obstacles: readonly Box[], bar: Box | null, grow = { w: 0, h: 0 }, gap = GAP): { lift: number; beside: boolean } {
-  if (!bar) return { lift: rowLift(content, obstacles, gap), beside: false }
-  const tall = { left: content.left - grow.w, right: content.right + grow.w, top: content.top - grow.h, bottom: content.bottom }
-  const lift = rowLift(tall, obstacles, gap)
-  return { lift, beside: lift === 0 }
 }
 
 /**
@@ -116,26 +100,15 @@ export function useFloatRowPlacement(on: boolean) {
       const measure = (sel: string) => [...document.querySelectorAll(sel)]
         .map((el) => el.getBoundingClientRect()).filter((r) => r.width && r.height).map(box)
       const obstacles = measure(OBSTACLE_SEL)
-      const bars = measure(BAR_SEL)
       const placed: Box[] = []
       for (const row of document.querySelectorAll<HTMLElement>(ROW_SEL)) {
         // the floor first (09-whiteboard · .wb-botleft, 15-mobile · .fab-entry [data-float-placed]),
         // then measure from it
         row.dataset.floatPlaced = ''
         const content = contentAtFloor(row)
-        const bar = content && bars.find((b) => b.top < content.bottom && b.bottom > content.top)
-        let at = { lift: 0, beside: false }
-        if (content) {
-          // what the bar's height would add – each tile as much wider as taller (at most: a tile
-          // wider than tall keeps its width), so the question is asked at the size the answer brings
-          const h = bar && row.dataset.floatBeside === undefined ? Math.max(0, (bar.bottom - bar.top) - (content.bottom - content.top)) : 0
-          const tiles = row.classList.contains('fab-entry') ? 1 : Math.max(1, row.querySelectorAll('button').length)
-          at = placePiece(content, obstacles, bar ?? null, { w: tiles * h, h })
-        }
-        row.style.setProperty('--row-lift', `${at.lift}px`)
-        if (at.beside) row.dataset.floatBeside = ''
-        else delete row.dataset.floatBeside
-        if (content) placed.push({ ...content, top: content.top - at.lift, bottom: content.bottom - at.lift })
+        const lift = content ? rowLift(content, obstacles) : 0
+        row.style.setProperty('--row-lift', `${lift}px`)
+        if (content) placed.push({ ...content, top: content.top - lift, bottom: content.bottom - lift })
       }
       // the lane: only while a tool is out — at rest the CSS reserve already is the measurement
       const lane = obstacles.length ? stackLane([...obstacles, ...placed], window.innerHeight) : null
@@ -156,7 +129,6 @@ export function useFloatRowPlacement(on: boolean) {
       window.removeEventListener('resize', place)
       for (const row of document.querySelectorAll<HTMLElement>(ROW_SEL)) {
         delete row.dataset.floatPlaced
-        delete row.dataset.floatBeside
         row.style.removeProperty('--row-lift')
       }
       delete document.documentElement.dataset.stackLane

@@ -71,24 +71,25 @@ export const sideInsets = (viewportW: number, phone = viewportW <= 600) =>
 // The default "fit" reserves this much room above AND below so both stay on-screen with 8px to
 // spare — which is also how far «+ UG» ends above the chip row (15-mobile · --stack-foot-lift).
 export const STACK_VPAD = 64
-// …and, below that, the bottom-left chip row (09-whiteboard · .wb-botleft: 12px off the edge, a
-// --tap tall). The stack's «+ UG» straddles its bottom edge, so a fit that ran down to the
+// …and, below that, the bottom-left chip row (09-whiteboard · .wb-botleft: 12px off the edge, the
+// bar's height on a phone since owner pick 21 – 8px more than the 56 this was). The stack's «+ UG» straddles its bottom edge, so a fit that ran down to the
 // canvas edge put that pill ON the chips (3am test r2, 25.09.2026 — at 820 and at 360). The
 // Gebäude fit reserves the row; an ordinary sheet does not, it has no pill down there.
-export const STACK_CHIP_ROW = 56
+export const STACK_CHIP_ROW = 64
 /**
  * …and an ordinary sheet reserves the chip row too (sweep B8, 07.10.2026, owner option 1): the
  * fit is «the WHOLE sheet inside the free area between the bars», and the bottom-left chips
  * (Objekt · Ref. · Karte verknüpfen) are part of what bounds it. Without this a portrait sheet
  * ran to the canvas foot and the chips sat on its legend — at 1440 over the title block, on a
  * phone over the plan's footer. Like TOP_INSET these must match the CSS:
- * - tablet/desktop: `.wb-botleft` stands 16px off the canvas foot, --float-h (52px) tall, + 8px air;
+ * - tablet/desktop: `.wb-botleft` stands 16px off the canvas foot, --line-h tall (the family's 52px;
+ *   the view bar's 70 where it stands, which VIEW_BAR_INSET already covers), + 8px air;
  * - phone: the row is fixed at --float-bottom, 8px above the tool bar, where the canvas ends —
- *   so it reaches 50px into the canvas, + 8px air.
+ *   the bars' 60px tall (--line-h, owner pick 21), so it reaches 58px into the canvas, + 8px air.
  * The Gebäude keeps its own STACK_CHIP_ROW (its «+ UG» pill straddles the edge besides).
  */
 export const CHIP_ROW_INSET = 76
-export const CHIP_ROW_INSET_PHONE = 58
+export const CHIP_ROW_INSET_PHONE = 66
 /**
  * …and the tablet's bottom-RIGHT corner is the tool rail's view bar (07-toolrail · .view-bar,
  * staging review 06.11.2026 S2: Einpassen · north dial · − +), which reaches higher than the chips:
