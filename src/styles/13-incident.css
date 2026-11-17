@@ -193,7 +193,7 @@
 .ip-card-closed-fold .ip-card-acts { margin-top: 8px; }
 /* «Wieder öffnen» is THE action of the fold: it takes the room, «Zurück» its word's width */
 .ip-card-closed-fold .ip-card-reopen { flex-grow: 2; }
-.ip-card-reopen .sync-glyph { display: inline-flex; width: 15px; height: 15px; }
+.ip-card-reopen .sync-glyph { display: inline-flex; width: 16px; height: 16px; }
 /* The Einsatz's own actions, INSIDE its card — Bearbeiten · Abschliessen · Teilen (Sync lives
    up in the title row).
    ⚠️ ONE LINE, never wrapped (decision 01.09., when Teilen made it three). Three verbs that
@@ -234,14 +234,18 @@
    family's 8px is the floor a tile keeps inside the card — 6px read as a chip, not a tile */
 .ip-card .ip-card-acts .ip-card-act { padding: 0 8px; }
 .ip-card-act > span:not(.ip-badge) { white-space: nowrap; }
-/* …and no glyphs there: tried back in on a 390px phone (hill climb r36), the three tiles with
-   icon + word measured 340px in a 330px row – Abschliessen 10px past the card's padding, since a
-   tile never shrinks under its word. The words carry the row; the laptop keeps its icons. */
-@media (max-width: 479px) {
-  .ip-card .ip-card-acts .ip-card-act { font-size: var(--fs-1); }
-  .ip-card-act svg { display: none; }
+/* …and glyph + word on EVERY device, the glyph 16px in full ink (owner, button sweep SHEETS.11,
+   17.11.2026): the phone hid them since hill climb r36 (icon + word measured 340px in a 330px row),
+   so the same tile was worded with a glyph on the tablet and without one on the phone. What makes
+   them fit now is the shorter word – «Ändern» for «Bearbeiten» (`editMetaShort`; the full words
+   stay the name), on every device: measured 17.11.2026 in the phone menu's 334px row at 390,
+   «Ändern · Teilen · Abschliessen» with glyphs ≈ 320px. Under 375px (the row is 304 at 360) the
+   tiles draw 4px in and their glyph 4px from the word (≈ 284px) – the one place a tile goes under
+   the 8px floor above, because the alternative is a verb past the card's edge. */
+@media (max-width: 374px) {
+  .ip-card .ip-card-acts .ip-card-act { padding: 0 var(--sp-1); gap: var(--sp-1); }
 }
-.ip-card-act svg { width: 15px; height: 15px; opacity: .65; flex: none; }
+.ip-card-act svg { width: 16px; height: 16px; flex: none; }
 /* the open count as a CORNER badge — the phone nav's amber count (05-navrail · .nav-count.nav-open),
    same fill, same digits (11/800 since 28.09.2026), same 16px — riding the tile's top-right corner instead of taking a
    word's width inside it */

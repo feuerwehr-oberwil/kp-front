@@ -80,7 +80,7 @@ import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
 import { carryDoors, copyGrundriss, grundrissOf, wallRolePatch, wallRoleWire, wandBlock, wandBlockHint, DOOR_SYMBOL, GEBAEUDE_CATEGORY, GRUNDRISS_STYLE } from '../lib/grundriss'
 import { StoreyCopySheet } from './StoreyCopySheet'
-import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, STACK_READINGS_LANE, STACK_LABEL_LANE, bottomInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
+import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, STACK_READINGS_LANE, STACK_LABEL_LANE, bottomInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards, annoMiddle } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
 import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachAnnos, dwellFor, flipLine, forkPortPoint, wireFreed, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, withDetach, type AnnoDetachPatch, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, stackGroundFit } from '../lib/stackFit'
@@ -3334,6 +3334,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             patchCommit(selDraw.id, { locked: selDraw.locked ? undefined : true })
             if (!selDraw.locked) setSelId(null)
           }}
+          // «Zentrieren», as on the Karte (SHEETS.9): the board centred on the drawing, zoom kept
+          onCenter={() => { const c = annoMiddle(selDraw); centerOnPoint(c.x, c.y, c.floor, scale) }}
           onDelete={() => void removeWithConnections(selDraw)}
           onClose={() => setSelId(null)}
         />
@@ -3367,12 +3369,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           // LockChip becomes the only door back in
           onToggleLock={() => { patchCommit(selShape.id, { locked: !selShape.locked || undefined }); if (!selShape.locked) setSelId(null) }}
           locked={selShape.locked}
+          onCenter={() => centerOnPoint(selShape.x ?? 0.5, selShape.y ?? 0.5, selShape.floor ?? 0, scale)}
           onDelete={() => void removeWithConnections(selShape)}
           onClose={() => setSelId(null)}
         />
       )}
       {editorSlotFree && readOnly && selShape && (
-        <ShapeEditor key={selShape.id} readOnly entity={selShape} onClose={() => setSelId(null)} />
+        <ShapeEditor key={selShape.id} readOnly entity={selShape}
+          onCenter={() => centerOnPoint(selShape.x ?? 0.5, selShape.y ?? 0.5, selShape.floor ?? 0, scale)} onClose={() => setSelId(null)} />
       )}
 
       {copyFrom != null && stack && (

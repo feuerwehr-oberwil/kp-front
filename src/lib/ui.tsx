@@ -213,6 +213,7 @@ export function confirmDialog(opts: ConfirmOpts): Promise<boolean | 'alt'> {
       danger: opts.danger,
       altLabel: opts.altLabel,
       altDanger: opts.altDanger,
+      bin: opts.bin,
       safeAnswer: opts.safeAnswer,
       resolve,
     }
@@ -337,7 +338,9 @@ function ToastAction({ toast: t }: { toast: Toast }) {
     <span className="toast-actions" onPointerDown={(e) => e.stopPropagation()}
       style={dx ? { transform: `translateX(${dx}px)`, opacity: Math.max(.25, 1 - Math.abs(dx) / (FLICK * 2)) } : undefined}>
       <button
-        className="btn toast-action"
+        // THE button (`.ip-btn`), like the Meldeleiste's – the one way back after a removal was the
+        // smallest, quietest button of all the message surfaces (button sweep SHEETS.5, 17.11.2026)
+        className="ip-btn toast-action"
         // ⚠️ optional call: pointer capture keeps the flick tracking once the finger leaves the
         // button, but it is not available everywhere (jsdom has no implementation, and neither did
         // older WebViews) — and an undo button that THROWS on touch is worse than one that only
@@ -502,6 +505,7 @@ export function Overlays({ toasts: showToasts = true }: { toasts?: boolean } = {
         danger={req?.danger}
         altLabel={req?.altLabel}
         altDanger={req?.altDanger}
+        bin={req?.bin}
         safeAnswer={req?.safeAnswer}
         onResolve={close}
       />

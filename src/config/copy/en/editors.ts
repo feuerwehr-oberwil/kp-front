@@ -144,7 +144,6 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     dockedRelease: 'Release',
     ergAdopt: 'Apply as cordon',
     ergAdopted: 'Cordon applied',
-    ergAdoptedShort: 'applied',
     ergAdoptedToast: 'Cordon {r} applied',
     ergRingsLabel: 'Radius on the map',
     ergRingsOff: 'Off',

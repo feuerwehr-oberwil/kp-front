@@ -111,6 +111,7 @@ export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
       confirmLabel: h.deleteConfirmBtn,
       cancelLabel: appConfig.copy.cancel,
       danger: true,
+      bin: true,
     })
     if (!ok) return
     try {

@@ -163,7 +163,7 @@ function MeldungActions({ m }: { m: Meldung }) {
           className="ml-btn"
           disabled={a.disabled}
           onClick={a.onClick}
-          icon={a.busy ? <ShellLoader /> : a.icon && <Icon id={a.icon} />}
+          icon={a.busy ? <ShellLoader /> : undefined}
         >
           {a.label}
         </Button>

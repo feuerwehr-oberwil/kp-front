@@ -441,7 +441,7 @@ export function JournalRow({
                 original wording to reassure about */}
             {e.transcript && <span className="jr-korr-hint">{C.correctHint}</span>}
             <Button onClick={() => setEditTx(null)}>{appConfig.copy.cancel}</Button>
-            <Button variant="primary" icon={<Icon id="check" />} onClick={saveTranscript}>{C.transcriptSave}</Button>
+            <Button variant="primary" onClick={saveTranscript}>{C.transcriptSave}</Button>
           </div>
         </div>
       )}
@@ -460,7 +460,7 @@ export function JournalRow({
           <div className="jr-transcript-actions">
             <span className="jr-korr-hint">{C.correctHint}</span>
             <Button onClick={() => setEditRow(null)}>{appConfig.copy.cancel}</Button>
-            <Button variant="primary" icon={<Icon id="check" />} onClick={saveRowText}>{C.transcriptSave}</Button>
+            <Button variant="primary" onClick={saveRowText}>{C.transcriptSave}</Button>
           </div>
         </div>
       )}

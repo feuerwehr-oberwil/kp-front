@@ -450,3 +450,21 @@ describe('Linie row', () => {
     expect(onDashed).toHaveBeenCalledWith(false)
   })
 })
+
+// button sweep SHEETS.9 + SHEETS.2 (17.11.2026): every map card's foot is [Zentrieren · toggle · delete]
+describe('the foot', () => {
+  const foot = () => [...document.querySelectorAll('.ctx > .ctx-actions button')].map((b) => b.textContent)
+  it('reads Zentrieren · Sperren · Entfernen, THE button, and «Zentrieren» centres', () => {
+    const onCenter = vi.fn()
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} onToggleLock={noop} onCenter={onCenter} />)
+    expect(foot()).toEqual([appConfig.copy.contextPanel.center, appConfig.copy.drawingEditor.lock, appConfig.copy.remove])
+    expect([...document.querySelectorAll('.ctx > .ctx-actions button')].every((b) => b.classList.contains('ip-btn'))).toBe(true)
+    fireEvent.click(screen.getAllByRole('button', { name: appConfig.copy.contextPanel.center })[0])
+    expect(onCenter).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps only «Zentrieren» on a locked panel', () => {
+    render(<DrawEditor {...base} readOnly drawing={{ kind: 'area' }} onToggleLock={noop} onCenter={noop} />)
+    expect(foot()).toEqual([appConfig.copy.contextPanel.center])
+  })
+})

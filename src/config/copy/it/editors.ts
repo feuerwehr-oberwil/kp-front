@@ -141,7 +141,6 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     dockedRelease: 'Sgancia',
     ergAdopt: 'Applica come perimetro',
     ergAdopted: 'Perimetro applicato',
-    ergAdoptedShort: 'applicato',
     ergAdoptedToast: 'Perimetro {r} applicato',
     ergRingsLabel: 'Raggio sulla mappa',
     ergRingsOff: 'No',

@@ -53,7 +53,7 @@ export function IncidentClosedMeldung({ event, at, refused, onExport, onDismiss,
     icon: closed ? 'lock' : 'pen',
     title: closed && forLink ? C.linkClosedTitle : fillTemplate(closed ? C.closedElsewhere : C.reopenedElsewhere, { t: formatTime(new Date(at)) }),
     sub: closed && forLink && refused === 0 ? undefined : sub,
-    actions: refused > 0 ? [{ label: C.closedExport, icon: 'download', onClick: onExport }] : undefined,
+    actions: refused > 0 ? [{ label: C.closedExport, onClick: onExport }] : undefined,
     dismiss: { label: C.closedDismiss, onClick: onDismiss },
     wrap: true,
   })

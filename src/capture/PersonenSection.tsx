@@ -157,7 +157,7 @@ export function PersonenSection({
         {guestOffer && (
           <button type="button" className="cv-btn cv-btn-add" disabled={busy}
             onClick={() => { void addGuest(guestOffer) }}>
-            <Icon id="type" />
+            <Icon id="plus" />
             <span>{fillTemplate(A.addGuest, { name: guestOffer })}</span>
           </button>
         )}

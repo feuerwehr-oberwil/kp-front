@@ -598,18 +598,13 @@
 .un-erg-rings .un-haz-k { flex: 1 1 auto; }
 /* the day/night reason under the ring label («Nacht · Sonnenuntergang 16:42») */
 .un-erg-day { display: block; font-size: var(--fs-micro); color: var(--ink-dim); }
-/* «Absperrkreis übernehmen» beside a distance value (23.09.2026): its own 44px square with the
-   Absperrkreis tool's ⊙, the house button (outline, `--r-sm`, never filled) — the value stays
-   the loudest thing in the row. It was a 12px underlined «Übernehmen» the row squeezed around.
-   Icon-only so the key and the value keep their columns; the word is the hold-tooltip. */
-.un-erg-adopt { margin-left: auto; flex: none; width: var(--tap); height: var(--tap); padding: 0;
-  display: grid; place-items: center; cursor: pointer;
-  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); }
-.un-erg-adopt .i { width: 18px; height: 18px; }
-@media (hover: hover) { .un-erg-adopt:hover { background: var(--hover-strong); } }
-.un-erg-adopt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* a row carrying the button centres its key and value on it instead of hanging them off the top */
-.un-haz-row:has(> .un-erg-adopt) { align-items: center; padding: 2px 0; }
+/* «Absperrkreis übernehmen» under a distance value (23.09.2026; worded since the button sweep
+   SHEETS.6, 17.11.2026): THE button, <Button>, glyph + verb, standing at the VALUE's edge on a line
+   of its own – a body act at the control edge, like the Linie's «Richtung umkehren». The row turns
+   into the key/value grid (the 44% key column of `.un-haz-row`) so the act and its «✓ gesetzt»
+   start where the value starts; the value stays the loudest thing in the row. */
+.un-haz-row:has(> :is(.un-erg-adopt, .un-erg-done)) { display: grid; grid-template-columns: 44% minmax(0, 1fr); column-gap: 8px; row-gap: var(--sp-1); }
+.un-haz-row > :is(.un-erg-adopt, .un-erg-done) { grid-column: 2; justify-self: start; }
 .un-erg-src { margin: var(--sp-2) 0 0; font-size: var(--fs-micro); color: var(--ink-dim); }
 
 /* ⚠️ TOMBSTONE, 23.08. — `.gps-follow-prompts` / `.gps-follow-prompt` are gone. The guarded

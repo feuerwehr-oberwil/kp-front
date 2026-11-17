@@ -192,6 +192,9 @@ interface Props {
    *  lock chip). Absent → the lock control is hidden (e.g. surfaces without locking). */
   onToggleLock?: () => void
   locked?: boolean
+  /** «Zentrieren»: the map frames the drawing's whole extent, the Plan centres its board on it
+   *  (button sweep SHEETS.9, 17.11.2026). Offered on a locked panel too. */
+  onCenter?: () => void
   onDelete: () => void
   onClose: () => void
   attachmentLabels?: Partial<Record<LineEndpoint, string>>
@@ -220,7 +223,7 @@ function hosesText(lengthM: number, lines: number): string {
   return reserve ? fillTemplate(appConfig.copy.drawingEditor.hoseSplit, { n: need, r: reserve, m }) : `${need} × ${m} m`
 }
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onHose, waterRelay, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, onPerson, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, onWand, wandBlocked, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onHose, waterRelay, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, onPerson, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, onWand, wandBlocked, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onCenter, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
   // The Auftrag input is uncontrolled (see its comment), so the unmount commit reads the DOM
   // node — kept, never nulled, because React detaches element refs before passive cleanups run.
   // Same idempotence guard as ContextPanel's Notizen: blur first, unmount second, one write.
@@ -291,14 +294,18 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
   }, [measureOpen, profileReady])
   // rendered twice: pinned at the sheet bottom on desktop/tablet, and again inside the
   // scrolling body for phones (.ctx-footer-inline) — CSS shows exactly one copy
-  const actions = readOnly ? null : (
+  // ONE map-card foot, [Zentrieren · its toggle · delete] (owner, button sweep SHEETS.9, 17.11.2026):
+  // «where is this Linie» had no button while every symbol and Form had one. A locked panel keeps
+  // «Zentrieren» – the one act that changes nothing – as the symbol's and the Form's do.
+  const actions = readOnly && !onCenter ? null : (
     <div className="ctx-actions">
-      {onToggleLock && (
-        <button className="btn de-lock" onClick={onToggleLock} title={appConfig.copy.drawingEditor.lockHint} aria-pressed={!!locked}>
-          <Icon id="lock" />{appConfig.copy.drawingEditor.lock}
-        </button>
+      {onCenter && <Button icon={<Icon id="cross" />} onClick={onCenter}>{appConfig.copy.contextPanel.center}</Button>}
+      {!readOnly && onToggleLock && (
+        <Button className="de-lock" icon={<Icon id="lock" />} onClick={onToggleLock} title={appConfig.copy.drawingEditor.lockHint} aria-pressed={!!locked}>
+          {appConfig.copy.drawingEditor.lock}
+        </Button>
       )}
-      <button className="btn warn" onClick={onDelete}><Icon id="trash" />{appConfig.copy.remove}</button>
+      {!readOnly && <Button variant="danger" icon={<Icon id="trash" />} onClick={onDelete}>{appConfig.copy.remove}</Button>}
     </div>
   )
   // the header shares the grip's drag (tap stays a tap there — see useSheetDrag)
@@ -360,9 +367,9 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                     : <Button onClick={() => onRouting(endpoint, 'trace')}>{C.gpsContinue}</Button>)}
                   {/* «Am Einsatzort» only where that point is known — a trace without a kept
                       on-site line would let go at the vehicle, and the word would lie */}
-                  {onDetach && info.onSite && <Button onClick={() => onDetach(endpoint)}>{C.gpsDetachOnSite}</Button>}
+                  {onDetach && info.onSite && <Button icon={<Icon id="unlink" />} onClick={() => onDetach(endpoint)}>{C.gpsDetachOnSite}</Button>}
                   {/* a traced hose may be KEPT (24.09.2026): let go where it stands, drive and all */}
-                  {(onDetachHere ?? onDetach) && <Button onClick={() => (onDetachHere ?? onDetach)!(endpoint)}>{C.gpsDetachHere}</Button>}
+                  {(onDetachHere ?? onDetach) && <Button icon={<Icon id="unlink" />} onClick={() => (onDetachHere ?? onDetach)!(endpoint)}>{C.gpsDetachHere}</Button>}
                 </div>
               )}
             </div>
@@ -417,13 +424,13 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 stays where it is, only its direction of travel turns around (lib/lineAttachments ·
                 flipLine), and everything hooked to either end stays hooked where it physically is. */}
             {/* ⚠️ An ACTION, not a state — so it is not one of this panel's Segmented pairs and
-                no longer wears their chrome (01.09.). It used to sit as a label plus a lone icon
-                chip in the `.de-toggle` box, which reads as «umkehren: on/off» while nothing here
-                is ever on: the row is one press that does one thing. */}
+                no longer wears their chrome (01.09.): one press that does one thing. THE button,
+                glyph + verb, at the control edge (owner, button sweep SHEETS.6, 17.11.2026 – it
+                was an unframed 12.5px row that read as a label). */}
             {onReverse && (
-              <button type="button" className="de-action" onClick={onReverse}>
-                <Icon id="swap" />{appConfig.copy.drawingEditor.reverse}
-              </button>
+              <div className="de-act">
+                <Button icon={<Icon id="swap" />} onClick={onReverse}>{appConfig.copy.drawingEditor.reverse}</Button>
+              </div>
             )}
           </div>
         )}
@@ -538,7 +545,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                   {onShowTrupp && (
                     <IconButton onClick={onShowTrupp}
                       label={appConfig.copy.drawingEditor.truppShow}>
-                      <span className="ctx-conn-go" aria-hidden>›</span>
+                      <Icon id="chevron" className="ctx-conn-go" />
                     </IconButton>
                   )}
                 </span>
@@ -730,7 +737,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                   {onShowTrupp && truppOnLine && (
                     <IconButton onClick={onShowTrupp}
                       label={appConfig.copy.drawingEditor.truppShow}>
-                      <span className="ctx-conn-go" aria-hidden>›</span>
+                      <Icon id="chevron" className="ctx-conn-go" />
                     </IconButton>
                   )}
                 </span>
@@ -871,7 +878,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 {/* endpoint → target: same de-row as the FKS rows above; the value taps to fly there */}
                 <div className="de-row"><span>{endpoint === 'start' ? appConfig.copy.drawingEditor.connectedStart : appConfig.copy.drawingEditor.connectedEnd}</span>
                   <button type="button" className="de-conn-name" onClick={onFocusAttachment ? () => onFocusAttachment(endpoint) : undefined} disabled={!onFocusAttachment}>
-                    <span>{name}</span>{onFocusAttachment && <span className="de-conn-go" aria-hidden>›</span>}
+                    <span>{name}</span>{onFocusAttachment && <Icon id="chevron" className="de-conn-go" />}
                   </button>
                 </div>
                 {note && <div className={`de-conn-note${gps === 'paused' ? ' warn' : ''}`}>
@@ -895,7 +902,13 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                     </span>
                   </div>
                 )}
-                {!readOnly && onDetach && !inGpsBlock && <button type="button" className="de-conn-detach" onClick={() => onDetach(endpoint)}>{a.gps ? (onSiteKnown(a.gps) ? appConfig.copy.drawingEditor.gpsDetachOnSite : appConfig.copy.drawingEditor.gpsDetachHere) : appConfig.copy.drawingEditor.detachConnection}</button>}
+                {/* «Lösen» is the neutral framed unlink button at the control edge (button sweep
+                    SHEETS.3, 17.11.2026): a detach can be taken back, so it is no red word */}
+                {!readOnly && onDetach && !inGpsBlock && (
+                  <div className="de-act">
+                    <Button icon={<Icon id="unlink" />} onClick={() => onDetach(endpoint)}>{a.gps ? (onSiteKnown(a.gps) ? appConfig.copy.drawingEditor.gpsDetachOnSite : appConfig.copy.drawingEditor.gpsDetachHere) : appConfig.copy.drawingEditor.detachConnection}</Button>
+                  </div>
+                )}
               </Fragment>
             })}
           </div>

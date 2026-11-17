@@ -32,6 +32,13 @@ describe('confirmDialog (Base UI AlertDialog)', () => {
     expect(lead.compareDocumentPosition(screen.getByText('Danach nur noch lesen.')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
+  // …the same for the remove's bin (button sweep SHEETS.1): it reached the card only once the request carried it
+  it('leads a removing danger answer with the bin', () => {
+    render(<Overlays />)
+    act(() => { void confirmDialog({ message: 'X?', confirmLabel: 'Endgültig löschen', cancelLabel: 'Abbrechen', danger: true, bin: true }) })
+    expect(screen.getByRole('button', { name: 'Endgültig löschen' }).querySelector('svg')).toBeTruthy()
+  })
+
   it('resolves false when cancelled', async () => {
     render(<Overlays />)
     let p!: Promise<boolean>

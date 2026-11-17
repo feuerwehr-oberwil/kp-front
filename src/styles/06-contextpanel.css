@@ -520,37 +520,42 @@
 .ctx-caprow .useg-btn { padding: 4px 12px; }
 
 .ctx-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 12px 16px; }
-/* the foot is a SHEET footer, so its buttons speak THE button's 14/700 (r35, 06.11.2026) – the
-   12.5 of the bare `.btn` below is the dense dock button's (Georef, Massstab), not a sheet's */
-.ctx-actions > .btn { flex: 1 1 140px; font-size: var(--fs-2); }
-/* the foot's glyphs are one size (16px, the family's) — the bin's 18 in its square */
-.ctx-actions > .btn .i { width: 16px; height: 16px; }
-/* «Entfernen» as a SQUARE (27.09.2026): removal is rare and should not be a wide target — the
-   red glyph alone, the word in its label */
-.ctx-actions > .btn.btn-sq { flex: 0 0 var(--tap); width: var(--tap); padding: 0; }
-.ctx-actions > .btn.btn-sq .i { width: 18px; height: 18px; }
-/* «Erledigt» is the quiet middle: no colour of its own, it only greys the symbol — and where it
-   stands, the two word tiles share the row equally (mockup 9); a foot without it (a read-only
-   twin's five doors) keeps its content-sized wrap.
+/* ONE footer family (button sweep SHEETS.2, 17.11.2026): the map card's foot is THE button,
+   <Button> (13-incident · `.ip-btn`), like every sheet footer – it was the dense dock's `.btn`, a
+   translucent fill on another edge that a change to THE button skipped. This only PLACES it: the
+   tiles share the row by their words (`auto`, never cut: nowrap), wrapping only when they must,
+   on a tighter 8px inset so [Zentrieren · Erledigt · Entfernen] stands on one phone row.
+   ONE foot on every map card, [Zentrieren · its toggle · delete] (owner, SHEETS.9): the symbol's
+   toggle is «Erledigt», a Linie's / Fläche's / Absperrkreis' / Form's «Sperren».
+   The delete is bin + «Entfernen», THE delete look (owner, SHEETS.1, 17.11.2026 – the symbol's bin
+   SQUARE of 27.09.2026 went: on the next card the same act was worded, and a red square on one
+   card and a red word on the next read as two different acts at 3am). */
+.ctx-actions > .ip-btn { flex: 1 1 auto; min-width: 0; padding: 0 var(--sp-2); white-space: nowrap; }
+/* …the delete keeps its word's width and never grows: on a phone the three stand in one row and
+   the others take the slack; in the tablet's narrower panel it wraps to a row of its own and stands
+   there at the far left like a sheet footer's danger – never a full-width red band (removal is rare,
+   27.09.2026, and should not be the widest target on the card) */
+.ctx-actions > .ip-btn.danger { flex: 0 1 auto; }
+/* «Erledigt» is the quiet middle: no colour of its own, it only greys the symbol.
    ⚠️ It wears the same ink as «Zentrieren» (29.09.2026, sweep K12): it was --ink-dim, which is
    the look of «not available» – the one thing an action must not say.
-   SET, it is the same tile pressed (31.10.2026, ONE toggle in one spot), and a tap takes it back. */
-.ctx-actions:has(> .ctx-done) > .btn:not(.btn-sq) { flex: 1 1 0; }
+   SET, it is the same tile pressed (31.10.2026, ONE toggle in one spot), its ✓ in both states
+   (SHEETS.8), and a tap takes it back. */
 /* ONE pressed look for a foot toggle (duck sweep ELEM.5 + ELEM.2, 17.11.2026): «Erledigt» SET and
    «Sperren» SET (DrawEditor, ShapeEditor – reached by a tap on a locked drawing's 🔒 chip) are the
    choice fill, `--sel` – a pressed toggle, like `.wb-dock-tog.on`. «Erledigt» wore a green outline
    and «Sperren» a blue one: an outline-only «selected» the buttons spec bans, and green for «done»
    beside the Pendenz tick's blue (TickRow). Done is blue, everywhere. */
-.btn:is(.ctx-done, .de-lock)[aria-pressed='true'] { color: var(--on-sel); border-color: var(--sel);
+.ip-btn:is(.ctx-done, .de-lock)[aria-pressed='true'] { color: var(--on-sel); border-color: var(--sel);
   background: var(--sel); box-shadow: var(--sel-shadow); }
 @media (hover: hover) {
-  .btn:is(.ctx-done, .de-lock)[aria-pressed='true']:hover { background: var(--sel); border-color: var(--sel); }
+  .ip-btn:is(.ctx-done, .de-lock)[aria-pressed='true']:hover { background: var(--sel); border-color: var(--sel); }
 }
-.btn:is(.ctx-done, .de-lock)[aria-pressed='true'] .i { stroke-width: 2.6; }
+.ip-btn:is(.ctx-done, .de-lock)[aria-pressed='true'] svg { stroke-width: 2.6; }
 /* A DOOR to the object's original («Zum Original») takes a row of its own, above the foot's acts
-   (30.09.2026, owner: «fix this» – in the equal split above, a door's label ran out of its third
-   of the row and over «Zentrieren»). Its label is cut, never spilled (ContextPanel · LinkBtn). */
-.ctx-actions > .btn.link:not(.btn-sq), .ctx-actions:has(> .ctx-done) > .btn.link:not(.btn-sq) { flex: 1 1 100%; }
+   (30.09.2026, owner: «fix this» – in a shared row, a door's label ran out of its share of the
+   row and over «Zentrieren»). Its label is cut, never spilled (ContextPanel · LinkBtn). */
+.ctx-actions > .ip-btn.link { flex: 1 1 100%; }
 .btn-t { display: flex; min-width: 0; white-space: pre; }
 .btn-t > * { flex: none; }
 .btn-t > .btn-t-cut { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }

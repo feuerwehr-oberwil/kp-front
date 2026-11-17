@@ -8,6 +8,7 @@ import { useHazardData } from '../lib/useHazardData'
 import { ergDayNote, parseErgDistance, type ErgRingMode } from '../lib/ergRings'
 import { Segmented } from './Segmented'
 import { DoneChip } from './DoneChip'
+import { Button } from './Button'
 import { isErgAdopted } from '../lib/ergAdopt'
 
 /**
@@ -134,12 +135,13 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRad
         <div className="un-erg">
           {erg.p && <p className="un-haz-water"><Icon id="warn" /> {C.ergPolymerization}</p>}
           {(erg.tih ?? []).map((row, i) => {
-            // «Absperrkreis übernehmen» beside each distance (Feldtest 07.09.): the value
+            // «Absperrkreis übernehmen» under each distance (Feldtest 07.09.): the value
             // becomes a real Absperrkreis around the symbol, one tap, no re-typing of
-            // «0.2 km». ⚠️ Its OWN 44px button with the Absperrkreis tool's ⊙ (23.09.2026),
-            // not a 12px underlined «Übernehmen» squeezed after the value — and not the
-            // whole row either: touching the number to read it would then drop a circle on
-            // the map. Icon-only, so the row keeps its width; the name is the hold-tooltip.
+            // «0.2 km». ⚠️ Its OWN button with the Absperrkreis tool's ⊙ (23.09.2026), not
+            // a 12px underlined «Übernehmen» squeezed after the value — and not the whole row
+            // either: touching the number to read it would then drop a circle on the map.
+            // THE button, glyph + verb, at the value's edge (owner, button sweep SHEETS.6,
+            // 17.11.2026 – it was an icon-only square whose word was only a hold-tooltip).
             const distRow = (label: string, value?: string) => {
               if (!value) return null
               const metres = parseErgDistance(value)
@@ -148,14 +150,9 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRad
                   <span className="un-haz-k">{label}</span>
                   <span className="un-haz-v num">{value}</span>
                   {onAdoptRadius && metres != null && (isErgAdopted(adoptedRadii, metres)
-                    // «30 m ✓ gesetzt»: the short word beside the value (the row has the 44px button's room), the
-                    // full words as its name
-                    ? <DoneChip className="un-erg-done" title={C.ergAdopted}>{C.ergAdoptedShort}</DoneChip>
-                    : <button
-                      type="button" className="un-erg-adopt"
-                      aria-label={C.ergAdopt} title={C.ergAdopt}
-                      onClick={() => onAdoptRadius(metres)}
-                    ><Icon id="circle" /></button>
+                    // done, the same spot says so: «✓ Absperrkreis gesetzt»
+                    ? <DoneChip className="un-erg-done">{C.ergAdopted}</DoneChip>
+                    : <Button className="un-erg-adopt" icon={<Icon id="circle" />} onClick={() => onAdoptRadius(metres)}>{C.ergAdopt}</Button>
                   )}
                 </div>
               )
