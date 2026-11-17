@@ -170,13 +170,9 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     insertVertex: 'Insérer un point',
     dragVertex: 'Tirer le sommet, maintenir pour supprimer',
     dragRadius: 'Faire glisser le rayon',
-    groupDeleted: 'Sélection retirée',
     placeText: 'Note posée sur le plan',
     placeSymbol: 'Symbole « {name} » posé sur le plan',
-    placeLine: 'Ligne tracée sur le plan',
-    placeArea: 'Surface dessinée sur le plan',
     placeWand: 'Mur dessiné sur le plan',
-    placeCircle: 'Périmètre de sécurité tracé sur le plan',
     placeTeam: '{name} placé sur le plan',
     selectTrupp: 'Quel binôme ?',
     newTeam: 'Nouvelle équipe',
@@ -304,6 +300,8 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
 
     groupDeletedN: '{n} objets retirés du plan',
     truppPlacedHere: 'déjà ici',
+    drawnOnPlan: '{name} tracé sur le plan',
+    shapeOnPlan: '{name} posé sur le plan',
   },
   tafel: {
     strip: 'Pages du tableau',

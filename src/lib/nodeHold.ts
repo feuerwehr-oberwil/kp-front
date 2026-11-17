@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { buzz } from './haptics'
+import { HOLD_GUARD_ARM_MS, HOLD_GUARD_FIRE_MS } from './holdTimings'
 
 /**
  * Hold-to-act for the node handles of a line, an area, a measurement or a draft — and for the
@@ -34,12 +35,12 @@ import { buzz } from './haptics'
  * 48px full-width tile a 24px ring read as «loading». Same numbers, same promise.
  */
 
-export const NODE_HOLD_ARM_MS = 250
+export const NODE_HOLD_ARM_MS = HOLD_GUARD_ARM_MS
 /** 900 → 825 (26.08. field test): the ring read as slow with a glove on, and the whole gesture is
  *  performed a dozen times while a hose is being reshaped. The ring is painted from the SAME two
  *  numbers (`progress` below), so shortening the hold shortens the fill — the promise the ring
  *  makes and the moment the node goes cannot drift apart. */
-export const NODE_HOLD_FIRE_MS = 825
+export const NODE_HOLD_FIRE_MS = HOLD_GUARD_FIRE_MS
 export const NODE_HOLD_MOVE_PX = 10
 /** ~30 Hz — enough for a ring that fills over half a second, cheap enough for a marker layer */
 const TICK_MS = 33

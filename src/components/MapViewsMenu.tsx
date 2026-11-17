@@ -5,7 +5,8 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
 import { DockInfo } from './DockInfo'
-import { useLongPress } from '../lib/useLongPress'
+import { LONG_PRESS_MS, useLongPress } from '../lib/useLongPress'
+import { HoldChargeRing } from './HoldTargets'
 import { useIsPhone } from '../lib/useIsPhone'
 import { useLayer } from '../lib/overlays/layer'
 import { keyboardMargin, useKeyboardInset } from '../lib/useKeyboardInset'
@@ -249,8 +250,10 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
 
   // Hold the compass to fit the incident into view (or what `api.hold` says), without going through the menu. A quiet
   // shortcut for the one row that gets used over and over — deliberately undiscoverable by
-  // accident (500 ms, cancels on any movement, so a pan or a scroll of the rail never trips
-  // it) and never the ONLY way there: «Einpassen» stays a plain row one tap in.
+  // accident (the OFFER hold, lib/holdTimings, with its ring; cancels on any movement, so a pan or
+  // a scroll of the rail never trips it) and never the ONLY way there: «Einpassen» stays a plain
+  // row one tap in. In an Einsatz the hold fits; peacetime's Karte finds Mein Standort (`api.hold`).
+  const phone = useIsPhone()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const dockRef = useRef<HTMLDivElement>(null)
   // the way out is every layer's (lib/overlays/layer): a tap beside the dock only closes it, on
@@ -264,6 +267,8 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
   // silently swallow the NEXT tap, turning the compass dead for one press.
   const fired = useRef(false)
   const holdProps = hold.press(() => { fired.current = true; if (api.hold) api.hold.run(); else api.onFit() })
+  // the hold's charge ring haloes the needle, so the fit never fires without a warning
+  const ring = hold.held && <HoldChargeRing since={hold.held.since} ms={LONG_PRESS_MS} />
 
   return (
     <>
@@ -275,7 +280,7 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
         aria-expanded={open}
         aria-haspopup="dialog"
         // `data-holdaction` (from the hold's props): the HUD compass is icon-only, so the
-        // hold-tooltip would pop «Ansichten» at 350 ms and the fit would follow at 500
+        // hold-tooltip would pop «Ansichten» at the same 350 ms as the fit
         {...holdProps}
         onPointerDown={(e) => { fired.current = false; holdProps.onPointerDown(e) }}
         onClick={() => {
@@ -284,8 +289,8 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
         }}
       >
         {variant === 'rail'
-          ? <><span className="vrail-glyph">{glyph}</span><span className="vrail-label">{label ?? cp.title}</span></>
-          : glyph}
+          ? <><span className="vrail-glyph"><span className="tb-act-ic">{glyph}{ring}</span></span><span className="vrail-label">{label ?? cp.title}</span></>
+          : <span className="tb-act-ic">{glyph}{ring}</span>}
       </button>
       {open && <ViewsPopover dockRef={dockRef} api={api} readOnly={readOnly} coordsOn={coordsOn} onToggleCoords={onToggleCoords} onClose={() => onOpenChange(false)} />}
     </>

@@ -79,9 +79,15 @@
    whatever sat under it. The WRAPPER, not `.marker`: `.maplibregl-marker` is what swallows the
    click for the map (MapMarkers · onClick stopPropagation). The class leaves with the tool, so
    the markers are live again the moment the placement is done. Same rule on the plan
-   (09-whiteboard.css · .wb-canvas.placing .wb-anno). ⚠️ The LINE tools are deliberately not in
-   this list: a stroke begun on a symbol is AIMED at it (the line-START magnet). */
-.placing .maplibregl-marker, .maptool-team .maplibregl-marker { pointer-events: none; }
+   (09-whiteboard.css · .wb-canvas.placing .wb-anno). Every tap-to-place tool, not only those
+   (duck sweep GESTURES.5, 17.11.2026): a Notiz, a Kreis, a Fläche's or a Linie's next point tapped
+   onto a symbol used to SELECT the symbol (no card – the tool is not Auswahl) and place nothing,
+   so a Sektor-Fläche drawn around the Brandobjekt lost a corner without a word. A Linie aimed at a
+   symbol still couples to it: the magnet is the canvas tap's (useMapMagnet), not the marker's.
+   ⚠️ Messen is the one named exception – its tap on a symbol measures from the symbol's CENTRE
+   (MapStage · onSelect), so its markers stay live. */
+.placing .maplibregl-marker,
+:is(.maptool-team, .maptool-note, .maptool-circle, .maptool-area, .maptool-line) .maplibregl-marker { pointer-events: none; }
 
 /* markers — bare tactical symbol, real-world scaled. White fill only for outline-with-text.
    --gpx = the glyph's on-screen size; --badge-out = how far the corner badges (.sym-floor,

@@ -1,8 +1,8 @@
 // The armed tool's readout: ONE pill at the bottom centre of the map / plan / Tafel while a
 // tool is armed – the tool's glyph and its name («F Feuer», «Linie · Freihand»), nothing else
-// (owner 23.10.2026, 3am sweep point 3, pick B). It is a readout, not a control: no sentence, no
-// ✕, pointer events pass through it to the surface. The way out stays the rail tile (tap the
-// armed tool again) and Escape. It replaced the symbol tool's ✕ · «Mehrere» · ⓘ dock on every
+// (owner 23.10.2026, 3am sweep point 3, pick B). It is a readout, not a control: no sentence,
+// pointer events pass through it to the surface. The ways out are the rail tile (tap the armed
+// tool again), Escape, and the ✕ beside it (below). It replaced the symbol tool's ✕ · «Mehrere» · ⓘ dock on every
 // surface; the other tools keep their option docks (Freihand ↔ Punkte, ✓, Strecke ↔ Fläche).
 //
 // «Mehrere platzieren» is the one thing the old symbol dock did that the pill cannot: it is kept

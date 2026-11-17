@@ -261,14 +261,10 @@ export const whiteboardCopy = {
     insertVertex: 'Punkt einfügen',
     dragVertex: 'Eckpunkt ziehen, gedrückt halten zum Löschen',
     dragRadius: 'Radius ziehen',
-    groupDeleted: 'Auswahl entfernt',
     groupDeletedN: '{n} Objekte vom Plan entfernt',
     placeText: 'Notiz auf Plan gesetzt',
     placeSymbol: 'Symbol «{name}» auf Plan gesetzt',
-    placeLine: 'Linie auf Plan gezeichnet',
-    placeArea: 'Fläche auf Plan gezeichnet',
     placeWand: 'Wand auf Plan gezeichnet',
-    placeCircle: 'Absperrkreis auf Plan gezeichnet',
     placeTeam: '{name} auf Plan gesetzt',
     selectTrupp: 'Welcher Trupp?',
     newTeam: 'Neuer Trupp',
@@ -460,6 +456,11 @@ export const whiteboardCopy = {
     // the dial's word in the rail (shown with «Beschriftung · Wörter»): the door, or the read-out
     orientRail: 'Drehen',
     northRail: 'Norden',
+    // ENT.8 (17.11.2026): a Plan row is the Karte's row for the same act (drawing.ts · log), plus
+    // where – so a Verlauf filtered for «Rettungsachse» or «Pfeil» finds both halves (a removal
+    // already wrote the Karte's «TLF entfernt»)
+    drawnOnPlan: '{name} auf Plan gezeichnet',
+    shapeOnPlan: '{name} auf Plan platziert',
   },
   // the Tafel's pages (10.10.2026, docs/board-templates.md): the free «Skizze» plus the pages a
   // board template offers (FKS «Erste Führung», FKS 8.1 …) — the page strip, the «+ Seite» list,

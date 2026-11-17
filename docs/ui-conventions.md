@@ -521,8 +521,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     and every tool-option dock on the Karte, the Einsatz map and the Plan/Skizze, phone and tablet,
     wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
     The controls share one neutral fill (`--dock-control-bg`, opaque) and hover
-    (`--dock-control-hover`); a picked width/line style is the selected wash; the ARMED toggle
-    (`.wb-dock-tog.on`) is the `--sel` fill — that fill, not the dock, says «armed». The ✓ is
+    (`--dock-control-hover`); a picked width/line style is the selected wash; a dock toggle that
+    is ON (`.wb-dock-tog.on`, «Mehrere», the Messen mode) is a choice and wears the `--sel` fill.
+    **«Armed» is one look** (duck sweep ELEM.1, owner 17.11.2026): an armed tool or mode – the
+    rail's tool, the selection bar's ✥ «Verschieben» / ⟳ «Drehen» – is the ink pill (`--here-fill`,
+    role 3 below); at rest the bar's two grips are the neutral dock control with their word. The ✓ is
     `--btn-primary`. No dock carries a line of text, on any surface or width (20.10.2026, owner:
     «Remove the line. I don't think they add any value.»): a tool's instructions are its ⓘ.
     **The armed tool's name is the readout pill** (`.armed-pill`, 23.10.2026): glyph + word,
@@ -571,7 +574,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     else rides on the wash** (29.09.2026): no ring, no recoloured read-out; a count keeps its own
     ink (an open count is amber on every row, current or not — `.group-choose-count.open`); a ✓
     may stay as the cue that is not a colour. (3)
-    **Where you are** — the nav rail, the armed tool, a Trupp tab — keeps the ink pill
+    **Where you are** — the nav rail, the armed tool (and the bar's armed ✥ / ⟳), a Trupp tab — keeps the ink pill
     (`--here-fill` / `--on-here` in every bar: = `--ink-fill` by day, a lighter plate with a white
     glyph at night, 05.11.2026): a place, not an answer. A chip whose tone IS its meaning (the composer's
     Auftrag/Sofort) fills in that tone, same shape; colour swatches keep
@@ -633,7 +636,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Verwerfen · Weiterzeichnen» – never silently dropped). So one exit per state: a SELECTED
     object's is its editor card's ✕, and the `SelectionBar` carries no «Fertig» beside it; only a
     Mehrfach group, which has no card, gets a ✕ at the bar's end. The armed-tool pill at the bottom
-    centre stays glyph + name, no buttons. Text editors' in-place ✓ (a Notiz, a box label) commit
+    centre is glyph + name, a readout; beside it, only while a symbol is armed, stand «Mehrere» and
+    its ✕ (`ArmedToolPill`). Every armed state has a visible ✕ – the Karte's «Punkt setzen» too. Text editors' in-place ✓ (a Notiz, a box label) commit
     typed text and keep their ✓.
   - *Cancel (28.09.2026, owner pick A):* «Abbrechen» in a footer is a FRAMED `.ip-btn` 14/700 at
     its word's width, never a ghost word; the primary takes the rest of the row, same height (on a
@@ -864,13 +868,20 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
 
 - **Touch vocabulary – one beat, one buzz, one wash.** The primary devices are gloved tablets;
   a new gesture reuses these or it teaches a second language. Any new touch interaction must:
-  - *Hold on the 350 ms beat* when the hold **reveals or offers** – the icon-only hold-tooltip
-    (`src/lib/holdTooltip.ts` · `HOLD_MS`) and the Eintrag hold (`src/lib/useHoldEntry.ts` ·
-    `HOLD_MS`) share it, so every still hold answers alike. A disclosure (`aria-expanded`: the ⓘ,
-    a menu or card toggle) is never hold-explained – its tap already shows what it means, and
-    the same words twice read as a glitch (28.10.2026). The holds that are not «reveal» keep
-    their own documented numbers: `useHoldToDrag` arms a drag at 180 ms, `nodeHold.ts` arms at
-    250 ms and fires destructively at 825 ms. Reuse a constant; don't invent a third window.
+  - *A hold waits on one of four named windows* (`src/lib/holdTimings.ts`, duck sweep
+    GESTURES.6, 17.11.2026 – there were seven), chosen by what the hold does, never a new number:
+    **OFFER 350 ms** when it reveals, offers or does a small undoable thing – the icon-only
+    hold-tooltip (`lib/holdTooltip`), the Eintrag hold (`lib/useHoldEntry`), every
+    `lib/useLongPress` hold (the Plan / Seite chooser, the compass, the Trupp crown, the Karte's
+    pin) and the Zeitplan lane sheet (`lib/useLaneGesture`); **DRAG 180 ms** lifts a placed object
+    (`useHoldToDrag`); **GUARD 250 → 825 ms** when it takes something away (`lib/nodeHold`: a
+    node, «Entsperren», the Notfall tile – nothing shows before 250, it acts at 825). A
+    disclosure (`aria-expanded`: the ⓘ, a menu or card toggle) is never hold-explained – its tap
+    already shows what it means, and the same words twice read as a glitch (28.10.2026).
+  - *The compass hold* (GESTURES.7, owner 17.11.2026): **Einsatz → Einpassen, Frieden →
+    Standort.** In an Einsatz a hold on the Lage's compass and on the Plan's north dial
+    (`PlanCompass · onFit`, the whole plan) fits the view; on the peacetime Karte it finds
+    Mein Standort (else fits, `karte/useKarteCamera`). The keys stay 0 = Einpassen, G = Mein Standort.
   - *Meaning never lives in a `title` or a colour alone* (UX sweep F6, 20.10.2026): a tablet
     never shows a `title`. Where a control's visible word does not say what matters
     («Bereitstellen» does NOT start the contact clock, the Schichten head's «·», the Zeitplan's
@@ -887,7 +898,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Zeitplan lane's hold. No inline `navigator.vibrate` anywhere else. (`src/lib/alarm.ts`'s
     vibration pattern is the Atemschutz alarm, not a gesture.)
   - *One hold ring, around the icon* – `HoldChargeRing` (`src/components/HoldTargets.tsx`, also
-    `NodeDeleteChip`), fed by `useTimedProgress` off the **same clock as the timer**. Never a CSS
+    `NodeDeleteChip`), fed by `useTimedProgress` off the **same clock as the timer**; a
+    `useLongPress` host paints it from the hook's `held` (the compass, the north dial, the rail's
+    chooser tiles). A hold on a row with no glyph (the Trupp crown) has no ring. Never a CSS
     keyframe: it drifts against the latch and, under `prefers-reduced-motion`, paints full on the
     first frame while the timer still runs. The ring haloes the glyph – never strokes across a
     label, and nothing may reflow under the finger mid-hold.

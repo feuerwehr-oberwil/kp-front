@@ -887,7 +887,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             <MeasurePanel mode={measure.mode} coords={measure.path} profile={measure.profile} profileLoading={measure.loading} relay={measure.relay} className={s.measurePanel} />
           </>
         )}
-        {pinHint && <MapHint>{C.pinHint}</MapHint>}
+        {/* «Punkt setzen» wears the ✕ every armed tool has (GESTURES.14): on a phone its button
+            leaves the bar while a tool is armed, so the hint alone left no visible way out */}
+        {pinHint && <><MapHint>{C.pinHint}</MapHint><ToolDock groups={[[{ type: 'close', onClick: () => setTool('pin') }]]} /></>}
 
         {tool === 'erg' && (
           <KarteGefahrgut

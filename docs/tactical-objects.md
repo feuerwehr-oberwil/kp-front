@@ -32,6 +32,30 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   on the Karte a DOM copy of the canvas head (`MapView · EditArrowMark`) and the fork's marker at
   `MARKER_Z.endMark`, on the Plan `.wb-arrowhead` / `.wb-line-fork` over `.wb-vertex`. Pointer-inert:
   the ring under it stays the grip.
+- **A finger on an object pans, unless the object is selected or held** (duck sweep GESTURES.1/.2,
+  owner 17.11.2026 – the Lage's rule on both surfaces). Touch or pen on an object that is not
+  selected: a move pans the map / the board, a tap selects on release, a still hold of
+  `HOLD_DRAG_MS` (180 ms, `lib/holdTimings`) lifts it with a buzz. A selected object, and any mouse
+  press, drags past the 8 px deadzone at once. Lage: `useHoldToDrag` in `MapMarkers · pressMarker`
+  (a Linie / Fläche / Kreis body has no drag there – the bar's ✥ moves it). Plan: every kind,
+  Trupp chips, symbols, notes, Linien, Flächen, Kreise and a Linie's label (`useWbChipDrag`,
+  `useWbBodyDrag`, the pan from `useBoardGestures · panFrom`). So a pan that starts on a Trupp
+  never moves it and never stamps it a new time. A pan never deselects either: only a stationary
+  tap on empty map / board does (`useMapActions` after `MapView`'s pan-click drop;
+  `useBoardGestures · panUp`). The lasso is one-shot on both: after any box you are back in
+  Auswahl (`useMapActions · onMarquee`, `useBoardGestures · marqueeUp`). A tap on a pile of compact
+  glyphs (symbols, Trupps) fans it out on short spokes and the next tap picks one – nearest
+  centre, never the top DOM node (`lib/labelPass · pileAt / fanOffsets`; Lage `MapMarkers`, Plan
+  `useWbChipDrag · fan`, GESTURES.9). Nothing drags while a pile is fanned. A double tap on a
+  named chip opens its name on both surfaces (GESTURES.10): a Notiz its inline text, a Trupp its
+  rename – unless the Atemschutz board names that Trupp (`truppId`, no pen either). The Lage
+  counts the two taps itself (`MapMarkers · namedDoubleTap`, the map's numbers from
+  `lib/tapDragZoom`); the Plan keeps those chips out of its one-finger zoom (`useBoardGestures`).
+- **Right-click means one thing** (GESTURES.13, 17.11.2026): on a node pad it is the hold's desktop
+  twin – delete that point, with the hold's own floor (a finished Linie / Messen-Strecke keeps 2
+  points, a Fläche 3; a draft may shrink to nothing), on the Lage, the Karte and the Plan, Messen
+  included. On an object body it does nothing (no select, no drag); a right drag still turns the
+  map. The Schichten / Zeitplan context menus are their own surfaces and keep theirs.
 - **A tap on a node is the node's, never the map's** (round 15.11.2026): a node is dragged or
   held, a tap on it does nothing. On the Karte its click would bubble from the Marker to
   maplibre's container and insert a node under the finger (a selected Linie grew a stacked

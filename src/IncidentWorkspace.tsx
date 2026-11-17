@@ -3265,7 +3265,7 @@ export function IncidentWorkspace({
       }} />
 
       <PlansSurface {...{
-        mode, sym, guarded, railLabels, planDocs, tacticalLocked, isPhone, journalOpen, replayActive,
+        mode, vehicleOverrides, sym, guarded, railLabels, planDocs, tacticalLocked, isPhone, journalOpen, replayActive,
         linkScoped, activePlanId, setActivePlanId, objectPlans, buildingInfo, incidentMeta,
         setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, georefFits, mapActions,
         replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,

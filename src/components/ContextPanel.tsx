@@ -651,7 +651,8 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
   const countLabel = (entity.symbol && C.countBySymbol[entity.symbol]) || C.count
   /** the symbol's own name, for the header of everything that is NOT user-labelled */
   const symbolName = entity.symbol ? formatSymbolName(entity.symbol) : ''
-  const showDetails = !isNote && (showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly)
+  // a live vehicle's Fahrer / Herkunft count as details too – a read-only sheet with no other row hid them
+  const showDetails = !isNote && (showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly || !!driver || !!origin)
 
   /* on-canvas caption override for THIS symbol — small + de-emphasised down by the actions
      (the field values matter first; visibility is a rare tweak). Standard follows the device
