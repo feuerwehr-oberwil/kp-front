@@ -737,13 +737,20 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
 
 - **Touch vocabulary – one beat, one buzz, one wash.** The primary devices are gloved tablets;
   a new gesture reuses these or it teaches a second language. Any new touch interaction must:
-  - *Hold on the 350 ms beat* when the hold **reveals or offers** – the icon-only hold-tooltip
-    (`src/lib/holdTooltip.ts` · `HOLD_MS`) and the Eintrag hold (`src/lib/useHoldEntry.ts` ·
-    `HOLD_MS`) share it, so every still hold answers alike. A disclosure (`aria-expanded`: the ⓘ,
-    a menu or card toggle) is never hold-explained – its tap already shows what it means, and
-    the same words twice read as a glitch (28.10.2026). The holds that are not «reveal» keep
-    their own documented numbers: `useHoldToDrag` arms a drag at 180 ms, `nodeHold.ts` arms at
-    250 ms and fires destructively at 825 ms. Reuse a constant; don't invent a third window.
+  - *A hold waits on one of four named windows* (`src/lib/holdTimings.ts`, duck sweep
+    GESTURES.6, 17.11.2026 – there were seven), chosen by what the hold does, never a new number:
+    **OFFER 350 ms** when it reveals, offers or does a small undoable thing – the icon-only
+    hold-tooltip (`lib/holdTooltip`), the Eintrag hold (`lib/useHoldEntry`), every
+    `lib/useLongPress` hold (the Plan / Seite chooser, the compass, the Trupp crown, the Karte's
+    pin) and the Zeitplan lane sheet (`lib/useLaneGesture`); **DRAG 180 ms** lifts a placed object
+    (`useHoldToDrag`); **GUARD 250 → 825 ms** when it takes something away (`lib/nodeHold`: a
+    node, «Entsperren», the Notfall tile – nothing shows before 250, it acts at 825). A
+    disclosure (`aria-expanded`: the ⓘ, a menu or card toggle) is never hold-explained – its tap
+    already shows what it means, and the same words twice read as a glitch (28.10.2026).
+  - *The compass hold* (GESTURES.7, owner 17.11.2026): **Einsatz → Einpassen, Frieden →
+    Standort.** In an Einsatz a hold on the Lage's compass and on the Plan's north dial
+    (`PlanCompass · onFit`, the whole plan) fits the view; on the peacetime Karte it finds
+    Mein Standort (else fits, `karte/useKarteCamera`). The keys stay 0 = Einpassen, G = Mein Standort.
   - *Meaning never lives in a `title` or a colour alone* (UX sweep F6, 20.10.2026): a tablet
     never shows a `title`. Where a control's visible word does not say what matters
     («Bereitstellen» does NOT start the contact clock, the Schichten head's «·», the Zeitplan's
@@ -758,7 +765,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     call sites go through `buzz()`. (`src/lib/alarm.ts`'s vibration pattern is the Atemschutz
     alarm, not a gesture.)
   - *One hold ring, around the icon* – `HoldChargeRing` (`src/components/HoldTargets.tsx`, also
-    `NodeDeleteChip`), fed by `useTimedProgress` off the **same clock as the timer**. Never a CSS
+    `NodeDeleteChip`), fed by `useTimedProgress` off the **same clock as the timer**; a
+    `useLongPress` host paints it from the hook's `held` (the compass, the north dial, the rail's
+    chooser tiles). A hold on a row with no glyph (the Trupp crown) has no ring. Never a CSS
     keyframe: it drifts against the latch and, under `prefers-reduced-motion`, paints full on the
     first frame while the timer still runs. The ring haloes the glyph – never strokes across a
     label, and nothing may reflow under the finger mid-hold.

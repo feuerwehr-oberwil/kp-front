@@ -12,7 +12,7 @@
 //
 // docs/ui-conventions.md › Touch vocabulary names the same four numbers.
 
-/** reveal / offer / small act – the one beat a still hold answers on */
+/** reveal / offer / small act */
 export const HOLD_OFFER_MS = 350
 /** touch: a still hold this long arms the drag of a placed object */
 export const HOLD_DRAG_MS = 180

@@ -2848,7 +2848,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
               corner, NOT on the paper. Rendered AFTER the floating zoom so the chip can step
               below it (PlanCompass.module.css). */}
           {stack && fpView && readOnly && !slimRail && (
-            <PlanCompass variant="float" deg={northDeg ?? shownAngle} northUnknown={northDeg == null} />
+            <PlanCompass variant="float" deg={northDeg ?? shownAngle} northUnknown={northDeg == null} onFit={() => applyView(1, { x: 0, y: 0 })} />
           )}
 
           {/* ONE bar for every selection this sheet has — the same component, in the same corner
@@ -2946,7 +2946,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                   rail's old separate compass tile (gone 29.09.2026, sweep K6) does not come back. */}
               {stack && fpView && (
                 <PlanCompass variant="rail" deg={northDeg ?? shownAngle} northUnknown={northDeg == null}
-                  controls={canOrient && !readOnly ? orientControls : undefined} />
+                  controls={canOrient && !readOnly ? orientControls : undefined} onFit={() => applyView(1, { x: 0, y: 0 })} />
               )}
               {/* zoom ±: mouse only (.vrail-zoom is hidden under 1024px and on a coarse pointer)
                   — the plan pinches on every touch form factor, and «Einpassen» above covers the

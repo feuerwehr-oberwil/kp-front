@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Shift } from '../types'
 import { type DragEdge, type Span, dragShift, timeAtFraction } from './shifts'
+import { HOLD_OFFER_MS } from './holdTimings'
 
 /** past this the press is a drag, not a tap — a finger never holds perfectly still */
 const DRAG_PX = 5
-/** hold this long without moving and the person's sheet opens instead */
-const HOLD_MS = 450
+/** hold this long without moving and the person's sheet opens instead – the OFFER window
+ *  (lib/holdTimings; 450 until 17.11.2026, a beat of its own) */
+const HOLD_MS = HOLD_OFFER_MS
 
 /** an in-progress sweep across empty lane: the stretch being drawn, not yet stored */
 export interface LaneDraw { from: number; to: number }

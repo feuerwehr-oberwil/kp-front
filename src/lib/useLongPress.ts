@@ -1,10 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { HOLD_OFFER_MS } from './holdTimings'
 
-/** Hold this long (without moving) to fire — long enough not to clash with a drag, and the
- *  platform-usual long press on both Android and iOS. Exported because a hold on the map canvas
- *  cannot use this hook (it listens on maplibre's container, not on a React element) and the app
- *  must answer every still hold on one beat (karte/useKartePointer · useMapPress). */
-export const LONG_PRESS_MS = 500
+/** Hold this long (without moving) to fire – the OFFER window (lib/holdTimings; 500 until
+ *  17.11.2026). Exported because a hold on the map canvas cannot use this hook (it listens on
+ *  maplibre's container, not on a React element): karte/useKartePointer · useMapPress. */
+export const LONG_PRESS_MS = HOLD_OFFER_MS
 /** any movement past this is a drag/reshape, not a press → cancel */
 export const LONG_PRESS_MOVE_TOL_PX = 8
 
@@ -15,13 +15,16 @@ export const LONG_PRESS_MOVE_TOL_PX = 8
  * `window` (capture phase) so it stays correct even when maplibre takes pointer capture
  * for the drag — the element's own pointer events would otherwise stop arriving.
  *
- * `press(fn)` returns the onPointerDown (+ `data-holdaction`) to spread on a handle; one hook
+ * `press(fn, key?)` returns the onPointerDown (+ `data-holdaction`) to spread on a handle; one hook
  * instance serves a whole list of handles (only one press is ever live at a time). `cancel()`
- * lets the Marker's onDrag abort the press the instant a real drag begins.
+ * lets the Marker's onDrag abort the press the instant a real drag begins. `held` names the
+ * handle being held (its `key`) and since when – the host paints `HoldChargeRing` from it, so
+ * every hold that acts warns the finger before it fires (ui-conventions › Touch vocabulary).
  */
 export function useLongPress(opts?: { delayMs?: number; moveTolerancePx?: number }) {
   const delayMs = opts?.delayMs ?? LONG_PRESS_MS
   const tol = opts?.moveTolerancePx ?? LONG_PRESS_MOVE_TOL_PX
+  const [held, setHeld] = useState<{ key: string; since: number } | null>(null)
   const st = useRef<{
     timer: number
     sx: number
@@ -39,9 +42,10 @@ export function useLongPress(opts?: { delayMs?: number; moveTolerancePx?: number
     window.removeEventListener('pointerup', s.onUp, true)
     window.removeEventListener('pointercancel', s.onUp, true)
     st.current = null
+    setHeld(null)
   }
 
-  const begin = (e: React.PointerEvent, fn: () => void) => {
+  const begin = (e: React.PointerEvent, fn: () => void, key: string) => {
     cancel()
     const onMove = (ev: PointerEvent) => {
       const s = st.current
@@ -54,6 +58,7 @@ export function useLongPress(opts?: { delayMs?: number; moveTolerancePx?: number
       s?.cb()
     }, delayMs)
     st.current = { timer, sx: e.clientX, sy: e.clientY, cb: fn, onMove, onUp }
+    setHeld({ key, since: Date.now() })
     window.addEventListener('pointermove', onMove, true)
     window.addEventListener('pointerup', onUp, true)
     window.addEventListener('pointercancel', onUp, true)
@@ -63,8 +68,9 @@ export function useLongPress(opts?: { delayMs?: number; moveTolerancePx?: number
 
   return {
     cancel,
+    held,
     // `data-holdaction`: the hold IS this control's gesture, so the app-wide hold-tooltip
     // (lib/holdTooltip) must not answer the same press with a label bubble first
-    press: (fn: () => void) => ({ 'data-holdaction': true as const, onPointerDown: (e: React.PointerEvent) => begin(e, fn) }),
+    press: (fn: () => void, key = '') => ({ 'data-holdaction': true as const, onPointerDown: (e: React.PointerEvent) => begin(e, fn, key) }),
   }
 }

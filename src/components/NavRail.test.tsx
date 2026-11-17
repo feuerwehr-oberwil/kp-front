@@ -181,7 +181,7 @@ describe('folded plan tile', () => {
   })
 
   // …and the hold is the second door into the list, from wherever you are standing (the app's
-  // own useLongPress: 500 ms, cancelled by any movement)
+  // own useLongPress: the OFFER window, cancelled by any movement)
   it('a hold on the tile opens the chooser without switching surface', () => {
     vi.useFakeTimers()
     try {

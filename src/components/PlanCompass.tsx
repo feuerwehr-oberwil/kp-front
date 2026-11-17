@@ -1,14 +1,18 @@
 /*
  * *The north dial is the ONE door to «Gebäude drehen»* (29.09.2026), on every device
- * (`PlanCompass`); it also shows the angle. Since 20.10.2026 (UX sweep M7) it lives where the
+ * (`PlanCompass`); it also shows the angle. *A hold on it is «Einpassen»* (duck sweep GESTURES.7,
+ * owner 17.11.2026): the whole plan back in front of you, the Lage compass's hold – in an Einsatz
+ * every compass hold fits, in peacetime the Karte's finds Mein Standort. Since 20.10.2026 (UX sweep M7) it lives where the
  * Karte's compass does: in the tool rail's view bar on a tablet or laptop (bottom corner, since
  * 06.11.2026), in the bottom tool bar on a phone.
  */
 
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { BAR_POP_OFFSET, Popover } from '../lib/overlays'
+import { LONG_PRESS_MS, useLongPress } from '../lib/useLongPress'
+import { HoldChargeRing } from './HoldTargets'
 import s from './PlanCompass.module.css'
 
 /**
@@ -25,16 +29,28 @@ import s from './PlanCompass.module.css'
  * `deg` is the ACTIVE view angle including the popover's live preview, so the needle turns with
  * the slider before the rotation is committed. Pass `controls` (the orientation popover's
  * contents) to make it the one door to rotating the building; without them – a viewer, a
- * replay, a footprint that was never turned – it is a plain read-out.
+ * replay, a footprint that was never turned – it is a plain read-out. `onFit` is the hold's
+ * Einpassen (the read-out holds too: fitting is a way of looking, not an edit).
  */
-export function PlanCompass({ deg, controls, northUnknown = false, variant }: {
+export function PlanCompass({ deg, controls, northUnknown = false, variant, onFit }: {
   deg: number
   controls?: ReactNode
   northUnknown?: boolean
   variant: 'rail' | 'float'
+  onFit?: () => void
 }) {
   // controlled, so the open rail tile wears the rail's «on» pill like the Karte's compass does
   const [open, setOpen] = useState(false)
+  const hold = useLongPress()
+  // a fired hold must not also open the popover with the click that follows its release; cleared
+  // at the START of every press, so a hold whose click never lands cannot swallow the next tap
+  const fired = useRef(false)
+  const holdProps = onFit ? hold.press(() => { fired.current = true; onFit() }) : null
+  const press = holdProps && {
+    'data-holdaction': true as const,
+    onPointerDown: (e: React.PointerEvent) => { e.stopPropagation(); fired.current = false; holdProps.onPointerDown(e) },
+  }
+  const ring = hold.held && <HoldChargeRing since={hold.held.since} ms={LONG_PRESS_MS} />
   const W = appConfig.copy.whiteboard
   // ⚠️ A Geschossplan that is not linked to the map has NO known north (16.09.2026): it can still
   // be turned – that is what the popover is for – but a needle would be pointing at a direction
@@ -45,13 +61,14 @@ export function PlanCompass({ deg, controls, northUnknown = false, variant }: {
     // the Karte's compass glyph (MapViewsMenu · CompassGlyph), turned to where north is on the paper
     ? <span className={s.glyph} style={turn}><Icon id={northUnknown ? 'rotate' : 'compass'} /></span>
     : <FloatDial deg={deg} northUnknown={northUnknown} />
+  // the hold ring haloes the glyph (`.tb-act-ic` anchors it), outside the turning needle
   const face = variant === 'rail'
-    ? <><span className="vrail-glyph">{glyph}</span><span className="vrail-label">{controls ? W.orientRail : W.northRail}</span></>
-    : glyph
+    ? <><span className="vrail-glyph"><span className="tb-act-ic">{glyph}{ring}</span></span><span className="vrail-label">{controls ? W.orientRail : W.northRail}</span></>
+    : <span className="tb-act-ic">{glyph}{ring}</span>
   const look = variant === 'rail' ? 'vrail-nbtn vrail-views' : s.chip
 
   if (!controls) {
-    return <span className={`${look} ${s.still}`} role="img" title={title} aria-label={title}>{face}</span>
+    return <span className={`${look} ${s.still}`} role="img" title={title} aria-label={title} {...press}>{face}</span>
   }
   // ⚠️ A press on the dial is the dial's: the float chip sits INSIDE the board's canvas
   // (Whiteboard · .wb-canvas), whose pointerdown starts a one-finger pan and takes pointer capture
@@ -67,12 +84,16 @@ export function PlanCompass({ deg, controls, northUnknown = false, variant }: {
       // bar it stands 8px off the BAR, not off the button inside it (it touched the view bar)
       side={variant === 'float' ? 'bottom' : 'top'} align="end" zIndex={60}
       sideOffset={variant === 'rail' ? BAR_POP_OFFSET : undefined}
-      open={open} onOpenChange={setOpen}
+      open={open} onOpenChange={(next) => {
+        if (next && fired.current) { fired.current = false; return } // the hold's own release
+        setOpen(next)
+      }}
       trigger={
         <button type="button" className={`${look} ${s.btn}${open && variant === 'rail' ? ' on' : ''}`}
           title={W.orientMenuTitle}
           aria-label={W.orientMenuTitle}
           onPointerDown={(e) => e.stopPropagation()}
+          {...press}
         >{face}</button>
       }
     >{controls}</Popover>

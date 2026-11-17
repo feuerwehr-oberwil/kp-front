@@ -2,8 +2,10 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLongPress } from './useLongPress'
+import { HOLD_OFFER_MS } from './holdTimings'
 
-// The hook fires onLongPress only after a still hold past DELAY_MS (500). Any movement past
+// The hook fires onLongPress only after a still hold past LONG_PRESS_MS (the OFFER window, 350 –
+// lib/holdTimings; the tests advance 520 to clear it). Any movement past
 // MOVE_TOL_PX (8), a release, a pointercancel, or an explicit cancel() (the path the map's
 // Marker.onDrag uses) aborts the press. Movement/release are tracked on window (capture), so
 // the tests dispatch real PointerEvents on window to drive those branches.
@@ -22,6 +24,20 @@ beforeEach(() => vi.useFakeTimers())
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
 
 describe('useLongPress', () => {
+  // GESTURES.6 (17.11.2026): it answers on the OFFER window like every hold that shows or offers,
+  // and says which handle is charging, so the host can paint the ring
+  it('fires on the OFFER window and names the held handle until then', () => {
+    const fn = vi.fn()
+    const { result } = renderHook(() => useLongPress())
+    act(() => result.current.press(fn, 'plans').onPointerDown(down()))
+    expect(result.current.held?.key).toBe('plans')
+    act(() => void vi.advanceTimersByTime(HOLD_OFFER_MS - 10))
+    expect(fn).not.toHaveBeenCalled()
+    act(() => void vi.advanceTimersByTime(20))
+    expect(fn).toHaveBeenCalledTimes(1)
+    expect(result.current.held).toBeNull()
+  })
+
   it('fires onLongPress after a still hold past the delay', () => {
     const fn = vi.fn()
     const { result } = renderHook(() => useLongPress())
