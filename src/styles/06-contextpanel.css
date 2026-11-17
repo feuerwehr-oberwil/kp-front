@@ -458,10 +458,11 @@
 /* (a custom field's remove ✕ is THE icon button, <IconButton> — quiet, a --tap square at every
    pointer, like the stepper's reset ✕; it was a 32px grey tile that only grew under a finger) */
 /* «Führung übergeben» — the ⇄ at the RIGHT END of the Einsatzleiter glyph's EL row (slim sweep
-   27.09.2026, item 9; it was a sentence with a parenthesis between the two rows): a 44px square,
-   <IconButton variant="secondary"> since 08.10.2026 (it was a hand-made tile of the same size).
-   The Stv. row leaves the same 44px empty (.kv-swap-gap), so the two fields end on one line. */
-.kv-swap-gap { flex: none; width: var(--tap); }
+   27.09.2026, item 9; it was a sentence with a parenthesis between the two rows),
+   <IconButton variant="secondary"> since 08.10.2026, its word under the glyph since 17.11.2026
+   (rare-user F17: the handover was a bare ⇄). The Stv. row leaves the same width empty
+   (.kv-swap-gap), so the two fields end on one line. */
+.kv-swap-gap { flex: none; width: 64px; }
 /* FKS Entwicklung (spread) controls — a label + a row of small toggle buttons, the capsules
    starting at the label column's edge like every other control in the panel (27B) */
 .spread-row { display: flex; align-items: center; gap: var(--ctx-col-gap); min-height: 52px; padding: 4px 0; }

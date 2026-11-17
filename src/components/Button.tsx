@@ -51,18 +51,22 @@ type IconButtonProps = Omit<ComponentPropsWithRef<'button'>, 'children' | 'aria-
   /** quiet (default): glyph on the surface · secondary: the surface and its hairline, for a
    *  control standing free on a bar or the map */
   variant?: 'quiet' | 'secondary'
+  /** the word drawn UNDER the glyph, where a rare act must not be a bare glyph («Führung
+   *  übergeben», rare-user F17) – the worded dock tile's column; `label` stays the accessible name */
+  word?: string
 }
 
-export function IconButton({ label, variant = 'quiet', className, type = 'button', title, children, ...rest }: IconButtonProps) {
+export function IconButton({ label, variant = 'quiet', word, className, type = 'button', title, children, ...rest }: IconButtonProps) {
   return (
     <button
       type={type}
       aria-label={label}
       title={title ?? label}
-      className={cx(s.icon, variant === 'secondary' && s.iconSecondary, className)}
+      className={cx(s.icon, variant === 'secondary' && s.iconSecondary, word && s.iconWorded, className)}
       {...rest}
     >
       {children}
+      {word && <span className={s.word}>{word}</span>}
     </button>
   )
 }
