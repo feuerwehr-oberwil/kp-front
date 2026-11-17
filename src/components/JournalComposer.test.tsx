@@ -445,7 +445,12 @@ describe('JournalComposer · an imported memo\'s start time', () => {
     const start = await screen.findByRole('button', { name: 'Aufnahme begann' })
     expect(document.querySelector('.jc-time')).toBeNull()
     const save = () => screen.getByRole('button', { name: /Erfassen|Eintragen/ }) as HTMLButtonElement
-    expect(save().disabled).toBe(true) // the gate: not until the start is confirmed
+    // the gate: not until the start is confirmed – and a tap on it then points at the start row
+    // instead of being swallowed (aria-disabled, duck sweep ELEM.4)
+    expect(save().getAttribute('aria-disabled')).toBe('true')
+    expect(save().disabled).toBe(false)
+    fireEvent.click(save())
+    expect(document.querySelector('.jc-import-start')!.classList.contains('field-flash')).toBe(true)
 
     fireEvent.click(start)
     // the popover (the composer itself is a dialog too, so it is found by its frame)
@@ -461,7 +466,7 @@ describe('JournalComposer · an imported memo\'s start time', () => {
     fireEvent.change(within(pop).getByRole('textbox'), { target: { value: hhmm } })
     fireEvent.click(within(pop).getByRole('button', { name: 'OK' }))
     expect(start.textContent).toBe(hhmm)
-    await waitFor(() => expect(save().disabled).toBe(false))
+    await waitFor(() => expect(save().getAttribute('aria-disabled')).toBe('false'))
     expect(onSubmit).not.toHaveBeenCalled()
   })
 })
