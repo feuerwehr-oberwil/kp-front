@@ -116,7 +116,7 @@
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 /* a folded row (Meldung.fold – a hidden alarm): one dim line at the 44 px floor, its «Zeigen» beside it */
 .ml-row.fold { min-height: 44px; }
-.ml-row.fold .ml-title { font-weight: var(--fw-medium); color: var(--ink-dim); -webkit-line-clamp: 1; line-clamp: 1; }
+.ml-row.fold .ml-title { display: block; font-weight: var(--fw-medium); color: var(--ink-dim); white-space: nowrap; text-overflow: ellipsis; }
 .ml-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* a row whose sentence IS the message (Meldung.wrap) — «Einsatz wurde auf einem anderen Gerät
    abgeschlossen (14:45)» must not lose its end to the ellipsis on a phone */
