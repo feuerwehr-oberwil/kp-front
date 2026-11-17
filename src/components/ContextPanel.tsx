@@ -600,6 +600,9 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
     if (k === EL_STV) return { ...r, v: rows.find((x) => x.k.trim() === EL_NAME)?.v ?? '' }
     return r
   }))
+  // the handover is offered on the Einsatzleiter glyph once there is something to swap
+  const elPair = elSym && rows.some((r) => r.k.trim() === EL_NAME) && rows.some((r) => r.k.trim() === EL_STV)
+    && rows.some((r) => (r.k.trim() === EL_NAME || r.k.trim() === EL_STV) && r.v.trim())
   // a removal says so, with the way back (duck sweep FEEDBACK.3); an empty row lays no step, so it goes quietly
   const removeRow = (i: number) => removeWithUndo(
     fillTemplate(appConfig.copy.removedToast.named, { what: rows[i].k.trim() || C.fieldKeyPlaceholder }),
@@ -1082,15 +1085,6 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                 // the control, no editable-key box, no delete — so a «Typ» sits identically to a
                 // «Luftrichtung». A free row from an older record keeps its editable key + delete
                 // (nothing new is added since 31.10.2026, but what was written stays editable).
-                // …and the Einsatzleiter pair gets the ⇄: the handover is a swap, and a swap is one
-                // gesture. A 44px square at the right end of the EL row (27.09.2026 — it was a
-                // sentence between the rows), and the Stv. row leaves the same space empty so the
-                // two fields align. Offered only once there is something to swap.
-                const k = r.k.trim()
-                const pair = elSym && rows.some((x) => x.k.trim() === EL_NAME) && rows.some((x) => x.k.trim() === EL_STV)
-                  && rows.some((x) => (x.k.trim() === EL_NAME || x.k.trim() === EL_STV) && x.v.trim())
-                const swap = pair && k === EL_NAME
-                const swapGap = pair && k === EL_STV
                 // the caption of the tick column, once, above the first measured gas (ReadingParts)
                 const overHead = !readOnly && i === firstMeasured && <ReadingOverHead />
                 return fixed ? (
@@ -1099,12 +1093,6 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                     <div className="field">
                       <span className="kv-key-ro">{rowLabel(r.k)}</span>
                       {readOnly ? <b className="kv-val-ro">{r.v || '–'}</b> : field}
-                      {swap && (
-                        <IconButton variant="secondary" onClick={swapEl} label={C.swapEl}>
-                          <Icon id="swap" />
-                        </IconButton>
-                      )}
-                      {swapGap && <span className="kv-swap-gap" aria-hidden />}
                     </div>
                   </Fragment>
                 ) : (
@@ -1126,6 +1114,15 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
                   </Fragment>
                 )
               })}
+              {/* …and the Einsatzleiter pair gets «Führung übergeben»: the handover is a swap, and a
+                  swap is one gesture. One quiet worded button on its own line under the two names
+                  (rare-user r2 F17, 17.11.2026 – as a tile at the end of the EL row it squeezed the
+                  names to «W.» / «Nam…», and the names are what this panel is read for). */}
+              {elPair && (
+                <Button variant="quiet" className="kv-swap" icon={<Icon id="swap" />} onClick={swapEl}>
+                  {C.swapEl}
+                </Button>
+              )}
             </div>
           )}
 

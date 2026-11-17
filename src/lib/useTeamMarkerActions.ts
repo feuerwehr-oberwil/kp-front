@@ -17,6 +17,9 @@ interface TeamMarkerActionsDeps {
   emit: (op_type: string, payload?: Record<string, unknown>) => void
   setSelectedId: (id: string | null) => void
   setSelectedDrawingId: (id: string | null) => void
+  /** switch a layer this device has off back on – the marker lands on «Taktische Zeichen»
+   *  (IncidentWorkspace · revealLayer) */
+  revealLayer?: (id: string) => void
   /** Chip names standing on every PLAN, so a new generic team draws from the one counter of
    *  the Einsatz instead of duplicating a plan's «Trupp 1» (lib/placedTrupps · nextTruppNo). */
   placedTeamNames?: () => (string | undefined)[]
@@ -34,7 +37,7 @@ interface TeamMarkerActionsDeps {
  * Marking is the ONLY way a position is recorded (moving a marker never breadcrumbs), so the
  * recorded dots ARE the Truppverfolgung; clearing them is confirm-gated.
  */
-export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId, placedTeamNames, trupps, teamNameTaken }: TeamMarkerActionsDeps) {
+export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId, placedTeamNames, trupps, teamNameTaken, revealLayer }: TeamMarkerActionsDeps) {
   const placeGenericTeam = (c: LngLat) => {
     const teams = entities.filter((e) => e.kind === 'team')
     const id = newId('trupp')
@@ -45,6 +48,7 @@ export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedI
     const label = nextTeamName([...teams.map((e) => e.label), ...(placedTeamNames?.() ?? [])], trupps?.() ?? [])
     const marker: Entity = { id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: c, label, t: formatTime(new Date(serverNow())), color, trail: [] }
     commit((d) => ({ ...d, entities: [...d.entities, marker] }))
+    revealLayer?.(marker.layer)
     log('flag', fillTemplate(appConfig.copy.log.teamPlaced, { name: marker.label! }), 'team', undefined, id)
     emit('entity.add', { id, kind: 'team', entity: marker })
     setSelectedId(id); setSelectedDrawingId(null)

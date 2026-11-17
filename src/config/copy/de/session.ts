@@ -11,7 +11,7 @@ export const sessionCopy = {
     welcome: {
       title: 'Willkommen bei KP Front',
       intro: 'Ein vorbereiteter Einsatz mit erfundenen Daten. Zeichne, führe Trupps und probiere die Lageführung frei aus.',
-      reloadWarn: 'Alle Besucher arbeiten gemeinsam. Die Demo wird um Mitternacht und Mittag zurückgesetzt.',
+      reloadWarn: 'Keine echten Einsatz-, Personen-, Standort- oder Organisationsdaten eingeben. Alle Besucher arbeiten gemeinsam. Die Demo wird um Mitternacht und Mittag zurückgesetzt.',
       canTitle: 'Das kannst du ausprobieren',
       can: [
         'Karte und Plan bearbeiten',

@@ -7,7 +7,7 @@
  * marker's square long-side pad, and the box left for the pad is the shape's own, per axis.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import type { Entity, LngLat } from '../types'
@@ -213,12 +213,17 @@ describe('a Trupp marker that is joined, loose, or docked', () => {
     expect(pill.querySelector(':scope > *')?.className).toBe('wb-resource-cap')
   })
 
-  it('offers one «Lösen» glyph on a joined pill – and nothing to break when loose', () => {
-    const { container } = showTeam([team()], 'e1', badge() as never)
-    const btn = container.querySelector('.wb-pa-unlink')
-    expect(btn?.getAttribute('aria-label')).toBe(appConfig.copy.contextPanel.dockedRelease)
-    expect(container.querySelector('.wb-pa-join-lbl')).toBeNull()
-    expect(showTeam([team()], 'e1').container.querySelector('.wb-pa-unlink')).toBeNull()
+  // «Lösen» is a row of the bar's «Mehr» since rare-user round 2 (M12, 17.11.2026)
+  it('offers one «Lösen» on a joined pill – and nothing to break when loose', () => {
+    const lösen = () => {
+      fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.barMore }))
+      return screen.queryAllByRole('menuitem', { name: appConfig.copy.contextPanel.dockedRelease })
+    }
+    const joined = showTeam([team()], 'e1', badge() as never)
+    expect(lösen()).toHaveLength(1)
+    joined.unmount()
+    showTeam([team()], 'e1')
+    expect(lösen()).toHaveLength(0)
   })
 })
 

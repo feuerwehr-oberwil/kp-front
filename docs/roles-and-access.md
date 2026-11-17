@@ -92,7 +92,10 @@ wording unchanged.
   (`src/lib/linkMode.ts` ↔ `LINK_MODE_HEADER`). Consequences to keep true: the bare site after a
   link visit is whoever it was before, an Atemschutz link no longer signs the phone out to win
   precedence, `logout` is off the allowlist, and **no link surface offers «Abmelden»** — leaving
-  a link is closing the page, and coming back is the link URL. Two rules that fall out of the
+  a link is closing the page, and coming back is the link URL. What a view or alarm link page
+  DOES offer, when the browser holds no login (a link-scoped session there means none – those
+  links never outrank one), is «Anmelden» in the identity row: it opens the bare site, whose
+  sign-in it is (C8, 17.11.2026). Two rules that fall out of the
   same model and are easy to break: a page sending `use` with no live link session is **401, never
   the device's login** (falling through would turn a lapsed board into the phone owner's account),
   and the device's own «Abmelden» **does** clear the link cookie — headerless requests (typed
@@ -167,7 +170,7 @@ their offline copy already lives in IndexedDB (`lib/api/stationReference`).
 - **The el reads «Anrückend»** (`GET /divera/responses`, `CurrentRecordWriter`): it marks
   attendance like an editor. The rest of `/api/divera` stays editor-only.
 - **Who a push wakes** (owner's pick): the Atemschutz alarms go to every subscribed browser;
-  «Neuer Einsatz» only to `editor` accounts, «Wiedervorlage fällig» to `editor` and `el`
+  «Neuer Einsatz» only to `editor` accounts, «Erinnerung fällig» to `editor` and `el`
   (`push.py · role_recipients`, read when the push leaves). A viewer tablet, and a kiosk
   subscription without an account, hear only the Atemschutz alarms. Links never subscribe.
 - **«Standort teilen» posts under one name per device, held until let go.** No account or link

@@ -31,9 +31,17 @@ export function MapHelpCard({ children, role }: { children: ReactNode; role: 'to
   return <span className={s['wb-dock-tip']} role={role} data-lane-msg="">{children}</span>
 }
 
-/** `word`: the tile's word under the ⓘ, when the dock wears its words (ToolDock · `worded`) */
-export function DockInfo({ text, inline, word }: { text: string; inline?: boolean; word?: string }) {
-  const [open, setOpen] = useState(false)
+/**
+ * `word`: the tile's word under the ⓘ, when the dock wears its words (ToolDock · `worded`).
+ *
+ * `open`: the card is the parent's, not the tap's. While it is true the card STANDS – no ⓘ tile is
+ * drawn (there is nothing to tap open), a press elsewhere does not close it – and it goes when the
+ * parent says so. For a tool whose use is a fixed sequence of steps (calibrating the plan's scale,
+ * rare-user r4, 17.11.2026: the steps stand open by themselves). `text` may hold one step per line.
+ */
+export function DockInfo({ text, inline, word, open: standing }: { text: string; inline?: boolean; word?: string; open?: boolean }) {
+  const [tapped, setOpen] = useState(false)
+  const open = standing ?? tapped
   const btnRef = useRef<HTMLButtonElement>(null)
   // ⚠️ inline, the paragraph opens ABOVE the ⓘ and pushes it down. In a popover that is already
   // at its max-height that pushed the button under the fold with the scroller still at the top –
@@ -47,13 +55,14 @@ export function DockInfo({ text, inline, word }: { text: string; inline?: boolea
   // until the ⓘ itself was tapped again (sweep 28.10.2026 #21). A press on the ⓘ is left to its
   // own click, which toggles.
   useEffect(() => {
-    if (inline || !open) return
+    if (inline || !open || standing !== undefined) return
     const onDown = (e: PointerEvent) => {
       if (!(e.target instanceof Node && btnRef.current?.contains(e.target))) setOpen(false)
     }
     document.addEventListener('pointerdown', onDown, true)
     return () => document.removeEventListener('pointerdown', onDown, true)
-  }, [inline, open])
+  }, [inline, open, standing])
+  if (standing !== undefined) return standing ? createPortal(<MapHelpCard role="status">{text}</MapHelpCard>, document.body) : null
   const button = (
     <button
       ref={btnRef}

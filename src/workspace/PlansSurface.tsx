@@ -177,6 +177,8 @@ export function PlansSurface({
           /* ⚠️ Not during replay: a ghost trail is today's record of a removal, and the replayed
              sheet is what was on the screen at the recorded moment (lib/replay stays VIEW-based). */
           ghostTrails={replayActive ? [] : planGhostTrails(trails, activePlanId)}
+          // a scrub moves chips on and off storeys: never a reason to unfold one (Whiteboard · F4)
+          replay={replayActive}
           onGhostTrail={tacticalLocked ? undefined : (id) => void deleteGhostTrail(id)}
           // «Marker und Spur löschen» on a chip: arm the ghosting to write it already deleted
           onTrailDrop={tacticalLocked ? undefined : armTrailDrop}

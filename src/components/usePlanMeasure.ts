@@ -1,10 +1,11 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useLayoutEffect, useState, useRef } from 'react'
 import type React from 'react'
 import { calibrate, pathMetres, polyAreaM2, isStale, type PlanScale } from '../lib/planScale'
 import { resolvePlanScale } from '../lib/stationPlanScale'
 
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { toast } from '../lib/ui'
 import { useNodeHold } from '../lib/nodeHold'
 import { useFreshPoint } from '../lib/useFreshPoint'
 import type { BoardTool } from '../types'
@@ -32,6 +33,9 @@ interface Args {
   toNorm: (clientX: number, clientY: number) => Pt | null
   log: (icon: string, text: string, extra?: PlanLogExtra) => void
   onCalibrate?: (planId: string, scale: PlanScale | null) => void
+  /** this surface may set a plan's scale (not a locked session) – then Messen on a plan without
+   *  one starts at «Massstab» */
+  canCalibrate: boolean
   /** A DERIVED metre factor — a finished map↔plan fit, or (on a georeferenced Gebäude, A7) the
    *  footprint's own ground size via lib/footprint · stackScaleMPerU. Never stored as a second
    *  calibration; sits below an incident-specific manual reference but above a station fallback. */
@@ -51,12 +55,18 @@ interface Args {
  * on 02.09.: in the field the quick throwaway question — «wie weit ist das?» — kept reaching
  * for a tool that was gone, and a drawn Linie is a journal-logged act, not a glance.)
  */
-export function usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate, autoScale }: Args) {
+export function usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate, canCalibrate, autoScale }: Args) {
   // Plan-Maßstab calibration: the reference is captured by tapping its TWO endpoints (nodes), then
-  // a popover asks for its real length. last-used length is pre-filled (plans share similar bars).
+  // a popover asks for its real length. The length THIS session last typed is pre-filled (plans
+  // share similar bars) – never a stock 10 m: on a plan nobody has calibrated, a number already in
+  // the field made the wrong answer one tap (C9, rare-user round 17.11.2026). `why`: the prompt was
+  // reached from Messen, so it first says that the plan has no scale yet.
   const [calNodes, setCalNodes] = useState<Pt[]>([])
-  const [calPrompt, setCalPrompt] = useState<{ a: Pt; b: Pt } | null>(null)
-  const [lastRefM, setLastRefM] = useState<number>(appConfig.drawing.planScaleDefaultM)
+  const [calPrompt, setCalPrompt] = useState<{ a: Pt; b: Pt; why?: boolean } | null>(null)
+  /** «Massstab» was lit by itself – Messen was opened on a plan without a scale – so the length
+   *  dialog says why (`calPrompt.why`). A ref: only the second tap reads it, nothing draws it. */
+  const calWhyRef = useRef(false)
+  const [lastRefM, setLastRefM] = useState<number | null>(null)
   const [refMInput, setRefMInput] = useState<string>('')
   // after a fresh field calibration: offer to persist it station-wide (#3) — as the default for
   // every plan, or just for this one. Cleared on plan switch so it never lingers on another sheet.
@@ -118,11 +128,19 @@ export function usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, loc
   /** everything this hook owns that must not survive a document switch */
   const resetEphemeral = () => { setMeasLine([]); setMeasArea([]); setCalNodes([]); setCalPrompt(null) }
 
-  // a half-laid Messen path / Maßstab tap is ephemeral, so clear them when leaving those tools
-  useEffect(() => {
+  // a half-laid Messen path / Maßstab tap is ephemeral, so clear them when leaving those tools.
+  // …and Messen on a plan that has no scale yet IS calibrating: «Massstab» lit by itself, whatever
+  // opened Messen (the rail, a key, «Rückgängig» on the calibration, a switch to another sheet) –
+  // taps on «Strecke» there used to calibrate silently (rare-user r4, owner: «automatically
+  // selected if "Messen" doesn't have a Massstab yet»). A layout effect, so «Strecke» never paints.
+  // (Layout effects, both: they run in this order, so the second one's `calWhyRef` stands.)
+  useLayoutEffect(() => {
     if (tool !== 'measure') { setMeasLine([]); setMeasArea([]) }
-    if (tool !== 'scale') setCalNodes([])
+    if (tool !== 'scale') { setCalNodes([]); calWhyRef.current = false }
   }, [tool])
+  useLayoutEffect(() => {
+    if (tool === 'measure' && !calibrated && canCalibrate) { calWhyRef.current = true; setTool('scale') }
+  }, [tool, calibrated, canCalibrate, setTool])
 
   // --- Messen node editing (ephemeral; mirrors the vertex handlers but on the measure path) ---
   const measNodeDown = (idx: number, e: React.PointerEvent) => {
@@ -153,25 +171,38 @@ export function usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, loc
   // touch path for node delete — double-tap rarely synthesizes dblclick on iOS
   const measPress = useNodeHold()
 
-  // leaving the metre-entry popover returns to Messen (the auto-calibrate-on-first-measure
-  // flow), otherwise drops to pan (calibration armed from the Plan sheet).
-  const closeCalPrompt = () => { setCalPrompt(null); setTool(tool === 'measure' ? 'measure' : 'pan') }
-  // commit the metre-entry popover: derive + persist the calibration factor for this plan
+  // leaving the metre-entry popover goes back to step 1, «Massstab» still lit: it is how a wrong
+  // point is taken back (the dock has no «Leeren» in this mode); the dock's «Abbrechen» stops
+  const closeCalPrompt = () => setCalPrompt(null)
+  // commit the metre-entry popover: derive + persist the calibration factor for this plan, then
+  // the dock goes on to «Strecke» – the scale is set to measure something (rare-user r4)
   const commitCalibration = (refM: number) => {
     if (!calPrompt) return
     const a = toMeasurePt(calPrompt.a), b = toMeasurePt(calPrompt.b)
     const sc = calibrate(a, b, refM, measureAR)
-    closeCalPrompt()
-    if (!sc) return
+    setCalPrompt(null)
+    if (!sc || !onCalibrate) return
     setLastRefM(refM)
-    onCalibrate?.(activeId, sc)
-    // no toast: the lamp turns green, the Verlauf has the row, and the save prompt follows
-    log('measure', fillTemplate(appConfig.copy.whiteboard.scale.saved, { m: String(refM) }))
-    if (onCalibrate) setSavePrompt(sc) // editor: offer to remember it across incidents
+    // what this incident had before – the hand calibration it replaces, or none
+    const before = planScale[activeId] ?? null
+    onCalibrate(activeId, sc)
+    setMeasMode('line')
+    setTool('measure')
+    const C = appConfig.copy.whiteboard.scale
+    const said = fillTemplate(C.saved, { m: String(refM) })
+    log('measure', said)
+    setSavePrompt(sc) // editor: offer to remember it across incidents
+    // the one toast of the rare-user round (C9): a wrong length makes every metre on this plan
+    // wrong, so the calibration can be taken back right here – the plan's own value restored, the
+    // «merken?» bar gone with it (nothing has been remembered yet unless it was answered)
+    toast(said, {
+      icon: 'measure', kind: 'plan-scale',
+      action: { label: appConfig.copy.undo, onClick: () => { onCalibrate(activeId, before); setSavePrompt(null); log('measure', C.undone) } },
+    })
   }
 
   return {
-    calNodes, setCalNodes, calPrompt, setCalPrompt, lastRefM, refMInput, setRefMInput, savePrompt, setSavePrompt,
+    calNodes, setCalNodes, calPrompt, setCalPrompt, calWhyRef, lastRefM, refMInput, setRefMInput, savePrompt, setSavePrompt,
     measMode, setMeasMode, measLine, setMeasLine, measArea, setMeasArea,
     measureAR, activeScale, scaleAuto, scaleStale, calibrated, planMetres, toMeasurePt,
     measPath, setMeasPath, measFresh, measMpts, measLenM, measAreaM2, measPerimM, measReset, resetEphemeral,

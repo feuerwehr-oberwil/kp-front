@@ -67,7 +67,7 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     paused: 'Posizione in pausa',
     pausedHint: 'Il telefono non trasmette nulla finché l\'app è in secondo piano o lo schermo è bloccato. Riapri l\'app e riprende.',
     denied: 'Posizione bloccata',
-    deniedHint: 'L\'accesso alla posizione è bloccato per questo sito. Si può riautorizzare solo nelle impostazioni del browser.',
+    deniedHint: 'L\'accesso alla posizione è bloccato. Riautorizzarlo tramite {path}.',
     taken: 'Nome già in uso',
     takenHint: 'Un altro dispositivo sta condividendo con questo nome. Scegli di nuovo il tuo nome o chiedi al comando d\'intervento di rimuovere la vecchia posizione.',
     failing: 'La posizione non arriva',

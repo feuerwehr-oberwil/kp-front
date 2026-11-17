@@ -42,8 +42,10 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       circle: 'Drag from the centre outward.',
       text: 'Tap where the note should go – then write.',
       resource: 'Tap to place a team. Drag to move it.',
-      scale: 'Tap both ends of the printed scale bar, then enter the length.',
       measure: 'Tap points. Hold a point to remove it.',
+      scaleStep1: 'Tap one end of the scale bar',
+      scaleStep2: 'Tap the other end',
+      scaleStep3: 'Enter the real length',
     },
     scale: {
       tool: 'Scale',
@@ -59,7 +61,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       chipUncalibrated: 'not calibrated',
       recalibrate: 'Recalibrate',
       calibrate: 'Calibrate scale',
-      calibrateHint: 'Tap two points of the scale bar',
       stale: 'recheck the scale',
       saved: 'Scale calibrated ({m} m distance)',
       needsCalibration: 'Set scale: tap the two ends of the scale bar',
@@ -69,7 +70,10 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       saveAll: 'For all plans',
       saveThis: 'This plan only',
       saveFailed: 'Scale not saved as default – try again',
-      calibrateStop: 'Stop calibrating',
+      /** Messen on a plan without a scale opens the scale dialog – this says why (C9, 17.11.2026) */
+      promptWhy: 'This plan has no scale yet – first enter a known distance',
+      /** the Verlauf row when «Rückgängig» on «Massstab kalibriert» takes it back */
+      undone: 'Scale taken back',
     },
     georef: {
       chipLinked: 'linked',
@@ -301,6 +305,9 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     groupDeletedN: '{n} objects removed from the plan',
     drawnOnPlan: '{name} drawn on plan',
     shapeOnPlan: '{name} placed on plan',
+    barMore: 'More',
+    markShort: 'Mark',
+    joinShort: 'Team',
   },
   tafel: {
     strip: 'Board pages',

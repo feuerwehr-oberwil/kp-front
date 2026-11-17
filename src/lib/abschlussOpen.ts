@@ -20,6 +20,9 @@ import { truppLogName } from './atemschutz'
  * in, and captures still sitting on this device — and those get targets too.
  */
 export type AbschlussOpenPoint =
+  /** no Rapport made yet – neither a PDF nor a finished print (`reportMadeAt` unset). The
+   *  Abschluss's own point (owner pick M5 · A, 17.11.2026); the print's list never carries it. */
+  | { kind: 'report' }
   | { kind: 'step'; step: AbschlussStep }
   /** Trupps still recorded as being out there (lib/atemschutz · truppStillDeployed) */
   | { kind: 'trupps'; n: number }
@@ -28,6 +31,8 @@ export type AbschlussOpenPoint =
 
 /** Where each kind of open point is answered. Every kind has one — see the note on `media`. */
 export interface AbschlussOpenTargets {
+  /** the Rapport, where the PDF is made */
+  report: () => void
   /** open the Rapport ON that Mindestangabe (ReportPreflight · requestReportStep) */
   step: (step: AbschlussStep) => void
   /** the Atemschutz-Tafel, where a Trupp is reported back in */
@@ -38,17 +43,22 @@ export interface AbschlussOpenTargets {
   media: () => void
 }
 
+/** ⚠️ `noReport` leads the list (M5 · A): the paper is what the close is usually FOR, and «Einsatz
+ *  abgeschlossen» over no Rapport read as «finished». A finished print counts exactly like a PDF
+ *  (owner: «printing is equivalent to a pdf»). Printing never blocks: it is one more open point
+ *  in the existing «Noch offen» confirm, «Trotzdem abschliessen» goes on. */
 export function abschlussOpenPoints(
-  missing: AbschlussStep[], truppsStillOut: number, pendingMedia: number,
+  missing: AbschlussStep[], truppsStillOut: number, pendingMedia: number, noReport = false,
 ): AbschlussOpenPoint[] {
   return [
+    ...(noReport ? [{ kind: 'report' } as const] : []),
     ...missing.map((step): AbschlussOpenPoint => ({ kind: 'step', step })),
     ...(truppsStillOut > 0 ? [{ kind: 'trupps', n: truppsStillOut } as const] : []),
     ...(pendingMedia > 0 ? [{ kind: 'media', n: pendingMedia } as const] : []),
   ]
 }
 
-/** The targets a list needs: `step` always, `trupps`
+/** The targets a list needs: `step` always, `report`, `trupps`
  *  and `media` only where such a point can be on it — the print's list carries Mindestangaben only,
  *  so it is not asked for a Tafel it never points at. */
 export type OpenTargetsFor<P extends AbschlussOpenPoint> = Pick<AbschlussOpenTargets, P['kind'] | 'step'>
@@ -57,6 +67,7 @@ export type OpenTargetsFor<P extends AbschlussOpenPoint> = Pick<AbschlussOpenTar
 export function abschlussOpenLabel(p: AbschlussOpenPoint): string {
   const P = appConfig.copy.preflight
   switch (p.kind) {
+    case 'report': return appConfig.copy.abschluss.reportMissing
     case 'step': return appConfig.copy.abschluss.steps[p.step]
     case 'trupps': return fillTemplate(P.truppsDeployedConfirm, { n: p.n })
     case 'media': return fillTemplate(P.pendingMediaConfirm, { n: p.n })
@@ -86,6 +97,7 @@ export function abschlussOpenItems<P extends AbschlussOpenPoint>(points: P[], go
     label: abschlussOpenLabel(p),
     onClick: () => {
       if (p.kind === 'step') go.step(p.step)
+      else if (p.kind === 'report') to.report?.()
       else if (p.kind === 'trupps') to.trupps?.()
       else to.media?.()
     },

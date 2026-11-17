@@ -153,3 +153,20 @@ describe('SelectionBar · the one bar every selection is transformed from', () =
     expect(screen.getByRole('button', { name: appConfig.copy.closeDialog })).toBeTruthy()
   })
 })
+
+// rare-user F18 (17.11.2026): ⌘D had no touch door – «Duplizieren» is a worded TAP on the bar
+describe('SelectionBar · Duplizieren', () => {
+  it('copies on a tap, and is not drawn where the surface does not offer it', () => {
+    const onDuplicate = vi.fn()
+    const onMove = vi.fn()
+    render(<SelectionBar onMove={onMove} onDuplicate={onDuplicate} />)
+    const btn = screen.getByRole('button', { name: C.duplicate })
+    expect(btn.textContent).toBe(C.duplicate)
+    fireEvent.click(btn)
+    expect(onDuplicate).toHaveBeenCalledTimes(1)
+    expect(onMove).not.toHaveBeenCalled()
+    cleanup()
+    render(<SelectionBar onMove={() => {}} />)
+    expect(screen.queryByRole('button', { name: C.duplicate })).toBeNull()
+  })
+})

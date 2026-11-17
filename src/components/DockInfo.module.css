@@ -39,8 +39,16 @@
      with its own corner and its own type */
   display: flex; align-items: center; min-height: var(--float-h); padding: var(--msg-pad) var(--float-pad-x);
   background: var(--float-bg); backdrop-filter: var(--float-blur); color: var(--ink); border: none; border-radius: var(--r-sm);
-  box-shadow: var(--float-edge); font: var(--fw-medium) var(--fs-2)/1.35 var(--body); text-align: left; }
-/* phones: above every bar and the armed tool's pill — in THE message lane, measured while a tool is
+  box-shadow: var(--float-edge); font: var(--fw-medium) var(--fs-2)/1.35 var(--body); text-align: left;
+  /* a standing card's steps are one per line (DockInfo · `open`) */
+  white-space: pre-line; }
+/* …and where the Tafel's page strip reaches the middle of the bottom row, the card stands one row
+   ABOVE it: it covered «Rapport · + Seite» (rare-user r3, M13, 17.11.2026; the armed pill had the
+   same rule until the button round's picks 14 + 15 made its name the dock's first tile). The card is portalled to <body>, hence the body-level :has. */
+@media (--not-phone) {
+  :global(body:has(.wb-botleft > .tps)) .wb-dock-tip { bottom: calc(16px + var(--float-h) + var(--float-gap)); }
+}
+/* phones: above every bar and the armed tool's dock — in THE message lane, measured while a tool is
    out (15-mobile · --msg-lane-bottom, lib/floatRow · stackLane) */
 @media (--phone) {
   /* in THE message lane, at the bars' width, like every other message (15-mobile · --msg-lane-bottom) */

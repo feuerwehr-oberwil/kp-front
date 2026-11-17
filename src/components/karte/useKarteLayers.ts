@@ -16,6 +16,7 @@ import { fitSimilarity } from '../../lib/georef'
 import { withPdfPage } from '../../lib/whiteboard'
 import type { StationObject } from '../../lib/api/stationReference'
 import { categorize, categoryRules } from '../../lib/karte/categories'
+import { contentLayerHidden } from '../../lib/layerPreset'
 import { applyLayerPreset, karteLayerPreset, presetFlips, type QuickTap } from '../../lib/karte/layerPresets'
 import { ALWAYS_LAYER, OBJECTS_LAYER, UNCACHED_LAYER, UNDERGROUND_LAYER } from '../../lib/karte/overlays'
 import { coordOf } from '../../lib/karte/search'
@@ -176,5 +177,7 @@ export function useKarteEbenen(p: {
     for (const id of presetFlips(presetRows, tap)) toggleLayer(id)
     if (tap !== 'all') weather.setRadar(false)
   }
-  return { toggleLayer, setOpacity, twins, layersPreset, quickTap }
+  // the Ebenen tile's amber dot – here only «Fahrzeuge» is a content layer (lib/layerPreset)
+  const layersHidden = contentLayerHidden(layers)
+  return { toggleLayer, setOpacity, twins, layersPreset, layersHidden, quickTap }
 }

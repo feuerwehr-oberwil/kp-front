@@ -16,6 +16,8 @@ import type { Sel } from '../../lib/karte/selection'
 import type { StationObject } from '../../lib/api/stationReference'
 import type { LngLat } from '../../types'
 import type { ViewsApi } from '../MapViewsMenu'
+import { toast } from '../../lib/ui'
+import { locateFailedText } from '../../lib/permissionPath'
 
 /** how much of a phone's height the object sheet may cover (Ebenen's cap, 15-mobile · .layers-card):
  *  a place framed for it stands in the strip above */
@@ -100,16 +102,17 @@ export function useCompassViews(mapRef: RefObject<MapRef | null>, objects: reado
     const lngs = pts.map((p) => p[0]), lats = pts.map((p) => p[1])
     mapRef.current?.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 64, duration: 600 })
   }
-  /** one GPS fix, then zoom (≥ 17) onto it; `orElse` when there is no position */
-  const locate = (orElse?: () => void) => {
-    if (!navigator.geolocation) { orElse?.(); return }
-    navigator.geolocation.getCurrentPosition((p) => mapRef.current?.easeTo({ center: [p.coords.longitude, p.coords.latitude], zoom: Math.max(view.zoom, 17) }), () => orElse?.(), { enableHighAccuracy: true, timeout: 10_000 })
+  /** one GPS fix, then zoom (≥ 17) onto it; `orElse` when there is no position (null: no GPS at all) */
+  const locate = (orElse: (err: GeolocationPositionError | null) => void) => {
+    if (!navigator.geolocation) { orElse(null); return }
+    navigator.geolocation.getCurrentPosition((p) => mapRef.current?.easeTo({ center: [p.coords.longitude, p.coords.latitude], zoom: Math.max(view.zoom, 17) }), orElse, { enableHighAccuracy: true, timeout: 10_000 })
   }
   return {
     list: [], current: view, onGo: NOOP, onSave: NOOP, onRename: NOOP, onDelete: NOOP,
     onResetNorth: () => mapRef.current?.easeTo({ bearing: 0 }),
     onFit: fitAll,
-    onLocate: () => locate(),
+    // «Mein Standort» never does nothing: blocked names where to allow it (lib/permissionPath)
+    onLocate: () => locate((err) => toast(locateFailedText(err), { icon: 'locate', tone: 'warn' })),
     // holding the compass goes to where I stand – more often wanted than the whole village (owner,
     // Karte Haus round 2); no position (denied, timed out, no GPS) fits the village as before
     hold: { run: () => locate(fitAll), hint: holdHint },
