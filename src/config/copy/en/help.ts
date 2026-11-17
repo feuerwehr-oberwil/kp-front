@@ -316,7 +316,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'lead', text: 'The second and third view of the attendance: not «who is here» but **who is available when** — for an incident that outlasts one shift.' },
           { kind: 'list', items: [
             'In the **schedule** every person has a row; dragging (or the pen) plans an availability window. It is a **plan**, not a record: it writes no attendance — that only happens when somebody actually taps.',
-            '**Confirmed** (solid) or **proposed** (hollow) — the difference between «is coming» and «could come».',
+            '**Available** (pale fill) or **assigned** (outline) — the difference between «could come» and «is booked». Who was actually there sits underneath in **filled green**, from the attendance.',
             'The **range** on top decides how many hours are visible at once.',
             'In **shifts** the same windows are grouped into named bands («night 22–06»): creating a band writes no shift, and deleting a band deletes no availability.',
             'Both views print: via the **printer menu** in the header — **shift plan** or **availabilities**, as a PDF or straight to the station printer.',
@@ -442,19 +442,19 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
       {
         id: 'verwaltung', title: 'Administration & station data', icon: 'gear',
         blocks: [
-          { kind: 'lead', text: 'Anything that holds for the whole brigade – crew, ranks, vehicles, materials, map layers, object plans, checklists – is maintained under **Administration**, not during an incident. Getting in takes its own password, not the incident PIN.' },
+          { kind: 'lead', text: 'Anything that holds for the whole brigade – personnel, ranks, vehicles, materials, map layers, object plans, checklists – is maintained under **Administration**, not during an incident. Getting in takes its own password, not the incident PIN.' },
           { kind: 'sub', text: 'The workbook (Excel)' },
           { kind: 'list', items: [
-            'Under **Daten › Arbeitsmappe** the brigade’s lists come as one Excel file: download it, edit it in Excel, Numbers or LibreOffice, upload it back. Eight sheets – Mannschaft, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen, Symbolfelder (the tab names stay German).',
+            'Under **Daten › Arbeitsmappe** the brigade’s lists come as one Excel file: download it, edit it in Excel, Numbers or LibreOffice, upload it back. Eight sheets – Personal, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen, Symbolfelder (the tab names stay German).',
             'A **preview** always comes before any writing: sheet by sheet, what would be new, what changes, what falls away – and every refused row with its sheet and row number. Nothing is written until you confirm, and cancelling writes nothing.',
             'Uploading the same file again changes nothing at all. The download is therefore also the template – and safe to fetch just to look at.',
           ] },
           { kind: 'note', text: '**An absent sheet is not an empty sheet.** Deleting a whole sheet from the file leaves that list untouched. Deleting only its rows and leaving the header row clears it – which is exactly how you empty a list on purpose.' },
-          { kind: 'note', text: '**«Missing» means two different things.** A person missing from the Mannschaft sheet is **deactivated**, never deleted – closed incidents resolve their name through that row. An id missing from any of the other lists is **removed**. The preview uses those two words and names the rows rather than counting them.' },
+          { kind: 'note', text: '**«Missing» means two different things.** A person missing from the Personal sheet is **deactivated**, never deleted – closed incidents resolve their name through that row. An id missing from any of the other lists is **removed**. The preview uses those two words and names the rows rather than counting them.' },
           { kind: 'sub', text: 'When something goes wrong anyway' },
           { kind: 'list', items: [
             'Every change to the **lists** keeps the previous state: **Sicherung › Letzte Änderungen** lists them with a timestamp and puts one back – whether a form, the workbook or a terminal wrote it.',
-            '**The crew is not in there.** People are their own records, not configuration – an import that touches only the Mannschaft sheet does not appear under «Letzte Änderungen» at all. In exchange nobody is ever deleted there, only deactivated: undoing it means re-activating. To put the whole list back, use the file you downloaded before the import.',
+            '**The personnel are not in there.** People are their own records, not configuration – an import that touches only the Personal sheet does not appear under «Letzte Änderungen» at all. In exchange nobody is ever deleted there, only deactivated: undoing it means re-activating. To put the whole list back, use the file you downloaded before the import.',
             'The workbook is **not a backup**: it covers the lists only. The backup is the JSON export under **Sicherung**.',
           ] },
         ],

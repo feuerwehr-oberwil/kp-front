@@ -1124,7 +1124,7 @@ levels:
 |-------|---------------------------|
 | `"safe"` | **the default.** Applies joins, renames and Dienstgrad changes. A member who has left Divera is **counted and left active** – a disappearance is as often a broken feed or a scope change as a resignation. The outstanding number is reported on System › Verbindungen, so the departures are visible rather than silently applied |
 | `"full"` | the same, and the stale members are **deactivated** (`is_active = false`). Never a deletion: every past Einsatz and Rapport keeps its names |
-| `"off"` | nothing unattended. «Mannschaft synchronisieren» in the admin UI still works exactly as before |
+| `"off"` | nothing unattended. «Mit Divera abgleichen» in the admin UI still works exactly as before |
 
 Two guarantees hold at every level. A run that fetched **no members at all** applies nothing and
 is recorded as a failure – against an empty consumer list every member of the station is stale,
@@ -2239,7 +2239,7 @@ are in [`API.md`](API.md#station-workbook--apistation-workbook).
 
 | Sheet | Writes |
 |---|---|
-| `Mannschaft` | the personnel rows (name, Grad, provider + external id, active) – **not** config |
+| `Personal` | the personnel rows (name, Grad, provider + external id, active) – **not** config. A file from before 17.11.2026 calls this tab `Mannschaft`; it is still read, and the preview warns that the tab is now `Personal` (`SHEET_ALIASES`) |
 | `Dienstgrade` | `roster.ranks` |
 | `Fahrzeuge` | `fleet.vehicles` |
 | `Mittel` | `mittel.catalogue` |
@@ -2262,7 +2262,7 @@ read: an absent sheet shows «nicht in der Datei – bleibt unverändert» inste
 
 #### ⚠️ "Absent" means two different things
 
-A **person** missing from a present `Mannschaft` sheet is **deactivated**, never deleted – closed
+A **person** missing from a present `Personal` sheet is **deactivated**, never deleted – closed
 incidents resolve their names through that row, so deleting one would rewrite history. An **id**
 missing from an id-keyed sheet (`Dienstgrade`, `Fahrzeuge`, `Mittel`, `Quellen`, and the composite
 keys behind `Mittel-Bestände`, `Partnerorganisationen`, `Symbolfelder`) is **removed** from the
@@ -2299,9 +2299,9 @@ deliberately exempt from the format rule, so an old non-slug `Kennung` is never 
 Every write that *does* change a **config section** keeps the document it replaced, filed under
 source `workbook`, so «Letzte Änderungen» undoes that half the same way it undoes a form edit (§9b).
 
-⚠️ **The Mannschaft is not in that safety net.** Personnel are rows in their own table, and
+⚠️ **The Personal sheet is not in that safety net.** Personnel are rows in their own table, and
 `keep_previous` runs only when a config section actually changed — so an import that touches *only*
-the `Mannschaft` sheet writes **no history row at all**, and «Letzte Änderungen» will not show it.
+the `Personal` sheet writes **no history row at all**, and «Letzte Änderungen» will not show it.
 Two things limit what that costs: a person missing from the sheet is **deactivated, not deleted**
 (past incidents, notes and media still reference them), so undoing it is a re-activation rather than
 a recovery; and the workbook is its own undo — the export you take before an import is the file that

@@ -74,7 +74,7 @@ function preview(over: Partial<{
   ok: boolean
 }> = {}) {
   return {
-    sheets: [impact('Mannschaft'), impact('Fahrzeuge')],
+    sheets: [impact('Personal'), impact('Fahrzeuge')],
     errors: [],
     warnings: [],
     emptied: [],
@@ -169,7 +169,7 @@ describe('the confirmation screen', () => {
     // misled by the screen that exists to protect them.
     apiUpload.mockResolvedValue(preview({
       sheets: [
-        impact('Mannschaft', {
+        impact('Personal', {
           rows: 13, unchanged: 13, removed: ['Furrer Andrea'], removed_total: 1, removal_kind: 'deactivated',
         }),
         impact('Fahrzeuge', {
@@ -180,7 +180,7 @@ describe('the confirmation screen', () => {
     await mount()
     await pick()
 
-    const crew = within(row('Mannschaft'))
+    const crew = within(row('Personal'))
     const fleet = within(row('Fahrzeuge'))
     expect(crew.getByText(/deaktiviert/)).toBeTruthy()
     expect(crew.queryByText(/entfernt/)).toBeNull()

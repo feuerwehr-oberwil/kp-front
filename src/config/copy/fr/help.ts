@@ -314,7 +314,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'lead', text: 'Les deuxième et troisième vues de la présence : non pas «qui est là» mais **qui est disponible quand** — pour une intervention qui dure plus d’un tour.' },
           { kind: 'list', items: [
             'Dans l’**horaire** chaque personne a sa ligne ; tirer (ou le crayon) planifie une fenêtre de disponibilité. C’est un **plan**, pas un procès-verbal : il n’écrit aucune présence — celle-ci naît quand quelqu’un touche vraiment.',
-            '**Confirmé** (plein) ou **proposé** (creux) — la différence entre «vient» et «pourrait venir».',
+            '**Disponible** (rempli pâle) ou **affecté** (contour) — la différence entre «pourrait venir» et «est prévu». Qui était vraiment là figure dessous en **vert plein**, d’après la présence.',
             'La **plage** en haut décide du nombre d’heures visibles à la fois.',
             'Dans **Tours**, les mêmes fenêtres sont groupées en bandes nommées («nuit 22–06») : créer une bande n’écrit aucun tour, et supprimer une bande ne supprime aucune disponibilité.',
             'Les deux vues s’impriment : via le **menu imprimante** de l’en-tête — **plan des tours** ou **disponibilités**, en PDF ou directement sur l’imprimante du local.',
@@ -443,16 +443,16 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'lead', text: 'Tout ce qui vaut pour l’ensemble du corps – personnel, grades, véhicules, matériel, couches cartographiques, plans d’objet, checklists – se gère sous **Administration**, pas pendant une intervention. L’accès a son propre mot de passe, ce n’est pas le NIP d’intervention.' },
           { kind: 'sub', text: 'Le classeur (Excel)' },
           { kind: 'list', items: [
-            'Sous **Daten › Arbeitsmappe**, les listes du corps forment un seul fichier Excel : le télécharger, le modifier dans Excel, Numbers ou LibreOffice, le réimporter. Huit feuilles – Mannschaft, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen, Symbolfelder (les noms d’onglet restent en allemand).',
+            'Sous **Daten › Arbeitsmappe**, les listes du corps forment un seul fichier Excel : le télécharger, le modifier dans Excel, Numbers ou LibreOffice, le réimporter. Huit feuilles – Personal, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen, Symbolfelder (les noms d’onglet restent en allemand).',
             'Une **prévisualisation** précède toujours l’écriture : feuille par feuille, ce qui serait nouveau, ce qui change, ce qui disparaît – et chaque ligne refusée avec sa feuille et son numéro. Rien n’est écrit avant la confirmation, et annuler n’écrit rien.',
             'Réimporter le même fichier ne change absolument rien. Le téléchargement est donc aussi le modèle – et on peut le prendre sans risque juste pour regarder.',
           ] },
           { kind: 'note', text: '**Une feuille absente n’est pas une feuille vide.** Supprimer une feuille entière du fichier laisse cette liste inchangée. N’en supprimer que les lignes en gardant la ligne de titre la vide – c’est exactement ainsi qu’on vide une liste volontairement.' },
-          { kind: 'note', text: '**«Absent» veut dire deux choses.** Une personne absente de la feuille Mannschaft est **désactivée**, jamais supprimée – les interventions clôturées résolvent son nom par cette ligne. Un identifiant absent d’une des autres listes est **supprimé**. La prévisualisation emploie ces deux mots et nomme les lignes au lieu de les compter.' },
+          { kind: 'note', text: '**«Absent» veut dire deux choses.** Une personne absente de la feuille Personal est **désactivée**, jamais supprimée – les interventions clôturées résolvent son nom par cette ligne. Un identifiant absent d’une des autres listes est **supprimé**. La prévisualisation emploie ces deux mots et nomme les lignes au lieu de les compter.' },
           { kind: 'sub', text: 'Si malgré tout ça tourne mal' },
           { kind: 'list', items: [
             'Chaque modification des **listes** conserve l’état précédent : **Sicherung › Letzte Änderungen** les liste avec l’heure et en restaure un – que l’auteur soit un formulaire, le classeur ou un terminal.',
-            '**Le personnel n’y figure pas.** Les personnes sont des enregistrements propres, pas de la configuration – un import qui ne touche que la feuille Mannschaft n’apparaît pas du tout sous «Letzte Änderungen». En contrepartie personne n’y est jamais supprimé, seulement désactivé : annuler revient à réactiver. Pour restaurer la liste entière, reprenez le fichier téléchargé avant l’import.',
+            '**Le personnel n’y figure pas.** Les personnes sont des enregistrements propres, pas de la configuration – un import qui ne touche que la feuille Personal n’apparaît pas du tout sous «Letzte Änderungen». En contrepartie personne n’y est jamais supprimé, seulement désactivé : annuler revient à réactiver. Pour restaurer la liste entière, reprenez le fichier téléchargé avant l’import.',
             'Le classeur n’est **pas une sauvegarde** : il ne couvre que les listes. La sauvegarde est l’export JSON sous **Sicherung**.',
           ] },
         ],

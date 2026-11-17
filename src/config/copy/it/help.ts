@@ -314,7 +314,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'lead', text: 'La seconda e la terza vista della presenza: non «chi c’è» ma **chi è disponibile quando** — per un intervento che dura più di un turno.' },
           { kind: 'list', items: [
             'Nel **programma** ogni persona ha la sua riga; trascinando (o con la matita) si pianifica una finestra di disponibilità. È un **piano**, non un verbale: non scrive alcuna presenza — quella nasce solo quando qualcuno tocca davvero.',
-            '**Confermato** (pieno) o **proposto** (vuoto) — la differenza tra «viene» e «potrebbe venire».',
+            '**Disponibile** (pieno chiaro) o **assegnato** (contorno) — la differenza tra «potrebbe venire» e «è previsto». Chi c’era davvero sta sotto in **verde pieno**, dalla presenza.',
             'L’**intervallo** in alto decide quante ore si vedono insieme.',
             'In **Turni** le stesse finestre sono raggruppate in bande con un nome («notte 22–06»): creare una banda non scrive alcun turno, e cancellarne una non cancella alcuna disponibilità.',
             'Entrambe le viste si stampano: dal **menu stampante** nell’intestazione — **piano turni** o **disponibilità**, come PDF o direttamente sulla stampante del magazzino.',
@@ -443,16 +443,16 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'lead', text: 'Tutto ciò che vale per l’intero corpo – personale, gradi, veicoli, materiale, livelli cartografici, piani oggetto, checklist – si gestisce in **Amministrazione**, non durante un intervento. L’accesso ha una password propria, non è il PIN d’intervento.' },
           { kind: 'sub', text: 'La cartella di lavoro (Excel)' },
           { kind: 'list', items: [
-            'In **Daten › Arbeitsmappe** gli elenchi del corpo stanno in un unico file Excel: scaricarlo, modificarlo in Excel, Numbers o LibreOffice, ricaricarlo. Otto fogli – Mannschaft, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen, Symbolfelder (i nomi delle schede restano in tedesco).',
+            'In **Daten › Arbeitsmappe** gli elenchi del corpo stanno in un unico file Excel: scaricarlo, modificarlo in Excel, Numbers o LibreOffice, ricaricarlo. Otto fogli – Personal, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen, Symbolfelder (i nomi delle schede restano in tedesco).',
             'Prima di scrivere arriva sempre un’**anteprima**: foglio per foglio, che cosa sarebbe nuovo, che cosa cambia, che cosa scompare – e ogni riga rifiutata con foglio e numero di riga. Fino alla conferma non viene scritto nulla, e annullare non scrive nulla.',
             'Ricaricare lo stesso file non cambia proprio nulla. Il download è quindi anche il modello – e si può prendere senza rischi solo per guardarlo.',
           ] },
           { kind: 'note', text: '**Un foglio assente non è un foglio vuoto.** Togliere un intero foglio dal file lascia quell’elenco invariato. Cancellarne solo le righe lasciando la riga di intestazione lo svuota – ed è esattamente così che si svuota un elenco di proposito.' },
-          { kind: 'note', text: '**«Manca» significa due cose.** Una persona che manca nel foglio Mannschaft viene **disattivata**, mai cancellata – gli interventi chiusi risolvono il suo nome tramite quella riga. Un identificativo che manca in uno degli altri elenchi viene **rimosso**. L’anteprima usa queste due parole e nomina le righe invece di contarle.' },
+          { kind: 'note', text: '**«Manca» significa due cose.** Una persona che manca nel foglio Personal viene **disattivata**, mai cancellata – gli interventi chiusi risolvono il suo nome tramite quella riga. Un identificativo che manca in uno degli altri elenchi viene **rimosso**. L’anteprima usa queste due parole e nomina le righe invece di contarle.' },
           { kind: 'sub', text: 'Se qualcosa va storto lo stesso' },
           { kind: 'list', items: [
             'Ogni modifica agli **elenchi** conserva lo stato precedente: **Sicherung › Letzte Änderungen** li elenca con l’orario e ne ripristina uno – che abbia scritto un modulo, la cartella di lavoro o un terminale.',
-            '**Il personale non è lì dentro.** Le persone sono record propri, non configurazione – un import che tocca solo il foglio Mannschaft non compare affatto sotto «Letzte Änderungen». In compenso lì non viene mai cancellato nessuno, solo disattivato: annullare significa riattivare. Per ripristinare l’intero elenco si usa il file scaricato prima dell’import.',
+            '**Il personale non è lì dentro.** Le persone sono record propri, non configurazione – un import che tocca solo il foglio Personal non compare affatto sotto «Letzte Änderungen». In compenso lì non viene mai cancellato nessuno, solo disattivato: annullare significa riattivare. Per ripristinare l’intero elenco si usa il file scaricato prima dell’import.',
             'La cartella di lavoro **non è un backup**: copre solo gli elenchi. Il backup è l’export JSON sotto **Sicherung**.',
           ] },
         ],

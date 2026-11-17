@@ -251,7 +251,7 @@ the CLI or in the config document, not in a form:
 |-------|---------------------------|
 | `"safe"` | **the default.** Applies joins, renames and Dienstgrad changes. A member who has left Divera is **counted and left active**, and the outstanding number is reported on System › Verbindungen – a disappearance is as often a broken feed or a changed scope as a resignation |
 | `"full"` | the same, and stale members are **deactivated**. Never a deletion: every past Einsatz and Rapport keeps its names |
-| `"off"` | nothing unattended. «Mannschaft synchronisieren» under `/admin` → **Personal** still works exactly as before |
+| `"off"` | nothing unattended. «Mit Divera abgleichen» under `/admin` → **Personal** still works exactly as before |
 
 Two guarantees hold at every level, and they are the reason this can be left on:
 
