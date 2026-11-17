@@ -312,7 +312,8 @@ export function MapToolDocks({
           className="wb-trupp-pick ui-dialog"
           ariaLabel={appConfig.copy.whiteboard.selectTrupp}
         >
-          <div className="wb-trupp-pick-head">{appConfig.copy.whiteboard.selectTrupp}</div>
+          <div className="wb-trupp-pick-head">{appConfig.copy.whiteboard.selectTrupp}
+            <button type="button" className="ip-x" aria-label={appConfig.copy.closeDialog} onClick={() => { setTeamPick(null); setTool('select') }}><Icon id="close" /></button></div>
           {/* A Trupp lives at exactly ONE place, so picking one that is already on the map
               does not add a second marker — it MOVES the existing one, silently, and the
               operator who wanted a second Trupp has just relocated the first. Placed ones

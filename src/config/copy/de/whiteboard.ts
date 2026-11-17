@@ -148,7 +148,6 @@ export const whiteboardCopy = {
       // Knopf drückte, um eine schiefe Ausrichtung loszuwerden, fand den Plan danach trotzdem
       // verknüpft. Zum Wegwerfen gibt es «Alle Punkte zurücksetzen», mit Rückfrage.
       closeMode: 'Schliessen',
-      done: 'Fertig',
       // ⚠️ OHNE Nummer. Die Taste wirkt auf der sichtbaren Fläche, und welche Nummer der Tipp
       // bekommt, entscheidet die Zuordnung – die Zahl stünde also gelegentlich falsch da.
       placePoint: 'Punkt setzen',

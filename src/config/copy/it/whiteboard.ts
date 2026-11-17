@@ -101,7 +101,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       statusSelected: 'Punto {n} selezionato – tocca accanto per deselezionare.',
       cancel: 'Annulla',
       closeMode: 'Chiudi',
-      done: 'Fatto',
       placePoint: 'Imposta punto',
       targetOutside: 'Sposta prima il mirino sulla superficie visibile',
       checkFit: 'Verifica la sovrapposizione',

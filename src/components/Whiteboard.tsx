@@ -3312,7 +3312,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
            The hand-rolled scrim it replaces had none of those, and the board's own Escape handler
            fired underneath it. The hand-rolled carve-out (docs/ui-conventions.md · Overlays) is for the NON-modal tool docks. */
         <Overlay open onClose={() => setTruppPick(null)} className="wb-trupp-pick ui-dialog" ariaLabel={appConfig.copy.whiteboard.selectTrupp}>
-          <div className="wb-trupp-pick-head">{appConfig.copy.whiteboard.selectTrupp}</div>
+          <div className="wb-trupp-pick-head">{appConfig.copy.whiteboard.selectTrupp}
+            <button type="button" className="ip-x" aria-label={appConfig.copy.closeDialog} onClick={() => setTruppPick(null)}><Icon id="close" /></button></div>
           {/* twin of the Lage picker (IncidentWorkspace): a Trupp already on THIS plan is
               greyed out, because picking it would move its chip rather than add one. One on
               the map or another plan stays selectable — that is a real move.

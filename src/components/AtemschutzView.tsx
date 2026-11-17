@@ -1934,7 +1934,7 @@ export function AtemschutzView({
         return (
         <Overlay open onClose={() => setPlacePick(null)} className={cx(s.modal, s.placeModal)} ariaLabel={az.placeWhere}>
           <div className={s.modalHead}><h3>{az.placeWhere}</h3>
-            <button className="ip-x" aria-label={az.cancel} onClick={() => setPlacePick(null)}><Icon id="close" /></button>
+            <button className="ip-x" aria-label={appConfig.copy.closeDialog} onClick={() => setPlacePick(null)}><Icon id="close" /></button>
           </div>
           <div className={s.placeOpts}>
             {placeTargets.map((tgt) => (

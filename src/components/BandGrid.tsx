@@ -28,6 +28,7 @@ import { TimeField } from './TimeField'
 import { EmptyState } from './EmptyState'
 import { ShiftConflictNotice } from './ShiftConflictNotice'
 import { Button, IconButton } from './Button'
+import { ONE_LINE } from '../lib/fieldKeys'
 import s from './BandGrid.module.css'
 
 const clock = (iso: string): string => {
@@ -228,9 +229,15 @@ function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose
     else onCreate(label.trim(), from, to)
     onClose()
   }
+  // Closing an EDIT with a change saves it – ✕, the swipe, a tap beside it, Esc, the back
+  // (owner, 17.11.2026 – duck sweep CONT.3); only «Abbrechen» throws it away. A NEW band is not
+  // created by a close: the sheet opens on drafted times, and a band nobody asked for would stand
+  // in the grid – creating stays «Anlegen».
+  const changed = !!band && (label !== band.label || from !== band.from || to !== band.to)
+  const dismiss = () => { if (changed) commit(); else onClose() }
   const subject = band ? bandTitle(band) : S.sheetAddTitle
   return (
-    <Sheet open onClose={onClose} fit sheetClassName={s.sheet}
+    <Sheet open onClose={dismiss} fit sheetClassName={s.sheet}
       title={band ? S.sheetEditTitle : S.sheetAddTitle}
       footer={
         <>
@@ -249,8 +256,7 @@ function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose
       <label className={s.field}>
         <span className={s.fieldLabel}>{S.labelField}</span>
         <input className={s.text} value={label} onChange={(e) => setLabel(e.target.value)}
-          placeholder={S.labelPlaceholder} enterKeyHint="done"
-          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
+          placeholder={S.labelPlaceholder} {...ONE_LINE} />
       </label>
       <div className={s.times}>
         <span className={s.field}>

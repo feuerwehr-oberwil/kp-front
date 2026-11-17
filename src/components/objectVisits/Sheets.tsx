@@ -9,6 +9,7 @@ import { Menu, Sheet } from '../../lib/overlays'
 import { MenuPick } from '../MenuPick'
 import { LoadingStatus } from '../ShellLoader'
 import { Segmented } from '../Segmented'
+import { ONE_LINE } from '../../lib/fieldKeys'
 import type { Item } from '../../lib/checklists'
 import { newId } from '../../lib/ids'
 import type { ProposalField, VisitPhoto, VisitProposal, VisitTemplate } from '../../objectVisits/types'
@@ -41,11 +42,10 @@ export function PhotoSheet({ visitId, photo, preparing, stored, items, readOnly,
       open
       onClose={onClose}
       title={C.photoTitle}
+      // a LIVE sheet – the caption and the pick are saved as they are made – so it ends on its ✕
+      // and has no «Fertig» (docs/ui-conventions · editor sheets; duck sweep FEEDBACK.8, 17.11.2026)
       footer={readOnly ? undefined : (
-        <>
-          <Button icon={<Icon id="cam" />} onClick={onAnother} disabled={preparing}>{C.photoAnother}</Button>
-          <Button variant="primary" onClick={onClose}>{C.photoDone}</Button>
-        </>
+        <Button icon={<Icon id="cam" />} onClick={onAnother} disabled={preparing}>{C.photoAnother}</Button>
       )}
     >
       {preparing || !photo
@@ -58,7 +58,7 @@ export function PhotoSheet({ visitId, photo, preparing, stored, items, readOnly,
             <label className="ip-field">
               <span>{C.photoCaption}</span>
               <input className={s.input} value={photo.caption} placeholder={C.photoCaptionPlaceholder} maxLength={300}
-                onChange={(e) => onCaption(e.target.value)} />
+                {...ONE_LINE} onChange={(e) => onCaption(e.target.value)} />
             </label>
             {items.length > 0 && (
               <div className="ip-field">
@@ -157,20 +157,20 @@ export function ProposalSheet({ proposal, fields, asOf, onSave, onRemove, onClos
       {field === OTHER && (
         <label className="ip-field">
           <span>{C.proposalOtherLabel}</span>
-          <input className={s.input} value={otherLabel} onChange={(e) => setOtherLabel(e.target.value)} />
+          <input className={s.input} value={otherLabel} {...ONE_LINE} onChange={(e) => setOtherLabel(e.target.value)} />
         </label>
       )}
       <label className="ip-field">
         <span>{`${C.proposalCurrent} (${C.proposalCurrentHint})`}</span>
-        <input className={`${s.input} ${s.dashed}`} value={current} onChange={(e) => setCurrent(e.target.value)} />
+        <input className={`${s.input} ${s.dashed}`} value={current} {...ONE_LINE} onChange={(e) => setCurrent(e.target.value)} />
       </label>
       <label className="ip-field">
         <span>{C.proposalNew}</span>
-        <input className={s.input} value={proposed} onChange={(e) => setProposed(e.target.value)} />
+        <input className={s.input} value={proposed} {...ONE_LINE} onChange={(e) => setProposed(e.target.value)} />
       </label>
       <label className="ip-field">
         <span>{C.proposalReason}</span>
-        <input className={s.input} value={reason} placeholder={C.proposalReasonPlaceholder} onChange={(e) => setReason(e.target.value)} />
+        <input className={s.input} value={reason} placeholder={C.proposalReasonPlaceholder} {...ONE_LINE} onChange={(e) => setReason(e.target.value)} />
       </label>
     </Sheet>
   )

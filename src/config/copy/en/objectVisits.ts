@@ -152,7 +152,6 @@ export const objectVisitsCopy: Localizable<Pick<Copy, 'objectVisits'>> = {
     photoStored: 'Saved on this device – synced once there is network',
     photoNotStored: 'Not saved on the device – only in this window',
     photoAnother: 'Another one',
-    photoDone: 'Done',
     photoRemove: 'Remove photo',
     photoRemoved: 'Photo removed',
     photoPreparing: 'Preparing photo …',
