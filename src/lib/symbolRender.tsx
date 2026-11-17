@@ -342,7 +342,7 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
  * outline plus its age once the reading is old (lib/symbols · symbolReading), the dashed pill with
  * the icon alone before the first reading. Its own component so only these few marks subscribe to
  * the minute clock that ages them. `inline` = the same pill in a list row (ReadingParts); `bare` =
- * the icon alone in the same colours, the «Messungen» chip's round button (ReadingsChip, 9A).
+ * the icon alone in the same colours, the «Messungen» chip's glyph (ReadingsChip, 9A).
  * An «erledigt» Messpunkt recedes like every done symbol (ENT.3, 17.11.2026): `done` greys the
  * pill on every surface it is drawn on – the value stays readable, its A1/A2 colour does not shout.
  */

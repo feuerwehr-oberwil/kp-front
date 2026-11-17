@@ -2022,14 +2022,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // one that goes somewhere (the object picker) wears the › – and one with no job at all is a
   // READ-OUT, a <span> with no button chrome (`.wb-chip-ro`), not a disabled chip drawn alive.
   const objectChip = objectChipHidden ? null : !factsShown && !onObjectSwitch ? (
-    <span className="wb-scale-chip wb-object wb-chip-ro" aria-label={[fillTemplate(appConfig.copy.whiteboard.objectIs, { name: objectChipName }), objectNearbyLabel].filter(Boolean).join(' – ')}>
+    <span className="wb-scale-chip wb-tile wb-object wb-chip-ro" title={objectChipName} aria-label={[fillTemplate(appConfig.copy.whiteboard.objectIs, { name: objectChipName }), objectNearbyLabel].filter(Boolean).join(' – ')}>
       <Icon id={nearbyDist ? 'warn' : 'footprint'} />
       <span>{objectChipText}</span>
     </span>
   ) : (
     <button
       type="button"
-      className={cx('wb-scale-chip wb-object', nearbyDist && 'wb-object-nearby', factsOpen && 'arm')}
+      className={cx('wb-scale-chip wb-tile wb-object', nearbyDist && 'wb-object-nearby', factsOpen && 'arm')}
       // «Objekt» named the field, which is the one thing the value already says — a plan set
       // belongs to an Einsatzobjekt and nothing else in this corner is a place name. No chevron:
       // the lamp says there is more behind it. The words a screen reader needs (the lamp is no
@@ -2140,7 +2140,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const buildingChip = stackFacts ? (
     <button
       type="button"
-      className={cx('wb-scale-chip wb-building wb-building-named', factsOpen && 'arm')}
+      className={cx('wb-scale-chip wb-tile wb-building wb-building-named', factsOpen && 'arm')}
       aria-label={fillTemplate(appConfig.copy.whiteboard.facts.chipLabelBuilding, { name: buildingChipName ?? active.code })}
       aria-expanded={factsOpen}
       onClick={toggleFacts}
@@ -2152,7 +2152,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   ) : onBuildingFace && (stack || (osm && building)) && !(buildingChipLocked && !buildingChipName) ? (
     <button
       type="button"
-      className={`wb-scale-chip wb-building${buildingChipName ? ' wb-building-named' : ''}`}
+      className={`wb-scale-chip wb-tile wb-building${buildingChipName ? ' wb-building-named' : ''}`}
       aria-label={buildingChipLocked ? buildingChipName! : buildingChipLabel}
       title={buildingChipLocked ? undefined : buildingChipLabel}
       disabled={buildingChipLocked}

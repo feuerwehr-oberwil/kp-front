@@ -788,6 +788,23 @@ describe('KarteApp', () => {
     expect(screen.queryByTestId('pdf')).toBeNull()
   })
 
+  // button round 17.11.2026 (CHROME.10): Ebenen OPENS a panel – open it is expanded (the open wash),
+  // not pressed, and the Karte stays «here»; the two map squares say their word under the glyph
+  it('on a phone: open Ebenen is expanded, not pressed, and the map squares are worded', async () => {
+    rec.phone = true
+    mount()
+    const nav = await screen.findByRole('navigation', { name: 'Karte & Objekte' })
+    expect(screen.getByRole('button', { name: appConfig.copy.karte.tools.pin }).textContent).toBe(appConfig.copy.karte.tools.pinShort)
+    expect(screen.getByRole('button', { name: appConfig.copy.mapViews.title }).textContent).toBe(appConfig.copy.mapViews.title)
+    const ebenen = within(nav).getByRole('button', { name: 'Ebenen' })
+    expect(ebenen.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(ebenen)
+    expect(ebenen.getAttribute('aria-expanded')).toBe('true')
+    expect(ebenen.hasAttribute('aria-pressed')).toBe(false)
+    expect(ebenen.classList.contains('on')).toBe(false)
+    expect(within(nav).getByRole('button', { name: 'Karte' }).classList.contains('on')).toBe(true)
+  })
+
   // owner, 19.10.2026 (Checkliste on the Karte home, variant A): the bar never changes — the two
   // surfaces │ the map's tools; a tool tapped on the Checkliste goes back to the Karte with it armed
   it('on a phone: Karte · Checkliste │ tools, the bar field feeds the library, a tool goes back armed', async () => {

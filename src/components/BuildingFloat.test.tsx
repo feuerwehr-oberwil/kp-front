@@ -6,7 +6,6 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BuildingFloat } from './BuildingFloat'
-import s from './BuildingFloat.module.css'
 import type { BuildingInfo } from '../lib/api/building'
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
@@ -63,28 +62,22 @@ describe('BuildingFloat', () => {
     expect(chip.querySelector('use')?.getAttribute('href')).toBe('#info')
   })
 
-  // round 14.11.2026, owner pick 12A: on a phone the chip is the hazard alone, the label stays whole
-  it('phone: glyph + hazard words alone, or (i) «Gebäude» – a tile for register lines only; the count and the full label stay', () => {
+  // button round 17.11.2026, owner pick 12C: on a phone ONE tile shape, whatever it says – «Info»
+  // quiet or with a hand entry, the hazard words with one; the count and the full label stay
+  it('phone: always the tile – (i) «Info» or ⚠ + the hazard words; the count and the full label stay', () => {
     asPhone()
     render(<BuildingFloat info={base} />)
     const chip = screen.getByRole('button', { name: 'Gebäude: Gas, PV – Steckbrief öffnen · 1 Sofortmassnahme' })
     expect(chip.textContent).toBe('Gas · PV1')
+    expect(chip.classList.contains('wb-tile')).toBe(true)
     expect(chip.getAttribute('title')).toBe(chip.getAttribute('aria-label'))
     cleanup()
     const calmGwr = { ...base.gwr!, heating: ['district'], hot_water: [] }
     render(<BuildingFloat info={{ ...base, gwr: calmGwr, plants: [], object: { ...base.object!, measures: null, remarks: 'Schlüssel beim Hauswart' } }} />)
     const noted = screen.getByRole('button', { name: 'Gebäude-Steckbrief öffnen' })
-    expect(noted.textContent).toBe('Gebäude')
-    expect(noted.classList.contains(s.tile)).toBe(false)
+    expect(noted.textContent).toBe('Info')
+    expect(noted.classList.contains('wb-tile')).toBe(true)
     expect(noted.querySelector('use')?.getAttribute('href')).toBe('#info')
-    cleanup()
-    // round 16.11.2026 #9: register lines only → the worded tile, the sentence kept as its name
-    render(<BuildingFloat info={{ ...base, gwr: calmGwr, plants: [], object: null }} />)
-    const calm = screen.getByRole('button', { name: 'Gebäude-Steckbrief öffnen' })
-    expect(calm.textContent).toBe('Gebäude')
-    expect(calm.classList.contains(s.tile)).toBe(true)
-    expect(calm.getAttribute('title')).toBe('Gebäude-Steckbrief öffnen')
-    expect(calm.querySelector('use')?.getAttribute('href')).toBe('#info')
   })
 
   it('autoOpen (the first open, lib/buildingFirstOpen) opens the card by itself; any close marks it read', () => {

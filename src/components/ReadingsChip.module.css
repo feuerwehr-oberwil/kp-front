@@ -16,5 +16,5 @@
 /* the rows are THE ListRow in its rail density (LISTS.8); «where» is the row's end, a tag */
 .where { flex: none; padding: 0 var(--sp-2); border-radius: var(--r-xs); /* a tag corner, never a pill (T5) */ background: var(--hover);
   color: var(--ink-dim); font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 20px; white-space: nowrap; }
-/* on a phone the chip is the row's square: the bare alarm-coloured pill centred in it (pick 9A) */
-.round { width: var(--float-h); padding: 0; justify-content: center; }
+/* on a phone's tile the pill IS the glyph band (09-whiteboard · .wb-tile: 22px over the word) */
+@media (--phone) { .anchor :global(.wb-tile > .sym-pill.bare) { height: 22px; } }
