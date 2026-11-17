@@ -126,7 +126,11 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   the Karte and every plan – wears the worst value and lists every Messpunkt of the Einsatz,
   worst first, wherever it is anchored (`lib/readingsList`, `ReadingsChip`); a row goes to the
   point on its own surface. ONE order everywhere (`compareReadings`, 28.10.2026): stage, measured
-  before empty, fresh before stale, how far past the limit, newest reading.
+  before empty, fresh before stale, how far past the limit, newest reading – with an «Erledigt»
+  point below every live one (`readingsList · doneLast`, ENT.3 17.11.2026), so the chip never
+  wears a cleared room's A2. Erledigt recedes like every symbol: the pill goes to the done look
+  (`.sym-pill.done` – neutral plate, dim ink, the value still legible) on the Karte, every plan,
+  the Gebäude list and the chip; the printed Kroki greys the glyph the same way (`kroki · _greyed`).
 
 - **A Leitung's Wassertransport and the pumps it draws** (04./05.11.2026). One section
   (`components/WaterRelay`) in two hosts: Messen › Strecke and a drawn Leitung's «Messung»

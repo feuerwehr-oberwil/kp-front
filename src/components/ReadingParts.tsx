@@ -9,6 +9,7 @@ import type { SymbolProps } from '../types'
 import { Button } from './Button'
 import { InfoToggle } from './InfoToggle'
 import { TickRow } from './TickRow'
+import { doneLast } from '../lib/readingsList'
 
 // The Messpunkt's additions to the symbol panel (owner picks 27.10.2026): the input box itself is
 // the visualisation – a colour bar under each measured field – and the history sits under all
@@ -169,7 +170,8 @@ export function ReadingHistory({ entity }: { entity: SymbolProps }) {
  * the storey it is on, each storey's rows at that storey's own height – where it is worst reads
  * straight across from the plan, and a number per storey is never needed. Open whenever the stack
  * has a Messpunkt; it lives inside the board, so it pans and zooms with the storeys. Each storey's
- * rows in the one Messpunkt order (compareReadings), worst first; a tap selects the point.
+ * rows in the one Messpunkt order (compareReadings), worst first, an «erledigt» point below the live
+ * ones (readingsList · doneLast); a tap selects the point.
  */
 export function StackReadings({ points, floorsTTB, storeyName, boardH, onPick }: {
   /** the measured annos, one per storey they are on (stackFloors · stackInstances) */
@@ -189,7 +191,7 @@ export function StackReadings({ points, floorsTTB, storeyName, boardH, onPick }:
         const here = points.filter((p) => (p.floor ?? 0) === f)
         if (!here.length) return null
         const alarmFirst = here.map((p) => ({ p, r: symbolReading(p, now) }))
-          .sort((a, b) => compareReadings(a.r, b.r)).map(({ p }) => p)
+          .sort((a, b) => doneLast(a.p, b.p) || compareReadings(a.r, b.r)).map(({ p }) => p)
         return (
           <section key={f} style={{ top: (idx / N) * boardH, maxHeight: boardH / N }}>
             <h4>{storeyName(f)}</h4>

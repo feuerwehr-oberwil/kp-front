@@ -7,6 +7,7 @@ import { Icon } from './icons'
 import { bareBlack } from './glyphTile'
 import { readingAge, symbolReading } from './symbols'
 import { useMinuteClock } from './minuteClock'
+import { doneOf } from './objectDone'
 import type { SymbolProps } from '../types'
 
 // Shared rendering of a placed FireGIS tactical symbol — used IDENTICALLY by the
@@ -342,12 +343,14 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
  * the icon alone before the first reading. Its own component so only these few marks subscribe to
  * the minute clock that ages them. `inline` = the same pill in a list row (ReadingParts); `bare` =
  * the icon alone in the same colours, the «Messungen» chip's round button (ReadingsChip, 9A).
+ * An «erledigt» Messpunkt recedes like every done symbol (ENT.3, 17.11.2026): `done` greys the
+ * pill on every surface it is drawn on – the value stays readable, its A1/A2 colour does not shout.
  */
 export function ReadingPill({ props, floor, inline = false, bare = false }: { props: SymbolProps; floor?: number; inline?: boolean; bare?: boolean }) {
   const r = symbolReading(props, useMinuteClock())
   if (!r) return null
   return (
-    <span className={`sym-pill${inline ? ' inline' : ''}${bare ? ' bare' : ''}${r.text ? '' : ' empty'}${r.level === 'ok' ? '' : ` ${r.level}`}${r.stale ? ' stale' : ''}`}>
+    <span className={`sym-pill${inline ? ' inline' : ''}${bare ? ' bare' : ''}${r.text ? '' : ' empty'}${r.level === 'ok' ? '' : ` ${r.level}`}${r.stale ? ' stale' : ''}${doneOf(props) ? ' done' : ''}`}>
       <Icon id="messgeraet" />
       {!bare && r.text}
       {!bare && r.stale && <span className="sym-pill-age">{readingAge(r)}</span>}
