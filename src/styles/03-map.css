@@ -85,9 +85,12 @@
    so a Sektor-Fläche drawn around the Brandobjekt lost a corner without a word. A Linie aimed at a
    symbol still couples to it: the magnet is the canvas tap's (useMapMagnet), not the marker's.
    ⚠️ Messen is the one named exception – its tap on a symbol measures from the symbol's CENTRE
-   (MapStage · onSelect), so its markers stay live. */
+   (MapStage · onSelect), so its markers stay live. ⚠️ The drawing's OWN grips stay live: the
+   node pads and «+» / «Verlängern» of the Fläche or Linie being drawn or edited are markers too,
+   and a tap on one is the pad's, never a next point (e2e/node-pad-tap.spec.ts). */
 .placing .maplibregl-marker,
-:is(.maptool-team, .maptool-note, .maptool-circle, .maptool-area, .maptool-line) .maplibregl-marker { pointer-events: none; }
+:is(.maptool-team, .maptool-note, .maptool-circle, .maptool-area, .maptool-line)
+  .maplibregl-marker:not(:has(.measure-handle, .draw-handle, .measure-insert, .draw-grow)) { pointer-events: none; }
 
 /* markers — bare tactical symbol, real-world scaled. White fill only for outline-with-text.
    --gpx = the glyph's on-screen size; --badge-out = how far the corner badges (.sym-floor,
