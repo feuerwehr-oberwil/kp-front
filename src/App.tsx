@@ -3,7 +3,7 @@ import './app.css'
 import { IconSprite } from './lib/icons'
 import { demoSeedRebase } from './lib/workspace'
 import { appConfig } from './config/appConfig'
-import { isDemoMode, objectVisitsConfig, getDeploymentConfig, shortAddress } from './lib/deploymentConfig'
+import { isDemoMode, objectVisitsConfig, getDeploymentConfig } from './lib/deploymentConfig'
 import { isOvPath, leaveAppEntries, navigateTo, OV_BASE, ovHref, showsObjectVisits, useOvRoute } from './objectVisits/route'
 import { isKartePath, KARTE_BASE, useKarteRoute } from './lib/karte/route'
 import { appScreen, bootPlan } from './lib/karte/home'
@@ -43,7 +43,7 @@ import { CRASH_HEALTHY_MS, clearCrash } from './lib/crashLoop'
 import { ApiError } from './lib/api'
 import { useDiveraWatch } from './lib/useDiveraWatch'
 import { actFailedText } from './lib/actFailed'
-import { dismissAlarm, hiddenAlarms, loadDismissedAlarms, shownAlarms, undismissAlarm } from './lib/diveraDismiss'
+import { dismissAlarm, loadDismissedAlarms, shownAlarms, waitingAlarms } from './lib/diveraDismiss'
 import { alarmUpdateHidden } from './lib/alarmUpdate'
 import { useIncidentWatch } from './lib/useIncidentWatch'
 import { loadReviewedIncidents, needsIntakeReview, sameIncidentList, saveReviewedIncident, shouldReopenClosed, undoTakeReturn } from './lib/incidentAlerts'
@@ -728,36 +728,24 @@ export default function App() {
   // opens the app menu (components/HomeMenus · HomeMenu); only a LINK session whose Einsatz could not be fetched
   // still lands on it (lib/karte/home · appScreen), which is why its account-only rows stay.
   const openIncidents = allIncidents.filter((i) => !i.is_archived)
-  // ⚠️ The alarms that will ACTUALLY render, dismissals included. `hasLanding` (LauncherBody) counted the raw
-  // pool while the list below filtered out anything dismissed on this device — so once every
-  // pool alarm had been ×-ed away, the card took the launcher branch, rendered an EMPTY list
-  // (with its own margin) and skipped the sentence explaining what to do. A hole where the
-  // explanation should be, on the one screen whose whole job is «what now».
-  const landingAlarms = isEditor ? poolAlarms.filter((a) => !dismissedAlarms.has(a.divera_id)) : []
+  // The alarms waiting to be opened, as both «Einsätze» lists carry them: the banner's ✕ puts only
+  // the banner away (lib/diveraDismiss · waitingAlarms – owner, 17.11.2026, «no hidden state»).
+  const landingAlarms = isEditor ? waitingAlarms(poolAlarms) : []
   const hideAlarm = (a: DiveraAlarm) => setDismissedAlarms(dismissAlarm(a.divera_id))
-  // after ✕ an alarm stands as a quiet row in the «Einsätze» lists, «Zeigen» brings it back
-  // (lib/diveraDismiss · hiddenAlarms; panels/AppMenuRows · FoldedRow)
-  const showAlarm = (a: DiveraAlarm) => setDismissedAlarms(undismissAlarm(a.divera_id))
-  const foldedAlarms: FoldedMenuRow[] = (isEditor ? hiddenAlarms(poolAlarms, dismissedAlarms) : []).map((a) => ({
-    key: `alarm:${a.divera_id}`,
-    title: a.title,
-    sub: shortAddress(a.address) ?? appConfig.copy.intake.addressUnknown,
-    onShow: () => showAlarm(a),
-  }))
-  // …and in the Einsatz menu also the open Einsatz's hidden «Alarm aktualisiert» (F7): served to
+  // The Einsatz menu's quiet row for the open Einsatz's hidden «Alarm aktualisiert» (F7): served to
   // every device while hidden, a row for 3 h after it came, for whoever keeps the Einsatzdaten –
   // the same gate as the AlarmUpdateBanner below. «Zeigen» makes it pending again (the row).
   const activeListed = activeMeta ? incidents?.find((i) => i.id === activeMeta.id) ?? activeMeta : null
   const hiddenUpdate = activeListed && (isEditor || isEl) && isIncidentRunning(activeListed)
     && alarmUpdateHidden(activeListed)
-  const einsatzFolded: FoldedMenuRow[] = hiddenUpdate ? [...foldedAlarms, {
+  const einsatzFolded: FoldedMenuRow[] = hiddenUpdate ? [{
     key: `alarm-update:${activeListed.id}`,
     title: appConfig.copy.intake.alarmUpdate.title,
     onShow: () => showAlarmUpdate(activeListed.id).then(
       (inc) => reflectMeta(inc as IncidentMeta),
       (e) => toast(e instanceof ApiError && e.status !== 0 ? e.detail : appConfig.copy.intake.alarmUpdate.failed, { icon: 'warn', tone: 'warn' }),
     ),
-  }] : foldedAlarms
+  }] : []
   // an alarm taken from the viewer undoes back to it (undoTake)
   const takeBack = screen === 'karte' ? 'karte' as const : undefined
 
@@ -782,8 +770,6 @@ export default function App() {
     user: { display_name: user?.display_name ?? '', color: user?.color ?? null, role: user?.role ?? 'viewer' },
     incidents: allIncidents, listNote, activeId, opening, alarms: landingAlarms, taking,
     onTake: (a) => void takeAndOpen(a, takeBack),
-    onDismissAlarm: hideAlarm,
-    folded: foldedAlarms,
     onOpenIncident: openOrUncover,
     onHistory: () => setOverlay('history'),
     onCreate: () => setOverlay('create'),
@@ -868,6 +854,7 @@ export default function App() {
           // (testing feedback 2026-07-18): incoming alarms are taken via home or
           // the mid-incident banner, never via a separate pool screen.
           onOpenDivera={() => setOverlay('create')}
+          menuAlarms={landingAlarms.length > 0 ? { list: landingAlarms, taking, onTake: (a) => void takeAndOpen(a) } : undefined}
           menuFolded={einsatzFolded}
           // ⚠️ There is no separate «archive the active one» prop any more. The Einsatz-Menü row
           // used to hang off `archiveById`, which archived plainly — no report_done_at, nothing

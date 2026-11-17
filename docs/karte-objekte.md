@@ -1202,7 +1202,11 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   left only for a link session whose Einsatz could not be fetched.
 - **Alarms** show in the Meldeleiste and the banner (no «Anhängen»: no Einsatz is being worked on
   screen); nothing switches by itself. Taking one keeps the 12 s «Alarm übernommen · Rückgängig»,
-  and the undo returns to the viewer, not into another open Einsatz.
+  and the undo returns to the viewer, not into another open Einsatz. The banner's ✕ puts only the
+  banner away on this device: the alarm stays listed in «Einsätze ▾» and in the Einsatz menu – a
+  bell where a running row shows its age, the Stichwort and the address, «Öffnen», no ✕ – until it
+  is opened or 3 h old, and it keeps the red dot lit (owner, 17.11.2026: «Just list it, no hidden
+  state»; `lib/diveraDismiss · waitingAlarms`).
 - **From an Einsatz:** **«Einsatz verlassen»** (owner, 17.10.2026; it was «Karte & Objekte» in the
   «App» group) — about this Einsatz, so in the Einsätze group as the first action under the
   running rows, above «Alle Einsätze», with the map glyph (never the Abmelden one). «verlassen» must

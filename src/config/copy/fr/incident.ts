@@ -57,6 +57,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     viewOnlyWhy: { viewer: 'Observateur', el: 'Direction d\'intervention', link: 'Lien d\'intervention' },
     foreignAlarmDot: 'Alarme ARI dans une autre intervention',
     login: 'Se connecter',
+    otherEinsatzDot: 'Une autre intervention est en cours',
   },
   archived: {
     title: 'Intervention close',

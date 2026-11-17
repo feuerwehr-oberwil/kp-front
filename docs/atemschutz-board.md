@@ -440,8 +440,10 @@ cached list offline). The owner's rule (`lib/foreignAlarm`): two real Einsätze 
 run by two teams and must not distract each other. So every other running Einsatz with such a
 Trupp gets a red «Atemschutz-Alarm» / «Atemschutz-Notfall» over its row in the Einsatz list
 (AppMenuRows), and while such a row exists the SHUT Einsatz pill carries a small red dot at its
-chevron – a reason to open the list (owner pick M11 B, 13.11.2026; `IncidentSwitcher`), gone with
-the row – and that is all while this device works a live Ernstfall. A device standing in an
+chevron – a reason to open the list (owner pick M11 B, 13.11.2026; `IncidentSwitcher`). The same
+dot also lights while another REAL Einsatz runs at all, never for a parallel Übung alone; its name
+says which, the alarm winning (C10, 17.11.2026; `foreignAlarm · pillDot`) – and that is all while
+this device works a live Ernstfall. A device standing in an
 Übung or a closed Einsatz gets the full alarm of a live Ernstfall: the known red row in the
 Meldeleiste with the Einsatz's name in front, and the tone (`ForeignAtemschutzMeldungen`), muted
 per Einsatz; its «Zum Trupp» mutes that Einsatz, switches to it and opens the board on the Trupp

@@ -72,10 +72,10 @@ describe('IncomingAlarmBanner · time', () => {
   })
 })
 
-// Rare-user round M3 / F7, round 2 (17.11.2026): what ✕ hid has no strip in the Meldeleiste – its
-// way back is a row in the «Einsätze» lists (AppMenuRows · FoldedRow)
-describe('hidden alarms and updates', () => {
-  it('a hidden alarm leaves no row in the Meldeleiste', () => {
+// What ✕ put away has no strip in the Meldeleiste (17.11.2026): the alarm stays listed in the
+// «Einsätze» lists, a hidden update has its row in the Einsatz menu (AppMenuRows)
+describe('✕-ed alarms and updates', () => {
+  it('an alarm whose row was ✕-ed leaves no row in the Meldeleiste', () => {
     render(
       <>
         <IncomingAlarmBanner alarms={[alarm]} dismissed={new Set([alarm.divera_id])} onDismiss={() => {}}

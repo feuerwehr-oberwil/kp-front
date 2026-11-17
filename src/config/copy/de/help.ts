@@ -109,7 +109,7 @@ export const helpCopy = {
           { kind: 'list', items: [
             'Zuoberst der offene Einsatz: **Bearbeiten** (die Einsatzdaten), **Abschliessen** mit der Zahl dessen, was noch offen ist, und **Teilen**.',
             'Darunter die anderen laufenden Einsätze – antippen wechselt. Laufen mehrere, zeigt der Einsatz oben ein **+N**.',
-            '**Neuer Alarm** – ein eingegangener Alarm, der noch kein Einsatz ist: **Öffnen** eröffnet ihn. Das **✕** blendet ihn nur auf diesem Gerät aus; in **Einsätze** bleibt er als blasse Zeile stehen, und **Zeigen** holt ihn zurück. Ein ausgeblendetes **Alarm aktualisiert** holt **Zeigen** im Einsatzmenü zurück.',
+            '**Neuer Alarm** – ein eingegangener Alarm, der noch kein Einsatz ist: **Öffnen** eröffnet ihn. Das **✕** blendet nur die Meldung auf diesem Gerät aus; in **Einsätze** bleibt er mit der Glocke stehen, bis ihn jemand öffnet. Ein ausgeblendetes **Alarm aktualisiert** holt **Zeigen** im Einsatzmenü zurück.',
             '**Einsatz eröffnen** – ein Einsatz von Hand, ohne Alarm. Die erste Frage ist **Ernstfall | Übung**, danach Ort (Objekt, Adresse oder auf der Karte) und Stichwort. Halb Getipptes bleibt stehen, auch wenn die App neu lädt.',
             '**Alle Einsätze** – auch die abgeschlossenen: antippen öffnet zum Lesen, **Wieder öffnen** zum Ergänzen.',
             '**Einsatz verlassen** – zurück zur Karte; der Einsatz läuft weiter.',
