@@ -33,17 +33,24 @@ depends on whether it can come back, never on what was deleted.
   (the Karte store, a Plan): one step gives back the object, every Leitung end on it, a docked
   placard's bond, a sheet anchor, a page's writing — nothing re-implements an inverse. A
   one-shot that already has its own closure toast (`oneShotUndoToast`: a Geschoss, a Gebäude
-  swap, a Beilage) keeps it; that one undoes its act even after others.
+  swap, a Beilage) keeps it; that one undoes its act even after others, and keeps its own
+  `kind` (`oneshot`) so a later undo pill does not push it out. The Mittel bin rides this door
+  too since 17.11.2026 (its toast used to save a restore of its own, and the ↶ then held both).
 - The sentence is the removal's own Verlauf words, the object's name in it, and the Leitungen it
   set loose are counted («TLF entfernt, 2 Leitungen gelöst», `removedText`); a Notiz is «Notiz
   entfernt». The ↶ caption says the same (`stepLabelRef` / `onStepLabel`). Toasts of the rule
-  replace each other (`kind: 'removal'`).
+  lead with 🗑 and replace each other like every undo pill (`lib/ui · UNDO_KIND`, 17.11.2026).
 - Under the rule (no ConfirmCard since 13.11.): a symbol, Form, Notiz (written or not), line,
   Fläche, Absperrkreis, a Mehrfach group — Lage and Plan alike (Leitungen attached: the one
   exception below);
   «Marker und Spur entfernen», «Spur entfernen» (marker, chip, Geister-Spur); a Teilstück's «E»
   letting its lines go; a saved Ansicht; a Tafel page; a Geschoss; a Gebäude replaced; the
-  Passung's points and «Referenz zurücksetzen» on an Einsatz's own binding.
+  Passung's points and «Referenz zurücksetzen» on an Einsatz's own binding; since 17.11.2026
+  (duck sweep FEEDBACK.3) also a Leitung end's ✕ «Verbindung lösen» (Lage and Plan), a symbol's
+  free field ✕, a Rapport Partnerorganisation's bin. Outside the timeline the same sentence comes
+  through `undoToast` with its own inverse: a cleared transcript section, the poster's Beilage,
+  Partnerorganisation and a count taken to 0. «Grundriss kopiert» rides the door with ↶ as its
+  glyph (the copies land on storeys that are off screen).
 - The ConfirmCard stays where nothing brings it back: Einsatz löschen, Link widerrufen, Besuch
   verwerfen, the Atemschutz Notfall, the Abschluss checks, admin (peacetime) — and the Passung
   of a STATION sheet, which saves to the station (`GeorefQuality · undoable`). The Atemschutz
@@ -132,12 +139,13 @@ gesture's next sample.
   (`keepPlanSteps`). The confirm-with-undo toasts are guarded too: `undoToast(…, guard)`
   declines with «Nicht mehr rückgängig machbar» once a merge changed a record it would write or
   link to (or its entry is no longer `standing`); a toast whose target lives outside the
-  workspace checks the target itself (`georefStillIs`, `mittel · tombstoneStands`). The whole
+  workspace checks the target itself (`georefStillIs`). The whole
   bookkeeping runs through `carryUndoThroughMerge`: if any of it throws, the old rule applies
   (timeline cleared, every history dropped, the merged state still lands). ⚠️ ↶ never turns
   into an older act SILENTLY (staging r3, F8): when a merge drops the step ↶ would have taken
-  back, one line says so («Letzter Schritt nicht mehr rückgängig machbar – ein anderes Gerät
-  hat … geändert», `onTopDropped`), and the header's label and flash caption name the SURFACE
+  back, the NEXT ↶ press says so at the button instead of stepping («Letzter Schritt nicht mehr
+  rückgängig machbar – ein anderes Gerät hat … geändert», `onTopDropped` → `IncidentWorkspace ·
+  pressHistory`; a toast per merge until 17.11.2026), the press after it steps; and the header's label and flash caption name the SURFACE
   in front of an action that does not already say it («Trupps · Trupp 1 (…): Ausrüstung: WBK»,
   `undoTimeline · undoCaption`, `copy.undoSurfaces`) — the Verlauf row keeps the bare action. Add an entry ⇒ give
   it a `touches` that covers EVERYTHING its undo and redo write, and every record those values
