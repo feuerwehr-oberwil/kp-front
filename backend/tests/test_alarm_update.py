@@ -4,6 +4,7 @@ Never applied by itself: it waits on the Einsatz until the crew takes it (only w
 edit by hand), edits it, or hides it for every device – and shows it again. Example data is invented.
 """
 
+import uuid
 from datetime import UTC, datetime
 
 import pytest
@@ -42,7 +43,8 @@ def webhook_secret(monkeypatch):
 async def opened(client, db_session, editor) -> Incident:
     """The alarm opened its Einsatz, and an editor has worked it since (`editor_opened_at`)."""
     r = await client.post("/api/divera/webhook", json=FIRST, headers=HOOK)
-    inc = await db_session.get(Incident, r.json()["incident_id"])
+    # a real UUID: Postgres casts the JSON string, the local SQLite run does not
+    inc = await db_session.get(Incident, uuid.UUID(r.json()["incident_id"]))
     inc.editor_opened_at = datetime.now(UTC)
     await db_session.commit()
     assert (await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})).status_code == 200
