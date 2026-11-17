@@ -69,5 +69,11 @@ test('composer compact row: eight equal buttons on one line', async ({ page }, t
     expect(b.top).toBeCloseTo(first.top, 0)
   }
   expect(first.height).toBeGreaterThanOrEqual(44)
+  // The Lage underneath must keep its canvas in sync as the phone shrinks and expands, even
+  // when the first resize coincides with map load. The client-error guard covers both changes.
+  const canvas = page.locator('.maplibregl-canvas')
+  await expect(canvas).toHaveCSS('height', '400px')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(canvas).toHaveCSS('height', '844px')
   await expectNoCrash(page, 'composer compact row')
 })
