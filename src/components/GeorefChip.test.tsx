@@ -244,13 +244,14 @@ describe('an idle georeference never intercepts the board', () => {
     expect(screen.getByText(/auseinander/)).toBeTruthy() // the baseline, not the two-pairs note
   })
 
-  it('returns to Passung when the transfer picker is cancelled', () => {
+  // a live sheet ends on its head ✕ (17.11.2026 – its «Abbrechen · Fertig» footer went)
+  it('returns to Passung when the transfer picker is closed', () => {
     store.pairs = TWO
     renderBoard()
     openSheet()
     fireEvent.click(screen.getByRole('button', { name: 'Kopieren' }))
-    expect(screen.getByRole('heading', { name: /Verknüpfung kopieren/ })).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }))
+    const picker = screen.getByRole('heading', { name: /Verknüpfung kopieren/ }).closest<HTMLElement>('[role="dialog"]')!
+    fireEvent.click(within(picker).getByRole('button', { name: 'Schliessen' }))
     expect(sheet()).toBeTruthy()
   })
 
