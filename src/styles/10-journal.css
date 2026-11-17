@@ -43,7 +43,7 @@
   .tb-act:disabled:hover { background: transparent; color: var(--ink-dim); }
 }
 /* OPEN (a panel or menu it opens stands open) is the «open/armed» wash – `--sel-wash` + the
-   `--blue-strong` glyph, as the ⓘ and the Verlauf lens – never the ink pill, which is «where you
+   `--blue-strong` glyph, as the ⓘ and the Verlauf's «Art» – never the ink pill, which is «where you
    are» on the nav rail beside it (duck sweep ELEM.6, 17.11.2026: open Ebenen read as a place) */
 .tb-act.on { background: var(--sel-wash); color: var(--blue-strong); }
 /* Atemschutz alarm chip — conditional (only rendered while a Trupp is fällig/überfällig).
@@ -424,7 +424,7 @@
 /* ⚠️ ONE size for every button of this head, and it is the app's --tap (30.10.2026, owner: «increase
    the size of the touch targets/buttons to match the size we have otherwise»). It was 36 to the eye
    over a 44 pad – the ✕'s house size (13-incident.css · «ONE size for the ✕») – so the Verlauf read
-   smaller than every surface of 44px buttons around it. ⓘ, lens, funnel, ▶ and ✕ are all 44 now.
+   smaller than every surface of 44px buttons around it. ▶, ✕ and the list row's «Art» are all 44 now.
    ▶ is THE button's framed secondary (<Button>, `.ip-btn`, 44px) — placement only here. It was the
    filled primary until the hill climb (r2, 04.11.2026): playing back the past became the
    strongest thing in a view whose job is what is still open. */
@@ -442,56 +442,35 @@
 /* The ✕ is THE sheet ✕ (hill climb r35, 06.11.2026): the 36px --ink-8 plate with its 44px pad, as
    on every other sheet – it was a 44px copy of ▶'s frame since r13, the one ✕ in the app that
    looked like an action. Centred on the head row; 16px from the edge, the title's own inset.
-   ⓘ · lens · funnel are the list head's framed tile (components/SurfaceControls · `.iconBtn`, the
-   lens and the funnel with their `.word`; owner pick, button sweep HEADS.2, 17.11.2026) – no rule of
-   their own here. They rested bare since hill climb r9 (three filled grey chips out-weighed the
-   title); framed in the page's ink with their words they read as the Anwesenheit's and the
-   Mittel's filters do. */
+   The head holds the title, ▶ and ✕ and nothing else (owner pick 25 B, 17.11.2026): ⓘ «Legende»,
+   «Suchen» and «Art» stood beside them until then and cut the title to «V…» in the tablet drawer. */
 
-/* ── the icon legend ──
-   The disc carries the Bereich, and a glyph has to be learned. This is the answer to that, and
-   deliberately a small one: a tap opens it, a tap closes it, nothing remembers it and nothing
-   opens it by itself. There is no hover on the primary device, so a tooltip alone would not do.
-   The button («Legende») sits beside the title rather than out at the margin — it belongs to what
-   is being read, not to the drawer's controls. */
-
-/* ── the search ──
-   The lens («Suchen») is the head tile beside the ⓘ. Tapped, the
-   field REPLACES the head row (mock verlauf-02, 14.09.): the title, ⓘ and Replay go, the field
-   takes their width, and the ✕ that closes the search stands where the drawer's ✕ stood — one
-   place for «back out of this», whichever «this» is. No space is lost while nothing is searched. */
-/* the search row sits UNDER the constant head, where the timeline strip stands otherwise (22.09.2026) */
+/* ── the list row: the search + «Art» (owner pick 25 B, 17.11.2026) ──
+   The row every list has (components/SurfaceControls: the Anwesenheit's, the Mittel's): the field
+   takes the slack and is always there – a lens in the head opened it until then – and the «Art»
+   tile (SurfaceControls · `.iconBtn` + `.word`, no rule of its own here) follows it, worded beside
+   its glyph on a tablet, under it on a phone. Under the head, above the «Gefiltert:» strip and
+   where the timeline strip begins. */
 .journal-search-row { display: flex; align-items: center; gap: 8px; padding: 0 4px var(--sp-2); }
 /* the field is THE search (components/SearchField · `.ui-search`, 29.09.2026) — placement only;
    the live count rides in its count slot */
-.journal-search { flex: 1; }
-/* …and beside the field it is THE sheet ✕, 36px over its 44px pad, centred on the field (r35,
-   06.11.2026 – it was 44 «beside a 44px field» since 20.09.2026; at its old 28px it hung like a stray
-   badge, at the house 36 it is the same ✕ as the head's and the Palette's). */
-.journal-search + .journal-x { margin-left: 0; }
-/* (the search's ✕ used to be «on» – a dark filled square, the way the open legend button is on.
-   Beside a grey field it read as the one black thing on the sheet; it is the ordinary grey close
-   button now, and the field it closes is what says a mode is active. 20.09.2026) */
-.jr-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--sp-2) var(--sp-3);
-  margin: 0 2px 8px; padding: var(--sp-3); border-radius: var(--r-ctl); background: var(--fill-soft); }
-.jr-legend-item { display: flex; align-items: center; gap: 8px; min-width: 0;
-  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
-/* the discs here are the row's discs, at the row's size — a legend drawn smaller than the thing
-   it explains is a second shape to recognise – and in the row's paint and glyph stroke, the
-   hue-less Bereiche in ink (06-contextpanel · `:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic`) */
-:is(.jr-legend, .jr-filter-menu) .ic { width: 24px; height: 24px; flex: none; display: grid; place-items: center; }
-:is(.jr-legend, .jr-filter-menu) .ic.jr-ic-map { background: var(--blue-12);
+.journal-search { flex: 1; min-width: 0; }
+/* the discs in the «Art» menu (its rows and the ring key at its end) are the row's discs, at the
+   row's size — a key drawn smaller than the thing it explains is a second shape to recognise – and in the row's paint and glyph stroke, the
+   hue-less Bereiche in ink (06-contextpanel · `:is(.hist-ev, .jr-filter-menu) .ic`) */
+.jr-filter-menu .ic { width: 24px; height: 24px; flex: none; display: grid; place-items: center; }
+.jr-filter-menu .ic.jr-ic-map { background: var(--blue-12);
   border-color: var(--blue-22); color: var(--blue-strong); }
-:is(.jr-legend, .jr-filter-menu) .ic.jr-ic-plan { background: var(--green-16);
+.jr-filter-menu .ic.jr-ic-plan { background: var(--green-16);
   border-color: var(--green-28); color: var(--green-strong); }
-:is(.jr-legend, .jr-filter-menu) .ic.jr-ic-ring { background: none; border-color: transparent; }
+.jr-filter-menu .ic.jr-ic-ring { background: none; border-color: transparent; }
 
 /* ── the filter (feat 37 · option B, 23.09.2026) ──
-   The third head tile, «Art», beside the lens. While any category is ticked it wears the CHOICE
+   The «Art» tile at the end of the list row. While any category is ticked it wears the CHOICE
    fill (`--sel`, SurfaceControls · `.iconBtnOn`): it was the ink «where you are» pill plus a blue
    dot until 29.09.2026, then the fill plus a `--sel-shadow` no other filter had. Nothing of the
    pick is printed on it, so it measures the same filtered or not. */
-/* the menu: the legend's discs with ticks and counts. The height cap is the one every
+/* the menu: the rows' discs with ticks and counts, then the ring key (Menu `note` lines). The height cap is the one every
    SurfaceControls menu has — a station with many plans makes this taller than a phone, and a
    too-tall popup is repositioned, never trimmed. */
 .jr-filter-menu { min-width: 250px; max-width: min(340px, 92vw);
@@ -503,37 +482,29 @@
   padding: 0 var(--sp-3); cursor: pointer; outline: none; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); }
 .jr-filter-item[data-disabled] { opacity: var(--disabled); cursor: default; }
 .jr-filter-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-3); }
+/* the ring key at the menu's end (Menu `note`): its rings stand in the rows' disc column – past the
+   row's 12px inset, the 20px checkbox (`.ui-menu-check`) and the 12px gap, 44 in all – so the key
+   reads as the column it explains. ⚠️ `--tap` is that sum here, not a target size: change the
+   checkbox or the row's inset and this moves with them by hand. */
+.jr-filter-menu .ui-menu-note { padding-inline-start: var(--tap); }
 .jr-filter-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jr-filter-count { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 /* the one-line «Gefiltert: … · Alle zeigen» (components/FilterStrip) under the head, where the
    timeline strip stands otherwise (it is hidden while a filter is on, as during a search) –
    placement only */
 .jr-filter-strip { padding: 0 4px 8px; }
-/* On a phone ▶ is a TILE like the ⓘ · lens · funnel beside it: the glyph OVER «Wiedergabe» at
+/* On a phone ▶ is a TILE like the list row's «Art» under it: the glyph OVER «Wiedergabe» at
    11/700 (button sweep audit, owner pick 24, 17.11.2026 – it lost its word here, the trade the
    top bar made for «Verlauf»; neither makes it any more). Tablet and laptop keep «▶ Wiedergabe»
-   beside each other (its name stays «Wiedergabe starten»). */
+   beside each other (its name stays «Wiedergabe starten»).
+   (The head's phone squeeze – 4px tile insides, 2px gaps, the count yielding, the title's glyph
+   hidden – went with ⓘ «Legende», «Suchen» and «Art», pick 25 B: title, ▶ and ✕ fit 390 whole.) */
 @media (--phone) {
   .journal-head .journal-replay { flex-direction: column; justify-content: center; gap: var(--sp-1); padding: 0 var(--sp-2); }
-  /* …and with every tile worded (ⓘ «Legende», ▶ «Wiedergabe», pick 24) the 390px head is ~40px
-     short: the tiles close up to 4px inside and 2px apart, and the count «· 14» yields before the
-     title's word (measured 17.11.2026: «V.» otherwise) */
-  .journal-head > :is(button, .ip-btn):not(.journal-x) { padding-inline: var(--sp-1); }
-  .journal-head { gap: 2px; }
-  .journal-head .journal-title { margin-right: 0; }
-  .journal-title-txt { flex: none; }
-  .journal-count { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .journal-replay span { font: var(--fw-bold) var(--fs-micro)/1 var(--body); letter-spacing: -.02em; }
-  /* (the title is the tablet's 16/800 with its 18px glyph since r35 – the step down it took here
-     at 19px is gone with the 19px; the glyph stays 8px off the word, hill climb r28, Opus 6) */
-  /* (the head's gaps: 2px since every tile is worded, above – it was 4, plus 4 off the title, r6;
-     no chip may shrink: the ✕ is the house 36px everywhere, and a squeezed target is the one
-     thing a head cannot lose, measured 24.09.2026) */
+  /* no chip may shrink: the ✕ is the house 36px everywhere, and a squeezed target is the one
+     thing a head cannot lose (measured 24.09.2026) */
   .journal-replay, .journal-x { flex: none; }
-  /* …and the title's glyph (r28) gives way to the worded tiles (button sweep HEADS.2, 17.11.2026):
-     with «Suchen» and «Art» under their glyphs the 390px head had no room left for «⟲ Verlauf · 322»
-     and cut the title to «V…». Never the title's word, never a tile's word. */
-  .journal-title .i { display: none; }
   /* …and the trailing group closes up, so the sentence keeps its share on the rows that carry
      more than one control (a photo row's thumbnails, an audio row's jump and play). */
   .jr-trail { gap: var(--sp-2); }
@@ -545,7 +516,7 @@
    sentence — and on a Pendenz a second chip printing «Pendenz» beside a text that already read
    «Pendenz erledigt: …». Both are gone, together with the Nachtrag/korrigiert/«6×» chips, which
    moved behind the sentence where a footnote belongs (`.jr-foot`). The word survives as the
-   disc's `title` and in the legend in the drawer head. */
+   disc's `title` and in the «Art» menu, which wears the same discs beside the words. */
 /* The two DRAWING surfaces get a tint, because the glyph alone cannot separate a Lage row from
    a Plan row. ⚠️ Derived from the resolved Bereich, NEVER from `e.surface` (lib/report ·
    journalDisc): the old chip took the tint from the surface and the word from `journalArea`, so
@@ -556,20 +527,20 @@
   border-color: var(--green-28); color: var(--green-strong); }
 /* ── …and a hand-written row's ART (owner pick B, UI sweep 07.10.2026) ──
    Auftrag = the arrow on blue, Sofortmassnahme = the warning on amber; Info keeps the plain «T»
-   (lib/verlauf · rowGlyph, derived at render). The same discs in the legend and the filter menu,
-   so the three places cannot disagree. */
-:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-auftrag { background: var(--blue-12);
+   (lib/verlauf · rowGlyph, derived at render). The same discs in the row and the «Art» menu, so the
+   two places cannot disagree. */
+:is(.hist-ev, .jr-filter-menu) .ic.jr-ic-auftrag { background: var(--blue-12);
   border-color: var(--blue-22); color: var(--blue); }
-:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-sofort { background: var(--amber-16);
+:is(.hist-ev, .jr-filter-menu) .ic.jr-ic-sofort { background: var(--amber-16);
   border-color: var(--amber-28); color: var(--amber-strong); }
 /* ── …and on a Pendenz the disc is the Pendenz's tick box ──
    The box every surface ticks a Pendenz with (TickRow · `pendenz`, duck sweep ELEM.2/ENT.5,
    17.11.2026): its frame says the state – amber offen, red überfällig, red with «!» dringend –
-   and ticked it is the one blue «erledigt». The pinned block, the Tafel, the legend and the
+   and ticked it is the one blue «erledigt». The pinned block, the Tafel, the «Art» menu's key and the
    composer's state switch draw the same box.
    ⚠️ Only the row that RAISED the item and the row that CLOSED it. A Meldung and a snooze are
    log lines about the item, and they keep their own glyph. */
-:is(.hist-ev, .jr-legend, .jr-filter-menu) .ic.jr-ic-ring { background: none; border-color: transparent; }
+:is(.hist-ev, .jr-filter-menu) .ic.jr-ic-ring { background: none; border-color: transparent; }
 /* ⚠️ The slot STAYS the disc's 24 × 24: the disc is the anchor for the timeline connector drawn
    above and below it (`.hist-ev .ic::before/::after` in 06-contextpanel.css), so growing it for a
    gloved finger would tear a gap in the line. The tick button is TickRow's 44px square laid over

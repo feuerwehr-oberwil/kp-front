@@ -1,5 +1,5 @@
 // One row of the Verlauf (Journal) and the classification disc it shares with the drawer's
-// legend and filter menu. The row is the drawer's `.map` body made a component (sweep A.8): it
+// «Art» filter menu. The row is the drawer's `.map` body made a component (sweep A.8): it
 // gets the drawer's lookups and handlers as props and renders exactly what the inline body did.
 // Not `React.memo`'d: its caller (workspace/JournalLayer) hands the drawer fresh callbacks every
 // render, so a memo would compare unequal props on every pass.
@@ -28,7 +28,7 @@ export type RingState = 'open' | 'urgent' | 'overdue' | 'done'
 
 /** The 24px classification disc: the row's glyph in its Bereich tint, or – on a Pendenz – the
  *  Pendenz's tick box (TickRow · TickBox, its frame the state: duck sweep ELEM.2/ENT.5, 17.11.2026),
- *  the same box the pinned block, the Tafel, the legend and the composer's state switch draw.
+ *  the same box the pinned block, the Tafel, the «Art» menu's key and the composer's state switch draw.
  *
  *  ⚠️ With `onTick` the box is the TICK control, identical to the pinned block's – a checkbox, two
  *  ways: unticked a tap appends a `done` row, ticked a tap appends a `reopened` row (useReminders ·
@@ -167,7 +167,7 @@ export function JournalRow({
   // glyph, tinted where the Bereich is one of the two drawing surfaces. The WORD used
   // to sit in a chip before the sentence — beside a sentence that already carried it
   // («Auftrag · …») and, on a Pendenz, beside a second chip saying «Pendenz» again.
-  // The word now lives in the disc's title and in the legend in the head.
+  // The word now lives in the disc's title and beside the same disc in the «Art» menu.
   const ring: RingState | null = isReminder
     ? (remDone ? 'done' : openRem?.urgent ? 'urgent' : remOverdue ? 'overdue' : 'open')
     // …and the row that CLOSED the item wears the closed ring. `snoozed` and `note` do

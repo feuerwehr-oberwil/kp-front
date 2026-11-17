@@ -296,28 +296,24 @@ export const journalCopy = {
     againSet: '↻ in {mins} min gesetzt',
     againToast: 'Wiedervorlage in {mins} min gesetzt',
     againWithdrawn: 'Wiedervorlage zurückgenommen: {text}',
-    // ── Legende ───────────────────────────────────────────────────────────────────────────
-    // The Verlauf row's 26px disc carries the Bereich (it replaced a chip that printed the same
-    // word the sentence already carried). A glyph has to be LEARNED, so the drawer's head keeps
-    // a legend that names them — opened by a tap, never by itself, and never remembered: it
-    // answers one question once, for somebody who reads words rather than shapes.
-    legend: 'Legende',
+    // ── the ring key ──────────────────────────────────────────────────────────────────────
+    // What the Pendenz ring on a row says – the key lines at the end of the «Art» menu (owner pick
+    // 25 B, 17.11.2026; the head's ⓘ «Legende» until then). The menu's rows already name each disc.
     legendPendenzOpen: 'Pendenz offen',
     legendPendenzUrgent: 'Pendenz dringend',
     legendPendenzDone: 'Pendenz erledigt',
     // ── Suche ─────────────────────────────────────────────────────────────────────────────
-    // The lens beside the legend. Tapped, the search field REPLACES the head row until its ✕
-    // closes it (mock verlauf-02, 14.09.). Filters live, with the person search's tolerance
+    // The field in the list row under the head, always in view (owner pick 25 B, 17.11.2026).
+    // Filters live, with the person search's tolerance
     // (lib/journalSearch): umlauts either way, one typo from four letters, every word must match.
     search: 'Im Verlauf suchen',
     searchPlaceholder: 'Suchen …',
-    searchClose: 'Suche schliessen',
     // «2 von 42» – matching rows of all rows, live while typing
     searchCount: '{n} von {m}',
     // after the shared «Keine Treffer für «{q}».» (copy.noHits): what the search looked in
     searchEmptyHint: 'Gesucht wird im Text sowie in Namen von Personen und Trupps. Ein Tippfehler ist erlaubt.',
     // ── Filter ────────────────────────────────────────────────────────────────────────────
-    // The funnel beside the lens (feat 37 · B, 23.09.2026). Its categories are NOT words of its
+    // The «Art» tile beside the search field (feat 37 · B, 23.09.2026). Its categories are NOT words of its
     // own: they are the Bereiche the disc, the legend and the Rapport's «Bereich» column already
     // say (entryTypes, noteChip, report · areaLage …), so nothing is named twice. The ticks
     // OR together and AND with the search (lib/journalFilter).
@@ -370,14 +366,13 @@ export const journalCopy = {
     sectionRemoved: 'Abschnitt gelöscht',
     markOpenTitle: 'Wieder als offen markieren',
     legendPendenzOverdue: 'Pendenz überfällig',
-    // the head's tiles are WORDED like every list head (button sweep HEADS.2, 17.11.2026): the lens
-    // and the funnel's words, beside the glyph on a tablet, under it on a phone
-    searchWord: 'Suchen',
     // the funnel's word is its FACET (HEADS.6) – «Art des Eintrags» is the menu's first group
     filterWord: 'Art',
-    // ▶'s visible word in the head (button sweep HEADS.2, 17.11.2026): with «Suchen» and «Art» worded
-    // beside it, «Wiedergabe starten» cut the drawer's title to «V…»; `replay` stays its name
+    // ▶'s visible word in the head (button sweep HEADS.2, 17.11.2026): «Wiedergabe starten» cut the
+    // drawer's title to «V…»; `replay` stays its name
     replayWord: 'Wiedergabe',
+    // the heading over the ring key at the end of the «Art» menu (pick 25 B)
+    filterRingHead: 'Pendenzen – was der Ring sagt',
   },
   // ── The Tafel's «Aufträge / Pendenzen» page (05.11.2026, lib/pendenzenPage) ────────────────
   // A view on the Verlauf's Pendenzen and Erinnerungen: every act on the page appends a Verlauf

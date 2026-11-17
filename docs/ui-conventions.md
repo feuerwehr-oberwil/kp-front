@@ -210,7 +210,7 @@ while the head's subtitle says when («Schadenlage · erledigt 10:57»).
   `.ip-x` (36px, grey, 44 pad; owner spec below), not an `IconButton`.
 - **A row of worded controls has no wordless member, and it folds TOGETHER** (button sweep audit,
   owner pick 24a, 17.11.2026). A control in a head, a bar or a mode row whose neighbours carry a
-  word carries one too (the Verlauf's ⓘ «Legende», the top bar's ↶ «Rückgängig» ↷ «Wiederherstellen»
+  word carries one too (the top bar's ↶ «Rückgängig» ↷ «Wiederherstellen»
   and «Standort», the Trupp card's ⋯ «Mehr», the Georef bar's ⓘ «Genauigkeit», the PDF reader's
   «Öffnen»). Where the row runs out of room it folds as ONE: every control's word moves UNDER its
   glyph at 11/700 at the same step (the page heads: one `data-fold` rank for the tiles,
@@ -398,8 +398,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *The ✕ that closes a sheet is 36px with an 18px glyph, everywhere* (`.ip-x`, `.journal-x`,
     `.ctx-x`, `.sym-close` — one rule in 13-incident.css; it was 28/30/32): the `--ink-8` plate,
     the ordinary grey, never a filled «on», over a 44px hit pad. No exceptions since hill climb r35
-    (06.11.2026): beside a 44px search field (Palette, Verlauf search, Trupp finden) and in the
-    Verlauf's head of 44px buttons it is the same 36px plate, centred on its row – the 44px and
+    (06.11.2026): beside a 44px search field (Palette, Trupp finden) and in the
+    Verlauf's head beside its 44px ▶ it is the same 36px plate, centred on its row – the 44px and
     ▶-framed copies there read as a different button. It stands as far from the sheet's right
     edge as the title from its left (24 on a sheet, 16 where a frame pads 16: composer, Palette,
     Verlauf, the `.ctx` editors, Trupp finden; 12 on the Gebäude card). Where the body under the
@@ -810,8 +810,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     zero specificity) and may add a STATE (the Trupp form's `.teamSearchWant`); it never re-skins
     it. The one modifier is `variant="head"` (`.ui-search-head`): a card whose whole head IS the
     search (TruppFinder) — no pill, 18/700 query. ONE ✕ (29.09.2026, owner): where the search's
-    own CLOSE ✕ stands beside the field and ends the search (the Verlauf's search row, the
-    TruppFinder), the field drops its inner ✕ — `noClear`, a prop, never CSS hiding; Escape still
+    own CLOSE ✕ stands beside the field and ends the search (the TruppFinder), the field drops
+    its inner ✕ — `noClear`, a prop, never CSS hiding; Escape still
     closes. The Palette keeps both: its ✕ closes the whole «+» chooser, clearing only the query.
     Never a bare native `type=search`, never a framed white box, never a ruled band.
     What it FINDS is one rule too (duck sweep LISTS.3, 17.11.2026): every list search matches
@@ -824,7 +824,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     never the ink pill, never `--accent`. **Every control that opens a panel or menu wears that
     same OPEN look and says `aria-expanded`** (duck sweep ELEM.6, 17.11.2026): Ebenen on the rail,
     the view bar and the phone's map cluster, the Ansichten compass (the Karte phone's too), the
-    top bar's Verlauf, the Verlauf lens. **Every Menu trigger wears it while its menu is up**, keyed
+    top bar's Verlauf. **Every Menu trigger wears it while its menu is up**, keyed
     on the `data-popup-open` Base UI sets (button sweep HEADS.5, 17.11.2026): the list-head tiles
     (SurfaceControls · `.iconBtn`), the page-head tiles (`.head-tile`, Atemschutz · `.headTile`), any
     `<Button>` trigger (`.ip-btn`), the admin's ⋯ – it outranks a filter's ON fill until the menu
@@ -848,8 +848,12 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     on a phone like a nav tile (duck sweep ELEM.13, 17.11.2026 – the Anwesenheit was worded on the
     phone only, the Mittel on the tablet only). **Every list filter is that tile** (button sweep
     HEADS.2/.8, 17.11.2026): framed, `--ink` (dim is `:disabled` only), a 16px glyph – Anwesenheit,
-    Mittel, «Alle Einsätze», the QR-Bogen's «Erfasste N» and the Verlauf, whose ⓘ · lens · funnel
-    are the same tiles («Suchen», «Art»; the ⓘ a framed square without a word, as the ⓘ is everywhere). The WORD is the FACET («Kategorie», «Art»,
+    Mittel, «Alle Einsätze», the QR-Bogen's «Erfasste N» and the Verlauf's «Art». **A list's search
+    and filters sit in its LIST ROW under the head, never in the head** (owner pick 25 B,
+    17.11.2026): the field always in view and taking the slack, the filter tiles after it – the
+    Anwesenheit's, the Mittel's and the Verlauf's row (a lens and an ⓘ «Legende» in the Verlauf's
+    head cut its title to «V…»). A key that explains a list's discs is not a head button either: it
+    ends the filter menu whose rows wear those discs (the Verlauf's ring key, a Menu `note`). The WORD is the FACET («Kategorie», «Art»,
     «Reihenfolge»), never the act «Filtern»; a menu's head is the trigger's full name («Nach
     Kategorie filtern»), a menu of groups heads each group instead (HEADS.6). The Anwesenheit's
     two facets are ONE tile «Filter» (the funnel) whose menu heads its groups «Grad» · «Status»,

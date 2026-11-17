@@ -56,24 +56,13 @@ function useAudioPlayer() {
 /** Rows the log mounts at first, and how many more each scroll to the tail reveals. */
 const PAGE_ROWS = 150
 
-/** The Verlauf's icon legend, opened from the drawer head. Read at call time so the resolved
- *  locale applies. Deliberately NOT exhaustive: it names the Bereiche a reader meets, not every
- *  glyph the app can stamp on a row — a complete table would be a page, and the question it
- *  answers is «what is that circle beside the sentence». */
-function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'plan'; tone?: ArtTone; ring?: RingState }[] {
+/** The key at the end of the «Art» menu: what the Pendenz ring on a row says. The one thing the
+ *  menu's own rows cannot tell – each Art and Bereich already wears its disc beside its word – so
+ *  it is all that is left of the ⓘ «Legende» the head carried until the button round (owner pick
+ *  25 B, 17.11.2026). Read at call time so the resolved locale applies. */
+function ringKey(): { ring: RingState; label: string }[] {
   const C = appConfig.copy.journal
-  const R = appConfig.copy.report
   return [
-    { icon: 'circle', surface: 'map', label: C.surfaceMap },
-    { icon: 'flag', surface: 'plan', label: C.surfacePlan },
-    { icon: 'people', label: R.areaAnwesenheit },
-    { icon: 'gauge', label: R.areaAtemschutz },
-    { icon: 'box', label: R.areaMittel },
-    { icon: 'clipboard', label: R.areaRapport },
-    { icon: 'check', label: R.areaChecklist },
-    { icon: 'type', label: C.entryTypes.info },
-    { ...ART_DISC.auftrag, label: C.entryTypes.auftrag },
-    { ...ART_DISC.sofort, label: C.entryTypes.sofort },
     { ring: 'open', label: C.legendPendenzOpen },
     { ring: 'urgent', label: C.legendPendenzUrgent },
     { ring: 'overdue', label: C.legendPendenzOverdue },
@@ -81,9 +70,9 @@ function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'pla
   ]
 }
 
-/** The disc a filter row wears — the legend's disc for the same Bereich, so the menu reads as the
- *  legend with ticks. Auftrag and Sofortmassnahme wear their Art's disc, as their rows do
- *  (lib/verlauf · ART_DISC); «Info» keeps the composer's «T». */
+/** The disc a filter row wears — the disc its rows wear, so the menu is also the key to them.
+ *  Auftrag and Sofortmassnahme wear their Art's disc, as their rows do (lib/verlauf · ART_DISC);
+ *  «Info» keeps the composer's «T». */
 const FILTER_DISC: Record<JournalCategoryKind, { icon?: string; surface?: 'map' | 'plan'; tone?: ArtTone; ring?: RingState }> = {
   manual: { icon: 'type' }, auftrag: ART_DISC.auftrag, sofort: ART_DISC.sofort, pendenz: { ring: 'open' },
   map: { icon: 'circle', surface: 'map' }, plan: { icon: 'flag', surface: 'plan' },
@@ -193,17 +182,16 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
   // flick as the second. The cap-and-«Aufklappen» pair this replaces existed only because the
   // block used to be sticky INSIDE the log, where it could not scroll itself.
   const [tickedHere, setTickedHere] = useState<ReadonlyMap<string, TickedHere>>(() => new Map())
-  // the icon legend. Per-opening, and closed to begin with — see the button.
-  const [showLegend, setShowLegend] = useState(false)
-  // ── the search (mock verlauf-02, 14.09.) ──
-  // `null` = closed; a string (even '') = the field has REPLACED the head row. Per-opening like
-  // the legend: the drawer remounts on each open, so closing it is what resets the search.
-  // Escape closes ONE thing, innermost first (Overlay · onEscape, 26.09.2026): an open search or
-  // inline editor, and only then the drawer. It used to be `dismissEscape={false}` — the drawer
+  // ── the search ──
+  // ALWAYS in view, in the list row under the head (owner pick 25 B, 17.11.2026 – a lens in the
+  // head opened it until then). Per-opening: the drawer remounts on each open, so closing it is
+  // what resets the query. `searching` = a query is typed (lib/journalSearch: words, not blanks).
+  // Escape closes ONE thing, innermost first (Overlay · onEscape, 26.09.2026): a typed query or
+  // an inline editor, and only then the drawer. It used to be `dismissEscape={false}` — the drawer
   // owned the key and never closed on it, so on a tablet Esc did nothing at all.
-  const [search, setSearch] = useState<string | null>(null)
-  const query = useMemo(() => (search == null ? null : journalQuery(search)), [search])
-  const searching = search != null
+  const [search, setSearch] = useState('')
+  const query = useMemo(() => journalQuery(search), [search])
+  const searching = query != null
   // ── the filter (feat 37 · option B, 23.09.2026) ──
   // The ticked categories (lib/journalFilter): empty = «alle». Per-opening like the search it
   // combines with — the drawer remounts on each open, so closing it resets both. Never stored,
@@ -627,7 +615,8 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
    *  the total beside it; then «Art des Eintrags» and «Bereich», each row a checkbox with the row's
    *  own disc and its count. Checkboxes keep the menu open (lib/overlays · Menu), because a
    *  selection is several ticks in a row. (Until then every box stood EMPTY while nothing was
-   *  filtered, and «Alle zeigen» was an action row at the bottom – the opposite reading.) */
+   *  filtered, and «Alle zeigen» was an action row at the bottom – the opposite reading.)
+   *  It ENDS on the ring key (`ringKey`, pick 25 B): lines that say, never rows that tick. */
   const filterItems = () => {
     const toggle = (key: string) => (on: boolean) => { holdHeight(); setFilterSel((sel) => {
       const next = new Set(sel)
@@ -668,6 +657,11 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
       },
       ...group('art', C.filterArt),
       ...group('bereich', C.filterArea),
+      { kind: 'head' as const, label: C.filterRingHead },
+      ...ringKey().map((k) => ({
+        kind: 'note' as const,
+        label: <><Disc ring={k.ring} /><span className="jr-filter-label">{k.label}</span></>,
+      })),
     ]
   }
 
@@ -683,72 +677,24 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
     const was = (id: string) => events.find((x) => x.id === id)
     if (editTx) { if (editTx.value !== (was(editTx.id)?.transcript ?? '')) saveTranscript(); else setEditTx(null); return true }
     if (editRow) { if (editRow.value.trim() !== (was(editRow.id)?.text ?? '').trim()) saveRowText(); else setEditRow(null); return true }
-    if (search != null) { setSearch(null); return true }
+    if (search) { setSearch(''); return true }
     return false
   }
 
   return (
     <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} onEscape={escapeInner} grab popupRef={setDrawerEl} style={heldStyle}>
-        {/* ── the head STAYS while searching (22.09.2026) ──
-            The field used to take the head's place – title · ⓘ · Replay · ✕ gone, a bare search
-            box at the top – and with it went the answer to «where am I»: the drawer no longer said
-            it was the Verlauf. The head is constant now; the field sits BELOW it, in the row the
-            timeline strip vacates (the strip is hidden while searching anyway), with its own ✕.
-            The lens in the head is lit while the field is open and closes it on a second tap. */}
+        {/* ── the head: the title, «Wiedergabe», ✕ – and nothing else (owner pick 25 B, 17.11.2026) ──
+            It carried ⓘ «Legende» · «Suchen» · «Art» · «Wiedergabe» + ✕ until then, and the title
+            paid: «V…» in the tablet drawer, «Verlauf ·…» on a phone. The search and the filter moved
+            to the list row below it, the legend into the filter menu. Never cut the title again. */}
         <div className="journal-head">
           {/* the title and its count as two pieces (hill climb r6): the count is a caption beside
               the name, not part of it — so «Verlauf» leads and «· 322» steps back (10-journal.css) */}
           <span className="journal-title"><Icon id="verlauf" /><span className="journal-title-txt">{C.title}</span>{' '}<span className="journal-count">· {shownTotal}</span></span>
-          {/* ⚠️ ON A TAP, never by itself. The disc carries the Bereich now, and a glyph has to be
-              learned — but a panel that opens on its own, or one the app remembers having opened,
-              is a thing to dismiss on the way to the record. This one is a question somebody asks
-              once. No hover either: the primary device has none. */}
-          {/* ⓘ · lens · funnel are the list head's ONE tile (owner pick, button sweep HEADS.2,
-              17.11.2026): framed, `--ink`, the lens and the funnel WORDED – beside the glyph on a
-              tablet, under it on a phone (SurfaceControls · `.word`), like the Anwesenheit's and the
-              Mittel's. They rested as bare glyphs since hill climb r9, the one list head where a
-              filter did not look like one. OPEN (legend shown, search open, the menu up) is THE open
-              look (`aria-expanded` / `data-popup-open`), a filter set the choice fill. The ⓘ is this
-              tile rather than the InfoToggle chip so the three read as one family – and WORDED,
-              «Legende», like its neighbours (button sweep audit, owner pick 24, 17.11.2026: the one
-              wordless tile in a worded row). */}
-          <button
-            type="button" className={c.iconBtn} aria-expanded={showLegend}
-            aria-label={C.legend} title={C.legend} onClick={() => setShowLegend((v) => !v)}
-          ><Icon id="info" /><span className={c.word} aria-hidden="true">{C.legend}</span></button>
-          {/* the lens closes the legend on its way in – the legend explains discs the search is
-              about to hide most of */}
-          <button
-            type="button" className={c.iconBtn}
-            title={searching ? C.searchClose : C.search} aria-label={searching ? C.searchClose : C.search} aria-expanded={searching}
-            onClick={() => { if (searching) { setSearch(null); return } holdHeight(); setShowLegend(false); setSearch('') }}
-          ><Icon id="search" /><span className={c.word} aria-hidden="true">{C.searchWord}</span></button>
-          {/* the funnel (feat 37 · B): an active filter is the blue CHOICE fill and nothing else
-              (29.09.2026 — it was the ink «where you are» pill plus a dot), like the Anwesenheit's
-              filter buttons — WHAT is ticked is in its name, in the menu and in the strip below,
-              never printed on the button, whose width then never changes under the finger. Its
-              word is the FACET, «Art» (HEADS.6). */}
-          {/* ⚠️ Standing whenever there is a row, even while every row is in one category: a head
-              whose buttons come and go with the content is a head that has to be re-read. */}
-          {events.length > 0 && (
-            <Menu
-              trigger={
-                <button
-                  type="button" className={cx(c.iconBtn, filtering && c.iconBtnOn)}
-                  title={filtering ? `${C.filter} – ${filterOn}` : C.filter}
-                  aria-label={filtering ? `${C.filter} – ${filterOn}` : C.filter}
-                ><Icon id="filter" /><span className={c.word} aria-hidden="true">{C.filterWord}</span></button>
-              }
-              align="start"
-              popupClassName="jr-filter-menu"
-              itemClassName={() => 'jr-filter-item'}
-              items={filterItems()}
-            />
-          )}
-          {/* `aria-label` «Wiedergabe starten», the word «Wiedergabe» – under the glyph on a phone,
-              like the tiles beside it (10-journal.css, pick 24, 17.11.2026) */}
-          {/* THE button's framed secondary (hill climb, 04.11.2026): it was the filled primary, and
-              playing back history out-shouted the title and the open Pendenzen below it. */}
+          {/* `aria-label` «Wiedergabe starten», the word «Wiedergabe» – under the glyph on a phone
+              (10-journal.css, pick 24, 17.11.2026). THE button's framed secondary (hill climb,
+              04.11.2026): it was the filled primary, and playing back history out-shouted the title
+              and the open Pendenzen below it. */}
           {onReplay && (
             <Button className="journal-replay" onClick={onReplay} title={C.replayHint} aria-label={C.replay} icon={<Icon id="play-circle" />}>
               <span>{C.replayWord}</span>
@@ -757,18 +703,40 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
           <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
         </div>
         {deliveryNotice}
-        {searching && (
+        {/* ── the list row every list has (SurfaceControls: Anwesenheit, Mittel) ──
+            The search takes the slack and is ALWAYS there – no lens to open it first – then the «Art»
+            filter tile, worded beside its glyph on a tablet, under it on a phone (`.word`). Only
+            when there is a row to find: an empty Verlauf says how to fill it, not how to search it.
+            The live count rides in the field's count slot once there is a query; Esc in the field
+            empties it, and only an empty field lets Esc through to close the drawer. */}
+        {events.length > 0 && (
           <div className="journal-search-row">
-            {/* the live count rides in the field's count slot, only once there is a query. ONE ✕
-                (`noClear`, 29.09.2026, owner): the row's close beside it ends the search, query and all */}
             <SearchField
-              className="journal-search" value={search ?? ''} onChange={setSearch} noClear
-              autoFocus inputMode="search" maxLength={80}
+              className="journal-search" value={search} onChange={(v) => { holdHeight(); setSearch(v) }}
+              inputMode="search" maxLength={80}
               placeholder={C.searchPlaceholder} aria-label={C.search}
-              onKeyDown={(ev) => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); setSearch(null) } }}
+              onKeyDown={(ev) => { if (ev.key === 'Escape' && search) { ev.preventDefault(); ev.stopPropagation(); setSearch('') } }}
               count={query ? fillTemplate(C.searchCount, { n: totalRows, m: shownTotal }) : undefined}
             />
-            <button type="button" className="journal-x" title={C.searchClose} aria-label={C.searchClose} onClick={() => setSearch(null)}><Icon id="close" /></button>
+            {/* the funnel (feat 37 · B): an active filter is the blue CHOICE fill and nothing else
+                (29.09.2026), like the Anwesenheit's filter tile — WHAT is ticked is in the menu and
+                in the strip below, never printed on the tile, whose width then never changes under
+                the finger. Its word is the FACET, «Art» (HEADS.6); OPEN is THE open look
+                (`data-popup-open`, SurfaceControls). Standing whenever there is a row, even while
+                every row is in one category: a row whose buttons come and go has to be re-read. */}
+            <Menu
+              trigger={
+                <button
+                  type="button" className={cx(c.iconBtn, filtering && c.iconBtnOn)}
+                  title={filtering ? `${C.filter} – ${filterOn}` : C.filter}
+                  aria-label={filtering ? `${C.filter} – ${filterOn}` : C.filter}
+                ><Icon id="filter" /><span className={c.word} aria-hidden="true">{C.filterWord}</span></button>
+              }
+              align="end"
+              popupClassName="jr-filter-menu"
+              itemClassName={() => 'jr-filter-item'}
+              items={filterItems()}
+            />
           </div>
         )}
         {/* what is filtered, on ONE line, with the way out beside it — the funnel's fill says THAT
@@ -780,15 +748,6 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
           <FilterStrip className="jr-filter-strip" what={filterOn}
             count={query ? undefined : { n: totalRows, m: shownTotal }}
             onClear={() => setFilterSel(new Set())} />
-        )}
-        {showLegend && !searching && (
-          <div className="jr-legend">
-            {legendEntries().map((l) => (
-              <span className="jr-legend-item" key={l.label}>
-                <Disc icon={l.icon} surface={l.surface} tone={l.tone} ring={l.ring} />{l.label}
-              </span>
-            ))}
-          </div>
         )}
         {/* WHEN the Einsatz has substance, as one strip. A long Verlauf is a wall of rows in
             which «was war um halb zehn» means scrolling and reading — the strip answers it by
