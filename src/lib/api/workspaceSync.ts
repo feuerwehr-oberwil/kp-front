@@ -137,11 +137,19 @@ export interface RefusedWorkspace {
 // the browser session. lib/auth is the only writer, because it is the only place that knows.
 let cacheOwner: string | null = null
 let cacheDenied = false
+let ownerEpoch = 0
+// Only engines with an armed disk write register. Start those writes before the incoming
+// engine reads the shared slot to park its predecessor's work (including the last keystroke).
+const pendingCacheWrites = new Set<() => Promise<boolean>>()
 
 /** The signed-in user settled (boot probe, login, logout). A real user id also LIFTS a denial —
  *  the account is back, and the edits it left behind are its own again; `null` only drops
  *  ownership, so a logout keeps the lock it set. */
 export function setWorkspaceCacheOwner(userId: string | null): void {
+  if (userId !== cacheOwner) {
+    for (const flush of pendingCacheWrites) void flush()
+    ownerEpoch++
+  }
   cacheOwner = userId
   if (userId) cacheDenied = false
 }
@@ -442,6 +450,10 @@ export class WorkspaceSync {
    *  against the content that 409'd — a Trupp registered while a merge was in flight exists in
    *  neither the content that 409'd nor the server copy, only here. */
   private viewState: Workspace = {}
+  /** While a conflict PUT is pending the view still edits its pre-merge snapshot, but the
+   *  cache already has the newer server ancestor. Rebase each save from the view as it was
+   *  at this merge onto its union, including when the request never returns to this owner. */
+  private pendingViewMerge: { view: Workspace; merged: Workspace } | null = null
   /** the lifecycle state on its own, before the cache-durability overlay (effectiveSyncStatus) */
   private base: SyncStatus
   /** what the UI last saw — the overlaid value */
@@ -470,8 +482,9 @@ export class WorkspaceSync {
   // Shared pre-upgrade slots can contain several people's edits. Keep all of them on disk,
   // but export and replay only edits made by the account that still owns this engine.
   private readonly sessionOwner = cacheOwner
+  private readonly sessionEpoch = ownerEpoch
   private get sessionActive(): boolean {
-    return !this.disposed && !cacheDenied && this.sessionOwner === cacheOwner
+    return !this.disposed && !cacheDenied && this.sessionEpoch === ownerEpoch
   }
   private ownRefused(disposition: 'replay' | 'role' = 'replay'): RefusedWorkspace[] {
     if (!this.sessionActive || !this.sessionOwner) return []
@@ -529,19 +542,21 @@ export class WorkspaceSync {
    *  is a structured clone + IDB put of the WHOLE blob — on a full device also a tile eviction
    *  per key, which destroyed the prefetched map area while a Bemerkung was being typed. Only the
    *  latest entry matters, so a burst lands once. Every path that must not lose the write flushes
-   *  synchronously first: teardown (flushKeepalive / dispose) and the server push (the ancestor
-   *  the cache carries has to be the one we pushed). */
+   *  synchronously first: teardown, an owner change and the server push (the cache ancestor
+   *  has to be the one we pushed). */
   private writeCache() {
     if (this.cacheTimer) clearTimeout(this.cacheTimer)
-    this.cacheTimer = setTimeout(() => this.flushCache(), CACHE_DEBOUNCE_MS)
+    this.cacheTimer = setTimeout(this.flushCache, CACHE_DEBOUNCE_MS)
+    pendingCacheWrites.add(this.flushCache)
   }
 
   /** Write the current entry to the offline cache NOW (a no-op when nothing is waiting). */
   private cacheWrite: Promise<boolean> = Promise.resolve(true)
-  private flushCache(): Promise<boolean> {
+  private flushCache = (): Promise<boolean> => {
     if (!this.cacheTimer) return this.cacheWrite
     clearTimeout(this.cacheTimer)
     this.cacheTimer = null
+    pendingCacheWrites.delete(this.flushCache)
     // The main slot is holding another session's un-parked unsynced work (see
     // serveServerWithoutCaching). Writing our state over it would destroy the only copy, so this
     // session stays in memory only and reports the cache as non-durable — nothing is written here.
@@ -554,8 +569,12 @@ export class WorkspaceSync {
     // / init / save / adopt). We write it VERBATIM — re-stamping the live `cacheOwner` here would
     // relabel a debounced or teardown write that lands after the identity changed, handing one
     // user's unsynced edit another user's name (SEC-10 owner races).
-    this.cacheWrite = withTileEviction(() => idbSet(cacheKey(this.incidentId), this.entry)).then((ok) => {
-      if (!this.disposed && this.cacheDurable !== ok) {
+    // An eviction can take long enough for the incoming owner to reuse the main slot.
+    // A retry may only write there in the session that issued the original write.
+    const writingEpoch = ownerEpoch
+    this.cacheWrite = withTileEviction(() => writingEpoch === ownerEpoch
+      ? idbSet(cacheKey(this.incidentId), this.entry) : Promise.resolve(false)).then((ok) => {
+      if (!this.disposed && writingEpoch === ownerEpoch && this.cacheDurable !== ok) {
         this.cacheDurable = ok
         this.publish()
       }
@@ -572,24 +591,24 @@ export class WorkspaceSync {
    *  it used to sit in the slot until a reload, neither merged nor pushed, under a green badge).
    *  Unsynced and someone else's ⇒ park it for its owner first, durable-or-abort, as init() does. */
   private async probeUnreadSlot() {
-    if (this.probing) return
+    if (this.probing || !this.sessionActive) return
     this.probing = true
     try {
       const read = await readCache(this.incidentId)
-      if (this.disposed || !this.slotUnread) return
+      if (!this.sessionActive || !this.slotUnread) return
       if (!read.ok) { this.scheduleProbe(); return }
       const stored = read.value
       if (stored?.dirty) {
         // a wider shape's work is parked first, as init() does — a failed park leaves the slot be
         if (mayRead(stored) && this.mustParkForRole(stored) && !(await this.parkForRole(stored))) { this.scheduleProbe(); return }
-        if (this.disposed || !this.slotUnread) return
+        if (!this.sessionActive || !this.slotUnread) return
         if (mayRead(stored)) this.mergeFoundSlot(stored)
         else {
           const durable = stored.owner
             ? await idbSet(ownerCacheKey(this.incidentId, stored.owner), stored)
             : await this.parkOrphan(stored)
+          if (!this.sessionActive || !this.slotUnread) return
           void this.announceForeignParked()
-          if (this.disposed || !this.slotUnread) return
           // the only copy stays where it is; this session carries on in memory, as after init()
           if (!durable) { this.slotUnread = false; this.publish(); return }
         }
@@ -604,7 +623,7 @@ export class WorkspaceSync {
   }
 
   private scheduleProbe() {
-    if (this.disposed || !this.slotUnread || this.probeTimer) return
+    if (!this.sessionActive || !this.slotUnread || this.probeTimer) return
     this.probeTimer = setTimeout(() => { this.probeTimer = null; void this.probeUnreadSlot() }, SLOT_PROBE_MS)
   }
 
@@ -665,6 +684,7 @@ export class WorkspaceSync {
   /** Hand a merged state to the live view (in place, else the remount fallback) and remember it
    *  as what the view now holds. */
   private handToView(ws: Workspace, rev: number) {
+    this.pendingViewMerge = null
     this.viewState = ws
     if (this.onApplyMerged) this.onApplyMerged(ws, rev)
     else this.opts.onServerWorkspace?.(ws, rev)
@@ -965,12 +985,16 @@ export class WorkspaceSync {
    *  arrive faster than the debounce indefinitely — a caret left in a field while other state
    *  churns — and restarting it on each held the push back for as long as the churn lasted. */
   save(workspace: Workspace, { keepTimer = false }: { keepTimer?: boolean } = {}) {
-    if (this.disposed) return
+    // A denial still permits local edits until the session changes. A late render of the
+    // previous session must never enqueue a new edit (including after a logout and re-login).
+    if (this.disposed || this.sessionEpoch !== ownerEpoch) return
     this.saveSeq++
     // Stamp the editing session NOW (the enqueue moment), so the debounced write can't be
     // relabelled if the identity changes before it lands (SEC-10 owner races). An entry that
     // already knows its owner keeps it — recovered/parked work stays its author's.
-    this.entry = { ...this.entry, workspace, dirty: true, owner: this.entry.owner ?? cacheOwner ?? undefined, editedAt: serverNow(), shape: this.shape }
+    const pending = this.pendingViewMerge
+    const draft = pending ? this.merge(pending.view, workspace, pending.merged) : workspace
+    this.entry = { ...this.entry, workspace: draft, dirty: true, owner: this.entry.owner ?? cacheOwner ?? undefined, editedAt: serverNow(), shape: this.shape }
     this.viewState = workspace
     this.writeCache()
     this.setStatus('pending')
@@ -1154,20 +1178,9 @@ export class WorkspaceSync {
   // 5–60 s. Now either lands in 'offline' / 'error' like a failed push, so the sync toast and
   // «Jetzt synchronisieren» appear and the edits stay dirty in the cache.
   private async resolveConflict(): Promise<boolean> {
-    // The content that 409'd — the common ancestor for any local edit that lands while the
-    // merge PUT is in flight (so that newer edit can be re-based onto the merge, not lost).
     const mine0 = this.entry.workspace
-    /** the last merge this resolver wrote into the entry, and the saveSeq it was written at */
-    let lastMerged: Workspace | null = null
-    let lastMergedSeq = 0
-    const preservePendingMerge = () => {
-      if (!lastMerged || !this.sessionActive) return
-      if (this.saveSeq !== lastMergedSeq) {
-        this.entry = { ...this.entry, workspace: this.merge(mine0, this.entry.workspace, lastMerged) }
-      }
-      // A failed PUT still advanced the ancestor. The next edit MUST be made on the union,
-      // otherwise its missing remote records become deletions at an already-current rev.
-      this.writeCache()
+    const showPendingMerge = () => {
+      if (!this.pendingViewMerge || !this.sessionActive) return
       this.reportRenumbered(this.viewState, this.entry.workspace)
       this.handToView(this.entry.workspace, this.entry.baseRev)
     }
@@ -1182,22 +1195,9 @@ export class WorkspaceSync {
       try {
         const server = await getWorkspace(this.incidentId)
         if (!this.sessionActive) return false
-        // ⚠️ A local edit landed while the PREVIOUS merge's PUT was 409ing (or during the wait
-        // or the GET) — 24.09.2026, found by the three-device load test. The live view never
-        // saw `lastMerged` (it is applied only on success), so that save() replaced the entry
-        // with «pre-merge view + the edit», which LACKS every remote object the merge had
-        // brought in — while `entry.base` (the server copy that merge was made against) HAS
-        // them. Merged as-is, the next attempt read their absence as a local DELETE and
-        // removed other devices' work from the server. Re-base the edit onto the merge first:
-        // the same rebase the success branch below does with `mine0`, for the same reason.
-        // No await between here and the merge, so no save can slip in between.
-        if (lastMerged && this.saveSeq !== lastMergedSeq) {
-          this.entry = { ...this.entry, workspace: this.merge(mine0, this.entry.workspace, lastMerged) }
-        }
         const merged = this.mergeReporting(this.entry.base ?? {}, this.entry.workspace, server.workspace ?? {})
+        this.pendingViewMerge = { view: this.viewState, merged }
         this.entry = { ...this.entry, workspace: merged, base: server.workspace ?? {}, baseRev: server.workspace_rev, dirty: true }
-        lastMerged = merged
-        lastMergedSeq = this.saveSeq
         this.writeCache()
         this.flushCache() // persist this dirty ancestor before the PUT, as drain() does on the first attempt
         const seqAtStart = this.saveSeq
@@ -1217,11 +1217,8 @@ export class WorkspaceSync {
           this.writeCache()
           this.setStatus('synced')
         } else {
-          // A local edit landed during the merge PUT. It was built on `mine0` (pre-merge), so
-          // re-base it onto the merged result — otherwise pushing it blindly next flush would
-          // overwrite the remote additions we just merged in. Different objects all survive.
-          const remerged = this.merge(mine0, this.entry.workspace, merged)
-          this.entry = { ...this.entry, workspace: remerged, base: landed, baseRev: workspace_rev, dirty: true, lastSyncedAt: Date.now() }
+          // save() already rebased the newer draft onto this merge. Only its ancestor advances.
+          this.entry = { ...this.entry, base: landed, baseRev: workspace_rev, dirty: true, lastSyncedAt: Date.now() }
           this.writeCache()
           this.setStatus('pending')
           this.armDebounce()
@@ -1240,10 +1237,13 @@ export class WorkspaceSync {
       } catch (e) {
         if (!this.sessionActive) return false
         // the merge landed on a closed Einsatz — the same answer as a plain push gets (see drain)
-        if (isIncidentClosedRefusal(e)) return this.parkRefused(e)
-        if (isOlderBuildRefusal(e)) return this.parkOlderBuild()
+        if (isIncidentClosedRefusal(e) || isOlderBuildRefusal(e)) {
+          const parked = isIncidentClosedRefusal(e) ? await this.parkRefused(e) : await this.parkOlderBuild()
+          showPendingMerge() // a failed park or a newer edit can still leave the merged draft owed
+          return parked
+        }
         if (e instanceof ApiError && e.status === 409) continue // someone else landed too — re-merge
-        preservePendingMerge()
+        showPendingMerge()
         if (e instanceof ApiError && e.status === 401) denyWorkspaceCache() // revoked mid-merge — deny device-wide, like flush()
         this.setStatus(e instanceof ApiError && e.status === 0 ? 'offline' : 'error')
         this.unreached = isUnverifiable(e)
@@ -1251,7 +1251,7 @@ export class WorkspaceSync {
       }
     }
     // retries exhausted — leave it dirty for a later flush to pick up
-    preservePendingMerge()
+    showPendingMerge()
     this.setStatus('error')
     return false
   }
@@ -1321,7 +1321,7 @@ export class WorkspaceSync {
       this.writeCache()
       if (landed) this.opts.onRev?.(landed.rev)
       this.setStatus('synced')
-      this.applyInPlace(shown.workspace, shown.rev)
+      this.handToView(shown.workspace, shown.rev)
       return true
     }
     this.entry = { ...this.entry, dirty: false }
@@ -1376,11 +1376,6 @@ export class WorkspaceSync {
     return true
   }
 
-  private applyInPlace(ws: Workspace, rev: number) {
-    if (this.onApplyMerged) this.onApplyMerged(ws, rev)
-    else this.opts.onServerWorkspace?.(ws, rev)
-  }
-
   /** The view still shows a refused state and there was no ancestor to put back: fetch the
    *  record, and until that works say `error` and try again on the retry backoff. */
   private refetchOwed = false
@@ -1395,7 +1390,7 @@ export class WorkspaceSync {
       if (this.entry.dirty) return // a new edit merges against the server on its own push
       const ws = server.workspace ?? {}
       this.adoptServer(ws, server.workspace_rev)
-      this.applyInPlace(ws, server.workspace_rev)
+      this.handToView(ws, server.workspace_rev)
     } catch {
       if (!this.sessionActive) return
       this.refetchOwed = true
@@ -1486,11 +1481,12 @@ export class WorkspaceSync {
       transferred.add(marker)
     }
     this.entry = { ...this.entry, requeuedRefused: [...transferred] }
+    this.pendingViewMerge = null // recovery already merged onto the durable draft and hands it to the view
     this.save(ws)
     this.handToView(ws, this.entry.baseRev)
     // Commit the replacement FIRST. Even a quota failure or a reload in this await leaves
     // one durable copy. The marker above makes retry after a failed clear idempotent.
-    if (!(await this.flushCache()) || this.disposed) return
+    if (!(await this.flushCache()) || !this.sessionActive) return
     const markers = new Set(parked.map((p) => p.id ?? p.refusedAt))
     const main = refusedCacheKey(this.incidentId)
     for (const key of this.refusedKeys) {
@@ -1501,9 +1497,10 @@ export class WorkspaceSync {
       if (keep.length === read.value.length) continue
       // A plain delete acknowledges no durability. First persist the filtered contents so
       // even a failed cleanup cannot replay this copy over a later edit on the next launch.
-      if (!(await idbSet(key, keep))) return
+      if (!(await idbSet(key, keep)) || !this.sessionActive) return
       if (!keep.length && key !== main) {
         await idbDel(key)
+        if (!this.sessionActive) return
         this.refusedKeys.delete(key)
       }
     }
@@ -1586,7 +1583,8 @@ export class WorkspaceSync {
    * edits, not on a stale base.
    */
   adoptServer(workspace: Workspace, rev: number) {
-    if (this.disposed) return
+    if (!this.sessionActive) return
+    this.pendingViewMerge = null
     this.reportRenumbered(this.viewState, workspace, 'adopt')
     this.viewState = workspace
     this.entry = { workspace, base: workspace, baseRev: rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? this.entry.owner, requeuedRefused: this.entry.requeuedRefused }

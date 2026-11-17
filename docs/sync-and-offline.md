@@ -206,9 +206,14 @@ beendet». The rules: [`presentation.md`](presentation.md).
 - Journal lifecycle boundaries and the `sys` id namespace belong to the server. Neither a
   client row nor a patch targeting a system row may create, retract or edit them; the client
   alarm clock ignores ordinary journal rows carrying lifecycle-looking metadata.
-- A failed conflict PUT still hands the merged union to the live view before another edit.
-  Re-sending parked workspace saves first commits their replacement cache entry, with transfer
-  markers for crash-safe retry, before clearing the parked originals.
+- While a conflict PUT is pending, the operator still edits the view last shown. Each such edit
+  is rebased onto the union in the dirty draft. A handover flushes pending cache writes before
+  the new account opens a slot. Disposal also flushes the draft, even if the PUT never answers.
+  Late saves and unread-slot probes belong to the session that started them. A failed PUT hands
+  the union back to the active view so the operator's next edit includes remote additions.
+- Re-sending parked workspace saves first commits their replacement cache entry with transfer
+  markers for crash-safe retry. Each cleanup write checks the session again when it finishes.
+  A handover during cleanup leaves those markers in the author's cache for the next session.
 - Blob data never falls back to JSON storage. Failed local media persistence retains bytes in
   memory and reports storage failure. Pending uploads retry by themselves, one attempt per item
   per pause (5 s doubling, capped at 5 min, with jitter). «No answer at all» (offline, timeout)

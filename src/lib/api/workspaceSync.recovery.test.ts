@@ -2,6 +2,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { Workspace } from './workspace'
 
 const state = vi.hoisted(() => ({ store: new Map<string, unknown>(), failMain: false, failClear: false, unread: '' }))
+const beforeRead = vi.hoisted(() => vi.fn<() => Promise<void>>())
+const cleanup = vi.hoisted(() => vi.fn<(key: string, operation: 'set' | 'delete') => Promise<void>>())
 const get = vi.hoisted(() => vi.fn())
 const put = vi.hoisted(() => vi.fn())
 vi.mock('./workspace', () => ({
@@ -11,24 +13,29 @@ vi.mock('./workspace', () => ({
 }))
 vi.mock('../idb', () => ({
   idbGet: async (key: string) => structuredClone(state.store.get(key) ?? null),
-  idbRead: async (key: string) => key === state.unread ? { ok: false, error: new Error('read failed') } : { ok: true, value: structuredClone(state.store.get(key) ?? null) },
+  idbRead: async (key: string) => {
+    await beforeRead()
+    return key === state.unread ? { ok: false, error: new Error('read failed') } : { ok: true, value: structuredClone(state.store.get(key) ?? null) }
+  },
   idbSet: async (key: string, value: unknown) => {
     if (key === 'kp-front-ws-i1' && state.failMain) return false
     if (key.endsWith('::__refused__') && state.failClear) return false
-    state.store.set(key, structuredClone(value)); return true
+    state.store.set(key, structuredClone(value))
+    if (Array.isArray(value) && !value.length) await cleanup(key, 'set')
+    return true
   },
-  idbDel: async (key: string) => { state.store.delete(key) },
+  idbDel: async (key: string) => { state.store.delete(key); await cleanup(key, 'delete') },
   idbKeys: async (prefix: string) => ({ ok: true, value: [...state.store.keys()].filter((k) => k.startsWith(prefix)) }),
 }))
 vi.mock('../tileEvict', () => ({ withTileEviction: (fn: () => Promise<boolean>) => fn() }))
 import { ApiError } from '../api'
-import { denyWorkspaceCache, setWorkspaceCacheOwner, WorkspaceSync } from './workspaceSync'
+import { CACHE_DEBOUNCE_MS, SLOT_PROBE_MS, denyWorkspaceCache, setWorkspaceCacheOwner, WorkspaceSync } from './workspaceSync'
 
 beforeEach(() => {
   state.store.clear(); state.failMain = false; state.failClear = false
   state.unread = ''
   setWorkspaceCacheOwner('anna')
-  get.mockReset(); put.mockReset()
+  get.mockReset(); put.mockReset(); cleanup.mockReset(); beforeRead.mockReset()
   vi.useFakeTimers()
 })
 afterEach(() => { vi.useRealTimers(); setWorkspaceCacheOwner(null) })
@@ -181,4 +188,210 @@ it('a demoted owner keeps a full or unstamped refused draft for export until a f
     expect(state.store.get(refusedKey)).toEqual([])
     expect(put).toHaveBeenCalled()
   } finally { editor.dispose() }
+})
+
+function gate() {
+  let open!: () => void
+  const wait = new Promise<void>((resolve) => { open = resolve })
+  return { wait, open }
+}
+
+const main = 'kp-front-ws-i1'
+const remote = { id: 'B', name: 'remote-only' }
+const local = { id: 'A', name: 'local' }
+const latest = { id: 'C', name: 'latest edit' }
+const successorEdit = { id: 'X', name: 'successor edit' }
+
+it.each(['ack', 'offline'] as const)('reopens the complete conflict edit after owner handover with a late %s', async (reply) => {
+  get.mockResolvedValue({ workspace: { cameraViews: [] }, workspace_rev: 7 })
+  const apply = vi.fn()
+  const merged = vi.fn()
+  const rev = vi.fn()
+  const anna = new WorkspaceSync('i1', { debounceMs: 60_000, onMerged: merged, onRev: rev })
+  await anna.init()
+  anna.onApplyMerged = apply
+  anna.save({ cameraViews: [local] })
+  const started = gate(), finish = gate()
+  put.mockRejectedValueOnce(new ApiError(409, 'conflict')).mockImplementationOnce(async () => {
+    started.open()
+    await finish.wait
+    if (reply === 'offline') throw new ApiError(0, 'offline')
+    return { workspace_rev: 9 }
+  })
+  get.mockResolvedValue({ workspace: { cameraViews: [remote] }, workspace_rev: 8 })
+  const pending = anna.flush()
+  await started.wait
+  rev.mockClear()
+  anna.save({ cameraViews: [local, { ...latest, name: 'first edit' }, { id: 'temporary' }] })
+  anna.save({ cameraViews: [local, latest] })
+  if (reply === 'offline') anna.dispose()
+  setWorkspaceCacheOwner('ben')
+  const ben = new WorkspaceSync('i1')
+  expect((await ben.init()).workspace?.cameraViews).toEqual([remote])
+  ben.save({ cameraViews: [remote, successorEdit] })
+  await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS + 1)
+  const benCache = structuredClone(state.store.get(main))
+  // A final render of the unmounted/soon-to-be-unmounted old view still calls the save entry point.
+  anna.save({ cameraViews: [{ id: 'stale-after-handover' }] })
+  expect(state.store.get(main)).toEqual(benCache)
+  finish.open()
+  await pending
+  anna.dispose()
+  await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS + 1)
+  expect(state.store.get(main)).toEqual(benCache)
+  expect(apply).not.toHaveBeenCalled()
+  expect(merged).not.toHaveBeenCalled()
+  expect(rev).not.toHaveBeenCalled()
+  expect(state.store.get(main + '::anna')).toMatchObject({
+    dirty: true, baseRev: 8, workspace: { cameraViews: expect.arrayContaining([local, remote, latest]) },
+  })
+  ben.dispose()
+
+  setWorkspaceCacheOwner('anna')
+  if (reply === 'ack') get.mockResolvedValue({ workspace: { cameraViews: [local, remote] }, workspace_rev: 9 })
+  const resumed = new WorkspaceSync('i1')
+  const opened = await resumed.init()
+  expect(opened.workspace?.cameraViews).toHaveLength(3)
+  expect(opened.workspace?.cameraViews).toEqual(expect.arrayContaining([local, latest, remote]))
+  expect(state.store.get(main + '::ben')).toEqual(benCache)
+  resumed.save({ cameraViews: [local, latest, remote, { id: 'next' }] })
+  put.mockResolvedValue({ workspace_rev: 10 })
+  await resumed.flush()
+  expect(put.mock.lastCall?.[1].cameraViews).toEqual(expect.arrayContaining([local, latest, remote, { id: 'next' }]))
+  resumed.dispose()
+})
+
+it('uses the view at merge time when a later edit undoes an addition made during the conflict GET', async () => {
+  get.mockResolvedValue({ workspace: { cameraViews: [] }, workspace_rev: 7 })
+  const merged = vi.fn()
+  const sync = new WorkspaceSync('i1', { onMerged: merged })
+  try {
+    await sync.init()
+    const apply = vi.fn()
+    sync.onApplyMerged = apply
+    sync.save({ cameraViews: [local] })
+    const transient = { id: 'T', name: 'temporary' }
+    get.mockImplementationOnce(async () => {
+      sync.save({ cameraViews: [local, transient] })
+      return { workspace: { cameraViews: [remote] }, workspace_rev: 8 }
+    })
+    put.mockRejectedValueOnce(new ApiError(409, 'conflict')).mockImplementationOnce(async () => {
+      sync.save({ cameraViews: [local, latest] })
+      return { workspace_rev: 9 }
+    }).mockResolvedValue({ workspace_rev: 10 })
+    await sync.flush()
+    expect(put).toHaveBeenCalledTimes(3)
+    expect(put.mock.calls[1][1].cameraViews).toContainEqual(transient)
+    const sent = put.mock.calls[2][1].cameraViews
+    expect(sent).toHaveLength(3)
+    expect(sent).toEqual(expect.arrayContaining([local, latest, remote]))
+    expect(apply).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ cameraViews: sent }), 9)
+    expect(merged).toHaveBeenCalledTimes(1)
+    expect(sync.syncStatus).toBe('synced')
+  } finally { sync.dispose() }
+})
+
+it.each(['set', 'delete'] as const)('keeps the successor cache and transfer marker after the final refused-slot %s', async (op) => {
+  park()
+  const slot = op === 'delete' ? refusedKey + ':123' : refusedKey
+  if (slot !== refusedKey) {
+    state.store.set(slot, state.store.get(refusedKey))
+    state.store.delete(refusedKey)
+  }
+  const started = gate(), finish = gate()
+  cleanup.mockImplementation(async (key, operation) => {
+    if (key === slot && operation === op) { started.open(); await finish.wait }
+  })
+  const anna = new WorkspaceSync('i1')
+  await anna.init()
+  const transfer = anna.requeueRefused()
+  await started.wait
+  expect(state.store.get(main)).toMatchObject({ owner: 'anna', requeuedRefused: [123] })
+  if (op === 'delete') anna.dispose()
+  else setWorkspaceCacheOwner('ben')
+  const successor = new WorkspaceSync('i1')
+  await successor.init()
+  successor.save({ cameraViews: [successorEdit] })
+  await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS + 1)
+  const successorCache = structuredClone(state.store.get(main))
+  finish.open()
+  await transfer
+  await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS + 1)
+  expect(state.store.get(main)).toEqual(successorCache)
+  expect(put).not.toHaveBeenCalled()
+  const markerKey = op === 'delete' ? main : main + '::anna'
+  expect(state.store.get(markerKey)).toMatchObject({ owner: 'anna', requeuedRefused: [123] })
+  anna.dispose()
+  successor.dispose()
+  const reopened = new WorkspaceSync('i1')
+  expect((await reopened.init()).workspace?.cameraViews).toEqual([successorEdit])
+  reopened.dispose()
+})
+
+it('parks the final debounced edit before a handover and ignores new saves from the old view', async () => {
+  get.mockResolvedValue({ workspace: { cameraViews: [] }, workspace_rev: 7 })
+  const anna = new WorkspaceSync('i1', { debounceMs: 60_000 })
+  await anna.init()
+  anna.save({ cameraViews: [latest] })
+  setWorkspaceCacheOwner('ben')
+  const ben = new WorkspaceSync('i1', { debounceMs: 60_000 })
+  await ben.init()
+  ben.save({ cameraViews: [successorEdit] })
+  ben.flushKeepalive()
+  anna.save({ cameraViews: [{ id: 'stale-after-handover' }] })
+  await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS + 1)
+  expect(state.store.get(main)).toMatchObject({ owner: 'ben', workspace: { cameraViews: [successorEdit] } })
+  expect(state.store.get(main + '::anna')).toMatchObject({ owner: 'anna', workspace: { cameraViews: [latest] } })
+  ben.dispose()
+
+  // Returning to the same account opens a new engine. The delayed old view stays retired.
+  setWorkspaceCacheOwner('anna')
+  const returned = new WorkspaceSync('i1')
+  expect((await returned.init()).workspace?.cameraViews).toEqual([latest])
+  returned.save({ cameraViews: [local, latest] })
+  returned.flushKeepalive()
+  anna.save({ cameraViews: [{ id: 'stale-after-return' }] })
+  anna.dispose()
+  expect(state.store.get(main)).toMatchObject({ owner: 'anna', workspace: { cameraViews: [local, latest] } })
+  returned.dispose()
+})
+
+it.each([false, true])('never adopts the successor’s dirty records through an old unread-slot timer (read already started: %s)', async (inFlight) => {
+  state.unread = main
+  get.mockResolvedValue({ workspace: { cameraViews: [] }, workspace_rev: 7 })
+  const anna = new WorkspaceSync('i1', { debounceMs: 60_000 })
+  const apply = vi.fn()
+  anna.onApplyMerged = apply
+  await anna.init()
+  expect(anna.syncStatus).toBe('storage')
+  state.unread = ''
+  const started = gate(), finish = gate()
+  if (inFlight) {
+    beforeRead.mockImplementationOnce(async () => { started.open(); await finish.wait })
+    await vi.advanceTimersByTimeAsync(SLOT_PROBE_MS)
+    await started.wait
+  }
+  setWorkspaceCacheOwner('ben')
+  const ben = new WorkspaceSync('i1', { debounceMs: 60_000 })
+  await ben.init()
+  ben.save({ cameraViews: [successorEdit] })
+  ben.flushKeepalive()
+  finish.open()
+  await vi.advanceTimersByTimeAsync(SLOT_PROBE_MS + CACHE_DEBOUNCE_MS)
+  expect(apply).not.toHaveBeenCalled()
+  expect(state.store.get(main)).toMatchObject({ owner: 'ben', workspace: { cameraViews: [successorEdit] } })
+  expect(anna.workspace.cameraViews).toEqual([])
+  anna.dispose()
+  ben.dispose()
+})
+
+it('keeps accepting local edits while the offline session has no settled owner', async () => {
+  setWorkspaceCacheOwner(null)
+  state.store.set(main, { workspace: { cameraViews: [local] }, baseRev: 7, dirty: true, owner: 'anna' })
+  get.mockRejectedValue(new ApiError(0, 'offline'))
+  const offline = new WorkspaceSync('i1')
+  expect((await offline.init()).workspace?.cameraViews).toEqual([local])
+  offline.save({ cameraViews: [local, latest] })
+  offline.dispose()
+  expect(state.store.get(main)).toMatchObject({ owner: 'anna', workspace: { cameraViews: [local, latest] } })
 })
