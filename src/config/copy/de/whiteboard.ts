@@ -81,6 +81,10 @@ export const whiteboardCopy = {
       needsCalibration: 'Massstab festlegen: die zwei Enden des Massstabs antippen',
       needsCalibrationViewer: 'Messen erst möglich, wenn der Massstab kalibriert ist',
       calibrateStop: 'Kalibrieren beenden',
+      /** Messen on a plan without a scale opens the scale dialog – this says why (C9, 17.11.2026) */
+      promptWhy: 'Dieser Plan hat noch keinen Massstab – zuerst eine bekannte Strecke angeben',
+      /** the Verlauf row when «Rückgängig» on «Massstab kalibriert» takes it back */
+      undone: 'Massstab zurückgenommen',
     },
     // «Karte verknüpfen» – die Paarung markanter Punkte, die den Plan auf die Karte legt
     // (lib/georef · fitSimilarity, lib/georefMode). Zwei Punkte genügen; erst der dritte misst.

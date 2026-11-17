@@ -70,6 +70,10 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       saveThis: 'Ce plan seulement',
       saveFailed: 'Échelle non enregistrée par défaut – réessayer',
       calibrateStop: 'Terminer l’étalonnage',
+      /** Messen on a plan without a scale opens the scale dialog – this says why (C9, 17.11.2026) */
+      promptWhy: 'Ce plan n’a pas encore d’échelle – indiquer d’abord une distance connue',
+      /** the Verlauf row when «Rückgängig» on «Massstab kalibriert» takes it back */
+      undone: 'Échelle annulée',
     },
     georef: {
       chipLinked: 'lié',

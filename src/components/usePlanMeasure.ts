@@ -5,6 +5,7 @@ import { resolvePlanScale } from '../lib/stationPlanScale'
 
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { toast } from '../lib/ui'
 import { useNodeHold } from '../lib/nodeHold'
 import { useFreshPoint } from '../lib/useFreshPoint'
 import type { BoardTool } from '../types'
@@ -53,10 +54,13 @@ interface Args {
  */
 export function usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate, autoScale }: Args) {
   // Plan-Maßstab calibration: the reference is captured by tapping its TWO endpoints (nodes), then
-  // a popover asks for its real length. last-used length is pre-filled (plans share similar bars).
+  // a popover asks for its real length. The length THIS session last typed is pre-filled (plans
+  // share similar bars) – never a stock 10 m: on a plan nobody has calibrated, a number already in
+  // the field made the wrong answer one tap (C9, rare-user round 17.11.2026). `why`: the prompt was
+  // reached from Messen, so it first says that the plan has no scale yet.
   const [calNodes, setCalNodes] = useState<Pt[]>([])
-  const [calPrompt, setCalPrompt] = useState<{ a: Pt; b: Pt } | null>(null)
-  const [lastRefM, setLastRefM] = useState<number>(appConfig.drawing.planScaleDefaultM)
+  const [calPrompt, setCalPrompt] = useState<{ a: Pt; b: Pt; why?: boolean } | null>(null)
+  const [lastRefM, setLastRefM] = useState<number | null>(null)
   const [refMInput, setRefMInput] = useState<string>('')
   // after a fresh field calibration: offer to persist it station-wide (#3) — as the default for
   // every plan, or just for this one. Cleared on plan switch so it never lingers on another sheet.
@@ -164,10 +168,21 @@ export function usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, loc
     closeCalPrompt()
     if (!sc) return
     setLastRefM(refM)
-    onCalibrate?.(activeId, sc)
-    // no toast: the lamp turns green, the Verlauf has the row, and the save prompt follows
-    log('measure', fillTemplate(appConfig.copy.whiteboard.scale.saved, { m: String(refM) }))
-    if (onCalibrate) setSavePrompt(sc) // editor: offer to remember it across incidents
+    if (!onCalibrate) return
+    // what this incident had before – the hand calibration it replaces, or none
+    const before = planScale[activeId] ?? null
+    onCalibrate(activeId, sc)
+    const C = appConfig.copy.whiteboard.scale
+    const said = fillTemplate(C.saved, { m: String(refM) })
+    log('measure', said)
+    setSavePrompt(sc) // editor: offer to remember it across incidents
+    // the one toast of the rare-user round (C9): a wrong length makes every metre on this plan
+    // wrong, so the calibration can be taken back right here – the plan's own value restored, the
+    // «merken?» bar gone with it (nothing has been remembered yet unless it was answered)
+    toast(said, {
+      icon: 'measure', kind: 'plan-scale',
+      action: { label: appConfig.copy.undo, onClick: () => { onCalibrate(activeId, before); setSavePrompt(null); log('measure', C.undone) } },
+    })
   }
 
   return {
