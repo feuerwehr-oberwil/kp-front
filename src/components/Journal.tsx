@@ -752,7 +752,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
               playing back history out-shouted the title and the open Pendenzen below it. */}
           {onReplay && (
             <Button className="journal-replay" onClick={onReplay} title={C.replayHint} aria-label={C.replay} icon={<Icon id="play-circle" />}>
-              <span>{C.replay}</span>
+              <span>{C.replayWord}</span>
             </Button>
           )}
           <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>

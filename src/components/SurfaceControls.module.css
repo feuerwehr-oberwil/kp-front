@@ -119,7 +119,9 @@
    claiming rows of their own — vertical space is what the list underneath is short of */
 @media (--phone) {
   .controls { gap: 8px; padding: 8px var(--head-pad-x); }
-  .search { flex: 1 1 120px; }
+  /* 96, not 120 (button sweep HEADS.6, 17.11.2026): with «Kategorie» as the Mittel's word the three
+     worded tiles took 8px too many and «Anderes» fell onto a row of its own (measured 390px) */
+  .search { flex: 1 1 96px; }
 }
 
 /* the «Gefiltert: …» strip under the line (components/FilterStrip, button sweep HEADS.3) – placed in

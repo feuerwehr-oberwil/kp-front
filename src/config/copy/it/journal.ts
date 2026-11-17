@@ -219,6 +219,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     legendPendenzOverdue: 'Pendenza scaduta',
     searchWord: 'Cerca',
     filterWord: 'Tipo',
+    replayWord: 'Riproduzione',
   },
   tafelPendenzen: {
     createdLog: 'Pendenza dalla lavagna ({page}): {text}',

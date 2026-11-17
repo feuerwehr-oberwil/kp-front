@@ -219,6 +219,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     legendPendenzOverdue: 'Point en retard',
     searchWord: 'Chercher',
     filterWord: 'Type',
+    replayWord: 'Relecture',
   },
   tafelPendenzen: {
     createdLog: 'Point en suspens du tableau ({page}) : {text}',

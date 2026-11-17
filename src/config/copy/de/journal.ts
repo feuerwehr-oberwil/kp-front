@@ -375,6 +375,9 @@ export const journalCopy = {
     searchWord: 'Suchen',
     // the funnel's word is its FACET (HEADS.6) – «Art des Eintrags» is the menu's first group
     filterWord: 'Art',
+    // ▶'s visible word in the head (button sweep HEADS.2, 17.11.2026): with «Suchen» and «Art» worded
+    // beside it, «Wiedergabe starten» cut the drawer's title to «V…»; `replay` stays its name
+    replayWord: 'Wiedergabe',
   },
   // ── The Tafel's «Aufträge / Pendenzen» page (05.11.2026, lib/pendenzenPage) ────────────────
   // A view on the Verlauf's Pendenzen and Erinnerungen: every act on the page appends a Verlauf

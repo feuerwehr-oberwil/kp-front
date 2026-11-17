@@ -220,6 +220,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'tafelPendenzen' | 
     legendPendenzOverdue: 'Item overdue',
     searchWord: 'Search',
     filterWord: 'Type',
+    replayWord: 'Replay',
   },
   tafelPendenzen: {
     createdLog: 'Item from the board ({page}): {text}',

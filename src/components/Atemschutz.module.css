@@ -1423,7 +1423,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .head[data-fit-tight] .headTile, .head .headTile[data-folded] { padding: 0 var(--sp-2); }
 /* the «Sortiert: Name · Wie gesetzt» strip under the head (components/FilterStrip, button sweep
    HEADS.3, 17.11.2026) – in the head's gutter, the body's own top padding under it */
-.sortStrip { flex: none; padding: 0 var(--head-pad-x); }
+.sortStrip { flex: none; padding: var(--sp-2) var(--head-pad-x) 0; }
 /* the sync line under the title is ONE line: the quiet state gives its time to the ladder first,
    and the LOUD one (the switcher's `.ip-offline-chip`, `flex: none` elsewhere) may shrink rather
    than run under the tiles — its text ellipsizes, which the ladder reads as «does not fit»
