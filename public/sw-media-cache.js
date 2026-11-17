@@ -1,5 +1,7 @@
 // Auth-aware incident-media cache. Imported before Workbox registers its routes, so this
 // listener owns /api/media/* and stops Workbox from installing a second, auth-blind route.
+// Only editor and EL sessions may keep originals and thumbnails offline. A viewer’s incident
+// window can close or shorten between reads; the server authorizes each one.
 // Reference caches belong to real account clients only. A link or unknown client must ask the
 // server, past BOTH Workbox and the browser's HTTP cache: a cached station register/plan must
 // never bypass the link's incident scope. Account reference reads keep Workbox's offline cache.
@@ -97,8 +99,12 @@ self.addEventListener('message', (event) => {
   if (!event.data || event.data.type !== 'kp-media-auth' || !event.source?.id) return
   const clientId = event.source.id
   if (event.data.kind === 'user' && typeof event.data.userId === 'string' && event.data.userId) {
-    kpMediaClients.set(clientId, { kind: 'user', userId: event.data.userId })
-    event.waitUntil(kpSetMediaOwner(event.data.userId).then(() => kpFinishMediaAuth(clientId)))
+    const { userId, role } = event.data
+    const cacheMedia = role === 'editor' || role === 'el'
+    kpMediaClients.set(clientId, { kind: 'user', userId, cacheMedia })
+    // Changing to viewer retires copies kept by older builds or by the previous role.
+    const owner = cacheMedia ? userId : 'restricted/' + userId
+    event.waitUntil(kpSetMediaOwner(owner).finally(() => kpFinishMediaAuth(clientId)))
   } else if (event.data.kind === 'link') {
     // A link may fetch media/reference data the backend authorizes, never the account's cache.
     kpMediaClients.set(clientId, { kind: 'link' })
@@ -129,23 +135,26 @@ async function kpStoreMedia(cache, request, response) {
 }
 
 async function kpNetworkMedia(request, cache) {
-  const response = await fetch(request)
-  if (cache && response.status === 200) await kpStoreMedia(cache, request, response)
+  const response = await fetch(request, { cache: 'no-store' })
+  if (cache && response.status === 200) {
+    // A full device can still display the online response.
+    await kpStoreMedia(cache, request, response).catch(() => {})
+  }
   return response
 }
 
 async function kpHandleMedia(event) {
   const auth = await kpClientAuth(event)
-  if (!auth || auth.kind !== 'user') return kpNetworkMedia(event.request, null)
+  if (!auth?.cacheMedia || event.request.headers.get('X-Incident-Link') === 'use') return kpNetworkMedia(event.request, null)
 
-  const owner = await kpReadMediaOwner()
+  const owner = await kpReadMediaOwner().catch(() => null)
   if (owner !== auth.userId) return kpNetworkMedia(event.request, null)
 
   // Range responses are request-specific and must not be confused with the complete object.
   if (event.request.headers.has('range')) return kpNetworkMedia(event.request, null)
 
-  const cache = await caches.open(KP_MEDIA_CACHE)
-  const cached = await cache.match(event.request)
+  const cache = await caches.open(KP_MEDIA_CACHE).catch(() => null)
+  const cached = await cache?.match(event.request).catch(() => null)
   if (cached) {
     const storedAt = Number(cached.headers.get('x-kp-cached-at'))
     if (Number.isFinite(storedAt) && Date.now() - storedAt <= KP_MEDIA_MAX_AGE_MS) return cached
@@ -181,5 +190,7 @@ self.addEventListener('fetch', (event) => {
   if (!url.pathname.startsWith('/api/media/')) return
 
   event.stopImmediatePropagation()
-  event.respondWith(kpHandleMedia(event))
+  // Subroutes such as transcription return mutable JSON, including status while a job runs.
+  const immutable = /^\/api\/media\/[^/]+(?:\/thumb)?$/.test(url.pathname)
+  event.respondWith(immutable ? kpHandleMedia(event) : fetch(event.request, { cache: 'no-store' }))
 })

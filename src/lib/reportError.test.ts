@@ -36,6 +36,22 @@ afterEach(() => {
 })
 
 describe('reportClientError — first occurrence', () => {
+  it.each(['l', 'e'])('removes /%s/ credentials from the first and repeat reports', (route) => {
+    const path = `/${route}/opaque-test-value`
+    vi.stubGlobal('location', { pathname: path })
+    try {
+      const error = boom(`on ${path}`, `Error at https://example.invalid${path}`)
+      reportClientError(error, { componentStack: `at ${path}` })
+      reportClientError(error, { componentStack: `at ${path}` })
+      vi.advanceTimersByTime(REPEAT_EVERY_MS)
+      expect(sent()).toHaveLength(2)
+      expect(JSON.stringify(sent())).not.toContain('opaque-test-value')
+      expect(sent()[0]).toMatchObject({ path: `/${route}/<redacted>` })
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('goes out at once and in full', () => {
     reportClientError(boom(), { kind: 'render', componentStack: '\n    at TwinTeamPill\n    at MapView', surface: 'map' })
     expect(apiBeacon).toHaveBeenCalledTimes(1)

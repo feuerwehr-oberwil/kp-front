@@ -182,8 +182,8 @@ describe('sw-media-cache — a denial converges across tabs', () => {
     }
 
     // two tabs of the same session; the cache answers the second read without the network
-    await message('tab-a', { type: 'kp-media-auth', kind: 'user', userId: 'ed-1' })
-    await message('tab-b', { type: 'kp-media-auth', kind: 'user', userId: 'ed-1' })
+    await message('tab-a', { type: 'kp-media-auth', kind: 'user', role: 'editor', userId: 'ed-1' })
+    await message('tab-b', { type: 'kp-media-auth', kind: 'user', role: 'editor', userId: 'ed-1' })
     expect(await media('tab-a')).toBe('network-1')
     expect(await media('tab-b')).toBe('network-1')
 
@@ -241,7 +241,7 @@ describe('authMediaCache — a denied session is never re-granted on controllerc
     nav.serviceWorker = fakeSW
     try {
       const { syncMediaCacheAuth: real } = (await vi.importActual('./authMediaCache')) as typeof import('./authMediaCache')
-      real({ id: 'u1' })        // a legitimate grant
+      real({ id: 'u1', role: 'editor' })        // a legitimate grant
       real(null)                // …then the session is denied → current becomes «logged-out»
       await fakeSW.ready        // let the ready.then re-send settle before we isolate the controllerchange
       await Promise.resolve()
@@ -252,10 +252,10 @@ describe('authMediaCache — a denied session is never re-granted on controllerc
       const afterController = posted.length
       onWorkerMessage(new MessageEvent('message', { data: { type: 'kp-media-auth-request' } }))
       expect(posted.slice(afterController)).toEqual([{ type: 'kp-media-auth', kind: 'logged-out' }])
-      real({ id: 'u2' }) // only a new sign-in changes the answer to an idle restart's request
+      real({ id: 'u2', role: 'viewer' }) // only a new sign-in changes the answer to an idle restart's request
       const afterSignIn = posted.length
       onWorkerMessage(new MessageEvent('message', { data: { type: 'kp-media-auth-request' } }))
-      expect(posted.slice(afterSignIn)).toEqual([{ type: 'kp-media-auth', kind: 'user', userId: 'u2' }])
+      expect(posted.slice(afterSignIn)).toEqual([{ type: 'kp-media-auth', kind: 'user', role: 'viewer', userId: 'u2' }])
     } finally {
       delete nav.serviceWorker
     }

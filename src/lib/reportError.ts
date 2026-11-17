@@ -88,7 +88,9 @@ let sentThisSecond = 0
 let timer: ReturnType<typeof setTimeout> | null = null
 
 const build = (): string => `v${APP_VERSION}+${GIT_SHA}`
-const currentPath = (): string => (typeof location === 'undefined' ? '' : location.pathname.slice(0, 400))
+// The QR credential is part of the pathname and can also occur in an error or stack frame.
+const redactQrLinks = (value: string): string => value.replace(/(\/(?:e|l)\/)[^/?#\s'"]+/g, '$1<redacted>')
+const currentPath = (): string => (typeof location === 'undefined' ? '' : redactQrLinks(location.pathname.slice(0, 400)))
 
 function refill(now: number): void {
   if (refilledAt < 0) { refilledAt = now; return }
@@ -186,10 +188,10 @@ export function isOfflineNetworkNoise(kind: ErrorKind, message: string, onLine: 
 export function reportClientError(err: unknown, ctx: Ctx = {}): void {
   try {
     const kind = ctx.kind ?? 'error'
-    const message = (err instanceof Error ? err.message : String(err ?? 'unknown')).slice(0, MAX_MESSAGE)
+    const message = redactQrLinks((err instanceof Error ? err.message : String(err ?? 'unknown')).slice(0, MAX_MESSAGE))
     if (isOfflineNetworkNoise(kind, message, typeof navigator === 'undefined' || navigator.onLine !== false)) return
-    const stack = err instanceof Error ? err.stack?.slice(0, MAX_STACK) : undefined
-    const componentStack = ctx.componentStack?.slice(0, MAX_COMPONENT_STACK)
+    const stack = err instanceof Error && err.stack ? redactQrLinks(err.stack.slice(0, MAX_STACK)) : undefined
+    const componentStack = ctx.componentStack && redactQrLinks(ctx.componentStack.slice(0, MAX_COMPONENT_STACK))
     const key = [kind, ctx.surface ?? '', message, stack?.slice(0, 200) ?? '', componentStack?.trim().slice(0, 200) ?? ''].join('|')
     const now = Date.now()
     const known = sigs.get(key) ?? (sigs.size >= MAX_SIGNATURES ? sigs.get(OVERFLOW_KEY) : undefined)

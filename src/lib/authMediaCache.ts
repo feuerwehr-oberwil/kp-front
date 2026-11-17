@@ -1,3 +1,5 @@
+import type { AuthUser } from './auth'
+
 /** Keep the service worker's protected-media cache aligned with the current browser session.
  *
  * The worker deliberately treats an unknown client as network-only. We therefore resend the
@@ -5,10 +7,10 @@
  * React's user changes. An idle worker restart keeps the same controller, so a worker request
  * re-sends the latest context too. A waiting worker must never inherit permission by accident.
  */
-type MediaCacheUser = { id: string; link_scoped?: boolean } | null
+type MediaCacheUser = Pick<AuthUser, 'id' | 'role' | 'link_scoped'> | null
 
 type MediaCacheContext =
-  | { type: 'kp-media-auth'; kind: 'user'; userId: string }
+  | { type: 'kp-media-auth'; kind: 'user'; userId: string; role: AuthUser['role'] }
   | { type: 'kp-media-auth'; kind: 'link' }
   | { type: 'kp-media-auth'; kind: 'logged-out' }
 
@@ -29,7 +31,7 @@ export function syncMediaCacheAuth(user: MediaCacheUser): void {
   current = user?.link_scoped
     ? { type: 'kp-media-auth', kind: 'link' }
     : user
-      ? { type: 'kp-media-auth', kind: 'user', userId: user.id }
+      ? { type: 'kp-media-auth', kind: 'user', userId: user.id, role: user.role }
       : { type: 'kp-media-auth', kind: 'logged-out' }
 
   const sw = serviceWorkerContainer()
