@@ -592,23 +592,24 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     is a 1.14:1 patch on the sheet), never green. The tool dock's ✓ (`.wb-dock-go`) is THE
     primary too, since the dock is light by day (20.10.2026). The documented green «go» (`<Button variant="go">`, Atemschutz «Eintritt») is a
     tone, not the primary, and stays. The Trupp marker's action bar (`.wb-pill-acts`) is all
-    neutral wash (29.09.2026): no green «Bei den Trupps zeigen», no blue «Position markieren». A
-    door to a page wears that page's nav glyph («Bei den Trupps zeigen» = the Trupps stopwatch,
-    never ⚠). The bin keeps THE delete outline; the rename pen, while its field is open, is a
-    pressed toggle (`--sel`, like `.wb-dock-tog.on`). It follows «Beschriftung» like the rails
-    (rare-user M10, 17.11.2026): on, every button wears its word under the glyph and the bar holds
-    at most four (Lösen or the pen · Zum Trupp · Atemschutz-Trupp · Entfernen, always last) plus a
-    worded «Mehr» whose rows carry glyph + word for the rare doors – Position markieren, Spuren
-    (✓ while shown), the original; off, it is the flat glyph row. On a phone the worded bar would
-    wrap «Entfernen» onto a row of its own, so there the delete rows are the LAST rows of «Mehr»
-    (danger tone) and the bar stays one row.
+    neutral wash (29.09.2026): no green «Zum Trupp», no blue «Position markieren». A door to a page
+    wears that page's nav glyph («Zum Trupp» = the Trupps stopwatch, never ⚠); the join
+    («Atemschutz-Trupp») wears `link`. Three buttons (rare-user round 2, owner pick M12 A,
+    17.11.2026): ONE Trupp button that changes – «Zum Trupp» on a linked marker, «Atemschutz-Trupp»
+    (join) on a loose one, never both – then «Markieren» (the bar's short word for «Position
+    markieren», full words as title / label), then «Mehr». «Mehr» rows carry glyph + full word:
+    Lösen · Atemschutz-Trupp (re-point, linked only; the row swaps the menu to the join list) ·
+    Bearbeiten (rename, loose only) · Spuren (✓ while shown) · the original (mirrors) · the delete
+    rows, last (the marker alone plain, the Spur rows danger). «Mehr» is drawn only with a row.
+    Same on phone and tablet, one row at 390 px. «Beschriftung» only changes the look: on, every
+    button wears its word under the glyph (like the rails); off, the SAME buttons as bare glyphs.
   - *Delete (28.09.2026, owner pick A):* a destructive action is THE delete look — `--del-ink`
     (red-strong) text, a `--del-edge` (red 40%) border, the surface it stands on; the bin and the
     word (a rare delete may be a square bin, still outlined). A bin at the end of a ROW — a time
     block, a Rapport line, a saved Ansicht, an admin record — is the quiet grey glyph instead
     (21.10.2026, owner, UX sweep F4/A3): the row is the context, and the admin ones ask first, their
     armed «Ja» wearing the delete look. Red never fills it (`.btn.warn`,
-    `.ip-btn-danger`/`.ip-btn.danger`, `.adm-danger-btn`, `.wb-pa-del`,
+    `.ip-btn-danger`/`.ip-btn.danger`, `.adm-danger-btn`,
     the audio player's marker row `.ap-row-del` all wear it; `.btn.warn-solid` is gone). ✕ only
     ever closes or clears — a ✕ that deletes is a bug. **Red is for what nothing brings back**
     (duck sweep ELEM.11 + FEEDBACK.2, 17.11.2026): a STOP or a cancel – «■ Beenden» a

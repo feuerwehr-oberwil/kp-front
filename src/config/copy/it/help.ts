@@ -286,7 +286,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'Gli stessi strumenti della mappa: **Selezione**, **Simbolo**, **Linea**, **Superficie**, **Perimetro di sicurezza**, **Nota**, **Squadra** e **Misura**.',
             '**Piani** dell’edificio come pila: con i pulsanti **PS/PI** sul piano aggiungi un piano sopra/sotto.',
             '**Adatta** e la freccia del nord nella barra di visualizzazione, come sulla mappa.',
-            '**Squadre** come marcatori colorati; le **Tracce** di una squadra (sul suo marcatore, sotto **Altro**) mostrano il suo percorso. I chip delle squadre «fuori» vengono attenuati/barrati.',
+            '**Squadre** come marcatori colorati; le **Tracce** di una squadra mostrano il suo percorso: **Segna** sul suo marcatore aggiunge il punto successivo, **Altro** le mostra o nasconde. I chip delle squadre «fuori» vengono attenuati/barrati.',
             '**Scala** – toccare le due estremità della barra di scala stampata e inserire la lunghezza reale. Da lì linee, superfici e **Misura** indicano metri veri. Senza scala **Misura** la chiede per prima – il campo resta vuoto finché non si digita una lunghezza, e **Annulla** ritira una calibrazione sbagliata.',
             'Un foglio **collegato** alla mappa misura già da sé – così come la pila dei piani dell’edificio, che conosce la propria dimensione dalla pianta. Lì la riga **Scala** dietro il chip dell’oggetto dice da dove viene. A mano si calibra solo ciò che non è collegato.',
             '**Una nota veloce a mano?** Il piano è la superficie da schizzo: disegna liberamente, barra, scarabocchia. La mappa resta strutturata (simboli, linee, note), così rapporto e diario restano puliti.',

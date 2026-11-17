@@ -307,6 +307,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     drawnOnPlan: '{name} tracé sur le plan',
     shapeOnPlan: '{name} posé sur le plan',
     barMore: 'Plus',
+    markShort: 'Marquer',
   },
   tafel: {
     strip: 'Pages du tableau',
