@@ -17,9 +17,10 @@
 // half-typed Meldung was gone with nothing said. They are mirrored to `sessionStorage` (JSON, so
 // plain values only: never a photo or a clip – the composer keeps those under its own `:rest`
 // key, which is NOT on the list) and cleared exactly where the memory copy is. Every other form
-// stays memory-only. The mirrored copy is what was TYPED and nothing else: the wizard's picked
-// location (coordinates) stays in memory and is picked again after a reload (`keepDraft` ·
-// `forReload`; CodeQL js/clear-text-storage-of-sensitive-data flagged the coordinates, 17.11.2026).
+// stays memory-only. A reload-proof draft is what was TYPED and nothing else: the wizard's picked
+// location (coordinates, possibly the device's own position) never enters this module – the
+// wizard holds it itself, in memory, and it is picked again after a reload (CodeQL
+// js/clear-text-storage-of-sensitive-data flagged the coordinates in storage, 17.11.2026).
 //
 // ⚠️ Every draft is dropped when the INCIDENT changes (`clearAllDrafts`, called from
 // IncidentWorkspace). Two Einsätze in one session must not hand each other's half-typed Mittel
@@ -75,13 +76,12 @@ export function readDraft<T>(key: string, empty: T): T {
   try { return JSON.parse(raw) as T } catch { return empty }
 }
 
-/** Write a kept draft. Cheap enough to call from an effect on every keystroke. `forReload` is what
- *  the reload-proof copy holds instead of `value`: the copy is TEXT ONLY (owner call C2,
- *  17.11.2026) – a form that also keeps something else in memory (the wizard's picked location)
- *  passes the text here, so nothing but what was typed is written to the browser's storage. */
-export function keepDraft<T>(key: string, value: T, forReload: unknown = value): void {
+/** Write a kept draft. Cheap enough to call from an effect on every keystroke. A reload-proof key
+ *  is mirrored to the browser's storage as it is, so such a draft holds TEXT ONLY (owner call C2,
+ *  17.11.2026): a form keeps anything else – the wizard's picked location – outside this module. */
+export function keepDraft<T>(key: string, value: T): void {
   store.set(key, value)
-  if (RELOADABLE(key)) session.set(SESSION_PREFIX + key, JSON.stringify(forReload))
+  if (RELOADABLE(key)) session.set(SESSION_PREFIX + key, JSON.stringify(value))
 }
 
 /**
