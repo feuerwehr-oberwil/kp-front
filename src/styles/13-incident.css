@@ -240,10 +240,10 @@
    them fit now is the shorter word – «Ändern» for «Bearbeiten» (`editMetaShort`; the full words
    stay the name), on every device: measured 17.11.2026 in the phone menu's 334px row at 390,
    «Ändern · Teilen · Abschliessen» with glyphs ≈ 320px. Under 375px (the row is 304 at 360) the
-   tiles draw 6px in and their glyph 4px from the word – the one place a tile goes under the 8px
-   floor above, because the alternative is a verb past the card's edge. */
+   tiles draw 4px in and their glyph 4px from the word (≈ 284px) – the one place a tile goes under
+   the 8px floor above, because the alternative is a verb past the card's edge. */
 @media (max-width: 374px) {
-  .ip-card .ip-card-acts .ip-card-act { padding: 0 6px; gap: 4px; }
+  .ip-card .ip-card-acts .ip-card-act { padding: 0 var(--sp-1); gap: var(--sp-1); }
 }
 .ip-card-act svg { width: 16px; height: 16px; flex: none; }
 /* the open count as a CORNER badge — the phone nav's amber count (05-navrail · .nav-count.nav-open),
