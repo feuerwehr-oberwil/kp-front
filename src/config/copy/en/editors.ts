@@ -182,7 +182,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     abschnittAuftragPlaceholder: 'e.g. Fire attack',
     abschnittMaxHint: 'FKS guideline: at most 3–4 sectors.',
     marker: 'Marker',
-    markerPlaceholder: 'e.g. R for rescue axis',
+    markerPlaceholder: 'e.g. R',
     arrow: 'Arrowhead',
     ending: 'Line end',
     endingNone: 'None',

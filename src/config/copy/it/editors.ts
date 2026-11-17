@@ -179,7 +179,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     abschnittAuftragPlaceholder: 'es. Spegnimento',
     abschnittMaxHint: 'Direttiva FKS: al massimo 3–4 settori.',
     marker: 'Marcatore',
-    markerPlaceholder: 'es. R per asse di salvataggio',
+    markerPlaceholder: 'es. R',
     arrow: 'Punta della freccia',
     ending: 'Estremità',
     endingNone: 'Nessuna',

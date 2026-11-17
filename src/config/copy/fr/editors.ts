@@ -179,7 +179,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     abschnittAuftragPlaceholder: 'p. ex. Extinction',
     abschnittMaxHint: 'Directive CSP : au plus 3–4 secteurs.',
     marker: 'Marqueur',
-    markerPlaceholder: 'p. ex. R pour axe de sauvetage',
+    markerPlaceholder: 'p. ex. R',
     arrow: 'Pointe de flèche',
     ending: 'Extrémité',
     endingNone: 'Aucune',

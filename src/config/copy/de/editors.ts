@@ -270,7 +270,7 @@ export const editorsCopy = {
     abschnittAuftragPlaceholder: 'z. B. Brandbekämpfung',
     abschnittMaxHint: 'FKS-Richtwert: höchstens 3–4 Abschnitte.',
     marker: 'Marker',
-    markerPlaceholder: 'z. B. R für Rettungsachse',
+    markerPlaceholder: 'z. B. R',
     arrow: 'Pfeilspitze',
     ending: 'Linienende',
     endingNone: 'Keiner',
