@@ -51,14 +51,13 @@ type Props = Shell & {
   tapPerson: (p: CapturePerson) => Promise<void>
   addGuest: (name: string) => Promise<void>
   run: (action: CaptureAction) => Promise<Workspace | null>
-  savedToast: () => void
 }
 
 /** The Personen section: search · «Erfasste» filter · tap help, then one row per person. */
 export function PersonenSection({
   open, onToggle, sectionRef, zeitDays, busy, attendance, rosterIds, filteredRoster, presentCount,
   recordedCount, search, setSearch, onlyRecorded, setOnlyRecorded, showTapHelp, setShowTapHelp, guestOffer,
-  tapPerson, addGuest, run, savedToast,
+  tapPerson, addGuest, run,
 }: Props) {
   const C = appConfig.copy.capture
   const A = appConfig.copy.anwesenheit
@@ -139,7 +138,7 @@ export function PersonenSection({
                     if (!picked) return
                     const iso = personTimeIso(picked, here ? 'from' : 'to', { from: cur?.from, to: cur?.to })
                     const patch = here ? { from: iso } : { to: iso }
-                    void run({ kind: 'setTimes', personId: p.id, index: bi, ...patch }).then((ok) => { if (ok) savedToast() })
+                    void run({ kind: 'setTimes', personId: p.id, index: bi, ...patch })
                   }}
                 />
               )}

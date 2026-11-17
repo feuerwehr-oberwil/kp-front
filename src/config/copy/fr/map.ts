@@ -43,10 +43,8 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     nightMode: 'Nuit',
   },
   toast: {
-    audioSaved: 'Note vocale enregistrée ({secs} s)',
     micDenied: 'Pas d’accès au micro – noté comme marqueur',
     micFailed: 'Enregistrement non démarré – réessayer',
-    merged: 'Modifications fusionnées',
   },
   dockHints: {
     lasso: 'Tirez un cadre autour de plusieurs objets.',
@@ -83,7 +81,6 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     hint: 'Une vue enregistre la carte telle qu\'elle est – position, zoom et rotation. Touche une vue enregistrée pour y sauter (p. ex. entre une vue générale au nord et la carte tournée comme tu es placé). Appui long sur la boussole : ajuster directement.',
     rename: 'Renommer',
     delete: 'Supprimer',
-    saved: 'Vue enregistrée',
     deleted: 'Vue «{name}» supprimée',
   },
 }

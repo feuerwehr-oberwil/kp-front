@@ -1745,10 +1745,13 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const C = appConfig.copy.whiteboard.storeyCopy
     // everything the source holds is already on the picked storeys (a Treppe spanning them):
     // the sheet still closes, but never without a word
-    if (!added.length) { toast(C.nothingNew); return }
-    commit([...annos, ...added])
-    added.forEach((a) => emit('board.add', { id: a.id, anno: a, planId: activeId }))
-    toast(fillTemplate(C.done, { list: counts.map((c) => fillTemplate(C.doneItem, { n: c.n, floor: storeyName(c.floor) })).join(' · ') }))
+    if (!added.length) { toast(C.nothingNew, { icon: 'info' }); return }
+    // the copies land on storeys that are off screen, so the toast says where – and, being one
+    // ↶ step, carries «Rückgängig» like a removal does (toast diet call 8, lib/removalToast)
+    removeWithUndo(fillTemplate(C.done, { list: counts.map((c) => fillTemplate(C.doneItem, { n: c.n, floor: storeyName(c.floor) })).join(' · ') }), () => {
+      commit([...annos, ...added])
+      added.forEach((a) => emit('board.add', { id: a.id, anno: a, planId: activeId }))
+    }, 'undo')
   }
 
   // footprint draw box per floor tile: fill most of the tile, preserving the
@@ -2154,7 +2157,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             onReset={() => {
               closeFacts()
               if (isIncidentGeorefKey(activeGeorefKey)) removeWithUndo(C.georef.resetDone, () => resetGeorefPlan(activeGeorefKey))
-              else { resetGeorefPlan(activeGeorefKey); toast(C.georef.resetDone) }
+              // a station sheet: the panel asked first, and its facts now offer «Karte verknüpfen»
+              else resetGeorefPlan(activeGeorefKey)
             }}
           />
         ),
@@ -2685,7 +2689,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                   title={appConfig.copy.drawingEditor.detachConnection} aria-label={appConfig.copy.drawingEditor.detachConnection}
                   style={{ left: p[0] * sW + 16, top: mapY(p[2] ?? editDraw.floor, p[1]) * sH - 16 }}
                   onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => { e.stopPropagation(); detachPlanEndpoint(ep) }}><Icon id="close" /></span>
+                  onClick={(e) => { e.stopPropagation(); removeWithUndo(appConfig.copy.removedToast.connectionFreed, () => detachPlanEndpoint(ep)) }}><Icon id="close" /></span>
               )
             })}
 

@@ -59,7 +59,7 @@ import { useWeather } from '../../lib/useWeather'
 import { useKarteWeather } from '../../workspace/useKarteWeather'
 import { objectVisitsConfig } from '../../lib/deploymentConfig'
 import { fmtDistance, fmtLV95, fmtWGS, haversineM } from '../../lib/geo'
-import { dismissToast, toast } from '../../lib/ui'
+import { useOneShot } from '../../lib/useOneShot'
 import { usePlacementLane } from '../../lib/toastLane'
 import { geocodeSearch, type GeoHit, type IncidentMeta } from '../../lib/incidents'
 import { homeAlarm } from '../../lib/foreignAlarm'
@@ -400,11 +400,18 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       checklist,
     }))
   }
+  // «Koordinaten kopieren» acknowledges in place (toast diet, 17.11.2026 – ui-conventions ›
+  // One-time actions): the button gives way to «✓ Kopiert» for the latch's hold, and only for the
+  // pin it copied – a new pin within the hold gets its button back.
+  const pinCoordsText = sel?.kind === 'pin' ? `LV95 ${fmtLV95(sel.at[0], sel.at[1])} · WGS84 ${fmtWGS(sel.at[0], sel.at[1])}` : null
+  const coordsCopy = useOneShot()
+  const [copiedText, setCopiedText] = useState<string | null>(null)
   const copyCoords = () => {
-    if (sel?.kind !== 'pin') return
-    const text = `LV95 ${fmtLV95(sel.at[0], sel.at[1])} · WGS84 ${fmtWGS(sel.at[0], sel.at[1])}`
-    void navigator.clipboard?.writeText(text).then(() => toast(C.copied, { icon: 'check' })).catch(() => {})
+    const text = pinCoordsText
+    if (!text) return
+    void navigator.clipboard?.writeText(text).then(() => { setCopiedText(text); coordsCopy.run(() => {}) }).catch(() => {})
   }
+  const coordsCopied = coordsCopy.done && copiedText === pinCoordsText
 
   const ebenen = useKarteEbenen({ viewer, categories, georef, selObj, weather })
   const viewsApi = useCompassViews(mapRef, objects, view, C.compassHoldHint)
@@ -467,14 +474,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // Punkt setzen's instruction stands at the foot of the map, where Messen's does (MeasurePanel ·
   // MapHint; owner 20.10.2026: at the top of the screen it was «a bit unnatural») — and since
   // review round 7 in the very card the Messen dock's ⓘ opens, not a quieter look-alike beside it.
-  // The missing-catalogue notice is a MESSAGE: a sticky toast in the lane with the others.
   const pinHint = onMapSurface && tool === 'pin'
-  const catNote = cat?.failed && !cat.data && !onLibrary ? (online ? C.loadFailed : C.noCatalogue) : null
-  useEffect(() => {
-    if (!catNote) return
-    const id = toast(catNote, { sticky: true, icon: 'warn' })
-    return () => dismissToast(id)
-  }, [catNote])
+  // The missing catalogue is a STANDING state, not news (toast diet, 17.11.2026): it is said where
+  // the objects would be – the search's «Stationsobjekte» group – not as a sticky toast on the map.
+  const catNote = cat?.failed && !cat.data ? (online ? C.loadFailed : C.noCatalogue) : null
   /** the panel is on screen: on the map, not under Messen, and on a phone not under a tool's own
    *  card nor pushed away */
   const panelShown = onMapSurface && !!panelSel && tool !== 'measure' && !(phone && (tool === 'erg' || tool === 'layers' || sheetShut || searchOpen))
@@ -739,7 +742,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         {!live && !sheetOpen && !searchOpen && !onLibrary && <AlarmNudgeCard inIncident={running.length > 0} phone={phone} />}
 
         {searchOpen && !phone && !onLibrary && (
-          <KarteSearch query={query} hits={search.hits} nearest={search.nearest} addresses={search.addresses} addrState={search.addrState}
+          <KarteSearch query={query} hits={search.hits} nearest={search.nearest} addresses={search.addresses} addrState={search.addrState} objectsNote={catNote}
             onPickObject={(id) => { setQuery(byId.get(id)?.name ?? ''); selectObject(id, true, 'search') }} onPickAddress={pickAddress} />
         )}
         {searchOpen && phone && !onLibrary && (
@@ -760,7 +763,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
               />
             )}
           >
-            <KarteSearch inSheet query={query} hits={search.hits} nearest={search.nearest} addresses={search.addresses} addrState={search.addrState}
+            <KarteSearch inSheet query={query} hits={search.hits} nearest={search.nearest} addresses={search.addresses} addrState={search.addrState} objectsNote={catNote}
               onPickObject={(id) => { setQuery(byId.get(id)?.name ?? ''); selectObject(id, true, 'search') }} onPickAddress={pickAddress} />
           </KarteKeySheet>
         )}
@@ -797,6 +800,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             onOpenVisit={(id) => onOpenVisits(`${ovHref({ kind: 'visit', id })}?from=karte`)}
             onPinBuilding={() => { if (sel?.kind === 'pin') selectBuilding(sel.at, ringAt(ringsNear(sel.at), sel.at)) }}
             onCopyCoords={copyCoords}
+            coordsCopied={coordsCopied}
           />
         )}
 

@@ -43,10 +43,8 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     nightMode: 'Notte',
   },
   toast: {
-    audioSaved: 'Nota vocale salvata ({secs} s)',
     micDenied: 'Nessun accesso al microfono – annotato come segnaposto',
     micFailed: 'Registrazione non avviata – riprovare',
-    merged: 'Modifiche unite',
   },
   dockHints: {
     lasso: 'Trascina un riquadro attorno a più oggetti.',
@@ -83,7 +81,6 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     hint: 'Una vista salva la carta com\'è – posizione, zoom e rotazione. Tocca una vista salvata per saltarci (p. es. tra una panoramica a nord e la carta girata come sei posizionato). Pressione lunga sulla bussola: adatta subito.',
     rename: 'Rinomina',
     delete: 'Elimina',
-    saved: 'Vista salvata',
     deleted: 'Vista «{name}» eliminata',
   },
 }

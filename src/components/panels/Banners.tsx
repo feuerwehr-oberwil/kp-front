@@ -6,7 +6,7 @@ import { shortAddress } from '../../lib/deploymentConfig'
 import { acceptAlarmUpdate, dismissAlarmUpdate, undoAlarmUpdate, type DiveraAlarm, type IncidentFull, type IncidentMeta } from '../../lib/incidents'
 import { alarmUpdateRow } from '../../lib/alarmUpdate'
 import { ApiError } from '../../lib/api'
-import { toast } from '../../lib/ui'
+import { toast, undoToast } from '../../lib/ui'
 import { realCoord } from './_shared'
 import { fmtWhen } from '../../lib/format'
 
@@ -97,7 +97,8 @@ export function AlarmUpdateBanner({ meta, onChanged, onEdit }: {
     setBusy(true)
     try {
       onChanged(await call())
-      if (done) toast(done, { icon: 'check', tone: 'success', action: { label: appConfig.copy.undo, onClick: () => void run(() => undoAlarmUpdate(meta.id)) } })
+      // the take of an update is no ↶ step: the pill is its only way back, so it keeps its own kind
+      if (done) undoToast(done, () => void run(() => undoAlarmUpdate(meta.id)), undefined, { glyph: 'check', kind: 'alarm-update' })
     } catch (e) {
       toast(e instanceof ApiError && e.status !== 0 ? e.detail : C.failed, { icon: 'warn', tone: 'warn' })
     } finally {

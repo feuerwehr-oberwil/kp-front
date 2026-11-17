@@ -35,13 +35,12 @@ type Props = Shell & {
   matPending: Record<string, number>
   stepMittel: (key: string, probe: MatProbe, displayed: number, delta: number) => void
   run: (action: CaptureAction) => Promise<Workspace | null>
-  savedToast: () => void
 }
 
 /** The Material section: «Nichts verwendet», the catalogue steppers and the extra lines. */
 export function MaterialSection({
   open, onToggle, sectionRef, busy, rm, mittel, lines, shownGroups, extraLines, matSearch, setMatSearch, matPending,
-  stepMittel, run, savedToast,
+  stepMittel, run,
 }: Props) {
   const C = appConfig.copy.capture
   const AB = appConfig.copy.abschluss
@@ -63,7 +62,7 @@ export function MaterialSection({
       {lines.length === 0 && (
         <button type="button" className={`ip-btn cv-none${rm?.mittelConfirmedNone ? ' on' : ''}`} disabled={busy}
           aria-pressed={!!rm?.mittelConfirmedNone}
-          onClick={() => { void run({ kind: 'setMeta', patch: { mittelConfirmedNone: !rm?.mittelConfirmedNone } }).then((ok) => { if (ok) savedToast() }) }}>
+          onClick={() => { void run({ kind: 'setMeta', patch: { mittelConfirmedNone: !rm?.mittelConfirmedNone } }) }}>
           {AB.mittelNone}
         </button>
       )}

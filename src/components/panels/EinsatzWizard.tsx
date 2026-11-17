@@ -248,6 +248,11 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // «Hier» — the PRIMARY location method: the EL usually stands at (or near) the Einsatzort,
   // so one tap takes a GPS fix; object library / map pick are the fallbacks for elsewhere
   const [locating, setLocating] = useState(false)
+  // «Hier» found no position: said in the form's warning slot under the address (toast diet,
+  // 17.11.2026 – a refusal inside an open form is said at the field), for as long as the
+  // coordinate it failed to replace still stands. Any new coordinate (address hit, map, object)
+  // or the next «Hier» press ends it.
+  const [hereFailed, setHereFailed] = useState<{ at: [number, number] | null } | null>(null)
   // ⚠️ On an EXISTING Einsatz «Hier» always asks first. It is the largest button in the panel
   // and it moves the Einsatzort to wherever the device is standing — and the panel is most often
   // opened from the Magazin, hours later, to fix an address. One mis-tap moved the incident to
@@ -264,7 +269,9 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   }
   const useHere = () => {
     if (locating) return
-    if (!navigator.geolocation) { toast(ix.hereFailed, { icon: 'warn', tone: 'warn' }); return }
+    const failed = () => setHereFailed({ at: coord })
+    if (!navigator.geolocation) { failed(); return }
+    setHereFailed(null)
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
       (p) => {
@@ -272,7 +279,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
         const c: [number, number] = [p.coords.longitude, p.coords.latitude]
         void confirmMove(c).then((ok) => { if (ok) applyPicked(c) })
       },
-      () => { setLocating(false); toast(ix.hereFailed, { icon: 'warn', tone: 'warn' }) },
+      () => { setLocating(false); failed() },
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
     )
   }
@@ -407,7 +414,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     if (patch && !Object.keys(patch).length) { cancel(); return }
     try {
       const inc = edit && patch ? await patchIncident(edit.id, patch) : await createIncident(full)
-      toast(edit ? ix.updated : ix.created, { icon: 'check', tone: 'success' })
+      // no «Einsatz erstellt» toast (toast diet, 17.11.2026): the Einsatz opening IS the answer
       clearDraft(draftKey) // saved – the next open starts from the record
       onCreated(inc)
     } catch (e) {
@@ -505,7 +512,11 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
             five decimals nobody read. What stays is the one fact that matters: this Einsatz has NO
             location yet (no address hit, object, map pick or GPS fix), which an address typed by
             hand does not give it. A warning, so it is never behind anything; nothing when set. */}
-        {!coord && (
+        {hereFailed?.at === coord ? (
+          <p className="form-warn form-warn-amber form-warn-compact" role="status">
+            <Icon id="warn" /><span className="form-warn-text">{ix.hereFailed}</span>
+          </p>
+        ) : !coord && (
           <p className="form-warn form-warn-amber form-warn-compact" role="status">
             <Icon id="warn" /><span className="form-warn-text">{ix.coordMissing}</span>
           </p>

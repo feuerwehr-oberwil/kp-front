@@ -212,7 +212,7 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
         { name: 'a.jpg', mimeType: 'image/jpeg', buffer: jpeg },
         { name: 'b.jpg', mimeType: 'image/jpeg', buffer: jpeg },
       ])
-      await expect(page.getByText('2 Fotos hinzugefügt')).toBeVisible()
+      // no «2 Fotos hinzugefügt» toast (toast diet, 17.11.2026): the photos appearing are the answer
       await expect(page.getByRole('button', { name: /^Foto öffnen/ })).toHaveCount(3)
       await page.getByRole('button', { name: 'Zurück' }).click() // leaving: the save point, offline
       const row = page.getByRole('button', { name: new RegExp(objectName) })

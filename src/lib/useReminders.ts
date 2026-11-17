@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TimelineEvent } from '../types'
-import { appConfig } from '../config/appConfig'
 import { deriveReminders, isDue, type OpenReminder } from './reminders'
 import { notify, startAlarm, stopAlarm } from './alarm'
-import { toast } from './ui'
+import { undoToast } from './ui'
 import type { UndoTimeline } from './undoTimeline'
 
 /** payload App turns into an appended timeline row (keeps all timeline writes in one place) */
@@ -146,7 +145,8 @@ export function useReminders(
       isOpen: (id) => openRef.current.some((o) => o.id === id),
       copy: words ?? { doneLog, pendenzDoneLog, reopenLog, pendenzReopenLog },
       timeline: undo,
-      announce: (text, onUndo) => toast(text, { icon: done ? 'check' : 'undo', action: { label: appConfig.copy.undo, onClick: onUndo } }),
+      // on ↶ too, so the default undo kind: ticking five Pendenzen is one pill, not five
+      announce: (text, onUndo) => undoToast(text, onUndo, undefined, { glyph: done ? 'check' : 'undo' }),
     })
   }, [doneLog, pendenzDoneLog, reopenLog, pendenzReopenLog, undo])
   const markDone = useCallback((r: OpenReminder) => setDone(r, true), [setDone])

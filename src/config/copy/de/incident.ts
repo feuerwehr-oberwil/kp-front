@@ -46,7 +46,6 @@ export const incidentCopy = {
     // looked exactly like no tap at all. Now the icon spins while it runs and a message says
     // what came of it.
     syncDone: 'Alles synchronisiert',
-    syncFailedToast: 'Nicht synchronisiert – Änderungen bleiben auf diesem Gerät gespeichert.',
     // group titles in the menu: this Einsatz first (its card), then WHICH Einsatz, then the app.
     incidents: 'Einsätze',
     app: 'App',
@@ -167,7 +166,6 @@ export const incidentCopy = {
     deleteConfirmTitle: 'Übung löschen',
     deleteConfirmMsg: 'Die Übung wird mit allen Daten (Verlauf, Fotos, Rapport) endgültig gelöscht. Das kann nicht rückgängig gemacht werden.',
     deleteConfirmBtn: 'Endgültig löschen',
-    deleted: 'Übung gelöscht',
     // quick filters over the list (27.10.2026): Ernstfall | Übung, one Einsatzart, Rapport offen
     filterAria: 'Einsätze filtern',
     filterKindHead: 'Ernstfall / Übung',

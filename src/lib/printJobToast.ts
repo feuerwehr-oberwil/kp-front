@@ -62,7 +62,8 @@ export function trackPrintJob(t: PrintTransport, jobId: string, done?: ToastActi
     label: R.undo,
     onClick: () => {
       void cancelPrint(t, jobId).then((res) => {
-        if (res === 'cancelled') { settle('cancelled'); toast(R.cancelled); return }
+        // cancelled: the pill simply leaves (settle) – only a refusal is said
+        if (res === 'cancelled') { settle('cancelled'); return }
         // «zu spät» is a statement about the JOB, so it is only made when the relay answered.
         // A network failure says nothing about the job — say that instead.
         if (res === 'unreachable') { toast(R.jobUnreachable, { icon: 'warn', tone: 'warn' }); return }

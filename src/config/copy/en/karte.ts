@@ -53,7 +53,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     pinBuilding: 'Building at this point',
     pinBuildingSub: 'See register information',
     copyCoords: 'Copy coordinates',
-    copied: 'Coordinates copied',
+    copied: 'Copied',
     plansTitle: 'Plans & modules',
     georefFailed: 'The object plan could not be laid on the map.',
     planRow: 'Module {m}',

@@ -155,20 +155,3 @@ describe('truppClockActions — the Notfall', () => {
     expect(b.t().exitTime).toBeUndefined()
   })
 })
-
-describe('truppClockActions — the Sicherungstrupp hint', () => {
-  const sichern = trupp({ id: 'S1', name: 'Meier Beat', auftrag: 'sichern' })
-
-  it('says so, without asking, when a Trupp under PA goes in and nobody stands ready', () => {
-    const b = clockBoard([trupp()])
-    b.act().setTruppStatus('T1', 'aktiv')
-    expect(ui.toasts).toEqual([appConfig.copy.atemschutz.notfall.noSafetyHint])
-    expect(b.t().status).toBe('aktiv') // the Eintritt is written regardless
-  })
-
-  it('stays quiet when a Sicherungstrupp is ready', () => {
-    const b = clockBoard([trupp(), sichern])
-    b.act().setTruppStatus('T1', 'aktiv')
-    expect(ui.toasts).toEqual([])
-  })
-})

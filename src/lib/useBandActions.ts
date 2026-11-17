@@ -92,7 +92,7 @@ export function useBandActions({ bands, setBands, shifts, setShifts }: BandActio
       setBands((cur) => (cur.some((b) => b.id === id) ? cur : [...cur, prev]))
       const back = new Set(attached)
       setShifts((cur) => cur.map((s) => (back.has(s.id) ? { ...s, bandId: id } : s)))
-    }, [recordKey('bands', id), ...attached.map((sid) => recordKey('shifts', sid))])
+    }, [recordKey('bands', id), ...attached.map((sid) => recordKey('shifts', sid))], { glyph: 'trash' })
   }
 
   /**

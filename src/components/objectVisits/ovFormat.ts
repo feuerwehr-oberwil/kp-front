@@ -91,14 +91,20 @@ export function syncLabel(sync: SyncState): string {
 
 /** The HEAD's short form of the same state (owner, 03.10.2026: the long words did not fit a
  *  phone's head). Where the glyph already says what happened — ✓ saved, 🕑 on this device — only
- *  the time is left; everything else keeps its (short) word. The sheet keeps the long ones. */
+ *  the time is left; everything else keeps its (short) word. The sheet keeps the long ones.
+ *  A send that found no network adds «· offline» – the head is where that is said, not a toast
+ *  after every save point (toast diet, 17.11.2026). */
 export function syncShort(sync: SyncState): string {
-  switch (sync.kind) {
-    case 'saved':
-    case 'changes': return fmtWhen(sync.at, { todayShort: true })
-    case 'local': return sync.at ? fmtWhen(sync.at, { todayShort: true }) : appConfig.copy.objectVisits.sync.local
-    default: return syncLabel(sync)
-  }
+  const S = appConfig.copy.objectVisits.sync
+  const base = (() => {
+    switch (sync.kind) {
+      case 'saved':
+      case 'changes': return fmtWhen(sync.at, { todayShort: true })
+      case 'local': return sync.at ? fmtWhen(sync.at, { todayShort: true }) : S.local
+      default: return syncLabel(sync)
+    }
+  })()
+  return sync.offline ? `${base} · ${S.offline}` : base
 }
 
 /** The filing segment's words, or null when no destination is configured (hidden). */

@@ -8,7 +8,8 @@ import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig, type DeploymentMittelItem, type DeploymentMittelSource } from '../lib/deploymentConfig'
 import { fillTemplate, stripUnprintable, unitLabel } from '../lib/format'
 import { cx } from '../lib/cx'
-import { caretToEnd, toast } from '../lib/ui'
+import { caretToEnd } from '../lib/ui'
+import { removeWithUndo } from '../lib/removalToast'
 import { Menu, Overlay, Sheet, SheetFoot } from '../lib/overlays'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
@@ -17,7 +18,7 @@ import { EmptyState } from './EmptyState'
 import type { MittelEntry } from '../types'
 import {
   visibleMittel, groupBySource, currentLineFor, currentMengeFor, availableFor, mittelListGroups, groupCatalogue,
-  mittelRecommendations, defaultSourceFor, tombstoneStands,
+  mittelRecommendations, defaultSourceFor,
   type CurrentMittel, type MittelListCell, type MittelListRow, type MittelRecommendation, type SymbolMatch,
   type TruppForMittel,
   type MittelDraft,
@@ -104,9 +105,6 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   const sources = cfg?.sources ?? appConfig.mittel.sources
   const units = cfg?.units?.length ? cfg.units : appConfig.mittel.units
   const categorised = catalogue.some((c) => c.category)
-  // the list as it stands NOW, for a toast pressed renders later (see deleteLine)
-  const entriesLive = useRef(entries)
-  useEffect(() => { entriesLive.current = entries }, [entries])
 
   const [view, setView] = useState<'list' | 'source'>('list')
   /* The composer, and what it opens WITH. `{}` is the bare «+» (nothing typed yet); a `seed`
@@ -214,23 +212,12 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
     onSave({ materialId: c.materialId, label: c.label, unit: c.unit, sourceId: c.sourceId, sourceLabel: c.sourceLabel, menge })
   }
 
-  /** Remove a hand-added line for good, with the usual undo — the entries are append-only, so
-   *  undo is just another save that clears the tombstone. */
+  /** Remove a hand-added line for good, with the delete rule's toast (lib/removalToast). The
+   *  save lays its own ↶ step (the Mittel slice joins the Einsatz timeline, useRecordSlices), and
+   *  the toast's «Rückgängig» IS that ↶ – so the removal is never undoable twice (duck sweep
+   *  FEEDBACK.4: the toast used to save a restore of its own and leave the ↶ holding both). */
   const deleteLine = (probe: MatProbe, menge: number, label: string) => {
-    const since = new Date().toISOString()
-    onSave({ ...probe, menge, deleted: true })
-    toast(fillTemplate(M.removedToast, { label }), {
-      icon: 'trash',
-      action: {
-        label: appConfig.copy.undo,
-        // …only while this removal is still the line's newest word (lib/mittel · tombstoneStands):
-        // another device's later write to it is not ours to overwrite
-        onClick: () => {
-          if (!tombstoneStands(entriesLive.current, probe, since)) { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
-          onSave({ ...probe, menge, deleted: false })
-        },
-      },
-    })
+    removeWithUndo(fillTemplate(M.removedToast, { label }), () => onSave({ ...probe, menge, deleted: true }))
   }
 
   /** Apply the pencil dialog. A hand-added line is KEYED by label + unit + source, so renaming it

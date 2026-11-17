@@ -208,7 +208,7 @@ export function usePresentation({
       // sends the device back to «Folgen» with a line saying why; everything else – ended or
       // taken over (409), the link down, a join throttled – the next poll settles.
       if (s.kind === 'join' && e instanceof ApiError && e.code === 'presentation_full') {
-        toast(appConfig.copy.presentation.full, { tone: 'warn' })
+        toast(appConfig.copy.presentation.full, { icon: 'warn' })
         dispatch({ type: 'leave' })
       }
     })
@@ -494,7 +494,7 @@ export function usePresentation({
       dispatch({ type: 'server', id: s.id, mine: true })
       restart(0)
     } catch {
-      toast(C.startFailed, { tone: 'warn' })
+      toast(C.startFailed, { icon: 'warn', tone: 'warn' })
     }
   }, [incidentId, restart, C])
   const end = useCallback(async () => {
@@ -509,7 +509,7 @@ export function usePresentation({
       dispatch({ type: 'server', id: null, mine: false })
       restart(0)
     } catch {
-      toast(C.endFailed, { tone: 'warn' })
+      toast(C.endFailed, { icon: 'warn', tone: 'warn' })
     }
   }, [incidentId, restart, C])
   const followNow = useCallback((name?: string) => {

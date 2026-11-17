@@ -74,8 +74,6 @@ export const whiteboardCopy = {
       persistTitle: 'Massstab merken?',
       saveAll: 'Für alle Pläne',
       saveThis: 'Nur dieser Plan',
-      savedAll: 'Als Standard-Massstab gespeichert',
-      savedThis: 'Massstab für diesen Plan gespeichert',
       /** ⚠️ Der Massstab landet im STATIONS-Dokument, nicht im Einsatz — das kann scheitern
        *  (kein Empfang, oder jemand anders hat das Dokument inzwischen geändert). Die beiden
        *  Zeilen darüber wurden früher gemeldet, bevor überhaupt jemand geantwortet hatte. */
@@ -442,7 +440,6 @@ export const whiteboardCopy = {
     nearbyBannerTitle: 'Nächstes Objekt, nicht die Einsatzadresse.',
     nearbyBannerBody: 'Einsatz: {incident} · Plan: {object} ({distance}).',
     nearbyBannerNoAddress: 'ohne Adresse',
-    objectActive: 'Pläne von «{name}»',
     objectReset: 'Auf nächstes Objekt zurücksetzen',
     // tapping an object in the picker swaps the plans of EVERY module at once, so it
     // is gated behind a confirmation to avoid an accidental tap blowing away context.

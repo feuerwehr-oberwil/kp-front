@@ -31,7 +31,10 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   undoNamed: 'Undo: {action}',
   redoNamed: 'Redo: {action}',
   undoLost: 'No longer undoable',
-  removedToast: { note: 'Note removed', freed: '{what}, {n} lines released', freedOne: '{what}, 1 line released', joinedTitle: '{what} has {n} lines', joinedTitleOne: '{what} has 1 line', joinedOnly: 'Symbol only', joinedOnlyGroup: 'Selection only', joinedWith: 'With lines', withLines: '{what} and {n} lines removed', withLine: '{what} and 1 line removed', group: 'Selection', groupN: '{n} objects', noteWhat: 'Note' },
+  removedToast: { note: 'Note removed', freed: '{what}, {n} lines released', freedOne: '{what}, 1 line released', joinedTitle: '{what} has {n} lines', joinedTitleOne: '{what} has 1 line', joinedOnly: 'Symbol only', joinedOnlyGroup: 'Selection only', joinedWith: 'With lines', withLines: '{what} and {n} lines removed', withLine: '{what} and 1 line removed', group: 'Selection', groupN: '{n} objects', noteWhat: 'Note',
+    connectionFreed: 'Connection released',
+    named: '{what} removed',
+  },
   undoDomains: {
     reference: 'Link adjusted',
     blattform: 'Sheet shape measured',

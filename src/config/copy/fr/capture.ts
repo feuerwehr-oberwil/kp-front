@@ -16,9 +16,6 @@ export const captureCopy: Localizable<Pick<Copy, 'capture'>> = {
     saveFailed: 'Dernière modification non enregistrée – réessayer',
     saveFailedOffline: 'Serveur injoignable – la dernière modification n’a pas été enregistrée.',
     retry: 'Réessayer',
-    savedOk: 'Enregistré',
-    undo: 'Annuler',
-    mittelSet: '{label} : désormais {n} {unit}',
     mittelRemoved: '{label} retiré',
     mittelExtra: 'Autres positions saisies',
     gerettete: 'Sauvés',
@@ -101,5 +98,6 @@ export const captureCopy: Localizable<Pick<Copy, 'capture'>> = {
     exerciseHint: 'Exercice – ne compte pas dans la statistique d\'intervention.',
     groupCurrent: 'Actuel',
     groupBacklog: 'Encore ouvert',
+    beilageRemoved: 'Annexe retirée',
   },
 }

@@ -70,7 +70,7 @@ export function useShiftActions({ shifts, setShifts, startedAt }: ShiftActionsDe
     const prev = shifts.find((s) => s.id === id)
     if (!prev) return
     setShifts((cur) => cur.filter((s) => s.id !== id))
-    undoToast(fillTemplate(appConfig.copy.zeitplan.removed, { name: personName }), () => setShifts((cur) => (cur.some((s) => s.id === id) ? cur : [...cur, prev])), [recordKey('shifts', id)])
+    undoToast(fillTemplate(appConfig.copy.zeitplan.removed, { name: personName }), () => setShifts((cur) => (cur.some((s) => s.id === id) ? cur : [...cur, prev])), [recordKey('shifts', id)], { glyph: 'trash' })
   }
   return { addShift, addShiftSpan, replaceShift, setShiftTime, removeShift }
 }

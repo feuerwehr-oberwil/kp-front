@@ -16,11 +16,10 @@ import type { IncidentMeta, Workspace } from '../lib/incidents'
 import { saveLayerPrefs } from '../lib/layerPrefs'
 import { type TacticalObject, type PlanFit, viewsOf } from '../lib/tacticalObjects'
 import type { TruppTrail } from '../lib/truppTrails'
-import { toast } from '../lib/ui'
 import { NEWER_BUILD_MELDUNG_ID } from '../lib/meldungen'
 import { useMeldung } from '../lib/useMeldung'
 import { carryUndoThroughMerge, workspaceChanges, planViewChanges } from '../lib/undoKeys'
-import type { UndoTimeline } from '../lib/undoTimeline'
+import type { UndoEntry, UndoTimeline } from '../lib/undoTimeline'
 import type { useJournal } from '../lib/useJournal'
 import { boardViewOf } from '../lib/useObjectStore'
 import { onNewerBuildMissing, requireNewerBuild, updateForNewerData } from '../lib/swUpdate'
@@ -58,6 +57,8 @@ export interface UseWorkspaceBlobInputs {
   setPickedObjectId: Dispatch<SetStateAction<string | undefined>>
   setIntakeReviewedAt: Dispatch<SetStateAction<string | undefined>>
   undoHist: UndoTimeline
+  /** where a merge leaves word that ↶'s step is gone, for the next ↶ press to say (IncidentWorkspace · pressHistory) */
+  undoTopLostRef: { current: UndoTopLost | null }
   liveWs: RefObject<Partial<Record<keyof Saved, unknown>>>
   liveObjects: () => TacticalObject[]
   boardRef: RefObject<BoardDoc>
@@ -95,11 +96,14 @@ export interface UseWorkspaceBlobInputs {
   layers: LayerDef[]
 }
 
+/** A merge took the step ↶ would have undone: what to say, and what ↶ pointed at right after. */
+export interface UndoTopLost { text: string; top: UndoEntry | null }
+
 export function useWorkspaceBlob({
   bootGate, olderBuild, setOlderBuild, incidentMeta, setLayers, journal, setRecent, setBuilding, setVehicleOverrides,
   setChecklists, setTrupps, setAttendance, setMittel, setShifts, setBands, setCameraViews, setTrails,
   setPlanScale, setReportMeta, setAttachments, setReportSignatures, setIncidentSettings, setPlanBindings, setPickedObjectId,
-  setIntakeReviewedAt, undoHist, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
+  setIntakeReviewedAt, undoHist, undoTopLostRef, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
   setPlanHistory, lastReportStepRef, lastCaptionStepRef, lastReorientRef, setSelectedId, setSelectedDrawingId,
   setSelectedDrawIds, objects, recent, activePlanId, pickedObjectId, building, vehicleOverrides,
   checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta,
@@ -200,8 +204,13 @@ export function useWorkspaceBlob({
       { rebase: (keep) => setPlanHistory((h) => keepPlanSteps(h, keep)), drop: () => setPlanHistory({}) },
     ], {
       onFail: (e) => console.error('undo bookkeeping failed on merge — history dropped', e),
-      // F8: ↶ must never quietly turn into an older act on another surface — say it once
-      onTopDropped: (e) => toast(fillTemplate(appConfig.copy.undoTopDropped, { what: appConfig.copy.undoDroppedWhat[e.domain] }), { icon: 'warn' }),
+      // F8: ↶ must never quietly turn into an older act on another surface — the NEXT ↶ press
+      // says it, at the button, instead of stepping (toast diet call 6, 17.11.2026: a toast here
+      // came per merge, while the operator was looking at something else). `top` is what ↶
+      // points at now: once a newer act lies on it, the word is stale and the press just steps.
+      onTopDropped: (e) => {
+        undoTopLostRef.current = { text: fillTemplate(appConfig.copy.undoTopDropped, { what: appConfig.copy.undoDroppedWhat[e.domain] }), top: undoHist.peekUndo() }
+      },
     })
     // …and the ghost-trail reconciliation re-seeds instead of running: the store was REPLACED, so
     // every marker on it would read as «vanished» and the merge would ghost the whole picture.

@@ -705,7 +705,7 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
     const drop = remember(id, line, tr && { ...tr, annoId: undefined, planId: undefined, entityId: undefined }, apply)
     // ⚠️ guarded by the Trupp's record (lib/undoKeys · watchRecords): once a merge changed it, the
     // toast declines instead of restoring the card as it stood before the other device's write
-    if (tr) undoToast(fillTemplate(appConfig.copy.atemschutz.removedToast, { name: truppLogName(tr) }), () => { drop(); restoreTrupp(tr) }, [recordKey('trupps', id)])
+    if (tr) undoToast(fillTemplate(appConfig.copy.atemschutz.removedToast, { name: truppLogName(tr) }), () => { drop(); restoreTrupp(tr) }, [recordKey('trupps', id)], { glyph: 'trash' })
     return drop
   }
 

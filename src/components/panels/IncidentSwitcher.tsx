@@ -127,7 +127,7 @@ export function IncidentSwitcher({
       doneTimer.current = setTimeout(() => setSyncPhase('idle'), 2500)
     } catch {
       setSyncPhase('idle')
-      toast(cp.syncFailedToast, { icon: 'warn', tone: 'warn' })
+      toast(cp.syncErrorToast, { icon: 'warn', tone: 'warn' })
     }
   }
   const badgeTitle: Record<Exclude<SyncStatus, 'synced'>, string> = {

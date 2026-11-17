@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
-import { confirmDialog, toast } from '../lib/ui'
+import { confirmDialog } from '../lib/ui'
 import { beginTap, endGeorefMode, georefDispatch, georefLamp, georefOnPlan, georefOpenHint, georefPairIndex, georefPhoneTargetPoint, georefSnapshot, peekGeorefPhoneTarget, georefOpenCount, georefPlacing, georefSideCount, georefSlotLabel, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type GeorefSide, type TapGesture } from '../lib/georefMode'
 import { approvedUntouched, fitSimilarity, hasAutoPairs, residualClaim } from '../lib/georef'
 import { incidentBindingApproved, isIncidentGeorefKey } from '../lib/incidentPlanBindings'
@@ -806,6 +806,10 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
   // and having it snap shut after every point would be the app deciding they were done. It
   // starts closed on every fresh arming.
   const [detail, setDetail] = useState(false)
+  // «+» with the cross off the surface: said on the dock's status line, above the bar (toast diet,
+  // 17.11.2026 – it was a toast over the very bar it is about). It belongs to the surface it was
+  // said on, and the next «+» answers for itself.
+  const [outsideOn, setOutsideOn] = useState<typeof shownSurface | null>(null)
 
   useEffect(() => {
     if (!mode.planId || !isPhone) return
@@ -866,7 +870,7 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
   const open = georefOpenCount(mode)
   const onPlan = georefOnPlan(planLabel)
   const place = () => {
-    if (!placeGeorefPhoneTarget(shownSurface)) toast(C.targetOutside, { icon: 'warn', tone: 'warn' })
+    setOutsideOn(placeGeorefPhoneTarget(shownSurface) ? null : shownSurface)
   }
   // the status: «n/2» up to the two pairs that link the plan, then just the count; under it what
   // is outstanding (amber), «Paare» while counting, «Verknüpft» once it stands
@@ -930,6 +934,9 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
             <Icon id="close" />{C.popKeep}
           </button>
         </div>
+      )}
+      {!mode.check && !mode.move && outsideOn === shownSurface && (
+        <div className={s.moveNote} role="status"><span>{C.targetOutside}</span></div>
       )}
       <div className={s.bar} role="status" aria-label={C.title}>
         {mode.check

@@ -71,15 +71,12 @@ export const mapCopy = {
     hint: 'Eine Ansicht speichert Position, Zoom und Drehung der Karte. Tippe eine gespeicherte Ansicht an, um dorthin zu wechseln, z. B. zwischen der Nordübersicht und einer in deine Blickrichtung gedrehten Ansicht. Kompass lange drücken: Karte direkt einpassen.',
     rename: 'Umbenennen',
     delete: 'Löschen',
-    saved: 'Ansicht gespeichert',
     deleted: 'Ansicht «{name}» gelöscht',
   },
   toast: {
-    audioSaved: 'Sprachnotiz gespeichert ({secs} s)',
     micDenied: 'Kein Mikrofonzugriff – als Platzhalter vermerkt',
     // the mic WAS granted; the recorder itself would not start (unsupported format/hardware)
     micFailed: 'Aufnahme nicht gestartet – erneut versuchen',
-    merged: 'Änderungen zusammengeführt',
   },
   // help shown by the info (ℹ) button on each tool dock — the instructions
   // that used to sit in the bottom hint bar

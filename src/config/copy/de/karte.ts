@@ -69,7 +69,7 @@ export const karteCopy = {
     pinBuilding: 'Gebäude an diesem Punkt',
     pinBuildingSub: 'Registerangaben ansehen',
     copyCoords: 'Koordinaten kopieren',
-    copied: 'Koordinaten kopiert',
+    copied: 'Kopiert',
     // plans
     plansTitle: 'Pläne & Module',
     georefFailed: 'Der Objektplan liess sich nicht auf die Karte legen.',

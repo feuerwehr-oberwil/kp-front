@@ -68,8 +68,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       persistTitle: 'Memorizzare la scala?',
       saveAll: 'Per tutti i piani',
       saveThis: 'Solo questo piano',
-      savedAll: 'Salvata come scala predefinita',
-      savedThis: 'Scala salvata per questo piano',
       saveFailed: 'Scala non salvata come predefinita – riprovare',
     },
     georef: {
@@ -291,7 +289,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     nearbyBannerTitle: 'Oggetto più vicino, non l’indirizzo dell’intervento.',
     nearbyBannerBody: 'Intervento: {incident} · piano: {object} ({distance}).',
     nearbyBannerNoAddress: 'senza indirizzo',
-    objectActive: 'Piani di «{name}»',
     objectReset: 'Reimposta al prossimo oggetto',
     objectSwitchConfirmTitle: 'Carica un altro oggetto',
     objectSwitchConfirm: 'I piani di tutti i moduli passeranno a «{name}». Cambiare l’oggetto attuale?',

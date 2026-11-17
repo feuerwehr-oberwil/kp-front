@@ -17,14 +17,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { scrollBehavior } from '../lib/reducedMotion'
-import { fillTemplate, stripUnprintable, unitLabel, compareText, fmtWhen } from '../lib/format'
+import { fillTemplate, stripUnprintable, compareText, fmtWhen } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { ShellLoader } from '../components/ShellLoader'
 import { currentLineFor, mittelLineCount, visibleMittel } from '../lib/mittel'
 import { missingSteps, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { addPartnerOrg } from '../lib/partnerOrgs'
-import { Overlays, toast } from '../lib/ui'
+import { Overlays, toast, undoToast } from '../lib/ui'
 import { Overlay } from '../lib/overlays'
 import { prepareUploadImage } from '../lib/imagePrep'
 import { capturePrintTransport, enqueuePrint, fetchPrintStatus, type PrintRelayStatus } from '../lib/printRelay'
@@ -288,8 +288,7 @@ export default function CaptureApp() {
     try {
       const blob = await prepareUploadImage(file)
       const up = await captureApi.uploadPhoto(token, incident.id, blob, file.name || 'beilage.jpg')
-      const ok = await run({ kind: 'addAttachment', id: up.id, url: up.url })
-      if (ok) savedToast()
+      await run({ kind: 'addAttachment', id: up.id, url: up.url })
     } catch {
       toast(C.beilagenFailed, { icon: 'warn', tone: 'warn' })
     }
@@ -369,7 +368,7 @@ export default function CaptureApp() {
   const addPartner = (typed: string) => {
     const next = addPartnerOrg(partners, stripUnprintable(typed))
     if (!next) return
-    void run({ kind: 'setMeta', patch: { partnerContacts: next } }).then((ok) => { if (ok) savedToast() })
+    void run({ kind: 'setMeta', patch: { partnerContacts: next } })
   }
   const [partnerDraft, setPartnerDraft] = useState('')
   const commitPartner = () => {
@@ -380,11 +379,19 @@ export default function CaptureApp() {
   const savePartner = (i: number, over: Partial<PartnerContact>) => {
     const next = partners.map((p, j) => (j === i ? { ...p, ...over } : p))
     if (JSON.stringify(next) === JSON.stringify(partners)) return
-    void run({ kind: 'setMeta', patch: { partnerContacts: next } }).then((ok) => { if (ok) savedToast() })
+    void run({ kind: 'setMeta', patch: { partnerContacts: next } })
   }
+  // a removal says so, with the way back (duck sweep FEEDBACK.3) – the field echoes are gone
   const removePartner = (i: number) => {
-    void run({ kind: 'setMeta', patch: { partnerContacts: partners.filter((_, j) => j !== i) } })
-      .then((ok) => { if (ok) savedToast() })
+    const before = partners
+    void run({ kind: 'setMeta', patch: { partnerContacts: partners.filter((_, j) => j !== i) } }).then((ok) => {
+      if (ok) undoToast(fillTemplate(C.mittelRemoved, { label: before[i].org }), () => { void run({ kind: 'setMeta', patch: { partnerContacts: before } }) }, undefined, { glyph: 'trash' })
+    })
+  }
+  const removeBeilage = (a: { id: string; url: string; caption?: string }) => {
+    void run({ kind: 'removeAttachment', id: a.id }).then((ok) => {
+      if (ok) undoToast(C.beilageRemoved, () => { void run({ kind: 'addAttachment', id: a.id, url: a.url, caption: a.caption }) }, undefined, { glyph: 'trash' })
+    })
   }
 
   const endedAt = rm?.endedAt
@@ -392,11 +399,9 @@ export default function CaptureApp() {
   const kontaktTel = rm?.kontaktpersonTelefon
   const presentCount = Object.values(attendance).filter((a) => a.status === 'present').length
 
-  const savedToast = () => toast(C.savedOk, { icon: 'check', tone: 'success', duration: 1600 })
-
   const retryLast = async () => {
     if (!lastFailed) return
-    if (await run(lastFailed)) savedToast()
+    await run(lastFailed)
   }
 
   // meta saves from the debounced text fields bypass run()'s global busy gate: a flush
@@ -423,8 +428,7 @@ export default function CaptureApp() {
   // (± taps must feel instant; the network write coalesces). null = cleared → undefined in meta.
   const [gerettetePending, setGerettetePending] = useState<{ personen?: number | null; tiere?: number | null }>({})
   const [geretteteFlush] = useState(() => makeDebouncedFlush<{ personen?: number; tiere?: number } | undefined>(600, async (g) => {
-    const ok = await flushMetaRef.current({ gerettete: g })
-    if (ok) savedToast()
+    await flushMetaRef.current({ gerettete: g })
   }))
   const savedPersonen = gerettetePending.personen !== undefined ? gerettetePending.personen : (rm?.gerettete?.personen ?? null)
   const savedTiere = gerettetePending.tiere !== undefined ? gerettetePending.tiere : (rm?.gerettete?.tiere ?? null)
@@ -536,7 +540,6 @@ export default function CaptureApp() {
     if (!actions.length) return
     setSearch('') // the hits that answered «Kel» are not the way to the next person
     for (const action of actions) if (!(await run(action))) return
-    savedToast()
   }
 
   // --- material: the WHOLE catalogue as a stepper list (no picker — recognition over
@@ -562,13 +565,10 @@ export default function CaptureApp() {
         if (p[key] !== menge) return p // newer taps queued — keep the optimistic count
         const rest = { ...p }; delete rest[key]; return rest
       })
+      // a count taken to 0 is a removal and offers the way back; any other count is on the
+      // stepper itself, so it says nothing (toast diet, 17.11.2026: 1→8 stacked eight pills)
       if (menge === 0 && prev > 0) {
-        toast(fillTemplate(C.mittelRemoved, { label: probe.label }), {
-          icon: 'warn',
-          action: { label: C.undo, onClick: () => { void run({ ...base, menge: prev }).then((ok) => { if (ok) savedToast() }) } },
-        })
-      } else if (menge !== prev) {
-        toast(fillTemplate(C.mittelSet, { label: probe.label, n: menge, unit: unitLabel(probe.unit) }), { icon: 'check', tone: 'success', duration: 1600 })
+        undoToast(fillTemplate(C.mittelRemoved, { label: probe.label }), () => { void run({ ...base, menge: prev }) }, undefined, { glyph: 'trash' })
       }
       return true
     } catch (e) {
@@ -724,12 +724,12 @@ export default function CaptureApp() {
   const onGruppeZeit = (id: string, iso: string | null) => {
     if (!incident) return
     const next = setGruppeZeit(rm?.gruppen, id, iso)
-    void run({ kind: 'setMeta', patch: { gruppen: next.length ? next : undefined } }).then((ok) => { if (ok) savedToast() })
+    void run({ kind: 'setMeta', patch: { gruppen: next.length ? next : undefined } })
   }
   const onFahrzeugZeit = (id: string, iso: string | null) => {
     if (!incident) return
     const next = setFahrzeugZeit(rm?.fahrzeuge, id, 'ausgerueckt', iso)
-    void run({ kind: 'setMeta', patch: { fahrzeuge: next.length ? next : undefined } }).then((ok) => { if (ok) savedToast() })
+    void run({ kind: 'setMeta', patch: { fahrzeuge: next.length ? next : undefined } })
   }
 
   // A section with nothing in it is a dead end: the header promises content and the body
@@ -873,14 +873,14 @@ export default function CaptureApp() {
             filteredRoster={filteredRoster} presentCount={presentCount} recordedCount={recordedCount}
             search={search} setSearch={setSearch} onlyRecorded={onlyRecorded} setOnlyRecorded={setOnlyRecorded}
             showTapHelp={showTapHelp} setShowTapHelp={setShowTapHelp} guestOffer={guestOffer}
-            tapPerson={tapPerson} addGuest={addGuest} run={run} savedToast={savedToast} />
+            tapPerson={tapPerson} addGuest={addGuest} run={run} />
         )}
 
         {hasMaterial && (
           <MaterialSection open={openSection === 'material'} onToggle={() => toggleSection('material')} sectionRef={(el) => { sectionRefs.current.material = el }}
             busy={busy} rm={rm} mittel={mittel} lines={lines} shownGroups={shownGroups} extraLines={extraLines}
             matSearch={matSearch} setMatSearch={setMatSearch} matPending={matPending} stepMittel={stepMittel}
-            run={run} savedToast={savedToast} />
+            run={run} />
         )}
 
         {hasZeiten && (
@@ -892,13 +892,13 @@ export default function CaptureApp() {
         <AngabenSection open={openSection === 'angaben'} onToggle={() => toggleSection('angaben')} sectionRef={(el) => { sectionRefs.current.angaben = el }}
           incident={incident} rm={rm} roster={roster} rankOf={rankOf} kontaktperson={kontaktperson} kontaktTel={kontaktTel}
           savedPersonen={savedPersonen} savedTiere={savedTiere} setGerettete={setGerettete}
-          run={run} flushMeta={flushMeta} markPickedPresent={markPickedPresent} savedToast={savedToast} />
+          run={run} flushMeta={flushMeta} markPickedPresent={markPickedPresent} />
 
         <PartnerSection open={openSection === 'partner'} onToggle={() => toggleSection('partner')} sectionRef={(el) => { sectionRefs.current.partner = el }}
           busy={busy} partners={partners} partnerRows={partnerRows} partnerDraft={partnerDraft} setPartnerDraft={setPartnerDraft}
           commitPartner={commitPartner} savePartner={savePartner} removePartner={removePartner} run={run} />
         <BeilagenSection open={openSection === 'beilagen'} onToggle={() => toggleSection('beilagen')} sectionRef={(el) => { sectionRefs.current.beilagen = el }}
-          busy={busy} attachments={attachments} uploading={uploading} addBeilagen={addBeilagen} run={run} savedToast={savedToast} />
+          busy={busy} attachments={attachments} uploading={uploading} addBeilagen={addBeilagen} removeBeilage={removeBeilage} run={run} />
       </div>
 
       {/* Abschluss: Einsatzende + Rückmeldung ELZ live right before the PDF — they are
@@ -915,7 +915,7 @@ export default function CaptureApp() {
                     cleared field used to be ignored here, so a wrong Einsatzende stuck) */}
                 <DateTimeField ariaLabel={C.ende} value={endedAt} disabled={busy} nowLabel={C.jetzt} days={zeitDays}
                   onCommit={(iso) => {
-                    void run({ kind: 'setMeta', patch: { endedAt: iso ?? undefined } }).then((ok) => { if (ok) savedToast() })
+                    void run({ kind: 'setMeta', patch: { endedAt: iso ?? undefined } })
                   }} />
               </div>
               <div className="cv-row" data-step="rueckmeldung">
@@ -932,7 +932,6 @@ export default function CaptureApp() {
                       onChange={(v) => {
                         void run({ kind: 'setMeta', patch: { rueckmeldungElz: { ...rm?.rueckmeldungElz, name: v || undefined } } }).then(async (saved) => {
                           if (!saved) return
-                          savedToast()
                           // presence only: who called the ELZ was on the Einsatz, but no derived
                           // Bemerkung — the Rückmeldung is already its own line on the Rapport
                           await markPickedPresent(v, saved)
@@ -942,7 +941,7 @@ export default function CaptureApp() {
                   </div>
                   <DateTimeField ariaLabel={C.rueckZeit} value={rm?.rueckmeldungElz?.at} disabled={busy} nowLabel={C.jetzt}
                     days={zeitDays}
-                    onCommit={(iso) => { void saveRueck({ at: iso ?? undefined }).then((ok) => { if (ok) savedToast() }) }} />
+                    onCommit={(iso) => { void saveRueck({ at: iso ?? undefined }) }} />
                 </div>
               </div>
       </section>

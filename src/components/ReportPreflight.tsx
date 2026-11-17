@@ -31,6 +31,7 @@ import { ShareIncident } from './panels/ShareIncident'
 import { cancelPrint, editorPrintTransport, enqueuePrint, fetchJobStatus, fetchPrintStatus, prewarmPrint, type PrintJobStatus, type PrintRelayStatus } from '../lib/printRelay'
 import { trackPrintJob } from '../lib/printJobToast'
 import { appConfig } from '../config/appConfig'
+import { removeWithUndo } from '../lib/removalToast'
 import { fieldWhen, fillTemplate, fmtSpanShort, hhmm, stripUnprintable, telHref, unitLabel } from '../lib/format'
 import { closeTimeOf, getIncident, type IncidentMeta } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
@@ -75,6 +76,8 @@ import { PHONE_TABS, STEP_TAB, rapportKept, useReportPlace, type PhoneTab } from
 
 const NO_IDS = new Set<string>()
 const NO_SIGNATURES: ReportSignature[] = []
+/** The `kind` (lib/ui · toast) of every answer to the print job's «Prüfen»: a second press replaces the first. */
+const PRINT_CHECK = 'print-check'
 /** The Rapport head's ladder (lib/pageHeadFit): «Ausdrucken» gives its word first, then
  *  «Einsatz abschliessen» shortens to the word «Abschliessen» (never a bare glyph, 04.11.2026), then
  *  the primary «Einsatzrapport (PDF)» shortens to «PDF ▾» (mockup 2), and last the title says what
@@ -187,7 +190,7 @@ function ClosedStrip({ onReopen }: { onReopen?: () => Promise<ReactivateResult> 
       <Icon id="lock" className="rp-band-wait" />
       <span className="rp-band-txt">{onReopen ? C.rapportClosedHint : C.rapportClosedViewOnly}</span>
       {onReopen && (
-        <Button disabled={busy} aria-busy={busy || undefined} onClick={reopen}>{busy ? C.reopening : C.reactivate}</Button>
+        <Button disabled={busy} aria-busy={busy || undefined} icon={busy ? <ShellLoader /> : undefined} onClick={reopen}>{busy ? C.reopening : C.reactivate}</Button>
       )}
     </div>
   )
@@ -927,12 +930,13 @@ export function ReportPreflight({
     setJobBusy(false)
     // «nicht mehr auffindbar» and «nicht erreichbar» are different answers: the first is about
     // the JOB (it stopped existing — clear it, outcome unknown), the second about the network.
-    if (s === 'gone') { settlePrintJob(job.id, 'gone'); toast(R.jobGone, { icon: 'warn', tone: 'warn' }); return }
-    if (!s) { toast(R.jobUnreachable, { icon: 'warn', tone: 'warn' }); return }
-    if (s.status === 'done') { settlePrintJob(job.id, 'done'); toast(R.printed, { icon: 'check', tone: 'success' }); return }
-    if (s.status === 'failed') { settlePrintJob(job.id, 'failed'); toast(R.printFailed, { icon: 'warn', tone: 'warn' }); return }
-    if (s.status === 'cancelled') { settlePrintJob(job.id, 'cancelled'); toast(R.cancelled); return }
-    toast(s.status === 'printing' ? R.printing : R.queued, { icon: 'printer', tone: 'warn' })
+    // every answer to «Prüfen» is ONE pill: pressing it again replaces the last answer
+    if (s === 'gone') { settlePrintJob(job.id, 'gone'); toast(R.jobGone, { icon: 'warn', tone: 'warn', kind: PRINT_CHECK }); return }
+    if (!s) { toast(R.jobUnreachable, { icon: 'warn', tone: 'warn', kind: PRINT_CHECK }); return }
+    if (s.status === 'done') { settlePrintJob(job.id, 'done'); toast(R.printed, { icon: 'check', tone: 'success', kind: PRINT_CHECK }); return }
+    if (s.status === 'failed') { settlePrintJob(job.id, 'failed'); toast(R.printFailed, { icon: 'warn', tone: 'warn', kind: PRINT_CHECK }); return }
+    if (s.status === 'cancelled') { settlePrintJob(job.id, 'cancelled'); toast(R.cancelled, { kind: PRINT_CHECK }); return }
+    toast(s.status === 'printing' ? R.printing : R.queued, { icon: 'printer', tone: 'warn', kind: PRINT_CHECK })
   }
   /** Give up on a job that is still in the queue. Refused once the agent has claimed it — the
    *  paper may already be moving, and the button says so rather than pretending. */
@@ -942,7 +946,8 @@ export function ReportPreflight({
     setJobBusy(true)
     const res = await cancelPrint(editorPrintTransport(), job.id)
     setJobBusy(false)
-    if (res === 'cancelled') { settlePrintJob(job.id, 'cancelled'); toast(R.cancelled); return }
+    // cancelled: the job row leaves – only a refusal is said
+    if (res === 'cancelled') { settlePrintJob(job.id, 'cancelled'); return }
     // The three refusals mean three different things (see printRelay · CancelOutcome):
     // «zu spät» only when the relay actually SAID the job is past cancelling — a network
     // failure used to wear the same words, claiming knowledge nobody had.
@@ -1510,7 +1515,8 @@ export function ReportPreflight({
             title={A.steps[guideNext]} onGo={() => guideTo(guideNext)} onHide={() => setGuideAt(null)} hideLabel={P.guideHide} />
         )}
         {showReadyBand && (
-          <RpStrip done lead={P.bandReady} title={P.bandPdf} busy={pdfBusy}
+          // busy = loader + word (duck sweep FEEDBACK.12), like every busy button in an open sheet
+          <RpStrip done lead={P.bandReady} title={pdfBusy ? P.pdfBusy : P.bandPdf} busy={pdfBusy}
             icon={pdfBusy ? <ShellLoader /> : <Icon id="doc" />} onGo={() => void startOutput()} />
         )}
         {/* …and its counterpart: a print that has been handed over and has not come back. It is
@@ -2342,7 +2348,8 @@ export function ReportPreflight({
                             <button
                               type="button" className="report-att-x" aria-label={appConfig.copy.delete}
                               title={appConfig.copy.delete}
-                              onClick={() => savePartners(partners.filter((_, j) => j !== r.i))}
+                              // the delete rule (lib/removalToast): the row is its own ↶ step, the toast takes it back
+                              onClick={() => removeWithUndo(fillTemplate(appConfig.copy.removedToast.named, { what: r.org || P.partnerOrgShort }), () => savePartners(partners.filter((_, j) => j !== r.i)))}
                             ><Icon id="trash" /></button>
                           )}
                         </div>
@@ -2491,6 +2498,7 @@ export function ReportPreflight({
                   // under the crop as it is reconstructed.
                   atMs={kroki.at}
                   atBusy={kroki.busy}
+                  atFailed={kroki.atFailed}
                   onAtChange={kroki.setAt}
                   moments={kroki.moments}
                   startedAtMs={Date.parse(meta.startedAt ?? incident.started_at) || null}

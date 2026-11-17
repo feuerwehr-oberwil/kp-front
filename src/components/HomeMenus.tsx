@@ -23,6 +23,9 @@ export type HomeActions = {
   isEditor: boolean
   user: { display_name: string; color: string | null; role: string }
   incidents: IncidentMeta[]
+  /** why `incidents` may not be the server's list: it failed to load, or it is the device's copy
+   *  (offline) – null when it is fresh. Said where the list stands (App · listNote). */
+  listNote: string | null
   activeId: string | null
   /** the Einsatz being opened right now (its row shows the loader) */
   opening: string | null
@@ -45,7 +48,7 @@ export type HomeActions = {
 /** The launcher card's content: the open Einsätze to resume + the alarms to take, shown directly
  *  (no «Kein offener Einsatz» dead-end), with manual create always on. */
 export function LauncherBody({
-  trouble, onTrouble, onTroubleDismiss, linkScoped, isEditor, user, incidents, opening, alarms, taking, onTake,
+  trouble, onTrouble, onTroubleDismiss, linkScoped, isEditor, user, incidents, listNote, opening, alarms, taking, onTake,
   onDismissAlarm, onOpenIncident, onHistory, onCreate, onObjectVisits, onSettings, onHelp, onInstall, onLogout,
 }: HomeActions) {
   const openIncidents = incidents.filter((i) => !i.is_archived)
@@ -57,6 +60,10 @@ export function LauncherBody({
     <>
       {trouble && !linkScoped && (
         <FeedbackPrompt trouble={trouble} onOpen={() => onTrouble(trouble)} onDismiss={onTroubleDismiss} />
+      )}
+      {/* the list's own state, at its head (a failed load is not «nothing open») */}
+      {listNote && !linkScoped && (
+        <p className="form-warn form-warn-amber form-warn-compact" role="status"><Icon id="warn" /><span className="form-warn-text">{listNote}</span></p>
       )}
       {hasLanding ? (
         <div className="ip-launch-list">
@@ -175,7 +182,7 @@ export function LauncherBody({
  *  (`onDevice`: KarteApp mounts it, with what the viewer holds offline). Never for a link
  *  session (appScreen gives it no viewer), so every account door is drawn here. */
 export function HomeMenu({
-  close, onDevice, trouble, onTrouble, onTroubleDismiss, linkScoped, isEditor, user, incidents, activeId, opening,
+  close, onDevice, trouble, onTrouble, onTroubleDismiss, linkScoped, isEditor, user, incidents, listNote, activeId, opening,
   alarms, taking, onTake, onDismissAlarm, onOpenIncident, onHistory, onCreate, onObjectVisits, onHelp,
   onInstall, onLogout,
 }: HomeActions & { close: () => void; onDevice: () => void }) {
@@ -187,6 +194,7 @@ export function HomeMenu({
       <AppMenuRows
         activeId={null}
         incidents={incidents}
+        listNote={listNote}
         isEditor={isEditor}
         user={user}
         opening={opening}

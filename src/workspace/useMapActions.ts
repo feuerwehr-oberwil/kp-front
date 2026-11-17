@@ -385,7 +385,7 @@ export function useMapActions({
         () => setCameraViews((vs) => vs.filter((x) => x.id !== v.id)),
         () => setCameraViews((vs) => (vs.some((x) => x.id === v.id) ? vs : [...vs, v])),
         () => [recordKey('cameraViews', v.id)], 'silent')
-      toast(appConfig.copy.mapViews.saved, { icon: 'compass', tone: 'success' })
+      // no «gespeichert» toast: the new Ansicht stands in the list
     },
     onRename: (id, name) => {
       const prev = cameraViews.find((v) => v.id === id)

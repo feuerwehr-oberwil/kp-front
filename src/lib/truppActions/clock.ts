@@ -302,15 +302,8 @@ export function truppClockActions(deps: ClockDeps) {
      * Tafel too) — the confirm toast that used to double it went 09.09. with all the board's
      * popping confirmations. */
     const drop = remember(id, line ?? (tr ? truppLogName(tr) : ''), tr, apply)
-    /* A calm word when an Atemschutz-Trupp goes in and nobody stands ready to go in after it (F1,
-     * 08.10.2026). A toast, never a question: the Eintritt is already written, and a crew is not
-     * held at the door by an app. «Ready» is what the board models (lib/atemschutz · safetyReady):
-     * Auftrag «Sichern», under PA, angemeldet. Not for a Sicherungstrupp going in itself, nor on a
-     * re-entry after a Rückzug (that crew was inside all along). */
-    if (status === 'aktiv' && tr && !tr.entryTime && isAtemschutzTrupp(tr) && !safetyEntry
-      && safetyReady(trupps.filter((x) => x.id !== id)).length === 0) {
-      toast(az.notfall.noSafetyHint, { icon: 'info' })
-    }
+    /* «Kein Sicherungstrupp bereit» is no toast any more (toast diet call 4, 17.11.2026): it is a
+     * standing Meldeleiste row while a PA Trupp is inside and nobody stands ready (lib/meldungen). */
     /* …with ONE exception, the card's own «Nicht eingesetzt» (owner review 26.09.2026): it is a
      * visible button again, and a one-shot that closes a Trupp gets the confirm-with-undo toast
      * (docs/undo.md). Its «Rückgängig» takes the step off the timeline and puts the Trupp back as it
@@ -383,7 +376,8 @@ export function truppClockActions(deps: ClockDeps) {
       recorded.delete(id)
       setTrupps((ts) => ts.map((x) => (x.id === id ? keepCrewFiled(tr, x) : x)))
       logStep('undo', line, id)
-    }, [recordKey('trupps', id)])
+      // its own kind: the way back from a mis-triggered Notfall is never pushed out by a later pill
+    }, [recordKey('trupps', id)], { kind: 'notfall' })
   }
 
   /**

@@ -129,10 +129,20 @@ export function usePlanGeoref({
     }
   }
   // an offline PUT must not lose the pairs: they stay in the store and the next save writes the
-  // whole list again (saveGeoref replaces the document), so the retry needs no queue of its own
+  // whole list again (saveGeoref replaces the document), so the retry needs no queue of its own.
+  // ⚠️ Said ONCE per offline spell (toast diet, 17.11.2026): offline every pair drag fails, and
+  // each used to add a pill. Online, a failure is said every time – as one pill (`kind`).
   useEffect(() => {
-    setGeorefSaveErrorHandler(() => toast(appConfig.copy.whiteboard.georef.saveFailed, { icon: 'warn', tone: 'warn' }))
-    return () => setGeorefSaveErrorHandler(null)
+    let saidOffline = false
+    const back = () => { saidOffline = false }
+    window.addEventListener('online', back)
+    setGeorefSaveErrorHandler(() => {
+      const offline = !navigator.onLine
+      if (offline && saidOffline) return
+      saidOffline = offline
+      toast(appConfig.copy.whiteboard.georef.saveFailed, { icon: 'warn', tone: 'warn', kind: 'georef-save' })
+    })
+    return () => { setGeorefSaveErrorHandler(null); window.removeEventListener('online', back) }
   }, [])
   // switching to another plan document ends the mode — the references belong to ONE sheet, and
   // a half-placed pair carried onto a different one would be nonsense

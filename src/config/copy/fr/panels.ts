@@ -162,8 +162,6 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     cancel: 'Annuler',
     loadAll: 'Tout charger pour le hors ligne',
     foot: 'Charge la carte, les plans, les symboles et les conduites de cette intervention sur cet appareil. La météo et la recherche d’objet nécessitent du réseau.',
-    dlDone: 'Carte prête hors ligne – {n} tuiles',
-    dlDoneCapped: 'Carte prête hors ligne – étendue limitée, {n} tuiles',
     dlPartial: 'Chargement partiel – {n} sur {total}. La carte manque en bordure de la zone.',
     dlPartialCapped: 'Chargement partiel – {n} sur {total}, étendue limitée. La carte manque en bordure.',
     dlNone: 'Rien chargé – pas de réseau. La carte ne sera pas disponible sur les lieux.',

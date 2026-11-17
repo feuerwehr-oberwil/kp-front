@@ -143,7 +143,7 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
    *  journalVocabulary), so «Eintrag an dieser Stelle» completes and marks names identically */
   vocab?: JournalLink[]
   /** append a journal row at the given absolute time; returns the created row id */
-  onAddEntry?: (text: string, atIso: string, quiet?: boolean) => string
+  onAddEntry?: (text: string, atIso: string) => string
   /** append one transcript section (offset into the recording, in s) onto THIS row */
   onAddSection?: (atSec: number, text: string) => void
   /** replace one section's words ('' removes it). The recording stays the original, so this
@@ -200,7 +200,7 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
     if (!body) return
     // on a memo a confirmed segment IS a transcript section — same home as typed ones
     if (isMemo) { onAddSection!(seg.start, body); void patchSegment(index, 'confirmed', undefined, body); return }
-    const rowId = onAddEntry!(body, new Date(win.startMs + seg.start * 1000).toISOString(), true)
+    const rowId = onAddEntry!(body, new Date(win.startMs + seg.start * 1000).toISOString())
     void patchSegment(index, 'confirmed', rowId, body)
   }
   const confirmAll = () => { for (const s of openDrafts) confirmDraft(s.index, s) }

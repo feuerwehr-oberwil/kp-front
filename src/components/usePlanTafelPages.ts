@@ -106,7 +106,7 @@ export function usePlanTafelPages({ onTafel, pages, titles, page, setPageSel, re
     const h = tafel?.history
     if (!h) { toast(text, { icon: 'trash' }); return }
     const top = h.top()
-    undoToast(text, () => h.undo(), () => top != null && h.top() === top, { kind: 'tafel-row' })
+    undoToast(text, () => h.undo(), () => top != null && h.top() === top, { glyph: 'trash' })
   }
   /** «Drucken» on a page (owner): this page or all of them as a PDF — the server draws the
    *  paper (lib/tafelPrint, loaded on the tap); offline that is said calmly, never an error */
@@ -123,7 +123,7 @@ export function usePlanTafelPages({ onTafel, pages, titles, page, setPageSel, re
         throw e
       }
     } catch (e) {
-      if (e instanceof OfflineChunk) toast(TP().printOffline, { icon: 'info' })
+      if (e instanceof OfflineChunk) toast(TP().printOffline, { icon: 'warn' })
       else toast(TP().printFailed, { icon: 'warn', tone: 'warn' })
     } finally {
       setPrinting(false)

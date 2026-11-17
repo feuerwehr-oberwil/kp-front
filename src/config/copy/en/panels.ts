@@ -169,8 +169,6 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     wsNewerSub: 'View only until then – changes are locked.',
     wsNewerAction: 'Update',
     wsDroppedDismiss: 'Hide',
-    dlDone: 'Map ready offline – {n} tiles',
-    dlDoneCapped: 'Map ready offline – area limited, {n} tiles',
     dlPartial: 'Partly loaded – {n} of {total}. The map is missing at the edge of the area.',
     dlPartialCapped: 'Partly loaded – {n} of {total}, area limited. The map is missing at the edge.',
     dlNone: 'Nothing loaded – no connection. The map will not be available at the scene.',
