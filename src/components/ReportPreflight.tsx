@@ -75,7 +75,7 @@ import { ReportSignatures } from './ReportSignatures'
 import { signaturesToPrint, useSignatureLock } from './useReportSignatures'
 import { useAuditProof } from './useAuditProof'
 import { initialKrokiAt, useKrokiMoment } from './useKrokiMoment'
-import { PHONE_TABS, STEP_TAB, rapportKept, useReportPlace, type PhoneTab } from './useReportPlace'
+import { PHONE_TABS, STEP_TAB, rapportKept, useJournalPrintAsk, useReportPlace, type PhoneTab } from './useReportPlace'
 
 const NO_IDS = new Set<string>()
 const NO_SIGNATURES: ReportSignature[] = []
@@ -92,16 +92,6 @@ const RP_FOLD = { print: 1, pdf: 2, complete: 3, title: 4 } as const
 // «Zeig mir diese offene Angabe» from outside the sheet — lives with the tabs (useReportPlace)
 export { requestReportStep } from './useReportPlace'
 
-/** «Verlauf drucken / PDF» from the Verlauf's funnel menu (F16 · TASK.7, 17.11.2026): the Verlauf
- *  leaves the app as the Rapport's «Einsatzjournal» section, and that menu was three surfaces
- *  away. This opens the PDF ▾ with «Einsatzjournal» ticked. Asked before `setMode('rapport')`
- *  mounts the sheet, so the ask is queued like `requestReportStep`. */
-let journalPrintListener: (() => void) | null = null
-let journalPrintQueued = false
-export function requestJournalPrint() {
-  if (journalPrintListener) journalPrintListener()
-  else journalPrintQueued = true
-}
 
 /** HH:MM of a server read-out beside a vehicle (vor Ort / zurück) — not a field: every field of the
  *  Rapport reads its date too (DateTimeField). */
@@ -985,19 +975,13 @@ export function ReportPreflight({
     optionOverrides.current = { ...optionOverrides.current, ...patch }
     setOptions((o) => ({ ...o, ...patch }))
   }
-  // the outside ask (requestJournalPrint): tick «Einsatzjournal» and open the ▾ it lives in, two
-  // frames on so the trigger is laid out. Mount-only subscription through a ref, as useReportPlace.
+  // the outside ask (useReportPlace · requestJournalPrint): tick «Einsatzjournal» and open the ▾
+  // it lives in, two frames on so the trigger is laid out
   const pdfMoreRef = useRef<HTMLButtonElement>(null)
-  const openJournalPrint = useRef(() => {})
-  openJournalPrint.current = () => {
+  useJournalPrintAsk(() => {
     if (!options.journal) patchOpt({ journal: true })
     requestAnimationFrame(() => requestAnimationFrame(() => pdfMoreRef.current?.click()))
-  }
-  useEffect(() => {
-    journalPrintListener = () => openJournalPrint.current()
-    if (journalPrintQueued) { journalPrintQueued = false; openJournalPrint.current() }
-    return () => { journalPrintListener = null }
-  }, [])
+  })
   // is there anything on the SERVER to archive? Journal photos/recordings and Rapport-Beilagen
   // are all Media rows; blob: URLs are uploads still in flight and not fetchable as a ZIP yet
   const hasStoredMedia = useMemo(() => (
