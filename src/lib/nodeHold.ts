@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { buzz } from './haptics'
 
 /**
  * Hold-to-act for the node handles of a line, an area, a measurement or a draft — and for the
@@ -108,10 +109,11 @@ export function useNodeHold() {
         if (held >= NODE_HOLD_FIRE_MS) {
           const cb = s.cb
           cancel()
-          // the same 12 ms tick «verbinden» and «lösen» give at the moment they take effect
-          // (lib/lineAttachments call sites) — a hold that completes under a glove is felt, not
-          // read. Absent on desktop and on iOS, where the API simply is not there.
-          navigator.vibrate?.(12)
+          // THE hold buzz (lib/haptics, FEEDBACK.9) at the moment the hold takes effect – a node
+          // delete, «Entsperren», the Notfall tile: a hold that completes under a glove is felt,
+          // not read. Once, at the act: the ring that fills is what the arming says. Absent on
+          // desktop and on iOS, where the API simply is not there.
+          buzz()
           cb()
           return
         }
