@@ -229,7 +229,7 @@ export const anwesenheitCopy = {
     checkIn: 'da',
     checkInLabel: '{name} ist da – als anwesend erfassen',
     allHere: 'Alle, die kommen wollten, sind erfasst.',
-    unmapped: (n: number) => (n === 1 ? '1 Rückmeldung ohne Eintrag in der Mannschaftsliste' : `${n} Rückmeldungen ohne Eintrag in der Mannschaftsliste`),
+    unmapped: (n: number) => (n === 1 ? '1 Rückmeldung ohne Eintrag in der Personalliste' : `${n} Rückmeldungen ohne Eintrag in der Personalliste`),
     hint: 'Eine Divera-Antwort ist keine Anwesenheit – erst «da» erfasst jemanden.',
     collapse: 'Anrückend einklappen',
     expand: 'Anrückend aufklappen',

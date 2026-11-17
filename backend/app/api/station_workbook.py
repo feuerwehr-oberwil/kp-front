@@ -251,7 +251,7 @@ async def apply_workbook(db: AsyncSession, plan: ImportPlan, *, actor_id: uuid.U
 
 
 async def _apply_roster(db: AsyncSession, plan: ImportPlan) -> None:
-    """Write the Mannschaft sheet.
+    """Write the Personal sheet.
 
     Same session as the config write above, so a failure in either takes both down: a station
     must never end up with a Dienstgrade list that no longer contains the ranks its people
@@ -263,7 +263,7 @@ async def _apply_roster(db: AsyncSession, plan: ImportPlan) -> None:
     roster, index = plan.roster, plan.roster_index
     if roster is None or index is None:
         return
-    rows = plan.mannschaft_rows
+    rows = plan.personal_rows
     people = {p.id: p for p in await _people(db)}
     made: dict[int, Personnel] = {}
     order = plan.name_order

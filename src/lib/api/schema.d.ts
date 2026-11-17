@@ -7873,7 +7873,7 @@ export interface components {
          * @description What one sheet would do — the numbers the confirmation screen is built on.
          *
          *     ``removal_kind`` exists because "absent" means two different things in one workbook, and
-         *     the two need different German words. A person missing from ``Mannschaft`` is DEACTIVATED
+         *     the two need different German words. A person missing from ``Personal`` is DEACTIVATED
          *     (soft — closed incidents resolve names through the row, so it is never deleted); a vehicle
          *     id missing from ``Fahrzeuge`` is REMOVED from the list. An operator who reads one and gets
          *     the other has been misled by the screen that was supposed to protect them.

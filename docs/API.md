@@ -149,7 +149,7 @@ Three rules the shapes encode:
 
 ## Station workbook – `/api/station-workbook/*`
 
-One `.xlsx` a station downloads, edits and uploads back; sheets `Mannschaft`, `Dienstgrade`,
+One `.xlsx` a station downloads, edits and uploads back; sheets `Personal`, `Dienstgrade`,
 `Fahrzeuge`, `Mittel`, `Mittel-Bestände`, `Quellen`, `Partnerorganisationen`, `Symbolfelder`.
 **Admin session on all three routes**, and **upsert only** – there is no replace mode and no
 mode parameter to add one to. What it does and does not cover:
@@ -165,7 +165,7 @@ mode parameter to add one to. What it does and does not cover:
 `warnings[]`, `emptied[]`, `digest`, `ok`. One `SheetImpact` per sheet carries `sheet`,
 `present`, `rows`, `created`, `updated`, `unchanged`, `removed[]` (named, capped at 8),
 `removed_total` and `removal_kind` – `"removed"` | `"deactivated"` | `"none"`. Those last two
-words are the contract, not phrasing: a person missing from `Mannschaft` is **deactivated**
+words are the contract, not phrasing: a person missing from `Personal` is **deactivated**
 (closed incidents resolve names through the row), an id missing from an id-keyed sheet is
 **removed**. A sheet that is not in the file at all comes back `present: false` and changes
 nothing.
@@ -178,8 +178,8 @@ all-or-nothing (`ok: false` → **400**, nothing written), and every write that 
 **config** keeps the document it replaced under source `workbook`, so «Letzte Änderungen» can undo
 that half.
 
-⚠️ **The Mannschaft half is not covered by config history.** Personnel live in their own table;
-`keep_previous` runs only when a config section actually changed, so a Mannschaft-only import
+⚠️ **The Personal half is not covered by config history.** Personnel live in their own table;
+`keep_previous` runs only when a config section actually changed, so a Personal-only import
 writes no history row at all. What limits the damage instead: a person missing from the sheet is
 **deactivated, never deleted** (past incidents still reference them), so the reverse is a
 re-activation rather than a recovery. The undo for the roster is the export taken **before** the

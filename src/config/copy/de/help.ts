@@ -307,7 +307,7 @@ export const helpCopy = {
       {
         id: 'anwesenheit', title: 'Anwesenheit', icon: 'people',
         blocks: [
-          { kind: 'lead', text: 'Wer im Einsatz ist, von wann bis wann – die Grundlage für Personalblatt und Stunden. Die Mannschaft kommt aus der Verwaltung; hier wird nur festgehalten, wer heute da ist.' },
+          { kind: 'lead', text: 'Wer im Einsatz ist, von wann bis wann – die Grundlage für Personalblatt und Stunden. Das Personal kommt aus der Verwaltung; hier wird nur festgehalten, wer heute da ist.' },
           { kind: 'sub', text: 'Erfassen' },
           { kind: 'list', items: [
             'Eine Zeile **antippen** schaltet weiter: **frei → anwesend → gegangen → frei**. «Anwesend» beginnt beim ersten Mal ab der **Alarmzeit** (getippt wird meist später als angekommen), bei einer Rückkehr ab jetzt.',
@@ -491,16 +491,16 @@ export const helpCopy = {
           { kind: 'lead', text: 'Was für die ganze Wehr gilt – Personal, Dienstgrade, Fahrzeuge, Material, Kartenebenen, Objektpläne, Checklisten – wird unter **Verwaltung** gepflegt, nicht im Einsatz. Der Zugang dorthin ist ein eigenes Passwort, nicht die Einsatz-PIN.' },
           { kind: 'sub', text: 'Die Arbeitsmappe (Excel)' },
           { kind: 'list', items: [
-            'Unter **Daten › Arbeitsmappe** gibt es die Listen der Wehr als eine einzige Excel-Datei: herunterladen, in Excel, Numbers oder LibreOffice bearbeiten, wieder hochladen. Acht Blätter – Mannschaft, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen, Symbolfelder (die Blätter heissen so, wie sie in der Datei stehen).',
+            'Unter **Daten › Arbeitsmappe** gibt es die Listen der Wehr als eine einzige Excel-Datei: herunterladen, in Excel, Numbers oder LibreOffice bearbeiten, wieder hochladen. Acht Blätter – Personal, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen, Symbolfelder (die Blätter heissen so, wie sie in der Datei stehen).',
             'Vor dem Schreiben kommt immer eine **Vorschau**: Blatt für Blatt, was neu wäre, was sich ändert, was wegfällt – und jede abgelehnte Zeile mit Blatt und Zeilennummer. Bis zur Bestätigung ist nichts geschrieben, und Abbrechen schreibt nichts.',
             'Dieselbe Datei nochmals hochgeladen ändert gar nichts. Der Download ist damit auch die Vorlage – und man kann ihn gefahrlos nur zum Nachschauen holen.',
           ] },
           { kind: 'note', text: '**Ein fehlendes Blatt ist kein leeres Blatt.** Ein Blatt ganz aus der Datei zu löschen lässt diese Liste unverändert. Nur die Zeilen zu löschen und die Titelzeile stehen zu lassen leert sie – genau so leert man eine Liste absichtlich.' },
-          { kind: 'note', text: '**«Fehlt» heisst zweierlei.** Eine Person, die im Blatt «Mannschaft» fehlt, wird **deaktiviert** und nie gelöscht – abgeschlossene Einsätze lösen ihren Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird **entfernt**. Die Vorschau benennt beides mit genau diesen Wörtern und zählt es nicht nur.' },
+          { kind: 'note', text: '**«Fehlt» heisst zweierlei.** Eine Person, die im Blatt «Personal» fehlt, wird **deaktiviert** und nie gelöscht – abgeschlossene Einsätze lösen ihren Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird **entfernt**. Die Vorschau benennt beides mit genau diesen Wörtern und zählt es nicht nur.' },
           { kind: 'sub', text: 'Wenn doch etwas schiefgeht' },
           { kind: 'list', items: [
             'Jede Änderung an den **Listen** hebt den Stand von vorher auf: **Sicherung › Letzte Änderungen** zeigt sie mit Zeitpunkt und holt einen davon zurück – egal ob ein Formular, die Arbeitsmappe oder das Terminal geschrieben hat.',
-            '**Das Personal steht dort nicht drin.** Personen sind keine Konfiguration, sondern eigene Einträge – ein Import, der nur das Blatt Mannschaft anfasst, taucht unter «Letzte Änderungen» gar nicht auf. Dafür wird dort auch nie jemand gelöscht, nur deaktiviert: rückgängig heisst wieder aktivieren. Wer die Liste als Ganzes zurückholen will, nimmt die Datei, die er vor dem Import heruntergeladen hat.',
+            '**Das Personal steht dort nicht drin.** Personen sind keine Konfiguration, sondern eigene Einträge – ein Import, der nur das Blatt Personal anfasst, taucht unter «Letzte Änderungen» gar nicht auf. Dafür wird dort auch nie jemand gelöscht, nur deaktiviert: rückgängig heisst wieder aktivieren. Wer die Liste als Ganzes zurückholen will, nimmt die Datei, die er vor dem Import heruntergeladen hat.',
             'Die Arbeitsmappe ist **keine Sicherung**: sie deckt nur die Listen ab. Die Sicherung ist der JSON-Export unter **Sicherung**.',
           ] },
         ],
