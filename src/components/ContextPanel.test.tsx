@@ -691,10 +691,12 @@ describe('ContextPanel — the Einsatzleiter pair', () => {
     expect(onFields).toHaveBeenCalledWith({ Name: 'Müller Hans', 'Stv.': 'Widmer Céline' })
   })
 
-  // rare-user F17 (17.11.2026): the handover says its word, not a bare ⇄
-  it('writes «Führung übergeben» under the glyph', () => {
+  // rare-user r2 F17 (17.11.2026): the handover is its own worded line, not a tile beside the EL name
+  it('puts «Führung übergeben» under the names, not inside the EL row', () => {
     setup(el({ Name: 'Widmer Céline', 'Stv.': 'Müller Hans' }))
-    expect(screen.getByRole('button', { name: SWAP }).textContent).toBe(SWAP)
+    const swap = screen.getByRole('button', { name: SWAP })
+    expect(swap.textContent).toBe(SWAP)
+    expect(swap.closest('.field')).toBeNull()
   })
 
   it('works with only one of the two filled — that is a handover to nobody yet', () => {
