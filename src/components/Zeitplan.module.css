@@ -115,7 +115,10 @@
    spacer is chrome, not a control, so it wins the wash back off again below. */
 .who:active:not(:disabled)::before { background-image: linear-gradient(var(--press), var(--press)); }
 .whoHead:active:not(:disabled)::before { background-image: none; }
-.name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* two lines, then «…» – the first name of «Nachname Vorname» survives (design pass D3, 18.11.2026,
+   as Anwesenheit.module.css · `.name`); the cell is ≥ --tap tall, two 1.2 lines fit inside it */
+.name { min-width: 0; overflow: hidden; overflow-wrap: anywhere; line-height: 1.2;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 /* a row that carries a plan reads as "done", like .isPresent does in the Anwesenheit list.
    The hairline lives on ::before now — that is where the card is drawn. */
 .rowPlanned .who::before { border-color: color-mix(in srgb, var(--st-planned) 45%, var(--edge)); }
