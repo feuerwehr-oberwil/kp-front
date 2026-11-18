@@ -21,8 +21,6 @@
 .stat { display: flex; align-items: center; gap: 8px; font-size: var(--fs-1); color: var(--ink-dim); font-weight: var(--fw-medium); white-space: nowrap; flex: none; }
 .stat b { font-family: var(--mono); color: var(--ink); }
 .dot { width: 8px; height: 8px; border-radius: 50%; }
-.dot.r { background: var(--red); animation: p 1.4s infinite; }
-@keyframes p { 50% { opacity: .3; } }
 /* Station print relay: heartbeat dot on «An Stationsdrucker» (preflight + capture). Green and
    silent while the relay answers — only the abnormal state gets words, because the title= it used
    to rely on does not exist on a tablet. */

@@ -21,8 +21,8 @@
 .replay-sub { font-weight: var(--fw-medium); opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* A still dot, deliberately. It carried `animation: recPulse` for months without ever pulsing —
    a module localizes the name, so the global keyframes were never reached — and nobody missed it:
-   the banner already says in words that this is the past. A pulse belongs on the composer's REC
-   dot, where something really is running. */
+   the banner already says in words that this is the past. (The REC buttons, where something
+   really is running, are still too since design pass C6, 18.11.2026: red + the timer say it.) */
 .replay-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--on-accent-ink); flex: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--on-accent-ink) 35%, transparent); }
 .replay-exit {
