@@ -1,0 +1,25 @@
+/* «Ziel für den Trupp · Symbol antippen · Abbrechen» (ZielPickBar, lib/zielPick): ONE bar along the
+   foot of the screen while the Trupp form's Ziel is picked on the Karte or a Plan – the georef
+   instrument's frame (GeorefMode · .pill / .bar: surface, the blue edge of a running mode, --e4),
+   fixed to the viewport so it stands the same on both surfaces. */
+.bar {
+  position: fixed; z-index: var(--z-mode-pill);
+  left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right));
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  max-width: 560px; margin: 0 auto;
+  display: flex; align-items: center; gap: var(--sp-3);
+  min-height: 64px; box-sizing: border-box; padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);
+  border-radius: var(--r-bar); border: 1px solid var(--blue-45);
+  background: var(--surface); box-shadow: var(--e4);
+}
+.text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.text b { font: var(--fw-bold) var(--fs-3)/var(--lh-3) var(--body); color: var(--ink); }
+.text span { font: var(--fs-2)/var(--lh-2) var(--body); color: var(--ink-dim); }
+
+/* While it runs, the pick is the one thing at the bottom: the rails, the tool and view bars, the
+   floating row, the Eintrag FAB and any open panel step aside – the georef mode's rule
+   (09-whiteboard · `.app.georef-mode`), for the same reason: a tap on the surface belongs to the
+   mode, so nothing that would arm a tool or leave for another surface stays offered. Painted away,
+   never unmounted, so all of it is back as it was when the pick ends. The top bar stays. */
+:global(.app.ziel-pick :is(.navrail, .tool-rail, .tool-rail + .view-bar, .wb-tools, .wb-tools + .view-bar,
+  .wb-botleft, .fab-entry, .layers-card, .mapctl-backdrop, .ctx, .sel-bar)) { display: none; }

@@ -61,6 +61,8 @@ const mouseDown = (el: Element | Window | Document, init: Parameters<typeof fire
 const tapOn = (el: Element) => { mouseDown(el); fireEvent.pointerUp(el, { pointerType: 'mouse' }) }
 import { replayEmits } from '../lib/replay.test-utils'
 import { endingOf } from '../lib/drawingEdit'
+import { beginZielPick, endZielPick } from '../lib/zielPick'
+import { clearDraft, readDraft } from '../lib/draftKeep'
 
 class RO { observe() {} unobserve() {} disconnect() {} }
 
@@ -627,6 +629,18 @@ describe('the Plan rail and its drafts', () => {
     // the ContextPanel opened by the same tap carries the delete — «Entfernen» on a symbol since
     // it also offers «Gelöscht / erledigt» (review item 21b)
     expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
+  })
+
+  // owner pick M5a A, 18.11.2026: the Trupp form's Ziel picked on the Plan (lib/zielPick)
+  it('while the Trupp form\'s Ziel is picked, a symbol tap hands over its name instead of selecting', () => {
+    const key = 'atemschutz:trupp:create:new:ziel'
+    beginZielPick(key, { mode: 'create' })
+    try {
+      const { container } = renderPlan([{ id: 's1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'brand', label: 'Vollbrand 2. OG' }])
+      mouseDown(container.querySelector('.wb-symbol')!)
+      expect(readDraft(key, '')).toBe('Vollbrand 2. OG')
+      expect(screen.queryByRole('button', { name: appConfig.copy.remove })).toBeNull()
+    } finally { endZielPick(); clearDraft(key) }
   })
 
   it('opens a note’s panel on a plain TAP — the symbol grammar, no grips row', () => {

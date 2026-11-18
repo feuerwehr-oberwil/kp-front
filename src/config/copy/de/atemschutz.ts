@@ -948,6 +948,15 @@ export const atemschutzCopy = {
     // Leitung-Picker (TruppSheets): eine Leitung, die auf einem Plan liegt – «Ltg 3 · Plan · M. Stich»
     // (rare-user F13, 17.11.2026; vorher ein fest codiertes « · P»)
     lineOnPlan: 'Plan',
+    // «Ziel» auf der Fläche wählen (Mock M5a A, 18.11.2026): der Knopf neben dem Feld heisst nach der
+    // Fläche, auf die er führt – die Karte, oder der Plan, wenn man von dort kam (lib/zielPick)
+    zielPickMap: 'Karte',
+    zielPickPlan: 'Plan',
+    zielPickMapTitle: 'Ziel auf der Karte wählen',
+    zielPickPlanTitle: 'Ziel auf dem Plan wählen',
+    // die Leiste unten, solange gewählt wird: was gefragt ist, und Abbrechen führt zurück ins Sheet
+    zielPickBarTitle: 'Ziel für den Trupp',
+    zielPickBarHint: 'Symbol antippen',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {

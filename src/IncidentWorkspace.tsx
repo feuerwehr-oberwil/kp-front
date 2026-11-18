@@ -96,6 +96,8 @@ import { truppInNotfall, truppLogName, truppStillRegistered, type AtemschutzAlar
 import { freshNotfallKeys } from './lib/notfall'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefSurfaceBridge } from './lib/georefMode'
+import { endZielPick, useZielPick } from './lib/zielPick'
+import { ZielPickBar } from './components/ZielPickBar'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
 import { useFloatRowPlacement } from './lib/floatRow'
@@ -907,6 +909,16 @@ export function IncidentWorkspace({
   // two-pane split, so the app follows the mode instead of asking anyone to find the other
   // surface. This one line is the whole bridge; the mode itself lives in lib/georefMode.
   useGeorefSurfaceBridge(setMode)
+  // «Ziel auf der Karte wählen» (lib/zielPick, owner pick M5a A, 18.11.2026): the Trupp form's
+  // «Karte» opens the surface the operator last stood on – the Karte, or the Plan they came from –
+  // and an answer or «Abbrechen» brings the Trupps surface back, where the board re-opens the form.
+  // Any other surface mid-pick drops it (the form's fields stay kept, as on every switch).
+  // (Both state follows are adjusted during render, React's pattern for state derived from a change.)
+  const zielPick = useZielPick()
+  const [zielSurface, setZielSurface] = useState<'map' | 'plans'>(mode === 'plans' ? 'plans' : 'map')
+  if ((mode === 'map' || mode === 'plans') && mode !== zielSurface) setZielSurface(mode)
+  if (zielPick === 'back' && mode !== 'atemschutz') setMode('atemschutz')
+  useEffect(() => { if (mode !== 'map' && mode !== 'plans') endZielPick() }, [mode])
   // «Fertig»/«Schliessen»/Esc drop reference halves that never found their counterpart, and
   // the toast saying so must fire on WHICHEVER surface the exit happened — on a phone the
   // mode's map half runs with the Whiteboard unmounted, so the handler lives at app level.
@@ -2941,6 +2953,9 @@ export function IncidentWorkspace({
       defaultFunkkanal={azFunkkanal}
       focus={truppFocus}
       createRequest={truppCreate}
+      // «Karte» beside the form's Ziel (lib/zielPick): never on the Tafel pur, which has no surface
+      zielPickOn={asLink ? undefined : zielSurface}
+      onPickZiel={asLink ? undefined : () => { clearMapUi(); setJournalOpen(false); setMode(zielSurface) }}
       // «Trupps teilen» — the QR beside the bell, on the page the FU is standing on when
       // they decide to hand the Tafel over. Same sheet as the Einsatz-Karte's «Teilen», opened
       // on its «Nur Atemschutz» half.
@@ -3165,7 +3180,7 @@ export function IncidentWorkspace({
 
   return (
     // the Meldeleiste paints INSIDE this stacking context (lib/meldeleisteHost), under the top bar
-    <div ref={registerMeldeleisteHost} className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
+    <div ref={registerMeldeleisteHost} className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${zielPick === 'picking' ? ' ziel-pick' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
       {coverPhase !== 'off' && createPortal(
         <Splash sub={appConfig.copy.incidentLink.opening} leaving={coverPhase === 'leaving'} />,
@@ -3460,6 +3475,8 @@ export function IncidentWorkspace({
           bars belong to the shell rather than to either one — on a phone the Plan is unmounted
           for the map half of every pair. Renders nothing while the mode is off. */}
       <GeorefModeBars planLabel={planDocs.find((p) => p.id === georefMode.planId)?.code} />
+      {/* «Ziel für den Trupp» – the prompt and the way back while the form's Ziel is picked on a surface */}
+      {zielPick === 'picking' && (mode === 'map' || mode === 'plans') && <ZielPickBar />}
     </div>
   )
 }

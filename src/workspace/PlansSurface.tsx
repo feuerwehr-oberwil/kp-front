@@ -34,6 +34,7 @@ import type { useMapActions } from './useMapActions'
 import type { usePlanStacks } from './usePlanStacks'
 import type { BoardPresentation } from './usePresentation'
 import type { useRosterRoles } from './useRosterRoles'
+import { useZielPick } from '../lib/zielPick'
 
 export interface PlansSurfaceProps {
   mode: WorkspaceMode
@@ -114,6 +115,7 @@ export function PlansSurface({
   const { activeLinkedPlan, floorPack, planLive, planPhotos } = georefFits
   const { moveLiveOnSheet } = mapActions
   const { board, setBoard } = store
+  const zielPick = useZielPick() === 'picking'
   const { rosterNames, rosterRank, linkRosterFields, personStatus, rosterFieldHints } = roster
   const {
     updateTrupp, askTruppEntry, adoptTruppMarker, releaseTruppMarker, linkTruppLine, unlinkLine,
@@ -131,7 +133,8 @@ export function PlansSurface({
           // on desktop the Verlauf drawer docks beside the plan's tool rail (same as the
           // map), so the rail + its zoom/fit footer stay live. Only a phone still parks
           // the plan read-only while Verlauf is open (there it's a full-width bottom sheet).
-          readOnly={tacticalLocked || (isPhone && journalOpen)}
+          // …and while the Trupp form's Ziel is picked on it (lib/zielPick): a tap answers, nothing moves
+          readOnly={tacticalLocked || (isPhone && journalOpen) || zielPick}
           // …but a locked plan still offers the tool that changes nothing (Auswahl; the plan
           // lost Messen 29.08.). Not during replay (the scrubber owns the bottom band) and not
           // behind the phone's Verlauf sheet, which parks the plan entirely.
