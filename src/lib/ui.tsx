@@ -56,9 +56,11 @@ const listeners = new Set<() => void>()
 let seq = 1
 const emit = () => listeners.forEach((l) => l())
 
-// Pending auto-dismiss timers, keyed by toast id, so updateToast can reset a toast's clock
-// and dismissToast can cancel it (a live status toast is sticky until it reaches done/failed).
-const timers = new Map<number, ReturnType<typeof setTimeout>>()
+// Pending auto-dismiss clocks, keyed by toast id, so updateToast can reset a toast's clock,
+// dismissToast can cancel it (a live status toast is sticky until it reaches done/failed) and a
+// finger on the pill can hold it (`holdToast`). A held clock has no timer, only the time it has left.
+type Clock = { timer?: ReturnType<typeof setTimeout>; due: number; left?: number }
+const clocks = new Map<number, Clock>()
 /** Keep brief feedback brief, but leave long operational/API messages on screen long enough to
  * read. Explicit caller durations still win; action toasts retain the six-second undo floor. */
 function defaultToastDuration(text: string, hasAction: boolean) {
@@ -66,21 +68,39 @@ function defaultToastDuration(text: string, hasAction: boolean) {
   return Math.min(10_000, Math.max(floor, 1800 + Array.from(text).length * 45))
 }
 function scheduleDismiss(id: number, ms: number) {
-  const prev = timers.get(id)
-  if (prev) clearTimeout(prev)
-  timers.set(id, setTimeout(() => { dismissToast(id) }, ms))
+  const prev = clocks.get(id)
+  clearTimeout(prev?.timer)
+  // held: the new clock starts when the finger lets go
+  if (prev?.left !== undefined) { clocks.set(id, { due: 0, left: ms }); return }
+  clocks.set(id, { timer: setTimeout(() => { dismissToast(id) }, ms), due: Date.now() + ms })
+}
+
+/** A finger on the pill stops its clock (design pass 18.11.2026 B6): a toast must not leave from
+ *  under a swipe or a press on «Rückgängig». Returns the release, which runs the time that was left;
+ *  the running-out line pauses with it (08-toasts.css · `[data-held]`). */
+function holdToast(id: number): () => void {
+  const c = clocks.get(id)
+  if (!c || c.left !== undefined) return () => {}
+  clearTimeout(c.timer)
+  clocks.set(id, { due: 0, left: Math.max(0, c.due - Date.now()) })
+  return () => {
+    const held = clocks.get(id)
+    if (held?.left === undefined) return // dismissed (or re-timed and released) meanwhile
+    clocks.delete(id)
+    scheduleDismiss(id, held.left)
+  }
 }
 
 export function dismissToast(id: number) {
   const t = toasts.find((x) => x.id === id)
   if (!t || t.leaving) return
-  const prev = timers.get(id)
-  if (prev) { clearTimeout(prev); timers.delete(id) }
+  clearTimeout(clocks.get(id)?.timer)
+  clocks.delete(id)
   // every exit path runs through here (✕, swipe, timer, cap, replace), so `onDismiss` sees
   // them all – `undoToast` releases its merge guard on it. Must be idempotent.
   t.onDismiss?.()
   // leave the way it came in: `.toast.out` plays (.14s, shorter than the entrance), then the
-  // node goes. The removal timer stays out of `timers` — nothing may cancel the second half.
+  // node goes. The removal timer stays out of `clocks` — nothing may cancel the second half.
   toasts = toasts.map((x) => (x.id === id ? { ...x, leaving: true } : x))
   emit()
   setTimeout(() => { toasts = toasts.filter((x) => x.id !== id); emit() }, 160)
@@ -307,6 +327,74 @@ function ToastCheck() {
 // it was aimed at. Shared by ToastAction's own cluster-flick and ToastRow's whole-pill swipe
 // below, so both read as the same gesture at the same distance.
 const FLICK = 56
+/** A press that travelled further than this is a drag, never a tap — even one that sprang back. */
+const TAP_SLOP = 10
+/** The spring back below `FLICK`, and the pill's last stretch off the lane above it. */
+const TOAST_SETTLE = 'transform .16s var(--ease), opacity .16s var(--ease)'
+
+/**
+ * A sideways drag on a toast — the whole pill (ToastRow) or its action cluster (ToastAction): the
+ * element follows the finger 1:1, written straight onto `el` (no React state per move, design pass
+ * 18.11.2026 B6), springs back below `FLICK`, and past it hands the direction to `onFlick`. A
+ * `pointercancel` (the browser took the touch for a scroll of the stack) always springs back — it
+ * is never a release (A7). `travelled` is the press's furthest travel, kept until the next press,
+ * so the click a drag ends in can be told from a tap (A8).
+ */
+function useToastFlick<T extends HTMLElement>(onFlick: (dir: -1 | 1, node: T | null) => void) {
+  const el = useRef<T>(null)
+  const drag = useRef<{ id: number; x0: number } | null>(null)
+  const travelled = useRef(0)
+
+  const follow = (dx: number) => {
+    const n = el.current
+    if (!n) return
+    // 1:1: no transition, and no entrance (`toastIn` would override the inline transform)
+    n.style.transition = 'none'
+    n.style.animation = 'none'
+    n.style.transform = `translateX(${dx}px)`
+    n.style.opacity = String(Math.max(.25, 1 - Math.abs(dx) / (FLICK * 2)))
+  }
+  const back = () => {
+    const n = el.current
+    if (!n || !n.style.transform) return
+    n.style.transition = TOAST_SETTLE
+    n.style.transform = ''
+    n.style.opacity = ''
+  }
+
+  const handlers = {
+    onPointerDown: (e: React.PointerEvent) => {
+      drag.current = { id: e.pointerId, x0: e.clientX }
+      travelled.current = 0
+      // ⚠️ optional call: pointer capture keeps the flick tracking once the finger leaves the
+      // element, but it is not available everywhere (jsdom has no implementation, and neither did
+      // older WebViews) — and an undo button that THROWS on touch is worse than one that only
+      // follows the finger while it stays on the target.
+      e.currentTarget.setPointerCapture?.(e.pointerId)
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      const d = drag.current
+      if (d?.id !== e.pointerId) return
+      const dx = e.clientX - d.x0
+      travelled.current = Math.max(travelled.current, Math.abs(dx))
+      follow(dx)
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      const d = drag.current
+      if (d?.id !== e.pointerId) return
+      drag.current = null
+      const dx = e.clientX - d.x0
+      if (Math.abs(dx) >= FLICK) onFlick(dx < 0 ? -1 : 1, el.current)
+      else back()
+    },
+    onPointerCancel: (e: React.PointerEvent) => {
+      if (drag.current?.id !== e.pointerId) return
+      drag.current = null
+      back()
+    },
+  }
+  return { el, travelled, handlers }
+}
 
 /**
  * The action cluster of a confirm-with-undo toast — «Rückgängig», and the way to get rid of it.
@@ -323,37 +411,22 @@ const FLICK = 56
  * swipe starting under them would fire both gestures from one drag.
  */
 function ToastAction({ toast: t }: { toast: Toast }) {
-  const [dx, setDx] = useState(0)
-  const drag = useRef<{ id: number; x0: number } | null>(null)
-  const end = (e: React.PointerEvent) => {
-    if (!drag.current) return
-    const moved = e.clientX - drag.current.x0
-    drag.current = null
-    if (Math.abs(moved) >= FLICK) dismissToast(t.id)
-    else setDx(0)
-  }
+  const { el, travelled, handlers } = useToastFlick<HTMLSpanElement>(() => dismissToast(t.id))
   return (
     // bubble-phase stopPropagation: each button's OWN onPointerDown still fires first (target
     // before ancestor), it just never reaches ToastRow's whole-pill drag above it — so the drag
     // that now spans the whole pill never arms alongside a button's own tap/flick from one touch.
-    <span className="toast-actions" onPointerDown={(e) => e.stopPropagation()}
-      style={dx ? { transform: `translateX(${dx}px)`, opacity: Math.max(.25, 1 - Math.abs(dx) / (FLICK * 2)) } : undefined}>
+    <span className="toast-actions" ref={el} onPointerDown={(e) => e.stopPropagation()}>
       <button
         // THE button (`.ip-btn`), like the Meldeleiste's – the one way back after a removal was the
         // smallest, quietest button of all the message surfaces (button sweep SHEETS.5, 17.11.2026)
         className="ip-btn toast-action"
-        // ⚠️ optional call: pointer capture keeps the flick tracking once the finger leaves the
-        // button, but it is not available everywhere (jsdom has no implementation, and neither did
-        // older WebViews) — and an undo button that THROWS on touch is worse than one that only
-        // follows the finger while it stays on the target.
-        onPointerDown={(e) => { drag.current = { id: e.pointerId, x0: e.clientX }; e.currentTarget.setPointerCapture?.(e.pointerId) }}
-        onPointerMove={(e) => { if (drag.current?.id === e.pointerId) setDx(e.clientX - drag.current.x0) }}
-        onPointerUp={end}
-        onPointerCancel={end}
+        {...handlers}
         onClick={() => {
-          // a flick ends on the same element as a tap, so the click that follows it must not also
-          // fire the action — the toast is already gone, and undoing was not what was asked for
-          if (Math.abs(dx) >= FLICK) return
+          // a drag ends on the same element as a tap, so the click that follows it must not also
+          // fire the action — a flick (the toast is already gone) AND an aborted one that sprang
+          // back: the finger was on its way somewhere, undoing was not what was asked for
+          if (travelled.current > TAP_SLOP) return
           dismissToast(t.id)
           t.action!.onClick()
         }}
@@ -371,14 +444,17 @@ function ToastAction({ toast: t }: { toast: Toast }) {
 }
 
 /**
- * One row of the toast stack. The whole PILL now follows a horizontal drag, not just the
- * «Rückgängig»/✕ cluster (ToastAction, above) — below `FLICK` it springs back, past it the pill
- * keeps travelling the way the finger went (inline transform, no transition — the drag itself
- * must never lag the touch) and the toast dismisses once released. The CSS `transition` that then
- * carries it the rest of the way off-screen is the ONLY animated part, so it — like every other
- * CSS transition in the app — is already zeroed by the app-wide `prefers-reduced-motion` rule
- * (03-map.css `* { transition-duration: .001ms !important }`); a reduced-motion viewer sees the
- * same jump to «gone» without the travel, with no separate code path needed here.
+ * One row of the toast stack. The whole PILL follows a horizontal drag, not just the
+ * «Rückgängig»/✕ cluster (ToastAction, above) — 1:1, written straight onto the node
+ * (`useToastFlick`); below `FLICK` it springs back, past it the pill keeps travelling the way the
+ * finger went and the toast dismisses once released. The spring back and that last stretch are
+ * the only animated parts, so they — like every other CSS transition in the app — are already
+ * zeroed by the app-wide `prefers-reduced-motion` rule (03-map.css `* { transition-duration:
+ * .001ms !important }`); a reduced-motion viewer sees the same jump without the travel, with no
+ * separate code path needed here.
+ *
+ * A finger anywhere on the pill — the cluster included — holds its clock (`holdToast`): it never
+ * leaves from under a swipe or a press. The hold ends with that pointer, wherever it lifts.
  *
  * A tap on the pill itself does NOTHING (05.10.2026, owner: «toasts should close on tapping the
  * close button not the entire toast»). It used to dismiss a plain toast, which threw away a
@@ -388,43 +464,35 @@ function ToastAction({ toast: t }: { toast: Toast }) {
  * (`onPointerDown` `stopPropagation`) — those keep their own tap and flick untouched.
  */
 function ToastRow({ t }: { t: Toast }) {
-  const [dx, setDx] = useState(0)
-  const [flung, setFlung] = useState(false)
-  const drag = useRef<{ id: number; x0: number } | null>(null)
-
-  const onDown = (e: React.PointerEvent) => {
-    drag.current = { id: e.pointerId, x0: e.clientX }
-    e.currentTarget.setPointerCapture?.(e.pointerId)
-  }
-  const onMove = (e: React.PointerEvent) => {
-    if (drag.current?.id !== e.pointerId) return
-    setDx(e.clientX - drag.current.x0)
-  }
-  const onUp = (e: React.PointerEvent) => {
-    if (drag.current?.id !== e.pointerId) return
-    const moved = e.clientX - drag.current.x0
-    drag.current = null
-    if (Math.abs(moved) < FLICK) { setDx(0); return }
-    // clear of the lane, not just past the threshold — the transition (JSX below) carries it the
-    // rest of the way while the pill fades, then dismissToast's own .16s (matching) takes the node
-    // out from under it.
-    setFlung(true)
-    setDx(moved < 0 ? -480 : 480)
+  const { el, handlers } = useToastFlick<HTMLDivElement>((dir, n) => {
+    // clear of the lane, not just past the threshold — the transition carries it the rest of the
+    // way while the pill fades, then dismissToast's own .16s (matching) takes the node out from
+    // under it
+    if (n) { n.style.transition = TOAST_SETTLE; n.style.transform = `translateX(${dir * 480}px)`; n.style.opacity = '0' }
     dismissToast(t.id)
+  })
+  // capture: a press on the cluster (which stops its bubble) holds the clock too
+  const hold = (e: React.PointerEvent<HTMLDivElement>) => {
+    const node = e.currentTarget
+    const release = holdToast(t.id)
+    node.dataset.held = ''
+    const end = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return
+      window.removeEventListener('pointerup', end, true)
+      window.removeEventListener('pointercancel', end, true)
+      delete node.dataset.held
+      release()
+    }
+    window.addEventListener('pointerup', end, true)
+    window.addEventListener('pointercancel', end, true)
   }
 
   return (
     <div
+      ref={el}
       className={`toast toast-${t.tone}${isFailure(t) ? ' toast-fail' : ''}${t.leaving ? ' out' : ''}`}
-      style={dx ? {
-        transform: `translateX(${dx}px)`,
-        opacity: flung ? 0 : Math.max(.25, 1 - Math.abs(dx) / (FLICK * 2)),
-        transition: flung ? 'transform .16s var(--ease), opacity .16s var(--ease)' : undefined,
-      } : undefined}
-      onPointerDown={onDown}
-      onPointerMove={onMove}
-      onPointerUp={onUp}
-      onPointerCancel={onUp}
+      onPointerDownCapture={hold}
+      {...handlers}
     >
       {t.steps ? <ToastSteps steps={t.steps} text={t.text} /> : (
         <>
@@ -681,7 +749,7 @@ function PhotoZoom({ url, alt, onClose }: { url: string; alt: string; onClose: (
     const d = drag.current
     drag.current = null
     if (d?.mode === 'pull') {
-      if (isDismissPull(e.clientY - d.y0, e.timeStamp - d.t0)) onClose()
+      if (isDismissPull(e.clientY - d.y0, (e.clientY - d.y0) / Math.max(1, e.timeStamp - d.t0))) onClose()
       else setPull(0)
       return
     }

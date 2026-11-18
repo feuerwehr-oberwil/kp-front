@@ -130,12 +130,14 @@
 .marker.sel { --hbox: max(var(--gpx), 56px); }
 /* selection halo — the "this is selected" cue. Sized to reliably clear a FINGERTIP (~45px): a
    mobile user's finger covers the symbol, so the ring's edge peeking out around the finger is the
-   only thing they can see. Min ~104px diameter, a bold accent ring + soft glow. */
+   only thing they can see. Min ~104px diameter, a bold accent ring + soft glow.
+   It FADES in, it never grows (design pass C1, 18.11.2026): a tap or `[`/`]` selects many times
+   an hour, and a ring that scales up under the finger is motion on press. */
 .sel-halo { position: absolute; left: 50%; top: 50%; z-index: 0;
   width: max(calc(var(--hbox) + 40px), 104px); height: max(calc(var(--hbox) + 40px), 104px); transform: translate(-50%, -50%);
   border-radius: 50%; background: var(--blue-16); border: 3px solid color-mix(in srgb, var(--blue) 85%, transparent);
-  box-shadow: 0 0 0 2px var(--blue-28), var(--e2); animation: haloIn .18s var(--ease); }
-@keyframes haloIn { from { opacity: 0; transform: translate(-50%, -50%) scale(.8); } }
+  box-shadow: 0 0 0 2px var(--blue-28), var(--e2); animation: haloIn .12s var(--ease); }
+@keyframes haloIn { from { opacity: 0; } }
 .marker.sel .ts, .marker.sel .shape-glyph, .marker.sel .note-pill { position: relative; z-index: 1; }
 /* ⚠️ The separating ring is `--surface`, not a frozen #fff: in day it is the white rim that lifts
    a handle off bright imagery, at night it is the dark rim that does the same over a dark basemap
@@ -279,11 +281,11 @@
    transform makes it a stacking context of its own, so a z-index on `.marker` orders it against
    nothing. Both the hover and the selected z-index that used to stand here were inert. The one
    place the order is decided is the marker CONTAINER — lib/labelPass · markerZ. */
-/* a brief bounce confirms the tap, then settles a touch LARGER (and stays there) so the
-   selection reads at a glance — kept modest so the footprint stays roughly honest and the
-   glyph still fits inside its halo (sized to the true glyph px, with ~10px of slack each side) */
-.marker.sel .ts { transform: scale(1.22); animation: selpop .24s var(--ease); }
-@keyframes selpop { 0% { transform: scale(1); } 55% { transform: scale(1.36); } 100% { transform: scale(1.22); } }
+/* a selected symbol stands a touch LARGER so the selection reads at a glance — kept modest so the
+   footprint stays roughly honest and the glyph still fits inside its halo (sized to the true glyph
+   px, with ~10px of slack each side). At once, no bounce (design pass C1, 18.11.2026: «nothing
+   moves on press», docs/ui-conventions.md – the 1 → 1.36 → 1.22 pop played on every tap and `[`/`]`). */
+.marker.sel .ts { transform: scale(1.22); }
 
 /* ── the pile, fanned ──
    A tap that lands inside more than one hit pad does not guess. The candidates slide onto short
@@ -330,11 +332,8 @@
   width: max(calc(100% + 20px), 44px); height: max(calc(100% + 20px), 44px); }
 .shape-glyph .shape-svg { width: 100%; height: 100%; display: block;
   filter: drop-shadow(0 1px 1px rgba(15, 22, 34, .4)) drop-shadow(0 3px 6px rgba(30, 45, 70, .25)); }
-/* shapes show their rotate/resize handles when selected; a quick one-shot bounce on the
-   inner glyph (which carries no rotation) confirms it's the targeted object, then settles
-   back to 1× so the real-world footprint stays accurate. */
-.marker.sel .shape-svg { animation: shapebounce .26s var(--ease); transform-origin: 50% 50%; }
-@keyframes shapebounce { 0% { transform: scale(.9); } 55% { transform: scale(1.14); } 100% { transform: scale(1); } }
+/* shapes show their rotate/resize handles when selected – they ARE the cue; the glyph stays 1× so
+   the real-world footprint stays accurate (its one-shot bounce went with design pass C1, 18.11.2026) */
 
 /* Transform handles live in a rotor that rotates WITH the shape, so they stay
    visually attached.
@@ -413,12 +412,12 @@
   .cage-handle .shape-cage:hover { background: var(--amber-strong); }
 }
 
-/* panel + context entrance motion — subtle & quick */
-@keyframes panelIn { from { opacity: 0; transform: translateY(-50%) translateX(-12px); } }
+/* context entrance motion — subtle & quick */
 @keyframes ctxIn { from { opacity: 0; transform: translateX(14px); } }
-/* bottom sheets rise from below — phone .ctx, journal composer, and every ip-sheet that is
-   bottom-anchored on phones (panelIn/ctxIn slide sideways/half-screen there: "appears
-   strangely", field feedback 2026-07-09) */
+/* the full-screen map picker rises from below (14-intake · .mp-sheet). ⚠️ Not a phone bottom
+   sheet's entrance any more: those can be pulled, and a keyframe cannot be caught mid-flight —
+   they rise by a transition from `[data-starting-style]` / `@starting-style` (15-mobile.css,
+   design pass 18.11.2026 B5) */
 @keyframes sheetUp { from { opacity: 0; transform: translateY(26px); } }
 @keyframes popIn { from { opacity: 0; transform: translateY(6px) scale(.97); } }
 .layers-card { animation: popIn .15s var(--ease); }  /* dock chrome → dock entrance */
@@ -426,8 +425,9 @@
 /* delay zeroed too: with only durations cut, the boot splash sat at opacity 0 for its full
    400ms delay before snapping in — reduced motion should shorten the wait, not add one.
    iteration-count 1 as well (sweep 09.11.2026, UI.7): with only the duration cut an `infinite`
-   pulse (the alarm dot, the recording buttons, «Linie offen») looped every microsecond – frozen
-   on one frame or flickering, by browser. One pass lands every animation on its end state. */
+   loop (then the alarm dot, the recording buttons, «Linie offen»; since design pass C3–C6 only the
+   top bar's Überfällig pill and the marching dashes) looped every microsecond – frozen on one
+   frame or flickering, by browser. One pass lands every animation on its end state. */
 @media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; } }
 .ts.photo img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--r-xs); display: block; }
 /* a Verlauf photo's view cone (lib/photoGeo): under the thumbnail, its tip ON the spot the photo
@@ -437,11 +437,11 @@
   transform-origin: 50% 50%; overflow: visible; }
 .ts.photo .photo-cone path { fill: var(--blue-22); stroke: var(--blue-62); stroke-width: 1.5; stroke-linejoin: round; }
 
-/* «Linie offen» – the open drawing's pulsing pill at its last point (27.10.2026), the Karte twin of
-   the Plan's .wb-open-pill (09-whiteboard.css) */
+/* «Linie offen» – the open drawing's pill at its last point (27.10.2026), the Karte twin of the
+   Plan's .wb-open-pill (09-whiteboard.css). Still: the line's own marching dashes already say «open»
+   (design pass C5, 18.11.2026 – the pill pulsed on top of them). */
 .map-open-pill { display: block; white-space: nowrap; padding: 2px var(--sp-2); border-radius: var(--r-pill);
-  background: var(--open); color: var(--on-amber); font-size: var(--fs-1); font-weight: var(--fw-bold);
-  animation: wb-pulse 1.2s ease-in-out infinite; }
+  background: var(--open); color: var(--on-amber); font-size: var(--fs-1); font-weight: var(--fw-bold); }
 /* …and to the point's LEFT where the right one would lie under the tool dock (components/OpenPill,
    round 2b): its own width plus the 14px it stood off the point on each side. `translate` composes
    with the Plan pill's inline `transform`. */

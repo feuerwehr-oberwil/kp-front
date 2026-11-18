@@ -3,6 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, within, waitFor, act } from '@testing-library/react'
 import { getIncident, geocodeSearch, patchIncident } from '../../lib/incidents'
 import { appConfig } from '../../config/appConfig'
+import { defuseAutofill } from '../../lib/typingField'
 import { clearAllDrafts, keepDraft } from '../../lib/draftKeep'
 import type { GeoHit, IncidentMeta, IncidentFull, ObjectWithPlans } from '../../lib/incidents'
 import { fillTemplate } from '../../lib/format'
@@ -44,7 +45,7 @@ const BASE = {
 }
 const meta = (over: Partial<typeof BASE>): IncidentMeta => ({ ...BASE, ...over }) as unknown as IncidentMeta
 const warning = () => screen.queryByText(ix.coordMissing)
-const field = () => screen.getByPlaceholderText(ix.addressPlaceholder)
+const field = () => screen.getByPlaceholderText(defuseAutofill(ix.addressPlaceholder))
 const group = (label: string) => screen.findByRole('region', { name: label })
 
 describe('the one list under the address field', () => {

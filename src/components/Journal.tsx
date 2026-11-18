@@ -1027,7 +1027,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
           return (
             <Sheet open onClose={() => setDetailId(null)} fit sheetClassName="jr-detail"
               title={(
-                <span className="jr-detail-title" ref={(el) => { if (el) setDetailClamped(el.scrollHeight > el.clientHeight + 1) }}>
+                <span className="jr-detail-title ui-selectable" ref={(el) => { if (el) setDetailClamped(el.scrollHeight > el.clientHeight + 1) }}>
                   {marked(title, e.subjectId)}
                 </span>
               )}>
@@ -1054,7 +1054,7 @@ export function Journal({ events, plans, live, closedAt, vocab = [], onSelect, o
                 </div>
               )}
               {/* the row's own words, whole, when the title had to stop at five lines */}
-              {detailClamped && <p className="jr-detail-text">{marked(rowText(e), e.subjectId)}</p>}
+              {detailClamped && <p className="jr-detail-text ui-selectable">{marked(rowText(e), e.subjectId)}</p>}
               {/* …and on a memo what it says (the list's subtitle chrome) */}
               {e.audioUrl && hasTx && (
                 <div className="jr-subs">

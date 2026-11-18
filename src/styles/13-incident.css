@@ -650,7 +650,11 @@
    ⚠️ independent `scale`/`opacity`, never `transform` — the dialogs centre themselves with a
    translate() that a transform transition would clobber mid-flight (same reason the `pop`
    keyframe animates bare `scale`). Exits run shorter than the .16s/.22s entrances: leaving
-   must never make the operator wait. */
+   must never make the operator wait.
+   ⚠️ These run only where `open` flips while the frame stays mounted — most callers unmount
+   their `<Sheet open>` on close, and Base UI never gets to play them. A PHONE bottom sheet does
+   not fade: `Sheet`/`Overlay` slide it down off the edge before calling the parent's close
+   (lib/overlays/swipeDismiss · leaveBottomSheet, design pass 18.11.2026 B1). */
 .ui-backdrop[data-starting-style], .ui-backdrop[data-ending-style],
 .modal-backdrop[data-ending-style], .photo-scrim[data-ending-style], .mp-backdrop[data-ending-style] { opacity: 0; }
 .modal-backdrop[data-ending-style], .photo-scrim[data-ending-style], .mp-backdrop[data-ending-style] {
@@ -1772,11 +1776,12 @@ button.rp-sign-row:disabled { cursor: default; }
 .cv-pdf { align-self: flex-start; margin-top: 4px; background: var(--btn-primary);
   border-color: var(--btn-primary); color: var(--on-btn-primary); }
 /* cross-visibility QR ↔ KP: subtle live-dot line in the header (reassurance, not an alarm),
-   and the quiet secondary styling the output buttons take while the KP tablet is active */
+   and the quiet secondary styling the output buttons take while the KP tablet is active. The dot
+   is still (design pass C4, 18.11.2026): the green and the words say «live», a loop added nothing. */
 .cv-kp-live { display: flex; align-items: center; gap: 8px; margin: 4px 0 0;
   font: var(--fw-medium) var(--fs-1) var(--body); color: var(--green-strong); }
 .cv-kp-dot { width: 8px; height: 8px; border-radius: 50%; flex: none;
-  background: var(--green); animation: p 2.4s infinite; }
+  background: var(--green); }
 .cv-btn.cv-quiet { background: var(--surface-veil); border-color: var(--glass-edge); color: var(--ink-dim); font-weight: var(--fw-medium); }
 /* modal confirm (Ausdrucken / Rapport-PDF): solid + taller than Abbrechen — the decision
    button carries the visual weight */
@@ -2634,7 +2639,6 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
   min-height: var(--tap); padding: 0 12px; border: none; cursor: pointer; text-align: left;
   border-radius: var(--r-ctl); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); }
 .esh-manual-url { flex: 1 1 100%; min-width: 0; }
-.esh-manual-url input { user-select: text; -webkit-user-select: text; }
 .esh-url code { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; font: var(--fw-medium) var(--fs-1) var(--mono); color: var(--ink); }
 .esh-url:active { background-image: linear-gradient(var(--press), var(--press)); }

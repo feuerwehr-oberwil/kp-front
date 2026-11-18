@@ -114,7 +114,7 @@ export function SharePositionSheet({ roster, onPick, onClose, pickOnly, lastPers
         <p className={s.note}>{reconfirm ? C.pickAgain : C.pickHint}</p>
         <SearchField
           value={q} onChange={setQ} placeholder={C.search} aria-label={C.search}
-          autoCapitalize="words" enterKeyHint="search"
+          autoCapitalize="words"
         />
         <ul className={s.roster}>
           {people.map((p) => (

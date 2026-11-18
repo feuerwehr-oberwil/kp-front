@@ -318,6 +318,8 @@ export function TruppTeam({
         ref={(el) => { searchRef.current = el; if (searchInputRef) searchInputRef.current = el }}
         value={q} onChange={(v) => setQ(stripUnprintable(v))} inputMode="search"
         maxLength={40} onFocus={caretToEnd} onKeyDown={onSearchKeyDown}
+        // Enter takes the first hit, and a Gast's typed name goes on the Personalblatt as typed
+        enterKeyHint="done" autoCapitalize="words"
         // ⚠️ The PLACEHOLDER moves on once the Trupp has somebody in it — «Weitere Person
         // suchen …» — because on the phone this field is the only way in and «Person suchen»
         // over three chips reads as if it were asking again for whoever is already standing

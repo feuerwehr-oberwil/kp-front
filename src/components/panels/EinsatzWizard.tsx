@@ -36,6 +36,7 @@ import { clearDraft, keepDraft, readDraft } from '../../lib/draftKeep'
 import { markNew } from '../../lib/alarmUpdate'
 import { Button } from '../Button'
 import { MeldungSpans } from '../Meldeleiste'
+import { defuseAutofill, typingFieldProps } from '../../lib/typingField'
 
 // --- Einsatz eröffnen / Einsatzdaten korrigieren -------------------------------------
 // `ix` (appConfig.copy.intake) is read inside each function below rather than captured at
@@ -532,7 +533,8 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       {/* ONE flat list of fields, no section eyebrows (owner review 10.11.2026: «only like 5
           things to put in») – each field's own label says what it is. --- Standort --- */}
       <div className="ip-field" ref={addrRef}>
-        <span id="einsatz-address-label">{ix.addressLabel}</span>
+        {/* ⚠️ defused (lib/typingField): «Adresse» / «Strasse» made Safari offer contact AutoFill */}
+        <span id="einsatz-address-label">{defuseAutofill(ix.addressLabel)}</span>
         <AlarmNew field={alarmNew('address')} value={address} onTake={(v) => {
           setAddress(v); closeMenu()
           // the pin comes along: the alarm's own coordinate, else the first hit for the address
@@ -551,8 +553,9 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
             in view. Icon-only, so each carries its word as `aria-label` and `title`. */}
         <div className="ip-ac-input-wrap">
           <input
+            {...typingFieldProps('search', 'einsatz-address')}
             aria-labelledby="einsatz-address-label" value={address}
-            placeholder={ix.addressPlaceholder}
+            placeholder={defuseAutofill(ix.addressPlaceholder)}
             onChange={(e) => { setLookupAddress(null); setAddress(e.target.value); setMenu((m) => (m === 'closed' ? 'typing' : m)) }}
             onFocus={() => setMenu((m) => (m === 'closed' ? 'typing' : m))}
           />

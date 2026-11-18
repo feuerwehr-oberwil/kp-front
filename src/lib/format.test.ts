@@ -55,6 +55,20 @@ describe('initials', () => {
     expect(initials('   ')).toBe('?')
   })
 
+  it('cuts by grapheme, never half an emoji', () => {
+    expect(initials('🦊 Fox')).toBe('🦊F')
+    expect(initials('👩‍🚒')).toBe('👩‍🚒')
+    expect(initials('Anna 🇨🇭')).toBe('A🇨🇭')
+    // the shared-position marker SVG goes through encodeURIComponent, which throws on a lone surrogate
+    expect(() => encodeURIComponent(initials('🦊 Fox'))).not.toThrow()
+  })
+
+  it('skips a generational suffix for the last initial', () => {
+    expect(initials('Carl Meier III')).toBe('CM')
+    expect(initials('Hans Muster jr.')).toBe('HM')
+    expect(initials('Peter Sr')).toBe('PE')
+  })
+
   it('collapses repeated whitespace between words', () => {
     expect(initials('Hans   Peter')).toBe('HP')
   })

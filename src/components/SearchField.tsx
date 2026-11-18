@@ -26,6 +26,11 @@ import { cx } from '../lib/cx'
  * `variant="head"`: the ONE documented modifier — a card whose whole head IS the search
  * (TruppFinder): no pill of its own (the card is the surface), the query 18/700 because it is
  * what the overlay is for.
+ *
+ * The keyboard defaults (design pass A1, 18.11.2026): a query is not prose, so no autocorrect, no
+ * spell check, no capital; the return key says «Suchen». They stand BEFORE `{...rest}`, so a field
+ * whose Enter commits something else says so itself (a Gast name: `enterKeyHint="done"`,
+ * `autoCapitalize="words"` – ComboMenu, TruppTeam, Anwesenheit).
  */
 export const SearchField = forwardRef<HTMLInputElement, {
   value: string
@@ -55,6 +60,10 @@ export const SearchField = forwardRef<HTMLInputElement, {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="search"
+          autoCapitalize="none"
           {...rest}
         />
         {count != null && <span className="ui-search-count" aria-live="polite">{count}</span>}

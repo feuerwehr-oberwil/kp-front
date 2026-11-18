@@ -60,7 +60,9 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   never `--ink-faint` plus an opacity dim. `--fs-micro` stays for captions, tags and eyebrows.
   …and a ceiling (owner 16.11.2026, «just a bit too big»): a READ value – a read-out beside its
   key, a name in a list, a sheet's lede – is `--fs-2`. 16 (`--fs-3`) is a typed field's size (iOS
-  zooms into a smaller one), a title's, or a figure meant to be loud; a read-out does not borrow it
+  zooms into a smaller one – a field set smaller for a mouse is 16 under `pointer: coarse`,
+  `20-touch-floors.css`, design pass E1 18.11.2026; `maximum-scale=1` stays, but no field leans on
+  it), a title's, or a figure meant to be loud; a read-out does not borrow it
   to match the fields around it (the Rapport's «Aus den Einsatzdaten» did, `readoutType.test.ts`).
 - **The neutral washes and hairlines are near-twins, not duplicates** (checked 13.11.2026):
   `--fill-soft`, `--hover`, `--hover-strong`, `--press`, `--surface-2`, `--surface-veil`,
@@ -310,7 +312,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   Passung, every form and settings sheet — is a **slide-up bottom sheet**: flush with the bottom edge and both sides, over the bars,
   the ONE grab bar on top, pushed down to close (`useSwipeDismiss`; the head is the handle, and so
   is the body from its scroll-top — rows and buttons included, never a field, a slider or a map; sweep 28.10.2026),
-  lifted by the keyboard (`keyboardLift`), the bottom inset paid by its last row. It HUGS its
+  lifted by the keyboard (`keyboardLift`), the bottom inset paid by its last row. It rises by a
+  transition, never a keyframe, and a pull catches it mid-rise or mid-snap; it leaves DOWN off the
+  edge – from the finger after a pull, from rest after ✕ / backdrop / Esc – with its scrim fading on
+  the pull (design pass 18.11.2026; `swipeDismiss` · `leaveBottomSheet`). It HUGS its
   content up to a cap that leaves the top of the map in sight, so it grows upward and its foot
   never moves under the thumb. Detents only where the surface has two useful heights (the
   `.ctx` editors' half ⇄ full). Modal (scrim, focus trap) when it asks for input that must be
@@ -380,6 +385,13 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   anything scrolls, and 02-base.css turns `--press` transparent until it lifts. So **every press
   wash is drawn from `--press`** – a press look of another colour would stick again. Every
   `:hover` stays gated on `(hover: hover)` (a phone has a sticky hover otherwise).
+- **Copyable text** (design pass E2, owner pick 18.11.2026): the body is `user-select: none` and
+  `-webkit-touch-callout: none` – a hold on a control must never raise a text selection. Every
+  `input` and `textarea` is selectable again (02-base), and a READ-ONLY block whose words get
+  passed on wears **`.ui-selectable`**: the Verlauf sentence (`.jr-text`) and its detail sheet,
+  the Einsatz address on the Einsatz card, the Rapport's «Aus den Einsatzdaten» (Ort,
+  Alarmmeldung), the Gebäude lines (`BuildingFacts`). Never on a row or a surface with a hold or a
+  drag gesture (a Trupp row, a symbol, a chip): there the hold would start a selection instead.
 - **A scroll body is `overscroll-behavior: contain`** (scroll sweep 15.11.2026): the body of a
   sheet or page (`.ip-sheet > .ip-body`, `.lc-body`, `.ctx-body`, the Verlauf, the Atemschutz
   `.body` / `.modalBody` / `.miniBody`, the Mittel, Anwesenheit and Checkliste lists) and every list
@@ -455,7 +467,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     (FEEDBACK.11, 17.11.2026). What goes away **by itself**
     shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
     mode is on shows neither. A tap on the pill itself does nothing (05.10.2026): the ✕ closes,
-    the action button acts, a sideways swipe throws it away. **The toasts stand under the head, on
+    the action button acts, a sideways swipe throws it away (a finger on a pill holds its clock;
+    a swipe the browser takes for a scroll springs back, and a press that travelled is never a tap
+    on «Rückgängig»). **The toasts stand under the head, on
     every width** — **except on the Atemschutz-Link, which shows none at all** (30.10.2026, owner:
     «they just hide things»; `<Overlays toasts={false} />`): undo is the header's ↶ ↷, the sync
     state its mark, and its Meldeleiste keeps only the rows that block work (`meldungen ·
@@ -1098,6 +1112,12 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *Pressed state is the `--press` wash* – `background-image: linear-gradient(var(--press),
     var(--press))` on `:active:not(:disabled)`, so it composes over any background colour.
     **Nothing moves**: no scale, no translate – motion on press reads as lag under a glove.
+    That holds for selecting on the Lage and the Plan too (design pass C1, 18.11.2026): the symbol
+    stands at its selected 1.22× at once and the halo only fades in (120 ms); the ✥ ⟳ bar and the
+    detail panel keep their entrance. A loop is earned only by a state that needs eyes now: the
+    top bar's Überfällig pill is the ONE pulse (`10-journal · .tb-az.crit`), the board's badge and
+    the rail dot stand still beside it; «live», «recording», «playing» and «Linie offen» are said by
+    their colour, timer or marching dashes, never by a pulse.
   - *Hover is mouse-only* – every `:hover` rule sits inside `@media (hover: hover)` (app-wide
     since 28.08.). A tap leaves `:hover` stuck on what it hit, which reads as a selection state
     the surface does not have. `@media (pointer: coarse)` in `20-touch-floors.css` is the other

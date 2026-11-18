@@ -49,8 +49,7 @@ export function MaterialSection({
     <AccSection open={open} label={C.sectionMaterial} sub={C.mittelCount(lines.length)} onToggle={onToggle}
       step="mittel" sectionRef={sectionRef}>
       <div className="cv-search-row cv-sticky-search">
-        <SearchField className="cv-search" placeholder={C.searchMaterial} aria-label={C.searchMaterial} value={matSearch} onChange={setMatSearch}
-          autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="search" />
+        <SearchField className="cv-search" placeholder={C.searchMaterial} aria-label={C.searchMaterial} value={matSearch} onChange={setMatSearch} />
       </div>
       {/* «Nichts verwendet» — the same tick the tablet's Rapport carries (lib/abschluss ·
           stepDone). Without it the Material chip in the «noch offen» list could not be

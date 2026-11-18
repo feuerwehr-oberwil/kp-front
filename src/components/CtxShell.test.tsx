@@ -37,8 +37,12 @@ function sheet() {
 // Owner, sweep 27.10.2026 #13b: a detail sheet closes on a pull down anywhere in it, like Sheet.
 describe('CtxShell · pull down to close', () => {
   it('closes on a pull from the body while it is scrolled to the top', () => {
+    vi.useFakeTimers()
     const { onClose, text } = sheet()
     pull(text, 140)
+    // it slides down off the edge first (swipeDismiss · slideOut), then closes
+    vi.advanceTimersByTime(400)
+    vi.useRealTimers()
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 

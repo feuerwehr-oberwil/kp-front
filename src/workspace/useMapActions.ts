@@ -16,7 +16,7 @@ import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { bearingDeg, circlePolygon, haversineM, midCoord } from '../lib/geo'
 import { georefDispatch, useGeorefMode } from '../lib/georefMode'
 import { routeEscape, routeHotkey } from '../lib/hotkeyRoute'
-import { resolveHotkey, isTypingTarget, keyOwnedElsewhere, type ToolCmd } from '../lib/hotkeys'
+import { resolveHotkey, isTypingTarget, keyOwnedElsewhere, KEY_ZOOM_MS, type ToolCmd } from '../lib/hotkeys'
 import { newId } from '../lib/ids'
 import { applyRouting, detachDrawings, linesOnObjects, moveLineBody, objectAttachment, wireFreed, withDetach, type DetachPatch } from '../lib/lineAttachments'
 import { moduleNumbers } from '../lib/navRail'
@@ -528,7 +528,7 @@ export function useMapActions({
       case 'settings': setSettingsOpen(true); break
       case 'help': setHelpOpen(true); break
       case 'zoomPlan': planKeys.current?.zoom(a.factor); break
-      case 'zoomMap': if (a.dir === 'in') mapRef.current?.zoomIn(); else mapRef.current?.zoomOut(); break
+      case 'zoomMap': if (a.dir === 'in') mapRef.current?.zoomIn({ duration: KEY_ZOOM_MS }); else mapRef.current?.zoomOut({ duration: KEY_ZOOM_MS }); break
       case 'locate': setLocateReq((n) => n + 1); break
       case 'coord': coord.cycle(); break
     }

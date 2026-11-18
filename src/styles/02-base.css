@@ -72,6 +72,17 @@ body {
    size, weight and line-height stay the UA's until a rule sets them, so no control changes size
    here. A control never needs its own `font-family: inherit` again. */
 button, input, select, textarea { font-family: inherit; }
+/* …and a FIELD is selectable (design pass A3, 18.11.2026): the body's `user-select: none` above
+   reached every input and textarea, so a typed word could not be selected, corrected or copied
+   on iOS. The prefixed twin for the same reason as the body's. A read-only block that should be
+   copyable opts in with `.ui-selectable` below. */
+input, textarea { user-select: text; -webkit-user-select: text; }
+/* THE copyable read-only block (design pass E2, 18.11.2026, owner pick): a Verlauf entry's words,
+   the Einsatz address, the Alarmmeldung, the Gebäude lines – what an operator may want to paste
+   into a message or a map. Opts the block back into selection and the iOS callout the body turns
+   off. Never on a row with a hold or drag gesture (a hold would start a selection instead);
+   docs/ui-conventions.md · «Copyable text». */
+.ui-selectable { user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
 /* ONE placeholder, app-wide (council 04.11.2026): the UA's own grey (WebKit/Blink `darkGray`,
    Firefox the text at .54) is a neutral, warmish grey that at night read DULLER than the labels
    around it, so an empty form looked like a row of disabled fields. The cool --ink-faint tier
@@ -99,7 +110,13 @@ button, input, select, textarea { font-family: inherit; }
    carries — glass, white, or a saturated .on fill. Nothing moves: no scale, no
    translate — motion on press reads as lag under a gloved finger. */
 .vrail-tool:active:not(:disabled),
-.btn:active:not(:disabled), .chip:active:not(:disabled) {
+.btn:active:not(:disabled), .chip:active:not(:disabled),
+/* the hand-rolled buttons that had no press at all (design pass A4, 18.11.2026) – the Einsatz
+   and alarm launch rows are often the FIRST tap at an alarm. `button.ip-launch`: the alarm card
+   is a <div class="ip-launch"> around its own `.ip-launch-hit`, and a wash on both would stack */
+button.ip-launch:active:not(:disabled), .ip-launch-hit:active:not(:disabled),
+.ctx-x:active:not(:disabled), .jc-rec:active:not(:disabled), .ap-btn:active:not(:disabled),
+.timefield-now:active:not(:disabled), .wheelpop-btn:active:not(:disabled), .cv-btn:active:not(:disabled) {
   background-image: linear-gradient(var(--press), var(--press));
 }
 /* …and it never stays where the finger has LEFT (round 18.11.2026): iOS keeps `:active` on the
