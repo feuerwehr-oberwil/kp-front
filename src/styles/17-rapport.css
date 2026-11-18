@@ -55,7 +55,9 @@
    the eye reads label → value at one distance down the whole form. */
 .report-preflight-body { --rp-key: 116px; }
 .report-meta-readout { margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
-.report-meta-readout > div { display: grid; grid-template-columns: var(--rp-key) 1fr; gap: 12px; align-items: baseline; }
+/* `minmax(0, …)` and a key that breaks anywhere, as `.rz-count` (design pass D10, 18.11.2026): a
+   fixed 116px track let a long fr/it key push past its column into the value */
+.report-meta-readout > div { display: grid; grid-template-columns: minmax(0, var(--rp-key)) minmax(0, 1fr); gap: 12px; align-items: baseline; }
 /* key / value: the key is the app's one label type (`--field-label`, 700) in the muted label ink,
    the value in full ink at the next size up – the VALUE is what is read (hill climb r16,
    05.11.2026: in --ink-dim the 700 keys outweighed their 400 values). A missing value keeps its
@@ -66,7 +68,7 @@
    not borrow it (hill climb r22 had set both to 16 / 400).
    The Gerettete keys («Personen», «Tiere», .rz-count below) stand in the same key column and so
    wear this same key – one row-key voice down the form (hill climb r27, Opus 4). */
-.report-meta-readout dt, .rz-count > span { margin: 0; font: var(--field-label); color: var(--ink-faint); }
+.report-meta-readout dt, .rz-count > span { margin: 0; font: var(--field-label); color: var(--ink-faint); overflow-wrap: anywhere; }
 .report-meta-readout dd, .rp-readout { margin: 0; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 .report-preflight-body :is(.ip-field input, .ip-input, .ip-textarea) { font-weight: var(--fw-regular); }
 .report-meta-empty { color: var(--ink-faint); }
