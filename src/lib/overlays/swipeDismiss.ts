@@ -233,18 +233,21 @@ function slideOut(el: HTMLElement, backdrop: HTMLElement | null, onGone: () => v
     backdrop.style.opacity = '0'
     backdrop.style.pointerEvents = 'none'
   }
-  // the Escape that ends the slide IS this close: nobody else may close again on the same key
+  // still ours to close? Not once someone else closed it during the slide (unmounted, or Base UI
+  // already ending it): that close has run, and a late one here would hit whatever shows by now
+  const owns = () => el.isConnected && !el.hasAttribute('data-ending-style')
+  // the Escape that ends the slide IS this close – claimed the way overlays/layer claims a layer's
+  // Esc, so no later handler closes a second thing with it. A key after someone else's close
+  // passes untouched: it belongs to whatever is on screen now.
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation() }
+    if (e.key === 'Escape' && owns()) { e.preventDefault(); e.stopImmediatePropagation() }
     gone()
   }
   const gone = () => {
     window.clearTimeout(timer)
     window.removeEventListener('pointerdown', gone, true)
     window.removeEventListener('keydown', onKey, true)
-    // closed by someone else during the slide (unmounted, or Base UI already ending it): that close
-    // has run, and a late one here would hit whatever the parent shows by now
-    if (el.isConnected && !el.hasAttribute('data-ending-style')) onGone()
+    if (owns()) onGone()
     // a parent that did not close (it asks first) gets its sheet back where it was
     window.setTimeout(() => {
       leaving.delete(el)
