@@ -330,6 +330,54 @@ test-changed:
     pnpm exec vitest run --changed origin/main
     cd backend && uv run pytest -q --lf --lfnf=none || test $? -eq 5
 
+# (For agents that share one machine: one heavy job at a time. Waits up to 9 min for the lock and
+# retries an attempt only when it segfaulted – exit 139, or a crash line in its output, because
+# `pnpm exec` turns a crashed node into exit 1 (this box crashes node at random). Every attempt is
+# appended to one log under tmp/gate/; the tail is printed. Runs in the foreground; never send it
+# to the background.)
+# Run a heavy recipe under the shared lock – `just gate ci`, `just gate visual -g trupps`.
+[group('Quality')]
+[positional-arguments]
+gate recipe *args:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    mkdir -p tmp/gate
+    log=$(mktemp "tmp/gate/$1-$(date +%H%M%S)-XXXX.log") || exit 1
+    attempt=
+    trap 'rm -f "$attempt"' EXIT
+    # Hold the lock on fd 9 for all attempts; the recipe gets fd 9 closed, so a daemon it starts
+    # (a stack's server) cannot keep the lock after the gate ends.
+    exec 9>/tmp/kp-front-heavy.lock || exit 1
+    flock -E 75 -w 540 9
+    lock=$?
+    if [ "$lock" -eq 75 ]; then
+      echo "gate: the heavy lock stayed busy for 9 min – try again later"
+      exit 75
+    elif [ "$lock" -ne 0 ]; then
+      echo "gate: could not take the heavy lock (flock exit $lock)"
+      exit "$lock"
+    fi
+    # The crash lines of pnpm (it pads the code with thin spaces), bash («<script>: line N: <pid>
+    # Segmentation fault») and just, anchored – not output that merely quotes them.
+    crashed='^[^A-Za-z]*ERR_PNPM_[A-Z_]+[^A-Za-z]+Command was killed with SIGSEGV \(Segmentation fault\)|^[^ ]+: line [0-9]+: +[0-9]+ Segmentation fault|^error: [Rr]ecipe `[^`]+` failed with exit code 139$'
+    for try in 1 2 3; do
+      # A fresh file per attempt: a helper left over from a crashed attempt cannot write into the next.
+      rm -f "$attempt"
+      attempt=$(mktemp) || exit 1
+      just "$@" >"$attempt" 2>&1 9>&-
+      rc=$?
+      if ! cat "$attempt" >>"$log"; then
+        echo "gate: could not write $log – this attempt's output:"
+        tail -n 40 "$attempt"
+        exit "$rc"
+      fi
+      [ "$rc" -eq 139 ] || { [ "$rc" -ne 0 ] && grep -qE "$crashed" "$attempt"; } || break
+      [ "$try" -lt 3 ] && echo "gate: $1 segfaulted (try $try/3), retrying" | tee -a "$log"
+    done
+    tail -n 40 "$log"
+    echo "gate: $1 exit $rc – full log: $log"
+    exit "$rc"
+
 # (A measurement, not a gate — prints a report. Presets live in src/lib/fatIncident.ts; see
 # docs/testing/fat-incident.md for what the numbers mean and the last recorded run.)
 # How the pure hot paths scale with incident size (vitest bench over the fat-incident presets).
@@ -402,6 +450,13 @@ wt-prune *args:
 [group('Release')]
 build:
     pnpm build
+
+# (No type-check: `ci-frontend` already runs `pnpm build`, which type-checks. Use it for a
+# throwaway stack or shots after an edit, not as proof that the change compiles.)
+# Production build without the type-check, for local stacks (output: dist/).
+[group('Development')]
+build-stack:
+    pnpm exec vite build
 
 # (Runs `config-schema` too, so the two committed contracts can never drift apart — a pytest
 # fails on either of them being stale. The frontend's types are generated from the same file:
