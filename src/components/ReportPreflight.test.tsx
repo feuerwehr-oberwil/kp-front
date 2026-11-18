@@ -7,6 +7,7 @@ import { appConfig } from '../config/appConfig'
 import type { IncidentMeta } from '../lib/incidents'
 import { downloadDirectReportPdf, signedPartOf } from '../lib/reportPdfDirect'
 import { sha256Hex, type ReportSignature } from '../lib/reportSignature'
+import { fetchPrintStatus } from '../lib/printRelay'
 import type { Person, Trupp } from '../types'
 
 // The «Angaben fehlen noch» ask in front of the Rapport-PDF (14.09.): it used to list the open
@@ -104,6 +105,29 @@ describe('ReportPreflight · the PDF with missing Mindestangaben', () => {
   })
 
 
+})
+
+// round 18.11.2026 #3: a folded «Drucken» stacks like «PDF» beside it. The head's fold (13-incident ·
+// «fold») turns a tile's DIRECT children into a column, so the glyph + relay dot are one child and
+// the words are their siblings – inside the glyph's span «Drucken» stayed beside the printer.
+describe('ReportPreflight · the print tile', () => {
+  it('keeps the printer and its dot together, the words beside them as the tile\'s own children', async () => {
+    vi.mocked(fetchPrintStatus).mockResolvedValueOnce({ available: true, online: true })
+    render(
+      <ReportPreflight
+        incident={incident} reportMeta={{}} events={[]}
+        annotatedPlanCount={0} truppCount={0} attendanceCount={1} mittelCount={1}
+        onSaveMeta={() => {}}
+      />,
+    )
+    await act(async () => {})
+    const tile = document.querySelector<HTMLElement>('.rp-head-actions .print-send')!
+    const glyphs = tile.querySelector(':scope > .print-send-main')!
+    expect(glyphs.querySelector('.print-relay-dot')).not.toBeNull()
+    expect(glyphs.querySelector('.fold-long, .fold-short')).toBeNull()
+    expect(tile.querySelector(':scope > .fold-long')?.textContent).toBe(appConfig.copy.printRelay.send)
+    expect(tile.querySelector(':scope > .fold-short')?.textContent).toBe(appConfig.copy.printRelay.sendShort)
+  })
 })
 
 // ENT.9 (17.11.2026): the PDF printed «ÜBUNG» while the screen the EL signed on said nothing
