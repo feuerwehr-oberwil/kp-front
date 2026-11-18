@@ -42,8 +42,6 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from fnmatch import fnmatchcase
-from glob import escape
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -56,6 +54,7 @@ from .database import async_session_maker
 from .models import DeploymentConfig, Incident, IncidentArchiveDelivery, IncidentArchiveReport, Media
 from .object_visit_report import local_time
 from .object_visit_sharepoint import (
+    SEGMENT_MAX,
     GraphWriter,
     backoff,
     expand,
@@ -63,6 +62,7 @@ from .object_visit_sharepoint import (
     export_writer,
     fingerprint,
     join_path,
+    normalize_segment_text,
     sanitize_segment,
     short_error,
 )
@@ -404,15 +404,61 @@ async def plan(db: AsyncSession, c: Claim) -> Plan | None:
 
 
 class AmbiguousArchiveFolderError(Exception):
-    """An older delivery has multiple possible folder bindings. Do not guess where to file."""
+    """The original folder of an older delivery cannot be identified safely."""
 
 
-def _legacy_path_matches(pattern: str, path: str) -> bool:
-    """Only placeholders vary; retain literal path levels and SharePoint sanitisation."""
-    parts = path.split("/")
-    template = expand(pattern, {})
-    return len(parts) == len(template) and all(
-        fnmatchcase(part, re.sub(r"\{\w+\}", "*", escape(level))) for level, part in zip(template, parts, strict=True)
+# A corrected alarm can change a folder's date or title. Recover the historical shape
+# from the visible characters, keeping the date, year and hexadecimal suffix widths.
+_DIGITS = "0123456789"
+_FIXED_FOLDER_TOKENS = {
+    "{year}": [_DIGITS] * 4,
+    "{date}": [_DIGITS] * 4 + ["."] + [_DIGITS] * 2 + ["."] + [_DIGITS] * 2,
+    "{short}": [_DIGITS + "abcdef"] * 4,
+}
+_FOLDER_TOKEN = re.compile(r"(\{\w+\})")
+
+
+def _legacy_level_matches(raw: str, part: str, *, allow_clipped: bool) -> bool:
+    if not _FOLDER_TOKEN.search(raw):
+        return sanitize_segment(raw) == part
+    if len(part) > SEGMENT_MAX:
+        return False
+
+    # After cutting at the cap, sanitize_segment removes trailing dots and spaces.
+    # Only those characters could have occupied the remaining places in a short key.
+    visible = list(part)
+    if allow_clipped:
+        visible += [" ."] * (SEGMENT_MAX - len(part))
+    # Each offset is one place where the template read so far could end in the stored name.
+    ends = {0}
+    for piece in _FOLDER_TOKEN.split(raw):
+        if piece in ("{stichwort}", "{kategorie}"):
+            # Both can expand to a dispatch category of any length, including a value
+            # that fills the rest of the segment and hides its identifying suffix.
+            if allow_clipped:
+                return True
+            ends = set(range(min(ends), len(visible) + 1))
+            continue
+        for allowed in _FIXED_FOLDER_TOKENS.get(piece, normalize_segment_text(piece)):
+            if allow_clipped and SEGMENT_MAX in ends:
+                return True  # a real rendering extends past the last visible character
+            advanced = {i + 1 for i in ends if i < len(visible) and any(c in allowed for c in visible[i])}
+            if allowed in (" ", "."):
+                # After substitution a literal can fall at a trimmed edge, or two spaces
+                # can become one when everything between them (e.g. «???») disappears.
+                advanced.update(
+                    i for i in ends if i == 0 or i == len(visible) or (allowed == " " and " " in visible[i - 1])
+                )
+            ends = advanced
+            if not ends:
+                return False
+    return len(part) in ends
+
+
+def _legacy_path_matches(pattern: str, path: str, *, allow_clipped: bool = False) -> bool:
+    levels, parts = pattern.split("/"), path.split("/")
+    return len(levels) == len(parts) and all(
+        _legacy_level_matches(raw, part, allow_clipped=allow_clipped) for raw, part in zip(levels, parts, strict=True)
     )
 
 
@@ -426,6 +472,13 @@ def bind_folder_patterns(items: dict[str, Any], dest: IncidentArchiveDestination
     for pattern in patterns - bindings.keys():
         current = "/".join(expand(pattern, values))
         matches[pattern] = {key for key in unbound if key == current or _legacy_path_matches(pattern, key)}
+    # A rendered segment may have lost its literal suffix at the SharePoint length cap.
+    # Its visible text can even match a sibling pattern. In either case the operator must
+    # identify the original folder before the worker binds or creates a replacement.
+    for pattern, definite in matches.items():
+        for key in unbound - definite:
+            if _legacy_path_matches(pattern, key, allow_clipped=True):
+                raise AmbiguousArchiveFolderError(f"Bisheriger Ablageordner nicht eindeutig zuzuordnen: {key}")
     resolved = {}
     for pattern, keys in matches.items():
         if not keys:

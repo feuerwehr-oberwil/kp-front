@@ -112,7 +112,13 @@ destinations.
 - A row from before 2026-11-17 keeps its original folder IDs. On its next delivery the worker
   binds its rendered keys to the configured patterns. If several historical folders could
   belong to the same pattern, the delivery shows an error for manual reconciliation, even
-  when the current title matches one of them exactly. Existing folder bindings stay intact.
+  when the current title matches one of them exactly. The length cap applies to the rendered
+  folder name. A title such as «???» can disappear during cleanup and leave just the date.
+  An incoming dispatch category can exceed the editor's 100-character limit and hide a literal
+  suffix at the 120-character folder limit. When the photo and report patterns share a parent
+  and either could have produced the same key, the worker stops before contacting SharePoint.
+  Separate parents or distinct visible prefixes can identify the original destination. Once
+  recorded, a binding continues to use its folder ID.
 - The worker checks that the incident is still closed while reading the files due in a pass.
   It releases the database lock before contacting SharePoint. A close that raced with an
   earlier pass is processed using the outbox's existing `wanted` counter.

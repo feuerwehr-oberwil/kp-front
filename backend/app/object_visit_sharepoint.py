@@ -48,7 +48,7 @@ logger = logging.getLogger("kpfront.objectvisits")
 
 #: Characters SharePoint refuses in a file or folder name (plus control characters).
 _FORBIDDEN = re.compile(r'["*:<>?/\\|\x00-\x1f]')
-_SEGMENT_MAX = 120
+SEGMENT_MAX = 120
 
 
 class GraphPreconditionError(GraphError):
@@ -63,12 +63,17 @@ def export_credentials() -> tuple[str, str, str] | None:
     return (tenant, client, secret) if tenant and client and secret else None
 
 
+def normalize_segment_text(value: str) -> str:
+    """Clean literal text, keeping spaces and dots that may be inside the expanded folder name."""
+    return re.sub(r"\s+", " ", _FORBIDDEN.sub("", value))
+
+
 def sanitize_segment(value: str) -> str:
     """One path segment SharePoint accepts: forbidden characters and leading/trailing dots and
     spaces removed, whitespace collapsed, bounded. Never empty."""
-    cleaned = " ".join(_FORBIDDEN.sub("", value or "").split()).strip(" .")
-    if len(cleaned) > _SEGMENT_MAX:
-        cleaned = cleaned[:_SEGMENT_MAX].rstrip(" .")
+    cleaned = normalize_segment_text(value or "").strip(" .")
+    if len(cleaned) > SEGMENT_MAX:
+        cleaned = cleaned[:SEGMENT_MAX].rstrip(" .")
     return cleaned or "_"
 
 

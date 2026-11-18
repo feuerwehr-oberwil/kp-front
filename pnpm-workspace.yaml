@@ -41,7 +41,7 @@ auditConfig:
     - GHSA-g3hv-75wg-m249
     # Picomatch <= 4.0.7 has no patched release as of 17.11.2026. Vite, Vitest and Knip
     # match repository patterns in build and development tooling. The owner approved this
-    # exception until 31.12.2026 or an earlier fix. scripts/audit-toolchain.sh enforces the
+    # exception through 31.12.2026 UTC or an earlier fix. scripts/audit-toolchain.sh enforces the
     # expiry and rejects any production dependency path.
     - GHSA-fc5q-39xc-vjpf
 

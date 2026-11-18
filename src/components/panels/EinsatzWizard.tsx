@@ -106,7 +106,7 @@ type WizardFields = {
 }
 /** the part of a draft that is TEXT – what lib/draftKeep holds, and for a new Einsatz mirrors to
  *  the browser's storage so it survives a reload (owner call C2, 17.11.2026) */
-type WizardText = Omit<WizardFields, 'coord'> & { awaitingAddressPin?: true }
+type WizardText = Omit<WizardFields, 'coord'> & { awaitingAddressPin?: true; tookDispatchAddress?: true }
 
 /** Only an explicitly changed pin accompanies this exact text draft in memory. A reload,
  * cancel or incident switch drops the association; a title-only correction uses the latest server pin. */
@@ -185,7 +185,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // [lng, lat] resolved location (object / address hit / map-pick / the alarm's own coord)
   // A dismissed lookup restarts from its address text. A settled miss keeps only clearPin.
   const [lookupAddress, setLookupAddress] = useState<string | null>(draft?.awaitingAddressPin ? draft.address : null)
-  const [clearPin, setClearPin] = useState(!!draft?.clearPin)
+  const [tookDispatchAddress, setTookDispatchAddress] = useState(!!(draft?.tookDispatchAddress || draft?.clearPin || draft?.awaitingAddressPin))
   const [coord, setCoord] = useState<[number, number] | null>(() =>
     (draft && keptCoord.get(draft)) ?? (draft?.clearPin ? null : realCoord(edit?.lng, edit?.lat)),
   )
@@ -199,16 +199,17 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   }))
   useEffect(() => {
     const fields: WizardText = {
-      title, address, kategorie, isExercise, clearPin: clearPin && !coord,
+      title, address, kategorie, isExercise, clearPin: tookDispatchAddress && !coord,
+      tookDispatchAddress: tookDispatchAddress || undefined,
       awaitingAddressPin: lookupAddress ? true : undefined,
       text: textTouched.current ? text : undefined,
       alarmiertAt: alarmiertAt !== openedAlarm ? alarmiertAt : undefined,
     }
-    if (wizardChanged({ ...fields, coord }, opened)) {
+    if (tookDispatchAddress || wizardChanged({ ...fields, coord }, opened)) {
       keepDraft(draftKey, fields)
-      if (coord && (coord[0] !== opened.coord?.[0] || coord[1] !== opened.coord?.[1])) keptCoord.set(fields, coord)
+      if (coord && (tookDispatchAddress || coord[0] !== opened.coord?.[0] || coord[1] !== opened.coord?.[1])) keptCoord.set(fields, coord)
     } else clearDraft(draftKey)
-  }, [title, address, kategorie, coord, isExercise, clearPin, lookupAddress, text, alarmiertAt, opened, openedAlarm, draftKey])
+  }, [title, address, kategorie, coord, isExercise, tookDispatchAddress, lookupAddress, text, alarmiertAt, opened, openedAlarm, draftKey])
   /** «Abbrechen»: the deliberate way out, so the draft goes too */
   const cancel = () => { clearDraft(draftKey); onClose() }
   // the Alarmmeldung fetch FAILED — the textarea is disabled and says so, and `text` stays out of
@@ -444,7 +445,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       ...(asIso(alarmiertAt) ? { started_at: asIso(alarmiertAt) } : {}),
       is_exercise: isExercise,
       // An accepted dispatch address without a usable pin clears the old pair on edit.
-      ...(coord ? { lng: coord[0], lat: coord[1] } : edit && clearPin ? { lng: null, lat: null } : {}),
+      ...(coord ? { lng: coord[0], lat: coord[1] } : edit && tookDispatchAddress ? { lng: null, lat: null } : {}),
     } satisfies IncidentCreate
     // ⚠️ On EDIT, send only what actually changed. The full body re-wrote eight fields every
     // time, including three the operator may never have looked at — and `started_at` is the
@@ -454,6 +455,9 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     // time. A null `type`/`priority` was likewise invented into a value the backend deliberately
     // derives itself. Diffing also shrinks the last-write-wins window to the touched fields.
     const patch = edit ? changedOnly(full, seed) : null
+    // Taking the dispatch explicitly selects this whole location. Another tablet may have
+    // moved its pin since opening, even when both chosen coordinates equal the original ones.
+    if (patch && tookDispatchAddress) Object.assign(patch, { address: full.address, lng: coord?.[0] ?? null, lat: coord?.[1] ?? null })
     // nothing was touched — closing is the honest outcome, and it skips a write that would
     // otherwise re-stamp the record for no reason
     if (patch && !Object.keys(patch).length) { cancel(); return }
@@ -535,7 +539,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           const u = edit?.alarm_update
           const c = realCoord(u?.lng, u?.lat)
           setCoord(c)
-          setClearPin(!c)
+          setTookDispatchAddress(true)
           setLookupAddress(c ? null : v)
         }} />
         {/* The location methods ride the field's own right edge (owner pick 1A, 15.11.2026):

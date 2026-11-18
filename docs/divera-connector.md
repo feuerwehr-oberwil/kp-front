@@ -233,7 +233,9 @@ webhooks cannot call a `divera247.com/api/...` URL. There is no loopback.
   3 h, and «Zeigen» makes it pending again, `POST …/alarm-update/show`, rare-user round F7,
   17.11.2026; no strip in the Meldeleiste). In «Bearbeiten», saving a replacement address waits for its pin lookup.
   Dismissing the sheet during the lookup keeps the address pending. Reopening it retries the
-  lookup before saving. A completed miss clears the old pin, and a later manual pick takes precedence. Saving another field
+  lookup before saving. The accepted address and both pin coordinates travel together even when
+  the coordinates match the ones the form opened with. A completed miss clears the old pin,
+  and a later manual pick takes precedence. Saving another field
   leaves the latest Alarmmeldung on the server unless the operator changed its text.
   The arrival and the decision are Verlauf rows, so they print in the Rapport.
   A later update replaces a pending one; one that says nothing new makes no row. An alarm only

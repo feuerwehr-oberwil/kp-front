@@ -11,30 +11,32 @@ inputs:
 runs:
   using: composite
   steps:
-    # The Azure mirror can trickle packages without triggering apt's stall timeout:
-    # 119 MB took 477 s in recovery, exhausting the job before its tests could finish.
-    # https://github.com/actions/runner-images/issues/14823
+    # Regional mirrors can trickle packages without triggering apt's stall timeout.
+    # The EC2 mirror took 474 s for 32 MB on 2026-11-17, before any workspace test ran.
     - name: Prefer Ubuntu archive mirrors
       shell: bash
       run: |
-        if [ -f /etc/apt/apt-mirrors.txt ]; then
-          sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt
+        if [ -f /etc/apt/apt-mirrors.txt ] && grep -Eq '^https?://archive\.ubuntu\.com/' /etc/apt/apt-mirrors.txt; then
+          sudo sed -Ei '/(azure|ec2)\.archive\.ubuntu\.com\//d' /etc/apt/apt-mirrors.txt
           cat /etc/apt/apt-mirrors.txt
         fi
 
-    - name: Playwright version
+    - name: Identify the Playwright version and Ubuntu release
       id: pw
       shell: bash
-      run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      run: |
+        source /etc/os-release
+        echo "image=$ID-$VERSION_ID" >> "$GITHUB_OUTPUT"
+        echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
 
     - name: Restore the browser cache
       id: cache
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/ms-playwright
-        # ImageOS (ubuntu24, ubuntu26 …) is part of the key: a WebKit built for one Ubuntu release
+        # A WebKit built for one Ubuntu release
         # does not start on the next (12.11.2026: libicudata.so.74 missing on 26.04)
-        key: playwright-${{ runner.os }}-${{ env.ImageOS }}-${{ steps.pw.outputs.version }}-${{ inputs.browsers }}
+        key: playwright-${{ runner.os }}-${{ steps.pw.outputs.image }}-${{ steps.pw.outputs.version }}-${{ inputs.browsers }}
 
     - name: Download the browsers (cache miss)
       if: steps.cache.outputs.cache-hit != 'true'

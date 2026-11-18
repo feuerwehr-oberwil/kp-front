@@ -206,9 +206,26 @@ beendet». The rules: [`presentation.md`](presentation.md).
 - Journal lifecycle boundaries and the `sys` id namespace belong to the server. Neither a
   client row nor a patch targeting a system row may create, retract or edit them; the client
   alarm clock ignores ordinary journal rows carrying lifecycle-looking metadata.
-- A failed conflict PUT still hands the merged union to the live view before another edit.
-  Re-sending parked workspace saves first commits their replacement cache entry, with transfer
-  markers for crash-safe retry, before clearing the parked originals.
+- While a conflict PUT is pending, the operator still edits the view last shown. Each such edit
+  is rebased onto the union in the dirty draft. A handover flushes pending cache writes before
+  the new account opens a slot. Disposal also flushes the draft, even if the PUT never answers.
+  A failed PUT hands the union back to the active view so the next edit includes remote additions.
+- An open interrupted during a cache read, parking write or server GET is cancelled. The incoming
+  account opens its own workspace and parks its predecessor's draft. Only the active selection
+  can deliver a GET result, act on its 401 or adopt an unread slot.
+- If a dirty cache write runs out of space and map-tile eviction finishes after the editor
+  retires, the retry writes to one recovery slot per Einsatz and author. Another tab can keep
+  editing the main slot while eviction runs. On the author's next open, recovery reads the latest
+  same-author main or parked copy and merges it into the view. This happens before the UI takes
+  the edit lock, so opening leaves both copies on disk. The recovering editor saves changes in
+  the author’s recovery slot, including the peer snapshot it saw so deliberate deletions survive.
+  Independently recovered edits merge there before upload. A server acknowledgement (or durable
+  refusal park) reconciles the still-current peer copy and clears only the recovery receipt it
+  settled. Wider-role edits must first be parked for export. An unreadable slot or refused import
+  lock keeps the source on disk for a later open. A denied session cannot read it.
+- Re-sending parked workspace saves first commits their replacement cache entry with transfer
+  markers for crash-safe retry. Each cleanup write checks the session again when it finishes.
+  A handover during cleanup leaves those markers in the author's cache for the next session.
 - Blob data never falls back to JSON storage. Failed local media persistence retains bytes in
   memory and reports storage failure. Pending uploads retry by themselves, one attempt per item
   per pause (5 s doubling, capped at 5 min, with jitter). «No answer at all» (offline, timeout)
