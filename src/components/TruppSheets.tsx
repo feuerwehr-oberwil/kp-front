@@ -8,7 +8,7 @@
  * (no «Zuletzt 240 bar» beside the ringed 240). A new per-Trupp quick sheet uses `MiniSheet`.
  */
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, stripUnprintable } from '../lib/format'
@@ -20,6 +20,7 @@ import { atemschutzEquipment } from '../lib/deploymentConfig'
 import type { TruppTransferState } from '../lib/atemschutz'
 import { auftragSheetFields, fileGuestSlots, kanalPad, kanalSheetFields, leitungChoices, nextFreeLeitung, quickAuftragTypes, teamConflict, truppSheetFields, truppSheetSub, type CrewSlot } from '../lib/truppQuickEdit'
 import type { LeitungOption } from '../lib/truppLines'
+import { ZIEL_MAX_LEN, type AuftragDraft } from '../lib/zielPick'
 import type { Person, Trupp, TruppAuftrag, TruppFields } from '../types'
 import { Segmented } from './Segmented'
 import { Button } from './Button'
@@ -276,20 +277,30 @@ function FunkkanalStepper({ value, onChange }: { value: number; onChange: (v: nu
  * from the hoses actually drawn, and one Speichern. The one-Leitung-one-Trupp question is the
  * board's (AtemschutzView · confirmLineTake, the same helper the form's save goes through), so
  * `onSave` resolves false when the operator said no and the sheet simply stays open.
+ *
+ * The Ziel has the form's «Karte» too (owner, 18.11.2026: both doors handle the Ziel the same
+ * way – lib/zielPick): the sheet hands its fields as typed to `onPickZiel`, the board parks them
+ * and steps away, and opens the sheet again on `draft` – the picked name in the Ziel, the rest as
+ * it was. A draft that differs from the Trupp is a change, so ✕ saves it as for any typed change.
  */
-export function AuftragSheet({ t, leitungOptions, lite = false, onSave, onClose }: {
+export function AuftragSheet({ t, leitungOptions, lite = false, draft, zielPickOn, onPickZiel, onSave, onClose }: {
   t: Trupp
   /** the Leitungen drawn on either surface (lib/truppLines · leitungOptions) */
   leitungOptions: readonly LeitungOption[]
   /** the handed-over Tafel has no picture to read a hose number off — no Leitung row (as the form) */
   lite?: boolean
+  /** the sheet as it stood before a Ziel pick (lib/zielPick · parkedAuftragSheet), or nothing */
+  draft?: AuftragDraft
+  /** the «Karte» beside the Ziel – see `ZielField` */
+  zielPickOn?: 'map' | 'plans'
+  onPickZiel?: (typed: AuftragDraft) => void
   onSave: (f: TruppFields) => Promise<boolean> | boolean
   onClose: () => void
 }) {
   const az = appConfig.copy.atemschutz
-  const [auftrag, setAuftrag] = useState<TruppAuftrag | null | undefined>(t.auftrag)
-  const [ziel, setZiel] = useState(t.ziel ?? '')
-  const [lineNo, setLineNo] = useState<number | null>(t.lineNo ?? null)
+  const [auftrag, setAuftrag] = useState<TruppAuftrag | null | undefined>(draft ? draft.auftrag : t.auftrag)
+  const [ziel, setZiel] = useState(draft ? draft.ziel : t.ziel ?? '')
+  const [lineNo, setLineNo] = useState<number | null>(draft ? draft.lineNo : t.lineNo ?? null)
   const types = quickAuftragTypes(t)
   const save = async () => {
     if (await onSave(auftragSheetFields(t, { auftrag, ziel, lineNo }))) onClose()
@@ -311,13 +322,50 @@ export function AuftragSheet({ t, leitungOptions, lite = false, onSave, onClose 
         <Segmented ariaLabel={az.editFieldLabels.auftrag} value={auftrag ?? undefined} onChange={(v) => setAuftrag(v)}
           options={types.map((a) => ({ value: a.id, label: a.label }))} />
       </div>
-      <label className={s.field}>
-        <span>{az.editFieldLabels.ziel}</span>
-        <ClearableInput value={ziel} placeholder={az.zielPlaceholder} maxLength={60} clearLabel={az.zielClear}
-          onChange={(v) => setZiel(stripUnprintable(v))} />
-      </label>
+      <ZielField label={az.editFieldLabels.ziel} value={ziel} onChange={setZiel}
+        pickOn={lite ? undefined : zielPickOn} onPick={onPickZiel && (() => onPickZiel({ auftrag, ziel, lineNo }))} />
       {!lite && <LeitungField label={az.editFieldLabels.lineNo} value={lineNo} options={leitungOptions} onChange={setLineNo} />}
     </MiniSheet>
+  )
+}
+
+/**
+ * The Ziel: a clearable text field and, beside it, «Karte» (owner pick M5a A, 18.11.2026) – a tap
+ * steps the sheet away, and a tap on a symbol brings it back with the symbol's name here; text
+ * only, the Trupp is not placed (lib/zielPick). The button is named after the surface it opens,
+ * «Plan» when the operator came from one, and is absent without `pickOn` + `onPick` (the Tafel
+ * pur has no surface). ONE component for the form and the Auftrag sheet, like `LeitungField`.
+ * The caption names the input by id: a <label> around the row would fold «Karte» into its name.
+ */
+export function ZielField({ label, value, onChange, pickOn, onPick, className, fieldRef }: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  pickOn?: 'map' | 'plans'
+  onPick?: () => void
+  className?: string
+  /** the form rings the field when it is opened «at the Auftrag» (TruppForm · flashSection) */
+  fieldRef?: Ref<HTMLDivElement>
+}) {
+  const az = appConfig.copy.atemschutz
+  const labelId = useId()
+  return (
+    <div ref={fieldRef} className={cx(s.field, className)}>
+      <span id={labelId}>{label}</span>
+      <span className={s.zielRow}>
+        {/* ✕: a Trupp that comes back and goes in again gets a NEW order, and the old one is not a
+            starting point for typing it. ⚠️ ONE placeholder, for every Auftrag and both Arten (03.09.):
+            a storey example under «Verkehr» proposed a place that does not exist there. Capped so the
+            card's one-line Ziel and the Leitung chip can't be blown out. */}
+        <ClearableInput value={value} placeholder={az.zielPlaceholder} maxLength={ZIEL_MAX_LEN}
+          aria-labelledby={labelId} clearLabel={az.zielClear} onChange={(v) => onChange(stripUnprintable(v))} />
+        {pickOn && onPick && (
+          <Button icon={<Icon id="map" />} title={pickOn === 'plans' ? az.zielPickPlanTitle : az.zielPickMapTitle} onClick={onPick}>
+            {pickOn === 'plans' ? az.zielPickPlan : az.zielPickMap}
+          </Button>
+        )}
+      </span>
+    </div>
   )
 }
 

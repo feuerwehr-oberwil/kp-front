@@ -2,10 +2,10 @@
 // `TruppForm`). Rendered by AtemschutzView, which owns the save (`submitForm`) and the questions
 // in front of it. Rules for this area: docs/atemschutz-board.md.
 
-import { useEffect, useId, useMemo, useRef, useState, type FocusEvent as ReactFocusEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type FocusEvent as ReactFocusEvent, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate, stripUnprintable } from '../lib/format'
+import { fillTemplate } from '../lib/format'
 import { confirmDialog } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
@@ -16,16 +16,14 @@ import { serverNow } from '../lib/serverClock'
 import type { Person, Trupp, TruppAuftrag, TruppFields, TruppKind } from '../types'
 import { personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
 import { type LeitungOption } from '../lib/truppLines'
-import { ClearableInput } from './ClearableInput'
-import { Button } from './Button'
-import { ZIEL_MAX_LEN, type TruppFormOpen } from '../lib/zielPick'
+import type { TruppFormOpen } from '../lib/zielPick'
 import type { Slot } from './PersonField'
 import { TruppTeam } from './TruppTeam'
 import { UnitVal } from './TruppCard'
 import { atemschutzDoctrine, atemschutzEquipment } from '../lib/deploymentConfig'
 import { keepDraft, useKeptState } from '../lib/draftKeep'
 import s from './Atemschutz.module.css'
-import { KanalPickSheet, LeitungField, PressureSheet, TeamConflictRow } from './TruppSheets'
+import { KanalPickSheet, LeitungField, PressureSheet, TeamConflictRow, ZielField } from './TruppSheets'
 import { fileGuestSlots, teamConflict, truppSheetSub } from '../lib/truppQuickEdit'
 import { crewAfterChange, type CrewChange } from '../lib/truppLeader'
 import { rankOrder } from '../lib/rank'
@@ -321,8 +319,6 @@ export function TruppForm({
   // «Auftrag offen» pill and is reused here so the two paths ring the same field the same way.
   const teamRef = useRef<HTMLDivElement>(null)
   const zielRef = useRef<HTMLDivElement>(null)
-  // the Ziel's caption names its input by id: a <label> around the row would fold «Karte» into the name
-  const zielLabelId = useId()
   const pressureRef = useRef<HTMLDivElement>(null)
   const conflictRef = useRef<HTMLDivElement>(null)
 
@@ -743,36 +739,10 @@ export function TruppForm({
           options={auftragTypes.map((a) => ({ value: a.id, label: az.auftragLabels[a.id] ?? a.label }))}
         />
       </div>
-      <div ref={zielRef} className={cx(s.field, focusSection === 'auftrag' && s.formFlash)}>
-        <span id={zielLabelId}>{az.zielLabel}</span>
-        {/* ✕: a Trupp that comes back and goes in again gets a NEW order, and the old one is not
-            a starting point for typing it — «2. OG Wohnung Nord, 2 Personen vermisst» had to be
-            select-all-deleted by hand on a phone, mid-Einsatz. */}
-        {/* ⚠️ ONE placeholder, for every Auftrag and both Arten (03.09.). It used to switch —
-            «z. B. 2OG links» normally, the generic sentence only under «Anderes» — and a storey
-            reference is Atemschutz vocabulary: under Auftrag «Verkehr» the example proposed a
-            place that does not exist there. */}
-        {/* «Karte» beside the field (owner pick M5a A, 18.11.2026): the form steps away, a tap on a
-            symbol brings it back with the symbol's name here – text only, the Trupp is not placed
-            (lib/zielPick). Named after the surface it opens, the Plan when the operator came from one. */}
-        <span className={s.zielRow}>
-          <ClearableInput
-            value={ziel} placeholder={az.zielPlaceholder}
-            // caps chosen so the card's one-line Ziel and the Leitung chip can't be blown out:
-            // «2. OG Wohnung Nord, 2 Personen vermisst» is 39 chars, a Leitung is «1»–«12»
-            maxLength={ZIEL_MAX_LEN}
-            aria-labelledby={zielLabelId}
-            clearLabel={az.zielClear}
-            onChange={(v) => setZiel(stripUnprintable(v))}
-          />
-          {!lite && zielPickOn && onPickZiel && (
-            <Button icon={<Icon id="map" />} title={zielPickOn === 'plans' ? az.zielPickPlanTitle : az.zielPickMapTitle}
-              onClick={() => onPickZiel(`${draftKey}:ziel`)}>
-              {zielPickOn === 'plans' ? az.zielPickPlan : az.zielPickMap}
-            </Button>
-          )}
-        </span>
-      </div>
+      {/* the Ziel and its «Karte» – the same field the card's Auftrag sheet has (TruppSheets · ZielField) */}
+      <ZielField fieldRef={zielRef} className={cx(focusSection === 'auftrag' && s.formFlash)}
+        label={az.zielLabel} value={ziel} onChange={setZiel}
+        pickOn={lite ? undefined : zielPickOn} onPick={onPickZiel && (() => onPickZiel(`${draftKey}:ziel`))} />
       {/* Ausrüstung — multi-select chips: selected = filled, unselected = framed, the SAME chip the
           Trupp sheet draws (TruppSheets · TruppSheet, `<Chip>`). The tick box they wore until
           27.09.2026 (mock 14.09.) was a second state mark inside a chip that already has one; the

@@ -909,10 +909,10 @@ export function IncidentWorkspace({
   // two-pane split, so the app follows the mode instead of asking anyone to find the other
   // surface. This one line is the whole bridge; the mode itself lives in lib/georefMode.
   useGeorefSurfaceBridge(setMode)
-  // «Ziel auf der Karte wählen» (lib/zielPick, owner pick M5a A, 18.11.2026): the Trupp form's
-  // «Karte» opens the surface the operator last stood on – the Karte, or the Plan they came from –
-  // and an answer or «Abbrechen» brings the Trupps surface back, where the board re-opens the form.
-  // Any other surface mid-pick drops it (the form's fields stay kept, as on every switch).
+  // «Ziel auf der Karte wählen» (lib/zielPick, owner pick M5a A, 18.11.2026): the «Karte» beside
+  // the Ziel (the Trupp form, the card's Auftrag sheet) opens the surface the operator last stood on
+  // – the Karte, or the Plan they came from – and an answer or «Abbrechen» brings the Trupps surface
+  // back, where the board re-opens the form or the sheet. Any other surface mid-pick drops it.
   // (Both state follows are adjusted during render, React's pattern for state derived from a change.)
   const zielPick = useZielPick()
   const [zielSurface, setZielSurface] = useState<'map' | 'plans'>(mode === 'plans' ? 'plans' : 'map')
@@ -2953,7 +2953,7 @@ export function IncidentWorkspace({
       defaultFunkkanal={azFunkkanal}
       focus={truppFocus}
       createRequest={truppCreate}
-      // «Karte» beside the form's Ziel (lib/zielPick): never on the Tafel pur, which has no surface
+      // «Karte» beside the Ziel – form and Auftrag sheet (lib/zielPick): never on the Tafel pur, which has no surface
       zielPickOn={asLink ? undefined : zielSurface}
       onPickZiel={asLink ? undefined : () => { clearMapUi(); setJournalOpen(false); setMode(zielSurface) }}
       // «Trupps teilen» — the QR beside the bell, on the page the FU is standing on when

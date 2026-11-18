@@ -217,7 +217,7 @@ good but we don't need the triangle thing. red and notfall is already enough»):
 ## The Trupp form and its questions
 
 - *A door answers the same question the same way* (29.09.2026): the Trupp form and the Auftrag
-  sheet share their Ziel and Leitung controls — a plain `ClearableInput` for the Ziel, and
+  sheet share their Ziel and Leitung controls — `TruppSheets · ZielField` for the Ziel, and
   `TruppSheets · LeitungField` («keine · Ltg n · Nr. …») for the Leitung. «Nr. …» turns into
   the stepper in its own place in the chip row, and a typed number lives there only, never as a
   chip as well (28.10.2026, owner). At rest «Nr. …» is an OUTLINED chip (`Chip outlined`); tapped,
@@ -232,8 +232,11 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   nothing on the surface moves meanwhile. ⚠️ TEXT ONLY (M5c): the Trupp is not docked or placed –
   that stays ⋯ › Platzieren. Every other field survives the trip through draftKeep; the store parks
   the form itself. Leaving for another surface mid-pick drops the pick (fields kept, as on any
-  switch). Not yet on the Auftrag sheet's Ziel (the card's chip) – it is its own component with
-  unkept state; see the round 18.11.2026 report.
+  switch). The card's Auftrag sheet has the same «Karte», the same pick (owner, 18.11.2026: both
+  doors handle the Ziel the same way): ONE field, `TruppSheets · ZielField`, in both places. The
+  sheet keeps no drafts, so the store parks its three fields as typed and the board opens the sheet
+  again on them, the name in the Ziel; ✕ then saves them like any typed change, «Abbrechen» drops
+  them. Leaving for another surface mid-pick drops the sheet's fields too.
 - *The phone form opens with the Art* (owner 16.11.2026: «i almost forgot to add people because it
   looked like things were highlighted already»): on the PHONE «Unter / Ohne Atemschutz» is the
   column's first row, and the Mannschaft («Trupp», «Person suchen») comes after it. Under the
