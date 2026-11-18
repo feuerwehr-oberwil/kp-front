@@ -43,7 +43,7 @@ export function EinsatzRow({ incident: i, when, alarm, onClick, disabled, classN
     <ListRow className={className} onClick={onClick} disabled={disabled}
       title={(
         <span className="einsatz-row-title">
-          <span className="einsatz-row-name">{i.title}</span>
+          <span className="einsatz-row-name" title={i.title}>{i.title}</span>
           {i.is_exercise && <ExerciseTag />}
           {i.is_archived && <span className="ip-badge ip-badge-arch">{appConfig.copy.history.statusArchived}</span>}
         </span>

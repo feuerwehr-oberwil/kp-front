@@ -7,6 +7,7 @@ import { colorName } from '../lib/drawNames'
 import { boundedKey, normalizeSpread, tidySpread, type SpreadDir } from '../lib/spread'
 import { openPhoto } from '../lib/ui'
 import { fillTemplate, formatSymbolName, stripUnprintable } from '../lib/format'
+import { softHyphenateText } from '../lib/symbolWrap'
 import { takenClock } from '../lib/photoGeo'
 import { CtxShell, SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
@@ -773,8 +774,10 @@ const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', dow
               other symbol (29.09.2026, sweep K12). It showed «TLF» as an underlined button that
               jumped to the field: one value in two places, and the underline read as a second
               field. The name lives in «Bezeichnung» only. */}
+          {/* soft hyphens at a compound's seams (lib/symbolWrap): «Unverletzten-sammelstelle»
+              breaks where the eye completes it, never under the ✕ (design pass D5, 18.11.2026) */}
           <span className="ctx-title-input ctx-title-ro">
-            {isNote ? N.section : entity.photoUrl ? appConfig.copy.photoViewer.title : (symbolName || title || C.titlePlaceholder)}
+            {isNote ? N.section : entity.photoUrl ? appConfig.copy.photoViewer.title : softHyphenateText(symbolName || title || C.titlePlaceholder)}
           </span>
           {/* a note's subtitle IS «Notiz», which the title above already says – one word is enough.
               A symbol declared over says when, beside its type: «Schadenlage · erledigt 20:40» –

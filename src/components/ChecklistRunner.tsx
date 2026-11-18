@@ -205,7 +205,7 @@ export function ChecklistRunner({
     <div className={s['cl-runner']}>
       <header ref={headRef} className={s['cl-runner-head']}>
         <div className={s['cl-runner-titles']}>
-          <h2>{template.title}</h2>
+          <h2 title={template.title}>{template.title}</h2>
           {/* the quiet line: ONE line, said WHOLE or not at all (30.09.2026 — «Aktions-Checkliste
               Führ…» on the 820 tablet, «…Fü…» on the phone, is a word and a half that names
               nothing). It is checked text and the ladder's FIRST fold, as every head's quiet line
@@ -263,7 +263,7 @@ export function ChecklistReader({ template }: { template: ChecklistTemplate }) {
     <div className={s['cl-runner']}>
       <header className={s['cl-runner-head']}>
         <div className={s['cl-runner-titles']}>
-          <h2>{template.title}</h2>
+          <h2 title={template.title}>{template.title}</h2>
           {template.subtitle && <p title={template.subtitle}>{template.subtitle}</p>}
         </div>
         <div className={s['cl-overall']}><span className={s['cl-overall-sub']}>{fillTemplate(CL.points, { n: points })}</span></div>

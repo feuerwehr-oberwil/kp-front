@@ -67,6 +67,10 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cl-runner-head[data-fit-wrap] { flex-wrap: wrap; }
 .cl-runner-head[data-fit-wrap] > .cl-runner-titles { flex-basis: 100%; }
+/* on its own row the title may take two lines before its «…» (design pass D6, 18.11.2026): one
+   line cut a long list name even where the row had nothing else to share. The whole name in `title`. */
+.cl-runner-head[data-fit-wrap] > .cl-runner-titles h2 { white-space: normal; overflow-wrap: break-word;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 /* the subtitle's last fold takes the whole line, not just its words (ChecklistRunner, 30.09.2026) */
 .cl-runner-titles p[data-folded] { display: none; }
 .cl-overall { flex: none; display: flex; align-items: center; gap: var(--sp-2); margin-left: auto; }

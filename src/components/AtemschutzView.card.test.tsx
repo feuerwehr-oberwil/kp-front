@@ -16,6 +16,7 @@ import { useIsPhone } from '../lib/useIsPhone'
 import s from './Atemschutz.module.css'
 import { registerAtemschutzViewHooks, az, druckName, dz, iso, aktivTrupp, propsFor, mount } from './AtemschutzView.setup'
 import type { Trupp } from '../types'
+import { fillTemplate } from '../lib/format'
 
 vi.mock('../lib/useIsPhone', async (original) => ({ ...await original<typeof import('../lib/useIsPhone')>(), useIsPhone: vi.fn(() => false) }))
 registerAtemschutzViewHooks()
@@ -707,5 +708,18 @@ describe('pointing to a Trupp', () => {
     mount({ canEdit: false, trupps: [{ ...aktivTrupp(), auftrag: undefined }] })
     expect(screen.getByText(az.auftragAdd)).toBeTruthy()
     expect(screen.queryByRole('button', { name: az.auftragAdd })).toBeNull()
+  })
+  // design pass D2/D9 (18.11.2026): a chip cut to «…» says its words whole in `title`, and the
+  // docked chip's host is the part that gives way – its ▸ stays outside the ellipsis
+  it('says a cut chip whole in its title, the docked host inside the ellipsis and the chevron outside', () => {
+    const ziel = 'Dachgeschoss Westflügel, Zimmer 4.12 hinter der Brandschutztür'
+    const host = 'Hydrant Hauptstrasse gegenüber Gemeindeverwaltung'
+    mount({ trupps: [{ ...aktivTrupp(), auftrag: 'loeschen', ziel }], dockedAt: new Map([['tr1', host]]) })
+    const auftrag = screen.getByRole('button', { name: `Löschen · ${ziel}` })
+    expect(auftrag.title).toBe(`Löschen · ${ziel}`)
+    const docked = screen.getByTitle(fillTemplate(az.dockedAt, { host }))
+    expect(docked.querySelector(`.${s.factTxt}`)?.textContent).toBe(fillTemplate(az.dockedAt, { host }))
+    expect(docked.querySelector(`.${s.factTxt} svg`)).toBeNull()   // the ▸ is not in the part that ellipsises
+    expect(docked.querySelector(':scope > svg')).toBeTruthy()
   })
 })

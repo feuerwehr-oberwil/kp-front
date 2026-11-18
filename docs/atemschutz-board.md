@@ -75,8 +75,11 @@ questions, and what the record keeps (`components/AtemschutzView`; the card and 
     The chips are Auftrag / Ziel, the jumps, Kanal and Ausrüstung only. The Ausrüstung is ONE chip,
     box glyph + the form's words «Retthaube · WBK · Multiwarn», never the Kürzel (rare-user M11).
   - *Crew names are never cut* (31.10.2026, owner): the crew line wraps BETWEEN people only – each
-    name is a nowrap span, the « · » is the break – and grows by a line each time; no ellipsis
-    (`.crewName`). The chips keep their ellipsis.
+    name is an atomic inline-block, the « · » is the break – and grows by a line each time; no
+    ellipsis (`.crewName`). One name wider than the whole line wraps inside itself (its space
+    first, any letter last) instead of running under the clock (design pass D1, 18.11.2026). The
+    chips keep their ellipsis; the part that gives way is `.factTxt` (a chevron stays whole) and
+    the chip says its words whole in `title` (D2/D9).
   - *Truppfarbe as a ring* (owner pick C5, 05.11.2026): the identity mark before the name is a
     hollow ring in the Trupp's colour, not a filled disc — a red disc read as an alarm. The palette
     (`appConfig.drawing.teamColors`) holds no state hue since M4 (owner's pick A, 13.11.2026): no

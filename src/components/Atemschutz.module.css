@@ -1980,9 +1980,14 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .grid .factsEnd { display: flex; flex-wrap: wrap; flex-basis: 100%; min-width: 0; gap: inherit; }
 .factTxt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* the crew line never ellipsises (31.10.2026, owner: «crew names must not be cut off»): every name
-   is a nowrap span and the « · » between them is the only break opportunity, so the line wraps
-   BETWEEN people and grows by a 20px line each time */
-.crewName { white-space: nowrap; }
+   is an atomic inline-block (carrying the « ·» after it) and the space between two of them is the
+   only break opportunity, so the line
+   wraps BETWEEN people and grows by a 20px line each time. A single name wider than the whole
+   line («Schönenberger-Vonlanthen Jean-Christophe» on the iPad grid's ~200px column) wraps INSIDE
+   itself – at its own space first, `anywhere` as the last resort – instead of running under the
+   clock or out of the card (design pass D1, 18.11.2026; a nowrap span had no way to break at all).
+   `text-decoration: inherit`: an inline-block does not take the button's hover underline. */
+.crewName { display: inline-block; max-width: 100%; overflow-wrap: anywhere; text-decoration: inherit; }
 .fact :global(.i) { width: 13px; height: 13px; flex: none; color: var(--ink-faint); }
 /* the missing Auftrag: dashed and amber, the one gap that stays visible on the card */
 .factDash { background: transparent; outline: 1.5px dashed color-mix(in srgb, var(--amber) 70%, transparent);

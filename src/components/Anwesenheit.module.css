@@ -116,7 +116,11 @@
 .isLeft { opacity: var(--done-opacity); }
 
 
-.name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ⚠️ TWO lines, then «…» – never one (design pass D3, 18.11.2026, like the Trupp row's
+   `.trowNameTxt`): the list shows «Nachname Vorname», and a one-line ellipsis kept the surname and
+   cut the first name, so two Schönenbergers read the same. The Anrückend rows share this class. */
+.name { flex: 1 1 auto; min-width: 0; overflow: hidden; overflow-wrap: anywhere; line-height: 1.2;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 /* «there is a remark on this person» — a dot on the clock that opens the sheet. The text
    itself stays in the sheet: in the row it ate the name, which is what the row is for. */
 .hasNote { position: relative; }

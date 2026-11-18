@@ -91,7 +91,9 @@
   content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
   border: 1px solid var(--edge); border-radius: var(--r-ctl); background: var(--surface);
 }
-.name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* two lines, then «…» – the Zeitplan's name cell (Zeitplan.module.css · `.name`, design pass D3) */
+.name { min-width: 0; overflow: hidden; overflow-wrap: anywhere; line-height: 1.2;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 /* «eigene Zeiten»: this person planned on the axis and belongs to no column, so all their cells
    are empty — the mark carries their real hours so the grid cannot read as «has offered nothing».
    margin-left: auto — it rides the right edge of the name cell, against the first column, where

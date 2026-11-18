@@ -343,7 +343,10 @@
    only with the street under it, the same way the card carries its address. */
 .ip-menu-rowmain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .ip-menu-titleline { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.ip-menu-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* two lines, then «…» (design pass D4, 18.11.2026): one line made two 100-char ALL-CAPS Divera
+   titles read the same up to their «…». The whole title in `title` (AppMenuRows). */
+.ip-menu-title { min-width: 0; overflow-wrap: anywhere; overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 /* the `.list-row-sub` voice, 12.5 / ink-dim, on one line (style sweep T4, 15.11.2026 – it was 11px ink-faint) */
 .ip-menu-rowsub { font: var(--fw-medium) var(--fs-1)/1.3 var(--body); color: var(--ink-dim);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2538,7 +2541,10 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .ip-launch:disabled { opacity: var(--disabled); cursor: default; }
 .ip-launch > svg { width: 17px; height: 17px; flex: none; color: var(--ink-faint); }
 .ip-launch-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.ip-launch-title { font: var(--fw-bold) var(--fs-3) var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* two lines, then «…», as `.ip-card-name` (design pass D4, 18.11.2026): a 100-char ALL-CAPS Divera
+   title cut to one line made two alarms of the same Stichwort look the same. The whole title in `title`. */
+.ip-launch-title { font: var(--fw-bold) var(--fs-3) var(--body); overflow-wrap: anywhere; overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 .ip-launch-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Divera-alarm row: red kicker + pulse to read as the loud, fresh thing */
 .ip-launch.alarm { border-color: color-mix(in srgb, var(--red) 35%, var(--glass-edge)); }

@@ -10,7 +10,11 @@
    ⚠️ Both classes in the selector, on purpose: `.ctx-title-input` is declared LATER (07-toolrail),
    so at one class each its underline won on source order and every symbol's type head («Feuer»)
    kept the «tap to edit» line (sweep 09.11.2026, UI.1). */
-.ctx-title-input.ctx-title-ro { display: block; cursor: default; border-bottom-color: transparent; }
+.ctx-title-input.ctx-title-ro { display: block; cursor: default; border-bottom-color: transparent;
+  hyphens: manual; overflow-wrap: break-word; }
+/* ↑ a long compound («Unverletztensammelstelle») breaks at the soft hyphens ContextPanel puts at
+   its seams (lib/symbolWrap · softHyphenateText), else at any letter – never under the ✕
+   (design pass D5, 18.11.2026) */
 .ctx-notes-ro { margin: 0; font-size: var(--fs-2); line-height: 1.45; color: var(--ink); white-space: pre-wrap; }
 .kv-val-ro { font-weight: var(--fw-medium); }
 /* (the live vehicle's Fahrer row shares .field with the preset rows — no style of its own) */
