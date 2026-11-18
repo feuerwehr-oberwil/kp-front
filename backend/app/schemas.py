@@ -124,16 +124,13 @@ Latitude = Annotated[float, Field(strict=True, allow_inf_nan=False, ge=-90, le=9
 Longitude = Annotated[float, Field(strict=True, allow_inf_nan=False, ge=-180, le=180)]
 
 
-INCIDENT_TYPE_MAX = 100
-
-
 class _IncidentInput(BaseModel):
     """What both the create and the patch body take. INPUT only: the read models
     (`IncidentMeta`) keep plain types so a legacy row (a «NORMAL» priority, an old status)
-    still reads. The text bounds are abuse caps on unbounded TEXT columns, the same numbers as
-    the alarm intake (`AlarmIn`), which writes the same columns."""
+    still reads. These bounds apply to manual edits. The separate alarm intake (`AlarmIn`)
+    writes the same TEXT columns and accepts longer dispatch categories."""
 
-    type: str | None = Field(default=None, max_length=INCIDENT_TYPE_MAX)
+    type: str | None = Field(default=None, max_length=100)
     priority: IncidentPriority | None = None
     text: str | None = Field(default=None, max_length=10_000)
     address: str | None = Field(default=None, max_length=255)

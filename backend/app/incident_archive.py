@@ -62,10 +62,11 @@ from .object_visit_sharepoint import (
     export_writer,
     fingerprint,
     join_path,
+    normalize_segment_text,
     sanitize_segment,
     short_error,
 )
-from .schemas import INCIDENT_TYPE_MAX, IncidentArchiveConfig, IncidentArchiveDestination, load_stored_config
+from .schemas import IncidentArchiveConfig, IncidentArchiveDestination, load_stored_config
 from .sharepoint_graph import GraphAuthError, GraphError
 
 if TYPE_CHECKING:
@@ -430,17 +431,25 @@ def _legacy_level_matches(raw: str, part: str, *, allow_clipped: bool) -> bool:
         visible += [" ."] * (SEGMENT_MAX - len(part))
     # Each offset is one place where the template read so far could end in the stored name.
     ends = {0}
-    for piece in _FOLDER_TOKEN.split(sanitize_segment(raw, truncate=False)):
+    for piece in _FOLDER_TOKEN.split(raw):
         if piece in ("{stichwort}", "{kategorie}"):
-            # Both may hold the incident type (a missing Stichwort falls back to it).
-            if allow_clipped and max(ends) + INCIDENT_TYPE_MAX > SEGMENT_MAX:
+            # Both can expand to a dispatch category of any length, including a value
+            # that fills the rest of the segment and hides its identifying suffix.
+            if allow_clipped:
                 return True
-            ends = {end for start in ends for end in range(start, min(start + INCIDENT_TYPE_MAX, len(visible)) + 1)}
+            ends = set(range(min(ends), len(visible) + 1))
             continue
-        for allowed in _FIXED_FOLDER_TOKENS.get(piece, piece):
+        for allowed in _FIXED_FOLDER_TOKENS.get(piece, normalize_segment_text(piece)):
             if allow_clipped and SEGMENT_MAX in ends:
                 return True  # a real rendering extends past the last visible character
-            ends = {i + 1 for i in ends if i < len(visible) and any(c in allowed for c in visible[i])}
+            advanced = {i + 1 for i in ends if i < len(visible) and any(c in allowed for c in visible[i])}
+            if allowed in (" ", "."):
+                # After substitution a literal can fall at a trimmed edge, or two spaces
+                # can become one when everything between them (e.g. «???») disappears.
+                advanced.update(
+                    i for i in ends if i == 0 or i == len(visible) or (allowed == " " and " " in visible[i - 1])
+                )
+            ends = advanced
             if not ends:
                 return False
     return len(part) in ends
