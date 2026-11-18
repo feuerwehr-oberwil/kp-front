@@ -28,6 +28,9 @@
 // raise is identical whichever device is asking, and the native `title` was the wrong answer for
 // it: it takes about a second, it cannot be styled, and on the letter chips it duplicated a bubble
 // the tablet already had. They carry no `title` any more, so there is exactly one explanation.
+// Once one hover bubble has been up, the next chip answers at once (WARM_MS, below) – a group of
+// coded chips (a Segmented, the BandGrid) is read by sweeping along it. Touch keeps its full hold:
+// a press that answered at once would eat the tap.
 //
 // The suppressed tap: once the bubble has shown, the release must not also trigger the button —
 // «I asked what it is» and «I did it» cannot be the same gesture. The click that follows
@@ -46,6 +49,10 @@ const LINGER_MS = 1100
 /** Mouse dwell before the same bubble appears on a coded chip. Shorter than the touch hold —
  *  a pointer resting on a control is already a question, where a finger might just be on its way. */
 const HOVER_MS = 220
+/** After a hover bubble goes, the next coded chip shows its own WITHOUT the HOVER_MS wait for this
+ *  long (design pass C10, 18.11.2026: sweeping along a chip group waited 220 ms again on every
+ *  chip). With none open for longer, the wait applies again. */
+const WARM_MS = 300
 
 function labelOf(el: HTMLElement): string | null {
   const aria = el.getAttribute('aria-label') || el.getAttribute('title')
@@ -111,27 +118,33 @@ export function installHoldTooltip(): () => void {
   // ── mouse hover, for the coded chips only ──
   let hoverTimer = 0
   let hoverEl: HTMLElement | null = null
+  let warmUntil = 0 // Date.now() before which the next hover skips HOVER_MS
   const cancelHover = () => {
     if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = 0 }
     hoverEl = null
+  }
+  /** the pointer left the hovered chip: its bubble goes, and the next chip is warm if it was up */
+  const leaveHover = () => {
+    if (bubble) warmUntil = Date.now() + WARM_MS
+    cancelHover()
+    dropBubble()
   }
   const onOver = (e: PointerEvent) => {
     if (e.pointerType !== 'mouse') return
     const hit = eligible(e.target)
     // opt-in only: an icon-only button keeps its native tooltip, which is what the mouse already
     // expects everywhere else in the app. Widening this is a one-word change if it is wanted.
-    if (!hit || !hit.el.hasAttribute('data-holdexplain')) { if (hoverEl) { cancelHover(); dropBubble() } return }
+    if (!hit || !hit.el.hasAttribute('data-holdexplain')) { if (hoverEl) leaveHover(); return }
     if (hit.el === hoverEl) return
-    cancelHover()
-    dropBubble()
+    leaveHover()
     hoverEl = hit.el
+    if (Date.now() < warmUntil) { bubble = showHoldBubble(hit.el, hit.label); return }
     hoverTimer = window.setTimeout(() => { bubble = showHoldBubble(hit.el, hit.label) }, HOVER_MS)
   }
   const onOut = (e: PointerEvent) => {
     if (e.pointerType !== 'mouse' || !hoverEl) return
     if (e.relatedTarget instanceof Node && hoverEl.contains(e.relatedTarget)) return
-    cancelHover()
-    dropBubble()
+    leaveHover()
   }
 
   const onDown = (e: PointerEvent) => {

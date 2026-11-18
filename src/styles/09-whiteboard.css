@@ -601,13 +601,12 @@
 /* plan symbols use the shared <TacticalSymbol> (.ts/.ts-rot) like the map; .ts-plan
    adds the float shadow that distinguishes a symbol on a plan sheet from one on the map */
 .ts-plan .ts-rot svg { filter: drop-shadow(0 1px 1px rgba(15, 22, 34, .42)) drop-shadow(0 3px 6px rgba(30, 45, 70, .26)); }
-/* selection pop mirrors the Lage map exactly: symbols bounce up to 1.22× (selpop), shapes
-   bounce their inner glyph (shapebounce), and the rendered .sel-halo ring sits behind them —
-   so a selected symbol looks & animates identically on Lage and Plan. (keyframes selpop /
-   shapebounce / haloIn are defined once in the map block above and are global.) */
-.wb-anno.sel .ts-plan { transform: scale(1.22); animation: selpop .24s var(--ease); }
+/* selection mirrors the Lage map exactly: symbols stand at 1.22× at once, no bounce, and the
+   rendered .sel-halo ring fades in behind them (keyframe haloIn, global, in the map block above) —
+   so a selected symbol looks identical on Lage and Plan. (The selpop / shapebounce bounces went
+   with design pass C1, 18.11.2026: «nothing moves on press».) */
+.wb-anno.sel .ts-plan { transform: scale(1.22); }
 .wb-anno.sel .wb-text-label, .wb-anno.sel .wb-resource-pill { transform: scale(1.12); }
-.wb-anno.sel .shape-glyph .shape-svg { animation: shapebounce .26s var(--ease); transform-origin: 50% 50%; }
 .wb-anno.sel .ts-plan, .wb-anno.sel .shape-glyph { position: relative; z-index: 1; }
 /* text scales with the plan: font-size is set inline (13px × zoom); padding +
    radius use em so the bubble stays proportional at any zoom */
@@ -1335,7 +1334,9 @@ span.wb-ghost-label { cursor: default; }
 .wb-scale-persist { position: absolute; left: calc(var(--rail-w) + 28px); bottom: calc(16px + var(--line-h) + var(--float-gap)); z-index: 9;
   display: inline-flex; align-items: center; gap: 8px; max-width: min(94%, 520px); padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
   border-radius: var(--r-ctl); border: 1px solid var(--glass-line); background: var(--surface);
-  box-shadow: var(--e4); animation: panelIn .16s var(--ease); }
+  box-shadow: var(--e4); animation: pop .16s var(--ease); }
+/* `pop`, not the old `panelIn` (design pass A10, 18.11.2026): panelIn's `translateY(-50%)` start
+   flew the bar in from half its own height up; `pop` grows it in place (07-toolrail · @keyframes pop). */
 .wb-scale-persist-t { font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); white-space: nowrap; margin-right: 2px; }
 .wb-scale-persist .btn { padding: var(--sp-2) var(--sp-3); font-size: var(--fs-1); white-space: nowrap; }
 /* its ✕ is THE icon button (<IconButton>, 08.10.2026 — it was a 34px dim ✕ of its own) */
@@ -1437,8 +1438,9 @@ span.wb-ghost-label { cursor: default; }
 .wb-vins .i { width: 11px; height: 11px; stroke-width: 3.2; }
 
 /* ── The open drawing and the snap ring (27.10.2026, Grundriss round) ─────────────────────────
-   A Punkte drawing that is not saved yet LOOKS open: amber marching dashes and a pulsing «Wand
-   offen» pill at its last point (usePlanDraft · openName). Where the next point lands is a ring
+   A Punkte drawing that is not saved yet LOOKS open: amber marching dashes and a still «Wand
+   offen» pill at its last point (usePlanDraft · openName; the pill's pulse said the dashes' «open»
+   twice, design pass C5, 18.11.2026). Where the next point lands is a ring
    and nothing else (owner: «no text, no guide lines»): magenta when it catches, a small grey dot
    when it is free; a mouse also draws the rubber band from the last point. */
 .wb-draft-open { fill: none; stroke: var(--open); stroke-width: 3; stroke-dasharray: 10 7; animation: wb-ants .8s linear infinite; }
@@ -1446,14 +1448,13 @@ polygon.wb-draft-open { fill: var(--open); fill-opacity: .1; }
 @keyframes wb-ants { to { stroke-dashoffset: -34; } }
 .wb-open-pill { position: absolute; left: 0; top: 0; z-index: 8; pointer-events: none; white-space: nowrap;
   padding: 2px var(--sp-2); border-radius: var(--r-pill); background: var(--open); color: var(--on-amber);
-  font-size: var(--fs-1); font-weight: var(--fw-bold); animation: wb-pulse 1.2s ease-in-out infinite; }
-@keyframes wb-pulse { 50% { opacity: .5; } }
+  font-size: var(--fs-1); font-weight: var(--fw-bold); }
 .wb-snap-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 8; }
 .wb-snap-band { stroke: var(--open); stroke-width: 2; stroke-dasharray: 3 5; fill: none; }
 .wb-snap-ring { fill: none; stroke: var(--snap); stroke-width: 2.5; }
 .wb-snap-core { fill: var(--snap); }
 .wb-snap-free { fill: var(--ink-faint); }
-@media (prefers-reduced-motion: reduce) { .wb-draft-open, .wb-open-pill { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .wb-draft-open { animation: none; } }
 
 /* «Kopieren nach …» (components/StoreyCopySheet) – A «Stapel»: a narrow sheet, one line of what
    goes, the storeys as rows top to bottom (the source on the grey wash, «Vorlage» its tag), a quiet

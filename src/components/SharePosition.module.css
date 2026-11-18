@@ -48,16 +48,11 @@
    crowds out the incident title — so the tone below is what reads at a glance, and the words
    live in the tooltip and the sheet. Doubled so it outranks `.tb-act`'s ink. */
 /* Reporting. Tinted, not shouting: this is a normal running state, not an alert.
-   The `-strong` tone is the one that carries text on the app background in both schemes. */
+   The `-strong` tone is the one that carries text on the app background in both schemes.
+   The glyph is still (design pass C4, 18.11.2026): the green tone says «reporting», a loop on
+   the top bar for as long as the phone shares added nothing. */
 .live.live { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 45%, var(--glass-edge)); }
-.live svg { animation: sp-pulse 2.4s ease-in-out infinite; }
 /* Waiting for a fix, or paused because the phone is in a pocket — true but not current. */
 .wait.wait { color: var(--ink-dim); }
 /* Denied by the OS, or the name is taken: the holder has to do something. */
 .warn.warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 55%, var(--glass-edge)); }
-
-@keyframes sp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
-
-@media (prefers-reduced-motion: reduce) {
-  .live svg { animation: none; }
-}

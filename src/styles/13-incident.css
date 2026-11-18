@@ -1773,11 +1773,12 @@ button.rp-sign-row:disabled { cursor: default; }
 .cv-pdf { align-self: flex-start; margin-top: 4px; background: var(--btn-primary);
   border-color: var(--btn-primary); color: var(--on-btn-primary); }
 /* cross-visibility QR ↔ KP: subtle live-dot line in the header (reassurance, not an alarm),
-   and the quiet secondary styling the output buttons take while the KP tablet is active */
+   and the quiet secondary styling the output buttons take while the KP tablet is active. The dot
+   is still (design pass C4, 18.11.2026): the green and the words say «live», a loop added nothing. */
 .cv-kp-live { display: flex; align-items: center; gap: 8px; margin: 4px 0 0;
   font: var(--fw-medium) var(--fs-1) var(--body); color: var(--green-strong); }
 .cv-kp-dot { width: 8px; height: 8px; border-radius: 50%; flex: none;
-  background: var(--green); animation: p 2.4s infinite; }
+  background: var(--green); }
 .cv-btn.cv-quiet { background: var(--surface-veil); border-color: var(--glass-edge); color: var(--ink-dim); font-weight: var(--fw-medium); }
 /* modal confirm (Ausdrucken / Rapport-PDF): solid + taller than Abbrechen — the decision
    button carries the visual weight */

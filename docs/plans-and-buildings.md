@@ -124,7 +124,7 @@ Sketching a building on the floor stack during an Einsatz (27.10.2026, the owner
   onto the centre of a Durchgang, a Türe or a Treppe – that is how a Leitung is laid through
   doors and up the stairs. The stored point is exactly the snapped one.
 - **An open drawing looks open and is never left unasked.** While a Punkte drawing is in the
-  hand it is drawn in amber marching dashes with a pulsing «Wand offen» pill at its last point,
+  hand it is drawn in amber marching dashes with a still «Wand offen» pill at its last point,
   and its rail tile carries an amber dot – on the Plan and on the Karte. Leaving it (another tool
   or mode, ✕, Escape, a selection landing, tapping another storey while a Wand is open) asks «Speichern · Verwerfen · Weiterzeichnen» (`lib/draftMachine · releaseDraft /
   askOpenDraft`); a fragment too short to commit goes silently. Two leaves cannot be answered

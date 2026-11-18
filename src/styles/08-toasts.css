@@ -20,7 +20,10 @@
 .dw-card { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-tool-card);
   width: min(424px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto;
   background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-hero);
-  box-shadow: var(--e4); padding: var(--sp-5) var(--sp-5) var(--sp-4); animation: panelIn .16s var(--ease); }
+  box-shadow: var(--e4); padding: var(--sp-5) var(--sp-5) var(--sp-4); animation: pop .16s var(--ease); }
+/* `pop`, not the old `panelIn` (design pass A10, 18.11.2026): a `transform` keyframe REPLACES the
+   card's own centring translate, so it flew in from half its size away; `pop` animates the
+   independent `scale` and grows the card in place (07-toolrail · @keyframes pop). */
 /* the ✕ IS the global `.ip-x` (28.09.2026 — it was a 44px copy with a 16px glyph); this only
    pins it to the card's corner */
 .dw-x { position: absolute; top: 12px; right: 12px; }
@@ -839,9 +842,9 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   cursor: pointer; display: grid; place-items: center; flex: none; }
 /* press = the house ink wash (02-base.css), over the green fill; nothing moves */
 .tl-play:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* while a voice memo is sounding, the button turns blue and pulses so it's obvious */
-.tl-play.playing { background: var(--blue); animation: playPulse 1.3s ease-in-out infinite; }
-@keyframes playPulse { 0%, 100% { box-shadow: 0 0 0 0 var(--blue-45); } 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--blue) 0%, transparent); } }
+/* while a voice memo is sounding, the button turns blue – the fill says «playing», so it stays
+   still (its pulse went with design pass C6, 18.11.2026) */
+.tl-play.playing { background: var(--blue); }
 .tl-play .i { width: 11px; height: 11px; margin-left: 1px; }
 .tl-play.playing .i { margin-left: 0; }
 
