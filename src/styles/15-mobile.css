@@ -331,8 +331,12 @@
     z-index: var(--z-drawer-menu); padding-bottom: env(safe-area-inset-bottom);
     /* bottom sheet enters from below (ctxIn slides sideways — desktop side-panel chrome),
        and the half↔full snap eases instead of jumping; live grip-drags disable the
-       transition (SheetGrip sets .sheet-dragging) so the sheet tracks the finger 1:1 */
-    animation: sheetUp .22s var(--ease); transition: height .22s var(--ease), opacity .16s var(--ease); }
+       transition (SheetGrip sets .sheet-dragging) so the sheet tracks the finger 1:1.
+       ⚠️ The rise is a TRANSITION from `@starting-style` (below), never a keyframe (design pass
+       18.11.2026 B5): a pull in its first 220ms catches the sheet where it is (swipeDismiss reads
+       the live transform) — a keyframe cannot be caught, it overrides the finger until it ends. */
+    animation: none; transition: height .22s var(--ease), opacity .16s var(--ease), transform .22s var(--ease); }
+  @starting-style { .ctx { opacity: 0; transform: translateY(26px); } }
   .ctx.sheet-dragging { transition: none; }
   .ctx.sheet-full { height: var(--sheet-h, 88dvh); }
   /* …and a FULLY expanded sheet owns the screen: nothing behind it still answers a tap.
@@ -759,7 +763,9 @@
     max-height: min(72dvh, calc(100dvh - var(--kb-inset, 0px) - var(--bar-foot) - var(--sp-4)));
     border-radius: var(--r-hero) var(--r-hero) 0 0;
     padding-bottom: 0;
-    animation: sheetUp .22s var(--ease); }
+    /* rises from below, catchable (the `.ctx` rule above says why) */
+    animation: none; transition: transform .22s var(--ease), opacity .22s var(--ease); }
+  @starting-style { .layers-card { opacity: 0; transform: translateY(26px); } }
   /* …in replay too, where the door is the top-right cluster (05-navrail · .map-util re-anchors the
      tablet card under it, and at (0,2,0) it would hang this sheet from the top) */
   .map-util .layers-card { top: auto; bottom: 0;
@@ -789,7 +795,7 @@
   .journal-drawer { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-width: none;
     max-height: calc(100dvh - var(--bar-foot) - 2px);
     padding-bottom: 0;
-    border-radius: var(--r-hero) var(--r-hero) 0 0; animation: sheetUp .22s var(--ease); }
+    border-radius: var(--r-hero) var(--r-hero) 0 0; }
   /* ⚠️ Keyboard up (the Verlauf search, 15.09.2026): the Overlay lifts this bottom-anchored
      drawer by the keyboard's height (keyboardLift · marginBottom), but the cap above is the whole
      screen – so a full drawer rode up with its HEAD, the row holding the search field, above the
@@ -861,8 +867,7 @@
   .journal-composer { left: 0; right: 0; bottom: 0; top: auto; transform: none;
     width: 100%; max-width: none;
     border-radius: var(--r-hero) var(--r-hero) 0 0;
-    max-height: min(86dvh, calc(100dvh - var(--jc-kb, 0px) - 10px - env(safe-area-inset-top)));
-    animation: sheetUp .22s var(--ease); }
+    max-height: min(86dvh, calc(100dvh - var(--jc-kb, 0px) - 10px - env(safe-area-inset-top))); }
   /* the home indicator's inset is the pinned foot's last padding (10-journal · .jc-foot), the
      frame pays none – «Erfassen» stands clear of the indicator (scroll sweep 15.11.2026 #6) */
   .journal-composer > .jc-foot { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
@@ -888,8 +893,15 @@
   /* the field keeps ~3 lines while typing — the Verlauf shows what was written, this shows
      what is being written */
   .journal-composer.is-kb .jc-text { min-height: 62px; }
-  /* every ip-sheet is bottom-anchored on phones — rise from below, not pop in place */
-  .ip-sheet, .pp-sheet:not(.pp-nomap), .sym-modal { animation: sheetUp .22s var(--ease); }
+  /* every ip-sheet is bottom-anchored on phones — rise from below, not pop in place. The Base UI
+     frames (Sheet / Overlay: the sheets, the PlanPicker, the Palette, the Verlauf, the composer)
+     rise by a TRANSITION from Base UI's first frame, `[data-starting-style]`, never a keyframe
+     (design pass 18.11.2026 B5): a pull in the first 220ms catches the sheet where it stands
+     (swipeDismiss reads the live transform). The way out is swipeDismiss · leaveBottomSheet. */
+  .ip-sheet.ui-dialog, .pp-sheet:not(.pp-nomap), .sym-modal, .journal-drawer, .journal-composer {
+    animation: none; transition: transform .22s var(--ease), opacity .22s var(--ease); }
+  :is(.ip-sheet.ui-dialog, .pp-sheet:not(.pp-nomap), .sym-modal, .journal-drawer, .journal-composer)[data-starting-style] {
+    opacity: 0; transform: translateY(26px); }
 
   /* incident-management sheets (Einsatz wizard, Datenquellen, PlanPicker) become
      near-full-width bottom sheets so the inputs + actions stay reachable */
@@ -919,7 +931,7 @@
   [role='dialog'] .ui-sheet-foot > .ip-btn.primary { flex: 1 1 auto; justify-content: center; }
   .ip-sheet:has(> .ui-sheet-foot) .ip-body { padding-bottom: 12px; }
   /* Base UI Dialog popup has no .ip-ovl grid parent, so bottom-anchor it here (the old
-     .ip-ovl{place-items:end center} did this) — same full-width bottom sheet + sheetUp entrance. */
+     .ip-ovl{place-items:end center} did this) — same full-width bottom sheet + the rise above. */
   .ip-sheet.ui-dialog { top: auto; bottom: 0; left: 0; transform: none; }
   /* …and now it can be pushed back down (lib/overlays · swipeDismiss). The bar is the SAME
      40×5px pill as the `.ctx` editors' grip below, hung in the same 24px band clear of the

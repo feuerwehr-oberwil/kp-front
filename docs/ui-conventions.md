@@ -310,7 +310,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   Passung, every form and settings sheet — is a **slide-up bottom sheet**: flush with the bottom edge and both sides, over the bars,
   the ONE grab bar on top, pushed down to close (`useSwipeDismiss`; the head is the handle, and so
   is the body from its scroll-top — rows and buttons included, never a field, a slider or a map; sweep 28.10.2026),
-  lifted by the keyboard (`keyboardLift`), the bottom inset paid by its last row. It HUGS its
+  lifted by the keyboard (`keyboardLift`), the bottom inset paid by its last row. It rises by a
+  transition, never a keyframe, and a pull catches it mid-rise or mid-snap; it leaves DOWN off the
+  edge – from the finger after a pull, from rest after ✕ / backdrop / Esc – with its scrim fading on
+  the pull (design pass 18.11.2026; `swipeDismiss` · `leaveBottomSheet`). It HUGS its
   content up to a cap that leaves the top of the map in sight, so it grows upward and its foot
   never moves under the thumb. Detents only where the surface has two useful heights (the
   `.ctx` editors' half ⇄ full). Modal (scrim, focus trap) when it asks for input that must be
@@ -455,7 +458,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     (FEEDBACK.11, 17.11.2026). What goes away **by itself**
     shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
     mode is on shows neither. A tap on the pill itself does nothing (05.10.2026): the ✕ closes,
-    the action button acts, a sideways swipe throws it away. **The toasts stand under the head, on
+    the action button acts, a sideways swipe throws it away (a finger on a pill holds its clock;
+    a swipe the browser takes for a scroll springs back, and a press that travelled is never a tap
+    on «Rückgängig»). **The toasts stand under the head, on
     every width** — **except on the Atemschutz-Link, which shows none at all** (30.10.2026, owner:
     «they just hide things»; `<Overlays toasts={false} />`): undo is the header's ↶ ↷, the sync
     state its mark, and its Meldeleiste keeps only the rows that block work (`meldungen ·

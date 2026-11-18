@@ -647,7 +647,11 @@
    ⚠️ independent `scale`/`opacity`, never `transform` — the dialogs centre themselves with a
    translate() that a transform transition would clobber mid-flight (same reason the `pop`
    keyframe animates bare `scale`). Exits run shorter than the .16s/.22s entrances: leaving
-   must never make the operator wait. */
+   must never make the operator wait.
+   ⚠️ These run only where `open` flips while the frame stays mounted — most callers unmount
+   their `<Sheet open>` on close, and Base UI never gets to play them. A PHONE bottom sheet does
+   not fade: `Sheet`/`Overlay` slide it down off the edge before calling the parent's close
+   (lib/overlays/swipeDismiss · leaveBottomSheet, design pass 18.11.2026 B1). */
 .ui-backdrop[data-starting-style], .ui-backdrop[data-ending-style],
 .modal-backdrop[data-ending-style], .photo-scrim[data-ending-style], .mp-backdrop[data-ending-style] { opacity: 0; }
 .modal-backdrop[data-ending-style], .photo-scrim[data-ending-style], .mp-backdrop[data-ending-style] {

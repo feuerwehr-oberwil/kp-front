@@ -1386,7 +1386,9 @@ span.wb-ghost-label { cursor: default; }
     display: flex; flex-direction: column;
     border-radius: var(--r-hero) var(--r-hero) 0 0;
     padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
-    animation: sheetUp .22s var(--ease); }
+    /* rises from below as a catchable transition, never a keyframe (15-mobile · `.ctx`) */
+    transition: transform .22s var(--ease), opacity .22s var(--ease); }
+  @starting-style { .wb-georef-dock { opacity: 0; transform: translateY(26px); } }
   .wb-georef-dock > .ui-sheet-grab { margin-bottom: -4px; }
 }
 /* The lamp's tones live in TS (planScale · planFactsTone over georefChipTone and scaleLampTone),

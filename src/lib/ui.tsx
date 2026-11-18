@@ -681,7 +681,7 @@ function PhotoZoom({ url, alt, onClose }: { url: string; alt: string; onClose: (
     const d = drag.current
     drag.current = null
     if (d?.mode === 'pull') {
-      if (isDismissPull(e.clientY - d.y0, e.timeStamp - d.t0)) onClose()
+      if (isDismissPull(e.clientY - d.y0, (e.clientY - d.y0) / Math.max(1, e.timeStamp - d.t0))) onClose()
       else setPull(0)
       return
     }

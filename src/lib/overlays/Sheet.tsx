@@ -1,4 +1,4 @@
-import type { ReactNode, RefObject } from 'react'
+import { useRef, type ReactNode, type RefObject } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
 import { Icon } from '../icons'
 import { appConfig } from '../../config/appConfig'
@@ -8,7 +8,7 @@ import { useDismissGrace } from './dismissGrace'
 import { SheetGrab } from './SheetGrab'
 import { useMobileScrollLock } from './useMobileScrollLock'
 import { SheetFoot } from './SheetFoot'
-import { useSwipeDismiss } from './swipeDismiss'
+import { leaveBottomSheet, useSwipeDismiss } from './swipeDismiss'
 import { popoverOpen } from './popoverGuard'
 import { useFieldFirst } from './fieldFirst'
 import { useBackLayer } from './layer'
@@ -72,12 +72,16 @@ export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide,
   const cls = ['ip-sheet', 'ui-dialog', wide && 'ip-wide', fit && 'ip-fit', sheetClassName, kbInset > 0 && 'is-kb'].filter(Boolean).join(' ')
   useMobileScrollLock(open)
   const isOpeningEcho = useDismissGrace(open)
+  const popupRef = useRef<HTMLDivElement>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
+  // every close leaves the way a phone bottom sheet came in — down (swipeDismiss · leaveBottomSheet)
+  const close = () => leaveBottomSheet(popupRef.current, backdropRef.current, onClose)
   // phone bottom sheet: push it back down and it goes away (see swipeDismiss)
-  const swipe = useSwipeDismiss({ onClose, enabled: swipeToClose })
+  const swipe = useSwipeDismiss({ onClose, enabled: swipeToClose, backdrop: backdropRef })
   // the keyboard goes first: with a field focused, the first ✕ / outside tap only blurs it (fieldFirst)
   const { keyboardFirst, ...kbFirst } = useFieldFirst(open)
   // the native back (Android's back, the iOS edge swipe) closes it – one layer per press (overlays/layer)
-  useBackLayer(open, onClose)
+  useBackLayer(open, close)
   return (
     <Dialog.Root
       open={open}
@@ -93,13 +97,13 @@ export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide,
           details.cancel(); return
         }
         if (keyboardFirst(details.reason)) { details.cancel(); return }
-        onClose()
+        close()
       }}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="ui-backdrop" />
-        <Dialog.Popup {...kbFirst} className={cls} style={keyboardLift(kbInset)} initialFocus={initialFocus} aria-label={title == null ? ariaLabel : undefined} {...swipe}>
-          {grip && <SheetGrip onClose={onClose} />}
+        <Dialog.Backdrop ref={backdropRef} className="ui-backdrop" />
+        <Dialog.Popup ref={popupRef} {...kbFirst} className={cls} style={keyboardLift(kbInset)} initialFocus={initialFocus} aria-label={title == null ? ariaLabel : undefined} {...swipe}>
+          {grip && <SheetGrip onClose={close} />}
           {!grip && swipeToClose && <SheetGrab />}
           <div className="ip-head">
             {title != null && <Dialog.Title>{title}</Dialog.Title>}
