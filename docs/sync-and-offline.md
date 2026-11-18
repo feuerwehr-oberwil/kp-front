@@ -215,10 +215,14 @@ beendet». The rules: [`presentation.md`](presentation.md).
   can deliver a GET result, act on its 401 or adopt an unread slot.
 - If a dirty cache write runs out of space and map-tile eviction finishes after the editor
   retires, the retry writes to one recovery slot per Einsatz and author. Another tab can keep
-  editing the main slot while eviction runs. The author's next open merges both drafts, parks
-  a wider role's edits where required, then clears the recovery slot once the main copy and its
-  receipt are durable. An unreadable recovery slot or a refused import lock leaves the source
-  on disk and reports storage trouble until a later open. A denied session cannot read it.
+  editing the main slot while eviction runs. On the author's next open, recovery reads the latest
+  same-author main or parked copy and merges it into the view. This happens before the UI takes
+  the edit lock, so opening leaves both copies on disk. The recovering editor saves changes in
+  the author’s recovery slot, including the peer snapshot it saw so deliberate deletions survive.
+  Independently recovered edits merge there before upload. A server acknowledgement (or durable
+  refusal park) reconciles the still-current peer copy and clears only the recovery receipt it
+  settled. Wider-role edits must first be parked for export. An unreadable slot or refused import
+  lock keeps the source on disk for a later open. A denied session cannot read it.
 - Re-sending parked workspace saves first commits their replacement cache entry with transfer
   markers for crash-safe retry. Each cleanup write checks the session again when it finishes.
   A handover during cleanup leaves those markers in the author's cache for the next session.

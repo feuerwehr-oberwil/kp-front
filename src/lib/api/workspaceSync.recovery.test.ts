@@ -37,6 +37,7 @@ vi.mock('../idb', () => ({
 }))
 vi.mock('../tileEvict', () => ({ withTileEviction }))
 import { ApiError } from '../api'
+import { putWorkspaceRecord } from './workspace'
 import { CACHE_DEBOUNCE_MS, SLOT_PROBE_MS, denyWorkspaceCache, setWorkspaceCacheOwner, unsentWorkspaces, WorkspaceSync } from './workspaceSync'
 
 beforeEach(() => {
@@ -397,7 +398,117 @@ it('recovers the final draft once an initially unreadable main slot can be safel
   } finally { reopened.dispose() }
 })
 
-it('a failed replacement and a replayed receipt preserve the original and the subsequent correction', async () => {
+it.each(['anna', 'ben'] as const)('retains edits from the %s tab during and after a recovery open', async (otherOwner) => {
+  const source = main + '::__quota__:anna'
+  const base = { cameraViews: [] }
+  const slot = (owner: string, ...views: object[]) => ({
+    workspace: { cameraViews: views }, base, baseRev: 7, dirty: true, owner, shape: 'all', cacheWriter: 'editing-tab',
+  })
+  state.store.set(source, { ...slot('anna', local), quotaId: 'retired', cacheWriter: 'retired' })
+  state.store.set(main, slot('anna', successorEdit))
+  get.mockRejectedValue(new ApiError(0, 'offline'))
+  const started = gate(), finish = gate()
+  vi.stubGlobal('navigator', { locks: { request: async (_name: string, action: () => Promise<unknown>) => {
+    started.open(); await finish.wait; return action()
+  } } })
+  const opened = new WorkspaceSync('i1')
+  try {
+    const opening = opened.init()
+    await started.wait
+    state.store.set(main, slot(otherOwner, successorEdit, latest))
+    if (otherOwner === 'ben') state.store.set(main + '::anna', slot('anna', successorEdit))
+    finish.open()
+    const shown = (await opening).workspace?.cameraViews as object[]
+    expect(shown).toEqual(expect.arrayContaining(otherOwner === 'anna' ? [local, successorEdit, latest] : [local, successorEdit]))
+    expect(shown).toHaveLength(otherOwner === 'anna' ? 3 : 2)
+    expect(state.store.get(main)).toMatchObject({ owner: otherOwner, workspace: { cameraViews: [successorEdit, latest] } })
+    // The recovering editor removes A and X, and the other tab still operates from its own view.
+    opened.save({ cameraViews: [{ id: 'correction' }, ...(otherOwner === 'anna' ? [latest] : [])] })
+    opened.dispose()
+    const later = { id: 'later' }
+    state.store.set(main, slot(otherOwner, successorEdit, latest, later))
+    const reopened = new WorkspaceSync('i1')
+    try {
+      const views = (await reopened.init()).workspace?.cameraViews
+      const expected = otherOwner === 'anna' ? [{ id: 'correction' }, latest, later] : [{ id: 'correction' }]
+      expect(views).toEqual(expect.arrayContaining(expected))
+      expect(views).toHaveLength(expected.length)
+      expect(state.store.get(main)).toMatchObject({ owner: otherOwner, workspace: { cameraViews: [successorEdit, latest, later] } })
+    } finally { reopened.dispose() }
+  } finally { opened.dispose(); vi.unstubAllGlobals() }
+})
+
+it('merges independent recovery writers before upload and keeps a newer rescue that lands during acknowledgement', async () => {
+  const source = main + '::__quota__:anna'
+  const seed = { owner: 'anna', shape: 'all', dirty: true, baseRev: 7, base: { cameraViews: [] } }
+  state.store.set(source, { ...seed, quotaId: 'first', cacheWriter: 'first', workspace: { cameraViews: [local] } })
+  get.mockRejectedValue(new ApiError(0, 'offline'))
+  const first = new WorkspaceSync('i1'), second = new WorkspaceSync('i1')
+  await first.init()
+  await second.init()
+  first.save({ cameraViews: [local, latest] })
+  first.flushKeepalive()
+  second.save({ cameraViews: [local, successorEdit] })
+  second.flushKeepalive()
+  const started = gate(), finish = gate()
+  put.mockImplementationOnce(async () => { started.open(); await finish.wait; return { workspace_rev: 8 } })
+  const pushing = second.flush()
+  await started.wait
+  const sent = put.mock.calls[0][1].cameraViews
+  expect(sent).toHaveLength(3)
+  expect(sent).toEqual(expect.arrayContaining([local, latest, successorEdit]))
+  const late = { ...seed, quotaId: 'later', cacheWriter: 'later', workspace: { cameraViews: [{ id: 'later' }] } }
+  state.store.set(source, late)
+  finish.open()
+  await pushing
+  await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS + 1)
+  expect(state.store.get(source)).toEqual(late)
+  first.dispose(); second.dispose()
+})
+
+it('retains newly arrived wider work when an already-open recovery editor can only push the record', async () => {
+  const source = main + '::__quota__:anna'
+  const seed = { owner: 'anna', shape: 'record', dirty: true, baseRev: 7, base: {} }
+  state.store.set(source, { ...seed, quotaId: 'record', cacheWriter: 'record', workspace: {} })
+  get.mockRejectedValue(new ApiError(0, 'offline'))
+  vi.mocked(putWorkspaceRecord).mockResolvedValueOnce({ workspace: null, workspace_rev: 8 })
+  const limited = new WorkspaceSync('i1', { slice: 'record' })
+  try {
+    await limited.init()
+    state.store.set(source, { ...seed, quotaId: 'wider', cacheWriter: 'wider', shape: 'all', workspace: { cameraViews: [local] } })
+    const attachment = { id: 'photo' }
+    limited.save({ attachments: [attachment] })
+    limited.flushKeepalive()
+    await limited.flush()
+    await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS + 1)
+    expect(vi.mocked(putWorkspaceRecord).mock.lastCall?.[1]).not.toHaveProperty('cameraViews')
+    expect(state.store.get(source)).toMatchObject({ dirty: true, shape: 'all', workspace: { attachments: [attachment], cameraViews: [local] } })
+  } finally { limited.dispose() }
+})
+
+it.each(['anna', 'ben'])('settles an accepted rescue against the %s tab’s latest durable copy', async (owner) => {
+  const source = main + '::__quota__:anna'
+  const seed = { owner: 'anna', shape: 'all', dirty: true, baseRev: 7, base: { cameraViews: [] } }
+  const initial = { ...seed, workspace: { cameraViews: [successorEdit] } }
+  state.store.set(source, { ...seed, quotaId: 'retired', cacheWriter: 'retired', workspace: { cameraViews: [local] } })
+  state.store.set(main, initial)
+  get.mockRejectedValue(new ApiError(0, 'offline'))
+  put.mockResolvedValue({ workspace_rev: 8 })
+  const recovery = new WorkspaceSync('i1')
+  try {
+    await recovery.init()
+    await recovery.flush()
+    const advanced = { ...initial, owner, dirty: owner === 'ben', baseRev: 9, workspace: { cameraViews: [latest] } }
+    state.store.set(main, advanced)
+    if (owner === 'ben') state.store.set(main + '::anna', initial)
+    await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS + 1)
+    expect(state.store.get(main)).toEqual(advanced)
+    expect(state.store.has(source)).toBe(false)
+    expect(state.store.has(main + '::anna')).toBe(false)
+  } finally { recovery.dispose() }
+})
+
+it('keeps a corrected recovery under its author until the server acknowledges it', async () => {
   get.mockResolvedValue({ workspace: { cameraViews: [] }, workspace_rev: 7 })
   const first = new WorkspaceSync('i1')
   await first.init()
@@ -416,12 +527,16 @@ it('a failed replacement and a replayed receipt preserve the original and the su
   corrected.save({ cameraViews: [successorEdit] })
   state.failMain = false
   corrected.dispose()
-  // A crash or failed delete keeps both the committed receipt and the original source.
-  expect(state.store.get(source)).toEqual(rescued)
+  expect(state.store.get(source)).toMatchObject({ dirty: true, workspace: { cameraViews: [successorEdit] } })
   const reopened = new WorkspaceSync('i1')
   try {
     expect((await reopened.init()).workspace?.cameraViews).toEqual([successorEdit])
+    expect(state.store.has(source)).toBe(true)
+    put.mockResolvedValue({ workspace_rev: 8 })
+    await reopened.flush()
+    await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS + 1)
     expect(state.store.has(source)).toBe(false)
+    expect(state.store.get(main)).toMatchObject({ dirty: false, workspace: { cameraViews: [successorEdit] } })
   } finally { reopened.dispose() }
 })
 
