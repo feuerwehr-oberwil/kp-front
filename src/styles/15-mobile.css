@@ -895,13 +895,14 @@
   .journal-composer.is-kb .jc-text { min-height: 62px; }
   /* every ip-sheet is bottom-anchored on phones — rise from below, not pop in place. The Base UI
      frames (Sheet / Overlay: the sheets, the PlanPicker, the Palette, the Verlauf, the composer)
-     rise by a TRANSITION from Base UI's first frame, `[data-starting-style]`, never a keyframe
-     (design pass 18.11.2026 B5): a pull in the first 220ms catches the sheet where it stands
-     (swipeDismiss reads the live transform). The way out is swipeDismiss · leaveBottomSheet. */
+     rise by a TRANSITION from `@starting-style`, never a keyframe (design pass 18.11.2026 B5): a
+     pull in the first 220ms catches the sheet where it stands (swipeDismiss reads the live
+     transform). ⚠️ Not Base UI's `[data-starting-style]`: Base UI only sets it when `open` flips
+     on a mounted root, and our callers MOUNT their `<Sheet open>` — it never appears. The way
+     out is swipeDismiss · leaveBottomSheet. The starting style itself stands after the
+     `transform: none` of the bottom-anchoring rules below, which would outweigh it. */
   .ip-sheet.ui-dialog, .pp-sheet:not(.pp-nomap), .sym-modal, .journal-drawer, .journal-composer {
     animation: none; transition: transform .22s var(--ease), opacity .22s var(--ease); }
-  :is(.ip-sheet.ui-dialog, .pp-sheet:not(.pp-nomap), .sym-modal, .journal-drawer, .journal-composer)[data-starting-style] {
-    opacity: 0; transform: translateY(26px); }
 
   /* incident-management sheets (Einsatz wizard, Datenquellen, PlanPicker) become
      near-full-width bottom sheets so the inputs + actions stay reachable */
@@ -958,6 +959,12 @@
      above, so it is undone here) and capped so the lifted sheet cannot run off the top. */
   .ip-sheet.ui-dialog.is-kb { top: auto; bottom: 0; left: 0; transform: none;
     height: auto; max-height: calc(100dvh - var(--kb-inset, 0px) - 10px - env(safe-area-inset-top)); }
+  /* the rise's first frame (see «every ip-sheet is bottom-anchored» above) – here, after every
+     rule of these frames that sets `transform`, so it is not outweighed by order */
+  @starting-style {
+    .ip-sheet.ui-dialog, .pp-sheet:not(.pp-nomap), .sym-modal, .journal-drawer, .journal-composer {
+      opacity: 0; transform: translateY(26px); }
+  }
 
   /* (the map picker is full screen on every width since 30.10.2026 – 14-intake · .mp-sheet) */
   .rp-control { max-height: var(--rp-control-room, 46dvh); }
