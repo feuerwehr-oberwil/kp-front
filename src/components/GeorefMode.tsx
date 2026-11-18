@@ -755,7 +755,7 @@ export function GeorefInstrument({ mode, inline = false, onReset }: { mode: Geor
         {/* the quality detail, the (rewritten, instruction-shaped) warning AND — since the
             instruction itself is one short sentence — what makes a good point, live behind the (i) */}
         {!mode.check && detail && <>
-          <span className={s.promptHint}>{st.foldBody}</span>
+          {st.foldBody && <span className={s.promptHint}>{st.foldBody}</span>}
           <span className={s.promptHint}>{C.freeOrderTip}</span>
         </>}
       </span>
@@ -906,7 +906,7 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
           <p className={s.foldNote}>{C.howOrder}</p>
           <p className={s.foldNote}>{C.howThird}</p>
           {st.foldValue && <div className={s.qrow}><span>{st.foldPairs}</span><strong>{st.foldValue}</strong></div>}
-          {n >= 2 && <p className={s.foldNote}>{st.foldBody}</p>}
+          {n >= 2 && st.foldBody && <p className={s.foldNote}>{st.foldBody}</p>}
           {(n >= 2 || mode.slots.length > 0) && !mode.move && (
             <div className={s.foldActs}>
               {n >= 2 && (

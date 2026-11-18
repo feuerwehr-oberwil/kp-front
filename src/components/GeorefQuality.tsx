@@ -117,11 +117,11 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
           <strong>{auto ? (realPoints > 0 ? C.autoOnePoint : C.chipAuto) : claim == null ? C.chipTwoPoints : fillTemplate(C.qualityDeviation, { m: m(claim) })}</strong>
         )}
       </div>
-      {linked
-        ? <div className={s.qNote}>{C.lampApprovedBody}</div>
-        : auto
+      {/* an approved fit is its one head line – a note under it only said it again (owner
+          18.11.2026, «duplicate») */}
+      {!linked && (auto
         ? <div className={cx('form-warn form-warn-amber form-warn-compact', s.qWarn)}><Icon id="warn" /><span className="form-warn-text">{realPoints > 0 ? C.autoOneBody : C.warnAuto}</span></div>
-        : warning && <div className={cx('form-warn form-warn-amber form-warn-compact', s.qWarn)}><Icon id="warn" /><span className="form-warn-text">{warningText(warning, fit)}</span></div>}
+        : warning && <div className={cx('form-warn form-warn-amber form-warn-compact', s.qWarn)}><Icon id="warn" /><span className="form-warn-text">{warningText(warning, fit)}</span></div>)}
       {!readOnly && <div className={`${s.qActions} ${onTransfer ? s.qActionsFour : ''}`}>
         {/* ⚠️ This action always ADDS a point; it does not pick up the pair with the largest
             residual. Calling it «Punkt 2 korrigieren» made the result depend on a calculation the
