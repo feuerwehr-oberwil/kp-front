@@ -44,6 +44,7 @@ import { ClockVal, RowEnter, TruppCard, TruppRow } from './TruppCard'
 import { tabState, tierMark } from './truppCardText'
 import { notfallStrips } from '../lib/notfall'
 import { TruppForm, type FormMode, type TruppSubmitExtra } from './TruppForm'
+import { beginZielPick, endZielPick, parkedTruppForm, type TruppFormOpen } from '../lib/zielPick'
 import { refuse } from '../lib/meldungenRefusal'
 
 /**
@@ -82,10 +83,12 @@ const FROZEN_ALARM: TruppAlarm = { sev: 0, reason: null, line: null }
  *  out — the quiet line's time, then the tiles fold TOGETHER, each to its glyph OVER its word
  *  (owner pick 24a, 17.11.2026 – they folded one at a time to bare glyphs on a tablet, the bell
  *  last; the handover keeps its short «Teilen» (rare-user WORDS: «Trupps teilen»), the ⚠ its count
- *  beside it; «Reihenfolge» is not on it since pick 26 – it stands in the list row under the head), then
- *  «Trupp anmelden» → «Trupp» (the primary keeps its word beside its glyph and its fill), and last
- *  «✓ Gespeichert» keeps its ✓ (the sentence stays its `title`; a LOUD state never folds). */
-const HEAD_FOLD = { saved: 1, tiles: 2, newTrupp: 3, savedMark: 4 } as const
+ *  beside it; «Reihenfolge» is not on it since pick 26 – it stands in the list row under the head).
+ *  «+ Trupp anmelden» folds WITH them, to + over «Trupp», the same tile told apart only by its
+ *  primary fill (round 18.11.2026 #5, owner: «Stack too. Primary difference should be color.» – it
+ *  folded a rank later and stood «+ Trupp anmelden» beside the stacked tiles while the title read
+ *  «Trup…»). Last «✓ Gespeichert» keeps its ✓ (the sentence stays its `title`; a LOUD state never folds). */
+const HEAD_FOLD = { saved: 1, tiles: 2, savedMark: 3 } as const
 
 /** The room the sticky Notfall stack takes at the top of the board's port (+ the air under it). */
 const nfInset = (el: HTMLElement | null) => (el ? el.offsetHeight + 12 : 0)
@@ -95,6 +98,7 @@ export function AtemschutzView({
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus, createRequest, onShareLink, shareLinkActive = false, lite, frozenAt, triggerNotfall, endNotfall, placeOf,
+  zielPickOn, onPickZiel,
   onUndo, onRedo, canUndo = false, canRedo = false, undoLabel, redoLabel,
   syncStatus, lastSyncedAt, clockSkewMs,
 }: {
@@ -195,6 +199,10 @@ export function AtemschutzView({
    *  open the create form; on save the new Trupp adopts `adoptMarkerId` (through `adoptMarker`).
    *  Cancel leaves the marker as it is. Nonce grammar as `focus`. */
   createRequest?: { nonce: number; adoptMarkerId: string } | null
+  /** the Trupp form's «Karte» beside the Ziel (lib/zielPick): the surface it opens – the Karte, or the
+   *  Plan the operator came from – and the switch to it. Absent where there is none (the Tafel pur). */
+  zielPickOn?: 'map' | 'plans'
+  onPickZiel?: () => void
   /** «Trupps teilen» — open the Weitergeben sheet on its «Nur Atemschutz» half, so the
    *  Tafel of this Einsatz can be handed to somebody's phone (components/panels · ShareIncident).
    *  Editors only, and never on the handed-over board itself: a link may not mint links. */
@@ -270,7 +278,11 @@ export function AtemschutzView({
   )
   // the shared create / edit / re-deploy form — null when closed
   // `adoptMarkerId`: the loose marker a create form was opened FROM — joined to the Trupp on save
-  const [form, setForm] = useState<{ mode: FormMode; trupp?: Trupp; focus?: 'auftrag'; adoptMarkerId?: string; presetAuftrag?: TruppAuftrag } | null>(null)
+  // …and it comes back open after a pick of its Ziel on the Karte / Plan (lib/zielPick): this view
+  // unmounted while the surface was up, the store kept the form as it was opened, and draftKeep
+  // every field in it, the picked name included
+  const [form, setForm] = useState<TruppFormOpen | null>(() => parkedTruppForm())
+  useEffect(() => { endZielPick() }, [])
   /* The mini sheets (26.09.2026, phone card slim-down — components/TruppSheets): one fact of the
    * card, one short sheet, every save through `editTrupp`. Opened from the card's chips on every
    * width (the tablet's Kennzeile entries are the same doors), so the sheet is what a tap on a fact
@@ -1562,9 +1574,9 @@ export function AtemschutzView({
         {bellButton}
         {/* in focus mode «+ Trupp» lives in the rail beside the strip — not a second one up here */}
         {canEdit && !focusMode && (
-          <button className={s.newBtn} data-fold={HEAD_FOLD.newTrupp} onClick={() => openForm('create')} aria-label={az.newTrupp} title={az.newTrupp}>
-            {/* the full word where it fits, the short one where the head's ladder has run out of
-                everything else — never a bare «+» (every button on the ASÜ board has a word) */}
+          <button className={s.newBtn} data-fold={HEAD_FOLD.tiles} onClick={() => openForm('create')} aria-label={az.newTrupp} title={az.newTrupp}>
+            {/* the full word where it fits; folded with the tiles, + over the short word — never a
+                bare «+» (every button on the ASÜ board has a word) */}
             <Icon id="plus-bold" /><span className="fold-long">{az.newTrupp}</span><span className="fold-short">{az.newTruppShort}</span>
           </button>
         )}
@@ -1894,6 +1906,8 @@ export function AtemschutzView({
           // handed-over Tafel's phone board, which keeps its full-screen form
           sheet={phoneMode}
           pinned={pinnedRows}
+          zielPickOn={lite ? undefined : zielPickOn}
+          onPickZiel={onPickZiel && ((zielKey) => { beginZielPick(zielKey, form); onPickZiel() })}
           onAddGuest={onAddGuest}
           onCancel={() => setForm(null)} onSubmit={submitForm}
         />

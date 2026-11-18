@@ -47,7 +47,9 @@ unchanged.
   (Höhenprofil, Wassertransport) it ends one `--float-gap` under the top bar (`--under-bar`), lies
   over the wind chip like the Gebäude card (`--z-map-card`) and scrolls inside itself – it grew up
   behind the Einsatz header. Its foot is `--mp-bottom` (MeasurePanel.module), which the Karte
-  sets one bar lower, so the cap follows the foot.
+  sets one bar lower, so the cap follows the foot. It never scrolls sideways, and a chart's
+  read-out tag slides by its own width to stay inside the plot (round 18.11.2026 #3: a tag at the
+  chart's right end ran past the phone's panel and the Wassertransport scrolled 80px left).
 - *While a tool is out the message lane is measured* (`lib/floatRow · stackLane` → `--stack-lane`):
   one gap above the highest piece of the stack, so a tip or the Gebäude card stands 8px over the
   dock whether the floating row sits beside it or had to rise above it. And ONE thing in
@@ -91,6 +93,15 @@ unchanged.
   Verlängern, a Form's grip, a symbol (round 15.11.2026 #4): `body.geom-dragging`, set with the
   sheet's peek (lib/sheetPeek · `beginSheetPeek('object')`; a map pan is `'view'` and keeps them).
   The grips stay for that one – the finger is on one.
+- *A selected Trupp's card and bar DOCK at the foot* (round 18.11.2026, owner pick M1 A, owner
+  screenshot: beside the marker the card ran off the right edge and «Zum Trupp · Markieren · Mehr»
+  hung under it while the stepped-aside bars left an empty band): the card – name, state word,
+  storey, time and a ✕ – stands in the floating row's slot left of the Eintrag FAB (pick M1b: the
+  FAB keeps its corner, `--dock-bottom`), the bar in the tool bar's (`--tools-bottom`), as the ✥ ⟳
+  bar's twin; the tool bar and the chip row step aside for it (the ✥ ⟳ rule above, per surface).
+  On the surface only the ringed name (and its storey) stays. Karte and Plan alike – both draw
+  the one `components/TwinTeamPill`, which portals the two into the surface. The tablet keeps them
+  beside the marker.
 - *The phone's floating row is TILES* (button round 17.11.2026, owner pick 12C + follow-up: «the
   whole phone floating row = tiles»): the Plan's building / Objekt chip (street or «Gebäude», the
   facts lamp at the tile's top-right corner), the Gebäude-Info («Info», or ⚠ over the hazard words
@@ -99,7 +110,10 @@ unchanged.
   each a 22px glyph over an 11/700 word, the bars' `--rail-h` tall (`--line-h`, pick 21) in the
   bars' corner `--r-bar` (owner pick 20, 17.11.2026 – r12 read «too angular») (09-whiteboard · `.wb-tile`,
   15-mobile · `.fab-entry`, Karte.module · `.utilBtn`). As wide as the word up to 136px; a longer
-  word ellipsises inside its tile and the button's name stays whole. Joined pieces keep their one
+  word ellipsises inside its tile and the button's name stays whole – except the NAME tile (the
+  Objekt's or building's street and number), which is uncapped: «the street and number should be
+  spelt out almost always» (round 18.11.2026 #2). The Gebäude-Info sharing its glass gives way
+  first, down to its ⚠, and the street ellipsises only after that. Joined pieces keep their one
   glass (`.wb-join`). The calibration instrument («Zwei Punkte … antippen») stays a chip – a
   sentence is not a tile word. The tablet keeps its chips, word beside the glyph
   (components/BuildingFloat). It replaces 12A (14.11.: the hazard words alone as a chip, a tile
@@ -118,14 +132,15 @@ unchanged.
 
 ## The top bar
 
-- *The Einsatz pill says «Stichwort · street» over the Einsatzuhr* (12.11.2026, owner: «Wasser ·
-  Sägestrasse 2»; the street alone since 07.10.). The Einsatzuhr is hourglass + digits, no label
-  (round 2b, 13.11.2026; the tablet bar's clock names itself on a tap, «Einsatzdauer · seit 14:02»). The street is street + house number only,
-  whatever shape the address came in, and is said once when the title already carries it
-  (`lib/format · einsatzPillName`). The street keeps its width; the Stichwort takes the rest
-  and ellipsises first, so the house number stays (and ↷ and the weather yield before either part
-  is cut, `lib/useHeadFit`). An Übung adds
-  the amber «Ü». Tablet: the title alone.
+- *The Einsatz pill says the street over the Einsatzuhr* (round 18.11.2026 #7, owner: «Clean up
+  header main title to just address»; «Stichwort · street» 12.–18.11., where a squeezed Stichwort
+  left an orphan «·» before a cut street; the street alone 07.10.–12.11.). The street is street +
+  house number only, whatever shape the address came in; an Einsatz without an address shows its
+  title (`lib/format · einsatzHeadName`). The name stands in the menu card. It ellipsises only
+  once ↷ and the weather have yielded (`lib/useHeadFit`). The Einsatzuhr is hourglass + digits, no
+  label (round 2b, 13.11.2026; the tablet bar's clock names itself on a tap, «Einsatzdauer · seit
+  14:02»). An Übung adds the hatched «Ü». Tablet: the same street (no clock line), beside the
+  «ÜBUNG» tag.
 - *The top bar's actions are tiles on a phone* (button sweep audit, owner pick 24a, 17.11.2026):
   ↶ over «Rückgängig», the Verlauf glyph over «Verlauf», «Standort» under its glyph in the row under
   the bar (TopBar · `data-tiles`, 10-journal · «the fold») – the tablet bar's fold, worn from the
@@ -133,6 +148,8 @@ unchanged.
 - *The Verlauf's ▶ is the bare glyph at the ruler's left end* (owner pick M8 · C; the tablet
   followed with its word, pick 30, 17.11.2026 – [`ui-conventions.md`](ui-conventions.md) · «The
   Verlauf's head»): the phone head is the title with the count and ✕ alone, and fits 390 whole.
+  The [▶ · ruler] row mirrors the [search · «Art»] row over it – one left edge, one right edge,
+  one gap (round 18.11.2026 #1, 10-journal · `.jr-strip-row`).
 
 ## Page heads and pages
 

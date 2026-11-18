@@ -216,7 +216,7 @@ function SpreadArrows({ spread, color }: { spread: Spread; color: string }) {
 // different); see `storey` in TacticalSymbol for the one-storey cases
 const floorRangeBadge = (from: number, to: number) => `${floorBadge(from)}/${floorBadge(to)}`
 
-export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floor, floorFrom, floorTo, spread, caption, origin, measured, docked, done, className }: {
+export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floor, floorFrom, floorTo, spread, caption, origin, measured, done, className }: {
   svg: string
   /** rendered edge length in px (square) */
   sizePx: number
@@ -255,13 +255,6 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
    *  S3, 27.10.2026). See ReadingPill. Never suppressed by the label pass, which books it as the
    *  glyph's own footprint (useLabelPass). */
   measured?: SymbolProps
-  /** Angedockte Trupps (lib/docking, 15.09.2026): this symbol carries at least one Trupp marker,
-   *  drawn as the same `link` glyph the marker itself wears — the bond is then readable from both
-   *  ends. The string is the crews' names and is only ever the badge's TITLE: the map shows the
-   *  glyph, the words stay on the Atemschutz card and in the symbol's own panel.
-   *  ⚠️ KARTE ONLY, like the bond itself — the Plan and the printed Kroki pass nothing and render
-   *  exactly as they did. */
-  docked?: string
   /** «Gelöscht / erledigt» (lib/objectDone · doneBadge): the HH:MM it was declared over. The
    *  glyph and its Entwicklung arrows go GREY (`.ts-done`, the `--done-*` tokens) and the time
    *  stands in the top-left corner, in the storey badge's chrome. The caption, the badges and the
@@ -318,11 +311,6 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
       )}
       {count != null && count > 1 && (
         <span className="sym-count">{count}</span>
-      )}
-      {/* the one free corner: storey top-right, count bottom-right, the docked Trupp markers
-          themselves bottom-left (lib/docking · dockSlotOffset) */}
-      {docked && (
-        <span className="sym-dock" title={docked} aria-label={docked}><Icon id="link" /></span>
       )}
       {/* …and the fourth corner, top-left, is the «erledigt» time (lib/objectDone) */}
       {done && <span className="sym-done">{done}</span>}

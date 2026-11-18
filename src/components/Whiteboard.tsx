@@ -145,6 +145,7 @@ import { fitScale } from '../lib/presentation'
 import { isDemoMode } from '../lib/deploymentConfig'
 import { BUNDLED_TEMPLATES, warmBoardTemplates } from '../lib/boardTemplates'
 import type { MiniKarteProps } from './MiniKarte'
+import { answerZielPick, zielPicking } from '../lib/zielPick'
 
 const COLORS = appConfig.drawing.colors
 /** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
@@ -515,7 +516,17 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // the live vehicle whose read-only sheet is open (ENT.6) – one sheet at a time: selecting
   // anything closes it, and so does the stationary tap on empty paper (useBoardGestures, below)
   const [liveOpen, setLiveOpen] = useState<string | null>(null)
-  const setSelId = (id: string | null) => { if (id) setLiveOpen(null); setSelIdRaw(id) }
+  // ⚠️ While the Trupp form's Ziel is picked on this plan (lib/zielPick) a tap that would select
+  // answers instead: a symbol hands over its name, anything else is no pick. Here, at the one
+  // setter, so every way in – the chip press, a body tap, a label – keeps the same rule.
+  const setSelId = (id: string | null) => {
+    if (id && zielPicking()) {
+      const a = annosAll.find((x) => x.id === id)
+      if (a?.kind === 'symbol') answerZielPick(a)
+      return
+    }
+    if (id) setLiveOpen(null); setSelIdRaw(id)
+  }
   // marquee (Mehrfach/lasso) group selection — parity with the Lage map. A separate
   // set from the single selId (which still drives the symbol editor / team actions).
   const [selIds, setSelIds] = useState<string[]>([])
@@ -1186,7 +1197,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         const box = attachBox(a)
         const center: [number, number] = [a.x! * sW + box.dx, mapY(a.floor, a.y!) * sH]
         const edge = boundaryPoint({ shape: 'rect', center, width: box.width, height: box.height, rotation: a.rotation }, pointer)
-        return { key: `object:${a.id}`, target: { kind: 'object', id: a.id }, point: edge, defaultRouting: DEFAULT_OBJECT_ROUTING }
+        return { key: `object:${a.id}`, target: { kind: 'object', id: a.id }, point: edge, defaultRouting: DEFAULT_OBJECT_ROUTING, ...(a.kind === 'resource' ? { trupp: true as const } : {}) }
       })
     const lines = lineEndTargets(renderAnnos
       // a Wand is layout: no Leitung couples onto its end

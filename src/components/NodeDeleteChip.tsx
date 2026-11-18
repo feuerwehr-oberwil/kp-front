@@ -73,7 +73,12 @@ export function NodeDeleteChip({ progress, tone = 'delete', label }: {
  * `armed` short-circuits to a full ring: `armDwell` (lib/lineAttachments) fires the instant a
  * NEW stroke starts inside a target, and that case has nothing to wait for.
  */
-export function ConnectRing({ since, armed }: { since: number; armed: boolean }) {
-  const progress = useTimedProgress(since, MAGNET_DWELL_MS)
+export function ConnectRing({ since, armed, ms = MAGNET_DWELL_MS }: {
+  since: number
+  armed: boolean
+  /** the dwell the ring fills over – a Trupp marker's is longer (lineAttachments · TRUPP_AIM_DWELL_MS) */
+  ms?: number
+}) {
+  const progress = useTimedProgress(since, ms)
   return <NodeDeleteChip tone="connect" progress={armed ? 1 : progress} />
 }

@@ -18,6 +18,7 @@ import type { SymbolSurface } from '../lib/prefs'
 import { SHAPE_TWO_POINT } from '../lib/shapes'
 import { type TruppTrail, mapGhostTrails } from '../lib/truppTrails'
 import { undoToast } from '../lib/ui'
+import { answerZielPick, useZielPick, zielPicking } from '../lib/zielPick'
 import { recordKey } from '../lib/undoKeys'
 import type { useCoordPicker } from '../lib/useCoordPicker'
 import type { useMapDrawing } from '../lib/useMapDrawing'
@@ -97,6 +98,8 @@ export function MapStage({
     selectedDrawIds, setSelectedDrawIds, selectedEntityIds, setSelectedEntityIds,
   } = selection
   const { doc, commit, setDocRaw, beginDrag, endDrag } = store
+  // the Trupp form's Ziel is being picked here (lib/zielPick): a symbol tap answers, nothing moves
+  const zielPick = useZielPick() === 'picking'
   const {
     draft, setDraft, areaMode, lineNodes, setDraftPointAttachment, draftStartAttachment, freehandKind, onFreehand, createCircle,
     drawColor, drawWidth, drawDashed, selectedDrawing, patchDrawingById, editDrawingCoords,
@@ -194,6 +197,8 @@ export function MapStage({
           // (Feldtest 09.09.). Drawings need no branch: `placing` already routes their taps to
           // the plain map click, which appends the tapped point.
           onSelect={(e) => {
+            // picking the Trupp form's Ziel: a symbol's name answers it, any other marker is no pick
+            if (zielPicking()) { if (e.kind === 'symbol') answerZielPick(e); return }
             if (tool === 'measure') { measure.setPath((d) => [...d, e.coord as LngLat]); return }
             setSelectedId(e.id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
           }}
@@ -214,7 +219,7 @@ export function MapStage({
           onMeasureInsert={(i, c) => measure.setPath((pts) => { const next = [...pts]; next.splice(i, 0, c); return next })}
           onMeasureDelete={(i) => measure.setPath((pts) => pts.filter((_, j) => j !== i))}
           measureLabels={measure.labels}
-          draggable={!tacticalLocked && tool === 'select'}
+          draggable={!tacticalLocked && tool === 'select' && !zielPick}
           onMarkerDragStart={startEntityMove}
           onMarkerMove={streamEntityMove}
           onMarkerDragEnd={finishEntityMove}
@@ -248,6 +253,7 @@ export function MapStage({
           selectedDrawingId={selectedDrawingId}
           flashDrawingId={flashDrawingId}
           onSelectDrawing={(id, at) => {
+            if (zielPicking()) return // a line is no Ziel (lib/zielPick picks symbols)
             // remember WHERE it was tapped, paired with the id — the panel nudge anchors on it for
             // a drawing too big for its bounds to mean anything. Any other way into the selection
             // (Verlauf jump, a just-finished stroke) leaves a stale id here and is simply ignored.

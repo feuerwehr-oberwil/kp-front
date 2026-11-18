@@ -20,3 +20,8 @@
 .chip:disabled { opacity: var(--disabled); cursor: default; }
 
 .on, .on:hover { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
+
+/* a door among the answers (Chip · `outlined`): the row's shape, framed instead of washed, so it
+   reads as «tap to open» beside the unlit answers (the Leitung's «Nr. …», owner pick M5b 1) */
+.outlined { background: transparent; box-shadow: inset 0 0 0 1px var(--ink-28); }
+@media (hover: hover) { .outlined:hover { background: var(--ink-5); } }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { LineAttachment } from '../types'
 import {
   advanceDwell, applyRouting, armDwell, arrowEdgePadPx, arrowTipLeadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, detachEnds, detachProgress, freeEnd, lineJoints, objectAttachment,
-  DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, endpointCapacity, flipLine, MAGNET_DWELL_MS,
+  DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, endpointCapacity, flipLine, MAGNET_DWELL_MS, TRUPP_AIM_DWELL_MS,
   forkDims, forkPortPoint, gpsGuard, incomingAttachments, isMagnetAnno, isMagnetEntity,
   lineEndTargets, moveLineBody,
   nearestFreeEndpoint, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget,
@@ -48,6 +48,10 @@ describe('magnetic candidate and dwell', () => {
     expect(dwellFor(sym('a'))).toBe(MAGNET_DWELL_MS)
     expect(dwellFor(lineEnd('l'))).toBe(0)
     expect(dwellFor(null)).toBe(MAGNET_DWELL_MS)
+  })
+
+  it('makes a line end wait the Trupp second on a Trupp marker (18.11.2026)', () => {
+    expect(dwellFor({ ...sym('t'), trupp: true })).toBe(TRUPP_AIM_DWELL_MS)
   })
 
   it('restarts fill on candidate changes and arms a symbol at the dwell', () => {

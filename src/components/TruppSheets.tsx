@@ -18,7 +18,7 @@ import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import { abbreviateName, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
 import { atemschutzEquipment } from '../lib/deploymentConfig'
 import type { TruppTransferState } from '../lib/atemschutz'
-import { auftragSheetFields, fileGuestSlots, kanalPad, kanalSheetFields, leitungChoices, quickAuftragTypes, teamConflict, truppSheetFields, truppSheetSub, type CrewSlot } from '../lib/truppQuickEdit'
+import { auftragSheetFields, fileGuestSlots, kanalPad, kanalSheetFields, leitungChoices, nextFreeLeitung, quickAuftragTypes, teamConflict, truppSheetFields, truppSheetSub, type CrewSlot } from '../lib/truppQuickEdit'
 import type { LeitungOption } from '../lib/truppLines'
 import type { Person, Trupp, TruppAuftrag, TruppFields } from '../types'
 import { Segmented } from './Segmented'
@@ -359,13 +359,16 @@ export function LeitungChips({ value, options, onChange, ariaLabel, children }: 
  * «Leitung»: the chips from what is drawn, and «Nr. …» for a number nobody has drawn yet — the
  * hose may be laid before anybody draws it. ONE field for the form and the Auftrag sheet
  * (29.09.2026, sweep 3 T12: the sheet had no «Nr. …», so a Leitung set in one door could not be
- * set in the other). «Nr. …» is a door, not a value: it opens the stepper IN ITS PLACE at the end
- * of the chip row (a filled «Nr. …» beside a filled «keine» read as two answers), and the number
- * typed lives in the stepper only – it used to stand as a chip too, ABOVE the stepper on the next
- * line, so the value and the control that set it were split across two lines (owner, 28.10.2026).
- * Open by itself while the value IS such a number (a kept draft, an edit), so the stepper never
- * hides the number it holds; a tap on a drawn chip or «keine» closes it again. `children` goes
- * under it (the form's legacy note).
+ * set in the other). «Nr. …» is a door, not a value: an OUTLINED chip at the end of the row (owner
+ * pick M5b 1, 18.11.2026 – as a quiet Button it read as text beside two chips). Tapped, the chip
+ * itself becomes the answer: lit, holding the stepper («− Ltg 2 +»), opened on the lowest number
+ * nobody has drawn (truppQuickEdit · nextFreeLeitung), so «keine» goes dark in the same tap – it
+ * stayed lit beside a stepper still showing «–», two answers at once. The number typed lives in the
+ * stepper only – it used to stand as a chip too, ABOVE the stepper on the next line, so the value
+ * and the control that set it were split across two lines (owner, 28.10.2026). Open by itself
+ * while the value IS such a number (a kept draft, an edit), so the stepper never hides the number
+ * it holds; a tap on a drawn chip or «keine» closes it again. `children` goes under it (the form's
+ * legacy note).
  */
 export function LeitungField({ label, value, options, onChange, children }: {
   label: string
@@ -387,16 +390,21 @@ export function LeitungField({ label, value, options, onChange, children }: {
         {typing ? (
           // compact (owner, 28.10.2026: one line on a 390px phone beside a drawn chip): no ✕ – the
           // «keine» chip at the head of this row IS the reset, and closes the stepper too. Too
-          // many drawn chips and it wraps, but as ONE item (.miniChips), never apart.
-          <Stepper
-            value={value} min={1} max={99} placeholder="–"
-            onChange={onChange}
-            ariaLabel={az.lineTyped}
-          />
+          // many drawn chips and it wraps, but as ONE item (.miniChips), never apart. The lit
+          // frame is the chosen Chip's look on a span: a <Chip> is a button, and a button cannot
+          // hold the stepper's three.
+          <span className={s.lineTypedOn}>
+            <Stepper
+              value={value} min={1} max={99} placeholder="–"
+              format={(n) => fillTemplate(az.lineChip, { n })}
+              onChange={onChange}
+              ariaLabel={az.lineTyped}
+            />
+          </span>
         ) : (
-          // an ACTION beside the answers – it opens a number field – so a quiet Button, not one
-          // more unlit choice Chip that reads as a number you cannot pick (duck sweep ELEM.10)
-          <Button variant="quiet" onClick={() => setTyping(true)}>{az.lineTyped}</Button>
+          // an ACTION beside the answers – it opens a number field – so never one more unlit
+          // choice that reads as a number you cannot pick (duck sweep ELEM.10): the outlined chip
+          <Chip outlined onClick={() => { setTyping(true); onChange(nextFreeLeitung(options)) }}>{az.lineTyped}</Chip>
         )}
       </LeitungChips>
       {children}

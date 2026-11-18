@@ -2,7 +2,7 @@
 // (labels are measured with a canvas, which needs a `document`; jsdom falls back to an estimate)
 import { describe, expect, it } from 'vitest'
 import type { Drawing, Entity, LngLat } from '../types'
-import { SYM_CAPTION_GAP, symPx } from '../lib/mapView'
+import { SYM_CAPTION_GAP, symPx, TEAM_NAME_MIN_ZOOM } from '../lib/mapView'
 import { mapLabelDecisions, type LabelPassScene } from './useLabelPass'
 
 /** a flat screen: 1° = 1000 px, no camera */
@@ -28,6 +28,26 @@ describe('mapLabelDecisions — a Trupp\'s name is never the one that yields', (
 
   it('…and the same caption well clear of it is drawn', () => {
     expect(mapLabelDecisions(px, scene({ entities: [team, symbolAt(0.4)] })).size).toBe(0)
+  })
+})
+
+// M3 A (owner pick 18.11.2026): zoomed out, the names piled up around the Einsatzort
+describe('mapLabelDecisions — below TEAM_NAME_MIN_ZOOM a Trupp is its dot', () => {
+  const team = (id: string, lng: number, extra: Partial<Entity> = {}): Entity =>
+    ({ id, kind: 'team', layer: 'taktisch', coord: [lng, 0], label: `Trupp ${id}`, truppId: id, ...extra }) as Entity
+  const trupps = [{ id: 'A', status: 'aktiv' }, { id: 'B', status: 'aktiv' }] as never
+  const far = (z: number, over: Partial<LabelPassScene> = {}) =>
+    mapLabelDecisions(px, scene({ zoom: z, trupps, entities: [team('A', 0), team('B', 0.5, { trail: [{ coord: [0.5, 0.2], t: '15:02' }] })], ...over }))
+
+  it('takes every resting name and every trail time off; at the threshold they are back', () => {
+    expect(far(TEAM_NAME_MIN_ZOOM - 0.5)).toEqual(new Set(['team:A', 'team:B', 'crumb:B:0']))
+    expect(far(TEAM_NAME_MIN_ZOOM).size).toBe(0)
+  })
+
+  it('…but the Trupp in alarm keeps its name, and so does the selected one', () => {
+    expect(far(15, { truppSeverities: { A: 2 } }).has('team:A')).toBe(false)
+    expect(far(15, { truppSeverities: { A: 1 } }).has('team:A')).toBe(true)
+    expect(far(15, { selectedId: 'B' }).has('team:B')).toBe(false)
   })
 })
 

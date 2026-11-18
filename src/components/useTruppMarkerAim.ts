@@ -3,7 +3,7 @@ import type { Map as MlMap } from 'maplibre-gl'
 import type { Drawing, Entity, LineEndpoint, LngLat } from '../types'
 import { buzz } from '../lib/haptics'
 import { dockRadiusFor, nearestDockHost } from '../lib/docking'
-import { MAGNET_DWELL_MS, nearestFreeEndpoint, TEAM_JOIN_RADIUS_PX } from '../lib/lineAttachments'
+import { nearestFreeEndpoint, TEAM_JOIN_RADIUS_PX, TRUPP_AIM_DWELL_MS } from '../lib/lineAttachments'
 
 type TeamJoinAim = { entityId: string; lineId: string; endpoint: LineEndpoint; coord: LngLat; since: number; armed: boolean }
 type DockAim = { entityId: string; hostId: string; coord: LngLat; since: number; armed: boolean }
@@ -31,6 +31,10 @@ export interface TruppMarkerAimDeps {
  * schnappt es» — and the whole contract comes with it: **not armed = nothing attaches, not
  * even on release** (docs/ui-conventions.md · Touch vocabulary). The aim is reported to the drop through
  * `onMarkerDragEnd`, so the writer never re-guesses what the ring promised.
+ *
+ * Both aims (the hose end and the symbol dock) ask the Trupp's own, longer hold –
+ * `TRUPP_AIM_DWELL_MS`, 1 s (round 18.11.2026: it docked «a bit too often»); MapView draws their
+ * rings with the same duration.
  *
  * ⚠️ `TEAM_JOIN_RADIUS_PX`, not `MAGNET_RADIUS_PX`: this gesture aims with the marker's LEFT
  * EDGE (the dot on its coordinate), not with the finger — see the constant's own note.
@@ -76,7 +80,7 @@ export function useTruppMarkerAim({ mapInst, entities, openHoseLines, nativeDraw
       if (!now || now.since !== st.since) return
       setDockAim({ ...now, armed: true })
       buzz() // …on arm, and only on arm (docs/ui-conventions.md · Touch vocabulary)
-    }, MAGNET_DWELL_MS)
+    }, TRUPP_AIM_DWELL_MS)
   }
   const clearTeamJoin = () => {
     if (teamJoinTimer.current) { clearTimeout(teamJoinTimer.current); teamJoinTimer.current = null }
@@ -114,7 +118,7 @@ export function useTruppMarkerAim({ mapInst, entities, openHoseLines, nativeDraw
       if (!now || now.since !== st.since) return
       setTeamJoin({ ...now, armed: true })
       buzz() // …on arm, and only on arm (docs/ui-conventions.md · Touch vocabulary)
-    }, MAGNET_DWELL_MS)
+    }, TRUPP_AIM_DWELL_MS)
   }
   const teamJoinMarkerMove = (id: string, c: LngLat) => { onMarkerMove(id, c); trackTeamJoin(id, c); trackDockAim(id, c) }
   const teamJoinMarkerDragEnd = (id: string, c: LngLat) => {

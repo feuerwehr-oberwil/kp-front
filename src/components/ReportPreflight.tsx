@@ -1411,14 +1411,18 @@ export function ReportPreflight({
                 data-fold={RP_FOLD.tiles}
                 onClick={() => void startOutput('print')} aria-label={printBusy ? R.sending : printStatus.online ? R.send : `${R.send} · ${R.offline}`}
                 title={printStatus.online ? R.online : R.offline}>
+                {/* glyph + relay dot are ONE child and the words its siblings, so a folded tile
+                    stacks the pair OVER the word like «PDF» beside it (13-incident · «fold» re-orders
+                    direct children only; round 18.11.2026 #3 – the words sat inside this span and
+                    the folded «Drucken» stayed a row). The Zeitplan's «Drucken» has the same shape. */}
                 <span className="print-send-main">
                   {printBusy ? <ShellLoader /> : <Icon id="printer" />}
                   <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
-                  <span className="rp-btn-label fold-long">{printBusy ? R.sending : R.send}</span>
-                  {/* folded it keeps a WORD, like «PDF» beside it (owner pick H1 A, 11.11.2026: a
-                      lone glyph in a tile as wide as its neighbours «looks a bit ugly») */}
-                  <span className="rp-btn-short fold-short" aria-hidden="true">{R.sendShort}</span>
                 </span>
+                <span className="rp-btn-label fold-long">{printBusy ? R.sending : R.send}</span>
+                {/* folded it keeps a WORD, like «PDF» beside it (owner pick H1 A, 11.11.2026: a
+                    lone glyph in a tile as wide as its neighbours «looks a bit ugly») */}
+                <span className="rp-btn-short fold-short" aria-hidden="true">{R.sendShort}</span>
                 {/* the offline reason is the dot's colour, the button's name and the confirm a
                     press raises — never a second line in the one-row head (13-incident.css) */}
               </button>

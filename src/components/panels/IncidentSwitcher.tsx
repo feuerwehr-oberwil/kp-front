@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLayer } from '../../lib/overlays/layer'
+import { appMenuSlide } from '../../lib/overlays/menuSlide'
 import { Icon } from '../../lib/icons'
-import { einsatzPillName, fillTemplate, fmtSpanShort, fmtWhen, formatTime } from '../../lib/format'
+import { einsatzHeadName, fillTemplate, fmtSpanShort, fmtWhen, formatTime } from '../../lib/format'
 import { appConfig } from '../../config/appConfig'
 import { toast } from '../../lib/ui'
 import { SyncGlyph } from '../SyncGlyph'
@@ -149,21 +150,19 @@ export function IncidentSwitcher({
   const [open, setOpen] = useState(false)
   // ⚠️ PHONE: «where over the clock» (07.10.2026, UI sweep · owner pick B3 D). The pill carried a
   // doc glyph and nothing else — the Stichwort was hidden as a useless «C…» — while the bar spent
-  // a second control on the Einsatzuhr beside it. Now the pill IS both: the name (until
-  // 12.11.2026 the ADDRESS's street part alone, owner: «the address is more important than the
-  // type»; see below),
-  // 13.5/700 with an ellipsis, over the Einsatzuhr (mono 12.5, the hourglass); the bar's own
-  // clock goes (TopBar). The Einsatzdauer and nothing else since 13.11.2026 (lib/einsatzuhr), as
-  // on the tablet's bar. Tablet unchanged.
-  // 12.11.2026 (owner): line 1 is «Stichwort · street» («Wasser · Sägestrasse 2») — street and
-  // number only, whatever shape the address came in, and the street said once when the title
-  // already carries it (lib/format · einsatzPillName). The street keeps its width; the
-  // Stichwort takes the rest and ellipsises first (15-mobile.css), so it never eats the number.
+  // a second control on the Einsatzuhr beside it. Now the pill IS both: the street (owner: «the
+  // address is more important than the type»; see below) with an ellipsis, over the Einsatzuhr
+  // (the hourglass); the bar's own clock goes (TopBar). The Einsatzdauer and nothing else since
+  // 13.11.2026 (lib/einsatzuhr), as on the tablet's bar.
+  // 18.11.2026 (round #7, owner: «Clean up header main title to just address»): the title is the
+  // street + number alone, else the Einsatz's title (lib/format · einsatzHeadName) – on a phone and
+  // a tablet, open and closed; the name stays the menu card's head and the button's name. It was
+  // «Stichwort · street» since 12.11., and a squeezed Stichwort left «· Allschwilerstrasse 10…».
   const isPhone = useIsPhone()
   const uhr = useEinsatzuhr(startedAt, endedAt, undefined, !isPhone)
   const U = appConfig.copy.einsatzuhr
   const twoLine = isPhone && !!active
-  const pill = einsatzPillName(active?.title ?? '', active?.address)
+  const headName = active ? einsatzHeadName(active.title, active.address) : cp.noIncident
   // the card's Einsatzbeginn/-dauer pill (phones hide the TopBar clocks, so the times live here)
   // — tick while open so the Dauer stays current
   const [now, setNow] = useState(() => Date.now())
@@ -292,17 +291,14 @@ export function IncidentSwitcher({
       {/* data-sync: the state for what waits on «saved» (e2e/visual/harness · settled) – the head
           draws no mark for it any more */}
       <button ref={triggerRef} className={`ip-switch-btn${twoLine ? ' ip-switch-two' : ''}`} data-sync={active ? syncStatus : undefined} onClick={() => { setClosedOpen(false); setOpen((v) => !v) }}
-        aria-label={twoLine
-          ? [pill.street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', uhr ? `${U.label} ${uhr}` : '', dotWord].filter(Boolean).join(', ')
-          : active ? [active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', dotWord].filter(Boolean).join(', ') : cp.noIncident}
+        // what the pill says, then the Einsatz's own name where that is not it
+        aria-label={active
+          ? [headName, headName === active.title.trim() ? '' : active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', closed ? C.title : '', viewOnlyMark ? cp.viewOnly : '', twoLine && uhr ? `${U.label} ${uhr}` : '', dotWord].filter(Boolean).join(', ')
+          : cp.noIncident}
         aria-expanded={open && !sheetOpen}>
         {twoLine ? (
           <span className="ip-switch-lines">
-            <span className="ip-switch-title">
-              {pill.stichwort && <span className="ip-switch-kw">{pill.stichwort}</span>}
-              {pill.stichwort && pill.street && <span className="ip-switch-sep" aria-hidden>·</span>}
-              {pill.street && <span className="ip-switch-street">{pill.street}</span>}
-            </span>
+            <span className="ip-switch-title">{headName}</span>
             {(uhr || viewOnlyMark) && (
               // hourglass + digits, no label (round 2b, owner 13.11.2026: «less text»); the tap
               // opens the card, whose «🕓 14:02 · 1 h 54» row says when it began. «Nur ansehen»
@@ -315,7 +311,7 @@ export function IncidentSwitcher({
             {/* a narrow TABLET bar's last step (fit-9): the title gives way to a doc glyph; the full
                 title heads the dropdown instead */}
             <span className="ip-switch-glyph" aria-hidden><Icon id="doc" /></span>
-            <span className="ip-switch-title">{active ? active.title : cp.noIncident}</span>
+            <span className="ip-switch-title">{headName}</span>
           </>
         )}
         {/* persistent ÜBUNG marker in the chrome — a training must never read as a real
@@ -361,7 +357,7 @@ export function IncidentSwitcher({
         </span>
       </button>
       {open && !sheetOpen && (
-        <div className="ip-menu">
+        <div className="ip-menu" ref={appMenuSlide}>
           {/* The menu is about what is RUNNING, in two weights (field feedback: every row carried
               the same one): ① THIS Einsatz as a CARD — Titel, Adresse, zwei
               Status-Pills — carrying its OWN actions inside it; ② the other running Einsätze as

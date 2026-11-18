@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
+import { Icon } from '../lib/icons'
 import { useOnlyOpenCard } from '../lib/floatCards'
 import { useLayer } from '../lib/overlays/layer'
 import { useMinuteClock } from '../lib/minuteClock'
@@ -50,6 +51,8 @@ export function ReadingsChip({ points, compact = false, onGo }: {
         {compact
           ? <><ReadingPill props={worst.props} inline bare /><span>{C.readingsChip}</span></>
           : <><span>{C.readingsChip}</span><ReadingPill props={worst.props} inline bare /></>}
+        {/* open = lit with ⌄, the Gebäude chip's twin beside it (BuildingFloat, owner pick M4 B) */}
+        {open && <Icon id="chevron-down" className="wb-chip-chev" />}
       </button>
       {open && (
         <div className={s.pop} role="dialog" aria-label={C.readingsChip}>

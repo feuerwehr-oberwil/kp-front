@@ -74,7 +74,7 @@ import { setLiveBearing } from '../lib/liveBearing'
 import { dismissRelayBubble } from '../lib/useRelay'
 import { LABEL_ABOVE, measureLabelPlacement } from '../lib/measureLabelPlace'
 import { ARROW_BOX, ARROW_STOP_BAR, arrowHeadPoints } from '../lib/mapImages'
-import { attachInsetPx, lineJoints, boundaryPoint, DETACH_SHOW_PROGRESS, dwellFor, forkPortPoint, gpsGuard, moveLineBody, relationshipNetwork, resolveLinePoints, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
+import { attachInsetPx, lineJoints, boundaryPoint, DETACH_SHOW_PROGRESS, dwellFor, forkPortPoint, gpsGuard, moveLineBody, relationshipNetwork, resolveLinePoints, TRUPP_AIM_DWELL_MS, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { toast } from '../lib/ui'
 import { locateFailedText } from '../lib/permissionPath'
 
@@ -865,7 +865,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
     useTruppMarkerAim({ mapInst, entities, openHoseLines, nativeDrawingChrome, onMarkerMove, onMarkerDragEnd })
   // ── ONE label pass for the whole map (components/useLabelPass) ──
   const { suppressedLabels, bumpLabelFrame } = useLabelPass(mapInst, {
-    initialCenter, entities, isVisible, zoom, symMul, captionMode, selectedId, selectedEntityIds, teamLines,
+    initialCenter, entities, isVisible, zoom, symMul, captionMode, selectedId, selectedEntityIds, teamLines, trupps, truppSeverities,
     drawingsVisible, lineDecor, drawLabels, circleLabels, selectedDrawingId, storedDrawings, hiddenTrails,
   }, onCaptionSuppressionChange)
 
@@ -1861,13 +1861,13 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
           magnet below wears, because it is the same gesture seen from the other side. */}
       {teamJoin && (
         <Marker key={`tj${teamJoin.since}`} longitude={teamJoin.coord[0]} latitude={teamJoin.coord[1]} anchor="center">
-          <span className="magnet-anchor"><ConnectRing since={teamJoin.since} armed={teamJoin.armed} /></span>
+          <span className="magnet-anchor"><ConnectRing since={teamJoin.since} armed={teamJoin.armed} ms={TRUPP_AIM_DWELL_MS} /></span>
         </Marker>
       )}
       {/* the symbol a dragged Trupp marker would dock to – the ring fills, a closed ring docks */}
       {dockAim && !teamJoin && (
         <Marker key={`dk${dockAim.since}`} longitude={dockAim.coord[0]} latitude={dockAim.coord[1]} anchor="center">
-          <span className="magnet-anchor"><ConnectRing since={dockAim.since} armed={dockAim.armed} /></span>
+          <span className="magnet-anchor"><ConnectRing since={dockAim.since} armed={dockAim.armed} ms={TRUPP_AIM_DWELL_MS} /></span>
         </Marker>
       )}
 
@@ -2156,6 +2156,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
         unproject={unprojectPoint}
         setDragPan={setDragPanEnabled}
         onSelect={onSelect}
+        onDeselect={onSelectionDone}
         onMarkerDragStart={onMarkerDragStart}
         onMarkerMove={teamJoinMarkerMove}
         onMarkerDragEnd={teamJoinMarkerDragEnd}

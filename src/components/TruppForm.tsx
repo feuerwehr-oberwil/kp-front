@@ -2,7 +2,7 @@
 // `TruppForm`). Rendered by AtemschutzView, which owns the save (`submitForm`) and the questions
 // in front of it. Rules for this area: docs/atemschutz-board.md.
 
-import { useEffect, useMemo, useRef, useState, type FocusEvent as ReactFocusEvent, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type FocusEvent as ReactFocusEvent, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, stripUnprintable } from '../lib/format'
@@ -17,6 +17,8 @@ import type { Person, Trupp, TruppAuftrag, TruppFields, TruppKind } from '../typ
 import { personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
 import { type LeitungOption } from '../lib/truppLines'
 import { ClearableInput } from './ClearableInput'
+import { Button } from './Button'
+import { ZIEL_MAX_LEN, type TruppFormOpen } from '../lib/zielPick'
 import type { Slot } from './PersonField'
 import { TruppTeam } from './TruppTeam'
 import { UnitVal } from './TruppCard'
@@ -34,7 +36,7 @@ const cfg = appConfig.atemschutz // static, non-doctrine parts only (the two auf
 // at the top of each component/helper below rather than captured here at module-load, so the
 // locale AND the deployment config resolved at boot apply.
 
-export type FormMode = 'create' | 'edit' | 'redeploy'
+export type FormMode = TruppFormOpen['mode']
 
 /** re-entry within this many minutes of the Austritt asks «gleiche oder neue Flasche?» */
 const BOTTLE_ASK_MIN = 10
@@ -102,7 +104,7 @@ function truppDraftStamp(t: Trupp): string {
 }
 
 export function TruppForm({
-  mode, initial, presetAuftrag, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, transferState, onTransfer, rolesById, leitungOptions, lite = false, stack = false, sheet = false, pinned, onAddGuest, onCancel, onSubmit,
+  mode, initial, presetAuftrag, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, transferState, onTransfer, rolesById, leitungOptions, lite = false, stack = false, sheet = false, pinned, zielPickOn, onPickZiel, onAddGuest, onCancel, onSubmit,
 }: {
   mode: FormMode
   initial?: Trupp
@@ -149,6 +151,12 @@ export function TruppForm({
   sheet?: boolean
   /** the due / overdue Trupps pinned ABOVE the sheet (AtemschutzView · pinnedRows), or nothing */
   pinned?: ReactNode
+  /** where the «Karte» button beside the Ziel takes the operator – the Karte, or the Plan they came
+   *  from (lib/zielPick). Absent with `onPickZiel` on a session that has no surface to pick on. */
+  zielPickOn?: 'map' | 'plans'
+  /** the «Karte» button: step away to pick a symbol whose name becomes the Ziel. Handed the Ziel's
+   *  draft key, which the pick writes (lib/zielPick); the board parks this form and switches surface. */
+  onPickZiel?: (zielDraftKey: string) => void
   /** record a hand-typed Gast on the Anwesenheit as well — being put in a Trupp IS being here */
   onAddGuest?: (name: string) => string | undefined
   /** `standby` (re-deploy only) parks the Trupp as Reserve instead of sending it straight in */
@@ -312,7 +320,9 @@ export function TruppForm({
   // `zielRef` and `conflictRef` are new; `auftragRef` above already existed for the card's own
   // «Auftrag offen» pill and is reused here so the two paths ring the same field the same way.
   const teamRef = useRef<HTMLDivElement>(null)
-  const zielRef = useRef<HTMLLabelElement>(null)
+  const zielRef = useRef<HTMLDivElement>(null)
+  // the Ziel's caption names its input by id: a <label> around the row would fold «Karte» into the name
+  const zielLabelId = useId()
   const pressureRef = useRef<HTMLDivElement>(null)
   const conflictRef = useRef<HTMLDivElement>(null)
 
@@ -733,8 +743,8 @@ export function TruppForm({
           options={auftragTypes.map((a) => ({ value: a.id, label: az.auftragLabels[a.id] ?? a.label }))}
         />
       </div>
-      <label ref={zielRef} className={cx(s.field, focusSection === 'auftrag' && s.formFlash)}>
-        <span>{az.zielLabel}</span>
+      <div ref={zielRef} className={cx(s.field, focusSection === 'auftrag' && s.formFlash)}>
+        <span id={zielLabelId}>{az.zielLabel}</span>
         {/* ✕: a Trupp that comes back and goes in again gets a NEW order, and the old one is not
             a starting point for typing it — «2. OG Wohnung Nord, 2 Personen vermisst» had to be
             select-all-deleted by hand on a phone, mid-Einsatz. */}
@@ -742,15 +752,27 @@ export function TruppForm({
             «z. B. 2OG links» normally, the generic sentence only under «Anderes» — and a storey
             reference is Atemschutz vocabulary: under Auftrag «Verkehr» the example proposed a
             place that does not exist there. */}
-        <ClearableInput
-          value={ziel} placeholder={az.zielPlaceholder}
-          // caps chosen so the card's one-line Ziel and the Leitung chip can't be blown out:
-          // «2. OG Wohnung Nord, 2 Personen vermisst» is 39 chars, a Leitung is «1»–«12»
-          maxLength={60}
-          clearLabel={az.zielClear}
-          onChange={(v) => setZiel(stripUnprintable(v))}
-        />
-      </label>
+        {/* «Karte» beside the field (owner pick M5a A, 18.11.2026): the form steps away, a tap on a
+            symbol brings it back with the symbol's name here – text only, the Trupp is not placed
+            (lib/zielPick). Named after the surface it opens, the Plan when the operator came from one. */}
+        <span className={s.zielRow}>
+          <ClearableInput
+            value={ziel} placeholder={az.zielPlaceholder}
+            // caps chosen so the card's one-line Ziel and the Leitung chip can't be blown out:
+            // «2. OG Wohnung Nord, 2 Personen vermisst» is 39 chars, a Leitung is «1»–«12»
+            maxLength={ZIEL_MAX_LEN}
+            aria-labelledby={zielLabelId}
+            clearLabel={az.zielClear}
+            onChange={(v) => setZiel(stripUnprintable(v))}
+          />
+          {!lite && zielPickOn && onPickZiel && (
+            <Button icon={<Icon id="map" />} title={zielPickOn === 'plans' ? az.zielPickPlanTitle : az.zielPickMapTitle}
+              onClick={() => onPickZiel(`${draftKey}:ziel`)}>
+              {zielPickOn === 'plans' ? az.zielPickPlan : az.zielPickMap}
+            </Button>
+          )}
+        </span>
+      </div>
       {/* Ausrüstung — multi-select chips: selected = filled, unselected = framed, the SAME chip the
           Trupp sheet draws (TruppSheets · TruppSheet, `<Chip>`). The tick box they wore until
           27.09.2026 (mock 14.09.) was a second state mark inside a chip that already has one; the

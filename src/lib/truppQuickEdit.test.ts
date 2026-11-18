@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { KANAL_PAD_MAX, auftragSheetFields, crewFields, fileGuestSlots, kanalPad, kanalSheetFields, leitungChoices, quickAuftragTypes, teamConflict, truppSheetFields } from './truppQuickEdit'
+import { KANAL_PAD_MAX, auftragSheetFields, crewFields, fileGuestSlots, kanalPad, kanalSheetFields, leitungChoices, nextFreeLeitung, quickAuftragTypes, teamConflict, truppSheetFields } from './truppQuickEdit'
 import { truppEditChanges } from './useTruppActions'
 import type { Trupp } from '../types'
 
@@ -73,6 +73,10 @@ describe('the sheets\' choices', () => {
     // …once, when it is drawn
     expect(leitungChoices(trupp.lineNo, [...drawn, { no: 1, onPlan: false }]).map((o) => o.no)).toEqual([1, 2, 4])
     expect(leitungChoices(undefined, drawn).map((o) => o.no)).toEqual([2, 4])
+  })
+  it('«Nr. …» opens on the lowest number nobody has drawn', () => {
+    expect(nextFreeLeitung([])).toBe(1)
+    expect(nextFreeLeitung([{ no: 1, onPlan: false }, { no: 2, onPlan: true }, { no: 4, onPlan: false }])).toBe(3)
   })
 })
 

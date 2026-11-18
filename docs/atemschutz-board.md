@@ -220,7 +220,20 @@ good but we don't need the triangle thing. red and notfall is already enough»):
   sheet share their Ziel and Leitung controls — a plain `ClearableInput` for the Ziel, and
   `TruppSheets · LeitungField` («keine · Ltg n · Nr. …») for the Leitung. «Nr. …» turns into
   the stepper in its own place in the chip row, and a typed number lives there only, never as a
-  chip as well (28.10.2026, owner).
+  chip as well (28.10.2026, owner). At rest «Nr. …» is an OUTLINED chip (`Chip outlined`); tapped,
+  the chip itself is the one lit answer holding «− Ltg n +», opened on the lowest number nobody has
+  drawn, so «keine» goes dark in the same tap (owner pick M5b 1, 18.11.2026 – «keine» stayed lit
+  beside an empty stepper).
+- *The Ziel can be picked on the Karte* (owner pick M5a A, 18.11.2026, `lib/zielPick`): «Karte»
+  beside the form's Ziel steps the form away to the surface the operator last stood on – the
+  Karte, or the Plan they came from (the button then says «Plan») – with every bar hidden and one
+  foot bar «Ziel für den Trupp · Symbol antippen · Abbrechen» (`ZielPickBar`). A tap on a tactical
+  symbol brings the form back with the symbol's name in the Ziel; any other marker is no pick, and
+  nothing on the surface moves meanwhile. ⚠️ TEXT ONLY (M5c): the Trupp is not docked or placed –
+  that stays ⋯ › Platzieren. Every other field survives the trip through draftKeep; the store parks
+  the form itself. Leaving for another surface mid-pick drops the pick (fields kept, as on any
+  switch). Not yet on the Auftrag sheet's Ziel (the card's chip) – it is its own component with
+  unkept state; see the round 18.11.2026 report.
 - *The phone form opens with the Art* (owner 16.11.2026: «i almost forgot to add people because it
   looked like things were highlighted already»): on the PHONE «Unter / Ohne Atemschutz» is the
   column's first row, and the Mannschaft («Trupp», «Person suchen») comes after it. Under the

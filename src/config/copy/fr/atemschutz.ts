@@ -439,6 +439,12 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logClockRestart: 'Binôme {name} : horloge de contact redémarrée – intervention rouverte',
     cardMenuWord: 'Plus',
     lineOnPlan: 'Plan',
+    zielPickMap: 'Carte',
+    zielPickPlan: 'Plan',
+    zielPickMapTitle: 'Choisir l’objectif sur la carte',
+    zielPickPlanTitle: 'Choisir l’objectif sur le plan',
+    zielPickBarTitle: 'Objectif du binôme',
+    zielPickBarHint: 'Toucher un symbole',
   },
   lineDecor: {
     W: 'Eau',
