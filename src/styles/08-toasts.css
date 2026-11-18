@@ -465,7 +465,8 @@
   width: 100%; min-height: 44px; padding: 0 var(--sp-2) 0 var(--sp-3); border: 1px solid var(--border);
   border-radius: var(--r-sm); background: var(--ink-5);
   font: var(--fw-bold) var(--fs-2)/1.3 var(--body); color: var(--ink); text-align: left; cursor: pointer; }
-.confirm-list-btn:active { background: var(--ink-8); }
+/* the house press (02-base), so it also goes when the finger slides off (lib/pressRelease) */
+.confirm-list-btn:active { background-image: linear-gradient(var(--press), var(--press)); }
 .confirm-list-chev { font-size: var(--fs-4); line-height: 1; color: var(--ink-faint); }
 /* a done row (the pre-filled Einsatzende) wears a check and its read-out */
 .confirm-list-go { display: flex; align-items: stretch; }

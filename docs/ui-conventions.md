@@ -364,10 +364,21 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   `enterKeyHint="done"` – and acts; a field whose Return sends or searches names that instead);
   **Esc keeps what was typed and leaves the field**, one-liner and textarea alike – like tapping
   away, nothing reverts (a typo is fixed with ↶). In a textarea Return stays a new line.
-- **A finger slides through a menu** (sweep 30.10.2026): on touch, a `Menu` highlights the row
-  under a SLIDING finger and lifting on a row presses it (a checkbox row toggles, the menu stays
-  open); lifting elsewhere does nothing, a plain tap is the browser's. A menu whose content scrolls
-  keeps its native scroll, and `ComboMenu` lists are not menus (`lib/overlays/menuSlide`).
+- **A finger slides through a menu** (sweep 30.10.2026; everywhere since round 18.11.2026): on
+  touch, a menu-like list highlights the row under a SLIDING finger (`data-slide-on`, the menu
+  row's `--blue-8` wash) and lifting on a row presses it (a checkbox row toggles, the menu stays
+  open; a destructive row's confirm still runs); lifting elsewhere does nothing, a plain tap is the
+  browser's. Worn by every `Menu`, the app menu (the Einsatz menu and home's «Einsätze ▾»,
+  `menuSlide · appMenuSlide`), Ansichten and `ComboMenu`. A list whose content scrolls keeps
+  its native scroll, a drag from a text field stays the field's (`lib/overlays/menuSlide`). A new
+  hand-rolled menu wears it too (`attachMenuSlide(frame, rows)`). Left out on purpose: `ListRow`
+  lists, Ebenen and the sheets – they scroll or switch, they are not pick-one menus.
+- **A press look never stays where the finger has left** (round 18.11.2026): iOS keeps `:active`
+  on the control a touch began on wherever the finger slides. `lib/pressRelease` (installed once in
+  `main.tsx`) sets `<html data-press-left>` the moment the finger leaves that control's box or
+  anything scrolls, and 02-base.css turns `--press` transparent until it lifts. So **every press
+  wash is drawn from `--press`** – a press look of another colour would stick again. Every
+  `:hover` stays gated on `(hover: hover)` (a phone has a sticky hover otherwise).
 - **A scroll body is `overscroll-behavior: contain`** (scroll sweep 15.11.2026): the body of a
   sheet or page (`.ip-sheet > .ip-body`, `.lc-body`, `.ctx-body`, the Verlauf, the Atemschutz
   `.body` / `.modalBody` / `.miniBody`, the Mittel, Anwesenheit and Checkliste lists) and every list
@@ -387,7 +398,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   form's own rule lost to a later one and put its buttons into an iPhone's corners).
 - **One menu row, one wash.** Every row `Menu`/`ContextMenu` renders wears `ui-menu-item`
   (+ `ui-menu-danger`), which carries the hover (`--blue` at 8 %, gated on `hover: hover`), the
-  keyboard `[data-highlighted]`, the `--press` wash and the `--r-ctl` row radius
+  keyboard `[data-highlighted]` (a sliding finger's `[data-slide-on]` is the same wash), the `--press` wash and the `--r-ctl` row radius
   (13-incident.css · «ONE menu row»). A caller's `itemClassName` skin owns padding, type and
   icons — never what a press looks like. Hand-rolled option lists (`.combo-opt`, `.pickOpt`,
   `.pp-row`, `.ip-ac-row`, `.lrow`) match those values.

@@ -7,6 +7,7 @@ import { fillTemplate } from '../lib/format'
 import { RankBadge } from './RankBadge'
 import { matchesQuery, searchQuery } from '../lib/search'
 import { usePopoverGuard } from '../lib/overlays/popoverGuard'
+import { attachMenuSlide } from '../lib/overlays/menuSlide'
 import { useLayer } from '../lib/overlays/layer'
 import { visibleViewportBottom } from '../lib/useKeyboardInset'
 import { fullViewHeight } from '../lib/iosKeyboard'
@@ -124,7 +125,14 @@ export function useComboMenu(openTick?: number): [ComboMenuState, ComboMenuRefs]
   // stable identities, or React would detach and re-attach every element on every render
   const rootRef = useCallback((el: HTMLDivElement | null) => { root.current = el }, [])
   const pickRef = useCallback((el: HTMLButtonElement | null) => { pick.current = el }, [])
-  const menuRef = useCallback((el: HTMLUListElement | null) => { menu.current = el }, [])
+  // …and a finger slides through the options the iOS way (lib/overlays/menuSlide: lifting on one
+  // picks it; a list long enough to scroll keeps its scroll, the search field its own drag)
+  const menuRef = useCallback((el: HTMLUListElement | null) => {
+    menu.current = el
+    if (!el) return
+    const detach = attachMenuSlide(el, 'li > button')
+    return () => { menu.current = null; detach() }
+  }, [])
 
   // opened from OUTSIDE (openTick): same entry as a tap on the trigger
   useEffect(() => { if (openTick) { setSearch(''); setOpen(true) } }, [openTick])

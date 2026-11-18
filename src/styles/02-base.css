@@ -102,6 +102,16 @@ button, input, select, textarea { font-family: inherit; }
 .btn:active:not(:disabled), .chip:active:not(:disabled) {
   background-image: linear-gradient(var(--press), var(--press));
 }
+/* …and it never stays where the finger has LEFT (round 18.11.2026): iOS keeps `:active` on the
+   control a touch began on wherever the finger slides, so lib/pressRelease marks the moment the
+   finger leaves it (or anything scrolls) and every press wash in the app – all drawn from
+   `--press` – goes until the finger lifts. One rule, no row needs its own. */
+:root[data-press-left], :root[data-press-left] .kf-paper { --press: transparent; }
+/* The row under a SLIDING finger in a menu-like list (lib/overlays/menuSlide): the menu row's
+   highlight wash, as an overlay like the press, so it composes with any row's own fill.
+   ⚠️ `:root … :not(:disabled)` for weight: a row's own `background: none` (`.ip-menu-act`, a later
+   file) resets the image at one class and wiped the wash. */
+:root [data-slide-on]:not(:disabled) { background-image: linear-gradient(var(--blue-8), var(--blue-8)); }
 :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .app :focus:not(:focus-visible) { outline: none; }
 

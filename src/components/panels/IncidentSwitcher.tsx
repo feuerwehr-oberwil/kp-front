@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLayer } from '../../lib/overlays/layer'
+import { appMenuSlide } from '../../lib/overlays/menuSlide'
 import { Icon } from '../../lib/icons'
 import { einsatzPillName, fillTemplate, fmtSpanShort, fmtWhen, formatTime } from '../../lib/format'
 import { appConfig } from '../../config/appConfig'
@@ -361,7 +362,7 @@ export function IncidentSwitcher({
         </span>
       </button>
       {open && !sheetOpen && (
-        <div className="ip-menu">
+        <div className="ip-menu" ref={appMenuSlide}>
           {/* The menu is about what is RUNNING, in two weights (field feedback: every row carried
               the same one): ① THIS Einsatz as a CARD — Titel, Adresse, zwei
               Status-Pills — carrying its OWN actions inside it; ② the other running Einsätze as
