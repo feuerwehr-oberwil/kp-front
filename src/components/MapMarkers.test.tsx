@@ -217,10 +217,7 @@ describe('a Trupp marker that is joined, loose, or docked', () => {
 
   // «Lösen» is a row of the bar's «Mehr» since rare-user round 2 (M12, 17.11.2026)
   it('offers one «Lösen» on a joined pill – and nothing to break when loose', () => {
-    const lösen = () => {
-      fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.barMore }))
-      return screen.queryAllByRole('menuitem', { name: appConfig.copy.contextPanel.dockedRelease })
-    }
+    const lösen = () => screen.queryAllByRole('button', { name: appConfig.copy.contextPanel.dockedRelease })
     const joined = showTeam([team()], 'e1', badge() as never)
     expect(lösen()).toHaveLength(1)
     joined.unmount()

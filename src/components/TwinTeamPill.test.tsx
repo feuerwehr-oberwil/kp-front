@@ -164,15 +164,26 @@ describe('the bar', () => {
   const openMore = () => fireEvent.click(screen.getByRole('button', { name: W.barMore }))
   const rows = () => screen.getAllByRole('menuitem').map((r) => r.textContent)
 
-  it('stands «Zum Trupp · Markieren · Mehr» on a linked marker, the rest in «Mehr», deletes last', () => {
+  it('stands «Zum Trupp · Markieren · Lösen · Mehr» on a marker on a Leitung, the rest in «Mehr», deletes last', () => {
     const { container } = linked()
-    expect(bar(container).map((b) => b.textContent)).toEqual([W.showTrupp, W.markShort, W.barMore])
+    expect(bar(container).map((b) => b.textContent)).toEqual([W.showTrupp, W.markShort, R, W.barMore])
     // the short word on the bar, the full words for the title and the screen reader
     expect(screen.getByRole('button', { name: W.markPosition }).textContent).toBe(W.markShort)
     openMore()
-    expect(rows()).toEqual([R, A.markerLabel, picked(W.trails), 'Auf Plan zeigen', W.removeMarker, W.clearTrail])
+    expect(rows()).toEqual([A.markerLabel, picked(W.trails), 'Auf Plan zeigen', W.removeMarker, W.clearTrail])
     // the Spuren row says it is on, the menu's ✓
     expect(screen.getByRole('menuitem', { name: new RegExp(W.trails) }).querySelector('.de-menu-tick.on')).not.toBeNull()
+  })
+
+  it('cuts BOTH bonds with its one «Lösen» on a marker that is on a Leitung and docked to a symbol', () => {
+    const unlink = vi.fn()
+    const undock = vi.fn()
+    const { container } = render(
+      <TwinTeamPill name="Meier Anna" color="#c00" raus={false} truppId="t1" trailCount={0} trailShown={false}
+        trupps={TRUPPS} line={line} acts={{ unlink, undock, showTrupp: () => {}, mark: () => {} }} />)
+    expect(bar(container).filter((b) => b.textContent === R)).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: R }))
+    expect([unlink.mock.calls.length, undock.mock.calls.length]).toEqual([1, 1])
   })
 
   it('swaps a linked marker\'s «Mehr» to the join list on «Atemschutz-Trupp», and back on reopening', () => {
@@ -185,7 +196,7 @@ describe('the bar', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /^Meier Anna/ }))
     expect(pick).toHaveBeenCalledWith('t1')
     openMore()
-    expect(rows()[0]).toBe(R)
+    expect(rows()[0]).toBe(A.markerLabel)
   })
 
   it('stands «Atemschutz-Trupp · Markieren · Mehr» on a loose marker, never a second Trupp button', () => {
@@ -209,7 +220,7 @@ describe('the bar', () => {
     savePrefs({ ...loadPrefs(), railLabels: 'off', railLabelsChosen: true })
     const { container } = linked()
     expect(container.querySelector('.wb-pa-word')).toBeNull()
-    expect(bar(container).map((b) => b.getAttribute('aria-label'))).toEqual([W.showTrupp, W.markPosition, W.barMore])
+    expect(bar(container).map((b) => b.getAttribute('aria-label'))).toEqual([W.showTrupp, W.markPosition, R, W.barMore])
   })
 })
 
