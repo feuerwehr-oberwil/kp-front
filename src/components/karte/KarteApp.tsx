@@ -45,7 +45,7 @@ import { fillTemplate } from '../../lib/format'
 import { useAuth } from '../../lib/auth'
 import { useIsPhone } from '../../lib/useIsPhone'
 import { useRailLabels } from '../../lib/useDevicePrefs'
-import { PANEL_KEY } from '../../lib/hotkeys'
+import { KEY_ZOOM_MS, PANEL_KEY } from '../../lib/hotkeys'
 import { karteToolKey } from '../../lib/karte/hotkeys'
 import { moduleNumbers } from '../../lib/navRail'
 import { useOnline } from '../../lib/useOnline'
@@ -543,7 +543,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       },
       zoom: ({ dir }) => {
         if (openDoc) reader.keysRef.current?.zoom(dir === 'in' ? 1.3 : 1 / 1.3)
-        else if (onMapSurface) { if (dir === 'in') mapRef.current?.zoomIn(); else mapRef.current?.zoomOut() }
+        else if (onMapSurface) { if (dir === 'in') mapRef.current?.zoomIn({ duration: KEY_ZOOM_MS }); else mapRef.current?.zoomOut({ duration: KEY_ZOOM_MS }) }
       },
       fit: () => { if (openDoc) reader.fitRef.current?.(); else if (onMapSurface) viewsApi.onFit() },
       locate: () => { if (onMapSurface) viewsApi.onLocate() },

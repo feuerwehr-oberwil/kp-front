@@ -81,16 +81,17 @@
    pressed state, not just a pill. The 44px floor is the house rule for anything a gloved
    finger aims at, and this is the one control on the board somebody reaches for in a hurry.
    Red TEXT on a faint red tint (27.09.2026): it was a red fill, and the owner's sweep found it
-   «as loud as the alarm itself». As the only coloured tile in the row it is still the loudest —
-   and the pulse is the tile's own, shallower than the card band's (a tinted tile at .3 vanishes). */
+   «as loud as the alarm itself». As the only coloured tile in the row it is still the loudest.
+   STILL (design pass C3, 18.11.2026): three Überfällig pulses ran out of step (this tile, the top
+   bar's pill, the rail dot); the ONE pulse left is the top bar's `.tb-az.crit` (10-journal),
+   which every surface shows. */
 .overdueBadge { composes: headTile; color: var(--red-strong);
   background: color-mix(in srgb, var(--red) 11%, var(--surface));
   box-shadow: inset 0 0 0 1px var(--red-45);
-  font-variant-numeric: tabular-nums; animation: az-pulse-tile 1.2s infinite; }
+  font-variant-numeric: tabular-nums; }
 @media (hover: hover) { .overdueBadge:hover:not(:disabled) { color: var(--red-strong); box-shadow: inset 0 0 0 1px var(--red-62); } }
 /* muted: the same tile in plain grey — the count still stands, the tone does not */
-.overdueQuiet { color: var(--ink-dim); background: var(--surface); box-shadow: inset 0 0 0 1px var(--glass-edge); animation: none; }
-@keyframes az-pulse-tile { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+.overdueQuiet { color: var(--ink-dim); background: var(--surface); box-shadow: inset 0 0 0 1px var(--glass-edge); }
 
 /* The board's insets – ONE rhythm with the card gap (hill climb r20, 05.11.2026): 16px at the top
    and the sides, 12 under the last row, 12 between the cards (`.grid`). The sides and the gap are
@@ -436,8 +437,6 @@
 /* (`.st-aktiv` … `.st-raus`, the tablet card's status TOP EDGE, went on 29.09.2026: the card's tone
    is the phone row's LEFT edge and wash by tier — `rowTone`, `.trowWarn` / `.trowCrit` / `.trowIdle`
    / `.trowOut`.) */
-
-@keyframes az-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 
 /* --- shared create / edit / re-deploy form modal --- */
 /* centered dialog frame — Base UI (<Overlay>) supplies the scrim (.ui-backdrop), focus trap,
@@ -1045,12 +1044,6 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   .body { padding: var(--sp-3) var(--page-x); padding-bottom: calc(var(--sp-3) + var(--fab-safe, 0px)); }
   .grid { grid-template-columns: 1fr; gap: var(--sp-2); }
   /* (the head's phone paddings are the shared tokens — 15-mobile · --head-pad-*) */
-}
-
-/* respect reduced-motion: the überfällig signal is carried by colour + the state WORD + the
-   badge, so dropping the pulse loses no information for users who opt out of animation */
-@media (prefers-reduced-motion: reduce) {
-  .bandCrit .bandVal, .overdueBadge { animation: none; }
 }
 
 /* ⚠️ Must come AFTER .teamList's own rule — same specificity, so source order decides.

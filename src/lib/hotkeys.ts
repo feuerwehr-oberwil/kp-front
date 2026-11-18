@@ -116,6 +116,10 @@ const TOOL_KEYS: Record<string, ToolCmd> = Object.fromEntries(
 export const PANEL_KEY = { journal: 'J', composer: 'E', layers: 'B' } as const satisfies Partial<Record<PanelCmd, string>>
 /** «Einpassen» – the key resolveHotkey decodes and the Plan's view-bar button wears (ToolRail · RailKey) */
 export const FIT_KEY = '0'
+/** How long a + / − key's map zoom eases, on the Lage (workspace/useMapActions) and the Karte
+ *  (KarteApp). Short: a key press should not wait on motion, and a held key repeats (design pass
+ *  C9, 18.11.2026 – it was MapLibre's 500 ms default). The on-screen ± buttons keep that default. */
+export const KEY_ZOOM_MS = 150
 const PANEL_KEYS: Record<string, PanelCmd> = Object.fromEntries(
   Object.entries(PANEL_KEY).map(([p, k]) => [k.toLowerCase(), p]),
 ) as Record<string, PanelCmd>

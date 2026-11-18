@@ -25,7 +25,7 @@ import { moduleCatalogue } from '../../lib/planOrder'
 import { loadViewerLayerPrefs, saveViewerLayerPrefs, viewerLayers } from '../../lib/karte/session'
 import type { LayerDef, LayerId } from '../../types'
 import type { useKarteWeather } from '../../workspace/useKarteWeather'
-import { panelPad } from './useKarteCamera'
+import { CAMERA_MS, panelPad } from './useKarteCamera'
 
 /** the Ebenen rows the viewer adds (LayerPanel twins) */
 const OBJECTS_ROW = 'karte:objekte'
@@ -105,7 +105,7 @@ export function useGeorefPlan(selObj: StationObject | null, mapRef: RefObject<Ma
     const next = !georefOn
     setGeorefOn(next)
     const at = selObj && coordOf(selObj)
-    if (next && at) mapRef.current?.easeTo({ center: at, zoom: Math.max(zoom, 18), padding: panelPad(phone), duration: 600 })
+    if (next && at) mapRef.current?.easeTo({ center: at, zoom: Math.max(zoom, 18), padding: panelPad(phone), duration: CAMERA_MS })
   }
   return { georefPlan, georefOn, georefOpacity, setGeorefOpacity, georefRasters, toggleGeoref }
 }
