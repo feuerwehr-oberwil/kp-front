@@ -168,7 +168,7 @@ export function AppMenuRows({
               <span className="ip-menu-when">{opening === i.id ? <ShellLoader /> : fmtSpanShort(now - Date.parse(i.started_at))}</span>
               <span className="ip-menu-rowmain">
                 <span className="ip-menu-titleline">
-                  <span className="ip-menu-title">{i.title}</span>
+                  <span className="ip-menu-title" title={i.title}>{i.title}</span>
                   {/* beside the title, not inside it: a long Einsatzname ellipsises, and the
                       marker that says «Übung» must not be the part that gets cut off */}
                   {i.is_exercise && exerciseBadge}
@@ -196,7 +196,7 @@ export function AppMenuRows({
                 aria-label={`${opening ? ci.alarmOpening : ci.alarmOpen}: ${a.title}`} onClick={() => alarms.onTake(a)}>
                 <span className="ip-menu-when ip-menu-alarm-mark">{opening ? <ShellLoader /> : <Icon id="bell" />}</span>
                 <span className="ip-menu-rowmain">
-                  <span className="ip-menu-titleline"><span className="ip-menu-title">{a.title}</span></span>
+                  <span className="ip-menu-titleline"><span className="ip-menu-title" title={a.title}>{a.title}</span></span>
                   <span className="ip-menu-rowsub">{shortAddress(a.address) ?? ci.addressUnknown}</span>
                 </span>
                 {/* only while the take runs: the tap's answer («Öffne …»), beside the loader */}

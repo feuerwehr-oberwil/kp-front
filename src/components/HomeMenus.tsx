@@ -72,7 +72,7 @@ export function LauncherBody({
             <button key={i.id} type="button" className="ip-launch" disabled={opening != null} onClick={() => onOpenIncident(i)}>
               {opening === i.id ? <ShellLoader /> : <Icon id="flag" />}
               <span className="ip-launch-main">
-                <span className="ip-launch-title">{i.title}</span>
+                <span className="ip-launch-title" title={i.title}>{i.title}</span>
                 <span className="ip-launch-sub">{shortAddress(i.address) ?? ''}</span>
               </span>
               <Icon id="chevron" />
@@ -86,7 +86,7 @@ export function LauncherBody({
                 <span className="ip-launch-pulse">{taking === a.divera_id ? <ShellLoader /> : <Icon id="bell" />}</span>
                 <span className="ip-launch-main">
                   <span className="ip-launch-kicker">{appConfig.copy.intake.newDiveraAlarm}</span>
-                  <span className="ip-launch-title">{a.title}</span>
+                  <span className="ip-launch-title" title={a.title}>{a.title}</span>
                   <span className="ip-launch-sub">{shortAddress(a.address) ?? appConfig.copy.intake.addressUnknown}</span>
                 </span>
                 <span className="ip-launch-go">{taking === a.divera_id ? appConfig.copy.intake.alarmOpening : appConfig.copy.intake.alarmOpen}</span>

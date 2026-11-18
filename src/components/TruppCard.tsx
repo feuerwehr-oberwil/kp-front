@@ -760,8 +760,10 @@ export function TruppCard({
    * thing allowed a colour is the GAP: a dashed amber «+ Auftrag» where the Auftrag is missing —
    * a Trupp with no job is a question the Überwacher must be able to see. No chip for a missing
    * Leitung (it lives in the Auftrag sheet), no small-caps labels, no «#N» (dropped 30.09.2026, see TruppNo).
-   * `chip(key, node, onTap, cls)`: a button when it has somewhere to go, a plain chip otherwise
-   * (a viewer's card, the lite board's jumps).
+   * `chip(key, node, onTap, { cls, title })`: a button when it has somewhere to go, a plain chip
+   * otherwise (a viewer's card, the lite board's jumps). A chip whose words can be long (the
+   * Auftrag · Ziel, «bei ‹Host›», the Ausrüstung) holds them in `.factTxt`, which ellipsises while a
+   * chevron stays whole, and says them whole in `title` (design pass D2/D9, 18.11.2026).
    * «Kanal 11» and the Ausrüstung after it stand in `.factsEnd`: on the grid that is the facts'
    * own LAST row, so the Kanal keeps one address from card to card (hill climb r8, 04.11.2026);
    * everywhere else the wrapper is `display: contents` and the chips wrap as before.
@@ -771,24 +773,27 @@ export function TruppCard({
    * «Rückzug» is not a chip: it is the amber badge in the card head (RowLine · `rueckzug`), which
    * a viewer — who has no Rückzug tile — sees too. It also lowers the turn-back pressure
    * (alarmBarFor), so it is never colour alone. */
-  const chip = (key: string, node: ReactNode, onTap?: () => void, cls?: string) => onTap
-    ? <button key={key} type="button" className={cx(s.fact, cls)} onClick={onTap}>{node}</button>
-    : <span key={key} className={cx(s.fact, cls)}>{node}</span>
+  const chip = (key: string, node: ReactNode, onTap?: () => void, { cls, title }: { cls?: string; title?: string } = {}) => onTap
+    ? <button key={key} type="button" className={cx(s.fact, cls)} onClick={onTap} title={title}>{node}</button>
+    : <span key={key} className={cx(s.fact, cls)} title={title}>{node}</span>
   // ONE chip for the whole Ausrüstung, the box glyph in front (M11 B, 17.11.2026)
+  const gearWords = equipmentWords.join(' · ')
   const gear = equipmentWords.length > 0 && chip('eq',
-    <><Icon id="box" /><span className={s.factTxt}>{equipmentWords.join(' · ')}</span></>, onQuick && (() => onQuick('trupp')))
+    <><Icon id="box" /><span className={s.factTxt}>{gearWords}</span></>, onQuick && (() => onQuick('trupp')), { title: gearWords })
+  const auftragZiel = auftrag && t.ziel ? `${auftrag} · ${t.ziel}` : auftrag
+  const dockedWords = dockedAt ? fillTemplate(az.dockedAt, { host: dockedAt }) : ''
   const facts = (
     <div className={s.facts}>
       {auftrag
-        ? chip('auftrag', <span className={s.factTxt}>{auftrag}{t.ziel ? ` · ${t.ziel}` : ''}</span>, onQuick && (() => onQuick('auftrag')))
+        ? chip('auftrag', <span className={s.factTxt}>{auftragZiel}</span>, onQuick && (() => onQuick('auftrag')), { title: auftragZiel })
         : <>
-            {chip('auftrag', az.auftragAdd, onQuick && (() => onQuick('auftrag')), s.factDash)}
-            {t.ziel && chip('ziel', <span className={s.factTxt}>{t.ziel}</span>, onQuick && (() => onQuick('auftrag')))}
+            {chip('auftrag', az.auftragAdd, onQuick && (() => onQuick('auftrag')), { cls: s.factDash })}
+            {t.ziel && chip('ziel', <span className={s.factTxt}>{t.ziel}</span>, onQuick && (() => onQuick('auftrag')), { title: t.ziel })}
           </>}
-      {dockedAt && chip('docked', <>{fillTemplate(az.dockedAt, { host: dockedAt })}{!lite && <Icon id="chevron" />}</>,
-        lite ? undefined : () => onShowPlan(t.id), s.factGo)}
+      {dockedAt && chip('docked', <><span className={s.factTxt}>{dockedWords}</span>{!lite && <Icon id="chevron" />}</>,
+        lite ? undefined : () => onShowPlan(t.id), { cls: s.factGo, title: dockedWords })}
       {lineTag && chip('line', <>{fillTemplate(az.lineChip, { n: lineTag })}{hasLine && !lite && <Icon id="chevron" />}</>,
-        hasLine && !lite ? () => onShowLine(t.id) : onQuick && (() => onQuick('auftrag')), hasLine && !lite ? s.factGo : undefined)}
+        hasLine && !lite ? () => onShowLine(t.id) : onQuick && (() => onQuick('auftrag')), { cls: hasLine && !lite ? s.factGo : undefined })}
       {t.funkkanal == null ? gear : (
         <div className={s.factsEnd}>
           {chip('kanal', `${az.funkkanalUnit} ${t.funkkanal}`, onQuick && (() => onQuick('kanal')))}
@@ -800,14 +805,16 @@ export function TruppCard({
   /* ── The crew: its own line under the name (owner pick A3, 05.11.2026) ──────────────────────────
    * The Trupp's `name` IS its leader (lib/atemschutz · truppHeadName), so this line lists the
    * others — plain 14px ink, «Widmer Lukas · Wyss Urs», no chip. It wraps BETWEEN people (31.10.2026,
-   * owner: names are never cut): each name is a nowrap span and the « · » is the break. Still the
+   * owner: names are never cut): each name is an atomic span carrying the « ·» after it, and the
+   * space between two spans is the break – so a name that must wrap inside itself (wider than the
+   * line, design pass D1) keeps its « ·» on its own last line instead of a « · » alone. Still the
    * door to the Trupp sheet the crew chip was — a button drawn as text, its 44px touch pad an
    * invisible pseudo-element (`.crewLine`). On the grid and the Tafel it stands IN the head (the
    * static head's third grid row, inside the band); on the phone's opened card, whose head is the
    * collapse button, right under it — opening a row adds it below and moves nothing. On the link
    * board's Notfall page the page head places it, under the red name (`pageHead(crewLine)`). */
   const crewTxt = crewNames.map((n, i) => (
-    <Fragment key={i}>{i > 0 && ' · '}<span className={s.crewName}>{n}</span></Fragment>
+    <Fragment key={i}>{i > 0 && ' '}<span className={s.crewName}>{n}{i < crewNames.length - 1 && ' ·'}</span></Fragment>
   ))
   const crewLine = crewNames.length > 0 && (onQuick
     ? <button type="button" className={s.crewLine} onClick={() => onQuick('trupp')}>{crewTxt}</button>

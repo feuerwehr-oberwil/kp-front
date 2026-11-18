@@ -115,6 +115,12 @@ describe('ContextPanel — basic wiring', () => {
     expect(screen.getAllByText('TLF')).toHaveLength(1) // the Bezeichnung field, and only there
   })
 
+  // design pass D5 (18.11.2026): a long compound breaks at its seams, never under the ✕
+  it('puts soft hyphens at the seams of a long symbol name in the header', () => {
+    setup({ entity: { id: 'a1', symbol: 'ZS Angehoerigensammelstelle' } })
+    expect(document.querySelector('.ctx-title-ro')!.textContent).toBe('Angehörigen\u00ADsammel\u00ADstelle')
+  })
+
   it('keeps the read-only (viewer) Fahrzeug header the type as well', () => {
     setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, titleOptions: ['TLF', 'MTF'], readOnly: true })
     expect(document.querySelector('.ctx-title-ro')!.textContent).toBe('Fahrzeug')
