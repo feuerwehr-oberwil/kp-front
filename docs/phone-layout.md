@@ -47,7 +47,9 @@ unchanged.
   (Höhenprofil, Wassertransport) it ends one `--float-gap` under the top bar (`--under-bar`), lies
   over the wind chip like the Gebäude card (`--z-map-card`) and scrolls inside itself – it grew up
   behind the Einsatz header. Its foot is `--mp-bottom` (MeasurePanel.module), which the Karte
-  sets one bar lower, so the cap follows the foot.
+  sets one bar lower, so the cap follows the foot. It never scrolls sideways, and a chart's
+  read-out tag slides by its own width to stay inside the plot (round 18.11.2026 #3: a tag at the
+  chart's right end ran past the phone's panel and the Wassertransport scrolled 80px left).
 - *While a tool is out the message lane is measured* (`lib/floatRow · stackLane` → `--stack-lane`):
   one gap above the highest piece of the stack, so a tip or the Gebäude card stands 8px over the
   dock whether the floating row sits beside it or had to rise above it. And ONE thing in
@@ -99,7 +101,10 @@ unchanged.
   each a 22px glyph over an 11/700 word, the bars' `--rail-h` tall (`--line-h`, pick 21) in the
   bars' corner `--r-bar` (owner pick 20, 17.11.2026 – r12 read «too angular») (09-whiteboard · `.wb-tile`,
   15-mobile · `.fab-entry`, Karte.module · `.utilBtn`). As wide as the word up to 136px; a longer
-  word ellipsises inside its tile and the button's name stays whole. Joined pieces keep their one
+  word ellipsises inside its tile and the button's name stays whole – except the NAME tile (the
+  Objekt's or building's street and number), which is uncapped: «the street and number should be
+  spelt out almost always» (round 18.11.2026 #2). The Gebäude-Info sharing its glass gives way
+  first, down to its ⚠, and the street ellipsises only after that. Joined pieces keep their one
   glass (`.wb-join`). The calibration instrument («Zwei Punkte … antippen») stays a chip – a
   sentence is not a tile word. The tablet keeps its chips, word beside the glyph
   (components/BuildingFloat). It replaces 12A (14.11.: the hazard words alone as a chip, a tile
@@ -134,6 +139,8 @@ unchanged.
 - *The Verlauf's ▶ is the bare glyph at the ruler's left end* (owner pick M8 · C; the tablet
   followed with its word, pick 30, 17.11.2026 – [`ui-conventions.md`](ui-conventions.md) · «The
   Verlauf's head»): the phone head is the title with the count and ✕ alone, and fits 390 whole.
+  The [▶ · ruler] row mirrors the [search · «Art»] row over it – one left edge, one right edge,
+  one gap (round 18.11.2026 #1, 10-journal · `.jr-strip-row`).
 
 ## Page heads and pages
 
