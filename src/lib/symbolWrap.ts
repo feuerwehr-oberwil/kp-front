@@ -85,6 +85,19 @@ const SEAMS: Record<string, string> = {
   Schaummittel: 'Schaum­mittel',
   Atemschutzsammelstelle: 'Atemschutz­sammel­stelle',
   Unverletztensammelstelle: 'Unverletzten­sammel­stelle',
+  // ── caption compounds: places and buildings (design pass 18.11.2026) ──
+  // A Hydrant or Sammelplatz caption names WHERE it is («gegenüber Gemeindeverwaltung»). Words
+  // past ~17 letters do not fit the 136px plate, so without a seam they broke at the last letter
+  // that fit («Gemeindeverwaltun-g»). Same rule as above: curated compound boundaries only.
+  Gemeindeverwaltung: 'Gemeinde­verwaltung',
+  Gemeindehaus: 'Gemeinde­haus',
+  Mehrfamilienhaus: 'Mehr­familien­haus',
+  Einfamilienhaus: 'Ein­familien­haus',
+  Feuerwehrmagazin: 'Feuerwehr­magazin',
+  Alterszentrum: 'Alters­zentrum',
+  Einkaufszentrum: 'Einkaufs­zentrum',
+  Mehrzweckhalle: 'Mehrzweck­halle',
+  Tiefgarage: 'Tief­garage',
 }
 
 /** The label with soft hyphens at its compound seams — for display in a narrow cell only. */

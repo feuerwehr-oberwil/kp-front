@@ -37,6 +37,10 @@ describe('softHyphenateText', () => {
     expect(softHyphenateText('Salpetersäure, rauchend')).toBe(`Salpeter${SHY}säure, rauchend`)
   })
 
+  it('seams a long place name in a caption at its compound boundary', () => {
+    expect(softHyphenateText('gegenüber Gemeindeverwaltung Oberdorf')).toBe(`gegenüber Gemeinde${SHY}verwaltung Oberdorf`)
+  })
+
   it('keeps a multi-line caption intact', () => {
     expect(strip(softHyphenateText('CO₂\n1200 l/min'))).toBe('CO₂\n1200 l/min')
   })
