@@ -44,7 +44,7 @@ import { ClockVal, RowEnter, TruppCard, TruppRow } from './TruppCard'
 import { tabState, tierMark } from './truppCardText'
 import { notfallStrips } from '../lib/notfall'
 import { TruppForm, type FormMode, type TruppSubmitExtra } from './TruppForm'
-import { beginZielPick, endZielPick, parkedTruppForm, type TruppFormOpen } from '../lib/zielPick'
+import { beginZielPick, endZielPick, parkedAuftragSheet, parkedTruppForm, type AuftragDraft, type TruppFormOpen } from '../lib/zielPick'
 import { refuse } from '../lib/meldungenRefusal'
 
 /**
@@ -286,8 +286,15 @@ export function AtemschutzView({
   /* The mini sheets (26.09.2026, phone card slim-down — components/TruppSheets): one fact of the
    * card, one short sheet, every save through `editTrupp`. Opened from the card's chips on every
    * width (the tablet's Kennzeile entries are the same doors), so the sheet is what a tap on a fact
-   * does — the big form stays for Art and Eingangsdruck, behind «Bearbeiten». */
-  const [quick, setQuick] = useState<{ id: string; kind: 'kanal' | 'auftrag' | 'trupp' } | null>(null)
+   * does — the big form stays for Art and Eingangsdruck, behind «Bearbeiten».
+   * The Auftrag sheet comes back open after a pick of its Ziel, on the fields it was left with
+   * (lib/zielPick · parkedAuftragSheet), exactly as the form does above. */
+  const [quick, setQuick] = useState<{ id: string; kind: 'kanal' | 'auftrag' | 'trupp'; draft?: AuftragDraft } | null>(() => {
+    const parked = parkedAuftragSheet()
+    if (!parked) return null
+    const { truppId, ...draft } = parked
+    return { id: truppId, kind: 'auftrag', draft }
+  })
   /* The one pressure picker (PressureSheet, 24.09.2026): a Druckmeldung from the phone row or card,
    * and the Restdruck at «Raus melden» on every width. Null when closed. */
   const [pressureAsk, setPressureAsk] = useState<{ id: string; kind: 'pressure' | 'exit' } | null>(null)
@@ -1907,7 +1914,7 @@ export function AtemschutzView({
           sheet={phoneMode}
           pinned={pinnedRows}
           zielPickOn={lite ? undefined : zielPickOn}
-          onPickZiel={onPickZiel && ((zielKey) => { beginZielPick(zielKey, form); onPickZiel() })}
+          onPickZiel={onPickZiel && ((field) => { beginZielPick({ kind: 'form', form, field }); onPickZiel() })}
           onAddGuest={onAddGuest}
           onCancel={() => setForm(null)} onSubmit={submitForm}
         />
@@ -1946,7 +1953,10 @@ export function AtemschutzView({
         return quick.kind === 'kanal'
           ? <KanalSheet t={t} onSave={save} onClose={close} />
           : quick.kind === 'auftrag'
-          ? <AuftragSheet t={t} leitungOptions={leitungOptions(t.id)} lite={!!lite}
+          ? <AuftragSheet t={t} leitungOptions={leitungOptions(t.id)} lite={!!lite} draft={quick.draft}
+              // the form's «Karte» beside the Ziel, the same pick (lib/zielPick)
+              zielPickOn={lite ? undefined : zielPickOn}
+              onPickZiel={onPickZiel && ((typed) => { beginZielPick({ kind: 'auftrag', sheet: { truppId: t.id, ...typed } }); onPickZiel() })}
               onSave={save} onClose={close} />
           /* the crew and the Ausrüstung — the same roster, presence and «one person, one Trupp»
              answers the form gets (see TruppForm's props below); a Trupp that has come OUT binds

@@ -634,7 +634,7 @@ describe('the Plan rail and its drafts', () => {
   // owner pick M5a A, 18.11.2026: the Trupp form's Ziel picked on the Plan (lib/zielPick)
   it('while the Trupp form\'s Ziel is picked, a symbol tap hands over its name instead of selecting', () => {
     const key = 'atemschutz:trupp:create:new:ziel'
-    beginZielPick(key, { mode: 'create' })
+    beginZielPick({ kind: 'form', form: { mode: 'create' }, field: key })
     try {
       const { container } = renderPlan([{ id: 's1', kind: 'symbol', x: 0.5, y: 0.5, floor: 0, symbol: 'brand', label: 'Vollbrand 2. OG' }])
       mouseDown(container.querySelector('.wb-symbol')!)

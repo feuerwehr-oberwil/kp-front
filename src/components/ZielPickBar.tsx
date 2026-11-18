@@ -5,9 +5,10 @@ import { Button } from './Button'
 import s from './ZielPickBar.module.css'
 
 /**
- * The bar along the foot of the Karte / Plan while the Trupp form's Ziel is being picked there
- * (lib/zielPick, owner pick M5a A, 18.11.2026): what is asked – «Ziel für den Trupp · Symbol
- * antippen» – and «Abbrechen», which brings the form back with its Ziel as it was. Esc does the same.
+ * The bar along the foot of the Karte / Plan while a Trupp's Ziel is being picked there – from the
+ * Trupp form or the card's Auftrag sheet (lib/zielPick, owner pick M5a A, 18.11.2026): what is asked
+ * – «Ziel für den Trupp · Symbol antippen» – and «Abbrechen», which brings the form or the sheet
+ * back with its Ziel as it was. Esc does the same.
  *
  * Rendered by the app shell (IncidentWorkspace) for as long as the pick runs on either surface;
  * the shell's `.ziel-pick` class steps the bars and rows it would stand on aside (see the

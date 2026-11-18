@@ -13,6 +13,7 @@ import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import * as deploymentConfig from '../lib/deploymentConfig'
 import { fillTemplate } from '../lib/format'
 import type { Trupp } from '../types'
+import { answerZielPick, cancelZielPick, endZielPick, parkedAuftragSheet } from '../lib/zielPick'
 import { registerAtemschutzViewHooks, az, firstBtn, lastBtn, dz, iso, aktivTrupp, noop, propsFor, mount, typeGuest, pressureRow, kanalRow, pickAuftrag } from './AtemschutzView.setup'
 
 vi.mock('../lib/useIsPhone', async (original) => ({ ...await original<typeof import('../lib/useIsPhone')>(), useIsPhone: vi.fn(() => false) }))
@@ -485,5 +486,62 @@ describe('the handed-over board on a phone (focus mode)', () => {
     const addBtn = firstBtn(az.newTrupp)
     expect(document.querySelector(`.${s.strip}`)?.lastElementChild).toBe(addBtn)
     expect(addBtn.classList.contains(s.tab)).toBe(true)
+  })
+})
+
+/* The Auftrag sheet's Ziel has the form's «Karte» too (owner, 18.11.2026: both doors handle the
+ * Ziel the same way, lib/zielPick): the sheet steps away – the board unmounts while the Karte is
+ * up – and comes back open with the symbol's name in the Ziel and its other fields as typed. */
+describe('the Auftrag sheet\'s Ziel picked on the Karte', () => {
+  afterEach(() => { endZielPick() })
+  const withFacts = (): Trupp => ({ ...aktivTrupp(), no: 2, auftrag: 'loeschen', ziel: 'Test', funkkanal: 11, lineNo: 1 })
+  const openSheet = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Löschen · Test' }))
+    return screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })
+  }
+  const zielOf = (sheet: HTMLElement) => within(sheet).getByLabelText(az.editFieldLabels.ziel) as HTMLInputElement
+
+  it('«Karte» steps away, and the sheet comes back with the name in the Ziel and the rest as typed', async () => {
+    const editTrupp = vi.fn(), onPickZiel = vi.fn()
+    const props = propsFor({ trupps: [withFacts()], editTrupp, zielPickOn: 'map', onPickZiel })
+    const view = render(<AtemschutzView {...props} />)
+    let sheet = openSheet()
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Retten' }))
+    fireEvent.click(within(sheet).getByRole('button', { name: az.lineNone }))
+    fireEvent.click(within(sheet).getByRole('button', { name: az.zielPickMap }))
+    expect(onPickZiel).toHaveBeenCalledOnce()
+    view.unmount()
+    answerZielPick({ label: 'Vollbrand 2. OG', symbol: 'VKF Feuer' })
+    render(<AtemschutzView {...props} />)
+    sheet = screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })
+    expect(zielOf(sheet).value).toBe('Vollbrand 2. OG')
+    expect(within(sheet).getByRole('button', { name: 'Retten' }).getAttribute('aria-pressed')).toBe('true')
+    expect(within(sheet).getByRole('button', { name: az.lineNone }).getAttribute('aria-pressed')).toBe('true')
+    // the board has it open again: the pick is over, and nothing was written yet
+    expect(parkedAuftragSheet()).toBeNull()
+    expect(editTrupp).not.toHaveBeenCalled()
+    fireEvent.click(within(sheet).getByRole('button', { name: az.save }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(editTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ auftrag: 'retten', ziel: 'Vollbrand 2. OG' }))
+    expect(editTrupp.mock.calls[0][1].lineNo).toBeUndefined()
+  })
+
+  it('«Abbrechen» on the surface brings the sheet back with the Ziel as it was typed', () => {
+    const props = propsFor({ trupps: [withFacts()], zielPickOn: 'plans', onPickZiel: vi.fn() })
+    const view = render(<AtemschutzView {...props} />)
+    const sheet = openSheet()
+    fireEvent.change(zielOf(sheet), { target: { value: 'Keller' } })
+    // named after the surface it opens
+    fireEvent.click(within(sheet).getByRole('button', { name: az.zielPickPlan }))
+    view.unmount()
+    cancelZielPick()
+    render(<AtemschutzView {...props} />)
+    expect(zielOf(screen.getByRole('dialog')).value).toBe('Keller')
+  })
+
+  it('offers no «Karte» on the handed-over Tafel, which has no surface', () => {
+    mount({ trupps: [withFacts()], zielPickOn: 'map', onPickZiel: vi.fn(), lite: { subtitle: 'Brand · Hauptstrasse 12' } })
+    const sheet = openSheet()
+    expect(within(sheet).queryByRole('button', { name: az.zielPickMap })).toBeNull()
   })
 })
