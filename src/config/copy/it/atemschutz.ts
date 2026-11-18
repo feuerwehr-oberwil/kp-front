@@ -439,6 +439,12 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     logClockRestart: 'Squadra {name}: orologio di contatto riavviato – intervento riaperto',
     cardMenuWord: 'Altro',
     lineOnPlan: 'Piano',
+    zielPickMap: 'Carta',
+    zielPickPlan: 'Piano',
+    zielPickMapTitle: 'Scegliere l’obiettivo sulla carta',
+    zielPickPlanTitle: 'Scegliere l’obiettivo sul piano',
+    zielPickBarTitle: 'Obiettivo della squadra',
+    zielPickBarHint: 'Toccare un simbolo',
   },
   lineDecor: {
     W: 'Acqua',

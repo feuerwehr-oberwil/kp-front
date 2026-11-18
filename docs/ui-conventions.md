@@ -201,7 +201,7 @@ while the head's subtitle says when («Schadenlage · erledigt 10:57»).
   (default) | quiet | danger | go` (go = the green primary whose move keeps things as they are, the
   Meldeleiste's «Am Einsatzort lassen»), size `md` (44) `| lg` (52, the one big action of a screen),
   `block`, `icon`; `IconButton` requires `label` (aria-label + title, which the hold-tooltip
-  reads), variant `quiet | secondary`; `Chip` is a choice (`selected` → `--sel` + aria-pressed).
+  reads), variant `quiet | secondary`; `Chip` is a choice (`selected` → `--sel` + aria-pressed); `outlined` is the one action chip among answers – framed, no wash, «tapping opens something» (the Leitung's «Nr. …», owner pick M5b 1, 18.11.2026).
   All default to `type="button"`. A surface's `className` on them is for placement only; a new
   look is a new variant there, not a local override. Do not write a new `.foo-btn` rule.
   `<Button>` and `.ip-btn` are ONE definition (08.10.2026): the component renders the global

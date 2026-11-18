@@ -13,6 +13,7 @@ import * as deploymentConfig from '../lib/deploymentConfig'
 import { fillTemplate } from '../lib/format'
 import type { Trupp, TruppFields } from '../types'
 import { resetPopoverGuard } from '../lib/overlays/popoverGuard'
+import { answerZielPick, cancelZielPick, endZielPick, parkedTruppForm } from '../lib/zielPick'
 import { registerAtemschutzViewHooks, az, firstBtn, druckName, lastBtn, dz, iso, aktivTrupp, propsFor, mount, typeGuest, pressureRow, kanalRow } from './AtemschutzView.setup'
 
 vi.mock('../lib/useIsPhone', async (original) => ({ ...await original<typeof import('../lib/useIsPhone')>(), useIsPhone: vi.fn(() => false) }))
@@ -428,5 +429,51 @@ describe('re-entry right after an Austritt asks which cylinder', () => {
     mount({ trupps: [justOut(25)] })
     fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
     expect(screen.queryByRole('button', { name: new RegExp(az.bottleSame) })).toBeNull()
+  })
+})
+
+/* «Ziel auf der Karte wählen» (owner pick M5a A, 18.11.2026, lib/zielPick): the form steps away
+ * while its Ziel is picked on the Karte / Plan – the board unmounts – and comes back open with the
+ * symbol's name in the Ziel and everything else as it was typed. Text only (M5c). */
+describe('the Ziel picked on the Karte', () => {
+  afterEach(() => { endZielPick() })
+  const zielInput = () => screen.getByLabelText(az.zielLabel) as HTMLInputElement
+
+  it('«Karte» steps away, and the form comes back open with the symbol\'s name in the Ziel', () => {
+    const onPickZiel = vi.fn()
+    const props = propsFor({ zielPickOn: 'map', onPickZiel })
+    const view = render(<AtemschutzView {...props} />)
+    fireEvent.click(firstBtn(az.newTrupp))
+    typeGuest('Gast Gustav')
+    fireEvent.click(screen.getByRole('button', { name: az.zielPickMap }))
+    expect(onPickZiel).toHaveBeenCalledOnce()
+    // the workspace switches to the Karte: the Trupps surface unmounts…
+    view.unmount()
+    answerZielPick({ label: 'Vollbrand 2. OG', symbol: 'VKF Feuer' })
+    // …and comes back for the answer
+    render(<AtemschutzView {...props} />)
+    expect(zielInput().value).toBe('Vollbrand 2. OG')
+    expect(screen.getByText('Gast Gustav')).toBeTruthy()
+    // the board has it open again: the pick is over
+    expect(parkedTruppForm()).toBeNull()
+  })
+
+  it('«Abbrechen» on the surface brings the form back with its Ziel unchanged', () => {
+    const props = propsFor({ zielPickOn: 'plans', onPickZiel: vi.fn() })
+    const view = render(<AtemschutzView {...props} />)
+    fireEvent.click(firstBtn(az.newTrupp))
+    fireEvent.change(zielInput(), { target: { value: 'Keller' } })
+    // named after the surface it opens
+    fireEvent.click(screen.getByRole('button', { name: az.zielPickPlan }))
+    view.unmount()
+    cancelZielPick()
+    render(<AtemschutzView {...props} />)
+    expect(zielInput().value).toBe('Keller')
+  })
+
+  it('offers no «Karte» where there is no surface to pick on', () => {
+    mount()
+    fireEvent.click(firstBtn(az.newTrupp))
+    expect(screen.queryByRole('button', { name: az.zielPickMap })).toBeNull()
   })
 })
