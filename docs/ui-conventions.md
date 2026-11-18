@@ -1104,6 +1104,12 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *Pressed state is the `--press` wash* – `background-image: linear-gradient(var(--press),
     var(--press))` on `:active:not(:disabled)`, so it composes over any background colour.
     **Nothing moves**: no scale, no translate – motion on press reads as lag under a glove.
+    That holds for selecting on the Lage and the Plan too (design pass C1, 18.11.2026): the symbol
+    stands at its selected 1.22× at once and the halo only fades in (120 ms); the ✥ ⟳ bar and the
+    detail panel keep their entrance. A loop is earned only by a state that needs eyes now: the
+    top bar's Überfällig pill is the ONE pulse (`10-journal · .tb-az.crit`), the board's badge and
+    the rail dot stand still beside it; «live», «recording», «playing» and «Linie offen» are said by
+    their colour, timer or marching dashes, never by a pulse.
   - *Hover is mouse-only* – every `:hover` rule sits inside `@media (hover: hover)` (app-wide
     since 28.08.). A tap leaves `:hover` stuck on what it hit, which reads as a selection state
     the surface does not have. `@media (pointer: coarse)` in `20-touch-floors.css` is the other

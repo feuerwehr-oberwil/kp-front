@@ -11,6 +11,7 @@ import type { Sel } from '../../lib/karte/selection'
 import { listVisits } from '../../objectVisits/api'
 import type { LayerDef, LngLat } from '../../types'
 import type { HydrantCue, RegisterState, VisitsState } from './KartePanel'
+import { CAMERA_MS } from './useKarteCamera'
 
 /** The building register at the selected building or object (`point`), asked again by
  *  `retryRegister`. A building whose register address IS a catalogue object's opens that object
@@ -173,7 +174,7 @@ export function useFrameHydrant(mapRef: RefObject<MapRef | null>, rootRef: RefOb
       zoom: map.getZoom() + Math.log2(scale),
       padding: { top: 0, bottom: 0, left: 0, right: 0 },
       offset: [(free.left + free.right) / 2 - box.width / 2, (free.top + free.bottom) / 2 - box.height / 2],
-      duration: 500,
+      duration: CAMERA_MS,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per hydrant shown
   }, [hydId])
