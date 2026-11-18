@@ -100,8 +100,9 @@ unchanged.
   FAB keeps its corner, `--dock-bottom`), the bar in the tool bar's (`--tools-bottom`), as the ✥ ⟳
   bar's twin; the tool bar and the chip row step aside for it (the ✥ ⟳ rule above, per surface).
   On the surface only the ringed name (and its storey) stays. Karte and Plan alike – both draw
-  the one `components/TwinTeamPill`, which portals the two into the surface. The tablet keeps them
-  beside the marker.
+  the one `components/TwinTeamPill`, which portals the two into the surface. Tablet and desktop
+  dock them too (owner pick A «✥ ⟳ twin», same day): the bar in the ✥ ⟳ bar's bottom-centre slot,
+  the card on top of it (09-whiteboard · `.wb-pill-dock`); nothing steps aside there.
 - *The phone's floating row is TILES* (button round 17.11.2026, owner pick 12C + follow-up: «the
   whole phone floating row = tiles»): the Plan's building / Objekt chip (street or «Gebäude», the
   facts lamp at the tile's top-right corner), the Gebäude-Info («Info», or ⚠ over the hazard words

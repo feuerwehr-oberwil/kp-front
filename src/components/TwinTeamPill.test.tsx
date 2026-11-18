@@ -232,17 +232,11 @@ describe('the storey badge', () => {
   })
 })
 
-// round 18.11.2026, owner pick M1 A: beside the marker the card + bar ran off the phone's screen
-describe('on a phone the card and the bar dock at the foot of the surface', () => {
+// round 18.11.2026, owner picks M1 A (phone) + A «✥ ⟳ twin» (tablet, desktop): beside the marker
+// the card + bar ran off the screen – on every size they dock at the foot (the CSS places them)
+describe('the card and the bar dock at the foot of the surface', () => {
   const W = appConfig.copy.whiteboard
-  const phone = (on: boolean) => {
-    window.matchMedia = ((q: string) => ({
-      matches: on, media: q, onchange: null, addListener: () => {}, removeListener: () => {},
-      addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
-    })) as unknown as typeof window.matchMedia
-  }
-  const before = window.matchMedia
-  afterEach(() => { window.matchMedia = before; document.querySelectorAll('.maplibregl-map').forEach((m) => m.remove()) })
+  afterEach(() => { document.querySelectorAll('.maplibregl-map').forEach((m) => m.remove()) })
   /** the pill as the Karte draws it: inside a marker, inside the map's container */
   const onKarte = (props: Partial<Parameters<typeof TwinTeamPill>[0]> = {}) => {
     const map = document.body.appendChild(document.createElement('div'))
@@ -254,14 +248,13 @@ describe('on a phone the card and the bar dock at the foot of the surface', () =
   }
 
   it('portals card and bar into the surface, and leaves the ringed name alone on the marker', () => {
-    phone(true)
     const close = vi.fn()
     const { map, marker } = onKarte({ onClose: close })
-    const card = map.querySelector(':scope > .wb-pill-card')
+    const card = map.querySelector(':scope > .wb-pill-dock > .wb-pill-card')
     expect(card?.textContent).toContain('Meier Anna')
     expect(card?.querySelector('.wb-resource-time')?.textContent).toBe('00:47')
     expect(card?.querySelector('.wb-resource-raus')).toBeTruthy()
-    expect(map.querySelector(':scope > .wb-pill-acts.docked')).toBeTruthy()
+    expect(map.querySelector(':scope > .wb-pill-dock > .wb-pill-acts.docked')).toBeTruthy()
     // on the marker: the name, no state word, no time, no bar
     const onSurface = marker.querySelector('.wb-resource-pill')
     expect(onSurface?.hasAttribute('data-docked')).toBe(true)
@@ -272,7 +265,6 @@ describe('on a phone the card and the bar dock at the foot of the surface', () =
   })
 
   it('keeps a press on the card from reaching the marker under it (React bubbles a portal)', () => {
-    phone(true)
     const press = vi.fn()
     const map = document.body.appendChild(document.createElement('div'))
     map.className = 'maplibregl-map'
@@ -281,13 +273,5 @@ describe('on a phone the card and the bar dock at the foot of the surface', () =
     fireEvent.pointerDown(map.querySelector('.wb-pill-card')!)
     fireEvent.pointerDown(screen.getByRole('button', { name: W.markPosition }))
     expect(press).not.toHaveBeenCalled()
-  })
-
-  it('stays beside the marker on a tablet', () => {
-    phone(false)
-    const { map, marker } = onKarte()
-    expect(map.querySelector('.wb-pill-card')).toBeNull()
-    expect(marker.querySelector('.wb-pill-acts:not(.docked)')).toBeTruthy()
-    expect(marker.querySelector('.wb-resource-time')?.textContent).toBe('00:47')
   })
 })

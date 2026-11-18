@@ -604,10 +604,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     OUT OF THE TOP BAR wears the bar's own glass (`--glass` + blur + `--glass-line` + `--shadow`):
     the Atemschutz head detail and the Meteo details (30.09.2026:
     `.tb-weather-pop` wore `--surface`, a lighter slate than the bar at night).
-    **Dark in both themes (`--ink-fill` + `--on-accent-ink`) is the Trupp marker's action bar
-    alone** (`.wb-pill-acts` — this marker is in hand) – beside the marker, on a tablet; on a phone
-    it docks in the tool bar's slot and wears the docks' material (phone-layout.md); a new surface
-    that is dark by day is a bug. **Tool docks wear the floating material too** (`.wb-dock`, 20.10.2026, owner: «why do we
+    **Nothing is dark by day**: the last exception, the Trupp marker's action bar (`.wb-pill-acts`,
+    `--ink-fill`), docks at the foot in the ✥ ⟳ bar's glass on every screen since 18.11.2026
+    (phone-layout.md); a new surface that is dark by day is a bug. **Tool docks wear the floating material too** (`.wb-dock`, 20.10.2026, owner: «why do we
     have a dark sidebar in lightmode?» — the phone's bar since 01.10., every dock since): Messen
     and every tool-option dock on the Karte, the Einsatz map and the Plan/Skizze, phone and tablet,
     wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
