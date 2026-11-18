@@ -7,9 +7,9 @@
  * inside that component is exactly the break that costs a beat. So: `hyphens: manual` in the
  * CSS, and the seams are named here, at the COMPOUND boundaries.
  *
- * A display label, not the data: the soft hyphens are inserted at render time (Palette) and
- * never enter `symbolNames`, because that string is also what search matches on, what the
- * context panel titles and what the server prints. An invisible U+00AD in any of those is a
+ * A display label, not the data: the soft hyphens are inserted at render time (Palette, the
+ * context panel's title) and never enter `symbolNames`, because that string is also what search
+ * matches on and what the server prints. An invisible U+00AD in any of those is a
  * bug that only shows up in a Rapport.
  *
  * Keyed on the German labels (config/copy/de/symbols.ts · symbolNames) — they are the compounds. A
@@ -84,6 +84,7 @@ const SEAMS: Record<string, string> = {
   Löschwasserbecken: 'Lösch­wasser­becken',
   Schaummittel: 'Schaum­mittel',
   Atemschutzsammelstelle: 'Atemschutz­sammel­stelle',
+  Unverletztensammelstelle: 'Unverletzten­sammel­stelle',
 }
 
 /** The label with soft hyphens at its compound seams — for display in a narrow cell only. */
