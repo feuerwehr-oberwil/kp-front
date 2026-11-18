@@ -21,8 +21,22 @@ describe('LeitungField · «Nr. …»', () => {
     render(<Field initial={7} />)
     const row = screen.getByRole('group', { name: 'Leitung' })
     expect(within(row).getByRole('group', { name: az.lineTyped })).toBeTruthy()
-    expect(within(row).queryByRole('button', { name: new RegExp(`^${fillTemplate(az.lineChip, { n: 7 })}`) })).toBeNull()
+    // a choice chip carries aria-pressed; the stepper's own value button («Ltg 7») does not
+    const chips7 = within(row).queryAllByRole('button', { name: new RegExp(`^${fillTemplate(az.lineChip, { n: 7 })}`) })
+    expect(chips7.filter((b) => b.hasAttribute('aria-pressed'))).toHaveLength(0)
     expect(within(row).queryByRole('button', { name: az.lineTyped })).toBeNull()
+  })
+
+  // owner pick M5b 1, 18.11.2026: «keine» stayed lit beside the opened stepper
+  it('a tap opens it on the lowest undrawn number, and «keine» goes dark', () => {
+    render(<Field />)
+    const keine = screen.getByRole('button', { name: az.lineNone })
+    expect(keine.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: az.lineTyped }))
+    expect(keine.getAttribute('aria-pressed')).toBe('false')
+    // Ltg 2 is drawn, so «Nr. …» opens on 1
+    const stepper = screen.getByRole('group', { name: az.lineTyped })
+    expect(within(stepper).getByRole('button', { name: fillTemplate(az.lineChip, { n: 1 }) })).toBeTruthy()
   })
 
   it('a drawn chip closes the stepper again', () => {
