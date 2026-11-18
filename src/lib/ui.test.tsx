@@ -308,6 +308,16 @@ describe('getting a confirm-with-undo toast out of the way', () => {
     expect(onClick).not.toHaveBeenCalled()
   })
 
+  // design pass 18.11.2026 A8: the pill sprang back, but the press was a drag on its way somewhere
+  it('an aborted flick on «Rückgängig» does not undo — the click it ends in is not a tap', () => {
+    render(<Overlays />)
+    const onClick = vi.fn()
+    act(() => { toast('fast weggewischt', { action: { label: 'Rückgängig', onClick } }) })
+    drag(inPill('fast weggewischt', '.toast-action'), 30)
+    expect(onClick).not.toHaveBeenCalled()
+    expect(screen.getByText('fast weggewischt')).toBeTruthy()
+  })
+
   // …and a shaky press is still a press: the button is a target first and a slider second
   it('still undoes when the finger barely moved', async () => {
     render(<Overlays />)
@@ -361,6 +371,38 @@ describe('swiping the whole toast pill', () => {
     swipe(screen.getByText('Aktion weggewischt'), 90)
     await waitFor(() => expect(screen.queryByText('Aktion weggewischt')).toBeNull())
     expect(onClick).not.toHaveBeenCalled()
+  })
+
+  // design pass 18.11.2026 A7: the browser took the touch for a scroll of the stack
+  it('a cancelled drag springs back and never dismisses, however far it went', () => {
+    vi.useFakeTimers()
+    render(<Overlays />)
+    act(() => { toast('Scroll statt Wisch') })
+    const pill = pillFor('Scroll statt Wisch')
+    fireEvent.pointerDown(pill, { pointerId: 1, clientX: 0 })
+    fireEvent.pointerMove(pill, { pointerId: 1, clientX: 90 })
+    expect(pill.style.transform).toBe('translateX(90px)')
+    fireEvent.pointerCancel(pill, { pointerId: 1, clientX: 90 })
+    expect(pill.style.transform).toBe('')
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(screen.getByText('Scroll statt Wisch')).toBeTruthy()
+  })
+
+  // B6: a toast must not leave from under the finger that is reading or swiping it
+  it('a finger on the pill holds its clock; the time left runs from the release', () => {
+    vi.useFakeTimers()
+    render(<Overlays />)
+    act(() => { toast('gehalten', { duration: 3000 }) })
+    const pill = pillFor('gehalten')
+    act(() => { vi.advanceTimersByTime(2000) })
+    fireEvent.pointerDown(pill, { pointerId: 1, clientX: 0 })
+    act(() => { vi.advanceTimersByTime(5000) })
+    expect(screen.getByText('gehalten')).toBeTruthy()
+    fireEvent.pointerUp(pill, { pointerId: 1, clientX: 0 })
+    act(() => { vi.advanceTimersByTime(900) })
+    expect(screen.getByText('gehalten')).toBeTruthy()
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(screen.queryByText('gehalten')).toBeNull()
   })
 
   // ToastAction keeps its OWN drag (see ui.tsx) — starting a press on Rückgängig/✕ must never

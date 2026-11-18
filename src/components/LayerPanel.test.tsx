@@ -157,8 +157,12 @@ describe('LayerPanel · phone sheet', () => {
   it('closes on a push down its head while it stands on the bottom edge', () => {
     const onClose = vi.fn()
     render(<LayerPanel layers={[plan]} onToggle={noop} onOpacity={noop} onClose={onClose} />)
+    vi.useFakeTimers()
     place(document.querySelector('.layers-card') as HTMLElement, VH)
     pull(document.querySelector('.lc-title') as HTMLElement)
+    // it slides down off the edge first (swipeDismiss · slideOut), then closes
+    vi.advanceTimersByTime(400)
+    vi.useRealTimers()
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 

@@ -1,8 +1,8 @@
-import type { CSSProperties, ReactNode, Ref, RefObject } from 'react'
+import { useRef, type CSSProperties, type ReactNode, type Ref, type RefObject } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
 import { keyboardLift, useKeyboardInset } from '../useKeyboardInset'
 import { useDismissGrace } from './dismissGrace'
-import { useSwipeDismiss } from './swipeDismiss'
+import { leaveBottomSheet, useSwipeDismiss } from './swipeDismiss'
 import { popoverOpen } from './popoverGuard'
 import { useFieldFirst } from './fieldFirst'
 import { useBackLayer } from './layer'
@@ -82,10 +82,22 @@ export interface OverlayProps {
   children: ReactNode
 }
 
+/** Hand `node` to a ref of either shape — the frame has two readers. */
+function setRef<T>(ref: Ref<T> | undefined, node: T | null) {
+  if (typeof ref === 'function') ref(node)
+  else if (ref) ref.current = node
+}
+
 export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, onEscape, style, popupRef, swipeToClose = true, grab = false, children }: OverlayProps) {
   useMobileScrollLock(open)
   const isOpeningEcho = useDismissGrace(open)
-  const swipe = useSwipeDismiss({ onClose, enabled: swipeToClose })
+  const ownPopup = useRef<HTMLDivElement | null>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
+  // the frame is ours to measure AND the caller's (`popupRef`)
+  const setPopup = (node: HTMLDivElement | null) => { setRef(ownPopup, node); setRef(popupRef, node) }
+  // every close leaves the way a phone bottom sheet came in — down (swipeDismiss · leaveBottomSheet)
+  const close = () => leaveBottomSheet(ownPopup.current, backdropRef.current, onClose)
+  const swipe = useSwipeDismiss({ onClose, enabled: swipeToClose, backdrop: backdropRef })
   // the on-screen keyboard, the same way <Sheet> answers it; only an `.ip-sheet` frame has the
   // CSS for `is-kb`, a bespoke frame gets the margin (its bottom-sheet case) and the variable
   const lift = keyboardLift(useKeyboardInset(open))
@@ -94,7 +106,7 @@ export function Overlay({ open, onClose, className, backdropClassName = 'ui-back
   // that calls onClose itself — the Trupp form's) or outside tap only blurs it (fieldFirst)
   const { keyboardFirst, ...kbFirst } = useFieldFirst(open)
   // the native back (Android's back, the iOS edge swipe) closes it – one layer per press (overlays/layer)
-  useBackLayer(open, onClose)
+  useBackLayer(open, close)
   return (
     <Dialog.Root
       open={open}
@@ -113,12 +125,12 @@ export function Overlay({ open, onClose, className, backdropClassName = 'ui-back
         // …and the surface's own inner layer (search, inline editor) before the surface itself
         if (details.reason === 'escape-key' && onEscape?.()) { details.cancel(); return }
         if (keyboardFirst(details.reason)) { details.cancel(); return }
-        onClose()
+        close()
       }}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className={backdropClassName} />
-        <Dialog.Popup ref={popupRef} {...kbFirst} className={cls} style={lift ? { ...lift, ...style } : style} aria-label={ariaLabel} initialFocus={initialFocus} {...swipe}>
+        <Dialog.Backdrop ref={backdropRef} className={backdropClassName} />
+        <Dialog.Popup ref={setPopup} {...kbFirst} className={cls} style={lift ? { ...lift, ...style } : style} aria-label={ariaLabel} initialFocus={initialFocus} {...swipe}>
           {grab && swipeToClose && <SheetGrab />}
           {children}
         </Dialog.Popup>
