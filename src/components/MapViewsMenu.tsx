@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type { CameraView, LngLat } from '../types'
 import { Icon } from '../lib/icons'
@@ -9,6 +9,7 @@ import { LONG_PRESS_MS, useLongPress } from '../lib/useLongPress'
 import { HoldChargeRing } from './HoldTargets'
 import { useIsPhone } from '../lib/useIsPhone'
 import { useLayer } from '../lib/overlays/layer'
+import { attachMenuSlide } from '../lib/overlays/menuSlide'
 import { keyboardMargin, useKeyboardInset } from '../lib/useKeyboardInset'
 import { useLiveBearing } from '../lib/liveBearing'
 import s from './MapViewsMenu.module.css'
@@ -86,6 +87,12 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose, dockRe
   const [help, setHelp] = useState(false)
   const helpRef = useRef<HTMLParagraphElement>(null)
   useLayoutEffect(() => { if (help) helpRef.current?.scrollIntoView?.({ block: 'nearest' }) }, [help])
+  // a finger slides through the rows the iOS way (lib/overlays/menuSlide; round 18.11.2026) – the
+  // rows that act, never a view's ✎ / 🗑 or the ⓘ
+  useEffect(() => {
+    const el = dockRef.current
+    return el ? attachMenuSlide(el, `.${s.north},.${s.go},.${s.save}`) : undefined
+  }, [dockRef])
   const helpBtn = (
     <button type="button" className={cx(s.mini, help && s.miniOn)} aria-label={hint} title={hint}
       aria-expanded={help} onClick={() => setHelp((v) => !v)}><Icon id="info" /></button>

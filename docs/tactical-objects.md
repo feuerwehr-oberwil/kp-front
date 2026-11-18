@@ -26,6 +26,11 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   `removal · askJoinedLines`, docs/undo.md › One delete rule),
   ⌘D (`lib/duplicate`), and the armed tool + per-team trails + note-panel closing rules
   (`useTacticalSelection · usePlacement`, `lib/useHiddenTrails`, `lib/useNotePanelClosing`).
+- **«Ring lädt, dann schnappt es» has two speeds** (`lib/lineAttachments`): a line end on a
+  symbol, vehicle or Trupp waits `MAGNET_DWELL_MS` (500 ms), on another line's end 0 (`dwellFor`);
+  a Trupp MARKER in the hand – docked to a symbol or joined to a free hose end
+  (`components/useTruppMarkerAim`) – waits `TRUPP_AIM_DWELL_MS` (1 s, round 18.11.2026: it docked
+  «a bit too often» with its 120 px reach). The ring fills over the same duration (`ConnectRing · ms`).
 - **A line's end mark stays on top while it is edited** (round 14.11.2026 #8, owner: «the -> isn't
   shown above the nodes»): the node at an arrow or Teilstück end is a hollow ring
   (`lib/lineStyle · endMarkIndices`, one helper for both surfaces) and the mark paints above it –

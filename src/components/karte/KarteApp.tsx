@@ -92,6 +92,7 @@ import { KarteKeySheet } from './KarteKeySheet'
 import { KarteNavRail, KarteSurface, type ReaderHandles } from './KartePlans'
 import { KarteDeviceRows } from './KarteDevice'
 import { HomeDeviceSheet } from '../panels/SettingsSheet'
+import { appMenuSlide } from '../../lib/overlays/menuSlide'
 import { AlarmNudgeCard } from './AlarmReadiness'
 import { useBasemapOffline, usePlansHeld } from './useKarteOffline'
 import { karteStart, useKarteCatalogue } from './useKarteCatalogue'
@@ -740,7 +741,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           {/* the app menu, hung off the bar as the Einsatz menu hangs off its own (13-incident ·
               .ip-menu) — the same rows (panels/AppMenuRows), without the Einsatz card */}
           {sheetOpen && (
-            <div className="ip-menu ip-einsaetze" role="dialog" aria-label={C.menu}>
+            <div className="ip-menu ip-einsaetze" role="dialog" aria-label={C.menu} ref={appMenuSlide}>
               {einsaetze.render(closeSheet, () => openDevice())}
             </div>
           )}
