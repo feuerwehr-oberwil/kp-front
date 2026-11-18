@@ -2283,8 +2283,8 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 
 /* (the empty board is the shared EmptyState since 17.11.2026 – duck sweep LISTS.5; its door is
    THE primary at its big size, <Button size="lg">, 52px – the one action of an empty screen) */
-/* (the head's «+ Trupp» keeps its word on every width — the ladder only ever SHORTENS it to
-   «+ Trupp», lib/pageHeadFit; it is the head's one filled tile, `.headTile` at the top of the file) */
+/* (the head's «+ Trupp anmelden» keeps a word on every width — folded with the other tiles it is
+   «+» over «Trupp», lib/pageHeadFit; it is the head's one filled tile, `.headTile` at the top of the file) */
 
 /* ⚠️ A CLOSED Einsatz (N5, staging 26.09.2026): every clock stands at the close and nothing is
    running. The tiers are already silent there (AtemschutzView · FROZEN_ALARM), but the colours

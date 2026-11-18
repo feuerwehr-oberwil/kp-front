@@ -37,6 +37,17 @@ describe('HistoryPanel status tags', () => {
   })
 })
 
+// round 18.11.2026 #2 (owner pick): «Wieder öffnen» wears the ↶ the Verlauf gives «Einsatz
+// wiedereröffnet», as «Löschen» beside it wears its bin
+describe('HistoryPanel lifecycle buttons', () => {
+  it('gives «Wieder öffnen» the reopen glyph', async () => {
+    render(<HistoryPanel onClose={() => {}} onOpen={() => {}} onArchive={async () => {}} />)
+    await screen.findByText('Brand C')
+    const reopen = screen.getByRole('button', { name: appConfig.copy.history.reactivate })
+    expect(reopen.querySelector('use')?.getAttribute('href')).toBe('#undo')
+  })
+})
+
 // button sweep HEADS.4 + HEADS.3 (17.11.2026): «Ernstfall / Übung» and «Einsatzart» are ONE value
 // each – a one-of-N with «Alle» first and ticked, never a checkbox that unticks its neighbour
 // behind your back – and the narrowed list says what narrows it, with the way back.

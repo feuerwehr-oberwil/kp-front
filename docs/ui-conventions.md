@@ -217,7 +217,8 @@ while the head's subtitle says when («Schadenlage · erledigt 10:57»).
   glyph at 11/700 at the same step (the page heads: one `data-fold` rank for the tiles,
   `lib/pageHeadFit`; the top bar: `'action-words'`, `lib/useHeadFit`) – never one button at a
   time, and a folded tile is never a bare glyph, on any device (13-incident · «fold», 10-journal ·
-  «the fold»). The primary may shorten its word a step later («+ Trupp»); where even the folded
+  «the fold»). The primary folds with them, «+» over «Trupp», the same tile told apart only by its fill
+  (round 18.11.2026 #5, owner: «Stack too. Primary difference should be color.»); where even the folded
   row cannot fit, a tile takes a short word (a `…Short` key), then the head's second row. A phone
   wears the folded tiles where its CSS says so (the top bar's `data-tiles`). Exempt: the sheet ✕,
   a field's clear, a list row's chevron and a quiet row-end bin (below).

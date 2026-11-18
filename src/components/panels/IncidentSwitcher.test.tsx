@@ -4,6 +4,7 @@ import { render, screen, cleanup, fireEvent, act, within } from '@testing-librar
 import { IncidentSwitcher } from './IncidentSwitcher'
 import { appConfig } from '../../config/appConfig'
 import type { DiveraAlarm, IncidentMeta } from '../../lib/incidents'
+import { einsatzHeadName } from '../../lib/format'
 
 afterEach(cleanup)
 
@@ -42,8 +43,9 @@ function renderActive(extra: Partial<Parameters<typeof IncidentSwitcher>[0]> & {
       {...extra}
     />,
   )
-  // a closed one's pill also says so («…, Einsatz abgeschlossen»)
-  fireEvent.click(screen.getByRole('button', { name: (n) => n.startsWith(extra.active.title) }))
+  // the pill's name says what it shows, then the Einsatz («street, title, …»); a closed one's also
+  // says so («…, Einsatz abgeschlossen»)
+  fireEvent.click(screen.getByRole('button', { name: (n) => n.startsWith(einsatzHeadName(extra.active.title, extra.active.address)) }))
 }
 
 // Staging 03.10.2026: a device that always opens its running Einsatz never sees the launcher,
@@ -178,6 +180,27 @@ describe('IncidentSwitcher · closed Einsatz', () => {
   })
 })
 
+// round 18.11.2026 #7 (owner: «Clean up header main title to just address»): the pill shows the
+// street, else the title; the Einsatz's name stays in the card and in the button's name
+describe('IncidentSwitcher · the pill says the address', () => {
+  const active = {
+    id: 'inc-1', title: 'Gymnasium', address: 'Allschwilerstrasse 100, 4104 Oberwil', started_at: new Date(Date.now() - 600_000).toISOString(),
+    status: 'offen', is_archived: false, is_exercise: true,
+  } as unknown as IncidentMeta
+  const title = () => document.querySelector('.ip-switch-btn .ip-switch-title')?.textContent
+  it('shows the street alone, and names the Einsatz in the button and the card', () => {
+    renderActive({ active })
+    expect(title()).toBe('Allschwilerstrasse 100')
+    expect(document.querySelector('.ip-switch-btn')?.getAttribute('aria-label')).toMatch(/^Allschwilerstrasse 100, Gymnasium, /)
+    expect(document.querySelector('.ip-card-name')?.textContent).toBe('Gymnasium')
+  })
+  it('shows the title where there is no address', () => {
+    renderActive({ active: { ...active, address: null } })
+    expect(title()).toBe('Gymnasium')
+    expect(document.querySelector('.ip-switch-btn')?.getAttribute('aria-label')).toMatch(/^Gymnasium, Übung/)
+  })
+})
+
 // button sweep SHEETS.11 (17.11.2026): every act of the Einsatz card leads with its glyph, and
 // «Teilen» wears the app's share glyph, not the «Zum Original» door's
 describe('IncidentSwitcher · card acts', () => {
@@ -203,7 +226,7 @@ describe('IncidentSwitcher · Nur ansehen and the foreign-alarm dot', () => {
     id: 'inc-1', title: 'Zimmerbrand', address: 'Schlossgasse 10', started_at: new Date(Date.now() - 600_000).toISOString(),
     status: 'offen', is_archived: false, is_exercise: false,
   } as unknown as IncidentMeta
-  const pill = () => screen.getByRole('button', { name: (n) => n.startsWith(active.title) })
+  const pill = () => screen.getByRole('button', { name: (n) => n.startsWith(einsatzHeadName(active.title, active.address)) })
   const renderShut = (extra: Partial<Parameters<typeof IncidentSwitcher>[0]>) => render(
     <IncidentSwitcher active={active} incidents={[active]} isEditor={false} syncStatus="synced" lastSyncedAt={null}
       user={{ display_name: 'Betrachter', color: null, role: 'viewer' }} onSwitch={() => {}} onDivera={() => {}}

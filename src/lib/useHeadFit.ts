@@ -49,10 +49,10 @@ const TITLE_FLOOR = 112
 
 /**
  * PHONE: the street before ↷ and the weather (08.10.2026, coordinator's call after the one-letter
- * Übung marker). On the phone the pill's first line is «Stichwort · street» (since 12.11.2026;
- * the street alone before — panels/IncidentSwitcher · twoLine) — where the Einsatz is, the one
- * line the bar exists to show. Up to and including the ↷ step, a name that ellipsises at all —
- * either part of it — counts as «does not fit», so the weather, the
+ * Übung marker). On the phone the pill's first line is the street (lib/format · einsatzHeadName;
+ * «Stichwort · street» 12.–18.11.2026 — panels/IncidentSwitcher · twoLine) — where the Einsatz is,
+ * the one line the bar exists to show. Up to and including the ↷ step, a name that ellipsises at
+ * all counts as «does not fit», so the weather, the
  * Einsatzdauer and ↷ only come back with what is LEFT once the street is whole (up to the pill's
  * own max). Past that step the 112px floor rules again: a very long street does not take the
  * actions' words, the alarm's name or ↶ with it. ↶ and Verlauf are not on this part of the ladder.
@@ -73,8 +73,7 @@ export function headCrowded(bar: HTMLElement, step = Infinity): boolean {
   // the title may ellipsise, but not below a readable floor
   const title = btn.querySelector<HTMLElement>('.ip-switch-title')
   if (!title || title.offsetParent === null) return false
-  // what the title would take whole: the phone's «Stichwort · street» is a row of parts that
-  // each ellipsise, so the title itself never overflows — what its parts lost is added back
+  // what the title would take whole (and what any part inside it lost to its own ellipsis)
   const wanted = title.scrollWidth + [...title.children].reduce(
     (lost, c) => lost + Math.max(0, c.scrollWidth - c.clientWidth), 0)
   const cut = wanted > title.clientWidth + 1

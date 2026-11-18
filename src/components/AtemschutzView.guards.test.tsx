@@ -12,6 +12,7 @@ import { Overlays } from '../lib/ui'
 import { fillTemplate } from '../lib/format'
 import type { Trupp, TruppReading } from '../types'
 import { noteOwnContact, resetOwnContacts } from '../lib/contactEcho'
+import { fitPageHead } from '../lib/pageHeadFit'
 import { registerAtemschutzViewHooks, az, firstBtn, druckName, lastBtn, dz, iso, aktivTrupp, propsFor, mount, typeGuest, pressureRow, kanalRow, pickPressure, pickAuftrag } from './AtemschutzView.setup'
 
 vi.mock('../lib/useIsPhone', async (original) => ({ ...await original<typeof import('../lib/useIsPhone')>(), useIsPhone: vi.fn(() => false) }))
@@ -561,6 +562,18 @@ describe('the empty board, the SiTr chip, the held pinned row', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [] })
     expect(firstBtn(az.newTrupp).textContent).toContain(az.newTruppShort)
+  })
+
+  // round 18.11.2026 #5 (owner: «Stack too. Primary difference should be color.»): the head's first
+  // fold takes «+ Trupp anmelden» with «Teilen» and «Alarmton» – it folded one step later
+  it('folds «+ Trupp anmelden» together with the other head tiles', () => {
+    mount({ trupps: [], onShareLink: () => {} })
+    const head = document.querySelector<HTMLElement>('header')!
+    // crowded until the first fold step has been applied
+    fitPageHead(head, (h) => h.dataset.fit === '0')
+    expect(head.dataset.fit).toBe('1')
+    expect(firstBtn(az.newTrupp).dataset.folded).toBe('1')
+    expect(screen.getByRole('button', { name: new RegExp(az.shareLink) }).dataset.folded).toBe('1')
   })
 
   // owner, 26.09.2026

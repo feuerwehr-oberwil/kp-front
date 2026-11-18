@@ -82,10 +82,12 @@ const FROZEN_ALARM: TruppAlarm = { sev: 0, reason: null, line: null }
  *  out — the quiet line's time, then the tiles fold TOGETHER, each to its glyph OVER its word
  *  (owner pick 24a, 17.11.2026 – they folded one at a time to bare glyphs on a tablet, the bell
  *  last; the handover keeps its short «Teilen» (rare-user WORDS: «Trupps teilen»), the ⚠ its count
- *  beside it; «Reihenfolge» is not on it since pick 26 – it stands in the list row under the head), then
- *  «Trupp anmelden» → «Trupp» (the primary keeps its word beside its glyph and its fill), and last
- *  «✓ Gespeichert» keeps its ✓ (the sentence stays its `title`; a LOUD state never folds). */
-const HEAD_FOLD = { saved: 1, tiles: 2, newTrupp: 3, savedMark: 4 } as const
+ *  beside it; «Reihenfolge» is not on it since pick 26 – it stands in the list row under the head).
+ *  «+ Trupp anmelden» folds WITH them, to + over «Trupp», the same tile told apart only by its
+ *  primary fill (round 18.11.2026 #5, owner: «Stack too. Primary difference should be color.» – it
+ *  folded a rank later and stood «+ Trupp anmelden» beside the stacked tiles while the title read
+ *  «Trup…»). Last «✓ Gespeichert» keeps its ✓ (the sentence stays its `title`; a LOUD state never folds). */
+const HEAD_FOLD = { saved: 1, tiles: 2, savedMark: 3 } as const
 
 /** The room the sticky Notfall stack takes at the top of the board's port (+ the air under it). */
 const nfInset = (el: HTMLElement | null) => (el ? el.offsetHeight + 12 : 0)
@@ -1562,9 +1564,9 @@ export function AtemschutzView({
         {bellButton}
         {/* in focus mode «+ Trupp» lives in the rail beside the strip — not a second one up here */}
         {canEdit && !focusMode && (
-          <button className={s.newBtn} data-fold={HEAD_FOLD.newTrupp} onClick={() => openForm('create')} aria-label={az.newTrupp} title={az.newTrupp}>
-            {/* the full word where it fits, the short one where the head's ladder has run out of
-                everything else — never a bare «+» (every button on the ASÜ board has a word) */}
+          <button className={s.newBtn} data-fold={HEAD_FOLD.tiles} onClick={() => openForm('create')} aria-label={az.newTrupp} title={az.newTrupp}>
+            {/* the full word where it fits; folded with the tiles, + over the short word — never a
+                bare «+» (every button on the ASÜ board has a word) */}
             <Icon id="plus-bold" /><span className="fold-long">{az.newTrupp}</span><span className="fold-short">{az.newTruppShort}</span>
           </button>
         )}

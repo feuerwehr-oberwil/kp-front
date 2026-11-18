@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { applyLocale } from '../config/copy'
-import { compareText, fieldWhen, formatLocale, localeDate, localeDateTime, dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, fmtWhen, hhmm, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel, streetPart, einsatzPillName } from './format'
+import { compareText, fieldWhen, formatLocale, localeDate, localeDateTime, dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, fmtWhen, hhmm, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel, streetPart, einsatzHeadName } from './format'
 
 describe('restoreUmlauts', () => {
   it('restores transliterated umlauts (lower + upper variants)', () => {
@@ -387,22 +387,15 @@ describe('streetPart — street + house number of every address shape', () => {
   })
 })
 
-describe('einsatzPillName — Stichwort · street, the street said once', () => {
-  it('pairs the title with the short street', () => {
-    expect(einsatzPillName('Wasser', 'Sägestrasse 2 4104 Oberwil BL')).toEqual({ stichwort: 'Wasser', street: 'Sägestrasse 2' })
+// round 18.11.2026 #7 (owner): the top bar's title is the address alone
+describe('einsatzHeadName — the street, else the title', () => {
+  it('is the street + house number, whatever the title says', () => {
+    expect(einsatzHeadName('Gymnasium', 'Allschwilerstrasse 100, 4104 Oberwil')).toBe('Allschwilerstrasse 100')
+    expect(einsatzHeadName('Brand Wohnhaus, Sägestrasse 2', 'Oberwil (BL), Sägestrasse 2')).toBe('Sägestrasse 2')
   })
-  it('cuts the address out of a title that carries it', () => {
-    expect(einsatzPillName('Brand Wohnhaus, Sägestrasse 2', 'Oberwil (BL), Sägestrasse 2').stichwort).toBe('Brand Wohnhaus')
-    expect(einsatzPillName('BMA Sägestrasse – Ausgelöst', 'Sägestrasse 2, 4104 Oberwil').stichwort).toBe('BMA – Ausgelöst')
-    // whole words only
-    expect(einsatzPillName('Hauptstrassenkreuzung', 'Hauptstrasse 1, 4104 Oberwil').stichwort).toBe('Hauptstrassenkreuzung')
-  })
-  it('leaves no Stichwort when the title was the address (the wizard fallback)', () => {
-    expect(einsatzPillName('Sägestrasse 2', 'Sägestrasse 2 4104 Oberwil BL').stichwort).toBe('')
-    expect(einsatzPillName('Erlenstrasse 60 4106 Therwil', 'Erlenstrasse 60 4106 Therwil').stichwort).toBe('')
-  })
-  it('is the title alone without an address', () => {
-    expect(einsatzPillName('Wasser', null)).toEqual({ stichwort: 'Wasser', street: '' })
+  it('falls back to the title without an address', () => {
+    expect(einsatzHeadName(' Wasser ', null)).toBe('Wasser')
+    expect(einsatzHeadName('Wasser', '')).toBe('Wasser')
   })
 })
 
