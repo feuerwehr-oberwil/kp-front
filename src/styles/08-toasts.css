@@ -616,9 +616,11 @@
 }
 /* empty note shows a muted placeholder so it stays visible + tappable (like the Plan note) */
 .note-pill-ph { opacity: .5; font-style: italic; }
-/* raw inline text entry on the map note — same yellow pill, just editable (mirrors the Plan) */
-.note-pill-input { font-family: var(--body); outline: none; min-width: 6em; width: auto;
-  user-select: text; -webkit-user-select: text; }
+/* raw inline text entry on the map note — same yellow pill, just editable (mirrors the Plan).
+   Its size comes in as `--note-fs` (EntityMarker); under a finger never below 16px, or iOS zooms
+   into it (design pass E1, 20-touch-floors) – the note is back at its own size once it is left. */
+.note-pill-input { font-family: var(--body); font-size: var(--note-fs); outline: none; min-width: 6em; width: auto; }
+@media (pointer: coarse) { .note-pill-input { font-size: max(var(--fs-3), var(--note-fs)); } }
 .note-pill-input::placeholder { color: var(--note-ink); opacity: .45; }
 /* selected/editing note: an on-theme gold ring (NOT the blue marker halo, which we suppress
    for notes) — covers both the pill and the editable input (both carry .note-pill) */
