@@ -30,6 +30,8 @@ export interface MagneticTarget {
    *  is built — for chrome drawn at render time, where reading the live projection is not allowed
    *  (MapView · joinPreview). A surface whose px space is its own (the Plan) leaves it out. */
   at?: Point
+  /** The target is a Trupp's marker / chip: it asks for `TRUPP_AIM_DWELL_MS`, see `dwellFor`. */
+  trupp?: true
 }
 
 /**
@@ -57,17 +59,19 @@ export const MAGNET_DWELL_MS = 500
  *  behaviours are told apart, read by every snap site on both surfaces and by their rings:
  *  - a LINE target (another line's end, a Teilstück prong) attaches INSTANTLY. Putting a stroke
  *    on a line end almost always means «continue from here», so a ring there was only a wait;
- *  - a SYMBOL / vehicle / Trupp target keeps the `MAGNET_DWELL_MS` fill, because those are what
- *    a moving line passes over by accident.
+ *  - a SYMBOL / vehicle target keeps the `MAGNET_DWELL_MS` fill, because those are what a moving
+ *    line passes over by accident;
+ *  - a TRUPP target asks for `TRUPP_AIM_DWELL_MS`, the same second a dragged Trupp marker waits
+ *    (round 18.11.2026: every attach to or from a Trupp waits alike).
  *  A dwell of 0 draws no ring: there is nothing filling up to show. */
-export const dwellFor = (target: Pick<MagneticTarget, 'target'> | null | undefined): number =>
-  target?.target.kind === 'line' ? 0 : MAGNET_DWELL_MS
+export const dwellFor = (target: Pick<MagneticTarget, 'target' | 'trupp'> | null | undefined): number =>
+  target?.target.kind === 'line' ? 0 : target?.trupp ? TRUPP_AIM_DWELL_MS : MAGNET_DWELL_MS
 /** How long a dragged TRUPP MARKER has to hold still before it attaches – docked to a symbol
  *  (lib/docking) or joined to a free hose end (`TEAM_JOIN_RADIUS_PX`), components/useTruppMarkerAim.
  *  Twice the line magnet's (round 18.11.2026, owner: «Longer. The attachment happens a bit too
  *  often.»): a Trupp is carried across a busy Lage past many symbols, and its dock reach (120 px)
  *  is the widest on the surface, so 500 ms docked it to whatever it paused near. A line end
- *  dragged onto a Trupp keeps `dwellFor`. */
+ *  dragged onto a Trupp waits the same (`dwellFor` › `trupp`). */
 export const TRUPP_AIM_DWELL_MS = 1000
 /** …and the same magnet aimed from the other side: a Trupp's MARKER dropped on the free end of a
  *  hose (15.09.2026, «Ein Etikett»). Deliberately wider than the 32 px every endpoint uses,

@@ -55,7 +55,7 @@ export function mapMagnetTargets(map: MapProjector, scene: MagnetScene, sourceId
         const w = teamStripPx(e.label ?? '')
         const x0 = c.x - TEAM_DOT_PX / 2 - 6, x1 = x0 + w + 12, y0 = c.y - 16, y1 = c.y + 16
         const point: [number, number] = [Math.min(Math.max(pointer.x, x0), x1), Math.min(Math.max(pointer.y, y0), y1)]
-        return { key: `object:${e.id}`, target: { kind: 'object', id: e.id, live: !!e.live }, point, defaultRouting: DEFAULT_OBJECT_ROUTING }
+        return { key: `object:${e.id}`, target: { kind: 'object', id: e.id, live: !!e.live }, point, defaultRouting: DEFAULT_OBJECT_ROUTING, trupp: true }
       }
       const edge = boundaryPoint({ shape: 'rect', center: [c.x, c.y], width: size, height: e.kind === 'vehicle' ? size * 0.7 : size, rotation: (e.rotation ?? 0) - bearing }, [pointer.x, pointer.y])
       return { key: `object:${e.id}`, target: { kind: 'object', id: e.id, live: !!e.live }, point: edge, defaultRouting: DEFAULT_OBJECT_ROUTING }

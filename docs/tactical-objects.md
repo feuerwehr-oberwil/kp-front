@@ -26,8 +26,9 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   `removal · askJoinedLines`, docs/undo.md › One delete rule),
   ⌘D (`lib/duplicate`), and the armed tool + per-team trails + note-panel closing rules
   (`useTacticalSelection · usePlacement`, `lib/useHiddenTrails`, `lib/useNotePanelClosing`).
-- **«Ring lädt, dann schnappt es» has two speeds** (`lib/lineAttachments`): a line end on a
-  symbol, vehicle or Trupp waits `MAGNET_DWELL_MS` (500 ms), on another line's end 0 (`dwellFor`);
+- **«Ring lädt, dann schnappt es» has three speeds** (`lib/lineAttachments`): a line end on a
+  symbol or vehicle waits `MAGNET_DWELL_MS` (500 ms), on a Trupp `TRUPP_AIM_DWELL_MS` (1 s), on
+  another line's end 0 (`dwellFor`);
   a Trupp MARKER in the hand – docked to a symbol or joined to a free hose end
   (`components/useTruppMarkerAim`) – waits `TRUPP_AIM_DWELL_MS` (1 s, round 18.11.2026: it docked
   «a bit too often» with its 120 px reach). The ring fills over the same duration (`ConnectRing · ms`).

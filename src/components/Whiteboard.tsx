@@ -1186,7 +1186,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         const box = attachBox(a)
         const center: [number, number] = [a.x! * sW + box.dx, mapY(a.floor, a.y!) * sH]
         const edge = boundaryPoint({ shape: 'rect', center, width: box.width, height: box.height, rotation: a.rotation }, pointer)
-        return { key: `object:${a.id}`, target: { kind: 'object', id: a.id }, point: edge, defaultRouting: DEFAULT_OBJECT_ROUTING }
+        return { key: `object:${a.id}`, target: { kind: 'object', id: a.id }, point: edge, defaultRouting: DEFAULT_OBJECT_ROUTING, ...(a.kind === 'resource' ? { trupp: true as const } : {}) }
       })
     const lines = lineEndTargets(renderAnnos
       // a Wand is layout: no Leitung couples onto its end
