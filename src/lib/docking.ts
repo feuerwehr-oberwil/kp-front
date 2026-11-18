@@ -46,43 +46,44 @@ export function isDockable(e: Entity | undefined): boolean {
   return isPlacard(e) || e?.kind === 'team'
 }
 
-// ── Der feste Andock-Platz (Bastian, 15.09.2026) ────────────────────────────────────────────
+// ── Der Platz neben dem Symbol, an der Leine (M2 C, owner pick 18.11.2026) ─────────────────
 //
-// «always show the trupp at the same clean place». A docked Trupp marker used to be DRAWN where
-// the hand happened to let go of it — below the tile, left of it, half over the caption — so the
-// same bond looked different on every symbol and the eye had to hunt for the crew.
+// «location is off»: from 15.09. a docked Trupp marker was drawn in ONE place – its whole
+// [dot][name] strip centred UNDER the host tile – so the dot, which everywhere else means «here»,
+// sat half a name-width off the symbol, and a 🔗 chip on the tile said «docked» a second time.
 //
-// It is now drawn at ONE place: the host tile's bottom-left corner, mirroring the storey badge on
-// the top-right (03-map.css · .sym-floor). Only the RENDERED position snaps — the marker keeps
-// its own honest coordinate (the drop point, carried along by `carryDocked` when the host moves),
-// so dragging it away past the detach radius, or «Lösen» on either side, puts it straight back
-// where it stands.
+// It is still drawn at one place, every time («always show the trupp at the same clean place»,
+// 15.09.), but that place is now BESIDE the tile, to its right, and a tether in the Trupp's colour
+// runs from a ring around the tile to the dot (EntityMarker · DockTether). The dot is the head of
+// the name plate, so dot and name are one mark that says «here, at that symbol»; no chip. Only the
+// RENDERED position snaps — the marker keeps its own honest coordinate (the drop point, carried
+// along by `carryDocked` when the host moves), so «Lösen» puts it straight back where it stands.
 //
-// ⚠️ Several Trupps on one host stack DOWNWARDS, not sideways. A Trupp marker is a strip —
-// [dot][gap][name] — anchored by its left edge, so a second one beside the first would lay its
-// name straight across the first one's. Downwards each strip gets its own horizontal band, which
-// is also the only arrangement the label pass can book without measuring text it never renders
+// ⚠️ Several Trupps on one host stack DOWNWARDS from the tile's middle, each on its own tether. A
+// Trupp marker is anchored by its left edge (the dot), so a second one beside the first would lay
+// its name across the first one's; downwards each gets its own horizontal band, which is also the
+// only arrangement the label pass can book without measuring text it never renders
 // (components/useLabelPass · mapLabelDecisions).
 
 /** The vertical pitch of the stack: one name plate (~19.6px; the dot's 16px box fits inside it),
  *  so the plates meet and the dots keep 3px of air. */
 export const DOCK_SLOT_STEP_PX = 19
 
-/** The strip's dot (lib/mapView · TEAM_DOT_PX – not imported: mapView imports this file) and
- *  the air between the tile's bottom edge and the first strip. */
+/** The strip's dot (lib/mapView · TEAM_DOT_PX – not imported: mapView imports this file), and the
+ *  visible tether between the ring and the dot's edge. */
 const DOT_PX = 16
-const DOCK_GAP_PX = 5
+export const DOCK_TETHER_PX = 16
 
-/** Where a docked Trupp marker's DOT is drawn, in screen px from the HOST glyph's centre: the
- *  strip sits BELOW the tile, centred on it when the caller knows the strip's width (`stripPx`,
- *  lib/mapView · teamStripPx), else flush with the tile's left edge. `hostPx` is the host tile's
- *  on-screen edge length (lib/mapView · symPx); `index` is the marker's place in its host's stack
- *  (0 = the first strip under the tile). */
-export function dockSlotOffset(hostPx: number, index: number, stripPx?: number): { dx: number; dy: number } {
-  // with the strip's width known it is CENTRED under the tile (15.09., «align the bottom row to
-  // the middle»); the dot then sits half a strip left of the host's centre
-  const dx = stripPx != null ? -stripPx / 2 + DOT_PX / 2 : -hostPx / 2 + DOT_PX / 2
-  return { dx, dy: hostPx / 2 + DOCK_GAP_PX + DOT_PX / 2 + index * DOCK_SLOT_STEP_PX }
+/** The ring around a host tile, centre to stroke: clear of a square tile's rounded corners
+ *  (half the diagonal of a tile with a ~6px corner is ≈ 0.6 × its edge), so it never cuts one. */
+export const dockRingPx = (hostPx: number): number => hostPx * 0.62 + 2
+
+/** Where a docked Trupp marker's DOT is drawn, in screen px from the HOST glyph's centre: right of
+ *  the tile, one tether beyond its ring, on the tile's middle row for the first one and a plate
+ *  lower for each next. `hostPx` is the host tile's on-screen edge length (lib/mapView · symPx);
+ *  `index` is the marker's place in its host's stack (`dockSlots`). */
+export function dockSlotOffset(hostPx: number, index: number): { dx: number; dy: number } {
+  return { dx: dockRingPx(hostPx) + DOCK_TETHER_PX + DOT_PX / 2, dy: index * DOCK_SLOT_STEP_PX }
 }
 
 /** Every docked Trupp marker's place in its host's stack, by entity id.
@@ -99,6 +100,15 @@ export function dockSlots(entities: readonly Entity[]): Map<string, number> {
     [...ids].sort((a, b) => a.localeCompare(b)).forEach((id, i) => out.set(id, i))
   }
   return out
+}
+
+/** The symbol a Trupp marker is docked to, when it can be drawn there: null for anything that is
+ *  not a docked Trupp marker, and for a bond whose host is gone or has no coordinate – that marker
+ *  simply keeps standing on its own point, untethered. */
+export function teamDockHost(e: Entity, entities: readonly Entity[]): Entity | null {
+  if (e.kind !== 'team' || !e.dockedTo) return null
+  const host = entities.find((h) => h.id === e.dockedTo)
+  return host && Array.isArray(host.coord) ? host : null
 }
 
 /** The host a just-dropped placard bonds to: the nearest dockable entity within

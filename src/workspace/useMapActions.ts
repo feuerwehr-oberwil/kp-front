@@ -851,7 +851,7 @@ export function useMapActions({
    * drop does — the `teamUndocked` Verlauf row. No toast (owner pick 28, 17.11.2026): the bond is
    * a document write, so the header's ↶ puts it back like one broken by a drag.
    * The marker keeps its coordinate and simply stands on it again (lib/docking · dockSlotOffset:
-   * only the RENDERED position was ever snapped to the host's corner).
+   * only the RENDERED position was ever snapped beside the host, on its tether).
    */
   // «Lösen» — a Trupp marker off its host, or a Gefahrentafel off its Fahrzeug. Both write the
   // row a drag-release already writes (3am test r3, 25.09.2026: the placard editor's «Lösen» wrote

@@ -228,15 +228,12 @@ describe('a Trupp marker that is joined, loose, or docked', () => {
 })
 
 /**
- * Andocken, von BEIDEN Seiten (Bastian, 15.09.2026): «add the same attachment ui to symbols too
- * and always show the trupp at the same clean place».
- *
- * A Trupp marker docked onto a symbol is drawn at ONE place — the host tile's bottom-left corner,
- * mirroring the storey badge top-right — whatever corner of the tile the hand let go over; and the
- * host wears the same `link` glyph the marker does, so the bond reads from either end. The stored
- * coordinate is untouched: only the RENDERED position snaps (lib/docking · dockSlotOffset).
+ * Andocken (M2 C, owner pick 18.11.2026): «location is off». A docked Trupp marker used to be drawn
+ * centred UNDER its host tile – its dot half a name-width off – with a 🔗 chip on the tile. Now it
+ * stands BESIDE the tile, its dot the head of its name, and a tether runs from the dot to a ring
+ * round the tile. The stored coordinate is untouched: only the RENDERED position snaps.
  */
-describe('a symbol carrying docked Trupps, and the Trupps on its corner', () => {
+describe('a symbol carrying docked Trupps, and the Trupps beside it', () => {
   const host = { id: 'h1', kind: 'symbol', layer: 'lage', coord: [7.61, 47.51], symbol: 'Feuer', label: 'Hydrant' } as Entity
   const docked = (id: string, label: string): Entity =>
     ({ id, kind: 'team', layer: 'lage', coord: [7.9, 47.9], label, truppId: id, dockedTo: 'h1' }) as Entity
@@ -247,48 +244,38 @@ describe('a symbol carrying docked Trupps, and the Trupps on its corner', () => 
       onSelect={() => {}} onMarkerDragStart={() => {}} onMarkerMove={() => {}} onMarkerDragEnd={() => {}}
       onDelete={() => {}} onShapeTransform={() => {}} trupps={[]} />,
   )
-  const markerOf = (c: HTMLElement, sel: string) => c.querySelector(sel)!.closest('[data-testid="marker"]')!
+  const markerOf = (c: Element) => c.closest('[data-testid="marker"]')!
+  const offsets = (c: HTMLElement) => [...c.querySelectorAll('.team-dot')]
+    .map((d) => markerOf(d).getAttribute('data-offset')!.split(',').map(Number))
 
-  it('wears the link glyph on the host tile, titled with the crews it carries', () => {
+  it('draws the docked marker on the HOST\'s point, RIGHT of the tile, on the tile\'s middle row', () => {
     const { container } = show2([host, docked('e1', 'Frei Nina')])
-    const badge = container.querySelector('.sym-dock')!
-    expect(badge).toBeTruthy()
-    expect(badge.getAttribute('title')).toBe('Frei Nina')
-    // the SAME glyph the marker wears — one mark for one bond, read from either end
-    expect(badge.querySelector('use')?.getAttribute('href')).toBe('#link')
+    expect(markerOf(container.querySelector('.team-dot')!).getAttribute('data-at')).toBe('7.61,47.51')
+    const [[dx, dy]] = offsets(container)
+    expect(dx).toBeGreaterThan(0)
+    expect(dy).toBe(0)
   })
 
-  it('names every crew on the badge when several are docked, and nothing when none are', () => {
+  it('stacks several of them DOWNWARDS, each on its own tether, a plate apart', () => {
     const { container } = show2([host, docked('e1', 'Frei Nina'), docked('e2', 'Meier Hans')])
-    expect(container.querySelector('.sym-dock')?.getAttribute('title')).toBe('Frei Nina · Meier Hans')
-    cleanup()
-    expect(show2([host]).container.querySelector('.sym-dock')).toBeNull()
-  })
-
-  it('draws the docked marker on the HOST\'s point, not on its own', () => {
-    const { container } = show2([host, docked('e1', 'Frei Nina')])
-    const team = markerOf(container, '.team-dot')
-    expect(team.getAttribute('data-at')).toBe('7.61,47.51')
-    // …and its stored coordinate is untouched: it stands back on it the moment the bond is let go
-    expect(docked('e1', 'Frei Nina').coord).toEqual([7.9, 47.9])
-  })
-
-  it('stacks several of them DOWNWARDS, each centred under the tile, a fixed pitch apart', () => {
-    const { container } = show2([host, docked('e1', 'Frei Nina'), docked('e2', 'Meier Hans')])
-    const off = [...container.querySelectorAll('.team-dot')]
-      .map((d) => d.closest('[data-testid="marker"]')!.getAttribute('data-offset')!.split(',').map(Number))
-    expect(off).toHaveLength(2)
+    const off = offsets(container)
     expect(off[1][1] - off[0][1]).toBe(DOCK_SLOT_STEP_PX)
-    expect(off[0][0]).toBeLessThan(0)                 // the dot left of the tile's centre (the strip is centred)
-    expect(off[0][1]).toBeGreaterThan(0)              // …and under its BOTTOM
+    expect(container.querySelectorAll('.dock-tether')).toHaveLength(2)
   })
 
-  it('an undocked marker keeps its own point and takes no slot', () => {
+  it('says the bond with the tether alone – no 🔗 chip on the host tile', () => {
+    const { container } = show2([host, docked('e1', 'Frei Nina')])
+    expect(container.querySelector('.dock-tether line')).toBeTruthy()
+    expect(container.querySelector('use[href="#link"]')).toBeNull()
+  })
+
+  it('an undocked marker keeps its own point, takes no slot and wears no tether', () => {
     const loose = { ...docked('e1', 'Frei Nina'), dockedTo: undefined } as Entity
     const { container } = show2([host, loose])
-    const team = markerOf(container, '.team-dot')
+    const team = markerOf(container.querySelector('.team-dot')!)
     expect(team.getAttribute('data-at')).toBe('7.9,47.9')
     expect(team.getAttribute('data-offset')).toBe(`${-TEAM_DOT_PX / 2},0`)
+    expect(container.querySelector('.dock-tether')).toBeNull()
   })
 })
 

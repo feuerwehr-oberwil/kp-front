@@ -26,8 +26,8 @@ import { symbolCaptionText, symbolOriginText, isMeasuredSymbol } from '../lib/sy
 import { softHyphenateText } from '../lib/symbolWrap'
 import { markerZ } from '../lib/labelPass'
 import { noteScale, noteWPx } from '../lib/notes'
-import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
-import type { dockSlots } from '../lib/docking'
+import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, teamDockAnchor, TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
+import { dockRingPx, type dockSlots } from '../lib/docking'
 import type { MapMarkersProps } from './MapMarkers'
 
 /** Which grip a shape/symbol transform drag started on (MapMarkers · shapeDown). */
@@ -47,9 +47,8 @@ type EntityMarkerProps = Pick<MapMarkersProps,
    *  docked Trupp marker drags its host — see MapMarkers · pressMarker) */
   draggingId: string | null
   grabbedId: string | null
-  /** the docking slots for the whole layer (lib/docking), and host id → the crews docked on it */
+  /** the docking slots for the whole layer (lib/docking) */
   dockedSlots: ReturnType<typeof dockSlots>
-  dockedHosts: ReadonlyMap<string, string[]>
   /** a press on the marker body: tap selects, hold/drag moves (MapMarkers · pressMarker) */
   onPress: (ev: React.PointerEvent<HTMLDivElement>, e: Entity, dockDragStart: () => LngLat | null) => void
   rotDown: (clientX: number, clientY: number, el: HTMLElement, id: string) => void
@@ -124,10 +123,27 @@ function TransformHandle({ className, icon, title, onStart, onMove, onEnd, style
   return <button ref={ref} className={className} style={style} aria-label={title} data-holdaction onClick={(e) => e.stopPropagation()}><Icon id={icon} /></button>
 }
 
+/** A docked Trupp's tether (M2 C, 18.11.2026 · lib/docking): from the dot back to a ring around its
+ *  host tile, in the Trupp's colour – the one mark that says «this Trupp is at that symbol». Drawn
+ *  INSIDE the Trupp marker, whose dot sits (dx, dy) off the host's centre, so it needs no map
+ *  projection of its own and moves with the marker. `capPx` = the dot's centre from the marker's
+ *  left edge (the selected pill's cap stands where the resting dot does). Decorative: no pointer. */
+function DockTether({ dx, dy, ringPx, color, raus, capPx }: { dx: number; dy: number; ringPx: number; color: string; raus: boolean; capPx: number }) {
+  const len = Math.hypot(dx, dy)
+  // the tether ends ON the ring, on the line from the host's centre to the dot
+  const ex = -dx + (dx / len) * ringPx, ey = -dy + (dy / len) * ringPx
+  return (
+    <svg className={`dock-tether${raus ? ' raus' : ''}`} style={{ left: capPx, ['--team' as string]: color }} aria-hidden>
+      <line x1="0" y1="0" x2={ex} y2={ey} />
+      <circle cx={-dx} cy={-dy} r={ringPx} />
+    </svg>
+  )
+}
+
 /** One entity's marker on the Lage map — see the file head. */
 export function EntityMarker({
   e, entities, byName, selectedId, groupSelectedIds, networkEntityIds, zoom, bearing, symMul, captionMode, suppressedLabels,
-  readOnly, draggable, editNoteId, project, unproject, spoke, draggingId, grabbedId, dockedSlots, dockedHosts, onPress,
+  readOnly, draggable, editNoteId, project, unproject, spoke, draggingId, grabbedId, dockedSlots, onPress,
   rotDown, rotMove, rotUp, shapeDown, shapeMove, shapeUp, focusNote, focusTeam, noteChange, noteBlur, noteKeyDown, noteDone,
   onSelect, onDeselect, onDelete, onRotate, onShapeTransform, onUnlockShape, onNoteEdit, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp,
   onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink,
@@ -164,20 +180,19 @@ export function EntityMarker({
   // tap at all — placement and selection pass to whatever is beneath — and the centre
   // LockChip (re-enabling its own pointer events) is the only door back in.
   const lockedShape = e.kind === 'shape' && !!e.locked
-  // …and a docked Trupp marker is DRAWN on its host's bottom-left corner instead of on its
-  // own point (lib/mapView · teamDockAnchor). The stored coordinate is untouched — it is
-  // still the drop point, still carried along when the host moves, and still what the
-  // marker falls back to the moment the bond is let go.
+  // …and a docked Trupp marker is DRAWN beside its host tile, on a tether, instead of on its own
+  // point (lib/mapView · teamDockAnchor). The stored coordinate is untouched — it is still the
+  // drop point, still carried along when the host moves, and still what the marker falls back to
+  // the moment the bond is let go.
   // ⚠️ …but NOT while it is being dragged: a marker in the hand follows the finger, or the
   // gesture that undocks it would draw nothing at all until the drop.
-  const dockAnchor = draggingId === e.id ? null
-    : teamDockAnchor(e, entities, dockedSlots, zoom, symMul, e.kind === 'team' ? teamStripPx(e.label ?? '') : undefined)
+  const dockAnchor = draggingId === e.id ? null : teamDockAnchor(e, entities, dockedSlots, zoom, symMul)
   const at = dockAnchor?.host.coord ?? e.coord
   /** …and the drag therefore STARTS from the slot, not from the stored point under it: the
    *  two are up to one dock radius apart, and grabbing a docked marker used to teleport it
    *  there before it moved a pixel. Seeded as the drag's first «where it is now». */
   const dockDragStart = (): LngLat | null => {
-    if (!dockAnchor?.host.coord) return null
+    if (!dockAnchor) return null
     const h = project(dockAnchor.host.coord)
     return (h ? unproject({ x: h.x + dockAnchor.dx, y: h.y + dockAnchor.dy }) : null) ?? null
   }
@@ -217,6 +232,11 @@ export function EntityMarker({
           <line x1="0" y1="0" x2={-spoke.dx} y2={-spoke.dy} />
           <circle cx={-spoke.dx} cy={-spoke.dy} r="2.5" />
         </svg>
+      )}
+      {dockAnchor && (
+        <DockTether dx={dockAnchor.dx} dy={dockAnchor.dy} ringPx={dockRingPx(dockAnchor.hostPx)}
+          color={shownTeamColor(e.color)} raus={!!e.truppId && !!trupps?.some((t) => t.id === e.truppId && t.status === 'raus')}
+          capPx={selectedId === e.id ? TEAM_PILL_CAP_PX : TEAM_DOT_PX / 2} />
       )}
       {/* ⚠️ …and never on a FORM (02.09.). A Form is selected to be worked on with its own
           precise grips — the ends, the two axes, the cage — and a 104px ring around a
@@ -413,11 +433,6 @@ export function EntityMarker({
               floorTo={e.floorTo}
               spread={e.spread}
               count={e.count}
-              // the bond seen from the HOST's side (lib/docking): the same `link` glyph the
-              // Trupp marker wears, on the one free corner of the tile — storey top-right,
-              // count bottom-right, the docked Trupps themselves bottom-left. The crews'
-              // names ride as its title; the words «bei «…»» stay off the map.
-              docked={dockedHosts.get(e.id)?.join(' · ')}
               // «Gelöscht / erledigt»: grey glyph + the time, the same rule the Plan draws
               done={doneBadge(e)}
               // a vehicle's NAME is already in the glyph — symbolCaptionText drops it and

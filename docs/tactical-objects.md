@@ -57,6 +57,16 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   rename – unless the Atemschutz board names that Trupp (`truppId`, no pen either). The Lage
   counts the two taps itself (`MapMarkers · namedDoubleTap`, the map's numbers from
   `lib/tapDragZoom`); the Plan keeps those chips out of its one-finger zoom (`useBoardGestures`).
+- **A Trupp is one mark, on its own point** (M2 C / M3 A, owner picks 18.11.2026): the dot is the
+  head of its name plate – the plate tucks under it from the dot's centre, no gap (`.team-dot`,
+  `lib/mapView · TEAM_PLATE_TUCK`) – and the dot stands on the Trupp's coordinate, on the Karte,
+  the Plan and the Gebäude strip alike. A Trupp docked onto a symbol (Karte only, `lib/docking`)
+  is drawn beside the tile, to its right, on a tether from a ring round the tile in the Trupp's
+  colour (`dockSlotOffset`, `EntityMarker · DockTether`); several stack downwards; no 🔗 chip. Below
+  `TEAM_NAME_MIN_ZOOM` (17 – the names pile from ~16.7 around a Zimmerbrand; the Einsatz opens at 17.6) the Karte's resting Trupps are dots only
+  and the trail times go with their names (`useLabelPass`); the selected Trupp and one in alarm
+  (`truppMarkerTone` `crit`) keep the name. The Plan has no such threshold: its zoom is a drawing's
+  scale, not a street map's.
 - **Right-click means one thing** (GESTURES.13, 17.11.2026): on a node pad it is the hold's desktop
   twin – delete that point, with the hold's own floor (a finished Linie / Messen-Strecke keeps 2
   points, a Fläche 3; a draft may shrink to nothing), on the Lage, the Karte and the Plan, Messen
