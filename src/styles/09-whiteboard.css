@@ -699,17 +699,14 @@ span.wb-ghost-label { cursor: default; }
   button.wb-ghost-label::before { content: ''; position: absolute; inset: -10px -2px; }
 }
 
-/* selected-team action bar — one compact toolbar under the pill, replacing the two
-   corner orbs (mark top-left + delete top-right) that used to crowd the pill.
-   ⚠️ DARK in both themes on purpose (29.09.2026, owner K8): with the tool docks it is the ARMED
+/* selected-team action bar — one compact toolbar, replacing the two corner orbs (mark top-left +
+   delete top-right) that used to crowd the pill. In the app it is DOCKED at the foot (below); it
+   hangs under the pill only where a pill is drawn outside a surface (a unit test's bare marker).
+   Undocked it is DARK in both themes (29.09.2026, owner K8): with the tool docks it is the ARMED
    material — «this marker is in hand» — which the light floating family (Ebenen, Ansichten, the
    Suche card) must never be mistaken for. Its inks are the on-ink tokens, never frozen white. */
 .wb-pill-acts { position: absolute; top: calc(100% + 9px); left: 50%; transform: translateX(-50%); z-index: 6;
   display: flex; gap: var(--sp-2); background: var(--ink-fill); border-radius: calc(var(--r-sm) + var(--bar-pad)); padding: var(--bar-pad); box-shadow: var(--e4); }
-/* …flipped ABOVE the marker when it would otherwise land under the phone's fixed bottom lanes or
-   past the canvas edge. The decision is measured in components/TwinTeamPill (`data-flip`), which
-   also writes the horizontal nudge as an inline transform — here we only restate the anchor. */
-.wb-pill-acts[data-flip="up"] { top: auto; bottom: calc(100% + 9px); }
 /* --tap square, the gloved floor (style sweep T4, 15.11.2026 – it was 40px) */
 .wb-pa { width: var(--tap); height: var(--tap); border-radius: var(--r-sm); border: none; padding: 0; color: var(--on-accent-ink);
   background: color-mix(in srgb, var(--on-accent-ink) 14%, transparent); display: grid; place-items: center; cursor: pointer; }
@@ -726,64 +723,73 @@ span.wb-ghost-label { cursor: default; }
 .wb-pill-acts.worded .wb-pa { width: auto; min-width: 56px; height: 52px; padding: 0 var(--sp-2);
   grid-template-rows: 18px auto; align-content: center; gap: 2px; }
 .wb-pa-word { font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 1.1; white-space: nowrap; }
-/* ── docked at the foot on a PHONE (round 18.11.2026, owner pick M1 A; components/TwinTeamPill ·
-   `docked`) ── beside the marker the card and the bar ran off the screen. The card takes the
-   floating row's slot left of the Eintrag FAB (pick M1b: the FAB keeps its corner), the bar the
-   tool bar's – the slot the ✥ ⟳ bar uses, in the same anatomy: `--rail-h` tall, 4px 8px inset,
-   46px tiles resting bare in ink, glyph 22 over its word. `--dock-bottom` is one bar over
-   `--tools-bottom` with or without a tool bar under it, so the two never meet. Both bars and the
-   chip row step aside while it shows (15-mobile · the ✥ ⟳ rule). */
-@media (--phone) {
-  .wb-pill-card { position: fixed; z-index: var(--z-chrome); box-sizing: border-box; height: var(--line-h);
-    left: max(8px, env(safe-area-inset-left)); bottom: var(--dock-bottom);
-    right: calc(max(8px, env(safe-area-inset-right)) + var(--line-h) + var(--float-gap));
-    display: flex; align-items: center; gap: var(--sp-1); padding: 0 var(--sp-2) 0 var(--sp-1);
-    border-radius: var(--r-bar); background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
-    color: var(--ink); animation: pop .16s var(--ease); }
-  /* the card is the material: the pill inside gives up its plate, edge and shadow, and its name
-     ellipsises before the ✕. An alarm tier tints the CARD (the pill's tint and edge, .tone-*), so
-     no box stands inside the box. */
-  .wb-pill-card .wb-resource-pill { flex: 1 1 auto; min-width: 0; border: none; box-shadow: none; background: transparent; }
-  .wb-pill-card:has(> .tone-warn) { background: color-mix(in srgb, var(--amber) 14%, var(--surface)); box-shadow: inset 0 0 0 1.5px var(--amber), var(--shadow); }
-  .wb-pill-card:has(> .tone-crit) { background: color-mix(in srgb, var(--red) 16%, var(--surface)); box-shadow: inset 0 0 0 1.5px var(--red), var(--shadow); }
-  .wb-pill-card :is(.wb-resource-body, .wb-resource-name) { min-width: 0; max-width: 100%; }
-  .wb-pill-card .wb-resource-name b { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  .wb-pill-card .wb-resource-name > :not(b) { flex: none; }
-  /* its ✕ wears THE way out's plate (the colour table, as the dock's and the ✥ ⟳ bar's) */
-  .wb-pill-card-x { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap); padding: 0;
-    border: none; border-radius: var(--r-sm); background: var(--dock-control-bg); color: var(--ink-dim); cursor: pointer; }
-  .wb-pill-card-x .i { width: 22px; height: 22px; }
-  .wb-pill-card-x:active { background-image: linear-gradient(var(--press), var(--press)); }
-  .wb-pill-acts.docked { position: fixed; z-index: var(--z-chrome); box-sizing: border-box; top: auto; transform: none;
-    left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); bottom: var(--tools-bottom);
-    width: auto; max-width: none; height: var(--rail-h); padding: 4px 8px; gap: 4px; flex-wrap: nowrap; align-items: center;
-    border-radius: var(--r-bar); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-    border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink); animation: pop .16s var(--ease); }
-  .wb-pill-acts.docked .wb-pa { flex: 1 1 0; width: auto; min-width: 44px; height: 46px; padding: 0 var(--sp-2);
-    color: var(--ink); background: transparent; }
-  .wb-pill-acts.docked .wb-pa .i { width: 22px; height: 22px; }
-  .wb-pill-acts.docked.worded .wb-pa { grid-template-rows: 22px auto; gap: 0; }
-  .wb-pill-acts.docked .wb-pa-word { line-height: 1.3; }
-  .wb-pill-acts.docked .wb-pa:active { background-image: linear-gradient(var(--press), var(--press)); }
-  /* the Plan's «Verbundene Linien» card hangs under the PILL then – there is no bar under it */
-  .wb-resource-pill[data-docked] ~ .wb-resource-connections { top: calc(100% + 6px); transform: translateX(-50%); }
-}
-/* (both only exist on a phone – TwinTeamPill docks nowhere else) */
+/* ── docked at the foot (round 18.11.2026; components/TwinTeamPill · `docked`) ── beside the marker
+   the card and the bar ran off the screen and covered the Lage. On every screen the BAR wears the
+   ✥ ⟳ bar's anatomy (11-measure · .sel-bar): floating glass, 46px tiles resting bare in ink, glyph
+   22 (over its word with «Beschriftung»). The CARD – name, state, storey, time, ✕ – is the
+   floating row's material. Where they stand differs by size, below. */
+.wb-pill-card { box-sizing: border-box; height: var(--line-h);
+  display: flex; align-items: center; gap: var(--sp-1); padding: 0 var(--sp-2) 0 var(--sp-1);
+  border-radius: var(--r-bar); background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
+  color: var(--ink); }
+/* the card is the material: the pill inside gives up its plate, edge and shadow, and its name
+   ellipsises before the ✕. An alarm tier tints the CARD (the pill's tint and edge, .tone-*), so
+   no box stands inside the box. */
+.wb-pill-card .wb-resource-pill { flex: 1 1 auto; min-width: 0; border: none; box-shadow: none; background: transparent; }
+.wb-pill-card:has(> .tone-warn) { background: color-mix(in srgb, var(--amber) 14%, var(--surface)); box-shadow: inset 0 0 0 1.5px var(--amber), var(--shadow); }
+.wb-pill-card:has(> .tone-crit) { background: color-mix(in srgb, var(--red) 16%, var(--surface)); box-shadow: inset 0 0 0 1.5px var(--red), var(--shadow); }
+.wb-pill-card :is(.wb-resource-body, .wb-resource-name) { min-width: 0; max-width: 100%; }
+.wb-pill-card .wb-resource-name b { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wb-pill-card .wb-resource-name > :not(b) { flex: none; }
+/* its ✕ wears THE way out's plate (the colour table, as the dock's and the ✥ ⟳ bar's) */
+.wb-pill-card-x { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap); padding: 0;
+  border: none; border-radius: var(--r-sm); background: var(--dock-control-bg); color: var(--ink-dim); cursor: pointer; }
+.wb-pill-card-x .i { width: 22px; height: 22px; }
+.wb-pill-card-x:active { background-image: linear-gradient(var(--press), var(--press)); }
+.wb-pill-acts.docked { position: static; top: auto; transform: none; box-sizing: border-box;
+  width: auto; max-width: none; padding: var(--bar-pad); gap: 4px; flex-wrap: nowrap; align-items: center; justify-content: center;
+  border-radius: var(--r-bar); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink); }
+.wb-pill-acts.docked .wb-pa { width: 46px; height: 46px; padding: 0; color: var(--ink); background: transparent; }
+.wb-pill-acts.docked .wb-pa .i { width: 22px; height: 22px; }
+.wb-pill-acts.docked.worded .wb-pa { width: auto; min-width: 76px; height: var(--vrail-tile); padding: 0 8px;
+  grid-template-rows: 24px auto; gap: 2px; }
+.wb-pill-acts.docked .wb-pa:active { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) {
   .wb-pill-card-x:hover { background: var(--dock-control-hover); color: var(--ink); }
   .wb-pill-acts.docked .wb-pa:hover:not(:disabled) { background: var(--hover); }
+}
+/* TABLET + DESKTOP (owner pick A «✥ ⟳ twin», 18.11.2026): the bar stands exactly where the ✥ ⟳ bar
+   of every other selection does – bottom-centre on the view bar's baseline (11-measure · .sel-bar)
+   – and the card on top of it, as wide as the bar (or the bar as wide as a long name). Nothing
+   steps aside: the wide layouts keep their bottom-centre free. FIXED for the reason the ✥ ⟳ bar
+   is: «the same spot» means the same spot on the SCREEN, on the Karte and the Plan alike. */
+.wb-pill-dock { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: var(--z-chrome);
+  display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 280px; max-width: calc(100vw - 32px);
+  animation: pop .16s var(--ease); }
+/* PHONE (owner pick M1 A): the two stand in their own slots – the card in the floating row's left
+   of the Eintrag FAB (pick M1b: the FAB keeps its corner), the bar in the tool bar's, full width at
+   `--rail-h` like the ✥ ⟳ bar there (15-mobile). `--dock-bottom` is one bar over `--tools-bottom`
+   with or without a tool bar under it, so the two never meet. Both bars and the chip row step
+   aside while it shows (15-mobile · the ✥ ⟳ rule). */
+@media (--phone) {
+  .wb-pill-dock { display: contents; }
+  .wb-pill-card { position: fixed; z-index: var(--z-chrome); left: max(8px, env(safe-area-inset-left)); bottom: var(--dock-bottom);
+    right: calc(max(8px, env(safe-area-inset-right)) + var(--line-h) + var(--float-gap)); animation: pop .16s var(--ease); }
+  .wb-pill-acts.docked { position: fixed; z-index: var(--z-chrome);
+    left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); bottom: var(--tools-bottom);
+    height: var(--rail-h); padding: 4px 8px; animation: pop .16s var(--ease); }
+  .wb-pill-acts.docked .wb-pa { flex: 1 1 0; width: auto; min-width: 44px; padding: 0 var(--sp-2); }
+  .wb-pill-acts.docked.worded .wb-pa { min-width: 44px; height: 46px; padding: 0 var(--sp-2); grid-template-rows: 22px auto; gap: 0; }
+  .wb-pill-acts.docked .wb-pa-word { line-height: 1.3; }
 }
 /* ⚠️ Every action on this bar wears the bar's ONE neutral wash (29.09.2026, sweep K3). «Position
    markieren» was a --blue fill and «Bei den Trupps zeigen» a --green one: blue means «chosen»
    (--sel) and green the Eintritt tone, so colours on the bar said nothing about which to press.
    The delete and the rename live in «Mehr» since rare-user round 2 (M12), so no button here wears
    the delete outline or a pressed fill. */
-/* the panel hangs under the bar, so it flips with it — one measurement, carried by the sibling;
-   `--acts-h` is the bar's measured height (TwinTeamPill · useBarPlacement), taller once worded */
-.wb-pill-acts[data-flip="up"] ~ .wb-resource-connections { top: auto; bottom: calc(100% + 6px + var(--acts-h, 56px)); }
-.wb-resource-connections { position: absolute; top: calc(100% + 6px + var(--acts-h, 56px)); left: 50%; z-index: 7;
-  /* the bar's sideways nudge, written by components/TwinTeamPill · useBarPlacement */
-  transform: translateX(calc(-50% + var(--acts-dx, 0px)));
+/* the Plan's «Verbundene Linien» card hangs under the PILL: the bar is docked at the foot */
+.wb-resource-connections { position: absolute; top: calc(100% + 6px); left: 50%; z-index: 7; transform: translateX(-50%);
   width: min(290px, 70vw); padding: var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-ctl);
   background: var(--surface); box-shadow: var(--e3); color: var(--ink); }
 /* (its head is the panel's own `.ctx-section-label`, unchanged – it was an 11px/800 cut of its own) */

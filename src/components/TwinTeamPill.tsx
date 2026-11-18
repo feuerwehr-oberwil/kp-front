@@ -17,16 +17,16 @@
  *  that is absent draws no button. That is how the plan board keeps its chip colour in the
  *  SelectionBar (no swatch here), and how a read-only Karte shows the pill with no bar at all.
  *
- *  ON A PHONE the card and the bar DOCK at the foot (round 18.11.2026, owner pick M1 A): beside the
- *  marker they hung right of the dot and ran off the screen, while the stepped-aside bars left an
- *  empty band. The card – name, state, storey, time and a ✕ – takes the floating row's slot left of
- *  the Eintrag FAB (`--dock-bottom`), the bar the tool bar's (`--tools-bottom`), the slot the ✥ ⟳
- *  bar uses; both step aside for it (15-mobile). On the surface only the ringed name stays. Both
- *  are portaled into the SURFACE (`DOCK_HOST`): out of the marker's transform, which would pin a
- *  `fixed` box to the marker, and still inside the surface, so a Karte hidden behind a Plan hides
- *  its dock with it. The tablet keeps card and bar beside the marker.
+ *  The card and the bar DOCK at the foot of the screen (round 18.11.2026, owner pick M1 A on the
+ *  phone, A «✥ ⟳ twin» on tablet + desktop the same day): beside the marker they hung right of the
+ *  dot, ran off the screen and covered the Lage. The bar stands in the ✥ ⟳ bar's slot, the card –
+ *  name, state, storey, time and a ✕ – on top of it (09-whiteboard · `.wb-pill-dock`; on a phone
+ *  the floating row's and the tool bar's slots, which step aside for it – 15-mobile). On the
+ *  surface only the ringed name stays. Both are portaled into the SURFACE (`DOCK_HOST`): out of
+ *  the marker's transform, which would pin a `fixed` box to the marker, and still inside the
+ *  surface, so a Karte hidden behind a Plan hides its dock with it.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from '../lib/icons'
 import { leaveOnEnter } from '../lib/fieldKeys'
@@ -38,7 +38,6 @@ import { floorLabel } from '../lib/whiteboard'
 import type { LineTone, TeamLineBadge } from '../lib/truppLines'
 import { truppStateWord } from './truppCardText'
 import { useRailLabels } from '../lib/useDevicePrefs'
-import { useIsPhone } from '../lib/useIsPhone'
 import type { Trupp } from '../types'
 
 /**
@@ -137,98 +136,10 @@ export interface TwinTeamActions {
   undock?: () => void
 }
 
-/** How much of the stage an edge-hugging bar must keep to itself. */
-const EDGE_MARGIN = 8
-/** The gap the bar keeps from the marker — the same number `.wb-pill-acts` states in CSS. */
-const BAR_GAP = 9
-/** The lanes a phone pins over the bottom of the stage (pill row, tool rail, tool dock). They are
- *  `position: fixed` only where they actually cover the surface, and none of them exists on the
- *  Karte — so this is a query, never a table of per-surface offsets. */
-const BOTTOM_LANES = '.wb-botleft, .wb-tools, .wb-dock'
-/** Where a phone's docked card + bar are portaled: the surface the marker is drawn on – the
+/** Where the docked card + bar are portaled: the surface the marker is drawn on – the
  *  Plan's board, or the Karte's map container (outside its canvas container, so MapLibre's own
  *  gestures never see a press on the card). */
 const DOCK_HOST = '.whiteboard, .maplibregl-map'
-
-/**
- * Keep the action bar on screen. It hangs BELOW the marker, and a marker low on the stage put it
- * under the phone's fixed bottom lanes — or straight past the canvas' own `overflow: hidden`
- * edge, where it was simply cut off. So the bar MEASURES where it landed: not enough room below
- * (and more above) flips it above the marker, and it slides sideways until both canvas edges are
- * clear by EDGE_MARGIN. `data-flip="up"` is the one signal, so the connections panel that hangs
- * under the bar on the Plan follows it through a CSS sibling selector rather than a second
- * measurement. The anchor is the bar's own offset parent — `.wb-anno` on the Plan, `.marker` on
- * the Karte — so both surfaces get this from the same code.
- */
-function useBarPlacement(on: boolean) {
-  const ref = useRef<HTMLDivElement | null>(null)
-  const [place, setPlace] = useState({ up: false, dx: 0 })
-  /** the placement last handed to React — what `measure` compares against */
-  const placed = useRef(place)
-  /**
-   * ⚠️ `measure` sets state ONLY when the placement really changed (24.09.2026). It runs after
-   * every render, and it used to call `setPlace` every time — with an updater that returned the
-   * old value, which React still has to schedule and render to find out. Harmless alone; inside
-   * the live-GPS render storm of 23.09.2026 it was the update that tipped React's nested-update
-   * counter, so #185 was thrown HERE, in the tapped Trupp's pill, and took the Karte down.
-   * Compared against a ref, an unchanged measurement is no update at all.
-   */
-  const measure = useCallback(() => {
-    const el = ref.current
-    const anchor = el?.parentElement
-    if (!el || !anchor) return
-    const stage = el.closest('.wb-canvas')?.getBoundingClientRect()
-    const ceil = Math.max(stage?.top ?? 0, 0)
-    let floor = Math.min(stage?.bottom ?? window.innerHeight, window.innerHeight)
-    for (const lane of Array.from(document.querySelectorAll(BOTTOM_LANES))) {
-      const r = lane.getBoundingClientRect()
-      if (r.height > 0 && getComputedStyle(lane).position === 'fixed') floor = Math.min(floor, r.top)
-    }
-    const a = anchor.getBoundingClientRect()
-    const bar = el.getBoundingClientRect()
-    // whatever hangs under the bar counts towards the room the bar needs — it moves with it
-    const panel = anchor.querySelector('.wb-resource-connections')?.getBoundingClientRect()
-    const need = BAR_GAP + bar.height + (panel?.height ? panel.height + 4 : 0) + EDGE_MARGIN
-    const below = floor - a.bottom
-    const up = below < need && a.top - ceil > below
-    // ⚠️ The nudge is computed ABSOLUTELY — from where the bar would sit UNshifted — never as a
-    // correction to the shift already applied. Reading its own effect back makes the pass depend
-    // on the browser having laid the last one out, and one environment that does not (jsdom
-    // measures every rect as zero) walks the bar off the screen one pass per render.
-    const minX = (stage?.left ?? 0) + EDGE_MARGIN
-    const maxX = (stage?.right ?? window.innerWidth) - EDGE_MARGIN
-    // …and sideways by the WIDER of the bar and the panel under it (11.10.2026): the Plan's
-    // «Verbundene Linien» card is wider than the bar, and on a phone it hung off the screen edge
-    // while the bar beside it had been nudged clear. Both take the one nudge (`--acts-dx`).
-    const w = Math.max(bar.width, panel?.width ?? 0)
-    const home = a.left + a.width / 2 - w / 2
-    let dx = 0
-    if (home + w > maxX) dx = maxX - w - home
-    if (home + dx < minX) dx = minX - home
-    dx = Math.round(dx)
-    anchor.style.setProperty('--acts-dx', `${dx}px`)
-    // the bar's own height, for the connections panel that hangs under it (09-whiteboard): a
-    // worded bar is taller, and on a narrow phone it may wrap to two rows
-    if (bar.height > 0) anchor.style.setProperty('--acts-h', `${Math.round(bar.height)}px`)
-    if (placed.current.up === up && placed.current.dx === dx) return
-    placed.current = { up, dx }
-    setPlace(placed.current)
-  }, [])
-  // no dep array on purpose: every render re-measures, which is what a dragged or re-labelled
-  // marker needs — and costs nothing when nothing moved (see `measure`)
-  useLayoutEffect(() => { if (on) measure() })
-  // …while the listeners are bound once per opening, not re-bound on every render
-  useLayoutEffect(() => {
-    if (!on) return
-    window.addEventListener('resize', measure)
-    window.addEventListener('scroll', measure, true)
-    return () => {
-      window.removeEventListener('resize', measure)
-      window.removeEventListener('scroll', measure, true)
-    }
-  }, [on, measure])
-  return [ref, place] as const
-}
 
 export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, floor, tone = 'idle', trailCount, trailShown, trupps, line, acts, hit, renameRef, renaming: renamingProp, onRenaming, onClose }: {
   name: string
@@ -275,18 +186,20 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
    *  mirrors: «Mehr › Bearbeiten» only) and the pill keeps the flag, since leaving the pill IS the commit. */
   renaming?: boolean
   onRenaming?: (on: boolean) => void
-  /** the phone's docked card's ✕: the selection ends. Absent ⇒ no ✕ (a tap beside still ends it). */
+  /** the docked card's ✕: the selection ends. Absent ⇒ no ✕ (a tap beside still ends it). */
   onClose?: () => void
 }) {
   // inline rename («Mehr › Bearbeiten») — the same grammar every surface uses
   const [selfRenaming, setSelfRenaming] = useState(false)
-  // the phone's dock (header): found from the pill once it is in the DOM, before the first paint
-  const phone = useIsPhone()
+  // the dock (header): found from the pill once it is in the DOM, before the first paint. A pill
+  // drawn outside a surface (a unit test's bare marker) keeps card and bar on the marker.
   const pillRef = useRef<HTMLSpanElement>(null)
   const [dockHost, setDockHost] = useState<HTMLElement | null>(null)
-  useLayoutEffect(() => { setDockHost(phone ? pillRef.current?.closest<HTMLElement>(DOCK_HOST) ?? null : null) }, [phone])
+  useLayoutEffect(() => {
+    const host = pillRef.current?.closest<HTMLElement>(DOCK_HOST)
+    if (host) setDockHost(host)
+  }, [])
   const docked = !!dockHost
-  const [barRef, barPlace] = useBarPlacement(!!acts && !docked)
   const renaming = renamingProp ?? selfRenaming
   /* The field is CONTROLLED since 18.09.2026, for the ✕ beside it: a `defaultValue` input cannot
      be emptied from the outside, and «Trupp Nord 2» is exactly the kind of free-text name that
@@ -355,7 +268,7 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
   ]
   const outTrupp = raus ? trupps.find((t) => t.id === truppId) : undefined
   /** The pill, in its two places. ON THE SURFACE it is the marker's own picture – the one that is
-   *  renamed in place, and the one the dock is found from; while the phone docks the card it is
+   *  renamed in place, and the one the dock is found from; while the card is docked it is
    *  the ringed name alone (and the storey: where it is). IN THE CARD it says everything. */
   const pillOf = (onSurface: boolean) => {
     const whole = !onSurface || !docked
@@ -410,9 +323,7 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
   }
   const pill = pillOf(true)
   const bar = acts && (
-    <div ref={docked ? undefined : barRef} className={`wb-pill-acts${worded ? ' worded' : ''}${docked ? ' docked' : ''}`}
-      data-flip={!docked && barPlace.up ? 'up' : undefined}
-      style={docked ? undefined : { transform: `translateX(calc(-50% + ${barPlace.dx}px))` }}
+    <div className={`wb-pill-acts${worded ? ' worded' : ''}${docked ? ' docked' : ''}`}
       onPointerDown={(ev) => ev.stopPropagation()}>
       {zumTrupp ? (
         // the Trupps nav glyph (NavRail · stopwatch): a door to that page, never a warning ⚠
@@ -446,7 +357,7 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
         // ⚠️ React bubbles a portal's events up its COMPONENT tree – into the marker's press
         // (select / hold-drag) and the Plan anno's double tap. The card stops them at its edge,
         // as the bar always has.
-        <>
+        <div className="wb-pill-dock">
           <div className="wb-pill-card" onPointerDown={(ev) => ev.stopPropagation()} onDoubleClick={(ev) => ev.stopPropagation()}>
             {pillOf(false)}
             {onClose && (
@@ -455,7 +366,7 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
             )}
           </div>
           {bar}
-        </>,
+        </div>,
         dockHost,
       ) : bar}
     </>
