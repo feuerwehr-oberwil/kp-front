@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  addRing, addStroke, applyMarks, capPoints, edgeArrow, fitScale, fitZoom, initials, isFollower, liveStrokes, nextFollow, NO_MARKS, NOT_PRESENTING, personTone, placeTags,
+  addRing, addStroke, applyMarks, capPoints, edgeArrow, fitScale, fitZoom, isFollower, liveStrokes, nextFollow, NO_MARKS, NOT_PRESENTING, personTone, placeTags,
   ringsOn, strokesOn, tagBox, throttle, type Follow, type PointerAt, type PresentationState, type Ring, type Stroke,
 } from './presentation'
 
@@ -127,12 +127,6 @@ describe('the view throttle', () => {
 })
 
 describe('names and colours', () => {
-  it('initials', () => {
-    expect(initials('Bastian')).toBe('BA')
-    expect(initials('Sandra Meier')).toBe('SM')
-    expect(initials('  ')).toBe('?')
-  })
-
   it('the presenter wears the first colour, everybody else a stable other one', () => {
     expect(personTone('pc1', 'pc1')).toBe(1)
     const t = personTone('pc2', 'pc1')

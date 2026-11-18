@@ -355,13 +355,6 @@ export function throttle<T>(ms: number, send: (value: T) => void, now: () => num
 
 // --- naming ------------------------------------------------------------------------------
 
-/** «BA» for Bastian, «SM» for Sandra Meier – the avatar in the pill. */
-export function initials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean)
-  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase()
-  return (words[0] ?? '?').slice(0, 2).toUpperCase()
-}
-
 /** A person's ring and avatar colour (`--present-1` … `--present-6`): the presenter's is always
  *  the first (the pill's own FW red), everybody else's is stable for their client id. */
 export function personTone(client: string, presenter: string | null | undefined): number {

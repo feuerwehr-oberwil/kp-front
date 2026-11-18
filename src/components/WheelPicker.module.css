@@ -66,6 +66,8 @@
   border: 1px solid var(--glass-edge); background: var(--fill-soft); color: var(--ink);
   font: var(--fw-medium) var(--fs-2) var(--body); cursor: pointer;
 }
+/* no field under 16px on touch – iOS zooms into it (20-touch-floors · E1) */
+@media (pointer: coarse) { .daySel { font-size: var(--fs-3); } }
 .daySel:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* The shortcut row: a one-tap answer to «which time?», offered above the wheels.

@@ -384,7 +384,7 @@ export function IncidentSwitcher({
                 {active.is_exercise && exerciseBadge}
                 {syncButton}
               </div>
-              {active.address && <span className="ip-card-sub">{active.address}</span>}
+              {active.address && <span className="ip-card-sub ui-selectable">{active.address}</span>}
               <div className="ip-card-pills">
                 {/* «Gespeichert» is about THIS device's work – a viewer never saves, so its card
                     says nothing while all is well (RBAC audit 22.10.2026); the warnings stay */}

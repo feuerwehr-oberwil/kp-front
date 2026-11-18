@@ -60,7 +60,9 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   never `--ink-faint` plus an opacity dim. `--fs-micro` stays for captions, tags and eyebrows.
   …and a ceiling (owner 16.11.2026, «just a bit too big»): a READ value – a read-out beside its
   key, a name in a list, a sheet's lede – is `--fs-2`. 16 (`--fs-3`) is a typed field's size (iOS
-  zooms into a smaller one), a title's, or a figure meant to be loud; a read-out does not borrow it
+  zooms into a smaller one – a field set smaller for a mouse is 16 under `pointer: coarse`,
+  `20-touch-floors.css`, design pass E1 18.11.2026; `maximum-scale=1` stays, but no field leans on
+  it), a title's, or a figure meant to be loud; a read-out does not borrow it
   to match the fields around it (the Rapport's «Aus den Einsatzdaten» did, `readoutType.test.ts`).
 - **The neutral washes and hairlines are near-twins, not duplicates** (checked 13.11.2026):
   `--fill-soft`, `--hover`, `--hover-strong`, `--press`, `--surface-2`, `--surface-veil`,
@@ -383,6 +385,13 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   anything scrolls, and 02-base.css turns `--press` transparent until it lifts. So **every press
   wash is drawn from `--press`** – a press look of another colour would stick again. Every
   `:hover` stays gated on `(hover: hover)` (a phone has a sticky hover otherwise).
+- **Copyable text** (design pass E2, owner pick 18.11.2026): the body is `user-select: none` and
+  `-webkit-touch-callout: none` – a hold on a control must never raise a text selection. Every
+  `input` and `textarea` is selectable again (02-base), and a READ-ONLY block whose words get
+  passed on wears **`.ui-selectable`**: the Verlauf sentence (`.jr-text`) and its detail sheet,
+  the Einsatz address on the Einsatz card, the Rapport's «Aus den Einsatzdaten» (Ort,
+  Alarmmeldung), the Gebäude lines (`BuildingFacts`). Never on a row or a surface with a hold or a
+  drag gesture (a Trupp row, a symbol, a chip): there the hold would start a selection instead.
 - **A scroll body is `overscroll-behavior: contain`** (scroll sweep 15.11.2026): the body of a
   sheet or page (`.ip-sheet > .ip-body`, `.lc-body`, `.ctx-body`, the Verlauf, the Atemschutz
   `.body` / `.modalBody` / `.miniBody`, the Mittel, Anwesenheit and Checkliste lists) and every list

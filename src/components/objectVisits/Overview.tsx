@@ -181,7 +181,7 @@ export function Overview() {
               {/* the how-to stands until the member has a visit of their own – not only on an empty
                   catalogue, where nobody would ever have read it (sweep F.11, 23.10.2026) */}
               {drafts.length === 0 && <p className={s.secNote}>{C.intro}</p>}
-              <SearchField value={query} onChange={setQuery} placeholder={C.searchPlaceholder} aria-label={C.searchPlaceholder} enterKeyHint="search" />
+              <SearchField value={query} onChange={setQuery} placeholder={C.searchPlaceholder} aria-label={C.searchPlaceholder} />
               {q && (hits.length
                 ? <ListCard>{hits.map((o) => objectRow(o))}</ListCard>
                 : <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: query.trim() })}</p>)}

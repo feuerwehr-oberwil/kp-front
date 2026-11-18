@@ -48,6 +48,8 @@
      soft hyphens to go by. */
   hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word;
 }
+/* no field under 16px on touch – iOS zooms into it (20-touch-floors · E1) */
+@media (pointer: coarse) { .cell { font-size: var(--fs-3); line-height: var(--lh-3); } }
 .cell::placeholder { color: var(--ink-faint); }
 /* the one field focus, drawn as an inset ring on a borderless cell (ui-conventions · «Fields») —
    it was a 2px ring in the station's --accent, red by default (sweep 09.11.2026, UI.5) */

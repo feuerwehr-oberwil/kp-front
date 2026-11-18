@@ -8,7 +8,11 @@
          feedback), and the Atemschutz board reflow pushed the very field being edited off screen.
          Overlaying makes Android behave exactly like iOS, where all the keyboard handling this
          app has already lives: visualViewport pan + chrome pinning (lib/useViewportPan · --vv-pan)
-         and keyboard-aware caps/lifts on the sheets that hold text (useKeyboardInset · --jc-kb). -->
+         and keyboard-aware caps/lifts on the sheets that hold text (useKeyboardInset · --jc-kb).
+         maximum-scale=1 is the app's zoom lock (with body `touch-action: pan-x pan-y`, 02-base):
+         the chrome never pinch-zooms like a web page, the map and plan zoom themselves. It is NOT
+         what keeps iOS from zooming into a focused field any more: no field is under 16px on touch
+         (20-touch-floors.css, design pass E1, 18.11.2026), so the lock can go without that coming back. -->
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=overlays-content" />
     <meta name="theme-color" content="#1b2330" />
     <!-- «This page ships its own dark theme» for Samsung Internet. Its dark mode is its own
